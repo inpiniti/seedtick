@@ -1,8 +1,8 @@
 // QuotaManager.ts - Supabase 연동 일일 소진 키 관리
 
 import { type SupabaseClient, createClient } from '@supabase/supabase-js';
-import { env } from '../../config/env';
-import type { LLMProvider } from '../types';
+import { env } from '../../config/env.ts';
+import type { LLMProvider } from '../types.ts';
 
 export class QuotaManager {
   private supabase: SupabaseClient | null = null;

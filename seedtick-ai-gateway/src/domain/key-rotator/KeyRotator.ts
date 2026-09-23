@@ -1,6 +1,6 @@
 // KeyRotator.ts - 핵심 도메인 로직: 키 로테이션
 
-import type { ApiKeyPool, LLMProvider } from '../types';
+import type { ApiKeyPool, LLMProvider } from '../types.ts';
 
 export class KeyRotator {
   private readonly pools: Map<LLMProvider, string[]>;

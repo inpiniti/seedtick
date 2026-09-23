@@ -1,6 +1,6 @@
 // ErrorClassifier.ts - 에러 분류 로직
 
-import type { ErrorCategory } from '../types';
+import type { ErrorCategory } from '../types.ts';
 
 export class ErrorClassifier {
   classify(httpStatus: number, errorBody: string): ErrorCategory {
