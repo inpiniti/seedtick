@@ -13,7 +13,7 @@ export class ErrorClassifier {
     }
     if (httpStatus === 400) {
       if (/context.length|maximum.context/i.test(errorBody)) return 'context_too_long';
-      if (/max.output|output.token/i.test(errorBody)) return 'output_too_long';
+      if (/max.output|output.token|max_tokens/i.test(errorBody)) return 'output_too_long';
       if (/content.filter|safety/i.test(errorBody)) return 'safety_filter';
       return 'unknown';
     }

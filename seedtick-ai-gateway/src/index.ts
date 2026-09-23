@@ -1,4 +1,4 @@
-// index.ts - Bun.serve() 엔트리포인트
+// index.ts - Bun / Vercel 엔트리포인트
 
 import { app } from './app.ts';
 import { validateEnv } from './config/env.ts';
@@ -13,23 +13,32 @@ declare const Bun: {
 // 환경변수 검증
 const envErrors = validateEnv();
 if (envErrors.length > 0) {
-  console.error('[Gateway] Environment validation failed:');
+  console.warn('[Gateway] Environment validation warning:');
   for (const err of envErrors) {
-    console.error(`  - ${err}`);
+    console.warn(`  - ${err}`);
   }
-  process.exit(1);
+  if (!process.env.VERCEL) {
+    process.exit(1);
+  }
 }
 
 // 프록시 서비스 초기화 (Supabase 캐시 로드)
-await proxyService.initialize();
+try {
+  await proxyService.initialize();
+} catch (err) {
+  console.error('[Gateway] Failed to initialize proxyService:', err);
+}
 
-// Bun 서버 시작
-const server = Bun.serve({
-  fetch: app.fetch,
-  port: process.env.PORT ? Number.parseInt(process.env.PORT) : 3000,
-});
+// 로컬 Bun 직접 실행 시 (Vercel 환경이 아닌 경우)
+if (!process.env.VERCEL && typeof Bun !== 'undefined') {
+  const port = process.env.PORT ? Number.parseInt(process.env.PORT) : 3000;
+  const server = Bun.serve({
+    fetch: app.fetch,
+    port,
+  });
+  console.info(`[Gateway] Server running on http://localhost:${server.port}`);
+  console.info('[Gateway] Ready to accept requests');
+}
 
-console.info(`[Gateway] Server running on http://localhost:${server.port}`);
-console.info('[Gateway] Ready to accept requests');
-
-export default server;
+// Vercel Serverless Function 배포를 위해 Elysia 인스턴스를 default export
+export default app;
