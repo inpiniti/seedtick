@@ -44,7 +44,7 @@ describe('KeyRotator', () => {
     expect(keys.slice(2)).toEqual(['key1', 'key2']);
   });
 
-  test('요청 종료(releaseKey) 후 다시 1번키가 우선 할당된다', () => {
+  test('요청 종료(releaseKey) 후 해당 키는 큐의 맨 뒤로 이동하여 다음 키가 우선 할당된다 (FIFO 순환)', () => {
     const rotator = new KeyRotator([
       { provider: 'openrouter', keys: ['key1', 'key2', 'key3'] } as ApiKeyPool,
     ]);
@@ -52,13 +52,12 @@ describe('KeyRotator', () => {
     rotator.acquireKey('openrouter', 'key1');
     expect(rotator.getKeysForProvider('openrouter')[0]).toBe('key2');
 
-    // 1번키 반환
+    // 1번키 반환 (releaseKey -> 큐의 맨 마지막에 집어넣음)
     rotator.releaseKey('openrouter', 'key1');
     expect(rotator.getActiveCount('openrouter', 'key1')).toBe(0);
 
-    // 다시 1번키가 최우선
-    expect(rotator.getKeysForProvider('openrouter')[0]).toBe('key1');
-    expect(rotator.getKeysForProvider('openrouter')).toEqual(['key1', 'key2', 'key3']);
+    // key1은 큐의 맨 뒤로 갔으므로 다음 최우선은 key2, 그 다음 key3, 마지막이 key1
+    expect(rotator.getKeysForProvider('openrouter')).toEqual(['key2', 'key3', 'key1']);
   });
 
   test('모든 키가 사용 중일 때는 active 수가 가장 적은 키를 우선한다', () => {

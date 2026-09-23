@@ -13,7 +13,21 @@ export interface ModelConfig {
 }
 
 export const FALLBACK_CHAIN: ModelConfig[] = [
-  { provider: 'openrouter', modelId: 'openrouter/free', displayName: 'OpenRouter/Free' },
+  {
+    provider: 'openrouter',
+    modelId: 'inclusionai/ling-3.0-flash-fin:free',
+    displayName: 'OpenRouter/Ling-3.0-Flash-Fin',
+  },
+  {
+    provider: 'cline',
+    modelId: 'inclusionai/ling-3.0-flash-fin:free',
+    displayName: 'Cline/Ling-3.0-Flash-Fin',
+  },
+  {
+    provider: 'kilo',
+    modelId: 'inclusionai/ling-3.0-flash-fin:free',
+    displayName: 'Kilo/Ling-3.0-Flash-Fin',
+  },
 ];
 
 // ─────────────────────────────────────────────

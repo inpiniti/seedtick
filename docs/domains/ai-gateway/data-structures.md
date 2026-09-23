@@ -15,9 +15,11 @@ export interface ModelConfig {
   displayName: string   // 로깅용 이름
 }
 
-// 폴백 체인 정의 (OpenRouter 주력)
+// 폴백 체인 정의 (OpenRouter → Cline → Kilo, 모델: inclusionai/ling-3.0-flash-fin:free)
 export const FALLBACK_CHAIN: ModelConfig[] = [
-  { provider: 'openrouter', modelId: 'openrouter/free', displayName: 'OpenRouter/Free' },
+  { provider: 'openrouter', modelId: 'inclusionai/ling-3.0-flash-fin:free', displayName: 'OpenRouter/Ling-3.0-Flash-Fin' },
+  { provider: 'cline', modelId: 'inclusionai/ling-3.0-flash-fin:free', displayName: 'Cline/Ling-3.0-Flash-Fin' },
+  { provider: 'kilo', modelId: 'inclusionai/ling-3.0-flash-fin:free', displayName: 'Kilo/Ling-3.0-Flash-Fin' },
 ]
 
 // ─────────────────────────────────────────────
