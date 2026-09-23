@@ -1,4 +1,4 @@
-﻿# AI-Gateway 데이터 구조
+# AI-Gateway 데이터 구조
 
 ```typescript
 // types.ts
@@ -7,7 +7,7 @@
 // 제공사 및 모델 정의
 // ─────────────────────────────────────────────
 
-export type LLMProvider = 'cline' | 'kilo' | 'openrouter' | 'gemini'
+export type LLMProvider = 'openrouter' | 'cline' | 'kilo' | 'gemini'
 
 export interface ModelConfig {
   provider: LLMProvider
@@ -15,25 +15,24 @@ export interface ModelConfig {
   displayName: string   // 로깅용 이름
 }
 
-// 폴백 체인 정의 (순서가 우선순위)
+// 폴백 체인 정의 (OpenRouter 주력)
 export const FALLBACK_CHAIN: ModelConfig[] = [
-  { provider: 'cline', modelId: 'cline-free/deepseek-v4.1-flash', displayName: 'Cline/DeepSeek' },
-  { provider: 'cline', modelId: 'cline-free/mimo-v2.6-flash',      displayName: 'Cline/Mimo' },
-  { provider: 'cline', modelId: 'cline-free/muse-spark-1.3-contributor', displayName: 'Cline/Muse' },
-  { provider: 'cline', modelId: 'cline-free/solar-pro4',            displayName: 'Cline/Solar' },
-  { provider: 'kilo',        modelId: 'kilo-auto/free',              displayName: 'Kilo/Auto' },
-  { provider: 'openrouter',  modelId: 'openrouter/free',             displayName: 'OpenRouter/Free' },
-  { provider: 'gemini',      modelId: 'gemini-3.5-flash-lite',       displayName: 'Gemini/3.5Lite' },
-  { provider: 'gemini',      modelId: 'gemini-3.1-flash-lite',       displayName: 'Gemini/3.1Lite' },
+  { provider: 'openrouter', modelId: 'openrouter/free', displayName: 'OpenRouter/Free' },
 ]
 
 // ─────────────────────────────────────────────
-// API 키 관리
+// API 키 관리 및 동시성 상태
 // ─────────────────────────────────────────────
 
 export interface ApiKeyPool {
   provider: LLMProvider
   keys: string[]
+}
+
+export interface KeyStateInfo {
+  index: number         // 등록된 1-based 인덱스
+  apiKeyHash: string    // 키 끝 8자리
+  active: number        // 현재 처리 중인 인플라이트 요청 수
 }
 
 // ─────────────────────────────────────────────

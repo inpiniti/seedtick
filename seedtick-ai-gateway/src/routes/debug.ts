@@ -20,4 +20,8 @@ export const debugRoute = new Elysia()
   .get('/debug/quota', () => ({
     exhaustedKeys: Array.from(proxyService.getExhaustedKeys?.() ?? []),
     timestamp: new Date().toISOString(),
+  }))
+  .get('/debug/keys', () => ({
+    openrouterKeys: proxyService.getKeyStates?.('openrouter') ?? [],
+    timestamp: new Date().toISOString(),
   }));

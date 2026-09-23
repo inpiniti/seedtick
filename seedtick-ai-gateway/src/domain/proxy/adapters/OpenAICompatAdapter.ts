@@ -58,14 +58,57 @@ export class OpenAICompatAdapter implements ILLMAdapter {
         };
       }
 
-      const data = JSON.parse(responseText) as ChatResponse;
+      let rawData: Record<string, unknown> = {};
+      try {
+        rawData = JSON.parse(responseText);
+      } catch {
+        return {
+          ok: false,
+          status: 502,
+          errorBody: `Invalid JSON response: ${responseText.slice(0, 200)}`,
+        };
+      }
+
+      // OpenAI 규격 안전 정규화
+      const choicesRaw = Array.isArray(rawData.choices) ? rawData.choices : [];
+      const choices = choicesRaw.map((c: Record<string, unknown>, i: number) => {
+        const msg = (c?.message as Record<string, unknown>) ?? {};
+        return {
+          index: typeof c?.index === 'number' ? c.index : i,
+          message: {
+            role: (msg.role as 'system' | 'user' | 'assistant') || 'assistant',
+            content: typeof msg.content === 'string' ? msg.content : '',
+          },
+          finish_reason: (typeof c?.finish_reason === 'string' && c.finish_reason
+            ? c.finish_reason
+            : 'stop') as 'stop' | 'length' | 'content_filter' | 'error',
+        };
+      });
+
+      const usageRaw = (rawData.usage as Record<string, unknown>) ?? {};
+      const usage = {
+        prompt_tokens:
+          typeof usageRaw.prompt_tokens === 'number' ? Math.round(usageRaw.prompt_tokens) : 0,
+        completion_tokens:
+          typeof usageRaw.completion_tokens === 'number'
+            ? Math.round(usageRaw.completion_tokens)
+            : 0,
+        total_tokens:
+          typeof usageRaw.total_tokens === 'number' ? Math.round(usageRaw.total_tokens) : 0,
+      };
+
+      const normalizedResponse: ChatResponse = {
+        id: (rawData.id as string) || `chatcmpl-${Date.now()}`,
+        object: 'chat.completion',
+        model: modelId,
+        choices,
+        usage,
+      };
+
       return {
         ok: true,
         status: response.status,
-        response: {
-          ...data,
-          model: modelId,
-        },
+        response: normalizedResponse,
         errorBody: '',
       };
     } catch (error) {

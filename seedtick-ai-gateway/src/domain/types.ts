@@ -13,15 +13,7 @@ export interface ModelConfig {
 }
 
 export const FALLBACK_CHAIN: ModelConfig[] = [
-  {
-    provider: 'cline',
-    modelId: 'nvidia/nemotron-3-ultra-550b-a55b:free',
-    displayName: 'Cline/Nemotron',
-  },
-  { provider: 'kilo', modelId: 'kilo-auto/free', displayName: 'Kilo/Auto' },
   { provider: 'openrouter', modelId: 'openrouter/free', displayName: 'OpenRouter/Free' },
-  { provider: 'gemini', modelId: 'gemini-3.5-flash-lite', displayName: 'Gemini/3.5Lite' },
-  { provider: 'gemini', modelId: 'gemini-3.1-flash-lite', displayName: 'Gemini/3.1Lite' },
 ];
 
 // ─────────────────────────────────────────────
