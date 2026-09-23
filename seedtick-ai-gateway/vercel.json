@@ -1,18 +1,6 @@
 {
-  "buildCommand": "bun run build",
+  "buildCommand": "bun install",
   "devCommand": "bun run dev",
   "installCommand": "bun install",
-  "framework": null,
-  "outputDirectory": "dist",
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/src/index.ts"
-    }
-  ],
-  "functions": {
-    "src/index.ts": {
-      "runtime": "@vercel/edge"
-    }
-  }
+  "framework": null
 }
