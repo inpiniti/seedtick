@@ -33,6 +33,7 @@ class GuruReportService:
         supabase_repo: SupabaseRepo | None = None,
         base_report_dir: str | Path = "docs/report",
         request_interval: float | None = None,
+        concurrency: int | None = None,
     ):
         self.base_report_dir = Path(base_report_dir)
         self.datapack_builder = datapack_builder or DataPackBuilder(base_report_dir)
@@ -42,6 +43,9 @@ class GuruReportService:
         self.request_interval = (
             request_interval if request_interval is not None else settings.AI_REQUEST_INTERVAL_SEC
         )
+        self.concurrency = (
+            concurrency if concurrency is not None else settings.AI_CONCURRENCY
+        )
 
     async def generate_full_report(
         self, ticker: str, target_date: str | None = None
@@ -49,7 +53,7 @@ class GuruReportService:
         """
         13인 거장 5단계 파이프라인 전체 실행:
         ① 공용 심층 데이터 팩 (_data/{ticker}.md)
-        ② 13인 개별 요약 블록 (_data/{ticker}_요약.md) [순차적 1명씩 호출]
+        ② 13인 개별 요약 블록 (_data/{ticker}_요약.md) [최대 concurrency 동시 처리]
         ③ 거장 원탁 토론 전문 (최종/{ticker}_토론.md)
         ④ 최종 종합 투자 보고서 (최종/{ticker}_최종보고서.md)
         ⑤ Supabase DB 동기화 (guru_votes)
@@ -61,7 +65,7 @@ class GuruReportService:
         # ── 1단계: 공용 심층 데이터 팩 작성 ───────────────────
         datapack = await self.datapack_builder.build(clean_ticker, date_str)
 
-        # ── 2단계: 13인 개별 요약 블록 생성 (차근차근 순차 실행) ───
+        # ── 2단계: 13인 개별 요약 블록 생성 (최대 concurrency개 동시 병렬 실행) ───
         summary_doc = await self.generate_guru_summaries(datapack)
 
         # ── 3단계: 거장 원탁 토론 전문 생성 ───────────────────
@@ -91,8 +95,8 @@ class GuruReportService:
 
     async def generate_guru_summaries(self, datapack: StockDataPack) -> GuruSummaryDoc:
         """
-        13인 거장별 페르소나 프롬프트를 조립하여 AI-Gateway를 동시 호출하지 않고,
-        하나씩 차근차근 순차 호출(Sequential)하여 무료 티어 429 에러를 방지합니다.
+        13인 거장별 페르소나 프롬프트를 조립하여 AI-Gateway를 최대 concurrency(기본 10)개 동시 병렬 처리합니다.
+        AI-Gateway의 키 로테이션 능력을 활용하여 빠르고 안정적으로 요약 블록을 완성합니다.
         """
         date_str = datapack.date
         ticker = datapack.ticker
@@ -100,10 +104,46 @@ class GuruReportService:
         total_gurus = len(personas_list)
 
         logger.info(
-            f"[{ticker}] 13인 거장 순차 분석 시작 (총 {total_gurus}명, 간격: {self.request_interval}초)"
+            f"[{ticker}] 13인 거장 요약 분석 시작 (총 {total_gurus}명, 동시 처리 한도: {self.concurrency}개)"
         )
 
-        summaries: list[PersonaSummaryBlock] = []
+        semaphore = asyncio.Semaphore(self.concurrency)
+
+        async def _fetch_with_sem(idx: int, p_key: str) -> tuple[int, PersonaSummaryBlock]:
+            async with semaphore:
+                logger.info(f"[{ticker}] ({idx}/{total_gurus}) 거장 '{p_key}' 분석 시작...")
+                try:
+                    block = await self._fetch_single_persona_summary(p_key, datapack.raw_markdown)
+                    logger.info(
+                        f"[{ticker}] 거장 '{p_key}' 분석 완료 -> "
+                        f"의견: {block.verdict} (확신도: {block.confidence}/10)"
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"[{ticker}] 거장 '{p_key}' 분석 중 오류 발생 ({e}) - 기본값 설정"
+                    )
+                    block = PersonaSummaryBlock(
+                        persona=p_key,
+                        verdict="관망",
+                        confidence=5,
+                        core_arguments=["AI 호출 제한 또는 지연으로 인한 기본값 판정"],
+                        quote="데이터를 조금 더 지켜보고 판단하겠다.",
+                    )
+
+                if self.request_interval > 0:
+                    await asyncio.sleep(self.request_interval)
+                return idx, block
+
+        tasks = [
+            _fetch_with_sem(idx, p_key)
+            for idx, p_key in enumerate(personas_list, start=1)
+        ]
+        raw_results = await asyncio.gather(*tasks)
+
+        # 원래 페르소나 순서(1~13)대로 정렬 유지
+        raw_results.sort(key=lambda x: x[0])
+        summaries: list[PersonaSummaryBlock] = [res[1] for res in raw_results]
+
         md_blocks: list[str] = [
             f"# {ticker} — 13인의 거장 요약 블록",
             f"> 날짜: {date_str} | 종목: {ticker} | 현재가: ${datapack.current_price:.2f}",
@@ -112,27 +152,7 @@ class GuruReportService:
             "",
         ]
 
-        for idx, p_key in enumerate(personas_list, start=1):
-            logger.info(f"[{ticker}] ({idx}/{total_gurus}) 거장 '{p_key}' 분석 시작...")
-            try:
-                block = await self._fetch_single_persona_summary(p_key, datapack.raw_markdown)
-                logger.info(
-                    f"[{ticker}] ({idx}/{total_gurus}) 거장 '{p_key}' 분석 완료 -> "
-                    f"의견: {block.verdict} (확신도: {block.confidence}/10)"
-                )
-            except Exception as e:
-                logger.warning(
-                    f"[{ticker}] ({idx}/{total_gurus}) {p_key} 분석 중 오류 발생 ({e}) - 기본값 설정"
-                )
-                block = PersonaSummaryBlock(
-                    persona=p_key,
-                    verdict="관망",
-                    confidence=5,
-                    core_arguments=["AI 호출 제한 또는 지연으로 인한 기본값 판정"],
-                    quote="데이터를 조금 더 지켜보고 판단하겠다.",
-                )
-
-            summaries.append(block)
+        for block in summaries:
             md_blocks.extend([
                 f"### {block.persona}",
                 f"**의견**: {block.verdict} | **확신도**: {block.confidence}/10",
@@ -146,10 +166,6 @@ class GuruReportService:
                 md_blocks.append(f"**트리거 조건**: {', '.join(block.trigger_conditions)}")
             md_blocks.append(f"**대표 발언**: *\"{block.quote}\"*")
             md_blocks.append("")
-
-            # 마지막 거장이 아니라면 무료 티어 RPM 방지를 위해 잠시 대기
-            if idx < total_gurus and self.request_interval > 0:
-                await asyncio.sleep(self.request_interval)
 
         raw_md = "\n".join(md_blocks)
 

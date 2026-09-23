@@ -47,8 +47,8 @@ class GuruReportService:
 
     async def generate_guru_summaries(self, datapack: StockDataPack) -> GuruSummaryDoc:
         """
-        13인 거장 페르소나별 요약 블록을 동시 호출하지 않고 차근차근 순차 호출(Sequential)
-        무료 티어 레이트리밋(429) 방지를 위한 호출 간격(settings.AI_REQUEST_INTERVAL_SEC) 및 지수 백오프 적용
+        13인 거장 페르소나별 요약 블록을 최대 concurrency(기본 10)개 동시 병렬 처리 (asyncio.Semaphore)
+        AI-Gateway 키 로테이션을 활용해 13인 분석을 1~2 라운드(수십 초 내외)만에 고속 완료
         결과 저장: docs/report/{date}/_data/{ticker}_요약.md
         """
         ...
