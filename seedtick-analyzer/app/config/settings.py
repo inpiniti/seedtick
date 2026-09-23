@@ -22,7 +22,8 @@ class Settings(BaseSettings):
     AI_GATEWAY_MODEL: str = "gemini-2.5-pro"
     AI_GATEWAY_TIMEOUT: float = 60.0
     AI_GATEWAY_SECRET: str = ""  # seedtick-ai-gateway의 GATEWAY_SECRET (Bearer 토큰)
-    AI_REQUEST_INTERVAL_SEC: float = 1.5  # 무료 티어 레이트리밋(429) 방지를 위한 순차 호출 간격(초)
+    AI_CONCURRENCY: int = 10  # 동시 처리 요청 수 (기본 최대 10개 병렬)
+    AI_REQUEST_INTERVAL_SEC: float = 0.0  # 요청 간 대기시간(초)
 
     # Supabase 연동
     SUPABASE_URL: str = ""
