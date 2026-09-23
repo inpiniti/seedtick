@@ -47,10 +47,7 @@ export const env = loadEnv();
 export function validateEnv(): string[] {
   const errors: string[] = [];
   if (!env.gatewaySecret) errors.push('GATEWAY_SECRET is required');
-  if (env.clineKeys.length === 0) errors.push('At least one CLINE_API_KEY is required');
-  if (env.kiloKeys.length === 0) errors.push('At least one KILO_API_KEY is required');
   if (env.openrouterKeys.length === 0) errors.push('At least one OPENROUTER_API_KEY is required');
-  if (env.geminiKeys.length === 0) errors.push('At least one GEMINI_API_KEY is required');
   if (!env.supabaseUrl) errors.push('SUPABASE_URL is required');
   if (!env.supabaseServiceRoleKey) errors.push('SUPABASE_SERVICE_ROLE_KEY is required');
   return errors;

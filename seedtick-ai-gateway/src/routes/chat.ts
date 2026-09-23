@@ -31,44 +31,43 @@ export const chatRoute = new Elysia().post(
     response: t.Union([
       t.Object({
         id: t.String(),
-        object: t.Literal('chat.completion'),
+        object: t.String(),
         model: t.String(),
         choices: t.Array(
           t.Object({
-            index: t.Integer(),
+            index: t.Optional(t.Integer()),
             message: t.Object({
-              role: t.Union([t.Literal('system'), t.Literal('user'), t.Literal('assistant')]),
+              role: t.String(),
               content: t.String(),
             }),
-            finish_reason: t.Union([
-              t.Literal('stop'),
-              t.Literal('length'),
-              t.Literal('content_filter'),
-              t.Literal('error'),
-            ]),
+            finish_reason: t.Optional(t.Nullable(t.String())),
           })
         ),
-        usage: t.Object({
-          prompt_tokens: t.Integer(),
-          completion_tokens: t.Integer(),
-          total_tokens: t.Integer(),
-        }),
+        usage: t.Optional(
+          t.Object({
+            prompt_tokens: t.Optional(t.Number()),
+            completion_tokens: t.Optional(t.Number()),
+            total_tokens: t.Optional(t.Number()),
+          })
+        ),
       }),
       t.Object({
         error: t.Object({
-          code: t.Literal('GATEWAY_ALL_EXHAUSTED'),
+          code: t.String(),
           message: t.String(),
-          type: t.Literal('gateway_error'),
-          attempts: t.Array(
-            t.Object({
-              provider: t.String(),
-              modelId: t.String(),
-              apiKeyHash: t.String(),
-              httpStatus: t.Integer(),
-              errorCategory: t.String(),
-              errorSnippet: t.String(),
-              attemptedAt: t.String(),
-            })
+          type: t.String(),
+          attempts: t.Optional(
+            t.Array(
+              t.Object({
+                provider: t.String(),
+                modelId: t.String(),
+                apiKeyHash: t.String(),
+                httpStatus: t.Integer(),
+                errorCategory: t.String(),
+                errorSnippet: t.String(),
+                attemptedAt: t.String(),
+              })
+            )
           ),
         }),
       }),

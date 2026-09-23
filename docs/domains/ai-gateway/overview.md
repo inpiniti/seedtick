@@ -1,34 +1,42 @@
-﻿# AI-Gateway 도메인 개요
+# AI-Gateway 도메인 개요
 
 ## 역할
 
-Cline, Kilo, OpenRouter, Gemini 등 여러 무료 LLM API를 하나의 OpenAI 규격 엔드포인트로 통합합니다.
-에러 발생 시 **대기 없이 즉시** 다음 모델/키/제공사로 폴백하며, 일일 소진 키는 Supabase에 기록해 당일 재시도를 방지합니다.
+OpenRouter를 주력(Primary)으로 하는 무료 LLM API 게이트웨이로서, 복수의 API 키를 단일 OpenAI 규격 엔드포인트(`/v1/chat/completions`)로 통합 제공합니다.
+동시 요청(동접) 유입 시 **유휴 키 우선(Idle-First) 및 실시간 인플라이트(In-Flight) 추적**을 통해 키 간 충돌 없이 병렬 처리하며, 429 레이트리밋 발생 시 즉시 다음 가용 키로 전환합니다. 일일 소진 키는 Supabase에 기록해 불필요한 재시도를 방지합니다.
 
-## 지원 무료 서비스 및 모델
+## 핵심 기능
 
-| 제공사 | 모델 ID | RPD(일일) | RPM(분당) | 특이사항 |
-|:---|:---|:---:|:---:|:---|
-| **Cline** | `cline-free/deepseek-v4.1-flash` | 제한 | 제한 | 코딩 최적화 |
-| Cline | `cline-free/mimo-v2.6-flash` | 제한 | 제한 | 범용 |
-| Cline | `cline-free/muse-spark-1.3-contributor` | 제한 | 제한 | 창작/분석 |
-| Cline | `cline-free/solar-pro4` | 제한 | 제한 | 한국어 강점 |
-| **Kilo** | `kilo-auto/free` | 제한 | 제한 | 자동 라우팅 |
-| **OpenRouter** | `openrouter/free` | 제한 | 제한 | 자동 최선 모델 선택 |
-| **Gemini** | `gemini-3.5-flash-lite` | 500 | - | 경량 최고 성능 |
-| Gemini | `gemini-3.1-flash-lite` | 500 | - | 할당량 백업 |
+1. **지능형 동시성 제어 (In-Flight Concurrency Tracking)**
+   - 등록된 키별 현재 처리 중인 활성 요청 수(`activeRequests`)를 실시간 추적
+   - 1번키가 사용 중이면 자동으로 2번키, 2번키도 사용 중이면 3번키로 할당
+   - 요청 완료(`releaseKey`) 시 즉시 유휴 상태로 복귀하여 다음 요청 우선 할당
+   - 5개~10개 이상의 다중 키 풀 확장 지원
+2. **응답 스키마 정규화 & 422 에러 원천 차단**
+   - OpenRouter 내부의 다양한 서브 모델 응답(finish_reason null, usage 누락 등)을 완벽한 OpenAI 규격으로 안전하게 정규화
+   - Elysia 응답 검증을 완화하여 유효한 응답의 422 Unprocessable Entity 에러 방지
+3. **무대기 즉시 페일오버 (Failover)**
+   - 429(Rate Limit), 쿨다운 발생 시 지연 없이 다음 유휴 키로 즉시 재시도
 
-## 폴백 순서 전략
+## 주력 서비스 및 모델
+
+| 제공사 | 모델 ID | 설명 |
+|:---|:---|:---|
+| **OpenRouter** (Primary) | `openrouter/free` | 실시간 최적 무료 LLM 자동 라우팅 (Gemini, Llama, DeepSeek 등) |
+| *기타 (Optional)* | 환경변수 등록 시에만 어댑터 활성화 | 백업 용도 |
+
+## 키 할당 및 동접 처리 전략
 
 ```
-Cline 모델 순회 (deepseek → mimo → muse → solar)
-  └ 현재 키로 모든 모델 소진 시 → 다음 Cline 키
-      └ 모든 Cline 키 소진 시 → Kilo 키 순회
-          └ 모든 Kilo 키 소진 시 → OpenRouter 키 순회
-              └ 모든 OpenRouter 키 소진 시 → Gemini 모델/키 순회
+요청 유입
+  ├─ 1. 가용 키 목록 조회 (쿨다운 X, 일일소진 X)
+  ├─ 2. 미사용 키(active == 0) 중 등록 순서(1번 → 2번 → 3번 ...) 우선 할당
+  │    └─ 예: 1번키 사용 중일 때 → 2번키 할당하여 병렬 실행
+  ├─ 3. 키 점유(acquireKey) 후 LLM API 호출
+  │    ├─ 성공: OpenAI 규격 정규화 응답 반환 & 키 반환(releaseKey)
+  │    └─ 429/에러: 해당 키 쿨다운 등록 & 키 반환 & 즉시 다음 가용 키 재시도
+  └─ 4. 모든 키 소진 시: 503 GATEWAY_ALL_EXHAUSTED 반환
 ```
-
-> **원칙**: 같은 제공사 내에서는 모델 먼저 → 키 변경 순서로 폴백
 
 ## 관련 문서
 

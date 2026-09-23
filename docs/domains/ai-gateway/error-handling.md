@@ -1,4 +1,4 @@
-﻿# AI-Gateway 에러 처리 전략
+# AI-Gateway 에러 처리 전략
 
 > **참고**: 실제 구현은 `bitcoin-simulation/api/simple/gemini.js`의 cooldownMap 패턴을 기반으로 확장합니다.
 
@@ -55,37 +55,46 @@
 
 ---
 
-## 폴백 흐름 다이어그램
+## 폴백 및 동접 처리 흐름 다이어그램
 
 ```
 요청 수신
   │
   ▼
-[제공사 순회: Cline → Kilo → OpenRouter → Gemini]
+[OpenRouter 키 풀 조회]
   │
-  ├─[모델 순회: 제공사 내 첫 번째 모델부터]
+  ├─[유휴 키 우선 정렬 (active == 0인 1번키 → 2번키 → ...)]
   │   │
-  │   ├─[키 순회: 랜덤 시작점으로 순환]
-  │   │   │
-  │   │   ├─ cooldown 중? → 즉시 스킵 (0ms)
-  │   │   │
-  │   │   ├─ API 호출
-  │   │   │   │
-  │   │   │   ├─ 200 OK → ✅ 응답 반환
-  │   │   │   │
-  │   │   │   ├─ 429 RPM/TPM → cooldown 60s → 다음 키
-  │   │   │   ├─ 429 RPD 소진 → Supabase 기록 → 다음 키
-  │   │   │   ├─ 401/403 → cooldown 1h → 다음 키
-  │   │   │   │
-  │   │   │   ├─ 400/기타 → 다음 모델 (키 변경 무의미)
-  │   │   │   └─ 404 → 모든 키에 24h cooldown → 다음 모델
-  │   │   │
-  │   │   └─ 모든 키 소진 → 다음 모델
+  │   ├─ cooldown 중 or 일일 소진? → 즉시 스킵 (0ms)
   │   │
-  │   └─ 모든 모델 소진 → 다음 제공사
-  │
-  └─ 모든 제공사 소진 → 503 반환 (lastError 포함)
+  │   ├─ 키 점유 (acquireKey, in-flight 카운트 +1)
+  │   │   │
+  │   │   ├─ API 호출 (OpenRouter)
+  │   │   │   │
+  │   │   │   ├─ 200 OK → OpenAI 규격 정규화 → 키 반환(releaseKey) → ✅ 200 반환
+  │   │   │   │           (finish_reason, usage 등 안전 보정하여 422 방지)
+  │   │   │   │
+  │   │   │   ├─ 429 RPM/TPM → cooldown 60s → 키 반환 → 다음 유휴 키로 즉시 재시도
+  │   │   │   ├─ 429 RPD 소진 → Supabase 기록 → 키 반환 → 다음 유휴 키로 즉시 재시도
+  │   │   │   ├─ 401/403 → cooldown 1h → 키 반환 → 다음 유휴 키로 즉시 재시도
+  │   │   │   ├─ 503/타임아웃 → cooldown 30s → 키 반환 → 다음 유휴 키로 즉시 재시도
+  │   │   │   └─ 400/기타 → 키 반환 → 다음 모델/에러 반환
+  │   │
+  │   └─ 모든 키 소진 시 → 503 GATEWAY_ALL_EXHAUSTED 반환
 ```
+
+---
+
+## 422 Unprocessable Entity 에러 방지 전략
+
+OpenRouter는 내부적으로 다양한 무료 LLM(Llama, Gemini, DeepSeek 등)으로 라우팅되므로, 모델에 따라 `finish_reason`이 `null`이거나 `usage` 필드가 누락될 수 있습니다.
+이로 인해 상위 프레임워크(Elysia, FastAPI 등)에서 스키마 검증 실패(422)가 발생하는 것을 원천 차단하기 위해:
+
+1. **`OpenAICompatAdapter` 정규화**:
+   - `choices[].finish_reason`이 null/누락된 경우 `'stop'`으로 기본값 주입
+   - `usage` 누락 시 `{ prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }` 안전 주입
+2. **Elysia `response` 스키마 완화**:
+   - `choices[].finish_reason` 및 `usage`의 필드들을 허용적(permissive)으로 정의하여 유효한 LLM 응답이 422로 변환되는 것을 방지합니다.
 
 ---
 

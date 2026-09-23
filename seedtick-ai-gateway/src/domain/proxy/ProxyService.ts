@@ -44,25 +44,7 @@ export class ProxyService {
   }
 
   private initializeAdapters(): void {
-    // Cline
-    this.adapters.set(
-      'cline',
-      new OpenAICompatAdapter({
-        baseUrl: 'https://api.cline.bot/api/v1/chat/completions',
-        apiKeys: env.clineKeys,
-      })
-    );
-
-    // Kilo
-    this.adapters.set(
-      'kilo',
-      new OpenAICompatAdapter({
-        baseUrl: 'https://api.kilo.ai/api/gateway/chat/completions',
-        apiKeys: env.kiloKeys,
-      })
-    );
-
-    // OpenRouter
+    // OpenRouter (Primary)
     this.adapters.set(
       'openrouter',
       new OpenAICompatAdapter({
@@ -75,15 +57,39 @@ export class ProxyService {
       })
     );
 
-    // Gemini
-    this.adapters.set(
-      'gemini',
-      new GeminiAdapter({
-        baseUrl: 'https://generativelanguage.googleapis.com/v1beta/models/',
-        apiKeys: env.geminiKeys,
-        queryAuth: true,
-      })
-    );
+    // Cline (Optional)
+    if (env.clineKeys.length > 0) {
+      this.adapters.set(
+        'cline',
+        new OpenAICompatAdapter({
+          baseUrl: 'https://api.cline.bot/api/v1/chat/completions',
+          apiKeys: env.clineKeys,
+        })
+      );
+    }
+
+    // Kilo (Optional)
+    if (env.kiloKeys.length > 0) {
+      this.adapters.set(
+        'kilo',
+        new OpenAICompatAdapter({
+          baseUrl: 'https://api.kilo.ai/api/gateway/chat/completions',
+          apiKeys: env.kiloKeys,
+        })
+      );
+    }
+
+    // Gemini (Optional)
+    if (env.geminiKeys.length > 0) {
+      this.adapters.set(
+        'gemini',
+        new GeminiAdapter({
+          baseUrl: 'https://generativelanguage.googleapis.com/v1beta/models/',
+          apiKeys: env.geminiKeys,
+          queryAuth: true,
+        })
+      );
+    }
   }
 
   async initialize(): Promise<void> {
@@ -128,15 +134,30 @@ export class ProxyService {
           continue;
         }
 
-        // 콜드 스타트 재시도 로직 포함 호출
-        const result = await this.callWithColdStartRetry(
-          adapter,
-          request,
-          modelId,
-          apiKey,
-          provider,
-          attempts
+        // 동시성 추적: 키 점유 시작
+        this.rotator.acquireKey(provider, apiKey);
+        console.info(
+          `[Gateway] Acquired key ${provider}:${apiKey.slice(-8)} (in-flight=${this.rotator.getActiveCount(provider, apiKey)})`
         );
+
+        let result;
+        try {
+          // 콜드 스타트 재시도 로직 포함 호출
+          result = await this.callWithColdStartRetry(
+            adapter,
+            request,
+            modelId,
+            apiKey,
+            provider,
+            attempts
+          );
+        } finally {
+          // 동시성 추적: 키 반환
+          this.rotator.releaseKey(provider, apiKey);
+          console.info(
+            `[Gateway] Released key ${provider}:${apiKey.slice(-8)} (in-flight=${this.rotator.getActiveCount(provider, apiKey)})`
+          );
+        }
 
         if (result.ok && result.response) {
           console.info(`[Gateway] Success: ${provider}:${modelId}:${apiKey.slice(-8)}`);
@@ -326,6 +347,10 @@ export class ProxyService {
 
   getExhaustedKeys(): Set<string> {
     return this.quota.getExhaustedSet();
+  }
+
+  getKeyStates(provider: LLMProvider = 'openrouter') {
+    return this.rotator.getKeyStates(provider);
   }
 }
 
