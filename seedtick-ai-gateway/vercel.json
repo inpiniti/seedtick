@@ -2,5 +2,10 @@
   "buildCommand": "bun install",
   "devCommand": "bun run dev",
   "installCommand": "bun install",
-  "framework": null
+  "framework": null,
+  "functions": {
+    "src/index.ts": {
+      "runtime": "edge"
+    }
+  }
 }
