@@ -1,16 +1,14 @@
 # AI-Gateway 지원 모델 목록
 
-## 주력 제공사: OpenRouter (Primary)
+## 주력 모델: inclusionai/ling-3.0-flash-fin:free
 
-**Base URL**: `https://openrouter.ai/api/v1/chat/completions`  
-**인증**: `Authorization: Bearer {OPENROUTER_API_KEY}`  
-**응답 규격**: OpenAI 호환 (게이트웨이 어댑터에서 완벽 정규화)
+금융 및 투자 분석에 특화된 고성능 무료 모델로, 13인의 투자 거장 페르소나 분석, 원탁 토론, 마스터 투자 보고서 작성에 최적화되어 있습니다.
 
-| 모델 ID | 특징 | 권장 사용처 |
+| 모델 ID | 특징 | 제공사 폴백 순서 |
 |:---|:---|:---|
-| `openrouter/free` | 실시간 가용한 최적 무료 모델 자동 선택 | 종목 심층 분석, 거장 토론, 리포트 생성 등 |
+| `inclusionai/ling-3.0-flash-fin:free` | 금융·재무 특화 무료 LLM | 1. OpenRouter → 2. Cline → 3. Kilo |
 
-**필수 헤더**:
+**OpenRouter 필수 헤더**:
 ```http
 HTTP-Referer: https://seedtick.app
 X-Title: SeedTick
@@ -18,21 +16,12 @@ X-Title: SeedTick
 
 ---
 
-## 키 풀 및 동시성 라우팅
+## FIFO 순환 큐 (Circular Queue) 기반 키 로테이션
 
-OpenRouter API 키를 5개~10개 이상 등록하여 키 풀을 형성합니다.
-요청 유입 시 **유휴 키(현재 요청을 처리하고 있지 않은 키)**를 1번키부터 차례대로 탐색하여 배정합니다.
-
-```
-[Key 1] (Active: 0) ← 1차 단독 요청 배정
-[Key 2] (Active: 0) ← 동시 요청 발생 시 2차 배정
-[Key 3] (Active: 0) ← 3개 동접 발생 시 3차 배정
-...
-[Key N]
-```
-
-- **429(Rate Limit) 발생 시**: 해당 키는 60초 쿨다운에 들어가며, 즉시 다음 유휴 키로 전환되어 클라이언트는 지연을 느끼지 못합니다.
-- **응답 보정**: 서브 모델마다 다른 `finish_reason`이나 `usage`를 OpenAI 규격으로 안전하게 정규화하여 422 에러를 방지합니다.
+특정 1번 키에만 요청이 편중되는 병목을 방지하기 위해 **FIFO 순환 큐** 방식으로 키를 관리합니다:
+1. 큐의 맨 앞(Head)에 있는 유휴 키를 꺼내어 요청을 수행합니다.
+2. 요청 시작(`acquireKey`) 및 완료(`releaseKey`) 시 해당 키를 **큐의 맨 마지막(Tail)에 집어넣습니다**.
+3. 따라서 10개 이상의 요청이 동시에 또는 연속으로 발생해도 1번키 → 2번키 → 3번키 ... N번키 순으로 고르게 순환 분산됩니다.
 
 ---
 

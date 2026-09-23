@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     # AI-Gateway 연동
     AI_GATEWAY_URL: str = "http://localhost:3000"
-    AI_GATEWAY_MODEL: str = "gemini-2.5-pro"
+    AI_GATEWAY_MODEL: str = "inclusionai/ling-3.0-flash-fin:free"
     AI_GATEWAY_TIMEOUT: float = 60.0
     AI_GATEWAY_SECRET: str = ""  # seedtick-ai-gateway의 GATEWAY_SECRET (Bearer 토큰)
     AI_CONCURRENCY: int = 10  # 동시 처리 요청 수 (기본 최대 10개 병렬)
