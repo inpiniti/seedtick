@@ -10,15 +10,12 @@ declare const Bun: {
   };
 };
 
-// 환경변수 검증
+// 환경변수 검증 로그 (서버리스 환경에서 프로세스가 죽지 않도록 warn만 로깅)
 const envErrors = validateEnv();
 if (envErrors.length > 0) {
   console.warn('[Gateway] Environment validation warning:');
   for (const err of envErrors) {
     console.warn(`  - ${err}`);
-  }
-  if (!process.env.VERCEL) {
-    process.exit(1);
   }
 }
 
@@ -29,8 +26,8 @@ try {
   console.error('[Gateway] Failed to initialize proxyService:', err);
 }
 
-// 로컬 Bun 직접 실행 시 (Vercel 환경이 아닌 경우)
-if (!process.env.VERCEL && typeof Bun !== 'undefined') {
+// 로컬에서 직접 메인 파일로 실행할 때만 포트 리슨 (Vercel 함수 환경에서는 실행되지 않음)
+if (import.meta.main) {
   const port = process.env.PORT ? Number.parseInt(process.env.PORT) : 3000;
   const server = Bun.serve({
     fetch: app.fetch,
