@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     AI_GATEWAY_SECRET: str = ""  # seedtick-ai-gateway의 GATEWAY_SECRET (Bearer 토큰)
     AI_CONCURRENCY: int = 10  # 동시 처리 요청 수 (기본 최대 10개 병렬)
     AI_REQUEST_INTERVAL_SEC: float = 0.0  # 요청 간 대기시간(초)
+    AI_GATEWAY_MAX_TOKENS: int = 6000  # 모델 최대 생성 토큰 (CoT 추론 토큰 확보)
 
     # Supabase 연동
     SUPABASE_URL: str = ""
