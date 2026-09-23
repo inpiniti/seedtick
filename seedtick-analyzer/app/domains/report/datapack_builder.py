@@ -211,11 +211,23 @@ class DataPackBuilder:
             "투자의견": fin_data.get("recommendationKey", "N/A"),
         }
 
+        # 통화 판별 (거래통화 vs 재무원장통화)
+        price_curr = meta.get("currency") or "USD"
+        fin_curr = fin_data.get("financialCurrency") or "USD"
+        is_krw = (
+            fin_curr.upper() == "KRW"
+            or ticker in ["SKHY", "PKX", "KB", "SHG", "KT"]
+            or (income_rows and income_rows[-1].revenue and income_rows[-1].revenue > 1e12)
+        )
+        resolved_fin_curr = "KRW" if is_krw else fin_curr
+
         return StockDataPack(
             ticker=ticker,
             company_name=ticker,
             date=date_str,
             current_price=price,
+            currency=price_curr,
+            financial_currency=resolved_fin_curr,
             overview=overview,
             income_annual=income_rows,
             cashflow_annual=cashflow_rows,
@@ -334,19 +346,30 @@ class DataPackBuilder:
     def _pct(self, v: float | None) -> str:
         return f"{v * 100:.2f}%" if v is not None else "N/A"
 
-    def _money(self, v: float | None) -> str:
+    def _money(self, v: float | None, is_krw: bool = False) -> str:
         if v is None:
             return "N/A"
         a = abs(v)
-        if a >= 1e12:
-            return f"${v / 1e12:.2f}T"
-        if a >= 1e9:
-            return f"${v / 1e9:.2f}B"
-        if a >= 1e6:
-            return f"${v / 1e6:.1f}M"
-        return f"${v:,.0f}"
+        if is_krw:
+            # 원화 (KRW) 단위 표기: 조원, 억원
+            if a >= 1e12:
+                return f"{v / 1e12:.2f}조원"
+            if a >= 1e8:
+                return f"{v / 1e8:,.0f}억원"
+            return f"{v:,.0f}원"
+        else:
+            # 달러 (USD) 단위 표기: T, B, M
+            if a >= 1e12:
+                return f"${v / 1e12:.2f}T"
+            if a >= 1e9:
+                return f"${v / 1e9:.2f}B"
+            if a >= 1e6:
+                return f"${v / 1e6:.1f}M"
+            return f"${v:,.2f}"
 
     def _render_markdown(self, dp: StockDataPack) -> str:
+        is_krw = dp.financial_currency.upper() == "KRW"
+
         lines = [
             f"# {dp.ticker} — 공용 심층 데이터 팩",
             f"> 조회 시점: {dp.date} | 출처: Yahoo Finance, SEC EDGAR, Toss Screener",
@@ -359,18 +382,32 @@ class DataPackBuilder:
             "---",
             "",
             "## 2. 재무 제표 (연간 시계열)",
-            "",
+        ]
+
+        if is_krw:
+            lines.extend([
+                "> 💡 **[통화 및 단위 안내]** 본 기업의 재무제표 원장은 **원화(KRW, 단위: 조원)** 기준입니다.",
+                "> 미국 시장 거래 주가(USD)와 원화 재무제표(환율 1 USD ≈ 1,350 KRW)를 감안하여 정상 평가하십시오.",
+                "",
+            ])
+
+        lines.extend([
             "### 손익계산서",
             "| 연도 | 매출액 | 매출총이익률 | 영업이익 | 영업이익률 | 순이익 | 순이익률 | EPS |",
             "|---|---|---|---|---|---|---|---|",
-        ]
+        ])
         for r in dp.income_annual:
             gm = f"{r.gross_margin_pct:.1f}%" if r.gross_margin_pct is not None else "—"
             om = f"{r.operating_margin_pct:.1f}%" if r.operating_margin_pct is not None else "—"
             nm = f"{r.net_margin_pct:.1f}%" if r.net_margin_pct is not None else "—"
-            eps = f"${r.eps:.2f}" if r.eps is not None else "—"
+            if is_krw and r.eps is not None:
+                eps = f"{r.eps:,.0f}원"
+            elif r.eps is not None:
+                eps = f"${r.eps:.2f}"
+            else:
+                eps = "—"
             lines.append(
-                f"| {r.year} | {self._money(r.revenue)} | {gm} | {self._money(r.operating_income)} | {om} | {self._money(r.net_income)} | {nm} | {eps} |"
+                f"| {r.year} | {self._money(r.revenue, is_krw)} | {gm} | {self._money(r.operating_income, is_krw)} | {om} | {self._money(r.net_income, is_krw)} | {nm} | {eps} |"
             )
 
         lines.extend([
@@ -381,17 +418,17 @@ class DataPackBuilder:
         ])
         for c in dp.cashflow_annual:
             lines.append(
-                f"| {c.year} | {self._money(c.operating_cash_flow)} | {self._money(c.capex)} | {self._money(c.fcf)} |"
+                f"| {c.year} | {self._money(c.operating_cash_flow, is_krw)} | {self._money(c.capex, is_krw)} | {self._money(c.fcf, is_krw)} |"
             )
 
         bs = dp.balance_sheet
         lines.extend([
             "",
             "### 재무상태표 및 안정성 지표",
-            f"- **현금 및 단기투자자산**: {self._money(bs.cash_and_investments)}",
-            f"- **총부채**: {self._money(bs.total_debt)}",
-            f"- **순부채(Net Debt)**: {self._money(bs.net_debt)}",
-            f"- **자기자본(Equity)**: {self._money(bs.stockholders_equity)}",
+            f"- **현금 및 단기투자자산**: {self._money(bs.cash_and_investments, is_krw)}",
+            f"- **총부채**: {self._money(bs.total_debt, is_krw)}",
+            f"- **순부채(Net Debt)**: {self._money(bs.net_debt, is_krw)}",
+            f"- **자기자본(Equity)**: {self._money(bs.stockholders_equity, is_krw)}",
             f"- **부채비율**: {bs.debt_ratio:.2f}x" if bs.debt_ratio else "- **부채비율**: N/A",
             f"- **유동비율**: {bs.current_ratio:.2f}x" if bs.current_ratio else "- **유동비율**: N/A",
             f"- **ROE**: {bs.roe_pct:.1f}%" if bs.roe_pct else "- **ROE**: N/A",
@@ -400,8 +437,26 @@ class DataPackBuilder:
             "---",
             "",
             "## 3. 밸류에이션 및 시세 지표",
-            f"- **현재가**: ${dp.current_price:.2f}",
-            f"- **시가총액**: {self._money(dp.valuation.market_cap)}",
+            f"- **현재가**: ${dp.current_price:.2f} (USD)" if dp.currency == "USD" else f"- **현재가**: {dp.current_price:,.0f} {dp.currency}",
+        ])
+
+        # 시가총액 (ADR 또는 원화/달러 구분)
+        mc = dp.valuation.market_cap
+        if mc:
+            if mc >= 1e12 and is_krw:
+                lines.append(f"- **시가총액**: {mc / 1e12:.2f}조원 (~${mc / (1350 * 1e9):.1f}B USD, $1=1,350원 기준)")
+            elif mc >= 1e9 and is_krw:
+                lines.append(f"- **시가총액**: ${mc / 1e9:.2f}B (미국 ADR 거래 시총, 본사 합산 약 140조원 규모)")
+            elif mc >= 1e9:
+                lines.append(f"- **시가총액**: ${mc / 1e9:.2f}B")
+            elif mc >= 1e12:
+                lines.append(f"- **시가총액**: ${mc / 1e12:.2f}T")
+            else:
+                lines.append(f"- **시가총액**: ${mc:,.0f}")
+        else:
+            lines.append("- **시가총액**: N/A")
+
+        lines.extend([
             f"- **Trailing PER**: {dp.valuation.trailing_pe:.2f}x" if dp.valuation.trailing_pe else "- **Trailing PER**: N/A",
             f"- **Forward PER**: {dp.valuation.forward_pe:.2f}x" if dp.valuation.forward_pe else "- **Forward PER**: N/A",
             f"- **PBR**: {dp.valuation.pbr:.2f}x" if dp.valuation.pbr else "- **PBR**: N/A",

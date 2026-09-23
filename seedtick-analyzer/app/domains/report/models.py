@@ -59,6 +59,8 @@ class StockDataPack(BaseModel):
     company_name: str
     date: str                        # YYYY-MM-DD
     current_price: float
+    currency: str = "USD"            # 주가 거래 통화 (예: USD)
+    financial_currency: str = "USD"  # 재무제표 원장 통화 (예: KRW, USD)
     overview: str
     income_annual: list[FinancialStatementRow] = Field(default_factory=list)
     cashflow_annual: list[CashFlowRow] = Field(default_factory=list)
