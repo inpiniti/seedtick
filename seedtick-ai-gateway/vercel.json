@@ -5,7 +5,8 @@
   "framework": null,
   "functions": {
     "src/index.ts": {
-      "runtime": "edge"
+      "runtime": "nodejs20.x",
+      "maxDuration": 30
     }
   }
 }
