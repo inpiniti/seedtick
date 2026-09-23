@@ -17,11 +17,13 @@ class AiGatewayClient:
         model: str | None = None,
         timeout: float | None = None,
         secret: str | None = None,
+        max_tokens: int | None = None,
     ):
         self.base_url = (base_url or settings.AI_GATEWAY_URL).rstrip("/")
         self.model = model or settings.AI_GATEWAY_MODEL
         self.timeout = timeout or settings.AI_GATEWAY_TIMEOUT
         self.secret = secret if secret is not None else settings.AI_GATEWAY_SECRET
+        self.max_tokens = max_tokens or settings.AI_GATEWAY_MAX_TOKENS
 
     async def chat(self, prompt: str, system_prompt: str = "") -> str:
         if "/v1/chat/completions" in self.base_url:
@@ -37,6 +39,7 @@ class AiGatewayClient:
             "model": self.model,
             "messages": messages,
             "temperature": 0.3,
+            "max_tokens": self.max_tokens,
         }
 
         headers = {

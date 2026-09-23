@@ -90,3 +90,45 @@ async def test_guru_report_service_pipeline(tmp_path: Path):
     assert (tmp_path / "2026-09-23" / "_data" / "AAPL_요약.md").exists()
     assert (tmp_path / "2026-09-23" / "최종" / "AAPL_토론.md").exists()
     assert (tmp_path / "2026-09-23" / "최종" / "AAPL_최종보고서.md").exists()
+
+
+def test_parse_summary_block_various_formats():
+    service = GuruReportService()
+
+    # Case 1: 볼드 마크다운 및 불릿
+    text1 = """
+    인물: 워런-버핏 | **의견**: 매수 | **확신도**: 8
+    
+    **핵심 논거:**
+    - ROE가 92.7%로 기준치 15%를 대폭 상회하며 순이익 42조원 달성
+    - 영업이익률 48.6%로 메모리 사이클 상승기 고수익 입증
+    
+    **적정가/매수 가격대:** $210~$240
+    **트리거 조건:** HBM 점유율 유지 여부
+    **대표 발언:** "좋은 비즈니스를 합리적인 가격에 매수하는 기회다."
+    """
+    block1 = service._parse_summary_block("워런-버핏", text1)
+    assert block1.verdict == "매수"
+    assert block1.confidence == 8
+    assert len(block1.core_arguments) == 2
+    assert "ROE가 92.7%" in block1.core_arguments[0]
+    assert block1.target_price_range == "$210~$240"
+    assert "좋은 비즈니스" in block1.quote
+
+    # Case 2: 불릿 없이 문단 형태 출력
+    text2 = """
+    인물: 찰리-멍거 | 의견: 보유 | 확신도: 7
+
+    핵심 논거:
+    ROE 34.0%와 영업이익률 46.8%는 소프트웨어 인프라 분야에서 독보적인 경제적 해자를 입증한다.
+    부채비율 0.13x로 재무 구조가 견고하여 치명적인 바보짓의 위험이 거의 없다.
+
+    대표 발언: 역발상으로 보면 매력적인 기업이다.
+    """
+    block2 = service._parse_summary_block("찰리-멍거", text2)
+    assert block2.verdict == "보유"
+    assert block2.confidence == 7
+    assert len(block2.core_arguments) >= 2
+    assert "경제적 해자" in block2.core_arguments[0]
+    assert "역발상" in block2.quote
+

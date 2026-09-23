@@ -194,49 +194,93 @@ class GuruReportService:
         # 형식 파싱: 인물: {persona} | 의견: {verdict} | 확신도: {conf}
         verdict = "관망"
         confidence = 5
-        arguments = []
+        arguments: list[str] = []
         target_price = None
-        trigger_conditions = []
+        trigger_conditions: list[str] = []
         quote = ""
 
-        # 의견 및 확신도 정규식
-        v_match = re.search(r"의견[:\s]*([매수|보유|관망|매도]+)", text)
+        # 1. 의견 정규식 (매수 / 보유 / 관망 / 매도)
+        v_match = re.search(r"의견[:\s\*]*([매수|보유|관망|매도]+)", text)
         if v_match:
             cand = v_match.group(1).strip()
             if cand in ["매수", "보유", "관망", "매도"]:
                 verdict = cand
 
-        c_match = re.search(r"확신도[:\s]*(\d+)", text)
+        # 2. 확신도 정규식 (1~10)
+        c_match = re.search(r"확신도[:\s\*]*(\d+)", text)
         if c_match:
             try:
                 confidence = max(1, min(10, int(c_match.group(1))))
             except ValueError:
                 pass
 
-        # 논거 추출
+        # 3. 적정가 / 목표 가격대 정규식
+        tp_match = re.search(r"(?:적정가[/매수\s가격대]*|목표가)[:\s\*]*([^\n]+)", text)
+        if tp_match:
+            raw_tp = tp_match.group(1).strip().strip("*_`")
+            if raw_tp and not raw_tp.startswith(("트리거", "대표", "핵심")):
+                target_price = raw_tp
+
+        # 4. 트리거 조건 정규식
+        trig_match = re.search(r"(?:트리거[·\s]*재검토\s*조건|트리거\s*조건)[:\s\*]*([^\n]+)", text)
+        if trig_match:
+            raw_trig = trig_match.group(1).strip().strip("*_`")
+            if raw_trig and not raw_trig.startswith(("대표", "핵심")):
+                trigger_conditions.append(raw_trig)
+
+        # 5. 대표 발언 정규식
+        q_match = re.search(r"(?:대표\s*발언|한줄\s*평)[:\s\*]*([^\n]+)", text)
+        if q_match:
+            raw_q = q_match.group(1).strip().strip('*_`"\'')
+            if raw_q:
+                quote = raw_q
+
+        # 6. 핵심 논거 추출 (불릿 또는 문단 형태 모두 유연하게 처리)
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
         in_args = False
-        for line in text.splitlines():
-            line_str = line.strip()
-            if "핵심 논거:" in line_str:
+        raw_arg_lines: list[str] = []
+
+        for line in lines:
+            clean_line = line.strip().strip("*#_`")
+            if any(k in clean_line for k in ["핵심 논거", "핵심논거", "투자 논거"]):
                 in_args = True
                 continue
             if in_args:
-                if line_str.startswith("- ") or line_str.startswith("* "):
-                    arguments.append(line_str.lstrip("-* ").strip())
-                elif any(line_str.startswith(k) for k in ["적정가", "트리거", "대표 발언"]):
+                # 다음 섹션 시작 키워드 감지 시 중단
+                if any(k in clean_line for k in ["적정가", "트리거", "대표 발언", "대표발언", "우려 사항", "우려 요인"]):
                     in_args = False
+                    continue
 
-            if "적정가/매수 가격대:" in line_str:
-                target_price = line_str.replace("적정가/매수 가격대:", "").strip()
-            elif "트리거" in line_str and ":" in line_str:
-                trigger_conditions.append(line_str.split(":", 1)[1].strip())
-            elif "대표 발언:" in line_str:
-                quote = line_str.replace("대표 발언:", "").strip().strip('"*\'')
+                # 불릿 기호 제거 및 라인 수집
+                stripped = re.sub(r"^[-*•\d\.\s]+", "", line).strip().strip("*_`")
+                if stripped and len(stripped) >= 10:
+                    raw_arg_lines.append(stripped)
+
+        # 불릿으로 나뉜 항목들 추가
+        for arg in raw_arg_lines:
+            if arg not in arguments:
+                arguments.append(arg)
+
+        # 만약 불릿이 없어 arguments가 비었을 경우 본문에서 팩트 문장 추출
+        if not arguments:
+            for line in lines:
+                clean = re.sub(r"^[-*•\d\.\s]+", "", line).strip().strip("*_`")
+                # 헤더성 라인 건너뛰기
+                if any(clean.startswith(k) for k in ["인물:", "의견:", "핵심", "적정가", "트리거", "대표", "http", "#"]):
+                    continue
+                if len(clean) >= 20 and clean not in arguments:
+                    arguments.append(clean)
+                if len(arguments) >= 3:
+                    break
+
+        # 대표 발언이 파싱되지 않은 경우 논거의 핵심 문장으로 대체
+        if not quote and arguments:
+            quote = f"{persona_key}의 원칙에 따라 분석: {arguments[0][:40]}..."
+        elif not quote:
+            quote = f"{persona_key}의 원칙에 따라 신중하게 평가했다."
 
         if not arguments:
             arguments = ["재무 펀더멘털 및 가치평가 데이터 기반 종합 평가"]
-        if not quote:
-            quote = f"{persona_key}의 원칙에 따라 신중하게 평가했다."
 
         return PersonaSummaryBlock(
             persona=persona_key,

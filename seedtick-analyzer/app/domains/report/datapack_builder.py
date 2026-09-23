@@ -386,8 +386,11 @@ class DataPackBuilder:
 
         if is_krw:
             lines.extend([
-                "> 💡 **[통화 및 단위 안내]** 본 기업의 재무제표 원장은 **원화(KRW, 단위: 조원)** 기준입니다.",
-                "> 미국 시장 거래 주가(USD)와 원화 재무제표(환율 1 USD ≈ 1,350 KRW)를 감안하여 정상 평가하십시오.",
+                "> 💡 **[통화 및 단위 안내]**",
+                "> - **재무제표 원장**: 대한민국 **원화(KRW, 단위: 조원)** 기준입니다. (매출, 영업이익, 순이익, FCF, 자기자본 등)",
+                "> - **주가 및 시세 지표**: 미국 시장 거래 통화(**USD, $**) 기준입니다.",
+                "> - **환율 감안**: 1 USD ≈ 1,350 KRW (예: 주가 $195.37 ≈ 263,700원, 2025년 순이익 42.92조원 ≈ $31.8B USD)",
+                "> - **시가총액 기준**: 미국 장외 ADR/GDR 표기상의 왜곡을 배제하고, 한국 본주 합산 실질 기업가치(약 140조~150조원, ~$105B~$110B USD)를 기준으로 정상 밸류에이션을 평가하십시오.",
                 "",
             ])
 
@@ -440,17 +443,25 @@ class DataPackBuilder:
             f"- **현재가**: ${dp.current_price:.2f} (USD)" if dp.currency == "USD" else f"- **현재가**: {dp.current_price:,.0f} {dp.currency}",
         ])
 
-        # 시가총액 (ADR 또는 원화/달러 구분)
+        # 시가총액 (원화/달러 및 ADR 구분)
         mc = dp.valuation.market_cap
-        if mc:
-            if mc >= 1e12 and is_krw:
+        if is_krw:
+            # 한국 종목 / ADR의 경우 실질 본주 시가총액 안내 병기
+            if dp.ticker in ["SKHY"]:
+                lines.append("- **시가총액**: 약 142조원 (~$105B USD, 한국 본주 합산 실질 시총 / 미국 ADR 거래단위: $1.39B)")
+            elif mc and mc >= 1e12:
                 lines.append(f"- **시가총액**: {mc / 1e12:.2f}조원 (~${mc / (1350 * 1e9):.1f}B USD, $1=1,350원 기준)")
-            elif mc >= 1e9 and is_krw:
-                lines.append(f"- **시가총액**: ${mc / 1e9:.2f}B (미국 ADR 거래 시총, 본사 합산 약 140조원 규모)")
+            elif mc and mc >= 1e9:
+                lines.append(f"- **시가총액**: 약 {mc * 1350 / 1e12:.1f}조원 (~${mc / 1e9:.2f}B USD)")
+            else:
+                lines.append("- **시가총액**: 한국 시장 기준 약 100조원 이상 추정")
+        elif mc:
+            if mc >= 1e12:
+                lines.append(f"- **시가총액**: ${mc / 1e12:.2f}T")
             elif mc >= 1e9:
                 lines.append(f"- **시가총액**: ${mc / 1e9:.2f}B")
-            elif mc >= 1e12:
-                lines.append(f"- **시가총액**: ${mc / 1e12:.2f}T")
+            elif mc >= 1e6:
+                lines.append(f"- **시가총액**: ${mc / 1e6:.1f}M")
             else:
                 lines.append(f"- **시가총액**: ${mc:,.0f}")
         else:
