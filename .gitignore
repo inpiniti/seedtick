@@ -35,3 +35,10 @@ coverage/
 
 # TypeScript
 *.tsbuildinfo
+
+# Python & Cache
+__pycache__/
+*.pyc
+.*_token_cache.json
+.pending_orders.json
+*.csv
