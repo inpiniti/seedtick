@@ -10,6 +10,8 @@ from app.api.routes.health import router as health_router
 from app.api.routes.report import router as report_router
 from app.api.routes.scheduler import router as scheduler_router
 from app.api.routes.screener import router as screener_router
+from app.api.routes.ip import router as ip_router
+from app.api.routes.bridge import router as bridge_router
 from app.config.settings import settings
 from app.domains.scheduler.service import scheduler_service
 
@@ -49,9 +51,12 @@ app.add_middleware(
 
 # 라우터 등록
 app.include_router(health_router)
+app.include_router(ip_router)
 app.include_router(screener_router)
 app.include_router(report_router)
 app.include_router(scheduler_router)
+app.include_router(bridge_router)
+
 
 
 @app.get("/", tags=["root"])

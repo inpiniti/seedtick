@@ -4,7 +4,7 @@
 
 # 안전 매매 한도 (소액 검증용)
 MAX_DAILY_INVESTMENT_KRW = 100_000   # 일일 최대 투자 한도: 10만원
-DEFAULT_ORDER_AMOUNT_KRW = 30_000    # 종목당 기본 주문 금액: 3만원
+DEFAULT_ORDER_AMOUNT_KRW = 10_000    # 종목당 기본 주문 금액: 1만원
 MIN_ORDER_AMOUNT_KRW = 10_000        # 최소 주문 금액: 1만원
 
 # 스크리너 상수
