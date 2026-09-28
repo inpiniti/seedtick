@@ -1,5 +1,5 @@
 """
-ScreenerService: 토스증권 13인의 거장 '공통' 스크리너 직접 호출
+ScreenerService: 토스증권 13인의 거장 스크리너 직접 호출
 """
 import logging
 from app.domains.screener.models import ScreenCriteria, ScreenResult, TossStockItem
@@ -17,13 +17,14 @@ class ScreenerService:
     ) -> ScreenResult:
         """
         토스증권 WTS API 직접 호출:
-        13인의 거장 '공통' 필터로 미국 주식 스크리닝 (시총 3000억↑, 부채비율 100%↓, ROE 10%↑ 등)
+        13인의 거장 '공통' 필터로 주식 스크리닝 (crit.nation 기준, 기본 us)
         """
         crit = criteria or ScreenCriteria()
         logger.info(f"[Screener] 토스 WTS 직접 호출 시작 (nation={crit.nation}, size={crit.size})")
 
         try:
-            raw_data = await self.wts_client.screen_common_us(
+            raw_data = await self.wts_client.screen_common(
+                nation=crit.nation,
                 size=crit.size,
                 page=crit.page,
             )

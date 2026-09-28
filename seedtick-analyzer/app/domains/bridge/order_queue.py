@@ -12,12 +12,19 @@ from app.domains.bridge.models import BrokerOrder, OrderResult
 
 logger = logging.getLogger("order_queue")
 
-QUEUE_FILE_PATH = Path(__file__).resolve().parent.parent.parent.parent / ".pending_orders.json"
+_QUEUE_DIR = Path(__file__).resolve().parent.parent.parent.parent
+
+
+def _queue_file_path(account_id: str = "default") -> Path:
+    """계좌별 예약 주문 큐 파일 경로 — 멀티 계좌 파일 충돌 방지"""
+    safe_id = account_id.replace("/", "-").replace(" ", "_")[:20]
+    return _QUEUE_DIR / f".pending_orders_{safe_id}.json"
 
 
 class PendingOrderQueue:
-    def __init__(self, file_path: Path = QUEUE_FILE_PATH):
-        self.file_path = file_path
+    def __init__(self, account_id: str = "default", file_path: Path | None = None):
+        self.account_id = account_id
+        self.file_path = file_path or _queue_file_path(account_id)
 
     def _load_data(self) -> dict[str, Any]:
         if not self.file_path.exists():

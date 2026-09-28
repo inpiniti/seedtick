@@ -17,8 +17,15 @@ SELL_SIGNAL_SCORES = {2, 3}
 
 
 class AutoTradingService:
-    def __init__(self, broker: IBrokerAdapter | None = None):
+    def __init__(
+        self,
+        broker: IBrokerAdapter | None = None,
+        order_amount_krw: int = DEFAULT_ORDER_AMOUNT_KRW,
+        max_daily_investment_krw: int = MAX_DAILY_INVESTMENT_KRW,
+    ):
         self.broker = broker or get_broker_adapter(settings.DEFAULT_BROKER)
+        self.order_amount_krw = order_amount_krw
+        self.max_daily_investment_krw = max_daily_investment_krw
         self.today_ordered_tickers: set[str] = set()
         self.today_sold_tickers: set[str] = set()
         self.today_spent_krw: int = 0
@@ -60,10 +67,10 @@ class AutoTradingService:
                 logger.info(f"[AutoTrading] {ticker}: 오늘 이미 주문 발주됨 (중복 방지 스킵)")
                 continue
 
-            order_krw = DEFAULT_ORDER_AMOUNT_KRW
-            if self.today_spent_krw + order_krw > MAX_DAILY_INVESTMENT_KRW:
+            order_krw = self.order_amount_krw
+            if self.today_spent_krw + order_krw > self.max_daily_investment_krw:
                 logger.warning(
-                    f"[AutoTrading] 일일 한도 초과 ({self.today_spent_krw:,}원 + {order_krw:,}원 > {MAX_DAILY_INVESTMENT_KRW:,}원) - 발주 중단"
+                    f"[AutoTrading] 일일 한도 초과 ({self.today_spent_krw:,}원 + {order_krw:,}원 > {self.max_daily_investment_krw:,}원) - 발주 중단"
                 )
                 break
 
@@ -117,7 +124,7 @@ class AutoTradingService:
                 order = BrokerOrder(
                     ticker=ticker,
                     action="SELL",
-                    amount_krw=DEFAULT_ORDER_AMOUNT_KRW,
+                    amount_krw=self.order_amount_krw,
                     memo=f"seedtick-sell-{self.current_date.isoformat()}",
                 )
                 res = await broker.place_order(order)
@@ -127,7 +134,7 @@ class AutoTradingService:
                     self.today_sold_tickers.add(ticker)
                     logger.info(
                         f"[AutoTrading] 매도 완료: {ticker} "
-                        f"(시그널={r.overall_verdict}, {DEFAULT_ORDER_AMOUNT_KRW:,}원)"
+                        f"(시그널={r.overall_verdict}, {self.order_amount_krw:,}원)"
                     )
                 else:
                     logger.error(f"[AutoTrading] 매도 실패: {ticker} ({res.error_message})")

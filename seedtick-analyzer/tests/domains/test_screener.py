@@ -10,7 +10,7 @@ from app.domains.screener.service import ScreenerService
 @pytest.mark.asyncio
 async def test_screener_service_direct_call():
     mock_wts_client = AsyncMock()
-    mock_wts_client.screen_common_us.return_value = {
+    mock_data = {
         "count": 2,
         "totalCount": 150,
         "stocks": [
@@ -40,6 +40,8 @@ async def test_screener_service_direct_call():
             },
         ],
     }
+    mock_wts_client.screen_common.return_value = mock_data
+    mock_wts_client.screen_common_us.return_value = mock_data
 
     service = ScreenerService(wts_client=mock_wts_client)
     criteria = ScreenCriteria(preset="공통", nation="us", size=50)
