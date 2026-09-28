@@ -48,7 +48,7 @@ export class GeminiAdapter implements ILLMAdapter {
     request: ChatRequest,
     modelId: string,
     apiKey: string,
-    timeoutMs = 60_000
+    timeoutMs = 120_000
   ): Promise<{
     ok: boolean;
     status: number;
@@ -129,7 +129,7 @@ export class GeminiAdapter implements ILLMAdapter {
       contents,
       generationConfig: {
         temperature: request.temperature ?? 0.7,
-        maxOutputTokens: request.max_tokens ?? 2000,
+        maxOutputTokens: request.max_tokens ?? 32768,
       },
     };
   }

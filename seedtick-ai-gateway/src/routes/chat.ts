@@ -25,7 +25,7 @@ export const chatRoute = new Elysia().post(
         })
       ),
       temperature: t.Optional(t.Number({ minimum: 0, maximum: 2 })),
-      max_tokens: t.Optional(t.Integer({ minimum: 1, maximum: 8192 })),
+      max_tokens: t.Optional(t.Integer({ minimum: 1, maximum: 32768 })),
       stream: t.Optional(t.Boolean()),
     }),
     response: t.Union([
