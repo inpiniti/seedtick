@@ -13,6 +13,7 @@ from app.api.routes.screener import router as screener_router
 from app.api.routes.ip import router as ip_router
 from app.api.routes.bridge import router as bridge_router
 from app.config.settings import settings
+from app.domains.error_log.handlers import SupabaseLogHandler
 from app.domains.scheduler.service import scheduler_service
 
 # 로깅 설정
@@ -21,6 +22,11 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger("seedtick_analyzer")
+
+# Supabase error_logs 테이블 자동 적재 핸들러 등록 (INFO, WARNING, ERROR, CRITICAL)
+supabase_log_handler = SupabaseLogHandler()
+supabase_log_handler.setLevel(getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
+logging.getLogger().addHandler(supabase_log_handler)
 
 
 @asynccontextmanager
@@ -31,6 +37,7 @@ async def lifespan(app: FastAPI):
     yield
     logger.info("🛑 SeedTick Analyzer 종료 중...")
     scheduler_service.shutdown()
+    supabase_log_handler.close()
 
 
 app = FastAPI(
