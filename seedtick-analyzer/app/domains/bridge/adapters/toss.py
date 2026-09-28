@@ -18,7 +18,13 @@ from app.domains.bridge.models import BrokerBalance, BrokerOrder, OrderResult
 logger = logging.getLogger("toss_broker")
 
 TOSS_API_BASE = "https://openapi.tossinvest.com"
-TOSS_TOKEN_CACHE_FILE = Path(__file__).resolve().parent.parent.parent.parent / ".toss_token_cache.json"
+_TOSS_CACHE_DIR = Path(__file__).resolve().parent.parent.parent.parent
+
+
+def _token_cache_path(client_id: str) -> Path:
+    """계좌(client_id)별 토큰 캐시 파일 경로 — 멀티 계좌 충돌 방지"""
+    safe_id = client_id[:12] if client_id else "unknown"
+    return _TOSS_CACHE_DIR / f".toss_token_cache_{safe_id}.json"
 
 
 class TossBrokerAdapter(IBrokerAdapter):
@@ -31,6 +37,14 @@ class TossBrokerAdapter(IBrokerAdapter):
         self.client_id = client_id or settings.TOSS_CLIENT_ID
         self.client_secret = client_secret or settings.TOSS_CLIENT_SECRET
         self.raw_account_seq = account_seq or settings.TOSS_ACCOUNT_SEQ
+
+        # 계좌별 독립 토큰 캐시 파일 (멀티 계좌 충돌 방지)
+        self._token_cache_file: Path = _token_cache_path(self.client_id)
+
+        # 계좌별 독립 예약 주문 큐 (계좌단위 파일 분리)
+        from app.domains.bridge.order_queue import PendingOrderQueue
+        _account_id = str(self.raw_account_seq) if self.raw_account_seq else "default"
+        self._order_queue = PendingOrderQueue(account_id=_account_id)
 
         self._lock = asyncio.Lock()
         self._throttle_lock = asyncio.Lock()
@@ -59,10 +73,10 @@ class TossBrokerAdapter(IBrokerAdapter):
             if not force and self._token and time.time() < (self._token_expires_at - 1800):
                 return self._token
 
-            # 2. 파일 캐시 검사
-            if not force and TOSS_TOKEN_CACHE_FILE.exists():
+            # 2. 파일 캐시 검사 (계좌별 독립 파일)
+            if not force and self._token_cache_file.exists():
                 try:
-                    cache = json.loads(TOSS_TOKEN_CACHE_FILE.read_text(encoding="utf-8"))
+                    cache = json.loads(self._token_cache_file.read_text(encoding="utf-8"))
                     if (
                         cache.get("client_id") == self.client_id
                         and cache.get("expires_at", 0) > time.time() + 1800
@@ -100,9 +114,9 @@ class TossBrokerAdapter(IBrokerAdapter):
             expires_in = token_data.get("expires_in", 86400)
             self._token_expires_at = time.time() + expires_in
 
-            # 파일 캐시 저장
+            # 파일 캐시 저장 (계좌별 독립 파일)
             try:
-                TOSS_TOKEN_CACHE_FILE.write_text(
+                self._token_cache_file.write_text(
                     json.dumps({
                         "client_id": self.client_id,
                         "token": self._token,
@@ -193,9 +207,9 @@ class TossBrokerAdapter(IBrokerAdapter):
 
                 if res.status_code == 401 and attempt == 1:
                     logger.warning("[TossBroker] 401 Unauthorized — 토큰 재발급 후 1회 재시도")
-                    if TOSS_TOKEN_CACHE_FILE.exists():
+                    if self._token_cache_file.exists():
                         try:
-                            TOSS_TOKEN_CACHE_FILE.unlink()
+                            self._token_cache_file.unlink()
                         except Exception:
                             pass
                     continue
@@ -321,10 +335,9 @@ class TossBrokerAdapter(IBrokerAdapter):
             # 2. 미국 정규장 운영 여부 확인
             is_open = await self.is_us_market_open()
 
-            # 3-A. 정규장 외 시간인 경우: 예약 주문 큐에 등록
+            # 3-A. 정규장 외 시간인 경우: 계좌별 예약 주문 큐에 등록
             if not is_open:
-                from app.domains.bridge.order_queue import pending_order_queue
-                pending_order_queue.add_pending_order(
+                self._order_queue.add_pending_order(
                     ticker=order.ticker.upper(),
                     amount_krw=order.amount_krw,
                     amount_usd=usd_amount,

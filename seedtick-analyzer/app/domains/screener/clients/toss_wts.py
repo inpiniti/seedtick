@@ -106,12 +106,12 @@ class TossWtsClient:
             if force or self._client is None or self._xsrf_token is None or expired:
                 await self._issue_session()
 
-    async def screen_common_us(self, size: int = 200, page: int = 1) -> dict:
-        """13인 공통 필터로 미국 주식 조회 및 심볼 보강"""
+    async def screen_common(self, nation: str = "us", size: int = 200, page: int = 1) -> dict:
+        """13인 공통 필터로 주식 조회 및 심볼 보강 (nation: 'us' | 'kr')"""
         body = {
             "pagingParam": {"key": None, "number": page, "size": size},
             "filters": COMMON_FILTERS,
-            "nation": "us",
+            "nation": nation.lower(),
         }
 
         raw = None
@@ -137,6 +137,10 @@ class TossWtsClient:
 
         flat = self._flatten_result(raw)
         return await self._enrich_tickers(flat)
+
+    async def screen_common_us(self, size: int = 200, page: int = 1) -> dict:
+        """[Deprecated] screen_common(nation='us') 위임 래퍼 — 하위 호환성 유지"""
+        return await self.screen_common(nation="us", size=size, page=page)
 
     def _flatten_result(self, raw: dict) -> dict:
         result = raw.get("result") or {}
