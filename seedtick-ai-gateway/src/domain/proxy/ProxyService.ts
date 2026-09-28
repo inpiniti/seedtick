@@ -5,6 +5,7 @@ import { CooldownManager } from '../key-rotator/CooldownManager.ts';
 import { ErrorClassifier } from '../key-rotator/ErrorClassifier.ts';
 import { KeyRotator } from '../key-rotator/KeyRotator.ts';
 import { QuotaManager } from '../key-rotator/QuotaManager.ts';
+import { ErrorLogService, errorLogService } from '../error-log/ErrorLogService.ts';
 import type {
   ChatRequest,
   ChatResponse,
@@ -23,11 +24,13 @@ export class ProxyService {
   private readonly cooldown: CooldownManager;
   private readonly classifier: ErrorClassifier;
   private readonly quota: QuotaManager;
+  private readonly errorLogger: ErrorLogService;
   private readonly adapters: Map<LLMProvider, ILLMAdapter>;
   // 콜드 스타트 재시도 추적 (provider:modelId)
   private readonly coldStartTried = new Set<string>();
 
-  constructor() {
+  constructor(errorLogger?: ErrorLogService) {
+    this.errorLogger = errorLogger ?? errorLogService;
     this.rotator = new KeyRotator([
       { provider: 'cline', keys: env.clineKeys },
       { provider: 'kilo', keys: env.kiloKeys },
@@ -191,6 +194,16 @@ export class ProxyService {
     }
 
     // 모든 제공사/모델/키 소진
+    await this.errorLogger.critical(
+      'GATEWAY_ALL_KEYS_EXHAUSTED',
+      '모든 LLM 제공사의 키와 모델이 소진되었습니다',
+      {
+        attemptsCount: attempts.length,
+        modelRequested: request.model,
+        lastAttempts: attempts.slice(-5),
+      }
+    );
+
     return {
       error: {
         code: 'GATEWAY_ALL_EXHAUSTED',
@@ -288,6 +301,11 @@ export class ProxyService {
         console.info(
           `[Gateway] Marked daily exhausted for ${provider}:${modelId}:${apiKey.slice(-8)}`
         );
+        await this.errorLogger.warning(
+          'GATEWAY_DAILY_EXHAUSTED',
+          `${provider}:${modelId} 키(${apiKey.slice(-8)}) 일일 할당량(RPD) 소진`,
+          { provider, modelId, apiKeyHash: apiKey.slice(-8) }
+        );
         break;
 
       case 'forbidden':
@@ -296,12 +314,22 @@ export class ProxyService {
         console.info(
           `[Gateway] Set cooldown 1h for ${provider}:${modelId}:${apiKey.slice(-8)} (${category})`
         );
+        await this.errorLogger.warning(
+          'GATEWAY_AUTH_FAILED',
+          `${provider}:${modelId} 키(${apiKey.slice(-8)}) 인증 실패 (${category})`,
+          { provider, modelId, apiKeyHash: apiKey.slice(-8), category }
+        );
         break;
 
       case 'model_not_found':
         this.cooldown.setModelCooldownAllKeys(provider, modelId, allKeys, 86_400_000, category);
         console.info(
           `[Gateway] Set cooldown 24h for ALL keys of ${provider}:${modelId} (${category})`
+        );
+        await this.errorLogger.warning(
+          'GATEWAY_MODEL_NOT_FOUND',
+          `${provider}:${modelId} 모델 미존재 (404) — 전 키 24시간 쿨다운`,
+          { provider, modelId }
         );
         break;
 

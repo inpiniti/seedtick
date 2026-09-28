@@ -108,3 +108,68 @@ class SupabaseRepo:
         except Exception as e:
             logger.error(f"[Supabase] guru_votes 저장 실패 ({ticker}): {e}")
             return False
+
+    def save_log_sync(
+        self,
+        level: str,
+        message: str,
+        code: str = "LOG",
+        context: dict | None = None,
+        logger_name: str | None = None,
+    ) -> bool:
+        """
+        public.error_logs 테이블에 동기적으로 단일 로그 이벤트 저장
+        """
+        if not self._client:
+            return False
+
+        row = {
+            "level": level.upper(),
+            "message": message,
+            "code": code,
+            "context": context or {},
+            "logger_name": logger_name or "",
+        }
+
+        try:
+            self._client.table("error_logs").insert(row).execute()
+            return True
+        except Exception as e:
+            # 로깅 핸들러 내에서 호출될 수 있으므로 무한루프 방지를 위해 sys.stderr에만 출력하거나 안전 처리
+            return False
+
+    def save_logs_batch_sync(self, rows: list[dict]) -> bool:
+        """
+        public.error_logs 테이블에 여러 로그 이벤트를 일괄(batch) 저장
+        """
+        if not self._client or not rows:
+            return False
+
+        try:
+            self._client.table("error_logs").insert(rows).execute()
+            return True
+        except Exception:
+            return False
+
+    async def save_log(
+        self,
+        level: str,
+        message: str,
+        code: str = "LOG",
+        context: dict | None = None,
+        logger_name: str | None = None,
+    ) -> bool:
+        """
+        public.error_logs 테이블에 비동기적으로 단일 로그 이벤트 저장
+        """
+        return self.save_log_sync(
+            level=level,
+            message=message,
+            code=code,
+            context=context,
+            logger_name=logger_name,
+        )
+
+
+supabase_repo = SupabaseRepo()
+

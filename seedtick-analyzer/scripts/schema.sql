@@ -3,6 +3,7 @@
 --
 -- 1. guru_reports : 리포트 전문, 데이터팩, 13인 요약, 원탁 토론 저장 (추후 어날리시스 조회용)
 -- 2. guru_votes   : 스크리너 대시보드 랭킹 및 13인 거장 표결 점수 (g0~g13) 저장
+-- 3. error_logs   : 시스템 이벤트(INFO/WARNING) 및 에러/장애(ERROR/CRITICAL) 통합 로그 저장
 --
 -- Supabase 대시보드 > SQL Editor에 복사하여 실행하세요.
 -- ==============================================================================
@@ -80,3 +81,27 @@ create index if not exists guru_votes_g0_idx on public.guru_votes (g0);
 alter table public.guru_votes enable row level security;
 drop policy if exists guru_votes_read on public.guru_votes;
 create policy guru_votes_read on public.guru_votes for select to anon, authenticated using (true);
+
+
+-- ------------------------------------------------------------------------------
+-- 3. error_logs: 시스템 이벤트 및 에러/장애 로그 테이블
+-- ------------------------------------------------------------------------------
+create table if not exists public.error_logs (
+  id          bigint generated always as identity primary key,
+  created_at  timestamptz not null default now(),
+  level       text        not null,             -- INFO, WARNING, ERROR, CRITICAL
+  logger_name text,                             -- 발신 로거 이름 (예: scheduler_jobs, guru_report_service)
+  code        text        not null default 'LOG', -- 이벤트/에러 코드
+  message     text        not null,             -- 로그/에러 메시지
+  context     jsonb       not null default '{}'::jsonb -- 추가 메타데이터
+);
+
+create index if not exists error_logs_created_at_idx on public.error_logs (created_at desc);
+create index if not exists error_logs_level_idx on public.error_logs (level);
+create index if not exists error_logs_code_idx on public.error_logs (code);
+
+-- RLS 정책 설정 (공개 읽기, 서비스 롤 쓰기)
+alter table public.error_logs enable row level security;
+drop policy if exists error_logs_read on public.error_logs;
+create policy error_logs_read on public.error_logs for select to anon, authenticated using (true);
+
