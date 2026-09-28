@@ -21,6 +21,7 @@ wheels/
 *.egg
 
 .env
+.env.*
 .venv
 venv/
 ENV/
@@ -29,3 +30,7 @@ ENV/
 .coverage
 htmlcov/
 .ruff_cache/
+
+# Token caches
+.*_token_cache.json
+*.token_cache.json

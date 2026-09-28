@@ -1,0 +1,12 @@
+.git
+.gitignore
+.dockerignore
+.env*
+.*_token_cache.json
+*.token_cache.json
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+tests
