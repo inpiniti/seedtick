@@ -1,3 +1,13 @@
+---
+title: Coin Bridge
+emoji: 📈
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # SeedTick Analyzer
 
 미국 주식 자동 스크리닝·13인 투자 거장 심층 분석·일일 배치 스케줄러·독립 증권사 연동 자동매매 통합 서버입니다.
