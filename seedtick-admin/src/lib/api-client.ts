@@ -6,6 +6,7 @@ import {
   IpStatus,
   PendingOrdersResponse,
   ScreenerResponse,
+  StockCandidate,
 } from "@/types/api";
 
 const BASE_URL =
@@ -113,9 +114,28 @@ export async function fetchScreener(
   nation = "us",
   size = 50
 ): Promise<ScreenerResponse> {
-  return request<ScreenerResponse>(
+  const data = await request<ScreenerResponse>(
     `/api/screener/run?preset=${encodeURIComponent(preset)}&nation=${nation}&size=${size}`
   );
+
+  const rawList = data.tickers || data.items || [];
+  const normalizedItems: StockCandidate[] = rawList.map((item, idx) => {
+    let change_rate = item.change_rate;
+    if (change_rate === undefined && item.price != null && item.prev_close) {
+      change_rate = ((item.price - item.prev_close) / item.prev_close) * 100;
+    }
+    return {
+      ...item,
+      rank: item.rank ?? idx + 1,
+      change_rate: change_rate !== undefined ? Number(change_rate) : undefined,
+    };
+  });
+
+  return {
+    ...data,
+    items: normalizedItems,
+    tickers: normalizedItems,
+  };
 }
 
 /** 8. 증권사 브릿지 상태 */

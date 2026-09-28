@@ -85,17 +85,35 @@ export interface StockCandidate {
   ticker: string;
   name: string;
   price: number;
-  change_rate: number;
+  prev_close?: number | null;
+  change_rate?: number;
+  market_cap?: number | null;
+  debt_ratio?: number | null;
+  interest_coverage?: number | null;
+  operating_margin?: number | null;
+  roe?: number | null;
+  logo_image_url?: string | null;
   rank?: number;
   preset?: string;
   guru_score?: number;
 }
 
-export interface ScreenerResponse {
+export interface ScreenerCriteria {
   preset: string;
   nation: string;
+  size: number;
+  page?: number;
+  exclude_tickers?: string[];
+}
+
+export interface ScreenerResponse {
+  tickers?: StockCandidate[];
+  items?: StockCandidate[];
   total_count: number;
-  items: StockCandidate[];
+  count?: number;
+  criteria?: ScreenerCriteria;
+  fetched_at?: string;
+  source?: string;
 }
 
 // 7. Supabase 13인 거장 표결 (guru_votes)

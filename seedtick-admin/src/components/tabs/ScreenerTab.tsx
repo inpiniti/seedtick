@@ -75,6 +75,20 @@ export function ScreenerTab({
       : true
   );
 
+  const filteredLiveCandidates = liveCandidates.filter((s) =>
+    searchTerm
+      ? s.ticker.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (s.name && s.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      : true
+  );
+
+  const filteredReports = guruReports.filter((r) =>
+    searchTerm
+      ? r.ticker.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (r.company_name && r.company_name.toLowerCase().includes(searchTerm.toLowerCase()))
+      : true
+  );
+
   return (
     <div className="space-y-5">
       {/* 서브 탭 & 검색 바 */}
@@ -91,7 +105,12 @@ export function ScreenerTab({
             거장 표결 ({guruVotes.length})
           </button>
           <button
-            onClick={() => setActiveSubTab("live")}
+            onClick={() => {
+              setActiveSubTab("live");
+              if (liveCandidates.length === 0 && !isLoading) {
+                onRefreshLive();
+              }
+            }}
             className={`flex-1 sm:flex-none px-3.5 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
               activeSubTab === "live"
                 ? "bg-white text-[#191f28] shadow-xs"
@@ -306,48 +325,101 @@ export function ScreenerTab({
             </div>
           </Card.Header>
           <Card.Content className="pt-2">
-            {liveCandidates.length === 0 ? (
+            {isLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-3">
+                {[...Array(6)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="p-4 rounded-2xl bg-[#f9fafb] border border-[#f2f4f6] animate-pulse h-24 flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-gray-200"></div>
+                      <div className="space-y-1.5">
+                        <div className="h-4 w-16 bg-gray-200 rounded"></div>
+                        <div className="h-3 w-24 bg-gray-100 rounded"></div>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5 text-right">
+                      <div className="h-4 w-14 bg-gray-200 rounded ml-auto"></div>
+                      <div className="h-3 w-10 bg-gray-100 rounded ml-auto"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : filteredLiveCandidates.length === 0 ? (
               <EmptyState
                 icon={<Search className="w-8 h-8 text-[#8b95a1]" />}
                 title="스크리너 조회 결과가 없어요"
-                description="상단의 [스크리너 재실행] 버튼을 누르면 실시간으로 토스 공통 스크리닝을 시작해요."
+                description={
+                  searchTerm
+                    ? `'${searchTerm}' 검색 조건과 일치하는 종목이 없어요.`
+                    : "상단의 [스크리너 재실행] 버튼을 누르면 실시간으로 토스 공통 스크리닝을 시작해요."
+                }
               />
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-3">
-                {liveCandidates.map((stock, i) => (
+                {filteredLiveCandidates.map((stock, i) => (
                   <div
                     key={`${stock.ticker}-${i}`}
-                    className="p-4 rounded-2xl bg-[#f9fafb] border border-[#f2f4f6] hover:border-[#3182f6] transition-all cursor-pointer flex items-center justify-between"
+                    className="p-4 rounded-2xl bg-[#f9fafb] border border-[#f2f4f6] hover:border-[#3182f6] hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between gap-2.5 group"
                     onClick={() => handleOpenReportByTicker(stock.ticker)}
                   >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-[#191f28] text-sm">
-                          {stock.ticker}
-                        </span>
-                        <Badge variant="primary">#{stock.rank || i + 1}</Badge>
-                      </div>
-                      <p className="text-xs text-[#8b95a1] truncate max-w-[150px] mt-0.5">
-                        {stock.name}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-bold text-[#191f28]">
-                        ${stock.price?.toFixed(2) || "0.00"}
-                      </div>
-                      {stock.change_rate !== undefined && (
-                        <div
-                          className={`text-xs font-semibold ${
-                            stock.change_rate >= 0
-                              ? "text-[#f04452]"
-                              : "text-[#03b26c]"
-                          }`}
-                        >
-                          {stock.change_rate >= 0 ? "+" : ""}
-                          {stock.change_rate.toFixed(2)}%
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {stock.logo_image_url ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img
+                            src={stock.logo_image_url}
+                            alt={stock.ticker}
+                            className="w-9 h-9 rounded-full object-contain bg-white border border-[#e5e8eb] p-0.5 shrink-0"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = "none";
+                            }}
+                          />
+                        ) : (
+                          <div className="w-9 h-9 rounded-full bg-[#e8f3ff] text-[#3182f6] font-bold text-xs flex items-center justify-center shrink-0">
+                            {stock.ticker.slice(0, 2)}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-[#191f28] text-sm group-hover:text-[#3182f6] transition-colors truncate">
+                              {stock.ticker}
+                            </span>
+                            <Badge variant="primary">#{stock.rank || i + 1}</Badge>
+                          </div>
+                          <p className="text-xs text-[#8b95a1] truncate max-w-[130px] mt-0.5" title={stock.name}>
+                            {stock.name}
+                          </p>
                         </div>
-                      )}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-sm font-bold text-[#191f28]">
+                          ${stock.price?.toFixed(2) || "0.00"}
+                        </div>
+                        {stock.change_rate !== undefined && (
+                          <div
+                            className={`text-xs font-semibold ${
+                              stock.change_rate >= 0
+                                ? "text-[#f04452]"
+                                : "text-[#03b26c]"
+                            }`}
+                          >
+                            {stock.change_rate >= 0 ? "+" : ""}
+                            {stock.change_rate.toFixed(2)}%
+                          </div>
+                        )}
+                      </div>
                     </div>
+
+                    {stock.roe != null && (
+                      <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-[#f2f4f6] text-[#8b95a1]">
+                        <span>ROE: <strong className="text-[#4e5968]">{(stock.roe * 100).toFixed(1)}%</strong></span>
+                        <span className="text-[#3182f6] font-medium flex items-center group-hover:translate-x-0.5 transition-transform">
+                          리포트 확인 <ChevronRight className="w-3 h-3 ml-0.5" />
+                        </span>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -366,15 +438,19 @@ export function ScreenerTab({
             </Card.Description>
           </Card.Header>
           <Card.Content className="pt-2">
-            {guruReports.length === 0 ? (
+            {filteredReports.length === 0 ? (
               <EmptyState
                 icon={<FileText className="w-8 h-8 text-[#8b95a1]" />}
                 title="보관된 리포트가 없어요"
-                description="파이프라인이 완료되면 생성된 리포트가 이곳에 자동으로 쌓여요."
+                description={
+                  searchTerm
+                    ? `'${searchTerm}' 검색 조건과 일치하는 리포트가 없어요.`
+                    : "파이프라인이 완료되면 생성된 리포트가 이곳에 자동으로 쌓여요."
+                }
               />
             ) : (
               <div className="divide-y divide-[#f9fafb]">
-                {guruReports.map((report) => (
+                {filteredReports.map((report) => (
                   <div
                     key={report.id}
                     className="py-3.5 flex items-center justify-between hover:bg-[#f9fafb] px-2 rounded-2xl transition-colors cursor-pointer"
