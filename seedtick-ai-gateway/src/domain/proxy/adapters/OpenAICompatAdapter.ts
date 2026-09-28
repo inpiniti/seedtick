@@ -14,7 +14,7 @@ export class OpenAICompatAdapter implements ILLMAdapter {
     request: ChatRequest,
     modelId: string,
     apiKey: string,
-    timeoutMs = 60_000
+    timeoutMs = 120_000
   ): Promise<{
     ok: boolean;
     status: number;
@@ -31,7 +31,7 @@ export class OpenAICompatAdapter implements ILLMAdapter {
       model: modelId,
       messages: request.messages,
       temperature: request.temperature ?? 0.7,
-      max_tokens: request.max_tokens ?? 2000,
+      max_tokens: request.max_tokens ?? 32768,
       stream: request.stream ?? false,
     };
 

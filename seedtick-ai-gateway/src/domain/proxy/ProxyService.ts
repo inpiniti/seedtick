@@ -231,14 +231,14 @@ export class ProxyService {
     const coldStartKey = `${provider}:${modelId}`;
     const isFirstCall = !this.coldStartTried.has(coldStartKey);
 
-    // 첫 호출: 기본 60초 타임아웃
-    let result = await adapter.call(request, modelId, apiKey, 60_000);
+    // 첫 호출: 기본 120초 타임아웃 (긴 토큰 생성 지원)
+    let result = await adapter.call(request, modelId, apiKey, 120_000);
 
-    // 타임아웃/네트워크 에러이고 첫 호출인 경우 한 번 재시도 (120초)
+    // 타임아웃/네트워크 에러이고 첫 호출인 경우 한 번 재시도 (180초)
     const isTimeoutOrNetwork = result.status === 408 || result.status === 0;
     if (isFirstCall && isTimeoutOrNetwork) {
       console.info(
-        `[Gateway] Cold start timeout/network error for ${provider}:${modelId}:${apiKey.slice(-8)}, retrying with 120s timeout...`
+        `[Gateway] Cold start timeout/network error for ${provider}:${modelId}:${apiKey.slice(-8)}, retrying with 180s timeout...`
       );
       this.coldStartTried.add(coldStartKey);
 
@@ -254,7 +254,7 @@ export class ProxyService {
       };
       attempts.push(retryAttempt);
 
-      result = await adapter.call(request, modelId, apiKey, 120_000);
+      result = await adapter.call(request, modelId, apiKey, 180_000);
 
       if (result.ok && result.response) {
         console.info(
