@@ -103,17 +103,17 @@ export default function AdminDashboardPage() {
   }, []);
 
   // 2. 실시간 스크리너 별도 조회
-  const loadLiveScreener = async () => {
+  const loadLiveScreener = useCallback(async () => {
     setIsScreenerLoading(true);
     try {
       const res = await fetchScreener("공통", "us", 50);
-      setLiveCandidates(res.items || []);
+      setLiveCandidates(res.items || res.tickers || []);
     } catch (err) {
       console.warn("실시간 스크리너 조회 실패:", err);
     } finally {
       setIsScreenerLoading(false);
     }
-  };
+  }, []);
 
   // 3. 로그 필터 새로고침
   const handleRefreshLogs = async (level?: string) => {
@@ -128,6 +128,13 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     loadDashboardData();
   }, [loadDashboardData]);
+
+  // 스크리너 탭 진입 시 실시간 데이터가 없으면 자동 페칭
+  useEffect(() => {
+    if (activeTab === "screener" && liveCandidates.length === 0 && !isScreenerLoading) {
+      loadLiveScreener();
+    }
+  }, [activeTab, liveCandidates.length, isScreenerLoading, loadLiveScreener]);
 
   return (
     <div className="min-h-screen bg-[#f7f9fc] flex flex-col font-sans">
