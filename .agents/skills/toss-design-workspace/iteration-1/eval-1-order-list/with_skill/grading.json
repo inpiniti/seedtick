@@ -1,0 +1,45 @@
+{
+  "expectations": [
+    {
+      "text": "로딩 상태가 스켈레톤 UI다 (스피너/텍스트 단독이 아니라 레이아웃 자리를 잡는 placeholder)",
+      "passed": true,
+      "evidence": "SkeletonRow 4행 + shimmer 애니메이션, 실제 행과 동일 min-height 72px로 레이아웃 시프트 방지, prefers-reduced-motion 대응까지"
+    },
+    {
+      "text": "빈 상태가 아이콘·이모지 + 해요체 안내 + 다음 행동 설명으로 구성된다",
+      "passed": true,
+      "evidence": "📦 + \"아직 주문한 내역이 없어요\" + \"첫 주문을 하면 여기에 나타나요\" + [상품 보러 가기] CTA"
+    },
+    {
+      "text": "금액이 청킹 형식이다 (₩ 또는 원 + 천 단위 콤마)",
+      "passed": true,
+      "evidence": "formatAmount: `₩${amount.toLocaleString(\"ko-KR\")}` → ₩74,330"
+    },
+    {
+      "text": "주문 상태가 색상 배지 등으로 시각 구분되고 의미 색 체계(성공=초록 계열 등)를 따른다",
+      "passed": true,
+      "evidence": "weak variant 뱃지 — 배송 중=파랑(#3182f6), 배송 완료=초록(#03b26c), 결제 대기=주황(#ff9500), 취소=빨강(#f04452)+금액 취소선"
+    },
+    {
+      "text": "모든 사용자 노출 문구가 해요체다",
+      "passed": true,
+      "evidence": "\"주문 내역을 불러오고 있어요\", \"아직 주문한 내역이 없어요\", \"여기에 나타나요\" — 합니다체 없음"
+    },
+    {
+      "text": "카드형 리스트(radius 12px 이상 + 흰 서피스/연한 배경 계층)를 사용한다",
+      "passed": true,
+      "evidence": "배경 #f7f9fc 위에 흰 서피스 섹션(radius 20, 그림자 0 2px 8px rgba(0,0,0,0.06))"
+    }
+  ],
+  "summary": { "passed": 6, "failed": 0, "total": 6, "pass_rate": 1.0 },
+  "claims": [
+    {
+      "claim": "ListRow 3영역 스펙(contents/right/chevron)과 행 전체 버튼 탭 영역(≥48px) 적용",
+      "type": "process",
+      "verified": true,
+      "evidence": "order-row가 <button> min-height 72px, :active 터치 피드백, chevron svg"
+    }
+  ],
+  "user_notes_summary": { "uncertainties": [], "needs_review": [], "workarounds": [] },
+  "eval_feedback": { "suggestions": [], "overall": "스킬의 컴포넌트 패턴 문서가 그대로 반영됨 — 변별력 높은 평가." }
+}

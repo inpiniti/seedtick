@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f7f9fc;
+  --foreground: #191f28;
+
+  /* Toss Design Tokens */
+  --toss-bg: #f7f9fc;
+  --toss-surface: #ffffff;
+  --toss-surface-hover: #f9fafb;
+  --toss-text-primary: #191f28;
+  --toss-text-secondary: #4e5968;
+  --toss-text-tertiary: #8b95a1;
+  --toss-border: #e5e8eb;
+  
+  --toss-primary: #3182f6;
+  --toss-primary-hover: #1b64da;
+  --toss-primary-light: #e8f3ff;
+  
+  --toss-red: #f04452;
+  --toss-red-light: #fef0f1;
+  
+  --toss-green: #03b26c;
+  --toss-green-light: #e6f8f0;
+  
+  --toss-orange: #ff9500;
+  --toss-orange-light: #fff5e6;
+
+  /* Elevation */
+  --toss-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  --toss-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+body {
+  background-color: var(--toss-bg);
+  color: var(--toss-text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Pretendard Variable", Pretendard,
+    Roboto, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Scrollbar for clean aesthetics */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}

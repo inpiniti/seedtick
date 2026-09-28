@@ -1,0 +1,48 @@
+{
+  "expectations": [
+    {
+      "text": "로딩 상태가 스켈레톤 UI다 (스피너/텍스트 단독이 아니라 레이아웃 자리를 잡는 placeholder)",
+      "passed": false,
+      "evidence": "LoadingView가 스피너 + \"주문 내역을 불러오는 중...\" 텍스트 — 스켈레톤 없음, 로딩→완료 시 레이아웃 전환 발생"
+    },
+    {
+      "text": "빈 상태가 아이콘·이모지 + 해요체 안내 + 다음 행동 설명으로 구성된다",
+      "passed": false,
+      "evidence": "🛒 이모지와 다음 행동 안내(\"첫 주문을 시작해 보세요.\")는 있으나 제목이 \"주문 내역이 없습니다\"(합니다체) — 해요체 조건 미충족"
+    },
+    {
+      "text": "금액이 청킹 형식이다 (₩ 또는 원 + 천 단위 콤마)",
+      "passed": true,
+      "evidence": "`${amount.toLocaleString(\"ko-KR\")}원` → 24,500원"
+    },
+    {
+      "text": "주문 상태가 색상 배지 등으로 시각 구분되고 의미 색 체계(성공=초록 계열 등)를 따른다",
+      "passed": true,
+      "evidence": "상태별 배지 — 배송 완료=초록(#15803d), 배송 중=청록, 취소=회색. 색 팔레트는 임의지만 의미 구분은 성립"
+    },
+    {
+      "text": "모든 사용자 노출 문구가 해요체다",
+      "passed": false,
+      "evidence": "\"주문 내역이 없습니다\", \"불러오지 못했습니다\", \"불러오는 중...\" — 합니다체 위주"
+    },
+    {
+      "text": "카드형 리스트(radius 12px 이상 + 흰 서피스/연한 배경 계층)를 사용한다",
+      "passed": false,
+      "evidence": "리스트가 border 1px + radius 12의 흰 박스이긴 하나 페이지 배경 계층(연한 배경 위 서피스)과 그림자가 없어 플랫한 표 형태"
+    }
+  ],
+  "summary": { "passed": 2, "failed": 4, "total": 6, "pass_rate": 0.333 },
+  "claims": [
+    {
+      "claim": "에러 상태 + 재시도 버튼 등 상태 처리 자체는 베이스라인이 오히려 더 넓게 커버",
+      "type": "quality",
+      "verified": true,
+      "evidence": "ErrorView(onRetry) 구현 — 다만 문구 톤과 로딩 패턴이 토스 기준 미달"
+    }
+  ],
+  "user_notes_summary": { "uncertainties": [], "needs_review": [], "workarounds": [] },
+  "eval_feedback": {
+    "suggestions": [],
+    "overall": "스켈레톤·해요체·배경 계층이 스킬 변별 요소로 확인됨."
+  }
+}
