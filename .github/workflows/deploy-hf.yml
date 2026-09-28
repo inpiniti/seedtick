@@ -1,0 +1,52 @@
+name: Deploy Analyzer to Hugging Face Spaces
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'seedtick-analyzer/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy to Hugging Face Spaces
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "::error::HF_TOKEN secret is not set!"
+            exit 1
+          fi
+
+          git config --global user.email "grmictsol@gmail.com"
+          git config --global user.name "younginpiniti"
+
+          # 1. Hugging Face Space 저장소 클론
+          git clone https://younginpiniti:$HF_TOKEN@huggingface.co/spaces/younginpiniti/coin-bridge hf_space
+
+          # 2. seedtick-analyzer 내용을 hf_space 로 동기화 (.git 및 환경변수/캐시 제외)
+          rsync -av --delete \
+            --exclude='.git' \
+            --exclude='.env*' \
+            --exclude='__pycache__' \
+            --exclude='.pytest_cache' \
+            --exclude='*.json_cache' \
+            --exclude='*token_cache.json' \
+            --exclude='*.pyc' \
+            seedtick-analyzer/ hf_space/
+
+          # 3. 변경사항 커밋 및 푸시
+          cd hf_space
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No changes to deploy."
+          else
+            git commit -m "Deploy from GitHub Actions (${GITHUB_SHA::7})"
+            git push origin main
+          fi
