@@ -2,6 +2,9 @@
 DiscussionEngine & MasterReportBuilder: 거장 원탁 토론 전문 및 최종 종합 보고서 생성
 """
 import logging
+import re
+from typing import Literal
+from app.config.constants import VERDICT_SCORE_MAP
 from app.domains.report.ai_client import AiGatewayClient
 from app.domains.report.models import (
     FinalMasterReport,
@@ -94,7 +97,7 @@ class DiscussionEngine:
 
 [필수 구성]
 # {datapack.ticker} 최종 투자 보고서
-> 날짜: {datapack.date} | 종합 의견: (매수/보유/관망/매도) | 표결: 매수 {discussion.final_vote_counts.get('매수', 0)} · 보유 {discussion.final_vote_counts.get('보유', 0)} · 관망 {discussion.final_vote_counts.get('관망', 0)} · 매도 {discussion.final_vote_counts.get('매도', 0)}
+> 날짜: {datapack.date} | 종합 의견: (매수/보유/관망/매도 중 택1, 필요시 상세수식어 병기) | 표결: 매수 {discussion.final_vote_counts.get('매수', 0)} · 보유 {discussion.final_vote_counts.get('보유', 0)} · 관망 {discussion.final_vote_counts.get('관망', 0)} · 매도 {discussion.final_vote_counts.get('매도', 0)}
 
 ## 1. 종합 결론
 (단순 다수결이 아니라, 토론에서 가장 견고하게 살아남은 논거를 토대로 종합 결론 도출)
@@ -122,24 +125,11 @@ class DiscussionEngine:
 """
         master_md = await self.ai.chat(prompt)
 
-        # 종합 의견 및 점수 판정
+        # 4단계: LLM 리서치 센터장의 최종 투자의견을 시스템 판정(verdict 및 score)으로 채택
         votes = discussion.final_vote_counts
-        buy_cnt = votes.get("매수", 0)
-        sell_cnt = votes.get("매도", 0)
-        hold_cnt = votes.get("보유", 0)
-
-        if buy_cnt >= 7:
-            overall_verdict = "매수"
-            overall_score = 0
-        elif sell_cnt >= 5:
-            overall_verdict = "매도"
-            overall_score = 3
-        elif buy_cnt + hold_cnt >= 8:
-            overall_verdict = "보유"
-            overall_score = 1
-        else:
-            overall_verdict = "관망"
-            overall_score = 2
+        overall_verdict, overall_score = self.parse_report_verdict(
+            master_md, fallback_votes=votes
+        )
 
         vote_summary = (
             f"매수 {votes.get('매수', 0)} · 보유 {votes.get('보유', 0)} · "
@@ -156,3 +146,64 @@ class DiscussionEngine:
             bear_case="단기 밸류에이션 부담 및 매크로 불확실성",
             raw_markdown=master_md,
         )
+
+    def parse_report_verdict(
+        self,
+        raw_md: str,
+        fallback_votes: dict[str, int] | None = None,
+    ) -> tuple[Literal["매수", "보유", "관망", "매도"], int]:
+        """
+        LLM이 작성한 최종 마스터 보고서 마크다운에서 리서치 센터장의 최종 투자의견을 파싱합니다.
+        
+        1순위: 마크다운 헤더 '> ... | 종합 의견: ... | ...' 패턴 탐색
+        2순위: 본문 내 '종합 결론/종합 의견/최종 의견' 키워드 라인 탐색
+        3순위: 파싱 실패 시 사전 13인 표결 다수결(fallback_votes) 룰 적용
+        """
+        cand = ""
+        # 1. 헤더의 '> ... | 종합 의견: ... | ...' 라인 탐색
+        m = re.search(r"종합\s*의견[:\s\*]*([^\n\|>]+)", raw_md)
+        if m:
+            cand = m.group(1).strip().strip("*_`\"'")
+
+        # 2. 보조 탐색: 본문의 '종합 결론/의견' 라인
+        if not cand:
+            m2 = re.search(r"(?:최종\s*)?종합\s*(?:의견|결론|판정)[:\s\*]*([^\n]+)", raw_md)
+            if m2:
+                cand = m2.group(1).strip().strip("*_`\"'")
+
+        # 3. 매수, 매도, 보유, 관망 중 가장 먼저 나타나는 핵심 키워드 매칭
+        keywords = ["매수", "매도", "보유", "관망"]
+        found: list[tuple[int, Literal["매수", "보유", "관망", "매도"]]] = []
+        for kw in keywords:
+            pos = cand.find(kw)
+            if pos != -1:
+                found.append((pos, kw))  # type: ignore
+
+        if found:
+            found.sort(key=lambda x: x[0])
+            verdict = found[0][1]
+            score = VERDICT_SCORE_MAP.get(verdict, 2)
+            logger.info(
+                f"LLM 마스터 보고서에서 최종 판정 추출 성공: '{cand}' -> {verdict} (score: {score})"
+            )
+            return verdict, score
+
+        # 4. 폴백: LLM 출력에서 의견 추출 실패 시 사전 표결 기반 기존 판정 룰 적용
+        logger.warning(
+            f"LLM 마스터 보고서에서 투자의견 파싱 실패 ('{cand}'). 사전 표결 다수결 폴백 적용."
+        )
+        if fallback_votes:
+            buy_cnt = fallback_votes.get("매수", 0)
+            sell_cnt = fallback_votes.get("매도", 0)
+            hold_cnt = fallback_votes.get("보유", 0)
+
+            if buy_cnt >= 7:
+                return "매수", 0
+            elif sell_cnt >= 5:
+                return "매도", 3
+            elif buy_cnt + hold_cnt >= 8:
+                return "보유", 1
+            else:
+                return "관망", 2
+
+        return "관망", 2

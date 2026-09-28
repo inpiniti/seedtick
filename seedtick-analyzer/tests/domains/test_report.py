@@ -13,6 +13,7 @@ from app.domains.report.models import (
     StockDataPack,
     ValuationRow,
 )
+from app.domains.report.discussion_engine import DiscussionEngine
 from app.domains.report.service import GuruReportService
 
 
@@ -131,4 +132,92 @@ def test_parse_summary_block_various_formats():
     assert len(block2.core_arguments) >= 2
     assert "경제적 해자" in block2.core_arguments[0]
     assert "역발상" in block2.quote
+
+
+def test_parse_report_verdict_various_formats():
+    engine = DiscussionEngine(ai_client=MagicMock())
+
+    # Case 1: TSM 케이스 (볼드 및 괄호 수식어)
+    md1 = "> 날짜: 2026-09-25 | 종합 의견: **매수 (적극 분할 진입)** | 표결: 매수 5 · 보유 0 · 관망 8 · 매도 0"
+    v1, s1 = engine.parse_report_verdict(md1, fallback_votes={"매수": 5, "관망": 8})
+    assert v1 == "매수"
+    assert s1 == 0
+
+    # Case 2: 조건부 매수
+    md2 = "> 날짜: 2026-09-23 | 종합 의견: **매수 (조건부)** | 표결: 매수 6 · 보유 0 · 관망 7 · 매도 0"
+    v2, s2 = engine.parse_report_verdict(md2)
+    assert v2 == "매수"
+    assert s2 == 0
+
+    # Case 3: 보유 (영문 병기)
+    md3 = "> 날짜: 2026-09-24 | 종합 의견: 보유 (Hold-to-Accumulate) | 표결: 매수 4 · 보유 3 · 관망 6 · 매도 0"
+    v3, s3 = engine.parse_report_verdict(md3)
+    assert v3 == "보유"
+    assert s3 == 1
+
+    # Case 4: 관망 (매도우위 병기)
+    md4 = "> 날짜: 2026-09-24 | 종합 의견: 관망(매도우위) | 표결: ..."
+    v4, s4 = engine.parse_report_verdict(md4)
+    assert v4 == "관망"
+    assert s4 == 2
+
+    # Case 5: 매도
+    md5 = "> 날짜: 2026-09-25 | 종합 의견: **매도** | 표결: ..."
+    v5, s5 = engine.parse_report_verdict(md5)
+    assert v5 == "매도"
+    assert s5 == 3
+
+    # Case 6: 폴백 (헤더에 종합의견 누락 시 fallback_votes 사용)
+    md6 = "# TSM 최종 투자 보고서\n> 날짜: 2026-09-25 | 표결: 매수 8 · 보유 0 · 관망 5 · 매도 0"
+    v6, s6 = engine.parse_report_verdict(md6, fallback_votes={"매수": 8, "보유": 0, "관망": 5, "매도": 0})
+    assert v6 == "매수"
+    assert s6 == 0
+
+
+@pytest.mark.asyncio
+async def test_generate_master_report_prioritizes_llm_verdict():
+    mock_ai = MagicMock()
+    # TSM 사례 모의: 13인 표결은 매수 5, 관망 8이지만 LLM 종합의견은 매수
+    mock_ai.chat = AsyncMock(
+        return_value=(
+            "# TSM 최종 투자 보고서\n"
+            "> 날짜: 2026-09-25 | 종합 의견: **매수 (적극 분할 진입)** | 표결: 매수 5 · 보유 0 · 관망 8 · 매도 0\n\n"
+            "## 1. 종합 결론\n"
+            "단순 다수결이 아니라 토론에서 압도적이었던 매수 5인의 논거를 채택한다."
+        )
+    )
+    engine = DiscussionEngine(ai_client=mock_ai)
+
+    datapack = StockDataPack(
+        ticker="TSM",
+        company_name="Taiwan Semiconductor",
+        date="2026-09-25",
+        current_price=170.0,
+        overview="TSM overview",
+        balance_sheet=BalanceSheetRow(),
+        valuation=ValuationRow(current_price=170.0),
+        raw_markdown="# TSM 팩트",
+    )
+    summaries = GuruSummaryDoc(
+        ticker="TSM",
+        date="2026-09-25",
+        summaries=[],
+        raw_markdown="",
+    )
+    discussion = GuruDiscussionDoc(
+        ticker="TSM",
+        date="2026-09-25",
+        hot_topics=["해자"],
+        dialogue="토론",
+        final_vote_counts={"매수": 5, "보유": 0, "관망": 8, "매도": 0},
+        raw_markdown="",
+    )
+
+    report = await engine.generate_master_report(datapack, summaries, discussion)
+
+    # 13인 머릿수(매수 5표)로는 기존 규칙상 "관망"이었으나,
+    # B방안(LLM 최종 판단)에 따라 "매수" 및 score 0으로 확정되어야 함
+    assert report.overall_verdict == "매수"
+    assert report.overall_score == 0
+
 
