@@ -22,8 +22,9 @@
   ▼
 [4단계] 최종 종합 투자 보고서 생성 (Bull/Bear, 드라이버, 실전 가이드)
   │      └─ docs/report/{날짜}/최종/{티커}_최종보고서.md
+  │      └─ 단순 머릿수 표결이 아닌 토론 결론을 종합한 리서치 센터장 LLM의 최종 판정을 종합의견(verdict/score)으로 채택
   ▼
-[5단계] Supabase DB 동기화 (guru_votes 테이블 기록) & 알림
+[5단계] Supabase DB 동기화 (guru_reports 및 guru_votes 테이블 기록) & 알림
 ```
 
 ## 산출물 디렉터리 구조
