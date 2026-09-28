@@ -1,0 +1,45 @@
+{
+  "expectations": [
+    {
+      "text": "모든 사용자 노출 문구가 해요체다 ('~합니다/~하십시오/~됩니다' 없음)",
+      "passed": true,
+      "evidence": "\"이메일을 입력해 주세요\", \"8자 이상, 영문과 숫자를 함께 써 주세요\", \"가입하고 있어요…\", 토스트 \"○○님, 가입했어요. 환영해요!\" — 전부 해요체, 합니다체 없음"
+    },
+    {
+      "text": "검증 에러 메시지가 긍정형·안내형이다 ('잘못된/유효하지 않은/불가능' 대신 '~해 주세요/~이 필요해요' 형태)",
+      "passed": true,
+      "evidence": "\"이메일 형식으로 입력해 주세요 (예: toss@example.com)\", \"2~10자, 한글·영문·숫자로 지어 주세요\" — 어떻게 하면 되는지 안내형"
+    },
+    {
+      "text": "제출 CTA 버튼이 토스 블루 계열(#3182f6)이고 높이(패딩 포함) 44px 이상이다",
+      "passed": true,
+      "evidence": "background: t.primary(#3182f6), minHeight: 56 명시"
+    },
+    {
+      "text": "각 입력 필드에 label(또는 시각적 라벨)이 있다",
+      "passed": true,
+      "evidence": "TextField가 <label htmlFor={name}>을 렌더링 — 이메일/비밀번호/닉네임 전부"
+    },
+    {
+      "text": "CTA 라벨이 행동을 나타낸다 ('확인/제출' 대신 '가입하기' 류)",
+      "passed": true,
+      "evidence": "버튼 라벨 \"가입하기\" (로딩 중 \"가입하고 있어요…\")"
+    },
+    {
+      "text": "배경/카드/텍스트 색이 토스 토큰 계열(#f7f9fc, #ffffff, #191f28 등)을 따른다",
+      "passed": true,
+      "evidence": "토큰 상수 t에 #f7f9fc/#ffffff/#191f28/#4e5968/#8b95a1/#e5e8eb/#f04452 정의 후 전면 사용, 카드 radius 24 + 0 2px 8px rgba(0,0,0,0.06)"
+    }
+  ],
+  "summary": { "passed": 6, "failed": 0, "total": 6, "pass_rate": 1.0 },
+  "claims": [
+    {
+      "claim": "터치 타깃 44px, 포커스 이동, aria 연결 등 스킬의 접근성 스펙 적용",
+      "type": "process",
+      "verified": true,
+      "evidence": "input minHeight 52, 비밀번호 토글 minWidth/minHeight 44 + aria-label/aria-pressed, 제출 실패 시 첫 에러 필드 포커스"
+    }
+  ],
+  "user_notes_summary": { "uncertainties": [], "needs_review": [], "workarounds": [] },
+  "eval_feedback": { "suggestions": [], "overall": "assertion이 스킬 규칙과 1:1 대응되어 변별력 있음." }
+}

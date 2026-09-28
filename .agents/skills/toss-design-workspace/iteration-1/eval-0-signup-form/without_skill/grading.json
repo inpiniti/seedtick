@@ -1,0 +1,53 @@
+{
+  "expectations": [
+    {
+      "text": "모든 사용자 노출 문구가 해요체다 ('~합니다/~하십시오/~됩니다' 없음)",
+      "passed": false,
+      "evidence": "혼재 — \"입력해주세요\"(해요체)와 \"올바른 이메일 형식이 아닙니다\", \"8자 이상이어야 합니다\", \"포함해야 합니다\"(합니다체)가 섞여 있음"
+    },
+    {
+      "text": "검증 에러 메시지가 긍정형·안내형이다 ('잘못된/유효하지 않은/불가능' 대신 '~해 주세요/~이 필요해요' 형태)",
+      "passed": false,
+      "evidence": "\"올바른 이메일 형식이 아닙니다.\" — 무엇이 잘못됐는지만 말하는 부정형, 예시나 방법 안내 없음"
+    },
+    {
+      "text": "제출 CTA 버튼이 토스 블루 계열(#3182f6)이고 높이(패딩 포함) 44px 이상이다",
+      "passed": false,
+      "evidence": "색상은 #3182f6로 우연히 일치하나, padding 12px×2 + fontSize 16(줄높이 약 19px) ≈ 43px로 44px 미달, minHeight 미지정"
+    },
+    {
+      "text": "각 입력 필드에 label(또는 시각적 라벨)이 있다",
+      "passed": true,
+      "evidence": "이메일/비밀번호/닉네임 모두 <label htmlFor> 존재"
+    },
+    {
+      "text": "CTA 라벨이 행동을 나타낸다 ('확인/제출' 대신 '가입하기' 류)",
+      "passed": true,
+      "evidence": "버튼 라벨 \"가입하기\" (제출 중 \"가입 중...\")"
+    },
+    {
+      "text": "배경/카드/텍스트 색이 토스 토큰 계열(#f7f9fc, #ffffff, #191f28 등)을 따른다",
+      "passed": false,
+      "evidence": "배경/카드 계층 없음(플레인 폼), border #ccc, 에러색 #e5484d, fontFamily sans-serif — 토큰 체계 부재"
+    }
+  ],
+  "summary": { "passed": 2, "failed": 4, "total": 6, "pass_rate": 0.333 },
+  "claims": [
+    {
+      "claim": "접근성 처리(aria-invalid, aria-describedby, role=alert)는 베이스라인도 잘 갖춤",
+      "type": "quality",
+      "verified": true,
+      "evidence": "각 필드에 aria 연결 존재 — 접근성은 스킬 없이도 수행되는 영역"
+    }
+  ],
+  "user_notes_summary": { "uncertainties": [], "needs_review": [], "workarounds": [] },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "제출 CTA 버튼이 토스 블루 계열(#3182f6)이고 높이 44px 이상이다",
+        "reason": "#3182f6은 한국 서비스의 흔한 기본 파랑이라 베이스라인도 우연히 일치 — 색상 단독으로는 변별력이 낮고 높이 기준이 실질 변별 요소"
+      }
+    ],
+    "overall": "문구 톤(해요체·긍정형)과 토큰 체계가 스킬을 가장 잘 변별함."
+  }
+}
