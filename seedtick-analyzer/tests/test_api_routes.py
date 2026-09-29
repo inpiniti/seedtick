@@ -42,3 +42,12 @@ async def test_bridge_routes():
         assert "strategy_rule" in data3
         assert "today_ordered_tickers" in data3
         assert data3["order_action"].startswith("BUY")
+
+        # 4. auto-trading pending-orders
+        res4 = await ac.get("/api/auto-trading/pending-orders")
+        assert res4.status_code == 200
+        data4 = res4.json()
+        assert "pending_count" in data4
+        assert "orders" in data4
+        assert isinstance(data4["orders"], list)
+
