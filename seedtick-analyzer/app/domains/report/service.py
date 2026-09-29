@@ -137,7 +137,7 @@ class GuruReportService:
             async with semaphore:
                 logger.info(f"[{ticker}] ({idx}/{total_gurus}) 거장 '{p_key}' 분석 시작...")
                 try:
-                    block = await self._fetch_single_persona_summary(p_key, datapack.raw_markdown)
+                    block = await self._fetch_single_persona_summary(p_key, datapack.raw_markdown)  # compact 변환은 내부에서 처리
                     logger.info(
                         f"[{ticker}] 거장 '{p_key}' 분석 완료 -> "
                         f"의견: {block.verdict} (확신도: {block.confidence}/10)"
@@ -210,9 +210,71 @@ class GuruReportService:
     async def _fetch_single_persona_summary(
         self, persona_key: str, datapack_md: str
     ) -> PersonaSummaryBlock:
-        prompt = build_persona_prompt(persona_key, datapack_md)
+        # raw_markdown 전체(~3900 토큰) 대신 핵심 수치만 압축하여 전달
+        # → 입력 절감으로 800 토큰 출력 공간 확보, finish_reason=length 방지
+        compact_md = self._build_compact_datapack(datapack_md)
+        prompt = build_persona_prompt(persona_key, compact_md)
         text = await self.ai.chat(prompt, max_tokens=800)
         return self._parse_summary_block(persona_key, text)
+
+    def _build_compact_datapack(self, raw_md: str) -> str:
+        """
+        raw_markdown 전체 대신 페르소나 분석에 필요한 핵심 수치 섹션만 추출·압축합니다.
+        목표: 입력 토큰을 ~3900 → ~1000 수준으로 줄여 출력 공간(800 토큰)을 확보.
+
+        추출 대상 섹션 키워드:
+          - 기업 개요 / Overview
+          - 손익계산서 / 연간 실적
+          - 현금흐름
+          - 재무상태표 / 밸류에이션
+          - 주요 지표
+          - 애널리스트 컨센서스
+          - 가치 드라이버
+        나머지(뉴스 상세, 반복 서술, 긴 설명문)는 제외.
+        """
+        KEEP_KEYWORDS = [
+            "기업 개요", "overview", "비즈니스", "사업 요약",
+            "손익계산서", "연간 실적", "매출", "영업이익", "순이익", "EPS",
+            "현금흐름", "FCF", "잉여현금",
+            "재무상태표", "부채", "자본", "ROE", "ROA", "ROIC",
+            "밸류에이션", "PER", "PBR", "PEG", "EV/EBITDA", "시가총액",
+            "주요 지표", "배당", "애널리스트", "컨센서스", "목표주가",
+            "가치 드라이버", "핵심 드라이버", "촉매",
+        ]
+        SKIP_KEYWORDS = [
+            "뉴스", "최근 뉴스", "news", "공시", "IR 일정",
+        ]
+
+        lines = raw_md.splitlines()
+        result: list[str] = []
+        in_skip_section = False
+        char_budget = 3000  # 약 1,000 토큰 (한국어 기준 3자 ≒ 1토큰)
+
+        for line in lines:
+            stripped = line.strip()
+
+            # 섹션 헤더 감지
+            if stripped.startswith("#"):
+                header_lower = stripped.lower()
+                if any(kw.lower() in header_lower for kw in SKIP_KEYWORDS):
+                    in_skip_section = True
+                    continue
+                elif any(kw.lower() in header_lower for kw in KEEP_KEYWORDS):
+                    in_skip_section = False
+                else:
+                    # 알 수 없는 섹션은 유지 (짧은 헤더는 포함)
+                    in_skip_section = False
+
+            if in_skip_section:
+                continue
+
+            result.append(line)
+            char_budget -= len(line)
+            if char_budget <= 0:
+                result.append("\n... (이하 생략)")
+                break
+
+        return "\n".join(result)
 
     def _parse_summary_block(self, persona_key: str, text: str) -> PersonaSummaryBlock:
         # 형식 파싱: 인물: {persona} | 의견: {verdict} | 확신도: {conf}
