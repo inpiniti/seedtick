@@ -28,31 +28,21 @@ class SchedulerService:
             replace_existing=True,
         )
 
-        # 2. 미국 정규장 개장 후 예약 매수 자동 발주 잡: 월~금 22:35 KST(서머타임) 및 23:35 KST(표준시)
-        summer_trigger = CronTrigger(
-            day_of_week="mon-fri", hour=22, minute=35, timezone="Asia/Seoul"
+        # 2. 미국 정규장 개장(현지 09:30) 5분 후 예약 매수 자동 발주 잡: 월~금 09:35 (America/New_York)
+        # America/New_York 타임존을 사용하여 서머타임(EDT) 시 KST 22:35, 표준시(EST) 시 KST 23:35로 자동 전환 (중복 실행 방지)
+        market_open_trigger = CronTrigger(
+            day_of_week="mon-fri", hour=9, minute=35, timezone="America/New_York"
         )
         self._scheduler.add_job(
             execute_pending_orders_job,
-            trigger=summer_trigger,
-            id="execute_pending_summer",
-            name="미국 정규장 예약 매수 자동 발주 (서머타임: 22:35 KST)",
-            replace_existing=True,
-        )
-
-        winter_trigger = CronTrigger(
-            day_of_week="mon-fri", hour=23, minute=35, timezone="Asia/Seoul"
-        )
-        self._scheduler.add_job(
-            execute_pending_orders_job,
-            trigger=winter_trigger,
-            id="execute_pending_winter",
-            name="미국 정규장 예약 매수 자동 발주 (표준시: 23:35 KST)",
+            trigger=market_open_trigger,
+            id="execute_pending_orders",
+            name="미국 정규장 예약 매수 자동 발주 (미국 현지 09:35)",
             replace_existing=True,
         )
 
         self._scheduler.start()
-        logger.info("[Scheduler] APScheduler 시작 완료 (18:00 파이프라인, 22:35/23:35 예약 발주)")
+        logger.info("[Scheduler] APScheduler 시작 완료 (18:00 파이프라인, 미국 정규장 현지 09:35 예약 발주)")
 
     def shutdown(self):
         """스케줄러 안전 종료"""
