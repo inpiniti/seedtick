@@ -24,8 +24,8 @@ _OPENROUTER_KEYS = [
 ]
 _DIRECT_URL = "https://openrouter.ai/api/v1/chat/completions"
 _TEST_PROMPT = "애플(AAPL)의 현재 PER이 높은지 낮은지 한 문장으로 평가해라."
-_MODEL = "inclusionai/ling-3.0-flash-fin:free"
-_MAX_TOKENS = 200
+_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"
+_MAX_TOKENS = 1000
 
 
 async def _call(url: str, headers: dict) -> dict:
