@@ -155,7 +155,7 @@ class DataPackBuilder:
             cookie, crumb = await self._get_auth(client)
             modules = [
                 "summaryDetail", "defaultKeyStatistics", "financialData",
-                "assetProfile", "recommendationTrend",
+                "assetProfile", "recommendationTrend", "calendarEvents",
             ]
             url = f"{Y1}/v10/finance/quoteSummary/{ticker}?modules={','.join(modules)}&crumb={crumb}"
             res = await client.get(url, headers={"User-Agent": UA, "Cookie": cookie})
@@ -247,6 +247,42 @@ class DataPackBuilder:
             "투자의견": fin_data.get("recommendationKey", "N/A"),
         }
 
+        # IR 일정 파싱 (실적발표일, 배당일)
+        cal_events = qs_res.get("calendarEvents", {})
+        earnings = cal_events.get("earnings", {})
+        earnings_dates = earnings.get("earningsDate", [])
+        earnings_str = "N/A"
+        if earnings_dates:
+            e_list = []
+            for ed in earnings_dates:
+                val = self._raw(ed)
+                if val:
+                    try:
+                        e_list.append(datetime.fromtimestamp(val).strftime("%Y-%m-%d"))
+                    except Exception:
+                        pass
+            if e_list:
+                earnings_str = " ~ ".join(e_list)
+
+        div_date_raw = self._raw(cal_events.get("dividendDate"))
+        div_date_str = (
+            datetime.fromtimestamp(div_date_raw).strftime("%Y-%m-%d")
+            if div_date_raw
+            else "N/A"
+        )
+        ex_div_date_raw = self._raw(cal_events.get("exDividendDate"))
+        ex_div_date_str = (
+            datetime.fromtimestamp(ex_div_date_raw).strftime("%Y-%m-%d")
+            if ex_div_date_raw
+            else "N/A"
+        )
+
+        ir_schedule = {
+            "차기 실적 발표 예정일": earnings_str,
+            "배당 기준일(Ex-Dividend)": ex_div_date_str,
+            "배당 지급일": div_date_str,
+        }
+
         # 통화 판별 (거래통화 vs 재무원장통화)
         price_curr = meta.get("currency") or "USD"
         fin_curr = fin_data.get("financialCurrency") or "USD"
@@ -272,6 +308,7 @@ class DataPackBuilder:
             market_metrics=market_metrics,
             analyst_consensus=analyst_consensus,
             news_items=news_items or [],
+            ir_schedule=ir_schedule,
         )
 
     def _parse_income_rows(self, ts: dict) -> list[FinancialStatementRow]:
@@ -522,22 +559,31 @@ class DataPackBuilder:
         for k, v in dp.analyst_consensus.items():
             lines.append(f"- **{k}**: {v}")
 
-        # 5. 최신 주요 뉴스 및 시장 이벤트
-        if dp.news_items:
+        # 5. 최신 주요 뉴스 및 IR 일정
+        if dp.ir_schedule or dp.news_items:
             lines.extend([
                 "",
                 "---",
                 "",
-                "## 5. 최신 주요 뉴스 및 시장 이벤트 (Catalysts)",
+                "## 5. 최신 주요 뉴스 및 IR 일정 (Catalysts & Events)",
             ])
-            for n in dp.news_items:
-                pub = (
-                    f" ({n['publisher']}"
-                    + (f", {n['published_at']})" if n.get("published_at") else ")")
-                    if n.get("publisher")
-                    else ""
-                )
-                lines.append(f"- **{n['title']}**{pub}")
+            if dp.ir_schedule:
+                lines.append("### 주요 IR 및 실적 이벤트 일정")
+                for k, v in dp.ir_schedule.items():
+                    if v and v != "N/A":
+                        lines.append(f"- **{k}**: {v}")
+                lines.append("")
+
+            if dp.news_items:
+                lines.append("### 최근 주요 뉴스 헤드라인")
+                for n in dp.news_items:
+                    pub = (
+                        f" ({n['publisher']}"
+                        + (f", {n['published_at']})" if n.get("published_at") else ")")
+                        if n.get("publisher")
+                        else ""
+                    )
+                    lines.append(f"- **{n['title']}**{pub}")
 
         # 6. 핵심 가치 드라이버
         if dp.value_drivers:

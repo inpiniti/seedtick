@@ -69,6 +69,7 @@ class StockDataPack(BaseModel):
     market_metrics: dict = Field(default_factory=dict)
     analyst_consensus: dict = Field(default_factory=dict)
     news_items: list[dict] = Field(default_factory=list)
+    ir_schedule: dict = Field(default_factory=dict)
     value_drivers: str = ""
     file_path: str = ""
     raw_markdown: str = ""

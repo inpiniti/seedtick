@@ -27,8 +27,11 @@ class DiscussionEngine:
         3단계: 13인 거장들의 치열한 원탁 토론 전문 생성
         """
         # 프롬프트 크기 최적화: raw_markdown 전체 대신 핵심만 압축
+        # 13인 거장 요약 전문 (모든 논거 및 목표가/트리거 반영)
         compact_summaries = "\n".join(
-            f"- {s.persona}: {s.verdict}({s.confidence}/10) | {'; '.join(s.core_arguments[:2])}"
+            f"- {s.persona}: {s.verdict}({s.confidence}/10) | 논거: {'; '.join(s.core_arguments)}"
+            + (f" | 적정가: {s.target_price_range}" if s.target_price_range else "")
+            + (f" | 트리거: {', '.join(s.trigger_conditions)}" if s.trigger_conditions else "")
             for s in summaries.summaries
         )
 
@@ -39,10 +42,10 @@ class DiscussionEngine:
 {compact_summaries}
 
 [진행 규칙]
-1. 거장들 사이에서 의견이 팽팽하게 맞서는 핵심 쟁점 2~3개(예: 밸류에이션 고평가 여부, 성장의 지속성, 해자의 견고함 등)를 추출하라.
-2. 거장들이 서로의 논거와 실측 수치를 직접 인용하며 치열하게 반박하는 생생한 대화 전문을 작성하라.
+1. 거장들 사이에서 의견이 팽팽하게 맞서는 핵심 쟁점 2~4개(예: 밸류에이션 고평가 여부, 성장의 지속성, 해자의 견고함, 최신 뉴스/촉매의 실질 영향 등)를 추출하라.
+2. 거장들이 서로의 논거와 실측 수치(PER, ROE, FCF, 마진율 등)를 직접 인용하며 치열하게 반박하는 생생하고 깊이 있는 원탁 토론 전문을 작성하라.
    - 예: 버핏과 다모다란의 내재가치 논쟁, 그레이엄과 피셔의 성장성 vs 안전마진 충돌, 버리와 슈웨거의 리스크/추세 공방 등.
-3. 각 거장당 1~2회 핵심 발언으로 압축하여 토론이 중간에 잘리지 않도록 전체 길이를 2,500자(약 2,000 토큰) 내외로 완결성 있게 작성하라.
+3. 13인 거장 전원이 자신만의 고유한 투자 철학에 입각하여 치열하게 반박하고 논쟁하며, 서두부터 결론까지 완결성 있는 풍부한 대화 전문을 작성하라.
 4. 토론 말미에 반드시 '## 3. 최종 입장 정리 및 표결 집계'를 명시하고 완결하라.
 
 [반환 형식]
@@ -64,8 +67,8 @@ class DiscussionEngine:
 - 종합 표결 결론: ...
 """
 
-        logger.info(f"[{datapack.ticker}] 13인 거장 원탁 토론 AI 생성 시작...")
-        dialogue = await self.ai.chat(prompt, max_tokens=4000)
+        logger.info(f"[{datapack.ticker}] 13인 거장 원탁 토론 AI 생성 시작 (32K 지원)...")
+        dialogue = await self.ai.chat(prompt)
         logger.info(f"[{datapack.ticker}] 원탁 토론 AI 생성 완료 (길이: {len(dialogue)}자)")
 
         # 표결 카운트 추출 (단순 파싱)
@@ -143,13 +146,13 @@ class DiscussionEngine:
 - PER: {datapack.valuation.trailing_pe}x | PBR: {datapack.valuation.pbr}x | ROE: {datapack.balance_sheet.roe_pct}%
 
 아래 13인의 요약 블록과 원탁 토론 결과를 토대로, 투자자가 실전에 즉시 활용할 수 있는 '최종 종합 마스터 투자 보고서'를 완벽한 마크다운으로 작성하라.
-불필요한 미사여구는 배제하고 핵심 논거와 구체적 가격/수치 위주로 3,000자(약 2,500 토큰) 내외로 완결성 있게 작성하라.
+핵심 논거와 구체적 가격/수치(PER, ROE, FCF, 목표가 등)를 빠짐없이 포함하여 깊이 있고 전문적인 최고 수준의 리서치 보고서를 작성하라.
 
 [13인 요약 블록]
 {summaries.raw_markdown}
 
-[원탁 토론 결과 요약]
-{discussion.dialogue[:1500]}
+[원탁 토론 전문]
+{discussion.dialogue}
 
 [필수 구성]
 # {datapack.ticker} 최종 투자 보고서
@@ -179,8 +182,8 @@ class DiscussionEngine:
 
 *본 보고서는 서적 기반 시뮬레이션이며 투자 자문이 아닙니다.*
 """
-        logger.info(f"[{datapack.ticker}] 최종 마스터 보고서 AI 생성 시작...")
-        master_md = await self.ai.chat(prompt, max_tokens=4000)
+        logger.info(f"[{datapack.ticker}] 최종 마스터 보고서 AI 생성 시작 (32K 지원)...")
+        master_md = await self.ai.chat(prompt)
         logger.info(f"[{datapack.ticker}] 최종 마스터 보고서 AI 생성 완료 (길이: {len(master_md)}자)")
 
         # 4단계: LLM 리서치 센터장의 최종 투자의견을 시스템 판정(verdict 및 score)으로 채택
