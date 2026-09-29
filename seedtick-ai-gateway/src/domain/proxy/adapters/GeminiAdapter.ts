@@ -84,6 +84,16 @@ export class GeminiAdapter implements ILLMAdapter {
       }
 
       const rawData = JSON.parse(responseText) as GeminiRawResponse;
+
+      // candidates가 비어있으면 오류로 처리 → 다음 키/모델로 폴백
+      if (!rawData.candidates || rawData.candidates.length === 0) {
+        return {
+          ok: false,
+          status: 500,
+          errorBody: `Empty candidates in Gemini response: ${responseText.slice(0, 200)}`,
+        };
+      }
+
       const chatResponse = this.transformResponse(rawData, modelId);
 
       return {
