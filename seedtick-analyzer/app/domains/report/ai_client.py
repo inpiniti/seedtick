@@ -57,7 +57,17 @@ class AiGatewayClient:
                     res = await client.post(url, json=payload, headers=headers)
                     if res.status_code == 200:
                         data = res.json()
-                        content = data["choices"][0]["message"]["content"]
+                        choice = data["choices"][0]
+                        content = choice["message"]["content"]
+                        finish_reason = choice.get("finish_reason", "stop")
+                        if finish_reason == "length":
+                            usage = data.get("usage", {})
+                            logger.warning(
+                                f"[AiGateway] ⚠️ finish_reason=length — 응답이 토큰 한도로 잘림! "
+                                f"completion_tokens={usage.get('completion_tokens', '?')} "
+                                f"total_tokens={usage.get('total_tokens', '?')} "
+                                f"(시도 {attempt}/{max_attempts})"
+                            )
                         return content.strip()
 
                     # 429 Too Many Requests인 경우 무료 티어 쿼터 리셋을 위해 넉넉한 대기시간 적용
