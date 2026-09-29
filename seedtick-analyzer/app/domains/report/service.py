@@ -12,6 +12,7 @@ from app.config.settings import settings
 from app.domains.report.ai_client import AiGatewayClient
 from app.domains.report.datapack_builder import DataPackBuilder
 from app.domains.report.discussion_engine import DiscussionEngine
+from app.domains.report.value_driver_generator import ValueDriverGenerator
 from app.domains.report.models import (
     FinalMasterReport,
     GuruDiscussionDoc,
@@ -38,6 +39,7 @@ class GuruReportService:
         self.base_report_dir = Path(base_report_dir)
         self.datapack_builder = datapack_builder or DataPackBuilder(base_report_dir)
         self.ai = ai_client or AiGatewayClient()
+        self.value_driver_generator = ValueDriverGenerator(self.ai, base_report_dir)
         self.discussion_engine = DiscussionEngine(self.ai)
         self.supabase = supabase_repo or SupabaseRepo()
         self.request_interval = (
@@ -64,6 +66,18 @@ class GuruReportService:
 
         # ── 1단계: 공용 심층 데이터 팩 작성 ───────────────────
         datapack = await self.datapack_builder.build(clean_ticker, date_str)
+
+        # ── 1-1단계: 가치 드라이버 및 최신 시장 촉매(Catalysts) 동적 발굴 ────
+        try:
+            vd_markdown = await self.value_driver_generator.generate_value_drivers(datapack, date_str)
+            datapack.value_drivers = vd_markdown
+            # 가치 드라이버를 데이터팩 마크다운에 통합 및 파일 갱신
+            datapack.raw_markdown = self.datapack_builder._render_markdown(datapack)
+            if datapack.file_path:
+                Path(datapack.file_path).write_text(datapack.raw_markdown, encoding="utf-8")
+            logger.info(f"[{clean_ticker}] 데이터팩에 가치 드라이버 병합 및 갱신 완료")
+        except Exception as e:
+            logger.warning(f"[{clean_ticker}] 가치 드라이버 생성 실패(계속 진행): {e}")
 
         # ── 2단계: 13인 개별 요약 블록 생성 (최대 concurrency개 동시 병렬 실행) ───
         summary_doc = await self.generate_guru_summaries(datapack)
@@ -343,6 +357,8 @@ class GuruReportService:
             "valuation": datapack.valuation.model_dump(),
             "market_metrics": datapack.market_metrics,
             "analyst_consensus": datapack.analyst_consensus,
+            "news_items": datapack.news_items,
+            "value_drivers": datapack.value_drivers,
         }
         summaries_list = [s.model_dump() for s in summaries.summaries]
 
