@@ -69,6 +69,18 @@ export class OpenAICompatAdapter implements ILLMAdapter {
         };
       }
 
+      // OpenRouter 등 상위 제공자가 HTTP 200 안에 error 객체를 반환하는 경우 방어
+      if (rawData.error && typeof rawData.error === 'object') {
+        const errObj = rawData.error as Record<string, unknown>;
+        const errCode = typeof errObj.code === 'number' ? errObj.code : 503;
+        const errMsg = typeof errObj.message === 'string' ? errObj.message : responseText;
+        return {
+          ok: false,
+          status: errCode,
+          errorBody: errMsg,
+        };
+      }
+
       // OpenAI 규격 안전 정규화
       const choicesRaw = Array.isArray(rawData.choices) ? rawData.choices : [];
       const choices = choicesRaw.map((c: Record<string, unknown>, i: number) => {
