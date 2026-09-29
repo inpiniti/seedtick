@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { MarkdownViewer } from "@/components/ui/MarkdownViewer";
+import { ReportSummariesView } from "@/components/tabs/ReportSummariesView";
+import { ReportDatapackView } from "@/components/tabs/ReportDatapackView";
 import { getScoreBadge, formatTime } from "@/lib/utils";
 import {
   FileText,
@@ -53,7 +55,7 @@ export function ScreenerTab({
   const [activeSubTab, setActiveSubTab] = useState<"votes" | "live" | "reports">("votes");
   const [selectedReport, setSelectedReport] = useState<GuruReportRow | null>(null);
   const [reportModalOpen, setReportModalOpen] = useState(false);
-  const [reportViewMode, setReportViewMode] = useState<"final" | "discussion" | "datapack">("final");
+  const [reportViewMode, setReportViewMode] = useState<"final" | "discussion" | "summaries" | "datapack">("final");
   const [searchTerm, setSearchTerm] = useState("");
 
   // 특정 티커 클릭 시 저장된 리포트 열기
@@ -495,7 +497,7 @@ export function ScreenerTab({
       <Modal
         isOpen={reportModalOpen}
         onClose={() => setReportModalOpen(false)}
-        className="sm:max-w-3xl"
+        className="sm:max-w-4xl"
       >
         <Modal.Header
           title={`${selectedReport?.ticker} 심층 투자 분석 보고서`}
@@ -518,11 +520,11 @@ export function ScreenerTab({
               </Badge>
             </div>
 
-            {/* 마크다운 뷰 탭 전환 버튼 */}
-            <div className="flex items-center gap-1.5 p-1 bg-[#f2f4f6] rounded-2xl">
+            {/* 마크다운 뷰 탭 전환 버튼 (4개 모드) */}
+            <div className="flex items-center gap-1 p-1 bg-[#f2f4f6] rounded-2xl overflow-x-auto">
               <button
                 onClick={() => setReportViewMode("final")}
-                className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                className={`flex-1 py-1.5 px-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
                   reportViewMode === "final"
                     ? "bg-white text-[#3182f6] shadow-xs"
                     : "text-[#8b95a1] hover:text-[#4e5968]"
@@ -532,7 +534,7 @@ export function ScreenerTab({
               </button>
               <button
                 onClick={() => setReportViewMode("discussion")}
-                className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                className={`flex-1 py-1.5 px-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
                   reportViewMode === "discussion"
                     ? "bg-white text-[#3182f6] shadow-xs"
                     : "text-[#8b95a1] hover:text-[#4e5968]"
@@ -540,10 +542,30 @@ export function ScreenerTab({
               >
                 13인 거장 원탁 토론
               </button>
+              <button
+                onClick={() => setReportViewMode("summaries")}
+                className={`flex-1 py-1.5 px-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
+                  reportViewMode === "summaries"
+                    ? "bg-white text-[#3182f6] shadow-xs"
+                    : "text-[#8b95a1] hover:text-[#4e5968]"
+                }`}
+              >
+                13인 개별 서머리
+              </button>
+              <button
+                onClick={() => setReportViewMode("datapack")}
+                className={`flex-1 py-1.5 px-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
+                  reportViewMode === "datapack"
+                    ? "bg-white text-[#3182f6] shadow-xs"
+                    : "text-[#8b95a1] hover:text-[#4e5968]"
+                }`}
+              >
+                심층 데이터팩
+              </button>
             </div>
 
-            {/* 마크다운 리포트 본문 렌더링 */}
-            <div className="p-4 sm:p-5 rounded-3xl bg-white border border-[#e5e8eb] shadow-xs max-h-[55vh] overflow-y-auto">
+            {/* 리포트 본문 / 서머리 / 데이터팩 렌더링 */}
+            <div className="p-4 sm:p-5 rounded-3xl bg-white border border-[#e5e8eb] shadow-xs max-h-[58vh] overflow-y-auto">
               {reportViewMode === "final" && (
                 selectedReport?.final_report ? (
                   <MarkdownViewer content={selectedReport.final_report} />
@@ -562,6 +584,14 @@ export function ScreenerTab({
                     원탁 토론 전문이 아직 등록되지 않았어요.
                   </div>
                 )
+              )}
+
+              {reportViewMode === "summaries" && (
+                <ReportSummariesView summaries={selectedReport?.summaries || null} />
+              )}
+
+              {reportViewMode === "datapack" && (
+                <ReportDatapackView datapack={selectedReport?.datapack || null} />
               )}
             </div>
           </div>

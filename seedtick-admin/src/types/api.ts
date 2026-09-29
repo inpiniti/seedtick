@@ -143,6 +143,19 @@ export interface GuruVoteRow {
 }
 
 // 8. Supabase 리포트 (guru_reports)
+export interface GuruSummaryItem {
+  persona?: string;
+  guru_name?: string;
+  verdict?: string;
+  stance?: string;
+  confidence?: number;
+  core_arguments?: string[];
+  rationale?: string;
+  target_price_range?: string | null;
+  trigger_conditions?: string[];
+  quote?: string;
+}
+
 export interface GuruReportRow {
   id: string;
   d: string;
@@ -152,8 +165,8 @@ export interface GuruReportRow {
   verdict: string;
   overall_score: number;
   vote_summary: string | null;
-  datapack: Record<string, unknown> | null;
-  summaries: Array<{ guru_id: number; guru_name: string; stance: string; rationale: string }> | null;
+  datapack: Record<string, any> | null;
+  summaries: GuruSummaryItem[] | null;
   discussion: string | null;
   final_report: string | null;
   created_at: string;

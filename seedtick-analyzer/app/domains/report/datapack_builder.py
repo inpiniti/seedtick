@@ -62,13 +62,14 @@ class DataPackBuilder:
         clean_ticker = ticker.upper().strip()
 
         async with httpx.AsyncClient(timeout=25.0) as client:
-            # 1. 병렬 수집: Chart, Fundamentals Timeseries, QuoteSummary
+            # 1. 병렬 수집: Chart, Fundamentals Timeseries, QuoteSummary, News
             chart_task = self._fetch_chart(client, clean_ticker)
             ts_task = self._fetch_timeseries(client, clean_ticker)
             quote_task = self._fetch_quote_summary(client, clean_ticker)
+            news_task = self._fetch_news(client, clean_ticker)
 
-            chart_data, ts_data, quote_data = await asyncio.gather(
-                chart_task, ts_task, quote_task, return_exceptions=True
+            chart_data, ts_data, quote_data, news_data = await asyncio.gather(
+                chart_task, ts_task, quote_task, news_task, return_exceptions=True
             )
 
         if isinstance(chart_data, Exception):
@@ -80,9 +81,12 @@ class DataPackBuilder:
         if isinstance(quote_data, Exception):
             logger.warning(f"[{clean_ticker}] QuoteSummary API 실패: {quote_data}")
             quote_data = {}
+        if isinstance(news_data, Exception) or not isinstance(news_data, list):
+            logger.warning(f"[{clean_ticker}] News API 실패: {news_data}")
+            news_data = []
 
         # 2. 지표 가공 및 파싱
-        datapack = self._assemble_datapack(clean_ticker, date_str, chart_data, ts_data, quote_data)
+        datapack = self._assemble_datapack(clean_ticker, date_str, chart_data, ts_data, quote_data, news_data)
 
         # 3. 마크다운 렌더링 및 파일 저장
         markdown_text = self._render_markdown(datapack)
@@ -96,6 +100,32 @@ class DataPackBuilder:
 
         logger.info(f"[{clean_ticker}] 심층 데이터팩 생성 완료: {file_path}")
         return datapack
+
+    async def _fetch_news(self, client: httpx.AsyncClient, ticker: str) -> list[dict]:
+        try:
+            url = f"{Y1}/v1/finance/search?q={ticker}&newsCount=8"
+            res = await client.get(url, headers={"User-Agent": UA})
+            if res.status_code == 200:
+                data = res.json()
+                news = data.get("news", [])
+                items = []
+                for n in news:
+                    pub_time = n.get("providerPublishTime")
+                    time_str = (
+                        datetime.fromtimestamp(pub_time).strftime("%Y-%m-%d %H:%M")
+                        if pub_time
+                        else ""
+                    )
+                    items.append({
+                        "title": n.get("title", ""),
+                        "publisher": n.get("publisher", ""),
+                        "link": n.get("link", ""),
+                        "published_at": time_str,
+                    })
+                return items
+        except Exception as e:
+            logger.warning(f"[{ticker}] 뉴스 수집 실패: {e}")
+        return []
 
     async def _fetch_chart(self, client: httpx.AsyncClient, ticker: str) -> dict:
         url = f"{Y1}/v8/finance/chart/{ticker}?range=1y&interval=1wk"
@@ -136,7 +166,13 @@ class DataPackBuilder:
         return {}
 
     def _assemble_datapack(
-        self, ticker: str, date_str: str, chart: dict, ts: dict, quote: dict
+        self,
+        ticker: str,
+        date_str: str,
+        chart: dict,
+        ts: dict,
+        quote: dict,
+        news_items: list[dict] | None = None,
     ) -> StockDataPack:
         # Chart 메타 추출
         chart_res = (chart.get("chart", {}).get("result") or [{}])[0]
@@ -235,6 +271,7 @@ class DataPackBuilder:
             valuation=valuation,
             market_metrics=market_metrics,
             analyst_consensus=analyst_consensus,
+            news_items=news_items or [],
         )
 
     def _parse_income_rows(self, ts: dict) -> list[FinancialStatementRow]:
@@ -484,6 +521,33 @@ class DataPackBuilder:
             lines.append(f"- **{k}**: {v}")
         for k, v in dp.analyst_consensus.items():
             lines.append(f"- **{k}**: {v}")
+
+        # 5. 최신 주요 뉴스 및 시장 이벤트
+        if dp.news_items:
+            lines.extend([
+                "",
+                "---",
+                "",
+                "## 5. 최신 주요 뉴스 및 시장 이벤트 (Catalysts)",
+            ])
+            for n in dp.news_items:
+                pub = (
+                    f" ({n['publisher']}"
+                    + (f", {n['published_at']})" if n.get("published_at") else ")")
+                    if n.get("publisher")
+                    else ""
+                )
+                lines.append(f"- **{n['title']}**{pub}")
+
+        # 6. 핵심 가치 드라이버
+        if dp.value_drivers:
+            lines.extend([
+                "",
+                "---",
+                "",
+                "## 6. 핵심 가치 드라이버 (Value Drivers)",
+                dp.value_drivers,
+            ])
 
         lines.extend([
             "",
