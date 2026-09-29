@@ -13,7 +13,23 @@ export interface ModelConfig {
 }
 
 export const FALLBACK_CHAIN: ModelConfig[] = [
-  // 1순위: NVIDIA Nemotron 3 Super (120B/A12B) — 무료, 262K context, 74 t/s 초고속 (Ultra 대비 3배 빠름)
+  // 1순위: Dots Studio Dots3-Note Preview — 무료, 512K context, 57 t/s (빠르고 안정적)
+  {
+    provider: 'openrouter',
+    modelId: 'dots-studio/dots-3-note-preview:free',
+    displayName: 'OpenRouter/Dots3-Note-Preview',
+  },
+  {
+    provider: 'cline',
+    modelId: 'dots-studio/dots-3-note-preview:free',
+    displayName: 'Cline/Dots3-Note-Preview',
+  },
+  {
+    provider: 'kilo',
+    modelId: 'dots-studio/dots-3-note-preview:free',
+    displayName: 'Kilo/Dots3-Note-Preview',
+  },
+  // 2순위: NVIDIA Nemotron 3 Super (120B/A12B) — 무료, 262K context, 69 t/s 초고속
   {
     provider: 'openrouter',
     modelId: 'nvidia/nemotron-3-super-120b-a12b:free',
@@ -29,34 +45,7 @@ export const FALLBACK_CHAIN: ModelConfig[] = [
     modelId: 'nvidia/nemotron-3-super-120b-a12b:free',
     displayName: 'Kilo/Nemotron-3-Super-120B',
   },
-  // 2순위: NVIDIA Nemotron 3 Ultra 550B — 무료, 1M context, 정밀 분석 (24 t/s)
-  {
-    provider: 'openrouter',
-    modelId: 'nvidia/nemotron-3-ultra-550b-a55b:free',
-    displayName: 'OpenRouter/Nemotron-3-Ultra-550B',
-  },
-  {
-    provider: 'cline',
-    modelId: 'nvidia/nemotron-3-ultra-550b-a55b:free',
-    displayName: 'Cline/Nemotron-3-Ultra-550B',
-  },
-  {
-    provider: 'kilo',
-    modelId: 'nvidia/nemotron-3-ultra-550b-a55b:free',
-    displayName: 'Kilo/Nemotron-3-Ultra-550B',
-  },
-  // 3순위: NVIDIA Nemotron 3.5 Lightning — 무료, 1M context (19 t/s)
-  {
-    provider: 'openrouter',
-    modelId: 'nvidia/nemotron-3.5-lightning:free',
-    displayName: 'OpenRouter/Nemotron-3.5-Lightning',
-  },
-  {
-    provider: 'cline',
-    modelId: 'nvidia/nemotron-3.5-lightning:free',
-    displayName: 'Cline/Nemotron-3.5-Lightning',
-  },
-  // 4순위: Ling (출력 ~2K 제한이지만 최후 fallback)
+  // 3순위: Ling 3.0 Flash Fin — 121 t/s 초고속 최후 fallback
   {
     provider: 'openrouter',
     modelId: 'inclusionai/ling-3.0-flash-fin:free',
