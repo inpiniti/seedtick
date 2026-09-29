@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     # AI-Gateway 연동
     AI_GATEWAY_URL: str = "http://localhost:3000"
     AI_GATEWAY_MODEL: str = "inclusionai/ling-3.0-flash-fin:free"
-    AI_GATEWAY_TIMEOUT: float = 120.0
+    AI_GATEWAY_TIMEOUT: float = 300.0  # 긴 32K 응답 수용을 위해 300초로 상향
     AI_GATEWAY_SECRET: str = ""  # seedtick-ai-gateway의 GATEWAY_SECRET (Bearer 토큰)
     AI_CONCURRENCY: int = 10  # 동시 처리 요청 수 (기본 최대 10개 병렬)
     AI_REQUEST_INTERVAL_SEC: float = 0.0  # 요청 간 대기시간(초)
