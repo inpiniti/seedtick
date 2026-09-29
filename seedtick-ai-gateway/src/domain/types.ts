@@ -13,6 +13,34 @@ export interface ModelConfig {
 }
 
 export const FALLBACK_CHAIN: ModelConfig[] = [
+  // 1순위: NVIDIA Nemotron 3 Ultra 550B — 무료, 1M context, 출력 토큰 여유, 24 t/s
+  {
+    provider: 'openrouter',
+    modelId: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+    displayName: 'OpenRouter/Nemotron-3-Ultra-550B',
+  },
+  {
+    provider: 'cline',
+    modelId: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+    displayName: 'Cline/Nemotron-3-Ultra-550B',
+  },
+  {
+    provider: 'kilo',
+    modelId: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+    displayName: 'Kilo/Nemotron-3-Ultra-550B',
+  },
+  // 2순위: NVIDIA Nemotron 3.5 Lightning — 무료, 빠른 fallback (1M context)
+  {
+    provider: 'openrouter',
+    modelId: 'nvidia/nemotron-3.5-lightning:free',
+    displayName: 'OpenRouter/Nemotron-3.5-Lightning',
+  },
+  {
+    provider: 'cline',
+    modelId: 'nvidia/nemotron-3.5-lightning:free',
+    displayName: 'Cline/Nemotron-3.5-Lightning',
+  },
+  // 3순위: Ling (기존, 출력 ~2K 제한이지만 최후 fallback)
   {
     provider: 'openrouter',
     modelId: 'inclusionai/ling-3.0-flash-fin:free',
