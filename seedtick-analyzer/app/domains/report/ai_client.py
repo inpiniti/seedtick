@@ -57,7 +57,16 @@ class AiGatewayClient:
                     res = await client.post(url, json=payload, headers=headers)
                     if res.status_code == 200:
                         data = res.json()
-                        choice = data["choices"][0]
+                        choices = data.get("choices", [])
+                        if not choices:
+                            # 게이트웨이가 200이지만 빈 choices 반환 (충돌/타임아웃 후 복구)
+                            logger.warning(
+                                f"[AiGateway] ⚠️ 200 OK 이지만 choices[] 빈 배열 — 재시도 ({attempt}/{max_attempts})"
+                            )
+                            if attempt < max_attempts:
+                                await asyncio.sleep(2 * attempt)
+                            continue
+                        choice = choices[0]
                         content = choice["message"]["content"]
                         finish_reason = choice.get("finish_reason", "stop")
                         if finish_reason == "length":
