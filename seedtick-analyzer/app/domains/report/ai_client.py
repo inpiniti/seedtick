@@ -78,10 +78,10 @@ class AiGatewayClient:
                         finish_reason = choice.get("finish_reason", "stop")
                         if finish_reason == "length":
                             usage = data.get("usage", {})
-                            logger.warning(
-                                f"[AiGateway] ⚠️ finish_reason=length — 응답이 토큰 한도로 잘림! "
-                                f"completion_tokens={usage.get('completion_tokens', '?')} "
-                                f"total_tokens={usage.get('total_tokens', '?')}"
+                            logger.debug(
+                                f"[AiGateway] finish_reason=length — 응답이 max_tokens에 도달 "
+                                f"(completion_tokens={usage.get('completion_tokens', '?')}, "
+                                f"total_tokens={usage.get('total_tokens', '?')})"
                             )
                         if not content or not content.strip():
                             logger.warning(
