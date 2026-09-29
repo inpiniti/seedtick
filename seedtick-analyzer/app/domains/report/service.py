@@ -83,18 +83,28 @@ class GuruReportService:
         summary_doc = await self.generate_guru_summaries(datapack)
 
         # ── 3단계: 거장 원탁 토론 전문 생성 ───────────────────
+        logger.info(f"[{clean_ticker}] 3단계: 13인 거장 원탁 토론 전문 생성 시작...")
         if self.request_interval > 0:
             await asyncio.sleep(self.request_interval)
         discussion_doc = await self.discussion_engine.generate_discussion(datapack, summary_doc)
         self._save_discussion_file(discussion_doc)
+        logger.info(
+            f"[{clean_ticker}] 3단계: 원탁 토론 전문 저장 완료 "
+            f"(길이: {len(discussion_doc.raw_markdown)}자, 경로: {discussion_doc.file_path})"
+        )
 
         # ── 4단계: 최종 종합 투자 보고서 생성 ──────────────────
+        logger.info(f"[{clean_ticker}] 4단계: 최종 종합 마스터 투자 보고서 생성 시작...")
         if self.request_interval > 0:
             await asyncio.sleep(self.request_interval)
         master_report = await self.discussion_engine.generate_master_report(
             datapack, summary_doc, discussion_doc
         )
         self._save_master_report_file(master_report)
+        logger.info(
+            f"[{clean_ticker}] 4단계: 최종 마스터 보고서 저장 완료 "
+            f"(판정: {master_report.overall_verdict}, 점수: {master_report.overall_score})"
+        )
 
         # ── 5단계: Supabase DB 동기화 ────────────────────────
         await self.sync_to_db(
@@ -201,7 +211,7 @@ class GuruReportService:
         self, persona_key: str, datapack_md: str
     ) -> PersonaSummaryBlock:
         prompt = build_persona_prompt(persona_key, datapack_md)
-        text = await self.ai.chat(prompt)
+        text = await self.ai.chat(prompt, max_tokens=800)
         return self._parse_summary_block(persona_key, text)
 
     def _parse_summary_block(self, persona_key: str, text: str) -> PersonaSummaryBlock:
