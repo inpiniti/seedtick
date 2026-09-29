@@ -1,8 +1,9 @@
 """
 AI 직접 호출 연결 테스트 엔드포인트
-배포 환경(HuggingFace)에서 OpenRouter 직접 접근 가능 여부 확인용
+배포 환경(HuggingFace)에서 OpenRouter 직접 접근 및 키 로테이션 상태 확인용
 
-GET /debug/ai-direct   — OpenRouter 직접 호출
+GET /debug/ai-direct   — AiGatewayClient 실전 호출 테스트 (429 자동 로테이션 포함)
+GET /debug/ai-keys     — 등록된 각 API 키별 쿼터 상태(200 vs 429) 개별 점검
 GET /debug/ai-gateway  — 기존 Vercel 게이트웨이 호출 (비교용)
 """
 import time
@@ -11,79 +12,96 @@ import httpx
 from fastapi import APIRouter
 
 from app.config.settings import settings
+from app.domains.report.ai_client import AiGatewayClient
 
 logger = logging.getLogger("debug_ai")
 router = APIRouter(prefix="/debug", tags=["debug"])
 
-# OpenRouter 직접 호출용 키 (게이트웨이 .env의 첫 번째 키 사용)
-# 실제 운영 전환 시 settings로 이관
-_OPENROUTER_KEYS = [
-    k.strip()
-    for k in (settings.OPENROUTER_API_KEYS if hasattr(settings, "OPENROUTER_API_KEYS") else "").split(",")
-    if k.strip()
-]
 _DIRECT_URL = "https://openrouter.ai/api/v1/chat/completions"
 _TEST_PROMPT = "애플(AAPL)의 현재 PER이 높은지 낮은지 한 문장으로 평가해라."
-_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"
-_MAX_TOKENS = 1000
 
 
-async def _call(url: str, headers: dict) -> dict:
-    payload = {
-        "model": _MODEL,
-        "messages": [{"role": "user", "content": _TEST_PROMPT}],
-        "max_tokens": _MAX_TOKENS,
-        "temperature": 0.3,
-    }
-    start = time.time()
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        res = await client.post(url, json=payload, headers=headers)
-    elapsed = round(time.time() - start, 2)
-    body = res.json()
-    try:
-        content = body["choices"][0]["message"]["content"]
-        finish = body["choices"][0].get("finish_reason", "?")
-    except Exception:
-        content = None
-        finish = None
-    usage = body.get("usage", {})
-    return {
-        "http_status": res.status_code,
-        "elapsed_sec": elapsed,
-        "finish_reason": finish,
-        "usage": usage,
-        "content_preview": content[:150] if content else None,
-        "error": body.get("error"),
-    }
-
-
-@router.get("/ai-direct", summary="OpenRouter 직접 호출 테스트")
+@router.get("/ai-direct", summary="OpenRouter 직접 호출 테스트 (키 로테이션 적용)")
 async def test_ai_direct():
     """
-    HuggingFace 배포 환경에서 OpenRouter를 직접 호출할 수 있는지 확인합니다.
-    settings에 OPENROUTER_API_KEYS가 없으면 error 반환.
+    실제 운영 클라이언트(AiGatewayClient)를 사용하여 OpenRouter를 호출합니다.
+    429인 키는 건너뛰고 유효한 키로 자동 스위칭하여 결과를 반환합니다.
     """
-    if not _OPENROUTER_KEYS:
+    start = time.time()
+    try:
+        client = AiGatewayClient()
+        content = await client.chat(_TEST_PROMPT, max_tokens=1000)
+        elapsed = round(time.time() - start, 2)
+        return {
+            "ok": True,
+            "mode": "direct" if client.use_direct else "gateway",
+            "model": client.model,
+            "keys_count": len(client.api_keys),
+            "elapsed_sec": elapsed,
+            "content": content,
+            "error": None,
+        }
+    except Exception as e:
+        elapsed = round(time.time() - start, 2)
         return {
             "ok": False,
-            "error": "OPENROUTER_API_KEYS 환경변수가 설정되지 않았습니다.",
+            "elapsed_sec": elapsed,
+            "error": str(e),
         }
 
-    api_key = _OPENROUTER_KEYS[0]
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://seedtick.vercel.app",
-        "X-Title": "SeedTick Analyzer",
+
+@router.get("/ai-keys", summary="등록된 OpenRouter API 키 상태 개별 점검")
+async def test_ai_keys():
+    """
+    OPENROUTER_API_KEYS에 등록된 모든 키의 현재 쿼터/레이트리밋 상태를 개별 테스트합니다.
+    """
+    raw_keys = settings.OPENROUTER_API_KEYS or ""
+    keys = [k.strip() for k in raw_keys.split(",") if k.strip()]
+    if not keys:
+        return {"ok": False, "error": "OPENROUTER_API_KEYS 설정이 비어 있습니다.", "keys": []}
+
+    results = []
+    for idx, key in enumerate(keys, 1):
+        masked = f"{key[:8]}...{key[-4:]}" if len(key) > 12 else "invalid"
+        headers = {
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://seedtick.app",
+            "X-Title": "SeedTick Analyzer",
+        }
+        payload = {
+            "model": settings.AI_GATEWAY_MODEL,
+            "messages": [{"role": "user", "content": "ping"}],
+            "max_tokens": 10,
+        }
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                res = await client.post(_DIRECT_URL, json=payload, headers=headers)
+                body = res.json()
+                results.append({
+                    "index": idx,
+                    "key": masked,
+                    "http_status": res.status_code,
+                    "ok": res.status_code == 200,
+                    "error_msg": body.get("error", {}).get("message") if res.status_code != 200 else None,
+                })
+        except Exception as e:
+            results.append({
+                "index": idx,
+                "key": masked,
+                "http_status": 0,
+                "ok": False,
+                "error_msg": str(e),
+            })
+
+    total_valid = sum(1 for r in results if r["ok"])
+    return {
+        "ok": total_valid > 0,
+        "model": settings.AI_GATEWAY_MODEL,
+        "total_keys": len(keys),
+        "valid_keys": total_valid,
+        "keys_status": results,
     }
-    logger.info("[debug] OpenRouter 직접 호출 테스트 시작")
-    try:
-        result = await _call(_DIRECT_URL, headers)
-        result["ok"] = result["http_status"] == 200
-        result["mode"] = "direct"
-        return result
-    except Exception as e:
-        return {"ok": False, "mode": "direct", "error": str(e)}
 
 
 @router.get("/ai-gateway", summary="기존 Vercel 게이트웨이 호출 테스트 (비교용)")
@@ -96,11 +114,26 @@ async def test_ai_gateway():
         "Content-Type": "application/json",
         "Authorization": f"Bearer {settings.AI_GATEWAY_SECRET}",
     }
-    logger.info("[debug] Vercel 게이트웨이 호출 테스트 시작")
+    payload = {
+        "model": settings.AI_GATEWAY_MODEL,
+        "messages": [{"role": "user", "content": _TEST_PROMPT}],
+        "max_tokens": 1000,
+        "temperature": 0.3,
+    }
+    start = time.time()
     try:
-        result = await _call(url, headers)
-        result["ok"] = result["http_status"] == 200
-        result["mode"] = "gateway"
-        return result
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            res = await client.post(url, json=payload, headers=headers)
+        elapsed = round(time.time() - start, 2)
+        body = res.json()
+        content = body.get("choices", [{}])[0].get("message", {}).get("content")
+        return {
+            "ok": res.status_code == 200,
+            "mode": "gateway",
+            "http_status": res.status_code,
+            "elapsed_sec": elapsed,
+            "content": content,
+            "error": body.get("error"),
+        }
     except Exception as e:
         return {"ok": False, "mode": "gateway", "error": str(e)}
