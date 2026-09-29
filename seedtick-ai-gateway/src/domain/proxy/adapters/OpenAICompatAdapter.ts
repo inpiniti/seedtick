@@ -27,11 +27,16 @@ export class OpenAICompatAdapter implements ILLMAdapter {
       ...this.config.defaultHeaders,
     };
 
+    const requestedOutputTokens = request.max_tokens ?? 32768;
     const body = {
       model: modelId,
       messages: request.messages,
       temperature: request.temperature ?? 0.7,
-      max_tokens: request.max_tokens ?? 32768,
+      // max_tokens: reasoning + output 전체 예산 (thinking 모델 대응)
+      max_tokens: 32768,
+      // max_completion_tokens: output 전용 한도 (OpenRouter/dots-3-note 등 thinking 모델 지원)
+      // reasoning 토큰은 이 한도와 별개로 처리됨
+      max_completion_tokens: requestedOutputTokens,
       stream: request.stream ?? false,
     };
 
