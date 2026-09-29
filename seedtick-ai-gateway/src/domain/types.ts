@@ -13,21 +13,21 @@ export interface ModelConfig {
 }
 
 export const FALLBACK_CHAIN: ModelConfig[] = [
-  // 1순위: Dots Studio Dots3-Note Preview — 무료, 512K context, 57 t/s (빠르고 안정적)
+  // 1순위: Ling 3.0 Flash Fin — 금융 특화, 121 t/s 초고속, thinking 없이 깔끔한 output
   {
     provider: 'openrouter',
-    modelId: 'dots-studio/dots-3-note-preview:free',
-    displayName: 'OpenRouter/Dots3-Note-Preview',
+    modelId: 'inclusionai/ling-3.0-flash-fin:free',
+    displayName: 'OpenRouter/Ling-3.0-Flash-Fin',
   },
   {
     provider: 'cline',
-    modelId: 'dots-studio/dots-3-note-preview:free',
-    displayName: 'Cline/Dots3-Note-Preview',
+    modelId: 'inclusionai/ling-3.0-flash-fin:free',
+    displayName: 'Cline/Ling-3.0-Flash-Fin',
   },
   {
     provider: 'kilo',
-    modelId: 'dots-studio/dots-3-note-preview:free',
-    displayName: 'Kilo/Dots3-Note-Preview',
+    modelId: 'inclusionai/ling-3.0-flash-fin:free',
+    displayName: 'Kilo/Ling-3.0-Flash-Fin',
   },
   // 2순위: NVIDIA Nemotron 3 Super (120B/A12B) — 무료, 262K context, 69 t/s 초고속
   {
@@ -45,21 +45,21 @@ export const FALLBACK_CHAIN: ModelConfig[] = [
     modelId: 'nvidia/nemotron-3-super-120b-a12b:free',
     displayName: 'Kilo/Nemotron-3-Super-120B',
   },
-  // 3순위: Ling 3.0 Flash Fin — 121 t/s 초고속 최후 fallback
+  // 3순위 (fallback): Dots3-Note Preview — thinking 모델, 응급 fallback용
   {
     provider: 'openrouter',
-    modelId: 'inclusionai/ling-3.0-flash-fin:free',
-    displayName: 'OpenRouter/Ling-3.0-Flash-Fin',
+    modelId: 'dots-studio/dots-3-note-preview:free',
+    displayName: 'OpenRouter/Dots3-Note-Preview',
   },
   {
     provider: 'cline',
-    modelId: 'inclusionai/ling-3.0-flash-fin:free',
-    displayName: 'Cline/Ling-3.0-Flash-Fin',
+    modelId: 'dots-studio/dots-3-note-preview:free',
+    displayName: 'Cline/Dots3-Note-Preview',
   },
   {
     provider: 'kilo',
-    modelId: 'inclusionai/ling-3.0-flash-fin:free',
-    displayName: 'Kilo/Ling-3.0-Flash-Fin',
+    modelId: 'dots-studio/dots-3-note-preview:free',
+    displayName: 'Kilo/Dots3-Note-Preview',
   },
 ];
 
