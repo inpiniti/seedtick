@@ -25,7 +25,12 @@ class AiGatewayClient:
         self.secret = secret if secret is not None else settings.AI_GATEWAY_SECRET
         self.max_tokens = max_tokens or settings.AI_GATEWAY_MAX_TOKENS
 
-    async def chat(self, prompt: str, system_prompt: str = "") -> str:
+    async def chat(
+        self,
+        prompt: str,
+        system_prompt: str = "",
+        max_tokens: int | None = None,
+    ) -> str:
         if "/v1/chat/completions" in self.base_url:
             url = self.base_url
         else:
@@ -35,11 +40,13 @@ class AiGatewayClient:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
+        tokens_to_request = max_tokens if max_tokens is not None else self.max_tokens
+
         payload = {
             "model": self.model,
             "messages": messages,
             "temperature": 0.3,
-            "max_tokens": self.max_tokens,
+            "max_tokens": tokens_to_request,
         }
 
         headers = {
@@ -67,16 +74,22 @@ class AiGatewayClient:
                                 await asyncio.sleep(2 * attempt)
                             continue
                         choice = choices[0]
-                        content = choice["message"]["content"]
+                        content = choice.get("message", {}).get("content", "")
                         finish_reason = choice.get("finish_reason", "stop")
                         if finish_reason == "length":
                             usage = data.get("usage", {})
                             logger.warning(
                                 f"[AiGateway] ⚠️ finish_reason=length — 응답이 토큰 한도로 잘림! "
                                 f"completion_tokens={usage.get('completion_tokens', '?')} "
-                                f"total_tokens={usage.get('total_tokens', '?')} "
-                                f"(시도 {attempt}/{max_attempts})"
+                                f"total_tokens={usage.get('total_tokens', '?')}"
                             )
+                        if not content or not content.strip():
+                            logger.warning(
+                                f"[AiGateway] ⚠️ 200 OK 이지만 message.content가 비어있음 (finish_reason={finish_reason}) — 재시도 ({attempt}/{max_attempts})"
+                            )
+                            if attempt < max_attempts:
+                                await asyncio.sleep(2 * attempt)
+                            continue
                         return content.strip()
 
                     # 429 Too Many Requests인 경우 무료 티어 쿼터 리셋을 위해 넉넉한 대기시간 적용

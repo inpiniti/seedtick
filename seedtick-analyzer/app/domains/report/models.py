@@ -118,3 +118,4 @@ class FinalMasterReport(BaseModel):
     persona_scores: dict[str, int] = Field(default_factory=dict)  # {g1: 0, g2: 1, ...}
     file_path: str = ""
     raw_markdown: str = ""
+    discussion: str = Field(default="", description="13인 거장 원탁 토론 전문 마크다운")

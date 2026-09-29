@@ -85,11 +85,18 @@ export class OpenAICompatAdapter implements ILLMAdapter {
       const choicesRaw = Array.isArray(rawData.choices) ? rawData.choices : [];
       const choices = choicesRaw.map((c: Record<string, unknown>, i: number) => {
         const msg = (c?.message as Record<string, unknown>) ?? {};
+        let content = typeof msg.content === 'string' ? msg.content : '';
+        // 만약 content가 비어있고 reasoning 또는 reasoning_content가 있다면 대체
+        if (!content.trim() && typeof msg.reasoning === 'string' && msg.reasoning.trim()) {
+          content = msg.reasoning;
+        } else if (!content.trim() && typeof msg.reasoning_content === 'string' && msg.reasoning_content.trim()) {
+          content = msg.reasoning_content;
+        }
         return {
           index: typeof c?.index === 'number' ? c.index : i,
           message: {
             role: (msg.role as 'system' | 'user' | 'assistant') || 'assistant',
-            content: typeof msg.content === 'string' ? msg.content : '',
+            content,
           },
           finish_reason: (typeof c?.finish_reason === 'string' && c.finish_reason
             ? c.finish_reason
@@ -109,12 +116,13 @@ export class OpenAICompatAdapter implements ILLMAdapter {
           typeof usageRaw.total_tokens === 'number' ? Math.round(usageRaw.total_tokens) : 0,
       };
 
-      // choices가 비어있으면 모델 오류로 처리 → 다음 키/모델로 폴백
-      if (choices.length === 0) {
+      // choices가 비어있거나 모든 choices의 content가 비어있으면 모델 오류로 처리 → 다음 키/모델로 폴백
+      const hasValidContent = choices.some((c) => c.message.content.trim().length > 0);
+      if (choices.length === 0 || !hasValidContent) {
         return {
           ok: false,
           status: 500,
-          errorBody: `Empty choices in response (model may be overloaded or rate-limited): ${responseText.slice(0, 200)}`,
+          errorBody: `Empty choices or empty content in response (model exhausted output tokens during reasoning or returned empty): ${responseText.slice(0, 200)}`,
         };
       }
 
