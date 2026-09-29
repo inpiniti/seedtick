@@ -383,13 +383,19 @@ class TossBrokerAdapter(IBrokerAdapter):
                 executed_qty=None,
             )
         except Exception as e:
-            logger.error(f"[TossBroker] 주문 실패 ({order.ticker}): {e}")
+            err_msg = str(e)
+            if "insufficient-buying-power" in err_msg:
+                err_msg = (
+                    "주문가능 달러가 부족합니다. 토스 Open API는 달러(USD) 예수금으로만 "
+                    "소수점 매수가 가능하므로 토스 앱에서 원화를 달러로 환전해주세요."
+                )
+            logger.error(f"[TossBroker] 주문 실패 ({order.ticker}): {err_msg}")
             return OrderResult(
                 success=False,
                 ticker=order.ticker,
                 action=order.action,
                 amount_krw=order.amount_krw,
-                error_message=str(e),
+                error_message=err_msg,
             )
 
     async def cancel_order(self, order_id: str) -> bool:

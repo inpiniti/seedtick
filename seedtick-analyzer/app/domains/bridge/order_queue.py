@@ -72,6 +72,8 @@ class PendingOrderQueue:
             "action": action,
             "client_order_id": client_order_id,
             "created_at": datetime.now().isoformat(),
+            "status": "PENDING",
+            "error_message": None,
         }
         data["orders"].append(new_entry)
         self._save_data(data)
@@ -81,6 +83,18 @@ class PendingOrderQueue:
     def get_pending_orders(self) -> list[dict[str, Any]]:
         """현재 대기 중인 예약 주문 목록 조회"""
         return self._load_data().get("orders", [])
+
+    def update_order_status(self, ticker: str, status: str, error_message: str | None = None) -> None:
+        """예약 주문 상태 및 에러 메시지 갱신"""
+        data = self._load_data()
+        ticker = ticker.upper()
+        for item in data["orders"]:
+            if item.get("ticker") == ticker:
+                item["status"] = status
+                if error_message is not None:
+                    item["error_message"] = error_message
+                item["updated_at"] = datetime.now().isoformat()
+        self._save_data(data)
 
     def remove_pending_order(self, ticker: str) -> None:
         """특정 종목 예약 주문 큐에서 제거"""
@@ -121,6 +135,11 @@ class PendingOrderQueue:
                 self.remove_pending_order(ticker)
                 logger.info(f"[OrderQueue] 예약 매수 발주 완료 -> 큐에서 제거: {ticker} (주문ID: {res.order_id})")
             else:
+                self.update_order_status(
+                    ticker=ticker,
+                    status="FAILED",
+                    error_message=res.error_message or "발주 실패",
+                )
                 logger.error(f"[OrderQueue] 예약 매수 발주 실패: {ticker} ({res.error_message})")
 
         return results

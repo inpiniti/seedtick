@@ -91,15 +91,31 @@ async def get_auto_trading_status():
 
 
 @router.get("/auto-trading/pending-orders", summary="대기 중인 예약 주문 목록 조회")
-async def get_pending_orders():
+async def get_pending_orders(account_id: str | None = Query(None, description="특정 계좌 식별자 (선택)")):
     """
     미국 정규장 개장 전 등록되어 발주 대기 중인 소수점 예약 매수 주문 목록 조회
     """
-    from app.domains.bridge.order_queue import pending_order_queue
+    from app.domains.bridge.factory import get_broker_adapter
+    from app.domains.bridge.order_queue import pending_order_queue, PendingOrderQueue
+
+    if account_id:
+        queue = PendingOrderQueue(account_id=account_id)
+        orders = queue.get_pending_orders()
+    else:
+        broker = get_broker_adapter(settings.DEFAULT_BROKER)
+        queue = getattr(broker, "_order_queue", pending_order_queue)
+        orders = queue.get_pending_orders()
+        # 브로커 계좌 큐에 없고 기본 큐에 있는 경우 폴백
+        if not orders and queue != pending_order_queue:
+            fallback_orders = pending_order_queue.get_pending_orders()
+            if fallback_orders:
+                orders = fallback_orders
+
     return {
-        "pending_count": len(pending_order_queue.get_pending_orders()),
-        "orders": pending_order_queue.get_pending_orders(),
+        "pending_count": len(orders),
+        "orders": orders,
     }
+
 
 
 @router.post("/auto-trading/execute-pending", summary="대기 중인 예약 주문 수동 즉시 발주")

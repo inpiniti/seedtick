@@ -232,17 +232,23 @@ export function TradingTab({
                       <span className="font-bold text-base text-[#191f28]">
                         {order.ticker}
                       </span>
-                      <Badge variant="warning">{order.status || "PENDING"}</Badge>
+                      <Badge variant={order.status === "FAILED" ? "danger" : "warning"}>
+                        {order.status || "PENDING"}
+                      </Badge>
                     </div>
                     <div className="flex items-center justify-between text-xs text-[#4e5968]">
                       <span>주문 금액: <strong className="text-[#191f28]">{formatKRW(order.amount_krw)}</strong></span>
                       <span className="text-[#8b95a1]">{formatTime(order.created_at)}</span>
                     </div>
-                    {order.reason && (
+                    {order.status === "FAILED" && order.error_message ? (
+                      <p className="text-[11px] text-[#f04452] font-medium">
+                        실패: {order.error_message}
+                      </p>
+                    ) : order.reason ? (
                       <p className="text-[11px] text-[#8b95a1] truncate">
                         사유: {order.reason}
                       </p>
-                    )}
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -254,7 +260,7 @@ export function TradingTab({
                     <tr className="border-b border-[#f2f4f6] text-[#8b95a1] text-xs font-semibold">
                       <th className="pb-3 pl-2">티커</th>
                       <th className="pb-3">주문 금액</th>
-                      <th className="pb-3">사유</th>
+                      <th className="pb-3">사유 / 실패 원인</th>
                       <th className="pb-3">상태</th>
                       <th className="pb-3 pr-2">등록 일시</th>
                     </tr>
@@ -268,11 +274,19 @@ export function TradingTab({
                         <td className="py-3 text-[#191f28] font-medium">
                           {formatKRW(order.amount_krw)}
                         </td>
-                        <td className="py-3 text-xs text-[#4e5968] max-w-[200px] truncate">
-                          {order.reason || "13인 거장 종합 매수 추천(g0==0)"}
+                        <td className="py-3 text-xs max-w-[260px]">
+                          {order.status === "FAILED" && order.error_message ? (
+                            <span className="text-[#f04452] font-medium" title={order.error_message}>
+                              {order.error_message}
+                            </span>
+                          ) : (
+                            <span className="text-[#4e5968] truncate block" title={order.reason}>
+                              {order.reason || "13인 거장 종합 매수 추천(g0==0)"}
+                            </span>
+                          )}
                         </td>
                         <td className="py-3">
-                          <Badge variant="warning">
+                          <Badge variant={order.status === "FAILED" ? "danger" : "warning"}>
                             {order.status || "PENDING"}
                           </Badge>
                         </td>

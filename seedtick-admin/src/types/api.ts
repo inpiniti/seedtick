@@ -40,10 +40,12 @@ export interface AutoTradingStatus {
 export interface PendingOrder {
   ticker: string;
   amount_krw: number;
+  amount_usd?: number;
   reason?: string;
   created_at: string;
   status: string;
   broker?: string;
+  error_message?: string;
 }
 
 export interface PendingOrdersResponse {
