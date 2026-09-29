@@ -97,6 +97,15 @@ export class OpenAICompatAdapter implements ILLMAdapter {
           typeof usageRaw.total_tokens === 'number' ? Math.round(usageRaw.total_tokens) : 0,
       };
 
+      // choices가 비어있으면 모델 오류로 처리 → 다음 키/모델로 폴백
+      if (choices.length === 0) {
+        return {
+          ok: false,
+          status: 500,
+          errorBody: `Empty choices in response (model may be overloaded or rate-limited): ${responseText.slice(0, 200)}`,
+        };
+      }
+
       const normalizedResponse: ChatResponse = {
         id: (rawData.id as string) || `chatcmpl-${Date.now()}`,
         object: 'chat.completion',
