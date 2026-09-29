@@ -26,11 +26,17 @@ class DiscussionEngine:
         """
         3단계: 13인 거장들의 치열한 원탁 토론 전문 생성
         """
+        # 프롬프트 크기 최적화: raw_markdown 전체 대신 핵심만 압축
+        compact_summaries = "\n".join(
+            f"- {s.persona}: {s.verdict}({s.confidence}/10) | {'; '.join(s.core_arguments[:2])}"
+            for s in summaries.summaries
+        )
+
         prompt = f"""너는 세계 최고의 투자 거장 13인의 원탁 토론 진행자(모더레이터)다.
 종목: {datapack.ticker} (현재가: ${datapack.current_price:.2f})
 
-아래는 13인 거장들의 사전 개별 평가 요약 블록이다:
-{summaries.raw_markdown}
+[13인 거장 사전 평가 요약]
+{compact_summaries}
 
 [진행 규칙]
 1. 거장들 사이에서 의견이 팽팽하게 맞서는 핵심 쟁점 2~3개(예: 밸류에이션 고평가 여부, 성장의 지속성, 해자의 견고함 등)를 추출하라.
@@ -56,6 +62,7 @@ class DiscussionEngine:
 - 매도: n명 (인물들)
 - 종합 표결 결론: ...
 """
+
         dialogue = await self.ai.chat(prompt)
 
         # 표결 카운트 추출 (단순 파싱)
