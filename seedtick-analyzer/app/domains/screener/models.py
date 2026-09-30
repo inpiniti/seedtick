@@ -21,19 +21,28 @@ class TossStockItem(BaseModel):
     name: str                        # 한글/영문 종목명
     price: float | None = None       # 현재가
     prev_close: float | None = None  # 전일 종가
+    change_rate: float | None = None # 전일 대비 등락률 (%)
     market_cap: float | None = None  # 시가총액
     debt_ratio: float | None = None  # 부채비율
     interest_coverage: float | None = None # 이자보상배율
     operating_margin: float | None = None  # 영업이익률
     roe: float | None = None         # ROE
     logo_image_url: str | None = None
+    screeners: list[str] = Field(default_factory=list) # 통과한 거장/스크리너 목록 (예: ['종합', '버핏'])
 
 
 class ScreenResult(BaseModel):
     """스크리닝 최종 결과"""
     tickers: list[TossStockItem]
+    items: list[TossStockItem] = Field(default_factory=list)
     total_count: int
     count: int
     criteria: ScreenCriteria
     fetched_at: str = Field(default_factory=lambda: datetime.now().isoformat())
     source: str = "toss_screener"
+
+    def model_post_init(self, __context) -> None:
+        if not self.items and self.tickers:
+            self.items = self.tickers
+        elif not self.tickers and self.items:
+            self.tickers = self.items

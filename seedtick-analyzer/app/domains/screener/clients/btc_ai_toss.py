@@ -1,6 +1,7 @@
 """
 BTC-AI Backend Toss Screener API 클라이언트 (1차 스크리너 소스)
 """
+import asyncio
 import logging
 from urllib.parse import quote
 import httpx
@@ -21,6 +22,7 @@ class BtcAiTossClient:
         nation: str = "us",
         size: int = 200,
         page: int = 1,
+        client: httpx.AsyncClient | None = None,
     ) -> dict:
         """
         GET /toss/{guru}?nation={nation}&size={size}&page={page}
@@ -35,8 +37,48 @@ class BtcAiTossClient:
             "Accept": "application/json",
         }
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        if client is not None:
             res = await client.get(url, params=params, headers=headers)
             res.raise_for_status()
-            data = res.json()
-            return data
+            return res.json()
+
+        async with httpx.AsyncClient(timeout=self.timeout) as ac:
+            res = await ac.get(url, params=params, headers=headers)
+            res.raise_for_status()
+            return res.json()
+
+    async def get_all_gurus_screeners(
+        self,
+        gurus: list[str],
+        nation: str = "us",
+        size: int = 200,
+        page: int = 1,
+    ) -> list[tuple[str, dict | Exception]]:
+        """
+        여러 거장 스크리너를 병렬로 동시 조회합니다.
+        (gurus 리스트 순서대로 [(guru_key, data_or_exception), ...] 반환)
+        """
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            tasks = [
+                self._fetch_single_safe(client, g, nation, size, page)
+                for g in gurus
+            ]
+            results = await asyncio.gather(*tasks)
+            return results
+
+    async def _fetch_single_safe(
+        self,
+        client: httpx.AsyncClient,
+        guru: str,
+        nation: str,
+        size: int,
+        page: int,
+    ) -> tuple[str, dict | Exception]:
+        try:
+            data = await self.get_guru_screener(
+                guru=guru, nation=nation, size=size, page=page, client=client
+            )
+            return guru, data
+        except Exception as e:
+            logger.warning(f"[BtcAiTossClient] '{guru}' 스크리너 조회 실패: {e}")
+            return guru, e
