@@ -3,7 +3,7 @@
 ## 1. 시스템 개요
 
 ```
-[매일 18:00 KST 트리거]
+[매일 12:00 KST 트리거]
         |
         v
 [seedtick-analyzer: Scheduler]
@@ -51,7 +51,7 @@
 - **내부 서브도메인 & 모듈**:
   - `screener` — 토스 거장 공통 필터(해외 200개) 스크리닝
   - `report` — DataPackBuilder + 13인 거장 심층 리포트 파이프라인
-  - `scheduler` — APScheduler 배치 (월~금 18:00 KST, 미장 휴장일 가드)
+  - `scheduler` — APScheduler 배치 (월~금 12:00 KST, 미장 휴장일 가드)
   - `auto-trading` — 리포트 기반 소액(10만원 미만) 분할 자동매매
   - `bridge` — 독립 증권사 어댑터 라이브러리 (토스, 한투, Mock)
   - `error-log` — 에러 수집 및 Discord 알림
@@ -59,7 +59,7 @@
 ## 3. 데이터 흐름
 
 ```
-[18:00 KST] scheduler 트리거
+[12:00 KST] scheduler 트리거
     → market_guard.is_market_open(today) 검사 (주말/공휴일 시 조기 종료)
     → screener.get_stock_list() → 통과 종목 리스트 반환
     → for ticker in targets:

@@ -8,7 +8,7 @@
 
 | 잡 | 시간 (KST) | 설명 |
 |:---|:---|:---|
-| `daily_pipeline` | 매일 18:00 (월~금) | 스크리닝 → 데이터팩 → 13인 리포트 → 자동매매 |
+| `daily_pipeline` | 매일 12:00 (월~금) | 스크리닝 → 데이터팩 → 13인 리포트 → 자동매매 |
 | `warm_up` | 외부 GitHub Actions | HuggingFace 슬립 방지 (17:00) |
 
 ### ⚠️ 필수 휴장일 가드 (Market Holiday Guard)

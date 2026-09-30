@@ -29,7 +29,7 @@ pinned: false
    - `TossBrokerAdapter`: 토스 Open API 정본 스펙 (120ms 요청 간격, 단일 토큰 캐싱, 미국주식 가격 정정)
    - `KisBrokerAdapter`: 한국투자증권 Open API (해외주식 주문 TR: TTTT1002U, 잔고 TR)
 4. **[Scheduler] 미국 증시 휴장일 가드 (`MarketCalendarGuard`)**:
-   - 월~금 18:00 KST 정기 실행
+   - 월~금 12:00 KST 정기 실행
    - 토/일 주말 및 미국 증시(NYSE/NASDAQ) 공식 공휴일(신정, MLK, 성금요일, 메모리얼데이, 독립기념일, 노동절, 추수감사절, 크리스마스 등) 자동 판별 및 스킵
 
 ---

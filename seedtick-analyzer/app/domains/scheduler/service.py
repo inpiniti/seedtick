@@ -15,10 +15,10 @@ class SchedulerService:
         self._scheduler = AsyncIOScheduler(timezone="Asia/Seoul")
 
     def start(self):
-        """스케줄러 시작: 월~금 18:00 파이프라인 잡 및 22:35/23:35 정규장 예약 발주 잡 등록"""
-        # 1. 일일 메인 파이프라인 잡: 월~금 18:00 KST
+        """스케줄러 시작: 월~금 12:00 파이프라인 잡 및 22:35/23:35 정규장 예약 발주 잡 등록"""
+        # 1. 일일 메인 파이프라인 잡: 월~금 12:00 KST
         pipeline_trigger = CronTrigger(
-            day_of_week="mon-fri", hour=18, minute=0, timezone="Asia/Seoul"
+            day_of_week="mon-fri", hour=12, minute=0, timezone="Asia/Seoul"
         )
         self._scheduler.add_job(
             daily_pipeline_job,
@@ -42,7 +42,7 @@ class SchedulerService:
         )
 
         self._scheduler.start()
-        logger.info("[Scheduler] APScheduler 시작 완료 (18:00 파이프라인, 미국 정규장 현지 09:35 예약 발주)")
+        logger.info("[Scheduler] APScheduler 시작 완료 (12:00 파이프라인, 미국 정규장 현지 09:35 예약 발주)")
 
     def shutdown(self):
         """스케줄러 안전 종료"""

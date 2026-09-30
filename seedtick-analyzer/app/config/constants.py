@@ -41,4 +41,4 @@ VERDICT_SCORE_MAP = {
 SCORE_VERDICT_MAP = {v: k for k, v in VERDICT_SCORE_MAP.items()}
 
 # 스케줄 시간
-DEFAULT_PIPELINE_CRON = "0 18 * * 1-5"  # 월~금 18:00 KST
+DEFAULT_PIPELINE_CRON = "0 12 * * 1-5"  # 월~금 12:00 KST

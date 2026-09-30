@@ -1,4 +1,4 @@
-﻿# 배포 전략
+# 배포 전략
 
 ## seedtick-ai-gateway → Vercel
 
@@ -85,7 +85,7 @@ PAPER_TRADING_MODE=true  # 실거래 전 반드시 false로 변경
 name: Warmup HF Space
 on:
   schedule:
-    - cron: '0 8 * * *'  # UTC 08:00 = KST 17:00 (배치 1시간 전)
+    - cron: '0 2 * * *'  # UTC 02:00 = KST 11:00 (배치 1시간 전)
 jobs:
   warmup:
     runs-on: ubuntu-latest

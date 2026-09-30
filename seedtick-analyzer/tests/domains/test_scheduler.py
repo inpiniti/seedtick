@@ -43,6 +43,17 @@ async def test_scheduler_jobs_registration():
         # 기존 중복 잡(summer, winter)이 단일 잡으로 통합되었는지 검증
         assert "execute_pending_summer" not in jobs
         assert "execute_pending_winter" not in jobs
+
+        # 일일 파이프라인 트리거가 12:00 KST에 실행되는지 검증
+        pipeline_job = jobs["daily_pipeline"]
+        pipeline_trigger = pipeline_job.trigger
+        assert isinstance(pipeline_trigger, CronTrigger)
+        test_dt = datetime(2026, 9, 30, 0, 0, tzinfo=zoneinfo.ZoneInfo("Asia/Seoul"))
+        next_fire = pipeline_trigger.get_next_fire_time(None, test_dt)
+        assert next_fire is not None
+        next_fire_kst = next_fire.astimezone(zoneinfo.ZoneInfo("Asia/Seoul"))
+        assert next_fire_kst.hour == 12
+        assert next_fire_kst.minute == 0
     finally:
         service.shutdown()
 
