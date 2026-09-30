@@ -266,6 +266,12 @@ class AiGatewayClient:
                                     await asyncio.sleep(0.5)
                                 continue
 
+                            # 0) Cline 등 일부 제공자가 {"data": {"choices": [...]}} 형태로 감싸서 반환한 경우 언래핑
+                            if isinstance(data.get("data"), dict) and (
+                                "choices" in data["data"] or "error" in data["data"]
+                            ):
+                                data = data["data"]
+
                             # 1) OpenRouter 등 상위 제공자가 200 OK 내에 error 객체를 반환한 경우
                             if "error" in data and isinstance(data["error"], dict):
                                 err_info = data["error"]
@@ -374,6 +380,12 @@ class AiGatewayClient:
 
                     if res.status_code == 200:
                         data = res.json()
+                        # Cline 등 일부 제공자가 {"data": {"choices": [...]}} 형태로 감싸서 반환한 경우 언래핑
+                        if isinstance(data.get("data"), dict) and (
+                            "choices" in data["data"] or "error" in data["data"]
+                        ):
+                            data = data["data"]
+
                         if "error" in data and isinstance(data["error"], dict):
                             err_info = data["error"]
                             logger.warning(

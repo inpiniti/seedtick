@@ -74,6 +74,17 @@ export class OpenAICompatAdapter implements ILLMAdapter {
         };
       }
 
+      // 0) Cline 등 일부 제공자가 {"data": {"choices": [...]}} 형태로 감싸서 반환한 경우 언래핑
+      if (
+        rawData.data &&
+        typeof rawData.data === 'object' &&
+        !Array.isArray(rawData.data) &&
+        ('choices' in (rawData.data as Record<string, unknown>) ||
+          'error' in (rawData.data as Record<string, unknown>))
+      ) {
+        rawData = rawData.data as Record<string, unknown>;
+      }
+
       // OpenRouter 등 상위 제공자가 HTTP 200 안에 error 객체를 반환하는 경우 방어
       if (rawData.error && typeof rawData.error === 'object') {
         const errObj = rawData.error as Record<string, unknown>;
