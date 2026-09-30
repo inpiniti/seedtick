@@ -73,7 +73,7 @@ export function TradingTab({
     }
   };
 
-  // 18:00 파이프라인 수동 즉시 실행
+  // 12:00 파이프라인 수동 즉시 실행
   const handleTriggerPipeline = async () => {
     setIsActionLoading(true);
     setActionMessage(null);
@@ -179,7 +179,7 @@ export function TradingTab({
               leftIcon={<Play className="w-3.5 h-3.5" />}
               className="w-full justify-center text-xs sm:text-sm"
             >
-              18:00 파이프라인 지금 실행하기
+              12:00 파이프라인 지금 실행하기
             </Button>
           </Card.Content>
         </Card>
@@ -220,7 +220,7 @@ export function TradingTab({
             <EmptyState
               icon={<Clock className="w-8 h-8 text-[#8b95a1]" />}
               title="지금은 대기 중인 예약 주문이 없어요"
-              description="매일 18:00 스크리너 분석이 완료되면 강력 매수 추천(0점) 종목이 이곳에 등록돼요."
+              description="매일 12:00 스크리너 분석이 완료되면 강력 매수 추천(0점) 종목이 이곳에 등록돼요."
             />
           ) : (
             <>
@@ -433,7 +433,7 @@ export function TradingTab({
         onClose={() => setIsPipelineModalOpen(false)}
       >
         <Modal.Header
-          title="18:00 일일 분석 파이프라인을 실행할까요?"
+          title="12:00 일일 분석 파이프라인을 실행할까요?"
           description="토스 거장 공통 스크리닝(200개) → 13인 심층 분석 보고서 생성 → 자동 주문 등록 전 과정을 즉시 실행합니다."
         />
         <Modal.Body>

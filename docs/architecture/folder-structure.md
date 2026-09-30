@@ -67,7 +67,7 @@ seedtick-analyzer/
 │   │   │   └── ai_client.py       # AI-Gateway 호출 클라이언트 (멀티키 로테이션 연동)
 │   │   │
 │   │   ├── scheduler/
-│   │   │   ├── service.py         # SchedulerService (월~금 18:00 APScheduler)
+│   │   │   ├── service.py         # SchedulerService (월~금 12:00 APScheduler)
 │   │   │   ├── market_guard.py    # 주말 및 미국 증시(NYSE) 공휴일 스킵 가드
 │   │   │   ├── jobs.py            # daily_pipeline 일일 배치 정의
 │   │   │   └── models.py          # JobStatus, TriggerResult

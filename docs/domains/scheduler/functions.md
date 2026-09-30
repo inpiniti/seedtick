@@ -39,7 +39,7 @@ FastAPI lifespan에서 앱 시작 시 호출.
 ```python
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await scheduler.start()    # 시작 (Cron: 월~금 18:00 KST)
+    await scheduler.start()    # 시작 (Cron: 월~금 12:00 KST)
     yield
     await scheduler.shutdown() # 종료
 ```

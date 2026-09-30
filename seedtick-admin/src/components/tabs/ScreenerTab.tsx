@@ -162,7 +162,7 @@ export function ScreenerTab({
               <EmptyState
                 icon={<Users className="w-8 h-8 text-[#8b95a1]" />}
                 title="표결 집계 데이터가 없어요"
-                description="18:00 정기 스케줄러가 실행되거나 수동 트리거를 완료하면 이곳에 집계돼요."
+                description="12:00 정기 스케줄러가 실행되거나 수동 트리거를 완료하면 이곳에 집계돼요."
               />
             ) : (
               <>
