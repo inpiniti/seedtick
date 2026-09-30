@@ -14,6 +14,11 @@ try:
 except ImportError:
     yf = None
 
+try:
+    from curl_cffi import requests as cffi_requests
+except ImportError:
+    cffi_requests = None
+
 from app.domains.report.models import (
     BalanceSheetRow,
     CashFlowRow,
@@ -44,6 +49,18 @@ class DataPackBuilder:
         async with self._auth_lock:
             if not force_refresh and self._cookie and self._crumb:
                 return self._cookie, self._crumb
+
+            # 0. curl_cffi가 있는 경우 Chrome TLS Fingerprint로 인증 시도 (429 차단 우회)
+            if cffi_requests is not None:
+                try:
+                    cookie_str, crumb = await asyncio.to_thread(self._get_auth_cffi)
+                    if cookie_str and crumb:
+                        self._cookie = cookie_str
+                        self._crumb = crumb
+                        logger.info(f"[DataPackBuilder] curl_cffi(Chrome TLS) Yahoo Crumb 발급 완료: {crumb[:15]}")
+                        return self._cookie, self._crumb
+                except Exception as ce:
+                    logger.warning(f"[DataPackBuilder] curl_cffi Auth 실패, httpx로 전환: {ce}")
 
             for attempt in range(1, 4):
                 try:
@@ -112,6 +129,25 @@ class DataPackBuilder:
                     await asyncio.sleep(1.0)
 
             raise RuntimeError("Yahoo Finance Crumb/Cookie 발급 3회 모두 실패")
+
+    def _get_auth_cffi(self) -> tuple[str, str]:
+        """Chrome 브라우저 TLS Fingerprint를 모방하여 Yahoo 쿠키 및 Crumb 획득 (429 차단 우회)"""
+        s = cffi_requests.Session(impersonate="chrome")
+        s.get("https://fc.yahoo.com")
+        cookies = {k: v for k, v in s.cookies.items()}
+        cookie_str = "; ".join(f"{k}={v}" for k, v in cookies.items())
+        r2 = s.get(f"{Y1}/v1/test/getcrumb")
+        crumb = r2.text.strip()
+        if (
+            r2.status_code == 200
+            and crumb
+            and "{" not in crumb
+            and "<" not in crumb
+            and " " not in crumb
+            and len(crumb) <= 30
+        ):
+            return cookie_str, crumb
+        raise RuntimeError(f"Crumb HTTP {r2.status_code}: {crumb[:50]}")
 
     async def build(self, ticker: str, target_date: str | None = None) -> StockDataPack:
         """
@@ -249,8 +285,15 @@ class DataPackBuilder:
                 logger.warning(f"[{ticker}] yfinance 라이브러리 미설치로 QuoteSummary Fallback 건너뜁니다.")
                 return {}
 
+        session = None
+        if cffi_requests is not None:
+            try:
+                session = cffi_requests.Session(impersonate="chrome")
+            except Exception as se:
+                logger.warning(f"[{ticker}] curl_cffi 세션 생성 실패: {se}")
+
         try:
-            tk = yf.Ticker(ticker)
+            tk = yf.Ticker(ticker, session=session) if session else yf.Ticker(ticker)
             info = tk.info or {}
             fi = tk.fast_info
             cal = {}
