@@ -36,6 +36,11 @@ async def test_ai_direct():
             "ok": True,
             "mode": "direct" if client.use_direct else "gateway",
             "model": client.model,
+            "chain": (
+                [f"{p.name}({len(p.keys)}키)" for p in client.active_providers]
+                if client.use_direct
+                else ["AI-Gateway"]
+            ),
             "keys_count": len(client.api_keys),
             "elapsed_sec": elapsed,
             "content": content,
