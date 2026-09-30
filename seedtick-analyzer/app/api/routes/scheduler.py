@@ -11,7 +11,9 @@ router = APIRouter(prefix="/api/scheduler", tags=["scheduler"])
 async def trigger_pipeline(
     dry_run: bool | None = Query(None, description="Dry-run 모드 여부 (미입력 시 설정값 사용)"),
     force: bool = Query(False, description="휴장일/주말 가드를 우회하여 강제 실행"),
-    max_count: int = Query(5, ge=1, le=50, description="정밀 분석할 상위 종목 수"),
+    max_count: int | None = Query(
+        None, ge=0, description="정밀 분석할 종목 수 (0 또는 None 시 스크리닝 통과 전 종목 무제한 분석)"
+    ),
 ):
     try:
         result = await scheduler_service.trigger_pipeline(

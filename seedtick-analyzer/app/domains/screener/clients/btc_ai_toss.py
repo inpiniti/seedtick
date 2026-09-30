@@ -74,11 +74,16 @@ class BtcAiTossClient:
         size: int,
         page: int,
     ) -> tuple[str, dict | Exception]:
-        try:
-            data = await self.get_guru_screener(
-                guru=guru, nation=nation, size=size, page=page, client=client
-            )
-            return guru, data
-        except Exception as e:
-            logger.warning(f"[BtcAiTossClient] '{guru}' 스크리너 조회 실패: {e}")
-            return guru, e
+        last_error: Exception | None = None
+        for attempt in range(2):
+            try:
+                data = await self.get_guru_screener(
+                    guru=guru, nation=nation, size=size, page=page, client=client
+                )
+                return guru, data
+            except Exception as e:
+                last_error = e
+                if attempt == 0:
+                    await asyncio.sleep(1.0)
+        logger.warning(f"[BtcAiTossClient] '{guru}' 스크리너 조회 최종 실패: {last_error}")
+        return guru, last_error or RuntimeError("스크리너 조회 실패")

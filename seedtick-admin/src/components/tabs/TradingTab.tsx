@@ -78,7 +78,7 @@ export function TradingTab({
     setIsActionLoading(true);
     setActionMessage(null);
     try {
-      await triggerPipeline({ force: forceMarket, maxCount: 5 });
+      await triggerPipeline({ force: forceMarket });
       setActionMessage("일일 분석 및 매매 파이프라인을 시작했어요.");
       setTimeout(() => {
         setIsPipelineModalOpen(false);
@@ -434,7 +434,7 @@ export function TradingTab({
       >
         <Modal.Header
           title="12:00 일일 분석 파이프라인을 실행할까요?"
-          description="토스 거장 공통 스크리닝(200개) → 13인 심층 분석 보고서 생성 → 자동 주문 등록 전 과정을 즉시 실행합니다."
+          description="토스 거장 통합 스크리닝 통과 종목 전체에 대해 13인 심층 분석 보고서 생성 및 자동 주문 등록 전 과정을 즉시 실행합니다."
         />
         <Modal.Body>
           <div className="space-y-4">
