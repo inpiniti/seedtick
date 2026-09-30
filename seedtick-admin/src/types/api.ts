@@ -182,3 +182,43 @@ export interface SystemLogItem {
   message: string;
   context: Record<string, unknown>;
 }
+
+// 10. 종목 차트 및 볼린저 밴드 (/api/screener/chart/:ticker)
+export interface CandleItem {
+  time: string; // YYYY-MM-DD
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume?: number;
+}
+
+export interface BollingerPoint {
+  time: string; // YYYY-MM-DD
+  upper: number | null;
+  middle: number | null;
+  lower: number | null;
+  percent_b: number | null;
+}
+
+export interface BollingerSummary {
+  current_price: number;
+  upper: number;
+  middle: number;
+  lower: number;
+  percent_b: number;
+  bandwidth: number;
+  status: "LOWER_BREAK" | "LOWER_NEAR" | "MIDDLE" | "UPPER_NEAR" | "UPPER_BREAK";
+  status_label: string;
+  status_description: string;
+}
+
+export interface StockChartResponse {
+  ticker: string;
+  period: string;
+  interval: string;
+  candles: CandleItem[];
+  bollinger: BollingerPoint[];
+  summary: BollingerSummary | null;
+}
+

@@ -2,7 +2,8 @@
 Screener API Route
 """
 from fastapi import APIRouter, HTTPException, Query
-from app.domains.screener.models import ScreenCriteria, ScreenResult
+from app.domains.screener.chart_service import ChartService
+from app.domains.screener.models import ScreenCriteria, ScreenResult, StockChartResponse
 from app.domains.screener.service import ScreenerService
 
 router = APIRouter(prefix="/api/screener", tags=["screener"])
@@ -26,3 +27,17 @@ async def run_screener(
         return await service.get_stock_list(criteria)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"스크리너 실행 실패: {e}")
+
+
+@router.get("/chart/{ticker}", response_model=StockChartResponse, summary="종목 일봉 캔들스틱 및 볼린저 밴드(20, 2) 조회")
+async def get_stock_chart(
+    ticker: str,
+    range_period: str = Query("6mo", alias="range", description="조회 기간 (기본 6mo, 3mo/6mo/1y)"),
+    interval: str = Query("1d", description="캔들 주기 (기본 1d)"),
+):
+    try:
+        service = ChartService()
+        return await service.get_stock_chart(ticker=ticker, range_period=range_period, interval=interval)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"[{ticker}] 차트 데이터 조회 실패: {e}")
+

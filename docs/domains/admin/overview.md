@@ -15,6 +15,7 @@
 | **파이프라인 제어** | • 12:00 KST 정기 배치 외 **수동 즉시 파이프라인 트리거** (`dry_run`, `force` 옵션) | `seedtick-analyzer` (`/api/scheduler/trigger`) |
 | **스크리너 & 거장 표결** | • 토스 13인 공통 필터 실시간 스크리닝 종목 조회<br>• 일자별 13인 거장 표결 점수 랭킹 매트릭스 (g0~g13) | Supabase `guru_votes`, Analyzer (`/api/screener/run`) |
 | **투자 보고서 뷰어** | • 종목별 5단계 심층 리포트 (데이터팩 + 13인 요약 + 원탁 토론 + 마스터 리포트) 마크다운 열람 | Supabase `guru_reports` |
+| **일봉 & BB 차트** | • 실시간 스크리너 및 리포트 종목의 6개월 일봉 캔들스틱 + 볼린저 밴드(20, 2) 차트 열람<br>• 볼린저 밴드 위치 진단(상단 돌파, 상단 근접, 중심선, 하단 근접, 하단 이탈) 요약 배지 | `seedtick-analyzer` (`/api/screener/chart/{ticker}`) |
 | **시스템 & 에러 로그** | • 실시간 이벤트/에러 로그 피드 (`INFO`, `WARNING`, `ERROR`, `CRITICAL`)<br>• 상세 에러 스택 및 JSON 컨텍스트 인스펙터 | Supabase `error_logs` |
 
 ## 3. 도메인 불변식 (Invariants)

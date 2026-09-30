@@ -46,3 +46,46 @@ class ScreenResult(BaseModel):
             self.items = self.tickers
         elif not self.tickers and self.items:
             self.tickers = self.items
+
+
+class CandleItem(BaseModel):
+    """일봉 캔들스틱 데이터 포인트"""
+    time: str                        # YYYY-MM-DD
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: int | None = None
+
+
+class BollingerPoint(BaseModel):
+    """볼린저 밴드 시계열 포인트 (20일 SMA, 2표준편차)"""
+    time: str                        # YYYY-MM-DD
+    upper: float | None = None
+    middle: float | None = None
+    lower: float | None = None
+    percent_b: float | None = None
+
+
+class BollingerSummary(BaseModel):
+    """현재 시점 볼린저 밴드 위치 및 상태 판정"""
+    current_price: float
+    upper: float
+    middle: float
+    lower: float
+    percent_b: float                 # (현재가 - 하단) / (상단 - 하단)
+    bandwidth: float                 # (상단 - 하단) / 중심선
+    status: str                      # LOWER_BREAK | LOWER_NEAR | MIDDLE | UPPER_NEAR | UPPER_BREAK
+    status_label: str                # 하단 이탈 | 하단 밴드 근접 | 중심선 영역 | 상단 밴드 근접 | 상단 돌파
+    status_description: str
+
+
+class StockChartResponse(BaseModel):
+    """일봉 차트 및 볼린저 밴드 전체 응답"""
+    ticker: str
+    period: str = "6mo"
+    interval: str = "1d"
+    candles: list[CandleItem] = Field(default_factory=list)
+    bollinger: list[BollingerPoint] = Field(default_factory=list)
+    summary: BollingerSummary | None = None
+

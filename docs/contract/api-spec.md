@@ -1,4 +1,4 @@
-﻿# 서비스 간 API 스펙 (Source of Truth)
+# 서비스 간 API 스펙 (Source of Truth)
 
 > **중요**: 이 문서는 3개 프로젝트 모두의 인터페이스 계약입니다.
 > 변경 시 이 문서를 먼저 수정하고, 각 프로젝트에 반영하세요.
@@ -89,6 +89,39 @@ Content-Type: application/json
   "criteria": {
     "min_volume": 1000000,
     "min_price": 10
+  }
+}
+```
+
+### GET /api/screener/chart/{ticker}
+특정 종목의 일봉 캔들스틱 데이터 및 볼린저 밴드(20일 SMA, ±2 표준편차) 계산 결과 조회
+
+**Query Parameters**
+- `range`: 조회 기간 (기본: `6mo`, 선택: `3mo`, `6mo`, `1y`)
+- `interval`: 캔들 주기 (기본: `1d`)
+
+**Response (200)**
+```json
+{
+  "ticker": "AAPL",
+  "period": "6mo",
+  "interval": "1d",
+  "candles": [
+    { "time": "2024-04-01", "open": 170.0, "high": 172.5, "low": 169.5, "close": 171.2, "volume": 45000000 }
+  ],
+  "bollinger": [
+    { "time": "2024-04-26", "upper": 175.4, "middle": 170.2, "lower": 165.0, "percent_b": 0.596 }
+  ],
+  "summary": {
+    "current_price": 171.2,
+    "upper": 175.4,
+    "middle": 170.2,
+    "lower": 165.0,
+    "percent_b": 0.596,
+    "bandwidth": 0.061,
+    "status": "MIDDLE",
+    "status_label": "중심선 영역",
+    "status_description": "볼린저 밴드 중심선 부근에서 안정적인 추세를 유지하고 있어요."
   }
 }
 ```
