@@ -128,7 +128,7 @@ class GuruReportService:
 
     async def generate_guru_summaries(self, datapack: StockDataPack) -> GuruSummaryDoc:
         """
-        13인 거장별 페르소나 프롬프트를 조립하여 AI-Gateway를 최대 concurrency(기본 10)개 동시 병렬 처리합니다.
+        13인 거장별 페르소나 프롬프트를 조립하여 AI 클라이언트를 최대 concurrency(기본 13)개 동시 병렬 처리합니다.
         AI-Gateway의 키 로테이션 능력을 활용하여 빠르고 안정적으로 요약 블록을 완성합니다.
         """
         date_str = datapack.date
