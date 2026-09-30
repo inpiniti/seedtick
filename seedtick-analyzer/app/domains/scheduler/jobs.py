@@ -63,10 +63,14 @@ async def daily_pipeline_job(
         # ── 3. 종목별 5단계 Guru-Report 실행 ──────────────────
         report_service = GuruReportService()
         generated_reports = []
+        ticker_screeners_map = {item.ticker: item.screeners for item in screen_result.tickers}
 
         for ticker in target_tickers:
             try:
-                report = await report_service.generate_full_report(ticker, today_str)
+                screeners = ticker_screeners_map.get(ticker)
+                report = await report_service.generate_full_report(
+                    ticker, today_str, screeners=screeners
+                )
                 generated_reports.append(report)
             except Exception as e:
                 logger.error(f"[Scheduler] {ticker} 분석 리포트 실패: {e}")
