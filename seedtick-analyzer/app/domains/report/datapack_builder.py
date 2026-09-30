@@ -42,19 +42,35 @@ class DataPackBuilder:
             for attempt in range(1, 4):
                 try:
                     # 1. fc.yahoo.com에서 쿠키 획득
+                    # ※ fc.yahoo.com은 HTTP 404를 반환해도 Set-Cookie 헤더로 A3 쿠키를 내려줌
                     res1 = await client.get(
                         "https://fc.yahoo.com",
                         headers={"User-Agent": UA},
                         follow_redirects=True,
                     )
-                    cookies = [f"{k}={v}" for k, v in res1.cookies.items()]
-                    cookie_str = "; ".join(cookies)
+                    # httpx res.cookies + Set-Cookie 헤더 직접 파싱 (환경에 따라 쿠키 인식 차이)
+                    cookies: dict[str, str] = {}
+                    for k, v in res1.cookies.items():
+                        cookies[k] = v
+                    for sc in res1.headers.get_list("set-cookie"):
+                        part = sc.split(";")[0].strip()
+                        if "=" in part:
+                            ck, cv = part.split("=", 1)
+                            cookies[ck.strip()] = cv.strip()
+
+                    cookie_str = "; ".join(f"{k}={v}" for k, v in cookies.items())
                     if not cookie_str:
                         logger.warning(
                             f"[DataPackBuilder] Yahoo 쿠키 획득 실패 (시도 {attempt}/3)"
+                            f" - fc HTTP {res1.status_code}, headers: {dict(res1.headers)}"
                         )
                         await asyncio.sleep(1.0)
                         continue
+
+                    logger.info(
+                        f"[DataPackBuilder] Yahoo 쿠키 획득 성공 (시도 {attempt}/3)"
+                        f" - fc HTTP {res1.status_code}, cookies={list(cookies.keys())}"
+                    )
 
                     # 2. getcrumb 호출
                     res2 = await client.get(
