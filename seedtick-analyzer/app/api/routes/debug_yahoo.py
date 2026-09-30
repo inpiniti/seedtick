@@ -16,13 +16,27 @@ async def _try_method(name, url, client):
     start = _t.time()
     try:
         r1 = await client.get(url, headers={'User-Agent': UA}, follow_redirects=True)
+        # res.cookies + Set-Cookie 헤더 직접 파싱 (환경에 따라 쿠키 인식 차이)
         cookies = {k: v for k, v in r1.cookies.items()}
+        for sc in r1.headers.get_list('set-cookie'):
+            part = sc.split(';')[0].strip()
+            if '=' in part:
+                ck, cv = part.split('=', 1)
+                cookies[ck.strip()] = cv.strip()
         cookie_str = '; '.join(f'{k}={v}' for k, v in cookies.items())
         if not cookie_str:
             return {'method': name, 'success': False, 'error': f'no_cookie HTTP {r1.status_code}', 'elapsed_ms': round((_t.time()-start)*1000)}
         r2 = await client.get(f'{Y1}/v1/test/getcrumb', headers={'User-Agent': UA, 'Cookie': cookie_str})
         crumb = r2.text.strip()
-        valid = bool(crumb) and '{' not in crumb and '<' not in crumb and len(crumb) <= 30
+        # crumb 유효성: HTTP 200이고, JSON/HTML/에러 텍스트가 아닌 1~30자 문자열
+        valid = (
+            r2.status_code == 200
+            and bool(crumb)
+            and '{' not in crumb
+            and '<' not in crumb
+            and ' ' not in crumb  # 'Too Many Requests' 같은 문장 차단
+            and len(crumb) <= 30
+        )
         return {'method': name, 'success': valid, 'cookie_count': len(cookies), 'cookie_keys': list(cookies.keys()), 'crumb': crumb if valid else None, 'crumb_raw': crumb[:80], 'crumb_status': r2.status_code, 'fetch_status': r1.status_code, 'elapsed_ms': round((_t.time()-start)*1000)}
     except Exception as e:
         return {'method': name, 'success': False, 'error': str(e), 'elapsed_ms': round((_t.time()-start)*1000)}

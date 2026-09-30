@@ -3,10 +3,12 @@ DataPackBuilder: Yahoo Finance 및 무료 API를 활용한 결정론적 심층 �
 """
 import asyncio
 import logging
+import time
 from datetime import date as dt_date
 from datetime import datetime
 from pathlib import Path
 import httpx
+import yfinance as yf
 
 from app.domains.report.models import (
     BalanceSheetRow,
@@ -209,30 +211,119 @@ class DataPackBuilder:
             "summaryDetail", "defaultKeyStatistics", "financialData",
             "assetProfile", "recommendationTrend", "calendarEvents",
         ]
-        for attempt in range(2):
+        # 1. Yahoo Finance 직접 호출 시도
+        try:
+            cookie, crumb = await self._get_auth(client, force_refresh=False)
+            url = f"{Y1}/v10/finance/quoteSummary/{ticker}?modules={','.join(modules)}&crumb={crumb}"
+            res = await client.get(url, headers={"User-Agent": UA, "Cookie": cookie})
+            if res.status_code == 200:
+                data = res.json()
+                qs_res = (data.get("quoteSummary", {}).get("result") or [{}])[0]
+                if qs_res.get("summaryDetail") and qs_res.get("assetProfile"):
+                    return data
+            logger.warning(
+                f"[{ticker}] Yahoo QuoteSummary 직접 응답 불완전 (HTTP {res.status_code}) -> yfinance Fallback 실행"
+            )
+        except Exception as e:
+            logger.warning(
+                f"[{ticker}] Yahoo QuoteSummary 인증/호출 실패 ({e}) -> yfinance Fallback 실행"
+            )
+
+        # 2. yfinance 기반 핀포인트 Fallback (동기 I/O이므로 asyncio.to_thread 사용)
+        return await asyncio.to_thread(self._fetch_quote_summary_yf, ticker)
+
+    def _fetch_quote_summary_yf(self, ticker: str) -> dict:
+        """
+        Yahoo Finance API(Crumb) 차단 시 yfinance 기반 핀포인트 Fallback:
+        밸류에이션(PER/PBR/PSR/PEG/EV), 섹터/산업/개요, 이평선, 컨센서스, IR일정 제공
+        """
+        try:
+            tk = yf.Ticker(ticker)
+            info = tk.info or {}
+            fi = tk.fast_info
+            cal = {}
             try:
-                # 2번째 시도(attempt == 1)에는 강제로 새 crumb 발급
-                cookie, crumb = await self._get_auth(client, force_refresh=(attempt > 0))
-                url = f"{Y1}/v10/finance/quoteSummary/{ticker}?modules={','.join(modules)}&crumb={crumb}"
-                res = await client.get(url, headers={"User-Agent": UA, "Cookie": cookie})
-                if res.status_code == 200:
-                    return res.json()
+                cal = tk.calendar or {}
+            except Exception:
+                pass
 
-                logger.warning(
-                    f"[{ticker}] QuoteSummary 비정상 응답 (HTTP {res.status_code}, 시도 {attempt + 1}/2): {res.text[:120]}"
-                )
-                if res.status_code in (401, 403):
-                    # Crumb 또는 Cookie 만료/오염 -> 캐시 무효화 후 다음 루프에서 재발급
-                    async with self._auth_lock:
-                        self._crumb = None
-                        self._cookie = None
-            except Exception as e:
-                logger.warning(f"[{ticker}] QuoteSummary 요청 예외 (시도 {attempt + 1}/2): {e}")
-                async with self._auth_lock:
-                    self._crumb = None
-                    self._cookie = None
+            fifty_d = getattr(fi, "fifty_day_average", None) or info.get("fiftyDayAverage")
+            two_hundred_d = getattr(fi, "two_hundred_day_average", None) or info.get("twoHundredDayAverage")
+            mcap = getattr(fi, "market_cap", None) or info.get("marketCap")
 
-        return {}
+            # calendar events 파싱
+            earnings_list = cal.get("Earnings Date", [])
+            if not isinstance(earnings_list, list):
+                earnings_list = [earnings_list]
+            earnings_ts = []
+            for ed in earnings_list:
+                if hasattr(ed, "timetuple"):
+                    earnings_ts.append({"raw": int(time.mktime(ed.timetuple()))})
+
+            ex_div = cal.get("Ex-Dividend Date")
+            ex_div_ts = int(time.mktime(ex_div.timetuple())) if hasattr(ex_div, "timetuple") else None
+            div_date = cal.get("Dividend Date")
+            div_date_ts = int(time.mktime(div_date.timetuple())) if hasattr(div_date, "timetuple") else None
+
+            qs_mock = {
+                "quoteSummary": {
+                    "result": [
+                        {
+                            "summaryDetail": {
+                                "trailingPE": {"raw": info.get("trailingPE")},
+                                "forwardPE": {"raw": info.get("forwardPE")},
+                                "marketCap": {"raw": mcap},
+                                "priceToBook": {"raw": info.get("priceToBook")},
+                                "priceToSalesTrailing12Months": {"raw": info.get("priceToSalesTrailing12Months")},
+                                "dividendYield": {"raw": info.get("dividendYield")},
+                                "fiftyDayAverage": {"raw": fifty_d},
+                                "twoHundredDayAverage": {"raw": two_hundred_d},
+                            },
+                            "defaultKeyStatistics": {
+                                "enterpriseValue": {"raw": info.get("enterpriseValue")},
+                                "priceToBook": {"raw": info.get("priceToBook")},
+                                "pegRatio": {"raw": info.get("pegRatio")},
+                                "enterpriseToEbitda": {"raw": info.get("enterpriseToEbitda")},
+                                "shortPercentOfFloat": {"raw": info.get("shortPercentOfFloat")},
+                                "heldPercentInsiders": {"raw": info.get("heldPercentInsiders")},
+                                "heldPercentInstitutions": {"raw": info.get("heldPercentInstitutions")},
+                            },
+                            "financialData": {
+                                "currentPrice": {"raw": getattr(fi, "last_price", None) or info.get("currentPrice")},
+                                "targetMeanPrice": {"raw": info.get("targetMeanPrice")},
+                                "targetHighPrice": {"raw": info.get("targetHighPrice")},
+                                "targetLowPrice": {"raw": info.get("targetLowPrice")},
+                                "recommendationKey": info.get("recommendationKey", "N/A"),
+                                "returnOnEquity": {"raw": info.get("returnOnEquity")},
+                                "returnOnAssets": {"raw": info.get("returnOnAssets")},
+                                "currentRatio": {"raw": info.get("currentRatio")},
+                                "totalCash": {"raw": info.get("totalCash")},
+                                "totalDebt": {"raw": info.get("totalDebt")},
+                                "financialCurrency": info.get("financialCurrency", "USD"),
+                            },
+                            "assetProfile": {
+                                "sector": info.get("sector", "N/A"),
+                                "industry": info.get("industry", "N/A"),
+                                "longBusinessSummary": info.get("longBusinessSummary", ""),
+                            },
+                            "calendarEvents": {
+                                "earnings": {"earningsDate": earnings_ts},
+                                "exDividendDate": {"raw": ex_div_ts},
+                                "dividendDate": {"raw": div_date_ts},
+                            },
+                        }
+                    ]
+                }
+            }
+            logger.info(
+                f"[{ticker}] yfinance Fallback 데이터 보완 완료 "
+                f"(PE: {info.get('trailingPE')}, Sector: {info.get('sector')}, "
+                f"50d: {fifty_d}, Target: {info.get('targetMeanPrice')})"
+            )
+            return qs_mock
+        except Exception as e:
+            logger.warning(f"[{ticker}] yfinance Fallback 수집 중 오류: {e}")
+            return {}
 
     def _assemble_datapack(
         self,
@@ -271,7 +362,7 @@ class DataPackBuilder:
         trailing_pe = self._raw(summary_detail.get("trailingPE"))
         forward_pe = self._raw(summary_detail.get("forwardPE"))
         peg = self._raw(key_stats.get("pegRatio"))
-        pbr = self._raw(summary_detail.get("priceToBook"))
+        pbr = self._raw(summary_detail.get("priceToBook")) or self._raw(key_stats.get("priceToBook"))
         psr = self._raw(summary_detail.get("priceToSalesTrailing12Months"))
         ev_ebitda = self._raw(key_stats.get("enterpriseToEbitda"))
         dividend_yield = self._raw(summary_detail.get("dividendYield"))
@@ -294,9 +385,10 @@ class DataPackBuilder:
         cashflow_rows = self._parse_cashflow_rows(ts)
         balance_sheet = self._parse_balance_sheet(ts, fin_data)
 
+        summary_text = f"{short_summary}..." if short_summary else "N/A"
         overview = (
             f"- **섹터/산업**: {sector} / {industry}\n"
-            f"- **사업 개요**: {short_summary}..."
+            f"- **사업 개요**: {summary_text}"
         )
 
         market_metrics = {
