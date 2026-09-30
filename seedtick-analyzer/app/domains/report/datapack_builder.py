@@ -19,6 +19,7 @@ try:
 except ImportError:
     cffi_requests = None
 
+from app.config.settings import settings
 from app.domains.report.models import (
     BalanceSheetRow,
     CashFlowRow,
@@ -251,7 +252,33 @@ class DataPackBuilder:
             "summaryDetail", "defaultKeyStatistics", "financialData",
             "assetProfile", "recommendationTrend", "calendarEvents",
         ]
-        # 1. Yahoo Finance 직접 호출 시도
+        # 1. AI-Gateway (Vercel) 프록시 우선 시도 (HuggingFace IP 차단 완벽 우회)
+        from urllib.parse import urlparse
+        gw_raw = getattr(settings, "AI_GATEWAY_URL", "")
+        origin = "https://seedtick-ai-gateway.vercel.app"
+        if gw_raw:
+            p = urlparse(gw_raw)
+            if p.scheme and p.netloc and "localhost" not in p.netloc:
+                origin = f"{p.scheme}://{p.netloc}"
+
+        target_gw_urls = [f"{origin}/v1/yahoo/quote-summary/{ticker}"]
+
+        for gw_url in target_gw_urls:
+            try:
+                headers = {"User-Agent": UA}
+                if getattr(settings, "AI_GATEWAY_SECRET", ""):
+                    headers["Authorization"] = f"Bearer {settings.AI_GATEWAY_SECRET}"
+                gw_res = await client.get(gw_url, headers=headers, timeout=12.0)
+                if gw_res.status_code == 200:
+                    data = gw_res.json()
+                    qs_res = (data.get("quoteSummary", {}).get("result") or [{}])[0]
+                    if qs_res.get("summaryDetail") and qs_res.get("assetProfile"):
+                        logger.info(f"[{ticker}] AI-Gateway(Vercel) QuoteSummary 수신 성공")
+                        return data
+            except Exception as e:
+                logger.warning(f"[{ticker}] AI-Gateway({gw_url}) 프록시 실패: {e}")
+
+        # 2. Yahoo Finance 직접 호출 시도 (curl_cffi / httpx)
         try:
             cookie, crumb = await self._get_auth(client, force_refresh=False)
             url = f"{Y1}/v10/finance/quoteSummary/{ticker}?modules={','.join(modules)}&crumb={crumb}"
@@ -269,7 +296,7 @@ class DataPackBuilder:
                 f"[{ticker}] Yahoo QuoteSummary 인증/호출 실패 ({e}) -> yfinance Fallback 실행"
             )
 
-        # 2. yfinance 기반 핀포인트 Fallback (동기 I/O이므로 asyncio.to_thread 사용)
+        # 3. yfinance 기반 핀포인트 Fallback (동기 I/O이므로 asyncio.to_thread 사용)
         return await asyncio.to_thread(self._fetch_quote_summary_yf, ticker)
 
     def _fetch_quote_summary_yf(self, ticker: str) -> dict:
