@@ -32,26 +32,64 @@ class DataPackBuilder:
         self._cookie: str | None = None
         self._crumb: str | None = None
 
-    async def _get_auth(self, client: httpx.AsyncClient) -> tuple[str, str]:
+    async def _get_auth(
+        self, client: httpx.AsyncClient, force_refresh: bool = False
+    ) -> tuple[str, str]:
         async with self._auth_lock:
-            if self._cookie and self._crumb:
+            if not force_refresh and self._cookie and self._crumb:
                 return self._cookie, self._crumb
 
-            # 1. fc.yahoo.com에서 쿠키 획득
-            res1 = await client.get("https://fc.yahoo.com", headers={"User-Agent": UA})
-            cookies = [f"{k}={v}" for k, v in res1.cookies.items()]
-            cookie_str = "; ".join(cookies)
+            for attempt in range(1, 4):
+                try:
+                    # 1. fc.yahoo.com에서 쿠키 획득
+                    res1 = await client.get(
+                        "https://fc.yahoo.com",
+                        headers={"User-Agent": UA},
+                        follow_redirects=True,
+                    )
+                    cookies = [f"{k}={v}" for k, v in res1.cookies.items()]
+                    cookie_str = "; ".join(cookies)
+                    if not cookie_str:
+                        logger.warning(
+                            f"[DataPackBuilder] Yahoo 쿠키 획득 실패 (시도 {attempt}/3)"
+                        )
+                        await asyncio.sleep(1.0)
+                        continue
 
-            # 2. getcrumb 호출
-            res2 = await client.get(
-                f"{Y1}/v1/test/getcrumb",
-                headers={"User-Agent": UA, "Cookie": cookie_str},
-            )
-            crumb = res2.text.strip()
-            self._cookie = cookie_str
-            self._crumb = crumb
-            logger.info("[DataPackBuilder] Yahoo Crumb 발급 완료")
-            return self._cookie, self._crumb
+                    # 2. getcrumb 호출
+                    res2 = await client.get(
+                        f"{Y1}/v1/test/getcrumb",
+                        headers={"User-Agent": UA, "Cookie": cookie_str},
+                    )
+                    if res2.status_code != 200:
+                        logger.warning(
+                            f"[DataPackBuilder] getcrumb 실패 (HTTP {res2.status_code}, 시도 {attempt}/3): {res2.text[:100]}"
+                        )
+                        await asyncio.sleep(1.0)
+                        continue
+
+                    crumb = res2.text.strip()
+                    # Crumb 유효성 검증: JSON 에러나 HTML이 아니고 길이가 정상 범위(1~30자)인 경우
+                    if not crumb or "{" in crumb or "<" in crumb or len(crumb) > 30:
+                        logger.warning(
+                            f"[DataPackBuilder] 비정상 Crumb 수신 (시도 {attempt}/3): {crumb[:50]}"
+                        )
+                        await asyncio.sleep(1.0)
+                        continue
+
+                    self._cookie = cookie_str
+                    self._crumb = crumb
+                    logger.info(
+                        f"[DataPackBuilder] Yahoo Crumb 발급 완료 (길이: {len(crumb)})"
+                    )
+                    return self._cookie, self._crumb
+                except Exception as e:
+                    logger.warning(
+                        f"[DataPackBuilder] Yahoo Auth 예외 발생 (시도 {attempt}/3): {e}"
+                    )
+                    await asyncio.sleep(1.0)
+
+            raise RuntimeError("Yahoo Finance Crumb/Cookie 발급 3회 모두 실패")
 
     async def build(self, ticker: str, target_date: str | None = None) -> StockDataPack:
         """
@@ -151,18 +189,33 @@ class DataPackBuilder:
         return res.json()
 
     async def _fetch_quote_summary(self, client: httpx.AsyncClient, ticker: str) -> dict:
-        try:
-            cookie, crumb = await self._get_auth(client)
-            modules = [
-                "summaryDetail", "defaultKeyStatistics", "financialData",
-                "assetProfile", "recommendationTrend", "calendarEvents",
-            ]
-            url = f"{Y1}/v10/finance/quoteSummary/{ticker}?modules={','.join(modules)}&crumb={crumb}"
-            res = await client.get(url, headers={"User-Agent": UA, "Cookie": cookie})
-            if res.status_code == 200:
-                return res.json()
-        except Exception as e:
-            logger.warning(f"[{ticker}] QuoteSummary 요청 실패: {e}")
+        modules = [
+            "summaryDetail", "defaultKeyStatistics", "financialData",
+            "assetProfile", "recommendationTrend", "calendarEvents",
+        ]
+        for attempt in range(2):
+            try:
+                # 2번째 시도(attempt == 1)에는 강제로 새 crumb 발급
+                cookie, crumb = await self._get_auth(client, force_refresh=(attempt > 0))
+                url = f"{Y1}/v10/finance/quoteSummary/{ticker}?modules={','.join(modules)}&crumb={crumb}"
+                res = await client.get(url, headers={"User-Agent": UA, "Cookie": cookie})
+                if res.status_code == 200:
+                    return res.json()
+
+                logger.warning(
+                    f"[{ticker}] QuoteSummary 비정상 응답 (HTTP {res.status_code}, 시도 {attempt + 1}/2): {res.text[:120]}"
+                )
+                if res.status_code in (401, 403):
+                    # Crumb 또는 Cookie 만료/오염 -> 캐시 무효화 후 다음 루프에서 재발급
+                    async with self._auth_lock:
+                        self._crumb = None
+                        self._cookie = None
+            except Exception as e:
+                logger.warning(f"[{ticker}] QuoteSummary 요청 예외 (시도 {attempt + 1}/2): {e}")
+                async with self._auth_lock:
+                    self._crumb = None
+                    self._cookie = None
+
         return {}
 
     def _assemble_datapack(
