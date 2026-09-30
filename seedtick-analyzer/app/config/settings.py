@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     AI_GATEWAY_MODEL: str = "nvidia/nemotron-3-ultra-550b-a55b:free"
     AI_GATEWAY_TIMEOUT: float = 300.0  # 긴 32K 응답 수용을 위해 300초로 상향
     AI_GATEWAY_SECRET: str = ""  # seedtick-ai-gateway의 GATEWAY_SECRET (Bearer 토큰)
-    AI_CONCURRENCY: int = 10  # 동시 처리 요청 수 (기본 최대 10개 병렬)
+    AI_CONCURRENCY: int = 13  # 동시 처리 요청 수 (13인 거장 전원 동시 병렬)
     AI_REQUEST_INTERVAL_SEC: float = 0.0  # 요청 간 대기시간(초)
     AI_GATEWAY_MAX_TOKENS: int = 32768  # 모델 최대 생성 토큰 (32K 지원)
     MAX_ANALYZE_COUNT: int = 0  # 1일 최대 리포트 분석 종목 수 (0: 스크리너 전체 무제한)
