@@ -174,6 +174,59 @@ def test_parse_report_verdict_various_formats():
     assert s6 == 0
 
 
+def test_parse_report_verdict_tsm_hold_regression():
+    engine = DiscussionEngine(ai_client=MagicMock())
+
+    # 1. 실제 TSM 보고서 원문 케이스 (헤더 볼드 + 영문 수식어 + 표결은 매수 7 다수)
+    raw_md = """# TSM 최종 종합 마스터 투자 보고서
+> **날짜**: 2026-09-29 | **종목**: TSM (Taiwan Semiconductor Manufacturing Co.) | **현재가**: $452.88  
+> **종합 의견**: **관망 (Hold / Wait for Better Entry)** — *펀더멘털 최상위 1%, 밸류에이션 안전마진 부재, 지정학적 꼬리위험 미반영*  
+> **표결**: 매수 7 · 보유 0 · 관망 5 · 매도 2  
+
+---
+
+## 1. 종합 결론
+
+**TSMC는 '사고 싶지만 살 수 없는' 전형적인 딜레마 종목이다.**  
+13인의 거장 토론 결과, **펀더멘털 퀄리티(ROE 40%, OPM 50.8%, N3/N2 독점)는 역사적 최강**이나, **진입 가격($452.88)이 '퀄리티 프리미엄'을 넘어 '낙관 프리미엄'까지 선반영**된 구간임이 확인됐다.
+
+*   **강세론(매수 7인)의 핵심**: "AI 반도체 독점적 수혜 + FCF 변곡점 도래(2025년 9,924억 원 → 2026년 1.5조 원 돌파 전망) + 지정학적 공포 할인 과도 = 내재가치 $480~$550".
+*   **신중론(관망 5인)의 핵심**: "주인 수익(Owner Earnings) 기준 PER 30배 중반 + FCF 수익률 0.7%(EV 기준)".
+
+**최종 판단**: **'관망(Wait for Fat Pitch)'**. 현재가($452.88)는 **'분할 매수 허용 구간($400~$420)' 상단**이자 **'적극 매수 구간($380 이하, 200일선)' 진입 전**이다.
+"""
+    fallback = {"매수": 7, "보유": 0, "관망": 5, "매도": 2}
+    v, s = engine.parse_report_verdict(raw_md, fallback_votes=fallback)
+    assert v == "관망"
+    assert s == 2
+
+    # 2. 다양한 마크다운 헤더 변형 테스트
+    # 2-1. 콜론이 볼드 안에 있는 경우: **종합 의견:** **관망**
+    v_a, s_a = engine.parse_report_verdict("> **종합 의견:** **관망**", fallback_votes=fallback)
+    assert v_a == "관망"
+    assert s_a == 2
+
+    # 2-2. 띄어쓰기 없는 볼드 라벨: **종합의견**: 관망
+    v_b, s_b = engine.parse_report_verdict("> **종합의견**: 관망", fallback_votes=fallback)
+    assert v_b == "관망"
+    assert s_b == 2
+
+    # 2-3. 최종 투자의견 라벨
+    v_c, s_c = engine.parse_report_verdict("> **최종 투자의견**: **매도**", fallback_votes=fallback)
+    assert v_c == "매도"
+    assert s_c == 3
+
+    # 2-4. 헤더가 없고 결론 섹션에 "강세론(매수 7인)"과 "최종 판단: '관망'"이 공존하는 경우
+    raw_md_conclusion_only = """
+## 1. 종합 결론
+* 강세론(매수 7인)의 논거가 있었으나
+**최종 판단**: **'관망'**으로 결론짓는다.
+"""
+    v_d, s_d = engine.parse_report_verdict(raw_md_conclusion_only, fallback_votes=fallback)
+    assert v_d == "관망"
+    assert s_d == 2
+
+
 @pytest.mark.asyncio
 async def test_generate_master_report_prioritizes_llm_verdict():
     mock_ai = MagicMock()

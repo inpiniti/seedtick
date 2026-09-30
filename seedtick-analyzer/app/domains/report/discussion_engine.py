@@ -156,7 +156,9 @@ class DiscussionEngine:
 
 [필수 구성]
 # {datapack.ticker} 최종 투자 보고서
-> 날짜: {datapack.date} | 종합 의견: (매수/보유/관망/매도 중 택1, 필요시 상세수식어 병기) | 표결: 매수 {discussion.final_vote_counts.get('매수', 0)} · 보유 {discussion.final_vote_counts.get('보유', 0)} · 관망 {discussion.final_vote_counts.get('관망', 0)} · 매도 {discussion.final_vote_counts.get('매도', 0)}
+> **날짜**: {datapack.date} | **종합 의견**: (매수/보유/관망/매도 중 택1 필수. 예: **관망 (상세 설명)**) | **표결**: 매수 {discussion.final_vote_counts.get('매수', 0)} · 보유 {discussion.final_vote_counts.get('보유', 0)} · 관망 {discussion.final_vote_counts.get('관망', 0)} · 매도 {discussion.final_vote_counts.get('매도', 0)}
+
+※ 중요: 헤더의 '종합 의견'에는 반드시 '매수', '보유', '관망', '매도' 4개 키워드 중 하나를 가장 먼저 명시하라.
 
 ## 1. 종합 결론
 (단순 다수결이 아니라, 토론에서 가장 견고하게 살아남은 논거를 토대로 종합 결론 도출)
@@ -217,40 +219,84 @@ class DiscussionEngine:
         """
         LLM이 작성한 최종 마스터 보고서 마크다운에서 리서치 센터장의 최종 투자의견을 파싱합니다.
 
-        1순위: '종합 의견:' 바로 뒤에 오는 첫 의견 단어 (매수/보유/관망/매도) 추출
-        2순위: '## 1. 종합 결론' 섹션 내 첫 의견 단어 추출
+        1순위: 메타데이터 헤더의 종합의견/투자의견 바로 뒤 첫 의견 단어 (매수/보유/관망/매도) 추출
+               (볼드, 콜론 안팎 마크다운, 공백, 괄호, 영문 병기 등 다양한 서식 지원)
+        2순위: '## 1. 종합 결론' 섹션 내 명시적 결론 라벨 또는 첫 독립 투자의견 단어 탐색
         3순위: 파싱 실패 시 사전 13인 표결 다수결(fallback_votes) 룰 적용
         """
-        verdict_keywords = ["매수", "보유", "관망", "매도"]
-
-        # 1. '종합 의견:' 바로 뒤의 첫 의견 단어만 엄격하게 추출
-        #    예: "종합 의견: 관망" → "관망"
-        #    예: "종합 의견: **매수 (적극 분할 진입)**" → "매수"
-        #    예: "종합 의견: 관망(매도우위)" → "관망"
-        m = re.search(r"종합\s*의견\s*[:：]\s*\**\s*(매수|보유|관망|매도)", raw_md)
+        # 1. 메타데이터 헤더 또는 상단 라벨에서 추출 (볼드/콜론 변형 완벽 대응)
+        #    예: "> **종합 의견**: **관망 (Hold / Wait for Better Entry)**" -> "관망"
+        #    예: "> **종합 의견:** **관망**" -> "관망"
+        #    예: "> 종합 의견: **매수 (적극 분할 진입)**" -> "매수"
+        #    예: "> **종합의견**: 관망" -> "관망"
+        #    예: "> **최종 투자의견**: **매도**" -> "매도"
+        header_pattern = (
+            r"(?:종합\s*의견|종합\s*판정|최종\s*투자의견|최종\s*의견|최종\s*판단|투자의견|종합\s*결론)"
+            r"[^가-힣a-zA-Z0-9\n]{0,30}"
+            r"(매수|보유|관망|매도)"
+        )
+        m = re.search(header_pattern, raw_md)
         if m:
             verdict = m.group(1)  # type: ignore
             score = VERDICT_SCORE_MAP.get(verdict, 2)
             logger.info(
-                f"LLM 마스터 보고서에서 최종 판정 추출 성공 (1순위): '{verdict}' (score: {score})"
+                f"LLM 마스터 보고서에서 최종 판정 추출 성공 (1순위 헤더): '{verdict}' (score: {score})"
             )
             return verdict, score  # type: ignore
 
-        # 2. '## 1. 종합 결론' 섹션 내 첫 의견 단어 탐색
+        # 2. '## 1. 종합 결론' 섹션 내에서 검색
         conclusion_m = re.search(
-            r"##\s*\d*\.?\s*종합\s*결론(.{0,300})",
+            r"##\s*\d*\.?\s*종합\s*결론(.*?)(?=##|\Z)",
             raw_md,
             re.DOTALL,
         )
         if conclusion_m:
             section = conclusion_m.group(1)
-            for kw in verdict_keywords:
-                if kw in section:
-                    score = VERDICT_SCORE_MAP.get(kw, 2)
-                    logger.info(
-                        f"LLM 마스터 보고서에서 최종 판정 추출 성공 (2순위): '{kw}' (score: {score})"
-                    )
-                    return kw, score  # type: ignore
+
+            # 2-1: 결론 섹션 내 명시적 라벨 탐색 (예: **최종 판단**: **'관망'**)
+            label_m = re.search(
+                r"(?:최종\s*판단|최종\s*의견|종합\s*판단|종합\s*결론|종합\s*의견|결론|판정)"
+                r"[^가-힣a-zA-Z0-9\n]{0,30}"
+                r"(매수|보유|관망|매도)",
+                section,
+            )
+            if label_m:
+                verdict = label_m.group(1)  # type: ignore
+                score = VERDICT_SCORE_MAP.get(verdict, 2)
+                logger.info(
+                    f"LLM 마스터 보고서에서 최종 판정 추출 성공 (2-1순위 결론 라벨): '{verdict}' (score: {score})"
+                )
+                return verdict, score  # type: ignore
+
+            # 2-2: 라벨이 없는 경우, 투표수/가격대/행동수식어가 아닌 첫 번째 독립 투자의견 단어 탐색
+            candidate_matches: list[tuple[int, str]] = []
+            for match in re.finditer(
+                r"['\"*`\[(]*\s*(매수|보유|관망|매도)\s*['\"*`\])]*", section
+            ):
+                kw = match.group(1)
+                start = match.start()
+                end = match.end()
+                pre_context = section[max(0, start - 15) : start]
+                post_context = section[end : min(len(section), end + 15)]
+
+                # 제외 조건: '매수 7인', '매수 5표', '분할 매수', '적극 매수', '매수 구간', '매수 허용'
+                if re.search(r"^\s*\d+\s*[인표명]", post_context):
+                    continue
+                if re.search(r"(?:분할|적극|추가|신규|목표|허용)\s*$", pre_context):
+                    continue
+                if re.search(r"^\s*(?:구간|밴드|가격|시점|전략|버튼)", post_context):
+                    continue
+
+                candidate_matches.append((start, kw))
+
+            if candidate_matches:
+                candidate_matches.sort(key=lambda x: x[0])
+                first_verdict = candidate_matches[0][1]
+                score = VERDICT_SCORE_MAP.get(first_verdict, 2)
+                logger.info(
+                    f"LLM 마스터 보고서에서 최종 판정 추출 성공 (2-2순위 결론 첫 키워드): '{first_verdict}' (score: {score})"
+                )
+                return first_verdict, score  # type: ignore
 
         # 3. 폴백: 13인 사전 표결 다수결 적용
         logger.warning(
