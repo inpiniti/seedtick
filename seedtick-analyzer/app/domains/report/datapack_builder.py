@@ -8,7 +8,11 @@ from datetime import date as dt_date
 from datetime import datetime
 from pathlib import Path
 import httpx
-import yfinance as yf
+
+try:
+    import yfinance as yf
+except ImportError:
+    yf = None
 
 from app.domains.report.models import (
     BalanceSheetRow,
@@ -237,6 +241,14 @@ class DataPackBuilder:
         Yahoo Finance API(Crumb) 차단 시 yfinance 기반 핀포인트 Fallback:
         밸류에이션(PER/PBR/PSR/PEG/EV), 섹터/산업/개요, 이평선, 컨센서스, IR일정 제공
         """
+        global yf
+        if yf is None:
+            try:
+                import yfinance as yf
+            except ImportError:
+                logger.warning(f"[{ticker}] yfinance 라이브러리 미설치로 QuoteSummary Fallback 건너뜁니다.")
+                return {}
+
         try:
             tk = yf.Ticker(ticker)
             info = tk.info or {}
