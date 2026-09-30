@@ -236,3 +236,30 @@ async def test_ai_client_reasoning_content_fallback():
         result = await client.chat("테스트")
         assert result == "사고 과정이지만 응답 본문으로 채택됨"
 
+
+@pytest.mark.asyncio
+async def test_ai_client_wrapped_data_response():
+    client = AiGatewayClient(api_keys=["or-key1"])
+
+    # Cline 등 일부 제공자가 {"data": {"choices": [...]}} 형태로 감싸서 응답하는 경우 언래핑 검증
+    resp = MagicMock()
+    resp.status_code = 200
+    resp.json.return_value = {
+        "data": {
+            "choices": [
+                {
+                    "message": {
+                        "content": "Cline 언래핑 성공 응답",
+                    },
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {"total_tokens": 50},
+        }
+    }
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=resp):
+        result = await client.chat("테스트 프롬프트")
+        assert result == "Cline 언래핑 성공 응답"
+
+
