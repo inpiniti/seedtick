@@ -156,6 +156,13 @@ export interface GuruSummaryItem {
   quote?: string;
 }
 
+export interface ValuationConsensus {
+  fair_value_price?: number | null;
+  target_price_band?: string | null;
+  safety_entry_price?: string | null;
+  optimistic_target_price?: string | null;
+}
+
 export interface GuruReportRow {
   id: string;
   d: string;
@@ -165,7 +172,7 @@ export interface GuruReportRow {
   verdict: string;
   overall_score: number;
   vote_summary: string | null;
-  datapack: Record<string, any> | null;
+  datapack: (Record<string, any> & { valuation_consensus?: ValuationConsensus }) | null;
   summaries: GuruSummaryItem[] | null;
   discussion: string | null;
   final_report: string | null;

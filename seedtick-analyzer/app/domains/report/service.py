@@ -380,6 +380,12 @@ class GuruReportService:
             "cashflow_annual": [c.model_dump() for c in datapack.cashflow_annual],
             "balance_sheet": datapack.balance_sheet.model_dump(),
             "valuation": datapack.valuation.model_dump(),
+            "valuation_consensus": {
+                "fair_value_price": report.fair_value_price,
+                "target_price_band": report.target_price_band,
+                "safety_entry_price": report.safety_entry_price,
+                "optimistic_target_price": report.optimistic_target_price,
+            },
             "market_metrics": datapack.market_metrics,
             "analyst_consensus": datapack.analyst_consensus,
             "news_items": datapack.news_items,
