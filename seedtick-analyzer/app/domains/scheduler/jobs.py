@@ -131,3 +131,24 @@ async def execute_pending_orders_job(dry_run: bool | None = None) -> dict:
         "executed_count": len(results),
         "results": [r.model_dump() for r in results],
     }
+
+
+async def cleanup_old_logs_job(hours: int = 24) -> dict:
+    """
+    일일 만료 시스템 로그 정리 잡:
+    - 12:00 메인 파이프라인 1시간 전(오전 11:00 KST) 실행
+    - 24시간 이전의 INFO 레벨 로그만 선별 삭제하여 DB 용량 절약
+    - WARNING, ERROR, CRITICAL 로그는 보존
+    """
+    logger.info("========== [일일 만료 시스템 로그 정리 잡 시작] ==========")
+    from app.infrastructure.supabase_repo import supabase_repo
+
+    deleted_count = supabase_repo.delete_old_info_logs(hours=hours)
+    logger.info(f"[Scheduler] {hours}시간 이전 INFO 시스템 로그 정리 완료: 총 {deleted_count}건 삭제")
+    logger.info("========== [일일 만료 시스템 로그 정리 잡 종료] ==========")
+    return {
+        "status": "success",
+        "deleted_count": deleted_count,
+        "hours": hours,
+    }
+

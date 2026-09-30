@@ -5,7 +5,11 @@ import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from app.domains.scheduler.jobs import daily_pipeline_job, execute_pending_orders_job
+from app.domains.scheduler.jobs import (
+    daily_pipeline_job,
+    execute_pending_orders_job,
+    cleanup_old_logs_job,
+)
 
 logger = logging.getLogger("scheduler_service")
 
@@ -15,8 +19,21 @@ class SchedulerService:
         self._scheduler = AsyncIOScheduler(timezone="Asia/Seoul")
 
     def start(self):
-        """스케줄러 시작: 월~금 12:00 파이프라인 잡 및 22:35/23:35 정규장 예약 발주 잡 등록"""
-        # 1. 일일 메인 파이프라인 잡: 월~금 12:00 KST
+        """스케줄러 시작: 오전 11:00 로그 정리, 12:00 파이프라인 잡 및 22:35/23:35 정규장 예약 발주 잡 등록"""
+        # 1. 일일 시스템 로그 정리 잡: 매일 11:00 KST (12:00 파이프라인 1시간 전 실행)
+        # 24시간 이전의 만료된 INFO 로그만 삭제하여 DB 용량 절약 (WARNING, ERROR, CRITICAL은 보존)
+        cleanup_logs_trigger = CronTrigger(
+            hour=11, minute=0, timezone="Asia/Seoul"
+        )
+        self._scheduler.add_job(
+            cleanup_old_logs_job,
+            trigger=cleanup_logs_trigger,
+            id="cleanup_old_logs",
+            name="일일 만료 INFO 시스템 로그 정리 (매일 오전 11:00)",
+            replace_existing=True,
+        )
+
+        # 2. 일일 메인 파이프라인 잡: 월~금 12:00 KST
         pipeline_trigger = CronTrigger(
             day_of_week="mon-fri", hour=12, minute=0, timezone="Asia/Seoul"
         )
@@ -28,7 +45,7 @@ class SchedulerService:
             replace_existing=True,
         )
 
-        # 2. 미국 정규장 개장(현지 09:30) 5분 후 예약 매수 자동 발주 잡: 월~금 09:35 (America/New_York)
+        # 3. 미국 정규장 개장(현지 09:30) 5분 후 예약 매수 자동 발주 잡: 월~금 09:35 (America/New_York)
         # America/New_York 타임존을 사용하여 서머타임(EDT) 시 KST 22:35, 표준시(EST) 시 KST 23:35로 자동 전환 (중복 실행 방지)
         market_open_trigger = CronTrigger(
             day_of_week="mon-fri", hour=9, minute=35, timezone="America/New_York"
@@ -42,7 +59,9 @@ class SchedulerService:
         )
 
         self._scheduler.start()
-        logger.info("[Scheduler] APScheduler 시작 완료 (12:00 파이프라인, 미국 정규장 현지 09:35 예약 발주)")
+        logger.info(
+            "[Scheduler] APScheduler 시작 완료 (11:00 만료 INFO로그 정리, 12:00 파이프라인, 미국 정규장 현지 09:35 예약 발주)"
+        )
 
     def shutdown(self):
         """스케줄러 안전 종료"""
@@ -63,6 +82,11 @@ class SchedulerService:
         """대기 중인 예약 주문 수동 즉시 발주 트리거"""
         logger.info(f"[Scheduler] 수동 예약 주문 발주 트리거 (dry_run={dry_run})")
         return await execute_pending_orders_job(dry_run=dry_run)
+
+    async def trigger_log_cleanup(self, hours: int = 24) -> dict:
+        """만료 시스템 로그 수동 즉시 정리 트리거"""
+        logger.info(f"[Scheduler] 수동 로그 정리 트리거 (hours={hours})")
+        return await cleanup_old_logs_job(hours=hours)
 
 
 scheduler_service = SchedulerService()

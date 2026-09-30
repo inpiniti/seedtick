@@ -2,6 +2,7 @@
 Supabase 저장소: guru_votes 테이블 및 리포트 메타데이터 동기화
 """
 import logging
+from datetime import datetime, timedelta, timezone
 from supabase import Client, create_client
 from app.config.settings import settings
 from app.config.constants import VERDICT_SCORE_MAP
@@ -169,6 +170,35 @@ class SupabaseRepo:
             context=context,
             logger_name=logger_name,
         )
+
+    def delete_old_info_logs(self, hours: int = 24) -> int:
+        """
+        지정된 시간(기본 24시간) 이전의 INFO 레벨 시스템 로그 삭제
+        - WARNING, ERROR, CRITICAL 로그는 감사 및 장애 분석을 위해 영구 보존
+        - 반환값: 삭제된 로그 레코드 수
+        """
+        if not self._client:
+            logger.info("[Supabase] 클라이언트 미연결 — 로그 정리 건너뜀")
+            return 0
+
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+        try:
+            res = (
+                self._client.table("error_logs")
+                .delete()
+                .eq("level", "INFO")
+                .lt("created_at", cutoff)
+                .execute()
+            )
+            deleted_count = len(res.data) if res.data else 0
+            logger.info(
+                f"[Supabase] {hours}시간 이전 INFO 로그 정리 완료 "
+                f"({deleted_count}건 삭제, 기준시각: {cutoff})"
+            )
+            return deleted_count
+        except Exception as e:
+            logger.error(f"[Supabase] INFO 로그 정리 중 오류 발생: {e}")
+            return 0
 
 
 supabase_repo = SupabaseRepo()

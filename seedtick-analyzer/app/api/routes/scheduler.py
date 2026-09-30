@@ -20,3 +20,16 @@ async def trigger_pipeline(
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"파이프라인 실행 오류: {e}")
+
+
+@router.post("/cleanup-logs", summary="만료 시스템 로그 수동 즉시 정리")
+async def cleanup_logs(
+    hours: int = Query(24, ge=1, le=720, description="정리할 이전 시간 기준 (기본 24시간)"),
+):
+    """지정된 시간(기본 24시간) 이전의 INFO 레벨 시스템 로그를 삭제하여 DB 용량을 최적화합니다."""
+    try:
+        result = await scheduler_service.trigger_log_cleanup(hours=hours)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"로그 정리 실행 오류: {e}")
+
