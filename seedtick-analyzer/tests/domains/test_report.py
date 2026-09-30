@@ -216,7 +216,17 @@ def test_parse_report_verdict_tsm_hold_regression():
     assert v_c == "매도"
     assert s_c == 3
 
-    # 2-4. 헤더가 없고 결론 섹션에 "강세론(매수 7인)"과 "최종 판단: '관망'"이 공존하는 경우
+    # 2-4. 수식어 접두사 테스트 (조건부 관망, 신중 관망, 강력 매도)
+    v_pref1, _ = engine.parse_report_verdict("> **종합 의견**: **조건부 관망 (Conditional Watch)**", fallback_votes=fallback)
+    assert v_pref1 == "관망"
+
+    v_pref2, _ = engine.parse_report_verdict("> **종합 의견**: **신중 관망 (Cautious Hold)**", fallback_votes=fallback)
+    assert v_pref2 == "관망"
+
+    v_pref3, _ = engine.parse_report_verdict("> **종합 의견**: **강력 매도 (Strong Sell)**", fallback_votes=fallback)
+    assert v_pref3 == "매도"
+
+    # 2-5. 헤더가 없고 결론 섹션에 "강세론(매수 7인)"과 "최종 판단: '관망'"이 공존하는 경우
     raw_md_conclusion_only = """
 ## 1. 종합 결론
 * 강세론(매수 7인)의 논거가 있었으나
