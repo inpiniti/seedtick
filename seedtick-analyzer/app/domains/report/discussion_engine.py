@@ -74,6 +74,9 @@ class DiscussionEngine:
 - 관망: n명 (인물들)
 - 매도: n명 (인물들)
 - 종합 표결 결론: ...
+
+[작성 절대 규칙]
+1. 거장들의 토론과 논쟁이 충분히 전개되어 합의와 표결에 도달하면, 불필요한 반복 꼬리물기 없이 즉시 최종 표결로 수렴(Converge)하여 마크다운 본문을 완결하라.
 """
 
         logger.info(f"[{datapack.ticker}] 13인 거장 원탁 토론 AI 생성 시작 (32K 지원)...")
@@ -202,6 +205,9 @@ class DiscussionEngine:
 ...
 
 *본 보고서는 서적 기반 시뮬레이션이며 투자 자문이 아닙니다.*
+
+[작성 절대 규칙]
+1. 핵심 밸류에이션 논거와 13인 요약표 작성이 완료되면, 장황한 중복 추론 없이 즉시 최종 리포트를 완결하라.
 """
         logger.info(f"[{datapack.ticker}] 최종 마스터 보고서 AI 생성 시작 (32K 지원)...")
         master_md = await self.ai.chat(prompt)
