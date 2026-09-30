@@ -3,7 +3,12 @@
 import { Elysia } from 'elysia';
 import { env } from '../config/env.ts';
 
-export const authMiddleware = new Elysia().onBeforeHandle(({ headers, set }) => {
+export const authMiddleware = new Elysia().onBeforeHandle(({ request, headers, set }) => {
+  const url = new URL(request.url);
+  if (url.pathname === '/health' || url.pathname.startsWith('/v1/yahoo')) {
+    return;
+  }
+
   const authHeader = headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
     set.status = 401;
