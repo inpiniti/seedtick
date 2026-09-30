@@ -13,6 +13,7 @@ from app.api.routes.screener import router as screener_router
 from app.api.routes.ip import router as ip_router
 from app.api.routes.bridge import router as bridge_router
 from app.api.routes.debug_ai import router as debug_ai_router
+from app.api.routes.debug_yahoo import router as debug_yahoo_router
 from app.config.settings import settings
 from app.domains.error_log.handlers import SupabaseLogHandler
 from app.domains.scheduler.service import scheduler_service
@@ -65,6 +66,7 @@ app.include_router(report_router)
 app.include_router(scheduler_router)
 app.include_router(bridge_router)
 app.include_router(debug_ai_router)
+app.include_router(debug_yahoo_router)
 
 
 
