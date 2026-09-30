@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { MarkdownViewer } from "@/components/ui/MarkdownViewer";
 import { ReportSummariesView } from "@/components/tabs/ReportSummariesView";
 import { ReportDatapackView } from "@/components/tabs/ReportDatapackView";
+import { StockChartView } from "@/components/tabs/StockChartView";
 import { getScoreBadge, formatTime } from "@/lib/utils";
 import {
   FileText,
@@ -55,18 +56,36 @@ export function ScreenerTab({
   const [activeSubTab, setActiveSubTab] = useState<"votes" | "live" | "reports">("votes");
   const [selectedReport, setSelectedReport] = useState<GuruReportRow | null>(null);
   const [reportModalOpen, setReportModalOpen] = useState(false);
-  const [reportViewMode, setReportViewMode] = useState<"final" | "discussion" | "summaries" | "datapack">("final");
+  const [reportViewMode, setReportViewMode] = useState<"final" | "discussion" | "summaries" | "datapack" | "chart">("final");
   const [searchTerm, setSearchTerm] = useState("");
 
-  // 특정 티커 클릭 시 저장된 리포트 열기
-  const handleOpenReportByTicker = (ticker: string) => {
+  // 특정 티커 클릭 시 저장된 리포트 열기 (미생성 종목인 경우 차트 탭 기본으로 모달 열기)
+  const handleOpenReportByTicker = (ticker: string, candidate?: StockCandidate) => {
     const report = guruReports.find((r) => r.ticker === ticker);
     if (report) {
       setSelectedReport(report);
       setReportModalOpen(true);
       setReportViewMode("final");
     } else {
-      alert(`[${ticker}] 종목에 대한 최신 심층 리포트가 아직 생성되지 않았어요.`);
+      // 리포트가 아직 생성되지 않은 종목도 모달을 열고 바로 일봉 & 볼린저밴드 차트 표시
+      const fallbackReport: GuruReportRow = {
+        id: `live-${ticker}`,
+        d: new Date().toISOString().split("T")[0],
+        ticker,
+        company_name: candidate?.name || null,
+        current_price: candidate?.price || null,
+        verdict: "리포트 준비 중",
+        overall_score: candidate?.guru_score || 0,
+        vote_summary: "실시간 스크리너 발굴 종목",
+        datapack: null,
+        summaries: null,
+        discussion: null,
+        final_report: null,
+        created_at: new Date().toISOString(),
+      };
+      setSelectedReport(fallbackReport);
+      setReportModalOpen(true);
+      setReportViewMode("chart");
     }
   };
 
@@ -364,7 +383,7 @@ export function ScreenerTab({
                   <div
                     key={`${stock.ticker}-${i}`}
                     className="p-4 rounded-2xl bg-[#f9fafb] border border-[#f2f4f6] hover:border-[#3182f6] hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between gap-2.5 group"
-                    onClick={() => handleOpenReportByTicker(stock.ticker)}
+                    onClick={() => handleOpenReportByTicker(stock.ticker, stock)}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3 min-w-0">
@@ -520,7 +539,7 @@ export function ScreenerTab({
               </Badge>
             </div>
 
-            {/* 마크다운 뷰 탭 전환 버튼 (4개 모드) */}
+            {/* 마크다운 뷰 탭 전환 버튼 (5개 모드: 최종보고서, 원탁토론, 개별서머리, 데이터팩, 일봉차트) */}
             <div className="flex items-center gap-1 p-1 bg-[#f2f4f6] rounded-2xl overflow-x-auto">
               <button
                 onClick={() => setReportViewMode("final")}
@@ -562,17 +581,30 @@ export function ScreenerTab({
               >
                 심층 데이터팩
               </button>
+              <button
+                onClick={() => setReportViewMode("chart")}
+                className={`flex-1 py-1.5 px-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-1 ${
+                  reportViewMode === "chart"
+                    ? "bg-white text-[#3182f6] shadow-xs"
+                    : "text-[#8b95a1] hover:text-[#4e5968]"
+                }`}
+              >
+                <TrendingUp className="w-3.5 h-3.5" />
+                일봉 & 볼린저밴드
+              </button>
             </div>
 
-            {/* 리포트 본문 / 서머리 / 데이터팩 렌더링 */}
-            <div className="p-4 sm:p-5 rounded-3xl bg-white border border-[#e5e8eb] shadow-xs max-h-[58vh] overflow-y-auto">
+            {/* 리포트 본문 / 서머리 / 데이터팩 / 차트 렌더링 */}
+            <div className="p-4 sm:p-5 rounded-3xl bg-white border border-[#e5e8eb] shadow-xs max-h-[62vh] overflow-y-auto">
               {reportViewMode === "final" && (
                 selectedReport?.final_report ? (
                   <MarkdownViewer content={selectedReport.final_report} />
                 ) : (
-                  <div className="py-8 text-center text-xs text-[#8b95a1]">
-                    최종 보고서 내용이 아직 등록되지 않았어요.
-                  </div>
+                  <EmptyState
+                    icon={<FileText className="w-8 h-8 text-[#8b95a1]" />}
+                    title="최종 보고서가 아직 생성되지 않았어요"
+                    description="12:00 정기 배치 또는 수동 분석이 완료되면 이곳에 보고서가 등록돼요. '일봉 & 볼린저밴드' 탭에서 실시간 차트를 먼저 확인해 보세요."
+                  />
                 )
               )}
 
@@ -580,18 +612,43 @@ export function ScreenerTab({
                 selectedReport?.discussion ? (
                   <MarkdownViewer content={selectedReport.discussion} />
                 ) : (
-                  <div className="py-8 text-center text-xs text-[#8b95a1]">
-                    원탁 토론 전문이 아직 등록되지 않았어요.
-                  </div>
+                  <EmptyState
+                    icon={<Users className="w-8 h-8 text-[#8b95a1]" />}
+                    title="원탁 토론 전문이 아직 등록되지 않았어요"
+                    description="거장 AI 분석 파이프라인이 진행되면 13인의 심층 토론 전문이 등록돼요."
+                  />
                 )
               )}
 
               {reportViewMode === "summaries" && (
-                <ReportSummariesView summaries={selectedReport?.summaries || null} />
+                selectedReport?.summaries ? (
+                  <ReportSummariesView summaries={selectedReport.summaries} />
+                ) : (
+                  <EmptyState
+                    icon={<Users className="w-8 h-8 text-[#8b95a1]" />}
+                    title="거장 개별 서머리가 아직 없어요"
+                    description="리포트 파이프라인이 완료되면 13인의 종목 평가 의견이 표시돼요."
+                  />
+                )
               )}
 
               {reportViewMode === "datapack" && (
-                <ReportDatapackView datapack={selectedReport?.datapack || null} />
+                selectedReport?.datapack ? (
+                  <ReportDatapackView datapack={selectedReport.datapack} />
+                ) : (
+                  <EmptyState
+                    icon={<FileText className="w-8 h-8 text-[#8b95a1]" />}
+                    title="심층 데이터팩이 아직 없어요"
+                    description="Yahoo Finance 및 재무제표 시계열 데이터팩이 수집되면 이곳에 표시돼요."
+                  />
+                )
+              )}
+
+              {reportViewMode === "chart" && selectedReport && (
+                <StockChartView
+                  ticker={selectedReport.ticker}
+                  companyName={selectedReport.company_name}
+                />
               )}
             </div>
           </div>

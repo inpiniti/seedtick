@@ -41,3 +41,17 @@ class BtcAiTossClient:
 2. `POST https://wts-cert-api.tossinvest.com/api/v2/screener/screen` → 거장 공통 필터 JSON 전송
 3. `GET https://wts-info-api.tossinvest.com/api/v2/stock-infos?codes=...` → productCode를 실제 심볼(티커)로 변환
 
+---
+
+## ChartService
+
+### `get_stock_chart(ticker: str, range_period: str = "6mo", interval: str = "1d") -> StockChartResponse`
+
+Yahoo Finance 차트 API를 호출하여 일봉 시계열을 수집하고, 20일 이동평균선과 2 표준편차(±2σ)를 적용한 볼린저 밴드(상단, 중심선, 하단, %B) 및 현재 상태(LOWER_BREAK, LOWER_NEAR, MIDDLE, UPPER_NEAR, UPPER_BREAK)를 계산하여 반환합니다.
+
+**불변식 (Invariants)**:
+- 캔들 데이터 포인트는 시간(YYYY-MM-DD) 오름차순으로 정렬되어야 합니다.
+- 결측치(None 또는 0)는 이전 유효 종가로 전방 보간(forward-fill)하거나 안전하게 제외합니다.
+- 데이터가 20개 미만인 경우 볼린저 밴드 값은 None으로 유지되며, 20개 이상일 때부터 이동평균과 표준편차가 계산됩니다.
+- %B는 `(close - lower) / (upper - lower)`로 계산되며, 밴드 상단 돌파 시 > 1.0, 하단 이탈 시 < 0.0을 갖습니다.
+

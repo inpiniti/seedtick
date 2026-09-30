@@ -7,6 +7,7 @@ import {
   PendingOrdersResponse,
   ScreenerResponse,
   StockCandidate,
+  StockChartResponse,
 } from "@/types/api";
 
 const BASE_URL =
@@ -148,3 +149,15 @@ export async function fetchBridgeBalance(broker?: string): Promise<BrokerBalance
   const query = broker ? `?broker_type=${broker}` : "";
   return request<BrokerBalance>(`/api/bridge/balance${query}`);
 }
+
+/** 10. 종목 일봉 캔들 및 볼린저 밴드 조회 */
+export async function fetchStockChart(
+  ticker: string,
+  range = "6mo",
+  interval = "1d"
+): Promise<StockChartResponse> {
+  return request<StockChartResponse>(
+    `/api/screener/chart/${encodeURIComponent(ticker)}?range=${range}&interval=${interval}`
+  );
+}
+
