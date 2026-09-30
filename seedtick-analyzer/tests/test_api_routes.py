@@ -67,3 +67,19 @@ async def test_screener_run_route():
         tickers = [item["ticker"] for item in data["tickers"]]
         assert len(tickers) == len(set(tickers))
 
+
+@pytest.mark.asyncio
+async def test_scheduler_cleanup_logs_route(monkeypatch):
+    from app.infrastructure.supabase_repo import supabase_repo
+
+    monkeypatch.setattr(supabase_repo, "delete_old_info_logs", lambda hours: 15)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.post("/api/scheduler/cleanup-logs?hours=24")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "success"
+        assert data["deleted_count"] == 15
+        assert data["hours"] == 24
+
+

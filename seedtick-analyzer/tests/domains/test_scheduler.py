@@ -38,17 +38,28 @@ async def test_scheduler_jobs_registration():
     service.start()
     try:
         jobs = {job.id: job for job in service._scheduler.get_jobs()}
+        assert "cleanup_old_logs" in jobs
         assert "daily_pipeline" in jobs
         assert "execute_pending_orders" in jobs
         # 기존 중복 잡(summer, winter)이 단일 잡으로 통합되었는지 검증
         assert "execute_pending_summer" not in jobs
         assert "execute_pending_winter" not in jobs
 
-        # 일일 파이프라인 트리거가 12:00 KST에 실행되는지 검증
+        # 1. 만료 로그 정리 트리거가 11:00 KST에 실행되는지 검증
+        cleanup_job = jobs["cleanup_old_logs"]
+        cleanup_trigger = cleanup_job.trigger
+        assert isinstance(cleanup_trigger, CronTrigger)
+        test_dt = datetime(2026, 9, 30, 0, 0, tzinfo=zoneinfo.ZoneInfo("Asia/Seoul"))
+        next_cleanup = cleanup_trigger.get_next_fire_time(None, test_dt)
+        assert next_cleanup is not None
+        next_cleanup_kst = next_cleanup.astimezone(zoneinfo.ZoneInfo("Asia/Seoul"))
+        assert next_cleanup_kst.hour == 11
+        assert next_cleanup_kst.minute == 0
+
+        # 2. 일일 파이프라인 트리거가 12:00 KST에 실행되는지 검증
         pipeline_job = jobs["daily_pipeline"]
         pipeline_trigger = pipeline_job.trigger
         assert isinstance(pipeline_trigger, CronTrigger)
-        test_dt = datetime(2026, 9, 30, 0, 0, tzinfo=zoneinfo.ZoneInfo("Asia/Seoul"))
         next_fire = pipeline_trigger.get_next_fire_time(None, test_dt)
         assert next_fire is not None
         next_fire_kst = next_fire.astimezone(zoneinfo.ZoneInfo("Asia/Seoul"))
@@ -56,4 +67,26 @@ async def test_scheduler_jobs_registration():
         assert next_fire_kst.minute == 0
     finally:
         service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_cleanup_old_logs_job_mock(monkeypatch):
+    """로그 정리 잡 실행 시 delete_old_info_logs 호출 검증"""
+    from app.domains.scheduler.jobs import cleanup_old_logs_job
+    from app.infrastructure.supabase_repo import supabase_repo
+
+    called_with = []
+
+    def mock_delete(hours: int = 24):
+        called_with.append(hours)
+        return 42
+
+    monkeypatch.setattr(supabase_repo, "delete_old_info_logs", mock_delete)
+
+    result = await cleanup_old_logs_job(hours=24)
+    assert result["status"] == "success"
+    assert result["deleted_count"] == 42
+    assert result["hours"] == 24
+    assert called_with == [24]
+
 
