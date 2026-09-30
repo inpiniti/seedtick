@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { GuruReportRow, GuruVoteRow, StockCandidate } from "@/types/api";
+import { GuruReportRow, GuruVoteRow, StockCandidate, ValuationConsensus } from "@/types/api";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -20,6 +20,57 @@ import {
   ChevronRight,
   TrendingUp,
 } from "lucide-react";
+
+function extractValuationConsensus(report?: GuruReportRow | null): ValuationConsensus | null {
+  if (!report) return null;
+
+  // 1. datapack.valuation_consensus 확인
+  const consensus = report.datapack?.valuation_consensus;
+  if (consensus && (consensus.fair_value_price || consensus.target_price_band || consensus.safety_entry_price)) {
+    return consensus;
+  }
+
+  // 2. final_report 마크다운에서 정규식으로 실시간 파싱 (과거 리포트 또는 폴백)
+  const md = report.final_report;
+  if (!md) return null;
+
+  let fairValuePrice: number | null = null;
+  const fvMatch = md.match(/(?:종합\s*적정\s*내재가치|종합\s*적정가|적정\s*내재가치|적정가)[:\s\*]*[$₩]?\s*([\d,]+(?:\.\d+)?)/);
+  if (fvMatch) {
+    const raw = fvMatch[1].replace(/,/g, "").trim();
+    const val = parseFloat(raw);
+    if (!isNaN(val)) fairValuePrice = val;
+  }
+
+  let targetPriceBand: string | null = null;
+  const bandMatch = md.match(/(?:적정\s*밴드|목표\s*밴드|밸류에이션\s*밴드)[:\s\*]*([^\n\)|]+)/);
+  if (bandMatch) {
+    targetPriceBand = bandMatch[1].trim().replace(/^[\*`\[\(]+|[\*`\]\)]+$/g, "");
+  }
+
+  let safetyEntryPrice: string | null = null;
+  const safeMatch = md.match(/(?:\[안전마진\s*매수가\]|안전마진\s*매수가|안전마진\s*가격)[:\s\*]*([^\n|]+)/);
+  if (safeMatch) {
+    safetyEntryPrice = safeMatch[1].trim().replace(/^[\*`\[\(]+|[\*`\]\)]+$/g, "");
+  }
+
+  let optimisticTargetPrice: string | null = null;
+  const targetMatch = md.match(/(?:\[목표\s*매도가\]|목표\s*매도가|낙관적\s*목표주가|목표가)[:\s\*]*([^\n|]+)/);
+  if (targetMatch) {
+    optimisticTargetPrice = targetMatch[1].trim().replace(/^[\*`\[\(]+|[\*`\]\)]+$/g, "");
+  }
+
+  if (fairValuePrice || targetPriceBand || safetyEntryPrice || optimisticTargetPrice) {
+    return {
+      fair_value_price: fairValuePrice,
+      target_price_band: targetPriceBand,
+      safety_entry_price: safetyEntryPrice,
+      optimistic_target_price: optimisticTargetPrice,
+    };
+  }
+
+  return null;
+}
 
 interface ScreenerTabProps {
   guruVotes: GuruVoteRow[];
@@ -524,20 +575,61 @@ export function ScreenerTab({
         />
         <Modal.Body>
           <div className="space-y-4">
-            {/* 표결 요약 카드 */}
-            <div className="p-3.5 rounded-2xl bg-[#f9fafb] border border-[#f2f4f6] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div>
-                <span className="text-[11px] font-semibold text-[#8b95a1]">
-                  거장 원탁 표결 결과
-                </span>
-                <div className="text-sm font-bold text-[#191f28]">
-                  {selectedReport?.vote_summary || "13인 표결 완료"}
+            {/* 표결 요약 및 종합 적정가 카드 */}
+            {(() => {
+              const valConsensus = extractValuationConsensus(selectedReport);
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {/* 1. 거장 원탁 표결 요약 */}
+                  <div className="p-3.5 rounded-2xl bg-[#f9fafb] border border-[#f2f4f6] flex flex-col justify-between gap-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-[#8b95a1]">
+                        거장 원탁 표결 결과
+                      </span>
+                      <Badge variant="primary" className="text-xs font-bold px-2 py-0.5">
+                        종합: {selectedReport?.verdict}
+                      </Badge>
+                    </div>
+                    <div className="text-sm font-bold text-[#191f28]">
+                      {selectedReport?.vote_summary || "13인 표결 완료"}
+                    </div>
+                  </div>
+
+                  {/* 2. 종합 적정 내재가치 & 투자 실행 밴드 */}
+                  <div className="p-3.5 rounded-2xl bg-[#f8fafd] border border-[#3182f6]/20 flex flex-col justify-between gap-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-[#3182f6]">
+                        종합 적정 내재가치
+                      </span>
+                      {valConsensus?.target_price_band && (
+                        <span className="text-[11px] text-[#6b7684] bg-white px-2 py-0.5 rounded-md border border-[#e5e8eb]">
+                          밴드: {valConsensus.target_price_band}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <div className="text-base font-extrabold text-[#191f28]">
+                        {valConsensus?.fair_value_price !== null && valConsensus?.fair_value_price !== undefined
+                          ? (selectedReport?.ticker === "000660" || (selectedReport?.current_price && selectedReport.current_price > 1000)
+                              ? `${valConsensus.fair_value_price.toLocaleString()}원`
+                              : `$${valConsensus.fair_value_price.toFixed(2)}`)
+                          : "토론 합의 중"}
+                      </div>
+                      {(valConsensus?.safety_entry_price || valConsensus?.optimistic_target_price) && (
+                        <div className="text-[11px] text-[#4e5968] flex items-center gap-1.5 flex-wrap justify-end">
+                          {valConsensus.safety_entry_price && (
+                            <span><strong className="text-[#008040]">안전:</strong> {valConsensus.safety_entry_price}</span>
+                          )}
+                          {valConsensus.optimistic_target_price && (
+                            <span><strong className="text-[#d93025]">목표:</strong> {valConsensus.optimistic_target_price}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <Badge variant="primary" className="w-fit">
-                종합: {selectedReport?.verdict}
-              </Badge>
-            </div>
+              );
+            })()}
 
             {/* 마크다운 뷰 탭 전환 버튼 (5개 모드: 최종보고서, 원탁토론, 개별서머리, 데이터팩, 일봉차트) */}
             <div className="flex items-center gap-1 p-1 bg-[#f2f4f6] rounded-2xl overflow-x-auto">

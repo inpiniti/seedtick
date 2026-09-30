@@ -112,6 +112,10 @@ class FinalMasterReport(BaseModel):
     overall_verdict: Literal["매수", "보유", "관망", "매도"]
     overall_score: int               # 0: 매수, 1: 보유, 2: 관망, 3: 매도 (g0)
     vote_summary: str                # "매수 8 · 보유 3 · 관망 1 · 매도 1"
+    fair_value_price: float | None = None       # 종합 적정 내재가치 (숫자, 예: 185.0)
+    target_price_band: str | None = None       # 적정 밴드 (예: "$155 ~ $230")
+    safety_entry_price: str | None = None      # 안전마진 매수가 (예: "$160 이하")
+    optimistic_target_price: str | None = None # 낙관적 목표가 (예: "$230")
     bull_case: str
     bear_case: str
     value_drivers: list[str] = Field(default_factory=list)

@@ -3,7 +3,7 @@ DiscussionEngine & MasterReportBuilder: 거장 원탁 토론 전문 및 최종 �
 """
 import logging
 import re
-from typing import Literal
+from typing import Any, Literal
 from app.config.constants import VERDICT_SCORE_MAP
 from app.domains.report.ai_client import AiGatewayClient
 from app.domains.report.models import (
@@ -46,7 +46,8 @@ class DiscussionEngine:
 2. 거장들이 서로의 논거와 실측 수치(PER, ROE, FCF, 마진율 등)를 직접 인용하며 치열하게 반박하는 생생하고 깊이 있는 원탁 토론 전문을 작성하라.
    - 예: 버핏과 다모다란의 내재가치 논쟁, 그레이엄과 피셔의 성장성 vs 안전마진 충돌, 버리와 슈웨거의 리스크/추세 공방 등.
 3. 13인 거장 전원이 자신만의 고유한 투자 철학에 입각하여 치열하게 반박하고 논쟁하며, 서두부터 결론까지 완결성 있는 풍부한 대화 전문을 작성하라.
-4. 토론 말미에 반드시 '## 3. 최종 입장 정리 및 표결 집계'를 명시하고 완결하라.
+4. 토론 후반부에는 거장들이 제시한 개별 적정가를 교차 검증하여 종합적인 '적정가(Valuation) 합의 밴드'를 도출하는 세션을 반드시 포함하라.
+5. 토론 말미에 반드시 '## 4. 최종 입장 정리 및 표결 집계'를 명시하고 완결하라.
 
 [반환 형식]
 # {datapack.ticker} — 13인의 거장 원탁 토론 전문
@@ -59,7 +60,15 @@ class DiscussionEngine:
 ## 2. 거장들의 치열한 원탁 토론 (격돌)
 (실제 인물들이 대화하는 스크립트 형태)
 
-## 3. 최종 입장 정리 및 표결 집계
+## 3. 거장들의 적정가(Valuation) 격돌 및 컨센서스 도출
+- 보수파(그레이엄·클라먼·버핏)의 안전마진 매수가격: $xxx
+- 성장·모멘텀파(피셔·린치·다모다란)의 내재가치 및 목표가: $xxx
+- 원탁 토론 종합 합의 적정가 밴드:
+  * [보수적 안전마진가]: $xxx (하방 지지선, 적극 분할매수 구간)
+  * [중립 적정 내재가치]: $xxx (정상 펀더멘털 기준 적정가)
+  * [낙관적 목표주가]: $xxx (사이클 정점 및 추가 성장 반영)
+
+## 4. 최종 입장 정리 및 표결 집계
 - 매수: n명 (인물들)
 - 보유: n명 (인물들)
 - 관망: n명 (인물들)
@@ -121,7 +130,12 @@ class DiscussionEngine:
             lines.append("")
 
         lines.extend([
-            "## 3. 최종 입장 정리 및 표결 집계",
+            "## 3. 거장들의 적정가(Valuation) 격돌 및 컨센서스 도출",
+            f"- 보수적 안전마진가: ${datapack.current_price * 0.8:.2f} (하방 지지선)",
+            f"- 중립 적정 내재가치: ${datapack.current_price:.2f} (정상 펀더멘털 기준)",
+            f"- 낙관적 목표주가: ${datapack.current_price * 1.25:.2f} (사이클 정점 반영)",
+            "",
+            "## 4. 최종 입장 정리 및 표결 집계",
             f"- 매수: {vote_counts.get('매수', 0)}명",
             f"- 보유: {vote_counts.get('보유', 0)}명",
             f"- 관망: {vote_counts.get('관망', 0)}명",
@@ -157,11 +171,16 @@ class DiscussionEngine:
 [필수 구성]
 # {datapack.ticker} 최종 투자 보고서
 > **날짜**: {datapack.date} | **종합 의견**: (매수/보유/관망/매도 중 택1 필수. 예: **관망 (상세 설명)**) | **표결**: 매수 {discussion.final_vote_counts.get('매수', 0)} · 보유 {discussion.final_vote_counts.get('보유', 0)} · 관망 {discussion.final_vote_counts.get('관망', 0)} · 매도 {discussion.final_vote_counts.get('매도', 0)}
+> **현재가**: ${datapack.current_price:.2f} | **종합 적정 내재가치**: $xxx (적정 밴드: $xxx ~ $xxx)
+> **투자 실행 밴드**: [안전마진 매수가] $xxx 이하 | [중립 적정가] $xxx | [목표 매도가] $xxx
 
-※ 중요: 헤더의 '종합 의견'에는 반드시 '매수', '보유', '관망', '매도' 4개 키워드 중 하나를 가장 먼저 명시하라.
+※ 중요:
+1. 헤더의 '종합 의견'에는 반드시 '매수', '보유', '관망', '매도' 4개 키워드 중 하나를 가장 먼저 명시하라.
+2. 헤더의 '종합 적정 내재가치'와 '투자 실행 밴드'에는 원탁 토론에서 합의된 구체적인 수치(달러 또는 원화)를 반드시 명시하라.
 
-## 1. 종합 결론
-(단순 다수결이 아니라, 토론에서 가장 견고하게 살아남은 논거를 토대로 종합 결론 도출)
+## 1. 종합 결론 및 밸류에이션 산출 근거
+- 종합 결론: (단순 다수결이 아니라, 토론에서 가장 견고하게 살아남은 논거를 토대로 종합 결론 도출)
+- 밸류에이션 산출 근거: (원탁 토론 합의 내용 및 데이터팩의 PER/PBR/FCF/컨센서스를 반영한 가격 산출 논거)
 
 ## 2. 강세론 핵심 (Bull Case)
 (성장·해자·품질 측면의 강력한 논거)
@@ -173,13 +192,13 @@ class DiscussionEngine:
 (기업 가치를 결정짓는 핵심 지표 3~5개)
 
 ## 5. 실전 투자 실행 가이드
-- 분할 진입 권장 가격대 및 비중
+- 분할 진입 권장 가격대 및 비중 (안전마진 매수가 기준)
 - 트레이딩 접근 (슈웨거 관점의 손익비/손절선)
-- 손절 및 전면 재검토 조건
+- 익절 목표가 (낙관적 목표주가 기준) 및 손절 재검토 조건
 
 ## 6. 13인의 거장 요약표
-| 인물 | 투자의견 | 확신도 | 핵심 논거 |
-|---|---|---|---|
+| 인물 | 투자의견 | 확신도 | 적정가/매수가 | 핵심 논거 |
+|---|---|---|---|---|
 ...
 
 *본 보고서는 서적 기반 시뮬레이션이며 투자 자문이 아닙니다.*
@@ -188,11 +207,12 @@ class DiscussionEngine:
         master_md = await self.ai.chat(prompt)
         logger.info(f"[{datapack.ticker}] 최종 마스터 보고서 AI 생성 완료 (길이: {len(master_md)}자)")
 
-        # 4단계: LLM 리서치 센터장의 최종 투자의견을 시스템 판정(verdict 및 score)으로 채택
+        # 4단계: LLM 리서치 센터장의 최종 투자의견 및 밸류에이션 합의치 파싱
         votes = discussion.final_vote_counts
         overall_verdict, overall_score = self.parse_report_verdict(
             master_md, fallback_votes=votes
         )
+        val_consensus = self.parse_report_valuation(master_md)
 
         vote_summary = (
             f"매수 {votes.get('매수', 0)} · 보유 {votes.get('보유', 0)} · "
@@ -205,11 +225,65 @@ class DiscussionEngine:
             overall_verdict=overall_verdict,
             overall_score=overall_score,
             vote_summary=vote_summary,
+            fair_value_price=val_consensus["fair_value_price"],
+            target_price_band=val_consensus["target_price_band"],
+            safety_entry_price=val_consensus["safety_entry_price"],
+            optimistic_target_price=val_consensus["optimistic_target_price"],
             bull_case="AI 및 독점적 해자 기반 중장기 복리 성장",
             bear_case="단기 밸류에이션 부담 및 매크로 불확실성",
             raw_markdown=master_md,
             discussion=discussion.raw_markdown,
         )
+
+    def parse_report_valuation(self, raw_md: str) -> dict[str, Any]:
+        """
+        LLM 마스터 보고서 마크다운에서 종합 적정 내재가치 및 투자 실행 밴드를 파싱합니다.
+        """
+        # 1. 종합 적정 내재가치 (숫자, 예: 185.0)
+        fair_value: float | None = None
+        fv_m = re.search(
+            r"(?:종합\s*적정\s*내재가치|종합\s*적정가|적정\s*내재가치|적정가)[:\s\*]*[$₩]?\s*([\d,]+(?:\.\d+)?)",
+            raw_md,
+        )
+        if fv_m:
+            try:
+                fair_value = float(fv_m.group(1).replace(",", "").strip())
+            except ValueError:
+                fair_value = None
+
+        # 2. 적정 밴드 (예: "$155 ~ $230", "210,000원 - 290,000원")
+        target_band: str | None = None
+        band_m = re.search(
+            r"(?:적정\s*밴드|목표\s*밴드|밸류에이션\s*밴드)[:\s\*]*([^\n\)|]+)",
+            raw_md,
+        )
+        if band_m:
+            target_band = band_m.group(1).strip().strip("[]*`")
+
+        # 3. 안전마진 매수가 (예: "$160 이하")
+        safety_entry: str | None = None
+        safe_m = re.search(
+            r"(?:\[안전마진\s*매수가\]|안전마진\s*매수가|안전마진\s*가격)[:\s\*]*([^\n|]+)",
+            raw_md,
+        )
+        if safe_m:
+            safety_entry = safe_m.group(1).strip().strip("[]*`")
+
+        # 4. 목표 매도가 (예: "$230")
+        optimistic_target: str | None = None
+        target_m = re.search(
+            r"(?:\[목표\s*매도가\]|목표\s*매도가|낙관적\s*목표주가|목표가)[:\s\*]*([^\n|]+)",
+            raw_md,
+        )
+        if target_m:
+            optimistic_target = target_m.group(1).strip().strip("[]*`")
+
+        return {
+            "fair_value_price": fair_value,
+            "target_price_band": target_band,
+            "safety_entry_price": safety_entry,
+            "optimistic_target_price": optimistic_target,
+        }
 
     def parse_report_verdict(
         self,

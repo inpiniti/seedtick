@@ -284,3 +284,38 @@ async def test_generate_master_report_prioritizes_llm_verdict():
     assert report.overall_score == 0
 
 
+def test_parse_report_valuation():
+    mock_ai = MagicMock()
+    engine = DiscussionEngine(ai_client=mock_ai)
+
+    # Case 1: 신규 표준 규격 (SKHY 스타일)
+    md1 = """
+# SKHY 최종 투자 보고서
+> **날짜**: 2026-09-29 | **종합 의견**: **조건부 매수** | **표결**: 매수 6 · 보유 1 · 관망 6 · 매도 1
+> **현재가**: $181.92 | **종합 적정 내재가치**: $185.00 (적정 밴드: $155 ~ $230)
+> **투자 실행 밴드**: [안전마진 매수가] $160 이하 | [중립 적정가] $185 | [목표 매도가] $230
+
+## 1. 종합 결론 및 밸류에이션 산출 근거
+- 2025F Forward EPS $xx에 메모리 사이클 멀티플 적용
+"""
+    res1 = engine.parse_report_valuation(md1)
+    assert res1["fair_value_price"] == 185.0
+    assert res1["target_price_band"] == "$155 ~ $230"
+    assert "$160" in res1["safety_entry_price"]
+    assert "$230" in res1["optimistic_target_price"]
+
+    # Case 2: 원화 및 다양한 기호 형식
+    md2 = """
+# 000660 최종 투자 보고서
+> 날짜: 2026-09-29 | 종합의견: 매수
+> 현재가: 245,500원 | 종합 적정가: 250,000원 (적정 밴드: 210,000원 - 290,000원)
+> 투자 실행 밴드: [안전마진 매수가] 220,000원 이하 | [목표 매도가] 300,000원
+"""
+    res2 = engine.parse_report_valuation(md2)
+    assert res2["fair_value_price"] == 250000.0
+    assert "210,000" in res2["target_price_band"]
+    assert "220,000" in res2["safety_entry_price"]
+    assert "300,000" in res2["optimistic_target_price"]
+
+
+
