@@ -8,9 +8,9 @@ from app.domains.screener.service import ScreenerService
 router = APIRouter(prefix="/api/screener", tags=["screener"])
 
 
-@router.get("/run", response_model=ScreenResult, summary="토스 공통/해외 스크리너 실행")
+@router.get("/run", response_model=ScreenResult, summary="토스 종합 및 12인 거장 스크리너 실행 (중복 제거)")
 async def run_screener(
-    preset: str = Query("공통", description="거장 프리셋 (기본: 공통)"),
+    preset: str = Query("공통", description="거장 프리셋 (기본: '공통' - 종합+12인 거장 통합 조회, 피셔 제외, 특정 거장명 지정 가능)"),
     nation: str = Query("us", description="국가 (us: 해외, kr: 국내)"),
     size: int = Query(200, ge=1, le=200, description="조회 건수 (최대 200)"),
     page: int = Query(1, ge=1, description="페이지 번호"),

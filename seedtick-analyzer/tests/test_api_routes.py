@@ -51,3 +51,19 @@ async def test_bridge_routes():
         assert "orders" in data4
         assert isinstance(data4["orders"], list)
 
+
+@pytest.mark.asyncio
+async def test_screener_run_route():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.get("/api/screener/run")
+        assert res.status_code == 200
+        data = res.json()
+        assert "tickers" in data
+        assert "items" in data
+        assert "total_count" in data
+        assert "count" in data
+        assert len(data["tickers"]) == data["count"]
+        # 중복 티커가 없는지 검증
+        tickers = [item["ticker"] for item in data["tickers"]]
+        assert len(tickers) == len(set(tickers))
+
