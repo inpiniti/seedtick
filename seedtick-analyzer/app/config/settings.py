@@ -26,8 +26,13 @@ class Settings(BaseSettings):
     AI_REQUEST_INTERVAL_SEC: float = 0.0  # 요청 간 대기시간(초)
     AI_GATEWAY_MAX_TOKENS: int = 32768  # 모델 최대 생성 토큰 (32K 지원)
     MAX_ANALYZE_COUNT: int = 0  # 1일 최대 리포트 분석 종목 수 (0: 스크리너 전체 무제한)
-    # OpenRouter 직접 호출 (게이트웨이 우회 시 사용, 쉼표 구분 멀티키)
+    # AI 프로바이더 직접 호출 (게이트웨이 우회 시 사용, 쉼표 구분 멀티키 지원)
     OPENROUTER_API_KEYS: str = ""
+    OPENROUTER_API_KEY: str = ""
+    CLINE_API_KEYS: str = ""
+    CLINE_API_KEY: str = ""
+    KILO_API_KEYS: str = ""
+    KILO_API_KEY: str = ""
 
     # Supabase 연동
     SUPABASE_URL: str = ""

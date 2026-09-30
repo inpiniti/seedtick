@@ -121,3 +121,88 @@ def test_datapack_builder_renders_ir_schedule():
     assert "차기 실적 발표 예정일" in md
     assert "2026-10-15" in md
     assert "TSMC 2nm 수율 급증 발표" in md
+
+
+@pytest.mark.asyncio
+async def test_ai_client_fallback_chain():
+    # OpenRouter 키와 Cline 키 등록
+    client = AiGatewayClient(
+        api_keys=["or-key1"],
+        cline_keys=["cline-key1"],
+    )
+    assert len(client.active_providers) == 2
+    assert client.active_providers[0].name == "OpenRouter"
+    assert client.active_providers[1].name == "Cline"
+
+    # OpenRouter는 429 에러, Cline은 200 성공 반환 모의
+    resp_429 = MagicMock()
+    resp_429.status_code = 429
+    resp_429.text = "Rate limited"
+
+    resp_200 = MagicMock()
+    resp_200.status_code = 200
+    resp_200.json.return_value = {
+        "choices": [{"message": {"content": "Cline에서 생성된 응답"}, "finish_reason": "stop"}],
+        "usage": {"total_tokens": 100},
+    }
+
+    # OpenRouter 시도 3회(max_attempts=3) 429 후 Cline 첫 시도 성공
+    side_effects = [resp_429, resp_429, resp_429, resp_200]
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=side_effects) as mock_post:
+        result = await client.chat("테스트 프롬프트")
+        assert result == "Cline에서 생성된 응답"
+        # OpenRouter 3회 + Cline 1회 = 총 4회 호출
+        assert mock_post.await_count == 4
+
+
+@pytest.mark.asyncio
+async def test_ai_client_empty_choices_and_error_obj_retry():
+    client = AiGatewayClient(api_keys=["or-key1"])
+
+    # 1번째 호출: 200 OK 내부에 error 객체 반환
+    resp_error_obj = MagicMock()
+    resp_error_obj.status_code = 200
+    resp_error_obj.json.return_value = {"error": {"code": 503, "message": "Upstream unavailable"}}
+
+    # 2번째 호출: 200 OK choices 빈 배열
+    resp_empty_choices = MagicMock()
+    resp_empty_choices.status_code = 200
+    resp_empty_choices.json.return_value = {"choices": []}
+    resp_empty_choices.text = '{"choices": []}'
+
+    # 3번째 호출: 정상 성공
+    resp_success = MagicMock()
+    resp_success.status_code = 200
+    resp_success.json.return_value = {
+        "choices": [{"message": {"content": "재시도 후 성공"}, "finish_reason": "stop"}]
+    }
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=[resp_error_obj, resp_empty_choices, resp_success]):
+        result = await client.chat("테스트")
+        assert result == "재시도 후 성공"
+
+
+@pytest.mark.asyncio
+async def test_ai_client_reasoning_content_fallback():
+    client = AiGatewayClient(api_keys=["or-key1"])
+
+    # content는 비어 있고 reasoning_content만 들어있는 thinking 모델 응답
+    resp = MagicMock()
+    resp.status_code = 200
+    resp.json.return_value = {
+        "choices": [
+            {
+                "message": {
+                    "content": "",
+                    "reasoning_content": "사고 과정이지만 응답 본문으로 채택됨",
+                },
+                "finish_reason": "stop",
+            }
+        ]
+    }
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=resp):
+        result = await client.chat("테스트")
+        assert result == "사고 과정이지만 응답 본문으로 채택됨"
+
