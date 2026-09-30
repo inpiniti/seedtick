@@ -50,7 +50,10 @@ class GuruReportService:
         )
 
     async def generate_full_report(
-        self, ticker: str, target_date: str | None = None
+        self,
+        ticker: str,
+        target_date: str | None = None,
+        screeners: list[str] | None = None,
     ) -> FinalMasterReport:
         """
         13인 거장 5단계 파이프라인 전체 실행:
@@ -108,7 +111,13 @@ class GuruReportService:
 
         # ── 5단계: Supabase DB 동기화 ────────────────────────
         await self.sync_to_db(
-            clean_ticker, date_str, datapack, summary_doc, discussion_doc, master_report
+            clean_ticker,
+            date_str,
+            datapack,
+            summary_doc,
+            discussion_doc,
+            master_report,
+            screeners=screeners,
         )
 
         logger.info(
@@ -340,6 +349,7 @@ class GuruReportService:
         summaries: GuruSummaryDoc,
         discussion: GuruDiscussionDoc,
         report: FinalMasterReport,
+        screeners: list[str] | None = None,
     ) -> None:
         """
         1. guru_reports 테이블에 전체 리포트 본문(데이터팩, 13인요약, 토론, 최종보고서) 저장
@@ -399,5 +409,5 @@ class GuruReportService:
             name=datapack.company_name,
             overall_score=report.overall_score,
             scores_by_guru=scores_by_guru,
-            screeners=["공통"],
+            screeners=screeners or ["공통"],
         )
