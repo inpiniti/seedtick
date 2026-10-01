@@ -100,11 +100,14 @@ export async function triggerPipeline(params: {
   dryRun?: boolean;
   force?: boolean;
   maxCount?: number;
+  skipAlreadyReported?: boolean;
 }): Promise<Record<string, unknown>> {
   const queryParams = new URLSearchParams();
   if (params.dryRun !== undefined) queryParams.append("dry_run", String(params.dryRun));
   if (params.force !== undefined) queryParams.append("force", String(params.force));
   if (params.maxCount) queryParams.append("max_count", String(params.maxCount));
+  if (params.skipAlreadyReported !== undefined)
+    queryParams.append("skip_already_reported", String(params.skipAlreadyReported));
 
   return request(`/api/scheduler/trigger?${queryParams.toString()}`, {
     method: "POST",

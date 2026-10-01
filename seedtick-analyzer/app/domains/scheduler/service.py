@@ -70,12 +70,21 @@ class SchedulerService:
             logger.info("[Scheduler] APScheduler 종료 완료")
 
     async def trigger_pipeline(
-        self, dry_run: bool | None = None, force: bool = False, max_count: int | None = None
+        self,
+        dry_run: bool | None = None,
+        force: bool = False,
+        max_count: int | None = None,
+        skip_already_reported: bool = True,
     ) -> dict:
         """수동 즉시 트리거 (API 엔드포인트용)"""
-        logger.info(f"[Scheduler] 수동 파이프라인 트리거 (dry_run={dry_run}, force={force}, max_count={max_count})")
+        logger.info(
+            f"[Scheduler] 수동 파이프라인 트리거 (dry_run={dry_run}, force={force}, max_count={max_count}, skip_already_reported={skip_already_reported})"
+        )
         return await daily_pipeline_job(
-            dry_run=dry_run, force=force, max_analyze_count=max_count
+            dry_run=dry_run,
+            force=force,
+            max_analyze_count=max_count,
+            skip_already_reported=skip_already_reported,
         )
 
     async def trigger_pending_orders(self, dry_run: bool | None = None) -> dict:

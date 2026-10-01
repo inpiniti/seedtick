@@ -1,6 +1,7 @@
 """
 Scheduler Service & Timezone 단위 테스트
 """
+import asyncio
 import zoneinfo
 from datetime import datetime
 from apscheduler.triggers.cron import CronTrigger
@@ -88,5 +89,62 @@ async def test_cleanup_old_logs_job_mock(monkeypatch):
     assert result["deleted_count"] == 42
     assert result["hours"] == 24
     assert called_with == [24]
+
+
+@pytest.mark.asyncio
+async def test_daily_pipeline_skip_already_reported(monkeypatch):
+    """오늘 이미 리포트가 등록된 종목은 제외하고 분석하는지 검증"""
+    from app.domains.scheduler.jobs import daily_pipeline_job
+    from app.domains.scheduler.market_guard import MarketCalendarGuard
+    from app.domains.screener.service import ScreenerService
+    from app.domains.screener.models import ScreenResult, TossStockItem, ScreenCriteria
+    from app.domains.report.service import GuruReportService
+    from app.infrastructure.supabase_repo import supabase_repo
+
+    # 1. 휴장일 가드: 개장 상태
+    monkeypatch.setattr(MarketCalendarGuard, "is_market_open", lambda self, d: (True, "정규장"))
+
+    # 2. 스크리너 mock (AAPL, NVDA, MSFT 3종목)
+    async def mock_get_stock_list(self):
+        items = [
+            TossStockItem(ticker="AAPL", stock_code="US1", name="Apple", screeners=["공통"]),
+            TossStockItem(ticker="NVDA", stock_code="US2", name="Nvidia", screeners=["공통"]),
+            TossStockItem(ticker="MSFT", stock_code="US3", name="Microsoft", screeners=["공통"]),
+        ]
+        return ScreenResult(
+            tickers=items,
+            items=items,
+            total_count=3,
+            count=3,
+            criteria=ScreenCriteria(),
+        )
+    monkeypatch.setattr(ScreenerService, "get_stock_list", mock_get_stock_list)
+
+    # 3. Supabase: AAPL은 이미 등록됨
+    monkeypatch.setattr(supabase_repo, "get_reported_tickers_for_date", lambda d: {"AAPL"})
+
+    # 4. Report service mock
+    analyzed_tickers = []
+    async def mock_generate_full_report(self, ticker, target_date, screeners=None):
+        analyzed_tickers.append(ticker)
+        class DummyReport:
+            pass
+        return DummyReport()
+    monkeypatch.setattr(GuruReportService, "generate_full_report", mock_generate_full_report)
+
+    # 5. Discord notifier 알림 mock
+    from app.domains.error_log.notifiers.discord import DiscordNotifier
+    monkeypatch.setattr(DiscordNotifier, "notify_pipeline_summary", lambda *a, **k: asyncio.sleep(0))
+
+    # 실행
+    result = await daily_pipeline_job(skip_already_reported=True, force=True)
+
+    assert result["status"] == "success"
+    assert result["skipped_already_reported_count"] == 1
+    assert result["skipped_already_reported_tickers"] == ["AAPL"]
+    # AAPL은 제외되고 NVDA, MSFT만 분석됨
+    assert analyzed_tickers == ["NVDA", "MSFT"]
+    assert result["reported_count"] == 2
+
 
 

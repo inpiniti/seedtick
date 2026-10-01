@@ -81,8 +81,8 @@ export default function AdminDashboardPage() {
         fetchPendingOrders().catch(() => ({ pending_count: 0, orders: [] })),
         fetchBridgeBalance().catch(() => null),
         fetchBridgeStatus().catch(() => null),
-        fetchGuruVotes(100).catch(() => []),
-        fetchGuruReports(30).catch(() => []),
+        fetchGuruVotes(200).catch(() => []),
+        fetchGuruReports(200).catch(() => []),
         fetchSystemLogs(60).catch(() => []),
       ]);
 
