@@ -55,7 +55,7 @@ class Settings(BaseSettings):
     # 알림
     DISCORD_WEBHOOK_URL: str = ""
 
-    # BTC-AI Backend Toss Screener URL
+    # BTC-AI Backend Toss Screener URL (토스 WTS 비공개 API 직접 호출로 전환됨)
     BTC_AI_TOSS_URL: str = "https://younginpiniti-bitcoin-ai-backend.hf.space/toss"
 
 
