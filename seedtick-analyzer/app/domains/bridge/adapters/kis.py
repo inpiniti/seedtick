@@ -133,7 +133,7 @@ class KisBrokerAdapter(IBrokerAdapter):
             )
         except Exception as e:
             logger.error(f"[KisBroker] 잔고 조회 실패: {e}")
-            return BrokerBalance(available_krw=0, available_usd=0.0)
+            raise
 
     async def get_quote(self, ticker: str) -> float:
         """해외주식 현재가 상세 (TR: HHDFS00000300)"""

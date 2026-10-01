@@ -199,6 +199,17 @@ export async function closeGridItem(ticker: string): Promise<{
   });
 }
 
+/** 14-1. 그리드 종목 다시 활성화 */
+export async function reactivateGridItem(ticker: string): Promise<{
+  success: boolean;
+  message: string;
+  item?: GridTradeItem;
+}> {
+  return request(`/api/grid-trading/items/${encodeURIComponent(ticker)}/reactivate`, {
+    method: "POST",
+  });
+}
+
 /** 16. 현재 활성 AI 모델 및 순위 체인 상태 */
 export async function fetchAiModelStatus(): Promise<AiModelStatus> {
   return request<AiModelStatus>("/debug/ai-model");

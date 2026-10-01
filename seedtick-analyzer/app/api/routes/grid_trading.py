@@ -117,6 +117,9 @@ async def sync_holdings_to_grid():
             "message": f"계좌 보유 잔고와 그리드 동기화 완료 (총 {len(items)}개 종목 관리 중)",
             "items": [item.model_dump() for item in items],
         }
+    except PermissionError as e:
+        logger.error(f"그리드 잔고 동기화 권한/IP 오류: {e}")
+        raise HTTPException(status_code=403, detail=str(e))
     except Exception as e:
         logger.error(f"그리드 잔고 동기화 실패: {e}")
         raise HTTPException(status_code=500, detail=f"잔고 동기화 중 오류가 발생했습니다: {str(e)}")
@@ -139,3 +142,24 @@ async def close_grid_item(ticker: str):
         "success": True,
         "message": f"{sym} 종목의 그리드 감지를 종료했어요.",
     }
+
+
+@router.post("/items/{ticker}/reactivate", summary="그리드 감지 다시 활성화")
+async def reactivate_grid_item(ticker: str):
+    """
+    종료된 종목의 그리드 감지를 다시 활성화(ACTIVE) 처리합니다.
+    """
+    sym = ticker.strip().upper()
+    try:
+        item = await grid_service.reactivate_grid_trade(sym)
+        return {
+            "success": True,
+            "message": f"{sym} 종목의 그리드 감지가 다시 활성화되었어요.",
+            "item": item.model_dump(),
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"{sym} 그리드 감지 재활성화 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"재활성화 중 오류가 발생했습니다: {str(e)}")
+

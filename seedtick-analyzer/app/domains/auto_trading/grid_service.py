@@ -221,6 +221,17 @@ class GridTradingService:
             active_items = self.repo.get_active_grid_trades()
             active_tickers = {item.ticker for item in active_items}
 
+            # ── [안전장치 / Circuit Breaker] ──────────────────────────
+            # 기존에 활성 종목이 존재하는데 브로커로부터 반환된 보유 종목이 완전히 0개(빈 dict)인 경우:
+            # IP 변경, 인증 만료, 일시적 통신 장애 등으로 인한 대량 오해제(전체 FINISHED) 방지!
+            if len(active_items) > 0 and len(positions) == 0:
+                logger.warning(
+                    f"[GridTrading] 🛡️ 안전장치 발동: 현재 활성 그리드 종목이 {len(active_items)}개이나, "
+                    f"계좌 보유 주식이 0개로 조회되었습니다. "
+                    f"서버 IP 변경 또는 브로커 연동 오류로 인한 일괄 해제를 방지하기 위해 종료 처리를 건너뜁니다."
+                )
+                return
+
             # ── [A] 보유 중인데 등록 안 된 종목 자동 등록 ──────────────
             new_registered_tickers = []
             for sym, qty in positions.items():
@@ -272,5 +283,57 @@ class GridTradingService:
                     self.repo.update_grid_trade(item)
 
         except Exception as e:
-            logger.warning(f"[GridTrading] 계좌 보유 동기화 실패: {e}")
+            logger.warning(f"[GridTrading] 계좌 보유 동기화 실패 (기존 상태 유지): {e}")
+            raise
+
+    async def reactivate_grid_trade(self, ticker: str) -> GridTradeItem:
+        """
+        종료된 그리드 종목을 다시 활성화(ACTIVE) 처리
+        - 현재 계좌 잔고에서 수량을 확인하여 최신화 시도 (실패 시 기존 수량 유지)
+        - 현재가 확인 시도
+        - status = 'ACTIVE'로 변경 및 DB 저장
+        - WebSocket 클라이언트 구독 등록
+        """
+        sym = ticker.strip().upper()
+        all_items = self.repo.get_all_grid_trades()
+        target = next((it for it in all_items if it.ticker == sym), None)
+        if not target:
+            raise ValueError(f"'{sym}' 종목을 찾을 수 없습니다.")
+
+        if target.status == "ACTIVE":
+            return target
+
+        # 1. 계좌 보유 수량 재확인 시도 (브로커 연결 가능 시)
+        try:
+            bal = await self.broker.get_balance()
+            current_qty = bal.positions.get(sym, 0.0)
+            if current_qty > 0:
+                target.holdings_qty = current_qty
+        except Exception as e:
+            logger.warning(f"[GridTrading] {sym} 재활성화 중 잔고 조회 실패 (기존 수량 {target.holdings_qty}주 유지): {e}")
+
+        # 2. 현재가 조회 시도
+        try:
+            quote = await self.broker.get_quote(sym)
+            if quote > 0:
+                target.last_trade_price = quote
+        except Exception as e:
+            logger.warning(f"[GridTrading] {sym} 재활성화 중 현재가 조회 실패 (기존 가격 ${target.last_trade_price} 유지): {e}")
+
+        # 3. 상태 활성화 갱신 및 DB 저장
+        target.status = "ACTIVE"
+        self.repo.update_grid_trade(target)
+        logger.info(
+            f"[GridTrading] 🟢 {sym} 종목 그리드 감지 재활성화 완료 "
+            f"(단가: ${target.last_trade_price:.2f}, 보유: {target.holdings_qty:.4f}주)"
+        )
+
+        # 4. 실시간 WebSocket 구독 목록에 재등록
+        if self._ws_subscriber:
+            try:
+                await self._ws_subscriber.subscribe_tickers([sym])
+            except Exception as e:
+                logger.warning(f"[GridTrading] {sym} WebSocket 재구독 등록 실패: {e}")
+
+        return target
 

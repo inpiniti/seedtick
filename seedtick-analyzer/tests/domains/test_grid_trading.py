@@ -21,6 +21,9 @@ class FakeSupabaseRepo:
             if item.get("status") == "ACTIVE"
         ]
 
+    def get_all_grid_trades(self) -> list[GridTradeItem]:
+        return [GridTradeItem(**item) for item in self.items.values()]
+
     def save_grid_trade(self, item: GridTradeItem) -> None:
         self.items[item.ticker] = item.model_dump()
 
@@ -226,4 +229,78 @@ async def test_sync_holdings_auto_registers_existing_portfolio(grid_service, fak
     assert aapl_item["last_trade_price"] == 150.0
     assert aapl_item["holdings_qty"] == 0.1234
     assert aapl_item["status"] == "ACTIVE"
+
+
+@pytest.mark.asyncio
+async def test_sync_holdings_preserves_active_on_broker_error(grid_service, fake_repo, mock_broker):
+    """서버 재시작 후 IP 변경 등으로 브로커 연동 에러 시 기존 활성 종목이 FINISHED로 바뀌지 않고 보호된다."""
+    item = GridTradeItem(
+        ticker="SKHY",
+        initial_price=187.82,
+        gap=5.63,
+        last_trade_price=187.82,
+        holdings_qty=0.2553,
+        status="ACTIVE",
+    )
+    fake_repo.save_grid_trade(item)
+
+    # 브로커 연동 실패 (예: 토스 API 403 Forbidden / IP 변경)
+    mock_broker.get_balance = AsyncMock(side_effect=PermissionError("토스 API 403 Forbidden: IP 미등록"))
+
+    with pytest.raises(PermissionError):
+        await grid_service.sync_with_holdings()
+
+    # 에러가 발생해도 기존 SKHY는 FINISHED가 아니라 여전히 ACTIVE 상태를 유지해야 함
+    assert fake_repo.items["SKHY"]["status"] == "ACTIVE"
+
+
+@pytest.mark.asyncio
+async def test_sync_holdings_circuit_breaker_on_empty_positions(grid_service, fake_repo, mock_broker):
+    """기존 활성 종목이 존재하는데 브로커에서 보유 주식이 0개로 반환된 경우 안전장치가 발동하여 일괄 종료를 건너뛴다."""
+    for sym in ["SKHY", "AMZN", "CVX", "NEM"]:
+        fake_repo.save_grid_trade(
+            GridTradeItem(
+                ticker=sym,
+                initial_price=100.0,
+                gap=3.0,
+                last_trade_price=100.0,
+                holdings_qty=1.0,
+                status="ACTIVE",
+            )
+        )
+
+    # 브로커가 비정상적으로 빈 잔고(0개)를 반환
+    mock_broker.positions = {}
+
+    await grid_service.sync_with_holdings()
+
+    # 서킷 브레이커로 인해 4개 종목 모두 FINISHED로 바뀌지 않고 ACTIVE로 유지됨
+    for sym in ["SKHY", "AMZN", "CVX", "NEM"]:
+        assert fake_repo.items[sym]["status"] == "ACTIVE"
+
+
+@pytest.mark.asyncio
+async def test_reactivate_grid_trade_success(grid_service, fake_repo, mock_broker):
+    """종료된(FINISHED) 그리드 종목을 다시 활성화하면 ACTIVE로 상태가 복원된다."""
+    item = GridTradeItem(
+        ticker="SKHY",
+        initial_price=187.82,
+        gap=5.63,
+        last_trade_price=187.82,
+        holdings_qty=0.2553,
+        status="FINISHED",
+    )
+    fake_repo.save_grid_trade(item)
+
+    mock_ws = AsyncMock()
+    mock_ws.subscribe_tickers = AsyncMock()
+    grid_service._ws_subscriber = mock_ws
+
+    res = await grid_service.reactivate_grid_trade("SKHY")
+
+    assert res.ticker == "SKHY"
+    assert res.status == "ACTIVE"
+    assert fake_repo.items["SKHY"]["status"] == "ACTIVE"
+    mock_ws.subscribe_tickers.assert_called_once_with(["SKHY"])
+
 
