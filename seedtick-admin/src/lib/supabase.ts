@@ -41,17 +41,23 @@ export async function fetchSystemLogs(
 }
 
 /**
- * 13인 거장 표결 점수 랭킹 최신 조회
+ * 13인 거장 표결 점수 랭킹 최신/날짜별 조회
  */
-export async function fetchGuruVotes(limit = 50): Promise<GuruVoteRow[]> {
+export async function fetchGuruVotes(limit = 100, date?: string): Promise<GuruVoteRow[]> {
   if (!supabase) return [];
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from("guru_votes")
       .select("*")
       .order("d", { ascending: false })
       .order("g0", { ascending: true }) // 0점(매수) 우선
       .limit(limit);
+
+    if (date) {
+      query = query.eq("d", date);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.warn("fetchGuruVotes error:", error.message);
@@ -65,16 +71,45 @@ export async function fetchGuruVotes(limit = 50): Promise<GuruVoteRow[]> {
 }
 
 /**
- * 심층 투자 보고서 목록 및 특정 종목 리포트 조회
+ * 거장 표결에 존재하는 고유한 날짜 목록 조회 (내림차순)
  */
-export async function fetchGuruReports(limit = 20): Promise<GuruReportRow[]> {
+export async function fetchGuruVoteDates(): Promise<string[]> {
   if (!supabase) return [];
   try {
     const { data, error } = await supabase
+      .from("guru_votes")
+      .select("d")
+      .order("d", { ascending: false });
+
+    if (error) {
+      console.warn("fetchGuruVoteDates error:", error.message);
+      return [];
+    }
+    const dates = Array.from(new Set((data || []).map((row) => row.d as string)));
+    return dates;
+  } catch (err) {
+    console.warn("fetchGuruVoteDates exception:", err);
+    return [];
+  }
+}
+
+/**
+ * 심층 투자 보고서 목록 및 특정 일자 리포트 조회
+ */
+export async function fetchGuruReports(limit = 100, date?: string): Promise<GuruReportRow[]> {
+  if (!supabase) return [];
+  try {
+    let query = supabase
       .from("guru_reports")
       .select("*")
       .order("d", { ascending: false })
       .limit(limit);
+
+    if (date) {
+      query = query.eq("d", date);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.warn("fetchGuruReports error:", error.message);
@@ -86,3 +121,86 @@ export async function fetchGuruReports(limit = 20): Promise<GuruReportRow[]> {
     return [];
   }
 }
+
+/**
+ * 보고서(guru_reports)에 존재하는 고유한 날짜 목록 조회 (내림차순)
+ */
+export async function fetchGuruReportDates(): Promise<string[]> {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from("guru_reports")
+      .select("d")
+      .order("d", { ascending: false });
+
+    if (error) {
+      console.warn("fetchGuruReportDates error:", error.message);
+      return [];
+    }
+    const dates = Array.from(new Set((data || []).map((row) => row.d as string)));
+    return dates;
+  } catch (err) {
+    console.warn("fetchGuruReportDates exception:", err);
+    return [];
+  }
+}
+
+/**
+ * 특정 종목(ticker)에 존재하는 보고서 날짜 목록 조회 (내림차순)
+ */
+export async function fetchReportDatesByTicker(ticker: string): Promise<string[]> {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from("guru_reports")
+      .select("d")
+      .eq("ticker", ticker.toUpperCase())
+      .order("d", { ascending: false });
+
+    if (error) {
+      console.warn("fetchReportDatesByTicker error:", error.message);
+      return [];
+    }
+    const dates = Array.from(new Set((data || []).map((row) => row.d as string)));
+    return dates;
+  } catch (err) {
+    console.warn("fetchReportDatesByTicker exception:", err);
+    return [];
+  }
+}
+
+/**
+ * 특정 날짜와 티커의 단일 보고서 조회
+ */
+export async function fetchReportByDateAndTicker(
+  date: string,
+  ticker: string
+): Promise<GuruReportRow | null> {
+  if (!supabase) return null;
+  try {
+    const reportId = `${date}_${ticker.toUpperCase()}`;
+    const { data, error } = await supabase
+      .from("guru_reports")
+      .select("*")
+      .eq("id", reportId)
+      .maybeSingle();
+
+    if (error) {
+      // id 매칭 안될 경우 d, ticker 복합조건으로 폴백
+      const fallbackRes = await supabase
+        .from("guru_reports")
+        .select("*")
+        .eq("d", date)
+        .eq("ticker", ticker.toUpperCase())
+        .limit(1)
+        .maybeSingle();
+      return (fallbackRes.data as GuruReportRow) || null;
+    }
+
+    return (data as GuruReportRow) || null;
+  } catch (err) {
+    console.warn("fetchReportByDateAndTicker exception:", err);
+    return null;
+  }
+}
+

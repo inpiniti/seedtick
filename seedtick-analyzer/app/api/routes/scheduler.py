@@ -14,10 +14,16 @@ async def trigger_pipeline(
     max_count: int | None = Query(
         None, ge=0, description="정밀 분석할 종목 수 (0 또는 None 시 스크리닝 통과 전 종목 무제한 분석)"
     ),
+    skip_already_reported: bool = Query(
+        True, description="오늘 이미 리포트가 등록된 종목은 분석 대상에서 제외 (기본값: True)"
+    ),
 ):
     try:
         result = await scheduler_service.trigger_pipeline(
-            dry_run=dry_run, force=force, max_count=max_count
+            dry_run=dry_run,
+            force=force,
+            max_count=max_count,
+            skip_already_reported=skip_already_reported,
         )
         return result
     except Exception as e:

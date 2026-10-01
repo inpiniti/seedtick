@@ -19,7 +19,18 @@ import {
   ExternalLink,
   ChevronRight,
   TrendingUp,
+  Calendar,
+  Zap,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  History,
 } from "lucide-react";
+import { manualBuyGrid } from "@/lib/api-client";
+import {
+  fetchReportByDateAndTicker,
+  fetchReportDatesByTicker,
+} from "@/lib/supabase";
 
 function extractValuationConsensus(report?: GuruReportRow | null): ValuationConsensus | null {
   if (!report) return null;
@@ -110,9 +121,76 @@ export function ScreenerTab({
   const [reportViewMode, setReportViewMode] = useState<"final" | "discussion" | "summaries" | "datapack" | "chart">("final");
   const [searchTerm, setSearchTerm] = useState("");
 
-  // 특정 티커 클릭 시 저장된 리포트 열기 (미생성 종목인 경우 차트 탭 기본으로 모달 열기)
-  const handleOpenReportByTicker = (ticker: string, candidate?: StockCandidate) => {
-    const report = guruReports.find((r) => r.ticker === ticker);
+  // 날짜 필터링 상태 (과거 날짜 조회 지원)
+  const [selectedVoteDate, setSelectedVoteDate] = useState<string>("ALL");
+  const [selectedReportDate, setSelectedReportDate] = useState<string>("ALL");
+  const [availableDatesForTicker, setAvailableDatesForTicker] = useState<string[]>([]);
+  const [isLoadingReportDate, setIsLoadingReportDate] = useState(false);
+
+  // 실시간 1,000원 매수 상태
+  const [isBuying, setIsBuying] = useState(false);
+  const [buyFeedback, setBuyFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  // 고유한 날짜 목록 추출 (내림차순)
+  const availableReportDates = React.useMemo(() => {
+    const dates = Array.from(new Set(guruReports.map((r) => r.d).filter(Boolean)));
+    return dates.sort().reverse();
+  }, [guruReports]);
+
+  const availableVoteDates = React.useMemo(() => {
+    const dates = Array.from(new Set(guruVotes.map((v) => v.d).filter(Boolean)));
+    return dates.sort().reverse();
+  }, [guruVotes]);
+
+  // 특정 종목의 과거 날짜 목록 동기화
+  React.useEffect(() => {
+    if (!selectedReport || selectedReport.id.startsWith("live-")) {
+      setAvailableDatesForTicker([]);
+      return;
+    }
+
+    const ticker = selectedReport.ticker;
+    const localDates = guruReports
+      .filter((r) => r.ticker === ticker)
+      .map((r) => r.d);
+
+    let isMounted = true;
+    fetchReportDatesByTicker(ticker).then((dbDates) => {
+      if (isMounted) {
+        const merged = Array.from(new Set([...localDates, ...dbDates])).sort().reverse();
+        setAvailableDatesForTicker(merged);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedReport?.ticker, guruReports]);
+
+  // 특정 티커 클릭 시 저장된 리포트 열기 (targetDate 지원)
+  const handleOpenReportByTicker = async (
+    ticker: string,
+    candidate?: StockCandidate,
+    targetDate?: string
+  ) => {
+    setBuyFeedback(null);
+    let report: GuruReportRow | undefined = undefined;
+
+    if (targetDate) {
+      report = guruReports.find((r) => r.ticker === ticker && r.d === targetDate);
+      if (!report) {
+        setIsLoadingReportDate(true);
+        const fetched = await fetchReportByDateAndTicker(targetDate, ticker);
+        setIsLoadingReportDate(false);
+        if (fetched) report = fetched;
+      }
+    }
+
+    if (!report) {
+      // 최신 리포트 탐색
+      report = guruReports.find((r) => r.ticker === ticker);
+    }
+
     if (report) {
       setSelectedReport(report);
       setReportModalOpen(true);
@@ -121,7 +199,7 @@ export function ScreenerTab({
       // 리포트가 아직 생성되지 않은 종목도 모달을 열고 바로 일봉 & 볼린저밴드 차트 표시
       const fallbackReport: GuruReportRow = {
         id: `live-${ticker}`,
-        d: new Date().toISOString().split("T")[0],
+        d: targetDate || new Date().toISOString().split("T")[0],
         ticker,
         company_name: candidate?.name || null,
         current_price: candidate?.price || null,
@@ -140,12 +218,62 @@ export function ScreenerTab({
     }
   };
 
-  const filteredVotes = guruVotes.filter((v) =>
-    searchTerm
+  // 모달 내에서 다른 분석 날짜 선택 시 리포트 전환
+  const handleSelectReportDate = async (targetDate: string) => {
+    if (!selectedReport || selectedReport.d === targetDate) return;
+
+    setIsLoadingReportDate(true);
+    setBuyFeedback(null);
+    try {
+      const cached = guruReports.find(
+        (r) => r.ticker === selectedReport.ticker && r.d === targetDate
+      );
+      if (cached) {
+        setSelectedReport(cached);
+        return;
+      }
+
+      const fetched = await fetchReportByDateAndTicker(targetDate, selectedReport.ticker);
+      if (fetched) {
+        setSelectedReport(fetched);
+      } else {
+        alert(`${targetDate} 날짜의 보고서를 불러오지 못했어요.`);
+      }
+    } catch (e) {
+      console.error("보고서 날짜 변경 오류:", e);
+    } finally {
+      setIsLoadingReportDate(false);
+    }
+  };
+
+  // 보고서 화면에서 1,000원 즉시 매수 및 그리드 등록
+  const handleBuyForReport = async (ticker: string) => {
+    if (!ticker) return;
+    setIsBuying(true);
+    setBuyFeedback(null);
+    try {
+      const res = await manualBuyGrid(ticker);
+      setBuyFeedback({
+        type: "success",
+        message: res.message || `${ticker} 1,000원 매수 주문 접수 완료 (3% 그리드 감지 시작)`,
+      });
+      setTimeout(() => setBuyFeedback(null), 5000);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "매수 발주에 실패했어요.";
+      setBuyFeedback({ type: "error", message: msg });
+    } finally {
+      setIsBuying(false);
+    }
+  };
+
+  const filteredVotes = guruVotes.filter((v) => {
+    const matchesSearch = searchTerm
       ? v.ticker.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (v.name && v.name.toLowerCase().includes(searchTerm.toLowerCase()))
-      : true
-  );
+      : true;
+    const matchesDate = selectedVoteDate === "ALL" || v.d === selectedVoteDate;
+    return matchesSearch && matchesDate;
+  });
 
   const filteredLiveCandidates = liveCandidates.filter((s) =>
     searchTerm
@@ -154,12 +282,14 @@ export function ScreenerTab({
       : true
   );
 
-  const filteredReports = guruReports.filter((r) =>
-    searchTerm
+  const filteredReports = guruReports.filter((r) => {
+    const matchesSearch = searchTerm
       ? r.ticker.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (r.company_name && r.company_name.toLowerCase().includes(searchTerm.toLowerCase()))
-      : true
-  );
+      : true;
+    const matchesDate = selectedReportDate === "ALL" || r.d === selectedReportDate;
+    return matchesSearch && matchesDate;
+  });
 
   return (
     <div className="space-y-5">
@@ -220,11 +350,31 @@ export function ScreenerTab({
       {activeSubTab === "votes" && (
         <Card className="p-4 sm:p-6">
           <Card.Header className="border-b border-[#f2f4f6] pb-3">
-            <div>
-              <Card.Title>13인의 거장 표결 결과</Card.Title>
-              <Card.Description>
-                버핏, 린치, 그레이엄 등 13인의 거장 평가 점수표예요. (0: 매수, 1: 보유, 2: 관망, 3: 매도)
-              </Card.Description>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <Card.Title>13인의 거장 표결 결과</Card.Title>
+                <Card.Description>
+                  버핏, 린치, 그레이엄 등 13인의 거장 평가 점수표예요. (0: 매수, 1: 보유, 2: 관망, 3: 매도)
+                </Card.Description>
+              </div>
+              {/* 표결 날짜 선택기 */}
+              {availableVoteDates.length > 0 && (
+                <div className="flex items-center gap-1.5 self-start sm:self-auto bg-[#f2f4f6] px-2.5 py-1.5 rounded-xl">
+                  <Calendar className="w-3.5 h-3.5 text-[#8b95a1]" />
+                  <select
+                    value={selectedVoteDate}
+                    onChange={(e) => setSelectedVoteDate(e.target.value)}
+                    className="text-xs bg-transparent text-[#191f28] font-semibold border-none focus:outline-hidden cursor-pointer"
+                  >
+                    <option value="ALL">전체 일자 ({guruVotes.length}건)</option>
+                    {availableVoteDates.map((dt, idx) => (
+                      <option key={dt} value={dt}>
+                        {dt} {idx === 0 ? "(최신)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           </Card.Header>
           <Card.Content className="pt-2">
@@ -248,8 +398,8 @@ export function ScreenerTab({
                     return (
                       <div
                         key={`m-${row.d}-${row.ticker}`}
-                        className="py-3 flex flex-col gap-2"
-                        onClick={() => handleOpenReportByTicker(row.ticker)}
+                        className="py-3 flex flex-col gap-2 cursor-pointer hover:bg-[#f9fafb] rounded-xl px-1 transition-colors"
+                        onClick={() => handleOpenReportByTicker(row.ticker, undefined, row.d)}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
@@ -356,7 +506,7 @@ export function ScreenerTab({
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleOpenReportByTicker(row.ticker)}
+                                onClick={() => handleOpenReportByTicker(row.ticker, undefined, row.d)}
                                 className="h-8 px-2 text-xs text-[#3182f6]"
                                 rightIcon={<ChevronRight className="w-3.5 h-3.5" />}
                               >
@@ -504,10 +654,32 @@ export function ScreenerTab({
       {activeSubTab === "reports" && (
         <Card className="p-4 sm:p-6">
           <Card.Header className="border-b border-[#f2f4f6] pb-3">
-            <Card.Title>13인 거장 5단계 심층 리포트 보관함</Card.Title>
-            <Card.Description>
-              Supabase에 영구 보존된 데이터팩, 거장 원탁 토론, 마스터 투자 보고서예요.
-            </Card.Description>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <Card.Title>13인 거장 5단계 심층 리포트 보관함</Card.Title>
+                <Card.Description>
+                  Supabase에 영구 보존된 데이터팩, 거장 원탁 토론, 마스터 투자 보고서예요.
+                </Card.Description>
+              </div>
+              {/* 리포트 날짜 선택기 */}
+              {availableReportDates.length > 0 && (
+                <div className="flex items-center gap-1.5 self-start sm:self-auto bg-[#f2f4f6] px-2.5 py-1.5 rounded-xl">
+                  <Calendar className="w-3.5 h-3.5 text-[#8b95a1]" />
+                  <select
+                    value={selectedReportDate}
+                    onChange={(e) => setSelectedReportDate(e.target.value)}
+                    className="text-xs bg-transparent text-[#191f28] font-semibold border-none focus:outline-hidden cursor-pointer"
+                  >
+                    <option value="ALL">전체 일자 ({guruReports.length}건)</option>
+                    {availableReportDates.map((dt, idx) => (
+                      <option key={dt} value={dt}>
+                        {dt} {idx === 0 ? "(최신)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
           </Card.Header>
           <Card.Content className="pt-2">
             {filteredReports.length === 0 ? (
@@ -527,9 +699,7 @@ export function ScreenerTab({
                     key={report.id}
                     className="py-3.5 flex items-center justify-between hover:bg-[#f9fafb] px-2 rounded-2xl transition-colors cursor-pointer"
                     onClick={() => {
-                      setSelectedReport(report);
-                      setReportModalOpen(true);
-                      setReportViewMode("final");
+                      handleOpenReportByTicker(report.ticker, undefined, report.d);
                     }}
                   >
                     <div className="flex items-center gap-3">
@@ -563,7 +733,7 @@ export function ScreenerTab({
         </Card>
       )}
 
-      {/* 리포트 상세 열람 모달 (마크다운 완벽 렌더링) */}
+      {/* 리포트 상세 열람 모달 (마크다운 완벽 렌더링 + 과거 날짜 이동 + 즉시 매수) */}
       <Modal
         isOpen={reportModalOpen}
         onClose={() => setReportModalOpen(false)}
@@ -575,6 +745,91 @@ export function ScreenerTab({
         />
         <Modal.Body>
           <div className="space-y-4">
+            {/* 1. 과거 날짜 리포트 선택 바 */}
+            {availableDatesForTicker.length > 0 && (
+              <div className="p-2.5 bg-[#f2f4f6] rounded-2xl flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2 overflow-x-auto py-0.5">
+                  <span className="font-semibold text-[#6b7684] shrink-0 flex items-center gap-1 pl-1">
+                    <History className="w-3.5 h-3.5 text-[#3182f6]" />
+                    분석 일자:
+                  </span>
+                  <div className="flex items-center gap-1.5 overflow-x-auto">
+                    {availableDatesForTicker.map((dt, idx) => {
+                      const isCurrent = dt === selectedReport?.d;
+                      const isLatest = idx === 0;
+                      return (
+                        <button
+                          key={dt}
+                          onClick={() => handleSelectReportDate(dt)}
+                          disabled={isLoadingReportDate || isCurrent}
+                          className={`px-3 py-1 rounded-xl font-bold transition-all whitespace-nowrap text-xs cursor-pointer ${
+                            isCurrent
+                              ? "bg-[#3182f6] text-white shadow-xs"
+                              : "bg-white text-[#4e5968] hover:text-[#191f28] hover:bg-white/80"
+                          }`}
+                        >
+                          {dt} {isLatest && "(최신)"}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                {isLoadingReportDate && (
+                  <span className="text-[11px] text-[#3182f6] font-semibold animate-pulse shrink-0">
+                    리포트 불러오는 중...
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* 2. 실시간 고정 갭(3%) 그리드 매수 배너 */}
+            <div className="p-3.5 rounded-2xl bg-[#e8f3ff]/70 border border-[#3182f6]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-[#3182f6] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
+                  ⚡
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-[#191f28] flex items-center gap-1.5 flex-wrap">
+                    <span>{selectedReport?.ticker} 실시간 고정 갭(3%) 그리드 매수</span>
+                    <span className="text-[10px] bg-[#3182f6]/10 text-[#3182f6] px-1.5 py-0.5 rounded-md font-semibold">
+                      1,000원 고정
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#6b7684] mt-0.5">
+                    보고서 확인 후 즉시 1,000원치 매수하고, 3% 변동 자동 그리드 감지를 시작해요.
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => selectedReport && handleBuyForReport(selectedReport.ticker)}
+                isLoading={isBuying}
+                leftIcon={<Zap className="w-3.5 h-3.5" />}
+                className="whitespace-nowrap font-bold shrink-0 self-end sm:self-center shadow-xs"
+              >
+                1,000원 매수 및 그리드 등록
+              </Button>
+            </div>
+
+            {/* 3. 매수 피드백 알림 배너 */}
+            {buyFeedback && (
+              <div
+                className={`p-3 rounded-2xl text-xs font-semibold flex items-center gap-2 ${
+                  buyFeedback.type === "success"
+                    ? "bg-[#e8f3ff] text-[#3182f6] border border-[#3182f6]/20"
+                    : "bg-[#fef2f2] text-[#f04452] border border-[#f04452]/20"
+                }`}
+              >
+                {buyFeedback.type === "success" ? (
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-[#3182f6]" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 shrink-0 text-[#f04452]" />
+                )}
+                <span>{buyFeedback.message}</span>
+              </div>
+            )}
+
             {/* 표결 요약 및 종합 적정가 카드 */}
             {(() => {
               const valConsensus = extractValuationConsensus(selectedReport);
@@ -746,9 +1001,27 @@ export function ScreenerTab({
           </div>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setReportModalOpen(false)}>
-            닫기
-          </Button>
+          <div className="flex items-center justify-between w-full">
+            <div className="text-xs text-[#8b95a1] truncate hidden sm:block">
+              {selectedReport?.ticker} · 분석일 {selectedReport?.d}
+            </div>
+            <div className="flex items-center gap-2 ml-auto">
+              <Button variant="secondary" onClick={() => setReportModalOpen(false)}>
+                닫기
+              </Button>
+              {selectedReport && (
+                <Button
+                  variant="primary"
+                  onClick={() => handleBuyForReport(selectedReport.ticker)}
+                  isLoading={isBuying}
+                  leftIcon={<Zap className="w-3.5 h-3.5" />}
+                  className="font-bold whitespace-nowrap"
+                >
+                  ⚡ {selectedReport.ticker} 1,000원 매수
+                </Button>
+              )}
+            </div>
+          </div>
         </Modal.Footer>
       </Modal>
     </div>

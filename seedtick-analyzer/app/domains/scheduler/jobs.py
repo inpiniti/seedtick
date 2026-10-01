@@ -4,11 +4,13 @@
 import asyncio
 import logging
 from datetime import date as dt_date
+from pathlib import Path
 from app.config.settings import settings
 from app.domains.error_log.notifiers.discord import DiscordNotifier
 from app.domains.report.service import GuruReportService
 from app.domains.scheduler.market_guard import MarketCalendarGuard
 from app.domains.screener.service import ScreenerService
+from app.infrastructure.supabase_repo import supabase_repo
 
 logger = logging.getLogger("scheduler_jobs")
 
@@ -19,9 +21,11 @@ async def daily_pipeline_job(
     dry_run: bool | None = None,
     force: bool = False,
     max_analyze_count: int | None = None,
+    skip_already_reported: bool = True,
 ) -> dict:
     """
     일일 스크리닝 → 13인 분석 → 자동매매 파이프라인 전체 실행
+    - skip_already_reported: True인 경우 오늘 이미 guru_reports에 등록된 종목은 제외하고 분석
     """
     if _pipeline_lock.locked():
         logger.warning("[Scheduler] 이미 일일 파이프라인이 실행 중입니다. 중복 실행 차단.")
@@ -59,6 +63,25 @@ async def daily_pipeline_job(
             target_tickers = [item.ticker for item in screen_result.tickers]
             logger.info(f"[Scheduler] 정밀 분석 대상 전체 종목 (무제한 {len(target_tickers)}개): {target_tickers}")
 
+        # ── 2-1. 오늘 이미 리포트 등록된 종목 제외 ─────────────────
+        skipped_tickers: list[str] = []
+        if skip_already_reported:
+            already_reported = supabase_repo.get_reported_tickers_for_date(today_str)
+            # 로컬 파일 시스템 마크다운 보고서 보조 확인
+            local_report_dir = Path("docs/report") / today_str / "최종"
+            if local_report_dir.exists():
+                for f in local_report_dir.glob("*_최종보고서.md"):
+                    already_reported.add(f.name.replace("_최종보고서.md", "").upper().strip())
+
+            remaining_tickers = [t for t in target_tickers if t.upper().strip() not in already_reported]
+            skipped_tickers = [t for t in target_tickers if t.upper().strip() in already_reported]
+            if skipped_tickers:
+                logger.info(
+                    f"[Scheduler] 오늘({today_str}) 이미 리포트가 등록된 {len(skipped_tickers)}개 종목 제외: {skipped_tickers}"
+                )
+            target_tickers = remaining_tickers
+            logger.info(f"[Scheduler] 제외 후 최종 분석 대상 종목 ({len(target_tickers)}개): {target_tickers}")
+
         # ── 3. 종목별 5단계 Guru-Report 실행 ──────────────────
         report_service = GuruReportService()
         generated_reports = []
@@ -91,6 +114,8 @@ async def daily_pipeline_job(
             "date": today_str,
             "screened_count": screen_result.count,
             "reported_count": len(generated_reports),
+            "skipped_already_reported_count": len(skipped_tickers),
+            "skipped_already_reported_tickers": skipped_tickers,
             "orders_count": 0,
         }
 

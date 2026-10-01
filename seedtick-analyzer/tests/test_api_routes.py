@@ -84,6 +84,35 @@ async def test_scheduler_cleanup_logs_route(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_scheduler_trigger_route(monkeypatch):
+    from unittest.mock import AsyncMock
+    from app.domains.scheduler.service import scheduler_service
+
+    mock_trigger = AsyncMock(
+        return_value={
+            "status": "success",
+            "date": "2026-10-01",
+            "screened_count": 5,
+            "reported_count": 2,
+            "skipped_already_reported_count": 3,
+            "skipped_already_reported_tickers": ["AAPL", "MSFT", "NVDA"],
+            "orders_count": 0,
+        }
+    )
+    monkeypatch.setattr(scheduler_service, "trigger_pipeline", mock_trigger)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.post("/api/scheduler/trigger?force=true&skip_already_reported=true")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "success"
+        assert data["skipped_already_reported_count"] == 3
+        mock_trigger.assert_called_once_with(
+            dry_run=None, force=True, max_count=None, skip_already_reported=True
+        )
+
+
+@pytest.mark.asyncio
 async def test_grid_trading_routes(monkeypatch):
     from unittest.mock import AsyncMock
     from app.api.routes.grid_trading import grid_service

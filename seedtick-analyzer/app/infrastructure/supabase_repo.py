@@ -110,6 +110,48 @@ class SupabaseRepo:
             logger.error(f"[Supabase] guru_votes 저장 실패 ({ticker}): {e}")
             return False
 
+    def get_reported_tickers_for_date(self, date_str: str) -> set[str]:
+        """
+        지정된 날짜(date_str, 예: '2026-10-01')에 이미 guru_reports 또는 guru_votes에
+        등록된 종목 티커(대문자) 집합을 반환합니다.
+        """
+        if not self._client:
+            return set()
+
+        reported_tickers: set[str] = set()
+
+        # 1. guru_reports 확인
+        try:
+            res_reports = (
+                self._client.table("guru_reports")
+                .select("ticker")
+                .eq("d", date_str)
+                .execute()
+            )
+            if res_reports.data:
+                for row in res_reports.data:
+                    if row.get("ticker"):
+                        reported_tickers.add(row["ticker"].upper().strip())
+        except Exception as e:
+            logger.warning(f"[Supabase] {date_str} guru_reports 등록 종목 확인 중 오류: {e}")
+
+        # 2. guru_votes 확인 (보조)
+        try:
+            res_votes = (
+                self._client.table("guru_votes")
+                .select("ticker")
+                .eq("d", date_str)
+                .execute()
+            )
+            if res_votes.data:
+                for row in res_votes.data:
+                    if row.get("ticker"):
+                        reported_tickers.add(row["ticker"].upper().strip())
+        except Exception as e:
+            logger.warning(f"[Supabase] {date_str} guru_votes 등록 종목 확인 중 오류: {e}")
+
+        return reported_tickers
+
     def save_log_sync(
         self,
         level: str,

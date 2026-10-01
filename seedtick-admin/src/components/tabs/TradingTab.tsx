@@ -119,6 +119,7 @@ export function TradingTab({
 
   // 파이프라인 옵션
   const [forceMarket, setForceMarket] = useState(false);
+  const [skipAlreadyReported, setSkipAlreadyReported] = useState(true);
 
   // 대기 주문 즉시 발주 실행
   const handleExecuteOrders = async () => {
@@ -148,13 +149,21 @@ export function TradingTab({
     setIsActionLoading(true);
     setActionMessage(null);
     try {
-      await triggerPipeline({ force: forceMarket });
-      setActionMessage("일일 분석 및 매매 파이프라인을 시작했어요.");
+      const res = await triggerPipeline({
+        force: forceMarket,
+        skipAlreadyReported: skipAlreadyReported,
+      });
+      const skippedMsg =
+        typeof res?.skipped_already_reported_count === "number" &&
+        res.skipped_already_reported_count > 0
+          ? ` (오늘 이미 완료된 ${res.skipped_already_reported_count}개 종목 제외)`
+          : "";
+      setActionMessage(`일일 분석 파이프라인을 시작했어요.${skippedMsg}`);
       setTimeout(() => {
         setIsPipelineModalOpen(false);
         setActionMessage(null);
         onRefresh();
-      }, 1500);
+      }, 2000);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "파이프라인 실행 중 오류가 발생했어요.";
       setActionMessage(msg);
@@ -651,6 +660,18 @@ export function TradingTab({
         />
         <Modal.Body>
           <div className="space-y-4">
+            <label className="flex items-center gap-2 text-sm text-[#191f28] cursor-pointer">
+              <input
+                type="checkbox"
+                checked={skipAlreadyReported}
+                onChange={(e) => setSkipAlreadyReported(e.target.checked)}
+                className="w-4 h-4 rounded text-[#3182f6] focus:ring-0"
+              />
+              <span className="font-medium">
+                오늘 이미 리포트 등록된 종목은 제외하고 작성{" "}
+                <span className="text-[#3182f6] text-xs font-semibold">(추천)</span>
+              </span>
+            </label>
             <label className="flex items-center gap-2 text-sm text-[#191f28] cursor-pointer">
               <input
                 type="checkbox"
