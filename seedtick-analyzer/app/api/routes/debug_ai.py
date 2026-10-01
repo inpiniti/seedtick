@@ -77,6 +77,10 @@ async def get_ai_model():
         "last_reason": snap["last_reason"],
         "failures": snap["failures"],
         "next_reset_at": snap["next_reset_at"],
+        # 모델별 연속/누적 실패 횟수와 프로모션 백오프(복구 예정 시각)
+        "health": snap["health"],
+        "failure_threshold": settings.AI_MODEL_FAILURE_THRESHOLD,
+        "promotion_cooldown_sec": settings.AI_MODEL_PROMOTION_COOLDOWN_SEC,
         "configured_model": settings.AI_GATEWAY_MODEL,
     }
 

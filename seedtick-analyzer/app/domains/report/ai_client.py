@@ -363,7 +363,7 @@ class AiGatewayClient:
                                 )
                                 if is_model_level:
                                     new_model = model_rotation.advance(
-                                        f"{model} → ({err_code}) {err_msg}"
+                                        model, f"{model} → ({err_code}) {err_msg}"
                                     )
                                     payload["model"] = new_model
                                     logger.warning(
@@ -389,7 +389,7 @@ class AiGatewayClient:
                                 is_model_level, why = _is_model_level_failure(body=raw_body)
                                 if is_model_level:
                                     new_model = model_rotation.advance(
-                                        f"{model} → (빈 응답) {raw_body[:120]}"
+                                        model, f"{model} → (빈 응답) {raw_body[:120]}"
                                     )
                                     payload["model"] = new_model
                                     logger.warning(
@@ -437,7 +437,8 @@ class AiGatewayClient:
                                     await asyncio.sleep(0.5)
                                 continue
 
-                            # 성공 완료
+                            # 성공 완료 — 연속 실패 카운터/프로모션 백오프 해제
+                            model_rotation.note_success(model)
                             return content.strip()
 
                         # 429 RateLimit 대응: 쿨다운 없이 즉시 다음 슬롯으로 순환 전환
@@ -454,7 +455,7 @@ class AiGatewayClient:
                         )
                         if is_model_level:
                             new_model = model_rotation.advance(
-                                f"{model} → HTTP {res.status_code}"
+                                model, f"{model} → HTTP {res.status_code}"
                             )
                             payload["model"] = new_model
                             logger.warning(
@@ -522,7 +523,7 @@ class AiGatewayClient:
                             )
                             if is_model_level:
                                 new_model = model_rotation.advance(
-                                    f"{model} → ({err_code}) {err_msg}"
+                                    model, f"{model} → ({err_code}) {err_msg}"
                                 )
                                 payload["model"] = new_model
                                 logger.warning(
@@ -545,7 +546,7 @@ class AiGatewayClient:
                             is_model_level, why = _is_model_level_failure(body=raw_body)
                             if is_model_level:
                                 new_model = model_rotation.advance(
-                                    f"{model} → (빈 응답) {raw_body[:120]}"
+                                    model, f"{model} → (빈 응답) {raw_body[:120]}"
                                 )
                                 payload["model"] = new_model
                                 logger.warning(
@@ -590,6 +591,8 @@ class AiGatewayClient:
                                 await asyncio.sleep(2 * attempt)
                             continue
 
+                        # 성공 — 연속 실패 카운터/프로모션 백오프 해제
+                        model_rotation.note_success(model)
                         return content.strip()
 
                     if res.status_code == 429:
@@ -610,7 +613,7 @@ class AiGatewayClient:
                     )
                     if is_model_level:
                         new_model = model_rotation.advance(
-                            f"{model} → HTTP {res.status_code}"
+                            model, f"{model} → HTTP {res.status_code}"
                         )
                         payload["model"] = new_model
                         logger.warning(

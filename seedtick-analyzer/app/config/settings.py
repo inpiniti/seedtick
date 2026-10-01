@@ -33,6 +33,14 @@ class Settings(BaseSettings):
         "nvidia/nemotron-3.5-lightning:free"
     )
     AI_GATEWAY_TIMEOUT: float = 300.0  # 긴 32K 응답 수용을 위해 300초로 상향
+    # 순위 강등까지 필요한 연속 모델 레벨 실패 횟수. 1이면 첫 실패 즉시 강등.
+    # 2 이상이면 일시적 503 한 번으로는 순위를 내리지 않아 불필요한 하향을 줄인다.
+    AI_MODEL_FAILURE_THRESHOLD: int = 1
+    # 강등된 모델을 다시 시도하기 전까지 대기하는 초 (half-open 프로모션 쿨다운).
+    # 프로바이더 과부하는 실제로 몇 분 안에 풀리므로 00:01 리셋까지 기다릴 필요가 없다.
+    AI_MODEL_PROMOTION_COOLDOWN_SEC: float = 600.0
+    # 반복 실패 시 백오프 상한(초)
+    AI_MODEL_PROMOTION_MAX_COOLDOWN_SEC: float = 3600.0
     AI_GATEWAY_SECRET: str = ""  # seedtick-ai-gateway의 GATEWAY_SECRET (Bearer 토큰)
     AI_CONCURRENCY: int = 13  # 동시 처리 요청 수 (13인 거장 전원 동시 병렬)
     AI_REQUEST_INTERVAL_SEC: float = 0.0  # 요청 간 대기시간(초)
