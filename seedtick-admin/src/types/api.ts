@@ -229,3 +229,27 @@ export interface StockChartResponse {
   summary: BollingerSummary | null;
 }
 
+// 10. 실시간 고정 갭(3%) 그리드 매매 (/api/grid-trading)
+export interface GridTradeItem {
+  id?: string;
+  ticker: string;
+  initial_price: number;
+  gap: number;
+  last_trade_price: number;
+  order_amount_krw: number;
+  status: "ACTIVE" | "FINISHED";
+  holdings_qty: number;
+  total_buy_count: number;
+  total_sell_count: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface GridTradingMarketStatus {
+  is_market_open: boolean;
+  is_ws_connected: boolean;
+  active_count: number;
+  active_tickers: string[];
+}
+
+

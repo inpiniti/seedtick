@@ -32,5 +32,7 @@ htmlcov/
 .ruff_cache/
 
 # Token caches
-.*_token_cache.json
-*.token_cache.json
+.*_token_cache*.json
+*.token_cache*.json
+.toss_token_cache*.json
+

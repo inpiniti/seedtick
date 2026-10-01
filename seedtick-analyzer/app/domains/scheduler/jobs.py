@@ -5,7 +5,6 @@ import asyncio
 import logging
 from datetime import date as dt_date
 from app.config.settings import settings
-from app.domains.auto_trading.service import AutoTradingService
 from app.domains.error_log.notifiers.discord import DiscordNotifier
 from app.domains.report.service import GuruReportService
 from app.domains.scheduler.market_guard import MarketCalendarGuard
@@ -75,18 +74,15 @@ async def daily_pipeline_job(
             except Exception as e:
                 logger.error(f"[Scheduler] {ticker} 분석 리포트 실패: {e}")
 
-        # ── 4. 자동매매 주문 실행 ─────────────────────────────
-        trading_service = AutoTradingService()
-        orders = await trading_service.execute_from_reports(
-            generated_reports, dry_run=dry_run
-        )
+        # ── 4. 자동매매 주문 실행 (기존 리포트 자동매매 폐기: 수동 등록 기반 그리드로 전환됨) ──
+        logger.info("[Scheduler] 기존 리포트 자동매매는 폐기되었습니다. (그리드 수동 등록 체계 운용)")
 
         # ── 5. Discord 결과 알림 ──────────────────────────────
         await notifier.notify_pipeline_summary(
             date_str=today_str,
             screened_count=screen_result.count,
             reported_count=len(generated_reports),
-            orders=orders,
+            orders=[],
         )
 
         logger.info("========== [SeedTick 일일 파이프라인 정상 완료] ==========")
@@ -95,7 +91,7 @@ async def daily_pipeline_job(
             "date": today_str,
             "screened_count": screen_result.count,
             "reported_count": len(generated_reports),
-            "orders_count": len(orders),
+            "orders_count": 0,
         }
 
 

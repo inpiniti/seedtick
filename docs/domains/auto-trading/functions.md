@@ -1,56 +1,25 @@
-﻿# Auto-Trading 함수 명세
+# Auto-Trading 함수 명세 (v3: GridTradingService)
 
-## AutoTradingService
+## GridTradingService
 
-### `execute_from_reports(reports: list[Report]) -> list[TradeResult]`
+### `manual_buy_and_register(ticker: str) -> GridTradeItem`
+- 미국 정규장 운영 여부(`broker.is_us_market_open()`) 검사. 미운영 시 예외 발생.
+- 1,000원치 시장가 매수 주문 발주 (`broker.place_order`).
+- 체결가(또는 최신 호가)로 `initial_price`, `gap(= initial_price * 0.03)`, `last_trade_price` 계산.
+- Supabase `grid_trades` 테이블에 INSERT.
+- 실시간 토스 WebSocket 구독 목록에 ticker 추가.
 
-리포트 목록을 받아 조건을 만족하는 종목의 주문을 실행합니다.
+### `on_realtime_tick(ticker: str, price: float) -> None`
+- 등록된 `ACTIVE` 상태의 종목인지 확인.
+- 종목별 동시성 락(`asyncio.Lock`) 획득.
+- `price >= item.last_trade_price + item.gap`:
+  - 1,000원 상당 매도 수량 계산 및 `broker.place_order(SELL)` 발주.
+  - 잔여 수량이 0이면 `status = FINISHED`, 남았으면 `last_trade_price = price`.
+- `price <= item.last_trade_price - item.gap`:
+  - 1,000원 상당 매수 `broker.place_order(BUY)` 발주.
+  - `last_trade_price = price`, 누적 매수 횟수 및 수량 갱신.
+- Supabase DB 업데이트.
 
-**흐름**:
-```
-for report in reports:
-    if not should_execute_buy(report):
-        continue
-    order = build_order(report)
-    result = await broker.place_order(order)
-    await supabase.save_order(result)
-    if not result.success:
-        await error_log.error(...)
-```
-
----
-
-## OrderManager
-
-### `is_already_ordered(ticker: str, date: date) -> bool`
-
-Supabase `orders` 테이블에서 당일 중복 주문 확인.
-
-### `get_daily_stats(date: date) -> DailyTradeStats`
-
-당일 매매 현황 조회.
-
-### `can_order_more(amount: int, stats: DailyTradeStats) -> bool`
-
-일일 한도 초과 여부 확인.
-
----
-
-## 함수: should_execute_buy
-
-```python
-async def should_execute_buy(
-    report: Report,
-    stats: DailyTradeStats,
-    order_manager: OrderManager
-) -> bool:
-    if report.verdict != "BUY":
-        return False
-    if report.confidence < MIN_REPORT_CONFIDENCE:
-        return False
-    if await order_manager.is_already_ordered(report.ticker, today()):
-        return False
-    if not order_manager.can_order_more(AMOUNT_PER_ORDER_KRW, stats):
-        return False
-    return True
-```
+### `sync_with_holdings() -> None`
+- `broker.get_balance()`로 실제 보유 포지션 조회.
+- DB에 `ACTIVE` 상태인데 실제 포지션 수량이 0인 종목은 자동으로 `status = FINISHED` 처리.

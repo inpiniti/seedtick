@@ -1,42 +1,51 @@
-﻿# Auto-Trading 데이터 구조
+# Auto-Trading 데이터 구조 (v3)
+
+## 1. Pydantic 모델
 
 ```python
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from datetime import datetime
 from typing import Literal
 
-class TradeOrder(BaseModel):
+class GridTradeItem(BaseModel):
+    id: str | None = None
     ticker: str
-    action: Literal["BUY", "SELL"]
-    amount_krw: int
-    report_id: str
-    reason: str                         # 매매 근거 (로깅용)
+    initial_price: float               # 처음매수주가 ($)
+    gap: float                         # 고정 갭 ($) = initial_price * 0.03
+    last_trade_price: float            # 마지막매매주가 ($)
+    order_amount_krw: int = 1000       # 주문금액 (1000원 고정)
+    status: Literal["ACTIVE", "FINISHED"] = "ACTIVE"
+    holdings_qty: float = 0.0          # 현재 추적 보유 수량
+    total_buy_count: int = 1           # 누적 매수 체결 횟수
+    total_sell_count: int = 0          # 누적 매도 체결 횟수
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
-class TradeResult(BaseModel):
-    success: bool
-    ticker: str
-    action: str
-    amount_krw: int
-    order_id: str | None                # 증권사 주문 ID
-    executed_price: float | None
-    error_code: str | None
-    error_message: str | None
-
-class DailyTradeStats(BaseModel):
-    """일일 매매 현황 (한도 체크용)"""
-    date: str                           # YYYY-MM-DD
-    total_orders: int
-    total_amount_krw: int
-    remaining_amount_krw: int           # 10만원 - 사용금액
-    orders: list[TradeResult]
+class GridTradingStatus(BaseModel):
+    is_ws_connected: bool
+    is_market_open: bool
+    active_count: int
+    active_tickers: list[str]
 ```
 
-## 상수
+## 2. Supabase 테이블 스키마 (grid_trades)
 
-```python
-# config/constants.py
-DAILY_MAX_AMOUNT_KRW = 100_000     # 10만원 (절대 변경 금지)
-MAX_ORDERS_PER_DAY = 5
-MAX_AMOUNT_PER_ORDER_KRW = 50_000  # 5만원
-MIN_REPORT_CONFIDENCE = 70         # 매수 실행 최소 확신도
-AMOUNT_PER_ORDER_KRW = 30_000      # 기본 주문 금액 (3만원)
+```sql
+create table if not exists public.grid_trades (
+  id uuid primary key default gen_random_uuid(),
+  ticker text not null,
+  initial_price numeric not null,
+  gap numeric not null,
+  last_trade_price numeric not null,
+  order_amount_krw numeric not null default 1000,
+  status text not null default 'ACTIVE',
+  holdings_qty numeric not null default 0,
+  total_buy_count integer not null default 1,
+  total_sell_count integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists grid_trades_status_idx on public.grid_trades (status);
+create index if not exists grid_trades_ticker_idx on public.grid_trades (ticker);
 ```

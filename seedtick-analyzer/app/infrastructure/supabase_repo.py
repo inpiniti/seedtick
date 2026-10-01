@@ -200,6 +200,99 @@ class SupabaseRepo:
             logger.error(f"[Supabase] INFO 로그 정리 중 오류 발생: {e}")
             return 0
 
+    # ── Grid Trading 영속성 ──────────────────────────────
+    def save_grid_trade(self, item) -> None:
+        """신규 그리드 감지 종목 저장"""
+        data = {
+            "ticker": item.ticker,
+            "initial_price": float(item.initial_price),
+            "gap": float(item.gap),
+            "last_trade_price": float(item.last_trade_price),
+            "order_amount_krw": item.order_amount_krw,
+            "status": item.status,
+            "holdings_qty": float(item.holdings_qty),
+            "total_buy_count": item.total_buy_count,
+            "total_sell_count": item.total_sell_count,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        if not hasattr(self, "_in_memory_grid_trades"):
+            self._in_memory_grid_trades = {}
+        self._in_memory_grid_trades[item.ticker] = data
+
+        if not self._client:
+            return
+
+        try:
+            self._client.table("grid_trades").upsert(data, on_conflict="ticker").execute()
+            logger.info(f"[Supabase] grid_trades 저장 완료: {item.ticker}")
+        except Exception as e:
+            logger.error(f"[Supabase] grid_trades 저장 실패 ({item.ticker}): {e}")
+
+    def update_grid_trade(self, item) -> None:
+        """그리드 감지 종목 상태/가격 갱신"""
+        self.save_grid_trade(item)
+
+    def get_active_grid_trades(self) -> list:
+        """감지 중(ACTIVE)인 그리드 종목 목록 조회"""
+        from app.domains.auto_trading.grid_models import GridTradeItem
+
+        if not hasattr(self, "_in_memory_grid_trades"):
+            self._in_memory_grid_trades = {}
+
+        if not self._client:
+            return [
+                GridTradeItem(**v)
+                for v in self._in_memory_grid_trades.values()
+                if v.get("status") == "ACTIVE"
+            ]
+
+        try:
+            res = (
+                self._client.table("grid_trades")
+                .select("*")
+                .eq("status", "ACTIVE")
+                .execute()
+            )
+            items = []
+            for row in res.data or []:
+                items.append(GridTradeItem(**row))
+                self._in_memory_grid_trades[row["ticker"]] = row
+            return items
+        except Exception as e:
+            logger.warning(f"[Supabase] grid_trades 조회 실패 -> 메모리 캐시 폴백: {e}")
+            return [
+                GridTradeItem(**v)
+                for v in self._in_memory_grid_trades.values()
+                if v.get("status") == "ACTIVE"
+            ]
+
+    def get_all_grid_trades(self) -> list:
+        """모든 그리드 종목 목록 조회 (ACTIVE, FINISHED 포함)"""
+        from app.domains.auto_trading.grid_models import GridTradeItem
+
+        if not hasattr(self, "_in_memory_grid_trades"):
+            self._in_memory_grid_trades = {}
+
+        if not self._client:
+            return [GridTradeItem(**v) for v in self._in_memory_grid_trades.values()]
+
+        try:
+            res = (
+                self._client.table("grid_trades")
+                .select("*")
+                .order("created_at", desc=True)
+                .execute()
+            )
+            items = []
+            for row in res.data or []:
+                items.append(GridTradeItem(**row))
+                self._in_memory_grid_trades[row["ticker"]] = row
+            return items
+        except Exception as e:
+            logger.warning(f"[Supabase] grid_trades 전체 조회 실패 -> 메모리 캐시 폴백: {e}")
+            return [GridTradeItem(**v) for v in self._in_memory_grid_trades.values()]
+
 
 supabase_repo = SupabaseRepo()
+
 

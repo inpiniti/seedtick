@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   AutoTradingStatus,
   BridgeStatus,
   BrokerBalance,
+  GridTradeItem,
+  GridTradingMarketStatus,
   PendingOrder,
 } from "@/types/api";
 import { Card } from "@/components/ui/Card";
@@ -14,7 +16,11 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Modal } from "@/components/ui/Modal";
 import { formatKRW, formatUSD, formatTime } from "@/lib/utils";
 import {
+  closeGridItem,
   executePendingOrders,
+  fetchGridItems,
+  fetchGridMarketStatus,
+  manualBuyGrid,
   triggerPipeline,
 } from "@/lib/api-client";
 import {
@@ -24,6 +30,10 @@ import {
   Clock,
   Sparkles,
   TrendingUp,
+  Activity,
+  PlusCircle,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 
 interface TradingTabProps {
@@ -46,6 +56,66 @@ export function TradingTab({
   const [isPipelineModalOpen, setIsPipelineModalOpen] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+
+  // 그리드 트레이딩 상태
+  const [gridItems, setGridItems] = useState<GridTradeItem[]>([]);
+  const [gridMarketStatus, setGridMarketStatus] = useState<GridTradingMarketStatus | null>(null);
+  const [buyTickerInput, setBuyTickerInput] = useState("");
+  const [isBuying, setIsBuying] = useState(false);
+  const [buyFeedback, setBuyFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  // 그리드 데이터 로드
+  const loadGridData = async () => {
+    try {
+      const [itemsRes, statusRes] = await Promise.all([
+        fetchGridItems(),
+        fetchGridMarketStatus(),
+      ]);
+      setGridItems(itemsRes.items || []);
+      setGridMarketStatus(statusRes);
+    } catch (e) {
+      console.error("그리드 데이터 로드 실패:", e);
+    }
+  };
+
+  useEffect(() => {
+    loadGridData();
+    const interval = setInterval(loadGridData, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // 1,000원 수동 매수 및 그리드 등록 핸들러
+  const handleManualBuy = async () => {
+    const sym = buyTickerInput.trim().toUpperCase();
+    if (!sym) return;
+
+    setIsBuying(true);
+    setBuyFeedback(null);
+    try {
+      const res = await manualBuyGrid(sym);
+      setBuyFeedback({ type: "success", message: res.message });
+      setBuyTickerInput("");
+      await loadGridData();
+      onRefresh();
+      setTimeout(() => setBuyFeedback(null), 4000);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "매수 발주에 실패했어요.";
+      setBuyFeedback({ type: "error", message: msg });
+    } finally {
+      setIsBuying(false);
+    }
+  };
+
+  // 그리드 감지 수동 종료 핸들러
+  const handleCloseGrid = async (ticker: string) => {
+    if (!confirm(`${ticker} 종목의 실시간 감지를 종료할까요?`)) return;
+    try {
+      await closeGridItem(ticker);
+      await loadGridData();
+    } catch (e) {
+      alert("종료 처리에 실패했어요.");
+    }
+  };
 
   // 파이프라인 옵션
   const [forceMarket, setForceMarket] = useState(false);
@@ -184,6 +254,149 @@ export function TradingTab({
           </Card.Content>
         </Card>
       </div>
+
+      {/* 2. 실시간 고정 갭(3%) 무한 그리드 매매 섹션 */}
+      <Card className="p-4 sm:p-6 border-2 border-[#3182f6]/20">
+        <Card.Header className="border-b border-[#f2f4f6] pb-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Card.Title className="text-lg font-bold text-[#191f28] flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-[#3182f6]" />
+                  실시간 고정 갭(3%) 그리드 트레이딩
+                </Card.Title>
+                <Badge variant={gridMarketStatus?.is_market_open ? "success" : "neutral"}>
+                  {gridMarketStatus?.is_market_open ? "● 정규장 운영 중" : "○ 정규장 마감"}
+                </Badge>
+                <Badge variant={gridMarketStatus?.is_ws_connected ? "primary" : "neutral"}>
+                  {gridMarketStatus?.is_ws_connected ? "⚡ WebSocket 실시간 감지" : "WS 대기 중"}
+                </Badge>
+              </div>
+              <Card.Description className="mt-1 text-xs text-[#6b7684]">
+                처음 매수한 가격을 기준으로 <strong>3% 갭(Gap)</strong>이 영구 고정되며, 갭 이상 상승 시 1,000원치 매도(잔고 0 시 종료) · 갭 이하 하락 시 1,000원치 매수를 실시간으로 자동 실행해요.
+              </Card.Description>
+            </div>
+
+            {/* 신규 종목 1,000원 수동 매수 등록 바 (정규장일 때만 활성화) */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <input
+                type="text"
+                value={buyTickerInput}
+                onChange={(e) => setBuyTickerInput(e.target.value.toUpperCase())}
+                placeholder="티커 (예: NVDA)"
+                className="px-3 py-2 text-sm border border-[#e5e8eb] rounded-xl focus:outline-none focus:border-[#3182f6] font-semibold uppercase w-full sm:w-36"
+                disabled={!gridMarketStatus?.is_market_open || isBuying}
+              />
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleManualBuy}
+                disabled={!gridMarketStatus?.is_market_open || isBuying || !buyTickerInput.trim()}
+                isLoading={isBuying}
+                leftIcon={<PlusCircle className="w-4 h-4" />}
+                className="whitespace-nowrap font-bold"
+              >
+                1,000원 매수 및 등록
+              </Button>
+            </div>
+          </div>
+
+          {!gridMarketStatus?.is_market_open && (
+            <div className="mt-3 flex items-center gap-1.5 text-xs text-[#8b95a1] bg-[#f9fafb] p-2.5 rounded-xl">
+              <AlertCircle className="w-4 h-4 text-[#8b95a1] shrink-0" />
+              <span>
+                현재 미국 정규장 시간이 아니에요. 신규 매수 등록 버튼은 <strong>정규장(22:30~05:00 KST)</strong>에만 활성화됩니다.
+              </span>
+            </div>
+          )}
+
+          {buyFeedback && (
+            <div
+              className={`mt-3 p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${
+                buyFeedback.type === "success"
+                  ? "bg-[#e8f8f0] text-[#03b26c]"
+                  : "bg-[#fdeeed] text-[#f04452]"
+              }`}
+            >
+              {buyFeedback.type === "success" ? (
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 shrink-0" />
+              )}
+              <span>{buyFeedback.message}</span>
+            </div>
+          )}
+        </Card.Header>
+
+        <Card.Content className="pt-4">
+          {gridItems.length === 0 ? (
+            <EmptyState
+              icon={<Activity className="w-8 h-8 text-[#8b95a1]" />}
+              title="등록된 그리드 매매 종목이 없어요"
+              description="정규장에 상단 입력창에서 종목을 입력하고 '1,000원 매수 및 등록'을 누르면 실시간 갭 매매가 시작돼요."
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-[#f2f4f6] text-[#8b95a1] text-xs font-semibold">
+                    <th className="pb-3 pl-2">종목</th>
+                    <th className="pb-3">처음매수주가</th>
+                    <th className="pb-3">고정 갭 (3%)</th>
+                    <th className="pb-3">마지막매매주가</th>
+                    <th className="pb-3">누적 체결</th>
+                    <th className="pb-3">추적 수량</th>
+                    <th className="pb-3">상태</th>
+                    <th className="pb-3 pr-2 text-right">제어</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#f9fafb]">
+                  {gridItems.map((item) => (
+                    <tr key={item.ticker} className="hover:bg-[#f9fafb] transition-colors">
+                      <td className="py-3 pl-2 font-bold text-[#191f28]">
+                        {item.ticker}
+                      </td>
+                      <td className="py-3 text-[#191f28] font-medium">
+                        ${item.initial_price.toFixed(2)}
+                      </td>
+                      <td className="py-3 text-[#3182f6] font-semibold">
+                        ±${item.gap.toFixed(2)}
+                      </td>
+                      <td className="py-3 text-[#191f28] font-bold">
+                        ${item.last_trade_price.toFixed(2)}
+                      </td>
+                      <td className="py-3 text-xs text-[#4e5968]">
+                        <span className="text-[#3182f6] font-semibold">매수 {item.total_buy_count}회</span>
+                        {" · "}
+                        <span className="text-[#f04452] font-semibold">매도 {item.total_sell_count}회</span>
+                      </td>
+                      <td className="py-3 text-xs font-medium text-[#191f28]">
+                        {item.holdings_qty.toFixed(4)}주
+                      </td>
+                      <td className="py-3">
+                        <Badge variant={item.status === "ACTIVE" ? "success" : "neutral"}>
+                          {item.status === "ACTIVE" ? "실시간 감지 중" : "종료됨"}
+                        </Badge>
+                      </td>
+                      <td className="py-3 pr-2 text-right">
+                        {item.status === "ACTIVE" && (
+                          <button
+                            onClick={() => handleCloseGrid(item.ticker)}
+                            className="text-xs text-[#8b95a1] hover:text-[#f04452] transition-colors font-medium"
+                          >
+                            감지 종료
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card.Content>
+      </Card>
+
 
       {/* 2. 대기 중인 예약 주문 섹션 */}
       <Card className="p-4 sm:p-6">
