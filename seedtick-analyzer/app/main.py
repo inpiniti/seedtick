@@ -30,6 +30,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger("seedtick_analyzer")
 
+# 성공적인 외부 HTTP 호출은 운영 로그에 불필요한 소음을 만듦.
+# debug 모드일 때만 그대로 남기고, 그 외에는 WARNING 이상만 출력한다.
+_root_level = getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO)
+if _root_level > logging.DEBUG:
+    for _noisy in ("httpx", "httpcore", "supabase_repo"):
+        logging.getLogger(_noisy).setLevel(logging.WARNING)
+
 # Supabase error_logs 테이블 자동 적재 핸들러 등록 (INFO, WARNING, ERROR, CRITICAL)
 supabase_log_handler = SupabaseLogHandler()
 supabase_log_handler.setLevel(getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
