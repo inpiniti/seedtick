@@ -56,11 +56,52 @@ async def get_bridge_balance(
     try:
         broker = get_broker_adapter(target)
         balance = await broker.get_balance()
+        # 보유 종목 상세 목록 구성 (프론트엔드 BrokerPosition[] 배열 스펙 준수)
+        positions_list = []
+        if hasattr(broker, "get_holdings_details"):
+            try:
+                holdings_raw = await broker.get_holdings_details()
+                for item in holdings_raw:
+                    avg_p = float(item.get("average_price") or 0.0)
+                    last_p = float(item.get("last_price") or 0.0)
+                    ret_rate = (
+                        round(((last_p - avg_p) / avg_p) * 100, 2)
+                        if avg_p > 0 and last_p > 0
+                        else 0.0
+                    )
+                    positions_list.append(
+                        {
+                            "ticker": item["symbol"],
+                            "name": item.get("name", ""),
+                            "quantity": item["quantity"],
+                            "purchase_price": avg_p,
+                            "current_price": last_p,
+                            "return_rate": ret_rate,
+                        }
+                    )
+            except Exception as e:
+                logger.warning(f"[{target}] holdings_details 조회 실패: {e}")
+
+        # 폴백: get_holdings_details가 없거나 빈 경우 balance.positions dict 변환
+        if not positions_list and isinstance(balance.positions, dict):
+            for sym, qty in balance.positions.items():
+                positions_list.append(
+                    {
+                        "ticker": sym,
+                        "name": sym,
+                        "quantity": qty,
+                        "purchase_price": 0.0,
+                        "current_price": 0.0,
+                        "return_rate": 0.0,
+                    }
+                )
+
         return {
             "broker": target,
             "available_krw": balance.available_krw,
             "available_usd": balance.available_usd,
-            "positions": balance.positions,
+            "positions": positions_list,
+            "positions_map": balance.positions,
         }
     except Exception as e:
         logger.warning(f"[{target}] 잔고 조회 실패: {e}")
