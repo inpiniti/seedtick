@@ -83,3 +83,53 @@ async def test_scheduler_cleanup_logs_route(monkeypatch):
         assert data["hours"] == 24
 
 
+@pytest.mark.asyncio
+async def test_grid_trading_routes(monkeypatch):
+    from unittest.mock import AsyncMock
+    from app.api.routes.grid_trading import grid_service
+    from app.domains.auto_trading.grid_models import GridTradeItem
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        # 1. market-status
+        res1 = await ac.get("/api/grid-trading/market-status")
+        assert res1.status_code == 200
+        data1 = res1.json()
+        assert "is_market_open" in data1
+        assert "active_count" in data1
+
+        # 2. items
+        res2 = await ac.get("/api/grid-trading/items")
+        assert res2.status_code == 200
+        data2 = res2.json()
+        assert "items" in data2
+        assert "count" in data2
+
+        # 3. manual buy: 정규장 미운영 시 400
+        monkeypatch.setattr(grid_service.broker, "is_us_market_open", AsyncMock(return_value=False))
+        res3 = await ac.post("/api/grid-trading/buy", json={"ticker": "AAPL"})
+        assert res3.status_code == 400
+        assert "정규장" in res3.json()["detail"]
+
+        # 4. manual buy: 정규장 운영 시 성공
+        monkeypatch.setattr(grid_service.broker, "is_us_market_open", AsyncMock(return_value=True))
+        monkeypatch.setattr(
+            grid_service,
+            "manual_buy_and_register",
+            AsyncMock(
+                return_value=GridTradeItem(
+                    ticker="AAPL",
+                    initial_price=150.0,
+                    gap=4.5,
+                    last_trade_price=150.0,
+                    holdings_qty=0.05,
+                )
+            ),
+        )
+        res4 = await ac.post("/api/grid-trading/buy", json={"ticker": "AAPL"})
+        assert res4.status_code == 200
+        data4 = res4.json()
+        assert data4["success"] is True
+        assert data4["item"]["ticker"] == "AAPL"
+
+
+

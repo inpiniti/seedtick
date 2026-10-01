@@ -2,6 +2,8 @@ import {
   AutoTradingStatus,
   BridgeStatus,
   BrokerBalance,
+  GridTradeItem,
+  GridTradingMarketStatus,
   HealthStatus,
   IpStatus,
   PendingOrdersResponse,
@@ -160,4 +162,37 @@ export async function fetchStockChart(
     `/api/screener/chart/${encodeURIComponent(ticker)}?range=${range}&interval=${interval}`
   );
 }
+
+/** 11. 실시간 그리드 매매 정규장 및 상태 조회 */
+export async function fetchGridMarketStatus(): Promise<GridTradingMarketStatus> {
+  return request<GridTradingMarketStatus>("/api/grid-trading/market-status");
+}
+
+/** 12. 등록된 그리드 종목 목록 조회 */
+export async function fetchGridItems(): Promise<{ items: GridTradeItem[]; count: number }> {
+  return request<{ items: GridTradeItem[]; count: number }>("/api/grid-trading/items");
+}
+
+/** 13. 정규장 1,000원 수동 매수 및 그리드 등록 */
+export async function manualBuyGrid(ticker: string): Promise<{
+  success: boolean;
+  message: string;
+  item: GridTradeItem;
+}> {
+  return request("/api/grid-trading/buy", {
+    method: "POST",
+    body: JSON.stringify({ ticker }),
+  });
+}
+
+/** 14. 그리드 종목 수동 종료 */
+export async function closeGridItem(ticker: string): Promise<{
+  success: boolean;
+  message: string;
+}> {
+  return request(`/api/grid-trading/items/${encodeURIComponent(ticker)}/close`, {
+    method: "POST",
+  });
+}
+
 

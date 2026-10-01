@@ -14,6 +14,11 @@ from app.api.routes.ip import router as ip_router
 from app.api.routes.bridge import router as bridge_router
 from app.api.routes.debug_ai import router as debug_ai_router
 from app.api.routes.debug_yahoo import router as debug_yahoo_router
+from app.api.routes.grid_trading import (
+    router as grid_trading_router,
+    ws_client,
+    grid_service,
+)
 from app.config.settings import settings
 from app.domains.error_log.handlers import SupabaseLogHandler
 from app.domains.scheduler.service import scheduler_service
@@ -33,11 +38,26 @@ logging.getLogger().addHandler(supabase_log_handler)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """애플리케이션 수명 주기 관리 (스케줄러 시작 및 종료)"""
+    """애플리케이션 수명 주기 관리 (스케줄러, 실시간 그리드 WebSocket 시작 및 종료)"""
     logger.info("🚀 SeedTick Analyzer 시작 중...")
     scheduler_service.start()
+
+    # 실시간 그리드 감지 WebSocket 시작 및 기존 활성 종목 등록
+    if ws_client:
+        try:
+            active_items = grid_service.repo.get_active_grid_trades()
+            active_tickers = [it.ticker for it in active_items]
+            if active_tickers:
+                await ws_client.set_subscribed_tickers(active_tickers)
+                logger.info(f"[Lifespan] 기존 활성 그리드 종목 실시간 구독 등록: {active_tickers}")
+            await ws_client.start()
+        except Exception as e:
+            logger.warning(f"[Lifespan] 그리드 WebSocket 시작 실패 (선택 기능): {e}")
+
     yield
     logger.info("🛑 SeedTick Analyzer 종료 중...")
+    if ws_client:
+        await ws_client.stop()
     scheduler_service.shutdown()
     supabase_log_handler.close()
 
@@ -67,6 +87,7 @@ app.include_router(scheduler_router)
 app.include_router(bridge_router)
 app.include_router(debug_ai_router)
 app.include_router(debug_yahoo_router)
+app.include_router(grid_trading_router)
 
 
 
