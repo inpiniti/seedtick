@@ -258,6 +258,33 @@ class TossBrokerAdapter(IBrokerAdapter):
             logger.error(f"[TossBroker] 잔고 조회 실패: {e}")
             return BrokerBalance(available_krw=0, available_usd=0.0)
 
+    async def get_holdings_details(self) -> list[dict]:
+        """
+        보유 주식 상세 목록 조회 (symbol, name, quantity, average_price, last_price)
+        - GET /api/v1/holdings
+        """
+        try:
+            holdings_res = await self._request("GET", "/api/v1/holdings")
+            items = []
+            if isinstance(holdings_res, dict):
+                for raw in holdings_res.get("items", []):
+                    sym = raw.get("symbol")
+                    qty = float(raw.get("quantity", 0))
+                    if sym and qty > 0:
+                        avg_price = float(raw.get("averagePurchasePrice") or 0.0)
+                        last_price = float(raw.get("lastPrice") or 0.0)
+                        items.append({
+                            "symbol": sym.upper(),
+                            "name": raw.get("name", ""),
+                            "quantity": qty,
+                            "average_price": avg_price,
+                            "last_price": last_price,
+                            "currency": raw.get("currency", "USD"),
+                        })
+            return items
+        except Exception as e:
+            logger.error(f"[TossBroker] 보유 주식 상세 조회 실패: {e}")
+            return []
 
     async def get_quote(self, ticker: str) -> float:
         """

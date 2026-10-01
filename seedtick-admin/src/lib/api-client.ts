@@ -198,4 +198,16 @@ export async function closeGridItem(ticker: string): Promise<{
   });
 }
 
+/** 15. 계좌 보유 잔고와 그리드 수동 즉시 동기화 */
+export async function syncGridHoldings(): Promise<{
+  success: boolean;
+  message: string;
+  items: GridTradeItem[];
+}> {
+  return request("/api/grid-trading/sync", {
+    method: "POST",
+  });
+}
+
+
 
