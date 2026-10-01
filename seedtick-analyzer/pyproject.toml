@@ -13,6 +13,7 @@ dependencies = [
     "apscheduler>=3.10.4",
     "holidays>=0.60",
     "supabase>=2.10.0",
+    "websockets>=13.0,<16",
 ]
 
 [project.optional-dependencies]

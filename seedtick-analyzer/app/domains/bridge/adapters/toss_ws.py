@@ -7,6 +7,7 @@ import json
 import logging
 from typing import Callable, Coroutine, Any
 import websockets
+import websockets.protocol
 
 logger = logging.getLogger("toss_ws_client")
 
@@ -30,7 +31,14 @@ class TossWebSocketClient:
 
     @property
     def is_connected(self) -> bool:
-        return self._ws is not None and not self._ws.closed
+        ws = self._ws
+        if ws is None:
+            return False
+        # websockets 14+ 에서 ClientConnection.closed 가 제거됨 (13.x deprecated)
+        closed = getattr(ws, "closed", None)
+        if closed is not None:
+            return not closed
+        return ws.state is websockets.protocol.State.OPEN
 
     @property
     def subscribed_tickers(self) -> list[str]:
