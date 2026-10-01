@@ -214,6 +214,14 @@ class TossBrokerAdapter(IBrokerAdapter):
                             pass
                     continue
 
+                if res.status_code == 403:
+                    msg = (
+                        f"토스 API 403 Forbidden: 서버 공인 IP가 변경되었거나 허용 IP로 등록되지 않았습니다 ({res.text}). "
+                        "토스 WTS/Open API 설정에서 현재 서버의 외부 공인 IP를 등록해주세요."
+                    )
+                    logger.error(f"[TossBroker] {msg}")
+                    raise PermissionError(msg)
+
                 raise RuntimeError(f"토스 API 호출 실패 ({res.status_code}): {res.text}")
 
         raise RuntimeError("토스 API 재시도 초과")
@@ -256,7 +264,7 @@ class TossBrokerAdapter(IBrokerAdapter):
             )
         except Exception as e:
             logger.error(f"[TossBroker] 잔고 조회 실패: {e}")
-            return BrokerBalance(available_krw=0, available_usd=0.0)
+            raise
 
     async def get_holdings_details(self) -> list[dict]:
         """
@@ -284,7 +292,7 @@ class TossBrokerAdapter(IBrokerAdapter):
             return items
         except Exception as e:
             logger.error(f"[TossBroker] 보유 주식 상세 조회 실패: {e}")
-            return []
+            raise
 
     async def get_quote(self, ticker: str) -> float:
         """

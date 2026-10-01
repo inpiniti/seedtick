@@ -160,5 +160,28 @@ async def test_grid_trading_routes(monkeypatch):
         assert data4["success"] is True
         assert data4["item"]["ticker"] == "AAPL"
 
+        # 5. reactivate: 종료된 종목 재활성화 성공
+        monkeypatch.setattr(
+            grid_service,
+            "reactivate_grid_trade",
+            AsyncMock(
+                return_value=GridTradeItem(
+                    ticker="AAPL",
+                    initial_price=150.0,
+                    gap=4.5,
+                    last_trade_price=150.0,
+                    holdings_qty=0.05,
+                    status="ACTIVE",
+                )
+            ),
+        )
+        res5 = await ac.post("/api/grid-trading/items/AAPL/reactivate")
+        assert res5.status_code == 200
+        data5 = res5.json()
+        assert data5["success"] is True
+        assert "다시 활성화되었어요" in data5["message"]
+        assert data5["item"]["status"] == "ACTIVE"
+
+
 
 

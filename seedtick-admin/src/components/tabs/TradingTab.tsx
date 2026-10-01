@@ -18,6 +18,7 @@ import { Modal } from "@/components/ui/Modal";
 import { formatKRW, formatUSD, formatTime } from "@/lib/utils";
 import {
   closeGridItem,
+  reactivateGridItem,
   fetchGridItems,
   fetchGridMarketStatus,
   manualBuyGrid,
@@ -34,6 +35,7 @@ import {
   CheckCircle2,
   AlertCircle,
   RefreshCw,
+  RotateCw,
   Layers,
 } from "lucide-react";
 
@@ -153,6 +155,25 @@ export function TradingTab({
       await loadGridData();
     } catch (e) {
       alert("종료 처리에 실패했어요.");
+    }
+  };
+
+  // 그리드 감지 재활성화 핸들러
+  const [reactivatingTicker, setReactivatingTicker] = useState<string | null>(null);
+
+  const handleReactivateGrid = async (ticker: string) => {
+    setReactivatingTicker(ticker);
+    setBuyFeedback(null);
+    try {
+      const res = await reactivateGridItem(ticker);
+      setBuyFeedback({ type: "success", message: res.message });
+      await loadGridData();
+      setTimeout(() => setBuyFeedback(null), 4000);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "재활성화에 실패했어요.";
+      setBuyFeedback({ type: "error", message: msg });
+    } finally {
+      setReactivatingTicker(null);
     }
   };
 
@@ -400,17 +421,42 @@ export function TradingTab({
                         {item.holdings_qty.toFixed(4)}주
                       </td>
                       <td className="py-3">
-                        <Badge variant={item.status === "ACTIVE" ? "success" : "neutral"}>
-                          {item.status === "ACTIVE" ? "실시간 감지 중" : "종료됨"}
-                        </Badge>
+                        {item.status === "ACTIVE" ? (
+                          <Badge variant="success">실시간 감지 중</Badge>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleReactivateGrid(item.ticker)}
+                            disabled={reactivatingTicker === item.ticker}
+                            title="클릭하여 그리드 감지 다시 활성화"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full bg-[#f2f4f6] text-[#6b7684] hover:bg-[#e8f3ff] hover:text-[#3182f6] hover:ring-1 hover:ring-[#3182f6]/30 active:scale-95 transition-all cursor-pointer group disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <span>종료됨</span>
+                            <RotateCw
+                              className={`w-3 h-3 text-[#8b95a1] group-hover:text-[#3182f6] transition-transform ${
+                                reactivatingTicker === item.ticker
+                                  ? "animate-spin text-[#3182f6]"
+                                  : "group-hover:rotate-45"
+                              }`}
+                            />
+                          </button>
+                        )}
                       </td>
                       <td className="py-3 pr-2 text-right">
-                        {item.status === "ACTIVE" && (
+                        {item.status === "ACTIVE" ? (
                           <button
                             onClick={() => handleCloseGrid(item.ticker)}
                             className="text-xs text-[#8b95a1] hover:text-[#f04452] transition-colors font-medium"
                           >
                             감지 종료
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleReactivateGrid(item.ticker)}
+                            disabled={reactivatingTicker === item.ticker}
+                            className="text-xs text-[#3182f6] hover:text-[#1b64da] hover:underline font-semibold transition-colors disabled:opacity-50"
+                          >
+                            {reactivatingTicker === item.ticker ? "활성화 중..." : "다시 활성화"}
                           </button>
                         )}
                       </td>
