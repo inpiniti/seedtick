@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   AutoTradingStatus,
   BridgeStatus,
   BrokerBalance,
+  BrokerPosition,
   GridTradeItem,
   GridTradingMarketStatus,
   PendingOrder,
@@ -17,7 +18,6 @@ import { Modal } from "@/components/ui/Modal";
 import { formatKRW, formatUSD, formatTime } from "@/lib/utils";
 import {
   closeGridItem,
-  executePendingOrders,
   fetchGridItems,
   fetchGridMarketStatus,
   manualBuyGrid,
@@ -26,9 +26,7 @@ import {
 } from "@/lib/api-client";
 import {
   Play,
-  Send,
   Wallet,
-  Clock,
   Sparkles,
   TrendingUp,
   Activity,
@@ -36,11 +34,12 @@ import {
   CheckCircle2,
   AlertCircle,
   RefreshCw,
+  Layers,
 } from "lucide-react";
 
 interface TradingTabProps {
   tradingStatus: AutoTradingStatus | null;
-  pendingOrders: PendingOrder[];
+  pendingOrders?: PendingOrder[];
   balance: BrokerBalance | null;
   bridgeStatus: BridgeStatus | null;
   onRefresh: () => void;
@@ -48,16 +47,16 @@ interface TradingTabProps {
 
 export function TradingTab({
   tradingStatus,
-  pendingOrders,
   balance,
   bridgeStatus,
   onRefresh,
 }: TradingTabProps) {
-  // 모달 상태
-  const [isExecuteModalOpen, setIsExecuteModalOpen] = useState(false);
+  // 모달 상태 (파이프라인 실행)
   const [isPipelineModalOpen, setIsPipelineModalOpen] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [forceMarket, setForceMarket] = useState(false);
+  const [skipAlreadyReported, setSkipAlreadyReported] = useState(true);
 
   // 그리드 트레이딩 상태
   const [gridItems, setGridItems] = useState<GridTradeItem[]>([]);
@@ -66,6 +65,25 @@ export function TradingTab({
   const [isBuying, setIsBuying] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [buyFeedback, setBuyFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  // 증권사 보유 포지션 안전 파싱 (배열 또는 딕셔너리 모두 대응)
+  const positionsList: BrokerPosition[] = useMemo(() => {
+    if (!balance?.positions) return [];
+    if (Array.isArray(balance.positions)) {
+      return balance.positions;
+    }
+    if (typeof balance.positions === "object") {
+      return Object.entries(balance.positions).map(([k, v]) => ({
+        ticker: k,
+        name: k,
+        quantity: typeof v === "number" ? v : Number(v) || 0,
+        purchase_price: 0,
+        current_price: 0,
+        return_rate: 0,
+      }));
+    }
+    return [];
+  }, [balance?.positions]);
 
   // 그리드 데이터 로드
   const loadGridData = async () => {
@@ -138,33 +156,6 @@ export function TradingTab({
     }
   };
 
-  // 파이프라인 옵션
-  const [forceMarket, setForceMarket] = useState(false);
-  const [skipAlreadyReported, setSkipAlreadyReported] = useState(true);
-
-  // 대기 주문 즉시 발주 실행
-  const handleExecuteOrders = async () => {
-    setIsActionLoading(true);
-    setActionMessage(null);
-    try {
-      const res = await executePendingOrders();
-      setActionMessage(
-        res.message ||
-          `${res.executed_count}건의 주문을 증권사로 발주했어요.`
-      );
-      setTimeout(() => {
-        setIsExecuteModalOpen(false);
-        setActionMessage(null);
-        onRefresh();
-      }, 1500);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "발주 중 문제가 발생했어요.";
-      setActionMessage(msg);
-    } finally {
-      setIsActionLoading(false);
-    }
-  };
-
   // 12:00 파이프라인 수동 즉시 실행
   const handleTriggerPipeline = async () => {
     setIsActionLoading(true);
@@ -193,42 +184,34 @@ export function TradingTab({
     }
   };
 
-  const spentKRW = tradingStatus?.today_spent_krw || 0;
-  const maxKRW = tradingStatus?.max_daily_limit_krw || 100000;
-  const spentPercent = Math.min(100, Math.round((spentKRW / maxKRW) * 100));
+  const activeGridCount = gridItems.filter((i) => i.status === "ACTIVE").length;
 
   return (
     <div className="space-y-5">
       {/* 1. 상단 요약 카드 그리드 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
-        {/* 일일 한도 소진율 */}
+        {/* 실시간 그리드 매매 상태 */}
         <Card className="p-4 sm:p-6">
           <Card.Header className="pb-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-[#8b95a1]">
-                금일 투자 한도
+                고정 갭(3%) 그리드 트레이딩
               </span>
-              <Badge variant={spentPercent >= 100 ? "danger" : "primary"}>
-                소진율 {spentPercent}%
+              <Badge variant={activeGridCount > 0 ? "success" : "neutral"}>
+                {activeGridCount}개 종목 감지 중
               </Badge>
             </div>
-            <div className="text-xl sm:text-2xl font-bold text-[#191f28] mt-1.5">
-              {formatKRW(spentKRW)}
-              <span className="text-xs sm:text-sm font-normal text-[#8b95a1] ml-1.5">
-                / {formatKRW(maxKRW)}
-              </span>
+            <div className="text-xl sm:text-2xl font-bold text-[#191f28] mt-1.5 flex items-center gap-2">
+              <Activity className="w-5 h-5 text-[#3182f6]" />
+              <span>실시간 무한 분할 매매</span>
             </div>
           </Card.Header>
           <Card.Content>
-            {/* 게이지 바 */}
-            <div className="w-full h-2.5 bg-[#f2f4f6] rounded-full overflow-hidden mt-1">
-              <div
-                className="h-full bg-[#3182f6] rounded-full transition-all duration-500"
-                style={{ width: `${spentPercent}%` }}
-              />
-            </div>
-            <p className="text-[11px] text-[#8b95a1] mt-2">
-              종목당 {formatKRW(tradingStatus?.order_amount_per_ticker_krw || 10000)}씩 안전 분할 매수해요.
+            <p className="text-[12px] text-[#4e5968] mt-1 font-medium">
+              1회 주문 단위: <strong>1,000원 고정</strong>
+            </p>
+            <p className="text-[11px] text-[#8b95a1] mt-0.5">
+              갭 이상 상승 시 매도(잔고 0 시 종료) · 갭 이하 하락 시 매수
             </p>
           </Card.Content>
         </Card>
@@ -254,7 +237,7 @@ export function TradingTab({
               {balance?.error ? (
                 <span className="text-[#f04452]">잔고 조회 오류: {balance.error}</span>
               ) : (
-                `보유 포지션 ${balance?.positions?.length || 0}개 종목 운용 중`
+                `보유 포지션 총 ${positionsList.length}개 종목 운용 중`
               )}
             </p>
           </Card.Content>
@@ -268,7 +251,7 @@ export function TradingTab({
             </span>
             <div className="text-sm sm:text-base font-bold text-[#191f28] mt-1 flex items-center gap-1.5">
               <Sparkles className="w-4 h-4 text-[#3182f6]" />
-              파이프라인 즉시 트리거
+              13인 거장 파이프라인
             </div>
           </Card.Header>
           <Card.Content>
@@ -376,7 +359,7 @@ export function TradingTab({
             <EmptyState
               icon={<Activity className="w-8 h-8 text-[#8b95a1]" />}
               title="등록된 그리드 매매 종목이 없어요"
-              description="정규장에 상단 입력창에서 종목을 입력하고 '1,000원 매수 및 등록'을 누르면 실시간 갭 매매가 시작돼요."
+              description="상단의 '보유 종목 동기화'를 누르거나, 정규장에 '1,000원 매수 및 등록'을 실행하면 실시간 갭 매매가 시작돼요."
             />
           ) : (
             <div className="overflow-x-auto">
@@ -440,257 +423,105 @@ export function TradingTab({
         </Card.Content>
       </Card>
 
-
-      {/* 2. 대기 중인 예약 주문 섹션 */}
+      {/* 3. 증권사 계좌 보유 자산 (전체 목록) */}
       <Card className="p-4 sm:p-6">
         <Card.Header className="border-b border-[#f2f4f6] pb-3 sm:pb-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2">
-                <Card.Title>대기 중인 예약 주문 목록</Card.Title>
-                <Badge variant={pendingOrders.length > 0 ? "warning" : "neutral"}>
-                  {pendingOrders.length}건 대기
+                <Card.Title className="text-base font-bold text-[#191f28]">
+                  증권사 계좌 보유 자산
+                </Card.Title>
+                <Badge variant={positionsList.length > 0 ? "primary" : "neutral"}>
+                  {positionsList.length}개 종목
                 </Badge>
               </div>
-              <Card.Description>
-                미국 정규장(22:30 KST) 개장 시 브로커로 자동 발주될 소수점 예약 매수 주문이에요.
+              <Card.Description className="text-xs text-[#8b95a1] mt-0.5">
+                현재 연결된 증권사({tradingStatus?.active_broker?.toUpperCase() || "TOSS"}) 실계좌에 보유 중인 주식 내역이에요.
               </Card.Description>
             </div>
-
-            {pendingOrders.length > 0 && (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => setIsExecuteModalOpen(true)}
-                leftIcon={<Send className="w-3.5 h-3.5" />}
-                className="w-full sm:w-auto"
-              >
-                예약 주문 즉시 발주하기
-              </Button>
-            )}
+            <TrendingUp className="w-5 h-5 text-[#3182f6]" />
           </div>
         </Card.Header>
 
-        <Card.Content className="pt-3">
-          {pendingOrders.length === 0 ? (
+        <Card.Content className="pt-4">
+          {positionsList.length === 0 ? (
             <EmptyState
-              icon={<Clock className="w-8 h-8 text-[#8b95a1]" />}
-              title="지금은 대기 중인 예약 주문이 없어요"
-              description="매일 12:00 스크리너 분석이 완료되면 강력 매수 추천(0점) 종목이 이곳에 등록돼요."
+              icon={<Layers className="w-8 h-8 text-[#8b95a1]" />}
+              title="보유 중인 주식이 없어요"
+              description="증권사 계좌에 보유 중인 주식이 없거나 잔고 동기화 중이에요."
             />
           ) : (
-            <>
-              {/* [모바일 전용] 예약 주문 카드 뷰 */}
-              <div className="divide-y divide-[#f2f4f6] sm:hidden">
-                {pendingOrders.map((order, idx) => (
-                  <div key={`m-order-${order.ticker}-${idx}`} className="py-3 flex flex-col gap-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-base text-[#191f28]">
-                        {order.ticker}
-                      </span>
-                      <Badge variant={order.status === "FAILED" ? "danger" : "warning"}>
-                        {order.status || "PENDING"}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between text-xs text-[#4e5968]">
-                      <span>주문 금액: <strong className="text-[#191f28]">{formatKRW(order.amount_krw)}</strong></span>
-                      <span className="text-[#8b95a1]">{formatTime(order.created_at)}</span>
-                    </div>
-                    {order.status === "FAILED" && order.error_message ? (
-                      <p className="text-[11px] text-[#f04452] font-medium">
-                        실패: {order.error_message}
-                      </p>
-                    ) : order.reason ? (
-                      <p className="text-[11px] text-[#8b95a1] truncate">
-                        사유: {order.reason}
-                      </p>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-[#f2f4f6] text-[#8b95a1] text-xs font-semibold">
+                    <th className="pb-3 pl-2">종목</th>
+                    <th className="pb-3">보유 수량</th>
+                    <th className="pb-3">평균 매입가</th>
+                    <th className="pb-3">현재가</th>
+                    <th className="pb-3 pr-2 text-right">수익률</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#f9fafb]">
+                  {positionsList.map((pos) => {
+                    const retRate = pos.return_rate ?? 0;
+                    const isPositive = retRate > 0;
+                    const isZero = retRate === 0;
 
-              {/* [데스크톱 전용] 테이블 뷰 */}
-              <div className="hidden sm:block overflow-x-auto">
-                <table className="w-full text-left border-collapse text-sm">
-                  <thead>
-                    <tr className="border-b border-[#f2f4f6] text-[#8b95a1] text-xs font-semibold">
-                      <th className="pb-3 pl-2">티커</th>
-                      <th className="pb-3">주문 금액</th>
-                      <th className="pb-3">사유 / 실패 원인</th>
-                      <th className="pb-3">상태</th>
-                      <th className="pb-3 pr-2">등록 일시</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#f9fafb]">
-                    {pendingOrders.map((order, idx) => (
-                      <tr key={`${order.ticker}-${idx}`} className="hover:bg-[#f9fafb] transition-colors">
-                        <td className="py-3 pl-2 font-bold text-[#191f28]">
-                          {order.ticker}
-                        </td>
-                        <td className="py-3 text-[#191f28] font-medium">
-                          {formatKRW(order.amount_krw)}
-                        </td>
-                        <td className="py-3 text-xs max-w-[260px]">
-                          {order.status === "FAILED" && order.error_message ? (
-                            <span className="text-[#f04452] font-medium" title={order.error_message}>
-                              {order.error_message}
-                            </span>
-                          ) : (
-                            <span className="text-[#4e5968] truncate block" title={order.reason}>
-                              {order.reason || "13인 거장 종합 매수 추천(g0==0)"}
-                            </span>
+                    return (
+                      <tr key={pos.ticker} className="hover:bg-[#f9fafb] transition-colors">
+                        <td className="py-3 pl-2">
+                          <div className="font-bold text-[#191f28]">{pos.ticker}</div>
+                          {pos.name && pos.name !== pos.ticker && (
+                            <div className="text-xs text-[#8b95a1]">{pos.name}</div>
                           )}
                         </td>
-                        <td className="py-3">
-                          <Badge variant={order.status === "FAILED" ? "danger" : "warning"}>
-                            {order.status || "PENDING"}
-                          </Badge>
+                        <td className="py-3 font-semibold text-[#191f28]">
+                          {pos.quantity}주
                         </td>
-                        <td className="py-3 pr-2 text-xs text-[#8b95a1]">
-                          {formatTime(order.created_at)}
+                        <td className="py-3 text-[#4e5968] font-medium">
+                          {pos.purchase_price && pos.purchase_price > 0
+                            ? `$${pos.purchase_price.toFixed(2)}`
+                            : "-"}
+                        </td>
+                        <td className="py-3 text-[#191f28] font-bold">
+                          {pos.current_price && pos.current_price > 0
+                            ? `$${pos.current_price.toFixed(2)}`
+                            : "-"}
+                        </td>
+                        <td className="py-3 pr-2 text-right">
+                          <span
+                            className={`text-xs sm:text-sm font-bold px-2 py-0.5 rounded-lg ${
+                              isZero
+                                ? "bg-[#f2f4f6] text-[#6b7684]"
+                                : isPositive
+                                ? "bg-[#fdeeed] text-[#f04452]"
+                                : "bg-[#e8f8f0] text-[#03b26c]"
+                            }`}
+                          >
+                            {isPositive ? "+" : ""}
+                            {retRate.toFixed(2)}%
+                          </span>
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </Card.Content>
       </Card>
 
-      {/* 3. 오늘 체결된 주문 & 브릿지 보유 포지션 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
-        {/* 금일 매수 주문 완료 티커 */}
-        <Card className="p-4 sm:p-6">
-          <Card.Header>
-            <Card.Title>금일 매수 실행 완료 종목</Card.Title>
-            <Card.Description>
-              오늘 이미 주문이 체결되었거나 나간 종목들이에요.
-            </Card.Description>
-          </Card.Header>
-          <Card.Content>
-            {tradingStatus?.today_ordered_tickers &&
-            tradingStatus.today_ordered_tickers.length > 0 ? (
-              <div className="flex flex-wrap gap-2 pt-1">
-                {tradingStatus.today_ordered_tickers.map((t) => (
-                  <Badge key={t} variant="success" className="px-3 py-1.5 text-xs sm:text-sm">
-                    ✓ {t}
-                  </Badge>
-                ))}
-              </div>
-            ) : (
-              <div className="py-6 text-center text-xs text-[#8b95a1]">
-                오늘 아직 체결된 주문이 없어요.
-              </div>
-            )}
-          </Card.Content>
-        </Card>
-
-        {/* 현재 보유 포지션 */}
-        <Card className="p-4 sm:p-6">
-          <Card.Header>
-            <div className="flex items-center justify-between">
-              <Card.Title>증권사 계좌 보유 자산</Card.Title>
-              <TrendingUp className="w-4 h-4 text-[#03b26c]" />
-            </div>
-            <Card.Description>
-              현재 연결된 계좌에 보유 중인 주식 내역이에요.
-            </Card.Description>
-          </Card.Header>
-          <Card.Content>
-            {balance?.positions && balance.positions.length > 0 ? (
-              <div className="space-y-2">
-                {balance.positions.map((pos) => (
-                  <div
-                    key={pos.ticker}
-                    className="flex items-center justify-between p-3 rounded-2xl bg-[#f9fafb] border border-[#f2f4f6]"
-                  >
-                    <div>
-                      <span className="font-bold text-sm text-[#191f28]">
-                        {pos.ticker}
-                      </span>
-                      {pos.name && (
-                        <span className="text-xs text-[#8b95a1] ml-2">
-                          {pos.name}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-semibold text-[#191f28]">
-                        {pos.quantity}주
-                      </div>
-                      {pos.return_rate !== undefined && (
-                        <div
-                          className={`text-xs font-medium ${
-                            pos.return_rate >= 0
-                              ? "text-[#f04452]"
-                              : "text-[#03b26c]"
-                          }`}
-                        >
-                          {pos.return_rate >= 0 ? "+" : ""}
-                          {pos.return_rate.toFixed(2)}%
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="py-6 text-center text-xs text-[#8b95a1]">
-                보유 중인 주식이 없거나 모의투자 모드예요.
-              </div>
-            )}
-          </Card.Content>
-        </Card>
-      </div>
-
-      {/* 모달 1: 예약 주문 즉시 발주 확인 모달 */}
-      <Modal
-        isOpen={isExecuteModalOpen}
-        onClose={() => setIsExecuteModalOpen(false)}
-      >
-        <Modal.Header
-          title="대기 중인 예약 주문을 지금 발주할까요?"
-          description={`현재 ${pendingOrders.length}건의 예약 주문이 대기 중이에요. 브로커(${tradingStatus?.active_broker?.toUpperCase()})로 즉시 발주를 요청합니다.`}
-        />
-        <Modal.Body>
-          {actionMessage ? (
-            <div className="p-3 rounded-2xl bg-[#e8f3ff] text-[#3182f6] text-sm font-medium">
-              {actionMessage}
-            </div>
-          ) : (
-            <p className="text-xs text-[#8b95a1]">
-              미국 정규장 운영 시간에 맞춰 증권사 시스템에 접수됩니다.
-            </p>
-          )}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button
-            variant="secondary"
-            onClick={() => setIsExecuteModalOpen(false)}
-            disabled={isActionLoading}
-          >
-            닫기
-          </Button>
-          <Button
-            variant="primary"
-            onClick={handleExecuteOrders}
-            isLoading={isActionLoading}
-          >
-            주문 발주하기
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      {/* 모달 2: 일일 파이프라인 수동 즉시 실행 모달 */}
+      {/* 모달: 일일 파이프라인 수동 즉시 실행 모달 */}
       <Modal
         isOpen={isPipelineModalOpen}
         onClose={() => setIsPipelineModalOpen(false)}
       >
         <Modal.Header
           title="12:00 일일 분석 파이프라인을 실행할까요?"
-          description="토스 거장 통합 스크리닝 통과 종목 전체에 대해 13인 심층 분석 보고서 생성 및 자동 주문 등록 전 과정을 즉시 실행합니다."
+          description="토스 거장 통합 스크리닝 통과 종목 전체에 대해 13인 심층 분석 보고서를 생성합니다. (자동 매매 주문은 나가지 않습니다)"
         />
         <Modal.Body>
           <div className="space-y-4">
