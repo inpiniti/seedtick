@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { HealthStatus, IpStatus } from "@/types/api";
+import { HealthStatus, IpStatus, AiModelStatus } from "@/types/api";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import {
@@ -13,9 +13,14 @@ import {
   ShieldAlert,
 } from "lucide-react";
 
+import { AiModelWidget } from "@/components/header/AiModelWidget";
+
 interface LiveStatusBarProps {
   health: HealthStatus | null;
   ipInfo: IpStatus | null;
+  aiModel: AiModelStatus | null;
+  isResettingModel: boolean;
+  onResetModel: () => void;
   isLoading: boolean;
   onRefresh: () => void;
 }
@@ -23,6 +28,9 @@ interface LiveStatusBarProps {
 export function LiveStatusBar({
   health,
   ipInfo,
+  aiModel,
+  isResettingModel,
+  onResetModel,
   isLoading,
   onRefresh,
 }: LiveStatusBarProps) {
@@ -136,7 +144,14 @@ export function LiveStatusBar({
             )}
           </div>
 
-          {/* 4. 데스크톱용 새로고침 버튼 */}
+          {/* 4. 현재 활성 AI 모델 위젯 */}
+          <AiModelWidget
+            aiModel={aiModel}
+            isResetting={isResettingModel}
+            onReset={onResetModel}
+          />
+
+          {/* 5. 데스크톱용 새로고침 버튼 */}
           <div className="hidden lg:block">
             <Button
               variant="secondary"

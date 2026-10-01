@@ -55,6 +55,47 @@ async def test_ai_direct():
         }
 
 
+@router.get("/ai-model", summary="현재 활성 AI 모델 및 순위 체인 상태")
+async def get_ai_model():
+    """
+    현재 사용 중인 AI 모델과 순위 체인 상태를 반환합니다.
+
+    1순위 모델이 프로바이더 과부하로 실패하면 자동으로 다음 순위로 내려가며,
+    매일 00:01 KST에 1순위로 초기화됩니다. admin 화면이 이 값을 폴링해 표시합니다.
+    """
+    from app.domains.report.model_rotation import model_rotation
+
+    snap = model_rotation.snapshot()
+    return {
+        "ok": True,
+        "active_model": snap["active_model"],
+        "active_index": snap["active_index"],
+        "is_first": snap["is_first"],
+        "chain": snap["chain"],
+        "switch_count": snap["switch_count"],
+        "switched_at": snap["switched_at"],
+        "last_reason": snap["last_reason"],
+        "failures": snap["failures"],
+        "next_reset_at": snap["next_reset_at"],
+        "configured_model": settings.AI_GATEWAY_MODEL,
+    }
+
+
+@router.post("/ai-model/reset", summary="AI 모델 순위 1순위 수동 초기화")
+async def reset_ai_model():
+    """모델 순위를 1순위로 즉시 되돌립니다."""
+    from app.domains.report.model_rotation import model_rotation
+
+    before = model_rotation.snapshot()["active_model"]
+    active = model_rotation.reset("admin 수동 초기화")
+    return {
+        "ok": True,
+        "previous_model": before,
+        "active_model": active,
+        "chain": model_rotation.snapshot()["chain"],
+    }
+
+
 @router.get("/ai-keys", summary="등록된 OpenRouter API 키 상태 개별 점검")
 async def test_ai_keys():
     """

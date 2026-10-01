@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import {
+  AiModelStatus,
   AutoTradingStatus,
   BridgeStatus,
   BrokerBalance,
@@ -14,6 +15,7 @@ import {
   SystemLogItem,
 } from "@/types/api";
 import {
+  fetchAiModelStatus,
   fetchAutoTradingStatus,
   fetchBridgeBalance,
   fetchBridgeStatus,
@@ -21,6 +23,7 @@ import {
   fetchIp,
   fetchPendingOrders,
   fetchScreener,
+  resetAiModelRotation,
 } from "@/lib/api-client";
 import {
   fetchGuruReports,
@@ -47,6 +50,8 @@ export default function AdminDashboardPage() {
   // 상태 데이터
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [ipInfo, setIpInfo] = useState<IpStatus | null>(null);
+  const [aiModel, setAiModel] = useState<AiModelStatus | null>(null);
+  const [isResettingModel, setIsResettingModel] = useState(false);
   const [tradingStatus, setTradingStatus] = useState<AutoTradingStatus | null>(
     null
   );
@@ -74,6 +79,7 @@ export default function AdminDashboardPage() {
         votesRes,
         reportsRes,
         logsRes,
+        aiModelRes,
       ] = await Promise.all([
         fetchHealth().catch(() => null),
         fetchIp().catch(() => null),
@@ -84,6 +90,7 @@ export default function AdminDashboardPage() {
         fetchGuruVotes(200).catch(() => []),
         fetchGuruReports(200).catch(() => []),
         fetchSystemLogs(60).catch(() => []),
+        fetchAiModelStatus().catch(() => null),
       ]);
 
       if (healthRes) setHealth(healthRes);
@@ -92,6 +99,7 @@ export default function AdminDashboardPage() {
       if (pendingRes) setPendingOrders(pendingRes.orders || []);
       if (balanceRes) setBalance(balanceRes);
       if (bridgeRes) setBridgeStatus(bridgeRes);
+      if (aiModelRes) setAiModel(aiModelRes);
       setGuruVotes(votesRes);
       setGuruReports(reportsRes);
       setSystemLogs(logsRes);
@@ -115,7 +123,21 @@ export default function AdminDashboardPage() {
     }
   }, []);
 
-  // 3. 로그 필터 새로고침
+  // 3. AI 모델 순위 1순위 수동 초기화
+  const handleResetAiModel = async () => {
+    setIsResettingModel(true);
+    try {
+      await resetAiModelRotation();
+      const fresh = await fetchAiModelStatus().catch(() => null);
+      if (fresh) setAiModel(fresh);
+    } catch (err) {
+      console.warn("AI 모델 순위 초기화 오류:", err);
+    } finally {
+      setIsResettingModel(false);
+    }
+  };
+
+  // 4. 로그 필터 새로고침
   const handleRefreshLogs = async (level?: string) => {
     try {
       const logs = await fetchSystemLogs(60, level);
@@ -142,6 +164,9 @@ export default function AdminDashboardPage() {
       <LiveStatusBar
         health={health}
         ipInfo={ipInfo}
+        aiModel={aiModel}
+        isResettingModel={isResettingModel}
+        onResetModel={handleResetAiModel}
         isLoading={isLoading}
         onRefresh={loadDashboardData}
       />

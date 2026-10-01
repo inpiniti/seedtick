@@ -173,3 +173,27 @@ async def cleanup_old_logs_job(hours: int = 24) -> dict:
         "hours": hours,
     }
 
+
+async def reset_model_rotation_job() -> dict:
+    """
+    AI 모델 순위 초기화 잡: 매일 00:00 KST 실행.
+
+    1순위 모델(nvidia/nemotron-3-ultra-550b-a55b:free)은 프로바이더 과부하가
+    심야/자정 지나면 자연 복구되는 패턴이므로, 하루가 바뀌는 시점에 1순위로 되돌린다.
+    서버 재시작 시에도 프로세스 상태라서 1순위로 초기화된다.
+    """
+    from app.domains.report.model_rotation import model_rotation
+
+    before = model_rotation.snapshot()
+    active = model_rotation.reset("일일 초기화 (KST 00:00)")
+    after = model_rotation.snapshot()
+
+    logger.info(f"[Scheduler] AI 모델 순위 초기화 완료: {active}")
+    return {
+        "status": "success",
+        "previous_model": before["active_model"],
+        "active_model": active,
+        "chain": after["chain"],
+        "switch_count": after["switch_count"],
+    }
+

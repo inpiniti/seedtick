@@ -2,6 +2,31 @@
  * API 및 시스템 데이터 모델 타입 정의
  */
 
+// 0. 현재 활성 AI 모델 및 순위 체인 (/debug/ai-model)
+export interface AiModelStatus {
+  ok: boolean;
+  /** 현재 실제 사용 중인 모델 */
+  active_model: string;
+  /** 0부터 시작하는 현재 순위 인덱스 */
+  active_index: number;
+  /** 1순위(=환경변수 기본 모델) 상태인지 여부 */
+  is_first: boolean;
+  /** 전체 순위 체인 (앞쪽이 1순위) */
+  chain: string[];
+  /** 오늘 순위가 전환된 횟수 */
+  switch_count: number;
+  /** 마지막 전환 시각 (ISO, 미전환 시 null) */
+  switched_at: string | null;
+  /** 마지막 전환 사유 */
+  last_reason: string | null;
+  /** 모델별 누적 실패 사유 */
+  failures: Record<string, string>;
+  /** 다음 자동 초기화 시각 (KST 자정 이후) */
+  next_reset_at: string;
+  /** 환경변수에 설정된 원본 모델 */
+  configured_model: string;
+}
+
 // 1. 서버 상태 (/health)
 export interface HealthStatus {
   status: "healthy" | "unhealthy" | "down";
