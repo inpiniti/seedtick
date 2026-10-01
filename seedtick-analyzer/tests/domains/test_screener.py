@@ -2,9 +2,10 @@
 Screener 도메인 단위 테스트
 """
 import pytest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 from app.domains.screener.models import ScreenCriteria
 from app.domains.screener.service import ScreenerService
+from app.domains.screener.clients.toss_wts import TossWtsClient, resolve_guru, GURU_PRESETS
 
 
 @pytest.mark.asyncio
@@ -46,6 +47,8 @@ async def test_screener_service_direct_call():
 
     service = ScreenerService(wts_client=mock_wts_client)
     criteria = ScreenCriteria(preset="공통", nation="us", size=50)
+    # mock_wts_client.get_all_gurus_screeners가 모의되지 않아 예외 발생 시 fallback으로 screen_common 호출됨
+    mock_wts_client.get_all_gurus_screeners.side_effect = RuntimeError("fallback to wts direct")
     result = await service.get_stock_list(criteria)
 
     assert result.count == 2
@@ -64,13 +67,9 @@ async def test_screener_service_combined_12_gurus_and_deduplication():
     - 중복 티커는 새로 추가하지 않고 버려지며(deduplicate), 매칭된 screeners 라벨만 추가
     - 종합(공통) 종목 우선 배치
     """
-    mock_btc_client = AsyncMock()
+    mock_wts_client = AsyncMock()
 
     # 가상 거장별 반환 데이터
-    # 공통: AAPL, NVDA
-    # 슈웨거: NVDA (중복), MSFT (신규)
-    # 버핏: AAPL (중복), AMZN (신규)
-    # 린치: WDC (신규)
     async def mock_get_all_gurus_screeners(gurus, nation, size, page):
         res = []
         for g in gurus:
@@ -105,13 +104,13 @@ async def test_screener_service_combined_12_gurus_and_deduplication():
                 res.append((g, {"stocks": []}))
         return res
 
-    mock_btc_client.get_all_gurus_screeners.side_effect = mock_get_all_gurus_screeners
+    mock_wts_client.get_all_gurus_screeners.side_effect = mock_get_all_gurus_screeners
 
-    service = ScreenerService(btc_client=mock_btc_client)
+    service = ScreenerService(wts_client=mock_wts_client)
     criteria = ScreenCriteria(preset="공통", nation="us", size=100)
     result = await service.get_stock_list(criteria)
 
-    assert result.source == "btc_ai_screener_combined"
+    assert result.source == "toss_wts_combined"
     assert result.count == 5  # AAPL, NVDA, MSFT, AMZN, WDC (중복 제거됨)
     assert result.total_count == 5
 
@@ -133,8 +132,8 @@ async def test_screener_service_combined_12_gurus_and_deduplication():
 @pytest.mark.asyncio
 async def test_screener_service_excludes_philip_fisher():
     """필립 피셔(과다 조회) 제외 테스트"""
-    mock_btc_client = AsyncMock()
-    service = ScreenerService(btc_client=mock_btc_client)
+    mock_wts_client = AsyncMock()
+    service = ScreenerService(wts_client=mock_wts_client)
 
     criteria1 = ScreenCriteria(preset="피셔")
     res1 = await service.get_stock_list(criteria1)
@@ -148,21 +147,40 @@ async def test_screener_service_excludes_philip_fisher():
 
 
 @pytest.mark.asyncio
-async def test_screener_service_btc_failure_fallback_to_wts():
-    """BTC-AI 실패 시 Toss WTS 폴백 테스트"""
-    mock_btc_client = AsyncMock()
-    mock_btc_client.get_all_gurus_screeners.side_effect = RuntimeError("BTC-AI 네트워크 에러")
-
+async def test_screener_service_failure_fallback_to_wts_common():
+    """통합 거장 조회 실패 시 Toss WTS 공통 직접 호출 폴백 테스트"""
     mock_wts_client = AsyncMock()
+    mock_wts_client.get_all_gurus_screeners.side_effect = RuntimeError("네트워크 에러")
     mock_wts_client.screen_common.return_value = {
         "count": 1,
         "totalCount": 1,
         "stocks": [{"ticker": "TSLA", "stockCode": "US88160R1014", "name": "테슬라"}],
     }
 
-    service = ScreenerService(btc_client=mock_btc_client, wts_client=mock_wts_client)
+    service = ScreenerService(wts_client=mock_wts_client)
     res = await service.get_stock_list(ScreenCriteria(preset="공통"))
 
     assert res.source == "toss_wts_direct"
     assert res.count == 1
     assert res.tickers[0].ticker == "TSLA"
+
+
+def test_toss_wts_guru_presets_and_aliases():
+    """토스 WTS 거장 프리셋 및 별칭 정상 매핑 테스트"""
+    assert resolve_guru("슈웨거") == "슈웨거"
+    assert resolve_guru("잭-슈웨거") == "슈웨거"
+    assert resolve_guru("schwager") == "슈웨거"
+    assert resolve_guru("버핏") == "버핏"
+    assert resolve_guru("워런 버핏") == "버핏"
+    assert resolve_guru("buffett") == "버핏"
+    assert resolve_guru("그레이엄") == "그레이엄"
+    assert resolve_guru("graham") == "그레이엄"
+    assert resolve_guru("공통") == "공통"
+    assert resolve_guru("종합") == "공통"
+
+    # 슈웨거 및 주요 거장 필터 정의 점검
+    assert "슈웨거" in GURU_PRESETS
+    assert len(GURU_PRESETS["슈웨거"]["filters"]) == 4
+    assert "버핏" in GURU_PRESETS
+    assert "린치" in GURU_PRESETS
+    assert "공통" in GURU_PRESETS

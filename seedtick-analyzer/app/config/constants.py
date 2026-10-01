@@ -11,6 +11,7 @@ MIN_ORDER_AMOUNT_KRW = 10_000        # 최소 주문 금액: 1만원
 DEFAULT_SCREENER_GURU = "공통"
 DEFAULT_SCREENER_NATION = "us"
 DEFAULT_SCREENER_SIZE = 200
+# 스크리너 엔드포인트 (토스 WTS 비공개 API 직접 호출로 전환, 이전 프록시 하위호환용 보존)
 BTC_AI_TOSS_URL = "https://younginpiniti-bitcoin-ai-backend.hf.space/toss"
 
 # 13인 거장 명단 및 순서 (guru_votes 컬럼 g1 ~ g13 매핑)

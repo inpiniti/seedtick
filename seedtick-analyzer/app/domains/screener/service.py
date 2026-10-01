@@ -1,12 +1,12 @@
 """
-ScreenerService: 토스증권 13인의 거장 스크리너 및 BTC-AI 스크리너 연동
-- 종합(공통) + 12인 거장 스크리너 통합 조회 (필립 피셔 제외)
+ScreenerService: 토스증권 13인의 거장 스크리너 직접 연동
+- 종합(공통) + 12인 거장 스크리너 직접 통합 조회 (필립 피셔 제외)
 - 종합 및 12인 거장 간 중복 티커 제거 및 단일 유니버스 생성
-- 1차 BTC-AI 스크리너 백엔드 호출, 장애 시 2차 Toss WTS 직접 호출 폴백
+- 외부 프록시(hf.space) 없이 Toss WTS 비공개 API 직접 호출
 """
 import logging
+from typing import Any
 from app.config.constants import EXCLUDED_SCREENER_GURUS, SCREENER_12_GURUS
-from app.domains.screener.clients.btc_ai_toss import BtcAiTossClient
 from app.domains.screener.clients.toss_wts import TossWtsClient
 from app.domains.screener.models import ScreenCriteria, ScreenResult, TossStockItem
 
@@ -16,15 +16,12 @@ logger = logging.getLogger("screener_service")
 class ScreenerService:
     def __init__(
         self,
-        btc_client: BtcAiTossClient | None = None,
         wts_client: TossWtsClient | None = None,
+        btc_client: Any = None,
     ):
-        # wts_client만 명시적으로 주입되고 btc_client가 None인 경우 (단위 테스트 호환성)
-        if wts_client is not None and btc_client is None:
-            self.btc_client = None
-        else:
-            self.btc_client = btc_client or BtcAiTossClient()
-        self.wts_client = wts_client or TossWtsClient()
+        # Toss WTS 비공개 API 직접 호출 클라이언트가 기본 클라이언트
+        self.wts_client = wts_client or btc_client or TossWtsClient()
+        self.btc_client = self.wts_client
 
     async def get_stock_list(
         self, criteria: ScreenCriteria | None = None
@@ -32,9 +29,9 @@ class ScreenerService:
         """
         스크리너 주식 목록 조회:
         - preset이 '공통', '종합', 'all', '전체'인 경우:
-          종합(공통) + 12인 거장 스크리너를 병렬 조회하여 중복 티커를 제거하고 단일 리스트로 반환 (피셔 제외)
+          종합(공통) + 12인 거장 스크리너를 직접 병렬 조회하여 중복 티커를 제거하고 단일 리스트로 반환 (피셔 제외)
         - 특정 거장 지정 시: 해당 거장 단일 조회 (피셔인 경우 빈 결과)
-        - 1차 BTC-AI 호출 실패 시 2차 Toss WTS 공통 필터 직접 호출로 안전하게 폴백
+        - 거장 통합 조회 실패 시 Toss WTS 공통 필터 직접 호출로 안전하게 폴백
         """
         crit = criteria or ScreenCriteria()
         preset = (crit.preset or "공통").strip()
@@ -56,31 +53,31 @@ class ScreenerService:
                 source="screener_excluded",
             )
 
-        # 2. 1차 소스: BTC-AI 스크리너 호출 시도
-        if self.btc_client is not None:
-            try:
-                if preset in ("공통", "종합", "all", "전체"):
-                    return await self._get_combined_guru_stocks(crit)
-                else:
-                    return await self._get_single_guru_stock(crit, preset)
-            except Exception as e:
-                logger.error(f"[Screener] BTC-AI 스크리너 조회 실패, WTS 직접 호출로 폴백: {e}")
+        # 2. 토스 WTS 직접 거장 스크리너 조회
+        try:
+            if preset in ("공통", "종합", "all", "전체"):
+                return await self._get_combined_guru_stocks(crit)
+            else:
+                return await self._get_single_guru_stock(crit, preset)
+        except Exception as e:
+            logger.error(f"[Screener] 토스 거장 스크리너 조회 오류, 공통 필터 직접 호출로 폴백: {e}")
 
-        # 3. 2차 폴백: Toss WTS 직접 호출
+        # 3. 폴백: Toss WTS 공통 필터 직접 호출
         return await self._get_via_wts(crit)
 
     async def _get_combined_guru_stocks(self, crit: ScreenCriteria) -> ScreenResult:
         """
-        종합('공통') + 12인 거장 스크리너 병렬 호출 및 중복 티커 제거
+        종합('공통') + 12인 거장 스크리너 직접 병렬 호출 및 중복 티커 제거
         (필립 피셔는 제외)
         """
-        assert self.btc_client is not None
+        client = self.wts_client or self.btc_client
+        assert client is not None
         gurus_to_query = ["공통"] + SCREENER_12_GURUS
         logger.info(
-            f"[Screener] 종합 + 12인 거장 통합 스크리닝 시작 (총 {len(gurus_to_query)}개 프리셋 병렬 호출, 피셔 제외)"
+            f"[Screener] 종합 + 12인 거장 통합 스크리닝 시작 (총 {len(gurus_to_query)}개 프리셋 직접 병렬 호출, 피셔 제외)"
         )
 
-        results = await self.btc_client.get_all_gurus_screeners(
+        results = await client.get_all_gurus_screeners(
             gurus=gurus_to_query,
             nation=crit.nation,
             size=crit.size,
@@ -162,16 +159,17 @@ class ScreenerService:
             total_count=len(ordered_items),
             count=len(final_items),
             criteria=crit,
-            source="btc_ai_screener_combined",
+            source="toss_wts_combined",
         )
 
     async def _get_single_guru_stock(
         self, crit: ScreenCriteria, preset: str
     ) -> ScreenResult:
-        """단일 특정 거장 스크리너 조회"""
-        assert self.btc_client is not None
-        logger.info(f"[Screener] 단일 거장 '{preset}' 스크리닝 시작")
-        raw_data = await self.btc_client.get_guru_screener(
+        """단일 특정 거장 스크리너 직접 조회"""
+        client = self.wts_client or self.btc_client
+        assert client is not None
+        logger.info(f"[Screener] 단일 거장 '{preset}' 직접 스크리닝 시작")
+        raw_data = await client.get_guru_screener(
             guru=preset,
             nation=crit.nation,
             size=crit.size,
@@ -215,11 +213,11 @@ class ScreenerService:
             total_count=raw_data.get("totalCount", len(items)),
             count=len(items),
             criteria=crit,
-            source="btc_ai_screener_single",
+            source="toss_wts_single",
         )
 
     async def _get_via_wts(self, crit: ScreenCriteria) -> ScreenResult:
-        """2차 폴백: 토스 WTS 직접 호출 (공통 필터)"""
+        """폴백: 토스 WTS 직접 호출 (공통 필터)"""
         logger.info(
             f"[Screener] 토스 WTS 직접 호출 시작 (nation={crit.nation}, size={crit.size})"
         )
