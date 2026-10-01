@@ -21,6 +21,7 @@ import {
   fetchGridItems,
   fetchGridMarketStatus,
   manualBuyGrid,
+  syncGridHoldings,
   triggerPipeline,
 } from "@/lib/api-client";
 import {
@@ -34,6 +35,7 @@ import {
   PlusCircle,
   CheckCircle2,
   AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 
 interface TradingTabProps {
@@ -62,6 +64,7 @@ export function TradingTab({
   const [gridMarketStatus, setGridMarketStatus] = useState<GridTradingMarketStatus | null>(null);
   const [buyTickerInput, setBuyTickerInput] = useState("");
   const [isBuying, setIsBuying] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [buyFeedback, setBuyFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   // 그리드 데이터 로드
@@ -83,6 +86,24 @@ export function TradingTab({
     const interval = setInterval(loadGridData, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  // 토스 계좌 보유 종목 그리드 수동 동기화 핸들러
+  const handleSyncHoldings = async () => {
+    setIsSyncing(true);
+    setBuyFeedback(null);
+    try {
+      const res = await syncGridHoldings();
+      setBuyFeedback({ type: "success", message: res.message });
+      await loadGridData();
+      onRefresh();
+      setTimeout(() => setBuyFeedback(null), 4000);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "보유 종목 동기화에 실패했어요.";
+      setBuyFeedback({ type: "error", message: msg });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // 1,000원 수동 매수 및 그리드 등록 핸들러
   const handleManualBuy = async () => {
@@ -286,27 +307,40 @@ export function TradingTab({
               </Card.Description>
             </div>
 
-            {/* 신규 종목 1,000원 수동 매수 등록 바 (정규장일 때만 활성화) */}
+            {/* 상단 액션 버튼 그룹 (보유 종목 동기화 & 1,000원 수동 매수 등록) */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-              <input
-                type="text"
-                value={buyTickerInput}
-                onChange={(e) => setBuyTickerInput(e.target.value.toUpperCase())}
-                placeholder="티커 (예: NVDA)"
-                className="px-3 py-2 text-sm border border-[#e5e8eb] rounded-xl focus:outline-none focus:border-[#3182f6] font-semibold uppercase w-full sm:w-36"
-                disabled={!gridMarketStatus?.is_market_open || isBuying}
-              />
               <Button
-                variant="primary"
+                variant="secondary"
                 size="sm"
-                onClick={handleManualBuy}
-                disabled={!gridMarketStatus?.is_market_open || isBuying || !buyTickerInput.trim()}
-                isLoading={isBuying}
-                leftIcon={<PlusCircle className="w-4 h-4" />}
-                className="whitespace-nowrap font-bold"
+                onClick={handleSyncHoldings}
+                isLoading={isSyncing}
+                leftIcon={<RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />}
+                className="whitespace-nowrap font-medium text-xs sm:text-sm"
+                title="토스 계좌에 보유 중인 종목을 조회하여 아직 등록되지 않은 종목을 그리드에 자동 등록합니다."
               >
-                1,000원 매수 및 등록
+                보유 종목 동기화
               </Button>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={buyTickerInput}
+                  onChange={(e) => setBuyTickerInput(e.target.value.toUpperCase())}
+                  placeholder="티커 (예: NVDA)"
+                  className="px-3 py-2 text-sm border border-[#e5e8eb] rounded-xl focus:outline-none focus:border-[#3182f6] font-semibold uppercase w-full sm:w-32"
+                  disabled={!gridMarketStatus?.is_market_open || isBuying}
+                />
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleManualBuy}
+                  disabled={!gridMarketStatus?.is_market_open || isBuying || !buyTickerInput.trim()}
+                  isLoading={isBuying}
+                  leftIcon={<PlusCircle className="w-4 h-4" />}
+                  className="whitespace-nowrap font-bold"
+                >
+                  1,000원 매수 및 등록
+                </Button>
+              </div>
             </div>
           </div>
 

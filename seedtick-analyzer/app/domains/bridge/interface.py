@@ -25,3 +25,8 @@ class IBrokerAdapter(ABC):
     async def get_quote(self, ticker: str) -> float:
         """실시간 현재가(USD) 조회"""
         pass
+
+    async def get_holdings_details(self) -> list[dict]:
+        """보유 종목 상세 목록 조회 (symbol, quantity, average_price, last_price 등)"""
+        return []
+

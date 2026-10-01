@@ -198,3 +198,32 @@ async def test_sync_holdings_closes_absent_ticker(grid_service, fake_repo, mock_
     await grid_service.sync_with_holdings()
 
     assert fake_repo.items["TSLA"]["status"] == "FINISHED"
+
+
+@pytest.mark.asyncio
+async def test_sync_holdings_auto_registers_existing_portfolio(grid_service, fake_repo, mock_broker):
+    """0. 보유 중인데 등록 안 된 종목도 잔고 동기화 시 자동으로 그리드에 신규 등록된다."""
+    # mock_broker에 get_holdings_details가 AAPL 종목 정보를 반환하도록 설정
+    mock_broker.get_holdings_details = AsyncMock(
+        return_value=[
+            {
+                "symbol": "AAPL",
+                "quantity": 0.1234,
+                "average_price": 150.0,
+                "last_price": 155.0,
+            }
+        ]
+    )
+    mock_broker.positions = {"AAPL": 0.1234}
+
+    await grid_service.sync_with_holdings()
+
+    assert "AAPL" in fake_repo.items
+    aapl_item = fake_repo.items["AAPL"]
+    assert aapl_item["ticker"] == "AAPL"
+    assert aapl_item["initial_price"] == 150.0
+    assert aapl_item["gap"] == 4.5  # 150 * 0.03
+    assert aapl_item["last_trade_price"] == 150.0
+    assert aapl_item["holdings_qty"] == 0.1234
+    assert aapl_item["status"] == "ACTIVE"
+

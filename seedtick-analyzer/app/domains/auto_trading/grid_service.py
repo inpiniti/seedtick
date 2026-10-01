@@ -201,18 +201,76 @@ class GridTradingService:
 
     async def sync_with_holdings(self) -> None:
         """
-        0-3. 계좌 잔고 동기화: 등록되어 있었는데 보유종목에서 사라진 경우 종료 처리
+        0. 계좌 잔고 양방향 동기화:
+        - 0. 보유 중인데 아직 그리드에 등록되지 않은 종목 자동 등록 (initial_price, 갭 3%, last_trade_price 설정)
+        - 0-3. 등록되어 있었는데 계좌 보유종목에서 사라진 경우 종료(FINISHED) 처리
         """
         try:
+            # 1. 브로커 잔고 및 보유 종목 상세 조회
             bal = await self.broker.get_balance()
             positions = bal.positions
-            active_items = self.repo.get_active_grid_trades()
 
+            holdings_details = []
+            if hasattr(self.broker, "get_holdings_details"):
+                holdings_details = await self.broker.get_holdings_details()
+
+            # 심볼별 상세 매핑 (average_price, last_price 등)
+            details_map = {item["symbol"].upper(): item for item in holdings_details}
+
+            # 2. 현재 활성 그리드 종목 목록
+            active_items = self.repo.get_active_grid_trades()
+            active_tickers = {item.ticker for item in active_items}
+
+            # ── [A] 보유 중인데 등록 안 된 종목 자동 등록 ──────────────
+            new_registered_tickers = []
+            for sym, qty in positions.items():
+                sym_upper = sym.upper()
+                if qty > 0 and sym_upper not in active_tickers:
+                    detail = details_map.get(sym_upper, {})
+                    avg_p = float(detail.get("average_price") or 0.0)
+                    last_p = float(detail.get("last_price") or 0.0)
+
+                    price = avg_p if avg_p > 0 else last_p
+                    if price <= 0:
+                        try:
+                            price = await self.broker.get_quote(sym_upper)
+                        except Exception:
+                            price = 100.0  # 안전 폴백
+
+                    gap = round(price * 0.03, 4)
+                    new_item = GridTradeItem(
+                        ticker=sym_upper,
+                        initial_price=price,
+                        gap=gap,
+                        last_trade_price=price,
+                        order_amount_krw=1000,
+                        status="ACTIVE",
+                        holdings_qty=qty,
+                        total_buy_count=1,
+                        total_sell_count=0,
+                    )
+                    self.repo.save_grid_trade(new_item)
+                    new_registered_tickers.append(sym_upper)
+                    logger.info(
+                        f"[GridTrading] 📥 계좌 보유 종목 그리드 자동 등록 완료: {sym_upper} "
+                        f"(단가: ${price:.4f}, 고정 갭 3%: ${gap:.4f}, 보유: {qty:.4f}주)"
+                    )
+
+            # 신규 등록 종목 WebSocket 구독 등록
+            if new_registered_tickers and self._ws_subscriber:
+                try:
+                    await self._ws_subscriber.subscribe_tickers(new_registered_tickers)
+                except Exception as e:
+                    logger.warning(f"[GridTrading] 신규 보유 종목 WebSocket 구독 실패: {e}")
+
+            # ── [B] 등록되어 있었는데 보유종목에서 사라진 경우 종료 처리 ──
             for item in active_items:
                 sym = item.ticker
                 if positions.get(sym, 0.0) <= 0:
-                    logger.info(f"[GridTrading] {sym}: 계좌 보유 종목에서 사라짐 -> 종료(FINISHED) 처리")
+                    logger.info(f"[GridTrading] 📤 {sym}: 계좌 보유 종목에서 사라짐 -> 종료(FINISHED) 처리")
                     item.status = "FINISHED"
                     self.repo.update_grid_trade(item)
+
         except Exception as e:
             logger.warning(f"[GridTrading] 계좌 보유 동기화 실패: {e}")
+

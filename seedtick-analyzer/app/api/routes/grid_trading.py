@@ -84,15 +84,42 @@ async def manual_buy(req: ManualBuyRequest):
 
 
 @router.get("/items", summary="등록된 그리드 매매 로우 목록 조회")
-async def get_grid_items():
+async def get_grid_items(sync: bool = False):
     """
     등록된 모든 그리드 종목 및 감지 상태(처음매수주가, 갭 3%, 마지막매매주가, 체결횟수) 조회
+    - sync가 True이거나 등록된 종목이 없으면 계좌 잔고 보유 종목을 자동 동기화합니다.
     """
     items = grid_service.repo.get_all_grid_trades()
+    if sync or len(items) == 0:
+        try:
+            await grid_service.sync_with_holdings()
+            items = grid_service.repo.get_all_grid_trades()
+        except Exception as e:
+            logger.warning(f"그리드 아이템 조회 중 보유 동기화 실패: {e}")
+
     return {
         "items": [item.model_dump() for item in items],
         "count": len(items),
     }
+
+
+@router.post("/sync", summary="계좌 보유 잔고와 그리드 수동 즉시 동기화")
+async def sync_holdings_to_grid():
+    """
+    토스 계좌에 보유 중인 종목을 조회하여 아직 그리드에 등록되지 않은 종목을 자동 등록하고,
+    보유가 없는 종목은 감지 종료 처리합니다.
+    """
+    try:
+        await grid_service.sync_with_holdings()
+        items = grid_service.repo.get_all_grid_trades()
+        return {
+            "success": True,
+            "message": f"계좌 보유 잔고와 그리드 동기화 완료 (총 {len(items)}개 종목 관리 중)",
+            "items": [item.model_dump() for item in items],
+        }
+    except Exception as e:
+        logger.error(f"그리드 잔고 동기화 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"잔고 동기화 중 오류가 발생했습니다: {str(e)}")
 
 
 @router.post("/items/{ticker}/close", summary="그리드 감지 수동 종료")

@@ -50,13 +50,19 @@ async def lifespan(app: FastAPI):
     scheduler_service.start()
 
     # 실시간 그리드 감지 WebSocket 시작 및 기존 활성 종목 등록
+    try:
+        # 1. 계좌 보유 종목과 그리드 상태 자동 동기화 (보유 중인 종목 자동 등록)
+        await grid_service.sync_with_holdings()
+    except Exception as e:
+        logger.warning(f"[Lifespan] 계좌 보유 종목 초기 동기화 실패: {e}")
+
     if ws_client:
         try:
             active_items = grid_service.repo.get_active_grid_trades()
             active_tickers = [it.ticker for it in active_items]
             if active_tickers:
                 await ws_client.set_subscribed_tickers(active_tickers)
-                logger.info(f"[Lifespan] 기존 활성 그리드 종목 실시간 구독 등록: {active_tickers}")
+                logger.info(f"[Lifespan] 활성 그리드 종목 실시간 구독 등록: {active_tickers}")
             await ws_client.start()
         except Exception as e:
             logger.warning(f"[Lifespan] 그리드 WebSocket 시작 실패 (선택 기능): {e}")
