@@ -105,19 +105,6 @@ def _build_interleaved_slots(providers: list["LLMProvider"]) -> list[KeySlot]:
     return slots
 
 
-def _get_target_provider_for_model(model: str) -> str | None:
-    """
-    특정 제공사 전용 모델인 경우 해당 제공사 이름("Cline", "OpenRouter", "Kilo")을 반환하고,
-    범용 모델이거나 모든 제공사에서 지원 가능한 경우 None(전체 풀 사용)을 반환한다.
-    """
-    m = model.lower()
-    if m.startswith("cline-free/") or m.startswith("cline/"):
-        return "Cline"
-    if m.startswith("kilo-free/") or m.startswith("kilo/"):
-        return "Kilo"
-    return None
-
-
 class LLMProvider:
     """단일 LLM 제공사(Provider) 설정 및 키 라운드로빈 관리"""
 
@@ -238,17 +225,6 @@ class AiGatewayClient:
         self._slot_index: int = 0
         self._slot_lock: asyncio.Lock = asyncio.Lock()
 
-        # 제공사별 슬롯 풀 및 전용 라운드로빈 락 (Cline 등 특정 제공사 전용 모델 요청 처리용)
-        self._provider_slots: dict[str, list[KeySlot]] = {}
-        self._provider_indexes: dict[str, int] = {}
-        self._provider_locks: dict[str, asyncio.Lock] = {}
-        for p in self.active_providers:
-            p_slots = [s for s in self.slots if s.provider == p.name]
-            if p_slots:
-                self._provider_slots[p.name] = p_slots
-                self._provider_indexes[p.name] = 0
-                self._provider_locks[p.name] = asyncio.Lock()
-
         # 작동 모드 판별
         if base_url:
             self.base_url = base_url.rstrip("/")
@@ -281,22 +257,8 @@ class AiGatewayClient:
     def model(self, value: str) -> None:
         self._model_override = value
 
-    async def _get_next_slot(self, provider: str | None = None) -> KeySlot | None:
-        """
-        슬롯 풀에서 다음 키 슬롯을 라운드로빈 방식으로 획득.
-        provider가 지정되고 해당 제공사의 활성 슬롯이 있으면 해당 제공사 슬롯에서만 라운드로빈 순환.
-        그 외의 경우 전체 통합 풀에서 라운드로빈 순환.
-        """
-        if provider and provider in self._provider_slots:
-            p_slots = self._provider_slots[provider]
-            if p_slots:
-                lock = self._provider_locks[provider]
-                async with lock:
-                    idx = self._provider_indexes[provider]
-                    slot = p_slots[idx % len(p_slots)]
-                    self._provider_indexes[provider] += 1
-                    return slot
-
+    async def _get_next_slot(self) -> KeySlot | None:
+        """통합 슬롯 풀에서 다음 키 슬롯을 라운드로빈 방식으로 획득"""
         if not self.slots:
             return None
         async with self._slot_lock:
@@ -304,9 +266,9 @@ class AiGatewayClient:
             self._slot_index += 1
             return slot
 
-    async def _get_next_key(self, provider: str | None = None) -> str | None:
+    async def _get_next_key(self) -> str | None:
         """하위 호환용: 다음 키 슬롯의 API 키 반환"""
-        slot = await self._get_next_slot(provider=provider)
+        slot = await self._get_next_slot()
         return slot.key if slot else None
 
     async def chat(
@@ -341,30 +303,13 @@ class AiGatewayClient:
 
         # ── 1. 직접 호출 모드 (통합 슬롯 풀 교차 라운드로빈 로테이션) ──
         if self.use_direct and self.slots:
-            target_provider = _get_target_provider_for_model(model)
-            available_slots = (
-                self._provider_slots.get(target_provider, [])
-                if target_provider
-                else self.slots
-            )
-            # 전용 모델인데 해당 제공사 키가 등록되지 않은 경우의 방어 처리
-            if target_provider and not available_slots:
-                logger.warning(
-                    f"[AiClient] ⚠️ 모델 '{model}'은 {target_provider} 전용이나 등록된 {target_provider} 키가 없습니다. "
-                    f"통합 슬롯 풀로 폴백합니다."
-                )
-                target_provider = None
-                available_slots = self.slots
-
             max_attempts = max(3, len(self.slots))
-            pool_desc = f"{target_provider} 전용" if target_provider else "통합"
             logger.info(
-                f"[AiClient] 🚀 [{pool_desc}] 풀 호출 시작 "
-                f"(총 {len(available_slots)}개 슬롯 로테이션, 모델={model}, 최대 {max_attempts}회 시도)"
+                f"[AiClient] 🚀 통합 풀 호출 시작 (총 {len(self.slots)}개 슬롯 교차 로테이션, 최대 {max_attempts}회 시도)"
             )
 
             for attempt in range(1, max_attempts + 1):
-                slot = await self._get_next_slot(provider=target_provider)
+                slot = await self._get_next_slot()
                 if not slot:
                     break
 
@@ -421,9 +366,6 @@ class AiGatewayClient:
                                         model, f"{model} → ({err_code}) {err_msg}"
                                     )
                                     payload["model"] = new_model
-                                    if new_model != model:
-                                        model = new_model
-                                        target_provider = _get_target_provider_for_model(model)
                                     logger.warning(
                                         f"[AiClient] ⚠️ [{slot.provider}] 모델 과부하/불가로 순위 전환 "
                                         f"(model={model}, code={err_code}, msg={err_msg}) "
@@ -450,9 +392,6 @@ class AiGatewayClient:
                                         model, f"{model} → (빈 응답) {raw_body[:120]}"
                                     )
                                     payload["model"] = new_model
-                                    if new_model != model:
-                                        model = new_model
-                                        target_provider = _get_target_provider_for_model(model)
                                     logger.warning(
                                         f"[AiClient] ⚠️ [{slot.provider}] 빈 응답 + 모델 레벨 오류로 순위 전환 "
                                         f"(model={model}, 사유={why}) → 다음 모델={new_model} "
@@ -519,9 +458,6 @@ class AiGatewayClient:
                                 model, f"{model} → HTTP {res.status_code}"
                             )
                             payload["model"] = new_model
-                            if new_model != model:
-                                model = new_model
-                                target_provider = _get_target_provider_for_model(model)
                             logger.warning(
                                 f"[AiClient] ⚠️ [{slot.provider}] HTTP {res.status_code} "
                                 f"(사유={why}) → 모델 순위 전환 {model} → {new_model} "
