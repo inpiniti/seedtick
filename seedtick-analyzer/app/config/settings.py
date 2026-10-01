@@ -19,12 +19,15 @@ class Settings(BaseSettings):
 
     # AI-Gateway 연동
     AI_GATEWAY_URL: str = "http://localhost:3000"
-    AI_GATEWAY_MODEL: str = "nvidia/nemotron-3-ultra-550b-a55b:free"
+    AI_GATEWAY_MODEL: str = "cline-free/deepseek-v4.1-flash"
     # 모델 순위 체인 (쉼표 구분, 앞쪽이 1순위).
     # 1순위가 트래픽 과부하(OpenRouter 200 내부 error code=503 등)로 실패하면 자동으로
     # 다음 순위로 내려가며, 매일 KST 00:00에 1순위로 초기화된다.
     # 미설정 시 AI_GATEWAY_MODEL 단일 값으로 1단계 체인이 구성된다(하위 호환).
     AI_MODEL_CHAIN: str = (
+        "cline-free/deepseek-v4.1-flash,"
+        "cline-free/mimo-v2.6-flash,"
+        "cline-free/muse-spark-1.3-contributor,"
         "nvidia/nemotron-3-ultra-550b-a55b:free,"
         "stealth/space-bunny-alpha,"
         "dots-studio/dots-3-note-preview:free,"
@@ -42,7 +45,7 @@ class Settings(BaseSettings):
     # 반복 실패 시 백오프 상한(초)
     AI_MODEL_PROMOTION_MAX_COOLDOWN_SEC: float = 3600.0
     AI_GATEWAY_SECRET: str = ""  # seedtick-ai-gateway의 GATEWAY_SECRET (Bearer 토큰)
-    AI_CONCURRENCY: int = 13  # 동시 처리 요청 수 (13인 거장 전원 동시 병렬)
+    AI_CONCURRENCY: int = 5  # 동시 처리 요청 수 (키 제한 및 안정성을 위해 최대 5개 동시 병렬)
     AI_REQUEST_INTERVAL_SEC: float = 0.0  # 요청 간 대기시간(초)
     AI_GATEWAY_MAX_TOKENS: int = 32768  # 모델 최대 생성 토큰 (32K 지원)
     MAX_ANALYZE_COUNT: int = 0  # 1일 최대 리포트 분석 종목 수 (0: 스크리너 전체 무제한)

@@ -263,3 +263,60 @@ async def test_ai_client_wrapped_data_response():
         assert result == "Cline 언래핑 성공 응답"
 
 
+def test_model_provider_detection():
+    from app.domains.report.ai_client import _get_target_provider_for_model
+
+    assert _get_target_provider_for_model("cline-free/deepseek-v4.1-flash") == "Cline"
+    assert _get_target_provider_for_model("cline-free/mimo-v2.6-flash") == "Cline"
+    assert _get_target_provider_for_model("cline-free/muse-spark-1.3-contributor") == "Cline"
+    assert _get_target_provider_for_model("cline/deepseek-v3") == "Cline"
+    assert _get_target_provider_for_model("kilo-free/some-model") == "Kilo"
+    assert _get_target_provider_for_model("nvidia/nemotron-3-ultra-550b-a55b:free") is None
+    assert _get_target_provider_for_model("stealth/space-bunny-alpha") is None
+
+
+@pytest.mark.asyncio
+async def test_cline_provider_slot_isolation():
+    # OpenRouter 3개, Cline 2개, Kilo 2개 슬롯이 있을 때
+    client = AiGatewayClient(
+        api_keys=["or-1", "or-2", "or-3"],
+        cline_keys=["cline-1", "cline-2"],
+        kilo_keys=["kilo-1", "kilo-2"],
+    )
+
+    # Cline 전용 슬롯만 획득되는지 검증
+    c1 = await client._get_next_slot(provider="Cline")
+    c2 = await client._get_next_slot(provider="Cline")
+    c3 = await client._get_next_slot(provider="Cline")
+
+    assert c1 is not None and c1.provider == "Cline" and c1.key == "cline-1"
+    assert c2 is not None and c2.provider == "Cline" and c2.key == "cline-2"
+    assert c3 is not None and c3.provider == "Cline" and c3.key == "cline-1"
+
+
+@pytest.mark.asyncio
+async def test_cline_free_model_chat_uses_cline_endpoint():
+    client = AiGatewayClient(
+        api_keys=["or-key-1"],
+        cline_keys=["cline-key-1"],
+        model="cline-free/deepseek-v4.1-flash",
+    )
+
+    resp = MagicMock()
+    resp.status_code = 200
+    resp.json.return_value = {
+        "choices": [{"message": {"content": "분석 성공"}, "finish_reason": "stop"}]
+    }
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=resp) as mock_post:
+        result = await client.chat("종목 분석")
+        assert result == "분석 성공"
+        mock_post.assert_awaited_once()
+
+        # 호출 URL과 키가 OpenRouter가 아니라 Cline 엔드포인트/키인지 검증
+        url = mock_post.call_args.args[0]
+        headers = mock_post.call_args.kwargs["headers"]
+        assert url == "https://api.cline.bot/api/v1/chat/completions"
+        assert headers["Authorization"] == "Bearer cline-key-1"
+
+
