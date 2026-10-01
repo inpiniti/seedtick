@@ -1,4 +1,5 @@
 import {
+  AiModelStatus,
   AutoTradingStatus,
   BridgeStatus,
   BrokerBalance,
@@ -196,6 +197,21 @@ export async function closeGridItem(ticker: string): Promise<{
   return request(`/api/grid-trading/items/${encodeURIComponent(ticker)}/close`, {
     method: "POST",
   });
+}
+
+/** 16. 현재 활성 AI 모델 및 순위 체인 상태 */
+export async function fetchAiModelStatus(): Promise<AiModelStatus> {
+  return request<AiModelStatus>("/debug/ai-model");
+}
+
+/** 17. AI 모델 순위 1순위 수동 초기화 */
+export async function resetAiModelRotation(): Promise<{
+  ok: boolean;
+  previous_model: string;
+  active_model: string;
+  chain: string[];
+}> {
+  return request("/debug/ai-model/reset", { method: "POST" });
 }
 
 /** 15. 계좌 보유 잔고와 그리드 수동 즉시 동기화 */

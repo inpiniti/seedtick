@@ -9,6 +9,7 @@ from app.domains.scheduler.jobs import (
     daily_pipeline_job,
     execute_pending_orders_job,
     cleanup_old_logs_job,
+    reset_model_rotation_job,
 )
 
 logger = logging.getLogger("scheduler_service")
@@ -20,6 +21,18 @@ class SchedulerService:
 
     def start(self):
         """스케줄러 시작: 오전 11:00 로그 정리, 12:00 파이프라인 잡 및 22:35/23:35 정규장 예약 발주 잡 등록"""
+        # 0. AI 모델 순위 초기화 잡: 매일 00:01 KST
+        # 1순위 모델의 프로바이더 과부하는 자정 지나면 자연 복구되므로 1순위로 되돌린다.
+        # 정각(00:00)과 겹치지 않도록 1분 뒤로 두어 야간 배치 준비를 방해하지 않는다.
+        model_reset_trigger = CronTrigger(hour=0, minute=1, timezone="Asia/Seoul")
+        self._scheduler.add_job(
+            reset_model_rotation_job,
+            trigger=model_reset_trigger,
+            id="reset_model_rotation",
+            name="AI 모델 순위 1순위 초기화 (매일 00:01 KST)",
+            replace_existing=True,
+        )
+
         # 1. 일일 시스템 로그 정리 잡: 매일 11:00 KST (12:00 파이프라인 1시간 전 실행)
         # 24시간 이전의 만료된 INFO 로그만 삭제하여 DB 용량 절약 (WARNING, ERROR, CRITICAL은 보존)
         cleanup_logs_trigger = CronTrigger(
@@ -96,6 +109,11 @@ class SchedulerService:
         """만료 시스템 로그 수동 즉시 정리 트리거"""
         logger.info(f"[Scheduler] 수동 로그 정리 트리거 (hours={hours})")
         return await cleanup_old_logs_job(hours=hours)
+
+    async def trigger_model_rotation_reset(self) -> dict:
+        """AI 모델 순위 1순위 초기화 수동 트리거"""
+        logger.info("[Scheduler] 수동 모델 순위 초기화 트리거")
+        return await reset_model_rotation_job()
 
 
 scheduler_service = SchedulerService()
