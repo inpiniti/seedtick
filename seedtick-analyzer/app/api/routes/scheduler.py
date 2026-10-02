@@ -7,7 +7,7 @@ from app.domains.scheduler.service import scheduler_service
 router = APIRouter(prefix="/api/scheduler", tags=["scheduler"])
 
 
-@router.post("/trigger", summary="일일 파이프라인 수동 즉시 트리거")
+@router.post("/trigger", summary="일일 파이프라인 수동 즉시 트리거 (백그라운드 실행)")
 async def trigger_pipeline(
     dry_run: bool | None = Query(None, description="Dry-run 모드 여부 (미입력 시 설정값 사용)"),
     force: bool = Query(False, description="휴장일/주말 가드를 우회하여 강제 실행"),
@@ -18,16 +18,28 @@ async def trigger_pipeline(
         True, description="오늘 이미 리포트가 등록된 종목은 분석 대상에서 제외 (기본값: True)"
     ),
 ):
+    """
+    파이프라인을 백그라운드로 시작하고 즉시 응답합니다.
+    진행 상황은 GET /api/scheduler/progress 를 폴링하여 확인합니다.
+    """
     try:
-        result = await scheduler_service.trigger_pipeline(
+        return scheduler_service.start_pipeline_background(
             dry_run=dry_run,
             force=force,
             max_count=max_count,
             skip_already_reported=skip_already_reported,
         )
-        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"파이프라인 실행 오류: {e}")
+
+
+@router.get("/progress", summary="13인 거장 파이프라인 실시간 진행 상태 조회")
+async def get_pipeline_progress():
+    """
+    관리자 화면(seedtick-admin)이 주기적으로 폴링하여
+    현재 단계, 종목 진행률(n/총), 13인 요약 진행률(n/13), 경과 시간을 표시합니다.
+    """
+    return scheduler_service.get_pipeline_progress()
 
 
 @router.post("/cleanup-logs", summary="만료 시스템 로그 수동 즉시 정리")

@@ -1,10 +1,12 @@
 """
 SchedulerService: APScheduler 기반 일일 배치 등록 및 수동 트리거 지원
 """
+import asyncio
 import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+from app.domains.report.pipeline_progress import pipeline_progress
 from app.domains.scheduler.jobs import (
     daily_pipeline_job,
     cleanup_old_logs_job,
@@ -17,6 +19,8 @@ logger = logging.getLogger("scheduler_service")
 class SchedulerService:
     def __init__(self):
         self._scheduler = AsyncIOScheduler(timezone="Asia/Seoul")
+        # 백그라운드로 시작된 파이프라인 태스크 참조 (GC 방지)
+        self._background_tasks: set[asyncio.Task] = set()
 
     def start(self):
         """스케줄러 시작: 오전 11:00 로그 정리, 12:00 파이프라인 잡 및 00:01 모델 순위 초기화 잡 등록"""
@@ -75,7 +79,7 @@ class SchedulerService:
         max_count: int | None = None,
         skip_already_reported: bool = True,
     ) -> dict:
-        """수동 즉시 트리거 (API 엔드포인트용)"""
+        """수동 즉시 트리거 (API 엔드포인트용) - 파이프라인 완료까지 대기"""
         logger.info(
             f"[Scheduler] 수동 파이프라인 트리거 (dry_run={dry_run}, force={force}, max_count={max_count}, skip_already_reported={skip_already_reported})"
         )
@@ -85,6 +89,41 @@ class SchedulerService:
             max_analyze_count=max_count,
             skip_already_reported=skip_already_reported,
         )
+
+    def start_pipeline_background(
+        self,
+        dry_run: bool | None = None,
+        force: bool = False,
+        max_count: int | None = None,
+        skip_already_reported: bool = True,
+    ) -> dict:
+        """
+        수동 즉시 트리거 (관리자 화면용) - 즉시 응답하고 파이프라인은 백그라운드 실행.
+
+        이미 실행 중이면 409 대신 skipped 를 반환하며, 화면은 /progress 폴링으로 확인합니다.
+        """
+        if pipeline_progress.is_running():
+            logger.warning("[Scheduler] 이미 파이프라인이 실행 중입니다. 백그라운드 트리거 거부.")
+            return {"status": "skipped", "reason": "already_running"}
+
+        logger.info(
+            f"[Scheduler] 백그라운드 파이프라인 트리거 (dry_run={dry_run}, force={force}, max_count={max_count}, skip_already_reported={skip_already_reported})"
+        )
+        task = asyncio.create_task(
+            daily_pipeline_job(
+                dry_run=dry_run,
+                force=force,
+                max_analyze_count=max_count,
+                skip_already_reported=skip_already_reported,
+            )
+        )
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
+        return {"status": "started", "reason": None}
+
+    def get_pipeline_progress(self) -> dict:
+        """현재 파이프라인 진행 상태 스냅샷 (관리자 화면 폴링용)"""
+        return pipeline_progress.snapshot()
 
     async def trigger_log_cleanup(self, hours: int = 24) -> dict:
         """만료 시스템 로그 수동 즉시 정리 트리거"""

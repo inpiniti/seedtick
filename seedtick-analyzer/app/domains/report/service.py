@@ -21,6 +21,7 @@ from app.domains.report.models import (
     StockDataPack,
 )
 from app.domains.report.personas.prompts import GURU_PERSONAS, build_persona_prompt
+from app.domains.report.pipeline_progress import PipelineProgressTracker
 from app.infrastructure.supabase_repo import SupabaseRepo
 
 logger = logging.getLogger("guru_report_service")
@@ -35,8 +36,11 @@ class GuruReportService:
         base_report_dir: str | Path = "docs/report",
         request_interval: float | None = None,
         concurrency: int | None = None,
+        progress: PipelineProgressTracker | None = None,
     ):
         self.base_report_dir = Path(base_report_dir)
+        # 진행 상태 추적기 (지정 시 5단계 진행률을 실시간으로 기록)
+        self.progress = progress
         self.datapack_builder = datapack_builder or DataPackBuilder(base_report_dir)
         self.ai = ai_client or AiGatewayClient()
         self.value_driver_generator = ValueDriverGenerator(self.ai, base_report_dir)
@@ -68,9 +72,13 @@ class GuruReportService:
         logger.info(f"[{clean_ticker}] 5단계 Guru Report 파이프라인 시작 (기준일: {date_str})")
 
         # ── 1단계: 공용 심층 데이터 팩 작성 ───────────────────
+        if self.progress:
+            self.progress.set_stage("datapack", f"[{clean_ticker}] 심층 데이터팩 수집")
         datapack = await self.datapack_builder.build(clean_ticker, date_str)
 
         # ── 1-1단계: 가치 드라이버 및 최신 시장 촉매(Catalysts) 동적 발굴 ────
+        if self.progress:
+            self.progress.set_stage("value_driver")
         try:
             vd_markdown = await self.value_driver_generator.generate_value_drivers(datapack, date_str)
             datapack.value_drivers = vd_markdown
@@ -83,10 +91,14 @@ class GuruReportService:
             logger.warning(f"[{clean_ticker}] 가치 드라이버 생성 실패(계속 진행): {e}")
 
         # ── 2단계: 13인 개별 요약 블록 생성 (최대 concurrency개 동시 병렬 실행) ───
+        if self.progress:
+            self.progress.set_stage("summaries")
         summary_doc = await self.generate_guru_summaries(datapack)
 
         # ── 3단계: 거장 원탁 토론 전문 생성 ───────────────────
         logger.info(f"[{clean_ticker}] 3단계: 13인 거장 원탁 토론 전문 생성 시작...")
+        if self.progress:
+            self.progress.set_stage("discussion")
         if self.request_interval > 0:
             await asyncio.sleep(self.request_interval)
         discussion_doc = await self.discussion_engine.generate_discussion(datapack, summary_doc)
@@ -98,6 +110,8 @@ class GuruReportService:
 
         # ── 4단계: 최종 종합 투자 보고서 생성 ──────────────────
         logger.info(f"[{clean_ticker}] 4단계: 최종 종합 마스터 투자 보고서 생성 시작...")
+        if self.progress:
+            self.progress.set_stage("master")
         if self.request_interval > 0:
             await asyncio.sleep(self.request_interval)
         master_report = await self.discussion_engine.generate_master_report(
@@ -110,6 +124,8 @@ class GuruReportService:
         )
 
         # ── 5단계: Supabase DB 동기화 ────────────────────────
+        if self.progress:
+            self.progress.set_stage("sync")
         await self.sync_to_db(
             clean_ticker,
             date_str,
@@ -139,6 +155,8 @@ class GuruReportService:
         logger.info(
             f"[{ticker}] 13인 거장 요약 분석 시작 (총 {total_gurus}명, 동시 처리 한도: {self.concurrency}개)"
         )
+        if self.progress:
+            self.progress.set_guru_progress(0, total_gurus)
 
         semaphore = asyncio.Semaphore(self.concurrency)
 
@@ -162,6 +180,9 @@ class GuruReportService:
                         core_arguments=["AI 호출 제한 또는 지연으로 인한 기본값 판정"],
                         quote="데이터를 조금 더 지켜보고 판단하겠다.",
                     )
+
+                if self.progress:
+                    self.progress.tick_guru()
 
                 if self.request_interval > 0:
                     await asyncio.sleep(self.request_interval)

@@ -81,31 +81,36 @@ async def test_scheduler_cleanup_logs_route(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_scheduler_trigger_route(monkeypatch):
-    from unittest.mock import AsyncMock
+    from unittest.mock import MagicMock
     from app.domains.scheduler.service import scheduler_service
 
-    mock_trigger = AsyncMock(
+    mock_trigger = MagicMock(
         return_value={
-            "status": "success",
-            "date": "2026-10-01",
-            "screened_count": 5,
-            "reported_count": 2,
-            "skipped_already_reported_count": 3,
-            "skipped_already_reported_tickers": ["AAPL", "MSFT", "NVDA"],
-            "orders_count": 0,
+            "status": "started",
+            "reason": None,
         }
     )
-    monkeypatch.setattr(scheduler_service, "trigger_pipeline", mock_trigger)
+    monkeypatch.setattr(scheduler_service, "start_pipeline_background", mock_trigger)
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         res = await ac.post("/api/scheduler/trigger?force=true&skip_already_reported=true")
         assert res.status_code == 200
         data = res.json()
-        assert data["status"] == "success"
-        assert data["skipped_already_reported_count"] == 3
+        assert data["status"] == "started"
         mock_trigger.assert_called_once_with(
             dry_run=None, force=True, max_count=None, skip_already_reported=True
         )
+
+
+@pytest.mark.asyncio
+async def test_scheduler_progress_route():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.get("/api/scheduler/progress")
+        assert res.status_code == 200
+        data = res.json()
+        assert "status" in data
+        assert "stages" in data
+        assert "elapsed_seconds" in data
 
 
 @pytest.mark.asyncio
