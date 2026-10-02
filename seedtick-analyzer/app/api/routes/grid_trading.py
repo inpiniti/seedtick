@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from app.domains.auto_trading.grid_service import GridTradingService
 from app.domains.bridge.adapters.toss import TossBrokerAdapter
 from app.domains.bridge.adapters.toss_ws import TossWebSocketClient
-from app.domains.bridge.factory import get_broker_adapter
+from app.config.settings import settings
 from app.infrastructure.supabase_repo import supabase_repo
 
 logger = logging.getLogger("grid_trading_route")
@@ -16,7 +16,10 @@ logger = logging.getLogger("grid_trading_route")
 router = APIRouter(prefix="/api/grid-trading", tags=["grid-trading"])
 
 # 전역 그리드 서비스 인스턴스 (메인 앱 라이프사이클에서 초기화 가능)
-_broker = get_broker_adapter("toss") if hasattr(get_broker_adapter, "__call__") else None
+# 토스 실시간 WS는 토스 어댑터가 구성된 경우에만 활성화
+_broker: TossBrokerAdapter | None = (
+    TossBrokerAdapter() if settings.TOSS_CLIENT_ID and settings.TOSS_CLIENT_SECRET else None
+)
 grid_service = GridTradingService(broker=_broker, repo=supabase_repo)
 ws_client: TossWebSocketClient | None = None
 
@@ -28,6 +31,8 @@ def setup_realtime_ws():
         ws_client = TossWebSocketClient(
             get_access_token_func=_broker._get_access_token,
             on_trade_tick_func=grid_service.on_realtime_tick,
+            # 핸드셰이크 401 발생 시 공유 토큰을 무효화해 재발급 유도
+            invalidate_token_func=_broker.invalidate_token,
         )
         grid_service._ws_subscriber = ws_client
 
