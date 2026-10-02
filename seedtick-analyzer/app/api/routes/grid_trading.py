@@ -1,11 +1,15 @@
 """
 Grid Trading 라우터
-수동 매수 등록, 그리드 감지 로우 조회, 정규장 운영 상태 확인
+수동 매수 등록, 그리드 감지 로우 조회, 정규장 운영 상태 확인, 실시간 현재가 SSE 스트림
 """
+import asyncio
+import json
 import logging
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from app.domains.auto_trading.grid_service import GridTradingService
+from app.domains.auto_trading.price_hub import price_hub
 from app.domains.bridge.adapters.toss import TossBrokerAdapter
 from app.domains.bridge.adapters.toss_ws import TossWebSocketClient
 from app.config.settings import settings
@@ -14,6 +18,9 @@ from app.infrastructure.supabase_repo import supabase_repo
 logger = logging.getLogger("grid_trading_route")
 
 router = APIRouter(prefix="/api/grid-trading", tags=["grid-trading"])
+
+# SSE keepalive 주기 (프록시/브라우저 연결 타임아웃 방지)
+_SSE_KEEPALIVE_SEC = 15.0
 
 # 전역 그리드 서비스 인스턴스 (메인 앱 라이프사이클에서 초기화 가능)
 # 토스 실시간 WS는 토스 어댑터가 구성된 경우에만 활성화
@@ -44,6 +51,62 @@ class ManualBuyRequest(BaseModel):
     ticker: str
 
 
+@router.get(
+    "/prices/stream",
+    summary="실시간 현재가 SSE 스트림",
+    response_class=StreamingResponse,
+)
+async def stream_realtime_prices(request: Request):
+    """
+    토스 실시간 웹소켓으로 수신한 체결가를 SSE(Server-Sent Events)로 브로드캐스트합니다.
+
+    - 연결 직후 마지막 체결가 스냅샷을 `snapshot` 이벤트로 1회 전송합니다.
+    - 이후 체결이 발생할 때마다 `tick` 이벤트로 전송합니다.
+    - 이벤트가 없는 구간에는 keepalive 코멘트를 보내 연결을 유지합니다.
+    """
+    queue = price_hub.subscribe()
+
+    async def event_stream():
+        try:
+            # 1. 초기 스냅샷 (관리 화면 첫 렌더 시 즉시 반영)
+            snapshot = price_hub.snapshot()
+            yield _sse("snapshot", {"prices": snapshot})
+            if not snapshot:
+                yield _sse("status", {"ws_connected": bool(ws_client and ws_client.is_connected)})
+
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    payload = await asyncio.wait_for(queue.get(), timeout=_SSE_KEEPALIVE_SEC)
+                except asyncio.TimeoutError:
+                    yield ": keepalive\n\n"
+                    continue
+                yield _sse(payload.get("type", "tick"), payload)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:  # pragma: no cover - 스트림 종료 시 방어적 처리
+            logger.warning(f"실시간 현재가 SSE 스트림 종료: {e}")
+        finally:
+            price_hub.unsubscribe(queue)
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            # nginx 등 리버스 프록시 버퍼링 방지
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+def _sse(event: str, data: dict) -> str:
+    """SSE 프레임 직렬화"""
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
 @router.get("/market-status", summary="정규장 운영 여부 및 그리드 감지 상태 조회")
 async def get_market_status():
     """
@@ -61,6 +124,8 @@ async def get_market_status():
         "is_ws_connected": ws_client.is_connected if ws_client else False,
         "active_count": len(active_items),
         "active_tickers": [item.ticker for item in active_items],
+        "subscribed_tickers": ws_client.subscribed_tickers if ws_client else [],
+        "sse_subscribers": price_hub.subscriber_count,
     }
 
 
