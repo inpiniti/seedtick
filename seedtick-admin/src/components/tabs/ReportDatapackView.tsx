@@ -82,34 +82,7 @@ export function ReportDatapackView({ datapack }: ReportDatapackViewProps) {
         </div>
       )}
 
-      {/* 2. 가치 드라이버 (Value Drivers) - 고도화 연계 */}
-      {value_drivers && (
-        <div className="p-4 rounded-2xl bg-[#f0f7ff] border border-[#d0e5ff]">
-          <h4 className="text-xs font-bold text-[#1b64da] uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <Lightbulb className="w-3.5 h-3.5 text-[#3182f6]" />
-            핵심 가치 드라이버 (Value Drivers & Catalysts)
-          </h4>
-          {typeof value_drivers === "string" ? (
-            <MarkdownViewer content={value_drivers} />
-          ) : Array.isArray(value_drivers) ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 mt-2">
-              {value_drivers.map((drv: any, dIdx: number) => (
-                <div key={dIdx} className="p-3 bg-white rounded-xl border border-[#d0e5ff]/80 text-xs">
-                  <div className="font-bold text-[#191f28]">{drv.name || drv.title}</div>
-                  <div className="text-[#4e5968] mt-1">{drv.status || drv.description}</div>
-                  {drv.monitoring && (
-                    <div className="text-[11px] text-[#3182f6] mt-1.5 font-medium">
-                      감시 기준: {drv.monitoring}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      )}
-
-      {/* 3. 밸류에이션 하이라이트 */}
+      {/* 2. 밸류에이션 하이라이트 */}
       {valuation && (
         <div className="space-y-2">
           <h4 className="text-xs font-bold text-[#6b7684] uppercase tracking-wider flex items-center gap-1.5">
@@ -169,7 +142,7 @@ export function ReportDatapackView({ datapack }: ReportDatapackViewProps) {
         </div>
       )}
 
-      {/* 4. 재무 안전성 & 수익성 */}
+      {/* 3. 재무 안전성 & 수익성 */}
       {balance_sheet && (
         <div className="space-y-2">
           <h4 className="text-xs font-bold text-[#6b7684] uppercase tracking-wider flex items-center gap-1.5">
@@ -218,7 +191,7 @@ export function ReportDatapackView({ datapack }: ReportDatapackViewProps) {
         </div>
       )}
 
-      {/* 5. 연간 손익 요약 테이블 */}
+      {/* 4. 연간 손익 요약 테이블 */}
       {Array.isArray(income_annual) && income_annual.length > 0 && (
         <div className="space-y-2">
           <h4 className="text-xs font-bold text-[#6b7684] uppercase tracking-wider flex items-center gap-1.5">
@@ -260,7 +233,7 @@ export function ReportDatapackView({ datapack }: ReportDatapackViewProps) {
         </div>
       )}
 
-      {/* 6. 시장 지표 & 애널리스트 컨센서스 */}
+      {/* 5. 시장 지표 & 애널리스트 컨센서스 */}
       {(market_metrics || analyst_consensus) && (
         <div className="space-y-2">
           <h4 className="text-xs font-bold text-[#6b7684] uppercase tracking-wider flex items-center gap-1.5">
@@ -311,7 +284,7 @@ export function ReportDatapackView({ datapack }: ReportDatapackViewProps) {
         </div>
       )}
 
-      {/* 7. 최신 뉴스 및 시장 이벤트 */}
+      {/* 6. 최신 뉴스 및 시장 이벤트 */}
       {Array.isArray(news_items) && news_items.length > 0 && (
         <div className="space-y-2">
           <h4 className="text-xs font-bold text-[#6b7684] uppercase tracking-wider flex items-center gap-1.5">
@@ -361,7 +334,7 @@ export function ReportDatapackView({ datapack }: ReportDatapackViewProps) {
         </div>
       )}
 
-      {/* 8. 핵심 가치 드라이버 */}
+      {/* 7. 핵심 가치 드라이버 (Value Drivers & Catalysts) */}
       {value_drivers && typeof value_drivers === "string" && value_drivers.trim() && (
         <div className="space-y-2">
           <h4 className="text-xs font-bold text-[#1b64da] uppercase tracking-wider flex items-center gap-1.5">
