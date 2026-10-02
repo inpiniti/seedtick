@@ -48,3 +48,70 @@ def test_broker_factory():
 
     kis = get_broker_adapter("kis")
     assert isinstance(kis, KisBrokerAdapter)
+
+
+@pytest.mark.asyncio
+async def test_toss_place_order_blocked_outside_regular_hours(monkeypatch):
+    """장외 시간에는 발주되지 않고, 예약 큐 등록 없이 실패로 반환된다."""
+    from unittest.mock import AsyncMock
+    from app.domains.bridge.adapters.toss import TossBrokerAdapter
+
+    broker = TossBrokerAdapter(client_id="test-client", client_secret="test-secret", account_seq="1")
+    monkeypatch.setattr(broker, "is_us_market_open", AsyncMock(return_value=False))
+
+    sent: list[dict] = []
+
+    async def fake_request(method, path, json=None, params=None, with_account_header=True):
+        sent.append({"method": method, "path": path, "json": json})
+        return {"orderId": "SHOULD-NOT-HAPPEN"}
+
+    monkeypatch.setattr(broker, "_request", fake_request)
+
+    res = await broker.place_order(
+        BrokerOrder(ticker="AMZN", action="BUY", amount_krw=1000, memo="grid-buy-AMZN")
+    )
+
+    # 1. 발주는 실패 처리되고 예약 큐에 들어가지 않는다
+    assert res.success is False
+    assert res.order_id is None
+    assert "정규장" in res.error_message
+
+    # 2. 실제 발주 API는 호출되지 않는다 (환율/시세 조회조차 하지 않음)
+    assert sent == []
+
+
+@pytest.mark.asyncio
+async def test_toss_place_order_proceeds_in_regular_hours(monkeypatch):
+    """정규장 시간에는 소수점 시장가로 즉시 발주된다."""
+    from unittest.mock import AsyncMock
+    from app.domains.bridge.adapters.toss import TossBrokerAdapter
+
+    broker = TossBrokerAdapter(client_id="test-client", client_secret="test-secret", account_seq="1")
+    monkeypatch.setattr(broker, "is_us_market_open", AsyncMock(return_value=True))
+    monkeypatch.setattr(broker, "get_exchange_rate", AsyncMock(return_value=1370.0))
+
+    sent: list[dict] = []
+
+    async def fake_request(method, path, json=None, params=None, with_account_header=True):
+        sent.append({"method": method, "path": path, "json": json})
+        return {"orderId": "ORDER-1"}
+
+    monkeypatch.setattr(broker, "_request", fake_request)
+
+    res = await broker.place_order(
+        BrokerOrder(ticker="AMZN", action="BUY", amount_krw=1000, memo="grid-buy-AMZN")
+    )
+
+    assert res.success is True
+    assert res.order_id == "ORDER-1"
+    assert len(sent) == 1
+    assert sent[0]["path"] == "/api/v1/orders"
+    # 1,000원 / 1370 = 0.73달러지만 토스 최소 주문금액 하한선($1.0)에 걸린다
+    assert sent[0]["json"]["orderAmount"] == "1.0"
+    assert sent[0]["json"]["side"] == "BUY"
+
+
+def test_toss_adapter_has_no_order_queue():
+    """장외 예약 주문 큐는 삭제되었다 — 새 인스턴스가 큐를 보유하지 않는다."""
+    broker = TossBrokerAdapter(client_id="test-client", client_secret="test-secret", account_seq="1")
+    assert not hasattr(broker, "_order_queue")

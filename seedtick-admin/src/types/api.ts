@@ -61,24 +61,7 @@ export interface AutoTradingStatus {
   active_broker: string;
 }
 
-// 4. 대기 중인 예약 주문 (/api/auto-trading/pending-orders)
-export interface PendingOrder {
-  ticker: string;
-  amount_krw: number;
-  amount_usd?: number;
-  reason?: string;
-  created_at: string;
-  status: string;
-  broker?: string;
-  error_message?: string;
-}
-
-export interface PendingOrdersResponse {
-  pending_count: number;
-  orders: PendingOrder[];
-}
-
-// 5. 증권사 브릿지 상태 및 잔고 (/api/bridge/status, /api/bridge/balance)
+// 4. 증권사 브릿지 상태 및 잔고 (/api/bridge/status, /api/bridge/balance)
 export interface BridgeStatus {
   default_broker: string;
   dry_run: boolean;

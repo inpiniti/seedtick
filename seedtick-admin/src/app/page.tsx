@@ -10,7 +10,6 @@ import {
   GuruVoteRow,
   HealthStatus,
   IpStatus,
-  PendingOrder,
   StockCandidate,
   SystemLogItem,
 } from "@/types/api";
@@ -21,7 +20,6 @@ import {
   fetchBridgeStatus,
   fetchHealth,
   fetchIp,
-  fetchPendingOrders,
   fetchScreener,
   resetAiModelRotation,
 } from "@/lib/api-client";
@@ -55,7 +53,6 @@ export default function AdminDashboardPage() {
   const [tradingStatus, setTradingStatus] = useState<AutoTradingStatus | null>(
     null
   );
-  const [pendingOrders, setPendingOrders] = useState<PendingOrder[]>([]);
   const [balance, setBalance] = useState<BrokerBalance | null>(null);
   const [bridgeStatus, setBridgeStatus] = useState<BridgeStatus | null>(null);
 
@@ -73,7 +70,6 @@ export default function AdminDashboardPage() {
         healthRes,
         ipRes,
         tradingRes,
-        pendingRes,
         balanceRes,
         bridgeRes,
         votesRes,
@@ -84,7 +80,6 @@ export default function AdminDashboardPage() {
         fetchHealth().catch(() => null),
         fetchIp().catch(() => null),
         fetchAutoTradingStatus().catch(() => null),
-        fetchPendingOrders().catch(() => ({ pending_count: 0, orders: [] })),
         fetchBridgeBalance().catch(() => null),
         fetchBridgeStatus().catch(() => null),
         fetchGuruVotes(200).catch(() => []),
@@ -96,7 +91,6 @@ export default function AdminDashboardPage() {
       if (healthRes) setHealth(healthRes);
       if (ipRes) setIpInfo(ipRes);
       if (tradingRes) setTradingStatus(tradingRes);
-      if (pendingRes) setPendingOrders(pendingRes.orders || []);
       if (balanceRes) setBalance(balanceRes);
       if (bridgeRes) setBridgeStatus(bridgeRes);
       if (aiModelRes) setAiModel(aiModelRes);
@@ -185,17 +179,6 @@ export default function AdminDashboardPage() {
           >
             <Activity className="w-4 h-4" />
             <span>1. 트레이딩 & 주문 센터</span>
-            {pendingOrders.length > 0 ? (
-              <span
-                className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                  activeTab === "trading"
-                    ? "bg-white text-[#3182f6]"
-                    : "bg-[#fff5e6] text-[#ff9500]"
-                }`}
-              >
-                {pendingOrders.length}
-              </span>
-            ) : null}
           </button>
 
           <button
@@ -257,7 +240,6 @@ export default function AdminDashboardPage() {
             {activeTab === "trading" ? (
               <TradingTab
                 tradingStatus={tradingStatus}
-                pendingOrders={pendingOrders}
                 balance={balance}
                 bridgeStatus={bridgeStatus}
                 onRefresh={loadDashboardData}
@@ -296,14 +278,7 @@ export default function AdminDashboardPage() {
                 : "text-[#8b95a1] hover:text-[#4e5968]"
             }`}
           >
-            <div className="relative">
-              <Activity className="w-5 h-5" />
-              {pendingOrders.length > 0 ? (
-                <span className="absolute -top-1 -right-2 w-3.5 h-3.5 bg-[#f04452] text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                  {pendingOrders.length}
-                </span>
-              ) : null}
-            </div>
+            <Activity className="w-5 h-5" />
             <span className="text-[11px] mt-1 tracking-tight">트레이딩</span>
           </button>
 

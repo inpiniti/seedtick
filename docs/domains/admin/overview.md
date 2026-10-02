@@ -11,7 +11,7 @@
 | 구분 | 모니터링 및 제어 기능 | 연동 대상 |
 | :--- | :--- | :--- |
 | **인프라 관제** | • 서버 아웃바운드 공인 IP 확인 및 원클릭 복사<br>• 서버 헬스체크 (Healthy/Down) 및 환경(Dev/Prod)<br>• 미국 정규장(NYSE/NASDAQ) 개장/휴장 실시간 판별 | `seedtick-analyzer` (`/api/ip`, `/health`) |
-| **자동매매 제어** | • 모의거래(Dry-Run) vs 실거래(Real) 상태 표시<br>• 당일 누적 투자금액 및 일일 한도(10만원) 소진율 게이지<br>• 금일 매수 체결 완료 종목 리스트<br>• 정규장 개장 대기 중인 소수점 예약 주문 목록 및 **즉시 수동 발주** | `seedtick-analyzer` (`/api/auto-trading/*`, `/api/bridge/*`) |
+| **자동매매 제어** | • 모의거래(Dry-Run) vs 실거래(Real) 상태 표시<br>• 당일 누적 투자금액 및 일일 한도(10만원) 소진율 게이지<br>• 금일 매수 체결 완료 종목 리스트<br>• 장외 시간 발주 차단 (정규장 개장 시간에만 그리드 자동매매) | `seedtick-analyzer` (`/api/auto-trading/*`, `/api/bridge/*`) |
 | **파이프라인 제어** | • 12:00 KST 정기 배치 외 **수동 즉시 파이프라인 트리거** (`dry_run`, `force` 옵션) | `seedtick-analyzer` (`/api/scheduler/trigger`) |
 | **스크리너 & 거장 표결** | • 토스 13인 공통 필터 실시간 스크리닝 종목 조회<br>• 일자별 13인 거장 표결 점수 랭킹 매트릭스 (g0~g13) | Supabase `guru_votes`, Analyzer (`/api/screener/run`) |
 | **투자 보고서 뷰어** | • 종목별 5단계 심층 리포트 (데이터팩 + 13인 요약 + 원탁 토론 + 마스터 리포트) 마크다운 열람 | Supabase `guru_reports` |
