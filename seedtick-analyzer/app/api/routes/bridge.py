@@ -6,6 +6,7 @@ from fastapi import APIRouter, Query
 from app.config.constants import DEFAULT_ORDER_AMOUNT_KRW, MAX_DAILY_INVESTMENT_KRW
 from app.config.settings import settings
 from app.domains.bridge.factory import get_broker_adapter
+from app.domains.bridge.toss_ip_guard import toss_ip_guard
 from app.domains.auto_trading.service import AutoTradingService
 
 logger = logging.getLogger("bridge_route")
@@ -24,6 +25,7 @@ async def get_bridge_status():
     return {
         "default_broker": settings.DEFAULT_BROKER,
         "dry_run": settings.DRY_RUN,
+        "toss_ip": toss_ip_guard.snapshot(),
         "configured_adapters": {
             "mock": True,
             "toss": bool(settings.TOSS_CLIENT_ID and settings.TOSS_CLIENT_SECRET),
@@ -110,6 +112,44 @@ async def get_bridge_balance(
             "error": str(e),
             "hint": "API 키 설정 또는 토스/한투 개발자 콘솔 허용 IP 등록 여부를 확인하세요.",
         }
+
+
+@router.get("/bridge/toss-ip", summary="토스 허용 IP 차단 상태 조회")
+async def get_toss_ip_status():
+    """
+    토스 Open API 허용 IP 미등록(403)으로 호출이 차단된 상태인지 조회합니다.
+    차단 중이면 관리 화면에서 안내 배너를 표시하고, IP 등록 후 다시 연결할 수 있어요.
+    """
+    return toss_ip_guard.snapshot()
+
+
+@router.post("/bridge/toss-ip/retry", summary="토스 허용 IP 등록 후 연결 재시도")
+async def retry_toss_ip_connection():
+    """
+    사용자가 토스 WTS에 서버 IP를 등록한 뒤 호출합니다.
+    차단 상태와 무관하게 1회 실제 프로브를 보내고, 성공하면 차단을 풀어
+    정상 동작(WebSocket 포함)을 재개합니다. 다시 403이면 재차단됩니다.
+    """
+    broker = get_broker_adapter("toss")
+    if not hasattr(broker, "probe_connection"):
+        return {
+            "success": False,
+            "blocked": toss_ip_guard.is_blocked,
+            "message": "토스 브로커가 설정되어 있지 않아 연결을 확인할 수 없어요.",
+        }
+
+    # 프로브는 가드를 우회해 1회 실제 요청을 보낸다 (실패 시 내부에서 재차단).
+    ok, message = await broker.probe_connection()
+    if ok:
+        toss_ip_guard.clear()
+        logger.info("[bridge] 토스 허용 IP 연결 재시도 성공 — 정상 동작 재개")
+        return {"success": True, "blocked": False, "message": message}
+
+    return {
+        "success": False,
+        "blocked": toss_ip_guard.is_blocked,
+        "message": message,
+    }
 
 
 @router.get("/auto-trading/status", summary="오토트레이딩 상태 및 금일 주문 현황 조회")

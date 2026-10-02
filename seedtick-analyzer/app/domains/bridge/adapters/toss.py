@@ -15,6 +15,7 @@ import httpx
 from app.config.settings import settings
 from app.domains.bridge.interface import IBrokerAdapter
 from app.domains.bridge.models import BrokerBalance, BrokerOrder, OrderResult
+from app.domains.bridge.toss_ip_guard import toss_ip_guard
 
 logger = logging.getLogger("toss_broker")
 
@@ -111,13 +112,17 @@ class TossBrokerAdapter(IBrokerAdapter):
         except Exception:
             pass
 
-    async def _get_access_token(self, force: bool = False) -> str:
+    async def _get_access_token(self, force: bool = False, bypass_ip_guard: bool = False) -> str:
         """
         POST /oauth2/token
         주의: client당 유효 토큰은 1개(신규 발급 시 이전 토큰 즉시 무효).
         토큰을 계좌 단위 전역 상태로 공유하여, 여러 어댑터 인스턴스가
         서로의 토큰을 상쇄(token-revoked)하는 루프를 방지한다.
         """
+        # 허용 IP 차단 상태에서는 네트워크를 두드리지 않는다 (프로브는 bypass).
+        if not bypass_ip_guard:
+            toss_ip_guard.ensure_allowed()
+
         st = self._token_state
         async with st.lock():
             # 1. 인메모리 유효성 검사
@@ -158,9 +163,9 @@ class TossBrokerAdapter(IBrokerAdapter):
             async with httpx.AsyncClient(timeout=15.0) as client:
                 res = await client.post(url, data=data, headers=headers)
                 if res.status_code == 403:
-                    raise PermissionError(
-                        "토스 API 403 Forbidden: WTS 설정 > Open API > 허용 IP에 현재 IP를 등록해야 합니다."
-                    )
+                    msg = "토스 API 403 Forbidden: WTS 설정 > Open API > 허용 IP에 현재 IP를 등록해야 합니다."
+                    toss_ip_guard.mark_blocked(msg)
+                    raise PermissionError(msg)
                 if res.status_code == 401:
                     raise PermissionError(f"토스 API 401 Unauthorized: client_id/secret 오류: {res.text}")
                 res.raise_for_status()
@@ -234,10 +239,17 @@ class TossBrokerAdapter(IBrokerAdapter):
         json: dict | None = None,
         params: dict | None = None,
         with_account_header: bool = True,
+        bypass_ip_guard: bool = False,
     ) -> dict | list:
         """공통 요청 처리: 429 지수 백오프, 401 토큰 1회 재발급"""
+        # 허용 IP 차단 상태면 네트워크 호출 없이 즉시 단락 (프로브는 bypass).
+        if not bypass_ip_guard:
+            toss_ip_guard.ensure_allowed()
+
         for attempt in range(1, 4):
-            token = await self._get_access_token(force=(attempt > 1))
+            token = await self._get_access_token(
+                force=(attempt > 1), bypass_ip_guard=bypass_ip_guard
+            )
             headers = {
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json",
@@ -273,6 +285,7 @@ class TossBrokerAdapter(IBrokerAdapter):
                         "토스 WTS/Open API 설정에서 현재 서버의 외부 공인 IP를 등록해주세요."
                     )
                     logger.error(f"[TossBroker] {msg}")
+                    toss_ip_guard.mark_blocked(msg)
                     raise PermissionError(msg)
 
                 raise RuntimeError(f"토스 API 호출 실패 ({res.status_code}): {res.text}")
@@ -381,6 +394,10 @@ class TossBrokerAdapter(IBrokerAdapter):
 
     async def is_us_market_open(self) -> bool:
         """현재 시각이 미국 정규장(regularMarket) 거래 시간인지 확인"""
+        # 허용 IP 차단 상태에서는 API를 두드리지 않고 KST 시간 기반으로만 판정한다.
+        if toss_ip_guard.is_blocked:
+            return self._fallback_market_open()
+
         try:
             cal = await self._request("GET", "/api/v1/market-calendar/US", with_account_header=False)
             if isinstance(cal, dict):
@@ -397,13 +414,35 @@ class TossBrokerAdapter(IBrokerAdapter):
         except Exception as e:
             logger.warning(f"[TossBroker] 장 운영시간 조회 실패({e}) -> KST 시간 기반 판정")
 
-        # 폴백: 평일 KST 22:30 ~ 익일 06:00
+        return self._fallback_market_open()
+
+    def _fallback_market_open(self) -> bool:
+        """폴백: 평일 KST 22:30 ~ 익일 06:00"""
         now_kst = datetime.now(timezone(timedelta(hours=9)))
         if now_kst.weekday() >= 5:  # 토, 일 주말
             return False
         if (now_kst.hour == 22 and now_kst.minute >= 30) or (now_kst.hour >= 23) or (now_kst.hour < 6):
             return True
         return False
+
+    async def probe_connection(self) -> tuple[bool, str]:
+        """허용 IP 등록 여부 확인용 경량 프로브.
+
+        차단 상태와 무관하게 1회 실제 요청을 보낸다(bypass). 403이면 가드가
+        자동으로 재차단하며, 성공하면 호출 측이 `clear()` 로 정상 동작을 재개한다.
+        """
+        try:
+            await self._request(
+                "GET",
+                "/api/v1/market-calendar/US",
+                with_account_header=False,
+                bypass_ip_guard=True,
+            )
+            return True, "토스 API 연결에 성공했어요."
+        except PermissionError as e:
+            return False, str(e)
+        except Exception as e:
+            return False, f"토스 API 연결을 확인하지 못했어요: {e}"
 
     async def place_order(self, order: BrokerOrder) -> OrderResult:
         """

@@ -70,6 +70,15 @@ export interface BridgeStatus {
     toss: boolean;
     kis: boolean;
   };
+  toss_ip?: TossIpStatus;
+}
+
+// 4-1. 토스 허용 IP 차단 상태 (/api/bridge/toss-ip)
+export interface TossIpStatus {
+  blocked: boolean;
+  blocked_at: number | null;
+  reason: string | null;
+  block_count: number;
 }
 
 export interface BrokerPosition {
