@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { GuruReportRow, GuruVoteRow, StockCandidate, ValuationConsensus } from "@/types/api";
+import { GuruReportRow, GuruVoteRow, PipelineProgress, StockCandidate, ValuationConsensus } from "@/types/api";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -11,6 +11,7 @@ import { MarkdownViewer } from "@/components/ui/MarkdownViewer";
 import { ReportSummariesView } from "@/components/tabs/ReportSummariesView";
 import { ReportDatapackView } from "@/components/tabs/ReportDatapackView";
 import { StockChartView } from "@/components/tabs/StockChartView";
+import { PipelineProgressCard } from "@/components/tabs/PipelineProgressCard";
 import { getScoreBadge, formatTime } from "@/lib/utils";
 import {
   FileText,
@@ -88,6 +89,7 @@ interface ScreenerTabProps {
   guruReports: GuruReportRow[];
   liveCandidates: StockCandidate[];
   isLoading: boolean;
+  pipelineProgress: PipelineProgress | null;
   onRefreshLive: () => void;
 }
 
@@ -113,6 +115,7 @@ export function ScreenerTab({
   guruReports,
   liveCandidates,
   isLoading,
+  pipelineProgress,
   onRefreshLive,
 }: ScreenerTabProps) {
   const [activeSubTab, setActiveSubTab] = useState<"votes" | "live" | "reports">("votes");
@@ -293,6 +296,11 @@ export function ScreenerTab({
 
   return (
     <div className="space-y-5">
+      {/* 13인 거장 파이프라인 실시간 진행 상황 */}
+      {pipelineProgress && pipelineProgress.status !== "idle" ? (
+        <PipelineProgressCard progress={pipelineProgress} />
+      ) : null}
+
       {/* 서브 탭 & 검색 바 */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-1 p-1 bg-[#f2f4f6] rounded-2xl w-full sm:w-fit overflow-x-auto">

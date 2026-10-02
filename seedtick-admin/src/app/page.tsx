@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   AiModelStatus,
   AutoTradingStatus,
@@ -28,6 +28,7 @@ import {
   fetchGuruVotes,
   fetchSystemLogs,
 } from "@/lib/supabase";
+import { usePipelineProgress } from "@/hooks/usePipelineProgress";
 import { LiveStatusBar } from "@/components/header/LiveStatusBar";
 import { TradingTab } from "@/components/tabs/TradingTab";
 import { ScreenerTab } from "@/components/tabs/ScreenerTab";
@@ -61,6 +62,10 @@ export default function AdminDashboardPage() {
   const [guruReports, setGuruReports] = useState<GuruReportRow[]>([]);
   const [systemLogs, setSystemLogs] = useState<SystemLogItem[]>([]);
   const [liveCandidates, setLiveCandidates] = useState<StockCandidate[]>([]);
+
+  // 13인 거장 파이프라인 진행 상태 (전역 1회 폴링)
+  const { progress: pipelineProgress, refresh: refreshPipelineProgress } =
+    usePipelineProgress();
 
   // 1. 전체 데이터 병렬 로드 (Vercel Best Practice: async-parallel)
   const loadDashboardData = useCallback(async () => {
@@ -144,6 +149,17 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     loadDashboardData();
   }, [loadDashboardData]);
+
+  // 파이프라인 완료/실패 시 리포트·표결 목록을 자동으로 다시 불러온다 (Q4)
+  const prevPipelineStatus = useRef<string | null>(null);
+  useEffect(() => {
+    const status = pipelineProgress?.status ?? null;
+    const prev = prevPipelineStatus.current;
+    prevPipelineStatus.current = status;
+    if (prev === "running" && (status === "completed" || status === "failed")) {
+      loadDashboardData();
+    }
+  }, [pipelineProgress?.status, loadDashboardData]);
 
   // 스크리너 탭 진입 시 실시간 데이터가 없으면 자동 페칭
   useEffect(() => {
@@ -242,7 +258,9 @@ export default function AdminDashboardPage() {
                 tradingStatus={tradingStatus}
                 balance={balance}
                 bridgeStatus={bridgeStatus}
+                pipelineProgress={pipelineProgress}
                 onRefresh={loadDashboardData}
+                onRefreshPipeline={refreshPipelineProgress}
               />
             ) : null}
 
@@ -252,6 +270,7 @@ export default function AdminDashboardPage() {
                 guruReports={guruReports}
                 liveCandidates={liveCandidates}
                 isLoading={isScreenerLoading}
+                pipelineProgress={pipelineProgress}
                 onRefreshLive={loadLiveScreener}
               />
             ) : null}
