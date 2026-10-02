@@ -133,6 +133,117 @@ async def test_realtime_sell_trigger_finish_when_no_qty(grid_service, fake_repo,
 
 
 @pytest.mark.asyncio
+async def test_realtime_sell_capped_at_holdings(grid_service, fake_repo, mock_broker):
+    """1-3. 1,000원치 수량이 보유 수량보다 크면 보유 수량으로만 매도한다(초과 매도 방지)."""
+    # 보유 0.0007주 (약 500원어치) — 1,000원치 매도가 보유를 초과하는 상황
+    mock_broker.positions["NVDA"] = 0.0007
+    item = GridTradeItem(
+        ticker="NVDA",
+        initial_price=100.0,
+        gap=3.0,
+        last_trade_price=100.0,
+        holdings_qty=0.0007,
+        status="ACTIVE",
+    )
+    fake_repo.save_grid_trade(item)
+
+    # 103.0 (+3.0 갭 도달)
+    await grid_service.on_realtime_tick("NVDA", 103.0)
+
+    # 발주된 매도 수량은 보유 수량을 초과하지 않는다
+    sell_orders = [o for o in mock_broker.order_history if o.action == "SELL"]
+    assert len(sell_orders) == 1
+    assert sell_orders[0].quantity is not None
+    assert sell_orders[0].quantity <= 0.0007
+
+    # 전량 매도되어 종료 처리
+    updated = fake_repo.items["NVDA"]
+    assert updated["holdings_qty"] == 0.0
+    assert updated["status"] == "FINISHED"
+    assert updated["total_sell_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_realtime_sell_partial_leaves_remainder(grid_service, fake_repo, mock_broker):
+    """1-1. 보유 수량이 충분하면 1,000원치만 매도하고 잔여 수량을 유지한다."""
+    mock_broker.positions["NVDA"] = 1.0
+    item = GridTradeItem(
+        ticker="NVDA",
+        initial_price=100.0,
+        gap=3.0,
+        last_trade_price=100.0,
+        holdings_qty=1.0,
+        status="ACTIVE",
+    )
+    fake_repo.save_grid_trade(item)
+
+    await grid_service.on_realtime_tick("NVDA", 103.0)
+
+    sell_orders = [o for o in mock_broker.order_history if o.action == "SELL"]
+    assert len(sell_orders) == 1
+    # 1,000원 / 1,000원fx / $103 = 약 0.0097주
+    assert sell_orders[0].quantity == pytest.approx(0.0097, abs=1e-4)
+
+    updated = fake_repo.items["NVDA"]
+    assert updated["status"] == "ACTIVE"
+    assert updated["holdings_qty"] == pytest.approx(0.9903, abs=1e-3)
+    assert updated["last_trade_price"] == 103.0
+
+
+@pytest.mark.asyncio
+async def test_no_order_when_market_closed(grid_service, fake_repo, mock_broker):
+    """장외 시간에는 갭이 도달해도 발주하지 않는다(감지만 유지)."""
+    mock_broker.is_us_market_open = AsyncMock(return_value=False)
+    item = GridTradeItem(
+        ticker="NVDA",
+        initial_price=100.0,
+        gap=3.0,
+        last_trade_price=100.0,
+        holdings_qty=1.0,
+        status="ACTIVE",
+    )
+    fake_repo.save_grid_trade(item)
+
+    # 익절 갭 도달 (매도 트리거)
+    await grid_service.on_realtime_tick("NVDA", 103.0)
+    # 하락 갭 도달 (매수 트리거)
+    await grid_service.on_realtime_tick("NVDA", 97.0)
+
+    assert mock_broker.order_history == []
+    updated = fake_repo.items["NVDA"]
+    assert updated["status"] == "ACTIVE"
+    assert updated["last_trade_price"] == 100.0
+    assert updated["total_sell_count"] == 0
+    assert updated["total_buy_count"] == 1  # 초기 수동 매수 1회
+
+
+@pytest.mark.asyncio
+async def test_market_status_check_is_cached(grid_service, fake_repo, mock_broker):
+    """장외 틱이 반복돼도 정규장 여부 조회는 TTL 캐시로 재사용된다."""
+    mock_broker.is_us_market_open = AsyncMock(return_value=True)
+    item = GridTradeItem(
+        ticker="NVDA",
+        initial_price=100.0,
+        gap=3.0,
+        last_trade_price=100.0,
+        holdings_qty=100.0,
+        status="ACTIVE",
+    )
+    fake_repo.save_grid_trade(item)
+
+    for _ in range(5):
+        # 트리거가 아니어서 market check까지 도달하지 않아야 한다
+        await grid_service.on_realtime_tick("NVDA", 101.0)
+
+    mock_broker.is_us_market_open.assert_not_called()
+
+    # 갭 도달 시 1회만 조회
+    await grid_service.on_realtime_tick("NVDA", 103.0)
+    await grid_service.on_realtime_tick("NVDA", 106.0)
+    assert mock_broker.is_us_market_open.call_count == 1
+
+
+@pytest.mark.asyncio
 async def test_realtime_buy_trigger(grid_service, fake_repo, mock_broker):
     """2. 현재가가 마지막매매주가 - 갭 이하인 경우 매수 발주 및 마지막매수주가 수정"""
     item = GridTradeItem(

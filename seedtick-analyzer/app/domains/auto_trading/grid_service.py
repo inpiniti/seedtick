@@ -3,6 +3,7 @@ GridTradingService: 고정 갭(3%) 실시간 무한 분할 매매 서비스
 """
 import asyncio
 import logging
+import time
 from typing import Any
 from app.config.settings import settings
 from app.domains.auto_trading.grid_models import GridTradeItem
@@ -13,6 +14,9 @@ from app.domains.bridge.models import BrokerOrder
 from app.infrastructure.supabase_repo import supabase_repo
 
 logger = logging.getLogger("grid_trading_service")
+
+# 정규장 여부는 짧은 시간 캐시한다 — 장외 틱마다 캘린더 API를 다시 두드리지 않도록.
+_MARKET_STATUS_TTL_SEC = 60.0
 
 
 class GridTradingService:
@@ -25,6 +29,28 @@ class GridTradingService:
         self.repo = repo or supabase_repo
         self._ticker_locks: dict[str, asyncio.Lock] = {}
         self._ws_subscriber = None  # 토스 WebSocket 연동 시 바인딩
+        self._market_open_cache: bool | None = None
+        self._market_open_cached_at: float = 0.0
+
+    async def _is_market_open_cached(self) -> bool:
+        """정규장 운영 여부를 TTL 캐시로 조회 (장외 틱 폭주 시 API 호출 방지)"""
+        now = time.monotonic()
+        if (
+            self._market_open_cache is not None
+            and now - self._market_open_cached_at < _MARKET_STATUS_TTL_SEC
+        ):
+            return self._market_open_cache
+
+        try:
+            is_open = await self.broker.is_us_market_open()
+        except Exception as e:
+            # 판정 실패 시에는 발주하지 않는 쪽이 안전하므로 장외로 간주한다.
+            logger.warning(f"[GridTrading] 정규장 여부 판정 실패 ({e}) -> 발주 보류(장외 간주)")
+            is_open = False
+
+        self._market_open_cache = is_open
+        self._market_open_cached_at = now
+        return is_open
 
     def _get_lock(self, ticker: str) -> asyncio.Lock:
         sym = ticker.upper()
@@ -104,8 +130,10 @@ class GridTradingService:
     async def on_realtime_tick(self, ticker: str, current_price: float) -> None:
         """
         실시간 체결가 수신 시 관리 화면 실시간 현재가 방송 및 갭 판정/자동 매수·매도 실행
-        1. 현재가 >= 마지막매매가 + 갭: 1,000원치 매도
-        2. 현재가 <= 마지막매매가 - 갭: 1,000원치 매수
+        1. 현재가 >= 마지막매매가 + 갭: 매도
+        2. 현재가 <= 마지막매매가 - 갭: 매수
+
+        장외 시간에도 갭 판정(감지)은 계속되나 발주는 시도하지 않는다.
         """
         sym = ticker.upper()
         # 관리 화면(SSE) 구독자 대상 실시간 현재가 방송.
@@ -128,8 +156,24 @@ class GridTradingService:
             last_price = target_item.last_trade_price
             gap = target_item.gap
 
+            sell_triggered = current_price >= round(last_price + gap, 4)
+            buy_triggered = current_price <= round(last_price - gap, 4)
+            if not sell_triggered and not buy_triggered:
+                return
+
+            # 2. 장외 시간이면 갭 감지만 남기고 발주하지 않는다.
+            #    (틱마다 잔고/캘린더 API를 두드리지 않도록 가드)
+            is_open = await self._is_market_open_cached()
+            if not is_open:
+                direction = "매도" if sell_triggered else "매수"
+                logger.debug(
+                    f"[GridTrading] 🌙 장외 시간 — {sym} {direction} 갭 감지됨(현재가 ${current_price:.4f}) "
+                    f"발주 없이 감지만 유지합니다."
+                )
+                return
+
             # ── 1. 매도 트리거 (현재가 >= 마지막매매가 + 갭) ───────────
-            if current_price >= round(last_price + gap, 4):
+            if sell_triggered:
                 logger.info(
                     f"[GridTrading] 📈 {sym} 익절 갭 도달! 현재가 ${current_price:.4f} >= "
                     f"기준 ${last_price:.4f} + 갭 ${gap:.4f}"
@@ -145,19 +189,28 @@ class GridTradingService:
                     self.repo.update_grid_trade(target_item)
                     return
 
-                # 1,000원치 매도 발주
+                # 1,000원치 매도 수량을 산출하되, 보유 수량을 절대 초과하지 않도록 캡한다.
+                fx_rate = await self.broker.get_exchange_rate()
+                sell_qty = round(target_item.order_amount_krw / fx_rate / current_price, 4)
+                sell_qty = min(sell_qty, round(current_holdings, 4))
+
+                if sell_qty <= 0:
+                    logger.info(f"[GridTrading] {sym} 매도 가능 수량 0 -> 즉시 종료(FINISHED) 처리")
+                    target_item.status = "FINISHED"
+                    self.repo.update_grid_trade(target_item)
+                    return
+
+                # 수량 지정 매도 — 보유 초과 주문(브로커 거절 및 반복 실패)을 원천 차단
                 order = BrokerOrder(
                     ticker=sym,
                     action="SELL",
-                    amount_krw=1000,
+                    amount_krw=target_item.order_amount_krw,
+                    quantity=sell_qty,
                     memo=f"grid-sell-{sym}",
                 )
                 res = await self.broker.place_order(order)
                 if res.success:
-                    # 환율 및 매도 수량 계산 (체결 후 잔여 확인)
-                    fx_rate = await self.broker.get_exchange_rate()
-                    sell_qty = round(1000.0 / fx_rate / current_price, 4)
-                    rem_qty = max(0.0, current_holdings - sell_qty)
+                    rem_qty = max(0.0, round(current_holdings - sell_qty, 4))
 
                     target_item.total_sell_count += 1
                     target_item.holdings_qty = rem_qty
@@ -170,7 +223,8 @@ class GridTradingService:
                         # 1-1. 남은 수량이 있는 경우 마지막 매매주가 수정
                         target_item.last_trade_price = current_price
                         logger.info(
-                            f"[GridTrading] {sym} 분할 매도 완료 -> 마지막매매가 갱신: ${current_price:.4f} (잔여: {rem_qty:.4f})"
+                            f"[GridTrading] {sym} 분할 매도 완료 ({sell_qty:.4f}주) -> "
+                            f"마지막매매가 갱신: ${current_price:.4f} (잔여: {rem_qty:.4f})"
                         )
 
                     self.repo.update_grid_trade(target_item)
@@ -178,7 +232,7 @@ class GridTradingService:
                     logger.error(f"[GridTrading] {sym} 매도 주문 실패: {res.error_message}")
 
             # ── 2. 매수 트리거 (현재가 <= 마지막매매가 - 갭) ───────────
-            elif current_price <= round(last_price - gap, 4):
+            elif buy_triggered:
                 logger.info(
                     f"[GridTrading] 📉 {sym} 하락 갭 도달! 현재가 ${current_price:.4f} <= "
                     f"기준 ${last_price:.4f} - 갭 ${gap:.4f}"
@@ -187,13 +241,13 @@ class GridTradingService:
                 order = BrokerOrder(
                     ticker=sym,
                     action="BUY",
-                    amount_krw=1000,
+                    amount_krw=target_item.order_amount_krw,
                     memo=f"grid-buy-{sym}",
                 )
                 res = await self.broker.place_order(order)
                 if res.success:
                     fx_rate = await self.broker.get_exchange_rate()
-                    buy_qty = round(1000.0 / fx_rate / current_price, 4)
+                    buy_qty = round(target_item.order_amount_krw / fx_rate / current_price, 4)
 
                     target_item.total_buy_count += 1
                     target_item.holdings_qty += buy_qty

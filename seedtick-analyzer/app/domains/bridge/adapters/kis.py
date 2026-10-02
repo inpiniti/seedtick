@@ -157,18 +157,39 @@ class KisBrokerAdapter(IBrokerAdapter):
             return float(data.get("output", {}).get("last", 0.0))
 
     async def place_order(self, order: BrokerOrder) -> OrderResult:
-        """해외주식 매수 주문 (TR: TTTT1002U)"""
+        """
+        해외주식 주문 (매수 TR: TTTT1002U / 매도 TR: TTTT1005U)
+
+        - quantity가 지정되면 그 수량만큼, 아니면 amount_krw를 달러로 환산해 발주한다.
+        - 한국투자 해외주식은 정수 수량만 지원하므로 소수점은 내림 처리한다.
+        """
         try:
             token = await self._get_access_token()
             quote = await self.get_quote(order.ticker)
-            usd_val = order.amount_krw / 1380.0
-            qty = max(1, int(usd_val / quote)) if quote > 0 else 1
+
+            if order.quantity is not None:
+                qty = int(order.quantity)  # 정수 수량만 지원
+            else:
+                usd_val = order.amount_krw / 1380.0
+                qty = max(1, int(usd_val / quote)) if quote > 0 else 1
+
+            if qty <= 0:
+                return OrderResult(
+                    success=False,
+                    ticker=order.ticker,
+                    action=order.action,
+                    amount_krw=order.amount_krw,
+                    error_message=f"발주 가능한 최소 수량(1주)에 미달합니다. ({order.ticker})",
+                )
+
+            # 매도 주문은 별도 TR ID를 사용한다 (매수 TR로 매도하면 안 된다)
+            tr_id = "TTTT1002U" if order.action == "BUY" else "TTTT1005U"
 
             headers = {
                 "authorization": f"Bearer {token}",
                 "appkey": self.app_key,
                 "appsecret": self.app_secret,
-                "tr_id": "TTTT1002U",  # 미국 매수 주문
+                "tr_id": tr_id,
             }
             payload = {
                 "CANO": self.cano,

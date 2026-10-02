@@ -448,6 +448,8 @@ class TossBrokerAdapter(IBrokerAdapter):
         """
         주문 발주 (POST /api/v1/orders)
         - 미국 주식 소수점 시장가 매수(orderAmount) 지원
+        - 미국 주식 소수점 시장가 매도(quantity) 지원
+          (orderAmount는 US MARKET 매수 전용이므로, 매도는 보유 수량을 넘지 않도록 quantity로 보낸다)
         - 정규장(regularMarket) 외 시간에는 발주하지 않고 실패로 반환한다.
           예약 큐 등록은 더 이상 하지 않으므로 장외 체결가는 어떤 주문으로도 이어지지 않는다.
         """
@@ -468,25 +470,42 @@ class TossBrokerAdapter(IBrokerAdapter):
                     error_message="미국 정규장(regularMarket) 시간에만 주문이 접수됩니다.",
                 )
 
-            # 2. 환율 및 주문 달러 금액 계산
-            fx_rate = await self.get_exchange_rate()
-            usd_amount = round(order.amount_krw / fx_rate, 2)
-            if usd_amount < 1.0:
-                usd_amount = 1.0  # 토스 최소 금액 안전 하한선
-
-            # 3. 소수점 시장가 즉시 발주 (orderAmount)
+            # 2. 주문 방식 분기: 수량 지정(quantity) vs 금액 지정(orderAmount)
             payload = {
                 "symbol": order.ticker.upper(),
-                "side": order.action.upper(),  # BUY
+                "side": order.action.upper(),  # BUY / SELL
                 "orderType": "MARKET",
-                "orderAmount": str(usd_amount),
                 "clientOrderId": client_order_id,
             }
 
+            if order.quantity is not None:
+                # 수량 지정 발주 (매도 시 보유 초과 주문 방지 경로)
+                qty = round(order.quantity, 4)
+                if qty <= 0:
+                    return OrderResult(
+                        success=False,
+                        ticker=order.ticker,
+                        action=order.action,
+                        amount_krw=order.amount_krw,
+                        error_message="주문 수량이 0 이하입니다.",
+                    )
+                payload["quantity"] = str(qty)
+                order_desc = f"{qty}주"
+            else:
+                # 금액 지정 발주
+                fx_rate = await self.get_exchange_rate()
+                usd_amount = round(order.amount_krw / fx_rate, 2)
+                if usd_amount < 1.0:
+                    usd_amount = 1.0  # 토스 최소 금액 안전 하한선
+                payload["orderAmount"] = str(usd_amount)
+                order_desc = f"${usd_amount} ({order.amount_krw:,}원)"
+
+            # 3. 소수점 시장가 즉시 발주
             res = await self._request("POST", "/api/v1/orders", json=payload)
             order_id = res.get("orderId") if isinstance(res, dict) else str(res)
             logger.info(
-                f"[TossBroker] 🚀 정규장 소수점 시장가 발주 성공: {order.ticker} ${usd_amount} ({order.amount_krw:,}원) (주문ID: {order_id})"
+                f"[TossBroker] 🚀 정규장 소수점 시장가 발주 성공: {order.ticker} {order.action} "
+                f"{order_desc} (주문ID: {order_id})"
             )
 
             return OrderResult(
