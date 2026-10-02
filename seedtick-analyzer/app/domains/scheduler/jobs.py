@@ -7,6 +7,7 @@ from datetime import date as dt_date
 from pathlib import Path
 from app.config.settings import settings
 from app.domains.error_log.notifiers.discord import DiscordNotifier
+from app.domains.report.pipeline_progress import pipeline_progress
 from app.domains.report.service import GuruReportService
 from app.domains.scheduler.market_guard import MarketCalendarGuard
 from app.domains.screener.service import ScreenerService
@@ -24,7 +25,10 @@ async def daily_pipeline_job(
     skip_already_reported: bool = True,
 ) -> dict:
     """
-    일일 스크리닝 → 13인 분석 → 자동매매 파이프라인 전체 실행
+    일일 스크리닝 → 13인 분석 파이프라인 전체 실행 래퍼.
+
+    - 중복 실행 락을 획득한 뒤 메모리 진행 추적기(pipeline_progress)를 "실행중"으로 등록합니다.
+    - 관리자 화면은 GET /api/scheduler/progress 를 폴링하여 실시간 진행률을 표시합니다.
     - skip_already_reported: True인 경우 오늘 이미 guru_reports에 등록된 종목은 제외하고 분석
     """
     if _pipeline_lock.locked():
@@ -32,92 +36,128 @@ async def daily_pipeline_job(
         return {"status": "skipped", "reason": "already_running"}
 
     async with _pipeline_lock:
-        today = dt_date.today()
-        today_str = today.isoformat()
-        logger.info(f"========== [SeedTick 일일 파이프라인 시작: {today_str}] ==========")
-
-        market_guard = MarketCalendarGuard()
-        notifier = DiscordNotifier()
-
-        # ── 1. 휴장일 및 주말 가드 검사 ──────────────────────
-        is_open, reason = market_guard.is_market_open(today)
-        if not is_open and not force:
-            logger.info(f"[Scheduler] 파이프라인 스킵 사유: {reason}")
-            await notifier.notify_holiday_skip(reason)
-            return {"status": "skipped", "reason": reason}
-
-        if force:
-            logger.info("[Scheduler] force=True 플래그로 인해 휴장일 가드를 우회하여 강제 실행합니다.")
-
-        # ── 2. 스크리너 실행 (토스 공통/해외 200) ──────────────
-        screener_service = ScreenerService()
-        screen_result = await screener_service.get_stock_list()
-        logger.info(f"[Scheduler] 스크리닝 통과 종목: 총 {screen_result.count}개")
-
-        # 분석 대상 종목 선정 (기본 0 또는 None이면 전체 무제한 정밀 분석)
-        limit = max_analyze_count if max_analyze_count is not None else settings.MAX_ANALYZE_COUNT
-        if limit and limit > 0:
-            target_tickers = [item.ticker for item in screen_result.tickers[:limit]]
-            logger.info(f"[Scheduler] 정밀 분석 대상 상위 종목 ({len(target_tickers)}/{screen_result.count}개): {target_tickers}")
-        else:
-            target_tickers = [item.ticker for item in screen_result.tickers]
-            logger.info(f"[Scheduler] 정밀 분석 대상 전체 종목 (무제한 {len(target_tickers)}개): {target_tickers}")
-
-        # ── 2-1. 오늘 이미 리포트 등록된 종목 제외 ─────────────────
-        skipped_tickers: list[str] = []
-        if skip_already_reported:
-            already_reported = supabase_repo.get_reported_tickers_for_date(today_str)
-            # 로컬 파일 시스템 마크다운 보고서 보조 확인
-            local_report_dir = Path("docs/report") / today_str / "최종"
-            if local_report_dir.exists():
-                for f in local_report_dir.glob("*_최종보고서.md"):
-                    already_reported.add(f.name.replace("_최종보고서.md", "").upper().strip())
-
-            remaining_tickers = [t for t in target_tickers if t.upper().strip() not in already_reported]
-            skipped_tickers = [t for t in target_tickers if t.upper().strip() in already_reported]
-            if skipped_tickers:
-                logger.info(
-                    f"[Scheduler] 오늘({today_str}) 이미 리포트가 등록된 {len(skipped_tickers)}개 종목 제외: {skipped_tickers}"
-                )
-            target_tickers = remaining_tickers
-            logger.info(f"[Scheduler] 제외 후 최종 분석 대상 종목 ({len(target_tickers)}개): {target_tickers}")
-
-        # ── 3. 종목별 5단계 Guru-Report 실행 ──────────────────
-        report_service = GuruReportService()
-        generated_reports = []
-        ticker_screeners_map = {item.ticker: item.screeners for item in screen_result.tickers}
-
-        for ticker in target_tickers:
-            try:
-                screeners = ticker_screeners_map.get(ticker)
-                report = await report_service.generate_full_report(
-                    ticker, today_str, screeners=screeners
-                )
-                generated_reports.append(report)
-            except Exception as e:
-                logger.error(f"[Scheduler] {ticker} 분석 리포트 실패: {e}")
-
-        # ── 4. 자동매매 주문 실행 (기존 리포트 자동매매 폐기: 수동 등록 기반 그리드로 전환됨) ──
-        logger.info("[Scheduler] 기존 리포트 자동매매는 폐기되었습니다. (그리드 수동 등록 체계 운용)")
-
-        # ── 5. Discord 결과 알림 ──────────────────────────────
-        await notifier.notify_pipeline_summary(
-            date_str=today_str,
-            screened_count=screen_result.count,
-            reported_count=len(generated_reports),
-            orders=[],
+        today_str = dt_date.today().isoformat()
+        pipeline_progress.start(date=today_str, triggered_by="manual")
+        try:
+            result = await _run_daily_pipeline(
+                dry_run=dry_run,
+                force=force,
+                max_analyze_count=max_analyze_count,
+                skip_already_reported=skip_already_reported,
+            )
+        except Exception as e:
+            logger.exception(f"[Scheduler] 일일 파이프라인 예외 발생: {e}")
+            pipeline_progress.finish("failed", error=str(e))
+            raise
+        pipeline_progress.finish(
+            "completed" if result.get("status") == "success" else "skipped",
+            summary=result,
         )
+        return result
 
-        logger.info("========== [SeedTick 일일 파이프라인 정상 완료] ==========")
-        return {
-            "status": "success",
-            "date": today_str,
-            "screened_count": screen_result.count,
-            "reported_count": len(generated_reports),
-            "skipped_already_reported_count": len(skipped_tickers),
-            "skipped_already_reported_tickers": skipped_tickers,
-            "orders_count": 0,
-        }
+
+async def _run_daily_pipeline(
+    dry_run: bool | None = None,
+    force: bool = False,
+    max_analyze_count: int | None = None,
+    skip_already_reported: bool = True,
+) -> dict:
+    today = dt_date.today()
+    today_str = today.isoformat()
+    logger.info(f"========== [SeedTick 일일 파이프라인 시작: {today_str}] ==========")
+
+    market_guard = MarketCalendarGuard()
+    notifier = DiscordNotifier()
+
+    # ── 1. 휴장일 및 주말 가드 검사 ──────────────────────
+    pipeline_progress.set_stage("screening")
+    is_open, reason = market_guard.is_market_open(today)
+    if not is_open and not force:
+        logger.info(f"[Scheduler] 파이프라인 스킵 사유: {reason}")
+        pipeline_progress.log(f"파이프라인 스킵: {reason}")
+        await notifier.notify_holiday_skip(reason)
+        return {"status": "skipped", "reason": reason}
+
+    if force:
+        logger.info("[Scheduler] force=True 플래그로 인해 휴장일 가드를 우회하여 강제 실행합니다.")
+
+    # ── 2. 스크리너 실행 (토스 공통/해외 200) ──────────────
+    screener_service = ScreenerService()
+    screen_result = await screener_service.get_stock_list()
+    logger.info(f"[Scheduler] 스크리닝 통과 종목: 총 {screen_result.count}개")
+
+    # 분석 대상 종목 선정 (기본 0 또는 None이면 전체 무제한 정밀 분석)
+    limit = max_analyze_count if max_analyze_count is not None else settings.MAX_ANALYZE_COUNT
+    if limit and limit > 0:
+        target_tickers = [item.ticker for item in screen_result.tickers[:limit]]
+        logger.info(f"[Scheduler] 정밀 분석 대상 상위 종목 ({len(target_tickers)}/{screen_result.count}개): {target_tickers}")
+    else:
+        target_tickers = [item.ticker for item in screen_result.tickers]
+        logger.info(f"[Scheduler] 정밀 분석 대상 전체 종목 (무제한 {len(target_tickers)}개): {target_tickers}")
+
+    # ── 2-1. 오늘 이미 리포트 등록된 종목 제외 ─────────────────
+    skipped_tickers: list[str] = []
+    if skip_already_reported:
+        already_reported = supabase_repo.get_reported_tickers_for_date(today_str)
+        # 로컬 파일 시스템 마크다운 보고서 보조 확인
+        local_report_dir = Path("docs/report") / today_str / "최종"
+        if local_report_dir.exists():
+            for f in local_report_dir.glob("*_최종보고서.md"):
+                already_reported.add(f.name.replace("_최종보고서.md", "").upper().strip())
+
+        remaining_tickers = [t for t in target_tickers if t.upper().strip() not in already_reported]
+        skipped_tickers = [t for t in target_tickers if t.upper().strip() in already_reported]
+        if skipped_tickers:
+            logger.info(
+                f"[Scheduler] 오늘({today_str}) 이미 리포트가 등록된 {len(skipped_tickers)}개 종목 제외: {skipped_tickers}"
+            )
+        target_tickers = remaining_tickers
+        logger.info(f"[Scheduler] 제외 후 최종 분석 대상 종목 ({len(target_tickers)}개): {target_tickers}")
+
+    # 진행 추적기에 분석 대상 등록 (화면의 "n/총" 분모가 됨)
+    pipeline_progress.set_targets(target_tickers)
+
+    # ── 3. 종목별 5단계 Guru-Report 실행 ──────────────────
+    report_service = GuruReportService(progress=pipeline_progress)
+    generated_reports = []
+    ticker_screeners_map = {item.ticker: item.screeners for item in screen_result.tickers}
+
+    for ticker in target_tickers:
+        pipeline_progress.begin_ticker(ticker)
+        try:
+            screeners = ticker_screeners_map.get(ticker)
+            report = await report_service.generate_full_report(
+                ticker, today_str, screeners=screeners
+            )
+            generated_reports.append(report)
+            pipeline_progress.complete_ticker(
+                ticker, verdict=report.overall_verdict
+            )
+        except Exception as e:
+            logger.error(f"[Scheduler] {ticker} 분석 리포트 실패: {e}")
+            pipeline_progress.complete_ticker(ticker, failed=True)
+
+    # ── 4. 자동매매 주문 실행 (기존 리포트 자동매매 폐기: 수동 등록 기반 그리드로 전환됨) ──
+    logger.info("[Scheduler] 기존 리포트 자동매매는 폐기되었습니다. (그리드 수동 등록 체계 운용)")
+
+    # ── 5. Discord 결과 알림 ──────────────────────────────
+    await notifier.notify_pipeline_summary(
+        date_str=today_str,
+        screened_count=screen_result.count,
+        reported_count=len(generated_reports),
+        orders=[],
+    )
+
+    logger.info("========== [SeedTick 일일 파이프라인 정상 완료] ==========")
+    return {
+        "status": "success",
+        "date": today_str,
+        "screened_count": screen_result.count,
+        "reported_count": len(generated_reports),
+        "skipped_already_reported_count": len(skipped_tickers),
+        "skipped_already_reported_tickers": skipped_tickers,
+        "orders_count": 0,
+    }
 
 
 async def cleanup_old_logs_job(hours: int = 24) -> dict:
@@ -162,4 +202,3 @@ async def reset_model_rotation_job() -> dict:
         "chain": after["chain"],
         "switch_count": after["switch_count"],
     }
-
