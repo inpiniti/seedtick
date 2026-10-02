@@ -6,6 +6,7 @@ import logging
 from typing import Any
 from app.config.settings import settings
 from app.domains.auto_trading.grid_models import GridTradeItem
+from app.domains.auto_trading.price_hub import price_hub
 from app.domains.bridge.factory import get_broker_adapter
 from app.domains.bridge.interface import IBrokerAdapter
 from app.domains.bridge.models import BrokerOrder
@@ -102,11 +103,16 @@ class GridTradingService:
 
     async def on_realtime_tick(self, ticker: str, current_price: float) -> None:
         """
-        실시간 체결가 수신 시 갭 판정 및 자동 매수/매도 주문 실행
+        실시간 체결가 수신 시 관리 화면 실시간 현재가 방송 및 갭 판정/자동 매수·매도 실행
         1. 현재가 >= 마지막매매가 + 갭: 1,000원치 매도
         2. 현재가 <= 마지막매매가 - 갭: 1,000원치 매수
         """
         sym = ticker.upper()
+        # 관리 화면(SSE) 구독자 대상 실시간 현재가 방송.
+        # 주문 락에 의한 틱 스킵/감지 종료 여부와 무관하게 항상 방송되어야 하므로
+        # 가장 먼저 처리한다 (비동기·논블로킹).
+        price_hub.publish(sym, current_price)
+
         lock = self._get_lock(sym)
         if lock.locked():
             # 이전 주문이 아직 처리 중이면 중복 발주 방지를 위해 틱 스킵

@@ -58,3 +58,56 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #9ca3af;
 }
+
+/* ── 실시간 현재가 플래시 애니메이션 ──────────────────────────────
+   체결가가 갱신될 때 상승(빨강)/하락(파랑) 배경을 짧게 물들였다가
+   원래 상태로 돌아온다. 텍스트는 깜빡이지 않고 배경만 강조한다. */
+@keyframes price-flash-up {
+  0% {
+    background-color: rgba(240, 68, 82, 0.28);
+  }
+  100% {
+    background-color: rgba(240, 68, 82, 0);
+  }
+}
+
+@keyframes price-flash-down {
+  0% {
+    background-color: rgba(49, 130, 246, 0.28);
+  }
+  100% {
+    background-color: rgba(49, 130, 246, 0);
+  }
+}
+
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.price-flash-up {
+  animation: price-flash-up 700ms ease-out;
+  border-radius: 6px;
+}
+
+.price-flash-down {
+  animation: price-flash-down 700ms ease-out;
+  border-radius: 6px;
+}
+
+.live-dot {
+  animation: live-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .price-flash-up,
+  .price-flash-down,
+  .live-dot {
+    animation: none;
+  }
+}

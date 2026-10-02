@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   AutoTradingStatus,
   BridgeStatus,
@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Modal } from "@/components/ui/Modal";
 import { formatKRW, formatUSD, formatTime } from "@/lib/utils";
+import { useRealtimePrices } from "@/hooks/useRealtimePrices";
 import {
   closeGridItem,
   reactivateGridItem,
@@ -45,6 +46,42 @@ interface TradingTabProps {
   onRefresh: () => void;
 }
 
+/**
+ * 실시간 체결가를 표시하는 현재가 셀.
+ * 가격이 바뀔 때 상승/하락 방향에 따라 배경색을 짧게 플래시한다.
+ */
+function RealtimePriceCell({ price, prevPrice }: { price?: number; prevPrice: number | null }) {
+  const [flash, setFlash] = useState<"up" | "down" | null>(null);
+  const lastPriceRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!price || price <= 0) return;
+    const prev = lastPriceRef.current;
+    lastPriceRef.current = price;
+
+    if (prev === null || prev === price) return;
+
+    setFlash(price > prev ? "up" : "down");
+    const timer = setTimeout(() => setFlash(null), 700);
+    return () => clearTimeout(timer);
+  }, [price]);
+
+  if (!price || price <= 0) {
+    return <span className="text-[#8b95a1]">-</span>;
+  }
+
+  return (
+    <span
+      className={`inline-block px-1 -mx-1 tabular-nums ${
+        flash === "up" ? "price-flash-up" : flash === "down" ? "price-flash-down" : ""
+      }`}
+      title={prevPrice ? `이전 체결가 $${prevPrice.toFixed(2)}` : undefined}
+    >
+      ${price.toFixed(2)}
+    </span>
+  );
+}
+
 export function TradingTab({
   tradingStatus,
   balance,
@@ -66,14 +103,17 @@ export function TradingTab({
   const [isSyncing, setIsSyncing] = useState(false);
   const [buyFeedback, setBuyFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
+  // 실시간 체결가 SSE 구독 (현재가 실시간 표시)
+  const { prices: livePrices, isConnected: isPriceStreamConnected } = useRealtimePrices(true);
+
   // 증권사 보유 포지션 안전 파싱 (배열 또는 딕셔너리 모두 대응)
+  // 실시간 체결가가 수신된 종목은 현재가를 SSE 값으로 덮어쓰고 수익률을 재계산한다.
   const positionsList: BrokerPosition[] = useMemo(() => {
-    if (!balance?.positions) return [];
-    if (Array.isArray(balance.positions)) {
-      return balance.positions;
-    }
-    if (typeof balance.positions === "object") {
-      return Object.entries(balance.positions).map(([k, v]) => ({
+    let list: BrokerPosition[] = [];
+    if (Array.isArray(balance?.positions)) {
+      list = balance.positions;
+    } else if (balance?.positions && typeof balance.positions === "object") {
+      list = Object.entries(balance.positions).map(([k, v]) => ({
         ticker: k,
         name: k,
         quantity: typeof v === "number" ? v : Number(v) || 0,
@@ -81,9 +121,29 @@ export function TradingTab({
         current_price: 0,
         return_rate: 0,
       }));
+    } else {
+      return [];
     }
-    return [];
-  }, [balance?.positions]);
+
+    const hasLive = Object.keys(livePrices).length > 0;
+    if (!hasLive) return list;
+
+    return list.map((pos) => {
+      const sym = pos.ticker?.toUpperCase();
+      const live = sym ? livePrices[sym] : undefined;
+      if (!live || live.price <= 0) return pos;
+
+      const purchasePrice = pos.purchase_price ?? 0;
+      const returnRate =
+        purchasePrice > 0 ? ((live.price - purchasePrice) / purchasePrice) * 100 : pos.return_rate ?? 0;
+
+      return {
+        ...pos,
+        current_price: live.price,
+        return_rate: returnRate,
+      };
+    });
+  }, [balance?.positions, livePrices]);
 
   // 그리드 데이터 로드
   const loadGridData = async () => {
@@ -479,9 +539,26 @@ export function TradingTab({
                 <Badge variant={positionsList.length > 0 ? "primary" : "neutral"}>
                   {positionsList.length}개 종목
                 </Badge>
+                {/* 실시간 체결가 스트림 연결 상태 */}
+                <span
+                  className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#8b95a1]"
+                  title={
+                    isPriceStreamConnected
+                      ? "토스 실시간 체결가 스트림에 연결됨"
+                      : "실시간 스트림 미연결 (자동 재연결 시도 중)"
+                  }
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      isPriceStreamConnected ? "bg-[#03b26c] live-dot" : "bg-[#d1d5db]"
+                    }`}
+                  />
+                  {isPriceStreamConnected ? "실시간" : "연결 대기"}
+                </span>
               </div>
               <Card.Description className="text-xs text-[#8b95a1] mt-0.5">
                 현재 연결된 증권사({tradingStatus?.active_broker?.toUpperCase() || "TOSS"}) 실계좌에 보유 중인 주식 내역이에요.
+                {isPriceStreamConnected && " 보유 종목의 현재가는 실시간 체결가로 갱신돼요."}
               </Card.Description>
             </div>
             <TrendingUp className="w-5 h-5 text-[#3182f6]" />
@@ -512,11 +589,22 @@ export function TradingTab({
                     const retRate = pos.return_rate ?? 0;
                     const isPositive = retRate > 0;
                     const isZero = retRate === 0;
+                    const sym = pos.ticker?.toUpperCase();
+                    const liveTick = sym ? livePrices[sym] : undefined;
+                    const isLive = Boolean(liveTick && liveTick.price > 0);
 
                     return (
                       <tr key={pos.ticker} className="hover:bg-[#f9fafb] transition-colors">
                         <td className="py-3 pl-2">
-                          <div className="font-bold text-[#191f28]">{pos.ticker}</div>
+                          <div className="font-bold text-[#191f28] flex items-center gap-1.5">
+                            {pos.ticker}
+                            {isLive && (
+                              <span
+                                className="w-1.5 h-1.5 rounded-full bg-[#03b26c] live-dot shrink-0"
+                                title="실시간 체결가 수신 중"
+                              />
+                            )}
+                          </div>
                           {pos.name && pos.name !== pos.ticker && (
                             <div className="text-xs text-[#8b95a1]">{pos.name}</div>
                           )}
@@ -530,9 +618,10 @@ export function TradingTab({
                             : "-"}
                         </td>
                         <td className="py-3 text-[#191f28] font-bold">
-                          {pos.current_price && pos.current_price > 0
-                            ? `$${pos.current_price.toFixed(2)}`
-                            : "-"}
+                          <RealtimePriceCell
+                            price={pos.current_price}
+                            prevPrice={liveTick?.prevPrice ?? null}
+                          />
                         </td>
                         <td className="py-3 pr-2 text-right">
                           <span
