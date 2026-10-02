@@ -8,6 +8,7 @@ import json
 import logging
 from pathlib import Path
 import time
+from typing import Any
 import uuid
 import httpx
 
@@ -27,7 +28,49 @@ def _token_cache_path(client_id: str) -> Path:
     return _TOSS_CACHE_DIR / f".toss_token_cache_{safe_id}.json"
 
 
+class _TokenState:
+    """계좌(client_id) 단위로 프로세스 전역 공유되는 토큰 상태.
+
+    토스 Open API는 client당 유효 토큰이 단 1개이며, 새 토큰을 발급하면 이전 토큰이
+    즉시 무효화(token-revoked)된다. 따라서 어댑터 인스턴스가 여러 개 생성되더라도
+    토큰을 인스턴스별로 따로 보유하면 서로의 토큰을 상쇄하는 루프가 발생한다.
+    모든 인스턴스가 이 객체를 공유해야 한다.
+    """
+
+    def __init__(self, client_id: str, cache_file: Path):
+        self.client_id = client_id
+        self.cache_file = cache_file
+        self.token: str | None = None
+        self.expires_at: float = 0.0
+        # 이벤트 루프별 락 (테스트 등 루프가 재생성되는 환경 대비)
+        self._locks: dict[Any, asyncio.Lock] = {}
+
+    def lock(self) -> asyncio.Lock:
+        loop = asyncio.get_running_loop()
+        lk = self._locks.get(loop)
+        if lk is None:
+            lk = asyncio.Lock()
+            self._locks[loop] = lk
+        return lk
+
+
+_TOKEN_STATES: dict[str, _TokenState] = {}
+
+
+def _get_token_state(client_id: str) -> _TokenState:
+    """계좌별 공유 토큰 상태 조회 (최초 생성 시 파일 캐시 로드)"""
+    key = client_id or "unknown"
+    st = _TOKEN_STATES.get(key)
+    if st is None:
+        st = _TokenState(client_id, _token_cache_path(client_id))
+        _TOKEN_STATES[key] = st
+    return st
+
+
 class TossBrokerAdapter(IBrokerAdapter):
+    # 토큰 만료 전 이만큼(초) 여유를 두고 조기 재발급
+    _TOKEN_EXPIRY_SKEW = 1800
+
     def __init__(
         self,
         client_id: str | None = None,
@@ -38,13 +81,10 @@ class TossBrokerAdapter(IBrokerAdapter):
         self.client_secret = client_secret or settings.TOSS_CLIENT_SECRET
         self.raw_account_seq = account_seq or settings.TOSS_ACCOUNT_SEQ
 
-        # 계좌별 독립 토큰 캐시 파일 (멀티 계좌 충돌 방지)
-        self._token_cache_file: Path = _token_cache_path(self.client_id)
+        # 토큰은 계좌 단위로 프로세스 전역 공유 (인스턴스별 보유 시 상호 상쇄 루프 발생)
+        self._token_state = _get_token_state(self.client_id)
 
-        self._lock = asyncio.Lock()
         self._throttle_lock = asyncio.Lock()
-        self._token: str | None = None
-        self._token_expires_at: float = 0.0
         self._last_request_time: float = 0.0
         self._resolved_account_seq: int | None = None
 
@@ -57,30 +97,51 @@ class TossBrokerAdapter(IBrokerAdapter):
             self._last_request_time = time.time()
 
 
+    def invalidate_token(self) -> None:
+        """공유 토큰 상태를 즉시 무효화 — 다음 조회 시 강제 재발급 유도.
+
+        WebSocket 재연결 등 토큰 수명이 보장되지 않는 경로에서 호출한다.
+        """
+        st = self._token_state
+        st.token = None
+        st.expires_at = 0.0
+        try:
+            if st.cache_file.exists():
+                st.cache_file.unlink()
+        except Exception:
+            pass
+
     async def _get_access_token(self, force: bool = False) -> str:
         """
         POST /oauth2/token
         주의: client당 유효 토큰은 1개(신규 발급 시 이전 토큰 즉시 무효).
-        파일 캐시를 적용하여 프로세스 reload 시 토큰 충돌 방어.
+        토큰을 계좌 단위 전역 상태로 공유하여, 여러 어댑터 인스턴스가
+        서로의 토큰을 상쇄(token-revoked)하는 루프를 방지한다.
         """
-        async with self._lock:
+        st = self._token_state
+        async with st.lock():
             # 1. 인메모리 유효성 검사
-            if not force and self._token and time.time() < (self._token_expires_at - 1800):
-                return self._token
+            if not force and st.token and time.time() < (st.expires_at - self._TOKEN_EXPIRY_SKEW):
+                return st.token
 
-            # 2. 파일 캐시 검사 (계좌별 독립 파일)
-            if not force and self._token_cache_file.exists():
+            # 2. 파일 캐시 검사 (계좌별 독립 파일) — 강제 갱신이 아니면 재사용
+            if not force and st.cache_file.exists():
                 try:
-                    cache = json.loads(self._token_cache_file.read_text(encoding="utf-8"))
+                    cache = json.loads(st.cache_file.read_text(encoding="utf-8"))
                     if (
                         cache.get("client_id") == self.client_id
-                        and cache.get("expires_at", 0) > time.time() + 1800
+                        and cache.get("expires_at", 0) > time.time() + self._TOKEN_EXPIRY_SKEW
                     ):
-                        self._token = cache["token"]
-                        self._token_expires_at = cache["expires_at"]
-                        return self._token
+                        st.token = cache["token"]
+                        st.expires_at = cache["expires_at"]
+                        return st.token
                 except Exception:
                     pass
+
+            # 3. 방금 다른 경로가 재발급했다면 그 토큰을 재사용 (상쇄 루프 차단)
+            if force and st.token and time.time() < st.expires_at:
+                logger.info("[TossBroker] 최근 발급된 공유 토큰 재사용 (재발급 생략)")
+                return st.token
 
             if not self.client_id or not self.client_secret:
                 raise ValueError("토스 API 자격 증명(TOSS_CLIENT_ID / TOSS_CLIENT_SECRET)이 설정되지 않았습니다.")
@@ -105,17 +166,17 @@ class TossBrokerAdapter(IBrokerAdapter):
                 res.raise_for_status()
                 token_data = res.json()
 
-            self._token = token_data["access_token"]
+            st.token = token_data["access_token"]
             expires_in = token_data.get("expires_in", 86400)
-            self._token_expires_at = time.time() + expires_in
+            st.expires_at = time.time() + expires_in
 
             # 파일 캐시 저장 (계좌별 독립 파일)
             try:
-                self._token_cache_file.write_text(
+                st.cache_file.write_text(
                     json.dumps({
                         "client_id": self.client_id,
-                        "token": self._token,
-                        "expires_at": self._token_expires_at,
+                        "token": st.token,
+                        "expires_at": st.expires_at,
                     }),
                     encoding="utf-8",
                 )
@@ -123,7 +184,7 @@ class TossBrokerAdapter(IBrokerAdapter):
                 logger.warning(f"[TossBroker] 토큰 파일 캐시 저장 실패: {e}")
 
             logger.info(f"[TossBroker] 토큰 발급 성공 (expires_in={expires_in}s)")
-            return self._token
+            return st.token
 
     async def _resolve_account_seq(self) -> int:
         """
@@ -202,11 +263,8 @@ class TossBrokerAdapter(IBrokerAdapter):
 
                 if res.status_code == 401 and attempt == 1:
                     logger.warning("[TossBroker] 401 Unauthorized — 토큰 재발급 후 1회 재시도")
-                    if self._token_cache_file.exists():
-                        try:
-                            self._token_cache_file.unlink()
-                        except Exception:
-                            pass
+                    # 공유 토큰 상태 무효화 → 다음 시도에서 신규 토큰 발급
+                    self.invalidate_token()
                     continue
 
                 if res.status_code == 403:
