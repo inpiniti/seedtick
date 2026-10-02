@@ -65,6 +65,9 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
     };
   }, [ticker, selectedRange]);
 
+/** 차트 높이: 좁은 화면에서는 300px, 넓은 화면에서는 380px */
+  const getChartHeight = () => (typeof window !== "undefined" && window.innerWidth < 640 ? 300 : 380);
+
   // 2. Lightweight Charts 캔들 & 볼린저 라인 렌더링
   useEffect(() => {
     if (isLoading || !data || !chartContainerRef.current) return;
@@ -78,7 +81,7 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
     const container = chartContainerRef.current;
     const chart = createChart(container, {
       width: container.clientWidth,
-      height: 380,
+      height: getChartHeight(),
       layout: {
         background: { type: ColorType.Solid, color: "#ffffff" },
         textColor: "#6b7684",
@@ -168,17 +171,26 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
 
     chart.timeScale().fitContent();
 
-    // 반응형 리사이즈 대응
+    // 반응형 리사이즈 대응 (모바일 주소창 높이 변화·회전까지 커버)
     const handleResize = () => {
       if (container && chart) {
-        chart.applyOptions({ width: container.clientWidth });
+        chart.applyOptions({
+          width: container.clientWidth,
+          height: getChartHeight(),
+        });
       }
     };
 
     window.addEventListener("resize", handleResize);
+    window.addEventListener("orientationchange", handleResize);
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined" ? new ResizeObserver(handleResize) : null;
+    resizeObserver?.observe(container);
 
     return () => {
       window.removeEventListener("resize", handleResize);
+      window.removeEventListener("orientationchange", handleResize);
+      resizeObserver?.disconnect();
       if (chartInstanceRef.current) {
         chartInstanceRef.current.remove();
         chartInstanceRef.current = null;
@@ -211,27 +223,33 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
     <div className="space-y-4">
       {/* 1. 상단 컨트롤 및 종목 정보 */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#f9fafb] border border-[#f2f4f6]">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-base font-bold text-[#191f28]">{ticker}</span>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-base font-bold text-[#191f28] shrink-0">{ticker}</span>
             {companyName && (
-              <span className="text-xs text-[#8b95a1] font-medium">{companyName}</span>
+              <span className="text-xs text-[#8b95a1] font-medium truncate min-w-0 max-w-[140px] sm:max-w-none">
+                {companyName}
+              </span>
             )}
-            <Badge variant={badgeInfo.variant}>{badgeInfo.text}</Badge>
+            <Badge variant={badgeInfo.variant} className="shrink-0">
+              {badgeInfo.text}
+            </Badge>
           </div>
-          <p className="text-xs text-[#4e5968] mt-1 flex items-center gap-1.5">
-            <Info className="w-3.5 h-3.5 text-[#3182f6] shrink-0" />
-            {summary?.status_description || "일봉 데이터와 20일 볼린저 밴드(±2σ)를 분석하고 있어요."}
+          <p className="text-xs text-[#4e5968] mt-1 flex items-start gap-1.5">
+            <Info className="w-3.5 h-3.5 text-[#3182f6] shrink-0 mt-0.5" />
+            <span className="min-w-0">
+              {summary?.status_description || "일봉 데이터와 20일 볼린저 밴드(±2σ)를 분석하고 있어요."}
+            </span>
           </p>
         </div>
 
         {/* 기간 선택 버튼 (3mo / 6mo / 1y) */}
-        <div className="flex items-center gap-1 p-1 bg-white border border-[#e5e8eb] rounded-xl self-start sm:self-center">
+        <div className="flex items-center gap-1 p-1 bg-white border border-[#e5e8eb] rounded-xl self-stretch sm:self-auto justify-center sm:justify-start">
           {(["3mo", "6mo", "1y"] as const).map((r) => (
             <button
               key={r}
               onClick={() => setSelectedRange(r)}
-              className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+              className={`flex-1 sm:flex-none px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
                 selectedRange === r
                   ? "bg-[#3182f6] text-white"
                   : "text-[#8b95a1] hover:text-[#191f28]"
@@ -291,8 +309,8 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
       {/* 3. 차트 렌더링 영역 */}
       <div className="relative p-3.5 bg-white rounded-3xl border border-[#e5e8eb] shadow-2xs">
         {/* 범례 표시 */}
-        <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#f2f4f6] text-[11px] text-[#8b95a1]">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 pb-2 mb-2 border-b border-[#f2f4f6] text-[11px] text-[#8b95a1]">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
             <span className="flex items-center gap-1">
               <span className="w-2.5 h-2.5 bg-[#f04452] rounded-xs inline-block" /> 양봉
             </span>
@@ -314,7 +332,7 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
 
         {/* 로딩 스켈레톤 */}
         {isLoading && (
-          <div className="h-[380px] flex flex-col justify-center items-center gap-3">
+          <div className="h-[300px] sm:h-[380px] flex flex-col justify-center items-center gap-3">
             <RefreshCw className="w-6 h-6 text-[#3182f6] animate-spin" />
             <p className="text-xs text-[#8b95a1]">일봉 캔들과 볼린저 밴드를 계산하고 있어요...</p>
           </div>
@@ -322,7 +340,7 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
 
         {/* 에러 상태 */}
         {!isLoading && error && (
-          <div className="h-[380px] flex flex-col justify-center items-center gap-3 text-center p-6">
+          <div className="h-[300px] sm:h-[380px] flex flex-col justify-center items-center gap-3 text-center p-6">
             <AlertTriangle className="w-8 h-8 text-[#ff9500]" />
             <p className="text-sm font-semibold text-[#191f28]">{error}</p>
             <button

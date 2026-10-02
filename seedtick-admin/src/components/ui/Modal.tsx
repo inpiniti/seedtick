@@ -40,7 +40,7 @@ export function Modal({ isOpen, onClose, children, className }: ModalProps) {
         role="dialog"
         aria-modal="true"
         className={cn(
-          "relative z-10 w-full sm:max-w-2xl bg-white rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl border border-[#f2f4f6] max-h-[92vh] sm:max-h-[85vh] flex flex-col animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200",
+          "relative z-10 w-full sm:max-w-2xl bg-white rounded-t-3xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl border border-[#f2f4f6] max-h-[92vh] sm:max-h-[85vh] flex flex-col animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200",
           className
         )}
       >
@@ -74,11 +74,11 @@ export function ModalHeader({
 }) {
   return (
     <div className={cn("pr-8 mb-4 shrink-0", className)}>
-      <h3 className="text-lg sm:text-xl font-bold text-[#191f28] tracking-tight">
+      <h3 className="text-base sm:text-xl font-bold text-[#191f28] tracking-tight break-words">
         {title}
       </h3>
       {description ? (
-        <p className="text-xs text-[#8b95a1] mt-1 leading-relaxed">
+        <p className="text-xs text-[#8b95a1] mt-1 leading-relaxed break-words">
           {description}
         </p>
       ) : null}
@@ -110,7 +110,7 @@ export function ModalFooter({
   return (
     <div
       className={cn(
-        "mt-5 pt-3 border-t border-[#f2f4f6] flex items-center justify-end gap-2.5 shrink-0 pb-safe",
+        "mt-5 pt-3 border-t border-[#f2f4f6] flex flex-wrap items-center justify-end gap-2.5 shrink-0 pb-safe",
         className
       )}
     >

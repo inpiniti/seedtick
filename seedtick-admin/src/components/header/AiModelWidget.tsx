@@ -23,12 +23,12 @@ export function AiModelWidget({ aiModel, isResetting, onReset }: AiModelWidgetPr
   const rankLabel = aiModel ? `${aiModel.active_index + 1}/${aiModel.chain.length}순위` : "확인 중...";
 
   return (
-    <div className="bg-[#f9fafb] border border-[#e5e8eb] px-3 py-2 sm:py-1.5 rounded-2xl">
-      <div className="flex items-center gap-1.5">
+    <div className="col-span-2 sm:col-span-1 bg-[#f9fafb] border border-[#e5e8eb] px-3 py-2 sm:py-1.5 rounded-2xl min-w-0">
+      <div className="flex items-center gap-1.5 min-w-0">
         <Bot className={`w-3.5 h-3.5 shrink-0 ${isFirst ? "text-[#03b26c]" : "text-[#ff9500]"}`} />
         <span className="text-[#8b95a1] text-[11px] sm:text-xs font-medium shrink-0">AI:</span>
         <span
-          className={`font-bold text-[11px] sm:text-xs truncate ${
+          className={`font-bold text-[11px] sm:text-xs truncate min-w-0 ${
             isFirst ? "text-[#03b26c]" : "text-[#ff9500]"
           }`}
           title={aiModel?.active_model || ""}
@@ -38,7 +38,7 @@ export function AiModelWidget({ aiModel, isResetting, onReset }: AiModelWidgetPr
       </div>
 
       {aiModel && (
-        <div className="flex items-center gap-1.5 mt-1 pl-5">
+        <div className="flex items-center gap-1.5 mt-1 pl-0 sm:pl-5 flex-wrap">
           <span
             className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${
               isFirst ? "bg-[#e6f7ef] text-[#03b26c]" : "bg-[#fff4e5] text-[#ff9500]"
@@ -55,7 +55,7 @@ export function AiModelWidget({ aiModel, isResetting, onReset }: AiModelWidgetPr
             onClick={onReset}
             isLoading={isResetting}
             disabled={isFirst && (aiModel?.switch_count ?? 0) === 0}
-            className="h-5 px-1.5 text-[10px] rounded-md text-[#8b95a1] hover:text-[#3182f6]"
+            className="h-6 px-1.5 text-[10px] rounded-md text-[#8b95a1] hover:text-[#3182f6] ml-auto sm:ml-0"
             title="모델 순위를 1순위로 되돌립니다"
           >
             {!isResetting ? <RotateCcw className="w-2.5 h-2.5" /> : null}

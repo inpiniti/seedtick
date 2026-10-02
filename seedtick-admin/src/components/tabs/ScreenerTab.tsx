@@ -697,23 +697,25 @@ export function ScreenerTab({
                 {filteredReports.map((report) => (
                   <div
                     key={report.id}
-                    className="py-3.5 flex items-center justify-between hover:bg-[#f9fafb] px-2 rounded-2xl transition-colors cursor-pointer"
+                    className="py-3.5 flex items-center justify-between gap-2 hover:bg-[#f9fafb] px-2 rounded-2xl transition-colors cursor-pointer"
                     onClick={() => {
                       handleOpenReportByTicker(report.ticker, undefined, report.d);
                     }}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className="w-10 h-10 rounded-2xl bg-[#e8f3ff] text-[#3182f6] flex items-center justify-center font-bold text-sm shrink-0">
                         {report.ticker.slice(0, 3)}
                       </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-sm text-[#191f28]">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-bold text-sm text-[#191f28] shrink-0">
                             {report.ticker}
                           </span>
-                          <Badge variant="primary">{report.verdict}</Badge>
+                          <Badge variant="primary" className="shrink-0">
+                            {report.verdict}
+                          </Badge>
                         </div>
-                        <p className="text-xs text-[#8b95a1] mt-0.5 truncate max-w-[200px] sm:max-w-md">
+                        <p className="text-xs text-[#8b95a1] mt-0.5 truncate">
                           {report.company_name} · {report.d}
                         </p>
                       </div>
@@ -722,9 +724,11 @@ export function ScreenerTab({
                       variant="secondary"
                       size="sm"
                       rightIcon={<ExternalLink className="w-3.5 h-3.5" />}
+                      className="shrink-0 hidden sm:inline-flex"
                     >
                       상세 보기
                     </Button>
+                    <ChevronRight className="w-4 h-4 text-[#8b95a1] shrink-0 sm:hidden" />
                   </div>
                 ))}
               </div>
@@ -887,10 +891,10 @@ export function ScreenerTab({
             })()}
 
             {/* 마크다운 뷰 탭 전환 버튼 (5개 모드: 최종보고서, 원탁토론, 개별서머리, 데이터팩, 일봉차트) */}
-            <div className="flex items-center gap-1 p-1 bg-[#f2f4f6] rounded-2xl overflow-x-auto">
+            <div className="flex items-center gap-1 p-1 bg-[#f2f4f6] rounded-2xl overflow-x-auto -mx-1 px-1">
               <button
                 onClick={() => setReportViewMode("final")}
-                className={`flex-1 py-1.5 px-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
+                className={`shrink-0 sm:shrink sm:flex-1 py-1.5 px-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
                   reportViewMode === "final"
                     ? "bg-white text-[#3182f6] shadow-xs"
                     : "text-[#8b95a1] hover:text-[#4e5968]"
@@ -900,7 +904,7 @@ export function ScreenerTab({
               </button>
               <button
                 onClick={() => setReportViewMode("discussion")}
-                className={`flex-1 py-1.5 px-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
+                className={`shrink-0 sm:shrink sm:flex-1 py-1.5 px-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
                   reportViewMode === "discussion"
                     ? "bg-white text-[#3182f6] shadow-xs"
                     : "text-[#8b95a1] hover:text-[#4e5968]"
@@ -910,7 +914,7 @@ export function ScreenerTab({
               </button>
               <button
                 onClick={() => setReportViewMode("summaries")}
-                className={`flex-1 py-1.5 px-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
+                className={`shrink-0 sm:shrink sm:flex-1 py-1.5 px-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
                   reportViewMode === "summaries"
                     ? "bg-white text-[#3182f6] shadow-xs"
                     : "text-[#8b95a1] hover:text-[#4e5968]"
@@ -920,7 +924,7 @@ export function ScreenerTab({
               </button>
               <button
                 onClick={() => setReportViewMode("datapack")}
-                className={`flex-1 py-1.5 px-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
+                className={`shrink-0 sm:shrink sm:flex-1 py-1.5 px-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
                   reportViewMode === "datapack"
                     ? "bg-white text-[#3182f6] shadow-xs"
                     : "text-[#8b95a1] hover:text-[#4e5968]"
@@ -930,7 +934,7 @@ export function ScreenerTab({
               </button>
               <button
                 onClick={() => setReportViewMode("chart")}
-                className={`flex-1 py-1.5 px-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-1 ${
+                className={`shrink-0 sm:shrink sm:flex-1 py-1.5 px-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-1 ${
                   reportViewMode === "chart"
                     ? "bg-white text-[#3182f6] shadow-xs"
                     : "text-[#8b95a1] hover:text-[#4e5968]"

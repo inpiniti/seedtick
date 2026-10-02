@@ -379,18 +379,18 @@ export function TradingTab({
                 onClick={handleSyncHoldings}
                 isLoading={isSyncing}
                 leftIcon={<RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />}
-                className="whitespace-nowrap font-medium text-xs sm:text-sm"
+                className="w-full sm:w-auto justify-center whitespace-nowrap font-medium text-xs sm:text-sm"
                 title="토스 계좌에 보유 중인 종목을 조회하여 아직 등록되지 않은 종목을 그리드에 자동 등록합니다."
               >
                 보유 종목 동기화
               </Button>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                 <input
                   type="text"
                   value={buyTickerInput}
                   onChange={(e) => setBuyTickerInput(e.target.value.toUpperCase())}
                   placeholder="티커 (예: NVDA)"
-                  className="px-3 py-2 text-sm border border-[#e5e8eb] rounded-xl focus:outline-none focus:border-[#3182f6] font-semibold uppercase w-full sm:w-32"
+                  className="px-3 py-2 text-sm border border-[#e5e8eb] rounded-xl focus:outline-none focus:border-[#3182f6] font-semibold uppercase w-full sm:w-32 min-w-0"
                   disabled={!gridMarketStatus?.is_market_open || isBuying}
                 />
                 <Button
@@ -400,7 +400,7 @@ export function TradingTab({
                   disabled={!gridMarketStatus?.is_market_open || isBuying || !buyTickerInput.trim()}
                   isLoading={isBuying}
                   leftIcon={<PlusCircle className="w-4 h-4" />}
-                  className="whitespace-nowrap font-bold"
+                  className="w-full sm:w-auto justify-center whitespace-nowrap font-bold"
                 >
                   1,000원 매수 및 등록
                 </Button>
@@ -443,118 +443,246 @@ export function TradingTab({
               description="상단의 '보유 종목 동기화'를 누르거나, 정규장에 '1,000원 매수 및 등록'을 실행하면 실시간 갭 매매가 시작돼요."
             />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-[#f2f4f6] text-[#8b95a1] text-xs font-semibold">
-                    <th className="pb-3 pl-2">종목</th>
-                    <th className="pb-3">처음매수주가</th>
-                    <th className="pb-3">고정 갭 (3%)</th>
-                    <th className="pb-3">마지막매매주가</th>
-                    <th className="pb-3">현재가</th>
-                    <th className="pb-3">수익률</th>
-                    <th className="pb-3">추적 수량</th>
-                    <th className="pb-3 pr-2">상태</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#f9fafb]">
-                  {gridItems.map((item) => {
-                    const sym = item.ticker?.toUpperCase();
-                    const liveTick = sym ? livePrices[sym] : undefined;
-                    const isLive = Boolean(liveTick && liveTick.price > 0);
-                    // 실시간 체결가 우선, 미수신 시 마지막매매가로 폴백
-                    const currentPrice =
-                      isLive && liveTick ? liveTick.price : item.last_trade_price;
-                    // 마지막매매주가 대비 수익률 (다음 갭까지의 진행도)
-                    const basePrice = item.last_trade_price;
-                    const gridReturn =
-                      basePrice > 0 ? ((currentPrice - basePrice) / basePrice) * 100 : 0;
-                    const isPositive = gridReturn > 0;
-                    const isZero = gridReturn === 0;
+            <>
+              {/* [모바일 전용] 그리드 종목 카드 리스트 — 8컬럼 테이블은 좁은 화면에서 터진다 */}
+              <div className="md:hidden space-y-2.5">
+                {gridItems.map((item) => {
+                  const sym = item.ticker?.toUpperCase();
+                  const liveTick = sym ? livePrices[sym] : undefined;
+                  const isLive = Boolean(liveTick && liveTick.price > 0);
+                  const currentPrice =
+                    isLive && liveTick ? liveTick.price : item.last_trade_price;
+                  const basePrice = item.last_trade_price;
+                  const gridReturn =
+                    basePrice > 0 ? ((currentPrice - basePrice) / basePrice) * 100 : 0;
+                  const isPositive = gridReturn > 0;
+                  const isZero = gridReturn === 0;
 
-                    return (
-                      <tr key={item.ticker} className="hover:bg-[#f9fafb] transition-colors">
-                        <td className="py-3 pl-2">
-                          <div className="font-bold text-[#191f28] flex items-center gap-1.5">
+                  return (
+                    <div
+                      key={`m-${item.ticker}`}
+                      className="p-3.5 rounded-2xl bg-[#f9fafb] border border-[#f2f4f6]"
+                    >
+                      {/* 1줄: 종목명 + 실시간 Dot + 상태 */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="font-bold text-[#191f28] text-sm">
                             {item.ticker}
-                            {isLive && (
-                              <span
-                                className="w-1.5 h-1.5 rounded-full bg-[#03b26c] live-dot shrink-0"
-                                title="실시간 체결가 수신 중"
+                          </span>
+                          {isLive && (
+                            <span
+                              className="w-1.5 h-1.5 rounded-full bg-[#03b26c] live-dot shrink-0"
+                              title="실시간 체결가 수신 중"
+                            />
+                          )}
+                          {item.status === "ACTIVE" ? (
+                            <Badge variant="success">감지 중</Badge>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleReactivateGrid(item.ticker)}
+                              disabled={reactivatingTicker === item.ticker}
+                              title="그리드 감지 다시 활성화"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold rounded-full bg-[#f2f4f6] text-[#6b7684] active:scale-95 disabled:opacity-50 cursor-pointer"
+                            >
+                              <span>종료됨</span>
+                              <RotateCw
+                                className={`w-2.5 h-2.5 ${
+                                  reactivatingTicker === item.ticker ? "animate-spin" : ""
+                                }`}
                               />
-                            )}
+                            </button>
+                          )}
+                        </div>
+                        {item.status === "ACTIVE" && (
+                          <button
+                            onClick={() => handleCloseGrid(item.ticker)}
+                            title="실시간 감지 종료"
+                            className="shrink-0 text-[11px] text-[#8b95a1] active:text-[#f04452] transition-colors font-medium"
+                          >
+                            종료
+                          </button>
+                        )}
+                      </div>
+
+                      {/* 2줄: 현재가 + 수익률 */}
+                      <div className="mt-2.5 flex items-end justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-[10px] font-semibold text-[#8b95a1]">
+                            현재가
                           </div>
-                        </td>
-                        <td className="py-3 text-[#191f28] font-medium">
-                          ${item.initial_price.toFixed(2)}
-                        </td>
-                        <td className="py-3 text-[#3182f6] font-semibold">
-                          ±${item.gap.toFixed(2)}
-                        </td>
-                        <td className="py-3 text-[#191f28] font-bold">
-                          ${item.last_trade_price.toFixed(2)}
-                        </td>
-                        <td className="py-3 text-[#191f28] font-bold">
-                          <RealtimePriceCell
-                            price={currentPrice}
-                            prevPrice={liveTick?.prevPrice ?? null}
-                          />
-                        </td>
-                        <td className="py-3">
+                          <div className="text-lg font-bold text-[#191f28] leading-tight">
+                            <RealtimePriceCell
+                              price={currentPrice}
+                              prevPrice={liveTick?.prevPrice ?? null}
+                            />
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="text-[10px] font-semibold text-[#8b95a1] mb-0.5">
+                            수익률
+                          </div>
                           <span
-                            className={`text-xs sm:text-sm font-bold px-2 py-0.5 rounded-lg inline-block ${
+                            className={`text-sm font-bold px-2 py-0.5 rounded-lg inline-block ${
                               isZero
                                 ? "bg-[#f2f4f6] text-[#6b7684]"
                                 : isPositive
                                 ? "bg-[#fdeeed] text-[#f04452]"
                                 : "bg-[#e8f8f0] text-[#03b26c]"
                             }`}
-                            title="마지막매매주가 대비 수익률"
                           >
                             {isPositive ? "+" : ""}
                             {gridReturn.toFixed(2)}%
                           </span>
-                        </td>
-                        <td className="py-3 text-xs font-medium text-[#191f28]">
-                          {item.holdings_qty.toFixed(4)}주
-                        </td>
-                        <td className="py-3 pr-2">
-                          {item.status === "ACTIVE" ? (
-                            <div className="flex items-center gap-2">
-                              <Badge variant="success">실시간 감지 중</Badge>
-                              <button
-                                onClick={() => handleCloseGrid(item.ticker)}
-                                title="실시간 감지 종료"
-                                className="text-xs text-[#8b95a1] hover:text-[#f04452] transition-colors font-medium"
-                              >
-                                종료
-                              </button>
+                        </div>
+                      </div>
+
+                      {/* 3줄: 그리드 기준가 2열 그리드 */}
+                      <div className="mt-2.5 pt-2.5 border-t border-[#e5e8eb] grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
+                        <div className="flex items-baseline justify-between gap-1">
+                          <span className="text-[#8b95a1] shrink-0">처음매수주가</span>
+                          <span className="font-semibold text-[#191f28] tabular-nums whitespace-nowrap">
+                            ${item.initial_price.toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex items-baseline justify-between gap-1">
+                          <span className="text-[#8b95a1] shrink-0">고정 갭</span>
+                          <span className="font-semibold text-[#3182f6] tabular-nums whitespace-nowrap">
+                            ±${item.gap.toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex items-baseline justify-between gap-1">
+                          <span className="text-[#8b95a1] shrink-0">마지막매매주가</span>
+                          <span className="font-semibold text-[#191f28] tabular-nums whitespace-nowrap">
+                            ${item.last_trade_price.toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex items-baseline justify-between gap-1">
+                          <span className="text-[#8b95a1] shrink-0">추적 수량</span>
+                          <span className="font-semibold text-[#191f28] tabular-nums whitespace-nowrap">
+                            {item.holdings_qty.toFixed(4)}주
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* [데스크톱 전용] 그리드 종목 테이블 */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b border-[#f2f4f6] text-[#8b95a1] text-xs font-semibold">
+                      <th className="pb-3 pl-2">종목</th>
+                      <th className="pb-3">처음매수주가</th>
+                      <th className="pb-3">고정 갭 (3%)</th>
+                      <th className="pb-3">마지막매매주가</th>
+                      <th className="pb-3">현재가</th>
+                      <th className="pb-3">수익률</th>
+                      <th className="pb-3">추적 수량</th>
+                      <th className="pb-3 pr-2">상태</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#f9fafb]">
+                    {gridItems.map((item) => {
+                      const sym = item.ticker?.toUpperCase();
+                      const liveTick = sym ? livePrices[sym] : undefined;
+                      const isLive = Boolean(liveTick && liveTick.price > 0);
+                      // 실시간 체결가 우선, 미수신 시 마지막매매가로 폴백
+                      const currentPrice =
+                        isLive && liveTick ? liveTick.price : item.last_trade_price;
+                      // 마지막매매주가 대비 수익률 (다음 갭까지의 진행도)
+                      const basePrice = item.last_trade_price;
+                      const gridReturn =
+                        basePrice > 0 ? ((currentPrice - basePrice) / basePrice) * 100 : 0;
+                      const isPositive = gridReturn > 0;
+                      const isZero = gridReturn === 0;
+
+                      return (
+                        <tr key={item.ticker} className="hover:bg-[#f9fafb] transition-colors">
+                          <td className="py-3 pl-2">
+                            <div className="font-bold text-[#191f28] flex items-center gap-1.5">
+                              {item.ticker}
+                              {isLive && (
+                                <span
+                                  className="w-1.5 h-1.5 rounded-full bg-[#03b26c] live-dot shrink-0"
+                                  title="실시간 체결가 수신 중"
+                                />
+                              )}
                             </div>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleReactivateGrid(item.ticker)}
-                              disabled={reactivatingTicker === item.ticker}
-                              title="클릭하여 그리드 감지 다시 활성화"
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full bg-[#f2f4f6] text-[#6b7684] hover:bg-[#e8f3ff] hover:text-[#3182f6] hover:ring-1 hover:ring-[#3182f6]/30 active:scale-95 transition-all cursor-pointer group disabled:opacity-50 disabled:cursor-not-allowed"
+                          </td>
+                          <td className="py-3 text-[#191f28] font-medium whitespace-nowrap">
+                            ${item.initial_price.toFixed(2)}
+                          </td>
+                          <td className="py-3 text-[#3182f6] font-semibold whitespace-nowrap">
+                            ±${item.gap.toFixed(2)}
+                          </td>
+                          <td className="py-3 text-[#191f28] font-bold whitespace-nowrap">
+                            ${item.last_trade_price.toFixed(2)}
+                          </td>
+                          <td className="py-3 text-[#191f28] font-bold whitespace-nowrap">
+                            <RealtimePriceCell
+                              price={currentPrice}
+                              prevPrice={liveTick?.prevPrice ?? null}
+                            />
+                          </td>
+                          <td className="py-3">
+                            <span
+                              className={`text-sm font-bold px-2 py-0.5 rounded-lg inline-block whitespace-nowrap ${
+                                isZero
+                                  ? "bg-[#f2f4f6] text-[#6b7684]"
+                                  : isPositive
+                                  ? "bg-[#fdeeed] text-[#f04452]"
+                                  : "bg-[#e8f8f0] text-[#03b26c]"
+                              }`}
+                              title="마지막매매주가 대비 수익률"
                             >
-                              <span>종료됨</span>
-                              <RotateCw
-                                className={`w-3 h-3 text-[#8b95a1] group-hover:text-[#3182f6] transition-transform ${
-                                  reactivatingTicker === item.ticker
-                                    ? "animate-spin text-[#3182f6]"
-                                    : "group-hover:rotate-45"
-                                }`}
-                              />
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                              {isPositive ? "+" : ""}
+                              {gridReturn.toFixed(2)}%
+                            </span>
+                          </td>
+                          <td className="py-3 text-xs font-medium text-[#191f28] whitespace-nowrap">
+                            {item.holdings_qty.toFixed(4)}주
+                          </td>
+                          <td className="py-3 pr-2">
+                            {item.status === "ACTIVE" ? (
+                              <div className="flex items-center gap-2">
+                                <Badge variant="success">실시간 감지 중</Badge>
+                                <button
+                                  onClick={() => handleCloseGrid(item.ticker)}
+                                  title="실시간 감지 종료"
+                                  className="text-xs text-[#8b95a1] hover:text-[#f04452] transition-colors font-medium"
+                                >
+                                  종료
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleReactivateGrid(item.ticker)}
+                                disabled={reactivatingTicker === item.ticker}
+                                title="클릭하여 그리드 감지 다시 활성화"
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full bg-[#f2f4f6] text-[#6b7684] hover:bg-[#e8f3ff] hover:text-[#3182f6] hover:ring-1 hover:ring-[#3182f6]/30 active:scale-95 transition-all cursor-pointer group disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <span>종료됨</span>
+                                <RotateCw
+                                  className={`w-3 h-3 text-[#8b95a1] group-hover:text-[#3182f6] transition-transform ${
+                                    reactivatingTicker === item.ticker
+                                      ? "animate-spin text-[#3182f6]"
+                                      : "group-hover:rotate-45"
+                                  }`}
+                                />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </Card.Content>
       </Card>
@@ -605,31 +733,24 @@ export function TradingTab({
               description="증권사 계좌에 보유 중인 주식이 없거나 잔고 동기화 중이에요."
             />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-[#f2f4f6] text-[#8b95a1] text-xs font-semibold">
-                    <th className="pb-3 pl-2">종목</th>
-                    <th className="pb-3">보유 수량</th>
-                    <th className="pb-3">평균 매입가</th>
-                    <th className="pb-3">현재가</th>
-                    <th className="pb-3 pr-2 text-right">수익률</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#f9fafb]">
-                  {positionsList.map((pos) => {
-                    const retRate = pos.return_rate ?? 0;
-                    const isPositive = retRate > 0;
-                    const isZero = retRate === 0;
-                    const sym = pos.ticker?.toUpperCase();
-                    const liveTick = sym ? livePrices[sym] : undefined;
-                    const isLive = Boolean(liveTick && liveTick.price > 0);
+            <>
+              {/* [모바일 전용] 보유 자산 카드 리스트 — 5컬럼 테이블은 좁은 화면에서 텍스트가 깨진다 */}
+              <div className="md:hidden divide-y divide-[#f2f4f6]">
+                {positionsList.map((pos) => {
+                  const retRate = pos.return_rate ?? 0;
+                  const isPositive = retRate > 0;
+                  const isZero = retRate === 0;
+                  const sym = pos.ticker?.toUpperCase();
+                  const liveTick = sym ? livePrices[sym] : undefined;
+                  const isLive = Boolean(liveTick && liveTick.price > 0);
 
-                    return (
-                      <tr key={pos.ticker} className="hover:bg-[#f9fafb] transition-colors">
-                        <td className="py-3 pl-2">
-                          <div className="font-bold text-[#191f28] flex items-center gap-1.5">
-                            {pos.ticker}
+                  return (
+                    <div key={`m-${pos.ticker}`} className="py-3 first:pt-0 last:pb-0">
+                      {/* 1줄: 티커 + 이름 / 현재가 + 수익률 */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-[#191f28]">{pos.ticker}</span>
                             {isLive && (
                               <span
                                 className="w-1.5 h-1.5 rounded-full bg-[#03b26c] live-dot shrink-0"
@@ -638,26 +759,20 @@ export function TradingTab({
                             )}
                           </div>
                           {pos.name && pos.name !== pos.ticker && (
-                            <div className="text-xs text-[#8b95a1]">{pos.name}</div>
+                            <div className="text-xs text-[#8b95a1] truncate max-w-[150px]">
+                              {pos.name}
+                            </div>
                           )}
-                        </td>
-                        <td className="py-3 font-semibold text-[#191f28]">
-                          {pos.quantity}주
-                        </td>
-                        <td className="py-3 text-[#4e5968] font-medium">
-                          {pos.purchase_price && pos.purchase_price > 0
-                            ? `$${pos.purchase_price.toFixed(2)}`
-                            : "-"}
-                        </td>
-                        <td className="py-3 text-[#191f28] font-bold">
-                          <RealtimePriceCell
-                            price={pos.current_price}
-                            prevPrice={liveTick?.prevPrice ?? null}
-                          />
-                        </td>
-                        <td className="py-3 pr-2 text-right">
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="font-bold text-[#191f28] text-[15px] leading-tight">
+                            <RealtimePriceCell
+                              price={pos.current_price}
+                              prevPrice={liveTick?.prevPrice ?? null}
+                            />
+                          </div>
                           <span
-                            className={`text-xs sm:text-sm font-bold px-2 py-0.5 rounded-lg ${
+                            className={`text-xs font-bold px-1.5 py-0.5 rounded-md inline-block mt-0.5 whitespace-nowrap ${
                               isZero
                                 ? "bg-[#f2f4f6] text-[#6b7684]"
                                 : isPositive
@@ -668,13 +783,103 @@ export function TradingTab({
                             {isPositive ? "+" : ""}
                             {retRate.toFixed(2)}%
                           </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        </div>
+                      </div>
+
+                      {/* 2줄: 보유 수량 + 평균 매입가 */}
+                      <div className="mt-1.5 flex items-center gap-3 text-[11px] text-[#8b95a1]">
+                        <span className="whitespace-nowrap">
+                          보유{" "}
+                          <strong className="text-[#4e5968] font-semibold tabular-nums">
+                            {pos.quantity}주
+                          </strong>
+                        </span>
+                        <span className="whitespace-nowrap">
+                          평균매입{" "}
+                          <strong className="text-[#4e5968] font-semibold tabular-nums">
+                            {pos.purchase_price && pos.purchase_price > 0
+                              ? `$${pos.purchase_price.toFixed(2)}`
+                              : "-"}
+                          </strong>
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* [데스크톱 전용] 보유 자산 테이블 */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b border-[#f2f4f6] text-[#8b95a1] text-xs font-semibold">
+                      <th className="pb-3 pl-2">종목</th>
+                      <th className="pb-3">보유 수량</th>
+                      <th className="pb-3 whitespace-nowrap">평균 매입가</th>
+                      <th className="pb-3">현재가</th>
+                      <th className="pb-3 pr-2 text-right">수익률</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#f9fafb]">
+                    {positionsList.map((pos) => {
+                      const retRate = pos.return_rate ?? 0;
+                      const isPositive = retRate > 0;
+                      const isZero = retRate === 0;
+                      const sym = pos.ticker?.toUpperCase();
+                      const liveTick = sym ? livePrices[sym] : undefined;
+                      const isLive = Boolean(liveTick && liveTick.price > 0);
+
+                      return (
+                        <tr key={pos.ticker} className="hover:bg-[#f9fafb] transition-colors">
+                          <td className="py-3 pl-2">
+                            <div className="font-bold text-[#191f28] flex items-center gap-1.5">
+                              {pos.ticker}
+                              {isLive && (
+                                <span
+                                  className="w-1.5 h-1.5 rounded-full bg-[#03b26c] live-dot shrink-0"
+                                  title="실시간 체결가 수신 중"
+                                />
+                              )}
+                            </div>
+                            {pos.name && pos.name !== pos.ticker && (
+                              <div className="text-xs text-[#8b95a1]">{pos.name}</div>
+                            )}
+                          </td>
+                          <td className="py-3 font-semibold text-[#191f28] whitespace-nowrap tabular-nums">
+                            {pos.quantity}주
+                          </td>
+                          <td className="py-3 text-[#4e5968] font-medium whitespace-nowrap tabular-nums">
+                            {pos.purchase_price && pos.purchase_price > 0
+                              ? `$${pos.purchase_price.toFixed(2)}`
+                              : "-"}
+                          </td>
+                          <td className="py-3 text-[#191f28] font-bold whitespace-nowrap">
+                            <RealtimePriceCell
+                              price={pos.current_price}
+                              prevPrice={liveTick?.prevPrice ?? null}
+                            />
+                          </td>
+                          <td className="py-3 pr-2 text-right">
+                            <span
+                              className={`text-sm font-bold px-2 py-0.5 rounded-lg inline-block whitespace-nowrap ${
+                                isZero
+                                  ? "bg-[#f2f4f6] text-[#6b7684]"
+                                  : isPositive
+                                  ? "bg-[#fdeeed] text-[#f04452]"
+                                  : "bg-[#e8f8f0] text-[#03b26c]"
+                              }`}
+                            >
+                              {isPositive ? "+" : ""}
+                              {retRate.toFixed(2)}%
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </Card.Content>
       </Card>
