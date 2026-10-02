@@ -120,40 +120,6 @@ async def daily_pipeline_job(
         }
 
 
-async def execute_pending_orders_job(dry_run: bool | None = None) -> dict:
-    """
-    미국 정규장 개장 후 대기 중인 예약 주문 일괄 발주 잡
-    """
-    logger.info("========== [미국 정규장 예약 주문 발주 잡 시작] ==========")
-    from app.domains.bridge.factory import get_broker_adapter
-
-    is_dry_run = settings.DRY_RUN if dry_run is None else dry_run
-    broker = get_broker_adapter("mock") if is_dry_run else get_broker_adapter(settings.DEFAULT_BROKER)
-
-    # 브로커가 계좌별 독립 큐를 갖고 있으면 그것을 사용 (TossBrokerAdapter 등)
-    # 없으면 (mock 등) 전역 fallback 큐 사용
-    if hasattr(broker, "_order_queue"):
-        order_queue = broker._order_queue
-    else:
-        from app.domains.bridge.order_queue import pending_order_queue
-        order_queue = pending_order_queue
-
-    pending_orders = order_queue.get_pending_orders()
-    if not pending_orders:
-        logger.info("[Scheduler] 발주 대기 중인 예약 주문이 없습니다.")
-        return {"status": "skipped", "reason": "no_pending_orders"}
-
-    results = await order_queue.execute_all_pending(broker)
-    logger.info(f"[Scheduler] 총 {len(results)}건의 예약 매수 발주 처리 완료")
-
-    logger.info("========== [미국 정규장 예약 주문 발주 잡 종료] ==========")
-    return {
-        "status": "success",
-        "executed_count": len(results),
-        "results": [r.model_dump() for r in results],
-    }
-
-
 async def cleanup_old_logs_job(hours: int = 24) -> dict:
     """
     일일 만료 시스템 로그 정리 잡:

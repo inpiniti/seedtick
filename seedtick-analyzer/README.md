@@ -52,8 +52,6 @@ pytest -v
 - `GET /api/bridge/status` : 증권사 브릿지 연동 설정 및 자격증명 상태 확인
 - `GET /api/bridge/balance` : 증권사 계좌 잔고(KRW, USD, 보유 포지션) 조회
 - `GET /api/auto-trading/status` : 오토트레이딩 금일 주문 현황 및 일일 한도 상태 조회
-- `GET /api/auto-trading/pending-orders` : 대기 중인 소수점 예약 매수 주문 목록 조회
-- `POST /api/auto-trading/execute-pending` : 대기 중인 예약 주문 수동 즉시 발주
 - `GET /api/screener/run` : 토스 공통/해외 200 종목 스크리닝
 - `GET /api/report/datapack/{ticker}` : 특정 종목 심층 데이터팩 단독 생성
 - `POST /api/report/generate?ticker={ticker}` : 13인 거장 5단계 리포트 생성 및 DB 저장

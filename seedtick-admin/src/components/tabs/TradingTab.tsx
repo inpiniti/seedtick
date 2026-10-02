@@ -8,7 +8,6 @@ import {
   BrokerPosition,
   GridTradeItem,
   GridTradingMarketStatus,
-  PendingOrder,
 } from "@/types/api";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -41,7 +40,6 @@ import {
 
 interface TradingTabProps {
   tradingStatus: AutoTradingStatus | null;
-  pendingOrders?: PendingOrder[];
   balance: BrokerBalance | null;
   bridgeStatus: BridgeStatus | null;
   onRefresh: () => void;

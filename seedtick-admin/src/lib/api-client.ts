@@ -7,7 +7,6 @@ import {
   GridTradingMarketStatus,
   HealthStatus,
   IpStatus,
-  PendingOrdersResponse,
   ScreenerResponse,
   StockCandidate,
   StockChartResponse,
@@ -77,26 +76,7 @@ export async function fetchAutoTradingStatus(): Promise<AutoTradingStatus> {
   return request<AutoTradingStatus>("/api/auto-trading/status");
 }
 
-/** 4. 대기 중인 예약 주문 목록 */
-export async function fetchPendingOrders(): Promise<PendingOrdersResponse> {
-  return request<PendingOrdersResponse>("/api/auto-trading/pending-orders");
-}
-
-/** 5. 대기 중인 예약 주문 즉시 수동 발주 */
-export async function executePendingOrders(dryRun?: boolean): Promise<{
-  success: boolean;
-  total_orders: number;
-  executed_count: number;
-  failed_count: number;
-  message?: string;
-}> {
-  const query = dryRun !== undefined ? `?dry_run=${dryRun}` : "";
-  return request(`/api/auto-trading/execute-pending${query}`, {
-    method: "POST",
-  });
-}
-
-/** 6. 일일 파이프라인 수동 즉시 트리거 */
+/** 4. 일일 파이프라인 수동 즉시 트리거 */
 export async function triggerPipeline(params: {
   dryRun?: boolean;
   force?: boolean;

@@ -7,7 +7,6 @@ from apscheduler.triggers.cron import CronTrigger
 
 from app.domains.scheduler.jobs import (
     daily_pipeline_job,
-    execute_pending_orders_job,
     cleanup_old_logs_job,
     reset_model_rotation_job,
 )
@@ -20,7 +19,7 @@ class SchedulerService:
         self._scheduler = AsyncIOScheduler(timezone="Asia/Seoul")
 
     def start(self):
-        """스케줄러 시작: 오전 11:00 로그 정리, 12:00 파이프라인 잡 및 22:35/23:35 정규장 예약 발주 잡 등록"""
+        """스케줄러 시작: 오전 11:00 로그 정리, 12:00 파이프라인 잡 및 00:01 모델 순위 초기화 잡 등록"""
         # 0. AI 모델 순위 초기화 잡: 매일 00:01 KST
         # 1순위 모델의 프로바이더 과부하는 자정 지나면 자연 복구되므로 1순위로 되돌린다.
         # 정각(00:00)과 겹치지 않도록 1분 뒤로 두어 야간 배치 준비를 방해하지 않는다.
@@ -58,22 +57,9 @@ class SchedulerService:
             replace_existing=True,
         )
 
-        # 3. 미국 정규장 개장(현지 09:30) 5분 후 예약 매수 자동 발주 잡: 월~금 09:35 (America/New_York)
-        # America/New_York 타임존을 사용하여 서머타임(EDT) 시 KST 22:35, 표준시(EST) 시 KST 23:35로 자동 전환 (중복 실행 방지)
-        market_open_trigger = CronTrigger(
-            day_of_week="mon-fri", hour=9, minute=35, timezone="America/New_York"
-        )
-        self._scheduler.add_job(
-            execute_pending_orders_job,
-            trigger=market_open_trigger,
-            id="execute_pending_orders",
-            name="미국 정규장 예약 매수 자동 발주 (미국 현지 09:35)",
-            replace_existing=True,
-        )
-
         self._scheduler.start()
         logger.info(
-            "[Scheduler] APScheduler 시작 완료 (11:00 만료 INFO로그 정리, 12:00 파이프라인, 미국 정규장 현지 09:35 예약 발주)"
+            "[Scheduler] APScheduler 시작 완료 (11:00 만료 INFO로그 정리, 12:00 일일 파이프라인, 00:01 모델 순위 초기화)"
         )
 
     def shutdown(self):
@@ -99,11 +85,6 @@ class SchedulerService:
             max_analyze_count=max_count,
             skip_already_reported=skip_already_reported,
         )
-
-    async def trigger_pending_orders(self, dry_run: bool | None = None) -> dict:
-        """대기 중인 예약 주문 수동 즉시 발주 트리거"""
-        logger.info(f"[Scheduler] 수동 예약 주문 발주 트리거 (dry_run={dry_run})")
-        return await execute_pending_orders_job(dry_run=dry_run)
 
     async def trigger_log_cleanup(self, hours: int = 24) -> dict:
         """만료 시스템 로그 수동 즉시 정리 트리거"""

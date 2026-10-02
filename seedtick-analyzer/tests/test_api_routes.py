@@ -43,13 +43,9 @@ async def test_bridge_routes():
         assert "today_ordered_tickers" in data3
         assert data3["order_action"].startswith("BUY")
 
-        # 4. auto-trading pending-orders
+        # 4. 장외 예약 주문 API는 삭제됨 (장외 발주 차단)
         res4 = await ac.get("/api/auto-trading/pending-orders")
-        assert res4.status_code == 200
-        data4 = res4.json()
-        assert "pending_count" in data4
-        assert "orders" in data4
-        assert isinstance(data4["orders"], list)
+        assert res4.status_code == 404
 
 
 @pytest.mark.asyncio

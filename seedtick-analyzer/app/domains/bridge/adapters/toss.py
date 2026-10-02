@@ -41,11 +41,6 @@ class TossBrokerAdapter(IBrokerAdapter):
         # 계좌별 독립 토큰 캐시 파일 (멀티 계좌 충돌 방지)
         self._token_cache_file: Path = _token_cache_path(self.client_id)
 
-        # 계좌별 독립 예약 주문 큐 (계좌단위 파일 분리)
-        from app.domains.bridge.order_queue import PendingOrderQueue
-        _account_id = str(self.raw_account_seq) if self.raw_account_seq else "default"
-        self._order_queue = PendingOrderQueue(account_id=_account_id)
-
         self._lock = asyncio.Lock()
         self._throttle_lock = asyncio.Lock()
         self._token: str | None = None
@@ -356,44 +351,33 @@ class TossBrokerAdapter(IBrokerAdapter):
         """
         주문 발주 (POST /api/v1/orders)
         - 미국 주식 소수점 시장가 매수(orderAmount) 지원
-        - 정규장 외 시간에는 예약 주문 큐에 안전하게 등록 (토스 422 amount-order-outside-regular-hours 방어)
-        - 정규장 개장 시 자동 발주 연동
+        - 정규장(regularMarket) 외 시간에는 발주하지 않고 실패로 반환한다.
+          예약 큐 등록은 더 이상 하지 않으므로 장외 체결가는 어떤 주문으로도 이어지지 않는다.
         """
         client_order_id = str(uuid.uuid4())
         try:
-            # 1. 환율 및 주문 달러 금액 계산
+            # 1. 미국 정규장 운영 여부 확인 (장외 발주 차단 — 환율 조회보다 먼저 판정)
+            is_open = await self.is_us_market_open()
+            if not is_open:
+                logger.warning(
+                    f"[TossBroker] 🌙 장외 시간 발주 차단: {order.ticker} {order.action} "
+                    f"{order.amount_krw:,}원 — 정규장 시간에만 주문됩니다."
+                )
+                return OrderResult(
+                    success=False,
+                    ticker=order.ticker,
+                    action=order.action,
+                    amount_krw=order.amount_krw,
+                    error_message="미국 정규장(regularMarket) 시간에만 주문이 접수됩니다.",
+                )
+
+            # 2. 환율 및 주문 달러 금액 계산
             fx_rate = await self.get_exchange_rate()
             usd_amount = round(order.amount_krw / fx_rate, 2)
             if usd_amount < 1.0:
                 usd_amount = 1.0  # 토스 최소 금액 안전 하한선
 
-            # 2. 미국 정규장 운영 여부 확인
-            is_open = await self.is_us_market_open()
-
-            # 3-A. 정규장 외 시간인 경우: 계좌별 예약 주문 큐에 등록
-            if not is_open:
-                self._order_queue.add_pending_order(
-                    ticker=order.ticker.upper(),
-                    amount_krw=order.amount_krw,
-                    amount_usd=usd_amount,
-                    action=order.action.upper(),
-                    client_order_id=client_order_id,
-                )
-                order_id = f"RESERVE-{client_order_id[:8]}"
-                logger.info(
-                    f"[TossBroker] 🌙 장외 시간 예약 매수 등록 완료: {order.ticker} {order.amount_krw:,}원 (${usd_amount}) -> 큐 저장 (주문ID: {order_id})"
-                )
-                return OrderResult(
-                    success=True,
-                    order_id=order_id,
-                    ticker=order.ticker,
-                    action=order.action,
-                    amount_krw=order.amount_krw,
-                    executed_price=None,
-                    executed_qty=None,
-                )
-
-            # 3-B. 정규장 운영 중인 경우: 즉시 소수점 시장가 발주 (orderAmount)
+            # 3. 소수점 시장가 즉시 발주 (orderAmount)
             payload = {
                 "symbol": order.ticker.upper(),
                 "side": order.action.upper(),  # BUY
