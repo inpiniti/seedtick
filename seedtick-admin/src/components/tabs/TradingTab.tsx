@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Modal } from "@/components/ui/Modal";
 import { formatKRW, formatUSD, formatTime } from "@/lib/utils";
-import { useRealtimePrices } from "@/hooks/useRealtimePrices";
+import type { RealtimeTick } from "@/hooks/useRealtimePrices";
 import { PipelineProgressCard } from "@/components/tabs/PipelineProgressCard";
 import {
   closeGridItem,
@@ -46,6 +46,10 @@ interface TradingTabProps {
   balance: BrokerBalance | null;
   bridgeStatus: BridgeStatus | null;
   pipelineProgress: PipelineProgress | null;
+  /** 페이지 레벨에서 구독한 실시간 체결가 (탭 전환에도 연결 유지) */
+  livePrices: Record<string, RealtimeTick>;
+  /** 실시간 체결가 스트림 연결 여부 */
+  isPriceStreamConnected: boolean;
   onRefresh: () => void;
   onRefreshPipeline: () => Promise<PipelineProgress | null>;
 }
@@ -91,6 +95,8 @@ export function TradingTab({
   balance,
   bridgeStatus,
   pipelineProgress,
+  livePrices,
+  isPriceStreamConnected,
   onRefresh,
   onRefreshPipeline,
 }: TradingTabProps) {
@@ -108,9 +114,6 @@ export function TradingTab({
   const [isBuying, setIsBuying] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [buyFeedback, setBuyFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
-
-  // 실시간 체결가 SSE 구독 (현재가 실시간 표시)
-  const { prices: livePrices, isConnected: isPriceStreamConnected } = useRealtimePrices(true);
 
   // 13인 거장 파이프라인 실행 여부 (상위 page.tsx에서 전역 폴링)
   const isPipelineRunning = pipelineProgress?.status === "running";

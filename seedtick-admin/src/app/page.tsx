@@ -29,6 +29,7 @@ import {
   fetchSystemLogs,
 } from "@/lib/supabase";
 import { usePipelineProgress } from "@/hooks/usePipelineProgress";
+import { useRealtimePrices } from "@/hooks/useRealtimePrices";
 import { LiveStatusBar } from "@/components/header/LiveStatusBar";
 import { TradingTab } from "@/components/tabs/TradingTab";
 import { ScreenerTab } from "@/components/tabs/ScreenerTab";
@@ -66,6 +67,9 @@ export default function AdminDashboardPage() {
   // 13인 거장 파이프라인 진행 상태 (전역 1회 폴링)
   const { progress: pipelineProgress, refresh: refreshPipelineProgress } =
     usePipelineProgress();
+
+  // 실시간 체결가 SSE 구독 — 탭 전환에도 연결을 유지하도록 페이지 레벨에서 1회만 구독한다.
+  const { prices: livePrices, isConnected: isPriceStreamConnected } = useRealtimePrices(true);
 
   // 1. 전체 데이터 병렬 로드 (Vercel Best Practice: async-parallel)
   const loadDashboardData = useCallback(async () => {
@@ -259,6 +263,8 @@ export default function AdminDashboardPage() {
                 balance={balance}
                 bridgeStatus={bridgeStatus}
                 pipelineProgress={pipelineProgress}
+                livePrices={livePrices}
+                isPriceStreamConnected={isPriceStreamConnected}
                 onRefresh={loadDashboardData}
                 onRefreshPipeline={refreshPipelineProgress}
               />
