@@ -12,6 +12,8 @@ import websockets
 import websockets.exceptions
 import websockets.protocol
 
+from app.domains.bridge.toss_ip_guard import toss_ip_guard
+
 logger = logging.getLogger("toss_ws_client")
 
 TOSS_WS_URL = "wss://openapi-ws.tossinvest.com/ws/v1"
@@ -142,6 +144,20 @@ class TossWebSocketClient:
         """재연결 루프 (지수 백오프 + 지터, 401 시 토큰 강제 무효화)"""
         backoff = 2.0
         while self._is_running:
+            # 허용 IP 미등록(403) 차단 상태에서는 재연결을 시도하지 않고 대기한다.
+            if toss_ip_guard.is_blocked:
+                logger.info(
+                    "[TossWS] 🔒 토스 허용 IP 미등록 차단 상태 — 재연결을 보류합니다. "
+                    "IP 등록 후 관리 화면에서 '다시 연결'을 누르면 재개합니다."
+                )
+                while self._is_running and toss_ip_guard.is_blocked:
+                    await toss_ip_guard.wait_until_unblocked(timeout=60.0)
+                if not self._is_running:
+                    break
+                logger.info("[TossWS] 🔓 차단 해제 감지 — 토스 실시간 연결을 다시 시도합니다.")
+                backoff = 2.0
+                continue
+
             connected_at: float | None = None
             try:
                 token = await self._get_token()
@@ -179,9 +195,19 @@ class TossWebSocketClient:
             except websockets.exceptions.InvalidStatus as e:
                 # 핸드셰이크 401: 토큰 만료/상쇄 → 공유 토큰 무효화 후 재발급
                 status = getattr(getattr(e, "response", None), "status_code", None)
-                if status in (401, 403):
+                if status == 403:
+                    # 허용 IP 미등록 → 토큰 문제가 아니므로 무효화하지 않고 차단한다.
+                    toss_ip_guard.mark_blocked(
+                        "토스 WebSocket 403 Forbidden: WTS 설정 > Open API > "
+                        "허용 IP에 현재 IP를 등록해야 합니다."
+                    )
                     logger.warning(
-                        f"[TossWS] 연결 거부 HTTP {status} — 토큰 무효화 후 재시도 "
+                        "[TossWS] 연결 거부 HTTP 403 — 허용 IP 미등록. "
+                        "IP 등록 전까지 재연결을 보류합니다."
+                    )
+                elif status == 401:
+                    logger.warning(
+                        f"[TossWS] 연결 거부 HTTP 401 — 토큰 무효화 후 재시도 "
                         f"({backoff:.0f}초 후)"
                     )
                     if self._invalidate_token:

@@ -11,6 +11,7 @@ import {
   ScreenerResponse,
   StockCandidate,
   StockChartResponse,
+  TossIpStatus,
 } from "@/types/api";
 
 const BASE_URL =
@@ -129,6 +130,20 @@ export async function fetchScreener(
 /** 8. 증권사 브릿지 상태 */
 export async function fetchBridgeStatus(): Promise<BridgeStatus> {
   return request<BridgeStatus>("/api/bridge/status");
+}
+
+/** 8-1. 토스 허용 IP 차단 상태 조회 */
+export async function fetchTossIpStatus(): Promise<TossIpStatus> {
+  return request<TossIpStatus>("/api/bridge/toss-ip");
+}
+
+/** 8-2. 토스 허용 IP 등록 후 연결 재시도 */
+export async function retryTossIpConnection(): Promise<{
+  success: boolean;
+  blocked: boolean;
+  message: string;
+}> {
+  return request("/api/bridge/toss-ip/retry", { method: "POST" });
 }
 
 /** 9. 증권사 계좌 잔고 */

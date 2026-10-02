@@ -30,7 +30,9 @@ import {
 } from "@/lib/supabase";
 import { usePipelineProgress } from "@/hooks/usePipelineProgress";
 import { useRealtimePrices } from "@/hooks/useRealtimePrices";
+import { useTossIpStatus } from "@/hooks/useTossIpStatus";
 import { LiveStatusBar } from "@/components/header/LiveStatusBar";
+import { TossIpAlert } from "@/components/header/TossIpAlert";
 import { TradingTab } from "@/components/tabs/TradingTab";
 import { ScreenerTab } from "@/components/tabs/ScreenerTab";
 import { LogsTab } from "@/components/tabs/LogsTab";
@@ -70,6 +72,13 @@ export default function AdminDashboardPage() {
 
   // 실시간 체결가 SSE 구독 — 탭 전환에도 연결을 유지하도록 페이지 레벨에서 1회만 구독한다.
   const { prices: livePrices, isConnected: isPriceStreamConnected } = useRealtimePrices(true);
+
+  // 토스 허용 IP 차단 상태 (IP 미등록 403 감지 시 배너 표시)
+  const {
+    status: tossIpStatus,
+    isRetrying: isRetryingTossIp,
+    retry: retryTossIp,
+  } = useTossIpStatus();
 
   // 1. 전체 데이터 병렬 로드 (Vercel Best Practice: async-parallel)
   const loadDashboardData = useCallback(async () => {
@@ -187,6 +196,15 @@ export default function AdminDashboardPage() {
 
       {/* 2. 메인 컨테이너 (모바일 하단 내비게이션 바 공간 확보: pb-24 md:pb-8) */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-3.5 sm:px-8 py-4 sm:py-6 space-y-5 pb-24 md:pb-8">
+        {/* 토스 허용 IP 미등록(403) 안내 — 모든 탭에서 보이도록 페이지 상단에 배치 */}
+        {tossIpStatus?.blocked ? (
+          <TossIpAlert
+            serverPublicIp={ipInfo?.server_public_ip}
+            isRetrying={isRetryingTossIp}
+            onRetry={retryTossIp}
+          />
+        ) : null}
+
         {/* [데스크톱 전용] 상단 세그먼트 탭 바 */}
         <div className="hidden md:flex items-center gap-2 p-1.5 bg-white rounded-3xl border border-[#f2f4f6] shadow-[0_1px_3px_rgba(0,0,0,0.02)] overflow-x-auto">
           <button
