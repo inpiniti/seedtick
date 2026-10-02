@@ -12,6 +12,10 @@ class BrokerOrder(BaseModel):
     amount_krw: int                      # 원화 주문 금액 (예: 30000 = 3만원)
     order_type: Literal["MARKET"] = "MARKET"  # 안전을 위해 시장가만 지원
     memo: str = ""                       # 식별 메모 (예: seedtick-2026-09-23)
+    # 수량 지정 주문(주 단위). 지정 시 amount_krw 대신 quantity로 발주한다.
+    # 매도처럼 '보유 수량을 넘지 않는 주문'이 필요한 경우 사용한다
+    # (예: 그리드 매도 시 sell_qty = min(1,000원 상당 수량, 보유 수량)).
+    quantity: float | None = None
 
 
 class BrokerBalance(BaseModel):

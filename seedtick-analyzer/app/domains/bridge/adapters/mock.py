@@ -27,6 +27,13 @@ class MockBrokerAdapter(IBrokerAdapter):
         # 가상 현재가 (기본 $150.0)
         return 150.0
 
+    async def is_us_market_open(self) -> bool:
+        """가상 브로커는 장시간 상시 개장으로 간주한다 (테스트 편의를 위함)"""
+        return True
+
+    async def get_exchange_rate(self) -> float:
+        return self.fx_rate
+
     async def place_order(self, order: BrokerOrder) -> OrderResult:
         logger.info(f"[MockBroker] 주문 수신: {order.ticker} {order.action} {order.amount_krw:,}원")
 
@@ -75,9 +82,29 @@ class MockBrokerAdapter(IBrokerAdapter):
                 )
 
             quote = await self.get_quote(order.ticker)
-            krw_recovered = int(current_qty * quote * self.fx_rate)
+            # 수량 지정 매도는 지정 수량만, 미지정이면 기존처럼 전량 매도한다.
+            if order.quantity is not None:
+                sell_qty = min(round(order.quantity, 4), current_qty)
+                if sell_qty <= 0:
+                    return OrderResult(
+                        success=False,
+                        ticker=order.ticker,
+                        action=order.action,
+                        amount_krw=order.amount_krw,
+                        error_message=f"매도 가능 수량 부족 ({order.ticker})",
+                    )
+                remaining = round(current_qty - sell_qty, 4)
+                if remaining <= 0.0001:
+                    del self.positions[order.ticker]
+                else:
+                    self.positions[order.ticker] = remaining
+            else:
+                sell_qty = current_qty
+                del self.positions[order.ticker]
+
+            krw_recovered = int(sell_qty * quote * self.fx_rate)
             self.available_krw += krw_recovered
-            del self.positions[order.ticker]
+            self.order_history.append(order)
 
             order_id = f"MOCK-{uuid.uuid4().hex[:8]}"
             return OrderResult(
@@ -87,7 +114,7 @@ class MockBrokerAdapter(IBrokerAdapter):
                 action=order.action,
                 amount_krw=krw_recovered,
                 executed_price=quote,
-                executed_qty=current_qty,
+                executed_qty=sell_qty,
             )
 
         return OrderResult(

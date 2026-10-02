@@ -395,6 +395,8 @@ export function TradingTab({
               <Card.Description className="mt-1 text-xs text-[#6b7684]">
                 처음 매수한 가격을 기준으로 <strong>3% 갭(Gap)</strong>이 영구 고정되며, 갭 이상 상승 시 1,000원치 매도(잔고 0 시 종료) · 갭 이하 하락 시 1,000원치 매수를 실시간으로 자동 실행해요.
                 <br />
+                매도 시에는 추적 수량을 초과하지 않는 수량만 매도하며, 장외 시간에는 감지만 유지하고 주문하지 않아요.
+                <br />
                 현재가와 수익률(마지막매매주가 기준)은 토스 실시간 체결가로 갱신돼요.
               </Card.Description>
             </div>

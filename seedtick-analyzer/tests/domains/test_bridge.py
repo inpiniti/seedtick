@@ -115,3 +115,65 @@ def test_toss_adapter_has_no_order_queue():
     """장외 예약 주문 큐는 삭제되었다 — 새 인스턴스가 큐를 보유하지 않는다."""
     broker = TossBrokerAdapter(client_id="test-client", client_secret="test-secret", account_seq="1")
     assert not hasattr(broker, "_order_queue")
+
+
+@pytest.mark.asyncio
+async def test_toss_place_sell_uses_quantity(monkeypatch):
+    """매도(orderQuantity)는 quantity 필드로 발주하며 orderAmount를 쓰지 않는다."""
+    from unittest.mock import AsyncMock
+    from app.domains.bridge.adapters.toss import TossBrokerAdapter
+
+    broker = TossBrokerAdapter(client_id="test-client", client_secret="test-secret", account_seq="1")
+    monkeypatch.setattr(broker, "is_us_market_open", AsyncMock(return_value=True))
+    monkeypatch.setattr(broker, "get_exchange_rate", AsyncMock(return_value=1370.0))
+
+    sent: list[dict] = []
+
+    async def fake_request(method, path, json=None, params=None, with_account_header=True):
+        sent.append({"method": method, "path": path, "json": json})
+        return {"orderId": "ORDER-2"}
+
+    monkeypatch.setattr(broker, "_request", fake_request)
+
+    res = await broker.place_order(
+        BrokerOrder(
+            ticker="AMZN",
+            action="SELL",
+            amount_krw=1000,
+            quantity=0.0097,
+            memo="grid-sell-AMZN",
+        )
+    )
+
+    assert res.success is True
+    assert len(sent) == 1
+    body = sent[0]["json"]
+    assert body["side"] == "SELL"
+    assert body["quantity"] == "0.0097"
+    assert "orderAmount" not in body
+
+
+@pytest.mark.asyncio
+async def test_toss_place_order_rejects_zero_quantity(monkeypatch):
+    """수량이 0 이하인 주문은 발주 시도 없이 실패로 반환한다."""
+    from unittest.mock import AsyncMock
+    from app.domains.bridge.adapters.toss import TossBrokerAdapter
+
+    broker = TossBrokerAdapter(client_id="test-client", client_secret="test-secret", account_seq="1")
+    monkeypatch.setattr(broker, "is_us_market_open", AsyncMock(return_value=True))
+
+    sent: list[dict] = []
+
+    async def fake_request(method, path, json=None, params=None, with_account_header=True):
+        sent.append({"method": method, "path": path, "json": json})
+        return {"orderId": "ORDER-3"}
+
+    monkeypatch.setattr(broker, "_request", fake_request)
+
+    res = await broker.place_order(
+        BrokerOrder(ticker="AMZN", action="SELL", amount_krw=1000, quantity=0.0)
+    )
+
+    assert res.success is False
+    assert sent == []
+
