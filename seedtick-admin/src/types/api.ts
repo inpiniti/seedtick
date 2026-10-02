@@ -260,4 +260,57 @@ export interface GridTradingMarketStatus {
   active_tickers: string[];
 }
 
+// 11. 13인 거장 파이프라인 실시간 진행 상태 (/api/scheduler/progress)
+export type PipelineStageKey =
+  | "screening"
+  | "datapack"
+  | "value_driver"
+  | "summaries"
+  | "discussion"
+  | "master"
+  | "sync";
+
+export interface PipelineStageMeta {
+  key: PipelineStageKey;
+  label: string;
+}
+
+export type PipelineTickerStatus = "pending" | "processing" | "done" | "failed";
+
+export interface PipelineTickerProgress {
+  ticker: string;
+  status: PipelineTickerStatus;
+  verdict: string | null;
+}
+
+export interface PipelineEvent {
+  time: string;
+  message: string;
+}
+
+export interface PipelineProgress {
+  status: "idle" | "running" | "completed" | "failed" | "skipped";
+  started_at: string | null;
+  finished_at: string | null;
+  elapsed_seconds: number;
+  date: string | null;
+  triggered_by: string | null;
+  stage: PipelineStageKey | null;
+  stage_index: number;
+  stage_label: string | null;
+  stage_total: number;
+  stages: PipelineStageMeta[];
+  gurus_done: number;
+  gurus_total: number;
+  total_tickers: number;
+  completed_tickers: number;
+  failed_tickers: number;
+  current_ticker: string | null;
+  current_ticker_index: number;
+  tickers: PipelineTickerProgress[];
+  events: PipelineEvent[];
+  error: string | null;
+  summary: Record<string, unknown> | null;
+}
+
 

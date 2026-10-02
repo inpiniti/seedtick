@@ -7,6 +7,7 @@ import {
   GridTradingMarketStatus,
   HealthStatus,
   IpStatus,
+  PipelineProgress,
   ScreenerResponse,
   StockCandidate,
   StockChartResponse,
@@ -193,6 +194,11 @@ export async function reactivateGridItem(ticker: string): Promise<{
 /** 16. 현재 활성 AI 모델 및 순위 체인 상태 */
 export async function fetchAiModelStatus(): Promise<AiModelStatus> {
   return request<AiModelStatus>("/debug/ai-model");
+}
+
+/** 18. 13인 거장 파이프라인 실시간 진행 상태 */
+export async function fetchPipelineProgress(): Promise<PipelineProgress> {
+  return request<PipelineProgress>("/api/scheduler/progress");
 }
 
 /** 17. AI 모델 순위 1순위 수동 초기화 */

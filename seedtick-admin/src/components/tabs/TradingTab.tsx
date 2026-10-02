@@ -8,6 +8,7 @@ import {
   BrokerPosition,
   GridTradeItem,
   GridTradingMarketStatus,
+  PipelineProgress,
 } from "@/types/api";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -16,6 +17,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Modal } from "@/components/ui/Modal";
 import { formatKRW, formatUSD, formatTime } from "@/lib/utils";
 import { useRealtimePrices } from "@/hooks/useRealtimePrices";
+import { PipelineProgressCard } from "@/components/tabs/PipelineProgressCard";
 import {
   closeGridItem,
   reactivateGridItem,
@@ -43,7 +45,9 @@ interface TradingTabProps {
   tradingStatus: AutoTradingStatus | null;
   balance: BrokerBalance | null;
   bridgeStatus: BridgeStatus | null;
+  pipelineProgress: PipelineProgress | null;
   onRefresh: () => void;
+  onRefreshPipeline: () => Promise<PipelineProgress | null>;
 }
 
 /**
@@ -86,7 +90,9 @@ export function TradingTab({
   tradingStatus,
   balance,
   bridgeStatus,
+  pipelineProgress,
   onRefresh,
+  onRefreshPipeline,
 }: TradingTabProps) {
   // 모달 상태 (파이프라인 실행)
   const [isPipelineModalOpen, setIsPipelineModalOpen] = useState(false);
@@ -105,6 +111,9 @@ export function TradingTab({
 
   // 실시간 체결가 SSE 구독 (현재가 실시간 표시)
   const { prices: livePrices, isConnected: isPriceStreamConnected } = useRealtimePrices(true);
+
+  // 13인 거장 파이프라인 실행 여부 (상위 page.tsx에서 전역 폴링)
+  const isPipelineRunning = pipelineProgress?.status === "running";
 
   // 증권사 보유 포지션 안전 파싱 (배열 또는 딕셔너리 모두 대응)
   // 실시간 체결가가 수신된 종목은 현재가를 SSE 값으로 덮어쓰고 수익률을 재계산한다.
@@ -235,7 +244,7 @@ export function TradingTab({
     }
   };
 
-  // 12:00 파이프라인 수동 즉시 실행
+  // 12:00 파이프라인 수동 즉시 실행 (서버는 백그라운드 실행 + 즉시 응답)
   const handleTriggerPipeline = async () => {
     setIsActionLoading(true);
     setActionMessage(null);
@@ -244,17 +253,19 @@ export function TradingTab({
         force: forceMarket,
         skipAlreadyReported: skipAlreadyReported,
       });
-      const skippedMsg =
-        typeof res?.skipped_already_reported_count === "number" &&
-        res.skipped_already_reported_count > 0
-          ? ` (오늘 이미 완료된 ${res.skipped_already_reported_count}개 종목 제외)`
-          : "";
-      setActionMessage(`일일 분석 파이프라인을 시작했어요.${skippedMsg}`);
+      if (res?.status === "skipped") {
+        setActionMessage("이미 파이프라인이 실행 중이에요. 진행 상황을 확인해 주세요.");
+      } else {
+        setActionMessage(
+          "파이프라인을 시작했어요. 진행 상황이 실시간으로 표시됩니다."
+        );
+      }
+      await onRefreshPipeline();
       setTimeout(() => {
         setIsPipelineModalOpen(false);
         setActionMessage(null);
         onRefresh();
-      }, 2000);
+      }, 1800);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "파이프라인 실행 중 오류가 발생했어요.";
       setActionMessage(msg);
@@ -338,14 +349,28 @@ export function TradingTab({
               variant="primary"
               size="sm"
               onClick={() => setIsPipelineModalOpen(true)}
-              leftIcon={<Play className="w-3.5 h-3.5" />}
+              disabled={isPipelineRunning}
+              leftIcon={
+                isPipelineRunning ? (
+                  <Activity className="w-3.5 h-3.5 animate-pulse" />
+                ) : (
+                  <Play className="w-3.5 h-3.5" />
+                )
+              }
               className="w-full justify-center text-xs sm:text-sm"
             >
-              12:00 파이프라인 지금 실행하기
+              {isPipelineRunning
+                ? "파이프라인 실행 중..."
+                : "12:00 파이프라인 지금 실행하기"}
             </Button>
           </Card.Content>
         </Card>
       </div>
+
+      {/* 1-1. 13인 거장 파이프라인 실시간 진행 상황 (실행 중이거나 최근 실행 결과가 있으면 표시) */}
+      {pipelineProgress && pipelineProgress.status !== "idle" ? (
+        <PipelineProgressCard progress={pipelineProgress} />
+      ) : null}
 
       {/* 2. 실시간 고정 갭(3%) 무한 그리드 매매 섹션 */}
       <Card className="p-4 sm:p-6 border-2 border-[#3182f6]/20">
@@ -934,9 +959,10 @@ export function TradingTab({
           <Button
             variant="primary"
             onClick={handleTriggerPipeline}
+            disabled={isPipelineRunning}
             isLoading={isActionLoading}
           >
-            파이프라인 실행하기
+            {isPipelineRunning ? "이미 실행 중이에요" : "파이프라인 실행하기"}
           </Button>
         </Modal.Footer>
       </Modal>
