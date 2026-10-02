@@ -31,12 +31,14 @@ class GuruReportService:
         datapack_builder: DataPackBuilder,
         ai_client: AiGatewayClient,
         supabase_repo: SupabaseRepo,
+        progress: PipelineProgressTracker | None = None,  # 진행률 기록 (선택)
     ):
         ...
 
     async def generate_full_report(self, ticker: str, date: str | None = None) -> FinalMasterReport:
         """
         전체 5단계 파이프라인 실행:
+        - progress가 주어지면 단계 전환(set_stage)과 13인 진행률(tick_guru)을 기록
         1단계: await datapack_builder.build(ticker, date)
         2단계: await self.generate_guru_summaries(datapack)
         3단계: await self.generate_roundtable_discussion(datapack, summaries)

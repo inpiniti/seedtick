@@ -50,21 +50,62 @@ async def lifespan(app: FastAPI):
 - `dry_run=True`: 실제 주문 발주 없이 스크리닝 및 리포트만 생성.
 - `force=True`: 주말/휴장일 가드를 우회하여 강제 실행.
 
+### `start_pipeline_background(...) -> dict` — 관리자 화면용 즉시 응답 트리거
+
+```python
+scheduler_service.start_pipeline_background(
+    dry_run=None, force=False, max_count=None, skip_already_reported=True
+)
+# 이미 실행 중 -> {"status": "skipped", "reason": "already_running"}
+# 새로 시작   -> {"status": "started", "reason": None}
+```
+
+`asyncio.create_task(daily_pipeline_job(...))`로 백그라운드 실행하고 즉시 반환합니다.
+태스크 참조는 `SchedulerService._background_tasks`에 보관하여 GC를 방지합니다.
+
+### `get_pipeline_progress() -> dict`
+
+`pipeline_progress.snapshot()`을 반환합니다. (관리자 화면 폴링용)
+
+```
+GET /api/scheduler/progress
+```
+
 ---
 
-## 3. daily_pipeline 잡 흐름
+## 3. PipelineProgressTracker (메모리 진행 추적기)
+
+`app/domains/report/pipeline_progress.py`에 정의된 스레드 안전 전역 싱글턴.
+
+| 메서드 | 설명 |
+|:---|:---|
+| `start(date, triggered_by)` | 상태를 `running`으로 초기화하고 시작 시각 기록 |
+| `set_targets(tickers)` | 분석 대상 확정 (`total_tickers`, ticker 목록) |
+| `begin_ticker(ticker)` | 현재 종목 설정 + `gurus_done` 초기화 |
+| `complete_ticker(ticker, verdict, failed)` | 종목 성공/실패 집계 |
+| `set_stage(stage_key, detail)` | 현재 단계 전환 |
+| `set_guru_progress(done, total)` / `tick_guru()` | 13인 요약 진행률 |
+| `finish(status, summary, error)` | `completed` / `failed` / `skipped` 종료 |
+| `snapshot()` | 프론트 폴링 응답용 스냅샷 (경과 시간 포함) |
+
+---
+
+## 4. daily_pipeline 잡 흐름
 
 ```python
 async def daily_pipeline_job(dry_run: bool = False, force: bool = False):
     """
     1. 이미 실행 중이면 중단 (중복 방지 락)
-    2. [휴장일 가드] force가 아닌 경우 market_guard.is_market_open(today) 검사
+    2. pipeline_progress.start() 로 메모리에 "실행중" 등록
+    3. [휴장일 가드] force가 아닌 경우 market_guard.is_market_open(today) 검사
        -> 미개장일이면 [스킵] 로그 기록 후 안전하게 조기 종료
-    3. screener.get_stock_list() 실행 (토스 공통/해외 필터)
-    4. 선정된 상위 종목들에 대해 guru_report.generate_full_report(ticker) 실행
-       -> 1단계: DataPackBuilder -> 2단계: 13인 요약 -> 3단계: 원탁토론 -> 4단계: 최종보고서 -> 5단계: DB 저장
-    5. auto_trading.execute_from_reports(reports, dry_run=dry_run) (소액 주문 발주)
-    6. discord_notifier.send_pipeline_summary() (결과 통보)
+    4. screener.get_stock_list() 실행 (토스 공통/해외 필터)
+    5. pipeline_progress.set_targets() 로 n/총 분모 확정
+    6. 선정된 상위 종목들에 대해 guru_report.generate_full_report(ticker) 실행
+       -> 1단계: DataPackBuilder -> 가치드라이버 -> 2단계: 13인 요약 -> 3단계: 원탁토론 -> 4단계: 최종보고서 -> 5단계: DB 저장
+       -> 단계마다 pipeline_progress.set_stage() / tick_guru() 로 진행률 기록
+    7. pipeline_progress.finish() 로 종료 상태 기록
+    8. discord_notifier.send_pipeline_summary() (결과 통보)
     """
 ```
 

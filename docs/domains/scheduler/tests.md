@@ -35,3 +35,15 @@ async def test_full_pipeline_smoke(mock_screener, mock_report, mock_trading):
     mock_report.generate.assert_called_with("NVDA")
     mock_trading.execute_from_reports.assert_called_once()
 ```
+
+## 진행 추적 테스트 (`tests/domains/test_pipeline_progress.py`)
+
+- `test_tracker_idle_snapshot`: 초기 `idle` 상태 및 단계 메타 반환
+- `test_tracker_full_lifecycle`: `start → set_targets → begin_ticker → tick_guru → complete_ticker → finish` 전 과정 집계 검증
+- `test_tracker_stage_index_matches_frontend_order`: 프론트 단계 순서와 `stage_index` 일치
+- `test_tracker_event_buffer_is_capped`: 최근 로그 버퍼 상한 유지
+
+## API 라우트 테스트 (`tests/test_api_routes.py`)
+
+- `test_scheduler_trigger_route`: 트리거 라우트가 `start_pipeline_background`를 올바른 인자로 호출하는지 검증
+- `test_scheduler_progress_route`: `/api/scheduler/progress`가 `status`/`stages`/`elapsed_seconds`를 반환하는지 검증
