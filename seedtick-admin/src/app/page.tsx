@@ -198,11 +198,13 @@ export default function AdminDashboardPage() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-3.5 sm:px-8 py-4 sm:py-6 space-y-5 pb-24 md:pb-8">
         {/* 토스 허용 IP 미등록(403) 안내 — 모든 탭에서 보이도록 페이지 상단에 배치 */}
         {tossIpStatus?.blocked ? (
-          <TossIpAlert
-            serverPublicIp={ipInfo?.server_public_ip}
-            isRetrying={isRetryingTossIp}
-            onRetry={retryTossIp}
-          />
+          <div className="sticky top-2 z-30">
+            <TossIpAlert
+              serverPublicIp={ipInfo?.server_public_ip}
+              isRetrying={isRetryingTossIp}
+              onRetry={retryTossIp}
+            />
+          </div>
         ) : null}
 
         {/* [데스크톱 전용] 상단 세그먼트 탭 바 */}
