@@ -226,30 +226,30 @@ export function ReportDatapackView({ datapack }: ReportDatapackViewProps) {
             연간 손익 추이 (Annual Income Statement)
           </h4>
           <div className="overflow-x-auto rounded-2xl border border-[#e5e8eb]">
-            <table className="w-full text-xs text-left">
+            <table className="w-full min-w-[560px] text-xs text-left">
               <thead className="bg-[#f9fafb] text-[#6b7684] font-semibold border-b border-[#e5e8eb]">
                 <tr>
-                  <th className="py-2.5 px-3">연도</th>
-                  <th className="py-2.5 px-3">매출액</th>
-                  <th className="py-2.5 px-3">매출총이익률</th>
-                  <th className="py-2.5 px-3">영업이익</th>
-                  <th className="py-2.5 px-3">영업이익률</th>
-                  <th className="py-2.5 px-3">당기순이익</th>
-                  <th className="py-2.5 px-3">EPS</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap">연도</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap">매출액</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap">매출총이익률</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap">영업이익</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap">영업이익률</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap">당기순이익</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap">EPS</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#f2f4f6] bg-white">
                 {income_annual.map((row: any, idx: number) => (
                   <tr key={idx} className="hover:bg-[#f9fafb]">
-                    <td className="py-2.5 px-3 font-bold text-[#191f28]">{row.year}</td>
-                    <td className="py-2.5 px-3">{formatLargeNumber(row.revenue)}</td>
-                    <td className="py-2.5 px-3">{formatPercent(row.gross_margin_pct)}</td>
-                    <td className="py-2.5 px-3">{formatLargeNumber(row.operating_income)}</td>
-                    <td className="py-2.5 px-3 font-semibold text-[#3182f6]">
+                    <td className="py-2.5 px-3 font-bold text-[#191f28] whitespace-nowrap">{row.year}</td>
+                    <td className="py-2.5 px-3 whitespace-nowrap tabular-nums">{formatLargeNumber(row.revenue)}</td>
+                    <td className="py-2.5 px-3 whitespace-nowrap tabular-nums">{formatPercent(row.gross_margin_pct)}</td>
+                    <td className="py-2.5 px-3 whitespace-nowrap tabular-nums">{formatLargeNumber(row.operating_income)}</td>
+                    <td className="py-2.5 px-3 font-semibold text-[#3182f6] whitespace-nowrap tabular-nums">
                       {formatPercent(row.operating_margin_pct)}
                     </td>
-                    <td className="py-2.5 px-3">{formatLargeNumber(row.net_income)}</td>
-                    <td className="py-2.5 px-3 font-bold">
+                    <td className="py-2.5 px-3 whitespace-nowrap tabular-nums">{formatLargeNumber(row.net_income)}</td>
+                    <td className="py-2.5 px-3 font-bold whitespace-nowrap tabular-nums">
                       {row.eps !== null && row.eps !== undefined ? `$${row.eps.toFixed(2)}` : "-"}
                     </td>
                   </tr>

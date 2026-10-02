@@ -55,22 +55,22 @@ export function LiveStatusBar({
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#f2f4f6] px-3.5 sm:px-8 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         {/* 서비스 타이틀 & 상태 */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#3182f6] flex items-center justify-center text-white font-bold text-sm shadow-xs">
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-[#3182f6] flex items-center justify-center text-white font-bold text-sm shadow-xs shrink-0">
               S
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-sm sm:text-base font-bold text-[#191f28] tracking-tight">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <h1 className="text-sm sm:text-base font-bold text-[#191f28] tracking-tight truncate">
                   SeedTick 관제센터
                 </h1>
-                <Badge variant={isServerHealthy ? "success" : "danger"}>
+                <Badge variant={isServerHealthy ? "success" : "danger"} className="shrink-0">
                   <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
                   {isServerHealthy ? "정상 기동" : "오프라인"}
                 </Badge>
               </div>
-              <p className="text-[10px] sm:text-xs text-[#8b95a1] leading-none mt-0.5">
+              <p className="text-[10px] sm:text-xs text-[#8b95a1] leading-none mt-0.5 truncate">
                 미국 주식 13인 거장 AI 스크리닝 & 자동매매
               </p>
             </div>
@@ -96,12 +96,12 @@ export function LiveStatusBar({
           {/* 1. 서버 공인 IP 위젯 (터치 시 원터치 복사) */}
           <div
             onClick={handleCopyIp}
-            className="flex items-center justify-between sm:justify-start gap-1.5 bg-[#f9fafb] border border-[#e5e8eb] px-3 py-2 sm:py-1.5 rounded-2xl hover:bg-[#f2f4f6] transition-colors cursor-pointer select-none"
+            className="flex items-center justify-between sm:justify-start gap-1.5 bg-[#f9fafb] border border-[#e5e8eb] px-3 py-2 sm:py-1.5 rounded-2xl hover:bg-[#f2f4f6] transition-colors cursor-pointer select-none min-w-0"
             title="토스/한투 WTS 허용 IP 등록을 위해 복사"
           >
             <div className="flex items-center gap-1.5 min-w-0">
               <Globe className="w-3.5 h-3.5 text-[#3182f6] shrink-0" />
-              <span className="font-semibold text-[#191f28] font-mono text-[11px] sm:text-xs truncate">
+              <span className="font-semibold text-[#191f28] font-mono text-[11px] sm:text-xs truncate min-w-0">
                 {ipInfo?.server_public_ip || "IP 확인 중..."}
               </span>
             </div>
@@ -117,9 +117,9 @@ export function LiveStatusBar({
           </div>
 
           {/* 2. 오늘 마켓 개장 여부 위젯 */}
-          <div className="flex items-center gap-1.5 bg-[#f9fafb] border border-[#e5e8eb] px-3 py-2 sm:py-1.5 rounded-2xl">
+          <div className="flex items-center gap-1.5 bg-[#f9fafb] border border-[#e5e8eb] px-3 py-2 sm:py-1.5 rounded-2xl min-w-0">
             <Calendar className="w-3.5 h-3.5 text-[#ff9500] shrink-0" />
-            <span className="text-[#8b95a1] text-[11px] sm:text-xs font-medium">미장:</span>
+            <span className="text-[#8b95a1] text-[11px] sm:text-xs font-medium shrink-0">미장:</span>
             <span
               className={`font-bold text-[11px] sm:text-xs ${
                 isMarketOpen ? "text-[#03b26c]" : "text-[#f04452]"
@@ -130,15 +130,15 @@ export function LiveStatusBar({
           </div>
 
           {/* 3. 자동주문 실행 모드 배지 */}
-          <div className="flex items-center gap-1.5 bg-[#f9fafb] border border-[#e5e8eb] px-3 py-2 sm:py-1.5 rounded-2xl col-span-2 sm:col-span-1">
+          <div className="flex items-center gap-1.5 bg-[#f9fafb] border border-[#e5e8eb] px-3 py-2 sm:py-1.5 rounded-2xl col-span-2 sm:col-span-1 min-w-0">
             <ShieldAlert className="w-3.5 h-3.5 text-[#6b7684] shrink-0" />
-            <span className="text-[#8b95a1] text-[11px] sm:text-xs font-medium">모드:</span>
+            <span className="text-[#8b95a1] text-[11px] sm:text-xs font-medium shrink-0">모드:</span>
             {isDryRun ? (
-              <span className="font-bold text-[#3182f6] text-[11px] sm:text-xs">
+              <span className="font-bold text-[#3182f6] text-[11px] sm:text-xs truncate">
                 DRY-RUN (모의투자)
               </span>
             ) : (
-              <span className="font-bold text-[#f04452] text-[11px] sm:text-xs">
+              <span className="font-bold text-[#f04452] text-[11px] sm:text-xs truncate">
                 REAL (실거래)
               </span>
             )}
