@@ -102,9 +102,7 @@ class GuruReportService:
         if settings.ENABLE_ROUND_TABLE_DISCUSSION:
             if self.request_interval > 0:
                 await asyncio.sleep(self.request_interval)
-            discussion_doc = await self.discussion_engine.generate_discussion(
-                datapack, summary_doc, max_tokens=settings.DISCUSSION_MAX_TOKENS
-            )
+            discussion_doc = await self.discussion_engine.generate_discussion(datapack, summary_doc)
             self._save_discussion_file(discussion_doc)
             logger.info(
                 f"[{clean_ticker}] 3단계: 원탁 토론 전문 저장 완료 "
@@ -133,7 +131,7 @@ class GuruReportService:
         if self.request_interval > 0:
             await asyncio.sleep(self.request_interval)
         master_report = await self.discussion_engine.generate_master_report(
-            datapack, summary_doc, discussion_doc, max_tokens=settings.MASTER_MAX_TOKENS
+            datapack, summary_doc, discussion_doc
         )
         self._save_master_report_file(master_report)
         logger.info(
@@ -259,10 +257,8 @@ class GuruReportService:
         self, persona_key: str, datapack_md: str
     ) -> PersonaSummaryBlock:
         # 뉴스, IR 일정, 재무제표, 밸류에이션, 가치드라이버가 모두 포함된 전체 데이터팩 전달
-        # 출력은 10줄 규격이므로 SUMMARY_MAX_TOKENS(기본 2048)로 상한 제한
-        # (한도에 걸려 끊기면 AiClient가 2배 한도로 1회 자동 재시도)
         prompt = build_persona_prompt(persona_key, datapack_md)
-        text = await self.ai.chat(prompt, max_tokens=settings.SUMMARY_MAX_TOKENS)
+        text = await self.ai.chat(prompt)
         return self._parse_summary_block(persona_key, text)
 
     def _parse_summary_block(self, persona_key: str, text: str) -> PersonaSummaryBlock:

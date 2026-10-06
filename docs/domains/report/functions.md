@@ -76,8 +76,7 @@ class GuruReportService:
         """
         최종 종합 마스터 투자 보고서 생성. 기본 토론 생략 모드에서는 13인 요약으로
         핵심 쟁점 2~3개, 적정가 합의 밴드, 종합 판정을 직접 도출
-        단계별 SUMMARY_MAX_TOKENS / MASTER_MAX_TOKENS 상한을 사용하며,
-        finish_reason=length이면 AiGatewayClient가 상한을 2배로 1회 재시도
+        AiGatewayClient의 기본 출력 토큰 상한을 사용
         결과 저장: docs/report/{date}/최종/{ticker}_최종보고서.md
         """
         ...

@@ -14,9 +14,6 @@ from app.domains.report.model_rotation import model_rotation
 logger = logging.getLogger("ai_client")
 
 
-class AiTruncatedResponseError(RuntimeError):
-    """출력 토큰 상한으로 잘린 응답을 확장 재시도 후에도 완성하지 못함."""
-
 # 모델 레벨 실패로 판정해 다음 순위로 내려가야 하는 HTTP 상태 코드.
 # (키 쿼터/네트워크 문제는 429/예외이므로 여기에 포함하지 않는다)
 _MODEL_LEVEL_HTTP = {500, 502, 503, 504, 529}
@@ -280,7 +277,6 @@ class AiGatewayClient:
         prompt: str,
         system_prompt: str = "",
         max_tokens: int | None = None,
-        _allow_length_retry: bool = True,
     ) -> str:
         """
         채pletion 호출.
@@ -290,8 +286,6 @@ class AiGatewayClient:
         자동 전환한 뒤 재시도한다. 키 쿼터(429)나 네트워크 오류는 모델을
         바꾸지 않고 다음 슬롯(키)으로만 넘어간다.
 
-        출력 한도(max_tokens)에 걸려 응답이 끊긴 경우(finish_reason=length)에는
-        한도를 2배로 올려 1회만 자동 재시도한다(_allow_length_retry=False로 재귀 방지).
         """
         messages = []
         if system_prompt:
@@ -299,38 +293,6 @@ class AiGatewayClient:
         messages.append({"role": "user", "content": prompt})
 
         tokens_to_request = max_tokens if max_tokens is not None else self.max_tokens
-
-        # ── 출력 한도로 잘린 응답에 대한 1회 자동 재시도 ──
-        async def _retry_truncated(provider: str) -> str:
-            cap = settings.AI_GATEWAY_MAX_TOKENS
-            if not _allow_length_retry or tokens_to_request >= cap:
-                raise AiTruncatedResponseError(
-                    f"AI 응답이 max_tokens={tokens_to_request}에서 잘렸고 확장 재시도를 할 수 없습니다 "
-                    f"(provider={provider}, cap={cap})"
-                )
-            retry_tokens = min(tokens_to_request * 2, cap)
-            logger.warning(
-                f"[AiClient] ↻ [{provider}] 출력 한도 {tokens_to_request}에 잘림 → "
-                f"{retry_tokens}으로 1회 자동 재시도 (prompt={len(prompt)}자)"
-            )
-            try:
-                retried = await self.chat(
-                    prompt,
-                    system_prompt=system_prompt,
-                    max_tokens=retry_tokens,
-                    _allow_length_retry=False,
-                )
-            except Exception as e:
-                logger.warning(
-                    f"[AiClient] ↻ [{provider}] 한도 확장 재시도 실패 — "
-                    f"잘린 응답을 반환하지 않습니다: {e}"
-                )
-                raise AiTruncatedResponseError(
-                    f"AI 응답이 max_tokens={tokens_to_request}에서 잘렸고 "
-                    f"확장 재시도(max_tokens={retry_tokens})가 실패했습니다 "
-                    f"(provider={provider})"
-                ) from e
-            return retried
 
         # 활성 모델을 요청 시점에 확정 (동시 호출 간 순위 전환 영향 최소화)
         model = self.model or model_rotation.active_model
@@ -466,8 +428,6 @@ class AiGatewayClient:
                                     f"completion_tokens={usage.get('completion_tokens', '?')} "
                                     f"total_tokens={usage.get('total_tokens', '?')}"
                                 )
-                                retried = await _retry_truncated(slot.provider)
-                                return retried.strip()
 
                             if not content or not content.strip():
                                 logger.warning(
@@ -515,8 +475,6 @@ class AiGatewayClient:
                             f"{res.text[:180]} (시도 {attempt}/{max_attempts})"
                         )
 
-                except AiTruncatedResponseError:
-                    raise
                 except Exception as e:
                     logger.warning(
                         f"[AiClient] 연결 오류 ({e}) ([{slot.provider}], 키: {key_masked}) - "
@@ -626,8 +584,6 @@ class AiGatewayClient:
                                 f"completion_tokens={usage.get('completion_tokens', '?')} "
                                 f"total_tokens={usage.get('total_tokens', '?')}"
                             )
-                            retried = await _retry_truncated("AI-Gateway")
-                            return retried.strip()
 
                         if not content or not content.strip():
                             logger.warning(
@@ -672,8 +628,6 @@ class AiGatewayClient:
                             f"[AiClient] [AI-Gateway] HTTP {res.status_code}: {res.text[:180]} (시도 {attempt}/{max_attempts})"
                         )
 
-            except AiTruncatedResponseError:
-                raise
             except Exception as e:
                 logger.warning(
                     f"[AiClient] [AI-Gateway] 연결 오류 ({e}) - 시도 {attempt}/{max_attempts}"
