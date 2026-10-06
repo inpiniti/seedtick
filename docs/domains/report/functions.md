@@ -41,7 +41,7 @@ class GuruReportService:
         - progress가 주어지면 단계 전환(set_stage)과 13인 진행률(tick_guru)을 기록
         1단계: await datapack_builder.build(ticker, date)
         2단계: await self.generate_guru_summaries(datapack)
-        3단계: await self.generate_roundtable_discussion(datapack, summaries)
+        3단계: 토론 활성 시 AI 토론 생성, 기본 설정은 요약 기반 compact 토론 문서 생성
         4단계: await self.generate_master_report(datapack, summaries, discussion)
         5단계: await self.sync_to_db(ticker, date, master_report)
         """
@@ -61,8 +61,9 @@ class GuruReportService:
         summaries: GuruSummaryDoc
     ) -> GuruDiscussionDoc:
         """
-        거장들의 상호 반박 원탁 토론 생성
-        결과 저장: docs/report/{date}/최종/{ticker}_토론.md
+        ENABLE_ROUND_TABLE_DISCUSSION=true면 AI 상호 반박 원탁 토론을 생성
+        기본 false면 AI 호출 없이 13인 요약/표결을 담은 compact 호환 문서를 생성
+        두 경우 모두 결과 저장: docs/report/{date}/최종/{ticker}_토론.md
         """
         ...
 
@@ -73,7 +74,10 @@ class GuruReportService:
         discussion: GuruDiscussionDoc
     ) -> FinalMasterReport:
         """
-        최종 종합 마스터 투자 보고서 생성
+        최종 종합 마스터 투자 보고서 생성. 기본 토론 생략 모드에서는 13인 요약으로
+        핵심 쟁점 2~3개, 적정가 합의 밴드, 종합 판정을 직접 도출
+        단계별 SUMMARY_MAX_TOKENS / MASTER_MAX_TOKENS 상한을 사용하며,
+        finish_reason=length이면 AiGatewayClient가 상한을 2배로 1회 재시도
         결과 저장: docs/report/{date}/최종/{ticker}_최종보고서.md
         """
         ...
@@ -92,4 +96,3 @@ class GuruReportService:
 AI-Gateway(`seedtick-ai-gateway`)와의 통신 클라이언트.
 - 멀티키 로테이션을 활용하여 13인 페르소나 호출 시 429 레이트 리밋 방지
 - 타임아웃 및 재시도(Exponential Backoff) 내장
-

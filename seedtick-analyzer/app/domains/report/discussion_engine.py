@@ -5,6 +5,7 @@ import logging
 import re
 from typing import Any, Literal
 from app.config.constants import VERDICT_SCORE_MAP
+from app.config.settings import settings
 from app.domains.report.ai_client import AiGatewayClient
 from app.domains.report.models import (
     FinalMasterReport,
@@ -21,10 +22,11 @@ class DiscussionEngine:
         self.ai = ai_client
 
     async def generate_discussion(
-        self, datapack: StockDataPack, summaries: GuruSummaryDoc
+        self, datapack: StockDataPack, summaries: GuruSummaryDoc, max_tokens: int | None = None
     ) -> GuruDiscussionDoc:
         """
         3단계: 13인 거장들의 치열한 원탁 토론 전문 생성
+        (기본 설정에서는 비활성 — build_compact_discussion + 마스터 이관으로 대체)
         """
         # 프롬프트 크기 최적화: raw_markdown 전체 대신 핵심만 압축
         # 13인 거장 요약 전문 (모든 논거 및 목표가/트리거 반영)
@@ -80,7 +82,7 @@ class DiscussionEngine:
 """
 
         logger.info(f"[{datapack.ticker}] 13인 거장 원탁 토론 AI 생성 시작 (32K 지원)...")
-        dialogue = await self.ai.chat(prompt)
+        dialogue = await self.ai.chat(prompt, max_tokens=max_tokens)
         logger.info(f"[{datapack.ticker}] 원탁 토론 AI 생성 완료 (길이: {len(dialogue)}자)")
 
         # 표결 카운트 추출 (단순 파싱)
@@ -102,6 +104,63 @@ class DiscussionEngine:
             dialogue=dialogue,
             final_vote_counts=vote_counts,
             raw_markdown=dialogue,
+        )
+
+    def build_compact_discussion(
+        self, datapack: StockDataPack, summaries: GuruSummaryDoc
+    ) -> GuruDiscussionDoc:
+        """
+        AI 호출 없이 13인 요약만으로 원탁 토론 문서를 경량 생성한다.
+        (기본 설정 ENABLE_ROUND_TABLE_DISCUSSION=False 에서 사용)
+
+        - AI 토론 생성 대신, 쟁점·적정가 합의밴드·표결 요약 도출은 4단계 마스터로 이관
+        - DB 컬럼(guru_reports.discussion)과 어드민 '원탁 토론' 탭 호환을 위해 문서 형태 유지
+        - 토큰 소비 0 (결정론적 문자열 조립)
+        """
+        vote_counts: dict[str, int] = {"매수": 0, "보유": 0, "관망": 0, "매도": 0}
+        for s in summaries.summaries:
+            vote_counts[s.verdict] = vote_counts.get(s.verdict, 0) + 1
+
+        lines = [
+            f"# {datapack.ticker} — 13인 거장 사전 평가 (원탁 토론 생략 모드)",
+            f"> 날짜: {datapack.date} | 종목: {datapack.ticker} | 현재가: ${datapack.current_price:.2f}",
+            "> 3단계 AI 원탁 토론은 생략되었습니다. 핵심 쟁점·적정가 합의 밴드·표결 요약은",
+            "> 4단계 최종 마스터 보고서에서 13인 요약을 교차검증해 직접 도출합니다.",
+            "",
+            "## 1. 13인 사전 평가 표",
+            "| 인물 | 의견 | 확신도 | 적정가/매수 가격대 | 대표 논거 |",
+            "|---|---|---|---|---|",
+        ]
+        for s in summaries.summaries:
+            argument = s.core_arguments[0] if s.core_arguments else "재무·가치평가 종합 검토"
+            target = s.target_price_range or "—"
+            # 마크다운 표 셀 깨짐 방지
+            lines.append(
+                f"| {s.persona} | {s.verdict} | {s.confidence}/10 | "
+                f"{target.replace('|', '/')} | {argument.replace('|', '/')} |"
+            )
+
+        lines.extend(
+            [
+                "",
+                "## 2. 표결 집계",
+                f"- 매수: {vote_counts['매수']}명 | 보유: {vote_counts['보유']}명 | "
+                f"관망: {vote_counts['관망']}명 | 매도: {vote_counts['매도']}명",
+                "",
+                "## 3. 마스터로 이관된 도출 항목",
+                "- 핵심 쟁점 2~3개 / 적정가 합의 밴드(보수·중립·낙관) / 종합 판정 "
+                "— 4단계 최종 마스터 보고서에서 직접 도출",
+            ]
+        )
+
+        raw_markdown = "\n".join(lines)
+        return GuruDiscussionDoc(
+            ticker=datapack.ticker,
+            date=datapack.date,
+            hot_topics=["밸류에이션 및 안전마진", "성장 동력 및 해자", "리스크 및 다운사이드"],
+            dialogue=raw_markdown,
+            final_vote_counts=vote_counts,
+            raw_markdown=raw_markdown,
         )
 
     def _build_fallback_discussion(
@@ -152,38 +211,62 @@ class DiscussionEngine:
         datapack: StockDataPack,
         summaries: GuruSummaryDoc,
         discussion: GuruDiscussionDoc,
+        max_tokens: int | None = None,
     ) -> FinalMasterReport:
         """
         4단계: 최종 마스터 종합 투자 보고서 생성
+
+        - 토론 생략 모드(기본, ENABLE_ROUND_TABLE_DISCUSSION=False):
+          원탁 토론 전문 없이 13인 요약만으로 '쟁점·적정가 합의밴드·표결'을
+          직접 도출하도록 지시 → 토론 생성 토큰/시간 전액 절약
+        - 토론 활성 모드(True): 기존대로 토론 전문까지 입력
         """
+        votes = discussion.final_vote_counts
+        use_dialogue = settings.ENABLE_ROUND_TABLE_DISCUSSION and bool(
+            (discussion.dialogue or "").strip()
+        )
+        if use_dialogue:
+            discussion_block = f"[원탁 토론 전문]\n{discussion.dialogue}"
+            derivation_note = "원탁 토론에서 교차 검증을 거쳐 살아남은 논거와 합의 밴드를 반영하라."
+        else:
+            discussion_block = "(원탁 토론 생략 모드 — 아래 13인 요약을 직접 교차검증하라)"
+            derivation_note = (
+                "13인 요약의 의견·핵심 논거·적정가를 직접 교차검증하여 "
+                "핵심 쟁점과 적정가 합의 밴드를 도출한 뒤 리포트를 작성하라."
+            )
+
         prompt = f"""너는 글로벌 최고 수준의 리서치 센터장이다.
 종목: {datapack.ticker}
 데이터팩:
 - 현재가: ${datapack.current_price:.2f}
 - PER: {datapack.valuation.trailing_pe}x | PBR: {datapack.valuation.pbr}x | ROE: {datapack.balance_sheet.roe_pct}%
 
-아래 13인의 요약 블록과 원탁 토론 결과를 토대로, 투자자가 실전에 즉시 활용할 수 있는 '최종 종합 마스터 투자 보고서'를 완벽한 마크다운으로 작성하라.
-핵심 논거와 구체적 가격/수치(PER, ROE, FCF, 목표가 등)를 빠짐없이 포함하여 깊이 있고 전문적인 최고 수준의 리서치 보고서를 작성하라.
+아래 제공된 13인 요약 블록(및 토론 결과)을 토대로, 투자자가 실전에 즉시 활용할 수 있는 '최종 종합 마스터 투자 보고서'를 마크다운으로 작성하라.
+{derivation_note}
+
+[사전 작업 — 리포트 작성 전 반드시 먼저 도출]
+1. 13인 요약의 의견·핵심 논거·적정가를 교차검증하여 핵심 쟁점 2~3개(예: 밸류에이션 적정성, 성장 지속성, 해자의 견고함, 최신 뉴스/촉매의 실질 영향)를 추출하라.
+2. 거장들이 제시한 적정가 후보를 교차검증하여 종합 '적정가 합의 밴드'를 도출하라: 보수적 안전마진가 / 중립 적정 내재가치 / 낙관적 목표주가.
+3. 표결은 집계하되 단순 다수결이 아니라, 검증 과정에서 가장 견고하게 살아남은 논거를 근거로 종합 판정(매수/보유/관망/매도)을 내려라.
 
 [13인 요약 블록]
 {summaries.raw_markdown}
 
-[원탁 토론 전문]
-{discussion.dialogue}
+{discussion_block}
 
 [필수 구성]
 # {datapack.ticker} 최종 투자 보고서
-> **날짜**: {datapack.date} | **종합 의견**: (매수/보유/관망/매도 중 택1 필수. 예: **관망 (상세 설명)**) | **표결**: 매수 {discussion.final_vote_counts.get('매수', 0)} · 보유 {discussion.final_vote_counts.get('보유', 0)} · 관망 {discussion.final_vote_counts.get('관망', 0)} · 매도 {discussion.final_vote_counts.get('매도', 0)}
+> **날짜**: {datapack.date} | **종합 의견**: (매수/보유/관망/매도 중 택1 필수. 예: **관망 (상세 설명)**) | **표결**: 매수 {votes.get('매수', 0)} · 보유 {votes.get('보유', 0)} · 관망 {votes.get('관망', 0)} · 매도 {votes.get('매도', 0)}
 > **현재가**: ${datapack.current_price:.2f} | **종합 적정 내재가치**: $xxx (적정 밴드: $xxx ~ $xxx)
 > **투자 실행 밴드**: [안전마진 매수가] $xxx 이하 | [중립 적정가] $xxx | [목표 매도가] $xxx
 
 ※ 중요:
 1. 헤더의 '종합 의견'에는 반드시 '매수', '보유', '관망', '매도' 4개 키워드 중 하나를 가장 먼저 명시하라.
-2. 헤더의 '종합 적정 내재가치'와 '투자 실행 밴드'에는 원탁 토론에서 합의된 구체적인 수치(달러 또는 원화)를 반드시 명시하라.
+2. 헤더의 '종합 적정 내재가치'와 '투자 실행 밴드'에는 도출한 합의 밴드의 구체적인 수치(달러 또는 원화)를 반드시 명시하라.
 
 ## 1. 종합 결론 및 밸류에이션 산출 근거
-- 종합 결론: (단순 다수결이 아니라, 토론에서 가장 견고하게 살아남은 논거를 토대로 종합 결론 도출)
-- 밸류에이션 산출 근거: (원탁 토론 합의 내용 및 데이터팩의 PER/PBR/FCF/컨센서스를 반영한 가격 산출 논거)
+- 종합 결론: (단순 다수결이 아니라, 검증 과정에서 가장 견고하게 살아남은 논거를 토대로 종합 결론 도출)
+- 밸류에이션 산출 근거: (적정가 합의 밴드 및 데이터팩의 PER/PBR/FCF/컨센서스를 반영한 가격 산출 논거 1~2줄)
 
 ## 2. 강세론 핵심 (Bull Case)
 (성장·해자·품질 측면의 강력한 논거)
@@ -206,11 +289,15 @@ class DiscussionEngine:
 
 *본 보고서는 서적 기반 시뮬레이션이며 투자 자문이 아닙니다.*
 
-[작성 절대 규칙]
-1. 핵심 밸류에이션 논거와 13인 요약표 작성이 완료되면, 장황한 중복 추론 없이 즉시 최종 리포트를 완결하라.
+[분량 및 작성 절대 규칙]
+1. 헤더 3줄(종합 의견·표결·현재가·종합 적정 내재가치·투자 실행 밴드)은 반드시 완성하라 — 이 헤더는 파싱 기준이므로 누락하면 판정이 어긋난다.
+2. 서론, '요약의 요약', 데이터팩 재인용, 생각 과정(Thinking) 출력은 금지한다. 헤더 바로 다음 줄부터 '## 1.' 섹션을 시작하라.
+3. 각 섹션은 6줄 이내로 압축하고(6번 요약표는 13행 유지), 각 불릿은 1문장 이내로 써라.
+4. 전체 마크다운 분량은 1,600자 내외, 절대 2,000자를 넘기지 마라.
+5. 핵심 밸류에이션 논거와 13인 요약표 작성이 끝나면 장황한 중복 추론 없이 즉시 완결하라.
 """
-        logger.info(f"[{datapack.ticker}] 최종 마스터 보고서 AI 생성 시작 (32K 지원)...")
-        master_md = await self.ai.chat(prompt)
+        logger.info(f"[{datapack.ticker}] 최종 마스터 보고서 AI 생성 시작 (max_tokens={max_tokens})...")
+        master_md = await self.ai.chat(prompt, max_tokens=max_tokens)
         logger.info(f"[{datapack.ticker}] 최종 마스터 보고서 AI 생성 완료 (길이: {len(master_md)}자)")
 
         # 4단계: LLM 리서치 센터장의 최종 투자의견 및 밸류에이션 합의치 파싱

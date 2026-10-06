@@ -5,7 +5,8 @@ import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 import httpx
 
-from app.domains.report.ai_client import AiGatewayClient
+from app.config.settings import settings
+from app.domains.report.ai_client import AiGatewayClient, AiTruncatedResponseError
 from app.domains.report.personas.prompts import GURU_PERSONAS, build_persona_prompt
 from app.domains.report.models import StockDataPack, ValuationRow, BalanceSheetRow
 from app.domains.report.datapack_builder import DataPackBuilder
@@ -72,6 +73,63 @@ async def test_ai_client_direct_chat_success():
         assert payload["max_tokens"] == 32768
         assert "Bearer sk-testkey123" in headers["Authorization"]
         assert headers["HTTP-Referer"] == "https://seedtick.app"
+
+
+@pytest.mark.asyncio
+async def test_ai_client_retries_truncated_response_with_double_token_cap(monkeypatch):
+    monkeypatch.setattr(settings, "AI_GATEWAY_MAX_TOKENS", 1000)
+    client = AiGatewayClient(api_keys=["sk-testkey123"], max_tokens=100)
+
+    truncated = MagicMock()
+    truncated.status_code = 200
+    truncated.json.return_value = {
+        "choices": [
+            {"message": {"content": "잘린 응답"}, "finish_reason": "length"}
+        ]
+    }
+    complete = MagicMock()
+    complete.status_code = 200
+    complete.json.return_value = {
+        "choices": [
+            {"message": {"content": "완성된 응답"}, "finish_reason": "stop"}
+        ]
+    }
+
+    with patch(
+        "httpx.AsyncClient.post",
+        new_callable=AsyncMock,
+        side_effect=[truncated, complete],
+    ) as mock_post:
+        result = await client.chat("분석", max_tokens=100)
+
+    assert result == "완성된 응답"
+    assert mock_post.await_count == 2
+    assert mock_post.call_args_list[0].kwargs["json"]["max_tokens"] == 100
+    assert mock_post.call_args_list[1].kwargs["json"]["max_tokens"] == 200
+
+
+@pytest.mark.asyncio
+async def test_ai_client_does_not_return_response_if_retry_is_still_truncated(monkeypatch):
+    monkeypatch.setattr(settings, "AI_GATEWAY_MAX_TOKENS", 1000)
+    client = AiGatewayClient(api_keys=["sk-testkey123"], max_tokens=100)
+
+    truncated = MagicMock()
+    truncated.status_code = 200
+    truncated.json.return_value = {
+        "choices": [
+            {"message": {"content": "잘린 응답"}, "finish_reason": "length"}
+        ]
+    }
+
+    with patch(
+        "httpx.AsyncClient.post",
+        new_callable=AsyncMock,
+        side_effect=[truncated, truncated],
+    ) as mock_post:
+        with pytest.raises(AiTruncatedResponseError):
+            await client.chat("분석", max_tokens=100)
+
+    assert mock_post.await_count == 2
 
 
 def test_guru_personas_coverage():

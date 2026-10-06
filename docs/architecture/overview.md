@@ -22,7 +22,7 @@
         |       |         └─ docs/report/{date}/_data/{ticker}.md
         |       +---> [2단계] AI-Gateway (13인 거장 요약 블록 병렬 생성)
         |       |         └─ docs/report/{date}/_data/{ticker}_요약.md
-        |       +---> [3단계] 거장 원탁 토론 전문 생성
+        |       +---> [3단계] 기본은 토론 AI 생략 + 간결한 표결 문서; 설정 시 원탁 토론 전문 생성
         |       |         └─ docs/report/{date}/최종/{ticker}_토론.md
         |       +---> [4단계] 최종 마스터 투자 보고서 생성
         |       |         └─ docs/report/{date}/최종/{ticker}_최종보고서.md
@@ -71,7 +71,7 @@
     → for ticker in targets:
         → [1단계] DataPackBuilder.build(ticker) → _data/{ticker}.md
         → [2단계] 13인 거장 요약 블록 생성 → _data/{ticker}_요약.md
-        → [3단계] 거장 원탁 토론 전문 생성 → 최종/{ticker}_토론.md
+        → [3단계] 기본은 원탁 토론 AI 생략·표결 문서 생성 (선택 활성화 가능) → 최종/{ticker}_토론.md
         → [4단계] 최종 종합 투자 보고서 생성 → 최종/{ticker}_최종보고서.md
         → [5단계] Supabase guru_votes DB 테이블 저장
     → auto_trading.execute_from_reports(reports)
