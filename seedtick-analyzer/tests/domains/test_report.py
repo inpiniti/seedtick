@@ -444,10 +444,8 @@ async def test_pipeline_skips_ai_discussion_and_uses_compact(monkeypatch, tmp_pa
 
 
 @pytest.mark.asyncio
-async def test_single_persona_summary_uses_summary_token_cap():
-    """개별 서머리 호출이 SUMMARY_MAX_TOKENS로 상한되는지 검증"""
-    from app.config.settings import settings
-
+async def test_single_persona_summary_uses_client_default_token_cap():
+    """개별 서머리가 단계별 출력 상한 없이 클라이언트 기본 상한을 사용하는지 검증"""
     mock_ai = MagicMock()
     mock_ai.chat = AsyncMock(
         return_value="인물: 워런-버핏 | 의견: 매수 | 확신도: 9\n핵심 논거:\n- 강력한 해자\n적정가/매수 가격대: $250\n대표 발언: 훌륭한 비즈니스다."
@@ -458,8 +456,7 @@ async def test_single_persona_summary_uses_summary_token_cap():
 
     assert block.verdict == "매수"
     mock_ai.chat.assert_awaited_once()
-    call_kwargs = mock_ai.chat.call_args.kwargs
-    assert call_kwargs["max_tokens"] == settings.SUMMARY_MAX_TOKENS
+    assert mock_ai.chat.call_args.kwargs == {}
 
 
 @pytest.mark.asyncio
@@ -522,9 +519,7 @@ async def test_master_report_transfers_discussion_role_and_limits(monkeypatch):
     monkeypatch.setattr(settings, "ENABLE_ROUND_TABLE_DISCUSSION", False)
     datapack, summaries, discussion = _fixtures()
 
-    report = await engine.generate_master_report(
-        datapack, summaries, discussion, max_tokens=settings.MASTER_MAX_TOKENS
-    )
+    report = await engine.generate_master_report(datapack, summaries, discussion)
     assert report.overall_verdict == "매수"
 
     prompt = mock_ai.chat.call_args.args[0]
@@ -533,8 +528,7 @@ async def test_master_report_transfers_discussion_role_and_limits(monkeypatch):
     assert "교차검증" in prompt and "합의 밴드" in prompt
     assert "표결" in prompt
     assert "1,600자 내외" in prompt
-    used_kwargs = mock_ai.chat.call_args.kwargs
-    assert used_kwargs["max_tokens"] == settings.MASTER_MAX_TOKENS
+    assert mock_ai.chat.call_args.kwargs == {}
 
     # 2) 활성 모드: 토론 전문이 그대로 입력됨
     monkeypatch.setattr(settings, "ENABLE_ROUND_TABLE_DISCUSSION", True)

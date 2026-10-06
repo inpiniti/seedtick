@@ -22,7 +22,7 @@ class DiscussionEngine:
         self.ai = ai_client
 
     async def generate_discussion(
-        self, datapack: StockDataPack, summaries: GuruSummaryDoc, max_tokens: int | None = None
+        self, datapack: StockDataPack, summaries: GuruSummaryDoc
     ) -> GuruDiscussionDoc:
         """
         3단계: 13인 거장들의 치열한 원탁 토론 전문 생성
@@ -82,7 +82,7 @@ class DiscussionEngine:
 """
 
         logger.info(f"[{datapack.ticker}] 13인 거장 원탁 토론 AI 생성 시작 (32K 지원)...")
-        dialogue = await self.ai.chat(prompt, max_tokens=max_tokens)
+        dialogue = await self.ai.chat(prompt)
         logger.info(f"[{datapack.ticker}] 원탁 토론 AI 생성 완료 (길이: {len(dialogue)}자)")
 
         # 표결 카운트 추출 (단순 파싱)
@@ -211,7 +211,6 @@ class DiscussionEngine:
         datapack: StockDataPack,
         summaries: GuruSummaryDoc,
         discussion: GuruDiscussionDoc,
-        max_tokens: int | None = None,
     ) -> FinalMasterReport:
         """
         4단계: 최종 마스터 종합 투자 보고서 생성
@@ -296,8 +295,8 @@ class DiscussionEngine:
 4. 전체 마크다운 분량은 1,600자 내외, 절대 2,000자를 넘기지 마라.
 5. 핵심 밸류에이션 논거와 13인 요약표 작성이 끝나면 장황한 중복 추론 없이 즉시 완결하라.
 """
-        logger.info(f"[{datapack.ticker}] 최종 마스터 보고서 AI 생성 시작 (max_tokens={max_tokens})...")
-        master_md = await self.ai.chat(prompt, max_tokens=max_tokens)
+        logger.info(f"[{datapack.ticker}] 최종 마스터 보고서 AI 생성 시작 (32K 지원)...")
+        master_md = await self.ai.chat(prompt)
         logger.info(f"[{datapack.ticker}] 최종 마스터 보고서 AI 생성 완료 (길이: {len(master_md)}자)")
 
         # 4단계: LLM 리서치 센터장의 최종 투자의견 및 밸류에이션 합의치 파싱
@@ -493,4 +492,3 @@ class DiscussionEngine:
                 return "매도", 3
 
         return "관망", 2
-

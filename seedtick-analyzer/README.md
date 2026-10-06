@@ -19,10 +19,9 @@ pinned: false
    - 1차: `BTC-AI backend` 프록시 호출, 2차: `토스 WTS 비공개 API` 직접 조회 (세션 및 심볼 보강 폴백)
 2. **[Report] DataPackBuilder 사전 구축 및 5단계 파이프라인**:
    - `DataPackBuilder`: Yahoo Finance / SEC EDGAR / Toss 비공개 엔드포인트 연동으로 손익계산서, 현금흐름표, 밸류에이션, 수급 지표를 2초 내 고품질 데이터팩(`_data/{ticker}.md`)으로 생성
-   - 13인 거장 요약 블록 병렬 생성 (`_data/{ticker}_요약.md`, 기본 출력 한도 2,048 토큰)
+   - 13인 거장 요약 블록 병렬 생성 (`_data/{ticker}_요약.md`)
    - 기본 설정은 AI 원탁 토론 호출을 생략하고 요약 기반 간결 문서를 저장합니다 (`최종/{ticker}_토론.md`); 쟁점과 적정가 합의 밴드는 마스터 단계에서 직접 도출합니다
-   - 최종 마스터 종합 투자 보고서 생성 (`최종/{ticker}_최종보고서.md`, 기본 출력 한도 6,144 토큰)
-   - 출력이 토큰 상한에서 잘리면 상한을 2배로 높여 1회 재시도하며, 재시도도 잘리면 불완전한 보고서를 성공 결과로 반환하지 않습니다
+   - 최종 마스터 종합 투자 보고서 생성 (`최종/{ticker}_최종보고서.md`)
    - Supabase `guru_votes` DB 동기화
 3. **[Bridge] 독립 증권사 Broker Bridge Lib**:
    - 비즈니스 로직과 분리된 독립 패키지 구조 (`IBrokerAdapter`)
@@ -37,7 +36,7 @@ pinned: false
 
 ## 실행 방법
 
-토론을 다시 AI로 생성하려면 `.env` 또는 `.env.local`에 `ENABLE_ROUND_TABLE_DISCUSSION=true`를 설정하세요. 단계별 출력 한도는 `SUMMARY_MAX_TOKENS`, `DISCUSSION_MAX_TOKENS`, `MASTER_MAX_TOKENS`로 조정할 수 있습니다.
+토론을 다시 AI로 생성하려면 `.env` 또는 `.env.local`에 `ENABLE_ROUND_TABLE_DISCUSSION=true`를 설정하세요. AI 출력 토큰 상한은 `AI_GATEWAY_MAX_TOKENS`로 조정할 수 있습니다.
 
 ### 로컬 개발 서버 실행
 ```bash
