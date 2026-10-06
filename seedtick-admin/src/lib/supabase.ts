@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { GuruReportRow, GuruVoteRow, SystemLogItem } from "@/types/api";
+import { GuruReportRow, SystemLogItem } from "@/types/api";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
@@ -36,59 +36,6 @@ export async function fetchSystemLogs(
     return (data as SystemLogItem[]) || [];
   } catch (err) {
     console.warn("fetchSystemLogs exception:", err);
-    return [];
-  }
-}
-
-/**
- * 13인 거장 표결 점수 랭킹 최신/날짜별 조회
- */
-export async function fetchGuruVotes(limit = 100, date?: string): Promise<GuruVoteRow[]> {
-  if (!supabase) return [];
-  try {
-    let query = supabase
-      .from("guru_votes")
-      .select("*")
-      .order("d", { ascending: false })
-      .order("g0", { ascending: true }) // 0점(매수) 우선
-      .limit(limit);
-
-    if (date) {
-      query = query.eq("d", date);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      console.warn("fetchGuruVotes error:", error.message);
-      return [];
-    }
-    return (data as GuruVoteRow[]) || [];
-  } catch (err) {
-    console.warn("fetchGuruVotes exception:", err);
-    return [];
-  }
-}
-
-/**
- * 거장 표결에 존재하는 고유한 날짜 목록 조회 (내림차순)
- */
-export async function fetchGuruVoteDates(): Promise<string[]> {
-  if (!supabase) return [];
-  try {
-    const { data, error } = await supabase
-      .from("guru_votes")
-      .select("d")
-      .order("d", { ascending: false });
-
-    if (error) {
-      console.warn("fetchGuruVoteDates error:", error.message);
-      return [];
-    }
-    const dates = Array.from(new Set((data || []).map((row) => row.d as string)));
-    return dates;
-  } catch (err) {
-    console.warn("fetchGuruVoteDates exception:", err);
     return [];
   }
 }

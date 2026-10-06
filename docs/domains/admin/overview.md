@@ -13,8 +13,8 @@
 | **인프라 관제** | • 서버 아웃바운드 공인 IP 확인 및 원클릭 복사<br>• 서버 헬스체크 (Healthy/Down) 및 환경(Dev/Prod)<br>• 미국 정규장(NYSE/NASDAQ) 개장/휴장 실시간 판별 | `seedtick-analyzer` (`/api/ip`, `/health`) |
 | **자동매매 제어** | • 모의거래(Dry-Run) vs 실거래(Real) 상태 표시<br>• 당일 누적 투자금액 및 일일 한도(10만원) 소진율 게이지<br>• 금일 매수 체결 완료 종목 리스트<br>• 장외 시간 발주 차단 (정규장 개장 시간에만 그리드 자동매매) | `seedtick-analyzer` (`/api/auto-trading/*`, `/api/bridge/*`) |
 | **파이프라인 제어** | • 12:00 KST 정기 배치 외 **수동 즉시 파이프라인 트리거** (`dry_run`, `force` 옵션)<br>• 실행 중에는 트리거 버튼 자동 **비활성화**<br>• **실시간 진행 패널**: 단계(스크리닝→데이터팩→가치드라이버→13인 요약→토론→최종 마스터), 종목 진행률(`3/21`), 13인 요약(`n/13`), 경과 시간, 최근 로그 표시 | `seedtick-analyzer` (`/api/scheduler/trigger`, `/api/scheduler/progress`) |
-| **스크리너 & 거장 표결** | • 토스 13인 공통 필터 실시간 스크리닝 종목 조회<br>• **roma 탭**: DataRoma 슈퍼인베스터 10명 이상 공동 보유 종목 조회 (두번째 스크리너)<br>• 일자별 13인 거장 표결 점수 랭킹 매트릭스 (g0~g13) | Supabase `guru_votes`, Analyzer (`/api/screener/run`, `/api/screener/roma`) |
-| **투자 보고서 뷰어** | • 종목별 5단계 심층 리포트 (데이터팩 + 13인 요약 + 원탁 토론 + 마스터 리포트) 마크다운 열람 | Supabase `guru_reports` |
+| **실시간 스크리너** | • **전체 탭**: 실시간 스크리너와 roma 결과를 합쳐 티커 중복 제거 및 내재가치/종가 내림차순 정렬<br>• 토스 13인 공통 필터 실시간 스크리닝 종목 조회<br>• **roma 탭**: DataRoma 슈퍼인베스터 10명 이상 공동 보유 종목 조회 (두번째 스크리너)<br>• 카드별 핵심 신호(종합의견, 볼린저 밴드 위치 `%B`, 현재 종가 대비 적정 내재가치 비율) 표시 | Supabase `guru_reports`, Analyzer (`/api/screener/run`, `/api/screener/roma`, `/api/screener/chart/{ticker}`) |
+| **투자 보고서 상세 뷰어** | • 스크리너 카드 클릭 시 종목별 5단계 심층 리포트(데이터팩 + 13인 요약 + 원탁 토론 + 마스터 리포트) 마크다운 열람 | Supabase `guru_reports` |
 | **일봉 & BB 차트** | • 실시간 스크리너 및 리포트 종목의 6개월 일봉 캔들스틱 + 볼린저 밴드(20, 2) 차트 열람<br>• 볼린저 밴드 위치 진단(상단 돌파, 상단 근접, 중심선, 하단 근접, 하단 이탈) 요약 배지 | `seedtick-analyzer` (`/api/screener/chart/{ticker}`) |
 | **시스템 & 에러 로그** | • 실시간 이벤트/에러 로그 피드 (`INFO`, `WARNING`, `ERROR`, `CRITICAL`)<br>• 상세 에러 스택 및 JSON 컨텍스트 인스펙터 | Supabase `error_logs` |
 
