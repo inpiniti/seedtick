@@ -168,7 +168,7 @@ async def test_ai_gateway():
         "model": settings.AI_GATEWAY_MODEL,
         "messages": [{"role": "user", "content": _TEST_PROMPT}],
         "max_tokens": 1000,
-        "temperature": 0.3,
+        "temperature": settings.AI_GATEWAY_TEMPERATURE,
     }
     start = time.time()
     try:

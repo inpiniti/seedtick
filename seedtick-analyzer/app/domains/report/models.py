@@ -116,6 +116,7 @@ class FinalMasterReport(BaseModel):
     target_price_band: str | None = None       # 적정 밴드 (예: "$155 ~ $230")
     safety_entry_price: str | None = None      # 안전마진 매수가 (예: "$160 이하")
     optimistic_target_price: str | None = None # 낙관적 목표가 (예: "$230")
+    valuation_review_flags: list[str] = Field(default_factory=list)
     bull_case: str
     bear_case: str
     value_drivers: list[str] = Field(default_factory=list)

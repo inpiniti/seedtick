@@ -33,6 +33,8 @@ class Settings(BaseSettings):
         "poolside/laguna-s-2.1:free"
     )
     AI_GATEWAY_TIMEOUT: float = 300.0  # 긴 32K 응답 수용을 위해 300초로 상향
+    # 생성 다양성(temperature). 내재가치·투자의견 변동 폭을 줄이기 위해 기본값을 낮춘다.
+    AI_GATEWAY_TEMPERATURE: float = 0.1
     # 순위 강등까지 필요한 연속 모델 레벨 실패 횟수. 1이면 첫 실패 즉시 강등.
     # 2 이상이면 일시적 503 한 번으로는 순위를 내리지 않아 불필요한 하향을 줄인다.
     AI_MODEL_FAILURE_THRESHOLD: int = 1

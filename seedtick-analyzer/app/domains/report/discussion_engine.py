@@ -1,6 +1,7 @@
 """
 DiscussionEngine & MasterReportBuilder: 거장 원탁 토론 전문 및 최종 종합 보고서 생성
 """
+import json
 import logging
 import re
 from typing import Any, Literal
@@ -259,6 +260,19 @@ class DiscussionEngine:
 > **현재가**: ${datapack.current_price:.2f} | **종합 적정 내재가치**: $xxx (적정 밴드: $xxx ~ $xxx)
 > **투자 실행 밴드**: [안전마진 매수가] $xxx 이하 | [중립 적정가] $xxx | [목표 매도가] $xxx
 
+[기계 파싱용 JSON 블록 - 반드시 포함]
+아래 JSON 코드블록을 리포트 어디든 1회 포함하라. 값은 텍스트 헤더 수치와 반드시 일치해야 한다.
+```json
+{{
+  "valuation_consensus": {{
+    "fair_value_price": 185.0,
+    "target_price_band": "$155 ~ $230",
+    "safety_entry_price": "$160 이하",
+    "optimistic_target_price": "$230"
+  }}
+}}
+```
+
 ※ 중요:
 1. 헤더의 '종합 의견'에는 반드시 '매수', '보유', '관망', '매도' 4개 키워드 중 하나를 가장 먼저 명시하라.
 2. 헤더의 '종합 적정 내재가치'와 '투자 실행 밴드'에는 도출한 합의 밴드의 구체적인 수치(달러 또는 원화)를 반드시 명시하라.
@@ -321,6 +335,7 @@ class DiscussionEngine:
             target_price_band=val_consensus["target_price_band"],
             safety_entry_price=val_consensus["safety_entry_price"],
             optimistic_target_price=val_consensus["optimistic_target_price"],
+            valuation_review_flags=val_consensus["review_flags"],
             bull_case="AI 및 독점적 해자 기반 중장기 복리 성장",
             bear_case="단기 밸류에이션 부담 및 매크로 불확실성",
             raw_markdown=master_md,
@@ -330,7 +345,19 @@ class DiscussionEngine:
     def parse_report_valuation(self, raw_md: str) -> dict[str, Any]:
         """
         LLM 마스터 보고서 마크다운에서 종합 적정 내재가치 및 투자 실행 밴드를 파싱합니다.
+
+        1순위: 기계 파싱용 JSON 블록(valuation_consensus)
+        2순위: 기존 마크다운 텍스트 정규식 파싱
+        3순위: 이상치/불일치 자동 보정 없이 review flag만 남김
         """
+        review_flags: list[str] = []
+
+        parsed_json = self._parse_valuation_from_json_block(raw_md)
+        if parsed_json is not None:
+            self._append_valuation_review_flags(parsed_json, review_flags)
+            parsed_json["review_flags"] = review_flags
+            return parsed_json
+
         # 1. 종합 적정 내재가치 (숫자, 예: 185.0)
         fair_value: float | None = None
         fv_m = re.search(
@@ -370,12 +397,104 @@ class DiscussionEngine:
         if target_m:
             optimistic_target = target_m.group(1).strip().strip("[]*`")
 
-        return {
+        parsed = {
             "fair_value_price": fair_value,
             "target_price_band": target_band,
             "safety_entry_price": safety_entry,
             "optimistic_target_price": optimistic_target,
         }
+        self._append_valuation_review_flags(parsed, review_flags)
+        parsed["review_flags"] = review_flags
+        return parsed
+
+    def _parse_valuation_from_json_block(self, raw_md: str) -> dict[str, Any] | None:
+        """
+        리포트 내 JSON 코드블록에서 valuation_consensus를 추출한다.
+        실패 시 None 반환(정규식 파싱으로 폴백).
+        """
+        for match in re.finditer(r"```json\s*(\{[\s\S]*?\})\s*```", raw_md):
+            candidate = match.group(1).strip()
+            try:
+                payload = json.loads(candidate)
+            except json.JSONDecodeError:
+                continue
+
+            if not isinstance(payload, dict):
+                continue
+            consensus = payload.get("valuation_consensus")
+            if not isinstance(consensus, dict):
+                continue
+
+            fair_value = self._parse_numeric_value(consensus.get("fair_value_price"))
+            target_band = self._as_clean_str(consensus.get("target_price_band"))
+            safety_entry = self._as_clean_str(consensus.get("safety_entry_price"))
+            optimistic_target = self._as_clean_str(consensus.get("optimistic_target_price"))
+
+            logger.info("valuation_consensus JSON 블록 파싱 성공")
+            return {
+                "fair_value_price": fair_value,
+                "target_price_band": target_band,
+                "safety_entry_price": safety_entry,
+                "optimistic_target_price": optimistic_target,
+            }
+
+        return None
+
+    def _parse_numeric_value(self, value: Any) -> float | None:
+        if value is None:
+            return None
+        if isinstance(value, (int, float)):
+            return float(value)
+        if not isinstance(value, str):
+            return None
+
+        match = re.search(r"([-+]?\d[\d,]*(?:\.\d+)?)", value.replace(" ", ""))
+        if not match:
+            return None
+        try:
+            return float(match.group(1).replace(",", ""))
+        except ValueError:
+            return None
+
+    def _as_clean_str(self, value: Any) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip().strip("[]*`")
+        return text or None
+
+    def _append_valuation_review_flags(
+        self, parsed: dict[str, Any], review_flags: list[str]
+    ) -> None:
+        fair_value = self._parse_numeric_value(parsed.get("fair_value_price"))
+        safety_entry = self._parse_numeric_value(parsed.get("safety_entry_price"))
+        optimistic_target = self._parse_numeric_value(parsed.get("optimistic_target_price"))
+
+        if safety_entry is not None and fair_value is not None and safety_entry > fair_value:
+            review_flags.append("safety_entry_price가 fair_value_price보다 큽니다")
+
+        if fair_value is not None and optimistic_target is not None and fair_value > optimistic_target:
+            review_flags.append("fair_value_price가 optimistic_target_price보다 큽니다")
+
+        target_band = parsed.get("target_price_band")
+        if isinstance(target_band, str):
+            band_values = [
+                self._parse_numeric_value(num)
+                for num in re.findall(r"[-+]?\d[\d,]*(?:\.\d+)?", target_band)
+            ]
+            numeric_band = [value for value in band_values if value is not None]
+            if len(numeric_band) >= 2 and fair_value is not None:
+                band_low = min(numeric_band[0], numeric_band[1])
+                band_high = max(numeric_band[0], numeric_band[1])
+                if fair_value < band_low or fair_value > band_high:
+                    review_flags.append(
+                        "fair_value_price가 target_price_band 범위를 벗어났습니다"
+                    )
+
+        if review_flags:
+            logger.warning(
+                "밸류에이션 review flag 감지: %s",
+                ", ".join(review_flags),
+            )
 
     def parse_report_verdict(
         self,

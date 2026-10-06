@@ -303,6 +303,7 @@ def test_parse_report_valuation():
     assert res1["target_price_band"] == "$155 ~ $230"
     assert "$160" in res1["safety_entry_price"]
     assert "$230" in res1["optimistic_target_price"]
+    assert res1["review_flags"] == []
 
     # Case 2: 원화 및 다양한 기호 형식
     md2 = """
@@ -316,6 +317,58 @@ def test_parse_report_valuation():
     assert "210,000" in res2["target_price_band"]
     assert "220,000" in res2["safety_entry_price"]
     assert "300,000" in res2["optimistic_target_price"]
+    assert res2["review_flags"] == []
+
+
+def test_parse_report_valuation_prefers_json_block():
+    engine = DiscussionEngine(ai_client=MagicMock())
+
+    md = """
+# TST 최종 투자 보고서
+> **현재가**: $100 | **종합 적정 내재가치**: $160 (적정 밴드: $120 ~ $180)
+> **투자 실행 밴드**: [안전마진 매수가] $95 이하 | [중립 적정가] $160 | [목표 매도가] $180
+
+```json
+{
+  "valuation_consensus": {
+    "fair_value_price": 140.0,
+    "target_price_band": "$110 ~ $170",
+    "safety_entry_price": "$115 이하",
+    "optimistic_target_price": "$170"
+  }
+}
+```
+"""
+    parsed = engine.parse_report_valuation(md)
+    assert parsed["fair_value_price"] == 140.0
+    assert parsed["target_price_band"] == "$110 ~ $170"
+    assert "$115" in parsed["safety_entry_price"]
+    assert "$170" in parsed["optimistic_target_price"]
+    assert parsed["review_flags"] == []
+
+
+def test_parse_report_valuation_emits_review_flags_without_autofix():
+    engine = DiscussionEngine(ai_client=MagicMock())
+
+    md = """
+```json
+{
+  "valuation_consensus": {
+    "fair_value_price": 180,
+    "target_price_band": "$100 ~ $150",
+    "safety_entry_price": "$190 이하",
+    "optimistic_target_price": "$170"
+  }
+}
+```
+"""
+    parsed = engine.parse_report_valuation(md)
+    assert parsed["fair_value_price"] == 180.0
+    assert "$190" in parsed["safety_entry_price"]
+    assert "$170" in parsed["optimistic_target_price"]
+    assert "safety_entry_price가 fair_value_price보다 큽니다" in parsed["review_flags"]
+    assert "fair_value_price가 optimistic_target_price보다 큽니다" in parsed["review_flags"]
+    assert "fair_value_price가 target_price_band 범위를 벗어났습니다" in parsed["review_flags"]
 
 
 

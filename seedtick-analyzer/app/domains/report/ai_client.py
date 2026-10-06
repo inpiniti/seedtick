@@ -299,7 +299,7 @@ class AiGatewayClient:
         payload = {
             "model": model,
             "messages": messages,
-            "temperature": 0.3,
+            "temperature": settings.AI_GATEWAY_TEMPERATURE,
             "max_tokens": tokens_to_request,
         }
 
@@ -364,13 +364,15 @@ class AiGatewayClient:
                                     error_code=err_code, error_message=err_msg
                                 )
                                 if is_model_level:
+                                    failed_model = model
                                     new_model = model_rotation.advance(
-                                        model, f"{model} → ({err_code}) {err_msg}"
+                                        failed_model, f"{failed_model} → ({err_code}) {err_msg}"
                                     )
                                     payload["model"] = new_model
+                                    model = new_model
                                     logger.warning(
                                         f"[AiClient] ⚠️ [{slot.provider}] 모델 과부하/불가로 순위 전환 "
-                                        f"(model={model}, code={err_code}, msg={err_msg}) "
+                                        f"(model={failed_model}, code={err_code}, msg={err_msg}) "
                                         f"→ 다음 모델={new_model} (키: {key_masked}) "
                                         f"— 계속 시도 ({attempt}/{max_attempts})"
                                     )
@@ -390,13 +392,15 @@ class AiGatewayClient:
                                 # 빈 응답도 모델 레벨 문제일 수 있음 (과부하 시 정상 동작)
                                 is_model_level, why = _is_model_level_failure(body=raw_body)
                                 if is_model_level:
+                                    failed_model = model
                                     new_model = model_rotation.advance(
-                                        model, f"{model} → (빈 응답) {raw_body[:120]}"
+                                        failed_model, f"{failed_model} → (빈 응답) {raw_body[:120]}"
                                     )
                                     payload["model"] = new_model
+                                    model = new_model
                                     logger.warning(
                                         f"[AiClient] ⚠️ [{slot.provider}] 빈 응답 + 모델 레벨 오류로 순위 전환 "
-                                        f"(model={model}, 사유={why}) → 다음 모델={new_model} "
+                                        f"(model={failed_model}, 사유={why}) → 다음 모델={new_model} "
                                         f"— 계속 시도 ({attempt}/{max_attempts})"
                                     )
                                 else:
@@ -456,13 +460,15 @@ class AiGatewayClient:
                             status_code=res.status_code, body=res.text[:180]
                         )
                         if is_model_level:
+                            failed_model = model
                             new_model = model_rotation.advance(
-                                model, f"{model} → HTTP {res.status_code}"
+                                failed_model, f"{failed_model} → HTTP {res.status_code}"
                             )
                             payload["model"] = new_model
+                            model = new_model
                             logger.warning(
                                 f"[AiClient] ⚠️ [{slot.provider}] HTTP {res.status_code} "
-                                f"(사유={why}) → 모델 순위 전환 {model} → {new_model} "
+                                f"(사유={why}) → 모델 순위 전환 {failed_model} → {new_model} "
                                 f"(키: {key_masked}) — 계속 시도 ({attempt}/{max_attempts})"
                             )
                             if attempt < max_attempts:
@@ -524,13 +530,15 @@ class AiGatewayClient:
                                 error_code=err_code, error_message=err_msg
                             )
                             if is_model_level:
+                                failed_model = model
                                 new_model = model_rotation.advance(
-                                    model, f"{model} → ({err_code}) {err_msg}"
+                                    failed_model, f"{failed_model} → ({err_code}) {err_msg}"
                                 )
                                 payload["model"] = new_model
+                                model = new_model
                                 logger.warning(
                                     f"[AiClient] ⚠️ [AI-Gateway] 모델 레벨 오류로 순위 전환 "
-                                    f"(code={err_code}, msg={err_msg}, model={model}) "
+                                    f"(code={err_code}, msg={err_msg}, model={failed_model}) "
                                     f"→ 다음 모델={new_model} — 재시도 ({attempt}/{max_attempts})"
                                 )
                             else:
@@ -547,13 +555,15 @@ class AiGatewayClient:
                             raw_body = res.text[:300].strip()
                             is_model_level, why = _is_model_level_failure(body=raw_body)
                             if is_model_level:
+                                failed_model = model
                                 new_model = model_rotation.advance(
-                                    model, f"{model} → (빈 응답) {raw_body[:120]}"
+                                    failed_model, f"{failed_model} → (빈 응답) {raw_body[:120]}"
                                 )
                                 payload["model"] = new_model
+                                model = new_model
                                 logger.warning(
                                     f"[AiClient] ⚠️ [AI-Gateway] 빈 응답 + 모델 레벨 오류로 순위 전환 "
-                                    f"(model={model}, 사유={why}) → 다음 모델={new_model} "
+                                    f"(model={failed_model}, 사유={why}) → 다음 모델={new_model} "
                                     f"— 재시도 ({attempt}/{max_attempts})"
                                 )
                             else:
@@ -614,13 +624,15 @@ class AiGatewayClient:
                         status_code=res.status_code, body=res.text[:180]
                     )
                     if is_model_level:
+                        failed_model = model
                         new_model = model_rotation.advance(
-                            model, f"{model} → HTTP {res.status_code}"
+                            failed_model, f"{failed_model} → HTTP {res.status_code}"
                         )
                         payload["model"] = new_model
+                        model = new_model
                         logger.warning(
                             f"[AiClient] [AI-Gateway] HTTP {res.status_code} (사유={why}) "
-                            f"→ 모델 순위 전환 {model} → {new_model} "
+                            f"→ 모델 순위 전환 {failed_model} → {new_model} "
                             f"— 재시도 ({attempt}/{max_attempts})"
                         )
                     else:

@@ -263,3 +263,31 @@ async def test_ai_client_wrapped_data_response():
         assert result == "Cline 언래핑 성공 응답"
 
 
+@pytest.mark.asyncio
+async def test_ai_client_updates_active_model_after_rotation():
+    client = AiGatewayClient(api_keys=["or-key1"])
+    initial_model = client.model
+
+    resp_model_error = MagicMock()
+    resp_model_error.status_code = 200
+    resp_model_error.json.return_value = {
+        "error": {"code": 503, "message": "Upstream unavailable"}
+    }
+
+    resp_success = MagicMock()
+    resp_success.status_code = 200
+    resp_success.json.return_value = {
+        "choices": [{"message": {"content": "회전 후 성공"}, "finish_reason": "stop"}]
+    }
+
+    with (
+        patch("httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=[resp_model_error, resp_success]),
+        patch("app.domains.report.ai_client.model_rotation.advance", return_value="fallback-model") as mock_advance,
+        patch("app.domains.report.ai_client.model_rotation.note_success") as mock_note_success,
+    ):
+        result = await client.chat("테스트")
+
+    assert result == "회전 후 성공"
+    mock_advance.assert_called_once()
+    assert mock_advance.call_args.args[0] == initial_model
+    mock_note_success.assert_called_once_with("fallback-model")
