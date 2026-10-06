@@ -291,3 +291,80 @@ async def test_ai_client_updates_active_model_after_rotation():
     mock_advance.assert_called_once()
     assert mock_advance.call_args.args[0] == initial_model
     mock_note_success.assert_called_once_with("fallback-model")
+
+
+@pytest.mark.asyncio
+async def test_ai_client_real_streaming_sse_chunks():
+    """실시간 SSE 스트리밍 토큰 누적 수집 검증"""
+    import contextlib
+
+    client = AiGatewayClient(api_keys=["or-key1"])
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp._is_stream = True
+
+    sse_lines = [
+        'data: {"choices": [{"delta": {"content": "안녕"}, "finish_reason": null}]}',
+        'data: {"choices": [{"delta": {"content": "하세요 "}, "finish_reason": null}]}',
+        'data: {"choices": [{"delta": {"content": "SeedTick!"}, "finish_reason": "stop"}]}',
+        'data: [DONE]',
+    ]
+
+    async def _mock_aiter():
+        for line in sse_lines:
+            yield line
+
+    mock_resp.aiter_lines = _mock_aiter
+
+    @contextlib.asynccontextmanager
+    async def mock_stream(*args, **kwargs):
+        yield mock_resp
+
+    with patch("httpx.AsyncClient.stream", side_effect=mock_stream) as mock_st:
+        result = await client.chat("인사해줘")
+        assert result == "안녕하세요 SeedTick!"
+        mock_st.assert_called_once()
+        # 스트리밍 요청 파라미터 검증
+        call_kwargs = mock_st.call_args.kwargs
+        assert call_kwargs["json"]["stream"] is True
+        assert call_kwargs["headers"]["Accept"] == "text/event-stream"
+
+
+@pytest.mark.asyncio
+async def test_ai_client_ttft_read_timeout_fallback():
+    """Kilo 무응답(ReadTimeout/Hang) 발생 시 20초 타임아웃 감지 후 다음 슬롯으로 즉시 전환 검증"""
+    import contextlib
+
+    client = AiGatewayClient(
+        kilo_keys=["kilo-hang-key"],
+        api_keys=["or-success-key"],
+    )
+    # 슬롯 순서: OR -> Kilo (또는 interleaving)
+    assert len(client.slots) == 2
+
+    mock_resp_success = MagicMock()
+    mock_resp_success.status_code = 200
+    mock_resp_success._is_stream = True
+
+    async def _mock_aiter():
+        yield 'data: {"choices": [{"delta": {"content": "OpenRouter에서 성공"}, "finish_reason": "stop"}]}'
+        yield 'data: [DONE]'
+
+    mock_resp_success.aiter_lines = _mock_aiter
+
+    call_count = 0
+
+    @contextlib.asynccontextmanager
+    async def mock_stream(method, url, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            raise httpx.ReadTimeout("The read operation timed out (20s TTFT)")
+        yield mock_resp_success
+
+    with patch("httpx.AsyncClient.stream", side_effect=mock_stream):
+        result = await client.chat("분석해줘")
+        assert result == "OpenRouter에서 성공"
+        assert call_count == 2
+

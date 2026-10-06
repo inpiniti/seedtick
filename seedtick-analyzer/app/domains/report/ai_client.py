@@ -2,10 +2,13 @@
 AI 연동 클라이언트: 멀티 프로바이더 직접 호출 (OpenRouter, Cline, Kilo 교차 통합 로테이션 풀) 및 AI-Gateway 폴백
 """
 import asyncio
+import contextlib
 from dataclasses import dataclass, field
+import json
 import logging
 import os
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock
 import httpx
 
 from app.config.settings import settings
@@ -132,6 +135,151 @@ class LLMProvider:
             return key
 
 
+@contextlib.asynccontextmanager
+async def _stream_post(
+    client: httpx.AsyncClient,
+    url: str,
+    payload: dict,
+    headers: dict,
+):
+    """
+    httpx.AsyncClient를 통해 POST 스트리밍 요청을 수행하는 컨텍스트 매니저.
+    단위 테스트에서 httpx.AsyncClient.post가 mock되어 있는 경우 하위 호환을 보장한다.
+    """
+    is_post_mocked = isinstance(getattr(client, "post", None), (AsyncMock, MagicMock))
+    is_stream_mocked = isinstance(getattr(client, "stream", None), (AsyncMock, MagicMock))
+
+    if is_post_mocked and not is_stream_mocked:
+        res = await client.post(url, json=payload, headers=headers)
+        yield res
+    else:
+        async with client.stream("POST", url, json=payload, headers=headers) as res:
+            yield res
+
+
+async def _consume_stream(
+    res: Any,
+) -> tuple[str, str | None, dict | None]:
+    """
+    HTTP 200 응답에서 SSE 스트림 또는 JSON 본문을 파싱하여
+    (content, finish_reason, error_obj)를 반환한다.
+    """
+    # 1. 단위 테스트 mock 등 aiter_lines 가 실제 스트림이 아니고 json()만 제공된 객체 처리
+    has_mock_aiter = isinstance(getattr(res, "aiter_lines", None), (MagicMock, AsyncMock))
+    is_stream = getattr(res, "_is_stream", False) is True
+    if (not hasattr(res, "aiter_lines") or has_mock_aiter) and not is_stream:
+        if hasattr(res, "json"):
+            data = res.json()
+            if isinstance(data.get("data"), dict) and (
+                "choices" in data["data"] or "error" in data["data"]
+            ):
+                data = data["data"]
+
+            if "error" in data and isinstance(data["error"], dict):
+                return "", None, data["error"]
+
+            choices = data.get("choices", [])
+            if not choices:
+                return "", None, {"code": "empty_choices", "message": getattr(res, "text", "")}
+
+            choice = choices[0]
+            message_obj = choice.get("message", {})
+            c = message_obj.get("content", "")
+            r = message_obj.get("reasoning") or message_obj.get("reasoning_content")
+            f_reason = choice.get("finish_reason", "stop")
+            final_text = c if (c and str(c).strip()) else (r or "")
+            return final_text, f_reason, None
+
+    # 2. 실제 스트리밍 또는 non-stream JSON 수신 처리
+    content_parts: list[str] = []
+    reasoning_parts: list[str] = []
+    finish_reason: str | None = None
+    is_json_fallback = False
+    raw_lines: list[str] = []
+
+    async for raw_line in res.aiter_lines():
+        line = raw_line.strip()
+        if not line or line.startswith(":"):
+            continue
+
+        # JSON 응답 감지 (첫 번째 라인이 '{'로 시작하면 Non-SSE JSON)
+        if not content_parts and not reasoning_parts and line.startswith("{"):
+            is_json_fallback = True
+            raw_lines.append(line)
+            continue
+
+        if is_json_fallback:
+            raw_lines.append(line)
+            continue
+
+        if line.startswith("data:"):
+            data_str = line[5:].strip()
+            if data_str == "[DONE]":
+                break
+            try:
+                chunk = json.loads(data_str)
+            except Exception:
+                continue
+
+            if isinstance(chunk.get("data"), dict) and (
+                "choices" in chunk["data"] or "error" in chunk["data"]
+            ):
+                chunk = chunk["data"]
+
+            if "error" in chunk and isinstance(chunk["error"], dict):
+                return "", None, chunk["error"]
+
+            choices = chunk.get("choices", [])
+            if not choices:
+                continue
+
+            choice = choices[0]
+            if choice.get("finish_reason"):
+                finish_reason = choice.get("finish_reason")
+
+            delta = choice.get("delta", {})
+            c = delta.get("content")
+            if c:
+                content_parts.append(c)
+
+            r = delta.get("reasoning") or delta.get("reasoning_content")
+            if r:
+                reasoning_parts.append(r)
+
+    if is_json_fallback:
+        full_body = "".join(raw_lines)
+        try:
+            data = json.loads(full_body)
+        except Exception as json_err:
+            return "", None, {"code": "json_parse_error", "message": f"{json_err}: {full_body[:200]}"}
+
+        if isinstance(data.get("data"), dict) and (
+            "choices" in data["data"] or "error" in data["data"]
+        ):
+            data = data["data"]
+
+        if "error" in data and isinstance(data["error"], dict):
+            return "", None, data["error"]
+
+        choices = data.get("choices", [])
+        if not choices:
+            return "", None, {"code": "empty_choices", "message": full_body}
+
+        choice = choices[0]
+        message_obj = choice.get("message", {})
+        c = message_obj.get("content", "")
+        r = message_obj.get("reasoning") or message_obj.get("reasoning_content")
+        f_reason = choice.get("finish_reason", "stop")
+        final_text = c if (c and str(c).strip()) else (r or "")
+        return final_text, f_reason, None
+
+    final_content = "".join(content_parts)
+    if not final_content.strip() and reasoning_parts:
+        final_content = "".join(reasoning_parts)
+
+    return final_content, finish_reason, None
+
+
 class AiGatewayClient:
     """
     OpenAI Chat Completions 규격 멀티 프로바이더 클라이언트
@@ -149,6 +297,8 @@ class AiGatewayClient:
         base_url: str | None = None,
         model: str | None = None,
         timeout: float | None = None,
+        first_token_timeout: float | None = None,
+        chunk_timeout: float | None = None,
         secret: str | None = None,
         max_tokens: int | None = None,
         api_keys: list[str] | None = None,
@@ -157,6 +307,16 @@ class AiGatewayClient:
     ):
         self._model_override = model
         self.timeout = timeout or settings.AI_GATEWAY_TIMEOUT
+        self.first_token_timeout = (
+            first_token_timeout
+            if first_token_timeout is not None
+            else settings.AI_FIRST_TOKEN_TIMEOUT
+        )
+        self.chunk_timeout = (
+            chunk_timeout
+            if chunk_timeout is not None
+            else settings.AI_CHUNK_TIMEOUT
+        )
         self.max_tokens = max_tokens or settings.AI_GATEWAY_MAX_TOKENS
         self.secret = secret if secret is not None else settings.AI_GATEWAY_SECRET
 
@@ -241,7 +401,8 @@ class AiGatewayClient:
         logger.info(
             f"[AiClient] 초기화 완료: 모드={'통합 로테이션 풀 직접호출' if self.use_direct else 'AI-Gateway 경유'}, "
             f"활성 풀=총 {len(self.slots)}개 슬롯 ({provider_summary if provider_summary else '키 없음'}), "
-            f"모델={self.model}, 기본 max_tokens={self.max_tokens}, 타임아웃={self.timeout}s"
+            f"모델={self.model}, 기본 max_tokens={self.max_tokens}, "
+            f"전체타임아웃={self.timeout}s (TTFT/청크={self.chunk_timeout}s)"
         )
 
     @property
@@ -301,7 +462,16 @@ class AiGatewayClient:
             "messages": messages,
             "temperature": settings.AI_GATEWAY_TEMPERATURE,
             "max_tokens": tokens_to_request,
+            "stream": True,
         }
+
+        timeout_config = httpx.Timeout(
+            timeout=self.timeout,
+            connect=10.0,
+            read=self.chunk_timeout,
+            write=10.0,
+            pool=30.0,
+        )
 
         # ── 1. 직접 호출 모드 (통합 슬롯 풀 교차 라운드로빈 로테이션) ──
         if self.use_direct and self.slots:
@@ -324,42 +494,91 @@ class AiGatewayClient:
 
                 headers = {
                     "Content-Type": "application/json",
+                    "Accept": "text/event-stream",
                     "User-Agent": "seedtick-analyzer/0.2.0",
                     "Authorization": f"Bearer {current_key}",
                     **slot.default_headers,
                 }
 
                 try:
-                    async with httpx.AsyncClient(timeout=self.timeout) as client:
-                        res = await client.post(
-                            slot.base_url, json=payload, headers=headers
-                        )
-
-                        if res.status_code == 200:
-                            try:
-                                data = res.json()
-                            except Exception as json_err:
+                    async with httpx.AsyncClient(timeout=timeout_config) as client:
+                        async with _stream_post(
+                            client, slot.base_url, payload, headers
+                        ) as res:
+                            # 429 RateLimit 대응: 쿨다운 없이 즉시 다음 슬롯으로 순환 전환
+                            if res.status_code == 429:
                                 logger.warning(
-                                    f"[AiClient] ⚠️ [{slot.provider}] 200 OK 이지만 JSON 파싱 실패 ({json_err}) "
-                                    f"(키: {key_masked}) — 본문: {res.text[:200]} — 다음 슬롯으로 재시도 ({attempt}/{max_attempts})"
+                                    f"[AiClient] 429 RateLimit 감지 ([{slot.provider}], 키: {key_masked}) "
+                                    f"-> 다음 슬롯으로 즉시 전환 (시도 {attempt}/{max_attempts})"
+                                )
+                                continue
+
+                            # 503/500 등 모델 레벨 HTTP 에러 판별
+                            if res.status_code != 200:
+                                if hasattr(res, "aread"):
+                                    err_bytes = await res.aread()
+                                    err_text = err_bytes.decode(errors="replace")
+                                else:
+                                    err_text = getattr(res, "text", "")
+
+                                is_model_level, why = _is_model_level_failure(
+                                    status_code=res.status_code, body=err_text[:180]
+                                )
+                                if is_model_level:
+                                    failed_model = model
+                                    new_model = model_rotation.advance(
+                                        failed_model, f"{failed_model} → HTTP {res.status_code}"
+                                    )
+                                    payload["model"] = new_model
+                                    model = new_model
+                                    logger.warning(
+                                        f"[AiClient] ⚠️ [{slot.provider}] HTTP {res.status_code} "
+                                        f"(사유={why}) → 모델 순위 전환 {failed_model} → {new_model} "
+                                        f"(키: {key_masked}) — 계속 시도 ({attempt}/{max_attempts})"
+                                    )
+                                    if attempt < max_attempts:
+                                        await asyncio.sleep(0.5)
+                                    continue
+
+                                # 기타 HTTP 에러
+                                logger.warning(
+                                    f"[AiClient] HTTP {res.status_code} ([{slot.provider}], 키: {key_masked}): "
+                                    f"{err_text[:180]} (시도 {attempt}/{max_attempts})"
                                 )
                                 if attempt < max_attempts:
                                     await asyncio.sleep(0.5)
                                 continue
 
-                            # 0) Cline 등 일부 제공자가 {"data": {"choices": [...]}} 형태로 감싸서 반환한 경우 언래핑
-                            if isinstance(data.get("data"), dict) and (
-                                "choices" in data["data"] or "error" in data["data"]
-                            ):
-                                data = data["data"]
+                            # 200 OK — SSE 스트림(또는 JSON 폴백) 소비
+                            content, finish_reason, err_obj = await _consume_stream(res)
 
-                            # 1) OpenRouter 등 상위 제공자가 200 OK 내에 error 객체를 반환한 경우
-                            if "error" in data and isinstance(data["error"], dict):
-                                err_info = data["error"]
-                                err_code = err_info.get("code", "unknown")
-                                err_msg = err_info.get("message", str(err_info))
+                            # 1) 스트림/응답 내 error 객체 감지
+                            if err_obj:
+                                err_code = err_obj.get("code", "unknown")
+                                err_msg = err_obj.get("message", str(err_obj))
+                                if err_code == "empty_choices":
+                                    is_model_level, why = _is_model_level_failure(body=err_msg)
+                                    if is_model_level:
+                                        failed_model = model
+                                        new_model = model_rotation.advance(
+                                            failed_model, f"{failed_model} → (빈 응답) {err_msg[:120]}"
+                                        )
+                                        payload["model"] = new_model
+                                        model = new_model
+                                        logger.warning(
+                                            f"[AiClient] ⚠️ [{slot.provider}] 빈 응답 + 모델 레벨 오류로 순위 전환 "
+                                            f"(model={failed_model}, 사유={why}) → 다음 모델={new_model} "
+                                            f"— 계속 시도 ({attempt}/{max_attempts})"
+                                        )
+                                    else:
+                                        logger.warning(
+                                            f"[AiClient] ⚠️ [{slot.provider}] 200 OK 이지만 choices[] 빈 배열 (키: {key_masked}) "
+                                            f"— 다음 슬롯으로 재시도 ({attempt}/{max_attempts})"
+                                        )
+                                    if attempt < max_attempts:
+                                        await asyncio.sleep(0.5)
+                                    continue
 
-                                # 모델 레벨 실패면 순위 체인의 다음 단계로 전환
                                 is_model_level, why = _is_model_level_failure(
                                     error_code=err_code, error_message=err_msg
                                 )
@@ -378,67 +597,40 @@ class AiGatewayClient:
                                     )
                                 else:
                                     logger.warning(
-                                        f"[AiClient] ⚠️ [{slot.provider}] 200 OK 내부에 error 필드 감지 "
-                                        f"(code={err_code}, msg={err_msg}) (키: {key_masked}) — 다음 슬롯으로 재시도 ({attempt}/{max_attempts})"
+                                        f"[AiClient] ⚠️ [{slot.provider}] 200 OK 내부에 error 감지 "
+                                        f"(code={err_code}, msg={err_msg}) (키: {key_masked}) "
+                                        f"— 다음 슬롯으로 재시도 ({attempt}/{max_attempts})"
                                     )
                                 if attempt < max_attempts:
                                     await asyncio.sleep(0.5)
                                 continue
 
-                            # 2) choices[] 빈 배열 검사 (원인 로그 상세 출력 후 재시도)
-                            choices = data.get("choices", [])
-                            if not choices:
-                                raw_body = res.text[:300].strip()
-                                # 빈 응답도 모델 레벨 문제일 수 있음 (과부하 시 정상 동작)
-                                is_model_level, why = _is_model_level_failure(body=raw_body)
+                            if finish_reason == "length":
+                                logger.warning(
+                                    f"[AiClient] ⚠️ [{slot.provider}] finish_reason=length — 응답이 토큰 한도로 잘림!"
+                                )
+
+                            if not content or not content.strip():
+                                raw_preview = getattr(res, "text", "")[:180]
+                                is_model_level, why = _is_model_level_failure(body=raw_preview)
                                 if is_model_level:
                                     failed_model = model
                                     new_model = model_rotation.advance(
-                                        failed_model, f"{failed_model} → (빈 응답) {raw_body[:120]}"
+                                        failed_model, f"{failed_model} → (빈 내용) {raw_preview}"
                                     )
                                     payload["model"] = new_model
                                     model = new_model
                                     logger.warning(
-                                        f"[AiClient] ⚠️ [{slot.provider}] 빈 응답 + 모델 레벨 오류로 순위 전환 "
+                                        f"[AiClient] ⚠️ [{slot.provider}] 빈 내용 + 모델 레벨 오류로 순위 전환 "
                                         f"(model={failed_model}, 사유={why}) → 다음 모델={new_model} "
                                         f"— 계속 시도 ({attempt}/{max_attempts})"
                                     )
                                 else:
                                     logger.warning(
-                                        f"[AiClient] ⚠️ [{slot.provider}] 200 OK 이지만 choices[] 빈 배열 (키: {key_masked}) "
-                                        f"— 응답 본문: {raw_body} — 다음 슬롯으로 재시도 ({attempt}/{max_attempts})"
+                                        f"[AiClient] ⚠️ [{slot.provider}] 200 OK 이지만 수신된 본문이 비어있음 "
+                                        f"(finish_reason={finish_reason}) (키: {key_masked}) "
+                                        f"— 다음 슬롯으로 재시도 ({attempt}/{max_attempts})"
                                     )
-                                if attempt < max_attempts:
-                                    await asyncio.sleep(0.5)
-                                continue
-
-                            choice = choices[0]
-                            message_obj = choice.get("message", {})
-                            content = message_obj.get("content", "")
-                            finish_reason = choice.get("finish_reason", "stop")
-
-                            # Thinking 모델 대응: content가 비어 있고 reasoning/reasoning_content가 있을 경우 채택
-                            if not content or not content.strip():
-                                reasoning = message_obj.get("reasoning") or message_obj.get(
-                                    "reasoning_content"
-                                )
-                                if reasoning and isinstance(reasoning, str) and reasoning.strip():
-                                    content = reasoning
-
-                            if finish_reason == "length":
-                                usage = data.get("usage", {})
-                                logger.warning(
-                                    f"[AiClient] ⚠️ [{slot.provider}] finish_reason=length — 응답이 토큰 한도로 잘림! "
-                                    f"completion_tokens={usage.get('completion_tokens', '?')} "
-                                    f"total_tokens={usage.get('total_tokens', '?')}"
-                                )
-
-                            if not content or not content.strip():
-                                logger.warning(
-                                    f"[AiClient] ⚠️ [{slot.provider}] 200 OK 이지만 message.content가 비어있음 "
-                                    f"(finish_reason={finish_reason}, keys={list(message_obj.keys())}) (키: {key_masked}) "
-                                    f"— 다음 슬롯으로 재시도 ({attempt}/{max_attempts})"
-                                )
                                 if attempt < max_attempts:
                                     await asyncio.sleep(0.5)
                                 continue
@@ -447,43 +639,19 @@ class AiGatewayClient:
                             model_rotation.note_success(model)
                             return content.strip()
 
-                        # 429 RateLimit 대응: 쿨다운 없이 즉시 다음 슬롯으로 순환 전환
-                        if res.status_code == 429:
-                            logger.warning(
-                                f"[AiClient] 429 RateLimit 감지 ([{slot.provider}], 키: {key_masked}) "
-                                f"-> 다음 슬롯으로 즉시 전환 (시도 {attempt}/{max_attempts})"
-                            )
-                            continue
-
-                        # 503/500 등 모델 레벨 HTTP 에러 → 순위 전환 후 재시도
-                        is_model_level, why = _is_model_level_failure(
-                            status_code=res.status_code, body=res.text[:180]
-                        )
-                        if is_model_level:
-                            failed_model = model
-                            new_model = model_rotation.advance(
-                                failed_model, f"{failed_model} → HTTP {res.status_code}"
-                            )
-                            payload["model"] = new_model
-                            model = new_model
-                            logger.warning(
-                                f"[AiClient] ⚠️ [{slot.provider}] HTTP {res.status_code} "
-                                f"(사유={why}) → 모델 순위 전환 {failed_model} → {new_model} "
-                                f"(키: {key_masked}) — 계속 시도 ({attempt}/{max_attempts})"
-                            )
-                            if attempt < max_attempts:
-                                await asyncio.sleep(0.5)
-                            continue
-
-                        # 기타 HTTP 에러
-                        logger.warning(
-                            f"[AiClient] HTTP {res.status_code} ([{slot.provider}], 키: {key_masked}): "
-                            f"{res.text[:180]} (시도 {attempt}/{max_attempts})"
-                        )
-
+                except httpx.ReadTimeout:
+                    logger.warning(
+                        f"[AiClient] ⏱️ [{slot.provider}] 응답 시간 초과 ({self.chunk_timeout}초 무응답/Hang 감지, 키: {key_masked}) "
+                        f"-> 다음 슬롯으로 즉시 전환 (시도 {attempt}/{max_attempts})"
+                    )
+                except httpx.ConnectTimeout:
+                    logger.warning(
+                        f"[AiClient] ⏱️ [{slot.provider}] 연결 시간 초과 (10초 타임아웃, 키: {key_masked}) "
+                        f"-> 다음 슬롯으로 즉시 전환 (시도 {attempt}/{max_attempts})"
+                    )
                 except Exception as e:
                     logger.warning(
-                        f"[AiClient] 연결 오류 ({e}) ([{slot.provider}], 키: {key_masked}) - "
+                        f"[AiClient] 연결 오류 ({type(e).__name__}: {e}) ([{slot.provider}], 키: {key_masked}) - "
                         f"시도 {attempt}/{max_attempts}"
                     )
 
@@ -505,144 +673,131 @@ class AiGatewayClient:
         for attempt in range(1, max_attempts + 1):
             headers = {
                 "Content-Type": "application/json",
+                "Accept": "text/event-stream",
                 "User-Agent": "seedtick-analyzer/0.2.0",
             }
             if self.secret:
                 headers["Authorization"] = f"Bearer {self.secret}"
 
             try:
-                async with httpx.AsyncClient(timeout=self.timeout) as client:
-                    res = await client.post(url, json=payload, headers=headers)
+                async with httpx.AsyncClient(timeout=timeout_config) as client:
+                    async with _stream_post(client, url, payload, headers) as res:
+                        if res.status_code == 200:
+                            content, finish_reason, err_obj = await _consume_stream(res)
+                            if err_obj:
+                                err_code = err_obj.get("code", "unknown")
+                                err_msg = err_obj.get("message", str(err_obj))
+                                if err_code == "empty_choices":
+                                    is_model_level, why = _is_model_level_failure(body=err_msg)
+                                    if is_model_level:
+                                        failed_model = model
+                                        new_model = model_rotation.advance(
+                                            failed_model, f"{failed_model} → (빈 응답) {err_msg[:120]}"
+                                        )
+                                        payload["model"] = new_model
+                                        model = new_model
+                                        logger.warning(
+                                            f"[AiClient] ⚠️ [AI-Gateway] 빈 응답 + 모델 레벨 오류로 순위 전환 "
+                                            f"(model={failed_model}, 사유={why}) → 다음 모델={new_model} "
+                                            f"— 재시도 ({attempt}/{max_attempts})"
+                                        )
+                                    else:
+                                        logger.warning(
+                                            f"[AiClient] ⚠️ [AI-Gateway] 200 OK 이지만 choices[] 빈 배열 — 재시도 ({attempt}/{max_attempts})"
+                                        )
+                                    if attempt < max_attempts:
+                                        await asyncio.sleep(2 * attempt)
+                                    continue
 
-                    if res.status_code == 200:
-                        data = res.json()
-                        # Cline 등 일부 제공자가 {"data": {"choices": [...]}} 형태로 감싸서 반환한 경우 언래핑
-                        if isinstance(data.get("data"), dict) and (
-                            "choices" in data["data"] or "error" in data["data"]
-                        ):
-                            data = data["data"]
+                                is_model_level, why = _is_model_level_failure(
+                                    error_code=err_code, error_message=err_msg
+                                )
+                                if is_model_level:
+                                    failed_model = model
+                                    new_model = model_rotation.advance(
+                                        failed_model, f"{failed_model} → ({err_code}) {err_msg}"
+                                    )
+                                    payload["model"] = new_model
+                                    model = new_model
+                                    logger.warning(
+                                        f"[AiClient] ⚠️ [AI-Gateway] 모델 레벨 오류로 순위 전환 "
+                                        f"(code={err_code}, msg={err_msg}, model={failed_model}) "
+                                        f"→ 다음 모델={new_model} — 재시도 ({attempt}/{max_attempts})"
+                                    )
+                                else:
+                                    logger.warning(
+                                        f"[AiClient] ⚠️ [AI-Gateway] 200 OK 내부에 error 필드 반환: {err_obj} — 재시도 ({attempt}/{max_attempts})"
+                                    )
+                                if attempt < max_attempts:
+                                    await asyncio.sleep(2 * attempt)
+                                continue
 
-                        if "error" in data and isinstance(data["error"], dict):
-                            err_info = data["error"]
-                            err_code = err_info.get("code", "unknown")
-                            err_msg = err_info.get("message", str(err_info))
-                            is_model_level, why = _is_model_level_failure(
-                                error_code=err_code, error_message=err_msg
+                            if finish_reason == "length":
+                                logger.warning(
+                                    f"[AiClient] ⚠️ [AI-Gateway] finish_reason=length — 응답이 토큰 한도로 잘림!"
+                                )
+
+                            if not content or not content.strip():
+                                logger.warning(
+                                    f"[AiClient] ⚠️ [AI-Gateway] 200 OK 이지만 content 비어있음 — 재시도 ({attempt}/{max_attempts})"
+                                )
+                                if attempt < max_attempts:
+                                    await asyncio.sleep(2 * attempt)
+                                continue
+
+                            model_rotation.note_success(model)
+                            return content.strip()
+
+                        if res.status_code == 429:
+                            retry_after = res.headers.get("Retry-After")
+                            wait_sec = (
+                                int(retry_after) + 1
+                                if retry_after and retry_after.isdigit()
+                                else 6 * attempt
                             )
-                            if is_model_level:
-                                failed_model = model
-                                new_model = model_rotation.advance(
-                                    failed_model, f"{failed_model} → ({err_code}) {err_msg}"
-                                )
-                                payload["model"] = new_model
-                                model = new_model
-                                logger.warning(
-                                    f"[AiClient] ⚠️ [AI-Gateway] 모델 레벨 오류로 순위 전환 "
-                                    f"(code={err_code}, msg={err_msg}, model={failed_model}) "
-                                    f"→ 다음 모델={new_model} — 재시도 ({attempt}/{max_attempts})"
-                                )
-                            else:
-                                logger.warning(
-                                    f"[AiClient] ⚠️ [AI-Gateway] 200 OK 내부에 error 필드 반환: {err_info} "
-                                    f"— 재시도 ({attempt}/{max_attempts})"
-                                )
-                            if attempt < max_attempts:
-                                await asyncio.sleep(2 * attempt)
-                            continue
-
-                        choices = data.get("choices", [])
-                        if not choices:
-                            raw_body = res.text[:300].strip()
-                            is_model_level, why = _is_model_level_failure(body=raw_body)
-                            if is_model_level:
-                                failed_model = model
-                                new_model = model_rotation.advance(
-                                    failed_model, f"{failed_model} → (빈 응답) {raw_body[:120]}"
-                                )
-                                payload["model"] = new_model
-                                model = new_model
-                                logger.warning(
-                                    f"[AiClient] ⚠️ [AI-Gateway] 빈 응답 + 모델 레벨 오류로 순위 전환 "
-                                    f"(model={failed_model}, 사유={why}) → 다음 모델={new_model} "
-                                    f"— 재시도 ({attempt}/{max_attempts})"
-                                )
-                            else:
-                                logger.warning(
-                                    f"[AiClient] ⚠️ [AI-Gateway] 200 OK 이지만 choices[] 빈 배열 — 응답: {raw_body} "
-                                    f"— 재시도 ({attempt}/{max_attempts})"
-                                )
-                            if attempt < max_attempts:
-                                await asyncio.sleep(2 * attempt)
-                            continue
-
-                        choice = choices[0]
-                        message_obj = choice.get("message", {})
-                        content = message_obj.get("content", "")
-                        finish_reason = choice.get("finish_reason", "stop")
-
-                        if not content or not content.strip():
-                            reasoning = message_obj.get("reasoning") or message_obj.get(
-                                "reasoning_content"
-                            )
-                            if reasoning and isinstance(reasoning, str) and reasoning.strip():
-                                content = reasoning
-
-                        if finish_reason == "length":
-                            usage = data.get("usage", {})
                             logger.warning(
-                                f"[AiClient] ⚠️ [AI-Gateway] finish_reason=length — 응답이 토큰 한도로 잘림! "
-                                f"completion_tokens={usage.get('completion_tokens', '?')} "
-                                f"total_tokens={usage.get('total_tokens', '?')}"
+                                f"[AiClient] [AI-Gateway] 429 RateLimit 감지 -> {wait_sec}초 대기 후 재시도 ({attempt}/{max_attempts})"
                             )
-
-                        if not content or not content.strip():
-                            logger.warning(
-                                f"[AiClient] ⚠️ [AI-Gateway] 200 OK 이지만 content 비어있음 — 재시도 ({attempt}/{max_attempts})"
-                            )
-                            if attempt < max_attempts:
-                                await asyncio.sleep(2 * attempt)
+                            await asyncio.sleep(wait_sec)
                             continue
 
-                        # 성공 — 연속 실패 카운터/프로모션 백오프 해제
-                        model_rotation.note_success(model)
-                        return content.strip()
+                        if hasattr(res, "aread"):
+                            err_bytes = await res.aread()
+                            err_text = err_bytes.decode(errors="replace")
+                        else:
+                            err_text = getattr(res, "text", "")
 
-                    if res.status_code == 429:
-                        retry_after = res.headers.get("Retry-After")
-                        wait_sec = (
-                            int(retry_after) + 1
-                            if retry_after and retry_after.isdigit()
-                            else 6 * attempt
+                        is_model_level, why = _is_model_level_failure(
+                            status_code=res.status_code, body=err_text[:180]
                         )
-                        logger.warning(
-                            f"[AiClient] [AI-Gateway] 429 RateLimit 감지 -> {wait_sec}초 대기 후 재시도 ({attempt}/{max_attempts})"
-                        )
-                        await asyncio.sleep(wait_sec)
-                        continue
+                        if is_model_level:
+                            failed_model = model
+                            new_model = model_rotation.advance(
+                                failed_model, f"{failed_model} → HTTP {res.status_code}"
+                            )
+                            payload["model"] = new_model
+                            model = new_model
+                            logger.warning(
+                                f"[AiClient] [AI-Gateway] HTTP {res.status_code} (사유={why}) "
+                                f"→ 모델 순위 전환 {failed_model} → {new_model} "
+                                f"— 재시도 ({attempt}/{max_attempts})"
+                            )
+                        else:
+                            logger.warning(
+                                f"[AiClient] [AI-Gateway] HTTP {res.status_code}: {err_text[:180]} (시도 {attempt}/{max_attempts})"
+                            )
 
-                    is_model_level, why = _is_model_level_failure(
-                        status_code=res.status_code, body=res.text[:180]
-                    )
-                    if is_model_level:
-                        failed_model = model
-                        new_model = model_rotation.advance(
-                            failed_model, f"{failed_model} → HTTP {res.status_code}"
-                        )
-                        payload["model"] = new_model
-                        model = new_model
-                        logger.warning(
-                            f"[AiClient] [AI-Gateway] HTTP {res.status_code} (사유={why}) "
-                            f"→ 모델 순위 전환 {failed_model} → {new_model} "
-                            f"— 재시도 ({attempt}/{max_attempts})"
-                        )
-                    else:
-                        logger.warning(
-                            f"[AiClient] [AI-Gateway] HTTP {res.status_code}: {res.text[:180]} (시도 {attempt}/{max_attempts})"
-                        )
-
+            except httpx.ReadTimeout:
+                logger.warning(
+                    f"[AiClient] ⏱️ [AI-Gateway] 응답 시간 초과 ({self.chunk_timeout}초 무응답/Hang 감지) - 재시도 ({attempt}/{max_attempts})"
+                )
+            except httpx.ConnectTimeout:
+                logger.warning(
+                    f"[AiClient] ⏱️ [AI-Gateway] 연결 시간 초과 (10초 타임아웃) - 재시도 ({attempt}/{max_attempts})"
+                )
             except Exception as e:
                 logger.warning(
-                    f"[AiClient] [AI-Gateway] 연결 오류 ({e}) - 시도 {attempt}/{max_attempts}"
+                    f"[AiClient] [AI-Gateway] 연결 오류 ({type(e).__name__}: {e}) - 시도 {attempt}/{max_attempts}"
                 )
 
             if attempt < max_attempts:

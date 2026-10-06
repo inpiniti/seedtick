@@ -33,6 +33,8 @@ class Settings(BaseSettings):
         "poolside/laguna-s-2.1:free"
     )
     AI_GATEWAY_TIMEOUT: float = 300.0  # 긴 32K 응답 수용을 위해 300초로 상향
+    AI_FIRST_TOKEN_TIMEOUT: float = 20.0  # 스트리밍 첫 글자(TTFT) 대기 상한(초). 20초 내 무응답 시 즉시 탈락 및 다음 슬롯 전환
+    AI_CHUNK_TIMEOUT: float = 20.0  # 토큰 간 지연 상한(초). 생성 중 연결 정체(Hang) 감지
     # 생성 다양성(temperature). 내재가치·투자의견 변동 폭을 줄이기 위해 기본값을 낮춘다.
     AI_GATEWAY_TEMPERATURE: float = 0.1
     # 순위 강등까지 필요한 연속 모델 레벨 실패 횟수. 1이면 첫 실패 즉시 강등.
