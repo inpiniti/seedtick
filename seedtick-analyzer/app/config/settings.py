@@ -28,9 +28,9 @@ class Settings(BaseSettings):
         "nvidia/nemotron-3-ultra-550b-a55b:free,"
         "inclusionai/ling-3.1-flash,"
         "dots-studio/dots-3-note-preview:free,"
-        "poolside/laguna-s-2.1:free,"
         "inclusionai/ling-3.0-flash-sante:free,"
-        "nvidia/nemotron-3.5-lightning:free"
+        "nvidia/nemotron-3.5-lightning:free,"
+        "poolside/laguna-s-2.1:free"
     )
     AI_GATEWAY_TIMEOUT: float = 300.0  # 긴 32K 응답 수용을 위해 300초로 상향
     # 순위 강등까지 필요한 연속 모델 레벨 실패 횟수. 1이면 첫 실패 즉시 강등.
