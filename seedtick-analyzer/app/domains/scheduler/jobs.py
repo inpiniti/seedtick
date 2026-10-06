@@ -10,6 +10,7 @@ from app.domains.error_log.notifiers.discord import DiscordNotifier
 from app.domains.report.pipeline_progress import pipeline_progress
 from app.domains.report.service import GuruReportService
 from app.domains.scheduler.market_guard import MarketCalendarGuard
+from app.domains.screener.roma_service import RomaScreenerService
 from app.domains.screener.service import ScreenerService
 from app.infrastructure.supabase_repo import supabase_repo
 
@@ -86,13 +87,41 @@ async def _run_daily_pipeline(
     screen_result = await screener_service.get_stock_list()
     logger.info(f"[Scheduler] 스크리닝 통과 종목: 총 {screen_result.count}개")
 
+    # ── 2-0. 두번째 스크리너(DataRoma) 병합 (중복 티커 제거) ─────
+    # - 토스 스크리너 통과 종목을 1순위로 유지하고, roma 전용 종목만 뒤에 추가
+    # - 이미 토스에 있는 종목은 screeners 라벨에 'roma'만 병합 (분석 중복 없음)
+    ticker_screeners_map: dict[str, list[str]] = {
+        item.ticker: list(item.screeners) for item in screen_result.tickers
+    }
+    ordered_tickers: list[str] = [item.ticker for item in screen_result.tickers]
+    roma_count = 0
+    roma_added_count = 0
+    try:
+        roma_result = await RomaScreenerService().get_stock_list()
+        roma_count = roma_result.count
+        for item in roma_result.items:
+            ticker = item.ticker
+            if ticker in ticker_screeners_map:
+                if "roma" not in ticker_screeners_map[ticker]:
+                    ticker_screeners_map[ticker].append("roma")
+                continue
+            ticker_screeners_map[ticker] = list(item.screeners)
+            ordered_tickers.append(ticker)
+            roma_added_count += 1
+        logger.info(
+            f"[Scheduler] DataRoma 병합 완료: 보유 종목 {roma_count}개 "
+            f"(신규 편입 {roma_added_count}개, 최종 대상 {len(ordered_tickers)}개)"
+        )
+    except Exception as e:
+        logger.warning(f"[Scheduler] DataRoma 스크리너 조회 실패 (토스 스크리닝만 진행): {e}")
+
     # 분석 대상 종목 선정 (기본 0 또는 None이면 전체 무제한 정밀 분석)
     limit = max_analyze_count if max_analyze_count is not None else settings.MAX_ANALYZE_COUNT
     if limit and limit > 0:
-        target_tickers = [item.ticker for item in screen_result.tickers[:limit]]
-        logger.info(f"[Scheduler] 정밀 분석 대상 상위 종목 ({len(target_tickers)}/{screen_result.count}개): {target_tickers}")
+        target_tickers = ordered_tickers[:limit]
+        logger.info(f"[Scheduler] 정밀 분석 대상 상위 종목 ({len(target_tickers)}/{len(ordered_tickers)}개): {target_tickers}")
     else:
-        target_tickers = [item.ticker for item in screen_result.tickers]
+        target_tickers = ordered_tickers
         logger.info(f"[Scheduler] 정밀 분석 대상 전체 종목 (무제한 {len(target_tickers)}개): {target_tickers}")
 
     # ── 2-1. 오늘 이미 리포트 등록된 종목 제외 ─────────────────
@@ -120,7 +149,6 @@ async def _run_daily_pipeline(
     # ── 3. 종목별 5단계 Guru-Report 실행 ──────────────────
     report_service = GuruReportService(progress=pipeline_progress)
     generated_reports = []
-    ticker_screeners_map = {item.ticker: item.screeners for item in screen_result.tickers}
 
     for ticker in target_tickers:
         pipeline_progress.begin_ticker(ticker)
@@ -143,7 +171,7 @@ async def _run_daily_pipeline(
     # ── 5. Discord 결과 알림 ──────────────────────────────
     await notifier.notify_pipeline_summary(
         date_str=today_str,
-        screened_count=screen_result.count,
+        screened_count=len(ordered_tickers),
         reported_count=len(generated_reports),
         orders=[],
     )
@@ -152,7 +180,10 @@ async def _run_daily_pipeline(
     return {
         "status": "success",
         "date": today_str,
-        "screened_count": screen_result.count,
+        "screened_count": len(ordered_tickers),
+        "toss_screened_count": screen_result.count,
+        "roma_screened_count": roma_count,
+        "roma_added_count": roma_added_count,
         "reported_count": len(generated_reports),
         "skipped_already_reported_count": len(skipped_tickers),
         "skipped_already_reported_tickers": skipped_tickers,

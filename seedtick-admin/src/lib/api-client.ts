@@ -101,6 +101,30 @@ export async function fetchScreener(
   };
 }
 
+/** 3-2. DataRoma 슈퍼인베스터 그랜드 포트폴리오 스크리너 (두번째 스크리너) */
+export async function fetchRomaScreener(
+  minHolders = 10,
+  size = 0
+): Promise<ScreenerResponse> {
+  const data = await request<ScreenerResponse>(
+    `/api/screener/roma?min_holders=${minHolders}&size=${size}`
+  );
+
+  const rawList = data.tickers || data.items || [];
+  const normalizedItems: StockCandidate[] = rawList.map((item, idx) => ({
+    ...item,
+    price: item.price ?? 0,
+    rank: item.rank ?? idx + 1,
+    screeners: item.screeners?.length ? item.screeners : ["roma"],
+  }));
+
+  return {
+    ...data,
+    items: normalizedItems,
+    tickers: normalizedItems,
+  };
+}
+
 /** 4. 종목 일봉 캔들 및 볼린저 밴드 조회 */
 export async function fetchStockChart(
   ticker: string,

@@ -115,6 +115,19 @@ export interface StockCandidate {
   rank?: number;
   preset?: string;
   guru_score?: number;
+  screeners?: string[];
+
+  // DataRoma 슈퍼인베스터 포트폴리오(두번째 스크리너) 전용 선택 필드
+  /** 해당 종목을 보유한 슈퍼인베스터 수 */
+  holders?: number | null;
+  /** Grand Portfolio 내 비중 (%) */
+  weight_pct?: number | null;
+  /** 최종 보유 시점 가격 (Hold Price*) */
+  hold_price?: number | null;
+  /** 52주 최저가 */
+  week52_low?: number | null;
+  /** 52주 최고가 */
+  week52_high?: number | null;
 }
 
 export interface ScreenerCriteria {

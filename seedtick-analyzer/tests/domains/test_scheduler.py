@@ -97,6 +97,13 @@ async def test_daily_pipeline_skip_already_reported(monkeypatch):
         )
     monkeypatch.setattr(ScreenerService, "get_stock_list", mock_get_stock_list)
 
+    # 2-2. DataRoma(두번째 스크리너) mock — 외부 네트워크 호출 차단
+    from app.domains.screener.roma_service import RomaScreenerService
+
+    async def mock_roma_fail(self, min_holders=10, size=0):
+        raise RuntimeError("test: dataroma disabled")
+    monkeypatch.setattr(RomaScreenerService, "get_stock_list", mock_roma_fail)
+
     # 3. Supabase: AAPL은 이미 등록됨
     monkeypatch.setattr(supabase_repo, "get_reported_tickers_for_date", lambda d: {"AAPL"})
 
@@ -122,6 +129,136 @@ async def test_daily_pipeline_skip_already_reported(monkeypatch):
     # AAPL은 제외되고 NVDA, MSFT만 분석됨
     assert analyzed_tickers == ["NVDA", "MSFT"]
     assert result["reported_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_daily_pipeline_merges_roma_tickers(monkeypatch):
+    """
+    두번째 스크리너(DataRoma) 병합 검증:
+    - 토스 통과 종목 + roma 전용 종목이 중복 없이 하나의 분석 대상으로 합쳐짐
+    - 토스/roma 양쪽에 모두 있는 종목은 screeners 라벨만 'roma'로 병합
+    """
+    from app.domains.scheduler.jobs import daily_pipeline_job
+    from app.domains.scheduler.market_guard import MarketCalendarGuard
+    from app.domains.screener.service import ScreenerService
+    from app.domains.screener.roma_service import RomaScreenerService
+    from app.domains.screener.models import ScreenResult, TossStockItem, ScreenCriteria
+    from app.domains.report.service import GuruReportService
+    from app.domains.error_log.notifiers.discord import DiscordNotifier
+    from app.infrastructure.supabase_repo import supabase_repo
+
+    monkeypatch.setattr(MarketCalendarGuard, "is_market_open", lambda self, d: (True, "정규장"))
+
+    # 1. 토스 스크리너: AAPL, NVDA
+    async def mock_get_stock_list(self):
+        items = [
+            TossStockItem(ticker="AAPL", stock_code="US1", name="Apple", screeners=["공통"]),
+            TossStockItem(ticker="NVDA", stock_code="US2", name="Nvidia", screeners=["공통"]),
+        ]
+        return ScreenResult(
+            tickers=items, items=items, total_count=2, count=2, criteria=ScreenCriteria()
+        )
+    monkeypatch.setattr(ScreenerService, "get_stock_list", mock_get_stock_list)
+
+    # 2. DataRoma 스크리너: AAPL(중복) + BRK.B(신규)
+    async def mock_roma_list(self, min_holders=10, size=0):
+        items = [
+            TossStockItem(
+                ticker="AAPL", stock_code="AAPL", name="Apple Inc.",
+                screeners=["roma"], holders=22,
+            ),
+            TossStockItem(
+                ticker="BRK.B", stock_code="BRK.B", name="Berkshire Hathaway CL B",
+                screeners=["roma"], holders=26,
+            ),
+        ]
+        return ScreenResult(
+            tickers=items, items=items, total_count=2, count=2,
+            criteria=ScreenCriteria(preset="roma"),
+            source="dataroma_grand_portfolio",
+        )
+    monkeypatch.setattr(RomaScreenerService, "get_stock_list", mock_roma_list)
+
+    monkeypatch.setattr(supabase_repo, "get_reported_tickers_for_date", lambda d: set())
+
+    analyzed: dict[str, list[str] | None] = {}
+
+    async def mock_generate_full_report(self, ticker, target_date, screeners=None):
+        analyzed[ticker] = screeners
+
+        class DummyReport:
+            overall_verdict = "관망"
+
+        return DummyReport()
+    monkeypatch.setattr(GuruReportService, "generate_full_report", mock_generate_full_report)
+    monkeypatch.setattr(
+        DiscordNotifier, "notify_pipeline_summary", lambda *a, **k: asyncio.sleep(0)
+    )
+
+    result = await daily_pipeline_job(skip_already_reported=True, force=True)
+
+    assert result["status"] == "success"
+    # 중복 제거: AAPL은 한 번만, roma 신규 종목(BRK.B)은 뒤에 편입
+    assert list(analyzed.keys()) == ["AAPL", "NVDA", "BRK.B"]
+    # 스크리너 라벨 병합
+    assert analyzed["AAPL"] == ["공통", "roma"]
+    assert analyzed["NVDA"] == ["공통"]
+    assert analyzed["BRK.B"] == ["roma"]
+    # 집계
+    assert result["screened_count"] == 3
+    assert result["toss_screened_count"] == 2
+    assert result["roma_screened_count"] == 2
+    assert result["roma_added_count"] == 1
+    assert result["reported_count"] == 3
+
+
+@pytest.mark.asyncio
+async def test_daily_pipeline_survives_roma_failure(monkeypatch):
+    """DataRoma 조회 실패 시에도 토스 스크리닝만으로 파이프라인이 정상 완료되는지 검증"""
+    from app.domains.scheduler.jobs import daily_pipeline_job
+    from app.domains.scheduler.market_guard import MarketCalendarGuard
+    from app.domains.screener.service import ScreenerService
+    from app.domains.screener.roma_service import RomaScreenerService
+    from app.domains.screener.models import ScreenResult, TossStockItem, ScreenCriteria
+    from app.domains.report.service import GuruReportService
+    from app.domains.error_log.notifiers.discord import DiscordNotifier
+    from app.infrastructure.supabase_repo import supabase_repo
+
+    monkeypatch.setattr(MarketCalendarGuard, "is_market_open", lambda self, d: (True, "정규장"))
+
+    async def mock_get_stock_list(self):
+        items = [TossStockItem(ticker="MSFT", stock_code="US3", name="Microsoft", screeners=["공통"])]
+        return ScreenResult(
+            tickers=items, items=items, total_count=1, count=1, criteria=ScreenCriteria()
+        )
+    monkeypatch.setattr(ScreenerService, "get_stock_list", mock_get_stock_list)
+
+    async def mock_roma_fail(self, min_holders=10, size=0):
+        raise RuntimeError("dataroma down")
+    monkeypatch.setattr(RomaScreenerService, "get_stock_list", mock_roma_fail)
+
+    monkeypatch.setattr(supabase_repo, "get_reported_tickers_for_date", lambda d: set())
+
+    analyzed_tickers = []
+
+    async def mock_generate_full_report(self, ticker, target_date, screeners=None):
+        analyzed_tickers.append(ticker)
+
+        class DummyReport:
+            overall_verdict = "관망"
+
+        return DummyReport()
+    monkeypatch.setattr(GuruReportService, "generate_full_report", mock_generate_full_report)
+    monkeypatch.setattr(
+        DiscordNotifier, "notify_pipeline_summary", lambda *a, **k: asyncio.sleep(0)
+    )
+
+    result = await daily_pipeline_job(skip_already_reported=True, force=True)
+
+    assert result["status"] == "success"
+    assert analyzed_tickers == ["MSFT"]
+    assert result["roma_screened_count"] == 0
+    assert result["roma_added_count"] == 0
 
 
 

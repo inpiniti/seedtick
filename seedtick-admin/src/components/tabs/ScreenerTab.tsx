@@ -86,9 +86,13 @@ interface ScreenerTabProps {
   guruVotes: GuruVoteRow[];
   guruReports: GuruReportRow[];
   liveCandidates: StockCandidate[];
+  /** 두번째 스크리너: DataRoma 슈퍼인베스터 그랜드 포트폴리오 종목 */
+  romaCandidates?: StockCandidate[];
   isLoading: boolean;
+  isRomaLoading?: boolean;
   pipelineProgress: PipelineProgress | null;
   onRefreshLive: () => void;
+  onRefreshRoma?: () => void;
   onRefreshPipeline?: () => Promise<PipelineProgress | null> | void;
 }
 
@@ -113,12 +117,15 @@ export function ScreenerTab({
   guruVotes,
   guruReports,
   liveCandidates,
+  romaCandidates = [],
   isLoading,
+  isRomaLoading = false,
   pipelineProgress,
   onRefreshLive,
+  onRefreshRoma,
   onRefreshPipeline,
 }: ScreenerTabProps) {
-  const [activeSubTab, setActiveSubTab] = useState<"votes" | "live" | "reports">("votes");
+  const [activeSubTab, setActiveSubTab] = useState<"votes" | "live" | "roma" | "reports">("votes");
   const [selectedReport, setSelectedReport] = useState<GuruReportRow | null>(null);
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportViewMode, setReportViewMode] = useState<"final" | "discussion" | "summaries" | "datapack" | "chart">("final");
@@ -203,7 +210,10 @@ export function ScreenerTab({
         current_price: candidate?.price || null,
         verdict: "리포트 준비 중",
         overall_score: candidate?.guru_score || 0,
-        vote_summary: "실시간 스크리너 발굴 종목",
+        vote_summary:
+          candidate?.holders != null
+            ? `DataRoma 슈퍼인베스터 보유 종목 (${candidate.holders}인)`
+            : "실시간 스크리너 발굴 종목",
         datapack: null,
         summaries: null,
         discussion: null,
@@ -259,6 +269,13 @@ export function ScreenerTab({
       : true
   );
 
+  const filteredRomaCandidates = romaCandidates.filter((s) =>
+    searchTerm
+      ? s.ticker.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (s.name && s.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      : true
+  );
+
   const filteredReports = guruReports.filter((r) => {
     const matchesSearch = searchTerm
       ? r.ticker.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -305,6 +322,21 @@ export function ScreenerTab({
             }`}
           >
             실시간 스크리너 ({liveCandidates.length})
+          </button>
+          <button
+            onClick={() => {
+              setActiveSubTab("roma");
+              if (romaCandidates.length === 0 && !isRomaLoading && onRefreshRoma) {
+                onRefreshRoma();
+              }
+            }}
+            className={`flex-1 sm:flex-none px-3.5 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
+              activeSubTab === "roma"
+                ? "bg-white text-[#191f28] shadow-xs"
+                : "text-[#8b95a1] hover:text-[#4e5968]"
+            }`}
+          >
+            roma ({romaCandidates.length})
           </button>
           <button
             onClick={() => setActiveSubTab("reports")}
@@ -627,6 +659,124 @@ export function ScreenerTab({
                         </span>
                       </div>
                     )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card.Content>
+        </Card>
+      )}
+
+      {/* 2-2. DataRoma 슈퍼인베스터 스크리너(roma) 뷰 */}
+      {activeSubTab === "roma" && (
+        <Card className="p-4 sm:p-6">
+          <Card.Header className="border-b border-[#f2f4f6] pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <Card.Title>DataRoma 슈퍼인베스터 보유 종목</Card.Title>
+                <Card.Description>
+                  미국 슈퍼인베스터 10명 이상이 공동 보유한 종목이에요. 종목을 클릭하면
+                  실시간 스크리너와 동일하게 5단계 리포트를 확인할 수 있어요.
+                </Card.Description>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={onRefreshRoma}
+                isLoading={isRomaLoading}
+              >
+                roma 재실행
+              </Button>
+            </div>
+          </Card.Header>
+          <Card.Content className="pt-2">
+            {isRomaLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-3">
+                {[...Array(6)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="p-4 rounded-2xl bg-[#f9fafb] border border-[#f2f4f6] animate-pulse h-24 flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-gray-200"></div>
+                      <div className="space-y-1.5">
+                        <div className="h-4 w-16 bg-gray-200 rounded"></div>
+                        <div className="h-3 w-24 bg-gray-100 rounded"></div>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5 text-right">
+                      <div className="h-4 w-14 bg-gray-200 rounded ml-auto"></div>
+                      <div className="h-3 w-10 bg-gray-100 rounded ml-auto"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : filteredRomaCandidates.length === 0 ? (
+              <EmptyState
+                icon={<Users className="w-8 h-8 text-[#8b95a1]" />}
+                title="roma 스크리너 조회 결과가 없어요"
+                description={
+                  searchTerm
+                    ? `'${searchTerm}' 검색 조건과 일치하는 종목이 없어요.`
+                    : "상단의 [roma 재실행] 버튼을 누르면 DataRoma 그랜드 포트폴리오를 다시 조회해요."
+                }
+              />
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-3">
+                {filteredRomaCandidates.map((stock, i) => (
+                  <div
+                    key={`roma-${stock.ticker}-${i}`}
+                    className="p-4 rounded-2xl bg-[#f9fafb] border border-[#f2f4f6] hover:border-[#3182f6] hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between gap-2.5 group"
+                    onClick={() => handleOpenReportByTicker(stock.ticker, stock)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-full bg-[#e8f3ff] text-[#3182f6] font-bold text-xs flex items-center justify-center shrink-0">
+                          {stock.ticker.slice(0, 2)}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-[#191f28] text-sm group-hover:text-[#3182f6] transition-colors truncate">
+                              {stock.ticker}
+                            </span>
+                            <Badge variant="primary">
+                              {stock.holders != null ? `${stock.holders}인` : `#${i + 1}`}
+                            </Badge>
+                          </div>
+                          <p
+                            className="text-xs text-[#8b95a1] truncate max-w-[130px] mt-0.5"
+                            title={stock.name}
+                          >
+                            {stock.name}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-sm font-bold text-[#191f28]">
+                          ${stock.price?.toFixed(2) || "0.00"}
+                        </div>
+                        {stock.weight_pct != null && (
+                          <div className="text-xs font-semibold text-[#8b95a1]">
+                            {stock.weight_pct}%
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-[#f2f4f6] text-[#8b95a1]">
+                      <span>
+                        보유{" "}
+                        <strong className="text-[#4e5968]">
+                          {stock.holders != null ? `${stock.holders}명` : "-"}
+                        </strong>
+                        {stock.hold_price != null ? (
+                          <> · 매수가 ${stock.hold_price.toFixed(2)}</>
+                        ) : null}
+                      </span>
+                      <span className="text-[#3182f6] font-medium flex items-center group-hover:translate-x-0.5 transition-transform">
+                        리포트 확인 <ChevronRight className="w-3 h-3 ml-0.5" />
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>

@@ -12,6 +12,7 @@ import {
 import {
   fetchAiModelStatus,
   fetchHealth,
+  fetchRomaScreener,
   fetchScreener,
   resetAiModelRotation,
   triggerPipeline,
@@ -48,6 +49,9 @@ export default function AdminDashboardPage() {
   const [guruReports, setGuruReports] = useState<GuruReportRow[]>([]);
   const [systemLogs, setSystemLogs] = useState<SystemLogItem[]>([]);
   const [liveCandidates, setLiveCandidates] = useState<StockCandidate[]>([]);
+  // 두번째 스크리너: DataRoma 슈퍼인베스터 그랜드 포트폴리오
+  const [romaCandidates, setRomaCandidates] = useState<StockCandidate[]>([]);
+  const [isRomaLoading, setIsRomaLoading] = useState(false);
 
   // 13인 거장 파이프라인 진행 상태 (초경량: 마운트 시 1회 및 running 시 30초 간격)
   const { progress: pipelineProgress, refresh: refreshPipelineProgress } =
@@ -96,6 +100,19 @@ export default function AdminDashboardPage() {
       console.warn("실시간 스크리너 조회 실패:", err);
     } finally {
       setIsScreenerLoading(false);
+    }
+  }, []);
+
+  // 2-2. DataRoma 슈퍼인베스터 스크리너 별도 조회 (두번째 스크리너)
+  const loadRomaScreener = useCallback(async () => {
+    setIsRomaLoading(true);
+    try {
+      const res = await fetchRomaScreener(10, 0);
+      setRomaCandidates(res.items || res.tickers || []);
+    } catch (err) {
+      console.warn("DataRoma 스크리너 조회 실패:", err);
+    } finally {
+      setIsRomaLoading(false);
     }
   }, []);
 
@@ -274,9 +291,12 @@ export default function AdminDashboardPage() {
                 guruVotes={guruVotes}
                 guruReports={guruReports}
                 liveCandidates={liveCandidates}
+                romaCandidates={romaCandidates}
+                isRomaLoading={isRomaLoading}
                 isLoading={isScreenerLoading}
                 pipelineProgress={pipelineProgress}
                 onRefreshLive={loadLiveScreener}
+                onRefreshRoma={loadRomaScreener}
                 onRefreshPipeline={refreshPipelineProgress}
               />
             ) : null}

@@ -30,6 +30,13 @@ class TossStockItem(BaseModel):
     logo_image_url: str | None = None
     screeners: list[str] = Field(default_factory=list) # 통과한 거장/스크리너 목록 (예: ['종합', '버핏'])
 
+    # ── DataRoma 슈퍼인베스터 포트폴리오(두번째 스크리너) 전용 선택 필드 ──
+    holders: int | None = None             # 해당 종목을 보유한 슈퍼인베스터 수
+    weight_pct: float | None = None        # Grand Portfolio 내 비중 (%)
+    hold_price: float | None = None        # 최종 보유 시점 가격 (Hold Price*)
+    week52_low: float | None = None        # 52주 최저가
+    week52_high: float | None = None       # 52주 최고가
+
 
 class ScreenResult(BaseModel):
     """스크리닝 최종 결과"""

@@ -93,6 +93,41 @@ Content-Type: application/json
 }
 ```
 
+### GET /api/screener/roma
+DataRoma Grand Portfolio(`https://www.dataroma.com/m/g/portfolio.php?o=c`)를 스크레이핑해
+슈퍼인베스터들이 공동 보유한 종목을 반환하는 **두번째 스크리너**. (기본: 보유자 10명 이상)
+
+**Query Parameters**
+- `min_holders`: 최소 보유 투자자 수 (기본: `10`, 범위: `1~200`)
+- `size`: 조회 건수 상한 (기본: `0` = 전체)
+
+**Response (200)**
+```json
+{
+  "tickers": [
+    {
+      "ticker": "MSFT",
+      "stock_code": "MSFT",
+      "name": "Microsoft Corp.",
+      "price": 525.18,
+      "screeners": ["roma"],
+      "holders": 37,
+      "weight_pct": 1.779,
+      "hold_price": 373.02,
+      "week52_low": 348.54,
+      "week52_high": 549.2
+    }
+  ],
+  "total_count": 50,
+  "count": 50,
+  "criteria": { "preset": "roma", "nation": "us", "size": 200 },
+  "source": "dataroma_grand_portfolio"
+}
+```
+
+**Error (502)**: 스크레이핑/파싱 실패 시 `DataRoma 스크리너 실행 실패: ...`
+
+
 ### GET /api/screener/chart/{ticker}
 특정 종목의 일봉 캔들스틱 데이터 및 볼린저 밴드(20일 SMA, ±2 표준편차) 계산 결과 조회
 
