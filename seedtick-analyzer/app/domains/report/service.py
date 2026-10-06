@@ -421,6 +421,7 @@ class GuruReportService:
                 "target_price_band": report.target_price_band,
                 "safety_entry_price": report.safety_entry_price,
                 "optimistic_target_price": report.optimistic_target_price,
+                "review_flags": report.valuation_review_flags,
             },
             "market_metrics": datapack.market_metrics,
             "analyst_consensus": datapack.analyst_consensus,
