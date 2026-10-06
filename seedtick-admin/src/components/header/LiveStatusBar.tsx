@@ -1,23 +1,19 @@
 "use client";
 
-import React, { useState } from "react";
-import { HealthStatus, IpStatus, AiModelStatus } from "@/types/api";
+import React from "react";
+import { HealthStatus, AiModelStatus } from "@/types/api";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import {
-  Check,
-  Copy,
   Globe,
   RefreshCw,
   Calendar,
-  ShieldAlert,
 } from "lucide-react";
 
 import { AiModelWidget } from "@/components/header/AiModelWidget";
 
 interface LiveStatusBarProps {
   health: HealthStatus | null;
-  ipInfo: IpStatus | null;
   aiModel: AiModelStatus | null;
   isResettingModel: boolean;
   onResetModel: () => void;
@@ -27,29 +23,14 @@ interface LiveStatusBarProps {
 
 export function LiveStatusBar({
   health,
-  ipInfo,
   aiModel,
   isResettingModel,
   onResetModel,
   isLoading,
   onRefresh,
 }: LiveStatusBarProps) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopyIp = async () => {
-    if (!ipInfo?.server_public_ip) return;
-    try {
-      await navigator.clipboard.writeText(ipInfo.server_public_ip);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // fallback
-    }
-  };
-
   const isServerHealthy = health?.status === "healthy";
   const isMarketOpen = health?.us_market_today?.is_open ?? false;
-  const isDryRun = health?.dry_run ?? true;
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#f2f4f6] px-3.5 sm:px-8 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
@@ -71,7 +52,7 @@ export function LiveStatusBar({
                 </Badge>
               </div>
               <p className="text-[10px] sm:text-xs text-[#8b95a1] leading-none mt-0.5 truncate">
-                미국 주식 13인 거장 AI 스크리닝 & 자동매매
+                미국 주식 13인 거장 AI 스크리닝 & 심층 가치평가 리포트
               </p>
             </div>
           </div>
@@ -91,33 +72,10 @@ export function LiveStatusBar({
           </div>
         </div>
 
-        {/* 핵심 메트릭 지표 배너 (모바일: 2열 그리드, 데스크톱: 인라인 flex) */}
-        <div className="grid grid-cols-2 sm:flex sm:items-center sm:flex-wrap gap-2 text-xs">
-          {/* 1. 서버 공인 IP 위젯 (터치 시 원터치 복사) */}
-          <div
-            onClick={handleCopyIp}
-            className="flex items-center justify-between sm:justify-start gap-1.5 bg-[#f9fafb] border border-[#e5e8eb] px-3 py-2 sm:py-1.5 rounded-2xl hover:bg-[#f2f4f6] transition-colors cursor-pointer select-none min-w-0"
-            title="토스/한투 WTS 허용 IP 등록을 위해 복사"
-          >
-            <div className="flex items-center gap-1.5 min-w-0">
-              <Globe className="w-3.5 h-3.5 text-[#3182f6] shrink-0" />
-              <span className="font-semibold text-[#191f28] font-mono text-[11px] sm:text-xs truncate min-w-0">
-                {ipInfo?.server_public_ip || "IP 확인 중..."}
-              </span>
-            </div>
-            <div className="shrink-0 text-[#8b95a1]">
-              {copied ? (
-                <span className="flex items-center gap-1 text-[10px] font-bold text-[#03b26c]">
-                  <Check className="w-3 h-3" /> 복사됨
-                </span>
-              ) : (
-                <Copy className="w-3 h-3" />
-              )}
-            </div>
-          </div>
-
-          {/* 2. 오늘 마켓 개장 여부 위젯 */}
-          <div className="flex items-center gap-1.5 bg-[#f9fafb] border border-[#e5e8eb] px-3 py-2 sm:py-1.5 rounded-2xl min-w-0">
+        {/* 핵심 메트릭 지표 배너 */}
+        <div className="flex items-center flex-wrap gap-2 text-xs">
+          {/* 1. 오늘 마켓 개장 여부 위젯 */}
+          <div className="flex items-center gap-1.5 bg-[#f9fafb] border border-[#e5e8eb] px-3 py-1.5 rounded-2xl min-w-0">
             <Calendar className="w-3.5 h-3.5 text-[#ff9500] shrink-0" />
             <span className="text-[#8b95a1] text-[11px] sm:text-xs font-medium shrink-0">미장:</span>
             <span
@@ -129,22 +87,16 @@ export function LiveStatusBar({
             </span>
           </div>
 
-          {/* 3. 자동주문 실행 모드 배지 */}
-          <div className="flex items-center gap-1.5 bg-[#f9fafb] border border-[#e5e8eb] px-3 py-2 sm:py-1.5 rounded-2xl col-span-2 sm:col-span-1 min-w-0">
-            <ShieldAlert className="w-3.5 h-3.5 text-[#6b7684] shrink-0" />
-            <span className="text-[#8b95a1] text-[11px] sm:text-xs font-medium shrink-0">모드:</span>
-            {isDryRun ? (
-              <span className="font-bold text-[#3182f6] text-[11px] sm:text-xs truncate">
-                DRY-RUN (모의투자)
-              </span>
-            ) : (
-              <span className="font-bold text-[#f04452] text-[11px] sm:text-xs truncate">
-                REAL (실거래)
-              </span>
-            )}
+          {/* 2. 일일 파이프라인 정기 스케줄 안내 */}
+          <div className="hidden sm:flex items-center gap-1.5 bg-[#f9fafb] border border-[#e5e8eb] px-3 py-1.5 rounded-2xl min-w-0">
+            <Globe className="w-3.5 h-3.5 text-[#3182f6] shrink-0" />
+            <span className="text-[#8b95a1] text-[11px] sm:text-xs font-medium shrink-0">배치:</span>
+            <span className="font-semibold text-[#191f28] text-[11px] sm:text-xs">
+              매일 12:00 KST
+            </span>
           </div>
 
-          {/* 4. 현재 활성 AI 모델 위젯 */}
+          {/* 3. 현재 활성 AI 모델 위젯 */}
           <AiModelWidget
             aiModel={aiModel}
             isResetting={isResettingModel}

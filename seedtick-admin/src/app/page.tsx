@@ -3,25 +3,18 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   AiModelStatus,
-  AutoTradingStatus,
-  BridgeStatus,
-  BrokerBalance,
   GuruReportRow,
   GuruVoteRow,
   HealthStatus,
-  IpStatus,
   StockCandidate,
   SystemLogItem,
 } from "@/types/api";
 import {
   fetchAiModelStatus,
-  fetchAutoTradingStatus,
-  fetchBridgeBalance,
-  fetchBridgeStatus,
   fetchHealth,
-  fetchIp,
   fetchScreener,
   resetAiModelRotation,
+  triggerPipeline,
 } from "@/lib/api-client";
 import {
   fetchGuruReports,
@@ -29,21 +22,17 @@ import {
   fetchSystemLogs,
 } from "@/lib/supabase";
 import { usePipelineProgress } from "@/hooks/usePipelineProgress";
-import { useRealtimePrices } from "@/hooks/useRealtimePrices";
-import { useTossIpStatus } from "@/hooks/useTossIpStatus";
 import { LiveStatusBar } from "@/components/header/LiveStatusBar";
-import { TossIpAlert } from "@/components/header/TossIpAlert";
-import { TradingTab } from "@/components/tabs/TradingTab";
 import { ScreenerTab } from "@/components/tabs/ScreenerTab";
 import { LogsTab } from "@/components/tabs/LogsTab";
 import { SkeletonCard } from "@/components/ui/Skeleton";
-import { Activity, BarChart2, Terminal } from "lucide-react";
+import { Modal } from "@/components/ui/Modal";
+import { Button } from "@/components/ui/Button";
+import { BarChart2, Terminal, Play, Sparkles, Activity } from "lucide-react";
 
 export default function AdminDashboardPage() {
-  // 활성 탭 (1: 트레이딩, 2: 스크리너, 3: 로그)
-  const [activeTab, setActiveTab] = useState<"trading" | "screener" | "logs">(
-    "trading"
-  );
+  // 활성 탭 (1: 스크리너 & 거장 리포트, 2: 로그)
+  const [activeTab, setActiveTab] = useState<"screener" | "logs">("screener");
 
   // 로딩 상태
   const [isLoading, setIsLoading] = useState(true);
@@ -51,14 +40,8 @@ export default function AdminDashboardPage() {
 
   // 상태 데이터
   const [health, setHealth] = useState<HealthStatus | null>(null);
-  const [ipInfo, setIpInfo] = useState<IpStatus | null>(null);
   const [aiModel, setAiModel] = useState<AiModelStatus | null>(null);
   const [isResettingModel, setIsResettingModel] = useState(false);
-  const [tradingStatus, setTradingStatus] = useState<AutoTradingStatus | null>(
-    null
-  );
-  const [balance, setBalance] = useState<BrokerBalance | null>(null);
-  const [bridgeStatus, setBridgeStatus] = useState<BridgeStatus | null>(null);
 
   // Supabase 데이터
   const [guruVotes, setGuruVotes] = useState<GuruVoteRow[]>([]);
@@ -66,51 +49,32 @@ export default function AdminDashboardPage() {
   const [systemLogs, setSystemLogs] = useState<SystemLogItem[]>([]);
   const [liveCandidates, setLiveCandidates] = useState<StockCandidate[]>([]);
 
-  // 13인 거장 파이프라인 진행 상태 (전역 1회 폴링)
+  // 13인 거장 파이프라인 진행 상태 (초경량: 마운트 시 1회 및 running 시 30초 간격)
   const { progress: pipelineProgress, refresh: refreshPipelineProgress } =
     usePipelineProgress();
+  const isPipelineRunning = pipelineProgress?.status === "running";
 
-  // 실시간 체결가 SSE 구독 — 탭 전환에도 연결을 유지하도록 페이지 레벨에서 1회만 구독한다.
-  const { prices: livePrices, isConnected: isPriceStreamConnected } = useRealtimePrices(true);
+  // 파이프라인 수동 실행 모달 상태
+  const [isPipelineModalOpen, setIsPipelineModalOpen] = useState(false);
+  const [isActionLoading, setIsActionLoading] = useState(false);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [forceMarket, setForceMarket] = useState(false);
+  const [skipAlreadyReported, setSkipAlreadyReported] = useState(true);
 
-  // 토스 허용 IP 차단 상태 (IP 미등록 403 감지 시 배너 표시)
-  const {
-    status: tossIpStatus,
-    isRetrying: isRetryingTossIp,
-    retry: retryTossIp,
-  } = useTossIpStatus();
-
-  // 1. 전체 데이터 병렬 로드 (Vercel Best Practice: async-parallel)
+  // 1. 전체 핵심 데이터 병렬 로드 (증권사 외부 API 제거로 초고속 로딩)
   const loadDashboardData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [
-        healthRes,
-        ipRes,
-        tradingRes,
-        balanceRes,
-        bridgeRes,
-        votesRes,
-        reportsRes,
-        logsRes,
-        aiModelRes,
-      ] = await Promise.all([
-        fetchHealth().catch(() => null),
-        fetchIp().catch(() => null),
-        fetchAutoTradingStatus().catch(() => null),
-        fetchBridgeBalance().catch(() => null),
-        fetchBridgeStatus().catch(() => null),
-        fetchGuruVotes(200).catch(() => []),
-        fetchGuruReports(200).catch(() => []),
-        fetchSystemLogs(60).catch(() => []),
-        fetchAiModelStatus().catch(() => null),
-      ]);
+      const [healthRes, votesRes, reportsRes, logsRes, aiModelRes] =
+        await Promise.all([
+          fetchHealth().catch(() => null),
+          fetchGuruVotes(200).catch(() => []),
+          fetchGuruReports(200).catch(() => []),
+          fetchSystemLogs(60).catch(() => []),
+          fetchAiModelStatus().catch(() => null),
+        ]);
 
       if (healthRes) setHealth(healthRes);
-      if (ipRes) setIpInfo(ipRes);
-      if (tradingRes) setTradingStatus(tradingRes);
-      if (balanceRes) setBalance(balanceRes);
-      if (bridgeRes) setBridgeStatus(bridgeRes);
       if (aiModelRes) setAiModel(aiModelRes);
       setGuruVotes(votesRes);
       setGuruReports(reportsRes);
@@ -159,11 +123,40 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // 5. 파이프라인 수동 실행 핸들러
+  const handleTriggerPipeline = async () => {
+    setIsActionLoading(true);
+    setActionMessage(null);
+    try {
+      const res = await triggerPipeline({
+        force: forceMarket,
+        skipAlreadyReported: skipAlreadyReported,
+      });
+      if (res?.status === "skipped") {
+        setActionMessage("이미 파이프라인이 실행 중이에요. 진행 상황을 확인해 주세요.");
+      } else {
+        setActionMessage("파이프라인을 시작했어요. 백그라운드에서 분석이 진행됩니다.");
+      }
+      await refreshPipelineProgress();
+      setTimeout(() => {
+        setIsPipelineModalOpen(false);
+        setActionMessage(null);
+        loadDashboardData();
+      }, 1500);
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : "파이프라인 실행 중 오류가 발생했어요.";
+      setActionMessage(msg);
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadDashboardData();
   }, [loadDashboardData]);
 
-  // 파이프라인 완료/실패 시 리포트·표결 목록을 자동으로 다시 불러온다 (Q4)
+  // 파이프라인 완료/실패 시 리포트·표결 목록 자동 갱신
   const prevPipelineStatus = useRef<string | null>(null);
   useEffect(() => {
     const status = pipelineProgress?.status ?? null;
@@ -186,7 +179,6 @@ export default function AdminDashboardPage() {
       {/* 1. 상단 라이브 헤더 바 */}
       <LiveStatusBar
         health={health}
-        ipInfo={ipInfo}
         aiModel={aiModel}
         isResettingModel={isResettingModel}
         onResetModel={handleResetAiModel}
@@ -194,78 +186,78 @@ export default function AdminDashboardPage() {
         onRefresh={loadDashboardData}
       />
 
-      {/* 2. 메인 컨테이너 (모바일 하단 내비게이션 바 공간 확보: pb-24 md:pb-8) */}
+      {/* 2. 메인 컨테이너 */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-3.5 sm:px-8 py-4 sm:py-6 space-y-5 pb-24 md:pb-8">
-        {/* 토스 허용 IP 미등록(403) 안내 — 모든 탭에서 보이도록 페이지 상단에 배치 */}
-        {tossIpStatus?.blocked ? (
-          <div className="sticky top-2 z-30">
-            <TossIpAlert
-              serverPublicIp={ipInfo?.server_public_ip}
-              isRetrying={isRetryingTossIp}
-              onRetry={retryTossIp}
-            />
+        {/* 상단 액션 바: 세그먼트 탭 & 13인 거장 파이프라인 즉시 실행 버튼 */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          {/* [데스크톱 전용] 상단 세그먼트 탭 바 */}
+          <div className="hidden md:flex items-center gap-2 p-1.5 bg-white rounded-3xl border border-[#f2f4f6] shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+            <button
+              onClick={() => setActiveTab("screener")}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === "screener"
+                  ? "bg-[#3182f6] text-white shadow-sm"
+                  : "text-[#6b7684] hover:text-[#191f28] hover:bg-[#f9fafb]"
+              }`}
+            >
+              <BarChart2 className="w-4 h-4" />
+              <span>1. 스크리너 & 13인 거장 리포트</span>
+              {guruVotes.length > 0 ? (
+                <span
+                  className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                    activeTab === "screener"
+                      ? "bg-white text-[#3182f6]"
+                      : "bg-[#f2f4f6] text-[#6b7684]"
+                  }`}
+                >
+                  {guruVotes.length}
+                </span>
+              ) : null}
+            </button>
+
+            <button
+              onClick={() => setActiveTab("logs")}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === "logs"
+                  ? "bg-[#3182f6] text-white shadow-sm"
+                  : "text-[#6b7684] hover:text-[#191f28] hover:bg-[#f9fafb]"
+              }`}
+            >
+              <Terminal className="w-4 h-4" />
+              <span>2. 시스템 & 에러 로그</span>
+              {systemLogs.length > 0 ? (
+                <span
+                  className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                    activeTab === "logs"
+                      ? "bg-white text-[#3182f6]"
+                      : "bg-[#f2f4f6] text-[#6b7684]"
+                  }`}
+                >
+                  {systemLogs.length}
+                </span>
+              ) : null}
+            </button>
           </div>
-        ) : null}
 
-        {/* [데스크톱 전용] 상단 세그먼트 탭 바 */}
-        <div className="hidden md:flex items-center gap-2 p-1.5 bg-white rounded-3xl border border-[#f2f4f6] shadow-[0_1px_3px_rgba(0,0,0,0.02)] overflow-x-auto">
-          <button
-            onClick={() => setActiveTab("trading")}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === "trading"
-                ? "bg-[#3182f6] text-white shadow-sm"
-                : "text-[#6b7684] hover:text-[#191f28] hover:bg-[#f9fafb]"
-            }`}
-          >
-            <Activity className="w-4 h-4" />
-            <span>1. 트레이딩 & 주문 센터</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("screener")}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === "screener"
-                ? "bg-[#3182f6] text-white shadow-sm"
-                : "text-[#6b7684] hover:text-[#191f28] hover:bg-[#f9fafb]"
-            }`}
-          >
-            <BarChart2 className="w-4 h-4" />
-            <span>2. 스크리너 & 13인 거장 리포트</span>
-            {guruVotes.length > 0 ? (
-              <span
-                className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                  activeTab === "screener"
-                    ? "bg-white text-[#3182f6]"
-                    : "bg-[#f2f4f6] text-[#6b7684]"
-                }`}
-              >
-                {guruVotes.length}
-              </span>
-            ) : null}
-          </button>
-
-          <button
-            onClick={() => setActiveTab("logs")}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === "logs"
-                ? "bg-[#3182f6] text-white shadow-sm"
-                : "text-[#6b7684] hover:text-[#191f28] hover:bg-[#f9fafb]"
-            }`}
-          >
-            <Terminal className="w-4 h-4" />
-            <span>3. 시스템 & 에러 로그</span>
-            {systemLogs.length > 0 ? (
-              <span
-                className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                  activeTab === "logs"
-                    ? "bg-white text-[#3182f6]"
-                    : "bg-[#f2f4f6] text-[#6b7684]"
-                }`}
-              >
-                {systemLogs.length}
-              </span>
-            ) : null}
-          </button>
+          {/* 파이프라인 수동 실행 버튼 */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setIsPipelineModalOpen(true)}
+              disabled={isPipelineRunning}
+              leftIcon={
+                isPipelineRunning ? (
+                  <Activity className="w-4 h-4 animate-pulse" />
+                ) : (
+                  <Sparkles className="w-4 h-4" />
+                )
+              }
+              className="w-full sm:w-auto justify-center font-bold text-xs sm:text-sm rounded-2xl shadow-xs"
+            >
+              {isPipelineRunning ? "13인 분석 실행 중..." : "12:00 파이프라인 지금 실행"}
+            </Button>
+          </div>
         </div>
 
         {/* 탭 콘텐츠 렌더링 (도허티 임계 스켈레톤 적용) */}
@@ -277,19 +269,6 @@ export default function AdminDashboardPage() {
           </div>
         ) : (
           <>
-            {activeTab === "trading" ? (
-              <TradingTab
-                tradingStatus={tradingStatus}
-                balance={balance}
-                bridgeStatus={bridgeStatus}
-                pipelineProgress={pipelineProgress}
-                livePrices={livePrices}
-                isPriceStreamConnected={isPriceStreamConnected}
-                onRefresh={loadDashboardData}
-                onRefreshPipeline={refreshPipelineProgress}
-              />
-            ) : null}
-
             {activeTab === "screener" ? (
               <ScreenerTab
                 guruVotes={guruVotes}
@@ -298,6 +277,7 @@ export default function AdminDashboardPage() {
                 isLoading={isScreenerLoading}
                 pipelineProgress={pipelineProgress}
                 onRefreshLive={loadLiveScreener}
+                onRefreshPipeline={refreshPipelineProgress}
               />
             ) : null}
 
@@ -312,21 +292,9 @@ export default function AdminDashboardPage() {
         )}
       </main>
 
-      {/* [모바일 전용] 하단 고정 토스 스타일 네비게이션 바 (Bottom Nav) */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-[#f2f4f6] z-40 px-2 py-1.5 shadow-[0_-2px_10px_rgba(0,0,0,0.04)]">
-        <div className="grid grid-cols-3 gap-1">
-          <button
-            onClick={() => setActiveTab("trading")}
-            className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-2xl transition-all cursor-pointer ${
-              activeTab === "trading"
-                ? "text-[#3182f6] font-bold"
-                : "text-[#8b95a1] hover:text-[#4e5968]"
-            }`}
-          >
-            <Activity className="w-5 h-5" />
-            <span className="text-[11px] mt-1 tracking-tight">트레이딩</span>
-          </button>
-
+      {/* [모바일 전용] 하단 고정 네비게이션 바 */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-[#f2f4f6] z-40 px-4 py-1.5 shadow-[0_-2px_10px_rgba(0,0,0,0.04)]">
+        <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => setActiveTab("screener")}
             className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-2xl transition-all cursor-pointer ${
@@ -336,7 +304,7 @@ export default function AdminDashboardPage() {
             }`}
           >
             <BarChart2 className="w-5 h-5" />
-            <span className="text-[11px] mt-1 tracking-tight">스크리너</span>
+            <span className="text-[11px] mt-1 tracking-tight">스크리너 & 리포트</span>
           </button>
 
           <button
@@ -348,15 +316,73 @@ export default function AdminDashboardPage() {
             }`}
           >
             <Terminal className="w-5 h-5" />
-            <span className="text-[11px] mt-1 tracking-tight">로그</span>
+            <span className="text-[11px] mt-1 tracking-tight">시스템 로그</span>
           </button>
         </div>
       </nav>
 
+      {/* 모달: 일일 파이프라인 수동 즉시 실행 모달 */}
+      <Modal
+        isOpen={isPipelineModalOpen}
+        onClose={() => setIsPipelineModalOpen(false)}
+      >
+        <Modal.Header
+          title="12:00 일일 분석 파이프라인을 실행할까요?"
+          description="토스 거장 통합 스크리닝 통과 종목 전체에 대해 13인 심층 분석 보고서를 백그라운드로 생성합니다."
+        />
+        <Modal.Body>
+          <div className="space-y-4">
+            <label className="flex items-center gap-2 text-sm text-[#191f28] cursor-pointer">
+              <input
+                type="checkbox"
+                checked={skipAlreadyReported}
+                onChange={(e) => setSkipAlreadyReported(e.target.checked)}
+                className="w-4 h-4 rounded text-[#3182f6] focus:ring-0"
+              />
+              <span className="font-medium">
+                오늘 이미 리포트 등록된 종목은 제외하고 작성{" "}
+                <span className="text-[#3182f6] text-xs font-semibold">(추천)</span>
+              </span>
+            </label>
+            <label className="flex items-center gap-2 text-sm text-[#191f28] cursor-pointer">
+              <input
+                type="checkbox"
+                checked={forceMarket}
+                onChange={(e) => setForceMarket(e.target.checked)}
+                className="w-4 h-4 rounded text-[#3182f6] focus:ring-0"
+              />
+              <span>휴장일/주말 가드를 건너뛰고 강제 실행</span>
+            </label>
+            {actionMessage && (
+              <div className="p-3 rounded-2xl bg-[#e8f3ff] text-[#3182f6] text-sm font-medium">
+                {actionMessage}
+              </div>
+            )}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setIsPipelineModalOpen(false)}
+            disabled={isActionLoading}
+          >
+            닫기
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleTriggerPipeline}
+            disabled={isPipelineRunning}
+            isLoading={isActionLoading}
+          >
+            {isPipelineRunning ? "이미 실행 중이에요" : "파이프라인 실행하기"}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
       {/* 데스크톱 푸터 */}
       <footer className="hidden md:block mt-auto py-6 border-t border-[#f2f4f6] text-center text-xs text-[#8b95a1]">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>SeedTick Admin Console · Toss & KIS Bridge Automation</span>
+          <span>SeedTick Admin Console · 13인 거장 AI 스크리닝 & 심층 분석 관제센터</span>
           <span className="font-mono text-[11px]">
             API Gateway: seedtick-ai-gateway · Engine: seedtick-analyzer
           </span>
@@ -365,3 +391,4 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+

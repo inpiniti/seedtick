@@ -10,6 +10,7 @@ import {
   Loader2,
   MinusCircle,
   Play,
+  RefreshCw,
 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -18,6 +19,7 @@ import type { PipelineProgress } from "@/types/api";
 interface PipelineProgressCardProps {
   progress: PipelineProgress | null;
   isLoading?: boolean;
+  onRefresh?: () => void;
 }
 
 const STATUS_META: Record<
@@ -65,7 +67,11 @@ function LiveElapsed({
   return <>{formatElapsed(Math.max(0, (end - start) / 1000))}</>;
 }
 
-export function PipelineProgressCard({ progress, isLoading }: PipelineProgressCardProps) {
+export function PipelineProgressCard({
+  progress,
+  isLoading,
+  onRefresh,
+}: PipelineProgressCardProps) {
   const status = progress?.status ?? "idle";
   const isRunning = status === "running";
   const meta = STATUS_META[status];
@@ -74,20 +80,32 @@ export function PipelineProgressCard({ progress, isLoading }: PipelineProgressCa
   if (!progress || status === "idle") {
     return (
       <Card className="p-4 sm:p-5">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-2xl bg-[#f2f4f6] text-[#8b95a1] flex items-center justify-center shrink-0">
-            <Play className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-sm font-bold text-[#191f28]">
-              13인 거장 파이프라인 대기 중
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-2xl bg-[#f2f4f6] text-[#8b95a1] flex items-center justify-center shrink-0">
+              <Play className="w-4 h-4" />
             </div>
-            <p className="text-[11px] text-[#8b95a1] mt-0.5">
-              {isLoading
-                ? "진행 상태를 확인하고 있어요..."
-                : "실행하면 단계별 진행 상황이 이곳에 실시간으로 표시돼요."}
-            </p>
+            <div className="min-w-0">
+              <div className="text-sm font-bold text-[#191f28]">
+                13인 거장 파이프라인 대기 중
+              </div>
+              <p className="text-[11px] text-[#8b95a1] mt-0.5">
+                {isLoading
+                  ? "진행 상태를 확인하고 있어요..."
+                  : "파이프라인을 실행하면 분석 단계가 이곳에 표시돼요."}
+              </p>
+            </div>
           </div>
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              disabled={isLoading}
+              className="p-2 rounded-xl text-[#8b95a1] hover:text-[#191f28] hover:bg-[#f2f4f6] transition-colors cursor-pointer"
+              title="진행 상태 수동 새로고침"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
+            </button>
+          )}
         </div>
       </Card>
     );
@@ -129,6 +147,16 @@ export function PipelineProgressCard({ progress, isLoading }: PipelineProgressCa
               {isRunning ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
               {meta.label}
             </Badge>
+            {onRefresh && (
+              <button
+                onClick={onRefresh}
+                disabled={isLoading}
+                className="p-1 rounded-lg text-[#8b95a1] hover:text-[#191f28] hover:bg-[#f2f4f6] transition-colors cursor-pointer"
+                title="진행 상태 수동 새로고침"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
+              </button>
+            )}
           </div>
         </div>
       </Card.Header>

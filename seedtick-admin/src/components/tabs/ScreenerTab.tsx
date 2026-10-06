@@ -21,13 +21,11 @@ import {
   ChevronRight,
   TrendingUp,
   Calendar,
-  Zap,
   CheckCircle2,
   AlertCircle,
   Clock,
   History,
 } from "lucide-react";
-import { manualBuyGrid } from "@/lib/api-client";
 import {
   fetchReportByDateAndTicker,
   fetchReportDatesByTicker,
@@ -91,6 +89,7 @@ interface ScreenerTabProps {
   isLoading: boolean;
   pipelineProgress: PipelineProgress | null;
   onRefreshLive: () => void;
+  onRefreshPipeline?: () => Promise<PipelineProgress | null> | void;
 }
 
 const GURU_NAMES = [
@@ -117,6 +116,7 @@ export function ScreenerTab({
   isLoading,
   pipelineProgress,
   onRefreshLive,
+  onRefreshPipeline,
 }: ScreenerTabProps) {
   const [activeSubTab, setActiveSubTab] = useState<"votes" | "live" | "reports">("votes");
   const [selectedReport, setSelectedReport] = useState<GuruReportRow | null>(null);
@@ -129,10 +129,6 @@ export function ScreenerTab({
   const [selectedReportDate, setSelectedReportDate] = useState<string>("ALL");
   const [availableDatesForTicker, setAvailableDatesForTicker] = useState<string[]>([]);
   const [isLoadingReportDate, setIsLoadingReportDate] = useState(false);
-
-  // 실시간 1,000원 매수 상태
-  const [isBuying, setIsBuying] = useState(false);
-  const [buyFeedback, setBuyFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   // 고유한 날짜 목록 추출 (내림차순)
   const availableReportDates = React.useMemo(() => {
@@ -176,7 +172,6 @@ export function ScreenerTab({
     candidate?: StockCandidate,
     targetDate?: string
   ) => {
-    setBuyFeedback(null);
     let report: GuruReportRow | undefined = undefined;
 
     if (targetDate) {
@@ -226,7 +221,6 @@ export function ScreenerTab({
     if (!selectedReport || selectedReport.d === targetDate) return;
 
     setIsLoadingReportDate(true);
-    setBuyFeedback(null);
     try {
       const cached = guruReports.find(
         (r) => r.ticker === selectedReport.ticker && r.d === targetDate
@@ -246,26 +240,6 @@ export function ScreenerTab({
       console.error("보고서 날짜 변경 오류:", e);
     } finally {
       setIsLoadingReportDate(false);
-    }
-  };
-
-  // 보고서 화면에서 1,000원 즉시 매수 및 그리드 등록
-  const handleBuyForReport = async (ticker: string) => {
-    if (!ticker) return;
-    setIsBuying(true);
-    setBuyFeedback(null);
-    try {
-      const res = await manualBuyGrid(ticker);
-      setBuyFeedback({
-        type: "success",
-        message: res.message || `${ticker} 1,000원 매수 주문 접수 완료 (3% 그리드 감지 시작)`,
-      });
-      setTimeout(() => setBuyFeedback(null), 5000);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "매수 발주에 실패했어요.";
-      setBuyFeedback({ type: "error", message: msg });
-    } finally {
-      setIsBuying(false);
     }
   };
 
@@ -296,9 +270,12 @@ export function ScreenerTab({
 
   return (
     <div className="space-y-5">
-      {/* 13인 거장 파이프라인 실시간 진행 상황 */}
+      {/* 13인 거장 파이프라인 진행 상황 (초경량 상태 표시) */}
       {pipelineProgress && pipelineProgress.status !== "idle" ? (
-        <PipelineProgressCard progress={pipelineProgress} />
+        <PipelineProgressCard
+          progress={pipelineProgress}
+          onRefresh={onRefreshPipeline}
+        />
       ) : null}
 
       {/* 서브 탭 & 검색 바 */}
@@ -794,54 +771,6 @@ export function ScreenerTab({
               </div>
             )}
 
-            {/* 2. 실시간 고정 갭(3%) 그리드 매수 배너 */}
-            <div className="p-3.5 rounded-2xl bg-[#e8f3ff]/70 border border-[#3182f6]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-2xl bg-[#3182f6] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
-                  ⚡
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-[#191f28] flex items-center gap-1.5 flex-wrap">
-                    <span>{selectedReport?.ticker} 실시간 고정 갭(3%) 그리드 매수</span>
-                    <span className="text-[10px] bg-[#3182f6]/10 text-[#3182f6] px-1.5 py-0.5 rounded-md font-semibold">
-                      1,000원 고정
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-[#6b7684] mt-0.5">
-                    보고서 확인 후 즉시 1,000원치 매수하고, 3% 변동 자동 그리드 감지를 시작해요.
-                  </p>
-                </div>
-              </div>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => selectedReport && handleBuyForReport(selectedReport.ticker)}
-                isLoading={isBuying}
-                leftIcon={<Zap className="w-3.5 h-3.5" />}
-                className="whitespace-nowrap font-bold shrink-0 self-end sm:self-center shadow-xs"
-              >
-                1,000원 매수 및 그리드 등록
-              </Button>
-            </div>
-
-            {/* 3. 매수 피드백 알림 배너 */}
-            {buyFeedback && (
-              <div
-                className={`p-3 rounded-2xl text-xs font-semibold flex items-center gap-2 ${
-                  buyFeedback.type === "success"
-                    ? "bg-[#e8f3ff] text-[#3182f6] border border-[#3182f6]/20"
-                    : "bg-[#fef2f2] text-[#f04452] border border-[#f04452]/20"
-                }`}
-              >
-                {buyFeedback.type === "success" ? (
-                  <CheckCircle2 className="w-4 h-4 shrink-0 text-[#3182f6]" />
-                ) : (
-                  <AlertCircle className="w-4 h-4 shrink-0 text-[#f04452]" />
-                )}
-                <span>{buyFeedback.message}</span>
-              </div>
-            )}
-
             {/* 표결 요약 및 종합 적정가 카드 */}
             {(() => {
               const valConsensus = extractValuationConsensus(selectedReport);
@@ -1021,17 +950,6 @@ export function ScreenerTab({
               <Button variant="secondary" onClick={() => setReportModalOpen(false)}>
                 닫기
               </Button>
-              {selectedReport && (
-                <Button
-                  variant="primary"
-                  onClick={() => handleBuyForReport(selectedReport.ticker)}
-                  isLoading={isBuying}
-                  leftIcon={<Zap className="w-3.5 h-3.5" />}
-                  className="font-bold whitespace-nowrap"
-                >
-                  ⚡ {selectedReport.ticker} 1,000원 매수
-                </Button>
-              )}
             </div>
           </div>
         </Modal.Footer>
