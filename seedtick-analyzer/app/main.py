@@ -10,15 +10,8 @@ from app.api.routes.health import router as health_router
 from app.api.routes.report import router as report_router
 from app.api.routes.scheduler import router as scheduler_router
 from app.api.routes.screener import router as screener_router
-from app.api.routes.ip import router as ip_router
-from app.api.routes.bridge import router as bridge_router
 from app.api.routes.debug_ai import router as debug_ai_router
 from app.api.routes.debug_yahoo import router as debug_yahoo_router
-from app.api.routes.grid_trading import (
-    router as grid_trading_router,
-    ws_client,
-    grid_service,
-)
 from app.config.settings import settings
 from app.domains.error_log.handlers import SupabaseLogHandler
 from app.domains.scheduler.service import scheduler_service
@@ -45,39 +38,18 @@ logging.getLogger().addHandler(supabase_log_handler)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """애플리케이션 수명 주기 관리 (스케줄러, 실시간 그리드 WebSocket 시작 및 종료)"""
+    """애플리케이션 수명 주기 관리 (스케줄러 시작 및 종료)"""
     logger.info("🚀 SeedTick Analyzer 시작 중...")
     scheduler_service.start()
-
-    # 실시간 그리드 감지 WebSocket 시작 및 기존 활성 종목 등록
-    try:
-        # 1. 계좌 보유 종목과 그리드 상태 자동 동기화 (보유 중인 종목 자동 등록)
-        await grid_service.sync_with_holdings()
-    except Exception as e:
-        logger.warning(f"[Lifespan] 계좌 보유 종목 초기 동기화 실패: {e}")
-
-    if ws_client:
-        try:
-            active_items = grid_service.repo.get_active_grid_trades()
-            active_tickers = [it.ticker for it in active_items]
-            if active_tickers:
-                await ws_client.set_subscribed_tickers(active_tickers)
-                logger.info(f"[Lifespan] 활성 그리드 종목 실시간 구독 등록: {active_tickers}")
-            await ws_client.start()
-        except Exception as e:
-            logger.warning(f"[Lifespan] 그리드 WebSocket 시작 실패 (선택 기능): {e}")
-
     yield
     logger.info("🛑 SeedTick Analyzer 종료 중...")
-    if ws_client:
-        await ws_client.stop()
     scheduler_service.shutdown()
     supabase_log_handler.close()
 
 
 app = FastAPI(
     title="SeedTick Analyzer",
-    description="미국 주식 토스 공통 스크리닝 · 13인 거장 심층 분석 · 일일 배치 스케줄러 · 증권사 연동 자동매매 서버",
+    description="미국 주식 13인 거장 심층 분석 · 일일 배치 스케줄러 서버",
     version="0.1.0",
     lifespan=lifespan,
 )
@@ -93,14 +65,11 @@ app.add_middleware(
 
 # 라우터 등록
 app.include_router(health_router)
-app.include_router(ip_router)
 app.include_router(screener_router)
 app.include_router(report_router)
 app.include_router(scheduler_router)
-app.include_router(bridge_router)
 app.include_router(debug_ai_router)
 app.include_router(debug_yahoo_router)
-app.include_router(grid_trading_router)
 
 
 

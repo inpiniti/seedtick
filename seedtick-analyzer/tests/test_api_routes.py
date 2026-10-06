@@ -1,5 +1,5 @@
 """
-API 엔드포인트 테스트 (IP, Bridge, AutoTrading)
+API 엔드포인트 테스트 (Health, Screener, Scheduler)
 """
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -7,45 +7,13 @@ from app.main import app
 
 
 @pytest.mark.asyncio
-async def test_ip_route():
+async def test_health_route():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        res = await ac.get("/api/ip")
+        res = await ac.get("/health")
         assert res.status_code == 200
         data = res.json()
-        assert "client_ip" in data
-        assert "server_public_ip" in data
-        assert "guide" in data
-
-
-@pytest.mark.asyncio
-async def test_bridge_routes():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        # 1. bridge status
-        res1 = await ac.get("/api/bridge/status")
-        assert res1.status_code == 200
-        data1 = res1.json()
-        assert "default_broker" in data1
-        assert "dry_run" in data1
-        assert "configured_adapters" in data1
-
-        # 2. bridge balance (mock)
-        res2 = await ac.get("/api/bridge/balance?broker_type=mock")
-        assert res2.status_code == 200
-        data2 = res2.json()
-        assert data2["broker"] == "mock"
-        assert "available_krw" in data2
-
-        # 3. auto-trading status
-        res3 = await ac.get("/api/auto-trading/status")
-        assert res3.status_code == 200
-        data3 = res3.json()
-        assert "strategy_rule" in data3
-        assert "today_ordered_tickers" in data3
-        assert data3["order_action"].startswith("BUY")
-
-        # 4. 장외 예약 주문 API는 삭제됨 (장외 발주 차단)
-        res4 = await ac.get("/api/auto-trading/pending-orders")
-        assert res4.status_code == 404
+        assert data["status"] == "healthy"
+        assert "us_market_today" in data
 
 
 @pytest.mark.asyncio
@@ -112,76 +80,6 @@ async def test_scheduler_progress_route():
         assert "stages" in data
         assert "elapsed_seconds" in data
 
-
-@pytest.mark.asyncio
-async def test_grid_trading_routes(monkeypatch):
-    from unittest.mock import AsyncMock
-    from app.api.routes.grid_trading import grid_service
-    from app.domains.auto_trading.grid_models import GridTradeItem
-
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        # 1. market-status
-        res1 = await ac.get("/api/grid-trading/market-status")
-        assert res1.status_code == 200
-        data1 = res1.json()
-        assert "is_market_open" in data1
-        assert "active_count" in data1
-
-        # 2. items
-        res2 = await ac.get("/api/grid-trading/items")
-        assert res2.status_code == 200
-        data2 = res2.json()
-        assert "items" in data2
-        assert "count" in data2
-
-        # 3. manual buy: 정규장 미운영 시 400
-        monkeypatch.setattr(grid_service.broker, "is_us_market_open", AsyncMock(return_value=False))
-        res3 = await ac.post("/api/grid-trading/buy", json={"ticker": "AAPL"})
-        assert res3.status_code == 400
-        assert "정규장" in res3.json()["detail"]
-
-        # 4. manual buy: 정규장 운영 시 성공
-        monkeypatch.setattr(grid_service.broker, "is_us_market_open", AsyncMock(return_value=True))
-        monkeypatch.setattr(
-            grid_service,
-            "manual_buy_and_register",
-            AsyncMock(
-                return_value=GridTradeItem(
-                    ticker="AAPL",
-                    initial_price=150.0,
-                    gap=4.5,
-                    last_trade_price=150.0,
-                    holdings_qty=0.05,
-                )
-            ),
-        )
-        res4 = await ac.post("/api/grid-trading/buy", json={"ticker": "AAPL"})
-        assert res4.status_code == 200
-        data4 = res4.json()
-        assert data4["success"] is True
-        assert data4["item"]["ticker"] == "AAPL"
-
-        # 5. reactivate: 종료된 종목 재활성화 성공
-        monkeypatch.setattr(
-            grid_service,
-            "reactivate_grid_trade",
-            AsyncMock(
-                return_value=GridTradeItem(
-                    ticker="AAPL",
-                    initial_price=150.0,
-                    gap=4.5,
-                    last_trade_price=150.0,
-                    holdings_qty=0.05,
-                    status="ACTIVE",
-                )
-            ),
-        )
-        res5 = await ac.post("/api/grid-trading/items/AAPL/reactivate")
-        assert res5.status_code == 200
-        data5 = res5.json()
-        assert data5["success"] is True
-        assert "다시 활성화되었어요" in data5["message"]
-        assert data5["item"]["status"] == "ACTIVE"
 
 
 

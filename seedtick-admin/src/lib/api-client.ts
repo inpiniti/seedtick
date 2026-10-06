@@ -1,17 +1,10 @@
 import {
   AiModelStatus,
-  AutoTradingStatus,
-  BridgeStatus,
-  BrokerBalance,
-  GridTradeItem,
-  GridTradingMarketStatus,
   HealthStatus,
-  IpStatus,
   PipelineProgress,
   ScreenerResponse,
   StockCandidate,
   StockChartResponse,
-  TossIpStatus,
 } from "@/types/api";
 
 const BASE_URL =
@@ -44,7 +37,7 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
 export async function fetchHealth(): Promise<HealthStatus> {
   try {
     return await request<HealthStatus>("/health");
-  } catch (err) {
+  } catch {
     return {
       status: "down",
       timestamp: new Date().toISOString(),
@@ -59,26 +52,7 @@ export async function fetchHealth(): Promise<HealthStatus> {
   }
 }
 
-/** 2. 서버 아웃바운드 공인 IP 확인 */
-export async function fetchIp(): Promise<IpStatus> {
-  try {
-    return await request<IpStatus>("/api/ip");
-  } catch {
-    return {
-      client_ip: "unknown",
-      server_public_ip: "조회 불가 (서버 점검 필요)",
-      is_local_request: false,
-      guide: "서버가 구동 중이지 않거나 네트워크 연결이 원활하지 않아요.",
-    };
-  }
-}
-
-/** 3. 오토트레이딩 상태 및 금일 주문 현황 */
-export async function fetchAutoTradingStatus(): Promise<AutoTradingStatus> {
-  return request<AutoTradingStatus>("/api/auto-trading/status");
-}
-
-/** 4. 일일 파이프라인 수동 즉시 트리거 */
+/** 2. 일일 파이프라인 수동 즉시 트리거 */
 export async function triggerPipeline(params: {
   dryRun?: boolean;
   force?: boolean;
@@ -97,7 +71,7 @@ export async function triggerPipeline(params: {
   });
 }
 
-/** 7. 토스 공통/해외 스크리너 실행 결과 */
+/** 3. 토스 공통/해외 스크리너 실행 결과 */
 export async function fetchScreener(
   preset = "공통",
   nation = "us",
@@ -127,32 +101,7 @@ export async function fetchScreener(
   };
 }
 
-/** 8. 증권사 브릿지 상태 */
-export async function fetchBridgeStatus(): Promise<BridgeStatus> {
-  return request<BridgeStatus>("/api/bridge/status");
-}
-
-/** 8-1. 토스 허용 IP 차단 상태 조회 */
-export async function fetchTossIpStatus(): Promise<TossIpStatus> {
-  return request<TossIpStatus>("/api/bridge/toss-ip");
-}
-
-/** 8-2. 토스 허용 IP 등록 후 연결 재시도 */
-export async function retryTossIpConnection(): Promise<{
-  success: boolean;
-  blocked: boolean;
-  message: string;
-}> {
-  return request("/api/bridge/toss-ip/retry", { method: "POST" });
-}
-
-/** 9. 증권사 계좌 잔고 */
-export async function fetchBridgeBalance(broker?: string): Promise<BrokerBalance> {
-  const query = broker ? `?broker_type=${broker}` : "";
-  return request<BrokerBalance>(`/api/bridge/balance${query}`);
-}
-
-/** 10. 종목 일봉 캔들 및 볼린저 밴드 조회 */
+/** 4. 종목 일봉 캔들 및 볼린저 밴드 조회 */
 export async function fetchStockChart(
   ticker: string,
   range = "6mo",
@@ -163,60 +112,17 @@ export async function fetchStockChart(
   );
 }
 
-/** 11. 실시간 그리드 매매 정규장 및 상태 조회 */
-export async function fetchGridMarketStatus(): Promise<GridTradingMarketStatus> {
-  return request<GridTradingMarketStatus>("/api/grid-trading/market-status");
-}
-
-/** 12. 등록된 그리드 종목 목록 조회 */
-export async function fetchGridItems(): Promise<{ items: GridTradeItem[]; count: number }> {
-  return request<{ items: GridTradeItem[]; count: number }>("/api/grid-trading/items");
-}
-
-/** 13. 정규장 1,000원 수동 매수 및 그리드 등록 */
-export async function manualBuyGrid(ticker: string): Promise<{
-  success: boolean;
-  message: string;
-  item: GridTradeItem;
-}> {
-  return request("/api/grid-trading/buy", {
-    method: "POST",
-    body: JSON.stringify({ ticker }),
-  });
-}
-
-/** 14. 그리드 종목 수동 종료 */
-export async function closeGridItem(ticker: string): Promise<{
-  success: boolean;
-  message: string;
-}> {
-  return request(`/api/grid-trading/items/${encodeURIComponent(ticker)}/close`, {
-    method: "POST",
-  });
-}
-
-/** 14-1. 그리드 종목 다시 활성화 */
-export async function reactivateGridItem(ticker: string): Promise<{
-  success: boolean;
-  message: string;
-  item?: GridTradeItem;
-}> {
-  return request(`/api/grid-trading/items/${encodeURIComponent(ticker)}/reactivate`, {
-    method: "POST",
-  });
-}
-
-/** 16. 현재 활성 AI 모델 및 순위 체인 상태 */
+/** 5. 현재 활성 AI 모델 및 순위 체인 상태 */
 export async function fetchAiModelStatus(): Promise<AiModelStatus> {
   return request<AiModelStatus>("/debug/ai-model");
 }
 
-/** 18. 13인 거장 파이프라인 실시간 진행 상태 */
+/** 6. 13인 거장 파이프라인 실시간 진행 상태 */
 export async function fetchPipelineProgress(): Promise<PipelineProgress> {
   return request<PipelineProgress>("/api/scheduler/progress");
 }
 
-/** 17. AI 모델 순위 1순위 수동 초기화 */
+/** 7. AI 모델 순위 1순위 수동 초기화 */
 export async function resetAiModelRotation(): Promise<{
   ok: boolean;
   previous_model: string;
@@ -224,17 +130,6 @@ export async function resetAiModelRotation(): Promise<{
   chain: string[];
 }> {
   return request("/debug/ai-model/reset", { method: "POST" });
-}
-
-/** 15. 계좌 보유 잔고와 그리드 수동 즉시 동기화 */
-export async function syncGridHoldings(): Promise<{
-  success: boolean;
-  message: string;
-  items: GridTradeItem[];
-}> {
-  return request("/api/grid-trading/sync", {
-    method: "POST",
-  });
 }
 
 
