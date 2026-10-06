@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { GuruReportRow, GuruVoteRow, PipelineProgress, StockCandidate, ValuationConsensus } from "@/types/api";
+import { GuruReportRow, PipelineProgress, StockCandidate, ValuationConsensus } from "@/types/api";
+import { fetchStockChart } from "@/lib/api-client";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -83,7 +84,6 @@ function extractValuationConsensus(report?: GuruReportRow | null): ValuationCons
 }
 
 interface ScreenerTabProps {
-  guruVotes: GuruVoteRow[];
   guruReports: GuruReportRow[];
   liveCandidates: StockCandidate[];
   /** 두번째 스크리너: DataRoma 슈퍼인베스터 그랜드 포트폴리오 종목 */
@@ -114,7 +114,6 @@ const GURU_NAMES = [
 ];
 
 export function ScreenerTab({
-  guruVotes,
   guruReports,
   liveCandidates,
   romaCandidates = [],
@@ -125,28 +124,15 @@ export function ScreenerTab({
   onRefreshRoma,
   onRefreshPipeline,
 }: ScreenerTabProps) {
-  const [activeSubTab, setActiveSubTab] = useState<"votes" | "live" | "roma" | "reports">("votes");
+  const [activeSubTab, setActiveSubTab] = useState<"all" | "live" | "roma">("all");
   const [selectedReport, setSelectedReport] = useState<GuruReportRow | null>(null);
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportViewMode, setReportViewMode] = useState<"final" | "discussion" | "summaries" | "datapack" | "chart">("final");
   const [searchTerm, setSearchTerm] = useState("");
-
-  // 날짜 필터링 상태 (과거 날짜 조회 지원)
-  const [selectedVoteDate, setSelectedVoteDate] = useState<string>("ALL");
-  const [selectedReportDate, setSelectedReportDate] = useState<string>("ALL");
+  const [percentBByTicker, setPercentBByTicker] = useState<Record<string, number | null>>({});
   const [availableDatesForTicker, setAvailableDatesForTicker] = useState<string[]>([]);
   const [isLoadingReportDate, setIsLoadingReportDate] = useState(false);
-
-  // 고유한 날짜 목록 추출 (내림차순)
-  const availableReportDates = React.useMemo(() => {
-    const dates = Array.from(new Set(guruReports.map((r) => r.d).filter(Boolean)));
-    return dates.sort().reverse();
-  }, [guruReports]);
-
-  const availableVoteDates = React.useMemo(() => {
-    const dates = Array.from(new Set(guruVotes.map((v) => v.d).filter(Boolean)));
-    return dates.sort().reverse();
-  }, [guruVotes]);
+  const hasAutoRequestedRoma = React.useRef(false);
 
   // 특정 종목의 과거 날짜 목록 동기화
   React.useEffect(() => {
@@ -253,37 +239,186 @@ export function ScreenerTab({
     }
   };
 
-  const filteredVotes = guruVotes.filter((v) => {
-    const matchesSearch = searchTerm
-      ? v.ticker.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (v.name && v.name.toLowerCase().includes(searchTerm.toLowerCase()))
-      : true;
-    const matchesDate = selectedVoteDate === "ALL" || v.d === selectedVoteDate;
-    return matchesSearch && matchesDate;
-  });
+  const latestReportByTicker = React.useMemo(() => {
+    const map = new Map<string, GuruReportRow>();
+    for (const report of guruReports) {
+      const key = report.ticker.toUpperCase();
+      if (!map.has(key)) {
+        map.set(key, report);
+      }
+    }
+    return map;
+  }, [guruReports]);
 
-  const filteredLiveCandidates = liveCandidates.filter((s) =>
-    searchTerm
-      ? s.ticker.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (s.name && s.name.toLowerCase().includes(searchTerm.toLowerCase()))
-      : true
+  const getCandidateInsight = React.useCallback(
+    (stock: StockCandidate) => {
+      const report = latestReportByTicker.get(stock.ticker.toUpperCase());
+      const consensus = extractValuationConsensus(report);
+      const fairValue = consensus?.fair_value_price ?? null;
+      const intrinsicRatioPct =
+        fairValue != null && Number.isFinite(stock.price) && stock.price > 0
+          ? (fairValue / stock.price) * 100
+          : null;
+      return {
+        verdict: report?.verdict ?? null,
+        fairValue,
+        intrinsicRatioPct,
+      };
+    },
+    [latestReportByTicker]
   );
 
-  const filteredRomaCandidates = romaCandidates.filter((s) =>
+  const matchesSearch = (stock: StockCandidate) =>
     searchTerm
-      ? s.ticker.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (s.name && s.name.toLowerCase().includes(searchTerm.toLowerCase()))
-      : true
+      ? stock.ticker.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (stock.name && stock.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      : true;
+
+  const sortByIntrinsicRatio = React.useCallback(
+    (a: StockCandidate, b: StockCandidate) => {
+      const ratioA = getCandidateInsight(a).intrinsicRatioPct;
+      const ratioB = getCandidateInsight(b).intrinsicRatioPct;
+      if (ratioA == null) return ratioB == null ? 0 : 1;
+      if (ratioB == null) return -1;
+      return ratioB - ratioA;
+    },
+    [getCandidateInsight]
   );
 
-  const filteredReports = guruReports.filter((r) => {
-    const matchesSearch = searchTerm
-      ? r.ticker.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (r.company_name && r.company_name.toLowerCase().includes(searchTerm.toLowerCase()))
-      : true;
-    const matchesDate = selectedReportDate === "ALL" || r.d === selectedReportDate;
-    return matchesSearch && matchesDate;
-  });
+  const filteredLiveCandidates = [...liveCandidates]
+    .filter(matchesSearch)
+    .sort(sortByIntrinsicRatio);
+
+  const filteredRomaCandidates = [...romaCandidates]
+    .filter(matchesSearch)
+    .sort(sortByIntrinsicRatio);
+
+  type AllCandidateEntry = {
+    stock: StockCandidate;
+    sources: Array<"실시간" | "roma">;
+  };
+
+  const allCandidates = React.useMemo<AllCandidateEntry[]>(() => {
+    const entries = new Map<string, { stock: StockCandidate; sources: Set<"실시간" | "roma"> }>();
+
+    const addCandidates = (candidates: StockCandidate[], source: "실시간" | "roma") => {
+      for (const stock of candidates) {
+        const key = stock.ticker.trim().toUpperCase();
+        const existing = entries.get(key);
+        if (!existing) {
+          entries.set(key, { stock, sources: new Set([source]) });
+          continue;
+        }
+
+        existing.sources.add(source);
+        existing.stock = {
+          ...existing.stock,
+          holders: existing.stock.holders ?? stock.holders,
+          weight_pct: existing.stock.weight_pct ?? stock.weight_pct,
+          hold_price: existing.stock.hold_price ?? stock.hold_price,
+          week52_low: existing.stock.week52_low ?? stock.week52_low,
+          week52_high: existing.stock.week52_high ?? stock.week52_high,
+        };
+      }
+    };
+
+    addCandidates(liveCandidates, "실시간");
+    addCandidates(romaCandidates, "roma");
+
+    return [...entries.values()]
+      .sort((a, b) => sortByIntrinsicRatio(a.stock, b.stock))
+      .map(({ stock, sources }) => ({ stock, sources: Array.from(sources) }));
+  }, [liveCandidates, romaCandidates, sortByIntrinsicRatio]);
+
+  const filteredAllCandidates = allCandidates.filter(({ stock }) => matchesSearch(stock));
+
+  const chartTickerKey = (ticker: string) => ticker.trim().toUpperCase().replace(/\./g, "-");
+
+  const formatPercentB = (percentB: number | null | undefined) => {
+    if (percentB === undefined) return "계산 중";
+    if (percentB === null || !Number.isFinite(percentB)) return "조회 불가";
+    return `${(percentB * 100).toFixed(1)}%`;
+  };
+
+  const formatIntrinsicRatio = (ratio: number | null) => {
+    if (ratio == null || !Number.isFinite(ratio)) return null;
+    return `${Math.round(ratio)}%`;
+  };
+
+  React.useEffect(() => {
+    if (activeSubTab !== "all" && activeSubTab !== "live" && activeSubTab !== "roma") return;
+
+    const activeSources =
+      activeSubTab === "all"
+        ? [...liveCandidates, ...romaCandidates]
+        : activeSubTab === "live"
+          ? liveCandidates
+          : romaCandidates;
+
+    const uniqueTickers = Array.from(
+      new Set(
+        activeSources
+          .map((s) => chartTickerKey(s.ticker))
+          .filter((ticker) => Boolean(ticker) && percentBByTicker[ticker] === undefined)
+      )
+    );
+
+    if (uniqueTickers.length === 0) return;
+
+    let cancelled = false;
+    const chunkSize = 6;
+
+    const loadPercentB = async () => {
+      for (let i = 0; i < uniqueTickers.length; i += chunkSize) {
+        if (cancelled) return;
+        const chunk = uniqueTickers.slice(i, i + chunkSize);
+
+        const results = await Promise.all(
+          chunk.map(async (ticker) => {
+            try {
+              const chart = await fetchStockChart(ticker, "6mo", "1d");
+              return { ticker, percentB: chart.summary?.percent_b ?? null };
+            } catch (err) {
+              const message = err instanceof Error ? err.message : String(err);
+              if (message.includes("404") || message.includes("Not Found")) {
+                return { ticker, percentB: null };
+              }
+              console.warn(`[${ticker}] %B 조회 실패:`, err);
+              return { ticker, percentB: null };
+            }
+          })
+        );
+
+        if (cancelled) return;
+        setPercentBByTicker((prev) => {
+          const next = { ...prev };
+          for (const result of results) {
+            next[result.ticker] = result.percentB;
+          }
+          return next;
+        });
+      }
+    };
+
+    loadPercentB();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSubTab, liveCandidates, romaCandidates, percentBByTicker]);
+
+  React.useEffect(() => {
+    if (
+      activeSubTab === "all" &&
+      romaCandidates.length === 0 &&
+      !isRomaLoading &&
+      onRefreshRoma &&
+      !hasAutoRequestedRoma.current
+    ) {
+      hasAutoRequestedRoma.current = true;
+      onRefreshRoma();
+    }
+  }, [activeSubTab, romaCandidates.length, isRomaLoading, onRefreshRoma]);
 
   return (
     <div className="space-y-5">
@@ -299,14 +434,14 @@ export function ScreenerTab({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-1 p-1 bg-[#f2f4f6] rounded-2xl w-full sm:w-fit overflow-x-auto">
           <button
-            onClick={() => setActiveSubTab("votes")}
+            onClick={() => setActiveSubTab("all")}
             className={`flex-1 sm:flex-none px-3.5 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
-              activeSubTab === "votes"
+              activeSubTab === "all"
                 ? "bg-white text-[#191f28] shadow-xs"
                 : "text-[#8b95a1] hover:text-[#4e5968]"
             }`}
           >
-            거장 표결 ({guruVotes.length})
+            전체 ({allCandidates.length})
           </button>
           <button
             onClick={() => {
@@ -338,16 +473,6 @@ export function ScreenerTab({
           >
             roma ({romaCandidates.length})
           </button>
-          <button
-            onClick={() => setActiveSubTab("reports")}
-            className={`flex-1 sm:flex-none px-3.5 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
-              activeSubTab === "reports"
-                ? "bg-white text-[#191f28] shadow-xs"
-                : "text-[#8b95a1] hover:text-[#4e5968]"
-            }`}
-          >
-            리포트 보관함 ({guruReports.length})
-          </button>
         </div>
 
         {/* 검색 인풋 */}
@@ -363,186 +488,139 @@ export function ScreenerTab({
         </div>
       </div>
 
-      {/* 1. 거장 표결 랭킹 뷰 */}
-      {activeSubTab === "votes" && (
+      {/* 전체 스크리너 통합 뷰 */}
+      {activeSubTab === "all" && (
         <Card className="p-4 sm:p-6">
           <Card.Header className="border-b border-[#f2f4f6] pb-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <Card.Title>13인의 거장 표결 결과</Card.Title>
+                <Card.Title>전체 스크리너 종목</Card.Title>
                 <Card.Description>
-                  버핏, 린치, 그레이엄 등 13인의 거장 평가 점수표예요. (0: 매수, 1: 보유, 2: 관망, 3: 매도)
+                  실시간 스크리너와 roma 종목을 티커 중복 없이 모았어요. 내재가치/종가가 높은 순으로 보여요.
                 </Card.Description>
               </div>
-              {/* 표결 날짜 선택기 */}
-              {availableVoteDates.length > 0 && (
-                <div className="flex items-center gap-1.5 self-start sm:self-auto bg-[#f2f4f6] px-2.5 py-1.5 rounded-xl">
-                  <Calendar className="w-3.5 h-3.5 text-[#8b95a1]" />
-                  <select
-                    value={selectedVoteDate}
-                    onChange={(e) => setSelectedVoteDate(e.target.value)}
-                    className="text-xs bg-transparent text-[#191f28] font-semibold border-none focus:outline-hidden cursor-pointer"
-                  >
-                    <option value="ALL">전체 일자 ({guruVotes.length}건)</option>
-                    {availableVoteDates.map((dt, idx) => (
-                      <option key={dt} value={dt}>
-                        {dt} {idx === 0 ? "(최신)" : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={onRefreshLive}
+                  isLoading={isLoading}
+                >
+                  실시간 갱신
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={onRefreshRoma}
+                  isLoading={isRomaLoading}
+                >
+                  roma 갱신
+                </Button>
+              </div>
             </div>
           </Card.Header>
           <Card.Content className="pt-2">
-            {filteredVotes.length === 0 ? (
+            {filteredAllCandidates.length === 0 && (isLoading || isRomaLoading) ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-3">
+                {[...Array(6)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="p-4 rounded-2xl bg-[#f9fafb] border border-[#f2f4f6] animate-pulse h-24"
+                  />
+                ))}
+              </div>
+            ) : filteredAllCandidates.length === 0 ? (
               <EmptyState
-                icon={<Users className="w-8 h-8 text-[#8b95a1]" />}
-                title="표결 집계 데이터가 없어요"
-                description="12:00 정기 스케줄러가 실행되거나 수동 트리거를 완료하면 이곳에 집계돼요."
+                icon={<Search className="w-8 h-8 text-[#8b95a1]" />}
+                title="조회된 종목이 없어요"
+                description={
+                  searchTerm
+                    ? `'${searchTerm}' 검색 조건과 일치하는 종목이 없어요.`
+                    : "실시간 스크리너와 roma를 갱신하면 종목을 함께 확인할 수 있어요."
+                }
               />
             ) : (
-              <>
-                {/* [모바일 전용] 카드 리스트 뷰 */}
-                <div className="divide-y divide-[#f2f4f6] sm:hidden">
-                  {filteredVotes.map((row) => {
-                    const badge = getScoreBadge(row.g0);
-                    const scores = [
-                      row.g1, row.g2, row.g3, row.g4, row.g5,
-                      row.g6, row.g7, row.g8, row.g9, row.g10,
-                      row.g11, row.g12, row.g13,
-                    ];
-                    return (
-                      <div
-                        key={`m-${row.d}-${row.ticker}`}
-                        className="py-3 flex flex-col gap-2 cursor-pointer hover:bg-[#f9fafb] rounded-xl px-1 transition-colors"
-                        onClick={() => handleOpenReportByTicker(row.ticker, undefined, row.d)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-base text-[#191f28]">
-                              {row.ticker}
-                            </span>
-                            <span className="text-xs text-[#8b95a1] truncate max-w-[120px]">
-                              {row.name || "-"}
-                            </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-3">
+                {filteredAllCandidates.map(({ stock, sources }, i) => {
+                  const insight = getCandidateInsight(stock);
+                  const ratioText = formatIntrinsicRatio(insight.intrinsicRatioPct);
+                  const percentB = percentBByTicker[stock.ticker.toUpperCase()];
+                  const changeRate =
+                    typeof stock.change_rate === "number" && Number.isFinite(stock.change_rate)
+                      ? stock.change_rate
+                      : null;
+
+                  return (
+                    <div
+                      key={stock.ticker.toUpperCase()}
+                      className="p-4 rounded-2xl bg-[#f9fafb] border border-[#f2f4f6] hover:border-[#3182f6] hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between gap-2.5 group"
+                      onClick={() => handleOpenReportByTicker(stock.ticker, stock)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-9 h-9 rounded-full bg-[#e8f3ff] text-[#3182f6] font-bold text-xs flex items-center justify-center shrink-0">
+                            {stock.ticker.slice(0, 2)}
                           </div>
-                          <span
-                            className={`px-2.5 py-1 rounded-full text-xs font-bold ${badge.bg} ${badge.text}`}
-                          >
-                            {badge.label}
-                          </span>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-[#191f28] text-sm group-hover:text-[#3182f6] transition-colors truncate">
+                                {stock.ticker}
+                              </span>
+                              <Badge variant="primary">#{stock.rank || i + 1}</Badge>
+                            </div>
+                            <p className="text-xs text-[#8b95a1] truncate max-w-[150px] mt-0.5" title={stock.name}>
+                              {stock.name}
+                            </p>
+                          </div>
                         </div>
-
-                        {/* 13인 점수 칩 가로 스크롤 */}
-                        <div className="flex items-center gap-1 overflow-x-auto py-1">
-                          {scores.map((sc, i) => {
-                            const scBadge = getScoreBadge(sc);
-                            return (
-                              <div
-                                key={i}
-                                className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold flex items-center gap-0.5 shrink-0 ${scBadge.bg} ${scBadge.text}`}
-                              >
-                                <span className="opacity-70">{GURU_NAMES[i + 1].slice(0, 1)}:</span>
-                                <span>{sc ?? "-"}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        <div className="flex items-center justify-between text-[11px] text-[#8b95a1] pt-1">
-                          <span>분석일: {row.d}</span>
-                          <span className="text-[#3182f6] font-semibold flex items-center">
-                            심층 리포트 보기 <ChevronRight className="w-3.5 h-3.5" />
-                          </span>
+                        <div className="text-right shrink-0">
+                          <div className="text-sm font-bold text-[#191f28]">
+                            ${Number.isFinite(stock.price) ? stock.price.toFixed(2) : "-"}
+                          </div>
+                          {changeRate !== null && (
+                            <div className={`text-xs font-semibold ${changeRate >= 0 ? "text-[#f04452]" : "text-[#03b26c]"}`}>
+                              {changeRate >= 0 ? "+" : ""}{changeRate.toFixed(2)}%
+                            </div>
+                          )}
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
 
-                {/* [데스크톱 전용] 테이블 뷰 */}
-                <div className="hidden sm:block overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="border-b border-[#f2f4f6] text-[#8b95a1] font-semibold">
-                        <th className="py-3 pl-2">분석일</th>
-                        <th className="py-3">티커</th>
-                        <th className="py-3">종목명</th>
-                        <th className="py-3 text-center">종합 의견</th>
-                        <th className="py-3 text-center">표결 세부 (13인)</th>
-                        <th className="py-3 pr-2 text-right">심층 리포트</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#f9fafb]">
-                      {filteredVotes.map((row) => {
-                        const badge = getScoreBadge(row.g0);
-                        const scores = [
-                          row.g1, row.g2, row.g3, row.g4, row.g5,
-                          row.g6, row.g7, row.g8, row.g9, row.g10,
-                          row.g11, row.g12, row.g13,
-                        ];
-                        return (
-                          <tr
-                            key={`${row.d}-${row.ticker}`}
-                            className="hover:bg-[#f9fafb] transition-colors"
-                          >
-                            <td className="py-3 pl-2 text-[#8b95a1] font-mono whitespace-nowrap">
-                              {row.d}
-                            </td>
-                            <td className="py-3 font-bold text-sm text-[#191f28]">
-                              {row.ticker}
-                            </td>
-                            <td className="py-3 text-[#4e5968] font-medium max-w-[140px] truncate">
-                              {row.name || "-"}
-                            </td>
-                            <td className="py-3 text-center">
-                              <span
-                                className={`inline-block px-2.5 py-1 rounded-full text-xs font-bold ${badge.bg} ${badge.text}`}
-                              >
-                                {badge.label} ({row.g0 ?? "-"})
-                              </span>
-                            </td>
-                            <td className="py-3 text-center">
-                              <div className="inline-flex gap-1 items-center justify-center">
-                                {scores.map((sc, i) => {
-                                  const scBadge = getScoreBadge(sc);
-                                  return (
-                                    <span
-                                      key={i}
-                                      title={`${GURU_NAMES[i + 1]}: ${scBadge.label}`}
-                                      className={`w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center ${scBadge.bg} ${scBadge.text}`}
-                                    >
-                                      {sc ?? "-"}
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            </td>
-                            <td className="py-3 pr-2 text-right">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleOpenReportByTicker(row.ticker, undefined, row.d)}
-                                className="h-8 px-2 text-xs text-[#3182f6]"
-                                rightIcon={<ChevronRight className="w-3.5 h-3.5" />}
-                              >
-                                리포트 보기
-                              </Button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </>
+                      <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[#4e5968] pt-1.5 border-t border-[#f2f4f6]">
+                        {sources.map((source) => (
+                          <Badge key={source} variant="primary">{source}</Badge>
+                        ))}
+                        <Badge variant={insight.verdict === "매수" ? "success" : insight.verdict === "매도" ? "danger" : "neutral"}>
+                          종합의견: {insight.verdict || "리포트 준비 중"}
+                        </Badge>
+                        <span className="px-2 py-0.5 rounded-full bg-white border border-[#e5e8eb]">
+                          %B: <strong>{formatPercentB(percentB)}</strong>
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full bg-white border border-[#e5e8eb]">
+                          내재가치/종가: <strong className={insight.intrinsicRatioPct != null && insight.intrinsicRatioPct >= 100 ? "text-[#03b26c]" : "text-[#4e5968]"}>
+                            {ratioText || "리포트 준비 중"}
+                          </strong>
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] text-[#8b95a1]">
+                        <span>
+                          {stock.roe != null ? <>ROE: <strong className="text-[#4e5968]">{(stock.roe * 100).toFixed(1)}%</strong></> : null}
+                          {stock.holders != null ? <>{stock.roe != null ? " · " : ""}보유 <strong className="text-[#4e5968]">{stock.holders}명</strong></> : null}
+                        </span>
+                        <span className="text-[#3182f6] font-medium flex items-center group-hover:translate-x-0.5 transition-transform">
+                          리포트 확인 <ChevronRight className="w-3 h-3 ml-0.5" />
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </Card.Content>
         </Card>
       )}
 
-      {/* 2. 토스 공통 스크리너 실시간 뷰 */}
+      {/* 토스 공통 스크리너 실시간 뷰 */}
       {activeSubTab === "live" && (
         <Card className="p-4 sm:p-6">
           <Card.Header className="border-b border-[#f2f4f6] pb-3">
@@ -598,68 +676,96 @@ export function ScreenerTab({
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-3">
                 {filteredLiveCandidates.map((stock, i) => (
-                  <div
-                    key={`${stock.ticker}-${i}`}
-                    className="p-4 rounded-2xl bg-[#f9fafb] border border-[#f2f4f6] hover:border-[#3182f6] hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between gap-2.5 group"
-                    onClick={() => handleOpenReportByTicker(stock.ticker, stock)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3 min-w-0">
-                        {stock.logo_image_url ? (
-                          /* eslint-disable-next-line @next/next/no-img-element */
-                          <img
-                            src={stock.logo_image_url}
-                            alt={stock.ticker}
-                            className="w-9 h-9 rounded-full object-contain bg-white border border-[#e5e8eb] p-0.5 shrink-0"
-                            onError={(e) => {
-                              (e.target as HTMLElement).style.display = "none";
-                            }}
-                          />
-                        ) : (
-                          <div className="w-9 h-9 rounded-full bg-[#e8f3ff] text-[#3182f6] font-bold text-xs flex items-center justify-center shrink-0">
-                            {stock.ticker.slice(0, 2)}
+                  (() => {
+                    const insight = getCandidateInsight(stock);
+                    const ratioText = formatIntrinsicRatio(insight.intrinsicRatioPct);
+                    const percentB = percentBByTicker[stock.ticker.toUpperCase()];
+                    const changeRate =
+                      typeof stock.change_rate === "number" && Number.isFinite(stock.change_rate)
+                        ? stock.change_rate
+                        : null;
+                    return (
+                      <div
+                        key={`${stock.ticker}-${i}`}
+                        className="p-4 rounded-2xl bg-[#f9fafb] border border-[#f2f4f6] hover:border-[#3182f6] hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between gap-2.5 group"
+                        onClick={() => handleOpenReportByTicker(stock.ticker, stock)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 min-w-0">
+                            {stock.logo_image_url ? (
+                              /* eslint-disable-next-line @next/next/no-img-element */
+                              <img
+                                src={stock.logo_image_url}
+                                alt={stock.ticker}
+                                className="w-9 h-9 rounded-full object-contain bg-white border border-[#e5e8eb] p-0.5 shrink-0"
+                                onError={(e) => {
+                                  (e.target as HTMLElement).style.display = "none";
+                                }}
+                              />
+                            ) : (
+                              <div className="w-9 h-9 rounded-full bg-[#e8f3ff] text-[#3182f6] font-bold text-xs flex items-center justify-center shrink-0">
+                                {stock.ticker.slice(0, 2)}
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-[#191f28] text-sm group-hover:text-[#3182f6] transition-colors truncate">
+                                  {stock.ticker}
+                                </span>
+                                <Badge variant="primary">#{stock.rank || i + 1}</Badge>
+                              </div>
+                              <p className="text-xs text-[#8b95a1] truncate max-w-[130px] mt-0.5" title={stock.name}>
+                                {stock.name}
+                              </p>
+                            </div>
                           </div>
-                        )}
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-[#191f28] text-sm group-hover:text-[#3182f6] transition-colors truncate">
-                              {stock.ticker}
-                            </span>
-                            <Badge variant="primary">#{stock.rank || i + 1}</Badge>
+                          <div className="text-right shrink-0">
+                            <div className="text-sm font-bold text-[#191f28]">
+                              ${stock.price?.toFixed(2) || "0.00"}
+                            </div>
+                            {changeRate !== null && (
+                              <div
+                                className={`text-xs font-semibold ${
+                                  changeRate >= 0
+                                    ? "text-[#f04452]"
+                                    : "text-[#03b26c]"
+                                }`}
+                              >
+                                {changeRate >= 0 ? "+" : ""}
+                                {changeRate.toFixed(2)}%
+                              </div>
+                            )}
                           </div>
-                          <p className="text-xs text-[#8b95a1] truncate max-w-[130px] mt-0.5" title={stock.name}>
-                            {stock.name}
-                          </p>
                         </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <div className="text-sm font-bold text-[#191f28]">
-                          ${stock.price?.toFixed(2) || "0.00"}
-                        </div>
-                        {stock.change_rate !== undefined && (
-                          <div
-                            className={`text-xs font-semibold ${
-                              stock.change_rate >= 0
-                                ? "text-[#f04452]"
-                                : "text-[#03b26c]"
-                            }`}
-                          >
-                            {stock.change_rate >= 0 ? "+" : ""}
-                            {stock.change_rate.toFixed(2)}%
-                          </div>
-                        )}
-                      </div>
-                    </div>
 
-                    {stock.roe != null && (
-                      <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-[#f2f4f6] text-[#8b95a1]">
-                        <span>ROE: <strong className="text-[#4e5968]">{(stock.roe * 100).toFixed(1)}%</strong></span>
-                        <span className="text-[#3182f6] font-medium flex items-center group-hover:translate-x-0.5 transition-transform">
-                          리포트 확인 <ChevronRight className="w-3 h-3 ml-0.5" />
-                        </span>
+                        <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[#4e5968] pt-1.5 border-t border-[#f2f4f6]">
+                          <Badge variant={insight.verdict === "매수" ? "success" : insight.verdict === "매도" ? "danger" : "neutral"}>
+                            종합의견: {insight.verdict || "리포트 준비 중"}
+                          </Badge>
+                          <span className="px-2 py-0.5 rounded-full bg-white border border-[#e5e8eb]">
+                            %B: <strong>{formatPercentB(percentB)}</strong>
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full bg-white border border-[#e5e8eb]">
+                            내재가치/종가:{" "}
+                            <strong className={ratioText && insight.intrinsicRatioPct != null && insight.intrinsicRatioPct >= 100 ? "text-[#03b26c]" : "text-[#4e5968]"}>
+                              {ratioText || "리포트 준비 중"}
+                            </strong>
+                          </span>
+                        </div>
+
+                        {stock.roe != null && (
+                          <div className="flex items-center justify-between text-[11px] text-[#8b95a1]">
+                            <span>
+                              ROE: <strong className="text-[#4e5968]">{(stock.roe * 100).toFixed(1)}%</strong>
+                            </span>
+                            <span className="text-[#3182f6] font-medium flex items-center group-hover:translate-x-0.5 transition-transform">
+                              리포트 확인 <ChevronRight className="w-3 h-3 ml-0.5" />
+                            </span>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
+                    );
+                  })()
                 ))}
               </div>
             )}
@@ -724,147 +830,82 @@ export function ScreenerTab({
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-3">
                 {filteredRomaCandidates.map((stock, i) => (
-                  <div
-                    key={`roma-${stock.ticker}-${i}`}
-                    className="p-4 rounded-2xl bg-[#f9fafb] border border-[#f2f4f6] hover:border-[#3182f6] hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between gap-2.5 group"
-                    onClick={() => handleOpenReportByTicker(stock.ticker, stock)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-9 h-9 rounded-full bg-[#e8f3ff] text-[#3182f6] font-bold text-xs flex items-center justify-center shrink-0">
-                          {stock.ticker.slice(0, 2)}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-[#191f28] text-sm group-hover:text-[#3182f6] transition-colors truncate">
-                              {stock.ticker}
-                            </span>
-                            <Badge variant="primary">
-                              {stock.holders != null ? `${stock.holders}인` : `#${i + 1}`}
-                            </Badge>
+                  (() => {
+                    const insight = getCandidateInsight(stock);
+                    const ratioText = formatIntrinsicRatio(insight.intrinsicRatioPct);
+                    const percentB = percentBByTicker[stock.ticker.toUpperCase()];
+                    return (
+                      <div
+                        key={`roma-${stock.ticker}-${i}`}
+                        className="p-4 rounded-2xl bg-[#f9fafb] border border-[#f2f4f6] hover:border-[#3182f6] hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between gap-2.5 group"
+                        onClick={() => handleOpenReportByTicker(stock.ticker, stock)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-9 h-9 rounded-full bg-[#e8f3ff] text-[#3182f6] font-bold text-xs flex items-center justify-center shrink-0">
+                              {stock.ticker.slice(0, 2)}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-[#191f28] text-sm group-hover:text-[#3182f6] transition-colors truncate">
+                                  {stock.ticker}
+                                </span>
+                                <Badge variant="primary">
+                                  {stock.holders != null ? `${stock.holders}인` : `#${i + 1}`}
+                                </Badge>
+                              </div>
+                              <p
+                                className="text-xs text-[#8b95a1] truncate max-w-[130px] mt-0.5"
+                                title={stock.name}
+                              >
+                                {stock.name}
+                              </p>
+                            </div>
                           </div>
-                          <p
-                            className="text-xs text-[#8b95a1] truncate max-w-[130px] mt-0.5"
-                            title={stock.name}
-                          >
-                            {stock.name}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <div className="text-sm font-bold text-[#191f28]">
-                          ${stock.price?.toFixed(2) || "0.00"}
-                        </div>
-                        {stock.weight_pct != null && (
-                          <div className="text-xs font-semibold text-[#8b95a1]">
-                            {stock.weight_pct}%
+                          <div className="text-right shrink-0">
+                            <div className="text-sm font-bold text-[#191f28]">
+                              ${stock.price?.toFixed(2) || "0.00"}
+                            </div>
+                            {stock.weight_pct != null && (
+                              <div className="text-xs font-semibold text-[#8b95a1]">
+                                {stock.weight_pct}%
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    </div>
+                        </div>
 
-                    <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-[#f2f4f6] text-[#8b95a1]">
-                      <span>
-                        보유{" "}
-                        <strong className="text-[#4e5968]">
-                          {stock.holders != null ? `${stock.holders}명` : "-"}
-                        </strong>
-                        {stock.hold_price != null ? (
-                          <> · 매수가 ${stock.hold_price.toFixed(2)}</>
-                        ) : null}
-                      </span>
-                      <span className="text-[#3182f6] font-medium flex items-center group-hover:translate-x-0.5 transition-transform">
-                        리포트 확인 <ChevronRight className="w-3 h-3 ml-0.5" />
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card.Content>
-        </Card>
-      )}
-
-      {/* 3. 리포트 보관함 뷰 */}
-      {activeSubTab === "reports" && (
-        <Card className="p-4 sm:p-6">
-          <Card.Header className="border-b border-[#f2f4f6] pb-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <Card.Title>13인 거장 5단계 심층 리포트 보관함</Card.Title>
-                <Card.Description>
-                  Supabase에 영구 보존된 데이터팩, 거장 원탁 토론, 마스터 투자 보고서예요.
-                </Card.Description>
-              </div>
-              {/* 리포트 날짜 선택기 */}
-              {availableReportDates.length > 0 && (
-                <div className="flex items-center gap-1.5 self-start sm:self-auto bg-[#f2f4f6] px-2.5 py-1.5 rounded-xl">
-                  <Calendar className="w-3.5 h-3.5 text-[#8b95a1]" />
-                  <select
-                    value={selectedReportDate}
-                    onChange={(e) => setSelectedReportDate(e.target.value)}
-                    className="text-xs bg-transparent text-[#191f28] font-semibold border-none focus:outline-hidden cursor-pointer"
-                  >
-                    <option value="ALL">전체 일자 ({guruReports.length}건)</option>
-                    {availableReportDates.map((dt, idx) => (
-                      <option key={dt} value={dt}>
-                        {dt} {idx === 0 ? "(최신)" : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
-          </Card.Header>
-          <Card.Content className="pt-2">
-            {filteredReports.length === 0 ? (
-              <EmptyState
-                icon={<FileText className="w-8 h-8 text-[#8b95a1]" />}
-                title="보관된 리포트가 없어요"
-                description={
-                  searchTerm
-                    ? `'${searchTerm}' 검색 조건과 일치하는 리포트가 없어요.`
-                    : "파이프라인이 완료되면 생성된 리포트가 이곳에 자동으로 쌓여요."
-                }
-              />
-            ) : (
-              <div className="divide-y divide-[#f9fafb]">
-                {filteredReports.map((report) => (
-                  <div
-                    key={report.id}
-                    className="py-3.5 flex items-center justify-between gap-2 hover:bg-[#f9fafb] px-2 rounded-2xl transition-colors cursor-pointer"
-                    onClick={() => {
-                      handleOpenReportByTicker(report.ticker, undefined, report.d);
-                    }}
-                  >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div className="w-10 h-10 rounded-2xl bg-[#e8f3ff] text-[#3182f6] flex items-center justify-center font-bold text-sm shrink-0">
-                        {report.ticker.slice(0, 3)}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="font-bold text-sm text-[#191f28] shrink-0">
-                            {report.ticker}
-                          </span>
-                          <Badge variant="primary" className="shrink-0">
-                            {report.verdict}
+                        <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-[#4e5968] pt-1.5 border-t border-[#f2f4f6]">
+                          <Badge variant={insight.verdict === "매수" ? "success" : insight.verdict === "매도" ? "danger" : "neutral"}>
+                            종합의견: {insight.verdict || "리포트 준비 중"}
                           </Badge>
+                          <span className="px-2 py-0.5 rounded-full bg-white border border-[#e5e8eb]">
+                            %B: <strong>{formatPercentB(percentB)}</strong>
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full bg-white border border-[#e5e8eb]">
+                            내재가치/종가:{" "}
+                            <strong className={ratioText && insight.intrinsicRatioPct != null && insight.intrinsicRatioPct >= 100 ? "text-[#03b26c]" : "text-[#4e5968]"}>
+                              {ratioText || "리포트 준비 중"}
+                            </strong>
+                          </span>
                         </div>
-                        <p className="text-xs text-[#8b95a1] mt-0.5 truncate">
-                          {report.company_name} · {report.d}
-                        </p>
+
+                        <div className="flex items-center justify-between text-[11px] text-[#8b95a1]">
+                          <span>
+                            보유{" "}
+                            <strong className="text-[#4e5968]">
+                              {stock.holders != null ? `${stock.holders}명` : "-"}
+                            </strong>
+                            {stock.hold_price != null ? (
+                              <> · 매수가 ${stock.hold_price.toFixed(2)}</>
+                            ) : null}
+                          </span>
+                          <span className="text-[#3182f6] font-medium flex items-center group-hover:translate-x-0.5 transition-transform">
+                            리포트 확인 <ChevronRight className="w-3 h-3 ml-0.5" />
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      rightIcon={<ExternalLink className="w-3.5 h-3.5" />}
-                      className="shrink-0 hidden sm:inline-flex"
-                    >
-                      상세 보기
-                    </Button>
-                    <ChevronRight className="w-4 h-4 text-[#8b95a1] shrink-0 sm:hidden" />
-                  </div>
+                    );
+                  })()
                 ))}
               </div>
             )}

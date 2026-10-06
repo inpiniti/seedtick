@@ -126,13 +126,18 @@ export async function fetchRomaScreener(
 }
 
 /** 4. 종목 일봉 캔들 및 볼린저 밴드 조회 */
+export function normalizeTickerForChart(ticker: string): string {
+  return ticker.trim().toUpperCase().replace(/\./g, "-");
+}
+
 export async function fetchStockChart(
   ticker: string,
   range = "6mo",
   interval = "1d"
 ): Promise<StockChartResponse> {
+  const normalizedTicker = normalizeTickerForChart(ticker);
   return request<StockChartResponse>(
-    `/api/screener/chart/${encodeURIComponent(ticker)}?range=${range}&interval=${interval}`
+    `/api/screener/chart/${encodeURIComponent(normalizedTicker)}?range=${range}&interval=${interval}`
   );
 }
 

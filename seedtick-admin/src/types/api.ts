@@ -148,31 +148,7 @@ export interface ScreenerResponse {
   source?: string;
 }
 
-// 7. Supabase 13인 거장 표결 (guru_votes)
-export interface GuruVoteRow {
-  d: string;
-  ticker: string;
-  name: string | null;
-  nation: string;
-  screeners: string[];
-  g0: number | null; // 종합 점수 (0: 매수, 1: 보유, 2: 관망, 3: 매도)
-  g1?: number | null;
-  g2?: number | null;
-  g3?: number | null;
-  g4?: number | null;
-  g5?: number | null;
-  g6?: number | null;
-  g7?: number | null;
-  g8?: number | null;
-  g9?: number | null;
-  g10?: number | null;
-  g11?: number | null;
-  g12?: number | null;
-  g13?: number | null;
-  updated_at: string;
-}
-
-// 8. Supabase 리포트 (guru_reports)
+// 7. Supabase 리포트 (guru_reports)
 export interface GuruSummaryItem {
   persona?: string;
   guru_name?: string;

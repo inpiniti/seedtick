@@ -31,7 +31,9 @@ class ChartService:
     ) -> dict:
         """Yahoo Finance v8 Chart API 호출"""
         clean_ticker = ticker.upper().strip()
-        url = f"{Y1}/v8/finance/chart/{clean_ticker}?range={range_period}&interval={interval}"
+        # Yahoo Finance uses hyphens for share-class symbols such as BRK.B.
+        yahoo_ticker = clean_ticker.replace(".", "-")
+        url = f"{Y1}/v8/finance/chart/{yahoo_ticker}?range={range_period}&interval={interval}"
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             res = await client.get(url, headers={"User-Agent": UA})
             res.raise_for_status()

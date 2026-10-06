@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   AiModelStatus,
   GuruReportRow,
-  GuruVoteRow,
   HealthStatus,
   StockCandidate,
   SystemLogItem,
@@ -17,11 +16,7 @@ import {
   resetAiModelRotation,
   triggerPipeline,
 } from "@/lib/api-client";
-import {
-  fetchGuruReports,
-  fetchGuruVotes,
-  fetchSystemLogs,
-} from "@/lib/supabase";
+import { fetchGuruReports, fetchSystemLogs } from "@/lib/supabase";
 import { usePipelineProgress } from "@/hooks/usePipelineProgress";
 import { LiveStatusBar } from "@/components/header/LiveStatusBar";
 import { ScreenerTab } from "@/components/tabs/ScreenerTab";
@@ -45,7 +40,6 @@ export default function AdminDashboardPage() {
   const [isResettingModel, setIsResettingModel] = useState(false);
 
   // Supabase 데이터
-  const [guruVotes, setGuruVotes] = useState<GuruVoteRow[]>([]);
   const [guruReports, setGuruReports] = useState<GuruReportRow[]>([]);
   const [systemLogs, setSystemLogs] = useState<SystemLogItem[]>([]);
   const [liveCandidates, setLiveCandidates] = useState<StockCandidate[]>([]);
@@ -69,18 +63,15 @@ export default function AdminDashboardPage() {
   const loadDashboardData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [healthRes, votesRes, reportsRes, logsRes, aiModelRes] =
-        await Promise.all([
-          fetchHealth().catch(() => null),
-          fetchGuruVotes(200).catch(() => []),
-          fetchGuruReports(200).catch(() => []),
-          fetchSystemLogs(60).catch(() => []),
-          fetchAiModelStatus().catch(() => null),
-        ]);
+      const [healthRes, reportsRes, logsRes, aiModelRes] = await Promise.all([
+        fetchHealth().catch(() => null),
+        fetchGuruReports(200).catch(() => []),
+        fetchSystemLogs(60).catch(() => []),
+        fetchAiModelStatus().catch(() => null),
+      ]);
 
       if (healthRes) setHealth(healthRes);
       if (aiModelRes) setAiModel(aiModelRes);
-      setGuruVotes(votesRes);
       setGuruReports(reportsRes);
       setSystemLogs(logsRes);
     } catch (err) {
@@ -218,18 +209,7 @@ export default function AdminDashboardPage() {
               }`}
             >
               <BarChart2 className="w-4 h-4" />
-              <span>1. 스크리너 & 13인 거장 리포트</span>
-              {guruVotes.length > 0 ? (
-                <span
-                  className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                    activeTab === "screener"
-                      ? "bg-white text-[#3182f6]"
-                      : "bg-[#f2f4f6] text-[#6b7684]"
-                  }`}
-                >
-                  {guruVotes.length}
-                </span>
-              ) : null}
+              <span>1. 실시간 스크리너</span>
             </button>
 
             <button
@@ -288,7 +268,6 @@ export default function AdminDashboardPage() {
           <>
             {activeTab === "screener" ? (
               <ScreenerTab
-                guruVotes={guruVotes}
                 guruReports={guruReports}
                 liveCandidates={liveCandidates}
                 romaCandidates={romaCandidates}
@@ -324,7 +303,7 @@ export default function AdminDashboardPage() {
             }`}
           >
             <BarChart2 className="w-5 h-5" />
-            <span className="text-[11px] mt-1 tracking-tight">스크리너 & 리포트</span>
+            <span className="text-[11px] mt-1 tracking-tight">실시간 스크리너</span>
           </button>
 
           <button
@@ -411,4 +390,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
