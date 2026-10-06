@@ -12,6 +12,10 @@
         |
         +---> [Screener] 토스 13인 거장 '공통' 필터 (nation=us, size=200)
         |
+
+        +---> [Screener-Roma] DataRoma 그랜드 포트폴리오 (슈퍼인베스터 보유자 10명 이상)
+        |         └─ 토스 통과 종목과 중복 티커 제거 후 분석 대상에 병합
+        |
         +---> [Guru-Report] 스크리닝 상위 종목별 5단계 파이프라인:
         |       |
         |       +---> [1단계] DataPackBuilder (Yahoo/SEC/Toss 팩트 수집)
@@ -49,7 +53,7 @@
 ### seedtick-analyzer (HuggingFace)
 - **역할**: 스크리닝 + 13인 거장 분석 + 스케줄 + 자동매매 통합 서버
 - **내부 서브도메인 & 모듈**:
-  - `screener` — 토스 거장 공통 필터(해외 200개) 스크리닝
+  - `screener` — 토스 거장 공통 필터(해외 200개) + DataRoma 슈퍼인베스터 포트폴리오(두번째 스크리너) 스크리닝
   - `report` — DataPackBuilder + 13인 거장 심층 리포트 파이프라인
   - `scheduler` — APScheduler 배치 (월~금 12:00 KST, 미장 휴장일 가드)
   - `auto-trading` — 리포트 기반 소액(10만원 미만) 분할 자동매매
@@ -61,7 +65,9 @@
 ```
 [12:00 KST] scheduler 트리거
     → market_guard.is_market_open(today) 검사 (주말/공휴일 시 조기 종료)
-    → screener.get_stock_list() → 통과 종목 리스트 반환
+    → screener.get_stock_list() → 토스 통과 종목 리스트 반환
+    → roma.get_stock_list() → DataRoma 보유 종목 반환 (실패 시 무시하고 계속)
+    → 중복 티커 제거 후 분석 대상(targets) 확정 (screeners 라벨 병합)
     → for ticker in targets:
         → [1단계] DataPackBuilder.build(ticker) → _data/{ticker}.md
         → [2단계] 13인 거장 요약 블록 생성 → _data/{ticker}_요약.md

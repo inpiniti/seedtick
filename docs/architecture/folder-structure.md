@@ -44,7 +44,7 @@ seedtick-analyzer/
 │   ├── main.py                    # FastAPI 앱 + APScheduler 수명주기
 │   ├── api/
 │   │   ├── routes/
-│   │   │   ├── screener.py        # GET /screener/run (거장 공통 스크리닝)
+│   │   │   ├── screener.py        # GET /screener/run (거장 공통 스크리닝), GET /screener/roma (두번째 스크리너)
 │   │   │   ├── report.py          # POST /report/generate (5단계 파이프라인)
 │   │   │   ├── scheduler.py       # POST /scheduler/trigger (수동 트리거)
 │   │   │   └── health.py          # GET /health
@@ -53,10 +53,12 @@ seedtick-analyzer/
 │   ├── domains/
 │   │   ├── screener/
 │   │   │   ├── service.py         # ScreenerService (1차 BTC-AI, 2차 WTS 폴백)
+│   │   │   ├── roma_service.py    # RomaScreenerService (두번째 스크리너: DataRoma 보유 종목)
 │   │   │   ├── models.py          # TossStockItem, ScreenCriteria
 │   │   │   └── clients/
 │   │   │       ├── btc_ai_toss.py # bitcoin-ai-backend 토스 프록시 클라이언트
-│   │   │       └── toss_wts.py    # 토스 WTS 직접 통신 (폴백 세션 관리)
+│   │   │       ├── toss_wts.py    # 토스 WTS 직접 통신 (폴백 세션 관리)
+│   │   │       └── dataroma.py   # DataRoma 그랜드 포트폴리오 스크레이퍼 (두번째 스크리너)
 │   │   │
 │   │   ├── report/
 │   │   │   ├── service.py         # GuruReportService (5단계 파이프라인)

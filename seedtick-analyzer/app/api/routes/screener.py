@@ -3,7 +3,9 @@ Screener API Route
 """
 from fastapi import APIRouter, HTTPException, Query
 from app.domains.screener.chart_service import ChartService
+from app.domains.screener.clients.dataroma import MIN_HOLDERS_DEFAULT
 from app.domains.screener.models import ScreenCriteria, ScreenResult, StockChartResponse
+from app.domains.screener.roma_service import RomaScreenerService
 from app.domains.screener.service import ScreenerService
 
 router = APIRouter(prefix="/api/screener", tags=["screener"])
@@ -27,6 +29,31 @@ async def run_screener(
         return await service.get_stock_list(criteria)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"스크리너 실행 실패: {e}")
+
+
+@router.get(
+    "/roma",
+    response_model=ScreenResult,
+    summary="DataRoma 슈퍼인베스터 그랜드 포트폴리오 스크리너 (보유자 10명 이상)",
+)
+async def run_roma_screener(
+    min_holders: int = Query(
+        MIN_HOLDERS_DEFAULT,
+        ge=1,
+        le=200,
+        description="최소 보유 투자자 수 (기본: 10명 이상)",
+    ),
+    size: int = Query(0, ge=0, le=500, description="조회 건수 (0이면 전체)"),
+):
+    """
+    DataRoma Grand Portfolio(https://www.dataroma.com/m/g/portfolio.php?o=c)를
+    스크레이핑해 슈퍼인베스터들이 공동 보유한 종목을 반환합니다.
+    """
+    try:
+        service = RomaScreenerService()
+        return await service.get_stock_list(min_holders=min_holders, size=size)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"DataRoma 스크리너 실행 실패: {e}")
 
 
 @router.get("/chart/{ticker}", response_model=StockChartResponse, summary="종목 일봉 캔들스틱 및 볼린저 밴드(20, 2) 조회")

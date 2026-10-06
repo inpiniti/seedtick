@@ -53,6 +53,7 @@ pytest -v
 - `GET /api/bridge/balance` : 증권사 계좌 잔고(KRW, USD, 보유 포지션) 조회
 - `GET /api/auto-trading/status` : 오토트레이딩 금일 주문 현황 및 일일 한도 상태 조회
 - `GET /api/screener/run` : 토스 공통/해외 200 종목 스크리닝
+- `GET /api/screener/roma` : DataRoma 슈퍼인베스터 그랜드 포트폴리오 스크리닝 (보유자 10명 이상, 두번째 스크리너)
 - `GET /api/report/datapack/{ticker}` : 특정 종목 심층 데이터팩 단독 생성
 - `POST /api/report/generate?ticker={ticker}` : 13인 거장 5단계 리포트 생성 및 DB 저장
 - `POST /api/scheduler/trigger` : 일일 파이프라인 수동 즉시 트리거 (백그라운드 실행 후 즉시 응답, dry_run·force 플래그 지원)
