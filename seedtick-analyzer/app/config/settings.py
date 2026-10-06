@@ -45,6 +45,17 @@ class Settings(BaseSettings):
     AI_CONCURRENCY: int = 13  # 동시 처리 요청 수 (13인 거장 전원 동시 병렬)
     AI_REQUEST_INTERVAL_SEC: float = 0.0  # 요청 간 대기시간(초)
     AI_GATEWAY_MAX_TOKENS: int = 32768  # 모델 최대 생성 토큰 (32K 지원)
+
+    # ── 리포트 단계별 출력 토큰 한도 ──────────────────────────────
+    # 상한을 낮춰도 응답이 끊기면(finish_reason=length) AiClient가 한도를 2배로
+    # 올려 1회 자동 재시도하므로, "무턱대게 큰 상한" 대신 단계별 여유 상한을 쓴다.
+    SUMMARY_MAX_TOKENS: int = 2048  # 2단계 13인 서머리 (의견/논거/적정가 등 10줄 규격)
+    DISCUSSION_MAX_TOKENS: int = 6144  # 원탁 토론 AI 생성 사용 시
+    MASTER_MAX_TOKENS: int = 6144  # 4단계 최종 마스터 보고서 (분량 규칙 적용)
+    # 3단계 원탁 토론 AI 생성 사용 여부.
+    # False면 토론을 생략하고 쟁점·적정가 합의밴드·표결 도출을 4단계 마스터로 이관한다.
+    ENABLE_ROUND_TABLE_DISCUSSION: bool = False
+
     MAX_ANALYZE_COUNT: int = 0  # 1일 최대 리포트 분석 종목 수 (0: 스크리너 전체 무제한)
     # AI 프로바이더 직접 호출 (게이트웨이 우회 시 사용, 쉼표 구분 멀티키 지원)
     OPENROUTER_API_KEYS: str = ""

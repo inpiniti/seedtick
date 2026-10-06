@@ -96,17 +96,35 @@ class GuruReportService:
         summary_doc = await self.generate_guru_summaries(datapack)
 
         # ── 3단계: 거장 원탁 토론 전문 생성 ───────────────────
-        logger.info(f"[{clean_ticker}] 3단계: 13인 거장 원탁 토론 전문 생성 시작...")
+        logger.info(f"[{clean_ticker}] 3단계: 원탁 토론 단계 시작...")
         if self.progress:
             self.progress.set_stage("discussion")
-        if self.request_interval > 0:
-            await asyncio.sleep(self.request_interval)
-        discussion_doc = await self.discussion_engine.generate_discussion(datapack, summary_doc)
-        self._save_discussion_file(discussion_doc)
-        logger.info(
-            f"[{clean_ticker}] 3단계: 원탁 토론 전문 저장 완료 "
-            f"(길이: {len(discussion_doc.raw_markdown)}자, 경로: {discussion_doc.file_path})"
-        )
+        if settings.ENABLE_ROUND_TABLE_DISCUSSION:
+            if self.request_interval > 0:
+                await asyncio.sleep(self.request_interval)
+            discussion_doc = await self.discussion_engine.generate_discussion(
+                datapack, summary_doc, max_tokens=settings.DISCUSSION_MAX_TOKENS
+            )
+            self._save_discussion_file(discussion_doc)
+            logger.info(
+                f"[{clean_ticker}] 3단계: 원탁 토론 전문 저장 완료 "
+                f"(길이: {len(discussion_doc.raw_markdown)}자, 경로: {discussion_doc.file_path})"
+            )
+        else:
+            # 토론 생략 모드(기본): AI 호출 없이 요약 기반 compact 문서를 만들고,
+            # 쟁점·적정가 합의밴드·표결 도출은 4단계 마스터로 이관한다.
+            discussion_doc = self.discussion_engine.build_compact_discussion(
+                datapack, summary_doc
+            )
+            self._save_discussion_file(discussion_doc)
+            if self.progress:
+                self.progress.log(
+                    "원탁 토론 AI 생성 생략 — 쟁점·합의밴드·표결 도출을 마스터로 이관"
+                )
+            logger.info(
+                f"[{clean_ticker}] 3단계: 원탁 토론 생략(마스터 이관) — "
+                f"compact 문서 {len(discussion_doc.raw_markdown)}자 저장 완료 (AI 호출 0회)"
+            )
 
         # ── 4단계: 최종 종합 투자 보고서 생성 ──────────────────
         logger.info(f"[{clean_ticker}] 4단계: 최종 종합 마스터 투자 보고서 생성 시작...")
@@ -115,7 +133,7 @@ class GuruReportService:
         if self.request_interval > 0:
             await asyncio.sleep(self.request_interval)
         master_report = await self.discussion_engine.generate_master_report(
-            datapack, summary_doc, discussion_doc
+            datapack, summary_doc, discussion_doc, max_tokens=settings.MASTER_MAX_TOKENS
         )
         self._save_master_report_file(master_report)
         logger.info(
@@ -241,9 +259,10 @@ class GuruReportService:
         self, persona_key: str, datapack_md: str
     ) -> PersonaSummaryBlock:
         # 뉴스, IR 일정, 재무제표, 밸류에이션, 가치드라이버가 모두 포함된 전체 데이터팩 전달
-        # 32K 토큰 한도로 충분한 입출력 공간 확보
+        # 출력은 10줄 규격이므로 SUMMARY_MAX_TOKENS(기본 2048)로 상한 제한
+        # (한도에 걸려 끊기면 AiClient가 2배 한도로 1회 자동 재시도)
         prompt = build_persona_prompt(persona_key, datapack_md)
-        text = await self.ai.chat(prompt)
+        text = await self.ai.chat(prompt, max_tokens=settings.SUMMARY_MAX_TOKENS)
         return self._parse_summary_block(persona_key, text)
 
     def _parse_summary_block(self, persona_key: str, text: str) -> PersonaSummaryBlock:
