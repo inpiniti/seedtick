@@ -22,6 +22,14 @@ UA = (
 Y1 = "https://query1.finance.yahoo.com"
 
 
+def normalize_yahoo_ticker(ticker: str) -> str:
+    """Yahoo Finance는 클래스형 종목을 점(.) 대신 하이픈(-)으로 요구한다."""
+    symbol = (ticker or "").strip().upper()
+    if not symbol:
+        return symbol
+    return symbol.replace(".", "-").replace(" ", "")
+
+
 class ChartService:
     def __init__(self, timeout: float = 15.0):
         self.timeout = timeout
@@ -31,8 +39,7 @@ class ChartService:
     ) -> dict:
         """Yahoo Finance v8 Chart API 호출"""
         clean_ticker = ticker.upper().strip()
-        # Yahoo Finance uses hyphens for share-class symbols such as BRK.B.
-        yahoo_ticker = clean_ticker.replace(".", "-")
+        yahoo_ticker = normalize_yahoo_ticker(clean_ticker)
         url = f"{Y1}/v8/finance/chart/{yahoo_ticker}?range={range_period}&interval={interval}"
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             res = await client.get(url, headers={"User-Agent": UA})

@@ -4,6 +4,8 @@ import time
 import httpx
 from fastapi import APIRouter
 
+from app.domains.screener.chart_service import normalize_yahoo_ticker
+
 logger = logging.getLogger('debug_yahoo')
 router = APIRouter(tags=['debug'])
 
@@ -44,13 +46,14 @@ async def _try_method(name, url, client):
 
 @router.get('/debug/yahoo-cookie', summary='Yahoo Finance cookie/crumb method test')
 async def debug_yahoo_cookie(ticker: str = 'AAPL'):
+    yahoo_ticker = normalize_yahoo_ticker(ticker)
     targets = [
         ('fc.yahoo.com', 'https://fc.yahoo.com'),
         ('finance.yahoo.com', 'https://finance.yahoo.com'),
         ('consent.yahoo.com', 'https://consent.yahoo.com/v2/collectConsent?sessionId=1_test'),
-        ('chart_cookie', f'{Y1}/v8/finance/chart/{ticker}?range=1d' + '&interval=1d'),
+        ('chart_cookie', f'{Y1}/v8/finance/chart/{yahoo_ticker}?range=1d' + '&interval=1d'),
     ]
-    logger.info(f'[DebugYahoo] test start ticker={ticker}')
+    logger.info(f'[DebugYahoo] test start ticker={ticker}, yahoo_ticker={yahoo_ticker}')
     async with httpx.AsyncClient(timeout=20.0) as client:
         results = await asyncio.gather(*[_try_method(n, u, client) for n, u in targets], return_exceptions=True)
     methods, working = [], []
@@ -62,4 +65,4 @@ async def debug_yahoo_cookie(ticker: str = 'AAPL'):
             if r.get('success'):
                 working.append(r['method'])
     logger.info(f'[DebugYahoo] done working={working or None}')
-    return {'ticker': ticker, 'working_methods': working, 'recommended': working[0] if working else None, 'results': methods}
+    return {'ticker': ticker, 'yahoo_ticker': yahoo_ticker, 'working_methods': working, 'recommended': working[0] if working else None, 'results': methods}

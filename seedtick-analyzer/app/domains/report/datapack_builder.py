@@ -37,6 +37,14 @@ UA = (
 Y1 = "https://query1.finance.yahoo.com"
 
 
+def normalize_yahoo_ticker(ticker: str) -> str:
+    """Yahoo Finance 클래스형 주식 심볼은 '.' 대신 '-' 사용."""
+    symbol = (ticker or "").strip().upper()
+    if not symbol:
+        return symbol
+    return symbol.replace(".", "-").replace(" ", "")
+
+
 class DataPackBuilder:
     def __init__(self, base_report_dir: str | Path = "docs/report"):
         self.base_report_dir = Path(base_report_dir)
@@ -225,7 +233,8 @@ class DataPackBuilder:
         return []
 
     async def _fetch_chart(self, client: httpx.AsyncClient, ticker: str) -> dict:
-        url = f"{Y1}/v8/finance/chart/{ticker}?range=1y&interval=1wk"
+        yahoo_ticker = normalize_yahoo_ticker(ticker)
+        url = f"{Y1}/v8/finance/chart/{yahoo_ticker}?range=1y&interval=1wk"
         res = await client.get(url, headers={"User-Agent": UA})
         res.raise_for_status()
         return res.json()
@@ -238,9 +247,10 @@ class DataPackBuilder:
             "annualStockholdersEquity", "annualCashAndCashEquivalents",
             "annualCurrentAssets", "annualCurrentLiabilities",
         ]
+        yahoo_ticker = normalize_yahoo_ticker(ticker)
         now_ts = int(datetime.now().timestamp())
         url = (
-            f"{Y1}/ws/fundamentals-timeseries/v1/finance/timeseries/{ticker}"
+            f"{Y1}/ws/fundamentals-timeseries/v1/finance/timeseries/{yahoo_ticker}"
             f"?type={','.join(types)}&period1=1420070400&period2={now_ts}"
         )
         res = await client.get(url, headers={"User-Agent": UA})
@@ -261,9 +271,13 @@ class DataPackBuilder:
             if p.scheme and p.netloc and "localhost" not in p.netloc:
                 origin = f"{p.scheme}://{p.netloc}"
 
-        target_gw_urls = [f"{origin}/v1/yahoo/quote-summary/{ticker}"]
+        yahoo_ticker = normalize_yahoo_ticker(ticker)
+        target_gw_urls = [
+            f"{origin}/v1/yahoo/quote-summary/{ticker}",
+            f"{origin}/v1/yahoo/quote-summary/{yahoo_ticker}",
+        ]
 
-        for gw_url in target_gw_urls:
+        for gw_url in dict.fromkeys(target_gw_urls):
             try:
                 headers = {"User-Agent": UA}
                 if getattr(settings, "AI_GATEWAY_SECRET", ""):
@@ -281,7 +295,7 @@ class DataPackBuilder:
         # 2. Yahoo Finance 직접 호출 시도 (curl_cffi / httpx)
         try:
             cookie, crumb = await self._get_auth(client, force_refresh=False)
-            url = f"{Y1}/v10/finance/quoteSummary/{ticker}?modules={','.join(modules)}&crumb={crumb}"
+            url = f"{Y1}/v10/finance/quoteSummary/{yahoo_ticker}?modules={','.join(modules)}&crumb={crumb}"
             res = await client.get(url, headers={"User-Agent": UA, "Cookie": cookie})
             if res.status_code == 200:
                 data = res.json()
@@ -320,7 +334,8 @@ class DataPackBuilder:
                 logger.warning(f"[{ticker}] curl_cffi 세션 생성 실패: {se}")
 
         try:
-            tk = yf.Ticker(ticker, session=session) if session else yf.Ticker(ticker)
+            symbol = normalize_yahoo_ticker(ticker)
+            tk = yf.Ticker(symbol, session=session) if session else yf.Ticker(symbol)
             info = tk.info or {}
             fi = tk.fast_info
             cal = {}
