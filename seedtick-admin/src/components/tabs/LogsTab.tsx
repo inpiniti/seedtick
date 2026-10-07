@@ -59,13 +59,13 @@ export function LogsTab({ logs, isLoading, onRefresh }: LogsTabProps) {
     <div className="space-y-4 font-sans">
       {/* 필터 및 검색 바 */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        {/* 레벨 칩 필터 */}
-        <div className="flex flex-wrap items-center gap-1.5 p-1 bg-[#f1f5f9] rounded-md border border-[#e2e8f0] w-full sm:w-fit font-mono text-xs">
+        {/* 레벨 칩 필터 (한 줄 가로 유지, 줄바꿈 방지) */}
+        <div className="flex items-center gap-1 p-0.5 bg-[#f1f5f9] rounded-md border border-[#e2e8f0] overflow-x-auto whitespace-nowrap shrink-0 font-mono text-xs">
           {["ALL", "CRITICAL", "ERROR", "WARNING", "INFO"].map((lvl) => (
             <button
               key={lvl}
               onClick={() => handleLevelChange(lvl)}
-              className={`shrink-0 whitespace-nowrap px-3 py-1 rounded transition-colors cursor-pointer ${
+              className={`shrink-0 whitespace-nowrap px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
                 selectedLevel === lvl
                   ? "bg-[#0f172a] text-white font-medium shadow-xs"
                   : "text-[#64748b] hover:text-[#0f172a] hover:bg-white/60"

@@ -15,7 +15,8 @@ export type SidebarSectionId =
   | "sec-reports"
   | "sec-roma"
   | "sec-screener"
-  | "sec-audit";
+  | "sec-audit"
+  | "sec-gurus";
 
 interface NavItem {
   id: SidebarSectionId;
@@ -93,6 +94,13 @@ export function ResearchSidebar({
           label: "파이프라인 & 감사 로그",
           badge: logCount > 0 ? `${logCount}` : undefined,
           icon: Terminal,
+        },
+        {
+          id: "sec-gurus",
+          prefix: "05",
+          label: "13인 투자 거장 철학",
+          badge: "13",
+          icon: Users,
         },
       ],
     },
