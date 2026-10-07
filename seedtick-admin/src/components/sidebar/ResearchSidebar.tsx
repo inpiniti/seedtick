@@ -8,6 +8,7 @@ import {
   Terminal,
   Layers,
   BookOpen,
+  ArrowLeft,
 } from "lucide-react";
 
 export type SidebarSectionId =
@@ -88,19 +89,27 @@ export function ResearchSidebar({
           badge: candidateCount > 0 ? `${candidateCount}` : undefined,
           icon: Compass,
         },
-        {
-          id: "sec-audit",
-          prefix: "04",
-          label: "파이프라인 & 감사 로그",
-          badge: logCount > 0 ? `${logCount}` : undefined,
-          icon: Terminal,
-        },
+      ],
+    },
+    {
+      group: "Guru Philosophy",
+      items: [
         {
           id: "sec-gurus",
-          prefix: "05",
           label: "13인 투자 거장 철학",
           badge: "13",
           icon: Users,
+        },
+      ],
+    },
+    {
+      group: "System & Operations",
+      items: [
+        {
+          id: "sec-audit",
+          label: "파이프라인 & 감사 로그",
+          badge: logCount > 0 ? `${logCount}` : undefined,
+          icon: Terminal,
         },
       ],
     },
@@ -124,9 +133,10 @@ export function ResearchSidebar({
             {onBackToCatalog && (
               <button
                 onClick={onBackToCatalog}
-                className="w-full py-1.5 text-center bg-white border border-[#cbd5e1] hover:border-[#0f172a] rounded text-[11px] text-[#0f172a] font-semibold transition-colors cursor-pointer"
+                className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 bg-white border border-[#cbd5e1] hover:border-[#0f172a] hover:bg-[#f1f5f9] rounded text-[11px] text-[#0f172a] font-semibold transition-colors cursor-pointer group"
               >
-                ← 카탈로그로 복귀
+                <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5" />
+                <span>카탈로그로 돌아가기</span>
               </button>
             )}
           </div>
