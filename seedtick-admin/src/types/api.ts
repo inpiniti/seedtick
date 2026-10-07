@@ -97,6 +97,12 @@ export interface ScreenerResponse {
   source?: string;
 }
 
+export interface TickerLogoResponse {
+  ticker: string;
+  logo_image_url: string | null;
+  source: "cached" | "toss_lookup" | "none";
+}
+
 // 4. Supabase 리포트 (guru_reports)
 export interface GuruSummaryItem {
   persona?: string;

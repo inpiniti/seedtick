@@ -107,7 +107,27 @@ create policy error_logs_read on public.error_logs for select to anon, authentic
 
 
 -- ------------------------------------------------------------------------------
--- 4. grid_trades: 실시간 고정 갭(3%) 무한 그리드 분할 매매 상태 테이블
+-- 4. ticker_logos: 티커별 로고 URL 캐시 테이블
+-- ------------------------------------------------------------------------------
+create table if not exists public.ticker_logos (
+  ticker         text        not null primary key, -- 티커 (예: AAPL)
+  stock_code     text,                             -- 토스 종목 코드 (예: US0378331005)
+  logo_image_url text        not null,             -- 토스 로고 URL
+  source         text        not null default 'toss_screener', -- toss_screener | toss_lookup
+  updated_at     timestamptz not null default now()
+);
+
+create index if not exists ticker_logos_stock_code_idx on public.ticker_logos (stock_code);
+create index if not exists ticker_logos_updated_at_idx on public.ticker_logos (updated_at desc);
+
+-- RLS 정책 설정 (공개 읽기, 서비스 롤 쓰기)
+alter table public.ticker_logos enable row level security;
+drop policy if exists ticker_logos_read on public.ticker_logos;
+create policy ticker_logos_read on public.ticker_logos for select to anon, authenticated using (true);
+
+
+-- ------------------------------------------------------------------------------
+-- 5. grid_trades: 실시간 고정 갭(3%) 무한 그리드 분할 매매 상태 테이블
 -- ------------------------------------------------------------------------------
 create table if not exists public.grid_trades (
   ticker            text        not null primary key, -- 종목 티커 (예: NVDA)
@@ -129,5 +149,4 @@ create index if not exists grid_trades_status_idx on public.grid_trades (status)
 alter table public.grid_trades enable row level security;
 drop policy if exists grid_trades_read on public.grid_trades;
 create policy grid_trades_read on public.grid_trades for select to anon, authenticated using (true);
-
 

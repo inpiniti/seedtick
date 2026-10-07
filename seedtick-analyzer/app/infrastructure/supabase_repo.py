@@ -242,6 +242,88 @@ class SupabaseRepo:
             logger.error(f"[Supabase] INFO 로그 정리 중 오류 발생: {e}")
             return 0
 
+    # ── Ticker Logo 캐시 ──────────────────────────────
+    def get_ticker_logo(self, ticker: str) -> str | None:
+        """ticker_logos에서 단일 티커 로고 URL 조회"""
+        if not self._client:
+            return None
+
+        normalized = (ticker or "").strip().upper()
+        if not normalized:
+            return None
+
+        try:
+            res = (
+                self._client.table("ticker_logos")
+                .select("logo_image_url")
+                .eq("ticker", normalized)
+                .limit(1)
+                .execute()
+            )
+            if res.data and res.data[0].get("logo_image_url"):
+                return res.data[0]["logo_image_url"]
+        except Exception as e:
+            logger.warning(f"[Supabase] ticker_logos 단일 조회 실패 ({normalized}): {e}")
+        return None
+
+    def get_ticker_logos(self, tickers: list[str]) -> dict[str, str]:
+        """ticker_logos에서 여러 티커 로고 URL 조회"""
+        if not self._client or not tickers:
+            return {}
+
+        normalized = sorted({(t or "").strip().upper() for t in tickers if (t or "").strip()})
+        if not normalized:
+            return {}
+
+        try:
+            res = (
+                self._client.table("ticker_logos")
+                .select("ticker,logo_image_url")
+                .in_("ticker", normalized)
+                .execute()
+            )
+            mapping: dict[str, str] = {}
+            for row in res.data or []:
+                ticker = (row.get("ticker") or "").strip().upper()
+                logo = row.get("logo_image_url")
+                if ticker and logo:
+                    mapping[ticker] = logo
+            return mapping
+        except Exception as e:
+            logger.warning(f"[Supabase] ticker_logos 일괄 조회 실패: {e}")
+            return {}
+
+    def upsert_ticker_logo(
+        self,
+        ticker: str,
+        logo_image_url: str,
+        stock_code: str | None = None,
+        source: str = "toss_screener",
+    ) -> bool:
+        """ticker_logos에 티커별 로고 URL 저장/갱신"""
+        if not self._client:
+            return False
+
+        normalized = (ticker or "").strip().upper()
+        logo = (logo_image_url or "").strip()
+        if not normalized or not logo:
+            return False
+
+        row = {
+            "ticker": normalized,
+            "stock_code": stock_code,
+            "logo_image_url": logo,
+            "source": source,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        try:
+            self._client.table("ticker_logos").upsert(row, on_conflict="ticker").execute()
+            return True
+        except Exception as e:
+            logger.warning(f"[Supabase] ticker_logos 저장 실패 ({normalized}): {e}")
+            return False
+
     # ── Grid Trading 영속성 ──────────────────────────────
     def save_grid_trade(self, item) -> None:
         """신규 그리드 감지 종목 저장"""
@@ -336,5 +418,4 @@ class SupabaseRepo:
 
 
 supabase_repo = SupabaseRepo()
-
 

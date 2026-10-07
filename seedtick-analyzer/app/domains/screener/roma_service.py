@@ -12,6 +12,7 @@ from app.domains.screener.clients.dataroma import (
     MIN_HOLDERS_DEFAULT,
     DataromaClient,
 )
+from app.domains.screener.logo_service import TickerLogoService
 from app.domains.screener.models import ScreenCriteria, ScreenResult, TossStockItem
 
 logger = logging.getLogger("roma_screener_service")
@@ -23,8 +24,13 @@ ROMA_SOURCE = "dataroma_grand_portfolio"
 class RomaScreenerService:
     """DataRoma 그랜드 포트폴리오 스크리닝 서비스"""
 
-    def __init__(self, client: DataromaClient | None = None):
+    def __init__(
+        self,
+        client: DataromaClient | None = None,
+        logo_service: TickerLogoService | None = None,
+    ):
         self.client = client or DataromaClient()
+        self.logo_service = logo_service or TickerLogoService()
 
     async def get_stock_list(
         self,
@@ -76,6 +82,7 @@ class RomaScreenerService:
         if size and size > 0:
             items = items[:size]
 
+        self._hydrate_cached_logos(items)
         logger.info(f"[Roma] 스크리닝 통과 종목: 총 {len(items)}개")
         return ScreenResult(
             tickers=items,
@@ -85,3 +92,16 @@ class RomaScreenerService:
             criteria=criteria,
             source=ROMA_SOURCE,
         )
+
+    def _hydrate_cached_logos(self, items: list[TossStockItem]) -> None:
+        tickers = [item.ticker for item in items if item.ticker and not item.logo_image_url]
+        if not tickers:
+            return
+
+        cached = self.logo_service.get_cached_logos(tickers)
+        for item in items:
+            if item.logo_image_url:
+                continue
+            logo = cached.get((item.ticker or "").upper())
+            if logo:
+                item.logo_image_url = logo

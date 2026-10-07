@@ -8,7 +8,7 @@ import {
   StockCandidate,
   ValuationConsensus,
 } from "@/types/api";
-import { fetchStockChart } from "@/lib/api-client";
+import { fetchStockChart, fetchTickerLogo } from "@/lib/api-client";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -338,6 +338,9 @@ export function ScreenerTab({
   const [percentBByTicker, setPercentBByTicker] = useState<Record<string, number | null>>({});
   const [availableDatesForTicker, setAvailableDatesForTicker] = useState<string[]>([]);
   const [isLoadingReportDate, setIsLoadingReportDate] = useState(false);
+  const [resolvedLogoByTicker, setResolvedLogoByTicker] = useState<Record<string, string>>({});
+  const [logoLookupCompleted, setLogoLookupCompleted] = useState<Record<string, true>>({});
+  const [brokenLogoTickers, setBrokenLogoTickers] = useState<Record<string, true>>({});
   const [selectedGuruForTimeline, setSelectedGuruForTimeline] = useState<string>(
     GURU_LABELS[0] || "그레이엄"
   );
@@ -345,6 +348,99 @@ export function ScreenerTab({
   const hasAutoRequestedRoma = React.useRef(false);
   const showInsights = viewMode !== "screener-only";
   const showScreener = viewMode !== "insights-only";
+
+  React.useEffect(() => {
+    const allCandidates = [...liveCandidates, ...romaCandidates];
+    const hasBaseLogoByTicker = new Map<string, boolean>();
+    for (const stock of allCandidates) {
+      const ticker = stock.ticker.trim().toUpperCase();
+      hasBaseLogoByTicker.set(ticker, hasBaseLogoByTicker.get(ticker) || Boolean(stock.logo_image_url));
+    }
+    const missingTickers = Array.from(
+      new Set(
+        allCandidates
+          .map((stock) => stock.ticker.trim().toUpperCase())
+          .filter((ticker) => {
+            const alreadyHasValidLogo = Boolean(hasBaseLogoByTicker.get(ticker)) && !brokenLogoTickers[ticker];
+            return !alreadyHasValidLogo && !resolvedLogoByTicker[ticker] && !logoLookupCompleted[ticker];
+          })
+      )
+    );
+
+    if (missingTickers.length === 0) return;
+
+    let cancelled = false;
+    Promise.all(
+      missingTickers.map(async (ticker) => {
+        try {
+          const res = await fetchTickerLogo(ticker);
+          return { ticker, logo_image_url: res.logo_image_url };
+        } catch {
+          return { ticker, logo_image_url: null };
+        }
+      })
+    ).then((results) => {
+      if (cancelled) return;
+
+      const resolved: Record<string, string> = {};
+      const completed: Record<string, true> = {};
+      for (const result of results) {
+        const ticker = result.ticker;
+        completed[ticker] = true;
+        if (result.logo_image_url) {
+          resolved[ticker] = result.logo_image_url;
+        }
+      }
+
+      if (Object.keys(resolved).length > 0) {
+        setResolvedLogoByTicker((prev) => ({ ...prev, ...resolved }));
+      }
+      if (Object.keys(completed).length > 0) {
+        setLogoLookupCompleted((prev) => ({ ...prev, ...completed }));
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [liveCandidates, romaCandidates, resolvedLogoByTicker, logoLookupCompleted, brokenLogoTickers]);
+
+  const getDisplayLogoUrl = (stock: StockCandidate): string | null => {
+    const ticker = stock.ticker.trim().toUpperCase();
+    if (brokenLogoTickers[ticker]) {
+      return resolvedLogoByTicker[ticker] || null;
+    }
+    return stock.logo_image_url || resolvedLogoByTicker[ticker] || null;
+  };
+
+  const renderTickerAvatar = (stock: StockCandidate) => {
+    const tickerKey = stock.ticker.trim().toUpperCase();
+    const logoUrl = getDisplayLogoUrl(stock);
+    if (logoUrl) {
+      return (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={logoUrl}
+          alt={stock.ticker}
+          className="w-9 h-9 rounded-full object-contain bg-white border border-[#e5e8eb] p-0.5 shrink-0"
+          onError={() => {
+            setBrokenLogoTickers((prev) => ({ ...prev, [tickerKey]: true }));
+            setResolvedLogoByTicker((prev) => {
+              const next = { ...prev };
+              delete next[tickerKey];
+              return next;
+            });
+          }}
+        />
+      );
+    }
+
+    return (
+      <div className="w-9 h-9 rounded-full bg-[#e8f3ff] text-[#3182f6] font-bold text-xs flex items-center justify-center shrink-0">
+        {stock.ticker.slice(0, 2)}
+      </div>
+    );
+  };
 
   // 특정 종목의 과거 날짜 목록 동기화
   React.useEffect(() => {
@@ -1456,9 +1552,7 @@ export function ScreenerTab({
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-9 h-9 rounded-full bg-[#e8f3ff] text-[#3182f6] font-bold text-xs flex items-center justify-center shrink-0">
-                            {stock.ticker.slice(0, 2)}
-                          </div>
+                          {renderTickerAvatar(stock)}
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
                               <span className="font-bold text-[#191f28] text-sm group-hover:text-[#3182f6] transition-colors truncate">
@@ -1601,21 +1695,7 @@ export function ScreenerTab({
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3 min-w-0">
-                            {stock.logo_image_url ? (
-                              /* eslint-disable-next-line @next/next/no-img-element */
-                              <img
-                                src={stock.logo_image_url}
-                                alt={stock.ticker}
-                                className="w-9 h-9 rounded-full object-contain bg-white border border-[#e5e8eb] p-0.5 shrink-0"
-                                onError={(e) => {
-                                  (e.target as HTMLElement).style.display = "none";
-                                }}
-                              />
-                            ) : (
-                              <div className="w-9 h-9 rounded-full bg-[#e8f3ff] text-[#3182f6] font-bold text-xs flex items-center justify-center shrink-0">
-                                {stock.ticker.slice(0, 2)}
-                              </div>
-                            )}
+                            {renderTickerAvatar(stock)}
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5">
                                 <span className="font-bold text-[#191f28] text-sm group-hover:text-[#3182f6] transition-colors truncate">
@@ -1762,9 +1842,7 @@ export function ScreenerTab({
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-9 h-9 rounded-full bg-[#e8f3ff] text-[#3182f6] font-bold text-xs flex items-center justify-center shrink-0">
-                              {stock.ticker.slice(0, 2)}
-                            </div>
+                            {renderTickerAvatar(stock)}
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5">
                                 <span className="font-bold text-[#191f28] text-sm group-hover:text-[#3182f6] transition-colors truncate">

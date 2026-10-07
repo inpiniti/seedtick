@@ -622,6 +622,44 @@ class TossWtsClient:
 
         return flat
 
+    async def find_logo_by_ticker(
+        self,
+        ticker: str,
+        nation: str = "us",
+        size: int = 200,
+        max_pages: int = 3,
+    ) -> dict[str, str] | None:
+        """
+        공통 스크리너 페이지를 순회해 특정 티커의 logoImageUrl을 탐색합니다.
+        - Toss API가 logo 조회용 단일 엔드포인트를 공개하지 않아 스크리너 결과를 활용합니다.
+        """
+        normalized = (ticker or "").strip().upper()
+        if not normalized:
+            return None
+
+        for page in range(1, max_pages + 1):
+            try:
+                data = await self.screen_common(nation=nation, size=size, page=page)
+            except Exception as e:
+                logger.warning(f"[TossWTS] 로고 조회용 스크리너 탐색 실패 ({normalized}, page={page}): {e}")
+                continue
+
+            stocks = data.get("stocks") or []
+            for stock in stocks:
+                symbol = (stock.get("ticker") or "").strip().upper()
+                logo_image_url = stock.get("logoImageUrl")
+                if symbol == normalized and logo_image_url:
+                    return {
+                        "ticker": symbol,
+                        "stock_code": stock.get("stockCode") or "",
+                        "logo_image_url": logo_image_url,
+                    }
+
+            if data.get("lastPage", True):
+                break
+
+        return None
+
     async def close(self) -> None:
         if self._client is not None:
             await self._client.aclose()

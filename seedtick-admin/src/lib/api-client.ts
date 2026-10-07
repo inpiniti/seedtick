@@ -5,6 +5,7 @@ import {
   ScreenerResponse,
   StockCandidate,
   StockChartResponse,
+  TickerLogoResponse,
 } from "@/types/api";
 
 const BASE_URL =
@@ -125,6 +126,12 @@ export async function fetchRomaScreener(
   };
 }
 
+/** 3-3. 티커별 로고 조회 (Supabase 캐시 + Toss 폴백) */
+export async function fetchTickerLogo(ticker: string): Promise<TickerLogoResponse> {
+  const normalized = ticker.trim().toUpperCase();
+  return request<TickerLogoResponse>(`/api/screener/logo/${encodeURIComponent(normalized)}`);
+}
+
 /** 4. 종목 일봉 캔들 및 볼린저 밴드 조회 */
 export function normalizeTickerForChart(ticker: string): string {
   return ticker.trim().toUpperCase().replace(/\./g, "-");
@@ -160,4 +167,3 @@ export async function resetAiModelRotation(): Promise<{
 }> {
   return request("/debug/ai-model/reset", { method: "POST" });
 }
-
