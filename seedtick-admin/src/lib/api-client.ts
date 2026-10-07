@@ -5,6 +5,7 @@ import {
   ScreenerResponse,
   StockCandidate,
   StockChartResponse,
+  TickerLogoBatchResponse,
   TickerLogoResponse,
 } from "@/types/api";
 
@@ -130,6 +131,17 @@ export async function fetchRomaScreener(
 export async function fetchTickerLogo(ticker: string): Promise<TickerLogoResponse> {
   const normalized = ticker.trim().toUpperCase();
   return request<TickerLogoResponse>(`/api/screener/logo/${encodeURIComponent(normalized)}`);
+}
+
+/** 3-4. 티커별 로고 일괄 조회 (1회 요청으로 여러 티커 조회) */
+export async function fetchTickerLogos(tickers: string[], maxCount = 12): Promise<TickerLogoBatchResponse> {
+  return request<TickerLogoBatchResponse>("/api/screener/logos", {
+    method: "POST",
+    body: JSON.stringify({
+      tickers: tickers.map((ticker) => ticker.trim().toUpperCase()),
+      max_count: maxCount,
+    }),
+  });
 }
 
 /** 4. 종목 일봉 캔들 및 볼린저 밴드 조회 */

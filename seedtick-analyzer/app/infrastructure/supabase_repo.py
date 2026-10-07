@@ -152,6 +152,35 @@ class SupabaseRepo:
 
         return reported_tickers
 
+    def list_report_tickers(self, limit: int = 2000) -> list[str]:
+        """
+        guru_reports 기준 티커 목록을 최신순으로 반환 (중복 제거).
+        로고 워밍업 큐 시드에 사용합니다.
+        """
+        if not self._client:
+            return []
+
+        try:
+            res = (
+                self._client.table("guru_reports")
+                .select("ticker")
+                .order("created_at", desc=True)
+                .limit(max(1, min(limit, 10000)))
+                .execute()
+            )
+            seen: set[str] = set()
+            ordered: list[str] = []
+            for row in res.data or []:
+                ticker = (row.get("ticker") or "").upper().strip()
+                if not ticker or ticker in seen:
+                    continue
+                seen.add(ticker)
+                ordered.append(ticker)
+            return ordered
+        except Exception as e:
+            logger.warning(f"[Supabase] guru_reports 티커 목록 조회 실패: {e}")
+            return []
+
     def save_log_sync(
         self,
         level: str,

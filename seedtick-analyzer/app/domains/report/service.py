@@ -22,6 +22,7 @@ from app.domains.report.models import (
 )
 from app.domains.report.personas.prompts import GURU_PERSONAS, build_persona_prompt
 from app.domains.report.pipeline_progress import PipelineProgressTracker
+from app.domains.screener.logo_warmup_service import logo_warmup_service
 from app.infrastructure.supabase_repo import SupabaseRepo
 
 logger = logging.getLogger("guru_report_service")
@@ -454,3 +455,6 @@ class GuruReportService:
             scores_by_guru=scores_by_guru,
             screeners=screeners or ["공통"],
         )
+
+        # 로고 캐시 백그라운드 갱신 대상 큐에 추가 (중복 자동 제거)
+        await logo_warmup_service.enqueue_tickers([ticker])

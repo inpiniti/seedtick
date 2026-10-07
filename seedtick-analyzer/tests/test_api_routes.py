@@ -149,5 +149,30 @@ async def test_ticker_logo_route(monkeypatch):
         assert data["source"] == "cached"
 
 
+@pytest.mark.asyncio
+async def test_ticker_logos_route(monkeypatch):
+    from app.domains.screener.logo_service import TickerLogoService
+
+    async def mock_resolve_logos(self, tickers: list[str], max_count: int = 12):
+        assert tickers == ["aapl", "msft"]
+        assert max_count == 2
+        return [
+            ("AAPL", "https://static.tossinvest.com/aapl.png", "cached"),
+            ("MSFT", None, "none"),
+        ]
+
+    monkeypatch.setattr(TickerLogoService, "resolve_logos", mock_resolve_logos)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.post("/api/screener/logos", json={"tickers": ["aapl", "msft"], "max_count": 2})
+        assert res.status_code == 200
+        data = res.json()
+        assert "items" in data
+        assert len(data["items"]) == 2
+        assert data["items"][0]["ticker"] == "AAPL"
+        assert data["items"][0]["source"] == "cached"
+        assert data["items"][1]["ticker"] == "MSFT"
+        assert data["items"][1]["source"] == "none"
+
 
 

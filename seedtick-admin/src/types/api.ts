@@ -103,6 +103,10 @@ export interface TickerLogoResponse {
   source: "cached" | "toss_lookup" | "none";
 }
 
+export interface TickerLogoBatchResponse {
+  items: TickerLogoResponse[];
+}
+
 // 4. Supabase 리포트 (guru_reports)
 export interface GuruSummaryItem {
   persona?: string;
