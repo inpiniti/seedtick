@@ -348,6 +348,7 @@ export function ScreenerTab({
   const [isLoadingReportDate, setIsLoadingReportDate] = useState(false);
   const [resolvedLogoByTicker, setResolvedLogoByTicker] = useState<Record<string, string>>({});
   const [brokenLogoTickers, setBrokenLogoTickers] = useState<Record<string, true>>({});
+  const [logoLookupHeartbeat, setLogoLookupHeartbeat] = useState(0);
   const logoLookupRoundRobinIndexRef = React.useRef(0);
   const [selectedGuruForTimeline, setSelectedGuruForTimeline] = useState<string>(
     GURU_LABELS[0] || "그레이엄"
@@ -385,7 +386,13 @@ export function ScreenerTab({
       typeof window !== "undefined" ? window.localStorage.getItem(LOGO_LOOKUP_LAST_AT_KEY) : null;
     const savedLastAt = savedLastAtRaw ? Number(savedLastAtRaw) : 0;
     if (savedLastAt > 0 && now - savedLastAt < LOGO_LOOKUP_INTERVAL_MS) {
-      return;
+      const waitMs = LOGO_LOOKUP_INTERVAL_MS - (now - savedLastAt);
+      const timer = window.setTimeout(() => {
+        setLogoLookupHeartbeat((prev) => prev + 1);
+      }, Math.max(200, waitMs));
+      return () => {
+        window.clearTimeout(timer);
+      };
     }
 
     const targetIndex = logoLookupRoundRobinIndexRef.current % missingTickers.length;
@@ -415,7 +422,7 @@ export function ScreenerTab({
     return () => {
       cancelled = true;
     };
-  }, [liveCandidates, romaCandidates, resolvedLogoByTicker, brokenLogoTickers]);
+  }, [liveCandidates, romaCandidates, resolvedLogoByTicker, brokenLogoTickers, logoLookupHeartbeat]);
 
   const getDisplayLogoUrl = (stock: StockCandidate): string | null => {
     const ticker = stock.ticker.trim().toUpperCase();
