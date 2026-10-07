@@ -122,6 +122,7 @@ export default function AdminDashboardPage() {
   const [selectedDocReport, setSelectedDocReport] =
     useState<GuruReportRow | null>(null);
   const [selectedGuruSlug, setSelectedGuruSlug] = useState<string | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [availableReportDates, setAvailableReportDates] = useState<string[]>([]);
   const [selectedReportDate, setSelectedReportDate] = useState<
     string | undefined
@@ -426,6 +427,7 @@ export default function AdminDashboardPage() {
   const handleOpenGuru = useCallback((slug: string) => {
     setSelectedGuruSlug(slug);
     setSelectedDocReport(null);
+    setIsMobileMenuOpen(false);
     if (typeof window !== "undefined") {
       window.history.pushState(
         { guru: slug },
@@ -440,6 +442,7 @@ export default function AdminDashboardPage() {
   const handleBackToCatalog = useCallback(() => {
     setSelectedDocReport(null);
     setSelectedGuruSlug(null);
+    setIsMobileMenuOpen(false);
     if (typeof window !== "undefined") {
       window.history.pushState({}, "", window.location.pathname);
       window.scrollTo({ top: 0, behavior: "instant" });
@@ -562,11 +565,12 @@ export default function AdminDashboardPage() {
           onRefresh={loadDashboardData}
           onOpenPipelineModal={() => setIsPipelineModalOpen(true)}
           isPipelineRunning={isPipelineRunning}
+          onToggleMobileMenu={() => setIsMobileMenuOpen((prev) => !prev)}
         />
 
         {/* 2. 바디 영역: 좌측 사이드바 + 우측 메인 콘텐츠 */}
         <div className="flex-1 flex w-full min-h-0">
-          {/* 좌측 사이드바 (데스크톱 고정) */}
+          {/* 좌측 사이드바 (데스크톱 고정 및 모바일 슬라이드 드로어) */}
           <ResearchSidebar
             activeSection={activeSidebarSection}
             onSelectSection={handleSelectSidebarSection}
@@ -579,6 +583,8 @@ export default function AdminDashboardPage() {
               selectedGuruSlug ? GURU_PERSONAS[selectedGuruSlug]?.name : null
             }
             onBackToCatalog={handleBackToCatalog}
+            isOpenOnMobile={isMobileMenuOpen}
+            onCloseMobile={() => setIsMobileMenuOpen(false)}
           />
 
           {/* 우측 메인 영역 */}

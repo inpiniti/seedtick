@@ -9,6 +9,7 @@ import {
   Sparkles,
   Activity,
   Layers,
+  Menu,
 } from "lucide-react";
 import { AiModelWidget } from "@/components/header/AiModelWidget";
 
@@ -21,6 +22,7 @@ interface LiveStatusBarProps {
   onRefresh: () => void;
   onOpenPipelineModal?: () => void;
   isPipelineRunning?: boolean;
+  onToggleMobileMenu?: () => void;
 }
 
 export function LiveStatusBar({
@@ -32,6 +34,7 @@ export function LiveStatusBar({
   onRefresh,
   onOpenPipelineModal,
   isPipelineRunning = false,
+  onToggleMobileMenu,
 }: LiveStatusBarProps) {
   const isServerHealthy = health?.status === "healthy";
   const isMarketOpen = health?.us_market_today?.is_open ?? false;
@@ -39,7 +42,17 @@ export function LiveStatusBar({
   return (
     <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-[#e2e8f0] px-4 lg:px-8 h-[56px] flex items-center justify-between">
       {/* 1. 좌측 브랜드 & 타이틀 */}
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        {/* 모바일 햄버거 메뉴 열기 버튼 */}
+        <button
+          type="button"
+          onClick={onToggleMobileMenu}
+          className="lg:hidden p-1.5 -ml-1 text-[#0f172a] hover:bg-[#f1f5f9] rounded-md transition-colors cursor-pointer"
+          aria-label="사이드바 메뉴 열기"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
         <a href="#" className="flex items-center gap-2 group focus:outline-hidden">
           <span className="font-mono text-xs font-bold bg-[#0f172a] text-white px-2 py-0.5 rounded tracking-wider">
             ST
