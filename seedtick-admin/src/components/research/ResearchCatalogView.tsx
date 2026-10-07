@@ -84,6 +84,9 @@ export function ResearchCatalogView({
 }: ResearchCatalogViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [reportVerdictFilter, setReportVerdictFilter] = useState<string>("ALL");
+  const [reportSortBy, setReportSortBy] = useState<
+    "RATIO_DESC" | "SCORE_DESC" | "DATE_DESC" | "TICKER_ASC"
+  >("RATIO_DESC");
 
   const isAll = activeSectionFilter === "all";
 
@@ -165,7 +168,7 @@ export function ResearchCatalogView({
 
   // 1. 리포트 필터링 (날짜 & 검색 & 의견)
   const filteredReports = useMemo(() => {
-    return guruReports.filter((r) => {
+    const list = guruReports.filter((r) => {
       // 날짜 필터링 (선택된 날짜가 있고 "ALL"이 아닐 때)
       if (selectedDate && selectedDate !== "ALL" && r.d !== selectedDate) {
         return false;
@@ -193,7 +196,39 @@ export function ResearchCatalogView({
         return v.includes("매도") || v.includes("sell");
       return true;
     });
-  }, [guruReports, selectedDate, searchQuery, reportVerdictFilter]);
+
+    // 종목 리스트 정렬 (내재가치/종가 가 높은 거 부터 디폴트 정렬)
+    return list.slice().sort((a, b) => {
+      if (reportSortBy === "RATIO_DESC") {
+        const fairA = extractValuationConsensus(a)?.fair_value_price ?? 0;
+        const priceA = a.current_price ?? 0;
+        const ratioA = fairA > 0 && priceA > 0 ? (fairA / priceA) * 100 : -1;
+
+        const fairB = extractValuationConsensus(b)?.fair_value_price ?? 0;
+        const priceB = b.current_price ?? 0;
+        const ratioB = fairB > 0 && priceB > 0 ? (fairB / priceB) * 100 : -1;
+
+        if (ratioB !== ratioA) {
+          return ratioB - ratioA; // 내재가치/종가 높은순
+        }
+        return (b.overall_score || 0) - (a.overall_score || 0);
+      }
+
+      if (reportSortBy === "SCORE_DESC") {
+        return (b.overall_score || 0) - (a.overall_score || 0);
+      }
+
+      if (reportSortBy === "DATE_DESC") {
+        return (b.d || "").localeCompare(a.d || "");
+      }
+
+      if (reportSortBy === "TICKER_ASC") {
+        return a.ticker.localeCompare(b.ticker);
+      }
+
+      return 0;
+    });
+  }, [guruReports, selectedDate, searchQuery, reportVerdictFilter, reportSortBy]);
 
   // 2. DataRoma 후보군 전체 필터링
   const filteredRoma = useMemo(() => {
@@ -691,8 +726,8 @@ export function ResearchCatalogView({
 
             {/* 우측: 보고서 리스트 */}
             <div className="min-w-0 space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-[#e2e8f0] font-mono text-xs">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between pb-2 border-b border-[#e2e8f0] font-mono text-xs flex-wrap gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-semibold text-[#0f172a]">
                     분석 기준일: {selectedDate || availableDates[0] || "최신"}
                   </span>
@@ -702,12 +737,28 @@ export function ResearchCatalogView({
                     )
                   </span>
                 </div>
-                {isReportsLoading && (
-                  <span className="text-[11px] text-[#64748b] flex items-center gap-1">
-                    <RefreshCw className="w-3 h-3 animate-spin text-[#0f172a]" />
-                    <span>조회 중...</span>
-                  </span>
-                )}
+
+                <div className="flex items-center gap-2">
+                  {isReportsLoading && (
+                    <span className="text-[11px] text-[#64748b] flex items-center gap-1">
+                      <RefreshCw className="w-3 h-3 animate-spin text-[#0f172a]" />
+                      <span>조회 중...</span>
+                    </span>
+                  )}
+                  <div className="flex items-center gap-1.5 text-[11px]">
+                    <span className="text-[#94a3b8] uppercase">정렬:</span>
+                    <select
+                      value={reportSortBy}
+                      onChange={(e) => setReportSortBy(e.target.value as any)}
+                      className="bg-white border border-[#cbd5e1] rounded px-2 py-0.5 text-xs font-mono text-[#0f172a] focus:outline-hidden cursor-pointer shadow-2xs"
+                    >
+                      <option value="RATIO_DESC">내재가치/종가 높은순 (기본)</option>
+                      <option value="SCORE_DESC">거장 종합점수순</option>
+                      <option value="DATE_DESC">최신 분석일순</option>
+                      <option value="TICKER_ASC">티커 알파벳순</option>
+                    </select>
+                  </div>
+                </div>
               </div>
               {displayedReports.length === 0 ? (
                 <EmptyState
@@ -780,9 +831,9 @@ export function ResearchCatalogView({
                                 )}
 
                                 {ratioText && (
-                                  <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
+                                  <span className="px-1.5 py-0.2 rounded border border-[#0f172a] bg-[#0f172a] text-white">
                                     내재가치/종가:{" "}
-                                    <strong className="text-[#0f172a] font-bold">
+                                    <strong className="font-bold">
                                       {ratioText}
                                     </strong>
                                   </span>

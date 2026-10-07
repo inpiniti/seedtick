@@ -130,7 +130,7 @@ export function ResearchDocumentView({
   };
 
   return (
-    <article className="flex-1 min-w-0 bg-white font-sans divide-y divide-[#e2e8f0] pb-24">
+    <article className="flex-1 min-w-0 flex flex-col bg-white font-sans divide-y divide-[#e2e8f0]">
       {/* ── 1. 브레드크럼 & 뒤로가기 바 ── */}
       <nav aria-label="문서 네비게이션" className="px-6 lg:px-12 py-3.5 bg-[#f8fafc] flex items-center justify-between text-xs font-mono">
         <button
@@ -384,7 +384,7 @@ export function ResearchDocumentView({
       </section>
 
       {/* ── 5. 하단 복귀 액션 바 ── */}
-      <footer className="px-6 lg:px-12 py-6 bg-[#f8fafc] flex items-center justify-between font-mono text-xs text-[#64748b]">
+      <footer className="mt-auto px-6 lg:px-12 py-6 bg-[#fafafa] border-t border-[#e2e8f0] flex items-center justify-between font-mono text-xs text-[#64748b]">
         <span>SeedTick Research Archive · ${ticker}</span>
         <Button variant="secondary" size="sm" onClick={onBack}>
           ← 아카이브 카탈로그로 돌아가기
