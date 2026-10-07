@@ -16,6 +16,7 @@ logger = logging.getLogger("toss_wts_client")
 INIT_URL = "https://wts-api.tossinvest.com/api/v3/init"
 SCREEN_URL = "https://wts-cert-api.tossinvest.com/api/v2/screener/screen"
 INFO_URL = "https://wts-info-api.tossinvest.com/api/v2/stock-infos"
+SEARCH_URL = "https://wts-info-api.tossinvest.com/api/v2/search/stocks"
 
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -593,7 +594,26 @@ class TossWtsClient:
         if not codes:
             return flat
 
+        infos = await self._fetch_stock_infos_by_codes(codes)
         mapping: dict[str, str] = {}
+        for info in infos:
+            code, symbol = info.get("code"), info.get("symbol")
+            if code and symbol:
+                mapping[code] = symbol
+
+        for s in stocks:
+            sym = mapping.get(s.get("stockCode"))
+            if sym:
+                s["ticker"] = sym
+
+        return flat
+
+    async def _fetch_stock_infos_by_codes(self, codes: list[str]) -> list[dict]:
+        normalized_codes = [c for c in codes if c]
+        if not normalized_codes:
+            return []
+
+        results: list[dict] = []
         chunk_size = 100
         async with httpx.AsyncClient(
             timeout=HTTP_TIMEOUT,
@@ -603,24 +623,61 @@ class TossWtsClient:
                 "referer": "https://www.tossinvest.com/",
             },
         ) as client:
-            for i in range(0, len(codes), chunk_size):
-                chunk = codes[i : i + chunk_size]
+            for i in range(0, len(normalized_codes), chunk_size):
+                chunk = normalized_codes[i : i + chunk_size]
                 try:
                     res = await client.get(f"{INFO_URL}?codes={','.join(chunk)}")
                     if res.status_code == 200:
-                        for r in res.json().get("result") or []:
-                            code, symbol = r.get("code"), r.get("symbol")
-                            if code and symbol:
-                                mapping[code] = symbol
+                        results.extend(res.json().get("result") or [])
                 except Exception as e:
-                    logger.warning(f"[TossWTS] 심볼 조회 오류: {e}")
+                    logger.warning(f"[TossWTS] stock-infos 조회 오류: {e}")
+        return results
 
-        for s in stocks:
-            sym = mapping.get(s.get("stockCode"))
-            if sym:
-                s["ticker"] = sym
+    async def search_stocks(self, query: str) -> list[dict]:
+        normalized = (query or "").strip()
+        if not normalized:
+            return []
 
-        return flat
+        body = {"query": normalized}
+        async with httpx.AsyncClient(
+            timeout=HTTP_TIMEOUT,
+            headers={
+                "user-agent": USER_AGENT,
+                "accept": "application/json",
+                "content-type": "application/json",
+                "referer": "https://www.tossinvest.com/",
+            },
+            follow_redirects=True,
+        ) as client:
+            res = await client.post(SEARCH_URL, json=body)
+            if res.status_code != 200:
+                logger.warning(
+                    f"[TossWTS] 종목 검색 실패(query={normalized}): HTTP {res.status_code}"
+                )
+                return []
+            return (res.json().get("result") or {}).get("stocks") or []
+
+    async def _find_logo_via_search(self, ticker: str) -> dict[str, str] | None:
+        normalized = (ticker or "").strip().upper()
+        if not normalized:
+            return None
+
+        candidates = await self.search_stocks(normalized)
+        stock_codes = [c.get("stockCode") for c in candidates if c.get("stockCode")]
+        if not stock_codes:
+            return None
+
+        infos = await self._fetch_stock_infos_by_codes(stock_codes)
+        for info in infos:
+            symbol = (info.get("symbol") or "").strip().upper()
+            logo_image_url = info.get("logoImageUrl")
+            if symbol == normalized and logo_image_url:
+                return {
+                    "ticker": symbol,
+                    "stock_code": info.get("code") or "",
+                    "logo_image_url": logo_image_url,
+                }
+        return None
 
     async def find_logo_by_ticker(
         self,
@@ -637,6 +694,12 @@ class TossWtsClient:
         if not normalized:
             return None
 
+        # 1) 토스 검색 API 기반 조회 (ticker -> stockCode -> logoImageUrl)
+        via_search = await self._find_logo_via_search(normalized)
+        if via_search:
+            return via_search
+
+        # 2) 폴백: 공통 스크리너 결과를 순회하면서 로고 탐색
         for page in range(1, max_pages + 1):
             try:
                 data = await self.screen_common(nation=nation, size=size, page=page)

@@ -20,11 +20,21 @@ class TickerLogoService:
     def _normalize_ticker(ticker: str) -> str:
         return (ticker or "").strip().upper()
 
+    @staticmethod
+    def _is_valid_logo_url(logo_image_url: str | None) -> bool:
+        if not logo_image_url:
+            return False
+        normalized = logo_image_url.strip().lower()
+        return normalized.startswith("http://") or normalized.startswith("https://")
+
     def get_cached_logo(self, ticker: str) -> str | None:
         normalized = self._normalize_ticker(ticker)
         if not normalized:
             return None
-        return supabase_repo.get_ticker_logo(normalized)
+        cached = supabase_repo.get_ticker_logo(normalized)
+        if self._is_valid_logo_url(cached):
+            return cached
+        return None
 
     def get_cached_logos(self, tickers: list[str]) -> dict[str, str]:
         return supabase_repo.get_ticker_logos(tickers)
@@ -36,6 +46,8 @@ class TickerLogoService:
         stock_code: str | None = None,
         source: str = "toss_screener",
     ) -> None:
+        if not self._is_valid_logo_url(logo_image_url):
+            return
         supabase_repo.upsert_ticker_logo(
             ticker=ticker,
             logo_image_url=logo_image_url,
@@ -63,7 +75,7 @@ class TickerLogoService:
 
         logo_image_url = found.get("logo_image_url")
         stock_code = found.get("stock_code")
-        if logo_image_url:
+        if self._is_valid_logo_url(logo_image_url):
             self.save_logo(
                 ticker=normalized,
                 logo_image_url=logo_image_url,
