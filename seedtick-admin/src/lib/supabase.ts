@@ -152,3 +152,43 @@ export async function fetchReportByDateAndTicker(
   }
 }
 
+export interface HistoricalValuationRecord {
+  ticker: string;
+  d: string;
+  fair_value_price: number;
+}
+
+/**
+ * 전 기간 종목별 내재가치 히스토리 조회 (안정성 계산용 경량 쿼리)
+ */
+export async function fetchHistoricalValuations(): Promise<HistoricalValuationRecord[]> {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from("guru_reports")
+      .select("ticker, d, datapack->valuation_consensus->fair_value_price")
+      .order("d", { ascending: true });
+
+    if (error) {
+      console.warn("fetchHistoricalValuations error:", error.message);
+      return [];
+    }
+
+    const records: HistoricalValuationRecord[] = [];
+    for (const row of data || []) {
+      const fv = (row as any).fair_value_price;
+      if (typeof fv === "number" && Number.isFinite(fv) && fv > 0) {
+        records.push({
+          ticker: (row.ticker as string).toUpperCase(),
+          d: row.d as string,
+          fair_value_price: fv,
+        });
+      }
+    }
+    return records;
+  } catch (err) {
+    console.warn("fetchHistoricalValuations exception:", err);
+    return [];
+  }
+}
+
