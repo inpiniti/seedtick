@@ -26,6 +26,36 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { BarChart2, Terminal, Sparkles, Activity } from "lucide-react";
 
+const DASHBOARD_FETCH_TIMEOUT_MS = 5000;
+
+async function withTimeout<T>(
+  task: Promise<T>,
+  fallback: T,
+  timeoutMs = DASHBOARD_FETCH_TIMEOUT_MS
+): Promise<T> {
+  return new Promise<T>((resolve) => {
+    const timer = setTimeout(() => resolve(fallback), timeoutMs);
+    task
+      .then((value) => resolve(value))
+      .catch(() => resolve(fallback))
+      .finally(() => clearTimeout(timer));
+  });
+}
+
+function buildOfflineHealth(): HealthStatus {
+  return {
+    status: "down",
+    timestamp: new Date().toISOString(),
+    env: "unknown",
+    dry_run: true,
+    default_broker: "none",
+    us_market_today: {
+      is_open: false,
+      status_text: "서버와 연결을 확인하고 있어요",
+    },
+  };
+}
+
 export default function AdminDashboardPage() {
   // 활성 탭 (1: 스크리너 & 거장 리포트, 2: 로그)
   const [activeTab, setActiveTab] = useState<"screener" | "insights" | "logs">("screener");
@@ -35,7 +65,7 @@ export default function AdminDashboardPage() {
   const [isScreenerLoading, setIsScreenerLoading] = useState(false);
 
   // 상태 데이터
-  const [health, setHealth] = useState<HealthStatus | null>(null);
+  const [health, setHealth] = useState<HealthStatus | null>(buildOfflineHealth());
   const [aiModel, setAiModel] = useState<AiModelStatus | null>(null);
   const [isResettingModel, setIsResettingModel] = useState(false);
 
@@ -64,13 +94,13 @@ export default function AdminDashboardPage() {
     setIsLoading(true);
     try {
       const [healthRes, reportsRes, logsRes, aiModelRes] = await Promise.all([
-        fetchHealth().catch(() => null),
-        fetchGuruReports(200).catch(() => []),
-        fetchSystemLogs(60).catch(() => []),
-        fetchAiModelStatus().catch(() => null),
+        withTimeout(fetchHealth(), buildOfflineHealth()),
+        withTimeout(fetchGuruReports(200), []),
+        withTimeout(fetchSystemLogs(60), []),
+        withTimeout(fetchAiModelStatus(), null),
       ]);
 
-      if (healthRes) setHealth(healthRes);
+      setHealth(healthRes || buildOfflineHealth());
       if (aiModelRes) setAiModel(aiModelRes);
       setGuruReports(reportsRes);
       setSystemLogs(logsRes);
