@@ -20,6 +20,8 @@ import {
 import {
   fetchGuruReports,
   fetchGuruReportDates,
+  fetchHistoricalValuations,
+  HistoricalValuationRecord,
   fetchSystemLogs,
   fetchReportByDateAndTicker,
   fetchReportDatesByTicker,
@@ -101,6 +103,11 @@ export default function AdminDashboardPage() {
   const [isCatalogDateLoading, setIsCatalogDateLoading] = useState(false);
   const selectedCatalogDateRef = useRef<string>("");
 
+  // 4-2. 전 기간 내재가치 히스토리 (안정성 계산용 경량 데이터)
+  const [historicalValuations, setHistoricalValuations] = useState<
+    HistoricalValuationRecord[]
+  >([]);
+
   // 5. 종목별 %B 캐시 (비동기 청크 로딩)
   const [percentBByTicker, setPercentBByTicker] = useState<
     Record<string, number | null>
@@ -143,40 +150,55 @@ export default function AdminDashboardPage() {
     return map;
   }, [liveCandidates, romaCandidates]);
 
-  // 내재가치 안정성 맵
+  // 내재가치 안정성 맵 (전 기간 누적 히스토리 + 현재 일자 리포트 병합)
   const intrinsicStabilityByTicker = useMemo(() => {
-    const fairValuesByTicker = new Map<string, number[]>();
+    const fairValuesByTickerDate = new Map<string, Map<string, number>>();
+
+    // 1) 전 기간 히스토리 레코드 추가
+    for (const record of historicalValuations) {
+      const ticker = record.ticker.toUpperCase();
+      if (!fairValuesByTickerDate.has(ticker)) {
+        fairValuesByTickerDate.set(ticker, new Map());
+      }
+      fairValuesByTickerDate.get(ticker)!.set(record.d, record.fair_value_price);
+    }
+
+    // 2) 현재 로드된 guruReports 보강 (혹시 히스토리에 미반영된 값 또는 마크다운 파싱값 포함)
     for (const report of guruReports) {
       const fairValue = extractValuationConsensus(report)?.fair_value_price;
       if (fairValue == null || !Number.isFinite(fairValue) || fairValue <= 0)
         continue;
-      const key = report.ticker.toUpperCase();
-      const series = fairValuesByTicker.get(key) || [];
-      series.push(fairValue);
-      fairValuesByTicker.set(key, series);
+      const ticker = report.ticker.toUpperCase();
+      if (!fairValuesByTickerDate.has(ticker)) {
+        fairValuesByTickerDate.set(ticker, new Map());
+      }
+      fairValuesByTickerDate.get(ticker)!.set(report.d, fairValue);
     }
 
     const stabilityMap = new Map<string, IntrinsicStability>();
-    for (const [ticker, fairValues] of fairValuesByTicker.entries()) {
+    for (const [ticker, dateMap] of fairValuesByTickerDate.entries()) {
+      const fairValues = Array.from(dateMap.values());
       stabilityMap.set(ticker, buildIntrinsicStability(fairValues));
     }
     return stabilityMap;
-  }, [guruReports]);
+  }, [historicalValuations, guruReports]);
 
   // 데이터 로드 (날짜 목록 조회 후 가장 최근 날짜의 리포트를 디폴트로 로드)
   const loadDashboardData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [healthRes, datesRes, logsRes, aiModelRes] = await Promise.all([
+      const [healthRes, datesRes, logsRes, aiModelRes, valuationsRes] = await Promise.all([
         withTimeout(fetchHealth(), buildOfflineHealth()),
         withTimeout(fetchGuruReportDates(), []),
         withTimeout(fetchSystemLogs(60), []),
         withTimeout(fetchAiModelStatus(), null),
+        withTimeout(fetchHistoricalValuations(), []),
       ]);
 
       setHealth(healthRes || buildOfflineHealth());
       if (aiModelRes) setAiModel(aiModelRes);
       setSystemLogs(logsRes);
+      if (valuationsRes) setHistoricalValuations(valuationsRes);
 
       const dates = datesRes || [];
       setAvailableCatalogDates(dates);
@@ -659,6 +681,7 @@ export default function AdminDashboardPage() {
                 onSelectDate={handleSelectCatalogDate}
                 isReportsLoading={isCatalogDateLoading}
                 onSelectGuru={handleOpenGuru}
+                intrinsicStabilityMap={intrinsicStabilityByTicker}
               />
             )}
           </main>

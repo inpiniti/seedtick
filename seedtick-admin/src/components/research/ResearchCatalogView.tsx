@@ -62,6 +62,7 @@ interface ResearchCatalogViewProps {
   onSelectDate?: (date: string) => void;
   isReportsLoading?: boolean;
   onSelectGuru?: (guruSlug: string) => void;
+  intrinsicStabilityMap?: Map<string, IntrinsicStability>;
 }
 
 export function ResearchCatalogView({
@@ -86,6 +87,7 @@ export function ResearchCatalogView({
   onSelectDate,
   isReportsLoading = false,
   onSelectGuru,
+  intrinsicStabilityMap,
 }: ResearchCatalogViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [reportVerdictFilter, setReportVerdictFilter] = useState<string>("ALL");
@@ -117,8 +119,11 @@ export function ResearchCatalogView({
     return map;
   }, [liveCandidates, romaCandidates]);
 
-  // 내재가치 안정성 맵
+  // 내재가치 안정성 맵 (부모 주입 우선, 없을 시 자체 리포트 기반 폴백)
   const intrinsicStabilityByTicker = useMemo(() => {
+    if (intrinsicStabilityMap && intrinsicStabilityMap.size > 0) {
+      return intrinsicStabilityMap;
+    }
     const fairValuesByTicker = new Map<string, number[]>();
     for (const report of guruReports) {
       const fairValue = extractValuationConsensus(report)?.fair_value_price;
@@ -135,7 +140,7 @@ export function ResearchCatalogView({
       stabilityMap.set(ticker, buildIntrinsicStability(fairValues));
     }
     return stabilityMap;
-  }, [guruReports]);
+  }, [intrinsicStabilityMap, guruReports]);
 
   // 종목 인사이트 계산 헬퍼
   const getInsight = (ticker: string, stockPrice?: number | null) => {
