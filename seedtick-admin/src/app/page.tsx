@@ -32,6 +32,8 @@ import {
 } from "@/components/sidebar/ResearchSidebar";
 import { ResearchCatalogView } from "@/components/research/ResearchCatalogView";
 import { ResearchDocumentView } from "@/components/research/ResearchDocumentView";
+import { GuruDocumentView } from "@/components/research/GuruDocumentView";
+import { GURU_PERSONAS } from "@/lib/guruPersonas";
 import { SkeletonCard } from "@/components/ui/Skeleton";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
@@ -119,6 +121,7 @@ export default function AdminDashboardPage() {
   // 8. 상세 리포트 인플레이스(in-place) 문서 뷰어 상태 (팝업창 X -> 화면 전환 O)
   const [selectedDocReport, setSelectedDocReport] =
     useState<GuruReportRow | null>(null);
+  const [selectedGuruSlug, setSelectedGuruSlug] = useState<string | null>(null);
   const [availableReportDates, setAvailableReportDates] = useState<string[]>([]);
   const [selectedReportDate, setSelectedReportDate] = useState<
     string | undefined
@@ -419,11 +422,27 @@ export default function AdminDashboardPage() {
     }
   }, [guruReports, handleOpenReport]);
 
+  // 거장 심층 철학 문서 뷰로 이동
+  const handleOpenGuru = useCallback((slug: string) => {
+    setSelectedGuruSlug(slug);
+    setSelectedDocReport(null);
+    if (typeof window !== "undefined") {
+      window.history.pushState(
+        { guru: slug },
+        "",
+        `?guru=${encodeURIComponent(slug)}`
+      );
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
+  }, []);
+
   // 문서 뷰에서 카탈로그 목록으로 복귀
   const handleBackToCatalog = useCallback(() => {
     setSelectedDocReport(null);
+    setSelectedGuruSlug(null);
     if (typeof window !== "undefined") {
       window.history.pushState({}, "", window.location.pathname);
+      window.scrollTo({ top: 0, behavior: "instant" });
     }
   }, []);
 
@@ -459,9 +478,15 @@ export default function AdminDashboardPage() {
     const handlePopState = () => {
       const params = new URLSearchParams(window.location.search);
       const ticker = params.get("ticker");
-      if (!ticker) {
+      const guru = params.get("guru");
+      if (!ticker && !guru) {
         setSelectedDocReport(null);
-      } else {
+        setSelectedGuruSlug(null);
+      } else if (guru) {
+        setSelectedGuruSlug(guru);
+        setSelectedDocReport(null);
+      } else if (ticker) {
+        setSelectedGuruSlug(null);
         const found = guruReports.find(
           (r) => r.ticker.toUpperCase() === ticker.toUpperCase()
         );
@@ -475,12 +500,15 @@ export default function AdminDashboardPage() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, [guruReports]);
 
-  // 초기 마운트 시 쿼리스트링에 ?ticker= 있으면 해당 보고서 즉시 오픈
+  // 초기 마운트 시 쿼리스트링에 ?ticker= 또는 ?guru= 있으면 해당 문서 즉시 오픈
   useEffect(() => {
-    if (guruReports.length > 0 && !selectedDocReport) {
+    if (!selectedDocReport && !selectedGuruSlug) {
       const params = new URLSearchParams(window.location.search);
       const ticker = params.get("ticker");
-      if (ticker) {
+      const guru = params.get("guru");
+      if (guru) {
+        setSelectedGuruSlug(guru);
+      } else if (ticker && guruReports.length > 0) {
         const found = guruReports.find(
           (r) => r.ticker.toUpperCase() === ticker.toUpperCase()
         );
@@ -489,7 +517,7 @@ export default function AdminDashboardPage() {
         }
       }
     }
-  }, [guruReports, selectedDocReport, handleOpenReport]);
+  }, [guruReports, selectedDocReport, selectedGuruSlug, handleOpenReport]);
 
   // 초기 마운트
   useEffect(() => {
@@ -511,7 +539,7 @@ export default function AdminDashboardPage() {
 
   // 사이드바 클릭 시 섹션 전환 (자동 스크롤 현상 방지: 최상단 즉시 고정)
   const handleSelectSidebarSection = (sec: SidebarSectionId) => {
-    if (selectedDocReport) {
+    if (selectedDocReport || selectedGuruSlug) {
       handleBackToCatalog();
     }
     setActiveSidebarSection(sec);
@@ -547,6 +575,9 @@ export default function AdminDashboardPage() {
             romaCount={romaCandidates.length}
             logCount={systemLogs.length}
             activeDocTicker={selectedDocReport?.ticker || null}
+            activeGuruName={
+              selectedGuruSlug ? GURU_PERSONAS[selectedGuruSlug]?.name : null
+            }
             onBackToCatalog={handleBackToCatalog}
           />
 
@@ -581,6 +612,17 @@ export default function AdminDashboardPage() {
                     : undefined
                 }
               />
+            ) : selectedGuruSlug ? (
+              /* 거장 심층 철학 및 필독서 요약 인플레이스 문서 뷰어 */
+              <GuruDocumentView
+                guruSlug={selectedGuruSlug}
+                guruReports={guruReports}
+                onBack={handleBackToCatalog}
+                onSelectReport={(report) => {
+                  setSelectedGuruSlug(null);
+                  handleOpenReport(report);
+                }}
+              />
             ) : isLoading && !health ? (
               <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-4">
                 <SkeletonCard />
@@ -610,6 +652,7 @@ export default function AdminDashboardPage() {
                 selectedDate={selectedCatalogDate}
                 onSelectDate={handleSelectCatalogDate}
                 isReportsLoading={isCatalogDateLoading}
+                onSelectGuru={handleOpenGuru}
               />
             )}
           </main>
