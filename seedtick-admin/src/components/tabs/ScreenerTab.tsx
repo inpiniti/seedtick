@@ -38,6 +38,14 @@ import {
   fetchReportDatesByTicker,
 } from "@/lib/supabase";
 
+const LOGO_LOOKUP_INTERVAL_MS = 60_000;
+const LOGO_LOOKUP_LAST_AT_KEY = "seedtick:last-logo-lookup-at";
+
+function isValidLogoUrl(url?: string | null): boolean {
+  if (!url) return false;
+  return /^https?:\/\//i.test(url.trim());
+}
+
 function extractValuationConsensus(report?: GuruReportRow | null): ValuationConsensus | null {
   if (!report) return null;
 
@@ -339,8 +347,8 @@ export function ScreenerTab({
   const [availableDatesForTicker, setAvailableDatesForTicker] = useState<string[]>([]);
   const [isLoadingReportDate, setIsLoadingReportDate] = useState(false);
   const [resolvedLogoByTicker, setResolvedLogoByTicker] = useState<Record<string, string>>({});
-  const [logoLookupCompleted, setLogoLookupCompleted] = useState<Record<string, true>>({});
   const [brokenLogoTickers, setBrokenLogoTickers] = useState<Record<string, true>>({});
+  const logoLookupRoundRobinIndexRef = React.useRef(0);
   const [selectedGuruForTimeline, setSelectedGuruForTimeline] = useState<string>(
     GURU_LABELS[0] || "그레이엄"
   );
@@ -354,7 +362,10 @@ export function ScreenerTab({
     const hasBaseLogoByTicker = new Map<string, boolean>();
     for (const stock of allCandidates) {
       const ticker = stock.ticker.trim().toUpperCase();
-      hasBaseLogoByTicker.set(ticker, hasBaseLogoByTicker.get(ticker) || Boolean(stock.logo_image_url));
+      hasBaseLogoByTicker.set(
+        ticker,
+        hasBaseLogoByTicker.get(ticker) || isValidLogoUrl(stock.logo_image_url)
+      );
     }
     const missingTickers = Array.from(
       new Set(
@@ -362,55 +373,58 @@ export function ScreenerTab({
           .map((stock) => stock.ticker.trim().toUpperCase())
           .filter((ticker) => {
             const alreadyHasValidLogo = Boolean(hasBaseLogoByTicker.get(ticker)) && !brokenLogoTickers[ticker];
-            return !alreadyHasValidLogo && !resolvedLogoByTicker[ticker] && !logoLookupCompleted[ticker];
+            return !alreadyHasValidLogo && !resolvedLogoByTicker[ticker];
           })
       )
     );
 
     if (missingTickers.length === 0) return;
 
+    const now = Date.now();
+    const savedLastAtRaw =
+      typeof window !== "undefined" ? window.localStorage.getItem(LOGO_LOOKUP_LAST_AT_KEY) : null;
+    const savedLastAt = savedLastAtRaw ? Number(savedLastAtRaw) : 0;
+    if (savedLastAt > 0 && now - savedLastAt < LOGO_LOOKUP_INTERVAL_MS) {
+      return;
+    }
+
+    const targetIndex = logoLookupRoundRobinIndexRef.current % missingTickers.length;
+    const targetTicker = missingTickers[targetIndex];
+    logoLookupRoundRobinIndexRef.current += 1;
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(LOGO_LOOKUP_LAST_AT_KEY, String(now));
+    }
+
     let cancelled = false;
-    Promise.all(
-      missingTickers.map(async (ticker) => {
-        try {
-          const res = await fetchTickerLogo(ticker);
-          return { ticker, logo_image_url: res.logo_image_url };
-        } catch {
-          return { ticker, logo_image_url: null };
+    fetchTickerLogo(targetTicker)
+      .then((res) => {
+        if (cancelled) return;
+
+        const ticker = targetTicker;
+        const resolved: Record<string, string> = {};
+        if (isValidLogoUrl(res.logo_image_url)) {
+          resolved[ticker] = res.logo_image_url as string;
+        }
+
+        if (Object.keys(resolved).length > 0) {
+          setResolvedLogoByTicker((prev) => ({ ...prev, ...resolved }));
         }
       })
-    ).then((results) => {
-      if (cancelled) return;
-
-      const resolved: Record<string, string> = {};
-      const completed: Record<string, true> = {};
-      for (const result of results) {
-        const ticker = result.ticker;
-        completed[ticker] = true;
-        if (result.logo_image_url) {
-          resolved[ticker] = result.logo_image_url;
-        }
-      }
-
-      if (Object.keys(resolved).length > 0) {
-        setResolvedLogoByTicker((prev) => ({ ...prev, ...resolved }));
-      }
-      if (Object.keys(completed).length > 0) {
-        setLogoLookupCompleted((prev) => ({ ...prev, ...completed }));
-      }
-    });
+      .catch(() => undefined);
 
     return () => {
       cancelled = true;
     };
-  }, [liveCandidates, romaCandidates, resolvedLogoByTicker, logoLookupCompleted, brokenLogoTickers]);
+  }, [liveCandidates, romaCandidates, resolvedLogoByTicker, brokenLogoTickers]);
 
   const getDisplayLogoUrl = (stock: StockCandidate): string | null => {
     const ticker = stock.ticker.trim().toUpperCase();
+    const baseUrl = isValidLogoUrl(stock.logo_image_url) ? stock.logo_image_url : null;
+    const resolvedUrl = isValidLogoUrl(resolvedLogoByTicker[ticker]) ? resolvedLogoByTicker[ticker] : null;
     if (brokenLogoTickers[ticker]) {
-      return resolvedLogoByTicker[ticker] || null;
+      return resolvedUrl || null;
     }
-    return stock.logo_image_url || resolvedLogoByTicker[ticker] || null;
+    return baseUrl || resolvedUrl || null;
   };
 
   const renderTickerAvatar = (stock: StockCandidate) => {

@@ -184,3 +184,34 @@ def test_toss_wts_guru_presets_and_aliases():
     assert "버핏" in GURU_PRESETS
     assert "린치" in GURU_PRESETS
     assert "공통" in GURU_PRESETS
+
+
+@pytest.mark.asyncio
+async def test_toss_wts_find_logo_by_ticker_prefers_search_lookup():
+    """티커 로고 조회 시 토스 검색 API 경로를 우선 사용하고, 성공하면 스크리너 폴백을 건너뛴다."""
+    client = TossWtsClient()
+
+    async def mock_search_stocks(query: str):
+        assert query == "AAPL"
+        return [{"stockCode": "US19801212001"}]
+
+    async def mock_fetch_infos(codes: list[str]):
+        assert codes == ["US19801212001"]
+        return [{
+            "code": "US19801212001",
+            "symbol": "AAPL",
+            "logoImageUrl": "https://static.toss.im/png-icons/securities/icn-sec-fill-NAS000C7F-E0.png",
+        }]
+
+    async def mock_screen_common(*args, **kwargs):
+        raise AssertionError("search 경로 성공 시 screen_common 폴백이 호출되면 안 됩니다.")
+
+    client.search_stocks = mock_search_stocks  # type: ignore[method-assign]
+    client._fetch_stock_infos_by_codes = mock_fetch_infos  # type: ignore[method-assign]
+    client.screen_common = mock_screen_common  # type: ignore[method-assign]
+
+    found = await client.find_logo_by_ticker("AAPL")
+    assert found is not None
+    assert found["ticker"] == "AAPL"
+    assert found["stock_code"] == "US19801212001"
+    assert found["logo_image_url"].startswith("https://")

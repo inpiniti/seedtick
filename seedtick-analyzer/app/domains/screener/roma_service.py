@@ -103,5 +103,5 @@ class RomaScreenerService:
             if item.logo_image_url:
                 continue
             logo = cached.get((item.ticker or "").upper())
-            if logo:
+            if logo and (logo.startswith("http://") or logo.startswith("https://")):
                 item.logo_image_url = logo

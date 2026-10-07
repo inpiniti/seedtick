@@ -286,7 +286,7 @@ class SupabaseRepo:
             for row in res.data or []:
                 ticker = (row.get("ticker") or "").strip().upper()
                 logo = row.get("logo_image_url")
-                if ticker and logo:
+                if ticker and logo and (logo.startswith("http://") or logo.startswith("https://")):
                     mapping[ticker] = logo
             return mapping
         except Exception as e:
@@ -418,4 +418,3 @@ class SupabaseRepo:
 
 
 supabase_repo = SupabaseRepo()
-
