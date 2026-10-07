@@ -1,0 +1,205 @@
+import {
+  GuruReportRow,
+  ValuationConsensus,
+} from "@/types/api";
+
+export type IntrinsicStabilityLevel =
+  | "stable"
+  | "watch"
+  | "unstable"
+  | "insufficient";
+
+export interface IntrinsicStability {
+  level: IntrinsicStabilityLevel;
+  label: string;
+  sampleCount: number;
+  rangeMultiple: number | null;
+  cv: number | null;
+}
+
+export function chartTickerKey(ticker: string): string {
+  return ticker.trim().toUpperCase().replace(/\./g, "-");
+}
+
+export function extractValuationConsensus(
+  report?: GuruReportRow | null
+): ValuationConsensus | null {
+  if (!report) return null;
+
+  const consensus = report.datapack?.valuation_consensus;
+  if (
+    consensus &&
+    (consensus.fair_value_price ||
+      consensus.target_price_band ||
+      consensus.safety_entry_price)
+  ) {
+    return consensus;
+  }
+
+  const md = report.final_report;
+  if (!md) return null;
+
+  let fairValuePrice: number | null = null;
+  const fvMatch = md.match(
+    /(?:종합\s*적정\s*내재가치|종합\s*적정가|적정\s*내재가치|적정가)[:\s\*]*[$₩]?\s*([\d,]+(?:\.\d+)?)/
+  );
+  if (fvMatch) {
+    const raw = fvMatch[1].replace(/,/g, "").trim();
+    const val = parseFloat(raw);
+    if (!isNaN(val)) fairValuePrice = val;
+  }
+
+  let targetPriceBand: string | null = null;
+  const bandMatch = md.match(
+    /(?:적정\s*밴드|목표\s*밴드|밸류에이션\s*밴드)[:\s\*]*([^\n\)|]+)/
+  );
+  if (bandMatch) {
+    targetPriceBand = bandMatch[1].trim().replace(/^[\*`\[\(]+|[\*`\]\)]+$/g, "");
+  }
+
+  let safetyEntryPrice: string | null = null;
+  const safeMatch = md.match(
+    /(?:\[안전마진\s*매수가\]|안전마진\s*매수가|안전마진\s*가격)[:\s\*]*([^\n|]+)/
+  );
+  if (safeMatch) {
+    safetyEntryPrice = safeMatch[1].trim().replace(/^[\*`\[\(]+|[\*`\]\)]+$/g, "");
+  }
+
+  let optimisticTargetPrice: string | null = null;
+  const targetMatch = md.match(
+    /(?:\[목표\s*매도가\]|목표\s*매도가|낙관적\s*목표주가|목표가)[:\s\*]*([^\n|]+)/
+  );
+  if (targetMatch) {
+    optimisticTargetPrice = targetMatch[1].trim().replace(/^[\*`\[\(]+|[\*`\]\)]+$/g, "");
+  }
+
+  if (
+    fairValuePrice ||
+    targetPriceBand ||
+    safetyEntryPrice ||
+    optimisticTargetPrice
+  ) {
+    return {
+      fair_value_price: fairValuePrice,
+      target_price_band: targetPriceBand,
+      safety_entry_price: safetyEntryPrice,
+      optimistic_target_price: optimisticTargetPrice,
+    };
+  }
+
+  return null;
+}
+
+export function buildIntrinsicStability(fairValues: number[]): IntrinsicStability {
+  const sanitized = fairValues.filter((value) => Number.isFinite(value) && value > 0);
+  if (sanitized.length < 2) {
+    return {
+      level: "insufficient",
+      label: "표본 부족",
+      sampleCount: sanitized.length,
+      rangeMultiple: null,
+      cv: null,
+    };
+  }
+
+  const min = Math.min(...sanitized);
+  const max = Math.max(...sanitized);
+  const mean = sanitized.reduce((sum, value) => sum + value, 0) / sanitized.length;
+  const variance =
+    sanitized.reduce((sum, value) => sum + (value - mean) ** 2, 0) / sanitized.length;
+  const std = Math.sqrt(variance);
+  const rangeMultiple = min > 0 ? max / min : null;
+  const cv = mean > 0 ? std / mean : null;
+
+  if (rangeMultiple == null || cv == null) {
+    return {
+      level: "insufficient",
+      label: "계산 대기",
+      sampleCount: sanitized.length,
+      rangeMultiple: null,
+      cv: null,
+    };
+  }
+
+  if (rangeMultiple > 3 || cv > 0.5) {
+    return {
+      level: "unstable",
+      label: "불안정",
+      sampleCount: sanitized.length,
+      rangeMultiple,
+      cv,
+    };
+  }
+
+  if (rangeMultiple >= 1.8 || cv >= 0.25) {
+    return {
+      level: "watch",
+      label: "주의",
+      sampleCount: sanitized.length,
+      rangeMultiple,
+      cv,
+    };
+  }
+
+  return {
+    level: "stable",
+    label: "안정",
+    sampleCount: sanitized.length,
+    rangeMultiple,
+    cv,
+  };
+}
+
+export function getIntrinsicStabilityMeta(stability: IntrinsicStability): {
+  variant: "success" | "warning" | "danger" | "neutral";
+  text: string;
+} {
+  switch (stability.level) {
+    case "stable":
+      return {
+        variant: "success",
+        text: "안정",
+      };
+    case "watch":
+      return {
+        variant: "warning",
+        text: "주의",
+      };
+    case "unstable":
+      return {
+        variant: "danger",
+        text: "불안정",
+      };
+    default:
+      return {
+        variant: "neutral",
+        text: "표본 부족",
+      };
+  }
+}
+
+export function formatPercentB(percentB: number | null | undefined): string {
+  if (percentB === undefined) return "계산 중";
+  if (percentB === null || !Number.isFinite(percentB)) return "-";
+  return `${(percentB * 100).toFixed(1)}%`;
+}
+
+export function formatIntrinsicRatio(ratio: number | null): string | null {
+  if (ratio == null || !Number.isFinite(ratio)) return null;
+  return `${Math.round(ratio)}%`;
+}
+
+export function normalizeVerdictTone(verdict?: string | null): "buy" | "hold" | "sell" | "neutral" {
+  if (!verdict) return "neutral";
+  const normalized = verdict.toLowerCase();
+  if (normalized.includes("매수") || normalized.includes("buy") || normalized.includes("강력")) {
+    return "buy";
+  }
+  if (normalized.includes("보유") || normalized.includes("중립") || normalized.includes("관망") || normalized.includes("hold")) {
+    return "hold";
+  }
+  if (normalized.includes("매도") || normalized.includes("비추천") || normalized.includes("sell")) {
+    return "sell";
+  }
+  return "neutral";
+}

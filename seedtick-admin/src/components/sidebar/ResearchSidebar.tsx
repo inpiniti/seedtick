@@ -2,21 +2,17 @@
 
 import React from "react";
 import {
-  FileText,
   Target,
   Users,
   Compass,
   Terminal,
-  Activity,
   Layers,
-  Sparkles,
   BookOpen,
 } from "lucide-react";
 
 export type SidebarSectionId =
   | "all"
-  | "sec-consensus"
-  | "sec-guru"
+  | "sec-reports"
   | "sec-roma"
   | "sec-screener"
   | "sec-audit";
@@ -41,6 +37,8 @@ interface ResearchSidebarProps {
   candidateCount: number;
   romaCount: number;
   logCount: number;
+  activeDocTicker?: string | null;
+  onBackToCatalog?: () => void;
 }
 
 export function ResearchSidebar({
@@ -50,14 +48,16 @@ export function ResearchSidebar({
   candidateCount,
   romaCount,
   logCount,
+  activeDocTicker,
+  onBackToCatalog,
 }: ResearchSidebarProps) {
   const navItems: NavGroup[] = [
     {
       group: "Overview",
       items: [
         {
-          id: "all" as SidebarSectionId,
-          label: "전체 리포트 아카이브",
+          id: "all",
+          label: "카탈로그 홈 (전체)",
           badge: reportCount > 0 ? `${reportCount}` : undefined,
           icon: BookOpen,
         },
@@ -67,36 +67,29 @@ export function ResearchSidebar({
       group: "Research Sections",
       items: [
         {
-          id: "sec-consensus" as SidebarSectionId,
+          id: "sec-reports",
           prefix: "01",
-          label: "가치평가 합의서",
-          badge: "Consensus",
+          label: "가치평가 및 거장 리포트",
+          badge: reportCount > 0 ? `${reportCount}` : undefined,
           icon: Target,
         },
         {
-          id: "sec-guru" as SidebarSectionId,
+          id: "sec-roma",
           prefix: "02",
-          label: "13인 거장 심층 분석",
-          badge: "13 Gurus",
-          icon: Users,
-        },
-        {
-          id: "sec-roma" as SidebarSectionId,
-          prefix: "03",
           label: "슈퍼인베스터 포트폴리오",
           badge: romaCount > 0 ? `${romaCount}` : undefined,
           icon: Layers,
         },
         {
-          id: "sec-screener" as SidebarSectionId,
-          prefix: "04",
+          id: "sec-screener",
+          prefix: "03",
           label: "실시간 발굴 후보군",
           badge: candidateCount > 0 ? `${candidateCount}` : undefined,
           icon: Compass,
         },
         {
-          id: "sec-audit" as SidebarSectionId,
-          prefix: "05",
+          id: "sec-audit",
+          prefix: "04",
           label: "파이프라인 & 감사 로그",
           badge: logCount > 0 ? `${logCount}` : undefined,
           icon: Terminal,
@@ -111,6 +104,25 @@ export function ResearchSidebar({
       aria-label="리서치 문서 탐색"
     >
       <div className="flex-1 py-6 px-4 space-y-6">
+        {/* 열람 중인 보고서가 있는 경우 인라인 표시 */}
+        {activeDocTicker && (
+          <div className="p-3 rounded-md border border-[#cbd5e1] bg-[#f8fafc] text-xs font-mono space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[#64748b] text-[10px] tracking-wider uppercase font-semibold">
+                ACTIVE READING
+              </span>
+              <span className="font-bold text-[#0f172a]">${activeDocTicker}</span>
+            </div>
+            {onBackToCatalog && (
+              <button
+                onClick={onBackToCatalog}
+                className="w-full py-1.5 text-center bg-white border border-[#cbd5e1] hover:border-[#0f172a] rounded text-[11px] text-[#0f172a] font-semibold transition-colors cursor-pointer"
+              >
+                ← 카탈로그로 복귀
+              </button>
+            )}
+          </div>
+        )}
         {navItems.map((group, gIdx) => (
           <div key={gIdx} className="space-y-1">
             <h3 className="font-mono text-[11px] font-medium tracking-wider uppercase text-[#94a3b8] px-2.5 pb-2">
@@ -162,7 +174,7 @@ export function ResearchSidebar({
           </div>
         ))}
 
-        {/* 13인 거장 퀵 필터 레퍼런스 */}
+        {/* 13인 거장 코어 목록 */}
         <div className="pt-4 border-t border-[#f1f5f9] space-y-2">
           <div className="flex items-center justify-between px-2.5">
             <span className="font-mono text-[11px] font-medium uppercase text-[#94a3b8]">
