@@ -61,6 +61,7 @@ interface ResearchCatalogViewProps {
   selectedDate?: string;
   onSelectDate?: (date: string) => void;
   isReportsLoading?: boolean;
+  onSelectGuru?: (guruSlug: string) => void;
 }
 
 export function ResearchCatalogView({
@@ -84,6 +85,7 @@ export function ResearchCatalogView({
   selectedDate,
   onSelectDate,
   isReportsLoading = false,
+  onSelectGuru,
 }: ResearchCatalogViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [reportVerdictFilter, setReportVerdictFilter] = useState<string>("ALL");
@@ -1277,7 +1279,13 @@ export function ResearchCatalogView({
               {Object.values(GURU_PERSONAS).map((guru) => (
                 <div
                   key={guru.slug}
-                  onClick={() => setSelectedGuruForModal(guru)}
+                  onClick={() => {
+                    if (onSelectGuru) {
+                      onSelectGuru(guru.slug);
+                    } else {
+                      setSelectedGuruForModal(guru);
+                    }
+                  }}
                   className="p-4 rounded-md border border-[#e2e8f0] bg-white space-y-3 hover:border-[#0f172a] hover:shadow-xs transition-all cursor-pointer group flex flex-col justify-between"
                 >
                   <div className="space-y-2">

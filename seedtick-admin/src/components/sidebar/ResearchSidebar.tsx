@@ -40,6 +40,7 @@ interface ResearchSidebarProps {
   romaCount: number;
   logCount: number;
   activeDocTicker?: string | null;
+  activeGuruName?: string | null;
   onBackToCatalog?: () => void;
 }
 
@@ -51,6 +52,7 @@ export function ResearchSidebar({
   romaCount,
   logCount,
   activeDocTicker,
+  activeGuruName,
   onBackToCatalog,
 }: ResearchSidebarProps) {
   const navItems: NavGroup[] = [
@@ -121,14 +123,16 @@ export function ResearchSidebar({
       aria-label="리서치 문서 탐색"
     >
       <div className="flex-1 py-6 px-4 space-y-6">
-        {/* 열람 중인 보고서가 있는 경우 인라인 표시 */}
-        {activeDocTicker && (
+        {/* 열람 중인 보고서 또는 거장 철학 문서가 있는 경우 인라인 표시 */}
+        {(activeDocTicker || activeGuruName) && (
           <div className="p-3 rounded-md border border-[#cbd5e1] bg-[#f8fafc] text-xs font-mono space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-[#64748b] text-[10px] tracking-wider uppercase font-semibold">
                 ACTIVE READING
               </span>
-              <span className="font-bold text-[#0f172a]">${activeDocTicker}</span>
+              <span className="font-bold text-[#0f172a] truncate max-w-[130px]">
+                {activeDocTicker ? `$${activeDocTicker}` : activeGuruName}
+              </span>
             </div>
             {onBackToCatalog && (
               <button
