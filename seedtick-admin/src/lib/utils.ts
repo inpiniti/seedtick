@@ -15,6 +15,41 @@ export function formatUSD(val?: number | null): string {
   return `$${val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+export function formatPriceByNation(
+  val?: number | null,
+  nation?: string,
+  ticker?: string
+): string {
+  if (val === undefined || val === null || isNaN(val)) return "-";
+  const isKr = nation?.toLowerCase() === "kr" || (ticker ? /^\d{6}/.test(ticker) : false);
+  if (isKr) {
+    return formatKRW(val);
+  }
+  return formatUSD(val);
+}
+
+export function formatMarketCap(val?: number | null, nation?: string, ticker?: string): string {
+  if (val === undefined || val === null || isNaN(val)) return "-";
+  const isKr = nation?.toLowerCase() === "kr" || (ticker ? /^\d{6}/.test(ticker) : false) || val > 500_000_000_000;
+  if (isKr) {
+    const jo = 1_000_000_000_000;
+    const eog = 100_000_000;
+    if (val >= jo) {
+      const joVal = Math.floor(val / jo);
+      const eogVal = Math.round((val % jo) / eog);
+      return eogVal > 0 ? `${joVal}조 ${eogVal.toLocaleString("ko-KR")}억` : `${joVal}조원`;
+    }
+    if (val >= eog) {
+      return `${Math.round(val / eog).toLocaleString("ko-KR")}억원`;
+    }
+    return `${val.toLocaleString("ko-KR")}원`;
+  }
+  if (val >= 1e12) return `$${(val / 1e12).toFixed(2)}T`;
+  if (val >= 1e9) return `$${(val / 1e9).toFixed(2)}B`;
+  if (val >= 1e6) return `$${(val / 1e6).toFixed(2)}M`;
+  return `$${val.toLocaleString("en-US")}`;
+}
+
 export function formatPercent(val?: number | null): string {
   if (val === undefined || val === null || isNaN(val)) return "0.0%";
   const sign = val > 0 ? "+" : "";

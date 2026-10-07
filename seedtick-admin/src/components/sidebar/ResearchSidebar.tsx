@@ -40,6 +40,7 @@ interface ResearchSidebarProps {
   onSelectSection: (section: SidebarSectionId) => void;
   reportCount: number;
   candidateCount: number;
+  krCandidateCount?: number;
   romaCount: number;
   logCount: number;
   activeDocTicker?: string | null;
@@ -54,6 +55,7 @@ export function ResearchSidebar({
   onSelectSection,
   reportCount,
   candidateCount,
+  krCandidateCount,
   romaCount,
   logCount,
   activeDocTicker,
@@ -105,7 +107,12 @@ export function ResearchSidebar({
           id: "sec-screener",
           prefix: "03",
           label: "실시간 발굴 후보군",
-          badge: candidateCount > 0 ? `${candidateCount}` : undefined,
+          badge:
+            candidateCount > 0 || (krCandidateCount && krCandidateCount > 0)
+              ? krCandidateCount
+                ? `미${candidateCount}·한${krCandidateCount}`
+                : `${candidateCount}`
+              : undefined,
           icon: Compass,
         },
       ],

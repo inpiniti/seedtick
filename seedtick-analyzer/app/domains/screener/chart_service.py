@@ -23,9 +23,11 @@ Y1 = "https://query1.finance.yahoo.com"
 
 
 def normalize_yahoo_ticker(ticker: str) -> str:
-    """Yahoo Finance는 클래스형 종목을 점(.) 대신 하이픈(-)으로 요구한다."""
+    """Yahoo Finance는 미국 클래스형 종목을 점(.) 대신 하이픈(-)으로 요구하나, 한국(.KS, .KQ)은 점(.)을 유지해야 한다."""
     symbol = (ticker or "").strip().upper()
     if not symbol:
+        return symbol
+    if symbol.endswith(".KS") or symbol.endswith(".KQ"):
         return symbol
     return symbol.replace(".", "-").replace(" ", "")
 
@@ -37,14 +39,31 @@ class ChartService:
     async def fetch_raw_yahoo_chart(
         self, ticker: str, range_period: str = "6mo", interval: str = "1d"
     ) -> dict:
-        """Yahoo Finance v8 Chart API 호출"""
+        """Yahoo Finance v8 Chart API 호출 (한국 종목 .KS / .KQ 자동 감지 지원)"""
         clean_ticker = ticker.upper().strip()
-        yahoo_ticker = normalize_yahoo_ticker(clean_ticker)
-        url = f"{Y1}/v8/finance/chart/{yahoo_ticker}?range={range_period}&interval={interval}"
+        candidates: list[str] = []
+        if clean_ticker.isdigit() and len(clean_ticker) == 6:
+            # 6자리 한국 종목 코드: KOSPI(.KS) 및 KOSDAQ(.KQ) 순차 시도
+            candidates = [f"{clean_ticker}.KS", f"{clean_ticker}.KQ"]
+        else:
+            candidates = [normalize_yahoo_ticker(clean_ticker)]
+
+        last_error: Exception | None = None
         async with httpx.AsyncClient(timeout=self.timeout) as client:
-            res = await client.get(url, headers={"User-Agent": UA})
-            res.raise_for_status()
-            return res.json()
+            for symbol in candidates:
+                url = f"{Y1}/v8/finance/chart/{symbol}?range={range_period}&interval={interval}"
+                try:
+                    res = await client.get(url, headers={"User-Agent": UA})
+                    if res.status_code == 200:
+                        return res.json()
+                    res.raise_for_status()
+                except Exception as e:
+                    last_error = e
+                    continue
+
+        if last_error:
+            raise last_error
+        raise RuntimeError(f"[{clean_ticker}] 차트 데이터를 가져오지 못했습니다.")
 
     def calculate_bollinger(
         self, dates: list[str], closes: list[float], period: int = 20, k: float = 2.0

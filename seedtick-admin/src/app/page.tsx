@@ -95,6 +95,9 @@ export default function AdminDashboardPage() {
   const [guruReports, setGuruReports] = useState<GuruReportRow[]>([]);
   const [systemLogs, setSystemLogs] = useState<SystemLogItem[]>([]);
   const [liveCandidates, setLiveCandidates] = useState<StockCandidate[]>([]);
+  const [krCandidates, setKrCandidates] = useState<StockCandidate[]>([]);
+  const [isKrLoading, setIsKrLoading] = useState(false);
+  const [krTightenStep, setKrTightenStep] = useState<number>(5);
   const [romaCandidates, setRomaCandidates] = useState<StockCandidate[]>([]);
 
   // 4-1. 가치평가 및 거장 리포트 날짜별 선택 상태 (디폴트: 가장 최근 작성일)
@@ -142,13 +145,18 @@ export default function AdminDashboardPage() {
     for (const c of liveCandidates) {
       if (c.logo_image_url) map.set(c.ticker.toUpperCase(), c.logo_image_url);
     }
+    for (const c of krCandidates) {
+      if (c.logo_image_url && !map.has(c.ticker.toUpperCase())) {
+        map.set(c.ticker.toUpperCase(), c.logo_image_url);
+      }
+    }
     for (const c of romaCandidates) {
       if (c.logo_image_url && !map.has(c.ticker.toUpperCase())) {
         map.set(c.ticker.toUpperCase(), c.logo_image_url);
       }
     }
     return map;
-  }, [liveCandidates, romaCandidates]);
+  }, [liveCandidates, krCandidates, romaCandidates]);
 
   // 내재가치 안정성 맵 (전 기간 누적 히스토리 + 현재 일자 리포트 병합)
   const intrinsicStabilityByTicker = useMemo(() => {
@@ -257,6 +265,19 @@ export default function AdminDashboardPage() {
     }
   }, []);
 
+  const loadKrScreener = useCallback(async (step: number = 5) => {
+    setIsKrLoading(true);
+    setKrTightenStep(step);
+    try {
+      const res = await fetchScreener("공통", "kr", 100, step);
+      setKrCandidates(res.items || res.tickers || []);
+    } catch (err) {
+      console.warn("한국장 스크리너 조회 실패:", err);
+    } finally {
+      setIsKrLoading(false);
+    }
+  }, []);
+
   const loadRomaScreener = useCallback(async () => {
     setIsRomaLoading(true);
     try {
@@ -276,6 +297,7 @@ export default function AdminDashboardPage() {
       new Set([
         ...guruReports.map((r) => r.ticker),
         ...liveCandidates.map((c) => c.ticker),
+        ...krCandidates.map((c) => c.ticker),
         ...romaCandidates.map((c) => c.ticker),
       ])
     )
@@ -319,7 +341,7 @@ export default function AdminDashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [guruReports, liveCandidates, romaCandidates, percentBByTicker]);
+  }, [guruReports, liveCandidates, krCandidates, romaCandidates, percentBByTicker]);
 
   const handleResetAiModel = async () => {
     setIsResettingModel(true);
@@ -548,8 +570,9 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     loadDashboardData();
     loadLiveScreener();
+    loadKrScreener(5);
     loadRomaScreener();
-  }, [loadDashboardData, loadLiveScreener, loadRomaScreener]);
+  }, [loadDashboardData, loadLiveScreener, loadKrScreener, loadRomaScreener]);
 
   // 파이프라인 완료 시 데이터 자동 리프레시
   const prevPipelineStatus = useRef<string | null>(null);
@@ -598,6 +621,7 @@ export default function AdminDashboardPage() {
             onSelectSection={handleSelectSidebarSection}
             reportCount={guruReports.length}
             candidateCount={liveCandidates.length}
+            krCandidateCount={krCandidates.length}
             romaCount={romaCandidates.length}
             logCount={systemLogs.length}
             activeDocTicker={selectedDocReport?.ticker || null}
@@ -662,13 +686,17 @@ export default function AdminDashboardPage() {
               <ResearchCatalogView
                 guruReports={guruReports}
                 liveCandidates={liveCandidates}
+                krCandidates={krCandidates}
                 romaCandidates={romaCandidates}
                 systemLogs={systemLogs}
                 pipelineProgress={pipelineProgress}
                 isLoading={isScreenerLoading}
+                isKrLoading={isKrLoading}
                 isRomaLoading={isRomaLoading}
+                krTightenStep={krTightenStep}
                 percentBByTicker={percentBByTicker}
                 onRefreshLive={loadLiveScreener}
+                onRefreshKr={loadKrScreener}
                 onRefreshRoma={loadRomaScreener}
                 onRefreshPipeline={refreshPipelineProgress}
                 onRefreshLogs={handleRefreshLogs}

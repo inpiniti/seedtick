@@ -11,13 +11,14 @@ class ScreenCriteria(BaseModel):
     nation: str = "us"
     size: int = 200
     page: int = 1
+    tighten_step: int = 0
     exclude_tickers: list[str] = Field(default_factory=list)
 
 
 class TossStockItem(BaseModel):
     """스크리닝 종목 아이템"""
-    ticker: str                      # 심볼 (예: AAPL, NVDA)
-    stock_code: str                  # 토스 코드 (예: US20020523001)
+    ticker: str                      # 심볼 (예: AAPL, 005930)
+    stock_code: str                  # 토스 코드 (예: US20020523001, A005930)
     name: str                        # 한글/영문 종목명
     price: float | None = None       # 현재가
     prev_close: float | None = None  # 전일 종가
@@ -29,6 +30,9 @@ class TossStockItem(BaseModel):
     roe: float | None = None         # ROE
     logo_image_url: str | None = None
     screeners: list[str] = Field(default_factory=list) # 통과한 거장/스크리너 목록 (예: ['종합', '버핏'])
+    nation: str = "us"               # 국가 ('us' | 'kr')
+    category: str | None = None      # 카테고리/섹터 (예: 반도체파운드리, 의류브랜드)
+    tighten_step: int | None = None  # 적용된 조건 강화 단계
 
     # ── DataRoma 슈퍼인베스터 포트폴리오(두번째 스크리너) 전용 선택 필드 ──
     holders: int | None = None             # 해당 종목을 보유한 슈퍼인베스터 수

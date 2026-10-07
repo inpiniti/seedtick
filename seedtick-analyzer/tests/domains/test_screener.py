@@ -215,3 +215,52 @@ async def test_toss_wts_find_logo_by_ticker_prefers_search_lookup():
     assert found["ticker"] == "AAPL"
     assert found["stock_code"] == "US19801212001"
     assert found["logo_image_url"].startswith("https://")
+
+
+@pytest.mark.asyncio
+async def test_screener_service_kr_nation_with_tighten_step():
+    """한국장 스크리너: 단일 공통 필터 및 조건 강화 단계 적용 검증"""
+    from app.domains.screener.clients.toss_wts import get_kr_tightened_filters
+
+    # 1. get_kr_tightened_filters 단계별 필터 검증
+    filters_step0 = get_kr_tightened_filters(step=0)
+    filters_step5 = get_kr_tightened_filters(step=5)
+    assert len(filters_step0) == 5
+    assert len(filters_step5) == 5
+
+    # 2. ScreenerService.get_stock_list(nation='kr', tighten_step=5) 호출 검증
+    mock_wts_client = AsyncMock()
+    mock_wts_client.screen_kr_common.return_value = {
+        "count": 1,
+        "totalCount": 61,
+        "stocks": [
+            {
+                "ticker": "000990",
+                "stockCode": "A000990",
+                "name": "DB하이텍",
+                "price": 135100,
+                "prevClose": 139700,
+                "시가총액": 6138497366800.0,
+                "영업_이익률": 0.21,
+                "ROE": 0.158,
+                "category": "반도체파운드리",
+                "logoImageUrl": "https://static.toss.im/png-icons/securities/icn-sec-fill-000990.png",
+            }
+        ],
+    }
+
+    service = ScreenerService(wts_client=mock_wts_client)
+    criteria = ScreenCriteria(nation="kr", preset="공통", tighten_step=5, size=50)
+    result = await service.get_stock_list(criteria)
+
+    mock_wts_client.screen_kr_common.assert_awaited_once_with(step=5, size=50, page=1)
+    assert result.source == "toss_wts_kr"
+    assert result.count == 1
+    assert result.total_count == 61
+    item = result.tickers[0]
+    assert item.ticker == "000990"
+    assert item.name == "DB하이텍"
+    assert item.nation == "kr"
+    assert item.tighten_step == 5
+    assert item.category == "반도체파운드리"
+    assert "조건강화 5단계" in item.screeners

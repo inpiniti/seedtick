@@ -103,14 +103,16 @@ async def test_fetch_quote_summary_401_retry(monkeypatch, tmp_path: Path):
             return self._data
 
     class MockClient:
-        async def get(self, url, headers=None):
+        async def get(self, url, headers=None, **kwargs):
+            if "ai-gateway" in url:
+                return MockResponse(500)
             call_counts["quote"] += 1
             if "stale_crumb" in url:
                 return MockResponse(401)
-            return MockResponse(200, {"quoteSummary": {"result": [{"test": 123}]}})
+            return MockResponse(200, {"quoteSummary": {"result": [{"summaryDetail": {"ok": 1}, "assetProfile": {"ok": 1}}]}})
 
     res = await builder._fetch_quote_summary(MockClient(), "SKHY")
     assert call_counts["auth"] == 2
     assert call_counts["quote"] == 2
-    assert res == {"quoteSummary": {"result": [{"test": 123}]}}
+    assert res == {"quoteSummary": {"result": [{"summaryDetail": {"ok": 1}, "assetProfile": {"ok": 1}}]}}
 

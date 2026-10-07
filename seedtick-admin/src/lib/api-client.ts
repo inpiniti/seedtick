@@ -73,14 +73,21 @@ export async function triggerPipeline(params: {
   });
 }
 
-/** 3. 토스 공통/해외 스크리너 실행 결과 */
+/** 3. 토스 스크리너 실행 결과 (미국장 / 한국장 + 조건강화 단계 지원) */
 export async function fetchScreener(
   preset = "공통",
   nation = "us",
-  size = 50
+  size = 50,
+  tightenStep = 0
 ): Promise<ScreenerResponse> {
+  const query = new URLSearchParams({
+    preset,
+    nation,
+    size: String(size),
+    tighten_step: String(tightenStep),
+  });
   const data = await request<ScreenerResponse>(
-    `/api/screener/run?preset=${encodeURIComponent(preset)}&nation=${nation}&size=${size}`
+    `/api/screener/run?${query.toString()}`
   );
 
   const rawList = data.tickers || data.items || [];
@@ -92,6 +99,8 @@ export async function fetchScreener(
     return {
       ...item,
       rank: item.rank ?? idx + 1,
+      nation: item.nation || nation,
+      tighten_step: item.tighten_step ?? tightenStep,
       change_rate: change_rate !== undefined ? Number(change_rate) : undefined,
     };
   });
