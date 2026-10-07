@@ -43,18 +43,19 @@ export async function fetchSystemLogs(
 /**
  * 심층 투자 보고서 목록 및 특정 일자 리포트 조회
  */
-export async function fetchGuruReports(limit = 100, date?: string): Promise<GuruReportRow[]> {
+export async function fetchGuruReports(limit = 200, date?: string): Promise<GuruReportRow[]> {
   if (!supabase) return [];
   try {
     let query = supabase
       .from("guru_reports")
       .select("*")
-      .order("d", { ascending: false })
-      .limit(limit);
+      .order("d", { ascending: false });
 
-    if (date) {
-      query = query.eq("d", date);
+    if (date && date !== "ALL") {
+      query = query.eq("d", date).order("overall_score", { ascending: false });
     }
+
+    query = query.limit(limit);
 
     const { data, error } = await query;
 

@@ -19,6 +19,7 @@ import {
 } from "@/lib/api-client";
 import {
   fetchGuruReports,
+  fetchGuruReportDates,
   fetchSystemLogs,
   fetchReportByDateAndTicker,
   fetchReportDatesByTicker,
@@ -92,6 +93,12 @@ export default function AdminDashboardPage() {
   const [liveCandidates, setLiveCandidates] = useState<StockCandidate[]>([]);
   const [romaCandidates, setRomaCandidates] = useState<StockCandidate[]>([]);
 
+  // 4-1. 가치평가 및 거장 리포트 날짜별 선택 상태 (디폴트: 가장 최근 작성일)
+  const [availableCatalogDates, setAvailableCatalogDates] = useState<string[]>([]);
+  const [selectedCatalogDate, setSelectedCatalogDate] = useState<string>("");
+  const [isCatalogDateLoading, setIsCatalogDateLoading] = useState(false);
+  const selectedCatalogDateRef = useRef<string>("");
+
   // 5. 종목별 %B 캐시 (비동기 청크 로딩)
   const [percentBByTicker, setPercentBByTicker] = useState<
     Record<string, number | null>
@@ -152,25 +159,62 @@ export default function AdminDashboardPage() {
     return stabilityMap;
   }, [guruReports]);
 
-  // 데이터 로드
+  // 데이터 로드 (날짜 목록 조회 후 가장 최근 날짜의 리포트를 디폴트로 로드)
   const loadDashboardData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [healthRes, reportsRes, logsRes, aiModelRes] = await Promise.all([
+      const [healthRes, datesRes, logsRes, aiModelRes] = await Promise.all([
         withTimeout(fetchHealth(), buildOfflineHealth()),
-        withTimeout(fetchGuruReports(200), []),
+        withTimeout(fetchGuruReportDates(), []),
         withTimeout(fetchSystemLogs(60), []),
         withTimeout(fetchAiModelStatus(), null),
       ]);
 
       setHealth(healthRes || buildOfflineHealth());
       if (aiModelRes) setAiModel(aiModelRes);
-      setGuruReports(reportsRes);
       setSystemLogs(logsRes);
+
+      const dates = datesRes || [];
+      setAvailableCatalogDates(dates);
+
+      // 디폴트는 가장 최근에 작성된 날짜
+      const activeDate =
+        selectedCatalogDateRef.current || (dates.length > 0 ? dates[0] : "");
+      if (activeDate && !selectedCatalogDateRef.current) {
+        selectedCatalogDateRef.current = activeDate;
+        setSelectedCatalogDate(activeDate);
+      }
+
+      const reportsRes = await withTimeout(
+        fetchGuruReports(
+          200,
+          activeDate && activeDate !== "ALL" ? activeDate : undefined
+        ),
+        []
+      );
+      setGuruReports(reportsRes);
     } catch (err) {
       console.error("대시보드 데이터 로드 오류:", err);
     } finally {
       setIsLoading(false);
+    }
+  }, []);
+
+  // 카탈로그 리포트 날짜 변경 핸들러
+  const handleSelectCatalogDate = useCallback(async (targetDate: string) => {
+    selectedCatalogDateRef.current = targetDate;
+    setSelectedCatalogDate(targetDate);
+    setIsCatalogDateLoading(true);
+    try {
+      const reports = await fetchGuruReports(
+        200,
+        targetDate === "ALL" ? undefined : targetDate
+      );
+      setGuruReports(reports);
+    } catch (err) {
+      console.error("선택 일자 보고서 로드 실패:", err);
+    } finally {
+      setIsCatalogDateLoading(false);
     }
   }, []);
 
@@ -465,21 +509,14 @@ export default function AdminDashboardPage() {
     }
   }, [pipelineProgress?.status, loadDashboardData]);
 
-  // 사이드바 클릭 시 스크롤 이동 및 문서 열람 중일 경우 카탈로그로 복귀
+  // 사이드바 클릭 시 섹션 전환 (자동 스크롤 현상 방지: 최상단 즉시 고정)
   const handleSelectSidebarSection = (sec: SidebarSectionId) => {
     if (selectedDocReport) {
       handleBackToCatalog();
     }
     setActiveSidebarSection(sec);
-    if (sec !== "all") {
-      setTimeout(() => {
-        const el = document.getElementById(sec);
-        if (el) {
-          el.scrollIntoView({ behavior: "smooth" });
-        }
-      }, 50);
-    } else {
-      window.scrollTo({ top: 0, behavior: "smooth" });
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "instant" });
     }
   };
 
@@ -569,6 +606,10 @@ export default function AdminDashboardPage() {
                 onSelectCandidate={handleOpenCandidateAsReport}
                 activeSectionFilter={activeSidebarSection}
                 onSelectSection={handleSelectSidebarSection}
+                availableDates={availableCatalogDates}
+                selectedDate={selectedCatalogDate}
+                onSelectDate={handleSelectCatalogDate}
+                isReportsLoading={isCatalogDateLoading}
               />
             )}
           </main>
