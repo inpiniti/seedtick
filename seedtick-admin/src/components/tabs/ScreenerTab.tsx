@@ -8,7 +8,7 @@ import {
   StockCandidate,
   ValuationConsensus,
 } from "@/types/api";
-import { fetchStockChart, fetchTickerLogo } from "@/lib/api-client";
+import { fetchStockChart } from "@/lib/api-client";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -37,9 +37,6 @@ import {
   fetchReportByDateAndTicker,
   fetchReportDatesByTicker,
 } from "@/lib/supabase";
-
-const LOGO_LOOKUP_INTERVAL_MS = 60_000;
-const LOGO_LOOKUP_LAST_AT_KEY = "seedtick:last-logo-lookup-at";
 
 function isValidLogoUrl(url?: string | null): boolean {
   if (!url) return false;
@@ -346,10 +343,6 @@ export function ScreenerTab({
   const [percentBByTicker, setPercentBByTicker] = useState<Record<string, number | null>>({});
   const [availableDatesForTicker, setAvailableDatesForTicker] = useState<string[]>([]);
   const [isLoadingReportDate, setIsLoadingReportDate] = useState(false);
-  const [resolvedLogoByTicker, setResolvedLogoByTicker] = useState<Record<string, string>>({});
-  const [brokenLogoTickers, setBrokenLogoTickers] = useState<Record<string, true>>({});
-  const [logoLookupHeartbeat, setLogoLookupHeartbeat] = useState(0);
-  const logoLookupRoundRobinIndexRef = React.useRef(0);
   const [selectedGuruForTimeline, setSelectedGuruForTimeline] = useState<string>(
     GURU_LABELS[0] || "그레이엄"
   );
@@ -358,84 +351,12 @@ export function ScreenerTab({
   const showInsights = viewMode !== "screener-only";
   const showScreener = viewMode !== "insights-only";
 
-  React.useEffect(() => {
-    const allCandidates = [...liveCandidates, ...romaCandidates];
-    const hasBaseLogoByTicker = new Map<string, boolean>();
-    for (const stock of allCandidates) {
-      const ticker = stock.ticker.trim().toUpperCase();
-      hasBaseLogoByTicker.set(
-        ticker,
-        hasBaseLogoByTicker.get(ticker) || isValidLogoUrl(stock.logo_image_url)
-      );
-    }
-    const missingTickers = Array.from(
-      new Set(
-        allCandidates
-          .map((stock) => stock.ticker.trim().toUpperCase())
-          .filter((ticker) => {
-            const alreadyHasValidLogo = Boolean(hasBaseLogoByTicker.get(ticker)) && !brokenLogoTickers[ticker];
-            return !alreadyHasValidLogo && !resolvedLogoByTicker[ticker];
-          })
-      )
-    );
-
-    if (missingTickers.length === 0) return;
-
-    const now = Date.now();
-    const savedLastAtRaw =
-      typeof window !== "undefined" ? window.localStorage.getItem(LOGO_LOOKUP_LAST_AT_KEY) : null;
-    const savedLastAt = savedLastAtRaw ? Number(savedLastAtRaw) : 0;
-    if (savedLastAt > 0 && now - savedLastAt < LOGO_LOOKUP_INTERVAL_MS) {
-      const waitMs = LOGO_LOOKUP_INTERVAL_MS - (now - savedLastAt);
-      const timer = window.setTimeout(() => {
-        setLogoLookupHeartbeat((prev) => prev + 1);
-      }, Math.max(200, waitMs));
-      return () => {
-        window.clearTimeout(timer);
-      };
-    }
-
-    const targetIndex = logoLookupRoundRobinIndexRef.current % missingTickers.length;
-    const targetTicker = missingTickers[targetIndex];
-    logoLookupRoundRobinIndexRef.current += 1;
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(LOGO_LOOKUP_LAST_AT_KEY, String(now));
-    }
-
-    let cancelled = false;
-    fetchTickerLogo(targetTicker)
-      .then((res) => {
-        if (cancelled) return;
-
-        const ticker = targetTicker;
-        const resolved: Record<string, string> = {};
-        if (isValidLogoUrl(res.logo_image_url)) {
-          resolved[ticker] = res.logo_image_url as string;
-        }
-
-        if (Object.keys(resolved).length > 0) {
-          setResolvedLogoByTicker((prev) => ({ ...prev, ...resolved }));
-        }
-      })
-      .catch(() => undefined);
-
-    return () => {
-      cancelled = true;
-    };
-  }, [liveCandidates, romaCandidates, resolvedLogoByTicker, brokenLogoTickers, logoLookupHeartbeat]);
-
   const getDisplayLogoUrl = (stock: StockCandidate): string | null => {
-    const ticker = stock.ticker.trim().toUpperCase();
     const baseUrl = isValidLogoUrl(stock.logo_image_url) ? stock.logo_image_url : null;
-    const resolvedUrl = isValidLogoUrl(resolvedLogoByTicker[ticker]) ? resolvedLogoByTicker[ticker] : null;
-    if (brokenLogoTickers[ticker]) {
-      return resolvedUrl || null;
-    }
-    return baseUrl || resolvedUrl || null;
+    return baseUrl || null;
   };
 
   const renderTickerAvatar = (stock: StockCandidate) => {
-    const tickerKey = stock.ticker.trim().toUpperCase();
     const logoUrl = getDisplayLogoUrl(stock);
     if (logoUrl) {
       return (
@@ -444,13 +365,8 @@ export function ScreenerTab({
           src={logoUrl}
           alt={stock.ticker}
           className="w-9 h-9 rounded-full object-contain bg-white border border-[#e5e8eb] p-0.5 shrink-0"
-          onError={() => {
-            setBrokenLogoTickers((prev) => ({ ...prev, [tickerKey]: true }));
-            setResolvedLogoByTicker((prev) => {
-              const next = { ...prev };
-              delete next[tickerKey];
-              return next;
-            });
+          onError={(e) => {
+            (e.target as HTMLImageElement).style.display = "none";
           }}
         />
       );

@@ -2,6 +2,7 @@
 Screener API Route
 """
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field
 from app.domains.screener.chart_service import ChartService
 from app.domains.screener.clients.dataroma import MIN_HOLDERS_DEFAULT
 from app.domains.screener.logo_service import TickerLogoService
@@ -9,12 +10,18 @@ from app.domains.screener.models import (
     ScreenCriteria,
     ScreenResult,
     StockChartResponse,
+    TickerLogoBatchResponse,
     TickerLogoResponse,
 )
 from app.domains.screener.roma_service import RomaScreenerService
 from app.domains.screener.service import ScreenerService
 
 router = APIRouter(prefix="/api/screener", tags=["screener"])
+
+
+class TickerLogoBatchRequest(BaseModel):
+    tickers: list[str] = Field(default_factory=list)
+    max_count: int = Field(default=12, ge=1, le=30)
 
 
 @router.get("/run", response_model=ScreenResult, summary="토스 종합 및 12인 거장 스크리너 실행 (중복 제거)")
@@ -91,3 +98,29 @@ async def get_ticker_logo(ticker: str):
         )
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"[{normalized_ticker}] 로고 조회 실패: {e}")
+
+
+@router.post(
+    "/logos",
+    response_model=TickerLogoBatchResponse,
+    summary="여러 티커 로고 URL 조회 (Supabase 캐시 + Toss 폴백)",
+)
+async def get_ticker_logos(req: TickerLogoBatchRequest):
+    if not req.tickers:
+        return TickerLogoBatchResponse(items=[])
+
+    try:
+        service = TickerLogoService()
+        results = await service.resolve_logos(req.tickers, max_count=req.max_count)
+        return TickerLogoBatchResponse(
+            items=[
+                TickerLogoResponse(
+                    ticker=ticker,
+                    logo_image_url=logo_image_url,
+                    source=source,
+                )
+                for ticker, logo_image_url, source in results
+            ]
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"로고 일괄 조회 실패: {e}")

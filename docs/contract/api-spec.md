@@ -181,6 +181,27 @@ DataRoma Grand Portfolio(`https://www.dataroma.com/m/g/portfolio.php?o=c`)를 �
 - `toss_lookup`: 토스 조회 후 캐시에 저장되어 반환됨
 - `none`: 로고를 찾지 못함 (`logo_image_url = null`)
 
+### POST /api/screener/logos
+여러 티커 로고를 한 번에 조회합니다. (Supabase 캐시 우선, 미스 시 Toss 폴백)
+
+**Request**
+```json
+{
+  "tickers": ["AAPL", "MSFT", "BRK.B"],
+  "max_count": 12
+}
+```
+
+**Response (200)**
+```json
+{
+  "items": [
+    { "ticker": "AAPL", "logo_image_url": "https://.../aapl.png", "source": "cached" },
+    { "ticker": "MSFT", "logo_image_url": null, "source": "none" }
+  ]
+}
+```
+
 ### POST /report/generate
 단일 종목 리포트 생성
 

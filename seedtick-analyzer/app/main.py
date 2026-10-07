@@ -14,6 +14,7 @@ from app.api.routes.debug_ai import router as debug_ai_router
 from app.api.routes.debug_yahoo import router as debug_yahoo_router
 from app.config.settings import settings
 from app.domains.error_log.handlers import SupabaseLogHandler
+from app.domains.screener.logo_warmup_service import logo_warmup_service
 from app.domains.scheduler.service import scheduler_service
 
 # 로깅 설정
@@ -41,9 +42,11 @@ async def lifespan(app: FastAPI):
     """애플리케이션 수명 주기 관리 (스케줄러 시작 및 종료)"""
     logger.info("🚀 SeedTick Analyzer 시작 중...")
     scheduler_service.start()
+    await logo_warmup_service.start()
     yield
     logger.info("🛑 SeedTick Analyzer 종료 중...")
     scheduler_service.shutdown()
+    await logo_warmup_service.stop()
     supabase_log_handler.close()
 
 

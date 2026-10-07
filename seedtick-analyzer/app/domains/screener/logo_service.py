@@ -85,3 +85,30 @@ class TickerLogoService:
             return logo_image_url, "toss_lookup"
 
         return None, "none"
+
+    async def resolve_logos(
+        self,
+        tickers: list[str],
+        max_count: int = 12,
+    ) -> list[tuple[str, str | None, str]]:
+        """
+        여러 티커 로고를 순차 조회한다.
+        - 호출량 제어를 위해 max_count 상한 적용
+        - 반환: (ticker, logo_image_url, source)
+        """
+        normalized_unique: list[str] = []
+        seen: set[str] = set()
+        for ticker in tickers:
+            normalized = self._normalize_ticker(ticker)
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            normalized_unique.append(normalized)
+            if len(normalized_unique) >= max_count:
+                break
+
+        results: list[tuple[str, str | None, str]] = []
+        for ticker in normalized_unique:
+            logo_image_url, source = await self.resolve_logo(ticker)
+            results.append((ticker, logo_image_url, source))
+        return results
