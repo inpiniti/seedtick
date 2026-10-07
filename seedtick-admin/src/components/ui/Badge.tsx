@@ -14,11 +14,11 @@ interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 }
 
 const variantStyles: Record<BadgeVariant, string> = {
-  primary: "bg-[#e8f3ff] text-[#3182f6]",
-  success: "bg-[#e6f8f0] text-[#03b26c]",
-  danger: "bg-[#fef0f1] text-[#f04452]",
-  warning: "bg-[#fff5e6] text-[#ff9500]",
-  neutral: "bg-[#f2f4f6] text-[#6b7684]",
+  primary: "bg-blue-50/80 text-blue-700 border-blue-200",
+  success: "bg-emerald-50/80 text-emerald-700 border-emerald-200",
+  danger: "bg-rose-50/80 text-rose-700 border-rose-200",
+  warning: "bg-amber-50/80 text-amber-700 border-amber-200",
+  neutral: "bg-slate-50 text-slate-600 border-slate-200",
 };
 
 export function Badge({
@@ -30,7 +30,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full tracking-tight transition-colors",
+        "inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-mono font-medium rounded border tracking-tight transition-colors",
         variantStyles[variant],
         className
       )}

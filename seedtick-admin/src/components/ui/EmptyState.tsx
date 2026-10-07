@@ -10,7 +10,7 @@ export interface EmptyStateProps {
 }
 
 export function EmptyState({
-  icon = "📭",
+  icon = "📄",
   title,
   description,
   action,
@@ -19,14 +19,14 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center py-12 px-4 text-center rounded-3xl bg-white border border-[#f2f4f6]",
+        "flex flex-col items-center justify-center py-12 px-4 text-center rounded-lg bg-white border border-[#e2e8f0]",
         className
       )}
     >
-      <div className="text-4xl mb-3 select-none">{icon}</div>
-      <h4 className="text-base font-bold text-[#191f28] mb-1">{title}</h4>
+      <div className="text-3xl mb-3 select-none text-[#94a3b8]">{icon}</div>
+      <h4 className="text-sm sm:text-base font-bold text-[#0f172a] mb-1">{title}</h4>
       {description ? (
-        <p className="text-xs text-[#8b95a1] max-w-sm mb-4 leading-relaxed">
+        <p className="text-xs sm:text-sm text-[#64748b] max-w-sm mb-4 leading-relaxed">
           {description}
         </p>
       ) : null}

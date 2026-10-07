@@ -16,15 +16,25 @@ import {
   resetAiModelRotation,
   triggerPipeline,
 } from "@/lib/api-client";
-import { fetchGuruReports, fetchSystemLogs } from "@/lib/supabase";
+import {
+  fetchGuruReports,
+  fetchSystemLogs,
+  fetchReportByDateAndTicker,
+  fetchReportDatesByTicker,
+} from "@/lib/supabase";
 import { usePipelineProgress } from "@/hooks/usePipelineProgress";
 import { LiveStatusBar } from "@/components/header/LiveStatusBar";
+import {
+  ResearchSidebar,
+  SidebarSectionId,
+} from "@/components/sidebar/ResearchSidebar";
+import { ResearchCatalogView } from "@/components/research/ResearchCatalogView";
+import { ResearchDocumentModal } from "@/components/research/ResearchDocumentModal";
 import { ScreenerTab } from "@/components/tabs/ScreenerTab";
-import { LogsTab } from "@/components/tabs/LogsTab";
 import { SkeletonCard } from "@/components/ui/Skeleton";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
-import { BarChart2, Terminal, Sparkles, Activity } from "lucide-react";
+import { Sparkles, Activity, LayoutGrid, BookOpen } from "lucide-react";
 
 const DASHBOARD_FETCH_TIMEOUT_MS = 5000;
 
@@ -51,45 +61,55 @@ function buildOfflineHealth(): HealthStatus {
     default_broker: "none",
     us_market_today: {
       is_open: false,
-      status_text: "서버와 연결을 확인하고 있어요",
+      status_text: "서버와 연결을 확인하고 있습니다",
     },
   };
 }
 
 export default function AdminDashboardPage() {
-  // 활성 탭 (1: 스크리너 & 거장 리포트, 2: 로그)
-  const [activeTab, setActiveTab] = useState<"screener" | "insights" | "logs">("screener");
+  // 1. 네비게이션 & 뷰 모드 ("doc" = aihero 문서 카탈로그 스타일 [기본], "table" = 클래식 테이블)
+  const [viewFormat, setViewFormat] = useState<"doc" | "table">("doc");
+  const [activeSidebarSection, setActiveSidebarSection] =
+    useState<SidebarSectionId>("all");
 
-  // 로딩 상태
+  // 2. 로딩 상태
   const [isLoading, setIsLoading] = useState(true);
   const [isScreenerLoading, setIsScreenerLoading] = useState(false);
+  const [isRomaLoading, setIsRomaLoading] = useState(false);
 
-  // 상태 데이터
+  // 3. 상태 데이터
   const [health, setHealth] = useState<HealthStatus | null>(buildOfflineHealth());
   const [aiModel, setAiModel] = useState<AiModelStatus | null>(null);
   const [isResettingModel, setIsResettingModel] = useState(false);
 
-  // Supabase 데이터
+  // 4. 리포트 & 로그 데이터
   const [guruReports, setGuruReports] = useState<GuruReportRow[]>([]);
   const [systemLogs, setSystemLogs] = useState<SystemLogItem[]>([]);
   const [liveCandidates, setLiveCandidates] = useState<StockCandidate[]>([]);
-  // 두번째 스크리너: DataRoma 슈퍼인베스터 그랜드 포트폴리오
   const [romaCandidates, setRomaCandidates] = useState<StockCandidate[]>([]);
-  const [isRomaLoading, setIsRomaLoading] = useState(false);
 
-  // 13인 거장 파이프라인 진행 상태 (초경량: 마운트 시 1회 및 running 시 30초 간격)
+  // 5. 13인 거장 파이프라인 진행 상태
   const { progress: pipelineProgress, refresh: refreshPipelineProgress } =
     usePipelineProgress();
   const isPipelineRunning = pipelineProgress?.status === "running";
 
-  // 파이프라인 수동 실행 모달 상태
+  // 6. 파이프라인 수동 실행 모달 상태
   const [isPipelineModalOpen, setIsPipelineModalOpen] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [forceMarket, setForceMarket] = useState(false);
   const [skipAlreadyReported, setSkipAlreadyReported] = useState(true);
 
-  // 1. 전체 핵심 데이터 병렬 로드 (증권사 외부 API 제거로 초고속 로딩)
+  // 7. 리포트 상세 문서 모달 상태
+  const [selectedReport, setSelectedReport] = useState<GuruReportRow | null>(
+    null
+  );
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [availableReportDates, setAvailableReportDates] = useState<string[]>([]);
+  const [selectedReportDate, setSelectedReportDate] = useState<string | undefined>();
+  const [isLoadingReportDate, setIsLoadingReportDate] = useState(false);
+
+  // 데이터 로드
   const loadDashboardData = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -111,7 +131,6 @@ export default function AdminDashboardPage() {
     }
   }, []);
 
-  // 2. 실시간 스크리너 별도 조회
   const loadLiveScreener = useCallback(async () => {
     setIsScreenerLoading(true);
     try {
@@ -124,7 +143,6 @@ export default function AdminDashboardPage() {
     }
   }, []);
 
-  // 2-2. DataRoma 슈퍼인베스터 스크리너 별도 조회 (두번째 스크리너)
   const loadRomaScreener = useCallback(async () => {
     setIsRomaLoading(true);
     try {
@@ -137,7 +155,6 @@ export default function AdminDashboardPage() {
     }
   }, []);
 
-  // 3. AI 모델 순위 1순위 수동 초기화
   const handleResetAiModel = async () => {
     setIsResettingModel(true);
     try {
@@ -151,7 +168,6 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // 4. 로그 필터 새로고침
   const handleRefreshLogs = async (level?: string) => {
     try {
       const logs = await fetchSystemLogs(60, level);
@@ -161,7 +177,6 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // 5. 파이프라인 수동 실행 핸들러
   const handleTriggerPipeline = async () => {
     setIsActionLoading(true);
     setActionMessage(null);
@@ -171,9 +186,13 @@ export default function AdminDashboardPage() {
         skipAlreadyReported: skipAlreadyReported,
       });
       if (res?.status === "skipped") {
-        setActionMessage("이미 파이프라인이 실행 중이에요. 진행 상황을 확인해 주세요.");
+        setActionMessage(
+          "이미 파이프라인이 실행 중입니다. 진행 상황을 확인해 주세요."
+        );
       } else {
-        setActionMessage("파이프라인을 시작했어요. 백그라운드에서 분석이 진행됩니다.");
+        setActionMessage(
+          "파이프라인을 시작했습니다. 백그라운드에서 분석이 진행됩니다."
+        );
       }
       await refreshPipelineProgress();
       setTimeout(() => {
@@ -183,18 +202,100 @@ export default function AdminDashboardPage() {
       }, 1500);
     } catch (err: unknown) {
       const msg =
-        err instanceof Error ? err.message : "파이프라인 실행 중 오류가 발생했어요.";
+        err instanceof Error
+          ? err.message
+          : "파이프라인 실행 중 오류가 발생했습니다.";
       setActionMessage(msg);
     } finally {
       setIsActionLoading(false);
     }
   };
 
+  // 리포트 열기 핸들러
+  const handleOpenReport = async (report: GuruReportRow) => {
+    setSelectedReport(report);
+    setSelectedReportDate(report.d);
+    setIsReportModalOpen(true);
+
+    if (report.ticker) {
+      const localDates = guruReports
+        .filter((r) => r.ticker === report.ticker)
+        .map((r) => r.d);
+      fetchReportDatesByTicker(report.ticker).then((dbDates) => {
+        const merged = Array.from(new Set([...localDates, ...dbDates]))
+          .sort()
+          .reverse();
+        setAvailableReportDates(merged);
+      });
+    }
+  };
+
+  const handleOpenCandidateAsReport = (candidate: StockCandidate) => {
+    const existing = guruReports.find((r) => r.ticker === candidate.ticker);
+    if (existing) {
+      handleOpenReport(existing);
+      return;
+    }
+
+    // 후보군 임시 리포트 구조 생성
+    const fallback: GuruReportRow = {
+      id: `live-${candidate.ticker}`,
+      d: new Date().toISOString().split("T")[0],
+      ticker: candidate.ticker,
+      company_name: candidate.name || null,
+      current_price: candidate.price || null,
+      verdict: "분석 대기 중",
+      overall_score: candidate.guru_score || 0,
+      vote_summary: candidate.holders
+        ? `DataRoma 슈퍼인베스터 ${candidate.holders}인 보유 종목`
+        : "스크리너 발굴 종목",
+      datapack: null,
+      summaries: null,
+      discussion: null,
+      final_report: null,
+      created_at: new Date().toISOString(),
+    };
+    setSelectedReport(fallback);
+    setSelectedReportDate(fallback.d);
+    setAvailableReportDates([fallback.d]);
+    setIsReportModalOpen(true);
+  };
+
+  const handleSelectReportDate = async (targetDate: string) => {
+    if (!selectedReport || selectedReport.d === targetDate) return;
+    setIsLoadingReportDate(true);
+    try {
+      const cached = guruReports.find(
+        (r) => r.ticker === selectedReport.ticker && r.d === targetDate
+      );
+      if (cached) {
+        setSelectedReport(cached);
+        setSelectedReportDate(targetDate);
+        return;
+      }
+      const fetched = await fetchReportByDateAndTicker(
+        targetDate,
+        selectedReport.ticker
+      );
+      if (fetched) {
+        setSelectedReport(fetched);
+        setSelectedReportDate(targetDate);
+      }
+    } catch (e) {
+      console.error("보고서 날짜 조회 오류:", e);
+    } finally {
+      setIsLoadingReportDate(false);
+    }
+  };
+
+  // 초기 마운트
   useEffect(() => {
     loadDashboardData();
-  }, [loadDashboardData]);
+    loadLiveScreener();
+    loadRomaScreener();
+  }, [loadDashboardData, loadLiveScreener, loadRomaScreener]);
 
-  // 파이프라인 완료/실패 시 리포트·표결 목록 자동 갱신
+  // 파이프라인 완료 시 데이터 자동 리프레시
   const prevPipelineStatus = useRef<string | null>(null);
   useEffect(() => {
     const status = pipelineProgress?.status ?? null;
@@ -205,264 +306,207 @@ export default function AdminDashboardPage() {
     }
   }, [pipelineProgress?.status, loadDashboardData]);
 
-  // 스크리너 탭 진입 시 실시간 데이터가 없으면 자동 페칭
-  useEffect(() => {
-    if (
-      (activeTab === "screener" || activeTab === "insights") &&
-      liveCandidates.length === 0 &&
-      !isScreenerLoading
-    ) {
-      loadLiveScreener();
+  // 사이드바 클릭 시 스크롤 이동
+  const handleSelectSidebarSection = (sec: SidebarSectionId) => {
+    setActiveSidebarSection(sec);
+    if (sec !== "all") {
+      const el = document.getElementById(sec);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth" });
+      }
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
-  }, [activeTab, liveCandidates.length, isScreenerLoading, loadLiveScreener]);
+  };
 
   return (
-    <div className="min-h-screen bg-[#f7f9fc] flex flex-col font-sans">
-      {/* 1. 상단 라이브 헤더 바 */}
-      <LiveStatusBar
-        health={health}
-        aiModel={aiModel}
-        isResettingModel={isResettingModel}
-        onResetModel={handleResetAiModel}
-        isLoading={isLoading}
-        onRefresh={loadDashboardData}
-      />
+    <div className="min-h-screen bg-[color:var(--page-background)] flex flex-col font-sans">
+      {/* ── 프레임 컨테이너: max-w-[1456px] 및 border-x ── */}
+      <div className="relative mx-auto w-full max-w-[1456px] min-h-screen flex flex-col bg-white border-x border-[#e2e8f0] shadow-xs">
+        {/* 1. 상단 Sticky 헤더 */}
+        <LiveStatusBar
+          health={health}
+          aiModel={aiModel}
+          isResettingModel={isResettingModel}
+          onResetModel={handleResetAiModel}
+          isLoading={isLoading}
+          onRefresh={loadDashboardData}
+          onOpenPipelineModal={() => setIsPipelineModalOpen(true)}
+          isPipelineRunning={isPipelineRunning}
+        />
 
-      {/* 2. 메인 컨테이너 */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3.5 sm:px-8 py-4 sm:py-6 space-y-5 pb-24 md:pb-8">
-        {/* 상단 액션 바: 세그먼트 탭 & 13인 거장 파이프라인 즉시 실행 버튼 */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          {/* [데스크톱 전용] 상단 세그먼트 탭 바 */}
-          <div className="hidden md:flex items-center gap-2 p-1.5 bg-white rounded-3xl border border-[#f2f4f6] shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
-            <button
-              onClick={() => setActiveTab("screener")}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === "screener"
-                  ? "bg-[#3182f6] text-white shadow-sm"
-                  : "text-[#6b7684] hover:text-[#191f28] hover:bg-[#f9fafb]"
-              }`}
-            >
-              <BarChart2 className="w-4 h-4" />
-              <span>1. 실시간 스크리너</span>
-            </button>
+        {/* 2. 바디 영역: 좌측 사이드바 + 우측 메인 콘텐츠 */}
+        <div className="flex-1 flex w-full min-h-0">
+          {/* 좌측 사이드바 (데스크톱 고정) */}
+          <ResearchSidebar
+            activeSection={activeSidebarSection}
+            onSelectSection={handleSelectSidebarSection}
+            reportCount={guruReports.length}
+            candidateCount={liveCandidates.length}
+            romaCount={romaCandidates.length}
+            logCount={systemLogs.length}
+          />
 
-            <button
-              onClick={() => setActiveTab("insights")}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === "insights"
-                  ? "bg-[#3182f6] text-white shadow-sm"
-                  : "text-[#6b7684] hover:text-[#191f28] hover:bg-[#f9fafb]"
-              }`}
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>2. 의사결정 인사이트</span>
-            </button>
+          {/* 우측 메인 영역 */}
+          <main className="flex-1 min-w-0 flex flex-col">
+            {/* 뷰 포맷 토글 바 (문서 카탈로그 vs 고급 테이블) */}
+            <div className="border-b border-[#e2e8f0] px-6 lg:px-12 py-2.5 bg-[#f8fafc] flex items-center justify-between text-xs font-mono">
+              <span className="text-[#64748b]">
+                {viewFormat === "doc"
+                  ? "VIEW MODE: DOCUMENTATION & INSIGHT CATALOG"
+                  : "VIEW MODE: ADVANCED TABLE & SCREENER"}
+              </span>
 
-            <button
-              onClick={() => setActiveTab("logs")}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === "logs"
-                  ? "bg-[#3182f6] text-white shadow-sm"
-                  : "text-[#6b7684] hover:text-[#191f28] hover:bg-[#f9fafb]"
-              }`}
-            >
-              <Terminal className="w-4 h-4" />
-              <span>3. 시스템 & 에러 로그</span>
-              {systemLogs.length > 0 ? (
-                <span
-                  className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                    activeTab === "logs"
-                      ? "bg-white text-[#3182f6]"
-                      : "bg-[#f2f4f6] text-[#6b7684]"
+              <div className="flex items-center gap-1 bg-white border border-[#e2e8f0] p-0.5 rounded">
+                <button
+                  onClick={() => setViewFormat("doc")}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
+                    viewFormat === "doc"
+                      ? "bg-[#0f172a] text-white font-medium"
+                      : "text-[#64748b] hover:text-[#0f172a]"
                   }`}
                 >
-                  {systemLogs.length}
-                </span>
-              ) : null}
-            </button>
-          </div>
+                  <BookOpen className="w-3.5 h-3.5" />
+                  <span>문서 카탈로그 (aihero)</span>
+                </button>
+                <button
+                  onClick={() => setViewFormat("table")}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
+                    viewFormat === "table"
+                      ? "bg-[#0f172a] text-white font-medium"
+                      : "text-[#64748b] hover:text-[#0f172a]"
+                  }`}
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span>고급 테이블 보기</span>
+                </button>
+              </div>
+            </div>
 
-          {/* 파이프라인 수동 실행 버튼 */}
-          <div className="flex items-center gap-2">
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => setIsPipelineModalOpen(true)}
-              disabled={isPipelineRunning}
-              leftIcon={
-                isPipelineRunning ? (
-                  <Activity className="w-4 h-4 animate-pulse" />
-                ) : (
-                  <Sparkles className="w-4 h-4" />
-                )
-              }
-              className="w-full sm:w-auto justify-center font-bold text-xs sm:text-sm rounded-2xl shadow-xs"
-            >
-              {isPipelineRunning ? "13인 분석 실행 중..." : "12:00 파이프라인 지금 실행"}
-            </Button>
-          </div>
-        </div>
-
-        {/* 탭 콘텐츠 렌더링 (도허티 임계 스켈레톤 적용) */}
-        {isLoading && !health ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-          </div>
-        ) : (
-          <>
-            {activeTab === "screener" ? (
-              <ScreenerTab
-                key="tab-screener"
-                viewMode="screener-only"
+            {/* 초기 로딩 스켈레톤 */}
+            {isLoading && !health ? (
+              <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <SkeletonCard />
+                <SkeletonCard />
+                <SkeletonCard />
+              </div>
+            ) : viewFormat === "doc" ? (
+              /* [A] aihero.dev/skills 스타일 번호 매김형 문서 카탈로그 */
+              <ResearchCatalogView
                 guruReports={guruReports}
                 liveCandidates={liveCandidates}
                 romaCandidates={romaCandidates}
-                isRomaLoading={isRomaLoading}
-                isLoading={isScreenerLoading}
+                systemLogs={systemLogs}
                 pipelineProgress={pipelineProgress}
+                isLoading={isScreenerLoading}
+                isRomaLoading={isRomaLoading}
                 onRefreshLive={loadLiveScreener}
                 onRefreshRoma={loadRomaScreener}
                 onRefreshPipeline={refreshPipelineProgress}
+                onRefreshLogs={handleRefreshLogs}
+                onSelectReport={handleOpenReport}
+                onSelectCandidate={handleOpenCandidateAsReport}
+                activeSectionFilter={activeSidebarSection}
               />
-            ) : null}
-
-            {activeTab === "insights" ? (
-              <ScreenerTab
-                key="tab-insights"
-                viewMode="insights-only"
-                guruReports={guruReports}
-                liveCandidates={liveCandidates}
-                romaCandidates={romaCandidates}
-                isRomaLoading={isRomaLoading}
-                isLoading={isScreenerLoading}
-                pipelineProgress={pipelineProgress}
-                onRefreshLive={loadLiveScreener}
-                onRefreshRoma={loadRomaScreener}
-                onRefreshPipeline={refreshPipelineProgress}
-              />
-            ) : null}
-
-            {activeTab === "logs" ? (
-              <LogsTab
-                logs={systemLogs}
-                isLoading={isLoading}
-                onRefresh={handleRefreshLogs}
-              />
-            ) : null}
-          </>
-        )}
-      </main>
-
-      {/* [모바일 전용] 하단 고정 네비게이션 바 */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-[#f2f4f6] z-40 px-4 py-1.5 shadow-[0_-2px_10px_rgba(0,0,0,0.04)]">
-        <div className="grid grid-cols-3 gap-2">
-          <button
-            onClick={() => setActiveTab("screener")}
-            className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-2xl transition-all cursor-pointer ${
-              activeTab === "screener"
-                ? "text-[#3182f6] font-bold"
-                : "text-[#8b95a1] hover:text-[#4e5968]"
-            }`}
-          >
-            <BarChart2 className="w-5 h-5" />
-            <span className="text-[11px] mt-1 tracking-tight">실시간 스크리너</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("insights")}
-            className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-2xl transition-all cursor-pointer ${
-              activeTab === "insights"
-                ? "text-[#3182f6] font-bold"
-                : "text-[#8b95a1] hover:text-[#4e5968]"
-            }`}
-          >
-            <Sparkles className="w-5 h-5" />
-            <span className="text-[11px] mt-1 tracking-tight">인사이트</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("logs")}
-            className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-2xl transition-all cursor-pointer ${
-              activeTab === "logs"
-                ? "text-[#3182f6] font-bold"
-                : "text-[#8b95a1] hover:text-[#4e5968]"
-            }`}
-          >
-            <Terminal className="w-5 h-5" />
-            <span className="text-[11px] mt-1 tracking-tight">시스템 로그</span>
-          </button>
-        </div>
-      </nav>
-
-      {/* 모달: 일일 파이프라인 수동 즉시 실행 모달 */}
-      <Modal
-        isOpen={isPipelineModalOpen}
-        onClose={() => setIsPipelineModalOpen(false)}
-      >
-        <Modal.Header
-          title="12:00 일일 분석 파이프라인을 실행할까요?"
-          description="토스 거장 통합 스크리닝 통과 종목 전체에 대해 13인 심층 분석 보고서를 백그라운드로 생성합니다."
-        />
-        <Modal.Body>
-          <div className="space-y-4">
-            <label className="flex items-center gap-2 text-sm text-[#191f28] cursor-pointer">
-              <input
-                type="checkbox"
-                checked={skipAlreadyReported}
-                onChange={(e) => setSkipAlreadyReported(e.target.checked)}
-                className="w-4 h-4 rounded text-[#3182f6] focus:ring-0"
-              />
-              <span className="font-medium">
-                오늘 이미 리포트 등록된 종목은 제외하고 작성{" "}
-                <span className="text-[#3182f6] text-xs font-semibold">(추천)</span>
-              </span>
-            </label>
-            <label className="flex items-center gap-2 text-sm text-[#191f28] cursor-pointer">
-              <input
-                type="checkbox"
-                checked={forceMarket}
-                onChange={(e) => setForceMarket(e.target.checked)}
-                className="w-4 h-4 rounded text-[#3182f6] focus:ring-0"
-              />
-              <span>휴장일/주말 가드를 건너뛰고 강제 실행</span>
-            </label>
-            {actionMessage && (
-              <div className="p-3 rounded-2xl bg-[#e8f3ff] text-[#3182f6] text-sm font-medium">
-                {actionMessage}
+            ) : (
+              /* [B] 고급 세부 테이블 뷰 (ScreenerTab) */
+              <div className="p-6 lg:p-8">
+                <ScreenerTab
+                  guruReports={guruReports}
+                  liveCandidates={liveCandidates}
+                  romaCandidates={romaCandidates}
+                  isRomaLoading={isRomaLoading}
+                  isLoading={isScreenerLoading}
+                  pipelineProgress={pipelineProgress}
+                  onRefreshLive={loadLiveScreener}
+                  onRefreshRoma={loadRomaScreener}
+                  onRefreshPipeline={refreshPipelineProgress}
+                />
               </div>
             )}
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button
-            variant="secondary"
-            onClick={() => setIsPipelineModalOpen(false)}
-            disabled={isActionLoading}
-          >
-            닫기
-          </Button>
-          <Button
-            variant="primary"
-            onClick={handleTriggerPipeline}
-            disabled={isPipelineRunning}
-            isLoading={isActionLoading}
-          >
-            {isPipelineRunning ? "이미 실행 중이에요" : "파이프라인 실행하기"}
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      {/* 데스크톱 푸터 */}
-      <footer className="hidden md:block mt-auto py-6 border-t border-[#f2f4f6] text-center text-xs text-[#8b95a1]">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>SeedTick Admin Console · 13인 거장 AI 스크리닝 & 심층 분석 관제센터</span>
-          <span className="font-mono text-[11px]">
-            API Gateway: seedtick-ai-gateway · Engine: seedtick-analyzer
-          </span>
+          </main>
         </div>
-      </footer>
+
+        {/* 3. 리포트 상세 문서 모달 (화이트페이퍼 뷰어) */}
+        <ResearchDocumentModal
+          report={selectedReport}
+          isOpen={isReportModalOpen}
+          onClose={() => setIsReportModalOpen(false)}
+          availableDates={availableReportDates}
+          selectedDate={selectedReportDate}
+          onSelectDate={handleSelectReportDate}
+          isLoadingDate={isLoadingReportDate}
+        />
+
+        {/* 4. 일일 파이프라인 수동 실행 모달 */}
+        <Modal
+          isOpen={isPipelineModalOpen}
+          onClose={() => setIsPipelineModalOpen(false)}
+        >
+          <Modal.Header
+            title="12:00 일일 분석 파이프라인을 실행하시겠습니까?"
+            description="스크리닝 통과 종목 전체에 대해 13인 심층 분석 보고서를 백그라운드로 생성합니다."
+          />
+          <Modal.Body>
+            <div className="space-y-4 font-mono text-xs">
+              <label className="flex items-center gap-2 text-[#0f172a] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={skipAlreadyReported}
+                  onChange={(e) => setSkipAlreadyReported(e.target.checked)}
+                  className="w-4 h-4 rounded border-[#cbd5e1] text-[#0f172a] focus:ring-0"
+                />
+                <span className="font-medium">
+                  오늘 이미 리포트 등록된 종목은 제외하고 작성 (추천)
+                </span>
+              </label>
+              <label className="flex items-center gap-2 text-[#0f172a] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={forceMarket}
+                  onChange={(e) => setForceMarket(e.target.checked)}
+                  className="w-4 h-4 rounded border-[#cbd5e1] text-[#0f172a] focus:ring-0"
+                />
+                <span>휴장일/주말 가드를 건너뛰고 강제 실행</span>
+              </label>
+              {actionMessage && (
+                <div className="p-3 rounded bg-blue-50 border border-blue-200 text-blue-700 text-xs">
+                  {actionMessage}
+                </div>
+              )}
+            </div>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button
+              variant="secondary"
+              onClick={() => setIsPipelineModalOpen(false)}
+              disabled={isActionLoading}
+            >
+              닫기
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleTriggerPipeline}
+              disabled={isPipelineRunning}
+              isLoading={isActionLoading}
+            >
+              {isPipelineRunning ? "이미 실행 중입니다" : "파이프라인 실행"}
+            </Button>
+          </Modal.Footer>
+        </Modal>
+
+        {/* 5. 에디토리얼 푸터 */}
+        <footer className="py-6 border-t border-[#e2e8f0] px-6 lg:px-12 bg-[#fafafa] text-xs font-mono text-[#64748b]">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+            <span>
+              SeedTick Research Console · 13 Gurus AI Valuation & Insight Archive
+            </span>
+            <span className="text-[#94a3b8]">
+              API Gateway: seedtick-ai-gateway · Engine: seedtick-analyzer
+            </span>
+          </div>
+        </footer>
+      </div>
     </div>
   );
 }

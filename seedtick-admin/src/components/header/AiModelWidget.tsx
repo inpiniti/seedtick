@@ -3,7 +3,7 @@
 import React from "react";
 import { AiModelStatus } from "@/types/api";
 import { Button } from "@/components/ui/Button";
-import { Bot, RotateCcw } from "lucide-react";
+import { Cpu, RotateCcw } from "lucide-react";
 
 interface AiModelWidgetProps {
   aiModel: AiModelStatus | null;
@@ -11,55 +11,47 @@ interface AiModelWidgetProps {
   onReset: () => void;
 }
 
-/**
- * 현재 사용 중인 AI 모델 위젯.
- *
- * 1순위 모델이 프로바이더 과부하로 실패하면 서버가 자동으로 다음 순위로 내려간다.
- * 여기서는 현재 어느 순위에 있는지와, 왜 내려왔는지를 보여준다.
- */
 export function AiModelWidget({ aiModel, isResetting, onReset }: AiModelWidgetProps) {
-  // 1순위 상태면 초록, 우회 상태면 주황
   const isFirst = aiModel?.is_first ?? true;
-  const rankLabel = aiModel ? `${aiModel.active_index + 1}/${aiModel.chain.length}순위` : "확인 중...";
+  const activeModel = aiModel?.active_model || "대기 중";
+  const rankLabel = aiModel
+    ? `${aiModel.active_index + 1}/${aiModel.chain.length}`
+    : "-";
 
   return (
-    <div className="col-span-2 sm:col-span-1 bg-[#f9fafb] border border-[#e5e8eb] px-3 py-2 sm:py-1.5 rounded-2xl min-w-0">
+    <div className="inline-flex items-center gap-2 border border-[#e2e8f0] bg-[#f8fafc] px-2.5 py-1 rounded-md text-xs font-mono">
       <div className="flex items-center gap-1.5 min-w-0">
-        <Bot className={`w-3.5 h-3.5 shrink-0 ${isFirst ? "text-[#03b26c]" : "text-[#ff9500]"}`} />
-        <span className="text-[#8b95a1] text-[11px] sm:text-xs font-medium shrink-0">AI:</span>
+        <Cpu className={`w-3.5 h-3.5 shrink-0 ${isFirst ? "text-emerald-600" : "text-amber-600"}`} />
+        <span className="text-[#64748b] text-[11px]">AI:</span>
         <span
-          className={`font-bold text-[11px] sm:text-xs truncate min-w-0 ${
-            isFirst ? "text-[#03b26c]" : "text-[#ff9500]"
-          }`}
-          title={aiModel?.active_model || ""}
+          className="font-semibold text-[#0f172a] truncate max-w-[120px] sm:max-w-[160px]"
+          title={activeModel}
         >
-          {aiModel?.active_model || "확인 중..."}
+          {activeModel}
         </span>
       </div>
 
       {aiModel && (
-        <div className="flex items-center gap-1.5 mt-1 pl-0 sm:pl-5 flex-wrap">
+        <div className="flex items-center gap-1.5">
           <span
-            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${
-              isFirst ? "bg-[#e6f7ef] text-[#03b26c]" : "bg-[#fff4e5] text-[#ff9500]"
+            className={`text-[10px] px-1.5 py-0.2 rounded border font-mono ${
+              isFirst
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                : "bg-amber-50 text-amber-700 border-amber-200"
             }`}
           >
-            {isFirst ? "기본값" : rankLabel}
+            {isFirst ? "P1" : `P${rankLabel}`}
           </span>
-          {aiModel.switch_count > 0 && (
-            <span className="text-[10px] text-[#8b95a1]">오늘 {aiModel.switch_count}회 전환</span>
-          )}
           <Button
             variant="ghost"
             size="sm"
             onClick={onReset}
             isLoading={isResetting}
             disabled={isFirst && (aiModel?.switch_count ?? 0) === 0}
-            className="h-6 px-1.5 text-[10px] rounded-md text-[#8b95a1] hover:text-[#3182f6] ml-auto sm:ml-0"
-            title="모델 순위를 1순위로 되돌립니다"
+            className="h-5 px-1 text-[10px] text-[#64748b] hover:text-[#0f172a] rounded"
+            title="모델 순위를 1순위로 리셋"
           >
             {!isResetting ? <RotateCcw className="w-2.5 h-2.5" /> : null}
-            초기화
           </Button>
         </div>
       )}

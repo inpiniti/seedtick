@@ -1964,53 +1964,53 @@ export function ScreenerTab({
             })()}
 
             {/* 마크다운 뷰 탭 전환 버튼 (5개 모드: 최종보고서, 원탁토론, 개별서머리, 데이터팩, 일봉차트) */}
-            <div className="flex items-center gap-1 p-1 bg-[#f2f4f6] rounded-2xl overflow-x-auto -mx-1 px-1">
+            <div className="flex items-center gap-1 p-1 bg-[#f1f5f9] border border-[#e2e8f0] rounded-md overflow-x-auto -mx-1 px-1 font-mono text-xs">
               <button
                 onClick={() => setReportViewMode("final")}
-                className={`shrink-0 sm:shrink sm:flex-1 py-1.5 px-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
+                className={`shrink-0 sm:shrink sm:flex-1 py-1 px-2.5 rounded transition-all cursor-pointer whitespace-nowrap ${
                   reportViewMode === "final"
-                    ? "bg-white text-[#3182f6] shadow-xs"
-                    : "text-[#8b95a1] hover:text-[#4e5968]"
+                    ? "bg-[#0f172a] text-white font-medium shadow-xs"
+                    : "text-[#64748b] hover:text-[#0f172a]"
                 }`}
               >
                 최종 마스터 보고서
               </button>
               <button
                 onClick={() => setReportViewMode("discussion")}
-                className={`shrink-0 sm:shrink sm:flex-1 py-1.5 px-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
+                className={`shrink-0 sm:shrink sm:flex-1 py-1 px-2.5 rounded transition-all cursor-pointer whitespace-nowrap ${
                   reportViewMode === "discussion"
-                    ? "bg-white text-[#3182f6] shadow-xs"
-                    : "text-[#8b95a1] hover:text-[#4e5968]"
+                    ? "bg-[#0f172a] text-white font-medium shadow-xs"
+                    : "text-[#64748b] hover:text-[#0f172a]"
                 }`}
               >
                 13인 거장 원탁 토론
               </button>
               <button
                 onClick={() => setReportViewMode("summaries")}
-                className={`shrink-0 sm:shrink sm:flex-1 py-1.5 px-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
+                className={`shrink-0 sm:shrink sm:flex-1 py-1 px-2.5 rounded transition-all cursor-pointer whitespace-nowrap ${
                   reportViewMode === "summaries"
-                    ? "bg-white text-[#3182f6] shadow-xs"
-                    : "text-[#8b95a1] hover:text-[#4e5968]"
+                    ? "bg-[#0f172a] text-white font-medium shadow-xs"
+                    : "text-[#64748b] hover:text-[#0f172a]"
                 }`}
               >
                 13인 개별 서머리
               </button>
               <button
                 onClick={() => setReportViewMode("datapack")}
-                className={`shrink-0 sm:shrink sm:flex-1 py-1.5 px-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
+                className={`shrink-0 sm:shrink sm:flex-1 py-1 px-2.5 rounded transition-all cursor-pointer whitespace-nowrap ${
                   reportViewMode === "datapack"
-                    ? "bg-white text-[#3182f6] shadow-xs"
-                    : "text-[#8b95a1] hover:text-[#4e5968]"
+                    ? "bg-[#0f172a] text-white font-medium shadow-xs"
+                    : "text-[#64748b] hover:text-[#0f172a]"
                 }`}
               >
                 심층 데이터팩
               </button>
               <button
                 onClick={() => setReportViewMode("chart")}
-                className={`shrink-0 sm:shrink sm:flex-1 py-1.5 px-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-1 ${
+                className={`shrink-0 sm:shrink sm:flex-1 py-1 px-2.5 rounded transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-1 ${
                   reportViewMode === "chart"
-                    ? "bg-white text-[#3182f6] shadow-xs"
-                    : "text-[#8b95a1] hover:text-[#4e5968]"
+                    ? "bg-[#0f172a] text-white font-medium shadow-xs"
+                    : "text-[#64748b] hover:text-[#0f172a]"
                 }`}
               >
                 <TrendingUp className="w-3.5 h-3.5" />
@@ -2019,7 +2019,7 @@ export function ScreenerTab({
             </div>
 
             {/* 리포트 본문 / 서머리 / 데이터팩 / 차트 렌더링 */}
-            <div className="p-4 sm:p-5 rounded-3xl bg-white border border-[#e5e8eb] shadow-xs max-h-[62vh] overflow-y-auto">
+            <div className="p-4 sm:p-5 rounded-md bg-white border border-[#e2e8f0] shadow-xs max-h-[62vh] overflow-y-auto">
               {reportViewMode === "final" && (
                 selectedReport?.final_report ? (
                   <MarkdownViewer content={selectedReport.final_report} />
