@@ -10,6 +10,7 @@ from app.domains.error_log.notifiers.discord import DiscordNotifier
 from app.domains.report.pipeline_progress import pipeline_progress
 from app.domains.report.service import GuruReportService
 from app.domains.scheduler.market_guard import MarketCalendarGuard
+from app.domains.screener.models import ScreenCriteria
 from app.domains.screener.roma_service import RomaScreenerService
 from app.domains.screener.service import ScreenerService
 from app.infrastructure.supabase_repo import supabase_repo
@@ -114,6 +115,29 @@ async def _run_daily_pipeline(
         )
     except Exception as e:
         logger.warning(f"[Scheduler] DataRoma 스크리너 조회 실패 (토스 스크리닝만 진행): {e}")
+
+    # ── 2-0-B. 한국장 실시간 발굴 병합 (토스 공통 + 조건 강화 5단계 적용) ─────
+    # - 국장은 전체 조건(공통)으로만 조회하며, 조건강화옵션(5단계)을 적용해
+    #   100여 개 종목 중 재무 건전성 및 수익성이 가장 우수한 정예 종목만 추출
+    kr_added_count = 0
+    try:
+        kr_criteria = ScreenCriteria(nation="kr", preset="공통", tighten_step=5, size=50)
+        kr_result = await screener_service.get_stock_list(kr_criteria)
+        for item in kr_result.tickers:
+            ticker = item.ticker
+            if ticker in ticker_screeners_map:
+                if "국장공통" not in ticker_screeners_map[ticker]:
+                    ticker_screeners_map[ticker].append("국장공통")
+                continue
+            ticker_screeners_map[ticker] = list(item.screeners) if item.screeners else ["국장공통"]
+            ordered_tickers.append(ticker)
+            kr_added_count += 1
+        logger.info(
+            f"[Scheduler] 한국장 스크리너(조건강화 5단계) 병합 완료: 발굴 {kr_result.count}개 "
+            f"(신규 편입 {kr_added_count}개, 최종 대상 {len(ordered_tickers)}개)"
+        )
+    except Exception as e:
+        logger.warning(f"[Scheduler] 한국장 스크리너 조회 실패 (미국장 위주 진행): {e}")
 
     # 분석 대상 종목 선정 (기본 0 또는 None이면 전체 무제한 정밀 분석)
     limit = max_analyze_count if max_analyze_count is not None else settings.MAX_ANALYZE_COUNT

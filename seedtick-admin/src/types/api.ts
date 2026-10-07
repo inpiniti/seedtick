@@ -65,6 +65,9 @@ export interface StockCandidate {
   preset?: string;
   guru_score?: number;
   screeners?: string[];
+  nation?: "us" | "kr" | string;
+  category?: string | null;
+  tighten_step?: number | null;
 
   // DataRoma 슈퍼인베스터 포트폴리오(두번째 스크리너) 전용 선택 필드
   /** 해당 종목을 보유한 슈퍼인베스터 수 */
@@ -84,6 +87,7 @@ export interface ScreenerCriteria {
   nation: string;
   size: number;
   page?: number;
+  tighten_step?: number;
   exclude_tickers?: string[];
 }
 

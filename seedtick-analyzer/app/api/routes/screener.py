@@ -30,6 +30,7 @@ async def run_screener(
     nation: str = Query("us", description="국가 (us: 해외, kr: 국내)"),
     size: int = Query(200, ge=1, le=200, description="조회 건수 (최대 200)"),
     page: int = Query(1, ge=1, description="페이지 번호"),
+    tighten_step: int = Query(0, ge=0, le=7, description="조건 강화 옵션 단계 (0: 기본 공통, 1~5: 단계별 강화, 6~7: 초강화)"),
 ):
     try:
         criteria = ScreenCriteria(
@@ -37,6 +38,7 @@ async def run_screener(
             nation=nation,
             size=size,
             page=page,
+            tighten_step=tighten_step,
         )
         service = ScreenerService()
         return await service.get_stock_list(criteria)

@@ -38,18 +38,110 @@ import {
   TrendingUp,
   Award,
   Calendar,
+  SlidersHorizontal,
 } from "lucide-react";
+import { formatPriceByNation, formatMarketCap } from "@/lib/utils";
+
+const KR_TIGHTEN_STEP_INFO: Record<
+  number,
+  {
+    label: string;
+    desc: string;
+    mcap: string;
+    debt: string;
+    op: string;
+    roe: string;
+    interest: string;
+  }
+> = {
+  0: {
+    label: "0단계 (기본)",
+    desc: "13인 공통 최소 요건 (약 133개)",
+    mcap: "3,000억↑",
+    debt: "100%↓",
+    interest: "3.0배↑",
+    op: "10%↑",
+    roe: "10%↑",
+  },
+  1: {
+    label: "1단계",
+    desc: "수익성 소폭 강화 (약 123개)",
+    mcap: "3,000억↑",
+    debt: "100%↓",
+    interest: "3.0배↑",
+    op: "11%↑",
+    roe: "11%↑",
+  },
+  2: {
+    label: "2단계",
+    desc: "이자보상 강화 (약 113개)",
+    mcap: "3,000억↑",
+    debt: "100%↓",
+    interest: "4.0배↑",
+    op: "12%↑",
+    roe: "12%↑",
+  },
+  3: {
+    label: "3단계",
+    desc: "중대형 알짜 압축 (약 90개)",
+    mcap: "4,000억↑",
+    debt: "100%↓",
+    interest: "4.0배↑",
+    op: "13%↑",
+    roe: "13%↑",
+  },
+  4: {
+    label: "4단계",
+    desc: "부채 안정화 (약 75개)",
+    mcap: "4,500억↑",
+    debt: "90%↓",
+    interest: "5.0배↑",
+    op: "14%↑",
+    roe: "14%↑",
+  },
+  5: {
+    label: "5단계 (추천)",
+    desc: "고수익 저부채 핵심 알짜 (약 61개)",
+    mcap: "5,000억↑",
+    debt: "80%↓",
+    interest: "5.0배↑",
+    op: "15%↑",
+    roe: "15%↑",
+  },
+  6: {
+    label: "6단계",
+    desc: "초강화 프리미엄 (약 32개)",
+    mcap: "6,000억↑",
+    debt: "70%↓",
+    interest: "7.0배↑",
+    op: "18%↑",
+    roe: "18%↑",
+  },
+  7: {
+    label: "7단계",
+    desc: "최상위 극대화 (약 26개)",
+    mcap: "7,000억↑",
+    debt: "60%↓",
+    interest: "10.0배↑",
+    op: "20%↑",
+    roe: "20%↑",
+  },
+};
 
 interface ResearchCatalogViewProps {
   guruReports: GuruReportRow[];
   liveCandidates: StockCandidate[];
+  krCandidates?: StockCandidate[];
   romaCandidates: StockCandidate[];
   systemLogs: SystemLogItem[];
   pipelineProgress: PipelineProgress | null;
   isLoading: boolean;
+  isKrLoading?: boolean;
   isRomaLoading: boolean;
+  krTightenStep?: number;
   percentBByTicker: Record<string, number | null>;
   onRefreshLive: () => void;
+  onRefreshKr?: (step?: number) => void;
   onRefreshRoma: () => void;
   onRefreshPipeline: () => void;
   onRefreshLogs: (level?: string) => void;
@@ -68,13 +160,17 @@ interface ResearchCatalogViewProps {
 export function ResearchCatalogView({
   guruReports,
   liveCandidates,
+  krCandidates = [],
   romaCandidates,
   systemLogs,
   pipelineProgress,
   isLoading,
+  isKrLoading = false,
   isRomaLoading,
+  krTightenStep = 5,
   percentBByTicker,
   onRefreshLive,
+  onRefreshKr,
   onRefreshRoma,
   onRefreshPipeline,
   onRefreshLogs,
@@ -97,6 +193,16 @@ export function ResearchCatalogView({
   const [selectedGuruForModal, setSelectedGuruForModal] =
     useState<GuruPersona | null>(null);
 
+  // 실시간 발굴 후보군 마켓(미국장 vs 한국장) 및 한국장 조건강화 단계 상태
+  const [candidateMarket, setCandidateMarket] = useState<"us" | "kr">("us");
+  const [currentKrStep, setCurrentKrStep] = useState<number>(krTightenStep ?? 5);
+
+  React.useEffect(() => {
+    if (krTightenStep !== undefined) {
+      setCurrentKrStep(krTightenStep);
+    }
+  }, [krTightenStep]);
+
   const isAll = activeSectionFilter === "all";
 
   // 티커별 최신 리포트 맵
@@ -113,11 +219,14 @@ export function ResearchCatalogView({
   const candidateByTicker = useMemo(() => {
     const map = new Map<string, StockCandidate>();
     for (const c of liveCandidates) map.set(c.ticker.toUpperCase(), c);
+    for (const c of krCandidates) {
+      if (!map.has(c.ticker.toUpperCase())) map.set(c.ticker.toUpperCase(), c);
+    }
     for (const c of romaCandidates) {
       if (!map.has(c.ticker.toUpperCase())) map.set(c.ticker.toUpperCase(), c);
     }
     return map;
-  }, [liveCandidates, romaCandidates]);
+  }, [liveCandidates, krCandidates, romaCandidates]);
 
   // 내재가치 안정성 맵 (부모 주입 우선, 없을 시 자체 리포트 기반 폴백)
   const intrinsicStabilityByTicker = useMemo(() => {
@@ -253,16 +362,21 @@ export function ResearchCatalogView({
     );
   }, [romaCandidates, searchQuery]);
 
-  // 3. 실시간 후보군 전체 필터링
+  // 3. 실시간 후보군 전체 필터링 (미국장 / 한국장 분기)
+  const activeCandidatesList = useMemo(() => {
+    return candidateMarket === "us" ? liveCandidates : krCandidates;
+  }, [candidateMarket, liveCandidates, krCandidates]);
+
   const filteredCandidates = useMemo(() => {
-    if (!searchQuery.trim()) return liveCandidates;
+    if (!searchQuery.trim()) return activeCandidatesList;
     const q = searchQuery.toLowerCase();
-    return liveCandidates.filter(
+    return activeCandidatesList.filter(
       (c) =>
         c.ticker.toLowerCase().includes(q) ||
-        (c.name && c.name.toLowerCase().includes(q))
+        (c.name && c.name.toLowerCase().includes(q)) ||
+        (c.category && c.category.toLowerCase().includes(q))
     );
-  }, [liveCandidates, searchQuery]);
+  }, [activeCandidatesList, searchQuery]);
 
   // [리스트 수 조절] 전체 홈일 때는 10개만, 개별 메뉴 선택 시 전체 표시
   const displayedReports = isAll
@@ -1073,20 +1187,139 @@ export function ResearchCatalogView({
                   실시간 발굴 후보군
                 </h2>
               </div>
+
+              {/* 마켓 전환 탭: 미국장 (13인 종합) vs 한국장 (공통 + 조건강화) */}
+              <div className="flex items-center gap-1.5 p-1 bg-[#f1f5f9] rounded-lg font-mono text-xs">
+                <button
+                  type="button"
+                  onClick={() => setCandidateMarket("us")}
+                  className={`flex-1 py-1.5 px-3 rounded-md transition-all font-medium flex items-center justify-center gap-1.5 cursor-pointer ${
+                    candidateMarket === "us"
+                      ? "bg-white text-[#0f172a] shadow-2xs font-semibold"
+                      : "text-[#64748b] hover:text-[#0f172a]"
+                  }`}
+                >
+                  <span>🇺🇸 미국장</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-[#e2e8f0] text-[#334155]">
+                    {liveCandidates.length}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCandidateMarket("kr")}
+                  className={`flex-1 py-1.5 px-3 rounded-md transition-all font-medium flex items-center justify-center gap-1.5 cursor-pointer ${
+                    candidateMarket === "kr"
+                      ? "bg-white text-[#0f172a] shadow-2xs font-semibold"
+                      : "text-[#64748b] hover:text-[#0f172a]"
+                  }`}
+                >
+                  <span>🇰🇷 한국장</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-[#e2e8f0] text-[#334155]">
+                    {krCandidates.length}
+                  </span>
+                </button>
+              </div>
+
               <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-md">
-                13인 거장 스크리닝 조건을 충족하여 분석 파이프라인 진입 대기 중인
-                후보 종목 브리프입니다.{" "}
+                {candidateMarket === "us"
+                  ? "13인 거장 스크리닝 조건을 충족하여 분석 파이프라인 진입 대기 중인 후보 종목 브리프입니다."
+                  : "단일 공통 재무 기준을 통과한 한국 알짜 기업 발굴 목록입니다. 조건 강화 슬라이더로 상위 알짜 종목만 압축할 수 있어요."}
+                {" "}
                 {isAll && `(홈에서는 상위 10개만 요약 표시)`}
               </p>
+
+              {/* 한국장 전용: 0~7단계 조건 강화 컨트롤 카드 */}
+              {candidateMarket === "kr" && (
+                <div className="p-3.5 bg-[#f8fafc] border border-[#e2e8f0] rounded-xl space-y-3 font-mono">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-[#0f172a] flex items-center gap-1.5">
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-[#3182f6]" />
+                      <span>조건 강화 옵션</span>
+                    </span>
+                    <span className="text-[11px] text-[#3182f6] font-semibold bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                      {KR_TIGHTEN_STEP_INFO[currentKrStep]?.label || `${currentKrStep}단계`}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <input
+                      type="range"
+                      min="0"
+                      max="7"
+                      step="1"
+                      value={currentKrStep}
+                      onChange={(e) => {
+                        const step = Number(e.target.value);
+                        setCurrentKrStep(step);
+                        onRefreshKr?.(step);
+                      }}
+                      className="w-full h-1.5 bg-[#cbd5e1] rounded-lg appearance-none cursor-pointer accent-[#3182f6]"
+                    />
+                    <div className="flex justify-between text-[10px] text-[#94a3b8]">
+                      <span>0(133개)</span>
+                      <span>3(90개)</span>
+                      <span>5(61개★)</span>
+                      <span>7(26개)</span>
+                    </div>
+                  </div>
+
+                  {/* 빠른 단계 선택 칩 */}
+                  <div className="flex items-center gap-1 overflow-x-auto whitespace-nowrap scrollbar-none pt-0.5">
+                    {[0, 2, 4, 5, 7].map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => {
+                          setCurrentKrStep(s);
+                          onRefreshKr?.(s);
+                        }}
+                        className={`px-2 py-0.5 text-[11px] rounded border transition-colors cursor-pointer ${
+                          currentKrStep === s
+                            ? "bg-[#0f172a] text-white border-[#0f172a] font-medium"
+                            : "bg-white text-[#64748b] border-[#cbd5e1] hover:text-[#0f172a]"
+                        }`}
+                      >
+                        {s === 0 ? "0:기본" : s === 5 ? "★ 5:추천" : s === 7 ? "7:극대화" : `${s}단계`}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* 현재 단계별 적용 기준 카드 */}
+                  {KR_TIGHTEN_STEP_INFO[currentKrStep] && (
+                    <div className="text-[11px] bg-white p-2.5 rounded-lg border border-[#e2e8f0] text-[#475569] space-y-1.5">
+                      <div className="text-[#0f172a] font-semibold flex items-center justify-between">
+                        <span>{KR_TIGHTEN_STEP_INFO[currentKrStep].desc}</span>
+                        <span className="text-[#3182f6] font-bold">
+                          {krCandidates.length}개 포착
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] text-[#64748b] pt-1 border-t border-[#f1f5f9]">
+                        <span>시총: {KR_TIGHTEN_STEP_INFO[currentKrStep].mcap}</span>
+                        <span>부채비율: {KR_TIGHTEN_STEP_INFO[currentKrStep].debt}</span>
+                        <span>이자보상: {KR_TIGHTEN_STEP_INFO[currentKrStep].interest}</span>
+                        <span>영업익률: {KR_TIGHTEN_STEP_INFO[currentKrStep].op}</span>
+                        <span className="col-span-2">ROE: {KR_TIGHTEN_STEP_INFO[currentKrStep].roe}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={onRefreshLive}
-                isLoading={isLoading}
+                onClick={() => {
+                  if (candidateMarket === "us") {
+                    onRefreshLive();
+                  } else {
+                    onRefreshKr?.(currentKrStep);
+                  }
+                }}
+                isLoading={candidateMarket === "us" ? isLoading : isKrLoading}
                 leftIcon={<RefreshCw className="w-3 h-3 text-[#64748b]" />}
-                className="font-mono text-xs"
+                className="font-mono text-xs w-full"
               >
-                스크리너 실시간 갱신
+                {candidateMarket === "us" ? "미국장 스크리너 갱신" : "한국장 스크리너 갱신"}
               </Button>
             </div>
 
@@ -1096,7 +1329,11 @@ export function ResearchCatalogView({
                 <EmptyState
                   icon="🧭"
                   title="포착된 스크리닝 후보군이 없습니다"
-                  description="'스크리너 실시간 갱신' 버튼을 눌러 실시간 스크리닝을 수행하세요."
+                  description={
+                    candidateMarket === "us"
+                      ? "'미국장 스크리너 갱신' 버튼을 눌러 실시간 스크리닝을 수행하세요."
+                      : "'한국장 스크리너 갱신' 버튼을 누르거나 조건 단계를 낮춰보세요."
+                  }
                 />
               ) : (
                 <ul className="divide-y divide-[#f1f5f9] -my-2">
@@ -1107,6 +1344,7 @@ export function ResearchCatalogView({
                     const ratioText = formatIntrinsicRatio(
                       insight.intrinsicRatioPct
                     );
+                    const isKr = c.nation === "kr" || candidateMarket === "kr";
 
                     return (
                       <li key={`candidate-${c.ticker}-${idx}`}>
@@ -1121,16 +1359,23 @@ export function ResearchCatalogView({
                               {/* 상단 라인 */}
                               <div className="flex items-center gap-2 flex-wrap font-mono text-xs">
                                 <span className="font-bold text-[#0f172a] group-hover:text-black transition-colors">
-                                  #{c.rank || idx + 1} ${c.ticker}
+                                  #{c.rank || idx + 1} {isKr ? c.ticker : `$${c.ticker}`}
                                 </span>
                                 <span className="text-[#64748b] truncate max-w-[200px]">
                                   {c.name}
                                 </span>
+                                {c.category && (
+                                  <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 text-[10px] font-mono">
+                                    {c.category}
+                                  </span>
+                                )}
                                 <Badge
                                   variant="primary"
                                   className="font-mono text-[10px]"
                                 >
-                                  SCORE: {c.guru_score || 0}
+                                  {isKr
+                                    ? `강화 ${c.tighten_step ?? currentKrStep}단`
+                                    : `SCORE: ${c.guru_score || 0}`}
                                 </Badge>
                                 {renderMonochromeVerdict(insight.verdict)}
                               </div>
@@ -1138,7 +1383,7 @@ export function ResearchCatalogView({
                               {/* 지표 라인 */}
                               <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
                                 <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#0f172a] font-semibold">
-                                  PRICE: ${c.price?.toFixed(2) || "-"}
+                                  PRICE: {formatPriceByNation(c.price, c.nation || candidateMarket, c.ticker)}
                                   {c.change_rate != null && (
                                     <span className="ml-1 text-[#64748b] font-normal">
                                       ({c.change_rate >= 0 ? "+" : ""}
@@ -1146,6 +1391,12 @@ export function ResearchCatalogView({
                                     </span>
                                   )}
                                 </span>
+
+                                {c.market_cap != null && (
+                                  <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#64748b]">
+                                    시총: {formatMarketCap(c.market_cap, c.nation || candidateMarket, c.ticker)}
+                                  </span>
+                                )}
 
                                 {percentB !== undefined && (
                                   <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
@@ -1181,6 +1432,18 @@ export function ResearchCatalogView({
                                 {c.roe != null && (
                                   <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#64748b]">
                                     ROE: {(c.roe * 100).toFixed(1)}%
+                                  </span>
+                                )}
+
+                                {c.operating_margin != null && (
+                                  <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#64748b]">
+                                    영업익: {(c.operating_margin * 100).toFixed(1)}%
+                                  </span>
+                                )}
+
+                                {c.debt_ratio != null && (
+                                  <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#64748b]">
+                                    부채: {(c.debt_ratio * 100).toFixed(0)}%
                                   </span>
                                 )}
                               </div>

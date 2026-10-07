@@ -337,6 +337,68 @@ GURU_PRESETS: dict[str, dict[str, Any]] = {
     },
 }
 
+
+def get_kr_tightened_filters(step: int = 0) -> list[dict]:
+    """
+    한국장 조건 강화 옵션 (0단계: 기본 ~ 5단계: 최대 강화, 6~7단계: 초강화)
+    - Step 0 (기본 공통): 시총 3000억, 부채 100%, 이자보상 3.0, 영업익 10%, ROE 10%
+    - Step 1 (1단계): 영업익 11%, ROE 11%
+    - Step 2 (2단계): 영업익 12%, ROE 12%, 이자보상 4.0
+    - Step 3 (3단계): 영업익 13%, ROE 13%, 이자보상 4.0, 시총 4000억
+    - Step 4 (4단계): 영업익 14%, ROE 14%, 이자보상 5.0, 시총 4500억, 부채 90%
+    - Step 5 (5단계): 영업익 15%, ROE 15%, 이자보상 5.0, 시총 5000억, 부채 80%
+    - Step 6 (6단계 초강화): 영업익 18%, ROE 18%, 이자보상 7.0, 시총 6000억, 부채 70%
+    - Step 7 (7단계 극대화): 영업익 20%, ROE 20%, 이자보상 10.0, 시총 7000억, 부채 60%
+    """
+    market_cap = 3000 * 억
+    debt_ratio = 1.0
+    interest_cov = 3.0
+    op_margin = 0.10
+    roe = 0.10
+
+    if step >= 1:
+        op_margin = 0.11
+        roe = 0.11
+    if step >= 2:
+        op_margin = 0.12
+        roe = 0.12
+        interest_cov = 4.0
+    if step >= 3:
+        op_margin = 0.13
+        roe = 0.13
+        market_cap = 4000 * 억
+    if step >= 4:
+        op_margin = 0.14
+        roe = 0.14
+        interest_cov = 5.0
+        market_cap = 4500 * 억
+        debt_ratio = 0.9
+    if step >= 5:
+        op_margin = 0.15
+        roe = 0.15
+        market_cap = 5000 * 억
+        debt_ratio = 0.8
+    if step >= 6:
+        op_margin = 0.18
+        roe = 0.18
+        market_cap = 6000 * 억
+        debt_ratio = 0.7
+        interest_cov = 7.0
+    if step >= 7:
+        op_margin = 0.20
+        roe = 0.20
+        market_cap = 7000 * 억
+        debt_ratio = 0.6
+        interest_cov = 10.0
+
+    return [
+        F("시가총액", market_cap),
+        FQ("부채_비율", "TTM", None, debt_ratio, include_to=True),
+        FQ("이자_보상_배율", "TTM", interest_cov),
+        FQ("영업_이익률", "TTM", op_margin),
+        FQ("ROE", "TTM", roe),
+    ]
+
 COMMON_FILTERS = GURU_PRESETS["공통"]["filters"]
 
 GURU_ALIASES: dict[str, str] = {
@@ -548,6 +610,22 @@ class TossWtsClient:
         """13인 공통 필터로 주식 조회 및 심볼 보강"""
         return await self.screen_by_guru(guru_key="공통", nation=nation, size=size, page=page)
 
+    async def screen_kr_common(
+        self, step: int = 0, size: int = 200, page: int = 1
+    ) -> dict:
+        """한국장 공통 스크리너 (조건 강화 옵션 적용)"""
+        filters = get_kr_tightened_filters(step=step)
+        raw = await self.screen(filters=filters, nation="kr", size=size, page=page)
+        flat = self._flatten_result(raw, nation="kr")
+        return {
+            "guru": "공통",
+            "name": "한국 우량주 스크리너",
+            "style": "가치 및 재무 건전성",
+            "nation": "kr",
+            "tighten_step": step,
+            **flat,
+        }
+
     async def screen_common_us(self, size: int = 200, page: int = 1) -> dict:
         """[Deprecated] screen_common(nation='us') 위임 래퍼 — 하위 호환성 유지"""
         return await self.screen_common(nation="us", size=size, page=page)
@@ -569,12 +647,19 @@ class TossWtsClient:
                 "logoImageUrl": s.get("logoImageUrl"),
                 "price": price,
                 "prevClose": prev_close,
+                "nation": nation.lower(),
             }
+            category = None
             for col in s.get("columns") or []:
                 value = col.get("value")
                 if isinstance(value, dict):
                     value = (value.get("usd") if is_us else value.get("krw")) or value.get("usd") or value.get("krw")
-                row[col.get("label") or col.get("id")] = value
+                col_label = col.get("label") or col.get("id")
+                row[col_label] = value
+                if col.get("id") == "C_CUSTOM_TICS" or col_label == "카테고리":
+                    category = str(value)
+            if category:
+                row["category"] = category
             stocks.append(row)
 
         return {

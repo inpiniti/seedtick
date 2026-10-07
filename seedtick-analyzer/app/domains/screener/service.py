@@ -58,7 +58,9 @@ class ScreenerService:
 
         # 2. 토스 WTS 직접 거장 스크리너 조회
         try:
-            if preset in ("공통", "종합", "all", "전체"):
+            if crit.nation.lower() == "kr":
+                return await self._get_kr_stocks(crit)
+            elif preset in ("공통", "종합", "all", "전체"):
                 return await self._get_combined_guru_stocks(crit)
             else:
                 return await self._get_single_guru_stock(crit, preset)
@@ -67,6 +69,80 @@ class ScreenerService:
 
         # 3. 폴백: Toss WTS 공통 필터 직접 호출
         return await self._get_via_wts(crit)
+
+    async def _get_kr_stocks(self, crit: ScreenCriteria) -> ScreenResult:
+        """
+        한국장 스크리너:
+        - 미국장(12인 거장 병렬 조회 및 합집합)과 달리, 단일 '공통' 기준을 바탕으로 함.
+        - 조건 강화 옵션(tighten_step: 0~5단계 및 그 이상)을 적용하여 100개 이상의 과다 조회를 압축.
+        """
+        step = max(0, crit.tighten_step)
+        logger.info(
+            f"[Screener] 한국장 스크리너 조회 시작 (tighten_step={step}, size={crit.size}, page={crit.page})"
+        )
+        raw_data = await self.wts_client.screen_kr_common(
+            step=step,
+            size=crit.size,
+            page=crit.page,
+        )
+        stocks = raw_data.get("stocks") or []
+        exclude_set = set(crit.exclude_tickers)
+        items: list[TossStockItem] = []
+
+        step_label = f"조건강화 {step}단계" if step > 0 else "공통 기본"
+
+        for s in stocks:
+            ticker = s.get("ticker")
+            if not ticker or ticker in exclude_set:
+                continue
+
+            price = s.get("price")
+            prev_close = s.get("prevClose")
+            change_rate = None
+            if price is not None and prev_close and prev_close > 0:
+                change_rate = round(((price - prev_close) / prev_close) * 100, 2)
+
+            item = TossStockItem(
+                ticker=ticker,
+                stock_code=s.get("stockCode") or "",
+                name=s.get("name") or ticker,
+                price=price,
+                prev_close=prev_close,
+                change_rate=change_rate,
+                market_cap=s.get("시가총액"),
+                debt_ratio=s.get("부채_비율") or s.get("부채비율"),
+                interest_coverage=s.get("이자_보상_배율") or s.get("이자보상배율"),
+                operating_margin=s.get("영업_이익률") or s.get("영업이익률"),
+                roe=s.get("ROE"),
+                logo_image_url=s.get("logoImageUrl"),
+                screeners=["종합", step_label] if step > 0 else ["종합"],
+                nation="kr",
+                category=s.get("category"),
+                tighten_step=step,
+            )
+            items.append(item)
+
+        final_items = (
+            items[: crit.size]
+            if crit.size and len(items) > crit.size
+            else items
+        )
+
+        self._cache_logo_items(final_items)
+
+        total_count = raw_data.get("totalCount", len(items))
+        logger.info(
+            f"[Screener] 한국장 스크리너 완료: 총 {total_count}개 중 {len(final_items)}개 반환 (step={step})"
+        )
+
+        return ScreenResult(
+            tickers=final_items,
+            items=final_items,
+            total_count=total_count,
+            count=len(final_items),
+            criteria=crit,
+            source="toss_wts_kr",
+        )
 
     async def _get_combined_guru_stocks(self, crit: ScreenCriteria) -> ScreenResult:
         """

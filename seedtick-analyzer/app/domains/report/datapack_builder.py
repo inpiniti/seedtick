@@ -38,9 +38,11 @@ Y1 = "https://query1.finance.yahoo.com"
 
 
 def normalize_yahoo_ticker(ticker: str) -> str:
-    """Yahoo Finance 클래스형 주식 심볼은 '.' 대신 '-' 사용."""
+    """Yahoo Finance 클래스형 주식 심볼은 '.' 대신 '-' 사용하나, 한국(.KS, .KQ)은 '.'을 보존한다."""
     symbol = (ticker or "").strip().upper()
     if not symbol:
+        return symbol
+    if symbol.endswith(".KS") or symbol.endswith(".KQ"):
         return symbol
     return symbol.replace(".", "-").replace(" ", "")
 
@@ -158,6 +160,24 @@ class DataPackBuilder:
             return cookie_str, crumb
         raise RuntimeError(f"Crumb HTTP {r2.status_code}: {crumb[:50]}")
 
+    async def _resolve_symbol(self, client: httpx.AsyncClient, ticker: str) -> str:
+        sym = (ticker or "").strip().upper()
+        if sym.endswith(".KS") or sym.endswith(".KQ"):
+            return sym
+        if sym.isdigit() and len(sym) == 6:
+            # 6자리 한국 종목 코드: KOSPI(.KS) 확인 후 실패 시 KOSDAQ(.KQ)
+            try:
+                r = await client.get(
+                    f"{Y1}/v8/finance/chart/{sym}.KS?range=1d&interval=1d",
+                    headers={"User-Agent": UA},
+                )
+                if r.status_code == 200:
+                    return f"{sym}.KS"
+            except Exception:
+                pass
+            return f"{sym}.KQ"
+        return normalize_yahoo_ticker(sym)
+
     async def build(self, ticker: str, target_date: str | None = None) -> StockDataPack:
         """
         티커의 심층 데이터팩을 수집하고 마크다운 파일로 저장:
@@ -167,10 +187,11 @@ class DataPackBuilder:
         clean_ticker = ticker.upper().strip()
 
         async with httpx.AsyncClient(timeout=25.0) as client:
+            yahoo_symbol = await self._resolve_symbol(client, clean_ticker)
             # 1. 병렬 수집: Chart, Fundamentals Timeseries, QuoteSummary, News
-            chart_task = self._fetch_chart(client, clean_ticker)
-            ts_task = self._fetch_timeseries(client, clean_ticker)
-            quote_task = self._fetch_quote_summary(client, clean_ticker)
+            chart_task = self._fetch_chart(client, yahoo_symbol)
+            ts_task = self._fetch_timeseries(client, yahoo_symbol)
+            quote_task = self._fetch_quote_summary(client, yahoo_symbol)
             news_task = self._fetch_news(client, clean_ticker)
 
             chart_data, ts_data, quote_data, news_data = await asyncio.gather(
@@ -297,6 +318,11 @@ class DataPackBuilder:
             cookie, crumb = await self._get_auth(client, force_refresh=False)
             url = f"{Y1}/v10/finance/quoteSummary/{yahoo_ticker}?modules={','.join(modules)}&crumb={crumb}"
             res = await client.get(url, headers={"User-Agent": UA, "Cookie": cookie})
+            if res.status_code == 401:
+                logger.info(f"[{ticker}] Yahoo 401 Unauthorized -> crumb 캐시 강제 갱신 후 재시도")
+                cookie, crumb = await self._get_auth(client, force_refresh=True)
+                url = f"{Y1}/v10/finance/quoteSummary/{yahoo_ticker}?modules={','.join(modules)}&crumb={crumb}"
+                res = await client.get(url, headers={"User-Agent": UA, "Cookie": cookie})
             if res.status_code == 200:
                 data = res.json()
                 qs_res = (data.get("quoteSummary", {}).get("result") or [{}])[0]
