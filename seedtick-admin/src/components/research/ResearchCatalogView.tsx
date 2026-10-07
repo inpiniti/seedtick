@@ -34,6 +34,7 @@ import {
   Target,
   TrendingUp,
   Award,
+  Calendar,
 } from "lucide-react";
 
 interface ResearchCatalogViewProps {
@@ -53,6 +54,10 @@ interface ResearchCatalogViewProps {
   onSelectCandidate: (candidate: StockCandidate) => void;
   activeSectionFilter: SidebarSectionId;
   onSelectSection?: (sectionId: SidebarSectionId) => void;
+  availableDates?: string[];
+  selectedDate?: string;
+  onSelectDate?: (date: string) => void;
+  isReportsLoading?: boolean;
 }
 
 export function ResearchCatalogView({
@@ -72,6 +77,10 @@ export function ResearchCatalogView({
   onSelectCandidate,
   activeSectionFilter,
   onSelectSection,
+  availableDates = [],
+  selectedDate,
+  onSelectDate,
+  isReportsLoading = false,
 }: ResearchCatalogViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [reportVerdictFilter, setReportVerdictFilter] = useState<string>("ALL");
@@ -154,9 +163,14 @@ export function ResearchCatalogView({
     };
   };
 
-  // 1. 리포트 필터링 (검색 & 의견)
+  // 1. 리포트 필터링 (날짜 & 검색 & 의견)
   const filteredReports = useMemo(() => {
     return guruReports.filter((r) => {
+      // 날짜 필터링 (선택된 날짜가 있고 "ALL"이 아닐 때)
+      if (selectedDate && selectedDate !== "ALL" && r.d !== selectedDate) {
+        return false;
+      }
+
       const matchesSearch =
         !searchQuery.trim() ||
         r.ticker.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -179,7 +193,7 @@ export function ResearchCatalogView({
         return v.includes("매도") || v.includes("sell");
       return true;
     });
-  }, [guruReports, searchQuery, reportVerdictFilter]);
+  }, [guruReports, selectedDate, searchQuery, reportVerdictFilter]);
 
   // 2. DataRoma 후보군 전체 필터링
   const filteredRoma = useMemo(() => {
@@ -483,9 +497,16 @@ export function ResearchCatalogView({
                     <Award className="w-3.5 h-3.5 text-[#0f172a]" />
                     <span>13 GURU ROUND-TABLE TALLY</span>
                   </span>
-                  <span className="text-[#64748b]">
-                    총 {guruReports.length}건 종합
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {selectedDate && selectedDate !== "ALL" && (
+                      <span className="text-[10px] text-[#0f172a] bg-white border border-[#cbd5e1] px-1.5 py-0.5 rounded font-mono font-semibold">
+                        📅 {selectedDate}
+                      </span>
+                    )}
+                    <span className="text-[#64748b]">
+                      총 {guruReports.length}건 종합
+                    </span>
+                  </div>
                 </div>
                 <TallyBar tally={aggregateTally} size="sm" />
               </div>
@@ -557,7 +578,7 @@ export function ResearchCatalogView({
           className="px-6 lg:px-12 py-10 lg:py-12 bg-white"
         >
           <div className="grid grid-cols-1 md:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] gap-8 lg:gap-12">
-            {/* 좌측: 타이틀 & 설명 & 필터 */}
+            {/* 좌측: 타이틀 & 설명 & 날짜선택 & 필터 */}
             <div className="space-y-4">
               <div className="flex items-baseline gap-2">
                 <span className="font-mono text-xs font-semibold text-[#94a3b8]">
@@ -571,6 +592,74 @@ export function ResearchCatalogView({
                 13인 거장의 독립 표결과 종합 적정 내재가치, 안전마진 밴드를 도출한
                 분석 보고서입니다. {isAll && `(홈에서는 상위 10건만 요약 표시)`}
               </p>
+
+              {/* 1. 분석 일자 선택 (날짜별 선택, 디폴트: 최신 작성 일자) */}
+              {availableDates && availableDates.length > 0 && (
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-mono uppercase text-[#94a3b8] flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-[#0f172a]" />
+                      <span>Report Date (분석 일자)</span>
+                    </span>
+                    {selectedDate && selectedDate !== "ALL" && (
+                      <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-[#0f172a] text-white">
+                        {selectedDate === availableDates[0] ? "★ 최신 분석일" : "선택 일자"}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* 일자 선택 셀렉트 박스 */}
+                  <div className="relative">
+                    <select
+                      value={selectedDate || availableDates[0]}
+                      onChange={(e) => onSelectDate?.(e.target.value)}
+                      className="w-full pl-3 pr-8 py-1.5 text-xs font-mono bg-white border border-[#cbd5e1] rounded text-[#0f172a] focus:outline-hidden focus:border-[#0f172a] cursor-pointer shadow-2xs"
+                    >
+                      {availableDates.map((d, idx) => (
+                        <option key={d} value={d}>
+                          {d} {idx === 0 ? "★ (가장 최근 분석)" : ""}
+                        </option>
+                      ))}
+                      <option value="ALL">전체 일자 (최근 200건 통합)</option>
+                    </select>
+                  </div>
+
+                  {/* 빠른 날짜 선택 칩 (최근 3~4개 일자) */}
+                  <div className="flex items-center gap-1 font-mono text-[11px] overflow-x-auto whitespace-nowrap scrollbar-none pt-0.5">
+                    {availableDates.slice(0, 4).map((d, idx) => {
+                      const isSelected =
+                        selectedDate === d || (!selectedDate && idx === 0);
+                      return (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => onSelectDate?.(d)}
+                          className={`shrink-0 px-2 py-0.5 rounded border transition-colors cursor-pointer ${
+                            isSelected
+                              ? "bg-[#0f172a] text-white border-[#0f172a] font-medium"
+                              : "bg-[#f8fafc] text-[#64748b] border-[#e2e8f0] hover:text-[#0f172a]"
+                          }`}
+                        >
+                          {d} {idx === 0 ? "(최신)" : ""}
+                        </button>
+                      );
+                    })}
+                    {availableDates.length > 4 && (
+                      <button
+                        type="button"
+                        onClick={() => onSelectDate?.("ALL")}
+                        className={`shrink-0 px-2 py-0.5 rounded border transition-colors cursor-pointer ${
+                          selectedDate === "ALL"
+                            ? "bg-[#0f172a] text-white border-[#0f172a] font-medium"
+                            : "bg-[#f8fafc] text-[#64748b] border-[#e2e8f0] hover:text-[#0f172a]"
+                        }`}
+                      >
+                        전체
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* 투자의견 빠른 필터 칩 (줄바꿈 방지) */}
               <div className="space-y-1.5 pt-1">
@@ -602,6 +691,24 @@ export function ResearchCatalogView({
 
             {/* 우측: 보고서 리스트 */}
             <div className="min-w-0 space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-[#e2e8f0] font-mono text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-[#0f172a]">
+                    분석 기준일: {selectedDate || availableDates[0] || "최신"}
+                  </span>
+                  <span className="text-[#64748b]">
+                    (총 {displayedReports.length}건
+                    {isAll && filteredReports.length > 10 ? " 중 상위 10건" : ""}
+                    )
+                  </span>
+                </div>
+                {isReportsLoading && (
+                  <span className="text-[11px] text-[#64748b] flex items-center gap-1">
+                    <RefreshCw className="w-3 h-3 animate-spin text-[#0f172a]" />
+                    <span>조회 중...</span>
+                  </span>
+                )}
+              </div>
               {displayedReports.length === 0 ? (
                 <EmptyState
                   icon="📄"
@@ -640,8 +747,9 @@ export function ResearchCatalogView({
                                   /report-{ticker.toLowerCase()}
                                 </span>
                                 {renderMonochromeVerdict(report.verdict)}
-                                <span className="text-[11px] text-[#94a3b8] ml-auto sm:ml-0">
-                                  {report.d}
+                                <span className="text-[11px] text-[#64748b] ml-auto sm:ml-0 flex items-center gap-1">
+                                  <Calendar className="w-3 h-3 text-[#94a3b8]" />
+                                  <span>{report.d}</span>
                                 </span>
                               </div>
 
