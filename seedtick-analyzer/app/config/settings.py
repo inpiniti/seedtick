@@ -26,11 +26,22 @@ class Settings(BaseSettings):
     # 미설정 시 AI_GATEWAY_MODEL 단일 값으로 1단계 체인이 구성된다(하위 호환).
     AI_MODEL_CHAIN: str = (
         "nvidia/nemotron-3-ultra-550b-a55b:free,"
-        "inclusionai/ling-3.1-flash,"
+        "poolside/laguna-s-2.1:free,"
         "dots-studio/dots-3-note-preview:free,"
+        "inclusionai/ling-3.1-flash,"
+        "thinkingmachines/inkling:free,"
         "inclusionai/ling-3.0-flash-sante:free,"
+        "google/gemma-4-31b-it:free,"
+        "google/gemma-4-26b-a4b-it:free,"
+        "nvidia/nemotron-3-super-120b-a12b:free,"
+        "apodex/apodex-1.1-mini:free,"
+        "cohere/north-mini-code:free,"
+        "thinkingmachines/inkling-small:free,"
+        "poolside/laguna-xs-2.1:free,"
         "nvidia/nemotron-3.5-lightning:free,"
-        "poolside/laguna-s-2.1:free"
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free,"
+        "liquid/lfm-2.5-2.6b:free,"
+        "nvidia/nemotron-3.5-content-safety:free"
     )
     AI_GATEWAY_TIMEOUT: float = 300.0  # 긴 32K 응답 수용을 위해 300초로 상향
     AI_FIRST_TOKEN_TIMEOUT: float = 20.0  # 스트리밍 첫 글자(TTFT) 대기 상한(초). 20초 내 무응답 시 즉시 탈락 및 다음 슬롯 전환
