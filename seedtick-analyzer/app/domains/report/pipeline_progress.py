@@ -58,6 +58,8 @@ class PipelineProgressTracker:
             "failed_tickers": 0,
             "current_ticker": None,
             "current_ticker_index": 0,
+            "stage_started_at": None,
+            "stage_elapsed_seconds": {},
             "tickers": [],
             "events": [],
             "error": None,
@@ -75,7 +77,11 @@ class PipelineProgressTracker:
             state["tickers"] = [dict(t) for t in self._state["tickers"]]
             state["events"] = list(self._state["events"])
             state["stages"] = [dict(s) for s in PIPELINE_STAGES]
+            state["stage_elapsed_seconds"] = dict(
+                self._state.get("stage_elapsed_seconds", {})
+            )
         state["stage_total"] = len(PIPELINE_STAGES)
+        state["stage_timings"] = self._build_stage_timings(state)
         state["elapsed_seconds"] = self._elapsed_seconds(
             state.get("started_at"), state.get("finished_at")
         )
@@ -103,6 +109,7 @@ class PipelineProgressTracker:
         error: str | None = None,
     ) -> None:
         with self._lock:
+            self._finalize_current_stage_locked()
             self._state["status"] = status
             self._state["finished_at"] = _now_iso()
             self._state["summary"] = summary
@@ -159,12 +166,15 @@ class PipelineProgressTracker:
 
     def set_stage(self, stage_key: str, detail: str | None = None) -> None:
         with self._lock:
+            if self._state.get("stage") != stage_key:
+                self._finalize_current_stage_locked()
             idx = _STAGE_KEYS.index(stage_key) if stage_key in _STAGE_KEYS else -1
             self._state["stage"] = stage_key
             self._state["stage_index"] = idx
             self._state["stage_label"] = (
                 PIPELINE_STAGES[idx]["label"] if idx >= 0 else stage_key
             )
+            self._state["stage_started_at"] = _now_iso()
             if detail:
                 self._append_event_locked(detail)
 
@@ -196,6 +206,62 @@ class PipelineProgressTracker:
         self._state["events"].append({"time": _now_iso(), "message": message})
         if len(self._state["events"]) > self._max_events:
             self._state["events"] = self._state["events"][-self._max_events:]
+
+    def _finalize_current_stage_locked(self) -> None:
+        stage_key = self._state.get("stage")
+        started_at = self._state.get("stage_started_at")
+        if not stage_key or not started_at:
+            return
+        elapsed = self._elapsed_seconds(started_at, _now_iso())
+        stage_elapsed = self._state.setdefault("stage_elapsed_seconds", {})
+        stage_elapsed[stage_key] = float(stage_elapsed.get(stage_key, 0.0)) + elapsed
+        self._state["stage_started_at"] = None
+
+    def _build_stage_timings(self, state: dict[str, Any]) -> list[dict[str, Any]]:
+        status: PipelineStatus = state.get("status", "idle")
+        current_key = state.get("stage")
+        current_started_at = state.get("stage_started_at")
+        current_idx = int(state.get("stage_index", -1))
+        elapsed_map = {
+            k: float(v) for k, v in (state.get("stage_elapsed_seconds") or {}).items()
+        }
+
+        if (
+            status == "running"
+            and current_key
+            and current_started_at
+            and current_key in _STAGE_KEYS
+        ):
+            elapsed_map[current_key] = float(
+                elapsed_map.get(current_key, 0.0)
+                + self._elapsed_seconds(current_started_at, None)
+            )
+
+        timings: list[dict[str, Any]] = []
+        for idx, stage in enumerate(PIPELINE_STAGES):
+            if idx < current_idx:
+                stage_status = "done"
+            elif idx == current_idx:
+                if status == "running":
+                    stage_status = "running"
+                elif status == "failed":
+                    stage_status = "failed"
+                elif status in {"completed", "skipped"}:
+                    stage_status = "done"
+                else:
+                    stage_status = "pending"
+            else:
+                stage_status = "pending"
+
+            timings.append(
+                {
+                    "key": stage["key"],
+                    "label": stage["label"],
+                    "elapsed_seconds": round(elapsed_map.get(stage["key"], 0.0), 3),
+                    "status": stage_status,
+                }
+            )
+        return timings
 
 
 # 프로세스 전역 싱글턴 (스케줄러·리포트 서비스·API 라우트가 공유)

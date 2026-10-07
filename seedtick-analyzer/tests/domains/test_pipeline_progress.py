@@ -76,6 +76,20 @@ def test_tracker_stage_index_matches_frontend_order():
         assert tracker.snapshot()["stage_label"] == stage["label"]
 
 
+def test_tracker_exposes_stage_timings():
+    tracker = PipelineProgressTracker()
+    tracker.start()
+    tracker.set_stage("screening")
+    tracker.set_stage("datapack")
+    tracker.finish("completed")
+
+    snap = tracker.snapshot()
+    timings = snap["stage_timings"]
+    assert len(timings) == len(PIPELINE_STAGES)
+    assert all("elapsed_seconds" in item for item in timings)
+    assert all("status" in item for item in timings)
+
+
 def test_tracker_event_buffer_is_capped():
     tracker = PipelineProgressTracker(max_events=5)
     tracker.start()

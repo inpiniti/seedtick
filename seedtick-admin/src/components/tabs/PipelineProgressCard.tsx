@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import type { PipelineProgress } from "@/types/api";
+import type { PipelineProgress, PipelineStageTiming } from "@/types/api";
 
 interface PipelineProgressCardProps {
   progress: PipelineProgress | null;
@@ -39,6 +39,16 @@ function formatElapsed(totalSeconds: number): string {
   const m = Math.floor((s % 3600) / 60);
   const sec = s % 60;
   if (h > 0) return `${h}시간 ${m}분 ${sec}초`;
+  if (m > 0) return `${m}분 ${sec}초`;
+  return `${sec}초`;
+}
+
+function formatElapsedCompact(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) return `${h}시간 ${m}분`;
   if (m > 0) return `${m}분 ${sec}초`;
   return `${sec}초`;
 }
@@ -117,6 +127,26 @@ export function PipelineProgressCard({
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   const currentIdx = progress.stage_index;
   const showGurus = progress.gurus_total > 0;
+  const stageTimings: PipelineStageTiming[] =
+    progress.stage_timings && progress.stage_timings.length === progress.stages.length
+      ? progress.stage_timings
+      : progress.stages.map((stage, idx) => ({
+          key: stage.key,
+          label: stage.label,
+          elapsed_seconds: 0,
+          status:
+            idx < currentIdx
+              ? "done"
+              : idx === currentIdx && isRunning
+                ? "running"
+                : idx === currentIdx && status === "failed"
+                  ? "failed"
+                  : "pending",
+        }));
+  const maxStageSeconds = Math.max(
+    1,
+    ...stageTimings.map((item) => Math.max(0, item.elapsed_seconds || 0))
+  );
 
   return (
     <Card
@@ -263,7 +293,45 @@ export function PipelineProgressCard({
           })}
         </div>
 
-        {/* 3. 최근 진행 로그 */}
+        {/* 3. 단계별 소요 시간 비교 */}
+        <div className="pt-1">
+          <div className="text-[11px] font-semibold text-[#8b95a1] mb-2">
+            단계별 소요 시간
+          </div>
+          <div className="space-y-2">
+            {stageTimings.map((timing) => {
+              const seconds = Math.max(0, timing.elapsed_seconds || 0);
+              const width = Math.max(4, Math.round((seconds / maxStageSeconds) * 100));
+              const barClass =
+                timing.status === "failed"
+                  ? "bg-[#f04452]"
+                  : timing.status === "running"
+                    ? "bg-[#3182f6]"
+                    : timing.status === "done"
+                      ? "bg-[#03b26c]"
+                      : "bg-[#cfd6dd]";
+
+              return (
+                <div key={timing.key} className="grid grid-cols-[110px_1fr_auto] items-center gap-2">
+                  <span className="text-[11px] text-[#6b7684] font-semibold truncate">
+                    {timing.label}
+                  </span>
+                  <div className="h-2 rounded-full bg-[#eef1f4] overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${barClass}`}
+                      style={{ width: `${width}%` }}
+                    />
+                  </div>
+                  <span className="text-[11px] text-[#4e5968] font-semibold whitespace-nowrap">
+                    {seconds > 0 ? formatElapsedCompact(seconds) : "-"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 4. 최근 진행 로그 */}
         {progress.events.length > 0 ? (
           <div className="pt-1">
             <div className="text-[11px] font-semibold text-[#8b95a1] mb-1.5">
@@ -286,7 +354,7 @@ export function PipelineProgressCard({
           </div>
         ) : null}
 
-        {/* 4. 실패/스킵 사유 */}
+        {/* 5. 실패/스킵 사유 */}
         {progress.error ? (
           <div className="p-3 rounded-2xl bg-[#fef2f2] border border-[#f04452]/20 text-xs font-semibold text-[#f04452] flex items-start gap-2">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />

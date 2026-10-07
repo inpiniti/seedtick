@@ -161,5 +161,3 @@ export async function resetAiModelRotation(): Promise<{
   return request("/debug/ai-model/reset", { method: "POST" });
 }
 
-
-

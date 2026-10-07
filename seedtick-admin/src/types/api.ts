@@ -48,58 +48,7 @@ export interface IpStatus {
   guide: string;
 }
 
-// 3. 오토트레이딩 상태 (/api/auto-trading/status)
-export interface AutoTradingStatus {
-  current_date: string;
-  today_ordered_tickers: string[];
-  today_spent_krw: number;
-  max_daily_limit_krw: number;
-  order_amount_per_ticker_krw: number;
-  order_action: string;
-  strategy_rule: string;
-  dry_run: boolean;
-  active_broker: string;
-}
-
-// 4. 증권사 브릿지 상태 및 잔고 (/api/bridge/status, /api/bridge/balance)
-export interface BridgeStatus {
-  default_broker: string;
-  dry_run: boolean;
-  configured_adapters: {
-    mock: boolean;
-    toss: boolean;
-    kis: boolean;
-  };
-  toss_ip?: TossIpStatus;
-}
-
-// 4-1. 토스 허용 IP 차단 상태 (/api/bridge/toss-ip)
-export interface TossIpStatus {
-  blocked: boolean;
-  blocked_at: number | null;
-  reason: string | null;
-  block_count: number;
-}
-
-export interface BrokerPosition {
-  ticker: string;
-  name?: string;
-  quantity: number;
-  purchase_price?: number;
-  current_price?: number;
-  return_rate?: number;
-}
-
-export interface BrokerBalance {
-  broker: string;
-  available_krw: number;
-  available_usd: number;
-  positions?: BrokerPosition[];
-  error?: string;
-  hint?: string;
-}
-
-// 6. 스크리너 결과 (/api/screener/run)
+// 3. 스크리너 결과 (/api/screener/run)
 export interface StockCandidate {
   ticker: string;
   name: string;
@@ -148,7 +97,7 @@ export interface ScreenerResponse {
   source?: string;
 }
 
-// 7. Supabase 리포트 (guru_reports)
+// 4. Supabase 리포트 (guru_reports)
 export interface GuruSummaryItem {
   persona?: string;
   guru_name?: string;
@@ -185,7 +134,7 @@ export interface GuruReportRow {
   created_at: string;
 }
 
-// 9. Supabase 시스템 로그 (error_logs)
+// 5. Supabase 시스템 로그 (error_logs)
 export interface SystemLogItem {
   id: number;
   created_at: string;
@@ -196,7 +145,7 @@ export interface SystemLogItem {
   context: Record<string, unknown>;
 }
 
-// 10. 종목 차트 및 볼린저 밴드 (/api/screener/chart/:ticker)
+// 6. 종목 차트 및 볼린저 밴드 (/api/screener/chart/:ticker)
 export interface CandleItem {
   time: string; // YYYY-MM-DD
   open: number;
@@ -235,7 +184,7 @@ export interface StockChartResponse {
   summary: BollingerSummary | null;
 }
 
-// 10. 실시간 고정 갭(3%) 그리드 매매 (/api/grid-trading)
+// 7. 실시간 고정 갭(3%) 그리드 매매 (/api/grid-trading)
 export interface GridTradeItem {
   id?: string;
   ticker: string;
@@ -258,7 +207,7 @@ export interface GridTradingMarketStatus {
   active_tickers: string[];
 }
 
-// 11. 13인 거장 파이프라인 실시간 진행 상태 (/api/scheduler/progress)
+// 8. 13인 거장 파이프라인 실시간 진행 상태 (/api/scheduler/progress)
 export type PipelineStageKey =
   | "screening"
   | "datapack"
@@ -271,6 +220,15 @@ export type PipelineStageKey =
 export interface PipelineStageMeta {
   key: PipelineStageKey;
   label: string;
+}
+
+export type PipelineStageTimingStatus = "pending" | "running" | "done" | "failed";
+
+export interface PipelineStageTiming {
+  key: PipelineStageKey;
+  label: string;
+  elapsed_seconds: number;
+  status: PipelineStageTimingStatus;
 }
 
 export type PipelineTickerStatus = "pending" | "processing" | "done" | "failed";
@@ -296,6 +254,9 @@ export interface PipelineProgress {
   stage: PipelineStageKey | null;
   stage_index: number;
   stage_label: string | null;
+  stage_started_at?: string | null;
+  stage_elapsed_seconds?: Record<string, number>;
+  stage_timings?: PipelineStageTiming[];
   stage_total: number;
   stages: PipelineStageMeta[];
   gurus_done: number;
@@ -310,5 +271,3 @@ export interface PipelineProgress {
   error: string | null;
   summary: Record<string, unknown> | null;
 }
-
-
