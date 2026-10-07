@@ -3,9 +3,15 @@
 """
 import pytest
 from httpx import ASGITransport, AsyncClient
-from app.domains.screener.chart_service import ChartService
+from app.domains.screener.chart_service import ChartService, normalize_yahoo_ticker
 from app.domains.screener.models import StockChartResponse
 from app.main import app
+
+
+def test_normalize_yahoo_ticker_handles_share_classes():
+    assert normalize_yahoo_ticker("BRK.A") == "BRK-A"
+    assert normalize_yahoo_ticker("BRK.B") == "BRK-B"
+    assert normalize_yahoo_ticker("AAPL") == "AAPL"
 
 
 def test_calculate_bollinger_bands_logic():

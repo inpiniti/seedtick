@@ -27,8 +27,8 @@ logger = logging.getLogger("seedtick_analyzer")
 # debug 모드일 때만 그대로 남기고, 그 외에는 WARNING 이상만 출력한다.
 _root_level = getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO)
 if _root_level > logging.DEBUG:
-    for _noisy in ("httpx", "httpcore", "supabase_repo"):
-        logging.getLogger(_noisy).setLevel(logging.WARNING)
+    for _noisy in ("httpx", "httpcore", "supabase_repo", "yfinance"):
+        logging.getLogger(_noisy).setLevel(logging.CRITICAL if _noisy == "yfinance" else logging.WARNING)
 
 # Supabase error_logs 테이블 자동 적재 핸들러 등록 (INFO, WARNING, ERROR, CRITICAL)
 supabase_log_handler = SupabaseLogHandler()
