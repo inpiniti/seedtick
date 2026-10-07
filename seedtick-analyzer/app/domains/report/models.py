@@ -82,8 +82,14 @@ class PersonaSummaryBlock(BaseModel):
     confidence: int                  # 1-10
     core_arguments: list[str]        # 수치와 팩트를 포함한 핵심 근거 2~3개
     target_price_range: str | None = None
+    target_price_low: float | None = None   # 적정가/매수 가격대 하단 (숫자)
+    target_price_high: float | None = None  # 적정가/매수 가격대 상단 (숫자)
     trigger_conditions: list[str] = Field(default_factory=list)
     quote: str                       # 인물 특유 어조의 대표 발언 1개
+    # 파싱 출처: json(구조화 출력 성공) / regex(텍스트 폴백) / fallback(AI 실패 기본값)
+    parse_mode: Literal["json", "regex", "fallback"] = "regex"
+    # AI 원문 응답 (guru_opinions.raw_text 저장용, summaries jsonb 에는 제외)
+    raw_text: str = Field(default="", exclude=True)
 
 
 class GuruSummaryDoc(BaseModel):
@@ -122,6 +128,17 @@ class FinalMasterReport(BaseModel):
     value_drivers: list[str] = Field(default_factory=list)
     action_guide: dict = Field(default_factory=dict)
     persona_scores: dict[str, int] = Field(default_factory=dict)  # {g1: 0, g2: 1, ...}
+    # ── 구조화 필드 (guru_reports 정규 컬럼으로 저장) ──
+    conclusion: str = ""                                   # 종합 결론 1~2문장
+    hot_topics: list[str] = Field(default_factory=list)    # 핵심 쟁점 2~3개
+    bull_points: list[str] = Field(default_factory=list)   # 강세론 논거 목록
+    bear_points: list[str] = Field(default_factory=list)   # 약세론 논거 목록
+    key_drivers: list[str] = Field(default_factory=list)   # 핵심 가치 드라이버 목록
+    band_low: float | None = None          # 적정 밴드 하단
+    band_high: float | None = None         # 적정 밴드 상단
+    safety_entry_value: float | None = None  # 안전마진 매수가 (숫자)
+    target_sell_value: float | None = None   # 목표 매도가 (숫자)
+    parse_mode: Literal["json", "regex"] = "regex"
     file_path: str = ""
     raw_markdown: str = ""
     discussion: str = Field(default="", description="13인 거장 원탁 토론 전문 마크다운")

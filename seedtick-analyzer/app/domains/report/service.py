@@ -260,10 +260,72 @@ class GuruReportService:
         # 뉴스, IR 일정, 재무제표, 밸류에이션, 가치드라이버가 모두 포함된 전체 데이터팩 전달
         prompt = build_persona_prompt(persona_key, datapack_md)
         text = await self.ai.chat(prompt)
-        return self._parse_summary_block(persona_key, text)
+        block = self._parse_summary_block(persona_key, text)
+        block.raw_text = text
+        return block
 
     def _parse_summary_block(self, persona_key: str, text: str) -> PersonaSummaryBlock:
-        # 형식 파싱: 인물: {persona} | 의견: {verdict} | 확신도: {conf}
+        from app.domains.report.structuring import (
+            extract_json_object,
+            parse_number,
+            parse_price_range,
+            format_price_range,
+            as_str_list,
+        )
+
+        # ── 1. JSON 구조화 파싱 우선 시도 ──
+        parsed_json = extract_json_object(text)
+        if parsed_json and isinstance(parsed_json, dict):
+            raw_v = parsed_json.get("verdict")
+            cand_v = str(raw_v).strip().strip("*_`") if raw_v else ""
+            verdict = "관망"
+            for v_opt in ["매수", "보유", "관망", "매도"]:
+                if v_opt in cand_v:
+                    verdict = v_opt
+                    break
+
+            try:
+                conf = int(parsed_json.get("confidence", 5))
+                confidence = max(1, min(10, conf))
+            except (ValueError, TypeError):
+                confidence = 5
+
+            args = as_str_list(parsed_json.get("core_arguments"), limit=5)
+            low = parse_number(parsed_json.get("target_price_low"))
+            high = parse_number(parsed_json.get("target_price_high"))
+
+            # 만약 low/high가 직접 안 주어졌으면 target_price_range 텍스트에서 파싱
+            tp_text = parsed_json.get("target_price_range")
+            if low is None and high is None and tp_text:
+                low, high = parse_price_range(tp_text)
+
+            trigs = as_str_list(parsed_json.get("trigger_conditions"), limit=3)
+            q = str(parsed_json.get("quote") or "").strip().strip('*_`"\'')
+
+            if not q and args:
+                q = f"{persona_key}의 원칙에 따라 분석: {args[0][:40]}..."
+            elif not q:
+                q = f"{persona_key}의 원칙에 따라 신중하게 평가했다."
+
+            if not args:
+                args = ["재무 펀더멘털 및 가치평가 데이터 기반 종합 평가"]
+
+            target_range_str = format_price_range(low, high) or (str(tp_text).strip() if tp_text else None)
+
+            return PersonaSummaryBlock(
+                persona=persona_key,
+                verdict=verdict,
+                confidence=confidence,
+                core_arguments=args,
+                target_price_range=target_range_str,
+                target_price_low=low,
+                target_price_high=high,
+                trigger_conditions=trigs,
+                quote=q,
+                parse_mode="json",
+            )
+
+        # ── 2. 기존 정규식 텍스트 파싱 폴백 ──
         verdict = "관망"
         confidence = 5
         arguments: list[str] = []
@@ -271,12 +333,10 @@ class GuruReportService:
         trigger_conditions: list[str] = []
         quote = ""
 
-        # 1. 의견 정규식 (매수 / 보유 / 관망 / 매도)
-        v_match = re.search(r"의견[:\s\*]*([매수|보유|관망|매도]+)", text)
+        # 1. 의견 정규식 (매수 / 보유 / 관망 / 매도) - 문자 클래스 버그 수정
+        v_match = re.search(r"의견[:\s\*]*((?:매수|보유|관망|매도))", text)
         if v_match:
-            cand = v_match.group(1).strip()
-            if cand in ["매수", "보유", "관망", "매도"]:
-                verdict = cand
+            verdict = v_match.group(1).strip()
 
         # 2. 확신도 정규식 (1~10)
         c_match = re.search(r"확신도[:\s\*]*(\d+)", text)
@@ -354,14 +414,19 @@ class GuruReportService:
         if not arguments:
             arguments = ["재무 펀더멘털 및 가치평가 데이터 기반 종합 평가"]
 
+        low, high = parse_price_range(target_price)
+
         return PersonaSummaryBlock(
             persona=persona_key,
             verdict=verdict,
             confidence=confidence,
             core_arguments=arguments[:5],
             target_price_range=target_price,
+            target_price_low=low,
+            target_price_high=high,
             trigger_conditions=trigger_conditions[:3],
             quote=quote,
+            parse_mode="regex",
         )
 
     def _save_discussion_file(self, doc: GuruDiscussionDoc) -> None:
@@ -432,6 +497,34 @@ class GuruReportService:
         }
         summaries_list = [s.model_dump() for s in summaries.summaries]
 
+        from app.domains.report.structuring import (
+            build_report_columns,
+            build_opinion_rows,
+            build_metrics_row,
+        )
+
+        extra_cols = build_report_columns(
+            current_price=datapack.current_price,
+            summaries=summaries_list,
+            fair_value=report.fair_value_price,
+            target_price_band=report.target_price_band,
+            safety_entry_price=report.safety_entry_price,
+            optimistic_target_price=report.optimistic_target_price,
+            band_low=getattr(report, "band_low", None),
+            band_high=getattr(report, "band_high", None),
+            safety_entry_value=getattr(report, "safety_entry_value", None),
+            target_sell_value=getattr(report, "target_sell_value", None),
+            conclusion=getattr(report, "conclusion", ""),
+            hot_topics=getattr(report, "hot_topics", []),
+            bull_points=getattr(report, "bull_points", []),
+            bear_points=getattr(report, "bear_points", []),
+            key_drivers=getattr(report, "key_drivers", []),
+            action_guide=getattr(report, "action_guide", {}),
+            review_flags=getattr(report, "valuation_review_flags", []),
+            parse_mode=getattr(report, "parse_mode", "regex"),
+            prompt_version=settings.REPORT_PROMPT_VERSION,
+        )
+
         await self.supabase.save_full_report(
             date_str=date_str,
             ticker=ticker,
@@ -444,7 +537,34 @@ class GuruReportService:
             summaries_list=summaries_list,
             discussion_md=discussion.raw_markdown,
             final_report_md=report.raw_markdown,
+            extra_columns=extra_cols,
         )
+
+        # 1-1. 세분화 데이터: guru_opinions 및 report_metrics 저장
+        report_id = f"{date_str}_{ticker.upper()}"
+        raw_texts = {s.persona: s.raw_text for s in summaries.summaries if s.raw_text}
+        opinion_rows = build_opinion_rows(
+            report_id=report_id,
+            date_str=date_str,
+            ticker=ticker,
+            current_price=datapack.current_price,
+            summaries=summaries_list,
+            prompt_version=settings.REPORT_PROMPT_VERSION,
+            raw_texts=raw_texts,
+        )
+        op_res = self.supabase.save_opinions(opinion_rows)
+        if asyncio.iscoroutine(op_res):
+            await op_res
+
+        metrics_row = build_metrics_row(
+            report_id=report_id,
+            date_str=date_str,
+            ticker=ticker,
+            datapack=datapack_dict,
+        )
+        met_res = self.supabase.save_metrics(metrics_row)
+        if asyncio.iscoroutine(met_res):
+            await met_res
 
         # 2. guru_votes 점수 저장 (스크리너 랭킹 연동)
         await self.supabase.save_guru_votes(

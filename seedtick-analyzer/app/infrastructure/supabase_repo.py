@@ -38,10 +38,10 @@ class SupabaseRepo:
         summaries_list: list[dict],
         discussion_md: str,
         final_report_md: str,
+        extra_columns: dict | None = None,
     ) -> bool:
         """
-        public.guru_reports 테이블에 전체 리포트 본문(데이터팩, 13인요약, 토론, 최종보고서) 저장
-        추후 어날리시스(Analysis) 및 웹 뷰어에서 본문과 지표를 조회할 수 있습니다.
+        public.guru_reports 테이블에 전체 리포트 본문(데이터팩, 13인요약, 토론, 최종보고서 및 구조화 컬럼) 저장
         """
         if not self._client:
             logger.info(f"[Supabase] 설정 미제공 — guru_reports 건너뜀: {ticker} ({date_str})")
@@ -63,12 +63,66 @@ class SupabaseRepo:
             "final_report": final_report_md,
         }
 
+        # 확장 구조화 컬럼 병합 (DB에 해당 컬럼이 아직 없으면 실패할 수 있으므로 실패 시 기본 컬럼만으로 폴백)
+        if extra_columns:
+            for k, v in extra_columns.items():
+                if v is not None:
+                    row[k] = v
+
         try:
             self._client.table("guru_reports").upsert(row).execute()
-            logger.info(f"[Supabase] guru_reports 본문 저장 성공: {report_id}")
+            logger.info(f"[Supabase] guru_reports 본문 및 구조화 컬럼 저장 성공: {report_id}")
             return True
         except Exception as e:
-            logger.error(f"[Supabase] guru_reports 저장 실패 ({report_id}): {e}")
+            logger.warning(f"[Supabase] guru_reports 확장 저장 실패({e}) -> 기본 컬럼으로 폴백 시도")
+            base_row = {
+                "id": report_id,
+                "d": date_str,
+                "ticker": ticker.upper(),
+                "company_name": company_name,
+                "current_price": current_price,
+                "verdict": verdict,
+                "overall_score": overall_score,
+                "vote_summary": vote_summary,
+                "datapack": datapack_dict,
+                "summaries": summaries_list,
+                "discussion": discussion_md,
+                "final_report": final_report_md,
+            }
+            try:
+                self._client.table("guru_reports").upsert(base_row).execute()
+                logger.info(f"[Supabase] guru_reports 기본 컬럼 저장 성공: {report_id}")
+                return True
+            except Exception as e2:
+                logger.error(f"[Supabase] guru_reports 기본 저장마저 실패 ({report_id}): {e2}")
+                return False
+
+    async def save_opinions(self, rows: list[dict]) -> bool:
+        """
+        public.guru_opinions 테이블에 13인 개별 평가 상세 행 저장
+        """
+        if not self._client or not rows:
+            return False
+        try:
+            self._client.table("guru_opinions").upsert(rows, on_conflict="report_id,persona").execute()
+            logger.info(f"[Supabase] guru_opinions {len(rows)}건 저장 성공 ({rows[0].get('report_id')})")
+            return True
+        except Exception as e:
+            logger.warning(f"[Supabase] guru_opinions 저장 건너뜀 (테이블 미생성 또는 오류): {e}")
+            return False
+
+    async def save_metrics(self, row: dict) -> bool:
+        """
+        public.report_metrics 테이블에 데이터팩 핵심 재무/시장 지표 숫자 컬럼 저장
+        """
+        if not self._client or not row:
+            return False
+        try:
+            self._client.table("report_metrics").upsert(row, on_conflict="report_id").execute()
+            logger.info(f"[Supabase] report_metrics 저장 성공 ({row.get('report_id')})")
+            return True
+        except Exception as e:
+            logger.warning(f"[Supabase] report_metrics 저장 건너뜀 (테이블 미생성 또는 오류): {e}")
             return False
 
     async def save_guru_votes(

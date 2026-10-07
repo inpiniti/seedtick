@@ -302,16 +302,21 @@ class DiscussionEngine:
 
 *본 보고서는 서적 기반 시뮬레이션이며 투자 자문이 아닙니다.*
 
-[분량 및 작성 절대 규칙]
+[작성 절대 규칙]
 1. 헤더 3줄(종합 의견·표결·현재가·종합 적정 내재가치·투자 실행 밴드)은 반드시 완성하라 — 이 헤더는 파싱 기준이므로 누락하면 판정이 어긋난다.
 2. 서론, '요약의 요약', 데이터팩 재인용, 생각 과정(Thinking) 출력은 금지한다. 헤더 바로 다음 줄부터 '## 1.' 섹션을 시작하라.
-3. 각 섹션은 6줄 이내로 압축하고(6번 요약표는 13행 유지), 각 불릿은 1문장 이내로 써라.
-4. 전체 마크다운 분량은 1,600자 내외, 절대 2,000자를 넘기지 마라.
-5. 핵심 밸류에이션 논거와 13인 요약표 작성이 끝나면 장황한 중복 추론 없이 즉시 완결하라.
+3. 각 섹션은 충분한 근거와 명확한 수치를 바탕으로 밀도 있고 설득력 있게 작성하되, 불필요한 미사여구나 중복 추론은 배제하라.
+4. 핵심 밸류에이션 논거와 13인 요약표 작성이 끝나면 장황한 꼬리물기 없이 즉시 완결하라.
 """
         logger.info(f"[{datapack.ticker}] 최종 마스터 보고서 AI 생성 시작 (32K 지원)...")
         master_md = await self.ai.chat(prompt)
         logger.info(f"[{datapack.ticker}] 최종 마스터 보고서 AI 생성 완료 (길이: {len(master_md)}자)")
+
+        from app.domains.report.structuring import (
+            extract_master_sections,
+            parse_price_range,
+            parse_number,
+        )
 
         # 4단계: LLM 리서치 센터장의 최종 투자의견 및 밸류에이션 합의치 파싱
         votes = discussion.final_vote_counts
@@ -319,11 +324,21 @@ class DiscussionEngine:
             master_md, fallback_votes=votes
         )
         val_consensus = self.parse_report_valuation(master_md)
+        sec_data = extract_master_sections(master_md)
 
         vote_summary = (
             f"매수 {votes.get('매수', 0)} · 보유 {votes.get('보유', 0)} · "
             f"관망 {votes.get('관망', 0)} · 매도 {votes.get('매도', 0)}"
         )
+
+        b_low, b_high = parse_price_range(val_consensus["target_price_band"])
+        _, s_val = parse_price_range(val_consensus["safety_entry_price"])
+        if s_val is None:
+            s_val = parse_number(val_consensus["safety_entry_price"])
+        t_val = parse_number(val_consensus["optimistic_target_price"])
+
+        bull_str = "; ".join(sec_data["bull_points"]) if sec_data["bull_points"] else "독점적 해자 및 실적 성장"
+        bear_str = "; ".join(sec_data["bear_points"]) if sec_data["bear_points"] else "단기 밸류에이션 부담 및 매크로 불확실성"
 
         return FinalMasterReport(
             ticker=datapack.ticker,
@@ -336,8 +351,18 @@ class DiscussionEngine:
             safety_entry_price=val_consensus["safety_entry_price"],
             optimistic_target_price=val_consensus["optimistic_target_price"],
             valuation_review_flags=val_consensus["review_flags"],
-            bull_case="AI 및 독점적 해자 기반 중장기 복리 성장",
-            bear_case="단기 밸류에이션 부담 및 매크로 불확실성",
+            bull_case=bull_str[:200],
+            bear_case=bear_str[:200],
+            conclusion=sec_data["conclusion"],
+            hot_topics=sec_data["hot_topics"],
+            bull_points=sec_data["bull_points"],
+            bear_points=sec_data["bear_points"],
+            key_drivers=sec_data["key_drivers"],
+            band_low=b_low,
+            band_high=b_high,
+            safety_entry_value=s_val,
+            target_sell_value=t_val,
+            parse_mode="json" if val_consensus.get("parse_mode") == "json" else "regex",
             raw_markdown=master_md,
             discussion=discussion.raw_markdown,
         )
@@ -402,6 +427,7 @@ class DiscussionEngine:
             "target_price_band": target_band,
             "safety_entry_price": safety_entry,
             "optimistic_target_price": optimistic_target,
+            "parse_mode": "regex",
         }
         self._append_valuation_review_flags(parsed, review_flags)
         parsed["review_flags"] = review_flags
@@ -436,6 +462,7 @@ class DiscussionEngine:
                 "target_price_band": target_band,
                 "safety_entry_price": safety_entry,
                 "optimistic_target_price": optimistic_target,
+                "parse_mode": "json",
             }
 
         return None
