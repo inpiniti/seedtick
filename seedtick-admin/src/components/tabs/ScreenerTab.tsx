@@ -1,7 +1,13 @@
 "use client";
 
 import React, { useState } from "react";
-import { GuruReportRow, PipelineProgress, StockCandidate, ValuationConsensus } from "@/types/api";
+import {
+  GuruReportRow,
+  GuruSummaryItem,
+  PipelineProgress,
+  StockCandidate,
+  ValuationConsensus,
+} from "@/types/api";
 import { fetchStockChart } from "@/lib/api-client";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -88,6 +94,7 @@ interface ScreenerTabProps {
   liveCandidates: StockCandidate[];
   /** 두번째 스크리너: DataRoma 슈퍼인베스터 그랜드 포트폴리오 종목 */
   romaCandidates?: StockCandidate[];
+  viewMode?: "default" | "screener-only" | "insights-only";
   isLoading: boolean;
   isRomaLoading?: boolean;
   pipelineProgress: PipelineProgress | null;
@@ -113,10 +120,209 @@ const GURU_NAMES = [
   "버리",
 ];
 
+type GuruVoteTone = "buy" | "hold" | "sell" | "unknown";
+type DecisionAction = "buy" | "hold" | "sell";
+type IntrinsicStabilityLevel = "stable" | "watch" | "unstable" | "insufficient";
+
+type IntrinsicStability = {
+  level: IntrinsicStabilityLevel;
+  label: string;
+  sampleCount: number;
+  rangeMultiple: number | null;
+  cv: number | null;
+};
+
+const GURU_LABELS = GURU_NAMES.filter((name) => name !== "종합");
+
+function normalizeGuruName(summary: GuruSummaryItem): string | null {
+  const raw = `${summary.guru_name || summary.persona || ""}`.trim();
+  if (!raw) return null;
+  const found = GURU_LABELS.find((name) => raw.includes(name));
+  return found ?? null;
+}
+
+function normalizeVoteTone(summary?: GuruSummaryItem | null): GuruVoteTone {
+  if (!summary) return "unknown";
+  const raw = `${summary.verdict || summary.stance || ""}`.toLowerCase();
+  if (!raw) return "unknown";
+  if (
+    raw.includes("매수") ||
+    raw.includes("buy") ||
+    raw.includes("긍정") ||
+    raw.includes("추천")
+  ) {
+    return "buy";
+  }
+  if (
+    raw.includes("보유") ||
+    raw.includes("중립") ||
+    raw.includes("관망") ||
+    raw.includes("hold")
+  ) {
+    return "hold";
+  }
+  if (
+    raw.includes("매도") ||
+    raw.includes("비추천") ||
+    raw.includes("sell") ||
+    raw.includes("부정")
+  ) {
+    return "sell";
+  }
+  return "unknown";
+}
+
+function normalizeVerdictTone(verdict?: string | null): GuruVoteTone {
+  if (!verdict) return "unknown";
+  const normalized = verdict.toLowerCase();
+  if (normalized.includes("매수") || normalized.includes("buy") || normalized.includes("강력")) {
+    return "buy";
+  }
+  if (normalized.includes("보유") || normalized.includes("중립") || normalized.includes("관망")) {
+    return "hold";
+  }
+  if (normalized.includes("매도") || normalized.includes("비추천") || normalized.includes("sell")) {
+    return "sell";
+  }
+  return "unknown";
+}
+
+function resolveDecisionAction(report?: GuruReportRow | null): DecisionAction {
+  if (!report) return "hold";
+  const verdictTone = normalizeVerdictTone(report.verdict);
+  if (verdictTone === "buy" || verdictTone === "sell") return verdictTone;
+
+  if (report.overall_score <= 0) return "buy";
+  if (report.overall_score >= 3) return "sell";
+  return "hold";
+}
+
+function getVoteToneMeta(tone: GuruVoteTone): {
+  label: string;
+  shortLabel: string;
+  className: string;
+} {
+  switch (tone) {
+    case "buy":
+      return {
+        label: "매수 의견",
+        shortLabel: "매수",
+        className: "bg-[#fef0f1] text-[#f04452] border-[#f04452]/20",
+      };
+    case "hold":
+      return {
+        label: "보유·중립 의견",
+        shortLabel: "중립",
+        className: "bg-[#e8f3ff] text-[#3182f6] border-[#3182f6]/20",
+      };
+    case "sell":
+      return {
+        label: "매도·비추천 의견",
+        shortLabel: "매도",
+        className: "bg-[#e6f8f0] text-[#03b26c] border-[#03b26c]/20",
+      };
+    default:
+      return {
+        label: "의견 없음",
+        shortLabel: "-",
+        className: "bg-[#f2f4f6] text-[#8b95a1] border-[#e5e8eb]",
+      };
+  }
+}
+
+function buildIntrinsicStability(fairValues: number[]): IntrinsicStability {
+  const sanitized = fairValues.filter((value) => Number.isFinite(value) && value > 0);
+  if (sanitized.length < 2) {
+    return {
+      level: "insufficient",
+      label: "표본 부족",
+      sampleCount: sanitized.length,
+      rangeMultiple: null,
+      cv: null,
+    };
+  }
+
+  const min = Math.min(...sanitized);
+  const max = Math.max(...sanitized);
+  const mean = sanitized.reduce((sum, value) => sum + value, 0) / sanitized.length;
+  const variance =
+    sanitized.reduce((sum, value) => sum + (value - mean) ** 2, 0) / sanitized.length;
+  const std = Math.sqrt(variance);
+  const rangeMultiple = min > 0 ? max / min : null;
+  const cv = mean > 0 ? std / mean : null;
+
+  if (rangeMultiple == null || cv == null) {
+    return {
+      level: "insufficient",
+      label: "계산 대기",
+      sampleCount: sanitized.length,
+      rangeMultiple: null,
+      cv: null,
+    };
+  }
+
+  if (rangeMultiple > 3 || cv > 0.5) {
+    return {
+      level: "unstable",
+      label: "불안정",
+      sampleCount: sanitized.length,
+      rangeMultiple,
+      cv,
+    };
+  }
+
+  if (rangeMultiple >= 1.8 || cv >= 0.25) {
+    return {
+      level: "watch",
+      label: "주의",
+      sampleCount: sanitized.length,
+      rangeMultiple,
+      cv,
+    };
+  }
+
+  return {
+    level: "stable",
+    label: "안정",
+    sampleCount: sanitized.length,
+    rangeMultiple,
+    cv,
+  };
+}
+
+function getIntrinsicStabilityMeta(stability: IntrinsicStability): {
+  variant: "success" | "warning" | "danger" | "neutral";
+  text: string;
+} {
+  switch (stability.level) {
+    case "stable":
+      return {
+        variant: "success",
+        text: `내재가치 안정성: 안정`,
+      };
+    case "watch":
+      return {
+        variant: "warning",
+        text: `내재가치 안정성: 주의`,
+      };
+    case "unstable":
+      return {
+        variant: "danger",
+        text: `내재가치 안정성: 불안정`,
+      };
+    default:
+      return {
+        variant: "neutral",
+        text: `내재가치 안정성: 표본 부족`,
+      };
+  }
+}
+
 export function ScreenerTab({
   guruReports,
   liveCandidates,
   romaCandidates = [],
+  viewMode = "default",
   isLoading,
   isRomaLoading = false,
   pipelineProgress,
@@ -132,7 +338,13 @@ export function ScreenerTab({
   const [percentBByTicker, setPercentBByTicker] = useState<Record<string, number | null>>({});
   const [availableDatesForTicker, setAvailableDatesForTicker] = useState<string[]>([]);
   const [isLoadingReportDate, setIsLoadingReportDate] = useState(false);
+  const [selectedGuruForTimeline, setSelectedGuruForTimeline] = useState<string>(
+    GURU_LABELS[0] || "그레이엄"
+  );
+  const [selectedDecisionTab, setSelectedDecisionTab] = useState<DecisionAction>("buy");
   const hasAutoRequestedRoma = React.useRef(false);
+  const showInsights = viewMode !== "screener-only";
+  const showScreener = viewMode !== "insights-only";
 
   // 특정 종목의 과거 날짜 목록 동기화
   React.useEffect(() => {
@@ -250,22 +462,52 @@ export function ScreenerTab({
     return map;
   }, [guruReports]);
 
+  const intrinsicStabilityByTicker = React.useMemo(() => {
+    const fairValuesByTicker = new Map<string, number[]>();
+    for (const report of guruReports) {
+      const fairValue = extractValuationConsensus(report)?.fair_value_price;
+      if (fairValue == null || !Number.isFinite(fairValue) || fairValue <= 0) continue;
+      const key = report.ticker.toUpperCase();
+      const series = fairValuesByTicker.get(key) || [];
+      series.push(fairValue);
+      fairValuesByTicker.set(key, series);
+    }
+
+    const stabilityMap = new Map<string, IntrinsicStability>();
+    for (const [ticker, fairValues] of fairValuesByTicker.entries()) {
+      stabilityMap.set(ticker, buildIntrinsicStability(fairValues));
+    }
+    return stabilityMap;
+  }, [guruReports]);
+
   const getCandidateInsight = React.useCallback(
     (stock: StockCandidate) => {
       const report = latestReportByTicker.get(stock.ticker.toUpperCase());
       const consensus = extractValuationConsensus(report);
       const fairValue = consensus?.fair_value_price ?? null;
+      const confidenceSamples = (report?.summaries || [])
+        .map((summary) => summary.confidence)
+        .filter((value): value is number => value != null && Number.isFinite(value));
+      const confidence =
+        confidenceSamples.length > 0
+          ? confidenceSamples.reduce((sum, value) => sum + value, 0) / confidenceSamples.length
+          : null;
       const intrinsicRatioPct =
         fairValue != null && Number.isFinite(stock.price) && stock.price > 0
           ? (fairValue / stock.price) * 100
           : null;
+      const intrinsicStability =
+        intrinsicStabilityByTicker.get(stock.ticker.toUpperCase()) ||
+        buildIntrinsicStability([]);
       return {
         verdict: report?.verdict ?? null,
+        confidence,
         fairValue,
         intrinsicRatioPct,
+        intrinsicStability,
       };
     },
-    [latestReportByTicker]
+    [intrinsicStabilityByTicker, latestReportByTicker]
   );
 
   const matchesSearch = (stock: StockCandidate) =>
@@ -332,7 +574,238 @@ export function ScreenerTab({
 
   const filteredAllCandidates = allCandidates.filter(({ stock }) => matchesSearch(stock));
 
+  const coverageStats = React.useMemo(() => {
+    const uniqueTickers = new Set(allCandidates.map(({ stock }) => stock.ticker.toUpperCase()));
+    let reportCovered = 0;
+    for (const ticker of uniqueTickers) {
+      if (latestReportByTicker.has(ticker)) {
+        reportCovered += 1;
+      }
+    }
+    return {
+      allCount: allCandidates.length,
+      liveCount: liveCandidates.length,
+      romaCount: romaCandidates.length,
+      overlapCount: liveCandidates.filter((live) =>
+        romaCandidates.some((roma) => roma.ticker.toUpperCase() === live.ticker.toUpperCase())
+      ).length,
+      coveredCount: reportCovered,
+    };
+  }, [allCandidates, latestReportByTicker, liveCandidates, romaCandidates]);
+
+  const guruComparison = React.useMemo(() => {
+    type VoteRecord = {
+      reportKey: string;
+      date: string;
+      guru: string;
+      tone: GuruVoteTone;
+      reportTone: GuruVoteTone;
+      confidence: number | null;
+    };
+
+    const votesByReport = new Map<string, Map<string, VoteRecord>>();
+    const records: VoteRecord[] = [];
+
+    for (const report of guruReports) {
+      const reportTone = normalizeVerdictTone(report.verdict);
+      const summaries = report.summaries || [];
+      const reportKey = `${report.d}:${report.ticker.toUpperCase()}`;
+      const reportVotes = votesByReport.get(reportKey) ?? new Map<string, VoteRecord>();
+      for (const summary of summaries) {
+        const guru = normalizeGuruName(summary);
+        if (!guru) continue;
+        const tone = normalizeVoteTone(summary);
+        const confidenceRaw = summary.confidence;
+        const confidence =
+          confidenceRaw != null && Number.isFinite(confidenceRaw) ? Number(confidenceRaw) : null;
+        const vote: VoteRecord = {
+          reportKey,
+          date: report.d,
+          guru,
+          tone,
+          reportTone,
+          confidence,
+        };
+        reportVotes.set(guru, vote);
+        records.push(vote);
+      }
+      votesByReport.set(reportKey, reportVotes);
+    }
+
+    const guruStats = GURU_LABELS.map((guru) => {
+      const guruVotes = records.filter((record) => record.guru === guru && record.tone !== "unknown");
+      const comparable = guruVotes.filter((record) => record.reportTone !== "unknown");
+      const agreement = comparable.filter((record) => record.tone === record.reportTone).length;
+      const confidenceSamples = guruVotes
+        .map((record) => record.confidence)
+        .filter((value): value is number => value != null);
+      const avgConfidence =
+        confidenceSamples.length > 0
+          ? confidenceSamples.reduce((sum, value) => sum + value, 0) / confidenceSamples.length
+          : null;
+
+      return {
+        guru,
+        votes: guruVotes.length,
+        comparable: comparable.length,
+        agreementRate:
+          comparable.length > 0 ? (agreement / comparable.length) * 100 : null,
+        avgConfidence,
+      };
+    }).sort((a, b) => {
+      const rateA = a.agreementRate ?? -1;
+      const rateB = b.agreementRate ?? -1;
+      if (rateB !== rateA) return rateB - rateA;
+      return b.votes - a.votes;
+    });
+
+    const timelineByGuru = new Map<string, Array<{ date: string; rate: number | null; count: number; avgConfidence: number | null }>>();
+    for (const guru of GURU_LABELS) {
+      const byDate = new Map<string, { total: number; matches: number; confidenceSum: number; confidenceCount: number }>();
+      for (const record of records) {
+        if (record.guru !== guru || record.tone === "unknown") continue;
+        const item = byDate.get(record.date) || {
+          total: 0,
+          matches: 0,
+          confidenceSum: 0,
+          confidenceCount: 0,
+        };
+        item.total += 1;
+        if (record.reportTone !== "unknown" && record.tone === record.reportTone) {
+          item.matches += 1;
+        }
+        if (record.confidence != null) {
+          item.confidenceSum += record.confidence;
+          item.confidenceCount += 1;
+        }
+        byDate.set(record.date, item);
+      }
+
+      const timeline = [...byDate.entries()]
+        .sort((a, b) => b[0].localeCompare(a[0]))
+        .slice(0, 10)
+        .map(([date, item]) => ({
+          date,
+          rate: item.total > 0 ? (item.matches / item.total) * 100 : null,
+          count: item.total,
+          avgConfidence:
+            item.confidenceCount > 0 ? item.confidenceSum / item.confidenceCount : null,
+        }))
+        .reverse();
+
+      timelineByGuru.set(guru, timeline);
+    }
+
+    const correlationMatrix = GURU_LABELS.map((rowGuru) =>
+      GURU_LABELS.map((colGuru) => {
+        if (rowGuru === colGuru) return { percent: 100, samples: 0 };
+        let same = 0;
+        let total = 0;
+        for (const voteMap of votesByReport.values()) {
+          const rowVote = voteMap.get(rowGuru);
+          const colVote = voteMap.get(colGuru);
+          if (!rowVote || !colVote) continue;
+          if (rowVote.tone === "unknown" || colVote.tone === "unknown") continue;
+          total += 1;
+          if (rowVote.tone === colVote.tone) same += 1;
+        }
+        return { percent: total > 0 ? (same / total) * 100 : null, samples: total };
+      })
+    );
+
+    return { guruStats, timelineByGuru, correlationMatrix };
+  }, [guruReports]);
+
+  const selectedGuruTimeline = guruComparison.timelineByGuru.get(selectedGuruForTimeline) || [];
+
+  const heatmapColumns = React.useMemo(() => {
+    const columns = filteredAllCandidates
+      .slice(0, 8)
+      .map(({ stock }) => ({
+        ticker: stock.ticker.toUpperCase(),
+        name: stock.name,
+        report: latestReportByTicker.get(stock.ticker.toUpperCase()) ?? null,
+      }));
+    return columns;
+  }, [filteredAllCandidates, latestReportByTicker]);
+
+  const heatmapRows = React.useMemo(() => {
+    return GURU_LABELS.map((guru) => ({
+      guru,
+      cells: heatmapColumns.map((column) => {
+        const summaries = column.report?.summaries ?? [];
+        const matchedSummary =
+          summaries.find((summary) => normalizeGuruName(summary) === guru) ?? null;
+        return {
+          ticker: column.ticker,
+          tone: normalizeVoteTone(matchedSummary),
+        };
+      }),
+    }));
+  }, [heatmapColumns]);
+
   const chartTickerKey = (ticker: string) => ticker.trim().toUpperCase().replace(/\./g, "-");
+
+  const decisionInsights = React.useMemo(() => {
+    const rows = filteredAllCandidates.map(({ stock, sources }) => {
+      const report = latestReportByTicker.get(stock.ticker.toUpperCase()) ?? null;
+      const consensus = extractValuationConsensus(report);
+      const fairValue = consensus?.fair_value_price ?? null;
+      const upsidePct =
+        fairValue != null && stock.price > 0 ? ((fairValue - stock.price) / stock.price) * 100 : null;
+      const percentB = percentBByTicker[chartTickerKey(stock.ticker)] ?? null;
+      const confidenceSamples = (report?.summaries || [])
+        .map((summary) => summary.confidence)
+        .filter((value): value is number => value != null && Number.isFinite(value));
+      const confidence =
+        confidenceSamples.length > 0
+          ? confidenceSamples.reduce((sum, value) => sum + value, 0) / confidenceSamples.length
+          : null;
+      const action = resolveDecisionAction(report);
+
+      const priorityScore =
+        (action === "buy" ? 30 : action === "sell" ? 20 : 10) +
+        (confidence ?? 0) * 4 +
+        (upsidePct ?? 0) * (action === "buy" ? 1.2 : action === "sell" ? -0.8 : 0.4);
+
+      return {
+        ticker: stock.ticker,
+        name: stock.name,
+        price: stock.price,
+        sources,
+        action,
+        confidence,
+        upsidePct,
+        percentB,
+        priorityScore,
+        reason:
+          report?.vote_summary ||
+          report?.verdict ||
+          "리포트 생성 후 더 정확한 매수/보유/매도 근거를 보여줘요.",
+      };
+    });
+
+    const grouped = {
+      buy: rows
+        .filter((row) => row.action === "buy")
+        .sort((a, b) => b.priorityScore - a.priorityScore),
+      hold: rows
+        .filter((row) => row.action === "hold")
+        .sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0)),
+      sell: rows
+        .filter((row) => row.action === "sell")
+        .sort((a, b) => b.priorityScore - a.priorityScore),
+    };
+
+    return {
+      grouped,
+      counts: {
+        buy: grouped.buy.length,
+        hold: grouped.hold.length,
+        sell: grouped.sell.length,
+      },
+    };
+  }, [filteredAllCandidates, latestReportByTicker, percentBByTicker]);
 
   const formatPercentB = (percentB: number | null | undefined) => {
     if (percentB === undefined) return "계산 중";
@@ -343,6 +816,13 @@ export function ScreenerTab({
   const formatIntrinsicRatio = (ratio: number | null) => {
     if (ratio == null || !Number.isFinite(ratio)) return null;
     return `${Math.round(ratio)}%`;
+  };
+
+  const formatIntrinsicStabilityDetail = (stability: IntrinsicStability) => {
+    if (stability.rangeMultiple == null || stability.cv == null) {
+      return "표본 2개 이상이 쌓이면 계산해요";
+    }
+    return `범위 ${stability.rangeMultiple.toFixed(1)}x · CV ${stability.cv.toFixed(2)} · 표본 ${stability.sampleCount}`;
   };
 
   React.useEffect(() => {
@@ -431,6 +911,7 @@ export function ScreenerTab({
       ) : null}
 
       {/* 서브 탭 & 검색 바 */}
+      {showScreener && (
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-1 p-1 bg-[#f2f4f6] rounded-2xl w-full sm:w-fit overflow-x-auto">
           <button
@@ -487,9 +968,425 @@ export function ScreenerTab({
           />
         </div>
       </div>
+      )}
+
+      {showInsights && (
+      <>
+      <Card className="p-4 sm:p-5">
+        <Card.Header className="pb-2">
+          <Card.Title className="text-base sm:text-lg">매수/보유/매도 결정 카드</Card.Title>
+          <Card.Description>
+            지금 무엇을 해야 하는지 먼저 보여줘요. 종합 의견, 내재가치 대비 갭, 기술 상태를 함께 반영했어요.
+          </Card.Description>
+        </Card.Header>
+        <Card.Content className="space-y-4">
+          <div className="grid grid-cols-3 gap-2.5">
+            <button
+              onClick={() => setSelectedDecisionTab("buy")}
+              className={`rounded-2xl border px-3 py-2 text-left cursor-pointer transition-all ${
+                selectedDecisionTab === "buy"
+                  ? "border-[#f04452]/30 bg-[#fef0f1]"
+                  : "border-[#e5e8eb] bg-white"
+              }`}
+            >
+              <p className="text-[11px] text-[#8b95a1]">매수 검토</p>
+              <p className="text-base font-bold text-[#191f28] mt-0.5">
+                {decisionInsights.counts.buy}개
+              </p>
+            </button>
+            <button
+              onClick={() => setSelectedDecisionTab("hold")}
+              className={`rounded-2xl border px-3 py-2 text-left cursor-pointer transition-all ${
+                selectedDecisionTab === "hold"
+                  ? "border-[#3182f6]/30 bg-[#e8f3ff]"
+                  : "border-[#e5e8eb] bg-white"
+              }`}
+            >
+              <p className="text-[11px] text-[#8b95a1]">보유 관찰</p>
+              <p className="text-base font-bold text-[#191f28] mt-0.5">
+                {decisionInsights.counts.hold}개
+              </p>
+            </button>
+            <button
+              onClick={() => setSelectedDecisionTab("sell")}
+              className={`rounded-2xl border px-3 py-2 text-left cursor-pointer transition-all ${
+                selectedDecisionTab === "sell"
+                  ? "border-[#03b26c]/30 bg-[#e6f8f0]"
+                  : "border-[#e5e8eb] bg-white"
+              }`}
+            >
+              <p className="text-[11px] text-[#8b95a1]">매도 검토</p>
+              <p className="text-base font-bold text-[#191f28] mt-0.5">
+                {decisionInsights.counts.sell}개
+              </p>
+            </button>
+          </div>
+
+          <div className="rounded-2xl border border-[#e5e8eb] bg-white p-3.5">
+            <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#f2f4f6]">
+              <p className="text-sm font-bold text-[#191f28]">
+                {selectedDecisionTab === "buy"
+                  ? "지금 매수 검토할 종목"
+                  : selectedDecisionTab === "sell"
+                    ? "지금 매도 검토할 종목"
+                    : "지금 보유 관찰할 종목"}
+              </p>
+              <span className="text-[11px] text-[#8b95a1]">
+                우선순위 상위 8개
+              </span>
+            </div>
+
+            <div className="mt-2.5 space-y-1.5">
+              {decisionInsights.grouped[selectedDecisionTab].slice(0, 8).length === 0 ? (
+                <p className="text-xs text-[#8b95a1]">
+                  현재 조건에서 표시할 종목이 없어요. 스크리너를 갱신해 주세요.
+                </p>
+              ) : (
+                decisionInsights.grouped[selectedDecisionTab].slice(0, 8).map((item) => (
+                  <button
+                    key={`${selectedDecisionTab}-${item.ticker}`}
+                    onClick={() => handleOpenReportByTicker(item.ticker)}
+                    className="w-full text-left rounded-xl bg-[#f9fafb] hover:bg-[#f2f4f6] transition-colors px-2.5 py-2 cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-[#191f28] truncate">
+                          {item.ticker} · {item.name}
+                        </p>
+                        <p className="text-[11px] text-[#8b95a1] mt-0.5 truncate">
+                          {item.reason}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-xs font-bold text-[#191f28]">
+                          ${item.price.toFixed(2)}
+                        </p>
+                        <p className="text-[11px] text-[#6b7684] mt-0.5">
+                          상승여력{" "}
+                          {item.upsidePct == null
+                            ? "-"
+                            : `${item.upsidePct >= 0 ? "+" : ""}${item.upsidePct.toFixed(1)}%`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center flex-wrap gap-1.5 mt-1.5">
+                      <span className="px-2 py-0.5 rounded-full border border-[#e5e8eb] bg-white text-[11px] text-[#4e5968]">
+                        확신도 {item.confidence == null ? "-" : `${item.confidence.toFixed(1)}점`}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full border border-[#e5e8eb] bg-white text-[11px] text-[#4e5968]">
+                        %B {item.percentB == null ? "-" : `${(item.percentB * 100).toFixed(1)}%`}
+                      </span>
+                      {item.sources.map((source) => (
+                        <Badge key={`${item.ticker}-${source}`} variant="neutral">
+                          {source}
+                        </Badge>
+                      ))}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </Card.Content>
+      </Card>
+
+      <Card className="p-4 sm:p-5">
+        <Card.Header className="pb-2">
+          <Card.Title className="text-base sm:text-lg">스크리닝 비교 인사이트</Card.Title>
+          <Card.Description>
+            실시간 스크리너와 DataRoma 결과를 한 번에 비교하고, 13인 거장 의견을 히트맵으로 확인해요.
+          </Card.Description>
+        </Card.Header>
+        <Card.Content className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5">
+            <div className="rounded-2xl border border-[#e5e8eb] bg-[#f9fafb] px-3 py-2.5">
+              <p className="text-[11px] text-[#8b95a1]">통합 후보</p>
+              <p className="text-sm font-bold text-[#191f28] mt-0.5">
+                {coverageStats.allCount.toLocaleString("ko-KR")}개
+              </p>
+            </div>
+            <div className="rounded-2xl border border-[#e5e8eb] bg-[#f9fafb] px-3 py-2.5">
+              <p className="text-[11px] text-[#8b95a1]">실시간 스크리너</p>
+              <p className="text-sm font-bold text-[#191f28] mt-0.5">
+                {coverageStats.liveCount.toLocaleString("ko-KR")}개
+              </p>
+            </div>
+            <div className="rounded-2xl border border-[#e5e8eb] bg-[#f9fafb] px-3 py-2.5">
+              <p className="text-[11px] text-[#8b95a1]">DataRoma 후보</p>
+              <p className="text-sm font-bold text-[#191f28] mt-0.5">
+                {coverageStats.romaCount.toLocaleString("ko-KR")}개
+              </p>
+            </div>
+            <div className="rounded-2xl border border-[#e5e8eb] bg-[#f9fafb] px-3 py-2.5">
+              <p className="text-[11px] text-[#8b95a1]">교집합(양쪽 공통)</p>
+              <p className="text-sm font-bold text-[#191f28] mt-0.5">
+                {coverageStats.overlapCount.toLocaleString("ko-KR")}개
+              </p>
+            </div>
+            <div className="rounded-2xl border border-[#e5e8eb] bg-[#f9fafb] px-3 py-2.5">
+              <p className="text-[11px] text-[#8b95a1]">리포트 커버리지</p>
+              <p className="text-sm font-bold text-[#191f28] mt-0.5">
+                {coverageStats.coveredCount.toLocaleString("ko-KR")} /{" "}
+                {coverageStats.allCount.toLocaleString("ko-KR")}개
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[#e5e8eb] bg-white p-3.5">
+            <div className="flex flex-wrap items-center gap-1.5 pb-2.5 border-b border-[#f2f4f6]">
+              <Badge variant="primary">토스 13인 공통 필터 · nation=us · size=50</Badge>
+              <Badge variant="neutral">DataRoma Grand · min_holders=10</Badge>
+            </div>
+            <p className="text-[11px] text-[#8b95a1] mt-2.5">
+              상단 조건은 현재 대시보드 조회 파라미터를 기준으로 자동 반영해요.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-[#e5e8eb] bg-white p-3.5">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div>
+                <p className="text-sm font-bold text-[#191f28]">13인 거장 투표 히트맵</p>
+                <p className="text-[11px] text-[#8b95a1] mt-0.5">
+                  현재 정렬 기준 상위 {heatmapColumns.length}개 종목 기준이에요.
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px]">
+                {(["buy", "hold", "sell", "unknown"] as GuruVoteTone[]).map((tone) => {
+                  const meta = getVoteToneMeta(tone);
+                  return (
+                    <span
+                      key={tone}
+                      className={`px-2 py-1 rounded-full border font-semibold ${meta.className}`}
+                    >
+                      {meta.shortLabel}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+
+            {heatmapColumns.length === 0 ? (
+              <div className="mt-3">
+                <EmptyState
+                  icon={<Users className="w-8 h-8 text-[#8b95a1]" />}
+                  title="히트맵을 만들 후보 종목이 아직 없어요"
+                  description="스크리너를 실행하면 거장별 의견을 비교해서 보여줘요."
+                />
+              </div>
+            ) : (
+              <div className="mt-3 overflow-x-auto">
+                <table className="min-w-full text-xs border-separate border-spacing-y-1.5">
+                  <thead>
+                    <tr>
+                      <th className="text-left text-[#8b95a1] font-semibold px-2 py-1">
+                        거장
+                      </th>
+                      {heatmapColumns.map((column) => (
+                        <th
+                          key={column.ticker}
+                          className="text-center text-[#6b7684] font-semibold px-2 py-1"
+                          title={column.name || column.ticker}
+                        >
+                          {column.ticker}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {heatmapRows.map((row) => (
+                      <tr key={row.guru}>
+                        <th className="text-left text-[#4e5968] font-semibold px-2 py-1 whitespace-nowrap">
+                          {row.guru}
+                        </th>
+                        {row.cells.map((cell) => {
+                          const meta = getVoteToneMeta(cell.tone);
+                          return (
+                            <td key={`${row.guru}-${cell.ticker}`} className="px-1.5 py-1 text-center">
+                              <span
+                                className={`inline-flex min-w-[40px] justify-center px-2 py-1 rounded-lg border font-semibold ${meta.className}`}
+                                title={`${row.guru} · ${cell.ticker} · ${meta.label}`}
+                              >
+                                {meta.shortLabel}
+                              </span>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </Card.Content>
+      </Card>
+
+      <Card className="p-4 sm:p-5">
+        <Card.Header className="pb-2">
+          <Card.Title className="text-base sm:text-lg">13인 거장 비교 분석</Card.Title>
+          <Card.Description>
+            거장별 종합의견 합의율과 거장 간 의견 유사도를 함께 비교해요.
+          </Card.Description>
+        </Card.Header>
+        <Card.Content className="space-y-4">
+          <div className="rounded-2xl border border-[#e5e8eb] bg-white p-3.5">
+            <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#f2f4f6]">
+              <p className="text-sm font-bold text-[#191f28]">거장별 합의율 랭킹</p>
+              <span className="text-[11px] text-[#8b95a1]">
+                종합의견과 같은 방향 비율 기준
+              </span>
+            </div>
+            <div className="mt-2.5 grid grid-cols-1 md:grid-cols-2 gap-2">
+              {guruComparison.guruStats.map((item, idx) => {
+                const rate = item.agreementRate;
+                const width = Math.max(6, Math.round(rate ?? 0));
+                return (
+                  <div key={item.guru} className="rounded-xl bg-[#f9fafb] px-2.5 py-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-[11px] text-[#8b95a1] w-5 shrink-0">
+                          {idx + 1}
+                        </span>
+                        <span className="text-xs font-bold text-[#191f28] truncate">{item.guru}</span>
+                      </div>
+                      <span className="text-[11px] text-[#6b7684]">
+                        {item.votes}회
+                      </span>
+                    </div>
+                    <div className="mt-2 h-1.5 rounded-full bg-[#e5e8eb] overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-[#3182f6] transition-all duration-700"
+                        style={{ width: `${width}%` }}
+                      />
+                    </div>
+                    <div className="mt-1.5 flex items-center justify-between text-[11px]">
+                      <span className="text-[#8b95a1]">
+                        평균 확신도{" "}
+                        {item.avgConfidence == null ? "-" : `${item.avgConfidence.toFixed(1)}점`}
+                      </span>
+                      <span className="font-bold text-[#191f28]">
+                        {rate == null ? "-" : `${rate.toFixed(1)}%`}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[#e5e8eb] bg-white p-3.5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <p className="text-sm font-bold text-[#191f28]">거장별 합의율 타임라인</p>
+              <div className="flex items-center gap-1 p-1 rounded-xl bg-[#f2f4f6] overflow-x-auto">
+                {GURU_LABELS.slice(0, 8).map((guru) => (
+                  <button
+                    key={guru}
+                    onClick={() => setSelectedGuruForTimeline(guru)}
+                    className={`px-2 py-1 text-[11px] font-semibold rounded-lg whitespace-nowrap cursor-pointer ${
+                      selectedGuruForTimeline === guru
+                        ? "bg-white text-[#191f28]"
+                        : "text-[#8b95a1] hover:text-[#4e5968]"
+                    }`}
+                  >
+                    {guru}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mt-2.5 space-y-1.5">
+              {selectedGuruTimeline.length === 0 ? (
+                <p className="text-xs text-[#8b95a1]">타임라인 데이터가 아직 부족해요.</p>
+              ) : (
+                selectedGuruTimeline.map((point) => {
+                  const rate = point.rate ?? 0;
+                  return (
+                    <div
+                      key={`${selectedGuruForTimeline}-${point.date}`}
+                      className="grid grid-cols-[72px_1fr_auto] gap-2 items-center"
+                    >
+                      <span className="text-[11px] text-[#8b95a1]">{point.date.slice(5)}</span>
+                      <div className="h-2 rounded-full bg-[#e5e8eb] overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-[#3182f6] transition-all duration-700"
+                          style={{ width: `${Math.max(4, Math.round(rate))}%` }}
+                        />
+                      </div>
+                      <span className="text-[11px] font-semibold text-[#4e5968] whitespace-nowrap">
+                        {point.rate == null ? "-" : `${point.rate.toFixed(1)}%`} · {point.count}건
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[#e5e8eb] bg-white p-3.5">
+            <p className="text-sm font-bold text-[#191f28]">거장 간 의견 상관 매트릭스</p>
+            <p className="text-[11px] text-[#8b95a1] mt-0.5">
+              같은 종목에서 같은 의견(매수/중립/매도)을 낸 비율이에요.
+            </p>
+            <div className="mt-2.5 overflow-x-auto">
+              <table className="min-w-full text-[11px] border-separate border-spacing-1">
+                <thead>
+                  <tr>
+                    <th className="text-left text-[#8b95a1] px-1.5 py-1">거장</th>
+                    {GURU_LABELS.map((guru) => (
+                      <th key={`head-${guru}`} className="text-center text-[#8b95a1] px-1.5 py-1">
+                        {guru}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {GURU_LABELS.map((rowGuru, rowIdx) => (
+                    <tr key={`row-${rowGuru}`}>
+                      <th className="text-left text-[#4e5968] px-1.5 py-1 whitespace-nowrap">
+                        {rowGuru}
+                      </th>
+                      {guruComparison.correlationMatrix[rowIdx].map((cell, colIdx) => {
+                        const value = cell.percent;
+                        const intensity =
+                          value == null ? 0 : Math.min(1, Math.max(0, value / 100));
+                        const bgColor =
+                          rowIdx === colIdx
+                            ? "#e8f3ff"
+                            : value == null
+                              ? "#f2f4f6"
+                              : `rgba(49,130,246,${0.12 + intensity * 0.45})`;
+                        const textColor =
+                          rowIdx === colIdx || (value != null && value >= 70)
+                            ? "#191f28"
+                            : "#4e5968";
+                        return (
+                          <td key={`${rowGuru}-${GURU_LABELS[colIdx]}`} className="px-1 py-1 text-center">
+                            <span
+                              className="inline-flex min-w-[42px] justify-center rounded-md px-1.5 py-1 font-semibold"
+                              style={{ backgroundColor: bgColor, color: textColor }}
+                              title={
+                                value == null
+                                  ? "비교 표본 없음"
+                                  : `${value.toFixed(1)}% · 표본 ${cell.samples}건`
+                              }
+                            >
+                              {value == null ? "-" : `${Math.round(value)}%`}
+                            </span>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </Card.Content>
+      </Card>
+      </>
+      )}
 
       {/* 전체 스크리너 통합 뷰 */}
-      {activeSubTab === "all" && (
+      {showScreener && activeSubTab === "all" && (
         <Card className="p-4 sm:p-6">
           <Card.Header className="border-b border-[#f2f4f6] pb-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -543,6 +1440,7 @@ export function ScreenerTab({
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-3">
                 {filteredAllCandidates.map(({ stock, sources }, i) => {
                   const insight = getCandidateInsight(stock);
+                  const stabilityMeta = getIntrinsicStabilityMeta(insight.intrinsicStability);
                   const ratioText = formatIntrinsicRatio(insight.intrinsicRatioPct);
                   const percentB = percentBByTicker[stock.ticker.toUpperCase()];
                   const changeRate =
@@ -596,10 +1494,20 @@ export function ScreenerTab({
                           %B: <strong>{formatPercentB(percentB)}</strong>
                         </span>
                         <span className="px-2 py-0.5 rounded-full bg-white border border-[#e5e8eb]">
+                          확신도:{" "}
+                          <strong>{insight.confidence == null ? "-" : `${insight.confidence.toFixed(1)}점`}</strong>
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full bg-white border border-[#e5e8eb]">
                           내재가치/종가: <strong className={insight.intrinsicRatioPct != null && insight.intrinsicRatioPct >= 100 ? "text-[#03b26c]" : "text-[#4e5968]"}>
                             {ratioText || "리포트 준비 중"}
                           </strong>
                         </span>
+                        <Badge
+                          variant={stabilityMeta.variant}
+                          title={formatIntrinsicStabilityDetail(insight.intrinsicStability)}
+                        >
+                          {stabilityMeta.text}
+                        </Badge>
                       </div>
 
                       <div className="flex items-center justify-between text-[11px] text-[#8b95a1]">
@@ -621,7 +1529,7 @@ export function ScreenerTab({
       )}
 
       {/* 토스 공통 스크리너 실시간 뷰 */}
-      {activeSubTab === "live" && (
+      {showScreener && activeSubTab === "live" && (
         <Card className="p-4 sm:p-6">
           <Card.Header className="border-b border-[#f2f4f6] pb-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -678,6 +1586,7 @@ export function ScreenerTab({
                 {filteredLiveCandidates.map((stock, i) => (
                   (() => {
                     const insight = getCandidateInsight(stock);
+                    const stabilityMeta = getIntrinsicStabilityMeta(insight.intrinsicStability);
                     const ratioText = formatIntrinsicRatio(insight.intrinsicRatioPct);
                     const percentB = percentBByTicker[stock.ticker.toUpperCase()];
                     const changeRate =
@@ -746,11 +1655,21 @@ export function ScreenerTab({
                             %B: <strong>{formatPercentB(percentB)}</strong>
                           </span>
                           <span className="px-2 py-0.5 rounded-full bg-white border border-[#e5e8eb]">
+                            확신도:{" "}
+                            <strong>{insight.confidence == null ? "-" : `${insight.confidence.toFixed(1)}점`}</strong>
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full bg-white border border-[#e5e8eb]">
                             내재가치/종가:{" "}
                             <strong className={ratioText && insight.intrinsicRatioPct != null && insight.intrinsicRatioPct >= 100 ? "text-[#03b26c]" : "text-[#4e5968]"}>
                               {ratioText || "리포트 준비 중"}
                             </strong>
                           </span>
+                          <Badge
+                            variant={stabilityMeta.variant}
+                            title={formatIntrinsicStabilityDetail(insight.intrinsicStability)}
+                          >
+                            {stabilityMeta.text}
+                          </Badge>
                         </div>
 
                         {stock.roe != null && (
@@ -774,7 +1693,7 @@ export function ScreenerTab({
       )}
 
       {/* 2-2. DataRoma 슈퍼인베스터 스크리너(roma) 뷰 */}
-      {activeSubTab === "roma" && (
+      {showScreener && activeSubTab === "roma" && (
         <Card className="p-4 sm:p-6">
           <Card.Header className="border-b border-[#f2f4f6] pb-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -832,6 +1751,7 @@ export function ScreenerTab({
                 {filteredRomaCandidates.map((stock, i) => (
                   (() => {
                     const insight = getCandidateInsight(stock);
+                    const stabilityMeta = getIntrinsicStabilityMeta(insight.intrinsicStability);
                     const ratioText = formatIntrinsicRatio(insight.intrinsicRatioPct);
                     const percentB = percentBByTicker[stock.ticker.toUpperCase()];
                     return (
@@ -882,11 +1802,21 @@ export function ScreenerTab({
                             %B: <strong>{formatPercentB(percentB)}</strong>
                           </span>
                           <span className="px-2 py-0.5 rounded-full bg-white border border-[#e5e8eb]">
+                            확신도:{" "}
+                            <strong>{insight.confidence == null ? "-" : `${insight.confidence.toFixed(1)}점`}</strong>
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full bg-white border border-[#e5e8eb]">
                             내재가치/종가:{" "}
                             <strong className={ratioText && insight.intrinsicRatioPct != null && insight.intrinsicRatioPct >= 100 ? "text-[#03b26c]" : "text-[#4e5968]"}>
                               {ratioText || "리포트 준비 중"}
                             </strong>
                           </span>
+                          <Badge
+                            variant={stabilityMeta.variant}
+                            title={formatIntrinsicStabilityDetail(insight.intrinsicStability)}
+                          >
+                            {stabilityMeta.text}
+                          </Badge>
                         </div>
 
                         <div className="flex items-center justify-between text-[11px] text-[#8b95a1]">
