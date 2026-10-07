@@ -161,6 +161,26 @@ DataRoma Grand Portfolio(`https://www.dataroma.com/m/g/portfolio.php?o=c`)를 �
 }
 ```
 
+### GET /api/screener/logo/{ticker}
+티커별 로고 URL 조회. 우선 Supabase `ticker_logos` 캐시를 조회하고, 캐시에 없으면 토스 스크리너를 탐색해 로고를 찾아 캐시에 저장한 뒤 반환합니다.
+
+**Path Parameters**
+- `ticker`: 종목 티커 (예: `AAPL`)
+
+**Response (200)**
+```json
+{
+  "ticker": "AAPL",
+  "logo_image_url": "https://.../aapl.png",
+  "source": "cached"
+}
+```
+
+`source` 값:
+- `cached`: Supabase 캐시에서 조회됨
+- `toss_lookup`: 토스 조회 후 캐시에 저장되어 반환됨
+- `none`: 로고를 찾지 못함 (`logo_image_url = null`)
+
 ### POST /report/generate
 단일 종목 리포트 생성
 

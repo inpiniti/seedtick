@@ -130,6 +130,24 @@ async def test_roma_screener_route(monkeypatch):
         assert data["criteria"]["preset"] == "roma"
 
 
+@pytest.mark.asyncio
+async def test_ticker_logo_route(monkeypatch):
+    from app.domains.screener.logo_service import TickerLogoService
+
+    async def mock_resolve_logo(self, ticker: str):
+        assert ticker == "AAPL"
+        return "https://static.tossinvest.com/aapl.png", "cached"
+
+    monkeypatch.setattr(TickerLogoService, "resolve_logo", mock_resolve_logo)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.get("/api/screener/logo/aapl")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["ticker"] == "AAPL"
+        assert data["logo_image_url"] == "https://static.tossinvest.com/aapl.png"
+        assert data["source"] == "cached"
+
 
 
 

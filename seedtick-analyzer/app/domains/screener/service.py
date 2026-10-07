@@ -7,6 +7,7 @@ ScreenerService: 토스증권 13인의 거장 스크리너 직접 연동
 import logging
 from typing import Any
 from app.config.constants import EXCLUDED_SCREENER_GURUS, SCREENER_12_GURUS
+from app.domains.screener.logo_service import TickerLogoService
 from app.domains.screener.clients.toss_wts import TossWtsClient
 from app.domains.screener.models import ScreenCriteria, ScreenResult, TossStockItem
 
@@ -18,10 +19,12 @@ class ScreenerService:
         self,
         wts_client: TossWtsClient | None = None,
         btc_client: Any = None,
+        logo_service: TickerLogoService | None = None,
     ):
         # Toss WTS 비공개 API 직접 호출 클라이언트가 기본 클라이언트
         self.wts_client = wts_client or btc_client or TossWtsClient()
         self.btc_client = self.wts_client
+        self.logo_service = logo_service or TickerLogoService(wts_client=self.wts_client)
 
     async def get_stock_list(
         self, criteria: ScreenCriteria | None = None
@@ -152,6 +155,7 @@ class ScreenerService:
         logger.info(
             f"[Screener] 종합 + 12인 통합 스크리닝 완료: 총 {len(ordered_items)}개 고유 종목 발굴 (중복 제거 완료)"
         )
+        self._cache_logo_items(final_items)
 
         return ScreenResult(
             tickers=final_items,
@@ -206,6 +210,8 @@ class ScreenerService:
                 screeners=[preset],
             )
             items.append(item)
+
+        self._cache_logo_items(items)
 
         return ScreenResult(
             tickers=items,
@@ -266,6 +272,8 @@ class ScreenerService:
             )
             items.append(item)
 
+        self._cache_logo_items(items)
+
         return ScreenResult(
             tickers=items,
             items=items,
@@ -301,4 +309,15 @@ class ScreenerService:
         ):
             item.change_rate = round(
                 ((item.price - item.prev_close) / item.prev_close) * 100, 2
+            )
+
+    def _cache_logo_items(self, items: list[TossStockItem]) -> None:
+        for item in items:
+            if not item.ticker or not item.logo_image_url:
+                continue
+            self.logo_service.save_logo(
+                ticker=item.ticker,
+                logo_image_url=item.logo_image_url,
+                stock_code=item.stock_code,
+                source="toss_screener",
             )

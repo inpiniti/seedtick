@@ -96,3 +96,9 @@ class StockChartResponse(BaseModel):
     bollinger: list[BollingerPoint] = Field(default_factory=list)
     summary: BollingerSummary | None = None
 
+
+class TickerLogoResponse(BaseModel):
+    """티커별 로고 조회 응답"""
+    ticker: str
+    logo_image_url: str | None = None
+    source: str = "none"  # cached | toss_lookup | none

@@ -4,7 +4,13 @@ Screener API Route
 from fastapi import APIRouter, HTTPException, Query
 from app.domains.screener.chart_service import ChartService
 from app.domains.screener.clients.dataroma import MIN_HOLDERS_DEFAULT
-from app.domains.screener.models import ScreenCriteria, ScreenResult, StockChartResponse
+from app.domains.screener.logo_service import TickerLogoService
+from app.domains.screener.models import (
+    ScreenCriteria,
+    ScreenResult,
+    StockChartResponse,
+    TickerLogoResponse,
+)
 from app.domains.screener.roma_service import RomaScreenerService
 from app.domains.screener.service import ScreenerService
 
@@ -68,3 +74,20 @@ async def get_stock_chart(
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"[{ticker}] 차트 데이터 조회 실패: {e}")
 
+
+@router.get("/logo/{ticker}", response_model=TickerLogoResponse, summary="티커별 로고 URL 조회 (Supabase 캐시 + Toss 폴백)")
+async def get_ticker_logo(ticker: str):
+    normalized_ticker = ticker.strip().upper()
+    if not normalized_ticker:
+        raise HTTPException(status_code=400, detail="유효한 ticker가 필요합니다.")
+
+    try:
+        service = TickerLogoService()
+        logo_image_url, source = await service.resolve_logo(normalized_ticker)
+        return TickerLogoResponse(
+            ticker=normalized_ticker,
+            logo_image_url=logo_image_url,
+            source=source,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"[{normalized_ticker}] 로고 조회 실패: {e}")
