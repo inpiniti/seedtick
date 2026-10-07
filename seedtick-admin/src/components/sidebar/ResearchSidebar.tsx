@@ -11,6 +11,8 @@ import {
   ArrowLeft,
   X,
 } from "lucide-react";
+import { SeedTickLogoBadge } from "@/components/ui/SeedTickLogo";
+
 
 export type SidebarSectionId =
   | "all"
@@ -288,10 +290,8 @@ export function ResearchSidebar({
           <aside className="fixed inset-y-0 left-0 w-[280px] max-w-[85vw] bg-white shadow-2xl flex flex-col z-10 animate-in slide-in-from-left duration-200 overflow-y-auto">
             {/* 드로어 헤더 */}
             <div className="px-4 py-3.5 border-b border-[#e2e8f0] flex items-center justify-between bg-[#fafafa]">
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-xs font-bold bg-[#0f172a] text-white px-2 py-0.5 rounded">
-                  ST
-                </span>
+              <div className="flex items-center gap-2.5">
+                <SeedTickLogoBadge size="sm" variant="dark" />
                 <span className="font-bold text-sm text-[#0f172a]">SeedTick</span>
               </div>
               <button

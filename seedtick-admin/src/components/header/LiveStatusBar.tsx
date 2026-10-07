@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { AiModelWidget } from "@/components/header/AiModelWidget";
 
+import { SeedTickLogoBadge } from "@/components/ui/SeedTickLogo";
+
 interface LiveStatusBarProps {
   health: HealthStatus | null;
   aiModel: AiModelStatus | null;
@@ -53,10 +55,8 @@ export function LiveStatusBar({
           <Menu className="w-5 h-5" />
         </button>
 
-        <a href="#" className="flex items-center gap-2 group focus:outline-hidden">
-          <span className="font-mono text-xs font-bold bg-[#0f172a] text-white px-2 py-0.5 rounded tracking-wider">
-            ST
-          </span>
+        <a href="#" className="flex items-center gap-2.5 group focus:outline-hidden">
+          <SeedTickLogoBadge size="sm" variant="dark" />
           <span className="font-bold text-sm sm:text-base text-[#0f172a] tracking-tight group-hover:text-blue-600 transition-colors">
             SeedTick
           </span>
