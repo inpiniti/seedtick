@@ -622,7 +622,7 @@ export function ResearchCatalogView({
         >
           <div className="grid grid-cols-1 md:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] gap-8 lg:gap-12">
             {/* 좌측: 타이틀 & 설명 & 날짜선택 & 필터 */}
-            <div className="space-y-4">
+            <div className="space-y-4 md:sticky md:top-[72px] md:self-start">
               <div className="flex items-baseline gap-2">
                 <span className="font-mono text-xs font-semibold text-[#94a3b8]">
                   01
@@ -906,7 +906,7 @@ export function ResearchCatalogView({
         >
           <div className="grid grid-cols-1 md:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] gap-8 lg:gap-12">
             {/* 좌측 */}
-            <div className="space-y-4">
+            <div className="space-y-4 md:sticky md:top-[72px] md:self-start">
               <div className="flex items-baseline gap-2">
                 <span className="font-mono text-xs font-semibold text-[#94a3b8]">
                   02
@@ -1064,7 +1064,7 @@ export function ResearchCatalogView({
         >
           <div className="grid grid-cols-1 md:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] gap-8 lg:gap-12">
             {/* 좌측 */}
-            <div className="space-y-4">
+            <div className="space-y-4 md:sticky md:top-[72px] md:self-start">
               <div className="flex items-baseline gap-2">
                 <span className="font-mono text-xs font-semibold text-[#94a3b8]">
                   03
