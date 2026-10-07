@@ -24,11 +24,11 @@ import { LogsTab } from "@/components/tabs/LogsTab";
 import { SkeletonCard } from "@/components/ui/Skeleton";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
-import { BarChart2, Terminal, Play, Sparkles, Activity } from "lucide-react";
+import { BarChart2, Terminal, Sparkles, Activity } from "lucide-react";
 
 export default function AdminDashboardPage() {
   // 활성 탭 (1: 스크리너 & 거장 리포트, 2: 로그)
-  const [activeTab, setActiveTab] = useState<"screener" | "logs">("screener");
+  const [activeTab, setActiveTab] = useState<"screener" | "insights" | "logs">("screener");
 
   // 로딩 상태
   const [isLoading, setIsLoading] = useState(true);
@@ -177,7 +177,11 @@ export default function AdminDashboardPage() {
 
   // 스크리너 탭 진입 시 실시간 데이터가 없으면 자동 페칭
   useEffect(() => {
-    if (activeTab === "screener" && liveCandidates.length === 0 && !isScreenerLoading) {
+    if (
+      (activeTab === "screener" || activeTab === "insights") &&
+      liveCandidates.length === 0 &&
+      !isScreenerLoading
+    ) {
       loadLiveScreener();
     }
   }, [activeTab, liveCandidates.length, isScreenerLoading, loadLiveScreener]);
@@ -213,6 +217,18 @@ export default function AdminDashboardPage() {
             </button>
 
             <button
+              onClick={() => setActiveTab("insights")}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === "insights"
+                  ? "bg-[#3182f6] text-white shadow-sm"
+                  : "text-[#6b7684] hover:text-[#191f28] hover:bg-[#f9fafb]"
+              }`}
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>2. 의사결정 인사이트</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab("logs")}
               className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === "logs"
@@ -221,7 +237,7 @@ export default function AdminDashboardPage() {
               }`}
             >
               <Terminal className="w-4 h-4" />
-              <span>2. 시스템 & 에러 로그</span>
+              <span>3. 시스템 & 에러 로그</span>
               {systemLogs.length > 0 ? (
                 <span
                   className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
@@ -268,6 +284,24 @@ export default function AdminDashboardPage() {
           <>
             {activeTab === "screener" ? (
               <ScreenerTab
+                key="tab-screener"
+                viewMode="screener-only"
+                guruReports={guruReports}
+                liveCandidates={liveCandidates}
+                romaCandidates={romaCandidates}
+                isRomaLoading={isRomaLoading}
+                isLoading={isScreenerLoading}
+                pipelineProgress={pipelineProgress}
+                onRefreshLive={loadLiveScreener}
+                onRefreshRoma={loadRomaScreener}
+                onRefreshPipeline={refreshPipelineProgress}
+              />
+            ) : null}
+
+            {activeTab === "insights" ? (
+              <ScreenerTab
+                key="tab-insights"
+                viewMode="insights-only"
                 guruReports={guruReports}
                 liveCandidates={liveCandidates}
                 romaCandidates={romaCandidates}
@@ -293,7 +327,7 @@ export default function AdminDashboardPage() {
 
       {/* [모바일 전용] 하단 고정 네비게이션 바 */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-[#f2f4f6] z-40 px-4 py-1.5 shadow-[0_-2px_10px_rgba(0,0,0,0.04)]">
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <button
             onClick={() => setActiveTab("screener")}
             className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-2xl transition-all cursor-pointer ${
@@ -304,6 +338,18 @@ export default function AdminDashboardPage() {
           >
             <BarChart2 className="w-5 h-5" />
             <span className="text-[11px] mt-1 tracking-tight">실시간 스크리너</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("insights")}
+            className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-2xl transition-all cursor-pointer ${
+              activeTab === "insights"
+                ? "text-[#3182f6] font-bold"
+                : "text-[#8b95a1] hover:text-[#4e5968]"
+            }`}
+          >
+            <Sparkles className="w-5 h-5" />
+            <span className="text-[11px] mt-1 tracking-tight">인사이트</span>
           </button>
 
           <button
