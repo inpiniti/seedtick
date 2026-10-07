@@ -26,6 +26,21 @@ export function extractValuationConsensus(
 ): ValuationConsensus | null {
   if (!report) return null;
 
+  // 1순위: DB 정규 구조화 컬럼 우선 사용
+  if (report.fair_value !== undefined && report.fair_value !== null) {
+    const band =
+      report.band_low && report.band_high
+        ? `$${report.band_low} ~ $${report.band_high}`
+        : null;
+    return {
+      fair_value_price: report.fair_value,
+      target_price_band: band,
+      safety_entry_price: report.safety_entry ? `$${report.safety_entry} 이하` : null,
+      optimistic_target_price: report.target_sell ? `$${report.target_sell}` : null,
+    };
+  }
+
+  // 2순위: 데이터팩 내 valuation_consensus
   const consensus = report.datapack?.valuation_consensus;
   if (
     consensus &&

@@ -81,7 +81,7 @@ export interface Report {
 
 ## Supabase DB 스키마 (`guru_reports` & `guru_votes`)
 
-### 1. `guru_reports` 테이블 (추후 어날리시스 및 리포트 본문 조회용)
+### 1. `guru_reports` 테이블 (심층 투자 보고서 마스터)
 ```sql
 create table if not exists public.guru_reports (
   id            text        not null primary key, -- {date}_{ticker} (예: 2026-09-23_NVDA)
@@ -96,8 +96,105 @@ create table if not exists public.guru_reports (
   summaries     jsonb,                            -- 13인 거장 개별 요약 블록 배열
   discussion    text,                             -- 거장 원탁 토론 전문 마크다운
   final_report  text,                             -- 최종 마스터 종합 투자 보고서 마크다운
+  -- ── 구조화 검색/정렬 컬럼 ──
+  fair_value         numeric,                     -- 종합 적정 내재가치 ($)
+  band_low           numeric,                     -- 적정 밴드 하단 ($)
+  band_high          numeric,                     -- 적정 밴드 상단 ($)
+  safety_entry       numeric,                     -- 안전마진 매수가 ($)
+  target_sell        numeric,                     -- 목표 매도가 ($)
+  upside_pct         numeric,                     -- 적정가 대비 상승여력 (%)
+  votes_buy          smallint,                    -- 매수 표수
+  votes_hold         smallint,                    -- 보유 표수
+  votes_watch        smallint,                    -- 관망 표수
+  votes_sell         smallint,                    -- 매도 표수
+  avg_confidence     numeric,                     -- 거장 평균 확신도 (1~10)
+  conclusion         text,                        -- 종합 결론 핵심 문장
+  hot_topics         text[],                      -- 핵심 쟁점 목록
+  bull_points        text[],                      -- 강세론 핵심 논거 목록
+  bear_points        text[],                      -- 약세론 핵심 논거 목록
+  key_drivers        text[],                      -- 핵심 가치 드라이버 목록
+  action_guide       jsonb,                       -- 실전 투자 실행 가이드 (가격대/손익비 등)
+  valuation_flags    text[],                      -- 밸류에이션 검증 플래그
+  parse_mode         text,                        -- 파싱 모드 (json / regex)
+  prompt_version     text,                        -- 프롬프트 버전
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
+);
+```
+
+### 1-1. `guru_opinions` 테이블 (13인 거장 개별 평가 롱 포맷 상세)
+```sql
+create table if not exists public.guru_opinions (
+  id              bigint generated always as identity primary key,
+  report_id       text        not null references public.guru_reports(id) on delete cascade,
+  d               date        not null,
+  ticker          text        not null,
+  persona         text        not null,            -- 예: '워런-버핏'
+  guru_idx        smallint,                        -- 1~13 (guru_votes g1~g13 대응)
+  verdict         text        not null,            -- 매수 / 보유 / 관망 / 매도
+  score           smallint    not null,            -- 0: 매수, 1: 보유, 2: 관망, 3: 매도
+  confidence      smallint,                        -- 1~10
+  target_low      numeric,                         -- 적정가/매수가 하단
+  target_high     numeric,                         -- 적정가/매수가 상단
+  target_text     text,                            -- 원본 가격 텍스트 (예: "$150~$175")
+  upside_pct      numeric,                         -- (중간적정가 / 현재가 - 1) * 100
+  arguments       text[],                          -- 핵심 논거 불릿 리스트
+  triggers        text[],                          -- 트리거 조건 리스트
+  quote           text,                            -- 대표 발언
+  parse_mode      text,                            -- json / regex / fallback / legacy
+  prompt_version  text,                            -- 프롬프트 버전
+  raw_text        text,                            -- AI 모델 원문 응답
+  created_at      timestamptz not null default now(),
+  constraint guru_opinions_report_persona_unique unique (report_id, persona)
+);
+```
+
+### 1-2. `report_metrics` 테이블 (재무/지표 숫자 컬럼 정규화)
+```sql
+create table if not exists public.report_metrics (
+  report_id           text        primary key references public.guru_reports(id) on delete cascade,
+  d                   date        not null,
+  ticker              text        not null,
+  current_price       numeric,
+  market_cap          numeric,
+  enterprise_value    numeric,
+  per                 numeric,
+  fwd_per             numeric,
+  peg                 numeric,
+  pbr                 numeric,
+  psr                 numeric,
+  pfcf                numeric,
+  ev_ebitda           numeric,
+  dividend_yield_pct  numeric,
+  roe_pct             numeric,
+  roa_pct             numeric,
+  roic_pct            numeric,
+  debt_ratio          numeric,
+  current_ratio       numeric,
+  net_debt            numeric,
+  fiscal_year         text,
+  revenue             numeric,
+  revenue_growth_pct  numeric,
+  gross_margin_pct    numeric,
+  operating_margin_pct numeric,
+  net_margin_pct      numeric,
+  eps                 numeric,
+  fcf                 numeric,
+  fcf_margin_pct      numeric,
+  high_52w            numeric,
+  low_52w             numeric,
+  from_52w_high_pct   numeric,
+  ma50                numeric,
+  ma200               numeric,
+  short_float_pct     numeric,
+  insider_pct         numeric,
+  institution_pct     numeric,
+  analyst_target_mean numeric,
+  analyst_target_high numeric,
+  analyst_target_low  numeric,
+  analyst_upside_pct  numeric,
+  analyst_rating      text,
+  created_at          timestamptz not null default now()
 );
 ```
 

@@ -65,6 +65,9 @@ class Settings(BaseSettings):
     # False면 토론을 생략하고 쟁점·적정가 합의밴드·표결 도출을 4단계 마스터로 이관한다.
     ENABLE_ROUND_TABLE_DISCUSSION: bool = False
 
+    # 프롬프트 규격 버전 (guru_opinions.prompt_version 에 기록 → 품질 회귀 추적용)
+    REPORT_PROMPT_VERSION: str = "2026-10-07.v2"
+
     MAX_ANALYZE_COUNT: int = 0  # 1일 최대 리포트 분석 종목 수 (0: 스크리너 전체 무제한)
     # AI 프로바이더 직접 호출 (게이트웨이 우회 시 사용, 쉼표 구분 멀티키 지원)
     OPENROUTER_API_KEYS: str = ""

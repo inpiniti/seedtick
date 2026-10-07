@@ -141,7 +141,97 @@ export interface GuruReportRow {
   summaries: GuruSummaryItem[] | null;
   discussion: string | null;
   final_report: string | null;
+  // ── 구조화 정규 컬럼 ──
+  fair_value?: number | null;
+  band_low?: number | null;
+  band_high?: number | null;
+  safety_entry?: number | null;
+  target_sell?: number | null;
+  upside_pct?: number | null;
+  votes_buy?: number | null;
+  votes_hold?: number | null;
+  votes_watch?: number | null;
+  votes_sell?: number | null;
+  avg_confidence?: number | null;
+  conclusion?: string | null;
+  hot_topics?: string[] | null;
+  bull_points?: string[] | null;
+  bear_points?: string[] | null;
+  key_drivers?: string[] | null;
+  action_guide?: Record<string, any> | null;
+  valuation_flags?: string[] | null;
+  parse_mode?: string | null;
+  prompt_version?: string | null;
   created_at: string;
+}
+
+export interface GuruOpinionRow {
+  id?: number;
+  report_id: string;
+  d: string;
+  ticker: string;
+  persona: string;
+  guru_idx?: number | null;
+  verdict: string;
+  score: number;
+  confidence?: number | null;
+  target_low?: number | null;
+  target_high?: number | null;
+  target_text?: string | null;
+  upside_pct?: number | null;
+  arguments?: string[] | null;
+  triggers?: string[] | null;
+  quote?: string | null;
+  parse_mode?: string | null;
+  prompt_version?: string | null;
+  raw_text?: string | null;
+  created_at?: string;
+}
+
+export interface ReportMetricsRow {
+  report_id: string;
+  d: string;
+  ticker: string;
+  current_price?: number | null;
+  market_cap?: number | null;
+  enterprise_value?: number | null;
+  per?: number | null;
+  fwd_per?: number | null;
+  peg?: number | null;
+  pbr?: number | null;
+  psr?: number | null;
+  pfcf?: number | null;
+  ev_ebitda?: number | null;
+  dividend_yield_pct?: number | null;
+  roe_pct?: number | null;
+  roa_pct?: number | null;
+  roic_pct?: number | null;
+  debt_ratio?: number | null;
+  current_ratio?: number | null;
+  net_debt?: number | null;
+  fiscal_year?: string | null;
+  revenue?: number | null;
+  revenue_growth_pct?: number | null;
+  gross_margin_pct?: number | null;
+  operating_margin_pct?: number | null;
+  net_margin_pct?: number | null;
+  eps?: number | null;
+  fcf?: number | null;
+  fcf_margin_pct?: number | null;
+  high_52w?: number | null;
+  low_52w?: number | null;
+  from_52w_high_pct?: number | null;
+  ma50?: number | null;
+  ma200?: number | null;
+  short_float_pct?: number | null;
+  insider_pct?: number | null;
+  institution_pct?: number | null;
+  analyst_target_mean?: number | null;
+  analyst_target_high?: number | null;
+  analyst_target_low?: number | null;
+  analyst_upside_pct?: number | null;
+  analyst_rating?: string | null;
+  created_at?: string;
 }
 
 // 5. Supabase 시스템 로그 (error_logs)

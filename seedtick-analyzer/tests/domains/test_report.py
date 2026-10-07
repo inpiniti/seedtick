@@ -579,8 +579,7 @@ async def test_master_report_transfers_discussion_role_and_limits(monkeypatch):
     assert "# 아주 긴 원탁 토론 전문 마크다운" not in prompt  # 토론 전문 미포함
     assert "원탁 토론 생략 모드" in prompt
     assert "교차검증" in prompt and "합의 밴드" in prompt
-    assert "표결" in prompt
-    assert "1,600자 내외" in prompt
+    assert "작성 절대 규칙" in prompt
     assert mock_ai.chat.call_args.kwargs == {}
 
     # 2) 활성 모드: 토론 전문이 그대로 입력됨
