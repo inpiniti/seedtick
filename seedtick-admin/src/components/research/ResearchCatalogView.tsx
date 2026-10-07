@@ -14,7 +14,8 @@ import { TallyBar, TallyCounts } from "@/components/ui/TallyBar";
 import { PipelineProgressCard } from "@/components/tabs/PipelineProgressCard";
 import { LogsTab } from "@/components/tabs/LogsTab";
 import { SidebarSectionId } from "@/components/sidebar/ResearchSidebar";
-import { GURU_PERSONAS } from "@/lib/guruPersonas";
+import { GURU_PERSONAS, GuruPersona } from "@/lib/guruPersonas";
+import { GuruDetailModal } from "@/components/research/GuruDetailModal";
 import {
   chartTickerKey,
   extractValuationConsensus,
@@ -28,6 +29,8 @@ import {
   Search,
   Sparkles,
   ChevronRight,
+  ChevronLeft,
+  BookOpen,
   RefreshCw,
   ArrowRight,
   Users,
@@ -87,6 +90,8 @@ export function ResearchCatalogView({
   const [reportSortBy, setReportSortBy] = useState<
     "RATIO_DESC" | "SCORE_DESC" | "DATE_DESC" | "TICKER_ASC"
   >("RATIO_DESC");
+  const [selectedGuruForModal, setSelectedGuruForModal] =
+    useState<GuruPersona | null>(null);
 
   const isAll = activeSectionFilter === "all";
 
@@ -470,14 +475,15 @@ export function ResearchCatalogView({
       ) : (
         <div className="px-6 lg:px-12 py-5 bg-[#fafafa] border-b border-[#e2e8f0] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
-            <div className="flex items-center gap-2 font-mono text-xs text-[#64748b]">
+            <div className="flex items-center gap-1.5 font-mono text-xs text-[#64748b]">
               <button
                 onClick={() => onSelectSection?.("all")}
-                className="hover:text-[#0f172a] underline cursor-pointer"
+                className="inline-flex items-center gap-1 text-[#64748b] hover:text-[#0f172a] transition-colors cursor-pointer py-0.5 px-1.5 rounded hover:bg-slate-200/60"
               >
-                ← 카탈로그 홈 (전체)
+                <ChevronLeft className="w-3.5 h-3.5 text-slate-500" />
+                <span>카탈로그 홈</span>
               </button>
-              <span>/</span>
+              <span className="text-[#cbd5e1]">/</span>
               <span className="text-[#0f172a] font-semibold">
                 {activeSectionFilter === "sec-reports" &&
                   "01. 가치평가 및 거장 리포트"}
@@ -485,10 +491,10 @@ export function ResearchCatalogView({
                   "02. 슈퍼인베스터 포트폴리오 (DataRoma)"}
                 {activeSectionFilter === "sec-screener" &&
                   "03. 실시간 발굴 후보군"}
-                {activeSectionFilter === "sec-audit" &&
-                  "04. 파이프라인 & 감사 로그"}
                 {activeSectionFilter === "sec-gurus" &&
-                  "05. 13인 투자 거장 철학 & 가이드"}
+                  "13인 투자 거장 철학"}
+                {activeSectionFilter === "sec-audit" &&
+                  "파이프라인 & 감사 로그"}
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
@@ -498,10 +504,10 @@ export function ResearchCatalogView({
                 "슈퍼인베스터 포트폴리오 (DataRoma) 전체"}
               {activeSectionFilter === "sec-screener" &&
                 "실시간 발굴 후보군 전체"}
-              {activeSectionFilter === "sec-audit" &&
-                "파이프라인 & 감사 로그 모니터"}
               {activeSectionFilter === "sec-gurus" &&
                 "13인 투자 거장 철학 및 밸류에이션 가이드"}
+              {activeSectionFilter === "sec-audit" &&
+                "파이프라인 & 감사 로그 모니터"}
             </h1>
           </div>
 
@@ -533,13 +539,8 @@ export function ResearchCatalogView({
                     <span>13 GURU ROUND-TABLE TALLY</span>
                   </span>
                   <div className="flex items-center gap-2">
-                    {selectedDate && selectedDate !== "ALL" && (
-                      <span className="text-[10px] text-[#0f172a] bg-white border border-[#cbd5e1] px-1.5 py-0.5 rounded font-mono font-semibold">
-                        📅 {selectedDate}
-                      </span>
-                    )}
                     <span className="text-[#64748b]">
-                      총 {guruReports.length}건 종합
+                      분석 종목 {guruReports.length}건 종합
                     </span>
                   </div>
                 </div>
@@ -1276,46 +1277,72 @@ export function ResearchCatalogView({
               {Object.values(GURU_PERSONAS).map((guru) => (
                 <div
                   key={guru.slug}
-                  className="p-4 rounded-md border border-[#e2e8f0] bg-white space-y-3 hover:border-[#0f172a] transition-colors shadow-xs"
+                  onClick={() => setSelectedGuruForModal(guru)}
+                  className="p-4 rounded-md border border-[#e2e8f0] bg-white space-y-3 hover:border-[#0f172a] hover:shadow-xs transition-all cursor-pointer group flex flex-col justify-between"
                 >
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-bold text-sm text-[#0f172a]">
-                        {guru.name}
-                      </h3>
-                      <span className="text-[10px] font-mono text-[#64748b] bg-[#f8fafc] border border-[#e2e8f0] px-1.5 py-0.2 rounded">
-                        {guru.englishName}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <h3 className="font-bold text-sm text-[#0f172a] group-hover:underline underline-offset-2">
+                          {guru.name}
+                        </h3>
+                        <span className="text-[10px] font-mono text-[#94a3b8] shrink-0">
+                          {guru.englishName}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono text-[#475569] bg-[#f8fafc] border border-[#e2e8f0] px-1.5 py-0.5 rounded font-medium shrink-0">
+                        {guru.style.split("/")[0].trim()}
                       </span>
                     </div>
+
                     <p className="text-xs text-[#334155] font-medium leading-snug">
                       {guru.oneLiner}
                     </p>
+
+                    {guru.bookTitle && (
+                      <div className="flex items-center gap-1.5 text-[11px] text-[#64748b]">
+                        <BookOpen className="w-3 h-3 text-[#94a3b8] shrink-0" />
+                        <span className="truncate">{guru.bookTitle}</span>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="space-y-1 border-t border-[#f1f5f9] pt-2">
-                    <span className="text-[10px] font-mono text-[#94a3b8] block uppercase">
-                      Core Checklist
-                    </span>
-                    <p className="text-[11px] text-[#64748b] leading-relaxed">
-                      {guru.keyCriteria}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap gap-1 pt-1 font-mono text-[10px]">
-                    {guru.focusMetrics.map((metric) => (
-                      <span
-                        key={metric}
-                        className="px-1.5 py-0.5 rounded border border-[#e2e8f0] bg-[#f8fafc] text-[#475569]"
-                      >
-                        {metric}
+                  <div className="space-y-2 border-t border-[#f1f5f9] pt-2">
+                    <div className="flex items-center justify-between pt-1 font-mono text-[10px]">
+                      <div className="flex flex-wrap gap-1">
+                        {guru.focusMetrics.slice(0, 3).map((metric) => (
+                          <span
+                            key={metric}
+                            className="px-1.5 py-0.5 rounded border border-[#e2e8f0] bg-[#f8fafc] text-[#475569]"
+                          >
+                            {metric}
+                          </span>
+                        ))}
+                      </div>
+                      <span className="text-[11px] text-[#0f172a] font-semibold flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
+                        철학 열람
+                        <ChevronRight className="w-3 h-3" />
                       </span>
-                    ))}
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           </div>
         </section>
+      )}
+
+      {/* ── 13인 거장 심층 철학 및 표결 종목 모달 ── */}
+      {selectedGuruForModal && (
+        <GuruDetailModal
+          guru={selectedGuruForModal}
+          reports={guruReports}
+          onClose={() => setSelectedGuruForModal(null)}
+          onSelectReport={(report) => {
+            setSelectedGuruForModal(null);
+            onSelectReport(report);
+          }}
+        />
       )}
     </div>
   );

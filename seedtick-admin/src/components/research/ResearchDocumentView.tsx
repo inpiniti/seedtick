@@ -138,7 +138,7 @@ export function ResearchDocumentView({
           className="inline-flex items-center gap-1.5 text-[#0f172a] hover:text-black font-semibold cursor-pointer group transition-colors"
         >
           <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
-          <span>← 아카이브 카탈로그로 돌아가기</span>
+          <span>카탈로그로 돌아가기</span>
         </button>
 
         <div className="flex items-center gap-2 text-[#64748b] hidden sm:flex">
@@ -386,8 +386,9 @@ export function ResearchDocumentView({
       {/* ── 5. 하단 복귀 액션 바 ── */}
       <footer className="mt-auto px-6 lg:px-12 py-6 bg-[#fafafa] border-t border-[#e2e8f0] flex items-center justify-between font-mono text-xs text-[#64748b]">
         <span>SeedTick Research Archive · ${ticker}</span>
-        <Button variant="secondary" size="sm" onClick={onBack}>
-          ← 아카이브 카탈로그로 돌아가기
+        <Button variant="secondary" size="sm" onClick={onBack} className="inline-flex items-center gap-1.5 cursor-pointer">
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>카탈로그로 돌아가기</span>
         </Button>
       </footer>
     </article>
