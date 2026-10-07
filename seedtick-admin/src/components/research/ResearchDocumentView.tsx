@@ -105,12 +105,28 @@ export function ResearchDocumentView({
   // 내재가치 안정성 메타
   const stabilityMeta = intrinsicStability ? getIntrinsicStabilityMeta(intrinsicStability) : null;
 
-  const getVerdictBadgeVariant = (v: string): "success" | "danger" | "warning" | "primary" | "neutral" => {
+  // 흑백 투자의견 뱃지
+  const renderMonochromeVerdict = (v: string) => {
     const lower = v.toLowerCase();
-    if (lower.includes("매수") || lower.includes("buy")) return "success";
-    if (lower.includes("매도") || lower.includes("sell")) return "danger";
-    if (lower.includes("보유") || lower.includes("hold")) return "primary";
-    return "neutral";
+    if (lower.includes("매수") || lower.includes("buy")) {
+      return (
+        <span className="font-mono text-xs px-2.5 py-0.5 rounded bg-[#0f172a] text-white border border-[#0f172a] font-semibold uppercase shrink-0">
+          {v}
+        </span>
+      );
+    }
+    if (lower.includes("매도") || lower.includes("sell")) {
+      return (
+        <span className="font-mono text-xs px-2.5 py-0.5 rounded bg-white text-[#0f172a] border border-[#64748b] font-medium uppercase shrink-0">
+          {v}
+        </span>
+      );
+    }
+    return (
+      <span className="font-mono text-xs px-2.5 py-0.5 rounded bg-[#f1f5f9] text-[#334155] border border-[#cbd5e1] uppercase shrink-0">
+        {v}
+      </span>
+    );
   };
 
   return (
@@ -119,7 +135,7 @@ export function ResearchDocumentView({
       <nav aria-label="문서 네비게이션" className="px-6 lg:px-12 py-3.5 bg-[#f8fafc] flex items-center justify-between text-xs font-mono">
         <button
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 text-[#0f172a] hover:text-blue-600 font-semibold cursor-pointer group transition-colors"
+          className="inline-flex items-center gap-1.5 text-[#0f172a] hover:text-black font-semibold cursor-pointer group transition-colors"
         >
           <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
           <span>← 아카이브 카탈로그로 돌아가기</span>
@@ -143,7 +159,7 @@ export function ResearchDocumentView({
             <span>·</span>
             <span>PUBLISHED: {report.d || "TODAY"}</span>
             <span>·</span>
-            <span className="text-emerald-700">13 GURUS VALIDATED</span>
+            <span className="text-[#334155]">13 GURUS VALIDATED</span>
           </div>
 
           {availableDates.length > 1 && onSelectDate && (
@@ -163,7 +179,7 @@ export function ResearchDocumentView({
                 ))}
               </select>
               {isLoadingDate && (
-                <span className="text-blue-600 animate-pulse text-[11px]">
+                <span className="text-[#0f172a] animate-pulse text-[11px]">
                   로드 중...
                 </span>
               )}
@@ -180,7 +196,7 @@ export function ResearchDocumentView({
                 <img
                   src={logoUrl}
                   alt={ticker}
-                  className="w-10 h-10 rounded-md object-contain border border-[#e2e8f0] p-0.5 bg-white shrink-0"
+                  className="w-10 h-10 rounded-md object-contain border border-[#e2e8f0] p-0.5 bg-white shrink-0 grayscale opacity-90 contrast-125"
                   onError={(e) => {
                     (e.target as HTMLImageElement).style.display = "none";
                   }}
@@ -199,9 +215,7 @@ export function ResearchDocumentView({
                 ${ticker}
               </span>
 
-              <Badge variant={getVerdictBadgeVariant(verdict)} className="font-mono text-xs uppercase">
-                {verdict}
-              </Badge>
+              {renderMonochromeVerdict(verdict)}
             </div>
 
             {/* 핵심 지표 인라인 뱃지 라인 (%B, 확신도, 내재가치/종가, 내재가치 안정성) */}
@@ -221,20 +235,14 @@ export function ResearchDocumentView({
               {ratioText && (
                 <span className="px-2 py-0.5 rounded border border-[#e2e8f0] bg-[#f8fafc] text-[#475569]">
                   내재가치/종가:{" "}
-                  <strong
-                    className={
-                      intrinsicRatioPct != null && intrinsicRatioPct >= 100
-                        ? "text-emerald-700 font-bold"
-                        : "text-[#0f172a]"
-                    }
-                  >
+                  <strong className="text-[#0f172a] font-bold">
                     {ratioText}
                   </strong>
                 </span>
               )}
 
               {fairValue != null && (
-                <span className="px-2 py-0.5 rounded border border-blue-200 bg-blue-50/60 text-blue-700 font-semibold">
+                <span className="px-2 py-0.5 rounded border border-[#cbd5e1] bg-white text-[#0f172a] font-semibold">
                   적정가: ${fairValue.toFixed(2)}
                 </span>
               )}
@@ -262,8 +270,8 @@ export function ResearchDocumentView({
             </div>
             <div className="h-8 w-px bg-[#e2e8f0]" />
             <div>
-              <span className="text-blue-700 block text-[10px] font-semibold">FAIR INTRINSIC VALUE</span>
-              <span className="font-bold text-base text-blue-700">
+              <span className="text-[#64748b] block text-[10px] font-semibold">FAIR INTRINSIC VALUE</span>
+              <span className="font-bold text-base text-[#0f172a]">
                 {valConsensus?.fair_value_price
                   ? `$${valConsensus.fair_value_price.toFixed(2)}`
                   : "합의 완료"}
@@ -292,7 +300,7 @@ export function ResearchDocumentView({
                 {valConsensus?.target_price_band || "밸류에이션 밴드 수렴"}
               </span>
               {valConsensus?.safety_entry_price && (
-                <span className="text-emerald-700 font-semibold text-xs bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                <span className="text-[#0f172a] font-semibold text-xs bg-white border border-[#cbd5e1] px-2 py-0.5 rounded">
                   안전매수: {valConsensus.safety_entry_price}
                 </span>
               )}
@@ -301,9 +309,9 @@ export function ResearchDocumentView({
         </div>
       </header>
 
-      {/* ── 3. 탭 네비게이션 (aihero.dev 스타일) ── */}
+      {/* ── 3. 탭 네비게이션 (aihero.dev 스타일, 줄바꿈 방지) ── */}
       <div className="px-6 lg:px-12 bg-white sticky top-[56px] z-30 border-b border-[#e2e8f0]">
-        <div className="flex items-center gap-1 font-mono text-xs overflow-x-auto pb-px">
+        <div className="flex items-center gap-1 font-mono text-xs overflow-x-auto whitespace-nowrap scrollbar-none pb-px">
           {[
             { id: "final" as const, label: "01. 마스터 보고서", icon: FileText },
             { id: "summaries" as const, label: "02. 13인 개별 서머리", icon: Users },

@@ -31,7 +31,6 @@ import {
 } from "@/components/sidebar/ResearchSidebar";
 import { ResearchCatalogView } from "@/components/research/ResearchCatalogView";
 import { ResearchDocumentView } from "@/components/research/ResearchDocumentView";
-import { ScreenerTab } from "@/components/tabs/ScreenerTab";
 import { SkeletonCard } from "@/components/ui/Skeleton";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
@@ -41,7 +40,6 @@ import {
   extractValuationConsensus,
   IntrinsicStability,
 } from "@/lib/insightUtils";
-import { LayoutGrid, BookOpen } from "lucide-react";
 
 const DASHBOARD_FETCH_TIMEOUT_MS = 5000;
 
@@ -74,8 +72,7 @@ function buildOfflineHealth(): HealthStatus {
 }
 
 export default function AdminDashboardPage() {
-  // 1. 네비게이션 & 뷰 모드 ("doc" = aihero 문서 카탈로그 스타일 [기본], "table" = 클래식 테이블)
-  const [viewFormat, setViewFormat] = useState<"doc" | "table">("doc");
+  // 1. 네비게이션 상태
   const [activeSidebarSection, setActiveSidebarSection] =
     useState<SidebarSectionId>("all");
 
@@ -547,86 +544,32 @@ export default function AdminDashboardPage() {
                     : undefined
                 }
               />
+            ) : isLoading && !health ? (
+              <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <SkeletonCard />
+                <SkeletonCard />
+                <SkeletonCard />
+              </div>
             ) : (
-              <>
-                {/* 뷰 포맷 토글 바 (문서 카탈로그 vs 고급 테이블) */}
-                <div className="border-b border-[#e2e8f0] px-6 lg:px-12 py-2.5 bg-[#f8fafc] flex items-center justify-between text-xs font-mono">
-                  <span className="text-[#64748b]">
-                    {viewFormat === "doc"
-                      ? "VIEW MODE: DOCUMENTATION & INSIGHT CATALOG"
-                      : "VIEW MODE: ADVANCED TABLE & SCREENER"}
-                  </span>
-
-                  <div className="flex items-center gap-1 bg-white border border-[#e2e8f0] p-0.5 rounded">
-                    <button
-                      onClick={() => setViewFormat("doc")}
-                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
-                        viewFormat === "doc"
-                          ? "bg-[#0f172a] text-white font-medium"
-                          : "text-[#64748b] hover:text-[#0f172a]"
-                      }`}
-                    >
-                      <BookOpen className="w-3.5 h-3.5" />
-                      <span>문서 카탈로그 (aihero)</span>
-                    </button>
-                    <button
-                      onClick={() => setViewFormat("table")}
-                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
-                        viewFormat === "table"
-                          ? "bg-[#0f172a] text-white font-medium"
-                          : "text-[#64748b] hover:text-[#0f172a]"
-                      }`}
-                    >
-                      <LayoutGrid className="w-3.5 h-3.5" />
-                      <span>고급 테이블 보기</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* 초기 로딩 스켈레톤 */}
-                {isLoading && !health ? (
-                  <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <SkeletonCard />
-                    <SkeletonCard />
-                    <SkeletonCard />
-                  </div>
-                ) : viewFormat === "doc" ? (
-                  /* [A] aihero.dev/skills 스타일 번호 매김형 문서 카탈로그 */
-                  <ResearchCatalogView
-                    guruReports={guruReports}
-                    liveCandidates={liveCandidates}
-                    romaCandidates={romaCandidates}
-                    systemLogs={systemLogs}
-                    pipelineProgress={pipelineProgress}
-                    isLoading={isScreenerLoading}
-                    isRomaLoading={isRomaLoading}
-                    percentBByTicker={percentBByTicker}
-                    onRefreshLive={loadLiveScreener}
-                    onRefreshRoma={loadRomaScreener}
-                    onRefreshPipeline={refreshPipelineProgress}
-                    onRefreshLogs={handleRefreshLogs}
-                    onSelectReport={handleOpenReport}
-                    onSelectCandidate={handleOpenCandidateAsReport}
-                    activeSectionFilter={activeSidebarSection}
-                    onSelectSection={handleSelectSidebarSection}
-                  />
-                ) : (
-                  /* [B] 고급 세부 테이블 뷰 (ScreenerTab) */
-                  <div className="p-6 lg:p-8">
-                    <ScreenerTab
-                      guruReports={guruReports}
-                      liveCandidates={liveCandidates}
-                      romaCandidates={romaCandidates}
-                      isRomaLoading={isRomaLoading}
-                      isLoading={isScreenerLoading}
-                      pipelineProgress={pipelineProgress}
-                      onRefreshLive={loadLiveScreener}
-                      onRefreshRoma={loadRomaScreener}
-                      onRefreshPipeline={refreshPipelineProgress}
-                    />
-                  </div>
-                )}
-              </>
+              /* aihero.dev/skills 스타일 번호 매김형 문서 카탈로그 */
+              <ResearchCatalogView
+                guruReports={guruReports}
+                liveCandidates={liveCandidates}
+                romaCandidates={romaCandidates}
+                systemLogs={systemLogs}
+                pipelineProgress={pipelineProgress}
+                isLoading={isScreenerLoading}
+                isRomaLoading={isRomaLoading}
+                percentBByTicker={percentBByTicker}
+                onRefreshLive={loadLiveScreener}
+                onRefreshRoma={loadRomaScreener}
+                onRefreshPipeline={refreshPipelineProgress}
+                onRefreshLogs={handleRefreshLogs}
+                onSelectReport={handleOpenReport}
+                onSelectCandidate={handleOpenCandidateAsReport}
+                activeSectionFilter={activeSidebarSection}
+                onSelectSection={handleSelectSidebarSection}
+              />
             )}
           </main>
         </div>

@@ -10,8 +10,11 @@ import {
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { TallyBar, TallyCounts } from "@/components/ui/TallyBar";
 import { PipelineProgressCard } from "@/components/tabs/PipelineProgressCard";
 import { LogsTab } from "@/components/tabs/LogsTab";
+import { SidebarSectionId } from "@/components/sidebar/ResearchSidebar";
+import { GURU_PERSONAS } from "@/lib/guruPersonas";
 import {
   chartTickerKey,
   extractValuationConsensus,
@@ -26,14 +29,12 @@ import {
   Sparkles,
   ChevronRight,
   RefreshCw,
-  Layers,
-  Compass,
+  ArrowRight,
+  Users,
   Target,
-  Terminal,
-  Filter,
+  TrendingUp,
+  Award,
 } from "lucide-react";
-
-import { SidebarSectionId } from "@/components/sidebar/ResearchSidebar";
 
 interface ResearchCatalogViewProps {
   guruReports: GuruReportRow[];
@@ -75,6 +76,8 @@ export function ResearchCatalogView({
   const [searchQuery, setSearchQuery] = useState("");
   const [reportVerdictFilter, setReportVerdictFilter] = useState<string>("ALL");
 
+  const isAll = activeSectionFilter === "all";
+
   // 티커별 최신 리포트 맵
   const latestReportByTicker = useMemo(() => {
     const map = new Map<string, GuruReportRow>();
@@ -100,7 +103,8 @@ export function ResearchCatalogView({
     const fairValuesByTicker = new Map<string, number[]>();
     for (const report of guruReports) {
       const fairValue = extractValuationConsensus(report)?.fair_value_price;
-      if (fairValue == null || !Number.isFinite(fairValue) || fairValue <= 0) continue;
+      if (fairValue == null || !Number.isFinite(fairValue) || fairValue <= 0)
+        continue;
       const key = report.ticker.toUpperCase();
       const series = fairValuesByTicker.get(key) || [];
       series.push(fairValue);
@@ -124,7 +128,8 @@ export function ResearchCatalogView({
       .filter((v): v is number => v != null && Number.isFinite(v));
     const confidence =
       confidenceSamples.length > 0
-        ? confidenceSamples.reduce((sum, v) => sum + v, 0) / confidenceSamples.length
+        ? confidenceSamples.reduce((sum, v) => sum + v, 0) /
+          confidenceSamples.length
         : null;
     const price = stockPrice || report?.current_price || null;
     const intrinsicRatioPct =
@@ -155,16 +160,23 @@ export function ResearchCatalogView({
       const matchesSearch =
         !searchQuery.trim() ||
         r.ticker.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (r.company_name && r.company_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (r.verdict && r.verdict.toLowerCase().includes(searchQuery.toLowerCase()));
+        (r.company_name &&
+          r.company_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (r.verdict &&
+          r.verdict.toLowerCase().includes(searchQuery.toLowerCase()));
 
       if (!matchesSearch) return false;
 
       if (reportVerdictFilter === "ALL") return true;
       const v = (r.verdict || "").toLowerCase();
-      if (reportVerdictFilter === "BUY") return v.includes("매수") || v.includes("buy");
-      if (reportVerdictFilter === "HOLD") return v.includes("보유") || v.includes("관망") || v.includes("hold");
-      if (reportVerdictFilter === "SELL") return v.includes("매도") || v.includes("sell");
+      if (reportVerdictFilter === "BUY")
+        return v.includes("매수") || v.includes("buy");
+      if (reportVerdictFilter === "HOLD")
+        return (
+          v.includes("보유") || v.includes("관망") || v.includes("hold")
+        );
+      if (reportVerdictFilter === "SELL")
+        return v.includes("매도") || v.includes("sell");
       return true;
     });
   }, [guruReports, searchQuery, reportVerdictFilter]);
@@ -191,24 +203,60 @@ export function ResearchCatalogView({
     );
   }, [liveCandidates, searchQuery]);
 
+  // [리스트 수 조절] 전체 홈일 때는 10개만, 개별 메뉴 선택 시 전체 표시
+  const displayedReports = isAll
+    ? filteredReports.slice(0, 10)
+    : filteredReports;
+  const displayedRoma = isAll ? filteredRoma.slice(0, 10) : filteredRoma;
+  const displayedCandidates = isAll
+    ? filteredCandidates.slice(0, 10)
+    : filteredCandidates;
+
+  // 전체 리포트 대상 종합 표결 탈리 집계
+  const aggregateTally = useMemo<TallyCounts>(() => {
+    const counts: TallyCounts = { buy: 0, hold: 0, watch: 0, sell: 0 };
+    for (const r of guruReports) {
+      const v = (r.verdict || "").toLowerCase();
+      if (v.includes("매수") || v.includes("buy")) counts.buy += 1;
+      else if (v.includes("매도") || v.includes("sell")) counts.sell += 1;
+      else if (v.includes("관망") || v.includes("watch")) counts.watch += 1;
+      else counts.hold += 1;
+    }
+    return counts;
+  }, [guruReports]);
+
+  // 내재가치 저평가 기회 상위 3종목 (괴리율 Top 3)
+  const topDiscountOpportunities = useMemo(() => {
+    return guruReports
+      .map((r) => {
+        const insight = getInsight(r.ticker, r.current_price);
+        return {
+          report: r,
+          ticker: r.ticker,
+          companyName: r.company_name || r.ticker,
+          fairValue: insight.fairValue,
+          currentPrice: insight.price,
+          ratio: insight.intrinsicRatioPct,
+        };
+      })
+      .filter(
+        (item): item is typeof item & { ratio: number } =>
+          item.ratio != null && item.ratio > 100
+      )
+      .sort((a, b) => b.ratio - a.ratio)
+      .slice(0, 3);
+  }, [guruReports]);
+
   const isVisible = (secId: string) => {
     if (activeSectionFilter === "all") return true;
     return activeSectionFilter === secId;
   };
 
-  const getVerdictBadgeVariant = (v?: string | null): "success" | "danger" | "warning" | "primary" | "neutral" => {
-    if (!v) return "neutral";
-    const lower = v.toLowerCase();
-    if (lower.includes("매수") || lower.includes("buy")) return "success";
-    if (lower.includes("매도") || lower.includes("sell")) return "danger";
-    if (lower.includes("보유") || lower.includes("hold")) return "primary";
-    return "neutral";
-  };
-
-  // 로고 렌더러
+  // [컬러 톤다운] 흑백 로고 렌더러
   const renderLogo = (ticker: string, candidateLogo?: string | null) => {
     const logoUrl =
-      candidateLogo || candidateByTicker.get(ticker.toUpperCase())?.logo_image_url;
+      candidateLogo ||
+      candidateByTicker.get(ticker.toUpperCase())?.logo_image_url;
 
     if (logoUrl && /^https?:\/\//i.test(logoUrl)) {
       return (
@@ -216,7 +264,7 @@ export function ResearchCatalogView({
         <img
           src={logoUrl}
           alt={ticker}
-          className="w-10 h-10 rounded object-contain border border-[#e2e8f0] p-0.5 bg-white shrink-0"
+          className="w-10 h-10 rounded object-contain border border-[#e2e8f0] p-0.5 bg-white shrink-0 grayscale opacity-90 contrast-125"
           onError={(e) => {
             (e.target as HTMLImageElement).style.display = "none";
           }}
@@ -231,17 +279,78 @@ export function ResearchCatalogView({
     );
   };
 
+  // [컬러 톤다운] 흑백 투자의견 뱃지
+  const renderMonochromeVerdict = (v?: string | null) => {
+    if (!v) {
+      return (
+        <span className="font-mono text-[11px] px-2 py-0.5 rounded border border-[#e2e8f0] bg-[#f8fafc] text-[#64748b]">
+          대기 중
+        </span>
+      );
+    }
+    const lower = v.toLowerCase();
+    if (lower.includes("매수") || lower.includes("buy")) {
+      return (
+        <span className="font-mono text-[11px] font-semibold px-2 py-0.5 rounded bg-[#0f172a] text-white border border-[#0f172a] shrink-0">
+          {v}
+        </span>
+      );
+    }
+    if (lower.includes("매도") || lower.includes("sell")) {
+      return (
+        <span className="font-mono text-[11px] font-medium px-2 py-0.5 rounded bg-white text-[#0f172a] border border-[#64748b] shrink-0">
+          {v}
+        </span>
+      );
+    }
+    return (
+      <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-[#f1f5f9] text-[#334155] border border-[#cbd5e1] shrink-0">
+        {v}
+      </span>
+    );
+  };
+
+  // [컬러 톤다운] 흑백 안정성 뱃지
+  const renderStabilityBadge = (stability: IntrinsicStability) => {
+    switch (stability.level) {
+      case "stable":
+        return (
+          <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-900 text-white border border-slate-900">
+            안정성: 안정
+          </span>
+        );
+      case "watch":
+        return (
+          <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-800 border border-slate-300">
+            안정성: 주의
+          </span>
+        );
+      case "unstable":
+        return (
+          <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-white text-slate-900 border border-slate-400 font-semibold">
+            안정성: 불안정
+          </span>
+        );
+      default:
+        return (
+          <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-50 text-slate-500 border border-slate-200">
+            안정성: 표본 부족
+          </span>
+        );
+    }
+  };
+
   return (
     <div className="flex-1 min-w-0 bg-white font-sans divide-y divide-[#e2e8f0]">
       {/* ── 1. HERO SECTION (전체 보기일 때 표시) 또는 섹션 브레드크럼 바 ── */}
-      {activeSectionFilter === "all" ? (
+      {isAll ? (
         <section
           id="hero"
           className="px-6 lg:px-12 py-10 lg:py-12 bg-gradient-to-b from-[#ffffff] via-[#fafafa] to-white"
         >
           <div className="max-w-4xl space-y-4">
             <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded border border-[#e2e8f0] bg-white font-mono text-xs text-[#64748b]">
-              <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+              <Sparkles className="w-3.5 h-3.5 text-[#0f172a]" />
               <span>AI VALUE INVESTING RESEARCH SYSTEM</span>
             </div>
 
@@ -258,23 +367,31 @@ export function ResearchCatalogView({
             {/* 메타데이터 요약 DL */}
             <dl className="pt-2 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-mono text-[#64748b]">
               <div className="flex items-center gap-1.5">
-                <span className="font-bold text-[#0f172a]">{guruReports.length}</span>
+                <span className="font-bold text-[#0f172a]">
+                  {guruReports.length}
+                </span>
                 <span>REPORTS ISSUED</span>
               </div>
               <span>·</span>
               <div className="flex items-center gap-1.5">
-                <span className="font-bold text-[#0f172a]">{romaCandidates.length}</span>
+                <span className="font-bold text-[#0f172a]">
+                  {romaCandidates.length}
+                </span>
                 <span>SUPERINVESTOR STOCKS</span>
               </div>
               <span>·</span>
               <div className="flex items-center gap-1.5">
-                <span className="font-bold text-[#0f172a]">{liveCandidates.length}</span>
+                <span className="font-bold text-[#0f172a]">
+                  {liveCandidates.length}
+                </span>
                 <span>DISCOVERY CANDIDATES</span>
               </div>
               <span>·</span>
               <div className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 live-dot" />
-                <span className="text-emerald-700 font-semibold">12:00 BATCH ENGINE READY</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#0f172a] live-dot" />
+                <span className="text-[#0f172a] font-semibold">
+                  12:00 BATCH ENGINE READY
+                </span>
               </div>
             </dl>
 
@@ -313,17 +430,29 @@ export function ResearchCatalogView({
               </button>
               <span>/</span>
               <span className="text-[#0f172a] font-semibold">
-                {activeSectionFilter === "sec-reports" && "01. 가치평가 및 거장 리포트"}
-                {activeSectionFilter === "sec-roma" && "02. 슈퍼인베스터 포트폴리오 (DataRoma)"}
-                {activeSectionFilter === "sec-screener" && "03. 실시간 발굴 후보군"}
-                {activeSectionFilter === "sec-audit" && "04. 파이프라인 & 감사 로그"}
+                {activeSectionFilter === "sec-reports" &&
+                  "01. 가치평가 및 거장 리포트"}
+                {activeSectionFilter === "sec-roma" &&
+                  "02. 슈퍼인베스터 포트폴리오 (DataRoma)"}
+                {activeSectionFilter === "sec-screener" &&
+                  "03. 실시간 발굴 후보군"}
+                {activeSectionFilter === "sec-audit" &&
+                  "04. 파이프라인 & 감사 로그"}
+                {activeSectionFilter === "sec-gurus" &&
+                  "05. 13인 투자 거장 철학 & 가이드"}
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
-              {activeSectionFilter === "sec-reports" && "가치평가 및 거장 리포트 전체"}
-              {activeSectionFilter === "sec-roma" && "슈퍼인베스터 포트폴리오 (DataRoma) 전체"}
-              {activeSectionFilter === "sec-screener" && "실시간 발굴 후보군 전체"}
-              {activeSectionFilter === "sec-audit" && "파이프라인 & 감사 로그 모니터"}
+              {activeSectionFilter === "sec-reports" &&
+                "가치평가 및 거장 리포트 전체 아카이브"}
+              {activeSectionFilter === "sec-roma" &&
+                "슈퍼인베스터 포트폴리오 (DataRoma) 전체"}
+              {activeSectionFilter === "sec-screener" &&
+                "실시간 발굴 후보군 전체"}
+              {activeSectionFilter === "sec-audit" &&
+                "파이프라인 & 감사 로그 모니터"}
+              {activeSectionFilter === "sec-gurus" &&
+                "13인 투자 거장 철학 및 밸류에이션 가이드"}
             </h1>
           </div>
 
@@ -341,6 +470,85 @@ export function ResearchCatalogView({
           </div>
         </div>
       )}
+
+      {/* ── [거장 인사이트 & 탈리 요약 배너] (전체 홈 또는 리포트 뷰일 때 표시) ── */}
+      {(isAll || activeSectionFilter === "sec-reports") &&
+        guruReports.length > 0 && (
+          <section className="px-6 lg:px-12 py-6 bg-[#f8fafc] border-b border-[#e2e8f0]">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 font-mono text-xs">
+              {/* 1. 전체 표결 탈리 바 */}
+              <div className="p-4 rounded-md bg-white border border-[#e2e8f0] space-y-2 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-[#0f172a] flex items-center gap-1.5">
+                    <Award className="w-3.5 h-3.5 text-[#0f172a]" />
+                    <span>13 GURU ROUND-TABLE TALLY</span>
+                  </span>
+                  <span className="text-[#64748b]">
+                    총 {guruReports.length}건 종합
+                  </span>
+                </div>
+                <TallyBar tally={aggregateTally} size="sm" />
+              </div>
+
+              {/* 2. 최고 저평가 기회 종목 Top 3 */}
+              <div className="p-4 rounded-md bg-white border border-[#e2e8f0] space-y-2 shadow-xs">
+                <span className="font-semibold text-[#0f172a] flex items-center gap-1.5">
+                  <TrendingUp className="w-3.5 h-3.5 text-[#0f172a]" />
+                  <span>TOP VALUE DISCOUNTS</span>
+                </span>
+                {topDiscountOpportunities.length === 0 ? (
+                  <p className="text-[#64748b] text-[11px] pt-1">
+                    현재 적정가 대비 100% 초과 저평가 종목 산출 중
+                  </p>
+                ) : (
+                  <div className="space-y-1.5 pt-0.5">
+                    {topDiscountOpportunities.map((item) => (
+                      <div
+                        key={item.ticker}
+                        onClick={() => onSelectReport(item.report)}
+                        className="flex items-center justify-between hover:bg-[#f8fafc] p-1 rounded cursor-pointer transition-colors"
+                      >
+                        <span className="font-bold text-[#0f172a]">
+                          ${item.ticker}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[#64748b] text-[11px]">
+                            ${item.currentPrice?.toFixed(1)} → $
+                            {item.fairValue?.toFixed(1)}
+                          </span>
+                          <span className="px-1.5 py-0.2 rounded bg-slate-900 text-white font-bold text-[10px]">
+                            +{Math.round(item.ratio - 100)}% 괴리
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 3. 13인 거장 철학 가이드 바로가기 */}
+              <div className="p-4 rounded-md bg-white border border-[#e2e8f0] flex flex-col justify-between space-y-2 shadow-xs">
+                <div>
+                  <span className="font-semibold text-[#0f172a] flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-[#0f172a]" />
+                    <span>13 GURU METHODOLOGIES</span>
+                  </span>
+                  <p className="text-[11px] text-[#64748b] mt-1 leading-relaxed">
+                    버핏(해자·ROE), 그레이엄(안전마진), 린치(PEG), 다모다란(DCF)
+                    등 13인의 독자적 심사 기준.
+                  </p>
+                </div>
+                <button
+                  onClick={() => onSelectSection?.("sec-gurus")}
+                  className="inline-flex items-center justify-between w-full pt-1.5 text-xs text-[#0f172a] font-semibold hover:underline cursor-pointer group"
+                >
+                  <span>거장별 심사 가이드 열람</span>
+                  <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
 
       {/* ── 2. SECTION 01: 가치평가 및 거장 심층 분석 보고서 전체 (1+2 통합) ── */}
       {isVisible("sec-reports") && (
@@ -361,15 +569,15 @@ export function ResearchCatalogView({
               </div>
               <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-md">
                 13인 거장의 독립 표결과 종합 적정 내재가치, 안전마진 밴드를 도출한
-                전체 분석 보고서 아카이브입니다. (총 {filteredReports.length}건)
+                분석 보고서입니다. {isAll && `(홈에서는 상위 10건만 요약 표시)`}
               </p>
 
-              {/* 투자의견 빠른 필터 칩 */}
+              {/* 투자의견 빠른 필터 칩 (줄바꿈 방지) */}
               <div className="space-y-1.5 pt-1">
                 <span className="text-[11px] font-mono uppercase text-[#94a3b8] block">
                   Filter by Verdict
                 </span>
-                <div className="flex flex-wrap gap-1 font-mono text-xs">
+                <div className="flex items-center gap-1 font-mono text-xs overflow-x-auto whitespace-nowrap scrollbar-none pb-0.5">
                   {[
                     { id: "ALL", label: `전체 (${guruReports.length})` },
                     { id: "BUY", label: "매수 합의" },
@@ -379,7 +587,7 @@ export function ResearchCatalogView({
                     <button
                       key={chip.id}
                       onClick={() => setReportVerdictFilter(chip.id)}
-                      className={`px-2.5 py-1 rounded border transition-colors cursor-pointer ${
+                      className={`shrink-0 whitespace-nowrap px-2.5 py-1 rounded border transition-colors cursor-pointer ${
                         reportVerdictFilter === chip.id
                           ? "bg-[#0f172a] text-white border-[#0f172a]"
                           : "bg-[#f8fafc] text-[#64748b] border-[#e2e8f0] hover:text-[#0f172a]"
@@ -392,9 +600,9 @@ export function ResearchCatalogView({
               </div>
             </div>
 
-            {/* 우측: 전체 보고서 리스트 */}
-            <div className="min-w-0">
-              {filteredReports.length === 0 ? (
+            {/* 우측: 보고서 리스트 */}
+            <div className="min-w-0 space-y-4">
+              {displayedReports.length === 0 ? (
                 <EmptyState
                   icon="📄"
                   title="해당 조건의 분석 보고서가 없습니다"
@@ -402,11 +610,16 @@ export function ResearchCatalogView({
                 />
               ) : (
                 <ul className="divide-y divide-[#f1f5f9] -my-2">
-                  {filteredReports.map((report) => {
-                    const insight = getInsight(report.ticker, report.current_price);
+                  {displayedReports.map((report) => {
+                    const insight = getInsight(
+                      report.ticker,
+                      report.current_price
+                    );
                     const ticker = report.ticker;
                     const percentB = percentBByTicker[chartTickerKey(ticker)];
-                    const ratioText = formatIntrinsicRatio(insight.intrinsicRatioPct);
+                    const ratioText = formatIntrinsicRatio(
+                      insight.intrinsicRatioPct
+                    );
 
                     return (
                       <li key={report.id || ticker}>
@@ -420,67 +633,71 @@ export function ResearchCatalogView({
                             <div className="min-w-0 flex-1 space-y-1.5">
                               {/* 상단 라인: 슬러그, 투자의견, 발행일자 */}
                               <div className="flex items-center gap-2 flex-wrap font-mono text-xs">
-                                <span className="font-bold text-[#0f172a] group-hover:text-blue-600 transition-colors">
+                                <span className="font-bold text-[#0f172a] group-hover:text-black transition-colors">
                                   ${ticker}
                                 </span>
-                                <span className="text-[#94a3b8]">/report-{ticker.toLowerCase()}</span>
-                                <Badge variant={getVerdictBadgeVariant(report.verdict)}>
-                                  {report.verdict || "리포트 완료"}
-                                </Badge>
+                                <span className="text-[#94a3b8]">
+                                  /report-{ticker.toLowerCase()}
+                                </span>
+                                {renderMonochromeVerdict(report.verdict)}
                                 <span className="text-[11px] text-[#94a3b8] ml-auto sm:ml-0">
                                   {report.d}
                                 </span>
                               </div>
 
                               {/* 회사명 & 타이틀 */}
-                              <h3 className="text-sm font-bold text-[#0f172a] group-hover:text-blue-600 transition-colors truncate">
-                                {report.company_name || ticker} ({ticker}) 13인 거장 가치평가 및 적정주가 보고서
+                              <h3 className="text-sm font-bold text-[#0f172a] truncate">
+                                {report.company_name || ticker} ({ticker}) 13인
+                                거장 가치평가 및 적정주가 보고서
                               </h3>
 
-                              {/* 핵심 지표 뱃지 라인 (로고, 종합의견, %B, 확신도, 내재가치/종가, 내재가치 안정성) */}
+                              {/* 핵심 지표 뱃지 라인 (%B, 확신도, 내재가치/종가, 안정성) */}
                               <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px] pt-0.5">
                                 {percentB !== undefined && (
                                   <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
-                                    %B: <strong>{formatPercentB(percentB)}</strong>
+                                    %B:{" "}
+                                    <strong className="text-[#0f172a]">
+                                      {formatPercentB(percentB)}
+                                    </strong>
                                   </span>
                                 )}
 
                                 {insight.confidence != null && (
                                   <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
-                                    확신도: <strong>{insight.confidence.toFixed(1)}/10</strong>
+                                    확신도:{" "}
+                                    <strong className="text-[#0f172a]">
+                                      {insight.confidence.toFixed(1)}/10
+                                    </strong>
                                   </span>
                                 )}
 
                                 {ratioText && (
                                   <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
                                     내재가치/종가:{" "}
-                                    <strong
-                                      className={
-                                        insight.intrinsicRatioPct != null && insight.intrinsicRatioPct >= 100
-                                          ? "text-emerald-700"
-                                          : "text-[#0f172a]"
-                                      }
-                                    >
+                                    <strong className="text-[#0f172a] font-bold">
                                       {ratioText}
                                     </strong>
                                   </span>
                                 )}
 
                                 {insight.fairValue != null && (
-                                  <span className="px-1.5 py-0.2 rounded border border-blue-200 bg-blue-50/60 text-blue-700 font-semibold">
+                                  <span className="px-1.5 py-0.2 rounded border border-[#cbd5e1] bg-white text-[#0f172a] font-semibold">
                                     적정가: ${insight.fairValue.toFixed(2)}
                                   </span>
                                 )}
 
-                                <Badge variant={insight.stabilityMeta.variant}>
-                                  안정성: {insight.stabilityMeta.text}
-                                </Badge>
+                                {renderStabilityBadge(
+                                  insight.intrinsicStability
+                                )}
                               </div>
 
                               {/* 요약 텍스트 */}
                               <p className="text-xs text-[#64748b] line-clamp-1 leading-relaxed pt-0.5">
-                                {report.vote_summary || "13인 독립 표결 및 적정가 산출 완료"}
-                                {insight.safetyPrice ? ` · 안전마진 매수가: ${insight.safetyPrice}` : ""}
+                                {report.vote_summary ||
+                                  "13인 독립 표결 및 적정가 산출 완료"}
+                                {insight.safetyPrice
+                                  ? ` · 안전마진 매수가: ${insight.safetyPrice}`
+                                  : ""}
                               </p>
                             </div>
                           </div>
@@ -494,12 +711,27 @@ export function ResearchCatalogView({
                   })}
                 </ul>
               )}
+
+              {/* [리스트 수 조절] 전체 홈에서 10개 초과 시 전체 보기 링크 */}
+              {isAll && filteredReports.length > 10 && (
+                <div className="pt-2 border-t border-[#f1f5f9] flex justify-end">
+                  <button
+                    onClick={() => onSelectSection?.("sec-reports")}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-[#cbd5e1] hover:border-[#0f172a] bg-white text-xs font-mono font-medium text-[#0f172a] hover:bg-[#f8fafc] transition-colors cursor-pointer group"
+                  >
+                    <span>
+                      전체 가치평가 리포트 보기 ({filteredReports.length}건)
+                    </span>
+                    <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </section>
       )}
 
-      {/* ── 3. SECTION 02: 슈퍼인베스터 포트폴리오 (DataRoma 전체) ── */}
+      {/* ── 3. SECTION 02: 슈퍼인베스터 포트폴리오 (DataRoma) ── */}
       {isVisible("sec-roma") && (
         <section
           id="sec-roma"
@@ -518,7 +750,8 @@ export function ResearchCatalogView({
               </div>
               <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-md">
                 미국 탑 슈퍼인베스터 10명 이상이 동시 보유하고 있는 DataRoma 그랜드
-                포트폴리오 종목 전체 브리프입니다. (총 {filteredRoma.length}개 종목)
+                포트폴리오 종목 브리프입니다.{" "}
+                {isAll && `(홈에서는 상위 10개만 요약 표시)`}
               </p>
               <Button
                 variant="secondary"
@@ -532,9 +765,9 @@ export function ResearchCatalogView({
               </Button>
             </div>
 
-            {/* 우측: 전체 DataRoma 종목 리스트 */}
-            <div className="min-w-0">
-              {filteredRoma.length === 0 ? (
+            {/* 우측: DataRoma 종목 리스트 */}
+            <div className="min-w-0 space-y-4">
+              {displayedRoma.length === 0 ? (
                 <EmptyState
                   icon="🏛️"
                   title="DataRoma 슈퍼인베스터 데이터가 없습니다"
@@ -542,10 +775,13 @@ export function ResearchCatalogView({
                 />
               ) : (
                 <ul className="divide-y divide-[#f1f5f9] -my-2">
-                  {filteredRoma.map((c, idx) => {
+                  {displayedRoma.map((c, idx) => {
                     const insight = getInsight(c.ticker, c.price);
-                    const percentB = percentBByTicker[chartTickerKey(c.ticker)];
-                    const ratioText = formatIntrinsicRatio(insight.intrinsicRatioPct);
+                    const percentB =
+                      percentBByTicker[chartTickerKey(c.ticker)];
+                    const ratioText = formatIntrinsicRatio(
+                      insight.intrinsicRatioPct
+                    );
 
                     return (
                       <li key={`roma-${c.ticker}-${idx}`}>
@@ -559,12 +795,14 @@ export function ResearchCatalogView({
                             <div className="min-w-0 flex-1 space-y-1.5">
                               {/* 상단 라인 */}
                               <div className="flex items-center gap-2 flex-wrap font-mono text-xs">
-                                <span className="font-bold text-[#0f172a] group-hover:text-blue-600 transition-colors">
+                                <span className="font-bold text-[#0f172a] group-hover:text-black transition-colors">
                                   ${c.ticker}
                                 </span>
-                                <span className="text-[#64748b] truncate max-w-[200px]">{c.name}</span>
+                                <span className="text-[#64748b] truncate max-w-[200px]">
+                                  {c.name}
+                                </span>
                                 {c.holders != null && (
-                                  <span className="font-mono text-[10px] px-1.5 py-0.2 rounded border border-blue-200 bg-blue-50/60 text-blue-700 font-semibold">
+                                  <span className="font-mono text-[10px] px-1.5 py-0.2 rounded border border-[#cbd5e1] bg-white text-[#0f172a] font-semibold">
                                     {c.holders}인 보유
                                   </span>
                                 )}
@@ -573,9 +811,7 @@ export function ResearchCatalogView({
                                     비중: {c.weight_pct.toFixed(2)}%
                                   </span>
                                 )}
-                                <Badge variant={getVerdictBadgeVariant(insight.verdict)}>
-                                  {insight.verdict || "리포트 준비 중"}
-                                </Badge>
+                                {renderMonochromeVerdict(insight.verdict)}
                               </div>
 
                               {/* 지표 라인 */}
@@ -586,34 +822,34 @@ export function ResearchCatalogView({
 
                                 {percentB !== undefined && (
                                   <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
-                                    %B: <strong>{formatPercentB(percentB)}</strong>
+                                    %B:{" "}
+                                    <strong className="text-[#0f172a]">
+                                      {formatPercentB(percentB)}
+                                    </strong>
                                   </span>
                                 )}
 
                                 {insight.confidence != null && (
                                   <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
-                                    확신도: <strong>{insight.confidence.toFixed(1)}/10</strong>
+                                    확신도:{" "}
+                                    <strong className="text-[#0f172a]">
+                                      {insight.confidence.toFixed(1)}/10
+                                    </strong>
                                   </span>
                                 )}
 
                                 {ratioText && (
                                   <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
                                     내재가치/종가:{" "}
-                                    <strong
-                                      className={
-                                        insight.intrinsicRatioPct != null && insight.intrinsicRatioPct >= 100
-                                          ? "text-emerald-700"
-                                          : "text-[#0f172a]"
-                                      }
-                                    >
+                                    <strong className="text-[#0f172a] font-bold">
                                       {ratioText}
                                     </strong>
                                   </span>
                                 )}
 
-                                <Badge variant={insight.stabilityMeta.variant}>
-                                  안정성: {insight.stabilityMeta.text}
-                                </Badge>
+                                {renderStabilityBadge(
+                                  insight.intrinsicStability
+                                )}
 
                                 {c.roe != null && (
                                   <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#64748b]">
@@ -633,12 +869,27 @@ export function ResearchCatalogView({
                   })}
                 </ul>
               )}
+
+              {/* [리스트 수 조절] 전체 홈에서 10개 초과 시 전체 보기 링크 */}
+              {isAll && filteredRoma.length > 10 && (
+                <div className="pt-2 border-t border-[#f1f5f9] flex justify-end">
+                  <button
+                    onClick={() => onSelectSection?.("sec-roma")}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-[#cbd5e1] hover:border-[#0f172a] bg-white text-xs font-mono font-medium text-[#0f172a] hover:bg-[#f8fafc] transition-colors cursor-pointer group"
+                  >
+                    <span>
+                      전체 슈퍼인베스터 포트폴리오 보기 ({filteredRoma.length}개)
+                    </span>
+                    <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </section>
       )}
 
-      {/* ── 4. SECTION 03: 실시간 발굴 후보군 (전체 목록) ── */}
+      {/* ── 4. SECTION 03: 실시간 발굴 후보군 ── */}
       {isVisible("sec-screener") && (
         <section
           id="sec-screener"
@@ -657,7 +908,8 @@ export function ResearchCatalogView({
               </div>
               <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-md">
                 13인 거장 스크리닝 조건을 충족하여 분석 파이프라인 진입 대기 중인
-                전체 후보 종목 브리프입니다. (총 {filteredCandidates.length}개 종목)
+                후보 종목 브리프입니다.{" "}
+                {isAll && `(홈에서는 상위 10개만 요약 표시)`}
               </p>
               <Button
                 variant="secondary"
@@ -671,9 +923,9 @@ export function ResearchCatalogView({
               </Button>
             </div>
 
-            {/* 우측: 전체 실시간 후보군 종목 리스트 */}
-            <div className="min-w-0">
-              {filteredCandidates.length === 0 ? (
+            {/* 우측: 후보군 종목 리스트 */}
+            <div className="min-w-0 space-y-4">
+              {displayedCandidates.length === 0 ? (
                 <EmptyState
                   icon="🧭"
                   title="포착된 스크리닝 후보군이 없습니다"
@@ -681,10 +933,13 @@ export function ResearchCatalogView({
                 />
               ) : (
                 <ul className="divide-y divide-[#f1f5f9] -my-2">
-                  {filteredCandidates.map((c, idx) => {
+                  {displayedCandidates.map((c, idx) => {
                     const insight = getInsight(c.ticker, c.price);
-                    const percentB = percentBByTicker[chartTickerKey(c.ticker)];
-                    const ratioText = formatIntrinsicRatio(insight.intrinsicRatioPct);
+                    const percentB =
+                      percentBByTicker[chartTickerKey(c.ticker)];
+                    const ratioText = formatIntrinsicRatio(
+                      insight.intrinsicRatioPct
+                    );
 
                     return (
                       <li key={`candidate-${c.ticker}-${idx}`}>
@@ -698,16 +953,19 @@ export function ResearchCatalogView({
                             <div className="min-w-0 flex-1 space-y-1.5">
                               {/* 상단 라인 */}
                               <div className="flex items-center gap-2 flex-wrap font-mono text-xs">
-                                <span className="font-bold text-[#0f172a] group-hover:text-blue-600 transition-colors">
+                                <span className="font-bold text-[#0f172a] group-hover:text-black transition-colors">
                                   #{c.rank || idx + 1} ${c.ticker}
                                 </span>
-                                <span className="text-[#64748b] truncate max-w-[200px]">{c.name}</span>
-                                <Badge variant="primary" className="font-mono text-[10px]">
+                                <span className="text-[#64748b] truncate max-w-[200px]">
+                                  {c.name}
+                                </span>
+                                <Badge
+                                  variant="primary"
+                                  className="font-mono text-[10px]"
+                                >
                                   SCORE: {c.guru_score || 0}
                                 </Badge>
-                                <Badge variant={getVerdictBadgeVariant(insight.verdict)}>
-                                  {insight.verdict || "분석 대기"}
-                                </Badge>
+                                {renderMonochromeVerdict(insight.verdict)}
                               </div>
 
                               {/* 지표 라인 */}
@@ -715,11 +973,7 @@ export function ResearchCatalogView({
                                 <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#0f172a] font-semibold">
                                   PRICE: ${c.price?.toFixed(2) || "-"}
                                   {c.change_rate != null && (
-                                    <span
-                                      className={`ml-1 font-semibold ${
-                                        c.change_rate >= 0 ? "text-rose-600" : "text-emerald-600"
-                                      }`}
-                                    >
+                                    <span className="ml-1 text-[#64748b] font-normal">
                                       ({c.change_rate >= 0 ? "+" : ""}
                                       {c.change_rate.toFixed(2)}%)
                                     </span>
@@ -728,34 +982,34 @@ export function ResearchCatalogView({
 
                                 {percentB !== undefined && (
                                   <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
-                                    %B: <strong>{formatPercentB(percentB)}</strong>
+                                    %B:{" "}
+                                    <strong className="text-[#0f172a]">
+                                      {formatPercentB(percentB)}
+                                    </strong>
                                   </span>
                                 )}
 
                                 {insight.confidence != null && (
                                   <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
-                                    확신도: <strong>{insight.confidence.toFixed(1)}/10</strong>
+                                    확신도:{" "}
+                                    <strong className="text-[#0f172a]">
+                                      {insight.confidence.toFixed(1)}/10
+                                    </strong>
                                   </span>
                                 )}
 
                                 {ratioText && (
                                   <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
                                     내재가치/종가:{" "}
-                                    <strong
-                                      className={
-                                        insight.intrinsicRatioPct != null && insight.intrinsicRatioPct >= 100
-                                          ? "text-emerald-700"
-                                          : "text-[#0f172a]"
-                                      }
-                                    >
+                                    <strong className="text-[#0f172a] font-bold">
                                       {ratioText}
                                     </strong>
                                   </span>
                                 )}
 
-                                <Badge variant={insight.stabilityMeta.variant}>
-                                  안정성: {insight.stabilityMeta.text}
-                                </Badge>
+                                {renderStabilityBadge(
+                                  insight.intrinsicStability
+                                )}
 
                                 {c.roe != null && (
                                   <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#64748b]">
@@ -774,6 +1028,22 @@ export function ResearchCatalogView({
                     );
                   })}
                 </ul>
+              )}
+
+              {/* [리스트 수 조절] 전체 홈에서 10개 초과 시 전체 보기 링크 */}
+              {isAll && filteredCandidates.length > 10 && (
+                <div className="pt-2 border-t border-[#f1f5f9] flex justify-end">
+                  <button
+                    onClick={() => onSelectSection?.("sec-screener")}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-[#cbd5e1] hover:border-[#0f172a] bg-white text-xs font-mono font-medium text-[#0f172a] hover:bg-[#f8fafc] transition-colors cursor-pointer group"
+                  >
+                    <span>
+                      전체 실시간 발굴 후보군 보기 (
+                      {filteredCandidates.length}개)
+                    </span>
+                    <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -818,6 +1088,72 @@ export function ResearchCatalogView({
                   onRefresh={onRefreshLogs}
                 />
               </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── 6. SECTION 05: 13인 투자 거장 철학 & 심층 가이드 (my/financial 연동) ── */}
+      {isVisible("sec-gurus") && (
+        <section
+          id="sec-gurus"
+          className="px-6 lg:px-12 py-10 lg:py-12 bg-white"
+        >
+          <div className="space-y-6">
+            <div className="flex items-baseline gap-2">
+              <span className="font-mono text-xs font-semibold text-[#94a3b8]">
+                05
+              </span>
+              <h2 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
+                13인 투자 거장 철학 및 밸류에이션 가이드
+              </h2>
+            </div>
+            <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-2xl">
+              SeedTick 리서치 파이프라인에서 실제 독립 평가를 수행하는 13인 투자
+              거장의 고유한 심사 철학, 체크리스트 및 핵심 정량 지표 기준입니다.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2 font-sans">
+              {Object.values(GURU_PERSONAS).map((guru) => (
+                <div
+                  key={guru.slug}
+                  className="p-4 rounded-md border border-[#e2e8f0] bg-white space-y-3 hover:border-[#0f172a] transition-colors shadow-xs"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-bold text-sm text-[#0f172a]">
+                        {guru.name}
+                      </h3>
+                      <span className="text-[10px] font-mono text-[#64748b] bg-[#f8fafc] border border-[#e2e8f0] px-1.5 py-0.2 rounded">
+                        {guru.englishName}
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#334155] font-medium leading-snug">
+                      {guru.oneLiner}
+                    </p>
+                  </div>
+
+                  <div className="space-y-1 border-t border-[#f1f5f9] pt-2">
+                    <span className="text-[10px] font-mono text-[#94a3b8] block uppercase">
+                      Core Checklist
+                    </span>
+                    <p className="text-[11px] text-[#64748b] leading-relaxed">
+                      {guru.keyCriteria}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1 pt-1 font-mono text-[10px]">
+                    {guru.focusMetrics.map((metric) => (
+                      <span
+                        key={metric}
+                        className="px-1.5 py-0.5 rounded border border-[#e2e8f0] bg-[#f8fafc] text-[#475569]"
+                      >
+                        {metric}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </section>
