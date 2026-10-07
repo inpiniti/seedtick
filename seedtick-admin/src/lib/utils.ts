@@ -45,14 +45,14 @@ export function getScoreBadge(score?: number | null): {
 } {
   switch (score) {
     case 0:
-      return { label: "강력 매수", bg: "bg-[#fef0f1]", text: "text-[#f04452]" };
+      return { label: "강력 매수", bg: "bg-emerald-50 border border-emerald-200", text: "text-emerald-700" };
     case 1:
-      return { label: "보유", bg: "bg-[#e8f3ff]", text: "text-[#3182f6]" };
+      return { label: "보유", bg: "bg-slate-50 border border-slate-200", text: "text-slate-700" };
     case 2:
-      return { label: "관망", bg: "bg-[#fff5e6]", text: "text-[#ff9500]" };
+      return { label: "관망", bg: "bg-amber-50 border border-amber-200", text: "text-amber-700" };
     case 3:
-      return { label: "매도/비추천", bg: "bg-[#e6f8f0]", text: "text-[#03b26c]" };
+      return { label: "매도/비추천", bg: "bg-rose-50 border border-rose-200", text: "text-rose-700" };
     default:
-      return { label: "미평가", bg: "bg-[#f2f4f6]", text: "text-[#8b95a1]" };
+      return { label: "미평가", bg: "bg-slate-50 border border-slate-200", text: "text-slate-500" };
   }
 }

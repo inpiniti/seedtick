@@ -5,11 +5,11 @@ import { HealthStatus, AiModelStatus } from "@/types/api";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import {
-  Globe,
   RefreshCw,
-  Calendar,
+  Sparkles,
+  Activity,
+  Layers,
 } from "lucide-react";
-
 import { AiModelWidget } from "@/components/header/AiModelWidget";
 
 interface LiveStatusBarProps {
@@ -19,6 +19,8 @@ interface LiveStatusBarProps {
   onResetModel: () => void;
   isLoading: boolean;
   onRefresh: () => void;
+  onOpenPipelineModal?: () => void;
+  isPipelineRunning?: boolean;
 }
 
 export function LiveStatusBar({
@@ -28,97 +30,100 @@ export function LiveStatusBar({
   onResetModel,
   isLoading,
   onRefresh,
+  onOpenPipelineModal,
+  isPipelineRunning = false,
 }: LiveStatusBarProps) {
   const isServerHealthy = health?.status === "healthy";
   const isMarketOpen = health?.us_market_today?.is_open ?? false;
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#f2f4f6] px-3.5 sm:px-8 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
-      <div className="max-w-7xl mx-auto flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-        {/* 서비스 타이틀 & 상태 */}
-        <div className="flex items-center justify-between gap-2 min-w-0">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-[#3182f6] flex items-center justify-center text-white font-bold text-sm shadow-xs shrink-0">
-              S
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 min-w-0">
-                <h1 className="text-sm sm:text-base font-bold text-[#191f28] tracking-tight truncate">
-                  SeedTick 관제센터
-                </h1>
-                <Badge variant={isServerHealthy ? "success" : "danger"} className="shrink-0">
-                  <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-                  {isServerHealthy ? "정상 기동" : "오프라인"}
-                </Badge>
-              </div>
-              <p className="text-[10px] sm:text-xs text-[#8b95a1] leading-none mt-0.5 truncate">
-                미국 주식 13인 거장 AI 스크리닝 & 심층 가치평가 리포트
-              </p>
-            </div>
-          </div>
+    <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-[#e2e8f0] px-4 lg:px-8 h-[56px] flex items-center justify-between">
+      {/* 1. 좌측 브랜드 & 타이틀 */}
+      <div className="flex items-center gap-3 min-w-0">
+        <a href="#" className="flex items-center gap-2 group focus:outline-hidden">
+          <span className="font-mono text-xs font-bold bg-[#0f172a] text-white px-2 py-0.5 rounded tracking-wider">
+            ST
+          </span>
+          <span className="font-bold text-sm sm:text-base text-[#0f172a] tracking-tight group-hover:text-blue-600 transition-colors">
+            SeedTick
+          </span>
+          <span className="font-mono text-[11px] text-[#64748b] hidden md:inline border-l border-[#e2e8f0] pl-2.5">
+            / RESEARCH & INSIGHTS
+          </span>
+        </a>
 
-          {/* 모바일 화면용 새로고침 버튼 (우측 상단) */}
-          <div className="lg:hidden">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={onRefresh}
-              isLoading={isLoading}
-              className="h-[34px] w-[34px] p-0 rounded-xl"
-              aria-label="새로고침"
-            >
-              {!isLoading ? <RefreshCw className="w-3.5 h-3.5 text-[#4e5968]" /> : null}
-            </Button>
-          </div>
+        {/* 서버 상태 뱃지 (미니) */}
+        <div className="hidden sm:flex items-center gap-1.5 font-mono text-[11px] text-[#64748b]">
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${
+              isServerHealthy ? "bg-emerald-500 live-dot" : "bg-rose-500"
+            }`}
+          />
+          <span className="text-[10px] uppercase">
+            {isServerHealthy ? "SYSTEM OK" : "OFFLINE"}
+          </span>
+        </div>
+      </div>
+
+      {/* 2. 우측 메타데이터 & 액션 버튼들 */}
+      <div className="flex items-center gap-2 sm:gap-3">
+        {/* 미장 개장 여부 */}
+        <div className="hidden sm:inline-flex items-center gap-1.5 border border-[#e2e8f0] bg-[#f8fafc] px-2.5 py-1 rounded-md text-xs font-mono">
+          <span className="text-[#64748b]">US MKT:</span>
+          <span
+            className={`font-semibold ${
+              isMarketOpen ? "text-emerald-700" : "text-slate-500"
+            }`}
+          >
+            {isMarketOpen ? "OPEN" : "CLOSED"}
+          </span>
         </div>
 
-        {/* 핵심 메트릭 지표 배너 */}
-        <div className="flex items-center flex-wrap gap-2 text-xs">
-          {/* 1. 오늘 마켓 개장 여부 위젯 */}
-          <div className="flex items-center gap-1.5 bg-[#f9fafb] border border-[#e5e8eb] px-3 py-1.5 rounded-2xl min-w-0">
-            <Calendar className="w-3.5 h-3.5 text-[#ff9500] shrink-0" />
-            <span className="text-[#8b95a1] text-[11px] sm:text-xs font-medium shrink-0">미장:</span>
-            <span
-              className={`font-bold text-[11px] sm:text-xs ${
-                isMarketOpen ? "text-[#03b26c]" : "text-[#f04452]"
-              }`}
-            >
-              {isMarketOpen ? "오늘 개장" : "오늘 휴장"}
-            </span>
-          </div>
-
-          {/* 2. 일일 파이프라인 정기 스케줄 안내 */}
-          <div className="hidden sm:flex items-center gap-1.5 bg-[#f9fafb] border border-[#e5e8eb] px-3 py-1.5 rounded-2xl min-w-0">
-            <Globe className="w-3.5 h-3.5 text-[#3182f6] shrink-0" />
-            <span className="text-[#8b95a1] text-[11px] sm:text-xs font-medium shrink-0">배치:</span>
-            <span className="font-semibold text-[#191f28] text-[11px] sm:text-xs">
-              매일 12:00 KST
-            </span>
-          </div>
-
-          {/* 3. 현재 활성 AI 모델 위젯 */}
+        {/* AI 모델 위젯 */}
+        <div className="hidden md:block">
           <AiModelWidget
             aiModel={aiModel}
             isResetting={isResettingModel}
             onReset={onResetModel}
           />
-
-          {/* 5. 데스크톱용 새로고침 버튼 */}
-          <div className="hidden lg:block">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={onRefresh}
-              isLoading={isLoading}
-              className="rounded-2xl h-[34px] px-3"
-              leftIcon={
-                !isLoading ? <RefreshCw className="w-3.5 h-3.5" /> : undefined
-              }
-            >
-              새로고침
-            </Button>
-          </div>
         </div>
+
+        {/* 12:00 일일 파이프라인 트리거 버튼 */}
+        {onOpenPipelineModal && (
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={onOpenPipelineModal}
+            disabled={isPipelineRunning}
+            leftIcon={
+              isPipelineRunning ? (
+                <Activity className="w-3.5 h-3.5 animate-pulse text-amber-400" />
+              ) : (
+                <Sparkles className="w-3.5 h-3.5" />
+              )
+            }
+            className="font-mono text-xs font-medium"
+          >
+            <span className="hidden sm:inline">
+              {isPipelineRunning ? "분석 파이프라인 가동 중" : "12:00 파이프라인 실행"}
+            </span>
+            <span className="sm:hidden">
+              {isPipelineRunning ? "가동 중" : "파이프라인"}
+            </span>
+          </Button>
+        )}
+
+        {/* 새로고침 버튼 */}
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={onRefresh}
+          isLoading={isLoading}
+          aria-label="데이터 새로고침"
+          className="h-[32px] px-2.5"
+        >
+          {!isLoading ? <RefreshCw className="w-3.5 h-3.5 text-[#475569]" /> : null}
+        </Button>
       </div>
     </header>
   );

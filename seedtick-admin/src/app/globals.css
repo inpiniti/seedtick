@@ -1,49 +1,67 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, "Pretendard Variable", Pretendard, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-mono), "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
 :root {
-  --background: #f7f9fc;
-  --foreground: #191f28;
-
-  /* Toss Design Tokens */
-  --toss-bg: #f7f9fc;
-  --toss-surface: #ffffff;
-  --toss-surface-hover: #f9fafb;
-  --toss-text-primary: #191f28;
-  --toss-text-secondary: #4e5968;
-  --toss-text-tertiary: #8b95a1;
-  --toss-border: #e5e8eb;
+  /* aihero.dev Inspired Theme Tokens */
+  --background: #ffffff;
+  --page-background: #f8f9fa;
+  --foreground: #0f172a;
   
-  --toss-primary: #3182f6;
-  --toss-primary-hover: #1b64da;
-  --toss-primary-light: #e8f3ff;
+  --muted-background: #f1f5f9;
+  --muted-foreground: #64748b;
+  --faint-foreground: #94a3b8;
   
-  --toss-red: #f04452;
-  --toss-red-light: #fef0f1;
+  --border: #e2e8f0;
+  --border-subtle: #f1f5f9;
+  --border-strong: #cbd5e1;
   
-  --toss-green: #03b26c;
-  --toss-green-light: #e6f8f0;
+  --surface: #ffffff;
+  --surface-hover: #f8fafc;
   
-  --toss-orange: #ff9500;
-  --toss-orange-light: #fff5e6;
-
-  /* Elevation */
-  --toss-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-  --toss-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --brand-ink: #0f172a;
+  --brand-blue: #2563eb;
+  --brand-blue-hover: #1d4ed8;
+  --brand-blue-light: #eff6ff;
+  --brand-blue-border: #bfdbfe;
+  
+  --band-background: #f8fafc;
+  
+  --nav-height: 56px;
+  
+  /* Semantic Status Tokens (Clean, Monospace friendly) */
+  --status-buy-bg: #ecfdf5;
+  --status-buy-fg: #059669;
+  --status-buy-border: #a7f3d0;
+  
+  --status-hold-bg: #f8fafc;
+  --status-hold-fg: #475569;
+  --status-hold-border: #cbd5e1;
+  
+  --status-sell-bg: #fef2f2;
+  --status-sell-fg: #dc2626;
+  --status-sell-border: #fecaca;
+  
+  --status-warn-bg: #fffbeb;
+  --status-warn-fg: #d97706;
+  --status-warn-border: #fde68a;
 }
 
 body {
-  background-color: var(--toss-bg);
-  color: var(--toss-text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, "Pretendard Variable", Pretendard,
-    Roboto, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  background-color: var(--page-background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom Scrollbar for clean aesthetics */
+/* Subtle, Minimal Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -51,63 +69,31 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #d1d5db;
-  border-radius: 9999px;
+  background: #cbd5e1;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+  background: #94a3b8;
 }
 
-/* ── 실시간 현재가 플래시 애니메이션 ──────────────────────────────
-   체결가가 갱신될 때 상승(빨강)/하락(파랑) 배경을 짧게 물들였다가
-   원래 상태로 돌아온다. 텍스트는 깜빡이지 않고 배경만 강조한다. */
-@keyframes price-flash-up {
-  0% {
-    background-color: rgba(240, 68, 82, 0.28);
-  }
-  100% {
-    background-color: rgba(240, 68, 82, 0);
-  }
-}
-
-@keyframes price-flash-down {
-  0% {
-    background-color: rgba(49, 130, 246, 0.28);
-  }
-  100% {
-    background-color: rgba(49, 130, 246, 0);
-  }
-}
-
+/* Live Pulse Indicator */
 @keyframes live-pulse {
-  0%,
-  100% {
+  0%, 100% {
     opacity: 1;
+    transform: scale(1);
   }
   50% {
     opacity: 0.35;
+    transform: scale(0.9);
   }
-}
-
-.price-flash-up {
-  animation: price-flash-up 700ms ease-out;
-  border-radius: 6px;
-}
-
-.price-flash-down {
-  animation: price-flash-down 700ms ease-out;
-  border-radius: 6px;
 }
 
 .live-dot {
-  animation: live-pulse 1.6s ease-in-out infinite;
+  animation: live-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .price-flash-up,
-  .price-flash-down,
-  .live-dot {
-    animation: none;
-  }
+/* Subtle ease-out hover transition */
+.ease-out-quart {
+  transition-timing-function: cubic-bezier(0.25, 1, 0.5, 1);
 }
