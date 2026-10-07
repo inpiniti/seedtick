@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180">
+  <!-- 흑색 둥근 상자 배경 -->
+  <rect width="180" height="180" rx="40" fill="#0f172a" />
+  
+  <!-- 반전된 백색 완드 막대 로고 -->
+  <g transform="rotate(45 90 90)">
+    <!-- 전체 바디 아웃라인 -->
+    <rect
+      x="70"
+      y="28"
+      width="40"
+      height="124"
+      rx="20"
+      fill="none"
+      stroke="#ffffff"
+      stroke-width="12"
+      stroke-linejoin="round"
+    />
+    <!-- 상단 팁 채움 -->
+    <path
+      d="M 70 68 L 70 48 C 70 36.95 78.95 28 90 28 C 101.05 28 110 36.95 110 48 L 110 68 Z"
+      fill="#ffffff"
+    />
+  </g>
+</svg>
