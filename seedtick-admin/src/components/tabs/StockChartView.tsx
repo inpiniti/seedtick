@@ -12,11 +12,7 @@ import {
 import { StockChartResponse } from "@/types/api";
 import { fetchStockChart } from "@/lib/api-client";
 import { Badge, BadgeVariant } from "@/components/ui/Badge";
-import {
-  AlertTriangle,
-  Info,
-  RefreshCw,
-} from "lucide-react";
+import { AlertTriangle, Info, RefreshCw } from "lucide-react";
 
 interface StockChartViewProps {
   ticker: string;
@@ -47,7 +43,7 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
       } catch (err: unknown) {
         if (!isCancelled) {
           console.error("차트 조회 오류:", err);
-          setError("일봉 및 볼린저 밴드 데이터를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.");
+          setError("일봉 및 볼린저 밴드 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
         }
       } finally {
         if (!isCancelled) {
@@ -65,14 +61,13 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
     };
   }, [ticker, selectedRange]);
 
-/** 차트 높이: 좁은 화면에서는 300px, 넓은 화면에서는 380px */
+  /** 차트 높이 */
   const getChartHeight = () => (typeof window !== "undefined" && window.innerWidth < 640 ? 300 : 380);
 
-  // 2. Lightweight Charts 캔들 & 볼린저 라인 렌더링
+  // 2. Lightweight Charts 캔들 & 볼린저 라인 렌더링 (모노크롬 에디토리얼 테마)
   useEffect(() => {
     if (isLoading || !data || !chartContainerRef.current) return;
 
-    // 기존 인스턴스 정리
     if (chartInstanceRef.current) {
       chartInstanceRef.current.remove();
       chartInstanceRef.current = null;
@@ -84,26 +79,26 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
       height: getChartHeight(),
       layout: {
         background: { type: ColorType.Solid, color: "#ffffff" },
-        textColor: "#6b7684",
-        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+        textColor: "#64748b",
+        fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
       },
       grid: {
-        vertLines: { color: "#f2f4f6" },
-        horzLines: { color: "#f2f4f6" },
+        vertLines: { color: "#f1f5f9" },
+        horzLines: { color: "#f1f5f9" },
       },
       crosshair: {
-        vertLine: { color: "#3182f6", width: 1, style: LineStyle.Dotted },
-        horzLine: { color: "#3182f6", width: 1, style: LineStyle.Dotted },
+        vertLine: { color: "#64748b", width: 1, style: LineStyle.Dotted },
+        horzLine: { color: "#64748b", width: 1, style: LineStyle.Dotted },
       },
       rightPriceScale: {
-        borderColor: "#e5e8eb",
+        borderColor: "#e2e8f0",
         scaleMargins: {
           top: 0.12,
           bottom: 0.12,
         },
       },
       timeScale: {
-        borderColor: "#e5e8eb",
+        borderColor: "#e2e8f0",
         timeVisible: true,
         secondsVisible: false,
       },
@@ -111,14 +106,14 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
 
     chartInstanceRef.current = chart;
 
-    // 2-1. 캔들스틱 시리즈 (토스 스타일: 상승 빨강 #f04452, 하락 파랑/초록 #3182f6 or #03b26c)
+    // 2-1. 모노크롬 캔들스틱 (상승: 딥 블랙 솔리드 #0f172a, 하락: 라이트 슬레이트 아웃라인 #ffffff / #64748b)
     const candleSeries = chart.addSeries(CandlestickSeries, {
-      upColor: "#f04452",
-      downColor: "#3182f6",
-      borderUpColor: "#f04452",
-      borderDownColor: "#3182f6",
-      wickUpColor: "#f04452",
-      wickDownColor: "#3182f6",
+      upColor: "#0f172a",
+      downColor: "#ffffff",
+      borderUpColor: "#0f172a",
+      borderDownColor: "#64748b",
+      wickUpColor: "#0f172a",
+      wickDownColor: "#64748b",
     });
 
     const candleData = data.candles.map((c) => ({
@@ -130,9 +125,9 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
     }));
     candleSeries.setData(candleData);
 
-    // 2-2. 볼린저 밴드 상단 라인 (Upper: #f04452)
+    // 2-2. 볼린저 밴드 상단 라인 (+2σ: 다크 슬레이트 대시)
     const upperSeries = chart.addSeries(LineSeries, {
-      color: "#f04452",
+      color: "#475569",
       lineWidth: 1,
       lineStyle: LineStyle.Dashed,
       title: "BB 상단 (+2σ)",
@@ -143,9 +138,9 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
       .map((b) => ({ time: b.time, value: b.upper as number }));
     upperSeries.setData(upperData);
 
-    // 2-3. 볼린저 밴드 중심선 (Middle 20 SMA: #8b95a1)
+    // 2-3. 볼린저 밴드 중심선 (20 SMA: 미드 슬레이트 실선)
     const middleSeries = chart.addSeries(LineSeries, {
-      color: "#8b95a1",
+      color: "#94a3b8",
       lineWidth: 1,
       lineStyle: LineStyle.Solid,
       title: "BB 중심 (20 SMA)",
@@ -156,9 +151,9 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
       .map((b) => ({ time: b.time, value: b.middle as number }));
     middleSeries.setData(middleData);
 
-    // 2-4. 볼린저 밴드 하단 라인 (Lower: #03b26c)
+    // 2-4. 볼린저 밴드 하단 라인 (-2σ: 다크 슬레이트 대시)
     const lowerSeries = chart.addSeries(LineSeries, {
-      color: "#03b26c",
+      color: "#475569",
       lineWidth: 1,
       lineStyle: LineStyle.Dashed,
       title: "BB 하단 (-2σ)",
@@ -171,7 +166,6 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
 
     chart.timeScale().fitContent();
 
-    // 반응형 리사이즈 대응 (모바일 주소창 높이 변화·회전까지 커버)
     const handleResize = () => {
       if (container && chart) {
         chart.applyOptions({
@@ -198,19 +192,19 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
     };
   }, [data, isLoading]);
 
-  // 상태 배지 매핑
+  // 상태 배지 매핑 (모노크롬 정제)
   const getStatusBadge = (status?: string): { variant: BadgeVariant; text: string } => {
     switch (status) {
       case "UPPER_BREAK":
-        return { variant: "danger", text: "⚡ 상단 밴드 돌파 (과열)" };
+        return { variant: "primary", text: "상단 밴드 돌파 (과열)" };
       case "UPPER_NEAR":
-        return { variant: "danger", text: "🔴 상단 저항선 근접" };
+        return { variant: "neutral", text: "상단 저항선 근접" };
       case "MIDDLE":
-        return { variant: "primary", text: "🔵 중심선 영역 (안정)" };
+        return { variant: "neutral", text: "중심선 영역 (안정)" };
       case "LOWER_NEAR":
-        return { variant: "success", text: "🟢 하단 지지선 근접 (저점)" };
+        return { variant: "primary", text: "하단 지지선 근접 (저점)" };
       case "LOWER_BREAK":
-        return { variant: "warning", text: "⚠️ 하단 이탈 (극단적 과매도)" };
+        return { variant: "primary", text: "하단 이탈 (극단적 과매도)" };
       default:
         return { variant: "neutral", text: "분석 중" };
     }
@@ -220,86 +214,88 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
   const badgeInfo = getStatusBadge(summary?.status);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 font-sans">
       {/* 1. 상단 컨트롤 및 종목 정보 */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#f9fafb] border border-[#f2f4f6]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-md bg-[#f8fafc] border border-[#e2e8f0]">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-base font-bold text-[#191f28] shrink-0">{ticker}</span>
+            <span className="font-mono text-base font-bold text-[#0f172a] shrink-0">
+              ${ticker}
+            </span>
             {companyName && (
-              <span className="text-xs text-[#8b95a1] font-medium truncate min-w-0 max-w-[140px] sm:max-w-none">
+              <span className="text-xs text-[#64748b] font-medium truncate min-w-0 max-w-[140px] sm:max-w-none">
                 {companyName}
               </span>
             )}
-            <Badge variant={badgeInfo.variant} className="shrink-0">
+            <Badge variant={badgeInfo.variant} className="shrink-0 font-mono text-[10px]">
               {badgeInfo.text}
             </Badge>
           </div>
-          <p className="text-xs text-[#4e5968] mt-1 flex items-start gap-1.5">
-            <Info className="w-3.5 h-3.5 text-[#3182f6] shrink-0 mt-0.5" />
+          <p className="text-xs text-[#64748b] mt-1 flex items-start gap-1.5 font-mono">
+            <Info className="w-3.5 h-3.5 text-[#0f172a] shrink-0 mt-0.5" />
             <span className="min-w-0">
-              {summary?.status_description || "일봉 데이터와 20일 볼린저 밴드(±2σ)를 분석하고 있어요."}
+              {summary?.status_description || "일봉 데이터와 20일 볼린저 밴드(±2σ)를 분석한 차트입니다."}
             </span>
           </p>
         </div>
 
         {/* 기간 선택 버튼 (3mo / 6mo / 1y) */}
-        <div className="flex items-center gap-1 p-1 bg-white border border-[#e5e8eb] rounded-xl self-stretch sm:self-auto justify-center sm:justify-start">
+        <div className="flex items-center gap-1 p-0.5 bg-white border border-[#cbd5e1] rounded font-mono text-xs self-stretch sm:self-auto justify-center sm:justify-start">
           {(["3mo", "6mo", "1y"] as const).map((r) => (
             <button
               key={r}
               onClick={() => setSelectedRange(r)}
-              className={`flex-1 sm:flex-none px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+              className={`flex-1 sm:flex-none px-2.5 py-1 text-xs rounded transition-colors cursor-pointer whitespace-nowrap ${
                 selectedRange === r
-                  ? "bg-[#3182f6] text-white"
-                  : "text-[#8b95a1] hover:text-[#191f28]"
+                  ? "bg-[#0f172a] text-white font-semibold"
+                  : "text-[#64748b] hover:text-[#0f172a]"
               }`}
             >
-              {r === "3mo" ? "3개월" : r === "6mo" ? "6개월" : "1년"}
+              {r === "3mo" ? "3M" : r === "6mo" ? "6M" : "1Y"}
             </button>
           ))}
         </div>
       </div>
 
-      {/* 2. 핵심 수치 요약 매트릭스 카드 */}
+      {/* 2. 핵심 수치 요약 매트릭스 카드 (모노크롬 정밀 지표) */}
       {summary && (
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
-          <div className="p-3 bg-white rounded-2xl border border-[#e5e8eb] shadow-2xs">
-            <div className="text-[11px] font-medium text-[#8b95a1]">현재 종가</div>
-            <div className="text-base font-bold text-[#191f28] mt-0.5">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 font-mono">
+          <div className="p-3 bg-white rounded-md border border-[#e2e8f0] shadow-2xs">
+            <div className="text-[11px] font-medium text-[#64748b]">현재 종가</div>
+            <div className="text-base font-bold text-[#0f172a] mt-0.5">
               ${summary.current_price.toFixed(2)}
             </div>
           </div>
-          <div className="p-3 bg-white rounded-2xl border border-[#e5e8eb] shadow-2xs">
-            <div className="text-[11px] font-medium text-[#f04452] flex items-center gap-1">
-              <span className="w-2 h-0.5 bg-[#f04452] rounded-full inline-block" />
+          <div className="p-3 bg-white rounded-md border border-[#e2e8f0] shadow-2xs">
+            <div className="text-[11px] font-medium text-[#64748b] flex items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-[#475569] rounded-xs inline-block" />
               BB 상단 (+2σ)
             </div>
-            <div className="text-base font-bold text-[#f04452] mt-0.5">
+            <div className="text-base font-bold text-[#0f172a] mt-0.5">
               ${summary.upper.toFixed(2)}
             </div>
           </div>
-          <div className="p-3 bg-white rounded-2xl border border-[#e5e8eb] shadow-2xs">
-            <div className="text-[11px] font-medium text-[#8b95a1] flex items-center gap-1">
-              <span className="w-2 h-0.5 bg-[#8b95a1] rounded-full inline-block" />
+          <div className="p-3 bg-white rounded-md border border-[#e2e8f0] shadow-2xs">
+            <div className="text-[11px] font-medium text-[#64748b] flex items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-[#94a3b8] rounded-xs inline-block" />
               BB 중심 (20일)
             </div>
-            <div className="text-base font-bold text-[#191f28] mt-0.5">
+            <div className="text-base font-bold text-[#0f172a] mt-0.5">
               ${summary.middle.toFixed(2)}
             </div>
           </div>
-          <div className="p-3 bg-white rounded-2xl border border-[#e5e8eb] shadow-2xs">
-            <div className="text-[11px] font-medium text-[#03b26c] flex items-center gap-1">
-              <span className="w-2 h-0.5 bg-[#03b26c] rounded-full inline-block" />
+          <div className="p-3 bg-white rounded-md border border-[#e2e8f0] shadow-2xs">
+            <div className="text-[11px] font-medium text-[#64748b] flex items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-[#475569] rounded-xs inline-block" />
               BB 하단 (-2σ)
             </div>
-            <div className="text-base font-bold text-[#03b26c] mt-0.5">
+            <div className="text-base font-bold text-[#0f172a] mt-0.5">
               ${summary.lower.toFixed(2)}
             </div>
           </div>
-          <div className="p-3 bg-white rounded-2xl border border-[#e5e8eb] shadow-2xs col-span-2 sm:col-span-1">
-            <div className="text-[11px] font-medium text-[#8b95a1]">밴드 위치 (%B)</div>
-            <div className="text-base font-bold text-[#3182f6] mt-0.5">
+          <div className="p-3 bg-white rounded-md border border-[#e2e8f0] shadow-2xs col-span-2 sm:col-span-1">
+            <div className="text-[11px] font-medium text-[#64748b]">밴드 위치 (%B)</div>
+            <div className="text-base font-bold text-[#0f172a] mt-0.5">
               {(summary.percent_b * 100).toFixed(1)}%
             </div>
           </div>
@@ -307,52 +303,52 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
       )}
 
       {/* 3. 차트 렌더링 영역 */}
-      <div className="relative p-3.5 bg-white rounded-3xl border border-[#e5e8eb] shadow-2xs">
-        {/* 범례 표시 */}
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 pb-2 mb-2 border-b border-[#f2f4f6] text-[11px] text-[#8b95a1]">
+      <div className="relative p-3.5 bg-white rounded-md border border-[#e2e8f0] shadow-2xs">
+        {/* 모노크롬 범례 표시 */}
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 pb-2 mb-2 border-b border-[#f1f5f9] text-[11px] font-mono text-[#64748b]">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <span className="flex items-center gap-1">
-              <span className="w-2.5 h-2.5 bg-[#f04452] rounded-xs inline-block" /> 양봉
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 bg-[#0f172a] border border-[#0f172a] rounded-2xs inline-block" /> 양봉 (상승)
             </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2.5 h-2.5 bg-[#3182f6] rounded-xs inline-block" /> 음봉
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 bg-white border border-[#64748b] rounded-2xs inline-block" /> 음봉 (하락)
             </span>
-            <span className="flex items-center gap-1 text-[#f04452]">
-              <span className="w-3 border-b-2 border-dashed border-[#f04452] inline-block" /> 상단
+            <span className="flex items-center gap-1 text-[#475569]">
+              <span className="w-3 border-b-2 border-dashed border-[#475569] inline-block" /> 상단 (+2σ)
             </span>
-            <span className="flex items-center gap-1 text-[#8b95a1]">
-              <span className="w-3 border-b-2 border-[#8b95a1] inline-block" /> 중심
+            <span className="flex items-center gap-1 text-[#94a3b8]">
+              <span className="w-3 border-b-2 border-[#94a3b8] inline-block" /> 중심 (SMA)
             </span>
-            <span className="flex items-center gap-1 text-[#03b26c]">
-              <span className="w-3 border-b-2 border-dashed border-[#03b26c] inline-block" /> 하단
+            <span className="flex items-center gap-1 text-[#475569]">
+              <span className="w-3 border-b-2 border-dashed border-[#475569] inline-block" /> 하단 (-2σ)
             </span>
           </div>
-          <span className="hidden sm:inline text-[#8b95a1]">마우스 휠로 확대/축소 가능</span>
+          <span className="hidden sm:inline text-[#94a3b8]">휠 스크롤: 줌 인/아웃</span>
         </div>
 
         {/* 로딩 스켈레톤 */}
         {isLoading && (
           <div className="h-[300px] sm:h-[380px] flex flex-col justify-center items-center gap-3">
-            <RefreshCw className="w-6 h-6 text-[#3182f6] animate-spin" />
-            <p className="text-xs text-[#8b95a1]">일봉 캔들과 볼린저 밴드를 계산하고 있어요...</p>
+            <RefreshCw className="w-5 h-5 text-[#0f172a] animate-spin" />
+            <p className="text-xs font-mono text-[#64748b]">일봉 캔들과 볼린저 밴드를 계산하고 있습니다...</p>
           </div>
         )}
 
         {/* 에러 상태 */}
         {!isLoading && error && (
           <div className="h-[300px] sm:h-[380px] flex flex-col justify-center items-center gap-3 text-center p-6">
-            <AlertTriangle className="w-8 h-8 text-[#ff9500]" />
-            <p className="text-sm font-semibold text-[#191f28]">{error}</p>
+            <AlertTriangle className="w-7 h-7 text-[#0f172a]" />
+            <p className="text-xs font-mono font-semibold text-[#0f172a]">{error}</p>
             <button
               onClick={() => setSelectedRange(selectedRange)}
-              className="mt-2 px-3.5 py-1.5 text-xs font-semibold bg-[#3182f6] text-white rounded-xl cursor-pointer"
+              className="mt-2 px-3 py-1.5 text-xs font-mono font-semibold bg-[#0f172a] text-white rounded cursor-pointer"
             >
-              다시 시도하기
+              다시 시도
             </button>
           </div>
         )}
 
-        {/* 실제 차트가 마운트될 DOM 컨테이너 */}
+        {/* 실제 차트 DOM 컨테이너 */}
         <div
           ref={chartContainerRef}
           className={`w-full ${isLoading || error ? "hidden" : "block"}`}

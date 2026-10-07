@@ -133,7 +133,7 @@ export function ReportDatapackView({ datapack }: ReportDatapackViewProps) {
             </div>
             <div className="p-3 rounded-md bg-white border border-[#e2e8f0]">
               <span className="text-[11px] font-mono text-[#64748b] block">Dividend Yield</span>
-              <span className="text-sm font-mono font-semibold text-emerald-700">
+              <span className="text-sm font-mono font-semibold text-[#0f172a]">
                 {formatPercent(valuation.dividend_yield_pct)}
               </span>
             </div>
@@ -145,7 +145,7 @@ export function ReportDatapackView({ datapack }: ReportDatapackViewProps) {
       {balance_sheet && (
         <div className="space-y-2">
           <h4 className="text-xs font-mono font-medium text-[#64748b] uppercase tracking-wider flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+            <ShieldCheck className="w-3.5 h-3.5 text-[#0f172a]" />
             Financial Health & Capital Efficiency
           </h4>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -181,7 +181,7 @@ export function ReportDatapackView({ datapack }: ReportDatapackViewProps) {
             </div>
             <div className="p-3 rounded-md bg-white border border-[#e2e8f0]">
               <span className="text-[11px] font-mono text-[#64748b] block">Net Debt</span>
-              <span className={`text-sm font-mono font-semibold ${(balance_sheet.net_debt || 0) <= 0 ? "text-emerald-700" : "text-rose-700"}`}>
+              <span className="text-sm font-mono font-semibold text-[#0f172a]">
                 {balance_sheet.net_debt <= 0 ? "Net Cash " : ""}
                 {formatLargeNumber(balance_sheet.net_debt)}
               </span>
@@ -217,7 +217,7 @@ export function ReportDatapackView({ datapack }: ReportDatapackViewProps) {
                     <td className="py-2 px-3 whitespace-nowrap tabular-nums">{formatLargeNumber(row.revenue)}</td>
                     <td className="py-2 px-3 whitespace-nowrap tabular-nums">{formatPercent(row.gross_margin_pct)}</td>
                     <td className="py-2 px-3 whitespace-nowrap tabular-nums">{formatLargeNumber(row.operating_income)}</td>
-                    <td className="py-2 px-3 font-semibold text-blue-600 whitespace-nowrap tabular-nums">
+                    <td className="py-2 px-3 font-semibold text-[#0f172a] whitespace-nowrap tabular-nums">
                       {formatPercent(row.operating_margin_pct)}
                     </td>
                     <td className="py-2 px-3 whitespace-nowrap tabular-nums">{formatLargeNumber(row.net_income)}</td>
@@ -298,7 +298,7 @@ export function ReportDatapackView({ datapack }: ReportDatapackViewProps) {
                         href={news.link}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="hover:text-blue-600 transition-colors"
+                        className="hover:text-black hover:underline transition-colors"
                       >
                         {news.title}
                       </a>
@@ -320,7 +320,7 @@ export function ReportDatapackView({ datapack }: ReportDatapackViewProps) {
                     href={news.link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="shrink-0 text-[#64748b] hover:text-blue-600 transition-colors mt-0.5"
+                    className="shrink-0 text-[#64748b] hover:text-[#0f172a] transition-colors mt-0.5"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                   </a>
@@ -334,11 +334,11 @@ export function ReportDatapackView({ datapack }: ReportDatapackViewProps) {
       {/* 7. 핵심 가치 드라이버 */}
       {value_drivers && typeof value_drivers === "string" && value_drivers.trim() && (
         <div className="space-y-2">
-          <h4 className="text-xs font-mono font-medium text-blue-700 uppercase tracking-wider flex items-center gap-1.5">
-            <Lightbulb className="w-3.5 h-3.5 text-blue-600" />
+          <h4 className="text-xs font-mono font-medium text-[#0f172a] uppercase tracking-wider flex items-center gap-1.5">
+            <Lightbulb className="w-3.5 h-3.5 text-[#0f172a]" />
             Key Value Drivers
           </h4>
-          <div className="p-4 rounded-md bg-[#eff6ff]/70 border border-[#bfdbfe]">
+          <div className="p-4 rounded-md bg-[#f8fafc] border border-[#e2e8f0]">
             <MarkdownViewer content={value_drivers} />
           </div>
         </div>

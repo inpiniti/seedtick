@@ -680,6 +680,18 @@ export default function AdminDashboardPage() {
             </Button>
           </Modal.Footer>
         </Modal>
+
+        {/* 4. 에디토리얼 푸터 */}
+        <footer className="mt-auto py-6 border-t border-[#e2e8f0] px-6 lg:px-12 bg-[#fafafa] text-xs font-mono text-[#64748b]">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+            <span>
+              SeedTick Research Console · 13 Gurus AI Valuation & Insight Archive
+            </span>
+            <span className="text-[#94a3b8]">
+              API Gateway: seedtick-ai-gateway · Engine: seedtick-analyzer
+            </span>
+          </div>
+        </footer>
       </div>
     </div>
   );
