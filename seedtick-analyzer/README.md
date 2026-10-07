@@ -59,5 +59,4 @@ pytest -v
 - `GET /api/report/datapack/{ticker}` : 특정 종목 심층 데이터팩 단독 생성
 - `POST /api/report/generate?ticker={ticker}` : 13인 거장 5단계 리포트 생성 및 DB 저장
 - `POST /api/scheduler/trigger` : 일일 파이프라인 수동 즉시 트리거 (백그라운드 실행 후 즉시 응답, dry_run·force 플래그 지원)
-- `GET /api/scheduler/progress` : 13인 거장 파이프라인 실시간 진행 상태 (단계, n/총, n/13, 경과 시간)
-
+- `GET /api/scheduler/progress` : 13인 거장 파이프라인 실시간 진행 상태 (단계, n/총, n/13, 경과 시간, 단계별 소요 시간)
