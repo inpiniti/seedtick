@@ -144,6 +144,27 @@ export default async function StockDetailPage({
     ],
   };
 
+  // 서버 사이드에서 리포트 데이터 직접 조회 (진짜 Server-Side Rendering)
+  let initialReport = null;
+  if (supabase) {
+    try {
+      if (date) {
+        initialReport = await fetchReportByDateAndTicker(date, ticker);
+      } else {
+        const { data } = await supabase
+          .from("guru_reports")
+          .select("*")
+          .eq("ticker", ticker)
+          .order("d", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        initialReport = data;
+      }
+    } catch (e) {
+      console.warn("SSR fetchReport error:", e);
+    }
+  }
+
   return (
     <>
       <script
@@ -154,6 +175,7 @@ export default async function StockDetailPage({
         <DashboardView
           initialSection="sec-reports"
           initialTicker={ticker}
+          initialReport={initialReport}
           initialTab={validatedTab}
           initialDate={date}
         />

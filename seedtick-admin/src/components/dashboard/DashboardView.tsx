@@ -40,6 +40,7 @@ import { GURU_PERSONAS } from "@/lib/guruPersonas";
 import { SkeletonCard } from "@/components/ui/Skeleton";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import { DataCache } from "@/lib/dataCache";
 import {
   chartTickerKey,
   isValidChartTicker,
@@ -81,6 +82,7 @@ function buildOfflineHealth(): HealthStatus {
 export interface DashboardViewProps {
   initialSection?: SidebarSectionId;
   initialTicker?: string;
+  initialReport?: GuruReportRow | null;
   initialTab?: ResearchDocTab;
   initialDate?: string;
   initialGuru?: string;
@@ -89,6 +91,7 @@ export interface DashboardViewProps {
 export function DashboardView({
   initialSection = "all",
   initialTicker,
+  initialReport,
   initialTab,
   initialDate,
   initialGuru,
@@ -102,26 +105,38 @@ export function DashboardView({
     useState<SidebarSectionId>(initialSection);
 
   // 2. 로딩 상태
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!initialReport);
   const [isScreenerLoading, setIsScreenerLoading] = useState(false);
   const [isRomaLoading, setIsRomaLoading] = useState(false);
 
-  // 3. 상태 데이터
-  const [health, setHealth] = useState<HealthStatus | null>(buildOfflineHealth());
+  // 3. 상태 데이터 (캐시 우선 초기화)
+  const [health, setHealth] = useState<HealthStatus | null>(
+    () => DataCache.getHealth() || buildOfflineHealth()
+  );
   const [aiModel, setAiModel] = useState<AiModelStatus | null>(null);
   const [isResettingModel, setIsResettingModel] = useState(false);
 
   // 4. 리포트 & 로그 데이터
-  const [guruReports, setGuruReports] = useState<GuruReportRow[]>([]);
+  const [guruReports, setGuruReports] = useState<GuruReportRow[]>(
+    () => DataCache.getReports("LATEST") || []
+  );
   const [systemLogs, setSystemLogs] = useState<SystemLogItem[]>([]);
-  const [liveCandidates, setLiveCandidates] = useState<StockCandidate[]>([]);
-  const [krCandidates, setKrCandidates] = useState<StockCandidate[]>([]);
+  const [liveCandidates, setLiveCandidates] = useState<StockCandidate[]>(
+    () => DataCache.getLiveCandidates() || []
+  );
+  const [krCandidates, setKrCandidates] = useState<StockCandidate[]>(
+    () => DataCache.getKrCandidates() || []
+  );
   const [isKrLoading, setIsKrLoading] = useState(false);
   const [krTightenStep, setKrTightenStep] = useState<number>(5);
-  const [romaCandidates, setRomaCandidates] = useState<StockCandidate[]>([]);
+  const [romaCandidates, setRomaCandidates] = useState<StockCandidate[]>(
+    () => DataCache.getRomaCandidates() || []
+  );
 
-  // 4-1. 가치평가 및 거장 리포트 날짜별 선택 상태 (디폴트: 가장 최근 작성일)
-  const [availableCatalogDates, setAvailableCatalogDates] = useState<string[]>([]);
+  // 4-1. 날짜 선택 상태
+  const [availableCatalogDates, setAvailableCatalogDates] = useState<string[]>(
+    () => DataCache.getCatalogDates() || []
+  );
   const [selectedCatalogDate, setSelectedCatalogDate] = useState<string>("");
   const [isCatalogDateLoading, setIsCatalogDateLoading] = useState(false);
   const selectedCatalogDateRef = useRef<string>("");
@@ -129,30 +144,30 @@ export function DashboardView({
   // 4-2. 전 기간 내재가치 히스토리
   const [historicalValuations, setHistoricalValuations] = useState<
     HistoricalValuationRecord[]
-  >([]);
+  >(() => DataCache.getHistoricalValuations() || []);
 
   // 5. 종목별 %B 캐시
   const [percentBByTicker, setPercentBByTicker] = useState<
     Record<string, number | null>
-  >({});
+  >(() => DataCache.getAllPercentB());
   const percentBByTickerRef = useRef<Record<string, number | null>>({});
   percentBByTickerRef.current = percentBByTicker;
 
-  // 6. 13인 거장 파이프라인 진행 상태
+  // 6. 파이프라인 진행 상태
   const { progress: pipelineProgress, refresh: refreshPipelineProgress } =
     usePipelineProgress();
   const isPipelineRunning = pipelineProgress?.status === "running";
 
-  // 7. 파이프라인 수동 실행 모달 상태
+  // 7. 파이프라인 수동 실행 모달
   const [isPipelineModalOpen, setIsPipelineModalOpen] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [forceMarket, setForceMarket] = useState(false);
   const [skipAlreadyReported, setSkipAlreadyReported] = useState(true);
 
-  // 8. 상세 리포트 뷰어 상태
+  // 8. 상세 리포트 뷰어 상태 (initialReport로 즉각 초기화: SSR 완벽 지원)
   const [selectedDocReport, setSelectedDocReport] =
-    useState<GuruReportRow | null>(null);
+    useState<GuruReportRow | null>(initialReport ?? null);
   const [selectedGuruSlug, setSelectedGuruSlug] = useState<string | null>(
     initialGuru || null
   );
@@ -163,7 +178,7 @@ export function DashboardView({
   const [availableReportDates, setAvailableReportDates] = useState<string[]>([]);
   const [selectedReportDate, setSelectedReportDate] = useState<
     string | undefined
-  >(initialDate);
+  >(initialDate || initialReport?.d);
   const [isLoadingReportDate, setIsLoadingReportDate] = useState(false);
 
   // 후보군 로고 맵
@@ -197,7 +212,8 @@ export function DashboardView({
       fairValuesByTickerDate.get(ticker)!.set(record.d, record.fair_value_price);
     }
 
-    for (const report of guruReports) {
+    const currentReports = selectedDocReport ? [selectedDocReport, ...guruReports] : guruReports;
+    for (const report of currentReports) {
       const fairValue = extractValuationConsensus(report)?.fair_value_price;
       if (fairValue == null || !Number.isFinite(fairValue) || fairValue <= 0)
         continue;
@@ -214,10 +230,24 @@ export function DashboardView({
       stabilityMap.set(ticker, buildIntrinsicStability(fairValues));
     }
     return stabilityMap;
-  }, [historicalValuations, guruReports]);
+  }, [historicalValuations, guruReports, selectedDocReport]);
 
-  // 데이터 로드
-  const loadDashboardData = useCallback(async () => {
+  // 데이터 로드 (캐시 우선 확인으로 불필요한 반복 쿼리 방지)
+  const loadDashboardData = useCallback(async (force = false) => {
+    const cachedHealth = DataCache.getHealth();
+    const cachedDates = DataCache.getCatalogDates();
+    const cachedReports = DataCache.getReports(selectedCatalogDateRef.current || "LATEST");
+    const cachedValuations = DataCache.getHistoricalValuations();
+
+    if (!force && cachedHealth && cachedDates && cachedReports) {
+      setHealth(cachedHealth);
+      setAvailableCatalogDates(cachedDates);
+      setGuruReports(cachedReports);
+      if (cachedValuations) setHistoricalValuations(cachedValuations);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     try {
       const [healthRes, datesRes, logsRes, aiModelRes, valuationsRes] = await Promise.all([
@@ -228,13 +258,21 @@ export function DashboardView({
         withTimeout(fetchHistoricalValuations(), []),
       ]);
 
-      setHealth(healthRes || buildOfflineHealth());
+      const finalHealth = healthRes || buildOfflineHealth();
+      setHealth(finalHealth);
+      DataCache.setHealth(finalHealth);
+
       if (aiModelRes) setAiModel(aiModelRes);
       setSystemLogs(logsRes);
-      if (valuationsRes) setHistoricalValuations(valuationsRes);
+
+      if (valuationsRes) {
+        setHistoricalValuations(valuationsRes);
+        DataCache.setHistoricalValuations(valuationsRes);
+      }
 
       const dates = datesRes || [];
       setAvailableCatalogDates(dates);
+      DataCache.setCatalogDates(dates);
 
       const activeDate =
         selectedCatalogDateRef.current || (dates.length > 0 ? dates[0] : "");
@@ -251,6 +289,7 @@ export function DashboardView({
         []
       );
       setGuruReports(reportsRes);
+      DataCache.setReports(activeDate || "LATEST", reportsRes);
     } catch (err) {
       console.error("대시보드 데이터 로드 오류:", err);
     } finally {
@@ -261,12 +300,20 @@ export function DashboardView({
   const handleSelectCatalogDate = useCallback(async (targetDate: string) => {
     selectedCatalogDateRef.current = targetDate;
     setSelectedCatalogDate(targetDate);
+
+    const cached = DataCache.getReports(targetDate);
+    if (cached) {
+      setGuruReports(cached);
+      return;
+    }
+
     setIsCatalogDateLoading(true);
     try {
       const reports = await fetchGuruReports(
         200,
         targetDate === "ALL" ? undefined : targetDate
       );
+      DataCache.setReports(targetDate, reports);
       setGuruReports(reports);
     } catch (e) {
       console.error("카탈로그 일자별 리포트 조회 오류:", e);
@@ -293,11 +340,19 @@ export function DashboardView({
     }
   };
 
-  const loadLiveScreener = useCallback(async () => {
+  const loadLiveScreener = useCallback(async (force = false) => {
+    const cached = DataCache.getLiveCandidates();
+    if (!force && cached) {
+      setLiveCandidates(cached);
+      return;
+    }
+
     setIsScreenerLoading(true);
     try {
       const res = await fetchScreener("공통", "us", 100);
-      setLiveCandidates(res.items || res.tickers || []);
+      const items = res.items || res.tickers || [];
+      DataCache.setLiveCandidates(items);
+      setLiveCandidates(items);
     } catch (err) {
       console.warn("미국장 스크리너 조회 실패:", err);
     } finally {
@@ -305,11 +360,19 @@ export function DashboardView({
     }
   }, []);
 
-  const loadKrScreener = useCallback(async () => {
+  const loadKrScreener = useCallback(async (force = false) => {
+    const cached = DataCache.getKrCandidates();
+    if (!force && cached) {
+      setKrCandidates(cached);
+      return;
+    }
+
     setIsKrLoading(true);
     try {
       const res = await fetchScreener("공통", "kr", 100, 5);
-      setKrCandidates(res.items || res.tickers || []);
+      const items = res.items || res.tickers || [];
+      DataCache.setKrCandidates(items);
+      setKrCandidates(items);
     } catch (err) {
       console.warn("한국장 스크리너 조회 실패:", err);
     } finally {
@@ -317,11 +380,19 @@ export function DashboardView({
     }
   }, []);
 
-  const loadRomaScreener = useCallback(async () => {
+  const loadRomaScreener = useCallback(async (force = false) => {
+    const cached = DataCache.getRomaCandidates();
+    if (!force && cached) {
+      setRomaCandidates(cached);
+      return;
+    }
+
     setIsRomaLoading(true);
     try {
       const res = await fetchRomaScreener(10, 0);
-      setRomaCandidates(res.items || res.tickers || []);
+      const items = res.items || res.tickers || [];
+      DataCache.setRomaCandidates(items);
+      setRomaCandidates(items);
     } catch (err) {
       console.warn("DataRoma 스크리너 조회 실패:", err);
     } finally {
@@ -329,18 +400,20 @@ export function DashboardView({
     }
   }, []);
 
-  // %B 비동기 우선순위 로딩
+  // %B 비동기 우선순위 로딩 (상세 뷰 모드에서는 실행하지 않음)
   useEffect(() => {
+    if (initialTicker) return;
+
     const priorityTickers = Array.from(
       new Set([
-        ...guruReports.slice(0, 25).map((r) => r.ticker),
-        ...liveCandidates.slice(0, 15).map((c) => c.ticker),
+        ...guruReports.slice(0, 20).map((r) => r.ticker),
+        ...liveCandidates.slice(0, 10).map((c) => c.ticker),
         ...krCandidates.slice(0, 5).map((c) => c.ticker),
-        ...romaCandidates.slice(0, 15).map((c) => c.ticker),
+        ...romaCandidates.slice(0, 10).map((c) => c.ticker),
       ])
     )
       .map((t) => chartTickerKey(t))
-      .filter((t) => Boolean(t) && percentBByTickerRef.current[t] === undefined);
+      .filter((t) => Boolean(t) && DataCache.getPercentB(t) === undefined);
 
     if (priorityTickers.length === 0) return;
 
@@ -348,13 +421,10 @@ export function DashboardView({
     const validTickers = priorityTickers.filter((t) => isValidChartTicker(t));
 
     if (invalidTickers.length > 0) {
-      setPercentBByTicker((prev) => {
-        const next = { ...prev };
-        for (const t of invalidTickers) {
-          next[t] = null;
-        }
-        return next;
-      });
+      for (const t of invalidTickers) {
+        DataCache.setPercentB(t, null);
+      }
+      setPercentBByTicker(DataCache.getAllPercentB());
     }
 
     if (validTickers.length === 0) return;
@@ -379,13 +449,10 @@ export function DashboardView({
         );
 
         if (cancelled) return;
-        setPercentBByTicker((prev) => {
-          const next = { ...prev };
-          for (const res of results) {
-            next[res.ticker] = res.percentB;
-          }
-          return next;
-        });
+        for (const res of results) {
+          DataCache.setPercentB(res.ticker, res.percentB);
+        }
+        setPercentBByTicker(DataCache.getAllPercentB());
 
         if (i + chunkSize < validTickers.length) {
           await new Promise((resolve) => setTimeout(resolve, 80));
@@ -397,7 +464,7 @@ export function DashboardView({
     return () => {
       cancelled = true;
     };
-  }, [guruReports, liveCandidates, krCandidates, romaCandidates]);
+  }, [initialTicker, guruReports, liveCandidates, krCandidates, romaCandidates]);
 
   const handleTriggerPipeline = async () => {
     setIsActionLoading(true);
@@ -537,21 +604,18 @@ export function DashboardView({
     router.push(`/gurus/${encodeURIComponent(slug)}`);
   }, [router]);
 
-  // 문서 뷰에서 카탈로그 목록으로 복귀
+  // 문서 뷰에서 카탈로그 목록으로 복귀 (직전 방문 화면으로 정확히 복귀!)
   const handleBackToCatalog = useCallback(() => {
     setSelectedDocReport(null);
     setSelectedGuruSlug(null);
     setIsMobileMenuOpen(false);
-    if (activeSidebarSection === "sec-reports") {
-      router.push("/stocks");
-    } else if (activeSidebarSection === "sec-screener" || activeSidebarSection === "sec-roma") {
-      router.push("/screener");
-    } else if (activeSidebarSection === "sec-gurus") {
-      router.push("/gurus");
+
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
     } else {
-      router.push("/");
+      router.push("/stocks");
     }
-  }, [activeSidebarSection, router]);
+  }, [router]);
 
   // 사이드바 섹션 클릭 시 실제 URL 라우팅
   const handleSelectSidebarSection = (sec: SidebarSectionId) => {
@@ -568,47 +632,39 @@ export function DashboardView({
     else if (sec === "sec-audit") router.push("/admin");
   };
 
-  // initialTicker가 전달되었을 때 보고서 로드
+  // initialTicker가 있을 때 날짜 목록 보강
   useEffect(() => {
     if (initialTicker) {
       const tickerClean = initialTicker.toUpperCase();
-      const targetDate = initialDate || selectedReportDate;
-      const cached = guruReports.find(
-        (r) => r.ticker.toUpperCase() === tickerClean && (!targetDate || r.d === targetDate)
-      );
-      if (cached) {
-        setSelectedDocReport(cached);
-        setSelectedReportDate(cached.d);
-      } else {
-        fetchGuruReports(50).then((reports) => {
-          const match = reports.find((r) => r.ticker.toUpperCase() === tickerClean);
-          if (match) {
-            setSelectedDocReport(match);
-            setSelectedReportDate(match.d);
-          } else {
-            // 미생성 폴백
-            handleOpenCandidateAsReport({
-              ticker: tickerClean,
-              name: tickerClean,
-              price: 0,
-            });
-          }
-        });
-      }
-
       fetchReportDatesByTicker(tickerClean).then((dates) => {
         if (dates.length > 0) setAvailableReportDates(dates);
       });
     }
-  }, [initialTicker, initialDate, guruReports, handleOpenCandidateAsReport]);
+  }, [initialTicker]);
 
-  // 초기 마운트
+  // 페이지/섹션에 맞춘 타겟 데이터 로드 (필요한 데이터만 스마트 로딩)
   useEffect(() => {
+    // 상세 페이지일 때는 무거운 스크리너들을 조회하지 않음
+    if (initialTicker) return;
+
     loadDashboardData();
-    loadLiveScreener();
-    loadKrScreener();
-    loadRomaScreener();
-  }, [loadDashboardData, loadLiveScreener, loadKrScreener, loadRomaScreener]);
+
+    // 스크리너 탭이거나 홈일 때만 스크리너 로드
+    if (activeSidebarSection === "all" || activeSidebarSection === "sec-screener") {
+      loadLiveScreener();
+      loadKrScreener();
+    }
+    if (activeSidebarSection === "all" || activeSidebarSection === "sec-roma") {
+      loadRomaScreener();
+    }
+  }, [
+    initialTicker,
+    activeSidebarSection,
+    loadDashboardData,
+    loadLiveScreener,
+    loadKrScreener,
+    loadRomaScreener,
+  ]);
 
   // 파이프라인 완료 시 데이터 자동 리프레시
   const prevPipelineStatus = useRef<string | null>(null);
@@ -617,7 +673,7 @@ export function DashboardView({
     const prev = prevPipelineStatus.current;
     prevPipelineStatus.current = status;
     if (prev === "running" && (status === "completed" || status === "failed")) {
-      loadDashboardData();
+      loadDashboardData(true);
     }
   }, [pipelineProgress?.status, loadDashboardData]);
 
@@ -631,7 +687,7 @@ export function DashboardView({
           isResettingModel={isResettingModel}
           onResetModel={handleResetAiModel}
           isLoading={isLoading}
-          onRefresh={loadDashboardData}
+          onRefresh={() => loadDashboardData(true)}
           onOpenPipelineModal={() => setIsPipelineModalOpen(true)}
           isPipelineRunning={isPipelineRunning}
           onToggleMobileMenu={() => setIsMobileMenuOpen((prev) => !prev)}
@@ -712,9 +768,9 @@ export function DashboardView({
                 isRomaLoading={isRomaLoading}
                 krTightenStep={krTightenStep}
                 percentBByTicker={percentBByTicker}
-                onRefreshLive={loadLiveScreener}
-                onRefreshKr={loadKrScreener}
-                onRefreshRoma={loadRomaScreener}
+                onRefreshLive={() => loadLiveScreener(true)}
+                onRefreshKr={() => loadKrScreener(true)}
+                onRefreshRoma={() => loadRomaScreener(true)}
                 onRefreshPipeline={refreshPipelineProgress}
                 onRefreshLogs={handleRefreshLogs}
                 onSelectReport={handleOpenReport}
