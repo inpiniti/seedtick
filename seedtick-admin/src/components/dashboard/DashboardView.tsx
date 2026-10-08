@@ -631,6 +631,7 @@ export function DashboardView({
     else if (sec === "sec-screener") router.push("/screener");
     else if (sec === "sec-roma") router.push("/screener?tab=roma");
     else if (sec === "sec-gurus") router.push("/gurus");
+    else if (sec === "sec-pipeline") router.push("/pipeline");
     else if (sec === "sec-audit") router.push("/admin");
   };
 
@@ -812,7 +813,7 @@ export function DashboardView({
                     onClick={() => setPipelineMarket("us")}
                     className={`py-2 px-2.5 rounded border text-left transition-all cursor-pointer ${
                       pipelineMarket === "us"
-                        ? "bg-blue-50 border-blue-500 text-blue-900 font-semibold shadow-xs"
+                        ? "bg-[#0f172a] border-[#0f172a] text-white font-semibold shadow-xs"
                         : "bg-white border-[#e2e8f0] text-[#475569] hover:bg-[#f1f5f9]"
                     }`}
                   >
@@ -824,7 +825,7 @@ export function DashboardView({
                     onClick={() => setPipelineMarket("kr")}
                     className={`py-2 px-2.5 rounded border text-left transition-all cursor-pointer ${
                       pipelineMarket === "kr"
-                        ? "bg-blue-50 border-blue-500 text-blue-900 font-semibold shadow-xs"
+                        ? "bg-[#0f172a] border-[#0f172a] text-white font-semibold shadow-xs"
                         : "bg-white border-[#e2e8f0] text-[#475569] hover:bg-[#f1f5f9]"
                     }`}
                   >
@@ -836,7 +837,7 @@ export function DashboardView({
                     onClick={() => setPipelineMarket("all")}
                     className={`py-2 px-2.5 rounded border text-left transition-all cursor-pointer ${
                       pipelineMarket === "all"
-                        ? "bg-blue-50 border-blue-500 text-blue-900 font-semibold shadow-xs"
+                        ? "bg-[#0f172a] border-[#0f172a] text-white font-semibold shadow-xs"
                         : "bg-white border-[#e2e8f0] text-[#475569] hover:bg-[#f1f5f9]"
                     }`}
                   >
@@ -884,7 +885,7 @@ export function DashboardView({
               </div>
 
               {actionMessage && (
-                <div className="p-2.5 rounded bg-blue-50 border border-blue-200 text-blue-800 text-xs">
+                <div className="p-2.5 rounded bg-[#f8fafc] border border-[#0f172a] text-[#0f172a] text-xs">
                   {actionMessage}
                 </div>
               )}

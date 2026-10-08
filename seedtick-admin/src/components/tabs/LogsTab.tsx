@@ -172,10 +172,10 @@ export function LogsTab({ logs, isLoading, onRefresh }: LogsTabProps) {
                       )}
                       {Boolean(log.context && log.context.stack_trace) && (
                         <div>
-                          <span className="text-[10px] uppercase font-semibold text-rose-700 block mb-1">
+                          <span className="text-[10px] uppercase font-semibold text-[#0f172a] block mb-1">
                             STACK TRACE
                           </span>
-                          <pre className="p-2.5 rounded bg-rose-50/50 border border-rose-200 text-rose-900 text-[10px] overflow-x-auto leading-relaxed">
+                          <pre className="p-2.5 rounded bg-white border border-[#0f172a] text-[#0f172a] text-[10px] overflow-x-auto leading-relaxed">
                             {String(log.context.stack_trace)}
                           </pre>
                         </div>
