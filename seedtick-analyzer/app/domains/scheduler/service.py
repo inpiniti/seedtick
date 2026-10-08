@@ -9,6 +9,8 @@ from apscheduler.triggers.cron import CronTrigger
 from app.domains.report.pipeline_progress import pipeline_progress
 from app.domains.scheduler.jobs import (
     daily_pipeline_job,
+    us_daily_pipeline_job,
+    kr_daily_pipeline_job,
     cleanup_old_logs_job,
     reset_model_rotation_job,
 )
@@ -23,7 +25,7 @@ class SchedulerService:
         self._background_tasks: set[asyncio.Task] = set()
 
     def start(self):
-        """스케줄러 시작: 오전 11:00 로그 정리, 12:00 파이프라인 잡 및 00:01 모델 순위 초기화 잡 등록"""
+        """스케줄러 시작: 00:01 모델초기화, 08:00 로그정리, 09:00 미장파이프라인, 16:00 국장파이프라인 잡 등록"""
         # 0. AI 모델 순위 초기화 잡: 매일 00:01 KST
         # 1순위 모델의 프로바이더 과부하는 자정 지나면 자연 복구되므로 1순위로 되돌린다.
         # 정각(00:00)과 겹치지 않도록 1분 뒤로 두어 야간 배치 준비를 방해하지 않는다.
@@ -36,34 +38,46 @@ class SchedulerService:
             replace_existing=True,
         )
 
-        # 1. 일일 시스템 로그 정리 잡: 매일 11:00 KST (12:00 파이프라인 1시간 전 실행)
+        # 1. 일일 시스템 로그 정리 잡: 매일 08:00 KST (09:00 미국 파이프라인 1시간 전 실행)
         # 24시간 이전의 만료된 INFO 로그만 삭제하여 DB 용량 절약 (WARNING, ERROR, CRITICAL은 보존)
         cleanup_logs_trigger = CronTrigger(
-            hour=11, minute=0, timezone="Asia/Seoul"
+            hour=8, minute=0, timezone="Asia/Seoul"
         )
         self._scheduler.add_job(
             cleanup_old_logs_job,
             trigger=cleanup_logs_trigger,
             id="cleanup_old_logs",
-            name="일일 만료 INFO 시스템 로그 정리 (매일 오전 11:00)",
+            name="일일 만료 INFO 시스템 로그 정리 (매일 오전 08:00)",
             replace_existing=True,
         )
 
-        # 2. 일일 메인 파이프라인 잡: 월~금 12:00 KST
-        pipeline_trigger = CronTrigger(
-            day_of_week="mon-fri", hour=12, minute=0, timezone="Asia/Seoul"
+        # 2. 미국 주식 일일 파이프라인 잡: 월~금 09:00 KST (미국 정규장 마감 후 분석)
+        us_pipeline_trigger = CronTrigger(
+            day_of_week="mon-fri", hour=9, minute=0, timezone="Asia/Seoul"
         )
         self._scheduler.add_job(
-            daily_pipeline_job,
-            trigger=pipeline_trigger,
-            id="daily_pipeline",
-            name="SeedTick 일일 파이프라인 (스크리닝→13인리포트→예약매매)",
+            us_daily_pipeline_job,
+            trigger=us_pipeline_trigger,
+            id="us_daily_pipeline",
+            name="미국 주식 일일 파이프라인 (토스200+로마→13인리포트, 매일 09:00 KST)",
+            replace_existing=True,
+        )
+
+        # 3. 국내 주식 일일 파이프라인 잡: 월~금 16:00 KST (한국 정규장 15:30 마감 후 분석)
+        kr_pipeline_trigger = CronTrigger(
+            day_of_week="mon-fri", hour=16, minute=0, timezone="Asia/Seoul"
+        )
+        self._scheduler.add_job(
+            kr_daily_pipeline_job,
+            trigger=kr_pipeline_trigger,
+            id="kr_daily_pipeline",
+            name="국내 주식 일일 파이프라인 (국장발굴→13인리포트, 매일 16:00 KST)",
             replace_existing=True,
         )
 
         self._scheduler.start()
         logger.info(
-            "[Scheduler] APScheduler 시작 완료 (11:00 만료 INFO로그 정리, 12:00 일일 파이프라인, 00:01 모델 순위 초기화)"
+            "[Scheduler] APScheduler 시작 완료 (00:01 모델초기화, 08:00 로그정리, 09:00 미장파이프라인, 16:00 국장파이프라인)"
         )
 
     def shutdown(self):
@@ -78,16 +92,18 @@ class SchedulerService:
         force: bool = False,
         max_count: int | None = None,
         skip_already_reported: bool = True,
+        market: str = "all",
     ) -> dict:
         """수동 즉시 트리거 (API 엔드포인트용) - 파이프라인 완료까지 대기"""
         logger.info(
-            f"[Scheduler] 수동 파이프라인 트리거 (dry_run={dry_run}, force={force}, max_count={max_count}, skip_already_reported={skip_already_reported})"
+            f"[Scheduler] 수동 파이프라인 트리거 (dry_run={dry_run}, force={force}, market={market}, max_count={max_count}, skip_already_reported={skip_already_reported})"
         )
         return await daily_pipeline_job(
             dry_run=dry_run,
             force=force,
             max_analyze_count=max_count,
             skip_already_reported=skip_already_reported,
+            market=market,
         )
 
     def start_pipeline_background(
@@ -96,6 +112,7 @@ class SchedulerService:
         force: bool = False,
         max_count: int | None = None,
         skip_already_reported: bool = True,
+        market: str = "all",
     ) -> dict:
         """
         수동 즉시 트리거 (관리자 화면용) - 즉시 응답하고 파이프라인은 백그라운드 실행.
@@ -107,7 +124,7 @@ class SchedulerService:
             return {"status": "skipped", "reason": "already_running"}
 
         logger.info(
-            f"[Scheduler] 백그라운드 파이프라인 트리거 (dry_run={dry_run}, force={force}, max_count={max_count}, skip_already_reported={skip_already_reported})"
+            f"[Scheduler] 백그라운드 파이프라인 트리거 (dry_run={dry_run}, force={force}, market={market}, max_count={max_count}, skip_already_reported={skip_already_reported})"
         )
         task = asyncio.create_task(
             daily_pipeline_job(
@@ -115,11 +132,13 @@ class SchedulerService:
                 force=force,
                 max_analyze_count=max_count,
                 skip_already_reported=skip_already_reported,
+                market=market,
             )
         )
         self._background_tasks.add(task)
         task.add_done_callback(self._background_tasks.discard)
-        return {"status": "started", "reason": None}
+        return {"status": "started", "reason": None, "market": market}
+
 
     def get_pipeline_progress(self) -> dict:
         """현재 파이프라인 진행 상태 스냅샷 (관리자 화면 폴링용)"""

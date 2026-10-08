@@ -72,6 +72,10 @@ export async function fetchHealth(): Promise<HealthStatus> {
         is_open: false,
         status_text: "서버와 연결할 수 없어요",
       },
+      kr_market_today: {
+        is_open: false,
+        status_text: "서버와 연결할 수 없어요",
+      },
     };
   }
 }
@@ -80,12 +84,14 @@ export async function fetchHealth(): Promise<HealthStatus> {
 export async function triggerPipeline(params: {
   dryRun?: boolean;
   force?: boolean;
+  market?: "us" | "kr" | "all";
   maxCount?: number;
   skipAlreadyReported?: boolean;
 }): Promise<Record<string, unknown>> {
   const queryParams = new URLSearchParams();
   if (params.dryRun !== undefined) queryParams.append("dry_run", String(params.dryRun));
   if (params.force !== undefined) queryParams.append("force", String(params.force));
+  if (params.market) queryParams.append("market", params.market);
   if (params.maxCount) queryParams.append("max_count", String(params.maxCount));
   if (params.skipAlreadyReported !== undefined)
     queryParams.append("skip_already_reported", String(params.skipAlreadyReported));

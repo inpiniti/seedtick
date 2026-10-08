@@ -160,6 +160,7 @@ export function DashboardView({
 
   // 7. 파이프라인 수동 실행 모달
   const [isPipelineModalOpen, setIsPipelineModalOpen] = useState(false);
+  const [pipelineMarket, setPipelineMarket] = useState<"us" | "kr" | "all">("us");
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [forceMarket, setForceMarket] = useState(false);
@@ -473,6 +474,7 @@ export function DashboardView({
       const res = await triggerPipeline({
         dryRun: false,
         force: forceMarket,
+        market: pipelineMarket,
         skipAlreadyReported: skipAlreadyReported,
       });
       if ((res as any).status === "skipped") {
@@ -794,11 +796,62 @@ export function DashboardView({
           onClose={() => setIsPipelineModalOpen(false)}
         >
           <Modal.Header
-            title="12:00 일일 분석 파이프라인을 실행하시겠습니까?"
-            description="스크리닝 통과 종목 전체에 대해 13인 심층 분석 보고서를 백그라운드로 생성합니다."
+            title="일일 분석 파이프라인을 실행할까요?"
+            description="선별된 스크리닝 종목에 대해 13인 심층 분석 보고서를 백그라운드로 생성해요."
           />
           <Modal.Body>
             <div className="space-y-4 text-xs font-mono">
+              {/* 시장 선택 */}
+              <div className="p-3 bg-[#f8fafc] border border-[#e2e8f0] rounded space-y-2">
+                <div className="text-[11px] font-semibold text-[#0f172a] uppercase tracking-wider mb-1.5">
+                  대상 시장 선택
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPipelineMarket("us")}
+                    className={`py-2 px-2.5 rounded border text-left transition-all cursor-pointer ${
+                      pipelineMarket === "us"
+                        ? "bg-blue-50 border-blue-500 text-blue-900 font-semibold shadow-xs"
+                        : "bg-white border-[#e2e8f0] text-[#475569] hover:bg-[#f1f5f9]"
+                    }`}
+                  >
+                    <div className="text-xs">미국장 (US)</div>
+                    <div className="text-[10px] text-[#64748b] mt-0.5 font-normal">오전 09:00 배치</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPipelineMarket("kr")}
+                    className={`py-2 px-2.5 rounded border text-left transition-all cursor-pointer ${
+                      pipelineMarket === "kr"
+                        ? "bg-blue-50 border-blue-500 text-blue-900 font-semibold shadow-xs"
+                        : "bg-white border-[#e2e8f0] text-[#475569] hover:bg-[#f1f5f9]"
+                    }`}
+                  >
+                    <div className="text-xs">한국장 (KR)</div>
+                    <div className="text-[10px] text-[#64748b] mt-0.5 font-normal">오후 16:00 배치</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPipelineMarket("all")}
+                    className={`py-2 px-2.5 rounded border text-left transition-all cursor-pointer ${
+                      pipelineMarket === "all"
+                        ? "bg-blue-50 border-blue-500 text-blue-900 font-semibold shadow-xs"
+                        : "bg-white border-[#e2e8f0] text-[#475569] hover:bg-[#f1f5f9]"
+                    }`}
+                  >
+                    <div className="text-xs">전체 (US+KR)</div>
+                    <div className="text-[10px] text-[#64748b] mt-0.5 font-normal">한/미 동시 분석</div>
+                  </button>
+                </div>
+                <p className="text-[11px] text-[#64748b] pt-1">
+                  {pipelineMarket === "us" && "미국 NYSE 정규장 개장 여부를 검사하고 토스200·DataRoma 종목을 분석해요."}
+                  {pipelineMarket === "kr" && "한국 KRX 정규장 개장 여부를 검사하고 국장 실시간 발굴 종목을 분석해요."}
+                  {pipelineMarket === "all" && "한/미 정규장 개장 여부를 각각 검사하고 전체 대상 종목을 분석해요."}
+                </p>
+              </div>
+
+              {/* 강제 실행 옵션 */}
               <div className="p-3 bg-[#f8fafc] border border-[#e2e8f0] rounded space-y-2">
                 <label className="flex items-center gap-2 cursor-pointer text-[#0f172a]">
                   <input
@@ -807,13 +860,14 @@ export function DashboardView({
                     onChange={(e) => setForceMarket(e.target.checked)}
                     className="rounded border-[#cbd5e1] text-[#0f172a] focus:ring-0"
                   />
-                  <span>장 마감 여부 무시하고 강제 실행 (force=true)</span>
+                  <span>휴장 여부 무시하고 강제 실행 (force=true)</span>
                 </label>
                 <p className="text-[11px] text-[#64748b] pl-5">
-                  미국 장이 열리지 않은 주말이나 휴일에도 강제로 리서치를 수행합니다.
+                  선택한 시장이 휴장일이거나 주말이어도 가드를 건너뛰고 리포트를 생성해요.
                 </p>
               </div>
 
+              {/* 오늘 기분석 종목 제외 */}
               <div className="p-3 bg-[#f8fafc] border border-[#e2e8f0] rounded space-y-2">
                 <label className="flex items-center gap-2 cursor-pointer text-[#0f172a]">
                   <input
@@ -825,7 +879,7 @@ export function DashboardView({
                   <span>오늘 이미 분석 완료된 종목 건너뛰기</span>
                 </label>
                 <p className="text-[11px] text-[#64748b] pl-5">
-                  이미 오늘 날짜로 발행된 보고서가 있는 종목은 토큰 절약을 위해 재분석하지 않습니다.
+                  이미 오늘 날짜로 발행된 보고서가 있는 종목은 토큰 절약을 위해 재분석하지 않아요.
                 </p>
               </div>
 

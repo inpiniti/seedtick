@@ -18,12 +18,13 @@ async def test_scheduler_jobs_registration():
     try:
         jobs = {job.id: job for job in service._scheduler.get_jobs()}
         assert "cleanup_old_logs" in jobs
-        assert "daily_pipeline" in jobs
+        assert "us_daily_pipeline" in jobs
+        assert "kr_daily_pipeline" in jobs
         assert "reset_model_rotation" in jobs
         # 장외 예약 주문은 폐기됨: 정규장 개장 후 예약 발주 잡이 등록되지 않는다
         assert "execute_pending_orders" not in jobs
 
-        # 1. 만료 로그 정리 트리거가 11:00 KST에 실행되는지 검증
+        # 1. 만료 로그 정리 트리거가 08:00 KST에 실행되는지 검증
         cleanup_job = jobs["cleanup_old_logs"]
         cleanup_trigger = cleanup_job.trigger
         assert isinstance(cleanup_trigger, CronTrigger)
@@ -31,20 +32,31 @@ async def test_scheduler_jobs_registration():
         next_cleanup = cleanup_trigger.get_next_fire_time(None, test_dt)
         assert next_cleanup is not None
         next_cleanup_kst = next_cleanup.astimezone(zoneinfo.ZoneInfo("Asia/Seoul"))
-        assert next_cleanup_kst.hour == 11
+        assert next_cleanup_kst.hour == 8
         assert next_cleanup_kst.minute == 0
 
-        # 2. 일일 파이프라인 트리거가 12:00 KST에 실행되는지 검증
-        pipeline_job = jobs["daily_pipeline"]
-        pipeline_trigger = pipeline_job.trigger
-        assert isinstance(pipeline_trigger, CronTrigger)
-        next_fire = pipeline_trigger.get_next_fire_time(None, test_dt)
-        assert next_fire is not None
-        next_fire_kst = next_fire.astimezone(zoneinfo.ZoneInfo("Asia/Seoul"))
-        assert next_fire_kst.hour == 12
-        assert next_fire_kst.minute == 0
+        # 2. 미국 파이프라인 트리거가 09:00 KST에 실행되는지 검증
+        us_job = jobs["us_daily_pipeline"]
+        us_trigger = us_job.trigger
+        assert isinstance(us_trigger, CronTrigger)
+        next_us = us_trigger.get_next_fire_time(None, test_dt)
+        assert next_us is not None
+        next_us_kst = next_us.astimezone(zoneinfo.ZoneInfo("Asia/Seoul"))
+        assert next_us_kst.hour == 9
+        assert next_us_kst.minute == 0
+
+        # 3. 한국 파이프라인 트리거가 16:00 KST에 실행되는지 검증
+        kr_job = jobs["kr_daily_pipeline"]
+        kr_trigger = kr_job.trigger
+        assert isinstance(kr_trigger, CronTrigger)
+        next_kr = kr_trigger.get_next_fire_time(None, test_dt)
+        assert next_kr is not None
+        next_kr_kst = next_kr.astimezone(zoneinfo.ZoneInfo("Asia/Seoul"))
+        assert next_kr_kst.hour == 16
+        assert next_kr_kst.minute == 0
     finally:
         service.shutdown()
+
 
 
 @pytest.mark.asyncio
@@ -82,7 +94,9 @@ async def test_daily_pipeline_skip_already_reported(monkeypatch):
     monkeypatch.setattr(MarketCalendarGuard, "is_market_open", lambda self, d: (True, "정규장"))
 
     # 2. 스크리너 mock (AAPL, NVDA, MSFT 3종목)
-    async def mock_get_stock_list(self):
+    async def mock_get_stock_list(self, criteria=None):
+        if criteria and criteria.nation == "kr":
+            return ScreenResult(tickers=[], items=[], total_count=0, count=0, criteria=criteria)
         items = [
             TossStockItem(ticker="AAPL", stock_code="US1", name="Apple", screeners=["공통"]),
             TossStockItem(ticker="NVDA", stock_code="US2", name="Nvidia", screeners=["공통"]),
@@ -93,9 +107,10 @@ async def test_daily_pipeline_skip_already_reported(monkeypatch):
             items=items,
             total_count=3,
             count=3,
-            criteria=ScreenCriteria(),
+            criteria=criteria or ScreenCriteria(),
         )
     monkeypatch.setattr(ScreenerService, "get_stock_list", mock_get_stock_list)
+
 
     # 2-2. DataRoma(두번째 스크리너) mock — 외부 네트워크 호출 차단
     from app.domains.screener.roma_service import RomaScreenerService
@@ -150,15 +165,18 @@ async def test_daily_pipeline_merges_roma_tickers(monkeypatch):
     monkeypatch.setattr(MarketCalendarGuard, "is_market_open", lambda self, d: (True, "정규장"))
 
     # 1. 토스 스크리너: AAPL, NVDA
-    async def mock_get_stock_list(self):
+    async def mock_get_stock_list(self, criteria=None):
+        if criteria and criteria.nation == "kr":
+            return ScreenResult(tickers=[], items=[], total_count=0, count=0, criteria=criteria)
         items = [
             TossStockItem(ticker="AAPL", stock_code="US1", name="Apple", screeners=["공통"]),
             TossStockItem(ticker="NVDA", stock_code="US2", name="Nvidia", screeners=["공통"]),
         ]
         return ScreenResult(
-            tickers=items, items=items, total_count=2, count=2, criteria=ScreenCriteria()
+            tickers=items, items=items, total_count=2, count=2, criteria=criteria or ScreenCriteria()
         )
     monkeypatch.setattr(ScreenerService, "get_stock_list", mock_get_stock_list)
+
 
     # 2. DataRoma 스크리너: AAPL(중복) + BRK.B(신규)
     async def mock_roma_list(self, min_holders=10, size=0):
@@ -226,12 +244,15 @@ async def test_daily_pipeline_survives_roma_failure(monkeypatch):
 
     monkeypatch.setattr(MarketCalendarGuard, "is_market_open", lambda self, d: (True, "정규장"))
 
-    async def mock_get_stock_list(self):
+    async def mock_get_stock_list(self, criteria=None):
+        if criteria and criteria.nation == "kr":
+            return ScreenResult(tickers=[], items=[], total_count=0, count=0, criteria=criteria)
         items = [TossStockItem(ticker="MSFT", stock_code="US3", name="Microsoft", screeners=["공통"])]
         return ScreenResult(
-            tickers=items, items=items, total_count=1, count=1, criteria=ScreenCriteria()
+            tickers=items, items=items, total_count=1, count=1, criteria=criteria or ScreenCriteria()
         )
     monkeypatch.setattr(ScreenerService, "get_stock_list", mock_get_stock_list)
+
 
     async def mock_roma_fail(self, min_holders=10, size=0):
         raise RuntimeError("dataroma down")
@@ -259,6 +280,65 @@ async def test_daily_pipeline_survives_roma_failure(monkeypatch):
     assert analyzed_tickers == ["MSFT"]
     assert result["roma_screened_count"] == 0
     assert result["roma_added_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_us_and_kr_pipelines_separate(monkeypatch):
+    """
+    미국 파이프라인(us)과 한국 파이프라인(kr)이 각각 독립적인 스크리너와 종목만 분석하는지 검증
+    """
+    from app.domains.scheduler.jobs import us_daily_pipeline_job, kr_daily_pipeline_job
+    from app.domains.scheduler.market_guard import MarketCalendarGuard
+    from app.domains.screener.service import ScreenerService
+    from app.domains.screener.roma_service import RomaScreenerService
+    from app.domains.screener.models import ScreenResult, TossStockItem, ScreenCriteria
+    from app.domains.report.service import GuruReportService
+    from app.domains.error_log.notifiers.discord import DiscordNotifier
+    from app.infrastructure.supabase_repo import supabase_repo
+
+    monkeypatch.setattr(MarketCalendarGuard, "is_us_market_open", lambda self, d: (True, "정규장"))
+    monkeypatch.setattr(MarketCalendarGuard, "is_kr_market_open", lambda self, d: (True, "정규장"))
+
+    async def mock_screener(self, criteria=None):
+        if criteria and criteria.nation == "kr":
+            items = [TossStockItem(ticker="005930", stock_code="005930", name="삼성전자", screeners=["국장공통"])]
+        else:
+            items = [TossStockItem(ticker="AAPL", stock_code="AAPL", name="Apple", screeners=["공통"])]
+        return ScreenResult(tickers=items, items=items, total_count=1, count=1, criteria=criteria or ScreenCriteria())
+
+    monkeypatch.setattr(ScreenerService, "get_stock_list", mock_screener)
+
+    async def mock_roma(self, min_holders=10, size=0):
+        return ScreenResult(tickers=[], items=[], total_count=0, count=0, criteria=ScreenCriteria())
+
+    monkeypatch.setattr(RomaScreenerService, "get_stock_list", mock_roma)
+    monkeypatch.setattr(supabase_repo, "get_reported_tickers_for_date", lambda d: set())
+    monkeypatch.setattr(DiscordNotifier, "notify_pipeline_summary", lambda *a, **k: asyncio.sleep(0))
+
+    analyzed_tickers = []
+
+    async def mock_gen_report(self, ticker, target_date, screeners=None):
+        analyzed_tickers.append(ticker)
+        class DummyReport:
+            overall_verdict = "관망"
+        return DummyReport()
+
+    monkeypatch.setattr(GuruReportService, "generate_full_report", mock_gen_report)
+
+    # 1. 미국 파이프라인 실행: AAPL만 분석되어야 함
+    analyzed_tickers.clear()
+    us_res = await us_daily_pipeline_job(force=True)
+    assert us_res["status"] == "success"
+    assert us_res["market"] == "us"
+    assert analyzed_tickers == ["AAPL"]
+
+    # 2. 한국 파이프라인 실행: 005930만 분석되어야 함
+    analyzed_tickers.clear()
+    kr_res = await kr_daily_pipeline_job(force=True)
+    assert kr_res["status"] == "success"
+    assert kr_res["market"] == "kr"
+    assert analyzed_tickers == ["005930"]
+
 
 
 

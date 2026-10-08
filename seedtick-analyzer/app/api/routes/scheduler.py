@@ -11,6 +11,7 @@ router = APIRouter(prefix="/api/scheduler", tags=["scheduler"])
 async def trigger_pipeline(
     dry_run: bool | None = Query(None, description="Dry-run 모드 여부 (미입력 시 설정값 사용)"),
     force: bool = Query(False, description="휴장일/주말 가드를 우회하여 강제 실행"),
+    market: str = Query("all", description="분석 대상 시장 ('us', 'kr', 'all')"),
     max_count: int | None = Query(
         None, ge=0, description="정밀 분석할 종목 수 (0 또는 None 시 스크리닝 통과 전 종목 무제한 분석)"
     ),
@@ -26,11 +27,13 @@ async def trigger_pipeline(
         return scheduler_service.start_pipeline_background(
             dry_run=dry_run,
             force=force,
+            market=market,
             max_count=max_count,
             skip_already_reported=skip_already_reported,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"파이프라인 실행 오류: {e}")
+
 
 
 @router.get("/progress", summary="13인 거장 파이프라인 실시간 진행 상태 조회")

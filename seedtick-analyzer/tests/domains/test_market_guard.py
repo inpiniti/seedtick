@@ -42,3 +42,30 @@ def test_regular_trading_day():
     is_open, reason = guard.is_market_open(wednesday)
     assert is_open
     assert reason == "정상 거래일"
+
+
+def test_kr_holiday_detection():
+    guard = MarketCalendarGuard()
+    # 2026-01-01 (신정)
+    new_year = date(2026, 1, 1)
+    is_open_ny, reason_ny = guard.is_kr_market_open(new_year)
+    assert not is_open_ny
+    assert "한국 증시 공휴일" in reason_ny
+
+    # 2026-05-05 (어린이날)
+    childrens_day = date(2026, 5, 5)
+    is_open_cd, reason_cd = guard.is_kr_market_open(childrens_day)
+    assert not is_open_cd
+    assert "한국 증시 공휴일" in reason_cd
+
+    # 2026-09-23 수요일 (평일 일반 거래일)
+    wednesday = date(2026, 9, 23)
+    is_open_kr, reason_kr = guard.is_kr_market_open(wednesday)
+    assert is_open_kr
+    assert reason_kr == "정상 거래일"
+
+    # market='kr' 인자로 호출 시 동작 확인
+    is_open_param, reason_param = guard.is_market_open(new_year, market="kr")
+    assert not is_open_param
+    assert "한국 증시 공휴일" in reason_param
+

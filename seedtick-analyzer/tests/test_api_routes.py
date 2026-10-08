@@ -14,6 +14,9 @@ async def test_health_route():
         data = res.json()
         assert data["status"] == "healthy"
         assert "us_market_today" in data
+        assert "kr_market_today" in data
+        assert "is_open" in data["us_market_today"]
+        assert "is_open" in data["kr_market_today"]
 
 
 @pytest.mark.asyncio
@@ -56,18 +59,20 @@ async def test_scheduler_trigger_route(monkeypatch):
         return_value={
             "status": "started",
             "reason": None,
+            "market": "all",
         }
     )
     monkeypatch.setattr(scheduler_service, "start_pipeline_background", mock_trigger)
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        res = await ac.post("/api/scheduler/trigger?force=true&skip_already_reported=true")
+        res = await ac.post("/api/scheduler/trigger?force=true&skip_already_reported=true&market=us")
         assert res.status_code == 200
         data = res.json()
         assert data["status"] == "started"
         mock_trigger.assert_called_once_with(
-            dry_run=None, force=True, max_count=None, skip_already_reported=True
+            dry_run=None, force=True, market="us", max_count=None, skip_already_reported=True
         )
+
 
 
 @pytest.mark.asyncio

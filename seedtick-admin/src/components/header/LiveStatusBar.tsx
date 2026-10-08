@@ -39,7 +39,8 @@ export function LiveStatusBar({
   onToggleMobileMenu,
 }: LiveStatusBarProps) {
   const isServerHealthy = health?.status === "healthy";
-  const isMarketOpen = health?.us_market_today?.is_open ?? false;
+  const isUsMarketOpen = health?.us_market_today?.is_open ?? false;
+  const isKrMarketOpen = health?.kr_market_today?.is_open ?? false;
 
   return (
     <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-[#e2e8f0] px-4 lg:px-8 h-[56px] flex items-center justify-between">
@@ -80,16 +81,29 @@ export function LiveStatusBar({
 
       {/* 2. 우측 메타데이터 & 액션 버튼들 */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* 미장 개장 여부 */}
-        <div className="hidden sm:inline-flex items-center gap-1.5 border border-[#e2e8f0] bg-[#f8fafc] px-2.5 py-1 rounded-md text-xs font-mono">
-          <span className="text-[#64748b]">US MKT:</span>
-          <span
-            className={`font-semibold ${
-              isMarketOpen ? "text-emerald-700" : "text-slate-500"
-            }`}
-          >
-            {isMarketOpen ? "OPEN" : "CLOSED"}
-          </span>
+        {/* 한/미 증시 개장 상태 뱃지 */}
+        <div className="hidden sm:inline-flex items-center gap-2 border border-[#e2e8f0] bg-[#f8fafc] px-2.5 py-1 rounded-md text-xs font-mono">
+          <div className="flex items-center gap-1" title={health?.kr_market_today?.status_text || "한국 증시"}>
+            <span className="text-[#64748b]">KR MKT:</span>
+            <span
+              className={`font-semibold ${
+                isKrMarketOpen ? "text-emerald-700" : "text-slate-500"
+              }`}
+            >
+              {isKrMarketOpen ? "OPEN" : "CLOSED"}
+            </span>
+          </div>
+          <span className="text-[#cbd5e1]">|</span>
+          <div className="flex items-center gap-1" title={health?.us_market_today?.status_text || "미국 증시"}>
+            <span className="text-[#64748b]">US MKT:</span>
+            <span
+              className={`font-semibold ${
+                isUsMarketOpen ? "text-emerald-700" : "text-slate-500"
+              }`}
+            >
+              {isUsMarketOpen ? "OPEN" : "CLOSED"}
+            </span>
+          </div>
         </div>
 
         {/* AI 모델 위젯 */}
@@ -118,7 +132,7 @@ export function LiveStatusBar({
             className="font-mono text-xs font-medium"
           >
             <span className="hidden sm:inline">
-              {isPipelineRunning ? "분석 파이프라인 가동 중" : "12:00 파이프라인 실행"}
+              {isPipelineRunning ? "분석 파이프라인 가동 중" : "파이프라인 실행"}
             </span>
             <span className="sm:hidden">
               {isPipelineRunning ? "가동 중" : "파이프라인"}
