@@ -125,19 +125,18 @@ def test_datapack_builder_renders_ir_schedule():
 
 @pytest.mark.asyncio
 async def test_ai_client_integrated_slot_rotation():
-    # 3개 제공사 다중 키 등록 시 교차(interleaving) 배치 검증
+    # 2개 제공사(OpenRouter, Kilo) 다중 키 등록 시 교차(interleaving) 배치 검증
     client = AiGatewayClient(
         api_keys=["or-1", "or-2", "or-3"],
-        cline_keys=["cline-1", "cline-2"],
-        kilo_keys=["kilo-1", "kilo-2", "kilo-3"],
+        kilo_keys=["kilo-1", "kilo-2"],
     )
-    assert len(client.slots) == 8
-    # OR -> Cline -> Kilo 교차 순서 확인
+    assert len(client.slots) == 5
+    # OR -> Kilo -> OR -> Kilo -> OR 교차 순서 확인
     slot_providers = [s.provider for s in client.slots]
     assert slot_providers == [
-        "OpenRouter", "Cline", "Kilo",
-        "OpenRouter", "Cline", "Kilo",
-        "OpenRouter", "Kilo"
+        "OpenRouter", "Kilo",
+        "OpenRouter", "Kilo",
+        "OpenRouter"
     ]
 
     # 라운드로빈 획득 검증
@@ -146,24 +145,24 @@ async def test_ai_client_integrated_slot_rotation():
     s3 = await client._get_next_slot()
     s4 = await client._get_next_slot()
     assert s1.key == "or-1" and s1.provider == "OpenRouter"
-    assert s2.key == "cline-1" and s2.provider == "Cline"
-    assert s3.key == "kilo-1" and s3.provider == "Kilo"
-    assert s4.key == "or-2" and s4.provider == "OpenRouter"
+    assert s2.key == "kilo-1" and s2.provider == "Kilo"
+    assert s3.key == "or-2" and s3.provider == "OpenRouter"
+    assert s4.key == "kilo-2" and s4.provider == "Kilo"
 
 
 @pytest.mark.asyncio
 async def test_ai_client_fallback_chain():
-    # OpenRouter 키와 Cline 키 등록
+    # OpenRouter 키와 Kilo 키 등록
     client = AiGatewayClient(
         api_keys=["or-key1"],
-        cline_keys=["cline-key1"],
+        kilo_keys=["kilo-key1"],
     )
     assert len(client.active_providers) == 2
     assert len(client.slots) == 2
     assert client.slots[0].provider == "OpenRouter"
-    assert client.slots[1].provider == "Cline"
+    assert client.slots[1].provider == "Kilo"
 
-    # OpenRouter는 429 에러, Cline은 200 성공 반환 모의
+    # OpenRouter는 429 에러, Kilo는 200 성공 반환 모의
     resp_429 = MagicMock()
     resp_429.status_code = 429
     resp_429.text = "Rate limited"
@@ -171,17 +170,17 @@ async def test_ai_client_fallback_chain():
     resp_200 = MagicMock()
     resp_200.status_code = 200
     resp_200.json.return_value = {
-        "choices": [{"message": {"content": "Cline에서 생성된 응답"}, "finish_reason": "stop"}],
+        "choices": [{"message": {"content": "Kilo에서 생성된 응답"}, "finish_reason": "stop"}],
         "usage": {"total_tokens": 100},
     }
 
-    # OpenRouter 429 감지 즉시 다음 슬롯(Cline)으로 전환되어 2번째에 성공
+    # OpenRouter 429 감지 즉시 다음 슬롯(Kilo)으로 전환되어 2번째에 성공
     side_effects = [resp_429, resp_200]
 
     with patch("httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=side_effects) as mock_post:
         result = await client.chat("테스트 프롬프트")
-        assert result == "Cline에서 생성된 응답"
-        # 1회(OR 429) + 1회(Cline 200) = 총 2회 호출로 즉시 복구
+        assert result == "Kilo에서 생성된 응답"
+        # 1회(OR 429) + 1회(Kilo 200) = 총 2회 호출로 즉시 복구
         assert mock_post.await_count == 2
 
 
