@@ -11,6 +11,7 @@ import { ReportDatapackView } from "@/components/tabs/ReportDatapackView";
 import { StockChartView } from "@/components/tabs/StockChartView";
 import {
   extractValuationConsensus,
+  getVoteAgreementPercent,
   formatPercentB,
   formatIntrinsicRatio,
   getIntrinsicStabilityMeta,
@@ -86,12 +87,15 @@ export function ResearchDocumentView({
 
   // 확신도 계산
   const confidenceSamples = (report.summaries || [])
+    .filter((s) => s.parse_mode !== "fallback")
     .map((s) => s.confidence)
     .filter((v): v is number => v != null && Number.isFinite(v));
   const confidence =
     confidenceSamples.length > 0
       ? confidenceSamples.reduce((sum, v) => sum + v, 0) / confidenceSamples.length
       : null;
+  const voteAgreementPct = getVoteAgreementPercent(report);
+  const dispersionPct = valConsensus?.dispersion_pct ?? null;
 
   // 내재가치 / 현재가 비율 계산
   const fairValue = valConsensus?.fair_value_price ?? null;
@@ -228,13 +232,37 @@ export function ResearchDocumentView({
 
               {confidence != null && (
                 <span className="px-2 py-0.5 rounded border border-[#e2e8f0] bg-[#f8fafc] text-[#475569]">
-                  확신도: <strong className="text-[#0f172a]">{confidence.toFixed(1)}/10</strong>
+                  <span title="13인 각자의 자기보고 확신도 평균입니다. 실제 정확도나 의견 일치도를 뜻하지 않습니다.">평균 확신도:</span>{" "}
+                  <strong className="text-[#0f172a]">{confidence.toFixed(1)}/10</strong>
+                </span>
+              )}
+
+              {dispersionPct != null && (
+                <span
+                  title="13인의 개별 적정가 중점값 전체 범위 ÷ 중앙값입니다. 20%를 넘으면 단일 적정가를 보류합니다."
+                  className="px-2 py-0.5 rounded border border-[#e2e8f0] bg-[#f8fafc] text-[#475569]"
+                >
+                  가격 분산: <strong className="text-[#0f172a]">
+                    {dispersionPct.toFixed(1)}%
+                    {valConsensus?.price_estimate_count != null
+                      ? ` · ${valConsensus.price_estimate_count}/13`
+                      : ""}
+                  </strong>
+                </span>
+              )}
+
+              {voteAgreementPct != null && (
+                <span
+                  title="가장 많이 나온 투자의견의 표 수 ÷ 유효 표결 수입니다. 확신도와는 다른 지표입니다."
+                  className="px-2 py-0.5 rounded border border-[#e2e8f0] bg-[#f8fafc] text-[#475569]"
+                >
+                  표결 일치도: <strong className="text-[#0f172a]">{voteAgreementPct.toFixed(0)}%</strong>
                 </span>
               )}
 
               {ratioText && (
                 <span className="px-2 py-0.5 rounded border border-[#e2e8f0] bg-[#f8fafc] text-[#475569]">
-                  내재가치/종가:{" "}
+                  적정가/종가:{" "}
                   <strong className="text-[#0f172a] font-bold">
                     {ratioText}
                   </strong>
@@ -248,15 +276,19 @@ export function ResearchDocumentView({
               )}
 
               {stabilityMeta && (
-                <Badge variant={stabilityMeta.variant} className="font-mono text-xs">
-                  안정성: {stabilityMeta.text}
+                <Badge
+                  variant={stabilityMeta.variant}
+                  className="font-mono text-xs"
+                  title="과거 보고서 가격의 분산입니다. 분석일별 입력 데이터의 차이는 분리하지 않습니다."
+                >
+                  과거 가격 안정성: {stabilityMeta.text}
                 </Badge>
               )}
             </div>
 
             <p className="text-sm text-[#64748b] leading-relaxed">
-              13인 투자 거장의 독립 정량·정성 평가 모델 및 내재가치 합의를 종합한
-              정밀 리서치 브리프입니다.
+              13인 모의 페르소나의 표결과 적정가 의견을 고정 규칙으로 집계한 보고서입니다.
+              평균 확신도는 자기보고 값이며, 표결 일치도·가격 분산과 별도로 확인할 수 있습니다.
             </p>
           </div>
 
@@ -270,11 +302,11 @@ export function ResearchDocumentView({
             </div>
             <div className="h-8 w-px bg-[#e2e8f0]" />
             <div>
-              <span className="text-[#64748b] block text-[10px] font-semibold">FAIR INTRINSIC VALUE</span>
+              <span className="text-[#64748b] block text-[10px] font-semibold">CONSENSUS FAIR VALUE</span>
               <span className="font-bold text-base text-[#0f172a]">
                 {valConsensus?.fair_value_price
                   ? `$${valConsensus.fair_value_price.toFixed(2)}`
-                  : "합의 완료"}
+                  : "산출 보류"}
               </span>
             </div>
           </div>
@@ -287,17 +319,17 @@ export function ResearchDocumentView({
               13 Guru Round-Table Verdict
             </span>
             <span className="font-bold text-sm text-[#0f172a] mt-1 block">
-              {report.vote_summary || "13인 표결 및 합의 완료"}
+              {report.vote_summary || "표결 정보 없음"}
             </span>
           </div>
 
           <div className="p-3.5 rounded-md bg-[#f8fafc] border border-[#e2e8f0]">
             <span className="text-[#64748b] text-[11px] block uppercase">
-              Target Price Band & Safety Margin
+              Central 50% Price Range & Safety Margin
             </span>
             <div className="flex items-center justify-between gap-2 mt-1">
               <span className="font-bold text-sm text-[#0f172a]">
-                {valConsensus?.target_price_band || "밸류에이션 밴드 수렴"}
+                {valConsensus?.target_price_band || "가격 구간 산출 보류"}
               </span>
               {valConsensus?.safety_entry_price && (
                 <span className="text-[#0f172a] font-semibold text-xs bg-white border border-[#cbd5e1] px-2 py-0.5 rounded">

@@ -41,15 +41,23 @@ export function extractValuationConsensus(
 
   // 1순위: DB 정규 구조화 컬럼 우선 사용
   if (report.fair_value !== undefined && report.fair_value !== null) {
+    const consensus = report.datapack?.valuation_consensus;
     const band =
-      report.band_low && report.band_high
+      report.band_low != null && report.band_high != null
         ? `$${report.band_low} ~ $${report.band_high}`
         : null;
     return {
+      ...consensus,
       fair_value_price: report.fair_value,
-      target_price_band: band,
-      safety_entry_price: report.safety_entry ? `$${report.safety_entry} 이하` : null,
-      optimistic_target_price: report.target_sell ? `$${report.target_sell}` : null,
+      target_price_band: band ?? consensus?.target_price_band ?? null,
+      safety_entry_price:
+        report.safety_entry != null
+          ? `$${report.safety_entry} 이하`
+          : consensus?.safety_entry_price ?? null,
+      optimistic_target_price:
+        report.target_sell != null
+          ? `$${report.target_sell}`
+          : consensus?.optimistic_target_price ?? null,
     };
   }
 
@@ -57,9 +65,10 @@ export function extractValuationConsensus(
   const consensus = report.datapack?.valuation_consensus;
   if (
     consensus &&
-    (consensus.fair_value_price ||
+    (consensus.fair_value_price != null ||
       consensus.target_price_band ||
-      consensus.safety_entry_price)
+      consensus.safety_entry_price ||
+      consensus.dispersion_pct != null)
   ) {
     return consensus;
   }
@@ -116,6 +125,18 @@ export function extractValuationConsensus(
   }
 
   return null;
+}
+
+export function getVoteAgreementPercent(report?: GuruReportRow | null): number | null {
+  if (!report) return null;
+  const counts = [
+    report.votes_buy,
+    report.votes_hold,
+    report.votes_watch,
+    report.votes_sell,
+  ].filter((count): count is number => count != null && Number.isFinite(count));
+  const total = counts.reduce((sum, count) => sum + count, 0);
+  return total > 0 ? (Math.max(...counts) / total) * 100 : null;
 }
 
 export function buildIntrinsicStability(fairValues: number[]): IntrinsicStability {

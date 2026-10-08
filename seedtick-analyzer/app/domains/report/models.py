@@ -138,6 +138,8 @@ class FinalMasterReport(BaseModel):
     band_high: float | None = None         # 적정 밴드 상단
     safety_entry_value: float | None = None  # 안전마진 매수가 (숫자)
     target_sell_value: float | None = None   # 목표 매도가 (숫자)
+    valuation_dispersion_pct: float | None = None  # 개별 추정 전체 범위 폭 / 적정가 중앙값
+    valuation_estimate_count: int = 0       # 유효 페르소나 가격 구간 수
     parse_mode: Literal["json", "regex"] = "regex"
     file_path: str = ""
     raw_markdown: str = ""

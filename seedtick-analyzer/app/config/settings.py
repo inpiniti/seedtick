@@ -43,6 +43,11 @@ class Settings(BaseSettings):
         "liquid/lfm-2.5-2.6b:free,"
         "nvidia/nemotron-3.5-content-safety:free"
     )
+    # 보고서 판단값은 한 실행 안에서 모델이 섞이지 않도록 단일 모델을 고정한다.
+    # 비우면 AI_GATEWAY_MODEL을 사용한다. 장애 시 다른 모델로 조용히 갈아타지 않고
+    # 해당 모델의 키/슬롯 재시도 후 실패 처리한다.
+    AI_REPORT_MODEL: str = ""
+    AI_REPORT_TEMPERATURE: float = 0.0
     AI_GATEWAY_TIMEOUT: float = 300.0  # 긴 32K 응답 수용을 위해 300초로 상향
     AI_FIRST_TOKEN_TIMEOUT: float = 20.0  # 스트리밍 첫 글자(TTFT) 대기 상한(초). 20초 내 무응답 시 즉시 탈락 및 다음 슬롯 전환
     AI_CHUNK_TIMEOUT: float = 20.0  # 토큰 간 지연 상한(초). 생성 중 연결 정체(Hang) 감지
@@ -66,7 +71,7 @@ class Settings(BaseSettings):
     ENABLE_ROUND_TABLE_DISCUSSION: bool = False
 
     # 프롬프트 규격 버전 (guru_opinions.prompt_version 에 기록 → 품질 회귀 추적용)
-    REPORT_PROMPT_VERSION: str = "2026-10-07.v2"
+    REPORT_PROMPT_VERSION: str = "2026-10-08.v4"
 
     MAX_ANALYZE_COUNT: int = 0  # 1일 최대 리포트 분석 종목 수 (0: 스크리너 전체 무제한)
     # AI 프로바이더 직접 호출 (게이트웨이 우회 시 사용, 쉼표 구분 멀티키 지원)

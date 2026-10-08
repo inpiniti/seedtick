@@ -438,14 +438,16 @@ class AiGatewayClient:
         prompt: str,
         system_prompt: str = "",
         max_tokens: int | None = None,
+        model_override: str | None = None,
+        pin_model: bool = False,
+        temperature_override: float | None = None,
     ) -> str:
         """
         채pletion 호출.
 
-        요청 시점의 활성 모델(model_rotation.active_model)을 사용하고,
-        모델 레벨 실패(프로바이더 과부하 등)가 감지되면 순위 체인의 다음 단계로
-        자동 전환한 뒤 재시도한다. 키 쿼터(429)나 네트워크 오류는 모델을
-        바꾸지 않고 다음 슬롯(키)으로만 넘어간다.
+        기본 호출은 활성 모델을 사용하고, 모델 레벨 실패 시 순위 체인을
+        진행한다. pin_model=True인 보고서 호출은 모델을 고정한 채 다른 키 슬롯만
+        재시도한다. temperature_override는 호출별 생성 다양성 설정이다.
 
         """
         messages = []
@@ -456,11 +458,27 @@ class AiGatewayClient:
         tokens_to_request = max_tokens if max_tokens is not None else self.max_tokens
 
         # 활성 모델을 요청 시점에 확정 (동시 호출 간 순위 전환 영향 최소화)
-        model = self.model or model_rotation.active_model
+        model = model_override or self.model or model_rotation.active_model
+
+        def _advance_model(failed_model: str, reason: str) -> str:
+            if pin_model:
+                logger.warning(
+                    "[AiClient] 보고서 모델 고정 상태에서 모델 오류 감지; "
+                    "다른 모델로 전환하지 않고 같은 모델로 재시도합니다 (%s): %s",
+                    failed_model,
+                    reason,
+                )
+                return failed_model
+            return model_rotation.advance(failed_model, reason)
+
         payload = {
             "model": model,
             "messages": messages,
-            "temperature": settings.AI_GATEWAY_TEMPERATURE,
+            "temperature": (
+                temperature_override
+                if temperature_override is not None
+                else settings.AI_GATEWAY_TEMPERATURE
+            ),
             "max_tokens": tokens_to_request,
             "stream": True,
         }
@@ -526,7 +544,7 @@ class AiGatewayClient:
                                 )
                                 if is_model_level:
                                     failed_model = model
-                                    new_model = model_rotation.advance(
+                                    new_model = _advance_model(
                                         failed_model, f"{failed_model} → HTTP {res.status_code}"
                                     )
                                     payload["model"] = new_model
@@ -560,7 +578,7 @@ class AiGatewayClient:
                                     is_model_level, why = _is_model_level_failure(body=err_msg)
                                     if is_model_level:
                                         failed_model = model
-                                        new_model = model_rotation.advance(
+                                        new_model = _advance_model(
                                             failed_model, f"{failed_model} → (빈 응답) {err_msg[:120]}"
                                         )
                                         payload["model"] = new_model
@@ -584,7 +602,7 @@ class AiGatewayClient:
                                 )
                                 if is_model_level:
                                     failed_model = model
-                                    new_model = model_rotation.advance(
+                                    new_model = _advance_model(
                                         failed_model, f"{failed_model} → ({err_code}) {err_msg}"
                                     )
                                     payload["model"] = new_model
@@ -615,7 +633,7 @@ class AiGatewayClient:
                                 is_model_level, why = _is_model_level_failure(body=raw_preview)
                                 if is_model_level:
                                     failed_model = model
-                                    new_model = model_rotation.advance(
+                                    new_model = _advance_model(
                                         failed_model, f"{failed_model} → (빈 내용) {raw_preview}"
                                     )
                                     payload["model"] = new_model
@@ -691,7 +709,7 @@ class AiGatewayClient:
                                     is_model_level, why = _is_model_level_failure(body=err_msg)
                                     if is_model_level:
                                         failed_model = model
-                                        new_model = model_rotation.advance(
+                                        new_model = _advance_model(
                                             failed_model, f"{failed_model} → (빈 응답) {err_msg[:120]}"
                                         )
                                         payload["model"] = new_model
@@ -714,7 +732,7 @@ class AiGatewayClient:
                                 )
                                 if is_model_level:
                                     failed_model = model
-                                    new_model = model_rotation.advance(
+                                    new_model = _advance_model(
                                         failed_model, f"{failed_model} → ({err_code}) {err_msg}"
                                     )
                                     payload["model"] = new_model
@@ -772,7 +790,7 @@ class AiGatewayClient:
                         )
                         if is_model_level:
                             failed_model = model
-                            new_model = model_rotation.advance(
+                            new_model = _advance_model(
                                 failed_model, f"{failed_model} → HTTP {res.status_code}"
                             )
                             payload["model"] = new_model

@@ -18,6 +18,7 @@ export function ReportSummariesView({ summaries }: ReportSummariesViewProps) {
     if (!summaries) return counts;
 
     for (const item of summaries) {
+      if (item.parse_mode === "fallback") continue;
       const v = (item.verdict || item.stance || "").toLowerCase();
       if (v.includes("매수") || v.includes("buy")) counts.buy += 1;
       else if (v.includes("매도") || v.includes("sell")) counts.sell += 1;
@@ -71,7 +72,7 @@ export function ReportSummariesView({ summaries }: ReportSummariesViewProps) {
             13 Guru Round-Table Vote Tally
           </span>
           <span className="text-[#64748b]">
-            총 {summaries.length}인 참여 · 합의 표결 비례 바
+            유효 응답 {summaries.filter((item) => item.parse_mode !== "fallback").length}/{summaries.length}명 · fallback 제외
           </span>
         </div>
         <TallyBar tally={tally} />
@@ -83,8 +84,9 @@ export function ReportSummariesView({ summaries }: ReportSummariesViewProps) {
           const rawName = item.persona || item.guru_name || `거장 #${index + 1}`;
           const name = rawName.replace("-", " ");
           const persona = findGuruPersona(rawName);
-          const verdict = item.verdict || item.stance || "관망";
-          const confidence = item.confidence || 5;
+          const isFallback = item.parse_mode === "fallback";
+          const verdict = isFallback ? "미응답" : item.verdict || item.stance || "관망";
+          const confidence = item.confidence ?? 5;
           const targetPrice = item.target_price_range;
           const quote = item.quote;
           const args =
@@ -119,7 +121,7 @@ export function ReportSummariesView({ summaries }: ReportSummariesViewProps) {
                     )}
 
                     {/* 확신도 인라인 표시 */}
-                    <div className="flex items-center gap-1.5 mt-1.5 font-mono text-[11px] text-[#64748b]">
+                    {!isFallback && <div className="flex items-center gap-1.5 mt-1.5 font-mono text-[11px] text-[#64748b]">
                       <div className="w-16 h-1 bg-[#e2e8f0] rounded-full overflow-hidden">
                         <div
                           className="h-full bg-[#0f172a] rounded-full"
@@ -128,22 +130,26 @@ export function ReportSummariesView({ summaries }: ReportSummariesViewProps) {
                           }}
                         />
                       </div>
-                      <span>확신도 {confidence}/10</span>
-                    </div>
+                      <span title="페르소나가 자기보고한 값입니다.">자기보고 확신도 {confidence}/10</span>
+                    </div>}
                   </div>
 
                   {renderMonochromeVerdict(verdict)}
                 </div>
 
                 {/* 대표 발언 (인용구) */}
-                {quote && (
+                {isFallback ? (
+                  <p className="text-xs text-[#64748b] py-2">
+                    응답을 유효하게 처리하지 못해 표결과 가격 집계에서 제외했습니다.
+                  </p>
+                ) : quote && (
                   <blockquote className="pl-3 py-1.5 my-2 border-l-2 border-[#0f172a] bg-[#f8fafc] text-xs text-[#334155] italic rounded-r leading-relaxed">
                     &ldquo;{quote}&rdquo;
                   </blockquote>
                 )}
 
                 {/* 적정가 / 목표가 범위 */}
-                {targetPrice && (
+                {!isFallback && targetPrice && (
                   <div className="flex items-center gap-1.5 text-xs bg-[#f8fafc] border border-[#e2e8f0] px-2.5 py-1 rounded font-mono text-[#0f172a]">
                     <Target className="w-3.5 h-3.5 text-[#64748b] shrink-0" />
                     <span className="text-[#64748b]">적정 범위:</span>
@@ -154,7 +160,7 @@ export function ReportSummariesView({ summaries }: ReportSummariesViewProps) {
                 )}
 
                 {/* 핵심 논거 목록 */}
-                {args.length > 0 && (
+                {!isFallback && args.length > 0 && (
                   <div className="space-y-1.5 pt-1">
                     <span className="text-[10px] font-mono font-semibold text-[#64748b] block uppercase tracking-wider">
                       Core Rationale
@@ -174,7 +180,7 @@ export function ReportSummariesView({ summaries }: ReportSummariesViewProps) {
                 )}
 
                 {/* 재검토 조건 */}
-                {triggers.length > 0 && (
+                {!isFallback && triggers.length > 0 && (
                   <div className="space-y-1.5 pt-1 border-t border-[#f1f5f9]">
                     <span className="text-[10px] font-mono font-semibold text-[#64748b] block uppercase tracking-wider">
                       Re-evaluation Triggers
