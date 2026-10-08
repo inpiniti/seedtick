@@ -532,10 +532,12 @@ export function ResearchCatalogView({
                   "02. 슈퍼인베스터 포트폴리오 (DataRoma)"}
                 {activeSectionFilter === "sec-screener" &&
                   "03. 실시간 발굴 후보군"}
-                {activeSectionFilter === "sec-gurus" &&
-                  "13인 투자 거장 철학"}
+                {activeSectionFilter === "sec-pipeline" &&
+                  "04. 파이프라인"}
                 {activeSectionFilter === "sec-audit" &&
-                  "파이프라인 & 감사 로그"}
+                  "05. 감사 로그"}
+                {activeSectionFilter === "sec-gurus" &&
+                  "06. 13인 투자 거장 철학"}
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
@@ -545,10 +547,12 @@ export function ResearchCatalogView({
                 "슈퍼인베스터 포트폴리오 (DataRoma) 전체"}
               {activeSectionFilter === "sec-screener" &&
                 "실시간 발굴 후보군 전체"}
+              {activeSectionFilter === "sec-pipeline" &&
+                "파이프라인 모니터"}
+              {activeSectionFilter === "sec-audit" &&
+                "감사 로그 모니터"}
               {activeSectionFilter === "sec-gurus" &&
                 "13인 투자 거장 철학 및 밸류에이션 가이드"}
-              {activeSectionFilter === "sec-audit" &&
-                "파이프라인 & 감사 로그 모니터"}
             </h1>
           </div>
 
@@ -1387,7 +1391,42 @@ export function ResearchCatalogView({
         </section>
       )}
 
-      {/* ── 5. SECTION 04: PIPELINE & SYSTEM AUDIT ── */}
+      {/* ── 5. SECTION 04: PIPELINE ── */}
+      {isVisible("sec-pipeline") && (
+        <section
+          id="sec-pipeline"
+          className="px-6 lg:px-12 py-10 lg:py-12 bg-white"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] gap-8 lg:gap-12">
+            {/* 좌측 */}
+            <div className="space-y-4 md:sticky md:top-[72px] md:self-start">
+              <div className="flex items-baseline gap-2">
+                <span className="font-mono text-xs font-semibold text-[#94a3b8]">
+                  04
+                </span>
+                <h2 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
+                  파이프라인
+                </h2>
+              </div>
+              <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-md">
+                12:00 정기 배치 파이프라인의 실시간 진행 현황과 단계별 소요
+                시간을 모니터링합니다.
+              </p>
+            </div>
+
+            {/* 우측 */}
+            <div className="min-w-0">
+              <PipelineProgressCard
+                progress={pipelineProgress}
+                isLoading={isLoading}
+                onRefresh={onRefreshPipeline}
+              />
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── 6. SECTION 05: SYSTEM AUDIT ── */}
       {isVisible("sec-audit") && (
         <section
           id="sec-audit"
@@ -1395,42 +1434,34 @@ export function ResearchCatalogView({
         >
           <div className="grid grid-cols-1 md:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] gap-8 lg:gap-12">
             {/* 좌측 */}
-            <div className="space-y-4">
+            <div className="space-y-4 md:sticky md:top-[72px] md:self-start">
               <div className="flex items-baseline gap-2">
                 <span className="font-mono text-xs font-semibold text-[#94a3b8]">
-                  04
+                  05
                 </span>
                 <h2 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
-                  파이프라인 & 감사 로그
+                  감사 로그
                 </h2>
               </div>
               <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-md">
-                12:00 정기 배치 파이프라인의 실시간 진행 현황, 단계별 소요 시간 및
-                시스템 감사 오류 로그를 통합 모니터링합니다.
+                시스템 감사 오류 로그를 레벨별로 필터링하고 세부 원인을
+                추적합니다.
               </p>
             </div>
 
             {/* 우측 */}
-            <div className="min-w-0 space-y-6">
-              <PipelineProgressCard
-                progress={pipelineProgress}
+            <div className="min-w-0">
+              <LogsTab
+                logs={systemLogs}
                 isLoading={isLoading}
-                onRefresh={onRefreshPipeline}
+                onRefresh={onRefreshLogs}
               />
-
-              <div className="pt-4 border-t border-[#f1f5f9]">
-                <LogsTab
-                  logs={systemLogs}
-                  isLoading={isLoading}
-                  onRefresh={onRefreshLogs}
-                />
-              </div>
             </div>
           </div>
         </section>
       )}
 
-      {/* ── 6. SECTION 05: 13인 투자 거장 철학 & 심층 가이드 (my/financial 연동) ── */}
+      {/* ── 7. SECTION 06: 13인 투자 거장 철학 & 심층 가이드 (my/financial 연동) ── */}
       {isVisible("sec-gurus") && (
         <section
           id="sec-gurus"
@@ -1439,7 +1470,7 @@ export function ResearchCatalogView({
           <div className="space-y-6">
             <div className="flex items-baseline gap-2">
               <span className="font-mono text-xs font-semibold text-[#94a3b8]">
-                05
+                06
               </span>
               <h2 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
                 13인 투자 거장 철학 및 밸류에이션 가이드

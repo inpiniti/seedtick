@@ -3,8 +3,8 @@ import { Metadata } from "next";
 import { DashboardView } from "@/components/dashboard/DashboardView";
 
 export const metadata: Metadata = {
-  title: "파이프라인 & 시스템 감사 로그 | SeedTick Admin",
-  description: "13인 거장 AI 파이프라인 진행 상태 및 에러 감사 로그",
+  title: "시스템 감사 로그 | SeedTick Admin",
+  description: "시스템 에러 감사 로그 모니터",
   robots: {
     index: false,
     follow: false,

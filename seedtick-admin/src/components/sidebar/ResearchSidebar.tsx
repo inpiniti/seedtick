@@ -7,6 +7,7 @@ import {
   Users,
   Compass,
   Terminal,
+  Activity,
   Layers,
   BookOpen,
   ArrowLeft,
@@ -19,6 +20,7 @@ export type SidebarSectionId =
   | "sec-reports"
   | "sec-roma"
   | "sec-screener"
+  | "sec-pipeline"
   | "sec-audit"
   | "sec-gurus";
 
@@ -27,6 +29,7 @@ export const SECTION_HREF_MAP: Record<SidebarSectionId, string> = {
   "sec-reports": "/stocks",
   "sec-roma": "/screener?tab=roma",
   "sec-screener": "/screener",
+  "sec-pipeline": "/pipeline",
   "sec-gurus": "/gurus",
   "sec-audit": "/admin",
 };
@@ -131,6 +134,7 @@ export function ResearchSidebar({
       items: [
         {
           id: "sec-gurus",
+          prefix: "06",
           label: "13인 투자 거장 철학",
           badge: "13",
           icon: Users,
@@ -141,8 +145,15 @@ export function ResearchSidebar({
       group: "System & Operations",
       items: [
         {
+          id: "sec-pipeline",
+          prefix: "04",
+          label: "파이프라인",
+          icon: Activity,
+        },
+        {
           id: "sec-audit",
-          label: "파이프라인 & 감사 로그",
+          prefix: "05",
+          label: "감사 로그",
           badge: logCount > 0 ? `${logCount}` : undefined,
           icon: Terminal,
         },
