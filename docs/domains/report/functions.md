@@ -42,8 +42,13 @@ class GuruReportService:
         1단계: await datapack_builder.build(ticker, date)
         2단계: await self.generate_guru_summaries(datapack)
         3단계: 토론 활성 시 AI 토론 생성, 기본 설정은 요약 기반 compact 토론 문서 생성
-        4단계: await self.generate_master_report(datapack, summaries, discussion)
+        4단계: 유효 의견/가격을 고정 규칙으로 집계하고, AI는 근거 서술만 생성
         5단계: await self.sync_to_db(ticker, date, master_report)
+
+        보고서 호출은 AI_REPORT_MODEL(미설정 시 AI_GATEWAY_MODEL)과
+        AI_REPORT_TEMPERATURE를 공통 적용한다. 모델 오류 시 다른 모델로 조용히
+        전환하지 않는다. 입력 fingerprint, 모델, temperature, prompt version,
+        결정 정책 버전을 datapack.analysis_metadata에 기록한다.
         """
         ...
 
@@ -74,9 +79,9 @@ class GuruReportService:
         discussion: GuruDiscussionDoc
     ) -> FinalMasterReport:
         """
-        최종 종합 마스터 투자 보고서 생성. 기본 토론 생략 모드에서는 13인 요약으로
-        핵심 쟁점 2~3개, 적정가 합의 밴드, 종합 판정을 직접 도출
-        AiGatewayClient의 기본 출력 토큰 상한을 사용
+        최종 보고서 생성. 판정은 유효 응답 12개 이상 및 60% supermajority,
+        적정가는 가격 구간 중점값의 중앙값으로 결정한다. 전체 가격 추정 폭이
+        중앙값의 20%를 넘으면 단일 가격을 보류한다. AI는 설명 문장만 작성한다.
         결과 저장: docs/report/{date}/최종/{ticker}_최종보고서.md
         """
         ...

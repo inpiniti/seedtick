@@ -34,7 +34,12 @@ class ValueDriverGenerator:
         self.base_report_dir = Path(base_report_dir)
 
     async def generate_value_drivers(
-        self, datapack: StockDataPack, target_date: str | None = None
+        self,
+        datapack: StockDataPack,
+        target_date: str | None = None,
+        model_override: str | None = None,
+        pin_model: bool = False,
+        temperature_override: float | None = None,
     ) -> str:
         """
         StockDataPack의 재무, 시세, 뉴스 데이터를 바탕으로
@@ -47,7 +52,13 @@ class ValueDriverGenerator:
 
         prompt = self._build_prompt(datapack, date_str)
         try:
-            markdown_content = await self.ai.chat(prompt, system_prompt=SYSTEM_PROMPT)
+            markdown_content = await self.ai.chat(
+                prompt,
+                system_prompt=SYSTEM_PROMPT,
+                model_override=model_override,
+                pin_model=pin_model,
+                temperature_override=temperature_override,
+            )
             markdown_content = markdown_content.strip()
         except Exception as e:
             logger.error(f"[{ticker}] 가치 드라이버 생성 AI 호출 실패: {e}")

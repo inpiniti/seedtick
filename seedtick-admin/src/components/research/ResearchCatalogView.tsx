@@ -19,6 +19,7 @@ import { GuruDetailModal } from "@/components/research/GuruDetailModal";
 import {
   chartTickerKey,
   extractValuationConsensus,
+  getVoteAgreementPercent,
   buildIntrinsicStability,
   getIntrinsicStabilityMeta,
   formatPercentB,
@@ -173,6 +174,7 @@ export function ResearchCatalogView({
     const consensus = extractValuationConsensus(report);
     const fairValue = consensus?.fair_value_price ?? null;
     const confidenceSamples = (report?.summaries || [])
+      .filter((s) => s.parse_mode !== "fallback")
       .map((s) => s.confidence)
       .filter((v): v is number => v != null && Number.isFinite(v));
     const confidence =
@@ -200,6 +202,8 @@ export function ResearchCatalogView({
       intrinsicStability,
       stabilityMeta,
       safetyPrice: consensus?.safety_entry_price ?? null,
+      dispersionPct: consensus?.dispersion_pct ?? null,
+      voteAgreementPct: getVoteAgreementPercent(report),
     };
   };
 
@@ -406,26 +410,26 @@ export function ResearchCatalogView({
     switch (stability.level) {
       case "stable":
         return (
-          <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-900 text-white border border-slate-900">
-            안정성: 안정
+          <span title="과거 보고서 가격의 분산입니다. 분석일별 입력 데이터의 차이는 분리하지 않습니다." className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-900 text-white border border-slate-900">
+            과거 가격 안정성: 안정
           </span>
         );
       case "watch":
         return (
-          <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-800 border border-slate-300">
-            안정성: 주의
+          <span title="과거 보고서 가격의 분산입니다. 분석일별 입력 데이터의 차이는 분리하지 않습니다." className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-800 border border-slate-300">
+            과거 가격 안정성: 주의
           </span>
         );
       case "unstable":
         return (
-          <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-white text-slate-900 border border-slate-400 font-semibold">
-            안정성: 불안정
+          <span title="과거 보고서 가격의 분산입니다. 분석일별 입력 데이터의 차이는 분리하지 않습니다." className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-white text-slate-900 border border-slate-400 font-semibold">
+            과거 가격 안정성: 불안정
           </span>
         );
       default:
         return (
-          <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-50 text-slate-500 border border-slate-200">
-            안정성: 표본 부족
+          <span title="과거 보고서 가격의 분산입니다. 분석일별 입력 데이터의 차이는 분리하지 않습니다." className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-50 text-slate-500 border border-slate-200">
+            과거 가격 안정성: 표본 부족
           </span>
         );
     }
@@ -860,17 +864,50 @@ export function ResearchCatalogView({
                                 )}
 
                                 {insight.confidence != null && (
-                                  <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
-                                    확신도:{" "}
+                                  <span title="13인 각자의 자기보고 확신도 평균입니다. 실제 정확도나 의견 일치도를 뜻하지 않습니다." className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
+                                    평균 확신도:{" "}
                                     <strong className="text-[#0f172a]">
                                       {insight.confidence.toFixed(1)}/10
                                     </strong>
                                   </span>
                                 )}
 
+                                {insight.dispersionPct != null && (
+                                  <span
+                                    title="13인의 개별 적정가 중점값 전체 범위 ÷ 중앙값입니다. 20%를 넘으면 단일 적정가를 보류합니다."
+                                    className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]"
+                                  >
+                                    가격 분산:{" "}
+                                    <strong className="text-[#0f172a]">
+                                      {insight.dispersionPct.toFixed(1)}%
+                                      {insight.report?.datapack?.valuation_consensus?.price_estimate_count != null
+                                        ? ` · ${insight.report.datapack.valuation_consensus.price_estimate_count}/13`
+                                        : ""}
+                                    </strong>
+                                  </span>
+                                )}
+
+                                {insight.report && insight.fairValue == null && (
+                                  <span className="px-1.5 py-0.2 rounded border border-[#cbd5e1] bg-[#f8fafc] text-[#475569]">
+                                    적정가 산출 보류
+                                  </span>
+                                )}
+
+                                {insight.voteAgreementPct != null && (
+                                  <span
+                                    title="가장 많이 나온 투자의견의 표 수 ÷ 유효 표결 수입니다. 확신도와는 다른 지표입니다."
+                                    className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]"
+                                  >
+                                    표결 일치도:{" "}
+                                    <strong className="text-[#0f172a]">
+                                      {insight.voteAgreementPct.toFixed(0)}%
+                                    </strong>
+                                  </span>
+                                )}
+
                                 {ratioText && (
                                   <span className="px-1.5 py-0.2 rounded border border-[#0f172a] bg-[#0f172a] text-white">
-                                    내재가치/종가:{" "}
+                                    적정가/종가:{" "}
                                     <strong className="font-bold">
                                       {ratioText}
                                     </strong>
@@ -891,7 +928,7 @@ export function ResearchCatalogView({
                               {/* 요약 텍스트 */}
                               <p className="text-xs text-[#64748b] line-clamp-1 leading-relaxed pt-0.5">
                                 {report.vote_summary ||
-                                  "13인 독립 표결 및 적정가 산출 완료"}
+                                  "13인 표결 요약"}
                                 {insight.safetyPrice
                                   ? ` · 안전마진 매수가: ${insight.safetyPrice}`
                                   : ""}
@@ -1028,7 +1065,7 @@ export function ResearchCatalogView({
 
                                 {insight.confidence != null && (
                                   <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
-                                    확신도:{" "}
+                                    평균 확신도:{" "}
                                     <strong className="text-[#0f172a]">
                                       {insight.confidence.toFixed(1)}/10
                                     </strong>
@@ -1037,7 +1074,7 @@ export function ResearchCatalogView({
 
                                 {ratioText && (
                                   <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
-                                    내재가치/종가:{" "}
+                                    적정가/종가:{" "}
                                     <strong className="text-[#0f172a] font-bold">
                                       {ratioText}
                                     </strong>
@@ -1279,7 +1316,7 @@ export function ResearchCatalogView({
 
                                 {insight.confidence != null && (
                                   <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
-                                    확신도:{" "}
+                                    평균 확신도:{" "}
                                     <strong className="text-[#0f172a]">
                                       {insight.confidence.toFixed(1)}/10
                                     </strong>
@@ -1288,7 +1325,7 @@ export function ResearchCatalogView({
 
                                 {ratioText && (
                                   <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
-                                    내재가치/종가:{" "}
+                                    적정가/종가:{" "}
                                     <strong className="text-[#0f172a] font-bold">
                                       {ratioText}
                                     </strong>

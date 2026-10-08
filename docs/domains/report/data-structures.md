@@ -114,6 +114,10 @@ class FinalMasterReport(BaseModel):
     value_drivers: list[str]         # 핵심 드라이버 KPI
     action_guide: dict               # 분할 진입 가격대, 손익비 기준, 손절선
     guru_summary_table: str          # 13인 요약 마크다운 표
+    valuation_dispersion_pct: float | None  # 개별 추정 전체 범위 폭 / 중앙값
+    valuation_estimate_count: int     # 유효 가격 구간 수
     raw_markdown: str
 ```
+
+`valuation_dispersion_pct`는 유효 가격 구간 중점값의 최저~최고 폭을 중앙값으로 나눈 값이다. `fair_value_price`가 비어 있으면 분석 실패 또는 의견 분산 기준에 따라 단일 가격을 보류한 상태일 수 있다.
 

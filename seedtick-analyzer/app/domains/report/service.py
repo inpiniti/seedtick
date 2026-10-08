@@ -2,12 +2,13 @@
 GuruReportService: 13인의 거장 심층 투자 보고서 5단계 파이프라인 오케스트레이터
 """
 import asyncio
+import hashlib
 import logging
 from datetime import date as dt_date
 from pathlib import Path
 import re
 
-from app.config.constants import GURU_NAMES, VERDICT_SCORE_MAP
+from app.config.constants import GURU_REPORT_ROSTER, VERDICT_SCORE_MAP
 from app.config.settings import settings
 from app.domains.report.ai_client import AiGatewayClient
 from app.domains.report.datapack_builder import DataPackBuilder
@@ -20,7 +21,7 @@ from app.domains.report.models import (
     PersonaSummaryBlock,
     StockDataPack,
 )
-from app.domains.report.personas.prompts import GURU_PERSONAS, build_persona_prompt
+from app.domains.report.personas.prompts import build_persona_prompt
 from app.domains.report.pipeline_progress import PipelineProgressTracker
 from app.domains.screener.logo_warmup_service import logo_warmup_service
 from app.infrastructure.supabase_repo import SupabaseRepo
@@ -70,7 +71,13 @@ class GuruReportService:
         """
         clean_ticker = ticker.upper().strip()
         date_str = target_date or dt_date.today().isoformat()
+        report_model = (settings.AI_REPORT_MODEL or settings.AI_GATEWAY_MODEL).strip()
+        report_temperature = settings.AI_REPORT_TEMPERATURE
         logger.info(f"[{clean_ticker}] 5단계 Guru Report 파이프라인 시작 (기준일: {date_str})")
+        logger.info(
+            f"[{clean_ticker}] 보고서 모델 고정: {report_model} "
+            f"(temperature={report_temperature})"
+        )
 
         # ── 1단계: 공용 심층 데이터 팩 작성 ───────────────────
         if self.progress:
@@ -81,7 +88,13 @@ class GuruReportService:
         if self.progress:
             self.progress.set_stage("value_driver")
         try:
-            vd_markdown = await self.value_driver_generator.generate_value_drivers(datapack, date_str)
+            vd_markdown = await self.value_driver_generator.generate_value_drivers(
+                datapack,
+                date_str,
+                model_override=report_model,
+                pin_model=True,
+                temperature_override=report_temperature,
+            )
             datapack.value_drivers = vd_markdown
             # 가치 드라이버를 데이터팩 마크다운에 통합 및 파일 갱신
             datapack.raw_markdown = self.datapack_builder._render_markdown(datapack)
@@ -94,7 +107,11 @@ class GuruReportService:
         # ── 2단계: 13인 개별 요약 블록 생성 (최대 concurrency개 동시 병렬 실행) ───
         if self.progress:
             self.progress.set_stage("summaries")
-        summary_doc = await self.generate_guru_summaries(datapack)
+        summary_doc = await self.generate_guru_summaries(
+            datapack,
+            model_override=report_model,
+            temperature_override=report_temperature,
+        )
 
         # ── 3단계: 거장 원탁 토론 전문 생성 ───────────────────
         logger.info(f"[{clean_ticker}] 3단계: 원탁 토론 단계 시작...")
@@ -103,7 +120,12 @@ class GuruReportService:
         if settings.ENABLE_ROUND_TABLE_DISCUSSION:
             if self.request_interval > 0:
                 await asyncio.sleep(self.request_interval)
-            discussion_doc = await self.discussion_engine.generate_discussion(datapack, summary_doc)
+            discussion_doc = await self.discussion_engine.generate_discussion(
+                datapack,
+                summary_doc,
+                model_override=report_model,
+                temperature_override=report_temperature,
+            )
             self._save_discussion_file(discussion_doc)
             logger.info(
                 f"[{clean_ticker}] 3단계: 원탁 토론 전문 저장 완료 "
@@ -132,7 +154,11 @@ class GuruReportService:
         if self.request_interval > 0:
             await asyncio.sleep(self.request_interval)
         master_report = await self.discussion_engine.generate_master_report(
-            datapack, summary_doc, discussion_doc
+            datapack,
+            summary_doc,
+            discussion_doc,
+            model_override=report_model,
+            temperature_override=report_temperature,
         )
         self._save_master_report_file(master_report)
         logger.info(
@@ -151,6 +177,8 @@ class GuruReportService:
             discussion_doc,
             master_report,
             screeners=screeners,
+            analysis_model=report_model,
+            analysis_temperature=report_temperature,
         )
 
         logger.info(
@@ -159,14 +187,19 @@ class GuruReportService:
         )
         return master_report
 
-    async def generate_guru_summaries(self, datapack: StockDataPack) -> GuruSummaryDoc:
+    async def generate_guru_summaries(
+        self,
+        datapack: StockDataPack,
+        model_override: str | None = None,
+        temperature_override: float | None = None,
+    ) -> GuruSummaryDoc:
         """
         13인 거장별 페르소나 프롬프트를 조립하여 AI 클라이언트를 최대 concurrency(기본 13)개 동시 병렬 처리합니다.
         AI-Gateway의 키 로테이션 능력을 활용하여 빠르고 안정적으로 요약 블록을 완성합니다.
         """
         date_str = datapack.date
         ticker = datapack.ticker
-        personas_list = list(GURU_PERSONAS.keys())
+        personas_list = [persona_key for _, persona_key in GURU_REPORT_ROSTER]
         total_gurus = len(personas_list)
 
         logger.info(
@@ -181,7 +214,12 @@ class GuruReportService:
             async with semaphore:
                 logger.info(f"[{ticker}] ({idx}/{total_gurus}) 거장 '{p_key}' 분석 시작...")
                 try:
-                    block = await self._fetch_single_persona_summary(p_key, datapack.raw_markdown)  # compact 변환은 내부에서 처리
+                    block = await self._fetch_single_persona_summary(
+                        p_key,
+                        datapack.raw_markdown,
+                        model_override=model_override,
+                        temperature_override=temperature_override,
+                    )  # compact 변환은 내부에서 처리
                     logger.info(
                         f"[{ticker}] 거장 '{p_key}' 분석 완료 -> "
                         f"의견: {block.verdict} (확신도: {block.confidence}/10)"
@@ -196,6 +234,7 @@ class GuruReportService:
                         confidence=5,
                         core_arguments=["AI 호출 제한 또는 지연으로 인한 기본값 판정"],
                         quote="데이터를 조금 더 지켜보고 판단하겠다.",
+                        parse_mode="fallback",
                     )
 
                 if self.progress:
@@ -224,6 +263,13 @@ class GuruReportService:
         ]
 
         for block in summaries:
+            if block.parse_mode == "fallback":
+                md_blocks.extend([
+                    f"### {block.persona}",
+                    "**응답 상태**: 미응답 — 표결·가격 집계 제외",
+                    "",
+                ])
+                continue
             md_blocks.extend([
                 f"### {block.persona}",
                 f"**의견**: {block.verdict} | **확신도**: {block.confidence}/10",
@@ -255,11 +301,20 @@ class GuruReportService:
         )
 
     async def _fetch_single_persona_summary(
-        self, persona_key: str, datapack_md: str
+        self,
+        persona_key: str,
+        datapack_md: str,
+        model_override: str | None = None,
+        temperature_override: float | None = None,
     ) -> PersonaSummaryBlock:
         # 뉴스, IR 일정, 재무제표, 밸류에이션, 가치드라이버가 모두 포함된 전체 데이터팩 전달
         prompt = build_persona_prompt(persona_key, datapack_md)
-        text = await self.ai.chat(prompt)
+        text = await self.ai.chat(
+            prompt,
+            model_override=model_override,
+            pin_model=bool(model_override),
+            temperature_override=temperature_override,
+        )
         block = self._parse_summary_block(persona_key, text)
         block.raw_text = text
         return block
@@ -278,11 +333,8 @@ class GuruReportService:
         if parsed_json and isinstance(parsed_json, dict):
             raw_v = parsed_json.get("verdict")
             cand_v = str(raw_v).strip().strip("*_`") if raw_v else ""
-            verdict = "관망"
-            for v_opt in ["매수", "보유", "관망", "매도"]:
-                if v_opt in cand_v:
-                    verdict = v_opt
-                    break
+            valid_verdicts = {"매수", "보유", "관망", "매도"}
+            verdict = cand_v if cand_v in valid_verdicts else "관망"
 
             try:
                 conf = int(parsed_json.get("confidence", 5))
@@ -322,7 +374,7 @@ class GuruReportService:
                 target_price_high=high,
                 trigger_conditions=trigs,
                 quote=q,
-                parse_mode="json",
+                parse_mode="json" if cand_v in valid_verdicts else "fallback",
             )
 
         # ── 2. 기존 정규식 텍스트 파싱 폴백 ──
@@ -426,7 +478,7 @@ class GuruReportService:
             target_price_high=high,
             trigger_conditions=trigger_conditions[:3],
             quote=quote,
-            parse_mode="regex",
+            parse_mode="regex" if v_match else "fallback",
         )
 
     def _save_discussion_file(self, doc: GuruDiscussionDoc) -> None:
@@ -452,29 +504,27 @@ class GuruReportService:
         discussion: GuruDiscussionDoc,
         report: FinalMasterReport,
         screeners: list[str] | None = None,
+        analysis_model: str | None = None,
+        analysis_temperature: float | None = None,
     ) -> None:
         """
         1. guru_reports 테이블에 전체 리포트 본문(데이터팩, 13인요약, 토론, 최종보고서) 저장
         2. guru_votes 테이블에 13인 표결 점수(g0~g13) 저장
         """
-        # g1 ~ g13 점수 매핑
+        # 공식 13인 roster와 DB의 g1~g13 슬롯을 일대일로 매핑한다.
         scores_by_guru: dict[str, int] = {}
-        persona_map = {s.persona.replace("-", " "): s.verdict for s in summaries.summaries}
+        persona_map = {s.persona: s.verdict for s in summaries.summaries}
 
-        for idx, guru_name in enumerate(GURU_NAMES, start=1):
-            verdict_val = "관망"
-            for p_k, v in persona_map.items():
-                if guru_name == "뉴욕주민" and any(k in p_k for k in ["뉴욕주민", "찰리", "멍거"]):
-                    verdict_val = v
-                    break
-                if any(part in p_k for part in guru_name.split()):
-                    verdict_val = v
-                    break
+        for idx, (_, persona_key) in enumerate(GURU_REPORT_ROSTER, start=1):
+            verdict_val = persona_map.get(persona_key, "관망")
             scores_by_guru[f"g{idx}"] = VERDICT_SCORE_MAP.get(verdict_val, 2)
 
         report.persona_scores = scores_by_guru
 
         # 1. guru_reports 본문 저장 (추후 어날리시스 및 상세 조회용)
+        input_fingerprint = hashlib.sha256(
+            datapack.raw_markdown.encode("utf-8")
+        ).hexdigest()
         datapack_dict = {
             "current_price": datapack.current_price,
             "overview": datapack.overview,
@@ -488,12 +538,22 @@ class GuruReportService:
                 "safety_entry_price": report.safety_entry_price,
                 "optimistic_target_price": report.optimistic_target_price,
                 "review_flags": report.valuation_review_flags,
+                "dispersion_pct": report.valuation_dispersion_pct,
+                "price_estimate_count": report.valuation_estimate_count,
+                "method": report.action_guide.get("fair_value_method"),
             },
             "market_metrics": datapack.market_metrics,
             "analyst_consensus": datapack.analyst_consensus,
             "news_items": datapack.news_items,
             "ir_schedule": datapack.ir_schedule,
             "value_drivers": datapack.value_drivers,
+            "analysis_metadata": {
+                "model": analysis_model,
+                "temperature": analysis_temperature,
+                "prompt_version": settings.REPORT_PROMPT_VERSION,
+                "decision_policy": "robust-consensus-v2",
+                "input_fingerprint": input_fingerprint,
+            },
         }
         summaries_list = [s.model_dump() for s in summaries.summaries]
 

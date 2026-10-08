@@ -17,7 +17,7 @@ import json
 import re
 from typing import Any
 
-from app.config.constants import GURU_NAMES, VERDICT_SCORE_MAP
+from app.config.constants import GURU_REPORT_ROSTER, GURU_REPORT_PERSONA_KEYS, VERDICT_SCORE_MAP
 
 VERDICTS = ("매수", "보유", "관망", "매도")
 
@@ -169,18 +169,23 @@ def count_votes(summaries: list[dict]) -> dict[str, int]:
     counts = {v: 0 for v in VERDICTS}
     for s in summaries:
         v = s.get("verdict")
-        if v in counts:
+        if (
+            s.get("persona") in GURU_REPORT_PERSONA_KEYS
+            and s.get("parse_mode") != "fallback"
+            and v in counts
+        ):
             counts[v] += 1
     return counts
 
 
 def guru_index(persona: str) -> int | None:
     """페르소나 키(예: '워런-버핏') → guru_votes g1~g13 인덱스."""
-    p = persona.replace("-", " ")
-    for idx, name in enumerate(GURU_NAMES, start=1):
-        if name == "뉴욕주민" and any(k in p for k in ("뉴욕주민", "찰리", "멍거")):
+    normalized = " ".join(persona.strip().replace("-", " ").split())
+    for idx, (display_name, persona_key) in enumerate(GURU_REPORT_ROSTER, start=1):
+        if normalized in {persona_key.replace("-", " "), display_name}:
             return idx
-        if any(part in p for part in name.split()):
+        # Legacy reports called the official g9 persona "뉴욕주민".
+        if idx == 9 and normalized == "뉴욕주민":
             return idx
     return None
 
@@ -323,7 +328,13 @@ def build_report_columns(
     if target_sell_value is None:
         target_sell_value = parse_number(optimistic_target_price)
     votes = count_votes(summaries)
-    confs = [s.get("confidence") for s in summaries if isinstance(s.get("confidence"), (int, float))]
+    confs = [
+        s.get("confidence")
+        for s in summaries
+        if s.get("persona") in GURU_REPORT_PERSONA_KEYS
+        and s.get("parse_mode") != "fallback"
+        and isinstance(s.get("confidence"), (int, float))
+    ]
     return {
         "fair_value": fair_value,
         "band_low": band_low,

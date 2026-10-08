@@ -8,6 +8,7 @@ from typing import Any, Literal
 from app.config.constants import VERDICT_SCORE_MAP
 from app.config.settings import settings
 from app.domains.report.ai_client import AiGatewayClient
+from app.domains.report.decision_engine import aggregate_report_consensus
 from app.domains.report.models import (
     FinalMasterReport,
     GuruDiscussionDoc,
@@ -23,7 +24,11 @@ class DiscussionEngine:
         self.ai = ai_client
 
     async def generate_discussion(
-        self, datapack: StockDataPack, summaries: GuruSummaryDoc
+        self,
+        datapack: StockDataPack,
+        summaries: GuruSummaryDoc,
+        model_override: str | None = None,
+        temperature_override: float | None = None,
     ) -> GuruDiscussionDoc:
         """
         3단계: 13인 거장들의 치열한 원탁 토론 전문 생성
@@ -32,10 +37,31 @@ class DiscussionEngine:
         # 프롬프트 크기 최적화: raw_markdown 전체 대신 핵심만 압축
         # 13인 거장 요약 전문 (모든 논거 및 목표가/트리거 반영)
         compact_summaries = "\n".join(
-            f"- {s.persona}: {s.verdict}({s.confidence}/10) | 논거: {'; '.join(s.core_arguments)}"
+            (
+                f"- {s.persona}: 미응답(표결·가격 집계 제외)"
+                if s.parse_mode == "fallback"
+                else f"- {s.persona}: {s.verdict}({s.confidence}/10) | 논거: {'; '.join(s.core_arguments)}"
+            )
             + (f" | 적정가: {s.target_price_range}" if s.target_price_range else "")
             + (f" | 트리거: {', '.join(s.trigger_conditions)}" if s.trigger_conditions else "")
             for s in summaries.summaries
+        )
+        consensus = aggregate_report_consensus(summaries.summaries)
+        currency = datapack.currency or "USD"
+        fair_value_text = (
+            f"{consensus.fair_value:,.2f} {currency}"
+            if consensus.fair_value is not None
+            else "산출 보류"
+        )
+        band_text = (
+            f"{consensus.band_low:,.2f} ~ {consensus.band_high:,.2f} {currency}"
+            if consensus.band_low is not None and consensus.band_high is not None
+            else "산출 보류"
+        )
+        dispersion_text = (
+            f"{consensus.dispersion_pct:.1f}%"
+            if consensus.dispersion_pct is not None
+            else "계산 불가"
         )
 
         prompt = f"""너는 세계 최고의 투자 거장 13인의 원탁 토론 진행자(모더레이터)다.
@@ -44,13 +70,20 @@ class DiscussionEngine:
 [13인 거장 사전 평가 요약]
 {compact_summaries}
 
+[고정 집계 결과 — 변경 금지]
+- 종합 의견 및 표결: {consensus.verdict} / {consensus.vote_summary}
+- 적정가 중앙값: {fair_value_text}
+- 중앙 50% 구간: {band_text}
+- 개별 가격 추정 전체 분산: {dispersion_text}
+- 검토 플래그: {', '.join(consensus.review_flags) or '없음'}
+
 [진행 규칙]
 1. 거장들 사이에서 의견이 팽팽하게 맞서는 핵심 쟁점 2~4개(예: 밸류에이션 고평가 여부, 성장의 지속성, 해자의 견고함, 최신 뉴스/촉매의 실질 영향 등)를 추출하라.
 2. 거장들이 서로의 논거와 실측 수치(PER, ROE, FCF, 마진율 등)를 직접 인용하며 치열하게 반박하는 생생하고 깊이 있는 원탁 토론 전문을 작성하라.
    - 예: 버핏과 다모다란의 내재가치 논쟁, 그레이엄과 피셔의 성장성 vs 안전마진 충돌, 버리와 슈웨거의 리스크/추세 공방 등.
 3. 13인 거장 전원이 자신만의 고유한 투자 철학에 입각하여 치열하게 반박하고 논쟁하며, 서두부터 결론까지 완결성 있는 풍부한 대화 전문을 작성하라.
-4. 토론 후반부에는 거장들이 제시한 개별 적정가를 교차 검증하여 종합적인 '적정가(Valuation) 합의 밴드'를 도출하는 세션을 반드시 포함하라.
-5. 토론 말미에 반드시 '## 4. 최종 입장 정리 및 표결 집계'를 명시하고 완결하라.
+4. 개별 적정가 의견의 차이를 설명하되 새로운 적정가나 합의 밴드를 계산하지 마라. 최종 가격은 위 고정 집계 결과만 사용하고, 산출 보류라면 보류라고 써라.
+5. 토론 말미에는 위 고정 표결과 종합 의견을 그대로 옮겨 적어라. 숫자나 의견을 새로 집계하지 마라.
 
 [반환 형식]
 # {datapack.ticker} — 13인의 거장 원탁 토론 전문
@@ -63,33 +96,31 @@ class DiscussionEngine:
 ## 2. 거장들의 치열한 원탁 토론 (격돌)
 (실제 인물들이 대화하는 스크립트 형태)
 
-## 3. 거장들의 적정가(Valuation) 격돌 및 컨센서스 도출
-- 보수파(그레이엄·클라먼·버핏)의 안전마진 매수가격: $xxx
-- 성장·모멘텀파(피셔·린치·다모다란)의 내재가치 및 목표가: $xxx
-- 원탁 토론 종합 합의 적정가 밴드:
-  * [보수적 안전마진가]: $xxx (하방 지지선, 적극 분할매수 구간)
-  * [중립 적정 내재가치]: $xxx (정상 펀더멘털 기준 적정가)
-  * [낙관적 목표주가]: $xxx (사이클 정점 및 추가 성장 반영)
+## 3. 거장들의 적정가 의견 차이 및 고정 집계 결과
+- 확정 적정가 중앙값: {fair_value_text}
+- 중앙 50% 구간: {band_text}
+- 전체 가격 의견 분산: {dispersion_text}
+- 검토 필요: {', '.join(consensus.review_flags) or '없음'}
 
-## 4. 최종 입장 정리 및 표결 집계
-- 매수: n명 (인물들)
-- 보유: n명 (인물들)
-- 관망: n명 (인물들)
-- 매도: n명 (인물들)
-- 종합 표결 결론: ...
+## 4. 고정 표결 결과
+- 표결: {consensus.vote_summary}
+- 종합 의견: {consensus.verdict}
 
 [작성 절대 규칙]
 1. 거장들의 토론과 논쟁이 충분히 전개되어 합의와 표결에 도달하면, 불필요한 반복 꼬리물기 없이 즉시 최종 표결로 수렴(Converge)하여 마크다운 본문을 완결하라.
 """
 
         logger.info(f"[{datapack.ticker}] 13인 거장 원탁 토론 AI 생성 시작 (32K 지원)...")
-        dialogue = await self.ai.chat(prompt)
+        dialogue = await self.ai.chat(
+            prompt,
+            model_override=model_override,
+            pin_model=bool(model_override),
+            temperature_override=temperature_override,
+        )
         logger.info(f"[{datapack.ticker}] 원탁 토론 AI 생성 완료 (길이: {len(dialogue)}자)")
 
-        # 표결 카운트 추출 (단순 파싱)
-        vote_counts = {"매수": 0, "보유": 0, "관망": 0, "매도": 0}
-        for s in summaries.summaries:
-            vote_counts[s.verdict] = vote_counts.get(s.verdict, 0) + 1
+        # 토론이 AI로 작성되어도 투표 집계는 위 고정 정책을 따른다.
+        vote_counts = consensus.vote_counts
 
         # 만약 AI 응답이 비어있다면 13인 요약 블록을 기반으로 폴백 토론 문서 생성 (DB 빈값 방어)
         if not dialogue or len(dialogue.strip()) < 50:
@@ -118,9 +149,7 @@ class DiscussionEngine:
         - DB 컬럼(guru_reports.discussion)과 어드민 '원탁 토론' 탭 호환을 위해 문서 형태 유지
         - 토큰 소비 0 (결정론적 문자열 조립)
         """
-        vote_counts: dict[str, int] = {"매수": 0, "보유": 0, "관망": 0, "매도": 0}
-        for s in summaries.summaries:
-            vote_counts[s.verdict] = vote_counts.get(s.verdict, 0) + 1
+        vote_counts = aggregate_report_consensus(summaries.summaries).vote_counts
 
         lines = [
             f"# {datapack.ticker} — 13인 거장 사전 평가 (원탁 토론 생략 모드)",
@@ -133,6 +162,9 @@ class DiscussionEngine:
             "|---|---|---|---|---|",
         ]
         for s in summaries.summaries:
+            if s.parse_mode == "fallback":
+                lines.append(f"| {s.persona} | 미응답(집계 제외) | — | — | — |")
+                continue
             argument = s.core_arguments[0] if s.core_arguments else "재무·가치평가 종합 검토"
             target = s.target_price_range or "—"
             # 마크다운 표 셀 깨짐 방지
@@ -184,6 +216,12 @@ class DiscussionEngine:
             "## 2. 거장들의 치열한 원탁 토론 (사전 분석 종합)",
         ]
         for s in summaries.summaries:
+            if s.parse_mode == "fallback":
+                lines.extend([
+                    f"**{s.persona}** (미응답 — 집계 제외)",
+                    "",
+                ])
+                continue
             args_text = " ".join(s.core_arguments) if s.core_arguments else "재무 및 시장 지표 종합 검토"
             lines.append(f"**{s.persona}** (의견: {s.verdict}, 확신도: {s.confidence}/10):")
             lines.append(f"> \"{s.quote}\"")
@@ -193,10 +231,8 @@ class DiscussionEngine:
             lines.append("")
 
         lines.extend([
-            "## 3. 거장들의 적정가(Valuation) 격돌 및 컨센서스 도출",
-            f"- 보수적 안전마진가: ${datapack.current_price * 0.8:.2f} (하방 지지선)",
-            f"- 중립 적정 내재가치: ${datapack.current_price:.2f} (정상 펀더멘털 기준)",
-            f"- 낙관적 목표주가: ${datapack.current_price * 1.25:.2f} (사이클 정점 반영)",
+            "## 3. 적정가 의견 차이",
+            "- 이 토론 문서는 새로운 적정가를 만들지 않습니다. 고정 집계 적정가와 분산은 최종 보고서를 따릅니다.",
             "",
             "## 4. 최종 입장 정리 및 표결 집계",
             f"- 매수: {vote_counts.get('매수', 0)}명",
@@ -212,161 +248,20 @@ class DiscussionEngine:
         datapack: StockDataPack,
         summaries: GuruSummaryDoc,
         discussion: GuruDiscussionDoc,
+        model_override: str | None = None,
+        temperature_override: float | None = None,
     ) -> FinalMasterReport:
-        """
-        4단계: 최종 마스터 종합 투자 보고서 생성
+        """Generate narrative while deterministic rules own verdict and valuation."""
+        from app.domains.report.master_report_builder import build_master_report
 
-        - 토론 생략 모드(기본, ENABLE_ROUND_TABLE_DISCUSSION=False):
-          원탁 토론 전문 없이 13인 요약만으로 '쟁점·적정가 합의밴드·표결'을
-          직접 도출하도록 지시 → 토론 생성 토큰/시간 전액 절약
-        - 토론 활성 모드(True): 기존대로 토론 전문까지 입력
-        """
-        votes = discussion.final_vote_counts
-        use_dialogue = settings.ENABLE_ROUND_TABLE_DISCUSSION and bool(
-            (discussion.dialogue or "").strip()
+        return await build_master_report(
+            ai=self.ai,
+            datapack=datapack,
+            summaries=summaries,
+            discussion=discussion,
+            model_override=model_override,
+            temperature_override=temperature_override,
         )
-        if use_dialogue:
-            discussion_block = f"[원탁 토론 전문]\n{discussion.dialogue}"
-            derivation_note = "원탁 토론에서 교차 검증을 거쳐 살아남은 논거와 합의 밴드를 반영하라."
-        else:
-            discussion_block = "(원탁 토론 생략 모드 — 아래 13인 요약을 직접 교차검증하라)"
-            derivation_note = (
-                "13인 요약의 의견·핵심 논거·적정가를 직접 교차검증하여 "
-                "핵심 쟁점과 적정가 합의 밴드를 도출한 뒤 리포트를 작성하라."
-            )
-
-        prompt = f"""너는 글로벌 최고 수준의 리서치 센터장이다.
-종목: {datapack.ticker}
-데이터팩:
-- 현재가: ${datapack.current_price:.2f}
-- PER: {datapack.valuation.trailing_pe}x | PBR: {datapack.valuation.pbr}x | ROE: {datapack.balance_sheet.roe_pct}%
-
-아래 제공된 13인 요약 블록(및 토론 결과)을 토대로, 투자자가 실전에 즉시 활용할 수 있는 '최종 종합 마스터 투자 보고서'를 마크다운으로 작성하라.
-{derivation_note}
-
-[사전 작업 — 리포트 작성 전 반드시 먼저 도출]
-1. 13인 요약의 의견·핵심 논거·적정가를 교차검증하여 핵심 쟁점 2~3개(예: 밸류에이션 적정성, 성장 지속성, 해자의 견고함, 최신 뉴스/촉매의 실질 영향)를 추출하라.
-2. 거장들이 제시한 적정가 후보를 교차검증하여 종합 '적정가 합의 밴드'를 도출하라: 보수적 안전마진가 / 중립 적정 내재가치 / 낙관적 목표주가.
-3. 표결은 집계하되 단순 다수결이 아니라, 검증 과정에서 가장 견고하게 살아남은 논거를 근거로 종합 판정(매수/보유/관망/매도)을 내려라.
-
-[13인 요약 블록]
-{summaries.raw_markdown}
-
-{discussion_block}
-
-[필수 구성]
-# {datapack.ticker} 최종 투자 보고서
-> **날짜**: {datapack.date} | **종합 의견**: (매수/보유/관망/매도 중 택1 필수. 예: **관망 (상세 설명)**) | **표결**: 매수 {votes.get('매수', 0)} · 보유 {votes.get('보유', 0)} · 관망 {votes.get('관망', 0)} · 매도 {votes.get('매도', 0)}
-> **현재가**: ${datapack.current_price:.2f} | **종합 적정 내재가치**: $xxx (적정 밴드: $xxx ~ $xxx)
-> **투자 실행 밴드**: [안전마진 매수가] $xxx 이하 | [중립 적정가] $xxx | [목표 매도가] $xxx
-
-[기계 파싱용 JSON 블록 - 반드시 포함]
-아래 JSON 코드블록을 리포트 어디든 1회 포함하라. 값은 텍스트 헤더 수치와 반드시 일치해야 한다.
-```json
-{{
-  "valuation_consensus": {{
-    "fair_value_price": 185.0,
-    "target_price_band": "$155 ~ $230",
-    "safety_entry_price": "$160 이하",
-    "optimistic_target_price": "$230"
-  }}
-}}
-```
-
-※ 중요:
-1. 헤더의 '종합 의견'에는 반드시 '매수', '보유', '관망', '매도' 4개 키워드 중 하나를 가장 먼저 명시하라.
-2. 헤더의 '종합 적정 내재가치'와 '투자 실행 밴드'에는 도출한 합의 밴드의 구체적인 수치(달러 또는 원화)를 반드시 명시하라.
-
-## 1. 종합 결론 및 밸류에이션 산출 근거
-- 종합 결론: (단순 다수결이 아니라, 검증 과정에서 가장 견고하게 살아남은 논거를 토대로 종합 결론 도출)
-- 밸류에이션 산출 근거: (적정가 합의 밴드 및 데이터팩의 PER/PBR/FCF/컨센서스를 반영한 가격 산출 논거 1~2줄)
-
-## 2. 강세론 핵심 (Bull Case)
-(성장·해자·품질 측면의 강력한 논거)
-
-## 3. 약세론 핵심 (Bear Case)
-(치명적인 리스크·고평가·회계적 우려 지적)
-
-## 4. 가치를 움직이는 핵심 드라이버 (KPI)
-(기업 가치를 결정짓는 핵심 지표 3~5개)
-
-## 5. 실전 투자 실행 가이드
-- 분할 진입 권장 가격대 및 비중 (안전마진 매수가 기준)
-- 트레이딩 접근 (슈웨거 관점의 손익비/손절선)
-- 익절 목표가 (낙관적 목표주가 기준) 및 손절 재검토 조건
-
-## 6. 13인의 거장 요약표
-| 인물 | 투자의견 | 확신도 | 적정가/매수가 | 핵심 논거 |
-|---|---|---|---|---|
-...
-
-*본 보고서는 서적 기반 시뮬레이션이며 투자 자문이 아닙니다.*
-
-[작성 절대 규칙]
-1. 헤더 3줄(종합 의견·표결·현재가·종합 적정 내재가치·투자 실행 밴드)은 반드시 완성하라 — 이 헤더는 파싱 기준이므로 누락하면 판정이 어긋난다.
-2. 서론, '요약의 요약', 데이터팩 재인용, 생각 과정(Thinking) 출력은 금지한다. 헤더 바로 다음 줄부터 '## 1.' 섹션을 시작하라.
-3. 각 섹션은 충분한 근거와 명확한 수치를 바탕으로 밀도 있고 설득력 있게 작성하되, 불필요한 미사여구나 중복 추론은 배제하라.
-4. 핵심 밸류에이션 논거와 13인 요약표 작성이 끝나면 장황한 꼬리물기 없이 즉시 완결하라.
-"""
-        logger.info(f"[{datapack.ticker}] 최종 마스터 보고서 AI 생성 시작 (32K 지원)...")
-        master_md = await self.ai.chat(prompt)
-        logger.info(f"[{datapack.ticker}] 최종 마스터 보고서 AI 생성 완료 (길이: {len(master_md)}자)")
-
-        from app.domains.report.structuring import (
-            extract_master_sections,
-            parse_price_range,
-            parse_number,
-        )
-
-        # 4단계: LLM 리서치 센터장의 최종 투자의견 및 밸류에이션 합의치 파싱
-        votes = discussion.final_vote_counts
-        overall_verdict, overall_score = self.parse_report_verdict(
-            master_md, fallback_votes=votes
-        )
-        val_consensus = self.parse_report_valuation(master_md)
-        sec_data = extract_master_sections(master_md)
-
-        vote_summary = (
-            f"매수 {votes.get('매수', 0)} · 보유 {votes.get('보유', 0)} · "
-            f"관망 {votes.get('관망', 0)} · 매도 {votes.get('매도', 0)}"
-        )
-
-        b_low, b_high = parse_price_range(val_consensus["target_price_band"])
-        _, s_val = parse_price_range(val_consensus["safety_entry_price"])
-        if s_val is None:
-            s_val = parse_number(val_consensus["safety_entry_price"])
-        t_val = parse_number(val_consensus["optimistic_target_price"])
-
-        bull_str = "; ".join(sec_data["bull_points"]) if sec_data["bull_points"] else "독점적 해자 및 실적 성장"
-        bear_str = "; ".join(sec_data["bear_points"]) if sec_data["bear_points"] else "단기 밸류에이션 부담 및 매크로 불확실성"
-
-        return FinalMasterReport(
-            ticker=datapack.ticker,
-            date=datapack.date,
-            overall_verdict=overall_verdict,
-            overall_score=overall_score,
-            vote_summary=vote_summary,
-            fair_value_price=val_consensus["fair_value_price"],
-            target_price_band=val_consensus["target_price_band"],
-            safety_entry_price=val_consensus["safety_entry_price"],
-            optimistic_target_price=val_consensus["optimistic_target_price"],
-            valuation_review_flags=val_consensus["review_flags"],
-            bull_case=bull_str[:200],
-            bear_case=bear_str[:200],
-            conclusion=sec_data["conclusion"],
-            hot_topics=sec_data["hot_topics"],
-            bull_points=sec_data["bull_points"],
-            bear_points=sec_data["bear_points"],
-            key_drivers=sec_data["key_drivers"],
-            band_low=b_low,
-            band_high=b_high,
-            safety_entry_value=s_val,
-            target_sell_value=t_val,
-            parse_mode="json" if val_consensus.get("parse_mode") == "json" else "regex",
-            raw_markdown=master_md,
-            discussion=discussion.raw_markdown,
-        )
-
     def parse_report_valuation(self, raw_md: str) -> dict[str, Any]:
         """
         LLM 마스터 보고서 마크다운에서 종합 적정 내재가치 및 투자 실행 밴드를 파싱합니다.

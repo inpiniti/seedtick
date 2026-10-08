@@ -123,6 +123,7 @@ export interface GuruSummaryItem {
   target_price_range?: string | null;
   trigger_conditions?: string[];
   quote?: string;
+  parse_mode?: "json" | "regex" | "fallback" | "legacy";
 }
 
 export interface ValuationConsensus {
@@ -130,6 +131,9 @@ export interface ValuationConsensus {
   target_price_band?: string | null;
   safety_entry_price?: string | null;
   optimistic_target_price?: string | null;
+  dispersion_pct?: number | null;
+  price_estimate_count?: number | null;
+  method?: string | null;
 }
 
 export interface GuruReportRow {
