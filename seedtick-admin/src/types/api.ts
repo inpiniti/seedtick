@@ -38,6 +38,10 @@ export interface HealthStatus {
     is_open: boolean;
     status_text: string;
   };
+  kr_market_today?: {
+    is_open: boolean;
+    status_text: string;
+  };
 }
 
 // 2. 서버 IP (/api/ip)
@@ -359,6 +363,7 @@ export interface PipelineProgress {
   elapsed_seconds: number;
   date: string | null;
   triggered_by: string | null;
+  market?: string | null;
   stage: PipelineStageKey | null;
   stage_index: number;
   stage_label: string | null;

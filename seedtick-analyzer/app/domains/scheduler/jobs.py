@@ -25,30 +25,34 @@ async def daily_pipeline_job(
     force: bool = False,
     max_analyze_count: int | None = None,
     skip_already_reported: bool = True,
+    market: str = "all",
+    triggered_by: str = "manual",
 ) -> dict:
     """
-    일일 스크리닝 → 13인 분석 파이프라인 전체 실행 래퍼.
+    일일 스크리닝 → 13인 분석 파이프라인 실행 래퍼.
 
+    - market: 'us' (미국장 전용), 'kr' (한국장 전용), 'all' (통합)
     - 중복 실행 락을 획득한 뒤 메모리 진행 추적기(pipeline_progress)를 "실행중"으로 등록합니다.
     - 관리자 화면은 GET /api/scheduler/progress 를 폴링하여 실시간 진행률을 표시합니다.
     - skip_already_reported: True인 경우 오늘 이미 guru_reports에 등록된 종목은 제외하고 분석
     """
     if _pipeline_lock.locked():
-        logger.warning("[Scheduler] 이미 일일 파이프라인이 실행 중입니다. 중복 실행 차단.")
-        return {"status": "skipped", "reason": "already_running"}
+        logger.warning(f"[Scheduler] 이미 파이프라인이 실행 중입니다. 중복 실행 차단. (market={market})")
+        return {"status": "skipped", "reason": "already_running", "market": market}
 
     async with _pipeline_lock:
         today_str = dt_date.today().isoformat()
-        pipeline_progress.start(date=today_str, triggered_by="manual")
+        pipeline_progress.start(date=today_str, triggered_by=triggered_by, market=market)
         try:
             result = await _run_daily_pipeline(
                 dry_run=dry_run,
                 force=force,
                 max_analyze_count=max_analyze_count,
                 skip_already_reported=skip_already_reported,
+                market=market,
             )
         except Exception as e:
-            logger.exception(f"[Scheduler] 일일 파이프라인 예외 발생: {e}")
+            logger.exception(f"[Scheduler] 파이프라인 예외 발생 (market={market}): {e}")
             pipeline_progress.finish("failed", error=str(e))
             raise
         pipeline_progress.finish(
@@ -58,86 +62,151 @@ async def daily_pipeline_job(
         return result
 
 
-async def _run_daily_pipeline(
+async def us_daily_pipeline_job(
     dry_run: bool | None = None,
     force: bool = False,
     max_analyze_count: int | None = None,
     skip_already_reported: bool = True,
 ) -> dict:
+    """
+    미국 주식 일일 파이프라인 잡 (평일 오전 09:00 KST 정기 배치):
+    - 미국 증시(NYSE) 휴장일 가드 검사
+    - 토스 해외 200 + DataRoma 스크리닝 종목 13인 정밀 분석
+    """
+    logger.info("[Scheduler] 미국 주식 일일 파이프라인(09:00 KST) 실행 시작")
+    return await daily_pipeline_job(
+        dry_run=dry_run,
+        force=force,
+        max_analyze_count=max_analyze_count,
+        skip_already_reported=skip_already_reported,
+        market="us",
+        triggered_by="scheduler_us",
+    )
+
+
+async def kr_daily_pipeline_job(
+    dry_run: bool | None = None,
+    force: bool = False,
+    max_analyze_count: int | None = None,
+    skip_already_reported: bool = True,
+) -> dict:
+    """
+    한국 주식 일일 파이프라인 잡 (평일 오후 16:00 KST 정기 배치):
+    - 한국 증시(KRX) 휴장일 가드 검사
+    - 한국장 실시간 발굴(토스 공통 조건강화 5단계) 종목 13인 정밀 분석
+    """
+    logger.info("[Scheduler] 국내 주식 일일 파이프라인(16:00 KST) 실행 시작")
+    return await daily_pipeline_job(
+        dry_run=dry_run,
+        force=force,
+        max_analyze_count=max_analyze_count,
+        skip_already_reported=skip_already_reported,
+        market="kr",
+        triggered_by="scheduler_kr",
+    )
+
+
+async def _run_daily_pipeline(
+    dry_run: bool | None = None,
+    force: bool = False,
+    max_analyze_count: int | None = None,
+    skip_already_reported: bool = True,
+    market: str = "all",
+) -> dict:
     today = dt_date.today()
     today_str = today.isoformat()
-    logger.info(f"========== [SeedTick 일일 파이프라인 시작: {today_str}] ==========")
+    market_lower = market.lower()
+    market_label = {"us": "미국장(US)", "kr": "한국장(KR)"}.get(market_lower, "전체(US+KR)")
+    logger.info(f"========== [SeedTick {market_label} 파이프라인 시작: {today_str}] ==========")
 
     market_guard = MarketCalendarGuard()
     notifier = DiscordNotifier()
 
     # ── 1. 휴장일 및 주말 가드 검사 ──────────────────────
     pipeline_progress.set_stage("screening")
-    is_open, reason = market_guard.is_market_open(today)
+    if market_lower == "us":
+        is_open, reason = market_guard.is_us_market_open(today)
+    elif market_lower == "kr":
+        is_open, reason = market_guard.is_kr_market_open(today)
+    else:
+        us_open, us_reason = market_guard.is_us_market_open(today)
+        kr_open, kr_reason = market_guard.is_kr_market_open(today)
+        is_open = us_open or kr_open
+        reason = f"미국({us_reason}), 한국({kr_reason})"
+
     if not is_open and not force:
-        logger.info(f"[Scheduler] 파이프라인 스킵 사유: {reason}")
-        pipeline_progress.log(f"파이프라인 스킵: {reason}")
-        await notifier.notify_holiday_skip(reason)
-        return {"status": "skipped", "reason": reason}
+        logger.info(f"[Scheduler] {market_label} 파이프라인 스킵 사유: {reason}")
+        pipeline_progress.log(f"{market_label} 파이프라인 스킵: {reason}")
+        await notifier.notify_holiday_skip(reason, market=market_lower)
+        return {"status": "skipped", "reason": reason, "market": market_lower}
 
     if force:
-        logger.info("[Scheduler] force=True 플래그로 인해 휴장일 가드를 우회하여 강제 실행합니다.")
+        logger.info(f"[Scheduler] force=True 플래그로 인해 {market_label} 휴장일 가드를 우회하여 강제 실행합니다.")
 
-    # ── 2. 스크리너 실행 (토스 공통/해외 200) ──────────────
-    screener_service = ScreenerService()
-    screen_result = await screener_service.get_stock_list()
-    logger.info(f"[Scheduler] 스크리닝 통과 종목: 총 {screen_result.count}개")
-
-    # ── 2-0. 두번째 스크리너(DataRoma) 병합 (중복 티커 제거) ─────
-    # - 토스 스크리너 통과 종목을 1순위로 유지하고, roma 전용 종목만 뒤에 추가
-    # - 이미 토스에 있는 종목은 screeners 라벨에 'roma'만 병합 (분석 중복 없음)
-    ticker_screeners_map: dict[str, list[str]] = {
-        item.ticker: list(item.screeners) for item in screen_result.tickers
-    }
-    ordered_tickers: list[str] = [item.ticker for item in screen_result.tickers]
+    ticker_screeners_map: dict[str, list[str]] = {}
+    ordered_tickers: list[str] = []
+    toss_us_count = 0
     roma_count = 0
     roma_added_count = 0
-    try:
-        roma_result = await RomaScreenerService().get_stock_list()
-        roma_count = roma_result.count
-        for item in roma_result.items:
-            ticker = item.ticker
-            if ticker in ticker_screeners_map:
-                if "roma" not in ticker_screeners_map[ticker]:
-                    ticker_screeners_map[ticker].append("roma")
-                continue
-            ticker_screeners_map[ticker] = list(item.screeners)
-            ordered_tickers.append(ticker)
-            roma_added_count += 1
-        logger.info(
-            f"[Scheduler] DataRoma 병합 완료: 보유 종목 {roma_count}개 "
-            f"(신규 편입 {roma_added_count}개, 최종 대상 {len(ordered_tickers)}개)"
-        )
-    except Exception as e:
-        logger.warning(f"[Scheduler] DataRoma 스크리너 조회 실패 (토스 스크리닝만 진행): {e}")
-
-    # ── 2-0-B. 한국장 실시간 발굴 병합 (토스 공통 + 조건 강화 5단계 적용) ─────
-    # - 국장은 전체 조건(공통)으로만 조회하며, 조건강화옵션(5단계)을 적용해
-    #   100여 개 종목 중 재무 건전성 및 수익성이 가장 우수한 정예 종목만 추출
+    kr_screen_count = 0
     kr_added_count = 0
-    try:
-        kr_criteria = ScreenCriteria(nation="kr", preset="공통", tighten_step=5, size=50)
-        kr_result = await screener_service.get_stock_list(kr_criteria)
-        for item in kr_result.tickers:
-            ticker = item.ticker
-            if ticker in ticker_screeners_map:
-                if "국장공통" not in ticker_screeners_map[ticker]:
-                    ticker_screeners_map[ticker].append("국장공통")
-                continue
-            ticker_screeners_map[ticker] = list(item.screeners) if item.screeners else ["국장공통"]
-            ordered_tickers.append(ticker)
-            kr_added_count += 1
-        logger.info(
-            f"[Scheduler] 한국장 스크리너(조건강화 5단계) 병합 완료: 발굴 {kr_result.count}개 "
-            f"(신규 편입 {kr_added_count}개, 최종 대상 {len(ordered_tickers)}개)"
-        )
-    except Exception as e:
-        logger.warning(f"[Scheduler] 한국장 스크리너 조회 실패 (미국장 위주 진행): {e}")
+    screener_service = ScreenerService()
+
+    # ── 2-A. 미국장 스크리너 실행 (market in ('us', 'all')) ───────────────────
+    should_run_us = market_lower in ("us", "all") and (force or market_guard.is_us_market_open(today)[0])
+    if should_run_us:
+        try:
+            screen_result = await screener_service.get_stock_list()
+            toss_us_count = screen_result.count
+            logger.info(f"[Scheduler] 토스 해외 200 스크리닝 통과 종목: 총 {screen_result.count}개")
+            for item in screen_result.tickers:
+                ticker_screeners_map[item.ticker] = list(item.screeners)
+                ordered_tickers.append(item.ticker)
+        except Exception as e:
+            logger.warning(f"[Scheduler] 토스 해외 200 스크리너 조회 실패: {e}")
+
+        # DataRoma 스크리너 병합
+        try:
+            roma_result = await RomaScreenerService().get_stock_list()
+            roma_count = roma_result.count
+            for item in roma_result.items:
+                ticker = item.ticker
+                if ticker in ticker_screeners_map:
+                    if "roma" not in ticker_screeners_map[ticker]:
+                        ticker_screeners_map[ticker].append("roma")
+                    continue
+                ticker_screeners_map[ticker] = list(item.screeners)
+                ordered_tickers.append(ticker)
+                roma_added_count += 1
+            logger.info(
+                f"[Scheduler] DataRoma 병합 완료: 보유 종목 {roma_count}개 "
+                f"(신규 편입 {roma_added_count}개, 미국 대상 누적 {len(ordered_tickers)}개)"
+            )
+        except Exception as e:
+            logger.warning(f"[Scheduler] DataRoma 스크리너 조회 실패: {e}")
+
+    # ── 2-B. 한국장 스크리너 실행 (market in ('kr', 'all')) ───────────────────
+    should_run_kr = market_lower in ("kr", "all") and (force or market_guard.is_kr_market_open(today)[0])
+    if should_run_kr:
+        try:
+            kr_criteria = ScreenCriteria(nation="kr", preset="공통", tighten_step=5, size=50)
+            kr_result = await screener_service.get_stock_list(kr_criteria)
+            kr_screen_count = kr_result.count
+            for item in kr_result.tickers:
+                ticker = item.ticker
+                if ticker in ticker_screeners_map:
+                    if "국장공통" not in ticker_screeners_map[ticker]:
+                        ticker_screeners_map[ticker].append("국장공통")
+                    continue
+                ticker_screeners_map[ticker] = list(item.screeners) if item.screeners else ["국장공통"]
+                ordered_tickers.append(ticker)
+                kr_added_count += 1
+            logger.info(
+                f"[Scheduler] 한국장 스크리너(조건강화 5단계) 병합 완료: 발굴 {kr_result.count}개 "
+                f"(신규 편입 {kr_added_count}개, 전체 대상 누적 {len(ordered_tickers)}개)"
+            )
+        except Exception as e:
+            logger.warning(f"[Scheduler] 한국장 스크리너 조회 실패: {e}")
 
     # 분석 대상 종목 선정 (기본 0 또는 None이면 전체 무제한 정밀 분석)
     limit = max_analyze_count if max_analyze_count is not None else settings.MAX_ANALYZE_COUNT
@@ -170,6 +239,19 @@ async def _run_daily_pipeline(
     # 진행 추적기에 분석 대상 등록 (화면의 "n/총" 분모가 됨)
     pipeline_progress.set_targets(target_tickers)
 
+    if not target_tickers:
+        logger.info(f"[Scheduler] {market_label} 분석할 대상 종목이 없습니다 (이미 완료되었거나 스크리닝 결과 없음).")
+        pipeline_progress.log(f"{market_label} 분석 대상 종목이 없어 파이프라인을 종료합니다.")
+        return {
+            "status": "success",
+            "date": today_str,
+            "market": market_lower,
+            "screened_count": len(ordered_tickers),
+            "reported_count": 0,
+            "skipped_already_reported_count": len(skipped_tickers),
+            "orders_count": 0,
+        }
+
     # ── 3. 종목별 5단계 Guru-Report 실행 ──────────────────
     report_service = GuruReportService(progress=pipeline_progress)
     generated_reports = []
@@ -198,21 +280,27 @@ async def _run_daily_pipeline(
         screened_count=len(ordered_tickers),
         reported_count=len(generated_reports),
         orders=[],
+        market=market_lower,
     )
 
-    logger.info("========== [SeedTick 일일 파이프라인 정상 완료] ==========")
+    logger.info(f"========== [SeedTick {market_label} 파이프라인 정상 완료] ==========")
     return {
         "status": "success",
         "date": today_str,
+        "market": market_lower,
         "screened_count": len(ordered_tickers),
-        "toss_screened_count": screen_result.count,
+        "toss_screened_count": toss_us_count,
+        "toss_us_screened_count": toss_us_count,
         "roma_screened_count": roma_count,
         "roma_added_count": roma_added_count,
+        "kr_screened_count": kr_screen_count,
+        "kr_added_count": kr_added_count,
         "reported_count": len(generated_reports),
         "skipped_already_reported_count": len(skipped_tickers),
         "skipped_already_reported_tickers": skipped_tickers,
         "orders_count": 0,
     }
+
 
 
 async def cleanup_old_logs_job(hours: int = 24) -> dict:

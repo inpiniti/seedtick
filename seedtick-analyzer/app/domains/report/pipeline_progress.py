@@ -44,6 +44,7 @@ class PipelineProgressTracker:
     def _idle_state() -> dict[str, Any]:
         return {
             "status": "idle",
+            "market": None,
             "started_at": None,
             "finished_at": None,
             "date": None,
@@ -88,18 +89,27 @@ class PipelineProgressTracker:
         return state
 
     # ── 생명주기 ─────────────────────────────────────────
-    def start(self, *, date: str | None = None, triggered_by: str = "manual") -> None:
+    def start(
+        self,
+        *,
+        date: str | None = None,
+        triggered_by: str = "manual",
+        market: str = "all",
+    ) -> None:
         with self._lock:
             self._state = self._idle_state()
             self._state.update(
                 {
                     "status": "running",
+                    "market": market,
                     "started_at": _now_iso(),
                     "date": date,
                     "triggered_by": triggered_by,
                 }
             )
-            self._append_event_locked("파이프라인 시작")
+            m_label = {"us": "미국장(US)", "kr": "한국장(KR)"}.get(market.lower(), "전체(US+KR)")
+            self._append_event_locked(f"파이프라인 시작 [{m_label}]")
+
 
     def finish(
         self,

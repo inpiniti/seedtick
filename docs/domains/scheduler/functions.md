@@ -1,6 +1,6 @@
 # Scheduler 함수 명세
 
-## 1. MarketCalendarGuard (미장 개장일 판별)
+## 1. MarketCalendarGuard (미국장/한국장 개장일 판별)
 
 ```python
 from datetime import date
@@ -8,24 +8,18 @@ import holidays
 
 class MarketCalendarGuard:
     def __init__(self):
-        # 미국 증시(NYSE) 공식 휴일 캘린더
+        # 미국 증시(NYSE) 및 한국 거래소(KRX) 공식 휴일 캘린더
         self._nyse_holidays = holidays.financial_holidays("NYSE")
+        self._krx_holidays = holidays.financial_holidays("KRX")
 
-    def is_market_open(self, target_date: date) -> tuple[bool, str]:
-        """
-        해당 일자가 미국 정규장 거래일인지 확인
-        Returns: (개장여부, 사유문구)
-        """
-        # 1. 주말 체크 (5: 토, 6: 일)
-        if target_date.weekday() in (5, 6):
-            return False, f"주말({target_date.strftime('%A')})"
+    def is_us_market_open(self, target_date: date | None = None) -> tuple[bool, str]:
+        """해당 일자가 미국 정규장(NYSE/NASDAQ) 거래일인지 확인"""
 
-        # 2. 미국 공휴일 체크
-        if target_date in self._nyse_holidays:
-            holiday_name = self._nyse_holidays.get(target_date)
-            return False, f"미국 증시 공휴일({holiday_name})"
+    def is_kr_market_open(self, target_date: date | None = None) -> tuple[bool, str]:
+        """해당 일자가 한국 정규장(KRX) 거래일인지 확인"""
 
-        return True, "정상 개장일"
+    def is_market_open(self, target_date: date | None = None, market: str = "us") -> tuple[bool, str]:
+        """시장별('us' 또는 'kr') 거래일 판별 (하위 호환성 유지)"""
 ```
 
 ---
@@ -39,10 +33,16 @@ FastAPI lifespan에서 앱 시작 시 호출.
 ```python
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await scheduler.start()    # 시작 (Cron: 월~금 12:00 KST)
+    scheduler_service.start()
+    # 등록 잡:
+    # 00:01 KST - reset_model_rotation_job
+    # 08:00 KST - cleanup_old_logs_job
+    # 09:00 KST - us_daily_pipeline_job (월~금)
+    # 16:00 KST - kr_daily_pipeline_job (월~금)
     yield
-    await scheduler.shutdown() # 종료
+    scheduler_service.shutdown()
 ```
+
 
 ### `trigger_daily_pipeline(dry_run: bool = False, force: bool = False) -> TriggerResult`
 
