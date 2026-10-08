@@ -153,7 +153,8 @@ export async function fetchTickerLogos(tickers: string[], maxCount = 12): Promis
   });
 }
 
-/** 4. 종목 일봉 캔들 및 볼린저 밴드 조회 */
+import { isValidChartTicker } from "@/lib/insightUtils";
+
 export function normalizeTickerForChart(ticker: string): string {
   return ticker.trim().toUpperCase().replace(/\./g, "-");
 }
@@ -164,6 +165,9 @@ export async function fetchStockChart(
   interval = "1d"
 ): Promise<StockChartResponse> {
   const normalizedTicker = normalizeTickerForChart(ticker);
+  if (!isValidChartTicker(normalizedTicker)) {
+    throw new Error(`유효하지 않은 차트 티커입니다: ${ticker}`);
+  }
   return request<StockChartResponse>(
     `/api/screener/chart/${encodeURIComponent(normalizedTicker)}?range=${range}&interval=${interval}`
   );

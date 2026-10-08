@@ -41,6 +41,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import {
   chartTickerKey,
+  isValidChartTicker,
   buildIntrinsicStability,
   extractValuationConsensus,
   IntrinsicStability,
@@ -115,6 +116,8 @@ export default function AdminDashboardPage() {
   const [percentBByTicker, setPercentBByTicker] = useState<
     Record<string, number | null>
   >({});
+  const percentBByTickerRef = useRef<Record<string, number | null>>({});
+  percentBByTickerRef.current = percentBByTicker;
 
   // 6. 13인 거장 파이프라인 진행 상태
   const { progress: pipelineProgress, refresh: refreshPipelineProgress } =
@@ -291,28 +294,45 @@ export default function AdminDashboardPage() {
     }
   }, []);
 
-  // %B 비동기 청크 로딩 (백그라운드에서 한 번에 6개씩 일봉 데이터 조회 후 캐싱)
+  // %B 비동기 우선순위 로딩 (홈/카탈로그 노출 종목 위주로 차트 요청 및 비정상 티커 필터링)
   useEffect(() => {
-    const allTickers = Array.from(
+    // 홈 및 카탈로그 화면에서 실제 노출되는 우선순위 종목 위주로 조회 (과도한 전체 배치 요청 방지)
+    const priorityTickers = Array.from(
       new Set([
-        ...guruReports.map((r) => r.ticker),
-        ...liveCandidates.map((c) => c.ticker),
-        ...krCandidates.map((c) => c.ticker),
-        ...romaCandidates.map((c) => c.ticker),
+        ...guruReports.slice(0, 25).map((r) => r.ticker),
+        ...liveCandidates.slice(0, 15).map((c) => c.ticker),
+        ...krCandidates.slice(0, 15).map((c) => c.ticker),
+        ...romaCandidates.slice(0, 15).map((c) => c.ticker),
       ])
     )
       .map((t) => chartTickerKey(t))
-      .filter((t) => Boolean(t) && percentBByTicker[t] === undefined);
+      .filter((t) => Boolean(t) && percentBByTickerRef.current[t] === undefined);
 
-    if (allTickers.length === 0) return;
+    if (priorityTickers.length === 0) return;
+
+    const invalidTickers = priorityTickers.filter((t) => !isValidChartTicker(t));
+    const validTickers = priorityTickers.filter((t) => isValidChartTicker(t));
+
+    // 유효하지 않은 티커(예: 토스 내부 코드 등)는 네트워크 요청 없이 즉시 null 처리
+    if (invalidTickers.length > 0) {
+      setPercentBByTicker((prev) => {
+        const next = { ...prev };
+        for (const t of invalidTickers) {
+          next[t] = null;
+        }
+        return next;
+      });
+    }
+
+    if (validTickers.length === 0) return;
 
     let cancelled = false;
-    const chunkSize = 6;
+    const chunkSize = 4;
 
     const loadPercentB = async () => {
-      for (let i = 0; i < allTickers.length; i += chunkSize) {
+      for (let i = 0; i < validTickers.length; i += chunkSize) {
         if (cancelled) return;
-        const chunk = allTickers.slice(i, i + chunkSize);
+        const chunk = validTickers.slice(i, i + chunkSize);
 
         const results = await Promise.all(
           chunk.map(async (ticker) => {
@@ -341,7 +361,7 @@ export default function AdminDashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [guruReports, liveCandidates, krCandidates, romaCandidates, percentBByTicker]);
+  }, [guruReports, liveCandidates, krCandidates, romaCandidates]);
 
   const handleResetAiModel = async () => {
     setIsResettingModel(true);

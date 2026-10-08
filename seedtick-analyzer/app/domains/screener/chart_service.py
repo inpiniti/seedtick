@@ -62,8 +62,10 @@ class ChartService:
                     continue
 
         if last_error:
+            if isinstance(last_error, httpx.HTTPStatusError) and last_error.response.status_code == 404:
+                raise ValueError(f"[{clean_ticker}] Yahoo Finance에서 종목 차트를 찾을 수 없습니다.") from last_error
             raise last_error
-        raise RuntimeError(f"[{clean_ticker}] 차트 데이터를 가져오지 못했습니다.")
+        raise ValueError(f"[{clean_ticker}] 차트 데이터를 가져오지 못했습니다.")
 
     def calculate_bollinger(
         self, dates: list[str], closes: list[float], period: int = 20, k: float = 2.0
@@ -170,11 +172,19 @@ class ChartService:
         티커의 일봉 차트 데이터 및 볼린저 밴드 계산 최종 응답 생성
         """
         clean_ticker = ticker.upper().strip()
-        data = await self.fetch_raw_yahoo_chart(clean_ticker, range_period, interval)
+        # 토스 종목코드(예: US19890516001, NAS0250224006)가 들어온 경우 심볼로 자동 역변환
+        resolved_ticker = clean_ticker
+        from app.domains.screener.clients.toss_wts import is_toss_stock_code, TossWtsClient
+        if is_toss_stock_code(clean_ticker):
+            sym = await TossWtsClient.resolve_stock_code_async(clean_ticker)
+            if sym:
+                resolved_ticker = sym
+
+        data = await self.fetch_raw_yahoo_chart(resolved_ticker, range_period, interval)
 
         chart_result = data.get("chart", {}).get("result", [])
         if not chart_result:
-            raise ValueError(f"[{clean_ticker}] 유효한 차트 데이터를 찾을 수 없어요.")
+            raise ValueError(f"[{resolved_ticker}] 유효한 차트 데이터를 찾을 수 없어요.")
 
         res_obj = chart_result[0]
         timestamps = res_obj.get("timestamp", [])
@@ -239,7 +249,7 @@ class ChartService:
                 )
 
         return StockChartResponse(
-            ticker=clean_ticker,
+            ticker=resolved_ticker,
             period=range_period,
             interval=interval,
             candles=candles,

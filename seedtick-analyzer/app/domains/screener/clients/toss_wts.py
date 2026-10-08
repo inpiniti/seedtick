@@ -5,6 +5,7 @@
 """
 import asyncio
 import logging
+import re
 import time
 import uuid
 from typing import Any
@@ -12,6 +13,29 @@ from typing import Any
 import httpx
 
 logger = logging.getLogger("toss_wts_client")
+
+# 토스 주식 코드(예: US19890516001, NAS0250224006) -> 티커 심볼 캐시
+_STOCK_CODE_TO_SYMBOL_CACHE: dict[str, str] = {
+    "US19801212001": "AAPL",
+    "US19860313001": "MSFT",
+    "US19890516001": "MU",
+    "US19910131001": "WDC",
+    "US19970515001": "AMZN",
+    "US19990122001": "NVDA",
+    "US20040819001": "GOOG",
+    "US20040819002": "GOOGL",
+    "US20100629001": "TSLA",
+    "US20120518001": "META",
+    "NAS0250224006": "SNDK",
+}
+
+
+def is_toss_stock_code(code: str | None) -> bool:
+    """토스 내부 주식 코드(USxxxxxxxxxx, NASxxxxxxxxxx 등)인지 여부 확인"""
+    if not code:
+        return False
+    c = str(code).strip().upper()
+    return bool(re.match(r"^(US\d{8}|NAS\d{8}|NYS\d{8}|AMS\d{8})", c))
 
 INIT_URL = "https://wts-api.tossinvest.com/api/v3/init"
 SCREEN_URL = "https://wts-cert-api.tossinvest.com/api/v2/screener/screen"
@@ -640,9 +664,14 @@ class TossWtsClient:
             price = (close_dict.get("usd") if is_us else close_dict.get("krw")) or close_dict.get("usd") or close_dict.get("krw")
             prev_close = (base_dict.get("usd") if is_us else base_dict.get("krw")) or base_dict.get("usd") or base_dict.get("krw")
 
+            stock_code = s.get("stockCode") or ""
+            initial_ticker = stock_code.lstrip("A")
+            if is_us and stock_code in _STOCK_CODE_TO_SYMBOL_CACHE:
+                initial_ticker = _STOCK_CODE_TO_SYMBOL_CACHE[stock_code]
+
             row = {
-                "ticker": (s.get("stockCode") or "").lstrip("A"),
-                "stockCode": s.get("stockCode"),
+                "ticker": initial_ticker,
+                "stockCode": stock_code,
                 "name": s.get("name"),
                 "logoImageUrl": s.get("logoImageUrl"),
                 "price": price,
@@ -679,27 +708,35 @@ class TossWtsClient:
         if not codes:
             return flat
 
-        infos = await self._fetch_stock_infos_by_codes(codes)
-        mapping: dict[str, str] = {}
-        for info in infos:
-            code, symbol = info.get("code"), info.get("symbol")
-            if code and symbol:
-                mapping[code] = symbol
-
+        # 1. 이미 캐시에 등록된 심볼 먼저 매핑
         for s in stocks:
-            sym = mapping.get(s.get("stockCode"))
-            if sym:
-                s["ticker"] = sym
+            sc = s.get("stockCode")
+            if sc and sc in _STOCK_CODE_TO_SYMBOL_CACHE:
+                s["ticker"] = _STOCK_CODE_TO_SYMBOL_CACHE[sc]
+
+        # 2. 아직 캐시에 없는 종목코드만 API 조회
+        missing_codes = [c for c in codes if c and (c not in _STOCK_CODE_TO_SYMBOL_CACHE or is_toss_stock_code(s.get("ticker")))]
+        if missing_codes:
+            infos = await self._fetch_stock_infos_by_codes(missing_codes)
+            for info in infos:
+                code, symbol = info.get("code"), info.get("symbol")
+                if code and symbol:
+                    _STOCK_CODE_TO_SYMBOL_CACHE[code] = symbol
+
+            for s in stocks:
+                sc = s.get("stockCode")
+                if sc and sc in _STOCK_CODE_TO_SYMBOL_CACHE:
+                    s["ticker"] = _STOCK_CODE_TO_SYMBOL_CACHE[sc]
 
         return flat
 
     async def _fetch_stock_infos_by_codes(self, codes: list[str]) -> list[dict]:
-        normalized_codes = [c for c in codes if c]
+        normalized_codes = list(dict.fromkeys(c for c in codes if c))
         if not normalized_codes:
             return []
 
         results: list[dict] = []
-        chunk_size = 100
+        chunk_size = 50
         async with httpx.AsyncClient(
             timeout=HTTP_TIMEOUT,
             headers={
@@ -710,13 +747,47 @@ class TossWtsClient:
         ) as client:
             for i in range(0, len(normalized_codes), chunk_size):
                 chunk = normalized_codes[i : i + chunk_size]
-                try:
-                    res = await client.get(f"{INFO_URL}?codes={','.join(chunk)}")
-                    if res.status_code == 200:
-                        results.extend(res.json().get("result") or [])
-                except Exception as e:
-                    logger.warning(f"[TossWTS] stock-infos 조회 오류: {e}")
+                for attempt in range(3):
+                    try:
+                        res = await client.get(f"{INFO_URL}?codes={','.join(chunk)}")
+                        if res.status_code == 200:
+                            items = res.json().get("result") or []
+                            results.extend(items)
+                            for item in items:
+                                c = item.get("code")
+                                sym = item.get("symbol")
+                                if c and sym:
+                                    _STOCK_CODE_TO_SYMBOL_CACHE[c] = sym
+                            break
+                        elif res.status_code in (429, 500, 502, 503):
+                            await asyncio.sleep(0.3 * (2 ** attempt))
+                            continue
+                    except Exception as e:
+                        if attempt < 2:
+                            await asyncio.sleep(0.3 * (2 ** attempt))
+                        else:
+                            logger.warning(f"[TossWTS] stock-infos 조회 최종 실패: {e}")
         return results
+
+    @classmethod
+    def resolve_stock_code_cached(cls, code: str) -> str | None:
+        """캐시된 토스 종목코드의 티커 심볼 반환"""
+        return _STOCK_CODE_TO_SYMBOL_CACHE.get(code)
+
+    @classmethod
+    async def resolve_stock_code_async(cls, code: str) -> str | None:
+        """토스 종목코드를 티커 심볼로 변환 (캐시 확인 후 미존재 시 API 조회)"""
+        if code in _STOCK_CODE_TO_SYMBOL_CACHE:
+            return _STOCK_CODE_TO_SYMBOL_CACHE[code]
+        client = cls()
+        infos = await client._fetch_stock_infos_by_codes([code])
+        if infos:
+            for info in infos:
+                c, sym = info.get("code"), info.get("symbol")
+                if c and sym:
+                    _STOCK_CODE_TO_SYMBOL_CACHE[c] = sym
+            return _STOCK_CODE_TO_SYMBOL_CACHE.get(code)
+        return None
 
     async def search_stocks(self, query: str) -> list[dict]:
         normalized = (query or "").strip()

@@ -21,6 +21,19 @@ export function chartTickerKey(ticker: string): string {
   return ticker.trim().toUpperCase().replace(/\./g, "-");
 }
 
+export function isValidChartTicker(ticker?: string | null): boolean {
+  if (!ticker || typeof ticker !== "string") return false;
+  const clean = ticker.trim().toUpperCase();
+  if (!clean) return false;
+  // 토스 내부 주식 코드 (US19890516001, NAS0250224006 등) 차단
+  if (/^(US|NAS|NYS|AMS)\d{6,}/i.test(clean)) return false;
+  // 한국 종목코드 (6자리 숫자, 예: 033100)
+  if (/^\d{6}$/.test(clean)) return true;
+  // 미국 및 글로벌 티커 (예: AAPL, BRK-B, NVDA 등)
+  if (/^[A-Z0-9.-]{1,10}$/.test(clean)) return true;
+  return false;
+}
+
 export function extractValuationConsensus(
   report?: GuruReportRow | null
 ): ValuationConsensus | null {
