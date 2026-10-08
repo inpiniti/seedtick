@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect } from "react";
+import Link from "next/link";
 import {
   Target,
   Users,
@@ -13,7 +14,6 @@ import {
 } from "lucide-react";
 import { SeedTickLogoBadge } from "@/components/ui/SeedTickLogo";
 
-
 export type SidebarSectionId =
   | "all"
   | "sec-reports"
@@ -21,6 +21,15 @@ export type SidebarSectionId =
   | "sec-screener"
   | "sec-audit"
   | "sec-gurus";
+
+export const SECTION_HREF_MAP: Record<SidebarSectionId, string> = {
+  all: "/",
+  "sec-reports": "/stocks",
+  "sec-roma": "/screener?tab=roma",
+  "sec-screener": "/screener",
+  "sec-gurus": "/gurus",
+  "sec-audit": "/admin",
+};
 
 interface NavItem {
   id: SidebarSectionId;
@@ -187,7 +196,8 @@ export function ResearchSidebar({
               const Icon = item.icon;
               return (
                 <li key={item.id}>
-                  <button
+                  <Link
+                    href={SECTION_HREF_MAP[item.id] || "/"}
                     onClick={() => handleItemClick(item.id)}
                     className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 text-xs rounded-md transition-colors text-left cursor-pointer ${
                       isActive
@@ -219,7 +229,7 @@ export function ResearchSidebar({
                         {item.badge}
                       </span>
                     )}
-                  </button>
+                  </Link>
                 </li>
               );
             })}
@@ -246,12 +256,14 @@ export function ResearchSidebar({
             "모니시 파브라이",
             "코스톨라니",
           ].map((guru, idx) => (
-            <span
+            <Link
               key={idx}
-              className="font-mono text-[10px] px-2 py-0.5 rounded border border-[#e2e8f0] bg-[#f8fafc] text-[#64748b]"
+              href={`/gurus/${encodeURIComponent(guru)}`}
+              onClick={onCloseMobile}
+              className="font-mono text-[10px] px-2 py-0.5 rounded border border-[#e2e8f0] bg-[#f8fafc] text-[#64748b] hover:border-[#0f172a] hover:text-[#0f172a] transition-colors"
             >
               {guru}
-            </span>
+            </Link>
           ))}
         </div>
       </div>

@@ -29,6 +29,8 @@ import {
   ExternalLink,
 } from "lucide-react";
 
+export type ResearchDocTab = "final" | "summaries" | "datapack" | "discussion" | "chart";
+
 interface ResearchDocumentViewProps {
   report: GuruReportRow | null;
   onBack: () => void;
@@ -39,6 +41,8 @@ interface ResearchDocumentViewProps {
   percentB?: number | null;
   logoUrl?: string | null;
   intrinsicStability?: IntrinsicStability;
+  activeTab?: ResearchDocTab;
+  onTabChange?: (tab: ResearchDocTab) => void;
 }
 
 export function ResearchDocumentView({
@@ -51,17 +55,23 @@ export function ResearchDocumentView({
   percentB,
   logoUrl,
   intrinsicStability,
+  activeTab: activeTabProp,
+  onTabChange,
 }: ResearchDocumentViewProps) {
-  const [activeTab, setActiveTab] = useState<
-    "final" | "summaries" | "datapack" | "discussion" | "chart"
-  >("final");
+  const [internalTab, setInternalTab] = useState<ResearchDocTab>("final");
+  const activeTab = activeTabProp ?? internalTab;
 
-  // 리포트 변경 시 final_report 여부에 따라 초기 탭 자동 결정
+  const handleTabClick = (tab: ResearchDocTab) => {
+    setInternalTab(tab);
+    onTabChange?.(tab);
+  };
+
+  // 리포트 변경 시 외부 prop이 없을 때만 final_report 여부에 따라 초기 탭 자동 결정
   useEffect(() => {
-    if (report) {
-      setActiveTab(report.final_report ? "final" : "chart");
+    if (report && !activeTabProp) {
+      setInternalTab(report.final_report ? "final" : "chart");
     }
-  }, [report?.id, report?.ticker]);
+  }, [report?.id, report?.ticker, activeTabProp]);
 
   // ESC 키 누르면 목록으로 복귀
   useEffect(() => {
@@ -356,7 +366,7 @@ export function ResearchDocumentView({
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => handleTabClick(tab.id)}
                 className={`flex items-center gap-1.5 px-3.5 py-3 border-b-2 font-medium transition-colors cursor-pointer whitespace-nowrap ${
                   isActive
                     ? "border-[#0f172a] text-[#0f172a] bg-slate-50/50"
