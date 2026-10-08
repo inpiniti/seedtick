@@ -151,13 +151,13 @@ export function PipelineProgressCard({
   return (
     <div
       className={`p-5 rounded-md border bg-white ${
-        isRunning ? "border-blue-400 ring-1 ring-blue-100" : "border-[#e2e8f0]"
+        isRunning ? "border-[#0f172a] ring-1 ring-[#e2e8f0]" : "border-[#e2e8f0]"
       }`}
     >
       <div className="flex items-center justify-between gap-2 flex-wrap pb-3 border-b border-[#f1f5f9]">
         <div className="flex items-center gap-2">
           <Activity
-            className={`w-4 h-4 ${isRunning ? "text-blue-600 animate-pulse" : "text-[#64748b]"}`}
+            className={`w-4 h-4 ${isRunning ? "text-[#0f172a] animate-pulse" : "text-[#64748b]"}`}
           />
           <span className="text-sm font-bold text-[#0f172a]">
             13인 거장 파이프라인 진행 상황
@@ -198,10 +198,10 @@ export function PipelineProgressCard({
                 PROGRESS
               </div>
               <div className="text-xl sm:text-2xl font-bold font-mono text-[#0f172a] mt-0.5">
-                <span className="text-blue-600">{done}</span>
+                <span className="text-[#0f172a]">{done}</span>
                 <span className="text-[#94a3b8] text-base font-normal"> / {total || "?"}</span>
                 {failed > 0 ? (
-                  <span className="ml-2 text-xs font-semibold text-rose-600">FAILED: {failed}</span>
+                  <span className="ml-2 text-xs font-semibold text-[#475569]">FAILED: {failed}</span>
                 ) : null}
               </div>
             </div>
@@ -226,7 +226,7 @@ export function PipelineProgressCard({
           <div className="mt-2.5 h-1.5 rounded-full bg-[#e2e8f0] overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-500 ${
-                status === "failed" ? "bg-rose-600" : "bg-blue-600"
+                status === "failed" ? "bg-[#64748b]" : "bg-[#0f172a]"
               }`}
               style={{ width: `${total > 0 ? pct : 0}%` }}
             />
@@ -244,17 +244,17 @@ export function PipelineProgressCard({
               <div
                 key={stage.key}
                 className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded transition-colors ${
-                  isActive ? "bg-blue-50/60 border border-blue-200" : ""
+                  isActive ? "bg-[#f8fafc] border border-[#0f172a]" : ""
                 }`}
               >
                 <span
                   className={`w-5 h-5 rounded flex items-center justify-center font-mono text-[10px] font-semibold shrink-0 border ${
                     isFailed
-                      ? "bg-rose-50 text-rose-700 border-rose-200"
+                      ? "bg-[#0f172a] text-white border-[#0f172a]"
                       : isDone
-                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        ? "bg-[#0f172a] text-white border-[#0f172a]"
                         : isActive
-                          ? "bg-blue-600 text-white border-blue-600"
+                          ? "bg-white text-[#0f172a] border-[#0f172a]"
                           : "bg-slate-50 text-slate-400 border-slate-200"
                   }`}
                 >
@@ -279,7 +279,7 @@ export function PipelineProgressCard({
                   <span
                     className={`font-mono text-[11px] px-2 py-0.5 rounded border shrink-0 ${
                       isActive
-                        ? "bg-white text-blue-700 border-blue-200"
+                        ? "bg-[#0f172a] text-white border-[#0f172a]"
                         : "bg-slate-50 text-[#64748b] border-slate-200"
                     }`}
                   >
@@ -302,11 +302,11 @@ export function PipelineProgressCard({
               const width = Math.max(4, Math.round((seconds / maxStageSeconds) * 100));
               const barClass =
                 timing.status === "failed"
-                  ? "bg-rose-600"
+                  ? "bg-[#0f172a]"
                   : timing.status === "running"
-                    ? "bg-blue-600"
+                    ? "bg-[#334155]"
                     : timing.status === "done"
-                      ? "bg-emerald-600"
+                      ? "bg-[#0f172a]"
                       : "bg-slate-300";
 
               return (
@@ -354,14 +354,14 @@ export function PipelineProgressCard({
 
         {/* 5. 실패/스킵 사유 */}
         {progress.error ? (
-          <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-xs font-mono text-rose-700 flex items-start gap-2">
+          <div className="p-3 rounded-md bg-[#f8fafc] border border-[#0f172a] text-xs font-mono text-[#0f172a] flex items-start gap-2">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <span className="min-w-0 break-words">{progress.error}</span>
           </div>
         ) : null}
         {status === "completed" && progress.summary ? (
-          <div className="p-3 rounded-md bg-emerald-50 border border-emerald-200 text-xs font-mono text-emerald-800 flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+          <div className="p-3 rounded-md bg-[#0f172a] border border-[#0f172a] text-xs font-mono text-white flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-white" />
             <span>
               파이프라인 완료 · 성공 {done}건
               {failed > 0 ? ` · 실패 ${failed}건` : ""}
