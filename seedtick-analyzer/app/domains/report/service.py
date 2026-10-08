@@ -337,8 +337,15 @@ class GuruReportService:
         if parsed_json and isinstance(parsed_json, dict):
             raw_v = parsed_json.get("verdict")
             cand_v = str(raw_v).strip().strip("*_`") if raw_v else ""
-            valid_verdicts = {"매수", "보유", "관망", "매도"}
-            verdict = cand_v if cand_v in valid_verdicts else "관망"
+            verdict_norm = {
+                "BUY": "매수", "STRONG_BUY": "매수", "매수": "매수",
+                "HOLD": "보유", "NEUTRAL": "보유", "보유": "보유",
+                "WATCH": "관망", "WAIT": "관망", "관망": "관망",
+                "SELL": "매도", "STRONG_SELL": "매도", "매도": "매도",
+            }
+            cand_v_upper = cand_v.upper()
+            verdict = verdict_norm.get(cand_v, verdict_norm.get(cand_v_upper, "관망"))
+            is_valid_verdict = cand_v in verdict_norm or cand_v_upper in verdict_norm
 
             try:
                 conf = int(parsed_json.get("confidence", 5))
@@ -378,7 +385,7 @@ class GuruReportService:
                 target_price_high=high,
                 trigger_conditions=trigs,
                 quote=q,
-                parse_mode="json" if cand_v in valid_verdicts else "fallback",
+                parse_mode="json" if is_valid_verdict else "fallback",
             )
 
         # ── 2. 기존 정규식 텍스트 파싱 폴백 ──
@@ -389,13 +396,14 @@ class GuruReportService:
         trigger_conditions: list[str] = []
         quote = ""
 
-        # 1. 의견 정규식 (매수 / 보유 / 관망 / 매도) - 문자 클래스 버그 수정
-        v_match = re.search(r"의견[:\s\*]*((?:매수|보유|관망|매도))", text)
+        # 1. 의견 정규식 (매수 / 보유 / 관망 / 매도 / BUY / HOLD / WATCH / SELL)
+        v_match = re.search(r"(?:의견|Verdict)[:\s\*]*((?:매수|보유|관망|매도|BUY|HOLD|WATCH|SELL))", text, re.IGNORECASE)
         if v_match:
-            verdict = v_match.group(1).strip()
+            raw_v_match = v_match.group(1).strip()
+            verdict = {"BUY": "매수", "HOLD": "보유", "WATCH": "관망", "SELL": "매도"}.get(raw_v_match.upper(), raw_v_match)
 
         # 2. 확신도 정규식 (1~10)
-        c_match = re.search(r"확신도[:\s\*]*(\d+)", text)
+        c_match = re.search(r"(?:확신도|Confidence)[:\s\*]*(\d+)", text, re.IGNORECASE)
         if c_match:
             try:
                 confidence = max(1, min(10, int(c_match.group(1))))
@@ -403,21 +411,21 @@ class GuruReportService:
                 pass
 
         # 3. 적정가 / 목표 가격대 정규식
-        tp_match = re.search(r"(?:적정가[/매수\s가격대]*|목표가)[:\s\*]*([^\n]+)", text)
+        tp_match = re.search(r"(?:적정가[/매수\s가격대]*|목표가|Target\s*Price)[:\s\*]*([^\n]+)", text, re.IGNORECASE)
         if tp_match:
             raw_tp = tp_match.group(1).strip().strip("*_`")
-            if raw_tp and not raw_tp.startswith(("트리거", "대표", "핵심")):
+            if raw_tp and not raw_tp.lower().startswith(("트리거", "대표", "핵심", "trigger", "quote", "core")):
                 target_price = raw_tp
 
         # 4. 트리거 조건 정규식
-        trig_match = re.search(r"(?:트리거[·\s]*재검토\s*조건|트리거\s*조건)[:\s\*]*([^\n]+)", text)
+        trig_match = re.search(r"(?:트리거[·\s]*재검토\s*조건|트리거\s*조건|Trigger\s*Conditions?)[:\s\*]*([^\n]+)", text, re.IGNORECASE)
         if trig_match:
             raw_trig = trig_match.group(1).strip().strip("*_`")
-            if raw_trig and not raw_trig.startswith(("대표", "핵심")):
+            if raw_trig and not raw_trig.lower().startswith(("대표", "핵심", "quote", "core")):
                 trigger_conditions.append(raw_trig)
 
         # 5. 대표 발언 정규식
-        q_match = re.search(r"(?:대표\s*발언|한줄\s*평)[:\s\*]*([^\n]+)", text)
+        q_match = re.search(r"(?:대표\s*발언|한줄\s*평|Quote)[:\s\*]*([^\n]+)", text, re.IGNORECASE)
         if q_match:
             raw_q = q_match.group(1).strip().strip('*_`"\'')
             if raw_q:
@@ -430,12 +438,13 @@ class GuruReportService:
 
         for line in lines:
             clean_line = line.strip().strip("*#_`")
-            if any(k in clean_line for k in ["핵심 논거", "핵심논거", "투자 논거"]):
+            clean_lower = clean_line.lower()
+            if any(k in clean_line for k in ["핵심 논거", "핵심논거", "투자 논거"]) or "core arguments" in clean_lower:
                 in_args = True
                 continue
             if in_args:
                 # 다음 섹션 시작 키워드 감지 시 중단
-                if any(k in clean_line for k in ["적정가", "트리거", "대표 발언", "대표발언", "우려 사항", "우려 요인"]):
+                if any(k in clean_line for k in ["적정가", "트리거", "대표 발언", "대표발언", "우려 사항", "우려 요인"]) or any(k in clean_lower for k in ["target price", "trigger", "quote"]):
                     in_args = False
                     continue
 
