@@ -626,9 +626,23 @@ class AiGatewayClient:
                                 continue
 
                             if finish_reason == "length":
-                                logger.warning(
-                                    f"[AiClient] ⚠️ [{slot.provider}] finish_reason=length — 응답이 토큰 한도로 잘림!"
+                                # 토큰이 모델 한도를 초과해 응답이 잘린 경우 → 모델 레벨 실패로 간주
+                                # 불완전한 응답을 성공으로 반환하지 않고 다음 순위 모델로 전환한다.
+                                failed_model = model
+                                new_model = _advance_model(
+                                    failed_model,
+                                    f"{failed_model} → (finish_reason=length, 토큰 한도 초과)",
                                 )
+                                payload["model"] = new_model
+                                model = new_model
+                                logger.warning(
+                                    f"[AiClient] ⚠️ [{slot.provider}] finish_reason=length — "
+                                    f"응답이 토큰 한도로 잘림! (모델 전환: {failed_model} → {new_model}) "
+                                    f"— 계속 시도 ({attempt}/{max_attempts})"
+                                )
+                                if attempt < max_attempts:
+                                    await asyncio.sleep(0.5)
+                                continue
 
                             if not content or not content.strip():
                                 raw_preview = getattr(res, "text", "")[:180]
