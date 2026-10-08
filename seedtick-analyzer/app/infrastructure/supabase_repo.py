@@ -407,6 +407,40 @@ class SupabaseRepo:
             logger.warning(f"[Supabase] ticker_logos 저장 실패 ({normalized}): {e}")
             return False
 
+    def upsert_ticker_logos(
+        self,
+        items: list[dict],
+    ) -> bool:
+        """ticker_logos에 여러 티커 로고 URL 일괄 저장/갱신 (배치)"""
+        if not self._client or not items:
+            return False
+
+        rows = []
+        now = datetime.now(timezone.utc).isoformat()
+        for item in items:
+            ticker = (item.get("ticker") or "").strip().upper()
+            logo = (item.get("logo_image_url") or "").strip()
+            if not ticker or not logo:
+                continue
+            rows.append({
+                "ticker": ticker,
+                "stock_code": item.get("stock_code"),
+                "logo_image_url": logo,
+                "source": item.get("source", "toss_screener"),
+                "updated_at": now,
+            })
+
+        if not rows:
+            return False
+
+        try:
+            self._client.table("ticker_logos").upsert(rows, on_conflict="ticker").execute()
+            return True
+        except Exception as e:
+            logger.warning(f"[Supabase] ticker_logos 일괄 저장 실패 ({len(rows)}건): {e}")
+            return False
+
+
     # ── Grid Trading 영속성 ──────────────────────────────
     def save_grid_trade(self, item) -> None:
         """신규 그리드 감지 종목 저장"""

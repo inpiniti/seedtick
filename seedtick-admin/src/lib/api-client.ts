@@ -100,7 +100,7 @@ export async function fetchScreener(
   preset = "공통",
   nation = "us",
   size = 50,
-  tightenStep = 0
+  tightenStep = 5
 ): Promise<ScreenerResponse> {
   const query = new URLSearchParams({
     preset,

@@ -55,6 +55,19 @@ class TickerLogoService:
             source=source,
         )
 
+    def save_logos_batch(self, items: list[dict]) -> None:
+        """복수 티커 로고 URL 일괄 캐시 저장"""
+        if not items:
+            return
+        valid_items = [
+            it
+            for it in items
+            if self._is_valid_logo_url(it.get("logo_image_url"))
+        ]
+        if valid_items:
+            supabase_repo.upsert_ticker_logos(valid_items)
+
+
     async def resolve_logo(self, ticker: str) -> tuple[str | None, str]:
         """
         순서:
