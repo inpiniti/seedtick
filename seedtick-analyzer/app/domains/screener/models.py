@@ -11,7 +11,7 @@ class ScreenCriteria(BaseModel):
     nation: str = "us"
     size: int = 200
     page: int = 1
-    tighten_step: int = 0
+    tighten_step: int = 5
     exclude_tickers: list[str] = Field(default_factory=list)
 
 

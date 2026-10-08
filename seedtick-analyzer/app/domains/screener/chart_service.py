@@ -27,11 +27,13 @@ YAHOO_HOSTS = [
 
 _CHART_CACHE: dict[str, tuple[float, StockChartResponse]] = {}
 CHART_CACHE_TTL_SECONDS = 300  # 5분 메모리 캐시 (장중/야간 반복 요청 부하 완화)
+_KR_SYMBOL_CACHE: dict[str, str] = {}  # 한국 종목코드(.KS / .KQ) 판별 결과 캐시
 
 
 def clear_chart_cache():
     """테스트 및 수동 초기화용 캐시 비우기"""
     _CHART_CACHE.clear()
+    _KR_SYMBOL_CACHE.clear()
 
 
 def normalize_yahoo_ticker(ticker: str) -> str:
@@ -45,7 +47,7 @@ def normalize_yahoo_ticker(ticker: str) -> str:
 
 
 class ChartService:
-    def __init__(self, timeout: float = 15.0):
+    def __init__(self, timeout: float = 6.0):
         self.timeout = timeout
 
     async def fetch_raw_yahoo_chart(
@@ -54,7 +56,9 @@ class ChartService:
         """Yahoo Finance v8 Chart API 호출 (한국 종목 .KS / .KQ 및 query1/query2 멀티 호스트 폴백)"""
         clean_ticker = ticker.upper().strip()
         candidates: list[str] = []
-        if clean_ticker.isdigit() and len(clean_ticker) == 6:
+        if clean_ticker in _KR_SYMBOL_CACHE:
+            candidates = [_KR_SYMBOL_CACHE[clean_ticker]]
+        elif clean_ticker.isdigit() and len(clean_ticker) == 6:
             # 6자리 한국 종목 코드: KOSPI(.KS) 및 KOSDAQ(.KQ) 순차 시도
             candidates = [f"{clean_ticker}.KS", f"{clean_ticker}.KQ"]
         else:
@@ -68,6 +72,8 @@ class ChartService:
                     try:
                         res = await client.get(url, headers={"User-Agent": UA})
                         if res.status_code == 200:
+                            if clean_ticker.isdigit() and len(clean_ticker) == 6:
+                                _KR_SYMBOL_CACHE[clean_ticker] = symbol
                             return res.json()
                         if res.status_code == 404:
                             last_error = httpx.HTTPStatusError(

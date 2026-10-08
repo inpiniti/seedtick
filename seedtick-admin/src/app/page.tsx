@@ -268,11 +268,10 @@ export default function AdminDashboardPage() {
     }
   }, []);
 
-  const loadKrScreener = useCallback(async (step: number = 5) => {
+  const loadKrScreener = useCallback(async () => {
     setIsKrLoading(true);
-    setKrTightenStep(step);
     try {
-      const res = await fetchScreener("공통", "kr", 100, step);
+      const res = await fetchScreener("공통", "kr", 100, 5);
       setKrCandidates(res.items || res.tickers || []);
     } catch (err) {
       console.warn("한국장 스크리너 조회 실패:", err);
@@ -301,7 +300,7 @@ export default function AdminDashboardPage() {
       new Set([
         ...guruReports.slice(0, 25).map((r) => r.ticker),
         ...liveCandidates.slice(0, 15).map((c) => c.ticker),
-        ...krCandidates.slice(0, 15).map((c) => c.ticker),
+        ...krCandidates.slice(0, 5).map((c) => c.ticker),
         ...romaCandidates.slice(0, 15).map((c) => c.ticker),
       ])
     )
@@ -595,7 +594,7 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     loadDashboardData();
     loadLiveScreener();
-    loadKrScreener(5);
+    loadKrScreener();
     loadRomaScreener();
   }, [loadDashboardData, loadLiveScreener, loadKrScreener, loadRomaScreener]);
 

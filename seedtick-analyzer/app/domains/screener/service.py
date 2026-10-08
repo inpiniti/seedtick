@@ -4,6 +4,7 @@ ScreenerService: 토스증권 13인의 거장 스크리너 직접 연동
 - 종합 및 12인 거장 간 중복 티커 제거 및 단일 유니버스 생성
 - 외부 프록시(hf.space) 없이 Toss WTS 비공개 API 직접 호출
 """
+import asyncio
 import logging
 from typing import Any
 from app.config.constants import EXCLUDED_SCREENER_GURUS, SCREENER_12_GURUS
@@ -388,12 +389,23 @@ class ScreenerService:
             )
 
     def _cache_logo_items(self, items: list[TossStockItem]) -> None:
-        for item in items:
-            if not item.ticker or not item.logo_image_url:
-                continue
-            self.logo_service.save_logo(
-                ticker=item.ticker,
-                logo_image_url=item.logo_image_url,
-                stock_code=item.stock_code,
-                source="toss_screener",
-            )
+        """스크리너 응답 지연을 방지하기 위해 로고 일괄 저장을 백그라운드 태스크로 비동기 실행"""
+        batch_data = [
+            {
+                "ticker": item.ticker,
+                "logo_image_url": item.logo_image_url,
+                "stock_code": item.stock_code,
+                "source": "toss_screener",
+            }
+            for item in items
+            if item.ticker and item.logo_image_url
+        ]
+        if not batch_data:
+            return
+
+        try:
+            loop = asyncio.get_running_loop()
+            loop.run_in_executor(None, self.logo_service.save_logos_batch, batch_data)
+        except RuntimeError:
+            self.logo_service.save_logos_batch(batch_data)
+

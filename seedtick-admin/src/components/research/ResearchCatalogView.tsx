@@ -38,94 +38,17 @@ import {
   TrendingUp,
   Award,
   Calendar,
-  SlidersHorizontal,
 } from "lucide-react";
 import { formatPriceByNation, formatMarketCap } from "@/lib/utils";
 
-const KR_TIGHTEN_STEP_INFO: Record<
-  number,
-  {
-    label: string;
-    desc: string;
-    mcap: string;
-    debt: string;
-    op: string;
-    roe: string;
-    interest: string;
-  }
-> = {
-  0: {
-    label: "0단계 (기본)",
-    desc: "13인 공통 최소 요건 (약 133개)",
-    mcap: "3,000억↑",
-    debt: "100%↓",
-    interest: "3.0배↑",
-    op: "10%↑",
-    roe: "10%↑",
-  },
-  1: {
-    label: "1단계",
-    desc: "수익성 소폭 강화 (약 123개)",
-    mcap: "3,000억↑",
-    debt: "100%↓",
-    interest: "3.0배↑",
-    op: "11%↑",
-    roe: "11%↑",
-  },
-  2: {
-    label: "2단계",
-    desc: "이자보상 강화 (약 113개)",
-    mcap: "3,000억↑",
-    debt: "100%↓",
-    interest: "4.0배↑",
-    op: "12%↑",
-    roe: "12%↑",
-  },
-  3: {
-    label: "3단계",
-    desc: "중대형 알짜 압축 (약 90개)",
-    mcap: "4,000억↑",
-    debt: "100%↓",
-    interest: "4.0배↑",
-    op: "13%↑",
-    roe: "13%↑",
-  },
-  4: {
-    label: "4단계",
-    desc: "부채 안정화 (약 75개)",
-    mcap: "4,500억↑",
-    debt: "90%↓",
-    interest: "5.0배↑",
-    op: "14%↑",
-    roe: "14%↑",
-  },
-  5: {
-    label: "5단계 (추천)",
-    desc: "고수익 저부채 핵심 알짜 (약 61개)",
-    mcap: "5,000억↑",
-    debt: "80%↓",
-    interest: "5.0배↑",
-    op: "15%↑",
-    roe: "15%↑",
-  },
-  6: {
-    label: "6단계",
-    desc: "초강화 프리미엄 (약 32개)",
-    mcap: "6,000억↑",
-    debt: "70%↓",
-    interest: "7.0배↑",
-    op: "18%↑",
-    roe: "18%↑",
-  },
-  7: {
-    label: "7단계",
-    desc: "최상위 극대화 (약 26개)",
-    mcap: "7,000억↑",
-    debt: "60%↓",
-    interest: "10.0배↑",
-    op: "20%↑",
-    roe: "20%↑",
-  },
+const KR_STEP_5_INFO = {
+  label: "5단계 (추천 알짜)",
+  desc: "고수익·저부채 핵심 알짜 기업",
+  mcap: "5,000억↑",
+  debt: "80%↓",
+  interest: "5.0배↑",
+  op: "15%↑",
+  roe: "15%↑",
 };
 
 interface ResearchCatalogViewProps {
@@ -193,15 +116,8 @@ export function ResearchCatalogView({
   const [selectedGuruForModal, setSelectedGuruForModal] =
     useState<GuruPersona | null>(null);
 
-  // 실시간 발굴 후보군 마켓(미국장 vs 한국장) 및 한국장 조건강화 단계 상태
+  // 실시간 발굴 후보군 마켓(미국장 vs 한국장)
   const [candidateMarket, setCandidateMarket] = useState<"us" | "kr">("us");
-  const [currentKrStep, setCurrentKrStep] = useState<number>(krTightenStep ?? 5);
-
-  React.useEffect(() => {
-    if (krTightenStep !== undefined) {
-      setCurrentKrStep(krTightenStep);
-    }
-  }, [krTightenStep]);
 
   const isAll = activeSectionFilter === "all";
 
@@ -1223,85 +1139,39 @@ export function ResearchCatalogView({
               <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-md">
                 {candidateMarket === "us"
                   ? "13인 거장 스크리닝 조건을 충족하여 분석 파이프라인 진입 대기 중인 후보 종목 브리프입니다."
-                  : "단일 공통 재무 기준을 통과한 한국 알짜 기업 발굴 목록입니다. 조건 강화 슬라이더로 상위 알짜 종목만 압축할 수 있어요."}
+                  : "단일 공통 재무 기준을 통과한 한국 핵심 알짜(5단계) 기업 발굴 목록입니다."}
                 {" "}
                 {isAll && `(홈에서는 상위 10개만 요약 표시)`}
               </p>
 
-              {/* 한국장 전용: 0~7단계 조건 강화 컨트롤 카드 */}
+              {/* 한국장 전용: 5단계 고정 핵심 알짜 정보 카드 */}
               {candidateMarket === "kr" && (
-                <div className="p-3.5 bg-[#f8fafc] border border-[#e2e8f0] rounded-xl space-y-3 font-mono">
+                <div className="p-3.5 bg-[#f8fafc] border border-[#e2e8f0] rounded-xl space-y-2.5 font-mono">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-[#0f172a] flex items-center gap-1.5">
-                      <SlidersHorizontal className="w-3.5 h-3.5 text-[#3182f6]" />
-                      <span>조건 강화 옵션</span>
+                      <Sparkles className="w-3.5 h-3.5 text-[#3182f6]" />
+                      <span>한국장 우량주 필터</span>
                     </span>
                     <span className="text-[11px] text-[#3182f6] font-semibold bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                      {KR_TIGHTEN_STEP_INFO[currentKrStep]?.label || `${currentKrStep}단계`}
+                      5단계 고정 (알짜)
                     </span>
                   </div>
 
-                  <div className="space-y-1">
-                    <input
-                      type="range"
-                      min="0"
-                      max="7"
-                      step="1"
-                      value={currentKrStep}
-                      onChange={(e) => {
-                        const step = Number(e.target.value);
-                        setCurrentKrStep(step);
-                        onRefreshKr?.(step);
-                      }}
-                      className="w-full h-1.5 bg-[#cbd5e1] rounded-lg appearance-none cursor-pointer accent-[#3182f6]"
-                    />
-                    <div className="flex justify-between text-[10px] text-[#94a3b8]">
-                      <span>0(133개)</span>
-                      <span>3(90개)</span>
-                      <span>5(61개★)</span>
-                      <span>7(26개)</span>
+                  <div className="text-[11px] bg-white p-2.5 rounded-lg border border-[#e2e8f0] text-[#475569] space-y-1.5">
+                    <div className="text-[#0f172a] font-semibold flex items-center justify-between">
+                      <span>{KR_STEP_5_INFO.desc}</span>
+                      <span className="text-[#3182f6] font-bold">
+                        {krCandidates.length}개 포착
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] text-[#64748b] pt-1 border-t border-[#f1f5f9]">
+                      <span>시총: {KR_STEP_5_INFO.mcap}</span>
+                      <span>부채비율: {KR_STEP_5_INFO.debt}</span>
+                      <span>이자보상: {KR_STEP_5_INFO.interest}</span>
+                      <span>영업익률: {KR_STEP_5_INFO.op}</span>
+                      <span className="col-span-2">ROE: {KR_STEP_5_INFO.roe}</span>
                     </div>
                   </div>
-
-                  {/* 빠른 단계 선택 칩 */}
-                  <div className="flex items-center gap-1 overflow-x-auto whitespace-nowrap scrollbar-none pt-0.5">
-                    {[0, 2, 4, 5, 7].map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => {
-                          setCurrentKrStep(s);
-                          onRefreshKr?.(s);
-                        }}
-                        className={`px-2 py-0.5 text-[11px] rounded border transition-colors cursor-pointer ${
-                          currentKrStep === s
-                            ? "bg-[#0f172a] text-white border-[#0f172a] font-medium"
-                            : "bg-white text-[#64748b] border-[#cbd5e1] hover:text-[#0f172a]"
-                        }`}
-                      >
-                        {s === 0 ? "0:기본" : s === 5 ? "★ 5:추천" : s === 7 ? "7:극대화" : `${s}단계`}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* 현재 단계별 적용 기준 카드 */}
-                  {KR_TIGHTEN_STEP_INFO[currentKrStep] && (
-                    <div className="text-[11px] bg-white p-2.5 rounded-lg border border-[#e2e8f0] text-[#475569] space-y-1.5">
-                      <div className="text-[#0f172a] font-semibold flex items-center justify-between">
-                        <span>{KR_TIGHTEN_STEP_INFO[currentKrStep].desc}</span>
-                        <span className="text-[#3182f6] font-bold">
-                          {krCandidates.length}개 포착
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] text-[#64748b] pt-1 border-t border-[#f1f5f9]">
-                        <span>시총: {KR_TIGHTEN_STEP_INFO[currentKrStep].mcap}</span>
-                        <span>부채비율: {KR_TIGHTEN_STEP_INFO[currentKrStep].debt}</span>
-                        <span>이자보상: {KR_TIGHTEN_STEP_INFO[currentKrStep].interest}</span>
-                        <span>영업익률: {KR_TIGHTEN_STEP_INFO[currentKrStep].op}</span>
-                        <span className="col-span-2">ROE: {KR_TIGHTEN_STEP_INFO[currentKrStep].roe}</span>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -1312,14 +1182,14 @@ export function ResearchCatalogView({
                   if (candidateMarket === "us") {
                     onRefreshLive();
                   } else {
-                    onRefreshKr?.(currentKrStep);
+                    onRefreshKr?.(5);
                   }
                 }}
                 isLoading={candidateMarket === "us" ? isLoading : isKrLoading}
                 leftIcon={<RefreshCw className="w-3 h-3 text-[#64748b]" />}
                 className="font-mono text-xs w-full"
               >
-                {candidateMarket === "us" ? "미국장 스크리너 갱신" : "한국장 스크리너 갱신"}
+                {candidateMarket === "us" ? "미국장 스크리너 갱신" : "한국장 스크리너 갱신 (5단계)"}
               </Button>
             </div>
 
@@ -1332,7 +1202,7 @@ export function ResearchCatalogView({
                   description={
                     candidateMarket === "us"
                       ? "'미국장 스크리너 갱신' 버튼을 눌러 실시간 스크리닝을 수행하세요."
-                      : "'한국장 스크리너 갱신' 버튼을 누르거나 조건 단계를 낮춰보세요."
+                      : "'한국장 스크리너 갱신' 버튼을 눌러 5단계 우량주를 조회하세요."
                   }
                 />
               ) : (
@@ -1374,7 +1244,7 @@ export function ResearchCatalogView({
                                   className="font-mono text-[10px]"
                                 >
                                   {isKr
-                                    ? `강화 ${c.tighten_step ?? currentKrStep}단`
+                                    ? "알짜 5단계"
                                     : `SCORE: ${c.guru_score || 0}`}
                                 </Badge>
                                 {renderMonochromeVerdict(insight.verdict)}

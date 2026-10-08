@@ -635,7 +635,7 @@ class TossWtsClient:
         return await self.screen_by_guru(guru_key="공통", nation=nation, size=size, page=page)
 
     async def screen_kr_common(
-        self, step: int = 0, size: int = 200, page: int = 1
+        self, step: int = 5, size: int = 200, page: int = 1
     ) -> dict:
         """한국장 공통 스크리너 (조건 강화 옵션 적용)"""
         filters = get_kr_tightened_filters(step=step)
