@@ -211,6 +211,10 @@ class GuruReportService:
         semaphore = asyncio.Semaphore(self.concurrency)
 
         async def _fetch_with_sem(idx: int, p_key: str) -> tuple[int, PersonaSummaryBlock]:
+            # 거장 간 동시 호출로 인한 429 버스트 방지 (순차 출발 간격)
+            if self.request_interval > 0:
+                await asyncio.sleep((idx - 1) * self.request_interval)
+
             async with semaphore:
                 logger.info(f"[{ticker}] ({idx}/{total_gurus}) 거장 '{p_key}' 분석 시작...")
                 try:

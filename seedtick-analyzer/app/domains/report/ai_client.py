@@ -493,7 +493,7 @@ class AiGatewayClient:
 
         # ── 1. 직접 호출 모드 (통합 슬롯 풀 교차 라운드로빈 로테이션) ──
         if self.use_direct and self.slots:
-            max_attempts = max(3, len(self.slots))
+            max_attempts = max(6, len(self.slots) * 2)
             logger.info(
                 f"[AiClient] 🚀 통합 풀 호출 시작 (총 {len(self.slots)}개 슬롯 교차 로테이션, 최대 {max_attempts}회 시도)"
             )
@@ -523,12 +523,14 @@ class AiGatewayClient:
                         async with _stream_post(
                             client, slot.base_url, payload, headers
                         ) as res:
-                            # 429 RateLimit 대응: 쿨다운 없이 즉시 다음 슬롯으로 순환 전환
+                            # 429 RateLimit 대응: 0.5초 대기 후 다음 슬롯으로 전환 (연사 버스트 방지)
                             if res.status_code == 429:
                                 logger.warning(
                                     f"[AiClient] 429 RateLimit 감지 ([{slot.provider}], 키: {key_masked}) "
-                                    f"-> 다음 슬롯으로 즉시 전환 (시도 {attempt}/{max_attempts})"
+                                    f"-> 다음 슬롯으로 전환 (시도 {attempt}/{max_attempts})"
                                 )
+                                if attempt < max_attempts:
+                                    await asyncio.sleep(0.5)
                                 continue
 
                             # 503/500 등 모델 레벨 HTTP 에러 판별
