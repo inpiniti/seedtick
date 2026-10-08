@@ -17,7 +17,7 @@ import time
 #   export GATEWAY_SECRET="your-gateway-secret"
 _raw_keys = os.environ.get("OPENROUTER_API_KEYS", "")
 OPENROUTER_API_KEYS = [k.strip() for k in _raw_keys.split(",") if k.strip()]
-MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"
+MODEL = "inclusionai/ling-3.1-flash"
 DIRECT_URL = "https://openrouter.ai/api/v1/chat/completions"
 GATEWAY_URL = "https://seedtick-ai-gateway.vercel.app/v1/chat/completions"
 GATEWAY_SECRET = os.environ.get("GATEWAY_SECRET", "")
