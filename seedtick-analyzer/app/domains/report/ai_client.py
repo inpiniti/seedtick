@@ -1,5 +1,5 @@
 """
-AI 연동 클라이언트: 멀티 프로바이더 직접 호출 (OpenRouter, Cline, Kilo 교차 통합 로테이션 풀) 및 AI-Gateway 폴백
+AI 연동 클라이언트: 멀티 프로바이더 직접 호출 (OpenRouter, Kilo 교차 통합 로테이션 풀) 및 AI-Gateway 폴백
 """
 import asyncio
 import contextlib
@@ -377,8 +377,8 @@ class AiGatewayClient:
         # 하위 호환성 (기존 테스트 및 속성 참조)
         self.api_keys = openrouter_keys
 
-        # 체인/슬롯 목록 (키가 존재하는 활성 제공사만 포함)
-        all_providers = [self.openrouter, self.cline, self.kilo]
+        # 체인/슬롯 목록 (OpenRouter, Kilo 2개 제공사만 운영 - Cline 스트리밍 불안정으로 제외)
+        all_providers = [self.openrouter, self.kilo]
         self.active_providers = [p for p in all_providers if p.keys]
 
         # 27개 키 등 전체 제공사의 키를 교차(Interleaving) 배치한 통합 로테이션 슬롯 풀 구성
