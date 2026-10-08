@@ -194,3 +194,83 @@ async def test_chart_api_returns_404_when_ticker_not_found(monkeypatch):
         assert res.status_code == 404
         assert "찾을 수 없습니다" in res.json()["detail"]
 
+
+@pytest.mark.asyncio
+async def test_chart_caching_avoids_duplicate_fetch(monkeypatch):
+    from app.domains.screener.chart_service import clear_chart_cache
+    clear_chart_cache()
+
+    service = ChartService()
+    call_count = 0
+
+    async def fake_fetch(self, ticker: str, range_period: str = "6mo", interval: str = "1d"):
+        nonlocal call_count
+        call_count += 1
+        return {
+            "chart": {
+                "result": [
+                    {
+                        "meta": {"symbol": ticker},
+                        "timestamp": [1704067200],
+                        "indicators": {
+                            "quote": [{"open": [100.0], "high": [105.0], "low": [98.0], "close": [102.0], "volume": [1000]}]
+                        },
+                    }
+                ]
+            }
+        }
+
+    monkeypatch.setattr(ChartService, "fetch_raw_yahoo_chart", fake_fetch)
+
+    # 1회차 호출 -> fetch 실행
+    chart1 = await service.get_stock_chart("ORCL")
+    assert chart1.ticker == "ORCL"
+    assert call_count == 1
+
+    # 2회차 호출 -> 캐시에서 반환되어 call_count 유지
+    chart2 = await service.get_stock_chart("ORCL")
+    assert chart2.ticker == "ORCL"
+    assert call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_fetch_raw_yahoo_chart_falls_back_to_query2(monkeypatch):
+    import httpx
+    service = ChartService()
+    requested_urls = []
+
+    async def fake_get(url, *args, **kwargs):
+        requested_urls.append(url)
+        if "query1.finance.yahoo.com" in url:
+            # query1은 500 서버 에러 반환
+            request = httpx.Request("GET", url)
+            response = httpx.Response(status_code=500, request=request)
+            return response
+        elif "query2.finance.yahoo.com" in url:
+            # query2는 200 성공 응답 반환
+            request = httpx.Request("GET", url)
+            return httpx.Response(
+                status_code=200,
+                request=request,
+                json={"chart": {"result": [{"meta": {"symbol": "AAPL"}}]}},
+            )
+        request = httpx.Request("GET", url)
+        return httpx.Response(status_code=404, request=request)
+
+    def fake_async_client(*args, **kwargs):
+        class FakeClient:
+            async def __aenter__(self):
+                return self
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+            async def get(self, url, *a, **kw):
+                return await fake_get(url, *a, **kw)
+        return FakeClient()
+
+    monkeypatch.setattr(httpx, "AsyncClient", fake_async_client)
+    res = await service.fetch_raw_yahoo_chart("AAPL")
+    assert "chart" in res
+    assert any("query1.finance.yahoo.com" in u for u in requested_urls)
+    assert any("query2.finance.yahoo.com" in u for u in requested_urls)
+
+

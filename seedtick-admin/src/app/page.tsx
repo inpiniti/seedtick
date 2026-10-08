@@ -353,6 +353,11 @@ export default function AdminDashboardPage() {
           }
           return next;
         });
+
+        // 청크 간 120ms 대기로 백엔드 급증 부하 완화
+        if (i + chunkSize < validTickers.length) {
+          await new Promise((r) => setTimeout(r, 120));
+        }
       }
     };
 

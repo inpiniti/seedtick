@@ -37,6 +37,7 @@ import {
   fetchReportByDateAndTicker,
   fetchReportDatesByTicker,
 } from "@/lib/supabase";
+import { isValidChartTicker } from "@/lib/insightUtils";
 
 function isValidLogoUrl(url?: string | null): boolean {
   if (!url) return false;
@@ -341,6 +342,8 @@ export function ScreenerTab({
   const [reportViewMode, setReportViewMode] = useState<"final" | "discussion" | "summaries" | "datapack" | "chart">("final");
   const [searchTerm, setSearchTerm] = useState("");
   const [percentBByTicker, setPercentBByTicker] = useState<Record<string, number | null>>({});
+  const percentBByTickerRef = React.useRef<Record<string, number | null>>({});
+  percentBByTickerRef.current = percentBByTicker;
   const [availableDatesForTicker, setAvailableDatesForTicker] = useState<string[]>([]);
   const [isLoadingReportDate, setIsLoadingReportDate] = useState(false);
   const [selectedGuruForTimeline, setSelectedGuruForTimeline] = useState<string>(
@@ -872,19 +875,35 @@ export function ScreenerTab({
       new Set(
         activeSources
           .map((s) => chartTickerKey(s.ticker))
-          .filter((ticker) => Boolean(ticker) && percentBByTicker[ticker] === undefined)
+          .filter((ticker) => Boolean(ticker) && percentBByTickerRef.current[ticker] === undefined)
       )
     );
 
     if (uniqueTickers.length === 0) return;
 
+    const invalidTickers = uniqueTickers.filter((t) => !isValidChartTicker(t));
+    const validTickers = uniqueTickers.filter((t) => isValidChartTicker(t));
+
+    // 유효하지 않은 티커(토스 내부 코드 등)는 즉시 null 처리
+    if (invalidTickers.length > 0) {
+      setPercentBByTicker((prev) => {
+        const next = { ...prev };
+        for (const t of invalidTickers) {
+          next[t] = null;
+        }
+        return next;
+      });
+    }
+
+    if (validTickers.length === 0) return;
+
     let cancelled = false;
-    const chunkSize = 6;
+    const chunkSize = 4;
 
     const loadPercentB = async () => {
-      for (let i = 0; i < uniqueTickers.length; i += chunkSize) {
+      for (let i = 0; i < validTickers.length; i += chunkSize) {
         if (cancelled) return;
-        const chunk = uniqueTickers.slice(i, i + chunkSize);
+        const chunk = validTickers.slice(i, i + chunkSize);
 
         const results = await Promise.all(
           chunk.map(async (ticker) => {
@@ -910,6 +929,11 @@ export function ScreenerTab({
           }
           return next;
         });
+
+        // 청크 간 120ms 대기로 백엔드 급증 부하 완화
+        if (i + chunkSize < validTickers.length) {
+          await new Promise((r) => setTimeout(r, 120));
+        }
       }
     };
 
@@ -918,7 +942,7 @@ export function ScreenerTab({
     return () => {
       cancelled = true;
     };
-  }, [activeSubTab, liveCandidates, romaCandidates, percentBByTicker]);
+  }, [activeSubTab, liveCandidates, romaCandidates]);
 
   React.useEffect(() => {
     if (

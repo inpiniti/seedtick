@@ -3,6 +3,7 @@ ChartService: Yahoo Finance 기반 일봉 캔들스틱 수집 및 볼린저 밴�
 """
 import logging
 import math
+import time
 from datetime import datetime
 import httpx
 
@@ -19,7 +20,18 @@ UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/126.0 Safari/537.36"
 )
-Y1 = "https://query1.finance.yahoo.com"
+YAHOO_HOSTS = [
+    "https://query1.finance.yahoo.com",
+    "https://query2.finance.yahoo.com",
+]
+
+_CHART_CACHE: dict[str, tuple[float, StockChartResponse]] = {}
+CHART_CACHE_TTL_SECONDS = 300  # 5분 메모리 캐시 (장중/야간 반복 요청 부하 완화)
+
+
+def clear_chart_cache():
+    """테스트 및 수동 초기화용 캐시 비우기"""
+    _CHART_CACHE.clear()
 
 
 def normalize_yahoo_ticker(ticker: str) -> str:
@@ -39,7 +51,7 @@ class ChartService:
     async def fetch_raw_yahoo_chart(
         self, ticker: str, range_period: str = "6mo", interval: str = "1d"
     ) -> dict:
-        """Yahoo Finance v8 Chart API 호출 (한국 종목 .KS / .KQ 자동 감지 지원)"""
+        """Yahoo Finance v8 Chart API 호출 (한국 종목 .KS / .KQ 및 query1/query2 멀티 호스트 폴백)"""
         clean_ticker = ticker.upper().strip()
         candidates: list[str] = []
         if clean_ticker.isdigit() and len(clean_ticker) == 6:
@@ -51,15 +63,21 @@ class ChartService:
         last_error: Exception | None = None
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             for symbol in candidates:
-                url = f"{Y1}/v8/finance/chart/{symbol}?range={range_period}&interval={interval}"
-                try:
-                    res = await client.get(url, headers={"User-Agent": UA})
-                    if res.status_code == 200:
-                        return res.json()
-                    res.raise_for_status()
-                except Exception as e:
-                    last_error = e
-                    continue
+                for base_url in YAHOO_HOSTS:
+                    url = f"{base_url}/v8/finance/chart/{symbol}?range={range_period}&interval={interval}"
+                    try:
+                        res = await client.get(url, headers={"User-Agent": UA})
+                        if res.status_code == 200:
+                            return res.json()
+                        if res.status_code == 404:
+                            last_error = httpx.HTTPStatusError(
+                                "404 Not Found", request=res.request, response=res
+                            )
+                            break
+                        res.raise_for_status()
+                    except Exception as e:
+                        last_error = e
+                        continue
 
         if last_error:
             if isinstance(last_error, httpx.HTTPStatusError) and last_error.response.status_code == 404:
@@ -169,7 +187,7 @@ class ChartService:
         self, ticker: str, range_period: str = "6mo", interval: str = "1d"
     ) -> StockChartResponse:
         """
-        티커의 일봉 차트 데이터 및 볼린저 밴드 계산 최종 응답 생성
+        티커의 일봉 차트 데이터 및 볼린저 밴드 계산 최종 응답 생성 (In-memory TTL 캐시 적용)
         """
         clean_ticker = ticker.upper().strip()
         # 토스 종목코드(예: US19890516001, NAS0250224006)가 들어온 경우 심볼로 자동 역변환
@@ -179,6 +197,15 @@ class ChartService:
             sym = await TossWtsClient.resolve_stock_code_async(clean_ticker)
             if sym:
                 resolved_ticker = sym
+
+        # 1. 캐시 확인
+        cache_key = f"{resolved_ticker}:{range_period}:{interval}"
+        now = time.time()
+        cached = _CHART_CACHE.get(cache_key)
+        if cached:
+            cached_time, cached_res = cached
+            if now - cached_time < CHART_CACHE_TTL_SECONDS:
+                return cached_res
 
         data = await self.fetch_raw_yahoo_chart(resolved_ticker, range_period, interval)
 
@@ -248,7 +275,7 @@ class ChartService:
                     lower=latest_b.lower,
                 )
 
-        return StockChartResponse(
+        response = StockChartResponse(
             ticker=resolved_ticker,
             period=range_period,
             interval=interval,
@@ -256,3 +283,11 @@ class ChartService:
             bollinger=bollinger_points,
             summary=summary,
         )
+
+        # 2. 캐시 등록 및 LRU 초과 정리
+        _CHART_CACHE[cache_key] = (now, response)
+        if len(_CHART_CACHE) > 1000:
+            for k in list(_CHART_CACHE.keys())[:200]:
+                _CHART_CACHE.pop(k, None)
+
+        return response
