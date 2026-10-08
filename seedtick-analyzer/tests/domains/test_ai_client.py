@@ -367,3 +367,56 @@ async def test_ai_client_ttft_read_timeout_fallback():
         assert result == "OpenRouter에서 성공"
         assert call_count == 2
 
+
+@pytest.mark.asyncio
+async def test_ai_client_token_limit_length_fallback():
+    """finish_reason=length(토큰 한도 초과) 시 잘린 응답을 성공으로 반환하지 않고 다음 모델로 전환 검증"""
+    client = AiGatewayClient(
+        api_keys=["or-key1"],
+        kilo_keys=["kilo-key1"],
+    )
+
+    # 1번째 호출: OpenRouter 슬롯에서 토큰 한도(trim) 응답
+    resp_truncated = MagicMock()
+    resp_truncated.status_code = 200
+    resp_truncated.json.return_value = {
+        "choices": [
+            {
+                "message": {"content": "토큰 한도로 잘린 응답"},
+                "finish_reason": "length",
+            }
+        ],
+        "usage": {"total_tokens": 32768},
+    }
+
+    # 2번째 호출: 모델 전환 후 정상 성공
+    resp_success = MagicMock()
+    resp_success.status_code = 200
+    resp_success.json.return_value = {
+        "choices": [
+            {"message": {"content": "정상 응답"}, "finish_reason": "stop"}
+        ],
+        "usage": {"total_tokens": 100},
+    }
+
+    with (
+        patch(
+            "httpx.AsyncClient.post",
+            new_callable=AsyncMock,
+            side_effect=[resp_truncated, resp_success],
+        ) as mock_post,
+        patch(
+            "app.domains.report.ai_client.model_rotation.advance",
+            return_value="fallback-model",
+        ) as mock_advance,
+        patch(
+            "app.domains.report.ai_client.model_rotation.note_success",
+        ) as mock_note_success,
+    ):
+        result = await client.chat("테스트")
+
+    # 잘린 응답이 성공으로 반환되면 안 됨
+    assert result == "정상 응답"
+    # 모델 전환이 발생해야 함
+    mock_advance.assert_called_once()
+    mock_note_success.assert_called_once_with("fallback-model")
