@@ -139,3 +139,45 @@ def test_parse_summary_block_regex_fallback():
     assert block.target_price_high == 250.0
     assert block.parse_mode == "regex"
     assert len(block.core_arguments) == 2
+
+
+def test_parse_summary_block_english_verdict_json():
+    service = GuruReportService()
+    json_text = """```json
+{
+  "persona": "워런-버핏",
+  "verdict": "BUY",
+  "confidence": 9,
+  "core_arguments": [
+    "Economic moat is solid with 28% operating margin",
+    "Trading below conservative intrinsic value"
+  ],
+  "target_price_low": 210.0,
+  "target_price_high": 230.0,
+  "trigger_conditions": ["Margin drops below 20%"],
+  "quote": "A great business at an attractive price."
+}
+```"""
+    block = service._parse_summary_block("워런-버핏", json_text)
+    assert block.verdict == "매수"
+    assert block.confidence == 9
+    assert block.target_price_low == 210.0
+    assert block.target_price_high == 230.0
+    assert block.parse_mode == "json"
+    assert len(block.core_arguments) == 2
+
+
+def test_parse_summary_block_english_verdict_regex():
+    service = GuruReportService()
+    regex_text = """Persona: Warren Buffett | Verdict: HOLD | Confidence: 7
+Core Arguments:
+- High quality but fully priced
+Target Price: $190
+Quote: "Patience is key."
+"""
+    block = service._parse_summary_block("워런-버핏", regex_text)
+    assert block.verdict == "보유"
+    assert block.confidence == 7
+    assert block.target_price_low == 190.0
+    assert block.parse_mode == "regex"
+
