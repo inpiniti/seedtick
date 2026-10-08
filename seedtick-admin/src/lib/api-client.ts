@@ -13,26 +13,48 @@ const BASE_URL =
   process.env.NEXT_PUBLIC_ANALYZER_URL?.replace(/\/$/, "") ||
   "http://localhost:8000";
 
-async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
+async function request<T>(
+  endpoint: string,
+  options?: RequestInit,
+  retries = 2
+): Promise<T> {
   const url = `${BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options?.headers || {}),
-    },
-    // 캐시 방지 (실시간 관제)
-    cache: "no-store",
-  });
 
-  if (!res.ok) {
-    const errorText = await res.text().catch(() => "");
-    throw new Error(
-      `API 요청 실패 (${res.status} ${res.statusText}): ${errorText || "오류가 발생했습니다."}`
-    );
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          ...(options?.headers || {}),
+        },
+        // 캐시 방지 (실시간 관제)
+        cache: "no-store",
+      });
+
+      if (!res.ok) {
+        // 서버 배포/재기동 또는 Hugging Face 프록시 재시작 중 502/503/504 발생 시 짧게 대기 후 재시도
+        if ([502, 503, 504].includes(res.status) && attempt < retries) {
+          await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+          continue;
+        }
+        const errorText = await res.text().catch(() => "");
+        throw new Error(
+          `API 요청 실패 (${res.status} ${res.statusText}): ${errorText || "오류가 발생했습니다."}`
+        );
+      }
+
+      return await res.json();
+    } catch (err) {
+      if (attempt < retries) {
+        await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+        continue;
+      }
+      throw err;
+    }
   }
 
-  return res.json();
+  throw new Error("요청이 완료되지 않았습니다.");
 }
 
 /** 1. 서버 헬스체크 및 미장 개장 여부 */
