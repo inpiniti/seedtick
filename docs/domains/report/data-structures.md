@@ -91,18 +91,9 @@ class GuruSummaryDoc(BaseModel):
 
 ---
 
-## 3. 거장 원탁 토론 및 최종 보고서
+## 3. 최종 보고서
 
 ```python
-class GuruDiscussionDoc(BaseModel):
-    """docs/report/{date}/최종/{ticker}_토론.md"""
-    ticker: str
-    date: str
-    hot_topics: list[str]            # 핵심 격돌 쟁점
-    dialogue: str                    # 거장 간 치열한 상호 반박 전문
-    final_vote_counts: dict[str, int] # {"매수": 8, "보유": 3, "관망": 1, "매도": 1}
-    raw_markdown: str
-
 class FinalMasterReport(BaseModel):
     """docs/report/{date}/최종/{ticker}_최종보고서.md"""
     ticker: str

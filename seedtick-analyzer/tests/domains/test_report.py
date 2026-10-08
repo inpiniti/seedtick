@@ -1,5 +1,5 @@
 """
-GuruReportService 5단계 파이프라인 및 DB 동기화 단위 테스트
+GuruReportService 4단계 파이프라인 및 DB 동기화 단위 테스트
 """
 import pytest
 from unittest.mock import AsyncMock, MagicMock
@@ -7,7 +7,6 @@ from pathlib import Path
 from app.domains.report.models import (
     BalanceSheetRow,
     FinalMasterReport,
-    GuruDiscussionDoc,
     GuruSummaryDoc,
     PersonaSummaryBlock,
     StockDataPack,
@@ -52,17 +51,11 @@ async def test_guru_report_service_pipeline(tmp_path: Path):
         request_interval=0,
     )
 
-    # Mock Discussion Engine 메서드
-    service.discussion_engine.generate_discussion = AsyncMock(
-        return_value=GuruDiscussionDoc(
-            ticker="AAPL",
-            date="2026-09-23",
-            hot_topics=["해자", "밸류"],
-            dialogue="# 토론 내용",
-            final_vote_counts={"매수": 10, "보유": 2, "관망": 1, "매도": 0},
-            raw_markdown="# 토론 마크다운",
-        )
-    )
+    # 가치 드라이버/데이터팩 재렌더는 결정론적 값으로 고정 (MagicMock 방지)
+    service.value_driver_generator.generate_value_drivers = AsyncMock(return_value="가치드라이버")
+    service.datapack_builder._render_markdown = MagicMock(return_value="# AAPL 팩트")
+
+    # Mock Discussion Engine 마스터 보고서 메서드
     service.discussion_engine.generate_master_report = AsyncMock(
         return_value=FinalMasterReport(
             ticker="AAPL",
@@ -87,9 +80,9 @@ async def test_guru_report_service_pipeline(tmp_path: Path):
     mock_supabase.save_full_report.assert_awaited_once()
     mock_supabase.save_guru_votes.assert_awaited_once()
 
-    # 3. 로컬 마크다운 파일 저장 검증
+    # 3. 로컬 마크다운 파일 저장 검증 (토론 파일은 생성되지 않음)
     assert (tmp_path / "2026-09-23" / "_data" / "AAPL_요약.md").exists()
-    assert (tmp_path / "2026-09-23" / "최종" / "AAPL_토론.md").exists()
+    assert not (tmp_path / "2026-09-23" / "최종" / "AAPL_토론.md").exists()
     assert (tmp_path / "2026-09-23" / "최종" / "AAPL_최종보고서.md").exists()
 
 
@@ -238,9 +231,9 @@ def test_parse_report_verdict_tsm_hold_regression():
 
 
 @pytest.mark.asyncio
-async def test_generate_master_report_prioritizes_llm_verdict():
+async def test_generate_master_report_uses_deterministic_verdict():
     mock_ai = MagicMock()
-    # TSM 사례 모의: 13인 표결은 매수 5, 관망 8이지만 LLM 종합의견은 매수
+    # LLM 서술은 매수를 주장하지만, 최종 판정은 결정론적 집계 규칙이 소유한다.
     mock_ai.chat = AsyncMock(
         return_value=(
             "# TSM 최종 투자 보고서\n"
@@ -267,21 +260,12 @@ async def test_generate_master_report_prioritizes_llm_verdict():
         summaries=[],
         raw_markdown="",
     )
-    discussion = GuruDiscussionDoc(
-        ticker="TSM",
-        date="2026-09-25",
-        hot_topics=["해자"],
-        dialogue="토론",
-        final_vote_counts={"매수": 5, "보유": 0, "관망": 8, "매도": 0},
-        raw_markdown="",
-    )
 
-    report = await engine.generate_master_report(datapack, summaries, discussion)
+    report = await engine.generate_master_report(datapack, summaries)
 
-    # 13인 머릿수(매수 5표)로는 기존 규칙상 "관망"이었으나,
-    # B방안(LLM 최종 판단)에 따라 "매수" 및 score 0으로 확정되어야 함
-    assert report.overall_verdict == "매수"
-    assert report.overall_score == 0
+    # 유효 의견이 집계 기준 미만이면 LLM이 "매수"를 써도 규칙상 "관망"이다.
+    assert report.overall_verdict == "관망"
+    assert report.overall_score == 2
 
 
 def test_parse_report_valuation():
@@ -375,67 +359,8 @@ def test_parse_report_valuation_emits_review_flags_without_autofix():
 
 
 @pytest.mark.asyncio
-async def test_build_compact_discussion_without_ai():
-    """AI 호출 없이 13인 요약만으로 토론 문서를 경량 생성하는지 검증"""
-    engine = DiscussionEngine(ai_client=MagicMock())
-
-    datapack = StockDataPack(
-        ticker="AAPL",
-        company_name="Apple Inc.",
-        date="2026-10-06",
-        current_price=220.0,
-        overview="Apple overview",
-        balance_sheet=BalanceSheetRow(),
-        valuation=ValuationRow(current_price=220.0),
-        raw_markdown="# AAPL 팩트",
-    )
-    summaries = GuruSummaryDoc(
-        ticker="AAPL",
-        date="2026-10-06",
-        summaries=[
-            PersonaSummaryBlock(
-                persona="워런-버핏",
-                verdict="매수",
-                confidence=9,
-                core_arguments=["강력한 해자"],
-                target_price_range="$250",
-                quote="훌륭한 비즈니스다.",
-            ),
-            PersonaSummaryBlock(
-                persona="벤저민-그레이엄",
-                verdict="관망",
-                confidence=6,
-                core_arguments=["밸류에이션 부담"],
-                target_price_range="$200",
-                quote="안전마진이 부족하다.",
-            ),
-        ],
-        raw_markdown="# 요약",
-    )
-
-    # 엔진의 AI 클라이언트는 절대 쓰이지 않아야 함
-    engine.ai.chat = AsyncMock(side_effect=AssertionError("AI 호출 금지"))
-
-    doc = engine.build_compact_discussion(datapack, summaries)
-
-    assert doc.ticker == "AAPL"
-    assert doc.final_vote_counts == {"매수": 1, "보유": 0, "관망": 1, "매도": 0}
-    assert "워런-버핏" in doc.raw_markdown
-    assert "마스터" in doc.raw_markdown
-    engine.ai.chat.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_pipeline_skips_ai_discussion_and_uses_compact(monkeypatch, tmp_path: Path):
-    """
-    3단계 생략(기본)이 파이프라인 전체를 깨지 않는지 검증:
-    - generate_discussion(AI 호출)이 실행되지 않음
-    - 토론.md / 최종보고서.md가 정상 저장되고, 토론 문서에 표결 집계가 담김
-    """
-    from app.config.settings import settings
-
-    monkeypatch.setattr(settings, "ENABLE_ROUND_TABLE_DISCUSSION", False)
-
+async def test_pipeline_runs_without_discussion_stage(tmp_path: Path):
+    """원탁 토론 단계가 제거된 파이프라인이 정상 완료되고 토론 파일을 생성하지 않는지 검증"""
     mock_builder = MagicMock()
     mock_datapack = StockDataPack(
         ticker="AAPL",
@@ -466,11 +391,9 @@ async def test_pipeline_skips_ai_discussion_and_uses_compact(monkeypatch, tmp_pa
         request_interval=0,
     )
 
-    discussion_spy = AsyncMock(side_effect=AssertionError("AI 토론 호출 금지"))
-    service.discussion_engine.generate_discussion = discussion_spy
-
     # 가치 드라이버도 AI를 쓰므로 결정론적 문자열로 고정
     service.value_driver_generator.generate_value_drivers = AsyncMock(return_value="가치드라이버")
+    service.datapack_builder._render_markdown = MagicMock(return_value="# AAPL 팩트")
 
     master_return = FinalMasterReport(
         ticker="AAPL",
@@ -487,12 +410,16 @@ async def test_pipeline_skips_ai_discussion_and_uses_compact(monkeypatch, tmp_pa
     report = await service.generate_full_report("AAPL", "2026-10-06")
 
     assert report.overall_verdict == "매수"
-    discussion_spy.assert_not_called()
-    discussion_file = tmp_path / "2026-10-06" / "최종" / "AAPL_토론.md"
-    assert discussion_file.exists()
-    assert "표결 집계" in discussion_file.read_text(encoding="utf-8")
+    # 토론 생성 메서드/파일/단계가 모두 제거되었는지 검증
+    assert not hasattr(service.discussion_engine, "generate_discussion")
+    assert not (tmp_path / "2026-10-06" / "최종" / "AAPL_토론.md").exists()
     assert (tmp_path / "2026-10-06" / "최종" / "AAPL_최종보고서.md").exists()
 
+    from app.domains.report.pipeline_progress import PIPELINE_STAGES
+
+    stage_keys = [stage["key"] for stage in PIPELINE_STAGES]
+    assert "discussion" not in stage_keys
+    assert stage_keys == ["screening", "datapack", "value_driver", "summaries", "master", "sync"]
 
 
 
@@ -509,87 +436,62 @@ async def test_single_persona_summary_uses_client_default_token_cap():
 
     assert block.verdict == "매수"
     mock_ai.chat.assert_awaited_once()
-    assert mock_ai.chat.call_args.kwargs == {}
+    # 단계별 max_tokens 상한을 넘기지 않고 클라이언트 기본 상한을 쓴다.
+    assert "max_tokens" not in mock_ai.chat.call_args.kwargs
+    assert mock_ai.chat.call_args.kwargs["pin_model"] is False
 
 
 @pytest.mark.asyncio
-async def test_master_report_transfers_discussion_role_and_limits(monkeypatch):
+async def test_master_report_prompt_uses_fixed_decision_data():
     """
     마스터 프롬프트 검증:
-    - 생략 모드: 원탁 토론 전문 미포함 + 쟁점/합의밴드/표결 교차검증 지시 + 분량 규칙 + MASTER 상한
-    - 활성 모드: 원탁 토론 전문 포함
+    - 확정된 결정 데이터(판정·표결·가격 집계)와 13인 요약만 입력됨
+    - 원탁 토론 전문은 요구되지 않음
+    - 최종 판정은 결정론적 집계 규칙이 소유함
     """
-    from app.config.settings import settings
-
-    def _fixtures():
-        datapack = StockDataPack(
-            ticker="AAPL",
-            company_name="Apple Inc.",
-            date="2026-10-06",
-            current_price=220.0,
-            overview="Apple overview",
-            balance_sheet=BalanceSheetRow(),
-            valuation=ValuationRow(current_price=220.0),
-            raw_markdown="# AAPL 팩트",
-        )
-        summaries = GuruSummaryDoc(
-            ticker="AAPL",
-            date="2026-10-06",
-            summaries=[
-                PersonaSummaryBlock(
-                    persona="워런-버핏",
-                    verdict="매수",
-                    confidence=9,
-                    core_arguments=["강력한 해자"],
-                    target_price_range="$250",
-                    quote="훌륭한 비즈니스다.",
-                )
-            ],
-            raw_markdown="### 워런-버핏\n**의견**: 매수",
-        )
-        discussion = GuruDiscussionDoc(
-            ticker="AAPL",
-            date="2026-10-06",
-            hot_topics=["밸류"],
-            dialogue="# 아주 긴 원탁 토론 전문 마크다운",
-            final_vote_counts={"매수": 1, "보유": 0, "관망": 0, "매도": 0},
-            raw_markdown="# 아주 긴 원탁 토론 전문 마크다운",
-        )
-        return datapack, summaries, discussion
-
+    datapack = StockDataPack(
+        ticker="AAPL",
+        company_name="Apple Inc.",
+        date="2026-10-06",
+        current_price=220.0,
+        overview="Apple overview",
+        balance_sheet=BalanceSheetRow(),
+        valuation=ValuationRow(current_price=220.0),
+        raw_markdown="# AAPL 팩트",
+    )
+    summaries = GuruSummaryDoc(
+        ticker="AAPL",
+        date="2026-10-06",
+        summaries=[
+            PersonaSummaryBlock(
+                persona="워런-버핏",
+                verdict="매수",
+                confidence=9,
+                core_arguments=["강력한 해자"],
+                target_price_range="$250",
+                quote="훌륭한 비즈니스다.",
+            )
+        ],
+        raw_markdown="### 워런-버핏\n**의견**: 매수",
+    )
     master_md = (
         "# AAPL 최종 투자 보고서\n"
-        "> **날짜**: 2026-10-06 | **종합 의견**: **매수 (적극 분할 진입)** | "
-        "표결: 매수 1 · 보유 0 · 관망 0 · 매도 0\n"
-        "> **현재가**: $220.00 | **종합 적정 내재가치**: $230 (적정 밴드: $200 ~ $260)\n"
-        "> **투자 실행 밴드**: [안전마진 매수가] $200 이하 | [중립 적정가] $230 | [목표 매도가] $260\n"
+        "> **날짜**: 2026-10-06 | **종합 의견**: **관망** | "
+        "표결: 매수 1 · 보유 0 · 관망 12 · 매도 0\n"
+        "> **현재가**: $220.00\n"
     )
 
-    # 1) 생략 모드
     mock_ai = MagicMock()
     mock_ai.chat = AsyncMock(return_value=master_md)
     engine = DiscussionEngine(ai_client=mock_ai)
-    monkeypatch.setattr(settings, "ENABLE_ROUND_TABLE_DISCUSSION", False)
-    datapack, summaries, discussion = _fixtures()
 
-    report = await engine.generate_master_report(datapack, summaries, discussion)
-    assert report.overall_verdict == "매수"
+    report = await engine.generate_master_report(datapack, summaries)
 
     prompt = mock_ai.chat.call_args.args[0]
-    assert "# 아주 긴 원탁 토론 전문 마크다운" not in prompt  # 토론 전문 미포함
-    assert "원탁 토론 생략 모드" in prompt
-    assert "교차검증" in prompt and "합의 밴드" in prompt
-    assert "작성 절대 규칙" in prompt
-    assert mock_ai.chat.call_args.kwargs == {}
+    assert "[확정된 결정 데이터]" in prompt
+    assert "[13인 요약]" in prompt
+    assert "원탁 토론" not in prompt  # 토론 전문 요구 없음
 
-    # 2) 활성 모드: 토론 전문이 그대로 입력됨
-    monkeypatch.setattr(settings, "ENABLE_ROUND_TABLE_DISCUSSION", True)
-    mock_ai_active = MagicMock()
-    mock_ai_active.chat = AsyncMock(return_value=master_md)
-    engine_active = DiscussionEngine(ai_client=mock_ai_active)
-    datapack2, summaries2, discussion2 = _fixtures()
-
-    await engine_active.generate_master_report(datapack2, summaries2, discussion2)
-
-    prompt_active = mock_ai_active.chat.call_args.args[0]
-    assert "# 아주 긴 원탁 토론 전문 마크다운" in prompt_active
+    # 유효 의견이 집계 기준 미만이면 규칙상 관망이다.
+    assert report.overall_verdict == "관망"
+    assert report.overall_score == 2

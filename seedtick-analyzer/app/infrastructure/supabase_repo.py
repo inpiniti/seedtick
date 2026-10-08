@@ -36,12 +36,11 @@ class SupabaseRepo:
         vote_summary: str,
         datapack_dict: dict,
         summaries_list: list[dict],
-        discussion_md: str,
         final_report_md: str,
         extra_columns: dict | None = None,
     ) -> bool:
         """
-        public.guru_reports 테이블에 전체 리포트 본문(데이터팩, 13인요약, 토론, 최종보고서 및 구조화 컬럼) 저장
+        public.guru_reports 테이블에 전체 리포트 본문(데이터팩, 13인요약, 최종보고서 및 구조화 컬럼) 저장
         """
         if not self._client:
             logger.info(f"[Supabase] 설정 미제공 — guru_reports 건너뜀: {ticker} ({date_str})")
@@ -59,7 +58,6 @@ class SupabaseRepo:
             "vote_summary": vote_summary,
             "datapack": datapack_dict,
             "summaries": summaries_list,
-            "discussion": discussion_md,
             "final_report": final_report_md,
         }
 
@@ -86,7 +84,6 @@ class SupabaseRepo:
                 "vote_summary": vote_summary,
                 "datapack": datapack_dict,
                 "summaries": summaries_list,
-                "discussion": discussion_md,
                 "final_report": final_report_md,
             }
             try:

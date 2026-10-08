@@ -1,5 +1,5 @@
 """
-GuruReportService: 13인의 거장 심층 투자 보고서 5단계 파이프라인 오케스트레이터
+GuruReportService: 13인의 거장 심층 투자 보고서 4단계 파이프라인 오케스트레이터
 """
 import asyncio
 import hashlib
@@ -16,7 +16,6 @@ from app.domains.report.discussion_engine import DiscussionEngine
 from app.domains.report.value_driver_generator import ValueDriverGenerator
 from app.domains.report.models import (
     FinalMasterReport,
-    GuruDiscussionDoc,
     GuruSummaryDoc,
     PersonaSummaryBlock,
     StockDataPack,
@@ -41,7 +40,7 @@ class GuruReportService:
         progress: PipelineProgressTracker | None = None,
     ):
         self.base_report_dir = Path(base_report_dir)
-        # 진행 상태 추적기 (지정 시 5단계 진행률을 실시간으로 기록)
+        # 진행 상태 추적기 (지정 시 4단계 진행률을 실시간으로 기록)
         self.progress = progress
         self.datapack_builder = datapack_builder or DataPackBuilder(base_report_dir)
         self.ai = ai_client or AiGatewayClient()
@@ -62,18 +61,17 @@ class GuruReportService:
         screeners: list[str] | None = None,
     ) -> FinalMasterReport:
         """
-        13인 거장 5단계 파이프라인 전체 실행:
+        13인 거장 4단계 파이프라인 전체 실행:
         ① 공용 심층 데이터 팩 (_data/{ticker}.md)
         ② 13인 개별 요약 블록 (_data/{ticker}_요약.md) [최대 concurrency 동시 처리]
-        ③ 거장 원탁 토론 전문 (최종/{ticker}_토론.md)
-        ④ 최종 종합 투자 보고서 (최종/{ticker}_최종보고서.md)
-        ⑤ Supabase DB 동기화 (guru_votes)
+        ③ 최종 종합 투자 보고서 (최종/{ticker}_최종보고서.md)
+        ④ Supabase DB 동기화 (guru_votes)
         """
         clean_ticker = ticker.upper().strip()
         date_str = target_date or dt_date.today().isoformat()
         report_model = (settings.AI_REPORT_MODEL or settings.AI_GATEWAY_MODEL).strip()
         report_temperature = settings.AI_REPORT_TEMPERATURE
-        logger.info(f"[{clean_ticker}] 5단계 Guru Report 파이프라인 시작 (기준일: {date_str})")
+        logger.info(f"[{clean_ticker}] 4단계 Guru Report 파이프라인 시작 (기준일: {date_str})")
         logger.info(
             f"[{clean_ticker}] 보고서 모델 고정: {report_model} "
             f"(temperature={report_temperature})"
@@ -113,42 +111,8 @@ class GuruReportService:
             temperature_override=report_temperature,
         )
 
-        # ── 3단계: 거장 원탁 토론 전문 생성 ───────────────────
-        logger.info(f"[{clean_ticker}] 3단계: 원탁 토론 단계 시작...")
-        if self.progress:
-            self.progress.set_stage("discussion")
-        if settings.ENABLE_ROUND_TABLE_DISCUSSION:
-            if self.request_interval > 0:
-                await asyncio.sleep(self.request_interval)
-            discussion_doc = await self.discussion_engine.generate_discussion(
-                datapack,
-                summary_doc,
-                model_override=report_model,
-                temperature_override=report_temperature,
-            )
-            self._save_discussion_file(discussion_doc)
-            logger.info(
-                f"[{clean_ticker}] 3단계: 원탁 토론 전문 저장 완료 "
-                f"(길이: {len(discussion_doc.raw_markdown)}자, 경로: {discussion_doc.file_path})"
-            )
-        else:
-            # 토론 생략 모드(기본): AI 호출 없이 요약 기반 compact 문서를 만들고,
-            # 쟁점·적정가 합의밴드·표결 도출은 4단계 마스터로 이관한다.
-            discussion_doc = self.discussion_engine.build_compact_discussion(
-                datapack, summary_doc
-            )
-            self._save_discussion_file(discussion_doc)
-            if self.progress:
-                self.progress.log(
-                    "원탁 토론 AI 생성 생략 — 쟁점·합의밴드·표결 도출을 마스터로 이관"
-                )
-            logger.info(
-                f"[{clean_ticker}] 3단계: 원탁 토론 생략(마스터 이관) — "
-                f"compact 문서 {len(discussion_doc.raw_markdown)}자 저장 완료 (AI 호출 0회)"
-            )
-
-        # ── 4단계: 최종 종합 투자 보고서 생성 ──────────────────
-        logger.info(f"[{clean_ticker}] 4단계: 최종 종합 마스터 투자 보고서 생성 시작...")
+        # ── 3단계: 최종 종합 투자 보고서 생성 ──────────────────
+        logger.info(f"[{clean_ticker}] 3단계: 최종 종합 마스터 투자 보고서 생성 시작...")
         if self.progress:
             self.progress.set_stage("master")
         if self.request_interval > 0:
@@ -156,17 +120,16 @@ class GuruReportService:
         master_report = await self.discussion_engine.generate_master_report(
             datapack,
             summary_doc,
-            discussion_doc,
             model_override=report_model,
             temperature_override=report_temperature,
         )
         self._save_master_report_file(master_report)
         logger.info(
-            f"[{clean_ticker}] 4단계: 최종 마스터 보고서 저장 완료 "
+            f"[{clean_ticker}] 3단계: 최종 마스터 보고서 저장 완료 "
             f"(판정: {master_report.overall_verdict}, 점수: {master_report.overall_score})"
         )
 
-        # ── 5단계: Supabase DB 동기화 ────────────────────────
+        # ── 4단계: Supabase DB 동기화 ────────────────────────
         if self.progress:
             self.progress.set_stage("sync")
         await self.sync_to_db(
@@ -174,7 +137,6 @@ class GuruReportService:
             date_str,
             datapack,
             summary_doc,
-            discussion_doc,
             master_report,
             screeners=screeners,
             analysis_model=report_model,
@@ -182,7 +144,7 @@ class GuruReportService:
         )
 
         logger.info(
-            f"[{clean_ticker}] 5단계 파이프라인 완료! "
+            f"[{clean_ticker}] 4단계 파이프라인 완료! "
             f"(종합: {master_report.overall_verdict} / {master_report.vote_summary})"
         )
         return master_report
@@ -494,13 +456,6 @@ class GuruReportService:
             parse_mode="regex" if v_match else "fallback",
         )
 
-    def _save_discussion_file(self, doc: GuruDiscussionDoc) -> None:
-        out_dir = self.base_report_dir / doc.date / "최종"
-        out_dir.mkdir(parents=True, exist_ok=True)
-        out_file = out_dir / f"{doc.ticker}_토론.md"
-        out_file.write_text(doc.raw_markdown, encoding="utf-8")
-        doc.file_path = str(out_file)
-
     def _save_master_report_file(self, report: FinalMasterReport) -> None:
         out_dir = self.base_report_dir / report.date / "최종"
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -514,14 +469,13 @@ class GuruReportService:
         date_str: str,
         datapack: StockDataPack,
         summaries: GuruSummaryDoc,
-        discussion: GuruDiscussionDoc,
         report: FinalMasterReport,
         screeners: list[str] | None = None,
         analysis_model: str | None = None,
         analysis_temperature: float | None = None,
     ) -> None:
         """
-        1. guru_reports 테이블에 전체 리포트 본문(데이터팩, 13인요약, 토론, 최종보고서) 저장
+        1. guru_reports 테이블에 전체 리포트 본문(데이터팩, 13인요약, 최종보고서) 저장
         2. guru_votes 테이블에 13인 표결 점수(g0~g13) 저장
         """
         # 공식 13인 roster와 DB의 g1~g13 슬롯을 일대일로 매핑한다.
@@ -608,7 +562,6 @@ class GuruReportService:
             vote_summary=report.vote_summary,
             datapack_dict=datapack_dict,
             summaries_list=summaries_list,
-            discussion_md=discussion.raw_markdown,
             final_report_md=report.raw_markdown,
             extra_columns=extra_cols,
         )

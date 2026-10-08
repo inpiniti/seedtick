@@ -29,7 +29,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 
-export type ResearchDocTab = "final" | "summaries" | "datapack" | "discussion" | "chart";
+export type ResearchDocTab = "final" | "summaries" | "datapack" | "chart";
 
 interface ResearchDocumentViewProps {
   report: GuruReportRow | null;
@@ -358,8 +358,7 @@ export function ResearchDocumentView({
             { id: "final" as const, label: "01. 마스터 보고서", icon: FileText },
             { id: "summaries" as const, label: "02. 13인 개별 서머리", icon: Users },
             { id: "datapack" as const, label: "03. 심층 데이터팩", icon: PieChart },
-            { id: "discussion" as const, label: "04. 원탁 토론 전문", icon: Users },
-            { id: "chart" as const, label: "05. 일봉 및 밴드", icon: TrendingUp },
+            { id: "chart" as const, label: "04. 일봉 및 밴드", icon: TrendingUp },
           ].map((tab) => {
             const isActive = activeTab === tab.id;
             const Icon = tab.icon;
@@ -402,18 +401,6 @@ export function ResearchDocumentView({
 
           {activeTab === "datapack" && (
             <ReportDatapackView datapack={report.datapack} />
-          )}
-
-          {activeTab === "discussion" && (
-            report.discussion ? (
-              <MarkdownViewer content={report.discussion} />
-            ) : (
-              <EmptyState
-                icon="💬"
-                title="원탁 토론 전문이 등록되지 않았습니다"
-                description="거장 AI 상호 반론 토론 세션 원문이 이곳에 기록됩니다."
-              />
-            )
           )}
 
           {activeTab === "chart" && (

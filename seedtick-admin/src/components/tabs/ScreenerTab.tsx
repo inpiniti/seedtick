@@ -339,7 +339,7 @@ export function ScreenerTab({
   const [activeSubTab, setActiveSubTab] = useState<"all" | "live" | "roma">("all");
   const [selectedReport, setSelectedReport] = useState<GuruReportRow | null>(null);
   const [reportModalOpen, setReportModalOpen] = useState(false);
-  const [reportViewMode, setReportViewMode] = useState<"final" | "discussion" | "summaries" | "datapack" | "chart">("final");
+  const [reportViewMode, setReportViewMode] = useState<"final" | "summaries" | "datapack" | "chart">("final");
   const [searchTerm, setSearchTerm] = useState("");
   const [percentBByTicker, setPercentBByTicker] = useState<Record<string, number | null>>({});
   const percentBByTickerRef = React.useRef<Record<string, number | null>>({});
@@ -450,7 +450,6 @@ export function ScreenerTab({
             : "실시간 스크리너 발굴 종목",
         datapack: null,
         summaries: null,
-        discussion: null,
         final_report: null,
         created_at: new Date().toISOString(),
       };
@@ -1742,7 +1741,7 @@ export function ScreenerTab({
                 <Card.Title>DataRoma 슈퍼인베스터 보유 종목</Card.Title>
                 <Card.Description>
                   미국 슈퍼인베스터 10명 이상이 공동 보유한 종목이에요. 종목을 클릭하면
-                  실시간 스크리너와 동일하게 5단계 리포트를 확인할 수 있어요.
+                  실시간 스크리너와 동일하게 상세 리포트를 확인할 수 있어요.
                 </Card.Description>
               </div>
               <Button
@@ -1987,7 +1986,7 @@ export function ScreenerTab({
               );
             })()}
 
-            {/* 마크다운 뷰 탭 전환 버튼 (5개 모드: 최종보고서, 원탁토론, 개별서머리, 데이터팩, 일봉차트) */}
+            {/* 마크다운 뷰 탭 전환 버튼 (4개 모드: 최종보고서, 개별서머리, 데이터팩, 일봉차트) */}
             <div className="flex items-center gap-1 p-1 bg-[#f1f5f9] border border-[#e2e8f0] rounded-md overflow-x-auto -mx-1 px-1 font-mono text-xs">
               <button
                 onClick={() => setReportViewMode("final")}
@@ -1998,16 +1997,6 @@ export function ScreenerTab({
                 }`}
               >
                 최종 마스터 보고서
-              </button>
-              <button
-                onClick={() => setReportViewMode("discussion")}
-                className={`shrink-0 sm:shrink sm:flex-1 py-1 px-2.5 rounded transition-all cursor-pointer whitespace-nowrap ${
-                  reportViewMode === "discussion"
-                    ? "bg-[#0f172a] text-white font-medium shadow-xs"
-                    : "text-[#64748b] hover:text-[#0f172a]"
-                }`}
-              >
-                13인 거장 원탁 토론
               </button>
               <button
                 onClick={() => setReportViewMode("summaries")}
@@ -2052,18 +2041,6 @@ export function ScreenerTab({
                     icon={<FileText className="w-8 h-8 text-[#8b95a1]" />}
                     title="최종 보고서가 아직 생성되지 않았어요"
                     description="12:00 정기 배치 또는 수동 분석이 완료되면 이곳에 보고서가 등록돼요. '일봉 & 볼린저밴드' 탭에서 실시간 차트를 먼저 확인해 보세요."
-                  />
-                )
-              )}
-
-              {reportViewMode === "discussion" && (
-                selectedReport?.discussion ? (
-                  <MarkdownViewer content={selectedReport.discussion} />
-                ) : (
-                  <EmptyState
-                    icon={<Users className="w-8 h-8 text-[#8b95a1]" />}
-                    title="원탁 토론 전문이 아직 등록되지 않았어요"
-                    description="거장 AI 분석 파이프라인이 진행되면 13인의 심층 토론 전문이 등록돼요."
                   />
                 )
               )}

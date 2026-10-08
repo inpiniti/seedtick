@@ -100,7 +100,7 @@ create table if not exists public.guru_reports (
   vote_summary  text,                             -- 표결 요약 (예: 매수 8 · 보유 3 · 관망 1 · 매도 1)
   datapack      jsonb,                            -- 공용 심층 팩트 (재무제표 시계열, 밸류에이션, 지표)
   summaries     jsonb,                            -- 13인 거장 개별 요약 블록 배열
-  discussion    text,                             -- 거장 원탁 토론 전문 마크다운
+  discussion    text,                             -- (폐기) 거장 원탁 토론 전문 — 신규 기록 없음, 레거시 데이터 호환용
   final_report  text,                             -- 최종 마스터 종합 투자 보고서 마크다운
   -- ── 구조화 검색/정렬 컬럼 ──
   fair_value         numeric,                     -- 종합 적정 내재가치 ($)
@@ -241,6 +241,5 @@ docs/report/{YYYY-MM-DD}/
 │   ├── {티커}.md            # 공용 심층 데이터팩
 │   └── {티커}_요약.md       # 13인 개별 요약 블록 모음
 └── 최종/
-    ├── {티커}_토론.md       # 거장 원탁 토론 전문
     └── {티커}_최종보고서.md  # 최종 종합 마스터 투자 보고서
 ```
