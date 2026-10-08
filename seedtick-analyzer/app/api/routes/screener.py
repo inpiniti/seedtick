@@ -1,6 +1,7 @@
 """
 Screener API Route
 """
+import httpx
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 from app.domains.screener.chart_service import ChartService
@@ -80,6 +81,12 @@ async def get_stock_chart(
     try:
         service = ChartService()
         return await service.get_stock_chart(ticker=ticker, range_period=range_period, interval=interval)
+    except ValueError as ve:
+        raise HTTPException(status_code=404, detail=f"[{ticker}] 차트를 찾을 수 없습니다: {ve}")
+    except httpx.HTTPStatusError as he:
+        if he.response.status_code == 404:
+            raise HTTPException(status_code=404, detail=f"[{ticker}] Yahoo Finance에서 종목 차트를 찾을 수 없습니다.")
+        raise HTTPException(status_code=502, detail=f"[{ticker}] 차트 데이터 조회 실패: {he}")
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"[{ticker}] 차트 데이터 조회 실패: {e}")
 

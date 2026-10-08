@@ -148,3 +148,49 @@ async def test_chart_api_route(monkeypatch):
         assert len(data["bollinger"]) == 25
         assert data["summary"] is not None
         assert "status" in data["summary"]
+
+
+@pytest.mark.asyncio
+async def test_chart_resolves_toss_stock_code(monkeypatch):
+    service = ChartService()
+    called_tickers = []
+
+    async def fake_fetch(ticker: str, range_period: str = "6mo", interval: str = "1d"):
+        called_tickers.append(ticker)
+        return {
+            "chart": {
+                "result": [
+                    {
+                        "meta": {"symbol": ticker},
+                        "timestamp": [1704067200],
+                        "indicators": {
+                            "quote": [{"open": [100.0], "high": [105.0], "low": [98.0], "close": [102.0], "volume": [1000]}]
+                        },
+                    }
+                ]
+            }
+        }
+
+    monkeypatch.setattr(service, "fetch_raw_yahoo_chart", fake_fetch)
+    # US19890516001 should resolve to MU
+    chart = await service.get_stock_chart("US19890516001")
+    assert chart.ticker == "MU"
+    assert "MU" in called_tickers
+
+
+@pytest.mark.asyncio
+async def test_chart_api_returns_404_when_ticker_not_found(monkeypatch):
+    import httpx
+
+    async def fake_fetch(self, ticker: str, range_period: str = "6mo", interval: str = "1d"):
+        request = httpx.Request("GET", "https://query1.finance.yahoo.com")
+        response = httpx.Response(status_code=404, request=request)
+        raise httpx.HTTPStatusError("404 Not Found", request=request, response=response)
+
+    monkeypatch.setattr(ChartService, "fetch_raw_yahoo_chart", fake_fetch)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.get("/api/screener/chart/NONEXISTENT123")
+        assert res.status_code == 404
+        assert "찾을 수 없습니다" in res.json()["detail"]
+

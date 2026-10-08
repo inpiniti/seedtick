@@ -11,6 +11,7 @@ import {
 } from "lightweight-charts";
 import { StockChartResponse } from "@/types/api";
 import { fetchStockChart } from "@/lib/api-client";
+import { isValidChartTicker } from "@/lib/insightUtils";
 import { Badge, BadgeVariant } from "@/components/ui/Badge";
 import { AlertTriangle, Info, RefreshCw } from "lucide-react";
 
@@ -33,8 +34,11 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
     let isCancelled = false;
 
     async function loadChart() {
-      setIsLoading(true);
-      setError(null);
+      if (!isValidChartTicker(ticker)) {
+        setIsLoading(false);
+        setError("유효하지 않거나 지원되지 않는 종목 코드입니다.");
+        return;
+      }
       try {
         const res = await fetchStockChart(ticker, selectedRange);
         if (!isCancelled) {
