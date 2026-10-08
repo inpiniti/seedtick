@@ -66,10 +66,6 @@ class Settings(BaseSettings):
     AI_REQUEST_INTERVAL_SEC: float = 0.0  # 요청 간 대기시간(초)
     AI_GATEWAY_MAX_TOKENS: int = 32768  # 모델 최대 생성 토큰 (32K 지원)
 
-    # 3단계 원탁 토론 AI 생성 사용 여부.
-    # False면 토론을 생략하고 쟁점·적정가 합의밴드·표결 도출을 4단계 마스터로 이관한다.
-    ENABLE_ROUND_TABLE_DISCUSSION: bool = False
-
     # 프롬프트 규격 버전 (guru_opinions.prompt_version 에 기록 → 품질 회귀 추적용)
     REPORT_PROMPT_VERSION: str = "2026-10-08.v4"
 

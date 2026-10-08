@@ -57,7 +57,6 @@ def cmd_analyze(args):
         print(f"• 산출물 파일:")
         print(f"  - 데이터팩: docs/report/{report.date}/_data/{ticker}.md")
         print(f"  - 13인요약: docs/report/{report.date}/_data/{ticker}_요약.md")
-        print(f"  - 원탁토론: docs/report/{report.date}/최종/{ticker}_토론.md")
         print(f"  - 최종보고: docs/report/{report.date}/최종/{ticker}_최종보고서.md")
         print("• Supabase DB: guru_reports 및 guru_votes 동기화 완료")
         print("=" * 60 + "\n")

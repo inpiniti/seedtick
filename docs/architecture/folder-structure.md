@@ -45,7 +45,7 @@ seedtick-analyzer/
 │   ├── api/
 │   │   ├── routes/
 │   │   │   ├── screener.py        # GET /screener/run (거장 공통 스크리닝), GET /screener/roma (두번째 스크리너)
-│   │   │   ├── report.py          # POST /report/generate (5단계 파이프라인)
+│   │   │   ├── report.py          # POST /report/generate (4단계 파이프라인)
 │   │   │   ├── scheduler.py       # POST /scheduler/trigger (수동 트리거)
 │   │   │   └── health.py          # GET /health
 │   │   └── dependencies.py        # DI: supabase client, bridge 등
@@ -61,11 +61,11 @@ seedtick-analyzer/
 │   │   │       └── dataroma.py   # DataRoma 그랜드 포트폴리오 스크레이퍼 (두번째 스크리너)
 │   │   │
 │   │   ├── report/
-│   │   │   ├── service.py         # GuruReportService (5단계 파이프라인)
+│   │   │   ├── service.py         # GuruReportService (4단계 파이프라인)
 │   │   │   ├── models.py          # StockDataPack, GuruSummaryDoc, FinalMasterReport
 │   │   │   ├── datapack_builder.py# [사전구축] Yahoo/SEC/Toss 정량 데이터팩 생성기
 │   │   │   ├── personas/          # 13인의 거장 시스템 프롬프트 정의
-│   │   │   ├── discussion_engine.py # 거장 상호 반박 토론 생성기
+│   │   │   ├── discussion_engine.py # 마스터 보고서 생성기 및 리포트 파싱 유틸리티
 │   │   │   └── ai_client.py       # AI-Gateway 호출 클라이언트 (멀티키 로테이션 연동)
 │   │   │
 │   │   ├── scheduler/

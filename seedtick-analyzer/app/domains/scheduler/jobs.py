@@ -252,7 +252,7 @@ async def _run_daily_pipeline(
             "orders_count": 0,
         }
 
-    # ── 3. 종목별 5단계 Guru-Report 실행 ──────────────────
+    # ── 3. 종목별 4단계 Guru-Report 실행 ──────────────────
     report_service = GuruReportService(progress=pipeline_progress)
     generated_reports = []
 
