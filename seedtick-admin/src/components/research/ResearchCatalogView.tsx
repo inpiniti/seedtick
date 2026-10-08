@@ -874,7 +874,7 @@ export function ResearchCatalogView({
 
                                 {insight.dispersionPct != null && (
                                   <span
-                                    title="13인의 개별 적정가 중점값 전체 범위 ÷ 중앙값입니다. 20%를 넘으면 단일 적정가를 보류합니다."
+                                    title="13인의 개별 적정가 중앙 50%(Q1~Q3) 구간 폭 ÷ 중앙 적정가(IQR 분산율)입니다."
                                     className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]"
                                   >
                                     가격 분산:{" "}

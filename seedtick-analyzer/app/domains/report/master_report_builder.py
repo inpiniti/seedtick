@@ -174,7 +174,7 @@ bull_points(문자열 배열), bear_points(문자열 배열), key_drivers(문자
         "price_estimate_count": consensus.price_estimate_count,
         "method": (
             "13인 적정가 구간 중점값의 중앙값; 밴드는 Q1–Q3; "
-            "전체 추정 범위가 중앙값 대비 20% 초과면 단일가 보류"
+            "분산율은 사분위 범위(IQR) 기반"
         ),
     }
     json_block = json.dumps(
@@ -210,7 +210,7 @@ bull_points(문자열 배열), bear_points(문자열 배열), key_drivers(문자
         f"- **근거 요약**: {conclusion}",
         f"- **판정 규칙**: 13인 중 최소 {MIN_VALID_PERSONAS}개의 유효 의견이 필요하며, 유효 의견의 60% 이상이 같은 판정일 때 해당 판정을 채택합니다. 그 외에는 관망입니다.",
         f"- **가격 집계**: 유효 가격 구간 {consensus.price_estimate_count}/{EXPECTED_PERSONA_COUNT}개의 중점값 중앙값. 적정가 구간은 중앙 50%(Q1–Q3)입니다.",
-        f"- **가격 의견 분산**: {dispersion_text} (최고~최저 추정 폭 ÷ 중앙 적정가; 20% 초과 시 단일가 보류)",
+        f"- **가격 의견 분산**: {dispersion_text} (중앙 50% Q1~Q3 구간 폭 ÷ 중앙 적정가; IQR 분산율)",
     ]
     if consensus.review_flags:
         lines.append("- **검토 필요**: " + "; ".join(consensus.review_flags))

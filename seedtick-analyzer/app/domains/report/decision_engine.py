@@ -24,7 +24,7 @@ EXPECTED_PERSONA_COUNT = len(GURU_REPORT_ROSTER)
 MIN_VALID_PERSONAS = ceil(EXPECTED_PERSONA_COUNT * 0.85)
 MIN_PRICE_ESTIMATES = ceil(EXPECTED_PERSONA_COUNT * 0.60)
 VERDICT_SUPERMAJORITY = 0.60
-MAX_PUBLISHABLE_DISPERSION_PCT = 20.0
+HIGH_DISPERSION_ALERT_PCT = 50.0
 
 
 @dataclass(frozen=True)
@@ -62,14 +62,13 @@ def _quantile(values: Sequence[float], probability: float) -> float:
 def aggregate_report_consensus(
     summaries: Sequence[PersonaSummaryBlock],
 ) -> ReportConsensus:
-    """Apply the same vote and valuation rules to every report run.
+    """Apply deterministic vote and valuation rules to every report run.
 
     Verdicts require an 85% complete panel and a 60% supermajority. If the panel
     does not meet that bar, the result is WATCH. Fair value is the median of the
     persona range midpoints; its displayed band is the central 50% (Q1–Q3).
-    A single fair-value point is withheld when the full estimate range is wider
-    than 20% of its median. This catches separated opinion clusters that a
-    central-only range could hide. No previous report is used as an anchor.
+    Dispersion is measured by the robust relative IQR ((Q3 - Q1) / median),
+    protecting consensus values from single extreme outliers.
     """
     by_persona: dict[str, PersonaSummaryBlock] = {}
     duplicate_personas: set[str] = set()
@@ -158,34 +157,36 @@ def aggregate_report_consensus(
         median_value = float(median(midpoints))
         band_low = _quantile(midpoints, 0.25)
         band_high = _quantile(midpoints, 0.75)
-        full_range_low = min(midpoints)
-        full_range_high = max(midpoints)
-        dispersion_pct = ((full_range_high - full_range_low) / median_value) * 100.0
+        dispersion_pct = ((band_high - band_low) / median_value) * 100.0
 
         if len(intervals) < EXPECTED_PERSONA_COUNT:
             review_flags.append(
                 f"적정가 추정에 사용한 페르소나 {len(intervals)}/{EXPECTED_PERSONA_COUNT}"
             )
 
-        if dispersion_pct > MAX_PUBLISHABLE_DISPERSION_PCT:
+        if dispersion_pct > HIGH_DISPERSION_ALERT_PCT:
             review_flags.append(
-                f"개별 적정가 전체 범위의 분산이 {dispersion_pct:.1f}%로 "
-                f"기준 {MAX_PUBLISHABLE_DISPERSION_PCT:.0f}% 초과; 단일 적정가 미표시"
+                f"개별 적정가 중앙 50% 분산이 {dispersion_pct:.1f}%로 "
+                f"기준 {HIGH_DISPERSION_ALERT_PCT:.0f}% 초과 (의견 편차 큼)"
             )
-        elif valid_vote_count < MIN_VALID_PERSONAS:
-            review_flags.append("분석 응답 누락으로 단일 적정가 미표시")
+
+        if valid_vote_count < MIN_VALID_PERSONAS:
+            review_flags.append("분석 응답 누락으로 단일 적정가 신뢰도 주의")
+
+        fair_value = median_value
+        safety_candidate = float(median([interval[0] for interval in intervals]))
+        target_candidate = float(median([interval[1] for interval in intervals]))
+        if safety_candidate <= fair_value:
+            safety_entry = safety_candidate
         else:
-            fair_value = median_value
-            safety_candidate = float(median([interval[0] for interval in intervals]))
-            target_candidate = float(median([interval[1] for interval in intervals]))
-            if safety_candidate <= fair_value:
-                safety_entry = safety_candidate
-            else:
-                review_flags.append("안전마진 가격 후보가 적정가보다 높아 미표시")
-            if target_candidate >= fair_value:
-                target_sell = target_candidate
-            else:
-                review_flags.append("목표 매도가 후보가 적정가보다 낮아 미표시")
+            safety_entry = min(safety_candidate, band_low)
+            review_flags.append("안전마진 가격 후보가 적정가보다 높아 밴드 하단(Q1)으로 보정")
+
+        if target_candidate >= fair_value:
+            target_sell = target_candidate
+        else:
+            target_sell = max(target_candidate, band_high)
+            review_flags.append("목표 매도가 후보가 적정가보다 낮아 밴드 상단(Q3)으로 보정")
 
     return ReportConsensus(
         verdict=verdict,
