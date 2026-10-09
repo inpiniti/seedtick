@@ -225,12 +225,18 @@ create policy error_logs_read on public.error_logs for select to anon, authentic
 
 
 -- ------------------------------------------------------------------------------
--- 4. ticker_logos: 티커별 로고 URL 캐시 테이블
+-- 4. ticker_logos: 티커별 로고 URL + 한글명 캐시 테이블
+--  - 한글명(korean_name)은 stock-infos/search 응답에서 확보한 한글 표기를 캐시
+--  - logo_image_url은 NULL 허용: 한글명만 확보된 티커도 캐시 행 유지
+--  - 기존 DB에는 아래 ALTER를 별도 실행 (Supabase SQL Editor):
+--      alter table public.ticker_logos alter column logo_image_url drop not null;
+--      alter table public.ticker_logos add column if not exists korean_name text;
 -- ------------------------------------------------------------------------------
 create table if not exists public.ticker_logos (
   ticker         text        not null primary key, -- 티커 (예: AAPL)
   stock_code     text,                             -- 토스 종목 코드 (예: US0378331005)
-  logo_image_url text        not null,             -- 토스 로고 URL
+  logo_image_url text,                             -- 토스 로고 URL (한글명만 캐시된 행은 NULL)
+  korean_name    text,                             -- 토스 한글 종목명 (예: 애플)
   source         text        not null default 'toss_screener', -- toss_screener | toss_lookup
   updated_at     timestamptz not null default now()
 );

@@ -42,30 +42,36 @@ class TickerLogoService:
     def save_logo(
         self,
         ticker: str,
-        logo_image_url: str,
+        logo_image_url: str | None,
         stock_code: str | None = None,
         source: str = "toss_screener",
+        korean_name: str | None = None,
     ) -> None:
-        if not self._is_valid_logo_url(logo_image_url):
+        if not self._is_valid_logo_url(logo_image_url) and not (korean_name or "").strip():
             return
         supabase_repo.upsert_ticker_logo(
             ticker=ticker,
             logo_image_url=logo_image_url,
             stock_code=stock_code,
             source=source,
+            korean_name=korean_name,
         )
 
     def save_logos_batch(self, items: list[dict]) -> None:
-        """복수 티커 로고 URL 일괄 캐시 저장"""
+        """복수 티커 로고 URL/한글명 일괄 캐시 저장"""
         if not items:
             return
         valid_items = [
             it
             for it in items
             if self._is_valid_logo_url(it.get("logo_image_url"))
+            or (it.get("korean_name") or "").strip()
         ]
         if valid_items:
             supabase_repo.upsert_ticker_logos(valid_items)
+
+    def get_cached_names(self, tickers: list[str]) -> dict[str, str]:
+        return supabase_repo.get_ticker_names(tickers)
 
 
     async def resolve_logo(self, ticker: str) -> tuple[str | None, str]:
@@ -88,16 +94,81 @@ class TickerLogoService:
 
         logo_image_url = found.get("logo_image_url")
         stock_code = found.get("stock_code")
-        if self._is_valid_logo_url(logo_image_url):
+        korean_name = (found.get("korean_name") or "").strip() or None
+        if self._is_valid_logo_url(logo_image_url) or korean_name:
             self.save_logo(
                 ticker=normalized,
                 logo_image_url=logo_image_url,
                 stock_code=stock_code,
                 source="toss_lookup",
+                korean_name=korean_name,
             )
-            return logo_image_url, "toss_lookup"
+            if self._is_valid_logo_url(logo_image_url):
+                return logo_image_url, "toss_lookup"
 
         return None, "none"
+
+    async def resolve_name(self, ticker: str) -> tuple[str | None, str]:
+        """
+        한글명 조회 순서:
+        1) Supabase ticker_logos.korean_name 캐시
+        2) Toss 검색/상세/스크리너 탐색 조회 후 캐시 저장
+        """
+        normalized = self._normalize_ticker(ticker)
+        if not normalized:
+            return None, "none"
+
+        cached = self.get_cached_names([normalized]).get(normalized)
+        if cached:
+            return cached, "cached"
+
+        found = await self.wts_client.find_logo_by_ticker(normalized)
+        if not found:
+            return None, "none"
+
+        korean_name = (found.get("korean_name") or "").strip() or None
+        if korean_name:
+            self.save_logo(
+                ticker=normalized,
+                logo_image_url=found.get("logo_image_url"),
+                stock_code=found.get("stock_code"),
+                source="toss_lookup",
+                korean_name=korean_name,
+            )
+            return korean_name, "toss_lookup"
+
+        return None, "none"
+
+    async def resolve_names(
+        self,
+        tickers: list[str],
+        max_count: int = 30,
+    ) -> list[tuple[str, str | None, str]]:
+        """
+        여러 티커 한글명을 순차 조회한다.
+        - 호출량 제어를 위해 max_count 상한 적용
+        - 반환: (ticker, korean_name, source)
+        """
+        normalized_unique: list[str] = []
+        seen: set[str] = set()
+        for ticker in tickers:
+            normalized = self._normalize_ticker(ticker)
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            normalized_unique.append(normalized)
+            if len(normalized_unique) >= max_count:
+                break
+
+        cached = self.get_cached_names(normalized_unique)
+        results: list[tuple[str, str | None, str]] = []
+        for ticker in normalized_unique:
+            if cached.get(ticker):
+                results.append((ticker, cached[ticker], "cached"))
+                continue
+            korean_name, source = await self.resolve_name(ticker)
+            results.append((ticker, korean_name, source))
+        return results
 
     async def resolve_logos(
         self,

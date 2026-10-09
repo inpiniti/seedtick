@@ -6,6 +6,7 @@ RomaScreenerService: DataRoma Grand Portfolio 기반 두번째 스크리너
 - 결과는 기존 스크리너와 동일한 ScreenResult/TossStockItem 형태로 반환하여
   리포트 파이프라인 및 어드민 UI가 그대로 재사용 가능
 """
+import asyncio
 import logging
 
 from app.domains.screener.clients.dataroma import (
@@ -82,6 +83,7 @@ class RomaScreenerService:
         if size and size > 0:
             items = items[:size]
 
+        self._hydrate_cached_names(items)
         self._hydrate_cached_logos(items)
         logger.info(f"[Roma] 스크리닝 통과 종목: 총 {len(items)}개")
         return ScreenResult(
@@ -92,6 +94,31 @@ class RomaScreenerService:
             criteria=criteria,
             source=ROMA_SOURCE,
         )
+
+    def _hydrate_cached_names(self, items: list[TossStockItem]) -> None:
+        """Roma 영문명을 캐시된 Toss 한글명으로 교체 (미보유 티커는 워밍업 큐에 등록)"""
+        tickers = [item.ticker for item in items if item.ticker]
+        if not tickers:
+            return
+
+        cached = self.logo_service.get_cached_names(tickers)
+        missing: list[str] = []
+        for item in items:
+            ticker = (item.ticker or "").upper()
+            name = cached.get(ticker)
+            if name:
+                item.name = name
+            elif ticker:
+                missing.append(ticker)
+
+        if missing:
+            # 서버 백그라운드 워밍업(1분 주기)에 등록해 다음 조회부터 한글명 노출
+            try:
+                from app.domains.screener.logo_warmup_service import logo_warmup_service
+
+                asyncio.create_task(logo_warmup_service.enqueue_tickers(missing))
+            except Exception as e:
+                logger.debug(f"[Roma] 한글명 워밍업 큐 등록 실패(무시): {e}")
 
     def _hydrate_cached_logos(self, items: list[TossStockItem]) -> None:
         tickers = [item.ticker for item in items if item.ticker and not item.logo_image_url]

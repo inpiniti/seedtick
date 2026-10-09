@@ -129,6 +129,7 @@ class ScreenerService:
             else items
         )
 
+        self._hydrate_cached_names(final_items)
         self._cache_logo_items(final_items)
 
         total_count = raw_data.get("totalCount", len(items))
@@ -232,6 +233,7 @@ class ScreenerService:
         logger.info(
             f"[Screener] 종합 + 12인 통합 스크리닝 완료: 총 {len(ordered_items)}개 고유 종목 발굴 (중복 제거 완료)"
         )
+        self._hydrate_cached_names(final_items)
         self._cache_logo_items(final_items)
 
         return ScreenResult(
@@ -288,6 +290,7 @@ class ScreenerService:
             )
             items.append(item)
 
+        self._hydrate_cached_names(items)
         self._cache_logo_items(items)
 
         return ScreenResult(
@@ -349,6 +352,7 @@ class ScreenerService:
             )
             items.append(item)
 
+        self._hydrate_cached_names(items)
         self._cache_logo_items(items)
 
         return ScreenResult(
@@ -362,6 +366,8 @@ class ScreenerService:
 
     def _enrich_item_fields(self, item: TossStockItem, s: dict) -> None:
         """중복 종목 발견 시 누락 필드 보강"""
+        from app.domains.screener.clients.toss_wts import TossWtsClient
+
         if item.price is None and s.get("price") is not None:
             item.price = s.get("price")
         if item.prev_close is None and s.get("prevClose") is not None:
@@ -378,6 +384,11 @@ class ScreenerService:
             item.interest_coverage = s.get("이자_보상_배율") or s.get("이자보상배율")
         if item.logo_image_url is None and s.get("logoImageUrl"):
             item.logo_image_url = s.get("logoImageUrl")
+        # 한글명이 비어 있거나 영문/티커 표기면 Toss 한글명으로 보강
+        if not TossWtsClient.extract_korean_name(item.name):
+            korean_name = TossWtsClient.extract_korean_name(s.get("name"))
+            if korean_name:
+                item.name = korean_name
         if (
             item.change_rate is None
             and item.price is not None
@@ -388,18 +399,36 @@ class ScreenerService:
                 ((item.price - item.prev_close) / item.prev_close) * 100, 2
             )
 
+    def _hydrate_cached_names(self, items: list[TossStockItem]) -> None:
+        """캐시된 한글명이 있으면 영문/티커 표기를 한글명으로 교체"""
+        tickers = [item.ticker for item in items if item.ticker]
+        if not tickers:
+            return
+
+        cached = self.logo_service.get_cached_names(tickers)
+        for item in items:
+            name = cached.get((item.ticker or "").upper())
+            if name:
+                item.name = name
+
     def _cache_logo_items(self, items: list[TossStockItem]) -> None:
-        """스크리너 응답 지연을 방지하기 위해 로고 일괄 저장을 백그라운드 태스크로 비동기 실행"""
-        batch_data = [
-            {
-                "ticker": item.ticker,
-                "logo_image_url": item.logo_image_url,
-                "stock_code": item.stock_code,
-                "source": "toss_screener",
-            }
-            for item in items
-            if item.ticker and item.logo_image_url
-        ]
+        """스크리너 응답 지연을 방지하기 위해 로고/한글명 일괄 저장을 백그라운드 태스크로 비동기 실행"""
+        from app.domains.screener.clients.toss_wts import TossWtsClient
+
+        batch_data = []
+        for item in items:
+            korean_name = TossWtsClient.extract_korean_name(item.name)
+            if not item.ticker or (not item.logo_image_url and not korean_name):
+                continue
+            batch_data.append(
+                {
+                    "ticker": item.ticker,
+                    "logo_image_url": item.logo_image_url,
+                    "stock_code": item.stock_code,
+                    "korean_name": korean_name,
+                    "source": "toss_screener",
+                }
+            )
         if not batch_data:
             return
 

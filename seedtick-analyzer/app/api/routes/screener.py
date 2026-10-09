@@ -13,6 +13,8 @@ from app.domains.screener.models import (
     StockChartResponse,
     TickerLogoBatchResponse,
     TickerLogoResponse,
+    TickerNameBatchResponse,
+    TickerNameResponse,
 )
 from app.domains.screener.roma_service import RomaScreenerService
 from app.domains.screener.service import ScreenerService
@@ -23,6 +25,11 @@ router = APIRouter(prefix="/api/screener", tags=["screener"])
 class TickerLogoBatchRequest(BaseModel):
     tickers: list[str] = Field(default_factory=list)
     max_count: int = Field(default=12, ge=1, le=30)
+
+
+class TickerNameBatchRequest(BaseModel):
+    tickers: list[str] = Field(default_factory=list)
+    max_count: int = Field(default=30, ge=1, le=100)
 
 
 @router.get("/run", response_model=ScreenResult, summary="토스 종합 및 12인 거장 스크리너 실행 (중복 제거)")
@@ -133,3 +140,47 @@ async def get_ticker_logos(req: TickerLogoBatchRequest):
         )
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"로고 일괄 조회 실패: {e}")
+
+
+@router.get("/name/{ticker}", response_model=TickerNameResponse, summary="티커별 한글명 조회 (Supabase 캐시 + Toss 폴백)")
+async def get_ticker_name(ticker: str):
+    normalized_ticker = ticker.strip().upper()
+    if not normalized_ticker:
+        raise HTTPException(status_code=400, detail="유효한 ticker가 필요합니다.")
+
+    try:
+        service = TickerLogoService()
+        korean_name, source = await service.resolve_name(normalized_ticker)
+        return TickerNameResponse(
+            ticker=normalized_ticker,
+            korean_name=korean_name,
+            source=source,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"[{normalized_ticker}] 한글명 조회 실패: {e}")
+
+
+@router.post(
+    "/names",
+    response_model=TickerNameBatchResponse,
+    summary="여러 티커 한글명 조회 (Supabase 캐시 + Toss 폴백)",
+)
+async def get_ticker_names(req: TickerNameBatchRequest):
+    if not req.tickers:
+        return TickerNameBatchResponse(items=[])
+
+    try:
+        service = TickerLogoService()
+        results = await service.resolve_names(req.tickers, max_count=req.max_count)
+        return TickerNameBatchResponse(
+            items=[
+                TickerNameResponse(
+                    ticker=ticker,
+                    korean_name=korean_name,
+                    source=source,
+                )
+                for ticker, korean_name, source in results
+            ]
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"한글명 일괄 조회 실패: {e}")
