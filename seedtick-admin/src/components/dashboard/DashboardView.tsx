@@ -573,7 +573,6 @@ export function DashboardView({
         : "스크리너 발굴 종목",
       datapack: null,
       summaries: null,
-      discussion: null,
       final_report: null,
       created_at: new Date().toISOString(),
     };

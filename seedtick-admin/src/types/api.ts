@@ -151,7 +151,6 @@ export interface GuruReportRow {
   vote_summary: string | null;
   datapack: (Record<string, any> & { valuation_consensus?: ValuationConsensus }) | null;
   summaries: GuruSummaryItem[] | null;
-  discussion: string | null;
   final_report: string | null;
   // ── 구조화 정규 컬럼 ──
   fair_value?: number | null;
@@ -325,7 +324,6 @@ export type PipelineStageKey =
   | "datapack"
   | "value_driver"
   | "summaries"
-  | "discussion"
   | "master"
   | "sync";
 

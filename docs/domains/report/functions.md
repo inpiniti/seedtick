@@ -22,7 +22,7 @@ class DataPackBuilder:
 
 ---
 
-## 2. GuruReportService (5단계 파이프라인 오케스트레이터)
+## 2. GuruReportService (4단계 파이프라인 오케스트레이터)
 
 ```python
 class GuruReportService:
@@ -37,13 +37,12 @@ class GuruReportService:
 
     async def generate_full_report(self, ticker: str, date: str | None = None) -> FinalMasterReport:
         """
-        전체 5단계 파이프라인 실행:
+        전체 4단계 파이프라인 실행:
         - progress가 주어지면 단계 전환(set_stage)과 13인 진행률(tick_guru)을 기록
         1단계: await datapack_builder.build(ticker, date)
         2단계: await self.generate_guru_summaries(datapack)
-        3단계: 토론 활성 시 AI 토론 생성, 기본 설정은 요약 기반 compact 토론 문서 생성
-        4단계: 유효 의견/가격을 고정 규칙으로 집계하고, AI는 근거 서술만 생성
-        5단계: await self.sync_to_db(ticker, date, master_report)
+        3단계: 유효 의견/가격을 고정 규칙으로 집계하고, AI는 근거 서술만 생성
+        4단계: await self.sync_to_db(ticker, date, master_report)
 
         보고서 호출은 AI_REPORT_MODEL(미설정 시 AI_GATEWAY_MODEL)과
         AI_REPORT_TEMPERATURE를 공통 적용한다. 모델 오류 시 다른 모델로 조용히
@@ -60,23 +59,10 @@ class GuruReportService:
         """
         ...
 
-    async def generate_roundtable_discussion(
-        self,
-        datapack: StockDataPack,
-        summaries: GuruSummaryDoc
-    ) -> GuruDiscussionDoc:
-        """
-        ENABLE_ROUND_TABLE_DISCUSSION=true면 AI 상호 반박 원탁 토론을 생성
-        기본 false면 AI 호출 없이 13인 요약/표결을 담은 compact 호환 문서를 생성
-        두 경우 모두 결과 저장: docs/report/{date}/최종/{ticker}_토론.md
-        """
-        ...
-
     async def generate_master_report(
         self,
         datapack: StockDataPack,
-        summaries: GuruSummaryDoc,
-        discussion: GuruDiscussionDoc
+        summaries: GuruSummaryDoc
     ) -> FinalMasterReport:
         """
         최종 보고서 생성. 판정은 유효 응답 12개 이상 및 60% supermajority,

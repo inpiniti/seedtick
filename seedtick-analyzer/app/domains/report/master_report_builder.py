@@ -16,7 +16,6 @@ from app.domains.report.decision_engine import (
 )
 from app.domains.report.models import (
     FinalMasterReport,
-    GuruDiscussionDoc,
     GuruSummaryDoc,
     StockDataPack,
 )
@@ -66,7 +65,6 @@ async def build_master_report(
     ai: AiGatewayClient,
     datapack: StockDataPack,
     summaries: GuruSummaryDoc,
-    discussion: GuruDiscussionDoc,
     model_override: str | None = None,
     temperature_override: float | None = None,
 ) -> FinalMasterReport:
@@ -290,5 +288,4 @@ bull_points(문자열 배열), bear_points(문자열 배열), key_drivers(문자
         valuation_estimate_count=consensus.price_estimate_count,
         parse_mode=parse_mode,
         raw_markdown=raw_markdown,
-        discussion=discussion.raw_markdown,
     )

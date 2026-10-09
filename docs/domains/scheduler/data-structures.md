@@ -27,7 +27,7 @@ class TriggerResult(BaseModel):
 class PipelineStageMeta(BaseModel):
     key: Literal[
         "screening", "datapack", "value_driver",
-        "summaries", "discussion", "master", "sync",
+        "summaries", "master", "sync",
     ]
     label: str
 
