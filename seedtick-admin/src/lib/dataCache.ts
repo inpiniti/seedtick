@@ -17,6 +17,8 @@ interface GlobalMemoryCache {
   romaCandidates?: { data: StockCandidate[]; expiresAt: number };
   systemLogs?: { data: SystemLogItem[]; expiresAt: number };
   percentB: Map<string, number | null>;
+  /** 티커 -> 한글 종목명 맵 (ticker_logos 캐시) */
+  tickerNameMap?: { data: Record<string, string>; expiresAt: number };
 }
 
 const CACHE_TTL_MS = 3 * 60 * 1000; // 3분간 캐시 유지
@@ -102,6 +104,16 @@ export const DataCache = {
     return obj;
   },
 
+  getTickerNameMap: () => {
+    if (cache.tickerNameMap && cache.tickerNameMap.expiresAt > Date.now())
+      return cache.tickerNameMap.data;
+    return null;
+  },
+  setTickerNameMap: (data: Record<string, string>) => {
+    // 종목명은 자주 바뀌지 않으므로 다른 데이터보다 길게 캐시 (30분)
+    cache.tickerNameMap = { data, expiresAt: Date.now() + 30 * 60 * 1000 };
+  },
+
   clearAll: () => {
     cache.health = undefined;
     cache.aiModel = undefined;
@@ -112,5 +124,6 @@ export const DataCache = {
     cache.krCandidates = undefined;
     cache.romaCandidates = undefined;
     cache.systemLogs = undefined;
+    cache.tickerNameMap = undefined;
   },
 };

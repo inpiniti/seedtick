@@ -180,4 +180,48 @@ async def test_ticker_logos_route(monkeypatch):
         assert data["items"][1]["source"] == "none"
 
 
+@pytest.mark.asyncio
+async def test_ticker_name_route(monkeypatch):
+    from app.domains.screener.logo_service import TickerLogoService
+
+    async def mock_resolve_name(self, ticker: str):
+        assert ticker == "BRK.B"
+        return "버크셔 해서웨이 B", "cached"
+
+    monkeypatch.setattr(TickerLogoService, "resolve_name", mock_resolve_name)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.get("/api/screener/name/brk.b")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["ticker"] == "BRK.B"
+        assert data["korean_name"] == "버크셔 해서웨이 B"
+        assert data["source"] == "cached"
+
+
+@pytest.mark.asyncio
+async def test_ticker_names_route(monkeypatch):
+    from app.domains.screener.logo_service import TickerLogoService
+
+    async def mock_resolve_names(self, tickers: list[str], max_count: int = 30):
+        assert tickers == ["brk.b", "007660"]
+        assert max_count == 2
+        return [
+            ("BRK.B", "버크셔 해서웨이 B", "cached"),
+            ("007660", "이수페타시스", "toss_lookup"),
+        ]
+
+    monkeypatch.setattr(TickerLogoService, "resolve_names", mock_resolve_names)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.post("/api/screener/names", json={"tickers": ["brk.b", "007660"], "max_count": 2})
+        assert res.status_code == 200
+        data = res.json()
+        assert len(data["items"]) == 2
+        assert data["items"][0]["ticker"] == "BRK.B"
+        assert data["items"][0]["korean_name"] == "버크셔 해서웨이 B"
+        assert data["items"][1]["korean_name"] == "이수페타시스"
+        assert data["items"][1]["source"] == "toss_lookup"
+
+
 

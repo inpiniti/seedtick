@@ -111,3 +111,15 @@ class TickerLogoResponse(BaseModel):
 class TickerLogoBatchResponse(BaseModel):
     """여러 티커 로고 조회 응답"""
     items: list[TickerLogoResponse] = Field(default_factory=list)
+
+
+class TickerNameResponse(BaseModel):
+    """티커별 한글명 조회 응답"""
+    ticker: str
+    korean_name: str | None = None
+    source: str = "none"  # cached | toss_lookup | none
+
+
+class TickerNameBatchResponse(BaseModel):
+    """여러 티커 한글명 조회 응답"""
+    items: list[TickerNameResponse] = Field(default_factory=list)

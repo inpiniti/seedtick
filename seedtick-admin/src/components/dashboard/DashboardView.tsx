@@ -26,6 +26,7 @@ import {
   fetchSystemLogs,
   fetchReportByDateAndTicker,
   fetchReportDatesByTicker,
+  fetchTickerNameMap,
 } from "@/lib/supabase";
 import { usePipelineProgress } from "@/hooks/usePipelineProgress";
 import { LiveStatusBar } from "@/components/header/LiveStatusBar";
@@ -113,6 +114,37 @@ export function DashboardView({
   const [health, setHealth] = useState<HealthStatus | null>(
     () => DataCache.getHealth() || buildOfflineHealth()
   );
+  // 4-2. 티커 -> 한글 종목명 캐시 (30분 TTL, 로고 워밍업 동기화)
+  const [tickerNameMap, setTickerNameMap] = useState<Record<string, string>>(
+    () => DataCache.getTickerNameMap() || {}
+  );
+
+  // 4-3. 티커 한글명 프리페치 (관리자 진입 시 1회, 30분 TTL)
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const cached = DataCache.getTickerNameMap();
+      if (cached && Object.keys(cached).length > 0) {
+        setTickerNameMap(cached);
+        return;
+      }
+      if (cancelled) return;
+      try {
+        const map = await fetchTickerNameMap();
+        if (cancelled) return;
+        if (map && Object.keys(map).length > 0) {
+          setTickerNameMap(map);
+          DataCache.setTickerNameMap(map);
+        }
+      } catch {
+        // 한글명 미보유/네트워크 실패는 후속 캐시 복구로 처리
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const [aiModel, setAiModel] = useState<AiModelStatus | null>(null);
   const [isResettingModel, setIsResettingModel] = useState(false);
 
@@ -786,6 +818,7 @@ export function DashboardView({
                 isReportsLoading={isCatalogDateLoading}
                 onSelectGuru={handleOpenGuru}
                 intrinsicStabilityMap={intrinsicStabilityByTicker}
+                tickerNameMap={tickerNameMap}
               />
             )}
           </main>

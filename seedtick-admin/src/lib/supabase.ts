@@ -159,6 +159,39 @@ export interface HistoricalValuationRecord {
 }
 
 /**
+ * 티커 -> 한글 종목명 맵 조회 (ticker_logos 캐시, 로고 워밍업과 동일한 저장 구조)
+ * 관리자 화면의 모든 메뉴에서 종목명을 한글명으로 통일 표시하기 위해 사용한다.
+ */
+export async function fetchTickerNameMap(
+  limit = 5000
+): Promise<Record<string, string>> {
+  if (!supabase) return {};
+  try {
+    const { data, error } = await supabase
+      .from("ticker_logos")
+      .select("ticker,korean_name")
+      .not("korean_name", "is", null)
+      .limit(limit);
+
+    if (error) {
+      console.warn("fetchTickerNameMap error:", error.message);
+      return {};
+    }
+
+    const map: Record<string, string> = {};
+    for (const row of data || []) {
+      const ticker = ((row as { ticker?: string }).ticker || "").trim().toUpperCase();
+      const name = ((row as { korean_name?: string }).korean_name || "").trim();
+      if (ticker && name) map[ticker] = name;
+    }
+    return map;
+  } catch (err) {
+    console.warn("fetchTickerNameMap exception:", err);
+    return {};
+  }
+}
+
+/**
  * 전 기간 종목별 내재가치 히스토리 조회 (안정성 계산용 경량 쿼리)
  */
 export async function fetchHistoricalValuations(): Promise<HistoricalValuationRecord[]> {

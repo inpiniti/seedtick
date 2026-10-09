@@ -60,6 +60,7 @@ interface ResearchCatalogViewProps {
   systemLogs: SystemLogItem[];
   pipelineProgress: PipelineProgress | null;
   isLoading: boolean;
+  tickerNameMap?: Record<string, string>;
   isKrLoading?: boolean;
   isRomaLoading: boolean;
   krTightenStep?: number;
@@ -89,6 +90,7 @@ export function ResearchCatalogView({
   systemLogs,
   pipelineProgress,
   isLoading,
+  tickerNameMap = {},
   isKrLoading = false,
   isRomaLoading,
   krTightenStep = 5,
@@ -109,6 +111,16 @@ export function ResearchCatalogView({
   onSelectGuru,
   intrinsicStabilityMap,
 }: ResearchCatalogViewProps) {
+  // 한글명 렌더링 규칙: 캐시 한글명 우선 -> 원본 이름(영문) -> 티커 폴백
+  const displayNameOf = (ticker: string, fallback?: string | null): string => {
+    const key = (ticker || "").trim().toUpperCase();
+    const korean = tickerNameMap?.[key];
+    if (korean) return korean;
+    const fb = (fallback || "").trim();
+    if (fb && fb.toUpperCase() !== key) return fb;
+    return key;
+  };
+
   const [searchQuery, setSearchQuery] = useState("");
   const [reportVerdictFilter, setReportVerdictFilter] = useState<string>("ALL");
   const [reportSortBy, setReportSortBy] = useState<
@@ -220,6 +232,8 @@ export function ResearchCatalogView({
         r.ticker.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (r.company_name &&
           r.company_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (tickerNameMap?.[r.ticker.toUpperCase()] &&
+          tickerNameMap[r.ticker.toUpperCase()].toLowerCase().includes(searchQuery.toLowerCase())) ||
         (r.verdict &&
           r.verdict.toLowerCase().includes(searchQuery.toLowerCase()));
 
@@ -278,9 +292,11 @@ export function ResearchCatalogView({
     return romaCandidates.filter(
       (c) =>
         c.ticker.toLowerCase().includes(q) ||
-        (c.name && c.name.toLowerCase().includes(q))
+        (c.name && c.name.toLowerCase().includes(q)) ||
+        (tickerNameMap?.[c.ticker.toUpperCase()] &&
+          tickerNameMap[c.ticker.toUpperCase()].toLowerCase().includes(q))
     );
-  }, [romaCandidates, searchQuery]);
+  }, [romaCandidates, searchQuery, tickerNameMap]);
 
   // 3. 실시간 후보군 전체 필터링 (미국장 / 한국장 분기)
   const activeCandidatesList = useMemo(() => {
@@ -294,9 +310,11 @@ export function ResearchCatalogView({
       (c) =>
         c.ticker.toLowerCase().includes(q) ||
         (c.name && c.name.toLowerCase().includes(q)) ||
-        (c.category && c.category.toLowerCase().includes(q))
+        (c.category && c.category.toLowerCase().includes(q)) ||
+        (tickerNameMap?.[c.ticker.toUpperCase()] &&
+          tickerNameMap[c.ticker.toUpperCase()].toLowerCase().includes(q))
     );
-  }, [activeCandidatesList, searchQuery]);
+  }, [activeCandidatesList, searchQuery, tickerNameMap]);
 
   // [리스트 수 조절] 전체 홈일 때는 10개만, 개별 메뉴 선택 시 전체 표시
   const displayedReports = isAll
@@ -328,7 +346,7 @@ export function ResearchCatalogView({
         return {
           report: r,
           ticker: r.ticker,
-          companyName: r.company_name || r.ticker,
+          companyName: displayNameOf(r.ticker, r.company_name),
           fairValue: insight.fairValue,
           currentPrice: insight.price,
           ratio: insight.intrinsicRatioPct,
@@ -852,7 +870,7 @@ export function ResearchCatalogView({
 
                               {/* 회사명 & 타이틀 */}
                               <h3 className="text-sm font-bold text-[#0f172a] truncate">
-                                {report.company_name || ticker} ({ticker}) 13인
+                                {displayNameOf(ticker, report.company_name)} ({ticker}) 13인
                                 거장 가치평가 및 적정주가 보고서
                               </h3>
 
@@ -1037,7 +1055,7 @@ export function ResearchCatalogView({
                                   ${c.ticker}
                                 </span>
                                 <span className="text-[#64748b] truncate max-w-[200px]">
-                                  {c.name}
+                                  {displayNameOf(c.ticker, c.name)}
                                 </span>
                                 {c.holders != null && (
                                   <span className="font-mono text-[10px] px-1.5 py-0.2 rounded border border-[#cbd5e1] bg-white text-[#0f172a] font-semibold">
@@ -1273,7 +1291,7 @@ export function ResearchCatalogView({
                                   #{c.rank || idx + 1} {isKr ? c.ticker : `$${c.ticker}`}
                                 </span>
                                 <span className="text-[#64748b] truncate max-w-[200px]">
-                                  {c.name}
+                                  {displayNameOf(c.ticker, c.name)}
                                 </span>
                                 {c.category && (
                                   <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 text-[10px] font-mono">

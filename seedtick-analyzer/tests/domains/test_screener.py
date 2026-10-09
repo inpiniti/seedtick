@@ -217,6 +217,59 @@ async def test_toss_wts_find_logo_by_ticker_prefers_search_lookup():
     assert found["logo_image_url"].startswith("https://")
 
 
+def test_extract_korean_name_accepts_only_korean_display():
+    """Toss 응답에서 한글 종목명만 추출 (영문명/티커/내부코드 제외)"""
+    extract = TossWtsClient.extract_korean_name
+
+    # 한글명은 그대로 반환
+    assert extract("마이크로소프트") == "마이크로소프트"
+    assert extract("DB하이텍") == "DB하이텍"
+    assert extract("ARM 홀딩스(ADR)") == "ARM 홀딩스(ADR)"
+    assert extract("버크셔 해서웨이 B") == "버크셔 해서웨이 B"
+
+    # 영문명/티커/숫자 코드/토스 내부코드는 한글명이 아님
+    assert extract("AMD") is None
+    assert extract("Microsoft Corp.") is None
+    assert extract("000990") is None
+    assert extract("US19801212001") is None
+    assert extract(None) is None
+    assert extract("") is None
+
+    # 여러 후보 중 첫 한글 표기를 선택
+    assert extract("Apple", "애플") == "애플"
+
+
+@pytest.mark.asyncio
+async def test_screener_service_hydrates_cached_korean_names():
+    """캐시된 한글명이 있으면 스크리너 응답 name을 한글명으로 교체"""
+    mock_wts_client = AsyncMock()
+    mock_wts_client.get_all_gurus_screeners.side_effect = RuntimeError("fallback to wts direct")
+    mock_wts_client.screen_common.return_value = {
+        "count": 1,
+        "totalCount": 1,
+        "stocks": [
+            {
+                "ticker": "MSFT",
+                "stockCode": "US19860313001",
+                "name": "Microsoft",
+                "price": 400.0,
+                "prevClose": 395.0,
+            }
+        ],
+    }
+
+    service = ScreenerService(wts_client=mock_wts_client)
+    service.logo_service.get_cached_names = lambda tickers: {  # type: ignore[method-assign]
+        "MSFT": "마이크로소프트"
+    }
+
+    res = await service.get_stock_list(ScreenCriteria(preset="공통", nation="us", size=10))
+
+    assert res.count == 1
+    assert res.tickers[0].ticker == "MSFT"
+    assert res.tickers[0].name == "마이크로소프트"
+
+
 @pytest.mark.asyncio
 async def test_screener_service_kr_nation_with_tighten_step():
     """한국장 스크리너: 단일 공통 필터 및 조건 강화 단계 적용 검증"""

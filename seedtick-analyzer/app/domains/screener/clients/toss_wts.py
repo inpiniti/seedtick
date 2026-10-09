@@ -813,6 +813,27 @@ class TossWtsClient:
                 return []
             return (res.json().get("result") or {}).get("stocks") or []
 
+    @staticmethod
+    def extract_korean_name(*candidates: object) -> str | None:
+        """Toss 응답 후보들에서 한글 종목명을 추출한다. 한글이 없으면 None."""
+        for candidate in candidates:
+            if not candidate:
+                continue
+            text = str(candidate).strip()
+            if not text:
+                continue
+            # 토스 내부 코드(예: US19801212001)나 티커 자체는 한글명이 아님
+            upper = text.upper()
+            if is_toss_stock_code(text):
+                continue
+            if upper == text and " " not in text and any(c.isalpha() for c in text):
+                # 영문 대문자 단일 토큰(티커/영문명)은 한글명이 아님
+                if not any("\uac00" <= c <= "\ud7a3" for c in text):
+                    continue
+            if any("\uac00" <= c <= "\ud7a3" for c in text):
+                return text
+        return None
+
     async def _find_logo_via_search(self, ticker: str) -> dict[str, str] | None:
         normalized = (ticker or "").strip().upper()
         if not normalized:
@@ -823,16 +844,43 @@ class TossWtsClient:
         if not stock_codes:
             return None
 
+        # 검색 응답 자체에도 한글명(stockName/companyName)이 있어 1차 후보로 사용
+        search_name: str | None = None
+        for c in candidates:
+            if (c.get("matchType") or "").upper() == "EXACT" or not search_name:
+                found = self.extract_korean_name(c.get("stockName"), c.get("companyName"))
+                if found:
+                    search_name = found
+                    if (c.get("matchType") or "").upper() == "EXACT":
+                        break
+
         infos = await self._fetch_stock_infos_by_codes(stock_codes)
         for info in infos:
             symbol = (info.get("symbol") or "").strip().upper()
             logo_image_url = info.get("logoImageUrl")
-            if symbol == normalized and logo_image_url:
-                return {
+            korean_name = self.extract_korean_name(
+                info.get("name"), info.get("detailName"), info.get("companyName"), search_name
+            )
+            if symbol == normalized and (logo_image_url or korean_name):
+                row: dict[str, str] = {
                     "ticker": symbol,
                     "stock_code": info.get("code") or "",
-                    "logo_image_url": logo_image_url,
+                    "logo_image_url": logo_image_url or "",
                 }
+                if korean_name:
+                    row["korean_name"] = korean_name
+                return row
+
+        # symbol 미매칭 시에도 검색 EXACT 일치(티커 그 자체를 조회했으므로 신뢰 가능)면 한글명만이라도 반환
+        if search_name:
+            for c in candidates:
+                if (c.get("matchType") or "").upper() == "EXACT":
+                    return {
+                        "ticker": normalized,
+                        "stock_code": c.get("stockCode") or "",
+                        "logo_image_url": c.get("logoImageUrl") or "",
+                        "korean_name": search_name,
+                    }
         return None
 
     async def find_logo_by_ticker(
@@ -843,19 +891,19 @@ class TossWtsClient:
         max_pages: int = 3,
     ) -> dict[str, str] | None:
         """
-        공통 스크리너 페이지를 순회해 특정 티커의 logoImageUrl을 탐색합니다.
+        공통 스크리너 페이지를 순회해 특정 티커의 logoImageUrl/한글명을 탐색합니다.
         - Toss API가 logo 조회용 단일 엔드포인트를 공개하지 않아 스크리너 결과를 활용합니다.
         """
         normalized = (ticker or "").strip().upper()
         if not normalized:
             return None
 
-        # 1) 토스 검색 API 기반 조회 (ticker -> stockCode -> logoImageUrl)
+        # 1) 토스 검색 API 기반 조회 (ticker -> stockCode -> logoImageUrl/한글명)
         via_search = await self._find_logo_via_search(normalized)
         if via_search:
             return via_search
 
-        # 2) 폴백: 공통 스크리너 결과를 순회하면서 로고 탐색
+        # 2) 폴백: 공통 스크리너 결과를 순회하면서 로고/한글명 탐색
         for page in range(1, max_pages + 1):
             try:
                 data = await self.screen_common(nation=nation, size=size, page=page)
@@ -867,12 +915,16 @@ class TossWtsClient:
             for stock in stocks:
                 symbol = (stock.get("ticker") or "").strip().upper()
                 logo_image_url = stock.get("logoImageUrl")
-                if symbol == normalized and logo_image_url:
-                    return {
+                korean_name = self.extract_korean_name(stock.get("name"))
+                if symbol == normalized and (logo_image_url or korean_name):
+                    row: dict[str, str] = {
                         "ticker": symbol,
                         "stock_code": stock.get("stockCode") or "",
-                        "logo_image_url": logo_image_url,
+                        "logo_image_url": logo_image_url or "",
                     }
+                    if korean_name:
+                        row["korean_name"] = korean_name
+                    return row
 
             if data.get("lastPage", True):
                 break

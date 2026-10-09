@@ -379,31 +379,47 @@ class SupabaseRepo:
     def upsert_ticker_logo(
         self,
         ticker: str,
-        logo_image_url: str,
+        logo_image_url: str | None,
         stock_code: str | None = None,
         source: str = "toss_screener",
+        korean_name: str | None = None,
     ) -> bool:
-        """ticker_logos에 티커별 로고 URL 저장/갱신"""
+        """ticker_logos에 티커별 로고 URL/한글명 저장/갱신"""
         if not self._client:
             return False
 
         normalized = (ticker or "").strip().upper()
         logo = (logo_image_url or "").strip()
-        if not normalized or not logo:
+        name = (korean_name or "").strip()
+        # 로고도 한글명도 없으면 저장할 의미가 없음
+        if not normalized or (not logo and not name):
             return False
 
-        row = {
+        row: dict = {
             "ticker": normalized,
             "stock_code": stock_code,
-            "logo_image_url": logo,
+            "logo_image_url": logo or None,
             "source": source,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
+        if name:
+            row["korean_name"] = name
 
         try:
             self._client.table("ticker_logos").upsert(row, on_conflict="ticker").execute()
             return True
         except Exception as e:
+            # 구 스키마(DB에 korean_name/logo nullable 미적용)에서는 한글명 없이 재시도
+            if "korean_name" in str(e) and name:
+                row.pop("korean_name", None)
+                if not row.get("logo_image_url"):
+                    return False
+                try:
+                    self._client.table("ticker_logos").upsert(row, on_conflict="ticker").execute()
+                    return True
+                except Exception as e2:
+                    logger.warning(f"[Supabase] ticker_logos 저장 실패 ({normalized}): {e2}")
+                    return False
             logger.warning(f"[Supabase] ticker_logos 저장 실패 ({normalized}): {e}")
             return False
 
@@ -420,15 +436,19 @@ class SupabaseRepo:
         for item in items:
             ticker = (item.get("ticker") or "").strip().upper()
             logo = (item.get("logo_image_url") or "").strip()
-            if not ticker or not logo:
+            name = (item.get("korean_name") or "").strip()
+            if not ticker or (not logo and not name):
                 continue
-            rows.append({
+            row: dict = {
                 "ticker": ticker,
                 "stock_code": item.get("stock_code"),
-                "logo_image_url": logo,
+                "logo_image_url": logo or None,
                 "source": item.get("source", "toss_screener"),
                 "updated_at": now,
-            })
+            }
+            if name:
+                row["korean_name"] = name
+            rows.append(row)
 
         if not rows:
             return False
@@ -437,8 +457,48 @@ class SupabaseRepo:
             self._client.table("ticker_logos").upsert(rows, on_conflict="ticker").execute()
             return True
         except Exception as e:
+            if "korean_name" in str(e):
+                for row in rows:
+                    row.pop("korean_name", None)
+                rows = [r for r in rows if r.get("logo_image_url")]
+                if not rows:
+                    return False
+                try:
+                    self._client.table("ticker_logos").upsert(rows, on_conflict="ticker").execute()
+                    return True
+                except Exception as e2:
+                    logger.warning(f"[Supabase] ticker_logos 일괄 저장 실패 ({len(rows)}건): {e2}")
+                    return False
             logger.warning(f"[Supabase] ticker_logos 일괄 저장 실패 ({len(rows)}건): {e}")
             return False
+
+    def get_ticker_names(self, tickers: list[str]) -> dict[str, str]:
+        """ticker_logos에서 여러 티커 한글명 일괄 조회"""
+        if not self._client or not tickers:
+            return {}
+
+        normalized = sorted({(t or "").strip().upper() for t in tickers if (t or "").strip()})
+        if not normalized:
+            return {}
+
+        try:
+            res = (
+                self._client.table("ticker_logos")
+                .select("ticker,korean_name")
+                .in_("ticker", normalized)
+                .execute()
+            )
+            mapping: dict[str, str] = {}
+            for row in res.data or []:
+                ticker = (row.get("ticker") or "").strip().upper()
+                name = (row.get("korean_name") or "").strip()
+                if ticker and name:
+                    mapping[ticker] = name
+            return mapping
+        except Exception as e:
+            # 구 스키마(DB에 korean_name 미적용)에서는 빈 결과로 폴백
+            logger.warning(f"[Supabase] ticker_logos 한글명 조회 실패: {e}")
+            return {}
 
 
     # ── Grid Trading 영속성 ──────────────────────────────

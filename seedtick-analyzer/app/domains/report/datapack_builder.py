@@ -211,8 +211,17 @@ class DataPackBuilder:
             logger.warning(f"[{clean_ticker}] News API 실패: {news_data}")
             news_data = []
 
-        # 2. 지표 가공 및 파싱
-        datapack = self._assemble_datapack(clean_ticker, date_str, chart_data, ts_data, quote_data, news_data)
+        # 2. 지표 가공 및 파싱 (표시용 한글명은 ticker_logos 캐시 우선, 미스 시 Toss 조회)
+        company_name = await self._resolve_company_name(clean_ticker)
+        datapack = self._assemble_datapack(
+            clean_ticker,
+            date_str,
+            chart_data,
+            ts_data,
+            quote_data,
+            news_data,
+            company_name=company_name,
+        )
 
         # 3. 마크다운 렌더링 및 파일 저장
         markdown_text = self._render_markdown(datapack)
@@ -226,6 +235,27 @@ class DataPackBuilder:
 
         logger.info(f"[{clean_ticker}] 심층 데이터팩 생성 완료: {file_path}")
         return datapack
+
+    async def _resolve_company_name(self, ticker: str) -> str | None:
+        """
+        표시용 종목명(한글) 해석:
+        1) Supabase ticker_logos.korean_name 캐시
+        2) 미스 시 Toss 검색/상세 조회 후 캐시 저장
+        실패해도 리포트 파이프라인은 계속 진행한다(폴백: Yahoo longName -> 티커).
+        """
+        try:
+            from app.domains.screener.logo_service import TickerLogoService
+
+            service = TickerLogoService()
+            cached = service.get_cached_names([ticker]).get(ticker)
+            if cached:
+                return cached
+
+            korean_name, _source = await service.resolve_name(ticker)
+            return korean_name
+        except Exception as e:
+            logger.warning(f"[{ticker}] 표시용 한글명 해석 실패(폴백 진행): {e}")
+            return None
 
     async def _fetch_news(self, client: httpx.AsyncClient, ticker: str) -> list[dict]:
         try:
@@ -456,6 +486,7 @@ class DataPackBuilder:
         ts: dict,
         quote: dict,
         news_items: list[dict] | None = None,
+        company_name: str | None = None,
     ) -> StockDataPack:
         # Chart 메타 추출
         chart_res = (chart.get("chart", {}).get("result") or [{}])[0]
@@ -471,10 +502,17 @@ class DataPackBuilder:
         fin_data = qs_res.get("financialData", {})
         profile = qs_res.get("assetProfile", {})
 
-        company_name = profile.get("longBusinessSummary", "")
         sector = profile.get("sector", "N/A")
         industry = profile.get("industry", "N/A")
         short_summary = profile.get("longBusinessSummary", "")[:350]
+
+        # 표시용 기업명: Toss 한글명(외부 전달) -> Yahoo longName/shortName -> 티커 폴백
+        yahoo_company_name = (profile.get("longName") or profile.get("shortName") or "").strip()
+        display_company_name = (
+            (company_name or "").strip()
+            or yahoo_company_name
+            or ticker
+        )
 
         # 밸류에이션 지표
         market_cap = (
@@ -579,7 +617,7 @@ class DataPackBuilder:
 
         return StockDataPack(
             ticker=ticker,
-            company_name=ticker,
+            company_name=display_company_name,
             date=date_str,
             current_price=price,
             currency=price_curr,

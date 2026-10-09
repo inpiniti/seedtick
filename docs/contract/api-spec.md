@@ -202,6 +202,52 @@ DataRoma Grand Portfolio(`https://www.dataroma.com/m/g/portfolio.php?o=c`)를 �
 }
 ```
 
+### GET /api/screener/name/{ticker}
+티커별 한글 종목명 조회. Supabase `ticker_logos.korean_name` 캐시를 우선 조회하고,
+캐시에 없으면 토스 검색/주식상세 API로 한글명을 찾아 캐시에 저장한 뒤 반환합니다.
+로고(`ticker_logos`)와 동일한 캐시·워밍업 구조를 공유합니다.
+
+**Path Parameters**
+- `ticker`: 종목 티커 (예: `BRK.B`, `007660`)
+
+**Response (200)**
+```json
+{
+  "ticker": "BRK.B",
+  "korean_name": "버크셔 해서웨이 B",
+  "source": "cached"
+}
+```
+
+`source` 값:
+- `cached`: Supabase 캐시에서 조회됨
+- `toss_lookup`: 토스 조회 후 캐시에 저장되어 반환됨
+- `none`: 한글명을 찾지 못함 (`korean_name = null`)
+
+### POST /api/screener/names
+여러 티커 한글명을 한 번에 조회합니다. (Supabase 캐시 우선, 미스 시 Toss 폴백)
+
+**Request**
+```json
+{
+  "tickers": ["BRK.B", "MSFT", "007660"],
+  "max_count": 30
+}
+```
+
+**Response (200)**
+```json
+{
+  "items": [
+    { "ticker": "BRK.B", "korean_name": "버크셔 해서웨이 B", "source": "cached" },
+    { "ticker": "MSFT", "korean_name": null, "source": "none" }
+  ]
+}
+```
+
+> **표시 규칙**: 관리자 화면의 종목명은 모든 메뉴에서 한글명으로 통일합니다.
+> `guru_reports.company_name`, 스크리너 `name` 필드 모두 이 캐시를 기준으로 채워집니다.
+
 ### POST /report/generate
 단일 종목 리포트 생성
 
