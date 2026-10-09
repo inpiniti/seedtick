@@ -15,12 +15,7 @@ import {
   Users,
   PieChart,
   TrendingUp,
-  Target,
   Calendar,
-  Sparkles,
-  ExternalLink,
-  ShieldCheck,
-  CheckCircle2,
 } from "lucide-react";
 
 interface ResearchDocumentModalProps {

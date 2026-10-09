@@ -13,7 +13,6 @@ import {
   extractValuationConsensus,
   getVoteAgreementPercent,
   formatPercentB,
-  formatIntrinsicRatio,
   getIntrinsicStabilityMeta,
   IntrinsicStability,
 } from "@/lib/insightUtils";
@@ -24,9 +23,6 @@ import {
   Users,
   PieChart,
   TrendingUp,
-  Sparkles,
-  Target,
-  ExternalLink,
 } from "lucide-react";
 
 export type ResearchDocTab = "final" | "summaries" | "datapack" | "chart";

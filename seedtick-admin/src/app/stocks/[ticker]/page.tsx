@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { DashboardView } from "@/components/dashboard/DashboardView";
-import { fetchReportByDateAndTicker, fetchGuruReports, supabase } from "@/lib/supabase";
+import { fetchReportByDateAndTicker, supabase } from "@/lib/supabase";
 import { extractValuationConsensus } from "@/lib/insightUtils";
 import { ResearchDocTab } from "@/components/research/ResearchDocumentView";
 
