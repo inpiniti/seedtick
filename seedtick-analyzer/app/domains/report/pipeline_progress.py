@@ -20,8 +20,7 @@ PIPELINE_STAGES: list[dict[str, str]] = [
     {"key": "datapack", "label": "1. 심층 데이터팩 수집"},
     {"key": "value_driver", "label": "2. 가치드라이버 팩 생성"},
     {"key": "summaries", "label": "3. 13인 거장 요약"},
-    {"key": "discussion", "label": "4. 원탁 토론"},
-    {"key": "master", "label": "5. 최종 마스터 보고서"},
+    {"key": "master", "label": "4. 최종 마스터 보고서"},
     {"key": "sync", "label": "DB 동기화"},
 ]
 _STAGE_KEYS = [s["key"] for s in PIPELINE_STAGES]

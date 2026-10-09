@@ -102,7 +102,7 @@ async def daily_pipeline_job(dry_run: bool = False, force: bool = False):
     4. screener.get_stock_list() 실행 (토스 공통/해외 필터)
     5. pipeline_progress.set_targets() 로 n/총 분모 확정
     6. 선정된 상위 종목들에 대해 guru_report.generate_full_report(ticker) 실행
-       -> 1단계: DataPackBuilder -> 가치드라이버 -> 2단계: 13인 요약 -> 3단계: 원탁토론 -> 4단계: 최종보고서 -> 5단계: DB 저장
+       -> 1단계: DataPackBuilder -> 가치드라이버 -> 2단계: 13인 요약 -> 3단계: 최종보고서 -> 4단계: DB 저장
        -> 단계마다 pipeline_progress.set_stage() / tick_guru() 로 진행률 기록
     7. pipeline_progress.finish() 로 종료 상태 기록
     8. discord_notifier.send_pipeline_summary() (결과 통보)

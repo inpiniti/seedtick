@@ -88,7 +88,7 @@ export default async function StockDetailPage({
   const { tab, date } = await searchParams;
   const ticker = (rawTicker || "").toUpperCase();
 
-  const validTabs: ResearchDocTab[] = ["final", "summaries", "datapack", "discussion", "chart"];
+  const validTabs: ResearchDocTab[] = ["final", "summaries", "datapack", "chart"];
   const validatedTab = validTabs.includes(tab as ResearchDocTab) ? (tab as ResearchDocTab) : undefined;
 
   // JSON-LD 구조화 데이터 생성 (검색엔진 SEO 표준)

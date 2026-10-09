@@ -16,17 +16,15 @@
         +---> [Screener-Roma] DataRoma 그랜드 포트폴리오 (슈퍼인베스터 보유자 10명 이상)
         |         └─ 토스 통과 종목과 중복 티커 제거 후 분석 대상에 병합
         |
-        +---> [Guru-Report] 스크리닝 상위 종목별 5단계 파이프라인:
+        +---> [Guru-Report] 스크리닝 상위 종목별 4단계 파이프라인:
         |       |
         |       +---> [1단계] DataPackBuilder (Yahoo/SEC/Toss 팩트 수집)
         |       |         └─ docs/report/{date}/_data/{ticker}.md
         |       +---> [2단계] AI-Gateway (13인 거장 요약 블록 병렬 생성)
         |       |         └─ docs/report/{date}/_data/{ticker}_요약.md
-        |       +---> [3단계] 기본은 토론 AI 생략 + 간결한 표결 문서; 설정 시 원탁 토론 전문 생성
-        |       |         └─ docs/report/{date}/최종/{ticker}_토론.md
-        |       +---> [4단계] 최종 마스터 투자 보고서 생성
+        |       +---> [3단계] 최종 마스터 투자 보고서 생성
         |       |         └─ docs/report/{date}/최종/{ticker}_최종보고서.md
-        |       +---> [5단계] Supabase DB 동기화 (guru_votes 테이블 기록)
+        |       +---> [4단계] Supabase DB 동기화 (guru_votes 테이블 기록)
         |
         +---> [Auto-Trading] 종합 매수(g0==0) 및 확신도 상위 종목 매매 실행
                 |
@@ -71,9 +69,8 @@
     → for ticker in targets:
         → [1단계] DataPackBuilder.build(ticker) → _data/{ticker}.md
         → [2단계] 13인 거장 요약 블록 생성 → _data/{ticker}_요약.md
-        → [3단계] 기본은 원탁 토론 AI 생략·표결 문서 생성 (선택 활성화 가능) → 최종/{ticker}_토론.md
-        → [4단계] 최종 종합 투자 보고서 생성 → 최종/{ticker}_최종보고서.md
-        → [5단계] Supabase guru_votes DB 테이블 저장
+        → [3단계] 최종 종합 투자 보고서 생성 → 최종/{ticker}_최종보고서.md
+        → [4단계] Supabase guru_votes DB 테이블 저장
     → auto_trading.execute_from_reports(reports)
         → broker_bridge.place_order(order)
     → discord_notifier.send_pipeline_summary()

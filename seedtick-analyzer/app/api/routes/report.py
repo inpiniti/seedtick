@@ -11,7 +11,7 @@ logger = logging.getLogger("report_route")
 router = APIRouter(prefix="/api/report", tags=["report"])
 
 
-@router.post("/generate", response_model=FinalMasterReport, summary="13인 거장 5단계 리포트 생성")
+@router.post("/generate", response_model=FinalMasterReport, summary="13인 거장 4단계 리포트 생성")
 async def generate_report(
     ticker: str = Query(..., description="미국 주식 티커 (예: NVDA, AAPL)"),
     date: str | None = Query(None, description="기준 일자 (YYYY-MM-DD, 기본: 오늘)"),

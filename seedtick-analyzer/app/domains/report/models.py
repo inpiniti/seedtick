@@ -100,18 +100,7 @@ class GuruSummaryDoc(BaseModel):
     raw_markdown: str = ""
 
 
-# ── 3. 원탁 토론 모델 ─────────────────────────────────────
-class GuruDiscussionDoc(BaseModel):
-    ticker: str
-    date: str
-    hot_topics: list[str] = Field(default_factory=list)
-    dialogue: str
-    final_vote_counts: dict[str, int] = Field(default_factory=dict)
-    file_path: str = ""
-    raw_markdown: str = ""
-
-
-# ── 4. 최종 종합 마스터 보고서 모델 ────────────────────────
+# ── 3. 최종 종합 마스터 보고서 모델 ────────────────────────
 class FinalMasterReport(BaseModel):
     ticker: str
     date: str
@@ -143,4 +132,3 @@ class FinalMasterReport(BaseModel):
     parse_mode: Literal["json", "regex"] = "regex"
     file_path: str = ""
     raw_markdown: str = ""
-    discussion: str = Field(default="", description="13인 거장 원탁 토론 전문 마크다운")
