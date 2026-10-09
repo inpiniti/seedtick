@@ -29,6 +29,7 @@ import {
 import {
   Search,
   Sparkles,
+  Activity,
   ChevronRight,
   ChevronLeft,
   BookOpen,
@@ -79,6 +80,8 @@ interface ResearchCatalogViewProps {
   isReportsLoading?: boolean;
   onSelectGuru?: (guruSlug: string) => void;
   intrinsicStabilityMap?: Map<string, IntrinsicStability>;
+  onOpenPipelineModal?: () => void;
+  isPipelineRunning?: boolean;
 }
 
 export function ResearchCatalogView({
@@ -109,6 +112,8 @@ export function ResearchCatalogView({
   isReportsLoading = false,
   onSelectGuru,
   intrinsicStabilityMap,
+  onOpenPipelineModal,
+  isPipelineRunning = false,
 }: ResearchCatalogViewProps) {
   // 한글명 렌더링 규칙: 캐시 한글명 우선 -> 원본 이름(영문) -> 티커 폴백
   const displayNameOf = (ticker: string, fallback?: string | null): string => {
@@ -1429,6 +1434,31 @@ export function ResearchCatalogView({
                 12:00 정기 배치 파이프라인의 실시간 진행 현황과 단계별 소요
                 시간을 모니터링합니다.
               </p>
+              {onOpenPipelineModal && (
+                <div className="pt-2">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={onOpenPipelineModal}
+                    disabled={isPipelineRunning}
+                    leftIcon={
+                      isPipelineRunning ? (
+                        <Activity className="w-3.5 h-3.5 animate-pulse text-amber-400" />
+                      ) : (
+                        <Sparkles className="w-3.5 h-3.5" />
+                      )
+                    }
+                    className="font-mono text-xs font-medium"
+                  >
+                    <span className="hidden sm:inline">
+                      {isPipelineRunning ? "분석 파이프라인 가동 중" : "파이프라인 실행"}
+                    </span>
+                    <span className="sm:hidden">
+                      {isPipelineRunning ? "가동 중" : "파이프라인"}
+                    </span>
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* 우측 */}
