@@ -13,6 +13,8 @@ import {
   extractValuationConsensus,
   getVoteAgreementPercent,
   formatPercentB,
+  formatIntrinsicRatio,
+  parseSafetyPrice,
   getIntrinsicStabilityMeta,
   IntrinsicStability,
 } from "@/lib/insightUtils";
@@ -110,7 +112,18 @@ export function ResearchDocumentView({
     fairValue != null && currentPrice != null && currentPrice > 0
       ? (fairValue / currentPrice) * 100
       : null;
-  const ratioText = intrinsicRatioPct != null ? `${Math.round(intrinsicRatioPct)}%` : null;
+  const ratioText = formatIntrinsicRatio(intrinsicRatioPct);
+
+  // 안전마진 / 현재가 비율 계산
+  const safetyPriceValue =
+    valConsensus?.safety_entry_value ??
+    parseSafetyPrice(valConsensus?.safety_entry_price) ??
+    parseSafetyPrice(report.safety_entry);
+  const safetyRatioPct =
+    safetyPriceValue != null && currentPrice != null && currentPrice > 0
+      ? (safetyPriceValue / currentPrice) * 100
+      : null;
+  const safetyRatioText = formatIntrinsicRatio(safetyRatioPct);
 
   // 내재가치 안정성 메타
   const stabilityMeta = intrinsicStability ? getIntrinsicStabilityMeta(intrinsicStability) : null;
@@ -271,6 +284,15 @@ export function ResearchDocumentView({
                   적정가/종가:{" "}
                   <strong className="text-[#0f172a] font-bold">
                     {ratioText}
+                  </strong>
+                </span>
+              )}
+
+              {safetyRatioText && (
+                <span className="px-2 py-0.5 rounded border border-[#e2e8f0] bg-[#f8fafc] text-[#475569]">
+                  안전마진/종가:{" "}
+                  <strong className="text-[#0f172a] font-bold">
+                    {safetyRatioText}
                   </strong>
                 </span>
               )}

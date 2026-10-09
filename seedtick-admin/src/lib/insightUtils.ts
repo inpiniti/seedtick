@@ -34,6 +34,18 @@ export function isValidChartTicker(ticker?: string | null): boolean {
   return false;
 }
 
+export function parseSafetyPrice(
+  safetyPrice?: string | number | null
+): number | null {
+  if (safetyPrice == null) return null;
+  if (typeof safetyPrice === "number")
+    return Number.isFinite(safetyPrice) && safetyPrice > 0 ? safetyPrice : null;
+  const match = String(safetyPrice).replace(/,/g, "").match(/[\d]+(?:\.\d+)?/);
+  if (!match) return null;
+  const val = parseFloat(match[0]);
+  return Number.isFinite(val) && val > 0 ? val : null;
+}
+
 export function extractValuationConsensus(
   report?: GuruReportRow | null
 ): ValuationConsensus | null {
@@ -46,6 +58,10 @@ export function extractValuationConsensus(
       report.band_low != null && report.band_high != null
         ? `$${report.band_low} ~ $${report.band_high}`
         : null;
+    const safetyValue =
+      report.safety_entry != null
+        ? report.safety_entry
+        : parseSafetyPrice(consensus?.safety_entry_value ?? consensus?.safety_entry_price);
     return {
       ...consensus,
       fair_value_price: report.fair_value,
@@ -54,6 +70,7 @@ export function extractValuationConsensus(
         report.safety_entry != null
           ? `$${report.safety_entry} 이하`
           : consensus?.safety_entry_price ?? null,
+      safety_entry_value: safetyValue,
       optimistic_target_price:
         report.target_sell != null
           ? `$${report.target_sell}`
@@ -68,9 +85,18 @@ export function extractValuationConsensus(
     (consensus.fair_value_price != null ||
       consensus.target_price_band ||
       consensus.safety_entry_price ||
+      consensus.safety_entry_value != null ||
       consensus.dispersion_pct != null)
   ) {
-    return consensus;
+    const safetyValue =
+      consensus.safety_entry_value ??
+      (report.safety_entry != null
+        ? report.safety_entry
+        : parseSafetyPrice(consensus.safety_entry_price));
+    return {
+      ...consensus,
+      safety_entry_value: safetyValue,
+    };
   }
 
   const md = report.final_report;
@@ -110,16 +136,23 @@ export function extractValuationConsensus(
     optimisticTargetPrice = targetMatch[1].trim().replace(/^[\*`\[\(]+|[\*`\]\)]+$/g, "");
   }
 
+  const safetyEntryValue =
+    report.safety_entry != null
+      ? report.safety_entry
+      : parseSafetyPrice(safetyEntryPrice);
+
   if (
     fairValuePrice ||
     targetPriceBand ||
     safetyEntryPrice ||
+    safetyEntryValue != null ||
     optimisticTargetPrice
   ) {
     return {
       fair_value_price: fairValuePrice,
       target_price_band: targetPriceBand,
       safety_entry_price: safetyEntryPrice,
+      safety_entry_value: safetyEntryValue,
       optimistic_target_price: optimisticTargetPrice,
     };
   }
