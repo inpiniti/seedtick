@@ -1,46 +1,25 @@
 "use client";
 
 import React from "react";
-import { HealthStatus, AiModelStatus } from "@/types/api";
-import { Badge } from "@/components/ui/Badge";
+import { HealthStatus } from "@/types/api";
 import { Button } from "@/components/ui/Button";
-import {
-  RefreshCw,
-  Sparkles,
-  Activity,
-  Layers,
-  Menu,
-} from "lucide-react";
-import { AiModelWidget } from "@/components/header/AiModelWidget";
-
+import { RefreshCw, Menu } from "lucide-react";
 import { SeedTickLogoBadge } from "@/components/ui/SeedTickLogo";
 
 interface LiveStatusBarProps {
   health: HealthStatus | null;
-  aiModel: AiModelStatus | null;
-  isResettingModel: boolean;
-  onResetModel: () => void;
   isLoading: boolean;
   onRefresh: () => void;
-  onOpenPipelineModal?: () => void;
-  isPipelineRunning?: boolean;
   onToggleMobileMenu?: () => void;
 }
 
 export function LiveStatusBar({
   health,
-  aiModel,
-  isResettingModel,
-  onResetModel,
   isLoading,
   onRefresh,
-  onOpenPipelineModal,
-  isPipelineRunning = false,
   onToggleMobileMenu,
 }: LiveStatusBarProps) {
   const isServerHealthy = health?.status === "healthy";
-  const isUsMarketOpen = health?.us_market_today?.is_open ?? false;
-  const isKrMarketOpen = health?.kr_market_today?.is_open ?? false;
 
   return (
     <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-[#e2e8f0] px-4 lg:px-8 h-[56px] flex items-center justify-between">
@@ -79,67 +58,8 @@ export function LiveStatusBar({
         </div>
       </div>
 
-      {/* 2. 우측 메타데이터 & 액션 버튼들 */}
+      {/* 2. 우측 액션 버튼들 */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* 한/미 증시 개장 상태 뱃지 */}
-        <div className="hidden sm:inline-flex items-center gap-2 border border-[#e2e8f0] bg-[#f8fafc] px-2.5 py-1 rounded-md text-xs font-mono">
-          <div className="flex items-center gap-1" title={health?.kr_market_today?.status_text || "한국 증시"}>
-            <span className="text-[#64748b]">KR MKT:</span>
-            <span
-              className={`font-semibold ${
-                isKrMarketOpen ? "text-emerald-700" : "text-slate-500"
-              }`}
-            >
-              {isKrMarketOpen ? "OPEN" : "CLOSED"}
-            </span>
-          </div>
-          <span className="text-[#cbd5e1]">|</span>
-          <div className="flex items-center gap-1" title={health?.us_market_today?.status_text || "미국 증시"}>
-            <span className="text-[#64748b]">US MKT:</span>
-            <span
-              className={`font-semibold ${
-                isUsMarketOpen ? "text-emerald-700" : "text-slate-500"
-              }`}
-            >
-              {isUsMarketOpen ? "OPEN" : "CLOSED"}
-            </span>
-          </div>
-        </div>
-
-        {/* AI 모델 위젯 */}
-        <div className="hidden md:block">
-          <AiModelWidget
-            aiModel={aiModel}
-            isResetting={isResettingModel}
-            onReset={onResetModel}
-          />
-        </div>
-
-        {/* 12:00 일일 파이프라인 트리거 버튼 */}
-        {onOpenPipelineModal && (
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={onOpenPipelineModal}
-            disabled={isPipelineRunning}
-            leftIcon={
-              isPipelineRunning ? (
-                <Activity className="w-3.5 h-3.5 animate-pulse text-amber-400" />
-              ) : (
-                <Sparkles className="w-3.5 h-3.5" />
-              )
-            }
-            className="font-mono text-xs font-medium"
-          >
-            <span className="hidden sm:inline">
-              {isPipelineRunning ? "분석 파이프라인 가동 중" : "파이프라인 실행"}
-            </span>
-            <span className="sm:hidden">
-              {isPipelineRunning ? "가동 중" : "파이프라인"}
-            </span>
-          </Button>
-        )}
-
         {/* 새로고침 버튼 */}
         <Button
           variant="secondary"
