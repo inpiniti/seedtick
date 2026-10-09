@@ -248,36 +248,6 @@ export function ResearchSidebar({
         </div>
       ))}
 
-      {/* 13인 거장 코어 목록 */}
-      <div className="pt-4 border-t border-[#f1f5f9] space-y-2">
-        <div className="flex items-center justify-between px-2.5">
-          <span className="font-mono text-[11px] font-medium uppercase text-[#94a3b8]">
-            13 Gurus Core
-          </span>
-          <span className="font-mono text-[10px] text-[#64748b]">v2.4</span>
-        </div>
-        <div className="flex flex-wrap gap-1 px-1">
-          {[
-            "워런 버핏",
-            "벤저민 그레이엄",
-            "피터 린치",
-            "세스 클라먼",
-            "마이클 버리",
-            "조엘 그린블라트",
-            "모니시 파브라이",
-            "코스톨라니",
-          ].map((guru, idx) => (
-            <Link
-              key={idx}
-              href={`/gurus/${encodeURIComponent(guru)}`}
-              onClick={onCloseMobile}
-              className="font-mono text-[10px] px-2 py-0.5 rounded border border-[#e2e8f0] bg-[#f8fafc] text-[#64748b] hover:border-[#0f172a] hover:text-[#0f172a] transition-colors"
-            >
-              {guru}
-            </Link>
-          ))}
-        </div>
-      </div>
     </div>
   );
 

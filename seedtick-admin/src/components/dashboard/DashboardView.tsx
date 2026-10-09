@@ -30,6 +30,7 @@ import {
 } from "@/lib/supabase";
 import { usePipelineProgress } from "@/hooks/usePipelineProgress";
 import { LiveStatusBar } from "@/components/header/LiveStatusBar";
+import { AiModelWidget } from "@/components/header/AiModelWidget";
 import {
   ResearchSidebar,
   SidebarSectionId,
@@ -189,6 +190,8 @@ export function DashboardView({
   const { progress: pipelineProgress, refresh: refreshPipelineProgress } =
     usePipelineProgress();
   const isPipelineRunning = pipelineProgress?.status === "running";
+  const isUsMarketOpen = health?.us_market_today?.is_open ?? false;
+  const isKrMarketOpen = health?.kr_market_today?.is_open ?? false;
 
   // 7. 파이프라인 수동 실행 모달
   const [isPipelineModalOpen, setIsPipelineModalOpen] = useState(false);
@@ -717,13 +720,8 @@ export function DashboardView({
         {/* 1. 상단 Sticky 헤더 */}
         <LiveStatusBar
           health={health}
-          aiModel={aiModel}
-          isResettingModel={isResettingModel}
-          onResetModel={handleResetAiModel}
           isLoading={isLoading}
           onRefresh={() => loadDashboardData(true)}
-          onOpenPipelineModal={() => setIsPipelineModalOpen(true)}
-          isPipelineRunning={isPipelineRunning}
           onToggleMobileMenu={() => setIsMobileMenuOpen((prev) => !prev)}
         />
 
@@ -815,6 +813,8 @@ export function DashboardView({
                 selectedDate={selectedCatalogDate}
                 onSelectDate={handleSelectCatalogDate}
                 isReportsLoading={isCatalogDateLoading}
+                onOpenPipelineModal={() => setIsPipelineModalOpen(true)}
+                isPipelineRunning={isPipelineRunning}
                 onSelectGuru={handleOpenGuru}
                 intrinsicStabilityMap={intrinsicStabilityByTicker}
                 tickerNameMap={tickerNameMap}
@@ -941,15 +941,50 @@ export function DashboardView({
           </Modal.Footer>
         </Modal>
 
-        {/* 4. 에디토리얼 푸터 */}
-        <footer className="mt-auto py-6 border-t border-[#e2e8f0] px-6 lg:px-12 bg-[#fafafa] text-xs font-mono text-[#64748b]">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-            <span>
-              SeedTick Research Console · 13 Gurus AI Valuation & Insight Archive
-            </span>
-            <span className="text-[#94a3b8]">
-              API Gateway: seedtick-ai-gateway · Engine: seedtick-analyzer
-            </span>
+        {/* 4. 메타데이터 & 액션 푸터 */}
+        <footer className="mt-auto py-5 border-t border-[#e2e8f0] px-6 lg:px-12 bg-[#fafafa] text-xs font-mono text-[#64748b]">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            {/* 좌측: 시장 개장 상태 뱃지 및 AI 모델 위젯 */}
+            <div className="flex flex-wrap items-center gap-3">
+              {/* 한/미 증시 개장 상태 뱃지 */}
+              <div className="inline-flex items-center gap-2 border border-[#e2e8f0] bg-white px-2.5 py-1 rounded-md text-xs font-mono shadow-2xs">
+                <div className="flex items-center gap-1.5" title={health?.kr_market_today?.status_text || "한국 증시"}>
+                  <span className="text-[#64748b]">KR MKT:</span>
+                  <span
+                    className={`font-semibold ${
+                      isKrMarketOpen ? "text-emerald-700" : "text-slate-500"
+                    }`}
+                  >
+                    {isKrMarketOpen ? "OPEN" : "CLOSED"}
+                  </span>
+                </div>
+                <span className="text-[#cbd5e1]">|</span>
+                <div className="flex items-center gap-1.5" title={health?.us_market_today?.status_text || "미국 증시"}>
+                  <span className="text-[#64748b]">US MKT:</span>
+                  <span
+                    className={`font-semibold ${
+                      isUsMarketOpen ? "text-emerald-700" : "text-slate-500"
+                    }`}
+                  >
+                    {isUsMarketOpen ? "OPEN" : "CLOSED"}
+                  </span>
+                </div>
+              </div>
+
+              {/* AI 모델 위젯 */}
+              <AiModelWidget
+                aiModel={aiModel}
+                isResetting={isResettingModel}
+                onReset={handleResetAiModel}
+              />
+            </div>
+
+            {/* 우측: 콘솔 정보 & 아키텍처 */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-[#94a3b8] text-[11px]">
+              <span>SeedTick Research Console · 13 Gurus AI Valuation & Insight Archive</span>
+              <span className="hidden sm:inline">·</span>
+              <span>API Gateway: seedtick-ai-gateway · Engine: seedtick-analyzer</span>
+            </div>
           </div>
         </footer>
       </div>
