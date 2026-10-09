@@ -83,19 +83,23 @@ class LogoWarmupService:
                 else:
                     cached_logo = self.logo_service.get_cached_logo(ticker)
                     cached_name = self.logo_service.get_cached_names([ticker]).get(ticker)
-                    if cached_logo and cached_name:
+                    # korean_name 컬럼 미적용 DB에서는 이름 조회/적재를 건너뛴다(헛 Toss 호출 방지).
+                    name_cache_enabled = not getattr(
+                        supabase_repo, "_korean_name_column_missing", False
+                    )
+                    if cached_logo and (cached_name or not name_cache_enabled):
                         logger.debug(f"[LogoWarmup] 캐시 존재로 건너뜀: {ticker}")
                     else:
                         logo_image_url, source = await self.logo_service.resolve_logo(ticker)
                         # 로고 조회 과정에서 한글명도 같이 저장되지만,
                         # 로고가 이미 있어 resolve가 cached로 끝난 경우 한글명만 별도 보충
-                        if not cached_name:
+                        if not cached_name and name_cache_enabled:
                             korean_name, name_source = await self.logo_service.resolve_name(ticker)
                             if korean_name:
                                 logger.info(f"[LogoWarmup] 한글명 갱신 완료: {ticker} {korean_name} ({name_source})")
                         if logo_image_url:
                             logger.info(f"[LogoWarmup] 로고 갱신 완료: {ticker} ({source})")
-                        elif not cached_name:
+                        elif not cached_name and name_cache_enabled:
                             logger.info(f"[LogoWarmup] 로고/한글명 미발견: {ticker}")
             except asyncio.CancelledError:
                 raise
