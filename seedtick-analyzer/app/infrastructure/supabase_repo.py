@@ -13,6 +13,9 @@ logger = logging.getLogger("supabase_repo")
 class SupabaseRepo:
     def __init__(self):
         self._client: Client | None = None
+        # korean_name 컬럼 미적용 DB(구 스키마) 감지 시 반복 쿼리/로그 폭주를 막는 서킷브레이커.
+        # 최초 1회 42703(korean_name does not exist) 오류를 확인하면 True로 잠근다.
+        self._korean_name_column_missing = False
         if settings.SUPABASE_URL and settings.SUPABASE_SERVICE_ROLE_KEY:
             try:
                 self._client = create_client(
@@ -388,6 +391,9 @@ class SupabaseRepo:
         normalized = (ticker or "").strip().upper()
         logo = (logo_image_url or "").strip()
         name = (korean_name or "").strip()
+        # 서킷브레이커가 올라간 DB에는 korean_name을 아예 싣지 않는다(헛 저장/재시도 방지).
+        if self._korean_name_column_missing:
+            name = ""
         # 로고도 한글명도 없으면 저장할 의미가 없음
         if not normalized or (not logo and not name):
             return False
@@ -406,8 +412,9 @@ class SupabaseRepo:
             self._client.table("ticker_logos").upsert(row, on_conflict="ticker").execute()
             return True
         except Exception as e:
-            # 구 스키마(DB에 korean_name/logo nullable 미적용)에서는 한글명 없이 재시도
-            if "korean_name" in str(e) and name:
+            # 구 스키마(korean_name 컬럼 미적용)에서는 한글명 없이 재시도
+            if name and ("korean_name" in str(e)):
+                self._mark_korean_name_column_missing(e)
                 row.pop("korean_name", None)
                 if not row.get("logo_image_url"):
                     return False
@@ -434,6 +441,9 @@ class SupabaseRepo:
             ticker = (item.get("ticker") or "").strip().upper()
             logo = (item.get("logo_image_url") or "").strip()
             name = (item.get("korean_name") or "").strip()
+            # 서킷브레이커가 올라간 DB에는 korean_name을 아예 싣지 않는다.
+            if self._korean_name_column_missing:
+                name = ""
             if not ticker or (not logo and not name):
                 continue
             row: dict = {
@@ -455,6 +465,7 @@ class SupabaseRepo:
             return True
         except Exception as e:
             if "korean_name" in str(e):
+                self._mark_korean_name_column_missing(e)
                 for row in rows:
                     row.pop("korean_name", None)
                 rows = [r for r in rows if r.get("logo_image_url")]
@@ -469,9 +480,29 @@ class SupabaseRepo:
             logger.warning(f"[Supabase] ticker_logos 일괄 저장 실패 ({len(rows)}건): {e}")
             return False
 
+    def _mark_korean_name_column_missing(self, err: Exception) -> bool:
+        """
+        오류가 'korean_name 컬럼 없음(42703)'이면 서킷브레이커를 올리고 True 반환.
+        최초 1회에만 경고를 남기고, 이후에는 재쿼리/재시도를 하지 않는다.
+        """
+        text = str(err)
+        if "korean_name" in text and ("42703" in text or "does not exist" in text):
+            if not self._korean_name_column_missing:
+                self._korean_name_column_missing = True
+                logger.warning(
+                    "[Supabase] ticker_logos.korean_name 컬럼이 없어 한글명 캐시를 비활성화합니다. "
+                    "scripts/migration_ticker_korean_name.sql 을 Supabase SQL Editor에서 실행하면 "
+                    "한글명 표시가 활성화됩니다. (로고 캐시는 정상 동작)"
+                )
+            return True
+        return False
+
     def get_ticker_names(self, tickers: list[str]) -> dict[str, str]:
         """ticker_logos에서 여러 티커 한글명 일괄 조회"""
         if not self._client or not tickers:
+            return {}
+        # 서킷브레이커: korean_name 컬럼이 없다고 확인된 DB에는 재쿼리하지 않는다.
+        if self._korean_name_column_missing:
             return {}
 
         normalized = sorted({(t or "").strip().upper() for t in tickers if (t or "").strip()})
@@ -494,6 +525,8 @@ class SupabaseRepo:
             return mapping
         except Exception as e:
             # 구 스키마(DB에 korean_name 미적용)에서는 빈 결과로 폴백
+            if self._mark_korean_name_column_missing(e):
+                return {}
             logger.warning(f"[Supabase] ticker_logos 한글명 조회 실패: {e}")
             return {}
 
