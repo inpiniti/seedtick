@@ -134,6 +134,7 @@ export interface ValuationConsensus {
   fair_value_price?: number | null;
   target_price_band?: string | null;
   safety_entry_price?: string | null;
+  safety_entry_value?: number | null;
   optimistic_target_price?: string | null;
   dispersion_pct?: number | null;
   price_estimate_count?: number | null;

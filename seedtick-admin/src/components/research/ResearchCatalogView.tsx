@@ -24,6 +24,7 @@ import {
   getIntrinsicStabilityMeta,
   formatPercentB,
   formatIntrinsicRatio,
+  parseSafetyPrice,
   IntrinsicStability,
 } from "@/lib/insightUtils";
 import {
@@ -203,6 +204,14 @@ export function ResearchCatalogView({
       fairValue != null && price != null && price > 0
         ? (fairValue / price) * 100
         : null;
+    const safetyPriceValue =
+      consensus?.safety_entry_value ??
+      parseSafetyPrice(consensus?.safety_entry_price) ??
+      parseSafetyPrice(report?.safety_entry);
+    const safetyRatioPct =
+      safetyPriceValue != null && price != null && price > 0
+        ? (safetyPriceValue / price) * 100
+        : null;
     const intrinsicStability =
       intrinsicStabilityByTicker.get(ticker.toUpperCase()) ||
       buildIntrinsicStability([]);
@@ -218,6 +227,8 @@ export function ResearchCatalogView({
       intrinsicStability,
       stabilityMeta,
       safetyPrice: consensus?.safety_entry_price ?? null,
+      safetyPriceValue,
+      safetyRatioPct,
       dispersionPct: consensus?.dispersion_pct ?? null,
       voteAgreementPct: getVoteAgreementPercent(report),
     };
@@ -846,6 +857,9 @@ export function ResearchCatalogView({
                     const ratioText = formatIntrinsicRatio(
                       insight.intrinsicRatioPct
                     );
+                    const safetyRatioText = formatIntrinsicRatio(
+                      insight.safetyRatioPct
+                    );
 
                     return (
                       <li key={report.id || ticker}>
@@ -936,6 +950,15 @@ export function ResearchCatalogView({
                                     적정가/종가:{" "}
                                     <strong className="font-bold">
                                       {ratioText}
+                                    </strong>
+                                  </span>
+                                )}
+
+                                {safetyRatioText && (
+                                  <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
+                                    안전마진/종가:{" "}
+                                    <strong className="text-[#0f172a] font-bold">
+                                      {safetyRatioText}
                                     </strong>
                                   </span>
                                 )}
@@ -1042,6 +1065,9 @@ export function ResearchCatalogView({
                     const ratioText = formatIntrinsicRatio(
                       insight.intrinsicRatioPct
                     );
+                    const safetyRatioText = formatIntrinsicRatio(
+                      insight.safetyRatioPct
+                    );
 
                     return (
                       <li key={`roma-${c.ticker}-${idx}`}>
@@ -1103,6 +1129,15 @@ export function ResearchCatalogView({
                                     적정가/종가:{" "}
                                     <strong className="text-[#0f172a] font-bold">
                                       {ratioText}
+                                    </strong>
+                                  </span>
+                                )}
+
+                                {safetyRatioText && (
+                                  <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
+                                    안전마진/종가:{" "}
+                                    <strong className="text-[#0f172a] font-bold">
+                                      {safetyRatioText}
                                     </strong>
                                   </span>
                                 )}
@@ -1277,6 +1312,9 @@ export function ResearchCatalogView({
                     const ratioText = formatIntrinsicRatio(
                       insight.intrinsicRatioPct
                     );
+                    const safetyRatioText = formatIntrinsicRatio(
+                      insight.safetyRatioPct
+                    );
                     const isKr = c.nation === "kr" || candidateMarket === "kr";
 
                     return (
@@ -1354,6 +1392,15 @@ export function ResearchCatalogView({
                                     적정가/종가:{" "}
                                     <strong className="text-[#0f172a] font-bold">
                                       {ratioText}
+                                    </strong>
+                                  </span>
+                                )}
+
+                                {safetyRatioText && (
+                                  <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
+                                    안전마진/종가:{" "}
+                                    <strong className="text-[#0f172a] font-bold">
+                                      {safetyRatioText}
                                     </strong>
                                   </span>
                                 )}
