@@ -34,9 +34,32 @@ class LogoWarmupService:
         if self._task and not self._task.done():
             return
         self._stop_event.clear()
+        self._log_name_cache_status()
         await self._seed_from_reports()
         self._task = asyncio.create_task(self._run(), name="logo-warmup-loop")
         logger.info("[LogoWarmup] 백그라운드 로고 워밍업 시작")
+
+    def _log_name_cache_status(self) -> None:
+        """
+        시작 시 종목 한글명 캐시 상태를 명확히 1회 로그로 남긴다.
+        - korean_name 컬럼이 있으면: 캐시 활성(워밍업이 한글명을 채움)
+        - 없으면: 캐시 비활성(마이그레이션 필요) — 이후 조용히 실패하지 않도록 상태를 고지
+        """
+        if not supabase_repo.is_connected():
+            return
+        try:
+            # 프로브 조회: 컬럼이 없으면 내부 서킷브레이커가 올라가며 경고 1회 출력
+            supabase_repo.get_ticker_names(["__PROBE__"])
+        except Exception:
+            pass
+        if getattr(supabase_repo, "_korean_name_column_missing", False):
+            logger.warning(
+                "[LogoWarmup] 종목 한글명 캐시: 비활성 — ticker_logos.korean_name 컬럼이 없습니다. "
+                "scripts/migration_ticker_korean_name.sql 을 Supabase SQL Editor에서 실행 후 "
+                "서버를 재시작하면 한글명 워밍업이 동작합니다."
+            )
+        else:
+            logger.info("[LogoWarmup] 종목 한글명 캐시: 활성")
 
     async def stop(self) -> None:
         self._stop_event.set()
