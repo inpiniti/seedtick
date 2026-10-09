@@ -96,6 +96,34 @@ def test_extract_master_sections():
     assert len(sec["key_drivers"]) == 2
 
 
+def test_build_report_columns_includes_valuation_aggregates():
+    """분산율/유효 의견 수는 정규 컬럼으로 승격된다 (리포트 본문 JSON 의존 제거)."""
+    cols = build_report_columns(
+        current_price=200.0,
+        summaries=[],
+        fair_value=280.0,
+        target_price_band="$230 ~ $300",
+        safety_entry_price="$250.00 이하",
+        optimistic_target_price="$310.00",
+        dispersion_pct=25.0,
+        price_estimate_count=13,
+    )
+    assert cols["dispersion_pct"] == 25.0
+    assert cols["price_estimate_count"] == 13
+
+    # 값이 없으면 None 이하로 안전하게 떨어진다 (int 0 오염 방지)
+    empty = build_report_columns(
+        current_price=200.0,
+        summaries=[],
+        fair_value=None,
+        target_price_band=None,
+        safety_entry_price=None,
+        optimistic_target_price=None,
+    )
+    assert empty["dispersion_pct"] is None
+    assert empty["price_estimate_count"] is None
+
+
 def test_parse_summary_block_json():
     service = GuruReportService()
     json_text = """```json

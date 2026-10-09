@@ -550,6 +550,8 @@ class GuruReportService:
             review_flags=getattr(report, "valuation_review_flags", []),
             parse_mode=getattr(report, "parse_mode", "regex"),
             prompt_version=settings.REPORT_PROMPT_VERSION,
+            dispersion_pct=getattr(report, "valuation_dispersion_pct", None),
+            price_estimate_count=getattr(report, "valuation_estimate_count", None),
         )
 
         await self.supabase.save_full_report(

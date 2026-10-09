@@ -317,6 +317,8 @@ def build_report_columns(
     review_flags: list[str] | None = None,
     parse_mode: str | None = None,
     prompt_version: str | None = None,
+    dispersion_pct: float | None = None,
+    price_estimate_count: int | None = None,
 ) -> dict:
     """guru_reports 확장 컬럼 (정렬/필터 대상)."""
     if band_low is None and band_high is None:
@@ -347,6 +349,12 @@ def build_report_columns(
         "votes_watch": votes["관망"],
         "votes_sell": votes["매도"],
         "avg_confidence": round(sum(confs) / len(confs), 2) if confs else None,
+        "dispersion_pct": round(dispersion_pct, 2)
+        if isinstance(dispersion_pct, (int, float))
+        else None,
+        "price_estimate_count": price_estimate_count
+        if isinstance(price_estimate_count, int)
+        else None,
         "conclusion": conclusion or None,
         "hot_topics": hot_topics or [],
         "bull_points": bull_points or [],

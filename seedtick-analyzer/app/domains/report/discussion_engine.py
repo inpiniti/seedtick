@@ -42,8 +42,9 @@ class DiscussionEngine:
         """
         LLM 마스터 보고서 마크다운에서 종합 적정 내재가치 및 투자 실행 밴드를 파싱합니다.
 
-        1순위: 기계 파싱용 JSON 블록(valuation_consensus)
-        2순위: 기존 마크다운 텍스트 정규식 파싱
+        1순위: 레거시 리포트의 JSON 블록(valuation_consensus) — 신규 리포트에는 없으므로
+               과거 산출물 재파싱 전용 경로다.
+        2순위: 마크다운 헤더/본문 텍스트 정규식 파싱
         3순위: 이상치/불일치 자동 보정 없이 review flag만 남김
         """
         review_flags: list[str] = []
@@ -108,6 +109,9 @@ class DiscussionEngine:
         """
         리포트 내 JSON 코드블록에서 valuation_consensus를 추출한다.
         실패 시 None 반환(정규식 파싱으로 폴백).
+
+        신규 마스터 리포트는 본문에 JSON 블록을 싣지 않는다(정규 컬럼으로만 적재).
+        이 경로는 JSON 블록이 붙어 있던 과거 리포트/파일 재파싱 호환용으로 남겨둔다.
         """
         for match in re.finditer(r"```json\s*(\{[\s\S]*?\})\s*```", raw_md):
             candidate = match.group(1).strip()

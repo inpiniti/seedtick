@@ -165,6 +165,8 @@ export interface GuruReportRow {
   votes_watch?: number | null;
   votes_sell?: number | null;
   avg_confidence?: number | null;
+  dispersion_pct?: number | null;
+  price_estimate_count?: number | null;
   conclusion?: string | null;
   hot_topics?: string[] | null;
   bull_points?: string[] | null;

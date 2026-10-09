@@ -78,6 +78,8 @@ async def run_backfill(target_date: str | None = None, limit: int = 500, dry_run
         if s_val is None:
             s_val = parse_number(s_price)
         t_val = parse_number(o_price)
+        d_pct = parse_number(val_consensus.get("dispersion_pct"))
+        pe_count = parse_number(val_consensus.get("price_estimate_count"))
 
         sec_data = extract_master_sections(final_md)
 
@@ -100,6 +102,8 @@ async def run_backfill(target_date: str | None = None, limit: int = 500, dry_run
             key_drivers=sec_data["key_drivers"],
             parse_mode="legacy_backfill",
             prompt_version="legacy",
+            dispersion_pct=d_pct,
+            price_estimate_count=int(pe_count) if pe_count is not None else None,
         )
 
         # 3. guru_opinions 행 생성
