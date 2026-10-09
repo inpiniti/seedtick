@@ -35,7 +35,6 @@ import {
   RefreshCw,
   ArrowRight,
   Users,
-  Target,
   TrendingUp,
   Award,
   Calendar,

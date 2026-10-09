@@ -19,18 +19,12 @@ import { ReportSummariesView } from "@/components/tabs/ReportSummariesView";
 import { ReportDatapackView } from "@/components/tabs/ReportDatapackView";
 import { StockChartView } from "@/components/tabs/StockChartView";
 import { PipelineProgressCard } from "@/components/tabs/PipelineProgressCard";
-import { getScoreBadge, formatTime } from "@/lib/utils";
 import {
   FileText,
   Search,
   Users,
-  ExternalLink,
   ChevronRight,
   TrendingUp,
-  Calendar,
-  CheckCircle2,
-  AlertCircle,
-  Clock,
   History,
 } from "lucide-react";
 import {
