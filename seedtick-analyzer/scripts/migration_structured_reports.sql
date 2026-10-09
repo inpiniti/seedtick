@@ -23,6 +23,8 @@ alter table public.guru_reports
   add column if not exists votes_watch        smallint,
   add column if not exists votes_sell         smallint,
   add column if not exists avg_confidence     numeric,
+  add column if not exists dispersion_pct       numeric,  -- 13인 적정가 IQR 분산율 (밴드 폭 / 중앙 적정가)
+  add column if not exists price_estimate_count smallint,  -- 유효 가격 의견 수 (0~13)
   add column if not exists conclusion         text,
   add column if not exists hot_topics         text[],
   add column if not exists bull_points        text[],
@@ -36,6 +38,24 @@ alter table public.guru_reports
 create index if not exists guru_reports_fair_value_idx on public.guru_reports (fair_value);
 create index if not exists guru_reports_upside_pct_idx on public.guru_reports (upside_pct desc);
 create index if not exists guru_reports_votes_buy_idx  on public.guru_reports (votes_buy desc);
+create index if not exists guru_reports_dispersion_pct_idx on public.guru_reports (dispersion_pct);
+
+-- ------------------------------------------------------------------------------
+-- 1-1. 신규 밸류에이션 집계 컬럼 백필
+--      기존 datapack.valuation_consensus(jsonb)에 남아있는 값을 정규 컬럼으로 승격한다.
+--      리포트 본문 JSON 블록 제거 이후에도 대시보드/스크리너가 컬럼만으로 동작하게 한다.
+-- ------------------------------------------------------------------------------
+update public.guru_reports r
+   set dispersion_pct = (r.datapack -> 'valuation_consensus' ->> 'dispersion_pct')::numeric
+ where r.dispersion_pct is null
+   and r.datapack -> 'valuation_consensus' ->> 'dispersion_pct' is not null
+   and (r.datapack -> 'valuation_consensus' ->> 'dispersion_pct') ~ '^-?\d+(\.\d+)?$';
+
+update public.guru_reports r
+   set price_estimate_count = (r.datapack -> 'valuation_consensus' ->> 'price_estimate_count')::smallint
+ where r.price_estimate_count is null
+   and r.datapack -> 'valuation_consensus' ->> 'price_estimate_count' is not null
+   and (r.datapack -> 'valuation_consensus' ->> 'price_estimate_count') ~ '^\d+$';
 
 
 -- ------------------------------------------------------------------------------

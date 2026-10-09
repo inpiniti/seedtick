@@ -13,6 +13,7 @@ from app.domains.report.models import (
     ValuationRow,
 )
 from app.domains.report.discussion_engine import DiscussionEngine
+from app.config.constants import GURU_REPORT_ROSTER
 from app.domains.report.service import GuruReportService
 
 
@@ -356,6 +357,60 @@ def test_parse_report_valuation_emits_review_flags_without_autofix():
 
 
 
+
+
+@pytest.mark.asyncio
+async def test_master_report_body_omits_valuation_json_block():
+    """
+    밸류에이션 집계값은 정규 컬럼으로 적재되므로
+    사람이 읽는 리포트 본문에 JSON 코드펜스를 싣지 않는다.
+    """
+    mock_ai = MagicMock()
+    mock_ai.chat = AsyncMock(
+        return_value='{"hot_topics": ["해자"], "bull_points": [], "bear_points": [], "key_drivers": []}'
+    )
+    engine = DiscussionEngine(ai_client=mock_ai)
+
+    datapack = StockDataPack(
+        ticker="AAPL",
+        company_name="Apple Inc.",
+        date="2026-10-06",
+        current_price=220.0,
+        overview="Apple overview",
+        balance_sheet=BalanceSheetRow(),
+        valuation=ValuationRow(current_price=220.0),
+        raw_markdown="# AAPL 팩트",
+    )
+    summaries = GuruSummaryDoc(
+        ticker="AAPL",
+        date="2026-10-06",
+        summaries=[
+            PersonaSummaryBlock(
+                persona=persona,
+                verdict="매수",
+                confidence=8,
+                core_arguments=["강력한 해자"],
+                target_price_range=f"${240 + idx * 5}",
+                target_price_low=float(240 + idx * 5),
+                target_price_high=float(240 + idx * 5),
+                quote="훌륭한 비즈니스다.",
+            )
+            for idx, (_name, persona) in enumerate(GURU_REPORT_ROSTER)
+        ],
+        raw_markdown="### 워런-버핏\n**의견**: 매수",
+    )
+
+    report = await engine.generate_master_report(datapack, summaries)
+
+    # 본문에 기계 파싱용 JSON이 남아있지 않다.
+    assert "valuation_consensus" not in report.raw_markdown
+    assert "```json" not in report.raw_markdown
+    # 대신 집계값은 구조화 필드로 온전히 보존된다.
+    assert report.valuation_dispersion_pct is not None
+    assert report.valuation_estimate_count == len(GURU_REPORT_ROSTER)
+    # 사람용 서술은 헤더/본문에 그대로 노출된다.
+    assert "13인 적정가 중앙값" in report.raw_markdown
+    assert "가격 의견 분산" in report.raw_markdown
 
 
 @pytest.mark.asyncio

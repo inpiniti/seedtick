@@ -110,5 +110,7 @@ class FinalMasterReport(BaseModel):
     raw_markdown: str
 ```
 
-`valuation_dispersion_pct`는 유효 가격 구간 중점값의 최저~최고 폭을 중앙값으로 나눈 값이다. `fair_value_price`가 비어 있으면 분석 실패 또는 의견 분산 기준에 따라 단일 가격을 보류한 상태일 수 있다.
+`valuation_dispersion_pct`는 유효 가격 구간 중점값의 사분위 범위 폭(Q3−Q1)을 중앙값으로 나눈 IQR 분산율이다. `valuation_estimate_count`는 집계에 사용된 유효 페르소나 가격 구간 수다. `fair_value_price`가 비어 있으면 분석 실패 또는 의견 분산 기준에 따라 단일 가격을 보류한 상태일 수 있다.
+
+두 값은 `guru_reports.dispersion_pct` / `guru_reports.price_estimate_count` 정규 컬럼으로 적재되며(`scripts/migration_structured_reports.sql`), 사람이 읽는 리포트 본문에는 기계 파싱용 JSON 코드블록을 싣지 않는다. 프론트엔드 `extractValuationConsensus()`는 정규 컬럼을 우선하고, 마이그레이션 이전 레거시 행만 `datapack.valuation_consensus`(jsonb)로 폴백한다.
 

@@ -230,6 +230,7 @@ export function ResearchCatalogView({
       safetyPriceValue,
       safetyRatioPct,
       dispersionPct: consensus?.dispersion_pct ?? null,
+      priceEstimateCount: consensus?.price_estimate_count ?? null,
       voteAgreementPct: getVoteAgreementPercent(report),
     };
   };
@@ -920,8 +921,8 @@ export function ResearchCatalogView({
                                     가격 분산:{" "}
                                     <strong className="text-[#0f172a]">
                                       {insight.dispersionPct.toFixed(1)}%
-                                      {insight.report?.datapack?.valuation_consensus?.price_estimate_count != null
-                                        ? ` · ${insight.report.datapack.valuation_consensus.price_estimate_count}/13`
+                                      {insight.priceEstimateCount != null
+                                        ? ` · ${insight.priceEstimateCount}/13`
                                         : ""}
                                     </strong>
                                   </span>

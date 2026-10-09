@@ -175,10 +175,6 @@ bull_points(문자열 배열), bear_points(문자열 배열), key_drivers(문자
             "분산율은 사분위 범위(IQR) 기반"
         ),
     }
-    json_block = json.dumps(
-        {"valuation_consensus": valuation_json}, ensure_ascii=False, indent=2
-    )
-
     fair_value_header = (
         _format_price(consensus.fair_value, currency)
         if consensus.fair_value is not None
@@ -198,10 +194,6 @@ bull_points(문자열 배열), bear_points(문자열 배열), key_drivers(문자
         f"> **날짜**: {datapack.date} | **종합 의견**: **{consensus.verdict}** | **표결**: {consensus.vote_summary}",
         f"> **현재가**: {_format_price(datapack.current_price, currency)} | **13인 적정가 중앙값**: {fair_value_header} (중앙 50% 구간: {band_header})",
         f"> **투자 실행 참고**: [안전마진 가격] {safety_header} | [목표 가격 상단 참고] {target_header}",
-        "",
-        "```json",
-        json_block,
-        "```",
         "",
         "## 1. 종합 결론 및 집계 근거",
         f"- **종합 판정**: {consensus.verdict}",

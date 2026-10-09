@@ -75,6 +75,10 @@ export function extractValuationConsensus(
         report.target_sell != null
           ? `$${report.target_sell}`
           : consensus?.optimistic_target_price ?? null,
+      // 집계 지표는 정규 컬럼을 우선하고, 미적재 레거시 행만 jsonb로 폴백한다.
+      dispersion_pct: report.dispersion_pct ?? consensus?.dispersion_pct ?? null,
+      price_estimate_count:
+        report.price_estimate_count ?? consensus?.price_estimate_count ?? null,
     };
   }
 
