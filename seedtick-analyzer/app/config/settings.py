@@ -70,6 +70,7 @@ class Settings(BaseSettings):
     REPORT_PROMPT_VERSION: str = "2026-10-08.v4"
 
     MAX_ANALYZE_COUNT: int = 0  # 1일 최대 리포트 분석 종목 수 (0: 스크리너 전체 무제한)
+    REPORT_TICKER_CONCURRENCY: int = 2  # 종목 단위 동시 분석 수 (기본 2: 2개 종목 병렬 파이프라인 실행)
     # AI 프로바이더 직접 호출 (게이트웨이 우회 시 사용, 쉼표 구분 멀티키 지원)
     OPENROUTER_API_KEYS: str = ""
     OPENROUTER_API_KEY: str = ""

@@ -58,6 +58,7 @@ class PipelineProgressTracker:
             "failed_tickers": 0,
             "current_ticker": None,
             "current_ticker_index": 0,
+            "active_tickers": [],
             "stage_started_at": None,
             "stage_elapsed_seconds": {},
             "tickers": [],
@@ -146,8 +147,10 @@ class PipelineProgressTracker:
 
     def begin_ticker(self, ticker: str) -> None:
         with self._lock:
-            self._state["current_ticker"] = ticker
-            self._state["gurus_done"] = 0
+            active = self._state.setdefault("active_tickers", [])
+            if ticker not in active:
+                active.append(ticker)
+            self._state["current_ticker"] = ", ".join(active) if active else ticker
             for idx, item in enumerate(self._state["tickers"], start=1):
                 if item["ticker"] == ticker:
                     item["status"] = "processing"
@@ -159,6 +162,11 @@ class PipelineProgressTracker:
         self, ticker: str, *, verdict: str | None = None, failed: bool = False
     ) -> None:
         with self._lock:
+            active = self._state.get("active_tickers", [])
+            if ticker in active:
+                active.remove(ticker)
+            # 아직 진행 중인 다른 종목이 있으면 그것들을 표시, 없으면 방금 완료된 ticker 유지
+            self._state["current_ticker"] = ", ".join(active) if active else ticker
             for item in self._state["tickers"]:
                 if item["ticker"] == ticker:
                     item["status"] = "failed" if failed else "done"
@@ -187,14 +195,25 @@ class PipelineProgressTracker:
             if detail:
                 self._append_event_locked(detail)
 
-    def set_guru_progress(self, done: int, total: int) -> None:
+    def set_guru_progress(self, done: int, total: int, ticker: str | None = None) -> None:
         with self._lock:
             self._state["gurus_done"] = done
             self._state["gurus_total"] = total
+            if ticker:
+                for item in self._state["tickers"]:
+                    if item["ticker"] == ticker:
+                        item["gurus_done"] = done
+                        item["gurus_total"] = total
+                        break
 
-    def tick_guru(self) -> None:
+    def tick_guru(self, ticker: str | None = None) -> None:
         with self._lock:
             self._state["gurus_done"] += 1
+            if ticker:
+                for item in self._state["tickers"]:
+                    if item["ticker"] == ticker:
+                        item["gurus_done"] = item.get("gurus_done", 0) + 1
+                        break
 
     def log(self, message: str) -> None:
         with self._lock:

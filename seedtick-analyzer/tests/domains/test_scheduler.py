@@ -340,5 +340,77 @@ async def test_us_and_kr_pipelines_separate(monkeypatch):
     assert analyzed_tickers == ["005930"]
 
 
+@pytest.mark.asyncio
+async def test_daily_pipeline_concurrent_ticker_execution(monkeypatch):
+    """
+    종목 단위 병렬 처리 검증:
+    - 4개 종목을 처리할 때 REPORT_TICKER_CONCURRENCY(기본 2) 한도 내에서
+      동시에 여러 종목이 병렬 실행되는지 검증
+    """
+    from app.domains.scheduler.jobs import daily_pipeline_job
+    from app.domains.scheduler.market_guard import MarketCalendarGuard
+    from app.domains.screener.service import ScreenerService
+    from app.domains.screener.roma_service import RomaScreenerService
+    from app.domains.screener.models import ScreenResult, TossStockItem, ScreenCriteria
+    from app.domains.report.service import GuruReportService
+    from app.domains.error_log.notifiers.discord import DiscordNotifier
+    from app.infrastructure.supabase_repo import supabase_repo
+    from app.config.settings import settings
+
+    monkeypatch.setattr(MarketCalendarGuard, "is_us_market_open", lambda self, d: (True, "정규장"))
+    monkeypatch.setattr(MarketCalendarGuard, "is_kr_market_open", lambda self, d: (False, "휴장"))
+
+    tickers = ["AAPL", "NVDA", "MSFT", "GOOG"]
+    items = [
+        TossStockItem(ticker=t, stock_code=t, name=t, screeners=["공통"])
+        for t in tickers
+    ]
+
+    async def mock_screener(self, criteria=None):
+        return ScreenResult(tickers=items, items=items, total_count=4, count=4, criteria=criteria or ScreenCriteria())
+
+    async def mock_roma(self, min_holders=10, size=0):
+        return ScreenResult(tickers=[], items=[], total_count=0, count=0, criteria=ScreenCriteria())
+
+    monkeypatch.setattr(ScreenerService, "get_stock_list", mock_screener)
+    monkeypatch.setattr(RomaScreenerService, "get_stock_list", mock_roma)
+    monkeypatch.setattr(supabase_repo, "get_reported_tickers_for_date", lambda d: set())
+    monkeypatch.setattr(DiscordNotifier, "notify_pipeline_summary", lambda *a, **k: asyncio.sleep(0))
+
+    active_count = 0
+    max_active_observed = 0
+    lock = asyncio.Lock()
+    completed = []
+
+    async def mock_gen_report(self, ticker, target_date, screeners=None):
+        nonlocal active_count, max_active_observed
+        async with lock:
+            active_count += 1
+            if active_count > max_active_observed:
+                max_active_observed = active_count
+
+        # 병렬성 확인을 위해 잠시 대기
+        await asyncio.sleep(0.05)
+
+        async with lock:
+            active_count -= 1
+            completed.append(ticker)
+
+        class DummyReport:
+            overall_verdict = "매수"
+        return DummyReport()
+
+    monkeypatch.setattr(GuruReportService, "generate_full_report", mock_gen_report)
+
+    result = await daily_pipeline_job(force=True, market="us")
+
+    assert result["status"] == "success"
+    assert result["reported_count"] == 4
+    # 세마포어(2)에 의해 동시에 최대 2개 종목만 병렬 실행됨
+    expected_limit = max(1, settings.REPORT_TICKER_CONCURRENCY)
+    assert max_active_observed == expected_limit
+    assert set(completed) == set(tickers)
+
+
 
 

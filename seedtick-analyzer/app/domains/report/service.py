@@ -168,7 +168,7 @@ class GuruReportService:
             f"[{ticker}] 13인 거장 요약 분석 시작 (총 {total_gurus}명, 동시 처리 한도: {self.concurrency}개)"
         )
         if self.progress:
-            self.progress.set_guru_progress(0, total_gurus)
+            self.progress.set_guru_progress(0, total_gurus, ticker=ticker)
 
         semaphore = asyncio.Semaphore(self.concurrency)
 
@@ -204,7 +204,7 @@ class GuruReportService:
                     )
 
                 if self.progress:
-                    self.progress.tick_guru()
+                    self.progress.tick_guru(ticker=ticker)
 
                 if self.request_interval > 0:
                     await asyncio.sleep(self.request_interval)

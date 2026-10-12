@@ -252,24 +252,34 @@ async def _run_daily_pipeline(
             "orders_count": 0,
         }
 
-    # ── 3. 종목별 4단계 Guru-Report 실행 ──────────────────
+    # ── 3. 종목별 4단계 Guru-Report 실행 (종목 단위 동시 병렬 처리) ──────────────────
     report_service = GuruReportService(progress=pipeline_progress)
-    generated_reports = []
+    ticker_concurrency = max(1, getattr(settings, "REPORT_TICKER_CONCURRENCY", 2))
+    logger.info(
+        f"[Scheduler] 종목 병렬 분석 시작: 총 {len(target_tickers)}개 종목, "
+        f"동시 처리 한도: {ticker_concurrency}개"
+    )
+    ticker_semaphore = asyncio.Semaphore(ticker_concurrency)
 
-    for ticker in target_tickers:
-        pipeline_progress.begin_ticker(ticker)
-        try:
-            screeners = ticker_screeners_map.get(ticker)
-            report = await report_service.generate_full_report(
-                ticker, today_str, screeners=screeners
-            )
-            generated_reports.append(report)
-            pipeline_progress.complete_ticker(
-                ticker, verdict=report.overall_verdict
-            )
-        except Exception as e:
-            logger.error(f"[Scheduler] {ticker} 분석 리포트 실패: {e}")
-            pipeline_progress.complete_ticker(ticker, failed=True)
+    async def _analyze_single_ticker(ticker: str):
+        async with ticker_semaphore:
+            pipeline_progress.begin_ticker(ticker)
+            try:
+                screeners = ticker_screeners_map.get(ticker)
+                report = await report_service.generate_full_report(
+                    ticker, today_str, screeners=screeners
+                )
+                verdict = getattr(report, "overall_verdict", None)
+                pipeline_progress.complete_ticker(ticker, verdict=verdict)
+                return report
+            except Exception as e:
+                logger.error(f"[Scheduler] {ticker} 분석 리포트 실패: {e}")
+                pipeline_progress.complete_ticker(ticker, failed=True)
+                return None
+
+    tasks = [_analyze_single_ticker(t) for t in target_tickers]
+    results = await asyncio.gather(*tasks)
+    generated_reports = [r for r in results if r is not None]
 
     # ── 4. 자동매매 주문 실행 (기존 리포트 자동매매 폐기: 수동 등록 기반 그리드로 전환됨) ──
     logger.info("[Scheduler] 기존 리포트 자동매매는 폐기되었습니다. (그리드 수동 등록 체계 운용)")
