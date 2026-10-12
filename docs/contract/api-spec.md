@@ -294,19 +294,3 @@ CREATE TABLE reports (
   UNIQUE(ticker, date)
 );
 ```
-
-### orders 테이블
-```sql
-CREATE TABLE orders (
-  id            UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  ticker        TEXT NOT NULL,
-  action        TEXT CHECK (action IN ('BUY', 'SELL')),
-  amount_krw    INTEGER NOT NULL,
-  status        TEXT CHECK (status IN ('PENDING', 'EXECUTED', 'FAILED', 'CANCELLED')),
-  broker        TEXT NOT NULL,
-  report_id     UUID REFERENCES reports(id),
-  executed_at   TIMESTAMPTZ,
-  created_at    TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(ticker, date(created_at))
-);
-```

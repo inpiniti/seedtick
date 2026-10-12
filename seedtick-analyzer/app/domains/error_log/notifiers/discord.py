@@ -39,25 +39,15 @@ class DiscordNotifier:
         date_str: str,
         screened_count: int,
         reported_count: int,
-        orders: list,
+        orders: list | None = None,
         market: str = "all",
     ):
-        order_lines = []
-        for o in orders:
-            status = "✅ 체결" if getattr(o, "success", False) else "❌ 실패"
-            t = getattr(o, "ticker", "")
-            act = getattr(o, "action", "")
-            amt = getattr(o, "amount_krw", 0)
-            order_lines.append(f"- {status} {t} {act} ({amt:,}원)")
-
-        order_text = "\n".join(order_lines) if order_lines else "- 발주 대상 종목 없음 (종합 매수 판정 없음)"
         m_tag = {"us": " [미국장]", "kr": " [한국장]"}.get(str(market).lower(), "")
 
         msg = (
             f"🚀 **[SeedTick 일일 파이프라인 완료{m_tag}]** ({date_str})\n"
             f"• 스크리닝 통과: **{screened_count}**개\n"
-            f"• 13인 거장 리포트 생성: **{reported_count}**개\n"
-            f"• 자동매매 실행 내역:\n{order_text}"
+            f"• 13인 거장 리포트 생성: **{reported_count}**개"
         )
         await self.send_message(msg)
 

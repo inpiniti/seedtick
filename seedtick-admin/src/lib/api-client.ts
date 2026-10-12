@@ -67,7 +67,6 @@ export async function fetchHealth(): Promise<HealthStatus> {
       timestamp: new Date().toISOString(),
       env: "unknown",
       dry_run: true,
-      default_broker: "none",
       us_market_today: {
         is_open: false,
         status_text: "서버와 연결할 수 없어요",

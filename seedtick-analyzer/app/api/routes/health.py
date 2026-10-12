@@ -20,7 +20,6 @@ async def health_check():
         "timestamp": datetime.now().isoformat(),
         "env": settings.ENV,
         "dry_run": settings.DRY_RUN,
-        "default_broker": settings.DEFAULT_BROKER,
         "us_market_today": {
             "is_open": us_is_open,
             "status_text": us_reason,

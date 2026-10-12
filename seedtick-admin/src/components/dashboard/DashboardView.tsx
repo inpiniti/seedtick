@@ -73,7 +73,6 @@ function buildOfflineHealth(): HealthStatus {
     timestamp: new Date().toISOString(),
     env: "unknown",
     dry_run: true,
-    default_broker: "none",
     us_market_today: {
       is_open: false,
       status_text: "서버와 연결을 확인하고 있습니다",

@@ -83,20 +83,6 @@ class Settings(BaseSettings):
     SUPABASE_URL: str = ""
     SUPABASE_SERVICE_ROLE_KEY: str = ""
 
-    # 증권사 연동 (Bridge)
-    DEFAULT_BROKER: Literal["mock", "toss", "kis"] = "mock"
-
-    # 토스증권 Open API
-    TOSS_CLIENT_ID: str = ""
-    TOSS_CLIENT_SECRET: str = ""
-    TOSS_ACCOUNT_SEQ: str = ""
-
-    # 한국투자증권 Open API
-    KIS_APP_KEY: str = ""
-    KIS_APP_SECRET: str = ""
-    KIS_CANO: str = ""
-    KIS_ACNT_PRDT_CD: str = "01"
-
     # 알림
     DISCORD_WEBHOOK_URL: str = ""
 

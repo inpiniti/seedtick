@@ -74,22 +74,6 @@ seedtick-analyzer/
 │   │   │   ├── jobs.py            # daily_pipeline 일일 배치 정의
 │   │   │   └── models.py          # JobStatus, TriggerResult
 │   │   │
-│   │   ├── auto_trading/
-│   │   │   ├── service.py         # AutoTradingService
-│   │   │   ├── models.py          # TradeOrder, TradeResult, Position
-│   │   │   ├── order_manager.py   # 일일 10만원 한도 및 중복 방지
-│   │   │   └── strategies/
-│   │   │       └── guru_consensus.py # g0==0 종합 매수 종목 소액 분할 발주
-│   │   │
-│   │   ├── bridge/                # 독립 증권사 연동 라이브러리
-│   │   │   ├── interface.py       # IBrokerAdapter (공통 인터페이스)
-│   │   │   ├── models.py          # BrokerOrder, BrokerBalance, OrderResult
-│   │   │   ├── factory.py         # get_broker_adapter("toss"|"kis"|"mock")
-│   │   │   └── adapters/
-│   │   │       ├── toss.py        # 토스증권 Open API (120ms 간격, 가격 정정)
-│   │   │       ├── kis.py         # 한국투자증권 해외주식 Open API
-│   │   │       └── mock.py        # 로컬 테스트 및 dry-run용 가상 어댑터
-│   │   │
 │   │   └── error_log/
 │   │       ├── service.py         # ErrorLogService
 │   │       ├── models.py          # ErrorEvent, AlertLevel
@@ -102,14 +86,13 @@ seedtick-analyzer/
 │   │
 │   └── config/
 │       ├── settings.py            # pydantic-settings 환경변수
-│       └── constants.py           # 안전 한도(10만원), 시간 상수
+│       └── constants.py           # 시간 상수
 │
 ├── tests/
 │   ├── domains/
 │   │   ├── test_screener.py
 │   │   ├── test_datapack_builder.py
 │   │   ├── test_market_guard.py
-│   │   ├── test_bridge.py
 │   │   └── test_report.py
 │   └── conftest.py
 │

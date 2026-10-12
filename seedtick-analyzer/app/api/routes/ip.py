@@ -1,5 +1,5 @@
 """
-IP 확인 라우터: 클라이언트 IP 및 서버 공인 IP(증권사 Open API 허용 IP 등록용) 조회
+IP 확인 라우터: 클라이언트 IP 및 서버 공인 IP 조회
 """
 import logging
 import httpx
@@ -17,7 +17,7 @@ IP_CHECK_SERVICES = [
 
 
 async def fetch_public_ip() -> str:
-    """서버의 외부 아웃바운드 공인 IP 확인 (토스/한투 WTS 허용 IP 등록용)"""
+    """서버의 외부 아웃바운드 공인 IP 확인"""
     async with httpx.AsyncClient(timeout=4.0) as client:
         for url, fmt, key in IP_CHECK_SERVICES:
             try:
@@ -51,7 +51,7 @@ async def get_my_ip(request: Request):
     """
     내 IP 주소 확인 API:
     - client_ip: 현재 API를 호출한 클라이언트의 접속 IP
-    - server_public_ip: 이 서버가 외부 통신 시 사용하는 공인 IP (토스/한투 WTS 허용 IP 등록용)
+    - server_public_ip: 이 서버가 외부 통신 시 사용하는 공인 IP
     """
     client_ip = extract_client_ip(request)
     public_ip = await fetch_public_ip()
@@ -62,8 +62,5 @@ async def get_my_ip(request: Request):
         "client_ip": client_ip,
         "server_public_ip": public_ip,
         "is_local_request": is_local,
-        "guide": (
-            f"토스증권(WTS) 또는 한국투자증권 Open API의 [허용 IP(White-list)]에는 "
-            f"'{public_ip}' (서버 공인 IP)를 등록해야 403 오류 없이 연동됩니다."
-        ),
+        "guide": f"서버 공인 아웃바운드 IP는 '{public_ip}'입니다.",
     }

@@ -249,28 +249,3 @@ alter table public.ticker_logos enable row level security;
 drop policy if exists ticker_logos_read on public.ticker_logos;
 create policy ticker_logos_read on public.ticker_logos for select to anon, authenticated using (true);
 
-
--- ------------------------------------------------------------------------------
--- 5. grid_trades: 실시간 고정 갭(3%) 무한 그리드 분할 매매 상태 테이블
--- ------------------------------------------------------------------------------
-create table if not exists public.grid_trades (
-  ticker            text        not null primary key, -- 종목 티커 (예: NVDA)
-  initial_price     numeric     not null,             -- 처음매수주가 ($)
-  gap               numeric     not null,             -- 고정 갭 ($) = initial_price * 0.03
-  last_trade_price  numeric     not null,             -- 마지막매매주가 ($)
-  order_amount_krw  integer     not null default 1000,-- 1회 주문금액 (1,000원 고정)
-  status            text        not null default 'ACTIVE', -- ACTIVE(감지중), FINISHED(종료)
-  holdings_qty      numeric     not null default 0,   -- 현재 추적 보유 수량
-  total_buy_count   integer     not null default 1,   -- 누적 매수 횟수
-  total_sell_count  integer     not null default 0,   -- 누적 매도 횟수
-  created_at        timestamptz not null default now(),
-  updated_at        timestamptz not null default now()
-);
-
-create index if not exists grid_trades_status_idx on public.grid_trades (status);
-
--- RLS 정책 설정 (공개 읽기, 서비스 롤 쓰기)
-alter table public.grid_trades enable row level security;
-drop policy if exists grid_trades_read on public.grid_trades;
-create policy grid_trades_read on public.grid_trades for select to anon, authenticated using (true);
-

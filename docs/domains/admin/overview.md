@@ -1,17 +1,16 @@
 # Admin Dashboard 도메인 명세서 (seedtick-admin)
 
-> 미국 주식 자동 스크리닝·분석·매매 시스템의 통합 관제 및 제어 콘솔
+> 미국 주식 자동 스크리닝·13인 거장 심층 분석 시스템의 통합 관제 및 제어 콘솔
 
 ## 1. 도메인 개요
 
-`seedtick-admin`은 백그라운드에서 동작하는 `seedtick-analyzer`와 `seedtick-ai-gateway`의 실시간 상태를 모니터링하고, 수동 개입 및 비상 제어를 가능하게 하는 독립 웹 관리자 대시보드입니다.
+`seedtick-admin`은 백그라운드에서 동작하는 `seedtick-analyzer`와 `seedtick-ai-gateway`의 실시간 상태를 모니터링하고, 수동 파이프라인 트리거 및 리포트/로그 조회를 지원하는 독립 웹 관리자 대시보드입니다.
 
 ## 2. 핵심 관제 지표 및 기능
 
 | 구분 | 모니터링 및 제어 기능 | 연동 대상 |
 | :--- | :--- | :--- |
 | **인프라 관제** | • 서버 아웃바운드 공인 IP 확인 및 원클릭 복사<br>• 서버 헬스체크 (Healthy/Down) 및 환경(Dev/Prod)<br>• 미국 정규장(NYSE/NASDAQ) 개장/휴장 실시간 판별 | `seedtick-analyzer` (`/api/ip`, `/health`) |
-| **자동매매 제어** | • 모의거래(Dry-Run) vs 실거래(Real) 상태 표시<br>• 당일 누적 투자금액 및 일일 한도(10만원) 소진율 게이지<br>• 금일 매수 체결 완료 종목 리스트<br>• 장외 시간 발주 차단 (정규장 개장 시간에만 그리드 자동매매) | `seedtick-analyzer` (`/api/auto-trading/*`, `/api/bridge/*`) |
 | **파이프라인 제어** | • 12:00 KST 정기 배치 외 **수동 즉시 파이프라인 트리거** (`dry_run`, `force` 옵션)<br>• 실행 중에는 트리거 버튼 자동 **비활성화**<br>• **실시간 진행 패널**: 단계(스크리닝→데이터팩→가치드라이버→13인 요약→최종 마스터), 종목 진행률(`3/21`), 13인 요약(`n/13`), 경과 시간, 최근 로그 표시 | `seedtick-analyzer` (`/api/scheduler/trigger`, `/api/scheduler/progress`) |
 | **실시간 스크리너** | • **전체 탭**: 실시간 스크리너와 roma 결과를 합쳐 티커 중복 제거 및 내재가치/종가 내림차순 정렬<br>• 토스 13인 공통 필터 실시간 스크리닝 종목 조회<br>• **roma 탭**: DataRoma 슈퍼인베스터 10명 이상 공동 보유 종목 조회 (두번째 스크리너)<br>• 카드별 핵심 신호(종합의견, 볼린저 밴드 위치 `%B`, 현재 종가 대비 적정 내재가치 비율) 표시 | Supabase `guru_reports`, Analyzer (`/api/screener/run`, `/api/screener/roma`, `/api/screener/chart/{ticker}`) |
 | **투자 보고서 상세 뷰어** | • 스크리너 카드 클릭 시 종목별 4단계 심층 리포트(데이터팩 + 13인 요약 + 마스터 리포트) 마크다운 열람 | Supabase `guru_reports` |

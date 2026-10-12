@@ -249,7 +249,6 @@ async def _run_daily_pipeline(
             "screened_count": len(ordered_tickers),
             "reported_count": 0,
             "skipped_already_reported_count": len(skipped_tickers),
-            "orders_count": 0,
         }
 
     # ── 3. 종목별 4단계 Guru-Report 실행 (종목 단위 동시 병렬 처리) ──────────────────
@@ -281,15 +280,11 @@ async def _run_daily_pipeline(
     results = await asyncio.gather(*tasks)
     generated_reports = [r for r in results if r is not None]
 
-    # ── 4. 자동매매 주문 실행 (기존 리포트 자동매매 폐기: 수동 등록 기반 그리드로 전환됨) ──
-    logger.info("[Scheduler] 기존 리포트 자동매매는 폐기되었습니다. (그리드 수동 등록 체계 운용)")
-
-    # ── 5. Discord 결과 알림 ──────────────────────────────
+    # ── 4. Discord 결과 알림 ──────────────────────────────
     await notifier.notify_pipeline_summary(
         date_str=today_str,
         screened_count=len(ordered_tickers),
         reported_count=len(generated_reports),
-        orders=[],
         market=market_lower,
     )
 
@@ -308,7 +303,6 @@ async def _run_daily_pipeline(
         "reported_count": len(generated_reports),
         "skipped_already_reported_count": len(skipped_tickers),
         "skipped_already_reported_tickers": skipped_tickers,
-        "orders_count": 0,
     }
 
 

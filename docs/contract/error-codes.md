@@ -1,4 +1,4 @@
-﻿# 공통 에러 코드 규칙
+# 공통 에러 코드 규칙
 
 ## 에러 코드 형식
 
@@ -42,23 +42,6 @@
 |:---|:---|
 | `SCHEDULER_JOB_ALREADY_RUNNING` | 이미 실행 중인 배치 잡 |
 | `SCHEDULER_JOB_FAILED` | 배치 잡 실패 |
-
-### Auto-Trading
-| 코드 | 설명 |
-|:---|:---|
-| `TRADING_DAILY_LIMIT_EXCEEDED` | 일일 최대 매매 금액 초과 |
-| `TRADING_DUPLICATE_ORDER` | 동일 종목 당일 중복 주문 |
-| `TRADING_PAPER_MODE` | paper-trading 모드 (실제 주문 안 됨) |
-| `TRADING_NO_BUY_SIGNAL` | 매수 신호 없음 |
-
-### Bridge
-| 코드 | 설명 |
-|:---|:---|
-| `BRIDGE_AUTH_FAILED` | 증권사 인증 실패 |
-| `BRIDGE_ORDER_REJECTED` | 증권사에서 주문 거부 |
-| `BRIDGE_INSUFFICIENT_BALANCE` | 잔고 부족 |
-| `BRIDGE_MARKET_CLOSED` | 시장 마감 상태 |
-| `BRIDGE_TIMEOUT` | 증권사 API 타임아웃 |
 
 ---
 
