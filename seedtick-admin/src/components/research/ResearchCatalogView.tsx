@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   GuruReportRow,
   StockCandidate,
@@ -41,6 +41,8 @@ import {
   Calendar,
 } from "lucide-react";
 import { formatPriceByNation, formatMarketCap } from "@/lib/utils";
+import { fetchTickerLogos } from "@/lib/api-client";
+import { DataCache } from "@/lib/dataCache";
 
 const KR_STEP_5_INFO = {
   label: "5단계 (추천 알짜)",
@@ -340,6 +342,61 @@ export function ResearchCatalogView({
     ? filteredCandidates.slice(0, 10)
     : filteredCandidates;
 
+  // 리포트 티커 로고 맵 (후보군 목록과 무관하게 배치 API로 직접 조회, 메모리 캐시 유지)
+  const [logoMap, setLogoMap] = useState<Record<string, string>>(() =>
+    DataCache.getAllTickerLogos()
+  );
+  // 세션 내 중복 조회 방지 (조회 실패분 포함, 마운트 유지)
+  const requestedLogosRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+    const missing = Array.from(
+      new Set(
+        displayedReports
+          .map((r) => (r.ticker || "").trim().toUpperCase())
+          .filter(
+            (t) =>
+              Boolean(t) &&
+              !candidateByTicker.get(t)?.logo_image_url &&
+              !DataCache.getTickerLogo(t) &&
+              !requestedLogosRef.current.has(t)
+          )
+      )
+    ).slice(0, 60);
+    if (missing.length === 0) return;
+    for (const t of missing) requestedLogosRef.current.add(t);
+
+    const chunkSize = 30; // 백엔드 배치 상한과 동일
+    void (async () => {
+      for (let i = 0; i < missing.length; i += chunkSize) {
+        if (cancelled) return;
+        const chunk = missing.slice(i, i + chunkSize);
+        try {
+          const res = await fetchTickerLogos(chunk, chunkSize);
+          if (cancelled) return;
+          const found: Record<string, string> = {};
+          for (const item of res.items || []) {
+            const url = (item.logo_image_url || "").trim();
+            if (url && /^https?:\/\//i.test(url)) {
+              const key = (item.ticker || "").trim().toUpperCase();
+              DataCache.setTickerLogo(key, url);
+              found[key] = url;
+            }
+          }
+          if (Object.keys(found).length > 0) {
+            setLogoMap((prev) => ({ ...prev, ...found }));
+          }
+        } catch (err) {
+          console.warn("리포트 로고 일괄 조회 실패:", err);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [displayedReports, candidateByTicker]);
+
   // 전체 리포트 대상 종합 표결 탈리 집계
   const aggregateTally = useMemo<TallyCounts>(() => {
     const counts: TallyCounts = { buy: 0, hold: 0, watch: 0, sell: 0 };
@@ -382,9 +439,11 @@ export function ResearchCatalogView({
 
   // 로고 렌더러 (원색 표시)
   const renderLogo = (ticker: string, candidateLogo?: string | null) => {
+    const key = ticker.toUpperCase();
     const logoUrl =
       candidateLogo ||
-      candidateByTicker.get(ticker.toUpperCase())?.logo_image_url;
+      candidateByTicker.get(key)?.logo_image_url ||
+      logoMap[key];
 
     if (logoUrl && /^https?:\/\//i.test(logoUrl)) {
       return (

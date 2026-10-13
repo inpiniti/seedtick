@@ -17,6 +17,8 @@ interface GlobalMemoryCache {
   romaCandidates?: { data: StockCandidate[]; expiresAt: number };
   systemLogs?: { data: SystemLogItem[]; expiresAt: number };
   percentB: Map<string, number | null>;
+  /** 티커 -> 로고 URL 맵 (배치 조회 결과, 메모리 유지) */
+  tickerLogos: Map<string, string>;
   /** 티커 -> 한글 종목명 맵 (ticker_logos 캐시) */
   tickerNameMap?: { data: Record<string, string>; expiresAt: number };
 }
@@ -26,6 +28,7 @@ const CACHE_TTL_MS = 3 * 60 * 1000; // 3분간 캐시 유지
 const cache: GlobalMemoryCache = {
   reportsByDate: new Map(),
   percentB: new Map(),
+  tickerLogos: new Map(),
 };
 
 export const DataCache = {
@@ -112,6 +115,21 @@ export const DataCache = {
   setTickerNameMap: (data: Record<string, string>) => {
     // 종목명은 자주 바뀌지 않으므로 다른 데이터보다 길게 캐시 (30분)
     cache.tickerNameMap = { data, expiresAt: Date.now() + 30 * 60 * 1000 };
+  },
+
+  getTickerLogo: (ticker: string): string | undefined => {
+    return cache.tickerLogos.get(ticker.trim().toUpperCase());
+  },
+  setTickerLogo: (ticker: string, url: string) => {
+    // 로고 URL은 거의 바뀌지 않으므로 메모리 유지 (TTL 없음)
+    cache.tickerLogos.set(ticker.trim().toUpperCase(), url);
+  },
+  getAllTickerLogos: () => {
+    const obj: Record<string, string> = {};
+    for (const [k, v] of cache.tickerLogos.entries()) {
+      obj[k] = v;
+    }
+    return obj;
   },
 
   clearAll: () => {
