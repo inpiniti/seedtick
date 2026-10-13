@@ -114,6 +114,16 @@ export interface TickerLogoBatchResponse {
   items: TickerLogoResponse[];
 }
 
+export interface TickerNameResponse {
+  ticker: string;
+  korean_name: string | null;
+  source: "cached" | "toss_lookup" | "none";
+}
+
+export interface TickerNameBatchResponse {
+  items: TickerNameResponse[];
+}
+
 // 4. Supabase 리포트 (guru_reports)
 export interface GuruSummaryItem {
   persona?: string;

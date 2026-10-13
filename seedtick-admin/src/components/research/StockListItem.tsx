@@ -184,9 +184,11 @@ export function StockListItem({
                 {rankPrefix ? `${rankPrefix} ` : ""}
                 {ticker}
               </span>
-              <span className="text-[#64748b] truncate max-w-[200px]">
-                {companyName}
-              </span>
+              {companyName && companyName.toUpperCase() !== ticker.toUpperCase() && (
+                <span className="text-[#64748b] truncate max-w-[200px]">
+                  {companyName}
+                </span>
+              )}
               {badges}
               <VerdictBadge verdict={insight.verdict} />
             </div>

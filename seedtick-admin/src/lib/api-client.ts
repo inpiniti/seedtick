@@ -7,6 +7,8 @@ import {
   StockChartResponse,
   TickerLogoBatchResponse,
   TickerLogoResponse,
+  TickerNameBatchResponse,
+  TickerNameResponse,
 } from "@/types/api";
 
 const BASE_URL =
@@ -172,6 +174,23 @@ export async function fetchTickerLogo(ticker: string): Promise<TickerLogoRespons
 /** 3-4. 티커별 로고 일괄 조회 (1회 요청으로 여러 티커 조회) */
 export async function fetchTickerLogos(tickers: string[], maxCount = 12): Promise<TickerLogoBatchResponse> {
   return request<TickerLogoBatchResponse>("/api/screener/logos", {
+    method: "POST",
+    body: JSON.stringify({
+      tickers: tickers.map((ticker) => ticker.trim().toUpperCase()),
+      max_count: maxCount,
+    }),
+  });
+}
+
+/** 3-5. 티커별 한글명 조회 (Supabase 캐시 + Toss 폴백, 그림1 리포트명 보충용) */
+export async function fetchTickerName(ticker: string): Promise<TickerNameResponse> {
+  const normalized = ticker.trim().toUpperCase();
+  return request<TickerNameResponse>(`/api/screener/name/${encodeURIComponent(normalized)}`);
+}
+
+/** 3-6. 티커별 한글명 일괄 조회 (화면 표시분 대상, 1회 요청으로 여러 티커 조회) */
+export async function fetchTickerNames(tickers: string[], maxCount = 30): Promise<TickerNameBatchResponse> {
+  return request<TickerNameBatchResponse>("/api/screener/names", {
     method: "POST",
     body: JSON.stringify({
       tickers: tickers.map((ticker) => ticker.trim().toUpperCase()),

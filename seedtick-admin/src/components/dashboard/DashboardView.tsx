@@ -123,6 +123,15 @@ export function DashboardView({
     () => DataCache.getTickerNameMap() || {}
   );
 
+  // 그림1 화면 표시분 한글명 보충 결과를 전역 캐시에 합침
+  const handleSupplementTickerNames = useCallback((names: Record<string, string>) => {
+    setTickerNameMap((prev) => {
+      const merged = { ...prev, ...names };
+      DataCache.setTickerNameMap(merged);
+      return merged;
+    });
+  }, []);
+
   // 4-3. 티커 한글명 프리페치 (관리자 진입 시 1회, 30분 TTL)
   useEffect(() => {
     let cancelled = false;
@@ -822,6 +831,7 @@ export function DashboardView({
                 onSelectGuru={handleOpenGuru}
                 intrinsicStabilityMap={intrinsicStabilityByTicker}
                 tickerNameMap={tickerNameMap}
+                onSupplementTickerNames={handleSupplementTickerNames}
               />
             )}
           </main>

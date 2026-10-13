@@ -41,7 +41,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { formatPriceByNation, formatMarketCap } from "@/lib/utils";
-import { fetchTickerLogos } from "@/lib/api-client";
+import { fetchTickerLogos, fetchTickerNames } from "@/lib/api-client";
 import { DataCache } from "@/lib/dataCache";
 
 const KR_STEP_5_INFO = {
@@ -104,6 +104,8 @@ interface ResearchCatalogViewProps {
   intrinsicStabilityMap?: Map<string, IntrinsicStability>;
   onOpenPipelineModal?: () => void;
   isPipelineRunning?: boolean;
+  /** 화면 표시분 한글명 보충 결과를 부모 캐시에 반영하는 콜백 */
+  onSupplementTickerNames?: (names: Record<string, string>) => void;
 }
 
 export function ResearchCatalogView({
@@ -137,17 +139,8 @@ export function ResearchCatalogView({
   intrinsicStabilityMap,
   onOpenPipelineModal,
   isPipelineRunning = false,
+  onSupplementTickerNames,
 }: ResearchCatalogViewProps) {
-  // 한글명 렌더링 규칙: 캐시 한글명 우선 -> 원본 이름(영문) -> 티커 폴백
-  const displayNameOf = (ticker: string, fallback?: string | null): string => {
-    const key = (ticker || "").trim().toUpperCase();
-    const korean = tickerNameMap?.[key];
-    if (korean) return korean;
-    const fb = (fallback || "").trim();
-    if (fb && fb.toUpperCase() !== key) return fb;
-    return key;
-  };
-
   const [searchQuery, setSearchQuery] = useState("");
   const [reportVerdictFilter, setReportVerdictFilter] = useState<string>("ALL");
   const [reportSortBy, setReportSortBy] = useState<
@@ -171,7 +164,7 @@ export function ResearchCatalogView({
     return map;
   }, [guruReports]);
 
-  // 후보군 맵 (로고 조회용)
+  // 후보군 맵 (로고 조회용 + 그림3과 동일한 한글명 폴백 소스)
   const candidateByTicker = useMemo(() => {
     const map = new Map<string, StockCandidate>();
     for (const c of liveCandidates) map.set(c.ticker.toUpperCase(), c);
@@ -183,6 +176,21 @@ export function ResearchCatalogView({
     }
     return map;
   }, [liveCandidates, krCandidates, romaCandidates]);
+
+  // 한글명 렌더링 규칙: 캐시 한글명 우선 -> 실시간 후보군명(한글, 그림3과 동일 소스) -> 원본 이름(영문) -> 티커 폴백
+  // 그림1(리포트)은 DB 저장 company_name이 티커와 동일하게 적재된 행이 있어
+  // tickerNameMap 미적중 시 "383220 383220"처럼 중복 표시되므로,
+  // 같은 화면의 후보군(그림3 소스)을 폴백으로 먼저 사용한다.
+  const displayNameOf = (ticker: string, fallback?: string | null): string => {
+    const key = (ticker || "").trim().toUpperCase();
+    const korean = tickerNameMap?.[key];
+    if (korean) return korean;
+    const candidateName = candidateByTicker.get(key)?.name?.trim();
+    if (candidateName && candidateName.toUpperCase() !== key) return candidateName;
+    const fb = (fallback || "").trim();
+    if (fb && fb.toUpperCase() !== key) return fb;
+    return key;
+  };
 
   // 내재가치 안정성 맵 (부모 주입 우선, 없을 시 자체 리포트 기반 폴백)
   const intrinsicStabilityByTicker = useMemo(() => {
@@ -321,7 +329,7 @@ export function ResearchCatalogView({
 
       return 0;
     });
-  }, [guruReports, selectedDate, searchQuery, reportVerdictFilter, reportSortBy]);
+  }, [guruReports, selectedDate, searchQuery, reportVerdictFilter, reportSortBy, tickerNameMap]);
 
   // 2. DataRoma 후보군 전체 필터링
   const filteredRoma = useMemo(() => {
@@ -369,6 +377,8 @@ export function ResearchCatalogView({
   );
   // 세션 내 중복 조회 방지 (조회 실패분 포함, 마운트 유지)
   const requestedLogosRef = useRef<Set<string>>(new Set());
+  // 화면 표시분 한글명 보충 (로고와 별도, 세션 내 중복 조회 방지)
+  const requestedNamesRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -427,6 +437,49 @@ export function ResearchCatalogView({
       cancelled = true;
     };
   }, [filteredReports, candidateByTicker]);
+
+  // 그림1 리포트 한글명 보충: tickerNameMap/후보군에도 없는 화면 표시분만
+  // /api/screener/names 배치 조회로 채워 부모 캐시(tickerNameMap)에 반영한다.
+  // 예: "383220"처럼 DB company_name=티커로 적재된 국장 행.
+  useEffect(() => {
+    if (!onSupplementTickerNames) return;
+    let cancelled = false;
+    const missing = Array.from(
+      new Set(
+        filteredReports
+          .map((r) => (r.ticker || "").trim().toUpperCase())
+          .filter((t) => {
+            if (!t || requestedNamesRef.current.has(t)) return false;
+            if (tickerNameMap?.[t]) return false;
+            const candidateName = candidateByTicker.get(t)?.name?.trim();
+            if (candidateName && candidateName.toUpperCase() !== t) return false;
+            return true;
+          })
+      )
+    ).slice(0, 30);
+    if (missing.length === 0) return;
+    for (const t of missing) requestedNamesRef.current.add(t);
+
+    void (async () => {
+      try {
+        const res = await fetchTickerNames(missing, missing.length);
+        if (cancelled) return;
+        const found: Record<string, string> = {};
+        for (const item of res?.items || []) {
+          const name = (item.korean_name || "").trim();
+          if (!name) continue;
+          const key = (item.ticker || "").trim().toUpperCase();
+          if (key && name.toUpperCase() !== key) found[key] = name;
+        }
+        if (Object.keys(found).length > 0) onSupplementTickerNames(found);
+      } catch (err) {
+        console.warn("리포트 한글명 일괄 조회 실패:", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [filteredReports, candidateByTicker, tickerNameMap, onSupplementTickerNames]);
 
   // 전체 리포트 대상 종합 표결 탈리 집계
   const aggregateTally = useMemo<TallyCounts>(() => {
