@@ -338,8 +338,18 @@ export function ScreenerTab({
   const [searchTerm, setSearchTerm] = useState("");
   const [percentBByTicker, setPercentBByTicker] = useState<Record<string, number | null>>({});
   const percentBByTickerRef = React.useRef<Record<string, number | null>>({});
-  percentBByTickerRef.current = percentBByTicker;
-  const [availableDatesForTicker, setAvailableDatesForTicker] = useState<string[]>([]);
+  // 렌더 중 ref 접근 금지 — Effect에서 동기화 (소비자 Effect보다 먼저 선언되어 먼저 실행됨)
+  React.useEffect(() => {
+    percentBByTickerRef.current = percentBByTicker;
+  }, [percentBByTicker]);
+  // 티커별 분석 일자 캐시 — 화면 표시분은 선택된 리포트 기준으로 파생 (Effect 동기화 없음)
+  const [datesCache, setDatesCache] = useState<{ ticker: string; dates: string[] } | null>(null);
+  const selectedTickerForDates =
+    selectedReport && !selectedReport.id.startsWith("live-") ? selectedReport.ticker : null;
+  const availableDatesForTicker =
+    datesCache && selectedTickerForDates && datesCache.ticker === selectedTickerForDates
+      ? datesCache.dates
+      : [];
   const [isLoadingReportDate, setIsLoadingReportDate] = useState(false);
   const [selectedGuruForTimeline, setSelectedGuruForTimeline] = useState<string>(
     GURU_LABELS[0] || "그레이엄"
@@ -377,12 +387,9 @@ export function ScreenerTab({
     );
   };
 
-  // 특정 종목의 과거 날짜 목록 동기화
+  // 특정 종목의 과거 날짜 목록 조회 (조회 결과만 비동기 콜백에서 반영)
   React.useEffect(() => {
-    if (!selectedReport || selectedReport.id.startsWith("live-")) {
-      setAvailableDatesForTicker([]);
-      return;
-    }
+    if (!selectedReport || selectedReport.id.startsWith("live-")) return;
 
     const ticker = selectedReport.ticker;
     const localDates = guruReports
@@ -393,7 +400,7 @@ export function ScreenerTab({
     fetchReportDatesByTicker(ticker).then((dbDates) => {
       if (isMounted) {
         const merged = Array.from(new Set([...localDates, ...dbDates])).sort().reverse();
-        setAvailableDatesForTicker(merged);
+        setDatesCache({ ticker, dates: merged });
       }
     });
 

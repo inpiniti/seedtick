@@ -57,20 +57,18 @@ export function ResearchDocumentView({
   activeTab: activeTabProp,
   onTabChange,
 }: ResearchDocumentViewProps) {
-  const [internalTab, setInternalTab] = useState<ResearchDocTab>("final");
-  const activeTab = activeTabProp ?? internalTab;
+  // 사용자가 직접 선택한 탭 (현재 문서에 대한 것만 유효)
+  const [tabOverride, setTabOverride] = useState<{ key: string; tab: ResearchDocTab } | null>(null);
+  const docKey = report ? `${report.ticker}|${report.id}` : "none";
+  // 리포트 변경 시 외부 prop이 없으면 final_report 여부에 따라 탭 자동 결정 (Effect 없이 파생)
+  const defaultTab: ResearchDocTab = report?.final_report ? "final" : "chart";
+  const activeTab =
+    activeTabProp ?? (tabOverride && tabOverride.key === docKey ? tabOverride.tab : defaultTab);
 
   const handleTabClick = (tab: ResearchDocTab) => {
-    setInternalTab(tab);
+    setTabOverride({ key: docKey, tab });
     onTabChange?.(tab);
   };
-
-  // 리포트 변경 시 외부 prop이 없을 때만 final_report 여부에 따라 초기 탭 자동 결정
-  useEffect(() => {
-    if (report && !activeTabProp) {
-      setInternalTab(report.final_report ? "final" : "chart");
-    }
-  }, [report?.id, report?.ticker, activeTabProp]);
 
   // ESC 키 누르면 목록으로 복귀
   useEffect(() => {
