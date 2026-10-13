@@ -54,6 +54,24 @@ const KR_STEP_5_INFO = {
   roe: "15%↑",
 };
 
+// ── 종목 리스트 스켈레톤 (로딩 중 표시, StockListItem 행 모방) ──
+function StockListSkeleton({ rows = 5 }: { rows?: number }) {
+  return (
+    <ul className="divide-y divide-[#f1f5f9] -my-2" aria-label="목록을 불러오는 중">
+      {Array.from({ length: rows }).map((_, i) => (
+        <li key={i} className="py-3.5 px-3 -mx-3 flex items-start gap-3.5">
+          <div className="w-10 h-10 rounded bg-[#f1f5f9] animate-pulse shrink-0" />
+          <div className="min-w-0 flex-1 space-y-1.5 py-0.5">
+            <div className="h-3.5 w-2/3 rounded bg-[#f1f5f9] animate-pulse" />
+            <div className="h-3 w-full rounded bg-[#f8fafc] animate-pulse" />
+            <div className="h-3 w-1/2 rounded bg-[#f8fafc] animate-pulse" />
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 interface ResearchCatalogViewProps {
   guruReports: GuruReportRow[];
   liveCandidates: StockCandidate[];
@@ -863,7 +881,9 @@ export function ResearchCatalogView({
                   </div>
                 </div>
               </div>
-              {displayedReports.length === 0 ? (
+              {isReportsLoading && displayedReports.length === 0 ? (
+                <StockListSkeleton rows={isAll ? 5 : 8} />
+              ) : displayedReports.length === 0 ? (
                 <EmptyState
                   icon="📄"
                   title="해당 조건의 분석 보고서가 없습니다"
@@ -961,7 +981,9 @@ export function ResearchCatalogView({
 
             {/* 우측: DataRoma 종목 리스트 */}
             <div className="min-w-0 space-y-4">
-              {displayedRoma.length === 0 ? (
+              {isRomaLoading && displayedRoma.length === 0 ? (
+                <StockListSkeleton rows={isAll ? 5 : 8} />
+              ) : displayedRoma.length === 0 ? (
                 <EmptyState
                   icon="🏛️"
                   title="DataRoma 슈퍼인베스터 데이터가 없습니다"
@@ -1139,7 +1161,10 @@ export function ResearchCatalogView({
 
             {/* 우측: 후보군 종목 리스트 */}
             <div className="min-w-0 space-y-4">
-              {displayedCandidates.length === 0 ? (
+              {(candidateMarket === "us" ? isLoading : isKrLoading) &&
+              displayedCandidates.length === 0 ? (
+                <StockListSkeleton rows={isAll ? 5 : 8} />
+              ) : displayedCandidates.length === 0 ? (
                 <EmptyState
                   icon="🧭"
                   title="포착된 스크리닝 후보군이 없습니다"

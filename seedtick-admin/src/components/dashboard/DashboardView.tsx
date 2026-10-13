@@ -105,10 +105,14 @@ export function DashboardView({
   const [activeSidebarSection, setActiveSidebarSection] =
     useState<SidebarSectionId>(initialSection);
 
-  // 2. 로딩 상태
+  // 2. 로딩 상태 (캐시 미보유 시 마운트 조회가 실행되므로 초기값 반영)
   const [isLoading, setIsLoading] = useState(!initialReport);
-  const [isScreenerLoading, setIsScreenerLoading] = useState(false);
-  const [isRomaLoading, setIsRomaLoading] = useState(false);
+  const [isScreenerLoading, setIsScreenerLoading] = useState(
+    () => !DataCache.getLiveCandidates()
+  );
+  const [isRomaLoading, setIsRomaLoading] = useState(
+    () => !DataCache.getRomaCandidates()
+  );
 
   // 3. 상태 데이터 (캐시 우선 초기화)
   const [health, setHealth] = useState<HealthStatus | null>(
@@ -159,7 +163,9 @@ export function DashboardView({
   const [krCandidates, setKrCandidates] = useState<StockCandidate[]>(
     () => DataCache.getKrCandidates() || []
   );
-  const [isKrLoading, setIsKrLoading] = useState(false);
+  const [isKrLoading, setIsKrLoading] = useState(
+    () => !DataCache.getKrCandidates()
+  );
   const [krTightenStep, setKrTightenStep] = useState<number>(5);
   const [romaCandidates, setRomaCandidates] = useState<StockCandidate[]>(
     () => DataCache.getRomaCandidates() || []
@@ -182,8 +188,6 @@ export function DashboardView({
   const [percentBByTicker, setPercentBByTicker] = useState<
     Record<string, number | null>
   >(() => DataCache.getAllPercentB());
-  const percentBByTickerRef = useRef<Record<string, number | null>>({});
-  percentBByTickerRef.current = percentBByTicker;
 
   // 6. 파이프라인 진행 상태
   const { progress: pipelineProgress, refresh: refreshPipelineProgress } =
@@ -780,7 +784,7 @@ export function DashboardView({
                   handleOpenReport(report);
                 }}
               />
-            ) : isLoading && !health ? (
+            ) : isLoading && guruReports.length === 0 ? (
               <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-4">
                 <SkeletonCard />
                 <SkeletonCard />
