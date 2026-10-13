@@ -784,7 +784,7 @@ export function DashboardView({
                   handleOpenReport(report);
                 }}
               />
-            ) : isLoading && guruReports.length === 0 ? (
+            ) : isLoading && !health ? (
               <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-4">
                 <SkeletonCard />
                 <SkeletonCard />
@@ -810,6 +810,7 @@ export function DashboardView({
                 onRefreshLogs={handleRefreshLogs}
                 onSelectReport={handleOpenReport}
                 onSelectCandidate={handleOpenCandidateAsReport}
+                isDashboardLoading={isLoading}
                 activeSectionFilter={activeSidebarSection}
                 onSelectSection={handleSelectSidebarSection}
                 availableDates={availableCatalogDates}

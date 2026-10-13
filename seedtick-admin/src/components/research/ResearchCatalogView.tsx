@@ -98,6 +98,8 @@ interface ResearchCatalogViewProps {
   selectedDate?: string;
   onSelectDate?: (date: string) => void;
   isReportsLoading?: boolean;
+  /** 대시보드 초기 로드 중 여부 (리포트 섹션 리스트 자리 스켈레톤용) */
+  isDashboardLoading?: boolean;
   onSelectGuru?: (guruSlug: string) => void;
   intrinsicStabilityMap?: Map<string, IntrinsicStability>;
   onOpenPipelineModal?: () => void;
@@ -130,6 +132,7 @@ export function ResearchCatalogView({
   selectedDate,
   onSelectDate,
   isReportsLoading = false,
+  isDashboardLoading = false,
   onSelectGuru,
   intrinsicStabilityMap,
   onOpenPipelineModal,
@@ -881,7 +884,8 @@ export function ResearchCatalogView({
                   </div>
                 </div>
               </div>
-              {isReportsLoading && displayedReports.length === 0 ? (
+              {(isReportsLoading || isDashboardLoading) &&
+              displayedReports.length === 0 ? (
                 <StockListSkeleton rows={isAll ? 5 : 8} />
               ) : displayedReports.length === 0 ? (
                 <EmptyState
