@@ -380,7 +380,7 @@ export function ResearchCatalogView({
     return activeSectionFilter === secId;
   };
 
-  // [컬러 톤다운] 흑백 로고 렌더러
+  // 로고 렌더러 (원색 표시)
   const renderLogo = (ticker: string, candidateLogo?: string | null) => {
     const logoUrl =
       candidateLogo ||
@@ -392,7 +392,7 @@ export function ResearchCatalogView({
         <img
           src={logoUrl}
           alt={ticker}
-          className="w-10 h-10 rounded object-contain border border-[#e2e8f0] p-0.5 bg-white shrink-0 grayscale opacity-90 contrast-125"
+          className="w-10 h-10 rounded object-contain border border-[#e2e8f0] p-0.5 bg-white shrink-0"
           onError={(e) => {
             (e.target as HTMLImageElement).style.display = "none";
           }}
