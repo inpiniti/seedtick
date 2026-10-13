@@ -351,9 +351,10 @@ export function ResearchCatalogView({
 
   useEffect(() => {
     let cancelled = false;
+    // 화면 표시분이 아닌 필터 전체를 대상으로 조회 (홈 상위 10건 밖 티커도 커버)
     const missing = Array.from(
       new Set(
-        displayedReports
+        filteredReports
           .map((r) => (r.ticker || "").trim().toUpperCase())
           .filter(
             (t) =>
@@ -369,33 +370,42 @@ export function ResearchCatalogView({
 
     const chunkSize = 30; // 백엔드 배치 상한과 동일
     void (async () => {
+      const chunks: string[][] = [];
       for (let i = 0; i < missing.length; i += chunkSize) {
-        if (cancelled) return;
-        const chunk = missing.slice(i, i + chunkSize);
-        try {
-          const res = await fetchTickerLogos(chunk, chunkSize);
-          if (cancelled) return;
-          const found: Record<string, string> = {};
-          for (const item of res.items || []) {
-            const url = (item.logo_image_url || "").trim();
-            if (url && /^https?:\/\//i.test(url)) {
-              const key = (item.ticker || "").trim().toUpperCase();
-              DataCache.setTickerLogo(key, url);
-              found[key] = url;
-            }
+        chunks.push(missing.slice(i, i + chunkSize));
+      }
+      // 청크 병렬 조회 (백엔드 세마포어가 Toss 동시 호출 상한)
+      const results = await Promise.all(
+        chunks.map(async (chunk) => {
+          if (cancelled) return null;
+          try {
+            return await fetchTickerLogos(chunk, chunkSize);
+          } catch (err) {
+            console.warn("리포트 로고 일괄 조회 실패:", err);
+            return null;
           }
-          if (Object.keys(found).length > 0) {
-            setLogoMap((prev) => ({ ...prev, ...found }));
+        })
+      );
+      if (cancelled) return;
+      const found: Record<string, string> = {};
+      for (const res of results) {
+        for (const item of res?.items || []) {
+          const url = (item.logo_image_url || "").trim();
+          if (url && /^https?:\/\//i.test(url)) {
+            const key = (item.ticker || "").trim().toUpperCase();
+            DataCache.setTickerLogo(key, url);
+            found[key] = url;
           }
-        } catch (err) {
-          console.warn("리포트 로고 일괄 조회 실패:", err);
         }
+      }
+      if (Object.keys(found).length > 0) {
+        setLogoMap((prev) => ({ ...prev, ...found }));
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [displayedReports, candidateByTicker]);
+  }, [filteredReports, candidateByTicker]);
 
   // 전체 리포트 대상 종합 표결 탈리 집계
   const aggregateTally = useMemo<TallyCounts>(() => {
