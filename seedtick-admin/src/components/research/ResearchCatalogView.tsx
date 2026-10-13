@@ -16,14 +16,13 @@ import { LogsTab } from "@/components/tabs/LogsTab";
 import { SidebarSectionId } from "@/components/sidebar/ResearchSidebar";
 import { GURU_PERSONAS, GuruPersona } from "@/lib/guruPersonas";
 import { GuruDetailModal } from "@/components/research/GuruDetailModal";
+import { StockListItem, StockItemInsight } from "@/components/research/StockListItem";
 import {
   chartTickerKey,
   extractValuationConsensus,
   getVoteAgreementPercent,
   buildIntrinsicStability,
   getIntrinsicStabilityMeta,
-  formatPercentB,
-  formatIntrinsicRatio,
   parseSafetyPrice,
   IntrinsicStability,
 } from "@/lib/insightUtils";
@@ -408,66 +407,20 @@ export function ResearchCatalogView({
     );
   };
 
-  // [컬러 톤다운] 흑백 투자의견 뱃지
-  const renderMonochromeVerdict = (v?: string | null) => {
-    if (!v) {
-      return (
-        <span className="font-mono text-[11px] px-2 py-0.5 rounded border border-[#e2e8f0] bg-[#f8fafc] text-[#64748b]">
-          대기 중
-        </span>
-      );
-    }
-    const lower = v.toLowerCase();
-    if (lower.includes("매수") || lower.includes("buy")) {
-      return (
-        <span className="font-mono text-[11px] font-semibold px-2 py-0.5 rounded bg-[#0f172a] text-white border border-[#0f172a] shrink-0">
-          {v}
-        </span>
-      );
-    }
-    if (lower.includes("매도") || lower.includes("sell")) {
-      return (
-        <span className="font-mono text-[11px] font-medium px-2 py-0.5 rounded bg-white text-[#0f172a] border border-[#64748b] shrink-0">
-          {v}
-        </span>
-      );
-    }
-    return (
-      <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-[#f1f5f9] text-[#334155] border border-[#cbd5e1] shrink-0">
-        {v}
-      </span>
-    );
-  };
-
-  // [컬러 톤다운] 흑백 안정성 뱃지
-  const renderStabilityBadge = (stability: IntrinsicStability) => {
-    switch (stability.level) {
-      case "stable":
-        return (
-          <span title="과거 보고서 가격의 분산입니다. 분석일별 입력 데이터의 차이는 분리하지 않습니다." className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-900 text-white border border-slate-900">
-            과거 가격 안정성: 안정
-          </span>
-        );
-      case "watch":
-        return (
-          <span title="과거 보고서 가격의 분산입니다. 분석일별 입력 데이터의 차이는 분리하지 않습니다." className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-800 border border-slate-300">
-            과거 가격 안정성: 주의
-          </span>
-        );
-      case "unstable":
-        return (
-          <span title="과거 보고서 가격의 분산입니다. 분석일별 입력 데이터의 차이는 분리하지 않습니다." className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-white text-slate-900 border border-slate-400 font-semibold">
-            과거 가격 안정성: 불안정
-          </span>
-        );
-      default:
-        return (
-          <span title="과거 보고서 가격의 분산입니다. 분석일별 입력 데이터의 차이는 분리하지 않습니다." className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-50 text-slate-500 border border-slate-200">
-            과거 가격 안정성: 표본 부족
-          </span>
-        );
-    }
-  };
+  // getInsight 결과를 StockListItem용 insight로 변환
+  const toItemInsight = (raw: ReturnType<typeof getInsight>): StockItemInsight => ({
+    verdict: raw.verdict,
+    confidence: raw.confidence,
+    fairValue: raw.fairValue,
+    intrinsicRatioPct: raw.intrinsicRatioPct,
+    safetyRatioPct: raw.safetyRatioPct,
+    intrinsicStability: raw.intrinsicStability,
+    fairValueDeferred: !!raw.report && raw.fairValue == null,
+    dispersionPct: raw.dispersionPct,
+    priceEstimateCount: raw.priceEstimateCount,
+    voteAgreementPct: raw.voteAgreementPct,
+    safetyPrice: raw.safetyPrice,
+  });
 
   return (
     <div className="flex-1 min-w-0 bg-white font-sans divide-y divide-[#e2e8f0]">
@@ -638,7 +591,7 @@ export function ResearchCatalogView({
                         className="flex items-center justify-between hover:bg-[#f8fafc] p-1 rounded cursor-pointer transition-colors"
                       >
                         <span className="font-bold text-[#0f172a]">
-                          ${item.ticker}
+                          {item.ticker}
                         </span>
                         <div className="flex items-center gap-2">
                           <span className="text-[#64748b] text-[11px]">
@@ -822,7 +775,15 @@ export function ResearchCatalogView({
                     <span className="text-[#94a3b8] uppercase">정렬:</span>
                     <select
                       value={reportSortBy}
-                      onChange={(e) => setReportSortBy(e.target.value as any)}
+                      onChange={(e) =>
+                        setReportSortBy(
+                          e.target.value as
+                            | "RATIO_DESC"
+                            | "SCORE_DESC"
+                            | "DATE_DESC"
+                            | "TICKER_ASC"
+                        )
+                      }
                       className="bg-white border border-[#cbd5e1] rounded px-2 py-0.5 text-xs font-mono text-[#0f172a] focus:outline-hidden cursor-pointer shadow-2xs"
                     >
                       <option value="RATIO_DESC">내재가치/종가 높은순 (기본)</option>
@@ -848,142 +809,29 @@ export function ResearchCatalogView({
                     );
                     const ticker = report.ticker;
                     const percentB = percentBByTicker[chartTickerKey(ticker)];
-                    const ratioText = formatIntrinsicRatio(
-                      insight.intrinsicRatioPct
-                    );
-                    const safetyRatioText = formatIntrinsicRatio(
-                      insight.safetyRatioPct
-                    );
 
                     return (
-                      <li key={report.id || ticker}>
-                        <div
-                          onClick={() => onSelectReport(report)}
-                          className="py-3.5 px-3 -mx-3 rounded-md hover:bg-[#f8fafc] transition-colors cursor-pointer group flex items-start gap-3.5 justify-between"
-                        >
-                          <div className="flex items-start gap-3 min-w-0 flex-1">
-                            {renderLogo(ticker)}
-
-                            <div className="min-w-0 flex-1 space-y-1.5">
-                              {/* 상단 라인: 슬러그, 투자의견, 발행일자 */}
-                              <div className="flex items-center gap-2 flex-wrap font-mono text-xs">
-                                <span className="font-bold text-[#0f172a] group-hover:text-black transition-colors">
-                                  ${ticker}
-                                </span>
-                                <span className="text-[#94a3b8]">
-                                  /report-{ticker.toLowerCase()}
-                                </span>
-                                {renderMonochromeVerdict(report.verdict)}
-                                <span className="text-[11px] text-[#64748b] ml-auto sm:ml-0 flex items-center gap-1">
-                                  <Calendar className="w-3 h-3 text-[#94a3b8]" />
-                                  <span>{report.d}</span>
-                                </span>
-                              </div>
-
-                              {/* 회사명 & 타이틀 */}
-                              <h3 className="text-sm font-bold text-[#0f172a] truncate">
-                                {displayNameOf(ticker, report.company_name)} ({ticker}) 13인
-                                거장 가치평가 및 적정주가 보고서
-                              </h3>
-
-                              {/* 핵심 지표 뱃지 라인 (%B, 확신도, 내재가치/종가, 안정성) */}
-                              <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px] pt-0.5">
-                                {percentB !== undefined && (
-                                  <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
-                                    %B:{" "}
-                                    <strong className="text-[#0f172a]">
-                                      {formatPercentB(percentB)}
-                                    </strong>
-                                  </span>
-                                )}
-
-                                {insight.confidence != null && (
-                                  <span title="13인 각자의 자기보고 확신도 평균입니다. 실제 정확도나 의견 일치도를 뜻하지 않습니다." className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
-                                    평균 확신도:{" "}
-                                    <strong className="text-[#0f172a]">
-                                      {insight.confidence.toFixed(1)}/10
-                                    </strong>
-                                  </span>
-                                )}
-
-                                {insight.dispersionPct != null && (
-                                  <span
-                                    title="13인의 개별 적정가 중앙 50%(Q1~Q3) 구간 폭 ÷ 중앙 적정가(IQR 분산율)입니다."
-                                    className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]"
-                                  >
-                                    가격 분산:{" "}
-                                    <strong className="text-[#0f172a]">
-                                      {insight.dispersionPct.toFixed(1)}%
-                                      {insight.priceEstimateCount != null
-                                        ? ` · ${insight.priceEstimateCount}/13`
-                                        : ""}
-                                    </strong>
-                                  </span>
-                                )}
-
-                                {insight.report && insight.fairValue == null && (
-                                  <span className="px-1.5 py-0.2 rounded border border-[#cbd5e1] bg-[#f8fafc] text-[#475569]">
-                                    적정가 산출 보류
-                                  </span>
-                                )}
-
-                                {insight.voteAgreementPct != null && (
-                                  <span
-                                    title="가장 많이 나온 투자의견의 표 수 ÷ 유효 표결 수입니다. 확신도와는 다른 지표입니다."
-                                    className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]"
-                                  >
-                                    표결 일치도:{" "}
-                                    <strong className="text-[#0f172a]">
-                                      {insight.voteAgreementPct.toFixed(0)}%
-                                    </strong>
-                                  </span>
-                                )}
-
-                                {ratioText && (
-                                  <span className="px-1.5 py-0.2 rounded border border-[#0f172a] bg-[#0f172a] text-white">
-                                    적정가/종가:{" "}
-                                    <strong className="font-bold">
-                                      {ratioText}
-                                    </strong>
-                                  </span>
-                                )}
-
-                                {safetyRatioText && (
-                                  <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
-                                    안전마진/종가:{" "}
-                                    <strong className="text-[#0f172a] font-bold">
-                                      {safetyRatioText}
-                                    </strong>
-                                  </span>
-                                )}
-
-                                {insight.fairValue != null && (
-                                  <span className="px-1.5 py-0.2 rounded border border-[#cbd5e1] bg-white text-[#0f172a] font-semibold">
-                                    적정가: ${insight.fairValue.toFixed(2)}
-                                  </span>
-                                )}
-
-                                {renderStabilityBadge(
-                                  insight.intrinsicStability
-                                )}
-                              </div>
-
-                              {/* 요약 텍스트 */}
-                              <p className="text-xs text-[#64748b] line-clamp-1 leading-relaxed pt-0.5">
-                                {report.vote_summary ||
-                                  "13인 표결 요약"}
-                                {insight.safetyPrice
-                                  ? ` · 안전마진 매수가: ${insight.safetyPrice}`
-                                  : ""}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="shrink-0 pt-2 text-[#94a3b8] group-hover:text-[#0f172a]">
-                            <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                          </div>
-                        </div>
-                      </li>
+                      <StockListItem
+                        key={report.id || ticker}
+                        ticker={ticker}
+                        companyName={displayNameOf(ticker, report.company_name)}
+                        logo={renderLogo(ticker)}
+                        insight={toItemInsight(insight)}
+                        percentB={percentB}
+                        onClick={() => onSelectReport(report)}
+                        badges={
+                          <span className="text-[11px] text-[#64748b] ml-auto sm:ml-0 flex items-center gap-1">
+                            <Calendar className="w-3 h-3 text-[#94a3b8]" />
+                            <span>{report.d}</span>
+                          </span>
+                        }
+                        summary={
+                          (report.vote_summary || "13인 표결 요약") +
+                          (insight.safetyPrice
+                            ? ` · 안전마진 매수가: ${insight.safetyPrice}`
+                            : "")
+                        }
+                      />
                     );
                   })}
                 </ul>
@@ -1056,104 +904,39 @@ export function ResearchCatalogView({
                     const insight = getInsight(c.ticker, c.price);
                     const percentB =
                       percentBByTicker[chartTickerKey(c.ticker)];
-                    const ratioText = formatIntrinsicRatio(
-                      insight.intrinsicRatioPct
-                    );
-                    const safetyRatioText = formatIntrinsicRatio(
-                      insight.safetyRatioPct
-                    );
 
                     return (
-                      <li key={`roma-${c.ticker}-${idx}`}>
-                        <div
-                          onClick={() => onSelectCandidate(c)}
-                          className="py-3.5 px-3 -mx-3 rounded-md hover:bg-[#f8fafc] transition-colors cursor-pointer group flex items-start gap-3.5 justify-between"
-                        >
-                          <div className="flex items-start gap-3 min-w-0 flex-1">
-                            {renderLogo(c.ticker, c.logo_image_url)}
-
-                            <div className="min-w-0 flex-1 space-y-1.5">
-                              {/* 상단 라인 */}
-                              <div className="flex items-center gap-2 flex-wrap font-mono text-xs">
-                                <span className="font-bold text-[#0f172a] group-hover:text-black transition-colors">
-                                  ${c.ticker}
-                                </span>
-                                <span className="text-[#64748b] truncate max-w-[200px]">
-                                  {displayNameOf(c.ticker, c.name)}
-                                </span>
-                                {c.holders != null && (
-                                  <span className="font-mono text-[10px] px-1.5 py-0.2 rounded border border-[#cbd5e1] bg-white text-[#0f172a] font-semibold">
-                                    {c.holders}인 보유
-                                  </span>
-                                )}
-                                {c.weight_pct != null && (
-                                  <span className="font-mono text-[10px] px-1.5 py-0.2 rounded border border-slate-200 bg-slate-50 text-slate-700">
-                                    비중: {c.weight_pct.toFixed(2)}%
-                                  </span>
-                                )}
-                                {renderMonochromeVerdict(insight.verdict)}
-                              </div>
-
-                              {/* 지표 라인 */}
-                              <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
-                                <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#0f172a] font-semibold">
-                                  PRICE: ${c.price?.toFixed(2) || "-"}
-                                </span>
-
-                                {percentB !== undefined && (
-                                  <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
-                                    %B:{" "}
-                                    <strong className="text-[#0f172a]">
-                                      {formatPercentB(percentB)}
-                                    </strong>
-                                  </span>
-                                )}
-
-                                {insight.confidence != null && (
-                                  <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
-                                    평균 확신도:{" "}
-                                    <strong className="text-[#0f172a]">
-                                      {insight.confidence.toFixed(1)}/10
-                                    </strong>
-                                  </span>
-                                )}
-
-                                {ratioText && (
-                                  <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
-                                    적정가/종가:{" "}
-                                    <strong className="text-[#0f172a] font-bold">
-                                      {ratioText}
-                                    </strong>
-                                  </span>
-                                )}
-
-                                {safetyRatioText && (
-                                  <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
-                                    안전마진/종가:{" "}
-                                    <strong className="text-[#0f172a] font-bold">
-                                      {safetyRatioText}
-                                    </strong>
-                                  </span>
-                                )}
-
-                                {renderStabilityBadge(
-                                  insight.intrinsicStability
-                                )}
-
-                                {c.roe != null && (
-                                  <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#64748b]">
-                                    ROE: {(c.roe * 100).toFixed(1)}%
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="shrink-0 pt-2 text-[#94a3b8] group-hover:text-[#0f172a]">
-                            <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                          </div>
-                        </div>
-                      </li>
+                      <StockListItem
+                        key={`roma-${c.ticker}-${idx}`}
+                        ticker={c.ticker}
+                        companyName={displayNameOf(c.ticker, c.name)}
+                        logo={renderLogo(c.ticker, c.logo_image_url)}
+                        insight={toItemInsight(insight)}
+                        percentB={percentB}
+                        onClick={() => onSelectCandidate(c)}
+                        priceText={`$${c.price?.toFixed(2) || "-"}`}
+                        badges={
+                          <>
+                            {c.holders != null && (
+                              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-[#cbd5e1] bg-white text-[#0f172a] font-semibold">
+                                {c.holders}인 보유
+                              </span>
+                            )}
+                            {c.weight_pct != null && (
+                              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 text-slate-700">
+                                비중: {c.weight_pct.toFixed(2)}%
+                              </span>
+                            )}
+                          </>
+                        }
+                        extraMetrics={
+                          c.roe != null ? (
+                            <span className="px-1.5 py-0.5 rounded border border-[#e2e8f0] bg-white text-[#64748b] font-mono text-[11px]">
+                              ROE: {(c.roe * 100).toFixed(1)}%
+                            </span>
+                          ) : undefined
+                        }
+                      />
                     );
                   })}
                 </ul>
@@ -1303,132 +1086,62 @@ export function ResearchCatalogView({
                     const insight = getInsight(c.ticker, c.price);
                     const percentB =
                       percentBByTicker[chartTickerKey(c.ticker)];
-                    const ratioText = formatIntrinsicRatio(
-                      insight.intrinsicRatioPct
-                    );
-                    const safetyRatioText = formatIntrinsicRatio(
-                      insight.safetyRatioPct
-                    );
                     const isKr = c.nation === "kr" || candidateMarket === "kr";
 
                     return (
-                      <li key={`candidate-${c.ticker}-${idx}`}>
-                        <div
-                          onClick={() => onSelectCandidate(c)}
-                          className="py-3.5 px-3 -mx-3 rounded-md hover:bg-[#f8fafc] transition-colors cursor-pointer group flex items-start gap-3.5 justify-between"
-                        >
-                          <div className="flex items-start gap-3 min-w-0 flex-1">
-                            {renderLogo(c.ticker, c.logo_image_url)}
-
-                            <div className="min-w-0 flex-1 space-y-1.5">
-                              {/* 상단 라인 */}
-                              <div className="flex items-center gap-2 flex-wrap font-mono text-xs">
-                                <span className="font-bold text-[#0f172a] group-hover:text-black transition-colors">
-                                  #{c.rank || idx + 1} {isKr ? c.ticker : `$${c.ticker}`}
-                                </span>
-                                <span className="text-[#64748b] truncate max-w-[200px]">
-                                  {displayNameOf(c.ticker, c.name)}
-                                </span>
-                                {c.category && (
-                                  <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 text-[10px] font-mono">
-                                    {c.category}
-                                  </span>
-                                )}
-                                <Badge
-                                  variant="primary"
-                                  className="font-mono text-[10px]"
-                                >
-                                  {isKr
-                                    ? "알짜 5단계"
-                                    : `SCORE: ${c.guru_score || 0}`}
-                                </Badge>
-                                {renderMonochromeVerdict(insight.verdict)}
-                              </div>
-
-                              {/* 지표 라인 */}
-                              <div className="flex items-center gap-1.5 flex-wrap font-mono text-[11px]">
-                                <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#0f172a] font-semibold">
-                                  PRICE: {formatPriceByNation(c.price, c.nation || candidateMarket, c.ticker)}
-                                  {c.change_rate != null && (
-                                    <span className="ml-1 text-[#64748b] font-normal">
-                                      ({c.change_rate >= 0 ? "+" : ""}
-                                      {c.change_rate.toFixed(2)}%)
-                                    </span>
-                                  )}
-                                </span>
-
-                                {c.market_cap != null && (
-                                  <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#64748b]">
-                                    시총: {formatMarketCap(c.market_cap, c.nation || candidateMarket, c.ticker)}
-                                  </span>
-                                )}
-
-                                {percentB !== undefined && (
-                                  <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
-                                    %B:{" "}
-                                    <strong className="text-[#0f172a]">
-                                      {formatPercentB(percentB)}
-                                    </strong>
-                                  </span>
-                                )}
-
-                                {insight.confidence != null && (
-                                  <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
-                                    평균 확신도:{" "}
-                                    <strong className="text-[#0f172a]">
-                                      {insight.confidence.toFixed(1)}/10
-                                    </strong>
-                                  </span>
-                                )}
-
-                                {ratioText && (
-                                  <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
-                                    적정가/종가:{" "}
-                                    <strong className="text-[#0f172a] font-bold">
-                                      {ratioText}
-                                    </strong>
-                                  </span>
-                                )}
-
-                                {safetyRatioText && (
-                                  <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#475569]">
-                                    안전마진/종가:{" "}
-                                    <strong className="text-[#0f172a] font-bold">
-                                      {safetyRatioText}
-                                    </strong>
-                                  </span>
-                                )}
-
-                                {renderStabilityBadge(
-                                  insight.intrinsicStability
-                                )}
-
-                                {c.roe != null && (
-                                  <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#64748b]">
-                                    ROE: {(c.roe * 100).toFixed(1)}%
-                                  </span>
-                                )}
-
-                                {c.operating_margin != null && (
-                                  <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#64748b]">
-                                    영업익: {(c.operating_margin * 100).toFixed(1)}%
-                                  </span>
-                                )}
-
-                                {c.debt_ratio != null && (
-                                  <span className="px-1.5 py-0.2 rounded border border-[#e2e8f0] bg-white text-[#64748b]">
-                                    부채: {(c.debt_ratio * 100).toFixed(0)}%
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="shrink-0 pt-2 text-[#94a3b8] group-hover:text-[#0f172a]">
-                            <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                          </div>
-                        </div>
-                      </li>
+                      <StockListItem
+                        key={`candidate-${c.ticker}-${idx}`}
+                        ticker={c.ticker}
+                        companyName={displayNameOf(c.ticker, c.name)}
+                        logo={renderLogo(c.ticker, c.logo_image_url)}
+                        insight={toItemInsight(insight)}
+                        percentB={percentB}
+                        onClick={() => onSelectCandidate(c)}
+                        rankPrefix={`#${c.rank || idx + 1}`}
+                        priceText={formatPriceByNation(c.price, c.nation || candidateMarket, c.ticker)}
+                        changeRate={c.change_rate}
+                        marketCapText={
+                          c.market_cap != null
+                            ? formatMarketCap(c.market_cap, c.nation || candidateMarket, c.ticker)
+                            : undefined
+                        }
+                        badges={
+                          <>
+                            {c.category && (
+                              <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-mono">
+                                {c.category}
+                              </span>
+                            )}
+                            <Badge
+                              variant="primary"
+                              className="font-mono text-[10px]"
+                            >
+                              {isKr
+                                ? "알짜 5단계"
+                                : `SCORE: ${c.guru_score || 0}`}
+                            </Badge>
+                          </>
+                        }
+                        extraMetrics={
+                          <>
+                            {c.roe != null && (
+                              <span className="px-1.5 py-0.5 rounded border border-[#e2e8f0] bg-white text-[#64748b] font-mono text-[11px]">
+                                ROE: {(c.roe * 100).toFixed(1)}%
+                              </span>
+                            )}
+                            {c.operating_margin != null && (
+                              <span className="px-1.5 py-0.5 rounded border border-[#e2e8f0] bg-white text-[#64748b] font-mono text-[11px]">
+                                영업익: {(c.operating_margin * 100).toFixed(1)}%
+                              </span>
+                            )}
+                            {c.debt_ratio != null && (
+                              <span className="px-1.5 py-0.5 rounded border border-[#e2e8f0] bg-white text-[#64748b] font-mono text-[11px]">
+                                부채: {(c.debt_ratio * 100).toFixed(0)}%
+                              </span>
+                            )}
+                          </>
+                        }
+                      />
                     );
                   })}
                 </ul>
