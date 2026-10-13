@@ -2,11 +2,17 @@
 DataPackBuilder: Yahoo Finance 및 무료 API를 활용한 결정론적 심층 데이터팩 생성기
 """
 import asyncio
+import html
 import logging
+import re
 import time
+import xml.etree.ElementTree as ET
 from datetime import date as dt_date
 from datetime import datetime
+from email.utils import parsedate_to_datetime
+from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import quote as urlquote
 import httpx
 
 try:
@@ -35,6 +41,47 @@ UA = (
     "(KHTML, like Gecko) Chrome/126.0 Safari/537.36"
 )
 Y1 = "https://query1.finance.yahoo.com"
+
+# ── 뉴스 본문 추출용 상수 (신규 의존성 없이 stdlib만 사용) ──
+NEWS_BODY_TIMEOUT = 10.0  # 기사 1건당 최대 대기(초)
+NEWS_BODY_MAX_CHARS = 1500  # 기사당 excerpt 최대 길이
+NEWS_BODY_TOP_N = 3  # 본문 방문은 상위 3건으로 제한 (지연/비용 바운드)
+NEWS_BODY_MAX_BYTES = 1_500_000  # 1.5MB 초과 페이지는 파싱 중단
+
+
+class _ParagraphExtractor(HTMLParser):
+    """<p> 본문 위주 텍스트 추출. script/style/nav 등은 무시."""
+
+    _SKIP_TAGS = {"script", "style", "nav", "header", "footer", "aside", "noscript"}
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._skip_depth = 0
+        self._in_p = False
+        self._buf: list[str] = []
+        self.paragraphs: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list) -> None:
+        if tag in self._SKIP_TAGS:
+            self._skip_depth += 1
+        elif tag == "p" and self._skip_depth == 0:
+            self._in_p = True
+            self._buf = []
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in self._SKIP_TAGS and self._skip_depth > 0:
+            self._skip_depth -= 1
+        elif tag == "p" and self._in_p:
+            self._in_p = False
+            text = html.unescape("".join(self._buf)).strip()
+            text = re.sub(r"\s+", " ", text)
+            if len(text) >= 40:  # 내비/짧은 라벨 제거
+                self.paragraphs.append(text)
+            self._buf = []
+
+    def handle_data(self, data: str) -> None:
+        if self._in_p and self._skip_depth == 0:
+            self._buf.append(data)
 
 
 def normalize_yahoo_ticker(ticker: str) -> str:
@@ -188,15 +235,27 @@ class DataPackBuilder:
 
         async with httpx.AsyncClient(timeout=25.0) as client:
             yahoo_symbol = await self._resolve_symbol(client, clean_ticker)
-            # 1. 병렬 수집: Chart, Fundamentals Timeseries, QuoteSummary, News
+            # 1. 병렬 수집: Chart, Fundamentals Timeseries, QuoteSummary + 한글명
+            # (뉴스는 한글명/심볼 변형을 함께 조회해야 해서 2단계에서 수집)
             chart_task = self._fetch_chart(client, yahoo_symbol)
             ts_task = self._fetch_timeseries(client, yahoo_symbol)
             quote_task = self._fetch_quote_summary(client, yahoo_symbol)
-            news_task = self._fetch_news(client, clean_ticker)
+            name_task = self._resolve_company_name(clean_ticker)
 
-            chart_data, ts_data, quote_data, news_data = await asyncio.gather(
-                chart_task, ts_task, quote_task, news_task, return_exceptions=True
+            chart_data, ts_data, quote_data, company_name = await asyncio.gather(
+                chart_task, ts_task, quote_task, name_task, return_exceptions=True
             )
+            if isinstance(company_name, Exception) or not company_name:
+                company_name = None
+
+            # 2. 뉴스 수집 (야후 다중 쿼리 → 부족 시 Google News RSS 폴백 → 상위 3건 본문 방문)
+            try:
+                news_data = await self._fetch_news(
+                    client, clean_ticker, yahoo_symbol, company_name
+                )
+            except Exception as e:
+                logger.warning(f"[{clean_ticker}] News 수집 실패: {e}")
+                news_data = []
 
         if isinstance(chart_data, Exception):
             logger.warning(f"[{clean_ticker}] Chart API 실패: {chart_data}")
@@ -211,8 +270,7 @@ class DataPackBuilder:
             logger.warning(f"[{clean_ticker}] News API 실패: {news_data}")
             news_data = []
 
-        # 2. 지표 가공 및 파싱 (표시용 한글명은 ticker_logos 캐시 우선, 미스 시 Toss 조회)
-        company_name = await self._resolve_company_name(clean_ticker)
+        # 2. 지표 가공 및 파싱 (표시용 한글명은 위 1단계에서 이미 해석됨)
         datapack = self._assemble_datapack(
             clean_ticker,
             date_str,
@@ -257,31 +315,175 @@ class DataPackBuilder:
             logger.warning(f"[{ticker}] 표시용 한글명 해석 실패(폴백 진행): {e}")
             return None
 
-    async def _fetch_news(self, client: httpx.AsyncClient, ticker: str) -> list[dict]:
-        try:
-            url = f"{Y1}/v1/finance/search?q={ticker}&newsCount=8"
-            res = await client.get(url, headers={"User-Agent": UA})
-            if res.status_code == 200:
-                data = res.json()
-                news = data.get("news", [])
+    async def _fetch_news(
+        self,
+        client: httpx.AsyncClient,
+        ticker: str,
+        yahoo_symbol: str | None = None,
+        company_name: str | None = None,
+    ) -> list[dict]:
+        """야후 다중 쿼리 → 부족 시 Google News RSS 폴백 → 상위 3건 본문 방문."""
+        queries: list[str] = []
+        for q in [yahoo_symbol, ticker, (ticker or "").replace(".KS", "").replace(".KQ", ""), company_name]:
+            if q and str(q).strip() and str(q).strip() not in queries:
+                queries.append(str(q).strip())
+
+        merged: list[dict] = []
+        for q in queries[:4]:
+            try:
+                items = await self._fetch_yahoo_news(client, q)
+                merged.extend(items)
+                if len(merged) >= 8:
+                    break
+            except Exception as e:
+                logger.warning(f"[{ticker}] 야후 뉴스 쿼리 실패(q={q}): {e}")
+
+        merged = self._dedupe_news(merged)
+
+        # 3건 미만이면 Google News RSS로 보충 (국장 대응, 키 불필요)
+        if len(merged) < 3:
+            for q in queries[:3]:
+                try:
+                    rss_items = await self._fetch_gnews_rss(client, q)
+                    merged = self._dedupe_news(merged + rss_items)
+                    if len(merged) >= 8:
+                        break
+                except Exception as e:
+                    logger.warning(f"[{ticker}] GNews RSS 실패(q={q}): {e}")
+
+        merged = merged[:8]
+
+        # 상위 N건 본문 방문 (실패해도 제목만으로 계속 진행)
+        if merged:
+            try:
+                await self._enrich_with_bodies(client, merged)
+            except Exception as e:
+                logger.warning(f"[{ticker}] 본문 방문 실패(제목만 진행): {e}")
+        return merged
+
+    async def _fetch_yahoo_news(self, client: httpx.AsyncClient, query: str) -> list[dict]:
+        url = f"{Y1}/v1/finance/search?q={urlquote(query)}&newsCount=8"
+        res = await client.get(url, headers={"User-Agent": UA})
+        if res.status_code != 200:
+            return []
+        news = res.json().get("news", [])
+        items = []
+        for n in news:
+            pub_time = n.get("providerPublishTime")
+            time_str = (
+                datetime.fromtimestamp(pub_time).strftime("%Y-%m-%d %H:%M")
+                if pub_time
+                else ""
+            )
+            if not n.get("title"):
+                continue
+            items.append({
+                "title": n.get("title", ""),
+                "publisher": n.get("publisher", ""),
+                "link": n.get("link", ""),
+                "published_at": time_str,
+            })
+        return items
+
+    async def _fetch_gnews_rss(self, client: httpx.AsyncClient, query: str) -> list[dict]:
+        """Google News RSS 폴백. hl=ko 우선, 실패 시 en-US 재시도."""
+        for hl, gl, ceid in [("ko", "KR", "KR:ko"), ("en-US", "US", "US:en")]:
+            try:
+                res = await client.get(
+                    "https://news.google.com/rss/search",
+                    params={"q": query, "hl": hl, "gl": gl, "ceid": ceid},
+                    headers={"User-Agent": UA},
+                    timeout=12.0,
+                )
+                if res.status_code != 200 or not res.content:
+                    continue
+                root = ET.fromstring(res.content[:2_000_000])
                 items = []
-                for n in news:
-                    pub_time = n.get("providerPublishTime")
-                    time_str = (
-                        datetime.fromtimestamp(pub_time).strftime("%Y-%m-%d %H:%M")
-                        if pub_time
-                        else ""
-                    )
-                    items.append({
-                        "title": n.get("title", ""),
-                        "publisher": n.get("publisher", ""),
-                        "link": n.get("link", ""),
-                        "published_at": time_str,
-                    })
-                return items
-        except Exception as e:
-            logger.warning(f"[{ticker}] 뉴스 수집 실패: {e}")
+                for item in root.iter("item"):
+                    raw_title = (item.findtext("title") or "").strip()
+                    link = (item.findtext("link") or "").strip()
+                    source_el = item.find("source")
+                    source = (source_el.text or "").strip() if source_el is not None else ""
+                    pub_raw = (item.findtext("pubDate") or "").strip()
+                    # "제목 - 매체" 형태에서 매체 분리
+                    title, publisher = raw_title, source
+                    if " - " in raw_title:
+                        title, tail = raw_title.rsplit(" - ", 1)
+                        if not publisher:
+                            publisher = tail
+                    try:
+                        published_at = parsedate_to_datetime(pub_raw).strftime("%Y-%m-%d %H:%M") if pub_raw else ""
+                    except Exception:
+                        published_at = ""
+                    if title:
+                        items.append({
+                            "title": html.unescape(title.strip()),
+                            "publisher": publisher.strip(),
+                            "link": link,
+                            "published_at": published_at,
+                        })
+                    if len(items) >= 8:
+                        break
+                if items:
+                    return items
+            except Exception:
+                continue
         return []
+
+    @staticmethod
+    def _dedupe_news(items: list[dict]) -> list[dict]:
+        seen: set[str] = set()
+        out: list[dict] = []
+        for n in items:
+            key = (n.get("link") or "").strip() or (n.get("title") or "").strip().lower()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            out.append(n)
+        # 최신순 정렬 (published_at 빈 값은 뒤로)
+        out.sort(key=lambda x: x.get("published_at") or "", reverse=True)
+        return out
+
+    async def _enrich_with_bodies(self, client: httpx.AsyncClient, items: list[dict]) -> None:
+        sem = asyncio.Semaphore(NEWS_BODY_TOP_N)
+
+        async def _one(n: dict) -> None:
+            url = (n.get("link") or "").strip()
+            if not url or not url.startswith("http"):
+                return
+            async with sem:
+                excerpt = await self._fetch_article_excerpt(client, url)
+                if excerpt:
+                    n["excerpt"] = excerpt
+
+        await asyncio.gather(*[_one(n) for n in items[:NEWS_BODY_TOP_N]])
+
+    async def _fetch_article_excerpt(self, client: httpx.AsyncClient, url: str) -> str:
+        try:
+            res = await client.get(
+                url,
+                headers={"User-Agent": UA, "Accept": "text/html,*/*"},
+                follow_redirects=True,
+                timeout=NEWS_BODY_TIMEOUT,
+            )
+            if res.status_code != 200:
+                return ""
+            ctype = res.headers.get("content-type", "")
+            if "html" not in ctype and "<p" not in (res.text[:5000].lower()):
+                return ""
+            raw = res.text
+            if len(raw) > NEWS_BODY_MAX_BYTES:
+                raw = raw[:NEWS_BODY_MAX_BYTES]
+            parser = _ParagraphExtractor()
+            try:
+                parser.feed(raw)
+            except Exception:
+                pass
+            text = " ".join(parser.paragraphs)
+            text = re.sub(r"\s+", " ", text).strip()
+            return text[:NEWS_BODY_MAX_CHARS]
+        except Exception:
+            return ""
 
     async def _fetch_chart(self, client: httpx.AsyncClient, ticker: str) -> dict:
         yahoo_ticker = normalize_yahoo_ticker(ticker)
@@ -950,12 +1152,17 @@ class DataPackBuilder:
                 lines.append("### 최근 주요 뉴스 헤드라인")
                 for n in dp.news_items:
                     pub = (
-                        f" ({n['publisher']}"
-                        + (f", {n['published_at']})" if n.get("published_at") else ")")
+                        f" ({n.get('publisher', '')}"
+                        + (f", {n.get('published_at')})" if n.get("published_at") else ")")
                         if n.get("publisher")
                         else ""
                     )
-                    lines.append(f"- **{n['title']}**{pub}")
+                    lines.append(f"- **{n.get('title', '')}**{pub}")
+                    excerpt = (n.get("excerpt") or "").strip()
+                    if excerpt:
+                        # 13인 페르소나까지 전달되도록 300자 요약 병기
+                        short = excerpt[:300] + ("..." if len(excerpt) > 300 else "")
+                        lines.append(f"  - 요약: {short}")
 
         # 6. 핵심 가치 드라이버
         if dp.value_drivers:

@@ -17,7 +17,7 @@ SYSTEM_PROMPT = """너는 13인의 투자 거장 보고서(Guru Report) 파이�
 ## 절대 규칙
 1. **업종 하드코딩 금지**: "SaaS면 ARR", "제조업이면 가동률"처럼 뻔한 교과서적 지표만 쓰지 마라. 해당 기업 특유의 핵심 동인(예: HBM 점유율, 첨단 패키징 수주 잔고, 2nm GAA 전환 시점, 대중 수출규제 영향 등)을 정확히 도출하라.
 2. **구체성 필수**: "좋은 제품", "시장 확대" 같은 모호한 표현은 엄격히 금지한다. 반드시 추적 가능한 메트릭, 고객사 동향, 가이던스 변화, 규제 여파 등 구체적 팩트를 다뤄라.
-3. **최신 뉴스 및 시장 이벤트 적극 연계**: 제공된 최신 뉴스 헤드라인과 시장 이슈를 가치 드라이버 및 촉매와 긴밀히 엮어라.
+3. **최신 뉴스 및 시장 이벤트 적극 연계**: 제공된 최신 뉴스 헤드라인과 시장 이슈를 가치 드라이버 및 촉매와 긴밀히 엮어라. `요약:`이 붙은 뉴스는 기사 본문을 직접 방문한 팩트이므로 제목-only 뉴스보다 우선 인용하고, 본문에 없는 수치는 창작하지 마라. 요약이 없는 뉴스는 제목 기반 추측임을 구분하라.
 4. **기준 시점 명시**: 각 드라이버별로 [현재 상태]와 [변화 감시 기준(무엇이 바뀌면 가치가 움직이는가)]을 명시하라.
 5. 반드시 마크다운(Markdown) 형식으로 작성하며 서두나 결미에 불필요한 인사말이나 부연 설명 없이 본문만 출력하라.
 6. 핵심 드라이버 및 촉매 도출이 완료되면 불필요한 꼬리물기 추론 없이 즉시 규격대로 본문을 완결하라.
@@ -74,12 +74,17 @@ class ValueDriverGenerator:
         return markdown_content
 
     def _build_prompt(self, dp: StockDataPack, date_str: str) -> str:
-        news_text = ""
+        news_lines: list[str] = []
         if dp.news_items:
-            news_text = "\n".join(
-                f"- {n['title']} ({n.get('publisher', '')}, {n.get('published_at', '')})"
-                for n in dp.news_items
-            )
+            for n in dp.news_items:
+                base = f"- {n.get('title', '')} ({n.get('publisher', '')}, {n.get('published_at', '')})"
+                excerpt = (n.get("excerpt") or "").strip()
+                if excerpt:
+                    # 토큰 바운드: 기사당 800자까지만 프롬프트 주입
+                    news_lines.append(f"{base}\n  요약: {excerpt[:800]}")
+                else:
+                    news_lines.append(base)
+            news_text = "\n".join(news_lines)
         else:
             news_text = "(최신 수집 뉴스 없음 - 기업 비즈니스 모델 및 시장 포지션 기반 분석 수행)"
 
