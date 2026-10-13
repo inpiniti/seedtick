@@ -1,12 +1,16 @@
 """
 TickerLogoService: 티커별 로고 캐시 조회 및 Toss 조회 폴백
 """
+import asyncio
 import logging
 
 from app.domains.screener.clients.toss_wts import TossWtsClient
 from app.infrastructure.supabase_repo import supabase_repo
 
 logger = logging.getLogger("ticker_logo_service")
+
+# 일괄 조회 시 Toss API 병렬 상한 (공유 AsyncClient 토큰 경합 방지 위해 보수적으로)
+_RESOLVE_CONCURRENCY = 5
 
 
 class TickerLogoService:
@@ -145,8 +149,9 @@ class TickerLogoService:
         max_count: int = 30,
     ) -> list[tuple[str, str | None, str]]:
         """
-        여러 티커 한글명을 순차 조회한다.
+        여러 티커 한글명을 조회한다.
         - 호출량 제어를 위해 max_count 상한 적용
+        - Supabase 배치 캐시 선조회 후 미적중분만 병렬 조회
         - 반환: (ticker, korean_name, source)
         """
         normalized_unique: list[str] = []
@@ -160,15 +165,31 @@ class TickerLogoService:
             if len(normalized_unique) >= max_count:
                 break
 
-        cached = self.get_cached_names(normalized_unique)
-        results: list[tuple[str, str | None, str]] = []
-        for ticker in normalized_unique:
-            if cached.get(ticker):
-                results.append((ticker, cached[ticker], "cached"))
-                continue
-            korean_name, source = await self.resolve_name(ticker)
-            results.append((ticker, korean_name, source))
-        return results
+        try:
+            cached = self.get_cached_names(normalized_unique)
+        except Exception as e:
+            logger.warning(f"[TickerLogo] 한글명 배치 캐시 조회 실패: {e}")
+            cached = {}
+        misses = [t for t in normalized_unique if not cached.get(t)]
+
+        sem = asyncio.Semaphore(_RESOLVE_CONCURRENCY)
+
+        async def _resolve_one(ticker: str) -> tuple[str, str | None, str]:
+            async with sem:
+                try:
+                    korean_name, source = await self.resolve_name(ticker)
+                except Exception as e:
+                    logger.warning(f"[TickerLogo] 한글명 조회 실패 ({ticker}): {e}")
+                    return ticker, None, "none"
+                return ticker, korean_name, source
+
+        resolved = await asyncio.gather(*(_resolve_one(t) for t in misses))
+        by_ticker: dict[str, tuple[str | None, str]] = {
+            t: (name, "cached") for t, name in cached.items()
+        }
+        for ticker, korean_name, source in resolved:
+            by_ticker[ticker] = (korean_name, source)
+        return [(t, *by_ticker[t]) for t in normalized_unique]
 
     async def resolve_logos(
         self,
@@ -176,8 +197,9 @@ class TickerLogoService:
         max_count: int = 12,
     ) -> list[tuple[str, str | None, str]]:
         """
-        여러 티커 로고를 순차 조회한다.
+        여러 티커 로고를 조회한다.
         - 호출량 제어를 위해 max_count 상한 적용
+        - Supabase 배치 캐시 선조회 후 미적중분만 병렬 조회
         - 반환: (ticker, logo_image_url, source)
         """
         normalized_unique: list[str] = []
@@ -191,8 +213,28 @@ class TickerLogoService:
             if len(normalized_unique) >= max_count:
                 break
 
-        results: list[tuple[str, str | None, str]] = []
-        for ticker in normalized_unique:
-            logo_image_url, source = await self.resolve_logo(ticker)
-            results.append((ticker, logo_image_url, source))
-        return results
+        try:
+            cached = self.get_cached_logos(normalized_unique)
+        except Exception as e:
+            logger.warning(f"[TickerLogo] 로고 배치 캐시 조회 실패: {e}")
+            cached = {}
+        misses = [t for t in normalized_unique if t not in cached]
+
+        sem = asyncio.Semaphore(_RESOLVE_CONCURRENCY)
+
+        async def _resolve_one(ticker: str) -> tuple[str, str | None, str]:
+            async with sem:
+                try:
+                    logo_image_url, source = await self.resolve_logo(ticker)
+                except Exception as e:
+                    logger.warning(f"[TickerLogo] 로고 조회 실패 ({ticker}): {e}")
+                    return ticker, None, "none"
+                return ticker, logo_image_url, source
+
+        resolved = await asyncio.gather(*(_resolve_one(t) for t in misses))
+        by_ticker: dict[str, tuple[str | None, str]] = {
+            t: (url, "cached") for t, url in cached.items()
+        }
+        for ticker, logo_image_url, source in resolved:
+            by_ticker[ticker] = (logo_image_url, source)
+        return [(t, *by_ticker[t]) for t in normalized_unique]
