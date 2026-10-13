@@ -18,6 +18,7 @@ import {
   getIntrinsicStabilityMeta,
   IntrinsicStability,
 } from "@/lib/insightUtils";
+import { formatPriceByNation } from "@/lib/utils";
 import {
   ArrowLeft,
   Calendar,
@@ -299,7 +300,7 @@ export function ResearchDocumentView({
 
               {fairValue != null && (
                 <span className="px-2 py-0.5 rounded border border-[#cbd5e1] bg-white text-[#0f172a] font-semibold">
-                  적정가: ${fairValue.toFixed(2)}
+                  적정가: {formatPriceByNation(fairValue, undefined, ticker)}
                 </span>
               )}
 
@@ -325,7 +326,7 @@ export function ResearchDocumentView({
             <div>
               <span className="text-[#64748b] block text-[10px]">CURRENT PRICE</span>
               <span className="font-semibold text-base text-[#0f172a]">
-                {report.current_price ? `$${report.current_price.toLocaleString()}` : "-"}
+                {report.current_price ? formatPriceByNation(report.current_price, undefined, ticker) : "-"}
               </span>
             </div>
             <div className="h-8 w-px bg-[#e2e8f0]" />
@@ -333,7 +334,7 @@ export function ResearchDocumentView({
               <span className="text-[#64748b] block text-[10px] font-semibold">CONSENSUS FAIR VALUE</span>
               <span className="font-bold text-base text-[#0f172a]">
                 {valConsensus?.fair_value_price
-                  ? `$${valConsensus.fair_value_price.toFixed(2)}`
+                  ? formatPriceByNation(valConsensus.fair_value_price, undefined, ticker)
                   : "산출 보류"}
               </span>
             </div>

@@ -7,7 +7,7 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatKRW(val?: number | null): string {
   if (val === undefined || val === null || isNaN(val)) return "0원";
-  return `${val.toLocaleString("ko-KR")}원`;
+  return `${Math.round(val).toLocaleString("ko-KR")}원`;
 }
 
 export function formatUSD(val?: number | null): string {

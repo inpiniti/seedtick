@@ -2,6 +2,7 @@ import {
   GuruReportRow,
   ValuationConsensus,
 } from "@/types/api";
+import { formatPriceByNation } from "@/lib/utils";
 
 export type IntrinsicStabilityLevel =
   | "stable"
@@ -56,7 +57,7 @@ export function extractValuationConsensus(
     const consensus = report.datapack?.valuation_consensus;
     const band =
       report.band_low != null && report.band_high != null
-        ? `$${report.band_low} ~ $${report.band_high}`
+        ? `${formatPriceByNation(report.band_low, undefined, report.ticker)} ~ ${formatPriceByNation(report.band_high, undefined, report.ticker)}`
         : null;
     const safetyValue =
       report.safety_entry != null
@@ -68,12 +69,12 @@ export function extractValuationConsensus(
       target_price_band: band ?? consensus?.target_price_band ?? null,
       safety_entry_price:
         report.safety_entry != null
-          ? `$${report.safety_entry} 이하`
+          ? `${formatPriceByNation(report.safety_entry, undefined, report.ticker)} 이하`
           : consensus?.safety_entry_price ?? null,
       safety_entry_value: safetyValue,
       optimistic_target_price:
         report.target_sell != null
-          ? `$${report.target_sell}`
+          ? formatPriceByNation(report.target_sell, undefined, report.ticker)
           : consensus?.optimistic_target_price ?? null,
       // 집계 지표는 정규 컬럼을 우선하고, 미적재 레거시 행만 jsonb로 폴백한다.
       dispersion_pct: report.dispersion_pct ?? consensus?.dispersion_pct ?? null,

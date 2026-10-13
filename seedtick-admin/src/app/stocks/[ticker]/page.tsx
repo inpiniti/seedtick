@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { DashboardView } from "@/components/dashboard/DashboardView";
 import { fetchReportByDateAndTicker, supabase } from "@/lib/supabase";
 import { extractValuationConsensus } from "@/lib/insightUtils";
+import { formatPriceByNation } from "@/lib/utils";
 import { ResearchDocTab } from "@/components/research/ResearchDocumentView";
 
 interface StockDetailPageProps {
@@ -46,7 +47,7 @@ export async function generateMetadata({
 
         const val = extractValuationConsensus(report);
         if (val?.fair_value_price) {
-          fairValueText = ` · 컨센서스 적정주가 $${val.fair_value_price.toFixed(2)}`;
+          fairValueText = ` · 컨센서스 적정주가 ${formatPriceByNation(val.fair_value_price, undefined, ticker)}`;
         }
       }
     } catch {

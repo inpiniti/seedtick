@@ -32,6 +32,7 @@ import {
   fetchReportDatesByTicker,
 } from "@/lib/supabase";
 import { isValidChartTicker } from "@/lib/insightUtils";
+import { formatPriceByNation } from "@/lib/utils";
 
 function isValidLogoUrl(url?: string | null): boolean {
   if (!url) return false;
@@ -1959,9 +1960,7 @@ export function ScreenerTab({
                     <div className="flex items-baseline justify-between gap-2">
                       <div className="text-base font-extrabold text-[#191f28]">
                         {valConsensus?.fair_value_price !== null && valConsensus?.fair_value_price !== undefined
-                          ? (selectedReport?.ticker === "000660" || (selectedReport?.current_price && selectedReport.current_price > 1000)
-                              ? `${valConsensus.fair_value_price.toLocaleString()}원`
-                              : `$${valConsensus.fair_value_price.toFixed(2)}`)
+                          ? formatPriceByNation(valConsensus.fair_value_price, undefined, selectedReport?.ticker)
                           : "토론 합의 중"}
                       </div>
                       {(valConsensus?.safety_entry_price || valConsensus?.optimistic_target_price) && (

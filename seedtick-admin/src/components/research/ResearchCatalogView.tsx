@@ -738,8 +738,8 @@ export function ResearchCatalogView({
                         </span>
                         <div className="flex items-center gap-2">
                           <span className="text-[#64748b] text-[11px]">
-                            ${item.currentPrice?.toFixed(1)} → $
-                            {item.fairValue?.toFixed(1)}
+                            {formatPriceByNation(item.currentPrice, undefined, item.ticker)} →{" "}
+                            {formatPriceByNation(item.fairValue, undefined, item.ticker)}
                           </span>
                           <span className="px-1.5 py-0.2 rounded bg-slate-900 text-white font-bold text-[10px]">
                             +{Math.round(item.ratio - 100)}% 괴리
@@ -1080,7 +1080,7 @@ export function ResearchCatalogView({
                         insight={toItemInsight(insight)}
                         percentB={percentB}
                         onClick={() => onSelectCandidate(c)}
-                        priceText={`$${c.price?.toFixed(2) || "-"}`}
+                        priceText={formatPriceByNation(c.price, undefined, c.ticker)}
                         badges={
                           <>
                             {c.holders != null && (

@@ -7,6 +7,7 @@ import {
   formatIntrinsicRatio,
   IntrinsicStability,
 } from "@/lib/insightUtils";
+import { formatPriceByNation } from "@/lib/utils";
 
 // ── 지표 뱃지 (공통) ─────────────────────────────────────
 
@@ -265,7 +266,7 @@ export function StockListItem({
 
               {insight.fairValue != null && (
                 <span className="px-1.5 py-0.5 rounded border border-[#cbd5e1] bg-white text-[#0f172a] font-semibold font-mono text-[11px]">
-                  적정가: ${insight.fairValue.toFixed(2)}
+                  적정가: {formatPriceByNation(insight.fairValue, undefined, ticker)}
                 </span>
               )}
 

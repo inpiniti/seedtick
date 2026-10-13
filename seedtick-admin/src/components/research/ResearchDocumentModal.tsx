@@ -17,6 +17,7 @@ import {
   TrendingUp,
   Calendar,
 } from "lucide-react";
+import { formatPriceByNation } from "@/lib/utils";
 
 interface ResearchDocumentModalProps {
   report: GuruReportRow | null;
@@ -187,7 +188,7 @@ export function ResearchDocumentModal({
               <div>
                 <span className="text-[#64748b] block text-[10px]">CURRENT PRICE</span>
                 <span className="font-semibold text-sm text-[#0f172a]">
-                  {report.current_price ? `$${report.current_price.toLocaleString()}` : "-"}
+                  {report.current_price ? formatPriceByNation(report.current_price, undefined, ticker) : "-"}
                 </span>
               </div>
               <div className="h-6 w-px bg-[#e2e8f0]" />
@@ -195,7 +196,7 @@ export function ResearchDocumentModal({
                 <span className="text-blue-700 block text-[10px]">FAIR VALUE</span>
                 <span className="font-bold text-sm text-blue-700">
                   {valConsensus?.fair_value_price
-                    ? `$${valConsensus.fair_value_price.toFixed(2)}`
+                    ? formatPriceByNation(valConsensus.fair_value_price, undefined, ticker)
                     : "합의 완료"}
                 </span>
               </div>
