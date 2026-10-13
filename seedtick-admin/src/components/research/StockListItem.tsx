@@ -147,6 +147,12 @@ export interface StockListItemProps {
   // ── 리포트 전용 ──
   /** 하단 요약 텍스트 */
   summary?: string | null;
+
+  // ── 지연 로딩용 행 옵저버 ──
+  /** IntersectionObserver 연결용 li ref 콜백 */
+  rowRef?: (el: HTMLLIElement | null) => void;
+  /** 옵저버 식별용 티커 키 (chartTickerKey 결과) */
+  rowKey?: string;
 }
 
 // ── 메인 컴포넌트 ────────────────────────────────────────
@@ -165,12 +171,14 @@ export function StockListItem({
   marketCapText,
   extraMetrics,
   summary,
+  rowRef,
+  rowKey,
 }: StockListItemProps) {
   const ratioText = formatIntrinsicRatio(insight.intrinsicRatioPct ?? null);
   const safetyRatioText = formatIntrinsicRatio(insight.safetyRatioPct ?? null);
 
   return (
-    <li>
+    <li ref={rowRef} data-pb-ticker={rowKey ?? ticker}>
       <div
         onClick={onClick}
         className="py-3.5 px-3 -mx-3 rounded-md hover:bg-[#f8fafc] transition-colors cursor-pointer group flex items-start gap-3.5 justify-between"
@@ -214,9 +222,18 @@ export function StockListItem({
                 </span>
               )}
 
-              {percentB != null && (
-                <MetricBadge label="%B" value={formatPercentB(percentB)} />
-              )}
+              {/* %B는 로딩중/실패도 뱃지 유지 (계산 중/-) */}
+              <MetricBadge
+                label="%B"
+                value={formatPercentB(percentB)}
+                title={
+                  percentB === undefined
+                    ? "볼린저 밴드 위치를 불러오는 중입니다. 행이 화면에 보이면 자동 조회합니다."
+                    : percentB === null
+                      ? "차트 조회 실패 또는 데이터 부족(20봉 미만)으로 %B를 계산하지 못했습니다."
+                      : "볼린저 밴드 위치 (%B = (현재가-하단)/(상단-하단))"
+                }
+              />
 
               {insight.confidence != null && (
                 <MetricBadge

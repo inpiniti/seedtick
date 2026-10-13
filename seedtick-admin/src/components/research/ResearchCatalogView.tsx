@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import {
   GuruReportRow,
   StockCandidate,
@@ -23,6 +23,7 @@ import {
   getVoteAgreementPercent,
   buildIntrinsicStability,
   getIntrinsicStabilityMeta,
+  isValidChartTicker,
   parseSafetyPrice,
   IntrinsicStability,
 } from "@/lib/insightUtils";
@@ -41,7 +42,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { formatPriceByNation, formatMarketCap } from "@/lib/utils";
-import { fetchTickerLogos, fetchTickerNames } from "@/lib/api-client";
+import { fetchTickerLogos, fetchTickerNames, fetchStockChart } from "@/lib/api-client";
 import { DataCache } from "@/lib/dataCache";
 
 const KR_STEP_5_INFO = {
@@ -85,6 +86,8 @@ interface ResearchCatalogViewProps {
   isRomaLoading: boolean;
   krTightenStep?: number;
   percentBByTicker: Record<string, number | null>;
+  /** 보이는 행의 %B 조회 결과를 부모 캐시에 반영하는 콜백 */
+  onPercentBUpdate?: (next: Record<string, number | null>) => void;
   onRefreshLive: () => void;
   onRefreshKr?: (step?: number) => void;
   onRefreshRoma: () => void;
@@ -140,6 +143,7 @@ export function ResearchCatalogView({
   onOpenPipelineModal,
   isPipelineRunning = false,
   onSupplementTickerNames,
+  onPercentBUpdate,
 }: ResearchCatalogViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [reportVerdictFilter, setReportVerdictFilter] = useState<string>("ALL");
@@ -151,6 +155,123 @@ export function ResearchCatalogView({
 
   // 실시간 발굴 후보군 마켓(미국장 vs 한국장)
   const [candidateMarket, setCandidateMarket] = useState<"us" | "kr">("us");
+
+  // ── %B 보이는 행만 지연 로딩 (정렬/필터 이후 화면 기준) ──
+  // 부모 prop + 로컬 즉시 반영분을 합쳐 렌더. DataCache(5분 TTL)가 진실이며
+  // once-loaded는 세션 유지, 만료 시에만 재조회한다.
+  const [localPercentB, setLocalPercentB] = useState<Record<string, number | null>>({});
+  const mergedPercentB = useMemo(
+    () => ({ ...percentBByTicker, ...localPercentB }),
+    [percentBByTicker, localPercentB]
+  );
+  const pbPendingRef = useRef<Set<string>>(new Set());
+  const pbInflightRef = useRef(0);
+  const pbQueueRef = useRef<string[]>([]);
+  const onPercentBUpdateRef = useRef(onPercentBUpdate);
+  useEffect(() => {
+    onPercentBUpdateRef.current = onPercentBUpdate;
+  }, [onPercentBUpdate]);
+
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- 동시 4개 수동 큐라 컴파일러 메모화로 대체 불가
+  const pumpPbQueue = useCallback(() => {
+    while (pbInflightRef.current < 4 && pbQueueRef.current.length > 0) {
+      const key = pbQueueRef.current.shift()!;
+      if (pbPendingRef.current.has(key)) continue;
+      pbPendingRef.current.add(key);
+      pbInflightRef.current += 1;
+      void (async () => {
+        try {
+          if (!isValidChartTicker(key)) {
+            DataCache.setPercentB(key, null);
+          } else {
+            const chart = await fetchStockChart(key, "6mo", "1d");
+            DataCache.setPercentB(key, chart.summary?.percent_b ?? null);
+          }
+        } catch {
+          DataCache.setPercentB(key, null);
+        } finally {
+          pbInflightRef.current -= 1;
+          pbPendingRef.current.delete(key);
+          const snap = DataCache.getAllPercentB();
+          setLocalPercentB((prev) =>
+            prev[key] === snap[key] ? prev : { ...prev, [key]: snap[key] ?? null }
+          );
+          onPercentBUpdateRef.current?.(snap);
+          pumpPbQueue();
+        }
+      })();
+    }
+  }, []);
+
+  const ensurePercentB = useCallback(
+    (rawTicker: string) => {
+      const key = chartTickerKey(rawTicker || "");
+      if (!key) return;
+      // 캐시 적중이면 로컬/부모로 승격만 (상세 헤더도 즉시 표시)
+      const cached = DataCache.getPercentB(key);
+      if (cached !== undefined) {
+        const snap = DataCache.getAllPercentB();
+        setLocalPercentB((prev) => {
+          let changed = false;
+          for (const k of Object.keys(snap)) {
+            if (prev[k] !== snap[k]) {
+              changed = true;
+              break;
+            }
+          }
+          return changed ? { ...prev, ...snap } : prev;
+        });
+        onPercentBUpdateRef.current?.(snap);
+        return;
+      }
+      if (pbPendingRef.current.has(key) || pbQueueRef.current.includes(key)) return;
+      pbQueueRef.current.push(key);
+      pumpPbQueue();
+    },
+    [pumpPbQueue]
+  );
+
+  const pbObserverRef = useRef<IntersectionObserver | null>(null);
+  const getPbObserver = useCallback(() => {
+    if (pbObserverRef.current) return pbObserverRef.current;
+    pbObserverRef.current = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const el = entry.target as HTMLElement;
+          const raw = el.getAttribute("data-pb-raw") || el.getAttribute("data-pb-ticker") || "";
+          pbObserverRef.current?.unobserve(el);
+          if (raw) {
+            // data-pb-raw는 원 티커, 없으면 키를 그대로 사용
+            ensurePercentB(raw);
+          }
+        }
+      },
+      { rootMargin: "300px 0px", threshold: 0.01 }
+    );
+    return pbObserverRef.current;
+  }, [ensurePercentB]);
+
+  useEffect(
+    () => () => {
+      pbObserverRef.current?.disconnect();
+      pbObserverRef.current = null;
+    },
+    []
+  );
+
+  // 행 ref 콜백: 화면에 보이는 순간 ensurePercentB 발동
+  const observePbRow = useCallback(
+    (rawTicker: string, key: string) => (el: HTMLLIElement | null) => {
+      if (!el) return;
+      el.setAttribute("data-pb-raw", rawTicker);
+      el.setAttribute("data-pb-ticker", key);
+      // 이미 캐시에 있으면 조회 생략
+      if (DataCache.getPercentB(key) !== undefined) return;
+      getPbObserver().observe(el);
+    },
+    [getPbObserver]
+  );
 
   const isAll = activeSectionFilter === "all";
 
@@ -972,7 +1093,8 @@ export function ResearchCatalogView({
                       report.current_price
                     );
                     const ticker = report.ticker;
-                    const percentB = percentBByTicker[chartTickerKey(ticker)];
+                    const pbKey = chartTickerKey(ticker);
+                    const percentB = mergedPercentB[pbKey];
 
                     return (
                       <StockListItem
@@ -982,6 +1104,8 @@ export function ResearchCatalogView({
                         logo={renderLogo(ticker)}
                         insight={toItemInsight(insight)}
                         percentB={percentB}
+                        rowRef={observePbRow(ticker, pbKey)}
+                        rowKey={pbKey}
                         onClick={() => onSelectReport(report)}
                         badges={
                           <span className="text-[11px] text-[#64748b] ml-auto sm:ml-0 flex items-center gap-1">
@@ -1068,8 +1192,8 @@ export function ResearchCatalogView({
                 <ul className="divide-y divide-[#f1f5f9] -my-2">
                   {displayedRoma.map((c, idx) => {
                     const insight = getInsight(c.ticker, c.price);
-                    const percentB =
-                      percentBByTicker[chartTickerKey(c.ticker)];
+                    const pbKey = chartTickerKey(c.ticker);
+                    const percentB = mergedPercentB[pbKey];
 
                     return (
                       <StockListItem
@@ -1079,6 +1203,8 @@ export function ResearchCatalogView({
                         logo={renderLogo(c.ticker, c.logo_image_url)}
                         insight={toItemInsight(insight)}
                         percentB={percentB}
+                        rowRef={observePbRow(c.ticker, pbKey)}
+                        rowKey={pbKey}
                         onClick={() => onSelectCandidate(c)}
                         priceText={formatPriceByNation(c.price, undefined, c.ticker)}
                         badges={
@@ -1253,8 +1379,8 @@ export function ResearchCatalogView({
                 <ul className="divide-y divide-[#f1f5f9] -my-2">
                   {displayedCandidates.map((c, idx) => {
                     const insight = getInsight(c.ticker, c.price);
-                    const percentB =
-                      percentBByTicker[chartTickerKey(c.ticker)];
+                    const pbKey = chartTickerKey(c.ticker);
+                    const percentB = mergedPercentB[pbKey];
                     const isKr = c.nation === "kr" || candidateMarket === "kr";
 
                     return (
@@ -1265,6 +1391,8 @@ export function ResearchCatalogView({
                         logo={renderLogo(c.ticker, c.logo_image_url)}
                         insight={toItemInsight(insight)}
                         percentB={percentB}
+                        rowRef={observePbRow(c.ticker, pbKey)}
+                        rowKey={pbKey}
                         onClick={() => onSelectCandidate(c)}
                         rankPrefix={`#${c.rank || idx + 1}`}
                         priceText={formatPriceByNation(c.price, c.nation || candidateMarket, c.ticker)}

@@ -448,71 +448,40 @@ export function DashboardView({
     }
   }, []);
 
-  // %B 비동기 우선순위 로딩 (상세 뷰 모드에서는 실행하지 않음)
+  // %B는 목록(ResearchCatalogView)에서 보이는 행만 지연 로딩한다.
+  // 여기는 상세 문서 헤더용 단일 티커만 보장한다.
+  const handlePercentBUpdate = useCallback((next: Record<string, number | null>) => {
+    setPercentBByTicker(next);
+  }, []);
+
   useEffect(() => {
-    if (initialTicker) return;
-
-    const priorityTickers = Array.from(
-      new Set([
-        ...guruReports.slice(0, 20).map((r) => r.ticker),
-        ...liveCandidates.slice(0, 10).map((c) => c.ticker),
-        ...krCandidates.slice(0, 5).map((c) => c.ticker),
-        ...romaCandidates.slice(0, 10).map((c) => c.ticker),
-      ])
-    )
-      .map((t) => chartTickerKey(t))
-      .filter((t) => Boolean(t) && DataCache.getPercentB(t) === undefined);
-
-    if (priorityTickers.length === 0) return;
-
-    const invalidTickers = priorityTickers.filter((t) => !isValidChartTicker(t));
-    const validTickers = priorityTickers.filter((t) => isValidChartTicker(t));
-
-    if (invalidTickers.length > 0) {
-      for (const t of invalidTickers) {
-        DataCache.setPercentB(t, null);
-      }
-      setPercentBByTicker(DataCache.getAllPercentB());
+    const target = selectedDocReport?.ticker || initialTicker;
+    if (!target) return;
+    const key = chartTickerKey(target);
+    if (!key) return;
+    // 마운트 스냅샷에 이미 있으면 동기 setState 생략 (캐시=진실, 목록 콜백이 갱신)
+    if (DataCache.getPercentB(key) !== undefined) return;
+    if (!isValidChartTicker(key)) {
+      DataCache.setPercentB(key, null);
+      queueMicrotask(() => setPercentBByTicker(DataCache.getAllPercentB()));
+      return;
     }
-
-    if (validTickers.length === 0) return;
-
     let cancelled = false;
-    const chunkSize = 4;
-
-    const loadPercentB = async () => {
-      for (let i = 0; i < validTickers.length; i += chunkSize) {
+    fetchStockChart(key, "6mo", "1d")
+      .then((chart) => {
         if (cancelled) return;
-        const chunk = validTickers.slice(i, i + chunkSize);
-
-        const results = await Promise.all(
-          chunk.map(async (ticker) => {
-            try {
-              const chart = await fetchStockChart(ticker, "6mo", "1d");
-              return { ticker, percentB: chart.summary?.percent_b ?? null };
-            } catch {
-              return { ticker, percentB: null };
-            }
-          })
-        );
-
-        if (cancelled) return;
-        for (const res of results) {
-          DataCache.setPercentB(res.ticker, res.percentB);
-        }
+        DataCache.setPercentB(key, chart.summary?.percent_b ?? null);
         setPercentBByTicker(DataCache.getAllPercentB());
-
-        if (i + chunkSize < validTickers.length) {
-          await new Promise((resolve) => setTimeout(resolve, 80));
-        }
-      }
-    };
-
-    loadPercentB();
+      })
+      .catch(() => {
+        if (cancelled) return;
+        DataCache.setPercentB(key, null);
+        setPercentBByTicker(DataCache.getAllPercentB());
+      });
     return () => {
       cancelled = true;
     };
-  }, [initialTicker, guruReports, liveCandidates, krCandidates, romaCandidates]);
+  }, [selectedDocReport?.ticker, initialTicker]);
 
   const handleTriggerPipeline = async () => {
     setIsActionLoading(true);
@@ -812,6 +781,7 @@ export function DashboardView({
                 isRomaLoading={isRomaLoading}
                 krTightenStep={krTightenStep}
                 percentBByTicker={percentBByTicker}
+                onPercentBUpdate={handlePercentBUpdate}
                 onRefreshLive={() => loadLiveScreener(true)}
                 onRefreshKr={() => loadKrScreener(true)}
                 onRefreshRoma={() => loadRomaScreener(true)}

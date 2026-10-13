@@ -16,7 +16,7 @@ interface GlobalMemoryCache {
   krCandidates?: { data: StockCandidate[]; expiresAt: number };
   romaCandidates?: { data: StockCandidate[]; expiresAt: number };
   systemLogs?: { data: SystemLogItem[]; expiresAt: number };
-  percentB: Map<string, number | null>;
+  percentB: Map<string, { value: number | null; expiresAt: number }>;
   /** 티커 -> 로고 URL 맵 (배치 조회 결과, 메모리 유지) */
   tickerLogos: Map<string, string>;
   /** 티커 -> 한글 종목명 맵 (ticker_logos 캐시) */
@@ -24,6 +24,7 @@ interface GlobalMemoryCache {
 }
 
 const CACHE_TTL_MS = 3 * 60 * 1000; // 3분간 캐시 유지
+const PERCENTB_TTL_MS = 5 * 60 * 1000; // %B 5분 TTL (만료 시 재조회, 그 전엔 로컬 재사용)
 
 const cache: GlobalMemoryCache = {
   reportsByDate: new Map(),
@@ -94,15 +95,26 @@ export const DataCache = {
   },
 
   getPercentB: (ticker: string): number | null | undefined => {
-    return cache.percentB.get(ticker);
+    const entry = cache.percentB.get(ticker);
+    if (!entry) return undefined;
+    if (entry.expiresAt <= Date.now()) {
+      cache.percentB.delete(ticker);
+      return undefined;
+    }
+    return entry.value;
   },
   setPercentB: (ticker: string, val: number | null) => {
-    cache.percentB.set(ticker, val);
+    cache.percentB.set(ticker, { value: val, expiresAt: Date.now() + PERCENTB_TTL_MS });
   },
   getAllPercentB: () => {
     const obj: Record<string, number | null> = {};
-    for (const [k, v] of cache.percentB.entries()) {
-      obj[k] = v;
+    const now = Date.now();
+    for (const [k, entry] of cache.percentB.entries()) {
+      if (entry.expiresAt <= now) {
+        cache.percentB.delete(k);
+        continue;
+      }
+      obj[k] = entry.value;
     }
     return obj;
   },
