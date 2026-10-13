@@ -515,13 +515,6 @@ export function ResearchCatalogView({
                 </span>
                 <span>DISCOVERY CANDIDATES</span>
               </div>
-              <span>·</span>
-              <div className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#0f172a] live-dot" />
-                <span className="text-[#0f172a] font-semibold">
-                  12:00 BATCH ENGINE READY
-                </span>
-              </div>
             </dl>
 
             {/* 빠른 검색창 */}

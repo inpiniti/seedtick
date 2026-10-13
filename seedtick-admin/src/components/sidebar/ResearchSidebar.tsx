@@ -259,17 +259,6 @@ export function ResearchSidebar({
         aria-label="리서치 문서 탐색"
       >
         {renderContent()}
-
-        {/* 하단 시스템 연결 상태 */}
-        <div className="p-4 border-t border-[#e2e8f0] bg-[#fafafa]">
-          <div className="flex items-center justify-between text-[11px] font-mono text-[#64748b]">
-            <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span>AI Gateway Connected</span>
-            </span>
-            <span className="text-[#94a3b8]">12:00 BATCH</span>
-          </div>
-        </div>
       </aside>
 
       {/* ── 2. 모바일 슬라이드오버 드로어 (lg 미만) ── */}
@@ -305,17 +294,6 @@ export function ResearchSidebar({
 
             {/* 네비게이션 콘텐츠 */}
             {renderContent()}
-
-            {/* 하단 시스템 연결 상태 */}
-            <div className="p-4 border-t border-[#e2e8f0] bg-[#fafafa]">
-              <div className="flex items-center justify-between text-[11px] font-mono text-[#64748b]">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  <span>AI Gateway Connected</span>
-                </span>
-                <span className="text-[#94a3b8]">12:00 BATCH</span>
-              </div>
-            </div>
           </aside>
         </div>
       )}
