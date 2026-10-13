@@ -118,6 +118,7 @@ async def build_master_report(
 JSON 객체 하나만 출력한다. 필드는 hot_topics(문자열 배열),
 bull_points(문자열 배열), bear_points(문자열 배열), key_drivers(문자열 배열)다.
 각 배열은 최대 5개이며, 입력에 없는 사실을 추가하지 않는다.
+마크다운 취소선(~~)을 쓰지 마라. 범위·근사 표기는 물결표(~) 대신 '–' 또는 '부터/까지'를 써라(예: Q1–Q3, 140조–150조원).
 """
 
     narrative_payload: dict[str, Any] | None = None

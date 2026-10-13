@@ -13,7 +13,11 @@ export function MarkdownViewer({ content, className = "" }: MarkdownViewerProps)
   return (
     <div className={`text-[#0f172a] leading-relaxed text-sm ${className}`}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        // singleTilde:false → GFM 표준(~~만 취소선)과 동일하게 렌더링.
+        // AI가 범위·근사 표기로 쓰는 단일 물결표(Q1~Q3, 140조~150조원, $150 ~ $175)가
+        // remark-gfm 기본값(singleTilde:true)에서 <del>로 오해석돼
+        // 불릿 전체에 취소선이 그어지는 문제를 방지한다.
+        remarkPlugins={[[remarkGfm, { singleTilde: false }]]}
         components={{
           h1: ({ children }) => (
             <h1 className="text-xl sm:text-2xl font-bold text-[#0f172a] mt-7 mb-3.5 pb-2 border-b border-[#e2e8f0] tracking-tight">
