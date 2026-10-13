@@ -64,6 +64,7 @@ class Settings(BaseSettings):
     AI_GATEWAY_SECRET: str = ""  # seedtick-ai-gateway의 GATEWAY_SECRET (Bearer 토큰)
     AI_CONCURRENCY: int = 13  # 전역 AI 동시 호출 상한 (여러 티커 파이프라인이 공유하는 세마포어 크기)
     AI_REQUEST_INTERVAL_SEC: float = 0.0  # 요청 간 대기시간(초)
+    AI_RETRY_DELAY_SEC: float = 1.0  # AI 슬롯 재시도 및 429 RateLimit 대기시간(초)
     AI_GATEWAY_MAX_TOKENS: int = 32768  # 모델 최대 생성 토큰 (32K 지원)
 
     # 프롬프트 규격 버전 (guru_opinions.prompt_version 에 기록 → 품질 회귀 추적용)

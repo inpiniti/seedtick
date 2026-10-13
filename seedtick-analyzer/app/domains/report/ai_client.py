@@ -543,6 +543,7 @@ class AiGatewayClient:
         # ── 1. 직접 호출 모드 (통합 슬롯 풀 교차 라운드로빈 로테이션) ──
         if self.use_direct and self.slots:
             max_attempts = max(6, len(self.slots) * 2)
+            retry_delay = getattr(settings, "AI_RETRY_DELAY_SEC", 1.0)
             logger.info(
                 f"[AiClient] 🚀 통합 풀 호출 시작 (총 {len(self.slots)}개 슬롯 교차 로테이션, 최대 {max_attempts}회 시도)"
             )
@@ -572,14 +573,14 @@ class AiGatewayClient:
                         async with _stream_post(
                             client, slot.base_url, payload, headers
                         ) as res:
-                            # 429 RateLimit 대응: 0.5초 대기 후 다음 슬롯으로 전환 (연사 버스트 방지)
+                            # 429 RateLimit 대응: retry_delay 대기 후 다음 슬롯으로 전환 (연사 버스트 방지)
                             if res.status_code == 429:
                                 logger.warning(
                                     f"[AiClient] 429 RateLimit 감지 ([{slot.provider}], 키: {key_masked}) "
                                     f"-> 다음 슬롯으로 전환 (시도 {attempt}/{max_attempts})"
                                 )
-                                if attempt < max_attempts:
-                                    await asyncio.sleep(0.5)
+                                if attempt < max_attempts and retry_delay > 0:
+                                    await asyncio.sleep(retry_delay)
                                 continue
 
                             # 503/500 등 모델 레벨 HTTP 에러 판별
@@ -605,8 +606,8 @@ class AiGatewayClient:
                                         f"(사유={why}) → 모델 순위 전환 {failed_model} → {new_model} "
                                         f"(키: {key_masked}) — 계속 시도 ({attempt}/{max_attempts})"
                                     )
-                                    if attempt < max_attempts:
-                                        await asyncio.sleep(0.5)
+                                    if attempt < max_attempts and retry_delay > 0:
+                                        await asyncio.sleep(retry_delay)
                                     continue
 
                                 # 기타 HTTP 에러
@@ -614,8 +615,8 @@ class AiGatewayClient:
                                     f"[AiClient] HTTP {res.status_code} ([{slot.provider}], 키: {key_masked}): "
                                     f"{err_text[:180]} (시도 {attempt}/{max_attempts})"
                                 )
-                                if attempt < max_attempts:
-                                    await asyncio.sleep(0.5)
+                                if attempt < max_attempts and retry_delay > 0:
+                                    await asyncio.sleep(retry_delay)
                                 continue
 
                             # 200 OK — SSE 스트림(또는 JSON 폴백) 소비
@@ -644,8 +645,8 @@ class AiGatewayClient:
                                             f"[AiClient] ⚠️ [{slot.provider}] 200 OK 이지만 choices[] 빈 배열 (키: {key_masked}) "
                                             f"— 다음 슬롯으로 재시도 ({attempt}/{max_attempts})"
                                         )
-                                    if attempt < max_attempts:
-                                        await asyncio.sleep(0.5)
+                                    if attempt < max_attempts and retry_delay > 0:
+                                        await asyncio.sleep(retry_delay)
                                     continue
 
                                 is_model_level, why = _is_model_level_failure(
@@ -670,8 +671,8 @@ class AiGatewayClient:
                                         f"(code={err_code}, msg={err_msg}) (키: {key_masked}) "
                                         f"— 다음 슬롯으로 재시도 ({attempt}/{max_attempts})"
                                     )
-                                if attempt < max_attempts:
-                                    await asyncio.sleep(0.5)
+                                if attempt < max_attempts and retry_delay > 0:
+                                    await asyncio.sleep(retry_delay)
                                 continue
 
                             if finish_reason == "length":
@@ -689,8 +690,8 @@ class AiGatewayClient:
                                     f"응답이 토큰 한도로 잘림! (모델 전환: {failed_model} → {new_model}) "
                                     f"— 계속 시도 ({attempt}/{max_attempts})"
                                 )
-                                if attempt < max_attempts:
-                                    await asyncio.sleep(0.5)
+                                if attempt < max_attempts and retry_delay > 0:
+                                    await asyncio.sleep(retry_delay)
                                 continue
 
                             if not content or not content.strip():
@@ -714,8 +715,8 @@ class AiGatewayClient:
                                         f"(finish_reason={finish_reason}) (키: {key_masked}) "
                                         f"— 다음 슬롯으로 재시도 ({attempt}/{max_attempts})"
                                     )
-                                if attempt < max_attempts:
-                                    await asyncio.sleep(0.5)
+                                if attempt < max_attempts and retry_delay > 0:
+                                    await asyncio.sleep(retry_delay)
                                 continue
 
                             # 성공 완료 — 연속 실패 카운터/프로모션 백오프 해제
@@ -738,8 +739,8 @@ class AiGatewayClient:
                         f"시도 {attempt}/{max_attempts}"
                     )
 
-                if attempt < max_attempts:
-                    await asyncio.sleep(0.5)
+                if attempt < max_attempts and retry_delay > 0:
+                    await asyncio.sleep(retry_delay)
 
             raise RuntimeError(
                 f"모든 AI 슬롯 호출 실패 (총 {len(self.slots)}개 슬롯, {max_attempts}회 시도 소진)"
