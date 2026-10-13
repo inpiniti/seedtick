@@ -496,7 +496,9 @@ class GuruReportService:
             "current_price": datapack.current_price,
             "overview": datapack.overview,
             "income_annual": [r.model_dump() for r in datapack.income_annual],
+            "income_quarterly": [r.model_dump() for r in datapack.income_quarterly],
             "cashflow_annual": [c.model_dump() for c in datapack.cashflow_annual],
+            "cashflow_quarterly": [c.model_dump() for c in datapack.cashflow_quarterly],
             "balance_sheet": datapack.balance_sheet.model_dump(),
             "valuation": datapack.valuation.model_dump(),
             "valuation_consensus": {

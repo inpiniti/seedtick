@@ -41,6 +41,8 @@ function formatRatio(val: number | null | undefined, suffix = "x"): string {
 }
 
 export function ReportDatapackView({ datapack }: ReportDatapackViewProps) {
+  const [periodTab, setPeriodTab] = React.useState<"annual" | "quarterly">("annual");
+
   if (!datapack) {
     return (
       <EmptyState
@@ -60,11 +62,17 @@ export function ReportDatapackView({ datapack }: ReportDatapackViewProps) {
     valuation,
     balance_sheet,
     income_annual,
+    income_quarterly,
     market_metrics,
     analyst_consensus,
     news_items,
     value_drivers,
   } = datapack;
+
+  const hasAnnual = Array.isArray(income_annual) && income_annual.length > 0;
+  const hasQuarterly = Array.isArray(income_quarterly) && income_quarterly.length > 0;
+  const currentTab = (periodTab === "quarterly" && hasQuarterly) ? "quarterly" : (hasAnnual ? "annual" : "quarterly");
+  const activeRows = currentTab === "quarterly" ? income_quarterly : income_annual;
 
   return (
     <div className="space-y-6 text-[#0f172a] font-sans">
@@ -190,18 +198,48 @@ export function ReportDatapackView({ datapack }: ReportDatapackViewProps) {
         </div>
       )}
 
-      {/* 4. 연간 손익 요약 테이블 */}
-      {Array.isArray(income_annual) && income_annual.length > 0 && (
+      {/* 4. 손익 요약 테이블 (연간 / 최근 분기 전환 탭) */}
+      {(hasAnnual || hasQuarterly) && (
         <div className="space-y-2">
-          <h4 className="text-xs font-mono font-medium text-[#64748b] uppercase tracking-wider flex items-center gap-1.5">
-            <BarChart3 className="w-3.5 h-3.5 text-[#0f172a]" />
-            Annual Income Statement
-          </h4>
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-mono font-medium text-[#64748b] uppercase tracking-wider flex items-center gap-1.5">
+              <BarChart3 className="w-3.5 h-3.5 text-[#0f172a]" />
+              {currentTab === "annual" ? "Annual Income Statement" : "Quarterly Income Statement"}
+            </h4>
+
+            {hasAnnual && hasQuarterly && (
+              <div className="inline-flex rounded-lg bg-[#f1f5f9] p-0.5 border border-[#e2e8f0]">
+                <button
+                  type="button"
+                  onClick={() => setPeriodTab("annual")}
+                  className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all cursor-pointer ${
+                    currentTab === "annual"
+                      ? "bg-white text-[#0f172a] shadow-xs font-semibold"
+                      : "text-[#64748b] hover:text-[#0f172a]"
+                  }`}
+                >
+                  연간 (Annual)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPeriodTab("quarterly")}
+                  className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all cursor-pointer ${
+                    currentTab === "quarterly"
+                      ? "bg-white text-[#0f172a] shadow-xs font-semibold"
+                      : "text-[#64748b] hover:text-[#0f172a]"
+                  }`}
+                >
+                  최근 분기 (Quarterly)
+                </button>
+              </div>
+            )}
+          </div>
+
           <div className="overflow-x-auto rounded-md border border-[#e2e8f0]">
             <table className="w-full min-w-[560px] text-xs font-mono text-left">
               <thead className="bg-[#f8fafc] text-[#64748b] font-medium border-b border-[#e2e8f0]">
                 <tr>
-                  <th className="py-2 px-3 whitespace-nowrap">Year</th>
+                  <th className="py-2 px-3 whitespace-nowrap">{currentTab === "annual" ? "Year" : "Quarter"}</th>
                   <th className="py-2 px-3 whitespace-nowrap">Revenue</th>
                   <th className="py-2 px-3 whitespace-nowrap">Gross Margin</th>
                   <th className="py-2 px-3 whitespace-nowrap">Op Income</th>
@@ -211,9 +249,11 @@ export function ReportDatapackView({ datapack }: ReportDatapackViewProps) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#f1f5f9] bg-white">
-                {income_annual.map((row: any, idx: number) => (
+                {activeRows.map((row: any, idx: number) => (
                   <tr key={idx} className="hover:bg-[#f8fafc]">
-                    <td className="py-2 px-3 font-bold text-[#0f172a] whitespace-nowrap">{row.year}</td>
+                    <td className="py-2 px-3 font-bold text-[#0f172a] whitespace-nowrap">
+                      {row.period || row.year}
+                    </td>
                     <td className="py-2 px-3 whitespace-nowrap tabular-nums">{formatLargeNumber(row.revenue)}</td>
                     <td className="py-2 px-3 whitespace-nowrap tabular-nums">{formatPercent(row.gross_margin_pct)}</td>
                     <td className="py-2 px-3 whitespace-nowrap tabular-nums">{formatLargeNumber(row.operating_income)}</td>

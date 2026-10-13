@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 # ── 1. DataPack 모델 ─────────────────────────────────────
 class FinancialStatementRow(BaseModel):
     year: str
+    period: str | None = None
     revenue: float | None = None
     revenue_growth_pct: float | None = None
     gross_profit: float | None = None
@@ -21,6 +22,7 @@ class FinancialStatementRow(BaseModel):
 
 class CashFlowRow(BaseModel):
     year: str
+    period: str | None = None
     operating_cash_flow: float | None = None
     capex: float | None = None
     fcf: float | None = None
@@ -63,7 +65,9 @@ class StockDataPack(BaseModel):
     financial_currency: str = "USD"  # 재무제표 원장 통화 (예: KRW, USD)
     overview: str
     income_annual: list[FinancialStatementRow] = Field(default_factory=list)
+    income_quarterly: list[FinancialStatementRow] = Field(default_factory=list)
     cashflow_annual: list[CashFlowRow] = Field(default_factory=list)
+    cashflow_quarterly: list[CashFlowRow] = Field(default_factory=list)
     balance_sheet: BalanceSheetRow = Field(default_factory=BalanceSheetRow)
     valuation: ValuationRow
     market_metrics: dict = Field(default_factory=dict)

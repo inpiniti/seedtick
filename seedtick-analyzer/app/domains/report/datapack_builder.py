@@ -292,14 +292,19 @@ class DataPackBuilder:
 
     async def _fetch_timeseries(self, client: httpx.AsyncClient, ticker: str) -> dict:
         types = [
+            # 연간 지표
             "annualTotalRevenue", "annualGrossProfit", "annualOperatingIncome",
             "annualNetIncome", "annualDilutedEPS", "annualOperatingCashFlow",
             "annualFreeCashFlow", "annualCapitalExpenditure", "annualTotalDebt",
             "annualStockholdersEquity", "annualCashAndCashEquivalents",
             "annualCurrentAssets", "annualCurrentLiabilities",
+            # 분기 지표 (최근 5분기 실적)
+            "quarterlyTotalRevenue", "quarterlyGrossProfit", "quarterlyOperatingIncome",
+            "quarterlyNetIncome", "quarterlyDilutedEPS", "quarterlyOperatingCashFlow",
+            "quarterlyCapitalExpenditure", "quarterlyFreeCashFlow",
         ]
         yahoo_ticker = normalize_yahoo_ticker(ticker)
-        now_ts = int(datetime.now().timestamp())
+        now_ts = int(datetime.now().timestamp()) + 86400 * 30
         url = (
             f"{Y1}/ws/fundamentals-timeseries/v1/finance/timeseries/{yahoo_ticker}"
             f"?type={','.join(types)}&period1=1420070400&period2={now_ts}"
@@ -541,9 +546,11 @@ class DataPackBuilder:
             dividend_yield_pct=(dividend_yield * 100) if dividend_yield else None,
         )
 
-        # Timeseries 파싱
-        income_rows = self._parse_income_rows(ts)
-        cashflow_rows = self._parse_cashflow_rows(ts)
+        # Timeseries 파싱 (연간 5개년 + 최근 5개 분기)
+        income_rows = self._parse_income_rows(ts, is_quarterly=False)
+        income_quarterly_rows = self._parse_income_rows(ts, is_quarterly=True)
+        cashflow_rows = self._parse_cashflow_rows(ts, is_quarterly=False)
+        cashflow_quarterly_rows = self._parse_cashflow_rows(ts, is_quarterly=True)
         balance_sheet = self._parse_balance_sheet(ts, fin_data)
 
         summary_text = f"{short_summary}..." if short_summary else "N/A"
@@ -624,7 +631,9 @@ class DataPackBuilder:
             financial_currency=resolved_fin_curr,
             overview=overview,
             income_annual=income_rows,
+            income_quarterly=income_quarterly_rows,
             cashflow_annual=cashflow_rows,
+            cashflow_quarterly=cashflow_quarterly_rows,
             balance_sheet=balance_sheet,
             valuation=valuation,
             market_metrics=market_metrics,
@@ -633,12 +642,25 @@ class DataPackBuilder:
             ir_schedule=ir_schedule,
         )
 
-    def _parse_income_rows(self, ts: dict) -> list[FinancialStatementRow]:
-        rev_s = self._series(ts, "annualTotalRevenue")
-        gp_s = self._series(ts, "annualGrossProfit")
-        op_s = self._series(ts, "annualOperatingIncome")
-        net_s = self._series(ts, "annualNetIncome")
-        eps_s = self._series(ts, "annualDilutedEPS")
+    @staticmethod
+    def _format_quarter_label(date_str: str) -> str:
+        """YYYY-MM-DD -> YYYY-QX (예: 2026-06-30 -> 2026-Q2)"""
+        try:
+            parts = date_str.split("-")
+            year = parts[0]
+            month = int(parts[1])
+            q = (month - 1) // 3 + 1
+            return f"{year}-Q{q}"
+        except Exception:
+            return date_str
+
+    def _parse_income_rows(self, ts: dict, is_quarterly: bool = False) -> list[FinancialStatementRow]:
+        prefix = "quarterly" if is_quarterly else "annual"
+        rev_s = self._series(ts, f"{prefix}TotalRevenue")
+        gp_s = self._series(ts, f"{prefix}GrossProfit")
+        op_s = self._series(ts, f"{prefix}OperatingIncome")
+        net_s = self._series(ts, f"{prefix}NetIncome")
+        eps_s = self._series(ts, f"{prefix}DilutedEPS")
 
         dates = sorted(list({p["date"] for p in rev_s + op_s + net_s}))[-5:]
         rows = []
@@ -653,9 +675,12 @@ class DataPackBuilder:
             om = (op / r * 100) if (op and r) else None
             nm = (ni / r * 100) if (ni and r) else None
 
+            label = self._format_quarter_label(d) if is_quarterly else d[:4]
+
             rows.append(
                 FinancialStatementRow(
-                    year=d[:4],
+                    year=label,
+                    period=label,
                     revenue=r,
                     gross_profit=gp,
                     gross_margin_pct=gm,
@@ -668,10 +693,11 @@ class DataPackBuilder:
             )
         return rows
 
-    def _parse_cashflow_rows(self, ts: dict) -> list[CashFlowRow]:
-        ocf_s = self._series(ts, "annualOperatingCashFlow")
-        capex_s = self._series(ts, "annualCapitalExpenditure")
-        fcf_s = self._series(ts, "annualFreeCashFlow")
+    def _parse_cashflow_rows(self, ts: dict, is_quarterly: bool = False) -> list[CashFlowRow]:
+        prefix = "quarterly" if is_quarterly else "annual"
+        ocf_s = self._series(ts, f"{prefix}OperatingCashFlow")
+        capex_s = self._series(ts, f"{prefix}CapitalExpenditure")
+        fcf_s = self._series(ts, f"{prefix}FreeCashFlow")
 
         dates = sorted(list({p["date"] for p in ocf_s + fcf_s}))[-5:]
         rows = []
@@ -679,9 +705,11 @@ class DataPackBuilder:
             ocf = self._val(ocf_s, d)
             capex = self._val(capex_s, d)
             fcf = self._val(fcf_s, d)
+            label = self._format_quarter_label(d) if is_quarterly else d[:4]
             rows.append(
                 CashFlowRow(
-                    year=d[:4],
+                    year=label,
+                    period=label,
                     operating_cash_flow=ocf,
                     capex=capex,
                     fcf=fcf,
@@ -777,7 +805,7 @@ class DataPackBuilder:
             "",
             "---",
             "",
-            "## 2. 재무 제표 (연간 시계열)",
+            "## 2. 재무 제표 (연간 및 최근 분기 시계열)",
         ]
 
         if is_krw:
@@ -791,7 +819,7 @@ class DataPackBuilder:
             ])
 
         lines.extend([
-            "### 손익계산서",
+            "### 손익계산서 (연간 추이)",
             "| 연도 | 매출액 | 매출총이익률 | 영업이익 | 영업이익률 | 순이익 | 순이익률 | EPS |",
             "|---|---|---|---|---|---|---|---|",
         ])
@@ -808,6 +836,28 @@ class DataPackBuilder:
             lines.append(
                 f"| {r.year} | {self._money(r.revenue, is_krw)} | {gm} | {self._money(r.operating_income, is_krw)} | {om} | {self._money(r.net_income, is_krw)} | {nm} | {eps} |"
             )
+
+        if dp.income_quarterly:
+            lines.extend([
+                "",
+                "### 최근 분기 실적 추이 (최근 5개 분기)",
+                "> 💡 **[분기 실적 분석 가이드]**: 연간 장기 추세뿐만 아니라, 최근 분기 실적의 QoQ/YoY 성장률, 마진율 반등/둔화 모멘텀, 어닝 서프라이즈 여부를 분석 및 판단 근거에 적극 반영하십시오.",
+                "| 분기 | 매출액 | 매출총이익률 | 영업이익 | 영업이익률 | 순이익 | 순이익률 | EPS |",
+                "|---|---|---|---|---|---|---|---|",
+            ])
+            for r in dp.income_quarterly:
+                gm = f"{r.gross_margin_pct:.1f}%" if r.gross_margin_pct is not None else "—"
+                om = f"{r.operating_margin_pct:.1f}%" if r.operating_margin_pct is not None else "—"
+                nm = f"{r.net_margin_pct:.1f}%" if r.net_margin_pct is not None else "—"
+                if is_krw and r.eps is not None:
+                    eps = f"{r.eps:,.0f}원"
+                elif r.eps is not None:
+                    eps = f"${r.eps:.2f}"
+                else:
+                    eps = "—"
+                lines.append(
+                    f"| {r.year} | {self._money(r.revenue, is_krw)} | {gm} | {self._money(r.operating_income, is_krw)} | {om} | {self._money(r.net_income, is_krw)} | {nm} | {eps} |"
+                )
 
         lines.extend([
             "",

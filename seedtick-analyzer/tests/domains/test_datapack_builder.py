@@ -116,3 +116,57 @@ async def test_fetch_quote_summary_401_retry(monkeypatch, tmp_path: Path):
     assert call_counts["quote"] == 2
     assert res == {"quoteSummary": {"result": [{"summaryDetail": {"ok": 1}, "assetProfile": {"ok": 1}}]}}
 
+
+def test_datapack_quarterly_income_parsing_and_render(tmp_path: Path):
+    """분기(Quarterly) 손익/현금흐름 파싱 및 마크다운 렌더링 검증"""
+    builder = DataPackBuilder(base_report_dir=tmp_path)
+    mock_chart = {"chart": {"result": [{"meta": {"regularMarketPrice": 150.0}}]}}
+    mock_quote = {"quoteSummary": {"result": [{"financialData": {}, "assetProfile": {}}]}}
+    mock_ts = {
+        "timeseries": {
+            "result": [
+                {
+                    "annualTotalRevenue": [
+                        {"asOfDate": "2025-12-31", "reportedValue": {"raw": 100000000000}},
+                    ]
+                },
+                {
+                    "quarterlyTotalRevenue": [
+                        {"asOfDate": "2026-03-31", "reportedValue": {"raw": 25000000000}},
+                        {"asOfDate": "2026-06-30", "reportedValue": {"raw": 28000000000}},
+                    ]
+                },
+                {
+                    "quarterlyOperatingIncome": [
+                        {"asOfDate": "2026-03-31", "reportedValue": {"raw": 7500000000}},
+                        {"asOfDate": "2026-06-30", "reportedValue": {"raw": 8960000000}},
+                    ]
+                },
+                {
+                    "quarterlyDilutedEPS": [
+                        {"asOfDate": "2026-03-31", "reportedValue": {"raw": 1.50}},
+                        {"asOfDate": "2026-06-30", "reportedValue": {"raw": 1.80}},
+                    ]
+                },
+            ]
+        }
+    }
+
+    dp = builder._assemble_datapack("NVDA", "2026-10-13", mock_chart, mock_ts, mock_quote)
+    assert len(dp.income_annual) == 1
+    assert len(dp.income_quarterly) == 2
+
+    # 분기 라벨 검증
+    assert dp.income_quarterly[0].year == "2026-Q1"
+    assert dp.income_quarterly[1].year == "2026-Q2"
+    assert dp.income_quarterly[1].eps == 1.80
+    assert dp.income_quarterly[1].operating_margin_pct == pytest.approx(32.0, rel=1e-2)
+
+    # 마크다운 렌더링 검증
+    md = builder._render_markdown(dp)
+    assert "### 최근 분기 실적 추이 (최근 5개 분기)" in md
+    assert "2026-Q1" in md
+    assert "2026-Q2" in md
+    assert "32.0%" in md
+
+
