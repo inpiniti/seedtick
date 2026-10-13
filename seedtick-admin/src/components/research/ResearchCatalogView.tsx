@@ -643,7 +643,7 @@ export function ResearchCatalogView({
 
       {/* ── [거장 인사이트 & 탈리 요약 배너] (전체 홈 또는 리포트 뷰일 때 표시) ── */}
       {(isAll || activeSectionFilter === "sec-reports") &&
-        guruReports.length > 0 && (
+        (guruReports.length > 0 ? (
           <section className="px-6 lg:px-12 py-6 bg-[#f8fafc] border-b border-[#e2e8f0]">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 font-mono text-xs">
               {/* 1. 전체 표결 탈리 바 */}
@@ -720,7 +720,25 @@ export function ResearchCatalogView({
               </div>
             </div>
           </section>
-        )}
+        ) : isDashboardLoading || isReportsLoading ? (
+          <section
+            aria-label="요약 정보를 불러오는 중"
+            className="px-6 lg:px-12 py-6 bg-[#f8fafc] border-b border-[#e2e8f0]"
+          >
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="p-4 rounded-md bg-white border border-[#e2e8f0] space-y-2.5 shadow-xs"
+                >
+                  <div className="h-3.5 w-1/2 rounded bg-[#f1f5f9] animate-pulse" />
+                  <div className="h-3 w-full rounded bg-[#f8fafc] animate-pulse" />
+                  <div className="h-3 w-2/3 rounded bg-[#f8fafc] animate-pulse" />
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null)}
 
       {/* ── 2. SECTION 01: 가치평가 및 거장 심층 분석 보고서 전체 (1+2 통합) ── */}
       {isVisible("sec-reports") && (
