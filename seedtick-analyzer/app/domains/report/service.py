@@ -156,8 +156,8 @@ class GuruReportService:
         temperature_override: float | None = None,
     ) -> GuruSummaryDoc:
         """
-        13인 거장별 페르소나 프롬프트를 조립하여 AI 클라이언트를 최대 concurrency(기본 13)개 동시 병렬 처리합니다.
-        AI-Gateway의 키 로테이션 능력을 활용하여 빠르고 안정적으로 요약 블록을 완성합니다.
+        13인 거장별 페르소나 프롬프트를 조립하여 AI 클라이언트를 병렬 호출합니다.
+        동시 호출 수는 전역 AI 세마포어(settings.AI_CONCURRENCY)가 제어합니다.
         """
         date_str = datapack.date
         ticker = datapack.ticker
@@ -165,53 +165,50 @@ class GuruReportService:
         total_gurus = len(personas_list)
 
         logger.info(
-            f"[{ticker}] 13인 거장 요약 분석 시작 (총 {total_gurus}명, 동시 처리 한도: {self.concurrency}개)"
+            f"[{ticker}] 13인 거장 요약 분석 시작 (총 {total_gurus}명, 전역 AI 세마포어 공유)"
         )
         if self.progress:
             self.progress.set_guru_progress(0, total_gurus, ticker=ticker)
 
-        semaphore = asyncio.Semaphore(self.concurrency)
-
-        async def _fetch_with_sem(idx: int, p_key: str) -> tuple[int, PersonaSummaryBlock]:
+        async def _fetch_guru(idx: int, p_key: str) -> tuple[int, PersonaSummaryBlock]:
             # 거장 간 동시 호출로 인한 429 버스트 방지 (순차 출발 간격)
             if self.request_interval > 0:
                 await asyncio.sleep((idx - 1) * self.request_interval)
 
-            async with semaphore:
-                logger.info(f"[{ticker}] ({idx}/{total_gurus}) 거장 '{p_key}' 분석 시작...")
-                try:
-                    block = await self._fetch_single_persona_summary(
-                        p_key,
-                        datapack.raw_markdown,
-                        model_override=model_override,
-                        temperature_override=temperature_override,
-                    )  # compact 변환은 내부에서 처리
-                    logger.info(
-                        f"[{ticker}] 거장 '{p_key}' 분석 완료 -> "
-                        f"의견: {block.verdict} (확신도: {block.confidence}/10)"
-                    )
-                except Exception as e:
-                    logger.warning(
-                        f"[{ticker}] 거장 '{p_key}' 분석 중 오류 발생 ({e}) - 기본값 설정"
-                    )
-                    block = PersonaSummaryBlock(
-                        persona=p_key,
-                        verdict="관망",
-                        confidence=5,
-                        core_arguments=["AI 호출 제한 또는 지연으로 인한 기본값 판정"],
-                        quote="데이터를 조금 더 지켜보고 판단하겠다.",
-                        parse_mode="fallback",
-                    )
+            logger.info(f"[{ticker}] ({idx}/{total_gurus}) 거장 '{p_key}' 분석 시작...")
+            try:
+                block = await self._fetch_single_persona_summary(
+                    p_key,
+                    datapack.raw_markdown,
+                    model_override=model_override,
+                    temperature_override=temperature_override,
+                )  # compact 변환은 내부에서 처리
+                logger.info(
+                    f"[{ticker}] 거장 '{p_key}' 분석 완료 -> "
+                    f"의견: {block.verdict} (확신도: {block.confidence}/10)"
+                )
+            except Exception as e:
+                logger.warning(
+                    f"[{ticker}] 거장 '{p_key}' 분석 중 오류 발생 ({e}) - 기본값 설정"
+                )
+                block = PersonaSummaryBlock(
+                    persona=p_key,
+                    verdict="관망",
+                    confidence=5,
+                    core_arguments=["AI 호출 제한 또는 지연으로 인한 기본값 판정"],
+                    quote="데이터를 조금 더 지켜보고 판단하겠다.",
+                    parse_mode="fallback",
+                )
 
-                if self.progress:
-                    self.progress.tick_guru(ticker=ticker)
+            if self.progress:
+                self.progress.tick_guru(ticker=ticker)
 
-                if self.request_interval > 0:
-                    await asyncio.sleep(self.request_interval)
-                return idx, block
+            if self.request_interval > 0:
+                await asyncio.sleep(self.request_interval)
+            return idx, block
 
         tasks = [
-            _fetch_with_sem(idx, p_key)
+            _fetch_guru(idx, p_key)
             for idx, p_key in enumerate(personas_list, start=1)
         ]
         raw_results = await asyncio.gather(*tasks)

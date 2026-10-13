@@ -62,7 +62,7 @@ class Settings(BaseSettings):
     # 반복 실패 시 백오프 상한(초)
     AI_MODEL_PROMOTION_MAX_COOLDOWN_SEC: float = 3600.0
     AI_GATEWAY_SECRET: str = ""  # seedtick-ai-gateway의 GATEWAY_SECRET (Bearer 토큰)
-    AI_CONCURRENCY: int = 13  # 동시 처리 요청 수 (13인 거장 전원 동시 병렬)
+    AI_CONCURRENCY: int = 13  # 전역 AI 동시 호출 상한 (여러 티커 파이프라인이 공유하는 세마포어 크기)
     AI_REQUEST_INTERVAL_SEC: float = 0.0  # 요청 간 대기시간(초)
     AI_GATEWAY_MAX_TOKENS: int = 32768  # 모델 최대 생성 토큰 (32K 지원)
 

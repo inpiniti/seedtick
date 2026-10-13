@@ -17,6 +17,31 @@ from app.domains.report.model_rotation import model_rotation
 logger = logging.getLogger("ai_client")
 
 
+# ── 전역 AI 동시 호출 세마포어 (Lazy Singleton) ──────────────────
+# 여러 티커가 동시에 파이프라인을 실행해도, 전체 AI 호출 수를
+# settings.AI_CONCURRENCY로 제한하여 429 RateLimit 버스트를 방지한다.
+_global_ai_semaphore: asyncio.Semaphore | None = None
+
+
+def get_global_ai_semaphore() -> asyncio.Semaphore:
+    """전역 AI 동시 호출 세마포어를 반환한다 (lazy 초기화)."""
+    global _global_ai_semaphore
+    if _global_ai_semaphore is None:
+        _global_ai_semaphore = asyncio.Semaphore(settings.AI_CONCURRENCY)
+        logger.info(
+            "[AiClient] 🔒 전역 AI 세마포어 초기화 완료: "
+            "동시 호출 상한 %d개",
+            settings.AI_CONCURRENCY,
+        )
+    return _global_ai_semaphore
+
+
+def reset_global_ai_semaphore() -> None:
+    """테스트 전용: 전역 세마포어를 초기화하여 설정 변경을 반영한다."""
+    global _global_ai_semaphore
+    _global_ai_semaphore = None
+
+
 # 모델 레벨 실패로 판정해 다음 순위로 내려가야 하는 HTTP 상태 코드.
 # (키 쿼터/네트워크 문제는 429/예외이므로 여기에 포함하지 않는다)
 _MODEL_LEVEL_HTTP = {500, 502, 503, 504, 529}
@@ -443,12 +468,36 @@ class AiGatewayClient:
         temperature_override: float | None = None,
     ) -> str:
         """
-        채pletion 호출.
+        채팅 완성 호출 (전역 AI 세마포어 적용).
+
+        여러 티커 파이프라인이 동시에 호출해도 전체 AI 호출 수를
+        settings.AI_CONCURRENCY로 제한하여 429 RateLimit 버스트를 방지한다.
+        """
+        async with get_global_ai_semaphore():
+            return await self._chat_impl(
+                prompt,
+                system_prompt=system_prompt,
+                max_tokens=max_tokens,
+                model_override=model_override,
+                pin_model=pin_model,
+                temperature_override=temperature_override,
+            )
+
+    async def _chat_impl(
+        self,
+        prompt: str,
+        system_prompt: str = "",
+        max_tokens: int | None = None,
+        model_override: str | None = None,
+        pin_model: bool = False,
+        temperature_override: float | None = None,
+    ) -> str:
+        """
+        채팅 완성 호출 내부 구현.
 
         기본 호출은 활성 모델을 사용하고, 모델 레벨 실패 시 순위 체인을
         진행한다. pin_model=True인 보고서 호출은 모델을 고정한 채 다른 키 슬롯만
         재시도한다. temperature_override는 호출별 생성 다양성 설정이다.
-
         """
         messages = []
         if system_prompt:
