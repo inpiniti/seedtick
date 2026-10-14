@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import {
   AiModelStatus,
   GuruReportRow,
@@ -1015,11 +1016,25 @@ export function DashboardView({
               />
             </div>
 
-            {/* 우측: 콘솔 정보 & 아키텍처 */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-[#94a3b8] text-[11px]">
-              <span>SeedTick Research Console · 13 Gurus AI Valuation & Insight Archive</span>
+            {/* 우측: 콘솔 정보 & 법적 고지 링크 */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2.5 text-[#94a3b8] text-[11px]">
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/privacy"
+                  className="hover:text-[#0f172a] underline decoration-slate-300 transition-colors"
+                >
+                  개인정보처리방침
+                </Link>
+                <span>·</span>
+                <Link
+                  href="/terms"
+                  className="hover:text-[#0f172a] underline decoration-slate-300 transition-colors"
+                >
+                  서비스 이용약관
+                </Link>
+              </div>
               <span className="hidden sm:inline">·</span>
-              <span>API Gateway: seedtick-ai-gateway · Engine: seedtick-analyzer</span>
+              <span>SeedTick Research Console</span>
             </div>
           </div>
         </footer>

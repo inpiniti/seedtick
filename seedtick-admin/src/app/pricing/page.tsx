@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, X, Shield, Lock, CreditCard } from "lucide-react";
+import { ArrowLeft, Check, X, Shield, Lock } from "lucide-react";
 import { useSubscription } from "@/lib/subscription/SubscriptionContext";
 import { PRICING_PLANS } from "@/lib/subscription/types";
 
@@ -229,6 +229,15 @@ export default function PricingPage() {
           <p className="text-[11px] leading-relaxed">
             신용카드 자동 정기결제는 매달 동일한 날짜에 갱신되며, 언제든 해지 신청 시 결제된 마감일까지 Pro 혜택이 정상 유지됩니다.
           </p>
+          <div className="pt-2 flex items-center justify-center gap-3 text-[11px] text-[#94a3b8]">
+            <Link href="/privacy" className="hover:text-[#0f172a] underline decoration-slate-300">
+              개인정보처리방침
+            </Link>
+            <span>·</span>
+            <Link href="/terms" className="hover:text-[#0f172a] underline decoration-slate-300">
+              서비스 이용약관
+            </Link>
+          </div>
         </div>
       </div>
     </div>
