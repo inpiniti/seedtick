@@ -45,8 +45,22 @@ declare global {
 }
 
 const STORE_ID = process.env.NEXT_PUBLIC_PORTONE_STORE_ID || "store-test-seedtick";
-const CHANNEL_KEY_CARD = process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_CARD || "channel-key-card-test";
-const CHANNEL_KEY_EASYPAY = process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_EASYPAY || "channel-key-easypay-test";
+
+// 1. 정기 결제(카드 등록/빌링키) 전용 채널키
+const CHANNEL_KEY_BILLING =
+  process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_BILLING ||
+  process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_CARD ||
+  "channel-key-card-test";
+
+// 2. 일반 단건 결제(1년 이용권 등) 전용 채널키
+const CHANNEL_KEY_ONETIME =
+  process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_ONETIME ||
+  process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_CARD ||
+  CHANNEL_KEY_BILLING;
+
+// 3. 간편결제(카카오페이 등) 채널키 (없으면 일반 결제 채널키로 폴백)
+const CHANNEL_KEY_EASYPAY =
+  process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_EASYPAY || CHANNEL_KEY_ONETIME;
 
 /**
  * PortOne V2 브라우저 SDK를 동적으로 로드합니다.
@@ -96,7 +110,7 @@ export async function requestBillingKey(
   try {
     const response = await window.PortOne.requestIssueBillingKey({
       storeId: STORE_ID,
-      channelKey: CHANNEL_KEY_CARD,
+      channelKey: CHANNEL_KEY_BILLING,
       issueName: params.issueName,
       customer: {
         fullName: params.customerName || "SeedTick 회원",
@@ -141,7 +155,7 @@ export async function requestOneTimePayment(
 
   try {
     const channelKey =
-      params.payMethod === "EASY_PAY" ? CHANNEL_KEY_EASYPAY : CHANNEL_KEY_CARD;
+      params.payMethod === "EASY_PAY" ? CHANNEL_KEY_EASYPAY : CHANNEL_KEY_ONETIME;
 
     const response = await window.PortOne.requestPayment({
       storeId: STORE_ID,
