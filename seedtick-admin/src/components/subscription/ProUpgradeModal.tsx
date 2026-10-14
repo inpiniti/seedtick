@@ -158,14 +158,14 @@ export function ProUpgradeModal() {
           {user ? (
             <div className="p-3 rounded-md bg-[#f8fafc] border border-[#e2e8f0] flex items-center justify-between text-xs font-mono">
               <div className="flex items-center gap-2 text-[#0f172a]">
-                <UserCheck className="w-4 h-4 text-emerald-600" />
+                <UserCheck className="w-4 h-4 text-[#0f172a]" />
                 <span className="truncate max-w-[240px]">{user.email}</span>
               </div>
               <span className="text-[10px] text-[#64748b]">계정 연결됨</span>
             </div>
           ) : (
             <div className="p-3 rounded-md bg-[#f8fafc] border border-[#cbd5e1] text-xs font-mono text-[#0f172a] flex items-center justify-between">
-              <span className="text-[#64748b]">* 결제 전 계정 로그인(Google/카카오)이 필요합니다.</span>
+              <span className="text-[#64748b]">* 결제 전 계정 로그인(Google)이 필요합니다.</span>
               <button
                 type="button"
                 onClick={() => {

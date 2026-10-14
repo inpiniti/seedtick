@@ -282,14 +282,16 @@ export function ResearchDocumentModal({
 
         {/* 4. 문서 본문 렌더링 영역 */}
         <div className="relative p-4 sm:p-6 rounded-md bg-white border border-[#e2e8f0] shadow-xs max-h-[60vh] overflow-y-auto">
-          {/* 24시간 무료 체험 중 웰컴 배너 */}
+          {/* 24시간 무료 체험 중 웰컴 배너 (모노톤) */}
           {isTrialActive && (
-            <div className="mb-4 p-2.5 rounded-md bg-emerald-50/80 border border-emerald-200 text-xs font-mono flex items-center justify-between text-emerald-900">
-              <span className="flex items-center gap-1.5 font-medium">
-                <span>🎁</span>
+            <div className="mb-4 p-2.5 rounded-md bg-[#f8fafc] border border-[#cbd5e1] text-xs font-mono flex items-center justify-between text-[#0f172a]">
+              <div className="flex items-center gap-1.5 font-medium">
+                <span className="px-1.5 py-0.2 rounded bg-[#0f172a] text-white text-[9px] font-medium tracking-wider">
+                  TRIAL
+                </span>
                 <span>24시간 무료 체험 중 · 최신 리포트 제한 없이 열람 중</span>
-              </span>
-              <span className="text-[10px] text-emerald-700 bg-white/90 border border-emerald-200 px-1.5 py-0.5 rounded">
+              </div>
+              <span className="text-[10px] text-[#64748b] bg-white border border-[#e2e8f0] px-1.5 py-0.5 rounded">
                 {trialRemainingHours}시간 남음
               </span>
             </div>

@@ -54,10 +54,10 @@ export function UserProfileWidget() {
           )}
         </div>
       ) : isTrialActive ? (
-        <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-300 text-xs font-mono font-semibold shadow-2xs">
-          <span>🎁 1일 무료 체험 중</span>
-          <span className="text-[10px] text-emerald-700 font-normal hidden md:inline">
-            ({trialRemainingHours}시간 남음)
+        <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-white text-[#0f172a] border border-[#0f172a] text-xs font-mono font-medium shadow-2xs">
+          <span className="font-semibold">TRIAL</span>
+          <span className="text-[10px] text-[#64748b]">
+            ({trialRemainingHours}h left)
           </span>
         </div>
       ) : !user ? (
@@ -66,8 +66,8 @@ export function UserProfileWidget() {
           onClick={openAuthModal}
           className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white text-xs font-mono font-medium shadow-2xs transition-colors cursor-pointer"
         >
-          <Sparkles className="w-3 h-3 text-amber-300" />
-          <span>🎁 24시간 무료 체험</span>
+          <Sparkles className="w-3 h-3 text-white" />
+          <span>24H 무료 체험</span>
         </button>
       ) : (
         <button
@@ -99,8 +99,8 @@ export function UserProfileWidget() {
                 <p className="font-semibold text-[#0f172a] truncate">{user.email}</p>
                 <div className="flex items-center justify-between text-[11px] text-[#64748b] mt-1">
                   <span>TIER:</span>
-                  <strong className={isPro ? "text-[#0f172a]" : isTrialActive ? "text-emerald-700" : "text-[#64748b]"}>
-                    {isPro ? "PRO" : isTrialActive ? "🎁 1일 무료 체험" : "FREE"}
+                  <strong className={isPro || isTrialActive ? "text-[#0f172a]" : "text-[#64748b]"}>
+                    {isPro ? "PRO" : isTrialActive ? "1-DAY TRIAL" : "FREE"}
                   </strong>
                 </div>
                 {isPro && expiryDateFormatted && (
@@ -109,7 +109,7 @@ export function UserProfileWidget() {
                   </p>
                 )}
                 {isTrialActive && (
-                  <p className="text-[10px] text-emerald-700 mt-0.5">
+                  <p className="text-[10px] text-[#64748b] mt-0.5">
                     체험 종료까지: 약 {trialRemainingHours}시간 남음
                   </p>
                 )}

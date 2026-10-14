@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import { Mail, Shield, CheckCircle2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import {
-  signInWithKakao,
   signInWithGoogle,
   signInWithMagicLink,
 } from "@/lib/subscription/authHelpers";
@@ -21,20 +20,6 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-
-  const handleKakaoLogin = async () => {
-    setIsLoading(true);
-    setMessage(null);
-    try {
-      await signInWithKakao();
-    } catch (err: unknown) {
-      setMessage({
-        type: "error",
-        text: err instanceof Error ? err.message : "카카오 로그인 실패",
-      });
-      setIsLoading(false);
-    }
-  };
 
   const handleGoogleLogin = async () => {
     setIsLoading(true);
@@ -78,15 +63,15 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="default" className="sm:max-w-md">
       <div className="font-sans">
-        {/* aihero & 토스 스타일 웰컴 헤더 */}
+        {/* aihero 스타일 모노톤 헤더 */}
         <div className="pb-4 border-b border-[#e2e8f0] mb-4">
           <div className="flex items-center justify-between gap-2 mb-1.5">
             <span className="font-mono text-[10px] uppercase tracking-wider text-[#64748b] flex items-center gap-1.5">
               <Shield className="w-3.5 h-3.5 text-[#0f172a]" />
               <span>SEEDTICK WELCOME PASS</span>
             </span>
-            <span className="font-mono text-[10px] px-2 py-0.5 rounded-full border border-emerald-300 bg-emerald-50 text-emerald-800 font-semibold">
-              🎁 24시간 무료 체험
+            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-[#0f172a] bg-[#0f172a] text-white font-medium">
+              24H TRIAL PASS
             </span>
           </div>
           <h3 className="text-lg font-bold text-[#0f172a] tracking-tight">
@@ -97,13 +82,13 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           </p>
         </div>
 
-        {/* 웰컴 혜택 안내 박스 */}
-        <div className="mb-4 p-3 rounded-md bg-[#f8fafc] border border-[#e2e8f0] text-xs font-mono space-y-1">
+        {/* 웰컴 혜택 안내 박스 (모노톤) */}
+        <div className="mb-4 p-3 rounded-md bg-[#f8fafc] border border-[#cbd5e1] text-xs font-mono space-y-1">
           <div className="flex items-center gap-2 text-[#0f172a] font-semibold text-[11px]">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-            <span>카드 등록 없이 1초 간편 로그인</span>
+            <CheckCircle2 className="w-3.5 h-3.5 text-[#0f172a] shrink-0" />
+            <span>카드 등록 없이 원클릭 간편 로그인</span>
           </div>
-          <p className="text-[#64748b] text-[11px] pl-5 leading-relaxed">
+          <p className="text-[#64748b] text-[11px] pl-5.5 leading-relaxed">
             오늘 24시간 동안 충분히 써보시고, 내일부터 계속 이용할지 천천히 결정하세요.
           </p>
         </div>
@@ -112,56 +97,28 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           <div
             className={`p-3 rounded-md mb-4 text-xs font-mono ${
               message.type === "success"
-                ? "bg-[#f8fafc] text-emerald-700 border border-emerald-200 flex items-center gap-2"
+                ? "bg-[#f8fafc] text-[#0f172a] border border-[#cbd5e1] flex items-center gap-2"
                 : "bg-rose-50 text-rose-700 border border-rose-200"
             }`}
           >
-            {message.type === "success" && <CheckCircle2 className="w-4 h-4 shrink-0" />}
+            {message.type === "success" && <CheckCircle2 className="w-4 h-4 text-[#0f172a] shrink-0" />}
             <span>{message.text}</span>
           </div>
         )}
 
-        {/* 소셜 로그인 버튼 (aihero 스타일: 흑백 모노톤 기반) */}
+        {/* 소셜 로그인 버튼 (흑백 모노톤 기반) */}
         <div className="space-y-2.5">
-          {/* 구글 로그인 (화이트 배경 + 다크 보더) */}
+          {/* 구글 로그인 */}
           <button
             type="button"
             onClick={handleGoogleLogin}
             disabled={isLoading}
             className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-md bg-white hover:bg-[#f8fafc] text-[#0f172a] border border-[#cbd5e1] font-medium text-xs shadow-2xs transition-colors disabled:opacity-50 cursor-pointer"
           >
-            <svg className="w-4 h-4" viewBox="0 0 24 24">
-              <path
-                fill="#4285F4"
-                d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
-              />
-              <path
-                fill="#34A853"
-                d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
-              />
-              <path
-                fill="#FBBC05"
-                d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
-              />
-              <path
-                fill="#EA4335"
-                d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-              />
+            <svg className="w-4 h-4 fill-current text-[#0f172a]" viewBox="0 0 24 24">
+              <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z" />
             </svg>
             <span className="font-mono">Google 계정으로 계속하기</span>
-          </button>
-
-          {/* 카카오 로그인 (절제된 스타일) */}
-          <button
-            type="button"
-            onClick={handleKakaoLogin}
-            disabled={isLoading}
-            className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-md bg-[#FEE500] hover:bg-[#FADA0A] text-[#191919] font-medium text-xs shadow-2xs transition-colors disabled:opacity-50 cursor-pointer"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 3C6.477 3 2 6.477 2 10.765c0 2.766 1.848 5.19 4.63 6.558l-1.18 4.364c-.104.385.334.69.64.486l5.176-3.428c.243.023.488.035.734.035 5.523 0 10-3.477 10-7.765S17.523 3 12 3z" />
-            </svg>
-            <span className="font-mono">카카오 계정으로 계속하기</span>
           </button>
         </div>
 

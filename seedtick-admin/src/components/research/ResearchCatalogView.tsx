@@ -961,7 +961,7 @@ export function ResearchCatalogView({
                         >
                           {selectedDate === availableDates[0]
                             ? isTrialActive
-                              ? "🎁 24H 무료 체험"
+                              ? "★ 최신 분석 (24H TRIAL)"
                               : "★ 최신 분석일"
                             : tier === "free" && !isTrialActive
                             ? "FREE 아카이브 (과거)"

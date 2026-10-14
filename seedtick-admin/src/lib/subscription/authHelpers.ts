@@ -1,27 +1,6 @@
 import { supabase } from "@/lib/supabase";
 
-export type AuthProviderType = "kakao" | "google" | "email";
-
-/**
- * 카카오 소셜 로그인 요청
- */
-export async function signInWithKakao(redirectTo?: string) {
-  if (!supabase) {
-    throw new Error("Supabase 클라이언트가 초기화되지 않았습니다.");
-  }
-  const redirectUrl =
-    redirectTo || (typeof window !== "undefined" ? window.location.origin : "");
-
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: "kakao",
-    options: {
-      redirectTo: redirectUrl,
-    },
-  });
-
-  if (error) throw error;
-  return data;
-}
+export type AuthProviderType = "google" | "email";
 
 /**
  * 구글 소셜 로그인 요청

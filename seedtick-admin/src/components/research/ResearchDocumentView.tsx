@@ -424,21 +424,21 @@ export function ResearchDocumentView({
 
       {/* ── 4. 본문 리딩 영역 ── */}
       <section className="relative px-6 lg:px-12 py-8 bg-white min-h-[500px]">
-        {/* 24시간 웰컴 무료 체험 중인 경우 따뜻한 상단 웰컴 배너 */}
+        {/* 24시간 웰컴 무료 체험 중인 경우 상단 웰컴 배너 (모노톤) */}
         {isTrialActive && (
-          <div className="mb-6 p-3.5 rounded-md bg-emerald-50/80 border border-emerald-200 text-xs font-mono flex items-center justify-between gap-3 text-emerald-900 shadow-2xs">
+          <div className="mb-6 p-3 rounded-md bg-[#f8fafc] border border-[#cbd5e1] text-xs font-mono flex items-center justify-between gap-3 text-[#0f172a] shadow-2xs">
             <div className="flex items-center gap-2">
-              <span className="text-base">🎁</span>
-              <div>
-                <span className="font-semibold text-emerald-950">
-                  신규 회원 24시간 무료 체험 혜택 적용 중
-                </span>
-                <span className="hidden sm:inline text-emerald-800 ml-1.5">
-                  · 오늘 발행된 모든 최신 리포트를 제한 없이 열람하고 계세요.
-                </span>
-              </div>
+              <span className="px-1.5 py-0.5 rounded bg-[#0f172a] text-white text-[10px] font-medium tracking-wider">
+                TRIAL
+              </span>
+              <span className="font-semibold text-[#0f172a]">
+                신규 회원 24시간 무료 체험 혜택 적용 중
+              </span>
+              <span className="hidden sm:inline text-[#64748b]">
+                · 오늘 발행된 모든 최신 리포트를 제한 없이 열람하고 계세요.
+              </span>
             </div>
-            <span className="text-[11px] font-medium text-emerald-700 bg-white/90 border border-emerald-200 px-2 py-0.5 rounded shrink-0">
+            <span className="text-[11px] text-[#64748b] bg-white border border-[#e2e8f0] px-2 py-0.5 rounded shrink-0">
               {trialRemainingHours}시간 남음
             </span>
           </div>
