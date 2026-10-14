@@ -5,10 +5,12 @@ import {
   getServerSupabaseClient,
 } from "@/lib/subscription/supabaseServer";
 import {
+  getDefaultReportDate,
   isReportRestricted,
   isWelcomeTrialActive,
 } from "@/lib/subscription/subscriptionPolicy";
 import type { SubscriptionTier } from "@/lib/subscription/types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface ReportAccess {
   user: User | null;
@@ -69,15 +71,48 @@ export async function resolveReportAccess(req: Request): Promise<ReportAccess> {
 export function isDateAllowedForAccess(
   reportDate: string,
   access: Pick<ReportAccess, "tier" | "isTrialActive">,
-  baseDate: Date = new Date()
+  baseDate: Date = new Date(),
+  allowedFreeDate?: string
 ): boolean {
   return !isReportRestricted(
     reportDate,
     access.tier,
     baseDate,
-    undefined,
+    allowedFreeDate,
     access.isTrialActive
   );
+}
+
+/**
+ * Free 폴백 예외를 서버에서도 동일하게 재현합니다.
+ * 30일 이전 날짜가 DB에 하나도 없을 때 클라이언트는 가장 오래된 날짜를
+ * 무료 디폴트로 허용하므로, 서버도 DB 전체 일자 기준으로 같은 값을 계산해
+ * 허용해야 목록/상세가 마스킹 없이 정상 표시됩니다.
+ * 클라이언트가 보낸 날짜는 신뢰하지 않고 서버가 직접 조회합니다.
+ */
+export async function getServerAllowedFreeDate(
+  supabase: SupabaseClient,
+  baseDate: Date = new Date()
+): Promise<string | undefined> {
+  try {
+    const { data, error } = await supabase
+      .from("guru_reports")
+      .select("d")
+      .order("d", { ascending: false })
+      .limit(1000);
+    if (error) return undefined;
+    const dates = Array.from(
+      new Set(
+        ((data as Array<{ d: string }>) || [])
+          .map((r) => r.d)
+          .filter(Boolean)
+      )
+    ).sort().reverse();
+    if (dates.length === 0) return undefined;
+    return getDefaultReportDate(dates, "free", baseDate, false) || undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**

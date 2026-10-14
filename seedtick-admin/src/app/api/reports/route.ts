@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSupabaseClient } from "@/lib/subscription/supabaseServer";
 import {
+  getServerAllowedFreeDate,
   isDateAllowedForAccess,
   maskReportRow,
   resolveReportAccess,
@@ -55,8 +56,16 @@ export async function GET(req: Request) {
     }
 
     const now = new Date();
+    // Free(체험 없음)일 때만 DB 기준 폴백 무료일자 1개를 허용 (클라와 동일 규칙)
+    const allowedFreeDate =
+      access.tier === "free" && !access.isTrialActive
+        ? await getServerAllowedFreeDate(supabase, now)
+        : undefined;
     const reports = ((data as GuruReportRow[]) || []).map((row) =>
-      maskReportRow(row, isDateAllowedForAccess(row.d, access, now))
+      maskReportRow(
+        row,
+        isDateAllowedForAccess(row.d, access, now, allowedFreeDate)
+      )
     );
 
     return NextResponse.json({ success: true, reports });

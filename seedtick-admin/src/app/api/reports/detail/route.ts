@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSupabaseClient } from "@/lib/subscription/supabaseServer";
 import {
+  getServerAllowedFreeDate,
   isDateAllowedForAccess,
   maskReportRow,
   resolveReportAccess,
@@ -61,7 +62,12 @@ export async function GET(req: Request) {
       );
     }
 
-    const allowed = isDateAllowedForAccess(row.d, access, new Date());
+    const now = new Date();
+    const allowedFreeDate =
+      access.tier === "free" && !access.isTrialActive
+        ? await getServerAllowedFreeDate(supabase, now)
+        : undefined;
+    const allowed = isDateAllowedForAccess(row.d, access, now, allowedFreeDate);
     return NextResponse.json({
       success: true,
       report: maskReportRow(row, allowed),

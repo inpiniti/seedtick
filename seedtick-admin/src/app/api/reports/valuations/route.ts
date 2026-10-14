@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSupabaseClient } from "@/lib/subscription/supabaseServer";
 import {
+  getServerAllowedFreeDate,
   isDateAllowedForAccess,
   resolveReportAccess,
 } from "@/lib/subscription/reportAccess";
@@ -39,6 +40,10 @@ export async function GET(req: Request) {
     }
 
     const now = new Date();
+    const allowedFreeDate =
+      access.tier === "free" && !access.isTrialActive
+        ? await getServerAllowedFreeDate(supabase, now)
+        : undefined;
     const records: Array<{
       ticker: string;
       d: string;
@@ -47,7 +52,7 @@ export async function GET(req: Request) {
     for (const row of (data as Array<Record<string, unknown>>) || []) {
       const d = row.d as string;
       // 권한 없는 일자(최근 30일 등)의 적정가는 목록에 포함조차 하지 않음
-      if (!isDateAllowedForAccess(d, access, now)) continue;
+      if (!isDateAllowedForAccess(d, access, now, allowedFreeDate)) continue;
       const fv = (row as { fair_value_price?: unknown }).fair_value_price;
       if (typeof fv === "number" && Number.isFinite(fv) && fv > 0) {
         records.push({
