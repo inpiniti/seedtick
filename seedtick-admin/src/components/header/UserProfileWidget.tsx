@@ -18,8 +18,33 @@ export function UserProfileWidget() {
   } = useSubscription();
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
 
   const isPro = tier === "pro";
+
+  const avatarUrl =
+    (user?.user_metadata?.avatar_url as string | undefined) ||
+    (user?.user_metadata?.picture as string | undefined) ||
+    null;
+
+  const displayName =
+    (user?.user_metadata?.full_name as string | undefined) ||
+    (user?.user_metadata?.name as string | undefined) ||
+    user?.email?.split("@")[0] ||
+    "사용자";
+
+  // 드롭다운 바깥 클릭 시 닫기
+  React.useEffect(() => {
+    if (!isDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isDropdownOpen]);
 
   const expiryDateFormatted = subscription?.currentPeriodEnd
     ? new Date(subscription.currentPeriodEnd).toLocaleDateString("ko-KR", {
@@ -76,73 +101,106 @@ export function UserProfileWidget() {
         </button>
       )}
 
-      {/* 유저 로그인 상태 */}
+      {/* 유저 로그인 상태: 구글 계정 원형 아바타 */}
       {user ? (
-        <div className="relative">
+        <div className="relative" ref={dropdownRef}>
           <button
             type="button"
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="flex items-center gap-1.5 p-1 rounded-md border border-[#e2e8f0] hover:border-[#cbd5e1] hover:bg-[#f8fafc] text-[#0f172a] transition-colors text-xs font-mono cursor-pointer"
+            className="w-8 h-8 rounded-full border border-[#cbd5e1] hover:border-[#0f172a] focus:outline-hidden focus:ring-2 focus:ring-[#0f172a]/20 transition-all cursor-pointer p-0.5 bg-white flex items-center justify-center shrink-0 shadow-2xs"
+            aria-label="사용자 계정 메뉴"
           >
-            <div className="w-6 h-6 rounded bg-[#0f172a] text-white flex items-center justify-center font-bold text-[10px] uppercase overflow-hidden">
-              {user.email ? user.email.slice(0, 2).toUpperCase() : <UserIcon className="w-3 h-3" />}
+            <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-[#f8fafc]">
+              {avatarUrl && !imageError ? (
+                <img
+                  src={avatarUrl}
+                  alt={displayName}
+                  onError={() => setImageError(true)}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover rounded-full"
+                />
+              ) : (
+                <div className="w-full h-full rounded-full bg-[#0f172a] text-white flex items-center justify-center font-bold text-[11px] uppercase">
+                  {displayName ? displayName.slice(0, 1).toUpperCase() : <UserIcon className="w-3.5 h-3.5" />}
+                </div>
+              )}
             </div>
           </button>
 
           {isDropdownOpen && (
-            <div className="absolute right-0 mt-2 w-60 bg-white rounded-md shadow-xl border border-[#cbd5e1] p-2 z-50 text-xs font-mono">
-              <div className="px-2.5 py-2 border-b border-[#e2e8f0] mb-1">
-                <p className="font-semibold text-[#0f172a] truncate">{user.email}</p>
-                <div className="flex items-center justify-between text-[11px] text-[#64748b] mt-1">
-                  <span>TIER:</span>
-                  <strong className={isPro || isTrialActive ? "text-[#0f172a]" : "text-[#64748b]"}>
-                    {isPro ? "PRO" : isTrialActive ? "1-DAY TRIAL" : "FREE"}
-                  </strong>
+            <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-[#cbd5e1] p-3 z-50 text-xs font-mono animate-in fade-in zoom-in-95 duration-100">
+              <div className="flex items-center gap-2.5 pb-2.5 border-b border-[#e2e8f0] mb-2">
+                <div className="w-9 h-9 rounded-full border border-[#cbd5e1] overflow-hidden shrink-0 bg-[#f8fafc] flex items-center justify-center">
+                  {avatarUrl && !imageError ? (
+                    <img
+                      src={avatarUrl}
+                      alt={displayName}
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover rounded-full"
+                    />
+                  ) : (
+                    <div className="w-full h-full rounded-full bg-[#0f172a] text-white flex items-center justify-center font-bold text-sm uppercase">
+                      {displayName ? displayName.slice(0, 1).toUpperCase() : <UserIcon className="w-4 h-4" />}
+                    </div>
+                  )}
                 </div>
-                {isPro && expiryDateFormatted && (
-                  <p className="text-[10px] text-[#94a3b8] mt-0.5">
-                    EXPIRES: {expiryDateFormatted}
-                  </p>
-                )}
-                {isTrialActive && (
-                  <p className="text-[10px] text-[#64748b] mt-0.5">
-                    체험 종료까지: 약 {trialRemainingHours}시간 남음
-                  </p>
-                )}
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-[#0f172a] truncate text-xs">{displayName}</p>
+                  <p className="text-[11px] text-[#64748b] truncate">{user.email}</p>
+                </div>
               </div>
 
-              <Link
-                href="/account"
-                onClick={() => setIsDropdownOpen(false)}
-                className="w-full text-left px-2.5 py-1.5 rounded text-[#0f172a] hover:bg-[#f1f5f9] flex items-center gap-2"
-              >
-                <Settings className="w-3 h-3" />
-                멤버십 관리
-              </Link>
-
-              {!isPro && (
-                <button
-                  onClick={() => {
-                    setIsDropdownOpen(false);
-                    openUpgradeModal();
-                  }}
-                  className="w-full text-left px-2.5 py-1.5 rounded text-[#0f172a] font-medium hover:bg-[#f1f5f9] flex items-center gap-2 cursor-pointer"
-                >
-                  <Sparkles className="w-3 h-3" />
-                  Pro 요금제 업그레이드
-                </button>
+              <div className="px-1 py-1 text-[11px] text-[#64748b] flex items-center justify-between mb-1">
+                <span>TIER:</span>
+                <strong className={isPro || isTrialActive ? "text-[#0f172a]" : "text-[#64748b]"}>
+                  {isPro ? "PRO" : isTrialActive ? "1-DAY TRIAL" : "FREE"}
+                </strong>
+              </div>
+              {isPro && expiryDateFormatted && (
+                <p className="text-[10px] text-[#94a3b8] px-1 mb-2">
+                  EXPIRES: {expiryDateFormatted}
+                </p>
+              )}
+              {isTrialActive && (
+                <p className="text-[10px] text-[#64748b] px-1 mb-2">
+                  체험 종료까지: 약 {trialRemainingHours}시간 남음
+                </p>
               )}
 
-              <button
-                onClick={async () => {
-                  setIsDropdownOpen(false);
-                  await signOutUser();
-                }}
-                className="w-full text-left px-2.5 py-1.5 rounded text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer"
-              >
-                <LogOut className="w-3 h-3" />
-                로그아웃
-              </button>
+              <div className="border-t border-[#e2e8f0] pt-1.5 space-y-0.5">
+                <Link
+                  href="/account"
+                  onClick={() => setIsDropdownOpen(false)}
+                  className="w-full text-left px-2 py-1.5 rounded text-[#0f172a] hover:bg-[#f1f5f9] flex items-center gap-2 transition-colors"
+                >
+                  <Settings className="w-3 h-3 text-[#64748b]" />
+                  멤버십 관리
+                </Link>
+
+                {!isPro && (
+                  <button
+                    onClick={() => {
+                      setIsDropdownOpen(false);
+                      openUpgradeModal();
+                    }}
+                    className="w-full text-left px-2 py-1.5 rounded text-[#0f172a] font-medium hover:bg-[#f1f5f9] flex items-center gap-2 cursor-pointer transition-colors"
+                  >
+                    <Sparkles className="w-3 h-3 text-[#0f172a]" />
+                    Pro 요금제 업그레이드
+                  </button>
+                )}
+
+                <button
+                  onClick={async () => {
+                    setIsDropdownOpen(false);
+                    await signOutUser();
+                  }}
+                  className="w-full text-left px-2 py-1.5 rounded text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer transition-colors"
+                >
+                  <LogOut className="w-3 h-3 text-rose-600" />
+                  로그아웃
+                </button>
+              </div>
             </div>
           )}
         </div>

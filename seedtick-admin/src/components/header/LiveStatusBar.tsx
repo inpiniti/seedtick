@@ -2,23 +2,19 @@
 
 import React from "react";
 import { HealthStatus } from "@/types/api";
-import { Button } from "@/components/ui/Button";
-import { RefreshCw, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 import { SeedTickLogoBadge } from "@/components/ui/SeedTickLogo";
-
 import { UserProfileWidget } from "@/components/header/UserProfileWidget";
 
 interface LiveStatusBarProps {
   health: HealthStatus | null;
-  isLoading: boolean;
-  onRefresh: () => void;
+  isLoading?: boolean;
+  onRefresh?: () => void;
   onToggleMobileMenu?: () => void;
 }
 
 export function LiveStatusBar({
   health,
-  isLoading,
-  onRefresh,
   onToggleMobileMenu,
 }: LiveStatusBarProps) {
   const isServerHealthy = health?.status === "healthy";
@@ -60,22 +56,9 @@ export function LiveStatusBar({
         </div>
       </div>
 
-      {/* 2. 우측 액션 버튼들 */}
+      {/* 2. 우측 회원 및 구독 프로필 위젯 */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* 회원 및 구독 프로필 위젯 */}
         <UserProfileWidget />
-
-        {/* 새로고침 버튼 */}
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={onRefresh}
-          isLoading={isLoading}
-          aria-label="데이터 새로고침"
-          className="h-[32px] px-2.5"
-        >
-          {!isLoading ? <RefreshCw className="w-3.5 h-3.5 text-[#475569]" /> : null}
-        </Button>
       </div>
     </header>
   );
