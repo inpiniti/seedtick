@@ -196,7 +196,7 @@ export default function PricingPage() {
                   </li>
                   <li className="flex items-start gap-2">
                     <Check className="w-3.5 h-3.5 text-white shrink-0 mt-0.5" />
-                    <span>카드 정기결제 시 언제든 1초 만에 위약금 없이 해지 가능</span>
+                    <span>언제든 자동결제 해지 가능 (7일 이내 부분환불 · 이후 만료일까지 이용)</span>
                   </li>
                 </ul>
               </div>
@@ -227,7 +227,7 @@ export default function PricingPage() {
             <span>포트원(PortOne) 공식 전자결제 암호화 보안 시스템</span>
           </div>
           <p className="text-[11px] leading-relaxed">
-            신용카드 자동 정기결제는 매달 동일한 날짜에 갱신되며, 언제든 해지 신청 시 결제된 마감일까지 Pro 혜택이 정상 유지됩니다.
+            신용카드 자동 정기결제는 매달 동일한 날짜에 갱신됩니다. 결제 후 7일 이내 해지 시 사용일수(최소 1일) 제외 부분환불 후 즉시 종료되며, 7일 이후 해지 시 환불 없이 만료일까지 이용 후 자동갱신만 중단됩니다.
           </p>
           <div className="pt-2 flex items-center justify-center gap-3 text-[11px] text-[#94a3b8]">
             <Link href="/privacy" className="hover:text-[#0f172a] underline decoration-slate-300">

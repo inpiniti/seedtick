@@ -122,7 +122,7 @@ export function ProUpgradeModal() {
               </div>
               <p className="text-[11px] text-[#64748b] mt-1 font-mono">
                 {selectedPlan === "monthly"
-                  ? "하루 약 96원 · 언제든 1초 만에 위약금 없이 해지 가능"
+                  ? "하루 약 96원 · 언제든 자동결제 해지 가능 (7일 이내 사용분 제외 부분환불)"
                   : "2개월 무료 이용 혜택 · 1년 동안 가격 인상 없음"}
               </p>
             </div>
@@ -223,9 +223,9 @@ export function ProUpgradeModal() {
             </button>
           </div>
 
-          <div className="flex items-center justify-center gap-1.5 text-[10px] font-mono text-[#94a3b8]">
-            <Shield className="w-3 h-3" />
-            <span>포트원 공식 전자결제 · 결제 즉시 마감일까지 Pro 혜택 유지</span>
+          <div className="flex items-center justify-center gap-1.5 text-[10px] font-mono text-[#94a3b8] text-center leading-relaxed px-2">
+            <Shield className="w-3 h-3 shrink-0" />
+            <span>포트원 공식 전자결제 · 7일 이내 사용분 제외 부분환불 후 즉시 종료, 7일 이후 환불 없이 만료일까지 유지</span>
           </div>
         </div>
       </div>

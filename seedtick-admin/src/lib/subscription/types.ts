@@ -63,7 +63,7 @@ export const PRICING_PLANS: Record<"monthly" | "yearly", PlanPricingItem> = {
       "SEC 공시 원문 기반 실시간 심층 재무 데이터팩 전체 열람",
       "최신 1개월 리서치 리포트 즉시 열람",
       "적정주가 밴드 및 Bull/Bear 시나리오 세부 데이터",
-      "신용카드로 매월 자동 결제 (언제든 1초 만에 해지 가능)",
+      "신용카드로 매월 자동 결제 (7일 이내 부분환불 · 이후 만료일까지 이용 후 해지)",
     ],
   },
   yearly: {
