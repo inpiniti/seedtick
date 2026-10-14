@@ -23,6 +23,7 @@ SeedTick Research 서비스의 사용자 인증(Supabase Auth)과 멤버십 요�
 ### C. 도메인 서비스 (Domain Services)
 - **`SubscriptionBillingService`**: 포트원 결제 완료 웹훅/응답 검증 및 만료일 계산 갱신.
 - **`ReportAuthorizationPolicy`**: 사용자 등급(Free/Pro)에 따라 허용 가능한 보고서 일자 및 기본 디폴트 선택 날짜 계산.
+- **`CancellationPolicy`** (`decideCancellation`): 최근 결제일 기준 환불(즉시 만료) / 기간 만료 시 종료 여부 결정. 포트원 호출은 서버(`/api/billing/cancel`)에서만 수행.
 
 ---
 
@@ -46,3 +47,8 @@ SeedTick Research 서비스의 사용자 인증(Supabase Auth)과 멤버십 요�
    - 24시간 체험 기간 중에는 결제 유도를 최소화하고 웰컴 배지 및 잔여 시간을 안내하며, 24시간 경과 후 일반 Free 티어로 전환되어 Pro 구독 유료 전환 안내가 개시된다.
 6. **멱등성 보장**:
    - 포트원의 중복 웹훅이나 클라이언트 재시도 요청이 발생하더라도 동일한 `merchant_uid` / `payment_id`에 대해 기간이 중복으로 연장되지 않는다.
+7. **해지 및 환불 (청약철회 7일)**:
+   - 최근 결제(`status = 'paid'`) 후 **7일 미만**에 해지하면 포트원 결제 취소 API로 **전액 환불**하고 구독은 즉시 만료(`status = 'expired'`, `tier = 'free'`)되며 결제 내역은 `refunded`로 바뀐다.
+   - 7일 이후 해지는 **자동갱신만 중단**한다: 포트원 빌링키를 삭제하고 `status = 'canceled'`로 바꾸되, `current_period_end`까지 Pro를 유지한다(불변식 2).
+   - 이미 환불된 결제는 다시 환불하지 않는다.
+   - 포트원 API Secret(`PORTONE_API_SECRET`)은 서버에서만 사용한다. 클라이언트는 결제/환불 API를 직접 호출하지 않는다.

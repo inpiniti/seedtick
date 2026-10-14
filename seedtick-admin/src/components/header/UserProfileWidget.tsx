@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { User as UserIcon, LogOut, ShieldCheck, RefreshCw, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { User as UserIcon, LogOut, ShieldCheck, RefreshCw, Sparkles, Clock, Settings } from "lucide-react";
 import { useSubscription } from "@/lib/subscription/SubscriptionContext";
 import { signOutUser } from "@/lib/subscription/authHelpers";
 
@@ -44,7 +45,10 @@ export function UserProfileWidget() {
 
       {/* 상태별 CTA 배지 및 버튼 */}
       {isPro ? (
-        <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-[#0f172a] text-white border border-[#0f172a] text-xs font-mono font-semibold">
+        <Link
+          href="/account"
+          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white border border-[#0f172a] text-xs font-mono font-semibold transition-colors"
+        >
           <ShieldCheck className="w-3 h-3" />
           <span>PRO MEMBER</span>
           {expiryDateFormatted && (
@@ -52,14 +56,18 @@ export function UserProfileWidget() {
               (~{expiryDateFormatted})
             </span>
           )}
-        </div>
+        </Link>
       ) : isTrialActive ? (
-        <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-white text-[#0f172a] border border-[#0f172a] text-xs font-mono font-medium shadow-2xs">
-          <span className="font-semibold">TRIAL</span>
-          <span className="text-[10px] text-[#64748b]">
+        <Link
+          href="/account"
+          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white border border-[#0f172a] text-xs font-mono font-semibold transition-colors"
+        >
+          <Clock className="w-3 h-3" />
+          <span>TRIAL MEMBER</span>
+          <span className="text-[10px] text-slate-300 font-normal hidden md:inline">
             ({trialRemainingHours}h left)
           </span>
-        </div>
+        </Link>
       ) : !user ? (
         <button
           type="button"
@@ -114,6 +122,15 @@ export function UserProfileWidget() {
                   </p>
                 )}
               </div>
+
+              <Link
+                href="/account"
+                onClick={() => setIsDropdownOpen(false)}
+                className="w-full text-left px-2.5 py-1.5 rounded text-[#0f172a] hover:bg-[#f1f5f9] flex items-center gap-2"
+              >
+                <Settings className="w-3 h-3" />
+                멤버십 관리
+              </Link>
 
               {!isPro && (
                 <button

@@ -55,7 +55,18 @@
    - DB `subscriptions`의 `tier`를 `'pro'`로 갱신, `current_period_end`를 계산하여 저장.
    - 즉시 세션 상태가 Pro로 전환되어 최근 1개월 보고서가 잠금 해제됨.
 
-### UC-4: 구독 해지
-1. Pro 사용자가 프로필/구독 설정에서 "구독 해지"를 클릭.
-2. `subscriptions.status`가 `'canceled'`로 변경되어 다음 주기 자동 결제는 예약 취소됨.
-3. 현재 마감일(`current_period_end`)까지는 Pro 혜택이 계속 유지된다.
+### UC-4: 구독 해지 (청약철회 7일 정책)
+1. Pro 사용자가 멤버십 관리(`/account`)에서 "구독 해지"를 클릭하면, 확인 시트에서 처리 결과(환불 금액 또는 이용 종료일)를 미리 보여준다.
+2. 확정 시 클라이언트는 `POST /api/billing/cancel`을 호출하고, 서버가 포트원 API를 호출한다.
+   - **결제 후 7일 미만**: `POST /payments/{paymentId}/cancel` 전액 환불 → 구독 즉시 만료, 결제 내역 `refunded`.
+   - **7일 이후**: `DELETE /billing-keys/{billingKey}`로 자동결제 차단 → `status = 'canceled'`, `current_period_end`까지 Pro 유지.
+3. 포트원 호출이 실패하면 DB 상태를 바꾸지 않고 에러 토스트를 보여준다.
+4. `PORTONE_API_SECRET` 미설정 또는 테스트 결제 ID(`_test_`)이면 서버는 시뮬레이션 성공으로 응답한다.
+
+### UC-5: 멤버십 관리 화면 (`/account`)
+- 진입: 헤더의 `PRO MEMBER` / `TRIAL MEMBER` 검정 배지, 또는 프로필 드롭다운의 "멤버십 관리".
+- **Pro**: 플랜(월/연), 상태(이용 중/해지 예약됨), 남은 일수, 다음 결제일 또는 이용 종료일, 결제 수단(카드 끝 4자리), 결제 내역(일자·플랜·금액·상태·영수증), 해지 버튼.
+- **Trial**: 체험 남은 시간 + "PRO 시작하기" CTA.
+- **Free**: Free 안내 + "PRO 시작하기" CTA, 과거 결제 내역이 있으면 표시.
+- 비로그인: 로그인 유도.
+

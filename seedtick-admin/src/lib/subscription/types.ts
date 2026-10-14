@@ -16,6 +16,22 @@ export interface Subscription {
   canceledAt?: string | null;
 }
 
+export type PaymentStatus = "paid" | "failed" | "refunded";
+
+export interface PaymentTransaction {
+  id: string;
+  /** 포트원 paymentId (단건) 또는 빌링 결제 ID */
+  paymentId: string | null;
+  planType: "monthly" | "yearly";
+  amount: number;
+  payMethod: string;
+  /** 카드 끝 4자리 (있을 때만) */
+  cardLast4?: string | null;
+  status: PaymentStatus;
+  receiptUrl?: string | null;
+  paidAt: string;
+}
+
 export interface UserProfile {
   id: string;
   email: string;

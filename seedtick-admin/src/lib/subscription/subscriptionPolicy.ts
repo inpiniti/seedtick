@@ -141,3 +141,49 @@ export function calculateSubscriptionExpiry(
 
   return expiry;
 }
+
+/** 결제 후 전액 환불 가능한 청약철회 기간(일) */
+export const REFUND_WINDOW_DAYS = 7;
+
+/**
+ * 만료일까지 남은 일수(올림). 만료되었거나 값이 없으면 0.
+ */
+export function getRemainingDays(
+  periodEnd: string | Date | null | undefined,
+  now: Date = new Date()
+): number {
+  if (!periodEnd) return 0;
+  const end = typeof periodEnd === "string" ? new Date(periodEnd) : periodEnd;
+  if (isNaN(end.getTime())) return 0;
+  const diff = end.getTime() - now.getTime();
+  return diff > 0 ? Math.ceil(diff / MILLIS_PER_DAY) : 0;
+}
+
+export type CancellationDecision =
+  | { mode: "refund"; refundAmount: number }
+  | { mode: "end_of_period"; refundAmount: 0 };
+
+/**
+ * 구독 해지 방식 결정
+ * - 결제 후 7일 미만 & 미환불: 전액 환불 + 즉시 만료 (포트원 결제 취소 API 호출)
+ * - 그 외: 자동갱신만 해지, current_period_end 까지 Pro 유지 (빌링키 삭제)
+ */
+export function decideCancellation(input: {
+  paidAt: string | Date | null | undefined;
+  amount: number;
+  now?: Date;
+  alreadyRefunded?: boolean;
+}): CancellationDecision {
+  const { paidAt, amount, now = new Date(), alreadyRefunded = false } = input;
+  if (!paidAt || alreadyRefunded || amount <= 0) {
+    return { mode: "end_of_period", refundAmount: 0 };
+  }
+  const paid = typeof paidAt === "string" ? new Date(paidAt) : paidAt;
+  if (isNaN(paid.getTime())) return { mode: "end_of_period", refundAmount: 0 };
+
+  const elapsed = now.getTime() - paid.getTime();
+  if (elapsed >= 0 && elapsed < REFUND_WINDOW_DAYS * MILLIS_PER_DAY) {
+    return { mode: "refund", refundAmount: amount };
+  }
+  return { mode: "end_of_period", refundAmount: 0 };
+}
