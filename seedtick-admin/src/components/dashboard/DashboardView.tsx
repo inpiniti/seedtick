@@ -53,6 +53,7 @@ import {
 } from "@/lib/insightUtils";
 import { useSubscription } from "@/lib/subscription/SubscriptionContext";
 import {
+  isDateWithinDays,
   isReportRestricted,
   getDefaultReportDate,
 } from "@/lib/subscription/subscriptionPolicy";
@@ -259,11 +260,16 @@ export function DashboardView({
     return map;
   }, [liveCandidates, krCandidates, romaCandidates]);
 
-  // 내재가치 안정성 맵
+  // 내재가치 안정성 맵 (Free/체험만료 유저는 최근 30일 데이터 제외)
+  // 02/03 리스트의 안정성 뱃지가 최신 적정가 분산을 유출하지 않게 하기 위함.
+  // ResearchCatalogView는 제한 유저일 때 이 부모 맵을 무시하고 과거 리포트만으로
+  // 자체 계산하므로, 상세 문서 헤더용으로만 최근치가 섞이지 않게 여기서도 필터한다.
   const intrinsicStabilityByTicker = useMemo(() => {
+    const isRestrictedUser = tier === "free" && !isTrialActive;
     const fairValuesByTickerDate = new Map<string, Map<string, number>>();
 
     for (const record of historicalValuations) {
+      if (isRestrictedUser && isDateWithinDays(record.d)) continue;
       const ticker = record.ticker.toUpperCase();
       if (!fairValuesByTickerDate.has(ticker)) {
         fairValuesByTickerDate.set(ticker, new Map());
@@ -273,6 +279,7 @@ export function DashboardView({
 
     const currentReports = selectedDocReport ? [selectedDocReport, ...guruReports] : guruReports;
     for (const report of currentReports) {
+      if (isRestrictedUser && isDateWithinDays(report.d)) continue;
       const fairValue = extractValuationConsensus(report)?.fair_value_price;
       if (fairValue == null || !Number.isFinite(fairValue) || fairValue <= 0)
         continue;
@@ -289,7 +296,7 @@ export function DashboardView({
       stabilityMap.set(ticker, buildIntrinsicStability(fairValues));
     }
     return stabilityMap;
-  }, [historicalValuations, guruReports, selectedDocReport]);
+  }, [historicalValuations, guruReports, selectedDocReport, tier, isTrialActive]);
 
   // 데이터 로드 (캐시 우선 확인으로 불필요한 반복 쿼리 방지)
   const loadDashboardData = useCallback(async (force = false) => {
@@ -609,9 +616,14 @@ export function DashboardView({
     }
   }, [guruReports, pathname, router]);
 
-  // 후보군 종목을 문서 모드로 열기
+  // 후보군 종목을 문서 모드로 열기 (Free/체험만료는 과거 허용 리포트 우선)
   const handleOpenCandidateAsReport = useCallback((candidate: StockCandidate) => {
-    const existing = guruReports.find((r) => r.ticker === candidate.ticker);
+    const tickerUpper = candidate.ticker.toUpperCase();
+    const sameTicker = guruReports.filter((r) => r.ticker.toUpperCase() === tickerUpper);
+    const isRestrictedUser = tierRef.current === "free" && !isTrialActiveRef.current;
+    const existing = isRestrictedUser
+      ? sameTicker.find((r) => !isDateWithinDays(r.d)) || sameTicker[sameTicker.length - 1]
+      : sameTicker[0];
     if (existing) {
       handleOpenReport(existing);
       return;

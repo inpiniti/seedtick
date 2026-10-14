@@ -127,6 +127,8 @@ export interface StockListItemProps {
   percentB?: number | null;
   /** 클릭 핸들러 */
   onClick: () => void;
+  /** 권한 제한으로 과거 리포트 인사이트가 없을 때 true. 리포트 파생 데이터 정보를 숨기고 잠금 뱃지를 표시한다. */
+  isLocked?: boolean;
 
   // ── 상단 라인 고유 뱃지들 (ReactNode 배열) ──
   /** 티커 앞에 붙는 접두어 (예: "#1") */
@@ -164,6 +166,7 @@ export function StockListItem({
   insight,
   percentB,
   onClick,
+  isLocked = false,
   rankPrefix,
   badges,
   priceText,
@@ -174,8 +177,12 @@ export function StockListItem({
   rowRef,
   rowKey,
 }: StockListItemProps) {
-  const ratioText = formatIntrinsicRatio(insight.intrinsicRatioPct ?? null);
-  const safetyRatioText = formatIntrinsicRatio(insight.safetyRatioPct ?? null);
+  const ratioText = isLocked
+    ? null
+    : formatIntrinsicRatio(insight.intrinsicRatioPct ?? null);
+  const safetyRatioText = isLocked
+    ? null
+    : formatIntrinsicRatio(insight.safetyRatioPct ?? null);
 
   return (
     <li ref={rowRef} data-pb-ticker={rowKey ?? ticker}>
@@ -199,7 +206,16 @@ export function StockListItem({
                 </span>
               )}
               {badges}
-              <VerdictBadge verdict={insight.verdict} />
+              {isLocked ? (
+                <span
+                  title="과거 허용 리포트가 없어 표시할 가치평가 정보가 없습니다. Pro에서 최신 리포트를 확인하세요."
+                  className="font-mono text-[11px] px-2 py-0.5 rounded border border-[#cbd5e1] bg-[#f8fafc] text-[#475569]"
+                >
+                  🔒 과거 리포트 없음
+                </span>
+              ) : (
+                <VerdictBadge verdict={insight.verdict} />
+              )}
             </div>
 
             {/* ── 지표 라인 ── */}
@@ -235,7 +251,7 @@ export function StockListItem({
                 }
               />
 
-              {insight.confidence != null && (
+              {insight.confidence != null && !isLocked && (
                 <MetricBadge
                   label="평균 확신도"
                   value={`${insight.confidence.toFixed(1)}/10`}
@@ -243,7 +259,7 @@ export function StockListItem({
                 />
               )}
 
-              {insight.dispersionPct != null && (
+              {insight.dispersionPct != null && !isLocked && (
                 <MetricBadge
                   label="가격 분산"
                   value={`${insight.dispersionPct.toFixed(1)}%${
@@ -255,13 +271,13 @@ export function StockListItem({
                 />
               )}
 
-              {insight.fairValueDeferred && (
+              {insight.fairValueDeferred && !isLocked && (
                 <span className="px-1.5 py-0.5 rounded border border-[#cbd5e1] bg-[#f8fafc] text-[#475569] font-mono text-[11px]">
                   적정가 산출 보류
                 </span>
               )}
 
-              {insight.voteAgreementPct != null && (
+              {insight.voteAgreementPct != null && !isLocked && (
                 <MetricBadge
                   label="표결 일치도"
                   value={`${insight.voteAgreementPct.toFixed(0)}%`}
@@ -281,13 +297,13 @@ export function StockListItem({
                 <MetricBadge label="안전마진/종가" value={safetyRatioText} />
               )}
 
-              {insight.fairValue != null && (
+              {insight.fairValue != null && !isLocked && (
                 <span className="px-1.5 py-0.5 rounded border border-[#cbd5e1] bg-white text-[#0f172a] font-semibold font-mono text-[11px]">
                   적정가: {formatPriceByNation(insight.fairValue, undefined, ticker)}
                 </span>
               )}
 
-              <StabilityBadge stability={insight.intrinsicStability} />
+              {!isLocked && <StabilityBadge stability={insight.intrinsicStability} />}
 
               {extraMetrics}
             </div>

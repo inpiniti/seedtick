@@ -278,15 +278,32 @@ export function ResearchCatalogView({
 
   const isAll = activeSectionFilter === "all";
 
-  // 티커별 최신 리포트 맵
+  // ── 권한별 열람 가능 리포트 필터 (02/03 리스트 인사이트용) ──
+  // Free(체험 만료) 유저는 최근 30일 리포트 기반 인사이트를 리스트에 노출하지 않는다.
+  // permittedReports = 과거(열람 허용) 리포트만. 최근 리포트만 있는 종목은
+  // 인사이트 없음(잠금) 처리하여 데이터 정보가 표시되지 않게 한다.
+  // 01 섹션의 날짜 게이팅(handleUserSelectCatalogDate)과 동일한 판정 기준을 사용한다.
+  const isRestrictedUser = tier === "free" && !isTrialActive;
+  const allowedFreeDate = useMemo(
+    () => getDefaultReportDate(availableDates, "free"),
+    [availableDates]
+  );
+  const permittedReports = useMemo(() => {
+    if (!isRestrictedUser) return guruReports;
+    return guruReports.filter(
+      (r) => !isReportRestricted(r.d, tier, new Date(), allowedFreeDate, isTrialActive)
+    );
+  }, [guruReports, isRestrictedUser, tier, allowedFreeDate, isTrialActive]);
+
+  // 티커별 최신 리포트 맵 (권한 필터 적용: Free는 과거 리포트 기준)
   const latestReportByTicker = useMemo(() => {
     const map = new Map<string, GuruReportRow>();
-    for (const r of guruReports) {
+    for (const r of permittedReports) {
       const key = r.ticker.toUpperCase();
       if (!map.has(key)) map.set(key, r);
     }
     return map;
-  }, [guruReports]);
+  }, [permittedReports]);
 
   // 후보군 맵 (로고 조회용 + 그림3과 동일한 한글명 폴백 소스)
   const candidateByTicker = useMemo(() => {
@@ -317,12 +334,15 @@ export function ResearchCatalogView({
   };
 
   // 내재가치 안정성 맵 (부모 주입 우선, 없을 시 자체 리포트 기반 폴백)
+  // 단, 제한 유저(Free/체험만료)는 부모 맵이 전 기간(최근 포함) 기준이므로 사용하지 않고
+  // 과거 허용 리포트만으로 자체 계산한다. 최근 적정가 분산이 리스트에 새지 않게 하기 위함.
   const intrinsicStabilityByTicker = useMemo(() => {
-    if (intrinsicStabilityMap && intrinsicStabilityMap.size > 0) {
+    if (!isRestrictedUser && intrinsicStabilityMap && intrinsicStabilityMap.size > 0) {
       return intrinsicStabilityMap;
     }
     const fairValuesByTicker = new Map<string, number[]>();
-    for (const report of guruReports) {
+    const sourceReports = isRestrictedUser ? permittedReports : guruReports;
+    for (const report of sourceReports) {
       const fairValue = extractValuationConsensus(report)?.fair_value_price;
       if (fairValue == null || !Number.isFinite(fairValue) || fairValue <= 0)
         continue;
@@ -337,7 +357,7 @@ export function ResearchCatalogView({
       stabilityMap.set(ticker, buildIntrinsicStability(fairValues));
     }
     return stabilityMap;
-  }, [intrinsicStabilityMap, guruReports]);
+  }, [intrinsicStabilityMap, guruReports, permittedReports, isRestrictedUser]);
 
   // 종목 인사이트 계산 헬퍼
   const getInsight = (ticker: string, stockPrice?: number | null) => {
@@ -389,9 +409,10 @@ export function ResearchCatalogView({
     };
   };
 
-  // 1. 리포트 필터링 (날짜 & 검색 & 의견)
+  // 1. 리포트 필터링 (날짜 & 검색 & 의견 + 권한)
+  // 캐시/선행 로드로 제한 일자 리포트가 섞여 들어와도 리스트에 노출하지 않는다.
   const filteredReports = useMemo(() => {
-    const list = guruReports.filter((r) => {
+    const list = permittedReports.filter((r) => {
       // 날짜 필터링 (선택된 날짜가 있고 "ALL"이 아닐 때)
       if (selectedDate && selectedDate !== "ALL" && r.d !== selectedDate) {
         return false;
@@ -453,7 +474,7 @@ export function ResearchCatalogView({
 
       return 0;
     });
-  }, [guruReports, selectedDate, searchQuery, reportVerdictFilter, reportSortBy, tickerNameMap]);
+  }, [permittedReports, selectedDate, searchQuery, reportVerdictFilter, reportSortBy, tickerNameMap]);
 
   // 2. DataRoma 후보군 전체 필터링
   const filteredRoma = useMemo(() => {
@@ -605,10 +626,10 @@ export function ResearchCatalogView({
     };
   }, [filteredReports, candidateByTicker, tickerNameMap, onSupplementTickerNames]);
 
-  // 전체 리포트 대상 종합 표결 탈리 집계
+  // 전체 리포트 대상 종합 표결 탈리 집계 (권한 필터 적용)
   const aggregateTally = useMemo<TallyCounts>(() => {
     const counts: TallyCounts = { buy: 0, hold: 0, watch: 0, sell: 0 };
-    for (const r of guruReports) {
+    for (const r of permittedReports) {
       const v = (r.verdict || "").toLowerCase();
       if (v.includes("매수") || v.includes("buy")) counts.buy += 1;
       else if (v.includes("매도") || v.includes("sell")) counts.sell += 1;
@@ -616,11 +637,11 @@ export function ResearchCatalogView({
       else counts.hold += 1;
     }
     return counts;
-  }, [guruReports]);
+  }, [permittedReports]);
 
-  // 내재가치 저평가 기회 상위 3종목 (괴리율 Top 3)
+  // 내재가치 저평가 기회 상위 3종목 (괴리율 Top 3, 권한 필터 적용)
   const topDiscountOpportunities = useMemo(() => {
-    return guruReports
+    return permittedReports
       .map((r) => {
         const insight = getInsight(r.ticker, r.current_price);
         return {
@@ -638,7 +659,7 @@ export function ResearchCatalogView({
       )
       .sort((a, b) => b.ratio - a.ratio)
       .slice(0, 3);
-  }, [guruReports]);
+  }, [permittedReports]);
 
   const isVisible = (secId: string) => {
     if (activeSectionFilter === "all") return true;
@@ -717,7 +738,7 @@ export function ResearchCatalogView({
             <dl className="pt-2 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-mono text-[#64748b]">
               <div className="flex items-center gap-1.5">
                 <span className="font-bold text-[#0f172a]">
-                  {guruReports.length}
+                  {permittedReports.length}
                 </span>
                 <span>REPORTS ISSUED</span>
               </div>
@@ -941,7 +962,6 @@ export function ResearchCatalogView({
 
               {/* 1. 분석 일자 선택 (날짜별 선택, 디폴트: 최신 작성 일자) */}
               {availableDates && availableDates.length > 0 && (() => {
-                const allowedFreeDate = getDefaultReportDate(availableDates, "free");
                 return (
                   <div className="space-y-1.5 pt-1">
                     <div className="flex items-center justify-between">
@@ -1228,6 +1248,7 @@ export function ResearchCatalogView({
                     const insight = getInsight(c.ticker, c.price);
                     const pbKey = chartTickerKey(c.ticker);
                     const percentB = mergedPercentB[pbKey];
+                    const isInsightLocked = isRestrictedUser && !insight.report;
 
                     return (
                       <StockListItem
@@ -1236,6 +1257,7 @@ export function ResearchCatalogView({
                         companyName={displayNameOf(c.ticker, c.name)}
                         logo={renderLogo(c.ticker, c.logo_image_url)}
                         insight={toItemInsight(insight)}
+                        isLocked={isInsightLocked}
                         percentB={percentB}
                         rowRef={observePbRow(c.ticker, pbKey)}
                         rowKey={pbKey}
@@ -1416,6 +1438,7 @@ export function ResearchCatalogView({
                     const pbKey = chartTickerKey(c.ticker);
                     const percentB = mergedPercentB[pbKey];
                     const isKr = c.nation === "kr" || candidateMarket === "kr";
+                    const isInsightLocked = isRestrictedUser && !insight.report;
 
                     return (
                       <StockListItem
@@ -1424,6 +1447,7 @@ export function ResearchCatalogView({
                         companyName={displayNameOf(c.ticker, c.name)}
                         logo={renderLogo(c.ticker, c.logo_image_url)}
                         insight={toItemInsight(insight)}
+                        isLocked={isInsightLocked}
                         percentB={percentB}
                         rowRef={observePbRow(c.ticker, pbKey)}
                         rowKey={pbKey}
