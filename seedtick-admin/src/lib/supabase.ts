@@ -9,8 +9,19 @@ export const supabase: SupabaseClient | null =
     ? createClient(supabaseUrl, supabaseAnonKey)
     : null;
 
+/** 리포트 게이트웨이 호출용 Bearer 토큰 (없으면 비로그인 public扱い) */
+async function getReportAuthHeaders(): Promise<Record<string, string>> {
+  try {
+    const token = (await supabase?.auth.getSession())?.data.session
+      ?.access_token;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
+
 /**
- * 최신 에러 및 시스템 로그 조회
+ * 최신 에러 및 시스템 로그 조회 (비민감 운영 로그 — 직접 조회 유지)
  */
 export async function fetchSystemLogs(
   limit = 50,
@@ -41,29 +52,24 @@ export async function fetchSystemLogs(
 }
 
 /**
- * 심층 투자 보고서 목록 및 특정 일자 리포트 조회
+ * 심층 투자 보고서 목록 — 서버 게이트웨이 경유 (직접 DB 접근 금지).
+ * 권한 없는 행은 서버가 민감 컬럼을 제거한 티저(현재가만)로 반환합니다.
  */
 export async function fetchGuruReports(limit = 200, date?: string): Promise<GuruReportRow[]> {
-  if (!supabase) return [];
   try {
-    let query = supabase
-      .from("guru_reports")
-      .select("*")
-      .order("d", { ascending: false });
-
-    if (date && date !== "ALL") {
-      query = query.eq("d", date).order("overall_score", { ascending: false });
-    }
-
-    query = query.limit(limit);
-
-    const { data, error } = await query;
-
-    if (error) {
-      console.warn("fetchGuruReports error:", error.message);
+    const params = new URLSearchParams();
+    params.set("limit", String(limit));
+    if (date && date !== "ALL") params.set("date", date);
+    const res = await fetch(`/api/reports?${params.toString()}`, {
+      headers: await getReportAuthHeaders(),
+      cache: "no-store",
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json?.success) {
+      console.warn("fetchGuruReports error:", json?.message);
       return [];
     }
-    return (data as GuruReportRow[]) || [];
+    return (json.reports as GuruReportRow[]) || [];
   } catch (err) {
     console.warn("fetchGuruReports exception:", err);
     return [];
@@ -71,22 +77,14 @@ export async function fetchGuruReports(limit = 200, date?: string): Promise<Guru
 }
 
 /**
- * 보고서(guru_reports)에 존재하는 고유한 날짜 목록 조회 (내림차순)
+ * 보고서에 존재하는 고유한 날짜 목록 조회 — 일자 자체는 비민감
  */
 export async function fetchGuruReportDates(): Promise<string[]> {
-  if (!supabase) return [];
   try {
-    const { data, error } = await supabase
-      .from("guru_reports")
-      .select("d")
-      .order("d", { ascending: false });
-
-    if (error) {
-      console.warn("fetchGuruReportDates error:", error.message);
-      return [];
-    }
-    const dates = Array.from(new Set((data || []).map((row) => row.d as string)));
-    return dates;
+    const res = await fetch("/api/reports/dates", { cache: "no-store" });
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json?.success) return [];
+    return (json.dates as string[]) || [];
   } catch (err) {
     console.warn("fetchGuruReportDates exception:", err);
     return [];
@@ -94,23 +92,17 @@ export async function fetchGuruReportDates(): Promise<string[]> {
 }
 
 /**
- * 특정 종목(ticker)에 존재하는 보고서 날짜 목록 조회 (내림차순)
+ * 특정 종목(ticker)에 존재하는 보고서 날짜 목록 조회 — 일자 자체는 비민감
  */
 export async function fetchReportDatesByTicker(ticker: string): Promise<string[]> {
-  if (!supabase) return [];
   try {
-    const { data, error } = await supabase
-      .from("guru_reports")
-      .select("d")
-      .eq("ticker", ticker.toUpperCase())
-      .order("d", { ascending: false });
-
-    if (error) {
-      console.warn("fetchReportDatesByTicker error:", error.message);
-      return [];
-    }
-    const dates = Array.from(new Set((data || []).map((row) => row.d as string)));
-    return dates;
+    const res = await fetch(
+      `/api/reports/dates-by-ticker?ticker=${encodeURIComponent(ticker.toUpperCase())}`,
+      { cache: "no-store" }
+    );
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json?.success) return [];
+    return (json.dates as string[]) || [];
   } catch (err) {
     console.warn("fetchReportDatesByTicker exception:", err);
     return [];
@@ -118,34 +110,22 @@ export async function fetchReportDatesByTicker(ticker: string): Promise<string[]
 }
 
 /**
- * 특정 날짜와 티커의 단일 보고서 조회
+ * 특정 날짜와 티커의 단일 보고서 조회 — 서버 게이트웨이 경유.
+ * 권한 없으면 티저(현재가만) 반환, 원문은 포함되지 않습니다.
  */
 export async function fetchReportByDateAndTicker(
   date: string,
   ticker: string
 ): Promise<GuruReportRow | null> {
-  if (!supabase) return null;
   try {
-    const reportId = `${date}_${ticker.toUpperCase()}`;
-    const { data, error } = await supabase
-      .from("guru_reports")
-      .select("*")
-      .eq("id", reportId)
-      .maybeSingle();
-
-    if (error) {
-      // id 매칭 안될 경우 d, ticker 복합조건으로 폴백
-      const fallbackRes = await supabase
-        .from("guru_reports")
-        .select("*")
-        .eq("d", date)
-        .eq("ticker", ticker.toUpperCase())
-        .limit(1)
-        .maybeSingle();
-      return (fallbackRes.data as GuruReportRow) || null;
-    }
-
-    return (data as GuruReportRow) || null;
+    const params = new URLSearchParams({ date, ticker: ticker.toUpperCase() });
+    const res = await fetch(`/api/reports/detail?${params.toString()}`, {
+      headers: await getReportAuthHeaders(),
+      cache: "no-store",
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json?.success) return null;
+    return (json.report as GuruReportRow) || null;
   } catch (err) {
     console.warn("fetchReportByDateAndTicker exception:", err);
     return null;
@@ -159,8 +139,7 @@ export interface HistoricalValuationRecord {
 }
 
 /**
- * 티커 -> 한글 종목명 맵 조회 (ticker_logos 캐시, 로고 워밍업과 동일한 저장 구조)
- * 관리자 화면의 모든 메뉴에서 종목명을 한글명으로 통일 표시하기 위해 사용한다.
+ * 티커 -> 한글 종목명 맵 조회 (ticker_logos 캐시 — 비민감 공개 데이터)
  */
 export async function fetchTickerNameMap(
   limit = 5000
@@ -192,36 +171,20 @@ export async function fetchTickerNameMap(
 }
 
 /**
- * 전 기간 종목별 내재가치 히스토리 조회 (안정성 계산용 경량 쿼리)
+ * 전 기간 종목별 내재가치 히스토리 — 서버 게이트웨이 경유.
+ * 권한 없는 일자(최근 30일)의 적정가는 서버가 한 건도 반환하지 않습니다.
  */
 export async function fetchHistoricalValuations(): Promise<HistoricalValuationRecord[]> {
-  if (!supabase) return [];
   try {
-    const { data, error } = await supabase
-      .from("guru_reports")
-      .select("ticker, d, datapack->valuation_consensus->fair_value_price")
-      .order("d", { ascending: true });
-
-    if (error) {
-      console.warn("fetchHistoricalValuations error:", error.message);
-      return [];
-    }
-
-    const records: HistoricalValuationRecord[] = [];
-    for (const row of data || []) {
-      const fv = (row as any).fair_value_price;
-      if (typeof fv === "number" && Number.isFinite(fv) && fv > 0) {
-        records.push({
-          ticker: (row.ticker as string).toUpperCase(),
-          d: row.d as string,
-          fair_value_price: fv,
-        });
-      }
-    }
-    return records;
+    const res = await fetch("/api/reports/valuations", {
+      headers: await getReportAuthHeaders(),
+      cache: "no-store",
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json?.success) return [];
+    return (json.records as HistoricalValuationRecord[]) || [];
   } catch (err) {
     console.warn("fetchHistoricalValuations exception:", err);
     return [];
   }
 }
-

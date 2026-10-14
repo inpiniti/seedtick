@@ -1,10 +1,10 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { DashboardView } from "@/components/dashboard/DashboardView";
-import { fetchReportByDateAndTicker, supabase } from "@/lib/supabase";
-import { extractValuationConsensus } from "@/lib/insightUtils";
-import { formatPriceByNation } from "@/lib/utils";
+import { getServerSupabaseClient } from "@/lib/subscription/supabaseServer";
+import { maskReportRowPublic } from "@/lib/subscription/reportAccess";
 import { ResearchDocTab } from "@/components/research/ResearchDocumentView";
+import type { GuruReportRow } from "@/types/api";
 
 interface StockDetailPageProps {
   params: Promise<{ ticker: string }>;
@@ -20,15 +20,31 @@ export async function generateMetadata({
   const ticker = (rawTicker || "").toUpperCase();
 
   let companyName = ticker;
-  let verdict = "투자 의견 조율 중";
-  let fairValueText = "";
   let publishedDate = date || "";
 
+  // SSR은 로그인 컨텍스트가 없으므로 public(free) 기준 마스킹된 티저만 사용.
+  // 최근 30일 리포트의 verdict/적정가는 메타데이터에 절대 포함하지 않음.
+  const supabase = getServerSupabaseClient();
   if (supabase) {
     try {
-      let report = null;
+      let report: GuruReportRow | null = null;
       if (date) {
-        report = await fetchReportByDateAndTicker(date, ticker);
+        const { data } = await supabase
+          .from("guru_reports")
+          .select("*")
+          .eq("id", `${date}_${ticker}`)
+          .maybeSingle();
+        report = (data as GuruReportRow | null) || null;
+        if (!report) {
+          const fallback = await supabase
+            .from("guru_reports")
+            .select("*")
+            .eq("d", date)
+            .eq("ticker", ticker)
+            .limit(1)
+            .maybeSingle();
+          report = (fallback.data as GuruReportRow | null) || null;
+        }
       } else {
         const { data } = await supabase
           .from("guru_reports")
@@ -37,26 +53,21 @@ export async function generateMetadata({
           .order("d", { ascending: false })
           .limit(1)
           .maybeSingle();
-        report = data;
+        report = (data as GuruReportRow | null) || null;
       }
 
       if (report) {
-        if (report.company_name) companyName = report.company_name;
-        if (report.verdict) verdict = report.verdict;
-        if (report.d) publishedDate = report.d;
-
-        const val = extractValuationConsensus(report);
-        if (val?.fair_value_price) {
-          fairValueText = ` · 컨센서스 적정주가 ${formatPriceByNation(val.fair_value_price, undefined, ticker)}`;
-        }
+        const teaser = maskReportRowPublic(report);
+        if (teaser.company_name) companyName = teaser.company_name;
+        if (teaser.d) publishedDate = teaser.d;
       }
     } catch {
       // ignore
     }
   }
 
-  const title = `${ticker} (${companyName}) 적정주가 및 13인 거장 AI 투자 분석 | SeedTick`;
-  const description = `${ticker} - 워런 버핏, 피터 린치 등 13인의 투자 거장 AI 합의 표결(${verdict})${fairValueText}. SEC 공시 데이터팩과 내재가치 밴드 심층 분석 리포트.`;
+  const title = `${ticker} (${companyName}) 13인 거장 AI 투자 분석 | SeedTick`;
+  const description = `${ticker}(${companyName}) - 13인 투자 거장 AI 가치평가 리포트 아카이브. 최신 리포트는 Pro 멤버십으로 열람 가능합니다.`;
   const canonicalUrl = `/stocks/${ticker}`;
 
   return {
@@ -145,22 +156,41 @@ export default async function StockDetailPage({
     ],
   };
 
-  // 서버 사이드에서 리포트 데이터 직접 조회 (진짜 Server-Side Rendering)
-  let initialReport = null;
-  if (supabase) {
+  // SSR initialReport도 public 마스킹 티저만 전달 (원문 절대 미포함).
+  // 로그인 유저의 전체 열람은 클라이언트가 /api/reports/detail로 재조회합니다.
+  let initialReport: GuruReportRow | null = null;
+  const ssrSupabase = getServerSupabaseClient();
+  if (ssrSupabase) {
     try {
+      let row: GuruReportRow | null = null;
       if (date) {
-        initialReport = await fetchReportByDateAndTicker(date, ticker);
+        const { data } = await ssrSupabase
+          .from("guru_reports")
+          .select("*")
+          .eq("id", `${date}_${ticker}`)
+          .maybeSingle();
+        row = (data as GuruReportRow | null) || null;
+        if (!row) {
+          const fallback = await ssrSupabase
+            .from("guru_reports")
+            .select("*")
+            .eq("d", date)
+            .eq("ticker", ticker)
+            .limit(1)
+            .maybeSingle();
+          row = (fallback.data as GuruReportRow | null) || null;
+        }
       } else {
-        const { data } = await supabase
+        const { data } = await ssrSupabase
           .from("guru_reports")
           .select("*")
           .eq("ticker", ticker)
           .order("d", { ascending: false })
           .limit(1)
           .maybeSingle();
-        initialReport = data;
+        row = (data as GuruReportRow | null) || null;
       }
+      if (row) initialReport = maskReportRowPublic(row);
     } catch (e) {
       console.warn("SSR fetchReport error:", e);
     }

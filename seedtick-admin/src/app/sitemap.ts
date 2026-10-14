@@ -1,6 +1,6 @@
 import { MetadataRoute } from "next";
-import { createClient } from "@supabase/supabase-js";
 import { GURU_PERSONAS } from "@/lib/guruPersonas";
+import { getServerSupabaseClient } from "@/lib/subscription/supabaseServer";
 
 export const revalidate = 3600; // 1시간 주기로 사이트맵 자동 갱신
 
@@ -52,12 +52,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   // 3. Supabase DB에서 최신 발행된 모든 종목(티커) 목록 및 최신 날짜 동적 조회
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // 티커/일자만 사용 (민감 컬럼 미조회). anon 직접 접근 차단 이후 service_role 경유.
+  const supabase = getServerSupabaseClient();
 
-  if (supabaseUrl && supabaseAnonKey) {
+  if (supabase) {
     try {
-      const supabase = createClient(supabaseUrl, supabaseAnonKey);
       const { data, error } = await supabase
         .from("guru_reports")
         .select("ticker, d")
