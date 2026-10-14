@@ -46,20 +46,21 @@
 
 ## 4. 결제 및 구독 라이프사이클 (PortOne V2)
 
-### UC-3: 결제 플랜 선택 및 결제창 호출
+### UC-3: 결제 플랜 선택 및 서버 결제 검증 (confirm)
 1. 사용자가 요금제 모달에서 플랜을 선택한다:
    - **월간 정기 플랜 (2,900원/월)**: 신용카드 등록(빌링키 발급) 방식으로 포트원 결제창 연동.
-   - **연간 플랜 (29,000원/연, 2개월 무료)**: 카드 정기 결제 또는 단건 결제(카드/카카오페이 등).
-2. 결제 완료 시:
-   - 포트원 결제 승인 응답 및 서버사이드 검증.
-   - DB `subscriptions`의 `tier`를 `'pro'`로 갱신, `current_period_end`를 계산하여 저장.
-   - 즉시 세션 상태가 Pro로 전환되어 최근 1개월 보고서가 잠금 해제됨.
+   - **연간 플랜 (29,000원/연, 2개월 무료)**: 카드 정기 결제 또는 단건 결제.
+2. 결제창 승인 완료 시:
+   - 클라이언트는 결제 식별자(`paymentId` / `billingKey`)를 `POST /api/billing/confirm`으로 전송.
+   - 서버가 포트원 V2 REST API를 직접 호출하여 실제 결제 여부(`status === 'PAID'`) 및 금액 위변조를 검증.
+   - 서버에서 `subscriptions` (`tier = 'pro'`, `current_period_end`) 및 `payment_transactions` (`amount`, `card_last4`, `receipt_url`) 테이블을 트랜잭션으로 안전하게 기록.
+   - 클라이언트 상태가 즉시 Pro로 전환되어 최근 1개월 보고서가 잠금 해제됨.
 
-### UC-4: 구독 해지 (청약철회 7일 정책)
-1. Pro 사용자가 멤버십 관리(`/account`)에서 "구독 해지"를 클릭하면, 확인 시트에서 처리 결과(환불 금액 또는 이용 종료일)를 미리 보여준다.
-2. 확정 시 클라이언트는 `POST /api/billing/cancel`을 호출하고, 서버가 포트원 API를 호출한다.
-   - **결제 후 7일 미만**: `POST /payments/{paymentId}/cancel` 전액 환불 → 구독 즉시 만료, 결제 내역 `refunded`.
-   - **7일 이후**: `DELETE /billing-keys/{billingKey}`로 자동결제 차단 → `status = 'canceled'`, `current_period_end`까지 Pro 유지.
+### UC-4: 구독 해지 및 일할 계산 부분 환불 (cancel)
+1. Pro 사용자가 멤버십 관리(`/account`)에서 "구독 해지"를 클릭하면, 확인 모달에서 일할 계산 결과(이용 일수, 공제 금액, 환불 예상액 또는 이용 종료일)를 안내한다.
+2. 확정 시 클라이언트는 `POST /api/billing/cancel`을 호출하고, 서버가 DB의 실제 결제 내역을 바탕으로 일할 계산을 수행한다.
+   - **결제 후 7일 이내**: `POST /payments/{paymentId}/cancel` 부분 취소 API 호출 (이용한 일수분 공제 후 잔여액 환불) → 구독 즉시 만료(`tier = 'free'`, `status = 'expired'`), 결제 내역 `partial_refunded` (전액 시 `refunded`)로 갱신.
+   - **7일 초과**: `DELETE /billing-keys/{billingKey}`로 다음 주기 자동결제 차단 → `status = 'canceled'`, `current_period_end`까지 Pro 유지.
 3. 포트원 호출이 실패하면 DB 상태를 바꾸지 않고 에러 토스트를 보여준다.
 4. `PORTONE_API_SECRET` 미설정 또는 테스트 결제 ID(`_test_`)이면 서버는 시뮬레이션 성공으로 응답한다.
 

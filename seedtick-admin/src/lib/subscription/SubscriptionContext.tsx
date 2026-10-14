@@ -20,6 +20,7 @@ import {
 import {
   requestBillingKey,
   requestOneTimePayment,
+  PortOneResult,
 } from "./portoneClient";
 
 interface SubscriptionContextValue {
@@ -272,7 +273,7 @@ export function SubscriptionProvider({
           ? "SeedTick Research Pro 멤버십 (월간 정기구독)"
           : "SeedTick Research Pro 멤버십 (1년 이용권)";
 
-      let portoneRes;
+      let portoneRes: PortOneResult;
 
       if (planType === "monthly" && method === "card") {
         // 월간은 정기 결제 카드 등록 (빌링키 발급)
@@ -301,88 +302,62 @@ export function SubscriptionProvider({
         };
       }
 
-      // 만료일 산출
-      const currentEnd = subscription?.currentPeriodEnd || null;
-      const newExpiry = calculateSubscriptionExpiry(currentEnd, planType);
-      const newExpiryStr = newExpiry.toISOString();
+      // 2. 서버 confirm API 호출 (포트원 결제 검증 및 서버 DB 기록)
+      try {
+        const token = supabase
+          ? (await supabase.auth.getSession()).data.session?.access_token
+          : undefined;
 
-      // 상태 업데이트
-      const updatedSub: Subscription = {
-        id: subscription?.id || `sub_${Date.now()}`,
-        userId: user?.id || "demo_user",
-        tier: "pro",
-        planType,
-        status: "active",
-        currentPeriodStart: new Date().toISOString(),
-        currentPeriodEnd: newExpiryStr,
-        billingKey: portoneRes.billingKey,
-      };
+        const confirmRes = await fetch("/api/billing/confirm", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            paymentId: portoneRes.paymentId,
+            billingKey: portoneRes.billingKey,
+            planType,
+            payMethod: method === "easypay" ? "easypay" : "card",
+          }),
+        });
 
-      setTier("pro");
-      setSubscription(updatedSub);
-
-      if (typeof window !== "undefined") {
-        localStorage.setItem(STORAGE_KEY_TIER, "pro");
-        localStorage.setItem(STORAGE_KEY_EXPIRY, newExpiryStr);
-      }
-
-      // 결제 내역 기록
-      const payment: PaymentTransaction = {
-        id: `txn_${Date.now()}`,
-        paymentId: portoneRes.paymentId ?? portoneRes.billingKey ?? null,
-        planType,
-        amount,
-        payMethod: method === "easypay" ? "easypay" : "card",
-        cardLast4: null,
-        status: "paid",
-        receiptUrl: null,
-        paidAt: new Date().toISOString(),
-      };
-      setPayments((prev) => {
-        const next = [payment, ...prev];
-        writeLocalPayments(next);
-        return next;
-      });
-      if (supabase && user) {
-        supabase
-          .from("payment_transactions")
-          .insert({
-            user_id: user.id,
-            merchant_uid: payment.id,
-            imp_uid: payment.paymentId,
-            amount,
-            plan_type: planType,
-            pay_method: payment.payMethod,
-            status: "paid",
-            paid_at: payment.paidAt,
-          })
-          .then(({ error }) => {
-            if (error) console.warn("결제 내역 DB 기록 실패:", error.message);
-          });
-      }
-
-      // Supabase DB 저장 (로그인 상태인 경우)
-      if (supabase && user) {
-        try {
-          await supabase.from("subscriptions").upsert({
-            user_id: user.id,
-            tier: "pro",
-            plan_type: planType,
-            status: "active",
-            current_period_start: updatedSub.currentPeriodStart,
-            current_period_end: updatedSub.currentPeriodEnd,
-            billing_key: portoneRes.billingKey || null,
-            updated_at: new Date().toISOString(),
-          });
-        } catch (dbErr) {
-          console.warn("DB 구독 동기화 실패 (로컬 상태는 Pro 유지됨):", dbErr);
+        const confirmJson = await confirmRes.json();
+        if (!confirmJson.success) {
+          return {
+            success: false,
+            message: confirmJson.message || "서버 결제 검증에 실패했습니다.",
+          };
         }
-      }
 
-      closeUpgradeModal();
-      return { success: true };
+        const verifiedSub = confirmJson.subscription as Subscription;
+        const verifiedPay = confirmJson.payment as PaymentTransaction;
+
+        setTier("pro");
+        setSubscription(verifiedSub);
+        setPayments((prev) => [verifiedPay, ...prev]);
+
+        if (typeof window !== "undefined") {
+          localStorage.setItem(STORAGE_KEY_TIER, "pro");
+          localStorage.setItem(
+            STORAGE_KEY_EXPIRY,
+            verifiedSub.currentPeriodEnd || ""
+          );
+        }
+
+        closeUpgradeModal();
+        return { success: true };
+      } catch (err: unknown) {
+        return {
+          success: false,
+          message:
+            err instanceof Error
+              ? err.message
+              : "서버 결제 승인 요청 중 오류가 발생했습니다.",
+        };
+      }
     },
-    [user, subscription, closeUpgradeModal]
+    [user, supabase, closeUpgradeModal]
   );
 
   const latestPaid = payments.find((p) => p.status === "paid") ?? null;
@@ -391,21 +366,21 @@ export function SubscriptionProvider({
     (): CancellationDecision =>
       decideCancellation({
         paidAt: latestPaid?.paidAt,
-        amount: latestPaid?.amount ?? 0,
+        amount: latestPaid?.amount ?? (subscription?.planType === "yearly" ? 29000 : 2900),
+        planType: subscription?.planType || "monthly",
       }),
-    [latestPaid]
+    [latestPaid, subscription?.planType]
   );
 
-  // 구독 해지: 7일 이내 전액 환불(즉시 만료) / 이후는 자동갱신만 해지(만료일까지 Pro 유지)
+  // 구독 해지: 서버 cancel API를 통해 일할 계산 부분 환불 또는 자동갱신 해지 수행
   const cancelSubscription = useCallback(async () => {
     if (!subscription) return { success: false, message: "구독 정보가 없어요." };
-    const decision = previewCancellation();
 
-    // 서버에서 포트원 API 호출 (결제 취소 또는 빌링키 삭제)
     try {
       const token = supabase
         ? (await supabase.auth.getSession()).data.session?.access_token
         : undefined;
+
       const res = await fetch("/api/billing/cancel", {
         method: "POST",
         headers: {
@@ -413,66 +388,64 @@ export function SubscriptionProvider({
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          mode: decision.mode,
           paymentId: latestPaid?.paymentId,
           billingKey: subscription.billingKey,
-          refundAmount: decision.refundAmount,
+          planType: subscription.planType,
         }),
       });
+
       const json = await res.json();
       if (!json.success) return { success: false, message: json.message };
-    } catch (e) {
-      return { success: false, message: e instanceof Error ? e.message : "해지 요청에 실패했어요." };
-    }
 
-    const now = new Date().toISOString();
-    const canceledSub: Subscription = {
-      ...subscription,
-      status: decision.mode === "refund" ? "expired" : "canceled",
-      canceledAt: now,
-      billingKey: null,
-      currentPeriodEnd: decision.mode === "refund" ? now : subscription.currentPeriodEnd,
-    };
-    setSubscription(canceledSub);
+      const decision = json.decision as CancellationDecision;
+      const now = new Date().toISOString();
 
-    if (decision.mode === "refund") {
-      setTier("free");
-      setDemoTier("free");
-      if (typeof window !== "undefined") {
-        localStorage.setItem(STORAGE_KEY_TIER, "free");
-        localStorage.removeItem(STORAGE_KEY_EXPIRY);
-      }
-      setPayments((prev) => {
-        const next = prev.map((p) =>
-          p.id === latestPaid?.id ? { ...p, status: "refunded" as const } : p
+      if (decision.mode === "refund") {
+        // 일할 계산 부분 환불 완료 -> 즉시 Free 전환
+        setTier("free");
+        setDemoTier("free");
+        setSubscription({
+          ...subscription,
+          tier: "free",
+          status: "expired",
+          canceledAt: now,
+          billingKey: null,
+          currentPeriodEnd: now,
+        });
+
+        setPayments((prev) =>
+          prev.map((p) =>
+            p.id === latestPaid?.id
+              ? {
+                  ...p,
+                  status: "refunded",
+                }
+              : p
+          )
         );
-        writeLocalPayments(next);
-        return next;
-      });
-    }
 
-    if (supabase && user) {
-      await supabase
-        .from("subscriptions")
-        .update({
-          status: canceledSub.status,
-          canceled_at: now,
-          billing_key: null,
-          current_period_end: canceledSub.currentPeriodEnd,
-          tier: decision.mode === "refund" ? "free" : subscription.tier,
-          updated_at: now,
-        })
-        .eq("user_id", user.id);
-      if (decision.mode === "refund" && latestPaid) {
-        await supabase
-          .from("payment_transactions")
-          .update({ status: "refunded" })
-          .eq("merchant_uid", latestPaid.id);
+        if (typeof window !== "undefined") {
+          localStorage.setItem(STORAGE_KEY_TIER, "free");
+          localStorage.removeItem(STORAGE_KEY_EXPIRY);
+        }
+      } else {
+        // 7일 초과: 다음 결제만 해지, 만료일까지 유지
+        setSubscription({
+          ...subscription,
+          status: "canceled",
+          canceledAt: now,
+          billingKey: null,
+        });
       }
-    }
 
-    return { success: true, decision };
-  }, [subscription, user, previewCancellation, latestPaid]);
+      return { success: true, decision };
+    } catch (e) {
+      return {
+        success: false,
+        message: e instanceof Error ? e.message : "해지 요청에 실패했어요.",
+      };
+    }
+  }, [subscription, supabase, latestPaid]);
 
   // 개발 및 시연용 Free <-> 1-Day Trial <-> Pro 3단계 즉각 토글 헬퍼
   const toggleTierForTesting = useCallback(() => {

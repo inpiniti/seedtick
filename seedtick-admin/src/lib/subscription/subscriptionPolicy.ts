@@ -159,31 +159,100 @@ export function getRemainingDays(
   return diff > 0 ? Math.ceil(diff / MILLIS_PER_DAY) : 0;
 }
 
-export type CancellationDecision =
-  | { mode: "refund"; refundAmount: number }
-  | { mode: "end_of_period"; refundAmount: 0 };
+export interface ProratedRefundResult {
+  mode: "refund" | "end_of_period";
+  refundAmount: number;
+  usedAmount: number;
+  usedDays: number;
+  totalDays: number;
+  reason: string;
+}
+
+export type CancellationDecision = ProratedRefundResult;
+
+/**
+ * 일할 계산 부분 환불 금액 산출
+ * - 7일 이내 해지 시: 사용 일수(최소 1일)에 해당하는 이용료를 공제한 잔여 금액 환불
+ * - 7일 초과 시: 환불 불가(0원), current_period_end까지 이용 유지
+ */
+export function calculateProratedRefund(input: {
+  amount: number;
+  planType: PlanType;
+  paidAt: string | Date | null | undefined;
+  now?: Date;
+  alreadyRefunded?: boolean;
+}): ProratedRefundResult {
+  const { amount, planType, paidAt, now = new Date(), alreadyRefunded = false } = input;
+  const totalDays = planType === "yearly" ? 365 : 30;
+
+  if (!paidAt || alreadyRefunded || amount <= 0) {
+    return {
+      mode: "end_of_period",
+      refundAmount: 0,
+      usedAmount: 0,
+      usedDays: 0,
+      totalDays,
+      reason: alreadyRefunded ? "이미 환불 완료된 건입니다." : "유효한 결제 내역이 없습니다.",
+    };
+  }
+
+  const paid = typeof paidAt === "string" ? new Date(paidAt) : paidAt;
+  if (isNaN(paid.getTime())) {
+    return {
+      mode: "end_of_period",
+      refundAmount: 0,
+      usedAmount: 0,
+      usedDays: 0,
+      totalDays,
+      reason: "결제 일시가 유효하지 않습니다.",
+    };
+  }
+
+  const elapsedMillis = now.getTime() - paid.getTime();
+  if (elapsedMillis >= REFUND_WINDOW_DAYS * MILLIS_PER_DAY) {
+    return {
+      mode: "end_of_period",
+      refundAmount: 0,
+      usedAmount: 0,
+      usedDays: 0,
+      totalDays,
+      reason: "청약철회 기간(7일) 초과로 인한 자동갱신 해지",
+    };
+  }
+
+  // 7일 이내 해지: 최소 1일분 사용 공제 (하루라도 서비스를 썼다면 1일분 제함)
+  const usedDays = Math.max(1, Math.ceil(Math.max(0, elapsedMillis) / MILLIS_PER_DAY));
+  const dailyRate = amount / totalDays;
+  const usedAmount = Math.min(amount, Math.ceil(usedDays * dailyRate));
+  const refundAmount = Math.max(0, amount - usedAmount);
+
+  return {
+    mode: "refund",
+    refundAmount,
+    usedAmount,
+    usedDays,
+    totalDays,
+    reason: `${usedDays}일 이용 요금(${usedAmount.toLocaleString()}원)을 공제한 잔여 금액 부분 환불`,
+  };
+}
 
 /**
  * 구독 해지 방식 결정
- * - 결제 후 7일 미만 & 미환불: 전액 환불 + 즉시 만료 (포트원 결제 취소 API 호출)
- * - 그 외: 자동갱신만 해지, current_period_end 까지 Pro 유지 (빌링키 삭제)
+ * - 7일 이내: 일할 계산 후 잔여액 부분 환불 및 구독 즉시 만료
+ * - 7일 이후: 자동갱신만 해지, 만료일까지 유지
  */
 export function decideCancellation(input: {
   paidAt: string | Date | null | undefined;
   amount: number;
+  planType?: PlanType;
   now?: Date;
   alreadyRefunded?: boolean;
 }): CancellationDecision {
-  const { paidAt, amount, now = new Date(), alreadyRefunded = false } = input;
-  if (!paidAt || alreadyRefunded || amount <= 0) {
-    return { mode: "end_of_period", refundAmount: 0 };
-  }
-  const paid = typeof paidAt === "string" ? new Date(paidAt) : paidAt;
-  if (isNaN(paid.getTime())) return { mode: "end_of_period", refundAmount: 0 };
-
-  const elapsed = now.getTime() - paid.getTime();
-  if (elapsed >= 0 && elapsed < REFUND_WINDOW_DAYS * MILLIS_PER_DAY) {
-    return { mode: "refund", refundAmount: amount };
-  }
-  return { mode: "end_of_period", refundAmount: 0 };
+  return calculateProratedRefund({
+    amount: input.amount,
+    planType: input.planType || "monthly",
+    paidAt: input.paidAt,
+    now: input.now,
+    alreadyRefunded: input.alreadyRefunded,
+  });
 }

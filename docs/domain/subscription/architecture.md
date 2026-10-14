@@ -73,3 +73,35 @@ export function calculateSubscriptionExpiry(
   return expiry;
 }
 ```
+
+---
+
+## 4. 해지 및 일할 부분 환불 흐름도 (Prorated Cancel Flow)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as 사용자
+    participant AccountUI as 멤버십 관리 (/account)
+    participant CancelApi as Next.js API (/api/billing/cancel)
+    participant PortOne as PortOne REST API
+    participant DB as Supabase DB (subscriptions / payments)
+
+    User->>AccountUI: "구독 해지" 클릭
+    AccountUI->>AccountUI: 일할 계산 프리뷰 (사용 일수 공제액 & 환불 예상액 안내)
+    User->>AccountUI: 해지 확정 클릭
+    AccountUI->>CancelApi: POST /api/billing/cancel (Bearer JWT)
+    CancelApi->>DB: 최근 결제(payment_transactions) 및 구독 상태 조회
+    CancelApi->>CancelApi: calculateProratedRefund (결제일시 대비 사용 일수 계산)
+    alt 결제 후 7일 이내 (일할 계산 부분 환불)
+        CancelApi->>PortOne: POST /payments/{id}/cancel (amount: refundAmount)
+        CancelApi->>DB: payments 상태를 'partial_refunded'로 갱신
+        CancelApi->>DB: subscriptions 상태를 'expired', tier를 'free'로 즉시 만료
+    else 결제 후 7일 초과 (자동갱신 해지)
+        CancelApi->>PortOne: DELETE /billing-keys/{key} (빌링키 삭제)
+        CancelApi->>DB: subscriptions 상태를 'canceled'로 갱신 (만료일까지 Pro 유지)
+    end
+    CancelApi-->>AccountUI: 해지 결과 및 환불 안내 반환
+    AccountUI-->>User: 상태 변경 토스트 및 화면 즉시 갱신
+```
+

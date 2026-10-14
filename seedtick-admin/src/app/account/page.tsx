@@ -168,8 +168,8 @@ export default function AccountPage() {
             {!isCanceled && (
               <section className="p-5 rounded-md bg-white border border-[#e2e8f0] flex items-center justify-between gap-4">
                 <p className="text-[#64748b] leading-relaxed">
-                  결제 후 {REFUND_WINDOW_DAYS}일 안에 해지하면 전액 환불돼요.
-                  <br className="hidden sm:block" /> 그 이후엔 다음 결제만 멈추고, 남은 기간은 그대로 쓸 수 있어요.
+                  결제 후 {REFUND_WINDOW_DAYS}일 안에 해지하시면 사용 일수를 제외한 잔여 금액이 일할 계산되어 환불돼요.
+                  <br className="hidden sm:block" /> {REFUND_WINDOW_DAYS}일 이후에는 다음 결제만 중단되고, 만료일까지 PRO를 그대로 쓰실 수 있어요.
                 </p>
                 <button
                   type="button"
@@ -222,10 +222,24 @@ export default function AccountPage() {
           >
             <h3 className="text-base font-bold font-sans">정말 해지할까요?</h3>
             {decision.mode === "refund" ? (
-              <p className="text-[#64748b] leading-relaxed">
-                결제 후 {REFUND_WINDOW_DAYS}일이 지나지 않아 <strong className="text-[#0f172a]">{fmtWon(decision.refundAmount)} 전액 환불</strong>돼요.
-                환불과 함께 PRO 이용이 바로 끝나요.
-              </p>
+              <div className="space-y-2 text-[#64748b] leading-relaxed">
+                <p>
+                  서비스를 총 <strong className="text-[#0f172a]">{decision.usedDays}일</strong> 이용하셨어요.
+                </p>
+                <div className="p-3 bg-[#f8fafc] border border-[#e2e8f0] rounded space-y-1 text-[11px]">
+                  <div className="flex justify-between">
+                    <span>이용 일수 ({decision.usedDays}일):</span>
+                    <span>-{fmtWon(decision.usedAmount)}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-[#cbd5e1] pt-1 font-semibold text-[#0f172a]">
+                    <span>환불 예상 금액:</span>
+                    <span>{fmtWon(decision.refundAmount)}</span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-[#94a3b8]">
+                  * {decision.usedDays}일분 이용료를 공제한 잔여 금액이 카드사로 부분 취소되며, PRO 이용은 즉시 종료돼요.
+                </p>
+              </div>
             ) : (
               <p className="text-[#64748b] leading-relaxed">
                 다음 결제가 멈추고, <strong className="text-[#0f172a]">{fmtDate(subscription?.currentPeriodEnd)}</strong>까지는 PRO를 그대로 쓸 수 있어요.
