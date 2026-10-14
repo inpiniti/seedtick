@@ -43,6 +43,8 @@ import {
 } from "lucide-react";
 import { formatPriceByNation, formatMarketCap } from "@/lib/utils";
 import { fetchTickerLogos, fetchTickerNames, fetchStockChart } from "@/lib/api-client";
+import { useSubscription } from "@/lib/subscription/SubscriptionContext";
+import { isReportRestricted } from "@/lib/subscription/subscriptionPolicy";
 import { DataCache } from "@/lib/dataCache";
 
 const KR_STEP_5_INFO = {
@@ -145,6 +147,7 @@ export function ResearchCatalogView({
   onSupplementTickerNames,
   onPercentBUpdate,
 }: ResearchCatalogViewProps) {
+  const { tier } = useSubscription();
   const [searchQuery, setSearchQuery] = useState("");
   const [reportVerdictFilter, setReportVerdictFilter] = useState<string>("ALL");
   const [reportSortBy, setReportSortBy] = useState<
@@ -945,8 +948,20 @@ export function ResearchCatalogView({
                       <span>Report Date (분석 일자)</span>
                     </span>
                     {selectedDate && selectedDate !== "ALL" && (
-                      <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-[#0f172a] text-white">
-                        {selectedDate === availableDates[0] ? "★ 최신 분석일" : "선택 일자"}
+                      <span
+                        className={`text-[10px] font-mono px-2 py-0.5 rounded font-semibold ${
+                          isReportRestricted(selectedDate, tier)
+                            ? "bg-indigo-600 text-white"
+                            : tier === "free"
+                            ? "bg-slate-700 text-slate-200"
+                            : "bg-[#0f172a] text-white"
+                        }`}
+                      >
+                        {selectedDate === availableDates[0]
+                          ? "★ 최신 분석일"
+                          : tier === "free"
+                          ? `🌱 Free (1개월 전 과거 분석)`
+                          : "선택 일자"}
                       </span>
                     )}
                   </div>
@@ -958,12 +973,17 @@ export function ResearchCatalogView({
                       onChange={(e) => onSelectDate?.(e.target.value)}
                       className="w-full pl-3 pr-8 py-1.5 text-xs font-mono bg-white border border-[#cbd5e1] rounded text-[#0f172a] focus:outline-hidden focus:border-[#0f172a] cursor-pointer shadow-2xs"
                     >
-                      {availableDates.map((d, idx) => (
-                        <option key={d} value={d}>
-                          {d} {idx === 0 ? "★ (가장 최근 분석)" : ""}
-                        </option>
-                      ))}
-                      <option value="ALL">전체 일자 (최근 200건 통합)</option>
+                      {availableDates.map((d, idx) => {
+                        const restricted = isReportRestricted(d, tier);
+                        return (
+                          <option key={d} value={d}>
+                            {d} {idx === 0 ? "★ (최신 분석)" : ""} {restricted ? "🔒 [Pro 전용]" : ""}
+                          </option>
+                        );
+                      })}
+                      <option value="ALL">
+                        전체 일자 (최근 200건 통합) {tier === "free" ? "🔒 [Pro 전용]" : ""}
+                      </option>
                     </select>
                   </div>
 
@@ -972,18 +992,25 @@ export function ResearchCatalogView({
                     {availableDates.slice(0, 4).map((d, idx) => {
                       const isSelected =
                         selectedDate === d || (!selectedDate && idx === 0);
+                      const restricted = isReportRestricted(d, tier);
                       return (
                         <button
                           key={d}
                           type="button"
                           onClick={() => onSelectDate?.(d)}
-                          className={`shrink-0 px-2 py-0.5 rounded border transition-colors cursor-pointer ${
+                          className={`shrink-0 px-2 py-0.5 rounded border transition-colors cursor-pointer inline-flex items-center gap-1 ${
                             isSelected
                               ? "bg-[#0f172a] text-white border-[#0f172a] font-medium"
+                              : restricted
+                              ? "bg-indigo-50/50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
                               : "bg-[#f8fafc] text-[#64748b] border-[#e2e8f0] hover:text-[#0f172a]"
                           }`}
                         >
-                          {d} {idx === 0 ? "(최신)" : ""}
+                          {restricted && <span className="text-[9px]">🔒</span>}
+                          <span>{d}</span>
+                          {idx === 0 && (
+                            <span className="text-[9px] font-bold text-amber-500">최신</span>
+                          )}
                         </button>
                       );
                     })}
@@ -991,13 +1018,16 @@ export function ResearchCatalogView({
                       <button
                         type="button"
                         onClick={() => onSelectDate?.("ALL")}
-                        className={`shrink-0 px-2 py-0.5 rounded border transition-colors cursor-pointer ${
+                        className={`shrink-0 px-2 py-0.5 rounded border transition-colors cursor-pointer inline-flex items-center gap-1 ${
                           selectedDate === "ALL"
                             ? "bg-[#0f172a] text-white border-[#0f172a] font-medium"
+                            : tier === "free"
+                            ? "bg-indigo-50/50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
                             : "bg-[#f8fafc] text-[#64748b] border-[#e2e8f0] hover:text-[#0f172a]"
                         }`}
                       >
-                        전체
+                        {tier === "free" && <span className="text-[9px]">🔒</span>}
+                        <span>전체</span>
                       </button>
                     )}
                   </div>

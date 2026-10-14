@@ -12,8 +12,10 @@ import {
   BookOpen,
   ArrowLeft,
   X,
+  Sparkles,
 } from "lucide-react";
 import { SeedTickLogoBadge } from "@/components/ui/SeedTickLogo";
+import { useSubscription } from "@/lib/subscription/SubscriptionContext";
 
 export type SidebarSectionId =
   | "all"
@@ -76,6 +78,9 @@ export function ResearchSidebar({
   isOpenOnMobile = false,
   onCloseMobile,
 }: ResearchSidebarProps) {
+  const { tier } = useSubscription();
+  const isPro = tier === "pro";
+
   // 모바일 드로어가 열렸을 때 ESC 키 누르면 닫기
   useEffect(() => {
     if (!isOpenOnMobile) return;
@@ -248,6 +253,28 @@ export function ResearchSidebar({
         </div>
       ))}
 
+      {/* Pro 멤버십 카드 배너 */}
+      <div className="pt-4 border-t border-[#e2e8f0]">
+        <div className="p-3.5 rounded-2xl bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-900 text-white relative overflow-hidden shadow-sm">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+            <span className="text-[11px] font-bold text-indigo-200">
+              {isPro ? "SeedTick Pro 이용 중" : "SeedTick Pro 요금제"}
+            </span>
+          </div>
+          <p className="text-[11px] text-slate-300 leading-snug mb-3">
+            {isPro
+              ? "최신 거장 AI 리포트 전체 열람 가능"
+              : "월 2,900원으로 최근 1개월 보고서까지 모두 열람"}
+          </p>
+          <Link
+            href="/pricing"
+            className="block w-full py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-center text-xs font-bold shadow-sm transition-all"
+          >
+            {isPro ? "요금제 안내" : "Pro 시작하기 (월 2,900원)"}
+          </Link>
+        </div>
+      </div>
     </div>
   );
 

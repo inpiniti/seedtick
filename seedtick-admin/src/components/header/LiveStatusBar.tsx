@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/Button";
 import { RefreshCw, Menu } from "lucide-react";
 import { SeedTickLogoBadge } from "@/components/ui/SeedTickLogo";
 
+import { UserProfileWidget } from "@/components/header/UserProfileWidget";
+
 interface LiveStatusBarProps {
   health: HealthStatus | null;
   isLoading: boolean;
@@ -35,7 +37,7 @@ export function LiveStatusBar({
           <Menu className="w-5 h-5" />
         </button>
 
-        <a href="#" className="flex items-center gap-2.5 group focus:outline-hidden">
+        <a href="/" className="flex items-center gap-2.5 group focus:outline-hidden">
           <SeedTickLogoBadge size="sm" variant="dark" />
           <span className="font-bold text-sm sm:text-base text-[#0f172a] tracking-tight group-hover:text-blue-600 transition-colors">
             SeedTick
@@ -60,6 +62,9 @@ export function LiveStatusBar({
 
       {/* 2. 우측 액션 버튼들 */}
       <div className="flex items-center gap-2 sm:gap-3">
+        {/* 회원 및 구독 프로필 위젯 */}
+        <UserProfileWidget />
+
         {/* 새로고침 버튼 */}
         <Button
           variant="secondary"

@@ -16,8 +16,11 @@ import {
   PieChart,
   TrendingUp,
   Calendar,
+  Sparkles,
 } from "lucide-react";
 import { formatPriceByNation } from "@/lib/utils";
+import { useSubscription } from "@/lib/subscription/SubscriptionContext";
+import { isReportRestricted } from "@/lib/subscription/subscriptionPolicy";
 
 interface ResearchDocumentModalProps {
   report: GuruReportRow | null;
@@ -109,12 +112,14 @@ export function ResearchDocumentModal({
   onSelectDate,
   isLoadingDate = false,
 }: ResearchDocumentModalProps) {
+  const { tier, openUpgradeModal } = useSubscription();
   const [activeTab, setActiveTab] = useState<
     "final" | "summaries" | "datapack" | "chart"
   >("final");
 
   if (!report) return null;
 
+  const isRestricted = report.d ? isReportRestricted(report.d, tier) : false;
   const valConsensus = extractValuationConsensus(report);
   const ticker = report.ticker;
   const companyName = report.company_name || ticker;
@@ -150,11 +155,15 @@ export function ResearchDocumentModal({
                   disabled={isLoadingDate}
                   className="bg-[#f8fafc] border border-[#e2e8f0] rounded px-2 py-0.5 text-[11px] font-mono text-[#0f172a] focus:outline-hidden"
                 >
-                  {availableDates.map((date) => (
-                    <option key={date} value={date}>
-                      {date} {date === report.d ? "(현재)" : ""}
-                    </option>
-                  ))}
+                  {availableDates.map((date) => {
+                    const restricted = isReportRestricted(date, tier);
+                    return (
+                      <option key={date} value={date}>
+                        {date} {date === report.d ? "(현재)" : ""}{" "}
+                        {restricted ? "🔒 [Pro 전용]" : ""}
+                      </option>
+                    );
+                  })}
                 </select>
                 {isLoadingDate && (
                   <span className="text-blue-600 animate-pulse text-[10px]">
@@ -257,33 +266,71 @@ export function ResearchDocumentModal({
         </div>
 
         {/* 4. 문서 본문 렌더링 영역 */}
-        <div className="p-4 sm:p-6 rounded-md bg-white border border-[#e2e8f0] shadow-xs max-h-[60vh] overflow-y-auto">
-          {activeTab === "final" && (
-            report.final_report ? (
-              <MarkdownViewer content={report.final_report} />
-            ) : (
-              <EmptyState
-                icon="📄"
-                title="최종 마스터 보고서가 아직 생성되지 않았습니다"
-                description="12:00 정기 분석 파이프라인이 실행되면 이곳에 전체 심층 보고서가 문서화됩니다."
+        <div className="relative p-4 sm:p-6 rounded-md bg-white border border-[#e2e8f0] shadow-xs max-h-[60vh] overflow-y-auto">
+          {isRestricted && (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-6 bg-white/80 backdrop-blur-md">
+              <div className="max-w-sm w-full bg-white rounded-2xl p-6 border border-indigo-100 shadow-xl text-center space-y-3">
+                <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
+                  <Sparkles className="w-6 h-6" />
+                </div>
+                <h4 className="font-bold text-slate-900 text-base">
+                  최근 1개월 최신 리포트입니다
+                </h4>
+                <p className="text-slate-600 text-xs leading-relaxed">
+                  13인의 투자 거장 AI 합의 표결과 SEC 공시 분석은 Pro 회원 전용입니다.<br />
+                  월 2,900원으로 즉시 모든 최신 리포트를 확인해보세요.
+                </p>
+                <div className="space-y-1.5 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      openUpgradeModal();
+                    }}
+                    className="w-full py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md transition-all active:scale-[0.98]"
+                  >
+                    Pro 시작하기 (월 2,900원)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="w-full py-2 px-3 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 text-xs font-medium"
+                  >
+                    닫기
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className={isRestricted ? "filter blur-sm select-none pointer-events-none" : ""}>
+            {activeTab === "final" && (
+              report.final_report ? (
+                <MarkdownViewer content={report.final_report} />
+              ) : (
+                <EmptyState
+                  icon="📄"
+                  title="최종 마스터 보고서가 아직 생성되지 않았습니다"
+                  description="12:00 정기 분석 파이프라인이 실행되면 이곳에 전체 심층 보고서가 문서화됩니다."
+                />
+              )
+            )}
+
+            {activeTab === "summaries" && (
+              <ReportSummariesView summaries={report.summaries} />
+            )}
+
+            {activeTab === "datapack" && (
+              <ReportDatapackView datapack={report.datapack} />
+            )}
+
+            {activeTab === "chart" && (
+              <StockChartView
+                ticker={report.ticker}
+                companyName={report.company_name}
               />
-            )
-          )}
-
-          {activeTab === "summaries" && (
-            <ReportSummariesView summaries={report.summaries} />
-          )}
-
-          {activeTab === "datapack" && (
-            <ReportDatapackView datapack={report.datapack} />
-          )}
-
-          {activeTab === "chart" && (
-            <StockChartView
-              ticker={report.ticker}
-              companyName={report.company_name}
-            />
-          )}
+            )}
+          </div>
         </div>
 
         {/* 5. 푸터 */}

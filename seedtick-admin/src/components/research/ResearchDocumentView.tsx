@@ -26,7 +26,10 @@ import {
   Users,
   PieChart,
   TrendingUp,
+  Sparkles,
 } from "lucide-react";
+import { useSubscription } from "@/lib/subscription/SubscriptionContext";
+import { isReportRestricted } from "@/lib/subscription/subscriptionPolicy";
 
 export type ResearchDocTab = "final" | "summaries" | "datapack" | "chart";
 
@@ -57,6 +60,9 @@ export function ResearchDocumentView({
   activeTab: activeTabProp,
   onTabChange,
 }: ResearchDocumentViewProps) {
+  const { tier, openUpgradeModal } = useSubscription();
+  const isRestricted = report?.d ? isReportRestricted(report.d, tier) : false;
+
   // 사용자가 직접 선택한 탭 (현재 문서에 대한 것만 유효)
   const [tabOverride, setTabOverride] = useState<{ key: string; tab: ResearchDocTab } | null>(null);
   const docKey = report ? `${report.ticker}|${report.id}` : "none";
@@ -194,11 +200,15 @@ export function ResearchDocumentView({
                 disabled={isLoadingDate}
                 className="bg-transparent text-xs font-mono text-[#0f172a] font-semibold focus:outline-hidden cursor-pointer"
               >
-                {availableDates.map((date) => (
-                  <option key={date} value={date}>
-                    {date} {date === report.d ? "(현재)" : ""}
-                  </option>
-                ))}
+                {availableDates.map((date) => {
+                  const restricted = isReportRestricted(date, tier);
+                  return (
+                    <option key={date} value={date}>
+                      {date} {date === report.d ? "(현재)" : ""}{" "}
+                      {restricted ? "🔒 [Pro 전용]" : ""}
+                    </option>
+                  );
+                })}
               </select>
               {isLoadingDate && (
                 <span className="text-[#0f172a] animate-pulse text-[11px]">
@@ -398,8 +408,48 @@ export function ResearchDocumentView({
       </div>
 
       {/* ── 4. 본문 리딩 영역 ── */}
-      <section className="px-6 lg:px-12 py-8 bg-white min-h-[500px]">
-        <div className="max-w-4xl">
+      <section className="relative px-6 lg:px-12 py-8 bg-white min-h-[500px]">
+        {/* Free 티어 사용자가 최근 1개월 보고서 열람 시 Pro 블러 오버레이 및 업그레이드 카드 */}
+        {isRestricted && (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-start pt-16 p-6 bg-white/80 backdrop-blur-md">
+            <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-indigo-100 shadow-2xl text-center space-y-4">
+              <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto shadow-sm">
+                <Sparkles className="w-7 h-7" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider block">
+                  SeedTick Pro 전용 콘텐츠
+                </span>
+                <h3 className="text-xl font-bold text-slate-900 mt-1">
+                  최근 1개월 최신 리포트입니다
+                </h3>
+              </div>
+              <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">
+                13인의 투자 거장 AI 합의 표결과 SEC 공시 정밀 분석 리포트는 Pro 회원에게 실시간으로 제공됩니다.<br />
+                월 2,900원(하루 96원)으로 모든 최신 리포트를 즉시 확인해보세요.
+              </p>
+              <div className="space-y-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => openUpgradeModal()}
+                  className="w-full py-3.5 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-lg shadow-indigo-200 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Pro 멤버십 시작하기 (월 2,900원)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={onBack}
+                  className="w-full py-2.5 px-4 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold transition-colors"
+                >
+                  과거 보고서 보러가기
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className={`max-w-4xl ${isRestricted ? "filter blur-sm select-none pointer-events-none" : ""}`}>
           {activeTab === "final" && (
             report.final_report ? (
               <MarkdownViewer content={report.final_report} />

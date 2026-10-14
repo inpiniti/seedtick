@@ -29,6 +29,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { AppProviders } from "@/components/providers/AppProviders";
+
 export default function RootLayout({
   children,
 }: {
@@ -40,7 +42,7 @@ export default function RootLayout({
       className={`h-full antialiased ${inter.variable} ${jetbrainsMono.variable}`}
     >
       <body className="min-h-full flex flex-col font-sans bg-[color:var(--page-background)] text-foreground selection:bg-[#2563eb]/10 selection:text-[#2563eb]">
-        {children}
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );

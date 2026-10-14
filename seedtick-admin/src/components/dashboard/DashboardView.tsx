@@ -50,6 +50,11 @@ import {
   extractValuationConsensus,
   IntrinsicStability,
 } from "@/lib/insightUtils";
+import { useSubscription } from "@/lib/subscription/SubscriptionContext";
+import {
+  isReportRestricted,
+  getDefaultReportDate,
+} from "@/lib/subscription/subscriptionPolicy";
 
 const DASHBOARD_FETCH_TIMEOUT_MS = 5000;
 
@@ -100,6 +105,9 @@ export function DashboardView({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { tier, openUpgradeModal } = useSubscription();
+  const tierRef = useRef(tier);
+  tierRef.current = tier;
 
   // 1. 네비게이션 상태
   const [activeSidebarSection, setActiveSidebarSection] =
@@ -322,8 +330,9 @@ export function DashboardView({
       setAvailableCatalogDates(dates);
       DataCache.setCatalogDates(dates);
 
+      const defaultDate = getDefaultReportDate(dates, tierRef.current);
       const activeDate =
-        selectedCatalogDateRef.current || (dates.length > 0 ? dates[0] : "");
+        selectedCatalogDateRef.current || defaultDate || (dates.length > 0 ? dates[0] : "");
       if (activeDate && !selectedCatalogDateRef.current) {
         selectedCatalogDateRef.current = activeDate;
         setSelectedCatalogDate(activeDate);
@@ -346,6 +355,14 @@ export function DashboardView({
   }, []);
 
   const handleSelectCatalogDate = useCallback(async (targetDate: string) => {
+    // Free 티어 사용자: 최근 30일 이내 보고서(또는 ALL) 선택 시 차단 및 Pro 모달 오픈
+    if (tierRef.current === "free" && (targetDate === "ALL" || isReportRestricted(targetDate, tierRef.current))) {
+      openUpgradeModal(
+        "최근 1개월간 발행된 최신 13인 거장 AI 리서치 보고서는 Pro 회원 전용입니다. 월 2,900원으로 즉시 모든 최신 리포트를 열람해보세요."
+      );
+      return;
+    }
+
     selectedCatalogDateRef.current = targetDate;
     setSelectedCatalogDate(targetDate);
 
@@ -369,6 +386,16 @@ export function DashboardView({
       setIsCatalogDateLoading(false);
     }
   }, []);
+
+  // 티어 변경 시(Free <-> Pro) 카탈로그 디폴트 일자 자동 동기화
+  useEffect(() => {
+    if (availableCatalogDates.length > 0) {
+      const targetDefault = getDefaultReportDate(availableCatalogDates, tier);
+      if (targetDefault && targetDefault !== selectedCatalogDateRef.current) {
+        handleSelectCatalogDate(targetDefault);
+      }
+    }
+  }, [tier, availableCatalogDates, handleSelectCatalogDate]);
 
   const handleRefreshLogs = useCallback(async (level?: string) => {
     const logs = await fetchSystemLogs(60, level);
@@ -582,6 +609,15 @@ export function DashboardView({
   // 날짜 변경 시 URL 쿼리 파라미터 동기화 (?date=...)
   const handleSelectReportDate = async (targetDate: string) => {
     if (!selectedDocReport || selectedDocReport.d === targetDate) return;
+
+    // Free 티어 사용자: 최근 30일 이내 보고서 선택 시 차단 및 Pro 모달 오픈
+    if (tierRef.current === "free" && isReportRestricted(targetDate, tierRef.current)) {
+      openUpgradeModal(
+        "최근 1개월간 발행된 최신 13인 거장 AI 리서치 보고서는 Pro 회원 전용입니다. 월 2,900원으로 즉시 모든 최신 리포트를 열람해보세요."
+      );
+      return;
+    }
+
     setIsLoadingReportDate(true);
     try {
       const search = new URLSearchParams(searchParams?.toString() || "");
