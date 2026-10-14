@@ -203,15 +203,15 @@ export function ProUpgradeModal() {
             <button
               type="button"
               onClick={closeUpgradeModal}
-              className="flex-1 py-2.5 px-3 rounded-md border border-[#cbd5e1] text-[#64748b] hover:text-[#0f172a] hover:bg-[#f8fafc] text-xs font-mono font-medium transition-colors cursor-pointer"
+              className="flex-1 py-2.5 px-3 rounded-md border border-[#cbd5e1] text-[#64748b] hover:text-[#0f172a] hover:bg-[#f8fafc] text-xs font-mono font-medium transition-colors cursor-pointer whitespace-nowrap"
             >
-              과거 무료 보고서 보기 (닫기)
+              닫기
             </button>
             <button
               type="button"
               onClick={handlePay}
               disabled={isSubmitting}
-              className="flex-[1.5] py-2.5 px-4 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white text-xs font-mono font-medium shadow-2xs transition-colors disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+              className="flex-[1.5] py-2.5 px-4 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white text-xs font-mono font-medium shadow-2xs transition-colors disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
             >
               {isSubmitting ? (
                 <span>결제창 연결 중...</span>
