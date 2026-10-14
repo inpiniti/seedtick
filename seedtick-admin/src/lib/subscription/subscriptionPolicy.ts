@@ -37,8 +37,8 @@ export function isWelcomeTrialActive(
   if (isNaN(createdDate.getTime())) return false;
 
   const diffMillis = baseDate.getTime() - createdDate.getTime();
-  // 가입 직후부터 24시간(86,400,000ms) 미만인 경우 true
-  return diffMillis >= 0 && diffMillis < WELCOME_TRIAL_MILLIS;
+  // 가입 직후부터 24시간(86,400,000ms) 미만인 경우 true (서버-클라이언트 간 시계 미세 오차 -5분 허용)
+  return diffMillis >= -5 * 60 * 1000 && diffMillis < WELCOME_TRIAL_MILLIS;
 }
 
 /**
@@ -55,9 +55,12 @@ export function getRemainingTrialHours(
 
   const diffMillis = baseDate.getTime() - createdDate.getTime();
   const remainingMillis = WELCOME_TRIAL_MILLIS - diffMillis;
-  if (remainingMillis <= 0) return 0;
+  if (remainingMillis <= 0 || diffMillis >= WELCOME_TRIAL_MILLIS) return 0;
 
-  return Math.max(1, Math.ceil(remainingMillis / (60 * 60 * 1000)));
+  return Math.min(
+    WELCOME_TRIAL_HOURS,
+    Math.max(1, Math.ceil(remainingMillis / (60 * 60 * 1000)))
+  );
 }
 
 /**

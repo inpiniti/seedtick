@@ -63,6 +63,12 @@ describe("Subscription Policy & Date Guard (TDD)", () => {
       expect(getRemainingTrialHours(threeHoursAgo, FIXED_BASE_DATE)).toBe(21);
     });
 
+    it("서버-클라이언트 간 시계 오차로 created_at이 현재 시각보다 10초 미래라도 24시간 체험이 활성화(true)되어야 한다", () => {
+      const tenSecondsFuture = new Date(FIXED_BASE_DATE.getTime() + 10 * 1000).toISOString();
+      expect(isWelcomeTrialActive(tenSecondsFuture, FIXED_BASE_DATE)).toBe(true);
+      expect(getRemainingTrialHours(tenSecondsFuture, FIXED_BASE_DATE)).toBe(24);
+    });
+
     it("가입 후 23.5시간 경과 시점에도 무료 체험이 활성화(true)되어야 한다", () => {
       const almost24HoursAgo = new Date(FIXED_BASE_DATE.getTime() - 23.5 * 60 * 60 * 1000).toISOString();
       expect(isWelcomeTrialActive(almost24HoursAgo, FIXED_BASE_DATE)).toBe(true);

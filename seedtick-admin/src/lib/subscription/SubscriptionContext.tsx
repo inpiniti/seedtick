@@ -90,22 +90,26 @@ export function SubscriptionProvider({
   // 24시간 웰컴 무료 체험 활성 여부 계산
   const isTrialActive = React.useMemo(() => {
     if (tier === "pro") return false;
-    if (demoTier === "trial") return true;
-    if (demoTier === "free") return false;
+    // 1. 실제 로그인 사용자는 Supabase user.created_at을 최우선 기준으로 24시간 판정
     if (user?.created_at) {
       return isWelcomeTrialActive(user.created_at);
     }
+    // 2. 비로그인 상태일 때의 데모/테스트 시뮬레이션 플래그
+    if (demoTier === "trial") return true;
+    if (demoTier === "free") return false;
     return false;
-  }, [tier, demoTier, user?.created_at]);
+  }, [tier, demoTier, user]);
 
   // 24시간 무료 체험 잔여 시간(시)
   const trialRemainingHours = React.useMemo(() => {
-    if (demoTier === "trial") return 20;
+    // 1. 실제 로그인 사용자의 경우 잔여 시간 실시간 계산
     if (user?.created_at && isTrialActive) {
       return getRemainingTrialHours(user.created_at);
     }
+    // 2. 비로그인 데모 시뮬레이션
+    if (demoTier === "trial") return 20;
     return 0;
-  }, [demoTier, user?.created_at, isTrialActive]);
+  }, [demoTier, user, isTrialActive]);
 
   // 로그인 성공 시: 로그인 모달을 닫고, 신규 가입/체험 유저가 아닐 때만 결제 모달 오픈
   useEffect(() => {
@@ -121,7 +125,7 @@ export function SubscriptionProvider({
 
   // 1. Supabase Auth 사용자 세션 및 로컬 상태 동기화
   useEffect(() => {
-    // 로컬 스토리지에서 데모/저장된 구독 상태 로드
+    // 로컬 스토리지에서 데모/저장된 구독 상태 로드 (비로그인 상태 폴백용)
     if (typeof window !== "undefined") {
       setPayments(readLocalPayments());
       const savedTier = localStorage.getItem(STORAGE_KEY_TIER) as "pro" | "trial" | "free" | null;
@@ -156,6 +160,12 @@ export function SubscriptionProvider({
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
+        // 실제 유저 로그인 감지 시 과거 데모 스토리지 정리
+        setDemoTier(null);
+        if (typeof window !== "undefined") {
+          localStorage.removeItem(STORAGE_KEY_TIER);
+          localStorage.removeItem(STORAGE_KEY_EXPIRY);
+        }
         loadUserSubscription(session.user.id);
       }
       setIsLoading(false);
@@ -167,6 +177,12 @@ export function SubscriptionProvider({
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
+        // 실제 유저 로그인 시 기존 데모 상태 정리 후 DB 구독 정보 로드
+        setDemoTier(null);
+        if (typeof window !== "undefined") {
+          localStorage.removeItem(STORAGE_KEY_TIER);
+          localStorage.removeItem(STORAGE_KEY_EXPIRY);
+        }
         loadUserSubscription(session.user.id);
       } else {
         // 비로그인 시 로컬 데모 상태가 없으면 free 유지
@@ -205,11 +221,15 @@ export function SubscriptionProvider({
           const isExpired = new Date(sub.currentPeriodEnd).getTime() < Date.now();
           if (isExpired) {
             setTier("free");
+            setSubscription({ ...sub, tier: "free", status: "expired" });
             return;
           }
         }
         setTier(sub.tier);
         setSubscription(sub);
+      } else {
+        setTier("free");
+        setSubscription(null);
       }
 
       const { data: payRows } = await supabase

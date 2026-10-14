@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { User as UserIcon, LogOut, ShieldCheck, RefreshCw, Sparkles, Clock, Settings } from "lucide-react";
+import { User as UserIcon, LogOut, ShieldCheck, Sparkles, Clock, Settings } from "lucide-react";
 import { useSubscription } from "@/lib/subscription/SubscriptionContext";
 import { signOutUser } from "@/lib/subscription/authHelpers";
 
@@ -15,7 +15,6 @@ export function UserProfileWidget() {
     subscription,
     openUpgradeModal,
     openAuthModal,
-    toggleTierForTesting,
   } = useSubscription();
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -32,17 +31,6 @@ export function UserProfileWidget() {
 
   return (
     <div className="flex items-center gap-1.5 sm:gap-2">
-      {/* 개발 / 데모용 Free <-> Pro 즉시 전환 토글 (aihero 스타일) */}
-      <button
-        type="button"
-        onClick={toggleTierForTesting}
-        title="클릭하여 Free와 Pro 모드를 즉시 전환해볼 수 있습니다."
-        className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-mono bg-[#f8fafc] hover:bg-[#f1f5f9] text-[#64748b] hover:text-[#0f172a] transition-colors border border-[#e2e8f0] cursor-pointer"
-      >
-        <RefreshCw className="w-2.5 h-2.5" />
-        <span>MODE: {isPro ? "PRO" : isTrialActive ? "1-DAY TRIAL" : "FREE"}</span>
-      </button>
-
       {/* 상태별 CTA 배지 및 버튼 */}
       {isPro ? (
         <Link

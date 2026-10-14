@@ -78,7 +78,7 @@ export function ResearchSidebar({
   isOpenOnMobile = false,
   onCloseMobile,
 }: ResearchSidebarProps) {
-  const { tier } = useSubscription();
+  const { tier, isTrialActive, trialRemainingHours } = useSubscription();
   const isPro = tier === "pro";
 
   // 모바일 드로어가 열렸을 때 ESC 키 누르면 닫기
@@ -253,27 +253,29 @@ export function ResearchSidebar({
         </div>
       ))}
 
-      {/* Pro 멤버십 카드 배너 (aihero 흑백 모노톤 스타일) */}
+      {/* Pro / Trial 멤버십 카드 배너 (aihero 흑백 모노톤 스타일) */}
       <div className="pt-3 border-t border-[#e2e8f0]">
         <div className="p-3 rounded-md bg-[#f8fafc] border border-[#e2e8f0] font-mono text-xs">
           <div className="flex items-center justify-between gap-1 mb-1">
             <span className="font-semibold text-[#0f172a] text-[11px] uppercase tracking-wider">
-              {isPro ? "SEEDTICK PRO" : "UPGRADE TO PRO"}
+              {isPro ? "SEEDTICK PRO" : isTrialActive ? "24H TRIAL" : "UPGRADE TO PRO"}
             </span>
             <span className="text-[10px] px-1 py-0.2 rounded border border-[#cbd5e1] bg-white text-[#0f172a]">
-              {isPro ? "ACTIVE" : "2,900원"}
+              {isPro ? "ACTIVE" : isTrialActive ? `${trialRemainingHours}H LEFT` : "2,900원"}
             </span>
           </div>
           <p className="text-[11px] text-[#64748b] leading-tight mb-2.5">
             {isPro
               ? "13인 거장 최신 AI 리포트 전체 열람 중"
+              : isTrialActive
+              ? "첫 방문 24시간 전체 리포트 무료 체험 중"
               : "최근 1개월 보고서 및 실시간 가치평가 열람"}
           </p>
           <Link
-            href="/pricing"
+            href={isPro || isTrialActive ? "/account" : "/pricing"}
             className="block w-full py-1.5 px-2 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white text-center text-[11px] font-medium shadow-2xs transition-colors"
           >
-            {isPro ? "요금제 세부 정보" : "Pro 시작하기 (월 2,900원)"}
+            {isPro ? "멤버십 관리" : isTrialActive ? "체험 혜택 및 멤버십 관리" : "Pro 시작하기 (월 2,900원)"}
           </Link>
         </div>
       </div>
