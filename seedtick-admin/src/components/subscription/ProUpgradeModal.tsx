@@ -15,7 +15,6 @@ export function ProUpgradeModal() {
   } = useSubscription();
 
   const [selectedPlan, setSelectedPlan] = useState<"monthly" | "yearly">("monthly");
-  const [selectedMethod, setSelectedMethod] = useState<"card" | "easypay">("card");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -25,7 +24,7 @@ export function ProUpgradeModal() {
     setIsSubmitting(true);
     setErrorMsg(null);
     try {
-      const res = await upgradeToPro(selectedPlan, selectedMethod);
+      const res = await upgradeToPro(selectedPlan, "card");
       if (!res.success) {
         setErrorMsg(res.message || "결제 진행 중 문제가 발생했습니다.");
       }
@@ -167,40 +166,17 @@ export function ProUpgradeModal() {
             </ul>
           </div>
 
-          {/* 결제 수단 선택 */}
-          <div className="space-y-2">
-            <span className="text-xs font-semibold text-slate-500">결제 방식</span>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setSelectedMethod("card")}
-                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-medium transition-all ${
-                  selectedMethod === "card"
-                    ? "border-indigo-600 bg-indigo-50/40 text-indigo-900 font-semibold shadow-sm"
-                    : "border-slate-200 text-slate-600 hover:bg-slate-50"
-                }`}
-              >
-                <CreditCard className="w-4 h-4 text-indigo-600" />
-                {selectedPlan === "monthly" ? "신용카드 자동 정기결제" : "신용/체크카드 결제"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedMethod("easypay")}
-                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-medium transition-all ${
-                  selectedMethod === "easypay"
-                    ? "border-indigo-600 bg-indigo-50/40 text-indigo-900 font-semibold shadow-sm"
-                    : "border-slate-200 text-slate-600 hover:bg-slate-50"
-                }`}
-              >
-                <span className="font-bold text-amber-500">K</span>
-                카카오페이 / 간편결제
-              </button>
+          {/* 결제 수단 안내 (통합 카드/페이 결제) */}
+          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2 text-slate-800 font-semibold">
+              <CreditCard className="w-4 h-4 text-indigo-600" />
+              <span>
+                {selectedPlan === "monthly"
+                  ? "신용카드 자동 정기결제 (매월 자동 갱신)"
+                  : "신용 / 체크카드 결제 (1년 이용권)"}
+              </span>
             </div>
-            {selectedPlan === "monthly" && selectedMethod === "easypay" && (
-              <p className="text-[11px] text-amber-600">
-                * 월간 정기결제는 신용카드 등록(빌링키) 시 매달 자동 결제됩니다.
-              </p>
-            )}
+            <span className="text-[11px] text-slate-400 font-mono">안전 암호화</span>
           </div>
 
           {errorMsg && (

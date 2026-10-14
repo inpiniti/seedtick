@@ -108,9 +108,12 @@ export async function requestBillingKey(
   }
 
   try {
+    const issueId = `issue_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const response = await window.PortOne.requestIssueBillingKey({
       storeId: STORE_ID,
       channelKey: CHANNEL_KEY_BILLING,
+      billingKeyMethod: "CARD",
+      issueId,
       issueName: params.issueName,
       customer: {
         fullName: params.customerName || "SeedTick 회원",
