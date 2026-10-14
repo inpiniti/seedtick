@@ -61,11 +61,13 @@ export function ProUpgradeModal() {
             </span>
           </div>
           <h3 className="text-lg sm:text-xl font-bold text-[#0f172a] tracking-tight">
-            13인 투자 거장 AI 종합 분석 리포트
+            {upgradeModalReason?.includes("무료 체험")
+              ? "어제 무료 체험은 유익하셨나요?"
+              : "13인 투자 거장 AI 종합 분석 리포트"}
           </h3>
           <p className="text-xs text-[#64748b] mt-1 leading-relaxed">
             {upgradeModalReason ||
-              "최근 1개월간 발행된 최신 심층 리포트와 실시간 가치평가는 Pro 회원 전용 콘텐츠입니다."}
+              "1일 무료 체험이 종료되었어요. 매일 실시간으로 업데이트되는 13인 거장 AI 가치평가와 심층 데이터팩을 계속 받아보시려면 Pro로 시작해보세요."}
           </p>
         </div>
 
@@ -203,7 +205,7 @@ export function ProUpgradeModal() {
               onClick={closeUpgradeModal}
               className="flex-1 py-2.5 px-3 rounded-md border border-[#cbd5e1] text-[#64748b] hover:text-[#0f172a] hover:bg-[#f8fafc] text-xs font-mono font-medium transition-colors cursor-pointer"
             >
-              과거 보고서만 열람 (취소)
+              과거 무료 보고서 보기 (닫기)
             </button>
             <button
               type="button"

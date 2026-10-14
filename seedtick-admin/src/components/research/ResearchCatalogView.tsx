@@ -147,7 +147,7 @@ export function ResearchCatalogView({
   onSupplementTickerNames,
   onPercentBUpdate,
 }: ResearchCatalogViewProps) {
-  const { tier } = useSubscription();
+  const { tier, isTrialActive } = useSubscription();
   const [searchQuery, setSearchQuery] = useState("");
   const [reportVerdictFilter, setReportVerdictFilter] = useState<string>("ALL");
   const [reportSortBy, setReportSortBy] = useState<
@@ -952,16 +952,18 @@ export function ResearchCatalogView({
                       {selectedDate && selectedDate !== "ALL" && (
                         <span
                           className={`text-[10px] font-mono px-1.5 py-0.2 rounded border ${
-                            isReportRestricted(selectedDate, tier, new Date(), allowedFreeDate)
+                            isReportRestricted(selectedDate, tier, new Date(), allowedFreeDate, isTrialActive)
                               ? "bg-[#0f172a] text-white border-[#0f172a]"
-                              : tier === "free"
+                              : tier === "free" && !isTrialActive
                               ? "bg-[#f8fafc] text-[#0f172a] border-[#cbd5e1]"
                               : "bg-[#0f172a] text-white border-[#0f172a]"
                           }`}
                         >
                           {selectedDate === availableDates[0]
-                            ? "★ 최신 분석일"
-                            : tier === "free"
+                            ? isTrialActive
+                              ? "🎁 24H 무료 체험"
+                              : "★ 최신 분석일"
+                            : tier === "free" && !isTrialActive
                             ? "FREE 아카이브 (과거)"
                             : "선택 일자"}
                         </span>
@@ -976,7 +978,7 @@ export function ResearchCatalogView({
                       className="w-full pl-3 pr-8 py-1.5 text-xs font-mono bg-white border border-[#cbd5e1] rounded text-[#0f172a] focus:outline-hidden focus:border-[#0f172a] cursor-pointer shadow-2xs"
                     >
                       {availableDates.map((d, idx) => {
-                        const restricted = isReportRestricted(d, tier, new Date(), allowedFreeDate);
+                        const restricted = isReportRestricted(d, tier, new Date(), allowedFreeDate, isTrialActive);
                         return (
                           <option key={d} value={d}>
                             {d} {idx === 0 ? "★ (최신 분석)" : ""} {restricted ? "[PRO]" : ""}
@@ -984,7 +986,7 @@ export function ResearchCatalogView({
                         );
                       })}
                       <option value="ALL">
-                        전체 일자 (최근 200건 통합) {tier === "free" ? "[PRO]" : ""}
+                        전체 일자 (최근 200건 통합) {tier === "free" && !isTrialActive ? "[PRO]" : ""}
                       </option>
                     </select>
                   </div>
@@ -994,7 +996,7 @@ export function ResearchCatalogView({
                     {availableDates.slice(0, 4).map((d, idx) => {
                       const isSelected =
                         selectedDate === d || (!selectedDate && idx === 0);
-                      const restricted = isReportRestricted(d, tier, new Date(), allowedFreeDate);
+                      const restricted = isReportRestricted(d, tier, new Date(), allowedFreeDate, isTrialActive);
                       return (
                         <button
                           key={d}
@@ -1023,12 +1025,12 @@ export function ResearchCatalogView({
                         className={`shrink-0 px-2 py-0.5 rounded border transition-colors cursor-pointer inline-flex items-center gap-1 ${
                           selectedDate === "ALL"
                             ? "bg-[#0f172a] text-white border-[#0f172a] font-medium"
-                            : tier === "free"
+                            : tier === "free" && !isTrialActive
                             ? "bg-slate-100 text-[#0f172a] border-[#cbd5e1] hover:bg-slate-200"
                             : "bg-[#f8fafc] text-[#64748b] border-[#e2e8f0] hover:text-[#0f172a]"
                         }`}
                       >
-                        {tier === "free" && <span className="text-[9px] text-[#64748b] font-mono">[PRO]</span>}
+                        {tier === "free" && !isTrialActive && <span className="text-[9px] text-[#64748b] font-mono">[PRO]</span>}
                         <span>전체</span>
                       </button>
                     )}

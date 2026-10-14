@@ -9,6 +9,8 @@ export function UserProfileWidget() {
   const {
     user,
     tier,
+    isTrialActive,
+    trialRemainingHours,
     subscription,
     openUpgradeModal,
     openAuthModal,
@@ -37,20 +39,11 @@ export function UserProfileWidget() {
         className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-mono bg-[#f8fafc] hover:bg-[#f1f5f9] text-[#64748b] hover:text-[#0f172a] transition-colors border border-[#e2e8f0] cursor-pointer"
       >
         <RefreshCw className="w-2.5 h-2.5" />
-        <span>MODE: {isPro ? "PRO" : "FREE"}</span>
+        <span>MODE: {isPro ? "PRO" : isTrialActive ? "1-DAY TRIAL" : "FREE"}</span>
       </button>
 
-      {/* Pro 업그레이드 CTA 버튼 (aihero 스타일 흑백 버튼) */}
-      {!isPro ? (
-        <button
-          type="button"
-          onClick={() => openUpgradeModal()}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white text-xs font-mono font-medium shadow-2xs transition-colors cursor-pointer"
-        >
-          <Sparkles className="w-3 h-3" />
-          <span>PRO UPGRADE (2,900원)</span>
-        </button>
-      ) : (
+      {/* 상태별 CTA 배지 및 버튼 */}
+      {isPro ? (
         <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-[#0f172a] text-white border border-[#0f172a] text-xs font-mono font-semibold">
           <ShieldCheck className="w-3 h-3" />
           <span>PRO MEMBER</span>
@@ -60,6 +53,31 @@ export function UserProfileWidget() {
             </span>
           )}
         </div>
+      ) : isTrialActive ? (
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-300 text-xs font-mono font-semibold shadow-2xs">
+          <span>🎁 1일 무료 체험 중</span>
+          <span className="text-[10px] text-emerald-700 font-normal hidden md:inline">
+            ({trialRemainingHours}시간 남음)
+          </span>
+        </div>
+      ) : !user ? (
+        <button
+          type="button"
+          onClick={openAuthModal}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white text-xs font-mono font-medium shadow-2xs transition-colors cursor-pointer"
+        >
+          <Sparkles className="w-3 h-3 text-amber-300" />
+          <span>🎁 24시간 무료 체험</span>
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => openUpgradeModal()}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white text-xs font-mono font-medium shadow-2xs transition-colors cursor-pointer"
+        >
+          <Sparkles className="w-3 h-3" />
+          <span>PRO UPGRADE (2,900원)</span>
+        </button>
       )}
 
       {/* 유저 로그인 상태 */}
@@ -81,13 +99,18 @@ export function UserProfileWidget() {
                 <p className="font-semibold text-[#0f172a] truncate">{user.email}</p>
                 <div className="flex items-center justify-between text-[11px] text-[#64748b] mt-1">
                   <span>TIER:</span>
-                  <strong className={isPro ? "text-[#0f172a]" : "text-[#64748b]"}>
-                    {isPro ? "PRO" : "FREE"}
+                  <strong className={isPro ? "text-[#0f172a]" : isTrialActive ? "text-emerald-700" : "text-[#64748b]"}>
+                    {isPro ? "PRO" : isTrialActive ? "🎁 1일 무료 체험" : "FREE"}
                   </strong>
                 </div>
                 {isPro && expiryDateFormatted && (
                   <p className="text-[10px] text-[#94a3b8] mt-0.5">
                     EXPIRES: {expiryDateFormatted}
+                  </p>
+                )}
+                {isTrialActive && (
+                  <p className="text-[10px] text-emerald-700 mt-0.5">
+                    체험 종료까지: 약 {trialRemainingHours}시간 남음
                   </p>
                 )}
               </div>

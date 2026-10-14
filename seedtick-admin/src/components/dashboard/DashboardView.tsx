@@ -106,9 +106,11 @@ export function DashboardView({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { tier, openUpgradeModal } = useSubscription();
+  const { user, tier, isTrialActive, openUpgradeModal } = useSubscription();
   const tierRef = useRef(tier);
   tierRef.current = tier;
+  const isTrialActiveRef = useRef(isTrialActive);
+  isTrialActiveRef.current = isTrialActive;
 
   // 1. 네비게이션 상태
   const [activeSidebarSection, setActiveSidebarSection] =
@@ -331,7 +333,12 @@ export function DashboardView({
       setAvailableCatalogDates(dates);
       DataCache.setCatalogDates(dates);
 
-      const defaultDate = getDefaultReportDate(dates, tierRef.current);
+      const defaultDate = getDefaultReportDate(
+        dates,
+        tierRef.current,
+        new Date(),
+        isTrialActiveRef.current
+      );
       const activeDate =
         selectedCatalogDateRef.current || defaultDate || (dates.length > 0 ? dates[0] : "");
       if (activeDate && !selectedCatalogDateRef.current) {
@@ -386,33 +393,55 @@ export function DashboardView({
     async (targetDate: string) => {
       const allowedFreeDate = getDefaultReportDate(availableCatalogDates, "free");
 
-      // Free 티어 사용자: 최근 30일 이내 보고서(또는 ALL) 선택 시 차단 및 Pro 모달 오픈
-      // (단, Free 유저에게 기본 제공된 fallback 과거 날짜는 차단하지 않음)
+      // 1일 무료 체험 활성 유저나 Pro 회원은 어떤 날짜든 무제한 열람 가능
+      if (tierRef.current === "pro" || isTrialActiveRef.current) {
+        applyCatalogDate(targetDate);
+        return;
+      }
+
+      // Free 티어 사용자(체험 만료 또는 비로그인): 최근 30일 이내 보고서(또는 ALL) 선택 시
       if (
         tierRef.current === "free" &&
         (targetDate === "ALL" ||
-          isReportRestricted(targetDate, tierRef.current, new Date(), allowedFreeDate))
+          isReportRestricted(
+            targetDate,
+            tierRef.current,
+            new Date(),
+            allowedFreeDate,
+            isTrialActiveRef.current
+          ))
       ) {
-        openUpgradeModal(
-          "최근 1개월간 발행된 최신 13인 거장 AI 리서치 보고서는 Pro 회원 전용입니다. 월 2,900원으로 즉시 모든 최신 리포트를 열람해보세요."
-        );
+        if (!user) {
+          openUpgradeModal(
+            "로그인하면 24시간 동안 모든 최신 13인 거장 AI 리서치 보고서를 무료로 열람하실 수 있어요."
+          );
+        } else {
+          openUpgradeModal(
+            "1일 무료 체험이 종료되었어요. 매일 실시간으로 업데이트되는 13인 거장 AI 리포트를 계속 받아보시려면 Pro로 시작해보세요."
+          );
+        }
         return;
       }
 
       applyCatalogDate(targetDate);
     },
-    [availableCatalogDates, openUpgradeModal, applyCatalogDate]
+    [availableCatalogDates, openUpgradeModal, applyCatalogDate, user]
   );
 
-  // 티어 변경 시(Free <-> Pro) 카탈로그 디폴트 일자 자동 동기화 (순수 applyCatalogDate 호출로 모달 방지)
+  // 티어 및 체험 상태 변경 시(Free <-> Trial <-> Pro) 카탈로그 디폴트 일자 자동 동기화 (순수 applyCatalogDate 호출로 모달 방지)
   useEffect(() => {
     if (availableCatalogDates.length > 0) {
-      const targetDefault = getDefaultReportDate(availableCatalogDates, tier);
+      const targetDefault = getDefaultReportDate(
+        availableCatalogDates,
+        tier,
+        new Date(),
+        isTrialActive
+      );
       if (targetDefault && targetDefault !== selectedCatalogDateRef.current) {
         applyCatalogDate(targetDefault);
       }
     }
-  }, [tier, availableCatalogDates, applyCatalogDate]);
+  }, [tier, isTrialActive, availableCatalogDates, applyCatalogDate]);
 
   const handleRefreshLogs = useCallback(async (level?: string) => {
     const logs = await fetchSystemLogs(60, level);
@@ -627,11 +656,28 @@ export function DashboardView({
   const handleSelectReportDate = async (targetDate: string) => {
     if (!selectedDocReport || selectedDocReport.d === targetDate) return;
 
-    // Free 티어 사용자: 최근 30일 이내 보고서 선택 시 차단 및 Pro 모달 오픈
-    if (tierRef.current === "free" && isReportRestricted(targetDate, tierRef.current)) {
-      openUpgradeModal(
-        "최근 1개월간 발행된 최신 13인 거장 AI 리서치 보고서는 Pro 회원 전용입니다. 월 2,900원으로 즉시 모든 최신 리포트를 열람해보세요."
-      );
+    // 1일 무료 체험 중이거나 Pro 회원은 제한 없이 날짜 변경 가능
+    if (tierRef.current === "pro" || isTrialActiveRef.current) {
+      // 통과
+    } else if (
+      tierRef.current === "free" &&
+      isReportRestricted(
+        targetDate,
+        tierRef.current,
+        new Date(),
+        undefined,
+        isTrialActiveRef.current
+      )
+    ) {
+      if (!user) {
+        openUpgradeModal(
+          "로그인하면 24시간 동안 모든 최신 13인 거장 AI 리서치 보고서를 무료로 열람하실 수 있어요."
+        );
+      } else {
+        openUpgradeModal(
+          "1일 무료 체험이 종료되었어요. 매일 실시간으로 업데이트되는 13인 거장 AI 리포트를 계속 받아보시려면 Pro로 시작해보세요."
+        );
+      }
       return;
     }
 

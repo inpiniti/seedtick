@@ -60,8 +60,17 @@ export function ResearchDocumentView({
   activeTab: activeTabProp,
   onTabChange,
 }: ResearchDocumentViewProps) {
-  const { tier, openUpgradeModal } = useSubscription();
-  const isRestricted = report?.d ? isReportRestricted(report.d, tier) : false;
+  const {
+    tier,
+    isTrialActive,
+    trialRemainingHours,
+    user,
+    openUpgradeModal,
+    openAuthModal,
+  } = useSubscription();
+  const isRestricted = report?.d
+    ? isReportRestricted(report.d, tier, new Date(), undefined, isTrialActive)
+    : false;
 
   // 사용자가 직접 선택한 탭 (현재 문서에 대한 것만 유효)
   const [tabOverride, setTabOverride] = useState<{ key: string; tab: ResearchDocTab } | null>(null);
@@ -201,7 +210,13 @@ export function ResearchDocumentView({
                 className="bg-transparent text-xs font-mono text-[#0f172a] font-semibold focus:outline-hidden cursor-pointer"
               >
                 {availableDates.map((date) => {
-                  const restricted = isReportRestricted(date, tier);
+                  const restricted = isReportRestricted(
+                    date,
+                    tier,
+                    new Date(),
+                    undefined,
+                    isTrialActive
+                  );
                   return (
                     <option key={date} value={date}>
                       {date} {date === report.d ? "(현재)" : ""}{" "}
@@ -409,39 +424,78 @@ export function ResearchDocumentView({
 
       {/* ── 4. 본문 리딩 영역 ── */}
       <section className="relative px-6 lg:px-12 py-8 bg-white min-h-[500px]">
-        {/* Free 티어 사용자가 최근 1개월 보고서 열람 시 Pro 블러 오버레이 및 업그레이드 카드 */}
+        {/* 24시간 웰컴 무료 체험 중인 경우 따뜻한 상단 웰컴 배너 */}
+        {isTrialActive && (
+          <div className="mb-6 p-3.5 rounded-md bg-emerald-50/80 border border-emerald-200 text-xs font-mono flex items-center justify-between gap-3 text-emerald-900 shadow-2xs">
+            <div className="flex items-center gap-2">
+              <span className="text-base">🎁</span>
+              <div>
+                <span className="font-semibold text-emerald-950">
+                  신규 회원 24시간 무료 체험 혜택 적용 중
+                </span>
+                <span className="hidden sm:inline text-emerald-800 ml-1.5">
+                  · 오늘 발행된 모든 최신 리포트를 제한 없이 열람하고 계세요.
+                </span>
+              </div>
+            </div>
+            <span className="text-[11px] font-medium text-emerald-700 bg-white/90 border border-emerald-200 px-2 py-0.5 rounded shrink-0">
+              {trialRemainingHours}시간 남음
+            </span>
+          </div>
+        )}
+
+        {/* Free 티어 사용자가 최근 1개월 보고서 열람 시 오버레이 */}
         {isRestricted && (
           <div className="absolute inset-0 z-20 flex flex-col items-center justify-start pt-16 p-6 bg-white/80 backdrop-blur-md">
             <div className="max-w-md w-full bg-white rounded-md p-6 sm:p-8 border border-[#cbd5e1] shadow-xl text-center space-y-4 font-sans">
               <div className="w-10 h-10 rounded-md bg-[#0f172a] text-white flex items-center justify-center mx-auto shadow-2xs font-mono text-sm font-bold">
-                PRO
+                {!user ? "PASS" : "PRO"}
               </div>
               <div>
                 <span className="font-mono text-[10px] uppercase tracking-wider text-[#64748b] block">
-                  MEMBERSHIP RESTRICTED DOCUMENT
+                  {!user ? "WELCOME 24H TRIAL PASS" : "MEMBERSHIP RESTRICTED DOCUMENT"}
                 </span>
                 <h3 className="text-lg font-bold text-[#0f172a] mt-1 tracking-tight">
-                  최근 1개월 최신 리포트입니다
+                  {!user
+                    ? "로그인하고 오늘 하루 무료로 열람하세요"
+                    : "1일 무료 체험이 종료되었어요"}
                 </h3>
               </div>
               <p className="text-[#64748b] text-xs leading-relaxed font-mono">
-                13인의 투자 거장 AI 합의 표결과 SEC 공시 정밀 분석은 Pro 회원 전용입니다.<br />
-                월 2,900원으로 모든 최신 리포트를 즉시 확인해보세요.
+                {!user ? (
+                  <>
+                    회원가입 시 24시간 동안 모든 최신 13인 거장 AI 리서치 보고서와 SEC 데이터팩을 결제 없이 무료로 열람하실 수 있어요.
+                  </>
+                ) : (
+                  <>
+                    어제 둘러보신 13인 투자 거장 AI 합의 표결과 최신 정밀 리포트를 매일 실시간으로 계속 확인하시려면 Pro로 시작해보세요. (월 2,900원 · 하루 약 96원)
+                  </>
+                )}
               </p>
               <div className="space-y-2 pt-1 font-mono">
-                <button
-                  type="button"
-                  onClick={() => openUpgradeModal()}
-                  className="w-full py-2.5 px-4 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white font-medium text-xs shadow-2xs transition-colors cursor-pointer"
-                >
-                  Pro 멤버십 시작하기 (월 2,900원)
-                </button>
+                {!user ? (
+                  <button
+                    type="button"
+                    onClick={() => openAuthModal()}
+                    className="w-full py-2.5 px-4 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white font-medium text-xs shadow-2xs transition-colors cursor-pointer"
+                  >
+                    1초 만에 로그인하고 무료로 보기
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => openUpgradeModal()}
+                    className="w-full py-2.5 px-4 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white font-medium text-xs shadow-2xs transition-colors cursor-pointer"
+                  >
+                    Pro 멤버십 시작하기 (월 2,900원)
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={onBack}
                   className="w-full py-2 px-4 rounded-md border border-[#cbd5e1] text-[#64748b] hover:text-[#0f172a] hover:bg-[#f8fafc] text-xs font-medium transition-colors cursor-pointer"
                 >
-                  과거 보고서 보러가기
+                  과거 무료 보고서 보러가기
                 </button>
               </div>
             </div>

@@ -10,7 +10,11 @@ import React, {
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { PlanType, Subscription, SubscriptionTier } from "./types";
-import { calculateSubscriptionExpiry } from "./subscriptionPolicy";
+import {
+  calculateSubscriptionExpiry,
+  isWelcomeTrialActive,
+  getRemainingTrialHours,
+} from "./subscriptionPolicy";
 import {
   requestBillingKey,
   requestOneTimePayment,
@@ -19,6 +23,8 @@ import {
 interface SubscriptionContextValue {
   user: User | null;
   tier: SubscriptionTier;
+  isTrialActive: boolean;
+  trialRemainingHours: number;
   subscription: Subscription | null;
   isLoading: boolean;
   isUpgradeModalOpen: boolean;
@@ -48,6 +54,7 @@ export function SubscriptionProvider({
 }) {
   const [user, setUser] = useState<User | null>(null);
   const [tier, setTier] = useState<SubscriptionTier>("free");
+  const [demoTier, setDemoTier] = useState<"pro" | "trial" | "free" | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
@@ -57,24 +64,47 @@ export function SubscriptionProvider({
   const openAuthModal = useCallback(() => setIsAuthModalOpen(true), []);
   const closeAuthModal = useCallback(() => setIsAuthModalOpen(false), []);
 
-  // 로그인 성공 시: 로그인 모달을 닫고, 이전에 업그레이드 모달을 요청했었다면 결제 모달 오픈
+  // 24시간 웰컴 무료 체험 활성 여부 계산
+  const isTrialActive = React.useMemo(() => {
+    if (tier === "pro") return false;
+    if (demoTier === "trial") return true;
+    if (demoTier === "free") return false;
+    if (user?.created_at) {
+      return isWelcomeTrialActive(user.created_at);
+    }
+    return false;
+  }, [tier, demoTier, user?.created_at]);
+
+  // 24시간 무료 체험 잔여 시간(시)
+  const trialRemainingHours = React.useMemo(() => {
+    if (demoTier === "trial") return 20;
+    if (user?.created_at && isTrialActive) {
+      return getRemainingTrialHours(user.created_at);
+    }
+    return 0;
+  }, [demoTier, user?.created_at, isTrialActive]);
+
+  // 로그인 성공 시: 로그인 모달을 닫고, 신규 가입/체험 유저가 아닐 때만 결제 모달 오픈
   useEffect(() => {
     if (user && isAuthModalOpen) {
       setIsAuthModalOpen(false);
-      if (upgradeModalReason) {
+      if (isTrialActive) {
+        setUpgradeModalReason(null);
+      } else if (upgradeModalReason && upgradeModalReason !== "24h_trial_welcome") {
         setIsUpgradeModalOpen(true);
       }
     }
-  }, [user, isAuthModalOpen, upgradeModalReason]);
+  }, [user, isAuthModalOpen, upgradeModalReason, isTrialActive]);
 
   // 1. Supabase Auth 사용자 세션 및 로컬 상태 동기화
   useEffect(() => {
     // 로컬 스토리지에서 데모/저장된 구독 상태 로드
     if (typeof window !== "undefined") {
-      const savedTier = localStorage.getItem(STORAGE_KEY_TIER) as SubscriptionTier | null;
+      const savedTier = localStorage.getItem(STORAGE_KEY_TIER) as "pro" | "trial" | "free" | null;
       const savedExpiry = localStorage.getItem(STORAGE_KEY_EXPIRY);
       if (savedTier === "pro") {
         setTier("pro");
+        setDemoTier("pro");
         setSubscription({
           id: "sub_demo",
           userId: "demo_user",
@@ -84,6 +114,12 @@ export function SubscriptionProvider({
           currentPeriodStart: new Date().toISOString(),
           currentPeriodEnd: savedExpiry || calculateSubscriptionExpiry(null, "monthly").toISOString(),
         });
+      } else if (savedTier === "trial") {
+        setDemoTier("trial");
+        setTier("free");
+      } else if (savedTier === "free") {
+        setDemoTier("free");
+        setTier("free");
       }
     }
 
@@ -110,8 +146,13 @@ export function SubscriptionProvider({
         loadUserSubscription(session.user.id);
       } else {
         // 비로그인 시 로컬 데모 상태가 없으면 free 유지
-        const savedTier = localStorage.getItem(STORAGE_KEY_TIER) as SubscriptionTier | null;
-        if (savedTier !== "pro") {
+        const savedTier = localStorage.getItem(STORAGE_KEY_TIER) as "pro" | "trial" | "free" | null;
+        if (savedTier === "pro") {
+          setTier("pro");
+        } else if (savedTier === "trial") {
+          setDemoTier("trial");
+          setTier("free");
+        } else {
           setTier("free");
           setSubscription(null);
         }
@@ -287,13 +328,15 @@ export function SubscriptionProvider({
     }
   }, [subscription, user]);
 
-  // 개발 및 시연용 Free <-> Pro 즉각 토글 헬퍼
+  // 개발 및 시연용 Free <-> 1-Day Trial <-> Pro 3단계 즉각 토글 헬퍼
   const toggleTierForTesting = useCallback(() => {
-    if (tier === "free") {
+    // 1. 현재 1일 무료 체험 중인 경우 -> Pro로 전환
+    if (isTrialActive || demoTier === "trial") {
       const expiry = calculateSubscriptionExpiry(null, "monthly").toISOString();
+      setDemoTier("pro");
       setTier("pro");
       setSubscription({
-        id: "sub_test",
+        id: "sub_demo_toggle",
         userId: user?.id || "demo_user",
         tier: "pro",
         planType: "monthly",
@@ -305,21 +348,34 @@ export function SubscriptionProvider({
         localStorage.setItem(STORAGE_KEY_TIER, "pro");
         localStorage.setItem(STORAGE_KEY_EXPIRY, expiry);
       }
-    } else {
+    } else if (tier === "pro") {
+      // 2. 현재 Pro인 경우 -> 일반 Free(체험 만료)로 전환
+      setDemoTier("free");
       setTier("free");
       setSubscription(null);
       if (typeof window !== "undefined") {
         localStorage.setItem(STORAGE_KEY_TIER, "free");
         localStorage.removeItem(STORAGE_KEY_EXPIRY);
       }
+    } else {
+      // 3. 현재 Free인 경우 -> 1일 무료 체험(Trial)으로 전환
+      setDemoTier("trial");
+      setTier("free");
+      setSubscription(null);
+      if (typeof window !== "undefined") {
+        localStorage.setItem(STORAGE_KEY_TIER, "trial");
+        localStorage.removeItem(STORAGE_KEY_EXPIRY);
+      }
     }
-  }, [tier, user]);
+  }, [demoTier, isTrialActive, tier, user]);
 
   return (
     <SubscriptionContext.Provider
       value={{
         user,
         tier,
+        isTrialActive,
+        trialRemainingHours,
         subscription,
         isLoading,
         isUpgradeModalOpen,

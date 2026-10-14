@@ -78,30 +78,35 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="default" className="sm:max-w-md">
       <div className="font-sans">
-        {/* aihero 스타일 헤더 */}
-        <div className="pb-4 border-b border-[#e2e8f0] mb-5">
-          <div className="flex items-center gap-2 font-mono text-[11px] text-[#64748b] uppercase tracking-wider mb-1">
-            <Shield className="w-3.5 h-3.5 text-[#0f172a]" />
-            <span>SeedTick Account & Membership</span>
+        {/* aihero & 토스 스타일 웰컴 헤더 */}
+        <div className="pb-4 border-b border-[#e2e8f0] mb-4">
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-[#64748b] flex items-center gap-1.5">
+              <Shield className="w-3.5 h-3.5 text-[#0f172a]" />
+              <span>SEEDTICK WELCOME PASS</span>
+            </span>
+            <span className="font-mono text-[10px] px-2 py-0.5 rounded-full border border-emerald-300 bg-emerald-50 text-emerald-800 font-semibold">
+              🎁 24시간 무료 체험
+            </span>
           </div>
           <h3 className="text-lg font-bold text-[#0f172a] tracking-tight">
-            로그인 / 회원가입
+            로그인하고 오늘 하루 무료로 둘러보세요
           </h3>
-          <p className="text-xs text-[#64748b] mt-1">
-            {upgradeModalReason
-              ? "Pro 멤버십 결제 및 최신 분석 리포트 동기화를 위해 먼저 로그인해 주세요."
-              : "계정을 연동하고 Pro 멤버십 권한을 기기 간 안전하게 동기화하세요."}
+          <p className="text-xs text-[#64748b] mt-1 leading-relaxed">
+            가입 즉시 24시간 동안 13인 투자 거장 AI 실시간 리포트와 SEC 공시 데이터팩을 결제 없이 마음껏 열람하실 수 있어요.
           </p>
         </div>
 
-        {upgradeModalReason && (
-          <div className="mb-4 p-2.5 rounded-md bg-[#f8fafc] border border-[#cbd5e1] text-[11px] font-mono text-[#0f172a] flex items-center justify-between">
-            <span className="text-[#64748b]">결제 단계:</span>
-            <span className="font-semibold text-right truncate max-w-[240px]">
-              로그인 후 Pro 결제창으로 자동 연결됩니다
-            </span>
+        {/* 웰컴 혜택 안내 박스 */}
+        <div className="mb-4 p-3 rounded-md bg-[#f8fafc] border border-[#e2e8f0] text-xs font-mono space-y-1">
+          <div className="flex items-center gap-2 text-[#0f172a] font-semibold text-[11px]">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <span>카드 등록 없이 1초 간편 로그인</span>
           </div>
-        )}
+          <p className="text-[#64748b] text-[11px] pl-5 leading-relaxed">
+            오늘 24시간 동안 충분히 써보시고, 내일부터 계속 이용할지 천천히 결정하세요.
+          </p>
+        </div>
 
         {message && (
           <div

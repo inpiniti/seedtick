@@ -4,6 +4,8 @@ import {
   isReportRestricted,
   getDefaultReportDate,
   isDateWithinDays,
+  isWelcomeTrialActive,
+  getRemainingTrialHours,
 } from "../subscriptionPolicy";
 import { SubscriptionTier, PlanType } from "../types";
 
@@ -37,6 +39,11 @@ describe("Subscription Policy & Date Guard (TDD)", () => {
       expect(isReportRestricted("2026-10-01", "free", FIXED_BASE_DATE)).toBe(true);
     });
 
+    it("Free 티어 유저라도 24시간 체험 활성(isTrialActive = true)인 경우 최신 보고서도 제한되지 않는다 (false 반환)", () => {
+      expect(isReportRestricted("2026-10-14", "free", FIXED_BASE_DATE, undefined, true)).toBe(false);
+      expect(isReportRestricted("2026-10-01", "free", FIXED_BASE_DATE, undefined, true)).toBe(false);
+    });
+
     it("Free 티어 유저는 30일 이전 과거 보고서는 정상 열람 가능하다 (false 반환)", () => {
       expect(isReportRestricted("2026-09-13", "free", FIXED_BASE_DATE)).toBe(false);
       expect(isReportRestricted("2026-07-20", "free", FIXED_BASE_DATE)).toBe(false);
@@ -45,6 +52,35 @@ describe("Subscription Policy & Date Guard (TDD)", () => {
     it("30일 이내 날짜라도 allowedFreeDate로 지정된 날짜는 예외적으로 열람 허용되어야 한다", () => {
       // 2026-10-10은 4일 전이지만 fallback Free 디폴트 일자로 지정되면 false 반환
       expect(isReportRestricted("2026-10-10", "free", FIXED_BASE_DATE, "2026-10-10")).toBe(false);
+    });
+  });
+
+  describe("isWelcomeTrialActive & getRemainingTrialHours", () => {
+    it("가입 후 24시간 이내인 유저는 무료 체험이 활성화(true)되어야 한다", () => {
+      // 3시간 전 가입
+      const threeHoursAgo = new Date(FIXED_BASE_DATE.getTime() - 3 * 60 * 60 * 1000).toISOString();
+      expect(isWelcomeTrialActive(threeHoursAgo, FIXED_BASE_DATE)).toBe(true);
+      expect(getRemainingTrialHours(threeHoursAgo, FIXED_BASE_DATE)).toBe(21);
+    });
+
+    it("가입 후 23.5시간 경과 시점에도 무료 체험이 활성화(true)되어야 한다", () => {
+      const almost24HoursAgo = new Date(FIXED_BASE_DATE.getTime() - 23.5 * 60 * 60 * 1000).toISOString();
+      expect(isWelcomeTrialActive(almost24HoursAgo, FIXED_BASE_DATE)).toBe(true);
+      expect(getRemainingTrialHours(almost24HoursAgo, FIXED_BASE_DATE)).toBe(1);
+    });
+
+    it("가입 후 24시간이 경과한 유저는 무료 체험이 만료(false)되어야 한다", () => {
+      // 25시간 전 가입
+      const dayAndHourAgo = new Date(FIXED_BASE_DATE.getTime() - 25 * 60 * 60 * 1000).toISOString();
+      expect(isWelcomeTrialActive(dayAndHourAgo, FIXED_BASE_DATE)).toBe(false);
+      expect(getRemainingTrialHours(dayAndHourAgo, FIXED_BASE_DATE)).toBe(0);
+    });
+
+    it("가입 일시가 없거나 유효하지 않은 경우 false 및 0시간을 반환해야 한다", () => {
+      expect(isWelcomeTrialActive(null, FIXED_BASE_DATE)).toBe(false);
+      expect(isWelcomeTrialActive(undefined, FIXED_BASE_DATE)).toBe(false);
+      expect(isWelcomeTrialActive("invalid-date", FIXED_BASE_DATE)).toBe(false);
+      expect(getRemainingTrialHours(null, FIXED_BASE_DATE)).toBe(0);
     });
   });
 
@@ -63,8 +99,13 @@ describe("Subscription Policy & Date Guard (TDD)", () => {
       expect(defaultDate).toBe("2026-10-14");
     });
 
-    it("Free 유저에게는 30일 이전(과거) 보고서 중 가장 최신 날짜를 디폴트로 반환해야 한다", () => {
-      const defaultDate = getDefaultReportDate(dates, "free", FIXED_BASE_DATE);
+    it("Free 유저라도 24시간 무료 체험(isTrialActive = true)인 경우 가장 최신 날짜를 디폴트로 반환해야 한다", () => {
+      const defaultDate = getDefaultReportDate(dates, "free", FIXED_BASE_DATE, true);
+      expect(defaultDate).toBe("2026-10-14");
+    });
+
+    it("Free 유저(체험 만료)에게는 30일 이전(과거) 보고서 중 가장 최신 날짜를 디폴트로 반환해야 한다", () => {
+      const defaultDate = getDefaultReportDate(dates, "free", FIXED_BASE_DATE, false);
       expect(defaultDate).toBe("2026-09-10");
     });
 
