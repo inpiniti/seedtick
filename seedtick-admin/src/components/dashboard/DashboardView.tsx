@@ -87,21 +87,6 @@ function buildOfflineHealth(): HealthStatus {
   };
 }
 
-/**
- * 게이트웨이 재조회 결과가 기존 객체보다 내용이 풍부한지 (업그레이드만 허용).
- * 토큰 경합 등으로 마스킹 티저가 돌아와도 원문을 덮어쓰지 않기 위함.
- */
-function isFullerReport(fetched: GuruReportRow, prev: GuruReportRow): boolean {
-  if (!fetched || !prev || fetched.id !== prev.id) return false;
-  return (
-    (!!fetched.final_report && !prev.final_report) ||
-    (!!fetched.verdict && !prev.verdict) ||
-    (!!fetched.summaries?.length && !prev.summaries?.length) ||
-    (!!fetched.datapack && !prev.datapack) ||
-    (fetched.fair_value != null && prev.fair_value == null)
-  );
-}
-
 export interface DashboardViewProps {
   initialSection?: SidebarSectionId;
   initialTicker?: string;
@@ -127,8 +112,6 @@ export function DashboardView({
   tierRef.current = tier;
   const isTrialActiveRef = useRef(isTrialActive);
   isTrialActiveRef.current = isTrialActive;
-  // 상세 열기 → 단건 재조회 경합 가드 (마지막으로 연 문서의 응답만 반영)
-  const openSeqRef = useRef(0);
 
   // 1. 네비게이션 상태
   const [activeSidebarSection, setActiveSidebarSection] =
@@ -623,8 +606,7 @@ export function DashboardView({
 
   // 상세 리포트 열기 (URL 동기화)
   // - 탭 초기화: 이전 문서의 탭(예: 일봉 밴드)이 새 문서에 잔류하지 않게 함
-  // - 목록 객체가 마스킹된 티저일 수 있으므로 게이트웨이로 단건을 재조회해
-  //   원문으로 업그레이드 (다운그레이드는 절대 안 함)
+  // - 원문 동기화는 아래 서버-진실 동기화 effect가 전담 (단일 경로)
   const handleOpenReport = useCallback((report: GuruReportRow, tab?: ResearchDocTab) => {
     setSelectedDocReport(report);
     setSelectedReportDate(report.d);
@@ -633,21 +615,6 @@ export function DashboardView({
     const targetUrl = `/stocks/${encodeURIComponent(report.ticker)}${tab ? `?tab=${tab}` : ""}`;
     if (pathname !== `/stocks/${encodeURIComponent(report.ticker)}`) {
       router.push(targetUrl);
-    }
-
-    if (!report.id.startsWith("live-")) {
-      const openedId = report.id;
-      const seq = ++openSeqRef.current;
-      fetchReportByDateAndTicker(report.d, report.ticker)
-        .then((fetched) => {
-          if (!fetched || seq !== openSeqRef.current) return;
-          setSelectedDocReport((prev) =>
-            prev && prev.id === openedId && isFullerReport(fetched, prev)
-              ? fetched
-              : prev
-          );
-        })
-        .catch((e) => console.warn("상세 리포트 단건 재조회 실패:", e));
     }
 
     if (report.ticker) {
@@ -818,47 +785,34 @@ export function DashboardView({
     }
   }, [initialTicker]);
 
-  // 상세 문서가 마스킹된 티저(SSR public 또는 로그인 전 캐시)인데 현재 권한이면
-  // 원문이 허용되는 경우, 게이트웨이로 단건을 재조회해 원문으로 교체합니다.
-  // (예: 비로그인 SSR → 로그인 trial 전환 후에도 selectedDocReport가 그대로 남는 문제)
-  const docRefreshKeyRef = useRef<string>("");
+  // 상세 문서 서버-진실 동기화 (유일한 단건 조회 경로).
+  // 목록 객체·SSR initialReport가 마스킹된 티저일 수 있으므로, 문서나 권한이
+  // 바뀔 때마다 게이트웨이 응답을 그대로 진실로 반영합니다.
+  // 서버가 권한별로 마스킹을 이미 적용하므로 업그레이드/다운그레이드 판정이
+  // 불필요하고, 마지막 요청의 응답만 반영해 경합을 방지합니다.
+  // (id가 같으면 effect가 재발동하지 않으므로 무한 루프 없음)
+  const detailSeqRef = useRef(0);
   useEffect(() => {
     const current = selectedDocReport;
     if (!current || current.id.startsWith("live-")) return;
-    const isMasked =
-      !current.verdict ||
-      (!current.final_report && !current.summaries && !current.datapack);
-    if (!isMasked) return;
-    if (
-      isReportRestricted(current.d, tier, new Date(), undefined, isTrialActive)
-    )
-      return;
-    const refreshKey = `${accessKey}:${current.id}`;
-    if (docRefreshKeyRef.current === refreshKey) return;
-    docRefreshKeyRef.current = refreshKey;
+    const docId = current.id;
+    const docDate = current.d;
+    const docTicker = current.ticker;
+    const seq = ++detailSeqRef.current;
     let cancelled = false;
-    setIsLoadingReportDate(true);
-    fetchReportByDateAndTicker(current.d, current.ticker)
+    fetchReportByDateAndTicker(docDate, docTicker)
       .then((fetched) => {
-        if (cancelled || !fetched) return;
+        if (cancelled || !fetched || seq !== detailSeqRef.current) return;
         setSelectedDocReport((prev) =>
-          prev && prev.id === current.id && isFullerReport(fetched, prev)
-            ? fetched
-            : prev
-        );
-        setSelectedReportDate((prev) =>
-          prev === current.d ? fetched.d : prev
+          prev && prev.id === fetched.id ? fetched : prev
         );
       })
-      .catch((e) => console.warn("상세 리포트 재조회 실패:", e))
-      .finally(() => {
-        if (!cancelled) setIsLoadingReportDate(false);
-      });
+      .catch((e) => console.warn("상세 리포트 동기화 실패:", e));
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accessKey, tier, isTrialActive, selectedDocReport?.id]);
+  }, [accessKey, selectedDocReport?.id]);
 
   // 페이지/섹션에 맞춘 타겟 데이터 로드 (필요한 데이터만 스마트 로딩)
   useEffect(() => {
