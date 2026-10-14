@@ -16,7 +16,7 @@ export interface Subscription {
   canceledAt?: string | null;
 }
 
-export type PaymentStatus = "paid" | "failed" | "refunded";
+export type PaymentStatus = "paid" | "failed" | "refunded" | "partial_refunded";
 
 export interface PaymentTransaction {
   id: string;
@@ -30,6 +30,9 @@ export interface PaymentTransaction {
   status: PaymentStatus;
   receiptUrl?: string | null;
   paidAt: string;
+  /** 부분/전액 환불된 금액 (있을 때만) */
+  refundedAmount?: number | null;
+  refundedAt?: string | null;
 }
 
 export interface UserProfile {

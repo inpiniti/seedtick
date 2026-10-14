@@ -21,6 +21,7 @@ const STATUS_LABEL: Record<string, string> = {
   past_due: "결제 실패",
   paid: "결제 완료",
   refunded: "환불 완료",
+  partial_refunded: "부분 환불됨",
   failed: "실패",
 };
 
@@ -312,6 +313,12 @@ function PaymentTable({ payments }: { payments: ReturnType<typeof useSubscriptio
               <td className="px-5 py-2.5">{p.planType === "yearly" ? "연간" : "월간"}</td>
               <td className={`px-5 py-2.5 text-right ${p.status === "refunded" ? "line-through text-[#94a3b8]" : ""}`}>
                 {fmtWon(p.amount)}
+                {(p.status === "partial_refunded" || p.status === "refunded") &&
+                  p.refundedAmount != null && (
+                    <span className="block text-[10px] font-normal text-[#94a3b8] no-underline">
+                      {fmtWon(p.refundedAmount)} 환불
+                    </span>
+                  )}
               </td>
               <td className="px-5 py-2.5">
                 <span className={p.status === "paid" ? "text-[#0f172a]" : "text-[#94a3b8]"}>

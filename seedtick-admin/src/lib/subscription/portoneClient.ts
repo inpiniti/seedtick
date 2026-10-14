@@ -7,6 +7,7 @@ export interface PortOnePaymentParams {
   merchantUid: string;
   orderName: string;
   amount: number;
+  customerId?: string;
   customerName?: string;
   customerEmail?: string;
   payMethod?: "CARD" | "EASY_PAY" | "TRANSFER";
@@ -14,6 +15,7 @@ export interface PortOnePaymentParams {
 
 export interface PortOneBillingKeyParams {
   issueName: string;
+  customerId?: string;
   customerName?: string;
   customerEmail?: string;
 }
@@ -63,6 +65,27 @@ const CHANNEL_KEY_EASYPAY =
   process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_EASYPAY || CHANNEL_KEY_ONETIME;
 
 /**
+ * 개발 시뮬레이션 허용 여부.
+ * 명시적으로 NEXT_PUBLIC_ALLOW_DEV_SIMULATION=true 일 때만 가짜 성공을 반환합니다.
+ * 운영에서는 절대 가짜 성공을 반환하지 않습니다 (fail-closed).
+ */
+function isDevSimulationAllowed(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    (process.env.NEXT_PUBLIC_ALLOW_DEV_SIMULATION as string | undefined) ===
+      "true"
+  );
+}
+
+function simulationRejected(): PortOneResult {
+  return {
+    success: false,
+    message:
+      "결제 모듈을 불러오지 못했습니다. 네트워크를 확인하거나 잠시 후 다시 시도해 주세요.",
+  };
+}
+
+/**
  * PortOne V2 브라우저 SDK를 동적으로 로드합니다.
  */
 export async function loadPortOneSdk(): Promise<boolean> {
@@ -97,13 +120,14 @@ export async function requestBillingKey(
 ): Promise<PortOneResult> {
   const isLoaded = await loadPortOneSdk();
 
-  // 테스트/데모 환경이거나 포트원 키가 설정되지 않은 경우 시뮬레이션 지원
-  if (!isLoaded || !window.PortOne || STORE_ID.includes("test")) {
-    console.info("[PortOne] 테스트/시뮬레이션 모드로 빌링키를 발급합니다:", params);
+  // SDK를 못 불러오면: 개발 시뮬레이션 허용 시에만 가짜 성공, 아니면 실패
+  if (!isLoaded || !window.PortOne) {
+    if (!isDevSimulationAllowed()) return simulationRejected();
+    console.info("[PortOne] 개발 시뮬레이션 모드로 빌링키를 발급합니다:", params);
     await new Promise((r) => setTimeout(r, 800));
     return {
       success: true,
-      billingKey: `billing_test_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      billingKey: `billing_sim_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
     };
   }
 
@@ -116,6 +140,7 @@ export async function requestBillingKey(
       issueId,
       issueName: params.issueName,
       customer: {
+        ...(params.customerId ? { id: params.customerId } : {}),
         fullName: params.customerName || "SeedTick 회원",
         email: params.customerEmail,
       },
@@ -147,12 +172,13 @@ export async function requestOneTimePayment(
 ): Promise<PortOneResult> {
   const isLoaded = await loadPortOneSdk();
 
-  if (!isLoaded || !window.PortOne || STORE_ID.includes("test")) {
-    console.info("[PortOne] 테스트/시뮬레이션 모드로 결제를 진행합니다:", params);
+  if (!isLoaded || !window.PortOne) {
+    if (!isDevSimulationAllowed()) return simulationRejected();
+    console.info("[PortOne] 개발 시뮬레이션 모드로 결제를 진행합니다:", params);
     await new Promise((r) => setTimeout(r, 800));
     return {
       success: true,
-      paymentId: `pay_test_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      paymentId: `pay_sim_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
     };
   }
 
@@ -169,6 +195,7 @@ export async function requestOneTimePayment(
       currency: "CURRENCY_KRW",
       payMethod: params.payMethod || "CARD",
       customer: {
+        ...(params.customerId ? { id: params.customerId } : {}),
         fullName: params.customerName || "SeedTick 회원",
         email: params.customerEmail,
       },

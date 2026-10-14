@@ -11,11 +11,11 @@ import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { PaymentTransaction, Subscription, SubscriptionTier } from "./types";
 import {
-  calculateSubscriptionExpiry,
   isWelcomeTrialActive,
   getRemainingTrialHours,
   decideCancellation,
   CancellationDecision,
+  getPlanAmount,
 } from "./subscriptionPolicy";
 import {
   requestBillingKey,
@@ -45,29 +45,10 @@ interface SubscriptionContextValue {
   /** 지금 해지하면 어떻게 처리되는지 미리 계산 (해지 확인 화면용) */
   previewCancellation: () => CancellationDecision;
   cancelSubscription: () => Promise<{ success: boolean; decision?: CancellationDecision; message?: string }>;
-  toggleTierForTesting: () => void;
+  refreshSubscription: () => Promise<void>;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextValue | null>(null);
-
-const STORAGE_KEY_TIER = "seedtick_demo_tier";
-const STORAGE_KEY_EXPIRY = "seedtick_demo_expiry";
-const STORAGE_KEY_PAYMENTS = "seedtick_demo_payments";
-
-function readLocalPayments(): PaymentTransaction[] {
-  if (typeof window === "undefined") return [];
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY_PAYMENTS) || "[]");
-  } catch {
-    return [];
-  }
-}
-
-function writeLocalPayments(list: PaymentTransaction[]) {
-  if (typeof window !== "undefined") {
-    localStorage.setItem(STORAGE_KEY_PAYMENTS, JSON.stringify(list));
-  }
-}
 
 export function SubscriptionProvider({
   children,
@@ -76,7 +57,6 @@ export function SubscriptionProvider({
 }) {
   const [user, setUser] = useState<User | null>(null);
   const [tier, setTier] = useState<SubscriptionTier>("free");
-  const [demoTier, setDemoTier] = useState<"pro" | "trial" | "free" | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [payments, setPayments] = useState<PaymentTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -87,29 +67,54 @@ export function SubscriptionProvider({
   const openAuthModal = useCallback(() => setIsAuthModalOpen(true), []);
   const closeAuthModal = useCallback(() => setIsAuthModalOpen(false), []);
 
-  // 24시간 웰컴 무료 체험 활성 여부 계산
+  // 24시간 웰컴 무료 체험 활성 여부 계산 (로그인 유저의 가입 시각 기준)
   const isTrialActive = React.useMemo(() => {
     if (tier === "pro") return false;
-    // 1. 실제 로그인 사용자는 Supabase user.created_at을 최우선 기준으로 24시간 판정
     if (user?.created_at) {
       return isWelcomeTrialActive(user.created_at);
     }
-    // 2. 비로그인 상태일 때의 데모/테스트 시뮬레이션 플래그
-    if (demoTier === "trial") return true;
-    if (demoTier === "free") return false;
     return false;
-  }, [tier, demoTier, user]);
+  }, [tier, user]);
 
   // 24시간 무료 체험 잔여 시간(시)
   const trialRemainingHours = React.useMemo(() => {
-    // 1. 실제 로그인 사용자의 경우 잔여 시간 실시간 계산
     if (user?.created_at && isTrialActive) {
       return getRemainingTrialHours(user.created_at);
     }
-    // 2. 비로그인 데모 시뮬레이션
-    if (demoTier === "trial") return 20;
     return 0;
-  }, [demoTier, user, isTrialActive]);
+  }, [user, isTrialActive]);
+
+  // 서버에서 구독 진실을 조회 (유일한 데이터 출처 — localStorage를 신뢰하지 않음)
+  const refreshSubscription = useCallback(async () => {
+    if (!supabase) return;
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      if (!token) {
+        setTier("free");
+        setSubscription(null);
+        setPayments([]);
+        return;
+      }
+      const res = await fetch("/api/billing/status", {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json().catch(() => null);
+      if (json?.success) {
+        const sub = (json.subscription ?? null) as Subscription | null;
+        setSubscription(sub);
+        setTier(sub?.tier ?? "free");
+        setPayments((json.payments ?? []) as PaymentTransaction[]);
+      } else {
+        // 조회 실패 시 등급을 올려주지 않음 (fail-closed)
+        console.warn("구독 상태 조회 실패:", json?.message);
+      }
+    } catch (e) {
+      console.warn("구독 상태 조회 예외:", e);
+    }
+  }, []);
+
+  const loadUserSubscription = refreshSubscription;
 
   // 로그인 성공 시: 로그인 모달을 닫고, 신규 가입/체험 유저가 아닐 때만 결제 모달 오픈
   useEffect(() => {
@@ -123,34 +128,8 @@ export function SubscriptionProvider({
     }
   }, [user, isAuthModalOpen, upgradeModalReason, isTrialActive]);
 
-  // 1. Supabase Auth 사용자 세션 및 로컬 상태 동기화
+  // Supabase Auth 사용자 세션 동기화 + 서버 구독 상태 로드
   useEffect(() => {
-    // 로컬 스토리지에서 데모/저장된 구독 상태 로드 (비로그인 상태 폴백용)
-    if (typeof window !== "undefined") {
-      setPayments(readLocalPayments());
-      const savedTier = localStorage.getItem(STORAGE_KEY_TIER) as "pro" | "trial" | "free" | null;
-      const savedExpiry = localStorage.getItem(STORAGE_KEY_EXPIRY);
-      if (savedTier === "pro") {
-        setTier("pro");
-        setDemoTier("pro");
-        setSubscription({
-          id: "sub_demo",
-          userId: "demo_user",
-          tier: "pro",
-          planType: "monthly",
-          status: "active",
-          currentPeriodStart: new Date().toISOString(),
-          currentPeriodEnd: savedExpiry || calculateSubscriptionExpiry(null, "monthly").toISOString(),
-        });
-      } else if (savedTier === "trial") {
-        setDemoTier("trial");
-        setTier("free");
-      } else if (savedTier === "free") {
-        setDemoTier("free");
-        setTier("free");
-      }
-    }
-
     if (!supabase) {
       setIsLoading(false);
       return;
@@ -160,13 +139,11 @@ export function SubscriptionProvider({
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        // 실제 유저 로그인 감지 시 과거 데모 스토리지 정리
-        setDemoTier(null);
-        if (typeof window !== "undefined") {
-          localStorage.removeItem(STORAGE_KEY_TIER);
-          localStorage.removeItem(STORAGE_KEY_EXPIRY);
-        }
-        loadUserSubscription(session.user.id);
+        loadUserSubscription();
+      } else {
+        setTier("free");
+        setSubscription(null);
+        setPayments([]);
       }
       setIsLoading(false);
     });
@@ -177,85 +154,18 @@ export function SubscriptionProvider({
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        // 실제 유저 로그인 시 기존 데모 상태 정리 후 DB 구독 정보 로드
-        setDemoTier(null);
-        if (typeof window !== "undefined") {
-          localStorage.removeItem(STORAGE_KEY_TIER);
-          localStorage.removeItem(STORAGE_KEY_EXPIRY);
-        }
-        loadUserSubscription(session.user.id);
+        loadUserSubscription();
       } else {
-        // 비로그인 시 로컬 데모 상태가 없으면 free 유지
-        const savedTier = localStorage.getItem(STORAGE_KEY_TIER) as "pro" | "trial" | "free" | null;
-        if (savedTier === "pro") {
-          setTier("pro");
-        } else if (savedTier === "trial") {
-          setDemoTier("trial");
-          setTier("free");
-        } else {
-          setTier("free");
-          setSubscription(null);
-        }
+        setTier("free");
+        setSubscription(null);
+        setPayments([]);
       }
     });
 
     return () => {
       authListener.unsubscribe();
     };
-  }, []);
-
-  // Supabase DB에서 유저 구독 정보 로드
-  const loadUserSubscription = async (userId: string) => {
-    if (!supabase) return;
-    try {
-      const { data, error } = await supabase
-        .from("subscriptions")
-        .select("*")
-        .eq("user_id", userId)
-        .maybeSingle();
-
-      if (!error && data) {
-        const sub = data as Subscription;
-        // 만료일 검사
-        if (sub.tier === "pro" && sub.currentPeriodEnd) {
-          const isExpired = new Date(sub.currentPeriodEnd).getTime() < Date.now();
-          if (isExpired) {
-            setTier("free");
-            setSubscription({ ...sub, tier: "free", status: "expired" });
-            return;
-          }
-        }
-        setTier(sub.tier);
-        setSubscription(sub);
-      } else {
-        setTier("free");
-        setSubscription(null);
-      }
-
-      const { data: payRows } = await supabase
-        .from("payment_transactions")
-        .select("*")
-        .eq("user_id", userId)
-        .order("paid_at", { ascending: false });
-      if (payRows && payRows.length > 0) {
-        setPayments(
-          payRows.map((r) => ({
-            id: r.merchant_uid,
-            paymentId: r.imp_uid ?? r.merchant_uid ?? null,
-            planType: r.plan_type,
-            amount: Number(r.amount),
-            payMethod: r.pay_method,
-            cardLast4: r.card_last4 ?? null,
-            status: r.status,
-            receiptUrl: r.receipt_url ?? null,
-            paidAt: r.paid_at,
-          }))
-        );
-      }
-    } catch (e) {
-      console.warn("구독 정보 로드 예외:", e);
-    }
-  };
+  }, [loadUserSubscription]);
 
   const openUpgradeModal = useCallback((reason?: string) => {
     setUpgradeModalReason(reason || null);
@@ -272,6 +182,9 @@ export function SubscriptionProvider({
   }, []);
 
   // 포트원 결제 실행 및 Pro 승격
+  // 흐름: (월간) 브라우저에서 카드 등록(빌링키 발급) → 서버가 검증+직접 청구
+  //       (연간) 브라우저에서 단건 결제 → 서버가 PortOne 재조회로 검증
+  // 최종 PRO 부여는 서버 DB 기록 성공 시에만 이뤄집니다.
   const upgradeToPro = useCallback(
     async (
       planType: "monthly" | "yearly",
@@ -287,7 +200,7 @@ export function SubscriptionProvider({
         };
       }
 
-      const amount = planType === "monthly" ? 2900 : 29000;
+      const amount = getPlanAmount(planType);
       const orderName =
         planType === "monthly"
           ? "SeedTick Research Pro 멤버십 (월간 정기구독)"
@@ -296,9 +209,10 @@ export function SubscriptionProvider({
       let portoneRes: PortOneResult;
 
       if (planType === "monthly" && method === "card") {
-        // 월간은 정기 결제 카드 등록 (빌링키 발급)
+        // 월간은 정기 결제 카드 등록 (빌링키 발급) — 실제 과금은 서버가 수행
         portoneRes = await requestBillingKey({
           issueName: orderName,
+          customerId: user.id,
           customerName: user?.email?.split("@")[0] || "SeedTick 회원",
           customerEmail: user?.email,
         });
@@ -310,6 +224,7 @@ export function SubscriptionProvider({
           orderName,
           amount,
           payMethod: method === "easypay" ? "EASY_PAY" : "CARD",
+          customerId: user.id,
           customerName: user?.email?.split("@")[0] || "SeedTick 회원",
           customerEmail: user?.email,
         });
@@ -353,17 +268,18 @@ export function SubscriptionProvider({
         const verifiedSub = confirmJson.subscription as Subscription;
         const verifiedPay = confirmJson.payment as PaymentTransaction;
 
-        setTier("pro");
-        setSubscription(verifiedSub);
-        setPayments((prev) => [verifiedPay, ...prev]);
-
-        if (typeof window !== "undefined") {
-          localStorage.setItem(STORAGE_KEY_TIER, "pro");
-          localStorage.setItem(
-            STORAGE_KEY_EXPIRY,
-            verifiedSub.currentPeriodEnd || ""
-          );
+        // 서버가 기록한 값을 그대로 반영한 뒤 서버 진실로 재동기화
+        if (verifiedSub) {
+          setTier(verifiedSub.tier);
+          setSubscription(verifiedSub);
         }
+        if (verifiedPay) {
+          setPayments((prev) => {
+            if (prev.some((p) => p.id === verifiedPay.id)) return prev;
+            return [verifiedPay, ...prev];
+          });
+        }
+        await refreshSubscription();
 
         closeUpgradeModal();
         return { success: true };
@@ -377,7 +293,7 @@ export function SubscriptionProvider({
         };
       }
     },
-    [user, supabase, closeUpgradeModal]
+    [user, closeUpgradeModal, refreshSubscription]
   );
 
   const latestPaid = payments.find((p) => p.status === "paid") ?? null;
@@ -392,7 +308,7 @@ export function SubscriptionProvider({
     [latestPaid, subscription?.planType]
   );
 
-  // 구독 해지: 서버 cancel API를 통해 일할 계산 부분 환불 또는 자동갱신 해지 수행
+  // 구독 해지: 서버 cancel API가 DB 기준으로 일할 계산 부분 환불 또는 자동갱신 해지 수행
   const cancelSubscription = useCallback(async () => {
     if (!subscription) return { success: false, message: "구독 정보가 없어요." };
 
@@ -407,56 +323,16 @@ export function SubscriptionProvider({
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({
-          paymentId: latestPaid?.paymentId,
-          billingKey: subscription.billingKey,
-          planType: subscription.planType,
-        }),
+        body: JSON.stringify({}),
       });
 
       const json = await res.json();
       if (!json.success) return { success: false, message: json.message };
 
       const decision = json.decision as CancellationDecision;
-      const now = new Date().toISOString();
 
-      if (decision.mode === "refund") {
-        // 일할 계산 부분 환불 완료 -> 즉시 Free 전환
-        setTier("free");
-        setDemoTier("free");
-        setSubscription({
-          ...subscription,
-          tier: "free",
-          status: "expired",
-          canceledAt: now,
-          billingKey: null,
-          currentPeriodEnd: now,
-        });
-
-        setPayments((prev) =>
-          prev.map((p) =>
-            p.id === latestPaid?.id
-              ? {
-                  ...p,
-                  status: "refunded",
-                }
-              : p
-          )
-        );
-
-        if (typeof window !== "undefined") {
-          localStorage.setItem(STORAGE_KEY_TIER, "free");
-          localStorage.removeItem(STORAGE_KEY_EXPIRY);
-        }
-      } else {
-        // 7일 초과: 다음 결제만 해지, 만료일까지 유지
-        setSubscription({
-          ...subscription,
-          status: "canceled",
-          canceledAt: now,
-          billingKey: null,
-        });
-      }
+      // 서버 진실로 재동기화 (클라이언트에서 상태를 직접 계산하지 않음)
+      await refreshSubscription();
 
       return { success: true, decision };
     } catch (e) {
@@ -465,48 +341,7 @@ export function SubscriptionProvider({
         message: e instanceof Error ? e.message : "해지 요청에 실패했어요.",
       };
     }
-  }, [subscription, supabase, latestPaid]);
-
-  // 개발 및 시연용 Free <-> 1-Day Trial <-> Pro 3단계 즉각 토글 헬퍼
-  const toggleTierForTesting = useCallback(() => {
-    // 1. 현재 1일 무료 체험 중인 경우 -> Pro로 전환
-    if (isTrialActive || demoTier === "trial") {
-      const expiry = calculateSubscriptionExpiry(null, "monthly").toISOString();
-      setDemoTier("pro");
-      setTier("pro");
-      setSubscription({
-        id: "sub_demo_toggle",
-        userId: user?.id || "demo_user",
-        tier: "pro",
-        planType: "monthly",
-        status: "active",
-        currentPeriodStart: new Date().toISOString(),
-        currentPeriodEnd: expiry,
-      });
-      if (typeof window !== "undefined") {
-        localStorage.setItem(STORAGE_KEY_TIER, "pro");
-        localStorage.setItem(STORAGE_KEY_EXPIRY, expiry);
-      }
-    } else if (tier === "pro") {
-      // 2. 현재 Pro인 경우 -> 일반 Free(체험 만료)로 전환
-      setDemoTier("free");
-      setTier("free");
-      setSubscription(null);
-      if (typeof window !== "undefined") {
-        localStorage.setItem(STORAGE_KEY_TIER, "free");
-        localStorage.removeItem(STORAGE_KEY_EXPIRY);
-      }
-    } else {
-      // 3. 현재 Free인 경우 -> 1일 무료 체험(Trial)으로 전환
-      setDemoTier("trial");
-      setTier("free");
-      setSubscription(null);
-      if (typeof window !== "undefined") {
-        localStorage.setItem(STORAGE_KEY_TIER, "trial");
-        localStorage.removeItem(STORAGE_KEY_EXPIRY);
-      }
-    }
-  }, [demoTier, isTrialActive, tier, user]);
+  }, [subscription, refreshSubscription]);
 
   return (
     <SubscriptionContext.Provider
@@ -528,7 +363,7 @@ export function SubscriptionProvider({
         payments,
         previewCancellation,
         cancelSubscription,
-        toggleTierForTesting,
+        refreshSubscription,
       }}
     >
       {children}

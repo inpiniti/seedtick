@@ -149,6 +149,21 @@ export function calculateSubscriptionExpiry(
 export const REFUND_WINDOW_DAYS = 7;
 
 /**
+ * 서버/클라이언트 공통 가격표 (단일 진실 공급원).
+ * 실제 청구는 서버가 이 값으로 검증하므로 클라이언트 금액은 절대 신뢰하지 않습니다.
+ */
+export const PLAN_AMOUNTS: Record<"monthly" | "yearly", number> = {
+  monthly: 2900,
+  yearly: 29000,
+};
+
+export function getPlanAmount(planType: PlanType): number {
+  if (planType === "monthly") return PLAN_AMOUNTS.monthly;
+  if (planType === "yearly") return PLAN_AMOUNTS.yearly;
+  throw new Error("유효하지 않은 플랜입니다.");
+}
+
+/**
  * 만료일까지 남은 일수(올림). 만료되었거나 값이 없으면 0.
  */
 export function getRemainingDays(
