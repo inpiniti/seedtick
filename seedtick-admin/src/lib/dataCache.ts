@@ -67,6 +67,13 @@ export const DataCache = {
     cache.historicalValuations = { data, expiresAt: Date.now() + CACHE_TTL_MS };
   },
 
+  /** 권한 변경(로그인/체험/Pro) 시 마스킹된 구 리포트 캐시 파기 */
+  clearReports: () => {
+    cache.reportsByDate.clear();
+    cache.historicalValuations = undefined;
+    cache.catalogDates = undefined;
+  },
+
   getLiveCandidates: () => {
     if (cache.liveCandidates && cache.liveCandidates.expiresAt > Date.now())
       return cache.liveCandidates.data;

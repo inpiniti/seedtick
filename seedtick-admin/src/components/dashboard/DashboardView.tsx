@@ -435,8 +435,20 @@ export function DashboardView({
     [availableCatalogDates, openUpgradeModal, applyCatalogDate, user]
   );
 
-  // 티어 및 체험 상태 변경 시(Free <-> Trial <-> Pro) 카탈로그 디폴트 일자 자동 동기화 (순수 applyCatalogDate 호출로 모달 방지)
+  // 티어 및 체험 상태 변경 시(Free <-> Trial <-> Pro) 마스킹 캐시 파기 후
+  // 카탈로그 디폴트 일자 자동 동기화 (순수 applyCatalogDate 호출로 모달 방지).
+  // 게이트웨이가 권한별로 다른 내용(티저/원문)을 반환하므로 캐시 키가 아닌 파기로 정합성 보장.
+  const accessKey = `${user?.id ?? "anon"}:${tier}:${isTrialActive ? "trial" : "notrial"}`;
+  const prevAccessKeyRef = useRef(accessKey);
   useEffect(() => {
+    if (prevAccessKeyRef.current !== accessKey) {
+      prevAccessKeyRef.current = accessKey;
+      DataCache.clearReports();
+      setGuruReports([]);
+      setHistoricalValuations([]);
+      selectedCatalogDateRef.current = "";
+      setSelectedCatalogDate("");
+    }
     if (availableCatalogDates.length > 0) {
       const targetDefault = getDefaultReportDate(
         availableCatalogDates,
@@ -448,7 +460,7 @@ export function DashboardView({
         applyCatalogDate(targetDefault);
       }
     }
-  }, [tier, isTrialActive, availableCatalogDates, applyCatalogDate]);
+  }, [accessKey, tier, isTrialActive, availableCatalogDates, applyCatalogDate]);
 
   const handleRefreshLogs = useCallback(async (level?: string) => {
     const logs = await fetchSystemLogs(60, level);
@@ -770,6 +782,42 @@ export function DashboardView({
       });
     }
   }, [initialTicker]);
+
+  // 상세 문서가 마스킹된 티저(SSR public 또는 로그인 전 캐시)인데 현재 권한이면
+  // 원문이 허용되는 경우, 게이트웨이로 단건을 재조회해 원문으로 교체합니다.
+  // (예: 비로그인 SSR → 로그인 trial 전환 후에도 selectedDocReport가 그대로 남는 문제)
+  const docRefreshKeyRef = useRef<string>("");
+  useEffect(() => {
+    const current = selectedDocReport;
+    if (!current || current.id.startsWith("live-")) return;
+    const isMasked =
+      !current.verdict ||
+      (!current.final_report && !current.summaries && !current.datapack);
+    if (!isMasked) return;
+    if (
+      isReportRestricted(current.d, tier, new Date(), undefined, isTrialActive)
+    )
+      return;
+    const refreshKey = `${accessKey}:${current.id}`;
+    if (docRefreshKeyRef.current === refreshKey) return;
+    docRefreshKeyRef.current = refreshKey;
+    let cancelled = false;
+    setIsLoadingReportDate(true);
+    fetchReportByDateAndTicker(current.d, current.ticker)
+      .then((fetched) => {
+        if (cancelled || !fetched) return;
+        setSelectedDocReport(fetched);
+        setSelectedReportDate(fetched.d);
+      })
+      .catch((e) => console.warn("상세 리포트 재조회 실패:", e))
+      .finally(() => {
+        if (!cancelled) setIsLoadingReportDate(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessKey, tier, isTrialActive, selectedDocReport?.id]);
 
   // 페이지/섹션에 맞춘 타겟 데이터 로드 (필요한 데이터만 스마트 로딩)
   useEffect(() => {
