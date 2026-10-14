@@ -182,34 +182,39 @@ export default function AccountPage() {
             )}
           </>
         ) : (
-          /* 트라이얼 / FREE */
-          <section className="rounded-md bg-white border border-[#e2e8f0] p-6 space-y-4">
-            {isTrialActive ? (
-              <div>
-                <p className="text-[#64748b] flex items-center gap-1.5"><Clock className="w-3 h-3" />무료 체험 남은 시간</p>
-                <p className="text-3xl font-bold mt-1 font-sans">{trialRemainingHours}시간</p>
-                <p className="mt-2 text-[#64748b]">체험이 끝나도 계속 최신 리포트를 보려면 PRO를 시작해 주세요.</p>
+          /* 트라이얼 / FREE — PRO와 동일한 섹션 레이아웃 */
+          <>
+            <section className="rounded-md bg-white border border-[#e2e8f0] p-6 space-y-4">
+              {isTrialActive ? (
+                <div>
+                  <p className="text-[#64748b] flex items-center gap-1.5"><Clock className="w-3 h-3" />무료 체험 남은 시간</p>
+                  <p className="text-3xl font-bold mt-1 font-sans">{trialRemainingHours}시간</p>
+                  <p className="mt-2 text-[#64748b]">체험이 끝나도 계속 최신 리포트를 보려면 PRO를 시작해 주세요.</p>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-sm font-semibold font-sans">FREE 이용 중</p>
+                  <p className="mt-1 text-[#64748b]">30일이 지난 리포트만 볼 수 있어요. PRO로 최신 리포트를 바로 받아보세요.</p>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => openUpgradeModal()}
+                className="w-full py-2.5 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white font-medium cursor-pointer"
+              >
+                PRO 시작하기 · 월 {fmtWon(PRICING_PLANS.monthly.price)}
+              </button>
+            </section>
+
+            {/* 결제 내역 — PRO와 동일한 레이아웃, 내역 없어도 빈 테이블 표시 */}
+            <section className="rounded-md bg-white border border-[#e2e8f0]">
+              <div className="p-5 border-b border-[#e2e8f0] flex items-center gap-2">
+                <Receipt className="w-4 h-4" />
+                <h2 className="font-semibold text-sm">결제 내역</h2>
               </div>
-            ) : (
-              <div>
-                <p className="text-sm font-semibold font-sans">FREE 이용 중</p>
-                <p className="mt-1 text-[#64748b]">30일이 지난 리포트만 볼 수 있어요. PRO로 최신 리포트를 바로 받아보세요.</p>
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={() => openUpgradeModal()}
-              className="w-full py-2.5 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white font-medium cursor-pointer"
-            >
-              PRO 시작하기 · 월 {fmtWon(PRICING_PLANS.monthly.price)}
-            </button>
-            {payments.length > 0 && (
-              <div className="pt-2">
-                <h2 className="font-semibold mb-2">지난 결제 내역</h2>
-                <PaymentTable payments={payments} />
-              </div>
-            )}
-          </section>
+              <PaymentTable payments={payments} />
+            </section>
+          </>
         )}
       </main>
 
@@ -281,9 +286,6 @@ export default function AccountPage() {
 }
 
 function PaymentTable({ payments }: { payments: ReturnType<typeof useSubscription>["payments"] }) {
-  if (payments.length === 0) {
-    return <p className="p-5 text-[#94a3b8]">아직 결제 내역이 없어요.</p>;
-  }
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left">
@@ -297,7 +299,14 @@ function PaymentTable({ payments }: { payments: ReturnType<typeof useSubscriptio
           </tr>
         </thead>
         <tbody>
-          {payments.map((p) => (
+          {payments.length === 0 ? (
+            <tr className="border-t border-[#f1f5f9]">
+              <td colSpan={5} className="px-5 py-6 text-center text-[#94a3b8]">
+                아직 결제 내역이 없어요.
+              </td>
+            </tr>
+          ) : (
+            payments.map((p) => (
             <tr key={p.id} className="border-t border-[#f1f5f9]">
               <td className="px-5 py-2.5">{fmtDate(p.paidAt)}</td>
               <td className="px-5 py-2.5">{p.planType === "yearly" ? "연간" : "월간"}</td>
@@ -319,7 +328,8 @@ function PaymentTable({ payments }: { payments: ReturnType<typeof useSubscriptio
                 )}
               </td>
             </tr>
-          ))}
+          ))
+          )}
         </tbody>
       </table>
     </div>
