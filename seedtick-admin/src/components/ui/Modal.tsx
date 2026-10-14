@@ -35,7 +35,7 @@ export function Modal({ isOpen, onClose, children, className, size = "default" }
       : "sm:max-w-2xl";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 overflow-y-auto p-4 sm:p-6 flex min-h-full items-center justify-center bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
       {/* 백드롭 배경 클릭 시 닫기 */}
       <div
         className="fixed inset-0"
@@ -43,22 +43,19 @@ export function Modal({ isOpen, onClose, children, className, size = "default" }
         aria-hidden="true"
       />
 
-      {/* 모바일: 바텀시트, PC: 도큐먼트 모달 */}
+      {/* aihero 스타일 정밀 모달 (모서리 rounded-md, 흑백 모노톤 보더) */}
       <div
         role="dialog"
         aria-modal="true"
         className={cn(
-          "relative z-10 w-full bg-white rounded-t-xl sm:rounded-xl p-5 sm:p-7 shadow-2xl border border-[#cbd5e1] max-h-[94vh] sm:max-h-[90vh] flex flex-col animate-in slide-in-from-bottom sm:slide-in-from-bottom-0 sm:zoom-in-98 duration-150",
+          "relative z-10 w-full my-auto bg-white rounded-md p-5 sm:p-6 shadow-2xl border border-[#cbd5e1] max-h-[90vh] flex flex-col animate-in fade-in zoom-in-98 duration-150",
           maxWidthClass,
           className
         )}
       >
-        {/* 모바일 바텀시트 핸들 바 */}
-        <div className="w-12 h-1 bg-[#cbd5e1] rounded-full mx-auto mb-3 sm:hidden shrink-0" />
-
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 p-1.5 rounded-md text-[#64748b] hover:text-[#0f172a] hover:bg-[#f1f5f9] transition-colors"
+          className="absolute right-4 top-4 p-1.5 rounded-md text-[#64748b] hover:text-[#0f172a] hover:bg-[#f1f5f9] transition-colors cursor-pointer"
           aria-label="닫기"
         >
           <X className="w-4 h-4" />

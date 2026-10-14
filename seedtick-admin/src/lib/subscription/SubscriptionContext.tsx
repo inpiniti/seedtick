@@ -25,6 +25,9 @@ interface SubscriptionContextValue {
   upgradeModalReason: string | null;
   openUpgradeModal: (reason?: string) => void;
   closeUpgradeModal: () => void;
+  isAuthModalOpen: boolean;
+  openAuthModal: () => void;
+  closeAuthModal: () => void;
   upgradeToPro: (
     planType: "monthly" | "yearly",
     method?: "card" | "easypay"
@@ -49,6 +52,20 @@ export function SubscriptionProvider({
   const [isLoading, setIsLoading] = useState(true);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [upgradeModalReason, setUpgradeModalReason] = useState<string | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  const openAuthModal = useCallback(() => setIsAuthModalOpen(true), []);
+  const closeAuthModal = useCallback(() => setIsAuthModalOpen(false), []);
+
+  // 로그인 성공 시: 로그인 모달을 닫고, 이전에 업그레이드 모달을 요청했었다면 결제 모달 오픈
+  useEffect(() => {
+    if (user && isAuthModalOpen) {
+      setIsAuthModalOpen(false);
+      if (upgradeModalReason) {
+        setIsUpgradeModalOpen(true);
+      }
+    }
+  }, [user, isAuthModalOpen, upgradeModalReason]);
 
   // 1. Supabase Auth 사용자 세션 및 로컬 상태 동기화
   useEffect(() => {
@@ -136,8 +153,12 @@ export function SubscriptionProvider({
 
   const openUpgradeModal = useCallback((reason?: string) => {
     setUpgradeModalReason(reason || null);
+    if (!user) {
+      setIsAuthModalOpen(true);
+      return;
+    }
     setIsUpgradeModalOpen(true);
-  }, []);
+  }, [user]);
 
   const closeUpgradeModal = useCallback(() => {
     setIsUpgradeModalOpen(false);
@@ -150,6 +171,16 @@ export function SubscriptionProvider({
       planType: "monthly" | "yearly",
       method: "card" | "easypay" = "card"
     ): Promise<{ success: boolean; message?: string }> => {
+      // 결제 전 로그인 필수 검증
+      if (!user) {
+        setIsUpgradeModalOpen(false);
+        setIsAuthModalOpen(true);
+        return {
+          success: false,
+          message: "멤버십 결제 및 계정 연동을 위해 먼저 로그인해 주세요.",
+        };
+      }
+
       const amount = planType === "monthly" ? 2900 : 29000;
       const orderName =
         planType === "monthly"
@@ -295,6 +326,9 @@ export function SubscriptionProvider({
         upgradeModalReason,
         openUpgradeModal,
         closeUpgradeModal,
+        isAuthModalOpen,
+        openAuthModal,
+        closeAuthModal,
         upgradeToPro,
         cancelSubscription,
         toggleTierForTesting,

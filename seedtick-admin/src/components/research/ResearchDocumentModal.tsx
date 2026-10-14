@@ -268,33 +268,38 @@ export function ResearchDocumentModal({
         {/* 4. 문서 본문 렌더링 영역 */}
         <div className="relative p-4 sm:p-6 rounded-md bg-white border border-[#e2e8f0] shadow-xs max-h-[60vh] overflow-y-auto">
           {isRestricted && (
-            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-6 bg-white/80 backdrop-blur-md">
-              <div className="max-w-sm w-full bg-white rounded-2xl p-6 border border-indigo-100 shadow-xl text-center space-y-3">
-                <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
-                  <Sparkles className="w-6 h-6" />
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-6 bg-white/85 backdrop-blur-md">
+              <div className="max-w-sm w-full bg-white rounded-md p-5 border border-[#cbd5e1] shadow-xl text-center space-y-3 font-mono">
+                <div className="w-9 h-9 rounded-md bg-[#0f172a] text-white flex items-center justify-center mx-auto text-xs font-bold shadow-2xs">
+                  PRO
                 </div>
-                <h4 className="font-bold text-slate-900 text-base">
-                  최근 1개월 최신 리포트입니다
-                </h4>
-                <p className="text-slate-600 text-xs leading-relaxed">
+                <div>
+                  <span className="text-[10px] text-[#64748b] uppercase tracking-wider block">
+                    RESTRICTED ARCHIVE
+                  </span>
+                  <h4 className="font-bold text-[#0f172a] text-sm mt-0.5">
+                    최근 1개월 최신 리포트입니다
+                  </h4>
+                </div>
+                <p className="text-[#64748b] text-[11px] leading-relaxed">
                   13인의 투자 거장 AI 합의 표결과 SEC 공시 분석은 Pro 회원 전용입니다.<br />
                   월 2,900원으로 즉시 모든 최신 리포트를 확인해보세요.
                 </p>
-                <div className="space-y-1.5 pt-2">
+                <div className="space-y-1.5 pt-1">
                   <button
                     type="button"
                     onClick={() => {
                       onClose();
                       openUpgradeModal();
                     }}
-                    className="w-full py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md transition-all active:scale-[0.98]"
+                    className="w-full py-2 px-3 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white font-medium text-xs shadow-2xs transition-colors cursor-pointer"
                   >
                     Pro 시작하기 (월 2,900원)
                   </button>
                   <button
                     type="button"
                     onClick={onClose}
-                    className="w-full py-2 px-3 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 text-xs font-medium"
+                    className="w-full py-1.5 px-3 rounded-md border border-[#cbd5e1] text-[#64748b] hover:text-[#0f172a] hover:bg-[#f8fafc] text-xs transition-colors cursor-pointer"
                   >
                     닫기
                   </button>

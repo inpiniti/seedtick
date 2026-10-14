@@ -412,35 +412,34 @@ export function ResearchDocumentView({
         {/* Free 티어 사용자가 최근 1개월 보고서 열람 시 Pro 블러 오버레이 및 업그레이드 카드 */}
         {isRestricted && (
           <div className="absolute inset-0 z-20 flex flex-col items-center justify-start pt-16 p-6 bg-white/80 backdrop-blur-md">
-            <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-indigo-100 shadow-2xl text-center space-y-4">
-              <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto shadow-sm">
-                <Sparkles className="w-7 h-7" />
+            <div className="max-w-md w-full bg-white rounded-md p-6 sm:p-8 border border-[#cbd5e1] shadow-xl text-center space-y-4 font-sans">
+              <div className="w-10 h-10 rounded-md bg-[#0f172a] text-white flex items-center justify-center mx-auto shadow-2xs font-mono text-sm font-bold">
+                PRO
               </div>
               <div>
-                <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider block">
-                  SeedTick Pro 전용 콘텐츠
+                <span className="font-mono text-[10px] uppercase tracking-wider text-[#64748b] block">
+                  MEMBERSHIP RESTRICTED DOCUMENT
                 </span>
-                <h3 className="text-xl font-bold text-slate-900 mt-1">
+                <h3 className="text-lg font-bold text-[#0f172a] mt-1 tracking-tight">
                   최근 1개월 최신 리포트입니다
                 </h3>
               </div>
-              <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">
-                13인의 투자 거장 AI 합의 표결과 SEC 공시 정밀 분석 리포트는 Pro 회원에게 실시간으로 제공됩니다.<br />
-                월 2,900원(하루 96원)으로 모든 최신 리포트를 즉시 확인해보세요.
+              <p className="text-[#64748b] text-xs leading-relaxed font-mono">
+                13인의 투자 거장 AI 합의 표결과 SEC 공시 정밀 분석은 Pro 회원 전용입니다.<br />
+                월 2,900원으로 모든 최신 리포트를 즉시 확인해보세요.
               </p>
-              <div className="space-y-2 pt-2">
+              <div className="space-y-2 pt-1 font-mono">
                 <button
                   type="button"
                   onClick={() => openUpgradeModal()}
-                  className="w-full py-3.5 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-lg shadow-indigo-200 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                  className="w-full py-2.5 px-4 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white font-medium text-xs shadow-2xs transition-colors cursor-pointer"
                 >
-                  <Sparkles className="w-4 h-4" />
-                  <span>Pro 멤버십 시작하기 (월 2,900원)</span>
+                  Pro 멤버십 시작하기 (월 2,900원)
                 </button>
                 <button
                   type="button"
                   onClick={onBack}
-                  className="w-full py-2.5 px-4 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold transition-colors"
+                  className="w-full py-2 px-4 rounded-md border border-[#cbd5e1] text-[#64748b] hover:text-[#0f172a] hover:bg-[#f8fafc] text-xs font-medium transition-colors cursor-pointer"
                 >
                   과거 보고서 보러가기
                 </button>

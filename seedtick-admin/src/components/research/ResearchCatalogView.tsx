@@ -949,18 +949,18 @@ export function ResearchCatalogView({
                     </span>
                     {selectedDate && selectedDate !== "ALL" && (
                       <span
-                        className={`text-[10px] font-mono px-2 py-0.5 rounded font-semibold ${
+                        className={`text-[10px] font-mono px-1.5 py-0.2 rounded border ${
                           isReportRestricted(selectedDate, tier)
-                            ? "bg-indigo-600 text-white"
+                            ? "bg-[#0f172a] text-white border-[#0f172a]"
                             : tier === "free"
-                            ? "bg-slate-700 text-slate-200"
-                            : "bg-[#0f172a] text-white"
+                            ? "bg-[#f8fafc] text-[#0f172a] border-[#cbd5e1]"
+                            : "bg-[#0f172a] text-white border-[#0f172a]"
                         }`}
                       >
                         {selectedDate === availableDates[0]
                           ? "★ 최신 분석일"
                           : tier === "free"
-                          ? `🌱 Free (1개월 전 과거 분석)`
+                          ? "FREE 아카이브 (1개월 전)"
                           : "선택 일자"}
                       </span>
                     )}
@@ -977,12 +977,12 @@ export function ResearchCatalogView({
                         const restricted = isReportRestricted(d, tier);
                         return (
                           <option key={d} value={d}>
-                            {d} {idx === 0 ? "★ (최신 분석)" : ""} {restricted ? "🔒 [Pro 전용]" : ""}
+                            {d} {idx === 0 ? "★ (최신 분석)" : ""} {restricted ? "[PRO]" : ""}
                           </option>
                         );
                       })}
                       <option value="ALL">
-                        전체 일자 (최근 200건 통합) {tier === "free" ? "🔒 [Pro 전용]" : ""}
+                        전체 일자 (최근 200건 통합) {tier === "free" ? "[PRO]" : ""}
                       </option>
                     </select>
                   </div>
@@ -1002,14 +1002,14 @@ export function ResearchCatalogView({
                             isSelected
                               ? "bg-[#0f172a] text-white border-[#0f172a] font-medium"
                               : restricted
-                              ? "bg-indigo-50/50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
+                              ? "bg-slate-100 text-[#0f172a] border-[#cbd5e1] hover:bg-slate-200"
                               : "bg-[#f8fafc] text-[#64748b] border-[#e2e8f0] hover:text-[#0f172a]"
                           }`}
                         >
-                          {restricted && <span className="text-[9px]">🔒</span>}
+                          {restricted && <span className="text-[9px] text-[#64748b] font-mono">[PRO]</span>}
                           <span>{d}</span>
                           {idx === 0 && (
-                            <span className="text-[9px] font-bold text-amber-500">최신</span>
+                            <span className="text-[9px] font-bold text-[#0f172a]">★</span>
                           )}
                         </button>
                       );
@@ -1022,11 +1022,11 @@ export function ResearchCatalogView({
                           selectedDate === "ALL"
                             ? "bg-[#0f172a] text-white border-[#0f172a] font-medium"
                             : tier === "free"
-                            ? "bg-indigo-50/50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
+                            ? "bg-slate-100 text-[#0f172a] border-[#cbd5e1] hover:bg-slate-200"
                             : "bg-[#f8fafc] text-[#64748b] border-[#e2e8f0] hover:text-[#0f172a]"
                         }`}
                       >
-                        {tier === "free" && <span className="text-[9px]">🔒</span>}
+                        {tier === "free" && <span className="text-[9px] text-[#64748b] font-mono">[PRO]</span>}
                         <span>전체</span>
                       </button>
                     )}

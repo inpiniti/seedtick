@@ -253,25 +253,27 @@ export function ResearchSidebar({
         </div>
       ))}
 
-      {/* Pro 멤버십 카드 배너 */}
-      <div className="pt-4 border-t border-[#e2e8f0]">
-        <div className="p-3.5 rounded-2xl bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-900 text-white relative overflow-hidden shadow-sm">
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-            <span className="text-[11px] font-bold text-indigo-200">
-              {isPro ? "SeedTick Pro 이용 중" : "SeedTick Pro 요금제"}
+      {/* Pro 멤버십 카드 배너 (aihero 흑백 모노톤 스타일) */}
+      <div className="pt-3 border-t border-[#e2e8f0]">
+        <div className="p-3 rounded-md bg-[#f8fafc] border border-[#e2e8f0] font-mono text-xs">
+          <div className="flex items-center justify-between gap-1 mb-1">
+            <span className="font-semibold text-[#0f172a] text-[11px] uppercase tracking-wider">
+              {isPro ? "SEEDTICK PRO" : "UPGRADE TO PRO"}
+            </span>
+            <span className="text-[10px] px-1 py-0.2 rounded border border-[#cbd5e1] bg-white text-[#0f172a]">
+              {isPro ? "ACTIVE" : "2,900원"}
             </span>
           </div>
-          <p className="text-[11px] text-slate-300 leading-snug mb-3">
+          <p className="text-[11px] text-[#64748b] leading-tight mb-2.5">
             {isPro
-              ? "최신 거장 AI 리포트 전체 열람 가능"
-              : "월 2,900원으로 최근 1개월 보고서까지 모두 열람"}
+              ? "13인 거장 최신 AI 리포트 전체 열람 중"
+              : "최근 1개월 보고서 및 실시간 가치평가 열람"}
           </p>
           <Link
             href="/pricing"
-            className="block w-full py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-center text-xs font-bold shadow-sm transition-all"
+            className="block w-full py-1.5 px-2 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white text-center text-[11px] font-medium shadow-2xs transition-colors"
           >
-            {isPro ? "요금제 안내" : "Pro 시작하기 (월 2,900원)"}
+            {isPro ? "요금제 세부 정보" : "Pro 시작하기 (월 2,900원)"}
           </Link>
         </div>
       </div>

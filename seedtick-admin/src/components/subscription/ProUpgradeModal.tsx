@@ -1,17 +1,19 @@
 "use client";
 
 import React, { useState } from "react";
-import { Check, Sparkles, X, Shield, Zap, CreditCard, Lock } from "lucide-react";
+import { Check, Shield, CreditCard, Lock, UserCheck } from "lucide-react";
+import { Modal } from "@/components/ui/Modal";
 import { useSubscription } from "@/lib/subscription/SubscriptionContext";
 import { PRICING_PLANS } from "@/lib/subscription/types";
 
 export function ProUpgradeModal() {
   const {
+    user,
     isUpgradeModalOpen,
     closeUpgradeModal,
     upgradeModalReason,
     upgradeToPro,
-    tier,
+    openAuthModal,
   } = useSubscription();
 
   const [selectedPlan, setSelectedPlan] = useState<"monthly" | "yearly">("monthly");
@@ -21,6 +23,13 @@ export function ProUpgradeModal() {
   if (!isUpgradeModalOpen) return null;
 
   const handlePay = async () => {
+    // 1. 비로그인 상태인 경우: 로그인 모달 먼저 오픈
+    if (!user) {
+      closeUpgradeModal();
+      openAuthModal();
+      return;
+    }
+
     setIsSubmitting(true);
     setErrorMsg(null);
     try {
@@ -38,185 +47,186 @@ export function ProUpgradeModal() {
   const plan = PRICING_PLANS[selectedPlan];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div
-        className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100"
-        role="dialog"
-        aria-modal="true"
-      >
-        {/* 상단 닫기 버튼 */}
-        <button
-          onClick={closeUpgradeModal}
-          className="absolute top-4 right-4 z-10 p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-          aria-label="닫기"
-        >
-          <X className="w-5 h-5" />
-        </button>
-
-        {/* 상단 헤더 배너 (토스 스타일 그라디언트) */}
-        <div className="relative px-6 pt-8 pb-6 bg-gradient-to-br from-indigo-900 via-slate-900 to-indigo-950 text-white overflow-hidden">
-          <div className="absolute -top-12 -right-12 w-48 h-48 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-blue-500/20 rounded-full blur-2xl pointer-events-none" />
-
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-200 text-xs font-semibold mb-3">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-300" />
-            <span>SeedTick Research Pro</span>
+    <Modal isOpen={isUpgradeModalOpen} onClose={closeUpgradeModal} size="default" className="sm:max-w-lg">
+      <div className="font-sans">
+        {/* aihero 스타일 헤더 */}
+        <div className="pb-4 border-b border-[#e2e8f0] mb-5">
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <span className="font-mono text-[11px] uppercase tracking-wider text-[#64748b] flex items-center gap-1.5">
+              <Lock className="w-3.5 h-3.5 text-[#0f172a]" />
+              <span>MEMBERSHIP ACCESS GATE</span>
+            </span>
+            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-[#0f172a] bg-[#0f172a] text-white">
+              SEEDTICK PRO
+            </span>
           </div>
-
-          <h2 className="text-2xl font-bold tracking-tight text-white mb-2">
-            13인 투자 거장의 최신 AI 분석 리포트
-          </h2>
-          <p className="text-slate-300 text-sm leading-relaxed">
+          <h3 className="text-lg sm:text-xl font-bold text-[#0f172a] tracking-tight">
+            13인 투자 거장 AI 종합 분석 리포트
+          </h3>
+          <p className="text-xs text-[#64748b] mt-1 leading-relaxed">
             {upgradeModalReason ||
               "최근 1개월간 발행된 최신 심층 리포트와 실시간 가치평가는 Pro 회원 전용 콘텐츠입니다."}
           </p>
         </div>
 
-        {/* 바디 영역 */}
-        <div className="p-6 space-y-6">
-          {/* 플랜 선택 탭 (토스 스타일 세그먼트) */}
-          <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-2xl">
+        <div className="space-y-4">
+          {/* 플랜 선택 탭 (aihero 흑백 모노톤 세그먼트) */}
+          <div className="grid grid-cols-2 gap-1.5 p-1 bg-[#f1f5f9] rounded-md font-mono text-xs">
             <button
               type="button"
               onClick={() => setSelectedPlan("monthly")}
-              className={`py-2.5 px-4 rounded-xl text-sm font-semibold transition-all ${
+              className={`py-2 px-3 rounded transition-colors text-center cursor-pointer ${
                 selectedPlan === "monthly"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-500 hover:text-slate-800"
+                  ? "bg-[#0f172a] text-white font-medium shadow-2xs"
+                  : "text-[#64748b] hover:text-[#0f172a]"
               }`}
             >
-              월간 플랜 (매월 2,900원)
+              월간 플랜 (2,900원/월)
             </button>
             <button
               type="button"
               onClick={() => setSelectedPlan("yearly")}
-              className={`relative py-2.5 px-4 rounded-xl text-sm font-semibold transition-all ${
+              className={`py-2 px-3 rounded transition-colors text-center cursor-pointer flex items-center justify-center gap-1.5 ${
                 selectedPlan === "yearly"
-                  ? "bg-white text-indigo-700 shadow-sm"
-                  : "text-slate-500 hover:text-slate-800"
+                  ? "bg-[#0f172a] text-white font-medium shadow-2xs"
+                  : "text-[#64748b] hover:text-[#0f172a]"
               }`}
             >
-              연간 플랜 (29,000원)
-              <span className="ml-1.5 inline-block text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-600">
+              <span>연간 플랜 (29,000원)</span>
+              <span className="text-[10px] px-1 rounded bg-white text-[#0f172a] border border-[#cbd5e1] font-semibold">
                 17% 할인
               </span>
             </button>
           </div>
 
-          {/* 가격 카드 */}
-          <div className="p-5 rounded-2xl bg-indigo-50/50 border border-indigo-100 flex items-center justify-between">
+          {/* 가격 카드 (흑백 테크니컬 리서치 스타일) */}
+          <div className="p-4 rounded-md bg-[#f8fafc] border border-[#cbd5e1] flex items-center justify-between">
             <div>
-              <span className="text-xs font-medium text-indigo-600 block mb-0.5">
-                {plan.badge}
+              <span className="font-mono text-[10px] uppercase text-[#64748b] block mb-0.5">
+                TIER PRICING · {plan.name}
               </span>
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-extrabold text-slate-900">
+              <div className="flex items-baseline gap-1.5">
+                <span className="font-mono text-2xl sm:text-3xl font-bold text-[#0f172a]">
                   {plan.price.toLocaleString()}원
                 </span>
-                <span className="text-slate-500 text-sm font-medium">
+                <span className="font-mono text-xs text-[#64748b]">
                   {plan.periodLabel}
                 </span>
                 {plan.originalPrice && (
-                  <span className="text-xs text-slate-400 line-through ml-2">
+                  <span className="font-mono text-xs text-[#94a3b8] line-through ml-1">
                     {plan.originalPrice.toLocaleString()}원
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-[11px] text-[#64748b] mt-1 font-mono">
                 {selectedPlan === "monthly"
-                  ? "하루 약 96원 · 언제든 위약금 없이 1초 해지"
-                  : "2개월 무료 혜택 · 1년 동안 가격 인상 없음"}
+                  ? "하루 약 96원 · 언제든 1초 만에 위약금 없이 해지 가능"
+                  : "2개월 무료 이용 혜택 · 1년 동안 가격 인상 없음"}
               </p>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-200">
-              <Zap className="w-6 h-6" />
-            </div>
+            <span className="font-mono text-xs px-2 py-1 rounded border border-[#cbd5e1] bg-white text-[#0f172a] shrink-0 font-medium">
+              {selectedPlan === "monthly" ? "정기 결제" : "1년 이용권"}
+            </span>
           </div>
 
-          {/* 주요 혜택 리스트 */}
-          <div className="space-y-2.5">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              포함된 핵심 혜택
-            </p>
-            <ul className="space-y-2 text-sm text-slate-700">
-              <li className="flex items-start gap-2.5">
-                <div className="mt-0.5 w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
-                  <Check className="w-3 h-3 stroke-[2.5]" />
-                </div>
+          {/* 포함 혜택 리스트 */}
+          <div className="space-y-2 border border-[#e2e8f0] rounded-md p-3.5 bg-white text-xs">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-[#94a3b8] block mb-1.5">
+              INCLUDED SPECIFICATIONS
+            </span>
+            <ul className="space-y-1.5 text-[#334155]">
+              <li className="flex items-start gap-2">
+                <Check className="w-3.5 h-3.5 text-[#0f172a] shrink-0 mt-0.5" />
                 <span>
-                  <strong>최근 1개월 최신 리포트</strong> 제한 없이 실시간 무제한 열람
+                  <strong>최근 1개월 최신 리포트</strong> 실시간 전체 열람 권한 부여
                 </span>
               </li>
-              <li className="flex items-start gap-2.5">
-                <div className="mt-0.5 w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
-                  <Check className="w-3 h-3 stroke-[2.5]" />
-                </div>
-                <span>
-                  13인의 전설적 투자 거장 AI 합의 표결 및 내재가치 밴드
-                </span>
+              <li className="flex items-start gap-2">
+                <Check className="w-3.5 h-3.5 text-[#0f172a] shrink-0 mt-0.5" />
+                <span>13인 전설적 투자 거장 AI 합의 표결 및 내재가치 밴드</span>
               </li>
-              <li className="flex items-start gap-2.5">
-                <div className="mt-0.5 w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
-                  <Check className="w-3 h-3 stroke-[2.5]" />
-                </div>
-                <span>
-                  SEC 공시 원문 기반 실시간 정량/정성 심층 재무 데이터팩
-                </span>
+              <li className="flex items-start gap-2">
+                <Check className="w-3.5 h-3.5 text-[#0f172a] shrink-0 mt-0.5" />
+                <span>SEC 공시 원문 기반 실시간 정량/정성 심층 재무 데이터팩</span>
               </li>
             </ul>
           </div>
 
-          {/* 결제 수단 안내 (통합 카드/페이 결제) */}
-          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2 text-slate-800 font-semibold">
-              <CreditCard className="w-4 h-4 text-indigo-600" />
+          {/* 로그인 계정 연동 상태 안내 */}
+          {user ? (
+            <div className="p-3 rounded-md bg-[#f8fafc] border border-[#e2e8f0] flex items-center justify-between text-xs font-mono">
+              <div className="flex items-center gap-2 text-[#0f172a]">
+                <UserCheck className="w-4 h-4 text-emerald-600" />
+                <span className="truncate max-w-[240px]">{user.email}</span>
+              </div>
+              <span className="text-[10px] text-[#64748b]">계정 연결됨</span>
+            </div>
+          ) : (
+            <div className="p-3 rounded-md bg-[#f8fafc] border border-[#cbd5e1] text-xs font-mono text-[#0f172a] flex items-center justify-between">
+              <span className="text-[#64748b]">* 결제 전 계정 로그인(Google/카카오)이 필요합니다.</span>
+              <button
+                type="button"
+                onClick={() => {
+                  closeUpgradeModal();
+                  openAuthModal();
+                }}
+                className="underline font-semibold text-[#0f172a] hover:text-black cursor-pointer"
+              >
+                지금 로그인
+              </button>
+            </div>
+          )}
+
+          {/* 결제 방식 안내 */}
+          <div className="p-3 rounded-md bg-[#f8fafc] border border-[#e2e8f0] flex items-center justify-between text-xs font-mono">
+            <div className="flex items-center gap-2 text-[#0f172a]">
+              <CreditCard className="w-3.5 h-3.5 text-[#64748b]" />
               <span>
                 {selectedPlan === "monthly"
-                  ? "신용카드 자동 정기결제 (매월 자동 갱신)"
+                  ? "신용카드 자동 정기결제 (매달 자동 갱신)"
                   : "신용 / 체크카드 결제 (1년 이용권)"}
               </span>
             </div>
-            <span className="text-[11px] text-slate-400 font-mono">안전 암호화</span>
+            <span className="text-[10px] text-[#94a3b8]">포트원 보안결제</span>
           </div>
 
           {errorMsg && (
-            <div className="p-3 rounded-xl bg-rose-50 text-rose-600 text-xs font-medium border border-rose-100">
+            <div className="p-3 rounded-md bg-rose-50 text-rose-700 text-xs font-mono border border-rose-200">
               {errorMsg}
             </div>
           )}
 
-          {/* 하단 CTA 버튼 (토스 스타일) */}
-          <div className="flex items-center gap-3 pt-2">
+          {/* 하단 CTA 버튼 */}
+          <div className="flex items-center gap-2 pt-2">
             <button
               type="button"
               onClick={closeUpgradeModal}
-              className="flex-1 py-3.5 px-4 rounded-2xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-semibold transition-colors"
+              className="flex-1 py-2.5 px-3 rounded-md border border-[#cbd5e1] text-[#64748b] hover:text-[#0f172a] hover:bg-[#f8fafc] text-xs font-mono font-medium transition-colors cursor-pointer"
             >
-              과거 보고서만 볼래요 (취소)
+              과거 보고서만 열람 (취소)
             </button>
             <button
               type="button"
               onClick={handlePay}
               disabled={isSubmitting}
-              className="flex-[1.4] py-3.5 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-[1.5] py-2.5 px-4 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white text-xs font-mono font-medium shadow-2xs transition-colors disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
             >
               {isSubmitting ? (
                 <span>결제창 연결 중...</span>
+              ) : !user ? (
+                <span>로그인 후 Pro 시작하기</span>
               ) : (
-                <>
-                  <Sparkles className="w-4 h-4" />
-                  <span>Pro 시작하기 ({plan.price.toLocaleString()}원)</span>
-                </>
+                <span>Pro 시작하기 ({plan.price.toLocaleString()}원)</span>
               )}
             </button>
           </div>
 
-          <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
-            <Shield className="w-3.5 h-3.5" />
-            <span>포트원 보안 암호화 결제 · 결제 즉시 마감일까지 Pro가 유지됩니다</span>
+          <div className="flex items-center justify-center gap-1.5 text-[10px] font-mono text-[#94a3b8]">
+            <Shield className="w-3 h-3" />
+            <span>포트원 공식 전자결제 · 결제 즉시 마감일까지 Pro 혜택 유지</span>
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
