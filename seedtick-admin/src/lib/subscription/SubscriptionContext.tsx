@@ -26,6 +26,9 @@ import {
 interface SubscriptionContextValue {
   user: User | null;
   tier: SubscriptionTier;
+  isAdmin: boolean;
+  isAdminLoading: boolean;
+  refreshAdminStatus: () => Promise<void>;
   isTrialActive: boolean;
   trialRemainingHours: number;
   subscription: Subscription | null;
@@ -57,6 +60,8 @@ export function SubscriptionProvider({
 }) {
   const [user, setUser] = useState<User | null>(null);
   const [tier, setTier] = useState<SubscriptionTier>("free");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdminLoading, setIsAdminLoading] = useState(true);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [payments, setPayments] = useState<PaymentTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -116,6 +121,33 @@ export function SubscriptionProvider({
 
   const loadUserSubscription = refreshSubscription;
 
+  // 관리자 여부 조회 (UX 게이팅용 — 진짜 인가는 서버 API가 수행, fail-closed)
+  const refreshAdminStatus = useCallback(async () => {
+    if (!supabase) {
+      setIsAdmin(false);
+      setIsAdminLoading(false);
+      return;
+    }
+    try {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      if (!token) {
+        setIsAdmin(false);
+        setIsAdminLoading(false);
+        return;
+      }
+      const res = await fetch("/api/admin/status", {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json().catch(() => null);
+      setIsAdmin(json?.success === true && json?.isAdmin === true);
+    } catch {
+      setIsAdmin(false);
+    } finally {
+      setIsAdminLoading(false);
+    }
+  }, []);
+
   // 로그인 성공 시: 로그인 모달을 닫고, 신규 가입/체험 유저가 아닐 때만 결제 모달 오픈
   useEffect(() => {
     if (user && isAuthModalOpen) {
@@ -140,10 +172,13 @@ export function SubscriptionProvider({
       setUser(session?.user ?? null);
       if (session?.user) {
         loadUserSubscription();
+        refreshAdminStatus();
       } else {
         setTier("free");
         setSubscription(null);
         setPayments([]);
+        setIsAdmin(false);
+        setIsAdminLoading(false);
       }
       setIsLoading(false);
     });
@@ -155,17 +190,20 @@ export function SubscriptionProvider({
       setUser(session?.user ?? null);
       if (session?.user) {
         loadUserSubscription();
+        refreshAdminStatus();
       } else {
         setTier("free");
         setSubscription(null);
         setPayments([]);
+        setIsAdmin(false);
+        setIsAdminLoading(false);
       }
     });
 
     return () => {
       authListener.unsubscribe();
     };
-  }, [loadUserSubscription]);
+  }, [loadUserSubscription, refreshAdminStatus]);
 
   const openUpgradeModal = useCallback((reason?: string) => {
     setUpgradeModalReason(reason || null);
@@ -348,6 +386,9 @@ export function SubscriptionProvider({
       value={{
         user,
         tier,
+        isAdmin,
+        isAdminLoading,
+        refreshAdminStatus,
         isTrialActive,
         trialRemainingHours,
         subscription,

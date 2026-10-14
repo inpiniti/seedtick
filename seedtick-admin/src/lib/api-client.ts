@@ -10,6 +10,7 @@ import {
   TickerNameBatchResponse,
   TickerNameResponse,
 } from "@/types/api";
+import { supabase } from "@/lib/supabase";
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_ANALYZER_URL?.replace(/\/$/, "") ||
@@ -41,6 +42,13 @@ async function request<T>(
           continue;
         }
         const errorText = await res.text().catch(() => "");
+        // 관리자 전용 API의 인가 실패는 즉시 종료 (재시도 무의미)
+        if (res.status === 401) {
+          throw new Error(`로그인이 필요합니다. ${errorText || ""}`.trim());
+        }
+        if (res.status === 403) {
+          throw new Error(`관리자 권한이 필요합니다. ${errorText || ""}`.trim());
+        }
         throw new Error(
           `API 요청 실패 (${res.status} ${res.statusText}): ${errorText || "오류가 발생했습니다."}`
         );
@@ -48,6 +56,14 @@ async function request<T>(
 
       return await res.json();
     } catch (err) {
+      // 인가 실패는 재시도하지 않음
+      if (
+        err instanceof Error &&
+        (err.message.startsWith("로그인이 필요합니다") ||
+          err.message.startsWith("관리자 권한이 필요합니다"))
+      ) {
+        throw err;
+      }
       if (attempt < retries) {
         await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
         continue;
@@ -57,6 +73,16 @@ async function request<T>(
   }
 
   throw new Error("요청이 완료되지 않았습니다.");
+}
+
+/** 관리자 전용 analyzer 호출용 Bearer 토큰 (Supabase 세션) */
+async function getAdminAuthHeaders(): Promise<Record<string, string>> {
+  try {
+    const token = (await supabase?.auth.getSession())?.data.session?.access_token;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
 }
 
 /** 1. 서버 헬스체크 및 미장 개장 여부 */
@@ -81,7 +107,7 @@ export async function fetchHealth(): Promise<HealthStatus> {
   }
 }
 
-/** 2. 일일 파이프라인 수동 즉시 트리거 */
+/** 2. 일일 파이프라인 수동 즉시 트리거 (관리자 전용) */
 export async function triggerPipeline(params: {
   dryRun?: boolean;
   force?: boolean;
@@ -99,6 +125,7 @@ export async function triggerPipeline(params: {
 
   return request(`/api/scheduler/trigger?${queryParams.toString()}`, {
     method: "POST",
+    headers: await getAdminAuthHeaders(),
   });
 }
 
@@ -219,22 +246,29 @@ export async function fetchStockChart(
   );
 }
 
-/** 5. 현재 활성 AI 모델 및 순위 체인 상태 */
+/** 5. 현재 활성 AI 모델 및 순위 체인 상태 (관리자 전용) */
 export async function fetchAiModelStatus(): Promise<AiModelStatus> {
-  return request<AiModelStatus>("/debug/ai-model");
+  return request<AiModelStatus>("/debug/ai-model", {
+    headers: await getAdminAuthHeaders(),
+  }, 0);
 }
 
-/** 6. 13인 거장 파이프라인 실시간 진행 상태 */
+/** 6. 13인 거장 파이프라인 실시간 진행 상태 (관리자 전용) */
 export async function fetchPipelineProgress(): Promise<PipelineProgress> {
-  return request<PipelineProgress>("/api/scheduler/progress");
+  return request<PipelineProgress>("/api/scheduler/progress", {
+    headers: await getAdminAuthHeaders(),
+  }, 0);
 }
 
-/** 7. AI 모델 순위 1순위 수동 초기화 */
+/** 7. AI 모델 순위 1순위 수동 초기화 (관리자 전용) */
 export async function resetAiModelRotation(): Promise<{
   ok: boolean;
   previous_model: string;
   active_model: string;
   chain: string[];
 }> {
-  return request("/debug/ai-model/reset", { method: "POST" });
+  return request("/debug/ai-model/reset", {
+    method: "POST",
+    headers: await getAdminAuthHeaders(),
+  }, 0);
 }

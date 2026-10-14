@@ -1,7 +1,6 @@
-"""
-Scheduler API Route
-"""
-from fastapi import APIRouter, HTTPException, Query
+"""Scheduler API Route (관리자 전용)"""
+from fastapi import APIRouter, Depends, HTTPException, Query
+from app.api.deps import require_admin
 from app.domains.scheduler.service import scheduler_service
 
 router = APIRouter(prefix="/api/scheduler", tags=["scheduler"])
@@ -9,6 +8,7 @@ router = APIRouter(prefix="/api/scheduler", tags=["scheduler"])
 
 @router.post("/trigger", summary="일일 파이프라인 수동 즉시 트리거 (백그라운드 실행)")
 async def trigger_pipeline(
+    _admin: dict = Depends(require_admin),
     dry_run: bool | None = Query(None, description="Dry-run 모드 여부 (미입력 시 설정값 사용)"),
     force: bool = Query(False, description="휴장일/주말 가드를 우회하여 강제 실행"),
     market: str = Query("all", description="분석 대상 시장 ('us', 'kr', 'all')"),
@@ -37,7 +37,7 @@ async def trigger_pipeline(
 
 
 @router.get("/progress", summary="13인 거장 파이프라인 실시간 진행 상태 조회")
-async def get_pipeline_progress():
+async def get_pipeline_progress(_admin: dict = Depends(require_admin)):
     """
     관리자 화면(seedtick-admin)이 주기적으로 폴링하여
     현재 단계, 종목 진행률(n/총), 13인 요약 진행률(n/13), 경과 시간을 표시합니다.
@@ -47,6 +47,7 @@ async def get_pipeline_progress():
 
 @router.post("/cleanup-logs", summary="만료 시스템 로그 수동 즉시 정리")
 async def cleanup_logs(
+    _admin: dict = Depends(require_admin),
     hours: int = Query(24, ge=1, le=720, description="정리할 이전 시간 기준 (기본 24시간)"),
 ):
     """지정된 시간(기본 24시간) 이전의 INFO 레벨 시스템 로그를 삭제하여 DB 용량을 최적화합니다."""

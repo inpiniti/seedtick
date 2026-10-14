@@ -78,7 +78,7 @@ export function ResearchSidebar({
   isOpenOnMobile = false,
   onCloseMobile,
 }: ResearchSidebarProps) {
-  const { tier, isTrialActive, trialRemainingHours } = useSubscription();
+  const { tier, isTrialActive, trialRemainingHours, isAdmin } = useSubscription();
   const isPro = tier === "pro";
 
   // 모바일 드로어가 열렸을 때 ESC 키 누르면 닫기
@@ -91,7 +91,26 @@ export function ResearchSidebar({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpenOnMobile, onCloseMobile]);
 
-  const navItems: NavGroup[] = [
+  // 파이프라인 + 감사 로그는 찐 어드민 전용 (관리자 로그인 시에만 노출)
+  const adminItems: NavItem[] = isAdmin
+    ? [
+        {
+          id: "sec-pipeline" as SidebarSectionId,
+          prefix: "04",
+          label: "파이프라인",
+          icon: Activity,
+        },
+        {
+          id: "sec-audit" as SidebarSectionId,
+          prefix: "05",
+          label: "감사 로그",
+          badge: logCount > 0 ? `${logCount}` : undefined,
+          icon: Terminal,
+        },
+      ]
+    : [];
+
+  const allGroups: NavGroup[] = [
     {
       group: "Overview",
       items: [
@@ -148,23 +167,11 @@ export function ResearchSidebar({
     },
     {
       group: "System & Operations",
-      items: [
-        {
-          id: "sec-pipeline",
-          prefix: "04",
-          label: "파이프라인",
-          icon: Activity,
-        },
-        {
-          id: "sec-audit",
-          prefix: "05",
-          label: "감사 로그",
-          badge: logCount > 0 ? `${logCount}` : undefined,
-          icon: Terminal,
-        },
-      ],
+      items: adminItems,
     },
   ];
+
+  const navItems = allGroups.filter((g) => g.items.length > 0);
 
   const handleItemClick = (id: SidebarSectionId) => {
     onSelectSection(id);

@@ -9,8 +9,9 @@ GET /debug/ai-gateway  — 기존 Vercel 게이트웨이 호출 (비교용)
 import time
 import logging
 import httpx
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from app.api.deps import require_admin
 from app.config.settings import settings
 from app.domains.report.ai_client import AiGatewayClient
 
@@ -22,7 +23,7 @@ _TEST_PROMPT = "애플(AAPL)의 현재 PER이 높은지 낮은지 한 문장으�
 
 
 @router.get("/ai-direct", summary="OpenRouter 직접 호출 테스트 (키 로테이션 적용)")
-async def test_ai_direct():
+async def test_ai_direct(_admin: dict = Depends(require_admin)):
     """
     실제 운영 클라이언트(AiGatewayClient)를 사용하여 OpenRouter를 호출합니다.
     429인 키는 건너뛰고 유효한 키로 자동 스위칭하여 결과를 반환합니다.
@@ -56,7 +57,7 @@ async def test_ai_direct():
 
 
 @router.get("/ai-model", summary="현재 활성 AI 모델 및 순위 체인 상태")
-async def get_ai_model():
+async def get_ai_model(_admin: dict = Depends(require_admin)):
     """
     현재 사용 중인 AI 모델과 순위 체인 상태를 반환합니다.
 
@@ -86,7 +87,7 @@ async def get_ai_model():
 
 
 @router.post("/ai-model/reset", summary="AI 모델 순위 1순위 수동 초기화")
-async def reset_ai_model():
+async def reset_ai_model(_admin: dict = Depends(require_admin)):
     """모델 순위를 1순위로 즉시 되돌립니다."""
     from app.domains.report.model_rotation import model_rotation
 
@@ -101,7 +102,7 @@ async def reset_ai_model():
 
 
 @router.get("/ai-keys", summary="등록된 OpenRouter API 키 상태 개별 점검")
-async def test_ai_keys():
+async def test_ai_keys(_admin: dict = Depends(require_admin)):
     """
     OPENROUTER_API_KEYS에 등록된 모든 키의 현재 쿼터/레이트리밋 상태를 개별 테스트합니다.
     """
@@ -155,7 +156,7 @@ async def test_ai_keys():
 
 
 @router.get("/ai-gateway", summary="기존 Vercel 게이트웨이 호출 테스트 (비교용)")
-async def test_ai_gateway():
+async def test_ai_gateway(_admin: dict = Depends(require_admin)):
     """기존 Vercel 게이트웨이 경유 호출과 응답 시간을 비교합니다."""
     url = f"{settings.AI_GATEWAY_URL}"
     if not url.endswith("/chat/completions"):

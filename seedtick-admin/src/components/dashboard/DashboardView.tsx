@@ -107,11 +107,13 @@ export function DashboardView({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { user, tier, isTrialActive, openUpgradeModal } = useSubscription();
+  const { user, tier, isTrialActive, openUpgradeModal, isAdmin, isAdminLoading } = useSubscription();
   const tierRef = useRef(tier);
   tierRef.current = tier;
   const isTrialActiveRef = useRef(isTrialActive);
   isTrialActiveRef.current = isTrialActive;
+  const isAdminRef = useRef(isAdmin);
+  isAdminRef.current = isAdmin;
 
   // 1. 네비게이션 상태
   const [activeSidebarSection, setActiveSidebarSection] =
@@ -210,9 +212,9 @@ export function DashboardView({
     Record<string, number | null>
   >(() => DataCache.getAllPercentB());
 
-  // 6. 파이프라인 진행 상태
+  // 6. 파이프라인 진행 상태 (관리자 전용 — 비관리자는 네트워크 호출 없음)
   const { progress: pipelineProgress, refresh: refreshPipelineProgress } =
-    usePipelineProgress();
+    usePipelineProgress(isAdmin);
   const isPipelineRunning = pipelineProgress?.status === "running";
   const isUsMarketOpen = health?.us_market_today?.is_open ?? false;
   const isKrMarketOpen = health?.kr_market_today?.is_open ?? false;
@@ -316,11 +318,18 @@ export function DashboardView({
 
     setIsLoading(true);
     try {
+      // 감사 로그 + AI 모델 상태는 관리자 전용 (비관리자는 호출 자체를 생략)
+      const logsPromise = isAdminRef.current
+        ? withTimeout(fetchSystemLogs(60), [])
+        : Promise.resolve([] as SystemLogItem[]);
+      const aiModelPromise = isAdminRef.current
+        ? withTimeout(fetchAiModelStatus(), null)
+        : Promise.resolve(null);
       const [healthRes, datesRes, logsRes, aiModelRes, valuationsRes] = await Promise.all([
         withTimeout(fetchHealth(), buildOfflineHealth()),
         withTimeout(fetchGuruReportDates(), []),
-        withTimeout(fetchSystemLogs(60), []),
-        withTimeout(fetchAiModelStatus(), null),
+        logsPromise,
+        aiModelPromise,
         withTimeout(fetchHistoricalValuations(), []),
       ]);
 
@@ -463,11 +472,13 @@ export function DashboardView({
   }, [accessKey, tier, isTrialActive, availableCatalogDates, applyCatalogDate]);
 
   const handleRefreshLogs = useCallback(async (level?: string) => {
+    if (!isAdminRef.current) return;
     const logs = await fetchSystemLogs(60, level);
     setSystemLogs(logs);
   }, []);
 
   const handleResetAiModel = async () => {
+    if (!isAdminRef.current) return;
     setIsResettingModel(true);
     try {
       await resetAiModelRotation();
@@ -576,6 +587,10 @@ export function DashboardView({
   }, [selectedDocReport?.ticker, initialTicker]);
 
   const handleTriggerPipeline = async () => {
+    if (!isAdminRef.current) {
+      setActionMessage("관리자 권한이 필요합니다.");
+      return;
+    }
     setIsActionLoading(true);
     setActionMessage(null);
     try {
@@ -760,7 +775,16 @@ export function DashboardView({
   }, [router]);
 
   // 사이드바 섹션 클릭 시 실제 URL 라우팅
+  // 파이프라인/감사로그는 관리자 전용 — 비관리자는 홈으로 돌려보냄
   const handleSelectSidebarSection = (sec: SidebarSectionId) => {
+    if ((sec === "sec-pipeline" || sec === "sec-audit") && !isAdminRef.current) {
+      setActiveSidebarSection("all");
+      setSelectedDocReport(null);
+      setSelectedGuruSlug(null);
+      setIsMobileMenuOpen(false);
+      router.push("/");
+      return;
+    }
     setActiveSidebarSection(sec);
     setSelectedDocReport(null);
     setSelectedGuruSlug(null);
@@ -813,6 +837,38 @@ export function DashboardView({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessKey, selectedDocReport?.id]);
+
+  // 관리자 전용 URL(/pipeline, /admin) 직접 접근 차단 — 비관리자는 홈으로
+  useEffect(() => {
+    if (isAdminLoading) return;
+    if (
+      (activeSidebarSection === "sec-pipeline" || activeSidebarSection === "sec-audit") &&
+      !isAdmin
+    ) {
+      setActiveSidebarSection("all");
+      router.replace("/");
+    }
+  }, [activeSidebarSection, isAdmin, isAdminLoading, router]);
+
+  // 관리자 판정이 늦게 확정되면(로그인 직후) 관리자 데이터를 뒤늦게 적재
+  const didAdminBackfillRef = useRef(false);
+  useEffect(() => {
+    if (isAdminLoading || !isAdmin || didAdminBackfillRef.current) return;
+    didAdminBackfillRef.current = true;
+    void (async () => {
+      try {
+        const [logsRes, aiModelRes] = await Promise.all([
+          withTimeout(fetchSystemLogs(60), []),
+          withTimeout(fetchAiModelStatus(), null),
+        ]);
+        setSystemLogs(logsRes);
+        if (aiModelRes) setAiModel(aiModelRes);
+      } catch {
+        // 관리자 백필 실패는 조용히 무시 (수동 새로고침으로 복구 가능)
+      }
+      refreshPipelineProgress();
+    })();
+  }, [isAdmin, isAdminLoading, refreshPipelineProgress]);
 
   // 페이지/섹션에 맞춘 타겟 데이터 로드 (필요한 데이터만 스마트 로딩)
   useEffect(() => {
@@ -950,7 +1006,9 @@ export function DashboardView({
                 selectedDate={selectedCatalogDate}
                 onSelectDate={handleUserSelectCatalogDate}
                 isReportsLoading={isCatalogDateLoading}
-                onOpenPipelineModal={() => setIsPipelineModalOpen(true)}
+                onOpenPipelineModal={() => {
+                  if (isAdminRef.current) setIsPipelineModalOpen(true);
+                }}
                 isPipelineRunning={isPipelineRunning}
                 onSelectGuru={handleOpenGuru}
                 intrinsicStabilityMap={intrinsicStabilityByTicker}
@@ -1109,12 +1167,14 @@ export function DashboardView({
                 </div>
               </div>
 
-              {/* AI 모델 위젯 */}
-              <AiModelWidget
-                aiModel={aiModel}
-                isResetting={isResettingModel}
-                onReset={handleResetAiModel}
-              />
+              {/* AI 모델 위젯 (관리자 전용) */}
+              {isAdmin && (
+                <AiModelWidget
+                  aiModel={aiModel}
+                  isResetting={isResettingModel}
+                  onReset={handleResetAiModel}
+                />
+              )}
             </div>
 
             {/* 우측: 콘솔 정보 & 법적 고지 링크 */}

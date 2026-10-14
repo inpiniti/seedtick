@@ -4,6 +4,18 @@ API 엔드포인트 테스트 (Health, Screener, Scheduler)
 import pytest
 from httpx import ASGITransport, AsyncClient
 from app.main import app
+from app.api.deps import require_admin
+
+
+@pytest.fixture
+def admin_override():
+    """관리자 전용 엔드포인트 테스트용 인증 우회 (진짜 인가는 test_admin_deps에서 검증)."""
+    async def _fake_admin():
+        return {"id": "test-admin-id", "email": "admin@example.com"}
+
+    app.dependency_overrides[require_admin] = _fake_admin
+    yield
+    app.dependency_overrides.pop(require_admin, None)
 
 
 @pytest.mark.asyncio
@@ -36,7 +48,7 @@ async def test_screener_run_route():
 
 
 @pytest.mark.asyncio
-async def test_scheduler_cleanup_logs_route(monkeypatch):
+async def test_scheduler_cleanup_logs_route(monkeypatch, admin_override):
     from app.infrastructure.supabase_repo import supabase_repo
 
     monkeypatch.setattr(supabase_repo, "delete_old_info_logs", lambda hours: 15)
@@ -51,7 +63,7 @@ async def test_scheduler_cleanup_logs_route(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_scheduler_trigger_route(monkeypatch):
+async def test_scheduler_trigger_route(monkeypatch, admin_override):
     from unittest.mock import MagicMock
     from app.domains.scheduler.service import scheduler_service
 
@@ -76,7 +88,7 @@ async def test_scheduler_trigger_route(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_scheduler_progress_route():
+async def test_scheduler_progress_route(admin_override):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         res = await ac.get("/api/scheduler/progress")
         assert res.status_code == 200
@@ -222,6 +234,136 @@ async def test_ticker_names_route(monkeypatch):
         assert data["items"][0]["korean_name"] == "버크셔 해서웨이 B"
         assert data["items"][1]["korean_name"] == "이수페타시스"
         assert data["items"][1]["source"] == "toss_lookup"
+
+
+@pytest.mark.asyncio
+async def test_scheduler_endpoints_reject_unauthenticated():
+    """관리자 전용 엔드포인트는 인증 없이 200을 반환하면 안 된다 (401/403/503 중 하나)."""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.get("/api/scheduler/progress")
+        assert res.status_code in (401, 403, 503)
+        res = await ac.post("/api/scheduler/trigger?force=true&market=us")
+        assert res.status_code in (401, 403, 503)
+        res = await ac.post("/api/scheduler/cleanup-logs?hours=24")
+        assert res.status_code in (401, 403, 503)
+
+
+@pytest.mark.asyncio
+async def test_debug_ai_endpoints_reject_unauthenticated():
+    """AI 상태/리셋 포함 /debug/* 전체가 관리자 전용이다."""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.get("/debug/ai-model")
+        assert res.status_code in (401, 403, 503)
+        res = await ac.post("/debug/ai-model/reset")
+        assert res.status_code in (401, 403, 503)
+
+
+@pytest.mark.asyncio
+async def test_require_admin_forbidden_for_non_admin(monkeypatch):
+    """is_admin=false 유저는 403. (Supabase Auth + DB 조회 모킹)"""
+    import app.api.deps as deps
+    from fastapi import HTTPException
+
+    monkeypatch.setattr(deps.settings, "SUPABASE_URL", "https://test.supabase.co")
+    monkeypatch.setattr(deps.settings, "SUPABASE_ANON_KEY", "test-anon-key")
+    monkeypatch.setattr(deps.settings, "SUPABASE_SERVICE_ROLE_KEY", "test-service-key")
+
+    class _FakeGetUserResponse:
+        status_code = 200
+
+        def json(self):
+            return {"id": "user-123", "email": "user@example.com"}
+
+    class _FakeAuthClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def get(self, *args, **kwargs):
+            return _FakeGetUserResponse()
+
+    class _FakeQuery:
+        def select(self, *args, **kwargs):
+            return self
+
+        def eq(self, *args, **kwargs):
+            return self
+
+        def maybeSingle(self):
+            return self
+
+        def execute(self):
+            class _R:
+                data = {"is_admin": False}
+
+            return _R()
+
+    class _FakeDb:
+        def table(self, *args, **kwargs):
+            return _FakeQuery()
+
+    monkeypatch.setattr(deps.httpx, "AsyncClient", lambda *a, **k: _FakeAuthClient())
+    monkeypatch.setattr(deps, "create_client", lambda *a, **k: _FakeDb())
+
+    user = await deps.get_current_user(authorization="Bearer valid-token")
+    assert user["id"] == "user-123"
+
+    with pytest.raises(HTTPException) as exc:
+        await deps.require_admin(user=user)
+    assert exc.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_require_admin_allows_admin(monkeypatch):
+    """is_admin=true 유저는 통과."""
+    import app.api.deps as deps
+
+    monkeypatch.setattr(deps.settings, "SUPABASE_URL", "https://test.supabase.co")
+    monkeypatch.setattr(deps.settings, "SUPABASE_ANON_KEY", "test-anon-key")
+    monkeypatch.setattr(deps.settings, "SUPABASE_SERVICE_ROLE_KEY", "test-service-key")
+
+    class _FakeQuery:
+        def select(self, *args, **kwargs):
+            return self
+
+        def eq(self, *args, **kwargs):
+            return self
+
+        def maybeSingle(self):
+            return self
+
+        def execute(self):
+            class _R:
+                data = {"is_admin": True}
+
+            return _R()
+
+    class _FakeDb:
+        def table(self, *args, **kwargs):
+            return _FakeQuery()
+
+    monkeypatch.setattr(deps, "create_client", lambda *a, **k: _FakeDb())
+
+    user = {"id": "admin-123", "email": "admin@example.com"}
+    out = await deps.require_admin(user=user)
+    assert out["id"] == "admin-123"
+
+
+@pytest.mark.asyncio
+async def test_get_current_user_missing_token(monkeypatch):
+    """Bearer 토큰 없으면 401."""
+    import app.api.deps as deps
+    from fastapi import HTTPException
+
+    monkeypatch.setattr(deps.settings, "SUPABASE_URL", "https://test.supabase.co")
+    monkeypatch.setattr(deps.settings, "SUPABASE_ANON_KEY", "test-anon-key")
+    monkeypatch.setattr(deps.settings, "SUPABASE_SERVICE_ROLE_KEY", "test-service-key")
+
+    with pytest.raises(HTTPException) as exc:
+        await deps.get_current_user(authorization=None)
+    assert exc.value.status_code == 401
 
 
 

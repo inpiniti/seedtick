@@ -147,7 +147,7 @@ export function ResearchCatalogView({
   onSupplementTickerNames,
   onPercentBUpdate,
 }: ResearchCatalogViewProps) {
-  const { tier, isTrialActive } = useSubscription();
+  const { tier, isTrialActive, isAdmin } = useSubscription();
   const [searchQuery, setSearchQuery] = useState("");
   const [reportVerdictFilter, setReportVerdictFilter] = useState<string>("ALL");
   const [reportSortBy, setReportSortBy] = useState<
@@ -277,6 +277,8 @@ export function ResearchCatalogView({
   );
 
   const isAll = activeSectionFilter === "all";
+  const isAdminSection =
+    activeSectionFilter === "sec-pipeline" || activeSectionFilter === "sec-audit";
 
   // ── 권한별 열람 가능 리포트 필터 (02/03 리스트 인사이트용) ──
   // Free(체험 만료) 유저는 최근 30일 리포트 기반 인사이트를 리스트에 노출하지 않는다.
@@ -712,6 +714,29 @@ export function ResearchCatalogView({
 
   return (
     <div className="flex-1 min-w-0 bg-white font-sans divide-y divide-[#e2e8f0]">
+      {/* ── 관리자 전용 섹션 직접 접근 차단 (클라이언트 게이팅 — API는 별도 403) ── */}
+      {isAdminSection && !isAdmin && (
+        <section className="px-6 lg:px-12 py-16">
+          <div className="max-w-md mx-auto p-6 rounded-md border border-[#e2e8f0] bg-[#f8fafc] text-center space-y-3">
+            <div className="font-mono text-xs font-semibold text-[#94a3b8] uppercase tracking-wider">
+              Admin Only
+            </div>
+            <h1 className="text-lg font-bold text-[#0f172a]">
+              관리자 전용 화면이에요
+            </h1>
+            <p className="text-xs text-[#64748b] leading-relaxed">
+              파이프라인과 감사 로그는 관리자 계정으로 로그인해야 볼 수 있어요.
+              관리자 계정으로 로그인한 뒤 다시 시도해 주세요.
+            </p>
+            <button
+              onClick={() => onSelectSection?.("all")}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-[#0f172a] text-white text-xs font-mono font-medium hover:bg-slate-800 transition-colors cursor-pointer"
+            >
+              카탈로그 홈으로 돌아가기
+            </button>
+          </div>
+        </section>
+      )}
       {/* ── 1. HERO SECTION (전체 보기일 때 표시) 또는 섹션 브레드크럼 바 ── */}
       {isAll ? (
         <section
@@ -1522,8 +1547,8 @@ export function ResearchCatalogView({
         </section>
       )}
 
-      {/* ── 5. SECTION 04: PIPELINE ── */}
-      {isVisible("sec-pipeline") && (
+      {/* ── 5. SECTION 04: PIPELINE (관리자 전용) ── */}
+      {isAdmin && isVisible("sec-pipeline") && (
         <section
           id="sec-pipeline"
           className="px-6 lg:px-12 py-10 lg:py-12 bg-white"
@@ -1582,8 +1607,8 @@ export function ResearchCatalogView({
         </section>
       )}
 
-      {/* ── 6. SECTION 05: SYSTEM AUDIT ── */}
-      {isVisible("sec-audit") && (
+      {/* ── 6. SECTION 05: SYSTEM AUDIT (관리자 전용) ── */}
+      {isAdmin && isVisible("sec-audit") && (
         <section
           id="sec-audit"
           className="px-6 lg:px-12 py-10 lg:py-12 bg-white"

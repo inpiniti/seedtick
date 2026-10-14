@@ -83,6 +83,8 @@ class Settings(BaseSettings):
     # Supabase 연동
     SUPABASE_URL: str = ""
     SUPABASE_SERVICE_ROLE_KEY: str = ""
+    # 관리자 JWT 검증용 anon 키 (Auth /auth/v1/user 호출 시 apikey 헤더에 사용)
+    SUPABASE_ANON_KEY: str = ""
 
     # 알림
     DISCORD_WEBHOOK_URL: str = ""

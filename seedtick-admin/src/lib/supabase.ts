@@ -21,30 +21,29 @@ async function getReportAuthHeaders(): Promise<Record<string, string>> {
 }
 
 /**
- * 최신 에러 및 시스템 로그 조회 (비민감 운영 로그 — 직접 조회 유지)
+ * 최신 에러 및 시스템 로그 조회 (관리자 전용 게이트웨이 경유).
+ * error_logs 직접 SELECT는 RLS로 차단되어 있으므로 /api/admin/logs만 사용한다.
+ * 비관리자/비로그인은 빈 배열을 반환한다 (fail-closed).
  */
 export async function fetchSystemLogs(
   limit = 50,
   level?: string
 ): Promise<SystemLogItem[]> {
-  if (!supabase) return [];
   try {
-    let query = supabase
-      .from("error_logs")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(limit);
-
-    if (level && level !== "ALL") {
-      query = query.eq("level", level);
-    }
-
-    const { data, error } = await query;
-    if (error) {
-      console.warn("fetchSystemLogs error:", error.message);
+    const params = new URLSearchParams();
+    params.set("limit", String(limit));
+    if (level && level !== "ALL") params.set("level", level);
+    const res = await fetch(`/api/admin/logs?${params.toString()}`, {
+      headers: await getReportAuthHeaders(),
+      cache: "no-store",
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json?.success) {
+      if (res.status === 401 || res.status === 403) return [];
+      console.warn("fetchSystemLogs error:", json?.message);
       return [];
     }
-    return (data as SystemLogItem[]) || [];
+    return (json.logs as SystemLogItem[]) || [];
   } catch (err) {
     console.warn("fetchSystemLogs exception:", err);
     return [];
