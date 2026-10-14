@@ -44,7 +44,7 @@ import {
 import { formatPriceByNation, formatMarketCap } from "@/lib/utils";
 import { fetchTickerLogos, fetchTickerNames, fetchStockChart } from "@/lib/api-client";
 import { useSubscription } from "@/lib/subscription/SubscriptionContext";
-import { isReportRestricted } from "@/lib/subscription/subscriptionPolicy";
+import { isReportRestricted, getDefaultReportDate } from "@/lib/subscription/subscriptionPolicy";
 import { DataCache } from "@/lib/dataCache";
 
 const KR_STEP_5_INFO = {
@@ -940,31 +940,33 @@ export function ResearchCatalogView({
               </p>
 
               {/* 1. 분석 일자 선택 (날짜별 선택, 디폴트: 최신 작성 일자) */}
-              {availableDates && availableDates.length > 0 && (
-                <div className="space-y-1.5 pt-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-mono uppercase text-[#94a3b8] flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-[#0f172a]" />
-                      <span>Report Date (분석 일자)</span>
-                    </span>
-                    {selectedDate && selectedDate !== "ALL" && (
-                      <span
-                        className={`text-[10px] font-mono px-1.5 py-0.2 rounded border ${
-                          isReportRestricted(selectedDate, tier)
-                            ? "bg-[#0f172a] text-white border-[#0f172a]"
-                            : tier === "free"
-                            ? "bg-[#f8fafc] text-[#0f172a] border-[#cbd5e1]"
-                            : "bg-[#0f172a] text-white border-[#0f172a]"
-                        }`}
-                      >
-                        {selectedDate === availableDates[0]
-                          ? "★ 최신 분석일"
-                          : tier === "free"
-                          ? "FREE 아카이브 (1개월 전)"
-                          : "선택 일자"}
+              {availableDates && availableDates.length > 0 && (() => {
+                const allowedFreeDate = getDefaultReportDate(availableDates, "free");
+                return (
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-mono uppercase text-[#94a3b8] flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-[#0f172a]" />
+                        <span>Report Date (분석 일자)</span>
                       </span>
-                    )}
-                  </div>
+                      {selectedDate && selectedDate !== "ALL" && (
+                        <span
+                          className={`text-[10px] font-mono px-1.5 py-0.2 rounded border ${
+                            isReportRestricted(selectedDate, tier, new Date(), allowedFreeDate)
+                              ? "bg-[#0f172a] text-white border-[#0f172a]"
+                              : tier === "free"
+                              ? "bg-[#f8fafc] text-[#0f172a] border-[#cbd5e1]"
+                              : "bg-[#0f172a] text-white border-[#0f172a]"
+                          }`}
+                        >
+                          {selectedDate === availableDates[0]
+                            ? "★ 최신 분석일"
+                            : tier === "free"
+                            ? "FREE 아카이브 (과거)"
+                            : "선택 일자"}
+                        </span>
+                      )}
+                    </div>
 
                   {/* 일자 선택 셀렉트 박스 */}
                   <div className="relative">
@@ -974,7 +976,7 @@ export function ResearchCatalogView({
                       className="w-full pl-3 pr-8 py-1.5 text-xs font-mono bg-white border border-[#cbd5e1] rounded text-[#0f172a] focus:outline-hidden focus:border-[#0f172a] cursor-pointer shadow-2xs"
                     >
                       {availableDates.map((d, idx) => {
-                        const restricted = isReportRestricted(d, tier);
+                        const restricted = isReportRestricted(d, tier, new Date(), allowedFreeDate);
                         return (
                           <option key={d} value={d}>
                             {d} {idx === 0 ? "★ (최신 분석)" : ""} {restricted ? "[PRO]" : ""}
@@ -992,7 +994,7 @@ export function ResearchCatalogView({
                     {availableDates.slice(0, 4).map((d, idx) => {
                       const isSelected =
                         selectedDate === d || (!selectedDate && idx === 0);
-                      const restricted = isReportRestricted(d, tier);
+                      const restricted = isReportRestricted(d, tier, new Date(), allowedFreeDate);
                       return (
                         <button
                           key={d}
@@ -1032,7 +1034,7 @@ export function ResearchCatalogView({
                     )}
                   </div>
                 </div>
-              )}
+              ); })()}
 
               {/* 투자의견 빠른 필터 칩 (줄바꿈 방지) */}
               <div className="space-y-1.5 pt-1">

@@ -41,6 +41,11 @@ describe("Subscription Policy & Date Guard (TDD)", () => {
       expect(isReportRestricted("2026-09-13", "free", FIXED_BASE_DATE)).toBe(false);
       expect(isReportRestricted("2026-07-20", "free", FIXED_BASE_DATE)).toBe(false);
     });
+
+    it("30일 이내 날짜라도 allowedFreeDate로 지정된 날짜는 예외적으로 열람 허용되어야 한다", () => {
+      // 2026-10-10은 4일 전이지만 fallback Free 디폴트 일자로 지정되면 false 반환
+      expect(isReportRestricted("2026-10-10", "free", FIXED_BASE_DATE, "2026-10-10")).toBe(false);
+    });
   });
 
   describe("getDefaultReportDate", () => {

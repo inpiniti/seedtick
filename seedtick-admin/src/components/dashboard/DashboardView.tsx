@@ -354,15 +354,8 @@ export function DashboardView({
     }
   }, []);
 
-  const handleSelectCatalogDate = useCallback(async (targetDate: string) => {
-    // Free 티어 사용자: 최근 30일 이내 보고서(또는 ALL) 선택 시 차단 및 Pro 모달 오픈
-    if (tierRef.current === "free" && (targetDate === "ALL" || isReportRestricted(targetDate, tierRef.current))) {
-      openUpgradeModal(
-        "최근 1개월간 발행된 최신 13인 거장 AI 리서치 보고서는 Pro 회원 전용입니다. 월 2,900원으로 즉시 모든 최신 리포트를 열람해보세요."
-      );
-      return;
-    }
-
+  // 순수 카탈로그 일자 적용 및 데이터 로더 (팝업을 띄우지 않음)
+  const applyCatalogDate = useCallback(async (targetDate: string) => {
     selectedCatalogDateRef.current = targetDate;
     setSelectedCatalogDate(targetDate);
 
@@ -387,15 +380,38 @@ export function DashboardView({
     }
   }, []);
 
-  // 티어 변경 시(Free <-> Pro) 카탈로그 디폴트 일자 자동 동기화
+  // 사용자가 카탈로그 드롭다운이나 빠른 날짜 버튼을 직접 클릭했을 때의 이벤트 핸들러
+  const handleUserSelectCatalogDate = useCallback(
+    async (targetDate: string) => {
+      const allowedFreeDate = getDefaultReportDate(availableCatalogDates, "free");
+
+      // Free 티어 사용자: 최근 30일 이내 보고서(또는 ALL) 선택 시 차단 및 Pro 모달 오픈
+      // (단, Free 유저에게 기본 제공된 fallback 과거 날짜는 차단하지 않음)
+      if (
+        tierRef.current === "free" &&
+        (targetDate === "ALL" ||
+          isReportRestricted(targetDate, tierRef.current, new Date(), allowedFreeDate))
+      ) {
+        openUpgradeModal(
+          "최근 1개월간 발행된 최신 13인 거장 AI 리서치 보고서는 Pro 회원 전용입니다. 월 2,900원으로 즉시 모든 최신 리포트를 열람해보세요."
+        );
+        return;
+      }
+
+      applyCatalogDate(targetDate);
+    },
+    [availableCatalogDates, openUpgradeModal, applyCatalogDate]
+  );
+
+  // 티어 변경 시(Free <-> Pro) 카탈로그 디폴트 일자 자동 동기화 (순수 applyCatalogDate 호출로 모달 방지)
   useEffect(() => {
     if (availableCatalogDates.length > 0) {
       const targetDefault = getDefaultReportDate(availableCatalogDates, tier);
       if (targetDefault && targetDefault !== selectedCatalogDateRef.current) {
-        handleSelectCatalogDate(targetDefault);
+        applyCatalogDate(targetDefault);
       }
     }
-  }, [tier, availableCatalogDates, handleSelectCatalogDate]);
+  }, [tier, availableCatalogDates, applyCatalogDate]);
 
   const handleRefreshLogs = useCallback(async (level?: string) => {
     const logs = await fetchSystemLogs(60, level);
@@ -830,7 +846,7 @@ export function DashboardView({
                 onSelectSection={handleSelectSidebarSection}
                 availableDates={availableCatalogDates}
                 selectedDate={selectedCatalogDate}
-                onSelectDate={handleSelectCatalogDate}
+                onSelectDate={handleUserSelectCatalogDate}
                 isReportsLoading={isCatalogDateLoading}
                 onOpenPipelineModal={() => setIsPipelineModalOpen(true)}
                 isPipelineRunning={isPipelineRunning}

@@ -25,14 +25,17 @@ export function isDateWithinDays(
 /**
  * 사용자 티어(free/pro)에 따라 특정 날짜의 리포트가 열람 제한되는지 판정합니다.
  * - Pro 티어: 제한 없음 (항상 false)
- * - Free 티어: 최근 30일 이내 보고서는 제한됨 (true)
+ * - Free 티어: 최근 30일 이내 보고서는 제한됨 (true).
+ *   단, 30일 이전 날짜가 DB에 없어서 fallback된 Free 디폴트 기준일(allowedFreeDate)은 열람을 허용합니다.
  */
 export function isReportRestricted(
   reportDate: string,
   userTier: SubscriptionTier,
-  baseDate: Date = new Date()
+  baseDate: Date = new Date(),
+  allowedFreeDate?: string
 ): boolean {
   if (userTier === "pro") return false;
+  if (allowedFreeDate && reportDate === allowedFreeDate) return false;
   return isDateWithinDays(reportDate, RESTRICTED_PERIOD_DAYS, baseDate);
 }
 
