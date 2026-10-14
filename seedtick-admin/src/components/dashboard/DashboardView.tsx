@@ -87,6 +87,21 @@ function buildOfflineHealth(): HealthStatus {
   };
 }
 
+/**
+ * 게이트웨이 재조회 결과가 기존 객체보다 내용이 풍부한지 (업그레이드만 허용).
+ * 토큰 경합 등으로 마스킹 티저가 돌아와도 원문을 덮어쓰지 않기 위함.
+ */
+function isFullerReport(fetched: GuruReportRow, prev: GuruReportRow): boolean {
+  if (!fetched || !prev || fetched.id !== prev.id) return false;
+  return (
+    (!!fetched.final_report && !prev.final_report) ||
+    (!!fetched.verdict && !prev.verdict) ||
+    (!!fetched.summaries?.length && !prev.summaries?.length) ||
+    (!!fetched.datapack && !prev.datapack) ||
+    (fetched.fair_value != null && prev.fair_value == null)
+  );
+}
+
 export interface DashboardViewProps {
   initialSection?: SidebarSectionId;
   initialTicker?: string;
@@ -112,6 +127,8 @@ export function DashboardView({
   tierRef.current = tier;
   const isTrialActiveRef = useRef(isTrialActive);
   isTrialActiveRef.current = isTrialActive;
+  // 상세 열기 → 단건 재조회 경합 가드 (마지막으로 연 문서의 응답만 반영)
+  const openSeqRef = useRef(0);
 
   // 1. 네비게이션 상태
   const [activeSidebarSection, setActiveSidebarSection] =
@@ -605,14 +622,32 @@ export function DashboardView({
   };
 
   // 상세 리포트 열기 (URL 동기화)
+  // - 탭 초기화: 이전 문서의 탭(예: 일봉 밴드)이 새 문서에 잔류하지 않게 함
+  // - 목록 객체가 마스킹된 티저일 수 있으므로 게이트웨이로 단건을 재조회해
+  //   원문으로 업그레이드 (다운그레이드는 절대 안 함)
   const handleOpenReport = useCallback((report: GuruReportRow, tab?: ResearchDocTab) => {
     setSelectedDocReport(report);
     setSelectedReportDate(report.d);
-    if (tab) setActiveDocTab(tab);
+    setActiveDocTab(tab ?? undefined);
 
     const targetUrl = `/stocks/${encodeURIComponent(report.ticker)}${tab ? `?tab=${tab}` : ""}`;
     if (pathname !== `/stocks/${encodeURIComponent(report.ticker)}`) {
       router.push(targetUrl);
+    }
+
+    if (!report.id.startsWith("live-")) {
+      const openedId = report.id;
+      const seq = ++openSeqRef.current;
+      fetchReportByDateAndTicker(report.d, report.ticker)
+        .then((fetched) => {
+          if (!fetched || seq !== openSeqRef.current) return;
+          setSelectedDocReport((prev) =>
+            prev && prev.id === openedId && isFullerReport(fetched, prev)
+              ? fetched
+              : prev
+          );
+        })
+        .catch((e) => console.warn("상세 리포트 단건 재조회 실패:", e));
     }
 
     if (report.ticker) {
@@ -806,8 +841,14 @@ export function DashboardView({
     fetchReportByDateAndTicker(current.d, current.ticker)
       .then((fetched) => {
         if (cancelled || !fetched) return;
-        setSelectedDocReport(fetched);
-        setSelectedReportDate(fetched.d);
+        setSelectedDocReport((prev) =>
+          prev && prev.id === current.id && isFullerReport(fetched, prev)
+            ? fetched
+            : prev
+        );
+        setSelectedReportDate((prev) =>
+          prev === current.d ? fetched.d : prev
+        );
       })
       .catch((e) => console.warn("상세 리포트 재조회 실패:", e))
       .finally(() => {
