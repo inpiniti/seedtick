@@ -170,16 +170,22 @@ class GuruReportService:
         if self.progress:
             self.progress.set_guru_progress(0, total_gurus, ticker=ticker)
 
+        from app.domains.report.checklist_evaluator import format_checklist_markdown
+
         async def _fetch_guru(idx: int, p_key: str) -> tuple[int, PersonaSummaryBlock]:
             # 거장 간 동시 호출로 인한 429 버스트 방지 (순차 출발 간격)
             if self.request_interval > 0:
                 await asyncio.sleep((idx - 1) * self.request_interval)
+
+            checklist_items = (datapack.checklist_results or {}).get(p_key, [])
+            checklist_md = format_checklist_markdown(checklist_items)
 
             logger.info(f"[{ticker}] ({idx}/{total_gurus}) 거장 '{p_key}' 분석 시작...")
             try:
                 block = await self._fetch_single_persona_summary(
                     p_key,
                     datapack.raw_markdown,
+                    checklist_markdown=checklist_md,
                     model_override=model_override,
                     temperature_override=temperature_override,
                 )  # compact 변환은 내부에서 처리
@@ -267,22 +273,30 @@ class GuruReportService:
         self,
         persona_key: str,
         datapack_md: str,
+        checklist_markdown: str = "",
         model_override: str | None = None,
         temperature_override: float | None = None,
     ) -> PersonaSummaryBlock:
-        # 뉴스, IR 일정, 재무제표, 밸류에이션, 가치드라이버가 모두 포함된 전체 데이터팩 전달
-        prompt = build_persona_prompt(persona_key, datapack_md)
+        # 뉴스, IR 일정, 재무제표, 밸류에이션, 가치드라이버 및 사전 계산 체크리스트 전달
+        prompt = build_persona_prompt(persona_key, datapack_md, checklist_markdown=checklist_markdown)
         text = await self.ai.chat(
             prompt,
             model_override=model_override,
             pin_model=bool(model_override),
             temperature_override=temperature_override,
         )
-        block = self._parse_summary_block(persona_key, text)
+        model_name = model_override or getattr(self.ai, "model", None)
+        block = self._parse_summary_block(persona_key, text, model_name=model_name)
         block.raw_text = text
         return block
 
-    def _parse_summary_block(self, persona_key: str, text: str) -> PersonaSummaryBlock:
+    def _parse_summary_block(
+        self,
+        persona_key: str,
+        text: str,
+        model_name: str | None = None,
+    ) -> PersonaSummaryBlock:
+        from app.domains.report.personas.prompts import get_persona_prompt_hash
         from app.domains.report.structuring import (
             extract_json_object,
             parse_number,
@@ -290,6 +304,8 @@ class GuruReportService:
             format_price_range,
             as_str_list,
         )
+
+        prompt_hash = get_persona_prompt_hash(persona_key)
 
         # ── 1. JSON 구조화 파싱 우선 시도 ──
         parsed_json = extract_json_object(text)
@@ -316,7 +332,14 @@ class GuruReportService:
             fair_val = parse_number(parsed_json.get("fair_value"))
             buy_bel = parse_number(parsed_json.get("buy_below"))
             sell_ab = parse_number(parsed_json.get("sell_above"))
+            val_method = str(parsed_json.get("valuation_method") or "").strip() or None
+            horizon = str(parsed_json.get("horizon") or "").strip() or None
             gaps = as_str_list(parsed_json.get("data_gaps"), limit=5)
+
+            raw_checks = parsed_json.get("checklist") or []
+            checks = [c for c in raw_checks if isinstance(c, dict) and c.get("criterion")]
+            raw_metrics = parsed_json.get("key_metrics_used") or []
+            metrics_used = [m for m in raw_metrics if isinstance(m, dict) and m.get("name")]
 
             low = parse_number(parsed_json.get("target_price_low"))
             high = parse_number(parsed_json.get("target_price_high"))
@@ -357,6 +380,12 @@ class GuruReportService:
                 fair_value=fair_val,
                 buy_below=buy_bel,
                 sell_above=sell_ab,
+                valuation_method=val_method,
+                horizon=horizon,
+                checklist=checks,
+                key_metrics_used=metrics_used,
+                prompt_hash=prompt_hash,
+                model=model_name,
                 data_gaps=gaps,
                 trigger_conditions=trigs,
                 quote=q,
@@ -545,6 +574,7 @@ class GuruReportService:
         from app.domains.report.structuring import (
             build_report_columns,
             build_opinion_rows,
+            build_opinion_check_rows,
             build_metrics_row,
         )
 
@@ -563,6 +593,8 @@ class GuruReportService:
             hot_topics=getattr(report, "hot_topics", []),
             bull_points=getattr(report, "bull_points", []),
             bear_points=getattr(report, "bear_points", []),
+            bull_arguments=getattr(report, "bull_arguments", []),
+            bear_arguments=getattr(report, "bear_arguments", []),
             key_drivers=getattr(report, "key_drivers", []),
             action_guide=getattr(report, "action_guide", {}),
             review_flags=getattr(report, "valuation_review_flags", []),
@@ -570,6 +602,12 @@ class GuruReportService:
             prompt_version=settings.REPORT_PROMPT_VERSION,
             dispersion_pct=getattr(report, "valuation_dispersion_pct", None),
             price_estimate_count=getattr(report, "valuation_estimate_count", None),
+            mean_score=getattr(report, "mean_score", None),
+            score_std=getattr(report, "score_std", None),
+            net_buy_ratio=getattr(report, "net_buy_ratio", None),
+            style_breakdown=getattr(report, "style_breakdown", {}),
+            data_gap_watch_count=getattr(report, "data_gap_watch_count", 0),
+            model=analysis_model,
         )
 
         await self.supabase.save_full_report(
@@ -597,10 +635,36 @@ class GuruReportService:
             summaries=summaries_list,
             prompt_version=settings.REPORT_PROMPT_VERSION,
             raw_texts=raw_texts,
+            model=analysis_model,
         )
         op_res = self.supabase.save_opinions(opinion_rows)
         if asyncio.iscoroutine(op_res):
             await op_res
+
+        # 체크리스트 단위 세부 감사 테이블 저장
+        check_rows = build_opinion_check_rows(report_id, opinion_rows)
+        if check_rows and hasattr(self.supabase, "save_opinion_checks"):
+            chk_res = self.supabase.save_opinion_checks(check_rows)
+            if asyncio.iscoroutine(chk_res):
+                await chk_res
+
+        # 실행 이력(report_runs) 기록
+        if hasattr(self.supabase, "save_report_run"):
+            run_res = self.supabase.save_report_run(
+                {
+                    "report_id": report_id,
+                    "ticker": ticker.upper(),
+                    "d": date_str,
+                    "model": analysis_model,
+                    "prompt_version": settings.REPORT_PROMPT_VERSION,
+                    "overall_verdict": report.overall_verdict,
+                    "overall_score": report.overall_score,
+                    "mean_score": getattr(report, "mean_score", None),
+                    "net_buy_ratio": getattr(report, "net_buy_ratio", None),
+                }
+            )
+            if asyncio.iscoroutine(run_res):
+                await run_res
 
         metrics_row = build_metrics_row(
             report_id=report_id,

@@ -530,5 +530,93 @@ class SupabaseRepo:
             logger.warning(f"[Supabase] ticker_logos 한글명 조회 실패: {e}")
             return {}
 
+    # ── P2. 성과 추적 및 감사 테이블 저장 메서드 ──
+    def save_report_outcomes(self, rows: list[dict]) -> bool:
+        """public.report_outcomes 테이블에 리포트 종합 성과 추적 행 upsert."""
+        if not self._client or not rows:
+            return False
+        try:
+            self._client.table("report_outcomes").upsert(
+                rows, on_conflict="report_id,horizon_days"
+            ).execute()
+            logger.info(f"[Supabase] report_outcomes {len(rows)}건 저장 성공")
+            return True
+        except Exception as e:
+            logger.warning(f"[Supabase] report_outcomes 저장 실패: {e}")
+            return False
+
+    def save_opinion_outcomes(self, rows: list[dict]) -> bool:
+        """public.guru_opinion_outcomes 테이블에 페르소나별 성과 추적 행 upsert."""
+        if not self._client or not rows:
+            return False
+        try:
+            self._client.table("guru_opinion_outcomes").upsert(
+                rows, on_conflict="opinion_id,horizon_days"
+            ).execute()
+            logger.info(f"[Supabase] guru_opinion_outcomes {len(rows)}건 저장 성공")
+            return True
+        except Exception as e:
+            logger.warning(f"[Supabase] guru_opinion_outcomes 저장 실패: {e}")
+            return False
+
+    def save_opinion_checks(self, rows: list[dict]) -> bool:
+        """public.guru_opinion_checks 테이블에 체크리스트 세부 감사 내역 저장."""
+        if not self._client or not rows:
+            return False
+        try:
+            self._client.table("guru_opinion_checks").insert(rows).execute()
+            logger.info(f"[Supabase] guru_opinion_checks {len(rows)}건 저장 성공")
+            return True
+        except Exception as e:
+            logger.warning(f"[Supabase] guru_opinion_checks 저장 건너뜀 (테이블 미생성 등): {e}")
+            return False
+
+    def save_report_run(self, run_dict: dict) -> bool:
+        """public.report_runs 테이블에 보고서 생성 실행 이력 저장."""
+        if not self._client or not run_dict:
+            return False
+        try:
+            self._client.table("report_runs").insert(run_dict).execute()
+            logger.info(f"[Supabase] report_runs 실행 기록 저장 성공 ({run_dict.get('report_id')})")
+            return True
+        except Exception as e:
+            logger.warning(f"[Supabase] report_runs 저장 건너뜀 (테이블 미생성 등): {e}")
+            return False
+
+    def get_reports_for_outcomes(self, max_date_str: str, limit: int = 500) -> list[dict]:
+        """기준일 이전의 guru_reports 조회 (성과 추적 워커용)."""
+        if not self._client:
+            return []
+        try:
+            res = (
+                self._client.table("guru_reports")
+                .select("id,d,ticker,current_price,verdict,fair_value")
+                .lte("d", max_date_str)
+                .order("d", desc=True)
+                .limit(limit)
+                .execute()
+            )
+            return res.data or []
+        except Exception as e:
+            logger.warning(f"[Supabase] guru_reports 성과 추적 대상 조회 실패: {e}")
+            return []
+
+    def get_opinions_by_report_id(self, report_id: str) -> list[dict]:
+        """특정 리포트의 guru_opinions 행 목록 조회."""
+        if not self._client:
+            return []
+        try:
+            res = (
+                self._client.table("guru_opinions")
+                .select("id,report_id,persona,verdict,confidence")
+                .eq("report_id", report_id)
+                .execute()
+            )
+            return res.data or []
+        except Exception as e:
+            logger.warning(f"[Supabase] guru_opinions 조회 실패 ({report_id}): {e}")
+            return []
+
 
 supabase_repo = SupabaseRepo()
+

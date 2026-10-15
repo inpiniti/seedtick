@@ -26,6 +26,16 @@ MIN_PRICE_ESTIMATES = ceil(EXPECTED_PERSONA_COUNT * 0.60)
 VERDICT_SUPERMAJORITY = 0.60
 HIGH_DISPERSION_ALERT_PCT = 50.0
 
+GURU_STYLE_BUCKETS: dict[str, list[str]] = {
+    "가치/안전마진": ["벤저민-그레이엄", "세스-클라먼", "모니시-파브라이", "워런-버핏", "찰리-멍거", "존-템플턴"],
+    "성장/GARP": ["피터-린치", "필립-피셔"],
+    "퀀트/자본수익률": ["조엘-그린블라트"],
+    "포렌식/회계검증": ["마이클-버리"],
+    "DCF/가치평가": ["애스워스-다모다란"],
+    "매크로/유동성": ["앙드레-코스톨라니"],
+    "모멘텀/추세추종": ["잭-슈웨거"],
+}
+
 
 @dataclass(frozen=True)
 class ReportConsensus:
@@ -42,6 +52,12 @@ class ReportConsensus:
     price_estimate_count: int
     dispersion_pct: float | None
     review_flags: list[str]
+    # 연속 점수 및 통계
+    mean_score: float | None = None          # 0.0(만장일치매수) ~ 3.0(만장일치매도)
+    score_std: float | None = None           # 점수 표준편차 (의견 분열도)
+    net_buy_ratio: float | None = None       # (매수 - 매도) / 유효표수 (-1.0 ~ +1.0)
+    style_breakdown: dict[str, dict[str, int]] | None = None  # 스타일 버킷별 표결
+    data_gap_watch_count: int = 0            # 데이터 부족으로 관망한 페르소나 수
 
 
 def _quantile(values: Sequence[float], probability: float) -> float:
@@ -98,7 +114,7 @@ def aggregate_report_consensus(
 
     valid_vote_count = sum(vote_counts.values())
     top_count = max(vote_counts.values(), default=0)
-    top_verdicts = [verdict for verdict, count in vote_counts.items() if count == top_count and count > 0]
+    top_verdicts = [v for v, count in vote_counts.items() if count == top_count and count > 0]
     required_votes = ceil(valid_vote_count * VERDICT_SUPERMAJORITY)
 
     if valid_vote_count < MIN_VALID_PERSONAS or len(top_verdicts) != 1 or top_count < required_votes:
@@ -113,7 +129,38 @@ def aggregate_report_consensus(
     if valid_vote_count != EXPECTED_PERSONA_COUNT:
         vote_summary += f" · 유효 의견 {valid_vote_count}/{EXPECTED_PERSONA_COUNT}"
 
+    scores = [VERDICT_SCORE_MAP[s.verdict] for s in usable if s.verdict in VERDICT_SCORE_MAP]
+    mean_score = (sum(scores) / len(scores)) if scores else None
+    score_std = (
+        (sum((x - mean_score) ** 2 for x in scores) / len(scores)) ** 0.5
+        if scores and mean_score is not None
+        else None
+    )
+    net_buy_ratio = (
+        (vote_counts["매수"] - vote_counts["매도"]) / valid_vote_count
+        if valid_vote_count > 0
+        else 0.0
+    )
+
+    # 스타일 버킷별 소계 (가치 vs 성장 vs 퀀트 등)
+    style_breakdown: dict[str, dict[str, int]] = {}
+    for bucket_name, p_keys in GURU_STYLE_BUCKETS.items():
+        b_counts = {v: 0 for v in VERDICT_SCORE_MAP}
+        for s in usable:
+            if s.persona in p_keys and s.verdict in b_counts:
+                b_counts[s.verdict] += 1
+        style_breakdown[bucket_name] = b_counts
+
+    # 데이터 부족으로 관망한 페르소나 수 추적
+    data_gap_watch_count = sum(
+        1 for s in usable if s.verdict == "관망" and bool(getattr(s, "data_gaps", None))
+    )
+
     review_flags: list[str] = []
+    if data_gap_watch_count > 0:
+        review_flags.append(
+            f"데이터 지표 부족으로 인한 조건부 관망: {data_gap_watch_count}인"
+        )
     if valid_vote_count < EXPECTED_PERSONA_COUNT:
         review_flags.append(
             f"유효 페르소나 {valid_vote_count}/{EXPECTED_PERSONA_COUNT}; "
@@ -226,4 +273,9 @@ def aggregate_report_consensus(
         price_estimate_count=len(intervals),
         dispersion_pct=dispersion_pct,
         review_flags=review_flags,
+        mean_score=round(mean_score, 2) if mean_score is not None else None,
+        score_std=round(score_std, 2) if score_std is not None else None,
+        net_buy_ratio=round(net_buy_ratio, 2) if net_buy_ratio is not None else None,
+        style_breakdown=style_breakdown,
+        data_gap_watch_count=data_gap_watch_count,
     )

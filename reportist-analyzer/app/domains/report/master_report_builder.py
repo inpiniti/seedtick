@@ -160,6 +160,26 @@ bull_points(문자열 배열), bear_points(문자열 배열), key_drivers(문자
     if not hot_topics:
         hot_topics = ["의견 일치도", "적정가 분산", "재무·성장 근거"]
 
+    # 강세/약세 논거에 페르소나 출처 매핑
+    def _map_personas_to_points(points: list[str], target_verdicts: set[str]) -> list[dict]:
+        mapped = []
+        cands = [s for s in summaries.summaries if s.parse_mode != "fallback" and s.verdict in target_verdicts]
+        for pt in points:
+            matched: list[str] = []
+            tokens = [w for w in pt.replace(",", " ").split() if len(w) >= 2]
+            for s in cands:
+                for arg in s.core_arguments:
+                    if any(t in arg for t in tokens[:4]):
+                        matched.append(s.persona)
+                        break
+            if not matched and cands:
+                matched = [cands[0].persona]
+            mapped.append({"text": pt, "personas": list(dict.fromkeys(matched))[:3]})
+        return mapped
+
+    bull_arguments = _map_personas_to_points(bull_points, {"매수", "보유"})
+    bear_arguments = _map_personas_to_points(bear_points, {"매도", "관망"})
+
     valuation_json = {
         "fair_value_price": round(consensus.fair_value, 2)
         if consensus.fair_value is not None
@@ -190,6 +210,30 @@ bull_points(문자열 배열), bear_points(문자열 배열), key_drivers(문자
         else "계산 불가"
     )
 
+    # 스타일 버킷 포맷팅
+    style_desc_items = []
+    for bucket_name, b_counts in (consensus.style_breakdown or {}).items():
+        sub_items = [f"{v}{c}" for v, c in b_counts.items() if c > 0]
+        if sub_items:
+            style_desc_items.append(f"{bucket_name}({', '.join(sub_items)})")
+    style_summary_text = " · ".join(style_desc_items) if style_desc_items else "소계 산출 중"
+
+    mean_score_str = (
+        f"평균 {consensus.mean_score:.2f}점"
+        if consensus.mean_score is not None
+        else "평균 산출 보류"
+    )
+    score_std_str = (
+        f"(표준편차: {consensus.score_std:.2f})"
+        if consensus.score_std is not None
+        else ""
+    )
+    net_buy_str = (
+        f"{consensus.net_buy_ratio:+.1%}"
+        if consensus.net_buy_ratio is not None
+        else "N/A"
+    )
+
     lines = [
         f"# {datapack.ticker} 최종 투자 보고서",
         f"> **날짜**: {datapack.date} | **종합 의견**: **{consensus.verdict}** | **표결**: {consensus.vote_summary}",
@@ -199,22 +243,32 @@ bull_points(문자열 배열), bear_points(문자열 배열), key_drivers(문자
         "## 1. 종합 결론 및 집계 근거",
         f"- **종합 판정**: {consensus.verdict}",
         f"- **근거 요약**: {conclusion}",
+        f"- **연속 점수 통계**: {mean_score_str} {score_std_str} [0=매수 ~ 3=매도], 순매수 비율(Net Buy Ratio): {net_buy_str}".replace("  ", " "),
+        f"- **스타일 소계**: {style_summary_text}",
         f"- **판정 규칙**: 13인 중 최소 {MIN_VALID_PERSONAS}개의 유효 의견이 필요하며, 유효 의견의 60% 이상이 같은 판정일 때 해당 판정을 채택합니다. 그 외에는 관망입니다.",
         f"- **가격 집계**: 유효 가격 구간 {consensus.price_estimate_count}/{EXPECTED_PERSONA_COUNT}개의 중점값 중앙값. 적정가 구간은 중앙 50%(Q1–Q3)입니다.",
         f"- **가격 의견 분산**: {dispersion_text} (중앙 50% Q1~Q3 구간 폭 ÷ 중앙 적정가; IQR 분산율)",
     ]
+    if consensus.data_gap_watch_count > 0:
+        lines.append(f"- **조건부 관망**: {consensus.data_gap_watch_count}인이 추가 재무·사업 지표 확인 시까지 판단을 보류했습니다.")
     if consensus.review_flags:
         lines.append("- **검토 필요**: " + "; ".join(consensus.review_flags))
     lines.extend(["", "## 2. 강세론 핵심 (Bull Case)"])
-    lines.extend(
-        [f"- {point}" for point in bull_points]
-        or ["- 구조화된 강세 논거가 충분히 수집되지 않았습니다."]
-    )
+    if bull_arguments:
+        for b_arg in bull_arguments:
+            p_str = f" *(출처: {', '.join(b_arg['personas'])})*" if b_arg.get("personas") else ""
+            lines.append(f"- {b_arg['text']}{p_str}")
+    else:
+        lines.append("- 구조화된 강세 논거가 충분히 수집되지 않았습니다.")
+
     lines.extend(["", "## 3. 약세론 핵심 (Bear Case)"])
-    lines.extend(
-        [f"- {point}" for point in bear_points]
-        or ["- 구조화된 약세 논거가 충분히 수집되지 않았습니다."]
-    )
+    if bear_arguments:
+        for b_arg in bear_arguments:
+            p_str = f" *(출처: {', '.join(b_arg['personas'])})*" if b_arg.get("personas") else ""
+            lines.append(f"- {b_arg['text']}{p_str}")
+    else:
+        lines.append("- 구조화된 약세 논거가 충분히 수집되지 않았습니다.")
+
     lines.extend(["", "## 4. 핵심 쟁점 및 가치 드라이버"])
     lines.extend([f"- {topic}" for topic in hot_topics])
     lines.extend([f"- {driver}" for driver in key_drivers])
@@ -272,6 +326,8 @@ bull_points(문자열 배열), bear_points(문자열 배열), key_drivers(문자
         hot_topics=hot_topics,
         bull_points=bull_points,
         bear_points=bear_points,
+        bull_arguments=bull_arguments,
+        bear_arguments=bear_arguments,
         key_drivers=key_drivers,
         band_low=consensus.band_low,
         band_high=consensus.band_high,
@@ -279,6 +335,12 @@ bull_points(문자열 배열), bear_points(문자열 배열), key_drivers(문자
         target_sell_value=consensus.target_sell,
         valuation_dispersion_pct=consensus.dispersion_pct,
         valuation_estimate_count=consensus.price_estimate_count,
+        mean_score=consensus.mean_score,
+        score_std=consensus.score_std,
+        net_buy_ratio=consensus.net_buy_ratio,
+        style_breakdown=consensus.style_breakdown,
+        data_gap_watch_count=consensus.data_gap_watch_count,
+        model=model_override,
         parse_mode=parse_mode,
         raw_markdown=raw_markdown,
     )

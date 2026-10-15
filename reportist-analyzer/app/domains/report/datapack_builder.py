@@ -826,6 +826,32 @@ class DataPackBuilder:
             "배당 지급일": div_date_str,
         }
 
+        # 포렌식 지표 수집 (SBC, 주식수 희석, 재고, 부채상환연수)
+        sbc_last = self._last(self._series(ts, "annualStockBasedCompensation"))
+        shares_series = self._series(ts, "annualDilutedAverageShares")
+        shares_last = self._last(shares_series)
+        shares_prev = shares_series[-2]["value"] if len(shares_series) >= 2 else None
+        dilution_pct = ((shares_last / shares_prev - 1.0) * 100.0) if (shares_last and shares_prev and shares_prev > 0) else None
+
+        inv_series = self._series(ts, "annualInventory")
+        inv_last = self._last(inv_series)
+        inv_prev = inv_series[-2]["value"] if len(inv_series) >= 2 else None
+        inv_growth_pct = ((inv_last / inv_prev - 1.0) * 100.0) if (inv_last and inv_prev and inv_prev > 0) else None
+
+        latest_net = income_rows[-1].net_income if income_rows else None
+        latest_ocf = cashflow_rows[-1].operating_cash_flow if cashflow_rows else None
+        accrual_gap = (latest_net - latest_ocf) if (latest_net is not None and latest_ocf is not None) else None
+        debt_years = (balance_sheet.total_debt / latest_net) if (balance_sheet.total_debt and latest_net and latest_net > 0) else None
+
+        forensic_metrics = {
+            "stock_based_compensation": sbc_last,
+            "shares_dilution_pct": round(dilution_pct, 2) if dilution_pct is not None else None,
+            "inventory": inv_last,
+            "inventory_growth_pct": round(inv_growth_pct, 2) if inv_growth_pct is not None else None,
+            "accrual_gap": accrual_gap,
+            "debt_payoff_years": round(debt_years, 1) if debt_years is not None else None,
+        }
+
         # 통화 판별 (거래통화 vs 재무원장통화)
         price_curr = meta.get("currency") or "USD"
         fin_curr = fin_data.get("financialCurrency") or "USD"
@@ -836,7 +862,7 @@ class DataPackBuilder:
         )
         resolved_fin_curr = "KRW" if is_krw else fin_curr
 
-        return StockDataPack(
+        dp_pre = StockDataPack(
             ticker=ticker,
             company_name=display_company_name,
             date=date_str,
@@ -854,7 +880,12 @@ class DataPackBuilder:
             analyst_consensus=analyst_consensus,
             news_items=news_items or [],
             ir_schedule=ir_schedule,
+            forensic_metrics=forensic_metrics,
         )
+
+        from app.domains.report.checklist_evaluator import evaluate_guru_checklists
+        dp_pre.checklist_results = evaluate_guru_checklists(dp_pre)
+        return dp_pre
 
     @staticmethod
     def _format_quarter_label(date_str: str) -> str:
@@ -1204,13 +1235,15 @@ class DataPackBuilder:
                         short = excerpt[:300] + ("..." if len(excerpt) > 300 else "")
                         lines.append(f"  - 요약: {short}")
 
-        # 6. 핵심 가치 드라이버
+        # 6. 핵심 가치 드라이버 (AI 생성 가설 - 팩트와 엄격히 구분)
         if dp.value_drivers:
             lines.extend([
                 "",
                 "---",
                 "",
-                "## 6. 핵심 가치 드라이버 (Value Drivers)",
+                "## 6. 핵심 가치 드라이버 및 시장 가설 (AI-Generated Hypotheses)",
+                "> ⚠️ **[주의: AI 생성 가설]**: 본 섹션은 뉴스와 시장 반응을 토대로 도출한 가설입니다. 확정된 재무 팩트와 구분하여 비판적으로 교차 검증하십시오.",
+                "",
                 dp.value_drivers,
             ])
 

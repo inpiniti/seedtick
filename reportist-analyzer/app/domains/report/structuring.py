@@ -191,6 +191,11 @@ def guru_index(persona: str) -> int | None:
 
 
 # ── DB 행 생성 ─────────────────────────────────────────────
+GURU_KEY_TO_ID: dict[str, int] = {
+    persona_key: idx for idx, (_, persona_key) in enumerate(GURU_REPORT_ROSTER, start=1)
+}
+
+
 def build_opinion_rows(
     report_id: str,
     date_str: str,
@@ -199,6 +204,7 @@ def build_opinion_rows(
     summaries: list[dict],
     prompt_version: str | None = None,
     raw_texts: dict[str, str] | None = None,
+    model: str | None = None,
 ) -> list[dict]:
     """guru_opinions 행 (리포트 × 거장 1행)."""
     rows: list[dict] = []
@@ -221,29 +227,66 @@ def build_opinion_rows(
             score = VERDICT_SCORE_MAP.get(verdict, 2)
             confidence = s.get("confidence")
 
+        g_idx = guru_index(persona)
+        g_id = GURU_KEY_TO_ID.get(persona, g_idx)
+
         rows.append(
             {
                 "report_id": report_id,
                 "d": date_str,
                 "ticker": ticker.upper(),
                 "persona": persona,
-                "guru_idx": guru_index(persona),
+                "guru_id": g_id,
+                "guru_idx": g_idx,
                 "verdict": verdict,
                 "score": score,
                 "confidence": confidence,
                 "target_low": low,
                 "target_high": high,
                 "target_text": s.get("target_price_range"),
+                "fair_value": s.get("fair_value"),
+                "buy_below": s.get("buy_below"),
+                "sell_above": s.get("sell_above"),
+                "valuation_method": s.get("valuation_method"),
+                "horizon": s.get("horizon"),
+                "data_gaps": as_str_list(s.get("data_gaps")),
+                "checklist": s.get("checklist") or [],
+                "key_metrics_used": s.get("key_metrics_used") or [],
                 "upside_pct": pct_change(mid, current_price),
                 "arguments": as_str_list(s.get("core_arguments")),
                 "triggers": as_str_list(s.get("trigger_conditions")),
                 "quote": s.get("quote"),
                 "parse_mode": parse_mode,
                 "prompt_version": prompt_version,
+                "prompt_hash": s.get("prompt_hash"),
+                "model": s.get("model") or model,
                 "raw_text": (raw_texts or {}).get(persona) or None,
             }
         )
     return rows
+
+
+def build_opinion_check_rows(
+    report_id: str,
+    opinions: list[dict],
+) -> list[dict]:
+    """guru_opinion_checks 행 (체크리스트 단위 감사 테이블)."""
+    check_rows: list[dict] = []
+    for op in opinions:
+        persona = op.get("persona") or ""
+        checks = op.get("checklist") or []
+        for chk in checks:
+            if isinstance(chk, dict) and chk.get("criterion"):
+                check_rows.append(
+                    {
+                        "report_id": report_id,
+                        "persona": persona,
+                        "criterion": str(chk.get("criterion")),
+                        "value": str(chk.get("value")) if chk.get("value") is not None else None,
+                        "passed": bool(chk.get("passed")) if chk.get("passed") is not None else None,
+                    }
+                )
+    return check_rows
 
 
 def _latest(rows: list[dict] | None) -> dict:
@@ -324,6 +367,8 @@ def build_report_columns(
     hot_topics: list[str] | None = None,
     bull_points: list[str] | None = None,
     bear_points: list[str] | None = None,
+    bull_arguments: list[dict] | None = None,
+    bear_arguments: list[dict] | None = None,
     key_drivers: list[str] | None = None,
     action_guide: dict | None = None,
     review_flags: list[str] | None = None,
@@ -331,6 +376,12 @@ def build_report_columns(
     prompt_version: str | None = None,
     dispersion_pct: float | None = None,
     price_estimate_count: int | None = None,
+    mean_score: float | None = None,
+    score_std: float | None = None,
+    net_buy_ratio: float | None = None,
+    style_breakdown: dict | None = None,
+    data_gap_watch_count: int | None = None,
+    model: str | None = None,
 ) -> dict:
     """guru_reports 확장 컬럼 (정렬/필터 대상)."""
     if band_low is None and band_high is None:
@@ -367,10 +418,18 @@ def build_report_columns(
         "price_estimate_count": price_estimate_count
         if isinstance(price_estimate_count, int)
         else None,
+        "mean_score": round(mean_score, 2) if isinstance(mean_score, (int, float)) else None,
+        "score_std": round(score_std, 2) if isinstance(score_std, (int, float)) else None,
+        "net_buy_ratio": round(net_buy_ratio, 2) if isinstance(net_buy_ratio, (int, float)) else None,
+        "style_breakdown": style_breakdown or {},
+        "data_gap_watch_count": data_gap_watch_count or 0,
+        "model": model,
         "conclusion": conclusion or None,
         "hot_topics": hot_topics or [],
         "bull_points": bull_points or [],
         "bear_points": bear_points or [],
+        "bull_arguments": bull_arguments or [],
+        "bear_arguments": bear_arguments or [],
         "key_drivers": key_drivers or [],
         "action_guide": action_guide or {},
         "valuation_flags": review_flags or [],

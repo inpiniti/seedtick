@@ -78,6 +78,8 @@ class StockDataPack(BaseModel):
     analyst_consensus: dict = Field(default_factory=dict)
     news_items: list[dict] = Field(default_factory=list)
     ir_schedule: dict = Field(default_factory=dict)
+    forensic_metrics: dict = Field(default_factory=dict)
+    checklist_results: dict = Field(default_factory=dict)
     value_drivers: str = ""
     file_path: str = ""
     raw_markdown: str = ""
@@ -95,6 +97,12 @@ class PersonaSummaryBlock(BaseModel):
     fair_value: float | None = None         # 페르소나 산출 적정 내재가치
     buy_below: float | None = None          # 안전마진 매수가 상한
     sell_above: float | None = None         # 목표 매도가
+    valuation_method: str | None = None     # DCF | NCAV | PEG | EV/EBIT | 추세 등
+    horizon: str | None = None              # 1y | 3-5y | indefinite
+    checklist: list[dict] = Field(default_factory=list)  # [{criterion, passed, value}]
+    key_metrics_used: list[dict] = Field(default_factory=list)  # [{name, value}]
+    prompt_hash: str | None = None          # 페르소나 프롬프트 템플릿 해시
+    model: str | None = None                # 분석에 사용된 LLM 모델명
     data_gaps: list[str] = Field(default_factory=list)  # 데이터 부족 항목
     trigger_conditions: list[str] = Field(default_factory=list)
     quote: str                       # 인물 특유 어조의 대표 발언 1개
@@ -132,8 +140,10 @@ class FinalMasterReport(BaseModel):
     # ── 구조화 필드 (guru_reports 정규 컬럼으로 저장) ──
     conclusion: str = ""                                   # 종합 결론 1~2문장
     hot_topics: list[str] = Field(default_factory=list)    # 핵심 쟁점 2~3개
-    bull_points: list[str] = Field(default_factory=list)   # 강세론 논거 목록
-    bear_points: list[str] = Field(default_factory=list)   # 약세론 논거 목록
+    bull_points: list[str] = Field(default_factory=list)   # 강세론 논거 목록 (문자열)
+    bear_points: list[str] = Field(default_factory=list)   # 약세론 논거 목록 (문자열)
+    bull_arguments: list[dict] = Field(default_factory=list) # [{text, personas}] 출처 연결
+    bear_arguments: list[dict] = Field(default_factory=list) # [{text, personas}] 출처 연결
     key_drivers: list[str] = Field(default_factory=list)   # 핵심 가치 드라이버 목록
     band_low: float | None = None          # 적정 밴드 하단
     band_high: float | None = None         # 적정 밴드 상단
@@ -141,6 +151,12 @@ class FinalMasterReport(BaseModel):
     target_sell_value: float | None = None   # 목표 매도가 (숫자)
     valuation_dispersion_pct: float | None = None  # 개별 추정 전체 범위 폭 / 적정가 중앙값
     valuation_estimate_count: int = 0       # 유효 페르소나 가격 구간 수
+    mean_score: float | None = None         # 13인 평균 점수 (0.0=매수 ~ 3.0=매도)
+    score_std: float | None = None          # 점수 표준편차
+    net_buy_ratio: float | None = None      # 순매수 비율 ((매수-매도)/유효표)
+    style_breakdown: dict = Field(default_factory=dict) # 스타일 버킷별 소계
+    data_gap_watch_count: int = 0           # 데이터 부족으로 인한 관망 인원수
+    model: str | None = None                # 분석 모델명
     parse_mode: Literal["json", "regex"] = "regex"
     file_path: str = ""
     raw_markdown: str = ""

@@ -134,7 +134,21 @@ GURU_PERSONAS = {
 }
 
 
-def build_persona_prompt(persona_key: str, datapack_markdown: str) -> str:
+import hashlib
+
+
+def get_persona_prompt_hash(persona_key: str) -> str:
+    """페르소나 정의 및 프롬프트 템플릿의 고유 해시 (SHA-256 첫 12자리)."""
+    info = GURU_PERSONAS.get(persona_key, {})
+    serialized = f"{persona_key}:{info.get('philosophy', '')}:{info.get('focus', '')}:{info.get('avoid', '')}"
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()[:12]
+
+
+def build_persona_prompt(
+    persona_key: str,
+    datapack_markdown: str,
+    checklist_markdown: str = "",
+) -> str:
     info = GURU_PERSONAS.get(persona_key)
     if not info:
         # 혹시 키에 하이픈/공백 차이가 있을 때 fallback 매칭
@@ -145,19 +159,38 @@ def build_persona_prompt(persona_key: str, datapack_markdown: str) -> str:
     if not info:
         raise ValueError(f"Unknown persona: {persona_key}")
 
+    checklist_section = ""
+    if checklist_markdown:
+        checklist_section = f"""
+[Pre-Calculated Quantitative Checklist for {info['name']}]
+{checklist_markdown}
+(Strict rule: Use these mathematically verified checklist facts to anchor your analysis. Do NOT contradict or fabricate different values for these specific metrics.)
+"""
+
+    # 딥밸류/포렌식 거장의 월가 목표가 앵커링 방지 가이드
+    is_independent_value_guru = persona_key in [
+        "벤저민-그레이엄", "세스-클라먼", "마이클-버리", "애스워스-다모다란", "조엘-그린블라트"
+    ]
+    anchoring_guard = ""
+    if is_independent_value_guru:
+        anchoring_guard = """
+[Independent Valuation Mandate]
+Do NOT anchor your intrinsic fair value or buy range to Wall Street analyst price targets or consensus ratings. You are an independent, forensic investor. Rely strictly on fundamental balance sheet facts, cash flows, and your own timeless valuation discipline.
+"""
+
     return f"""You are legendary investor '{info['name']}'.
 Your core investment philosophy: {info['philosophy']}
 Your critical checklist & evaluation focus: {info['focus']}
 Companies and situations you strictly avoid: {info.get('avoid', 'Businesses that do not fit your principles')}
 Your analytical tone and attitude: {info.get('tone', 'Disciplined, objective, and intellectually rigorous')}
 Your signature conviction: "{info.get('quote', '')}"
-
+{anchoring_guard}
 Carefully analyze every single detail in the provided corporate data pack below (multi-year financial statements, valuation metrics, capital structure, news & catalysts, value drivers).
 Evaluate this company through your unique investment lens, directly citing verified numerical figures (P/E, P/B, ROE, FCF, operating margins, leverage, cash flow quality, specific catalysts) and facts.
 
 [Shared Corporate Data Pack]
 {datapack_markdown}
-
+{checklist_section}
 [Verdict Criteria — Strictly adhere to these definitions]
 - 매수 (BUY): Current market price is within or below your calculated fair value / buy zone, AND the business passes your core checklist. A compelling reason to enter a new position now.
 - 보유 (HOLD): Outstanding business fitting your principles, but currently trading above your ideal entry price. Not attractive for new buying, but existing shareholders should continue holding.
@@ -175,11 +208,15 @@ Decision sequence: ① Calculate your fair value / buy zone first → ② Compar
    - 'buy_below': Maximum acceptable entry price ensuring your margin of safety (number). Set to null if uncalculable.
    - 'sell_above': Target sell / profit-taking price (number). Set to null if uncalculable.
    - 'target_price_low' and 'target_price_high': Lower and upper bounds of your fair value / buy zone (numbers).
-6. 'data_gaps': 0 to 3 specific financial/operational metrics that were missing from the data pack which you needed to fully verify your checklist (in Korean, e.g., ["3개년 재고 회전율 추이", "R&D 투자 대비 특허 출원율"]).
-7. 'trigger_conditions' are 1 to 2 key events or metrics that would change your verdict or allocation.
-8. 'quote' is a single punchy statement reflecting your unique persona, tone, and conviction.
-9. [CRITICAL LANGUAGE REQUIREMENT] While your internal evaluation and reasoning follow the English principles above, write the values for 'core_arguments', 'data_gaps', 'trigger_conditions', and 'quote' in natural, professional Korean (한국어) for Korean investors.
-10. When reasoning, once your thesis converges on a conclusion and target range, terminate reasoning immediately and output the JSON without repetitive looping.
+   - 'valuation_method': Primary valuation approach used ("DCF" | "NCAV" | "PEG" | "EV/EBIT" | "ROIC vs WACC" | "Trend/Breakout").
+   - 'horizon': Your investment holding horizon ("1y" | "3-5y" | "indefinite").
+6. 'checklist': 2 to 4 key quantitative criteria evaluated by your philosophy, formatted as a list of objects: [{{"criterion": "P/E x P/B <= 22.5", "passed": true, "value": "18.4"}}].
+7. 'key_metrics_used': List of the top 2-4 critical numerical metrics you relied upon: [{{"name": "ROE", "value": "24.5%"}}].
+8. 'data_gaps': 0 to 3 specific financial/operational metrics that were missing from the data pack which you needed to fully verify your checklist (in Korean, e.g., ["3개년 재고 회전율 추이", "R&D 투자 대비 특허 출원율"]).
+9. 'trigger_conditions' are 1 to 2 key events or metrics that would change your verdict or allocation.
+10. 'quote' is a single punchy statement reflecting your unique persona, tone, and conviction.
+11. [CRITICAL LANGUAGE REQUIREMENT] While your internal evaluation and reasoning follow the English principles above, write the values for 'core_arguments', 'data_gaps', 'trigger_conditions', and 'quote' in natural, professional Korean (한국어) for Korean investors.
+12. When reasoning, once your thesis converges on a conclusion and target range, terminate reasoning immediately and output the JSON without repetitive looping.
 
 [Output Format]
 ```json
@@ -197,6 +234,16 @@ Decision sequence: ① Calculate your fair value / buy zone first → ② Compar
   "sell_above": 230.0,
   "target_price_low": 150.0,
   "target_price_high": 180.0,
+  "valuation_method": "DCF",
+  "horizon": "3-5y",
+  "checklist": [
+    {{"criterion": "핵심 기준 1", "passed": true, "value": "지표값"}},
+    {{"criterion": "핵심 기준 2", "passed": false, "value": "지표값"}}
+  ],
+  "key_metrics_used": [
+    {{"name": "ROE", "value": "24.5%"}},
+    {{"name": "영업이익률", "value": "31.2%"}}
+  ],
   "data_gaps": [],
   "trigger_conditions": ["핵심 재검토 요건 1 (한국어로 작성)", "핵심 재검토 요건 2 (한국어로 작성)"],
   "quote": "거장 특유 어조의 명언급 한 줄 발언 (한국어로 작성)"
