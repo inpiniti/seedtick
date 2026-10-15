@@ -34,6 +34,8 @@ class BalanceSheetRow(BaseModel):
     total_debt: float | None = None
     net_debt: float | None = None
     stockholders_equity: float | None = None
+    total_liabilities: float | None = None
+    ncav: float | None = None  # 순유동자산가치 (Net Current Asset Value = 유동자산 - 부채총계)
     debt_ratio: float | None = None
     current_ratio: float | None = None
     roe_pct: float | None = None
@@ -53,6 +55,8 @@ class ValuationRow(BaseModel):
     pfcf: float | None = None
     ev_ebitda: float | None = None
     dividend_yield_pct: float | None = None
+    earnings_yield_pct: float | None = None  # EBIT / EV (그린블라트 이익수익률)
+    graham_multiplier: float | None = None   # PER * PBR (그레이엄 22.5 기준)
 
 
 class StockDataPack(BaseModel):
@@ -82,12 +86,16 @@ class StockDataPack(BaseModel):
 # ── 2. 13인 거장 요약 모델 ────────────────────────────────
 class PersonaSummaryBlock(BaseModel):
     persona: str                     # 예: 워런-버핏
-    verdict: Literal["매수", "보유", "관망", "매도"]
-    confidence: int                  # 1-10
+    verdict: Literal["매수", "보유", "관망", "매도", "미응답"]
+    confidence: int | None = 5       # 1-10
     core_arguments: list[str]        # 수치와 팩트를 포함한 핵심 근거 2~3개
     target_price_range: str | None = None
     target_price_low: float | None = None   # 적정가/매수 가격대 하단 (숫자)
     target_price_high: float | None = None  # 적정가/매수 가격대 상단 (숫자)
+    fair_value: float | None = None         # 페르소나 산출 적정 내재가치
+    buy_below: float | None = None          # 안전마진 매수가 상한
+    sell_above: float | None = None         # 목표 매도가
+    data_gaps: list[str] = Field(default_factory=list)  # 데이터 부족 항목
     trigger_conditions: list[str] = Field(default_factory=list)
     quote: str                       # 인물 특유 어조의 대표 발언 1개
     # 파싱 출처: json(구조화 출력 성공) / regex(텍스트 폴백) / fallback(AI 실패 기본값)

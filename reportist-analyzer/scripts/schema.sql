@@ -36,6 +36,8 @@ create table if not exists public.guru_reports (
   votes_watch        smallint,                    -- 관망 표수
   votes_sell         smallint,                    -- 매도 표수
   avg_confidence     numeric,                     -- 거장 평균 확신도 (1~10)
+  dispersion_pct     numeric,                     -- 13인 적정가 IQR 분산율 (밴드 폭 / 중앙 적정가)
+  price_estimate_count smallint,                  -- 유효 가격 의견 수 (0~13)
   conclusion         text,                        -- 종합 결론 핵심 문장
   hot_topics         text[],                      -- 핵심 쟁점 목록
   bull_points        text[],                      -- 강세론 핵심 논거 목록
@@ -55,6 +57,7 @@ create index if not exists guru_reports_score_idx on public.guru_reports (overal
 create index if not exists guru_reports_fair_value_idx on public.guru_reports (fair_value);
 create index if not exists guru_reports_upside_pct_idx on public.guru_reports (upside_pct desc);
 create index if not exists guru_reports_votes_buy_idx  on public.guru_reports (votes_buy desc);
+create index if not exists guru_reports_dispersion_pct_idx on public.guru_reports (dispersion_pct);
 
 -- RLS 정책 설정 (공개 읽기, 서비스 롤 쓰기)
 alter table public.guru_reports enable row level security;
@@ -72,8 +75,8 @@ create table if not exists public.guru_opinions (
   ticker          text        not null,
   persona         text        not null,            -- 예: '워런-버핏'
   guru_idx        smallint,                        -- 1~13 (guru_votes g1~g13 대응)
-  verdict         text        not null,            -- 매수 / 보유 / 관망 / 매도
-  score           smallint    not null,            -- 0: 매수, 1: 보유, 2: 관망, 3: 매도
+  verdict         text        not null,            -- 매수 / 보유 / 관망 / 매도 / 미응답
+  score           smallint,                        -- 0: 매수, 1: 보유, 2: 관망, 3: 매도 (미응답 시 null)
   confidence      smallint,                        -- 1~10
   target_low      numeric,                         -- 적정가/매수가 하단
   target_high     numeric,                         -- 적정가/매수가 상단

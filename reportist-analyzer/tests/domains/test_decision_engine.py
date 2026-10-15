@@ -133,3 +133,27 @@ def test_aggregate_report_consensus_supermajority_verdict():
     consensus_watch = aggregate_report_consensus(summaries_watch)
     assert consensus_watch.verdict == "관망"
     assert consensus_watch.score == 2
+
+
+def test_aggregate_report_consensus_with_explicit_fair_value_and_buy_below():
+    """fair_value, buy_below, sell_above가 직접 제공될 때 합의 집계가 정확히 동작하는지 검증."""
+    summaries = [
+        PersonaSummaryBlock(
+            persona=key,
+            verdict="매수",
+            confidence=8,
+            core_arguments=["논거"],
+            fair_value=150.0 + idx * 5.0,     # 150, 155, 160, ..., 210 -> median: 180.0
+            buy_below=130.0 + idx * 4.0,      # median: 154.0
+            sell_above=190.0 + idx * 5.0,     # median: 220.0
+            quote="대표 발언",
+            parse_mode="json",
+        )
+        for idx, key in enumerate(GURU_REPORT_PERSONA_KEYS)
+    ]
+    consensus = aggregate_report_consensus(summaries)
+    assert consensus.fair_value == 180.0
+    assert consensus.safety_entry == 154.0
+    assert consensus.target_sell == 220.0
+    assert consensus.price_estimate_count == 13
+

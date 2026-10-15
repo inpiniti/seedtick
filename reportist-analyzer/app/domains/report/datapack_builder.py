@@ -500,6 +500,10 @@ class DataPackBuilder:
             "annualFreeCashFlow", "annualCapitalExpenditure", "annualTotalDebt",
             "annualStockholdersEquity", "annualCashAndCashEquivalents",
             "annualCurrentAssets", "annualCurrentLiabilities",
+            "annualTotalLiabilitiesNetMinorityInterest",
+            "annualStockBasedCompensation",
+            "annualDilutedAverageShares",
+            "annualInventory",
             # 분기 지표 (최근 5분기 실적)
             "quarterlyTotalRevenue", "quarterlyGrossProfit", "quarterlyOperatingIncome",
             "quarterlyNetIncome", "quarterlyDilutedEPS", "quarterlyOperatingCashFlow",
@@ -735,25 +739,33 @@ class DataPackBuilder:
         ev_ebitda = self._raw(key_stats.get("enterpriseToEbitda"))
         dividend_yield = self._raw(summary_detail.get("dividendYield"))
 
-        valuation = ValuationRow(
-            current_price=price,
-            market_cap=market_cap,
-            enterprise_value=self._raw(key_stats.get("enterpriseValue")),
-            trailing_pe=trailing_pe,
-            forward_pe=forward_pe,
-            peg=peg,
-            pbr=pbr,
-            psr=psr,
-            ev_ebitda=ev_ebitda,
-            dividend_yield_pct=(dividend_yield * 100) if dividend_yield else None,
-        )
-
         # Timeseries 파싱 (연간 5개년 + 최근 5개 분기)
         income_rows = self._parse_income_rows(ts, is_quarterly=False)
         income_quarterly_rows = self._parse_income_rows(ts, is_quarterly=True)
         cashflow_rows = self._parse_cashflow_rows(ts, is_quarterly=False)
         cashflow_quarterly_rows = self._parse_cashflow_rows(ts, is_quarterly=True)
         balance_sheet = self._parse_balance_sheet(ts, fin_data)
+
+        # 그린블라트 이익수익률 (EBIT / EV) 및 그레이엄 승수 (PER * PBR)
+        latest_op = income_rows[-1].operating_income if income_rows else None
+        ev = self._raw(key_stats.get("enterpriseValue"))
+        earnings_yield = (latest_op / ev * 100.0) if (latest_op and ev and ev > 0) else None
+        graham_multiplier = (trailing_pe * pbr) if (trailing_pe and pbr and trailing_pe > 0 and pbr > 0) else None
+
+        valuation = ValuationRow(
+            current_price=price,
+            market_cap=market_cap,
+            enterprise_value=ev,
+            trailing_pe=trailing_pe,
+            forward_pe=forward_pe,
+            peg=peg,
+            pbr=pbr,
+            psr=psr,
+            ev_ebitda=ev_ebitda,
+            dividend_yield_pct=(dividend_yield * 100) if dividend_yield is not None else None,
+            earnings_yield_pct=round(earnings_yield, 2) if earnings_yield is not None else None,
+            graham_multiplier=round(graham_multiplier, 2) if graham_multiplier is not None else None,
+        )
 
         summary_text = f"{short_summary}..." if short_summary else "N/A"
         overview = (
@@ -925,6 +937,8 @@ class DataPackBuilder:
         equity = self._last(self._series(ts, "annualStockholdersEquity"))
         curr_assets = self._last(self._series(ts, "annualCurrentAssets"))
         curr_liab = self._last(self._series(ts, "annualCurrentLiabilities"))
+        total_liab = self._last(self._series(ts, "annualTotalLiabilitiesNetMinorityInterest"))
+        op_income = self._last(self._series(ts, "annualOperatingIncome"))
 
         net_debt = (debt - cash) if (debt is not None and cash is not None) else None
         debt_ratio = (debt / equity) if (debt is not None and equity) else None
@@ -932,15 +946,30 @@ class DataPackBuilder:
         roe = self._raw(fin_data.get("returnOnEquity"))
         roa = self._raw(fin_data.get("returnOnAssets"))
 
+        # 순유동자산가치 (NCAV = 유동자산 - 부채총계)
+        ncav = (curr_assets - total_liab) if (curr_assets is not None and total_liab is not None) else None
+
+        # ROIC = NOPAT / Invested Capital = (EBIT * (1 - 0.21)) / (Equity + Net Debt)
+        roic = None
+        if op_income is not None and equity is not None:
+            effective_net_debt = net_debt if net_debt is not None else 0.0
+            invested_capital = equity + effective_net_debt
+            if invested_capital > 0:
+                nopat = op_income * 0.79  # 표준 유효세율 21% 가정
+                roic = (nopat / invested_capital) * 100.0
+
         return BalanceSheetRow(
             cash_and_investments=cash,
             total_debt=debt,
             net_debt=net_debt,
             stockholders_equity=equity,
+            total_liabilities=total_liab,
+            ncav=ncav,
             debt_ratio=debt_ratio,
             current_ratio=curr_ratio,
-            roe_pct=(roe * 100) if roe else None,
-            roa_pct=(roa * 100) if roa else None,
+            roe_pct=(roe * 100) if roe is not None else None,
+            roa_pct=(roa * 100) if roa is not None else None,
+            roic_pct=round(roic, 2) if roic is not None else None,
         )
 
     def _series(self, ts: dict, type_name: str) -> list[dict]:
@@ -1013,10 +1042,10 @@ class DataPackBuilder:
         if is_krw:
             lines.extend([
                 "> 💡 **[통화 및 단위 안내]**",
-                "> - **재무제표 원장**: 대한민국 **원화(KRW, 단위: 조원)** 기준입니다. (매출, 영업이익, 순이익, FCF, 자기자본 등)",
-                "> - **주가 및 시세 지표**: 미국 시장 거래 통화(**USD, $**) 기준입니다.",
-                "> - **환율 감안**: 1 USD ≈ 1,350 KRW (예: 주가 $195.37 ≈ 263,700원, 2025년 순이익 42.92조원 ≈ $31.8B USD)",
-                "> - **시가총액 기준**: 미국 장외 ADR/GDR 표기상의 왜곡을 배제하고, 한국 본주 합산 실질 기업가치(약 140조–150조원, 약 $105B–$110B USD)를 기준으로 정상 밸류에이션을 평가하십시오.",
+                "> - **재무제표 원장**: 대한민국 **원화(KRW, 단위: 조원/억원)** 기준입니다. (매출, 영업이익, 순이익, FCF, 자기자본 등)",
+                "> - **주가 및 시세 지표**: 주식 시장 거래 통화 기준입니다.",
+                "> - **환율 감안**: 원화 환산(1 USD ≈ 1,350~1,400 KRW)을 고려하여 재무 수치와 시세를 비교하십시오.",
+                "> - **시가총액 기준**: 해외 ADR/GDR의 경우 미국 상장 거래단위 왜곡을 배제하고, 한국 본주 합산 실질 기업가치(시가총액)를 기준으로 정상 밸류에이션을 평가하십시오.",
                 "",
             ])
 
@@ -1080,14 +1109,16 @@ class DataPackBuilder:
             f"- **총부채**: {self._money(bs.total_debt, is_krw)}",
             f"- **순부채(Net Debt)**: {self._money(bs.net_debt, is_krw)}",
             f"- **자기자본(Equity)**: {self._money(bs.stockholders_equity, is_krw)}",
-            f"- **부채비율**: {bs.debt_ratio:.2f}x" if bs.debt_ratio else "- **부채비율**: N/A",
-            f"- **유동비율**: {bs.current_ratio:.2f}x" if bs.current_ratio else "- **유동비율**: N/A",
-            f"- **ROE**: {bs.roe_pct:.1f}%" if bs.roe_pct else "- **ROE**: N/A",
-            f"- **ROA**: {bs.roa_pct:.1f}%" if bs.roa_pct else "- **ROA**: N/A",
+            f"- **부채총계(Total Liabilities)**: {self._money(bs.total_liabilities, is_krw)}" if bs.total_liabilities is not None else "- **부채총계**: N/A",
+            f"- **부채비율**: {bs.debt_ratio:.2f}x" if bs.debt_ratio is not None else "- **부채비율**: N/A",
+            f"- **유동비율**: {bs.current_ratio:.2f}x" if bs.current_ratio is not None else "- **유동비율**: N/A",
+            f"- **ROE**: {bs.roe_pct:.1f}%" if bs.roe_pct is not None else "- **ROE**: N/A",
+            f"- **ROA**: {bs.roa_pct:.1f}%" if bs.roa_pct is not None else "- **ROA**: N/A",
+            f"- **ROIC**: {bs.roic_pct:.1f}%" if bs.roic_pct is not None else "- **ROIC**: N/A",
             "",
             "---",
             "",
-            "## 3. 밸류에이션 및 시세 지표",
+            "## 3. 밸류에이션 및 거장 핵심 검증 지표",
             f"- **현재가**: ${dp.current_price:.2f} (USD)" if dp.currency == "USD" else f"- **현재가**: {dp.current_price:,.0f} {dp.currency}",
         ])
 
@@ -1101,8 +1132,10 @@ class DataPackBuilder:
                 lines.append(f"- **시가총액**: {mc / 1e12:.2f}조원 (~${mc / (1350 * 1e9):.1f}B USD, $1=1,350원 기준)")
             elif mc and mc >= 1e9:
                 lines.append(f"- **시가총액**: 약 {mc * 1350 / 1e12:.1f}조원 (~${mc / 1e9:.2f}B USD)")
+            elif mc:
+                lines.append(f"- **시가총액**: {self._money(mc, is_krw=True)}")
             else:
-                lines.append("- **시가총액**: 한국 시장 기준 약 100조원 이상 추정")
+                lines.append("- **시가총액**: N/A (한국 본주 기준 시가총액 확인 필요)")
         elif mc:
             if mc >= 1e12:
                 lines.append(f"- **시가총액**: ${mc / 1e12:.2f}T")
@@ -1115,14 +1148,21 @@ class DataPackBuilder:
         else:
             lines.append("- **시가총액**: N/A")
 
+        v = dp.valuation
         lines.extend([
-            f"- **Trailing PER**: {dp.valuation.trailing_pe:.2f}x" if dp.valuation.trailing_pe else "- **Trailing PER**: N/A",
-            f"- **Forward PER**: {dp.valuation.forward_pe:.2f}x" if dp.valuation.forward_pe else "- **Forward PER**: N/A",
-            f"- **PBR**: {dp.valuation.pbr:.2f}x" if dp.valuation.pbr else "- **PBR**: N/A",
-            f"- **PSR**: {dp.valuation.psr:.2f}x" if dp.valuation.psr else "- **PSR**: N/A",
-            f"- **PEG**: {dp.valuation.peg:.2f}x" if dp.valuation.peg else "- **PEG**: N/A",
-            f"- **EV/EBITDA**: {dp.valuation.ev_ebitda:.2f}x" if dp.valuation.ev_ebitda else "- **EV/EBITDA**: N/A",
-            f"- **배당수익률**: {dp.valuation.dividend_yield_pct:.2f}%" if dp.valuation.dividend_yield_pct else "- **배당수익률**: N/A",
+            f"- **Trailing PER**: {v.trailing_pe:.2f}x" if v.trailing_pe is not None else "- **Trailing PER**: N/A",
+            f"- **Forward PER**: {v.forward_pe:.2f}x" if v.forward_pe is not None else "- **Forward PER**: N/A",
+            f"- **PBR**: {v.pbr:.2f}x" if v.pbr is not None else "- **PBR**: N/A",
+            f"- **PSR**: {v.psr:.2f}x" if v.psr is not None else "- **PSR**: N/A",
+            f"- **PEG**: {v.peg:.2f}x" if v.peg is not None else "- **PEG**: N/A",
+            f"- **EV/EBITDA**: {v.ev_ebitda:.2f}x" if v.ev_ebitda is not None else "- **EV/EBITDA**: N/A",
+            f"- **배당수익률**: {v.dividend_yield_pct:.2f}%" if v.dividend_yield_pct is not None else "- **배당수익률**: N/A",
+            "",
+            "### 투자 거장 핵심 검증 지표 (Checklist Metrics)",
+            f"- **그레이엄 승수 (PER × PBR)**: {v.graham_multiplier:.2f} (기준: 22.5 이하 안전마진)" if v.graham_multiplier is not None else "- **그레이엄 승수 (PER × PBR)**: N/A",
+            f"- **순유동자산가치 (NCAV)**: {self._money(bs.ncav, is_krw)} (유동자산 - 부채총계)" if bs.ncav is not None else "- **순유동자산가치 (NCAV)**: N/A",
+            f"- **이익수익률 (EBIT / EV)**: {v.earnings_yield_pct:.2f}% (그린블라트 마법공식)" if v.earnings_yield_pct is not None else "- **이익수익률 (EBIT / EV)**: N/A",
+            f"- **투하자본수익률 (ROIC)**: {bs.roic_pct:.1f}% (그린블라트 자본수익률 / 버핏 해자)" if bs.roic_pct is not None else "- **투하자본수익률 (ROIC)**: N/A",
             "",
             "---",
             "",

@@ -170,11 +170,16 @@ Decision sequence: ① Calculate your fair value / buy zone first → ② Compar
 2. Return EXACTLY ONE valid JSON object inside a ```json code block. Do NOT write anything outside the code block.
 3. 'verdict' MUST be one of: "매수", "보유", "관망", "매도" (or "BUY", "HOLD", "WATCH", "SELL").
 4. 'core_arguments' MUST be 3 to 5 clear, substantive sentences. Each argument must tie your principles to specific numbers from the data pack (e.g., margins, ROE, FCF, valuation multiples).
-5. 'target_price_low' and 'target_price_high' are the lower and upper bounds of your fair value / buy range as numbers (no currency symbols). Set to null if uncalculable.
-6. 'trigger_conditions' are 1 to 2 key events or metrics that would change your verdict or allocation.
-7. 'quote' is a single punchy statement reflecting your unique persona, tone, and conviction.
-8. [CRITICAL LANGUAGE REQUIREMENT] While your internal evaluation and reasoning follow the English principles above, write the values for 'core_arguments', 'trigger_conditions', and 'quote' in natural, professional Korean (한국어) for Korean investors.
-9. When reasoning, once your thesis converges on a conclusion and target range, terminate reasoning immediately and output the JSON without repetitive looping.
+5. Price semantics:
+   - 'fair_value': Single estimated intrinsic fair value per share (number, no currency symbols). Set to null if uncalculable.
+   - 'buy_below': Maximum acceptable entry price ensuring your margin of safety (number). Set to null if uncalculable.
+   - 'sell_above': Target sell / profit-taking price (number). Set to null if uncalculable.
+   - 'target_price_low' and 'target_price_high': Lower and upper bounds of your fair value / buy zone (numbers).
+6. 'data_gaps': 0 to 3 specific financial/operational metrics that were missing from the data pack which you needed to fully verify your checklist (in Korean, e.g., ["3개년 재고 회전율 추이", "R&D 투자 대비 특허 출원율"]).
+7. 'trigger_conditions' are 1 to 2 key events or metrics that would change your verdict or allocation.
+8. 'quote' is a single punchy statement reflecting your unique persona, tone, and conviction.
+9. [CRITICAL LANGUAGE REQUIREMENT] While your internal evaluation and reasoning follow the English principles above, write the values for 'core_arguments', 'data_gaps', 'trigger_conditions', and 'quote' in natural, professional Korean (한국어) for Korean investors.
+10. When reasoning, once your thesis converges on a conclusion and target range, terminate reasoning immediately and output the JSON without repetitive looping.
 
 [Output Format]
 ```json
@@ -187,8 +192,12 @@ Decision sequence: ① Calculate your fair value / buy zone first → ② Compar
     "구체적인 수치와 팩트에 기반한 핵심 논거 2 (한국어로 작성)",
     "구체적인 수치와 팩트에 기반한 핵심 논거 3 (한국어로 작성)"
   ],
+  "fair_value": 180.0,
+  "buy_below": 150.0,
+  "sell_above": 230.0,
   "target_price_low": 150.0,
-  "target_price_high": 175.0,
+  "target_price_high": 180.0,
+  "data_gaps": [],
   "trigger_conditions": ["핵심 재검토 요건 1 (한국어로 작성)", "핵심 재검토 요건 2 (한국어로 작성)"],
   "quote": "거장 특유 어조의 명언급 한 줄 발언 (한국어로 작성)"
 }}

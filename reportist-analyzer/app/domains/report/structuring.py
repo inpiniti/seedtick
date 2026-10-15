@@ -204,11 +204,23 @@ def build_opinion_rows(
     rows: list[dict] = []
     for s in summaries:
         persona = s.get("persona") or ""
+        parse_mode = s.get("parse_mode") or "legacy"
+        is_fallback = (parse_mode == "fallback")
+
         low, high = s.get("target_price_low"), s.get("target_price_high")
         if low is None and high is None:
             low, high = parse_price_range(s.get("target_price_range"))
         mid = (low + high) / 2 if (low is not None and high is not None) else (low or high)
-        verdict = s.get("verdict") if s.get("verdict") in VERDICTS else "관망"
+
+        if is_fallback:
+            verdict = "미응답"
+            score = None
+            confidence = None
+        else:
+            verdict = s.get("verdict") if s.get("verdict") in VERDICTS else "관망"
+            score = VERDICT_SCORE_MAP.get(verdict, 2)
+            confidence = s.get("confidence")
+
         rows.append(
             {
                 "report_id": report_id,
@@ -217,8 +229,8 @@ def build_opinion_rows(
                 "persona": persona,
                 "guru_idx": guru_index(persona),
                 "verdict": verdict,
-                "score": VERDICT_SCORE_MAP.get(verdict, 2),
-                "confidence": s.get("confidence"),
+                "score": score,
+                "confidence": confidence,
                 "target_low": low,
                 "target_high": high,
                 "target_text": s.get("target_price_range"),
@@ -226,7 +238,7 @@ def build_opinion_rows(
                 "arguments": as_str_list(s.get("core_arguments")),
                 "triggers": as_str_list(s.get("trigger_conditions")),
                 "quote": s.get("quote"),
-                "parse_mode": s.get("parse_mode") or "legacy",
+                "parse_mode": parse_mode,
                 "prompt_version": prompt_version,
                 "raw_text": (raw_texts or {}).get(persona) or None,
             }

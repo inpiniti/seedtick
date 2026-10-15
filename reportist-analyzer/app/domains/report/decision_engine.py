@@ -125,20 +125,41 @@ def aggregate_report_consensus(
         )
 
     intervals: list[tuple[float, float, float]] = []
+    buy_below_candidates: list[float] = []
+    sell_above_candidates: list[float] = []
+
     for summary in usable:
         low = summary.target_price_low
         high = summary.target_price_high
+        fv = summary.fair_value
+        bb = summary.buy_below
+        sa = summary.sell_above
+
+        if bb is not None and isfinite(bb) and bb > 0:
+            buy_below_candidates.append(float(bb))
+        elif low is not None and isfinite(low) and low > 0:
+            buy_below_candidates.append(float(low))
+
+        if sa is not None and isfinite(sa) and sa > 0:
+            sell_above_candidates.append(float(sa))
+        elif high is not None and isfinite(high) and high > 0:
+            sell_above_candidates.append(float(high))
+
         if (
-            low is None
-            or high is None
-            or not isfinite(low)
-            or not isfinite(high)
-            or low <= 0
-            or high <= 0
+            low is not None
+            and high is not None
+            and isfinite(low)
+            and isfinite(high)
+            and low > 0
+            and high > 0
         ):
-            continue
-        lower, upper = sorted((float(low), float(high)))
-        intervals.append((lower, upper, (lower + upper) / 2.0))
+            lower, upper = sorted((float(low), float(high)))
+            midpoint = float(fv) if (fv is not None and isfinite(fv) and fv > 0) else (lower + upper) / 2.0
+            intervals.append((lower, upper, midpoint))
+        elif fv is not None and isfinite(fv) and fv > 0:
+            lower = float(bb) if (bb is not None and isfinite(bb) and bb > 0) else float(fv)
+            upper = float(sa) if (sa is not None and isfinite(sa) and sa > 0) else float(fv)
+            intervals.append((min(lower, upper), max(lower, upper), float(fv)))
 
     fair_value: float | None = None
     band_low: float | None = None
@@ -174,8 +195,11 @@ def aggregate_report_consensus(
             review_flags.append("분석 응답 누락으로 단일 적정가 신뢰도 주의")
 
         fair_value = median_value
-        safety_candidate = float(median([interval[0] for interval in intervals]))
-        target_candidate = float(median([interval[1] for interval in intervals]))
+        safety_pool = buy_below_candidates if len(buy_below_candidates) >= MIN_PRICE_ESTIMATES else [interval[0] for interval in intervals]
+        target_pool = sell_above_candidates if len(sell_above_candidates) >= MIN_PRICE_ESTIMATES else [interval[1] for interval in intervals]
+
+        safety_candidate = float(median(safety_pool))
+        target_candidate = float(median(target_pool))
         if safety_candidate <= fair_value:
             safety_entry = safety_candidate
         else:

@@ -209,3 +209,69 @@ Quote: "Patience is key."
     assert block.target_price_low == 190.0
     assert block.parse_mode == "regex"
 
+
+def test_build_opinion_rows_fallback():
+    summaries = [
+        {
+            "persona": "워런-버핏",
+            "verdict": "관망",
+            "confidence": 5,
+            "core_arguments": ["AI 오류"],
+            "parse_mode": "fallback",
+        },
+        {
+            "persona": "피터-린치",
+            "verdict": "매수",
+            "confidence": 8,
+            "core_arguments": ["PEG 우수"],
+            "target_price_range": "$150 ~ $180",
+            "parse_mode": "json",
+        },
+    ]
+    rows = build_opinion_rows(
+        report_id="2026-10-15_AAPL",
+        date_str="2026-10-15",
+        ticker="AAPL",
+        current_price=160.0,
+        summaries=summaries,
+    )
+    assert len(rows) == 2
+    # fallback 행: 미응답 처리되어 score와 confidence가 None이어야 함
+    assert rows[0]["persona"] == "워런-버핏"
+    assert rows[0]["verdict"] == "미응답"
+    assert rows[0]["score"] is None
+    assert rows[0]["confidence"] is None
+    assert rows[0]["parse_mode"] == "fallback"
+
+    # 정상 행: 매수 및 score=0
+    assert rows[1]["persona"] == "피터-린치"
+    assert rows[1]["verdict"] == "매수"
+    assert rows[1]["score"] == 0
+    assert rows[1]["confidence"] == 8
+
+
+def test_parse_summary_block_extended_fields():
+    service = GuruReportService()
+    json_text = """```json
+{
+  "persona": "조엘-그린블라트",
+  "verdict": "매수",
+  "confidence": 9,
+  "core_arguments": ["EBIT/EV 12% 및 ROIC 35%로 자본수익률 압도적"],
+  "fair_value": 220.0,
+  "buy_below": 180.0,
+  "sell_above": 260.0,
+  "data_gaps": ["과거 3개년 순고정자산 세부 내역"],
+  "trigger_conditions": ["영업이익률 20% 하회 시"],
+  "quote": "좋은 기업을 싼 가격에 산다."
+}
+```"""
+    block = service._parse_summary_block("조엘-그린블라트", json_text)
+    assert block.verdict == "매수"
+    assert block.fair_value == 220.0
+    assert block.buy_below == 180.0
+    assert block.sell_above == 260.0
+    assert block.target_price_low == 180.0
+    assert block.target_price_high == 220.0
+    assert block.data_gaps == ["과거 3개년 순고정자산 세부 내역"]
+

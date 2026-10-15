@@ -68,8 +68,8 @@ create table if not exists public.guru_opinions (
   ticker          text        not null,
   persona         text        not null,            -- 예: '워런-버핏'
   guru_idx        smallint,                        -- 1~13 (guru_votes g1~g13 대응)
-  verdict         text        not null,            -- 매수 / 보유 / 관망 / 매도
-  score           smallint    not null,            -- 0: 매수, 1: 보유, 2: 관망, 3: 매도
+  verdict         text        not null,            -- 매수 / 보유 / 관망 / 매도 / 미응답
+  score           smallint,                        -- 0: 매수, 1: 보유, 2: 관망, 3: 매도 (미응답 시 null)
   confidence      smallint,                        -- 1~10
   target_low      numeric,                         -- 적정가/매수가 하단
   target_high     numeric,                         -- 적정가/매수가 상단
@@ -84,6 +84,9 @@ create table if not exists public.guru_opinions (
   created_at      timestamptz not null default now(),
   constraint guru_opinions_report_persona_unique unique (report_id, persona)
 );
+
+-- 기존 테이블이 이미 생성되어 있을 경우를 대비한 제약 완화
+alter table public.guru_opinions alter column score drop not null;
 
 create index if not exists guru_opinions_d_idx       on public.guru_opinions (d desc);
 create index if not exists guru_opinions_ticker_idx  on public.guru_opinions (ticker);

@@ -313,13 +313,25 @@ class GuruReportService:
                 confidence = 5
 
             args = as_str_list(parsed_json.get("core_arguments"), limit=5)
+            fair_val = parse_number(parsed_json.get("fair_value"))
+            buy_bel = parse_number(parsed_json.get("buy_below"))
+            sell_ab = parse_number(parsed_json.get("sell_above"))
+            gaps = as_str_list(parsed_json.get("data_gaps"), limit=5)
+
             low = parse_number(parsed_json.get("target_price_low"))
             high = parse_number(parsed_json.get("target_price_high"))
 
-            # 만약 low/high가 직접 안 주어졌으면 target_price_range 텍스트에서 파싱
+            # 만약 low/high가 직접 안 주어졌으면 fair_value, buy_below, sell_above 또는 target_price_range에서 보정
             tp_text = parsed_json.get("target_price_range")
-            if low is None and high is None and tp_text:
-                low, high = parse_price_range(tp_text)
+            if low is None and high is None:
+                if tp_text:
+                    low, high = parse_price_range(tp_text)
+                elif buy_bel is not None and fair_val is not None:
+                    low, high = min(buy_bel, fair_val), max(buy_bel, fair_val)
+                elif fair_val is not None and sell_ab is not None:
+                    low, high = min(fair_val, sell_ab), max(fair_val, sell_ab)
+                elif fair_val is not None:
+                    low, high = fair_val, fair_val
 
             trigs = as_str_list(parsed_json.get("trigger_conditions"), limit=3)
             q = str(parsed_json.get("quote") or "").strip().strip('*_`"\'')
@@ -342,6 +354,10 @@ class GuruReportService:
                 target_price_range=target_range_str,
                 target_price_low=low,
                 target_price_high=high,
+                fair_value=fair_val,
+                buy_below=buy_bel,
+                sell_above=sell_ab,
+                data_gaps=gaps,
                 trigger_conditions=trigs,
                 quote=q,
                 parse_mode="json" if is_valid_verdict else "fallback",
@@ -476,14 +492,17 @@ class GuruReportService:
         2. guru_votes 테이블에 13인 표결 점수(g0~g13) 저장
         """
         # 공식 13인 roster와 DB의 g1~g13 슬롯을 일대일로 매핑한다.
-        scores_by_guru: dict[str, int] = {}
-        persona_map = {s.persona: s.verdict for s in summaries.summaries}
+        scores_by_guru: dict[str, int | None] = {}
+        persona_map = {s.persona: s for s in summaries.summaries}
 
         for idx, (_, persona_key) in enumerate(GURU_REPORT_ROSTER, start=1):
-            verdict_val = persona_map.get(persona_key, "관망")
-            scores_by_guru[f"g{idx}"] = VERDICT_SCORE_MAP.get(verdict_val, 2)
+            block = persona_map.get(persona_key)
+            if block and block.parse_mode != "fallback" and block.verdict in VERDICT_SCORE_MAP:
+                scores_by_guru[f"g{idx}"] = VERDICT_SCORE_MAP[block.verdict]
+            else:
+                scores_by_guru[f"g{idx}"] = None
 
-        report.persona_scores = scores_by_guru
+        report.persona_scores = {k: v for k, v in scores_by_guru.items() if v is not None}
 
         # 1. guru_reports 본문 저장 (추후 어날리시스 및 상세 조회용)
         input_fingerprint = hashlib.sha256(
