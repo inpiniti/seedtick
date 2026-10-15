@@ -1,9 +1,9 @@
 # 프로젝트 폴더 구조
 
-## seedtick-ai-gateway (Elysia + Bun → Vercel)
+## reportist-ai-gateway (Elysia + Bun → Vercel)
 
 ```
-seedtick-ai-gateway/
+reportist-ai-gateway/
 ├── src/
 │   ├── index.ts                   # Bun.serve() 엔트리포인트
 │   ├── app.ts                     # Elysia 앱 인스턴스
@@ -36,10 +36,10 @@ seedtick-ai-gateway/
 └── vercel.json
 ```
 
-## seedtick-analyzer (FastAPI + Python → HuggingFace)
+## reportist-analyzer (FastAPI + Python → HuggingFace)
 
 ```
-seedtick-analyzer/
+reportist-analyzer/
 ├── app/
 │   ├── main.py                    # FastAPI 앱 + APScheduler 수명주기
 │   ├── api/

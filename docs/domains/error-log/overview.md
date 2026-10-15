@@ -2,7 +2,7 @@
 
 ## 역할
 
-시스템 전체(`seedtick-analyzer` 및 `seedtick-ai-gateway`)에서 발생하는 이벤트(정상 이벤트, 주의, 에러, 치명적 결함)를 수집하여 **Supabase `error_logs` 테이블에 영구 저장**하고, 주요 알림은 Discord 웹훅으로 발송합니다.
+시스템 전체(`reportist-analyzer` 및 `reportist-ai-gateway`)에서 발생하는 이벤트(정상 이벤트, 주의, 에러, 치명적 결함)를 수집하여 **Supabase `error_logs` 테이블에 영구 저장**하고, 주요 알림은 Discord 웹훅으로 발송합니다.
 
 ## 이벤트 레벨 및 처리
 

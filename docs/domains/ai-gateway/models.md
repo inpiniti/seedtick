@@ -10,8 +10,8 @@
 
 **OpenRouter 필수 헤더**:
 ```http
-HTTP-Referer: https://seedtick.app
-X-Title: SeedTick
+HTTP-Referer: https://reportist.kr
+X-Title: Reportist
 ```
 
 ---

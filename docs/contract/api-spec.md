@@ -7,7 +7,7 @@
 
 ## 1. AI Gateway API
 
-**Base URL**: `https://seedtick-ai-gateway.vercel.app`
+**Base URL**: `https://reportist-ai-gateway.vercel.app`
 
 ### POST /v1/chat/completions
 

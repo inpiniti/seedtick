@@ -1,1 +1,0 @@
-# seedtick-analyzer app package

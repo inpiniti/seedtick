@@ -4,7 +4,7 @@
 
 ```mermaid
 graph TD
-    Client["Next.js Web Client<br/>(seedtick-admin)"]
+    Client["Next.js Web Client<br/>(reportist-admin)"]
     SupabaseAuth["Supabase Auth<br/>(Google / Email)"]
     PortOne["PortOne V2 SDK<br/>(결제창 & 빌링키)"]
     SupabaseDB[("Supabase DB<br/>(subscriptions / payments)")]

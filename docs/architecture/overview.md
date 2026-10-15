@@ -6,7 +6,7 @@
 [매일 12:00 KST 트리거]
         |
         v
-[seedtick-analyzer: Scheduler]
+[reportist-analyzer: Scheduler]
         |
         +---> [휴장일 가드] 주말 및 미국 증시(NYSE) 공휴일 스킵 검사
         |
@@ -28,7 +28,7 @@
         +---> [Discord 알림] 일일 파이프라인 완료 및 스크리닝/리포트 요약 전송
 
 
-[seedtick-ai-gateway - Vercel]
+[reportist-ai-gateway - Vercel]
   - Gemini, OpenAI, Anthropic 등 멀티키 로테이션
   - OpenAI 응답 규격으로 통일 출력
   - 에러 시 다음 키/모델로 즉시 전환
@@ -36,14 +36,14 @@
 
 ## 2. 서비스 경계
 
-### seedtick-ai-gateway (Vercel)
+### reportist-ai-gateway (Vercel)
 - **역할**: LLM 프록시 + 키/모델 로테이션
 - **입력**: OpenAI 규격 요청 (`/v1/chat/completions`)
 - **출력**: OpenAI 규격 응답
 - **지원 모델**: OpenRouter 무료 모델 풀 및 상위 LLM
 - **로직**: 에러(429, 500, 503) 발생 시 즉시 다음 키/모델로 전환
 
-### seedtick-analyzer (HuggingFace)
+### reportist-analyzer (HuggingFace)
 - **역할**: 종목 스크리닝 + 13인 거장 심층 분석 보고서 생성 + 일일 배치 스케줄러
 - **내부 서브도메인 & 모듈**:
   - `screener` — 토스 거장 공통 필터 + DataRoma 슈퍼인베스터 포트폴리오 스크리닝

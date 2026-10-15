@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'seedtick-analyzer/**'
+      - 'reportist-analyzer/**'
   workflow_dispatch:
 
 jobs:
@@ -30,7 +30,7 @@ jobs:
           # 1. Hugging Face Space 저장소 클론
           git clone https://younginpiniti:$HF_TOKEN@huggingface.co/spaces/younginpiniti/coin-bridge hf_space
 
-          # 2. seedtick-analyzer 내용을 hf_space 로 동기화 (.git 및 환경변수/캐시 제외)
+          # 2. reportist-analyzer 내용을 hf_space 로 동기화 (.git 및 환경변수/캐시 제외)
           rsync -av --delete \
             --exclude='.git' \
             --exclude='.env*' \
@@ -39,7 +39,7 @@ jobs:
             --exclude='*.json_cache' \
             --exclude='*token_cache.json' \
             --exclude='*.pyc' \
-            seedtick-analyzer/ hf_space/
+            reportist-analyzer/ hf_space/
 
           # 3. 변경사항 커밋 및 푸시
           cd hf_space

@@ -84,6 +84,6 @@ class GuruReportService:
 
 ## 3. AiGatewayClient
 
-AI-Gateway(`seedtick-ai-gateway`)와의 통신 클라이언트.
+AI-Gateway(`reportist-ai-gateway`)와의 통신 클라이언트.
 - 멀티키 로테이션을 활용하여 13인 페르소나 호출 시 429 레이트 리밋 방지
 - 타임아웃 및 재시도(Exponential Backoff) 내장

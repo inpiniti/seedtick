@@ -21,7 +21,7 @@
 - **한국 증시(KRX) 공식 휴장일 스킵 (`is_kr_market_open`)**:
   - 신정, 설날 연휴, 삼일절, 근로자의 날(5/1), 어린이날, 부처님오신날, 현충일, 광복절, 추석 연휴, 개천절, 한글날, 성탄절, 연말 폐장일(12/31) 등
   - 판별 라이브러리: `holidays.financial_holidays("KRX")`
-- 휴장일일 경우 에러가 아닌 `[INFO] [SeedTick 스케줄러] 오늘은 {reason}입니다. 파이프라인을 실행하지 않고 스킵합니다.` 로그 및 Discord 알림을 남기고 안전하게 종료.
+- 휴장일일 경우 에러가 아닌 `[INFO] [Reportist 스케줄러] 오늘은 {reason}입니다. 파이프라인을 실행하지 않고 스킵합니다.` 로그 및 Discord 알림을 남기고 안전하게 종료.
 
 
 ## 관련 문서
@@ -33,7 +33,7 @@
 ## 실시간 진행 상태 추적 (Pipeline Progress)
 
 파이프라인은 메모리 전역 싱글턴 `pipeline_progress`(`PipelineProgressTracker`)에 "실행중" 상태를 등록합니다.
-관리자 화면(`seedtick-admin`)은 `GET /api/scheduler/progress`를 폴링하여 아래를 실시간 표시합니다.
+관리자 화면(`reportist-admin`)은 `GET /api/scheduler/progress`를 폴링하여 아래를 실시간 표시합니다.
 
 - 현재 단계: `스크리닝 → 1. 데이터팩 → 2. 가치드라이버 → 3. 거장 요약(n/13) → 4. 최종 마스터 → DB 동기화`
 - 전체 종목 진행률: `완료 n / 총 m` (예: `3/21`)

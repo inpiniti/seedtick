@@ -1,6 +1,6 @@
 # 배포 전략
 
-## seedtick-ai-gateway → Vercel
+## reportist-ai-gateway → Vercel
 
 ### 환경 구성
 - **런타임**: Bun
@@ -36,11 +36,11 @@ CLAUDE_API_KEY_1=
 
 ---
 
-## seedtick-analyzer → HuggingFace Docker Space
+## reportist-analyzer → HuggingFace Docker Space
 
 ### Space 설정
 ```
-Space 이름: seedtick-analyzer
+Space 이름: reportist-analyzer
 SDK: Docker
 하드웨어: CPU Basic (무료)
 Persistent Storage: 필요 없음 (Supabase 사용)
@@ -64,7 +64,7 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
 ```
 SUPABASE_URL=
 SUPABASE_KEY=
-AI_GATEWAY_URL=          # seedtick-ai-gateway Vercel URL
+AI_GATEWAY_URL=          # reportist-ai-gateway Vercel URL
 AI_GATEWAY_SECRET=
 TOSS_API_KEY=
 KIS_API_KEY=
@@ -100,7 +100,7 @@ jobs:
 서버 배포 없음. 클라이언트 라이브러리로만 사용.
 
 ```
-프로젝트 이름: seedtick
+프로젝트 이름: reportist
 Region: ap-northeast-1 (Tokyo)
 사용 테이블: reports, orders, error_logs
 ```
@@ -109,9 +109,9 @@ Region: ap-northeast-1 (Tokyo)
 
 ## 배포 순서
 
-1. `seedtick-ai-gateway` Vercel 배포 → URL 확보
+1. `reportist-ai-gateway` Vercel 배포 → URL 확보
 2. Supabase 프로젝트 생성 → 스키마 적용
-3. `seedtick-analyzer` HF Space 배포 (PAPER_TRADING_MODE=true)
+3. `reportist-analyzer` HF Space 배포 (PAPER_TRADING_MODE=true)
 4. GitHub Actions warm-up 설정
 5. 최소 1주일 paper-trading 모드로 검증
 6. `PAPER_TRADING_MODE=false` 로 변경 → 실거래 시작

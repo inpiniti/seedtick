@@ -1,7 +1,7 @@
 # Subscription & Auth 도메인 (구독 및 인증)
 
 ## 1. 도메인 정의
-SeedTick Research 서비스의 사용자 인증(Supabase Auth)과 멤버십 요금제(Free vs Pro), 결제 게이트웨이(PortOne V2) 및 구독 라이프사이클을 총괄하는 도메인입니다.
+Reportist Research 서비스의 사용자 인증(Supabase Auth)과 멤버십 요금제(Free vs Pro), 결제 게이트웨이(PortOne V2) 및 구독 라이프사이클을 총괄하는 도메인입니다.
 
 ---
 

@@ -9,7 +9,7 @@
 
 ---
 
-## seedtick-ai-gateway (TypeScript + Bun + Elysia)
+## reportist-ai-gateway (TypeScript + Bun + Elysia)
 
 ### 파일/폴더 네이밍
 ```
@@ -52,7 +52,7 @@ app.post('/v1/chat/completions', ({ body }) => ...)
 
 ---
 
-## seedtick-analyzer (Python + FastAPI)
+## reportist-analyzer (Python + FastAPI)
 
 ### 파일/폴더 네이밍
 ```

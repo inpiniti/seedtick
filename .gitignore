@@ -9,7 +9,7 @@ build/
 .next/
 *.log
 src/index.js
-seedtick-ai-gateway/src/index.js
+reportist-ai-gateway/src/index.js
 
 # Environment files
 .env*

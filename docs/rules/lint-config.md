@@ -1,6 +1,6 @@
 ﻿# 린트 설정 규칙
 
-## seedtick-ai-gateway — Biome
+## reportist-ai-gateway — Biome
 
 ### biome.json
 ```json
@@ -64,7 +64,7 @@
 
 ---
 
-## seedtick-analyzer — Ruff
+## reportist-analyzer — Ruff
 
 ### pyproject.toml
 ```toml
