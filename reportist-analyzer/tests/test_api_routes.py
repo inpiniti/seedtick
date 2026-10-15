@@ -291,7 +291,7 @@ async def test_require_admin_forbidden_for_non_admin(monkeypatch):
         def eq(self, *args, **kwargs):
             return self
 
-        def maybeSingle(self):
+        def maybe_single(self):
             return self
 
         def execute(self):
@@ -331,7 +331,7 @@ async def test_require_admin_allows_admin(monkeypatch):
         def eq(self, *args, **kwargs):
             return self
 
-        def maybeSingle(self):
+        def maybe_single(self):
             return self
 
         def execute(self):

@@ -97,7 +97,7 @@ async def require_admin(user: dict = Depends(get_current_user)) -> dict:
             client.table("user_profiles")
             .select("is_admin")
             .eq("id", user["id"])
-            .maybeSingle()
+            .maybe_single()
             .execute()
         )
     except Exception as e:
@@ -108,7 +108,9 @@ async def require_admin(user: dict = Depends(get_current_user)) -> dict:
         )
 
     data = getattr(row, "data", None)
-    if not data or data.get("is_admin") is not True:
+    if isinstance(data, list):
+        data = data[0] if data else None
+    if not isinstance(data, dict) or data.get("is_admin") is not True:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="관리자 권한이 필요합니다.",
