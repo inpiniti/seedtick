@@ -523,7 +523,7 @@ class DataPackBuilder:
         # 1. AI-Gateway (Vercel) 프록시 우선 시도 (HuggingFace IP 차단 완벽 우회)
         from urllib.parse import urlparse
         gw_raw = getattr(settings, "AI_GATEWAY_URL", "")
-        origin = "https://reportist-ai-gateway.vercel.app"
+        origin = "https://seedtick-ai-gateway.vercel.app"
         if gw_raw:
             p = urlparse(gw_raw)
             if p.scheme and p.netloc and "localhost" not in p.netloc:

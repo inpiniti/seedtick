@@ -19,7 +19,7 @@ _raw_keys = os.environ.get("OPENROUTER_API_KEYS", "")
 OPENROUTER_API_KEYS = [k.strip() for k in _raw_keys.split(",") if k.strip()]
 MODEL = "inclusionai/ling-3.1-flash"
 DIRECT_URL = "https://openrouter.ai/api/v1/chat/completions"
-GATEWAY_URL = "https://reportist-ai-gateway.vercel.app/v1/chat/completions"
+GATEWAY_URL = "https://seedtick-ai-gateway.vercel.app/v1/chat/completions"
 GATEWAY_SECRET = os.environ.get("GATEWAY_SECRET", "")
 
 TEST_PROMPT = "애플(AAPL)의 현재 PER이 높은지 낮은지 한 문장으로 평가해라."
