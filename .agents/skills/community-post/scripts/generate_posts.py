@@ -192,7 +192,7 @@ def render_txt(report: dict, opinions: list[dict], metrics: dict | None) -> str:
     lines.append("")
     lines.append(closings.get(verdict, closings["관망"]))
     lines.append("")
-    lines.append(f"13인 개별 코멘트 전문이랑 적정밴드 계산 과정까지 다 보고 싶으면 구글에서 리포리스트 검색해봐. {date} 분석 종목들도 같이 올라와 있음.")
+    lines.append(f"13인 개별 코멘트 전문이랑 적정밴드 계산 과정까지 다 보고 싶으면 구글에서 \"리포리스트\" (https://www.reportist.kr) 검색해봐. {date} 분석 종목들도 같이 올라와 있음.")
     lines.append("")
     lines.append("이 글은 정보 요약용이고 투자 권유가 아님. 매매 판단은 본인 책임.")
     return "\n".join(lines) + "\n"
