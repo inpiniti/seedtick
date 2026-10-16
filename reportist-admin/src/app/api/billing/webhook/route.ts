@@ -108,7 +108,7 @@ export async function POST(req: Request) {
       : null;
     const newExpiry = calculateSubscriptionExpiry(prevEnd, planType, now);
 
-    await supabase.from("payment_transactions").insert({
+    const payPayload: Record<string, unknown> = {
       user_id: userId,
       merchant_uid: `order_webhook_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       imp_uid: info.paymentId,
@@ -119,21 +119,37 @@ export async function POST(req: Request) {
       receipt_url: info.receiptUrl,
       status: "paid",
       paid_at: info.paidAt || nowStr,
-    });
+    };
+    if (info.cardName) payPayload.card_name = info.cardName;
 
-    await supabase.from("subscriptions").upsert(
-      {
-        user_id: userId,
-        tier: "pro",
-        plan_type: planType,
-        status: "active",
-        current_period_start: nowStr,
-        current_period_end: newExpiry.toISOString(),
-        canceled_at: null,
-        updated_at: nowStr,
-      },
-      { onConflict: "user_id" }
-    );
+    let { error: payErr } = await supabase.from("payment_transactions").insert(payPayload);
+    if (payErr && (payErr.message.includes("card_name") || payErr.message.includes("column"))) {
+      delete payPayload.card_name;
+      await supabase.from("payment_transactions").insert(payPayload);
+    }
+
+    const subPayload: Record<string, unknown> = {
+      user_id: userId,
+      tier: "pro",
+      plan_type: planType,
+      status: "active",
+      current_period_start: nowStr,
+      current_period_end: newExpiry.toISOString(),
+      canceled_at: null,
+      updated_at: nowStr,
+    };
+    if (info.cardName) subPayload.card_name = info.cardName;
+    if (info.cardLast4) subPayload.card_last4 = info.cardLast4;
+
+    let { error: subErr } = await supabase
+      .from("subscriptions")
+      .upsert(subPayload, { onConflict: "user_id" });
+
+    if (subErr && (subErr.message.includes("card_") || subErr.message.includes("column"))) {
+      delete subPayload.card_name;
+      delete subPayload.card_last4;
+      await supabase.from("subscriptions").upsert(subPayload, { onConflict: "user_id" });
+    }
 
     return NextResponse.json({ success: true });
   } catch (err: unknown) {

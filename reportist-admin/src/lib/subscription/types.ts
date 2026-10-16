@@ -13,6 +13,10 @@ export interface Subscription {
   currentPeriodStart: string;
   currentPeriodEnd: string | null;
   billingKey?: string | null;
+  /** 사용자 식별용 카드사명 (예: 신한카드, 현대카드) */
+  cardName?: string | null;
+  /** 사용자 식별용 카드 끝 4자리 (예: 5678) */
+  cardLast4?: string | null;
   canceledAt?: string | null;
 }
 
@@ -25,6 +29,8 @@ export interface PaymentTransaction {
   planType: "monthly" | "yearly";
   amount: number;
   payMethod: string;
+  /** 카드사명 (있을 때만) */
+  cardName?: string | null;
   /** 카드 끝 4자리 (있을 때만) */
   cardLast4?: string | null;
   status: PaymentStatus;

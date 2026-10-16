@@ -17,12 +17,21 @@ export interface VerifiedPaymentInfo {
   amount: number;
   status: "PAID" | "CANCELLED" | "PARTIAL_CANCELLED" | "FAILED" | "UNKNOWN";
   payMethod: string;
+  cardName?: string | null;
   cardLast4?: string | null;
   receiptUrl?: string | null;
   paidAt: string;
   customerId?: string | null;
   customerEmail?: string | null;
   isSimulated?: boolean;
+}
+
+export interface BillingKeyInfoResult {
+  success: boolean;
+  message?: string;
+  isSimulated?: boolean;
+  cardName?: string | null;
+  cardLast4?: string | null;
 }
 
 export interface CancelResult {
@@ -84,6 +93,34 @@ function extractCustomer(payload: Record<string, unknown>): {
   return { id: id ?? null, email: email ?? null };
 }
 
+/** PortOne 응답 payload에서 카드사명(발행/발급사) 및 끝 4자리 추출 */
+function extractCardMeta(payload: Record<string, unknown>): {
+  cardName: string | null;
+  cardLast4: string | null;
+} {
+  const methodObj = (payload.paymentMethod ?? payload.method ?? {}) as Record<
+    string,
+    unknown
+  >;
+  const cardObj = (methodObj.card ?? {}) as Record<string, unknown>;
+  const publisherObj = (cardObj.publisher ?? {}) as Record<string, unknown>;
+  const issuerObj = (cardObj.issuer ?? {}) as Record<string, unknown>;
+
+  const cardName =
+    (publisherObj.name as string | undefined) ??
+    (issuerObj.name as string | undefined) ??
+    (cardObj.name as string | undefined) ??
+    (cardObj.brand as string | undefined) ??
+    null;
+
+  const cardLast4 =
+    (cardObj.last4Digits as string | undefined) ??
+    (cardObj.last4 as string | undefined) ??
+    null;
+
+  return { cardName, cardLast4 };
+}
+
 function simulatedPayment(
   paymentId: string,
   expectedAmount: number
@@ -94,6 +131,7 @@ function simulatedPayment(
     amount: expectedAmount,
     status: "PAID",
     payMethod: "CARD",
+    cardName: "신한카드",
     cardLast4: "4242",
     receiptUrl: null,
     paidAt: new Date().toISOString(),
@@ -205,15 +243,11 @@ export async function verifyPortOnePayment(
     }
 
     // 카드 번호 및 영수증 추출
+    const { cardName, cardLast4 } = extractCardMeta(payload);
     const methodObj = (payload.paymentMethod ?? payload.method ?? {}) as Record<
       string,
       unknown
     >;
-    const cardObj = (methodObj.card ?? {}) as Record<string, unknown>;
-    const cardLast4 =
-      (cardObj.last4Digits as string | undefined) ??
-      (cardObj.last4 as string | undefined) ??
-      null;
 
     const receiptUrl = (payload.receiptUrl as string | undefined) ?? null;
 
@@ -228,6 +262,7 @@ export async function verifyPortOnePayment(
           (methodObj.type as string | undefined) ||
           (payload.payMethod as string | undefined) ||
           "CARD",
+        cardName,
         cardLast4,
         receiptUrl,
         paidAt:
@@ -252,7 +287,7 @@ export async function verifyPortOnePayment(
  */
 export async function getBillingKeyInfo(
   billingKey: string
-): Promise<{ success: boolean; message?: string; isSimulated?: boolean }> {
+): Promise<BillingKeyInfoResult> {
   if (!billingKey || typeof billingKey !== "string") {
     return { success: false, message: "빌링키가 유효하지 않습니다." };
   }
@@ -264,7 +299,12 @@ export async function getBillingKeyInfo(
         message: "테스트 빌링키는 허용되지 않았습니다.",
       };
     }
-    return { success: true, isSimulated: true };
+    return {
+      success: true,
+      isSimulated: true,
+      cardName: "신한카드",
+      cardLast4: "4242",
+    };
   }
 
   const headers = secretHeaders();
@@ -304,7 +344,13 @@ export async function getBillingKeyInfo(
         message: "해지된 카드 등록입니다. 카드를 다시 등록해 주세요.",
       };
     }
-    return { success: true };
+
+    const { cardName, cardLast4 } = extractCardMeta(payload);
+    return {
+      success: true,
+      cardName,
+      cardLast4,
+    };
   } catch (err: unknown) {
     return {
       success: false,
@@ -413,11 +459,11 @@ export async function payWithBillingKey(input: {
       };
     }
 
+    const { cardName, cardLast4 } = extractCardMeta(payload);
     const methodObj = (payload.paymentMethod ?? payload.method ?? {}) as Record<
       string,
       unknown
     >;
-    const cardObj = (methodObj.card ?? {}) as Record<string, unknown>;
 
     return {
       success: true,
@@ -427,10 +473,8 @@ export async function payWithBillingKey(input: {
         amount,
         status: "PAID",
         payMethod: (methodObj.type as string | undefined) || "CARD",
-        cardLast4:
-          (cardObj.last4Digits as string | undefined) ??
-          (cardObj.last4 as string | undefined) ??
-          null,
+        cardName,
+        cardLast4,
         receiptUrl: (payload.receiptUrl as string | undefined) ?? null,
         paidAt:
           (payload.paidAt as string | undefined) || new Date().toISOString(),

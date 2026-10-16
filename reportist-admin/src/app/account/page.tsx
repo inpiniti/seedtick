@@ -46,6 +46,7 @@ export default function AccountPage() {
     openUpgradeModal,
     previewCancellation,
     cancelSubscription,
+    changeCard,
   } = useSubscription();
 
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -56,7 +57,36 @@ export default function AccountPage() {
   const isCanceled = subscription?.status === "canceled";
   const remainingDays = getRemainingDays(subscription?.currentPeriodEnd);
   const plan = subscription?.planType === "yearly" ? PRICING_PLANS.yearly : PRICING_PLANS.monthly;
-  const lastCard = payments.find((p) => p.cardLast4)?.cardLast4;
+
+  // 카드 식별 정보 (구독 메타 우선, 없으면 최근 결제 내역에서 추출)
+  const cardName =
+    subscription?.cardName ||
+    payments.find((p) => p.cardName)?.cardName ||
+    null;
+  const cardLast4 =
+    subscription?.cardLast4 ||
+    payments.find((p) => p.cardLast4)?.cardLast4 ||
+    null;
+
+  const paymentMethodLabel = (() => {
+    if (isCanceled) return "등록 해제됨";
+    if (cardName && cardLast4) return `${cardName} (끝 4자리: ${cardLast4})`;
+    if (cardLast4) return `신용/체크카드 (끝 4자리: ${cardLast4})`;
+    if (cardName) return cardName;
+    return "등록된 결제 수단 (신용/체크카드)";
+  })();
+
+  const handleChangeCard = async () => {
+    setBusy(true);
+    const res = await changeCard();
+    setBusy(false);
+    if (res.success) {
+      setToast("결제 카드를 안전하게 변경했어요.");
+    } else if (res.message) {
+      setToast(res.message);
+    }
+  };
+
   const decision = confirmOpen ? previewCancellation() : null;
 
   const handleCancel = async () => {
@@ -143,16 +173,39 @@ export default function AccountPage() {
 
               <div className="px-5 py-2">
                 <Row label="요금" value={`${fmtWon(plan.price)} ${plan.periodLabel}`} />
-                <Row
-                  label="결제 수단"
-                  value={
-                    <span className="inline-flex items-center gap-1.5">
-                      <CreditCard className="w-3 h-3" />
-                      {isCanceled ? "등록 해제됨" : lastCard ? `카드 **** ${lastCard}` : "등록된 카드"}
+                <div className="flex items-center justify-between py-2.5 border-b border-[#f1f5f9] last:border-0">
+                  <span className="text-[#64748b]">결제 수단</span>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 text-[#0f172a] font-medium">
+                      <CreditCard className="w-3 h-3 text-[#64748b]" />
+                      <span>{paymentMethodLabel}</span>
                     </span>
-                  }
-                />
+                    {subscription?.planType === "monthly" && !isCanceled && (
+                      <button
+                        type="button"
+                        onClick={handleChangeCard}
+                        disabled={busy}
+                        className="px-2 py-0.5 rounded text-[11px] font-sans font-medium border border-[#cbd5e1] hover:border-[#0f172a] text-[#475569] hover:text-[#0f172a] transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        {busy ? "처리 중..." : "카드 변경"}
+                      </button>
+                    )}
+                  </div>
+                </div>
                 <Row label="구독 시작일" value={fmtDate(subscription.currentPeriodStart)} />
+
+                {/* 보안 안심 안내 배너 (Toss Style) */}
+                <div className="mt-3 p-3 rounded-lg bg-[#f8fafc] border border-[#e2e8f0] flex items-start gap-2.5 text-[11px] leading-relaxed text-[#64748b]">
+                  <ShieldCheck className="w-4 h-4 text-[#3182f6] shrink-0 mt-0.5" />
+                  <div className="space-y-0.5 font-sans">
+                    <p className="font-semibold text-[#0f172a]">
+                      안심하고 이용하세요
+                    </p>
+                    <p>
+                      카드 정보는 전자결제대행사(PG사)를 통해 암호화되어 안전하게 보관되며, 서비스 서버에는 실제 카드 번호나 금융 정보가 저장되지 않아요.
+                    </p>
+                  </div>
+                </div>
               </div>
             </section>
 
@@ -310,7 +363,15 @@ function PaymentTable({ payments }: { payments: ReturnType<typeof useSubscriptio
             payments.map((p) => (
             <tr key={p.id} className="border-t border-[#f1f5f9]">
               <td className="px-5 py-2.5">{fmtDate(p.paidAt)}</td>
-              <td className="px-5 py-2.5">{p.planType === "yearly" ? "연간" : "월간"}</td>
+              <td className="px-5 py-2.5">
+                <div>{p.planType === "yearly" ? "연간" : "월간"}</div>
+                {(p.cardName || p.cardLast4) && (
+                  <div className="text-[10px] text-[#94a3b8]">
+                    {p.cardName ? `${p.cardName} ` : ""}
+                    {p.cardLast4 ? `**** ${p.cardLast4}` : ""}
+                  </div>
+                )}
+              </td>
               <td className={`px-5 py-2.5 text-right ${p.status === "refunded" ? "line-through text-[#94a3b8]" : ""}`}>
                 {fmtWon(p.amount)}
                 {(p.status === "partial_refunded" || p.status === "refunded") &&

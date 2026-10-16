@@ -52,6 +52,21 @@ export async function GET(req: Request) {
       .eq("user_id", user.id)
       .order("paid_at", { ascending: false });
 
+    const payments: PaymentTransaction[] = (payRows ?? []).map((r) => ({
+      id: String(r.merchant_uid ?? r.id),
+      paymentId: (r.imp_uid as string | null) ?? null,
+      planType: (r.plan_type as "monthly" | "yearly") ?? "monthly",
+      amount: Number(r.amount ?? 0),
+      payMethod: String(r.pay_method ?? "CARD"),
+      cardName: (r.card_name as string | null) ?? null,
+      cardLast4: (r.card_last4 as string | null) ?? null,
+      status: (r.status as PaymentTransaction["status"]) ?? "paid",
+      receiptUrl: (r.receipt_url as string | null) ?? null,
+      paidAt: String(r.paid_at ?? new Date().toISOString()),
+      refundedAmount: r.refunded_amount != null ? Number(r.refunded_amount) : null,
+      refundedAt: (r.refunded_at as string | null) ?? null,
+    }));
+
     let subscription: Subscription | null = null;
     if (subRow) {
       let tier = (subRow.tier as "free" | "pro") ?? "free";
@@ -65,6 +80,12 @@ export async function GET(req: Request) {
         tier = "free";
         status = "expired";
       }
+
+      const recentCardName =
+        (subRow.card_name as string | null) ?? payments[0]?.cardName ?? null;
+      const recentCardLast4 =
+        (subRow.card_last4 as string | null) ?? payments[0]?.cardLast4 ?? null;
+
       subscription = {
         id: String(subRow.id ?? `sub_${user.id}`),
         userId: user.id,
@@ -76,23 +97,11 @@ export async function GET(req: Request) {
         ),
         currentPeriodEnd: (subRow.current_period_end as string | null) ?? null,
         billingKey: null, // 빌링키는 클라이언트에 노출하지 않음
+        cardName: recentCardName,
+        cardLast4: recentCardLast4,
         canceledAt: (subRow.canceled_at as string | null) ?? null,
       };
     }
-
-    const payments: PaymentTransaction[] = (payRows ?? []).map((r) => ({
-      id: String(r.merchant_uid ?? r.id),
-      paymentId: (r.imp_uid as string | null) ?? null,
-      planType: (r.plan_type as "monthly" | "yearly") ?? "monthly",
-      amount: Number(r.amount ?? 0),
-      payMethod: String(r.pay_method ?? "CARD"),
-      cardLast4: (r.card_last4 as string | null) ?? null,
-      status: (r.status as PaymentTransaction["status"]) ?? "paid",
-      receiptUrl: (r.receipt_url as string | null) ?? null,
-      paidAt: String(r.paid_at ?? new Date().toISOString()),
-      refundedAmount: r.refunded_amount != null ? Number(r.refunded_amount) : null,
-      refundedAt: (r.refunded_at as string | null) ?? null,
-    }));
 
     return NextResponse.json({ success: true, subscription, payments });
   } catch (err: unknown) {

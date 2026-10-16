@@ -92,7 +92,8 @@ export async function POST(req: Request) {
     let verifiedPaymentId: string;
     let verifiedAmount: number;
     let verifiedPayMethod: string;
-    let verifiedCardLast4: string | null;
+    let verifiedCardName: string | null = null;
+    let verifiedCardLast4: string | null = null;
     let verifiedReceiptUrl: string | null;
     let verifiedPaidAt: string;
     let effectiveBillingKey: string | null = null;
@@ -144,7 +145,8 @@ export async function POST(req: Request) {
       verifiedPaymentId = charge.data.paymentId;
       verifiedAmount = charge.data.amount;
       verifiedPayMethod = charge.data.payMethod || "CARD";
-      verifiedCardLast4 = charge.data.cardLast4 || null;
+      verifiedCardName = charge.data.cardName || keyCheck.cardName || null;
+      verifiedCardLast4 = charge.data.cardLast4 || keyCheck.cardLast4 || null;
       verifiedReceiptUrl = charge.data.receiptUrl || null;
       verifiedPaidAt = charge.data.paidAt || nowStr;
       effectiveBillingKey = billingKey;
@@ -208,6 +210,7 @@ export async function POST(req: Request) {
       verifiedPaymentId = verification.data.paymentId;
       verifiedAmount = verification.data.amount;
       verifiedPayMethod = verification.data.payMethod || payMethod;
+      verifiedCardName = verification.data.cardName || null;
       verifiedCardLast4 = verification.data.cardLast4 || null;
       verifiedReceiptUrl = verification.data.receiptUrl || null;
       verifiedPaidAt = verification.data.paidAt || nowStr;
@@ -236,7 +239,7 @@ export async function POST(req: Request) {
     const newExpiryStr = newExpiry.toISOString();
 
     // 4. DB 기록 — 결제 내역을 먼저 남기고(돈의 흔적 보존) 구독을 갱신
-    const { error: payError } = await supabase.from("payment_transactions").insert({
+    const payPayload: Record<string, unknown> = {
       user_id: user.id,
       merchant_uid: merchantUidForDb,
       imp_uid: verifiedPaymentId,
@@ -247,7 +250,15 @@ export async function POST(req: Request) {
       receipt_url: verifiedReceiptUrl,
       status: "paid",
       paid_at: verifiedPaidAt,
-    });
+    };
+    if (verifiedCardName) payPayload.card_name = verifiedCardName;
+
+    let { error: payError } = await supabase.from("payment_transactions").insert(payPayload);
+    if (payError && (payError.message.includes("card_name") || payError.message.includes("column"))) {
+      delete payPayload.card_name;
+      const retry = await supabase.from("payment_transactions").insert(payPayload);
+      payError = retry.error;
+    }
 
     if (payError) {
       console.error("[confirm API] payment_transactions 기록 실패:", payError.message);
@@ -260,20 +271,32 @@ export async function POST(req: Request) {
       );
     }
 
-    const { error: subError } = await supabase.from("subscriptions").upsert(
-      {
-        user_id: user.id,
-        tier: "pro",
-        plan_type: planType,
-        status: "active",
-        current_period_start: nowStr,
-        current_period_end: newExpiryStr,
-        billing_key: effectiveBillingKey,
-        canceled_at: null,
-        updated_at: nowStr,
-      },
-      { onConflict: "user_id" }
-    );
+    const subPayload: Record<string, unknown> = {
+      user_id: user.id,
+      tier: "pro",
+      plan_type: planType,
+      status: "active",
+      current_period_start: nowStr,
+      current_period_end: newExpiryStr,
+      billing_key: effectiveBillingKey,
+      canceled_at: null,
+      updated_at: nowStr,
+    };
+    if (verifiedCardName) subPayload.card_name = verifiedCardName;
+    if (verifiedCardLast4) subPayload.card_last4 = verifiedCardLast4;
+
+    let { error: subError } = await supabase
+      .from("subscriptions")
+      .upsert(subPayload, { onConflict: "user_id" });
+
+    if (subError && (subError.message.includes("card_") || subError.message.includes("column"))) {
+      delete subPayload.card_name;
+      delete subPayload.card_last4;
+      const retry = await supabase
+        .from("subscriptions")
+        .upsert(subPayload, { onConflict: "user_id" });
+      subError = retry.error;
+    }
 
     if (subError) {
       console.error("[confirm API] subscriptions 저장 실패:", subError.message);
@@ -295,6 +318,8 @@ export async function POST(req: Request) {
       currentPeriodStart: nowStr,
       currentPeriodEnd: newExpiryStr,
       billingKey: null, // 빌링키는 클라이언트에 노출하지 않음
+      cardName: verifiedCardName,
+      cardLast4: verifiedCardLast4,
       canceledAt: null,
     };
 
@@ -304,6 +329,7 @@ export async function POST(req: Request) {
       planType,
       amount: verifiedAmount,
       payMethod: verifiedPayMethod,
+      cardName: verifiedCardName,
       cardLast4: verifiedCardLast4,
       status: "paid",
       receiptUrl: verifiedReceiptUrl,
@@ -341,6 +367,8 @@ function mapSubscription(
     currentPeriodStart: String(row.current_period_start ?? new Date().toISOString()),
     currentPeriodEnd: (row.current_period_end as string | null) ?? null,
     billingKey: null,
+    cardName: (row.card_name as string | null) ?? null,
+    cardLast4: (row.card_last4 as string | null) ?? null,
     canceledAt: (row.canceled_at as string | null) ?? null,
   };
 }
@@ -352,6 +380,7 @@ function mapPayment(row: Record<string, unknown>): PaymentTransaction {
     planType: (row.plan_type as "monthly" | "yearly") ?? "monthly",
     amount: Number(row.amount ?? 0),
     payMethod: String(row.pay_method ?? "CARD"),
+    cardName: (row.card_name as string | null) ?? null,
     cardLast4: (row.card_last4 as string | null) ?? null,
     status: (row.status as PaymentTransaction["status"]) ?? "paid",
     receiptUrl: (row.receipt_url as string | null) ?? null,

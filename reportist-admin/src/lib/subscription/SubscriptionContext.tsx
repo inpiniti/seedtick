@@ -48,6 +48,8 @@ interface SubscriptionContextValue {
   /** 지금 해지하면 어떻게 처리되는지 미리 계산 (해지 확인 화면용) */
   previewCancellation: () => CancellationDecision;
   cancelSubscription: () => Promise<{ success: boolean; decision?: CancellationDecision; message?: string }>;
+  /** 월간 정기결제 등록 카드 변경 */
+  changeCard: () => Promise<{ success: boolean; message?: string }>;
   refreshSubscription: () => Promise<void>;
 }
 
@@ -380,6 +382,71 @@ export function SubscriptionProvider({
     }
   }, [subscription, refreshSubscription]);
 
+  // 월간 정기결제 등록 카드 변경
+  const changeCard = useCallback(async (): Promise<{ success: boolean; message?: string }> => {
+    if (!user) {
+      openAuthModal();
+      return { success: false, message: "로그인이 필요합니다." };
+    }
+    if (!subscription || subscription.tier !== "pro" || subscription.planType !== "monthly") {
+      return {
+        success: false,
+        message: "월간 정기결제 이용 중인 경우에만 카드를 변경할 수 있어요.",
+      };
+    }
+
+    try {
+      // 1. 포트원 결제창으로 새 카드 빌링키 발급 요청
+      const portoneRes = await requestBillingKey({
+        issueName: "Reportist Pro 결제 카드 변경",
+        customerId: user.id,
+        customerName: user.email?.split("@")[0] || "Reportist 회원",
+        customerEmail: user.email,
+      });
+
+      if (!portoneRes.success || !portoneRes.billingKey) {
+        return {
+          success: false,
+          message: portoneRes.message || "카드 변경이 취소되었어요.",
+        };
+      }
+
+      // 2. 서버 change-card API 호출
+      const token = supabase
+        ? (await supabase.auth.getSession()).data.session?.access_token
+        : undefined;
+
+      const res = await fetch("/api/billing/change-card", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          billingKey: portoneRes.billingKey,
+        }),
+      });
+
+      const json = await res.json().catch(() => null);
+      if (!json?.success) {
+        return {
+          success: false,
+          message: json?.message || "카드 정보를 변경하지 못했어요.",
+        };
+      }
+
+      // 3. 서버 진실로 재동기화
+      await refreshSubscription();
+      return { success: true };
+    } catch (err: unknown) {
+      return {
+        success: false,
+        message:
+          err instanceof Error ? err.message : "카드 변경 중 오류가 발생했어요.",
+      };
+    }
+  }, [user, subscription, openAuthModal, refreshSubscription]);
+
   return (
     <SubscriptionContext.Provider
       value={{
@@ -403,6 +470,7 @@ export function SubscriptionProvider({
         payments,
         previewCancellation,
         cancelSubscription,
+        changeCard,
         refreshSubscription,
       }}
     >
