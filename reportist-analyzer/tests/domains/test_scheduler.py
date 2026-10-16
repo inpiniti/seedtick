@@ -18,11 +18,23 @@ async def test_scheduler_jobs_registration():
     try:
         jobs = {job.id: job for job in service._scheduler.get_jobs()}
         assert "cleanup_old_logs" in jobs
+        assert "daily_outcome_tracking" in jobs
         assert "us_daily_pipeline" in jobs
         assert "kr_daily_pipeline" in jobs
         assert "reset_model_rotation" in jobs
         # 장외 예약 주문은 폐기됨: 정규장 개장 후 예약 발주 잡이 등록되지 않는다
         assert "execute_pending_orders" not in jobs
+
+        # 0-1. 일일 성과 추적 잡이 08:30 KST에 실행되는지 검증
+        outcome_job = jobs["daily_outcome_tracking"]
+        outcome_trigger = outcome_job.trigger
+        assert isinstance(outcome_trigger, CronTrigger)
+        test_dt = datetime(2026, 9, 30, 0, 0, tzinfo=zoneinfo.ZoneInfo("Asia/Seoul"))
+        next_outcome = outcome_trigger.get_next_fire_time(None, test_dt)
+        assert next_outcome is not None
+        next_outcome_kst = next_outcome.astimezone(zoneinfo.ZoneInfo("Asia/Seoul"))
+        assert next_outcome_kst.hour == 8
+        assert next_outcome_kst.minute == 30
 
         # 1. 만료 로그 정리 트리거가 08:00 KST에 실행되는지 검증
         cleanup_job = jobs["cleanup_old_logs"]

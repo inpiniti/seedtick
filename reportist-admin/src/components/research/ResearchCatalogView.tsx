@@ -14,6 +14,7 @@ import { TallyBar, TallyCounts } from "@/components/ui/TallyBar";
 import { PipelineProgressCard } from "@/components/tabs/PipelineProgressCard";
 import { LogsTab } from "@/components/tabs/LogsTab";
 import { SidebarSectionId } from "@/components/sidebar/ResearchSidebar";
+import { OutcomesView } from "@/components/outcomes/OutcomesView";
 import { GURU_PERSONAS, GuruPersona } from "@/lib/guruPersonas";
 import { GuruDetailModal } from "@/components/research/GuruDetailModal";
 import { StockListItem, StockItemInsight } from "@/components/research/StockListItem";
@@ -1547,102 +1548,27 @@ export function ResearchCatalogView({
         </section>
       )}
 
-      {/* ── 5. SECTION 04: PIPELINE (관리자 전용) ── */}
-      {isAdmin && isVisible("sec-pipeline") && (
+      {/* ── 4. SECTION 04: 성과 및 거장 적중률 (Track Record) ── */}
+      {isVisible("sec-outcomes") && (
         <section
-          id="sec-pipeline"
+          id="sec-outcomes"
           className="px-6 lg:px-12 py-10 lg:py-12 bg-white"
         >
-          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] gap-8 lg:gap-12">
-            {/* 좌측 */}
-            <div className="space-y-4 md:sticky md:top-[72px] md:self-start">
-              <div className="flex items-baseline gap-2">
-                <span className="font-mono text-xs font-semibold text-[#94a3b8]">
-                  04
-                </span>
-                <h2 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
-                  파이프라인
-                </h2>
-              </div>
-              <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-md">
-                12:00 정기 배치 파이프라인의 실시간 진행 현황과 단계별 소요
-                시간을 모니터링합니다.
-              </p>
-              {onOpenPipelineModal && (
-                <div className="pt-2">
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={onOpenPipelineModal}
-                    disabled={isPipelineRunning}
-                    leftIcon={
-                      isPipelineRunning ? (
-                        <Activity className="w-3.5 h-3.5 animate-pulse text-amber-400" />
-                      ) : (
-                        <Sparkles className="w-3.5 h-3.5" />
-                      )
-                    }
-                    className="font-mono text-xs font-medium"
-                  >
-                    <span className="hidden sm:inline">
-                      {isPipelineRunning ? "분석 파이프라인 가동 중" : "파이프라인 실행"}
-                    </span>
-                    <span className="sm:hidden">
-                      {isPipelineRunning ? "가동 중" : "파이프라인"}
-                    </span>
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            {/* 우측 */}
-            <div className="min-w-0">
-              <PipelineProgressCard
-                progress={pipelineProgress}
-                isLoading={isLoading}
-                onRefresh={onRefreshPipeline}
-              />
-            </div>
-          </div>
+          <OutcomesView
+            isAdmin={isAdmin}
+            onSelectReport={(_id, ticker, date) => {
+              const found =
+                guruReports.find((r) => r.ticker === ticker && r.d === date) ||
+                guruReports.find((r) => r.ticker === ticker);
+              if (found) {
+                onSelectReport(found);
+              }
+            }}
+          />
         </section>
       )}
 
-      {/* ── 6. SECTION 05: SYSTEM AUDIT (관리자 전용) ── */}
-      {isAdmin && isVisible("sec-audit") && (
-        <section
-          id="sec-audit"
-          className="px-6 lg:px-12 py-10 lg:py-12 bg-white"
-        >
-          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] gap-8 lg:gap-12">
-            {/* 좌측 */}
-            <div className="space-y-4 md:sticky md:top-[72px] md:self-start">
-              <div className="flex items-baseline gap-2">
-                <span className="font-mono text-xs font-semibold text-[#94a3b8]">
-                  05
-                </span>
-                <h2 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
-                  감사 로그
-                </h2>
-              </div>
-              <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-md">
-                시스템 감사 오류 로그를 레벨별로 필터링하고 세부 원인을
-                추적합니다.
-              </p>
-            </div>
-
-            {/* 우측 */}
-            <div className="min-w-0">
-              <LogsTab
-                logs={systemLogs}
-                isLoading={isLoading}
-                onRefresh={onRefreshLogs}
-              />
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ── 7. SECTION 06: 13인 투자 거장 철학 & 심층 가이드 (my/financial 연동) ── */}
+      {/* ── 5. SECTION 05: 13인 투자 거장 철학 & 심층 가이드 (my/financial 연동) ── */}
       {isVisible("sec-gurus") && (
         <section
           id="sec-gurus"
@@ -1651,7 +1577,7 @@ export function ResearchCatalogView({
           <div className="space-y-6">
             <div className="flex items-baseline gap-2">
               <span className="font-mono text-xs font-semibold text-[#94a3b8]">
-                06
+                05
               </span>
               <h2 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
                 13인 투자 거장 철학 및 밸류에이션 가이드
@@ -1722,6 +1648,101 @@ export function ResearchCatalogView({
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── 6. SECTION 06: PIPELINE (관리자 전용) ── */}
+      {isAdmin && isVisible("sec-pipeline") && (
+        <section
+          id="sec-pipeline"
+          className="px-6 lg:px-12 py-10 lg:py-12 bg-white"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] gap-8 lg:gap-12">
+            {/* 좌측 */}
+            <div className="space-y-4 md:sticky md:top-[72px] md:self-start">
+              <div className="flex items-baseline gap-2">
+                <span className="font-mono text-xs font-semibold text-[#94a3b8]">
+                  06
+                </span>
+                <h2 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
+                  파이프라인
+                </h2>
+              </div>
+              <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-md">
+                12:00 정기 배치 파이프라인의 실시간 진행 현황과 단계별 소요
+                시간을 모니터링합니다.
+              </p>
+              {onOpenPipelineModal && (
+                <div className="pt-2">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={onOpenPipelineModal}
+                    disabled={isPipelineRunning}
+                    leftIcon={
+                      isPipelineRunning ? (
+                        <Activity className="w-3.5 h-3.5 animate-pulse text-amber-400" />
+                      ) : (
+                        <Sparkles className="w-3.5 h-3.5" />
+                      )
+                    }
+                    className="font-mono text-xs font-medium"
+                  >
+                    <span className="hidden sm:inline">
+                      {isPipelineRunning ? "분석 파이프라인 가동 중" : "파이프라인 실행"}
+                    </span>
+                    <span className="sm:hidden">
+                      {isPipelineRunning ? "가동 중" : "파이프라인"}
+                    </span>
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* 우측 */}
+            <div className="min-w-0">
+              <PipelineProgressCard
+                progress={pipelineProgress}
+                isLoading={isLoading}
+                onRefresh={onRefreshPipeline}
+              />
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── 7. SECTION 07: SYSTEM AUDIT (관리자 전용) ── */}
+      {isAdmin && isVisible("sec-audit") && (
+        <section
+          id="sec-audit"
+          className="px-6 lg:px-12 py-10 lg:py-12 bg-white"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] gap-8 lg:gap-12">
+            {/* 좌측 */}
+            <div className="space-y-4 md:sticky md:top-[72px] md:self-start">
+              <div className="flex items-baseline gap-2">
+                <span className="font-mono text-xs font-semibold text-[#94a3b8]">
+                  07
+                </span>
+                <h2 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
+                  감사 로그
+                </h2>
+              </div>
+              <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-md">
+                시스템 감사 오류 로그를 레벨별로 필터링하고 세부 원인을
+                추적합니다.
+              </p>
+            </div>
+
+            {/* 우측 */}
+            <div className="min-w-0">
+              <LogsTab
+                logs={systemLogs}
+                isLoading={isLoading}
+                onRefresh={onRefreshLogs}
+              />
             </div>
           </div>
         </section>

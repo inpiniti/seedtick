@@ -9,6 +9,7 @@ import {
   TickerLogoResponse,
   TickerNameBatchResponse,
   TickerNameResponse,
+  OutcomesOverview,
 } from "@/types/api";
 import { supabase } from "@/lib/supabase";
 
@@ -271,4 +272,42 @@ export async function resetAiModelRotation(): Promise<{
     method: "POST",
     headers: await getAdminAuthHeaders(),
   }, 0);
+}
+
+/** 8. 성과 추적 데이터 및 통계 요약 조회 */
+export async function fetchOutcomes(horizon?: number | "all"): Promise<OutcomesOverview> {
+  const params = new URLSearchParams();
+  if (horizon && horizon !== "all") {
+    params.set("horizon", String(horizon));
+  }
+  const url = `/api/outcomes${params.toString() ? `?${params.toString()}` : ""}`;
+  const res = await fetch(url, { cache: "no-store" });
+  const json = await res.json().catch(() => null);
+  if (!res.ok || !json?.success) {
+    throw new Error(json?.message || "성과 추적 데이터 조회에 실패했어요.");
+  }
+  return json.data as OutcomesOverview;
+}
+
+/** 9. 성과 추적 배치 수동 실행 (관리자 전용) */
+export async function triggerOutcomeTracking(asOf?: string): Promise<{
+  success: boolean;
+  message: string;
+  evaluated?: number;
+  duration_sec?: number;
+}> {
+  const headers = await getAdminAuthHeaders();
+  const res = await fetch("/api/outcomes", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...headers,
+    },
+    body: JSON.stringify(asOf ? { as_of: asOf } : {}),
+  });
+  const json = await res.json().catch(() => null);
+  if (!res.ok || !json?.success) {
+    throw new Error(json?.message || "성과 추적 배치 실행에 실패했어요.");
+  }
+  return json;
 }

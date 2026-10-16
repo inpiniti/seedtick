@@ -12,7 +12,7 @@ import {
   BookOpen,
   ArrowLeft,
   X,
-  Sparkles,
+  Award,
 } from "lucide-react";
 import { ReportistLogoBadge } from "@/components/ui/ReportistLogo";
 import { useSubscription } from "@/lib/subscription/SubscriptionContext";
@@ -22,6 +22,7 @@ export type SidebarSectionId =
   | "sec-reports"
   | "sec-roma"
   | "sec-screener"
+  | "sec-outcomes"
   | "sec-pipeline"
   | "sec-audit"
   | "sec-gurus";
@@ -31,6 +32,7 @@ export const SECTION_HREF_MAP: Record<SidebarSectionId, string> = {
   "sec-reports": "/stocks",
   "sec-roma": "/screener?tab=roma",
   "sec-screener": "/screener",
+  "sec-outcomes": "/outcomes",
   "sec-pipeline": "/pipeline",
   "sec-gurus": "/gurus",
   "sec-audit": "/admin",
@@ -96,13 +98,13 @@ export function ResearchSidebar({
     ? [
         {
           id: "sec-pipeline" as SidebarSectionId,
-          prefix: "04",
+          prefix: "06",
           label: "파이프라인",
           icon: Activity,
         },
         {
           id: "sec-audit" as SidebarSectionId,
-          prefix: "05",
+          prefix: "07",
           label: "감사 로그",
           badge: logCount > 0 ? `${logCount}` : undefined,
           icon: Terminal,
@@ -151,6 +153,12 @@ export function ResearchSidebar({
               : undefined,
           icon: Compass,
         },
+        {
+          id: "sec-outcomes",
+          prefix: "04",
+          label: "성과 및 거장 적중률",
+          icon: Award,
+        },
       ],
     },
     {
@@ -158,7 +166,7 @@ export function ResearchSidebar({
       items: [
         {
           id: "sec-gurus",
-          prefix: "06",
+          prefix: "05",
           label: "13인 투자 거장 철학",
           badge: "13",
           icon: Users,

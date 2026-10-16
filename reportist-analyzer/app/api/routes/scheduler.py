@@ -57,3 +57,20 @@ async def cleanup_logs(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"로그 정리 실행 오류: {e}")
 
+
+@router.post("/outcomes", summary="보고서 성과 및 거장 적중률 추적 수동 즉시 실행")
+async def trigger_outcomes(
+    _admin: dict = Depends(require_admin),
+    limit: int = Query(200, ge=1, le=1000, description="평가할 최대 리포트 수"),
+    dry_run: bool = Query(False, description="DB 저장 없이 계산만 수행"),
+):
+    """
+    21, 63, 126, 252 거래일 경과된 과거 보고서들의 실제 주가 수익률 및 SPY 초과수익률,
+    거장별 적중 여부(is_correct)를 즉시 계산하여 report_outcomes 및 guru_opinion_outcomes에 적재합니다.
+    """
+    try:
+        result = await scheduler_service.trigger_outcome_tracking(limit=limit, dry_run=dry_run)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"성과 추적 실행 오류: {e}")
+

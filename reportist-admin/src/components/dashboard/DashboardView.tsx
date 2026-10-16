@@ -121,6 +121,10 @@ export function DashboardView({
   const [activeSidebarSection, setActiveSidebarSection] =
     useState<SidebarSectionId>(initialSection);
 
+  useEffect(() => {
+    setActiveSidebarSection(initialSection);
+  }, [initialSection]);
+
   // 2. 로딩 상태 (캐시 미보유 시 마운트 조회가 실행되므로 초기값 반영)
   const [isLoading, setIsLoading] = useState(!initialReport);
   const [isScreenerLoading, setIsScreenerLoading] = useState(
@@ -805,6 +809,7 @@ export function DashboardView({
     else if (sec === "sec-reports") router.push("/stocks");
     else if (sec === "sec-screener") router.push("/screener");
     else if (sec === "sec-roma") router.push("/screener?tab=roma");
+    else if (sec === "sec-outcomes") router.push("/outcomes");
     else if (sec === "sec-gurus") router.push("/gurus");
     else if (sec === "sec-pipeline") router.push("/pipeline");
     else if (sec === "sec-audit") router.push("/admin");

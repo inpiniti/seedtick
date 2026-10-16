@@ -63,6 +63,23 @@ async def test_scheduler_cleanup_logs_route(monkeypatch, admin_override):
 
 
 @pytest.mark.asyncio
+async def test_scheduler_outcomes_route(monkeypatch, admin_override):
+    from app.domains.scheduler.service import scheduler_service
+
+    async def mock_outcome_tracking(limit=200, dry_run=False):
+        return {"reports_evaluated": 10, "report_outcomes": 20, "opinion_outcomes": 130}
+
+    monkeypatch.setattr(scheduler_service, "trigger_outcome_tracking", mock_outcome_tracking)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.post("/api/scheduler/outcomes?limit=50&dry_run=true")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["reports_evaluated"] == 10
+        assert data["report_outcomes"] == 20
+
+
+@pytest.mark.asyncio
 async def test_scheduler_trigger_route(monkeypatch, admin_override):
     from unittest.mock import MagicMock
     from app.domains.scheduler.service import scheduler_service

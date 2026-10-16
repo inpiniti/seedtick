@@ -371,3 +371,69 @@ export interface PipelineProgress {
   error: string | null;
   summary: Record<string, unknown> | null;
 }
+
+// 7. 성과 추적 데이터 모델 (report_outcomes & guru_opinion_outcomes)
+export interface ReportOutcomeRow {
+  report_id: string;
+  ticker: string;
+  d: string;
+  horizon_days: number;
+  verdict: string;
+  price_then: number;
+  price_target: number | null;
+  price_after: number | null;
+  return_pct: number | null;
+  bench_return_pct: number | null;
+  excess_return_pct: number | null;
+  hit_fair_value: boolean | null;
+  measured_at: string;
+}
+
+export interface GuruOpinionOutcomeRow {
+  opinion_id: number;
+  report_id: string;
+  ticker: string;
+  persona: string;
+  horizon_days: number;
+  verdict: string;
+  confidence: number | null;
+  price_then: number;
+  price_after: number | null;
+  return_pct: number | null;
+  is_correct: boolean | null;
+  measured_at: string;
+}
+
+export interface GuruAccuracyStat {
+  persona: string;
+  name: string;
+  style: string;
+  total_opinions: number;
+  evaluated_count: number;
+  correct_count: number;
+  accuracy_pct: number | null;
+  avg_return_pct: number | null;
+  avg_confidence: number | null;
+}
+
+export interface HorizonPerformanceStat {
+  horizon_days: number;
+  horizon_label: string;
+  evaluated_count: number;
+  avg_return_pct: number | null;
+  avg_bench_return_pct: number | null;
+  avg_excess_return_pct: number | null;
+  fair_value_hit_rate_pct: number | null;
+  win_rate_pct: number | null;
+}
+
+export interface OutcomesOverview {
+  total_reports_tracked: number;
+  total_evaluations: number;
+  avg_excess_return_pct: number | null;
+  fair_value_hit_rate_pct: number | null;
+  top_guru: { persona: string; name: string; accuracy_pct: number } | null;
+  guru_stats: GuruAccuracyStat[];
+  horizon_stats: HorizonPerformanceStat[];
+  recent_outcomes: ReportOutcomeRow[];
+}

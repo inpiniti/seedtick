@@ -349,3 +349,28 @@ async def reset_model_rotation_job() -> dict:
         "chain": after["chain"],
         "switch_count": after["switch_count"],
     }
+
+
+async def daily_outcome_tracking_job(
+    horizons: list[int] | None = None,
+    limit: int = 200,
+    dry_run: bool = False,
+) -> dict:
+    """
+    일일 성과 추적 잡: 매일 08:30 KST (미국장 파이프라인 전) 실행.
+    21, 63, 126, 252 거래일 경과된 리포트의 주가 수익률 및 거장 적중률을 계산하여
+    report_outcomes 및 guru_opinion_outcomes에 적재합니다.
+    """
+    logger.info("========== [일일 성과 추적 잡 시작] ==========")
+    from app.domains.report.outcome_tracker import run_outcome_tracking
+
+    # 동기 yfinance 및 DB I/O를 안전하게 별도 스레드에서 비동기 실행
+    res = await asyncio.to_thread(
+        run_outcome_tracking,
+        horizons=horizons,
+        limit=limit,
+        dry_run=dry_run,
+    )
+    logger.info(f"[Scheduler] 성과 추적 완료: {res}")
+    logger.info("========== [일일 성과 추적 잡 종료] ==========")
+    return res

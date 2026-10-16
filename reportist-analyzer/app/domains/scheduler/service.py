@@ -13,6 +13,7 @@ from app.domains.scheduler.jobs import (
     kr_daily_pipeline_job,
     cleanup_old_logs_job,
     reset_model_rotation_job,
+    daily_outcome_tracking_job,
 )
 
 logger = logging.getLogger("scheduler_service")
@@ -25,7 +26,7 @@ class SchedulerService:
         self._background_tasks: set[asyncio.Task] = set()
 
     def start(self):
-        """스케줄러 시작: 00:01 모델초기화, 08:00 로그정리, 09:00 미장파이프라인, 16:00 국장파이프라인 잡 등록"""
+        """스케줄러 시작: 00:01 모델초기화, 08:00 로그정리, 08:30 성과추적, 09:00 미장파이프라인, 16:00 국장파이프라인 잡 등록"""
         # 0. AI 모델 순위 초기화 잡: 매일 00:01 KST
         # 1순위 모델의 프로바이더 과부하는 자정 지나면 자연 복구되므로 1순위로 되돌린다.
         # 정각(00:00)과 겹치지 않도록 1분 뒤로 두어 야간 배치 준비를 방해하지 않는다.
@@ -48,6 +49,19 @@ class SchedulerService:
             trigger=cleanup_logs_trigger,
             id="cleanup_old_logs",
             name="일일 만료 INFO 시스템 로그 정리 (매일 오전 08:00)",
+            replace_existing=True,
+        )
+
+        # 1-1. 일일 보고서 성과 및 거장 적중률 추적 잡: 매일 08:30 KST (미국 파이프라인 30분 전)
+        # 21, 63, 126, 252 거래일 경과된 과거 리포트의 주가/초과수익률 및 거장 적중 여부 계산
+        outcome_trigger = CronTrigger(
+            hour=8, minute=30, timezone="Asia/Seoul"
+        )
+        self._scheduler.add_job(
+            daily_outcome_tracking_job,
+            trigger=outcome_trigger,
+            id="daily_outcome_tracking",
+            name="일일 보고서 성과 및 거장 적중률 추적 (매일 오전 08:30 KST)",
             replace_existing=True,
         )
 
@@ -153,6 +167,15 @@ class SchedulerService:
         """AI 모델 순위 1순위 초기화 수동 트리거"""
         logger.info("[Scheduler] 수동 모델 순위 초기화 트리거")
         return await reset_model_rotation_job()
+
+    async def trigger_outcome_tracking(
+        self,
+        limit: int = 200,
+        dry_run: bool = False,
+    ) -> dict:
+        """성과 추적 수동 즉시 트리거"""
+        logger.info(f"[Scheduler] 수동 성과 추적 트리거 (limit={limit}, dry_run={dry_run})")
+        return await daily_outcome_tracking_job(limit=limit, dry_run=dry_run)
 
 
 scheduler_service = SchedulerService()
