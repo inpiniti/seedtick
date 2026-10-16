@@ -47,6 +47,7 @@ import { fetchTickerLogos, fetchTickerNames, fetchStockChart } from "@/lib/api-c
 import { useSubscription } from "@/lib/subscription/SubscriptionContext";
 import { isReportRestricted, getDefaultReportDate } from "@/lib/subscription/subscriptionPolicy";
 import { DataCache } from "@/lib/dataCache";
+import { matchesTickerAlias } from "@/lib/tickerAliases";
 
 const KR_STEP_5_INFO = {
   label: "5단계 (추천 알짜)",
@@ -428,6 +429,7 @@ export function ResearchCatalogView({
           r.company_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (tickerNameMap?.[r.ticker.toUpperCase()] &&
           tickerNameMap[r.ticker.toUpperCase()].toLowerCase().includes(searchQuery.toLowerCase())) ||
+        matchesTickerAlias(searchQuery, r.ticker, r.company_name) ||
         (r.verdict &&
           r.verdict.toLowerCase().includes(searchQuery.toLowerCase()));
 
@@ -488,7 +490,8 @@ export function ResearchCatalogView({
         c.ticker.toLowerCase().includes(q) ||
         (c.name && c.name.toLowerCase().includes(q)) ||
         (tickerNameMap?.[c.ticker.toUpperCase()] &&
-          tickerNameMap[c.ticker.toUpperCase()].toLowerCase().includes(q))
+          tickerNameMap[c.ticker.toUpperCase()].toLowerCase().includes(q)) ||
+        matchesTickerAlias(q, c.ticker, c.name)
     );
   }, [romaCandidates, searchQuery, tickerNameMap]);
 
@@ -506,7 +509,8 @@ export function ResearchCatalogView({
         (c.name && c.name.toLowerCase().includes(q)) ||
         (c.category && c.category.toLowerCase().includes(q)) ||
         (tickerNameMap?.[c.ticker.toUpperCase()] &&
-          tickerNameMap[c.ticker.toUpperCase()].toLowerCase().includes(q))
+          tickerNameMap[c.ticker.toUpperCase()].toLowerCase().includes(q)) ||
+        matchesTickerAlias(q, c.ticker, c.name)
     );
   }, [activeCandidatesList, searchQuery, tickerNameMap]);
 

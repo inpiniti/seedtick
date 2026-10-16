@@ -30,6 +30,10 @@ import {
 } from "lucide-react";
 import { useSubscription } from "@/lib/subscription/SubscriptionContext";
 import { isReportRestricted } from "@/lib/subscription/subscriptionPolicy";
+import {
+  getTickerPrimaryAlias,
+  getCompanyDisplayNameWithAlias,
+} from "@/lib/tickerAliases";
 
 export type ResearchDocTab = "final" | "summaries" | "datapack" | "chart";
 
@@ -118,6 +122,8 @@ export function ResearchDocumentView({
   const valConsensus = extractValuationConsensus(report);
   const ticker = report.ticker;
   const companyName = report.company_name || ticker;
+  const primaryAlias = getTickerPrimaryAlias(ticker);
+  const displayWithAlias = getCompanyDisplayNameWithAlias(companyName, ticker);
   const docId = `DOC-${report.d?.replace(/-/g, "") || "LIVE"}-${ticker}`;
   const verdict = report.verdict || "의견 조율 중";
 
@@ -276,6 +282,12 @@ export function ResearchDocumentView({
                 ${ticker}
               </span>
 
+              {primaryAlias && !companyName.includes(primaryAlias) && (
+                <span className="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded shadow-2xs">
+                  {primaryAlias}
+                </span>
+              )}
+
               <span className="text-xs font-medium text-[#475569] bg-[#f8fafc] px-2.5 py-1 rounded border border-[#e2e8f0]">
                 주식 분석 리포트
               </span>
@@ -357,7 +369,8 @@ export function ResearchDocumentView({
             </div>
 
             <p className="text-sm text-[#64748b] leading-relaxed">
-              워런 버핏·피터 린치 등 13인 투자 거장의 원전 철학으로 분석한 {companyName}(${ticker}) 주식 가치평가 리포트입니다. 13인 모의 페르소나의 표결과 내재가치 적정가를 고정 규칙으로 집계하여 제공합니다.
+              워런 버핏·피터 린치 등 13인 투자 거장의 원전 철학으로 분석한{" "}
+              {displayWithAlias}(${ticker}) 주식 가치평가 리포트입니다. 13인 모의 페르소나의 표결과 내재가치 적정가를 고정 규칙으로 집계하여 제공합니다.
             </p>
           </div>
 

@@ -5,6 +5,10 @@ import { getServerSupabaseClient } from "@/lib/subscription/supabaseServer";
 import { maskReportRowPublic } from "@/lib/subscription/reportAccess";
 import { ResearchDocTab } from "@/components/research/ResearchDocumentView";
 import type { GuruReportRow } from "@/types/api";
+import {
+  getCompanyDisplayNameWithAlias,
+  getSeoKeywordsForTicker,
+} from "@/lib/tickerAliases";
 
 interface StockDetailPageProps {
   params: Promise<{ ticker: string }>;
@@ -92,13 +96,18 @@ export async function generateMetadata({
     }
   }
 
-  const title = `${companyName}(${ticker}) 주식 리포트와 분석 | 리포티스트`;
-  const description = `리포티스트 ${companyName}(${ticker}) 주식 보고서와 분석 아카이브. 13인 투자 거장 AI 가치평가 리포트와 적정주가·내재가치 분석을 확인하세요. 최신 리포트는 Pro 멤버십으로 열람 가능합니다.`;
+  // 대중적 통칭/별칭을 결합한 표시명 (예: "알파벳 A (구글)")
+  const displayName = getCompanyDisplayNameWithAlias(companyName, ticker);
+  const seoKeywords = getSeoKeywordsForTicker(ticker, companyName);
+
+  const title = `${displayName}(${ticker}) 주식 리포트와 분석 | 리포티스트`;
+  const description = `리포티스트 ${displayName}(${ticker}) 주식 보고서와 분석 아카이브. 13인 투자 거장 AI 가치평가 리포트와 적정주가·내재가치 분석을 확인하세요. 최신 리포트는 Pro 멤버십으로 열람 가능합니다.`;
   const canonicalUrl = `/stocks/${ticker}`;
 
   return {
     title,
     description,
+    keywords: seoKeywords,
     alternates: {
       canonical: canonicalUrl,
     },
@@ -185,8 +194,20 @@ export default async function StockDetailPage({
     }
   }
 
+  // 대중적 통칭/별칭 결합명 (예: "알파벳 A (구글)")
+  const displayName = getCompanyDisplayNameWithAlias(koName, ticker);
+  const seoKeywords = getSeoKeywordsForTicker(ticker, koName);
+
+  // SSR initialReport에도 별칭이 포함된 이름을 반영하여 HTML 본문 크롤링 시 검색 키워드 보존
+  if (initialReport) {
+    initialReport = {
+      ...initialReport,
+      company_name: displayName,
+    };
+  }
+
   // JSON-LD 구조화 데이터 생성 (검색엔진 SEO 표준)
-  // verdict·적정가 등 민감값 미포함. 한글 종목명으로 "핀둬둬 보고서" 같은 쿼리에 매칭.
+  // verdict·적정가 등 민감값 미포함. 한글 종목명/별칭으로 "구글 리포트", "핀둬둬 보고서" 같은 쿼리에 매칭.
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -208,7 +229,7 @@ export default async function StockDetailPage({
           {
             "@type": "ListItem",
             "position": 3,
-            "name": `${koName}(${ticker})`,
+            "name": `${displayName}(${ticker})`,
             "item": `https://reportist.kr/stocks/${ticker}`,
           },
         ],
@@ -222,8 +243,9 @@ export default async function StockDetailPage({
           "name": "Reportist Research",
           "url": "https://reportist.kr",
         },
-        "headline": `${koName}(${ticker}) 주식 리포트와 분석 · 적정주가 및 13인 거장 AI 가치평가 보고서`,
-        "description": `${koName}(${ticker}) 주식 보고서와 분석. 내재가치와 13인 전설적 거장들의 종합 투자 표결 리포트 아카이브`,
+        "headline": `${displayName}(${ticker}) 주식 리포트와 분석 · 적정주가 및 13인 거장 AI 가치평가 보고서`,
+        "description": `${displayName}(${ticker}) 주식 보고서와 분석. 내재가치와 13인 전설적 거장들의 종합 투자 표결 리포트 아카이브`,
+        "keywords": seoKeywords.join(", "),
         "inLanguage": "ko",
         "publisher": {
           "@type": "Organization",
