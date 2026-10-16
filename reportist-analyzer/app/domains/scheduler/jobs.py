@@ -243,7 +243,8 @@ async def _run_daily_pipeline(
         logger.info(f"[Scheduler] {market_label} 분석할 대상 종목이 없습니다 (이미 완료되었거나 스크리닝 결과 없음).")
         pipeline_progress.log(f"{market_label} 분석 대상 종목이 없어 파이프라인을 종료합니다.")
         return {
-            "status": "success",
+            "status": "skipped",
+            "reason": "no_targets",
             "date": today_str,
             "market": market_lower,
             "screened_count": len(ordered_tickers),

@@ -126,6 +126,8 @@ export function PipelineProgressCard({
   const failed = progress.failed_tickers;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   const currentIdx = progress.stage_index;
+  // 분석 대상이 0개면 단계 체크·완료 배지를 그리지 않고 빈 상태로 표시
+  const isEmpty = total === 0 && !isRunning;
   const showGurus = progress.gurus_total > 0;
   const stageTimings: PipelineStageTiming[] =
     progress.stage_timings && progress.stage_timings.length === progress.stages.length
@@ -199,7 +201,7 @@ export function PipelineProgressCard({
               </div>
               <div className="text-xl sm:text-2xl font-bold font-mono text-[#0f172a] mt-0.5">
                 <span className="text-[#0f172a]">{done}</span>
-                <span className="text-[#94a3b8] text-base font-normal"> / {total || "?"}</span>
+                <span className="text-[#94a3b8] text-base font-normal"> / {isRunning ? total || "?" : total}</span>
                 {failed > 0 ? (
                   <span className="ml-2 text-xs font-semibold text-[#475569]">FAILED: {failed}</span>
                 ) : null}
@@ -216,7 +218,7 @@ export function PipelineProgressCard({
                 </>
               ) : (
                 <div className="text-xs text-[#64748b]">
-                  {status === "running" ? "스크리닝 중..." : "종목 확정 대기"}
+                  {status === "running" ? "스크리닝 중..." : isEmpty ? "분석 대상 없음" : "종목 확정 대기"}
                 </div>
               )}
             </div>
@@ -236,9 +238,10 @@ export function PipelineProgressCard({
         {/* 2. 단계별 스테퍼 */}
         <div className="space-y-1">
           {progress.stages.map((stage, idx) => {
-            const isDone = idx < currentIdx || status === "completed" || status === "skipped";
+            const isDone =
+              !isEmpty && (idx < currentIdx || status === "completed" || status === "skipped");
             const isActive = idx === currentIdx && isRunning;
-            const isFailed = idx === currentIdx && status === "failed";
+            const isFailed = !isEmpty && idx === currentIdx && status === "failed";
             const isSummaries = stage.key === "summaries";
             return (
               <div
@@ -359,7 +362,12 @@ export function PipelineProgressCard({
             <span className="min-w-0 break-words">{progress.error}</span>
           </div>
         ) : null}
-        {status === "completed" && progress.summary ? (
+        {isEmpty ? (
+          <div className="p-3 rounded-md bg-[#f8fafc] border border-[#e2e8f0] text-xs font-mono text-[#64748b] flex items-center gap-2">
+            <MinusCircle className="w-4 h-4 shrink-0 text-slate-400" />
+            <span>분석 대상 종목이 없어 파이프라인을 종료합니다 (이미 완료되었거나 스크리닝 결과 없음).</span>
+          </div>
+        ) : status === "completed" && progress.summary ? (
           <div className="p-3 rounded-md bg-[#0f172a] border border-[#0f172a] text-xs font-mono text-white flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 shrink-0 text-white" />
             <span>
