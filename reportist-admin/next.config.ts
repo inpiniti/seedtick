@@ -1,17 +1,9 @@
 import type { NextConfig } from "next";
 
+// NOTE: www↔apex 리다이렉트는 Vercel Dashboard(Domains) 한 곳에서만 설정.
+// next.config과 Dashboard에 반대 방향이 동시에 있으면 ERR_TOO_MANY_REDIRECTS 루프 발생.
 const nextConfig: NextConfig = {
-  async redirects() {
-    return [
-      {
-        // www와 apex 중복 노출 방지: 정식 도메인 apex로 통합
-        source: "/:path*",
-        has: [{ type: "host", value: "www.reportist.kr" }],
-        destination: "https://reportist.kr/:path*",
-        permanent: true,
-      },
-    ];
-  },
+  /* config options here */
 };
 
 export default nextConfig;
