@@ -1,0 +1,40 @@
+제목 후보:
+1. {TICKER} {verdict_label} 나왔음 — 13인 표결 {vote_summary}
+2. {TICKER} ${current_price}, 적정 {fair_value} 대비 {upside_label}인데 {hook}
+
+본문 (plain txt, 마크다운 기호 없이):
+
+{company_line}
+
+결론부터 말하면 {conclusion_sentence}
+현재가 ${current_price} / 13인 적정가 중앙값 ${fair_value} (밴드 ${band_low}~${band_high}, 상승여력 {upside_pct}%)
+표결은 {vote_summary}, 평균 확신도 {avg_confidence}/10이었음.
+
+왜 이렇게 봤냐면,
+
+[매수·긍정 포인트]
+- {bull_1}
+- {bull_2}
+- {bull_3}
+(대표 한마디: {bull_quote_persona} — "{bull_quote}")
+
+[망설임·리스크 포인트]
+- {bear_1}
+- {bear_2}
+(대표 한마디: {bear_quote_persona} — "{bear_quote}")
+
+체크할 숫자는 Forward PER {fwd_per}, PEG {peg}, ROE {roe}% 정도. 핵심 드라이버는 {drivers}임.
+
+{verdict_closing}
+
+13인 개별 코멘트 전문이랑 적정밴드 계산 과정까지 다 보고 싶으면 구글에서 리포리스트 검색해봐. 오늘 {date} 분석 종목들도 같이 올라와 있음.
+
+이 글은 정보 요약용이고 투자 권유가 아님. 매매 판단은 본인 책임.
+
+---
+규칙:
+- 중괄호 값은 DB에서만 채운다. 없으면 해당 줄을 뺀다 (지표 없는 줄을 지어내지 않음).
+- upside_pct가 양수면 +N%, 음수면 -N%로 표기한다.
+- verdict_label: 매수/보유/관망/매도 그대로 사용.
+- verdict_closing 예시: 매수면 "눌림 오면 분할 관점에서 보는 구간이라는 해석이 제일 와닿았음. 추격보다는 눌림 대기.", 관망이면 "서두를 자리가 아니라 지표·가격 확인하고 봐도 된다는 의견이 다수였음.", 매도면 "고평가·펀더멘털 훼손 지적이 강해서 손대기 전 한 번 더 확인하는 게 좋아 보임."
+- 이모지·마크다운(#, *, `, []) 사용 금지.
