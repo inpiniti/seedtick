@@ -168,11 +168,10 @@ export function SubscriptionProvider({
     }
 
     // Supabase 세션 체크
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        loadUserSubscription();
-        refreshAdminStatus();
+        await Promise.allSettled([loadUserSubscription(), refreshAdminStatus()]);
       } else {
         setTier("free");
         setSubscription(null);

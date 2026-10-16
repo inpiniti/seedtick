@@ -67,11 +67,10 @@ export const DataCache = {
     cache.historicalValuations = { data, expiresAt: Date.now() + CACHE_TTL_MS };
   },
 
-  /** 권한 변경(로그인/체험/Pro) 시 마스킹된 구 리포트 캐시 파기 */
+  /** 권한 변경(로그인/체험/Pro) 시 마스킹된 구 리포트 캐시 파기 (일자 목록은 비민감 공개이므로 유지) */
   clearReports: () => {
     cache.reportsByDate.clear();
     cache.historicalValuations = undefined;
-    cache.catalogDates = undefined;
   },
 
   getLiveCandidates: () => {

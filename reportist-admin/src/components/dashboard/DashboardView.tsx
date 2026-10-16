@@ -107,13 +107,15 @@ export function DashboardView({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { user, tier, isTrialActive, openUpgradeModal, isAdmin, isAdminLoading } = useSubscription();
+  const { user, tier, isTrialActive, openUpgradeModal, isAdmin, isAdminLoading, isLoading: isSubscriptionLoading } = useSubscription();
   const tierRef = useRef(tier);
   tierRef.current = tier;
   const isTrialActiveRef = useRef(isTrialActive);
   isTrialActiveRef.current = isTrialActive;
   const isAdminRef = useRef(isAdmin);
   isAdminRef.current = isAdmin;
+  // 구독 확정 전 free 스냅샷 조회와 권한 변경 후 구 조회가 최신 조회를 덮어쓰지 않게 세대 가드
+  const dashboardSeqRef = useRef(0);
 
   // 1. 네비게이션 상태
   const [activeSidebarSection, setActiveSidebarSection] =
@@ -302,6 +304,7 @@ export function DashboardView({
 
   // 데이터 로드 (캐시 우선 확인으로 불필요한 반복 쿼리 방지)
   const loadDashboardData = useCallback(async (force = false) => {
+    const mySeq = ++dashboardSeqRef.current;
     const cachedHealth = DataCache.getHealth();
     const cachedDates = DataCache.getCatalogDates();
     const cachedReports = DataCache.getReports(selectedCatalogDateRef.current || "LATEST");
@@ -332,6 +335,7 @@ export function DashboardView({
         aiModelPromise,
         withTimeout(fetchHistoricalValuations(), []),
       ]);
+      if (mySeq !== dashboardSeqRef.current) return;
 
       const finalHealth = healthRes || buildOfflineHealth();
       setHealth(finalHealth);
@@ -369,17 +373,20 @@ export function DashboardView({
         ),
         []
       );
+      if (mySeq !== dashboardSeqRef.current) return;
       setGuruReports(reportsRes);
-      DataCache.setReports(activeDate || "LATEST", reportsRes);
+      // 실패/타임아웃 빈 배열은 캐시 오염 방지로 저장하지 않음
+      if (reportsRes.length > 0) DataCache.setReports(activeDate || "LATEST", reportsRes);
     } catch (err) {
       console.error("대시보드 데이터 로드 오류:", err);
     } finally {
-      setIsLoading(false);
+      if (mySeq === dashboardSeqRef.current) setIsLoading(false);
     }
   }, []);
 
   // 순수 카탈로그 일자 적용 및 데이터 로더 (팝업을 띄우지 않음)
   const applyCatalogDate = useCallback(async (targetDate: string) => {
+    const mySeq = ++dashboardSeqRef.current;
     selectedCatalogDateRef.current = targetDate;
     setSelectedCatalogDate(targetDate);
 
@@ -395,12 +402,16 @@ export function DashboardView({
         200,
         targetDate === "ALL" ? undefined : targetDate
       );
-      DataCache.setReports(targetDate, reports);
+      // 일자 변경 후 도착한 구 응답은 버림
+      if (mySeq !== dashboardSeqRef.current) return;
+      if (selectedCatalogDateRef.current !== targetDate) return;
       setGuruReports(reports);
+      // 실패/타임아웃 빈 배열은 캐시 오염 방지로 저장하지 않음
+      if (reports.length > 0) DataCache.setReports(targetDate, reports);
     } catch (e) {
       console.error("카탈로그 일자별 리포트 조회 오류:", e);
     } finally {
-      setIsCatalogDateLoading(false);
+      if (mySeq === dashboardSeqRef.current) setIsCatalogDateLoading(false);
     }
   }, []);
 
@@ -452,11 +463,11 @@ export function DashboardView({
   useEffect(() => {
     if (prevAccessKeyRef.current !== accessKey) {
       prevAccessKeyRef.current = accessKey;
+      // 진행 중 구 권한 조회 무효화 + 민감 캐시만 파기 (일자 목록 유지)
+      dashboardSeqRef.current += 1;
       DataCache.clearReports();
-      setGuruReports([]);
       setHistoricalValuations([]);
-      selectedCatalogDateRef.current = "";
-      setSelectedCatalogDate("");
+      // 기존 리스트를 빈 배열로 지우지 않음: 신 조회 완료 전까지 구 리스트 유지로 빈 상태 깜빡임 방지
     }
     if (availableCatalogDates.length > 0) {
       const targetDefault = getDefaultReportDate(
@@ -874,6 +885,8 @@ export function DashboardView({
   useEffect(() => {
     // 상세 페이지일 때는 무거운 스크리너들을 조회하지 않음
     if (initialTicker) return;
+    // 구독 등급 확정 전 free 스냅샷으로 디폴트 일자를 잡으면 Pro 최신 리포트가 비어 보임
+    if (isSubscriptionLoading) return;
 
     loadDashboardData();
 
@@ -888,6 +901,7 @@ export function DashboardView({
   }, [
     initialTicker,
     activeSidebarSection,
+    isSubscriptionLoading,
     loadDashboardData,
     loadLiveScreener,
     loadKrScreener,
