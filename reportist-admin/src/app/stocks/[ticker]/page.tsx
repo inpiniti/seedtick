@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { DashboardView } from "@/components/dashboard/DashboardView";
 import { getServerSupabaseClient } from "@/lib/subscription/supabaseServer";
 import { maskReportRowPublic } from "@/lib/subscription/reportAccess";
@@ -131,7 +132,6 @@ export default async function StockDetailPage({
 
   // SSR initialReport도 public 마스킹 티저만 전달 (원문 절대 미포함).
   // 로그인 유저의 전체 열람은 클라이언트가 /api/reports/detail로 재조회합니다.
-  // public 허용 필드(한글명·티커·분석일자·현재가)만 SSR SEO에 사용, verdict·적정가는 절대 미포함.
   let initialReport: GuruReportRow | null = null;
   let koName = ticker;
   let publishedDate = date || "";
@@ -255,6 +255,44 @@ export default async function StockDetailPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      {/* SSR 상단 헤더 (하단 SEO 블록 대체): 브레드크럼 + h1 + 한 줄 요약.
+          하단은 콘솔 내부 푸터만 남겨 적층 해소. generateMetadata + JSON-LD 유지.
+          public 허용 필드(한글명·티커·분석일자·현재가)만 사용, verdict·적정가는 절대 미포함. */}
+      <div className="mx-auto w-full max-w-[1456px] px-4 lg:px-8 pt-3 pb-1">
+        <nav
+          aria-label="브레드크럼"
+          className="text-xs font-mono text-[#64748b]"
+        >
+          <ol className="flex items-center gap-1.5">
+            <li>
+              <Link href="/" className="hover:text-[#0f172a]">
+                Home
+              </Link>
+            </li>
+            <li aria-hidden="true">/</li>
+            <li>
+              <Link href="/stocks" className="hover:text-[#0f172a]">
+                Stocks
+              </Link>
+            </li>
+            <li aria-hidden="true">/</li>
+            <li aria-current="page" className="font-semibold text-[#0f172a]">
+              {koName}({ticker})
+            </li>
+          </ol>
+        </nav>
+        <h1 className="mt-1.5 text-base font-bold tracking-tight text-[#0f172a] sm:text-lg">
+          {koName}({ticker}) 주식 리포트와 분석 | 리포티스트
+        </h1>
+        <p className="mt-0.5 text-xs leading-relaxed text-[#64748b]">
+          리포티스트 {koName}({ticker}) 주식 보고서와 분석 아카이브. 13인 투자
+          거장의 철학으로 적정주가를 정리합니다.
+          {publishedDate ? ` 최근 분석 기준일은 ${publishedDate}이며,` : ""}
+          {currentPrice !== null
+            ? ` 기준 현재가는 $${currentPrice.toLocaleString()}입니다.`
+            : " 최신 보고서는 Pro 멤버십으로 열람할 수 있습니다."}
+        </p>
+      </div>
       <Suspense fallback={<div className="min-h-screen bg-white" />}>
         <DashboardView
           initialSection="sec-reports"
@@ -264,29 +302,6 @@ export default async function StockDetailPage({
           initialDate={date}
         />
       </Suspense>
-      {/* 종목별 SSR SEO 콘텐츠: CSR 대시보드와 별개로 항상 HTML에 포함.
-          public 허용 필드(한글명·티커·분석일자·현재가)만 사용, verdict·적정가는 절대 미포함. */}
-      <main className="mx-auto w-full max-w-5xl px-4 pb-16">
-        <section aria-label={`${koName} 주식 리포트 안내`} className="mt-10 border-t border-[#e2e8f0] pt-8">
-          <h1 className="text-xl font-bold tracking-tight text-[#0f172a] sm:text-2xl">
-            {koName}({ticker}) 주식 리포트와 분석 | 리포티스트
-          </h1>
-          <p className="mt-3 text-sm leading-relaxed text-[#475569]">
-            리포티스트 {koName}({ticker}) 주식 보고서와 분석 아카이브입니다.
-            워런 버핏, 피터 린치, 벤저민 그레이엄 등 13인 투자 거장의 철학으로
-            {koName} 보고서를 매일 분석하고 적정주가와 내재가치 밴드를 정리합니다.
-            {publishedDate ? ` 최근 분석 기준일은 ${publishedDate}이며,` : ""}
-            {currentPrice !== null
-              ? ` 기준 현재가는 $${currentPrice.toLocaleString()}입니다.`
-              : " 상세 적정주가와 표결 결과는 리포트 본문에서 확인하세요."}
-          </p>
-          <p className="mt-2 text-sm leading-relaxed text-[#475569]">
-            {koName} 보고서, {koName} 분석, {ticker} 적정주가를 찾는다면 이
-            페이지의 리포트 목록에서 일자별 {koName} 주식 리포트를 확인하세요.
-            최신 보고서는 Pro 멤버십으로 열람할 수 있습니다.
-          </p>
-        </section>
-      </main>
     </>
   );
 }

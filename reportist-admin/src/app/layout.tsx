@@ -170,27 +170,6 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
         />
         <AppProviders>{children}</AppProviders>
-        {/* 사이트링크용 서버 렌더링 푸터 내비게이션 (전 페이지 크롤 가능) */}
-        <footer className="border-t border-[#e2e8f0] bg-white">
-          <nav
-            aria-label="리포티스트 사이트 메뉴"
-            className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-5 gap-y-2 px-4 py-4 text-xs text-[#64748b]"
-          >
-            <span className="font-semibold text-[#0f172a]">리포티스트 Reportist</span>
-            <a href="/stocks" className="hover:text-[#0f172a]">
-              미국 주식 리포트 목록
-            </a>
-            <a href="/screener" className="hover:text-[#0f172a]">
-              실시간 주식 스크리너
-            </a>
-            <a href="/gurus" className="hover:text-[#0f172a]">
-              13인 투자 거장 철학 가이드
-            </a>
-            <a href="/pricing" className="hover:text-[#0f172a]">
-              멤버십 요금제
-            </a>
-          </nav>
-        </footer>
       </body>
     </html>
   );
