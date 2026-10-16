@@ -75,8 +75,22 @@ export function ResearchDocumentView({
   // 사용자가 직접 선택한 탭 (현재 문서에 대한 것만 유효)
   const [tabOverride, setTabOverride] = useState<{ key: string; tab: ResearchDocTab } | null>(null);
   const docKey = report ? `${report.ticker}|${report.id}` : "none";
-  // 리포트 변경 시 외부 prop이 없으면 final_report 여부에 따라 탭 자동 결정 (Effect 없이 파생)
-  const defaultTab: ResearchDocTab = report?.final_report ? "final" : "chart";
+  // 같은 문서가 티저(마스킹)→원문으로 교체되는 동안 기본 탭이 final→chart로
+  // 역행하지 않게 문서별 final 확인 이력을 유지 (명시적 선택·상위 제어는 그대로 우선)
+  // 새 문서면 기억 리셋, 같은 문서면 원문 확인 시 승격만 (render 중 derived-state 조정)
+  const [tabMemory, setTabMemory] = useState(() => ({
+    key: docKey,
+    hasFinal: !!report?.final_report,
+  }));
+  if (tabMemory.key !== docKey) {
+    setTabMemory({ key: docKey, hasFinal: !!report?.final_report });
+  } else if (!tabMemory.hasFinal && report?.final_report) {
+    setTabMemory({ key: docKey, hasFinal: true });
+  }
+  const rememberedFinal = tabMemory.key === docKey ? tabMemory.hasFinal : !!report?.final_report;
+  // 리포트 변경 시 외부 prop이 없으면 final_report 여부에 따라 탭 자동 결정 (같은 문서 내 다운그레이드는 유지)
+  const defaultTab: ResearchDocTab =
+    report?.final_report || rememberedFinal ? "final" : "chart";
   const activeTab =
     activeTabProp ?? (tabOverride && tabOverride.key === docKey ? tabOverride.tab : defaultTab);
 

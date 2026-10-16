@@ -60,6 +60,11 @@ import {
 
 const DASHBOARD_FETCH_TIMEOUT_MS = 5000;
 
+// 열린 상세 문서별 탭 기억 (SPA 라우트 이동 시 DashboardView가 remount되며
+// SSR 티저(원문 없음)로 초기화되어 탭이 final→chart→final로 깜빡이는 것 방지.
+// 탭 이름만 보관하므로 민감정보 없음, 같은 문서 id에만 적용)
+const lastOpenedDocTabById: Record<string, ResearchDocTab> = {};
+
 async function withTimeout<T>(
   task: Promise<T>,
   fallback: T,
@@ -116,6 +121,8 @@ export function DashboardView({
   isAdminRef.current = isAdmin;
   // 구독 확정 전 free 스냅샷 조회와 권한 변경 후 구 조회가 최신 조회를 덮어쓰지 않게 세대 가드
   const dashboardSeqRef = useRef(0);
+  // 사용자가 탭을 직접 고른 적 있는지 (?tab=·클릭이 있으면 메모리 핀 폴백을 적용하지 않음)
+  const userSelectedTabRef = useRef(false);
 
   // 1. 네비게이션 상태
   const [activeSidebarSection, setActiveSidebarSection] =
@@ -239,9 +246,14 @@ export function DashboardView({
   const [selectedGuruSlug, setSelectedGuruSlug] = useState<string | null>(
     initialGuru || null
   );
-  const [activeDocTab, setActiveDocTab] = useState<ResearchDocTab | undefined>(
-    initialTab
-  );
+  const [activeDocTab, setActiveDocTab] = useState<ResearchDocTab | undefined>(() => {
+    // ?tab=이 있으면 우선, 없으면 직전 화면에서 연 동일 문서의 탭을 이어받아
+    // SSR 티저 구간에도 마스터 탭을 유지 (remount 시 final→chart→final 깜빡임 방지)
+    if (initialTab) return initialTab;
+    const remembered = initialReport ? lastOpenedDocTabById[initialReport.id] : undefined;
+    if (remembered) return remembered;
+    return undefined;
+  });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [availableReportDates, setAvailableReportDates] = useState<string[]>([]);
   const [selectedReportDate, setSelectedReportDate] = useState<
@@ -635,9 +647,12 @@ export function DashboardView({
   };
 
   // 상세 리포트 열기 (URL 동기화)
-  // - 탭 초기화: 이전 문서의 탭(예: 일봉 밴드)이 새 문서에 잔류하지 않게 함
+  // - 탭 결정: 명시 탭 > 원문 있으면 마스터 > 없으면 차트. remount 후 SSR 티저 구간에도
+  //   같은 탭을 유지하도록 lastOpenedDocTabById에 기억 (final→chart→final 깜빡임 방지)
   // - 원문 동기화는 아래 서버-진실 동기화 effect가 전담 (단일 경로)
   const handleOpenReport = useCallback((report: GuruReportRow, tab?: ResearchDocTab) => {
+    const effectiveTab = tab ?? (report.final_report ? "final" : "chart");
+    lastOpenedDocTabById[report.id] = effectiveTab;
     setSelectedDocReport(report);
     setSelectedReportDate(report.d);
     setActiveDocTab(tab ?? undefined);
@@ -692,6 +707,9 @@ export function DashboardView({
     setSelectedDocReport(fallback);
     setSelectedReportDate(fallback.d);
     setAvailableReportDates([fallback.d]);
+    // 원문 없는 실시간 후보는 차트 탭이 기본. 이전 문서의 제어 탭이 잔류하지 않게 초기화
+    lastOpenedDocTabById[fallback.id] = "chart";
+    setActiveDocTab(undefined);
 
     router.push(`/stocks/${encodeURIComponent(candidate.ticker)}`);
   }, [guruReports, handleOpenReport, router]);
@@ -699,7 +717,9 @@ export function DashboardView({
   // 탭 변경 시 URL 쿼리 파라미터 동기화 (?tab=...)
   const handleTabChange = useCallback((tab: ResearchDocTab) => {
     setActiveDocTab(tab);
+    userSelectedTabRef.current = true;
     if (selectedDocReport) {
+      lastOpenedDocTabById[selectedDocReport.id] = tab;
       const search = new URLSearchParams(searchParams?.toString() || "");
       search.set("tab", tab);
       router.replace(`/stocks/${encodeURIComponent(selectedDocReport.ticker)}?${search.toString()}`, {
@@ -846,6 +866,16 @@ export function DashboardView({
         setSelectedDocReport((prev) =>
           prev && prev.id === fetched.id ? fetched : prev
         );
+        // 메모리 핀으로 마스터 탭에 머물렀는데 원문 확정 후에도 볼 게 없으면 차트로 폴백.
+        // 단, ?tab= 공유나 직접 클릭으로 정한 탭은 존중하고 로딩 실패(조회 불가)는 유지.
+        if (
+          !fetched.final_report &&
+          !userSelectedTabRef.current &&
+          !initialTab &&
+          activeDocTab === "final"
+        ) {
+          setActiveDocTab(undefined);
+        }
       })
       .catch((e) => console.warn("상세 리포트 동기화 실패:", e));
     return () => {
