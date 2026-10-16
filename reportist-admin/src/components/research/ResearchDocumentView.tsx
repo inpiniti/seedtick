@@ -45,9 +45,6 @@ interface ResearchDocumentViewProps {
   intrinsicStability?: IntrinsicStability;
   activeTab?: ResearchDocTab;
   onTabChange?: (tab: ResearchDocTab) => void;
-  /** SSR SEO eyebrow (종목 페이지에서 서버가 주입, hero 내부 렌더로 하단 적층 방지) */
-  seoTitle?: string;
-  seoDescription?: string;
 }
 
 export function ResearchDocumentView({
@@ -62,8 +59,6 @@ export function ResearchDocumentView({
   intrinsicStability,
   activeTab: activeTabProp,
   onTabChange,
-  seoTitle,
-  seoDescription,
 }: ResearchDocumentViewProps) {
   const {
     tier,
@@ -208,18 +203,6 @@ export function ResearchDocumentView({
 
       {/* ── 2. 에디토리얼 문서 헤더 ── */}
       <header className="px-6 lg:px-12 py-8 lg:py-10 bg-white space-y-6">
-        {/* SSR SEO eyebrow (종목 페이지에서만 주입): 별도 하단 블록 대신 hero 내부에
-            합쳐 레이아웃 적층 해소. 서버에서 주입된 prop이라 초기 HTML에 포함됨. */}
-        {seoTitle && (
-          <div className="space-y-1">
-            <h1 className="font-mono text-[11px] font-semibold tracking-wide text-[#64748b]">
-              {seoTitle}
-            </h1>
-            {seoDescription && (
-              <p className="text-xs leading-relaxed text-[#64748b]">{seoDescription}</p>
-            )}
-          </div>
-        )}
         {/* 상단 메타 ID 및 이력 셀렉터 */}
         <div className="flex items-center justify-between gap-3 flex-wrap font-mono text-xs text-[#64748b]">
           <div className="flex items-center gap-2">
@@ -291,6 +274,10 @@ export function ResearchDocumentView({
 
               <span className="font-mono text-sm px-2 py-0.5 bg-[#f1f5f9] border border-[#e2e8f0] text-[#0f172a] font-semibold rounded">
                 ${ticker}
+              </span>
+
+              <span className="text-xs font-medium text-[#475569] bg-[#f8fafc] px-2.5 py-1 rounded border border-[#e2e8f0]">
+                주식 분석 리포트
               </span>
 
               {renderMonochromeVerdict(verdict)}
@@ -370,8 +357,7 @@ export function ResearchDocumentView({
             </div>
 
             <p className="text-sm text-[#64748b] leading-relaxed">
-              13인 모의 페르소나의 표결과 적정가 의견을 고정 규칙으로 집계한 보고서입니다.
-              평균 확신도는 자기보고 값이며, 표결 일치도·가격 분산과 별도로 확인할 수 있습니다.
+              워런 버핏·피터 린치 등 13인 투자 거장의 원전 철학으로 분석한 {companyName}(${ticker}) 주식 가치평가 리포트입니다. 13인 모의 페르소나의 표결과 내재가치 적정가를 고정 규칙으로 집계하여 제공합니다.
             </p>
           </div>
 

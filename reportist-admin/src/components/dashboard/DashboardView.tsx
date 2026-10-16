@@ -99,9 +99,6 @@ export interface DashboardViewProps {
   initialTab?: ResearchDocTab;
   initialDate?: string;
   initialGuru?: string;
-  /** SSR SEO eyebrow (종목 페이지에서 서버가 주입, 문서 hero 내부 렌더) */
-  seoTitle?: string;
-  seoDescription?: string;
 }
 
 export function DashboardView({
@@ -111,8 +108,6 @@ export function DashboardView({
   initialTab,
   initialDate,
   initialGuru,
-  seoTitle,
-  seoDescription,
 }: DashboardViewProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -1000,8 +995,6 @@ export function DashboardView({
                 isLoadingDate={isLoadingReportDate}
                 activeTab={activeDocTab}
                 onTabChange={handleTabChange}
-                seoTitle={seoTitle}
-                seoDescription={seoDescription}
                 percentB={
                   selectedDocReport
                     ? percentBByTicker[chartTickerKey(selectedDocReport.ticker)]
@@ -1233,8 +1226,31 @@ export function DashboardView({
               )}
             </div>
 
-            {/* 우측: 콘솔 정보 & 법적 고지 링크 */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2.5 text-[#94a3b8] text-[11px]">
+            {/* 우측: 주요 바로가기 & 콘솔 정보 & 법적 고지 링크 */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2.5 text-[#94a3b8] text-[11px] flex-wrap">
+              <nav aria-label="주요 서비스 바로가기" className="flex items-center gap-2">
+                <Link
+                  href="/stocks"
+                  className="hover:text-[#0f172a] transition-colors"
+                >
+                  미국 주식 리포트
+                </Link>
+                <span>·</span>
+                <Link
+                  href="/screener"
+                  className="hover:text-[#0f172a] transition-colors"
+                >
+                  실시간 스크리너
+                </Link>
+                <span>·</span>
+                <Link
+                  href="/gurus"
+                  className="hover:text-[#0f172a] transition-colors"
+                >
+                  13인 투자 거장
+                </Link>
+              </nav>
+              <span className="hidden sm:inline text-slate-300">|</span>
               <div className="flex items-center gap-2">
                 <Link
                   href="/privacy"

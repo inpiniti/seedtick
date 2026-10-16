@@ -261,14 +261,6 @@ export default async function StockDetailPage({
           initialReport={initialReport}
           initialTab={validatedTab}
           initialDate={date}
-          seoTitle={`${koName}(${ticker}) 주식 리포트와 분석 | 리포티스트`}
-          seoDescription={`리포티스트 ${koName}(${ticker}) 주식 보고서와 분석 아카이브. 13인 투자 거장의 철학으로 적정주가를 정리합니다.${
-            publishedDate ? ` 최근 분석 기준일은 ${publishedDate}이며,` : ""
-          }${
-            currentPrice !== null
-              ? ` 기준 현재가는 $${currentPrice.toLocaleString()}입니다.`
-              : " 최신 보고서는 Pro 멤버십으로 열람할 수 있습니다."
-          }`}
         />
       </Suspense>
     </>
