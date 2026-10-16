@@ -44,3 +44,6 @@ __pycache__/
 .*_token_cache.json
 .pending_orders.json
 *.csv
+
+# Community posts (local only, auto-generated txt)
+post/
