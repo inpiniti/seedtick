@@ -3,16 +3,16 @@ import { Metadata } from "next";
 import { DashboardView } from "@/components/dashboard/DashboardView";
 
 export const metadata: Metadata = {
-  title: "미국 주식 13인 거장 실시간 스크리너 | Reportist",
+  title: "리포티스트 실시간 스크리너 · 13인 거장 합의 미국 주식 리포트",
   description:
-    "토스증권 13인 투자 거장 공통 합의 종목 및 DataRoma 슈퍼인베스터 그랜드 포트폴리오 기반 미국 주식 실시간 스크리닝",
+    "리포티스트 실시간 주식 스크리너. 워런 버핏, 피터 린치 등 13인 투자 거장 원칙을 통과한 미국 주식 보고서 후보와 적정주가 signal.",
   alternates: {
     canonical: "/screener",
   },
   openGraph: {
-    title: "미국 주식 13인 거장 실시간 스크리너 | Reportist",
+    title: "리포티스트 실시간 주식 스크리너",
     description:
-      "워런 버핏, 피터 린치 등 13인의 투자 원칙을 통과한 미국 주식 실시간 발굴 후보군",
+      "워런 버핏, 피터 린치 등 13인의 투자 원칙을 통과한 미국 주식 리포트 후보군",
   },
 };
 

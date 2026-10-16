@@ -66,8 +66,8 @@ export async function generateMetadata({
     }
   }
 
-  const title = `${ticker} (${companyName}) 13인 거장 AI 투자 분석 | Reportist`;
-  const description = `${ticker}(${companyName}) - 13인 투자 거장 AI 가치평가 리포트 아카이브. 최신 리포트는 Pro 멤버십으로 열람 가능합니다.`;
+  const title = `${ticker} (${companyName}) 주식 리포트 · 13인 거장 AI 적정주가 분석 | 리포티스트`;
+  const description = `리포티스트 ${ticker}(${companyName}) 주식 보고서와 13인 투자 거장 AI 적정주가·내재가치 분석 아카이브. 최신 리포트는 Pro 멤버십으로 열람 가능합니다.`;
   const canonicalUrl = `/stocks/${ticker}`;
 
   return {
@@ -139,12 +139,21 @@ export default async function StockDetailPage({
           "name": "Reportist Research",
           "url": "https://reportist.kr",
         },
-        "headline": `${ticker} 적정주가 및 13인 거장 AI 가치평가 리포트`,
-        "description": `${ticker} 주식의 내재가치와 13인 전설적 거장들의 종합 투자 표결 보고서`,
+        "headline": `${ticker} 주식 리포트 · 적정주가 및 13인 거장 AI 가치평가 보고서`,
+        "description": `${ticker} 주식 보고서의 내재가치와 13인 전설적 거장들의 종합 투자 표결 리포트`,
+        "inLanguage": "ko",
         "publisher": {
           "@type": "Organization",
+          "@id": "https://reportist.kr/#organization",
           "name": "Reportist Research",
+          "alternateName": "리포티스트",
           "url": "https://reportist.kr",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://reportist.kr/reportist-logo-fill-120x120.png",
+            "width": 120,
+            "height": 120,
+          },
         },
         "isAccessibleForFree": "False",
         "hasPart": {

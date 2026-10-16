@@ -3,15 +3,15 @@ import { Metadata } from "next";
 import { DashboardView } from "@/components/dashboard/DashboardView";
 
 export const metadata: Metadata = {
-  title: "미국 주식 13인 거장 AI 가치평가 및 리서치 카탈로그 | Reportist",
+  title: "리포티스트 미국 주식 리포트 목록 · 13인 거장 AI 보고서 아카이브",
   description:
-    "미국 주요 상장 기업의 SEC EDGAR 공시, 손익계산서, 현금흐름표 팩트체크와 13인의 투자 거장 AI 종합 분석 리포트 아카이브",
+    "리포티스트 미국 주식 리포트와 보고서 아카이브. SEC 공시 기반 종목별 주식 보고서, 13인 투자 거장 AI 적정주가와 내재가치 밴드 목록.",
   alternates: {
     canonical: "/stocks",
   },
   openGraph: {
-    title: "미국 주식 13인 거장 AI 리서치 아카이브 | Reportist",
-    description: "전 종목 13인 투자 거장 합의 적정주가 밴드 및 심층 리서치 문서 목록",
+    title: "리포티스트 미국 주식 리포트 아카이브",
+    description: "전 종목 주식 보고서와 13인 거장 합의 적정주가 밴드 목록",
   },
 };
 
