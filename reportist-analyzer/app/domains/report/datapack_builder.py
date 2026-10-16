@@ -12,6 +12,7 @@ from datetime import datetime
 from email.utils import parsedate_to_datetime
 from html.parser import HTMLParser
 from pathlib import Path
+from typing import Any
 from urllib.parse import quote as urlquote
 import httpx
 
@@ -84,6 +85,40 @@ class _ParagraphExtractor(HTMLParser):
             self._buf.append(data)
 
 
+NAVER_STOCK_API = "https://m.stock.naver.com/api/stock/{ticker}/integration"
+
+
+def _parse_naver_num(val: Any) -> float | None:
+    if val is None:
+        return None
+    s = str(val).replace(",", "").strip()
+    m = re.search(r"[-+]?\d*\.?\d+", s)
+    if not m:
+        return None
+    try:
+        return float(m.group(0))
+    except Exception:
+        return None
+
+
+def _parse_naver_money(val: Any) -> float | None:
+    """네이버 시총/금액 파싱: '7,591억' -> 759,100,000,000, '1조 2,345억' 지원"""
+    if not val:
+        return None
+    s = str(val).replace(",", "").strip()
+    total = 0.0
+    jo_m = re.search(r"(\d+)\s*조", s)
+    eok_m = re.search(r"(\d+)\s*억", s)
+    if jo_m:
+        total += float(jo_m.group(1)) * 1_000_000_000_000
+    if eok_m:
+        total += float(eok_m.group(1)) * 100_000_000
+    if total > 0:
+        return total
+    num = _parse_naver_num(s)
+    return num
+
+
 def normalize_yahoo_ticker(ticker: str) -> str:
     """Yahoo Finance 클래스형 주식 심볼은 '.' 대신 '-' 사용하나, 한국(.KS, .KQ)은 '.'을 보존한다."""
     symbol = (ticker or "").strip().upper()
@@ -100,11 +135,23 @@ class DataPackBuilder:
         self._auth_lock = asyncio.Lock()
         self._cookie: str | None = None
         self._crumb: str | None = None
+        self._last_auth_failure_time: float = 0.0
+        self._auth_failure_cooldown: float = 900.0  # 15분 서킷 브레이커
 
     async def _get_auth(
         self, client: httpx.AsyncClient, force_refresh: bool = False
     ) -> tuple[str, str]:
+        now = time.time()
+        if (now - self._last_auth_failure_time) < self._auth_failure_cooldown:
+            rem = int(self._auth_failure_cooldown - (now - self._last_auth_failure_time))
+            raise RuntimeError(f"Yahoo Finance Crumb 쿨다운 활성 중 (남은 시간: {rem}초)")
+
         async with self._auth_lock:
+            now = time.time()
+            if (now - self._last_auth_failure_time) < self._auth_failure_cooldown:
+                rem = int(self._auth_failure_cooldown - (now - self._last_auth_failure_time))
+                raise RuntimeError(f"Yahoo Finance Crumb 쿨다운 활성 중 (남은 시간: {rem}초)")
+
             if not force_refresh and self._cookie and self._crumb:
                 return self._cookie, self._crumb
 
@@ -115,6 +162,7 @@ class DataPackBuilder:
                     if cookie_str and crumb:
                         self._cookie = cookie_str
                         self._crumb = crumb
+                        self._last_auth_failure_time = 0.0
                         logger.info(f"[DataPackBuilder] curl_cffi(Chrome TLS) Yahoo Crumb 발급 완료: {crumb[:15]}")
                         return self._cookie, self._crumb
                 except Exception as ce:
@@ -129,7 +177,6 @@ class DataPackBuilder:
                         headers={"User-Agent": UA},
                         follow_redirects=True,
                     )
-                    # httpx res.cookies + Set-Cookie 헤더 직접 파싱 (환경에 따라 쿠키 인식 차이)
                     cookies: dict[str, str] = {}
                     for k, v in res1.cookies.items():
                         cookies[k] = v
@@ -166,7 +213,6 @@ class DataPackBuilder:
                         continue
 
                     crumb = res2.text.strip()
-                    # Crumb 유효성 검증: JSON 에러나 HTML이 아니고 길이가 정상 범위(1~30자)인 경우
                     if not crumb or "{" in crumb or "<" in crumb or len(crumb) > 30:
                         logger.warning(
                             f"[DataPackBuilder] 비정상 Crumb 수신 (시도 {attempt}/3): {crumb[:50]}"
@@ -176,6 +222,7 @@ class DataPackBuilder:
 
                     self._cookie = cookie_str
                     self._crumb = crumb
+                    self._last_auth_failure_time = 0.0
                     logger.info(
                         f"[DataPackBuilder] Yahoo Crumb 발급 완료 (길이: {len(crumb)})"
                     )
@@ -186,7 +233,8 @@ class DataPackBuilder:
                     )
                     await asyncio.sleep(1.0)
 
-            raise RuntimeError("Yahoo Finance Crumb/Cookie 발급 3회 모두 실패")
+            self._last_auth_failure_time = time.time()
+            raise RuntimeError("Yahoo Finance Crumb/Cookie 발급 3회 모두 실패 (15분간 쿨다운 적용)")
 
     def _get_auth_cffi(self) -> tuple[str, str]:
         """Chrome 브라우저 TLS Fingerprint를 모방하여 Yahoo 쿠키 및 Crumb 획득 (429 차단 우회)"""
@@ -207,19 +255,56 @@ class DataPackBuilder:
             return cookie_str, crumb
         raise RuntimeError(f"Crumb HTTP {r2.status_code}: {crumb[:50]}")
 
-    async def _resolve_symbol(self, client: httpx.AsyncClient, ticker: str) -> str:
+    async def _fetch_naver_stock(self, client: httpx.AsyncClient, ticker: str) -> dict | None:
+        """네이버 증권 모바일 API에서 종목 상세 및 수급, 리서치 수집"""
+        clean_sym = ticker.replace(".KS", "").replace(".KQ", "").strip().upper()
+        if not (clean_sym.isdigit() and len(clean_sym) == 6):
+            return None
+        url = NAVER_STOCK_API.format(ticker=clean_sym)
+        try:
+            res = await client.get(url, headers={"User-Agent": UA}, timeout=10.0)
+            if res.status_code == 200:
+                return res.json()
+        except Exception as e:
+            logger.warning(f"[{ticker}] 네이버 모바일 증권 API 조회 실패: {e}")
+        return None
+
+    async def _resolve_symbol(
+        self, client: httpx.AsyncClient, ticker: str, naver_data: dict | None = None
+    ) -> str:
         sym = (ticker or "").strip().upper()
         if sym.endswith(".KS") or sym.endswith(".KQ"):
             return sym
         if sym.isdigit() and len(sym) == 6:
-            # 6자리 한국 종목 코드: KOSPI(.KS) 확인 후 실패 시 KOSDAQ(.KQ)
+            # 1. 네이버 거래소 정보 (KS=코스피, KQ=코스닥)
+            market_code = None
+            if naver_data and isinstance(naver_data, dict):
+                market_code = (naver_data.get("stockExchangeType") or {}).get("code")
+            if not market_code:
+                try:
+                    n_data = await self._fetch_naver_stock(client, sym)
+                    if n_data and isinstance(n_data, dict):
+                        market_code = (n_data.get("stockExchangeType") or {}).get("code")
+                except Exception:
+                    pass
+
+            if market_code == "KS":
+                return f"{sym}.KS"
+            if market_code == "KQ":
+                return f"{sym}.KQ"
+
+            # 2. Yahoo Chart API 폴백: .KS 확인하되 instrumentType == 'EQUITY' 검증
             try:
                 r = await client.get(
                     f"{Y1}/v8/finance/chart/{sym}.KS?range=1d&interval=1d",
                     headers={"User-Agent": UA},
                 )
                 if r.status_code == 200:
-                    return f"{sym}.KS"
+                    data = r.json()
+                    results = data.get("chart", {}).get("result") or [{}]
+                    meta = results[0].get("meta", {})
+                    if meta.get("instrumentType", "").upper() == "EQUITY":
+                        return f"{sym}.KS"
             except Exception:
                 pass
             return f"{sym}.KQ"
@@ -234,7 +319,12 @@ class DataPackBuilder:
         clean_ticker = ticker.upper().strip()
 
         async with httpx.AsyncClient(timeout=25.0) as client:
-            yahoo_symbol = await self._resolve_symbol(client, clean_ticker)
+            # 국장(6자리)인 경우 네이버 모바일 통합 정보 선조회 (코스피/코스닥 판별 및 재무·수급 보완)
+            naver_data = None
+            if clean_ticker.isdigit() and len(clean_ticker) == 6:
+                naver_data = await self._fetch_naver_stock(client, clean_ticker)
+
+            yahoo_symbol = await self._resolve_symbol(client, clean_ticker, naver_data=naver_data)
             # 1. 병렬 수집: Chart, Fundamentals Timeseries, QuoteSummary + 한글명
             # (뉴스는 한글명/심볼 변형을 함께 조회해야 해서 2단계에서 수집)
             chart_task = self._fetch_chart(client, yahoo_symbol)
@@ -247,6 +337,10 @@ class DataPackBuilder:
             )
             if isinstance(company_name, Exception) or not company_name:
                 company_name = None
+
+            # 네이버 데이터에서 한글명 폴백
+            if not company_name and naver_data and isinstance(naver_data, dict):
+                company_name = naver_data.get("stockName")
 
             # 2. 뉴스 수집 (야후 다중 쿼리 → 부족 시 Google News RSS 폴백 → 상위 3건 본문 방문)
             try:
@@ -270,7 +364,7 @@ class DataPackBuilder:
             logger.warning(f"[{clean_ticker}] News API 실패: {news_data}")
             news_data = []
 
-        # 2. 지표 가공 및 파싱 (표시용 한글명은 위 1단계에서 이미 해석됨)
+        # 2. 지표 가공 및 파싱 (네이버 데이터로 누락 보완)
         datapack = self._assemble_datapack(
             clean_ticker,
             date_str,
@@ -279,11 +373,13 @@ class DataPackBuilder:
             quote_data,
             news_data,
             company_name=company_name,
+            naver_data=naver_data,
         )
 
         # 3. 마크다운 렌더링 및 파일 저장
         markdown_text = self._render_markdown(datapack)
         datapack.raw_markdown = markdown_text
+
 
         out_dir = self.base_report_dir / date_str / "_data"
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -519,6 +615,22 @@ class DataPackBuilder:
         res.raise_for_status()
         return res.json()
 
+    @staticmethod
+    def _is_valid_quotesummary(data: dict) -> bool:
+        """quoteSummary 응답에 핵심 모듈(summaryDetail, financialData, defaultKeyStatistics, assetProfile) 중 하나라도 유효한 데이터가 있는지 검증"""
+        if not isinstance(data, dict):
+            return False
+        results = data.get("quoteSummary", {}).get("result") or []
+        if not results or not isinstance(results, list):
+            return False
+        res = results[0]
+        if not isinstance(res, dict):
+            return False
+        return any(
+            isinstance(res.get(k), dict) and len(res.get(k)) > 0
+            for k in ("summaryDetail", "financialData", "defaultKeyStatistics", "assetProfile")
+        )
+
     async def _fetch_quote_summary(self, client: httpx.AsyncClient, ticker: str) -> dict:
         modules = [
             "summaryDetail", "defaultKeyStatistics", "financialData",
@@ -547,10 +659,17 @@ class DataPackBuilder:
                 gw_res = await client.get(gw_url, headers=headers, timeout=12.0)
                 if gw_res.status_code == 200:
                     data = gw_res.json()
-                    qs_res = (data.get("quoteSummary", {}).get("result") or [{}])[0]
-                    if qs_res.get("summaryDetail") and qs_res.get("assetProfile"):
+                    if self._is_valid_quotesummary(data):
                         logger.info(f"[{ticker}] AI-Gateway(Vercel) QuoteSummary 수신 성공")
                         return data
+                    qs_res = (data.get("quoteSummary", {}).get("result") or [{}])[0]
+                    logger.warning(
+                        f"[{ticker}] AI-Gateway({gw_url}) 응답 모듈 불완전: keys={list(qs_res.keys())}"
+                    )
+                else:
+                    logger.warning(
+                        f"[{ticker}] AI-Gateway({gw_url}) HTTP {gw_res.status_code}: {gw_res.text[:120]}"
+                    )
             except Exception as e:
                 logger.warning(f"[{ticker}] AI-Gateway({gw_url}) 프록시 실패: {e}")
 
@@ -566,8 +685,7 @@ class DataPackBuilder:
                 res = await client.get(url, headers={"User-Agent": UA, "Cookie": cookie})
             if res.status_code == 200:
                 data = res.json()
-                qs_res = (data.get("quoteSummary", {}).get("result") or [{}])[0]
-                if qs_res.get("summaryDetail") and qs_res.get("assetProfile"):
+                if self._is_valid_quotesummary(data):
                     return data
             logger.warning(
                 f"[{ticker}] Yahoo QuoteSummary 직접 응답 불완전 (HTTP {res.status_code}) -> yfinance Fallback 실행"
@@ -698,6 +816,7 @@ class DataPackBuilder:
         quote: dict,
         news_items: list[dict] | None = None,
         company_name: str | None = None,
+        naver_data: dict | None = None,
     ) -> StockDataPack:
         # Chart 메타 추출
         chart_res = (chart.get("chart", {}).get("result") or [{}])[0]
@@ -705,6 +824,33 @@ class DataPackBuilder:
         price = meta.get("regularMarketPrice") or 0.0
         high52 = meta.get("fiftyTwoWeekHigh")
         low52 = meta.get("fiftyTwoWeekLow")
+
+        # 네이버 모바일 데이터 사전 파싱 (국장 누락 지표 보충용)
+        naver_total: dict[str, str] = {}
+        naver_consensus: dict[str, Any] = {}
+        naver_deal_trends: list[dict] = []
+        naver_researches: list[dict] = []
+        naver_stock_name = ""
+
+        if naver_data and isinstance(naver_data, dict):
+            for item in naver_data.get("totalInfos", []) or []:
+                if isinstance(item, dict) and item.get("code"):
+                    naver_total[item["code"]] = item.get("value", "")
+            naver_consensus = naver_data.get("consensusInfo") or {}
+            naver_deal_trends = naver_data.get("dealTrendInfos") or []
+            naver_researches = naver_data.get("researches") or []
+            naver_stock_name = (naver_data.get("stockName") or "").strip()
+
+        n_pe = _parse_naver_num(naver_total.get("per"))
+        n_cns_pe = _parse_naver_num(naver_total.get("cnsPer"))
+        n_pbr = _parse_naver_num(naver_total.get("pbr"))
+        n_mcap = _parse_naver_money(naver_total.get("marketValue"))
+        n_high52 = _parse_naver_num(naver_total.get("highPriceOf52WeeksAdjusted"))
+        n_low52 = _parse_naver_num(naver_total.get("lowPriceOf52WeeksAdjusted"))
+        n_foreign_rate = naver_total.get("foreignRate")
+        n_div_yield = _parse_naver_num(naver_total.get("dividendYieldRatio"))
+        n_target = _parse_naver_num(naver_consensus.get("priceTargetMean"))
+        n_recomm = naver_consensus.get("recommMean")
 
         # QuoteSummary 모듈 추출
         qs_res = (quote.get("quoteSummary", {}).get("result") or [{}])[0]
@@ -717,27 +863,41 @@ class DataPackBuilder:
         industry = profile.get("industry", "N/A")
         short_summary = profile.get("longBusinessSummary", "")[:350]
 
-        # 표시용 기업명: Toss 한글명(외부 전달) -> Yahoo longName/shortName -> 티커 폴백
+        # 표시용 기업명: Toss 한글명(외부 전달) -> 네이버 한글명 -> Yahoo longName/shortName -> 티커 폴백
         yahoo_company_name = (profile.get("longName") or profile.get("shortName") or "").strip()
         display_company_name = (
             (company_name or "").strip()
+            or naver_stock_name
             or yahoo_company_name
             or ticker
         )
 
-        # 밸류에이션 지표
+        # 밸류에이션 지표 (Yahoo 부재 시 네이버 데이터로 보완)
         market_cap = (
             self._raw(summary_detail.get("marketCap"))
             or self._raw(key_stats.get("enterpriseValue"))
+            or n_mcap
             or 0.0
         )
         trailing_pe = self._raw(summary_detail.get("trailingPE"))
+        if trailing_pe is None:
+            trailing_pe = n_pe
+
         forward_pe = self._raw(summary_detail.get("forwardPE"))
-        peg = self._raw(key_stats.get("pegRatio"))
+        if forward_pe is None:
+            forward_pe = n_cns_pe
+
         pbr = self._raw(summary_detail.get("priceToBook")) or self._raw(key_stats.get("priceToBook"))
+        if pbr is None:
+            pbr = n_pbr
+
         psr = self._raw(summary_detail.get("priceToSalesTrailing12Months"))
+        peg = self._raw(key_stats.get("pegRatio"))
         ev_ebitda = self._raw(key_stats.get("enterpriseToEbitda"))
+
         dividend_yield = self._raw(summary_detail.get("dividendYield"))
+        if dividend_yield is None and n_div_yield is not None:
+            dividend_yield = n_div_yield / 100.0
 
         # Timeseries 파싱 (연간 5개년 + 최근 5개 분기)
         income_rows = self._parse_income_rows(ts, is_quarterly=False)
@@ -745,6 +905,19 @@ class DataPackBuilder:
         cashflow_rows = self._parse_cashflow_rows(ts, is_quarterly=False)
         cashflow_quarterly_rows = self._parse_cashflow_rows(ts, is_quarterly=True)
         balance_sheet = self._parse_balance_sheet(ts, fin_data)
+
+        # 통화 판별 (거래통화 vs 재무원장통화)
+        price_curr = meta.get("currency") or "USD"
+        fin_curr = fin_data.get("financialCurrency") or "USD"
+        clean_code = ticker.replace(".KS", "").replace(".KQ", "").strip()
+        is_krw = (
+            fin_curr.upper() == "KRW"
+            or price_curr.upper() == "KRW"
+            or (clean_code.isdigit() and len(clean_code) == 6)
+            or ticker in ["SKHY", "PKX", "KB", "SHG", "KT"]
+            or (income_rows and income_rows[-1].revenue and income_rows[-1].revenue > 1e12)
+        )
+        resolved_fin_curr = "KRW" if is_krw else fin_curr
 
         # 그린블라트 이익수익률 (EBIT / EV) 및 그레이엄 승수 (PER * PBR)
         latest_op = income_rows[-1].operating_income if income_rows else None
@@ -773,21 +946,67 @@ class DataPackBuilder:
             f"- **사업 개요**: {summary_text}"
         )
 
+        high52_val = high52 or n_high52
+        low52_val = low52 or n_low52
+        high52_str = (
+            f"{int(high52_val):,}원"
+            if (is_krw and high52_val)
+            else (f"${high52_val:.2f}" if high52_val else "N/A")
+        )
+        low52_str = (
+            f"{int(low52_val):,}원"
+            if (is_krw and low52_val)
+            else (f"${low52_val:.2f}" if low52_val else "N/A")
+        )
+
+        fifty_d_raw = self._raw(summary_detail.get("fiftyDayAverage"))
+        two_hundred_d_raw = self._raw(summary_detail.get("twoHundredDayAverage"))
+
         market_metrics = {
-            "52주 고가": f"${high52:.2f}" if high52 else "N/A",
-            "52주 저가": f"${low52:.2f}" if low52 else "N/A",
+            "52주 고가": high52_str,
+            "52주 저가": low52_str,
             "공매도 비율(Short % of Float)": self._pct(self._raw(key_stats.get("shortPercentOfFloat"))),
             "내부자 지분율": self._pct(self._raw(key_stats.get("heldPercentInsiders"))),
             "기관 지분율": self._pct(self._raw(key_stats.get("heldPercentInstitutions"))),
-            "50일 이동평균선": f"${self._raw(summary_detail.get('fiftyDayAverage')):.2f}" if self._raw(summary_detail.get("fiftyDayAverage")) else "N/A",
-            "200일 이동평균선": f"${self._raw(summary_detail.get('twoHundredDayAverage')):.2f}" if self._raw(summary_detail.get("twoHundredDayAverage")) else "N/A",
+            "50일 이동평균선": (
+                f"{int(fifty_d_raw):,}원"
+                if (is_krw and fifty_d_raw)
+                else (f"${fifty_d_raw:.2f}" if fifty_d_raw else "N/A")
+            ),
+            "200일 이동평균선": (
+                f"{int(two_hundred_d_raw):,}원"
+                if (is_krw and two_hundred_d_raw)
+                else (f"${two_hundred_d_raw:.2f}" if two_hundred_d_raw else "N/A")
+            ),
         }
+        if n_foreign_rate:
+            market_metrics["외국인 소진율"] = n_foreign_rate
+        if naver_deal_trends:
+            latest_deal = naver_deal_trends[0]
+            f_buy = latest_deal.get("foreignerPureBuyQuant", "0")
+            o_buy = latest_deal.get("organPureBuyQuant", "0")
+            market_metrics["최근 수급(외인/기관)"] = f"외인 {f_buy}주 / 기관 {o_buy}주"
+
+        target_mean = self._raw(fin_data.get("targetMeanPrice")) or n_target
+        target_high = self._raw(fin_data.get("targetHighPrice"))
+        target_low = self._raw(fin_data.get("targetLowPrice"))
+
+        def _fmt_price(val: float | None) -> str:
+            if not val:
+                return "N/A"
+            if is_krw:
+                return f"{int(val):,}원"
+            return f"${val:.2f}"
+
+        recomm = fin_data.get("recommendationKey") or (f"{n_recomm}" if n_recomm else "N/A")
+        if recomm == "N/A" and n_recomm:
+            recomm = f"{n_recomm}"
 
         analyst_consensus = {
-            "목표주가 평균": f"${self._raw(fin_data.get('targetMeanPrice')):.2f}" if self._raw(fin_data.get("targetMeanPrice")) else "N/A",
-            "목표주가 최고": f"${self._raw(fin_data.get('targetHighPrice')):.2f}" if self._raw(fin_data.get("targetHighPrice")) else "N/A",
-            "목표주가 최저": f"${self._raw(fin_data.get('targetLowPrice')):.2f}" if self._raw(fin_data.get("targetLowPrice")) else "N/A",
-            "투자의견": fin_data.get("recommendationKey", "N/A"),
+            "목표주가 평균": _fmt_price(target_mean),
+            "목표주가 최고": _fmt_price(target_high),
+            "목표주가 최저": _fmt_price(target_low),
+            "투자의견": recomm,
         }
 
         # IR 일정 파싱 (실적발표일, 배당일)
@@ -826,6 +1045,23 @@ class DataPackBuilder:
             "배당 지급일": div_date_str,
         }
 
+        # 네이버 증권사 분석 리포트가 있으면 뉴스 목록 상단에 편입
+        merged_news = list(news_items or [])
+        if naver_researches:
+            for r in naver_researches[:5]:
+                tit = (r.get("tit") or "").strip()
+                bnm = (r.get("bnm") or "").strip()
+                wdt = str(r.get("wdt") or "").strip()
+                date_fmt = f"{wdt[:4]}-{wdt[4:6]}-{wdt[6:8]}" if len(wdt) == 8 else wdt
+                if tit:
+                    merged_news.insert(0, {
+                        "title": f"[증권사리포트/{bnm}] {tit}",
+                        "publisher": bnm or "네이버증권",
+                        "link": f"https://m.stock.naver.com/domestic/stock/{ticker.replace('.KS','').replace('.KQ','')}/research",
+                        "published_at": date_fmt,
+                    })
+
+
         # 포렌식 지표 수집 (SBC, 주식수 희석, 재고, 부채상환연수)
         sbc_last = self._last(self._series(ts, "annualStockBasedCompensation"))
         shares_series = self._series(ts, "annualDilutedAverageShares")
@@ -852,16 +1088,6 @@ class DataPackBuilder:
             "debt_payoff_years": round(debt_years, 1) if debt_years is not None else None,
         }
 
-        # 통화 판별 (거래통화 vs 재무원장통화)
-        price_curr = meta.get("currency") or "USD"
-        fin_curr = fin_data.get("financialCurrency") or "USD"
-        is_krw = (
-            fin_curr.upper() == "KRW"
-            or ticker in ["SKHY", "PKX", "KB", "SHG", "KT"]
-            or (income_rows and income_rows[-1].revenue and income_rows[-1].revenue > 1e12)
-        )
-        resolved_fin_curr = "KRW" if is_krw else fin_curr
-
         dp_pre = StockDataPack(
             ticker=ticker,
             company_name=display_company_name,
@@ -878,7 +1104,7 @@ class DataPackBuilder:
             valuation=valuation,
             market_metrics=market_metrics,
             analyst_consensus=analyst_consensus,
-            news_items=news_items or [],
+            news_items=merged_news,
             ir_schedule=ir_schedule,
             forensic_metrics=forensic_metrics,
         )

@@ -21,8 +21,14 @@ async function getYahooAuth(forceRefresh = false): Promise<{ cookie: string; cru
   const res1 = await fetch('https://fc.yahoo.com', {
     headers: { 'User-Agent': UA },
   });
-  const rawCookie = res1.headers.get('set-cookie') || '';
-  const cookiePart = rawCookie.split(';')[0]?.trim();
+  const headersAny = res1.headers as unknown as { getSetCookie?: () => string[] };
+  const rawList = typeof headersAny.getSetCookie === 'function'
+    ? headersAny.getSetCookie()
+    : [res1.headers.get('set-cookie') || ''];
+  const cookiePart = rawList
+    .map(c => c.split(';')[0]?.trim())
+    .filter(Boolean)
+    .join('; ');
 
   if (!cookiePart) {
     throw new Error(`Failed to obtain Yahoo cookie (HTTP ${res1.status})`);
