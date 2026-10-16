@@ -755,11 +755,11 @@ export function ResearchCatalogView({
             </div>
 
             <h1 className="text-2xl sm:text-4xl lg:text-[40px] font-bold text-[#0f172a] tracking-tight leading-[1.15]">
-              13인 투자 거장의 AI 가치평가 및 미국 주식 리포트 아카이브
+              13인 투자 거장의 AI 가치평가 및 국내·미국 주식 리포트 아카이브
             </h1>
 
             <p className="text-sm sm:text-base text-[#64748b] leading-relaxed max-w-3xl">
-              단순한 주가 시세판이 아닌, 13인 투자 거장의 원전 철학으로 분석한 미국 주식 리포트와 내재가치
+              단순한 주가 시세판이 아닌, 13인 투자 거장의 원전 철학으로 분석한 국내 및 미국 주식 리포트와 내재가치
               합의를 정제된 문서로 제공합니다. 보고서를 클릭하면 즉시
               심층 리서치 브리프로 전환되어 적정주가 표결과 전문 가치평가 내역을 열람할 수 있습니다.
             </p>

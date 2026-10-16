@@ -1233,7 +1233,7 @@ export function DashboardView({
                   href="/stocks"
                   className="hover:text-[#0f172a] transition-colors"
                 >
-                  미국 주식 리포트
+                  국내·미국 주식 리포트
                 </Link>
                 <span>·</span>
                 <Link

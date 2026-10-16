@@ -253,7 +253,9 @@ export function getSeoKeywordsForTicker(
     }
   }
 
+  list.add("국내 주식 리포트");
   list.add("미국 주식 리포트");
+  list.add("주식 리포트");
   list.add("주식 보고서");
   list.add("적정주가");
   list.add("내재가치");
