@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { DashboardView } from "@/components/dashboard/DashboardView";
 import { getServerSupabaseClient } from "@/lib/subscription/supabaseServer";
 import { maskReportRowPublic } from "@/lib/subscription/reportAccess";
@@ -255,44 +254,6 @@ export default async function StockDetailPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      {/* SSR 상단 헤더 (하단 SEO 블록 대체): 브레드크럼 + h1 + 한 줄 요약.
-          하단은 콘솔 내부 푸터만 남겨 적층 해소. generateMetadata + JSON-LD 유지.
-          public 허용 필드(한글명·티커·분석일자·현재가)만 사용, verdict·적정가는 절대 미포함. */}
-      <div className="mx-auto w-full max-w-[1456px] px-4 lg:px-8 pt-3 pb-1">
-        <nav
-          aria-label="브레드크럼"
-          className="text-xs font-mono text-[#64748b]"
-        >
-          <ol className="flex items-center gap-1.5">
-            <li>
-              <Link href="/" className="hover:text-[#0f172a]">
-                Home
-              </Link>
-            </li>
-            <li aria-hidden="true">/</li>
-            <li>
-              <Link href="/stocks" className="hover:text-[#0f172a]">
-                Stocks
-              </Link>
-            </li>
-            <li aria-hidden="true">/</li>
-            <li aria-current="page" className="font-semibold text-[#0f172a]">
-              {koName}({ticker})
-            </li>
-          </ol>
-        </nav>
-        <h1 className="mt-1.5 text-base font-bold tracking-tight text-[#0f172a] sm:text-lg">
-          {koName}({ticker}) 주식 리포트와 분석 | 리포티스트
-        </h1>
-        <p className="mt-0.5 text-xs leading-relaxed text-[#64748b]">
-          리포티스트 {koName}({ticker}) 주식 보고서와 분석 아카이브. 13인 투자
-          거장의 철학으로 적정주가를 정리합니다.
-          {publishedDate ? ` 최근 분석 기준일은 ${publishedDate}이며,` : ""}
-          {currentPrice !== null
-            ? ` 기준 현재가는 $${currentPrice.toLocaleString()}입니다.`
-            : " 최신 보고서는 Pro 멤버십으로 열람할 수 있습니다."}
-        </p>
-      </div>
       <Suspense fallback={<div className="min-h-screen bg-white" />}>
         <DashboardView
           initialSection="sec-reports"
@@ -300,6 +261,14 @@ export default async function StockDetailPage({
           initialReport={initialReport}
           initialTab={validatedTab}
           initialDate={date}
+          seoTitle={`${koName}(${ticker}) 주식 리포트와 분석 | 리포티스트`}
+          seoDescription={`리포티스트 ${koName}(${ticker}) 주식 보고서와 분석 아카이브. 13인 투자 거장의 철학으로 적정주가를 정리합니다.${
+            publishedDate ? ` 최근 분석 기준일은 ${publishedDate}이며,` : ""
+          }${
+            currentPrice !== null
+              ? ` 기준 현재가는 $${currentPrice.toLocaleString()}입니다.`
+              : " 최신 보고서는 Pro 멤버십으로 열람할 수 있습니다."
+          }`}
         />
       </Suspense>
     </>

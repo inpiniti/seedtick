@@ -45,6 +45,9 @@ interface ResearchDocumentViewProps {
   intrinsicStability?: IntrinsicStability;
   activeTab?: ResearchDocTab;
   onTabChange?: (tab: ResearchDocTab) => void;
+  /** SSR SEO eyebrow (종목 페이지에서 서버가 주입, hero 내부 렌더로 하단 적층 방지) */
+  seoTitle?: string;
+  seoDescription?: string;
 }
 
 export function ResearchDocumentView({
@@ -59,6 +62,8 @@ export function ResearchDocumentView({
   intrinsicStability,
   activeTab: activeTabProp,
   onTabChange,
+  seoTitle,
+  seoDescription,
 }: ResearchDocumentViewProps) {
   const {
     tier,
@@ -203,6 +208,18 @@ export function ResearchDocumentView({
 
       {/* ── 2. 에디토리얼 문서 헤더 ── */}
       <header className="px-6 lg:px-12 py-8 lg:py-10 bg-white space-y-6">
+        {/* SSR SEO eyebrow (종목 페이지에서만 주입): 별도 하단 블록 대신 hero 내부에
+            합쳐 레이아웃 적층 해소. 서버에서 주입된 prop이라 초기 HTML에 포함됨. */}
+        {seoTitle && (
+          <div className="space-y-1">
+            <h1 className="font-mono text-[11px] font-semibold tracking-wide text-[#64748b]">
+              {seoTitle}
+            </h1>
+            {seoDescription && (
+              <p className="text-xs leading-relaxed text-[#64748b]">{seoDescription}</p>
+            )}
+          </div>
+        )}
         {/* 상단 메타 ID 및 이력 셀렉터 */}
         <div className="flex items-center justify-between gap-3 flex-wrap font-mono text-xs text-[#64748b]">
           <div className="flex items-center gap-2">

@@ -99,6 +99,9 @@ export interface DashboardViewProps {
   initialTab?: ResearchDocTab;
   initialDate?: string;
   initialGuru?: string;
+  /** SSR SEO eyebrow (종목 페이지에서 서버가 주입, 문서 hero 내부 렌더) */
+  seoTitle?: string;
+  seoDescription?: string;
 }
 
 export function DashboardView({
@@ -108,6 +111,8 @@ export function DashboardView({
   initialTab,
   initialDate,
   initialGuru,
+  seoTitle,
+  seoDescription,
 }: DashboardViewProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -995,6 +1000,8 @@ export function DashboardView({
                 isLoadingDate={isLoadingReportDate}
                 activeTab={activeDocTab}
                 onTabChange={handleTabChange}
+                seoTitle={seoTitle}
+                seoDescription={seoDescription}
                 percentB={
                   selectedDocReport
                     ? percentBByTicker[chartTickerKey(selectedDocReport.ticker)]
