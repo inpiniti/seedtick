@@ -177,11 +177,17 @@ export function ResearchCatalogView({
     onPercentBUpdateRef.current = onPercentBUpdate;
   }, [onPercentBUpdate]);
 
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- 동시 4개 수동 큐라 컴파일러 메모화로 대체 불가
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- 동시 2개 수동 큐로 대역폭 보호
   const pumpPbQueue = useCallback(() => {
-    while (pbInflightRef.current < 4 && pbQueueRef.current.length > 0) {
+    while (pbInflightRef.current < 2 && pbQueueRef.current.length > 0) {
       const key = pbQueueRef.current.shift()!;
       if (pbPendingRef.current.has(key)) continue;
+
+      // 이미 캐시에 있으면 네트워크 요청 생략
+      if (DataCache.getPercentB(key) !== undefined) {
+        continue;
+      }
+
       pbPendingRef.current.add(key);
       pbInflightRef.current += 1;
       void (async () => {
@@ -548,6 +554,35 @@ export function ResearchCatalogView({
     return () => observer.disconnect();
   }, [isAll, filteredReports.length]);
 
+  // 후보군 점진적 렌더링 (초기 20개 즉시 렌더 후 스크롤 시 20개씩 추가 렌더)
+  const [candidatePageLimit, setCandidatePageLimit] = useState(20);
+  const loadMoreCandidatesRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setCandidatePageLimit(20);
+  }, [searchQuery, candidateMarket]);
+
+  useEffect(() => {
+    if (isAll) return;
+    const target = loadMoreCandidatesRef.current;
+    if (!target) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setCandidatePageLimit((prev) => {
+            if (prev >= filteredCandidates.length) return prev;
+            return prev + 20;
+          });
+        }
+      },
+      { rootMargin: "300px" }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [isAll, filteredCandidates.length]);
+
   // [리스트 수 조절] 전체 홈일 때는 10개만, 개별 메뉴 선택 시 점진 렌더링(기본 20개 + 스크롤)
   const displayedReports = isAll
     ? filteredReports.slice(0, 10)
@@ -555,7 +590,7 @@ export function ResearchCatalogView({
   const displayedRoma = isAll ? filteredRoma.slice(0, 10) : filteredRoma;
   const displayedCandidates = isAll
     ? filteredCandidates.slice(0, 10)
-    : filteredCandidates;
+    : filteredCandidates.slice(0, candidatePageLimit);
 
   // 리포트 티커 로고 맵 (후보군 목록과 무관하게 배치 API로 직접 조회, 메모리 캐시 유지)
   const [logoMap, setLogoMap] = useState<Record<string, string>>(() =>
@@ -1405,7 +1440,12 @@ export function ResearchCatalogView({
               <div className="flex items-center gap-1.5 p-1 bg-[#f1f5f9] rounded-lg font-mono text-xs">
                 <button
                   type="button"
-                  onClick={() => setCandidateMarket("us")}
+                  onClick={() => {
+                    setCandidateMarket("us");
+                    if ((!liveCandidates || liveCandidates.length === 0) && !isLoading) {
+                      onRefreshLive();
+                    }
+                  }}
                   className={`flex-1 py-1.5 px-3 rounded-md transition-all font-medium flex items-center justify-center gap-1.5 cursor-pointer ${
                     candidateMarket === "us"
                       ? "bg-white text-[#0f172a] shadow-2xs font-semibold"
@@ -1419,7 +1459,12 @@ export function ResearchCatalogView({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCandidateMarket("kr")}
+                  onClick={() => {
+                    setCandidateMarket("kr");
+                    if ((!krCandidates || krCandidates.length === 0) && !isKrLoading) {
+                      onRefreshKr?.(5);
+                    }
+                  }}
                   className={`flex-1 py-1.5 px-3 rounded-md transition-all font-medium flex items-center justify-center gap-1.5 cursor-pointer ${
                     candidateMarket === "kr"
                       ? "bg-white text-[#0f172a] shadow-2xs font-semibold"
@@ -1574,6 +1619,16 @@ export function ResearchCatalogView({
                     );
                   })}
                 </ul>
+              )}
+
+              {!isAll && displayedCandidates.length < filteredCandidates.length && (
+                <div
+                  ref={loadMoreCandidatesRef}
+                  className="py-3 text-center text-xs text-[#94a3b8] flex items-center justify-center gap-2 border-t border-[#f1f5f9]"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#3b82f6] animate-pulse" />
+                  <span>더 많은 후보 종목 불러오는 중... ({displayedCandidates.length} / {filteredCandidates.length})</span>
+                </div>
               )}
 
               {/* [리스트 수 조절] 전체 홈에서 10개 초과 시 전체 보기 링크 */}

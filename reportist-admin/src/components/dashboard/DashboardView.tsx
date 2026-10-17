@@ -16,6 +16,7 @@ import {
   fetchRomaScreener,
   fetchScreener,
   fetchStockChart,
+  fetchTickerLogos,
   resetAiModelRotation,
   triggerPipeline,
 } from "@/lib/api-client";
@@ -281,6 +282,56 @@ export function DashboardView({
     }
     return map;
   }, [liveCandidates, krCandidates, romaCandidates]);
+
+  // 상세 문서 헤더용 로고 (리스트 배치 캐시까지 폴백 + 단건 조회)
+  // - 상세 직접 진입 시 스크리너를 로드하지 않아 candidateLogoMap이 비어 있을 수 있음
+  // - 리스트에서 채운 DataCache(tickerLogos)를 함께 참조해야 단건도 표시됨
+  const [detailLogoMap, setDetailLogoMap] = useState<Record<string, string>>(() =>
+    DataCache.getAllTickerLogos()
+  );
+  const detailTickerKey = selectedDocReport?.ticker?.trim().toUpperCase() || null;
+  const detailLogoUrl = detailTickerKey
+    ? candidateLogoMap.get(detailTickerKey) ||
+      DataCache.getTickerLogo(detailTickerKey) ||
+      detailLogoMap[detailTickerKey] ||
+      null
+    : null;
+
+  useEffect(() => {
+    if (!detailTickerKey) return;
+    if (candidateLogoMap.get(detailTickerKey)) return;
+    const cached = DataCache.getTickerLogo(detailTickerKey);
+    if (cached) {
+      setDetailLogoMap((prev) =>
+        prev[detailTickerKey] ? prev : { ...prev, [detailTickerKey]: cached }
+      );
+      return;
+    }
+    setDetailLogoMap((prev) => {
+      if (prev[detailTickerKey]) return prev;
+      // DataCache가 뒤늦게 채워졌을 수 있어 다시 확인
+      const late = DataCache.getTickerLogo(detailTickerKey);
+      if (late) return { ...prev, [detailTickerKey]: late };
+      return prev;
+    });
+    let cancelled = false;
+    fetchTickerLogos([detailTickerKey], 1)
+      .then((res) => {
+        if (cancelled) return;
+        const url = (res?.items?.[0]?.logo_image_url || "").trim();
+        if (url && /^https?:\/\//i.test(url)) {
+          DataCache.setTickerLogo(detailTickerKey, url);
+          setDetailLogoMap((prev) => ({ ...prev, [detailTickerKey]: url }));
+        }
+      })
+      .catch(() => {
+        // 단건 로고 조회 실패는 폴백 아바타 유지
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detailTickerKey, candidateLogoMap]);
 
   // 내재가치 안정성 맵 (Free/체험만료 유저는 최근 30일 데이터 제외)
   // 02/03 리스트의 안정성 뱃지가 최신 적정가 분산을 유출하지 않게 하기 위함.
@@ -923,10 +974,16 @@ export function DashboardView({
 
     loadDashboardData();
 
-    // 스크리너 탭이거나 홈일 때만 스크리너 로드
+    // 스크리너 탭이거나 홈일 때: 기본 탭인 미국장을 먼저 단독 로드하여 서버 경합 방지
     if (activeSidebarSection === "all" || activeSidebarSection === "sec-screener") {
-      loadLiveScreener();
-      loadKrScreener();
+      void loadLiveScreener().then(() => {
+        // 미국장 로드 완료 후 캐시가 없으면 1초 뒤 한국장 지연 프리페치
+        if (!DataCache.getKrCandidates()) {
+          setTimeout(() => {
+            loadKrScreener();
+          }, 1000);
+        }
+      });
     }
     if (activeSidebarSection === "all" || activeSidebarSection === "sec-roma") {
       loadRomaScreener();
@@ -998,11 +1055,7 @@ export function DashboardView({
                     ? percentBByTicker[chartTickerKey(selectedDocReport.ticker)]
                     : null
                 }
-                logoUrl={
-                  selectedDocReport
-                    ? candidateLogoMap.get(selectedDocReport.ticker.toUpperCase()) || null
-                    : null
-                }
+                logoUrl={detailLogoUrl}
                 intrinsicStability={
                   selectedDocReport
                     ? intrinsicStabilityByTicker.get(selectedDocReport.ticker.toUpperCase())

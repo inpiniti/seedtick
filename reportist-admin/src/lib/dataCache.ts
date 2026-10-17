@@ -2,8 +2,8 @@ import { GuruReportRow, HealthStatus, StockCandidate, SystemLogItem, AiModelStat
 import { HistoricalValuationRecord } from "@/lib/supabase";
 
 /**
- * 전역 메모리 캐시 저장소
- * 페이지 라우트 이동 시 불필요한 반복 네트워크 요청을 방지하여
+ * 전역 메모리 + LocalStorage 2단계 캐시 저장소
+ * 페이지 라우트 이동 및 브라우저 새로고침 시 불필요한 반복 네트워크 요청을 방지하여
  * 0ms 즉각적인 화면 전환(Instant Navigation)을 제공합니다.
  */
 interface GlobalMemoryCache {
@@ -23,14 +23,72 @@ interface GlobalMemoryCache {
   tickerNameMap?: { data: Record<string, string>; expiresAt: number };
 }
 
-const CACHE_TTL_MS = 3 * 60 * 1000; // 3분간 캐시 유지
-const PERCENTB_TTL_MS = 5 * 60 * 1000; // %B 5분 TTL (만료 시 재조회, 그 전엔 로컬 재사용)
+const CACHE_TTL_MS = 15 * 60 * 1000; // 후보군/기본 15분 캐시
+const PERCENTB_TTL_MS = 30 * 60 * 1000; // %B 30분 TTL (일봉 기준 지표)
+const PERCENTB_NEGATIVE_TTL_MS = 24 * 60 * 60 * 1000; // 미지원/실패 티커 24시간 재요청 차단
+
+const PERCENTB_STORAGE_KEY = "reportist_pb_cache_v1";
+const SCREENER_STORAGE_KEY = "reportist_screener_cache_v1";
+
+function safeLocalStorageGet<T>(key: string): T | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+function safeLocalStorageSet<T>(key: string, value: T): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // 쿼터 초과 시 무시
+  }
+}
+
+function safeLocalStorageRemove(key: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(key);
+  } catch {}
+}
+
+// 1. LocalStorage에서 %B 영속 캐시 초기 복원
+function loadInitialPercentBCache(): Map<string, { value: number | null; expiresAt: number }> {
+  const map = new Map<string, { value: number | null; expiresAt: number }>();
+  const stored = safeLocalStorageGet<Record<string, { value: number | null; expiresAt: number }>>(
+    PERCENTB_STORAGE_KEY
+  );
+  if (stored) {
+    const now = Date.now();
+    for (const [k, v] of Object.entries(stored)) {
+      if (v && v.expiresAt > now) {
+        map.set(k, v);
+      }
+    }
+  }
+  return map;
+}
 
 const cache: GlobalMemoryCache = {
   reportsByDate: new Map(),
-  percentB: new Map(),
+  percentB: loadInitialPercentBCache(),
   tickerLogos: new Map(),
 };
+
+function persistPercentBCache() {
+  const now = Date.now();
+  const obj: Record<string, { value: number | null; expiresAt: number }> = {};
+  for (const [k, v] of cache.percentB.entries()) {
+    if (v.expiresAt > now) {
+      obj[k] = v;
+    }
+  }
+  safeLocalStorageSet(PERCENTB_STORAGE_KEY, obj);
+}
 
 export const DataCache = {
   getHealth: () => {
@@ -67,7 +125,7 @@ export const DataCache = {
     cache.historicalValuations = { data, expiresAt: Date.now() + CACHE_TTL_MS };
   },
 
-  /** 권한 변경(로그인/체험/Pro) 시 마스킹된 구 리포트 캐시 파기 (일자 목록은 비민감 공개이므로 유지) */
+  /** 권한 변경(로그인/체험/Pro) 시 마스킹된 구 리포트 캐시 파기 */
   clearReports: () => {
     cache.reportsByDate.clear();
     cache.historicalValuations = undefined;
@@ -76,41 +134,79 @@ export const DataCache = {
   getLiveCandidates: () => {
     if (cache.liveCandidates && cache.liveCandidates.expiresAt > Date.now())
       return cache.liveCandidates.data;
+    // LocalStorage 폴백 복원 (새로고침 직후에도 0ms 즉시 표시)
+    const stored = safeLocalStorageGet<{ us?: { data: StockCandidate[]; expiresAt: number } }>(
+      SCREENER_STORAGE_KEY
+    );
+    if (stored?.us && stored.us.expiresAt > Date.now()) {
+      cache.liveCandidates = stored.us;
+      return stored.us.data;
+    }
     return null;
   },
   setLiveCandidates: (data: StockCandidate[]) => {
-    cache.liveCandidates = { data, expiresAt: Date.now() + CACHE_TTL_MS };
+    const entry = { data, expiresAt: Date.now() + CACHE_TTL_MS };
+    cache.liveCandidates = entry;
+    const stored = safeLocalStorageGet<Record<string, any>>(SCREENER_STORAGE_KEY) || {};
+    stored.us = entry;
+    safeLocalStorageSet(SCREENER_STORAGE_KEY, stored);
   },
 
   getKrCandidates: () => {
     if (cache.krCandidates && cache.krCandidates.expiresAt > Date.now())
       return cache.krCandidates.data;
+    const stored = safeLocalStorageGet<{ kr?: { data: StockCandidate[]; expiresAt: number } }>(
+      SCREENER_STORAGE_KEY
+    );
+    if (stored?.kr && stored.kr.expiresAt > Date.now()) {
+      cache.krCandidates = stored.kr;
+      return stored.kr.data;
+    }
     return null;
   },
   setKrCandidates: (data: StockCandidate[]) => {
-    cache.krCandidates = { data, expiresAt: Date.now() + CACHE_TTL_MS };
+    const entry = { data, expiresAt: Date.now() + CACHE_TTL_MS };
+    cache.krCandidates = entry;
+    const stored = safeLocalStorageGet<Record<string, any>>(SCREENER_STORAGE_KEY) || {};
+    stored.kr = entry;
+    safeLocalStorageSet(SCREENER_STORAGE_KEY, stored);
   },
 
   getRomaCandidates: () => {
     if (cache.romaCandidates && cache.romaCandidates.expiresAt > Date.now())
       return cache.romaCandidates.data;
+    const stored = safeLocalStorageGet<{ roma?: { data: StockCandidate[]; expiresAt: number } }>(
+      SCREENER_STORAGE_KEY
+    );
+    if (stored?.roma && stored.roma.expiresAt > Date.now()) {
+      cache.romaCandidates = stored.roma;
+      return stored.roma.data;
+    }
     return null;
   },
   setRomaCandidates: (data: StockCandidate[]) => {
-    cache.romaCandidates = { data, expiresAt: Date.now() + CACHE_TTL_MS };
+    const entry = { data, expiresAt: Date.now() + CACHE_TTL_MS };
+    cache.romaCandidates = entry;
+    const stored = safeLocalStorageGet<Record<string, any>>(SCREENER_STORAGE_KEY) || {};
+    stored.roma = entry;
+    safeLocalStorageSet(SCREENER_STORAGE_KEY, stored);
   },
 
   getPercentB: (ticker: string): number | null | undefined => {
-    const entry = cache.percentB.get(ticker);
+    const cleanKey = ticker.trim().toUpperCase();
+    const entry = cache.percentB.get(cleanKey);
     if (!entry) return undefined;
     if (entry.expiresAt <= Date.now()) {
-      cache.percentB.delete(ticker);
+      cache.percentB.delete(cleanKey);
       return undefined;
     }
     return entry.value;
   },
   setPercentB: (ticker: string, val: number | null) => {
-    cache.percentB.set(ticker, { value: val, expiresAt: Date.now() + PERCENTB_TTL_MS });
+    const cleanKey = ticker.trim().toUpperCase();
+    const ttl = val === null ? PERCENTB_NEGATIVE_TTL_MS : PERCENTB_TTL_MS;
+    cache.percentB.set(cleanKey, { value: val, expiresAt: Date.now() + ttl });
+    persistPercentBCache();
   },
   getAllPercentB: () => {
     const obj: Record<string, number | null> = {};
@@ -131,15 +227,13 @@ export const DataCache = {
     return null;
   },
   setTickerNameMap: (data: Record<string, string>) => {
-    // 종목명은 자주 바뀌지 않으므로 다른 데이터보다 길게 캐시 (30분)
-    cache.tickerNameMap = { data, expiresAt: Date.now() + 30 * 60 * 1000 };
+    cache.tickerNameMap = { data, expiresAt: Date.now() + 24 * 60 * 60 * 1000 };
   },
 
   getTickerLogo: (ticker: string): string | undefined => {
     return cache.tickerLogos.get(ticker.trim().toUpperCase());
   },
   setTickerLogo: (ticker: string, url: string) => {
-    // 로고 URL은 거의 바뀌지 않으므로 메모리 유지 (TTL 없음)
     cache.tickerLogos.set(ticker.trim().toUpperCase(), url);
   },
   getAllTickerLogos: () => {
@@ -161,5 +255,8 @@ export const DataCache = {
     cache.romaCandidates = undefined;
     cache.systemLogs = undefined;
     cache.tickerNameMap = undefined;
+    cache.percentB.clear();
+    safeLocalStorageRemove(PERCENTB_STORAGE_KEY);
+    safeLocalStorageRemove(SCREENER_STORAGE_KEY);
   },
 };
