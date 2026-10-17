@@ -58,10 +58,13 @@ export async function signInWithMagicLink(email: string, redirectTo?: string) {
   return data;
 }
 
+import { clearAllUserCache } from "@/lib/queryClient";
+
 /**
- * 로그아웃
+ * 로그아웃 (스토리지 및 리포트 캐시 전면 정리)
  */
 export async function signOutUser() {
+  clearAllUserCache();
   if (!supabase) return;
   const { error } = await supabase.auth.signOut();
   if (error) console.warn("Sign out error:", error.message);

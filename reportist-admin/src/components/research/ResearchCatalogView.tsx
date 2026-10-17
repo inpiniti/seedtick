@@ -368,15 +368,19 @@ export function ResearchCatalogView({
     const report = latestReportByTicker.get(ticker.toUpperCase());
     const consensus = extractValuationConsensus(report);
     const fairValue = consensus?.fair_value_price ?? null;
-    const confidenceSamples = (report?.summaries || [])
-      .filter((s) => s.parse_mode !== "fallback")
-      .map((s) => s.confidence)
-      .filter((v): v is number => v != null && Number.isFinite(v));
     const confidence =
-      confidenceSamples.length > 0
-        ? confidenceSamples.reduce((sum, v) => sum + v, 0) /
-          confidenceSamples.length
-        : null;
+      typeof report?.avg_confidence === "number" && Number.isFinite(report.avg_confidence)
+        ? report.avg_confidence
+        : (() => {
+            const confidenceSamples = (report?.summaries || [])
+              .filter((s) => s.parse_mode !== "fallback")
+              .map((s) => s.confidence)
+              .filter((v): v is number => v != null && Number.isFinite(v));
+            return confidenceSamples.length > 0
+              ? confidenceSamples.reduce((sum, v) => sum + v, 0) /
+                  confidenceSamples.length
+              : null;
+          })();
     const price = stockPrice || report?.current_price || null;
     const intrinsicRatioPct =
       fairValue != null && price != null && price > 0
@@ -514,10 +518,40 @@ export function ResearchCatalogView({
     );
   }, [activeCandidatesList, searchQuery, tickerNameMap]);
 
-  // [리스트 수 조절] 전체 홈일 때는 10개만, 개별 메뉴 선택 시 전체 표시
+  // 점진적 렌더링 (초기 20개 즉시 렌더 후 스크롤 시 20개씩 추가 렌더)
+  const [reportPageLimit, setReportPageLimit] = useState(20);
+  const loadMoreReportsRef = useRef<HTMLDivElement | null>(null);
+
+  // 검색어/필터/정렬/날짜 변경 시 페이지 리밋 초기화
+  useEffect(() => {
+    setReportPageLimit(20);
+  }, [searchQuery, reportVerdictFilter, reportSortBy, selectedDate]);
+
+  useEffect(() => {
+    if (isAll) return;
+    const target = loadMoreReportsRef.current;
+    if (!target) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setReportPageLimit((prev) => {
+            if (prev >= filteredReports.length) return prev;
+            return prev + 20;
+          });
+        }
+      },
+      { rootMargin: "300px" }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [isAll, filteredReports.length]);
+
+  // [리스트 수 조절] 전체 홈일 때는 10개만, 개별 메뉴 선택 시 점진 렌더링(기본 20개 + 스크롤)
   const displayedReports = isAll
     ? filteredReports.slice(0, 10)
-    : filteredReports;
+    : filteredReports.slice(0, reportPageLimit);
   const displayedRoma = isAll ? filteredRoma.slice(0, 10) : filteredRoma;
   const displayedCandidates = isAll
     ? filteredCandidates.slice(0, 10)
@@ -1207,6 +1241,16 @@ export function ResearchCatalogView({
                     );
                   })}
                 </ul>
+              )}
+
+              {!isAll && displayedReports.length < filteredReports.length && (
+                <div
+                  ref={loadMoreReportsRef}
+                  className="py-3 text-center text-xs text-[#94a3b8] flex items-center justify-center gap-2 border-t border-[#f1f5f9]"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#3b82f6] animate-pulse" />
+                  <span>더 많은 분석 보고서 로드 중... ({displayedReports.length} / {filteredReports.length})</span>
+                </div>
               )}
 
               {/* [리스트 수 조절] 전체 홈에서 10개 초과 시 전체 보기 링크 */}

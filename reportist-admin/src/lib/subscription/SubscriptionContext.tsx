@@ -22,6 +22,7 @@ import {
   requestOneTimePayment,
   PortOneResult,
 } from "./portoneClient";
+import { clearAllUserCache } from "@/lib/queryClient";
 
 interface SubscriptionContextValue {
   user: User | null;
@@ -193,6 +194,7 @@ export function SubscriptionProvider({
         loadUserSubscription();
         refreshAdminStatus();
       } else {
+        clearAllUserCache();
         setTier("free");
         setSubscription(null);
         setPayments([]);

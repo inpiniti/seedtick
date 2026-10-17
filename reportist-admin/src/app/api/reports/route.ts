@@ -36,10 +36,46 @@ export async function GET(req: Request) {
 
   const access = await resolveReportAccess(req);
 
+  const LIST_COLUMNS = [
+    "id",
+    "d",
+    "ticker",
+    "company_name",
+    "current_price",
+    "verdict",
+    "overall_score",
+    "vote_summary",
+    "fair_value",
+    "band_low",
+    "band_high",
+    "safety_entry",
+    "target_sell",
+    "upside_pct",
+    "votes_buy",
+    "votes_hold",
+    "votes_watch",
+    "votes_sell",
+    "avg_confidence",
+    "dispersion_pct",
+    "price_estimate_count",
+    "conclusion",
+    "hot_topics",
+    "bull_points",
+    "bear_points",
+    "key_drivers",
+    "action_guide",
+    "valuation_flags",
+    "parse_mode",
+    "prompt_version",
+    "created_at",
+    "updated_at",
+    "summaries",
+  ].join(",");
+
   try {
     let query = supabase
       .from("guru_reports")
-      .select("*")
+      .select(LIST_COLUMNS)
       .order("d", { ascending: false });
 
     if (date && date !== "ALL") {
@@ -61,12 +97,41 @@ export async function GET(req: Request) {
       access.tier === "free" && !access.isTrialActive
         ? await getServerAllowedFreeDate(supabase, now)
         : undefined;
-    const reports = ((data as GuruReportRow[]) || []).map((row) =>
-      maskReportRow(
+
+    const reports = ((data as any[]) || []).map((rawRow) => {
+      // 거장 의견 중 목록·모달 표시에 필요한 필드만 경량화 (체크리스트, 프롬프트 해시 등 거대 필드 제외)
+      const slimmedSummaries = Array.isArray(rawRow.summaries)
+        ? rawRow.summaries.map((s: any) => ({
+            persona: s.persona || s.guru_name || null,
+            verdict: s.verdict || s.stance || null,
+            confidence: typeof s.confidence === "number" ? s.confidence : null,
+            quote:
+              s.quote ||
+              s.rationale ||
+              (Array.isArray(s.core_arguments) && s.core_arguments.length > 0
+                ? s.core_arguments[0]
+                : null) ||
+              null,
+            core_arguments: Array.isArray(s.core_arguments)
+              ? s.core_arguments.slice(0, 2)
+              : null,
+            parse_mode: s.parse_mode || null,
+          }))
+        : null;
+
+      const row: GuruReportRow = {
+        ...rawRow,
+        datapack: null,
+        final_report: null,
+        discussion: null,
+        summaries: slimmedSummaries,
+      };
+
+      return maskReportRow(
         row,
         isDateAllowedForAccess(row.d, access, now, allowedFreeDate)
-      )
-    );
+      );
+    });
 
     return NextResponse.json({ success: true, reports });
   } catch (err) {

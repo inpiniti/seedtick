@@ -45,6 +45,15 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { DataCache } from "@/lib/dataCache";
 import {
+  getCachedReportDates,
+  getCachedGuruReports,
+  getCachedHistoricalValuations,
+  getCachedTickerNameMap,
+  getCachedHealth,
+  getCachedScreener,
+  getCachedRoma,
+} from "@/lib/queries";
+import {
   chartTickerKey,
   isValidChartTicker,
   buildIntrinsicStability,
@@ -159,22 +168,15 @@ export function DashboardView({
     });
   }, []);
 
-  // 4-3. 티커 한글명 프리페치 (관리자 진입 시 1회, 30분 TTL)
+  // 4-3. 티커 한글명 프리페치 (24시간 TTL React Query 연동)
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const cached = DataCache.getTickerNameMap();
-      if (cached && Object.keys(cached).length > 0) {
-        setTickerNameMap(cached);
-        return;
-      }
-      if (cancelled) return;
       try {
-        const map = await fetchTickerNameMap();
+        const map = await getCachedTickerNameMap();
         if (cancelled) return;
         if (map && Object.keys(map).length > 0) {
           setTickerNameMap(map);
-          DataCache.setTickerNameMap(map);
         }
       } catch {
         // 한글명 미보유/네트워크 실패는 후속 캐시 복구로 처리
@@ -318,12 +320,15 @@ export function DashboardView({
     return stabilityMap;
   }, [historicalValuations, guruReports, selectedDocReport, tier, isTrialActive]);
 
-  // 데이터 로드 (캐시 우선 확인으로 불필요한 반복 쿼리 방지)
+  // 데이터 로드 (워터폴 제거 및 캐시 우선 병렬 로딩)
   const loadDashboardData = useCallback(async (force = false) => {
     const mySeq = ++dashboardSeqRef.current;
+    const currentAccessKey = `${user?.id ?? "anon"}:${tierRef.current}:${isTrialActiveRef.current ? "trial" : "notrial"}`;
+
     const cachedHealth = DataCache.getHealth();
     const cachedDates = DataCache.getCatalogDates();
-    const cachedReports = DataCache.getReports(selectedCatalogDateRef.current || "LATEST");
+    const activeDateKey = selectedCatalogDateRef.current || "LATEST";
+    const cachedReports = DataCache.getReports(activeDateKey);
     const cachedValuations = DataCache.getHistoricalValuations();
 
     if (!force && cachedHealth && cachedDates && cachedReports) {
@@ -336,38 +341,42 @@ export function DashboardView({
     }
 
     setIsLoading(true);
+
+    // 1. 보조 데이터(헬스, 내재가치 히스토리, 관리자 로그)는 백그라운드 비차단 병렬 실행
+    void (async () => {
+      try {
+        const [h, v] = await Promise.allSettled([
+          getCachedHealth(force),
+          getCachedHistoricalValuations(currentAccessKey, force),
+        ]);
+        if (mySeq !== dashboardSeqRef.current) return;
+        if (h.status === "fulfilled" && h.value) setHealth(h.value);
+        if (v.status === "fulfilled" && v.value) setHistoricalValuations(v.value);
+      } catch (err) {
+        console.warn("보조 데이터 로드 예외:", err);
+      }
+    })();
+
+    if (isAdminRef.current) {
+      void (async () => {
+        try {
+          const [logsRes, aiModelRes] = await Promise.allSettled([
+            withTimeout(fetchSystemLogs(60), []),
+            withTimeout(fetchAiModelStatus(), null),
+          ]);
+          if (mySeq !== dashboardSeqRef.current) return;
+          if (logsRes.status === "fulfilled" && logsRes.value) setSystemLogs(logsRes.value);
+          if (aiModelRes.status === "fulfilled" && aiModelRes.value) setAiModel(aiModelRes.value);
+        } catch {}
+      })();
+    }
+
+    // 2. 핵심 리포트 목록 로드 (dates 조회 후 바로 리포트 로드, valuations 대기 제거)
     try {
-      // 감사 로그 + AI 모델 상태는 관리자 전용 (비관리자는 호출 자체를 생략)
-      const logsPromise = isAdminRef.current
-        ? withTimeout(fetchSystemLogs(60), [])
-        : Promise.resolve([] as SystemLogItem[]);
-      const aiModelPromise = isAdminRef.current
-        ? withTimeout(fetchAiModelStatus(), null)
-        : Promise.resolve(null);
-      const [healthRes, datesRes, logsRes, aiModelRes, valuationsRes] = await Promise.all([
-        withTimeout(fetchHealth(), buildOfflineHealth()),
-        withTimeout(fetchGuruReportDates(), []),
-        logsPromise,
-        aiModelPromise,
-        withTimeout(fetchHistoricalValuations(), []),
-      ]);
+      const dates = await getCachedReportDates(force);
       if (mySeq !== dashboardSeqRef.current) return;
 
-      const finalHealth = healthRes || buildOfflineHealth();
-      setHealth(finalHealth);
-      DataCache.setHealth(finalHealth);
-
-      if (aiModelRes) setAiModel(aiModelRes);
-      setSystemLogs(logsRes);
-
-      if (valuationsRes) {
-        setHistoricalValuations(valuationsRes);
-        DataCache.setHistoricalValuations(valuationsRes);
-      }
-
-      const dates = datesRes || [];
       setAvailableCatalogDates(dates);
-      DataCache.setCatalogDates(dates);
 
       const defaultDate = getDefaultReportDate(
         dates,
@@ -382,27 +391,24 @@ export function DashboardView({
         setSelectedCatalogDate(activeDate);
       }
 
-      const reportsRes = await withTimeout(
-        fetchGuruReports(
-          200,
-          activeDate && activeDate !== "ALL" ? activeDate : undefined
-        ),
-        []
+      const reports = await getCachedGuruReports(
+        activeDate && activeDate !== "ALL" ? activeDate : "ALL",
+        currentAccessKey,
+        force
       );
       if (mySeq !== dashboardSeqRef.current) return;
-      setGuruReports(reportsRes);
-      // 실패/타임아웃 빈 배열은 캐시 오염 방지로 저장하지 않음
-      if (reportsRes.length > 0) DataCache.setReports(activeDate || "LATEST", reportsRes);
+      setGuruReports(reports);
     } catch (err) {
-      console.error("대시보드 데이터 로드 오류:", err);
+      console.error("대시보드 리포트 데이터 로드 오류:", err);
     } finally {
       if (mySeq === dashboardSeqRef.current) setIsLoading(false);
     }
-  }, []);
+  }, [user?.id]);
 
   // 순수 카탈로그 일자 적용 및 데이터 로더 (팝업을 띄우지 않음)
   const applyCatalogDate = useCallback(async (targetDate: string) => {
     const mySeq = ++dashboardSeqRef.current;
+    const currentAccessKey = `${user?.id ?? "anon"}:${tierRef.current}:${isTrialActiveRef.current ? "trial" : "notrial"}`;
     selectedCatalogDateRef.current = targetDate;
     setSelectedCatalogDate(targetDate);
 
@@ -414,22 +420,20 @@ export function DashboardView({
 
     setIsCatalogDateLoading(true);
     try {
-      const reports = await fetchGuruReports(
-        200,
-        targetDate === "ALL" ? undefined : targetDate
+      const reports = await getCachedGuruReports(
+        targetDate === "ALL" ? "ALL" : targetDate,
+        currentAccessKey
       );
       // 일자 변경 후 도착한 구 응답은 버림
       if (mySeq !== dashboardSeqRef.current) return;
       if (selectedCatalogDateRef.current !== targetDate) return;
       setGuruReports(reports);
-      // 실패/타임아웃 빈 배열은 캐시 오염 방지로 저장하지 않음
-      if (reports.length > 0) DataCache.setReports(targetDate, reports);
     } catch (e) {
       console.error("카탈로그 일자별 리포트 조회 오류:", e);
     } finally {
       if (mySeq === dashboardSeqRef.current) setIsCatalogDateLoading(false);
     }
-  }, []);
+  }, [user?.id]);
 
   // 사용자가 카탈로그 드롭다운이나 빠른 날짜 버튼을 직접 클릭했을 때의 이벤트 핸들러
   const handleUserSelectCatalogDate = useCallback(
@@ -527,9 +531,7 @@ export function DashboardView({
 
     setIsScreenerLoading(true);
     try {
-      const res = await fetchScreener("공통", "us", 100);
-      const items = res.items || res.tickers || [];
-      DataCache.setLiveCandidates(items);
+      const items = await getCachedScreener("us", force);
       setLiveCandidates(items);
     } catch (err) {
       console.warn("미국장 스크리너 조회 실패:", err);
@@ -547,9 +549,7 @@ export function DashboardView({
 
     setIsKrLoading(true);
     try {
-      const res = await fetchScreener("공통", "kr", 100, 5);
-      const items = res.items || res.tickers || [];
-      DataCache.setKrCandidates(items);
+      const items = await getCachedScreener("kr", force);
       setKrCandidates(items);
     } catch (err) {
       console.warn("한국장 스크리너 조회 실패:", err);
@@ -567,9 +567,7 @@ export function DashboardView({
 
     setIsRomaLoading(true);
     try {
-      const res = await fetchRomaScreener(10, 0);
-      const items = res.items || res.tickers || [];
-      DataCache.setRomaCandidates(items);
+      const items = await getCachedRoma(force);
       setRomaCandidates(items);
     } catch (err) {
       console.warn("DataRoma 스크리너 조회 실패:", err);

@@ -5,6 +5,8 @@ import { SubscriptionProvider, useSubscription } from "@/lib/subscription/Subscr
 import { ProUpgradeModal } from "@/components/subscription/ProUpgradeModal";
 import { AuthModal } from "@/components/auth/AuthModal";
 
+import { QueryProvider } from "@/components/providers/QueryProvider";
+
 function ModalsContainer() {
   const { isAuthModalOpen, closeAuthModal } = useSubscription();
   return (
@@ -18,8 +20,10 @@ function ModalsContainer() {
 export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <SubscriptionProvider>
-      {children}
-      <ModalsContainer />
+      <QueryProvider>
+        {children}
+        <ModalsContainer />
+      </QueryProvider>
     </SubscriptionProvider>
   );
 }
