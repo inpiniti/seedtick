@@ -263,7 +263,7 @@ export function ResearchDocumentView({
                 <img
                   src={logoUrl}
                   alt={ticker}
-                  className="w-10 h-10 rounded-md object-contain border border-[#e2e8f0] p-0.5 bg-white shrink-0 grayscale opacity-90 contrast-125"
+                  className="w-10 h-10 rounded-md object-contain border border-[#e2e8f0] p-0.5 bg-white shrink-0"
                   onError={(e) => {
                     (e.target as HTMLImageElement).style.display = "none";
                   }}

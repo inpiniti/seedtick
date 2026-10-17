@@ -289,31 +289,34 @@ export function DashboardView({
   const [detailLogoMap, setDetailLogoMap] = useState<Record<string, string>>(() =>
     DataCache.getAllTickerLogos()
   );
+  const requestedDetailLogosRef = useRef<Set<string>>(new Set());
   const detailTickerKey = selectedDocReport?.ticker?.trim().toUpperCase() || null;
+  const isValidDetailLogoUrl = (url?: string | null) =>
+    !!url && /^https?:\/\//i.test(url.trim());
+  const candidateDetailLogo = detailTickerKey
+    ? candidateLogoMap.get(detailTickerKey)
+    : undefined;
   const detailLogoUrl = detailTickerKey
-    ? candidateLogoMap.get(detailTickerKey) ||
+    ? [candidateDetailLogo, detailLogoMap[detailTickerKey]].find((url) =>
+        isValidDetailLogoUrl(url)
+      ) ||
       DataCache.getTickerLogo(detailTickerKey) ||
-      detailLogoMap[detailTickerKey] ||
       null
     : null;
 
   useEffect(() => {
     if (!detailTickerKey) return;
-    if (candidateLogoMap.get(detailTickerKey)) return;
+    if (isValidDetailLogoUrl(candidateDetailLogo)) return;
     const cached = DataCache.getTickerLogo(detailTickerKey);
-    if (cached) {
+    if (isValidDetailLogoUrl(cached)) {
       setDetailLogoMap((prev) =>
-        prev[detailTickerKey] ? prev : { ...prev, [detailTickerKey]: cached }
+        prev[detailTickerKey] ? prev : { ...prev, [detailTickerKey]: cached!.trim() }
       );
       return;
     }
-    setDetailLogoMap((prev) => {
-      if (prev[detailTickerKey]) return prev;
-      // DataCache가 뒤늦게 채워졌을 수 있어 다시 확인
-      const late = DataCache.getTickerLogo(detailTickerKey);
-      if (late) return { ...prev, [detailTickerKey]: late };
-      return prev;
-    });
+    if (isValidDetailLogoUrl(detailLogoMap[detailTickerKey])) return;
+    if (requestedDetailLogosRef.current.has(detailTickerKey)) return;
+    requestedDetailLogosRef.current.add(detailTickerKey);
     let cancelled = false;
     fetchTickerLogos([detailTickerKey], 1)
       .then((res) => {
@@ -331,7 +334,7 @@ export function DashboardView({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detailTickerKey, candidateLogoMap]);
+  }, [detailTickerKey, candidateDetailLogo]);
 
   // 내재가치 안정성 맵 (Free/체험만료 유저는 최근 30일 데이터 제외)
   // 02/03 리스트의 안정성 뱃지가 최신 적정가 분산을 유출하지 않게 하기 위함.
