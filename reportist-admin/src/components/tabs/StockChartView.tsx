@@ -134,7 +134,9 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
       color: "#475569",
       lineWidth: 1,
       lineStyle: LineStyle.Dashed,
-      title: "BB 상단 (+2σ)",
+      title: "",
+      lastValueVisible: false,
+      priceLineVisible: false,
       crosshairMarkerVisible: false,
     });
     const upperData = data.bollinger
@@ -147,7 +149,9 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
       color: "#94a3b8",
       lineWidth: 1,
       lineStyle: LineStyle.Solid,
-      title: "BB 중심 (20 SMA)",
+      title: "",
+      lastValueVisible: false,
+      priceLineVisible: false,
       crosshairMarkerVisible: false,
     });
     const middleData = data.bollinger
@@ -160,7 +164,9 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
       color: "#475569",
       lineWidth: 1,
       lineStyle: LineStyle.Dashed,
-      title: "BB 하단 (-2σ)",
+      title: "",
+      lastValueVisible: false,
+      priceLineVisible: false,
       crosshairMarkerVisible: false,
     });
     const lowerData = data.bollinger
