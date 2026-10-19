@@ -46,6 +46,16 @@ import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { DataCache } from "@/lib/dataCache";
 import {
+  parseSectionId,
+  loadLastSectionId,
+  saveLastSectionId,
+  SECTION_META,
+} from "@/lib/sectionNav";
+import {
+  loadSidebarCountsSnapshot,
+  saveSidebarCountsSnapshot,
+} from "@/lib/sidebarCounts";
+import {
   getCachedReportDates,
   getCachedGuruReports,
   getCachedHistoricalValuations,
@@ -122,6 +132,7 @@ export function DashboardView({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const fromSection = parseSectionId(searchParams?.get("from"));
   const { user, tier, isTrialActive, openUpgradeModal, isAdmin, isAdminLoading, isLoading: isSubscriptionLoading } = useSubscription();
   const tierRef = useRef(tier);
   tierRef.current = tier;
@@ -135,12 +146,19 @@ export function DashboardView({
   const userSelectedTabRef = useRef(false);
 
   // 1. 네비게이션 상태
+  // 상세 진입 시 출처(?from)/마지막 섹션으로 선택 복원 — remount 후에도 유지
+  // SSR 단계에서는 window 접근 없이 라우트 기본값으로 그리고, 클라에서만 출처 복원
+  // (서버·클라 초기 HTML 불일치 hydration 오류 방지)
   const [activeSidebarSection, setActiveSidebarSection] =
-    useState<SidebarSectionId>(initialSection);
-
-  useEffect(() => {
-    setActiveSidebarSection(initialSection);
-  }, [initialSection]);
+    useState<SidebarSectionId>(() => {
+      if (typeof window === "undefined") return initialSection;
+      if (initialTicker || initialGuru) {
+        return fromSection ?? loadLastSectionId() ?? initialSection;
+      }
+      return initialSection;
+    });
+  const activeSidebarSectionRef = useRef<SidebarSectionId>(activeSidebarSection);
+  activeSidebarSectionRef.current = activeSidebarSection;
 
   // 2. 로딩 상태 (캐시 미보유 시 마운트 조회가 실행되므로 초기값 반영)
   const [isLoading, setIsLoading] = useState(!initialReport);
@@ -210,6 +228,41 @@ export function DashboardView({
     () => DataCache.getRomaCandidates() || []
   );
 
+  // 앱 진입 즉시 사이드바 뱃지를 보여주기 위해 localStorage 스냅샷으로 1차 보충,
+  // 이후 실데이터 로드 완료 시 실제 카운트로 교체 (React Query 영속 캐시가 진실 유지)
+  // useMemo로 선언 순서 문제 없이 실데이터 우선 계산 (0 깜빡임 방지 + 메뉴별 유지)
+  const sidebarSnapshot = useMemo(
+    () =>
+      typeof window !== "undefined" ? loadSidebarCountsSnapshot() : null,
+    []
+  );
+  const sidebarReportCount =
+    guruReports.length > 0 ? guruReports.length : (sidebarSnapshot?.reportCount ?? 0);
+  const sidebarRomaCount =
+    romaCandidates.length > 0 ? romaCandidates.length : (sidebarSnapshot?.romaCount ?? 0);
+  const sidebarLiveCount =
+    liveCandidates.length > 0 ? liveCandidates.length : (sidebarSnapshot?.liveCount ?? 0);
+  const sidebarKrCount =
+    krCandidates.length > 0 ? krCandidates.length : (sidebarSnapshot?.krCount ?? 0);
+
+  // 실데이터 카운트가 확정되면 스냅샷 갱신 (다음 진입 즉시 표시용)
+  useEffect(() => {
+    if (
+      guruReports.length > 0 ||
+      romaCandidates.length > 0 ||
+      liveCandidates.length > 0 ||
+      krCandidates.length > 0
+    ) {
+      saveSidebarCountsSnapshot({
+        reportCount: Math.max(guruReports.length, sidebarSnapshot?.reportCount ?? 0),
+        romaCount: Math.max(romaCandidates.length, sidebarSnapshot?.romaCount ?? 0),
+        liveCount: Math.max(liveCandidates.length, sidebarSnapshot?.liveCount ?? 0),
+        krCount: Math.max(krCandidates.length, sidebarSnapshot?.krCount ?? 0),
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guruReports.length, romaCandidates.length, liveCandidates.length, krCandidates.length]);
+
   // 4-1. 날짜 선택 상태
   const [availableCatalogDates, setAvailableCatalogDates] = useState<string[]>(
     () => DataCache.getCatalogDates() || []
@@ -249,6 +302,14 @@ export function DashboardView({
   const [selectedGuruSlug, setSelectedGuruSlug] = useState<string | null>(
     initialGuru || null
   );
+
+  // 목록 섹션에 있을 때 마지막 위치 기억 (상세 직접진입/새로고침 복원용)
+  useEffect(() => {
+    if (!selectedDocReport && !selectedGuruSlug) {
+      saveLastSectionId(activeSidebarSection);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSidebarSection, selectedDocReport, selectedGuruSlug]);
   const [activeDocTab, setActiveDocTab] = useState<ResearchDocTab | undefined>(() => {
     // ?tab=이 있으면 우선, 없으면 직전 화면에서 연 동일 문서의 탭을 이어받아
     // SSR 티저 구간에도 마스터 탭을 유지 (remount 시 final→chart→final 깜빡임 방지)
@@ -388,7 +449,10 @@ export function DashboardView({
     if (!force && cachedHealth && cachedDates && cachedReports) {
       setHealth(cachedHealth);
       setAvailableCatalogDates(cachedDates);
-      setGuruReports(cachedReports);
+      // 빈 실패 캐시로 기존 리스트를 지우지 않음 (사이드바 숫자 유지)
+      if (cachedReports.length > 0) {
+        setGuruReports(cachedReports);
+      }
       if (cachedValuations) setHistoricalValuations(cachedValuations);
       setIsLoading(false);
       return;
@@ -451,7 +515,10 @@ export function DashboardView({
         force
       );
       if (mySeq !== dashboardSeqRef.current) return;
-      setGuruReports(reports);
+      // 빈 실패 응답으로 기존 리스트를 지우지 않음 (그림5: 메뉴 이동 시 숫자 날림 방지)
+      if (reports.length > 0) {
+        setGuruReports(reports);
+      }
     } catch (err) {
       console.error("대시보드 리포트 데이터 로드 오류:", err);
     } finally {
@@ -467,7 +534,7 @@ export function DashboardView({
     setSelectedCatalogDate(targetDate);
 
     const cached = DataCache.getReports(targetDate);
-    if (cached) {
+    if (cached && cached.length > 0) {
       setGuruReports(cached);
       return;
     }
@@ -481,7 +548,9 @@ export function DashboardView({
       // 일자 변경 후 도착한 구 응답은 버림
       if (mySeq !== dashboardSeqRef.current) return;
       if (selectedCatalogDateRef.current !== targetDate) return;
-      setGuruReports(reports);
+      if (reports.length > 0) {
+        setGuruReports(reports);
+      }
     } catch (e) {
       console.error("카탈로그 일자별 리포트 조회 오류:", e);
     } finally {
@@ -578,7 +647,8 @@ export function DashboardView({
 
   const loadLiveScreener = useCallback(async (force = false) => {
     const cached = DataCache.getLiveCandidates();
-    if (!force && cached) {
+    // 강제 새로고침이 아니고 빈 배열이 아닌 캐시가 있으면 재사용 (빈 실패 캐시로 숫자 날림 방지)
+    if (!force && cached && cached.length > 0) {
       setLiveCandidates(cached);
       return;
     }
@@ -586,7 +656,11 @@ export function DashboardView({
     setIsScreenerLoading(true);
     try {
       const items = await getCachedScreener("us", force);
-      setLiveCandidates(items);
+      if (items.length > 0) {
+        setLiveCandidates(items);
+      } else if (cached && cached.length > 0) {
+        setLiveCandidates(cached);
+      }
     } catch (err) {
       console.warn("미국장 스크리너 조회 실패:", err);
     } finally {
@@ -596,7 +670,7 @@ export function DashboardView({
 
   const loadKrScreener = useCallback(async (force = false) => {
     const cached = DataCache.getKrCandidates();
-    if (!force && cached) {
+    if (!force && cached && cached.length > 0) {
       setKrCandidates(cached);
       return;
     }
@@ -604,7 +678,11 @@ export function DashboardView({
     setIsKrLoading(true);
     try {
       const items = await getCachedScreener("kr", force);
-      setKrCandidates(items);
+      if (items.length > 0) {
+        setKrCandidates(items);
+      } else if (cached && cached.length > 0) {
+        setKrCandidates(cached);
+      }
     } catch (err) {
       console.warn("한국장 스크리너 조회 실패:", err);
     } finally {
@@ -614,7 +692,7 @@ export function DashboardView({
 
   const loadRomaScreener = useCallback(async (force = false) => {
     const cached = DataCache.getRomaCandidates();
-    if (!force && cached) {
+    if (!force && cached && cached.length > 0) {
       setRomaCandidates(cached);
       return;
     }
@@ -622,7 +700,11 @@ export function DashboardView({
     setIsRomaLoading(true);
     try {
       const items = await getCachedRoma(force);
-      setRomaCandidates(items);
+      if (items.length > 0) {
+        setRomaCandidates(items);
+      } else if (cached && cached.length > 0) {
+        setRomaCandidates(cached);
+      }
     } catch (err) {
       console.warn("DataRoma 스크리너 조회 실패:", err);
     } finally {
@@ -698,9 +780,10 @@ export function DashboardView({
     }
   };
 
-  // 상세 리포트 열기 (URL 동기화)
+  // 상세 리포트 열기 (URL 동기화 + 출처 기록)
   // - 탭 결정: 명시 탭 > 원문 있으면 마스터 > 없으면 차트. remount 후 SSR 티저 구간에도
   //   같은 탭을 유지하도록 lastOpenedDocTabById에 기억 (final→chart→final 깜빡임 방지)
+  // - ?from= 현재 섹션을 함께 기록 → 상세에서 사이드바 선택·뒤로가기 복원
   // - 원문 동기화는 아래 서버-진실 동기화 effect가 전담 (단일 경로)
   const handleOpenReport = useCallback((report: GuruReportRow, tab?: ResearchDocTab) => {
     const effectiveTab = tab ?? (report.final_report ? "final" : "chart");
@@ -709,9 +792,20 @@ export function DashboardView({
     setSelectedReportDate(report.d);
     setActiveDocTab(tab ?? undefined);
 
-    const targetUrl = `/stocks/${encodeURIComponent(report.ticker)}${tab ? `?tab=${tab}` : ""}`;
+    const params = new URLSearchParams(searchParams?.toString() || "");
+    params.delete("tab");
+    if (tab) params.set("tab", tab);
+    // 상세→목록 복귀/선택 유지를 위한 출처 섹션 (목록 화면에서 진입 시)
+    // 상세→상세 이동(성과 클릭 등)에서는 기존 ?from=을 그대로 유지
+    if (!initialTicker && activeSidebarSectionRef.current) {
+      params.set("from", activeSidebarSectionRef.current);
+    }
+    const query = params.toString();
+    const targetUrl = `/stocks/${encodeURIComponent(report.ticker)}${query ? `?${query}` : ""}`;
     if (pathname !== `/stocks/${encodeURIComponent(report.ticker)}`) {
       router.push(targetUrl);
+    } else if (query) {
+      router.replace(targetUrl, { scroll: false });
     }
 
     if (report.ticker) {
@@ -725,7 +819,7 @@ export function DashboardView({
         setAvailableReportDates(merged);
       });
     }
-  }, [guruReports, pathname, router]);
+  }, [guruReports, pathname, router, searchParams, initialTicker]);
 
   // 후보군 종목을 문서 모드로 열기 (Free/체험만료는 과거 허용 리포트 우선)
   const handleOpenCandidateAsReport = useCallback((candidate: StockCandidate) => {
@@ -763,10 +857,13 @@ export function DashboardView({
     lastOpenedDocTabById[fallback.id] = "chart";
     setActiveDocTab(undefined);
 
-    router.push(`/stocks/${encodeURIComponent(candidate.ticker)}`);
-  }, [guruReports, handleOpenReport, router]);
+    // 후보군(03/02)에서 진입해도 출처 기록 → 뒤로가기·선택메뉴가 후보군으로 유지
+    const from = initialTicker ? searchParams?.get("from") : activeSidebarSectionRef.current;
+    const detailQuery = from ? `?from=${encodeURIComponent(from)}` : "";
+    router.push(`/stocks/${encodeURIComponent(candidate.ticker)}${detailQuery}`);
+  }, [guruReports, handleOpenReport, router, initialTicker, searchParams]);
 
-  // 탭 변경 시 URL 쿼리 파라미터 동기화 (?tab=...)
+  // 탭 변경 시 URL 쿼리 파라미터 동기화 (?tab=... — ?from= 출처는 그대로 유지)
   const handleTabChange = useCallback((tab: ResearchDocTab) => {
     setActiveDocTab(tab);
     userSelectedTabRef.current = true;
@@ -840,26 +937,39 @@ export function DashboardView({
     }
   };
 
-  // 거장 심층 철학 문서 뷰로 이동
+  // 거장 심층 철학 문서 뷰로 이동 (출처 기록 → 뒤로가기·선택 유지)
   const handleOpenGuru = useCallback((slug: string) => {
     setSelectedGuruSlug(slug);
     setSelectedDocReport(null);
     setIsMobileMenuOpen(false);
-    router.push(`/gurus/${encodeURIComponent(slug)}`);
-  }, [router]);
+    const from = initialGuru
+      ? searchParams?.get("from")
+      : activeSidebarSectionRef.current;
+    const guruQuery = from ? `?from=${encodeURIComponent(from)}` : "";
+    router.push(`/gurus/${encodeURIComponent(slug)}${guruQuery}`);
+  }, [router, initialGuru, searchParams]);
 
-  // 문서 뷰에서 카탈로그 목록으로 복귀 (직전 방문 화면으로 정확히 복귀!)
+  // 문서 뷰에서 카탈로그 목록으로 복귀 (출처 섹션으로 정확히 복귀!)
   const handleBackToCatalog = useCallback(() => {
+    const originSection =
+      fromSection ?? loadLastSectionId() ?? activeSidebarSectionRef.current;
     setSelectedDocReport(null);
     setSelectedGuruSlug(null);
     setIsMobileMenuOpen(false);
+    setActiveSidebarSection(originSection);
 
-    if (typeof window !== "undefined" && window.history.length > 1) {
+    // 같은 탭 SPA 복귀면 history.back()으로 스크롤·상태 보존, 아니면 출처 href로 명시 이동
+    if (
+      typeof window !== "undefined" &&
+      window.history.length > 1 &&
+      !initialTicker &&
+      !initialGuru
+    ) {
       router.back();
     } else {
-      router.push("/stocks");
+      router.push(SECTION_META[originSection].href);
     }
-  }, [router]);
+  }, [router, fromSection, initialTicker, initialGuru]);
 
   // 사이드바 섹션 클릭 시 실제 URL 라우팅
   // 파이프라인/감사로그는 관리자 전용 — 비관리자는 홈으로 돌려보냄
@@ -969,28 +1079,51 @@ export function DashboardView({
   }, [isAdmin, isAdminLoading, refreshPipelineProgress]);
 
   // 페이지/섹션에 맞춘 타겟 데이터 로드 (필요한 데이터만 스마트 로딩)
+  // 상세 페이지에서도 사이드바 뱃지 카운트는 유지되어야 하므로, 캐시 미스분만
+  // 백그라운드로 가볍게 보충한다 (상세 렌더 블로킹 없음, 실패/빈응답은 기존값 유지).
   useEffect(() => {
-    // 상세 페이지일 때는 무거운 스크리너들을 조회하지 않음
-    if (initialTicker) return;
     // 구독 등급 확정 전 free 스냅샷으로 디폴트 일자를 잡으면 Pro 최신 리포트가 비어 보임
     if (isSubscriptionLoading) return;
 
     loadDashboardData();
 
-    // 스크리너 탭이거나 홈일 때: 기본 탭인 미국장을 먼저 단독 로드하여 서버 경합 방지
-    if (activeSidebarSection === "all" || activeSidebarSection === "sec-screener") {
-      void loadLiveScreener().then(() => {
-        // 미국장 로드 완료 후 캐시가 없으면 1초 뒤 한국장 지연 프리페치
+    const needLive = activeSidebarSection === "all" || activeSidebarSection === "sec-screener";
+    const needRoma = activeSidebarSection === "all" || activeSidebarSection === "sec-roma";
+    // 상세 진입이라도 스냅샷/캐시가 비어 있으면 카운트용으로만 조용히 보충
+    const needCountsOnly = !!initialTicker;
+
+    const prefetchMissingCounts = () => {
+      if (needCountsOnly) {
+        if (!DataCache.getLiveCandidates()) void loadLiveScreener();
         if (!DataCache.getKrCandidates()) {
           setTimeout(() => {
             loadKrScreener();
-          }, 1000);
+          }, 1200);
         }
-      });
+        if (!DataCache.getRomaCandidates()) void loadRomaScreener();
+        return;
+      }
+      if (needLive) {
+        void loadLiveScreener().then(() => {
+          // 미국장 로드 완료 후 캐시가 없으면 1초 뒤 한국장 지연 프리페치
+          if (!DataCache.getKrCandidates()) {
+            setTimeout(() => {
+              loadKrScreener();
+            }, 1000);
+          }
+        });
+      }
+      if (needRoma) {
+        loadRomaScreener();
+      }
+    };
+
+    if (needCountsOnly) {
+      // 상세 렌더 우선 → 카운트는 idle/지연 후 보충 (깜빡임·경합 방지)
+      const t = setTimeout(prefetchMissingCounts, 800);
+      return () => clearTimeout(t);
     }
-    if (activeSidebarSection === "all" || activeSidebarSection === "sec-roma") {
-      loadRomaScreener();
-    }
+    prefetchMissingCounts();
   }, [
     initialTicker,
     activeSidebarSection,
@@ -1028,16 +1161,17 @@ export function DashboardView({
           <ResearchSidebar
             activeSection={activeSidebarSection}
             onSelectSection={handleSelectSidebarSection}
-            reportCount={guruReports.length}
-            candidateCount={liveCandidates.length}
-            krCandidateCount={krCandidates.length}
-            romaCount={romaCandidates.length}
+            reportCount={sidebarReportCount}
+            candidateCount={sidebarLiveCount}
+            krCandidateCount={sidebarKrCount}
+            romaCount={sidebarRomaCount}
             logCount={systemLogs.length}
             activeDocTicker={selectedDocReport?.ticker || initialTicker || null}
             activeGuruName={
               selectedGuruSlug ? GURU_PERSONAS[selectedGuruSlug]?.name : null
             }
             onBackToCatalog={handleBackToCatalog}
+            backLabel={SECTION_META[activeSidebarSection].backLabel}
             isOpenOnMobile={isMobileMenuOpen}
             onCloseMobile={() => setIsMobileMenuOpen(false)}
           />
@@ -1047,6 +1181,7 @@ export function DashboardView({
               <ResearchDocumentView
                 report={selectedDocReport}
                 onBack={handleBackToCatalog}
+                backLabel={SECTION_META[activeSidebarSection].backLabel}
                 availableDates={availableReportDates}
                 selectedDate={selectedReportDate}
                 onSelectDate={handleSelectReportDate}
@@ -1070,6 +1205,7 @@ export function DashboardView({
                 guruSlug={selectedGuruSlug}
                 guruReports={guruReports}
                 onBack={handleBackToCatalog}
+                backLabel={SECTION_META[activeSidebarSection].backLabel}
                 onSelectReport={(report) => {
                   setSelectedGuruSlug(null);
                   handleOpenReport(report);

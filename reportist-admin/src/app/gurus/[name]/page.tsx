@@ -5,6 +5,7 @@ import { GURU_PERSONAS } from "@/lib/guruPersonas";
 
 interface GuruDetailPageProps {
   params: Promise<{ name: string }>;
+  searchParams: Promise<{ from?: string }>;
 }
 
 export async function generateMetadata({ params }: GuruDetailPageProps): Promise<Metadata> {
@@ -35,6 +36,7 @@ export async function generateMetadata({ params }: GuruDetailPageProps): Promise
 export default async function GuruDetailPage({ params }: GuruDetailPageProps) {
   const { name } = await params;
   const decodedName = decodeURIComponent(name);
+  // ?from= 출처는 클라에서만 사용 (SEO 영향 없음)
 
   return (
     <Suspense fallback={<div className="min-h-screen bg-white" />}>

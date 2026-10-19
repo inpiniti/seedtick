@@ -62,6 +62,8 @@ interface ResearchSidebarProps {
   activeDocTicker?: string | null;
   activeGuruName?: string | null;
   onBackToCatalog?: () => void;
+  /** 상세 화면 뒤로가기 문구 (출처 섹션별 동적 표시, 기본값: 카탈로그로 돌아가기) */
+  backLabel?: string;
   isOpenOnMobile?: boolean;
   onCloseMobile?: () => void;
 }
@@ -77,6 +79,7 @@ export function ResearchSidebar({
   activeDocTicker,
   activeGuruName,
   onBackToCatalog,
+  backLabel = "카탈로그로 돌아가기",
   isOpenOnMobile = false,
   onCloseMobile,
 }: ResearchSidebarProps) {
@@ -210,7 +213,7 @@ export function ResearchSidebar({
               className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 bg-white border border-[#cbd5e1] hover:border-[#0f172a] hover:bg-[#f1f5f9] rounded text-[11px] text-[#0f172a] font-semibold transition-colors cursor-pointer group"
             >
               <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5" />
-              <span>카탈로그로 돌아가기</span>
+              <span>{backLabel}</span>
             </button>
           )}
         </div>

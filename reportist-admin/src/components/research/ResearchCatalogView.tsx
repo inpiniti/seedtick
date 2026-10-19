@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 import { formatPriceByNation, formatMarketCap } from "@/lib/utils";
 import { fetchTickerLogos, fetchTickerNames, fetchStockChart } from "@/lib/api-client";
+import { fetchReportByDateAndTicker } from "@/lib/supabase";
 import { useSubscription } from "@/lib/subscription/SubscriptionContext";
 import { isReportRestricted, getDefaultReportDate } from "@/lib/subscription/subscriptionPolicy";
 import { DataCache } from "@/lib/dataCache";
@@ -1665,6 +1666,11 @@ export function ResearchCatalogView({
                 guruReports.find((r) => r.ticker === ticker);
               if (found) {
                 onSelectReport(found);
+              } else {
+                // 캐시에 없는 과거 성과 리포트도 단건 조회 후 상세로 진입 (빈 클릭 방지)
+                void fetchReportByDateAndTicker(date, ticker).then((fetched) => {
+                  if (fetched) onSelectReport(fetched);
+                });
               }
             }}
           />

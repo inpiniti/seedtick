@@ -56,6 +56,11 @@ function safeLocalStorageRemove(key: string): void {
   } catch {}
 }
 
+// 0. 사이드바 뱃지용 카운트 스냅샷 복원 (앱 진입 즉시 숫자 표시용)
+// 실제 구현은 @/lib/sidebarCounts 에 분리 (dataCache ↔ sidebarCounts 순환참조 방지)
+export type { SidebarCountsSnapshot } from "@/lib/sidebarCounts";
+export { loadSidebarCountsSnapshot, saveSidebarCountsSnapshot } from "@/lib/sidebarCounts";
+
 // 1. LocalStorage에서 %B 영속 캐시 초기 복원
 function loadInitialPercentBCache(): Map<string, { value: number | null; expiresAt: number }> {
   const map = new Map<string, { value: number | null; expiresAt: number }>();

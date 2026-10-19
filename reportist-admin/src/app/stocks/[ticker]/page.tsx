@@ -12,7 +12,7 @@ import {
 
 interface StockDetailPageProps {
   params: Promise<{ ticker: string }>;
-  searchParams: Promise<{ tab?: string; date?: string }>;
+  searchParams: Promise<{ tab?: string; date?: string; from?: string }>;
 }
 
 /**
@@ -132,8 +132,10 @@ export default async function StockDetailPage({
   searchParams,
 }: StockDetailPageProps) {
   const { ticker: rawTicker } = await params;
-  const { tab, date } = await searchParams;
+  const { tab, date, from } = await searchParams;
   const ticker = (rawTicker || "").toUpperCase();
+  // ?from= 출처는 SEO·민감정보와 무관 — 클라에서만 사용하므로 서버 렌더에는 영향 없음
+  void from;
 
   const validTabs: ResearchDocTab[] = ["final", "summaries", "datapack", "chart"];
   const validatedTab = validTabs.includes(tab as ResearchDocTab) ? (tab as ResearchDocTab) : undefined;

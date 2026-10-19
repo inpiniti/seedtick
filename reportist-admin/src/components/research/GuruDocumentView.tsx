@@ -24,6 +24,8 @@ interface GuruDocumentViewProps {
   guruSlug: string;
   guruReports: GuruReportRow[];
   onBack: () => void;
+  /** 출처 섹션별 뒤로가기 문구 (기본값: 카탈로그로 돌아가기) */
+  backLabel?: string;
   onSelectReport: (report: GuruReportRow) => void;
 }
 
@@ -31,6 +33,7 @@ export function GuruDocumentView({
   guruSlug,
   guruReports,
   onBack,
+  backLabel = "카탈로그로 돌아가기",
   onSelectReport,
 }: GuruDocumentViewProps) {
   const [activeTab, setActiveTab] = useState<"philosophy" | "book" | "votes">("philosophy");
@@ -112,7 +115,7 @@ export function GuruDocumentView({
         해당 거장 정보를 찾을 수 없습니다.
         <div className="mt-4">
           <Button variant="secondary" onClick={onBack}>
-            카탈로그로 돌아가기
+            {backLabel}
           </Button>
         </div>
       </div>
@@ -131,7 +134,7 @@ export function GuruDocumentView({
           className="inline-flex items-center gap-1.5 text-[#0f172a] hover:text-black font-semibold cursor-pointer group transition-colors"
         >
           <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
-          <span>카탈로그로 돌아가기</span>
+          <span>{backLabel}</span>
         </button>
 
         <div className="flex items-center gap-2 text-[#64748b] hidden sm:flex">
@@ -464,7 +467,7 @@ export function GuruDocumentView({
           className="inline-flex items-center gap-1.5 cursor-pointer"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
-          <span>카탈로그로 돌아가기</span>
+          <span>{backLabel}</span>
         </Button>
       </footer>
     </article>
