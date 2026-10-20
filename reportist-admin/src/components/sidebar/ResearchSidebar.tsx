@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { ReportistLogoBadge } from "@/components/ui/ReportistLogo";
 import { useSubscription } from "@/lib/subscription/SubscriptionContext";
+import { IS_OPEN_BETA } from "@/lib/subscription/subscriptionPolicy";
 
 export type SidebarSectionId =
   | "all"
@@ -271,31 +272,53 @@ export function ResearchSidebar({
         </div>
       ))}
 
-      {/* Pro / Trial 멤버십 카드 배너 (aihero 흑백 모노톤 스타일) */}
+      {/* Pro / Trial 멤버십 카드 배너 (오픈 베타 모드 우선 분기) */}
       <div className="pt-3 border-t border-[#e2e8f0]">
-        <div className="p-3 rounded-md bg-[#f8fafc] border border-[#e2e8f0] font-mono text-xs">
-          <div className="flex items-center justify-between gap-1 mb-1">
-            <span className="font-semibold text-[#0f172a] text-[11px] uppercase tracking-wider">
-              {isPro ? "REPORTIST PRO" : isTrialActive ? "24H TRIAL" : "UPGRADE TO PRO"}
-            </span>
-            <span className="text-[10px] px-1 py-0.2 rounded border border-[#cbd5e1] bg-white text-[#0f172a]">
-              {isPro ? "ACTIVE" : isTrialActive ? `${trialRemainingHours}H LEFT` : "2,900원"}
-            </span>
+        {IS_OPEN_BETA ? (
+          <div className="p-3 rounded-md bg-blue-50/60 border border-blue-200/80 font-mono text-xs">
+            <div className="flex items-center justify-between gap-1 mb-1">
+              <span className="font-semibold text-blue-900 text-[11px] uppercase tracking-wider">
+                OPEN BETA ACCESS
+              </span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded font-bold bg-blue-600 text-white">
+                FREE PASS
+              </span>
+            </div>
+            <p className="text-[11px] text-blue-800/80 leading-tight mb-2.5">
+              13인 투자 거장 최신 AI 리포트와 적정주가를 누구나 무료로 열람하실 수 있습니다.
+            </p>
+            <Link
+              href="/gurus"
+              className="block w-full py-1.5 px-2 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white text-center text-[11px] font-medium shadow-2xs transition-colors"
+            >
+              13인 거장 철학 가이드 보기
+            </Link>
           </div>
-          <p className="text-[11px] text-[#64748b] leading-tight mb-2.5">
-            {isPro
-              ? "13인 거장 최신 AI 리포트 전체 열람 중"
-              : isTrialActive
-              ? "첫 방문 24시간 전체 리포트 무료 체험 중"
-              : "최근 1개월 보고서 및 실시간 가치평가 열람"}
-          </p>
-          <Link
-            href={isPro || isTrialActive ? "/account" : "/pricing"}
-            className="block w-full py-1.5 px-2 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white text-center text-[11px] font-medium shadow-2xs transition-colors"
-          >
-            {isPro ? "멤버십 관리" : isTrialActive ? "체험 혜택 및 멤버십 관리" : "Pro 시작하기 (월 2,900원)"}
-          </Link>
-        </div>
+        ) : (
+          <div className="p-3 rounded-md bg-[#f8fafc] border border-[#e2e8f0] font-mono text-xs">
+            <div className="flex items-center justify-between gap-1 mb-1">
+              <span className="font-semibold text-[#0f172a] text-[11px] uppercase tracking-wider">
+                {isPro ? "REPORTIST PRO" : isTrialActive ? "24H TRIAL" : "UPGRADE TO PRO"}
+              </span>
+              <span className="text-[10px] px-1 py-0.2 rounded border border-[#cbd5e1] bg-white text-[#0f172a]">
+                {isPro ? "ACTIVE" : isTrialActive ? `${trialRemainingHours}H LEFT` : "2,900원"}
+              </span>
+            </div>
+            <p className="text-[11px] text-[#64748b] leading-tight mb-2.5">
+              {isPro
+                ? "13인 거장 최신 AI 리포트 전체 열람 중"
+                : isTrialActive
+                ? "첫 방문 24시간 전체 리포트 무료 체험 중"
+                : "최근 1개월 보고서 및 실시간 가치평가 열람"}
+            </p>
+            <Link
+              href={isPro || isTrialActive ? "/account" : "/pricing"}
+              className="block w-full py-1.5 px-2 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white text-center text-[11px] font-medium shadow-2xs transition-colors"
+            >
+              {isPro ? "멤버십 관리" : isTrialActive ? "체험 혜택 및 멤버십 관리" : "Pro 시작하기 (월 2,900원)"}
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );

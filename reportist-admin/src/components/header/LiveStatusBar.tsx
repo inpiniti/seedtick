@@ -33,10 +33,13 @@ export function LiveStatusBar({
           <Menu className="w-5 h-5" />
         </button>
 
-        <a href="/" className="flex items-center gap-2.5 group focus:outline-hidden">
+        <a href="/" className="flex items-center gap-2 sm:gap-2.5 group focus:outline-hidden">
           <ReportistLogoBadge size="sm" variant="dark" />
           <span className="font-bold text-sm sm:text-base text-[#0f172a] tracking-tight group-hover:text-blue-600 transition-colors">
             Reportist
+          </span>
+          <span className="px-1.5 py-0.5 text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200/80 rounded tracking-wider">
+            BETA
           </span>
           <span className="font-mono text-[11px] text-[#64748b] hidden md:inline border-l border-[#e2e8f0] pl-2.5">
             / RESEARCH & INSIGHTS

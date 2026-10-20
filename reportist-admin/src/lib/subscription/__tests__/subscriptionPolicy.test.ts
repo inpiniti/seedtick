@@ -29,29 +29,34 @@ describe("Subscription Policy & Date Guard (TDD)", () => {
 
   describe("isReportRestricted", () => {
     it("Pro 티어 유저는 어떤 날짜의 보고서든 제한되지 않는다 (false 반환)", () => {
-      expect(isReportRestricted("2026-10-14", "pro", FIXED_BASE_DATE)).toBe(false);
-      expect(isReportRestricted("2026-10-05", "pro", FIXED_BASE_DATE)).toBe(false);
-      expect(isReportRestricted("2026-08-01", "pro", FIXED_BASE_DATE)).toBe(false);
+      expect(isReportRestricted("2026-10-14", "pro", FIXED_BASE_DATE, undefined, false, false)).toBe(false);
+      expect(isReportRestricted("2026-10-05", "pro", FIXED_BASE_DATE, undefined, false, false)).toBe(false);
+      expect(isReportRestricted("2026-08-01", "pro", FIXED_BASE_DATE, undefined, false, false)).toBe(false);
     });
 
-    it("Free 티어 유저는 최근 30일 이내 보고서 열람이 제한된다 (true 반환)", () => {
-      expect(isReportRestricted("2026-10-14", "free", FIXED_BASE_DATE)).toBe(true);
-      expect(isReportRestricted("2026-10-01", "free", FIXED_BASE_DATE)).toBe(true);
+    it("Free 티어 유저는 유료 모드에서 최근 30일 이내 보고서 열람이 제한된다 (true 반환)", () => {
+      expect(isReportRestricted("2026-10-14", "free", FIXED_BASE_DATE, undefined, false, false)).toBe(true);
+      expect(isReportRestricted("2026-10-01", "free", FIXED_BASE_DATE, undefined, false, false)).toBe(true);
     });
 
     it("Free 티어 유저라도 24시간 체험 활성(isTrialActive = true)인 경우 최신 보고서도 제한되지 않는다 (false 반환)", () => {
-      expect(isReportRestricted("2026-10-14", "free", FIXED_BASE_DATE, undefined, true)).toBe(false);
-      expect(isReportRestricted("2026-10-01", "free", FIXED_BASE_DATE, undefined, true)).toBe(false);
+      expect(isReportRestricted("2026-10-14", "free", FIXED_BASE_DATE, undefined, true, false)).toBe(false);
+      expect(isReportRestricted("2026-10-01", "free", FIXED_BASE_DATE, undefined, true, false)).toBe(false);
     });
 
     it("Free 티어 유저는 30일 이전 과거 보고서는 정상 열람 가능하다 (false 반환)", () => {
-      expect(isReportRestricted("2026-09-13", "free", FIXED_BASE_DATE)).toBe(false);
-      expect(isReportRestricted("2026-07-20", "free", FIXED_BASE_DATE)).toBe(false);
+      expect(isReportRestricted("2026-09-13", "free", FIXED_BASE_DATE, undefined, false, false)).toBe(false);
+      expect(isReportRestricted("2026-07-20", "free", FIXED_BASE_DATE, undefined, false, false)).toBe(false);
     });
 
     it("30일 이내 날짜라도 allowedFreeDate로 지정된 날짜는 예외적으로 열람 허용되어야 한다", () => {
       // 2026-10-10은 4일 전이지만 fallback Free 디폴트 일자로 지정되면 false 반환
-      expect(isReportRestricted("2026-10-10", "free", FIXED_BASE_DATE, "2026-10-10")).toBe(false);
+      expect(isReportRestricted("2026-10-10", "free", FIXED_BASE_DATE, "2026-10-10", false, false)).toBe(false);
+    });
+
+    it("오픈 베타 모드(기본값)에서는 Free 유저도 최근 날짜 보고서가 제한 없이 열린다 (false 반환)", () => {
+      expect(isReportRestricted("2026-10-14", "free", FIXED_BASE_DATE)).toBe(false);
+      expect(isReportRestricted("2026-10-01", "free", FIXED_BASE_DATE)).toBe(false);
     });
   });
 
@@ -106,19 +111,24 @@ describe("Subscription Policy & Date Guard (TDD)", () => {
     });
 
     it("Free 유저라도 24시간 무료 체험(isTrialActive = true)인 경우 가장 최신 날짜를 디폴트로 반환해야 한다", () => {
-      const defaultDate = getDefaultReportDate(dates, "free", FIXED_BASE_DATE, true);
+      const defaultDate = getDefaultReportDate(dates, "free", FIXED_BASE_DATE, true, false);
       expect(defaultDate).toBe("2026-10-14");
     });
 
-    it("Free 유저(체험 만료)에게는 30일 이전(과거) 보고서 중 가장 최신 날짜를 디폴트로 반환해야 한다", () => {
-      const defaultDate = getDefaultReportDate(dates, "free", FIXED_BASE_DATE, false);
+    it("Free 유저(체험 만료, 유료 모드)에게는 30일 이전(과거) 보고서 중 가장 최신 날짜를 디폴트로 반환해야 한다", () => {
+      const defaultDate = getDefaultReportDate(dates, "free", FIXED_BASE_DATE, false, false);
       expect(defaultDate).toBe("2026-09-10");
     });
 
-    it("30일 이전 날짜가 전혀 없는 경우에도 안전하게 첫 번째 날짜 또는 fallback을 반환해야 한다", () => {
+    it("30일 이전 날짜가 전혀 없는 경우에도 유료 모드에서 안전하게 fallback을 반환해야 한다", () => {
       const recentOnly = ["2026-10-14", "2026-10-10"];
-      const defaultDate = getDefaultReportDate(recentOnly, "free", FIXED_BASE_DATE);
+      const defaultDate = getDefaultReportDate(recentOnly, "free", FIXED_BASE_DATE, false, false);
       expect(defaultDate).toBe("2026-10-10"); // 가장 오래된 날짜 반환
+    });
+
+    it("오픈 베타 모드(기본값)에서는 Free 유저도 항상 목록의 가장 최신 날짜를 디폴트로 받는다", () => {
+      const defaultDate = getDefaultReportDate(dates, "free", FIXED_BASE_DATE);
+      expect(defaultDate).toBe("2026-10-14");
     });
 
     it("빈 배열인 경우 빈 문자열을 반환해야 한다", () => {

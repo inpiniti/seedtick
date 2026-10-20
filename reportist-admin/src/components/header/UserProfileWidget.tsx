@@ -5,6 +5,7 @@ import Link from "next/link";
 import { User as UserIcon, LogOut, ShieldCheck, Sparkles, Clock, Settings } from "lucide-react";
 import { useSubscription } from "@/lib/subscription/SubscriptionContext";
 import { signOutUser } from "@/lib/subscription/authHelpers";
+import { IS_OPEN_BETA } from "@/lib/subscription/subscriptionPolicy";
 
 export function UserProfileWidget() {
   const {
@@ -56,8 +57,29 @@ export function UserProfileWidget() {
 
   return (
     <div className="flex items-center gap-1.5 sm:gap-2">
-      {/* 상태별 CTA 배지 및 버튼 */}
-      {isPro ? (
+      {/* 상태별 CTA 배지 및 버튼 (오픈 베타 모드 우선 분기) */}
+      {IS_OPEN_BETA ? (
+        !user ? (
+          <div className="flex items-center gap-1.5">
+            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-xs font-mono font-medium">
+              <Sparkles className="w-3 h-3 text-blue-600" />
+              <span>전면 무료 개방</span>
+            </span>
+            <button
+              type="button"
+              onClick={openAuthModal}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white text-xs font-mono font-medium shadow-2xs transition-colors cursor-pointer"
+            >
+              <span>로그인</span>
+            </button>
+          </div>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-xs font-mono font-semibold">
+            <ShieldCheck className="w-3 h-3" />
+            <span>BETA MEMBER</span>
+          </span>
+        )
+      ) : isPro ? (
         <Link
           href="/account"
           className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white border border-[#0f172a] text-xs font-mono font-semibold transition-colors"

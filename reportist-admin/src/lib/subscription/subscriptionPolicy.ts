@@ -6,6 +6,13 @@ export const WELCOME_TRIAL_HOURS = 24;
 export const WELCOME_TRIAL_MILLIS = WELCOME_TRIAL_HOURS * 60 * 60 * 1000;
 
 /**
+ * 오픈 베타 모드 플래그
+ * - true: 로그인/결제 없이 모든 사용자에게 최신 리포트 및 전체 데이터 100% 무료 개방
+ * - false: 기존 24시간 무료 체험 및 Pro 구독 페이월 시스템으로 즉시 복원
+ */
+export const IS_OPEN_BETA = true;
+
+/**
  * 주어진 날짜(YYYY-MM-DD)가 기준일(기본: 현재 시간)로부터 지정된 일수(days) 이내인지 검사합니다.
  */
 export function isDateWithinDays(
@@ -74,8 +81,11 @@ export function isReportRestricted(
   userTier: SubscriptionTier,
   baseDate: Date = new Date(),
   allowedFreeDate?: string,
-  isTrialActive: boolean = false
+  isTrialActive: boolean = false,
+  isOpenBeta: boolean = IS_OPEN_BETA
 ): boolean {
+  // 오픈 베타 모드: 모든 사용자에게 열람 제한 전면 해제
+  if (isOpenBeta) return false;
   if (userTier === "pro" || isTrialActive) return false;
   if (allowedFreeDate && reportDate === allowedFreeDate) return false;
   return isDateWithinDays(reportDate, RESTRICTED_PERIOD_DAYS, baseDate);
@@ -90,11 +100,13 @@ export function getDefaultReportDate(
   availableDates: string[],
   userTier: SubscriptionTier,
   baseDate: Date = new Date(),
-  isTrialActive: boolean = false
+  isTrialActive: boolean = false,
+  isOpenBeta: boolean = IS_OPEN_BETA
 ): string {
   if (!availableDates || availableDates.length === 0) return "";
 
-  if (userTier === "pro" || isTrialActive) {
+  // 오픈 베타 모드이거나 Pro/체험 중인 경우 가장 최신 날짜가 디폴트
+  if (isOpenBeta || userTier === "pro" || isTrialActive) {
     return availableDates[0];
   }
 

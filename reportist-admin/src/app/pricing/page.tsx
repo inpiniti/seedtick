@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Check, X, Shield, Lock } from "lucide-react";
 import { useSubscription } from "@/lib/subscription/SubscriptionContext";
 import { PRICING_PLANS } from "@/lib/subscription/types";
+import { IS_OPEN_BETA } from "@/lib/subscription/subscriptionPolicy";
 
 export default function PricingPage() {
   const { user, tier, openUpgradeModal, openAuthModal } = useSubscription();
@@ -55,6 +56,29 @@ export default function PricingPage() {
           <p className="mt-2 text-[#64748b] text-xs sm:text-sm font-mono leading-relaxed">
             단순한 주가 시세판이 아닌, 투자 거장 13인의 독자적 밸류에이션 리포트와 SEC 공시 심층 데이터를 실시간으로 열람하세요.
           </p>
+
+          {/* 오픈 베타 전면 무료 안내 배너 */}
+          {IS_OPEN_BETA && (
+            <div className="mt-6 p-4 rounded-lg bg-blue-50 border border-blue-200 text-center shadow-xs">
+              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-mono font-bold mb-2">
+                <span>OPEN BETA FREE ACCESS</span>
+              </div>
+              <h2 className="text-sm sm:text-base font-bold text-blue-950">
+                현재 모든 사용자에게 프로 멤버십 리포트가 무료로 개방되어 있습니다
+              </h2>
+              <p className="mt-1 text-xs text-blue-800 leading-relaxed font-mono">
+                별도의 유료 결제 없이도 13인 거장의 최신 가치평가 및 적정주가 리포트 전문을 자유롭게 이용하실 수 있습니다.
+              </p>
+              <div className="mt-3">
+                <Link
+                  href="/stocks"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white text-xs font-mono font-semibold transition-colors shadow-2xs"
+                >
+                  <span>지금 무료 리포트 보러가기 →</span>
+                </Link>
+              </div>
+            </div>
+          )}
 
           {/* 월간 / 연간 흑백 토글 */}
           <div className="mt-6 inline-flex items-center p-1 bg-[#f1f5f9] rounded-md border border-[#e2e8f0] font-mono text-xs">
