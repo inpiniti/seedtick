@@ -6,6 +6,9 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "개인정보처리방침 · Reportist Research",
   description: "Reportist 서비스의 개인정보처리방침입니다. 구글 로그인 및 수집 정보 보호 정책을 확인하세요.",
+  alternates: {
+    canonical: "/privacy",
+  },
 };
 
 export default function PrivacyPolicyPage() {

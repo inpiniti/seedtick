@@ -6,6 +6,9 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "서비스 이용약관 · Reportist Research",
   description: "Reportist 서비스의 이용약관입니다. 투자 정보 열람 및 멤버십 이용 조건을 확인하세요.",
+  alternates: {
+    canonical: "/terms",
+  },
 };
 
 export default function TermsOfServicePage() {

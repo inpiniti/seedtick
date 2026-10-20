@@ -5,6 +5,9 @@ import { DashboardView } from "@/components/dashboard/DashboardView";
 export const metadata: Metadata = {
   title: "시스템 감사 로그 | Reportist Admin",
   description: "시스템 에러 감사 로그 모니터",
+  alternates: {
+    canonical: "/admin",
+  },
   robots: {
     index: false,
     follow: false,

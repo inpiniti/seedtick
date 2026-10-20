@@ -5,6 +5,9 @@ import { DashboardView } from "@/components/dashboard/DashboardView";
 export const metadata: Metadata = {
   title: "13인 거장 파이프라인 | Reportist Admin",
   description: "13인 거장 AI 파이프라인 실시간 진행 상태",
+  alternates: {
+    canonical: "/pipeline",
+  },
   robots: {
     index: false,
     follow: false,
