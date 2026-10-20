@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   AiModelStatus,
@@ -9,6 +9,7 @@ import {
   HealthStatus,
   StockCandidate,
   SystemLogItem,
+  OutcomesOverview,
 } from "@/types/api";
 import {
   fetchAiModelStatus,
@@ -41,6 +42,7 @@ import { ResearchCatalogView } from "@/components/research/ResearchCatalogView";
 import { ResearchDocumentView, ResearchDocTab } from "@/components/research/ResearchDocumentView";
 import { GuruDocumentView } from "@/components/research/GuruDocumentView";
 import { GURU_PERSONAS } from "@/lib/guruPersonas";
+import type { TickerDirectoryEntry } from "@/lib/server/publicCatalog";
 import { SkeletonCard } from "@/components/ui/Skeleton";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
@@ -54,6 +56,7 @@ import {
 import {
   loadSidebarCountsSnapshot,
   saveSidebarCountsSnapshot,
+  SidebarCountsSnapshot,
 } from "@/lib/sidebarCounts";
 import {
   getCachedReportDates,
@@ -77,6 +80,10 @@ import {
   isReportRestricted,
   getDefaultReportDate,
 } from "@/lib/subscription/subscriptionPolicy";
+import {
+  getBrowserSearchParam,
+  getBrowserSearchParams,
+} from "@/lib/urlParams";
 
 const DASHBOARD_FETCH_TIMEOUT_MS = 5000;
 
@@ -119,6 +126,24 @@ export interface DashboardViewProps {
   initialTab?: ResearchDocTab;
   initialDate?: string;
   initialGuru?: string;
+  /**
+   * SSR용 공개 리포트 목록 (free 공개 일자 기준, 마스킹 적용됨).
+   * 서버에서 prefetch 해 전달하면 초기 HTML에 종목 목록과 링크가 포함되어
+   * 검색엔진이 JS 렌더링 없이도 카탈로그를 색인할 수 있다.
+   */
+  initialReports?: GuruReportRow[];
+  /** SSR용 카탈로그 발행 일자 목록 (최신순) */
+  initialCatalogDates?: string[];
+  /** SSR용 카탈로그 기본 선택 일자 (free 공개 일자) */
+  initialCatalogDate?: string;
+  /** SSR용 전체 종목 디렉터리 (크롤링 가능한 종목 링크 소스) */
+  initialTickerDirectory?: TickerDirectoryEntry[];
+  /** SSR용 종목별 발행 일자 목록 ("분석 이력" 링크 소스) */
+  initialReportDates?: string[];
+  /** SSR용 성과 추적(트랙 레코드) 데이터 */
+  initialOutcomes?: OutcomesOverview | null;
+  /** SSR용 티커 → 한글 종목명 맵 */
+  initialTickerNameMap?: Record<string, string>;
 }
 
 export function DashboardView({
@@ -128,11 +153,24 @@ export function DashboardView({
   initialTab,
   initialDate,
   initialGuru,
+  initialReports,
+  initialCatalogDates,
+  initialCatalogDate,
+  initialTickerDirectory,
+  initialReportDates,
+  initialOutcomes,
+  initialTickerNameMap,
 }: DashboardViewProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const fromSection = parseSectionId(searchParams?.get("from"));
+  // NOTE: useSearchParams()를 쓰면 정적 프리렌더 라우트에서 Suspense 경계가
+  // CSR bail-out 되어 <body>가 통째로 비게 된다(SEO 치명).
+  // searchParams가 필요한 곳은 전부 마운트 시점 계산 또는 이벤트 핸들러이므로
+  // 브라우저 URL을 직접 읽는다. (src/lib/urlParams.ts 참고)
+  const getFromSection = useCallback(() => {
+    if (typeof window === "undefined") return undefined;
+    return parseSectionId(getBrowserSearchParam("from"));
+  }, []);
   const { user, tier, isTrialActive, openUpgradeModal, isAdmin, isAdminLoading, isLoading: isSubscriptionLoading } = useSubscription();
   const tierRef = useRef(tier);
   tierRef.current = tier;
@@ -149,16 +187,26 @@ export function DashboardView({
   // 상세 진입 시 출처(?from)/마지막 섹션으로 선택 복원 — remount 후에도 유지
   // SSR 단계에서는 window 접근 없이 라우트 기본값으로 그리고, 클라에서만 출처 복원
   // (서버·클라 초기 HTML 불일치 hydration 오류 방지)
+  // → 초기값은 항상 initialSection 으로 두고, 복원은 마운트 후 effect 에서 한다.
   const [activeSidebarSection, setActiveSidebarSection] =
-    useState<SidebarSectionId>(() => {
-      if (typeof window === "undefined") return initialSection;
-      if (initialTicker || initialGuru) {
-        return fromSection ?? loadLastSectionId() ?? initialSection;
-      }
-      return initialSection;
-    });
+    useState<SidebarSectionId>(initialSection);
   const activeSidebarSectionRef = useRef<SidebarSectionId>(activeSidebarSection);
   activeSidebarSectionRef.current = activeSidebarSection;
+
+  // 상세 진입 시 출처(?from) 또는 마지막으로 본 섹션으로 복원.
+  // hydration 을 위해 초기 렌더에서는 적용하지 않고 마운트 후에만 반영한다.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!initialTicker && !initialGuru) return;
+    const from = getFromSection();
+    if (from) {
+      setActiveSidebarSection(from);
+      return;
+    }
+    const remembered = loadLastSectionId();
+    if (remembered) setActiveSidebarSection(remembered);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTicker, initialGuru]);
 
   // 2. 로딩 상태 (캐시 미보유 시 마운트 조회가 실행되므로 초기값 반영)
   const [isLoading, setIsLoading] = useState(!initialReport);
@@ -174,8 +222,9 @@ export function DashboardView({
     () => DataCache.getHealth() || buildOfflineHealth()
   );
   // 4-2. 티커 -> 한글 종목명 캐시 (30분 TTL, 로고 워밍업 동기화)
+  // SSR 전달값이 있으면 우선 사용 → 초기 HTML 목록에 한글명이 포함된다.
   const [tickerNameMap, setTickerNameMap] = useState<Record<string, string>>(
-    () => DataCache.getTickerNameMap() || {}
+    () => initialTickerNameMap ?? DataCache.getTickerNameMap() ?? {}
   );
 
   // 그림1 화면 표시분 한글명 보충 결과를 전역 캐시에 합침
@@ -210,8 +259,9 @@ export function DashboardView({
   const [isResettingModel, setIsResettingModel] = useState(false);
 
   // 4. 리포트 & 로그 데이터
+  // SSR 전달값(공개 리포트)이 있으면 우선 사용하여 초기 HTML에 목록이 포함되게 한다.
   const [guruReports, setGuruReports] = useState<GuruReportRow[]>(
-    () => DataCache.getReports("LATEST") || []
+    () => initialReports ?? DataCache.getReports("LATEST") ?? []
   );
   const [systemLogs, setSystemLogs] = useState<SystemLogItem[]>([]);
   const [liveCandidates, setLiveCandidates] = useState<StockCandidate[]>(
@@ -230,12 +280,21 @@ export function DashboardView({
 
   // 앱 진입 즉시 사이드바 뱃지를 보여주기 위해 localStorage 스냅샷으로 1차 보충,
   // 이후 실데이터 로드 완료 시 실제 카운트로 교체 (React Query 영속 캐시가 진실 유지)
-  // useMemo로 선언 순서 문제 없이 실데이터 우선 계산 (0 깜빡임 방지 + 메뉴별 유지)
-  const sidebarSnapshot = useMemo(
-    () =>
-      typeof window !== "undefined" ? loadSidebarCountsSnapshot() : null,
-    []
+  //
+  // SSR/클라 1차 렌더를 반드시 일치시켜야 하므로 localStorage 스냅샷은
+  // 렌더 중이 아니라 마운트 후 effect 에서 읽는다.
+  // (렌더 중 읽으면 서버(0) vs 클라(스냅샷 값) 불일치로 hydration mismatch 가 난다)
+  const [sidebarSnapshot, setSidebarSnapshot] = useState<SidebarCountsSnapshot | null>(
+    null
   );
+  // 스냅샷 저장 effect 가 렌더 중 값을 읽을 수 있도록 ref 로도 유지한다.
+  // (마운트 effect 가 먼저 실행되어 ref 가 채워진 뒤 저장 effect 가 돌아간다)
+  const sidebarSnapshotRef = useRef<SidebarCountsSnapshot | null>(null);
+  useEffect(() => {
+    const snap = loadSidebarCountsSnapshot();
+    sidebarSnapshotRef.current = snap;
+    setSidebarSnapshot(snap);
+  }, []);
   const sidebarReportCount =
     guruReports.length > 0 ? guruReports.length : (sidebarSnapshot?.reportCount ?? 0);
   const sidebarRomaCount =
@@ -246,6 +305,7 @@ export function DashboardView({
     krCandidates.length > 0 ? krCandidates.length : (sidebarSnapshot?.krCount ?? 0);
 
   // 실데이터 카운트가 확정되면 스냅샷 갱신 (다음 진입 즉시 표시용)
+  // 스냅샷은 ref 로 읽는다 (state 는 렌더에, ref 는 저장 로직에 사용)
   useEffect(() => {
     if (
       guruReports.length > 0 ||
@@ -253,23 +313,34 @@ export function DashboardView({
       liveCandidates.length > 0 ||
       krCandidates.length > 0
     ) {
+      const snap = sidebarSnapshotRef.current;
       saveSidebarCountsSnapshot({
-        reportCount: Math.max(guruReports.length, sidebarSnapshot?.reportCount ?? 0),
-        romaCount: Math.max(romaCandidates.length, sidebarSnapshot?.romaCount ?? 0),
-        liveCount: Math.max(liveCandidates.length, sidebarSnapshot?.liveCount ?? 0),
-        krCount: Math.max(krCandidates.length, sidebarSnapshot?.krCount ?? 0),
+        reportCount: Math.max(guruReports.length, snap?.reportCount ?? 0),
+        romaCount: Math.max(romaCandidates.length, snap?.romaCount ?? 0),
+        liveCount: Math.max(liveCandidates.length, snap?.liveCount ?? 0),
+        krCount: Math.max(krCandidates.length, snap?.krCount ?? 0),
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guruReports.length, romaCandidates.length, liveCandidates.length, krCandidates.length]);
 
   // 4-1. 날짜 선택 상태
+  // SSR 전달값이 있으면 그대로 사용하여 서버/클라 초기 렌더가 일치하도록 한다.
   const [availableCatalogDates, setAvailableCatalogDates] = useState<string[]>(
-    () => DataCache.getCatalogDates() || []
+    () => initialCatalogDates ?? DataCache.getCatalogDates() ?? []
   );
-  const [selectedCatalogDate, setSelectedCatalogDate] = useState<string>("");
+  const [selectedCatalogDate, setSelectedCatalogDate] = useState<string>(
+    () => initialCatalogDate ?? ""
+  );
   const [isCatalogDateLoading, setIsCatalogDateLoading] = useState(false);
   const selectedCatalogDateRef = useRef<string>("");
+
+  // free 기준 허용 기본 일자 (DB에 30일 이전 행이 없을 때의 폴백)
+  // 서버 API(getServerAllowedFreeDate)와 동일한 계산 기준을 사용한다.
+  const allowedFreeDate = useMemo(
+    () => getDefaultReportDate(availableCatalogDates, "free"),
+    [availableCatalogDates]
+  );
 
   // 4-2. 전 기간 내재가치 히스토리
   const [historicalValuations, setHistoricalValuations] = useState<
@@ -319,7 +390,9 @@ export function DashboardView({
     return undefined;
   });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [availableReportDates, setAvailableReportDates] = useState<string[]>([]);
+  const [availableReportDates, setAvailableReportDates] = useState<string[]>(
+    () => initialReportDates ?? []
+  );
   const [selectedReportDate, setSelectedReportDate] = useState<
     string | undefined
   >(initialDate || initialReport?.d);
@@ -785,27 +858,37 @@ export function DashboardView({
   //   같은 탭을 유지하도록 lastOpenedDocTabById에 기억 (final→chart→final 깜빡임 방지)
   // - ?from= 현재 섹션을 함께 기록 → 상세에서 사이드바 선택·뒤로가기 복원
   // - 원문 동기화는 아래 서버-진실 동기화 effect가 전담 (단일 경로)
-  const handleOpenReport = useCallback((report: GuruReportRow, tab?: ResearchDocTab) => {
+  // - options.navigate === false 이면 URL 이동을 하지 않는다.
+  //   (카탈로그 목록은 <Link>가 이동을 담당하므로 이중 이동 방지)
+  const handleOpenReport = useCallback((
+    report: GuruReportRow,
+    tab?: ResearchDocTab,
+    options?: { navigate?: boolean }
+  ) => {
     const effectiveTab = tab ?? (report.final_report ? "final" : "chart");
     lastOpenedDocTabById[report.id] = effectiveTab;
     setSelectedDocReport(report);
     setSelectedReportDate(report.d);
     setActiveDocTab(tab ?? undefined);
 
-    const params = new URLSearchParams(searchParams?.toString() || "");
-    params.delete("tab");
-    if (tab) params.set("tab", tab);
-    // 상세→목록 복귀/선택 유지를 위한 출처 섹션 (목록 화면에서 진입 시)
-    // 상세→상세 이동(성과 클릭 등)에서는 기존 ?from=을 그대로 유지
-    if (!initialTicker && activeSidebarSectionRef.current) {
-      params.set("from", activeSidebarSectionRef.current);
-    }
-    const query = params.toString();
-    const targetUrl = `/stocks/${encodeURIComponent(report.ticker)}${query ? `?${query}` : ""}`;
-    if (pathname !== `/stocks/${encodeURIComponent(report.ticker)}`) {
-      router.push(targetUrl);
-    } else if (query) {
-      router.replace(targetUrl, { scroll: false });
+    if (options?.navigate !== false) {
+      const params = new URLSearchParams(getBrowserSearchParams());
+      params.delete("tab");
+      // 분석일자는 경로(/stocks/{ticker}/{date})로 관리하므로 쿼리에서 제거
+      params.delete("date");
+      if (tab) params.set("tab", tab);
+      // 상세→목록 복귀/선택 유지를 위한 출처 섹션 (목록 화면에서 진입 시)
+      // 상세→상세 이동(성과 클릭 등)에서는 기존 ?from=을 그대로 유지
+      if (!initialTicker && activeSidebarSectionRef.current) {
+        params.set("from", activeSidebarSectionRef.current);
+      }
+      const query = params.toString();
+      const targetUrl = `/stocks/${encodeURIComponent(report.ticker)}${query ? `?${query}` : ""}`;
+      if (pathname !== `/stocks/${encodeURIComponent(report.ticker)}`) {
+        router.push(targetUrl);
+      } else if (query) {
+        router.replace(targetUrl, { scroll: false });
+      }
     }
 
     if (report.ticker) {
@@ -819,10 +902,14 @@ export function DashboardView({
         setAvailableReportDates(merged);
       });
     }
-  }, [guruReports, pathname, router, searchParams, initialTicker]);
+  }, [guruReports, pathname, router, initialTicker]);
 
   // 후보군 종목을 문서 모드로 열기 (Free/체험만료는 과거 허용 리포트 우선)
-  const handleOpenCandidateAsReport = useCallback((candidate: StockCandidate) => {
+  // options.navigate === false 이면 URL 이동은 <Link>가 담당한다.
+  const handleOpenCandidateAsReport = useCallback((
+    candidate: StockCandidate,
+    options?: { navigate?: boolean }
+  ) => {
     const tickerUpper = candidate.ticker.toUpperCase();
     const sameTicker = guruReports.filter((r) => r.ticker.toUpperCase() === tickerUpper);
     const isRestrictedUser = tierRef.current === "free" && !isTrialActiveRef.current;
@@ -830,7 +917,7 @@ export function DashboardView({
       ? sameTicker.find((r) => !isDateWithinDays(r.d)) || sameTicker[sameTicker.length - 1]
       : sameTicker[0];
     if (existing) {
-      handleOpenReport(existing);
+      handleOpenReport(existing, undefined, options);
       return;
     }
 
@@ -858,28 +945,38 @@ export function DashboardView({
     setActiveDocTab(undefined);
 
     // 후보군(03/02)에서 진입해도 출처 기록 → 뒤로가기·선택메뉴가 후보군으로 유지
-    const from = initialTicker ? searchParams?.get("from") : activeSidebarSectionRef.current;
+    const from = initialTicker
+      ? getBrowserSearchParam("from")
+      : activeSidebarSectionRef.current;
     const detailQuery = from ? `?from=${encodeURIComponent(from)}` : "";
-    router.push(`/stocks/${encodeURIComponent(candidate.ticker)}${detailQuery}`);
-  }, [guruReports, handleOpenReport, router, initialTicker, searchParams]);
+    if (options?.navigate !== false) {
+      router.push(`/stocks/${encodeURIComponent(candidate.ticker)}${detailQuery}`);
+    }
+  }, [guruReports, handleOpenReport, router, initialTicker]);
 
-  // 탭 변경 시 URL 쿼리 파라미터 동기화 (?tab=... — ?from= 출처는 그대로 유지)
+  // 탭 변경 시 URL 쿼리 파라미터 동기화 (?tab=... — 분석일자는 경로에 포함됨)
   const handleTabChange = useCallback((tab: ResearchDocTab) => {
     setActiveDocTab(tab);
     userSelectedTabRef.current = true;
     if (selectedDocReport) {
       lastOpenedDocTabById[selectedDocReport.id] = tab;
-      const search = new URLSearchParams(searchParams?.toString() || "");
+      const search = new URLSearchParams(getBrowserSearchParams());
       search.set("tab", tab);
-      router.replace(`/stocks/${encodeURIComponent(selectedDocReport.ticker)}?${search.toString()}`, {
+      search.delete("date");
+      // 경로(/stocks/{ticker} 또는 /stocks/{ticker}/{date})를 그대로 유지한다.
+      const target = `${pathname}?${search.toString()}`;
+      router.replace(target, {
         scroll: false,
       });
     }
-  }, [selectedDocReport, searchParams, router]);
+  }, [selectedDocReport, pathname, router]);
 
-  // 날짜 변경 시 URL 쿼리 파라미터 동기화 (?date=...)
+  // 날짜 변경 시 URL 경로 동기화 (/stocks/{ticker}/{date})
   const handleSelectReportDate = async (targetDate: string) => {
     if (!selectedDocReport || selectedDocReport.d === targetDate) return;
+
+    // free 기준 허용 기본 일자 (DB에 30일 이전 행이 없을 때의 폴백)
+    const allowedFreeDate = getDefaultReportDate(availableCatalogDates, "free");
 
     // 1일 무료 체험 중이거나 Pro 회원은 제한 없이 날짜 변경 가능
     if (tierRef.current === "pro" || isTrialActiveRef.current) {
@@ -890,7 +987,7 @@ export function DashboardView({
         targetDate,
         tierRef.current,
         new Date(),
-        undefined,
+        allowedFreeDate,
         isTrialActiveRef.current
       )
     ) {
@@ -908,9 +1005,14 @@ export function DashboardView({
 
     setIsLoadingReportDate(true);
     try {
-      const search = new URLSearchParams(searchParams?.toString() || "");
-      search.set("date", targetDate);
-      router.replace(`/stocks/${encodeURIComponent(selectedDocReport.ticker)}?${search.toString()}`, {
+      const search = new URLSearchParams(getBrowserSearchParams());
+      // 분석일자는 영구 URL(경로)로 관리한다 → 색인 가능한 개별 문서가 된다.
+      search.delete("date");
+      const query = search.toString();
+      const target = `/stocks/${encodeURIComponent(
+        selectedDocReport.ticker
+      )}/${encodeURIComponent(targetDate)}${query ? `?${query}` : ""}`;
+      router.replace(target, {
         scroll: false,
       });
 
@@ -938,21 +1040,26 @@ export function DashboardView({
   };
 
   // 거장 심층 철학 문서 뷰로 이동 (출처 기록 → 뒤로가기·선택 유지)
-  const handleOpenGuru = useCallback((slug: string) => {
+  // options.navigate === false 이면 URL 이동은 <Link>가 담당한다.
+  const handleOpenGuru = useCallback((
+    slug: string,
+    options?: { navigate?: boolean }
+  ) => {
     setSelectedGuruSlug(slug);
     setSelectedDocReport(null);
     setIsMobileMenuOpen(false);
+    if (options?.navigate === false) return;
     const from = initialGuru
-      ? searchParams?.get("from")
+      ? getBrowserSearchParam("from")
       : activeSidebarSectionRef.current;
     const guruQuery = from ? `?from=${encodeURIComponent(from)}` : "";
     router.push(`/gurus/${encodeURIComponent(slug)}${guruQuery}`);
-  }, [router, initialGuru, searchParams]);
+  }, [router, initialGuru]);
 
   // 문서 뷰에서 카탈로그 목록으로 복귀 (출처 섹션으로 정확히 복귀!)
   const handleBackToCatalog = useCallback(() => {
     const originSection =
-      fromSection ?? loadLastSectionId() ?? activeSidebarSectionRef.current;
+      getFromSection() ?? loadLastSectionId() ?? activeSidebarSectionRef.current;
     setSelectedDocReport(null);
     setSelectedGuruSlug(null);
     setIsMobileMenuOpen(false);
@@ -969,7 +1076,7 @@ export function DashboardView({
     } else {
       router.push(SECTION_META[originSection].href);
     }
-  }, [router, fromSection, initialTicker, initialGuru]);
+  }, [router, getFromSection, initialTicker, initialGuru]);
 
   // 사이드바 섹션 클릭 시 실제 URL 라우팅
   // 파이프라인/감사로그는 관리자 전용 — 비관리자는 홈으로 돌려보냄
@@ -1186,6 +1293,7 @@ export function DashboardView({
                 selectedDate={selectedReportDate}
                 onSelectDate={handleSelectReportDate}
                 isLoadingDate={isLoadingReportDate}
+                allowedFreeDate={allowedFreeDate}
                 activeTab={activeDocTab}
                 onTabChange={handleTabChange}
                 percentB={
@@ -1253,6 +1361,8 @@ export function DashboardView({
                 intrinsicStabilityMap={intrinsicStabilityByTicker}
                 tickerNameMap={tickerNameMap}
                 onSupplementTickerNames={handleSupplementTickerNames}
+                tickerDirectory={initialTickerDirectory}
+                initialOutcomes={initialOutcomes}
               />
             )}
           </main>

@@ -1,11 +1,13 @@
 "use client";
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import Link from "next/link";
 import {
   GuruReportRow,
   StockCandidate,
   SystemLogItem,
   PipelineProgress,
+  OutcomesOverview,
 } from "@/types/api";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -18,6 +20,7 @@ import { OutcomesView } from "@/components/outcomes/OutcomesView";
 import { GURU_PERSONAS, GuruPersona } from "@/lib/guruPersonas";
 import { GuruDetailModal } from "@/components/research/GuruDetailModal";
 import { StockListItem, StockItemInsight } from "@/components/research/StockListItem";
+import type { ResearchDocTab } from "@/components/research/ResearchDocumentView";
 import {
   chartTickerKey,
   extractValuationConsensus,
@@ -49,6 +52,7 @@ import { useSubscription } from "@/lib/subscription/SubscriptionContext";
 import { isReportRestricted, getDefaultReportDate } from "@/lib/subscription/subscriptionPolicy";
 import { DataCache } from "@/lib/dataCache";
 import { matchesTickerAlias } from "@/lib/tickerAliases";
+import type { TickerDirectoryEntry } from "@/lib/server/publicCatalog";
 
 const KR_STEP_5_INFO = {
   label: "5단계 (추천 알짜)",
@@ -98,8 +102,15 @@ interface ResearchCatalogViewProps {
   onRefreshRoma: () => void;
   onRefreshPipeline: () => void;
   onRefreshLogs: (level?: string) => void;
-  onSelectReport: (report: GuruReportRow) => void;
-  onSelectCandidate: (candidate: StockCandidate) => void;
+  onSelectReport: (
+    report: GuruReportRow,
+    tab?: ResearchDocTab,
+    options?: { navigate?: boolean }
+  ) => void;
+  onSelectCandidate: (
+    candidate: StockCandidate,
+    options?: { navigate?: boolean }
+  ) => void;
   activeSectionFilter: SidebarSectionId;
   onSelectSection?: (sectionId: SidebarSectionId) => void;
   availableDates?: string[];
@@ -108,12 +119,20 @@ interface ResearchCatalogViewProps {
   isReportsLoading?: boolean;
   /** 대시보드 초기 로드 중 여부 (리포트 섹션 리스트 자리 스켈레톤용) */
   isDashboardLoading?: boolean;
-  onSelectGuru?: (guruSlug: string) => void;
+  onSelectGuru?: (guruSlug: string, options?: { navigate?: boolean }) => void;
   intrinsicStabilityMap?: Map<string, IntrinsicStability>;
   onOpenPipelineModal?: () => void;
   isPipelineRunning?: boolean;
   /** 화면 표시분 한글명 보충 결과를 부모 캐시에 반영하는 콜백 */
   onSupplementTickerNames?: (names: Record<string, string>) => void;
+  /**
+   * 전체 종목 디렉터리 (서버 프리페치).
+   * 목록에 노출되지 않는 종목까지 포함해 모든 상세 페이지로의
+   * 크롤링 가능한 링크를 보장한다.
+   */
+  tickerDirectory?: TickerDirectoryEntry[];
+  /** SSR용 성과 추적(트랙 레코드) 데이터 */
+  initialOutcomes?: OutcomesOverview | null;
 }
 
 export function ResearchCatalogView({
@@ -149,6 +168,8 @@ export function ResearchCatalogView({
   isPipelineRunning = false,
   onSupplementTickerNames,
   onPercentBUpdate,
+  tickerDirectory = [],
+  initialOutcomes = null,
 }: ResearchCatalogViewProps) {
   const { tier, isTrialActive, isAdmin } = useSubscription();
   const [searchQuery, setSearchQuery] = useState("");
@@ -787,6 +808,16 @@ export function ResearchCatalogView({
     safetyPrice: raw.safetyPrice,
   });
 
+  /**
+   * 종목 상세 페이지 크롤링 링크.
+   * 출처 섹션(?from=)을 함께 기록해 상세에서 뒤로가기가 목록으로 정확히 복귀한다.
+   */
+  const stockDetailHref = (ticker: string) => {
+    const params = new URLSearchParams();
+    params.set("from", activeSectionFilter);
+    return `/stocks/${encodeURIComponent(ticker)}?${params.toString()}`;
+  };
+
   return (
     <div className="flex-1 min-w-0 bg-white font-sans divide-y divide-[#e2e8f0]">
       {/* ── 관리자 전용 섹션 직접 접근 차단 (클라이언트 게이팅 — API는 별도 403) ── */}
@@ -973,9 +1004,10 @@ export function ResearchCatalogView({
                 ) : (
                   <div className="space-y-1.5 pt-0.5">
                     {topDiscountOpportunities.map((item) => (
-                      <div
+                      <Link
                         key={item.ticker}
-                        onClick={() => onSelectReport(item.report)}
+                        href={stockDetailHref(item.ticker)}
+                        onClick={() => onSelectReport(item.report, undefined, { navigate: false })}
                         className="flex items-center justify-between hover:bg-[#f8fafc] p-1 rounded cursor-pointer transition-colors"
                       >
                         <span className="font-bold text-[#0f172a]">
@@ -990,7 +1022,7 @@ export function ResearchCatalogView({
                             +{Math.round(item.ratio - 100)}% 괴리
                           </span>
                         </div>
-                      </div>
+                      </Link>
                     ))}
                   </div>
                 )}
@@ -1260,7 +1292,8 @@ export function ResearchCatalogView({
                         percentB={percentB}
                         rowRef={observePbRow(ticker, pbKey)}
                         rowKey={pbKey}
-                        onClick={() => onSelectReport(report)}
+                        href={stockDetailHref(ticker)}
+                        onClick={() => onSelectReport(report, undefined, { navigate: false })}
                         badges={
                           <span className="text-[11px] text-[#64748b] ml-auto sm:ml-0 flex items-center gap-1">
                             <Calendar className="w-3 h-3 text-[#94a3b8]" />
@@ -1371,7 +1404,8 @@ export function ResearchCatalogView({
                         percentB={percentB}
                         rowRef={observePbRow(c.ticker, pbKey)}
                         rowKey={pbKey}
-                        onClick={() => onSelectCandidate(c)}
+                        href={stockDetailHref(c.ticker)}
+                        onClick={() => onSelectCandidate(c, { navigate: false })}
                         priceText={formatPriceByNation(c.price, undefined, c.ticker)}
                         badges={
                           <>
@@ -1660,6 +1694,7 @@ export function ResearchCatalogView({
         >
           <OutcomesView
             isAdmin={isAdmin}
+            initialData={initialOutcomes}
             onSelectReport={(_id, ticker, date) => {
               const found =
                 guruReports.find((r) => r.ticker === ticker && r.d === date) ||
@@ -1699,11 +1734,13 @@ export function ResearchCatalogView({
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2 font-sans">
               {Object.values(GURU_PERSONAS).map((guru) => (
-                <div
+                <Link
                   key={guru.slug}
+                  href={`/gurus/${encodeURIComponent(guru.slug)}?from=sec-gurus`}
                   onClick={() => {
+                    // <Link>가 URL 이동을 담당하므로 SPA 이동은 하지 않는다.
                     if (onSelectGuru) {
-                      onSelectGuru(guru.slug);
+                      onSelectGuru(guru.slug, { navigate: false });
                     } else {
                       setSelectedGuruForModal(guru);
                     }
@@ -1755,7 +1792,7 @@ export function ResearchCatalogView({
                       </span>
                     </div>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </div>
@@ -1868,6 +1905,48 @@ export function ResearchCatalogView({
             onSelectReport(report);
           }}
         />
+      )}
+
+      {/* ── 전체 종목 디렉터리 ──────────────────────────────────────────
+          목록 화면(날짜/권한 필터)에 잡히지 않는 종목까지 포함해
+          모든 종목 상세 페이지로의 크롤링 가능한 링크를 보장한다.
+          서버에서 프리페치한 tickerDirectory가 있을 때만 렌더한다. */}
+      {tickerDirectory.length > 0 && (
+        <nav
+          aria-label="전체 종목 주식 리포트 목록"
+          className="px-6 lg:px-12 py-8 lg:py-10 bg-[#fafafa] border-t border-[#e2e8f0]"
+        >
+          <div className="flex items-baseline gap-2">
+            <span className="font-mono text-xs font-semibold text-[#94a3b8]">
+              INDEX
+            </span>
+            <h2 className="text-base font-bold text-[#0f172a] tracking-tight">
+              전체 종목 주식 리포트 목록 ({tickerDirectory.length}종목)
+            </h2>
+          </div>
+          <p className="text-xs text-[#64748b] mt-1.5 mb-4 leading-relaxed max-w-3xl">
+            국내·미국 전 종목의 13인 투자 거장 AI 가치평가 리포트, 적정주가와 내재가치
+            밴드를 확인하세요. 종목을 선택하면 해당 종목의 리포트 아카이브로 이동합니다.
+          </p>
+          <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-x-5 gap-y-1">
+            {tickerDirectory.map((entry) => (
+              <li key={entry.ticker}>
+                <Link
+                  href={`/stocks/${encodeURIComponent(entry.ticker)}`}
+                  className="flex items-baseline gap-1.5 text-[11px] font-mono text-[#475569] hover:text-[#0f172a] hover:underline underline-offset-2 py-0.5 min-w-0"
+                >
+                  <span className="font-bold text-[#0f172a] shrink-0">
+                    {entry.ticker}
+                  </span>
+                  {entry.name &&
+                    entry.name.toUpperCase() !== entry.ticker.toUpperCase() && (
+                      <span className="truncate">{entry.name}</span>
+                    )}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
       )}
     </div>
   );

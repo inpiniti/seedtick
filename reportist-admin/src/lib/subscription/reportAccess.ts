@@ -164,10 +164,20 @@ export function maskReportRow(
   };
 }
 
-/** SSR/SEO용: 로그인 컨텍스트가 없을 때는 무조건 public(free) 기준으로 마스킹 */
-export function maskReportRowPublic(row: GuruReportRow): GuruReportRow {
+/**
+ * SSR/SEO용: 로그인 컨텍스트가 없을 때는 public(free) 기준으로 마스킹.
+ *
+ * allowedFreeDate는 "DB에 30일 이전 행이 하나도 없을 때 가장 오래된 일자를
+ * 무료로 허용"하는 폴백 규칙의 기준일이다. 서버 API(getServerAllowedFreeDate)와
+ * 동일하게 전달해야 SSR과 API의 마스킹 결과가 일치한다.
+ * (기존에는 undefined를 넘겨서 공개 가능한 날짜까지 제한으로 처리했다)
+ */
+export function maskReportRowPublic(
+  row: GuruReportRow,
+  allowedFreeDate?: string
+): GuruReportRow {
   return maskReportRow(
     row,
-    !isReportRestricted(row.d, "free", new Date(), undefined, false)
+    !isReportRestricted(row.d, "free", new Date(), allowedFreeDate, false)
   );
 }

@@ -1,6 +1,14 @@
 import { Suspense } from "react";
 import { Metadata } from "next";
 import { DashboardView } from "@/components/dashboard/DashboardView";
+import { getPublicCatalog } from "@/lib/server/publicCatalog";
+import { buildTickerListJsonLd } from "@/lib/server/catalogJsonLd";
+
+/**
+ * 공개 카탈로그는 5분 주기로 갱신한다.
+ * (리포트는 하루 1회 발행되므로 5분이면 충분하고, 정적 셸 + ISR 로 TTFB 를 낮춘다)
+ */
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "리포티스트 Reportist Research · 국내 및 미국 주식 리포트와 13인 거장 AI 적정주가 분석",
@@ -35,15 +43,33 @@ const homeJsonLd = {
   ],
 };
 
-export default function HomePage() {
+export default async function HomePage() {
+  // 서버에서 공개 카탈로그를 프리페치해 초기 HTML에 종목 목록·링크를 포함시킨다.
+  // (클라 fetch 전용이면 봇이 빈 페이지를 색인하게 된다)
+  const catalog = await getPublicCatalog();
+  const itemListJsonLd = buildTickerListJsonLd(catalog.directory, "/");
+
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(homeJsonLd) }}
       />
+      {itemListJsonLd ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
+        />
+      ) : null}
       <Suspense fallback={<div className="min-h-screen bg-white" />}>
-        <DashboardView initialSection="all" />
+        <DashboardView
+          initialSection="all"
+          initialReports={catalog.reports}
+          initialCatalogDates={catalog.dates}
+          initialCatalogDate={catalog.freeDate}
+          initialTickerDirectory={catalog.directory}
+          initialTickerNameMap={catalog.tickerNameMap}
+        />
       </Suspense>
     </>
   );

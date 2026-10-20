@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import {
   formatPercentB,
@@ -127,6 +128,12 @@ export interface StockListItemProps {
   percentB?: number | null;
   /** 클릭 핸들러 */
   onClick: () => void;
+  /**
+   * 크롤링 가능한 상세 페이지 URL.
+   * 지정하면 행이 <a>로 렌더되어 검색엔진이 종목 상세 페이지를 색인할 수 있다.
+   * (미지정 시 기존처럼 div + onClick 동작)
+   */
+  href?: string;
   /** 권한 제한으로 과거 리포트 인사이트가 없을 때 true. 리포트 파생 데이터 정보를 숨기고 잠금 뱃지를 표시한다. */
   isLocked?: boolean;
 
@@ -166,6 +173,7 @@ export function StockListItem({
   insight,
   percentB,
   onClick,
+  href,
   isLocked = false,
   rankPrefix,
   badges,
@@ -196,14 +204,38 @@ export function StockListItem({
           <div className="min-w-0 flex-1 space-y-1.5">
             {/* ── 상단 라인: 티커, 회사명, 뱃지들, 투자의견 ── */}
             <div className="flex items-center gap-2 flex-wrap font-mono text-xs">
-              <span className="font-bold text-[#0f172a] group-hover:text-black transition-colors">
-                {rankPrefix ? `${rankPrefix} ` : ""}
-                {ticker}
-              </span>
-              {companyName && companyName.toUpperCase() !== ticker.toUpperCase() && (
-                <span className="text-[#64748b] truncate max-w-[200px]">
-                  {companyName}
-                </span>
+              {href ? (
+                <Link
+                  href={href}
+                  onClick={(e) => {
+                    // Link가 이동을 담당하므로 행 클릭 핸들러의 중복 이동을 막는다.
+                    e.stopPropagation();
+                    onClick();
+                  }}
+                  className="font-bold text-[#0f172a] group-hover:text-black transition-colors hover:underline underline-offset-2"
+                >
+                  {rankPrefix ? `${rankPrefix} ` : ""}
+                  {ticker}
+                  {companyName &&
+                    companyName.toUpperCase() !== ticker.toUpperCase() && (
+                      <span className="text-[#64748b] truncate max-w-[200px] ml-1.5 font-normal">
+                        {companyName}
+                      </span>
+                    )}
+                </Link>
+              ) : (
+                <>
+                  <span className="font-bold text-[#0f172a] group-hover:text-black transition-colors">
+                    {rankPrefix ? `${rankPrefix} ` : ""}
+                    {ticker}
+                  </span>
+                  {companyName &&
+                    companyName.toUpperCase() !== ticker.toUpperCase() && (
+                      <span className="text-[#64748b] truncate max-w-[200px]">
+                        {companyName}
+                      </span>
+                    )}
+                </>
               )}
               {badges}
               {isLocked ? (

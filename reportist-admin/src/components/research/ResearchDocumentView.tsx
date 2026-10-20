@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { GuruReportRow } from "@/types/api";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -46,6 +47,11 @@ interface ResearchDocumentViewProps {
   selectedDate?: string;
   onSelectDate?: (date: string) => void;
   isLoadingDate?: boolean;
+  /**
+   * free 기준 허용 기본 일자 (DB에 30일 이전 행이 없을 때의 폴백).
+   * 없으면 해당 일자가 잠겨 있다는 잘못된 판정이 난다.
+   */
+  allowedFreeDate?: string;
   percentB?: number | null;
   logoUrl?: string | null;
   intrinsicStability?: IntrinsicStability;
@@ -61,6 +67,7 @@ export function ResearchDocumentView({
   selectedDate,
   onSelectDate,
   isLoadingDate = false,
+  allowedFreeDate,
   percentB,
   logoUrl,
   intrinsicStability,
@@ -76,7 +83,7 @@ export function ResearchDocumentView({
     openAuthModal,
   } = useSubscription();
   const isRestricted = report?.d
-    ? isReportRestricted(report.d, tier, new Date(), undefined, isTrialActive)
+    ? isReportRestricted(report.d, tier, new Date(), allowedFreeDate, isTrialActive)
     : false;
 
   // 사용자가 직접 선택한 탭 (현재 문서에 대한 것만 유효)
@@ -223,31 +230,53 @@ export function ResearchDocumentView({
           </div>
 
           {availableDates.length > 1 && onSelectDate && (
-            <div className="flex items-center gap-1.5 ml-auto bg-[#f8fafc] border border-[#e2e8f0] px-2.5 py-1 rounded">
-              <Calendar className="w-3.5 h-3.5 text-[#64748b]" />
-              <span className="text-[#64748b]">분석 이력:</span>
-              <select
-                value={selectedDate || report.d}
-                onChange={(e) => onSelectDate(e.target.value)}
-                disabled={isLoadingDate}
-                className="bg-transparent text-xs font-mono text-[#0f172a] font-semibold focus:outline-hidden cursor-pointer"
-              >
+            <div className="flex items-center gap-1.5 ml-auto min-w-0 max-w-[620px] bg-[#f8fafc] border border-[#e2e8f0] px-2.5 py-1 rounded">
+              <Calendar className="w-3.5 h-3.5 text-[#64748b] shrink-0" />
+              <span className="text-[#64748b] shrink-0 whitespace-nowrap">
+                분석 이력:
+              </span>
+              {/* 분석일자별 영구 URL(/stocks/{ticker}/{date})로 링크해 검색엔진이
+                  과거 리포트도 색인할 수 있게 한다. 잠긴 날짜는 업그레이드 모달 유지. */}
+              <span className="flex items-center gap-1 min-w-0 flex-1 overflow-x-auto whitespace-nowrap scrollbar-none">
                 {availableDates.map((date) => {
                   const restricted = isReportRestricted(
                     date,
                     tier,
                     new Date(),
-                    undefined,
+                    allowedFreeDate,
                     isTrialActive
                   );
+                  const isCurrent = date === (selectedDate || report.d);
                   return (
-                    <option key={date} value={date}>
-                      {date} {date === report.d ? "(현재)" : ""}{" "}
-                      {restricted ? "🔒 [Pro 전용]" : ""}
-                    </option>
+                    <Link
+                      key={date}
+                      href={`/stocks/${encodeURIComponent(
+                        report.ticker
+                      )}/${encodeURIComponent(date)}`}
+                      onClick={(e) => {
+                        if (restricted) {
+                          // Pro 전용 일자는 기존 업그레이드 유도 흐름을 유지한다.
+                          e.preventDefault();
+                          onSelectDate?.(date);
+                          return;
+                        }
+                        if (isCurrent) e.preventDefault();
+                      }}
+                      aria-current={isCurrent ? "date" : undefined}
+                      className={`px-1.5 py-0.5 rounded border font-mono text-[11px] transition-colors ${
+                        isCurrent
+                          ? "bg-[#0f172a] text-white border-[#0f172a] font-semibold"
+                          : restricted
+                            ? "bg-slate-100 text-[#0f172a] border-[#cbd5e1] hover:bg-slate-200"
+                            : "bg-white text-[#64748b] border-[#e2e8f0] hover:text-[#0f172a] hover:border-[#cbd5e1]"
+                      }`}
+                    >
+                      {date}
+                      {isCurrent ? " (현재)" : ""}
+                    </Link>
                   );
                 })}
-              </select>
+              </span>
               {isLoadingDate && (
                 <span className="text-[#0f172a] animate-pulse text-[11px]">
                   로드 중...

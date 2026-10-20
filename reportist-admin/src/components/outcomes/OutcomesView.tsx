@@ -32,6 +32,12 @@ import {
 interface OutcomesViewProps {
   isAdmin?: boolean;
   onSelectReport?: (reportId: string, ticker: string, date: string) => void;
+  /**
+   * 서버에서 프리페치한 성과 데이터(SSR).
+   * 있으면 초기 HTML에 트랙레코드가 포함되어 검색엔진이 색인할 수 있고,
+   * 첫 렌더가 클라 fetch 결과와 같아 hydration 불일치도 없다.
+   */
+  initialData?: OutcomesOverview | null;
 }
 
 const HORIZON_TABS = [
@@ -42,9 +48,14 @@ const HORIZON_TABS = [
   { id: "252", label: "1년 (252일)" },
 ] as const;
 
-export function OutcomesView({ isAdmin = false, onSelectReport }: OutcomesViewProps) {
-  const [data, setData] = useState<OutcomesOverview | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+export function OutcomesView({
+  isAdmin = false,
+  onSelectReport,
+  initialData = null,
+}: OutcomesViewProps) {
+  // SSR 전달값이 있으면 그대로 초기 상태로 사용 (서버·클라 1차 렌더 일치)
+  const [data, setData] = useState<OutcomesOverview | null>(initialData);
+  const [isLoading, setIsLoading] = useState(!initialData);
   const [selectedHorizon, setSelectedHorizon] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"gurus" | "horizons" | "reports">("gurus");
   const [searchTerm, setSearchTerm] = useState("");

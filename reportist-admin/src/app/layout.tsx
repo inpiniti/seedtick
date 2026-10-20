@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import Script from "next/script";
 import { GoogleAnalytics } from "@next/third-parties/google";
+import { SITE_URL } from "@/lib/siteConfig";
 import "./globals.css";
 
 const inter = Inter({
@@ -16,7 +17,6 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
-const SITE_URL = "https://reportist.kr";
 const LOGO_URL = `${SITE_URL}/reportist-logo-fill-120x120.png`;
 
 export const metadata: Metadata = {

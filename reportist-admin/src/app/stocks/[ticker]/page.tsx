@@ -1,14 +1,11 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { DashboardView } from "@/components/dashboard/DashboardView";
-import { getServerSupabaseClient } from "@/lib/subscription/supabaseServer";
-import { maskReportRowPublic } from "@/lib/subscription/reportAccess";
-import { ResearchDocTab } from "@/components/research/ResearchDocumentView";
-import type { GuruReportRow } from "@/types/api";
-import {
-  getCompanyDisplayNameWithAlias,
-  getSeoKeywordsForTicker,
-} from "@/lib/tickerAliases";
+import type { ResearchDocTab } from "@/components/research/ResearchDocumentView";
+import { getStockPageData } from "@/lib/server/stockPageData";
+import { buildStockJsonLd } from "@/lib/server/stockJsonLd";
+import { absoluteUrl } from "@/lib/siteConfig";
 
 interface StockDetailPageProps {
   params: Promise<{ ticker: string }>;
@@ -16,28 +13,35 @@ interface StockDetailPageProps {
 }
 
 /**
- * 종목 한글명 조회 (비민감 공개 데이터만 사용).
- * 1순위 guru_reports.company_name(예: 핀둬둬(ADR)), 2순위 ticker_logos.korean_name.
- * verdict·적정가 등 민감 컬럼은 절대 조회하지 않음.
+ * 기준 경로의 canonical 을 만드는 헬퍼.
+ * - 공개 열람 가능한 날짜면 날짜 포함 경로(/stocks/{ticker}/{date})가 canonical
+ * - 잠긴 날짜면 종목 경로(/stocks/{ticker})로 통합 (중복 콘텐츠 방지)
  */
-async function resolveKoreanName(
-  supabase: ReturnType<typeof getServerSupabaseClient>,
+async function buildCanonical(
   ticker: string,
-  reportCompanyName: string
-): Promise<string> {
-  if (reportCompanyName) return reportCompanyName;
-  if (!supabase) return ticker;
-  try {
-    const { data } = await supabase
-      .from("ticker_logos")
-      .select("korean_name")
-      .eq("ticker", ticker)
-      .maybeSingle();
-    const ko = ((data as { korean_name?: string } | null)?.korean_name || "").trim();
-    return ko || ticker;
-  } catch {
-    return ticker;
+  date: string | undefined
+): Promise<{ canonicalPath: string; isPublicDate: boolean; publishedDate: string; displayName: string; seoKeywords: string[]; report: Awaited<ReturnType<typeof getStockPageData>>["report"]; isUnknownTicker: boolean }> {
+  const data = await getStockPageData(ticker, date);
+  if (date && data.isPublicDate && data.publishedDate) {
+    return {
+      canonicalPath: `/stocks/${data.ticker}/${data.publishedDate}`,
+      isPublicDate: true,
+      publishedDate: data.publishedDate,
+      displayName: data.displayName,
+      seoKeywords: data.seoKeywords,
+      report: data.report,
+      isUnknownTicker: data.isUnknownTicker,
+    };
   }
+  return {
+    canonicalPath: `/stocks/${data.ticker}`,
+    isPublicDate: data.isPublicDate,
+    publishedDate: data.publishedDate,
+    displayName: data.displayName,
+    seoKeywords: data.seoKeywords,
+    report: data.report,
+    isUnknownTicker: data.isUnknownTicker,
+  };
 }
 
 export async function generateMetadata({
@@ -48,75 +52,34 @@ export async function generateMetadata({
   const { date } = await searchParams;
   const ticker = (rawTicker || "").toUpperCase();
 
-  let companyName = ticker;
-  let publishedDate = date || "";
+  const meta = await buildCanonical(ticker, date);
 
-  // SSR은 로그인 컨텍스트가 없으므로 public(free) 기준 마스킹된 티저만 사용.
-  // 최근 30일 리포트의 verdict/적정가는 메타데이터에 절대 포함하지 않음.
-  const supabase = getServerSupabaseClient();
-  if (supabase) {
-    try {
-      let report: GuruReportRow | null = null;
-      if (date) {
-        const { data } = await supabase
-          .from("guru_reports")
-          .select("*")
-          .eq("id", `${date}_${ticker}`)
-          .maybeSingle();
-        report = (data as GuruReportRow | null) || null;
-        if (!report) {
-          const fallback = await supabase
-            .from("guru_reports")
-            .select("*")
-            .eq("d", date)
-            .eq("ticker", ticker)
-            .limit(1)
-            .maybeSingle();
-          report = (fallback.data as GuruReportRow | null) || null;
-        }
-      } else {
-        const { data } = await supabase
-          .from("guru_reports")
-          .select("*")
-          .eq("ticker", ticker)
-          .order("d", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        report = (data as GuruReportRow | null) || null;
-      }
-
-      if (report) {
-        const teaser = maskReportRowPublic(report);
-        if (teaser.company_name) companyName = teaser.company_name;
-        if (teaser.d) publishedDate = teaser.d;
-      }
-      companyName = await resolveKoreanName(supabase, ticker, companyName);
-    } catch {
-      // ignore
-    }
+  if (meta.isUnknownTicker) {
+    return {
+      title: `리포티스트 · ${ticker}`,
+      robots: { index: false, follow: true },
+    };
   }
 
-  // 대중적 통칭/별칭을 결합한 표시명 (예: "알파벳 A (구글)")
-  const displayName = getCompanyDisplayNameWithAlias(companyName, ticker);
-  const seoKeywords = getSeoKeywordsForTicker(ticker, companyName);
-
-  const title = `${displayName}(${ticker}) 주식 리포트와 분석 | 리포티스트`;
-  const description = `리포티스트 ${displayName}(${ticker}) 주식 보고서와 분석 아카이브. 13인 투자 거장 AI 가치평가 리포트와 적정주가·내재가치 분석을 확인하세요. 최신 리포트는 Pro 멤버십으로 열람 가능합니다.`;
-  const canonicalUrl = `/stocks/${ticker}`;
+  const title = `${meta.displayName}(${ticker}) 주식 리포트와 분석 | 리포티스트`;
+  const description = `리포티스트 ${meta.displayName}(${ticker}) 주식 보고서와 분석 아카이브. 13인 투자 거장 AI 가치평가 리포트와 적정주가·내재가치 분석을 확인하세요. 최신 리포트는 Pro 멤버십으로 열람 가능합니다.`;
+  const canonicalUrl = absoluteUrl(meta.canonicalPath);
 
   return {
     title,
     description,
-    keywords: seoKeywords,
+    keywords: meta.seoKeywords,
     alternates: {
-      canonical: canonicalUrl,
+      canonical: meta.canonicalPath,
     },
     openGraph: {
       title,
       description,
       url: canonicalUrl,
       type: "article",
-      publishedTime: publishedDate ? new Date(publishedDate).toISOString() : undefined,
+      publishedTime: meta.publishedDate
+        ? new Date(meta.publishedDate).toISOString()
+        : undefined,
       siteName: "Reportist Research",
     },
     twitter: {
@@ -138,139 +101,35 @@ export default async function StockDetailPage({
   void from;
 
   const validTabs: ResearchDocTab[] = ["final", "summaries", "datapack", "chart"];
-  const validatedTab = validTabs.includes(tab as ResearchDocTab) ? (tab as ResearchDocTab) : undefined;
+  const validatedTab = validTabs.includes(tab as ResearchDocTab)
+    ? (tab as ResearchDocTab)
+    : undefined;
 
   // SSR initialReport도 public 마스킹 티저만 전달 (원문 절대 미포함).
   // 로그인 유저의 전체 열람은 클라이언트가 /api/reports/detail로 재조회합니다.
-  let initialReport: GuruReportRow | null = null;
-  let koName = ticker;
-  let publishedDate = date || "";
-  let currentPrice: number | null = null;
-  const ssrSupabase = getServerSupabaseClient();
-  if (ssrSupabase) {
-    try {
-      let row: GuruReportRow | null = null;
-      if (date) {
-        const { data } = await ssrSupabase
-          .from("guru_reports")
-          .select("*")
-          .eq("id", `${date}_${ticker}`)
-          .maybeSingle();
-        row = (data as GuruReportRow | null) || null;
-        if (!row) {
-          const fallback = await ssrSupabase
-            .from("guru_reports")
-            .select("*")
-            .eq("d", date)
-            .eq("ticker", ticker)
-            .limit(1)
-            .maybeSingle();
-          row = (fallback.data as GuruReportRow | null) || null;
-        }
-      } else {
-        const { data } = await ssrSupabase
-          .from("guru_reports")
-          .select("*")
-          .eq("ticker", ticker)
-          .order("d", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        row = (data as GuruReportRow | null) || null;
-      }
-      if (row) initialReport = maskReportRowPublic(row);
-      if (initialReport) {
-        koName = await resolveKoreanName(
-          ssrSupabase,
-          ticker,
-          initialReport.company_name || ticker
-        );
-        if (initialReport.d) publishedDate = initialReport.d;
-        if (typeof initialReport.current_price === "number") {
-          currentPrice = initialReport.current_price;
-        }
-      } else {
-        koName = await resolveKoreanName(ssrSupabase, ticker, ticker);
-      }
-    } catch (e) {
-      console.warn("SSR fetchReport error:", e);
-    }
-  }
+  // 단, free 폴백으로 공개 열람 가능한 일자는 공개 범위 안에서 그대로 노출됩니다.
+  const pageData = await getStockPageData(ticker, date);
+  // 존재하지 않는 티커는 404 처리 (soft 404 로 색인되는 것 방지)
+  if (pageData.isUnknownTicker) notFound();
+  const initialReport = pageData.report;
 
   // 대중적 통칭/별칭 결합명 (예: "알파벳 A (구글)")
-  const displayName = getCompanyDisplayNameWithAlias(koName, ticker);
-  const seoKeywords = getSeoKeywordsForTicker(ticker, koName);
+  const displayName = pageData.displayName;
 
   // SSR initialReport에도 별칭이 포함된 이름을 반영하여 HTML 본문 크롤링 시 검색 키워드 보존
-  if (initialReport) {
-    initialReport = {
-      ...initialReport,
-      company_name: displayName,
-    };
-  }
+  const reportForRender = initialReport
+    ? { ...initialReport, company_name: displayName }
+    : null;
 
-  // JSON-LD 구조화 데이터 생성 (검색엔진 SEO 표준)
-  // verdict·적정가 등 민감값 미포함. 한글 종목명/별칭으로 "구글 리포트", "핀둬둬 보고서" 같은 쿼리에 매칭.
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "BreadcrumbList",
-        "itemListElement": [
-          {
-            "@type": "ListItem",
-            "position": 1,
-            "name": "Home",
-            "item": "https://reportist.kr",
-          },
-          {
-            "@type": "ListItem",
-            "position": 2,
-            "name": "Stocks",
-            "item": "https://reportist.kr/stocks",
-          },
-          {
-            "@type": "ListItem",
-            "position": 3,
-            "name": `${displayName}(${ticker})`,
-            "item": `https://reportist.kr/stocks/${ticker}`,
-          },
-        ],
-      },
-      {
-        "@type": "Article",
-        "@id": `https://reportist.kr/stocks/${ticker}#article`,
-        "isPartOf": {
-          "@type": "WebSite",
-          "@id": "https://reportist.kr/#website",
-          "name": "Reportist Research",
-          "url": "https://reportist.kr",
-        },
-        "headline": `${displayName}(${ticker}) 주식 리포트와 분석 · 적정주가 및 13인 거장 AI 가치평가 보고서`,
-        "description": `${displayName}(${ticker}) 주식 보고서와 분석. 내재가치와 13인 전설적 거장들의 종합 투자 표결 리포트 아카이브`,
-        "keywords": seoKeywords.join(", "),
-        "inLanguage": "ko",
-        "publisher": {
-          "@type": "Organization",
-          "@id": "https://reportist.kr/#organization",
-          "name": "Reportist Research",
-          "alternateName": "리포티스트",
-          "url": "https://reportist.kr",
-          "logo": {
-            "@type": "ImageObject",
-            "url": "https://reportist.kr/reportist-logo-fill-120x120.png",
-            "width": 120,
-            "height": 120,
-          },
-        },
-        "isAccessibleForFree": "False",
-        "hasPart": {
-          "@type": "WebPageElement",
-          "isAccessibleForFree": "False",
-          "cssSelector": ".paywall-content",
-        },
-      },
-    ],
-  };
+  const jsonLd = buildStockJsonLd({
+    displayName,
+    ticker,
+    canonicalPath: pageData.canonicalPath,
+    publishedDate: pageData.publishedDate,
+    seoKeywords: pageData.seoKeywords,
+    isPublicDate: pageData.isPublicDate,
+    report: pageData.report,
+  });
 
   return (
     <>
@@ -282,9 +141,10 @@ export default async function StockDetailPage({
         <DashboardView
           initialSection="sec-reports"
           initialTicker={ticker}
-          initialReport={initialReport}
+          initialReport={reportForRender}
           initialTab={validatedTab}
           initialDate={date}
+          initialReportDates={pageData.availableDates}
         />
       </Suspense>
     </>
