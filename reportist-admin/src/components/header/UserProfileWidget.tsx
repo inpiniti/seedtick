@@ -60,22 +60,17 @@ export function UserProfileWidget() {
       {/* 상태별 CTA 배지 및 버튼 (오픈 베타 모드 우선 분기) */}
       {IS_OPEN_BETA ? (
         !user ? (
-          <div className="flex items-center gap-1.5">
-            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-xs font-mono font-medium">
-              <Sparkles className="w-3 h-3 text-blue-600" />
-              <span>전면 무료 개방</span>
-            </span>
-            <button
-              type="button"
-              onClick={openAuthModal}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white text-xs font-mono font-medium shadow-2xs transition-colors cursor-pointer"
-            >
-              <span>로그인</span>
-            </button>
-          </div>
+          <span
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-xs font-mono font-medium"
+            title="오픈 베타 서비스 기간 동안 로그인이나 결제 없이 모든 리포트를 무료로 이용하실 수 있습니다."
+          >
+            <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+            <span className="hidden sm:inline">오픈 베타 · 로그인 없이 전면 무료</span>
+            <span className="sm:hidden">오픈베타 무료</span>
+          </span>
         ) : (
-          <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-xs font-mono font-semibold">
-            <ShieldCheck className="w-3 h-3" />
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-xs font-mono font-semibold">
+            <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
             <span>BETA MEMBER</span>
           </span>
         )
