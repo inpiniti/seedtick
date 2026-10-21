@@ -155,7 +155,7 @@ class OnDemandProgressTracker:
             elif self._stage == "sync":
                 percent = 95
 
-            return {
+            res = {
                 "ticker": self.ticker,
                 "status": self._status,
                 "stage": self._stage,
@@ -174,6 +174,25 @@ class OnDemandProgressTracker:
                 "error": self._error,
                 "stages": list(ONDEMAND_STAGES),
             }
+
+            # 대기열 정보 보충
+            try:
+                active_list = ondemand_manager.get_active_tickers()
+                if self.ticker in active_list:
+                    pos = active_list.index(self.ticker) + 1
+                else:
+                    pos = 1
+                res["queue_position"] = pos
+                res["active_tickers"] = active_list
+                res["active_count"] = len(active_list)
+                res["estimated_minutes"] = max(20, pos * 20)
+            except Exception:
+                res["queue_position"] = 1
+                res["active_tickers"] = [self.ticker]
+                res["active_count"] = 1
+                res["estimated_minutes"] = 20
+
+            return res
 
 
 class OnDemandTrackerManager:
@@ -201,6 +220,19 @@ class OnDemandTrackerManager:
         with self._lock:
             return self._trackers.get(clean)
 
+    def get_active_tickers(self) -> list[str]:
+        """현재 진행 중(pending, running)인 티커 목록을 등록 순서대로 반환"""
+        with self._lock:
+            active: list[tuple[str, str]] = []
+            for t_code, tracker in self._trackers.items():
+                if tracker._status in ("pending", "running"):
+                    started = tracker._started_at or ""
+                    active.append((t_code, started))
+            # 시작 시각 기준 오름차순 정렬 (먼저 들어온 요청이 앞순번)
+            active.sort(key=lambda x: x[1])
+            return [t[0] for t in active]
+
 
 # 싱글톤 인스턴스
 ondemand_manager = OnDemandTrackerManager()
+

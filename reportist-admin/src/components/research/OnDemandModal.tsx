@@ -285,21 +285,73 @@ export function OnDemandModal({
           </div>
         </div>
 
-        {/* ── 친절한 안내 문구 (지루함 방지) ── */}
-        {!isCompleted && !isFailed && (
-          <div className="flex items-start gap-2.5 p-3.5 bg-[#f2f4f6] rounded-xl text-xs text-[#4e5968] leading-relaxed">
-            <Clock className="w-4 h-4 text-[#3182f6] shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold text-[#191f28]">
-                13인의 거장 AI가 정밀 분석 중이에요 (약 1~2분 소요)
-              </p>
-              <p className="text-[#6b7684] mt-0.5">
-                이 창을 닫거나 다른 화면을 둘러보셔도 백그라운드에서 분석이 멈추지 않고 완료돼요.
-                <strong> 10분 뒤에 다시 방문</strong>하시면 정식 보고서를 바로 확인하실 수 있어요.
-              </p>
+        {/* ── 친절한 대기열 및 예상 시간 안내 문구 ── */}
+        {!isCompleted && !isFailed && (() => {
+          const activeCount = progress?.active_count ?? 1;
+          const activeTickers = progress?.active_tickers && progress.active_tickers.length > 0
+            ? progress.active_tickers
+            : [cleanTicker];
+          const queuePos = progress?.queue_position ?? 1;
+          const estMin = progress?.estimated_minutes ?? (queuePos * 20);
+
+          return (
+            <div className="space-y-3">
+              {/* 대기열 칩 리스트 (2건 이상일 때 노출) */}
+              {activeCount > 1 && (
+                <div className="p-3.5 bg-white border border-[#e5e8eb] rounded-xl space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-[#191f28] flex items-center gap-1.5">
+                      <span>실시간 분석 대기열</span>
+                      <span className="px-2 py-0.5 rounded-full text-[11px] font-mono bg-[#e8f3ff] text-[#3182f6]">
+                        총 {activeCount}건 대기·진행 중
+                      </span>
+                    </span>
+                    <span className="text-[11px] text-[#6b7684]">
+                      내 순번: <strong className="text-[#3182f6]">{queuePos}번째</strong>
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    {activeTickers.map((t, idx) => {
+                      const isCurrent = t.toUpperCase() === cleanTicker.toUpperCase();
+                      return (
+                        <span
+                          key={t}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-mono transition-colors ${
+                            isCurrent
+                              ? "bg-[#3182f6] text-white font-bold shadow-xs"
+                              : "bg-[#f2f4f6] text-[#4e5968]"
+                          }`}
+                        >
+                          <span className="text-[10px] opacity-75">#{idx + 1}</span>
+                          <span>{t}</span>
+                          {isCurrent && <span className="text-[10px] ml-0.5">(내 요청)</span>}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 시간 안내 박스 */}
+              <div className="flex items-start gap-2.5 p-3.5 bg-[#f2f4f6] rounded-xl text-xs text-[#4e5968] leading-relaxed">
+                <Clock className="w-4 h-4 text-[#3182f6] shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-semibold text-[#191f28]">
+                    {activeCount > 1
+                      ? `대기 순번에 따라 약 ${estMin}분 뒤에 완성돼요`
+                      : "13인의 거장 AI가 정밀 분석 중이에요 (약 20분 소요)"}
+                  </p>
+                  <p className="text-[#6b7684]">
+                    13인의 거장 심층 채점과 마스터 보고서 작성에 종목당 약 15~20분이 소요됩니다.
+                    창을 닫거나 다른 화면을 보셔도 백그라운드에서 안전하게 진행되니,{" "}
+                    <strong>약 {estMin}분 뒤에 다시 방문</strong>하시면 완료된 보고서를 바로 확인하실 수 있어요.
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* ── 에러 안내 ── */}
         {isFailed && (

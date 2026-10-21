@@ -95,7 +95,7 @@ export function UnanalyzedStockView({
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 font-semibold shadow-md"
           >
             <Sparkles className="w-4 h-4 text-amber-300" />
-            <span>13인 거장 AI 즉시 분석 요청 (약 1~2분 소요)</span>
+            <span>13인 거장 AI 즉시 분석 요청</span>
           </Button>
           <Link href="/" className="w-full sm:w-auto">
             <Button variant="secondary" size="lg" className="w-full sm:w-auto">
@@ -105,7 +105,7 @@ export function UnanalyzedStockView({
         </div>
 
         <p className="text-[11px] text-[#94a3b8] mt-4">
-          ※ 분석을 시작하면 창을 닫아도 백그라운드에서 진행되며, 10분 뒤 재방문 시에도 확인 가능합니다.
+          ※ 13인 심층 분석에는 약 20분이 소요되며, 창을 닫아도 백그라운드에서 완료되어 재방문 시 바로 확인 가능합니다.
         </p>
       </main>
 

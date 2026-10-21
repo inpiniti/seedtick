@@ -99,3 +99,18 @@ def test_ondemand_tracker_manager():
     assert t1.ticker == "AAPL"
     assert manager.get("AAPL") is t1
     assert manager.get("aapl") is t1
+
+    t1.start()
+    t2 = manager.get_or_create("079550")
+    t2.start()
+
+    active = manager.get_active_tickers()
+    assert "AAPL" in active
+    assert "079550" in active
+    assert active.index("AAPL") == 0
+    assert active.index("079550") == 1
+
+    t2_snap = t2.snapshot()
+    assert t2_snap["queue_position"] >= 1
+    assert t2_snap["estimated_minutes"] >= 20
+

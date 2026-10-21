@@ -462,6 +462,10 @@ export interface OnDemandProgress {
   message?: string;
   error?: string | null;
   stages?: OnDemandStage[];
+  queue_position?: number;
+  active_tickers?: string[];
+  active_count?: number;
+  estimated_minutes?: number;
 }
 
 export interface OnDemandRequestResponse {
