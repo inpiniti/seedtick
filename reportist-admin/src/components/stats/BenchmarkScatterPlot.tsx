@@ -10,8 +10,8 @@ export type MatrixMode = "fair_value" | "safety_margin";
 interface ScatterPoint {
   ticker: string;
   name: string;
-  xVal: number; // 선택된 모드의 X축 값
-  xDisplay: string; // X축 표시 문자열
+  xVal: number;
+  xDisplay: string;
   yVal: number; // 거장 찬성률 (Approval Rate %)
   report: GuruReportRow;
   color: string;
@@ -51,7 +51,7 @@ export function BenchmarkScatterPlot({
   const [matrixMode, setMatrixMode] = useState<MatrixMode>("fair_value");
   const [hoveredPoint, setHoveredPoint] = useState<ScatterPoint | null>(null);
 
-  // 데이터 가공 (선택된 모드에 따라 X축 지표 완전 분리)
+  // 데이터 가공 (선택된 모드에 따라 X축 지표 분리)
   const points = useMemo<ScatterPoint[]>(() => {
     return reports
       .filter((r) => typeof r.votes_buy === "number")
@@ -79,18 +79,16 @@ export function BenchmarkScatterPlot({
         }
 
         // 2. 안전마진 진입가/종가 비율 (%)
-        let safetyRatio = 75; // fallback
+        let safetyRatio = 75;
         if (safety && curr) {
           safetyRatio = Math.round((safety / curr) * 100);
         } else if (fairRatio) {
-          // safety_entry 미산출 종목은 적정가의 80%를 보수적 안전마진 진입가로 추정
           safetyRatio = Math.round(fairRatio * 0.8);
         }
 
         const ticker = r.ticker.toUpperCase();
         const name = tickerNameMap[ticker] || r.company_name || ticker;
 
-        // 모드별 X축 값 및 매력 구간 판정
         let xVal = upside;
         let xDisplay = upside > 0 ? `+${upside}%` : `${upside}%`;
         let isAttractive = upside >= 15 && approvalRate >= 45;
@@ -98,7 +96,6 @@ export function BenchmarkScatterPlot({
         if (matrixMode === "safety_margin") {
           xVal = safetyRatio;
           xDisplay = `${safetyRatio}%`;
-          // 안전마진/종가 90% 이상(즉 현재가가 안전마진 진입가와 거의 일치하거나 더 저렴) & 찬성률 45% 이상
           isAttractive = safetyRatio >= 90 && approvalRate >= 45;
         }
 
@@ -117,14 +114,14 @@ export function BenchmarkScatterPlot({
       });
   }, [reports, tickerNameMap, matrixMode]);
 
-  // 좌표 계산 (SVG ViewBox: 840 x 430)
-  const svgWidth = 840;
-  const svgHeight = 430;
-  const padding = { top: 40, right: 50, bottom: 60, left: 60 };
+  // 가로 풀위드에 맞게 SVG ViewBox 확장 (960 x 440)
+  const svgWidth = 960;
+  const svgHeight = 440;
+  const padding = { top: 40, right: 60, bottom: 60, left: 60 };
   const plotWidth = svgWidth - padding.left - padding.right;
   const plotHeight = svgHeight - padding.top - padding.bottom;
 
-  // 모드별 축 범위
+  // 축 범위
   const minX = matrixMode === "fair_value" ? -40 : 40;
   const maxX = matrixMode === "fair_value" ? 60 : 120;
   const minY = 0;
@@ -147,7 +144,7 @@ export function BenchmarkScatterPlot({
   const quadrantW = getSvgX(maxX) - quadrantX;
   const quadrantH = getSvgY(45) - quadrantY;
 
-  // 파레토 최적선 (Pareto Frontier)
+  // 파레토 최적선
   const paretoPoints = useMemo(() => {
     const sorted = [...points].sort((a, b) => b.yVal - a.yVal || b.xVal - a.xVal);
     const frontier: ScatterPoint[] = [];
@@ -172,9 +169,53 @@ export function BenchmarkScatterPlot({
       .join(" ");
   }, [paretoPoints, minX, maxX]);
 
+  // [문제 1 완치] 라벨 충돌 방지 및 스마트 오프셋 분산 계산
+  const labelLayoutMap = useMemo(() => {
+    const layouts = new Map<
+      string,
+      { x: number; y: number; anchor: "start" | "middle" | "end" }
+    >();
+    const placed: Array<{ cx: number; cy: number }> = [];
+
+    // 표시 대상 종목들 (매력 종목이거나 찬성률 60% 이상)
+    const candidates = points.filter((p) => p.isAttractive || p.yVal >= 60);
+
+    candidates.forEach((p) => {
+      const cx = getSvgX(p.xVal);
+      const cy = getSvgY(p.yVal);
+
+      // 32px 이내에 이미 배치된 다른 라벨이 있는지 검사
+      const conflicting = placed.filter(
+        (spot) => Math.hypot(spot.cx - cx, spot.cy - cy) < 32
+      );
+
+      if (conflicting.length === 0) {
+        // 충돌 없음: 기본 우측 배치
+        layouts.set(p.ticker, { x: cx + 8, y: cy + 3.5, anchor: "start" });
+        placed.push({ cx, cy });
+      } else {
+        // 충돌 발생(예: 캐피탈원과 어도비): 위치 분산
+        const shiftIndex = conflicting.length % 3;
+        if (shiftIndex === 1) {
+          // 점 위쪽 중앙 배치
+          layouts.set(p.ticker, { x: cx, y: cy - 9, anchor: "middle" });
+        } else if (shiftIndex === 2) {
+          // 점 오른쪽 아래 대각선 배치
+          layouts.set(p.ticker, { x: cx + 8, y: cy + 14, anchor: "start" });
+        } else {
+          // 점 왼쪽 배치
+          layouts.set(p.ticker, { x: cx - 8, y: cy + 3.5, anchor: "end" });
+        }
+        placed.push({ cx, cy });
+      }
+    });
+
+    return layouts;
+  }, [points, minX, maxX, matrixMode]);
+
   return (
     <div className="p-5 sm:p-6 rounded-md border border-[#e2e8f0] bg-white shadow-2xs hover:border-[#cbd5e1] transition-all">
-      {/* ── 헤더 (두 개의 독립 매트릭스 전환 토글) ── */}
+      {/* ── 헤더 ── */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -201,8 +242,8 @@ export function BenchmarkScatterPlot({
           </p>
         </div>
 
-        {/* 2개 매트릭스 선택 탭 버튼 (상호 전환) */}
-        <div className="flex items-center gap-1 p-1 rounded-md bg-[#f1f5f9] border border-[#e2e8f0] self-start lg:self-auto">
+        {/* 2개 매트릭스 선택 탭 버튼 */}
+        <div className="flex items-center gap-1 p-1 rounded-md bg-[#f1f5f9] border border-[#e2e8f0] self-start lg:self-auto shrink-0">
           <button
             onClick={() => setMatrixMode("fair_value")}
             className={`px-3 py-1.5 rounded text-xs font-mono font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
@@ -250,11 +291,11 @@ export function BenchmarkScatterPlot({
         </div>
       </div>
 
-      {/* ── 2차원 산점도 SVG 차트 ── */}
+      {/* ── 2차원 산점도 SVG 차트 (풀위드 가로 확장) ── */}
       <div className="relative w-full overflow-x-auto">
         <svg
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-          className="w-full h-auto min-w-[700px] select-none"
+          className="w-full h-auto min-w-[760px] select-none"
         >
           {/* 우상단 가장 매력적인 4분면 하이라이트 배경 (초록 박스) */}
           <rect
@@ -270,8 +311,8 @@ export function BenchmarkScatterPlot({
             rx="4"
           />
           <text
-            x={quadrantX + 10}
-            y={quadrantY + 20}
+            x={quadrantX + 12}
+            y={quadrantY + 22}
             fill="#059669"
             fontSize="11"
             fontFamily="monospace"
@@ -282,7 +323,7 @@ export function BenchmarkScatterPlot({
               : "★ 강력 하방완충 & 거장 찬성 종목군 (Safe Entry)"}
           </text>
 
-          {/* 배경 격자선 (가로 점선: 찬성률 0% ~ 100%) */}
+          {/* 배경 격자선 (가로 점선) */}
           {[0, 20, 40, 60, 80, 100].map((yVal) => {
             const y = getSvgY(yVal);
             return (
@@ -343,7 +384,7 @@ export function BenchmarkScatterPlot({
             );
           })}
 
-          {/* 기준선 (내재가치는 0%, 안전마진은 100% 진입가 일치선) */}
+          {/* 기준선 */}
           <line
             x1={getSvgX(matrixMode === "fair_value" ? 0 : 100)}
             y1={padding.top}
@@ -381,7 +422,7 @@ export function BenchmarkScatterPlot({
             13인 거장 합의 찬성률 (%) ↑
           </text>
 
-          {/* 파레토 최적선 (점선) */}
+          {/* 파레토 최적선 */}
           {paretoPath && (
             <path
               d={paretoPath}
@@ -393,11 +434,12 @@ export function BenchmarkScatterPlot({
             />
           )}
 
-          {/* 종목 데이터 포인트 (산점도 원형 점들) */}
+          {/* 종목 데이터 포인트 */}
           {points.map((p, idx) => {
             const cx = getSvgX(p.xVal);
             const cy = getSvgY(p.yVal);
             const isHovered = hoveredPoint?.ticker === p.ticker;
+            const layout = labelLayoutMap.get(p.ticker);
 
             return (
               <g
@@ -429,13 +471,18 @@ export function BenchmarkScatterPlot({
                   strokeWidth="1.5"
                 />
 
-                {/* 종목 라벨 */}
-                {(p.isAttractive || isHovered || p.yVal >= 60) && (
+                {/* [문제 1 완치] 겹침 방지 오프셋 라벨 */}
+                {(layout || isHovered) && (
                   <text
-                    x={cx + 8}
-                    y={cy + 3}
+                    x={layout ? layout.x : cx + 8}
+                    y={layout ? layout.y : cy + 3.5}
+                    textAnchor={layout ? layout.anchor : "start"}
                     fill={isHovered ? "#0f172a" : p.isAttractive ? "#047857" : "#475569"}
-                    fontSize={isHovered ? "11" : "9.5"}
+                    stroke="#ffffff"
+                    strokeWidth="3"
+                    strokeLinejoin="round"
+                    style={{ paintOrder: "stroke fill" }}
+                    fontSize={isHovered ? "11.5" : "9.5"}
                     fontFamily="monospace"
                     fontWeight={isHovered || p.isAttractive ? "bold" : "normal"}
                   >
@@ -447,12 +494,12 @@ export function BenchmarkScatterPlot({
           })}
         </svg>
 
-        {/* 플로팅 툴팁 (호버 시 마우스 위치 근처 표시) */}
+        {/* 플로팅 툴팁 */}
         {hoveredPoint && (
           <div
             className="absolute z-30 pointer-events-none bg-[#0f172a] text-white p-3 rounded-md shadow-xl text-xs font-mono"
             style={{
-              left: `${Math.min(Math.max(getSvgX(hoveredPoint.xVal) - 80, 20), svgWidth - 220)}px`,
+              left: `${Math.min(Math.max(getSvgX(hoveredPoint.xVal) - 90, 20), svgWidth - 230)}px`,
               top: `${Math.max(getSvgY(hoveredPoint.yVal) - 105, 10)}px`,
               minWidth: "210px",
             }}
@@ -472,7 +519,6 @@ export function BenchmarkScatterPlot({
                 </span>
               </div>
 
-              {/* 2개 지표 명확히 개별 분리 표시 */}
               <div className="flex justify-between">
                 <span className="text-slate-400">적정가/종가 (상승여력):</span>
                 <span className="font-bold text-blue-300">
