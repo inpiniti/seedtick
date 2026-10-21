@@ -375,3 +375,97 @@ export async function getServerFreeDate(): Promise<string | undefined> {
   if (!supabase) return undefined;
   return (await getServerAllowedFreeDate(supabase, new Date())) || undefined;
 }
+
+export interface TimelineStatItem {
+  date: string;
+  displayDate: string;
+  avgApprovalRate: number;
+  stocksCount: number;
+  topStock: {
+    ticker: string;
+    name: string;
+    rate: number;
+    votesBuy: number;
+    currentPrice?: number | null;
+    fairValue?: number | null;
+  } | null;
+}
+
+/**
+ * 일자별 거장 심사 시계열 통계 요약 (최근 15개 일자)
+ * /stats 페이지의 시계열 타임라인 차트에 사용된다.
+ */
+export async function getTimelineStats(): Promise<TimelineStatItem[]> {
+  const supabase = getServerSupabaseClient();
+  if (!supabase) return [];
+
+  try {
+    const koreanNames = await fetchKoreanNames();
+    const { data, error } = await supabase
+      .from("guru_reports")
+      .select("d, ticker, company_name, votes_buy, votes_watch, votes_hold, votes_sell, current_price, fair_value, upside_pct")
+      .order("d", { ascending: false })
+      .limit(2000);
+
+    if (error || !data) return [];
+
+    const grouped = new Map<string, Array<Record<string, any>>>();
+    for (const row of data as Array<Record<string, any>>) {
+      const d = row.d;
+      if (!d) continue;
+      const list = grouped.get(d) || [];
+      list.push(row);
+      grouped.set(d, list);
+    }
+
+    const sortedDates = Array.from(grouped.keys()).sort();
+    const recentDates = sortedDates.slice(-12); // 최근 12개 일자
+
+    return recentDates.map((date) => {
+      const list = grouped.get(date) || [];
+      let totalRates = 0;
+      let topStock: TimelineStatItem["topStock"] = null;
+      let maxRate = -1;
+
+      for (const item of list) {
+        const votesBuy = typeof item.votes_buy === "number" ? item.votes_buy : 0;
+        const totalVotes =
+          votesBuy +
+          (typeof item.votes_watch === "number" ? item.votes_watch : 0) +
+          (typeof item.votes_hold === "number" ? item.votes_hold : 0) +
+          (typeof item.votes_sell === "number" ? item.votes_sell : 0) || 13;
+        const rate = Math.round((votesBuy / totalVotes) * 100);
+        totalRates += rate;
+
+        if (rate > maxRate) {
+          maxRate = rate;
+          const ticker = (item.ticker || "").toUpperCase();
+          const name = koreanNames[ticker] || item.company_name || ticker;
+          topStock = {
+            ticker,
+            name,
+            rate,
+            votesBuy,
+            currentPrice: item.current_price,
+            fairValue: item.fair_value,
+          };
+        }
+      }
+
+      const avgRate = list.length > 0 ? Math.round(totalRates / list.length) : 0;
+      const parts = date.split("-");
+      const displayDate = parts.length >= 3 ? `${parts[1]}/${parts[2]}` : date;
+
+      return {
+        date,
+        displayDate,
+        avgApprovalRate: avgRate,
+        stocksCount: list.length,
+        topStock,
+      };
+    });
+  } catch (err) {
+    console.warn("[publicCatalog] getTimelineStats error:", err);
+    return [];
+  }
+}

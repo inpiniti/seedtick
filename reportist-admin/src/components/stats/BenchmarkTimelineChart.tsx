@@ -1,90 +1,49 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { GuruReportRow } from "@/types/api";
 import { Sparkles, Calendar, TrendingUp } from "lucide-react";
-
-interface TimelineDateGroup {
-  date: string;
-  displayDate: string;
-  avgApprovalRate: number;
-  topStock: {
-    ticker: string;
-    name: string;
-    rate: number;
-    votesBuy: number;
-    report: GuruReportRow;
-  } | null;
-  stocksCount: number;
-}
+import { TimelineStatItem } from "@/lib/server/publicCatalog";
 
 interface BenchmarkTimelineChartProps {
-  reports: GuruReportRow[];
-  onSelectReport: (report: GuruReportRow) => void;
+  reports?: GuruReportRow[];
+  initialTimelineData?: TimelineStatItem[];
+  onSelectReport: (report: GuruReportRow | any) => void;
   tickerNameMap?: Record<string, string>;
 }
 
 export function BenchmarkTimelineChart({
-  reports,
+  initialTimelineData,
   onSelectReport,
-  tickerNameMap = {},
 }: BenchmarkTimelineChartProps) {
-  const [hoveredDate, setHoveredDate] = useState<TimelineDateGroup | null>(null);
+  const [timelineData, setTimelineData] = useState<TimelineStatItem[]>(
+    initialTimelineData || []
+  );
+  const [hoveredItem, setHoveredItem] = useState<TimelineStatItem | null>(null);
+  const [loading, setLoading] = useState<boolean>(!initialTimelineData || initialTimelineData.length === 0);
 
-  // 날짜별 그룹 집계
-  const dateGroups = useMemo<TimelineDateGroup[]>(() => {
-    const map = new Map<string, GuruReportRow[]>();
-    for (const r of reports) {
-      if (!r.d) continue;
-      const group = map.get(r.d) || [];
-      group.push(r);
-      map.set(r.d, group);
-    }
+  useEffect(() => {
+    if (timelineData.length > 0) return;
 
-    const sortedDates = Array.from(map.keys()).sort();
-    // 최근 10~15개 날짜 추출
-    const recentDates = sortedDates.slice(-12);
-
-    return recentDates.map((date) => {
-      const list = map.get(date) || [];
-      let totalRate = 0;
-      let topStock: TimelineDateGroup["topStock"] = null;
-
-      for (const r of list) {
-        const totalVotes =
-          (r.votes_buy || 0) +
-          (r.votes_watch || 0) +
-          (r.votes_hold || 0) +
-          (r.votes_sell || 0) || 13;
-        const rate = Math.round(((r.votes_buy || 0) / totalVotes) * 100);
-        totalRate += rate;
-
-        if (!topStock || rate > topStock.rate) {
-          const ticker = r.ticker.toUpperCase();
-          topStock = {
-            ticker,
-            name: tickerNameMap[ticker] || r.company_name || ticker,
-            rate,
-            votesBuy: r.votes_buy || 0,
-            report: r,
-          };
+    let mounted = true;
+    fetch("/api/stats/timeline")
+      .then((res) => res.json())
+      .then((res) => {
+        if (mounted && res?.ok && Array.isArray(res.items) && res.items.length > 0) {
+          setTimelineData(res.items);
         }
-      }
+      })
+      .catch((err) => {
+        console.warn("Failed to load timeline data:", err);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
 
-      const avgRate = list.length > 0 ? Math.round(totalRate / list.length) : 0;
-      // YYYY-MM-DD -> MM/DD
-      const parts = date.split("-");
-      const displayDate = parts.length >= 3 ? `${parts[1]}/${parts[2]}` : date;
-
-      return {
-        date,
-        displayDate,
-        avgApprovalRate: avgRate,
-        topStock,
-        stocksCount: list.length,
-      };
-    });
-  }, [reports, tickerNameMap]);
+    return () => {
+      mounted = false;
+    };
+  }, [timelineData.length]);
 
   const svgWidth = 840;
   const svgHeight = 360;
@@ -96,8 +55,8 @@ export function BenchmarkTimelineChart({
   const maxRate = 100;
 
   const getSvgX = (index: number) => {
-    if (dateGroups.length <= 1) return padding.left + plotWidth / 2;
-    return padding.left + (index / (dateGroups.length - 1)) * plotWidth;
+    if (timelineData.length <= 1) return padding.left + plotWidth / 2;
+    return padding.left + (index / (timelineData.length - 1)) * plotWidth;
   };
 
   const getSvgY = (rate: number) => {
@@ -106,36 +65,42 @@ export function BenchmarkTimelineChart({
   };
 
   // Artificial Analysis 스타일 스텝 라인 (Step line path)
-  const stepLinePath = useMemo(() => {
-    if (dateGroups.length === 0) return "";
+  const stepLinePath = React.useMemo(() => {
+    if (timelineData.length === 0) return "";
     let path = "";
-    dateGroups.forEach((group, idx) => {
+    timelineData.forEach((item, idx) => {
       const x = getSvgX(idx);
-      const y = getSvgY(group.topStock ? group.topStock.rate : group.avgApprovalRate);
+      const y = getSvgY(item.topStock ? item.topStock.rate : item.avgApprovalRate);
       if (idx === 0) {
         path += `M ${x} ${y}`;
       } else {
-        const prevX = getSvgX(idx - 1);
-        // 수평 이동 후 수직 이동 (스텝 라인)
         path += ` H ${x} V ${y}`;
       }
     });
     return path;
-  }, [dateGroups]);
+  }, [timelineData]);
 
   // 시장 평균 찬성률 추세선
-  const avgLinePath = useMemo(() => {
-    if (dateGroups.length === 0) return "";
-    return dateGroups
-      .map((group, idx) => {
+  const avgLinePath = React.useMemo(() => {
+    if (timelineData.length === 0) return "";
+    return timelineData
+      .map((item, idx) => {
         const x = getSvgX(idx);
-        const y = getSvgY(group.avgApprovalRate);
+        const y = getSvgY(item.avgApprovalRate);
         return `${idx === 0 ? "M" : "L"} ${x} ${y}`;
       })
       .join(" ");
-  }, [dateGroups]);
+  }, [timelineData]);
 
-  if (dateGroups.length === 0) {
+  if (loading && timelineData.length === 0) {
+    return (
+      <div className="p-8 rounded-md border border-[#e2e8f0] bg-white text-center text-xs text-[#94a3b8] font-mono">
+        일자별 거장 평가 시계열 데이터를 불러오는 중입니다...
+      </div>
+    );
+  }
+
+  if (timelineData.length === 0) {
     return null;
   }
 
@@ -149,7 +114,7 @@ export function BenchmarkTimelineChart({
               일자별 거장 평가 및 시장 찬성률 추이
             </h3>
             <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
-              시계열 타임라인
+              최근 {timelineData.length}개 분석일
             </span>
           </div>
           <p className="text-xs text-[#64748b] mt-0.5 font-mono">
@@ -169,7 +134,9 @@ export function BenchmarkTimelineChart({
       <div className="flex flex-wrap items-center gap-5 text-xs font-mono mb-3 pt-1 border-t border-[#f1f5f9]">
         <div className="flex items-center gap-2">
           <div className="w-4 h-1 bg-[#0f172a] rounded-full" />
-          <span className="font-semibold text-[#0f172a]">일자별 최고 찬성주 스텝 추세선 (Top Stock Frontier)</span>
+          <span className="font-semibold text-[#0f172a]">
+            일자별 최고 찬성주 스텝 추세선 (Top Stock Frontier)
+          </span>
         </div>
         <div className="flex items-center gap-2 text-[#64748b]">
           <div className="w-4 border-t-2 border-dashed border-[#94a3b8]" />
@@ -232,19 +199,21 @@ export function BenchmarkTimelineChart({
           )}
 
           {/* 일자별 데이터 노드 (스퀘어 마커) */}
-          {dateGroups.map((group, idx) => {
+          {timelineData.map((item, idx) => {
             const x = getSvgX(idx);
-            const y = getSvgY(group.topStock ? group.topStock.rate : group.avgApprovalRate);
-            const isHovered = hoveredDate?.date === group.date;
+            const y = getSvgY(item.topStock ? item.topStock.rate : item.avgApprovalRate);
+            const isHovered = hoveredItem?.date === item.date;
 
             return (
               <g
-                key={`node-${group.date}`}
+                key={`node-${item.date}`}
                 className="cursor-pointer"
-                onMouseEnter={() => setHoveredDate(group)}
-                onMouseLeave={() => setHoveredDate(null)}
+                onMouseEnter={() => setHoveredItem(item)}
+                onMouseLeave={() => setHoveredItem(null)}
                 onClick={() => {
-                  if (group.topStock) onSelectReport(group.topStock.report);
+                  if (item.topStock) {
+                    onSelectReport({ ticker: item.topStock.ticker, d: item.date });
+                  }
                 }}
               >
                 {/* 세로 가이드라인 (호버 시) */}
@@ -260,7 +229,7 @@ export function BenchmarkTimelineChart({
                   />
                 )}
 
-                {/* 사각 노드 마커 (Artificial Analysis 스타일) */}
+                {/* 사각 노드 마커 */}
                 <rect
                   x={x - 4}
                   y={y - 4}
@@ -273,7 +242,7 @@ export function BenchmarkTimelineChart({
                 />
 
                 {/* 최고 종목명 라벨 */}
-                {group.topStock && (
+                {item.topStock && (
                   <text
                     x={x + 6}
                     y={y - 8}
@@ -282,7 +251,7 @@ export function BenchmarkTimelineChart({
                     fontFamily="monospace"
                     fontWeight={isHovered ? "bold" : "normal"}
                   >
-                    {group.topStock.name} ({group.topStock.rate}%)
+                    {item.topStock.name} ({item.topStock.rate}%)
                   </text>
                 )}
 
@@ -296,7 +265,7 @@ export function BenchmarkTimelineChart({
                   fontWeight={isHovered ? "bold" : "normal"}
                   textAnchor="middle"
                 >
-                  {group.displayDate}
+                  {item.displayDate}
                 </text>
               </g>
             );
@@ -304,51 +273,53 @@ export function BenchmarkTimelineChart({
         </svg>
 
         {/* 툴팁 */}
-        {hoveredDate && (
+        {hoveredItem && (
           <div
             className="absolute z-30 pointer-events-none bg-[#0f172a] text-white p-3 rounded-md shadow-xl text-xs font-mono"
             style={{
               left: `${Math.min(
                 Math.max(
-                  getSvgX(dateGroups.findIndex((g) => g.date === hoveredDate.date)) - 80,
+                  getSvgX(timelineData.findIndex((g) => g.date === hoveredItem.date)) - 80,
                   20
                 ),
                 svgWidth - 220
               )}px`,
               top: "15px",
-              minWidth: "180px",
+              minWidth: "190px",
             }}
           >
             <div className="flex items-center justify-between pb-1 mb-1.5 border-b border-slate-700">
               <span className="font-bold text-white text-sm">
-                {hoveredDate.date}
+                {hoveredItem.date}
               </span>
-              <span className="text-slate-400">({hoveredDate.stocksCount}개 분석)</span>
+              <span className="text-slate-400">({hoveredItem.stocksCount}개 분석)</span>
             </div>
 
             <div className="space-y-1 text-[11px]">
               <div className="flex justify-between">
                 <span className="text-slate-400">시장 평균 찬성률:</span>
                 <span className="font-bold text-slate-200">
-                  {hoveredDate.avgApprovalRate}%
+                  {hoveredItem.avgApprovalRate}%
                 </span>
               </div>
-              {hoveredDate.topStock && (
+              {hoveredItem.topStock && (
                 <div className="pt-1 border-t border-slate-800">
                   <div className="flex justify-between font-bold text-emerald-400">
                     <span>최고 찬성주:</span>
-                    <span>{hoveredDate.topStock.name}</span>
+                    <span>{hoveredItem.topStock.name}</span>
                   </div>
                   <div className="flex justify-between text-slate-400 text-[10px] mt-0.5">
                     <span>찬성 표수:</span>
-                    <span>{hoveredDate.topStock.votesBuy}표 ({hoveredDate.topStock.rate}%)</span>
+                    <span>
+                      {hoveredItem.topStock.votesBuy}표 ({hoveredItem.topStock.rate}%)
+                    </span>
                   </div>
                 </div>
               )}
             </div>
 
             <div className="mt-2 pt-1 border-t border-slate-800 text-[10px] text-blue-300 flex items-center justify-between">
-              <span>{hoveredDate.topStock?.ticker}</span>
+              <span>{hoveredItem.topStock?.ticker}</span>
               <span>클릭하여 리포트 ↗</span>
             </div>
           </div>

@@ -429,8 +429,23 @@ export function StatsRankingView({
             {/* 2. [첨부 4번] 일자별 시계열 추이 차트 */}
             {(sectionFilter === "all" || sectionFilter === "timeline") && (
               <BenchmarkTimelineChart
-                reports={guruReports} // 전체 시계열 날짜 데이터 전달
-                onSelectReport={onSelectReport}
+                onSelectReport={(r) => {
+                  const ticker = (r.ticker || "").toUpperCase();
+                  const found = latestReports.find(
+                    (item) => item.ticker.toUpperCase() === ticker
+                  );
+                  if (found) {
+                    onSelectReport(found);
+                  } else {
+                    onSelectReport({
+                      ...r,
+                      id: r.id || `${ticker}-${r.d || "latest"}`,
+                      ticker,
+                      overall_score: 0,
+                      verdict: "분석 리포트",
+                    } as GuruReportRow);
+                  }
+                }}
                 tickerNameMap={tickerNameMap}
               />
             )}
