@@ -9,16 +9,22 @@ Supabase `guru_reports` + `guru_opinions` + `report_metrics`를 읽어 티커별
 
 ## 원칙
 
-1. 지어내지 않는다. verdict / vote_summary / fair_value / bull·bear / metrics는 DB 값만 사용한다.
-2. `post/`에 티커가 이미 있으면 건너뛴다 (파일명에 티커 포함 여부로 판단, 예: `TSM.txt`, `2026-10-16_TSM.txt` 모두 TSM으로 간주).
-3. 키를 출력·커밋하지 않는다. `reportist-analyzer/.env.local`에서만 읽는다.
-4. 글 끝에는 접속 유도 CTA(13인 코멘트 전문, 적정밴드, 전 종목 가치평가 랭킹 안내) + 투자 권유 아님 면책을 항상 넣는다.
+1. 지어내지 않는다. verdict / fair_value / band / safety_entry / bull·bear / metrics는 DB 값만 사용한다.
+2. 거장/13인/표결 언급 및 인용구는 제외하고, 종합 의견·적정가·안전마진·실적 포인트 중심으로 작성한다.
+3. 한자(CJK) 및 프롬프트 누출 토큰(_DMA 등)은 자동 필터링하며, 어려운 용어(QoQ, YoY, FCF, PER 등)는 알기 쉬운 한국어로 순화한다.
+4. 별도 제목 후보 없이 `{종목명(티커)} 오늘 리포트`로 시작한다.
+5. `post/`에 티커가 이미 있으면 건너뛴다 (파일명에 티커 포함 여부로 판단, 예: `005930.txt`, `TSM.txt`).
+6. 키를 출력·커밋하지 않는다. `reportist-analyzer/.env.local`에서만 읽는다.
+7. 글 끝에는 접속 유도 CTA(적정가 밴드 계산 과정, 전 종목 가치평가 랭킹 안내) + 투자 권유 아님 면책을 항상 넣는다.
 
 ## 실행
 
 ```bash
 # 최신 일자 기준, 없는 종목 전부 생성 (기본 동작)
 python .agents/skills/community-post/scripts/generate_posts.py
+
+# 국내 주식만 생성 (최신 국내 분석 일자 기준)
+python .agents/skills/community-post/scripts/generate_posts.py --kr
 
 # 특정 일자 / 일부 티커만 / 덮어쓰기
 python .agents/skills/community-post/scripts/generate_posts.py --date 2026-10-16
