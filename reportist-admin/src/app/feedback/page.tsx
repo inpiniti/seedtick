@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { FeedbackPageView } from "@/components/feedback/FeedbackPageView";
+import { DashboardView } from "@/components/dashboard/DashboardView";
 import { SITE_URL } from "@/lib/siteConfig";
 
 export const metadata: Metadata = {
@@ -37,8 +37,8 @@ export default function FeedbackPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(feedbackJsonLd) }}
       />
-      <Suspense fallback={<div className="min-h-screen bg-[#f7f9fc]" />}>
-        <FeedbackPageView />
+      <Suspense fallback={<div className="min-h-screen bg-white" />}>
+        <DashboardView initialSection="sec-feedback" />
       </Suspense>
     </>
   );

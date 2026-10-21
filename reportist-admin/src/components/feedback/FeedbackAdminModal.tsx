@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, ShieldCheck, Trash2, Loader2 } from "lucide-react";
+import { ShieldCheck, Trash2 } from "lucide-react";
 import { FeedbackItem, FeedbackStatus } from "@/types/feedback";
 import { updateFeedbackAdmin, deleteFeedbackAdmin } from "@/lib/feedbackApi";
+import { Modal } from "@/components/ui/Modal";
+import { Button } from "@/components/ui/Button";
 
 interface FeedbackAdminModalProps {
   item: FeedbackItem | null;
@@ -15,9 +17,9 @@ interface FeedbackAdminModalProps {
 
 const STATUS_OPTIONS: { id: FeedbackStatus; label: string; desc: string }[] = [
   { id: "received", label: "접수됨", desc: "검토 전 확인 단계" },
-  { id: "reviewing", label: "검토하고 있어요", desc: "개발 및 기획팀 검토 중" },
-  { id: "in_progress", label: "개발하고 있어요", desc: "기능 개발 및 버그 픽스 진행 중" },
-  { id: "completed", label: "반영을 마쳤어요", desc: "배포 완료 및 반영 완료" },
+  { id: "reviewing", label: "검토 중", desc: "기획 및 개발 타당성 검토" },
+  { id: "in_progress", label: "개발 중", desc: "기능 개발 및 버그 조치 진행 중" },
+  { id: "completed", label: "반영 완료", desc: "서비스 배포 및 반영 완료" },
 ];
 
 export function FeedbackAdminModal({
@@ -83,57 +85,35 @@ export function FeedbackAdminModal({
   };
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="admin-feedback-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
-    >
-      <div
-        className="fixed inset-0 bg-slate-900/60 backdrop-blur-2xs transition-opacity"
-        onClick={onClose}
-      />
+    <Modal isOpen={isOpen} onClose={onClose} size="default">
+      <form onSubmit={handleSave} className="flex flex-col h-full font-sans">
+        <Modal.Header
+          title="피드백 관리 및 팀 공식 답변"
+          description="피드백의 상태를 업데이트하고 사용자에게 노출될 공식 검토 답변을 작성합니다."
+        />
 
-      <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-[#e5e8eb] flex flex-col max-h-[90vh] overflow-hidden z-10">
-        <div className="px-6 py-5 border-b border-[#f1f5f9] flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-[#3182f6]" />
-            <h2 id="admin-feedback-modal-title" className="text-lg font-bold text-[#191f28]">
-              피드백 관리 및 팀 답변
-            </h2>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
-            aria-label="닫기"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-6 space-y-5">
+        <Modal.Body className="space-y-4">
           {errorMessage && (
-            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700">
+            <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-xs text-rose-700">
               {errorMessage}
             </div>
           )}
 
           {/* 원본 피드백 요약 */}
-          <div className="p-4 rounded-xl bg-[#f8fafc] border border-[#e5e8eb] space-y-1">
-            <span className="text-[10px] font-mono uppercase text-[#8b95a1] font-semibold">
-              ORIGINAL FEEDBACK · {item.authorName}
+          <div className="p-3 rounded-md bg-[#f8fafc] border border-[#e2e8f0] space-y-1">
+            <span className="text-[10px] font-mono uppercase text-[#94a3b8] font-semibold">
+              ORIGINAL FEEDBACK · {item.authorName} ({item.category})
             </span>
-            <div className="text-sm font-bold text-[#191f28]">{item.title}</div>
-            <div className="text-xs text-[#4e5968] line-clamp-3 whitespace-pre-line">
+            <div className="text-xs font-bold text-[#0f172a]">{item.title}</div>
+            <div className="text-[11px] text-[#475569] line-clamp-3 whitespace-pre-line font-mono">
               {item.content}
             </div>
           </div>
 
-          {/* 상태 변경 */}
-          <div className="space-y-2">
-            <label className="block text-xs font-bold text-[#191f28]">
-              진행 상태 변경
+          {/* 상태 선택 */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-mono font-semibold text-[#0f172a] uppercase tracking-wider">
+              진행 상태
             </label>
             <div className="grid grid-cols-2 gap-2">
               {STATUS_OPTIONS.map((st) => (
@@ -141,72 +121,78 @@ export function FeedbackAdminModal({
                   key={st.id}
                   type="button"
                   onClick={() => setStatus(st.id)}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                  className={`p-2.5 rounded-md border text-left transition-colors cursor-pointer ${
                     status === st.id
-                      ? "border-[#3182f6] bg-blue-50 text-[#3182f6] font-bold ring-2 ring-[#3182f6]/20"
-                      : "border-[#e5e8eb] bg-white text-[#4e5968] hover:bg-[#f8fafc]"
+                      ? "border-[#0f172a] bg-[#0f172a] text-white shadow-xs"
+                      : "border-[#cbd5e1] bg-white text-[#475569] hover:border-[#0f172a] hover:bg-[#f8fafc]"
                   }`}
                 >
-                  <div className="text-xs">{st.label}</div>
-                  <div className="text-[10px] text-[#8b95a1] font-normal">{st.desc}</div>
+                  <div className="text-xs font-bold">{st.label}</div>
+                  <div
+                    className={`text-[10px] mt-0.5 ${
+                      status === st.id ? "text-slate-300" : "text-[#94a3b8]"
+                    }`}
+                  >
+                    {st.desc}
+                  </div>
                 </button>
               ))}
             </div>
           </div>
 
           {/* 관리자 공식 답변 */}
-          <div className="space-y-1.5">
-            <label htmlFor="admin-reply-input" className="block text-xs font-bold text-[#191f28]">
-              리포티스트 팀 공식 답변 (해요체 권장)
+          <div className="space-y-1">
+            <label
+              htmlFor="admin-reply-textarea"
+              className="block text-xs font-mono font-semibold text-[#0f172a] uppercase tracking-wider"
+            >
+              리포티스트 리서치팀 공식 답변
             </label>
             <textarea
-              id="admin-reply-input"
+              id="admin-reply-textarea"
               rows={4}
               value={adminReply}
               onChange={(e) => setAdminReply(e.target.value)}
-              placeholder="예: 소중한 제안 감사드려요! 요청해주신 정렬 지표는 다음 주 정기 업데이트에 반영될 예정이에요."
-              className="w-full p-4 rounded-xl border border-[#e5e8eb] bg-[#f8fafc] text-sm text-[#191f28] placeholder-[#8b95a1] focus:bg-white focus:border-[#3182f6] focus:outline-none transition-colors resize-none leading-relaxed"
+              placeholder="예: 소중한 제안 감사드립니다. 요청해주신 지표 필터링 기능은 차주 정기 업데이트에 반영될 예정입니다."
+              className="w-full p-3 text-xs font-mono bg-white border border-[#cbd5e1] rounded-md focus:outline-hidden focus:border-[#0f172a] text-[#0f172a] placeholder-[#94a3b8] resize-none leading-relaxed"
             />
           </div>
+        </Modal.Body>
 
-          {/* 하단 버튼 및 삭제 */}
-          <div className="pt-3 border-t border-[#f1f5f9] flex items-center justify-between">
-            <button
+        <Modal.Footer className="justify-between">
+          <Button
+            type="button"
+            variant="danger"
+            size="sm"
+            onClick={handleDelete}
+            isLoading={isDeleting}
+            disabled={isDeleting}
+            leftIcon={<Trash2 className="w-3.5 h-3.5" />}
+          >
+            게시글 삭제
+          </Button>
+
+          <div className="flex items-center gap-2">
+            <Button
               type="button"
-              onClick={handleDelete}
-              disabled={isDeleting}
-              className="min-h-[44px] px-3.5 rounded-xl border border-rose-200 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              variant="secondary"
+              size="sm"
+              onClick={onClose}
             >
-              <Trash2 className="w-4 h-4" />
-              <span>게시글 삭제</span>
-            </button>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="min-h-[44px] px-4 rounded-xl border border-[#e5e8eb] text-sm font-semibold text-[#4e5968] hover:bg-[#f8fafc] transition-colors cursor-pointer"
-              >
-                닫기
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="min-h-[44px] px-5 rounded-xl bg-[#3182f6] hover:bg-blue-600 text-white text-sm font-bold shadow transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin text-white" />
-                    <span>저장 중...</span>
-                  </>
-                ) : (
-                  <span>답변 및 상태 저장</span>
-                )}
-              </button>
-            </div>
+              닫기
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              isLoading={isSubmitting}
+              disabled={isSubmitting}
+            >
+              답변 및 상태 저장
+            </Button>
           </div>
-        </form>
-      </div>
-    </div>
+        </Modal.Footer>
+      </form>
+    </Modal>
   );
 }

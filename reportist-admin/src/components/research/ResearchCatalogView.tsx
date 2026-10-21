@@ -17,6 +17,7 @@ import { PipelineProgressCard } from "@/components/tabs/PipelineProgressCard";
 import { LogsTab } from "@/components/tabs/LogsTab";
 import { SidebarSectionId } from "@/components/sidebar/ResearchSidebar";
 import { OutcomesView } from "@/components/outcomes/OutcomesView";
+import { FeedbackView } from "@/components/feedback/FeedbackView";
 import { GURU_PERSONAS, GuruPersona } from "@/lib/guruPersonas";
 import { GuruDetailModal } from "@/components/research/GuruDetailModal";
 import { StockListItem, StockItemInsight } from "@/components/research/StockListItem";
@@ -957,12 +958,16 @@ export function ResearchCatalogView({
                   "02. 슈퍼인베스터 포트폴리오 (DataRoma)"}
                 {activeSectionFilter === "sec-screener" &&
                   "03. 실시간 발굴 후보군"}
-                {activeSectionFilter === "sec-pipeline" &&
-                  "04. 파이프라인"}
-                {activeSectionFilter === "sec-audit" &&
-                  "05. 감사 로그"}
+                {activeSectionFilter === "sec-outcomes" &&
+                  "04. 성과 및 거장 적중률"}
                 {activeSectionFilter === "sec-gurus" &&
-                  "06. 13인 투자 거장 철학"}
+                  "05. 13인 투자 거장 철학"}
+                {activeSectionFilter === "sec-feedback" &&
+                  "06. 의견 및 기능 제안"}
+                {activeSectionFilter === "sec-pipeline" &&
+                  "07. 파이프라인"}
+                {activeSectionFilter === "sec-audit" &&
+                  "08. 감사 로그"}
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
@@ -972,12 +977,16 @@ export function ResearchCatalogView({
                 "슈퍼인베스터 포트폴리오 (DataRoma) 전체"}
               {activeSectionFilter === "sec-screener" &&
                 "실시간 발굴 후보군 전체"}
+              {activeSectionFilter === "sec-outcomes" &&
+                "성과 및 거장 적중률"}
+              {activeSectionFilter === "sec-gurus" &&
+                "13인 투자 거장 철학 및 밸류에이션 가이드"}
+              {activeSectionFilter === "sec-feedback" &&
+                "의견 및 기능 제안함"}
               {activeSectionFilter === "sec-pipeline" &&
                 "파이프라인 모니터"}
               {activeSectionFilter === "sec-audit" &&
                 "감사 로그 모니터"}
-              {activeSectionFilter === "sec-gurus" &&
-                "13인 투자 거장 철학 및 밸류에이션 가이드"}
             </h1>
           </div>
 
@@ -1848,7 +1857,17 @@ export function ResearchCatalogView({
         </section>
       )}
 
-      {/* ── 6. SECTION 06: PIPELINE (관리자 전용) ── */}
+      {/* ── 6. SECTION 06: 의견 및 기능 제안함 ── */}
+      {isVisible("sec-feedback") && (
+        <section
+          id="sec-feedback"
+          className="px-6 lg:px-12 py-10 lg:py-12 bg-white"
+        >
+          <FeedbackView isAdmin={isAdmin} />
+        </section>
+      )}
+
+      {/* ── 7. SECTION 07: PIPELINE (관리자 전용) ── */}
       {isAdmin && isVisible("sec-pipeline") && (
         <section
           id="sec-pipeline"
@@ -1859,7 +1878,7 @@ export function ResearchCatalogView({
             <div className="space-y-4 md:sticky md:top-[72px] md:self-start">
               <div className="flex items-baseline gap-2">
                 <span className="font-mono text-xs font-semibold text-[#94a3b8]">
-                  06
+                  07
                 </span>
                 <h2 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
                   파이프라인
@@ -1908,7 +1927,7 @@ export function ResearchCatalogView({
         </section>
       )}
 
-      {/* ── 7. SECTION 07: SYSTEM AUDIT (관리자 전용) ── */}
+      {/* ── 8. SECTION 08: SYSTEM AUDIT (관리자 전용) ── */}
       {isAdmin && isVisible("sec-audit") && (
         <section
           id="sec-audit"
@@ -1919,7 +1938,7 @@ export function ResearchCatalogView({
             <div className="space-y-4 md:sticky md:top-[72px] md:self-start">
               <div className="flex items-baseline gap-2">
                 <span className="font-mono text-xs font-semibold text-[#94a3b8]">
-                  07
+                  08
                 </span>
                 <h2 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
                   감사 로그
