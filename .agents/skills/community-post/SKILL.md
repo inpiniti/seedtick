@@ -12,7 +12,7 @@ Supabase `guru_reports` + `guru_opinions` + `report_metrics`를 읽어 티커별
 1. 지어내지 않는다. verdict / vote_summary / fair_value / bull·bear / metrics는 DB 값만 사용한다.
 2. `post/`에 티커가 이미 있으면 건너뛴다 (파일명에 티커 포함 여부로 판단, 예: `TSM.txt`, `2026-10-16_TSM.txt` 모두 TSM으로 간주).
 3. 키를 출력·커밋하지 않는다. `reportist-analyzer/.env.local`에서만 읽는다.
-4. 글 끝에는 접속 유도 CTA + 투자 권유 아님 면책을 항상 넣는다.
+4. 글 끝에는 접속 유도 CTA(13인 코멘트 전문, 적정밴드, 전 종목 가치평가 랭킹 안내) + 투자 권유 아님 면책을 항상 넣는다.
 
 ## 실행
 
