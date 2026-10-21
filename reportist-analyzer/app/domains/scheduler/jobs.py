@@ -19,6 +19,42 @@ from app.infrastructure.supabase_repo import supabase_repo
 logger = logging.getLogger("scheduler_jobs")
 
 _pipeline_lock = asyncio.Lock()
+_current_running_market: str | None = None
+_waiting_markets: set[str] = set()
+
+
+async def _execute_pipeline_under_lock(
+    dry_run: bool | None,
+    force: bool,
+    max_analyze_count: int | None,
+    skip_already_reported: bool,
+    market_lower: str,
+    triggered_by: str,
+) -> dict:
+    global _current_running_market
+    _current_running_market = market_lower
+    today_str = dt_date.today().isoformat()
+    pipeline_progress.start(date=today_str, triggered_by=triggered_by, market=market_lower)
+    try:
+        result = await _run_daily_pipeline(
+            dry_run=dry_run,
+            force=force,
+            max_analyze_count=max_analyze_count,
+            skip_already_reported=skip_already_reported,
+            market=market_lower,
+        )
+    except Exception as e:
+        logger.exception(f"[Scheduler] 파이프라인 예외 발생 (market={market_lower}): {e}")
+        pipeline_progress.finish("failed", error=str(e))
+        raise
+    finally:
+        _current_running_market = None
+
+    pipeline_progress.finish(
+        "completed" if result.get("status") == "success" else "skipped",
+        summary=result,
+    )
+    return result
 
 
 async def daily_pipeline_job(
@@ -28,39 +64,79 @@ async def daily_pipeline_job(
     skip_already_reported: bool = True,
     market: str = "all",
     triggered_by: str = "manual",
+    wait_for_lock: bool = True,
 ) -> dict:
     """
     일일 스크리닝 → 13인 분석 파이프라인 실행 래퍼.
 
     - market: 'us' (미국장 전용), 'kr' (한국장 전용), 'all' (통합)
-    - 중복 실행 락을 획득한 뒤 메모리 진행 추적기(pipeline_progress)를 "실행중"으로 등록합니다.
-    - 관리자 화면은 GET /api/scheduler/progress 를 폴링하여 실시간 진행률을 표시합니다.
+    - 동일 시장 파이프라인이 이미 실행 중이거나 대기 중인 경우 중복 실행을 차단(skip)합니다.
+    - 다른 시장 파이프라인이 이미 실행 중인 경우(예: 09:00 미장 실행 중 16:00 국장 시작),
+      wait_for_lock=True이면 선행 파이프라인 완료를 대기(wait)한 뒤 순차 실행합니다.
     - skip_already_reported: True인 경우 오늘 이미 guru_reports에 등록된 종목은 제외하고 분석
     """
+    global _current_running_market
+
+    market_lower = market.lower()
+
     if _pipeline_lock.locked():
-        logger.warning(f"[Scheduler] 이미 파이프라인이 실행 중입니다. 중복 실행 차단. (market={market})")
-        return {"status": "skipped", "reason": "already_running", "market": market}
+        # 동일 시장이 이미 실행 중인 경우 중복 실행 차단
+        if _current_running_market == market_lower:
+            logger.warning(
+                f"[Scheduler] 동일한 시장({market_lower}) 파이프라인이 이미 실행 중입니다. 중복 실행 차단."
+            )
+            return {"status": "skipped", "reason": "already_running", "market": market_lower}
+
+        # 동일 시장이 이미 대기열에 진입해 있는 경우 중복 대기 차단
+        if market_lower in _waiting_markets:
+            logger.warning(
+                f"[Scheduler] 시장({market_lower}) 파이프라인이 이미 대기 중입니다. 중복 대기 차단."
+            )
+            return {"status": "skipped", "reason": "already_waiting", "market": market_lower}
+
+        # 대기 옵션이 비활성화된 경우 즉시 스킵
+        if not wait_for_lock:
+            logger.warning(
+                f"[Scheduler] 다른 파이프라인({_current_running_market})이 이미 실행 중입니다. "
+                f"(wait_for_lock=False로 스킵, market={market_lower})"
+            )
+            return {"status": "skipped", "reason": "already_running", "market": market_lower}
+
+        # 선행 파이프라인 완료 대기
+        logger.info(
+            f"[Scheduler] 선행 {_current_running_market} 파이프라인이 아직 실행 중입니다. "
+            f"완료 후 {market_lower} 파이프라인이 순차 실행되도록 대기합니다. (triggered_by={triggered_by})"
+        )
+        pipeline_progress.log(
+            f"[대기] 선행 {_current_running_market} 파이프라인 완료 대기 중 -> {market_lower} 파이프라인 순차 실행 예정"
+        )
+        _waiting_markets.add(market_lower)
+        try:
+            async with _pipeline_lock:
+                _waiting_markets.discard(market_lower)
+                logger.info(
+                    f"[Scheduler] 선행 파이프라인 종료 확인 -> 대기 중이던 {market_lower} 파이프라인 실행 시작 (triggered_by={triggered_by})"
+                )
+                return await _execute_pipeline_under_lock(
+                    dry_run=dry_run,
+                    force=force,
+                    max_analyze_count=max_analyze_count,
+                    skip_already_reported=skip_already_reported,
+                    market_lower=market_lower,
+                    triggered_by=triggered_by,
+                )
+        finally:
+            _waiting_markets.discard(market_lower)
 
     async with _pipeline_lock:
-        today_str = dt_date.today().isoformat()
-        pipeline_progress.start(date=today_str, triggered_by=triggered_by, market=market)
-        try:
-            result = await _run_daily_pipeline(
-                dry_run=dry_run,
-                force=force,
-                max_analyze_count=max_analyze_count,
-                skip_already_reported=skip_already_reported,
-                market=market,
-            )
-        except Exception as e:
-            logger.exception(f"[Scheduler] 파이프라인 예외 발생 (market={market}): {e}")
-            pipeline_progress.finish("failed", error=str(e))
-            raise
-        pipeline_progress.finish(
-            "completed" if result.get("status") == "success" else "skipped",
-            summary=result,
+        return await _execute_pipeline_under_lock(
+            dry_run=dry_run,
+            force=force,
+            max_analyze_count=max_analyze_count,
+            skip_already_reported=skip_already_reported,
+            market_lower=market_lower,
+            triggered_by=triggered_by,
         )
-        return result
 
 
 async def us_daily_pipeline_job(
@@ -68,6 +144,7 @@ async def us_daily_pipeline_job(
     force: bool = False,
     max_analyze_count: int | None = None,
     skip_already_reported: bool = True,
+    wait_for_lock: bool = True,
 ) -> dict:
     """
     미국 주식 일일 파이프라인 잡 (평일 오전 09:00 KST 정기 배치):
@@ -82,6 +159,7 @@ async def us_daily_pipeline_job(
         skip_already_reported=skip_already_reported,
         market="us",
         triggered_by="scheduler_us",
+        wait_for_lock=wait_for_lock,
     )
 
 
@@ -90,6 +168,7 @@ async def kr_daily_pipeline_job(
     force: bool = False,
     max_analyze_count: int | None = None,
     skip_already_reported: bool = True,
+    wait_for_lock: bool = True,
 ) -> dict:
     """
     한국 주식 일일 파이프라인 잡 (평일 오후 16:00 KST 정기 배치):
@@ -104,6 +183,7 @@ async def kr_daily_pipeline_job(
         skip_already_reported=skip_already_reported,
         market="kr",
         triggered_by="scheduler_kr",
+        wait_for_lock=wait_for_lock,
     )
 
 

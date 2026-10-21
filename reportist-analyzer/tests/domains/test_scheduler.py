@@ -424,5 +424,122 @@ async def test_daily_pipeline_concurrent_ticker_execution(monkeypatch):
     assert set(completed) == set(tickers)
 
 
+@pytest.mark.asyncio
+async def test_kr_pipeline_waits_for_us_pipeline_to_complete(monkeypatch):
+    """
+    미장(US) 파이프라인이 아직 실행 중일 때 국장(KR) 파이프라인이 시작되면,
+    스킵되지 않고 미장 완료를 대기한 후 순차적으로 정상 실행되는지 검증
+    """
+    from app.domains.scheduler.jobs import us_daily_pipeline_job, kr_daily_pipeline_job
+    from app.domains.scheduler.market_guard import MarketCalendarGuard
+    from app.domains.screener.service import ScreenerService
+    from app.domains.screener.roma_service import RomaScreenerService
+    from app.domains.screener.models import ScreenResult, TossStockItem, ScreenCriteria
+    from app.domains.report.service import GuruReportService
+    from app.domains.error_log.notifiers.discord import DiscordNotifier
+    from app.infrastructure.supabase_repo import supabase_repo
+
+    monkeypatch.setattr(MarketCalendarGuard, "is_us_market_open", lambda self, d: (True, "정규장"))
+    monkeypatch.setattr(MarketCalendarGuard, "is_kr_market_open", lambda self, d: (True, "정규장"))
+
+    async def mock_screener(self, criteria=None):
+        if criteria and criteria.nation == "kr":
+            items = [TossStockItem(ticker="005930", stock_code="005930", name="삼성전자", screeners=["국장공통"])]
+        else:
+            items = [TossStockItem(ticker="AAPL", stock_code="AAPL", name="Apple", screeners=["공통"])]
+        return ScreenResult(tickers=items, items=items, total_count=1, count=1, criteria=criteria or ScreenCriteria())
+
+    monkeypatch.setattr(ScreenerService, "get_stock_list", mock_screener)
+    monkeypatch.setattr(RomaScreenerService, "get_stock_list", lambda self, **k: asyncio.sleep(0, result=ScreenResult(tickers=[], items=[], total_count=0, count=0, criteria=ScreenCriteria())))
+    monkeypatch.setattr(supabase_repo, "get_reported_tickers_for_date", lambda d: set())
+    monkeypatch.setattr(DiscordNotifier, "notify_pipeline_summary", lambda *a, **k: asyncio.sleep(0))
+
+    execution_order = []
+    us_gate = asyncio.Event()
+
+    async def mock_gen_report(self, ticker, target_date, screeners=None):
+        execution_order.append(f"start_{ticker}")
+        if ticker == "AAPL":
+            # US 종목 분석 중 국장이 들어올 수 있도록 대기
+            await us_gate.wait()
+        execution_order.append(f"finish_{ticker}")
+        class DummyReport:
+            overall_verdict = "매수"
+        return DummyReport()
+
+    monkeypatch.setattr(GuruReportService, "generate_full_report", mock_gen_report)
+
+    # 1. 미장 파이프라인을 비동기 태스크로 시작
+    us_task = asyncio.create_task(us_daily_pipeline_job(force=True))
+
+    # US 파이프라인이 분석 단계에 진입할 때까지 잠깐 yield
+    while "start_AAPL" not in execution_order:
+        await asyncio.sleep(0.01)
+
+    # 2. 미장이 돌고 있는 도중에 국장 파이프라인 시작 (대기 시작해야 함)
+    kr_task = asyncio.create_task(kr_daily_pipeline_job(force=True))
+
+    # 국장 태스크가 즉시 종료되지 않고 미장을 대기 중인지 확인
+    await asyncio.sleep(0.05)
+    assert not kr_task.done(), "국장 파이프라인이 즉시 종료(스킵)되지 않고 대기 중이어야 합니다."
+
+    # 3. 미장 게이트를 열어 미장 완료 유도
+    us_gate.set()
+    us_result = await us_task
+
+    # 4. 국장 파이프라인도 이어서 완료 대기
+    kr_result = await kr_task
+
+    assert us_result["status"] == "success"
+    assert us_result["market"] == "us"
+    assert kr_result["status"] == "success"
+    assert kr_result["market"] == "kr"
+
+    # 실행 순서 검증: AAPL 시작 -> AAPL 완료 -> 005930 시작 -> 005930 완료
+    assert execution_order == ["start_AAPL", "finish_AAPL", "start_005930", "finish_005930"]
 
 
+@pytest.mark.asyncio
+async def test_duplicate_same_market_pipeline_is_skipped(monkeypatch):
+    """
+    동일한 시장(US)이 이미 실행 중일 때 또 다른 US 파이프라인이 인입되면
+    대기열에 중복 진입하지 않고 즉시 스킵되는지 검증
+    """
+    from app.domains.scheduler.jobs import us_daily_pipeline_job
+    from app.domains.scheduler.market_guard import MarketCalendarGuard
+    from app.domains.screener.service import ScreenerService
+    from app.domains.screener.roma_service import RomaScreenerService
+    from app.domains.screener.models import ScreenResult, TossStockItem, ScreenCriteria
+    from app.domains.report.service import GuruReportService
+    from app.domains.error_log.notifiers.discord import DiscordNotifier
+    from app.infrastructure.supabase_repo import supabase_repo
+
+    monkeypatch.setattr(MarketCalendarGuard, "is_us_market_open", lambda self, d: (True, "정규장"))
+    items = [TossStockItem(ticker="AAPL", stock_code="AAPL", name="Apple", screeners=["공통"])]
+    monkeypatch.setattr(ScreenerService, "get_stock_list", lambda self, c=None: asyncio.sleep(0, result=ScreenResult(tickers=items, items=items, total_count=1, count=1, criteria=ScreenCriteria())))
+    monkeypatch.setattr(RomaScreenerService, "get_stock_list", lambda self, **k: asyncio.sleep(0, result=ScreenResult(tickers=[], items=[], total_count=0, count=0, criteria=ScreenCriteria())))
+    monkeypatch.setattr(supabase_repo, "get_reported_tickers_for_date", lambda d: set())
+    monkeypatch.setattr(DiscordNotifier, "notify_pipeline_summary", lambda *a, **k: asyncio.sleep(0))
+
+    gate = asyncio.Event()
+
+    async def mock_gen_report(self, ticker, target_date, screeners=None):
+        await gate.wait()
+        class DummyReport:
+            overall_verdict = "관망"
+        return DummyReport()
+
+    monkeypatch.setattr(GuruReportService, "generate_full_report", mock_gen_report)
+
+    task1 = asyncio.create_task(us_daily_pipeline_job(force=True))
+    await asyncio.sleep(0.02)
+
+    # 동일 마켓(US) 중복 실행 시도 -> 대기하지 않고 즉시 skipped 반환
+    duplicate_result = await us_daily_pipeline_job(force=True)
+    assert duplicate_result["status"] == "skipped"
+    assert duplicate_result["reason"] == "already_running"
+    assert duplicate_result["market"] == "us"
+
+    gate.set()
+    res1 = await task1
+    assert res1["status"] == "success"
