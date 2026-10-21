@@ -110,7 +110,7 @@ export async function GET(req: Request) {
       );
     }
 
-    const rawReports = (data as GuruReportRow[]) || [];
+    const rawReports = (data as unknown as GuruReportRow[]) || [];
     const processedReports = hasPrevDate
       ? deduplicateReportsByLatestDate(rawReports).slice(0, limit)
       : rawReports;
