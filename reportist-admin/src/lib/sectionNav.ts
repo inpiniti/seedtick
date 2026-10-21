@@ -45,6 +45,11 @@ export const SECTION_META: Record<
     label: "감사 로그",
     backLabel: "감사 로그로 돌아가기",
   },
+  "sec-feedback": {
+    href: "/feedback",
+    label: "의견 및 기능 제안",
+    backLabel: "의견 및 기능 제안으로 돌아가기",
+  },
 };
 
 const VALID_SECTIONS = new Set<string>(Object.keys(SECTION_META));
@@ -66,6 +71,7 @@ export function inferSectionFromLocation(
   if (pathname === "/screener") return tabParam === "roma" ? "sec-roma" : "sec-screener";
   if (pathname === "/outcomes") return "sec-outcomes";
   if (pathname === "/gurus" || pathname.startsWith("/gurus/")) return "sec-gurus";
+  if (pathname === "/feedback") return "sec-feedback";
   if (pathname === "/pipeline") return "sec-pipeline";
   if (pathname === "/admin") return "sec-audit";
   return null;

@@ -6,3 +6,4 @@
 | **[Report](file:///c:/Users/user/repositories/reportist/docs/domains/report/overview.md)** | 운용 중 | `reportist-admin/src/components/research`, `reportist-analyzer` | 13인 투자 거장 AI 합의 표결 및 SEC 공시 데이터팩 기반 종합 투자 보고서 |
 | **[Screener](file:///c:/Users/user/repositories/reportist/docs/domains/screener/)** | 운용 중 | `reportist-admin/src/app/screener` | 실시간 미국/한국 주식 후보군 및 가치주 스크리너 |
 | **[Admin](file:///c:/Users/user/repositories/reportist/docs/domains/admin/)** | 운용 중 | `reportist-admin/src/app/admin` | 시스템 상태 점검, AI 모델 로테이션 관리 및 파이프라인 트리거 |
+| **[Feedback](file:///c:/Users/user/repositories/seedtick/docs/domain/feedback/README.md)** | 개발 중 | `reportist-admin/src/app/feedback`, `src/components/feedback` | 사용자 불편 사항(버그) 및 기능 제안 수집, 공감 투표, 상태 추적 및 관리자 공식 답변 |

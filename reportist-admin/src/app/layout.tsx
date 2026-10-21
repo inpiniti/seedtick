@@ -161,6 +161,11 @@ const organizationJsonLd = {
           name: "멤버십 요금제",
           url: `${SITE_URL}/pricing`,
         },
+        {
+          "@type": "SiteNavigationElement",
+          name: "의견 및 기능 제안함",
+          url: `${SITE_URL}/feedback`,
+        },
       ],
     },
   ],

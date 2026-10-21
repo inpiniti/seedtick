@@ -6,6 +6,7 @@ import { ProUpgradeModal } from "@/components/subscription/ProUpgradeModal";
 import { AuthModal } from "@/components/auth/AuthModal";
 
 import { QueryProvider } from "@/components/providers/QueryProvider";
+import { FeedbackFloatingButton } from "@/components/feedback/FeedbackFloatingButton";
 
 function ModalsContainer() {
   const { isAuthModalOpen, closeAuthModal } = useSubscription();
@@ -13,6 +14,7 @@ function ModalsContainer() {
     <>
       <ProUpgradeModal />
       <AuthModal isOpen={isAuthModalOpen} onClose={closeAuthModal} />
+      <FeedbackFloatingButton />
     </>
   );
 }

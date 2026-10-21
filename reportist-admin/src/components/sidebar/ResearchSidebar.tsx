@@ -13,6 +13,7 @@ import {
   ArrowLeft,
   X,
   Award,
+  MessageSquarePlus,
 } from "lucide-react";
 import { ReportistLogoBadge } from "@/components/ui/ReportistLogo";
 import { useSubscription } from "@/lib/subscription/SubscriptionContext";
@@ -26,7 +27,8 @@ export type SidebarSectionId =
   | "sec-outcomes"
   | "sec-pipeline"
   | "sec-audit"
-  | "sec-gurus";
+  | "sec-gurus"
+  | "sec-feedback";
 
 export const SECTION_HREF_MAP: Record<SidebarSectionId, string> = {
   all: "/",
@@ -37,6 +39,7 @@ export const SECTION_HREF_MAP: Record<SidebarSectionId, string> = {
   "sec-pipeline": "/pipeline",
   "sec-gurus": "/gurus",
   "sec-audit": "/admin",
+  "sec-feedback": "/feedback",
 };
 
 interface NavItem {
@@ -102,13 +105,13 @@ export function ResearchSidebar({
     ? [
         {
           id: "sec-pipeline" as SidebarSectionId,
-          prefix: "06",
+          prefix: "07",
           label: "파이프라인",
           icon: Activity,
         },
         {
           id: "sec-audit" as SidebarSectionId,
-          prefix: "07",
+          prefix: "08",
           label: "감사 로그",
           badge: logCount > 0 ? `${logCount}` : undefined,
           icon: Terminal,
@@ -174,6 +177,17 @@ export function ResearchSidebar({
           label: "13인 투자 거장 철학",
           badge: "13",
           icon: Users,
+        },
+      ],
+    },
+    {
+      group: "Community",
+      items: [
+        {
+          id: "sec-feedback",
+          prefix: "06",
+          label: "의견 및 기능 제안",
+          icon: MessageSquarePlus,
         },
       ],
     },
