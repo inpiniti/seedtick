@@ -134,7 +134,7 @@ export function ResearchSidebar({
         {
           id: "sec-reports",
           prefix: "01",
-          label: "가치평가 및 거장 리포트",
+          label: "거장 가치평가 랭킹",
           badge: reportCount > 0 ? `${reportCount}` : undefined,
           icon: Target,
         },

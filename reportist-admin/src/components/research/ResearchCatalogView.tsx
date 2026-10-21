@@ -949,7 +949,7 @@ export function ResearchCatalogView({
               <span className="text-[#cbd5e1]">/</span>
               <span className="text-[#0f172a] font-semibold">
                 {activeSectionFilter === "sec-reports" &&
-                  "01. 가치평가 및 거장 리포트"}
+                  "01. 거장 가치평가 랭킹"}
                 {activeSectionFilter === "sec-roma" &&
                   "02. 슈퍼인베스터 포트폴리오 (DataRoma)"}
                 {activeSectionFilter === "sec-screener" &&
@@ -964,7 +964,7 @@ export function ResearchCatalogView({
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
               {activeSectionFilter === "sec-reports" &&
-                "가치평가 및 거장 리포트 전체 아카이브"}
+                "거장 가치평가 랭킹 & 리포트 전체 아카이브"}
               {activeSectionFilter === "sec-roma" &&
                 "슈퍼인베스터 포트폴리오 (DataRoma) 전체"}
               {activeSectionFilter === "sec-screener" &&
@@ -1093,7 +1093,7 @@ export function ResearchCatalogView({
           </section>
         ) : null)}
 
-      {/* ── 2. SECTION 01: 가치평가 및 거장 심층 분석 보고서 전체 (1+2 통합) ── */}
+      {/* ── 2. SECTION 01: 거장 가치평가 랭킹 및 심층 분석 보고서 (1+2 통합) ── */}
       {isVisible("sec-reports") && (
         <section
           id="sec-reports"
@@ -1107,12 +1107,12 @@ export function ResearchCatalogView({
                   01
                 </span>
                 <h2 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
-                  가치평가 및 거장 리서치 보고서
+                  거장 가치평가 랭킹
                 </h2>
               </div>
               <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-md">
-                13인 거장의 독립 표결과 종합 적정 내재가치, 안전마진 밴드를 도출한
-                분석 보고서입니다. {isAll && `(홈에서는 상위 10건만 요약 표시)`}
+                13인 거장의 분석으로 도출한 적정 내재가치 대비 상승여력(저평가율) 순위 차트입니다.
+                각 종목을 클릭하여 거장 표결과 심층 리포트를 확인하세요. {isAll && `(홈에서는 랭킹 TOP 10만 요약 표시)`}
               </p>
 
               {/* 1. 분석 일자 선택 (날짜별 선택, 디폴트: 최신 작성 일자) */}
@@ -1285,8 +1285,8 @@ export function ResearchCatalogView({
                       }
                       className="bg-white border border-[#cbd5e1] rounded px-2 py-0.5 text-xs font-mono text-[#0f172a] focus:outline-hidden cursor-pointer shadow-2xs"
                     >
-                      <option value="RATIO_DESC">내재가치/종가 높은순 (기본)</option>
-                      <option value="SCORE_DESC">거장 종합점수순</option>
+                      <option value="RATIO_DESC">내재가치 상승여력순 (랭킹 1위~)</option>
+                      <option value="SCORE_DESC">거장 종합점수 랭킹순</option>
                       <option value="DATE_DESC">최신 분석일순</option>
                       <option value="TICKER_ASC">티커 알파벳순</option>
                     </select>
@@ -1304,7 +1304,7 @@ export function ResearchCatalogView({
                 />
               ) : (
                 <ul className="divide-y divide-[#f1f5f9] -my-2">
-                  {displayedReports.map((report) => {
+                  {displayedReports.map((report, idx) => {
                     const insight = getInsight(
                       report.ticker,
                       report.current_price
@@ -1317,6 +1317,7 @@ export function ResearchCatalogView({
                       <StockListItem
                         key={report.id || ticker}
                         ticker={ticker}
+                        rankPrefix={`#${idx + 1}`}
                         companyName={displayNameOf(ticker, report.company_name)}
                         logo={renderLogo(ticker)}
                         insight={toItemInsight(insight)}
@@ -1369,7 +1370,7 @@ export function ResearchCatalogView({
                     className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-[#cbd5e1] hover:border-[#0f172a] bg-white text-xs font-mono font-medium text-[#0f172a] hover:bg-[#f8fafc] transition-colors cursor-pointer group"
                   >
                     <span>
-                      전체 가치평가 리포트 보기 ({filteredReports.length}건)
+                      전체 가치평가 랭킹 보기 ({filteredReports.length}건)
                     </span>
                     <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
                   </button>
