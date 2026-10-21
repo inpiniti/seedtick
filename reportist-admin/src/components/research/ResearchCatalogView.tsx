@@ -20,6 +20,7 @@ import { OutcomesView } from "@/components/outcomes/OutcomesView";
 import { FeedbackView } from "@/components/feedback/FeedbackView";
 import { GURU_PERSONAS, GuruPersona } from "@/lib/guruPersonas";
 import { GuruDetailModal } from "@/components/research/GuruDetailModal";
+import { OnDemandModal } from "@/components/research/OnDemandModal";
 import { StockListItem, StockItemInsight } from "@/components/research/StockListItem";
 import type { ResearchDocTab } from "@/components/research/ResearchDocumentView";
 import {
@@ -178,6 +179,7 @@ export function ResearchCatalogView({
 }: ResearchCatalogViewProps) {
   const { tier, isTrialActive, isAdmin } = useSubscription();
   const [searchQuery, setSearchQuery] = useState("");
+  const [onDemandTicker, setOnDemandTicker] = useState<string | null>(null);
   const [reportVerdictFilter, setReportVerdictFilter] = useState<string>("ALL");
   const [reportSortBy, setReportSortBy] = useState<
     "RATIO_DESC" | "SCORE_DESC" | "DATE_DESC" | "TICKER_ASC"
@@ -1313,11 +1315,40 @@ export function ResearchCatalogView({
               displayedReports.length === 0 ? (
                 <StockListSkeleton rows={isAll ? 5 : 8} />
               ) : displayedReports.length === 0 ? (
-                <EmptyState
-                  icon="📄"
-                  title="해당 조건의 분석 보고서가 없습니다"
-                  description="검색어나 필터를 변경하거나 상단 파이프라인 버튼으로 보고서를 생성하세요."
-                />
+                searchQuery.trim() ? (
+                  <div className="py-12 px-6 text-center bg-white border border-[#e2e8f0] rounded-xl shadow-xs space-y-4 my-2">
+                    <div className="w-12 h-12 rounded-full bg-[#e8f3ff] text-[#3182f6] flex items-center justify-center mx-auto">
+                      <Sparkles className="w-6 h-6" />
+                    </div>
+                    <div className="max-w-md mx-auto space-y-1.5">
+                      <h3 className="text-base font-bold text-[#191f28]">
+                        &lsquo;{searchQuery.trim()}&rsquo; 종목은 정기 스크리닝 목록에 없어요
+                      </h3>
+                      <p className="text-xs text-[#6b7684] leading-relaxed">
+                        13인의 투자 거장 기준(고수익·저부채·안전마진)에 부합하는 종목만 매일 자동 발행돼요.
+                        <br />
+                        <strong>&lsquo;{searchQuery.trim()}&rsquo;</strong>에 대해 13인의 솔직한 가치평가가 궁금하시다면 지금 분석을 요청해보세요!
+                      </p>
+                    </div>
+                    <div className="pt-2">
+                      <Button
+                        variant="primary"
+                        size="md"
+                        onClick={() => setOnDemandTicker(searchQuery.trim().toUpperCase())}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-semibold shadow-xs"
+                      >
+                        <Sparkles className="w-4 h-4 text-amber-300" />
+                        <span>&lsquo;{searchQuery.trim()}&rsquo; 13인 거장 AI 즉시 분석 요청</span>
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <EmptyState
+                    icon="📄"
+                    title="해당 조건의 분석 보고서가 없습니다"
+                    description="검색어나 필터를 변경하거나 상단 파이프라인 버튼으로 보고서를 생성하세요."
+                  />
+                )
               ) : (
                 <ul className="divide-y divide-[#f1f5f9] -my-2">
                   {displayedReports.map((report, idx) => {
@@ -1974,6 +2005,13 @@ export function ResearchCatalogView({
           }}
         />
       )}
+
+      {/* ── 온디맨드 13인 거장 AI 즉시 분석 모달 ── */}
+      <OnDemandModal
+        isOpen={!!onDemandTicker}
+        ticker={onDemandTicker || ""}
+        onClose={() => setOnDemandTicker(null)}
+      />
 
       {/* ── 전체 종목 디렉터리 ──────────────────────────────────────────
           목록 화면(날짜/권한 필터)에 잡히지 않는 종목까지 포함해

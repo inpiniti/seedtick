@@ -437,3 +437,38 @@ export interface OutcomesOverview {
   horizon_stats: HorizonPerformanceStat[];
   recent_outcomes: ReportOutcomeRow[];
 }
+
+// 12. 온디맨드 즉시 AI 분석 타입 (/api/report/ondemand)
+export interface OnDemandStage {
+  key: string;
+  label: string;
+}
+
+export interface OnDemandProgress {
+  ticker: string;
+  status: "idle" | "pending" | "running" | "completed" | "failed";
+  stage?: string;
+  stage_label?: string;
+  stage_index?: number;
+  stage_total?: number;
+  progress_percent: number;
+  gurus_done?: number;
+  gurus_total?: number;
+  started_at?: string | null;
+  finished_at?: string | null;
+  elapsed_seconds?: number;
+  verdict?: string | null;
+  overall_score?: number | null;
+  message?: string;
+  error?: string | null;
+  stages?: OnDemandStage[];
+}
+
+export interface OnDemandRequestResponse {
+  status: "started" | "running" | "already_completed" | "failed";
+  ticker: string;
+  already_completed?: boolean;
+  message: string;
+  progress?: OnDemandProgress;
+}
+

@@ -10,6 +10,8 @@ import {
   TickerNameBatchResponse,
   TickerNameResponse,
   OutcomesOverview,
+  OnDemandProgress,
+  OnDemandRequestResponse,
 } from "@/types/api";
 import { supabase } from "@/lib/supabase";
 
@@ -311,3 +313,31 @@ export async function triggerOutcomeTracking(asOf?: string): Promise<{
   }
   return json;
 }
+
+/** 10. 온디맨드 즉시 13인 거장 AI 심층 분석 요청 */
+export async function requestOnDemandReport(
+  ticker: string,
+  force = false
+): Promise<OnDemandRequestResponse> {
+  const normTicker = ticker.trim().toUpperCase();
+  const query = new URLSearchParams({
+    ticker: normTicker,
+    force: String(force),
+  });
+  return request<OnDemandRequestResponse>(`/api/report/ondemand/request?${query.toString()}`, {
+    method: "POST",
+  });
+}
+
+/** 11. 온디맨드 종목 분석 실시간 진행 상태 조회 */
+export async function fetchOnDemandProgress(
+  ticker: string
+): Promise<OnDemandProgress> {
+  const normTicker = ticker.trim().toUpperCase();
+  return request<OnDemandProgress>(
+    `/api/report/ondemand/${encodeURIComponent(normTicker)}/progress`,
+    undefined,
+    0
+  );
+}
+

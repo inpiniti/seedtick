@@ -9,6 +9,7 @@ from app.config.settings import settings
 from app.domains.error_log.notifiers.discord import DiscordNotifier
 from app.domains.report.pipeline_progress import pipeline_progress
 from app.domains.report.service import GuruReportService
+from app.domains.scheduler.coordinator import pipeline_coordinator
 from app.domains.scheduler.market_guard import MarketCalendarGuard
 from app.domains.screener.models import ScreenCriteria
 from app.domains.screener.roma_service import RomaScreenerService
@@ -262,7 +263,10 @@ async def _run_daily_pipeline(
     ticker_semaphore = asyncio.Semaphore(ticker_concurrency)
 
     async def _analyze_single_ticker(ticker: str):
+        # 온디맨드 분석 요청이 처리 중이면 대기
+        await pipeline_coordinator.wait_if_paused()
         async with ticker_semaphore:
+            await pipeline_coordinator.wait_if_paused()
             pipeline_progress.begin_ticker(ticker)
             try:
                 screeners = ticker_screeners_map.get(ticker)

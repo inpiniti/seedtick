@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DashboardView } from "@/components/dashboard/DashboardView";
+import { UnanalyzedStockView } from "@/components/research/UnanalyzedStockView";
 import type { ResearchDocTab } from "@/components/research/ResearchDocumentView";
 import { getStockPageData } from "@/lib/server/stockPageData";
 import { buildStockJsonLd } from "@/lib/server/stockJsonLd";
@@ -109,12 +110,22 @@ export default async function StockDetailPage({
   // 로그인 유저의 전체 열람은 클라이언트가 /api/reports/detail로 재조회합니다.
   // 단, free 폴백으로 공개 열람 가능한 일자는 공개 범위 안에서 그대로 노출됩니다.
   const pageData = await getStockPageData(ticker, date);
-  // 존재하지 않는 티커는 404 처리 (soft 404 로 색인되는 것 방지)
-  if (pageData.isUnknownTicker) notFound();
-  const initialReport = pageData.report;
 
   // 대중적 통칭/별칭 결합명 (예: "알파벳 A (구글)")
   const displayName = pageData.displayName;
+
+  // 존재하지 않거나 분석되지 않은 티커의 경우:
+  if (pageData.isUnknownTicker) {
+    // 유효한 티커 심볼 형식(영문 1~6자 또는 국내 종목코드 숫자 6자)인지 확인
+    const isValidTickerPattern = /^[A-Z0-9.\-]{1,10}$/.test(ticker);
+    if (!isValidTickerPattern) {
+      notFound();
+    }
+    // 유효한 티커면 미분석 안내 및 13인 거장 AI 즉시 분석 요청 뷰 렌더링
+    return <UnanalyzedStockView ticker={ticker} displayName={displayName} />;
+  }
+
+  const initialReport = pageData.report;
 
   // SSR initialReport에도 별칭이 포함된 이름을 반영하여 HTML 본문 크롤링 시 검색 키워드 보존
   const reportForRender = initialReport
