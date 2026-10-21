@@ -147,6 +147,7 @@ export function buildStockJsonLd({
               name: `${displayName}(${ticker}) 13인 투자 거장 AI 가치평가 리포트`,
               description,
               inLanguage: "ko",
+              license: `${SITE_URL}/terms`,
               creator: {
                 "@type": "Organization",
                 "@id": `${SITE_URL}/#organization`,
