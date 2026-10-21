@@ -86,13 +86,14 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
+      { url: "/icon-48x48.png", type: "image/png", sizes: "48x48" },
+      { url: "/icon-96x96.png", type: "image/png", sizes: "96x96" },
+      { url: "/icon-192x192.png", type: "image/png", sizes: "192x192" },
       { url: "/favicon.ico", sizes: "any" },
       { url: "/icon.svg", type: "image/svg+xml" },
-      { url: "/reportist-logo-fill-120x120.png", type: "image/png", sizes: "120x120" },
     ],
     apple: [
-      { url: "/apple-icon.svg", type: "image/svg+xml" },
-      { url: "/reportist-logo-fill-120x120.png", type: "image/png", sizes: "120x120" },
+      { url: "/icon-192x192.png", type: "image/png", sizes: "192x192" },
     ],
   },
   manifest: "/manifest.webmanifest",
