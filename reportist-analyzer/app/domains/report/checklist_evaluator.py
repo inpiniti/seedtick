@@ -230,14 +230,60 @@ def evaluate_guru_checklists(dp: StockDataPack) -> dict[str, list[dict]]:
                 note="수요 견조, 재고 소진 원활" if passed else "재고 급증에 따른 덤핑/마진 압박 경고",
             )
         )
+    else:
+        lynch_items.append(
+            ChecklistItem(
+                criterion="재고 건전성 (재고 증가율 vs 매출 증가율)",
+                metric_value="미공개/결측",
+                threshold="재고증가율 <= 매출증가율",
+                status="N/A",
+                note="재고 지표 결측 — 매출 성장세 및 PEG 지표 중심으로 종합 판단",
+            )
+        )
     results["피터-린치"] = [asdict(i) for i in lynch_items]
 
-    # 7. 마이클 버리 & 찰리 멍거 (포렌식 & 현금흐름 질)
+    # 7. 필립 피셔 (Philip Fisher - R&D 생산성과 지속 성장)
+    fisher_items: list[ChecklistItem] = []
+    rd_pct = fm.get("rd_to_revenue_pct")
+    if rd_pct is not None:
+        passed = rd_pct >= 5.0
+        fisher_items.append(
+            ChecklistItem(
+                criterion="연구개발비 비중 (R&D / 매출액)",
+                metric_value=f"{rd_pct:.1f}%",
+                threshold=">= 5.0%",
+                status="PASS" if passed else "CAUTION",
+                note="충분한 R&D 재투자(기술적 해자 구축)" if passed else "R&D 비중 보통 (신제품 파이프라인 확인 필요)",
+            )
+        )
+    else:
+        fisher_items.append(
+            ChecklistItem(
+                criterion="연구개발비 비중 (R&D / 매출액)",
+                metric_value="미공개/결측",
+                threshold=">= 5.0%",
+                status="N/A",
+                note="R&D 지표 결측 — 영업이익률 및 매출 성장 모멘텀으로 종합 판단",
+            )
+        )
+    if inc and inc.operating_margin_pct is not None:
+        passed = inc.operating_margin_pct >= 15.0
+        fisher_items.append(
+            ChecklistItem(
+                criterion="영업이익률 우수성",
+                metric_value=f"{inc.operating_margin_pct:.1f}%",
+                threshold=">= 15.0%",
+                status="PASS" if passed else "CAUTION",
+                note="초우량 기업 수준의 마진 확보" if passed else "마진율 개선 여부 추적 필요",
+            )
+        )
+    results["필립-피셔"] = [asdict(i) for i in fisher_items]
+
+    # 8. 마이클 버리 & 찰리 멍거 (포렌식 & 현금흐름 질)
     forensic_items: list[ChecklistItem] = []
     # (1) 발생액 괴리 (Net Income vs OCF)
     accrual = fm.get("accrual_gap")
     if accrual is not None and inc and inc.net_income:
-        # 발생액이 순이익의 20%를 초과하는지 여부
         is_aggressive = accrual > (abs(inc.net_income) * 0.20)
         forensic_items.append(
             ChecklistItem(
@@ -265,7 +311,7 @@ def evaluate_guru_checklists(dp: StockDataPack) -> dict[str, list[dict]]:
     results["마이클-버리"] = [asdict(i) for i in forensic_items]
     results["찰리-멍거"] = [asdict(i) for i in forensic_items]
 
-    # 8. 잭 슈웨거 (Jack Schwager - 추세와 손익비)
+    # 9. 잭 슈웨거 (Jack Schwager - 추세와 거래량 모멘텀)
     schwager_items: list[ChecklistItem] = []
     ma50_str = mm.get("50일 이동평균선", "")
     ma200_str = mm.get("200일 이동평균선", "")
@@ -281,15 +327,39 @@ def evaluate_guru_checklists(dp: StockDataPack) -> dict[str, list[dict]]:
         schwager_items.append(
             ChecklistItem(
                 criterion="이동평균선 추세 정합성 (50일 / 200일선)",
-                metric_value=f"현재가 ${price:.2f} (50일: ${ma50:.2f}, 200일: ${ma200:.2f})",
+                metric_value=f"현재가 ${price:.2f} (50일: ${ma50:.2f}, 200일: ${ma200:.2f})" if dp.currency == "USD" else f"현재가 {price:,.0f}원 (50일: {ma50:,.0f}원, 200일: {ma200:,.0f}원)",
                 threshold="현재가 > MA50 > MA200",
                 status=status,
                 note=note,
             )
         )
+
+    rvol_str = mm.get("상대 거래량(RVol)", "")
+    if rvol_str and rvol_str != "N/A":
+        rvol_val = parse_number(rvol_str)
+        passed = (rvol_val is not None and rvol_val >= 1.0)
+        schwager_items.append(
+            ChecklistItem(
+                criterion="거래량 모멘텀 (평균 대비 상대 거래량)",
+                metric_value=rvol_str,
+                threshold=">= 1.0배 (평균 수준 이상)",
+                status="PASS" if passed else "CAUTION",
+                note="거래량이 수반된 유의미한 추세" if passed else "거래량 다소 부족 (돌파 강도 확인 필요)",
+            )
+        )
+    else:
+        schwager_items.append(
+            ChecklistItem(
+                criterion="거래량 모멘텀 (평균 대비 상대 거래량)",
+                metric_value="미공개/결측",
+                threshold=">= 1.0배",
+                status="N/A",
+                note="거래량 결측 — 이평선 추세 구조 중심으로 우선 판단",
+            )
+        )
     results["잭-슈웨거"] = [asdict(i) for i in schwager_items]
 
-    # 9. 애스워스 다모다란 (Aswath Damodaran - DCF 펀더멘털)
+    # 10. 애스워스 다모다란 (Aswath Damodaran - DCF 펀더멘털)
     damodaran_items: list[ChecklistItem] = []
     if cf and cf.fcf and v.enterprise_value and v.enterprise_value > 0:
         fcf_yield = (cf.fcf / v.enterprise_value) * 100.0

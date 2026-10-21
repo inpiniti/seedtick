@@ -600,10 +600,12 @@ class DataPackBuilder:
             "annualStockBasedCompensation",
             "annualDilutedAverageShares",
             "annualInventory",
+            "annualResearchAndDevelopment",
             # 분기 지표 (최근 5분기 실적)
             "quarterlyTotalRevenue", "quarterlyGrossProfit", "quarterlyOperatingIncome",
             "quarterlyNetIncome", "quarterlyDilutedEPS", "quarterlyOperatingCashFlow",
             "quarterlyCapitalExpenditure", "quarterlyFreeCashFlow",
+            "quarterlyResearchAndDevelopment", "quarterlyInventory",
         ]
         yahoo_ticker = normalize_yahoo_ticker(ticker)
         now_ts = int(datetime.now().timestamp()) + 86400 * 30
@@ -907,13 +909,14 @@ class DataPackBuilder:
         balance_sheet = self._parse_balance_sheet(ts, fin_data)
 
         # 통화 판별 (거래통화 vs 재무원장통화)
-        price_curr = meta.get("currency") or "USD"
-        fin_curr = fin_data.get("financialCurrency") or "USD"
         clean_code = ticker.replace(".KS", "").replace(".KQ", "").strip()
+        is_krw_symbol = (clean_code.isdigit() and len(clean_code) == 6) or ticker.endswith((".KS", ".KQ"))
+        price_curr = meta.get("currency") or ("KRW" if is_krw_symbol else "USD")
+        fin_curr = fin_data.get("financialCurrency") or ("KRW" if is_krw_symbol else "USD")
         is_krw = (
             fin_curr.upper() == "KRW"
             or price_curr.upper() == "KRW"
-            or (clean_code.isdigit() and len(clean_code) == 6)
+            or is_krw_symbol
             or ticker in ["SKHY", "PKX", "KB", "SHG", "KT"]
             or (income_rows and income_rows[-1].revenue and income_rows[-1].revenue > 1e12)
         )
@@ -946,36 +949,47 @@ class DataPackBuilder:
             f"- **사업 개요**: {summary_text}"
         )
 
+        is_krw_price = (price_curr.upper() == "KRW")
         high52_val = high52 or n_high52
         low52_val = low52 or n_low52
         high52_str = (
             f"{int(high52_val):,}원"
-            if (is_krw and high52_val)
+            if (is_krw_price and high52_val)
             else (f"${high52_val:.2f}" if high52_val else "N/A")
         )
         low52_str = (
             f"{int(low52_val):,}원"
-            if (is_krw and low52_val)
+            if (is_krw_price and low52_val)
             else (f"${low52_val:.2f}" if low52_val else "N/A")
         )
 
         fifty_d_raw = self._raw(summary_detail.get("fiftyDayAverage"))
         two_hundred_d_raw = self._raw(summary_detail.get("twoHundredDayAverage"))
 
+        # 거래량 및 평균 거래량 (모멘텀 및 돌파 검증 필수 지표)
+        cur_vol = meta.get("regularMarketVolume") or self._raw(summary_detail.get("volume"))
+        if not cur_vol and naver_total.get("quant"):
+            cur_vol = _parse_naver_num(naver_total.get("quant"))
+        avg_vol = self._raw(summary_detail.get("averageDailyVolume10Day")) or self._raw(summary_detail.get("averageVolume"))
+        rvol = (cur_vol / avg_vol) if (cur_vol and avg_vol and avg_vol > 0) else None
+
         market_metrics = {
             "52주 고가": high52_str,
             "52주 저가": low52_str,
+            "당일 거래량": f"{int(cur_vol):,}주" if cur_vol else "N/A",
+            "20일 평균 거래량": f"{int(avg_vol):,}주" if avg_vol else "N/A",
+            "상대 거래량(RVol)": f"{rvol:.2f}배 (평균 대비)" if rvol else "N/A",
             "공매도 비율(Short % of Float)": self._pct(self._raw(key_stats.get("shortPercentOfFloat"))),
             "내부자 지분율": self._pct(self._raw(key_stats.get("heldPercentInsiders"))),
             "기관 지분율": self._pct(self._raw(key_stats.get("heldPercentInstitutions"))),
             "50일 이동평균선": (
                 f"{int(fifty_d_raw):,}원"
-                if (is_krw and fifty_d_raw)
+                if (is_krw_price and fifty_d_raw)
                 else (f"${fifty_d_raw:.2f}" if fifty_d_raw else "N/A")
             ),
             "200일 이동평균선": (
                 f"{int(two_hundred_d_raw):,}원"
-                if (is_krw and two_hundred_d_raw)
+                if (is_krw_price and two_hundred_d_raw)
                 else (f"${two_hundred_d_raw:.2f}" if two_hundred_d_raw else "N/A")
             ),
         }
@@ -994,7 +1008,7 @@ class DataPackBuilder:
         def _fmt_price(val: float | None) -> str:
             if not val:
                 return "N/A"
-            if is_krw:
+            if is_krw_price:
                 return f"{int(val):,}원"
             return f"${val:.2f}"
 
@@ -1074,6 +1088,11 @@ class DataPackBuilder:
         inv_prev = inv_series[-2]["value"] if len(inv_series) >= 2 else None
         inv_growth_pct = ((inv_last / inv_prev - 1.0) * 100.0) if (inv_last and inv_prev and inv_prev > 0) else None
 
+        rd_series = self._series(ts, "annualResearchAndDevelopment")
+        rd_last = self._last(rd_series)
+        latest_rev = income_rows[-1].revenue if income_rows else None
+        rd_to_rev_pct = ((rd_last / latest_rev) * 100.0) if (rd_last and latest_rev and latest_rev > 0) else None
+
         latest_net = income_rows[-1].net_income if income_rows else None
         latest_ocf = cashflow_rows[-1].operating_cash_flow if cashflow_rows else None
         accrual_gap = (latest_net - latest_ocf) if (latest_net is not None and latest_ocf is not None) else None
@@ -1084,6 +1103,8 @@ class DataPackBuilder:
             "shares_dilution_pct": round(dilution_pct, 2) if dilution_pct is not None else None,
             "inventory": inv_last,
             "inventory_growth_pct": round(inv_growth_pct, 2) if inv_growth_pct is not None else None,
+            "research_and_development": rd_last,
+            "rd_to_revenue_pct": round(rd_to_rev_pct, 2) if rd_to_rev_pct is not None else None,
             "accrual_gap": accrual_gap,
             "debt_payoff_years": round(debt_years, 1) if debt_years is not None else None,
         }
@@ -1337,6 +1358,12 @@ class DataPackBuilder:
                 gm = f"{r.gross_margin_pct:.1f}%" if r.gross_margin_pct is not None else "—"
                 om = f"{r.operating_margin_pct:.1f}%" if r.operating_margin_pct is not None else "—"
                 nm = f"{r.net_margin_pct:.1f}%" if r.net_margin_pct is not None else "—"
+                anomaly_note = ""
+                if r.revenue and r.net_income and r.net_income > (r.revenue * 1.2):
+                    anomaly_note = " ⚠️(비경상손익 주의: 순이익 > 매출)"
+                elif r.operating_income and r.net_income and r.operating_income > 0 and r.net_income > (r.operating_income * 2.0):
+                    anomaly_note = " ⚠️(영업외수익 급증)"
+
                 if is_krw and r.eps is not None:
                     eps = f"{r.eps:,.0f}원"
                 elif r.eps is not None:
@@ -1344,19 +1371,31 @@ class DataPackBuilder:
                 else:
                     eps = "—"
                 lines.append(
-                    f"| {r.year} | {self._money(r.revenue, is_krw)} | {gm} | {self._money(r.operating_income, is_krw)} | {om} | {self._money(r.net_income, is_krw)} | {nm} | {eps} |"
+                    f"| {r.year} | {self._money(r.revenue, is_krw)} | {gm} | {self._money(r.operating_income, is_krw)} | {om} | {self._money(r.net_income, is_krw)} | {nm} | {eps}{anomaly_note} |"
                 )
 
         lines.extend([
             "",
-            "### 현금흐름표",
-            "| 연도 | 영업현금흐름 | CapEx | 잉여현금흐름(FCF) |",
+            "### 현금흐름표 (연간 추이)",
+            "| 연도 | 영업현금흐름(OCF) | CapEx | 잉여현금흐름(FCF) |",
             "|---|---|---|---|",
         ])
         for c in dp.cashflow_annual:
             lines.append(
                 f"| {c.year} | {self._money(c.operating_cash_flow, is_krw)} | {self._money(c.capex, is_krw)} | {self._money(c.fcf, is_krw)} |"
             )
+
+        if dp.cashflow_quarterly:
+            lines.extend([
+                "",
+                "### 최근 분기 현금흐름 추이 (Quarterly Cash Flow)",
+                "| 분기 | 영업현금흐름(OCF) | CapEx | 잉여현금흐름(FCF) |",
+                "|---|---|---|---|",
+            ])
+            for c in dp.cashflow_quarterly:
+                lines.append(
+                    f"| {c.year} | {self._money(c.operating_cash_flow, is_krw)} | {self._money(c.capex, is_krw)} | {self._money(c.fcf, is_krw)} |"
+                )
 
         bs = dp.balance_sheet
         lines.extend([
@@ -1387,10 +1426,10 @@ class DataPackBuilder:
                 lines.append("- **시가총액**: 약 142조원 (~$105B USD, 한국 본주 합산 실질 시총 / 미국 ADR 거래단위: $1.39B)")
             elif mc and mc >= 1e12:
                 lines.append(f"- **시가총액**: {mc / 1e12:.2f}조원 (~${mc / (1350 * 1e9):.1f}B USD, $1=1,350원 기준)")
-            elif mc and mc >= 1e9:
-                lines.append(f"- **시가총액**: 약 {mc * 1350 / 1e12:.1f}조원 (~${mc / 1e9:.2f}B USD)")
+            elif mc and mc >= 1e8:
+                lines.append(f"- **시가총액**: {mc / 1e8:,.0f}억원 (~${mc / (1350 * 1e6):.1f}M USD)")
             elif mc:
-                lines.append(f"- **시가총액**: {self._money(mc, is_krw=True)}")
+                lines.append(f"- **시가총액**: {mc:,.0f}원")
             else:
                 lines.append("- **시가총액**: N/A (한국 본주 기준 시가총액 확인 필요)")
         elif mc:
@@ -1420,6 +1459,36 @@ class DataPackBuilder:
             f"- **순유동자산가치 (NCAV)**: {self._money(bs.ncav, is_krw)} (유동자산 - 부채총계)" if bs.ncav is not None else "- **순유동자산가치 (NCAV)**: N/A",
             f"- **이익수익률 (EBIT / EV)**: {v.earnings_yield_pct:.2f}% (그린블라트 마법공식)" if v.earnings_yield_pct is not None else "- **이익수익률 (EBIT / EV)**: N/A",
             f"- **투하자본수익률 (ROIC)**: {bs.roic_pct:.1f}% (그린블라트 자본수익률 / 버핏 해자)" if bs.roic_pct is not None else "- **투하자본수익률 (ROIC)**: N/A",
+        ])
+
+        # 포렌식 및 회계 품질 검증 지표 (Forensic Metrics)
+        fm = getattr(dp, "forensic_metrics", {}) or {}
+        if fm:
+            lines.extend([
+                "",
+                "### 포렌식 및 회계 품질 검증 지표 (Forensic & Quality Metrics)",
+            ])
+            if fm.get("research_and_development") is not None:
+                rd_val = fm["research_and_development"]
+                rd_pct = fm.get("rd_to_revenue_pct")
+                rd_pct_str = f" (매출액의 {rd_pct:.1f}%)" if rd_pct is not None else ""
+                lines.append(f"- **연구개발비 (R&D Expense)**: {self._money(rd_val, is_krw)}{rd_pct_str}")
+            if fm.get("inventory") is not None:
+                inv_val = fm["inventory"]
+                inv_growth = fm.get("inventory_growth_pct")
+                inv_growth_str = f" (전년 대비 {inv_growth:+.1f}%)" if inv_growth is not None else ""
+                lines.append(f"- **재고자산 (Inventory)**: {self._money(inv_val, is_krw)}{inv_growth_str}")
+            if fm.get("stock_based_compensation") is not None:
+                lines.append(f"- **주식기준보상 (SBC)**: {self._money(fm['stock_based_compensation'], is_krw)}")
+            if fm.get("shares_dilution_pct") is not None:
+                lines.append(f"- **발행주식수 연간 변동률**: {fm['shares_dilution_pct']:+.2f}%")
+            if fm.get("debt_payoff_years") is not None:
+                lines.append(f"- **부채상환 소요연수 (Total Debt / Net Income)**: {fm['debt_payoff_years']}년")
+            if fm.get("accrual_gap") is not None:
+                acc_val = fm["accrual_gap"]
+                lines.append(f"- **발생액 괴리 (순이익 - 영업현금흐름)**: {self._money(acc_val, is_krw)}")
+
+        lines.extend([
             "",
             "---",
             "",

@@ -192,10 +192,11 @@ Evaluate this company through your unique investment lens, directly citing verif
 {datapack_markdown}
 {checklist_section}
 [Verdict Criteria — Strictly adhere to these definitions]
-- 매수 (BUY): Current market price is within or below your calculated fair value / buy zone, AND the business passes your core checklist. A compelling reason to enter a new position now.
-- 보유 (HOLD): Outstanding business fitting your principles, but currently trading above your ideal entry price. Not attractive for new buying, but existing shareholders should continue holding.
-- 관망 (WATCH): Parts of your checklist are unmet, key data is lacking, or waiting for a specific catalyst (earnings, valuation pullback, margin inflection). Re-evaluate when conditions are met.
-- 매도 (SELL): Directly violates your core principles, significantly overvalued against intrinsic value, or carries severe accounting/balance-sheet risks.
+- 매수 (BUY): Current market price is within or below your calculated fair value / buy zone (adequate margin of safety), AND the business passes your core principles. A compelling opportunity to enter or accumulate.
+- 보유 (HOLD): Outstanding or viable business fitting your principles, but currently trading near fair value without deep margin of safety. Not ideal for fresh aggressive buying, but solid to hold for existing investors.
+- 매도 (SELL): Directly violates your core principles, significantly overvalued against intrinsic value, or carries severe financial/competitive risks.
+- 관망 (WATCH): USE SPARINGLY. Reserve ONLY for situations with existential going-concern ambiguity, extreme cyclical inflection points where valuation is impossible, or immediate binary catalysts.
+  *CRITICAL INSTRUCTION*: Do NOT default to '관망 (WATCH)' merely because minor secondary metrics (e.g. detailed R&D breakdown, secret customer unit prices) are absent. If core financial statements (Revenue, Margins, Cash Flow, Debt, Multiples) are verified, apply conservative assumptions on missing variables to reach an actionable verdict (매수, 보유, or 매도).
 Decision sequence: ① Calculate your fair value / buy zone first → ② Compare against the current market price → ③ Factor in checklist fulfillment to choose one verdict.
 
 [Rules & Output Requirements]
@@ -212,7 +213,7 @@ Decision sequence: ① Calculate your fair value / buy zone first → ② Compar
    - 'horizon': Your investment holding horizon ("1y" | "3-5y" | "indefinite").
 6. 'checklist': 2 to 4 key quantitative criteria evaluated by your philosophy, formatted as a list of objects: [{{"criterion": "P/E x P/B <= 22.5", "passed": true, "value": "18.4"}}].
 7. 'key_metrics_used': List of the top 2-4 critical numerical metrics you relied upon: [{{"name": "ROE", "value": "24.5%"}}].
-8. 'data_gaps': 0 to 3 specific financial/operational metrics that were missing from the data pack which you needed to fully verify your checklist (in Korean, e.g., ["3개년 재고 회전율 추이", "R&D 투자 대비 특허 출원율"]).
+8. 'data_gaps': 0 to 3 critical missing metrics genuinely required. If the core statements suffice to form a conviction, leave this empty ([]).
 9. 'trigger_conditions' are 1 to 2 key events or metrics that would change your verdict or allocation.
 10. 'quote' is a single punchy statement reflecting your unique persona, tone, and conviction.
 11. [CRITICAL LANGUAGE REQUIREMENT] While your internal evaluation and reasoning follow the English principles above, write the values for 'core_arguments', 'data_gaps', 'trigger_conditions', and 'quote' in natural, professional Korean (한국어) for Korean investors.
