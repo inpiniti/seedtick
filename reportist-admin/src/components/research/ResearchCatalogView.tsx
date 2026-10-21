@@ -53,6 +53,10 @@ import { isReportRestricted, getDefaultReportDate } from "@/lib/subscription/sub
 import { DataCache } from "@/lib/dataCache";
 import { matchesTickerAlias } from "@/lib/tickerAliases";
 import type { TickerDirectoryEntry } from "@/lib/server/publicCatalog";
+import {
+  getPreviousAvailableDate,
+  deduplicateReportsByLatestDate,
+} from "@/lib/reportUtils";
 
 const KR_STEP_5_INFO = {
   label: "5단계 (추천 알짜)",
@@ -445,13 +449,23 @@ export function ResearchCatalogView({
     };
   };
 
+  // 선택 일자의 직전 분석 일자 (주말/공휴일 반영 실제 존재하는 이전 분석일)
+  const prevDate = useMemo(
+    () => getPreviousAvailableDate(selectedDate, availableDates),
+    [selectedDate, availableDates]
+  );
+
   // 1. 리포트 필터링 (날짜 & 검색 & 의견 + 권한)
   // 캐시/선행 로드로 제한 일자 리포트가 섞여 들어와도 리스트에 노출하지 않는다.
   const filteredReports = useMemo(() => {
     const list = permittedReports.filter((r) => {
-      // 날짜 필터링 (선택된 날짜가 있고 "ALL"이 아닐 때)
-      if (selectedDate && selectedDate !== "ALL" && r.d !== selectedDate) {
-        return false;
+      // 날짜 필터링 (선택된 날짜가 있고 "ALL"이 아닐 때: 당일 분석일 및 직전 분석일 허용)
+      if (selectedDate && selectedDate !== "ALL") {
+        const isCurrent = r.d === selectedDate;
+        const isPrev = prevDate ? r.d === prevDate : false;
+        if (!isCurrent && !isPrev) {
+          return false;
+        }
       }
 
       const matchesSearch =
@@ -480,8 +494,11 @@ export function ResearchCatalogView({
       return true;
     });
 
+    // 중복 종목코드가 있는 경우 최신 날짜 리포트 우선으로 중복 제거
+    const dedupedList = deduplicateReportsByLatestDate(list);
+
     // 종목 리스트 정렬 (내재가치/종가 가 높은 거 부터 디폴트 정렬)
-    return list.slice().sort((a, b) => {
+    return dedupedList.slice().sort((a, b) => {
       if (reportSortBy === "RATIO_DESC") {
         const fairA = extractValuationConsensus(a)?.fair_value_price ?? 0;
         const priceA = a.current_price ?? 0;
@@ -511,7 +528,13 @@ export function ResearchCatalogView({
 
       return 0;
     });
-  }, [permittedReports, selectedDate, searchQuery, reportVerdictFilter, reportSortBy, tickerNameMap]);
+  }, [permittedReports, selectedDate, prevDate, searchQuery, reportVerdictFilter, reportSortBy, tickerNameMap]);
+
+  // 직전 분석일 데이터로 보완된 종목이 현재 표시 목록에 포함되어 있는지 여부
+  const hasSupplementedReports = useMemo(() => {
+    if (!selectedDate || selectedDate === "ALL" || !prevDate) return false;
+    return filteredReports.some((r) => r.d === prevDate);
+  }, [filteredReports, selectedDate, prevDate]);
 
   // 2. DataRoma 후보군 전체 필터링
   const filteredRoma = useMemo(() => {
@@ -1225,6 +1248,14 @@ export function ResearchCatalogView({
                   <span className="font-semibold text-[#0f172a]">
                     분석 기준일: {selectedDate || availableDates[0] || "최신"}
                   </span>
+                  {hasSupplementedReports && prevDate && (
+                    <span
+                      title={`당일 장 마감 전 국장 종목 등은 직전 분석일(${prevDate}) 데이터로 자동 보완되었습니다.`}
+                      className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-[#e2e8f0] bg-[#f8fafc] text-[#475569] inline-flex items-center gap-1"
+                    >
+                      <span>직전 분석일({prevDate}) 보완</span>
+                    </span>
+                  )}
                   <span className="text-[#64748b]">
                     (총 {displayedReports.length}건
                     {isAll && filteredReports.length > 10 ? " 중 상위 10건" : ""}
@@ -1298,6 +1329,14 @@ export function ResearchCatalogView({
                           <span className="text-[11px] text-[#64748b] ml-auto sm:ml-0 flex items-center gap-1">
                             <Calendar className="w-3 h-3 text-[#94a3b8]" />
                             <span>{report.d}</span>
+                            {selectedDate && selectedDate !== "ALL" && report.d !== selectedDate && (
+                              <span
+                                title="당일 분석 전 직전 분석일 데이터로 보완된 리포트입니다."
+                                className="text-[10px] font-mono px-1 py-0.2 rounded bg-slate-100 text-[#475569] border border-[#cbd5e1]"
+                              >
+                                직전일
+                              </span>
+                            )}
                           </span>
                         }
                         summary={

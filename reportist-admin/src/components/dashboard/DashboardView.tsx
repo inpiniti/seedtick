@@ -84,6 +84,7 @@ import {
   getBrowserSearchParam,
   getBrowserSearchParams,
 } from "@/lib/urlParams";
+import { getPreviousAvailableDate } from "@/lib/reportUtils";
 
 const DASHBOARD_FETCH_TIMEOUT_MS = 5000;
 
@@ -582,10 +583,12 @@ export function DashboardView({
         setSelectedCatalogDate(activeDate);
       }
 
+      const prevDate = getPreviousAvailableDate(activeDate, dates);
       const reports = await getCachedGuruReports(
         activeDate && activeDate !== "ALL" ? activeDate : "ALL",
         currentAccessKey,
-        force
+        force,
+        prevDate
       );
       if (mySeq !== dashboardSeqRef.current) return;
       // 빈 실패 응답으로 기존 리스트를 지우지 않음 (그림5: 메뉴 이동 시 숫자 날림 방지)
@@ -614,9 +617,12 @@ export function DashboardView({
 
     setIsCatalogDateLoading(true);
     try {
+      const prevDate = getPreviousAvailableDate(targetDate, availableCatalogDates);
       const reports = await getCachedGuruReports(
         targetDate === "ALL" ? "ALL" : targetDate,
-        currentAccessKey
+        currentAccessKey,
+        false,
+        prevDate
       );
       // 일자 변경 후 도착한 구 응답은 버림
       if (mySeq !== dashboardSeqRef.current) return;
@@ -629,7 +635,7 @@ export function DashboardView({
     } finally {
       if (mySeq === dashboardSeqRef.current) setIsCatalogDateLoading(false);
     }
-  }, [user?.id]);
+  }, [availableCatalogDates, user?.id]);
 
   // 사용자가 카탈로그 드롭다운이나 빠른 날짜 버튼을 직접 클릭했을 때의 이벤트 핸들러
   const handleUserSelectCatalogDate = useCallback(

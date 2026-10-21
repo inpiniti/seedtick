@@ -54,11 +54,20 @@ export async function fetchSystemLogs(
  * 심층 투자 보고서 목록 — 서버 게이트웨이 경유 (직접 DB 접근 금지).
  * 권한 없는 행은 서버가 민감 컬럼을 제거한 티저(현재가만)로 반환합니다.
  */
-export async function fetchGuruReports(limit = 200, date?: string): Promise<GuruReportRow[]> {
+export async function fetchGuruReports(
+  limit = 200,
+  date?: string,
+  prevDate?: string
+): Promise<GuruReportRow[]> {
   try {
     const params = new URLSearchParams();
     params.set("limit", String(limit));
-    if (date && date !== "ALL") params.set("date", date);
+    if (date && date !== "ALL") {
+      params.set("date", date);
+      if (prevDate && prevDate !== "ALL" && prevDate !== date) {
+        params.set("prev_date", prevDate);
+      }
+    }
     const res = await fetch(`/api/reports?${params.toString()}`, {
       headers: await getReportAuthHeaders(),
       cache: "no-store",

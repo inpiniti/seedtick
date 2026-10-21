@@ -58,7 +58,8 @@ export async function getCachedReportDates(force = false): Promise<string[]> {
 export async function getCachedGuruReports(
   date: string,
   accessKey: string,
-  force = false
+  force = false,
+  prevDate?: string
 ): Promise<GuruReportRow[]> {
   const qc = getQueryClient();
   const dateKey = date || "LATEST";
@@ -76,7 +77,8 @@ export async function getCachedGuruReports(
     queryFn: async () => {
       const reports = await fetchGuruReports(
         200,
-        dateKey === "ALL" ? undefined : dateKey
+        dateKey === "ALL" ? undefined : dateKey,
+        prevDate
       );
       if (reports.length > 0) {
         DataCache.setReports(dateKey, reports);
