@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import {
   OutcomesOverview,
   GuruAccuracyStat,
@@ -580,7 +581,18 @@ export function OutcomesView({
                           {r.d}
                         </td>
                         <td className="py-3 px-4 font-bold font-mono text-[#0f172a]">
-                          ${r.ticker}
+                          <Link
+                            href={`/stocks/${encodeURIComponent(r.ticker)}/${encodeURIComponent(r.d)}?from=sec-outcomes`}
+                            onClick={(e) => {
+                              if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onSelectReport?.(r.report_id, r.ticker, r.d);
+                            }}
+                            className="hover:underline underline-offset-2"
+                          >
+                            ${r.ticker}
+                          </Link>
                         </td>
                         <td className="py-3 px-4 font-mono text-[#64748b]">
                           {r.horizon_days}거래일

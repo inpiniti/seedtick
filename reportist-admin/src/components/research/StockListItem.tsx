@@ -208,7 +208,11 @@ export function StockListItem({
                 <Link
                   href={href}
                   onClick={(e) => {
-                    // Link가 이동을 담당하므로 행 클릭 핸들러의 중복 이동을 막는다.
+                    // 새 탭 열기 (Ctrl/Cmd/Shift/Alt 클릭) 또는 마우스 우클릭은 브라우저 기본 동작 유지
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
+                      return;
+                    }
+                    e.preventDefault();
                     e.stopPropagation();
                     onClick();
                   }}

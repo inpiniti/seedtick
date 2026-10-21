@@ -1033,7 +1033,11 @@ export function ResearchCatalogView({
                       <Link
                         key={item.ticker}
                         href={stockDetailHref(item.ticker)}
-                        onClick={() => onSelectReport(item.report, undefined, { navigate: false })}
+                        onClick={(e) => {
+                          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                          e.preventDefault();
+                          onSelectReport(item.report);
+                        }}
                         className="flex items-center justify-between hover:bg-[#f8fafc] p-1 rounded cursor-pointer transition-colors"
                       >
                         <span className="font-bold text-[#0f172a]">
@@ -1328,7 +1332,7 @@ export function ResearchCatalogView({
                         rowRef={observePbRow(ticker, pbKey)}
                         rowKey={pbKey}
                         href={stockDetailHref(ticker)}
-                        onClick={() => onSelectReport(report, undefined, { navigate: false })}
+                        onClick={() => onSelectReport(report)}
                         badges={
                           <span className="text-[11px] text-[#64748b] ml-auto sm:ml-0 flex items-center gap-1">
                             <Calendar className="w-3 h-3 text-[#94a3b8]" />
@@ -1448,7 +1452,7 @@ export function ResearchCatalogView({
                         rowRef={observePbRow(c.ticker, pbKey)}
                         rowKey={pbKey}
                         href={stockDetailHref(c.ticker)}
-                        onClick={() => onSelectCandidate(c, { navigate: false })}
+                        onClick={() => onSelectCandidate(c)}
                         priceText={formatPriceByNation(c.price, undefined, c.ticker)}
                         badges={
                           <>
@@ -1648,6 +1652,7 @@ export function ResearchCatalogView({
                         percentB={percentB}
                         rowRef={observePbRow(c.ticker, pbKey)}
                         rowKey={pbKey}
+                        href={stockDetailHref(c.ticker)}
                         onClick={() => onSelectCandidate(c)}
                         rankPrefix={`#${c.rank || idx + 1}`}
                         priceText={formatPriceByNation(c.price, c.nation || candidateMarket, c.ticker)}
@@ -1780,10 +1785,11 @@ export function ResearchCatalogView({
                 <Link
                   key={guru.slug}
                   href={`/gurus/${encodeURIComponent(guru.slug)}?from=sec-gurus`}
-                  onClick={() => {
-                    // <Link>가 URL 이동을 담당하므로 SPA 이동은 하지 않는다.
+                  onClick={(e) => {
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                    e.preventDefault();
                     if (onSelectGuru) {
-                      onSelectGuru(guru.slug, { navigate: false });
+                      onSelectGuru(guru.slug);
                     } else {
                       setSelectedGuruForModal(guru);
                     }

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import Link from "next/link";
 import {
   ArrowLeft,
   BookOpen,
@@ -413,9 +414,18 @@ export function GuruDocumentView({
                   >
                     <div className="space-y-1.5 min-w-0">
                       <div className="flex items-center gap-2.5">
-                        <span className="font-mono font-bold text-sm text-[#0f172a] group-hover:underline underline-offset-2">
+                        <Link
+                          href={`/stocks/${encodeURIComponent(v.ticker)}?from=sec-gurus`}
+                          onClick={(e) => {
+                            if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onSelectReport(v.report);
+                          }}
+                          className="font-mono font-bold text-sm text-[#0f172a] hover:underline underline-offset-2"
+                        >
                           ${v.ticker}
-                        </span>
+                        </Link>
                         {v.companyName && (
                           <span className="text-xs text-[#64748b] truncate">
                             {v.companyName}
