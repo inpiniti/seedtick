@@ -878,13 +878,14 @@ export function DashboardView({
     tab?: ResearchDocTab,
     options?: { navigate?: boolean }
   ) => {
-    const effectiveTab = tab ?? (report.final_report ? "final" : "chart");
+    const isLive = !report.d || (typeof report.id === "string" && report.id.startsWith("live-"));
+    const effectiveTab = tab ?? (isLive ? "chart" : "final");
     lastOpenedDocTabById[report.id] = effectiveTab;
     setSelectedDocReport(report);
     setSelectedReportDate(report.d);
-    setActiveDocTab(tab ?? undefined);
+    setActiveDocTab(effectiveTab);
 
-    if (options?.navigate !== false) {
+    if (options?.navigate !== false && typeof window !== "undefined") {
       const params = new URLSearchParams(getBrowserSearchParams());
       params.delete("tab");
       // 분석일자는 경로(/stocks/{ticker}/{date})로 관리하므로 쿼리에서 제거
@@ -897,10 +898,13 @@ export function DashboardView({
       }
       const query = params.toString();
       const targetUrl = `/stocks/${encodeURIComponent(report.ticker)}${query ? `?${query}` : ""}`;
-      if (pathname !== `/stocks/${encodeURIComponent(report.ticker)}`) {
-        router.push(targetUrl);
+      
+      // SPA 즉시 전환: Next.js 전체 리마운트(router.push)로 인한 깜빡임 및 상태 유실을 방지하고
+      // 브라우저 주소창 URL만 pushState로 완벽히 동기화
+      if (window.location.pathname !== `/stocks/${encodeURIComponent(report.ticker)}`) {
+        window.history.pushState({ type: "reportist_stock", ticker: report.ticker }, "", targetUrl);
       } else if (query) {
-        router.replace(targetUrl, { scroll: false });
+        window.history.replaceState({ type: "reportist_stock", ticker: report.ticker }, "", targetUrl);
       }
     }
 
@@ -915,7 +919,7 @@ export function DashboardView({
         setAvailableReportDates(merged);
       });
     }
-  }, [guruReports, pathname, router, initialTicker]);
+  }, [guruReports, initialTicker]);
 
   // 후보군 종목을 문서 모드로 열기 (Free/체험만료는 과거 허용 리포트 우선)
   // options.navigate === false 이면 URL 이동은 <Link>가 담당한다.
@@ -962,10 +966,13 @@ export function DashboardView({
       ? getBrowserSearchParam("from")
       : activeSidebarSectionRef.current;
     const detailQuery = from ? `?from=${encodeURIComponent(from)}` : "";
-    if (options?.navigate !== false) {
-      router.push(`/stocks/${encodeURIComponent(candidate.ticker)}${detailQuery}`);
+    if (options?.navigate !== false && typeof window !== "undefined") {
+      const targetUrl = `/stocks/${encodeURIComponent(candidate.ticker)}${detailQuery}`;
+      if (window.location.pathname !== `/stocks/${encodeURIComponent(candidate.ticker)}`) {
+        window.history.pushState({ type: "reportist_stock", ticker: candidate.ticker }, "", targetUrl);
+      }
     }
-  }, [guruReports, handleOpenReport, router, initialTicker]);
+  }, [guruReports, handleOpenReport, initialTicker]);
 
   // 탭 변경 시 URL 쿼리 파라미터 동기화 (?tab=... — 분석일자는 경로에 포함됨)
   const handleTabChange = useCallback((tab: ResearchDocTab) => {
@@ -976,13 +983,12 @@ export function DashboardView({
       const search = new URLSearchParams(getBrowserSearchParams());
       search.set("tab", tab);
       search.delete("date");
-      // 경로(/stocks/{ticker} 또는 /stocks/{ticker}/{date})를 그대로 유지한다.
-      const target = `${pathname}?${search.toString()}`;
-      router.replace(target, {
-        scroll: false,
-      });
+      if (typeof window !== "undefined") {
+        const target = `${window.location.pathname}?${search.toString()}`;
+        window.history.replaceState({ type: "reportist_tab", tab }, "", target);
+      }
     }
-  }, [selectedDocReport, pathname, router]);
+  }, [selectedDocReport]);
 
   // 날짜 변경 시 URL 경로 동기화 (/stocks/{ticker}/{date})
   const handleSelectReportDate = async (targetDate: string) => {
@@ -1053,7 +1059,6 @@ export function DashboardView({
   };
 
   // 거장 심층 철학 문서 뷰로 이동 (출처 기록 → 뒤로가기·선택 유지)
-  // options.navigate === false 이면 URL 이동은 <Link>가 담당한다.
   const handleOpenGuru = useCallback((
     slug: string,
     options?: { navigate?: boolean }
@@ -1066,8 +1071,13 @@ export function DashboardView({
       ? getBrowserSearchParam("from")
       : activeSidebarSectionRef.current;
     const guruQuery = from ? `?from=${encodeURIComponent(from)}` : "";
-    router.push(`/gurus/${encodeURIComponent(slug)}${guruQuery}`);
-  }, [router, initialGuru]);
+    const targetUrl = `/gurus/${encodeURIComponent(slug)}${guruQuery}`;
+    if (typeof window !== "undefined") {
+      if (window.location.pathname !== `/gurus/${encodeURIComponent(slug)}`) {
+        window.history.pushState({ type: "reportist_guru", slug }, "", targetUrl);
+      }
+    }
+  }, [initialGuru]);
 
   // 문서 뷰에서 카탈로그 목록으로 복귀 (출처 섹션으로 정확히 복귀!)
   const handleBackToCatalog = useCallback(() => {
@@ -1085,11 +1095,51 @@ export function DashboardView({
       !initialTicker &&
       !initialGuru
     ) {
-      router.back();
+      window.history.back();
     } else {
       router.push(SECTION_META[originSection].href);
     }
   }, [router, getFromSection, initialTicker, initialGuru]);
+
+  // 브라우저 뒤로가기/앞으로가기 popstate 감지하여 SPA 화면 상태 동기화
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handlePopState = () => {
+      // 직접 접속한 단독 페이지(/stocks/[ticker] 또는 /gurus/[name])인 경우 브라우저/Next.js 기본 동작 유지
+      if (initialTicker || initialGuru) return;
+
+      const path = window.location.pathname;
+      if (path === "/" || path === "/stocks" || path === "/screener" || path === "/outcomes" || path === "/gurus") {
+        setSelectedDocReport(null);
+        setSelectedGuruSlug(null);
+        const from = getFromSection();
+        if (from) setActiveSidebarSection(from);
+      } else if (path.startsWith("/stocks/")) {
+        const match = path.match(/\/stocks\/([^/?]+)/);
+        if (match && match[1]) {
+          const ticker = decodeURIComponent(match[1]).toUpperCase();
+          const found = guruReports.find((r) => r.ticker.toUpperCase() === ticker);
+          if (found) {
+            setSelectedDocReport(found);
+            setSelectedReportDate(found.d);
+            setActiveDocTab("final");
+          } else {
+            router.push(path);
+          }
+        }
+      } else if (path.startsWith("/gurus/")) {
+        const match = path.match(/\/gurus\/([^/?]+)/);
+        if (match && match[1]) {
+          const slug = decodeURIComponent(match[1]);
+          setSelectedGuruSlug(slug);
+          setSelectedDocReport(null);
+        }
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [initialTicker, initialGuru, guruReports, getFromSection]);
 
   // 사이드바 섹션 클릭 시 실제 URL 라우팅
   // 파이프라인/감사로그는 관리자 전용 — 비관리자는 홈으로 돌려보냄

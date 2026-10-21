@@ -102,9 +102,10 @@ export function ResearchDocumentView({
     setTabMemory({ key: docKey, hasFinal: true });
   }
   const rememberedFinal = tabMemory.key === docKey ? tabMemory.hasFinal : !!report?.final_report;
-  // 리포트 변경 시 외부 prop이 없으면 final_report 여부에 따라 탭 자동 결정 (같은 문서 내 다운그레이드는 유지)
-  const defaultTab: ResearchDocTab =
-    report?.final_report || rememberedFinal ? "final" : "chart";
+  // 리포트가 없는 실시간 발굴 후보군(live-)만 chart가 기본이고,
+  // 분석 리포트가 존재하는 종목은 원문/마스킹 티저 여부와 무관하게 final(마스터 보고서)이 기본이다.
+  const isCandidateOnly = !report?.d || (typeof report?.id === "string" && report.id.startsWith("live-"));
+  const defaultTab: ResearchDocTab = isCandidateOnly ? "chart" : "final";
   const activeTab =
     activeTabProp ?? (tabOverride && tabOverride.key === docKey ? tabOverride.tab : defaultTab);
 
