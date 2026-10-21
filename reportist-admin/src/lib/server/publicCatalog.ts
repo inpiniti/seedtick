@@ -21,6 +21,10 @@ import {
   getServerAllowedFreeDate,
   maskReportRowPublic,
 } from "@/lib/subscription/reportAccess";
+import {
+  getPreviousAvailableDate,
+  deduplicateReportsByLatestDate,
+} from "@/lib/reportUtils";
 import type { GuruReportRow } from "@/types/api";
 
 /** 목록 렌더링에 필요한 경량 컬럼 (본문/데이터팩/서머리 제외) */
@@ -237,18 +241,25 @@ export async function getPublicCatalog(): Promise<PublicCatalog> {
     })
     .sort((a, b) => a.ticker.localeCompare(b.ticker));
 
-  // 6. freeDate 기준 공개 리포트 (경량 컬럼)
+  // 6. freeDate 기준 공개 리포트 (직전 분석일 보완 및 최신 우선 종목 중복 제거)
+  const prevDate = getPreviousAvailableDate(freeDate, dates);
+  const targetDates = prevDate ? [freeDate, prevDate] : [freeDate];
+
   let reports: GuruReportRow[] = [];
   try {
     const { data, error } = await supabase
       .from("guru_reports")
       .select(CATALOG_COLUMNS)
-      .eq("d", freeDate)
+      .in("d", targetDates)
+      .order("d", { ascending: false })
+      .order("overall_score", { ascending: true })
       .limit(1000);
     if (error) {
       console.warn("[publicCatalog] report query failed:", error);
     } else {
-      reports = ((data as unknown as GuruReportRow[]) || []).map((row) =>
+      const rawRows = (data as unknown as GuruReportRow[]) || [];
+      const dedupedRows = deduplicateReportsByLatestDate(rawRows);
+      reports = dedupedRows.map((row) =>
         maskReportRowPublic(
           {
             ...row,

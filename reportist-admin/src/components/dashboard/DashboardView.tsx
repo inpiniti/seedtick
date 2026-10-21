@@ -334,7 +334,7 @@ export function DashboardView({
     () => initialCatalogDate ?? ""
   );
   const [isCatalogDateLoading, setIsCatalogDateLoading] = useState(false);
-  const selectedCatalogDateRef = useRef<string>("");
+  const selectedCatalogDateRef = useRef<string>(initialCatalogDate ?? "");
 
   // free 기준 허용 기본 일자 (DB에 30일 이전 행이 없을 때의 폴백)
   // 서버 API(getServerAllowedFreeDate)와 동일한 계산 기준을 사용한다.
@@ -516,7 +516,14 @@ export function DashboardView({
 
     const cachedHealth = DataCache.getHealth();
     const cachedDates = DataCache.getCatalogDates();
-    const activeDateKey = selectedCatalogDateRef.current || "LATEST";
+    const fallbackDefaultDate = getDefaultReportDate(
+      cachedDates || availableCatalogDates,
+      tierRef.current,
+      new Date(),
+      isTrialActiveRef.current
+    );
+    const activeDateKey =
+      selectedCatalogDateRef.current || fallbackDefaultDate || "LATEST";
     const cachedReports = DataCache.getReports(activeDateKey);
     const cachedValuations = DataCache.getHistoricalValuations();
 

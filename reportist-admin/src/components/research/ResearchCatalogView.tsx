@@ -449,19 +449,22 @@ export function ResearchCatalogView({
     };
   };
 
+  // 현재 유효한 분석 일자 (selectedDate가 없으면 최신 분석일 availableDates[0] 기준)
+  const effectiveDate = selectedDate || availableDates[0] || "";
+
   // 선택 일자의 직전 분석 일자 (주말/공휴일 반영 실제 존재하는 이전 분석일)
   const prevDate = useMemo(
-    () => getPreviousAvailableDate(selectedDate, availableDates),
-    [selectedDate, availableDates]
+    () => getPreviousAvailableDate(effectiveDate, availableDates),
+    [effectiveDate, availableDates]
   );
 
   // 1. 리포트 필터링 (날짜 & 검색 & 의견 + 권한)
   // 캐시/선행 로드로 제한 일자 리포트가 섞여 들어와도 리스트에 노출하지 않는다.
   const filteredReports = useMemo(() => {
     const list = permittedReports.filter((r) => {
-      // 날짜 필터링 (선택된 날짜가 있고 "ALL"이 아닐 때: 당일 분석일 및 직전 분석일 허용)
-      if (selectedDate && selectedDate !== "ALL") {
-        const isCurrent = r.d === selectedDate;
+      // 날짜 필터링 (유효한 날짜가 있고 "ALL"이 아닐 때: 당일 분석일 및 직전 분석일 허용)
+      if (effectiveDate && effectiveDate !== "ALL") {
+        const isCurrent = r.d === effectiveDate;
         const isPrev = prevDate ? r.d === prevDate : false;
         if (!isCurrent && !isPrev) {
           return false;
@@ -528,13 +531,13 @@ export function ResearchCatalogView({
 
       return 0;
     });
-  }, [permittedReports, selectedDate, prevDate, searchQuery, reportVerdictFilter, reportSortBy, tickerNameMap]);
+  }, [permittedReports, effectiveDate, prevDate, searchQuery, reportVerdictFilter, reportSortBy, tickerNameMap]);
 
   // 직전 분석일 데이터로 보완된 종목이 현재 표시 목록에 포함되어 있는지 여부
   const hasSupplementedReports = useMemo(() => {
-    if (!selectedDate || selectedDate === "ALL" || !prevDate) return false;
+    if (!effectiveDate || effectiveDate === "ALL" || !prevDate) return false;
     return filteredReports.some((r) => r.d === prevDate);
-  }, [filteredReports, selectedDate, prevDate]);
+  }, [filteredReports, effectiveDate, prevDate]);
 
   // 2. DataRoma 후보군 전체 필터링
   const filteredRoma = useMemo(() => {
@@ -1246,7 +1249,7 @@ export function ResearchCatalogView({
               <div className="flex items-center justify-between pb-2 border-b border-[#e2e8f0] font-mono text-xs flex-wrap gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-semibold text-[#0f172a]">
-                    분석 기준일: {selectedDate || availableDates[0] || "최신"}
+                    분석 기준일: {effectiveDate || "최신"}
                   </span>
                   {hasSupplementedReports && prevDate && (
                     <span
@@ -1330,7 +1333,7 @@ export function ResearchCatalogView({
                           <span className="text-[11px] text-[#64748b] ml-auto sm:ml-0 flex items-center gap-1">
                             <Calendar className="w-3 h-3 text-[#94a3b8]" />
                             <span>{report.d}</span>
-                            {selectedDate && selectedDate !== "ALL" && report.d !== selectedDate && (
+                            {effectiveDate && effectiveDate !== "ALL" && report.d !== effectiveDate && (
                               <span
                                 title="당일 분석 전 직전 분석일 데이터로 보완된 리포트입니다."
                                 className="text-[10px] font-mono px-1 py-0.2 rounded bg-slate-100 text-[#475569] border border-[#cbd5e1]"

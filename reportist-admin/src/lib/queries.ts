@@ -12,8 +12,8 @@ import { DataCache } from "@/lib/dataCache";
 
 export const queryKeys = {
   dates: () => ["reports", "dates"] as const,
-  reports: (dateKey: string, accessKey: string) =>
-    ["reports", "list", dateKey, accessKey] as const,
+  reports: (dateKey: string, accessKey: string, prevDate?: string) =>
+    ["reports", "list", dateKey, accessKey, prevDate ?? ""] as const,
   valuations: (accessKey: string) => ["reports", "valuations", accessKey] as const,
   tickerNames: () => ["tickers", "nameMap"] as const,
   health: () => ["system", "health"] as const,
@@ -63,7 +63,7 @@ export async function getCachedGuruReports(
 ): Promise<GuruReportRow[]> {
   const qc = getQueryClient();
   const dateKey = date || "LATEST";
-  const key = queryKeys.reports(dateKey, accessKey);
+  const key = queryKeys.reports(dateKey, accessKey, prevDate);
 
   if (force) {
     await qc.invalidateQueries({ queryKey: key });
