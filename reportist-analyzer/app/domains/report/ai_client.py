@@ -10,6 +10,7 @@ import os
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 import httpx
+import re
 
 from app.config.settings import settings
 from app.domains.report.model_rotation import model_rotation
@@ -305,6 +306,66 @@ async def _consume_stream(
     return final_content, finish_reason, None
 
 
+def _stitch_responses(prev: str, next_part: str) -> str:
+    """
+    finish_reason='length'로 분할 생성된 두 텍스트를 자연스럽게 이어붙인다.
+
+    1. 서두 미사여구 제거 (예: '네, 이어서 작성하겠습니다.', '(이어서)', 'Here is the continuation:' 등)
+    2. 중복 접합부(Overlap) 감지 및 제거:
+       모델이 문맥 유지를 위해 이전 문장의 끝부분을 다시 반복해서 출력하는 경우를 찾아 1개로 병합.
+    3. 어절/문장 경계 처리:
+       단어 중간에서 끊긴 경우와 문장 끝에서 끊긴 경우를 구분하여 결합.
+    """
+    if not prev:
+        return next_part.strip()
+    if not next_part:
+        return prev.strip()
+
+    had_trailing_space = prev.endswith((" ", "\t"))
+    had_leading_space = next_part.startswith((" ", "\t"))
+    had_newline = prev.endswith("\n") or next_part.startswith("\n")
+
+    prev_clean = prev.rstrip()
+    next_clean = next_part.lstrip()
+
+    # 1. 서두 안내 문구 및 미사여구 제거
+    filler_patterns = [
+        r"^(?:네[,\s]+)?(?:이어서\s*(?:계속\s*)?(?:작성|설명|답변|분석)?(?:하겠습니다|합니다|하도록\s*하겠습니다|드릴게요|드립니다)[\s:.\-\n]*)",
+        r"^(?:\(이어서\)|\[이어서\]|<이어서>|【이어서】)[\s:.\-\n]*",
+        r"^(?:앞선\s*(?:내용|답변)에\s*이어[서]?[\s:.\-\n]*)",
+        r"^(?:Here\s+is\s+the\s+continuation[\s:.\-\n]*)",
+        r"^(?:Continuing\s+from\s+above[\s:.\-\n]*)",
+        r"^(?:\.{3,}|…+)[\s\n]*",
+    ]
+    for pattern in filler_patterns:
+        next_clean = re.sub(pattern, "", next_clean, flags=re.IGNORECASE).lstrip()
+
+    # 2. 접합부 중복(Overlap) 제거: prev의 끝부분과 next_clean의 앞부분 비교
+    # 최대 300글자 범위 내에서 가장 긴 일치 접미사-접두사를 찾는다 (최소 5글자 이상 일치)
+    max_check_len = min(300, len(prev_clean), len(next_clean))
+    overlap_len = 0
+    for length in range(max_check_len, 4, -1):
+        if prev_clean.endswith(next_clean[:length]):
+            overlap_len = length
+            break
+
+    if overlap_len > 0:
+        next_clean = next_clean[overlap_len:]
+        return prev_clean + next_clean
+
+    # 3. 줄바꿈 또는 공백 보존
+    if had_newline:
+        return prev_clean + "\n" + next_clean
+    if had_trailing_space or had_leading_space:
+        return prev_clean + " " + next_clean
+
+    # 4. 문장 끝 부호나 단어 경계 처리
+    if prev_clean and prev_clean[-1] in ".!?:":
+        return prev_clean + " " + next_clean
+
+    return prev_clean + next_clean
+
+
 class AiGatewayClient:
     """
     OpenAI Chat Completions 규격 멀티 프로바이더 클라이언트
@@ -458,6 +519,167 @@ class AiGatewayClient:
         slot = await self._get_next_slot()
         return slot.key if slot else None
 
+    async def _continue_generation_direct(
+        self,
+        slot: KeySlot,
+        model: str,
+        base_messages: list[dict[str, str]],
+        initial_content: str,
+        temperature: float,
+        max_tokens: int,
+        timeout_config: httpx.Timeout,
+        max_continuations: int = 2,
+    ) -> tuple[bool, str]:
+        """
+        통합 풀(Direct) 모드에서 토큰 한도 초과(finish_reason='length') 시
+        이전 답변을 히스토리에 포함하여 동일 모델로 이어받기를 수행한다.
+        """
+        accumulated = initial_content
+        current_slot = slot
+
+        for cont_step in range(1, max_continuations + 1):
+            logger.info(
+                f"[AiClient] 🔄 [{current_slot.provider}] 이어받기(Continuation) 요청 전송 "
+                f"(회차: {cont_step}/{max_continuations}, 현재 누적: {len(accumulated)}자, 모델: {model})"
+            )
+            continuation_messages = list(base_messages)
+            continuation_messages.append({"role": "assistant", "content": accumulated})
+            continuation_messages.append({
+                "role": "user",
+                "content": (
+                    "이전 출력이 최대 토큰 제한으로 인해 도중에 끊겼습니다. "
+                    "서두 인사말, 안내 문구, 이전 내용의 중복 없이, "
+                    "마지막 끊긴 지점 바로 다음 단어부터 이어서 끝까지 작성해주세요."
+                ),
+            })
+
+            payload = {
+                "model": model,
+                "messages": continuation_messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "stream": True,
+            }
+
+            headers = {
+                "Content-Type": "application/json",
+                "Accept": "text/event-stream",
+                "User-Agent": "reportist-analyzer/0.2.0",
+                "Authorization": f"Bearer {current_slot.key}",
+                **current_slot.default_headers,
+            }
+
+            try:
+                async with httpx.AsyncClient(timeout=timeout_config) as client:
+                    async with _stream_post(client, current_slot.base_url, payload, headers) as res:
+                        if res.status_code != 200:
+                            logger.warning(
+                                f"[AiClient] 이어받기 HTTP {res.status_code} "
+                                f"([{current_slot.provider}], 모델: {model})"
+                            )
+                            # 슬롯 변경 후 계속 시도해볼 수 있도록
+                            next_slot = await self._get_next_slot()
+                            if next_slot and next_slot != current_slot:
+                                current_slot = next_slot
+                            return False, accumulated
+
+                        next_chunk, finish_reason, err_obj = await _consume_stream(res)
+                        if err_obj or not next_chunk or not next_chunk.strip():
+                            logger.warning(f"[AiClient] 이어받기 응답 비어있음 또는 에러: {err_obj}")
+                            return False, accumulated
+
+                        accumulated = _stitch_responses(accumulated, next_chunk)
+
+                        if finish_reason == "stop" or finish_reason != "length":
+                            logger.info(
+                                f"[AiClient] ✨ 이어받기 정상 완료 (finish_reason={finish_reason}, "
+                                f"최종 누적 {len(accumulated)}자)"
+                            )
+                            return True, accumulated
+
+                        # finish_reason == "length"인 경우 루프 계속 진행
+            except Exception as e:
+                logger.warning(f"[AiClient] 이어받기 통신 예외 발생 ({e})")
+                return False, accumulated
+
+        logger.info(
+            f"[AiClient] ✨ 이어받기 최대 회차({max_continuations}회) 도달 완료 (최종 {len(accumulated)}자)"
+        )
+        return True, accumulated
+
+    async def _continue_generation_gateway(
+        self,
+        url: str,
+        headers: dict[str, str],
+        model: str,
+        base_messages: list[dict[str, str]],
+        initial_content: str,
+        temperature: float,
+        max_tokens: int,
+        timeout_config: httpx.Timeout,
+        max_continuations: int = 2,
+    ) -> tuple[bool, str]:
+        """
+        AI-Gateway 경유 모드에서 토큰 한도 초과(finish_reason='length') 시
+        이전 답변을 히스토리에 포함하여 동일 모델로 이어받기를 수행한다.
+        """
+        accumulated = initial_content
+
+        for cont_step in range(1, max_continuations + 1):
+            logger.info(
+                f"[AiClient] 🔄 [AI-Gateway] 이어받기(Continuation) 요청 전송 "
+                f"(회차: {cont_step}/{max_continuations}, 현재 누적: {len(accumulated)}자, 모델: {model})"
+            )
+            continuation_messages = list(base_messages)
+            continuation_messages.append({"role": "assistant", "content": accumulated})
+            continuation_messages.append({
+                "role": "user",
+                "content": (
+                    "이전 출력이 최대 토큰 제한으로 인해 도중에 끊겼습니다. "
+                    "서두 인사말, 안내 문구, 이전 내용의 중복 없이, "
+                    "마지막 끊긴 지점 바로 다음 단어부터 이어서 끝까지 작성해주세요."
+                ),
+            })
+
+            payload = {
+                "model": model,
+                "messages": continuation_messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "stream": True,
+            }
+
+            try:
+                async with httpx.AsyncClient(timeout=timeout_config) as client:
+                    async with _stream_post(client, url, payload, headers) as res:
+                        if res.status_code != 200:
+                            logger.warning(
+                                f"[AiClient] [AI-Gateway] 이어받기 HTTP {res.status_code} 실패"
+                            )
+                            return False, accumulated
+
+                        next_chunk, finish_reason, err_obj = await _consume_stream(res)
+                        if err_obj or not next_chunk or not next_chunk.strip():
+                            logger.warning(f"[AiClient] [AI-Gateway] 이어받기 응답 비어있음 또는 에러: {err_obj}")
+                            return False, accumulated
+
+                        accumulated = _stitch_responses(accumulated, next_chunk)
+
+                        if finish_reason == "stop" or finish_reason != "length":
+                            logger.info(
+                                f"[AiClient] ✨ [AI-Gateway] 이어받기 정상 완료 (finish_reason={finish_reason}, "
+                                f"최종 누적 {len(accumulated)}자)"
+                            )
+                            return True, accumulated
+            except Exception as e:
+                logger.warning(f"[AiClient] [AI-Gateway] 이어받기 통신 예외 발생 ({e})")
+                return False, accumulated
+
+        logger.info(
+            f"[AiClient] ✨ [AI-Gateway] 이어받기 최대 회차({max_continuations}회) 도달 완료 (최종 {len(accumulated)}자)"
+        )
+        return True, accumulated
+
     async def chat(
         self,
         prompt: str,
@@ -466,6 +688,8 @@ class AiGatewayClient:
         model_override: str | None = None,
         pin_model: bool = False,
         temperature_override: float | None = None,
+        allow_continuation: bool | None = None,
+        max_continuations: int = 2,
     ) -> str:
         """
         채팅 완성 호출 (전역 AI 세마포어 적용).
@@ -481,6 +705,8 @@ class AiGatewayClient:
                 model_override=model_override,
                 pin_model=pin_model,
                 temperature_override=temperature_override,
+                allow_continuation=allow_continuation,
+                max_continuations=max_continuations,
             )
 
     async def _chat_impl(
@@ -491,6 +717,8 @@ class AiGatewayClient:
         model_override: str | None = None,
         pin_model: bool = False,
         temperature_override: float | None = None,
+        allow_continuation: bool | None = None,
+        max_continuations: int = 2,
     ) -> str:
         """
         채팅 완성 호출 내부 구현.
@@ -676,8 +904,44 @@ class AiGatewayClient:
                                 continue
 
                             if finish_reason == "length":
-                                # 토큰이 모델 한도를 초과해 응답이 잘린 경우 → 모델 레벨 실패로 간주
-                                # 불완전한 응답을 성공으로 반환하지 않고 다음 순위 모델로 전환한다.
+                                # 토큰이 모델 한도를 초과해 응답이 잘린 경우
+                                should_continue = (
+                                    allow_continuation
+                                    if allow_continuation is not None
+                                    else pin_model
+                                )
+                                if should_continue and content and len(content.strip()) >= 50:
+                                    logger.info(
+                                        f"[AiClient] 🔄 [{slot.provider}] finish_reason=length 감지 "
+                                        f"(모델: {model}, 1차 본문: {len(content)}자) → 동일 모델로 이어받기(Continuation) 시도"
+                                    )
+                                    ok, full_content = await self._continue_generation_direct(
+                                        slot=slot,
+                                        model=model,
+                                        base_messages=messages,
+                                        initial_content=content,
+                                        temperature=payload["temperature"],
+                                        max_tokens=tokens_to_request,
+                                        timeout_config=timeout_config,
+                                        max_continuations=max_continuations,
+                                    )
+                                    if ok:
+                                        model_rotation.note_success(model)
+                                        return full_content.strip()
+
+                                # 이어받기 미수행 또는 실패 시
+                                if pin_model:
+                                    # 고정 모델 상태에서 length가 났고 이어받기도 불가/실패한 경우,
+                                    # 동일 모델로 슬롯만 바꿔 44회 재시도해봤자 똑같이 잘리므로 즉시 중단(Fail-Fast)
+                                    logger.error(
+                                        f"[AiClient] ❌ [{slot.provider}] 보고서 모델 고정 상태에서 "
+                                        f"finish_reason=length (토큰 초과) 완주 불가. "
+                                        f"무의미한 동일 모델 재시도를 중단합니다 (model={model})."
+                                    )
+                                    raise RuntimeError(
+                                        f"모델({model})의 출력 토큰 한도 초과(finish_reason=length)로 보고서 완주 실패"
+                                    )
+
                                 failed_model = model
                                 new_model = _advance_model(
                                     failed_model,
@@ -723,6 +987,9 @@ class AiGatewayClient:
                             model_rotation.note_success(model)
                             return content.strip()
 
+                except RuntimeError:
+                    # pin_model 토큰 초과 중단 등 Fail-Fast 예외는 즉시 전파
+                    raise
                 except httpx.ReadTimeout:
                     logger.warning(
                         f"[AiClient] ⏱️ [{slot.provider}] 응답 시간 초과 ({self.chunk_timeout}초 무응답/Hang 감지, 키: {key_masked}) "
@@ -817,6 +1084,31 @@ class AiGatewayClient:
                                 continue
 
                             if finish_reason == "length":
+                                should_continue = (
+                                    allow_continuation
+                                    if allow_continuation is not None
+                                    else pin_model
+                                )
+                                if should_continue and content and len(content.strip()) >= 50:
+                                    logger.info(
+                                        f"[AiClient] 🔄 [AI-Gateway] finish_reason=length 감지 "
+                                        f"(모델: {model}, 1차 본문: {len(content)}자) → 동일 모델로 이어받기(Continuation) 시도"
+                                    )
+                                    ok, full_content = await self._continue_generation_gateway(
+                                        url=url,
+                                        headers=headers,
+                                        model=model,
+                                        base_messages=messages,
+                                        initial_content=content,
+                                        temperature=payload["temperature"],
+                                        max_tokens=tokens_to_request,
+                                        timeout_config=timeout_config,
+                                        max_continuations=max_continuations,
+                                    )
+                                    if ok:
+                                        model_rotation.note_success(model)
+                                        return full_content.strip()
+
                                 logger.warning(
                                     f"[AiClient] ⚠️ [AI-Gateway] finish_reason=length — 응답이 토큰 한도로 잘림!"
                                 )

@@ -420,3 +420,126 @@ async def test_ai_client_token_limit_length_fallback():
     # 모델 전환이 발생해야 함
     mock_advance.assert_called_once()
     mock_note_success.assert_called_once_with("fallback-model")
+
+
+def test_stitch_responses():
+    """_stitch_responses의 미사여구 제거, 중복 오버랩 제거, 자연스러운 결합 검증"""
+    from app.domains.report.ai_client import _stitch_responses
+
+    # 1. 서두 미사여구 제거
+    prev1 = "삼성전자의 3분기 실적은 영업이익이 크게 증가했습니다."
+    next1 = "네, 이어서 작성하겠습니다.\n\n또한 파운드리 부문에서도 가시적인 성과가 기대됩니다."
+    res1 = _stitch_responses(prev1, next1)
+    assert "네, 이어서" not in res1
+    assert "파운드리 부문에서도" in res1
+    assert res1.startswith("삼성전자의 3분기 실적은 영업이익이 크게 증가했습니다. 또한 파운드리")
+
+    # 2. 접합부 중복(Overlap) 제거
+    prev2 = "글로벌 빅테크 기업들의 인공지능 서버 투자 확대로 HBM 수요가 급증하고 있으며,"
+    next2 = "HBM 수요가 급증하고 있으며, 이에 따라 공급 부족 현상이 심화되고 있습니다."
+    res2 = _stitch_responses(prev2, next2)
+    assert res2 == "글로벌 빅테크 기업들의 인공지능 서버 투자 확대로 HBM 수요가 급증하고 있으며, 이에 따라 공급 부족 현상이 심화되고 있습니다."
+
+    # 3. 단어 중간에서 잘린 경우 (단어 쪼개짐)
+    prev3 = "주요 제품군으로는 차세대 메모"
+    next3 = "리 반도체와 초미세 공정 칩이 있습니다."
+    res3 = _stitch_responses(prev3, next3)
+    assert res3 == "주요 제품군으로는 차세대 메모리 반도체와 초미세 공정 칩이 있습니다."
+
+
+@pytest.mark.asyncio
+async def test_ai_client_pinned_model_continuation_success():
+    """pin_model=True 상태에서 finish_reason=length 발생 시 동일 모델로 이어받아 완성 검증"""
+    client = AiGatewayClient(
+        api_keys=["or-key1"],
+    )
+
+    # 1번째 호출: 50자 이상의 잘린 응답
+    long_part1 = "현재 해당 기업의 영업이익은 전년 동기 대비 25% 이상 성장세를 기록하며 시장 예상치를 상회했습니다. 특히 핵심 사업부의 "
+    resp_part1 = MagicMock()
+    resp_part1.status_code = 200
+    resp_part1.json.return_value = {
+        "choices": [
+            {
+                "message": {"content": long_part1},
+                "finish_reason": "length",
+            }
+        ],
+    }
+
+    # 2번째 호출: 이어서 작성된 응답
+    part2 = "수익성 개선이 두드러졌으며, 하반기에도 이러한 추세가 이어질 것으로 전망됩니다."
+    resp_part2 = MagicMock()
+    resp_part2.status_code = 200
+    resp_part2.json.return_value = {
+        "choices": [
+            {
+                "message": {"content": part2},
+                "finish_reason": "stop",
+            }
+        ],
+    }
+
+    with (
+        patch(
+            "httpx.AsyncClient.post",
+            new_callable=AsyncMock,
+            side_effect=[resp_part1, resp_part2],
+        ) as mock_post,
+        patch(
+            "app.domains.report.ai_client.model_rotation.advance",
+        ) as mock_advance,
+        patch(
+            "app.domains.report.ai_client.model_rotation.note_success",
+        ) as mock_note_success,
+    ):
+        result = await client.chat("보고서 작성 요청", pin_model=True)
+
+    # 두 텍스트가 자연스럽게 결합되어 반환되어야 함
+    assert result == long_part1 + part2
+    # pin_model이므로 다른 모델로 전환되지 않아야 함
+    mock_advance.assert_not_called()
+    mock_note_success.assert_called_once()
+    assert mock_post.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_ai_client_pinned_model_continuation_fail_fast():
+    """pin_model=True 상태에서 이어받기도 실패하면 44회 뺑뺑이 대신 즉시 RuntimeError 발생 검증"""
+    client = AiGatewayClient(
+        api_keys=["or-key1"],
+    )
+
+    # 1번째 호출: 잘린 응답
+    resp_part1 = MagicMock()
+    resp_part1.status_code = 200
+    resp_part1.json.return_value = {
+        "choices": [
+            {
+                "message": {"content": "충분히 긴 텍스트 " * 10},
+                "finish_reason": "length",
+            }
+        ],
+    }
+
+    # 2번째 호출: 이어받기 요청에서도 실패 (500 에러)
+    resp_fail = MagicMock()
+    resp_fail.status_code = 500
+    resp_fail.text = "Internal Server Error"
+
+    with (
+        patch(
+            "httpx.AsyncClient.post",
+            new_callable=AsyncMock,
+            side_effect=[resp_part1, resp_fail],
+        ),
+        patch(
+            "app.domains.report.ai_client.model_rotation.advance",
+        ) as mock_advance,
+    ):
+        with pytest.raises(RuntimeError, match="출력 토큰 한도 초과"):
+            await client.chat("보고서 작성 요청", pin_model=True)
+
+    # 모델 전환은 호출되지 않아야 함
+    mock_advance.assert_not_called()
+
