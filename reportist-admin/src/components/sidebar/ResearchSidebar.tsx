@@ -14,6 +14,7 @@ import {
   X,
   Award,
   MessageSquarePlus,
+  BarChart3,
 } from "lucide-react";
 import { ReportistLogoBadge } from "@/components/ui/ReportistLogo";
 import { useSubscription } from "@/lib/subscription/SubscriptionContext";
@@ -25,6 +26,7 @@ export type SidebarSectionId =
   | "sec-roma"
   | "sec-screener"
   | "sec-outcomes"
+  | "sec-stats"
   | "sec-pipeline"
   | "sec-audit"
   | "sec-gurus"
@@ -36,6 +38,7 @@ export const SECTION_HREF_MAP: Record<SidebarSectionId, string> = {
   "sec-roma": "/screener?tab=roma",
   "sec-screener": "/screener",
   "sec-outcomes": "/outcomes",
+  "sec-stats": "/stats",
   "sec-pipeline": "/pipeline",
   "sec-gurus": "/gurus",
   "sec-audit": "/admin",
@@ -166,6 +169,12 @@ export function ResearchSidebar({
           label: "성과 및 거장 적중률",
           icon: Award,
         },
+        {
+          id: "sec-stats",
+          prefix: "05",
+          label: "거장 표결 통계 랭킹",
+          icon: BarChart3,
+        },
       ],
     },
     {
@@ -173,7 +182,7 @@ export function ResearchSidebar({
       items: [
         {
           id: "sec-gurus",
-          prefix: "05",
+          prefix: "06",
           label: "13인 투자 거장 철학",
           badge: "13",
           icon: Users,

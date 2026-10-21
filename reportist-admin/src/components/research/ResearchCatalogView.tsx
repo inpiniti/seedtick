@@ -17,6 +17,7 @@ import { PipelineProgressCard } from "@/components/tabs/PipelineProgressCard";
 import { LogsTab } from "@/components/tabs/LogsTab";
 import { SidebarSectionId } from "@/components/sidebar/ResearchSidebar";
 import { OutcomesView } from "@/components/outcomes/OutcomesView";
+import { StatsRankingView } from "@/components/stats/StatsRankingView";
 import { FeedbackView } from "@/components/feedback/FeedbackView";
 import { GURU_PERSONAS, GuruPersona } from "@/lib/guruPersonas";
 import { GuruDetailModal } from "@/components/research/GuruDetailModal";
@@ -1800,7 +1801,21 @@ export function ResearchCatalogView({
         </section>
       )}
 
-      {/* ── 5. SECTION 05: 13인 투자 거장 철학 & 심층 가이드 (my/financial 연동) ── */}
+      {/* ── 5. SECTION 05: 거장 표결 통계 랭킹 (Stats Hub) ── */}
+      {isVisible("sec-stats") && (
+        <section
+          id="sec-stats"
+          className="px-6 lg:px-12 py-10 lg:py-12 bg-white"
+        >
+          <StatsRankingView
+            guruReports={guruReports}
+            onSelectReport={onSelectReport}
+            tickerNameMap={tickerNameMap}
+          />
+        </section>
+      )}
+
+      {/* ── 6. SECTION 06: 13인 투자 거장 철학 & 심층 가이드 (my/financial 연동) ── */}
       {isVisible("sec-gurus") && (
         <section
           id="sec-gurus"
@@ -1809,7 +1824,7 @@ export function ResearchCatalogView({
           <div className="space-y-6">
             <div className="flex items-baseline gap-2">
               <span className="font-mono text-xs font-semibold text-[#94a3b8]">
-                05
+                06
               </span>
               <h2 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
                 13인 투자 거장 철학 및 밸류에이션 가이드

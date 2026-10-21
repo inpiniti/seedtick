@@ -30,6 +30,11 @@ export const SECTION_META: Record<
     label: "성과 및 거장 적중률",
     backLabel: "성과 및 거장 적중률로 돌아가기",
   },
+  "sec-stats": {
+    href: "/stats",
+    label: "거장 표결 통계 랭킹",
+    backLabel: "거장 표결 통계 랭킹으로 돌아가기",
+  },
   "sec-gurus": {
     href: "/gurus",
     label: "13인 투자 거장 철학",
@@ -70,6 +75,7 @@ export function inferSectionFromLocation(
   if (pathname.startsWith("/stocks/")) return null; // 상세는 출처(from)가 우선
   if (pathname === "/screener") return tabParam === "roma" ? "sec-roma" : "sec-screener";
   if (pathname === "/outcomes") return "sec-outcomes";
+  if (pathname === "/stats") return "sec-stats";
   if (pathname === "/gurus" || pathname.startsWith("/gurus/")) return "sec-gurus";
   if (pathname === "/feedback") return "sec-feedback";
   if (pathname === "/pipeline") return "sec-pipeline";
