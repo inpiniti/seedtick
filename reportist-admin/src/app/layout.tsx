@@ -22,12 +22,11 @@ const LOGO_URL = `${SITE_URL}/reportist-logo-fill-120x120.png`;
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default:
-      "리포티스트 Reportist Research · 국내 및 미국 주식 리포트와 13인 거장 AI 적정주가 분석",
-    template: "%s | 리포티스트 Reportist",
+    default: "리포티스트 · 국내 및 미국 주식 리포트와 적정주가 분석",
+    template: "%s | 리포티스트",
   },
   description:
-    "리포티스트(Reportist)는 워런 버핏, 피터 린치, 벤저민 그레이엄 등 13인 투자 거장의 철학으로 국내 및 미국 주식 리포트와 보고서를 분석하는 AI 가치평가 아카이브입니다. 종목별 적정주가, 내재가치 밴드, 실시간 스크리너 제공.",
+    "리포티스트는 13인 거장의 철학으로 국내 및 미국 주식 리포트를 분석합니다. 종목별 적정주가와 내재가치 밴드, 실시간 스크리너 제공.",
   keywords: [
     "리포티스트",
     "Reportist",
@@ -48,13 +47,16 @@ export const metadata: Metadata = {
   publisher: "Reportist Research",
   alternates: {
     canonical: "/",
+    types: {
+      "application/rss+xml": `${SITE_URL}/rss.xml`,
+    },
   },
   openGraph: {
     type: "website",
     locale: "ko_KR",
     url: "/",
-    siteName: "리포티스트 Reportist Research",
-    title: "리포티스트 Reportist Research · 국내 및 미국 주식 리포트와 13인 거장 AI 적정주가 분석",
+    siteName: "리포티스트",
+    title: "리포티스트 · 국내 및 미국 주식 리포트 아카이브",
     description:
       "13인 투자 거장의 철학으로 분석한 국내 및 미국 주식 리포트·보고서 아카이브. 적정주가, 내재가치 밴드, 실시간 스크리너.",
     images: [
@@ -68,10 +70,15 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "리포티스트 Reportist Research · 국내 및 미국 주식 리포트와 적정주가 분석",
+    title: "리포티스트 · 국내 및 미국 주식 리포트와 적정주가 분석",
     description:
-      "13인 거장 AI 가치평가 리포트·보고서 아카이브. 국내 및 미국 주식 적정주가와 내재가치 밴드 제공.",
+      "13인 거장 AI 가치평가 국내 및 미국 주식 리포트 아카이브. 종목별 적정주가와 내재가치 밴드 제공.",
     images: ["/reportist-logo-fill-120x120.png"],
+  },
+  verification: {
+    other: {
+      "naver-site-verification": "c564c14551f41fa5c23e164e5a6b5202",
+    },
   },
   robots: {
     index: true,

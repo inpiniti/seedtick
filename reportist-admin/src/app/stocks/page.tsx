@@ -8,14 +8,14 @@ import { buildTickerListJsonLd } from "@/lib/server/catalogJsonLd";
 export const revalidate = 300;
 
 export const metadata: Metadata = {
-  title: "리포티스트 국내 및 미국 주식 리포트 목록 · 13인 거장 AI 보고서 아카이브",
+  title: "국내 및 미국 주식 리포트 목록 · 리포티스트",
   description:
-    "리포티스트 국내 및 미국 주식 리포트와 보고서 아카이브. DART·SEC 공시 기반 종목별 주식 보고서, 13인 투자 거장 AI 적정주가와 내재가치 밴드 목록.",
+    "국내 및 미국 주식 리포트 아카이브. 13인 투자 거장 AI 적정주가와 내재가치 밴드 목록을 확인하세요.",
   alternates: {
     canonical: "/stocks",
   },
   openGraph: {
-    title: "리포티스트 국내 및 미국 주식 리포트 아카이브",
+    title: "국내 및 미국 주식 리포트 목록 · 리포티스트",
     description: "국내 및 미국 전 종목 주식 보고서와 13인 거장 합의 적정주가 밴드 목록",
   },
 };

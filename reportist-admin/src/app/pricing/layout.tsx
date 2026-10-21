@@ -6,16 +6,16 @@ import type { Metadata } from "next";
  * 레이아웃에서 정의한다.
  */
 export const metadata: Metadata = {
-  title: "멤버십 요금제 · 무료 아카이브와 Pro 플랜 비교 | Reportist",
+  title: "멤버십 요금제 · 무료와 Pro 비교 | 리포티스트",
   description:
-    "리포티스트 무료 아카이브와 Pro 멤버십 요금제 비교. 13인 투자 거장 AI 가치평가 리포트, 적정주가, SEC 데이터팩, 일봉·밴드 차트를 확인하세요.",
+    "리포티스트 멤버십 요금제 비교. 13인 거장 AI 가치평가 리포트, 적정주가, 데이터팩 및 차트 열람 혜택을 확인하세요.",
   alternates: {
     canonical: "/pricing",
   },
   openGraph: {
-    title: "리포티스트 멤버십 요금제 | Reportist",
+    title: "멤버십 요금제 안내 | 리포티스트",
     description:
-      "13인 투자 거장 AI 가치평가 리포트를 무료 아카이브로 확인하거나 Pro로 전체를 열람하세요.",
+      "13인 거장 AI 주식 리포트 무료 아카이브와 Pro 플랜의 혜택을 비교해보세요.",
   },
 };
 

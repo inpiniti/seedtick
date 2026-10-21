@@ -7,7 +7,18 @@ import type { NextConfig } from "next";
 // canonical 호스트는 www다. src/lib/siteConfig.ts 의 SITE_URL 이
 // metadataBase · canonical · og:url · JSON-LD · sitemap · robots 의 단일 소스다.
 const nextConfig: NextConfig = {
-  /* config options here */
+  async rewrites() {
+    return [
+      {
+        source: "/feed.xml",
+        destination: "/rss.xml",
+      },
+      {
+        source: "/rss",
+        destination: "/rss.xml",
+      },
+    ];
+  },
 };
 
 export default nextConfig;
