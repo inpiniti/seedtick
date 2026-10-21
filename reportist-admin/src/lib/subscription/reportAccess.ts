@@ -116,10 +116,13 @@ export async function getServerAllowedFreeDate(
 }
 
 /**
- * 권한 없는 행의 민감 컬럼 전면 제거.
- * 공개 허용: id / d / ticker / company_name / current_price / created_at
- * 그 외 (적정가·밴드·표결·verdict·요약·데이터팩·본문 등)는 전부 null.
- * → 오버레이를 지워도 보여줄 내용이 없고, Network 탭에도 민감값이 없음.
+ * 권한 없는 행의 민감 컬럼 전면 제거 (Teaser Stats 전략).
+ * 공개 허용:
+ * - 기본 메타: id / d / ticker / company_name / current_price / created_at
+ * - 티저 통계 (SEO & AI 검색 인용 / 유입 호기심 유발): verdict / overall_score / votes_* (13인 표결 수치)
+ * 비공개 잠금 (Pro 멤버십 전용):
+ * - 거장별 상세 코멘트 (summaries), 최종 리포트 본문 (final_report), 데이터팩 (datapack)
+ * - 정밀 매매 타점 (fair_value, band_*, safety_entry, target_sell, upside_pct)
  */
 export function maskReportRow(
   row: GuruReportRow,
@@ -132,8 +135,8 @@ export function maskReportRow(
     ticker: row.ticker,
     company_name: row.company_name,
     current_price: row.current_price,
-    verdict: "",
-    overall_score: 0,
+    verdict: row.verdict || "",
+    overall_score: typeof row.overall_score === "number" ? row.overall_score : 0,
     vote_summary: null,
     datapack: null,
     summaries: null,
@@ -144,10 +147,10 @@ export function maskReportRow(
     safety_entry: null,
     target_sell: null,
     upside_pct: null,
-    votes_buy: null,
-    votes_hold: null,
-    votes_watch: null,
-    votes_sell: null,
+    votes_buy: row.votes_buy,
+    votes_hold: row.votes_hold,
+    votes_watch: row.votes_watch,
+    votes_sell: row.votes_sell,
     avg_confidence: null,
     dispersion_pct: null,
     price_estimate_count: null,

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DashboardView } from "@/components/dashboard/DashboardView";
 import type { ResearchDocTab } from "@/components/research/ResearchDocumentView";
+import { StockStatsSummaryTable } from "@/components/research/StockStatsSummaryTable";
 import { getStockPageData } from "@/lib/server/stockPageData";
 import { buildStockJsonLd } from "@/lib/server/stockJsonLd";
 import { absoluteUrl } from "@/lib/siteConfig";
@@ -57,12 +58,24 @@ export async function generateMetadata({
     ? `/stocks/${ticker}/${date}`
     : `/stocks/${ticker}`;
 
+  const report = data.report;
+  const votesBuy = typeof report?.votes_buy === "number" ? report.votes_buy : null;
+  const votesWatch =
+    typeof report?.votes_watch === "number" || typeof report?.votes_hold === "number"
+      ? (report.votes_watch || 0) + (report.votes_hold || 0)
+      : null;
+  const votesSell = typeof report?.votes_sell === "number" ? report.votes_sell : null;
+  const verdict = report?.verdict || "";
+
+  const voteSnippet =
+    votesBuy !== null && votesWatch !== null && votesSell !== null
+      ? `13인 거장 표결 결과: 찬성 ${votesBuy}명, 관망 ${votesWatch}명, 매도 ${votesSell}명${verdict ? ` (${verdict})` : ""}. `
+      : "";
+
   const title = data.isPublicDate
-    ? `${data.displayName}(${ticker}) ${date} 주식 분석 리포트 · 13인 거장 적정주가 | 리포티스트`
-    : `${data.displayName}(${ticker}) 주식 리포트와 분석 | 리포티스트`;
-  const description = data.isPublicDate
-    ? `${data.displayName}(${ticker}) ${date} 기준 13인 투자 거장 AI 가치평가 리포트. 적정주가, 내재가치 밴드, 매수·보유·매도 표결과 핵심 근거를 확인하세요.`
-    : `리포티스트 ${data.displayName}(${ticker}) 주식 보고서와 분석 아카이브. 13인 투자 거장 AI 가치평가 리포트와 적정주가·내재가치 분석을 확인하세요.`;
+    ? `${data.displayName}(${ticker}) ${date} 가치평가 리포트 및 거장 표결 | 리포티스트`
+    : `${data.displayName}(${ticker}) 주식 가치평가 리포트 | 리포티스트`;
+  const description = `${data.displayName}(${ticker}) ${date} 기준 주식 보고서. ${voteSnippet}워런 버핏, 벤저민 그레이엄, 피터 린치 등 13인 투자 거장 AI 에이전트의 독립 적정주가·안전마진 분석을 확인하세요.`;
 
   return {
     title,
@@ -132,6 +145,26 @@ export default async function StockDateDetailPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      {/* 검색 엔진 및 AI 크롤러를 위한 SSR 시맨틱 통계 요약 */}
+      <section
+        aria-label={`${pageData.displayName} ${date} 가치평가 및 거장 표결 통계 요약`}
+        className="sr-only"
+      >
+        <StockStatsSummaryTable
+          displayName={pageData.displayName}
+          ticker={ticker}
+          publishedDate={pageData.publishedDate}
+          report={reportForRender}
+        />
+      </section>
+      <noscript>
+        <StockStatsSummaryTable
+          displayName={pageData.displayName}
+          ticker={ticker}
+          publishedDate={pageData.publishedDate}
+          report={reportForRender}
+        />
+      </noscript>
       <Suspense fallback={<div className="min-h-screen bg-white" />}>
         <DashboardView
           initialSection="sec-reports"

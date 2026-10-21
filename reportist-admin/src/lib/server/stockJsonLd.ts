@@ -139,12 +139,12 @@ export function buildStockJsonLd({
               },
             }),
       },
-      ...(report?.current_price != null
+      ...(report != null
         ? [
             {
               "@type": "Dataset",
               "@id": `${url}#dataset`,
-              name: `${displayName}(${ticker}) 13인 투자 거장 AI 가치평가 리포트`,
+              name: `${displayName}(${ticker}) 13인 투자 거장 AI 가치평가 리포트 및 표결 통계`,
               description,
               inLanguage: "ko",
               license: `${SITE_URL}/terms`,
@@ -156,9 +156,62 @@ export function buildStockJsonLd({
               isAccessibleForFree: isPublicDate ? "True" : "False",
               temporalCoverage: publishedDate || undefined,
               variableMeasured: [
-                "투자의견 합계",
-                "내재가치 적정가",
-                "13인 거장별 확신도",
+                "거장 찬성 표수",
+                "거장 관망 표수",
+                "거장 매도 표수",
+                "거장 종합 의견",
+                "가치평가 종합 점수",
+              ],
+              additionalProperty: [
+                ...(typeof report.votes_buy === "number"
+                  ? [
+                      {
+                        "@type": "PropertyValue",
+                        name: "거장 찬성 표수",
+                        value: `${report.votes_buy}명`,
+                      },
+                    ]
+                  : []),
+                ...(typeof report.votes_watch === "number" ||
+                typeof report.votes_hold === "number"
+                  ? [
+                      {
+                        "@type": "PropertyValue",
+                        name: "거장 관망 표수",
+                        value: `${
+                          (report.votes_watch || 0) + (report.votes_hold || 0)
+                        }명`,
+                      },
+                    ]
+                  : []),
+                ...(typeof report.votes_sell === "number"
+                  ? [
+                      {
+                        "@type": "PropertyValue",
+                        name: "거장 매도 표수",
+                        value: `${report.votes_sell}명`,
+                      },
+                    ]
+                  : []),
+                ...(report.verdict
+                  ? [
+                      {
+                        "@type": "PropertyValue",
+                        name: "거장 종합 의견",
+                        value: report.verdict,
+                      },
+                    ]
+                  : []),
+                ...(typeof report.overall_score === "number" &&
+                report.overall_score > 0
+                  ? [
+                      {
+                        "@type": "PropertyValue",
+                        name: "가치평가 종합 점수",
+                        value: `${report.overall_score.toFixed(1)}점`,
+                      },
+                    ]
+                  : []),
               ],
               distribution: {
                 "@type": "DataDownload",
