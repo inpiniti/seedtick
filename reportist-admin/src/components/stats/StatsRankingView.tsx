@@ -3,16 +3,14 @@
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { GuruReportRow } from "@/types/api";
-import { Badge } from "@/components/ui/Badge";
 import {
   Trophy,
-  TrendingUp,
-  AlertTriangle,
   Award,
-  ChevronRight,
-  BarChart3,
-  Sparkles,
+  AlertTriangle,
   PieChart,
+  ChevronRight,
+  TrendingUp,
+  Sparkles,
 } from "lucide-react";
 import { formatPriceByNation } from "@/lib/utils";
 
@@ -23,6 +21,7 @@ interface StatsRankingViewProps {
 }
 
 type MarketFilter = "all" | "kr" | "us";
+type RankingCategory = "buy" | "score" | "watch";
 
 export function StatsRankingView({
   guruReports,
@@ -30,6 +29,7 @@ export function StatsRankingView({
   tickerNameMap = {},
 }: StatsRankingViewProps) {
   const [marketFilter, setMarketFilter] = useState<MarketFilter>("all");
+  const [activeCategory, setActiveCategory] = useState<RankingCategory>("buy");
 
   // 티커별 최신 리포트만 추출 (중복 제거)
   const latestReports = useMemo(() => {
@@ -121,309 +121,237 @@ export function StatsRankingView({
       .slice(0, 10);
   }, [filteredReports]);
 
+  const currentRankingList = useMemo(() => {
+    if (activeCategory === "buy") return topBuyRanking;
+    if (activeCategory === "score") return topScoreRanking;
+    return topWatchRanking;
+  }, [activeCategory, topBuyRanking, topScoreRanking, topWatchRanking]);
+
   const getDisplayName = (report: GuruReportRow) => {
     const ticker = report.ticker.toUpperCase();
     return tickerNameMap[ticker] || report.company_name || ticker;
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      {/* ── 1. 헤더 & 시장 전체 센티먼트 요약 카드 ── */}
-      <header className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold mb-2">
-              <Sparkles className="w-3.5 h-3.5 text-slate-900" />
-              <span>GURU CONSENSUS STATS HUB</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-              13인 투자 거장 종합 표결 통계 랭킹
-            </h1>
-            <p className="text-sm text-slate-600 mt-1 max-w-2xl leading-relaxed">
-              워런 버핏, 벤저민 그레이엄, 피터 린치 등 13인의 전설적 투자 거장 AI 에이전트의
-              표결 데이터와 가치평가 점수를 바탕으로 산출한 실시간 통계 랭킹입니다.
-            </p>
-          </div>
-
-          {/* 시장 필터 탭 */}
-          <div className="inline-flex p-1 rounded-xl bg-slate-100 border border-slate-200 self-start sm:self-center">
-            <button
-              onClick={() => setMarketFilter("all")}
-              className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                marketFilter === "all"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              전체 종목 ({latestReports.length})
-            </button>
-            <button
-              onClick={() => setMarketFilter("kr")}
-              className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                marketFilter === "kr"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              국내 주식
-            </button>
-            <button
-              onClick={() => setMarketFilter("us")}
-              className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                marketFilter === "us"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              미국 주식
-            </button>
-          </div>
+    <div className="grid grid-cols-1 md:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] gap-8 lg:gap-12">
+      {/* ── 좌측: 리포티스트 시그니처 인덱스 05 + 타이틀 + 설명 & 요약 게이지 ── */}
+      <div className="space-y-4 md:sticky md:top-[72px] md:self-start">
+        <div className="flex items-baseline gap-2">
+          <span className="font-mono text-xs font-semibold text-[#94a3b8]">
+            05
+          </span>
+          <h2 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
+            거장 표결 통계 랭킹
+          </h2>
         </div>
 
-        {/* 시장 전체 거장 센티먼트 게이지 바 */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-            <span className="font-bold text-slate-800 flex items-center gap-1.5">
-              <PieChart className="w-4 h-4 text-slate-700" />
-              <span>전체 시장 거장 심사 현황 ({marketSentiment.totalStocks}개 분석 종목)</span>
+        <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-md">
+          13인의 전설적 투자 대가 AI 에이전트의 표결 합산 데이터와 밸류에이션 점수를 실시간 집계한 통계 허브입니다.
+          대가들의 합의가 가장 높은 우량주와 과열 주의 종목 순위를 확인하세요.
+        </p>
+
+        {/* 시장 필터 탭 (리포티스트 칩 버튼 규격) */}
+        <div className="pt-1 flex flex-wrap gap-1.5">
+          <button
+            onClick={() => setMarketFilter("all")}
+            className={`px-2.5 py-1 text-xs font-mono font-medium rounded border transition-colors cursor-pointer ${
+              marketFilter === "all"
+                ? "bg-[#0f172a] text-white border-[#0f172a]"
+                : "bg-white text-[#64748b] border-[#e2e8f0] hover:border-[#94a3b8]"
+            }`}
+          >
+            전체 ({latestReports.length})
+          </button>
+          <button
+            onClick={() => setMarketFilter("kr")}
+            className={`px-2.5 py-1 text-xs font-mono font-medium rounded border transition-colors cursor-pointer ${
+              marketFilter === "kr"
+                ? "bg-[#0f172a] text-white border-[#0f172a]"
+                : "bg-white text-[#64748b] border-[#e2e8f0] hover:border-[#94a3b8]"
+            }`}
+          >
+            국내 주식
+          </button>
+          <button
+            onClick={() => setMarketFilter("us")}
+            className={`px-2.5 py-1 text-xs font-mono font-medium rounded border transition-colors cursor-pointer ${
+              marketFilter === "us"
+                ? "bg-[#0f172a] text-white border-[#0f172a]"
+                : "bg-white text-[#64748b] border-[#e2e8f0] hover:border-[#94a3b8]"
+            }`}
+          >
+            미국 주식
+          </button>
+        </div>
+
+        {/* 시장 전체 거장 센티먼트 요약 카드 (리포티스트 룩앤필 정합) */}
+        <div className="p-4 rounded-md bg-[#f8fafc] border border-[#e2e8f0] space-y-2.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-[#0f172a] flex items-center gap-1.5">
+              <PieChart className="w-3.5 h-3.5 text-[#0f172a]" />
+              <span>시장 거장 심사 현황 ({marketSentiment.totalStocks}개 분석)</span>
             </span>
-            <div className="flex items-center gap-4 text-xs font-semibold">
-              <span className="text-emerald-700">찬성 {marketSentiment.buyPct}%</span>
-              <span className="text-amber-700">관망 {marketSentiment.watchPct}%</span>
-              <span className="text-rose-700">매도 {marketSentiment.sellPct}%</span>
-            </div>
           </div>
 
-          {/* 비주얼 센티먼트 바 */}
-          <div className="w-full h-3.5 rounded-full overflow-hidden flex bg-slate-100 p-0.5 border border-slate-200">
-            <div
-              style={{ width: `${marketSentiment.buyPct}%` }}
-              className="bg-emerald-500 rounded-l-full transition-all duration-500"
-              title={`찬성 ${marketSentiment.buyPct}% (${marketSentiment.totalBuy}표)`}
-            />
-            <div
-              style={{ width: `${marketSentiment.watchPct}%` }}
-              className="bg-amber-400 transition-all duration-500"
-              title={`관망 ${marketSentiment.watchPct}% (${marketSentiment.totalWatch}표)`}
-            />
-            <div
-              style={{ width: `${marketSentiment.sellPct}%` }}
-              className="bg-rose-500 rounded-r-full transition-all duration-500"
-              title={`매도 ${marketSentiment.sellPct}% (${marketSentiment.totalSell}표)`}
-            />
+          <div className="flex items-center justify-between text-xs font-mono">
+            <span className="text-emerald-700 font-semibold">찬성 {marketSentiment.buyPct}%</span>
+            <span className="text-amber-700 font-semibold">관망 {marketSentiment.watchPct}%</span>
+            <span className="text-rose-700 font-semibold">매도 {marketSentiment.sellPct}%</span>
           </div>
-          <p className="text-[11px] text-slate-500 text-right">
-            * 13인의 거장 기준을 엄격히 통과한 종목 비율을 나타내며, 과열 구간에서는 관망 비율이 상승합니다.
+
+          <div className="w-full h-2 rounded-full overflow-hidden flex bg-[#e2e8f0]">
+            <div style={{ width: `${marketSentiment.buyPct}%` }} className="bg-emerald-500" />
+            <div style={{ width: `${marketSentiment.watchPct}%` }} className="bg-amber-400" />
+            <div style={{ width: `${marketSentiment.sellPct}%` }} className="bg-rose-500" />
+          </div>
+
+          <p className="text-[11px] text-[#64748b] leading-snug">
+            * 13인의 거장 기준을 엄격히 통과한 종목 비율이며, 고평가 구간에서는 관망 비율이 상승합니다.
           </p>
         </div>
-      </header>
+      </div>
 
-      {/* ── 2. 3대 핵심 랭킹 그리드 ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 랭킹 1: 최다 찬성 종목 Top 10 */}
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden flex flex-col">
-          <div className="p-4 bg-emerald-50/60 border-b border-emerald-100 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center shadow-xs">
-                <Trophy className="w-4 h-4" />
-              </div>
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">거장 최다 찬성 순위</h2>
-                <p className="text-[11px] text-emerald-800">13인 대가들이 적극 매수 표결한 종목</p>
-              </div>
+      {/* ── 우측: 랭킹 카테고리 탭 & 랭킹 리스트 ── */}
+      <div className="min-w-0 space-y-4">
+        {/* 랭킹 탭 선택 바 */}
+        <div className="flex items-center gap-1.5 border-b border-[#e2e8f0] pb-3">
+          <button
+            onClick={() => setActiveCategory("buy")}
+            className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+              activeCategory === "buy"
+                ? "bg-[#0f172a] text-white"
+                : "bg-[#f8fafc] text-[#64748b] hover:bg-[#f1f5f9] hover:text-[#0f172a]"
+            }`}
+          >
+            <Trophy className="w-3.5 h-3.5" />
+            <span>최다 찬성 순위 Top 10</span>
+          </button>
+
+          <button
+            onClick={() => setActiveCategory("score")}
+            className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+              activeCategory === "score"
+                ? "bg-[#0f172a] text-white"
+                : "bg-[#f8fafc] text-[#64748b] hover:bg-[#f1f5f9] hover:text-[#0f172a]"
+            }`}
+          >
+            <Award className="w-3.5 h-3.5" />
+            <span>종합 가치평가 점수 Top 10</span>
+          </button>
+
+          <button
+            onClick={() => setActiveCategory("watch")}
+            className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+              activeCategory === "watch"
+                ? "bg-[#0f172a] text-white"
+                : "bg-[#f8fafc] text-[#64748b] hover:bg-[#f1f5f9] hover:text-[#0f172a]"
+            }`}
+          >
+            <AlertTriangle className="w-3.5 h-3.5" />
+            <span>거장 주의/관망 경고</span>
+          </button>
+        </div>
+
+        {/* 랭킹 리스트 박스 (리포티스트 표준 카드 규격) */}
+        <div className="border border-[#e2e8f0] rounded-md bg-white overflow-hidden shadow-xs divide-y divide-[#f1f5f9]">
+          {currentRankingList.length === 0 ? (
+            <div className="p-8 text-center text-xs text-[#94a3b8]">
+              해당 조건의 분석 종목 데이터가 없습니다.
             </div>
-            <span className="text-xs font-extrabold text-emerald-700 bg-white px-2 py-0.5 rounded-md border border-emerald-200">
-              TOP 10
-            </span>
-          </div>
+          ) : (
+            currentRankingList.map((report, idx) => {
+              const displayName = getDisplayName(report);
+              const votesBuy = report.votes_buy || 0;
+              const watchCount = (report.votes_watch || 0) + (report.votes_hold || 0);
+              const score = report.overall_score || 0;
 
-          <ul className="divide-y divide-slate-100 flex-1">
-            {topBuyRanking.length === 0 ? (
-              <li className="p-6 text-center text-xs text-slate-400">데이터를 불러오는 중입니다</li>
-            ) : (
-              topBuyRanking.map((report, idx) => {
-                const displayName = getDisplayName(report);
-                const votesBuy = report.votes_buy || 0;
-                return (
-                  <li key={report.ticker}>
-                    <button
-                      onClick={() => onSelectReport(report)}
-                      className="w-full px-4 py-3 text-left hover:bg-slate-50/80 transition-colors flex items-center justify-between gap-3 group cursor-pointer"
+              return (
+                <button
+                  key={report.ticker}
+                  onClick={() => onSelectReport(report)}
+                  className="w-full px-4 py-3.5 text-left hover:bg-[#f8fafc] transition-colors flex items-center justify-between gap-4 group cursor-pointer"
+                >
+                  {/* 순위 & 종목 정보 */}
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <span
+                      className={`w-6 text-center font-mono text-xs font-bold shrink-0 ${
+                        idx === 0
+                          ? "text-[#0f172a] font-black"
+                          : idx < 3
+                          ? "text-[#334155] font-bold"
+                          : "text-[#94a3b8]"
+                      }`}
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span
-                          className={`w-5 text-center text-xs font-black ${
-                            idx === 0
-                              ? "text-amber-500"
-                              : idx === 1
-                              ? "text-slate-400"
-                              : idx === 2
-                              ? "text-amber-700"
-                              : "text-slate-400"
-                          }`}
-                        >
-                          {idx + 1}
+                      {String(idx + 1).padStart(2, "0")}
+                    </span>
+
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs sm:text-sm text-[#0f172a] group-hover:text-blue-600 transition-colors truncate">
+                          {displayName}
                         </span>
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold text-slate-900 truncate group-hover:text-emerald-700 transition-colors">
-                            {displayName}
-                          </p>
-                          <p className="text-[11px] text-slate-400 font-mono">{report.ticker}</p>
-                        </div>
+                        <span className="font-mono text-[11px] text-[#94a3b8] shrink-0">
+                          {report.ticker}
+                        </span>
                       </div>
-                      <div className="text-right shrink-0">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <p className="text-[11px] text-[#64748b] mt-0.5 font-mono">
+                        {report.d || "최신"} · {report.verdict || "평가 완료"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* 지표 결과 뱃지 */}
+                  <div className="text-right shrink-0 flex items-center gap-3">
+                    {activeCategory === "buy" && (
+                      <div className="text-right">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-emerald-800 text-xs font-bold font-mono">
                           찬성 {votesBuy}표
                         </span>
-                        {typeof report.overall_score === "number" && report.overall_score > 0 && (
-                          <p className="text-[10px] text-slate-400 mt-0.5">
-                            {report.overall_score.toFixed(0)}점
+                        {score > 0 && (
+                          <p className="text-[10px] text-[#94a3b8] font-mono mt-0.5">
+                            종합 {score.toFixed(0)}점
                           </p>
                         )}
                       </div>
-                    </button>
-                  </li>
-                );
-              })
-            )}
-          </ul>
-        </div>
+                    )}
 
-        {/* 랭킹 2: 종합 가치평가 점수 Top 10 */}
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden flex flex-col">
-          <div className="p-4 bg-blue-50/60 border-b border-blue-100 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-xs">
-                <Award className="w-4 h-4" />
-              </div>
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">가치평가 종합 점수</h2>
-                <p className="text-[11px] text-blue-800">재무 건전성 및 밸류에이션 총합 순위</p>
-              </div>
-            </div>
-            <span className="text-xs font-extrabold text-blue-700 bg-white px-2 py-0.5 rounded-md border border-blue-200">
-              TOP 10
-            </span>
-          </div>
-
-          <ul className="divide-y divide-slate-100 flex-1">
-            {topScoreRanking.length === 0 ? (
-              <li className="p-6 text-center text-xs text-slate-400">데이터를 불러오는 중입니다</li>
-            ) : (
-              topScoreRanking.map((report, idx) => {
-                const displayName = getDisplayName(report);
-                const score = report.overall_score || 0;
-                return (
-                  <li key={report.ticker}>
-                    <button
-                      onClick={() => onSelectReport(report)}
-                      className="w-full px-4 py-3 text-left hover:bg-slate-50/80 transition-colors flex items-center justify-between gap-3 group cursor-pointer"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span
-                          className={`w-5 text-center text-xs font-black ${
-                            idx === 0
-                              ? "text-blue-600"
-                              : idx === 1
-                              ? "text-blue-500"
-                              : idx === 2
-                              ? "text-blue-400"
-                              : "text-slate-400"
-                          }`}
-                        >
-                          {idx + 1}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold text-slate-900 truncate group-hover:text-blue-700 transition-colors">
-                            {displayName}
-                          </p>
-                          <p className="text-[11px] text-slate-400 font-mono">{report.ticker}</p>
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-xs font-black text-slate-900">
+                    {activeCategory === "score" && (
+                      <div className="text-right">
+                        <span className="font-mono text-xs sm:text-sm font-bold text-[#0f172a]">
                           {score.toFixed(1)}
-                          <span className="text-[10px] text-slate-400 font-normal"> / 100</span>
+                          <span className="text-[10px] text-[#94a3b8] font-normal"> / 100</span>
                         </span>
-                        <p className="text-[10px] text-slate-500 mt-0.5">{report.verdict || "평가 완료"}</p>
+                        <p className="text-[10px] text-emerald-700 font-mono mt-0.5">
+                          찬성 {votesBuy}표
+                        </p>
                       </div>
-                    </button>
-                  </li>
-                );
-              })
-            )}
-          </ul>
-        </div>
+                    )}
 
-        {/* 랭킹 3: 거장 주의/관망 경고 Top 10 */}
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden flex flex-col">
-          <div className="p-4 bg-amber-50/60 border-b border-amber-100 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center shadow-xs">
-                <AlertTriangle className="w-4 h-4" />
-              </div>
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">거장 주의/관망 경고</h2>
-                <p className="text-[11px] text-amber-800">안전마진 부족으로 관망 표결이 쏟아진 종목</p>
-              </div>
-            </div>
-            <span className="text-xs font-extrabold text-amber-700 bg-white px-2 py-0.5 rounded-md border border-amber-200">
-              CAUTION
-            </span>
-          </div>
-
-          <ul className="divide-y divide-slate-100 flex-1">
-            {topWatchRanking.length === 0 ? (
-              <li className="p-6 text-center text-xs text-slate-400">데이터를 불러오는 중입니다</li>
-            ) : (
-              topWatchRanking.map((report, idx) => {
-                const displayName = getDisplayName(report);
-                const watchCount = (report.votes_watch || 0) + (report.votes_hold || 0);
-                return (
-                  <li key={report.ticker}>
-                    <button
-                      onClick={() => onSelectReport(report)}
-                      className="w-full px-4 py-3 text-left hover:bg-slate-50/80 transition-colors flex items-center justify-between gap-3 group cursor-pointer"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="w-5 text-center text-xs font-black text-slate-400">
-                          {idx + 1}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold text-slate-900 truncate group-hover:text-amber-700 transition-colors">
-                            {displayName}
-                          </p>
-                          <p className="text-[11px] text-slate-400 font-mono">{report.ticker}</p>
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-extrabold bg-amber-50 text-amber-800 border border-amber-200">
+                    {activeCategory === "watch" && (
+                      <div className="text-right">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded border border-amber-200 bg-amber-50 text-amber-800 text-xs font-bold font-mono">
                           관망 {watchCount}표
                         </span>
                         {typeof report.current_price === "number" && report.current_price > 0 && (
-                          <p className="text-[10px] text-slate-400 mt-0.5">
+                          <p className="text-[10px] text-[#94a3b8] font-mono mt-0.5">
                             {formatPriceByNation(report.current_price, undefined, report.ticker)}
                           </p>
                         )}
                       </div>
-                    </button>
-                  </li>
-                );
-              })
-            )}
-          </ul>
-        </div>
-      </div>
+                    )}
 
-      {/* ── 3. 안내 푸터 ── */}
-      <footer className="text-center pt-4 border-t border-slate-200 text-xs text-slate-500 space-y-1">
-        <p>
-          * 본 통계 랭킹은 13인의 전설적 투자 대가 AI 에이전트가 최신 재무제표와 공시 데이터를 독립 심사한 표결 합계입니다.
+                    <ChevronRight className="w-4 h-4 text-[#cbd5e1] group-hover:text-[#0f172a] group-hover:translate-x-0.5 transition-all" />
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        <p className="text-right text-[11px] text-[#94a3b8] font-mono">
+          * 종목 클릭 시 13인 거장별 상세 심사 보고서와 적정주가 계산 내역으로 이동합니다.
         </p>
-        <p className="text-slate-400 text-[11px]">
-          종목을 클릭하시면 거장별 상세 분석 리포트와 적정주가 산출 내역을 확인하실 수 있습니다.
-        </p>
-      </footer>
+      </div>
     </div>
   );
 }
