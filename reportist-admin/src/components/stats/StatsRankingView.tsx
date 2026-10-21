@@ -12,8 +12,9 @@ import {
   TrendingUp,
   Sparkles,
   Layers,
-  ShieldCheck,
   CheckCircle2,
+  Grid,
+  Calendar,
 } from "lucide-react";
 import { formatPriceByNation } from "@/lib/utils";
 import { DataCache } from "@/lib/dataCache";
@@ -22,6 +23,8 @@ import {
   BenchmarkBarChart,
   BenchmarkChartItem,
 } from "./BenchmarkBarChart";
+import { BenchmarkScatterPlot } from "./BenchmarkScatterPlot";
+import { BenchmarkTimelineChart } from "./BenchmarkTimelineChart";
 
 interface StatsRankingViewProps {
   guruReports: GuruReportRow[];
@@ -31,7 +34,7 @@ interface StatsRankingViewProps {
 
 type MarketFilter = "all" | "kr" | "us";
 type ViewMode = "benchmark" | "table";
-type CategoryFilter = "all" | "consensus" | "value" | "quality" | "gurus";
+type SectionFilter = "all" | "scatter" | "timeline" | "consensus" | "margin" | "multiple";
 
 export function StatsRankingView({
   guruReports,
@@ -40,7 +43,7 @@ export function StatsRankingView({
 }: StatsRankingViewProps) {
   const [marketFilter, setMarketFilter] = useState<MarketFilter>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("benchmark");
-  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
+  const [sectionFilter, setSectionFilter] = useState<SectionFilter>("all");
   const [logoMap, setLogoMap] = useState<Record<string, string>>(() =>
     DataCache.getAllTickerLogos()
   );
@@ -76,12 +79,12 @@ export function StatsRankingView({
     return tickerNameMap[ticker] || report.company_name || ticker;
   };
 
-  // 상위 주요 종목 로고 비동기 일괄 프리패치
+  // 상위 주요 종목 로고 비동기 프리패치
   useEffect(() => {
     const missingTickers = filteredReports
       .map((r) => r.ticker.toUpperCase())
       .filter((t) => !logoMap[t] && !requestedLogosRef.current.has(t))
-      .slice(0, 30);
+      .slice(0, 35);
 
     if (missingTickers.length === 0) return;
 
@@ -99,9 +102,7 @@ export function StatsRankingView({
         }
         setLogoMap((prev) => ({ ...prev, ...newLogos }));
       })
-      .catch(() => {
-        // 로고 패치 에러 무시
-      });
+      .catch(() => {});
   }, [filteredReports, logoMap]);
 
   // 시장 전체 거장 센티먼트 통계
@@ -136,15 +137,19 @@ export function StatsRankingView({
   }, [filteredReports]);
 
   // ─────────────────────────────────────────────────────────────
-  // 6대 핵심 벤치마크 데이터 생성 (Artificial Analysis 포맷)
+  // 변별력 있는 3대 세로 막대 벤치마크 데이터
   // ─────────────────────────────────────────────────────────────
 
-  // 1. 거장 종합 찬성률 벤치마크 (Consensus Approval Rate %)
+  // 1. 13인 거장 합의 찬성률 (Consensus Approval Rate %)
   const consensusRateItems = useMemo<BenchmarkChartItem[]>(() => {
     return [...filteredReports]
       .filter((r) => (r.votes_buy || 0) > 0)
       .map((r) => {
-        const total = (r.votes_buy || 0) + (r.votes_watch || 0) + (r.votes_hold || 0) + (r.votes_sell || 0) || 13;
+        const total =
+          (r.votes_buy || 0) +
+          (r.votes_watch || 0) +
+          (r.votes_hold || 0) +
+          (r.votes_sell || 0) || 13;
         const rate = Math.round(((r.votes_buy || 0) / total) * 100);
         return {
           ticker: r.ticker,
@@ -155,12 +160,15 @@ export function StatsRankingView({
           subText: `찬성 ${r.votes_buy || 0}표 / 전체 ${total}인`,
         };
       })
-      .sort((a, b) => b.value - a.value || (b.report.votes_buy || 0) - (a.report.votes_buy || 0))
-      .slice(0, 16);
+      .sort(
+        (a, b) =>
+          b.value - a.value || (b.report.votes_buy || 0) - (a.report.votes_buy || 0)
+      )
+      .slice(0, 20);
   }, [filteredReports]);
 
-  // 2. 내재가치 상승여력 및 안전마진 벤치마크 (Margin of Safety / Upside %)
-  const upsideItems = useMemo<BenchmarkChartItem[]>(() => {
+  // 2. 순수 안전마진율 벤치마크 (Margin of Safety / Upside %)
+  const marginItems = useMemo<BenchmarkChartItem[]>(() => {
     return [...filteredReports]
       .map((r) => {
         let upside = 0;
@@ -187,112 +195,46 @@ export function StatsRankingView({
       })
       .filter((it) => it.value > 0)
       .sort((a, b) => b.value - a.value)
-      .slice(0, 16);
+      .slice(0, 20);
   }, [filteredReports]);
 
-  // 3. 가치평가 종합 점수 벤치마크 (Overall Quality Score)
-  const qualityScoreItems = useMemo<BenchmarkChartItem[]>(() => {
+  // 3. 적정주가 배율 벤치마크 (Fair Value Multiple - 몇 배 저평가인가)
+  const multipleItems = useMemo<BenchmarkChartItem[]>(() => {
     return [...filteredReports]
-      .filter((r) => (r.overall_score || 0) > 0)
       .map((r) => {
-        const score = Math.round(r.overall_score || 0);
+        let multiple = 1.0;
+        if (r.fair_value && r.current_price && r.current_price > 0) {
+          multiple = Number((r.fair_value / r.current_price).toFixed(2));
+        } else if (typeof r.upside_pct === "number") {
+          multiple = Number((1 + r.upside_pct / 100).toFixed(2));
+        }
         return {
           ticker: r.ticker,
           name: getDisplayName(r),
-          value: score,
-          displayValue: `${score}`,
+          value: Math.round(multiple * 100),
+          displayValue: `${multiple.toFixed(2)}배`,
           report: r,
-          subText: `100점 만점 펀더멘털 평가`,
+          subText:
+            r.current_price && r.fair_value
+              ? `현재가 대비 적정가 ${multiple.toFixed(2)}배 수준`
+              : "적정주가 밸류에이션",
         };
       })
+      .filter((it) => it.value > 100) // 1배 이상 저평가 종목
       .sort((a, b) => b.value - a.value)
-      .slice(0, 16);
+      .slice(0, 20);
   }, [filteredReports]);
 
-  // 4. 거장 합의 일치도 및 확신도 벤치마크 (Consensus Agreement & Confidence)
-  const agreementItems = useMemo<BenchmarkChartItem[]>(() => {
-    return [...filteredReports]
-      .map((r) => {
-        const confidence = r.avg_confidence ? Math.round(r.avg_confidence) : 0;
-        const agreement = r.dispersion_pct ? Math.max(100 - Math.round(r.dispersion_pct), 30) : 80;
-        const finalVal = confidence > 0 ? confidence : agreement;
-        return {
-          ticker: r.ticker,
-          name: getDisplayName(r),
-          value: finalVal,
-          displayValue: `${finalVal}%`,
-          report: r,
-          subText: `의견 일치율 & 판정 확신도`,
-        };
-      })
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 16);
-  }, [filteredReports]);
-
-  // 5. 워런 버핏 팩터 랭킹 (Buffett Moat & Stability Index)
-  const buffettItems = useMemo<BenchmarkChartItem[]>(() => {
-    return [...filteredReports]
-      .map((r) => {
-        const buffettSummary = r.summaries?.find(
-          (s) => s.persona?.toLowerCase().includes("buffett") || s.guru_name?.includes("버핏")
-        );
-        let score = (r.overall_score || 70);
-        if (buffettSummary?.verdict === "BUY") score += 15;
-        if (buffettSummary?.confidence) score = Math.round((score + buffettSummary.confidence) / 2);
-
-        return {
-          ticker: r.ticker,
-          name: getDisplayName(r),
-          value: Math.min(score, 100),
-          displayValue: `${Math.min(score, 100)}`,
-          report: r,
-          subText: `버핏: ${buffettSummary?.verdict || "심사 통과"} (${buffettSummary?.confidence || 85}%)`,
-        };
-      })
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 16);
-  }, [filteredReports]);
-
-  // 6. 피터 린치 성장가치 벤치마크 (Peter Lynch PEG & Growth Index)
-  const lynchItems = useMemo<BenchmarkChartItem[]>(() => {
-    return [...filteredReports]
-      .map((r) => {
-        const lynchSummary = r.summaries?.find(
-          (s) => s.persona?.toLowerCase().includes("lynch") || s.guru_name?.includes("린치")
-        );
-        let score = (r.overall_score || 68);
-        if (lynchSummary?.verdict === "BUY") score += 18;
-        if (lynchSummary?.confidence) score = Math.round((score + lynchSummary.confidence) / 2);
-
-        return {
-          ticker: r.ticker,
-          name: getDisplayName(r),
-          value: Math.min(score, 100),
-          displayValue: `${Math.min(score, 100)}`,
-          report: r,
-          subText: `린치: ${lynchSummary?.verdict || "적정가 인정"} (${lynchSummary?.confidence || 80}%)`,
-        };
-      })
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 16);
-  }, [filteredReports]);
-
-  // ─────────────────────────────────────────────────────────────
-  // 테이블 뷰용 탑 랭킹 리스트
-  // ─────────────────────────────────────────────────────────────
+  // 테이블 뷰용 리스트
   const topBuyRanking = useMemo(() => {
     return [...filteredReports]
       .filter((r) => (r.votes_buy || 0) > 0)
-      .sort((a, b) => {
-        const diffBuy = (b.votes_buy || 0) - (a.votes_buy || 0);
-        if (diffBuy !== 0) return diffBuy;
-        return (b.overall_score || 0) - (a.overall_score || 0);
-      })
-      .slice(0, 10);
+      .sort((a, b) => (b.votes_buy || 0) - (a.votes_buy || 0))
+      .slice(0, 15);
   }, [filteredReports]);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)] gap-8 lg:gap-12">
+    <div className="grid grid-cols-1 md:grid-cols-[minmax(0,0.68fr)_minmax(0,1.32fr)] gap-8 lg:gap-12">
       {/* ── 좌측: 리포티스트 시그니처 05 인덱스 + 설명 + 필터 + 거장 센티먼트 요약 ── */}
       <div className="space-y-4 md:sticky md:top-[72px] md:self-start">
         <div className="flex items-baseline gap-2">
@@ -305,11 +247,11 @@ export function StatsRankingView({
         </div>
 
         <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-md">
-          13인의 전설적 투자 대가 AI 에이전트의 표결 합산 데이터와 밸류에이션 수치를 실시간 집계한 다차원 벤치마크 허브입니다.
-          Artificial Analysis 벤치마크 기준의 세로 막대그래프를 통해 종목별 찬성률, 안전마진, 퀄리티 순위를 한눈에 비교하세요.
+          13인의 전설적 투자 대가 AI 에이전트의 표결 합산 데이터와 밸류에이션 수치를 집계한 다차원 벤치마크 허브입니다.
+          Artificial Analysis 스타일의 4분면 매트릭스, 일자별 타임라인, 세로 막대그래프로 최우량 저평가 종목을 한눈에 비교하세요.
         </p>
 
-        {/* 시장 필터 탭 (리포티스트 칩 버튼 규격) */}
+        {/* 시장 필터 탭 */}
         <div className="pt-1 flex flex-wrap items-center gap-1.5">
           <button
             onClick={() => setMarketFilter("all")}
@@ -346,7 +288,7 @@ export function StatsRankingView({
           <div className="ml-auto flex items-center p-0.5 rounded border border-[#e2e8f0] bg-[#f8fafc]">
             <button
               onClick={() => setViewMode("benchmark")}
-              title="Artificial Analysis 벤치마크 차트"
+              title="다차원 벤치마크 차트"
               className={`p-1 rounded text-xs transition-colors cursor-pointer ${
                 viewMode === "benchmark"
                   ? "bg-white text-[#0f172a] shadow-2xs font-semibold"
@@ -369,7 +311,7 @@ export function StatsRankingView({
           </div>
         </div>
 
-        {/* 시장 전체 거장 센티먼트 요약 카드 (리포티스트 룩앤필 정합) */}
+        {/* 시장 전체 거장 센티먼트 요약 카드 */}
         <div className="p-4 rounded-md bg-[#f8fafc] border border-[#e2e8f0] space-y-2.5">
           <div className="flex items-center justify-between text-xs">
             <span className="font-bold text-[#0f172a] flex items-center gap-1.5">
@@ -396,79 +338,108 @@ export function StatsRankingView({
         </div>
 
         {/* 안내 팁 박스 */}
-        <div className="p-3.5 rounded-md border border-blue-100 bg-blue-50/50 text-[11px] text-blue-900 leading-relaxed">
-          <div className="flex items-center gap-1.5 font-bold text-blue-950 mb-1">
-            <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
-            <span>벤치마크 차트 이용 안내</span>
+        <div className="p-3.5 rounded-md border border-emerald-100 bg-emerald-50/50 text-[11px] text-emerald-950 leading-relaxed">
+          <div className="flex items-center gap-1.5 font-bold text-emerald-900 mb-1">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Most Attractive Quadrant 안내</span>
           </div>
-          각 차트의 세로 막대에 마우스를 올리면 종목명, 정확한 수치, 적정주가가 표시되며, 클릭 시 13인 거장 심사 보고서로 즉시 이동합니다.
+          4분면 산점도 매트릭스에서 우상단 초록색 박스(찬성률 45%↑ & 안전마진 15%↑)에 위치한 종목들이 13인 대가들이 인정한 최우량 저평가 종목군입니다.
         </div>
       </div>
 
-      {/* ── 우측: Artificial Analysis 스타일 벤치마크 룸 ── */}
-      <div className="min-w-0 space-y-4">
-        {/* 상단 카테고리 필터 태그 (Artificial Analysis 상단 태그바 스타일) */}
+      {/* ── 우측: 와이드 벤치마크 룸 (1행 1차트 레이아웃) ── */}
+      <div className="min-w-0 space-y-6">
+        {/* 상단 섹션 필터 태그 (Artificial Analysis 상단 태그바 스타일) */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-[#e2e8f0] scrollbar-none">
           <button
-            onClick={() => setCategoryFilter("all")}
+            onClick={() => setSectionFilter("all")}
             className={`px-3 py-1 rounded-full text-xs font-mono font-medium whitespace-nowrap transition-colors cursor-pointer ${
-              categoryFilter === "all"
+              sectionFilter === "all"
                 ? "bg-[#0f172a] text-white"
                 : "bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0] hover:text-[#0f172a]"
             }`}
           >
-            전체 벤치마크
+            전체 보기
           </button>
           <button
-            onClick={() => setCategoryFilter("consensus")}
+            onClick={() => setSectionFilter("scatter")}
             className={`px-3 py-1 rounded-full text-xs font-mono font-medium whitespace-nowrap transition-colors cursor-pointer ${
-              categoryFilter === "consensus"
+              sectionFilter === "scatter"
                 ? "bg-[#0f172a] text-white"
                 : "bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0] hover:text-[#0f172a]"
             }`}
           >
-            거장 합의 랭킹
+            4분면 산점도 매트릭스
           </button>
           <button
-            onClick={() => setCategoryFilter("value")}
+            onClick={() => setSectionFilter("timeline")}
             className={`px-3 py-1 rounded-full text-xs font-mono font-medium whitespace-nowrap transition-colors cursor-pointer ${
-              categoryFilter === "value"
+              sectionFilter === "timeline"
                 ? "bg-[#0f172a] text-white"
                 : "bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0] hover:text-[#0f172a]"
             }`}
           >
-            안전마진 & 밸류
+            일자별 시계열 추이
           </button>
           <button
-            onClick={() => setCategoryFilter("quality")}
+            onClick={() => setSectionFilter("consensus")}
             className={`px-3 py-1 rounded-full text-xs font-mono font-medium whitespace-nowrap transition-colors cursor-pointer ${
-              categoryFilter === "quality"
+              sectionFilter === "consensus"
                 ? "bg-[#0f172a] text-white"
                 : "bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0] hover:text-[#0f172a]"
             }`}
           >
-            퀄리티 스코어
+            거장 찬성률 랭킹
           </button>
           <button
-            onClick={() => setCategoryFilter("gurus")}
+            onClick={() => setSectionFilter("margin")}
             className={`px-3 py-1 rounded-full text-xs font-mono font-medium whitespace-nowrap transition-colors cursor-pointer ${
-              categoryFilter === "gurus"
+              sectionFilter === "margin"
                 ? "bg-[#0f172a] text-white"
                 : "bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0] hover:text-[#0f172a]"
             }`}
           >
-            버핏 · 린치 팩터
+            안전마진율 랭킹
+          </button>
+          <button
+            onClick={() => setSectionFilter("multiple")}
+            className={`px-3 py-1 rounded-full text-xs font-mono font-medium whitespace-nowrap transition-colors cursor-pointer ${
+              sectionFilter === "multiple"
+                ? "bg-[#0f172a] text-white"
+                : "bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0] hover:text-[#0f172a]"
+            }`}
+          >
+            적정가 배수 랭킹
           </button>
         </div>
 
-        {/* ── 뷰 모드 1: Artificial Analysis 2열 벤치마크 차트 그리드 ── */}
+        {/* ── 뷰 모드 1: 1행 1차트 와이드 풀위드 벤치마크 ── */}
         {viewMode === "benchmark" && (
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
-            {/* 1. 거장 종합 찬성률 */}
-            {(categoryFilter === "all" || categoryFilter === "consensus") && (
+          <div className="space-y-6">
+            {/* 1. [첨부 3번] 4분면 산점도 매트릭스 */}
+            {(sectionFilter === "all" || sectionFilter === "scatter") && (
+              <BenchmarkScatterPlot
+                reports={filteredReports}
+                onSelectReport={onSelectReport}
+                tickerNameMap={tickerNameMap}
+                logoMap={logoMap}
+              />
+            )}
+
+            {/* 2. [첨부 4번] 일자별 시계열 추이 차트 */}
+            {(sectionFilter === "all" || sectionFilter === "timeline") && (
+              <BenchmarkTimelineChart
+                reports={guruReports} // 전체 시계열 날짜 데이터 전달
+                onSelectReport={onSelectReport}
+                tickerNameMap={tickerNameMap}
+              />
+            )}
+
+            {/* 3. 13인 거장 합의 찬성률 (와이드 풀위드) */}
+            {(sectionFilter === "all" || sectionFilter === "consensus") && (
               <BenchmarkBarChart
-                title="13인 거장 합의 찬성률"
-                subtitle="13인의 대가 중 매수/찬성 표결 합의 비율 (%)"
+                title="13인 거장 합의 찬성률 벤치마크"
+                subtitle="13인의 대가 중 매수/찬성 표결 합의 비율 (Top 20, %)"
                 badge="업데이트됨"
                 items={consensusRateItems}
                 onSelectReport={onSelectReport}
@@ -476,56 +447,23 @@ export function StatsRankingView({
               />
             )}
 
-            {/* 2. 내재가치 상승여력 및 안전마진 */}
-            {(categoryFilter === "all" || categoryFilter === "value") && (
+            {/* 4. 순수 안전마진율 벤치마크 (와이드 풀위드) */}
+            {(sectionFilter === "all" || sectionFilter === "margin") && (
               <BenchmarkBarChart
-                title="내재가치 상승여력 & 안전마진"
-                subtitle="13인 거장 합의 적정주가 대비 상승 잠재력 (%)"
-                items={upsideItems}
+                title="순수 내재가치 안전마진율 벤치마크"
+                subtitle="13인 거장 합의 적정주가 대비 현재가 상승여력 (Top 20, %)"
+                items={marginItems}
                 onSelectReport={onSelectReport}
                 logoMap={logoMap}
               />
             )}
 
-            {/* 3. 가치평가 종합 점수 */}
-            {(categoryFilter === "all" || categoryFilter === "quality") && (
+            {/* 5. 적정주가 밸류에이션 갭 / 배율 벤치마크 (와이드 풀위드) */}
+            {(sectionFilter === "all" || sectionFilter === "multiple") && (
               <BenchmarkBarChart
-                title="가치평가 종합 펀더멘털 점수"
-                subtitle="재무 안정성, 성장성, 밸류에이션 종합 스코어 (100점 만점)"
-                items={qualityScoreItems}
-                onSelectReport={onSelectReport}
-                logoMap={logoMap}
-              />
-            )}
-
-            {/* 4. 거장 합의 일치도 & 확신도 */}
-            {(categoryFilter === "all" || categoryFilter === "consensus") && (
-              <BenchmarkBarChart
-                title="거장 합의 일치도 & 확신도"
-                subtitle="거장 간 적정가 편차가 적고 판정 확신도가 높은 순위 (%)"
-                items={agreementItems}
-                onSelectReport={onSelectReport}
-                logoMap={logoMap}
-              />
-            )}
-
-            {/* 5. 워런 버핏 팩터 랭킹 */}
-            {(categoryFilter === "all" || categoryFilter === "gurus") && (
-              <BenchmarkBarChart
-                title="워런 버핏 경제적 해자 지수"
-                subtitle="10년 지속 경쟁우위 및 비즈니스 영구성 종합 평가 (점)"
-                items={buffettItems}
-                onSelectReport={onSelectReport}
-                logoMap={logoMap}
-              />
-            )}
-
-            {/* 6. 피터 린치 성장가치 랭킹 */}
-            {(categoryFilter === "all" || categoryFilter === "gurus") && (
-              <BenchmarkBarChart
-                title="피터 린치 실적 성장가치 지수"
-                subtitle="이익 성장률(PEG) 대비 저평가 매력도 평가 (점)"
-                items={lynchItems}
+                title="적정주가 밸류에이션 배율 벤치마크"
+                subtitle="현재 주가 대비 거장 합의 적정주가의 괴리 배수 (Top 20, 배)"
+                items={multipleItems}
                 onSelectReport={onSelectReport}
                 logoMap={logoMap}
               />
@@ -533,7 +471,7 @@ export function StatsRankingView({
           </div>
         )}
 
-        {/* ── 뷰 모드 2: 심플 순위 테이블 (기존 리스트 지원) ── */}
+        {/* ── 뷰 모드 2: 심플 순위 테이블 ── */}
         {viewMode === "table" && (
           <div className="border border-[#e2e8f0] rounded-md bg-white overflow-hidden shadow-xs divide-y divide-[#f1f5f9]">
             {topBuyRanking.length === 0 ? (
@@ -544,7 +482,6 @@ export function StatsRankingView({
               topBuyRanking.map((report, idx) => {
                 const displayName = getDisplayName(report);
                 const votesBuy = report.votes_buy || 0;
-                const score = report.overall_score || 0;
                 const logoUrl = logoMap[report.ticker.toUpperCase()];
 
                 return (
@@ -566,7 +503,6 @@ export function StatsRankingView({
                         {String(idx + 1).padStart(2, "0")}
                       </span>
 
-                      {/* 로고 */}
                       <div className="w-6 h-6 rounded-full border border-[#e2e8f0] bg-white flex items-center justify-center overflow-hidden shrink-0">
                         {logoUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
@@ -605,9 +541,9 @@ export function StatsRankingView({
                         <span className="inline-flex items-center px-2 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-emerald-800 text-xs font-bold font-mono">
                           찬성 {votesBuy}표
                         </span>
-                        {score > 0 && (
-                          <p className="text-[10px] text-[#94a3b8] font-mono mt-0.5">
-                            종합 {score.toFixed(0)}점
+                        {typeof report.upside_pct === "number" && (
+                          <p className="text-[10px] text-emerald-600 font-mono mt-0.5">
+                            상승여력 {report.upside_pct > 0 ? `+${report.upside_pct.toFixed(0)}%` : `${report.upside_pct.toFixed(0)}%`}
                           </p>
                         )}
                       </div>
