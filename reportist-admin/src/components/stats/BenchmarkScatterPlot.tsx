@@ -3,16 +3,21 @@
 import React, { useState, useMemo } from "react";
 import { GuruReportRow } from "@/types/api";
 import { formatPriceByNation } from "@/lib/utils";
-import { Sparkles, ExternalLink, HelpCircle } from "lucide-react";
+import { Sparkles, CheckCircle2, ShieldCheck, TrendingUp } from "lucide-react";
+
+export type MatrixMode = "fair_value" | "safety_margin";
 
 interface ScatterPoint {
   ticker: string;
   name: string;
-  xVal: number; // 안전마진 (Upside %)
+  xVal: number; // 선택된 모드의 X축 값
+  xDisplay: string; // X축 표시 문자열
   yVal: number; // 거장 찬성률 (Approval Rate %)
   report: GuruReportRow;
   color: string;
-  isAttractive: boolean; // 우상단 매력 구간
+  isAttractive: boolean; // 우상단 매력 구간 여부
+  fairRatio?: number; // 적정가 / 종가 (%)
+  safetyRatio?: number; // 안전마진 진입가 / 종가 (%)
 }
 
 interface BenchmarkScatterPlotProps {
@@ -43,9 +48,10 @@ export function BenchmarkScatterPlot({
   tickerNameMap = {},
   logoMap = {},
 }: BenchmarkScatterPlotProps) {
+  const [matrixMode, setMatrixMode] = useState<MatrixMode>("fair_value");
   const [hoveredPoint, setHoveredPoint] = useState<ScatterPoint | null>(null);
 
-  // 데이터 가공 (X축: 안전마진 상승여력, Y축: 거장 찬성률)
+  // 데이터 가공 (선택된 모드에 따라 X축 지표 완전 분리)
   const points = useMemo<ScatterPoint[]>(() => {
     return reports
       .filter((r) => typeof r.votes_buy === "number")
@@ -57,41 +63,72 @@ export function BenchmarkScatterPlot({
           (r.votes_sell || 0) || 13;
         const approvalRate = Math.round(((r.votes_buy || 0) / totalVotes) * 100);
 
+        const curr = r.current_price && r.current_price > 0 ? r.current_price : null;
+        const fair = r.fair_value && r.fair_value > 0 ? r.fair_value : null;
+        const safety = r.safety_entry && r.safety_entry > 0 ? r.safety_entry : null;
+
+        // 1. 적정가/종가 배율 (%) 및 상승여력 (%)
         let upside = 0;
+        let fairRatio = 100;
         if (typeof r.upside_pct === "number") {
           upside = Math.round(r.upside_pct);
-        } else if (r.fair_value && r.current_price && r.current_price > 0) {
-          upside = Math.round(((r.fair_value - r.current_price) / r.current_price) * 100);
+          fairRatio = 100 + upside;
+        } else if (fair && curr) {
+          fairRatio = Math.round((fair / curr) * 100);
+          upside = fairRatio - 100;
+        }
+
+        // 2. 안전마진 진입가/종가 비율 (%)
+        let safetyRatio = 75; // fallback
+        if (safety && curr) {
+          safetyRatio = Math.round((safety / curr) * 100);
+        } else if (fairRatio) {
+          // safety_entry 미산출 종목은 적정가의 80%를 보수적 안전마진 진입가로 추정
+          safetyRatio = Math.round(fairRatio * 0.8);
         }
 
         const ticker = r.ticker.toUpperCase();
         const name = tickerNameMap[ticker] || r.company_name || ticker;
-        const isAttractive = upside >= 15 && approvalRate >= 45;
+
+        // 모드별 X축 값 및 매력 구간 판정
+        let xVal = upside;
+        let xDisplay = upside > 0 ? `+${upside}%` : `${upside}%`;
+        let isAttractive = upside >= 15 && approvalRate >= 45;
+
+        if (matrixMode === "safety_margin") {
+          xVal = safetyRatio;
+          xDisplay = `${safetyRatio}%`;
+          // 안전마진/종가 90% 이상(즉 현재가가 안전마진 진입가와 거의 일치하거나 더 저렴) & 찬성률 45% 이상
+          isAttractive = safetyRatio >= 90 && approvalRate >= 45;
+        }
 
         return {
           ticker,
           name,
-          xVal: upside,
+          xVal,
+          xDisplay,
           yVal: approvalRate,
           report: r,
           color: isAttractive ? "#059669" : PALETTE[idx % PALETTE.length],
           isAttractive,
+          fairRatio,
+          safetyRatio,
         };
       });
-  }, [reports, tickerNameMap]);
+  }, [reports, tickerNameMap, matrixMode]);
 
-  // 좌표 계산 (SVG ViewBox: 800 x 420)
+  // 좌표 계산 (SVG ViewBox: 840 x 430)
   const svgWidth = 840;
-  const svgHeight = 440;
+  const svgHeight = 430;
   const padding = { top: 40, right: 50, bottom: 60, left: 60 };
   const plotWidth = svgWidth - padding.left - padding.right;
   const plotHeight = svgHeight - padding.top - padding.bottom;
 
-  // 축 범위
-  const minX = -40; // -40%
-  const maxX = 60; // +60%
-  const minY = 0; // 0%
-  const maxY = 100; // 100%
+  // 모드별 축 범위
+  const minX = matrixMode === "fair_value" ? -40 : 40;
+  const maxX = matrixMode === "fair_value" ? 60 : 120;
+  const minY = 0;
+  const maxY = 100;
 
   const getSvgX = (x: number) => {
     const clamped = Math.max(minX, Math.min(maxX, x));
@@ -103,13 +140,14 @@ export function BenchmarkScatterPlot({
     return padding.top + plotHeight - ((clamped - minY) / (maxY - minY)) * plotHeight;
   };
 
-  // Most attractive quadrant (우상단 매력 구간: 안전마진 >= 15%, 찬성률 >= 45%)
-  const quadrantX = getSvgX(15);
+  // Most attractive quadrant (우상단 매력 구간)
+  const attractiveThresholdX = matrixMode === "fair_value" ? 15 : 90;
+  const quadrantX = getSvgX(attractiveThresholdX);
   const quadrantY = getSvgY(100);
   const quadrantW = getSvgX(maxX) - quadrantX;
   const quadrantH = getSvgY(45) - quadrantY;
 
-  // 파레토 최적선 (Pareto Frontier) 근사 곡선
+  // 파레토 최적선 (Pareto Frontier)
   const paretoPoints = useMemo(() => {
     const sorted = [...points].sort((a, b) => b.yVal - a.yVal || b.xVal - a.xVal);
     const frontier: ScatterPoint[] = [];
@@ -132,48 +170,83 @@ export function BenchmarkScatterPlot({
         return `${idx === 0 ? "M" : "L"} ${x} ${y}`;
       })
       .join(" ");
-  }, [paretoPoints]);
+  }, [paretoPoints, minX, maxX]);
 
   return (
     <div className="p-5 sm:p-6 rounded-md border border-[#e2e8f0] bg-white shadow-2xs hover:border-[#cbd5e1] transition-all">
-      {/* ── 헤더 (Artificial Analysis 1:1 스타일) ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+      {/* ── 헤더 (두 개의 독립 매트릭스 전환 토글) ── */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h3 className="text-base sm:text-lg font-bold text-[#0f172a] tracking-tight">
-              13인 거장 찬성률과 안전마진 4분면 매트릭스
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-base sm:text-lg font-bold text-[#0f172a] tracking-tight break-keep">
+              {matrixMode === "fair_value"
+                ? "13인 거장 찬성률 × 내재가치(적정가) 4분면 매트릭스"
+                : "13인 거장 찬성률 × 보수적 안전마진 4분면 매트릭스"}
             </h3>
-            <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-              핵심 밸류 매트릭스
+            <span
+              className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded border ${
+                matrixMode === "fair_value"
+                  ? "bg-blue-50 text-blue-700 border-blue-200"
+                  : "bg-emerald-50 text-emerald-700 border-emerald-200"
+              }`}
+            >
+              {matrixMode === "fair_value" ? "적정가 기준" : "안전마진 기준"}
             </span>
           </div>
-          <p className="text-xs text-[#64748b] mt-0.5 font-mono">
-            X축: 내재가치 상승여력(안전마진 %) · Y축: 13인 거장 합의 찬성률 (%)
+
+          <p className="text-xs text-[#64748b] mt-1 font-mono">
+            {matrixMode === "fair_value"
+              ? "X축: 거장 합의 적정주가 대비 상승여력 (%) · Y축: 13인 거장 합의 찬성률 (%)"
+              : "X축: 보수적 안전마진 진입가 / 현재가 (%) · Y축: 13인 거장 합의 찬성률 (%)"}
           </p>
         </div>
 
-        <div className="flex items-center gap-2 text-xs font-mono text-[#64748b] shrink-0">
-          <span className="px-2 py-1 rounded bg-[#f8fafc] border border-[#e2e8f0]">
-            분석 종목: <strong className="text-[#0f172a]">{points.length}개</strong>
-          </span>
-          <div className="flex items-center gap-1 text-[#94a3b8] text-[10px]">
-            <Sparkles className="w-3 h-3 text-indigo-500" />
-            <span>Reportist Benchmark</span>
-          </div>
+        {/* 2개 매트릭스 선택 탭 버튼 (상호 전환) */}
+        <div className="flex items-center gap-1 p-1 rounded-md bg-[#f1f5f9] border border-[#e2e8f0] self-start lg:self-auto">
+          <button
+            onClick={() => setMatrixMode("fair_value")}
+            className={`px-3 py-1.5 rounded text-xs font-mono font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+              matrixMode === "fair_value"
+                ? "bg-white text-[#0f172a] shadow-xs"
+                : "text-[#64748b] hover:text-[#0f172a]"
+            }`}
+          >
+            <TrendingUp className="w-3.5 h-3.5 text-blue-600" />
+            <span>① 내재가치(적정가) 매트릭스</span>
+          </button>
+          <button
+            onClick={() => setMatrixMode("safety_margin")}
+            className={`px-3 py-1.5 rounded text-xs font-mono font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+              matrixMode === "safety_margin"
+                ? "bg-white text-[#0f172a] shadow-xs"
+                : "text-[#64748b] hover:text-[#0f172a]"
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+            <span>② 보수적 안전마진 매트릭스</span>
+          </button>
         </div>
       </div>
 
-      {/* 범례 (Legend) */}
-      <div className="flex flex-wrap items-center gap-4 text-xs font-mono mb-3 pt-1 border-t border-[#f1f5f9]">
-        <div className="flex items-center gap-1.5">
-          <div className="w-3.5 h-3.5 rounded-sm bg-emerald-500/20 border border-emerald-500/50" />
-          <span className="font-semibold text-emerald-800">
-            가장 매력적인 4분면 (Most attractive quadrant: 찬성률 45%↑ & 안전마진 15%↑)
-          </span>
+      {/* 범례 및 안내 바 */}
+      <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-mono mb-3 pt-2 border-t border-[#f1f5f9]">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-1.5">
+            <div className="w-3.5 h-3.5 rounded-sm bg-emerald-500/20 border border-emerald-500/50" />
+            <span className="font-semibold text-emerald-800">
+              {matrixMode === "fair_value"
+                ? "가장 매력적인 4분면 (찬성률 45%↑ & 적정가 상승여력 15%↑)"
+                : "가장 매력적인 4분면 (찬성률 45%↑ & 안전마진/종가 90%↑)"}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 text-[#64748b]">
+            <div className="w-4 border-t-2 border-dashed border-[#0f172a]" />
+            <span>파레토 최적선 (Pareto line)</span>
+          </div>
         </div>
-        <div className="flex items-center gap-1.5 text-[#64748b]">
-          <div className="w-4 border-t-2 border-dashed border-[#0f172a]" />
-          <span>파레토 최적선 (Pareto line)</span>
+
+        <div className="text-[11px] text-[#94a3b8] font-mono">
+          분석 종목: <strong className="text-[#0f172a]">{points.length}개</strong>
         </div>
       </div>
 
@@ -204,10 +277,12 @@ export function BenchmarkScatterPlot({
             fontFamily="monospace"
             fontWeight="bold"
           >
-            ★ 최우량 가치투자 종목군 (저평가 & 거장 합의)
+            {matrixMode === "fair_value"
+              ? "★ 고상승여력 & 거장 찬성 종목군 (High Upside)"
+              : "★ 강력 하방완충 & 거장 찬성 종목군 (Safe Entry)"}
           </text>
 
-          {/* 배경 격자선 (가로 점선) */}
+          {/* 배경 격자선 (가로 점선: 찬성률 0% ~ 100%) */}
           {[0, 20, 40, 60, 80, 100].map((yVal) => {
             const y = getSvgY(yVal);
             return (
@@ -235,7 +310,10 @@ export function BenchmarkScatterPlot({
           })}
 
           {/* 배경 격자선 (세로 점선) */}
-          {[-40, -20, 0, 20, 40, 60].map((xVal) => {
+          {(matrixMode === "fair_value"
+            ? [-40, -20, 0, 20, 40, 60]
+            : [40, 60, 80, 100, 120]
+          ).map((xVal) => {
             const x = getSvgX(xVal);
             return (
               <g key={`x-grid-${xVal}`}>
@@ -255,17 +333,21 @@ export function BenchmarkScatterPlot({
                   fontFamily="monospace"
                   textAnchor="middle"
                 >
-                  {xVal > 0 ? `+${xVal}%` : `${xVal}%`}
+                  {matrixMode === "fair_value"
+                    ? xVal > 0
+                      ? `+${xVal}%`
+                      : `${xVal}%`
+                    : `${xVal}%`}
                 </text>
               </g>
             );
           })}
 
-          {/* X = 0% 기준선 (적정주가 일치선) */}
+          {/* 기준선 (내재가치는 0%, 안전마진은 100% 진입가 일치선) */}
           <line
-            x1={getSvgX(0)}
+            x1={getSvgX(matrixMode === "fair_value" ? 0 : 100)}
             y1={padding.top}
-            x2={getSvgX(0)}
+            x2={getSvgX(matrixMode === "fair_value" ? 0 : 100)}
             y2={svgHeight - padding.bottom}
             stroke="#94a3b8"
             strokeWidth="1.5"
@@ -281,7 +363,9 @@ export function BenchmarkScatterPlot({
             fontWeight="bold"
             textAnchor="middle"
           >
-            내재가치 상승여력 및 안전마진 (Margin of Safety %) →
+            {matrixMode === "fair_value"
+              ? "내재가치(적정주가) 상승여력 (Upside %) →"
+              : "보수적 안전마진 진입가 / 현재가 (Safety Entry Ratio %) →"}
           </text>
 
           <text
@@ -345,7 +429,7 @@ export function BenchmarkScatterPlot({
                   strokeWidth="1.5"
                 />
 
-                {/* 종목 라벨 (매력 종목이거나 호버 종목이면 표시) */}
+                {/* 종목 라벨 */}
                 {(p.isAttractive || isHovered || p.yVal >= 60) && (
                   <text
                     x={cx + 8}
@@ -369,8 +453,8 @@ export function BenchmarkScatterPlot({
             className="absolute z-30 pointer-events-none bg-[#0f172a] text-white p-3 rounded-md shadow-xl text-xs font-mono"
             style={{
               left: `${Math.min(Math.max(getSvgX(hoveredPoint.xVal) - 80, 20), svgWidth - 220)}px`,
-              top: `${Math.max(getSvgY(hoveredPoint.yVal) - 95, 10)}px`,
-              minWidth: "190px",
+              top: `${Math.max(getSvgY(hoveredPoint.yVal) - 105, 10)}px`,
+              minWidth: "210px",
             }}
           >
             <div className="flex items-center justify-between pb-1 mb-1.5 border-b border-slate-700">
@@ -380,30 +464,33 @@ export function BenchmarkScatterPlot({
               <span className="text-slate-400">({hoveredPoint.ticker})</span>
             </div>
 
-            <div className="space-y-0.5 text-[11px]">
+            <div className="space-y-1 text-[11px]">
               <div className="flex justify-between">
                 <span className="text-slate-400">거장 찬성률:</span>
                 <span className="font-bold text-emerald-400">
                   {hoveredPoint.yVal}% ({hoveredPoint.report.votes_buy || 0}/13인)
                 </span>
               </div>
+
+              {/* 2개 지표 명확히 개별 분리 표시 */}
               <div className="flex justify-between">
-                <span className="text-slate-400">안전마진(상승여력):</span>
-                <span
-                  className={`font-bold ${
-                    hoveredPoint.xVal > 0 ? "text-emerald-400" : "text-rose-400"
-                  }`}
-                >
-                  {hoveredPoint.xVal > 0 ? `+${hoveredPoint.xVal}%` : `${hoveredPoint.xVal}%`}
+                <span className="text-slate-400">적정가/종가 (상승여력):</span>
+                <span className="font-bold text-blue-300">
+                  {hoveredPoint.fairRatio}% ({hoveredPoint.fairRatio && hoveredPoint.fairRatio > 100 ? `+${hoveredPoint.fairRatio - 100}%` : `${(hoveredPoint.fairRatio || 100) - 100}%`})
                 </span>
               </div>
-              {hoveredPoint.report.current_price && hoveredPoint.report.fair_value && (
-                <div className="flex justify-between text-slate-300 pt-0.5">
-                  <span className="text-slate-400">현재/적정:</span>
-                  <span>
-                    {formatPriceByNation(hoveredPoint.report.current_price, undefined, hoveredPoint.ticker)} →{" "}
-                    {formatPriceByNation(hoveredPoint.report.fair_value, undefined, hoveredPoint.ticker)}
-                  </span>
+
+              <div className="flex justify-between">
+                <span className="text-slate-400">안전마진 진입가/종가:</span>
+                <span className="font-bold text-amber-300">
+                  {hoveredPoint.safetyRatio}%
+                </span>
+              </div>
+
+              {hoveredPoint.report.current_price && (
+                <div className="flex justify-between text-slate-300 pt-0.5 border-t border-slate-800">
+                  <span className="text-slate-400">현재가:</span>
+                  <span>{formatPriceByNation(hoveredPoint.report.current_price, undefined, hoveredPoint.ticker)}</span>
                 </div>
               )}
             </div>
