@@ -39,6 +39,7 @@ export function buildStockJsonLd({
     "@graph": [
       {
         "@type": "BreadcrumbList",
+        "@id": `${url}#breadcrumb`,
         itemListElement: [
           {
             "@type": "ListItem",
