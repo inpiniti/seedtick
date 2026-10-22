@@ -33,6 +33,7 @@ import {
 } from "@/lib/supabase";
 import { isValidChartTicker } from "@/lib/insightUtils";
 import { formatPriceByNation } from "@/lib/utils";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 function isValidLogoUrl(url?: string | null): boolean {
   if (!url) return false;
@@ -844,9 +845,11 @@ export function ScreenerTab({
     };
   }, [filteredAllCandidates, latestReportByTicker, percentBByTicker]);
 
+  const { isEn } = useLanguage();
+
   const formatPercentB = (percentB: number | null | undefined) => {
-    if (percentB === undefined) return "계산 중";
-    if (percentB === null || !Number.isFinite(percentB)) return "조회 불가";
+    if (percentB === undefined) return isEn ? "Calculating" : "계산 중";
+    if (percentB === null || !Number.isFinite(percentB)) return isEn ? "N/A" : "조회 불가";
     return `${(percentB * 100).toFixed(1)}%`;
   };
 

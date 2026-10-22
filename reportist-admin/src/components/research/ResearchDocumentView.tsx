@@ -57,6 +57,7 @@ interface ResearchDocumentViewProps {
   intrinsicStability?: IntrinsicStability;
   activeTab?: ResearchDocTab;
   onTabChange?: (tab: ResearchDocTab) => void;
+  isEn?: boolean;
 }
 
 export function ResearchDocumentView({
@@ -73,8 +74,10 @@ export function ResearchDocumentView({
   intrinsicStability,
   activeTab: activeTabProp,
   onTabChange,
+  isEn: isEnProp,
 }: ResearchDocumentViewProps) {
-  const { isEn } = useLanguage();
+  const { isEn: contextIsEn } = useLanguage();
+  const isEn = isEnProp ?? contextIsEn;
   const backLabel = customBackLabel || (isEn ? "Back to Catalog" : "카탈로그로 돌아가기");
   const {
     tier,
@@ -396,7 +399,7 @@ export function ResearchDocumentView({
             <div className="flex items-center gap-2 flex-wrap font-mono text-xs">
               {percentB !== undefined && (
                 <span className="px-2 py-0.5 rounded border border-[#e2e8f0] bg-[#f8fafc] text-[#475569]">
-                  %B: <strong className="text-[#0f172a]">{formatPercentB(percentB)}</strong>
+                  %B: <strong className="text-[#0f172a]">{formatPercentB(percentB, isEn)}</strong>
                 </span>
               )}
 

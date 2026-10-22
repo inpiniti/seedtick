@@ -29,6 +29,7 @@ interface GuruDocumentViewProps {
   /** 출처 섹션별 뒤로가기 문구 */
   backLabel?: string;
   onSelectReport: (report: GuruReportRow) => void;
+  isEn?: boolean;
 }
 
 export function GuruDocumentView({
@@ -37,8 +38,10 @@ export function GuruDocumentView({
   onBack,
   backLabel,
   onSelectReport,
+  isEn: isEnProp,
 }: GuruDocumentViewProps) {
-  const { isEn } = useLanguage();
+  const { isEn: contextIsEn } = useLanguage();
+  const isEn = isEnProp ?? contextIsEn;
   const [activeTab, setActiveTab] = useState<"philosophy" | "book" | "votes">("philosophy");
   const [opinionFilter, setOpinionFilter] = useState<string>("ALL");
 

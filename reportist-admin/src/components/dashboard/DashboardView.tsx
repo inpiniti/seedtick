@@ -985,12 +985,13 @@ export function DashboardView({
       : activeSidebarSectionRef.current;
     const detailQuery = from ? `?from=${encodeURIComponent(from)}` : "";
     if (options?.navigate !== false && typeof window !== "undefined") {
-      const targetUrl = `/stocks/${encodeURIComponent(candidate.ticker)}${detailQuery}`;
-      if (window.location.pathname !== `/stocks/${encodeURIComponent(candidate.ticker)}`) {
+      const stockPrefix = isEn ? "/en/stocks" : "/stocks";
+      const targetUrl = `${stockPrefix}/${encodeURIComponent(candidate.ticker)}${detailQuery}`;
+      if (window.location.pathname !== `${stockPrefix}/${encodeURIComponent(candidate.ticker)}`) {
         window.history.pushState({ type: "reportist_stock", ticker: candidate.ticker }, "", targetUrl);
       }
     }
-  }, [guruReports, handleOpenReport, initialTicker]);
+  }, [guruReports, handleOpenReport, initialTicker, isEn]);
 
   // 탭 변경 시 URL 쿼리 파라미터 동기화 (?tab=... — 분석일자는 경로에 포함됨)
   const handleTabChange = useCallback((tab: ResearchDocTab) => {
@@ -1089,13 +1090,14 @@ export function DashboardView({
       ? getBrowserSearchParam("from")
       : activeSidebarSectionRef.current;
     const guruQuery = from ? `?from=${encodeURIComponent(from)}` : "";
-    const targetUrl = `/gurus/${encodeURIComponent(slug)}${guruQuery}`;
+    const guruPrefix = isEn ? "/en/gurus" : "/gurus";
+    const targetUrl = `${guruPrefix}/${encodeURIComponent(slug)}${guruQuery}`;
     if (typeof window !== "undefined") {
-      if (window.location.pathname !== `/gurus/${encodeURIComponent(slug)}`) {
+      if (window.location.pathname !== `${guruPrefix}/${encodeURIComponent(slug)}`) {
         window.history.pushState({ type: "reportist_guru", slug }, "", targetUrl);
       }
     }
-  }, [initialGuru]);
+  }, [initialGuru, isEn]);
 
   // 문서 뷰에서 카탈로그 목록으로 복귀 (출처 섹션으로 정확히 복귀!)
   const handleBackToCatalog = useCallback(() => {
@@ -1350,7 +1352,11 @@ export function DashboardView({
             logCount={systemLogs.length}
             activeDocTicker={selectedDocReport?.ticker || initialTicker || null}
             activeGuruName={
-              selectedGuruSlug ? GURU_PERSONAS[selectedGuruSlug]?.name : null
+              selectedGuruSlug
+                ? isEn
+                  ? (GURU_PERSONAS[selectedGuruSlug]?.englishName || GURU_PERSONAS[selectedGuruSlug]?.name)
+                  : GURU_PERSONAS[selectedGuruSlug]?.name
+                : null
             }
             onBackToCatalog={handleBackToCatalog}
             backLabel={getSectionBackLabel(activeSidebarSection, isEn)}
@@ -1382,6 +1388,7 @@ export function DashboardView({
                     ? intrinsicStabilityByTicker.get(selectedDocReport.ticker.toUpperCase())
                     : undefined
                 }
+                isEn={isEn}
               />
             ) : selectedGuruSlug ? (
               <GuruDocumentView
@@ -1393,6 +1400,7 @@ export function DashboardView({
                   setSelectedGuruSlug(null);
                   handleOpenReport(report);
                 }}
+                isEn={isEn}
               />
             ) : isLoading && !health ? (
               <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-4">

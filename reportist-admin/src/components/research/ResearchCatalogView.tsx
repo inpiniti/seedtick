@@ -55,7 +55,7 @@ import { fetchReportByDateAndTicker } from "@/lib/supabase";
 import { useSubscription } from "@/lib/subscription/SubscriptionContext";
 import { isReportRestricted, getDefaultReportDate } from "@/lib/subscription/subscriptionPolicy";
 import { DataCache } from "@/lib/dataCache";
-import { matchesTickerAlias } from "@/lib/tickerAliases";
+import { matchesTickerAlias, getEnglishCompanyName } from "@/lib/tickerAliases";
 import type { TickerDirectoryEntry } from "@/lib/server/publicCatalog";
 import {
   getPreviousAvailableDate,
@@ -362,14 +362,20 @@ export function ResearchCatalogView({
     return map;
   }, [liveCandidates, krCandidates, romaCandidates]);
 
-  // 한글명 렌더링 규칙: 영문 모드 시 영문 fallback/후보군명 우선. 한글 모드 시 캐시 한글명 -> 후보군명 -> 영문 fallback -> 티커
+  // 한글명 렌더링 규칙: 영문 모드 시 정식 영문 기업명 우선, 한국어 텍스트 배제. 한글 모드 시 캐시 한글명 -> 후보군명 -> 영문 fallback -> 티커
   const displayNameOf = (ticker: string, fallback?: string | null): string => {
     const key = (ticker || "").trim().toUpperCase();
     if (isEn) {
-      const fb = (fallback || "").trim();
-      if (fb && fb.toUpperCase() !== key) return fb;
+      const alias = getEnglishCompanyName(key);
+      if (alias && alias.toUpperCase() !== key) return alias;
       const candidateName = candidateByTicker.get(key)?.name?.trim();
-      if (candidateName && candidateName.toUpperCase() !== key) return candidateName;
+      if (candidateName && !/[\uac00-\ud7a3]/.test(candidateName) && candidateName.toUpperCase() !== key) {
+        return candidateName;
+      }
+      const fb = (fallback || "").trim();
+      if (fb && !/[\uac00-\ud7a3]/.test(fb) && fb.toUpperCase() !== key) {
+        return fb;
+      }
       return key;
     }
     const korean = tickerNameMap?.[key];
@@ -1368,9 +1374,21 @@ export function ResearchCatalogView({
                           </span>
                         }
                         summary={
-                          (report.vote_summary || (isEn ? "13-Guru Consensus Summary" : "13인 표결 요약")) +
+                          (isEn
+                            ? (report.vote_summary
+                                ? report.vote_summary
+                                    .replace(/매수/g, "Buy")
+                                    .replace(/보유/g, "Hold")
+                                    .replace(/관망/g, "Watch")
+                                    .replace(/매도/g, "Sell")
+                                : "13-Guru Consensus Summary")
+                            : (report.vote_summary || "13인 표결 요약")) +
                           (insight.safetyPrice
-                            ? ` · ${isEn ? "Margin of Safety Entry: " : "안전마진 매수가: "}${insight.safetyPrice}`
+                            ? ` · ${isEn ? "Margin of Safety Entry: " : "안전마진 매수가: "}${
+                                isEn
+                                  ? insight.safetyPrice.replace(/이하/g, "or below").replace(/이상/g, "or above")
+                                  : insight.safetyPrice
+                              }`
                             : "")
                         }
                       />

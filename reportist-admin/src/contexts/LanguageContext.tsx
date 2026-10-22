@@ -27,6 +27,9 @@ export function LanguageProvider({
   // pathname이 /en 또는 /en/... 으로 시작하면 'en', 그 외에는 'ko'
   const detectedLang: Locale = useMemo(() => {
     if (forcedLang) return forcedLang;
+    if (typeof window !== "undefined" && window.location.pathname.startsWith("/en")) {
+      return "en";
+    }
     return pathname.startsWith("/en") ? "en" : "ko";
   }, [pathname, forcedLang]);
 

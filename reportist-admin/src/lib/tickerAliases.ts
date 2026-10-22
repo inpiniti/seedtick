@@ -59,139 +59,224 @@ export const TICKER_ALIAS_MAP: Record<string, TickerAliasDef> = {
   },
   NFLX: {
     primaryAlias: "넷플릭스",
+    englishName: "Netflix, Inc.",
     aliases: ["넷플릭스", "Netflix"],
   },
   PLTR: {
     primaryAlias: "팔란티어",
+    englishName: "Palantir Technologies Inc.",
     aliases: ["팔란티어", "Palantir"],
   },
   AMD: {
     primaryAlias: "AMD",
+    englishName: "Advanced Micro Devices, Inc.",
     aliases: ["AMD", "에이엠디", "라데온"],
   },
   INTC: {
     primaryAlias: "인텔",
+    englishName: "Intel Corporation",
     aliases: ["인텔", "Intel"],
   },
   QCOM: {
     primaryAlias: "퀄컴",
+    englishName: "QUALCOMM Incorporated",
     aliases: ["퀄컴", "Qualcomm", "스냅드래곤"],
   },
   AVGO: {
     primaryAlias: "브로드컴",
+    englishName: "Broadcom Inc.",
     aliases: ["브로드컴", "Broadcom"],
   },
   TSM: {
     primaryAlias: "TSMC",
+    englishName: "Taiwan Semiconductor Manufacturing (TSMC)",
     aliases: ["TSMC", "대만반도체", "티에스엠시"],
   },
   BABA: {
     primaryAlias: "알리바바",
+    englishName: "Alibaba Group Holding Limited",
     aliases: ["알리바바", "Alibaba", "마윈"],
   },
   PDD: {
     primaryAlias: "핀둬둬",
-    aliases: ["핀둬둬", "테무", "Temu", "PDD Holdings"],
+    englishName: "PDD Holdings Inc.",
+    aliases: ["핀둬둬", "테무", "Temu", "PDD Holdings", "핀둬둬(ADR)"],
   },
   "BRK.A": {
     primaryAlias: "버크셔 해서웨이",
+    englishName: "Berkshire Hathaway Inc.",
     aliases: ["버크셔", "버크셔해서웨이", "워런 버핏", "Berkshire"],
   },
   "BRK.B": {
     primaryAlias: "버크셔 해서웨이",
+    englishName: "Berkshire Hathaway Inc.",
     aliases: ["버크셔", "버크셔해서웨이", "워런 버핏", "Berkshire"],
   },
   "BRK-A": {
     primaryAlias: "버크셔 해서웨이",
+    englishName: "Berkshire Hathaway Inc.",
     aliases: ["버크셔", "버크셔해서웨이", "워런 버핏", "Berkshire"],
   },
   "BRK-B": {
     primaryAlias: "버크셔 해서웨이",
+    englishName: "Berkshire Hathaway Inc.",
     aliases: ["버크셔", "버크셔해서웨이", "워런 버핏", "Berkshire"],
   },
   COIN: {
     primaryAlias: "코인베이스",
+    englishName: "Coinbase Global, Inc.",
     aliases: ["코인베이스", "Coinbase", "비트코인"],
   },
   DIS: {
     primaryAlias: "디즈니",
+    englishName: "The Walt Disney Company",
     aliases: ["디즈니", "월트디즈니", "Disney"],
   },
   NKE: {
     primaryAlias: "나이키",
+    englishName: "NIKE, Inc.",
     aliases: ["나이키", "Nike"],
   },
   SBUX: {
     primaryAlias: "스타벅스",
+    englishName: "Starbucks Corporation",
     aliases: ["스타벅스", "스벅", "Starbucks"],
   },
   COST: {
     primaryAlias: "코스트코",
+    englishName: "Costco Wholesale Corporation",
     aliases: ["코스트코", "Costco"],
   },
   ARM: {
     primaryAlias: "ARM",
+    englishName: "Arm Holdings plc",
     aliases: ["ARM", "암", "암 홀딩스"],
   },
   SMCI: {
     primaryAlias: "슈퍼마이크로컴퓨터",
+    englishName: "Super Micro Computer, Inc.",
     aliases: ["슈퍼마이크로", "슈마컴", "Supermicro"],
   },
   ASML: {
     primaryAlias: "ASML",
+    englishName: "ASML Holding N.V.",
     aliases: ["ASML", "아스밀", "노광장비"],
   },
   LLY: {
     primaryAlias: "일라이 릴리",
+    englishName: "Eli Lilly and Company",
     aliases: ["일라이릴리", "Eli Lilly", "마운자로", "비만치료제"],
   },
   NVO: {
     primaryAlias: "노보 노디스크",
+    englishName: "Novo Nordisk A/S",
     aliases: ["노보노디스크", "Novo Nordisk", "위고비"],
   },
   UBER: {
     primaryAlias: "우버",
+    englishName: "Uber Technologies, Inc.",
     aliases: ["우버", "Uber"],
   },
   ABNB: {
     primaryAlias: "에어비앤비",
+    englishName: "Airbnb, Inc.",
     aliases: ["에어비앤비", "Airbnb"],
   },
   CRM: {
     primaryAlias: "세일즈포스",
+    englishName: "Salesforce, Inc.",
     aliases: ["세일즈포스", "Salesforce"],
   },
   ORCL: {
     primaryAlias: "오라클",
+    englishName: "Oracle Corporation",
     aliases: ["오라클", "Oracle"],
   },
   PYPL: {
     primaryAlias: "페이팔",
+    englishName: "PayPal Holdings, Inc.",
     aliases: ["페이팔", "Paypal"],
   },
   SNOW: {
     primaryAlias: "스노우플레이크",
+    englishName: "Snowflake Inc.",
     aliases: ["스노우플레이크", "Snowflake"],
   },
   PANW: {
     primaryAlias: "팔로알토 네트웍스",
+    englishName: "Palo Alto Networks, Inc.",
     aliases: ["팔로알토", "Palo Alto"],
   },
   CRWD: {
     primaryAlias: "크라우드스트라이크",
+    englishName: "CrowdStrike Holdings, Inc.",
     aliases: ["크라우드스트라이크", "CrowdStrike"],
   },
   RDDT: {
     primaryAlias: "레딧",
+    englishName: "Reddit, Inc.",
     aliases: ["레딧", "Reddit"],
   },
   SOFI: {
     primaryAlias: "소파이",
+    englishName: "SoFi Technologies, Inc.",
     aliases: ["소파이", "Sofi"],
   },
   IONQ: {
     primaryAlias: "아이온큐",
+    englishName: "IonQ, Inc.",
     aliases: ["아이온큐", "IonQ", "양자컴퓨터"],
+  },
+  // 주요 국내 주식 및 ADR
+  "005930": {
+    primaryAlias: "삼성전자",
+    englishName: "Samsung Electronics Co., Ltd.",
+    aliases: ["삼성전자", "삼전", "Samsung"],
+  },
+  "000660": {
+    primaryAlias: "SK하이닉스",
+    englishName: "SK Hynix Inc.",
+    aliases: ["SK하이닉스", "하닉", "SK Hynix"],
+  },
+  SKHY: {
+    primaryAlias: "SK하이닉스(ADR)",
+    englishName: "SK Hynix Inc. (ADR)",
+    aliases: ["SK하이닉스", "SK하이닉스(ADR)", "SK Hynix"],
+  },
+  "402340": {
+    primaryAlias: "SK스퀘어",
+    englishName: "SK Square Co., Ltd.",
+    aliases: ["SK스퀘어", "SK Square"],
+  },
+  "439268": {
+    primaryAlias: "대한조선",
+    englishName: "Daehan Shipbuilding Co., Ltd.",
+    aliases: ["대한조선", "Daehan Shipbuilding"],
+  },
+  "039200": {
+    primaryAlias: "오스코텍",
+    englishName: "Oscotec Inc.",
+    aliases: ["오스코텍", "Oscotec"],
+  },
+  "035420": {
+    primaryAlias: "NAVER",
+    englishName: "NAVER Corporation",
+    aliases: ["네이버", "NAVER"],
+  },
+  "035720": {
+    primaryAlias: "카카오",
+    englishName: "Kakao Corp.",
+    aliases: ["카카오", "Kakao"],
+  },
+  "005380": {
+    primaryAlias: "현대차",
+    englishName: "Hyundai Motor Company",
+    aliases: ["현대차", "현대자동차", "Hyundai"],
+  },
+  "000270": {
+    primaryAlias: "기아",
+    englishName: "Kia Corporation",
+    aliases: ["기아", "Kia"],
   },
 };
 

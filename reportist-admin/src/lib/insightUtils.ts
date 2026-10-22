@@ -265,8 +265,11 @@ export function getIntrinsicStabilityMeta(stability: IntrinsicStability): {
   }
 }
 
-export function formatPercentB(percentB: number | null | undefined): string {
-  if (percentB === undefined) return "계산 중";
+export function formatPercentB(
+  percentB: number | null | undefined,
+  isEn = false
+): string {
+  if (percentB === undefined) return isEn ? "Calculating" : "계산 중";
   if (percentB === null || !Number.isFinite(percentB)) return "-";
   return `${(percentB * 100).toFixed(1)}%`;
 }

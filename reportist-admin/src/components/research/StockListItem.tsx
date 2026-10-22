@@ -302,7 +302,7 @@ export function StockListItem({
               {/* %B는 로딩중/실패도 뱃지 유지 (계산 중/-) */}
               <MetricBadge
                 label="%B"
-                value={formatPercentB(percentB)}
+                value={formatPercentB(percentB, isEn)}
                 title={
                   isEn
                     ? percentB === undefined

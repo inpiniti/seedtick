@@ -4,6 +4,8 @@ import React, { useState } from "react";
 import { StockTimelineSeries, StockTimelinePoint } from "@/lib/server/publicCatalog";
 import { formatPriceByNation } from "@/lib/utils";
 import { ChevronRight } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { getEnglishCompanyName } from "@/lib/tickerAliases";
 
 interface StockValuationTimelineCardProps {
   series: StockTimelineSeries;
@@ -16,6 +18,7 @@ export function StockValuationTimelineCard({
   logoUrl,
   onSelect,
 }: StockValuationTimelineCardProps) {
+  const { isEn } = useLanguage();
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   const points = series.points;
@@ -97,7 +100,15 @@ export function StockValuationTimelineCard({
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <h4 className="font-bold text-xs sm:text-sm text-[#0f172a] group-hover:text-blue-600 transition-colors truncate">
-                {series.name}
+                {isEn
+                  ? (() => {
+                      const alias = getEnglishCompanyName(series.ticker, series.name);
+                      if (alias && !/[\uac00-\ud7a3]/.test(alias) && alias.toUpperCase() !== series.ticker.toUpperCase()) {
+                        return alias;
+                      }
+                      return series.ticker;
+                    })()
+                  : series.name}
               </h4>
               <span className="font-mono text-[10px] text-[#94a3b8] shrink-0">
                 {series.ticker}
@@ -105,7 +116,8 @@ export function StockValuationTimelineCard({
             </div>
             {series.latestPrice && (
               <p className="text-[10px] text-[#64748b] font-mono">
-                현재가 {formatPriceByNation(series.latestPrice, undefined, series.ticker)}
+                {isEn ? "Price: " : "현재가 "}
+                {formatPriceByNation(series.latestPrice, undefined, series.ticker)}
               </p>
             )}
           </div>
@@ -115,12 +127,12 @@ export function StockValuationTimelineCard({
         <div className="flex flex-col items-end gap-1 shrink-0">
           {series.latestFairRatio !== null && (
             <span className="inline-flex items-center px-2 py-0.5 rounded bg-[#0f172a] text-white text-[10px] font-mono font-bold">
-              적정가/종가: {series.latestFairRatio}%
+              {isEn ? "Fair/Price: " : "적정가/종가: "}{series.latestFairRatio}%
             </span>
           )}
           {series.latestSafetyRatio !== null && (
             <span className="inline-flex items-center px-2 py-0.5 rounded border border-emerald-300 bg-emerald-50 text-emerald-800 text-[10px] font-mono font-bold">
-              안전마진/종가: {series.latestSafetyRatio}%
+              {isEn ? "Safety/Price: " : "안전마진/종가: "}{series.latestSafetyRatio}%
             </span>
           )}
         </div>
@@ -272,13 +284,13 @@ export function StockValuationTimelineCard({
             </div>
             <div className="space-y-0.5">
               <div className="flex justify-between">
-                <span className="text-slate-400">적정가/종가:</span>
+                <span className="text-slate-400">{isEn ? "Fair/Price:" : "적정가/종가:"}</span>
                 <span className="font-bold text-blue-300">
                   {hoveredPoint.fairRatio}%
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">안전마진/종가:</span>
+                <span className="text-slate-400">{isEn ? "Safety/Price:" : "안전마진/종가:"}</span>
                 <span className="font-bold text-emerald-300">
                   {hoveredPoint.safetyRatio}%
                 </span>
@@ -292,15 +304,15 @@ export function StockValuationTimelineCard({
       <div className="flex items-center justify-between text-[10px] font-mono pt-2 border-t border-[#f1f5f9] text-[#94a3b8]">
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-1 text-blue-600 font-semibold">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-600" /> 적정가
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-600" /> {isEn ? "Fair Value" : "적정가"}
           </span>
           <span className="flex items-center gap-1 text-emerald-700 font-semibold">
-            <span className="w-1.5 h-1.5 bg-emerald-600 rounded-2xs" /> 안전마진
+            <span className="w-1.5 h-1.5 bg-emerald-600 rounded-2xs" /> {isEn ? "Safety Margin" : "안전마진"}
           </span>
         </div>
 
         <span className="flex items-center text-[#64748b] group-hover:text-blue-600 transition-colors">
-          리포트 보기 <ChevronRight className="w-3 h-3 ml-0.5" />
+          {isEn ? "View Report" : "리포트 보기"} <ChevronRight className="w-3 h-3 ml-0.5" />
         </span>
       </div>
     </div>
