@@ -170,14 +170,12 @@ export function DashboardView({
 }: DashboardViewProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isEn: contextIsEn, setLanguage } = useLanguage();
-  const isEn = lang === "en" || contextIsEn || (pathname?.startsWith("/en") ?? false);
-
-  useEffect(() => {
-    if (lang && (lang === "en") !== contextIsEn) {
-      setLanguage(lang);
-    }
-  }, [lang, contextIsEn, setLanguage]);
+  const { isEn: contextIsEn } = useLanguage();
+  const isEnRoute = pathname?.startsWith("/en") ?? false;
+  // 1) URL에 /en 프리픽스가 있으면 무조건 영문
+  // 2) SSR 시점에 lang="en" prop이 명시되면 영문
+  // 3) 그 외에는 LanguageContext의 상태를 따름 (국문 라우트 기본값: 국문)
+  const isEn = isEnRoute ? true : (lang === "en" ? true : contextIsEn);
 
   // NOTE: useSearchParams()를 쓰면 정적 프리렌더 라우트에서 Suspense 경계가
   // CSR bail-out 되어 <body>가 통째로 비게 된다(SEO 치명).
