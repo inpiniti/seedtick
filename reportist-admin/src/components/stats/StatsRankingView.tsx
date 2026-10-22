@@ -6,21 +6,12 @@ import {
   PieChart,
   BarChart2,
   ChevronRight,
-  TrendingUp,
-  Sparkles,
   Layers,
-  CheckCircle2,
-  ShieldCheck,
 } from "lucide-react";
-import { formatPriceByNation } from "@/lib/utils";
 import { DataCache } from "@/lib/dataCache";
 import { fetchTickerLogos } from "@/lib/api-client";
-import {
-  BenchmarkBarChart,
-  BenchmarkChartItem,
-} from "./BenchmarkBarChart";
+import { BenchmarkScatterPlot } from "./BenchmarkScatterPlot";
 import { StockValuationTimelineGrid } from "./StockValuationTimelineGrid";
-import { BenchmarkTimelineChart } from "./BenchmarkTimelineChart";
 
 interface StatsRankingViewProps {
   guruReports: GuruReportRow[];
@@ -30,7 +21,7 @@ interface StatsRankingViewProps {
 
 type MarketFilter = "all" | "kr" | "us";
 type ViewMode = "benchmark" | "table";
-type SectionFilter = "all" | "stock_timelines" | "timeline" | "consensus" | "margin" | "multiple";
+type SectionFilter = "all" | "scatter" | "stock_timelines";
 
 export function StatsRankingView({
   guruReports,
@@ -132,91 +123,6 @@ export function StatsRankingView({
     };
   }, [filteredReports]);
 
-  // 1. 13인 거장 합의 찬성률 (Consensus Approval Rate %)
-  const consensusRateItems = useMemo<BenchmarkChartItem[]>(() => {
-    return [...filteredReports]
-      .filter((r) => (r.votes_buy || 0) > 0)
-      .map((r) => {
-        const total =
-          (r.votes_buy || 0) +
-          (r.votes_watch || 0) +
-          (r.votes_hold || 0) +
-          (r.votes_sell || 0) || 13;
-        const rate = Math.round(((r.votes_buy || 0) / total) * 100);
-        return {
-          ticker: r.ticker,
-          name: getDisplayName(r),
-          value: rate,
-          displayValue: `${rate}%`,
-          report: r,
-          subText: `찬성 ${r.votes_buy || 0}표 / 전체 ${total}인`,
-        };
-      })
-      .sort(
-        (a, b) =>
-          b.value - a.value || (b.report.votes_buy || 0) - (a.report.votes_buy || 0)
-      )
-      .slice(0, 20);
-  }, [filteredReports]);
-
-  // 2. 순수 안전마진율 벤치마크 (Margin of Safety / Upside %)
-  const marginItems = useMemo<BenchmarkChartItem[]>(() => {
-    return [...filteredReports]
-      .map((r) => {
-        let upside = 0;
-        if (typeof r.upside_pct === "number") {
-          upside = Math.round(r.upside_pct);
-        } else if (r.fair_value && r.current_price && r.current_price > 0) {
-          upside = Math.round(((r.fair_value - r.current_price) / r.current_price) * 100);
-        }
-        return {
-          ticker: r.ticker,
-          name: getDisplayName(r),
-          value: Math.max(upside, 0),
-          displayValue: upside > 0 ? `+${upside}%` : `${upside}%`,
-          report: r,
-          subText:
-            r.current_price && r.fair_value
-              ? `${formatPriceByNation(r.current_price, undefined, r.ticker)} → ${formatPriceByNation(
-                  r.fair_value,
-                  undefined,
-                  r.ticker
-                )}`
-              : "적정주가 산정 완료",
-        };
-      })
-      .filter((it) => it.value > 0)
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 20);
-  }, [filteredReports]);
-
-  // 3. 적정주가 배율 벤치마크 (Fair Value Multiple)
-  const multipleItems = useMemo<BenchmarkChartItem[]>(() => {
-    return [...filteredReports]
-      .map((r) => {
-        let multiple = 1.0;
-        if (r.fair_value && r.current_price && r.current_price > 0) {
-          multiple = Number((r.fair_value / r.current_price).toFixed(2));
-        } else if (typeof r.upside_pct === "number") {
-          multiple = Number((1 + r.upside_pct / 100).toFixed(2));
-        }
-        return {
-          ticker: r.ticker,
-          name: getDisplayName(r),
-          value: Math.round(multiple * 100),
-          displayValue: `${multiple.toFixed(2)}배`,
-          report: r,
-          subText:
-            r.current_price && r.fair_value
-              ? `현재가 대비 적정가 ${multiple.toFixed(2)}배 수준`
-              : "적정주가 밸류에이션",
-        };
-      })
-      .filter((it) => it.value > 100)
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 20);
-  }, [filteredReports]);
-
   // 테이블 뷰용 리스트
   const topBuyRanking = useMemo(() => {
     return [...filteredReports]
@@ -243,7 +149,7 @@ export function StatsRankingView({
 
             <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-3xl mt-1">
               13인의 전설적 투자 대가 AI 에이전트의 표결 합산 데이터와 밸류에이션 수치를 집계한 다차원 벤치마크 허브입니다.
-              Artificial Analysis 스타일의 4분면 매트릭스, 일자별 타임라인, 세로 막대그래프로 최우량 저평가 종목을 한눈에 비교하세요.
+              Artificial Analysis 스타일의 4분면 산점도 매트릭스와 전 종목별 시계열 밸류에이션 차트로 최우량 저평가 종목을 한눈에 분석하세요.
             </p>
           </div>
 
@@ -343,6 +249,16 @@ export function StatsRankingView({
           전체 보기
         </button>
         <button
+          onClick={() => setSectionFilter("scatter")}
+          className={`px-3.5 py-1.5 rounded-full text-xs font-mono font-medium whitespace-nowrap transition-colors cursor-pointer ${
+            sectionFilter === "scatter"
+              ? "bg-[#0f172a] text-white"
+              : "bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0] hover:text-[#0f172a]"
+          }`}
+        >
+          4분면 산점도 매트릭스
+        </button>
+        <button
           onClick={() => setSectionFilter("stock_timelines")}
           className={`px-3.5 py-1.5 rounded-full text-xs font-mono font-medium whitespace-nowrap transition-colors cursor-pointer ${
             sectionFilter === "stock_timelines"
@@ -350,117 +266,29 @@ export function StatsRankingView({
               : "bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0] hover:text-[#0f172a]"
           }`}
         >
-          종목별 밸류 타임라인 (전 종목 차트)
-        </button>
-        <button
-          onClick={() => setSectionFilter("timeline")}
-          className={`px-3.5 py-1.5 rounded-full text-xs font-mono font-medium whitespace-nowrap transition-colors cursor-pointer ${
-            sectionFilter === "timeline"
-              ? "bg-[#0f172a] text-white"
-              : "bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0] hover:text-[#0f172a]"
-          }`}
-        >
-          시장 전체 시계열 추이
-        </button>
-        <button
-          onClick={() => setSectionFilter("consensus")}
-          className={`px-3.5 py-1.5 rounded-full text-xs font-mono font-medium whitespace-nowrap transition-colors cursor-pointer ${
-            sectionFilter === "consensus"
-              ? "bg-[#0f172a] text-white"
-              : "bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0] hover:text-[#0f172a]"
-          }`}
-        >
-          거장 찬성률 랭킹
-        </button>
-        <button
-          onClick={() => setSectionFilter("margin")}
-          className={`px-3.5 py-1.5 rounded-full text-xs font-mono font-medium whitespace-nowrap transition-colors cursor-pointer ${
-            sectionFilter === "margin"
-              ? "bg-[#0f172a] text-white"
-              : "bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0] hover:text-[#0f172a]"
-          }`}
-        >
-          안전마진율 랭킹
-        </button>
-        <button
-          onClick={() => setSectionFilter("multiple")}
-          className={`px-3.5 py-1.5 rounded-full text-xs font-mono font-medium whitespace-nowrap transition-colors cursor-pointer ${
-            sectionFilter === "multiple"
-              ? "bg-[#0f172a] text-white"
-              : "bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0] hover:text-[#0f172a]"
-          }`}
-        >
-          적정가 배수 랭킹
+          전 종목별 밸류 타임라인 ({filteredReports.length}개)
         </button>
       </div>
 
       {/* ── 3. 본문: 100% Full Width 벤치마크 룸 ── */}
       {viewMode === "benchmark" && (
         <div className="space-y-6 w-full">
-          {/* 1. [요청 반영] 전 종목별 밸류에이션 타임라인 컬렉션 (X: 작성일, Y: 적정가/종가 & 안전마진/종가) */}
+          {/* 1. [복원] Artificial Analysis 스타일 4분면 산점도 매트릭스 (첨부 그림 1) */}
+          {(sectionFilter === "all" || sectionFilter === "scatter") && (
+            <BenchmarkScatterPlot
+              reports={filteredReports}
+              onSelectReport={onSelectReport}
+              tickerNameMap={tickerNameMap}
+              logoMap={logoMap}
+            />
+          )}
+
+          {/* 2. [만족 피드백 기능] 전 종목별 밸류에이션 타임라인 컬렉션 (X: 작성일, Y: 적정가/종가 & 안전마진/종가) */}
           {(sectionFilter === "all" || sectionFilter === "stock_timelines") && (
             <StockValuationTimelineGrid
               onSelectReport={onSelectReport}
               logoMap={logoMap}
               initialMarketFilter={marketFilter}
-            />
-          )}
-
-          {/* 2. 일자별 시계열 추이 차트 */}
-          {(sectionFilter === "all" || sectionFilter === "timeline") && (
-            <BenchmarkTimelineChart
-              onSelectReport={(r) => {
-                const ticker = (r.ticker || "").toUpperCase();
-                const found = latestReports.find(
-                  (item) => item.ticker.toUpperCase() === ticker
-                );
-                if (found) {
-                  onSelectReport(found);
-                } else {
-                  onSelectReport({
-                    ...r,
-                    id: r.id || `${ticker}-${r.d || "latest"}`,
-                    ticker,
-                    overall_score: 0,
-                    verdict: "분석 리포트",
-                  } as GuruReportRow);
-                }
-              }}
-              tickerNameMap={tickerNameMap}
-            />
-          )}
-
-          {/* 3. 13인 거장 합의 찬성률 (와이드 풀위드) */}
-          {(sectionFilter === "all" || sectionFilter === "consensus") && (
-            <BenchmarkBarChart
-              title="13인 거장 합의 찬성률 벤치마크"
-              subtitle="13인의 대가 중 매수/찬성 표결 합의 비율 (Top 20, %)"
-              badge="업데이트됨"
-              items={consensusRateItems}
-              onSelectReport={onSelectReport}
-              logoMap={logoMap}
-            />
-          )}
-
-          {/* 4. 순수 안전마진율 벤치마크 (와이드 풀위드) */}
-          {(sectionFilter === "all" || sectionFilter === "margin") && (
-            <BenchmarkBarChart
-              title="순수 내재가치 안전마진율 벤치마크"
-              subtitle="13인 거장 합의 적정주가 대비 현재가 상승여력 (Top 20, %)"
-              items={marginItems}
-              onSelectReport={onSelectReport}
-              logoMap={logoMap}
-            />
-          )}
-
-          {/* 5. 적정주가 밸류에이션 갭 / 배율 벤치마크 (와이드 풀위드) */}
-          {(sectionFilter === "all" || sectionFilter === "multiple") && (
-            <BenchmarkBarChart
-              title="적정주가 밸류에이션 배율 벤치마크"
-              subtitle="현재 주가 대비 거장 합의 적정주가의 괴리 배수 (Top 20, 배)"
-              items={multipleItems}
-              onSelectReport={onSelectReport}
-              logoMap={logoMap}
             />
           )}
         </div>
