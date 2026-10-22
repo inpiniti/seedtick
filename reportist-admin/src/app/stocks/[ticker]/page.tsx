@@ -77,8 +77,8 @@ export async function generateMetadata({
       ? `13인 거장 표결 결과: 찬성 ${votesBuy}명, 관망 ${votesWatch}명, 매도 ${votesSell}명${verdict ? ` (${verdict})` : ""}. `
       : "";
 
-  const title = `${meta.displayName}(${ticker}) 주식 가치평가 리포트 및 거장 표결 | 리포티스트`;
-  const description = `${meta.displayName}(${ticker}) 주식 가치평가 리포트. ${voteSnippet}워런 버핏, 피터 린치, 벤저민 그레이엄 등 13인 투자 거장 AI 에이전트의 독립 적정주가·안전마진 분석을 확인하세요.`;
+  const title = `${meta.displayName}(${ticker}) 주가 전망 및 적정주가 분석 · 13인 거장 AI 리포트 | 리포티스트`;
+  const description = `${meta.displayName}(${ticker}) 주가 전망과 적정주가 분석 리포트. ${voteSnippet}워런 버핏, 피터 린치 등 13인 투자 거장 AI 에이전트의 독립 가치평가 및 향후 투자 전망, 안전마진 밴드를 확인하세요.`;
   const canonicalUrl = absoluteUrl(meta.canonicalPath);
 
   return {
@@ -164,7 +164,7 @@ export default async function StockDetailPage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       {/* 검색 엔진 및 AI 크롤러를 위한 SSR 시맨틱 통계 요약 */}
-      <section aria-label={`${displayName} 가치평가 및 거장 표결 통계 요약`} className="sr-only">
+      <section aria-label={`${displayName} (${ticker}) 주가 전망 및 거장 표결 통계 요약`} className="sr-only">
         <StockStatsSummaryTable
           displayName={displayName}
           ticker={ticker}

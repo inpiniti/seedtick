@@ -39,8 +39,11 @@ describe("tickerAliases", () => {
     expect(keywords).toContain("GOOGL");
     expect(keywords).toContain("알파벳 A");
     expect(keywords).toContain("구글");
-    expect(keywords).toContain("Google");
     expect(keywords).toContain("워런 버핏");
+    expect(keywords).toContain("주가 전망");
+    expect(keywords).toContain("GOOGL 주가 전망");
+    expect(keywords).toContain("구글 주가 전망");
+    expect(keywords).toContain("알파벳 A 주가 전망");
   });
 
   it("검색 쿼리가 별칭과 정확하게 매칭되어야 한다", () => {

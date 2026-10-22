@@ -73,9 +73,9 @@ export async function generateMetadata({
       : "";
 
   const title = data.isPublicDate
-    ? `${data.displayName}(${ticker}) ${date} 가치평가 리포트 및 거장 표결 | 리포티스트`
-    : `${data.displayName}(${ticker}) 주식 가치평가 리포트 | 리포티스트`;
-  const description = `${data.displayName}(${ticker}) ${date} 기준 주식 보고서. ${voteSnippet}워런 버핏, 벤저민 그레이엄, 피터 린치 등 13인 투자 거장 AI 에이전트의 독립 적정주가·안전마진 분석을 확인하세요.`;
+    ? `${data.displayName}(${ticker}) ${date} 주가 전망 및 적정주가 분석 · 13인 거장 AI 리포트 | 리포티스트`
+    : `${data.displayName}(${ticker}) 주가 전망 및 적정주가 분석 | 리포티스트`;
+  const description = `${data.displayName}(${ticker}) ${date} 기준 주가 전망과 적정주가 분석 리포트. ${voteSnippet}워런 버핏, 피터 린치 등 13인 투자 거장 AI 에이전트의 독립 가치평가 및 향후 투자 전망을 확인하세요.`;
 
   return {
     title,
@@ -147,7 +147,7 @@ export default async function StockDateDetailPage({
       />
       {/* 검색 엔진 및 AI 크롤러를 위한 SSR 시맨틱 통계 요약 */}
       <section
-        aria-label={`${pageData.displayName} ${date} 가치평가 및 거장 표결 통계 요약`}
+        aria-label={`${pageData.displayName} (${ticker}) ${date} 주가 전망 및 거장 표결 통계 요약`}
         className="sr-only"
       >
         <StockStatsSummaryTable

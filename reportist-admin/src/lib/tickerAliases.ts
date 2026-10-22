@@ -253,15 +253,35 @@ export function getSeoKeywordsForTicker(
     }
   }
 
+  list.add("주가 전망");
+  list.add("주식 전망");
+  list.add("목표주가");
+  list.add("적정주가");
+  list.add("적정주가 전망");
   list.add("국내 주식 리포트");
   list.add("미국 주식 리포트");
   list.add("주식 리포트");
   list.add("주식 보고서");
-  list.add("적정주가");
   list.add("내재가치");
   list.add("가치평가");
   list.add("워런 버핏");
   list.add("피터 린치");
+
+  // 종목별 조합 롱테일 키워드 (예: "애플 주가 전망", "AAPL 목표주가")
+  list.add(`${normTicker} 주가 전망`);
+  list.add(`${normTicker} 목표주가`);
+  if (companyName && companyName.trim()) {
+    const cName = companyName.trim();
+    list.add(`${cName} 주가 전망`);
+    list.add(`${cName} 주식 전망`);
+    list.add(`${cName} 목표주가`);
+  }
+  if (entry?.primaryAlias) {
+    const alias = entry.primaryAlias.trim();
+    list.add(`${alias} 주가 전망`);
+    list.add(`${alias} 주식 전망`);
+    list.add(`${alias} 목표주가`);
+  }
 
   return Array.from(list);
 }

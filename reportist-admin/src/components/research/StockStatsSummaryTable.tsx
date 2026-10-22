@@ -27,14 +27,14 @@ export function StockStatsSummaryTable({
 
   return (
     <section
-      aria-label={`${displayName} 가치평가 및 거장 표결 통계 요약`}
+      aria-label={`${displayName} (${ticker}) 주가 전망 및 거장 표결 통계 요약`}
       className="w-full max-w-5xl mx-auto px-4 py-6"
     >
       <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
         <header className="mb-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-              {displayName} ({ticker}) 가치평가 및 거장 표결 리포트
+              {displayName} ({ticker}) 주가 전망 및 13인 거장 가치평가 리포트
             </h1>
             <span className="text-xs text-slate-500 font-medium bg-slate-100 px-2.5 py-1 rounded-md">
               분석 기준일: {publishedDate || "최신"}
@@ -42,7 +42,7 @@ export function StockStatsSummaryTable({
           </div>
           <p className="mt-1 text-sm text-slate-600">
             워런 버핏, 벤저민 그레이엄, 피터 린치 등 13인의 전설적 투자 대가 AI 에이전트가
-            기업 재무 팩터를 독립 심사한 표결 통계 요약입니다.
+            기업 재무 팩터를 독립 심사한 주가 전망과 적정 내재가치 표결 통계 요약입니다.
           </p>
         </header>
 
@@ -50,7 +50,7 @@ export function StockStatsSummaryTable({
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm border-collapse">
             <caption className="sr-only">
-              {displayName} 13인 투자 거장 표결 현황 및 핵심 가치평가 지표
+              {displayName} 13인 투자 거장 표결 현황 및 주가 전망·가치평가 핵심 지표
             </caption>
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/75 text-xs text-slate-600 font-semibold uppercase">
@@ -68,7 +68,7 @@ export function StockStatsSummaryTable({
             <tbody className="divide-y divide-slate-100 text-slate-700">
               <tr>
                 <th scope="row" className="py-3 px-3 font-semibold text-slate-900">
-                  거장 종합 의견
+                  거장 종합 의견 및 전망
                 </th>
                 <td className="py-3 px-3">
                   <span

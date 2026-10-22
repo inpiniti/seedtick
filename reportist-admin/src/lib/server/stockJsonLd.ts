@@ -31,8 +31,8 @@ export function buildStockJsonLd({
   report,
 }: BuildStockJsonLdParams) {
   const url = absoluteUrl(canonicalPath);
-  const title = `${displayName}(${ticker}) 주식 리포트와 분석 · 적정주가 및 13인 거장 AI 가치평가 보고서`;
-  const description = `${displayName}(${ticker}) 주식 보고서와 분석. 13인 전설적 투자 거장들의 철학으로 산출한 내재가치와 적정주가, 종목별 가치평가 리포트 아카이브.`;
+  const title = `${displayName}(${ticker}) 주가 전망 및 적정주가 분석 · 13인 거장 AI 가치평가 보고서`;
+  const description = `${displayName}(${ticker}) 주가 전망과 적정주가 분석 보고서. 13인 전설적 투자 거장들의 철학으로 산출한 향후 전망과 내재가치, 안전마진 밴드 및 종목별 가치평가 리포트 아카이브.`;
 
   return {
     "@context": "https://schema.org",
@@ -220,6 +220,28 @@ export function buildStockJsonLd({
                   ticker
                 )}`,
               },
+            },
+            {
+              "@type": "FAQPage",
+              "@id": `${url}#faq`,
+              mainEntity: [
+                {
+                  "@type": "Question",
+                  name: `${displayName}(${ticker})의 13인 거장 종합 주가 전망 의견은 어떤가요?`,
+                  acceptedAnswer: {
+                    "@type": "Answer",
+                    text: `워런 버핏, 피터 린치 등 13인의 전설적 투자 거장 AI 에이전트 분석 결과, ${displayName}의 종합 투자의견은 "${report.verdict || "분석 완료"}"입니다. 세부 표결 현황은 찬성 ${report.votes_buy ?? 0}명, 관망 ${(report.votes_watch ?? 0) + (report.votes_hold ?? 0)}명, 매도 ${report.votes_sell ?? 0}명입니다.`,
+                  },
+                },
+                {
+                  "@type": "Question",
+                  name: `${displayName}(${ticker})의 적정주가 및 내재가치는 어떻게 산출되나요?`,
+                  acceptedAnswer: {
+                    "@type": "Answer",
+                    text: `리포티스트는 DCF(현금흐름할인), NCAV, Graham Number, Lynch Fair PE 등 거장들의 고유 밸류에이션 공식을 기반으로 기업의 내재가치와 안전마진 밴드를 산출하여 향후 주가 전망을 객관적으로 제시합니다.`,
+                  },
+                },
+              ],
             },
           ]
         : []),
