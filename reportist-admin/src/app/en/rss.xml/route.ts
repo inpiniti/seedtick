@@ -109,7 +109,7 @@ export async function GET(): Promise<Response> {
 
   const itemsXml = items
     .map((item) => {
-      const itemTitle = `[${escapeXml(item.ticker)}] ${escapeXml(item.englishName)} 13-Guru AI Equity Research & Fair Value Forecast (${escapeXml(item.date)})`;
+      const itemTitle = `[${escapeXml(item.ticker)}] ${escapeXml(item.englishName)} 13-Guru AI Equity Research &amp; Fair Value Forecast (${escapeXml(item.date)})`;
       const encodedTicker = encodeURIComponent(item.ticker);
       const itemLink = `${SITE_URL}/en/stocks/${encodedTicker}`;
       const itemGuid = `${SITE_URL}/en/stocks/${encodedTicker}/${encodeURIComponent(item.date)}`;
