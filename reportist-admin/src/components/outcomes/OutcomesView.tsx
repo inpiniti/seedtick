@@ -30,6 +30,9 @@ import {
   Percent,
 } from "lucide-react";
 
+import { useLanguage } from "@/contexts/LanguageContext";
+import { findGuruPersona, getGuruPersonaBilingual } from "@/lib/guruPersonas";
+
 interface OutcomesViewProps {
   isAdmin?: boolean;
   onSelectReport?: (reportId: string, ticker: string, date: string) => void;
@@ -41,19 +44,21 @@ interface OutcomesViewProps {
   initialData?: OutcomesOverview | null;
 }
 
-const HORIZON_TABS = [
-  { id: "all", label: "전체 기간" },
-  { id: "21", label: "1개월 (21일)" },
-  { id: "63", label: "3개월 (63일)" },
-  { id: "126", label: "6개월 (126일)" },
-  { id: "252", label: "1년 (252일)" },
-] as const;
-
 export function OutcomesView({
   isAdmin = false,
   onSelectReport,
   initialData = null,
 }: OutcomesViewProps) {
+  const { isEn } = useLanguage();
+
+  const HORIZON_TABS = [
+    { id: "all", label: isEn ? "All Horizons" : "전체 기간" },
+    { id: "21", label: isEn ? "1 Month (21d)" : "1개월 (21일)" },
+    { id: "63", label: isEn ? "3 Months (63d)" : "3개월 (63일)" },
+    { id: "126", label: isEn ? "6 Months (126d)" : "6개월 (126일)" },
+    { id: "252", label: isEn ? "1 Year (252d)" : "1년 (252일)" },
+  ] as const;
+
   // SSR 전달값이 있으면 그대로 초기 상태로 사용 (서버·클라 1차 렌더 일치)
   const [data, setData] = useState<OutcomesOverview | null>(initialData);
   const [isLoading, setIsLoading] = useState(!initialData);
@@ -107,14 +112,16 @@ export function OutcomesView({
       const res = await triggerOutcomeTracking();
       setTriggerFeedback(
         res.evaluated != null
-          ? `${res.evaluated}건의 과거 리포트 성과 평가를 완료했어요.`
-          : res.message || "배치를 완료했어요."
+          ? isEn
+            ? `Successfully evaluated ${res.evaluated} past reports.`
+            : `${res.evaluated}건의 과거 리포트 성과 평가를 완료했어요.`
+          : res.message || (isEn ? "Batch completed." : "배치를 완료했어요.")
       );
       // 데이터 다시 불러오기
       await refresh();
     } catch (err) {
       setTriggerFeedback(
-        err instanceof Error ? err.message : "배치 실행 중 오류가 발생했어요."
+        err instanceof Error ? err.message : isEn ? "Error occurred during batch run." : "배치 실행 중 오류가 발생했어요."
       );
     } finally {
       setIsTriggering(false);
@@ -136,15 +143,17 @@ export function OutcomesView({
               Track Record & Accuracy
             </span>
             <span className="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-              실시간 검증
+              {isEn ? "Live Verified" : "실시간 검증"}
             </span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight flex items-center gap-2">
             <Award className="w-6 h-6 text-[#0f172a]" />
-            투자 리포트 성과 및 거장 적중률
+            {isEn ? "Investment Report Track Record & Guru Accuracy" : "투자 리포트 성과 및 거장 적중률"}
           </h1>
           <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-2xl">
-            발행된 가치평가 리포트와 13인 거장들의 투자의견이 실제 시장에서 어떤 수익률을 기록했는지 투명하게 추적해요.
+            {isEn
+              ? "Transparently track the real-world market returns and accuracy of published valuation reports and 13 guru consensus verdicts."
+              : "발행된 가치평가 리포트와 13인 거장들의 투자의견이 실제 시장에서 어떤 수익률을 기록했는지 투명하게 추적해요."}
           </p>
         </div>
 
@@ -158,7 +167,7 @@ export function OutcomesView({
             className="flex items-center gap-1.5 cursor-pointer text-xs"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
-            <span>새로고침</span>
+            <span>{isEn ? "Refresh" : "새로고침"}</span>
           </Button>
 
           {isAdmin && (
@@ -172,7 +181,7 @@ export function OutcomesView({
               className="flex items-center gap-1.5 cursor-pointer text-xs"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
-              <span>성과 추적 배치 실행</span>
+              <span>{isEn ? "Run Track Record Batch" : "성과 추적 배치 실행"}</span>
             </Button>
           )}
         </div>
@@ -194,22 +203,24 @@ export function OutcomesView({
           {/* 카드 1: 누적 평가 리포트 */}
           <div className="p-4 rounded-xl border border-[#e2e8f0] bg-white shadow-2xs space-y-1">
             <div className="flex items-center justify-between text-[#64748b] text-xs font-medium">
-              <span>추적 대상 리포트</span>
+              <span>{isEn ? "Tracked Reports" : "추적 대상 리포트"}</span>
               <Calendar className="w-4 h-4 text-[#94a3b8]" />
             </div>
             <div className="text-xl sm:text-2xl font-bold font-mono text-[#0f172a]">
               {data?.total_reports_tracked?.toLocaleString() ?? 0}
-              <span className="text-xs font-normal text-[#64748b] ml-1">종목</span>
+              <span className="text-xs font-normal text-[#64748b] ml-1">{isEn ? "stocks" : "종목"}</span>
             </div>
             <p className="text-[11px] text-[#94a3b8]">
-              총 {data?.total_evaluations?.toLocaleString() ?? 0}건 기간별 관측 완료
+              {isEn
+                ? `Total ${data?.total_evaluations?.toLocaleString() ?? 0} observations completed`
+                : `총 ${data?.total_evaluations?.toLocaleString() ?? 0}건 기간별 관측 완료`}
             </p>
           </div>
 
           {/* 카드 2: SPY 대비 초과수익률 */}
           <div className="p-4 rounded-xl border border-[#e2e8f0] bg-white shadow-2xs space-y-1">
             <div className="flex items-center justify-between text-[#64748b] text-xs font-medium">
-              <span>SPY 대비 평균 알파(초과)</span>
+              <span>{isEn ? "Avg Alpha vs SPY" : "SPY 대비 평균 알파(초과)"}</span>
               <TrendingUp className="w-4 h-4 text-[#94a3b8]" />
             </div>
             <div
@@ -226,40 +237,42 @@ export function OutcomesView({
               )}
               {data?.avg_excess_return_pct != null
                 ? `${data.avg_excess_return_pct > 0 ? "+" : ""}${data.avg_excess_return_pct}%`
-                : "집계중"}
+                : isEn ? "Calculating" : "집계중"}
             </div>
             <p className="text-[11px] text-[#94a3b8]">
-              벤치마크(S&P 500) 대비 초과 성과
+              {isEn ? "Outperformance vs S&P 500 Benchmark" : "벤치마크(S&P 500) 대비 초과 성과"}
             </p>
           </div>
 
           {/* 카드 3: 적정가 도달 성공률 */}
           <div className="p-4 rounded-xl border border-[#e2e8f0] bg-white shadow-2xs space-y-1">
             <div className="flex items-center justify-between text-[#64748b] text-xs font-medium">
-              <span>적정가 도달 성공률</span>
+              <span>{isEn ? "Fair Value Hit Rate" : "적정가 도달 성공률"}</span>
               <Percent className="w-4 h-4 text-[#94a3b8]" />
             </div>
             <div className="text-xl sm:text-2xl font-bold font-mono text-[#0f172a]">
               {data?.fair_value_hit_rate_pct != null
                 ? `${data.fair_value_hit_rate_pct}%`
-                : "집계중"}
+                : isEn ? "Calculating" : "집계중"}
             </div>
             <p className="text-[11px] text-[#94a3b8]">
-              관측 기간 내 제시한 적정가 터치 비율
+              {isEn ? "Ratio touching target fair value within horizon" : "관측 기간 내 제시한 적정가 터치 비율"}
             </p>
           </div>
 
           {/* 카드 4: 최고 적중 거장 */}
           <div className="p-4 rounded-xl border border-[#e2e8f0] bg-white shadow-2xs space-y-1">
             <div className="flex items-center justify-between text-[#64748b] text-xs font-medium">
-              <span>최고 적중률 거장</span>
+              <span>{isEn ? "Top Accuracy Guru" : "최고 적중률 거장"}</span>
               <Sparkles className="w-4 h-4 text-amber-500" />
             </div>
             <div className="text-base sm:text-lg font-bold text-[#0f172a] truncate">
-              {data?.top_guru?.name || "분석 대기"}
+              {data?.top_guru?.name || (isEn ? "Pending Analysis" : "분석 대기")}
             </div>
             <p className="text-[11px] font-mono text-emerald-600 font-semibold">
-              {data?.top_guru ? `적중률 ${data.top_guru.accuracy_pct}%` : "표본 수집 중"}
+              {data?.top_guru
+                ? isEn ? `Accuracy ${data.top_guru.accuracy_pct}%` : `적중률 ${data.top_guru.accuracy_pct}%`
+                : isEn ? "Collecting Samples" : "표본 수집 중"}
             </p>
           </div>
         </div>
@@ -267,7 +280,7 @@ export function OutcomesView({
 
       {/* ── 3. 관측 시계(Horizon) 필터 칩 ── */}
       <div className="flex flex-wrap items-center gap-1.5 p-1 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg">
-        <span className="text-[11px] font-mono text-[#64748b] px-2 font-medium">관측 시계:</span>
+        <span className="text-[11px] font-mono text-[#64748b] px-2 font-medium">{isEn ? "Horizon:" : "관측 시계:"}</span>
         {HORIZON_TABS.map((tab) => {
           const isActive = selectedHorizon === tab.id;
           return (
@@ -298,7 +311,11 @@ export function OutcomesView({
             }`}
           >
             <Award className="w-4 h-4" />
-            <span>13인 거장 적중률 랭킹 ({data?.guru_stats?.length ?? 0})</span>
+            <span>
+              {isEn
+                ? `13 Guru Accuracy Rankings (${data?.guru_stats?.length ?? 0})`
+                : `13인 거장 적중률 랭킹 (${data?.guru_stats?.length ?? 0})`}
+            </span>
           </button>
           <button
             onClick={() => setActiveTab("horizons")}
@@ -309,7 +326,7 @@ export function OutcomesView({
             }`}
           >
             <BarChart3 className="w-4 h-4" />
-            <span>보유 기간별 성과 매트릭스</span>
+            <span>{isEn ? "Horizon Performance Matrix" : "보유 기간별 성과 매트릭스"}</span>
           </button>
           <button
             onClick={() => setActiveTab("reports")}
@@ -320,7 +337,11 @@ export function OutcomesView({
             }`}
           >
             <Layers className="w-4 h-4" />
-            <span>최근 평가 리포트 ({data?.recent_outcomes?.length ?? 0})</span>
+            <span>
+              {isEn
+                ? `Recent Evaluated Reports (${data?.recent_outcomes?.length ?? 0})`
+                : `최근 평가 리포트 (${data?.recent_outcomes?.length ?? 0})`}
+            </span>
           </button>
         </div>
       </div>
@@ -332,25 +353,33 @@ export function OutcomesView({
           {(!data?.guru_stats || data.guru_stats.length === 0) ? (
             <EmptyState
               icon="🏆"
-              title="아직 거장 적중률 표본이 쌓이지 않았어요"
-              description="최소 21거래일(1개월)이 경과한 리포트의 주가 변화를 토대로 거장별 예측 적중률이 자동 계산돼요."
+              title={isEn ? "No Guru Accuracy Samples Yet" : "아직 거장 적중률 표본이 쌓이지 않았어요"}
+              description={
+                isEn
+                  ? "Prediction accuracy per guru is automatically calculated based on price movements of reports after at least 21 trading days (1 month)."
+                  : "최소 21거래일(1개월)이 경과한 리포트의 주가 변화를 토대로 거장별 예측 적중률이 자동 계산돼요."
+              }
             />
           ) : (
             <div className="overflow-x-auto rounded-xl border border-[#e2e8f0] bg-white shadow-2xs">
               <table className="w-full text-left text-xs font-sans">
                 <thead className="bg-[#f8fafc] border-b border-[#e2e8f0] text-[#64748b] font-mono uppercase text-[11px]">
                   <tr>
-                    <th className="py-3 px-4 w-12 text-center">순위</th>
-                    <th className="py-3 px-4">투자 거장</th>
-                    <th className="py-3 px-4">투자 스타일</th>
-                    <th className="py-3 px-4 text-center">예측 적중률</th>
-                    <th className="py-3 px-4 text-right">평가 표본</th>
-                    <th className="py-3 px-4 text-right">평균 수익률</th>
-                    <th className="py-3 px-4 text-right">평균 확신도</th>
+                    <th className="py-3 px-4 w-12 text-center">{isEn ? "Rank" : "순위"}</th>
+                    <th className="py-3 px-4">{isEn ? "Guru" : "투자 거장"}</th>
+                    <th className="py-3 px-4">{isEn ? "Style" : "투자 스타일"}</th>
+                    <th className="py-3 px-4 text-center">{isEn ? "Accuracy" : "예측 적중률"}</th>
+                    <th className="py-3 px-4 text-right">{isEn ? "Samples" : "평가 표본"}</th>
+                    <th className="py-3 px-4 text-right">{isEn ? "Avg Return" : "평균 수익률"}</th>
+                    <th className="py-3 px-4 text-right">{isEn ? "Avg Confidence" : "평균 확신도"}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#f1f5f9]">
                   {data.guru_stats.map((g, idx) => {
+                    const basePersona = findGuruPersona(g.persona);
+                    const persona = basePersona ? getGuruPersonaBilingual(basePersona, isEn) : null;
+                    const displayName = isEn && persona ? persona.englishName : g.name;
+                    const displayStyle = isEn && persona && persona.styleEn ? persona.styleEn : g.style;
                     const rankBadge =
                       idx === 0
                         ? "bg-amber-100 text-amber-800 border-amber-300 font-bold"
@@ -370,10 +399,10 @@ export function OutcomesView({
                           </span>
                         </td>
                         <td className="py-3 px-4 font-bold text-[#0f172a] text-sm">
-                          {g.name}
+                          {displayName}
                         </td>
                         <td className="py-3 px-4 text-[#64748b]">
-                          {g.style}
+                          {displayStyle}
                         </td>
                         <td className="py-3 px-4 min-w-[160px]">
                           {g.accuracy_pct != null ? (
@@ -391,7 +420,9 @@ export function OutcomesView({
                                   {g.accuracy_pct}%
                                 </span>
                                 <span className="text-[10px] text-[#94a3b8] font-normal">
-                                  {g.correct_count} / {g.evaluated_count} 적중
+                                  {isEn
+                                    ? `${g.correct_count} / ${g.evaluated_count} hits`
+                                    : `${g.correct_count} / ${g.evaluated_count} 적중`}
                                 </span>
                               </div>
                               <div className="w-full bg-[#f1f5f9] h-2 rounded-full overflow-hidden">
@@ -408,11 +439,11 @@ export function OutcomesView({
                               </div>
                             </div>
                           ) : (
-                            <span className="text-[#94a3b8] font-mono text-xs">평가 대기</span>
+                            <span className="text-[#94a3b8] font-mono text-xs">{isEn ? "Pending" : "평가 대기"}</span>
                           )}
                         </td>
                         <td className="py-3 px-4 text-right font-mono text-[#0f172a]">
-                          {g.evaluated_count}건
+                          {isEn ? g.evaluated_count : `${g.evaluated_count}건`}
                         </td>
                         <td className="py-3 px-4 text-right font-mono">
                           {g.avg_return_pct != null ? (
@@ -447,6 +478,18 @@ export function OutcomesView({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {data?.horizon_stats?.map((h) => {
               const hasData = h.evaluated_count > 0;
+              const horizonTitle = isEn
+                ? h.horizon_days === 21
+                  ? "1 Month (21d)"
+                  : h.horizon_days === 63
+                  ? "3 Months (63d)"
+                  : h.horizon_days === 126
+                  ? "6 Months (126d)"
+                  : h.horizon_days === 252
+                  ? "1 Year (252d)"
+                  : `${h.horizon_days}d Horizon`
+                : h.horizon_label;
+
               return (
                 <div
                   key={h.horizon_days}
@@ -454,13 +497,13 @@ export function OutcomesView({
                 >
                   <div className="flex items-center justify-between border-b border-[#f1f5f9] pb-3">
                     <div>
-                      <h3 className="font-bold text-sm text-[#0f172a]">{h.horizon_label}</h3>
+                      <h3 className="font-bold text-sm text-[#0f172a]">{horizonTitle}</h3>
                       <p className="text-[11px] text-[#94a3b8] font-mono">
-                        {h.horizon_days} 거래일 경과 시점
+                        {isEn ? `${h.horizon_days} trading days elapsed` : `${h.horizon_days} 거래일 경과 시점`}
                       </p>
                     </div>
                     <Badge variant={hasData ? "primary" : "neutral"}>
-                      {h.evaluated_count}건
+                      {isEn ? `${h.evaluated_count} cases` : `${h.evaluated_count}건`}
                     </Badge>
                   </div>
 
@@ -468,7 +511,7 @@ export function OutcomesView({
                     <div className="space-y-3 font-mono text-xs">
                       {/* 평균 수익률 */}
                       <div className="flex items-center justify-between">
-                        <span className="text-[#64748b]">리포트 평균 수익률:</span>
+                        <span className="text-[#64748b]">{isEn ? "Report Avg Return:" : "리포트 평균 수익률:"}</span>
                         <span
                           className={`font-bold ${
                             (h.avg_return_pct ?? 0) >= 0 ? "text-emerald-600" : "text-rose-600"
@@ -490,7 +533,9 @@ export function OutcomesView({
 
                       {/* 초과 수익률 (알파) */}
                       <div className="flex items-center justify-between p-2 rounded bg-[#f8fafc] border border-[#e2e8f0]">
-                        <span className="font-semibold text-[#0f172a]">초과 수익률 (알파):</span>
+                        <span className="font-semibold text-[#0f172a]">
+                          {isEn ? "Excess Return (Alpha):" : "초과 수익률 (알파):"}
+                        </span>
                         <span
                           className={`font-bold ${
                             (h.avg_excess_return_pct ?? 0) >= 0 ? "text-emerald-600" : "text-rose-600"
@@ -503,7 +548,7 @@ export function OutcomesView({
 
                       {/* 적정가 도달 성공률 */}
                       <div className="flex items-center justify-between pt-1">
-                        <span className="text-[#64748b]">적정가 도달률:</span>
+                        <span className="text-[#64748b]">{isEn ? "Fair Value Hit Rate:" : "적정가 도달률:"}</span>
                         <span className="font-bold text-[#0f172a]">
                           {h.fair_value_hit_rate_pct != null ? `${h.fair_value_hit_rate_pct}%` : "-"}
                         </span>
@@ -511,7 +556,7 @@ export function OutcomesView({
 
                       {/* 시장 대비 승률 */}
                       <div className="flex items-center justify-between">
-                        <span className="text-[#64748b]">시장 초과 승률:</span>
+                        <span className="text-[#64748b]">{isEn ? "Win Rate vs Market:" : "시장 초과 승률:"}</span>
                         <span className="font-bold text-emerald-600">
                           {h.win_rate_pct != null ? `${h.win_rate_pct}%` : "-"}
                         </span>
@@ -519,7 +564,7 @@ export function OutcomesView({
                     </div>
                   ) : (
                     <div className="py-8 text-center text-[#94a3b8] text-xs">
-                      아직 {h.horizon_days}거래일이 경과한 리포트가 없어요.
+                      {isEn ? `No reports elapsed ${h.horizon_days} trading days yet.` : `아직 ${h.horizon_days}거래일이 경과한 리포트가 없어요.`}
                     </div>
                   )}
                 </div>
@@ -536,41 +581,60 @@ export function OutcomesView({
           <div className="flex items-center justify-between gap-4">
             <input
               type="text"
-              placeholder="티커 검색 (예: AAPL, NVDA)"
+              placeholder={isEn ? "Search ticker (e.g. AAPL, NVDA)" : "티커 검색 (예: AAPL, NVDA)"}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="px-3.5 py-2 border border-[#e2e8f0] rounded-lg text-xs font-mono w-full max-w-xs focus:outline-hidden focus:border-[#0f172a]"
             />
             <span className="text-xs text-[#64748b] font-mono">
-              총 {filteredRecentOutcomes.length}건 표시
+              {isEn ? `Showing ${filteredRecentOutcomes.length} reports` : `총 ${filteredRecentOutcomes.length}건 표시`}
             </span>
           </div>
 
           {filteredRecentOutcomes.length === 0 ? (
             <EmptyState
               icon="📄"
-              title="평가된 리포트가 없습니다"
-              description="검색어를 변경하거나 성과 추적 배치가 실행된 뒤 확인해 주세요."
+              title={isEn ? "No evaluated reports found" : "평가된 리포트가 없습니다"}
+              description={
+                isEn
+                  ? "Try changing your search keyword or run the track record batch."
+                  : "검색어를 변경하거나 성과 추적 배치가 실행된 뒤 확인해 주세요."
+              }
             />
           ) : (
             <div className="overflow-x-auto rounded-xl border border-[#e2e8f0] bg-white shadow-2xs">
               <table className="w-full text-left text-xs font-sans">
                 <thead className="bg-[#f8fafc] border-b border-[#e2e8f0] text-[#64748b] font-mono uppercase text-[11px]">
                   <tr>
-                    <th className="py-3 px-4">분석일</th>
-                    <th className="py-3 px-4">종목</th>
-                    <th className="py-3 px-4">관측 시계</th>
-                    <th className="py-3 px-4">당시 판정</th>
-                    <th className="py-3 px-4 text-right">당시 주가</th>
-                    <th className="py-3 px-4 text-right">관측 주가</th>
-                    <th className="py-3 px-4 text-right">종목 수익률</th>
-                    <th className="py-3 px-4 text-right">SPY 초과수익</th>
-                    <th className="py-3 px-4 text-center">적정가 도달</th>
+                    <th className="py-3 px-4">{isEn ? "Date" : "분석일"}</th>
+                    <th className="py-3 px-4">{isEn ? "Ticker" : "종목"}</th>
+                    <th className="py-3 px-4">{isEn ? "Horizon" : "관측 시계"}</th>
+                    <th className="py-3 px-4">{isEn ? "Verdict" : "당시 판정"}</th>
+                    <th className="py-3 px-4 text-right">{isEn ? "Price Then" : "당시 주가"}</th>
+                    <th className="py-3 px-4 text-right">{isEn ? "Observed Price" : "관측 주가"}</th>
+                    <th className="py-3 px-4 text-right">{isEn ? "Return" : "종목 수익률"}</th>
+                    <th className="py-3 px-4 text-right">{isEn ? "Alpha vs SPY" : "SPY 초과수익"}</th>
+                    <th className="py-3 px-4 text-center">{isEn ? "Hit Fair Value" : "적정가 도달"}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#f1f5f9]">
                   {filteredRecentOutcomes.map((r, i) => {
                     const isExcessPositive = (r.excess_return_pct ?? 0) >= 0;
+                    const verdictText = isEn
+                      ? r.verdict.includes("매수") || r.verdict.toUpperCase().includes("BUY")
+                        ? "BUY"
+                        : r.verdict.includes("보유") || r.verdict.toUpperCase().includes("HOLD")
+                        ? "HOLD"
+                        : r.verdict.includes("관망") || r.verdict.toUpperCase().includes("WATCH")
+                        ? "WATCH"
+                        : r.verdict.includes("매도") || r.verdict.toUpperCase().includes("SELL")
+                        ? "SELL"
+                        : r.verdict
+                      : r.verdict;
+                    const stockHref = isEn
+                      ? `/en/stocks/${encodeURIComponent(r.ticker)}/${encodeURIComponent(r.d)}?from=sec-outcomes`
+                      : `/stocks/${encodeURIComponent(r.ticker)}/${encodeURIComponent(r.d)}?from=sec-outcomes`;
+
                     return (
                       <tr
                         key={`${r.report_id}-${r.horizon_days}-${i}`}
@@ -582,7 +646,7 @@ export function OutcomesView({
                         </td>
                         <td className="py-3 px-4 font-bold font-mono text-[#0f172a]">
                           <Link
-                            href={`/stocks/${encodeURIComponent(r.ticker)}/${encodeURIComponent(r.d)}?from=sec-outcomes`}
+                            href={stockHref}
                             onClick={(e) => {
                               if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
                               e.preventDefault();
@@ -595,19 +659,19 @@ export function OutcomesView({
                           </Link>
                         </td>
                         <td className="py-3 px-4 font-mono text-[#64748b]">
-                          {r.horizon_days}거래일
+                          {isEn ? `${r.horizon_days}d` : `${r.horizon_days}거래일`}
                         </td>
                         <td className="py-3 px-4">
                           <span
                             className={`inline-block px-2 py-0.5 rounded text-[11px] font-mono font-semibold ${
-                              r.verdict.includes("매수") || r.verdict.toUpperCase().includes("BUY")
+                              verdictText.toUpperCase().includes("BUY")
                                 ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                : r.verdict.includes("보유") || r.verdict.toUpperCase().includes("HOLD")
+                                : verdictText.toUpperCase().includes("HOLD")
                                 ? "bg-blue-50 text-blue-700 border border-blue-200"
                                 : "bg-slate-100 text-slate-700 border border-slate-200"
                             }`}
                           >
-                            {r.verdict}
+                            {verdictText}
                           </span>
                         </td>
                         <td className="py-3 px-4 text-right font-mono text-[#475569]">
@@ -648,12 +712,12 @@ export function OutcomesView({
                           {r.hit_fair_value === true ? (
                             <span className="inline-flex items-center gap-1 text-emerald-600 font-mono text-[11px] font-semibold">
                               <CheckCircle2 className="w-3.5 h-3.5" />
-                              달성
+                              {isEn ? "Hit" : "달성"}
                             </span>
                           ) : r.hit_fair_value === false ? (
                             <span className="inline-flex items-center gap-1 text-[#94a3b8] font-mono text-[11px]">
                               <XCircle className="w-3.5 h-3.5" />
-                              미달
+                              {isEn ? "Miss" : "미달"}
                             </span>
                           ) : (
                             <span className="text-[#cbd5e1] font-mono">-</span>
@@ -672,20 +736,34 @@ export function OutcomesView({
       {/* ── 6. 수동 성과 추적 배치 모달 ── */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
         <Modal.Header
-          title="성과 추적 배치를 실행할까요?"
-          description="과거 발행된 리포트들의 21·63·126·252일 경과 주가와 S&P500 대비 초과수익률, 13인 거장 적중률을 재계산해요."
+          title={isEn ? "Run Track Record Batch Evaluation?" : "성과 추적 배치를 실행할까요?"}
+          description={
+            isEn
+              ? "Re-evaluates prices, S&P 500 alpha, and 13 guru prediction accuracies after 21, 63, 126, and 252 trading days."
+              : "과거 발행된 리포트들의 21·63·126·252일 경과 주가와 S&P500 대비 초과수익률, 13인 거장 적중률을 재계산해요."
+          }
         />
         <Modal.Body>
           <div className="space-y-4 text-xs font-sans">
             <div className="p-3 bg-[#f8fafc] border border-[#e2e8f0] rounded-lg space-y-2">
               <div className="flex items-center gap-2 text-[#0f172a] font-semibold">
                 <Sparkles className="w-4 h-4 text-emerald-600" />
-                <span>성과 평가 프로세스</span>
+                <span>{isEn ? "Evaluation Workflow" : "성과 평가 프로세스"}</span>
               </div>
               <ul className="list-disc pl-5 space-y-1 text-[#64748b]">
-                <li>분석 기준일로부터 각 관측 시계가 지난 과거 리포트를 모두 조회해요.</li>
-                <li>야후 파이낸스에서 경과 시점의 종가 및 SPY 종가를 수집해 수익률을 계산해요.</li>
-                <li>당시 13인 거장들의 투자의견(매수/보유/매도)이 적중했는지 판정해요.</li>
+                {isEn ? (
+                  <>
+                    <li>Fetches all past reports whose observation horizons have elapsed.</li>
+                    <li>Collects historical closing prices for tickers and SPY benchmark from Yahoo Finance.</li>
+                    <li>Determines whether each guru persona's investment verdict was validated by market returns.</li>
+                  </>
+                ) : (
+                  <>
+                    <li>분석 기준일로부터 각 관측 시계가 지난 과거 리포트를 모두 조회해요.</li>
+                    <li>야후 파이낸스에서 경과 시점의 종가 및 SPY 종가를 수집해 수익률을 계산해요.</li>
+                    <li>당시 13인 거장들의 투자의견(매수/보유/매도)이 적중했는지 판정해요.</li>
+                  </>
+                )}
               </ul>
             </div>
 
@@ -702,14 +780,14 @@ export function OutcomesView({
             onClick={() => setIsModalOpen(false)}
             disabled={isTriggering}
           >
-            닫기
+            {isEn ? "Close" : "닫기"}
           </Button>
           <Button
             variant="primary"
             onClick={handleTriggerBatch}
             isLoading={isTriggering}
           >
-            지금 실행하기
+            {isEn ? "Run Batch Now" : "지금 실행하기"}
           </Button>
         </Modal.Footer>
       </Modal>

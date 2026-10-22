@@ -22,7 +22,11 @@ import {
   FileText,
   ChevronRight,
 } from "lucide-react";
-import { GURU_PERSONAS } from "@/lib/guruPersonas";
+import {
+  GURU_PERSONAS,
+  getGuruPersonaBilingual,
+  findGuruPersona,
+} from "@/lib/guruPersonas";
 import { GuruReportRow, StockCandidate, OutcomesOverview } from "@/types/api";
 import { formatPriceByNation } from "@/lib/utils";
 import { SidebarSectionId } from "@/components/sidebar/ResearchSidebar";
@@ -664,19 +668,25 @@ export function HomeServiceIntro({
             <div className="space-y-1">
               <div className="text-blue-400 font-semibold">1. Python Quant Engine (Analyzer)</div>
               <p className="text-slate-400 leading-relaxed font-sans">
-                FastAPI, Pandas, SEC/DART 자동 크롤러, 13인 금융 밸류에이션 수학 모델링, Bollinger %B 시계열 연산
+                {isEn
+                  ? "FastAPI, Pandas, automated SEC/DART crawlers, 13-guru quantitative mathematical modeling, Bollinger %B time-series engine"
+                  : "FastAPI, Pandas, SEC/DART 자동 크롤러, 13인 금융 밸류에이션 수학 모델링, Bollinger %B 시계열 연산"}
               </p>
             </div>
             <div className="space-y-1">
               <div className="text-teal-400 font-semibold">2. Multi-Model AI Gateway</div>
               <p className="text-slate-400 leading-relaxed font-sans">
-                Vercel Edge Proxy, 멀티 LLM 키 로테이션, 429/500 장애 시 자동 페일오버, 일관성 있는 구조화 JSON 출력
+                {isEn
+                  ? "Vercel Edge Proxy, multi-LLM key rotation, automatic failover on 429/500 errors, deterministic structured JSON outputs"
+                  : "Vercel Edge Proxy, 멀티 LLM 키 로테이션, 429/500 장애 시 자동 페일오버, 일관성 있는 구조화 JSON 출력"}
               </p>
             </div>
             <div className="space-y-1">
               <div className="text-sky-400 font-semibold">3. High Performance Web & DB</div>
               <p className="text-slate-400 leading-relaxed font-sans">
-                Next.js 15 App Router, React 19, Supabase PostgreSQL, ISR 5분 캐싱, SEO Schema.org 완벽 대응
+                {isEn
+                  ? "Next.js 15 App Router, React 19, Supabase PostgreSQL, 5-minute ISR caching, full SEO Schema.org compatibility"
+                  : "Next.js 15 App Router, React 19, Supabase PostgreSQL, ISR 5분 캐싱, SEO Schema.org 완벽 대응"}
               </p>
             </div>
           </div>
@@ -712,37 +722,40 @@ export function HomeServiceIntro({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 font-sans">
-          {guruList.slice(0, 6).map((guru) => (
-            <Link
-              key={guru.slug}
-              href={(isEn ? "/en/gurus/" : "/gurus/") + encodeURIComponent(guru.slug) + "?from=all"}
-              className="p-4 rounded-xl border border-[#e2e8f0] bg-white hover:border-[#0f172a] hover:shadow-xs transition-all flex flex-col justify-between group space-y-2.5"
-            >
-              <div>
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-sm text-[#0f172a] group-hover:text-blue-600 transition-colors">
-                    {isEn ? guru.englishName : guru.name}
-                  </span>
-                  <span className="text-[10px] font-mono text-[#94a3b8]">
-                    {isEn ? guru.name : guru.englishName}
-                  </span>
+          {guruList.slice(0, 6).map((rawGuru) => {
+            const guru = getGuruPersonaBilingual(rawGuru, isEn) || rawGuru;
+            return (
+              <Link
+                key={guru.slug}
+                href={(isEn ? "/en/gurus/" : "/gurus/") + encodeURIComponent(guru.slug) + "?from=all"}
+                className="p-4 rounded-xl border border-[#e2e8f0] bg-white hover:border-[#0f172a] hover:shadow-xs transition-all flex flex-col justify-between group space-y-2.5"
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-sm text-[#0f172a] group-hover:text-blue-600 transition-colors">
+                      {isEn ? guru.englishName : guru.name}
+                    </span>
+                    <span className="text-[10px] font-mono text-[#94a3b8] uppercase">
+                      {isEn ? guru.slug : guru.englishName}
+                    </span>
+                  </div>
+                  <div className="text-[11px] font-mono text-blue-700 font-medium mt-0.5">
+                    {guru.style}
+                  </div>
+                  <p className="text-xs text-[#64748b] mt-1.5 leading-relaxed line-clamp-2">
+                    &ldquo;{guru.oneLiner}&rdquo;
+                  </p>
                 </div>
-                <div className="text-[11px] font-mono text-blue-700 font-medium mt-0.5">
-                  {guru.style}
-                </div>
-                <p className="text-xs text-[#64748b] mt-1.5 leading-relaxed line-clamp-2">
-                  &ldquo;{guru.oneLiner}&rdquo;
-                </p>
-              </div>
 
-              <div className="pt-2 border-t border-[#f1f5f9] flex items-center justify-between text-[11px] font-mono text-[#64748b]">
-                <span className="truncate max-w-[180px]">📖 {guru.bookTitle}</span>
-                <span className="text-blue-600 group-hover:translate-x-0.5 transition-transform">
-                  {isEn ? "Checklist →" : "심사기준 →"}
-                </span>
-              </div>
-            </Link>
-          ))}
+                <div className="pt-2 border-t border-[#f1f5f9] flex items-center justify-between text-[11px] font-mono text-[#64748b]">
+                  <span className="truncate max-w-[180px]">📖 {guru.bookTitle}</span>
+                  <span className="text-blue-600 group-hover:translate-x-0.5 transition-transform">
+                    {isEn ? "Checklist →" : "심사기준 →"}
+                  </span>
+                </div>
+              </Link>
+            );
+          })}
         </div>
 
         {guruList.length > 6 && (
@@ -1070,7 +1083,7 @@ export function HomeServiceIntro({
                   <div className="text-blue-700 text-[11px] font-semibold">TOP ACCURATE GURU</div>
                   <div className="text-xl font-bold text-blue-900 font-sans">
                     {outcomesOverview?.top_guru?.name
-                      ? `${outcomesOverview.top_guru.name} ${(outcomesOverview.top_guru.accuracy_pct * 100).toFixed(0)}%`
+                      ? `${isEn ? (findGuruPersona(outcomesOverview.top_guru.name)?.englishName || outcomesOverview.top_guru.name) : outcomesOverview.top_guru.name} ${(outcomesOverview.top_guru.accuracy_pct * 100).toFixed(0)}%`
                       : isEn
                       ? "Disclosed Accuracy"
                       : "숨김없는 적중률 공시"}

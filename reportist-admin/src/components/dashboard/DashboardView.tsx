@@ -400,9 +400,10 @@ export function DashboardView({
   const [activeDocTab, setActiveDocTab] = useState<ResearchDocTab | undefined>(() => {
     // ?tab=이 있으면 우선, 없으면 직전 화면에서 연 동일 문서의 탭을 이어받아
     // SSR 티저 구간에도 마스터 탭을 유지 (remount 시 final→chart→final 깜빡임 방지)
-    if (initialTab) return initialTab;
+    const validTabs: ResearchDocTab[] = ["final", "summaries", "datapack", "chart"];
+    if (initialTab && validTabs.includes(initialTab)) return initialTab;
     const remembered = initialReport ? lastOpenedDocTabById[initialReport.id] : undefined;
-    if (remembered) return remembered;
+    if (remembered && validTabs.includes(remembered)) return remembered;
     return undefined;
   });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -912,11 +913,13 @@ export function DashboardView({
         params.set("from", activeSidebarSectionRef.current);
       }
       const query = params.toString();
-      const targetUrl = `/stocks/${encodeURIComponent(report.ticker)}${query ? `?${query}` : ""}`;
+      const stockBasePath = isEn ? "/en/stocks" : "/stocks";
+      const targetPath = `${stockBasePath}/${encodeURIComponent(report.ticker)}`;
+      const targetUrl = `${targetPath}${query ? `?${query}` : ""}`;
       
       // SPA 즉시 전환: Next.js 전체 리마운트(router.push)로 인한 깜빡임 및 상태 유실을 방지하고
       // 브라우저 주소창 URL만 pushState로 완벽히 동기화
-      if (window.location.pathname !== `/stocks/${encodeURIComponent(report.ticker)}`) {
+      if (window.location.pathname !== targetPath) {
         window.history.pushState({ type: "reportist_stock", ticker: report.ticker }, "", targetUrl);
       } else if (query) {
         window.history.replaceState({ type: "reportist_stock", ticker: report.ticker }, "", targetUrl);

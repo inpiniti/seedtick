@@ -98,19 +98,10 @@ export default async function EnglishStockDateDetailPage({
     notFound();
   }
 
-  const initialTab = (
-    tab === "screener" ||
-    tab === "matrix" ||
-    tab === "pipeline" ||
-    tab === "chart" ||
-    tab === "reports" ||
-    tab === "gurus" ||
-    tab === "history" ||
-    tab === "stats" ||
-    tab === "screener_v2"
-      ? tab
-      : "reports"
-  ) as ResearchDocTab;
+  const validTabs: ResearchDocTab[] = ["final", "summaries", "datapack", "chart"];
+  const initialTab = validTabs.includes(tab as ResearchDocTab)
+    ? (tab as ResearchDocTab)
+    : undefined;
 
   const jsonLd = buildStockJsonLd({
     displayName: data.displayName,

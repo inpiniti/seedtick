@@ -15,6 +15,7 @@ import {
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import type { PipelineProgress, PipelineStageTiming } from "@/types/api";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface PipelineProgressCardProps {
   progress: PipelineProgress | null;
@@ -24,20 +25,25 @@ interface PipelineProgressCardProps {
 
 const STATUS_META: Record<
   PipelineProgress["status"],
-  { label: string; variant: "primary" | "success" | "danger" | "warning" | "neutral" }
+  { label: string; labelEn: string; variant: "primary" | "success" | "danger" | "warning" | "neutral" }
 > = {
-  idle: { label: "대기 중", variant: "neutral" },
-  running: { label: "실행 중", variant: "primary" },
-  completed: { label: "완료", variant: "success" },
-  failed: { label: "실패", variant: "danger" },
-  skipped: { label: "스킵됨", variant: "warning" },
+  idle: { label: "대기 중", labelEn: "Idle", variant: "neutral" },
+  running: { label: "실행 중", labelEn: "Running", variant: "primary" },
+  completed: { label: "완료", labelEn: "Completed", variant: "success" },
+  failed: { label: "실패", labelEn: "Failed", variant: "danger" },
+  skipped: { label: "스킵됨", labelEn: "Skipped", variant: "warning" },
 };
 
-function formatElapsed(totalSeconds: number): string {
+function formatElapsed(totalSeconds: number, isEn = false): string {
   const s = Math.max(0, Math.floor(totalSeconds));
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
   const sec = s % 60;
+  if (isEn) {
+    if (h > 0) return `${h}h ${m}m ${sec}s`;
+    if (m > 0) return `${m}m ${sec}s`;
+    return `${sec}s`;
+  }
   if (h > 0) return `${h}시간 ${m}분 ${sec}초`;
   if (m > 0) return `${m}분 ${sec}초`;
   return `${sec}초`;
@@ -53,15 +59,57 @@ function formatElapsedCompact(totalSeconds: number): string {
   return `${sec}s`;
 }
 
+const STAGE_LABELS_EN: Record<string, string> = {
+  screening: "Stock Screening",
+  datapack: "1. Deep Datapack Ingestion",
+  value_driver: "2. Value Drivers Synthesis",
+  drivers: "2. Value Drivers Synthesis",
+  summaries: "3. 13 Guru Summaries",
+  master: "4. Final Master Synthesis",
+  sync: "DB Sync",
+  db: "DB Sync",
+};
+
+function getStageLabel(stage: { key: string; label: string }, isEn: boolean): string {
+  if (!isEn) return stage.label;
+  if (STAGE_LABELS_EN[stage.key]) return STAGE_LABELS_EN[stage.key];
+  if (stage.label.includes("스크리닝")) return "Stock Screening";
+  if (stage.label.includes("데이터팩")) return "1. Deep Datapack Ingestion";
+  if (stage.label.includes("가치드라이버")) return "2. Value Drivers Synthesis";
+  if (stage.label.includes("거장 요약")) return "3. 13 Guru Summaries";
+  if (stage.label.includes("마스터 보고서")) return "4. Final Master Synthesis";
+  if (stage.label.includes("동기화")) return "DB Sync";
+  return stage.label;
+}
+
+function translatePipelineEvent(msg: string, isEn: boolean): string {
+  if (!isEn) return msg;
+  return msg
+    .replace(/파이프라인 정상 완료/g, "Pipeline completed successfully")
+    .replace(/파이프라인 완료/g, "Pipeline completed")
+    .replace(/파이프라인 시작/g, "Pipeline started")
+    .replace(/분석 시작/g, "Analysis started")
+    .replace(/분석 실패/g, "Analysis failed")
+    .replace(/분석 완료/g, "Analysis completed")
+    .replace(/심층 데이터팩 수집/g, "Deep Datapack Ingestion")
+    .replace(/가치드라이버 텍 합성/g, "Value Drivers Synthesis")
+    .replace(/13인 거장 요약/g, "13 Guru Summaries")
+    .replace(/최종 마스터 보고서/g, "Final Master Synthesis")
+    .replace(/DB 동기화/g, "DB Sync")
+    .replace(/스크리닝 완료/g, "Screening completed");
+}
+
 /** 실행 중 경과 시간을 1초 단위로 갱신하는 소형 컴포넌트 */
 function LiveElapsed({
   startedAt,
   finishedAt,
   running,
+  isEn = false,
 }: {
   startedAt: string | null;
   finishedAt: string | null;
   running: boolean;
+  isEn?: boolean;
 }) {
   const [now, setNow] = useState(() => Date.now());
 
@@ -71,10 +119,10 @@ function LiveElapsed({
     return () => clearInterval(timer);
   }, [running, startedAt]);
 
-  if (!startedAt) return <>0초</>;
+  if (!startedAt) return <>{isEn ? "0s" : "0초"}</>;
   const start = new Date(startedAt).getTime();
   const end = finishedAt ? new Date(finishedAt).getTime() : now;
-  return <>{formatElapsed(Math.max(0, (end - start) / 1000))}</>;
+  return <>{formatElapsed(Math.max(0, (end - start) / 1000), isEn)}</>;
 }
 
 export function PipelineProgressCard({
@@ -82,6 +130,7 @@ export function PipelineProgressCard({
   isLoading,
   onRefresh,
 }: PipelineProgressCardProps) {
+  const { isEn } = useLanguage();
   const status = progress?.status ?? "idle";
   const isRunning = status === "running";
   const meta = STATUS_META[status];
@@ -97,12 +146,16 @@ export function PipelineProgressCard({
             </div>
             <div className="min-w-0">
               <div className="text-sm font-bold text-[#0f172a]">
-                13인 거장 파이프라인 대기 중
+                {isEn ? "13 Guru Pipeline Idle" : "13인 거장 파이프라인 대기 중"}
               </div>
               <p className="text-xs text-[#64748b] mt-0.5">
                 {isLoading
-                  ? "진행 상태를 확인하고 있습니다..."
-                  : "파이프라인이 실행되면 실시간 분석 단계와 소요 시간이 표시됩니다."}
+                  ? isEn
+                    ? "Checking pipeline status..."
+                    : "진행 상태를 확인하고 있습니다..."
+                  : isEn
+                    ? "Real-time analysis stages and elapsed time will appear once the pipeline runs."
+                    : "파이프라인이 실행되면 실시간 분석 단계와 소요 시간이 표시됩니다."}
               </p>
             </div>
           </div>
@@ -111,7 +164,7 @@ export function PipelineProgressCard({
               onClick={onRefresh}
               disabled={isLoading}
               className="p-1.5 rounded border border-[#e2e8f0] text-[#64748b] hover:text-[#0f172a] hover:bg-[#f8fafc] transition-colors cursor-pointer"
-              title="진행 상태 수동 새로고침"
+              title={isEn ? "Manual Refresh" : "진행 상태 수동 새로고침"}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
             </button>
@@ -162,7 +215,7 @@ export function PipelineProgressCard({
             className={`w-4 h-4 ${isRunning ? "text-[#0f172a] animate-pulse" : "text-[#64748b]"}`}
           />
           <span className="text-sm font-bold text-[#0f172a]">
-            13인 거장 파이프라인 진행 상황
+            {isEn ? "13 Guru Pipeline Status" : "13인 거장 파이프라인 진행 상황"}
           </span>
         </div>
         <div className="flex items-center gap-2 font-mono text-xs">
@@ -172,18 +225,19 @@ export function PipelineProgressCard({
               startedAt={progress.started_at}
               finishedAt={progress.finished_at}
               running={isRunning}
+              isEn={isEn}
             />
           </span>
           <Badge variant={meta.variant}>
             {isRunning ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-            {meta.label}
+            {isEn ? meta.labelEn : meta.label}
           </Badge>
           {onRefresh && (
             <button
               onClick={onRefresh}
               disabled={isLoading}
               className="p-1 rounded border border-[#e2e8f0] text-[#64748b] hover:text-[#0f172a] hover:bg-[#f8fafc] transition-colors cursor-pointer"
-              title="진행 상태 수동 새로고침"
+              title={isEn ? "Manual Refresh" : "진행 상태 수동 새로고침"}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
             </button>
@@ -218,7 +272,17 @@ export function PipelineProgressCard({
                 </>
               ) : (
                 <div className="text-xs text-[#64748b]">
-                  {status === "running" ? "스크리닝 중..." : isEmpty ? "분석 대상 없음" : "종목 확정 대기"}
+                  {status === "running"
+                    ? isEn
+                      ? "Screening..."
+                      : "스크리닝 중..."
+                    : isEmpty
+                      ? isEn
+                        ? "No candidates"
+                        : "분석 대상 없음"
+                      : isEn
+                        ? "Awaiting tickers"
+                        : "종목 확정 대기"}
                 </div>
               )}
             </div>
@@ -276,7 +340,7 @@ export function PipelineProgressCard({
                     isActive || isDone ? "font-medium text-[#0f172a]" : "text-[#64748b]"
                   }`}
                 >
-                  {stage.label}
+                  {getStageLabel(stage, isEn)}
                 </span>
                 {isSummaries && showGurus ? (
                   <span
@@ -313,9 +377,9 @@ export function PipelineProgressCard({
                       : "bg-slate-300";
 
               return (
-                <div key={timing.key} className="grid grid-cols-[120px_1fr_auto] items-center gap-2 font-mono text-[11px]">
-                  <span className="text-[#64748b] truncate">
-                    {timing.label}
+                <div key={timing.key} className="grid grid-cols-[130px_1fr_auto] items-center gap-2 font-mono text-[11px]">
+                  <span className="text-[#64748b] truncate" title={getStageLabel(timing, isEn)}>
+                    {getStageLabel(timing, isEn)}
                   </span>
                   <div className="h-1.5 rounded-full bg-[#f1f5f9] overflow-hidden">
                     <div
@@ -348,7 +412,7 @@ export function PipelineProgressCard({
                     className="flex items-start gap-1.5 text-[#64748b]"
                   >
                     <MinusCircle className="w-3 h-3 mt-0.5 shrink-0 text-slate-400" />
-                    <span className="truncate">{ev.message}</span>
+                    <span className="truncate">{translatePipelineEvent(ev.message, isEn)}</span>
                   </div>
                 ))}
             </div>
@@ -365,14 +429,19 @@ export function PipelineProgressCard({
         {isEmpty ? (
           <div className="p-3 rounded-md bg-[#f8fafc] border border-[#e2e8f0] text-xs font-mono text-[#64748b] flex items-center gap-2">
             <MinusCircle className="w-4 h-4 shrink-0 text-slate-400" />
-            <span>분석 대상 종목이 없어 파이프라인을 종료합니다 (이미 완료되었거나 스크리닝 결과 없음).</span>
+            <span>
+              {isEn
+                ? "Pipeline terminated with no target tickers (already completed or no matches from screening)."
+                : "분석 대상 종목이 없어 파이프라인을 종료합니다 (이미 완료되었거나 스크리닝 결과 없음)."}
+            </span>
           </div>
         ) : status === "completed" && progress.summary ? (
           <div className="p-3 rounded-md bg-[#0f172a] border border-[#0f172a] text-xs font-mono text-white flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 shrink-0 text-white" />
             <span>
-              파이프라인 완료 · 성공 {done}건
-              {failed > 0 ? ` · 실패 ${failed}건` : ""}
+              {isEn
+                ? `Pipeline Completed · ${done} Succeeded${failed > 0 ? ` · ${failed} Failed` : ""}`
+                : `파이프라인 완료 · 성공 ${done}건${failed > 0 ? ` · 실패 ${failed}건` : ""}`}
             </span>
           </div>
         ) : null}

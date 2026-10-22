@@ -10,17 +10,17 @@ export function LanguageToggle({ className = "" }: LanguageToggleProps) {
 
   return (
     <div
-      className={`inline-flex items-center rounded-lg border border-border bg-card p-0.5 text-xs shadow-xs transition-colors ${className}`}
+      className={`inline-flex items-center rounded-lg border border-[#cbd5e1] bg-[#f1f5f9] p-0.5 text-xs font-mono shadow-2xs ${className}`}
       role="group"
       aria-label="Language selection"
     >
       <button
         type="button"
         onClick={() => setLanguage("ko")}
-        className={`flex items-center gap-1 rounded-md px-2 py-1 font-medium transition-all ${
+        className={`flex items-center gap-1 rounded-md px-2.5 py-1 font-bold text-xs transition-all cursor-pointer ${
           !isEn
-            ? "bg-primary text-primary-foreground shadow-xs"
-            : "text-muted-foreground hover:text-foreground"
+            ? "bg-[#0f172a] text-white shadow-xs"
+            : "text-[#64748b] hover:text-[#0f172a] hover:bg-slate-200/60"
         }`}
         aria-pressed={!isEn}
       >
@@ -29,14 +29,14 @@ export function LanguageToggle({ className = "" }: LanguageToggleProps) {
       <button
         type="button"
         onClick={() => setLanguage("en")}
-        className={`flex items-center gap-1 rounded-md px-2 py-1 font-medium transition-all ${
+        className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 font-bold text-xs transition-all cursor-pointer ${
           isEn
-            ? "bg-primary text-primary-foreground shadow-xs"
-            : "text-muted-foreground hover:text-foreground"
+            ? "bg-[#0f172a] text-white shadow-xs"
+            : "text-[#64748b] hover:text-[#0f172a] hover:bg-slate-200/60"
         }`}
         aria-pressed={isEn}
       >
-        <Globe className="h-3 w-3" />
+        <Globe className={`h-3.5 w-3.5 ${isEn ? "text-white" : "text-[#94a3b8]"}`} />
         <span>EN</span>
       </button>
     </div>

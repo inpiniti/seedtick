@@ -108,8 +108,10 @@ export function ResearchDocumentView({
   // 분석 리포트가 존재하는 종목은 원문/마스킹 티저 여부와 무관하게 final(마스터 보고서)이 기본이다.
   const isCandidateOnly = !report?.d || (typeof report?.id === "string" && report.id.startsWith("live-"));
   const defaultTab: ResearchDocTab = isCandidateOnly ? "chart" : "final";
+  const validTabs: ResearchDocTab[] = ["final", "summaries", "datapack", "chart"];
+  const sanitizedActiveTabProp = (activeTabProp && validTabs.includes(activeTabProp)) ? activeTabProp : undefined;
   const activeTab =
-    activeTabProp ?? (tabOverride && tabOverride.key === docKey ? tabOverride.tab : defaultTab);
+    sanitizedActiveTabProp ?? (tabOverride && tabOverride.key === docKey ? tabOverride.tab : defaultTab);
 
   const handleTabClick = (tab: ResearchDocTab) => {
     setTabOverride({ key: docKey, tab });
@@ -217,7 +219,11 @@ export function ResearchDocumentView({
             : rawStabilityMeta.text === "보통"
             ? "Moderate"
             : rawStabilityMeta.text === "주의"
-            ? "Volatile"
+            ? "Caution"
+            : rawStabilityMeta.text === "불안정"
+            ? "Unstable"
+            : rawStabilityMeta.text === "표본 부족"
+            ? "Low Sample"
             : rawStabilityMeta.text
           : rawStabilityMeta.text,
       }
@@ -511,7 +517,10 @@ export function ResearchDocumentView({
               </span>
               {valConsensus?.safety_entry_price && (
                 <span className="text-[#0f172a] font-semibold text-xs bg-white border border-[#cbd5e1] px-2 py-0.5 rounded">
-                  {isEn ? "Safety Entry: " : "안전매수: "}{valConsensus.safety_entry_price}
+                  {isEn ? "Safety Entry: " : "안전매수: "}
+                  {isEn
+                    ? valConsensus.safety_entry_price.replace(/이하/g, "or below").replace(/이상/g, "or above")
+                    : valConsensus.safety_entry_price}
                 </span>
               )}
             </div>
