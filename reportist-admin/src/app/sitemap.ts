@@ -172,13 +172,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         const now = new Date();
 
         // 티커별 일자 집계 (d 내림차순이므로 최초 등장값이 최신)
+        // 유효한 주식 티커(미국장 1~6자 영문/점, 한국장 6자리 영숫자)만 허용하여
+        // DB에 들어간 더미 행('S&P 500', 문장 등)으로 인한 XML 파싱 오류(& 문법 오류) 원천 차단
         const tickerDates = new Map<string, string[]>();
         const tickerLatestDate = new Map<string, string>();
         for (const row of rows) {
           const ticker =
             typeof row.ticker === "string" ? row.ticker.trim().toUpperCase() : "";
-          const d = typeof row.d === "string" ? row.d : "";
+          const d = typeof row.d === "string" ? row.d.trim() : "";
           if (!ticker || !d) continue;
+          if (!/^[A-Z0-9.]{1,10}$/.test(ticker)) continue; // 유효하지 않은 티커(공백, &, 문장) 제외
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue; // 유효하지 않은 날짜 형식 제외
+
           if (!tickerLatestDate.has(ticker)) tickerLatestDate.set(ticker, d);
           const list = tickerDates.get(ticker) || [];
           list.push(d);
@@ -198,14 +203,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         for (const [ticker, latestDate] of tickerLatestDate.entries()) {
           const dateObj = latestDate ? new Date(latestDate) : new Date();
           const validDate = isNaN(dateObj.getTime()) ? new Date() : dateObj;
+          const encodedTicker = encodeURIComponent(ticker);
           routes.push({
-            url: `${fullBaseUrl}/stocks/${ticker}`,
+            url: `${fullBaseUrl}/stocks/${encodedTicker}`,
             lastModified: validDate,
             changeFrequency: "daily",
             priority: 0.8,
           });
           routes.push({
-            url: `${fullBaseUrl}/en/stocks/${ticker}`,
+            url: `${fullBaseUrl}/en/stocks/${encodedTicker}`,
             lastModified: validDate,
             changeFrequency: "daily",
             priority: 0.8,
@@ -222,13 +228,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             const dObj = new Date(d);
             const validDObj = isNaN(dObj.getTime()) ? new Date() : dObj;
             routes.push({
-              url: `${fullBaseUrl}/stocks/${ticker}/${d}`,
+              url: `${fullBaseUrl}/stocks/${encodedTicker}/${encodeURIComponent(d)}`,
               lastModified: validDObj,
               changeFrequency: "monthly",
               priority: 0.6,
             });
             routes.push({
-              url: `${fullBaseUrl}/en/stocks/${ticker}/${d}`,
+              url: `${fullBaseUrl}/en/stocks/${encodedTicker}/${encodeURIComponent(d)}`,
               lastModified: validDObj,
               changeFrequency: "monthly",
               priority: 0.6,
