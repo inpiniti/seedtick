@@ -1,7 +1,5 @@
-import { sendGAEvent } from "@next/third-parties/google";
-
 /**
- * Google Tag Manager (GTM) 및 Google Analytics 4 (GA4) 통합 이벤트 전송 헬퍼
+ * Google Tag Manager (GTM) dataLayer 이벤트 전송 헬퍼
  */
 export function trackEvent(
   eventName: string,
@@ -9,25 +7,16 @@ export function trackEvent(
 ) {
   if (typeof window === "undefined") return;
 
-  // 1. GTM dataLayer 전송 (GTM 태그/트리거 연동)
+  // GTM dataLayer 전송 (GTM 태그/트리거 연동)
   try {
-    if (Array.isArray(window.dataLayer)) {
-      window.dataLayer.push({
-        event: eventName,
-        ...(parameters ?? {}),
-      });
-    }
+    const win = window as unknown as { dataLayer?: Record<string, unknown>[] };
+    win.dataLayer = win.dataLayer || [];
+    win.dataLayer.push({
+      event: eventName,
+      ...(parameters ?? {}),
+    });
   } catch (error) {
     console.debug("[Analytics] Failed to push to dataLayer:", eventName, error);
-  }
-
-  // 2. 직접 GA4 연결 시 sendGAEvent 전송
-  if (process.env.NEXT_PUBLIC_GA_ID) {
-    try {
-      sendGAEvent("event", eventName, parameters ?? {});
-    } catch (error) {
-      console.debug("[Analytics] Failed to send direct GA event:", eventName, error);
-    }
   }
 }
 

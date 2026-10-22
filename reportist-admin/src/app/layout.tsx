@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import Script from "next/script";
-import { GoogleAnalytics } from "@next/third-parties/google";
 import { SITE_URL } from "@/lib/siteConfig";
 import "./globals.css";
 
@@ -172,7 +171,6 @@ const organizationJsonLd = {
 };
 
 const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID || "GTM-587HNT6S";
-const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_ID;
 
 export default function RootLayout({
   children,
@@ -215,7 +213,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
         />
         <AppProviders>{children}</AppProviders>
-        {GA_MEASUREMENT_ID ? <GoogleAnalytics gaId={GA_MEASUREMENT_ID} /> : null}
       </body>
     </html>
   );
