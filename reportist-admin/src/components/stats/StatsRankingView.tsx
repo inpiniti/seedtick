@@ -19,7 +19,7 @@ import {
   BenchmarkBarChart,
   BenchmarkChartItem,
 } from "./BenchmarkBarChart";
-import { BenchmarkScatterPlot } from "./BenchmarkScatterPlot";
+import { StockValuationTimelineGrid } from "./StockValuationTimelineGrid";
 import { BenchmarkTimelineChart } from "./BenchmarkTimelineChart";
 
 interface StatsRankingViewProps {
@@ -30,7 +30,7 @@ interface StatsRankingViewProps {
 
 type MarketFilter = "all" | "kr" | "us";
 type ViewMode = "benchmark" | "table";
-type SectionFilter = "all" | "scatter" | "timeline" | "consensus" | "margin" | "multiple";
+type SectionFilter = "all" | "stock_timelines" | "timeline" | "consensus" | "margin" | "multiple";
 
 export function StatsRankingView({
   guruReports,
@@ -343,14 +343,14 @@ export function StatsRankingView({
           전체 보기
         </button>
         <button
-          onClick={() => setSectionFilter("scatter")}
+          onClick={() => setSectionFilter("stock_timelines")}
           className={`px-3.5 py-1.5 rounded-full text-xs font-mono font-medium whitespace-nowrap transition-colors cursor-pointer ${
-            sectionFilter === "scatter"
+            sectionFilter === "stock_timelines"
               ? "bg-[#0f172a] text-white"
               : "bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0] hover:text-[#0f172a]"
           }`}
         >
-          4분면 산점도 매트릭스
+          종목별 밸류 타임라인 (전 종목 차트)
         </button>
         <button
           onClick={() => setSectionFilter("timeline")}
@@ -360,7 +360,7 @@ export function StatsRankingView({
               : "bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0] hover:text-[#0f172a]"
           }`}
         >
-          일자별 시계열 추이
+          시장 전체 시계열 추이
         </button>
         <button
           onClick={() => setSectionFilter("consensus")}
@@ -397,13 +397,12 @@ export function StatsRankingView({
       {/* ── 3. 본문: 100% Full Width 벤치마크 룸 ── */}
       {viewMode === "benchmark" && (
         <div className="space-y-6 w-full">
-          {/* 1. 4분면 산점도 매트릭스 (내재가치 vs 안전마진 전환) */}
-          {(sectionFilter === "all" || sectionFilter === "scatter") && (
-            <BenchmarkScatterPlot
-              reports={filteredReports}
+          {/* 1. [요청 반영] 전 종목별 밸류에이션 타임라인 컬렉션 (X: 작성일, Y: 적정가/종가 & 안전마진/종가) */}
+          {(sectionFilter === "all" || sectionFilter === "stock_timelines") && (
+            <StockValuationTimelineGrid
               onSelectReport={onSelectReport}
-              tickerNameMap={tickerNameMap}
               logoMap={logoMap}
+              initialMarketFilter={marketFilter}
             />
           )}
 

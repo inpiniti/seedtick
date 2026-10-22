@@ -469,3 +469,145 @@ export async function getTimelineStats(): Promise<TimelineStatItem[]> {
     return [];
   }
 }
+
+export interface StockTimelinePoint {
+  date: string;
+  displayDate: string;
+  curr: number;
+  fair: number | null;
+  safety: number | null;
+  fairRatio: number | null; // 적정가 / 종가 (%)
+  safetyRatio: number | null; // 안전마진 / 종가 (%)
+  votesBuy?: number;
+  verdict?: string;
+}
+
+export interface StockTimelineSeries {
+  ticker: string;
+  name: string;
+  latestDate: string;
+  latestPrice: number | null;
+  latestFairRatio: number | null;
+  latestSafetyRatio: number | null;
+  latestVotesBuy: number;
+  isKr: boolean;
+  points: StockTimelinePoint[];
+}
+
+/**
+ * 117개 전 종목별 과거 발행일 시계열 데이터 집계
+ * (X축: 실제 작성된 날짜 포인트들, Y축: 적정가/종가, 안전마진/종가)
+ */
+export async function getStockTimelines(): Promise<StockTimelineSeries[]> {
+  const supabase = getServerSupabaseClient();
+  if (!supabase) return [];
+
+  try {
+    const koreanNames = await fetchKoreanNames();
+    const { data, error } = await supabase
+      .from("guru_reports")
+      .select("d, ticker, company_name, current_price, fair_value, safety_entry, upside_pct, votes_buy, verdict")
+      .order("d", { ascending: true })
+      .limit(4000);
+
+    if (error || !data) return [];
+
+    const tickerMap = new Map<string, Array<Record<string, any>>>();
+    for (const row of data as Array<Record<string, any>>) {
+      const ticker = (row.ticker || "").trim().toUpperCase();
+      const d = row.d;
+      if (!ticker || !d) continue;
+
+      const list = tickerMap.get(ticker) || [];
+      list.push(row);
+      tickerMap.set(ticker, list);
+    }
+
+    const seriesList: StockTimelineSeries[] = [];
+
+    for (const [ticker, rows] of tickerMap.entries()) {
+      const points: StockTimelinePoint[] = [];
+      let latestPrice: number | null = null;
+      let latestFairRatio: number | null = null;
+      let latestSafetyRatio: number | null = null;
+      let latestVotesBuy = 0;
+      let latestDate = "";
+      let companyName = "";
+
+      for (const r of rows) {
+        if (!companyName && r.company_name) companyName = r.company_name;
+
+        const curr = typeof r.current_price === "number" && r.current_price > 0 ? r.current_price : null;
+        const fair = typeof r.fair_value === "number" && r.fair_value > 0 ? r.fair_value : null;
+        const safety = typeof r.safety_entry === "number" && r.safety_entry > 0 ? r.safety_entry : null;
+
+        if (curr) {
+          latestPrice = curr;
+          latestDate = r.d;
+          latestVotesBuy = typeof r.votes_buy === "number" ? r.votes_buy : 0;
+
+          // 적정가 / 종가 비율 (%)
+          let fairRatio: number | null = null;
+          if (fair && curr) {
+            fairRatio = Math.round((fair / curr) * 100);
+          } else if (typeof r.upside_pct === "number") {
+            fairRatio = Math.round(100 + r.upside_pct);
+          }
+
+          // 안전마진 / 종가 비율 (%)
+          let safetyRatio: number | null = null;
+          if (safety && curr) {
+            safetyRatio = Math.round((safety / curr) * 100);
+          } else if (fairRatio) {
+            safetyRatio = Math.round(fairRatio * 0.8);
+          }
+
+          if (fairRatio !== null || safetyRatio !== null) {
+            const parts = (r.d || "").split("-");
+            const displayDate = parts.length >= 3 ? `${parts[1]}/${parts[2]}` : r.d;
+
+            latestFairRatio = fairRatio;
+            latestSafetyRatio = safetyRatio;
+
+            points.push({
+              date: r.d,
+              displayDate,
+              curr,
+              fair,
+              safety,
+              fairRatio,
+              safetyRatio,
+              votesBuy: r.votes_buy,
+              verdict: r.verdict,
+            });
+          }
+        }
+      }
+
+      if (points.length > 0) {
+        const name = koreanNames[ticker] || companyName || ticker;
+        const isKr = /^\d{6}$/.test(ticker);
+
+        seriesList.push({
+          ticker,
+          name,
+          latestDate,
+          latestPrice,
+          latestFairRatio,
+          latestSafetyRatio,
+          latestVotesBuy,
+          isKr,
+          points,
+        });
+      }
+    }
+
+    // 최신 적정가/종가 높은 순(내림차순)으로 기본 정렬
+    return seriesList.sort(
+      (a, b) => (b.latestFairRatio || 0) - (a.latestFairRatio || 0)
+    );
+  } catch (err) {
+    console.warn("[publicCatalog] getStockTimelines error:", err);
+    return [];
+  }
+}
