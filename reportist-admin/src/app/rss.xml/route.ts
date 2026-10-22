@@ -68,8 +68,9 @@ export async function GET(): Promise<Response> {
       if (!error && reportRows) {
         for (const r of reportRows) {
           const ticker = (typeof r.ticker === "string" ? r.ticker : "").trim().toUpperCase();
-          const d = typeof r.d === "string" ? r.d : "";
+          const d = typeof r.d === "string" ? r.d.trim() : "";
           if (!ticker || !d) continue;
+          if (!/^[A-Z0-9.]{1,10}$/.test(ticker)) continue;
 
           const companyName = typeof r.company_name === "string" ? r.company_name.trim() : "";
           const name = nameMap[ticker] || companyName || ticker;

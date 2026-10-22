@@ -18,6 +18,9 @@ export const metadata: Metadata = {
       en: "/en",
       "x-default": "/",
     },
+    types: {
+      "application/rss+xml": `${SITE_URL}/en/rss.xml`,
+    },
   },
   openGraph: {
     title: "Reportist · 13 Legendary Investment Guru AI Equity Research",

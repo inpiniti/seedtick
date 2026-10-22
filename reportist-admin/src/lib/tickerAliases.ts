@@ -248,6 +248,26 @@ export const TICKER_ALIAS_MAP: Record<string, TickerAliasDef> = {
     englishName: "SK Square Co., Ltd.",
     aliases: ["SK스퀘어", "SK Square"],
   },
+  "082920": {
+    primaryAlias: "비츠로셀",
+    englishName: "Vitzrocell Co., Ltd.",
+    aliases: ["비츠로셀", "Vitzrocell"],
+  },
+  "042700": {
+    primaryAlias: "한미반도체",
+    englishName: "Hanmi Semiconductor Co., Ltd.",
+    aliases: ["한미반도체", "Hanmi Semiconductor"],
+  },
+  "068270": {
+    primaryAlias: "셀트리온",
+    englishName: "Celltrion, Inc.",
+    aliases: ["셀트리온", "Celltrion"],
+  },
+  "207940": {
+    primaryAlias: "삼성바이오로직스",
+    englishName: "Samsung Biologics Co., Ltd.",
+    aliases: ["삼바", "삼성바이오", "Samsung Biologics"],
+  },
   "439268": {
     primaryAlias: "대한조선",
     englishName: "Daehan Shipbuilding Co., Ltd.",

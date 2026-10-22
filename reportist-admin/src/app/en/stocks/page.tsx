@@ -3,6 +3,7 @@ import { Metadata } from "next";
 import { DashboardView } from "@/components/dashboard/DashboardView";
 import { getPublicCatalog } from "@/lib/server/publicCatalog";
 import { buildTickerListJsonLd } from "@/lib/server/catalogJsonLd";
+import { SITE_URL } from "@/lib/siteConfig";
 
 /** Revalidate every 5 minutes */
 export const revalidate = 300;
@@ -17,6 +18,9 @@ export const metadata: Metadata = {
       ko: "/stocks",
       en: "/en/stocks",
       "x-default": "/stocks",
+    },
+    types: {
+      "application/rss+xml": `${SITE_URL}/en/rss.xml`,
     },
   },
   openGraph: {
