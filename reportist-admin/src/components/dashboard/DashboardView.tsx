@@ -52,7 +52,10 @@ import {
   loadLastSectionId,
   saveLastSectionId,
   SECTION_META,
+  getSectionHref,
+  getSectionBackLabel,
 } from "@/lib/sectionNav";
+import { useLanguage } from "@/contexts/LanguageContext";
 import {
   loadSidebarCountsSnapshot,
   saveSidebarCountsSnapshot,
@@ -167,6 +170,15 @@ export function DashboardView({
 }: DashboardViewProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const { isEn: contextIsEn, setLanguage } = useLanguage();
+  const isEn = lang === "en" || contextIsEn || (pathname?.startsWith("/en") ?? false);
+
+  useEffect(() => {
+    if (lang && (lang === "en") !== contextIsEn) {
+      setLanguage(lang);
+    }
+  }, [lang, contextIsEn, setLanguage]);
+
   // NOTE: useSearchParams()를 쓰면 정적 프리렌더 라우트에서 Suspense 경계가
   // CSR bail-out 되어 <body>가 통째로 비게 된다(SEO 치명).
   // searchParams가 필요한 곳은 전부 마운트 시점 계산 또는 이벤트 핸들러이므로
@@ -1100,9 +1112,9 @@ export function DashboardView({
     ) {
       window.history.back();
     } else {
-      router.push(SECTION_META[originSection].href);
+      router.push(getSectionHref(originSection, isEn));
     }
-  }, [router, getFromSection, initialTicker, initialGuru]);
+  }, [router, getFromSection, initialTicker, initialGuru, isEn]);
 
   // 브라우저 뒤로가기/앞으로가기 popstate 감지하여 SPA 화면 상태 동기화
   useEffect(() => {
@@ -1111,7 +1123,8 @@ export function DashboardView({
       // 직접 접속한 단독 페이지(/stocks/[ticker] 또는 /gurus/[name])인 경우 브라우저/Next.js 기본 동작 유지
       if (initialTicker || initialGuru) return;
 
-      const path = window.location.pathname;
+      const rawPath = window.location.pathname;
+      const path = rawPath.replace(/^\/en(\/|$)/, "$1") || "/";
       if (path === "/" || path === "/stocks" || path === "/screener" || path === "/outcomes" || path === "/gurus") {
         setSelectedDocReport(null);
         setSelectedGuruSlug(null);
@@ -1127,7 +1140,7 @@ export function DashboardView({
             setSelectedReportDate(found.d);
             setActiveDocTab("final");
           } else {
-            router.push(path);
+            router.push(rawPath);
           }
         }
       } else if (path.startsWith("/gurus/")) {
@@ -1142,7 +1155,7 @@ export function DashboardView({
 
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [initialTicker, initialGuru, guruReports, getFromSection]);
+  }, [initialTicker, initialGuru, guruReports, getFromSection, router]);
 
   // 사이드바 섹션 클릭 시 실제 URL 라우팅
   // 파이프라인/감사로그는 관리자 전용 — 비관리자는 홈으로 돌려보냄
@@ -1152,7 +1165,7 @@ export function DashboardView({
       setSelectedDocReport(null);
       setSelectedGuruSlug(null);
       setIsMobileMenuOpen(false);
-      router.push("/");
+      router.push(isEn ? "/en" : "/");
       return;
     }
     setActiveSidebarSection(sec);
@@ -1160,14 +1173,7 @@ export function DashboardView({
     setSelectedGuruSlug(null);
     setIsMobileMenuOpen(false);
 
-    if (sec === "all") router.push("/");
-    else if (sec === "sec-reports") router.push("/stocks");
-    else if (sec === "sec-screener") router.push("/screener");
-    else if (sec === "sec-roma") router.push("/screener?tab=roma");
-    else if (sec === "sec-outcomes") router.push("/outcomes");
-    else if (sec === "sec-gurus") router.push("/gurus");
-    else if (sec === "sec-pipeline") router.push("/pipeline");
-    else if (sec === "sec-audit") router.push("/admin");
+    router.push(getSectionHref(sec, isEn));
   };
 
   // initialTicker가 있을 때 날짜 목록 보강
@@ -1344,7 +1350,7 @@ export function DashboardView({
               selectedGuruSlug ? GURU_PERSONAS[selectedGuruSlug]?.name : null
             }
             onBackToCatalog={handleBackToCatalog}
-            backLabel={SECTION_META[activeSidebarSection].backLabel}
+            backLabel={getSectionBackLabel(activeSidebarSection, isEn)}
             isOpenOnMobile={isMobileMenuOpen}
             onCloseMobile={() => setIsMobileMenuOpen(false)}
           />
