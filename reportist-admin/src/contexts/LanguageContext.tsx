@@ -45,25 +45,41 @@ export function LanguageProvider({
     // 1. 토글 버튼 및 UI 즉각 반응 (0초 피드백)
     setOverrideLang(targetLang);
 
-    // 2. 이동할 목적지 URL 계산
-    let newPath = pathname;
-    if (targetLang === "en") {
-      newPath = pathname.startsWith("/en")
-        ? pathname
-        : pathname === "/"
-        ? "/en"
-        : `/en${pathname}`;
-    } else {
-      // targetLang === "ko"
-      newPath = pathname.startsWith("/en")
-        ? pathname.replace(/^\/en(\/|$)/, "$1") || "/"
-        : pathname;
+    // 2. 브라우저의 실제 현재 전체 URL(SPA pushState 경로 + 쿼리 파라미터 + 해시) 추출
+    //    usePathname()은 React 상태이므로 window.history.pushState로 변경된 상세 주소를
+    //    알지 못해 홈(/)으로 튕기는 현상을 완벽히 방지합니다.
+    let currentPath = pathname;
+    let currentSearch = "";
+    let currentHash = "";
+
+    if (typeof window !== "undefined") {
+      currentPath = window.location.pathname || pathname;
+      currentSearch = window.location.search || "";
+      currentHash = window.location.hash || "";
     }
 
-    // 3. 브라우저 경로 이동
+    // 3. 현재 위치를 정확히 보존하며 언어 프리픽스(/en <-> /)만 치환
+    let targetBasePath = currentPath;
+    if (targetLang === "en") {
+      targetBasePath = currentPath.startsWith("/en")
+        ? currentPath
+        : currentPath === "/"
+        ? "/en"
+        : `/en${currentPath}`;
+    } else {
+      // targetLang === "ko"
+      targetBasePath = currentPath.startsWith("/en")
+        ? currentPath.replace(/^\/en(\/|$)/, "$1") || "/"
+        : currentPath;
+    }
+
+    const newTargetUrl = `${targetBasePath}${currentSearch}${currentHash}`;
+
+    // 4. 스크롤 위치를 유지하며 현재 페이지에서 언어만 전환 ({ scroll: false })
     if (typeof window !== "undefined") {
-      if (window.location.pathname !== newPath) {
-        router.push(newPath);
+      const fullCurrentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      if (fullCurrentUrl !== newTargetUrl) {
+        router.push(newTargetUrl, { scroll: false });
       } else {
         router.refresh();
       }
