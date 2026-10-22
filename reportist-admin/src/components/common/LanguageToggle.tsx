@@ -1,29 +1,12 @@
-"use client";
-
-import { usePathname, useRouter } from "next/navigation";
 import { Globe } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface LanguageToggleProps {
   className?: string;
 }
 
 export function LanguageToggle({ className = "" }: LanguageToggleProps) {
-  const pathname = usePathname() || "/";
-  const router = useRouter();
-
-  const isEn = pathname.startsWith("/en");
-
-  const toggleLanguage = (targetLang: "ko" | "en") => {
-    if (targetLang === "en" && !isEn) {
-      // 한국어 -> 영어: 경로 앞에 /en 접두사 추가
-      const newPath = pathname === "/" ? "/en" : `/en${pathname}`;
-      router.push(newPath);
-    } else if (targetLang === "ko" && isEn) {
-      // 영어 -> 한국어: 경로 앞의 /en 접두사 제거
-      const newPath = pathname.replace(/^\/en(\/|$)/, "$1") || "/";
-      router.push(newPath);
-    }
-  };
+  const { isEn, setLanguage } = useLanguage();
 
   return (
     <div
@@ -33,7 +16,7 @@ export function LanguageToggle({ className = "" }: LanguageToggleProps) {
     >
       <button
         type="button"
-        onClick={() => toggleLanguage("ko")}
+        onClick={() => setLanguage("ko")}
         className={`flex items-center gap-1 rounded-md px-2 py-1 font-medium transition-all ${
           !isEn
             ? "bg-primary text-primary-foreground shadow-xs"
@@ -45,7 +28,7 @@ export function LanguageToggle({ className = "" }: LanguageToggleProps) {
       </button>
       <button
         type="button"
-        onClick={() => toggleLanguage("en")}
+        onClick={() => setLanguage("en")}
         className={`flex items-center gap-1 rounded-md px-2 py-1 font-medium transition-all ${
           isEn
             ? "bg-primary text-primary-foreground shadow-xs"

@@ -9,6 +9,7 @@ import {
   IntrinsicStability,
 } from "@/lib/insightUtils";
 import { formatPriceByNation } from "@/lib/utils";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // ── 지표 뱃지 (공통) ─────────────────────────────────────
 
@@ -35,9 +36,6 @@ const MetricBadge: React.FC<{
 
 // ── 안정성 뱃지 ──────────────────────────────────────────
 
-const STABILITY_BADGE_TITLE =
-  "과거 보고서 가격의 분산입니다. 분석일별 입력 데이터의 차이는 분리하지 않습니다.";
-
 const STABILITY_STYLES: Record<string, string> = {
   stable:
     "font-mono text-[10px] px-1.5 py-0.5 rounded bg-slate-900 text-white border border-slate-900",
@@ -47,20 +45,31 @@ const STABILITY_STYLES: Record<string, string> = {
     "font-mono text-[10px] px-1.5 py-0.5 rounded bg-white text-slate-900 border border-slate-400 font-semibold",
 };
 
-const STABILITY_LABELS: Record<string, string> = {
+const STABILITY_LABELS_KO: Record<string, string> = {
   stable: "과거 가격 안정성: 안정",
   watch: "과거 가격 안정성: 주의",
   unstable: "과거 가격 안정성: 불안정",
 };
 
+const STABILITY_LABELS_EN: Record<string, string> = {
+  stable: "Price Stability: Stable",
+  watch: "Price Stability: Watch",
+  unstable: "Price Stability: Volatile",
+};
+
 function StabilityBadge({ stability }: { stability: IntrinsicStability }) {
+  const { isEn } = useLanguage();
   const style =
     STABILITY_STYLES[stability.level] ||
     "font-mono text-[10px] px-1.5 py-0.5 rounded bg-slate-50 text-slate-500 border border-slate-200";
-  const label =
-    STABILITY_LABELS[stability.level] || "과거 가격 안정성: 표본 부족";
+  const label = isEn
+    ? STABILITY_LABELS_EN[stability.level] || "Price Stability: N/A"
+    : STABILITY_LABELS_KO[stability.level] || "과거 가격 안정성: 표본 부족";
+  const title = isEn
+    ? "Historical report price variance. Does not separate input differences across dates."
+    : "과거 보고서 가격의 분산입니다. 분석일별 입력 데이터의 차이는 분리하지 않습니다.";
   return (
-    <span title={STABILITY_BADGE_TITLE} className={style}>
+    <span title={title} className={style}>
       {label}
     </span>
   );
@@ -69,31 +78,41 @@ function StabilityBadge({ stability }: { stability: IntrinsicStability }) {
 // ── 투자의견 뱃지 ────────────────────────────────────────
 
 function VerdictBadge({ verdict }: { verdict?: string | null }) {
+  const { isEn } = useLanguage();
   if (!verdict) {
     return (
       <span className="font-mono text-[11px] px-2 py-0.5 rounded border border-[#e2e8f0] bg-[#f8fafc] text-[#64748b]">
-        대기 중
+        {isEn ? "Pending" : "대기 중"}
       </span>
     );
   }
   const lower = verdict.toLowerCase();
+  let displayVerdict = verdict;
+  if (isEn) {
+    if (lower.includes("강력 매수") || lower.includes("strong buy")) displayVerdict = "STRONG BUY";
+    else if (lower.includes("매수") || lower.includes("buy")) displayVerdict = "BUY";
+    else if (lower.includes("매도") || lower.includes("sell")) displayVerdict = "SELL";
+    else if (lower.includes("관망") || lower.includes("watch")) displayVerdict = "WATCH";
+    else if (lower.includes("보유") || lower.includes("hold")) displayVerdict = "HOLD";
+  }
+
   if (lower.includes("매수") || lower.includes("buy")) {
     return (
       <span className="font-mono text-[11px] font-semibold px-2 py-0.5 rounded bg-[#0f172a] text-white border border-[#0f172a] shrink-0">
-        {verdict}
+        {displayVerdict}
       </span>
     );
   }
   if (lower.includes("매도") || lower.includes("sell")) {
     return (
       <span className="font-mono text-[11px] font-medium px-2 py-0.5 rounded bg-white text-[#0f172a] border border-[#64748b] shrink-0">
-        {verdict}
+        {displayVerdict}
       </span>
     );
   }
   return (
     <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-[#f1f5f9] text-[#334155] border border-[#cbd5e1] shrink-0">
-      {verdict}
+      {displayVerdict}
     </span>
   );
 }
@@ -185,6 +204,7 @@ export function StockListItem({
   rowRef,
   rowKey,
 }: StockListItemProps) {
+  const { isEn } = useLanguage();
   const ratioText = isLocked
     ? null
     : formatIntrinsicRatio(insight.intrinsicRatioPct ?? null);
@@ -244,10 +264,14 @@ export function StockListItem({
               {badges}
               {isLocked ? (
                 <span
-                  title="과거 허용 리포트가 없어 표시할 가치평가 정보가 없습니다. Pro에서 최신 리포트를 확인하세요."
+                  title={
+                    isEn
+                      ? "No past reports available. Please check the latest reports with Pro."
+                      : "과거 허용 리포트가 없어 표시할 가치평가 정보가 없습니다. Pro에서 최신 리포트를 확인하세요."
+                  }
                   className="font-mono text-[11px] px-2 py-0.5 rounded border border-[#cbd5e1] bg-[#f8fafc] text-[#475569]"
                 >
-                  🔒 과거 리포트 없음
+                  {isEn ? "🔒 No Past Reports" : "🔒 과거 리포트 없음"}
                 </span>
               ) : (
                 <VerdictBadge verdict={insight.verdict} />
@@ -270,7 +294,8 @@ export function StockListItem({
 
               {marketCapText && (
                 <span className="px-1.5 py-0.5 rounded border border-[#e2e8f0] bg-white text-[#64748b]">
-                  시총: {marketCapText}
+                  {isEn ? "MCap: " : "시총: "}
+                  {marketCapText}
                 </span>
               )}
 
@@ -279,63 +304,85 @@ export function StockListItem({
                 label="%B"
                 value={formatPercentB(percentB)}
                 title={
-                  percentB === undefined
+                  isEn
+                    ? percentB === undefined
+                      ? "Loading Bollinger Band position..."
+                      : percentB === null
+                      ? "Failed to calculate %B due to lack of data."
+                      : "Bollinger Band position (%B = (Price - Lower) / (Upper - Lower))"
+                    : percentB === undefined
                     ? "볼린저 밴드 위치를 불러오는 중입니다. 행이 화면에 보이면 자동 조회합니다."
                     : percentB === null
-                      ? "차트 조회 실패 또는 데이터 부족(20봉 미만)으로 %B를 계산하지 못했습니다."
-                      : "볼린저 밴드 위치 (%B = (현재가-하단)/(상단-하단))"
+                    ? "차트 조회 실패 또는 데이터 부족(20봉 미만)으로 %B를 계산하지 못했습니다."
+                    : "볼린저 밴드 위치 (%B = (현재가-하단)/(상단-하단))"
                 }
               />
 
               {insight.confidence != null && !isLocked && (
                 <MetricBadge
-                  label="평균 확신도"
+                  label={isEn ? "Avg Confidence" : "평균 확신도"}
                   value={`${insight.confidence.toFixed(1)}/10`}
-                  title="13인 각자의 자기보고 확신도 평균입니다. 실제 정확도나 의견 일치도를 뜻하지 않습니다."
+                  title={
+                    isEn
+                      ? "Average self-reported confidence of 13 gurus. Does not mean actual accuracy or consensus."
+                      : "13인 각자의 자기보고 확신도 평균입니다. 실제 정확도나 의견 일치도를 뜻하지 않습니다."
+                  }
                 />
               )}
 
               {insight.dispersionPct != null && !isLocked && (
                 <MetricBadge
-                  label="가격 분산"
+                  label={isEn ? "Dispersion" : "가격 분산"}
                   value={`${insight.dispersionPct.toFixed(1)}%${
                     insight.priceEstimateCount != null
                       ? ` · ${insight.priceEstimateCount}/13`
                       : ""
                   }`}
-                  title="13인의 개별 적정가 중앙 50%(Q1~Q3) 구간 폭 ÷ 중앙 적정가(IQR 분산율)입니다."
+                  title={
+                    isEn
+                      ? "IQR dispersion ratio of guru price estimates (Q3-Q1 / Median)."
+                      : "13인의 개별 적정가 중앙 50%(Q1~Q3) 구간 폭 ÷ 중앙 적정가(IQR 분산율)입니다."
+                  }
                 />
               )}
 
               {insight.fairValueDeferred && !isLocked && (
                 <span className="px-1.5 py-0.5 rounded border border-[#cbd5e1] bg-[#f8fafc] text-[#475569] font-mono text-[11px]">
-                  적정가 산출 보류
+                  {isEn ? "Valuation Deferred" : "적정가 산출 보류"}
                 </span>
               )}
 
               {insight.voteAgreementPct != null && !isLocked && (
                 <MetricBadge
-                  label="표결 일치도"
+                  label={isEn ? "Vote Agreement" : "표결 일치도"}
                   value={`${insight.voteAgreementPct.toFixed(0)}%`}
-                  title="가장 많이 나온 투자의견의 표 수 ÷ 유효 표결 수입니다. 확신도와는 다른 지표입니다."
+                  title={
+                    isEn
+                      ? "Votes of the winning verdict divided by total valid votes."
+                      : "가장 많이 나온 투자의견의 표 수 ÷ 유효 표결 수입니다. 확신도와는 다른 지표입니다."
+                  }
                 />
               )}
 
               {ratioText && (
                 <MetricBadge
-                  label="적정가/종가"
+                  label={isEn ? "Fair/Price" : "적정가/종가"}
                   value={ratioText}
                   highlight
                 />
               )}
 
               {safetyRatioText && (
-                <MetricBadge label="안전마진/종가" value={safetyRatioText} />
+                <MetricBadge
+                  label={isEn ? "Safety/Price" : "안전마진/종가"}
+                  value={safetyRatioText}
+                />
               )}
 
               {insight.fairValue != null && !isLocked && (
                 <span className="px-1.5 py-0.5 rounded border border-[#cbd5e1] bg-white text-[#0f172a] font-semibold font-mono text-[11px]">
-                  적정가: {formatPriceByNation(insight.fairValue, undefined, ticker)}
+                  {isEn ? "Fair Value: " : "적정가: "}
+                  {formatPriceByNation(insight.fairValue, undefined, ticker)}
                 </span>
               )}
 

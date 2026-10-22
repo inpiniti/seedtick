@@ -3,9 +3,11 @@
 import React from "react";
 import { HealthStatus } from "@/types/api";
 import { Menu } from "lucide-react";
+import Link from "next/link";
 import { ReportistLogoBadge } from "@/components/ui/ReportistLogo";
 import { UserProfileWidget } from "@/components/header/UserProfileWidget";
 import { LanguageToggle } from "@/components/common/LanguageToggle";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface LiveStatusBarProps {
   health: HealthStatus | null;
@@ -19,6 +21,7 @@ export function LiveStatusBar({
   onToggleMobileMenu,
 }: LiveStatusBarProps) {
   const isServerHealthy = health?.status === "healthy";
+  const { isEn } = useLanguage();
 
   return (
     <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-[#e2e8f0] px-4 lg:px-8 h-[56px] flex items-center justify-between">
@@ -29,12 +32,12 @@ export function LiveStatusBar({
           type="button"
           onClick={onToggleMobileMenu}
           className="lg:hidden p-1.5 -ml-1 text-[#0f172a] hover:bg-[#f1f5f9] rounded-md transition-colors cursor-pointer"
-          aria-label="사이드바 메뉴 열기"
+          aria-label={isEn ? "Open sidebar menu" : "사이드바 메뉴 열기"}
         >
           <Menu className="w-5 h-5" />
         </button>
 
-        <a href="/" className="flex items-center gap-2 sm:gap-2.5 group focus:outline-hidden">
+        <Link href={isEn ? "/en" : "/"} className="flex items-center gap-2 sm:gap-2.5 group focus:outline-hidden">
           <ReportistLogoBadge size="sm" variant="dark" />
           <span className="font-bold text-sm sm:text-base text-[#0f172a] tracking-tight group-hover:text-blue-600 transition-colors">
             Reportist
@@ -45,7 +48,7 @@ export function LiveStatusBar({
           <span className="font-mono text-[11px] text-[#64748b] hidden md:inline border-l border-[#e2e8f0] pl-2.5">
             / RESEARCH & INSIGHTS
           </span>
-        </a>
+        </Link>
 
         {/* 서버 상태 뱃지 (미니) */}
         <div className="hidden sm:flex items-center gap-1.5 font-mono text-[11px] text-[#64748b]">

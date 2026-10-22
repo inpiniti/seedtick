@@ -61,6 +61,8 @@ import {
   getPreviousAvailableDate,
   deduplicateReportsByLatestDate,
 } from "@/lib/reportUtils";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { getSectionLabel } from "@/lib/sectionNav";
 
 const KR_STEP_5_INFO = {
   label: "5단계 (추천 알짜)",
@@ -180,6 +182,7 @@ export function ResearchCatalogView({
   initialOutcomes = null,
 }: ResearchCatalogViewProps) {
   const { tier, isTrialActive, isAdmin } = useSubscription();
+  const { isEn } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
   const [onDemandTicker, setOnDemandTicker] = useState<string | null>(null);
   const [reportVerdictFilter, setReportVerdictFilter] = useState<string>("ALL");
@@ -359,12 +362,16 @@ export function ResearchCatalogView({
     return map;
   }, [liveCandidates, krCandidates, romaCandidates]);
 
-  // 한글명 렌더링 규칙: 캐시 한글명 우선 -> 실시간 후보군명(한글, 그림3과 동일 소스) -> 원본 이름(영문) -> 티커 폴백
-  // 그림1(리포트)은 DB 저장 company_name이 티커와 동일하게 적재된 행이 있어
-  // tickerNameMap 미적중 시 "383220 383220"처럼 중복 표시되므로,
-  // 같은 화면의 후보군(그림3 소스)을 폴백으로 먼저 사용한다.
+  // 한글명 렌더링 규칙: 영문 모드 시 영문 fallback/후보군명 우선. 한글 모드 시 캐시 한글명 -> 후보군명 -> 영문 fallback -> 티커
   const displayNameOf = (ticker: string, fallback?: string | null): string => {
     const key = (ticker || "").trim().toUpperCase();
+    if (isEn) {
+      const fb = (fallback || "").trim();
+      if (fb && fb.toUpperCase() !== key) return fb;
+      const candidateName = candidateByTicker.get(key)?.name?.trim();
+      if (candidateName && candidateName.toUpperCase() !== key) return candidateName;
+      return key;
+    }
     const korean = tickerNameMap?.[key];
     if (korean) return korean;
     const candidateName = candidateByTicker.get(key)?.name?.trim();
@@ -845,7 +852,8 @@ export function ResearchCatalogView({
   const stockDetailHref = (ticker: string) => {
     const params = new URLSearchParams();
     params.set("from", activeSectionFilter);
-    return `/stocks/${encodeURIComponent(ticker)}?${params.toString()}`;
+    const base = isEn ? `/en/stocks/${encodeURIComponent(ticker)}` : `/stocks/${encodeURIComponent(ticker)}`;
+    return `${base}?${params.toString()}`;
   };
 
   return (
@@ -858,17 +866,18 @@ export function ResearchCatalogView({
               Admin Only
             </div>
             <h1 className="text-lg font-bold text-[#0f172a]">
-              관리자 전용 화면이에요
+              {isEn ? "Administrator Access Required" : "관리자 전용 화면이에요"}
             </h1>
             <p className="text-xs text-[#64748b] leading-relaxed">
-              파이프라인과 감사 로그는 관리자 계정으로 로그인해야 볼 수 있어요.
-              관리자 계정으로 로그인한 뒤 다시 시도해 주세요.
+              {isEn
+                ? "The pipeline monitor and audit logs require an administrator login. Please log in with an admin account."
+                : "파이프라인과 감사 로그는 관리자 계정으로 로그인해야 볼 수 있어요. 관리자 계정으로 로그인한 뒤 다시 시도해 주세요."}
             </p>
             <button
               onClick={() => onSelectSection?.("all")}
               className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-[#0f172a] text-white text-xs font-mono font-medium hover:bg-slate-800 transition-colors cursor-pointer"
             >
-              카탈로그 홈으로 돌아가기
+              {isEn ? "Back to Catalog Home" : "카탈로그 홈으로 돌아가기"}
             </button>
           </div>
         </section>
@@ -902,49 +911,32 @@ export function ResearchCatalogView({
                 className="inline-flex items-center gap-1 text-[#64748b] hover:text-[#0f172a] transition-colors cursor-pointer py-0.5 px-1.5 rounded hover:bg-slate-200/60"
               >
                 <ChevronLeft className="w-3.5 h-3.5 text-slate-500" />
-                <span>카탈로그 홈</span>
+                <span>{isEn ? "Catalog Home" : "카탈로그 홈"}</span>
               </button>
               <span className="text-[#cbd5e1]">/</span>
               <span className="text-[#0f172a] font-semibold">
-                {activeSectionFilter === "sec-reports" &&
-                  "01. 거장 가치평가 랭킹"}
-                {activeSectionFilter === "sec-roma" &&
-                  "02. 슈퍼인베스터 포트폴리오 (DataRoma)"}
-                {activeSectionFilter === "sec-screener" &&
-                  "03. 실시간 발굴 후보군"}
-                {activeSectionFilter === "sec-outcomes" &&
-                  "04. 성과 및 거장 적중률"}
-                {activeSectionFilter === "sec-stats" &&
-                  "05. 거장 표결 통계 랭킹"}
-                {activeSectionFilter === "sec-gurus" &&
-                  "06. 13인 투자 거장 철학"}
-                {activeSectionFilter === "sec-feedback" &&
-                  "의견 및 기능 제안"}
-                {activeSectionFilter === "sec-pipeline" &&
-                  "07. 파이프라인"}
-                {activeSectionFilter === "sec-audit" &&
-                  "08. 감사 로그"}
+                {getSectionLabel(activeSectionFilter, isEn)}
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
               {activeSectionFilter === "sec-reports" &&
-                "거장 가치평가 랭킹 & 리포트 전체 아카이브"}
+                (isEn ? "13-Guru Valuation Rankings & Stock Archive" : "거장 가치평가 랭킹 & 리포트 전체 아카이브")}
               {activeSectionFilter === "sec-roma" &&
-                "슈퍼인베스터 포트폴리오 (DataRoma) 전체"}
+                (isEn ? "Superinvestor Portfolio (DataRoma)" : "슈퍼인베스터 포트폴리오 (DataRoma) 전체")}
               {activeSectionFilter === "sec-screener" &&
-                "실시간 발굴 후보군 전체"}
+                (isEn ? "Real-time Discovery Candidates" : "실시간 발굴 후보군 전체")}
               {activeSectionFilter === "sec-outcomes" &&
-                "성과 및 거장 적중률"}
+                (isEn ? "Track Record & Accuracy" : "성과 및 거장 적중률")}
               {activeSectionFilter === "sec-stats" &&
-                "거장 표결 통계 랭킹"}
+                (isEn ? "Guru Vote Statistics" : "거장 표결 통계 랭킹")}
               {activeSectionFilter === "sec-gurus" &&
-                "13인 투자 거장 철학 및 밸류에이션 가이드"}
+                (isEn ? "13 Guru Philosophies & Valuation Guide" : "13인 투자 거장 철학 및 밸류에이션 가이드")}
               {activeSectionFilter === "sec-feedback" &&
-                "의견 및 기능 제안함"}
+                (isEn ? "Feedback & Feature Requests" : "의견 및 기능 제안함")}
               {activeSectionFilter === "sec-pipeline" &&
-                "파이프라인 모니터"}
+                (isEn ? "Pipeline Monitor" : "파이프라인 모니터")}
               {activeSectionFilter === "sec-audit" &&
-                "감사 로그 모니터"}
+                (isEn ? "Audit Log Monitor" : "감사 로그 모니터")}
             </h1>
           </div>
 
@@ -955,7 +947,7 @@ export function ResearchCatalogView({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="검색... (티커, 종목명)"
+                placeholder={isEn ? "Search... (ticker, company name)" : "검색... (티커, 종목명)"}
                 className="w-full pl-8 pr-3 py-1.5 text-xs font-mono bg-white border border-[#cbd5e1] rounded-md focus:outline-hidden focus:border-[#0f172a] shadow-xs text-[#0f172a] placeholder-[#94a3b8]"
               />
             </div>
@@ -1033,15 +1025,16 @@ export function ResearchCatalogView({
                     <span>13 GURU METHODOLOGIES</span>
                   </span>
                   <p className="text-[11px] text-[#64748b] mt-1 leading-relaxed">
-                    버핏(해자·ROE), 그레이엄(안전마진), 린치(PEG), 다모다란(DCF)
-                    등 13인의 독자적 심사 기준.
+                    {isEn
+                      ? "Distinctive valuation criteria of 13 legendary investors including Buffett (Moat & ROE), Graham (Margin of Safety), Lynch (PEG), and Damodaran (DCF)."
+                      : "버핏(해자·ROE), 그레이엄(안전마진), 린치(PEG), 다모다란(DCF) 등 13인의 독자적 심사 기준."}
                   </p>
                 </div>
                 <button
                   onClick={() => onSelectSection?.("sec-gurus")}
                   className="inline-flex items-center justify-between w-full pt-1.5 text-xs text-[#0f172a] font-semibold hover:underline cursor-pointer group"
                 >
-                  <span>거장별 심사 가이드 열람</span>
+                  <span>{isEn ? "Read Guru Valuation Guides" : "거장별 심사 가이드 열람"}</span>
                   <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
                 </button>
               </div>
@@ -1049,7 +1042,7 @@ export function ResearchCatalogView({
           </section>
         ) : isDashboardLoading || isReportsLoading ? (
           <section
-            aria-label="요약 정보를 불러오는 중"
+            aria-label={isEn ? "Loading summary..." : "요약 정보를 불러오는 중"}
             className="px-6 lg:px-12 py-6 bg-[#f8fafc] border-b border-[#e2e8f0]"
           >
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1081,12 +1074,14 @@ export function ResearchCatalogView({
                   01
                 </span>
                 <h2 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
-                  거장 가치평가 랭킹
+                  {isEn ? "Guru Valuation Rankings" : "거장 가치평가 랭킹"}
                 </h2>
               </div>
               <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-md">
-                13인 거장의 분석으로 도출한 적정 내재가치 대비 상승여력(저평가율) 순위 차트입니다.
-                각 종목을 클릭하여 거장 표결과 심층 리포트를 확인하세요. {isAll && `(홈에서는 랭킹 TOP 10만 요약 표시)`}
+                {isEn
+                  ? "Rankings sorted by intrinsic upside potential (undervaluation) derived from 13 legendary guru models. Click any stock to view detailed votes and research reports."
+                  : "13인 거장의 분석으로 도출한 적정 내재가치 대비 상승여력(저평가율) 순위 차트입니다. 각 종목을 클릭하여 거장 표결과 심층 리포트를 확인하세요."}{" "}
+                {isAll && (isEn ? `(Showing TOP 10 summary on home)` : `(홈에서는 랭킹 TOP 10만 요약 표시)`)}
               </p>
 
               {/* 1. 분석 일자 선택 (날짜별 선택, 디폴트: 최신 작성 일자) */}
@@ -1096,7 +1091,7 @@ export function ResearchCatalogView({
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-mono uppercase text-[#94a3b8] flex items-center gap-1.5">
                         <Calendar className="w-3.5 h-3.5 text-[#0f172a]" />
-                        <span>Report Date (분석 일자)</span>
+                        <span>{isEn ? "Report Date" : "Report Date (분석 일자)"}</span>
                       </span>
                       {selectedDate && selectedDate !== "ALL" && (
                         <span
@@ -1110,11 +1105,11 @@ export function ResearchCatalogView({
                         >
                           {selectedDate === availableDates[0]
                             ? isTrialActive
-                              ? "★ 최신 분석 (24H TRIAL)"
-                              : "★ 최신 분석일"
+                              ? (isEn ? "★ Latest Report (24H TRIAL)" : "★ 최신 분석 (24H TRIAL)")
+                              : (isEn ? "★ Latest Report" : "★ 최신 분석일")
                             : tier === "free" && !isTrialActive
-                            ? "FREE 아카이브 (과거)"
-                            : "선택 일자"}
+                            ? (isEn ? "FREE Archive" : "FREE 아카이브 (과거)")
+                            : (isEn ? "Selected Date" : "선택 일자")}
                         </span>
                       )}
                     </div>
@@ -1130,12 +1125,12 @@ export function ResearchCatalogView({
                         const restricted = isReportRestricted(d, tier, new Date(), allowedFreeDate, isTrialActive);
                         return (
                           <option key={d} value={d}>
-                            {d} {idx === 0 ? "★ (최신 분석)" : ""} {restricted ? "[PRO]" : ""}
+                            {d} {idx === 0 ? (isEn ? "★ (Latest)" : "★ (최신 분석)") : ""} {restricted ? "[PRO]" : ""}
                           </option>
                         );
                       })}
                       <option value="ALL">
-                        전체 일자 (최근 200건 통합) {tier === "free" && !isTrialActive ? "[PRO]" : ""}
+                        {isEn ? "All Dates (Recent 200 combined)" : "전체 일자 (최근 200건 통합)"} {tier === "free" && !isTrialActive ? "[PRO]" : ""}
                       </option>
                     </select>
                   </div>
@@ -1180,7 +1175,7 @@ export function ResearchCatalogView({
                         }`}
                       >
                         {tier === "free" && !isTrialActive && <span className="text-[9px] text-[#64748b] font-mono">[PRO]</span>}
-                        <span>전체</span>
+                        <span>{isEn ? "All" : "전체"}</span>
                       </button>
                     )}
                   </div>
@@ -1194,10 +1189,10 @@ export function ResearchCatalogView({
                 </span>
                 <div className="flex items-center gap-1 font-mono text-xs overflow-x-auto whitespace-nowrap scrollbar-none pb-0.5">
                   {[
-                    { id: "ALL", label: `전체 (${guruReports.length})` },
-                    { id: "BUY", label: "매수 합의" },
-                    { id: "HOLD", label: "보유·관망" },
-                    { id: "SELL", label: "매도" },
+                    { id: "ALL", label: isEn ? `All (${guruReports.length})` : `전체 (${guruReports.length})` },
+                    { id: "BUY", label: isEn ? "Consensus Buy" : "매수 합의" },
+                    { id: "HOLD", label: isEn ? "Hold · Watch" : "보유·관망" },
+                    { id: "SELL", label: isEn ? "Sell" : "매도" },
                   ].map((chip) => (
                     <button
                       key={chip.id}
@@ -1220,19 +1215,24 @@ export function ResearchCatalogView({
               <div className="flex items-center justify-between pb-2 border-b border-[#e2e8f0] font-mono text-xs flex-wrap gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-semibold text-[#0f172a]">
-                    분석 기준일: {effectiveDate || "최신"}
+                    {isEn ? "Effective Date: " : "분석 기준일: "}
+                    {effectiveDate || (isEn ? "Latest" : "최신")}
                   </span>
                   {hasSupplementedReports && prevDate && (
                     <span
-                      title={`당일 장 마감 전 국장 종목 등은 직전 분석일(${prevDate}) 데이터로 자동 보완되었습니다.`}
+                      title={
+                        isEn
+                          ? `Stocks before market close were automatically supplemented with previous report data (${prevDate}).`
+                          : `당일 장 마감 전 국장 종목 등은 직전 분석일(${prevDate}) 데이터로 자동 보완되었습니다.`
+                      }
                       className="text-[11px] font-mono px-1.5 py-0.5 rounded border border-[#e2e8f0] bg-[#f8fafc] text-[#475569] inline-flex items-center gap-1"
                     >
-                      <span>직전 분석일({prevDate}) 보완</span>
+                      <span>{isEn ? `Supplemented (${prevDate})` : `직전 분석일(${prevDate}) 보완`}</span>
                     </span>
                   )}
                   <span className="text-[#64748b]">
-                    (총 {displayedReports.length}건
-                    {isAll && filteredReports.length > 10 ? " 중 상위 10건" : ""}
+                    ({isEn ? `Total ${displayedReports.length}` : `총 ${displayedReports.length}건`}
+                    {isAll && filteredReports.length > 10 ? (isEn ? ", top 10 shown" : " 중 상위 10건") : ""}
                     )
                   </span>
                 </div>
@@ -1241,11 +1241,11 @@ export function ResearchCatalogView({
                   {isReportsLoading && (
                     <span className="text-[11px] text-[#64748b] flex items-center gap-1">
                       <RefreshCw className="w-3 h-3 animate-spin text-[#0f172a]" />
-                      <span>조회 중...</span>
+                      <span>{isEn ? "Loading..." : "조회 중..."}</span>
                     </span>
                   )}
                   <div className="flex items-center gap-1.5 text-[11px]">
-                    <span className="text-[#94a3b8] uppercase">정렬:</span>
+                    <span className="text-[#94a3b8] uppercase">{isEn ? "Sort:" : "정렬:"}</span>
                     <select
                       value={reportSortBy}
                       onChange={(e) =>
@@ -1259,10 +1259,10 @@ export function ResearchCatalogView({
                       }
                       className="bg-white border border-[#cbd5e1] rounded px-2 py-0.5 text-xs font-mono text-[#0f172a] focus:outline-hidden cursor-pointer shadow-2xs"
                     >
-                      <option value="RATIO_DESC">내재가치 상승여력순 (랭킹 1위~)</option>
-                      <option value="SCORE_DESC">거장 종합점수 랭킹순</option>
-                      <option value="DATE_DESC">최신 분석일순</option>
-                      <option value="TICKER_ASC">티커 알파벳순</option>
+                      <option value="RATIO_DESC">{isEn ? "Upside Potential (Rank #1~)" : "내재가치 상승여력순 (랭킹 1위~)"}</option>
+                      <option value="SCORE_DESC">{isEn ? "Guru Score" : "거장 종합점수 랭킹순"}</option>
+                      <option value="DATE_DESC">{isEn ? "Report Date" : "최신 분석일순"}</option>
+                      <option value="TICKER_ASC">{isEn ? "Ticker (A-Z)" : "티커 알파벳순"}</option>
                     </select>
                   </div>
                 </div>
@@ -1278,12 +1278,24 @@ export function ResearchCatalogView({
                     </div>
                     <div className="max-w-md mx-auto space-y-1.5">
                       <h3 className="text-base font-bold text-[#191f28]">
-                        &lsquo;{searchQuery.trim()}&rsquo; 종목은 정기 스크리닝 목록에 없어요
+                        {isEn
+                          ? `'${searchQuery.trim()}' is not in the regular screening list`
+                          : `‘${searchQuery.trim()}’ 종목은 정기 스크리닝 목록에 없어요`}
                       </h3>
                       <p className="text-xs text-[#6b7684] leading-relaxed">
-                        13인의 투자 거장 기준(고수익·저부채·안전마진)에 부합하는 종목만 매일 자동 발행돼요.
-                        <br />
-                        <strong>&lsquo;{searchQuery.trim()}&rsquo;</strong>에 대해 13인의 솔직한 가치평가가 궁금하시다면 지금 분석을 요청해보세요!
+                        {isEn ? (
+                          <>
+                            Only stocks matching 13 legendary value investor criteria (high profitability, low debt, safety margin) are published daily.
+                            <br />
+                            Want honest valuation for <strong>&lsquo;{searchQuery.trim()}&rsquo;</strong>? Request an instant analysis now!
+                          </>
+                        ) : (
+                          <>
+                            13인의 투자 거장 기준(고수익·저부채·안전마진)에 부합하는 종목만 매일 자동 발행돼요.
+                            <br />
+                            <strong>&lsquo;{searchQuery.trim()}&rsquo;</strong>에 대해 13인의 솔직한 가치평가가 궁금하시다면 지금 분석을 요청해보세요!
+                          </>
+                        )}
                       </p>
                     </div>
                     <div className="pt-2">
@@ -1294,15 +1306,23 @@ export function ResearchCatalogView({
                         className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-semibold shadow-xs"
                       >
                         <Sparkles className="w-4 h-4 text-amber-300" />
-                        <span>&lsquo;{searchQuery.trim()}&rsquo; 13인 거장 AI 즉시 분석 요청</span>
+                        <span>
+                          {isEn
+                            ? `Request Instant 13-Guru AI Analysis for '${searchQuery.trim()}'`
+                            : `‘${searchQuery.trim()}’ 13인 거장 AI 즉시 분석 요청`}
+                        </span>
                       </Button>
                     </div>
                   </div>
                 ) : (
                   <EmptyState
                     icon="📄"
-                    title="해당 조건의 분석 보고서가 없습니다"
-                    description="검색어나 필터를 변경하거나 상단 파이프라인 버튼으로 보고서를 생성하세요."
+                    title={isEn ? "No research reports match your criteria" : "해당 조건의 분석 보고서가 없습니다"}
+                    description={
+                      isEn
+                        ? "Try changing your search terms or filter options."
+                        : "검색어나 필터를 변경하거나 상단 파이프라인 버튼으로 보고서를 생성하세요."
+                    }
                   />
                 )
               ) : (
@@ -1335,18 +1355,22 @@ export function ResearchCatalogView({
                             <span>{report.d}</span>
                             {effectiveDate && effectiveDate !== "ALL" && report.d !== effectiveDate && (
                               <span
-                                title="당일 분석 전 직전 분석일 데이터로 보완된 리포트입니다."
+                                title={
+                                  isEn
+                                    ? "Supplemented with data from the previous analysis date."
+                                    : "당일 분석 전 직전 분석일 데이터로 보완된 리포트입니다."
+                                }
                                 className="text-[10px] font-mono px-1 py-0.2 rounded bg-slate-100 text-[#475569] border border-[#cbd5e1]"
                               >
-                                직전일
+                                {isEn ? "Prev Date" : "직전일"}
                               </span>
                             )}
                           </span>
                         }
                         summary={
-                          (report.vote_summary || "13인 표결 요약") +
+                          (report.vote_summary || (isEn ? "13-Guru Consensus Summary" : "13인 표결 요약")) +
                           (insight.safetyPrice
-                            ? ` · 안전마진 매수가: ${insight.safetyPrice}`
+                            ? ` · ${isEn ? "Margin of Safety Entry: " : "안전마진 매수가: "}${insight.safetyPrice}`
                             : "")
                         }
                       />
@@ -1361,7 +1385,11 @@ export function ResearchCatalogView({
                   className="py-3 text-center text-xs text-[#94a3b8] flex items-center justify-center gap-2 border-t border-[#f1f5f9]"
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-[#3b82f6] animate-pulse" />
-                  <span>더 많은 분석 보고서 로드 중... ({displayedReports.length} / {filteredReports.length})</span>
+                  <span>
+                    {isEn
+                      ? `Loading more reports... (${displayedReports.length} / ${filteredReports.length})`
+                      : `더 많은 분석 보고서 로드 중... (${displayedReports.length} / ${filteredReports.length})`}
+                  </span>
                 </div>
               )}
 
@@ -1373,7 +1401,9 @@ export function ResearchCatalogView({
                     className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-[#cbd5e1] hover:border-[#0f172a] bg-white text-xs font-mono font-medium text-[#0f172a] hover:bg-[#f8fafc] transition-colors cursor-pointer group"
                   >
                     <span>
-                      전체 가치평가 랭킹 보기 ({filteredReports.length}건)
+                      {isEn
+                        ? `View All Valuation Rankings (${filteredReports.length})`
+                        : `전체 가치평가 랭킹 보기 (${filteredReports.length}건)`}
                     </span>
                     <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
                   </button>
@@ -1398,13 +1428,14 @@ export function ResearchCatalogView({
                   02
                 </span>
                 <h2 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
-                  슈퍼인베스터 포트폴리오
+                  {isEn ? "Superinvestor Portfolio" : "슈퍼인베스터 포트폴리오"}
                 </h2>
               </div>
               <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-md">
-                미국 탑 슈퍼인베스터 10명 이상이 동시 보유하고 있는 DataRoma 그랜드
-                포트폴리오 종목 브리프입니다.{" "}
-                {isAll && `(홈에서는 상위 10개만 요약 표시)`}
+                {isEn
+                  ? "Brief of DataRoma Grand Portfolio stocks held simultaneously by 10+ top US superinvestors."
+                  : "미국 탑 슈퍼인베스터 10명 이상이 동시 보유하고 있는 DataRoma 그랜드 포트폴리오 종목 브리프입니다."}{" "}
+                {isAll && (isEn ? `(Showing TOP 10 on home)` : `(홈에서는 상위 10개만 요약 표시)`)}
               </p>
               <Button
                 variant="secondary"
@@ -1414,7 +1445,7 @@ export function ResearchCatalogView({
                 leftIcon={<RefreshCw className="w-3 h-3 text-[#64748b]" />}
                 className="font-mono text-xs"
               >
-                DataRoma 피드 갱신
+                {isEn ? "Refresh DataRoma Feed" : "DataRoma 피드 갱신"}
               </Button>
             </div>
 
@@ -1425,8 +1456,12 @@ export function ResearchCatalogView({
               ) : displayedRoma.length === 0 ? (
                 <EmptyState
                   icon="🏛️"
-                  title="DataRoma 슈퍼인베스터 데이터가 없습니다"
-                  description="좌측 'DataRoma 피드 갱신' 버튼을 누르면 그랜드 포트폴리오를 불러옵니다."
+                  title={isEn ? "No DataRoma superinvestor data available" : "DataRoma 슈퍼인베스터 데이터가 없습니다"}
+                  description={
+                    isEn
+                      ? "Click 'Refresh DataRoma Feed' to load the grand portfolio."
+                      : "좌측 'DataRoma 피드 갱신' 버튼을 누르면 그랜드 포트폴리오를 불러옵니다."
+                  }
                 />
               ) : (
                 <ul className="divide-y divide-[#f1f5f9] -my-2">
@@ -1454,12 +1489,12 @@ export function ResearchCatalogView({
                           <>
                             {c.holders != null && (
                               <span className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-[#cbd5e1] bg-white text-[#0f172a] font-semibold">
-                                {c.holders}인 보유
+                                {isEn ? `${c.holders} holders` : `${c.holders}인 보유`}
                               </span>
                             )}
                             {c.weight_pct != null && (
                               <span className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 text-slate-700">
-                                비중: {c.weight_pct.toFixed(2)}%
+                                {isEn ? `Weight: ${c.weight_pct.toFixed(2)}%` : `비중: ${c.weight_pct.toFixed(2)}%`}
                               </span>
                             )}
                           </>
@@ -1485,7 +1520,9 @@ export function ResearchCatalogView({
                     className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-[#cbd5e1] hover:border-[#0f172a] bg-white text-xs font-mono font-medium text-[#0f172a] hover:bg-[#f8fafc] transition-colors cursor-pointer group"
                   >
                     <span>
-                      전체 슈퍼인베스터 포트폴리오 보기 ({filteredRoma.length}개)
+                      {isEn
+                        ? `View All Superinvestor Portfolios (${filteredRoma.length})`
+                        : `전체 슈퍼인베스터 포트폴리오 보기 (${filteredRoma.length}개)`}
                     </span>
                     <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
                   </button>
@@ -1510,7 +1547,7 @@ export function ResearchCatalogView({
                   03
                 </span>
                 <h2 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
-                  실시간 발굴 후보군
+                  {isEn ? "Real-time Discovery Candidates" : "실시간 발굴 후보군"}
                 </h2>
               </div>
 
@@ -1530,7 +1567,7 @@ export function ResearchCatalogView({
                       : "text-[#64748b] hover:text-[#0f172a]"
                   }`}
                 >
-                  <span>🇺🇸 미국장</span>
+                  <span>{isEn ? "🇺🇸 US Stocks" : "🇺🇸 미국장"}</span>
                   <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-[#e2e8f0] text-[#334155]">
                     {liveCandidates.length}
                   </span>
@@ -1549,7 +1586,7 @@ export function ResearchCatalogView({
                       : "text-[#64748b] hover:text-[#0f172a]"
                   }`}
                 >
-                  <span>🇰🇷 한국장</span>
+                  <span>{isEn ? "🇰🇷 KR Stocks" : "🇰🇷 한국장"}</span>
                   <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-[#e2e8f0] text-[#334155]">
                     {krCandidates.length}
                   </span>
@@ -1557,11 +1594,15 @@ export function ResearchCatalogView({
               </div>
 
               <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-md">
-                {candidateMarket === "us"
+                {isEn
+                  ? candidateMarket === "us"
+                    ? "Candidate stocks meeting 13-guru screening filters, queued for pipeline research."
+                    : "High-quality core Korean companies (Stage 5) meeting unified fundamental benchmarks."
+                  : candidateMarket === "us"
                   ? "13인 거장 스크리닝 조건을 충족하여 분석 파이프라인 진입 대기 중인 후보 종목 브리프입니다."
                   : "단일 공통 재무 기준을 통과한 한국 핵심 알짜(5단계) 기업 발굴 목록입니다."}
                 {" "}
-                {isAll && `(홈에서는 상위 10개만 요약 표시)`}
+                {isAll && (isEn ? `(Showing TOP 10 on home)` : `(홈에서는 상위 10개만 요약 표시)`)}
               </p>
 
               {/* 한국장 전용: 5단계 고정 핵심 알짜 정보 카드 */}
@@ -1570,25 +1611,25 @@ export function ResearchCatalogView({
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-[#0f172a] flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5 text-[#3182f6]" />
-                      <span>한국장 우량주 필터</span>
+                      <span>{isEn ? "KR Blue-Chip Filter" : "한국장 우량주 필터"}</span>
                     </span>
                     <span className="text-[11px] text-[#3182f6] font-semibold bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                      5단계 고정 (알짜)
+                      {isEn ? "Stage 5 Fixed (Core)" : "5단계 고정 (알짜)"}
                     </span>
                   </div>
 
                   <div className="text-[11px] bg-white p-2.5 rounded-lg border border-[#e2e8f0] text-[#475569] space-y-1.5">
                     <div className="text-[#0f172a] font-semibold flex items-center justify-between">
-                      <span>{KR_STEP_5_INFO.desc}</span>
+                      <span>{isEn ? "High Profitability · Low Debt · Sound Balance" : KR_STEP_5_INFO.desc}</span>
                       <span className="text-[#3182f6] font-bold">
-                        {krCandidates.length}개 포착
+                        {isEn ? `${krCandidates.length} detected` : `${krCandidates.length}개 포착`}
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] text-[#64748b] pt-1 border-t border-[#f1f5f9]">
-                      <span>시총: {KR_STEP_5_INFO.mcap}</span>
-                      <span>부채비율: {KR_STEP_5_INFO.debt}</span>
-                      <span>이자보상: {KR_STEP_5_INFO.interest}</span>
-                      <span>영업익률: {KR_STEP_5_INFO.op}</span>
+                      <span>{isEn ? "MCap: " : "시총: "}{KR_STEP_5_INFO.mcap}</span>
+                      <span>{isEn ? "Debt: " : "부채비율: "}{KR_STEP_5_INFO.debt}</span>
+                      <span>{isEn ? "Interest: " : "이자보상: "}{KR_STEP_5_INFO.interest}</span>
+                      <span>{isEn ? "Op Margin: " : "영업익률: "}{KR_STEP_5_INFO.op}</span>
                       <span className="col-span-2">ROE: {KR_STEP_5_INFO.roe}</span>
                     </div>
                   </div>
@@ -1609,7 +1650,13 @@ export function ResearchCatalogView({
                 leftIcon={<RefreshCw className="w-3 h-3 text-[#64748b]" />}
                 className="font-mono text-xs w-full"
               >
-                {candidateMarket === "us" ? "미국장 스크리너 갱신" : "한국장 스크리너 갱신 (5단계)"}
+                {isEn
+                  ? candidateMarket === "us"
+                    ? "Refresh US Screener"
+                    : "Refresh KR Screener (Stage 5)"
+                  : candidateMarket === "us"
+                  ? "미국장 스크리너 갱신"
+                  : "한국장 스크리너 갱신 (5단계)"}
               </Button>
             </div>
 
@@ -1621,9 +1668,13 @@ export function ResearchCatalogView({
               ) : displayedCandidates.length === 0 ? (
                 <EmptyState
                   icon="🧭"
-                  title="포착된 스크리닝 후보군이 없습니다"
+                  title={isEn ? "No screening candidates detected" : "포착된 스크리닝 후보군이 없습니다"}
                   description={
-                    candidateMarket === "us"
+                    isEn
+                      ? candidateMarket === "us"
+                        ? "Click 'Refresh US Screener' to run real-time screening."
+                        : "Click 'Refresh KR Screener' to find Stage 5 blue chips."
+                      : candidateMarket === "us"
                       ? "'미국장 스크리너 갱신' 버튼을 눌러 실시간 스크리닝을 수행하세요."
                       : "'한국장 스크리너 갱신' 버튼을 눌러 5단계 우량주를 조회하세요."
                   }
@@ -1670,7 +1721,7 @@ export function ResearchCatalogView({
                               className="font-mono text-[10px]"
                             >
                               {isKr
-                                ? "알짜 5단계"
+                                ? (isEn ? "Stage 5 Core" : "알짜 5단계")
                                 : `SCORE: ${c.guru_score || 0}`}
                             </Badge>
                           </>
@@ -1684,12 +1735,12 @@ export function ResearchCatalogView({
                             )}
                             {c.operating_margin != null && (
                               <span className="px-1.5 py-0.5 rounded border border-[#e2e8f0] bg-white text-[#64748b] font-mono text-[11px]">
-                                영업익: {(c.operating_margin * 100).toFixed(1)}%
+                                {isEn ? "Op Margin: " : "영업익: "}{(c.operating_margin * 100).toFixed(1)}%
                               </span>
                             )}
                             {c.debt_ratio != null && (
                               <span className="px-1.5 py-0.5 rounded border border-[#e2e8f0] bg-white text-[#64748b] font-mono text-[11px]">
-                                부채: {(c.debt_ratio * 100).toFixed(0)}%
+                                {isEn ? "Debt: " : "부채: "}{(c.debt_ratio * 100).toFixed(0)}%
                               </span>
                             )}
                           </>
@@ -1706,7 +1757,11 @@ export function ResearchCatalogView({
                   className="py-3 text-center text-xs text-[#94a3b8] flex items-center justify-center gap-2 border-t border-[#f1f5f9]"
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-[#3b82f6] animate-pulse" />
-                  <span>더 많은 후보 종목 불러오는 중... ({displayedCandidates.length} / {filteredCandidates.length})</span>
+                  <span>
+                    {isEn
+                      ? `Loading more candidates... (${displayedCandidates.length} / ${filteredCandidates.length})`
+                      : `더 많은 후보 종목 불러오는 중... (${displayedCandidates.length} / ${filteredCandidates.length})`}
+                  </span>
                 </div>
               )}
 
@@ -1718,8 +1773,9 @@ export function ResearchCatalogView({
                     className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-[#cbd5e1] hover:border-[#0f172a] bg-white text-xs font-mono font-medium text-[#0f172a] hover:bg-[#f8fafc] transition-colors cursor-pointer group"
                   >
                     <span>
-                      전체 실시간 발굴 후보군 보기 (
-                      {filteredCandidates.length}개)
+                      {isEn
+                        ? `View All Discovery Candidates (${filteredCandidates.length})`
+                        : `전체 실시간 발굴 후보군 보기 (${filteredCandidates.length}개)`}
                     </span>
                     <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
                   </button>
@@ -1782,19 +1838,20 @@ export function ResearchCatalogView({
                 06
               </span>
               <h2 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
-                13인 투자 거장 철학 및 밸류에이션 가이드
+                {isEn ? "13 Guru Philosophies & Valuation Guide" : "13인 투자 거장 철학 및 밸류에이션 가이드"}
               </h2>
             </div>
             <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-2xl">
-              Reportist 리서치 파이프라인에서 실제 독립 평가를 수행하는 13인 투자
-              거장의 고유한 심사 철학, 체크리스트 및 핵심 정량 지표 기준입니다.
+              {isEn
+                ? "Core investment philosophies, checklists, and key quantitative benchmarks of the 13 legendary value investors powering the Reportist research engine."
+                : "Reportist 리서치 파이프라인에서 실제 독립 평가를 수행하는 13인 투자 거장의 고유한 심사 철학, 체크리스트 및 핵심 정량 지표 기준입니다."}
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2 font-sans">
               {Object.values(GURU_PERSONAS).map((guru) => (
                 <Link
                   key={guru.slug}
-                  href={`/gurus/${encodeURIComponent(guru.slug)}?from=sec-gurus`}
+                  href={isEn ? `/en/gurus/${encodeURIComponent(guru.slug)}?from=sec-gurus` : `/gurus/${encodeURIComponent(guru.slug)}?from=sec-gurus`}
                   onClick={(e) => {
                     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
                     e.preventDefault();
@@ -1846,7 +1903,7 @@ export function ResearchCatalogView({
                         ))}
                       </div>
                       <span className="text-[11px] text-[#0f172a] font-semibold flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
-                        철학 열람
+                        {isEn ? "View Philosophy" : "철학 열람"}
                         <ChevronRight className="w-3 h-3" />
                       </span>
                     </div>
@@ -1882,12 +1939,13 @@ export function ResearchCatalogView({
                   07
                 </span>
                 <h2 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
-                  파이프라인
+                  {isEn ? "Pipeline Monitor" : "파이프라인"}
                 </h2>
               </div>
               <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-md">
-                12:00 정기 배치 파이프라인의 실시간 진행 현황과 단계별 소요
-                시간을 모니터링합니다.
+                {isEn
+                  ? "Monitor real-time execution status and stage durations for the scheduled batch pipeline."
+                  : "12:00 정기 배치 파이프라인의 실시간 진행 현황과 단계별 소요 시간을 모니터링합니다."}
               </p>
               {onOpenPipelineModal && (
                 <div className="pt-2">
@@ -1906,10 +1964,12 @@ export function ResearchCatalogView({
                     className="font-mono text-xs font-medium"
                   >
                     <span className="hidden sm:inline">
-                      {isPipelineRunning ? "분석 파이프라인 가동 중" : "파이프라인 실행"}
+                      {isPipelineRunning
+                        ? (isEn ? "Pipeline Running" : "분석 파이프라인 가동 중")
+                        : (isEn ? "Run Pipeline" : "파이프라인 실행")}
                     </span>
                     <span className="sm:hidden">
-                      {isPipelineRunning ? "가동 중" : "파이프라인"}
+                      {isPipelineRunning ? (isEn ? "Running" : "가동 중") : (isEn ? "Pipeline" : "파이프라인")}
                     </span>
                   </Button>
                 </div>
@@ -1942,12 +2002,13 @@ export function ResearchCatalogView({
                   08
                 </span>
                 <h2 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
-                  감사 로그
+                  {isEn ? "Audit Log Monitor" : "감사 로그"}
                 </h2>
               </div>
               <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-md">
-                시스템 감사 오류 로그를 레벨별로 필터링하고 세부 원인을
-                추적합니다.
+                {isEn
+                  ? "Filter system audit error logs by severity level and inspect root causes."
+                  : "시스템 감사 오류 로그를 레벨별로 필터링하고 세부 원인을 추적합니다."}
               </p>
             </div>
 
@@ -1989,7 +2050,7 @@ export function ResearchCatalogView({
           서버에서 프리페치한 tickerDirectory가 있을 때만 렌더한다. */}
       {tickerDirectory.length > 0 && (
         <nav
-          aria-label="전체 종목 주식 리포트 목록"
+          aria-label={isEn ? "All stock research reports directory" : "전체 종목 주식 리포트 목록"}
           className="px-6 lg:px-12 py-8 lg:py-10 bg-[#fafafa] border-t border-[#e2e8f0]"
         >
           <div className="flex items-baseline gap-2">
@@ -1997,18 +2058,21 @@ export function ResearchCatalogView({
               INDEX
             </span>
             <h2 className="text-base font-bold text-[#0f172a] tracking-tight">
-              전체 종목 주식 리포트 목록 ({tickerDirectory.length}종목)
+              {isEn
+                ? `All Stocks Research Directory (${tickerDirectory.length} Stocks)`
+                : `전체 종목 주식 리포트 목록 (${tickerDirectory.length}종목)`}
             </h2>
           </div>
           <p className="text-xs text-[#64748b] mt-1.5 mb-4 leading-relaxed max-w-3xl">
-            국내·미국 전 종목의 13인 투자 거장 AI 가치평가 리포트, 적정주가와 내재가치
-            밴드를 확인하세요. 종목을 선택하면 해당 종목의 리포트 아카이브로 이동합니다.
+            {isEn
+              ? "Explore 13-guru AI valuation reports, fair price, and margin of safety bands across global and domestic markets. Select any stock to visit its report archive."
+              : "국내·미국 전 종목의 13인 투자 거장 AI 가치평가 리포트, 적정주가와 내재가치 밴드를 확인하세요. 종목을 선택하면 해당 종목의 리포트 아카이브로 이동합니다."}
           </p>
           <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-x-5 gap-y-1">
             {tickerDirectory.map((entry) => (
               <li key={entry.ticker}>
                 <Link
-                  href={`/stocks/${encodeURIComponent(entry.ticker)}`}
+                  href={isEn ? `/en/stocks/${encodeURIComponent(entry.ticker)}` : `/stocks/${encodeURIComponent(entry.ticker)}`}
                   className="flex items-baseline gap-1.5 text-[11px] font-mono text-[#475569] hover:text-[#0f172a] hover:underline underline-offset-2 py-0.5 min-w-0"
                 >
                   <span className="font-bold text-[#0f172a] shrink-0">

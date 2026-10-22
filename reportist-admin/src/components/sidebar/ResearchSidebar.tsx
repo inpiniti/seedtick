@@ -19,6 +19,8 @@ import {
 import { ReportistLogoBadge } from "@/components/ui/ReportistLogo";
 import { useSubscription } from "@/lib/subscription/SubscriptionContext";
 import { IS_OPEN_BETA } from "@/lib/subscription/subscriptionPolicy";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { getSectionLabel, getSectionBackLabel, getSectionHref } from "@/lib/sectionNav";
 
 export type SidebarSectionId =
   | "all"
@@ -86,11 +88,12 @@ export function ResearchSidebar({
   activeDocTicker,
   activeGuruName,
   onBackToCatalog,
-  backLabel = "카탈로그로 돌아가기",
+  backLabel,
   isOpenOnMobile = false,
   onCloseMobile,
 }: ResearchSidebarProps) {
   const { tier, isTrialActive, trialRemainingHours, isAdmin } = useSubscription();
+  const { isEn } = useLanguage();
   const isPro = tier === "pro";
 
   // 모바일 드로어가 열렸을 때 ESC 키 누르면 닫기
@@ -109,13 +112,13 @@ export function ResearchSidebar({
         {
           id: "sec-pipeline" as SidebarSectionId,
           prefix: "07",
-          label: "파이프라인",
+          label: getSectionLabel("sec-pipeline", isEn),
           icon: Activity,
         },
         {
           id: "sec-audit" as SidebarSectionId,
           prefix: "08",
-          label: "감사 로그",
+          label: getSectionLabel("sec-audit", isEn),
           badge: logCount > 0 ? `${logCount}` : undefined,
           icon: Terminal,
         },
@@ -128,7 +131,7 @@ export function ResearchSidebar({
       items: [
         {
           id: "all",
-          label: "카탈로그 홈 (전체)",
+          label: getSectionLabel("all", isEn),
           badge: reportCount > 0 ? `${reportCount}` : undefined,
           icon: BookOpen,
         },
@@ -140,25 +143,27 @@ export function ResearchSidebar({
         {
           id: "sec-reports",
           prefix: "01",
-          label: "거장 가치평가 랭킹",
+          label: getSectionLabel("sec-reports", isEn),
           badge: reportCount > 0 ? `${reportCount}` : undefined,
           icon: Target,
         },
         {
           id: "sec-roma",
           prefix: "02",
-          label: "슈퍼인베스터 포트폴리오",
+          label: getSectionLabel("sec-roma", isEn),
           badge: romaCount > 0 ? `${romaCount}` : undefined,
           icon: Layers,
         },
         {
           id: "sec-screener",
           prefix: "03",
-          label: "실시간 발굴 후보군",
+          label: getSectionLabel("sec-screener", isEn),
           badge:
             candidateCount > 0 || (krCandidateCount && krCandidateCount > 0)
               ? krCandidateCount
-                ? `미${candidateCount}·한${krCandidateCount}`
+                ? isEn
+                  ? `US ${candidateCount} · KR ${krCandidateCount}`
+                  : `미${candidateCount}·한${krCandidateCount}`
                 : `${candidateCount}`
               : undefined,
           icon: Compass,
@@ -166,13 +171,13 @@ export function ResearchSidebar({
         {
           id: "sec-outcomes",
           prefix: "04",
-          label: "성과 및 거장 적중률",
+          label: getSectionLabel("sec-outcomes", isEn),
           icon: Award,
         },
         {
           id: "sec-stats",
           prefix: "05",
-          label: "거장 표결 통계 랭킹",
+          label: getSectionLabel("sec-stats", isEn),
           icon: BarChart3,
         },
       ],
@@ -183,7 +188,7 @@ export function ResearchSidebar({
         {
           id: "sec-gurus",
           prefix: "06",
-          label: "13인 투자 거장 철학",
+          label: getSectionLabel("sec-gurus", isEn),
           badge: "13",
           icon: Users,
         },
@@ -195,7 +200,7 @@ export function ResearchSidebar({
         {
           id: "sec-feedback",
           prefix: "06",
-          label: "의견 및 기능 제안",
+          label: getSectionLabel("sec-feedback", isEn),
           icon: MessageSquarePlus,
         },
       ],
@@ -237,7 +242,7 @@ export function ResearchSidebar({
               className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 bg-white border border-[#cbd5e1] hover:border-[#0f172a] hover:bg-[#f1f5f9] rounded text-[11px] text-[#0f172a] font-semibold transition-colors cursor-pointer group"
             >
               <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5" />
-              <span>{backLabel}</span>
+              <span>{backLabel || (isEn ? "Back to Catalog Home" : "카탈로그로 돌아가기")}</span>
             </button>
           )}
         </div>
@@ -255,7 +260,7 @@ export function ResearchSidebar({
               return (
                 <li key={item.id}>
                   <Link
-                    href={SECTION_HREF_MAP[item.id] || "/"}
+                    href={getSectionHref(item.id, isEn)}
                     onClick={() => handleItemClick(item.id)}
                     className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 text-xs rounded-md transition-colors text-left cursor-pointer ${
                       isActive
@@ -308,13 +313,15 @@ export function ResearchSidebar({
               </span>
             </div>
             <p className="text-[11px] text-blue-800/80 leading-tight mb-2.5">
-              13인 투자 거장 최신 AI 리포트와 적정주가를 누구나 무료로 열람하실 수 있습니다.
+              {isEn
+                ? "All 13-guru AI reports and fair values are free to explore during open beta."
+                : "13인 투자 거장 최신 AI 리포트와 적정주가를 누구나 무료로 열람하실 수 있습니다."}
             </p>
             <Link
-              href="/gurus"
+              href={isEn ? "/en/gurus" : "/gurus"}
               className="block w-full py-1.5 px-2 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white text-center text-[11px] font-medium shadow-2xs transition-colors"
             >
-              13인 거장 철학 가이드 보기
+              {isEn ? "Explore 13 Guru Philosophies" : "13인 거장 철학 가이드 보기"}
             </Link>
           </div>
         ) : (
@@ -329,16 +336,32 @@ export function ResearchSidebar({
             </div>
             <p className="text-[11px] text-[#64748b] leading-tight mb-2.5">
               {isPro
-                ? "13인 거장 최신 AI 리포트 전체 열람 중"
+                ? isEn
+                  ? "Full access to all 13-guru AI reports"
+                  : "13인 거장 최신 AI 리포트 전체 열람 중"
                 : isTrialActive
-                ? "첫 방문 24시간 전체 리포트 무료 체험 중"
+                ? isEn
+                  ? "First visit 24-hour full access trial active"
+                  : "첫 방문 24시간 전체 리포트 무료 체험 중"
+                : isEn
+                ? "Recent 1-month reports & real-time valuations"
                 : "최근 1개월 보고서 및 실시간 가치평가 열람"}
             </p>
             <Link
-              href={isPro || isTrialActive ? "/account" : "/pricing"}
+              href={isPro || isTrialActive ? (isEn ? "/en/account" : "/account") : (isEn ? "/en/pricing" : "/pricing")}
               className="block w-full py-1.5 px-2 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white text-center text-[11px] font-medium shadow-2xs transition-colors"
             >
-              {isPro ? "멤버십 관리" : isTrialActive ? "체험 혜택 및 멤버십 관리" : "Pro 시작하기 (월 2,900원)"}
+              {isPro
+                ? isEn
+                  ? "Manage Membership"
+                  : "멤버십 관리"
+                : isTrialActive
+                ? isEn
+                  ? "Trial Benefits & Settings"
+                  : "체험 혜택 및 멤버십 관리"
+                : isEn
+                ? "Start Pro ($2.99 / mo)"
+                : "Pro 시작하기 (월 2,900원)"}
             </Link>
           </div>
         )}

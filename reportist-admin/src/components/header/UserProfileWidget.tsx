@@ -6,6 +6,7 @@ import { User as UserIcon, LogOut, ShieldCheck, Sparkles, Clock, Settings } from
 import { useSubscription } from "@/lib/subscription/SubscriptionContext";
 import { signOutUser } from "@/lib/subscription/authHelpers";
 import { IS_OPEN_BETA } from "@/lib/subscription/subscriptionPolicy";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export function UserProfileWidget() {
   const {
@@ -17,6 +18,7 @@ export function UserProfileWidget() {
     openUpgradeModal,
     openAuthModal,
   } = useSubscription();
+  const { isEn } = useLanguage();
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [imageError, setImageError] = useState(false);
@@ -62,11 +64,17 @@ export function UserProfileWidget() {
         !user ? (
           <span
             className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-xs font-mono font-medium"
-            title="오픈 베타 서비스 기간 동안 로그인이나 결제 없이 모든 리포트를 무료로 이용하실 수 있습니다."
+            title={
+              isEn
+                ? "During open beta, explore all reports and intrinsic values completely free."
+                : "오픈 베타 서비스 기간 동안 로그인이나 결제 없이 모든 리포트를 무료로 이용하실 수 있습니다."
+            }
           >
             <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-            <span className="hidden sm:inline">오픈 베타 · 로그인 없이 전면 무료</span>
-            <span className="sm:hidden">오픈베타 무료</span>
+            <span className="hidden sm:inline">
+              {isEn ? "Open Beta · Free Access" : "오픈 베타 · 로그인 없이 전면 무료"}
+            </span>
+            <span className="sm:hidden">{isEn ? "Free Beta" : "오픈베타 무료"}</span>
           </span>
         ) : (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-xs font-mono font-semibold">
@@ -76,7 +84,7 @@ export function UserProfileWidget() {
         )
       ) : isPro ? (
         <Link
-          href="/account"
+          href={isEn ? "/en/account" : "/account"}
           className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white border border-[#0f172a] text-xs font-mono font-semibold transition-colors"
         >
           <ShieldCheck className="w-3 h-3" />
@@ -89,7 +97,7 @@ export function UserProfileWidget() {
         </Link>
       ) : isTrialActive ? (
         <Link
-          href="/account"
+          href={isEn ? "/en/account" : "/account"}
           className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white border border-[#0f172a] text-xs font-mono font-semibold transition-colors"
         >
           <Clock className="w-3 h-3" />
@@ -105,7 +113,7 @@ export function UserProfileWidget() {
           className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white text-xs font-mono font-medium shadow-2xs transition-colors cursor-pointer"
         >
           <Sparkles className="w-3 h-3 text-white" />
-          <span>24H 무료 체험</span>
+          <span>{isEn ? "24H Free Trial" : "24H 무료 체험"}</span>
         </button>
       ) : (
         <button
@@ -114,7 +122,7 @@ export function UserProfileWidget() {
           className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white text-xs font-mono font-medium shadow-2xs transition-colors cursor-pointer"
         >
           <Sparkles className="w-3 h-3" />
-          <span>PRO UPGRADE (2,900원)</span>
+          <span>{isEn ? "PRO UPGRADE ($2.99)" : "PRO UPGRADE (2,900원)"}</span>
         </button>
       )}
 
@@ -180,18 +188,20 @@ export function UserProfileWidget() {
               )}
               {isTrialActive && (
                 <p className="text-[10px] text-[#64748b] px-1 mb-2">
-                  체험 종료까지: 약 {trialRemainingHours}시간 남음
+                  {isEn
+                    ? `Trial remaining: ~${trialRemainingHours}h`
+                    : `체험 종료까지: 약 ${trialRemainingHours}시간 남음`}
                 </p>
               )}
 
               <div className="border-t border-[#e2e8f0] pt-1.5 space-y-0.5">
                 <Link
-                  href="/account"
+                  href={isEn ? "/en/account" : "/account"}
                   onClick={() => setIsDropdownOpen(false)}
                   className="w-full text-left px-2 py-1.5 rounded text-[#0f172a] hover:bg-[#f1f5f9] flex items-center gap-2 transition-colors"
                 >
                   <Settings className="w-3 h-3 text-[#64748b]" />
-                  멤버십 관리
+                  {isEn ? "Membership & Settings" : "멤버십 관리"}
                 </Link>
 
                 {!isPro && (
@@ -203,7 +213,7 @@ export function UserProfileWidget() {
                     className="w-full text-left px-2 py-1.5 rounded text-[#0f172a] font-medium hover:bg-[#f1f5f9] flex items-center gap-2 cursor-pointer transition-colors"
                   >
                     <Sparkles className="w-3 h-3 text-[#0f172a]" />
-                    Pro 요금제 업그레이드
+                    {isEn ? "Upgrade to Pro" : "Pro 요금제 업그레이드"}
                   </button>
                 )}
 
@@ -215,7 +225,7 @@ export function UserProfileWidget() {
                   className="w-full text-left px-2 py-1.5 rounded text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer transition-colors"
                 >
                   <LogOut className="w-3 h-3 text-rose-600" />
-                  로그아웃
+                  {isEn ? "Log Out" : "로그아웃"}
                 </button>
               </div>
             </div>
@@ -227,7 +237,7 @@ export function UserProfileWidget() {
           onClick={openAuthModal}
           className="px-2.5 py-1.5 rounded-md border border-[#cbd5e1] bg-white hover:bg-[#f8fafc] text-[#0f172a] text-xs font-mono font-medium transition-colors cursor-pointer shadow-2xs"
         >
-          로그인
+          {isEn ? "Log In" : "로그인"}
         </button>
       )}
     </div>

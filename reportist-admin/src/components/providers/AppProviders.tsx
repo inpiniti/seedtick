@@ -7,6 +7,7 @@ import { AuthModal } from "@/components/auth/AuthModal";
 
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { FeedbackFloatingButton } from "@/components/feedback/FeedbackFloatingButton";
+import { LanguageProvider } from "@/contexts/LanguageContext";
 
 function ModalsContainer() {
   const { isAuthModalOpen, closeAuthModal } = useSubscription();
@@ -21,11 +22,13 @@ function ModalsContainer() {
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
-    <SubscriptionProvider>
-      <QueryProvider>
-        {children}
-        <ModalsContainer />
-      </QueryProvider>
-    </SubscriptionProvider>
+    <LanguageProvider>
+      <SubscriptionProvider>
+        <QueryProvider>
+          {children}
+          <ModalsContainer />
+        </QueryProvider>
+      </SubscriptionProvider>
+    </LanguageProvider>
   );
 }
