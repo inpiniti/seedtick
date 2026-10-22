@@ -69,7 +69,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     },
     {
+      url: `${fullBaseUrl}/en/outcomes`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.7,
+    },
+    {
       url: `${fullBaseUrl}/stats`,
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 0.9,
+    },
+    {
+      url: `${fullBaseUrl}/en/stats`,
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.9,
@@ -93,6 +105,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     },
     {
+      url: `${fullBaseUrl}/en/feedback`,
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 0.7,
+    },
+    {
       url: `${fullBaseUrl}/terms`,
       lastModified: new Date(),
       changeFrequency: "yearly",
@@ -106,10 +124,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  // 2. 13인 거장 철학 개별 페이지 목록
+  // 2. 13인 거장 철학 개별 페이지 목록 (한국어 및 영어)
   for (const guruSlug of Object.keys(GURU_PERSONAS)) {
     routes.push({
       url: `${fullBaseUrl}/gurus/${encodeURIComponent(guruSlug)}`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.7,
+    });
+    routes.push({
+      url: `${fullBaseUrl}/en/gurus/${encodeURIComponent(guruSlug)}`,
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.7,
