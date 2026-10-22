@@ -145,6 +145,8 @@ export interface DashboardViewProps {
   initialOutcomes?: OutcomesOverview | null;
   /** SSR용 티커 → 한글 종목명 맵 */
   initialTickerNameMap?: Record<string, string>;
+  /** 다국어 설정 ('ko' | 'en') */
+  lang?: "ko" | "en";
 }
 
 export function DashboardView({
@@ -161,6 +163,7 @@ export function DashboardView({
   initialReportDates,
   initialOutcomes,
   initialTickerNameMap,
+  lang = "ko",
 }: DashboardViewProps) {
   const router = useRouter();
   const pathname = usePathname();

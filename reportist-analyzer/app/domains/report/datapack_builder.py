@@ -1112,6 +1112,7 @@ class DataPackBuilder:
         dp_pre = StockDataPack(
             ticker=ticker,
             company_name=display_company_name,
+            company_name_en=yahoo_company_name or ticker,
             date=date_str,
             current_price=price,
             currency=price_curr,

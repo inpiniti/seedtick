@@ -19,6 +19,7 @@ interface BuildStockJsonLdParams {
   seoKeywords: string[];
   isPublicDate: boolean;
   report: GuruReportRow | null;
+  lang?: "ko" | "en";
 }
 
 export function buildStockJsonLd({
@@ -29,10 +30,16 @@ export function buildStockJsonLd({
   seoKeywords,
   isPublicDate,
   report,
+  lang = "ko",
 }: BuildStockJsonLdParams) {
+  const isEn = lang === "en";
   const url = absoluteUrl(canonicalPath);
-  const title = `${displayName}(${ticker}) 주가 전망 및 적정주가 분석 · 13인 거장 AI 가치평가 보고서`;
-  const description = `${displayName}(${ticker}) 주가 전망과 적정주가 분석 보고서. 13인 전설적 투자 거장들의 철학으로 산출한 향후 전망과 내재가치, 안전마진 밴드 및 종목별 가치평가 리포트 아카이브.`;
+  const title = isEn
+    ? `${displayName} (${ticker}) Stock Forecast & Fair Value Analysis · 13 Guru AI Research | Reportist`
+    : `${displayName}(${ticker}) 주가 전망 및 적정주가 분석 · 13인 거장 AI 가치평가 보고서`;
+  const description = isEn
+    ? `Comprehensive stock forecast and intrinsic fair value analysis for ${displayName} (${ticker}). Explore valuation bands, margin of safety, and independent votes from 13 legendary guru AI personas including Warren Buffett and Peter Lynch.`
+    : `${displayName}(${ticker}) 주가 전망과 적정주가 분석 보고서. 13인 전설적 투자 거장들의 철학으로 산출한 향후 전망과 내재가치, 안전마진 밴드 및 종목별 가치평가 리포트 아카이브.`;
 
   return {
     "@context": "https://schema.org",
@@ -44,19 +51,19 @@ export function buildStockJsonLd({
           {
             "@type": "ListItem",
             position: 1,
-            name: "Home",
-            item: SITE_URL,
+            name: isEn ? "Home" : "홈",
+            item: isEn ? `${SITE_URL}/en` : SITE_URL,
           },
           {
             "@type": "ListItem",
             position: 2,
-            name: "Stocks",
-            item: `${SITE_URL}/stocks`,
+            name: isEn ? "Stocks" : "종목 리포트",
+            item: isEn ? `${SITE_URL}/en/stocks` : `${SITE_URL}/stocks`,
           },
           {
             "@type": "ListItem",
             position: 3,
-            name: `${displayName}(${ticker})`,
+            name: `${displayName} (${ticker})`,
             item: url,
           },
         ],
@@ -67,7 +74,7 @@ export function buildStockJsonLd({
         url,
         name: title,
         description,
-        inLanguage: "ko",
+        inLanguage: isEn ? "en" : "ko",
         isPartOf: { "@type": "WebSite", "@id": `${SITE_URL}/#website` },
         primaryImageOfPage: {
           "@type": "ImageObject",
@@ -88,7 +95,7 @@ export function buildStockJsonLd({
         headline: title,
         description,
         keywords: seoKeywords.join(", "),
-        inLanguage: "ko",
+        inLanguage: isEn ? "en" : "ko",
         datePublished: publishedDate
           ? new Date(publishedDate).toISOString()
           : undefined,

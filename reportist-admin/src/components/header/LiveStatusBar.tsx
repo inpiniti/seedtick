@@ -5,6 +5,7 @@ import { HealthStatus } from "@/types/api";
 import { Menu } from "lucide-react";
 import { ReportistLogoBadge } from "@/components/ui/ReportistLogo";
 import { UserProfileWidget } from "@/components/header/UserProfileWidget";
+import { LanguageToggle } from "@/components/common/LanguageToggle";
 
 interface LiveStatusBarProps {
   health: HealthStatus | null;
@@ -59,8 +60,9 @@ export function LiveStatusBar({
         </div>
       </div>
 
-      {/* 2. 우측 회원 및 구독 프로필 위젯 */}
+      {/* 2. 우측 다국어 토글 및 회원/구독 프로필 위젯 */}
       <div className="flex items-center gap-2 sm:gap-3">
+        <LanguageToggle />
         <UserProfileWidget />
       </div>
     </header>

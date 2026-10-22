@@ -107,6 +107,7 @@ export interface ScreenerResponse {
 export interface TickerLogoResponse {
   ticker: string;
   logo_image_url: string | null;
+  english_name?: string | null;
   source: "cached" | "toss_lookup" | "none";
 }
 
@@ -117,6 +118,7 @@ export interface TickerLogoBatchResponse {
 export interface TickerNameResponse {
   ticker: string;
   korean_name: string | null;
+  english_name?: string | null;
   source: "cached" | "toss_lookup" | "none";
 }
 
@@ -155,6 +157,7 @@ export interface GuruReportRow {
   d: string;
   ticker: string;
   company_name: string | null;
+  company_name_en?: string | null;
   current_price: number | null;
   verdict: string;
   overall_score: number;
@@ -162,6 +165,7 @@ export interface GuruReportRow {
   datapack: (Record<string, any> & { valuation_consensus?: ValuationConsensus }) | null;
   summaries: GuruSummaryItem[] | null;
   final_report: string | null;
+  final_report_en?: string | null;
   // ── 구조화 정규 컬럼 ──
   fair_value?: number | null;
   band_low?: number | null;
@@ -181,6 +185,12 @@ export interface GuruReportRow {
   bull_points?: string[] | null;
   bear_points?: string[] | null;
   key_drivers?: string[] | null;
+  // ── 영문 다국어 필드 (i18n) ──
+  conclusion_en?: string | null;
+  hot_topics_en?: string[] | null;
+  bull_points_en?: string[] | null;
+  bear_points_en?: string[] | null;
+  key_drivers_en?: string[] | null;
   action_guide?: Record<string, any> | null;
   valuation_flags?: string[] | null;
   parse_mode?: string | null;

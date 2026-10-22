@@ -81,7 +81,14 @@ export async function generateMetadata({
     title,
     description,
     keywords: data.seoKeywords,
-    alternates: { canonical: canonicalPath },
+    alternates: {
+      canonical: canonicalPath,
+      languages: {
+        "ko": canonicalPath,
+        "en": `/en${canonicalPath}`,
+        "x-default": canonicalPath,
+      },
+    },
     openGraph: {
       title,
       description,

@@ -10,19 +10,25 @@ import { getServerFreeDate, getPublicReportForDate, getTickerReportDates } from 
 import {
   getCompanyDisplayNameWithAlias,
   getSeoKeywordsForTicker,
+  getEnglishCompanyName,
+  getEnglishSeoKeywordsForTicker,
 } from "@/lib/tickerAliases";
 import type { GuruReportRow } from "@/types/api";
 
 export interface StockPageData {
   ticker: string;
+  /** 현재 언어 설정 ('ko' | 'en') */
+  lang: "ko" | "en";
   /** 마스킹된 공개 리포트 (없으면 null) */
   report: GuruReportRow | null;
   /** free 기준 허용 기본 일자 (DB에 30일 이전 행이 없을 때의 폴백) */
   allowedFreeDate: string | undefined;
   /** 요청한 일자가 비로그인에게 공개 열람 가능한지 */
   isPublicDate: boolean;
-  /** 화면/SEO용 표시명 (예: "알파벳 A (구글)") */
+  /** 화면/SEO용 표시명 (한국어: 예 "알파벳 A (구글)", 영어: 예 "Alphabet Inc. (Google)") */
   displayName: string;
+  /** 영문 종목명 */
+  englishName: string;
   /** SEO 키워드 */
   seoKeywords: string[];
   /** canonical 경로 */
@@ -43,10 +49,12 @@ export interface StockPageData {
  * 종목 상세 페이지를 위한 공개 데이터를 조회한다.
  * @param ticker 티커
  * @param date  특정 분석일자 (없으면 최신 리포트)
+ * @param lang  언어 ('ko' | 'en')
  */
 export async function getStockPageData(
   ticker: string,
-  date?: string
+  date?: string,
+  lang: "ko" | "en" = "ko"
 ): Promise<StockPageData> {
   const normTicker = (ticker || "").trim().toUpperCase();
   const allowedFreeDate = await getServerFreeDate();
@@ -64,25 +72,42 @@ export async function getStockPageData(
 
   const korean = await resolveKoreanName(normTicker, report?.company_name || "");
   const koreanName = korean.name;
-  // 리포트가 없고 로고 테이블에도 없으면 존재하지 않는 티커다 (soft 404 방지)
-  const isUnknownTicker = !report && !korean.exists;
-  const displayName = getCompanyDisplayNameWithAlias(
-    report?.company_name || koreanName || normTicker,
-    normTicker
-  );
-  const seoKeywords = getSeoKeywordsForTicker(
+  const english = await resolveEnglishName(
     normTicker,
-    report?.company_name || koreanName || normTicker
+    report?.company_name_en || ""
   );
+  const englishName = english.name;
+
+  // 리포트가 없고 로고 테이블에도 없으면 존재하지 않는 티커다 (soft 404 방지)
+  const isUnknownTicker = !report && !korean.exists && !english.exists;
+
+  const isEn = lang === "en";
+  const displayName = isEn
+    ? englishName || normTicker
+    : getCompanyDisplayNameWithAlias(
+        report?.company_name || koreanName || normTicker,
+        normTicker
+      );
+
+  const seoKeywords = isEn
+    ? getEnglishSeoKeywordsForTicker(normTicker, englishName)
+    : getSeoKeywordsForTicker(
+        normTicker,
+        report?.company_name || koreanName || normTicker
+      );
+
+  const basePath = isEn ? `/en/stocks/${normTicker}` : `/stocks/${normTicker}`;
 
   return {
     ticker: normTicker,
+    lang,
     report,
     allowedFreeDate,
     isPublicDate,
     displayName,
+    englishName: englishName || normTicker,
     seoKeywords,
-    canonicalPath: `/stocks/${normTicker}`,
+    canonicalPath: basePath,
     publishedDate: resolvedDate,
     currentPrice:
       typeof report?.current_price === "number" ? report.current_price : null,
@@ -94,8 +119,6 @@ export async function getStockPageData(
 
 /**
  * 종목 한글명 조회 (비민감 공개 데이터만 사용).
- * 1순위 guru_reports.company_name(예: 핀둬둬(ADR)), 2순위 ticker_logos.korean_name.
- * verdict·적정가 등 민감 컬럼은 절대 조회하지 않음.
  */
 async function resolveKoreanName(
   ticker: string,
@@ -115,5 +138,37 @@ async function resolveKoreanName(
     return { name: ko || ticker, exists: Boolean(data) };
   } catch {
     return { name: ticker, exists: false };
+  }
+}
+
+/**
+ * 종목 영문명 조회 (비민감 공개 데이터 및 사전 매핑 사용).
+ */
+async function resolveEnglishName(
+  ticker: string,
+  reportCompanyNameEn: string
+): Promise<{ name: string; exists: boolean }> {
+  if (reportCompanyNameEn) return { name: reportCompanyNameEn, exists: true };
+  if (!ticker) return { name: ticker, exists: false };
+
+  // 1. tickerAliases 사전 확인
+  const presetEnglish = getEnglishCompanyName(ticker, "");
+  if (presetEnglish && presetEnglish !== ticker) {
+    return { name: presetEnglish, exists: true };
+  }
+
+  // 2. ticker_logos 테이블의 english_name 확인
+  const supabase = getServerSupabaseClient();
+  if (!supabase) return { name: presetEnglish || ticker, exists: false };
+  try {
+    const { data } = await supabase
+      .from("ticker_logos")
+      .select("english_name")
+      .eq("ticker", ticker)
+      .maybeSingle();
+    const en = ((data as { english_name?: string } | null)?.english_name || "").trim();
+    return { name: en || presetEnglish || ticker, exists: Boolean(data) };
+  } catch {
+    return { name: presetEnglish || ticker, exists: false };
   }
 }

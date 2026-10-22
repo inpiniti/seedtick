@@ -382,6 +382,13 @@ def build_report_columns(
     style_breakdown: dict | None = None,
     data_gap_watch_count: int | None = None,
     model: str | None = None,
+    company_name_en: str | None = None,
+    final_report_en: str | None = None,
+    conclusion_en: str | None = None,
+    hot_topics_en: list[str] | None = None,
+    bull_points_en: list[str] | None = None,
+    bear_points_en: list[str] | None = None,
+    key_drivers_en: list[str] | None = None,
 ) -> dict:
     """guru_reports 확장 컬럼 (정렬/필터 대상)."""
     if band_low is None and band_high is None:
@@ -431,6 +438,13 @@ def build_report_columns(
         "bull_arguments": bull_arguments or [],
         "bear_arguments": bear_arguments or [],
         "key_drivers": key_drivers or [],
+        "company_name_en": company_name_en or None,
+        "final_report_en": final_report_en or None,
+        "conclusion_en": conclusion_en or None,
+        "hot_topics_en": hot_topics_en or [],
+        "bull_points_en": bull_points_en or [],
+        "bear_points_en": bear_points_en or [],
+        "key_drivers_en": key_drivers_en or [],
         "action_guide": action_guide or {},
         "valuation_flags": review_flags or [],
         "parse_mode": parse_mode,

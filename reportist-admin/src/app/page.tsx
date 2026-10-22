@@ -18,6 +18,11 @@ export const metadata: Metadata = {
     "감정에 휘둘리는 투자를 끝내세요. 리포티스트(Reportist)는 워런 버핏, 벤저민 그레이엄, 피터 린치 등 13인 거장의 밸류에이션 모델로 국내 및 미국 주식의 적정 내재가치와 안전마진 밴드를 매일 분석합니다.",
   alternates: {
     canonical: "/",
+    languages: {
+      ko: "/",
+      en: "/en",
+      "x-default": "/",
+    },
   },
   openGraph: {
     title: "리포티스트(Reportist) · 13인 투자 거장 AI 주식 리서치 플랫폼",

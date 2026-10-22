@@ -63,6 +63,7 @@ class StockDataPack(BaseModel):
     """사전 수집/계산된 종목 심층 팩트 (Yahoo + SEC + Toss)"""
     ticker: str
     company_name: str
+    company_name_en: str = ""        # 공식 영문 기업명 (Yahoo Finance longName/shortName)
     date: str                        # YYYY-MM-DD
     current_price: float
     currency: str = "USD"            # 주가 거래 통화 (예: USD)
@@ -145,6 +146,14 @@ class FinalMasterReport(BaseModel):
     bull_arguments: list[dict] = Field(default_factory=list) # [{text, personas}] 출처 연결
     bear_arguments: list[dict] = Field(default_factory=list) # [{text, personas}] 출처 연결
     key_drivers: list[str] = Field(default_factory=list)   # 핵심 가치 드라이버 목록
+    # ── 영문 다국어 필드 (i18n) ──
+    company_name_en: str = ""                              # 영문 기업명
+    conclusion_en: str = ""                                # 영문 종합 결론
+    hot_topics_en: list[str] = Field(default_factory=list) # 영문 핵심 쟁점
+    bull_points_en: list[str] = Field(default_factory=list)# 영문 강세론 논거
+    bear_points_en: list[str] = Field(default_factory=list)# 영문 약세론 논거
+    key_drivers_en: list[str] = Field(default_factory=list)# 영문 핵심 가치 드라이버
+    final_report_en: str = ""                              # 영문 마크다운 본문
     band_low: float | None = None          # 적정 밴드 하단
     band_high: float | None = None         # 적정 밴드 상단
     safety_entry_value: float | None = None  # 안전마진 매수가 (숫자)

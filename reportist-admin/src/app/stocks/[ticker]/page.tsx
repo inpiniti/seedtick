@@ -87,6 +87,11 @@ export async function generateMetadata({
     keywords: meta.seoKeywords,
     alternates: {
       canonical: meta.canonicalPath,
+      languages: {
+        "ko": `/stocks/${ticker}`,
+        "en": `/en/stocks/${ticker}`,
+        "x-default": `/stocks/${ticker}`,
+      },
     },
     openGraph: {
       title,

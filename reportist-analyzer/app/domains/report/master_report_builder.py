@@ -39,6 +39,8 @@ def _fallback_narrative(
     valid_summaries = [s for s in summaries.summaries if s.parse_mode != "fallback"]
     favorable = [s for s in valid_summaries if s.verdict in {"매수", "보유"}]
     unfavorable = [s for s in valid_summaries if s.verdict in {"매도", "관망"}]
+    verdict_en_map = {"매수": "BUY", "보유": "HOLD", "관망": "WATCH", "매도": "SELL"}
+    verdict_en = verdict_en_map.get(consensus.verdict, "WATCH")
     return {
         "conclusion": (
             f"고정 집계 규칙상 종합 의견은 {consensus.verdict}입니다. "
@@ -58,6 +60,14 @@ def _fallback_narrative(
                 for condition in summary.trigger_conditions
             )
         )[:5],
+        "conclusion_en": (
+            f"Based on deterministic aggregation rules, overall consensus is {verdict_en} "
+            f"with {consensus.valid_vote_count}/{EXPECTED_PERSONA_COUNT} valid guru votes."
+        ),
+        "hot_topics_en": ["Consensus Agreement", "Valuation Dispersion", "Fundamental Growth"],
+        "bull_points_en": ["Stable competitive moat and pricing power", "Consistent operating profitability"],
+        "bear_points_en": ["Valuation multiple compression risk", "Macroeconomic volatility"],
+        "key_drivers_en": ["Revenue growth rate", "Free cash flow expansion", "Operating margin durability"],
     }
 
 
@@ -115,8 +125,9 @@ async def build_master_report(
 {summaries.raw_markdown}
 
 [출력 형식]
-JSON 객체 하나만 출력한다. 필드는 hot_topics(문자열 배열),
-bull_points(문자열 배열), bear_points(문자열 배열), key_drivers(문자열 배열)다.
+JSON 객체 하나만 출력한다. 필드는 다음과 같다:
+- 한국어 필드: hot_topics(문자열 배열), bull_points(문자열 배열), bear_points(문자열 배열), key_drivers(문자열 배열)
+- 영문 필드(i18n): conclusion_en(영문 요약 1~2문장), hot_topics_en(영문 문자열 배열), bull_points_en(영문 문자열 배열), bear_points_en(영문 문자열 배열), key_drivers_en(영문 문자열 배열)
 각 배열은 최대 5개이며, 입력에 없는 사실을 추가하지 않는다.
 마크다운 취소선(~~)을 쓰지 마라. 범위·근사 표기는 물결표(~) 대신 '–' 또는 '부터/까지'를 써라(예: Q1–Q3, 140조–150조원).
 """
@@ -159,6 +170,25 @@ bull_points(문자열 배열), bear_points(문자열 배열), key_drivers(문자
         conclusion = f"고정 집계 규칙상 종합 의견은 {consensus.verdict}입니다."
     if not hot_topics:
         hot_topics = ["의견 일치도", "적정가 분산", "재무·성장 근거"]
+
+    # 영문 i18n 필드 파싱
+    verdict_en_map = {"매수": "BUY", "보유": "HOLD", "관망": "WATCH", "매도": "SELL"}
+    verdict_en = verdict_en_map.get(consensus.verdict, "WATCH")
+    conclusion_en = str(narrative_payload.get("conclusion_en") or "").strip()
+    if not conclusion_en:
+        conclusion_en = (
+            f"Based on deterministic aggregation rules, overall consensus is {verdict_en} "
+            f"with {consensus.valid_vote_count}/{EXPECTED_PERSONA_COUNT} valid guru votes. "
+            f"Median fair value is {_format_price(consensus.fair_value, currency)}."
+        )
+    hot_topics_en = as_str_list(narrative_payload.get("hot_topics_en"), limit=5) or [
+        "Consensus Agreement",
+        "Valuation Dispersion",
+        "Fundamental Growth",
+    ]
+    bull_points_en = as_str_list(narrative_payload.get("bull_points_en"), limit=5)
+    bear_points_en = as_str_list(narrative_payload.get("bear_points_en"), limit=5)
+    key_drivers_en = as_str_list(narrative_payload.get("key_drivers_en"), limit=5)
 
     # 강세/약세 논거에 페르소나 출처 매핑
     def _map_personas_to_points(points: list[str], target_verdicts: set[str]) -> list[dict]:
@@ -329,6 +359,12 @@ bull_points(문자열 배열), bear_points(문자열 배열), key_drivers(문자
         bull_arguments=bull_arguments,
         bear_arguments=bear_arguments,
         key_drivers=key_drivers,
+        company_name_en=datapack.company_name_en or datapack.ticker,
+        conclusion_en=conclusion_en,
+        hot_topics_en=hot_topics_en,
+        bull_points_en=bull_points_en,
+        bear_points_en=bear_points_en,
+        key_drivers_en=key_drivers_en,
         band_low=consensus.band_low,
         band_high=consensus.band_high,
         safety_entry_value=consensus.safety_entry,

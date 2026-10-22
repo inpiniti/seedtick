@@ -11,11 +11,17 @@ export const revalidate = 3600; // 1시간 주기로 사이트맵 자동 갱신
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const fullBaseUrl = SITE_URL;
 
-  // 1. 기본 정적 페이지 목록
+  // 1. 기본 정적 페이지 목록 (한국어 및 영어)
   // /pipeline, /account, /admin은 noindex/내부용이므로 제외
   const routes: MetadataRoute.Sitemap = [
     {
       url: `${fullBaseUrl}`,
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 1.0,
+    },
+    {
+      url: `${fullBaseUrl}/en`,
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 1.0,
@@ -27,13 +33,31 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     },
     {
+      url: `${fullBaseUrl}/en/screener`,
+      lastModified: new Date(),
+      changeFrequency: "hourly",
+      priority: 0.9,
+    },
+    {
       url: `${fullBaseUrl}/stocks`,
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.9,
     },
     {
+      url: `${fullBaseUrl}/en/stocks`,
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 0.9,
+    },
+    {
       url: `${fullBaseUrl}/gurus`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.8,
+    },
+    {
+      url: `${fullBaseUrl}/en/gurus`,
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.8,
@@ -52,6 +76,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
     {
       url: `${fullBaseUrl}/pricing`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
+      url: `${fullBaseUrl}/en/pricing`,
       lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.7,
@@ -140,12 +170,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           getDefaultReportDate(allDates, "free", now, false) ||
           undefined;
 
-        // 종목별 최신 리포트 페이지
+        // 종목별 최신 리포트 페이지 (한국어 + 영어 동시 등록)
         for (const [ticker, latestDate] of tickerLatestDate.entries()) {
           const dateObj = latestDate ? new Date(latestDate) : new Date();
+          const validDate = isNaN(dateObj.getTime()) ? new Date() : dateObj;
           routes.push({
             url: `${fullBaseUrl}/stocks/${ticker}`,
-            lastModified: isNaN(dateObj.getTime()) ? new Date() : dateObj,
+            lastModified: validDate,
+            changeFrequency: "daily",
+            priority: 0.8,
+          });
+          routes.push({
+            url: `${fullBaseUrl}/en/stocks/${ticker}`,
+            lastModified: validDate,
             changeFrequency: "daily",
             priority: 0.8,
           });
@@ -159,9 +196,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             if (isReportRestricted(d, "free", now, allowedFreeDate, false)) continue;
             if (d === latestDate) continue; // 최신일자는 위에서 이미 추가
             const dObj = new Date(d);
+            const validDObj = isNaN(dObj.getTime()) ? new Date() : dObj;
             routes.push({
               url: `${fullBaseUrl}/stocks/${ticker}/${d}`,
-              lastModified: isNaN(dObj.getTime()) ? new Date() : dObj,
+              lastModified: validDObj,
+              changeFrequency: "monthly",
+              priority: 0.6,
+            });
+            routes.push({
+              url: `${fullBaseUrl}/en/stocks/${ticker}/${d}`,
+              lastModified: validDObj,
               changeFrequency: "monthly",
               priority: 0.6,
             });

@@ -608,6 +608,13 @@ class GuruReportService:
             style_breakdown=getattr(report, "style_breakdown", {}),
             data_gap_watch_count=getattr(report, "data_gap_watch_count", 0),
             model=analysis_model,
+            company_name_en=getattr(report, "company_name_en", "") or getattr(datapack, "company_name_en", ""),
+            final_report_en=getattr(report, "final_report_en", ""),
+            conclusion_en=getattr(report, "conclusion_en", ""),
+            hot_topics_en=getattr(report, "hot_topics_en", []),
+            bull_points_en=getattr(report, "bull_points_en", []),
+            bear_points_en=getattr(report, "bear_points_en", []),
+            key_drivers_en=getattr(report, "key_drivers_en", []),
         )
 
         await self.supabase.save_full_report(
@@ -623,6 +630,20 @@ class GuruReportService:
             final_report_md=report.raw_markdown,
             extra_columns=extra_cols,
         )
+
+        # 티커 로고 테이블에 영문명 및 한글명 동기화
+        eng_name = getattr(datapack, "company_name_en", "") or getattr(report, "company_name_en", "")
+        if eng_name or datapack.company_name:
+            try:
+                self.supabase.upsert_ticker_logo(
+                    ticker=clean_ticker,
+                    logo_image_url=None,
+                    korean_name=datapack.company_name,
+                    english_name=eng_name,
+                    source="report_pipeline",
+                )
+            except Exception as e_logo:
+                logger.debug(f"[{clean_ticker}] ticker_logos 영문/한글 동기화 건너뜀: {e_logo}")
 
         # 1-1. 세분화 데이터: guru_opinions 및 report_metrics 저장
         report_id = f"{date_str}_{ticker.upper()}"

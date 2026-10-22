@@ -383,19 +383,21 @@ class SupabaseRepo:
         stock_code: str | None = None,
         source: str = "toss_screener",
         korean_name: str | None = None,
+        english_name: str | None = None,
     ) -> bool:
-        """ticker_logos에 티커별 로고 URL/한글명 저장/갱신"""
+        """ticker_logos에 티커별 로고 URL/한글명/영문명 저장/갱신"""
         if not self._client:
             return False
 
         normalized = (ticker or "").strip().upper()
         logo = (logo_image_url or "").strip()
         name = (korean_name or "").strip()
+        eng_name = (english_name or "").strip()
         # 서킷브레이커가 올라간 DB에는 korean_name을 아예 싣지 않는다(헛 저장/재시도 방지).
         if self._korean_name_column_missing:
             name = ""
-        # 로고도 한글명도 없으면 저장할 의미가 없음
-        if not normalized or (not logo and not name):
+        # 로고도 한글명도 영문명도 없으면 저장할 의미가 없음
+        if not normalized or (not logo and not name and not eng_name):
             return False
 
         row: dict = {
@@ -407,16 +409,26 @@ class SupabaseRepo:
         }
         if name:
             row["korean_name"] = name
+        if eng_name:
+            row["english_name"] = eng_name
 
         try:
             self._client.table("ticker_logos").upsert(row, on_conflict="ticker").execute()
             return True
         except Exception as e:
-            # 구 스키마(korean_name 컬럼 미적용)에서는 한글명 없이 재시도
-            if name and ("korean_name" in str(e)):
+            err_str = str(e)
+            # 구 스키마에서 english_name 또는 korean_name 컬럼이 없는 경우 폴백
+            removed_any = False
+            if eng_name and ("english_name" in err_str):
+                row.pop("english_name", None)
+                removed_any = True
+            if name and ("korean_name" in err_str):
                 self._mark_korean_name_column_missing(e)
                 row.pop("korean_name", None)
-                if not row.get("logo_image_url"):
+                removed_any = True
+
+            if removed_any:
+                if not row.get("logo_image_url") and not row.get("korean_name"):
                     return False
                 try:
                     self._client.table("ticker_logos").upsert(row, on_conflict="ticker").execute()

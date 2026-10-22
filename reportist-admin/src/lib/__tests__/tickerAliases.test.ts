@@ -5,6 +5,8 @@ import {
   getCompanyDisplayNameWithAlias,
   getSeoKeywordsForTicker,
   matchesTickerAlias,
+  getEnglishCompanyName,
+  getEnglishSeoKeywordsForTicker,
 } from "../tickerAliases";
 
 describe("tickerAliases", () => {
@@ -51,5 +53,20 @@ describe("tickerAliases", () => {
     expect(matchesTickerAlias("google", "GOOGL", "알파벳 A")).toBe(true);
     expect(matchesTickerAlias("페이스북", "META", "메타 플랫폼스")).toBe(true);
     expect(matchesTickerAlias("삼성전자", "GOOGL", "알파벳 A")).toBe(false);
+  });
+
+  it("영문 기업명 및 영문 글로벌 SEO 키워드를 정상 생성해야 한다", () => {
+    expect(getEnglishCompanyName("AAPL")).toBe("Apple Inc.");
+    expect(getEnglishCompanyName("GOOGL")).toContain("Alphabet Inc.");
+    expect(getEnglishCompanyName("UNKNOWN", "Unknown Corp")).toBe("Unknown Corp");
+
+    const enKeywords = getEnglishSeoKeywordsForTicker("AAPL", "Apple Inc.");
+    expect(enKeywords).toContain("Reportist");
+    expect(enKeywords).toContain("AAPL");
+    expect(enKeywords).toContain("Apple Inc.");
+    expect(enKeywords).toContain("stock forecast");
+    expect(enKeywords).toContain("fair value");
+    expect(enKeywords).toContain("Warren Buffett");
+    expect(enKeywords).toContain("AAPL stock forecast");
   });
 });

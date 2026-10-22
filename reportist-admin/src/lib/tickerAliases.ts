@@ -10,6 +10,8 @@
 export interface TickerAliasDef {
   /** 대표 대중 통칭 (예: "구글") */
   primaryAlias: string;
+  /** 정식 영문 기업명 (예: "Alphabet Inc.") */
+  englishName?: string;
   /** 검색 및 SEO에 활용할 추가 별칭들 (예: ["구글", "구글 A", "Google", "Alphabet"]) */
   aliases: string[];
 }
@@ -17,34 +19,42 @@ export interface TickerAliasDef {
 export const TICKER_ALIAS_MAP: Record<string, TickerAliasDef> = {
   GOOGL: {
     primaryAlias: "구글",
+    englishName: "Alphabet Inc. (Google)",
     aliases: ["구글", "구글 A", "Google", "Alphabet", "알파벳"],
   },
   GOOG: {
     primaryAlias: "구글",
+    englishName: "Alphabet Inc. (Google)",
     aliases: ["구글", "구글 C", "Google", "Alphabet", "알파벳"],
   },
   META: {
     primaryAlias: "페이스북",
+    englishName: "Meta Platforms, Inc.",
     aliases: ["페이스북", "메타", "인스타그램", "Facebook", "Instagram"],
   },
   AAPL: {
     primaryAlias: "애플",
+    englishName: "Apple Inc.",
     aliases: ["애플", "Apple", "아이폰", "iPhone"],
   },
   TSLA: {
     primaryAlias: "테슬라",
+    englishName: "Tesla, Inc.",
     aliases: ["테슬라", "Tesla", "일론 머스크"],
   },
   MSFT: {
     primaryAlias: "마이크로소프트",
+    englishName: "Microsoft Corporation",
     aliases: ["마이크로소프트", "마소", "MS", "Microsoft", "윈도우"],
   },
   NVDA: {
     primaryAlias: "엔비디아",
+    englishName: "NVIDIA Corporation",
     aliases: ["엔비디아", "Nvidia", "젠슨 황", "지포스"],
   },
   AMZN: {
     primaryAlias: "아마존",
+    englishName: "Amazon.com, Inc.",
     aliases: ["아마존", "Amazon", "AWS", "아마존닷컴"],
   },
   NFLX: {
@@ -307,3 +317,68 @@ export function matchesTickerAlias(
 
   return entry.aliases.some((a) => a.toLowerCase().includes(q));
 }
+
+/**
+ * 정식 영문 기업명 조회 (없으면 ticker 폴백)
+ */
+export function getEnglishCompanyName(
+  ticker: string,
+  fallbackName?: string | null
+): string {
+  const normTicker = (ticker || "").trim().toUpperCase();
+  const entry = TICKER_ALIAS_MAP[normTicker];
+  if (entry?.englishName) return entry.englishName;
+  if (fallbackName && fallbackName.trim()) return fallbackName.trim();
+  return normTicker;
+}
+
+/**
+ * 영문 SEO 메타 키워드 생성 (Google Global Indexing용)
+ */
+export function getEnglishSeoKeywordsForTicker(
+  ticker: string,
+  companyNameEn?: string | null
+): string[] {
+  const normTicker = (ticker || "").trim().toUpperCase();
+  const entry = TICKER_ALIAS_MAP[normTicker];
+  const list = new Set<string>();
+
+  list.add("Reportist");
+  list.add(normTicker);
+  list.add(`$${normTicker}`);
+
+  const name = companyNameEn || entry?.englishName || normTicker;
+  if (name) {
+    list.add(name);
+  }
+
+  if (entry) {
+    for (const a of entry.aliases) {
+      if (/^[a-zA-Z0-9\s.,'-]+$/.test(a)) {
+        list.add(a);
+      }
+    }
+  }
+
+  // 글로벌 SEO 핵심 키워드
+  list.add("stock forecast");
+  list.add("price target");
+  list.add("fair value");
+  list.add("intrinsic value");
+  list.add("valuation analysis");
+  list.add("stock report");
+  list.add("Warren Buffett");
+  list.add("Peter Lynch");
+  list.add("13 Gurus AI");
+
+  // 종목 결합 롱테일 키워드
+  list.add(`${normTicker} stock forecast`);
+  list.add(`${normTicker} price target`);
+  list.add(`${normTicker} fair value`);
+  list.add(`${normTicker} intrinsic value`);
+  list.add(`${name} stock analysis`);
+  list.add(`${name} fair value`);
+
+  return Array.from(list);
+}
+
