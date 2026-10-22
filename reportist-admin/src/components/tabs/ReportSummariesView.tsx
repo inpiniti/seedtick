@@ -4,7 +4,8 @@ import React, { useMemo } from "react";
 import { GuruSummaryItem } from "@/types/api";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { TallyBar, TallyCounts } from "@/components/ui/TallyBar";
-import { findGuruPersona } from "@/lib/guruPersonas";
+import { findGuruPersona, getGuruPersonaBilingual } from "@/lib/guruPersonas";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Target, Check, AlertCircle } from "lucide-react";
 
 interface ReportSummariesViewProps {
@@ -12,6 +13,8 @@ interface ReportSummariesViewProps {
 }
 
 export function ReportSummariesView({ summaries }: ReportSummariesViewProps) {
+  const { isEn } = useLanguage();
+
   // 13인 표결 집계 (탈리 바 데이터 계산)
   const tally = useMemo<TallyCounts>(() => {
     const counts: TallyCounts = { buy: 0, hold: 0, watch: 0, sell: 0 };
@@ -31,8 +34,8 @@ export function ReportSummariesView({ summaries }: ReportSummariesViewProps) {
   if (!summaries || summaries.length === 0) {
     return (
       <EmptyState
-        title="거장별 개별 분석 서머리가 등록되지 않았습니다"
-        description="분석 파이프라인에서 13인 거장 요약이 완성되면 여기에 문서 형태로 아카이빙됩니다."
+        title={isEn ? "No individual guru summaries available" : "거장별 개별 분석 서머리가 등록되지 않았습니다"}
+        description={isEn ? "Once the 13 guru summaries are compiled by the pipeline, they will be archived here as documents." : "분석 파이프라인에서 13인 거장 요약이 완성되면 여기에 문서 형태로 아카이빙됩니다."}
       />
     );
   }
@@ -45,23 +48,32 @@ export function ReportSummariesView({ summaries }: ReportSummariesViewProps) {
     if (lower.includes("매수") || lower.includes("buy")) {
       return (
         <span className="font-mono text-[11px] font-semibold px-2 py-0.5 rounded bg-[#0f172a] text-white border border-[#0f172a] shrink-0">
-          {text}
+          {isEn ? "BUY" : text}
         </span>
       );
     }
     if (lower.includes("매도") || lower.includes("sell")) {
       return (
         <span className="font-mono text-[11px] font-medium px-2 py-0.5 rounded bg-white text-[#0f172a] border border-[#64748b] shrink-0">
-          {text}
+          {isEn ? "SELL" : text}
+        </span>
+      );
+    }
+    if (lower.includes("보유") || lower.includes("hold")) {
+      return (
+        <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-[#f1f5f9] text-[#334155] border border-[#cbd5e1] shrink-0">
+          {isEn ? "HOLD" : text}
         </span>
       );
     }
     return (
       <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-[#f1f5f9] text-[#334155] border border-[#cbd5e1] shrink-0">
-        {text}
+        {isEn ? (lower.includes("미응답") ? "N/A" : lower.includes("관망") ? "WATCH" : text) : text}
       </span>
     );
   };
+
+  const validCount = summaries.filter((item) => item.parse_mode !== "fallback").length;
 
   return (
     <div className="space-y-6 font-sans">
@@ -72,7 +84,9 @@ export function ReportSummariesView({ summaries }: ReportSummariesViewProps) {
             13 Guru Round-Table Vote Tally
           </span>
           <span className="text-[#64748b]">
-            유효 응답 {summaries.filter((item) => item.parse_mode !== "fallback").length}/{summaries.length}명 · fallback 제외
+            {isEn
+              ? `Valid Responses ${validCount}/${summaries.length} · excluding fallback`
+              : `유효 응답 ${validCount}/${summaries.length}명 · fallback 제외`}
           </span>
         </div>
         <TallyBar tally={tally} />
@@ -82,8 +96,11 @@ export function ReportSummariesView({ summaries }: ReportSummariesViewProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
         {summaries.map((item, index) => {
           const rawName = item.persona || item.guru_name || `거장 #${index + 1}`;
-          const name = rawName.replace("-", " ");
-          const persona = findGuruPersona(rawName);
+          const basePersona = findGuruPersona(rawName);
+          const persona = basePersona ? getGuruPersonaBilingual(basePersona, isEn) : null;
+          const name = isEn && persona
+            ? persona.englishName
+            : rawName.replace("-", " ");
           const isFallback = item.parse_mode === "fallback";
           const verdict = isFallback ? "미응답" : item.verdict || item.stance || "관망";
           const confidence = item.confidence ?? 5;
@@ -106,9 +123,14 @@ export function ReportSummariesView({ summaries }: ReportSummariesViewProps) {
                       <h4 className="font-bold text-sm text-[#0f172a]">
                         {name}
                       </h4>
-                      {persona && (
+                      {persona && !isEn && (
                         <span className="text-[10px] font-mono text-[#64748b] bg-[#f1f5f9] border border-[#e2e8f0] px-1.5 py-0.2 rounded">
                           {persona.englishName}
+                        </span>
+                      )}
+                      {persona && isEn && persona.styleEn && (
+                        <span className="text-[10px] font-mono text-[#64748b] bg-[#f1f5f9] border border-[#e2e8f0] px-1.5 py-0.2 rounded">
+                          {persona.styleEn}
                         </span>
                       )}
                     </div>
@@ -130,7 +152,9 @@ export function ReportSummariesView({ summaries }: ReportSummariesViewProps) {
                           }}
                         />
                       </div>
-                      <span title="페르소나가 자기보고한 값입니다.">자기보고 확신도 {confidence}/10</span>
+                      <span title={isEn ? "Self-reported confidence by AI persona." : "페르소나가 자기보고한 값입니다."}>
+                        {isEn ? `Self-Reported Confidence ${confidence}/10` : `자기보고 확신도 ${confidence}/10`}
+                      </span>
                     </div>}
                   </div>
 
@@ -140,7 +164,9 @@ export function ReportSummariesView({ summaries }: ReportSummariesViewProps) {
                 {/* 대표 발언 (인용구) */}
                 {isFallback ? (
                   <p className="text-xs text-[#64748b] py-2">
-                    응답을 유효하게 처리하지 못해 표결과 가격 집계에서 제외했습니다.
+                    {isEn
+                      ? "Excluded from vote tally and pricing due to invalid response."
+                      : "응답을 유효하게 처리하지 못해 표결과 가격 집계에서 제외했습니다."}
                   </p>
                 ) : quote && (
                   <blockquote className="pl-3 py-1.5 my-2 border-l-2 border-[#0f172a] bg-[#f8fafc] text-xs text-[#334155] italic rounded-r leading-relaxed">
@@ -152,7 +178,7 @@ export function ReportSummariesView({ summaries }: ReportSummariesViewProps) {
                 {!isFallback && targetPrice && (
                   <div className="flex items-center gap-1.5 text-xs bg-[#f8fafc] border border-[#e2e8f0] px-2.5 py-1 rounded font-mono text-[#0f172a]">
                     <Target className="w-3.5 h-3.5 text-[#64748b] shrink-0" />
-                    <span className="text-[#64748b]">적정 범위:</span>
+                    <span className="text-[#64748b]">{isEn ? "Target Range:" : "적정 범위:"}</span>
                     <span className="font-semibold text-[#0f172a]">
                       {targetPrice}
                     </span>

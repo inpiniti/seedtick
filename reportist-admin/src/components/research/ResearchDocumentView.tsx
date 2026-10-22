@@ -27,7 +27,6 @@ import {
   Users,
   PieChart,
   TrendingUp,
-  Sparkles,
 } from "lucide-react";
 import { useSubscription } from "@/lib/subscription/SubscriptionContext";
 import { isReportRestricted } from "@/lib/subscription/subscriptionPolicy";
@@ -35,6 +34,7 @@ import {
   getTickerPrimaryAlias,
   getCompanyDisplayNameWithAlias,
 } from "@/lib/tickerAliases";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export type ResearchDocTab = "final" | "summaries" | "datapack" | "chart";
 
@@ -62,7 +62,7 @@ interface ResearchDocumentViewProps {
 export function ResearchDocumentView({
   report,
   onBack,
-  backLabel = "카탈로그로 돌아가기",
+  backLabel: customBackLabel,
   availableDates = [],
   selectedDate,
   onSelectDate,
@@ -74,6 +74,8 @@ export function ResearchDocumentView({
   activeTab: activeTabProp,
   onTabChange,
 }: ResearchDocumentViewProps) {
+  const { isEn } = useLanguage();
+  const backLabel = customBackLabel || (isEn ? "Back to Catalog" : "카탈로그로 돌아가기");
   const {
     tier,
     isTrialActive,
@@ -132,11 +134,45 @@ export function ResearchDocumentView({
 
   const valConsensus = extractValuationConsensus(report);
   const ticker = report.ticker;
-  const companyName = report.company_name || ticker;
+  const isKr = /^\d{6}$/.test(ticker);
+  const rawCompanyName = report.company_name || ticker;
+  const companyName = isEn
+    ? report.company_name_en || (isKr ? rawCompanyName : ticker)
+    : rawCompanyName;
   const primaryAlias = getTickerPrimaryAlias(ticker);
-  const displayWithAlias = getCompanyDisplayNameWithAlias(companyName, ticker);
+  const displayWithAlias = isEn
+    ? companyName
+    : getCompanyDisplayNameWithAlias(companyName, ticker);
   const docId = `DOC-${report.d?.replace(/-/g, "") || "LIVE"}-${ticker}`;
-  const verdict = report.verdict || "의견 조율 중";
+
+  const rawVerdict = report.verdict || "의견 조율 중";
+  const verdict = isEn
+    ? rawVerdict.toLowerCase().includes("매수") || rawVerdict.toLowerCase().includes("buy")
+      ? "BUY"
+      : rawVerdict.toLowerCase().includes("매도") || rawVerdict.toLowerCase().includes("sell")
+      ? "SELL"
+      : rawVerdict.toLowerCase().includes("보유") || rawVerdict.toLowerCase().includes("hold")
+      ? "HOLD"
+      : rawVerdict.toLowerCase().includes("관망") || rawVerdict.toLowerCase().includes("watch")
+      ? "WATCH"
+      : rawVerdict
+    : rawVerdict;
+
+  // 13 Guru Round-Table Vote Summary
+  const displayVoteSummary = React.useMemo(() => {
+    if (!isEn) return report.vote_summary || "표결 정보 없음";
+    if (report.votes_buy != null || report.votes_sell != null) {
+      return `Buy ${report.votes_buy || 0} · Hold ${report.votes_hold || 0} · Watch ${report.votes_watch || 0} · Sell ${report.votes_sell || 0}`;
+    }
+    if (report.vote_summary) {
+      return report.vote_summary
+        .replace(/매수/g, "Buy")
+        .replace(/보유/g, "Hold")
+        .replace(/관망/g, "Watch")
+        .replace(/매도/g, "Sell");
+    }
+    return "No vote data";
+  }, [report, isEn]);
 
   // 확신도 계산
   const confidenceSamples = (report.summaries || [])
@@ -171,7 +207,21 @@ export function ResearchDocumentView({
   const safetyRatioText = formatIntrinsicRatio(safetyRatioPct);
 
   // 내재가치 안정성 메타
-  const stabilityMeta = intrinsicStability ? getIntrinsicStabilityMeta(intrinsicStability) : null;
+  const rawStabilityMeta = intrinsicStability ? getIntrinsicStabilityMeta(intrinsicStability) : null;
+  const stabilityMeta = rawStabilityMeta
+    ? {
+        ...rawStabilityMeta,
+        text: isEn
+          ? rawStabilityMeta.text === "안정"
+            ? "Stable"
+            : rawStabilityMeta.text === "보통"
+            ? "Moderate"
+            : rawStabilityMeta.text === "주의"
+            ? "Volatile"
+            : rawStabilityMeta.text
+          : rawStabilityMeta.text,
+      }
+    : null;
 
   // 흑백 투자의견 뱃지
   const renderMonochromeVerdict = (v: string) => {
@@ -179,20 +229,27 @@ export function ResearchDocumentView({
     if (lower.includes("매수") || lower.includes("buy")) {
       return (
         <span className="font-mono text-xs px-2.5 py-0.5 rounded bg-[#0f172a] text-white border border-[#0f172a] font-semibold uppercase shrink-0">
-          {v}
+          {isEn ? "BUY" : v}
         </span>
       );
     }
     if (lower.includes("매도") || lower.includes("sell")) {
       return (
         <span className="font-mono text-xs px-2.5 py-0.5 rounded bg-white text-[#0f172a] border border-[#64748b] font-medium uppercase shrink-0">
-          {v}
+          {isEn ? "SELL" : v}
+        </span>
+      );
+    }
+    if (lower.includes("보유") || lower.includes("hold")) {
+      return (
+        <span className="font-mono text-xs px-2.5 py-0.5 rounded bg-[#f1f5f9] text-[#334155] border border-[#cbd5e1] uppercase shrink-0">
+          {isEn ? "HOLD" : v}
         </span>
       );
     }
     return (
       <span className="font-mono text-xs px-2.5 py-0.5 rounded bg-[#f1f5f9] text-[#334155] border border-[#cbd5e1] uppercase shrink-0">
-        {v}
+        {isEn ? (lower.includes("관망") ? "WATCH" : v) : v}
       </span>
     );
   };
@@ -234,7 +291,7 @@ export function ResearchDocumentView({
             <div className="flex items-center gap-1.5 ml-auto min-w-0 max-w-[620px] bg-[#f8fafc] border border-[#e2e8f0] px-2.5 py-1 rounded">
               <Calendar className="w-3.5 h-3.5 text-[#64748b] shrink-0" />
               <span className="text-[#64748b] shrink-0 whitespace-nowrap">
-                분석 이력:
+                {isEn ? "Analysis History:" : "분석 이력:"}
               </span>
               {/* 분석일자별 영구 URL(/stocks/{ticker}/{date})로 링크해 검색엔진이
                   과거 리포트도 색인할 수 있게 한다. 잠긴 날짜는 업그레이드 모달 유지. */}
@@ -248,12 +305,13 @@ export function ResearchDocumentView({
                     isTrialActive
                   );
                   const isCurrent = date === (selectedDate || report.d);
+                  const targetHref = isEn
+                    ? `/en/stocks/${encodeURIComponent(report.ticker)}/${encodeURIComponent(date)}`
+                    : `/stocks/${encodeURIComponent(report.ticker)}/${encodeURIComponent(date)}`;
                   return (
                     <Link
                       key={date}
-                      href={`/stocks/${encodeURIComponent(
-                        report.ticker
-                      )}/${encodeURIComponent(date)}`}
+                      href={targetHref}
                       onClick={(e) => {
                         if (restricted) {
                           // Pro 전용 일자는 기존 업그레이드 유도 흐름을 유지한다.
@@ -273,14 +331,14 @@ export function ResearchDocumentView({
                       }`}
                     >
                       {date}
-                      {isCurrent ? " (현재)" : ""}
+                      {isCurrent ? (isEn ? " (Current)" : " (현재)") : ""}
                     </Link>
                   );
                 })}
               </span>
               {isLoadingDate && (
                 <span className="text-[#0f172a] animate-pulse text-[11px]">
-                  로드 중...
+                  {isEn ? "Loading..." : "로드 중..."}
                 </span>
               )}
             </div>
@@ -315,14 +373,14 @@ export function ResearchDocumentView({
                 ${ticker}
               </span>
 
-              {primaryAlias && !companyName.includes(primaryAlias) && (
+              {primaryAlias && !companyName.includes(primaryAlias) && !isEn && (
                 <span className="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded shadow-2xs">
                   {primaryAlias}
                 </span>
               )}
 
               <span className="text-xs font-medium text-[#475569] bg-[#f8fafc] px-2.5 py-1 rounded border border-[#e2e8f0]">
-                주식 분석 리포트
+                {isEn ? "Stock Analysis Report" : "주식 분석 리포트"}
               </span>
 
               {renderMonochromeVerdict(verdict)}
@@ -338,17 +396,19 @@ export function ResearchDocumentView({
 
               {confidence != null && (
                 <span className="px-2 py-0.5 rounded border border-[#e2e8f0] bg-[#f8fafc] text-[#475569]">
-                  <span title="13인 각자의 자기보고 확신도 평균입니다. 실제 정확도나 의견 일치도를 뜻하지 않습니다.">평균 확신도:</span>{" "}
+                  <span title={isEn ? "Average of 13 gurus' self-reported confidence. Does not indicate accuracy or agreement." : "13인 각자의 자기보고 확신도 평균입니다. 실제 정확도나 의견 일치도를 뜻하지 않습니다."}>
+                    {isEn ? "Avg Confidence:" : "평균 확신도:"}
+                  </span>{" "}
                   <strong className="text-[#0f172a]">{confidence.toFixed(1)}/10</strong>
                 </span>
               )}
 
               {dispersionPct != null && (
                 <span
-                  title="13인의 개별 적정가 중점값 전체 범위 ÷ 중앙값입니다. 20%를 넘으면 단일 적정가를 보류합니다."
+                  title={isEn ? "Dispersion of 13 gurus' target price estimates. Single target price is withheld if over 20%." : "13인의 개별 적정가 중점값 전체 범위 ÷ 중앙값입니다. 20%를 넘으면 단일 적정가를 보류합니다."}
                   className="px-2 py-0.5 rounded border border-[#e2e8f0] bg-[#f8fafc] text-[#475569]"
                 >
-                  가격 분산: <strong className="text-[#0f172a]">
+                  {isEn ? "Price Dispersion:" : "가격 분산:"} <strong className="text-[#0f172a]">
                     {dispersionPct.toFixed(1)}%
                     {valConsensus?.price_estimate_count != null
                       ? ` · ${valConsensus.price_estimate_count}/13`
@@ -359,16 +419,16 @@ export function ResearchDocumentView({
 
               {voteAgreementPct != null && (
                 <span
-                  title="가장 많이 나온 투자의견의 표 수 ÷ 유효 표결 수입니다. 확신도와는 다른 지표입니다."
+                  title={isEn ? "Agreement ratio of the consensus investment verdict among valid votes." : "가장 많이 나온 투자의견의 표 수 ÷ 유효 표결 수입니다. 확신도와는 다른 지표입니다."}
                   className="px-2 py-0.5 rounded border border-[#e2e8f0] bg-[#f8fafc] text-[#475569]"
                 >
-                  표결 일치도: <strong className="text-[#0f172a]">{voteAgreementPct.toFixed(0)}%</strong>
+                  {isEn ? "Vote Consensus:" : "표결 일치도:"} <strong className="text-[#0f172a]">{voteAgreementPct.toFixed(0)}%</strong>
                 </span>
               )}
 
               {ratioText && (
                 <span className="px-2 py-0.5 rounded border border-[#e2e8f0] bg-[#f8fafc] text-[#475569]">
-                  적정가/종가:{" "}
+                  {isEn ? "Fair Value / Price:" : "적정가/종가:"}{" "}
                   <strong className="text-[#0f172a] font-bold">
                     {ratioText}
                   </strong>
@@ -377,7 +437,7 @@ export function ResearchDocumentView({
 
               {safetyRatioText && (
                 <span className="px-2 py-0.5 rounded border border-[#e2e8f0] bg-[#f8fafc] text-[#475569]">
-                  안전마진/종가:{" "}
+                  {isEn ? "Safety Margin / Price:" : "안전마진/종가:"}{" "}
                   <strong className="text-[#0f172a] font-bold">
                     {safetyRatioText}
                   </strong>
@@ -386,7 +446,7 @@ export function ResearchDocumentView({
 
               {fairValue != null && (
                 <span className="px-2 py-0.5 rounded border border-[#cbd5e1] bg-white text-[#0f172a] font-semibold">
-                  적정가: {formatPriceByNation(fairValue, undefined, ticker)}
+                  {isEn ? "Fair Value:" : "적정가:"} {formatPriceByNation(fairValue, undefined, ticker)}
                 </span>
               )}
 
@@ -394,16 +454,19 @@ export function ResearchDocumentView({
                 <Badge
                   variant={stabilityMeta.variant}
                   className="font-mono text-xs"
-                  title="과거 보고서 가격의 분산입니다. 분석일별 입력 데이터의 차이는 분리하지 않습니다."
+                  title={isEn ? "Historical valuation price stability across past analysis dates." : "과거 보고서 가격의 분산입니다. 분석일별 입력 데이터의 차이는 분리하지 않습니다."}
                 >
-                  과거 가격 안정성: {stabilityMeta.text}
+                  {isEn ? "Historical Price Stability:" : "과거 가격 안정성:"} {stabilityMeta.text}
                 </Badge>
               )}
             </div>
 
             <p className="text-sm text-[#64748b] leading-relaxed">
-              워런 버핏·피터 린치 등 13인 투자 거장의 원전 철학으로 분석한{" "}
-              {displayWithAlias}(${ticker}) 주식 가치평가 리포트입니다. 13인 모의 페르소나의 표결과 내재가치 적정가를 고정 규칙으로 집계하여 제공합니다.
+              {isEn ? (
+                `Comprehensive stock valuation report for ${companyName} ($${ticker}), analyzed through the core philosophies of 13 legendary value investors including Warren Buffett and Peter Lynch. Aggregates multi-agent persona verdicts and intrinsic fair value estimations using systematic consensus rules.`
+              ) : (
+                `워런 버핏·피터 린치 등 13인 투자 거장의 원전 철학으로 분석한 ${displayWithAlias}($${ticker}) 주식 가치평가 리포트입니다. 13인 모의 페르소나의 표결과 내재가치 적정가를 고정 규칙으로 집계하여 제공합니다.`
+              )}
             </p>
           </div>
 
@@ -421,7 +484,7 @@ export function ResearchDocumentView({
               <span className="font-bold text-base text-[#0f172a]">
                 {valConsensus?.fair_value_price
                   ? formatPriceByNation(valConsensus.fair_value_price, undefined, ticker)
-                  : "산출 보류"}
+                  : isEn ? "Withheld" : "산출 보류"}
               </span>
             </div>
           </div>
@@ -434,7 +497,7 @@ export function ResearchDocumentView({
               13 Guru Round-Table Verdict
             </span>
             <span className="font-bold text-sm text-[#0f172a] mt-1 block">
-              {report.vote_summary || "표결 정보 없음"}
+              {displayVoteSummary}
             </span>
           </div>
 
@@ -444,11 +507,11 @@ export function ResearchDocumentView({
             </span>
             <div className="flex items-center justify-between gap-2 mt-1">
               <span className="font-bold text-sm text-[#0f172a]">
-                {valConsensus?.target_price_band || "가격 구간 산출 보류"}
+                {valConsensus?.target_price_band || (isEn ? "Price band withheld" : "가격 구간 산출 보류")}
               </span>
               {valConsensus?.safety_entry_price && (
                 <span className="text-[#0f172a] font-semibold text-xs bg-white border border-[#cbd5e1] px-2 py-0.5 rounded">
-                  안전매수: {valConsensus.safety_entry_price}
+                  {isEn ? "Safety Entry: " : "안전매수: "}{valConsensus.safety_entry_price}
                 </span>
               )}
             </div>
@@ -460,10 +523,10 @@ export function ResearchDocumentView({
       <div className="px-6 lg:px-12 bg-white sticky top-[56px] z-30 border-b border-[#e2e8f0]">
         <div className="flex items-center gap-1 font-mono text-xs overflow-x-auto whitespace-nowrap scrollbar-none pb-px">
           {[
-            { id: "final" as const, label: "01. 마스터 보고서", icon: FileText },
-            { id: "summaries" as const, label: "02. 13인 개별 서머리", icon: Users },
-            { id: "datapack" as const, label: "03. 심층 데이터팩", icon: PieChart },
-            { id: "chart" as const, label: "04. 일봉 및 밴드", icon: TrendingUp },
+            { id: "final" as const, label: isEn ? "01. Master Report" : "01. 마스터 보고서", icon: FileText },
+            { id: "summaries" as const, label: isEn ? "02. 13 Guru Summaries" : "02. 13인 개별 서머리", icon: Users },
+            { id: "datapack" as const, label: isEn ? "03. In-Depth Datapack" : "03. 심층 데이터팩", icon: PieChart },
+            { id: "chart" as const, label: isEn ? "04. Daily Chart & Bands" : "04. 일봉 및 밴드", icon: TrendingUp },
           ].map((tab) => {
             const isActive = activeTab === tab.id;
             const Icon = tab.icon;
@@ -495,14 +558,14 @@ export function ResearchDocumentView({
                 TRIAL
               </span>
               <span className="font-semibold text-[#0f172a]">
-                신규 회원 24시간 무료 체험 혜택 적용 중
+                {isEn ? "New Member 24-Hour Free Trial Active" : "신규 회원 24시간 무료 체험 혜택 적용 중"}
               </span>
               <span className="hidden sm:inline text-[#64748b]">
-                · 오늘 발행된 모든 최신 리포트를 제한 없이 열람하고 계세요.
+                {isEn ? "· You have unlimited access to all latest reports published today." : "· 오늘 발행된 모든 최신 리포트를 제한 없이 열람하고 계세요."}
               </span>
             </div>
             <span className="text-[11px] text-[#64748b] bg-white border border-[#e2e8f0] px-2 py-0.5 rounded shrink-0">
-              {trialRemainingHours}시간 남음
+              {trialRemainingHours}{isEn ? "h left" : "시간 남음"}
             </span>
           </div>
         )}
@@ -520,19 +583,23 @@ export function ResearchDocumentView({
                 </span>
                 <h3 className="text-lg font-bold text-[#0f172a] mt-1 tracking-tight">
                   {!user
-                    ? "로그인하고 오늘 하루 무료로 열람하세요"
-                    : "1일 무료 체험이 종료되었어요"}
+                    ? isEn ? "Log in to view free for today" : "로그인하고 오늘 하루 무료로 열람하세요"
+                    : isEn ? "1-Day Free Trial has expired" : "1일 무료 체험이 종료되었어요"}
                 </h3>
               </div>
               <p className="text-[#64748b] text-xs leading-relaxed font-mono">
                 {!user ? (
-                  <>
-                    회원가입 시 24시간 동안 모든 최신 13인 거장 AI 리서치 보고서와 SEC 데이터팩을 결제 없이 무료로 열람하실 수 있어요.
-                  </>
+                  isEn ? (
+                    "Sign up to access all latest 13 Guru AI research reports and SEC datapacks free for 24 hours without payment."
+                  ) : (
+                    "회원가입 시 24시간 동안 모든 최신 13인 거장 AI 리서치 보고서와 SEC 데이터팩을 결제 없이 무료로 열람하실 수 있어요."
+                  )
                 ) : (
-                  <>
-                    어제 둘러보신 13인 투자 거장 AI 합의 표결과 최신 정밀 리포트를 매일 실시간으로 계속 확인하시려면 Pro로 시작해보세요. (월 2,900원 · 하루 약 96원)
-                  </>
+                  isEn ? (
+                    "Subscribe to Pro to continue daily real-time access to 13 guru AI consensus verdicts and precision valuation reports."
+                  ) : (
+                    "어제 둘러보신 13인 투자 거장 AI 합의 표결과 최신 정밀 리포트를 매일 실시간으로 계속 확인하시려면 Pro로 시작해보세요. (월 2,900원 · 하루 약 96원)"
+                  )
                 )}
               </p>
               <div className="space-y-2 pt-1 font-mono">
@@ -542,7 +609,7 @@ export function ResearchDocumentView({
                     onClick={() => openAuthModal()}
                     className="w-full py-2.5 px-4 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white font-medium text-xs shadow-2xs transition-colors cursor-pointer"
                   >
-                    1초 만에 로그인하고 무료로 보기
+                    {isEn ? "Sign in in 1 second & view free" : "1초 만에 로그인하고 무료로 보기"}
                   </button>
                 ) : (
                   <button
@@ -550,7 +617,7 @@ export function ResearchDocumentView({
                     onClick={() => openUpgradeModal()}
                     className="w-full py-2.5 px-4 rounded-md bg-[#0f172a] hover:bg-slate-800 text-white font-medium text-xs shadow-2xs transition-colors cursor-pointer"
                   >
-                    Pro 멤버십 시작하기 (월 2,900원)
+                    {isEn ? "Start Pro Membership" : "Pro 멤버십 시작하기 (월 2,900원)"}
                   </button>
                 )}
                 <button
@@ -558,7 +625,7 @@ export function ResearchDocumentView({
                   onClick={onBack}
                   className="w-full py-2 px-4 rounded-md border border-[#cbd5e1] text-[#64748b] hover:text-[#0f172a] hover:bg-[#f8fafc] text-xs font-medium transition-colors cursor-pointer"
                 >
-                  과거 무료 보고서 보러가기
+                  {isEn ? "Explore Free Historical Reports" : "과거 무료 보고서 보러가기"}
                 </button>
               </div>
             </div>
@@ -567,13 +634,22 @@ export function ResearchDocumentView({
 
         <div className={`max-w-4xl ${isRestricted ? "filter blur-sm select-none pointer-events-none" : ""}`}>
           {activeTab === "final" && (
-            report.final_report ? (
-              <MarkdownViewer content={report.final_report} />
+            (isEn && report.final_report_en) ? (
+              <MarkdownViewer content={report.final_report_en} />
+            ) : report.final_report ? (
+              <>
+                {isEn && (
+                  <div className="mb-6 p-3 rounded-md bg-slate-50 border border-slate-200 text-xs font-mono text-slate-600 flex items-center justify-between">
+                    <span>ℹ️ English AI report is being compiled by the pipeline. Showing original Korean analysis.</span>
+                  </div>
+                )}
+                <MarkdownViewer content={report.final_report} />
+              </>
             ) : (
               <EmptyState
                 icon="📄"
-                title="최종 마스터 보고서가 생성 대기 중입니다"
-                description="파이프라인이 완료되면 이곳에 전체 심층 분석 보고서가 문서화됩니다."
+                title={isEn ? "Final master report is pending generation" : "최종 마스터 보고서가 생성 대기 중입니다"}
+                description={isEn ? "The full in-depth research report will be documented here once the pipeline run completes." : "파이프라인이 완료되면 이곳에 전체 심층 분석 보고서가 문서화됩니다."}
               />
             )
           )}
@@ -589,7 +665,7 @@ export function ResearchDocumentView({
           {activeTab === "chart" && (
             <StockChartView
               ticker={report.ticker}
-              companyName={report.company_name}
+              companyName={companyName}
             />
           )}
         </div>

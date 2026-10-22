@@ -15,6 +15,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { toggleFeedbackLike } from "@/lib/feedbackApi";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface FeedbackCardProps {
   item: FeedbackItem;
@@ -25,17 +26,20 @@ interface FeedbackCardProps {
 
 const CATEGORY_META = {
   feature: {
-    label: "기능 제안",
+    labelKo: "기능 제안",
+    labelEn: "Feature",
     icon: Sparkles,
     badgeClass: "bg-blue-50/70 text-blue-700 border-blue-200",
   },
   bug: {
-    label: "불편한 점",
+    labelKo: "불편한 점",
+    labelEn: "Bug Report",
     icon: AlertCircle,
     badgeClass: "bg-rose-50/70 text-rose-700 border-rose-200",
   },
   general: {
-    label: "기타 의견",
+    labelKo: "기타 의견",
+    labelEn: "General",
     icon: MessageSquare,
     badgeClass: "bg-[#f8fafc] text-[#475569] border-[#e2e8f0]",
   },
@@ -43,49 +47,54 @@ const CATEGORY_META = {
 
 const STATUS_META: Record<
   FeedbackStatus,
-  { label: string; badgeClass: string; icon: React.ComponentType<{ className?: string }> }
+  { labelKo: string; labelEn: string; badgeClass: string; icon: React.ComponentType<{ className?: string }> }
 > = {
   received: {
-    label: "접수됨",
+    labelKo: "접수됨",
+    labelEn: "Received",
     badgeClass: "bg-[#f8fafc] text-[#64748b] border-[#e2e8f0]",
     icon: Clock,
   },
   reviewing: {
-    label: "검토 중",
+    labelKo: "검토 중",
+    labelEn: "Reviewing",
     badgeClass: "bg-amber-50 text-amber-800 border-amber-200",
     icon: Clock,
   },
   in_progress: {
-    label: "개발 중",
+    labelKo: "개발 중",
+    labelEn: "In Progress",
     badgeClass: "bg-blue-50 text-blue-800 border-blue-200 font-semibold",
     icon: Sparkles,
   },
   completed: {
-    label: "반영 완료",
+    labelKo: "반영 완료",
+    labelEn: "Shipped",
     badgeClass: "bg-emerald-50 text-emerald-800 border-emerald-200 font-semibold",
     icon: CheckCircle2,
   },
   resolved: {
-    label: "해결 완료",
+    labelKo: "해결 완료",
+    labelEn: "Resolved",
     badgeClass: "bg-emerald-50 text-emerald-800 border-emerald-200 font-semibold",
     icon: CheckCircle2,
   },
 };
 
-function formatRelativeTime(dateStr: string): string {
+function formatRelativeTime(dateStr: string, isEn = false): string {
   try {
     const d = new Date(dateStr);
     const now = new Date();
     const diffMs = now.getTime() - d.getTime();
     const diffSec = Math.floor(diffMs / 1000);
-    if (diffSec < 60) return "방금 전";
+    if (diffSec < 60) return isEn ? "just now" : "방금 전";
     const diffMin = Math.floor(diffSec / 60);
-    if (diffMin < 60) return `${diffMin}분 전`;
+    if (diffMin < 60) return isEn ? `${diffMin}m ago` : `${diffMin}분 전`;
     const diffHour = Math.floor(diffMin / 60);
-    if (diffHour < 24) return `${diffHour}시간 전`;
+    if (diffHour < 24) return isEn ? `${diffHour}h ago` : `${diffHour}시간 전`;
     const diffDay = Math.floor(diffHour / 24);
-    if (diffDay < 30) return `${diffDay}일 전`;
-    return d.toLocaleDateString("ko-KR", { month: "short", day: "numeric" });
+    if (diffDay < 30) return isEn ? `${diffDay}d ago` : `${diffDay}일 전`;
+    return d.toLocaleDateString(isEn ? "en-US" : "ko-KR", { month: "short", day: "numeric" });
   } catch {
     return dateStr;
   }
@@ -97,6 +106,7 @@ export function FeedbackCard({
   onOpenAdminModal,
   onLikeUpdate,
 }: FeedbackCardProps) {
+  const { isEn } = useLanguage();
   const [hasLiked, setHasLiked] = useState(Boolean(item.hasLiked));
   const [likeCount, setLikeCount] = useState(item.likeCount);
   const [isLiking, setIsLiking] = useState(false);
@@ -104,8 +114,11 @@ export function FeedbackCard({
 
   const categoryMeta = CATEGORY_META[item.category] || CATEGORY_META.feature;
   const CategoryIcon = categoryMeta.icon;
+  const categoryLabel = isEn ? categoryMeta.labelEn : categoryMeta.labelKo;
+
   const statusMeta = STATUS_META[item.status] || STATUS_META.received;
   const StatusIcon = statusMeta.icon;
+  const statusLabel = isEn ? statusMeta.labelEn : statusMeta.labelKo;
 
   const handleLike = async () => {
     if (isLiking) return;
@@ -148,7 +161,7 @@ export function FeedbackCard({
             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono border ${categoryMeta.badgeClass}`}
           >
             <CategoryIcon className="w-3 h-3" />
-            <span>{categoryMeta.label}</span>
+            <span>{categoryLabel}</span>
           </span>
 
           {/* 상태 뱃지 */}
@@ -156,16 +169,16 @@ export function FeedbackCard({
             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono border ${statusMeta.badgeClass}`}
           >
             <StatusIcon className="w-3 h-3" />
-            <span>{statusMeta.label}</span>
+            <span>{statusLabel}</span>
           </span>
 
           {item.isPrivate && (
             <span
               className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-[#f8fafc] text-[#64748b] border border-[#e2e8f0]"
-              title="작성자와 관리자만 볼 수 있는 비공개 글입니다"
+              title={isEn ? "Private post visible only to author and admins" : "작성자와 관리자만 볼 수 있는 비공개 글입니다"}
             >
               <Lock className="w-2.5 h-2.5" />
-              <span>비공개</span>
+              <span>{isEn ? "Private" : "비공개"}</span>
             </span>
           )}
         </div>
@@ -173,7 +186,7 @@ export function FeedbackCard({
         <div className="flex items-center gap-2 font-mono text-[11px] text-[#94a3b8]">
           <span className="text-[#64748b] font-medium">{item.authorName}</span>
           <span>·</span>
-          <time dateTime={item.createdAt}>{formatRelativeTime(item.createdAt)}</time>
+          <time dateTime={item.createdAt}>{formatRelativeTime(item.createdAt, isEn)}</time>
         </div>
       </div>
 
@@ -191,7 +204,7 @@ export function FeedbackCard({
             onClick={() => setIsExpanded((prev) => !prev)}
             className="inline-flex items-center gap-0.5 text-xs text-[#0f172a] font-semibold hover:underline cursor-pointer pt-0.5"
           >
-            <span>{isExpanded ? "접기" : "자세히 보기"}</span>
+            <span>{isExpanded ? (isEn ? "Collapse" : "접기") : (isEn ? "Read more" : "자세히 보기")}</span>
             {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
           </button>
         )}
@@ -207,7 +220,7 @@ export function FeedbackCard({
             </span>
             {item.repliedAt && (
               <span className="text-[10px] text-[#94a3b8]">
-                {formatRelativeTime(item.repliedAt)}
+                {formatRelativeTime(item.repliedAt, isEn)}
               </span>
             )}
           </div>
@@ -228,10 +241,10 @@ export function FeedbackCard({
               ? "border-blue-300 bg-blue-50 text-blue-700 shadow-2xs font-semibold"
               : "border-[#cbd5e1] bg-white text-[#475569] hover:border-[#0f172a] hover:text-[#0f172a]"
           }`}
-          aria-label={`나도 필요해요 ${likeCount}명`}
+          aria-label={isEn ? `I need this too (${likeCount})` : `나도 필요해요 ${likeCount}명`}
         >
           <ThumbsUp className={`w-3.5 h-3.5 ${hasLiked ? "fill-current text-blue-600" : ""}`} />
-          <span>나도 필요해요</span>
+          <span>{isEn ? "I need this too" : "나도 필요해요"}</span>
           <span
             className={`font-mono text-[11px] px-1 py-0.2 rounded ${
               hasLiked ? "bg-blue-200/60 text-blue-900" : "bg-[#f1f5f9] text-[#64748b]"
@@ -247,7 +260,7 @@ export function FeedbackCard({
             onClick={() => onOpenAdminModal?.(item)}
             className="h-7 px-2.5 rounded border border-[#cbd5e1] bg-white hover:bg-[#f8fafc] text-xs font-mono text-[#475569] hover:text-[#0f172a] transition-colors cursor-pointer"
           >
-            관리자 상태/답변 수정
+            {isEn ? "Edit Status / Reply" : "관리자 상태/답변 수정"}
           </button>
         )}
       </div>

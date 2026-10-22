@@ -7,6 +7,7 @@ import { createFeedback } from "@/lib/feedbackApi";
 import { useSubscription } from "@/lib/subscription/SubscriptionContext";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface FeedbackWriteModalProps {
   isOpen: boolean;
@@ -14,23 +15,36 @@ interface FeedbackWriteModalProps {
   onSuccess: (newItem: FeedbackItem) => void;
 }
 
-const CATEGORIES: { id: FeedbackCategory; label: string; desc: string; icon: React.ComponentType<{ className?: string }> }[] = [
+const CATEGORIES: {
+  id: FeedbackCategory;
+  labelKo: string;
+  labelEn: string;
+  descKo: string;
+  descEn: string;
+  icon: React.ComponentType<{ className?: string }>;
+}[] = [
   {
     id: "feature",
-    label: "기능 제안",
-    desc: "신규 지표나 기능 추가 요청",
+    labelKo: "기능 제안",
+    labelEn: "Feature Request",
+    descKo: "신규 지표나 기능 추가 요청",
+    descEn: "Request new metrics or capabilities",
     icon: Sparkles,
   },
   {
     id: "bug",
-    label: "불편한 점",
-    desc: "버그 및 이용 중 오류/불편",
+    labelKo: "불편한 점",
+    labelEn: "Bug Report",
+    descKo: "버그 및 이용 중 오류/불편",
+    descEn: "Report bugs or unexpected issues",
     icon: AlertCircle,
   },
   {
     id: "general",
-    label: "기타 의견",
-    desc: "서비스 개선을 위한 자유 의견",
+    labelKo: "기타 의견",
+    labelEn: "General Feedback",
+    descKo: "서비스 개선을 위한 자유 의견",
+    descEn: "Share any thoughts or suggestions",
     icon: MessageSquare,
   },
 ];
@@ -40,6 +54,7 @@ export function FeedbackWriteModal({
   onClose,
   onSuccess,
 }: FeedbackWriteModalProps) {
+  const { isEn } = useLanguage();
   const { user } = useSubscription();
 
   const [category, setCategory] = useState<FeedbackCategory>("feature");
@@ -57,11 +72,11 @@ export function FeedbackWriteModal({
         (user.user_metadata?.full_name as string) ||
         (user.user_metadata?.name as string) ||
         user.email?.split("@")[0] ||
-        "회원";
+        (isEn ? "Member" : "회원");
       setAuthorName(name);
       if (user.email) setAuthorEmail(user.email);
     }
-  }, [user]);
+  }, [user, isEn]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,15 +86,15 @@ export function FeedbackWriteModal({
     const trimmedContent = content.trim();
 
     if (trimmedTitle.length < 3) {
-      setErrorMessage("제목을 3자 이상 입력해 주세요.");
+      setErrorMessage(isEn ? "Please enter a title of at least 3 characters." : "제목을 3자 이상 입력해 주세요.");
       return;
     }
     if (trimmedContent.length < 10) {
-      setErrorMessage("내용을 10자 이상 자세히 작성해 주세요.");
+      setErrorMessage(isEn ? "Please provide details of at least 10 characters." : "내용을 10자 이상 자세히 작성해 주세요.");
       return;
     }
     if (!user && !authorName.trim()) {
-      setErrorMessage("닉네임을 입력해 주세요.");
+      setErrorMessage(isEn ? "Please enter a nickname." : "닉네임을 입력해 주세요.");
       return;
     }
 
@@ -112,8 +127,12 @@ export function FeedbackWriteModal({
     <Modal isOpen={isOpen} onClose={onClose} size="default">
       <form onSubmit={handleSubmit} className="flex flex-col h-full font-sans">
         <Modal.Header
-          title="의견 및 기능 제안 등록"
-          description="리포티스트 서비스를 이용하시며 겪은 불편한 점이나 추가되었으면 하는 기능을 편하게 들려주세요."
+          title={isEn ? "Submit Feedback & Ideas" : "의견 및 기능 제안 등록"}
+          description={
+            isEn
+              ? "Share feedback, feature requests, or report issues to help make Reportist better."
+              : "리포티스트 서비스를 이용하시며 겪은 불편한 점이나 추가되었으면 하는 기능을 편하게 들려주세요."
+          }
         />
 
         <Modal.Body className="space-y-4">
@@ -126,7 +145,7 @@ export function FeedbackWriteModal({
           {/* 카테고리 선택 */}
           <div className="space-y-1.5">
             <label className="block text-xs font-mono font-semibold text-[#0f172a] uppercase tracking-wider">
-              카테고리 구분
+              {isEn ? "Category" : "카테고리 구분"}
             </label>
             <div className="grid grid-cols-3 gap-2">
               {CATEGORIES.map((cat) => {
@@ -145,13 +164,15 @@ export function FeedbackWriteModal({
                   >
                     <Icon className="w-3.5 h-3.5 mb-1.5" />
                     <div>
-                      <div className="text-xs font-bold leading-tight">{cat.label}</div>
+                      <div className="text-xs font-bold leading-tight">
+                        {isEn ? cat.labelEn : cat.labelKo}
+                      </div>
                       <div
                         className={`text-[10px] mt-0.5 line-clamp-1 ${
                           isSelected ? "text-slate-300" : "text-[#94a3b8]"
                         }`}
                       >
-                        {cat.desc}
+                        {isEn ? cat.descEn : cat.descKo}
                       </div>
                     </div>
                   </button>
@@ -164,7 +185,7 @@ export function FeedbackWriteModal({
           <div className="space-y-1">
             <div className="flex items-center justify-between text-xs">
               <label htmlFor="write-fb-title" className="font-mono font-semibold text-[#0f172a] uppercase tracking-wider">
-                제목
+                {isEn ? "Title" : "제목"}
               </label>
               <span className="font-mono text-[11px] text-[#94a3b8]">{title.length}/100</span>
             </div>
@@ -174,7 +195,11 @@ export function FeedbackWriteModal({
               maxLength={100}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="예: 피터 린치 PEG 기준 정렬 기능이 필요합니다"
+              placeholder={
+                isEn
+                  ? "e.g. Please add sorting by Peter Lynch PEG ratio"
+                  : "예: 피터 린치 PEG 기준 정렬 기능이 필요합니다"
+              }
               className="w-full px-3 py-2 text-xs font-mono bg-white border border-[#cbd5e1] rounded-md focus:outline-hidden focus:border-[#0f172a] text-[#0f172a] placeholder-[#94a3b8]"
             />
           </div>
@@ -183,7 +208,7 @@ export function FeedbackWriteModal({
           <div className="space-y-1">
             <div className="flex items-center justify-between text-xs">
               <label htmlFor="write-fb-content" className="font-mono font-semibold text-[#0f172a] uppercase tracking-wider">
-                상세 내용
+                {isEn ? "Description" : "상세 내용"}
               </label>
               <span className="font-mono text-[11px] text-[#94a3b8]">{content.length}/2000</span>
             </div>
@@ -194,7 +219,13 @@ export function FeedbackWriteModal({
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder={
-                category === "bug"
+                isEn
+                  ? category === "bug"
+                    ? "Please describe what happened, which page you were on, and any steps to reproduce."
+                    : category === "feature"
+                    ? "Describe the feature and how it would improve your research experience."
+                    : "Share any thoughts or suggestions for the Reportist team."
+                  : category === "bug"
                   ? "어떤 화면에서 어떤 현상이 일어났는지 자세히 알려주시면 신속하게 조치하겠습니다."
                   : category === "feature"
                   ? "어떤 기능이 생기면 분석이나 투자에 더 도움이 될지 편하게 적어주세요."
@@ -208,7 +239,7 @@ export function FeedbackWriteModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
             <div className="space-y-1">
               <label htmlFor="write-fb-author" className="block text-xs font-mono font-semibold text-[#0f172a] uppercase tracking-wider">
-                작성자 닉네임
+                {isEn ? "Nickname" : "작성자 닉네임"}
               </label>
               <input
                 id="write-fb-author"
@@ -217,21 +248,21 @@ export function FeedbackWriteModal({
                 value={authorName}
                 disabled={Boolean(user)}
                 onChange={(e) => setAuthorName(e.target.value)}
-                placeholder="예: 버핏꿈나무"
+                placeholder={isEn ? "e.g. ValueSeeker" : "예: 버핏꿈나무"}
                 className="w-full px-3 py-1.5 text-xs font-mono bg-white border border-[#cbd5e1] rounded-md focus:outline-hidden focus:border-[#0f172a] text-[#0f172a] placeholder-[#94a3b8] disabled:bg-[#f8fafc] disabled:text-[#64748b]"
               />
             </div>
 
             <div className="space-y-1">
               <label htmlFor="write-fb-email" className="block text-xs font-mono font-semibold text-[#0f172a] uppercase tracking-wider">
-                답변 알림 이메일 (선택)
+                {isEn ? "Notification Email (Optional)" : "답변 알림 이메일 (선택)"}
               </label>
               <input
                 id="write-fb-email"
                 type="email"
                 value={authorEmail}
                 onChange={(e) => setAuthorEmail(e.target.value)}
-                placeholder="답변 완료 시 안내받으실 이메일"
+                placeholder={isEn ? "Email to receive update notifications" : "답변 완료 시 안내받으실 이메일"}
                 className="w-full px-3 py-1.5 text-xs font-mono bg-white border border-[#cbd5e1] rounded-md focus:outline-hidden focus:border-[#0f172a] text-[#0f172a] placeholder-[#94a3b8]"
               />
             </div>
@@ -248,7 +279,11 @@ export function FeedbackWriteModal({
               />
               <span className="flex items-center gap-1 font-mono text-[11px]">
                 <Lock className="w-3 h-3 text-[#94a3b8]" />
-                <span>비공개 등록 (작성자 본인 및 운영진만 열람)</span>
+                <span>
+                  {isEn
+                    ? "Private submission (visible only to you and moderators)"
+                    : "비공개 등록 (작성자 본인 및 운영진만 열람)"}
+                </span>
               </span>
             </label>
           </div>
@@ -261,7 +296,7 @@ export function FeedbackWriteModal({
             size="sm"
             onClick={onClose}
           >
-            닫기
+            {isEn ? "Cancel" : "닫기"}
           </Button>
           <Button
             type="submit"
@@ -270,7 +305,7 @@ export function FeedbackWriteModal({
             isLoading={isSubmitting}
             disabled={isSubmitting}
           >
-            제안 등록하기
+            {isEn ? "Submit" : "제안 등록하기"}
           </Button>
         </Modal.Footer>
       </form>

@@ -1360,7 +1360,7 @@ export function DashboardView({
               <ResearchDocumentView
                 report={selectedDocReport}
                 onBack={handleBackToCatalog}
-                backLabel={SECTION_META[activeSidebarSection].backLabel}
+                backLabel={getSectionBackLabel(activeSidebarSection, isEn)}
                 availableDates={availableReportDates}
                 selectedDate={selectedReportDate}
                 onSelectDate={handleSelectReportDate}
@@ -1385,7 +1385,7 @@ export function DashboardView({
                 guruSlug={selectedGuruSlug}
                 guruReports={guruReports}
                 onBack={handleBackToCatalog}
-                backLabel={SECTION_META[activeSidebarSection].backLabel}
+                backLabel={getSectionBackLabel(activeSidebarSection, isEn)}
                 onSelectReport={(report) => {
                   setSelectedGuruSlug(null);
                   handleOpenReport(report);

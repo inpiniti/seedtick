@@ -19,7 +19,7 @@ import { SidebarSectionId } from "@/components/sidebar/ResearchSidebar";
 import { OutcomesView } from "@/components/outcomes/OutcomesView";
 import { StatsRankingView } from "@/components/stats/StatsRankingView";
 import { FeedbackView } from "@/components/feedback/FeedbackView";
-import { GURU_PERSONAS, GuruPersona } from "@/lib/guruPersonas";
+import { GURU_PERSONAS, GuruPersona, getGuruPersonaBilingual } from "@/lib/guruPersonas";
 import { GuruDetailModal } from "@/components/research/GuruDetailModal";
 import { OnDemandModal } from "@/components/research/OnDemandModal";
 import { StockListItem, StockItemInsight } from "@/components/research/StockListItem";
@@ -1848,68 +1848,74 @@ export function ResearchCatalogView({
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2 font-sans">
-              {Object.values(GURU_PERSONAS).map((guru) => (
-                <Link
-                  key={guru.slug}
-                  href={isEn ? `/en/gurus/${encodeURIComponent(guru.slug)}?from=sec-gurus` : `/gurus/${encodeURIComponent(guru.slug)}?from=sec-gurus`}
-                  onClick={(e) => {
-                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-                    e.preventDefault();
-                    if (onSelectGuru) {
-                      onSelectGuru(guru.slug);
-                    } else {
-                      setSelectedGuruForModal(guru);
-                    }
-                  }}
-                  className="p-4 rounded-md border border-[#e2e8f0] bg-white space-y-3 hover:border-[#0f172a] hover:shadow-xs transition-all cursor-pointer group flex flex-col justify-between"
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <h3 className="font-bold text-sm text-[#0f172a] group-hover:underline underline-offset-2">
-                          {guru.name}
-                        </h3>
-                        <span className="text-[10px] font-mono text-[#94a3b8] shrink-0">
-                          {guru.englishName}
+              {Object.values(GURU_PERSONAS).map((rawGuru) => {
+                const guru = getGuruPersonaBilingual(rawGuru, isEn) || rawGuru;
+                const styleTag = (isEn ? (rawGuru.styleEn || rawGuru.style) : rawGuru.style).split("/")[0].trim();
+                return (
+                  <Link
+                    key={rawGuru.slug}
+                    href={isEn ? `/en/gurus/${encodeURIComponent(rawGuru.slug)}?from=sec-gurus` : `/gurus/${encodeURIComponent(rawGuru.slug)}?from=sec-gurus`}
+                    onClick={(e) => {
+                      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                      e.preventDefault();
+                      if (onSelectGuru) {
+                        onSelectGuru(rawGuru.slug);
+                      } else {
+                        setSelectedGuruForModal(guru);
+                      }
+                    }}
+                    className="p-4 rounded-md border border-[#e2e8f0] bg-white space-y-3 hover:border-[#0f172a] hover:shadow-xs transition-all cursor-pointer group flex flex-col justify-between"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <h3 className="font-bold text-sm text-[#0f172a] group-hover:underline underline-offset-2">
+                            {isEn ? rawGuru.englishName : rawGuru.name}
+                          </h3>
+                          {!isEn && (
+                            <span className="text-[10px] font-mono text-[#94a3b8] shrink-0">
+                              {rawGuru.englishName}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-mono text-[#475569] bg-[#f8fafc] border border-[#e2e8f0] px-1.5 py-0.5 rounded font-medium shrink-0">
+                          {styleTag}
                         </span>
                       </div>
-                      <span className="text-[10px] font-mono text-[#475569] bg-[#f8fafc] border border-[#e2e8f0] px-1.5 py-0.5 rounded font-medium shrink-0">
-                        {guru.style.split("/")[0].trim()}
-                      </span>
+
+                      <p className="text-xs text-[#334155] font-medium leading-snug">
+                        {guru.oneLiner}
+                      </p>
+
+                      {guru.bookTitle && (
+                        <div className="flex items-center gap-1.5 text-[11px] text-[#64748b]">
+                          <BookOpen className="w-3 h-3 text-[#94a3b8] shrink-0" />
+                          <span className="truncate">{guru.bookTitle}</span>
+                        </div>
+                      )}
                     </div>
 
-                    <p className="text-xs text-[#334155] font-medium leading-snug">
-                      {guru.oneLiner}
-                    </p>
-
-                    {guru.bookTitle && (
-                      <div className="flex items-center gap-1.5 text-[11px] text-[#64748b]">
-                        <BookOpen className="w-3 h-3 text-[#94a3b8] shrink-0" />
-                        <span className="truncate">{guru.bookTitle}</span>
+                    <div className="space-y-2 border-t border-[#f1f5f9] pt-2">
+                      <div className="flex items-center justify-between pt-1 font-mono text-[10px]">
+                        <div className="flex flex-wrap gap-1">
+                          {guru.focusMetrics.slice(0, 3).map((metric) => (
+                            <span
+                              key={metric}
+                              className="px-1.5 py-0.5 rounded border border-[#e2e8f0] bg-[#f8fafc] text-[#475569]"
+                            >
+                              {metric}
+                            </span>
+                          ))}
+                        </div>
+                        <span className="text-[11px] text-[#0f172a] font-semibold flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
+                          {isEn ? "View Philosophy" : "철학 열람"}
+                          <ChevronRight className="w-3 h-3" />
+                        </span>
                       </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-2 border-t border-[#f1f5f9] pt-2">
-                    <div className="flex items-center justify-between pt-1 font-mono text-[10px]">
-                      <div className="flex flex-wrap gap-1">
-                        {guru.focusMetrics.slice(0, 3).map((metric) => (
-                          <span
-                            key={metric}
-                            className="px-1.5 py-0.5 rounded border border-[#e2e8f0] bg-[#f8fafc] text-[#475569]"
-                          >
-                            {metric}
-                          </span>
-                        ))}
-                      </div>
-                      <span className="text-[11px] text-[#0f172a] font-semibold flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
-                        {isEn ? "View Philosophy" : "철학 열람"}
-                        <ChevronRight className="w-3 h-3" />
-                      </span>
                     </div>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
           </div>
         </section>

@@ -17,12 +17,14 @@ import { FeedbackCategory, FeedbackItem, FeedbackStatus } from "@/types/feedback
 import { fetchFeedbacks } from "@/lib/feedbackApi";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface FeedbackViewProps {
   isAdmin?: boolean;
 }
 
 export function FeedbackView({ isAdmin = false }: FeedbackViewProps) {
+  const { isEn } = useLanguage();
   const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<FeedbackCategory | "all">("all");
@@ -112,12 +114,13 @@ export function FeedbackView({ isAdmin = false }: FeedbackViewProps) {
           <div className="flex items-baseline gap-2">
             <span className="font-mono text-xs font-semibold text-[#94a3b8]">06</span>
             <h2 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
-              의견 및 기능 제안함
+              {isEn ? "Feedback & Feature Requests" : "의견 및 기능 제안함"}
             </h2>
           </div>
           <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-2xl">
-            리포티스트 리서치 서비스를 이용하시며 겪은 불편한 점(버그)이나 바라는 기능을 자유롭게 제안해 주세요.
-            다른 분들의 제안에 공감(나도 필요해요)을 남겨주시면 우선순위로 검토합니다.
+            {isEn
+              ? "Share bug reports, feedback, and feature requests for Reportist Research. Upvote ideas with 'I need this too' to help us prioritize."
+              : "리포티스트 리서치 서비스를 이용하시며 겪은 불편한 점(버그)이나 바라는 기능을 자유롭게 제안해 주세요. 다른 분들의 제안에 공감(나도 필요해요)을 남겨주시면 우선순위로 검토합니다."}
           </p>
         </div>
 
@@ -130,7 +133,7 @@ export function FeedbackView({ isAdmin = false }: FeedbackViewProps) {
             className="text-xs"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
-            <span>새로고침</span>
+            <span>{isEn ? "Refresh" : "새로고침"}</span>
           </Button>
 
           <Button
@@ -140,7 +143,7 @@ export function FeedbackView({ isAdmin = false }: FeedbackViewProps) {
             leftIcon={<MessageSquarePlus className="w-3.5 h-3.5" />}
             className="text-xs"
           >
-            의견 남기기
+            {isEn ? "Submit Feedback" : "의견 남기기"}
           </Button>
         </div>
       </div>
@@ -149,50 +152,58 @@ export function FeedbackView({ isAdmin = false }: FeedbackViewProps) {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         <div className="p-4 rounded-xl border border-[#e2e8f0] bg-white shadow-2xs space-y-1">
           <div className="flex items-center justify-between text-[#64748b] text-xs font-medium">
-            <span>전체 제안</span>
+            <span>{isEn ? "Total Ideas" : "전체 제안"}</span>
             <MessageSquare className="w-4 h-4 text-[#94a3b8]" />
           </div>
           <div className="text-xl sm:text-2xl font-bold font-mono text-[#0f172a]">
             {counts.total}
-            <span className="text-xs font-normal text-[#64748b] ml-1">건</span>
+            {!isEn && <span className="text-xs font-normal text-[#64748b] ml-1">건</span>}
           </div>
-          <p className="text-[11px] text-[#94a3b8]">사용자 수렴 의견 총계</p>
+          <p className="text-[11px] text-[#94a3b8]">
+            {isEn ? "Total collected user suggestions" : "사용자 수렴 의견 총계"}
+          </p>
         </div>
 
         <div className="p-4 rounded-xl border border-[#e2e8f0] bg-white shadow-2xs space-y-1">
           <div className="flex items-center justify-between text-blue-700 text-xs font-medium">
-            <span>기능 제안</span>
+            <span>{isEn ? "Feature Requests" : "기능 제안"}</span>
             <Sparkles className="w-4 h-4 text-blue-600" />
           </div>
           <div className="text-xl sm:text-2xl font-bold font-mono text-blue-700">
             {counts.feature}
-            <span className="text-xs font-normal text-[#64748b] ml-1">건</span>
+            {!isEn && <span className="text-xs font-normal text-[#64748b] ml-1">건</span>}
           </div>
-          <p className="text-[11px] text-[#94a3b8]">새로운 지표 및 기능 요청</p>
+          <p className="text-[11px] text-[#94a3b8]">
+            {isEn ? "New metric & capability requests" : "새로운 지표 및 기능 요청"}
+          </p>
         </div>
 
         <div className="p-4 rounded-xl border border-[#e2e8f0] bg-white shadow-2xs space-y-1">
           <div className="flex items-center justify-between text-rose-700 text-xs font-medium">
-            <span>불편한 점</span>
+            <span>{isEn ? "Bug Reports" : "불편한 점"}</span>
             <AlertCircle className="w-4 h-4 text-rose-600" />
           </div>
           <div className="text-xl sm:text-2xl font-bold font-mono text-rose-600">
             {counts.bug}
-            <span className="text-xs font-normal text-[#64748b] ml-1">건</span>
+            {!isEn && <span className="text-xs font-normal text-[#64748b] ml-1">건</span>}
           </div>
-          <p className="text-[11px] text-[#94a3b8]">이용 중 발생한 오류 및 건의</p>
+          <p className="text-[11px] text-[#94a3b8]">
+            {isEn ? "Errors & issues encountered" : "이용 중 발생한 오류 및 건의"}
+          </p>
         </div>
 
         <div className="p-4 rounded-xl border border-[#e2e8f0] bg-white shadow-2xs space-y-1">
           <div className="flex items-center justify-between text-emerald-700 text-xs font-medium">
-            <span>반영 완료</span>
+            <span>{isEn ? "Shipped" : "반영 완료"}</span>
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
           </div>
           <div className="text-xl sm:text-2xl font-bold font-mono text-emerald-600">
             {counts.completed}
-            <span className="text-xs font-normal text-[#64748b] ml-1">건</span>
+            {!isEn && <span className="text-xs font-normal text-[#64748b] ml-1">건</span>}
           </div>
-          <p className="text-[11px] text-[#94a3b8]">배포 및 조치 완료된 항목</p>
+          <p className="text-[11px] text-[#94a3b8]">
+            {isEn ? "Implemented & released features" : "배포 및 조치 완료된 항목"}
+          </p>
         </div>
       </div>
 
@@ -209,7 +220,7 @@ export function FeedbackView({ isAdmin = false }: FeedbackViewProps) {
                 : "bg-white text-[#64748b] border-[#cbd5e1] hover:text-[#0f172a] hover:bg-[#f8fafc]"
             }`}
           >
-            전체 ({counts.total})
+            {isEn ? `All (${counts.total})` : `전체 (${counts.total})`}
           </button>
           <button
             type="button"
@@ -221,7 +232,7 @@ export function FeedbackView({ isAdmin = false }: FeedbackViewProps) {
             }`}
           >
             <Sparkles className="w-3 h-3 text-blue-500" />
-            <span>기능 제안 ({counts.feature})</span>
+            <span>{isEn ? `Feature Requests (${counts.feature})` : `기능 제안 (${counts.feature})`}</span>
           </button>
           <button
             type="button"
@@ -233,7 +244,7 @@ export function FeedbackView({ isAdmin = false }: FeedbackViewProps) {
             }`}
           >
             <AlertCircle className="w-3 h-3 text-rose-500" />
-            <span>불편한 점 ({counts.bug})</span>
+            <span>{isEn ? `Bug Reports (${counts.bug})` : `불편한 점 (${counts.bug})`}</span>
           </button>
           <button
             type="button"
@@ -244,7 +255,7 @@ export function FeedbackView({ isAdmin = false }: FeedbackViewProps) {
                 : "bg-white text-[#64748b] border-[#cbd5e1] hover:text-[#0f172a] hover:bg-[#f8fafc]"
             }`}
           >
-            기타 의견 ({counts.general})
+            {isEn ? `General (${counts.general})` : `기타 의견 (${counts.general})`}
           </button>
         </div>
 
@@ -256,7 +267,7 @@ export function FeedbackView({ isAdmin = false }: FeedbackViewProps) {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="검색... (제목, 내용, 작성자)"
+              placeholder={isEn ? "Search... (title, content, author)" : "검색... (제목, 내용, 작성자)"}
               className="w-full h-8 pl-8 pr-2.5 text-xs font-mono bg-white border border-[#cbd5e1] rounded-md focus:outline-hidden focus:border-[#0f172a] text-[#0f172a] placeholder-[#94a3b8]"
             />
           </div>
@@ -266,11 +277,11 @@ export function FeedbackView({ isAdmin = false }: FeedbackViewProps) {
             onChange={(e) => setSelectedStatus(e.target.value as FeedbackStatus | "all")}
             className="h-8 px-2 text-xs font-mono bg-white border border-[#cbd5e1] rounded-md text-[#334155] focus:outline-hidden focus:border-[#0f172a] cursor-pointer"
           >
-            <option value="all">전체 상태</option>
-            <option value="received">접수됨</option>
-            <option value="reviewing">검토 중</option>
-            <option value="in_progress">개발 중</option>
-            <option value="completed">반영 완료</option>
+            <option value="all">{isEn ? "All Status" : "전체 상태"}</option>
+            <option value="received">{isEn ? "Received" : "접수됨"}</option>
+            <option value="reviewing">{isEn ? "Under Review" : "검토 중"}</option>
+            <option value="in_progress">{isEn ? "In Progress" : "개발 중"}</option>
+            <option value="completed">{isEn ? "Shipped" : "반영 완료"}</option>
           </select>
 
           <select
@@ -278,14 +289,14 @@ export function FeedbackView({ isAdmin = false }: FeedbackViewProps) {
             onChange={(e) => setSelectedSort(e.target.value as "latest" | "popular")}
             className="h-8 px-2 text-xs font-mono bg-white border border-[#cbd5e1] rounded-md text-[#334155] focus:outline-hidden focus:border-[#0f172a] cursor-pointer"
           >
-            <option value="latest">최신순</option>
-            <option value="popular">공감순</option>
+            <option value="latest">{isEn ? "Latest" : "최신순"}</option>
+            <option value="popular">{isEn ? "Most Upvoted" : "공감순"}</option>
           </select>
         </div>
       </div>
 
       {/* ── 4. 피드백 목록 ── */}
-      <section aria-label="피드백 목록" className="space-y-3 pt-1">
+      <section aria-label={isEn ? "Feedback List" : "피드백 목록"} className="space-y-3 pt-1">
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
@@ -305,15 +316,19 @@ export function FeedbackView({ isAdmin = false }: FeedbackViewProps) {
         ) : filteredFeedbacks.length === 0 ? (
           <EmptyState
             icon="💡"
-            title="등록된 의견이 없습니다"
-            description="서비스를 이용하시며 느낀 개선 사항이나 바라는 기능을 가장 먼저 제안해 보세요."
+            title={isEn ? "No feedback submitted yet" : "등록된 의견이 없습니다"}
+            description={
+              isEn
+                ? "Be the first to share an improvement or request a new feature for Reportist."
+                : "서비스를 이용하시며 느낀 개선 사항이나 바라는 기능을 가장 먼저 제안해 보세요."
+            }
             action={
               <Button
                 variant="primary"
                 size="sm"
                 onClick={() => setIsWriteModalOpen(true)}
               >
-                첫 번째 의견 남기기
+                {isEn ? "Submit First Feedback" : "첫 번째 의견 남기기"}
               </Button>
             }
           />

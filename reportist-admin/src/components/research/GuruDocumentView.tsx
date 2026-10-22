@@ -15,17 +15,18 @@ import {
   FileText,
 } from "lucide-react";
 import { getGuruDetail } from "@/lib/guruMasterData";
-import { findGuruPersona } from "@/lib/guruPersonas";
+import { findGuruPersona, getGuruPersonaBilingual } from "@/lib/guruPersonas";
 import { GuruReportRow } from "@/types/api";
 import { extractValuationConsensus, formatIntrinsicRatio } from "@/lib/insightUtils";
 import { MarkdownViewer } from "@/components/ui/MarkdownViewer";
 import { Button } from "@/components/ui/Button";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface GuruDocumentViewProps {
   guruSlug: string;
   guruReports: GuruReportRow[];
   onBack: () => void;
-  /** 출처 섹션별 뒤로가기 문구 (기본값: 카탈로그로 돌아가기) */
+  /** 출처 섹션별 뒤로가기 문구 */
   backLabel?: string;
   onSelectReport: (report: GuruReportRow) => void;
 }
@@ -34,13 +35,24 @@ export function GuruDocumentView({
   guruSlug,
   guruReports,
   onBack,
-  backLabel = "카탈로그로 돌아가기",
+  backLabel,
   onSelectReport,
 }: GuruDocumentViewProps) {
+  const { isEn } = useLanguage();
   const [activeTab, setActiveTab] = useState<"philosophy" | "book" | "votes">("philosophy");
   const [opinionFilter, setOpinionFilter] = useState<string>("ALL");
 
-  const guru = useMemo(() => getGuruDetail(guruSlug), [guruSlug]);
+  const effectiveBackLabel = backLabel || (isEn ? "Back to 13 Guru Philosophies" : "13인 투자 거장 철학으로 돌아가기");
+
+  const rawGuru = useMemo(() => getGuruDetail(guruSlug), [guruSlug]);
+  const guru = useMemo(() => {
+    if (!rawGuru) return null;
+    const localized = getGuruPersonaBilingual(rawGuru, isEn);
+    return {
+      ...rawGuru,
+      ...(localized || {}),
+    };
+  }, [rawGuru, isEn]);
 
   // 현재 종목 리포트에서 해당 거장이 표결한 종목 추출
   const guruVotes = useMemo(() => {
@@ -98,10 +110,10 @@ export function GuruDocumentView({
 
   // 표결 통계
   const voteStats = useMemo(() => {
-    const buy = guruVotes.filter((v) => v.verdict.includes("매수")).length;
-    const hold = guruVotes.filter((v) => v.verdict.includes("보유")).length;
-    const wait = guruVotes.filter((v) => v.verdict.includes("관망")).length;
-    const sell = guruVotes.filter((v) => v.verdict.includes("매도")).length;
+    const buy = guruVotes.filter((v) => v.verdict.includes("매수") || v.verdict.toLowerCase().includes("buy")).length;
+    const hold = guruVotes.filter((v) => v.verdict.includes("보유") || v.verdict.toLowerCase().includes("hold")).length;
+    const wait = guruVotes.filter((v) => v.verdict.includes("관망") || v.verdict.toLowerCase().includes("watch")).length;
+    const sell = guruVotes.filter((v) => v.verdict.includes("매도") || v.verdict.toLowerCase().includes("sell")).length;
     return { buy, hold, wait, sell, total: guruVotes.length };
   }, [guruVotes]);
 
@@ -113,10 +125,10 @@ export function GuruDocumentView({
   if (!guru) {
     return (
       <div className="p-12 text-center font-mono text-sm text-[#64748b]">
-        해당 거장 정보를 찾을 수 없습니다.
+        {isEn ? "Guru profile not found." : "해당 거장 정보를 찾을 수 없습니다."}
         <div className="mt-4">
           <Button variant="secondary" onClick={onBack}>
-            {backLabel}
+            {effectiveBackLabel}
           </Button>
         </div>
       </div>
@@ -127,7 +139,7 @@ export function GuruDocumentView({
     <article className="flex-1 min-w-0 flex flex-col bg-white font-sans divide-y divide-[#e2e8f0]">
       {/* ── 1. 브레드크럼 & 뒤로가기 바 ── */}
       <nav
-        aria-label="거장 문서 네비게이션"
+        aria-label={isEn ? "Guru navigation" : "거장 문서 네비게이션"}
         className="px-6 lg:px-12 py-3.5 bg-[#f8fafc] flex items-center justify-between text-xs font-mono"
       >
         <button
@@ -135,7 +147,7 @@ export function GuruDocumentView({
           className="inline-flex items-center gap-1.5 text-[#0f172a] hover:text-black font-semibold cursor-pointer group transition-colors"
         >
           <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
-          <span>{backLabel}</span>
+          <span>{effectiveBackLabel}</span>
         </button>
 
         <div className="flex items-center gap-2 text-[#64748b] hidden sm:flex">
@@ -143,7 +155,9 @@ export function GuruDocumentView({
           <span>/</span>
           <span>13 Gurus</span>
           <span>/</span>
-          <span className="font-semibold text-[#0f172a]">{guru.name}</span>
+          <span className="font-semibold text-[#0f172a]">
+            {isEn ? guru.englishName : guru.name}
+          </span>
         </div>
       </nav>
 
@@ -164,10 +178,12 @@ export function GuruDocumentView({
 
         <div className="space-y-3">
           <h1 className="text-2xl sm:text-4xl font-extrabold text-[#0f172a] tracking-tight">
-            {guru.name}
-            <span className="ml-3 text-lg sm:text-2xl font-normal font-mono text-[#94a3b8]">
-              {guru.englishName}
-            </span>
+            {isEn ? guru.englishName : guru.name}
+            {!isEn && (
+              <span className="ml-3 text-lg sm:text-2xl font-normal font-mono text-[#94a3b8]">
+                {guru.englishName}
+              </span>
+            )}
           </h1>
           <p className="text-base sm:text-lg text-[#334155] font-medium leading-relaxed max-w-3xl">
             {guru.oneLiner}
@@ -187,14 +203,14 @@ export function GuruDocumentView({
           <div className="p-3.5 rounded border border-[#e2e8f0] bg-[#fafafa] space-y-1">
             <span className="text-[10px] text-[#94a3b8] uppercase font-semibold flex items-center gap-1.5">
               <BookOpen className="w-3.5 h-3.5" />
-              <span>대표 필독서</span>
+              <span>{isEn ? "Core Masterwork" : "대표 필독서"}</span>
             </span>
             <p className="font-semibold text-[#0f172a] truncate">{guru.bookTitle}</p>
           </div>
           <div className="p-3.5 rounded border border-[#e2e8f0] bg-[#fafafa] space-y-1">
             <span className="text-[10px] text-[#94a3b8] uppercase font-semibold flex items-center gap-1.5">
               <Scale className="w-3.5 h-3.5" />
-              <span>핵심 가치평가 방식</span>
+              <span>{isEn ? "Key Valuation Method" : "핵심 가치평가 방식"}</span>
             </span>
             <p className="font-semibold text-[#0f172a] truncate">
               {guru.focusMetrics.join(", ")}
@@ -203,10 +219,12 @@ export function GuruDocumentView({
           <div className="p-3.5 rounded border border-[#e2e8f0] bg-[#fafafa] space-y-1">
             <span className="text-[10px] text-[#94a3b8] uppercase font-semibold flex items-center gap-1.5">
               <Award className="w-3.5 h-3.5" />
-              <span>현재 분석 종목 표결</span>
+              <span>{isEn ? "Active Coverage Verdicts" : "현재 분석 종목 표결"}</span>
             </span>
             <p className="font-semibold text-[#0f172a]">
-              총 {voteStats.total}건 (매수 {voteStats.buy} · 매도 {voteStats.sell})
+              {isEn
+                ? `Total ${voteStats.total} (Buy ${voteStats.buy} · Sell ${voteStats.sell})`
+                : `총 ${voteStats.total}건 (매수 ${voteStats.buy} · 매도 ${voteStats.sell})`}
             </p>
           </div>
         </div>
@@ -214,7 +232,7 @@ export function GuruDocumentView({
 
       {/* ── 3. 탭 네비게이션 ── */}
       <nav
-        aria-label="거장 문서 섹션"
+        aria-label={isEn ? "Guru document sections" : "거장 문서 섹션"}
         className="px-6 lg:px-12 bg-white sticky top-[56px] z-10 border-b border-[#e2e8f0] flex items-center gap-8 font-mono text-xs overflow-x-auto"
       >
         <button
@@ -225,7 +243,7 @@ export function GuruDocumentView({
               : "border-transparent text-[#64748b] hover:text-[#0f172a]"
           }`}
         >
-          01. 투자 철학 & 체크리스트 프로토콜
+          {isEn ? "01. Investment Philosophy & Protocol" : "01. 투자 철학 & 체크리스트 프로토콜"}
         </button>
         <button
           onClick={() => setActiveTab("book")}
@@ -235,7 +253,9 @@ export function GuruDocumentView({
               : "border-transparent text-[#64748b] hover:text-[#0f172a]"
           }`}
         >
-          02. 필독 명저 요약 해설 ({guru.bookTitle})
+          {isEn
+            ? `02. Masterwork Summary (${guru.bookTitle})`
+            : `02. 필독 명저 요약 해설 (${guru.bookTitle})`}
         </button>
         <button
           onClick={() => setActiveTab("votes")}
@@ -245,7 +265,7 @@ export function GuruDocumentView({
               : "border-transparent text-[#64748b] hover:text-[#0f172a]"
           }`}
         >
-          <span>03. 현재 종목 표결 현황</span>
+          <span>{isEn ? "03. Current Stock Verdicts" : "03. 현재 종목 표결 현황"}</span>
           <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-[#f1f5f9] text-[#334155] border border-[#cbd5e1]">
             {voteStats.total}
           </span>
@@ -261,7 +281,7 @@ export function GuruDocumentView({
               <div className="p-4 rounded-md border border-[#e2e8f0] bg-[#fafafa] space-y-3">
                 <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#94a3b8] flex items-center gap-1.5">
                   <Bookmark className="w-3.5 h-3.5" />
-                  <span>4대 핵심 투자 원칙</span>
+                  <span>{isEn ? "4 Core Investment Principles" : "4대 핵심 투자 원칙"}</span>
                 </span>
                 <ul className="space-y-2">
                   {guru.philosophy.map((p, idx) => (
@@ -281,7 +301,7 @@ export function GuruDocumentView({
               <div className="p-4 rounded-md border border-[#e2e8f0] bg-[#fafafa] space-y-3">
                 <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#94a3b8] flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>심사 체크리스트 기준</span>
+                  <span>{isEn ? "Evaluation Checklist Criteria" : "심사 체크리스트 기준"}</span>
                 </span>
                 <div className="space-y-2">
                   {guru.checklistRules.map((rule, idx) => (
@@ -339,10 +359,10 @@ export function GuruDocumentView({
             <div className="p-4 rounded-md bg-[#fafafa] border border-[#e2e8f0] space-y-3">
               <div className="flex items-center justify-between font-mono text-xs">
                 <span className="font-semibold text-[#0f172a]">
-                  현재 포트폴리오 분석 종목 표결 현황
+                  {isEn ? "Current Portfolio Coverage Verdicts" : "현재 포트폴리오 분석 종목 표결 현황"}
                 </span>
                 <span className="text-[#64748b]">
-                  총 {voteStats.total}개 종목 평가 완료
+                  {isEn ? `Total ${voteStats.total} stocks evaluated` : `총 ${voteStats.total}개 종목 평가 완료`}
                 </span>
               </div>
               <div className="flex items-center gap-2 flex-wrap font-mono text-xs">
@@ -354,7 +374,7 @@ export function GuruDocumentView({
                       : "bg-white text-[#475569] border-[#cbd5e1] hover:bg-slate-100"
                   }`}
                 >
-                  전체 ({voteStats.total})
+                  {isEn ? `All (${voteStats.total})` : `전체 (${voteStats.total})`}
                 </button>
                 <button
                   onClick={() => setOpinionFilter("매수")}
@@ -364,7 +384,7 @@ export function GuruDocumentView({
                       : "bg-white text-[#475569] border-[#cbd5e1] hover:bg-slate-100"
                   }`}
                 >
-                  매수 ({voteStats.buy})
+                  {isEn ? `Buy (${voteStats.buy})` : `매수 (${voteStats.buy})`}
                 </button>
                 <button
                   onClick={() => setOpinionFilter("보유")}
@@ -374,7 +394,7 @@ export function GuruDocumentView({
                       : "bg-white text-[#475569] border-[#cbd5e1] hover:bg-slate-100"
                   }`}
                 >
-                  보유 ({voteStats.hold})
+                  {isEn ? `Hold (${voteStats.hold})` : `보유 (${voteStats.hold})`}
                 </button>
                 <button
                   onClick={() => setOpinionFilter("관망")}
@@ -384,7 +404,7 @@ export function GuruDocumentView({
                       : "bg-white text-[#475569] border-[#cbd5e1] hover:bg-slate-100"
                   }`}
                 >
-                  관망 ({voteStats.wait})
+                  {isEn ? `Watch (${voteStats.wait})` : `관망 (${voteStats.wait})`}
                 </button>
                 <button
                   onClick={() => setOpinionFilter("매도")}
@@ -394,7 +414,7 @@ export function GuruDocumentView({
                       : "bg-white text-[#475569] border-[#cbd5e1] hover:bg-slate-100"
                   }`}
                 >
-                  매도 ({voteStats.sell})
+                  {isEn ? `Sell (${voteStats.sell})` : `매도 (${voteStats.sell})`}
                 </button>
               </div>
             </div>
@@ -402,65 +422,76 @@ export function GuruDocumentView({
             {/* 종목 리스트 */}
             {filteredVotes.length === 0 ? (
               <div className="py-12 text-center text-xs font-mono text-[#94a3b8] bg-[#fafafa] rounded border border-dashed border-[#cbd5e1]">
-                해당 의견으로 분류된 종목이 없습니다.
+                {isEn ? "No stocks found for this verdict." : "해당 의견으로 분류된 종목이 없습니다."}
               </div>
             ) : (
               <div className="divide-y divide-[#f1f5f9] border border-[#e2e8f0] rounded-md overflow-hidden bg-white">
-                {filteredVotes.map((v) => (
-                  <div
-                    key={v.ticker}
-                    onClick={() => onSelectReport(v.report)}
-                    className="p-4 hover:bg-[#f8fafc] transition-colors cursor-pointer flex items-center justify-between gap-4 group"
-                  >
-                    <div className="space-y-1.5 min-w-0">
-                      <div className="flex items-center gap-2.5">
-                        <Link
-                          href={`/stocks/${encodeURIComponent(v.ticker)}?from=sec-gurus`}
-                          onClick={(e) => {
-                            if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onSelectReport(v.report);
-                          }}
-                          className="font-mono font-bold text-sm text-[#0f172a] hover:underline underline-offset-2"
-                        >
-                          ${v.ticker}
-                        </Link>
-                        {v.companyName && (
-                          <span className="text-xs text-[#64748b] truncate">
-                            {v.companyName}
+                {filteredVotes.map((v) => {
+                  const verdictDisplay = isEn
+                    ? v.verdict.includes("매수")
+                      ? "BUY"
+                      : v.verdict.includes("매도")
+                      ? "SELL"
+                      : v.verdict.includes("보유")
+                      ? "HOLD"
+                      : "WATCH"
+                    : v.verdict;
+                  return (
+                    <div
+                      key={v.ticker}
+                      onClick={() => onSelectReport(v.report)}
+                      className="p-4 hover:bg-[#f8fafc] transition-colors cursor-pointer flex items-center justify-between gap-4 group"
+                    >
+                      <div className="space-y-1.5 min-w-0">
+                        <div className="flex items-center gap-2.5">
+                          <Link
+                            href={isEn ? `/en/stocks/${encodeURIComponent(v.ticker)}?from=sec-gurus` : `/stocks/${encodeURIComponent(v.ticker)}?from=sec-gurus`}
+                            onClick={(e) => {
+                              if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onSelectReport(v.report);
+                            }}
+                            className="font-mono font-bold text-sm text-[#0f172a] hover:underline underline-offset-2"
+                          >
+                            ${v.ticker}
+                          </Link>
+                          {v.companyName && (
+                            <span className="text-xs text-[#64748b] truncate">
+                              {v.companyName}
+                            </span>
+                          )}
+                          <span
+                            className={`font-mono text-2xs px-2 py-0.5 rounded border font-semibold ${
+                              v.verdict.includes("매수") || v.verdict.toLowerCase().includes("buy")
+                                ? "bg-[#0f172a] text-white border-[#0f172a]"
+                                : v.verdict.includes("매도") || v.verdict.toLowerCase().includes("sell")
+                                ? "bg-[#f1f5f9] text-[#64748b] border-[#cbd5e1]"
+                                : "bg-white text-[#334155] border-[#cbd5e1]"
+                            }`}
+                          >
+                            {verdictDisplay}
+                            {v.confidence ? ` ${v.confidence}/10` : ""}
+                          </span>
+                        </div>
+                        {v.opinionText && (
+                          <p className="text-xs text-[#475569] line-clamp-2 leading-relaxed">
+                            {v.opinionText}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-3 shrink-0 font-mono text-xs text-[#64748b]">
+                        {v.intrinsicRatio != null && (
+                          <span className="text-2xs text-[#475569] bg-[#f8fafc] px-2 py-0.5 rounded border border-[#e2e8f0]">
+                            {isEn ? "Intrinsic" : "내재가치"} {formatIntrinsicRatio(v.intrinsicRatio)}
                           </span>
                         )}
-                        <span
-                          className={`font-mono text-2xs px-2 py-0.5 rounded border font-semibold ${
-                            v.verdict.includes("매수")
-                              ? "bg-[#0f172a] text-white border-[#0f172a]"
-                              : v.verdict.includes("매도")
-                              ? "bg-[#f1f5f9] text-[#64748b] border-[#cbd5e1]"
-                              : "bg-white text-[#334155] border-[#cbd5e1]"
-                          }`}
-                        >
-                          {v.verdict}
-                          {v.confidence ? ` ${v.confidence}/10` : ""}
-                        </span>
+                        <ExternalLink className="w-4 h-4 text-[#94a3b8] group-hover:text-[#0f172a] transition-colors" />
                       </div>
-                      {v.opinionText && (
-                        <p className="text-xs text-[#475569] line-clamp-2 leading-relaxed">
-                          {v.opinionText}
-                        </p>
-                      )}
                     </div>
-
-                    <div className="flex items-center gap-3 shrink-0 font-mono text-xs text-[#64748b]">
-                      {v.intrinsicRatio != null && (
-                        <span className="text-2xs text-[#475569] bg-[#f8fafc] px-2 py-0.5 rounded border border-[#e2e8f0]">
-                          내재가치 {formatIntrinsicRatio(v.intrinsicRatio)}
-                        </span>
-                      )}
-                      <ExternalLink className="w-4 h-4 text-[#94a3b8] group-hover:text-[#0f172a] transition-colors" />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>
@@ -477,7 +508,7 @@ export function GuruDocumentView({
           className="inline-flex items-center gap-1.5 cursor-pointer"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
-          <span>{backLabel}</span>
+          <span>{effectiveBackLabel}</span>
         </Button>
       </footer>
     </article>

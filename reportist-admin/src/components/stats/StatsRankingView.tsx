@@ -12,6 +12,7 @@ import { DataCache } from "@/lib/dataCache";
 import { fetchTickerLogos } from "@/lib/api-client";
 import { BenchmarkScatterPlot } from "./BenchmarkScatterPlot";
 import { StockValuationTimelineGrid } from "./StockValuationTimelineGrid";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface StatsRankingViewProps {
   guruReports: GuruReportRow[];
@@ -28,6 +29,7 @@ export function StatsRankingView({
   onSelectReport,
   tickerNameMap = {},
 }: StatsRankingViewProps) {
+  const { isEn } = useLanguage();
   const [marketFilter, setMarketFilter] = useState<MarketFilter>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("benchmark");
   const [sectionFilter, setSectionFilter] = useState<SectionFilter>("all");
@@ -143,13 +145,14 @@ export function StatsRankingView({
                 05
               </span>
               <h2 className="text-2xl sm:text-3xl font-bold text-[#0f172a] tracking-tight">
-                거장 표결 통계 랭킹
+                {isEn ? "Guru Vote Statistics & Rankings" : "거장 표결 통계 랭킹"}
               </h2>
             </div>
 
             <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-3xl mt-1">
-              13인의 전설적 투자 대가 AI 에이전트의 표결 합산 데이터와 밸류에이션 수치를 집계한 다차원 벤치마크 허브입니다.
-              Artificial Analysis 스타일의 4분면 산점도 매트릭스와 전 종목별 시계열 밸류에이션 차트로 최우량 저평가 종목을 한눈에 분석하세요.
+              {isEn
+                ? "Multi-dimensional benchmark hub aggregating voting data and valuation metrics from 13 legendary AI investor personas. Discover premier undervalued stocks using quadrant scatter matrices and multi-stock valuation timelines."
+                : "13인의 전설적 투자 대가 AI 에이전트의 표결 합산 데이터와 밸류에이션 수치를 집계한 다차원 벤치마크 허브입니다. Artificial Analysis 스타일의 4분면 산점도 매트릭스와 전 종목별 시계열 밸류에이션 차트로 최우량 저평가 종목을 한눈에 분석하세요."}
             </p>
           </div>
 
@@ -163,7 +166,7 @@ export function StatsRankingView({
                   : "bg-white text-[#64748b] border-[#e2e8f0] hover:border-[#94a3b8]"
               }`}
             >
-              전체 ({latestReports.length})
+              {isEn ? `All (${latestReports.length})` : `전체 (${latestReports.length})`}
             </button>
             <button
               onClick={() => setMarketFilter("kr")}
@@ -173,7 +176,7 @@ export function StatsRankingView({
                   : "bg-white text-[#64748b] border-[#e2e8f0] hover:border-[#94a3b8]"
               }`}
             >
-              국내 주식 🇰🇷
+              {isEn ? "Korea KR 🇰🇷" : "국내 주식 🇰🇷"}
             </button>
             <button
               onClick={() => setMarketFilter("us")}
@@ -183,14 +186,14 @@ export function StatsRankingView({
                   : "bg-white text-[#64748b] border-[#e2e8f0] hover:border-[#94a3b8]"
               }`}
             >
-              미국 주식 🇺🇸
+              {isEn ? "US Market 🇺🇸" : "미국 주식 🇺🇸"}
             </button>
 
             {/* 뷰 모드 토글 (차트 ☵ vs 테이블 ☰) */}
             <div className="ml-2 flex items-center p-0.5 rounded border border-[#e2e8f0] bg-[#f8fafc]">
               <button
                 onClick={() => setViewMode("benchmark")}
-                title="다차원 벤치마크 차트"
+                title={isEn ? "Multi-dimensional Benchmark Chart" : "다차원 벤치마크 차트"}
                 className={`p-1.5 rounded text-xs transition-colors cursor-pointer ${
                   viewMode === "benchmark"
                     ? "bg-white text-[#0f172a] shadow-2xs font-semibold"
@@ -201,7 +204,7 @@ export function StatsRankingView({
               </button>
               <button
                 onClick={() => setViewMode("table")}
-                title="순위 리스트 테이블"
+                title={isEn ? "Rankings Table" : "순위 리스트 테이블"}
                 className={`p-1.5 rounded text-xs transition-colors cursor-pointer ${
                   viewMode === "table"
                     ? "bg-white text-[#0f172a] shadow-2xs font-semibold"
@@ -219,14 +222,16 @@ export function StatsRankingView({
           <div className="flex items-center gap-2">
             <PieChart className="w-4 h-4 text-[#0f172a]" />
             <span className="font-bold text-[#0f172a]">
-              시장 거장 심사 현황 ({marketSentiment.totalStocks}개 분석)
+              {isEn
+                ? `Market Consensus Sentiment (${marketSentiment.totalStocks} Stocks)`
+                : `시장 거장 심사 현황 (${marketSentiment.totalStocks}개 분석)`}
             </span>
           </div>
 
           <div className="flex items-center gap-4 font-mono">
-            <span className="text-emerald-700 font-semibold">찬성 {marketSentiment.buyPct}%</span>
-            <span className="text-amber-700 font-semibold">관망 {marketSentiment.watchPct}%</span>
-            <span className="text-rose-700 font-semibold">매도 {marketSentiment.sellPct}%</span>
+            <span className="text-emerald-700 font-semibold">{isEn ? "Buy" : "찬성"} {marketSentiment.buyPct}%</span>
+            <span className="text-amber-700 font-semibold">{isEn ? "Hold" : "관망"} {marketSentiment.watchPct}%</span>
+            <span className="text-rose-700 font-semibold">{isEn ? "Sell" : "매도"} {marketSentiment.sellPct}%</span>
             <div className="w-32 sm:w-48 h-2 rounded-full overflow-hidden flex bg-[#e2e8f0]">
               <div style={{ width: `${marketSentiment.buyPct}%` }} className="bg-emerald-500" />
               <div style={{ width: `${marketSentiment.watchPct}%` }} className="bg-amber-400" />
@@ -246,7 +251,7 @@ export function StatsRankingView({
               : "bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0] hover:text-[#0f172a]"
           }`}
         >
-          전체 보기
+          {isEn ? "View All" : "전체 보기"}
         </button>
         <button
           onClick={() => setSectionFilter("scatter")}
@@ -256,7 +261,7 @@ export function StatsRankingView({
               : "bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0] hover:text-[#0f172a]"
           }`}
         >
-          4분면 산점도 매트릭스
+          {isEn ? "Quadrant Scatter Matrix" : "4분면 산점도 매트릭스"}
         </button>
         <button
           onClick={() => setSectionFilter("stock_timelines")}
@@ -266,7 +271,9 @@ export function StatsRankingView({
               : "bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0] hover:text-[#0f172a]"
           }`}
         >
-          전 종목별 밸류 타임라인 ({filteredReports.length}개)
+          {isEn
+            ? `Valuation Timeline (${filteredReports.length})`
+            : `전 종목별 밸류 타임라인 (${filteredReports.length}개)`}
         </button>
       </div>
 
@@ -299,7 +306,7 @@ export function StatsRankingView({
         <div className="border border-[#e2e8f0] rounded-md bg-white overflow-hidden shadow-xs divide-y divide-[#f1f5f9] w-full">
           {topBuyRanking.length === 0 ? (
             <div className="p-8 text-center text-xs text-[#94a3b8]">
-              해당 조건의 분석 종목 데이터가 없습니다.
+              {isEn ? "No stocks found for this criteria." : "해당 조건의 분석 종목 데이터가 없습니다."}
             </div>
           ) : (
             topBuyRanking.map((report, idx) => {
@@ -354,7 +361,7 @@ export function StatsRankingView({
                         </span>
                       </div>
                       <p className="text-[11px] text-[#64748b] mt-0.5 font-mono">
-                        {report.d || "최신"} · {report.verdict || "평가 완료"}
+                        {report.d || (isEn ? "Latest" : "최신")} · {report.verdict || (isEn ? "Evaluated" : "평가 완료")}
                       </p>
                     </div>
                   </div>
@@ -362,11 +369,11 @@ export function StatsRankingView({
                   <div className="text-right shrink-0 flex items-center gap-3">
                     <div className="text-right">
                       <span className="inline-flex items-center px-2 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-emerald-800 text-xs font-bold font-mono">
-                        찬성 {votesBuy}표
+                        {isEn ? `Buy: ${votesBuy}` : `찬성 ${votesBuy}표`}
                       </span>
                       {typeof report.upside_pct === "number" && (
                         <p className="text-[10px] text-emerald-600 font-mono mt-0.5">
-                          상승여력 {report.upside_pct > 0 ? `+${report.upside_pct.toFixed(0)}%` : `${report.upside_pct.toFixed(0)}%`}
+                          {isEn ? "Upside " : "상승여력 "}{report.upside_pct > 0 ? `+${report.upside_pct.toFixed(0)}%` : `${report.upside_pct.toFixed(0)}%`}
                         </p>
                       )}
                     </div>
@@ -381,8 +388,8 @@ export function StatsRankingView({
       )}
 
       <div className="flex items-center justify-between text-[11px] text-[#94a3b8] font-mono pt-2">
-        <span>* 매일 밤 정기 밸류에이션 파이프라인에서 최신 데이터로 자동 업데이트됩니다.</span>
-        <span>출처: 리포티스트 13인 거장 합의 벤치마크</span>
+        <span>{isEn ? "* Automatically updated daily by our automated valuation pipeline." : "* 매일 밤 정기 밸류에이션 파이프라인에서 최신 데이터로 자동 업데이트됩니다."}</span>
+        <span>{isEn ? "Source: Reportist 13 Guru Consensus Benchmark" : "출처: 리포티스트 13인 거장 합의 벤치마크"}</span>
       </div>
     </div>
   );

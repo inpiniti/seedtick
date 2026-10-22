@@ -4,6 +4,7 @@ import React, { useState, useMemo } from "react";
 import { GuruReportRow } from "@/types/api";
 import { formatPriceByNation } from "@/lib/utils";
 import { Sparkles, CheckCircle2, ShieldCheck, TrendingUp } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export type MatrixMode = "fair_value" | "safety_margin";
 
@@ -48,6 +49,7 @@ export function BenchmarkScatterPlot({
   tickerNameMap = {},
   logoMap = {},
 }: BenchmarkScatterPlotProps) {
+  const { isEn } = useLanguage();
   const [matrixMode, setMatrixMode] = useState<MatrixMode>("fair_value");
   const [hoveredPoint, setHoveredPoint] = useState<ScatterPoint | null>(null);
 
@@ -87,7 +89,12 @@ export function BenchmarkScatterPlot({
         }
 
         const ticker = r.ticker.toUpperCase();
-        const name = tickerNameMap[ticker] || r.company_name || ticker;
+        const isKrTicker = /^\d{6}$/.test(ticker);
+        const name = isEn
+          ? isKrTicker
+            ? tickerNameMap[ticker] || r.company_name || ticker
+            : r.company_name || ticker
+          : tickerNameMap[ticker] || r.company_name || ticker;
 
         let xVal = upside;
         let xDisplay = upside > 0 ? `+${upside}%` : `${upside}%`;
@@ -112,7 +119,7 @@ export function BenchmarkScatterPlot({
           safetyRatio,
         };
       });
-  }, [reports, tickerNameMap, matrixMode]);
+  }, [reports, tickerNameMap, matrixMode, isEn]);
 
   // 가로 풀위드에 맞게 SVG ViewBox 확장 (960 x 440)
   const svgWidth = 960;
@@ -221,7 +228,11 @@ export function BenchmarkScatterPlot({
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-base sm:text-lg font-bold text-[#0f172a] tracking-tight break-keep">
               {matrixMode === "fair_value"
-                ? "13인 거장 찬성률 × 내재가치(적정가) 4분면 매트릭스"
+                ? isEn
+                  ? "13 Guru Consensus × Intrinsic Fair Value Quadrant"
+                  : "13인 거장 찬성률 × 내재가치(적정가) 4분면 매트릭스"
+                : isEn
+                ? "13 Guru Consensus × Margin of Safety Quadrant"
                 : "13인 거장 찬성률 × 보수적 안전마진 4분면 매트릭스"}
             </h3>
             <span
@@ -231,13 +242,19 @@ export function BenchmarkScatterPlot({
                   : "bg-emerald-50 text-emerald-700 border-emerald-200"
               }`}
             >
-              {matrixMode === "fair_value" ? "적정가 기준" : "안전마진 기준"}
+              {matrixMode === "fair_value"
+                ? isEn ? "Fair Value Baseline" : "적정가 기준"
+                : isEn ? "Safety Margin Baseline" : "안전마진 기준"}
             </span>
           </div>
 
           <p className="text-xs text-[#64748b] mt-1 font-mono">
             {matrixMode === "fair_value"
-              ? "X축: 거장 합의 적정주가 대비 상승여력 (%) · Y축: 13인 거장 합의 찬성률 (%)"
+              ? isEn
+                ? "X: Upside vs Consensus Fair Value (%) · Y: 13 Guru Approval Rate (%)"
+                : "X축: 거장 합의 적정주가 대비 상승여력 (%) · Y축: 13인 거장 합의 찬성률 (%)"
+              : isEn
+              ? "X: Safety Entry Price / Current Price (%) · Y: 13 Guru Approval Rate (%)"
               : "X축: 보수적 안전마진 진입가 / 현재가 (%) · Y축: 13인 거장 합의 찬성률 (%)"}
           </p>
         </div>
@@ -253,7 +270,7 @@ export function BenchmarkScatterPlot({
             }`}
           >
             <TrendingUp className="w-3.5 h-3.5 text-blue-600" />
-            <span>① 내재가치(적정가) 매트릭스</span>
+            <span>{isEn ? "① Intrinsic Fair Value Matrix" : "① 내재가치(적정가) 매트릭스"}</span>
           </button>
           <button
             onClick={() => setMatrixMode("safety_margin")}
@@ -264,7 +281,7 @@ export function BenchmarkScatterPlot({
             }`}
           >
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-            <span>② 보수적 안전마진 매트릭스</span>
+            <span>{isEn ? "② Margin of Safety Matrix" : "② 보수적 안전마진 매트릭스"}</span>
           </button>
         </div>
       </div>
@@ -276,18 +293,26 @@ export function BenchmarkScatterPlot({
             <div className="w-3.5 h-3.5 rounded-sm bg-emerald-500/20 border border-emerald-500/50" />
             <span className="font-semibold text-emerald-800">
               {matrixMode === "fair_value"
-                ? "가장 매력적인 4분면 (찬성률 45%↑ & 적정가 상승여력 15%↑)"
+                ? isEn
+                  ? "Prime Quadrant (Approval ≥45% & Fair Upside ≥15%)"
+                  : "가장 매력적인 4분면 (찬성률 45%↑ & 적정가 상승여력 15%↑)"
+                : isEn
+                ? "Prime Quadrant (Approval ≥45% & Safety Entry ≥90%)"
                 : "가장 매력적인 4분면 (찬성률 45%↑ & 안전마진/종가 90%↑)"}
             </span>
           </div>
           <div className="flex items-center gap-1.5 text-[#64748b]">
             <div className="w-4 border-t-2 border-dashed border-[#0f172a]" />
-            <span>파레토 최적선 (Pareto line)</span>
+            <span>{isEn ? "Pareto Frontier" : "파레토 최적선 (Pareto line)"}</span>
           </div>
         </div>
 
         <div className="text-[11px] text-[#94a3b8] font-mono">
-          분석 종목: <strong className="text-[#0f172a]">{points.length}개</strong>
+          {isEn ? (
+            <>Analyzed: <strong className="text-[#0f172a]">{points.length} stocks</strong></>
+          ) : (
+            <>분석 종목: <strong className="text-[#0f172a]">{points.length}개</strong></>
+          )}
         </div>
       </div>
 
@@ -319,7 +344,11 @@ export function BenchmarkScatterPlot({
             fontWeight="bold"
           >
             {matrixMode === "fair_value"
-              ? "★ 고상승여력 & 거장 찬성 종목군 (High Upside)"
+              ? isEn
+                ? "★ High Upside & Strong Consensus"
+                : "★ 고상승여력 & 거장 찬성 종목군 (High Upside)"
+              : isEn
+              ? "★ Deep Margin of Safety & Consensus"
               : "★ 강력 하방완충 & 거장 찬성 종목군 (Safe Entry)"}
           </text>
 
@@ -405,8 +434,12 @@ export function BenchmarkScatterPlot({
             textAnchor="middle"
           >
             {matrixMode === "fair_value"
-              ? "내재가치(적정주가) 상승여력 (Upside %) →"
-              : "보수적 안전마진 진입가 / 현재가 (Safety Entry Ratio %) →"}
+              ? isEn
+                ? "Consensus Fair Value Upside (%) →"
+                : "내재가치(적정주가) 상승여력 (Upside %) →"
+              : isEn
+                ? "Conservative Safety Entry / Current Price (%) →"
+                : "보수적 안전마진 진입가 / 현재가 (Safety Entry Ratio %) →"}
           </text>
 
           <text
@@ -419,7 +452,7 @@ export function BenchmarkScatterPlot({
             textAnchor="middle"
             transform={`rotate(-90 15 ${svgHeight / 2})`}
           >
-            13인 거장 합의 찬성률 (%) ↑
+            {isEn ? "13 Guru Consensus Approval Rate (%) ↑" : "13인 거장 합의 찬성률 (%) ↑"}
           </text>
 
           {/* 파레토 최적선 */}
@@ -513,21 +546,21 @@ export function BenchmarkScatterPlot({
 
             <div className="space-y-1 text-[11px]">
               <div className="flex justify-between">
-                <span className="text-slate-400">거장 찬성률:</span>
+                <span className="text-slate-400">{isEn ? "Guru Approval:" : "거장 찬성률:"}</span>
                 <span className="font-bold text-emerald-400">
-                  {hoveredPoint.yVal}% ({hoveredPoint.report.votes_buy || 0}/13인)
+                  {hoveredPoint.yVal}% ({hoveredPoint.report.votes_buy || 0}{isEn ? " / 13 Gurus" : "/13인"})
                 </span>
               </div>
 
               <div className="flex justify-between">
-                <span className="text-slate-400">적정가/종가 (상승여력):</span>
+                <span className="text-slate-400">{isEn ? "Fair Value / Price (Upside):" : "적정가/종가 (상승여력):"}</span>
                 <span className="font-bold text-blue-300">
                   {hoveredPoint.fairRatio}% ({hoveredPoint.fairRatio && hoveredPoint.fairRatio > 100 ? `+${hoveredPoint.fairRatio - 100}%` : `${(hoveredPoint.fairRatio || 100) - 100}%`})
                 </span>
               </div>
 
               <div className="flex justify-between">
-                <span className="text-slate-400">안전마진 진입가/종가:</span>
+                <span className="text-slate-400">{isEn ? "Safety Entry / Price:" : "안전마진 진입가/종가:"}</span>
                 <span className="font-bold text-amber-300">
                   {hoveredPoint.safetyRatio}%
                 </span>
@@ -535,15 +568,15 @@ export function BenchmarkScatterPlot({
 
               {hoveredPoint.report.current_price && (
                 <div className="flex justify-between text-slate-300 pt-0.5 border-t border-slate-800">
-                  <span className="text-slate-400">현재가:</span>
+                  <span className="text-slate-400">{isEn ? "Current Price:" : "현재가:"}</span>
                   <span>{formatPriceByNation(hoveredPoint.report.current_price, undefined, hoveredPoint.ticker)}</span>
                 </div>
               )}
             </div>
 
             <div className="mt-1.5 pt-1 border-t border-slate-800 text-[10px] text-blue-300 flex items-center justify-between">
-              <span>{hoveredPoint.report.verdict || "평가 완료"}</span>
-              <span>클릭하여 리포트 ↗</span>
+              <span>{hoveredPoint.report.verdict || (isEn ? "Analyzed" : "평가 완료")}</span>
+              <span>{isEn ? "Click to view report ↗" : "클릭하여 리포트 ↗"}</span>
             </div>
           </div>
         )}
