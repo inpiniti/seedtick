@@ -23,6 +23,7 @@ import { GURU_PERSONAS, GuruPersona } from "@/lib/guruPersonas";
 import { GuruDetailModal } from "@/components/research/GuruDetailModal";
 import { OnDemandModal } from "@/components/research/OnDemandModal";
 import { StockListItem, StockItemInsight } from "@/components/research/StockListItem";
+import { HomeServiceIntro } from "@/components/home/HomeServiceIntro";
 import type { ResearchDocTab } from "@/components/research/ResearchDocumentView";
 import {
   chartTickerKey,
@@ -786,11 +787,10 @@ export function ResearchCatalogView({
           item.ratio != null && item.ratio > 100
       )
       .sort((a, b) => b.ratio - a.ratio)
-      .slice(0, 3);
+      .slice(0, 6);
   }, [permittedReports]);
 
   const isVisible = (secId: string) => {
-    if (activeSectionFilter === "all") return true;
     return activeSectionFilter === secId;
   };
 
@@ -873,74 +873,25 @@ export function ResearchCatalogView({
           </div>
         </section>
       )}
-      {/* ── 1. HERO SECTION (전체 보기일 때 표시) 또는 섹션 브레드크럼 바 ── */}
+      {/* ── 1. HERO & 서비스 본질 소개 (전체 카탈로그 홈일 때 표시) 또는 개별 섹션 헤더 바 ── */}
       {isAll ? (
-        <section
-          id="hero"
-          className="px-6 lg:px-12 py-10 lg:py-12 bg-gradient-to-b from-[#ffffff] via-[#fafafa] to-white"
-        >
-          <div className="max-w-4xl space-y-4">
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded border border-[#e2e8f0] bg-white font-mono text-xs text-[#64748b]">
-              <Sparkles className="w-3.5 h-3.5 text-[#0f172a]" />
-              <span>AI VALUE INVESTING RESEARCH SYSTEM</span>
-            </div>
-
-            <h1 className="text-2xl sm:text-4xl lg:text-[40px] font-bold text-[#0f172a] tracking-tight leading-[1.15]">
-              13인 투자 거장의 AI 가치평가 및 국내·미국 주식 리포트 아카이브
-            </h1>
-
-            <p className="text-sm sm:text-base text-[#64748b] leading-relaxed max-w-3xl">
-              단순한 주가 시세판이 아닌, 13인 투자 거장의 원전 철학으로 분석한 국내 및 미국 주식 리포트와 내재가치
-              합의를 정제된 문서로 제공합니다. 보고서를 클릭하면 즉시
-              심층 리서치 브리프로 전환되어 적정주가 표결과 전문 가치평가 내역을 열람할 수 있습니다.
-            </p>
-
-            {/* 메타데이터 요약 DL */}
-            <dl className="pt-2 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-mono text-[#64748b]">
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-[#0f172a]">
-                  {permittedReports.length}
-                </span>
-                <span>REPORTS ISSUED</span>
-              </div>
-              <span>·</span>
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-[#0f172a]">
-                  {romaCandidates.length}
-                </span>
-                <span>SUPERINVESTOR STOCKS</span>
-              </div>
-              <span>·</span>
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-[#0f172a]">
-                  {liveCandidates.length}
-                </span>
-                <span>DISCOVERY CANDIDATES</span>
-              </div>
-            </dl>
-
-            {/* 빠른 검색창 */}
-            <div className="pt-3 max-w-xl">
-              <div className="relative">
-                <Search className="w-4 h-4 text-[#94a3b8] absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search tickers (e.g. AAPL, NVDA), company names, or verdicts... [ / ]"
-                  className="w-full pl-10 pr-4 py-2 text-xs sm:text-sm font-mono bg-white border border-[#cbd5e1] rounded-md focus:outline-hidden focus:border-[#0f172a] focus:ring-1 focus:ring-[#0f172a] shadow-xs text-[#0f172a] placeholder-[#94a3b8]"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#94a3b8] hover:text-[#0f172a]"
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
+        <section className="px-6 lg:px-12 py-6 sm:py-8 bg-white">
+          <HomeServiceIntro
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            onSelectSection={onSelectSection}
+            topDiscountReports={topDiscountOpportunities}
+            topRomaCandidates={romaCandidates.slice(0, 6)}
+            topLiveCandidates={liveCandidates.slice(0, 6)}
+            topKrCandidates={krCandidates.slice(0, 6)}
+            outcomesOverview={initialOutcomes}
+            totalReportCount={permittedReports.length}
+            totalRomaCount={romaCandidates.length}
+            totalCandidateCount={liveCandidates.length + krCandidates.length}
+            onSelectReport={onSelectReport}
+            onSelectCandidate={onSelectCandidate}
+            onRequestOnDemandAnalysis={(ticker) => setOnDemandTicker(ticker)}
+          />
         </section>
       ) : (
         <div className="px-6 lg:px-12 py-5 bg-[#fafafa] border-b border-[#e2e8f0] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -963,10 +914,12 @@ export function ResearchCatalogView({
                   "03. 실시간 발굴 후보군"}
                 {activeSectionFilter === "sec-outcomes" &&
                   "04. 성과 및 거장 적중률"}
+                {activeSectionFilter === "sec-stats" &&
+                  "05. 거장 표결 통계 랭킹"}
                 {activeSectionFilter === "sec-gurus" &&
-                  "05. 13인 투자 거장 철학"}
+                  "06. 13인 투자 거장 철학"}
                 {activeSectionFilter === "sec-feedback" &&
-                  "06. 의견 및 기능 제안"}
+                  "의견 및 기능 제안"}
                 {activeSectionFilter === "sec-pipeline" &&
                   "07. 파이프라인"}
                 {activeSectionFilter === "sec-audit" &&
@@ -982,6 +935,8 @@ export function ResearchCatalogView({
                 "실시간 발굴 후보군 전체"}
               {activeSectionFilter === "sec-outcomes" &&
                 "성과 및 거장 적중률"}
+              {activeSectionFilter === "sec-stats" &&
+                "거장 표결 통계 랭킹"}
               {activeSectionFilter === "sec-gurus" &&
                 "13인 투자 거장 철학 및 밸류에이션 가이드"}
               {activeSectionFilter === "sec-feedback" &&
@@ -1008,8 +963,8 @@ export function ResearchCatalogView({
         </div>
       )}
 
-      {/* ── [거장 인사이트 & 탈리 요약 배너] (전체 홈 또는 리포트 뷰일 때 표시) ── */}
-      {(isAll || activeSectionFilter === "sec-reports") &&
+      {/* ── [거장 인사이트 & 탈리 요약 배너] (리포트 랭킹 전용 뷰일 때 표시) ── */}
+      {activeSectionFilter === "sec-reports" &&
         (guruReports.length > 0 ? (
           <section className="px-6 lg:px-12 py-6 bg-[#f8fafc] border-b border-[#e2e8f0]">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 font-mono text-xs">
