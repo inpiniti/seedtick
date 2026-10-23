@@ -23,9 +23,10 @@ export async function generateMetadata({
   const data = await getStockPageData(ticker, date, "en");
 
   if (data.isUnknownTicker) {
+    const isValidTickerPattern = /^[A-Z0-9.\-]{1,10}$/.test(ticker);
     return {
-      title: `Reportist · ${ticker}`,
-      robots: { index: false, follow: true },
+      title: isValidTickerPattern ? `Reportist · ${ticker}` : "Page Not Found · Reportist",
+      robots: { index: false, follow: isValidTickerPattern },
     };
   }
 

@@ -57,6 +57,26 @@ export async function getStockPageData(
   lang: "ko" | "en" = "ko"
 ): Promise<StockPageData> {
   const normTicker = (ticker || "").trim().toUpperCase();
+  const isValidPattern = /^[A-Z0-9.]{1,10}$/.test(normTicker);
+  if (!isValidPattern) {
+    return {
+      ticker: normTicker,
+      lang,
+      report: null,
+      allowedFreeDate: undefined,
+      isPublicDate: false,
+      displayName: normTicker,
+      englishName: normTicker,
+      seoKeywords: [],
+      canonicalPath: lang === "en" ? `/en/stocks/${encodeURIComponent(normTicker)}` : `/stocks/${encodeURIComponent(normTicker)}`,
+      publishedDate: "",
+      currentPrice: null,
+      koreanName: normTicker,
+      availableDates: [],
+      isUnknownTicker: true,
+    };
+  }
+
   const allowedFreeDate = await getServerFreeDate();
 
   const report = normTicker

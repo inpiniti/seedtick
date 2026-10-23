@@ -210,8 +210,12 @@ export async function getPublicCatalog(): Promise<PublicCatalog> {
   const tickerCompanyName = new Map<string, string>();
   for (const row of lightRows) {
     const ticker = typeof row.ticker === "string" ? row.ticker.trim().toUpperCase() : "";
-    const d = typeof row.d === "string" ? row.d : "";
+    const d = typeof row.d === "string" ? row.d.trim() : "";
     if (!ticker || !d) continue;
+    // 유효한 주식 티커 심볼(미국 1~6자 영문/점, 국내 6자리) 및 YYYY-MM-DD 형식만 허용
+    if (!/^[A-Z0-9.]{1,10}$/.test(ticker)) continue;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+
     const list = tickerDates.get(ticker) || [];
     list.push(d);
     tickerDates.set(ticker, list);
@@ -258,7 +262,14 @@ export async function getPublicCatalog(): Promise<PublicCatalog> {
       console.warn("[publicCatalog] report query failed:", error);
     } else {
       const rawRows = (data as unknown as GuruReportRow[]) || [];
-      const dedupedRows = deduplicateReportsByLatestDate(rawRows);
+      const validRows = rawRows.filter(
+        (r) =>
+          r.ticker &&
+          /^[A-Z0-9.]{1,10}$/.test(r.ticker.trim().toUpperCase()) &&
+          r.d &&
+          /^\d{4}-\d{2}-\d{2}$/.test(r.d.trim())
+      );
+      const dedupedRows = deduplicateReportsByLatestDate(validRows);
       reports = dedupedRows.map((row) =>
         maskReportRowPublic(
           {
@@ -292,7 +303,7 @@ export async function getPublicReportForDate(
   if (!supabase) return null;
 
   const normTicker = (ticker || "").trim().toUpperCase();
-  if (!normTicker) return null;
+  if (!normTicker || !/^[A-Z0-9.]{1,10}$/.test(normTicker)) return null;
 
   try {
     let row: GuruReportRow | null = null;
@@ -342,7 +353,7 @@ export async function getTickerReportDates(ticker: string): Promise<string[]> {
   const supabase = getServerSupabaseClient();
   if (!supabase) return [];
   const normTicker = (ticker || "").trim().toUpperCase();
-  if (!normTicker) return [];
+  if (!normTicker || !/^[A-Z0-9.]{1,10}$/.test(normTicker)) return [];
 
   try {
     const { data, error } = await supabase

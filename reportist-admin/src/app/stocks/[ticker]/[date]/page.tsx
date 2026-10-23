@@ -49,9 +49,10 @@ export async function generateMetadata({
 
   const data = await getStockPageData(ticker, date);
   if (data.isUnknownTicker) {
+    const isValidTickerPattern = /^[A-Z0-9.\-]{1,10}$/.test(ticker);
     return {
-      title: `리포티스트 · ${ticker}`,
-      robots: { index: false, follow: true },
+      title: isValidTickerPattern ? `리포티스트 · ${ticker}` : "페이지를 찾을 수 없습니다 · 리포티스트",
+      robots: { index: false, follow: isValidTickerPattern },
     };
   }
   const canonicalPath = data.isPublicDate

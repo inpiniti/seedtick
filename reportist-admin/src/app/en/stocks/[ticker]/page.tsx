@@ -52,9 +52,10 @@ export async function generateMetadata({
   const meta = await buildEnglishCanonical(ticker, date);
 
   if (meta.isUnknownTicker) {
+    const isValidTickerPattern = /^[A-Z0-9.\-]{1,10}$/.test(ticker);
     return {
-      title: `Reportist · ${ticker}`,
-      robots: { index: false, follow: true },
+      title: isValidTickerPattern ? `Reportist · ${ticker}` : "Page Not Found · Reportist",
+      robots: { index: false, follow: isValidTickerPattern },
     };
   }
 
