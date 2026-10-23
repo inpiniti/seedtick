@@ -473,4 +473,24 @@ async def daily_tweet_job(ticker: str | None = None, dry_run: bool = False) -> d
     res = await service.publish_stock_tweet(ticker=ticker, dry_run=dry_run)
     logger.info(f"[Scheduler] 트윗 발행 결과: {res}")
     logger.info("========== [일일 종목 자동 트윗 잡 종료] ==========")
-    return res
+    return res
+
+
+async def daily_curator_job(
+    target_date: str | None = None,
+    dry_run: bool = False,
+) -> dict:
+    """
+    일일 커뮤니티 & 24시간 뉴스 큐레이터 잡: 매일 00:05 KST 실행.
+    레딧, 디시, 펨코, 스탁트윗 및 주요 뉴스를 종합 수집하여
+    기존 발행 글과 중복을 배제한 새로운 뉴스레터 브리핑을 자동 생성합니다.
+    """
+    logger.info("========== [일일 커뮤니티 & 뉴스 큐레이터 잡 시작] ==========")
+    from app.domains.curator.service import DailyCuratorService
+
+    service = DailyCuratorService()
+    res = await service.run_daily_curator(target_date=target_date, dry_run=dry_run)
+    logger.info(f"[Scheduler] 큐레이터 완료: {res}")
+    logger.info("========== [일일 커뮤니티 & 뉴스 큐레이터 잡 종료] ==========")
+    return res
+

@@ -629,6 +629,36 @@ class SupabaseRepo:
             logger.warning(f"[Supabase] guru_opinions 조회 실패 ({report_id}): {e}")
             return []
 
+    def save_market_briefing(self, briefing_dict: dict) -> bool:
+        """public.market_briefings 테이블에 일일 마켓&커뮤니티 브리핑 저장 (upsert)."""
+        if not self._client or not briefing_dict:
+            return False
+        try:
+            self._client.table("market_briefings").upsert(briefing_dict, on_conflict="d").execute()
+            logger.info(f"[Supabase] market_briefings 저장 성공 (일자: {briefing_dict.get('d')})")
+            return True
+        except Exception as e:
+            logger.warning(f"[Supabase] market_briefings 저장 실패 (테이블 미생성 등): {e}")
+            return False
+
+    def get_recent_market_briefings(self, limit: int = 20) -> list[dict]:
+        """최근 발행된 market_briefings 목록 조회 (중복 배제 문맥용)."""
+        if not self._client:
+            return []
+        try:
+            res = (
+                self._client.table("market_briefings")
+                .select("id,d,title,topics,tickers,keywords,summary_3lines")
+                .order("d", desc=True)
+                .limit(limit)
+                .execute()
+            )
+            return res.data or []
+        except Exception as e:
+            logger.warning(f"[Supabase] market_briefings 조회 실패: {e}")
+            return []
+
 
 supabase_repo = SupabaseRepo()
+
 

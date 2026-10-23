@@ -15,6 +15,7 @@ from app.domains.scheduler.jobs import (
     reset_model_rotation_job,
     daily_outcome_tracking_job,
     daily_tweet_job,
+    daily_curator_job,
 )
 
 logger = logging.getLogger("scheduler_service")
@@ -27,7 +28,7 @@ class SchedulerService:
         self._background_tasks: set[asyncio.Task] = set()
 
     def start(self):
-        """스케줄러 시작: 00:01 모델초기화, 08:00 로그정리, 08:30 성과추적, 09:00 미장파이프라인, 16:00 국장파이프라인 잡 등록"""
+        """스케줄러 시작: 00:01 모델초기화, 00:05 뉴스큐레이터, 08:00 로그정리, 08:30 성과추적, 09:00 미장파이프라인, 16:00 국장파이프라인 잡 등록"""
         # 0. AI 모델 순위 초기화 잡: 매일 00:01 KST
         # 1순위 모델의 프로바이더 과부하는 자정 지나면 자연 복구되므로 1순위로 되돌린다.
         # 정각(00:00)과 겹치지 않도록 1분 뒤로 두어 야간 배치 준비를 방해하지 않는다.
@@ -37,6 +38,16 @@ class SchedulerService:
             trigger=model_reset_trigger,
             id="reset_model_rotation",
             name="AI 모델 순위 1순위 초기화 (매일 00:01 KST)",
+            replace_existing=True,
+        )
+
+        # 0-1. 일일 커뮤니티 & 24시간 뉴스 큐레이터 잡: 매일 00:05 KST
+        curator_trigger = CronTrigger(hour=0, minute=5, timezone="Asia/Seoul")
+        self._scheduler.add_job(
+            daily_curator_job,
+            trigger=curator_trigger,
+            id="daily_curator",
+            name="일일 커뮤니티 & 24시간 뉴스 큐레이터 (매일 00:05 KST)",
             replace_existing=True,
         )
 

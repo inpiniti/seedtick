@@ -398,4 +398,29 @@ alter table public.guru_opinion_outcomes enable row level security;
 drop policy if exists guru_opinion_outcomes_read on public.guru_opinion_outcomes;
 create policy guru_opinion_outcomes_read on public.guru_opinion_outcomes for select to anon, authenticated using (true);
 
+-- ------------------------------------------------------------------------------
+-- 10. market_briefings: 일일 글로벌 커뮤니티 & 24시간 주요 뉴스 브리핑 테이블
+-- ------------------------------------------------------------------------------
+create table if not exists public.market_briefings (
+  id             text        not null primary key, -- {d} (예: 2026-10-23)
+  d              date        not null unique,      -- 발행 일자
+  title          text        not null,             -- 메인 헤드라인
+  content        text        not null,             -- 마크다운 브리핑 뉴스레터 전문
+  summary_3lines jsonb       default '[]'::jsonb,  -- 오늘의 시장 3줄 요약
+  topics         text[],                           -- 선정된 핵심 이슈 제목 목록
+  tickers        text[],                           -- 관련 종목 티커 배열 (예: ['NVDA', 'TSLA'])
+  keywords       text[],                           -- 중복 배제 및 검색용 핵심 키워드 배열
+  sources        jsonb       default '{}'::jsonb,  -- 채널별 수집 건수 통계
+  raw_count      integer     default 0,            -- 전체 원천 수집 데이터 수
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now()
+);
+
+alter table public.market_briefings enable row level security;
+drop policy if exists market_briefings_read on public.market_briefings;
+create policy market_briefings_read on public.market_briefings for select to anon, authenticated using (true);
+
+create index if not exists idx_market_briefings_d on public.market_briefings (d desc);
+
+
 
