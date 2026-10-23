@@ -683,13 +683,14 @@ export function ResearchDocumentView({
           )}
 
           {activeTab === "datapack" && (
-            <ReportDatapackView datapack={report.datapack} />
+            <ReportDatapackView datapack={report.datapack} isEn={isEn} />
           )}
 
           {activeTab === "chart" && (
             <StockChartView
               ticker={report.ticker}
               companyName={companyName}
+              isEn={isEn}
             />
           )}
         </div>

@@ -2062,12 +2062,16 @@ export function ScreenerTab({
 
               {reportViewMode === "datapack" && (
                 selectedReport?.datapack ? (
-                  <ReportDatapackView datapack={selectedReport.datapack} />
+                  <ReportDatapackView datapack={selectedReport.datapack} isEn={isEn} />
                 ) : (
                   <EmptyState
                     icon={<FileText className="w-8 h-8 text-[#8b95a1]" />}
-                    title="심층 데이터팩이 아직 없어요"
-                    description="Yahoo Finance 및 재무제표 시계열 데이터팩이 수집되면 이곳에 표시돼요."
+                    title={isEn ? "No in-depth datapack available" : "심층 데이터팩이 아직 없어요"}
+                    description={
+                      isEn
+                        ? "Financial statements and time-series data collected from Yahoo Finance will appear here."
+                        : "Yahoo Finance 및 재무제표 시계열 데이터팩이 수집되면 이곳에 표시돼요."
+                    }
                   />
                 )
               )}
@@ -2076,6 +2080,7 @@ export function ScreenerTab({
                 <StockChartView
                   ticker={selectedReport.ticker}
                   companyName={selectedReport.company_name}
+                  isEn={isEn}
                 />
               )}
             </div>

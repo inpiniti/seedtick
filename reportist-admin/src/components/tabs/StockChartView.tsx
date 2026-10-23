@@ -14,13 +14,18 @@ import { fetchStockChart } from "@/lib/api-client";
 import { isValidChartTicker } from "@/lib/insightUtils";
 import { Badge, BadgeVariant } from "@/components/ui/Badge";
 import { AlertTriangle, Info, RefreshCw } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface StockChartViewProps {
   ticker: string;
   companyName?: string | null;
+  isEn?: boolean;
 }
 
-export function StockChartView({ ticker, companyName }: StockChartViewProps) {
+export function StockChartView({ ticker, companyName, isEn: isEnProp }: StockChartViewProps) {
+  const { isEn: contextIsEn } = useLanguage();
+  const isEn = isEnProp ?? contextIsEn;
+
   const [data, setData] = useState<StockChartResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +41,7 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
     async function loadChart() {
       if (!isValidChartTicker(ticker)) {
         setIsLoading(false);
-        setError("유효하지 않거나 지원되지 않는 종목 코드입니다.");
+        setError(isEn ? "Invalid or unsupported stock symbol." : "유효하지 않거나 지원되지 않는 종목 코드입니다.");
         return;
       }
       try {
@@ -47,7 +52,11 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
       } catch (err: unknown) {
         if (!isCancelled) {
           console.error("차트 조회 오류:", err);
-          setError("일봉 및 볼린저 밴드 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+          setError(
+            isEn
+              ? "Failed to load daily chart and Bollinger Bands data. Please try again later."
+              : "일봉 및 볼린저 밴드 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."
+          );
         }
       } finally {
         if (!isCancelled) {
@@ -63,7 +72,7 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
     return () => {
       isCancelled = true;
     };
-  }, [ticker, selectedRange]);
+  }, [ticker, selectedRange, isEn]);
 
   /** 차트 높이 */
   const getChartHeight = () => (typeof window !== "undefined" && window.innerWidth < 640 ? 300 : 380);
@@ -206,17 +215,56 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
   const getStatusBadge = (status?: string): { variant: BadgeVariant; text: string } => {
     switch (status) {
       case "UPPER_BREAK":
-        return { variant: "primary", text: "상단 밴드 돌파 (과열)" };
+        return {
+          variant: "primary",
+          text: isEn ? "Upper Breakout (Overheated)" : "상단 밴드 돌파 (과열)",
+        };
       case "UPPER_NEAR":
-        return { variant: "neutral", text: "상단 저항선 근접" };
+        return {
+          variant: "neutral",
+          text: isEn ? "Near Upper Resistance" : "상단 저항선 근접",
+        };
       case "MIDDLE":
-        return { variant: "neutral", text: "중심선 영역 (안정)" };
+        return {
+          variant: "neutral",
+          text: isEn ? "Middle Band Area (Stable)" : "중심선 영역 (안정)",
+        };
       case "LOWER_NEAR":
-        return { variant: "primary", text: "하단 지지선 근접 (저점)" };
+        return {
+          variant: "primary",
+          text: isEn ? "Near Lower Support (Bottom)" : "하단 지지선 근접 (저점)",
+        };
       case "LOWER_BREAK":
-        return { variant: "primary", text: "하단 이탈 (극단적 과매도)" };
+        return {
+          variant: "primary",
+          text: isEn ? "Lower Breakdown (Oversold)" : "하단 이탈 (극단적 과매도)",
+        };
       default:
-        return { variant: "neutral", text: "분석 중" };
+        return {
+          variant: "neutral",
+          text: isEn ? "Analyzing" : "분석 중",
+        };
+    }
+  };
+
+  // 볼린저 밴드 분석 설명문 영문 변환기
+  const getStatusDescription = (status?: string, defaultKoreanDesc?: string): string => {
+    if (!isEn) {
+      return defaultKoreanDesc || "일봉 데이터와 20일 볼린저 밴드(±2σ)를 분석한 차트입니다.";
+    }
+    switch (status) {
+      case "UPPER_BREAK":
+        return "Strong breakout above the upper Bollinger Band, indicating overheated momentum.";
+      case "UPPER_NEAR":
+        return "Approaching the upper Bollinger Band resistance line (top 20th percentile).";
+      case "MIDDLE":
+        return "Maintaining a stable trend around the 20-day Bollinger middle band.";
+      case "LOWER_NEAR":
+        return "Approaching the lower Bollinger Band support line (bottom 20th percentile), an attractive entry zone.";
+      case "LOWER_BREAK":
+        return "Broken below the lower Bollinger Band into extreme oversold territory.";
+      default:
+        return "Daily candlestick chart analyzed with 20-day Bollinger Bands (±2σ).";
     }
   };
 
@@ -244,7 +292,7 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
           <p className="text-xs text-[#64748b] mt-1 flex items-start gap-1.5 font-mono">
             <Info className="w-3.5 h-3.5 text-[#0f172a] shrink-0 mt-0.5" />
             <span className="min-w-0">
-              {summary?.status_description || "일봉 데이터와 20일 볼린저 밴드(±2σ)를 분석한 차트입니다."}
+              {getStatusDescription(summary?.status, summary?.status_description)}
             </span>
           </p>
         </div>
@@ -271,7 +319,9 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
       {summary && (
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 font-mono">
           <div className="p-3 bg-white rounded-md border border-[#e2e8f0] shadow-2xs">
-            <div className="text-[11px] font-medium text-[#64748b]">현재 종가</div>
+            <div className="text-[11px] font-medium text-[#64748b]">
+              {isEn ? "Current Price" : "현재 종가"}
+            </div>
             <div className="text-base font-bold text-[#0f172a] mt-0.5">
               ${summary.current_price.toFixed(2)}
             </div>
@@ -279,7 +329,7 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
           <div className="p-3 bg-white rounded-md border border-[#e2e8f0] shadow-2xs">
             <div className="text-[11px] font-medium text-[#64748b] flex items-center gap-1">
               <span className="w-1.5 h-1.5 bg-[#475569] rounded-xs inline-block" />
-              BB 상단 (+2σ)
+              {isEn ? "BB Upper (+2σ)" : "BB 상단 (+2σ)"}
             </div>
             <div className="text-base font-bold text-[#0f172a] mt-0.5">
               ${summary.upper.toFixed(2)}
@@ -288,7 +338,7 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
           <div className="p-3 bg-white rounded-md border border-[#e2e8f0] shadow-2xs">
             <div className="text-[11px] font-medium text-[#64748b] flex items-center gap-1">
               <span className="w-1.5 h-1.5 bg-[#94a3b8] rounded-xs inline-block" />
-              BB 중심 (20일)
+              {isEn ? "BB Middle (20D)" : "BB 중심 (20일)"}
             </div>
             <div className="text-base font-bold text-[#0f172a] mt-0.5">
               ${summary.middle.toFixed(2)}
@@ -297,14 +347,16 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
           <div className="p-3 bg-white rounded-md border border-[#e2e8f0] shadow-2xs">
             <div className="text-[11px] font-medium text-[#64748b] flex items-center gap-1">
               <span className="w-1.5 h-1.5 bg-[#475569] rounded-xs inline-block" />
-              BB 하단 (-2σ)
+              {isEn ? "BB Lower (-2σ)" : "BB 하단 (-2σ)"}
             </div>
             <div className="text-base font-bold text-[#0f172a] mt-0.5">
               ${summary.lower.toFixed(2)}
             </div>
           </div>
           <div className="p-3 bg-white rounded-md border border-[#e2e8f0] shadow-2xs col-span-2 sm:col-span-1">
-            <div className="text-[11px] font-medium text-[#64748b]">밴드 위치 (%B)</div>
+            <div className="text-[11px] font-medium text-[#64748b]">
+              {isEn ? "Band Position (%B)" : "밴드 위치 (%B)"}
+            </div>
             <div className="text-base font-bold text-[#0f172a] mt-0.5">
               {(summary.percent_b * 100).toFixed(1)}%
             </div>
@@ -318,29 +370,40 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 pb-2 mb-2 border-b border-[#f1f5f9] text-[11px] font-mono text-[#64748b]">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
             <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 bg-[#0f172a] border border-[#0f172a] rounded-2xs inline-block" /> 양봉 (상승)
+              <span className="w-2.5 h-2.5 bg-[#0f172a] border border-[#0f172a] rounded-2xs inline-block" />
+              {isEn ? "Bullish (Up)" : "양봉 (상승)"}
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 bg-white border border-[#64748b] rounded-2xs inline-block" /> 음봉 (하락)
+              <span className="w-2.5 h-2.5 bg-white border border-[#64748b] rounded-2xs inline-block" />
+              {isEn ? "Bearish (Down)" : "음봉 (하락)"}
             </span>
             <span className="flex items-center gap-1 text-[#475569]">
-              <span className="w-3 border-b-2 border-dashed border-[#475569] inline-block" /> 상단 (+2σ)
+              <span className="w-3 border-b-2 border-dashed border-[#475569] inline-block" />
+              {isEn ? "Upper (+2σ)" : "상단 (+2σ)"}
             </span>
             <span className="flex items-center gap-1 text-[#94a3b8]">
-              <span className="w-3 border-b-2 border-[#94a3b8] inline-block" /> 중심 (SMA)
+              <span className="w-3 border-b-2 border-[#94a3b8] inline-block" />
+              {isEn ? "Middle (SMA)" : "중심 (SMA)"}
             </span>
             <span className="flex items-center gap-1 text-[#475569]">
-              <span className="w-3 border-b-2 border-dashed border-[#475569] inline-block" /> 하단 (-2σ)
+              <span className="w-3 border-b-2 border-dashed border-[#475569] inline-block" />
+              {isEn ? "Lower (-2σ)" : "하단 (-2σ)"}
             </span>
           </div>
-          <span className="hidden sm:inline text-[#94a3b8]">휠 스크롤: 줌 인/아웃</span>
+          <span className="hidden sm:inline text-[#94a3b8]">
+            {isEn ? "Scroll: Zoom In/Out" : "휠 스크롤: 줌 인/아웃"}
+          </span>
         </div>
 
         {/* 로딩 스켈레톤 */}
         {isLoading && (
           <div className="h-[300px] sm:h-[380px] flex flex-col justify-center items-center gap-3">
             <RefreshCw className="w-5 h-5 text-[#0f172a] animate-spin" />
-            <p className="text-xs font-mono text-[#64748b]">일봉 캔들과 볼린저 밴드를 계산하고 있습니다...</p>
+            <p className="text-xs font-mono text-[#64748b]">
+              {isEn
+                ? "Calculating daily candles and Bollinger Bands..."
+                : "일봉 캔들과 볼린저 밴드를 계산하고 있습니다..."}
+            </p>
           </div>
         )}
 
@@ -353,7 +416,7 @@ export function StockChartView({ ticker, companyName }: StockChartViewProps) {
               onClick={() => setSelectedRange(selectedRange)}
               className="mt-2 px-3 py-1.5 text-xs font-mono font-semibold bg-[#0f172a] text-white rounded cursor-pointer"
             >
-              다시 시도
+              {isEn ? "Retry" : "다시 시도"}
             </button>
           </div>
         )}

@@ -21,6 +21,7 @@ import {
 import { formatPriceByNation } from "@/lib/utils";
 import { useSubscription } from "@/lib/subscription/SubscriptionContext";
 import { isReportRestricted } from "@/lib/subscription/subscriptionPolicy";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface ResearchDocumentModalProps {
   report: GuruReportRow | null;
@@ -30,6 +31,7 @@ interface ResearchDocumentModalProps {
   selectedDate?: string;
   onSelectDate?: (date: string) => void;
   isLoadingDate?: boolean;
+  isEn?: boolean;
 }
 
 export function extractValuationConsensus(
@@ -111,7 +113,11 @@ export function ResearchDocumentModal({
   selectedDate,
   onSelectDate,
   isLoadingDate = false,
+  isEn: isEnProp,
 }: ResearchDocumentModalProps) {
+  const { isEn: contextIsEn } = useLanguage();
+  const isEn = isEnProp ?? contextIsEn;
+
   const {
     tier,
     isTrialActive,
@@ -243,10 +249,11 @@ export function ResearchDocumentModal({
               Target Price Band & Safety Margin
             </span>
             <div className="text-xs sm:text-sm font-semibold text-[#0f172a] mt-1 flex items-center justify-between gap-2 flex-wrap">
-              <span>{valConsensus?.target_price_band || "밸류에이션 모델 수렴"}</span>
+              <span>{valConsensus?.target_price_band || (isEn ? "Price band withheld" : "밸류에이션 모델 수렴")}</span>
               {valConsensus?.safety_entry_price && (
                 <span className="text-emerald-700 text-xs">
-                  안전매수: {valConsensus.safety_entry_price}
+                  {isEn ? "Safety Entry: " : "안전매수: "}
+                  {valConsensus.safety_entry_price}
                 </span>
               )}
             </div>
@@ -256,10 +263,10 @@ export function ResearchDocumentModal({
         {/* 3. 문서 섹션 탭 (aihero 스타일 미니멀 탭) */}
         <div className="flex items-center gap-1 border-b border-[#e2e8f0] font-mono text-xs overflow-x-auto pb-px">
           {[
-            { id: "final" as const, label: "01. 마스터 보고서", icon: FileText },
-            { id: "summaries" as const, label: "02. 13인 개별 서머리", icon: Users },
-            { id: "datapack" as const, label: "03. 심층 데이터팩", icon: PieChart },
-            { id: "chart" as const, label: "04. 일봉 및 밴드", icon: TrendingUp },
+            { id: "final" as const, label: isEn ? "01. Master Report" : "01. 마스터 보고서", icon: FileText },
+            { id: "summaries" as const, label: isEn ? "02. 13 Guru Summaries" : "02. 13인 개별 서머리", icon: Users },
+            { id: "datapack" as const, label: isEn ? "03. In-Depth Datapack" : "03. 심층 데이터팩", icon: PieChart },
+            { id: "chart" as const, label: isEn ? "04. Daily Chart & Bands" : "04. 일봉 및 밴드", icon: TrendingUp },
           ].map((tab) => {
             const isActive = activeTab === tab.id;
             const Icon = tab.icon;
@@ -362,13 +369,19 @@ export function ResearchDocumentModal({
 
           <div className={isRestricted ? "filter blur-sm select-none pointer-events-none" : ""}>
             {activeTab === "final" && (
-              report.final_report ? (
+              (isEn && report.final_report_en) ? (
+                <MarkdownViewer content={report.final_report_en} />
+              ) : report.final_report ? (
                 <MarkdownViewer content={report.final_report} />
               ) : (
                 <EmptyState
                   icon="📄"
-                  title="최종 마스터 보고서가 아직 생성되지 않았습니다"
-                  description="12:00 정기 분석 파이프라인이 실행되면 이곳에 전체 심층 보고서가 문서화됩니다."
+                  title={isEn ? "Final master report is pending generation" : "최종 마스터 보고서가 아직 생성되지 않았습니다"}
+                  description={
+                    isEn
+                      ? "The full in-depth research report will be documented here once the pipeline run completes."
+                      : "12:00 정기 분석 파이프라인이 실행되면 이곳에 전체 심층 보고서가 문서화됩니다."
+                  }
                 />
               )
             )}
@@ -378,13 +391,14 @@ export function ResearchDocumentModal({
             )}
 
             {activeTab === "datapack" && (
-              <ReportDatapackView datapack={report.datapack} />
+              <ReportDatapackView datapack={report.datapack} isEn={isEn} />
             )}
 
             {activeTab === "chart" && (
               <StockChartView
                 ticker={report.ticker}
                 companyName={report.company_name}
+                isEn={isEn}
               />
             )}
           </div>
@@ -394,7 +408,7 @@ export function ResearchDocumentModal({
         <div className="flex items-center justify-between pt-2 border-t border-[#e2e8f0] text-xs font-mono text-[#64748b]">
           <span>Reportist Research Archive · {ticker}</span>
           <Button variant="secondary" size="sm" onClick={onClose}>
-            닫기
+            {isEn ? "Close" : "닫기"}
           </Button>
         </div>
       </div>

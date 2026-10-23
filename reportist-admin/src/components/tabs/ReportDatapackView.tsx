@@ -4,6 +4,7 @@ import React from "react";
 import { MarkdownViewer } from "@/components/ui/MarkdownViewer";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Badge } from "@/components/ui/Badge";
+import { useLanguage } from "@/contexts/LanguageContext";
 import {
   TrendingUp,
   ShieldCheck,
@@ -17,6 +18,83 @@ import {
 
 interface ReportDatapackViewProps {
   datapack: Record<string, any> | string | null;
+  isEn?: boolean;
+}
+
+const MARKET_METRIC_KEY_EN: Record<string, string> = {
+  "52주 고가": "52-Week High",
+  "52주 저가": "52-Week Low",
+  "당일 거래량": "Daily Volume",
+  "20일 평균 거래량": "20D Avg Volume",
+  "상대 거래량(RVol)": "Relative Volume (RVol)",
+  "공매도 비율(Short % of Float)": "Short % of Float",
+  "내부자 지분율": "Insider Ownership",
+  "기관 지분율": "Institutional Ownership",
+  "50일 이동평균선": "50-Day MA",
+  "200일 이동평균선": "200-Day MA",
+  "외국인 소진율": "Foreign Exhaustion Rate",
+  "최근 수급(외인/기관)": "Recent Flow (Foreign / Inst.)",
+};
+
+const ANALYST_CONSENSUS_KEY_EN: Record<string, string> = {
+  "목표주가 평균": "Target Price Mean",
+  "목표주가 최고": "Target Price High",
+  "목표주가 최저": "Target Price Low",
+  "투자의견": "Recommendation",
+  "의견": "Opinion",
+};
+
+function formatMetricValue(val: any, isEn: boolean): string {
+  if (val === null || val === undefined) return "-";
+  const str = String(val);
+  if (!isEn) return str;
+  return str
+    .replace(/주$/g, " shares")
+    .replace(/배\s*\(평균\s*대비\)/g, "x (vs avg)")
+    .replace(/배$/g, "x")
+    .replace(/외인\s*([0-9,]+)주\s*\/\s*기관\s*([0-9,]+)주/g, "Foreign $1 / Inst. $2")
+    .replace(/원$/g, " KRW");
+}
+
+function formatConsensusValue(val: any, isEn: boolean): string {
+  if (val === null || val === undefined) return "-";
+  const str = String(val).trim();
+  if (!isEn) return str;
+  const lower = str.toLowerCase();
+  if (lower === "buy" || lower.includes("매수")) return "BUY";
+  if (lower === "strong_buy" || lower.includes("적극매수")) return "STRONG BUY";
+  if (lower === "hold" || lower.includes("보유")) return "HOLD";
+  if (lower === "sell" || lower.includes("매도")) return "SELL";
+  if (lower === "underperform") return "UNDERPERFORM";
+  return str.replace(/원$/g, " KRW");
+}
+
+function formatValueDrivers(content: string, isEn: boolean): string {
+  if (!content || !isEn) return content;
+  return content
+    .replace(/^#\s*(.*?)\s*가치\s*드라이버\s*분석/m, "# $1 Key Value Drivers Analysis")
+    .replace(/>\s*작성일:\s*(.*?)\s*\|\s*조사\s*근거:\s*펀더멘털\s*재무\s*지표\s*및\s*최신\s*시장\s*뉴스[·\s]*이슈\s*종합/g, "> Date: $1 | Source: Comprehensive fundamental metrics and latest market catalysts")
+    .replace(/>\s*작성일:\s*(.*?)\s*\|\s*기본\s*펀더멘털\s*기반\s*생성/g, "> Date: $1 | Generated based on core fundamentals")
+    .replace(/##\s*핵심\s*드라이버\s*3~5개\s*\(표\s*형식\)/g, "## Key Drivers (Table)")
+    .replace(/##\s*핵심\s*드라이버\s*3~5개/g, "## Key Drivers")
+    .replace(/\|\s*#\s*\|\s*드라이버명\s*\|\s*현재\s*상태\s*(\(.*?\))?\s*\|\s*변화\s*감시\s*기준\s*\|\s*중요도\s*\|/g, "| # | Driver | Current Status $1 | Monitoring Criteria | Priority |")
+    .replace(/\|\s*드라이버명\s*\|/g, "| Driver |")
+    .replace(/\|\s*변화\s*감시\s*기준\s*\|/g, "| Monitoring Criteria |")
+    .replace(/\|\s*중요도\s*\|/g, "| Priority |")
+    .replace(/\|\s*높음\s*\|/g, "| High |")
+    .replace(/\|\s*중간\s*\|/g, "| Medium |")
+    .replace(/\|\s*낮음\s*\|/g, "| Low |")
+    .replace(/##\s*각\s*드라이버\s*상세\s*분석/g, "## Detailed Driver Analysis")
+    .replace(/###\s*드라이버\s*([0-9]+)\s*:/g, "### Driver $1:")
+    .replace(/^-\s*현재\s*:/gm, "- Current:")
+    .replace(/^-\s*감시\s*:/gm, "- Monitoring:")
+    .replace(/^-\s*영향\s*:/gm, "- Impact:")
+    .replace(/##\s*드라이버\s*우선순위\s*&\s*리스크/g, "## Driver Priorities & Risks")
+    .replace(/\*\*\s*가장\s*중요한\s*드라이버\s*\*\*/g, "**Top Priority Driver**")
+    .replace(/\*\*\s*가장\s*불확실한\s*드라이버\s*\*\*/g, "**Highest Uncertainty Driver**")
+    .replace(/\*\*\s*단기\s*vs\s*장기\s*감시\s*\*\*/g, "**Short-term vs Long-term Monitoring**")
+    .replace(/##\s*최신\s*시장\s*촉매\s*및\s*주요\s*뉴스\s*연계\s*\(Catalysts\)/g, "## Recent Market Catalysts & News")
+    .replace(/##\s*최신\s*시장\s*촉매\s*및\s*주요\s*뉴스\s*연계/g, "## Recent Market Catalysts & News");
 }
 
 // 큰 숫자 포맷팅 (B = Billion, M = Million, T = Trillion, 천단위 콤마)
@@ -40,14 +118,21 @@ function formatRatio(val: number | null | undefined, suffix = "x"): string {
   return `${val.toFixed(2)}${suffix}`;
 }
 
-export function ReportDatapackView({ datapack }: ReportDatapackViewProps) {
+export function ReportDatapackView({ datapack, isEn: isEnProp }: ReportDatapackViewProps) {
+  const { isEn: contextIsEn } = useLanguage();
+  const isEn = isEnProp ?? contextIsEn;
+
   const [periodTab, setPeriodTab] = React.useState<"annual" | "quarterly">("annual");
 
   if (!datapack) {
     return (
       <EmptyState
-        title="심층 데이터팩이 등록되지 않았습니다"
-        description="종목 분석 시 수집된 재무, 밸류에이션, 사업 개요 원시 데이터팩이 여기에 아카이빙됩니다."
+        title={isEn ? "In-depth datapack not available" : "심층 데이터팩이 등록되지 않았습니다"}
+        description={
+          isEn
+            ? "Raw financial, valuation, and business overview data collected during stock analysis will be archived here."
+            : "종목 분석 시 수집된 재무, 밸류에이션, 사업 개요 원시 데이터팩이 여기에 아카이빙됩니다."
+        }
       />
     );
   }
@@ -69,6 +154,21 @@ export function ReportDatapackView({ datapack }: ReportDatapackViewProps) {
     value_drivers,
   } = datapack;
 
+  const formattedOverview = React.useMemo(() => {
+    if (!overview || typeof overview !== "string") return overview;
+    if (!isEn) return overview;
+    return overview
+      .replace(/\*\*\s*섹터\/산업\s*\*\*/g, "**Sector / Industry**")
+      .replace(/\*\*\s*사업\s*개요\s*\*\*/g, "**Business Overview**")
+      .replace(/섹터\/산업\s*:/g, "Sector / Industry:")
+      .replace(/사업\s*개요\s*:/g, "Business Overview:");
+  }, [overview, isEn]);
+
+  const formattedValueDrivers = React.useMemo(() => {
+    if (!value_drivers || typeof value_drivers !== "string") return value_drivers;
+    return formatValueDrivers(value_drivers, isEn);
+  }, [value_drivers, isEn]);
+
   const hasAnnual = Array.isArray(income_annual) && income_annual.length > 0;
   const hasQuarterly = Array.isArray(income_quarterly) && income_quarterly.length > 0;
   const currentTab = (periodTab === "quarterly" && hasQuarterly) ? "quarterly" : (hasAnnual ? "annual" : "quarterly");
@@ -84,7 +184,7 @@ export function ReportDatapackView({ datapack }: ReportDatapackViewProps) {
             Business Overview
           </h4>
           <div className="text-xs leading-relaxed text-[#334155]">
-            <MarkdownViewer content={overview} />
+            <MarkdownViewer content={formattedOverview} />
           </div>
         </div>
       )}
@@ -218,7 +318,7 @@ export function ReportDatapackView({ datapack }: ReportDatapackViewProps) {
                       : "text-[#64748b] hover:text-[#0f172a]"
                   }`}
                 >
-                  연간 (Annual)
+                  {isEn ? "Annual" : "연간 (Annual)"}
                 </button>
                 <button
                   type="button"
@@ -229,7 +329,7 @@ export function ReportDatapackView({ datapack }: ReportDatapackViewProps) {
                       : "text-[#64748b] hover:text-[#0f172a]"
                   }`}
                 >
-                  최근 분기 (Quarterly)
+                  {isEn ? "Quarterly" : "최근 분기 (Quarterly)"}
                 </button>
               </div>
             )}
@@ -284,12 +384,16 @@ export function ReportDatapackView({ datapack }: ReportDatapackViewProps) {
               <div className="p-3.5 rounded-md bg-white border border-[#e2e8f0] space-y-2">
                 <span className="text-xs font-bold text-[#0f172a] block">Pricing & Momentum</span>
                 <div className="space-y-1 text-xs">
-                  {Object.entries(market_metrics).map(([k, v], mIdx) => (
-                    <div key={mIdx} className="flex justify-between py-0.5 border-b border-[#f8fafc]">
-                      <span className="text-[#64748b]">{k}</span>
-                      <span className="font-semibold text-[#0f172a]">{String(v)}</span>
-                    </div>
-                  ))}
+                  {Object.entries(market_metrics).map(([k, v], mIdx) => {
+                    const label = isEn ? (MARKET_METRIC_KEY_EN[k] || k) : k;
+                    const valStr = formatMetricValue(v, isEn);
+                    return (
+                      <div key={mIdx} className="flex justify-between py-0.5 border-b border-[#f8fafc]">
+                        <span className="text-[#64748b]">{label}</span>
+                        <span className="font-semibold text-[#0f172a]">{valStr}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -300,17 +404,21 @@ export function ReportDatapackView({ datapack }: ReportDatapackViewProps) {
                   <span className="text-xs font-bold text-[#0f172a]">Analyst Opinion</span>
                   {analyst_consensus["의견"] && (
                     <Badge variant="primary" className="uppercase font-bold text-[10px]">
-                      {String(analyst_consensus["의견"])}
+                      {formatConsensusValue(analyst_consensus["의견"], isEn)}
                     </Badge>
                   )}
                 </div>
                 <div className="space-y-1 text-xs">
                   {Object.entries(analyst_consensus).map(([k, v], cIdx) => {
                     if (k === "의견") return null;
+                    const label = isEn ? (ANALYST_CONSENSUS_KEY_EN[k] || k) : k;
+                    const valStr = k === "투자의견"
+                      ? formatConsensusValue(v, isEn)
+                      : (isEn ? String(v).replace(/원$/g, " KRW") : String(v));
                     return (
                       <div key={cIdx} className="flex justify-between py-0.5 border-b border-[#f8fafc]">
-                        <span className="text-[#64748b]">{k}</span>
-                        <span className="font-semibold text-[#0f172a]">{String(v)}</span>
+                        <span className="text-[#64748b]">{label}</span>
+                        <span className="font-semibold text-[#0f172a]">{valStr}</span>
                       </div>
                     );
                   })}
@@ -379,7 +487,7 @@ export function ReportDatapackView({ datapack }: ReportDatapackViewProps) {
             Key Value Drivers
           </h4>
           <div className="p-4 rounded-md bg-[#f8fafc] border border-[#e2e8f0]">
-            <MarkdownViewer content={value_drivers} />
+            <MarkdownViewer content={formattedValueDrivers} />
           </div>
         </div>
       )}
