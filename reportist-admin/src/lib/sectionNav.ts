@@ -63,10 +63,10 @@ export const SECTION_META: Record<
   },
   "sec-audit": {
     href: "/admin",
-    label: "감사 로그",
-    backLabel: "감사 로그로 돌아가기",
-    labelEn: "Audit Logs",
-    backLabelEn: "Back to Audit Logs",
+    label: "관리자 (트윗·로그)",
+    backLabel: "관리자 화면으로 돌아가기",
+    labelEn: "Admin (Tweet & Logs)",
+    backLabelEn: "Back to Admin",
   },
   "sec-feedback": {
     href: "/feedback",

@@ -14,6 +14,7 @@ from app.domains.scheduler.jobs import (
     cleanup_old_logs_job,
     reset_model_rotation_job,
     daily_outcome_tracking_job,
+    daily_tweet_job,
 )
 
 logger = logging.getLogger("scheduler_service")

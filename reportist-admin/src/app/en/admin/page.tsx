@@ -3,8 +3,8 @@ import { Metadata } from "next";
 import { DashboardView } from "@/components/dashboard/DashboardView";
 
 export const metadata: Metadata = {
-  title: "System Audit Logs | Reportist Admin",
-  description: "System error and audit logs monitor",
+  title: "Admin (Tweet Generator & Audit) | Reportist Admin",
+  description: "X (Twitter) post generator and system audit logs",
   alternates: {
     canonical: "/en/admin",
   },

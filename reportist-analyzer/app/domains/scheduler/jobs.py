@@ -459,3 +459,18 @@ async def daily_outcome_tracking_job(
     logger.info(f"[Scheduler] 성과 추적 완료: {res}")
     logger.info("========== [일일 성과 추적 잡 종료] ==========")
     return res
+
+
+async def daily_tweet_job(ticker: str | None = None, dry_run: bool = False) -> dict:
+    """
+    일일 종목 자동 트윗 잡 (하루 2회: 07:00 KST, 22:00 KST).
+    최신 분석된 유효 종목 중 1개를 선정하여 X(Twitter)에 고품질 영문 요약을 자동 발행합니다.
+    """
+    logger.info("========== [일일 종목 자동 트윗 잡 시작] ==========")
+    from app.domains.social.service import SocialService
+
+    service = SocialService()
+    res = await service.publish_stock_tweet(ticker=ticker, dry_run=dry_run)
+    logger.info(f"[Scheduler] 트윗 발행 결과: {res}")
+    logger.info("========== [일일 종목 자동 트윗 잡 종료] ==========")
+    return res

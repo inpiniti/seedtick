@@ -15,6 +15,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { TallyBar, TallyCounts } from "@/components/ui/TallyBar";
 import { PipelineProgressCard } from "@/components/tabs/PipelineProgressCard";
 import { LogsTab } from "@/components/tabs/LogsTab";
+import { TweetGeneratorTab } from "@/components/tabs/TweetGeneratorTab";
 import { SidebarSectionId } from "@/components/sidebar/ResearchSidebar";
 import { OutcomesView } from "@/components/outcomes/OutcomesView";
 import { StatsRankingView } from "@/components/stats/StatsRankingView";
@@ -48,6 +49,7 @@ import {
   TrendingUp,
   Award,
   Calendar,
+  ShieldAlert,
 } from "lucide-react";
 import { formatPriceByNation, formatMarketCap } from "@/lib/utils";
 import { fetchTickerLogos, fetchTickerNames, fetchStockChart } from "@/lib/api-client";
@@ -194,6 +196,9 @@ export function ResearchCatalogView({
 
   // 실시간 발굴 후보군 마켓(미국장 vs 한국장)
   const [candidateMarket, setCandidateMarket] = useState<"us" | "kr">("us");
+
+  // 관리자 섹션 하위 탭 (트윗 생성기 vs 감사 로그)
+  const [adminSubTab, setAdminSubTab] = useState<"tweet" | "logs">("tweet");
 
   // ── %B 보이는 행만 지연 로딩 (정렬/필터 이후 화면 기준) ──
   // 부모 prop + 로컬 즉시 반영분을 합쳐 렌더. DataCache(5분 TTL)가 진실이며
@@ -2012,7 +2017,7 @@ export function ResearchCatalogView({
         </section>
       )}
 
-      {/* ── 8. SECTION 08: SYSTEM AUDIT (관리자 전용) ── */}
+      {/* ── 8. SECTION 08: ADMIN (트윗 생성기 & 시스템 감사 로그) ── */}
       {isAdmin && isVisible("sec-audit") && (
         <section
           id="sec-audit"
@@ -2020,29 +2025,86 @@ export function ResearchCatalogView({
         >
           <div className="grid grid-cols-1 md:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] gap-8 lg:gap-12">
             {/* 좌측 */}
-            <div className="space-y-4 md:sticky md:top-[72px] md:self-start">
-              <div className="flex items-baseline gap-2">
-                <span className="font-mono text-xs font-semibold text-[#94a3b8]">
-                  08
-                </span>
-                <h2 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
-                  {isEn ? "Audit Log Monitor" : "감사 로그"}
-                </h2>
+            <div className="space-y-5 md:sticky md:top-[72px] md:self-start">
+              <div>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-mono text-xs font-semibold text-[#94a3b8]">
+                    08
+                  </span>
+                  <h2 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
+                    {adminSubTab === "tweet"
+                      ? isEn
+                        ? "X / Twitter Post Generator"
+                        : "X (트위터) 트윗 생성기"
+                      : isEn
+                      ? "Audit Log Monitor"
+                      : "감사 로그"}
+                  </h2>
+                </div>
+                <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-md mt-2">
+                  {adminSubTab === "tweet"
+                    ? isEn
+                      ? "Select any stock to generate an optimized English tweet with guru consensus, fair value, and one-click copy."
+                      : "13인 거장 AI 표결과 적정가를 담은 고품질 트윗을 생성하고, 원클릭 복사 또는 X(트위터) 작성창으로 바로 열어 게시합니다."
+                    : isEn
+                    ? "Filter system audit error logs by severity level and inspect root causes."
+                    : "시스템 감사 오류 로그를 레벨별로 필터링하고 세부 원인을 추적합니다."}
+                </p>
               </div>
-              <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-md">
-                {isEn
-                  ? "Filter system audit error logs by severity level and inspect root causes."
-                  : "시스템 감사 오류 로그를 레벨별로 필터링하고 세부 원인을 추적합니다."}
-              </p>
+
+              {/* 관리자 서브 탭 전환 메뉴 */}
+              <div className="flex flex-col gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setAdminSubTab("tweet")}
+                  className={`w-full px-4 py-3 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-3 text-left ${
+                    adminSubTab === "tweet"
+                      ? "bg-[#0f172a] text-white shadow-sm"
+                      : "bg-[#f8fafc] text-[#64748b] hover:bg-[#f1f5f9] hover:text-[#0f172a] border border-[#e2e8f0]"
+                  }`}
+                >
+                  <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                  </svg>
+                  <div>
+                    <div className="font-bold">{isEn ? "X Post Generator" : "X 트윗 생성기"}</div>
+                    <div className={`text-[11px] ${adminSubTab === "tweet" ? "text-slate-300" : "text-[#94a3b8]"}`}>
+                      {isEn ? "Instant copy & post" : "원클릭 복사 및 즉시 작성"}
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAdminSubTab("logs")}
+                  className={`w-full px-4 py-3 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-3 text-left ${
+                    adminSubTab === "logs"
+                      ? "bg-[#0f172a] text-white shadow-sm"
+                      : "bg-[#f8fafc] text-[#64748b] hover:bg-[#f1f5f9] hover:text-[#0f172a] border border-[#e2e8f0]"
+                  }`}
+                >
+                  <ShieldAlert className="w-4 h-4 shrink-0" />
+                  <div>
+                    <div className="font-bold">{isEn ? "Audit Logs" : "시스템 감사 로그"}</div>
+                    <div className={`text-[11px] ${adminSubTab === "logs" ? "text-slate-300" : "text-[#94a3b8]"}`}>
+                      {isEn ? "Error monitor & trace" : "오류 모니터링 및 추적"}
+                    </div>
+                  </div>
+                </button>
+              </div>
             </div>
 
             {/* 우측 */}
             <div className="min-w-0">
-              <LogsTab
-                logs={systemLogs}
-                isLoading={isLoading}
-                onRefresh={onRefreshLogs}
-              />
+              {adminSubTab === "tweet" ? (
+                <TweetGeneratorTab reports={guruReports} isEn={isEn} />
+              ) : (
+                <LogsTab
+                  logs={systemLogs}
+                  isLoading={isLoading}
+                  onRefresh={onRefreshLogs}
+                />
+              )}
             </div>
           </div>
         </section>

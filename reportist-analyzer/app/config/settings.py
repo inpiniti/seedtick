@@ -92,5 +92,13 @@ class Settings(BaseSettings):
     # BTC-AI Backend Toss Screener URL (토스 WTS 비공개 API 직접 호출로 전환됨)
     BTC_AI_TOSS_URL: str = "https://younginpiniti-bitcoin-ai-backend.hf.space/toss"
 
+    # X (Twitter) API 연동
+    TWITTER_API_KEY: str = ""
+    TWITTER_API_SECRET: str = ""
+    TWITTER_ACCESS_TOKEN: str = ""
+    TWITTER_ACCESS_TOKEN_SECRET: str = ""
+    TWITTER_CLIENT_ID: str = ""
+    TWITTER_CLIENT_SECRET: str = ""
+
 
 settings = Settings()

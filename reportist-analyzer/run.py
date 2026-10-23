@@ -134,6 +134,37 @@ def cmd_server(args):
     uvicorn.run("app.main:app", host="0.0.0.0", port=args.port, reload=True)
 
 
+def cmd_tweet(args):
+    """X(Twitter)에 종목 분석 요약 트윗 발행"""
+    ticker = args.ticker.upper().strip() if args.ticker else None
+    mode_str = "[가상 발행 (dry-run)]" if args.dry_run else "[실제 트윗 발행]"
+    print(f"\n🐦 {mode_str} X(Twitter) 종목 요약 트윗 실행 중...")
+    from app.domains.social.service import SocialService
+
+    async def _run():
+        service = SocialService()
+        res = await service.publish_stock_tweet(ticker=ticker, dry_run=args.dry_run)
+        print("\n" + "=" * 60)
+        if res.get("success"):
+            print(f"✅ 트윗 처리 완료! (종목: {res.get('ticker')})")
+            if res.get("dry_run"):
+                print("• 모드: 드라이런 (실제 게시되지 않음)")
+            else:
+                print(f"• 트윗 ID: {res.get('tweet_id')}")
+                print(f"• 트윗 링크: {res.get('tweet_url')}")
+            print("-" * 60)
+            print("📝 생성된 트윗 내용:")
+            print(res.get("text"))
+        else:
+            print(f"❌ 트윗 처리 실패: {res.get('error')}")
+            if res.get("text"):
+                print("-" * 60)
+                print(res.get("text"))
+        print("=" * 60 + "\n")
+
+    asyncio.run(_run())
+
+
 def main():
     parser = argparse.ArgumentParser(description="Reportist Analyzer CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -159,6 +190,12 @@ def main():
     p_pipe.add_argument("--dry-run", action="store_true", help="가상 매매 모드")
     p_pipe.add_argument("--count", type=int, default=5, help="분석 대상 상위 종목 수")
     p_pipe.set_defaults(func=cmd_pipeline)
+
+    # tweet
+    p_tweet = subparsers.add_parser("tweet", help="X(Twitter) 종목 분석 요약 트윗 발행")
+    p_tweet.add_argument("--ticker", help="특정 티커 지정 (미지정 시 랜덤 종목 선택)")
+    p_tweet.add_argument("--dry-run", action="store_true", help="실제 발행하지 않고 생성된 트윗 내용만 확인")
+    p_tweet.set_defaults(func=cmd_tweet)
 
     # server
     p_server = subparsers.add_parser("server", help="FastAPI 웹 서버 실행")
