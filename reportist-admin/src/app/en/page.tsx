@@ -99,8 +99,9 @@ const homeEnglishJsonLd = {
         "100% transparent historical track record and valuation formulas",
       ],
       sameAs: [
+        "https://x.com/reportist_app",
         "https://twitter.com/reportist_app",
-        "https://www.producthunt.com/products/reportist",
+        "https://www.producthunt.com/@reportist",
       ],
     },
     {

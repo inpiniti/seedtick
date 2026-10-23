@@ -132,8 +132,9 @@ const organizationJsonLd = {
       },
       image: LOGO_URL,
       sameAs: [
+        "https://x.com/reportist_app",
         "https://twitter.com/reportist_app",
-        "https://www.producthunt.com/products/reportist",
+        "https://www.producthunt.com/@reportist",
       ],
     },
     {

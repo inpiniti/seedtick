@@ -1607,45 +1607,74 @@ export function DashboardView({
               )}
             </div>
 
-            {/* 우측: 주요 바로가기 & 콘솔 정보 & 법적 고지 링크 */}
+            {/* 우측: 주요 바로가기 & 콘솔 정보 & 법적 고지 링크 & 공식 소셜 채널 */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2.5 text-[#94a3b8] text-[11px] flex-wrap">
               <nav aria-label="주요 서비스 바로가기" className="flex items-center gap-2">
                 <Link
-                  href="/stocks"
+                  href={isEn ? "/en/stocks" : "/stocks"}
                   className="hover:text-[#0f172a] transition-colors"
                 >
-                  국내·미국 주식 리포트
+                  {isEn ? "Stock Reports" : "국내·미국 주식 리포트"}
                 </Link>
                 <span>·</span>
                 <Link
-                  href="/screener"
+                  href={isEn ? "/en/screener" : "/screener"}
                   className="hover:text-[#0f172a] transition-colors"
                 >
-                  실시간 스크리너
+                  {isEn ? "Live Screener" : "실시간 스크리너"}
                 </Link>
                 <span>·</span>
                 <Link
-                  href="/gurus"
+                  href={isEn ? "/en/gurus" : "/gurus"}
                   className="hover:text-[#0f172a] transition-colors"
                 >
-                  13인 투자 거장
+                  {isEn ? "13 Gurus" : "13인 투자 거장"}
                 </Link>
               </nav>
               <span className="hidden sm:inline text-slate-300">|</span>
               <div className="flex items-center gap-2">
                 <Link
-                  href="/privacy"
+                  href={isEn ? "/en/privacy" : "/privacy"}
                   className="hover:text-[#0f172a] underline decoration-slate-300 transition-colors"
                 >
-                  개인정보처리방침
+                  {isEn ? "Privacy Policy" : "개인정보처리방침"}
                 </Link>
                 <span>·</span>
                 <Link
-                  href="/terms"
+                  href={isEn ? "/en/terms" : "/terms"}
                   className="hover:text-[#0f172a] underline decoration-slate-300 transition-colors"
                 >
-                  서비스 이용약관
+                  {isEn ? "Terms of Service" : "서비스 이용약관"}
                 </Link>
+              </div>
+              <span className="hidden sm:inline text-slate-300">|</span>
+              {/* 공식 외부 채널 (X & Product Hunt) */}
+              <div className="flex items-center gap-2 text-slate-600">
+                <a
+                  href="https://www.x.com/reportist_app"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-[#0f172a] transition-colors flex items-center gap-1 font-medium"
+                  title="Reportist on X (Twitter)"
+                >
+                  <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                  </svg>
+                  <span>X</span>
+                </a>
+                <span>·</span>
+                <a
+                  href="https://www.producthunt.com/@reportist"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-[#da552f] transition-colors flex items-center gap-1 font-medium"
+                  title="Reportist on Product Hunt"
+                >
+                  <svg className="w-3 h-3 fill-current text-[#da552f]" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M13.6 8.4h-3.4v3.4h3.4c.9 0 1.7-.8 1.7-1.7s-.8-1.7-1.7-1.7zm0-4.8H6.8v16.8h3.4v-5.2h3.4c3.8 0 6.8-3.1 6.8-6.8 0-3.7-3-4.8-6.8-4.8z" />
+                  </svg>
+                  <span>Product Hunt</span>
+                </a>
               </div>
               <span className="hidden sm:inline">·</span>
               <span>Reportist Research Console</span>

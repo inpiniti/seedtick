@@ -104,8 +104,9 @@ const homeJsonLd = {
         "100% 투명한 가치평가 산출식 및 사후 성과(Track Record) 공시",
       ],
       sameAs: [
+        "https://x.com/reportist_app",
         "https://twitter.com/reportist_app",
-        "https://www.producthunt.com/products/reportist",
+        "https://www.producthunt.com/@reportist",
       ],
     },
     {
