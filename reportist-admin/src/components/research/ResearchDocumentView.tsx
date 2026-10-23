@@ -459,6 +459,18 @@ export function ResearchDocumentView({
                 </span>
               )}
 
+              {typeof report.overall_score === "number" && report.overall_score > 0 && (
+                <span
+                  title={isEn ? "Overall comprehensive valuation score combining financials, valuation attractiveness, and sustainability." : "재무 건전성, 밸류에이션 매력도, 지속 가능성을 종합한 스코어입니다."}
+                  className="px-2 py-0.5 rounded border border-[#e2e8f0] bg-[#f8fafc] text-[#475569]"
+                >
+                  {isEn ? "Score:" : "종합점수:"}{" "}
+                  <strong className="text-[#0f172a] font-bold">
+                    {report.overall_score.toFixed(1)}/100
+                  </strong>
+                </span>
+              )}
+
               {stabilityMeta && (
                 <Badge
                   variant={stabilityMeta.variant}

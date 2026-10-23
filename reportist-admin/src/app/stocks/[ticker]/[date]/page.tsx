@@ -162,6 +162,7 @@ export default async function StockDateDetailPage({
           ticker={ticker}
           publishedDate={pageData.publishedDate}
           report={reportForRender}
+          lang="ko"
         />
       </section>
       <noscript>
@@ -170,6 +171,7 @@ export default async function StockDateDetailPage({
           ticker={ticker}
           publishedDate={pageData.publishedDate}
           report={reportForRender}
+          lang="ko"
         />
       </noscript>
       <Suspense fallback={<div className="min-h-screen bg-white" />}>

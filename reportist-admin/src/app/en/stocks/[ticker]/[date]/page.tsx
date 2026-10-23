@@ -121,24 +121,42 @@ export default async function EnglishStockDateDetailPage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       {data.report ? (
-        <Suspense fallback={<div className="min-h-screen bg-white" />}>
-          <DashboardView
-            key={`en-${ticker}-${date}`}
-            initialSection="sec-reports"
-            initialTicker={ticker}
-            initialReport={data.report}
-            initialTab={initialTab}
-            initialDate={date}
-            initialReportDates={data.availableDates}
-            lang="en"
-          />
-          <StockStatsSummaryTable
-            displayName={data.displayName}
-            ticker={ticker}
-            publishedDate={data.publishedDate}
-            report={data.report}
-          />
-        </Suspense>
+        <>
+          {/* AI 크롤러 및 검색 엔진을 위한 SSR 시맨틱 통계 요약 (화면 미노출) */}
+          <section
+            aria-label={`${data.displayName} (${ticker}) ${date} stock forecast and valuation summary`}
+            className="sr-only"
+          >
+            <StockStatsSummaryTable
+              displayName={data.displayName}
+              ticker={ticker}
+              publishedDate={data.publishedDate}
+              report={data.report}
+              lang="en"
+            />
+          </section>
+          <noscript>
+            <StockStatsSummaryTable
+              displayName={data.displayName}
+              ticker={ticker}
+              publishedDate={data.publishedDate}
+              report={data.report}
+              lang="en"
+            />
+          </noscript>
+          <Suspense fallback={<div className="min-h-screen bg-white" />}>
+            <DashboardView
+              key={`en-${ticker}-${date}`}
+              initialSection="sec-reports"
+              initialTicker={ticker}
+              initialReport={data.report}
+              initialTab={initialTab}
+              initialDate={date}
+              initialReportDates={data.availableDates}
+              lang="en"
+            />
+          </Suspense>
+        </>
       ) : (
         <UnanalyzedStockView
           ticker={ticker}

@@ -8,8 +8,8 @@
  *   isAccessibleForFree "False" + hasPart.cssSelector 로 명시한다.
  */
 
-import { absoluteUrl, SITE_URL } from "@/lib/siteConfig";
-import type { GuruReportRow } from "@/types/api";
+import { absoluteUrl, SITE_URL } from "../siteConfig";
+import type { GuruReportRow } from "../../types/api";
 
 interface BuildStockJsonLdParams {
   displayName: string;
@@ -162,20 +162,28 @@ export function buildStockJsonLd({
               },
               isAccessibleForFree: isPublicDate ? "True" : "False",
               temporalCoverage: publishedDate || undefined,
-              variableMeasured: [
-                "거장 찬성 표수",
-                "거장 관망 표수",
-                "거장 매도 표수",
-                "거장 종합 의견",
-                "가치평가 종합 점수",
-              ],
+              variableMeasured: isEn
+                ? [
+                    "Gurus Buying Votes",
+                    "Gurus Watching Votes",
+                    "Gurus Selling Votes",
+                    "13 Guru Consensus Verdict",
+                    "Overall Valuation Score",
+                  ]
+                : [
+                    "거장 찬성 표수",
+                    "거장 관망 표수",
+                    "거장 매도 표수",
+                    "거장 종합 의견",
+                    "가치평가 종합 점수",
+                  ],
               additionalProperty: [
                 ...(typeof report.votes_buy === "number"
                   ? [
                       {
                         "@type": "PropertyValue",
-                        name: "거장 찬성 표수",
-                        value: `${report.votes_buy}명`,
+                        name: isEn ? "Gurus Buying Votes" : "거장 찬성 표수",
+                        value: isEn ? `${report.votes_buy}` : `${report.votes_buy}명`,
                       },
                     ]
                   : []),
@@ -184,10 +192,10 @@ export function buildStockJsonLd({
                   ? [
                       {
                         "@type": "PropertyValue",
-                        name: "거장 관망 표수",
-                        value: `${
-                          (report.votes_watch || 0) + (report.votes_hold || 0)
-                        }명`,
+                        name: isEn ? "Gurus Watching Votes" : "거장 관망 표수",
+                        value: isEn
+                          ? `${(report.votes_watch || 0) + (report.votes_hold || 0)}`
+                          : `${(report.votes_watch || 0) + (report.votes_hold || 0)}명`,
                       },
                     ]
                   : []),
@@ -195,8 +203,8 @@ export function buildStockJsonLd({
                   ? [
                       {
                         "@type": "PropertyValue",
-                        name: "거장 매도 표수",
-                        value: `${report.votes_sell}명`,
+                        name: isEn ? "Gurus Selling Votes" : "거장 매도 표수",
+                        value: isEn ? `${report.votes_sell}` : `${report.votes_sell}명`,
                       },
                     ]
                   : []),
@@ -204,8 +212,12 @@ export function buildStockJsonLd({
                   ? [
                       {
                         "@type": "PropertyValue",
-                        name: "거장 종합 의견",
-                        value: report.verdict,
+                        name: isEn ? "13 Guru Consensus Verdict" : "거장 종합 의견",
+                        value: isEn
+                          ? { 매수: "BUY", 보유: "HOLD", 관망: "WATCH", 매도: "SELL" }[
+                              report.verdict
+                            ] || report.verdict
+                          : report.verdict,
                       },
                     ]
                   : []),
@@ -214,8 +226,10 @@ export function buildStockJsonLd({
                   ? [
                       {
                         "@type": "PropertyValue",
-                        name: "가치평가 종합 점수",
-                        value: `${report.overall_score.toFixed(1)}점`,
+                        name: isEn ? "Overall Valuation Score" : "가치평가 종합 점수",
+                        value: isEn
+                          ? `${report.overall_score.toFixed(1)} pts`
+                          : `${report.overall_score.toFixed(1)}점`,
                       },
                     ]
                   : []),
@@ -234,18 +248,32 @@ export function buildStockJsonLd({
               mainEntity: [
                 {
                   "@type": "Question",
-                  name: `${displayName}(${ticker})의 13인 거장 종합 주가 전망 의견은 어떤가요?`,
+                  name: isEn
+                    ? `What is the 13-guru consensus valuation verdict for ${displayName} (${ticker})?`
+                    : `${displayName}(${ticker})의 13인 거장 종합 주가 전망 의견은 어떤가요?`,
                   acceptedAnswer: {
                     "@type": "Answer",
-                    text: `워런 버핏, 피터 린치 등 13인의 전설적 투자 거장 AI 에이전트 분석 결과, ${displayName}의 종합 투자의견은 "${report.verdict || "분석 완료"}"입니다. 세부 표결 현황은 찬성 ${report.votes_buy ?? 0}명, 관망 ${(report.votes_watch ?? 0) + (report.votes_hold ?? 0)}명, 매도 ${report.votes_sell ?? 0}명입니다.`,
+                    text: isEn
+                      ? `Based on multi-agent analysis by 13 legendary value investors (including Warren Buffett and Peter Lynch), the consensus investment verdict for ${displayName} is "${
+                          { 매수: "BUY", 보유: "HOLD", 관망: "WATCH", 매도: "SELL" }[
+                            report.verdict || ""
+                          ] || report.verdict || "ANALYZED"
+                        }". Vote distribution: Buy ${report.votes_buy ?? 0}, Watch ${
+                          (report.votes_watch ?? 0) + (report.votes_hold ?? 0)
+                        }, Sell ${report.votes_sell ?? 0} (out of 13 gurus).`
+                      : `워런 버핏, 피터 린치 등 13인의 전설적 투자 거장 AI 에이전트 분석 결과, ${displayName}의 종합 투자의견은 "${report.verdict || "분석 완료"}"입니다. 세부 표결 현황은 찬성 ${report.votes_buy ?? 0}명, 관망 ${(report.votes_watch ?? 0) + (report.votes_hold ?? 0)}명, 매도 ${report.votes_sell ?? 0}명입니다.`,
                   },
                 },
                 {
                   "@type": "Question",
-                  name: `${displayName}(${ticker})의 적정주가 및 내재가치는 어떻게 산출되나요?`,
+                  name: isEn
+                    ? `How are intrinsic fair value and price forecasts calculated for ${displayName} (${ticker})?`
+                    : `${displayName}(${ticker})의 적정주가 및 내재가치는 어떻게 산출되나요?`,
                   acceptedAnswer: {
                     "@type": "Answer",
-                    text: `리포티스트는 DCF(현금흐름할인), NCAV, Graham Number, Lynch Fair PE 등 거장들의 고유 밸류에이션 공식을 기반으로 기업의 내재가치와 안전마진 밴드를 산출하여 향후 주가 전망을 객관적으로 제시합니다.`,
+                    text: isEn
+                      ? `Reportist calculates intrinsic fair value and margin of safety bands using systematic valuation models (such as DCF, Graham Number, NCAV, and Lynch Fair PE) derived from the original books and filings of legendary investors.`
+                      : `리포티스트는 DCF(현금흐름할인), NCAV, Graham Number, Lynch Fair PE 등 거장들의 고유 밸류에이션 공식을 기반으로 기업의 내재가치와 안전마진 밴드를 산출하여 향후 주가 전망을 객관적으로 제시합니다.`,
                   },
                 },
               ],
