@@ -13,9 +13,22 @@ import { SITE_URL } from "@/lib/siteConfig";
 export const revalidate = 300;
 
 export const metadata: Metadata = {
-  title: "리포티스트 · 13인 투자 거장 AI 적정주가 및 국내·미국 주식 리포트",
+  title: "리포티스트 · 13인 투자 거장 AI 적정주가 및 국내·미국 주식 리포트 | Reportist Research",
   description:
-    "감정에 휘둘리는 투자를 끝내세요. 리포티스트(Reportist)는 워런 버핏, 벤저민 그레이엄, 피터 린치 등 13인 거장의 밸류에이션 모델로 국내 및 미국 주식의 적정 내재가치와 안전마진 밴드를 매일 분석합니다.",
+    "감정에 휘둘리는 투자를 끝내세요. 리포티스트(Reportist Research)는 워런 버핏, 벤저민 그레이엄, 피터 린치 등 13인 거장의 밸류에이션 모델로 국내 및 미국 주식의 적정주가(Fair Value)와 안전마진 밴드를 매일 분석합니다.",
+  keywords: [
+    "리포티스트",
+    "Reportist",
+    "Reportist stock",
+    "Reportist fair value",
+    "Reportist research",
+    "적정주가",
+    "내재가치",
+    "13인 투자 거장",
+    "국내 주식 리포트",
+    "미국 주식 리포트",
+    "주식 스크리너",
+  ],
   alternates: {
     canonical: "/",
     languages: {
@@ -25,7 +38,7 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: "리포티스트(Reportist) · 13인 투자 거장 AI 주식 리서치 플랫폼",
+    title: "리포티스트(Reportist Research) · 13인 투자 거장 AI 주식 리서치 플랫폼",
     description:
       "왜 이걸 사야 할까? 13인 투자 거장이 합의한 적정주가, 5단계 우량주 스크리너, 100% 공개된 산출식과 투명한 성과 추적.",
     type: "website",
@@ -41,7 +54,12 @@ const homeJsonLd = {
       "@id": `${SITE_URL}/#webpage`,
       url: SITE_URL,
       name: "리포티스트 · 13인 투자 거장 AI 적정주가 및 국내·미국 주식 리포트",
-      alternateName: "Reportist",
+      alternateName: [
+        "Reportist",
+        "Reportist Research",
+        "Reportist Stock",
+        "Reportist Fair Value",
+      ],
       description:
         "워런 버핏, 벤저민 그레이엄, 피터 린치 등 13인 투자 거장의 원전 철학과 퀀트 알고리즘으로 국내 및 미국 주식의 적정주가와 안전마진을 매일 분석하는 독립 주식 리서치 시스템",
       inLanguage: "ko",
@@ -54,21 +72,41 @@ const homeJsonLd = {
         { "@type": "Thing", name: "미국 주식 리포트" },
         { "@type": "Thing", name: "13인 투자 거장" },
         { "@type": "Thing", name: "주식 스크리너" },
+        { "@type": "Thing", name: "Reportist Stock Research" },
+        { "@type": "Thing", name: "Stock Fair Value Valuation" },
       ],
     },
     {
-      "@type": "SoftwareApplication",
+      "@type": ["SoftwareApplication", "WebApplication"],
       "@id": `${SITE_URL}/#application`,
-      name: "리포티스트 (Reportist)",
+      name: "Reportist",
+      alternateName: [
+        "리포티스트",
+        "Reportist Research",
+        "Reportist Stock Screener",
+        "Reportist Fair Value Calculator",
+      ],
       applicationCategory: "FinanceApplication",
+      applicationSubCategory: "Stock Valuation & Investment Research",
       operatingSystem: "Web",
+      url: SITE_URL,
       offers: {
         "@type": "Offer",
         price: "0",
         priceCurrency: "KRW",
       },
       description:
-        "13인 투자 거장(워런 버핏, 벤저민 그레이엄, 피터 린치 등)의 철학을 기반으로 적정 내재가치를 자동 분석하고 매일 리포트를 발행하는 AI 가치투자 리서치 플랫폼",
+        "13인 투자 거장(워런 버핏, 벤저민 그레이엄, 피터 린치 등)의 철학을 기반으로 국내 및 미국 주식의 적정주가(Fair Value)를 자동 분석하고 매일 리포트를 발행하는 AI 가치투자 리서치 소프트웨어(SoftwareApplication).",
+      featureList: [
+        "13인 투자 거장(워런 버핏, 벤저민 그레이엄, 피터 린치 등) 퀀트 가치평가 및 적정주가(Fair Value) 자동 산출",
+        "국내 및 미국 주식 일일 자동 리서치 리포트 발행",
+        "5단계 재무 건전성 퀀트 스크리너",
+        "100% 투명한 가치평가 산출식 및 사후 성과(Track Record) 공시",
+      ],
+      sameAs: [
+        "https://twitter.com/reportist_app",
+        "https://www.producthunt.com/products/reportist",
+      ],
     },
     {
       "@type": "FAQPage",

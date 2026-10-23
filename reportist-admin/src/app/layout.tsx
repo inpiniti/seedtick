@@ -29,6 +29,11 @@ export const metadata: Metadata = {
   keywords: [
     "리포티스트",
     "Reportist",
+    "Reportist stock",
+    "Reportist fair value",
+    "Reportist research",
+    "Reportist valuation",
+    "stock fair value calculator",
     "국내 주식 리포트",
     "미국 주식 리포트",
     "주식 보고서",
@@ -40,6 +45,7 @@ export const metadata: Metadata = {
     "워런 버핏",
     "피터 린치",
     "주식 스크리너",
+    "equity research",
   ],
   authors: [{ name: "Reportist Research", url: SITE_URL }],
   creator: "Reportist Research",
@@ -114,8 +120,10 @@ const organizationJsonLd = {
       "@type": "Organization",
       "@id": `${SITE_URL}/#organization`,
       name: "Reportist Research",
-      alternateName: "리포티스트",
+      alternateName: ["Reportist", "리포티스트", "Reportist Stock Research"],
       url: SITE_URL,
+      description:
+        "AI-powered stock analysis, deterministic fair value valuation and quantitative equity research platform based on 13 legendary investment gurus.",
       logo: {
         "@type": "ImageObject",
         url: LOGO_URL,
@@ -123,14 +131,25 @@ const organizationJsonLd = {
         height: 120,
       },
       image: LOGO_URL,
+      sameAs: [
+        "https://twitter.com/reportist_app",
+        "https://www.producthunt.com/products/reportist",
+      ],
     },
     {
       "@type": "WebSite",
       "@id": `${SITE_URL}/#website`,
       url: SITE_URL,
       name: "리포티스트 Reportist Research",
-      alternateName: "리포티스트",
-      inLanguage: "ko",
+      alternateName: [
+        "Reportist",
+        "리포티스트",
+        "Reportist Research",
+        "Reportist Stock Fair Value",
+      ],
+      description:
+        "Deterministic stock fair value valuation and quantitative equity research powered by 13 legendary investment gurus.",
+      inLanguage: ["ko", "en"],
       publisher: {
         "@id": `${SITE_URL}/#organization`,
       },

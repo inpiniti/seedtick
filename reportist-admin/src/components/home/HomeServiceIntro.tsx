@@ -100,7 +100,11 @@ export function HomeServiceIntro({
         <div className="relative z-10 max-w-4xl space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-400/30 font-mono text-xs text-blue-300">
             <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-            <span>AI VALUE INVESTING RESEARCH PLATFORM</span>
+            <span>
+              {isEn
+                ? "REPORTIST · AI STOCK RESEARCH & FAIR VALUE PLATFORM"
+                : "AI VALUE INVESTING RESEARCH PLATFORM"}
+            </span>
           </div>
 
           <div className="space-y-3">
@@ -110,9 +114,9 @@ export function HomeServiceIntro({
                   Stop emotional investing.
                   <br />
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-sky-300 to-teal-300">
-                    Discover deterministic intrinsic values
+                    Discover stock fair values
                   </span>{" "}
-                  from 13 investment legends
+                  with Reportist Research
                 </>
               ) : (
                 <>
