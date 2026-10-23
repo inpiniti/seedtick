@@ -2093,22 +2093,27 @@ export function ResearchCatalogView({
               : "국내·미국 전 종목의 13인 투자 거장 AI 가치평가 리포트, 적정주가와 내재가치 밴드를 확인하세요. 종목을 선택하면 해당 종목의 리포트 아카이브로 이동합니다."}
           </p>
           <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-x-5 gap-y-1">
-            {tickerDirectory.map((entry) => (
-              <li key={entry.ticker}>
-                <Link
-                  href={isEn ? `/en/stocks/${encodeURIComponent(entry.ticker)}` : `/stocks/${encodeURIComponent(entry.ticker)}`}
-                  className="flex items-baseline gap-1.5 text-[11px] font-mono text-[#475569] hover:text-[#0f172a] hover:underline underline-offset-2 py-0.5 min-w-0"
-                >
-                  <span className="font-bold text-[#0f172a] shrink-0">
-                    {entry.ticker}
-                  </span>
-                  {entry.name &&
-                    entry.name.toUpperCase() !== entry.ticker.toUpperCase() && (
-                      <span className="truncate">{entry.name}</span>
-                    )}
-                </Link>
-              </li>
-            ))}
+            {tickerDirectory.map((entry) => {
+              const displayName = isEn
+                ? getEnglishCompanyName(entry.ticker, entry.name)
+                : entry.name;
+              return (
+                <li key={entry.ticker}>
+                  <Link
+                    href={isEn ? `/en/stocks/${encodeURIComponent(entry.ticker)}` : `/stocks/${encodeURIComponent(entry.ticker)}`}
+                    className="flex items-baseline gap-1.5 text-[11px] font-mono text-[#475569] hover:text-[#0f172a] hover:underline underline-offset-2 py-0.5 min-w-0"
+                  >
+                    <span className="font-bold text-[#0f172a] shrink-0">
+                      {entry.ticker}
+                    </span>
+                    {displayName &&
+                      displayName.toUpperCase() !== entry.ticker.toUpperCase() && (
+                        <span className="truncate">{displayName}</span>
+                      )}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </nav>
       )}

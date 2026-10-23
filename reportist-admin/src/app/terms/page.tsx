@@ -8,6 +8,11 @@ export const metadata: Metadata = {
   description: "Reportist 서비스의 이용약관입니다. 투자 정보 열람 및 멤버십 이용 조건을 확인하세요.",
   alternates: {
     canonical: "/terms",
+    languages: {
+      ko: "/terms",
+      en: "/en/terms",
+      "x-default": "/terms",
+    },
   },
 };
 

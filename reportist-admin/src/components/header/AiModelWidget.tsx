@@ -4,6 +4,7 @@ import React from "react";
 import { AiModelStatus } from "@/types/api";
 import { Button } from "@/components/ui/Button";
 import { Cpu, RotateCcw } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface AiModelWidgetProps {
   aiModel: AiModelStatus | null;
@@ -12,8 +13,9 @@ interface AiModelWidgetProps {
 }
 
 export function AiModelWidget({ aiModel, isResetting, onReset }: AiModelWidgetProps) {
+  const { isEn } = useLanguage();
   const isFirst = aiModel?.is_first ?? true;
-  const activeModel = aiModel?.active_model || "대기 중";
+  const activeModel = aiModel?.active_model || (isEn ? "Idle" : "대기 중");
   const rankLabel = aiModel
     ? `${aiModel.active_index + 1}/${aiModel.chain.length}`
     : "-";
@@ -49,7 +51,7 @@ export function AiModelWidget({ aiModel, isResetting, onReset }: AiModelWidgetPr
             isLoading={isResetting}
             disabled={isFirst && (aiModel?.switch_count ?? 0) === 0}
             className="h-5 px-1 text-[10px] text-[#64748b] hover:text-[#0f172a] rounded"
-            title="모델 순위를 1순위로 리셋"
+            title={isEn ? "Reset model rotation rank to 1st" : "모델 순위를 1순위로 리셋"}
           >
             {!isResetting ? <RotateCcw className="w-2.5 h-2.5" /> : null}
           </Button>
