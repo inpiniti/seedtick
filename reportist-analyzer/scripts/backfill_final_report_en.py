@@ -51,6 +51,22 @@ GURU_EN_NAME_MAP = {
     "마이클 버리": "Michael Burry",
 }
 
+GURU_EN_THESIS_MAP = {
+    "벤저민 그레이엄": "Net-Current-Asset Value (NCAV) & Absolute Margin of Safety (P/E < 15, P/B < 1.5)",
+    "세스 클라먼": "Margin of Safety, Unlevered Balance Sheet & Downside Capital Preservation",
+    "모니시 파브라이": "Dhandho Framework (Heads I win, tails I don't lose much) & Low Risk / High Uncertainty",
+    "조엘 그린블라트": "Magic Formula Ranking (High Return on Capital / ROIC + High Earnings Yield)",
+    "앙드레 코스톨라니": "Anticyclonic Egg Theory & Market Psychology (Buy on Panics, Sell on Euphoria)",
+    "잭 슈웨거": "Trend Following, Risk-to-Reward Asymmetry & Systematic Drawdown Control",
+    "워런 버핏": "Durable Economic Moat, High Capital Return (ROE ≥ 15%) & Owner Earnings",
+    "필립 피셔": "Scuttlebutt Research, 15 Growth Points & Long-term Exceptional Compounding",
+    "찰리 멍거": "Multi-Disciplinary Mental Models, Inversion Thinking & High-Quality Business Moats",
+    "피터 린치": "Everyday Consumer Insights, 6 Company Categories & PEG Ratio < 1.0",
+    "애스워스 다모다란": "Intrinsic DCF Valuation, Free Cash Flow to Firm (FCFF) & Story-to-Numbers Bridge",
+    "존 템플턴": "Global Bargain Hunting & Point of Maximum Pessimism Contrarian Value",
+    "마이클 버리": "Forensic Financial Accounting, Asymmetric Tail Risk & Deep Value Catalyst",
+}
+
 STYLE_EN_MAP = {
     "가치/안전마진": "Value / Safety Margin",
     "성장/GARP": "Growth / GARP",
@@ -63,6 +79,29 @@ STYLE_EN_MAP = {
 }
 
 VERDICT_EN_MAP = {"매수": "BUY", "보유": "HOLD", "관망": "WATCH", "매도": "SELL"}
+
+
+def translate_review_flag_en(flag: str) -> str:
+    """국문 검토 플래그를 표준 영문 문구로 변환."""
+    if not flag:
+        return ""
+    m_disp = re.search(r"분산이\s*([\d\.]+)%로\s*기준\s*([\d\.]+)%\s*초과", flag)
+    if m_disp:
+        disp_val, th_val = m_disp.group(1), m_disp.group(2)
+        return f"Valuation dispersion is {disp_val}%, exceeding the {th_val}% threshold (High variance across personas)"
+    if "추정 인원 부족" in flag or "유효 적정가" in flag:
+        return "Insufficient valid fair value estimates; band estimation withheld"
+    if "단일 적정가 신뢰도 주의" in flag:
+        return "Single fair value confidence warning due to missing persona responses"
+    if "안전마진 가격 후보가 적정가보다 높아" in flag:
+        return "Margin of safety price candidate exceeded fair value; adjusted to band lower bound (Q1)"
+    if "목표 매도가 후보가 적정가보다 낮아" in flag:
+        return "Target exit price candidate fell below fair value; adjusted to band upper bound (Q3)"
+    if "safety_entry_price가 fair_value_price보다" in flag:
+        return "Safety entry price exceeds fair value price"
+    if "fair_value_price가 optimistic_target_price보다" in flag:
+        return "Fair value price exceeds target price"
+    return clean_korean_from_en(flag)
 
 
 def clean_korean_from_en(text: str) -> str:
@@ -172,7 +211,9 @@ def build_final_report_en(row: dict[str, Any]) -> str:
     if data_gap_watch_count > 0:
         lines_en.append(f"- **Conditional Watch**: {data_gap_watch_count} gurus reserved judgment pending additional financial disclosures.")
     if review_flags:
-        lines_en.append("- **Review Items**: " + "; ".join(review_flags))
+        translated_flags = [translate_review_flag_en(f) for f in review_flags if translate_review_flag_en(f)]
+        if translated_flags:
+            lines_en.append("- **Review Items**: " + "; ".join(translated_flags))
 
     # Bull Case
     lines_en.extend(["", "## 2. Key Bullish Catalysts (Bull Case)"])
@@ -231,9 +272,22 @@ def build_final_report_en(row: dict[str, Any]) -> str:
         v_en = VERDICT_EN_MAP.get(v_raw, v_raw)
         conf = s.get("confidence", "—")
         target = clean_korean_from_en((s.get("target_price_range") or "—").replace("|", "/"))
-        args = s.get("core_arguments") or []
-        arg = clean_korean_from_en((args[0] if args else "").replace("|", "/"))
-        lines_en.append(f"| {guru_en} | {v_en} | {conf}/10 | {target} | {arg} |")
+        if (ticker.isdigit() or len(ticker) == 6) and "$" in target:
+            target = target.replace("$", "KRW ")
+
+        core_focus = GURU_EN_THESIS_MAP.get(guru_name, "Fundamental Valuation")
+        if v_en == "BUY":
+            thesis_en = f"Meets criteria: {core_focus}"
+        elif v_en == "HOLD":
+            thesis_en = f"Balanced on criteria: {core_focus}"
+        elif v_en == "WATCH":
+            thesis_en = f"Awaiting clearer signals on: {core_focus}"
+        elif v_en == "SELL":
+            thesis_en = f"Fails conservative criteria: {core_focus}"
+        else:
+            thesis_en = core_focus
+
+        lines_en.append(f"| {guru_en} | {v_en} | {conf}/10 | {target} | {thesis_en} |")
 
     lines_en.extend(["", "*This report is generated via simulated book-based AI personas and does not constitute financial advice.*"])
     return "\n".join(lines_en)
@@ -257,8 +311,8 @@ def main():
         logger.error("Supabase credentials not found.")
         sys.exit(1)
 
-    # 1. conclusion_en이 있는 레코드들 우선 조회 (최신 보고서들)
-    fetch_url = f"{url}/rest/v1/guru_reports?select=*&conclusion_en=not.is.null&final_report_en=is.null&order=d.desc&limit=200"
+    # 1. conclusion_en이 있는 레코드들 조회 (최신 보고서들 전체 갱신)
+    fetch_url = f"{url}/rest/v1/guru_reports?select=*&conclusion_en=not.is.null&order=d.desc&limit=200"
     req = urllib.request.Request(fetch_url, headers={
         "apikey": key,
         "Authorization": f"Bearer {key}",
