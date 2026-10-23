@@ -634,6 +634,7 @@ class GuruReportService:
         # 티커 로고 테이블에 영문명 및 한글명 동기화
         eng_name = getattr(datapack, "company_name_en", "") or getattr(report, "company_name_en", "")
         if eng_name or datapack.company_name:
+            clean_ticker = (ticker or "").strip().upper()
             try:
                 self.supabase.upsert_ticker_logo(
                     ticker=clean_ticker,

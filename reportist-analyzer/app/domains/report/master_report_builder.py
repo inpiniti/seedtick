@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any, Literal
 
 from app.config.constants import GURU_REPORT_ROSTER
@@ -22,6 +23,57 @@ from app.domains.report.models import (
 from app.domains.report.structuring import as_str_list, extract_json_object, format_price_range
 
 logger = logging.getLogger("master_report_builder")
+
+GURU_EN_NAME_MAP = {
+    "벤저민 그레이엄": "Benjamin Graham",
+    "세스 클라먼": "Seth Klarman",
+    "모니시 파브라이": "Mohnish Pabrai",
+    "조엘 그린블라트": "Joel Greenblatt",
+    "앙드레 코스톨라니": "André Kostolany",
+    "잭 슈웨거": "Jack Schwager",
+    "워런 버핏": "Warren Buffett",
+    "필립 피셔": "Philip Fisher",
+    "찰리 멍거": "Charlie Munger",
+    "피터 린치": "Peter Lynch",
+    "애스워스 다모다란": "Aswath Damodaran",
+    "존 템플턴": "John Templeton",
+    "마이클 버리": "Michael Burry",
+}
+
+STYLE_EN_MAP = {
+    "가치/안전마진": "Value / Safety Margin",
+    "성장/GARP": "Growth / GARP",
+    "퀄리티/자본수익률": "Quality / Capital Efficiency",
+    "퀀트/자본수익률": "Quant / Capital Efficiency",
+    "DCF/가치평가": "DCF / Valuation",
+    "매크로/유동성": "Macro / Liquidity",
+    "모멘텀/추세추종": "Momentum / Trend",
+    "포렌식/회계검증": "Forensic / Accounting",
+}
+
+VERDICT_EN_MAP = {"매수": "BUY", "보유": "HOLD", "관망": "WATCH", "매도": "SELL"}
+
+
+def clean_korean_from_en(text: str) -> str:
+    """영문 텍스트 내에 섞인 한글 투자의견 및 한글 단어들을 영문 표준 용어로 치환 및 정제."""
+    if not text:
+        return ""
+    s = text
+    # 괄호 안 한글 투자의견: (관망) -> (WATCH), (매수) -> (BUY), (보유) -> (HOLD), (매도) -> (SELL)
+    s = re.sub(r"\(\s*관망\s*\)", "(WATCH)", s)
+    s = re.sub(r"\(\s*매수\s*\)", "(BUY)", s)
+    s = re.sub(r"\(\s*보유\s*\)", "(HOLD)", s)
+    s = re.sub(r"\(\s*매도\s*\)", "(SELL)", s)
+    # 단독 한글 투자의견 치환
+    s = re.sub(r"관망", "WATCH", s)
+    s = re.sub(r"매수", "BUY", s)
+    s = re.sub(r"보유", "HOLD", s)
+    s = re.sub(r"매도", "SELL", s)
+    # 금액/단위 치환
+    s = re.sub(r"조\s*원", "T KRW", s)
+    s = re.sub(r"억\s*원", "00M KRW", s)
+    s = re.sub(r"(\d+)\s*원", r"KRW \1", s)
+    return s.strip()
 
 
 def _format_price(value: float | None, currency: str) -> str:
@@ -128,6 +180,11 @@ async def build_master_report(
 JSON 객체 하나만 출력한다. 필드는 다음과 같다:
 - 한국어 필드: hot_topics(문자열 배열), bull_points(문자열 배열), bear_points(문자열 배열), key_drivers(문자열 배열)
 - 영문 필드(i18n): conclusion_en(영문 요약 1~2문장), hot_topics_en(영문 문자열 배열), bull_points_en(영문 문자열 배열), bear_points_en(영문 문자열 배열), key_drivers_en(영문 문자열 배열)
+
+[영문 필드 작성 필수 규칙]
+- 영문 필드(conclusion_en, hot_topics_en, bull_points_en, bear_points_en, key_drivers_en)는 반드시 100% 영문(English)으로만 작성해야 한다.
+- '관망', '매수', '보유', '매도', '(관망)', '조원', '억원' 등 어떠한 한국어 단어도 영문 필드에 절대 포함하지 마라.
+- 투자의견은 BUY, HOLD, WATCH, SELL 또는 Neutral, Bullish, Bearish 등 영문 표준 용어만 사용하라.
 각 배열은 최대 5개이며, 입력에 없는 사실을 추가하지 않는다.
 마크다운 취소선(~~)을 쓰지 마라. 범위·근사 표기는 물결표(~) 대신 '–' 또는 '부터/까지'를 써라(예: Q1–Q3, 140조–150조원).
 """
@@ -171,24 +228,40 @@ JSON 객체 하나만 출력한다. 필드는 다음과 같다:
     if not hot_topics:
         hot_topics = ["의견 일치도", "적정가 분산", "재무·성장 근거"]
 
-    # 영문 i18n 필드 파싱
-    verdict_en_map = {"매수": "BUY", "보유": "HOLD", "관망": "WATCH", "매도": "SELL"}
-    verdict_en = verdict_en_map.get(consensus.verdict, "WATCH")
-    conclusion_en = str(narrative_payload.get("conclusion_en") or "").strip()
+    # 영문 i18n 필드 파싱 및 한글 정제
+    verdict_en = VERDICT_EN_MAP.get(consensus.verdict, "WATCH")
+    raw_conclusion_en = str(narrative_payload.get("conclusion_en") or "").strip()
+    conclusion_en = clean_korean_from_en(raw_conclusion_en)
     if not conclusion_en:
         conclusion_en = (
             f"Based on deterministic aggregation rules, overall consensus is {verdict_en} "
             f"with {consensus.valid_vote_count}/{EXPECTED_PERSONA_COUNT} valid guru votes. "
             f"Median fair value is {_format_price(consensus.fair_value, currency)}."
         )
-    hot_topics_en = as_str_list(narrative_payload.get("hot_topics_en"), limit=5) or [
-        "Consensus Agreement",
-        "Valuation Dispersion",
-        "Fundamental Growth",
+    hot_topics_en = [
+        clean_korean_from_en(x)
+        for x in (as_str_list(narrative_payload.get("hot_topics_en"), limit=5) or [
+            "Consensus Agreement",
+            "Valuation Dispersion",
+            "Fundamental Growth",
+        ])
+        if clean_korean_from_en(x)
     ]
-    bull_points_en = as_str_list(narrative_payload.get("bull_points_en"), limit=5)
-    bear_points_en = as_str_list(narrative_payload.get("bear_points_en"), limit=5)
-    key_drivers_en = as_str_list(narrative_payload.get("key_drivers_en"), limit=5)
+    bull_points_en = [
+        clean_korean_from_en(x)
+        for x in as_str_list(narrative_payload.get("bull_points_en"), limit=5)
+        if clean_korean_from_en(x)
+    ]
+    bear_points_en = [
+        clean_korean_from_en(x)
+        for x in as_str_list(narrative_payload.get("bear_points_en"), limit=5)
+        if clean_korean_from_en(x)
+    ]
+    key_drivers_en = [
+        clean_korean_from_en(x)
+        for x in as_str_list(narrative_payload.get("key_drivers_en"), limit=5)
+        if clean_korean_from_en(x)
+    ]
 
     # 강세/약세 논거에 페르소나 출처 매핑
     def _map_personas_to_points(points: list[str], target_verdicts: set[str]) -> list[dict]:
@@ -328,6 +401,121 @@ JSON 객체 하나만 출력한다. 필드는 다음과 같다:
     lines.extend(["", "*본 보고서는 서적 기반 페르소나 시뮬레이션이며 투자 자문이 아닙니다.*"])
     raw_markdown = "\n".join(lines)
 
+    # ── 영문 마스터 리포트 마크다운 조립 ─────────────────────
+    fair_value_header_en = (
+        _format_price(consensus.fair_value, currency)
+        if consensus.fair_value is not None
+        else "Pending"
+    )
+    safety_header_en = (
+        f"Below {_format_price(consensus.safety_entry, currency)}"
+        if consensus.safety_entry is not None
+        else "Pending"
+    )
+    target_header_en = (
+        _format_price(consensus.target_sell, currency)
+        if consensus.target_sell is not None
+        else "Pending"
+    )
+    band_header_en = target_band or "Pending"
+    dispersion_text_en = (
+        f"{consensus.dispersion_pct:.1f}%"
+        if consensus.dispersion_pct is not None
+        else "N/A"
+    )
+    vote_summary_en = (
+        consensus.vote_summary.replace("매수", "BUY")
+        .replace("보유", "HOLD")
+        .replace("관망", "WATCH")
+        .replace("매도", "SELL")
+    )
+    company_name_en = datapack.company_name_en or datapack.ticker
+
+    style_desc_items_en = []
+    for bucket_name, b_counts in (consensus.style_breakdown or {}).items():
+        b_en = STYLE_EN_MAP.get(bucket_name, bucket_name)
+        sub_items = [f"{VERDICT_EN_MAP.get(v, v)} {c}" for v, c in b_counts.items() if c > 0]
+        if sub_items:
+            style_desc_items_en.append(f"{b_en} ({', '.join(sub_items)})")
+    style_summary_text_en = " · ".join(style_desc_items_en) if style_desc_items_en else "Calculating"
+
+    mean_score_str_en = (
+        f"Mean {consensus.mean_score:.2f} pts"
+        if consensus.mean_score is not None
+        else "Score Pending"
+    )
+    score_std_str_en = (
+        f"(Std Dev: {consensus.score_std:.2f})"
+        if consensus.score_std is not None
+        else ""
+    )
+
+    lines_en = [
+        f"# {datapack.ticker} ({company_name_en}) Final Investment Master Report",
+        f"> **Date**: {datapack.date} | **Consensus Verdict**: **{verdict_en}** | **Votes**: {vote_summary_en}",
+        f"> **Current Price**: {_format_price(datapack.current_price, currency)} | **13-Guru Fair Value Median**: {fair_value_header_en} (Fair Value Band Q1–Q3: {band_header_en})",
+        f"> **Execution Reference**: [Margin of Safety Entry] {safety_header_en} | [Target Price Upper Reference] {target_header_en}",
+        "",
+        "## 1. Executive Summary & Consensus Rationale",
+        f"- **Consensus Verdict**: {verdict_en}",
+        f"- **Executive Rationale**: {conclusion_en}",
+        f"- **Continuous Score Stats**: {mean_score_str_en} {score_std_str_en} [0=BUY ~ 3=SELL], Net Buy Ratio: {net_buy_str}".replace("  ", " "),
+        f"- **Style Breakdown**: {style_summary_text_en}",
+        f"- **Consensus Rule**: Requires at least {MIN_VALID_PERSONAS} valid votes out of 13. A verdict requires at least 60% agreement; otherwise classified as WATCH.",
+        f"- **Valuation Aggregation**: Median of midpoints from {consensus.price_estimate_count}/{EXPECTED_PERSONA_COUNT} valid price ranges. Fair value band represents the interquartile range (Q1–Q3).",
+        f"- **Valuation Dispersion**: {dispersion_text_en} (Interquartile Range Q1–Q3 width ÷ Median Fair Value; IQR dispersion)",
+    ]
+    if consensus.data_gap_watch_count > 0:
+        lines_en.append(f"- **Conditional Watch**: {consensus.data_gap_watch_count} gurus reserved judgment pending additional financial disclosures.")
+    if consensus.review_flags:
+        lines_en.append("- **Review Items**: " + "; ".join(consensus.review_flags))
+
+    lines_en.extend(["", "## 2. Key Bullish Catalysts (Bull Case)"])
+    if bull_points_en:
+        for b_pt in bull_points_en:
+            lines_en.append(f"- {clean_korean_from_en(b_pt)}")
+    else:
+        lines_en.append("- Insufficient structured bullish arguments collected.")
+
+    lines_en.extend(["", "## 3. Key Bearish Risks (Bear Case)"])
+    if bear_points_en:
+        for b_pt in bear_points_en:
+            lines_en.append(f"- {clean_korean_from_en(b_pt)}")
+    else:
+        lines_en.append("- Insufficient structured bearish arguments collected.")
+
+    lines_en.extend(["", "## 4. Core Analytical Debates & Value Drivers"])
+    lines_en.extend([f"- {clean_korean_from_en(topic)}" for topic in hot_topics_en])
+    lines_en.extend([f"- {clean_korean_from_en(driver)}" for driver in key_drivers_en])
+
+    lines_en.extend(["", "## 5. Practical Investment Reference"])
+    lines_en.append(f"- Margin of Safety Reference: {safety_header_en}")
+    lines_en.append(f"- Current Price: {_format_price(datapack.current_price, currency)}")
+    lines_en.append(f"- Verdict: {verdict_en} (Supermajority vote consensus applied)")
+
+    lines_en.extend(
+        [
+            "",
+            "## 6. 13-Guru Consensus Summary Table",
+            "| Guru | Verdict | Confidence | Fair Value Range | Core Thesis |",
+            "|---|---|---:|---|---|",
+        ]
+    )
+    for guru_name, persona_key in GURU_REPORT_ROSTER:
+        summary = persona_by_key.get(persona_key)
+        guru_en = GURU_EN_NAME_MAP.get(guru_name, guru_name)
+        if summary is None or summary.parse_mode == "fallback":
+            lines_en.append(f"| {guru_en} | NO RESPONSE | — | — | — |")
+            continue
+        v_en = VERDICT_EN_MAP.get(summary.verdict, summary.verdict)
+        argument = clean_korean_from_en((summary.core_arguments[0] if summary.core_arguments else "").replace("|", "/"))
+        target = clean_korean_from_en((summary.target_price_range or "—").replace("|", "/"))
+        lines_en.append(
+            f"| {guru_en} | {v_en} | {summary.confidence}/10 | {target} | {argument} |"
+        )
+    lines_en.extend(["", "*This report is generated via simulated book-based AI personas and does not constitute financial advice.*"])
+    raw_markdown_en = "\n".join(lines_en)
+
     bull_str = "; ".join(bull_points) or "강세 논거 수집 부족"
     bear_str = "; ".join(bear_points) or "약세 논거 수집 부족"
     return FinalMasterReport(
@@ -365,6 +553,7 @@ JSON 객체 하나만 출력한다. 필드는 다음과 같다:
         bull_points_en=bull_points_en,
         bear_points_en=bear_points_en,
         key_drivers_en=key_drivers_en,
+        final_report_en=raw_markdown_en,
         band_low=consensus.band_low,
         band_high=consensus.band_high,
         safety_entry_value=consensus.safety_entry,
