@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { DashboardView } from "@/components/dashboard/DashboardView";
+import { buildBreadcrumbJsonLd } from "@/lib/server/catalogJsonLd";
 import { SITE_URL } from "@/lib/siteConfig";
 
 export const metadata: Metadata = {
@@ -19,6 +20,11 @@ export const metadata: Metadata = {
   },
 };
 
+const feedbackBreadcrumbJsonLd = buildBreadcrumbJsonLd([
+  { name: "리포티스트 홈", path: "/" },
+  { name: "의견 및 기능 제안함", path: "/feedback" },
+]);
+
 const feedbackJsonLd = {
   "@context": "https://schema.org",
   "@type": "WebPage",
@@ -33,6 +39,10 @@ const feedbackJsonLd = {
 export default function FeedbackPage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(feedbackBreadcrumbJsonLd) }}
+      />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(feedbackJsonLd) }}

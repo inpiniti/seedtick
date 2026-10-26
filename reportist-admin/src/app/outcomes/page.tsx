@@ -2,8 +2,14 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { DashboardView } from "@/components/dashboard/DashboardView";
 import { getOutcomesOverview } from "@/lib/server/outcomesData";
+import { buildBreadcrumbJsonLd } from "@/lib/server/catalogJsonLd";
 import { absoluteUrl } from "@/lib/siteConfig";
 import type { OutcomesOverview } from "@/types/api";
+
+const outcomesBreadcrumbJsonLd = buildBreadcrumbJsonLd([
+  { name: "리포티스트 홈", path: "/" },
+  { name: "투자 리포트 성과 및 거장 적중률", path: "/outcomes" },
+]);
 
 /**
  * 성과 추적 데이터는 하루 1회 갱신되므로 1시간 주기면 충분하다.
@@ -53,6 +59,10 @@ export default async function OutcomesPage() {
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(outcomesBreadcrumbJsonLd) }}
+      />
       {itemListJsonLd ? (
         <script
           type="application/ld+json"

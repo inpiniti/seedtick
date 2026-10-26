@@ -56,3 +56,22 @@ export function buildGuruListJsonLd(): object | null {
 
 /** 웹사이트 검색 엔진용 WebSite + Organization 통합 JSON-LD (이미 layout 에서 제공) */
 export const SITE_JSON_LD_ID = `${SITE_URL}/#website`;
+
+export interface BreadcrumbItem {
+  name: string;
+  path: string;
+}
+
+/** 구글 검색엔진 사이트링크 및 계층 탐색용 BreadcrumbList JSON-LD */
+export function buildBreadcrumbJsonLd(items: BreadcrumbItem[]): object {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.name,
+      item: absoluteUrl(item.path),
+    })),
+  };
+}

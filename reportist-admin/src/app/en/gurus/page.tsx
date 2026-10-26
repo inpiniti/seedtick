@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { DashboardView } from "@/components/dashboard/DashboardView";
-import { buildGuruListJsonLd } from "@/lib/server/catalogJsonLd";
+import { buildGuruListJsonLd, buildBreadcrumbJsonLd } from "@/lib/server/catalogJsonLd";
 
 export const metadata: Metadata = {
   title: "13 Guru Methodologies & Valuation Guides · Reportist",
@@ -24,11 +24,20 @@ export const metadata: Metadata = {
   },
 };
 
+const enGurusBreadcrumbJsonLd = buildBreadcrumbJsonLd([
+  { name: "Reportist Home", path: "/en" },
+  { name: "13 Guru Methodologies & Valuation Guides", path: "/en/gurus" },
+]);
+
 export default function EnglishGurusPage() {
   const itemListJsonLd = buildGuruListJsonLd();
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(enGurusBreadcrumbJsonLd) }}
+      />
       {itemListJsonLd ? (
         <script
           type="application/ld+json"

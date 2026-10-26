@@ -2,8 +2,14 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { DashboardView } from "@/components/dashboard/DashboardView";
 import { getOutcomesOverview } from "@/lib/server/outcomesData";
+import { buildBreadcrumbJsonLd } from "@/lib/server/catalogJsonLd";
 import { absoluteUrl } from "@/lib/siteConfig";
 import type { OutcomesOverview } from "@/types/api";
+
+const enOutcomesBreadcrumbJsonLd = buildBreadcrumbJsonLd([
+  { name: "Reportist Home", path: "/en" },
+  { name: "Track Record & 13 Guru Accuracy", path: "/en/outcomes" },
+]);
 
 export const revalidate = 3600;
 
@@ -52,6 +58,10 @@ export default async function EnglishOutcomesPage() {
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(enOutcomesBreadcrumbJsonLd) }}
+      />
       {itemListJsonLd ? (
         <script
           type="application/ld+json"

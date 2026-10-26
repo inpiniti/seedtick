@@ -141,18 +141,26 @@ const organizationJsonLd = {
       "@type": "WebSite",
       "@id": `${SITE_URL}/#website`,
       url: SITE_URL,
-      name: "리포티스트 Reportist Research",
+      name: "리포티스트",
       alternateName: [
         "Reportist",
-        "리포티스트",
+        "리포티스트(Reportist)",
         "Reportist Research",
-        "Reportist Stock Fair Value",
+        "Reportist Stock Research",
       ],
       description:
-        "Deterministic stock fair value valuation and quantitative equity research powered by 13 legendary investment gurus.",
+        "워런 버핏, 벤저민 그레이엄, 피터 린치 등 13인 투자 거장의 원전 철학과 퀀트 알고리즘으로 분석한 주식 적정주가 리서치 플랫폼",
       inLanguage: ["ko", "en"],
       publisher: {
         "@id": `${SITE_URL}/#organization`,
+      },
+      potentialAction: {
+        "@type": "SearchAction",
+        target: {
+          "@type": "EntryPoint",
+          urlTemplate: `${SITE_URL}/stocks?q={search_term_string}`,
+        },
+        "query-input": "required name=search_term_string",
       },
     },
     {
@@ -162,26 +170,92 @@ const organizationJsonLd = {
       hasPart: [
         {
           "@type": "SiteNavigationElement",
-          name: "국내 및 미국 주식 리포트 목록",
-          url: `${SITE_URL}/stocks`,
-        },
-        {
-          "@type": "SiteNavigationElement",
           name: "실시간 주식 스크리너",
+          description: "13인 거장 원칙 통과 종목 및 실시간 퀀트 스크리너",
           url: `${SITE_URL}/screener`,
         },
         {
           "@type": "SiteNavigationElement",
+          name: "투자 성과 및 거장 적중률",
+          description: "발행 리포트의 실제 수익률 및 13인 거장 적중률(Track Record)",
+          url: `${SITE_URL}/outcomes`,
+        },
+        {
+          "@type": "SiteNavigationElement",
+          name: "거장 표결 랭킹 및 통계",
+          description: "13인 투자 대가 AI 최다 찬성 종목 Top 10 및 종합 통계",
+          url: `${SITE_URL}/stats`,
+        },
+        {
+          "@type": "SiteNavigationElement",
+          name: "국내 및 미국 주식 리포트",
+          description: "13인 거장 AI 적정주가 및 내재가치 밴드 리포트 목록",
+          url: `${SITE_URL}/stocks`,
+        },
+        {
+          "@type": "SiteNavigationElement",
           name: "13인 투자 거장 철학 가이드",
+          description: "워런 버핏, 피터 린치 등 13인 거장 밸류에이션 철학 및 심사 기준",
           url: `${SITE_URL}/gurus`,
         },
         {
           "@type": "SiteNavigationElement",
           name: "멤버십 요금제",
+          description: "리포티스트 무료 체험 및 Pro 멤버십 혜택 비교",
           url: `${SITE_URL}/pricing`,
         },
         {
           "@type": "SiteNavigationElement",
+          name: "의견 및 기능 제안함",
+          description: "사용자 피드백, 기능 제안 및 버그 제보 소통 창구",
+          url: `${SITE_URL}/feedback`,
+        },
+      ],
+    },
+    {
+      "@type": "ItemList",
+      "@id": `${SITE_URL}/#navigation-list`,
+      name: "리포티스트 핵심 서비스 바로가기",
+      itemListElement: [
+        {
+          "@type": "ListItem",
+          position: 1,
+          name: "실시간 주식 스크리너",
+          url: `${SITE_URL}/screener`,
+        },
+        {
+          "@type": "ListItem",
+          position: 2,
+          name: "투자 성과 및 거장 적중률",
+          url: `${SITE_URL}/outcomes`,
+        },
+        {
+          "@type": "ListItem",
+          position: 3,
+          name: "거장 표결 랭킹 및 통계",
+          url: `${SITE_URL}/stats`,
+        },
+        {
+          "@type": "ListItem",
+          position: 4,
+          name: "국내 및 미국 주식 리포트",
+          url: `${SITE_URL}/stocks`,
+        },
+        {
+          "@type": "ListItem",
+          position: 5,
+          name: "13인 투자 거장 철학 가이드",
+          url: `${SITE_URL}/gurus`,
+        },
+        {
+          "@type": "ListItem",
+          position: 6,
+          name: "멤버십 요금제",
+          url: `${SITE_URL}/pricing`,
+        },
+        {
+          "@type": "ListItem",
+          position: 7,
           name: "의견 및 기능 제안함",
           url: `${SITE_URL}/feedback`,
         },

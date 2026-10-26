@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { Metadata } from "next";
 import { DashboardView } from "@/components/dashboard/DashboardView";
 import { getPublicCatalog } from "@/lib/server/publicCatalog";
-import { buildTickerListJsonLd } from "@/lib/server/catalogJsonLd";
+import { buildTickerListJsonLd, buildBreadcrumbJsonLd } from "@/lib/server/catalogJsonLd";
 import { SITE_URL } from "@/lib/siteConfig";
 
 /** Revalidate every 5 minutes */
@@ -30,12 +30,21 @@ export const metadata: Metadata = {
   },
 };
 
+const enStocksBreadcrumbJsonLd = buildBreadcrumbJsonLd([
+  { name: "Reportist Home", path: "/en" },
+  { name: "US & Global Stock Reports", path: "/en/stocks" },
+]);
+
 export default async function EnglishStocksCatalogPage() {
   const catalog = await getPublicCatalog();
   const itemListJsonLd = buildTickerListJsonLd(catalog.directory, "/en/stocks");
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(enStocksBreadcrumbJsonLd) }}
+      />
       {itemListJsonLd ? (
         <script
           type="application/ld+json"

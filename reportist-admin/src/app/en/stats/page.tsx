@@ -2,7 +2,13 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { DashboardView } from "@/components/dashboard/DashboardView";
 import { getPublicCatalog } from "@/lib/server/publicCatalog";
+import { buildBreadcrumbJsonLd } from "@/lib/server/catalogJsonLd";
 import { absoluteUrl } from "@/lib/siteConfig";
+
+const enStatsBreadcrumbJsonLd = buildBreadcrumbJsonLd([
+  { name: "Reportist Home", path: "/en" },
+  { name: "13 Guru Vote Rankings & Statistics Hub", path: "/en/stats" },
+]);
 
 export const revalidate = 3600;
 
@@ -57,6 +63,10 @@ export default async function EnglishStatsRankingPage() {
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(enStatsBreadcrumbJsonLd) }}
+      />
       {statsJsonLd ? (
         <script
           type="application/ld+json"

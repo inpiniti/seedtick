@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { Metadata } from "next";
 import { DashboardView } from "@/components/dashboard/DashboardView";
 import { getPublicCatalog } from "@/lib/server/publicCatalog";
-import { buildTickerListJsonLd } from "@/lib/server/catalogJsonLd";
+import { buildTickerListJsonLd, buildBreadcrumbJsonLd } from "@/lib/server/catalogJsonLd";
 
 /** 공개 카탈로그는 5분 주기로 갱신 */
 export const revalidate = 300;
@@ -20,6 +20,11 @@ export const metadata: Metadata = {
   },
 };
 
+const stocksBreadcrumbJsonLd = buildBreadcrumbJsonLd([
+  { name: "리포티스트 홈", path: "/" },
+  { name: "국내 및 미국 주식 리포트", path: "/stocks" },
+]);
+
 export default async function StocksCatalogPage() {
   // 서버 프리페치 → 초기 HTML에 전체 종목 목록과 크롤링 가능한 링크가 포함된다.
   const catalog = await getPublicCatalog();
@@ -27,6 +32,10 @@ export default async function StocksCatalogPage() {
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(stocksBreadcrumbJsonLd) }}
+      />
       {itemListJsonLd ? (
         <script
           type="application/ld+json"

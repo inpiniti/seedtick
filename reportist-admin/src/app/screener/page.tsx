@@ -1,6 +1,8 @@
 import { Suspense } from "react";
 import { Metadata } from "next";
 import { DashboardView } from "@/components/dashboard/DashboardView";
+import { buildBreadcrumbJsonLd } from "@/lib/server/catalogJsonLd";
+import { absoluteUrl, SITE_URL } from "@/lib/siteConfig";
 
 export const metadata: Metadata = {
   title: "실시간 주식 스크리너 · 리포티스트",
@@ -16,6 +18,22 @@ export const metadata: Metadata = {
   },
 };
 
+const screenerBreadcrumbJsonLd = buildBreadcrumbJsonLd([
+  { name: "리포티스트 홈", path: "/" },
+  { name: "실시간 주식 스크리너", path: "/screener" },
+]);
+
+const screenerWebPageJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "@id": `${absoluteUrl("/screener")}#webpage`,
+  url: absoluteUrl("/screener"),
+  name: "실시간 주식 스크리너 · 리포티스트",
+  description: "13인 투자 거장 원칙을 통과한 국내 및 미국 주식 퀀트 스크리너",
+  inLanguage: "ko",
+  isPartOf: { "@id": `${SITE_URL}/#website` },
+};
+
 interface ScreenerPageProps {
   searchParams: Promise<{ tab?: string }>;
 }
@@ -25,8 +43,18 @@ export default async function ScreenerPage({ searchParams }: ScreenerPageProps) 
   const isRoma = params?.tab === "roma";
 
   return (
-    <Suspense fallback={<div className="min-h-screen bg-white" />}>
-      <DashboardView initialSection={isRoma ? "sec-roma" : "sec-screener"} />
-    </Suspense>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(screenerBreadcrumbJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(screenerWebPageJsonLd) }}
+      />
+      <Suspense fallback={<div className="min-h-screen bg-white" />}>
+        <DashboardView initialSection={isRoma ? "sec-roma" : "sec-screener"} />
+      </Suspense>
+    </>
   );
 }

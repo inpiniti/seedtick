@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 
+import { buildBreadcrumbJsonLd } from "@/lib/server/catalogJsonLd";
+import { absoluteUrl, SITE_URL } from "@/lib/siteConfig";
+
 /**
  * 멤버십 요금제 페이지 메타데이터.
  * page.tsx 가 클라이언트 컴포넌트라 metadata 를 직접 export 할 수 없어
@@ -19,10 +22,38 @@ export const metadata: Metadata = {
   },
 };
 
+const pricingBreadcrumbJsonLd = buildBreadcrumbJsonLd([
+  { name: "리포티스트 홈", path: "/" },
+  { name: "멤버십 요금제", path: "/pricing" },
+]);
+
+const pricingWebPageJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "@id": `${absoluteUrl("/pricing")}#webpage`,
+  url: absoluteUrl("/pricing"),
+  name: "리포티스트 멤버십 요금제 안내",
+  description: "13인 투자 거장 AI 주식 리서치 멤버십 플랜 및 혜택 비교",
+  inLanguage: "ko",
+  isPartOf: { "@id": `${SITE_URL}/#website` },
+};
+
 export default function PricingLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingBreadcrumbJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingWebPageJsonLd) }}
+      />
+      {children}
+    </>
+  );
 }

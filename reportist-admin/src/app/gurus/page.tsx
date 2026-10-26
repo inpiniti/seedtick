@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { DashboardView } from "@/components/dashboard/DashboardView";
-import { buildGuruListJsonLd } from "@/lib/server/catalogJsonLd";
+import { buildGuruListJsonLd, buildBreadcrumbJsonLd } from "@/lib/server/catalogJsonLd";
 
 export const metadata: Metadata = {
   title: "13인 투자 거장 철학 가이드 · 리포티스트",
@@ -18,11 +18,20 @@ export const metadata: Metadata = {
   },
 };
 
+const gurusBreadcrumbJsonLd = buildBreadcrumbJsonLd([
+  { name: "리포티스트 홈", path: "/" },
+  { name: "13인 투자 거장 철학 가이드", path: "/gurus" },
+]);
+
 export default function GurusPage() {
   const itemListJsonLd = buildGuruListJsonLd();
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(gurusBreadcrumbJsonLd) }}
+      />
       {itemListJsonLd ? (
         <script
           type="application/ld+json"

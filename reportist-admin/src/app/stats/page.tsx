@@ -2,7 +2,13 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { DashboardView } from "@/components/dashboard/DashboardView";
 import { getPublicCatalog } from "@/lib/server/publicCatalog";
+import { buildBreadcrumbJsonLd } from "@/lib/server/catalogJsonLd";
 import { absoluteUrl } from "@/lib/siteConfig";
+
+const statsBreadcrumbJsonLd = buildBreadcrumbJsonLd([
+  { name: "리포티스트 홈", path: "/" },
+  { name: "거장 표결 랭킹 및 통계", path: "/stats" },
+]);
 
 /** 통계 랭킹 페이지는 1시간 주기로 갱신 */
 export const revalidate = 3600;
@@ -60,6 +66,10 @@ export default async function StatsRankingPage() {
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(statsBreadcrumbJsonLd) }}
+      />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(statsJsonLd) }}
