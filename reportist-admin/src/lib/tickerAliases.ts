@@ -227,6 +227,11 @@ export const TICKER_ALIAS_MAP: Record<string, TickerAliasDef> = {
     englishName: "IonQ, Inc.",
     aliases: ["아이온큐", "IonQ", "양자컴퓨터"],
   },
+  WDC: {
+    primaryAlias: "웨스턴디지털",
+    englishName: "Western Digital Corporation",
+    aliases: ["웨스턴디지털", "웨스턴 디지털", "Western Digital", "WD"],
+  },
   // 주요 국내 주식 및 ADR
   "005930": {
     primaryAlias: "삼성전자",

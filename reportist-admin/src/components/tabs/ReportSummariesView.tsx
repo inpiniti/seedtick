@@ -92,6 +92,13 @@ export function ReportSummariesView({ summaries }: ReportSummariesViewProps) {
         <TallyBar tally={tally} />
       </div>
 
+      {/* ── 영문 모드 안내 배너 ── */}
+      {isEn && (
+        <div className="p-3.5 rounded-md bg-slate-50 border border-slate-200 text-xs font-mono text-slate-600 flex items-center justify-between gap-3">
+          <span>ℹ️ Multi-agent persona arguments are documented from original Korean deliberations. For the standardized English thesis scorecard, please refer to Section 6 of the Master Report.</span>
+        </div>
+      )}
+
       {/* ── 거장 카드 리스트 (2열 그리드) ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
         {summaries.map((item, index) => {
@@ -104,8 +111,16 @@ export function ReportSummariesView({ summaries }: ReportSummariesViewProps) {
           const isFallback = item.parse_mode === "fallback";
           const verdict = isFallback ? "미응답" : item.verdict || item.stance || "관망";
           const confidence = item.confidence ?? 5;
-          const targetPrice = item.target_price_range;
-          const quote = item.quote;
+          const targetPrice = isEn && item.target_price_range
+            ? item.target_price_range
+                .replace(/달러/g, "$")
+                .replace(/원/g, " KRW")
+                .replace(/이하/g, "or below")
+                .replace(/이상/g, "or above")
+                .replace(/매수\s*고려/g, "Buy considered")
+                .replace(/매도\s*고려/g, "Sell considered")
+            : item.target_price_range;
+          const quote = isEn && persona?.quote ? persona.quote : item.quote;
           const args =
             item.core_arguments || (item.rationale ? [item.rationale] : []);
           const triggers = item.trigger_conditions || [];

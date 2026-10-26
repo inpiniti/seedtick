@@ -1386,6 +1386,7 @@ export function ResearchCatalogView({
                                     .replace(/보유/g, "Hold")
                                     .replace(/관망/g, "Watch")
                                     .replace(/매도/g, "Sell")
+                                    .replace(/유효\s*의견/g, "Valid Votes")
                                 : "13-Guru Consensus Summary")
                             : (report.vote_summary || "13인 표결 요약")) +
                           (insight.safetyPrice

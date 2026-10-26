@@ -74,10 +74,39 @@ def translate_review_flag_en(flag: str) -> str:
     """국문 검토 플래그를 표준 영문 문구로 변환."""
     if not flag:
         return ""
+    # 1. 분산율 초과
     m_disp = re.search(r"분산이\s*([\d\.]+)%로\s*기준\s*([\d\.]+)%\s*초과", flag)
     if m_disp:
         disp_val, th_val = m_disp.group(1), m_disp.group(2)
         return f"Valuation dispersion is {disp_val}%, exceeding the {th_val}% threshold (High variance across personas)"
+
+    # 2. 데이터 지표 부족으로 인한 조건부 관망
+    m_data_gap = re.search(r"데이터\s*지표\s*부족으로\s*인한\s*조건부\s*(?:관망|WATCH):\s*(\d+)[인명]?", flag)
+    if m_data_gap:
+        return f"Conditional WATCH due to insufficient data indicators: {m_data_gap.group(1)} persona(s)"
+
+    # 3. 유효 페르소나 패널 완전성
+    m_valid = re.search(r"유효\s*페르소나\s*(\d+)/(\d+)", flag)
+    if m_valid:
+        return f"Valid personas {m_valid.group(1)}/{m_valid.group(2)}; consensus defaulted to WATCH due to panel completeness criteria"
+
+    # 4. 적정가 추정에 사용한 페르소나 수
+    m_est_cnt = re.search(r"적정가\s*추정에\s*사용한\s*페르소나\s*(\d+)/(\d+)", flag)
+    if m_est_cnt:
+        return f"Personas used for fair value estimate: {m_est_cnt.group(1)}/{m_est_cnt.group(2)}"
+
+    # 5. 유효 적정가 구간 수 미달
+    m_valid_interval = re.search(r"유효\s*적정가\s*구간\s*(\d+)/(\d+)", flag)
+    if m_valid_interval:
+        return f"Valid fair value intervals: {m_valid_interval.group(1)}/{m_valid_interval.group(2)}; single fair value requires minimum threshold"
+
+    # 6. 중복 페르소나 제외
+    if "중복 페르소나" in flag:
+        names = flag.split(":", 1)[1].strip() if ":" in flag else ""
+        for ko_name, en_name in GURU_EN_NAME_MAP.items():
+            names = names.replace(ko_name, en_name).replace(ko_name.replace(" ", "-"), en_name)
+        return f"Excluded duplicate persona responses: {names}".strip(": ")
+
     if "추정 인원 부족" in flag or "유효 적정가" in flag:
         return "Insufficient valid fair value estimates; band estimation withheld"
     if "단일 적정가 신뢰도 주의" in flag:
@@ -90,7 +119,16 @@ def translate_review_flag_en(flag: str) -> str:
         return "Safety entry price exceeds fair value price"
     if "fair_value_price가 optimistic_target_price보다" in flag:
         return "Fair value price exceeds target price"
-    return clean_korean_from_en(flag)
+    if "target_price_band 범위를 벗어났습니다" in flag:
+        return "Fair value price is outside target price band"
+
+    # 7. 기본 정리 및 한글 잔여물 안전 제거
+    cleaned = clean_korean_from_en(flag)
+    if re.search(r"[\uac00-\ud7a3]", cleaned):
+        cleaned = re.sub(r"[\uac00-\ud7a3]+", "", cleaned).strip(" :;·-")
+        if not cleaned:
+            return "Review item noted in persona deliberation"
+    return cleaned
 
 
 def clean_korean_from_en(text: str) -> str:
@@ -108,6 +146,10 @@ def clean_korean_from_en(text: str) -> str:
     s = re.sub(r"매수", "BUY", s)
     s = re.sub(r"보유", "HOLD", s)
     s = re.sub(r"매도", "SELL", s)
+    # 유효 의견 및 단위 치환
+    s = re.sub(r"유효\s*의견\s*(\d+)/(\d+)", r"Valid Votes \1/\2", s)
+    s = re.sub(r"유효\s*의견", "Valid Votes", s)
+    s = re.sub(r"(\d+)\s*[인명]", r"\1 persona(s)", s)
     # 금액/단위 치환
     s = re.sub(r"조\s*원", "T KRW", s)
     s = re.sub(r"억\s*원", "00M KRW", s)
@@ -462,12 +504,7 @@ JSON 객체 하나만 출력한다. 필드는 다음과 같다:
         if consensus.dispersion_pct is not None
         else "N/A"
     )
-    vote_summary_en = (
-        consensus.vote_summary.replace("매수", "BUY")
-        .replace("보유", "HOLD")
-        .replace("관망", "WATCH")
-        .replace("매도", "SELL")
-    )
+    vote_summary_en = clean_korean_from_en(consensus.vote_summary)
     company_name_en = datapack.company_name_en or datapack.ticker
 
     style_desc_items_en = []

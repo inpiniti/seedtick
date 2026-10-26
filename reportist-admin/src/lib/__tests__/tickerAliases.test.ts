@@ -57,6 +57,7 @@ describe("tickerAliases", () => {
 
   it("영문 기업명 및 영문 글로벌 SEO 키워드를 정상 생성해야 한다", () => {
     expect(getEnglishCompanyName("AAPL")).toBe("Apple Inc.");
+    expect(getEnglishCompanyName("WDC")).toBe("Western Digital Corporation");
     expect(getEnglishCompanyName("GOOGL")).toContain("Alphabet Inc.");
     expect(getEnglishCompanyName("UNKNOWN", "Unknown Corp")).toBe("Unknown Corp");
 

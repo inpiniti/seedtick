@@ -33,10 +33,24 @@ import { isReportRestricted } from "@/lib/subscription/subscriptionPolicy";
 import {
   getTickerPrimaryAlias,
   getCompanyDisplayNameWithAlias,
+  getEnglishCompanyName,
 } from "@/lib/tickerAliases";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 export type ResearchDocTab = "final" | "summaries" | "datapack" | "chart";
+
+function sanitizeEnglishMarkdown(content: string): string {
+  if (!content) return "";
+  return content
+    .replace(/데이터\s*지표\s*부족으로\s*인한\s*조건부\s*(?:관망|WATCH):\s*(\d+)[인명]?/g, "Conditional WATCH due to insufficient data indicators: $1 persona(s)")
+    .replace(/유효\s*페르소나\s*(\d+)\/(\d+)[^;\n]*/g, "Valid personas $1/$2; panel completeness criteria applied")
+    .replace(/적정가\s*추정에\s*사용한\s*페르소나\s*(\d+)\/(\d+)/g, "Personas used for fair value estimate: $1/$2")
+    .replace(/유효\s*적정가\s*구간\s*(\d+)\/(\d+)[^;\n]*/g, "Valid fair value intervals: $1/$2")
+    .replace(/중복\s*페르소나\s*응답\s*제외/g, "Excluded duplicate persona responses")
+    .replace(/유효\s*의견\s*(\d+)\/(\d+)/g, "Valid Votes $1/$2")
+    .replace(/유효\s*의견/g, "Valid Votes")
+    .replace(/(\d+)\s*인(?=[;\s])/g, "$1 persona(s)");
+}
 
 interface ResearchDocumentViewProps {
   report: GuruReportRow | null;
@@ -142,7 +156,13 @@ export function ResearchDocumentView({
   const isKr = /^\d{6}$/.test(ticker);
   const rawCompanyName = report.company_name || ticker;
   const companyName = isEn
-    ? report.company_name_en || (isKr ? rawCompanyName : ticker)
+    ? (() => {
+        const alias = getEnglishCompanyName(ticker, report.company_name_en || undefined);
+        if (alias && !/[\uac00-\ud7a3]/.test(alias) && alias.toUpperCase() !== ticker.toUpperCase()) {
+          return alias;
+        }
+        return report.company_name_en || (isKr ? rawCompanyName : ticker);
+      })()
     : rawCompanyName;
   const primaryAlias = getTickerPrimaryAlias(ticker);
   const displayWithAlias = isEn
@@ -174,7 +194,8 @@ export function ResearchDocumentView({
         .replace(/매수/g, "Buy")
         .replace(/보유/g, "Hold")
         .replace(/관망/g, "Watch")
-        .replace(/매도/g, "Sell");
+        .replace(/매도/g, "Sell")
+        .replace(/유효\s*의견/g, "Valid Votes");
     }
     return "No vote data";
   }, [report, isEn]);
@@ -659,7 +680,7 @@ export function ResearchDocumentView({
         <div className={`max-w-4xl ${isRestricted ? "filter blur-sm select-none pointer-events-none" : ""}`}>
           {activeTab === "final" && (
             (isEn && report.final_report_en) ? (
-              <MarkdownViewer content={report.final_report_en} />
+              <MarkdownViewer content={sanitizeEnglishMarkdown(report.final_report_en)} />
             ) : report.final_report ? (
               <>
                 {isEn && (
