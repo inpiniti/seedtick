@@ -72,6 +72,11 @@ export interface ApiKeyPool {
   keys: string[];
 }
 
+export interface KeySlot {
+  provider: LLMProvider;
+  key: string;
+}
+
 // ─────────────────────────────────────────────
 // OpenAI 규격 입출력 (공통 인터페이스)
 // ─────────────────────────────────────────────

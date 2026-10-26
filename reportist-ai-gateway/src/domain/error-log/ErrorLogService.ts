@@ -14,6 +14,7 @@ export interface LogEntry {
 
 export class ErrorLogService {
   private supabase: SupabaseClient | null = null;
+  private tableUnavailable = false;
 
   constructor(supabaseClient?: SupabaseClient) {
     if (supabaseClient) {
@@ -34,6 +35,7 @@ export class ErrorLogService {
   }
 
   async log(entry: LogEntry): Promise<void> {
+    if (this.tableUnavailable) return;
     const client = this.getSupabase();
     if (!client) return;
 
@@ -48,7 +50,14 @@ export class ErrorLogService {
     try {
       const { error } = await client.from('error_logs').insert(row);
       if (error) {
-        console.warn('[ErrorLogger] Failed to insert error_log:', error.message);
+        if (error.message.includes('Could not find the table') || error.code === '42P01') {
+          if (!this.tableUnavailable) {
+            console.warn('[ErrorLogger] error_logs 테이블이 Supabase에 존재하지 않아 원격 로깅을 건너뜁니다.');
+            this.tableUnavailable = true;
+          }
+        } else {
+          console.warn('[ErrorLogger] Failed to insert error_log:', error.message);
+        }
       }
     } catch (err) {
       console.warn('[ErrorLogger] Error writing to error_logs table:', err);

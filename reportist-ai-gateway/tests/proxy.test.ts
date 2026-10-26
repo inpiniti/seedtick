@@ -120,6 +120,23 @@ describe('ProxyService', () => {
     const category = mockClassifier.classify(404, 'Model not found');
 
     expect(category).toBe('model_not_found');
-    // 실제 서비스에서는 setModelCooldownAllKeys 호출됨
+  });
+
+  test('교차(Interleaving) 슬롯 풀 구성 검증', async () => {
+    const { ProxyService } = await import('../src/domain/proxy/ProxyService.ts');
+    const service = new ProxyService(undefined, [
+      { provider: 'openrouter', keys: ['or-1', 'or-2', 'or-3'] },
+      { provider: 'kilo', keys: ['kilo-1'] },
+    ]);
+    const slots = service.getSlots();
+
+    expect(slots.length).toBe(6);
+    // [or-1, kilo-1, or-2, kilo-1, or-3, kilo-1] 교차 배치 확인
+    expect(slots[0]).toEqual({ provider: 'openrouter', key: 'or-1' });
+    expect(slots[1]).toEqual({ provider: 'kilo', key: 'kilo-1' });
+    expect(slots[2]).toEqual({ provider: 'openrouter', key: 'or-2' });
+    expect(slots[3]).toEqual({ provider: 'kilo', key: 'kilo-1' });
+    expect(slots[4]).toEqual({ provider: 'openrouter', key: 'or-3' });
+    expect(slots[5]).toEqual({ provider: 'kilo', key: 'kilo-1' });
   });
 });

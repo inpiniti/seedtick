@@ -208,6 +208,7 @@ export class OpenAICompatAdapter implements ILLMAdapter {
     const headers: Record<string, string> = {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
       ...this.config.defaultHeaders,
     };
 
