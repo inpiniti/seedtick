@@ -19,13 +19,13 @@ class Settings(BaseSettings):
 
     # AI-Gateway 연동
     AI_GATEWAY_URL: str = "http://localhost:3000"
-    AI_GATEWAY_MODEL: str = "inclusionai/ling-3.1-flash"
+    AI_GATEWAY_MODEL: str = "nvidia/nemotron-3.5-super-vl:free"
     # 모델 순위 체인 (쉼표 구분, 앞쪽이 1순위).
     # 1순위가 트래픽 과부하(OpenRouter 200 내부 error code=503 등)로 실패하면 자동으로
     # 다음 순위로 내려가며, 매일 KST 00:00에 1순위로 초기화된다.
     # 미설정 시 AI_GATEWAY_MODEL 단일 값으로 1단계 체인이 구성된다(하위 호환).
     AI_MODEL_CHAIN: str = (
-        "inclusionai/ling-3.1-flash,"
+        "nvidia/nemotron-3.5-super-vl:free,"
         "thinkingmachines/inkling-small:free,"
         "thinkingmachines/inkling:free,"
         "nvidia/nemotron-3-ultra-550b-a55b:free,"

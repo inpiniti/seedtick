@@ -44,8 +44,8 @@ def reset_global_ai_semaphore() -> None:
 
 
 # 모델 레벨 실패로 판정해 다음 순위로 내려가야 하는 HTTP 상태 코드.
-# (키 쿼터/네트워크 문제는 429/예외이므로 여기에 포함하지 않는다)
-_MODEL_LEVEL_HTTP = {500, 502, 503, 504, 529}
+# (키 쿼터/네트워크 문제는 429/예외이므로 여기에 포함하지 않는다. 402는 유료/크레딧 부족 모델 즉시 강등용)
+_MODEL_LEVEL_HTTP = {402, 500, 502, 503, 504, 529}
 
 # 모델 레벨 실패를 확정하는 에러 메시지 패턴 (소문자 비교)
 _MODEL_LEVEL_PATTERNS = (
@@ -61,6 +61,11 @@ _MODEL_LEVEL_PATTERNS = (
     "model is not available",
     "no available",
     "temporarily unavailable",
+    "paid model",
+    "credits required",
+    "requires more credits",
+    "credit balance",
+    "insufficient credits",
 )
 
 

@@ -9,6 +9,7 @@ import logging
 import re
 from typing import Sequence
 
+from app.config.settings import settings
 from app.domains.curator.models import (
     CommunityPost,
     CuratedHistoryItem,
@@ -71,11 +72,17 @@ class BriefingWriter:
         posts_text = self.format_posts_for_prompt(posts)
         user_prompt = build_curator_user_prompt(date_str, history_context, posts_text)
 
-        logger.info(f"[BriefingWriter] AI 브리핑 생성 시작 ({date_str}, 수집 포스트 {len(posts)}건)")
+        target_model = (settings.AI_REPORT_MODEL or settings.AI_GATEWAY_MODEL).strip()
+        logger.info(
+            f"[BriefingWriter] AI 브리핑 생성 시작 ({date_str}, 모델 고정: {target_model}, 수집 포스트 {len(posts)}건)"
+        )
 
         raw_article = await self.ai.chat(
             prompt=user_prompt,
             system_prompt=CURATOR_SYSTEM_PROMPT,
+            model_override=target_model,
+            pin_model=True,
+            max_tokens=8192,
             temperature_override=0.2,
         )
 
