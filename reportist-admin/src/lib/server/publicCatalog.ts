@@ -412,16 +412,32 @@ export async function getTimelineStats(): Promise<TimelineStatItem[]> {
 
   try {
     const koreanNames = await fetchKoreanNames();
-    const { data, error } = await supabase
-      .from("guru_reports")
-      .select("d, ticker, company_name, votes_buy, votes_watch, votes_hold, votes_sell, current_price, fair_value, upside_pct")
-      .order("d", { ascending: false })
-      .limit(2000);
+    const PAGE_SIZE = 1000;
+    const MAX_ROWS = 5000;
+    const rows: Array<Record<string, any>> = [];
 
-    if (error || !data) return [];
+    for (let from = 0; from < MAX_ROWS; from += PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from("guru_reports")
+        .select("d, ticker, company_name, votes_buy, votes_watch, votes_hold, votes_sell, current_price, fair_value, upside_pct")
+        .order("d", { ascending: false })
+        .order("id", { ascending: false })
+        .range(from, from + PAGE_SIZE - 1);
+
+      if (error) {
+        console.warn("[publicCatalog] getTimelineStats query failed:", error);
+        break;
+      }
+      if (!data || data.length === 0) break;
+
+      rows.push(...(data as Array<Record<string, any>>));
+      if (data.length < PAGE_SIZE) break;
+    }
+
+    if (rows.length === 0) return [];
 
     const grouped = new Map<string, Array<Record<string, any>>>();
-    for (const row of data as Array<Record<string, any>>) {
+    for (const row of rows) {
       const d = row.d;
       if (!d) continue;
       const list = grouped.get(d) || [];
@@ -515,16 +531,32 @@ export async function getStockTimelines(): Promise<StockTimelineSeries[]> {
 
   try {
     const koreanNames = await fetchKoreanNames();
-    const { data, error } = await supabase
-      .from("guru_reports")
-      .select("d, ticker, company_name, current_price, fair_value, safety_entry, upside_pct, votes_buy, verdict")
-      .order("d", { ascending: true })
-      .limit(4000);
+    const PAGE_SIZE = 1000;
+    const MAX_ROWS = 20000;
+    const rows: Array<Record<string, any>> = [];
 
-    if (error || !data) return [];
+    for (let from = 0; from < MAX_ROWS; from += PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from("guru_reports")
+        .select("d, ticker, company_name, current_price, fair_value, safety_entry, upside_pct, votes_buy, verdict")
+        .order("d", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, from + PAGE_SIZE - 1);
+
+      if (error) {
+        console.warn("[publicCatalog] getStockTimelines query failed:", error);
+        break;
+      }
+      if (!data || data.length === 0) break;
+
+      rows.push(...(data as Array<Record<string, any>>));
+      if (data.length < PAGE_SIZE) break;
+    }
+
+    if (rows.length === 0) return [];
 
     const tickerMap = new Map<string, Array<Record<string, any>>>();
-    for (const row of data as Array<Record<string, any>>) {
+    for (const row of rows) {
       const ticker = (row.ticker || "").trim().toUpperCase();
       const d = row.d;
       if (!ticker || !d) continue;
