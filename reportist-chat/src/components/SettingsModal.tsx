@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Activity, Key, Link2, RotateCcw, Save, X } from 'lucide-react';
 import type { GatewayConfig } from '../types/chat.ts';
-import { DEFAULT_CONFIG, checkGatewayHealth } from '../services/api.ts';
+import { DEFAULT_CONFIG, checkGatewayHealth, normalizeBaseUrl } from '../services/api.ts';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -28,13 +28,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleTestConnection = async () => {
     setTesting(true);
     setTestResult(null);
-    const ok = await checkGatewayHealth({ baseUrl, gatewaySecret: secret });
+    const cleanUrl = normalizeBaseUrl(baseUrl);
+    setBaseUrl(cleanUrl);
+    const ok = await checkGatewayHealth({ baseUrl: cleanUrl, gatewaySecret: secret });
     setTesting(false);
     setTestResult(ok ? 'success' : 'fail');
   };
 
   const handleSave = () => {
-    onSaveConfig({ baseUrl, gatewaySecret: secret });
+    const cleanUrl = normalizeBaseUrl(baseUrl);
+    onSaveConfig({ baseUrl: cleanUrl, gatewaySecret: secret });
     onClose();
   };
 

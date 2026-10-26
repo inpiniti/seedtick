@@ -4,6 +4,33 @@ import type { FreeModelMeta, GatewayConfig, ReasoningEffortOption } from '../typ
 
 export const DEFAULT_GATEWAY_URL = 'https://seedtick-ai-gateway.vercel.app';
 
+// URL 정규화: 프로토콜 누락(예: seedtick-ai-gateway.vercel.app), 잘못된 호스트 결합, 후행 슬래시 등 자동 보정
+export function normalizeBaseUrl(rawUrl?: string): string {
+  if (!rawUrl || !rawUrl.trim()) {
+    return DEFAULT_GATEWAY_URL;
+  }
+  let url = rawUrl.trim();
+
+  // 이전 세션에서 잘못 합성된 URL 보정 (예: reportist-chat.vercel.app/seedtick-ai-gateway.vercel.app)
+  if (url.includes('reportist-chat.vercel.app/seedtick-ai-gateway.vercel.app')) {
+    return DEFAULT_GATEWAY_URL;
+  }
+
+  // 끝에 슬래시 제거
+  url = url.replace(/\/+$/, '');
+
+  // 프로토콜이 누락된 경우 (seedtick-ai-gateway.vercel.app 등)
+  if (!/^https?:\/\//i.test(url)) {
+    if (url.startsWith('localhost') || url.startsWith('127.0.0.1')) {
+      url = `http://${url}`;
+    } else {
+      url = `https://${url}`;
+    }
+  }
+
+  return url;
+}
+
 // 게이트웨이 기본 설정
 export const DEFAULT_CONFIG: GatewayConfig = {
   baseUrl: DEFAULT_GATEWAY_URL,
@@ -18,10 +45,7 @@ export function loadGatewayConfig(): GatewayConfig {
     if (raw) {
       const parsed = JSON.parse(raw);
       const cfg = { ...DEFAULT_CONFIG, ...parsed };
-      // 만약 이전 세션에서 빈 문자열이 저장되어 있다면 기본 배포 게이트웨이로 자동 보정
-      if (!cfg.baseUrl || !cfg.baseUrl.trim()) {
-        cfg.baseUrl = DEFAULT_GATEWAY_URL;
-      }
+      cfg.baseUrl = normalizeBaseUrl(cfg.baseUrl);
       return cfg;
     }
   } catch (e) {
@@ -32,7 +56,11 @@ export function loadGatewayConfig(): GatewayConfig {
 
 export function saveGatewayConfig(config: GatewayConfig): void {
   try {
-    localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(config));
+    const normalized: GatewayConfig = {
+      ...config,
+      baseUrl: normalizeBaseUrl(config.baseUrl),
+    };
+    localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(normalized));
   } catch (e) {
     console.error('Failed to save gateway config:', e);
   }
@@ -299,7 +327,8 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
 
 export async function fetchFreeModels(config: GatewayConfig): Promise<FreeModelMeta[]> {
   try {
-    const url = `${config.baseUrl}/v1/models`;
+    const baseUrl = normalizeBaseUrl(config.baseUrl);
+    const url = `${baseUrl}/v1/models`;
     const res = await fetch(url, {
       headers: {
         Authorization: `Bearer ${config.gatewaySecret}`,
@@ -321,7 +350,8 @@ export async function fetchFreeModels(config: GatewayConfig): Promise<FreeModelM
 
 export async function checkGatewayHealth(config: GatewayConfig): Promise<boolean> {
   try {
-    const res = await fetch(`${config.baseUrl}/health`, {
+    const baseUrl = normalizeBaseUrl(config.baseUrl);
+    const res = await fetch(`${baseUrl}/health`, {
       method: 'GET',
     });
     return res.ok;
@@ -351,7 +381,8 @@ export async function streamChatCompletions({
   onError,
   onFinish,
 }: StreamChatParams): Promise<void> {
-  const url = `${config.baseUrl}/v1/chat/completions`;
+  const baseUrl = normalizeBaseUrl(config.baseUrl);
+  const url = `${baseUrl}/v1/chat/completions`;
 
   const body = {
     model,
