@@ -39,7 +39,7 @@ export const chatRoute = new Elysia().post(
       messages: t.Array(
         t.Object({
           role: t.Union([t.Literal('system'), t.Literal('user'), t.Literal('assistant')]),
-          content: t.String(),
+          content: t.Union([t.String(), t.Array(t.Any())]),
         })
       ),
       temperature: t.Optional(t.Number({ minimum: 0, maximum: 2 })),

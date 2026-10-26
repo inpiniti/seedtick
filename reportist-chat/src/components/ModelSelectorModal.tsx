@@ -13,6 +13,7 @@ import {
   Zap,
 } from 'lucide-react';
 import type { FreeModelMeta } from '../types/chat.ts';
+import { getModelInputModalities } from '../types/chat.ts';
 
 interface ModelSelectorModalProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProvider, setSelectedProvider] = useState<string>('all');
+  const [selectedModality, setSelectedModality] = useState<'all' | 'image' | 'audio' | 'video'>('all');
 
   // 제공사 목록 추출
   const providers = useMemo(() => {
@@ -39,6 +41,20 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
       set.add(m.providerName);
     });
     return Array.from(set);
+  }, [models]);
+
+  // 모달리티별 모델 수 계산
+  const modalityCounts = useMemo(() => {
+    let image = 0;
+    let audio = 0;
+    let video = 0;
+    for (const m of models) {
+      const mods = getModelInputModalities(m);
+      if (mods.includes('image')) image++;
+      if (mods.includes('audio')) audio++;
+      if (mods.includes('video')) video++;
+    }
+    return { all: models.length, image, audio, video };
   }, [models]);
 
   // 필터링된 모델 목록
@@ -53,9 +69,13 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
       const matchProvider =
         selectedProvider === 'all' || m.providerName === selectedProvider;
 
-      return matchQuery && matchProvider;
+      const mods = getModelInputModalities(m);
+      const matchModality =
+        selectedModality === 'all' || mods.includes(selectedModality);
+
+      return matchQuery && matchProvider && matchModality;
     });
-  }, [models, searchQuery, selectedProvider]);
+  }, [models, searchQuery, selectedProvider, selectedModality]);
 
   if (!isOpen) return null;
 
@@ -103,6 +123,41 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
             )}
           </div>
 
+          {/* 모달리티 필터 탭 (사진, 오디오, 비디오, 전체) */}
+          <div className="modality-filter-row">
+            <span className="filter-label">입력 지원:</span>
+            <div className="modality-chips">
+              <button
+                type="button"
+                className={`modality-tab-btn ${selectedModality === 'all' ? 'active' : ''}`}
+                onClick={() => setSelectedModality('all')}
+              >
+                전체 ({modalityCounts.all})
+              </button>
+              <button
+                type="button"
+                className={`modality-tab-btn ${selectedModality === 'image' ? 'active' : ''}`}
+                onClick={() => setSelectedModality('image')}
+              >
+                🖼️ 이미지 ({modalityCounts.image})
+              </button>
+              <button
+                type="button"
+                className={`modality-tab-btn ${selectedModality === 'audio' ? 'active' : ''}`}
+                onClick={() => setSelectedModality('audio')}
+              >
+                🎙️ 오디오 ({modalityCounts.audio})
+              </button>
+              <button
+                type="button"
+                className={`modality-tab-btn ${selectedModality === 'video' ? 'active' : ''}`}
+                onClick={() => setSelectedModality('video')}
+              >
+                🎬 비디오 ({modalityCounts.video})
+              </button>
+            </div>
+          </div>
+
           {/* 제조사 필터 칩 */}
           <div className="provider-chips-container">
             <button
@@ -110,7 +165,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
               className={`provider-chip ${selectedProvider === 'all' ? 'active' : ''}`}
               onClick={() => setSelectedProvider('all')}
             >
-              전체 ({models.length})
+              제조사 전체 ({models.length})
             </button>
             {providers.map((p) => {
               const count = models.filter((m) => m.providerName === p).length;
@@ -134,12 +189,13 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
             <div className="empty-models">
               <Brain size={36} color="#8b95a1" />
               <p className="empty-title">일치하는 모델이 없어요</p>
-              <p className="empty-desc">검색어나 제공사 필터를 다시 확인해 주세요</p>
+              <p className="empty-desc">검색어나 모달리티/제조사 필터를 다시 확인해 주세요</p>
             </div>
           ) : (
             filteredModels.map((model) => {
               const isSelected = model.id === selectedModelId;
               const isNew = model.daysAgo <= 14;
+              const inputMods = getModelInputModalities(model);
 
               return (
                 <div
@@ -170,6 +226,20 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
 
                   {/* 모델 특징 메타 태그들 */}
                   <div className="model-tags-row">
+                    {/* 모달리티 뱃지 */}
+                    {inputMods.includes('image') && (
+                      <span className="meta-pill modality-badge image">🖼️ 이미지</span>
+                    )}
+                    {inputMods.includes('audio') && (
+                      <span className="meta-pill modality-badge audio">🎙️ 오디오</span>
+                    )}
+                    {inputMods.includes('video') && (
+                      <span className="meta-pill modality-badge video">🎬 비디오</span>
+                    )}
+                    {!inputMods.includes('image') && !inputMods.includes('audio') && !inputMods.includes('video') && (
+                      <span className="meta-pill modality-badge text">📝 텍스트 전용</span>
+                    )}
+
                     {/* 출시일 정보 */}
                     <div className="meta-pill date-pill" title={`출시일: ${model.createdDate}`}>
                       <Calendar size={13} className="meta-icon" />

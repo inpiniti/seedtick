@@ -81,9 +81,16 @@ export interface KeySlot {
 // OpenAI 규격 입출력 (공통 인터페이스)
 // ─────────────────────────────────────────────
 
+export type MessageContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string; detail?: 'auto' | 'low' | 'high' } }
+  | { type: 'input_audio'; input_audio: { data: string; format: string } }
+  | { type: 'video_url'; video_url: { url: string } }
+  | { type: string; [key: string]: unknown };
+
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
-  content: string;
+  content: string | MessageContentPart[];
 }
 
 export type ReasoningEffortLevel =
@@ -119,6 +126,7 @@ export interface FreeModelMeta {
   contextLengthFormatted: string;
   description: string;
   modality: string;
+  inputModalities?: string[];
   intelligenceTier: string;
   parametersSummary: string;
   supportedParameters: string[];

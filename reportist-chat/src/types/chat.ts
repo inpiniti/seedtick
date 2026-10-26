@@ -2,11 +2,24 @@
 
 export type MessageRole = 'system' | 'user' | 'assistant';
 
+export type AttachmentType = 'image' | 'audio' | 'video' | 'file';
+
+export interface ChatAttachment {
+  id: string;
+  type: AttachmentType;
+  name: string;
+  size: number;
+  sizeFormatted: string;
+  mimeType: string;
+  dataUrl: string; // Base64 data URL
+}
+
 export interface ChatMessage {
   id: string;
   role: MessageRole;
   content: string;
   reasoning?: string;
+  attachments?: ChatAttachment[];
   isStreaming?: boolean;
   timestamp: number;
 }
@@ -81,9 +94,22 @@ export interface FreeModelMeta {
   contextLengthFormatted: string;
   description: string;
   modality: string;
+  inputModalities?: string[];
   intelligenceTier: string;
   parametersSummary: string;
   supportedParameters: string[];
+}
+
+export function getModelInputModalities(model?: FreeModelMeta | null): string[] {
+  if (!model) return ['text'];
+  if (Array.isArray(model.inputModalities) && model.inputModalities.length > 0) {
+    return model.inputModalities;
+  }
+  if (model.modality && model.modality.includes('->')) {
+    const inputs = model.modality.split('->')[0].split('+').map((s) => s.trim());
+    return inputs.length > 0 ? inputs : ['text'];
+  }
+  return ['text'];
 }
 
 export interface GatewayConfig {

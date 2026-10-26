@@ -1,6 +1,6 @@
 // services/api.ts - Gateway API 호출 및 모델 캐시 서비스
 
-import type { FreeModelMeta, GatewayConfig, ReasoningEffortOption } from '../types/chat.ts';
+import type { ChatAttachment, FreeModelMeta, GatewayConfig, ReasoningEffortOption } from '../types/chat.ts';
 
 export const DEFAULT_GATEWAY_URL = 'https://seedtick-ai-gateway.vercel.app';
 
@@ -79,6 +79,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
     contextLengthFormatted: '256K tokens',
     description: "Flint is an open-weight mixture-of-experts model from Recursive, with about 2.5B active parameters out of 40B total, built by Recursive's autoresearch system Eureka Machine for coding agents.",
     modality: 'text->text',
+    inputModalities: ['text'],
     intelligenceTier: '코딩 에이전트 특화 MoE',
     parametersSummary: '40B (활성 2.5B)',
     supportedParameters: ['reasoning', 'temperature', 'tools'],
@@ -94,6 +95,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
     contextLengthFormatted: '256K tokens',
     description: 'Xing4.0-29B-A4B is an open-weight mixture-of-experts language model from China Telecom AI team (TeleAI). It has 29B total parameters with 4B active per token.',
     modality: 'text->text',
+    inputModalities: ['text'],
     intelligenceTier: '다목적 고성능 MoE',
     parametersSummary: '29B (활성 4B)',
     supportedParameters: ['reasoning', 'temperature', 'tools'],
@@ -109,6 +111,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
     contextLengthFormatted: '1M tokens (초대용량)',
     description: 'NVIDIA Nemotron 3.5 Super VL is an open multimodal MoE model with 12B active parameters out of 120B total. Takes text, images, docs, GUI screenshots, and video.',
     modality: 'text+image+video->text',
+    inputModalities: ['text', 'image', 'video'],
     intelligenceTier: '플래그십 120B 멀티모달 & 1M 윈도우',
     parametersSummary: '120B (활성 12B)',
     supportedParameters: ['reasoning', 'temperature', 'tools'],
@@ -124,6 +127,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
     contextLengthFormatted: '512K tokens',
     description: 'Dots3-Note Preview is an open-weight MoE model with 16B active parameters out of 280B total. Suited for long-form reasoning and note summarization.',
     modality: 'text+image->text',
+    inputModalities: ['text', 'image'],
     intelligenceTier: '초대형 280B 심층 추론 MoE',
     parametersSummary: '280B (활성 16B)',
     supportedParameters: ['reasoning', 'temperature', 'tools'],
@@ -139,6 +143,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
     contextLengthFormatted: '64K tokens',
     description: 'LFM2.5-2.6B is a compact reasoning model from Liquid AI. Suited for fast agent workflows and lightweight inference.',
     modality: 'text->text',
+    inputModalities: ['text'],
     intelligenceTier: '초경량 초고속 추론',
     parametersSummary: '2.6B',
     supportedParameters: ['reasoning', 'temperature', 'tools'],
@@ -154,6 +159,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
     contextLengthFormatted: '1M tokens (초대용량)',
     description: 'NVIDIA Nemotron 3.5 Lightning is an open MoE model with 3B active parameters out of 30B total, designed for high-throughput agentic workloads.',
     modality: 'text->text',
+    inputModalities: ['text'],
     intelligenceTier: '초고속 에이전트 MoE',
     parametersSummary: '30B (활성 3B)',
     supportedParameters: ['reasoning', 'temperature', 'tools'],
@@ -169,6 +175,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
     contextLengthFormatted: '1M tokens',
     description: 'Inkling Small is an open multimodal MoE model with 12B active parameters out of 276B total. High-efficiency reasoning and tool usage.',
     modality: 'text+image+audio->text',
+    inputModalities: ['text', 'image', 'audio'],
     intelligenceTier: '멀티모달 276B MoE',
     parametersSummary: '276B (활성 12B)',
     supportedParameters: ['reasoning', 'reasoning_effort', 'temperature', 'tools'],
@@ -184,6 +191,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
     contextLengthFormatted: '256K tokens',
     description: 'Laguna S 2.1 is a top-tier coding agent model with 118B total parameters and 8B active parameters, scoring 70.2% on Terminal-Bench.',
     modality: 'text->text',
+    inputModalities: ['text'],
     intelligenceTier: '최상위 코딩 에이전트 118B',
     parametersSummary: '118B (활성 8B)',
     supportedParameters: ['reasoning', 'temperature', 'tools'],
@@ -199,6 +207,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
     contextLengthFormatted: '1M tokens',
     description: 'Inkling is a mammoth 975B MoE model (41B active) designed for general-purpose frontier reasoning, coding, and tool-use.',
     modality: 'text+image+audio->text',
+    inputModalities: ['text', 'image', 'audio'],
     intelligenceTier: '플래그십 거대 975B MoE',
     parametersSummary: '975B (활성 41B)',
     supportedParameters: ['reasoning', 'reasoning_effort', 'temperature', 'tools'],
@@ -214,6 +223,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
     contextLengthFormatted: '256K tokens',
     description: 'Laguna XS 2.1 is an efficient 33B-A3B coding model optimized for fast interactive software engineering.',
     modality: 'text->text',
+    inputModalities: ['text'],
     intelligenceTier: '경량 고속 코딩 MoE',
     parametersSummary: '33B (활성 3B)',
     supportedParameters: ['reasoning', 'temperature', 'tools'],
@@ -229,6 +239,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
     contextLengthFormatted: '256K tokens',
     description: "North Mini Code is Cohere's first agentic coding model. Sparse MoE with 30B total and 3B active parameters.",
     modality: 'text->text',
+    inputModalities: ['text'],
     intelligenceTier: 'Cohere 코딩 에이전트',
     parametersSummary: '30B (활성 3B)',
     supportedParameters: ['reasoning', 'temperature', 'tools'],
@@ -244,6 +255,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
     contextLengthFormatted: '128K tokens',
     description: 'NVIDIA Nemotron 3.5 Content Safety is a compact 4B-parameter multimodal guardrail model fine-tuned from Gemma-3-4B.',
     modality: 'text+image->text',
+    inputModalities: ['text', 'image'],
     intelligenceTier: '안전성 검증 & 필터링',
     parametersSummary: '4B',
     supportedParameters: ['reasoning', 'temperature'],
@@ -259,6 +271,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
     contextLengthFormatted: '1M tokens (초대용량)',
     description: 'NVIDIA Nemotron 3 Ultra is an open frontier reasoning model with 55B active out of 550B total parameters (Transformer-Mamba MoE).',
     modality: 'text->text',
+    inputModalities: ['text'],
     intelligenceTier: '플래그십 550B 프론티어 추론',
     parametersSummary: '550B (활성 55B)',
     supportedParameters: ['reasoning', 'reasoning_effort', 'temperature', 'tools'],
@@ -274,6 +287,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
     contextLengthFormatted: '256K tokens',
     description: 'Nemotron 3 Nano Omni is a 30B-A3B open multimodal perception and reasoning model for text, images, video, and audio.',
     modality: 'text+image+audio+video->text',
+    inputModalities: ['text', 'image', 'audio', 'video'],
     intelligenceTier: '옴니 멀티모달 추론',
     parametersSummary: '30B (활성 3B)',
     supportedParameters: ['reasoning', 'temperature', 'tools'],
@@ -289,6 +303,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
     contextLengthFormatted: '256K tokens',
     description: 'Gemma 4 26B A4B IT is Google DeepMind instruction-tuned MoE. 25.2B total, 3.8B active per token delivering near-31B dense quality.',
     modality: 'text+image+video->text',
+    inputModalities: ['text', 'image', 'video'],
     intelligenceTier: 'Google 경량 고성능 MoE',
     parametersSummary: '25.2B (활성 3.8B)',
     supportedParameters: ['reasoning', 'temperature', 'tools'],
@@ -304,6 +319,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
     contextLengthFormatted: '256K tokens',
     description: "Gemma 4 31B Instruct is Google DeepMind's dense multimodal model with 256K context, configurable thinking/reasoning mode.",
     modality: 'text+image+video->text',
+    inputModalities: ['text', 'image', 'video'],
     intelligenceTier: 'Google 31B Dense 종합 지능',
     parametersSummary: '30.7B Dense',
     supportedParameters: ['reasoning', 'temperature', 'tools'],
@@ -319,6 +335,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
     contextLengthFormatted: '256K tokens',
     description: 'NVIDIA Nemotron 3 Super is a 120B hybrid MoE model (12B active), built on hybrid Mamba-Transformer architecture.',
     modality: 'text->text',
+    inputModalities: ['text'],
     intelligenceTier: '하이브리드 Mamba-MoE 120B',
     parametersSummary: '120B (활성 12B)',
     supportedParameters: ['reasoning', 'reasoning_effort', 'temperature', 'tools'],
@@ -360,8 +377,14 @@ export async function checkGatewayHealth(config: GatewayConfig): Promise<boolean
   }
 }
 
+export interface OutgoingChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+  attachments?: ChatAttachment[];
+}
+
 export interface StreamChatParams {
-  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
+  messages: OutgoingChatMessage[];
   model: string;
   reasoningEffort: ReasoningEffortOption;
   config: GatewayConfig;
@@ -384,9 +407,56 @@ export async function streamChatCompletions({
   const baseUrl = normalizeBaseUrl(config.baseUrl);
   const url = `${baseUrl}/v1/chat/completions`;
 
+  // 멀티모달 첨부파일을 OpenAI/OpenRouter 규격 Part 배열로 변환
+  const formattedMessages = messages.map((msg) => {
+    if (!msg.attachments || msg.attachments.length === 0) {
+      return { role: msg.role, content: msg.content };
+    }
+
+    const parts: any[] = [];
+    if (msg.content && msg.content.trim()) {
+      parts.push({ type: 'text', text: msg.content });
+    }
+
+    for (const att of msg.attachments) {
+      if (att.type === 'image') {
+        parts.push({
+          type: 'image_url',
+          image_url: { url: att.dataUrl },
+        });
+      } else if (att.type === 'audio') {
+        const match = att.dataUrl.match(/^data:audio\/([a-zA-Z0-9]+);base64,(.+)$/);
+        if (match) {
+          parts.push({
+            type: 'input_audio',
+            input_audio: {
+              data: match[2],
+              format: match[1] === 'mpeg' ? 'mp3' : match[1],
+            },
+          });
+        } else {
+          parts.push({
+            type: 'audio_url',
+            audio_url: { url: att.dataUrl },
+          });
+        }
+      } else if (att.type === 'video') {
+        parts.push({
+          type: 'video_url',
+          video_url: { url: att.dataUrl },
+        });
+      }
+    }
+
+    return {
+      role: msg.role,
+      content: parts.length > 0 ? parts : msg.content,
+    };
+  });
+
   const body = {
     model,
-    messages,
+    messages: formattedMessages,
     stream: true,
     reasoning_effort: reasoningEffort !== 'none' ? reasoningEffort : undefined,
   };

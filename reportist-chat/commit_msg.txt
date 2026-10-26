@@ -1,0 +1,8 @@
+feat(chat): 선택 모델 지원 모달리티별 사진·오디오·비디오 첨부 및 멀티모달 채팅 지원
+
+- OpenRouter 무료 모델 목록에 inputModalities(image, audio, video, text) 메타데이터 파싱 및 폴백 반영
+- AI Gateway(/v1/chat/completions) 메시지 content 스키마를 단일 문자열 및 멀티모달 Part 배열(image_url, input_audio, video_url) 모두 수용하도록 확장
+- ModelSelectorModal에 모달리티 지원 필터 탭(전체, 🖼️ 이미지, 🎙️ 오디오, 🎬 비디오) 및 카드별 모달리티 뱃지 추가
+- 선택된 모델의 모달리티에 맞춰 채팅 입력창 첨부 버튼(📎) 동적 활성화, 지원 확장자 자동 필터링 및 툴팁 제공
+- 첨부 파일 실시간 미리보기 바, 클립보드 붙여넣기(Ctrl+V), 드래그 앤 드롭 지원 및 메시지 버블 내 미디어 플레이어/썸네일 확대 뷰어 구현
+- 토스 디자인 가이드 기반 모던 UI 및 사용자 경험 적용
