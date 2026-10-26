@@ -22,11 +22,12 @@ async function getYahooAuth(forceRefresh = false): Promise<{ cookie: string; cru
     headers: { 'User-Agent': UA },
   });
   const headersAny = res1.headers as unknown as { getSetCookie?: () => string[] };
-  const rawList = typeof headersAny.getSetCookie === 'function'
-    ? headersAny.getSetCookie()
-    : [res1.headers.get('set-cookie') || ''];
+  const rawList =
+    typeof headersAny.getSetCookie === 'function'
+      ? headersAny.getSetCookie()
+      : [res1.headers.get('set-cookie') || ''];
   const cookiePart = rawList
-    .map(c => c.split(';')[0]?.trim())
+    .map((c) => c.split(';')[0]?.trim())
     .filter(Boolean)
     .join('; ');
 
@@ -104,28 +105,27 @@ async function fetchQuoteSummary(ticker: string): Promise<Record<string, unknown
   throw new Error(`Failed to fetch QuoteSummary for ${cleanTicker}`);
 }
 
-export const yahooRoute = new Elysia()
-  .get(
-    '/v1/yahoo/quote-summary/:ticker',
-    async ({ params: { ticker }, set }) => {
-      try {
-        const data = await fetchQuoteSummary(ticker);
-        return data;
-      } catch (err: unknown) {
-        set.status = 502;
-        const message = err instanceof Error ? err.message : String(err);
-        return {
-          error: {
-            code: 'YAHOO_FETCH_FAILED',
-            message,
-            ticker,
-          },
-        };
-      }
-    },
-    {
-      params: t.Object({
-        ticker: t.String(),
-      }),
+export const yahooRoute = new Elysia().get(
+  '/v1/yahoo/quote-summary/:ticker',
+  async ({ params: { ticker }, set }) => {
+    try {
+      const data = await fetchQuoteSummary(ticker);
+      return data;
+    } catch (err: unknown) {
+      set.status = 502;
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        error: {
+          code: 'YAHOO_FETCH_FAILED',
+          message,
+          ticker,
+        },
+      };
     }
-  );
+  },
+  {
+    params: t.Object({
+      ticker: t.String(),
+    }),
+  }
+);

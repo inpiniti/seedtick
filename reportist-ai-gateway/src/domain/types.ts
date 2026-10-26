@@ -81,12 +81,42 @@ export interface ChatMessage {
   content: string;
 }
 
+export type ReasoningEffortLevel =
+  | 'none'
+  | 'low'
+  | 'medium'
+  | 'high'
+  | 'extra'
+  | 'max'
+  | '낮음'
+  | '중간'
+  | '높음'
+  | '엑스트라'
+  | '최대';
+
 export interface ChatRequest {
   model?: string;
   messages: ChatMessage[];
   temperature?: number;
   max_tokens?: number;
   stream?: boolean;
+  reasoning_effort?: ReasoningEffortLevel | string;
+}
+
+export interface FreeModelMeta {
+  id: string;
+  name: string;
+  providerName: string;
+  created: number;
+  createdDate: string;
+  daysAgo: number;
+  contextLength: number;
+  contextLengthFormatted: string;
+  description: string;
+  modality: string;
+  intelligenceTier: string;
+  parametersSummary: string;
+  supportedParameters: string[];
 }
 
 export interface ChatChoice {

@@ -4,8 +4,16 @@ import { Elysia } from 'elysia';
 import { env } from '../config/env.ts';
 
 export const authMiddleware = new Elysia().onBeforeHandle(({ request, headers, set }) => {
+  if (request.method === 'OPTIONS') {
+    return;
+  }
+
   const url = new URL(request.url);
-  if (url.pathname === '/health' || url.pathname.startsWith('/v1/yahoo')) {
+  if (
+    url.pathname === '/health' ||
+    url.pathname === '/v1/models' ||
+    url.pathname.startsWith('/v1/yahoo')
+  ) {
     return;
   }
 

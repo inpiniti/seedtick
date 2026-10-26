@@ -1,11 +1,11 @@
 // ProxyService.ts - LLM 요청 프록시 핵심 엔진
 
 import { env } from '../../config/env.ts';
+import { type ErrorLogService, errorLogService } from '../error-log/ErrorLogService.ts';
 import { CooldownManager } from '../key-rotator/CooldownManager.ts';
 import { ErrorClassifier } from '../key-rotator/ErrorClassifier.ts';
 import { KeyRotator } from '../key-rotator/KeyRotator.ts';
 import { QuotaManager } from '../key-rotator/QuotaManager.ts';
-import { ErrorLogService, errorLogService } from '../error-log/ErrorLogService.ts';
 import type {
   ChatRequest,
   ChatResponse,
@@ -13,6 +13,7 @@ import type {
   GatewayAttempt,
   GatewayError,
   LLMProvider,
+  ModelConfig,
 } from '../types.ts';
 import { FALLBACK_CHAIN } from '../types.ts';
 import { GeminiAdapter } from './adapters/GeminiAdapter.ts';
@@ -99,12 +100,32 @@ export class ProxyService {
     await this.quota.initialize();
   }
 
+  private getTargetChain(requestedModel?: string): ModelConfig[] {
+    const chain: ModelConfig[] = [];
+    if (requestedModel) {
+      chain.push({
+        provider: 'openrouter',
+        modelId: requestedModel,
+        displayName: `OpenRouter/${requestedModel}`,
+      });
+    }
+    for (const item of FALLBACK_CHAIN) {
+      if (!chain.some((t) => t.provider === item.provider && t.modelId === item.modelId)) {
+        chain.push(item);
+      }
+    }
+    return chain;
+  }
+
   async chat(request: ChatRequest): Promise<ChatResponse | GatewayError> {
     const attempts: GatewayAttempt[] = [];
+    const chain = this.getTargetChain(request.model);
 
-    console.info('[Gateway] Chat request received, starting fallback chain');
+    console.info(
+      `[Gateway] Chat request received, chain length=${chain.length}, requested=${request.model ?? 'none'}`
+    );
 
-    for (const modelConfig of FALLBACK_CHAIN) {
+    for (const modelConfig of chain) {
       const { provider, modelId } = modelConfig;
       const keys = this.rotator.getKeysForProvider(provider);
 
@@ -203,6 +224,62 @@ export class ProxyService {
         lastAttempts: attempts.slice(-5),
       }
     );
+
+    return {
+      error: {
+        code: 'GATEWAY_ALL_EXHAUSTED',
+        message: '모든 LLM 제공사의 키와 모델이 소진되었습니다',
+        type: 'gateway_error',
+        attempts,
+      },
+    } as GatewayError;
+  }
+
+  async chatStream(
+    request: ChatRequest
+  ): Promise<{ ok: true; stream: ReadableStream<Uint8Array> } | GatewayError> {
+    const attempts: GatewayAttempt[] = [];
+    const chain = this.getTargetChain(request.model);
+
+    console.info(`[Gateway] ChatStream request received (model=${request.model ?? 'default'})`);
+
+    for (const modelConfig of chain) {
+      const { provider, modelId } = modelConfig;
+      const keys = this.rotator.getKeysForProvider(provider);
+      if (keys.length === 0) continue;
+
+      for (const apiKey of keys) {
+        if (this.cooldown.isCoolingDown(provider, modelId, apiKey)) continue;
+        if (this.quota.isExhaustedLocal(provider, modelId, apiKey)) continue;
+
+        const adapter = this.adapters.get(provider);
+        if (!adapter || !adapter.callStream) continue;
+
+        this.rotator.acquireKey(provider, apiKey);
+        try {
+          const result = await adapter.callStream(request, modelId, apiKey, 120_000);
+          if (result.ok && result.stream) {
+            console.info(`[Gateway] Stream success: ${provider}:${modelId}:${apiKey.slice(-8)}`);
+            return { ok: true, stream: result.stream };
+          }
+
+          const category = this.classifier.classify(result.status, result.errorBody);
+          attempts.push({
+            provider,
+            modelId,
+            apiKeyHash: apiKey.slice(-8),
+            httpStatus: result.status,
+            errorCategory: category,
+            errorSnippet: result.errorBody.slice(0, 200),
+            attemptedAt: new Date().toISOString(),
+          });
+          await this.handleError(category, provider, modelId, apiKey, keys);
+          if (this.shouldBreakModelLoop(category)) break;
+        } finally {
+          this.rotator.releaseKey(provider, apiKey);
+        }
+      }
+    }
 
     return {
       error: {

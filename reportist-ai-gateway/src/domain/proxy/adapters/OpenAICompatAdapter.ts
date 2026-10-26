@@ -3,11 +3,44 @@
 import type { ChatRequest, ChatResponse, ProviderConfig } from '../../types.ts';
 import type { ILLMAdapter } from './ILLMAdapter.ts';
 
+function normalizeReasoningEffort(effort?: string): string | null {
+  if (!effort) return null;
+  const lower = effort.toLowerCase().trim();
+  if (lower === 'none' || lower === 'off' || lower === '기본' || lower === '끄기') return null;
+  if (lower === 'low' || lower === '낮음') return 'low';
+  if (lower === 'medium' || lower === '중간') return 'medium';
+  if (lower === 'high' || lower === '높음') return 'high';
+  if (lower === 'extra' || lower === '엑스트라') return 'extra';
+  if (lower === 'max' || lower === '최대') return 'max';
+  return lower;
+}
+
 export class OpenAICompatAdapter implements ILLMAdapter {
   private readonly config: ProviderConfig;
 
   constructor(config: ProviderConfig) {
     this.config = config;
+  }
+
+  private buildRequestBody(request: ChatRequest, modelId: string, isStream: boolean) {
+    const requestedOutputTokens = request.max_tokens ?? 32768;
+    const normalizedEffort = normalizeReasoningEffort(request.reasoning_effort);
+
+    const body: Record<string, unknown> = {
+      model: modelId,
+      messages: request.messages,
+      temperature: request.temperature ?? 0.7,
+      max_tokens: 32768,
+      max_completion_tokens: requestedOutputTokens,
+      stream: isStream,
+    };
+
+    if (normalizedEffort) {
+      body.reasoning = { effort: normalizedEffort };
+      body.reasoning_effort = normalizedEffort;
+    }
+
+    return body;
   }
 
   async call(
@@ -27,18 +60,7 @@ export class OpenAICompatAdapter implements ILLMAdapter {
       ...this.config.defaultHeaders,
     };
 
-    const requestedOutputTokens = request.max_tokens ?? 32768;
-    const body = {
-      model: modelId,
-      messages: request.messages,
-      temperature: request.temperature ?? 0.7,
-      // max_tokens: reasoning + output 전체 예산 (thinking 모델 대응)
-      max_tokens: 32768,
-      // max_completion_tokens: output 전용 한도 (OpenRouter/dots-3-note 등 thinking 모델 지원)
-      // reasoning 토큰은 이 한도와 별개로 처리됨
-      max_completion_tokens: requestedOutputTokens,
-      stream: request.stream ?? false,
-    };
+    const body = this.buildRequestBody(request, modelId, false);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -105,7 +127,11 @@ export class OpenAICompatAdapter implements ILLMAdapter {
         // 만약 content가 비어있고 reasoning 또는 reasoning_content가 있다면 대체
         if (!content.trim() && typeof msg.reasoning === 'string' && msg.reasoning.trim()) {
           content = msg.reasoning;
-        } else if (!content.trim() && typeof msg.reasoning_content === 'string' && msg.reasoning_content.trim()) {
+        } else if (
+          !content.trim() &&
+          typeof msg.reasoning_content === 'string' &&
+          msg.reasoning_content.trim()
+        ) {
           content = msg.reasoning_content;
         }
         return {
@@ -154,6 +180,73 @@ export class OpenAICompatAdapter implements ILLMAdapter {
         ok: true,
         status: response.status,
         response: normalizedResponse,
+        errorBody: '',
+      };
+    } catch (error) {
+      clearTimeout(timeoutId);
+      const message = error instanceof Error ? error.message : 'Network error';
+      const isTimeout = error instanceof Error && error.name === 'AbortError';
+      return {
+        ok: false,
+        status: isTimeout ? 408 : 0,
+        errorBody: isTimeout ? `Timeout after ${timeoutMs}ms` : message,
+      };
+    }
+  }
+
+  async callStream(
+    request: ChatRequest,
+    modelId: string,
+    apiKey: string,
+    timeoutMs = 120_000
+  ): Promise<{
+    ok: boolean;
+    status: number;
+    stream?: ReadableStream<Uint8Array>;
+    errorBody: string;
+  }> {
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      ...this.config.defaultHeaders,
+    };
+
+    const body = this.buildRequestBody(request, modelId, true);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(this.config.baseUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        return {
+          ok: false,
+          status: response.status,
+          errorBody,
+        };
+      }
+
+      if (!response.body) {
+        return {
+          ok: false,
+          status: 500,
+          errorBody: 'No response body received from provider',
+        };
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        stream: response.body as ReadableStream<Uint8Array>,
         errorBody: '',
       };
     } catch (error) {

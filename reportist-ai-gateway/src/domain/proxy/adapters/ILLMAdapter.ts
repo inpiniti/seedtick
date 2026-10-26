@@ -14,4 +14,16 @@ export interface ILLMAdapter {
     response?: ChatResponse;
     errorBody: string;
   }>;
+
+  callStream?(
+    request: ChatRequest,
+    modelId: string,
+    apiKey: string,
+    timeoutMs?: number
+  ): Promise<{
+    ok: boolean;
+    status: number;
+    stream?: ReadableStream<Uint8Array>;
+    errorBody: string;
+  }>;
 }

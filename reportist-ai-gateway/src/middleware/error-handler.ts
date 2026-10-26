@@ -50,4 +50,3 @@ export const errorHandler = new Elysia().onError(({ code, error, set }) => {
     },
   };
 });
-
