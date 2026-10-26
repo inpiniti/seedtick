@@ -65,12 +65,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <input
               type="text"
               className="setting-input"
-              placeholder="예: http://localhost:3000 (비워두면 프록시 사용)"
+              placeholder="예: https://seedtick-ai-gateway.vercel.app"
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}
             />
             <p className="setting-hint">
-              로컬 개발 시 비워두면 Vite 프록시를 통해 로컬 게이트웨이로 자동 연결돼요.
+              기본 배포 게이트웨이(https://seedtick-ai-gateway.vercel.app) 또는 로컬 게이트웨이 주소예요.
             </p>
           </div>
 

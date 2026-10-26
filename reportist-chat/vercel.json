@@ -1,0 +1,16 @@
+{
+  "rewrites": [
+    {
+      "source": "/v1/:path*",
+      "destination": "https://seedtick-ai-gateway.vercel.app/v1/:path*"
+    },
+    {
+      "source": "/health",
+      "destination": "https://seedtick-ai-gateway.vercel.app/health"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

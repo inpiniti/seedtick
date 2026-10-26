@@ -2,9 +2,11 @@
 
 import type { FreeModelMeta, GatewayConfig, ReasoningEffortOption } from '../types/chat.ts';
 
+export const DEFAULT_GATEWAY_URL = 'https://seedtick-ai-gateway.vercel.app';
+
 // 게이트웨이 기본 설정
 export const DEFAULT_CONFIG: GatewayConfig = {
-  baseUrl: '', // 상대 경로 (Vite 프록시 사용) 또는 http://localhost:3000
+  baseUrl: DEFAULT_GATEWAY_URL,
   gatewaySecret: '377d4fa71b90fdbbd6eab6765f3050598de8c259ed86e615c9b18ae4ed63e8bd',
 };
 
@@ -14,7 +16,13 @@ export function loadGatewayConfig(): GatewayConfig {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_CONFIG);
     if (raw) {
-      return { ...DEFAULT_CONFIG, ...JSON.parse(raw) };
+      const parsed = JSON.parse(raw);
+      const cfg = { ...DEFAULT_CONFIG, ...parsed };
+      // 만약 이전 세션에서 빈 문자열이 저장되어 있다면 기본 배포 게이트웨이로 자동 보정
+      if (!cfg.baseUrl || !cfg.baseUrl.trim()) {
+        cfg.baseUrl = DEFAULT_GATEWAY_URL;
+      }
+      return cfg;
     }
   } catch (e) {
     console.error('Failed to load gateway config:', e);
