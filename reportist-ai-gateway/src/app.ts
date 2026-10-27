@@ -5,6 +5,7 @@ import { authMiddleware } from './middleware/auth.ts';
 import { errorHandler } from './middleware/error-handler.ts';
 import { chatRoute } from './routes/chat.ts';
 import { debugRoute } from './routes/debug.ts';
+import { decisionsRoute } from './routes/decisions.ts';
 import { healthRoute } from './routes/health.ts';
 import { modelsRoute } from './routes/models.ts';
 import { yahooRoute } from './routes/yahoo.ts';
@@ -25,5 +26,6 @@ export const app = new Elysia()
   .use(healthRoute)
   .use(modelsRoute)
   .use(chatRoute)
+  .use(decisionsRoute)
   .use(yahooRoute)
   .use(debugRoute);

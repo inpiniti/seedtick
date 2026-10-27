@@ -1650,6 +1650,16 @@ export function DashboardView({
                 >
                   AI Video
                 </a>
+                <span>·</span>
+                <a
+                  href="https://game.reportist.kr"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-[#0f172a] transition-colors"
+                  title="Reportist AI Game"
+                >
+                  AI Game
+                </a>
               </nav>
               <span className="hidden sm:inline text-slate-300">|</span>
               <div className="flex items-center gap-2">

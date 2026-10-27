@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://game.reportist.kr/sitemap.xml
