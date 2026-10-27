@@ -247,7 +247,7 @@ export class ProxyService {
     // 2. Gemini 직통 또는 통합 풀 소진 시 Gemini 폴백
     const geminiAdapter = this.adapters.get('gemini');
     if (geminiAdapter && env.geminiKeys.length > 0) {
-      const geminiModel = isGeminiDirect ? targetModel : 'gemini-2.5-flash';
+      const geminiModel = isGeminiDirect ? targetModel : 'gemini-2.5-flash-lite';
       for (const apiKey of env.geminiKeys) {
         if (this.cooldown.isCoolingDown('gemini', geminiModel, apiKey)) continue;
         this.rotator.acquireKey('gemini', apiKey);

@@ -35,11 +35,16 @@ export interface VideoItem {
   error?: string;
 }
 
+export interface ExtractedFrame {
+  timestamp: number; // 초 단위 (예: 1.5)
+  dataUrl: string;   // data:image/jpeg;base64,...
+}
+
 export type OverallStep = 'upload' | 'processing' | 'result';
 
 export interface ProcessingProgress {
   step: OverallStep;
-  currentPhase: 'compress' | 'analyze' | 'stitch' | 'done' | 'error';
+  currentPhase: 'extract' | 'compress' | 'analyze' | 'stitch' | 'done' | 'error';
   currentVideoIndex: number;
   totalVideos: number;
   progressPercent: number;

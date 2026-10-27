@@ -1,7 +1,7 @@
-// services/gatewayClient.ts - AI Gateway 통신 및 비디오 극적 구간 분석 서비스
+// services/gatewayClient.ts - AI Gateway 통신 및 다중 프레임 시각 분석 서비스
 
 import type { FreeModelMeta, GatewayConfig, ReasoningEffortOption } from '../types/gateway.ts';
-import type { HighlightSegment } from '../types/video.ts';
+import type { ExtractedFrame, HighlightSegment } from '../types/video.ts';
 
 export const DEFAULT_GATEWAY_URL = 'https://seedtick-ai-gateway.vercel.app';
 export const DEFAULT_GATEWAY_SECRET = '377d4fa71b90fdbbd6eab6765f3050598de8c259ed86e615c9b18ae4ed63e8bd';
@@ -11,29 +11,17 @@ export const DEFAULT_CONFIG: GatewayConfig = {
   gatewaySecret: DEFAULT_GATEWAY_SECRET,
 };
 
-// 비디오 입력을 공식 지원하는 무료 모델 폴백 목록
+// 다중 프레임 시각 분석을 공식 지원하는 고성능 무료 모델 목록
 export const FALLBACK_VIDEO_MODELS: FreeModelMeta[] = [
-  {
-    id: 'nvidia/nemotron-3.5-super-vl:free',
-    name: 'NVIDIA: Nemotron 3.5 Super VL (free)',
-    providerName: 'NVIDIA',
-    contextLengthFormatted: '1M tokens (초대용량)',
-    description: '120B MoE 오픈 멀티모달 모델. 텍스트, 이미지, GUI, 비디오 입력을 완벽하게 지원합니다.',
-    modality: 'text+image+video->text',
-    inputModalities: ['text', 'image', 'video'],
-    intelligenceTier: '플래그십 비디오 멀티모달',
-    supportedEfforts: ['high', 'medium', 'low'],
-    defaultEffort: 'high',
-  },
   {
     id: 'google/gemma-4-31b-it:free',
     name: 'Google: Gemma 4 31B (free)',
     providerName: 'Google DeepMind',
     contextLengthFormatted: '256K tokens',
-    description: 'Google DeepMind의 고성능 멀티모달 모델로 비디오 타임스탬프 분석 및 추론에 탁월합니다.',
-    modality: 'text+image+video->text',
-    inputModalities: ['text', 'image', 'video'],
-    intelligenceTier: 'Google 31B 멀티모달',
+    description: 'Google DeepMind의 고성능 멀티모달 모델로 연속 프레임 시퀀스와 타임스탬프 분석에 탁월합니다.',
+    modality: 'text+image->text',
+    inputModalities: ['text', 'image'],
+    intelligenceTier: 'Google 31B 비전 멀티모달',
     supportedEfforts: ['high', 'medium', 'low'],
     defaultEffort: 'high',
   },
@@ -42,24 +30,46 @@ export const FALLBACK_VIDEO_MODELS: FreeModelMeta[] = [
     name: 'Google: Gemma 4 26B A4B (free)',
     providerName: 'Google DeepMind',
     contextLengthFormatted: '256K tokens',
-    description: 'Google DeepMind 경량 고성능 MoE 모델로 빠른 비디오 장면 인식이 가능합니다.',
-    modality: 'text+image+video->text',
-    inputModalities: ['text', 'image', 'video'],
+    description: 'Google DeepMind 경량 고성능 MoE 모델로 빠른 프레임 장면 인식이 가능합니다.',
+    modality: 'text+image->text',
+    inputModalities: ['text', 'image'],
     intelligenceTier: 'Google 경량 고성능 MoE',
+  },
+  {
+    id: 'nvidia/nemotron-3.5-super-vl:free',
+    name: 'NVIDIA: Nemotron 3.5 Super VL (free)',
+    providerName: 'NVIDIA',
+    contextLengthFormatted: '1M tokens (초대용량)',
+    description: '120B MoE 오픈 멀티모달 모델. 텍스트, 이미지 시퀀스, GUI 입력을 완벽하게 지원합니다.',
+    modality: 'text+image->text',
+    inputModalities: ['text', 'image'],
+    intelligenceTier: '플래그십 120B 멀티모달',
+    supportedEfforts: ['high', 'medium', 'low'],
+    defaultEffort: 'high',
   },
   {
     id: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
     name: 'NVIDIA: Nemotron 3 Nano Omni (free)',
     providerName: 'NVIDIA',
     contextLengthFormatted: '256K tokens',
-    description: '텍스트, 이미지, 오디오, 비디오를 통합 인식하는 옴니 멀티모달 모델입니다.',
-    modality: 'text+image+audio+video->text',
-    inputModalities: ['text', 'image', 'audio', 'video'],
+    description: '텍스트와 이미지를 통합 인식하는 옴니 멀티모달 추론 모델입니다.',
+    modality: 'text+image->text',
+    inputModalities: ['text', 'image'],
     intelligenceTier: '옴니 멀티모달 추론',
+  },
+  {
+    id: 'dots-studio/dots-3-note-preview:free',
+    name: 'Dots Studio: Dots3-Note Preview (free)',
+    providerName: 'Dots Studio',
+    contextLengthFormatted: '512K tokens',
+    description: '280B MoE 고지능 비전 모델로 복합 장면 시퀀스 요약에 최적화되어 있습니다.',
+    modality: 'text+image->text',
+    inputModalities: ['text', 'image'],
+    intelligenceTier: '초대형 280B 비전 MoE',
   },
 ];
 
-// 게이트웨이에서 비디오 입력 가능한 모델만 가져오기
+// 게이트웨이에서 이미지/비전 입력 가능한 멀티모달 모델 가져오기
 export async function fetchVideoCapableModels(config: GatewayConfig = DEFAULT_CONFIG): Promise<FreeModelMeta[]> {
   try {
     const url = `${config.baseUrl.replace(/\/+$/, '')}/v1/models`;
@@ -72,28 +82,32 @@ export async function fetchVideoCapableModels(config: GatewayConfig = DEFAULT_CO
     if (res.ok) {
       const json = await res.json();
       if (Array.isArray(json.data) && json.data.length > 0) {
-        // 비디오 모달리티를 지원하는 모델만 엄격 필터링
-        const videoModels = json.data.filter((m: FreeModelMeta) => {
-          const hasVideoInput = Array.isArray(m.inputModalities) && m.inputModalities.includes('video');
-          const hasVideoModality = typeof m.modality === 'string' && m.modality.includes('video');
-          const isKnownVideo = m.id.includes('super-vl') || m.id.includes('nano-omni') || m.id.includes('gemma-4');
-          return hasVideoInput || hasVideoModality || isKnownVideo;
+        // 비전(이미지) 모달리티를 지원하는 모델 필터링
+        const visionModels = json.data.filter((m: FreeModelMeta) => {
+          const hasImageInput = Array.isArray(m.inputModalities) && m.inputModalities.includes('image');
+          const hasImageModality = typeof m.modality === 'string' && m.modality.includes('image');
+          const isKnownVision =
+            m.id.includes('super-vl') ||
+            m.id.includes('nano-omni') ||
+            m.id.includes('gemma-4') ||
+            m.id.includes('dots-3');
+          return hasImageInput || hasImageModality || isKnownVision;
         });
 
-        if (videoModels.length > 0) {
-          return videoModels;
+        if (visionModels.length > 0) {
+          return visionModels;
         }
       }
     }
   } catch (err) {
-    console.warn('[GatewayClient] 비디오 모델 조회 실패, 기본 폴백 목록 사용:', err);
+    console.warn('[GatewayClient] 비전 모델 조회 실패, 기본 폴백 목록 사용:', err);
   }
 
   return FALLBACK_VIDEO_MODELS;
 }
 
 export interface AnalyzeVideoParams {
-  videoDataUrl: string;
+  frames: ExtractedFrame[];
   videoDuration: number;
   videoId: string;
   videoName: string;
@@ -103,9 +117,9 @@ export interface AnalyzeVideoParams {
   signal?: AbortSignal;
 }
 
-// 비디오를 AI Gateway로 전송하여 극적인 구간 추출
+// 추출된 프레임 시퀀스를 AI Gateway로 전송하여 극적인 구간 추출
 export async function analyzeVideoHighlights({
-  videoDataUrl,
+  frames,
   videoDuration,
   videoId,
   videoName,
@@ -115,9 +129,13 @@ export async function analyzeVideoHighlights({
   signal,
 }: AnalyzeVideoParams): Promise<HighlightSegment[]> {
   const roundedDuration = Math.round(videoDuration * 10) / 10;
-  
+
   const prompt = `You are an elite cinematic video director and highlight editor.
-Analyze the provided video (Total Duration: ${roundedDuration} seconds) and identify the most DRAMATIC, EXCITING, EMOTIONAL, or PEAK ACTION highlight moments.
+We have extracted ${frames.length} sequential keyframes from the video "${videoName}" (Total Duration: ${roundedDuration} seconds).
+Each keyframe is labeled with its exact timestamp in seconds.
+
+YOUR TASK:
+Analyze the visual action, tension, emotion, and storyline progression across these sequential frames to identify 1 to 5 of the most DRAMATIC, EXCITING, EMOTIONAL, or PEAK ACTION highlight intervals.
 
 CRITICAL RULES:
 1. Return 1 to 5 most dramatic intervals.
@@ -135,18 +153,29 @@ Format:
   const baseUrl = config.baseUrl.replace(/\/+$/, '');
   const url = `${baseUrl}/v1/chat/completions`;
 
+  // 메시지 본문 구성: 텍스트 프롬프트 + 프레임별 타임스탬프 & image_url
+  const messageContent: Array<Record<string, unknown>> = [
+    { type: 'text', text: prompt },
+  ];
+
+  for (let i = 0; i < frames.length; i++) {
+    const f = frames[i];
+    messageContent.push({
+      type: 'text',
+      text: `[Frame #${i + 1} at timestamp ${f.timestamp.toFixed(1)}s]`,
+    });
+    messageContent.push({
+      type: 'image_url',
+      image_url: { url: f.dataUrl },
+    });
+  }
+
   const requestBody: Record<string, unknown> = {
-    model: model || 'nvidia/nemotron-3.5-super-vl:free',
+    model: model || 'google/gemma-4-31b-it:free',
     messages: [
       {
         role: 'user',
-        content: [
-          { type: 'text', text: prompt },
-          {
-            type: 'video_url',
-            video_url: { url: videoDataUrl },
-          },
-        ],
+        content: messageContent,
       },
     ],
     temperature: 0.2, // 결정론적이고 정확한 타임스탬프 추출

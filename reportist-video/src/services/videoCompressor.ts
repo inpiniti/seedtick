@@ -1,10 +1,122 @@
-// services/videoCompressor.ts - 브라우저 기반 초경량 비디오 압축 및 메타데이터 추출 엔진
+import type { ExtractedFrame } from '../types/video.ts';
 
 export interface VideoMetadata {
   duration: number;
   width: number;
   height: number;
   thumbnailUrl: string;
+}
+
+// 영상 길이에 따라 최적의 프레임 샘플링 타임스탬프 계산 (최대 12~14개 프레임)
+export function calculateSampleTimestamps(totalDuration: number, maxFrames = 14): number[] {
+  if (totalDuration <= 1.0) {
+    return [Math.max(0.1, totalDuration * 0.5)];
+  }
+
+  // 5초 이하 짧은 영상
+  if (totalDuration <= 5.0) {
+    const count = Math.min(maxFrames, Math.max(4, Math.floor(totalDuration / 0.6)));
+    const step = (totalDuration - 0.2) / (count - 1);
+    return Array.from({ length: count }, (_, i) => Math.round((0.1 + i * step) * 10) / 10);
+  }
+
+  // 5초 ~ 15초 영상
+  if (totalDuration <= 15.0) {
+    const count = Math.min(maxFrames, Math.max(8, Math.floor(totalDuration / 1.0)));
+    const step = (totalDuration - 0.4) / (count - 1);
+    return Array.from({ length: count }, (_, i) => Math.round((0.2 + i * step) * 10) / 10);
+  }
+
+  // 15초 초과 영상: 12~14개 프레임 균등 배치
+  const count = Math.min(maxFrames, 14);
+  const startOffset = Math.max(0.3, totalDuration * 0.02);
+  const endOffset = Math.min(totalDuration - 0.3, totalDuration * 0.98);
+  const step = (endOffset - startOffset) / (count - 1);
+  return Array.from({ length: count }, (_, i) => Math.round((startOffset + i * step) * 10) / 10);
+}
+
+// 브라우저 캔버스를 이용해 비디오에서 주요 타임스탬프별 프레임 이미지를 초고속 추출
+export async function extractVideoFramesForAnalysis(
+  videoUrl: string,
+  totalDuration: number,
+  onProgress?: (progressPercent: number) => void
+): Promise<ExtractedFrame[]> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.src = videoUrl;
+    video.muted = true;
+    video.playsInline = true;
+    video.crossOrigin = 'anonymous';
+    video.preload = 'auto';
+
+    video.onloadedmetadata = async () => {
+      try {
+        const duration = video.duration || totalDuration || 1;
+        // 시각 분석에 최적화된 저해상도 설정 (너비 420px, 종횡비 유지)
+        const targetWidth = 420;
+        const aspectRatio = (video.videoHeight || 360) / (video.videoWidth || 640);
+        const targetHeight = Math.round((targetWidth * aspectRatio) / 2) * 2;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+          throw new Error('캔버스 컨텍스트를 생성할 수 없습니다.');
+        }
+
+        const timestamps = calculateSampleTimestamps(duration, 14);
+        const frames: ExtractedFrame[] = [];
+
+        for (let i = 0; i < timestamps.length; i++) {
+          const ts = timestamps[i];
+
+          // 지정 타임스탬프로 초고속 Seek
+          await new Promise<void>((seekResolve) => {
+            let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+            const onSeeked = () => {
+              if (timeoutId) clearTimeout(timeoutId);
+              video.removeEventListener('seeked', onSeeked);
+              seekResolve();
+            };
+
+            // 타임아웃 안전장치 (1000ms)
+            timeoutId = setTimeout(() => {
+              video.removeEventListener('seeked', onSeeked);
+              seekResolve();
+            }, 1000);
+
+            video.addEventListener('seeked', onSeeked);
+            video.currentTime = Math.min(Math.max(0, ts), Math.max(0, duration - 0.05));
+          });
+
+          // 캔버스에 프레임 그리기
+          ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+
+          // 화질 0.65의 경량 JPEG dataUrl 생성 (프레임당 약 15~20KB)
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.65);
+          frames.push({
+            timestamp: ts,
+            dataUrl,
+          });
+
+          if (onProgress) {
+            onProgress(Math.round(((i + 1) / timestamps.length) * 100));
+          }
+        }
+
+        resolve(frames);
+      } catch (err) {
+        reject(err);
+      }
+    };
+
+    video.onerror = () => {
+      reject(new Error('비디오 로드에 실패했습니다. 올바른 비디오 형식인지 확인해 주세요.'));
+    };
+  });
 }
 
 // 비디오 파일로부터 재생 시간, 해상도, 대표 썸네일 추출

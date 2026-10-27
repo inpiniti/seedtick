@@ -13,7 +13,7 @@ import {
   FALLBACK_VIDEO_MODELS,
   DEFAULT_CONFIG,
 } from './services/gatewayClient.ts';
-import { extractVideoMetadata, compressVideoForAnalysis } from './services/videoCompressor.ts';
+import { extractVideoMetadata, extractVideoFramesForAnalysis } from './services/videoCompressor.ts';
 import { stitchHighlightedSegments } from './services/videoStitcher.ts';
 import type { FreeModelMeta, ReasoningEffortOption } from './types/gateway.ts';
 import type {
@@ -27,7 +27,7 @@ import { Play, Sparkles, AlertCircle } from 'lucide-react';
 export function App() {
   // 1. 모델 상태
   const [models, setModels] = useState<FreeModelMeta[]>(FALLBACK_VIDEO_MODELS);
-  const [selectedModel, setSelectedModel] = useState<string>('nvidia/nemotron-3.5-super-vl:free');
+  const [selectedModel, setSelectedModel] = useState<string>('google/gemma-4-31b-it:free');
   const [selectedEffort, setSelectedEffort] = useState<ReasoningEffortOption>('high');
   const [isLoadingModels, setIsLoadingModels] = useState<boolean>(true);
 
@@ -39,7 +39,7 @@ export function App() {
   // 3. 진행률 및 결과
   const [progress, setProgress] = useState<ProcessingProgress>({
     step: 'upload',
-    currentPhase: 'compress',
+    currentPhase: 'extract',
     currentVideoIndex: 0,
     totalVideos: 0,
     progressPercent: 0,
@@ -60,7 +60,7 @@ export function App() {
         if (isMounted && fetched.length > 0) {
           setModels(fetched);
           // 기본 선택 모델 설정
-          const defaultModel = fetched.find((m) => m.id.includes('super-vl')) || fetched[0];
+          const defaultModel = fetched.find((m) => m.id.includes('gemma-4-31b')) || fetched[0];
           setSelectedModel(defaultModel.id);
           if (defaultModel.defaultEffort) {
             setSelectedEffort(defaultModel.defaultEffort as ReasoningEffortOption);
@@ -176,17 +176,17 @@ export function App() {
 
         const currentVideo = updatedVideos[i];
 
-        // 1-A. 브라우저 캔버스 경량 압축
+        // 1-A. 브라우저 캔버스 주요 프레임 다중 이미지 추출
         setProgress({
           step: 'processing',
-          currentPhase: 'compress',
+          currentPhase: 'extract',
           currentVideoIndex: i,
           totalVideos,
           progressPercent: Math.round(((i * 2) / (totalVideos * 2 + 1)) * 100),
-          statusMessage: `${i + 1}/${totalVideos}번째 영상 [${currentVideo.name}] AI 분석용 고속 압축 중...`,
+          statusMessage: `${i + 1}/${totalVideos}번째 영상 [${currentVideo.name}] 주요 프레임 다중 이미지 추출 중...`,
         });
 
-        const compressedDataUrl = await compressVideoForAnalysis(
+        const frames = await extractVideoFramesForAnalysis(
           currentVideo.url,
           currentVideo.duration,
           (pct) => {
@@ -199,7 +199,7 @@ export function App() {
           }
         );
 
-        // 1-B. AI Gateway로 분석 전송 (극적 구간 JSON 요청)
+        // 1-B. AI Gateway로 시각 프레임 분석 전송 (극적 구간 JSON 요청)
         setProgress({
           step: 'processing',
           currentPhase: 'analyze',
@@ -210,7 +210,7 @@ export function App() {
         });
 
         const segments = await analyzeVideoHighlights({
-          videoDataUrl: compressedDataUrl,
+          frames,
           videoDuration: currentVideo.duration,
           videoId: currentVideo.id,
           videoName: currentVideo.name,

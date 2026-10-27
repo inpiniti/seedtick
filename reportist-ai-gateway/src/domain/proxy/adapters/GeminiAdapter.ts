@@ -4,7 +4,11 @@ import type { ChatMessage, ChatRequest, ChatResponse, ProviderConfig } from '../
 import type { ILLMAdapter } from './ILLMAdapter.ts';
 
 interface GeminiPart {
-  text: string;
+  text?: string;
+  inlineData?: {
+    mimeType: string;
+    data: string;
+  };
 }
 
 interface GeminiContent {
@@ -130,22 +134,52 @@ export class GeminiAdapter implements ILLMAdapter {
   private transformRequest(request: ChatRequest): GeminiRequest {
     const contents: GeminiContent[] = [];
 
+    // 시스템 메시지 추출
+    const systemMsg = request.messages.find((m: ChatMessage) => m.role === 'system');
+    const systemText = systemMsg ? this.extractText(systemMsg.content) : '';
+
+    let isFirstUser = true;
+
     for (const msg of request.messages) {
       if (msg.role === 'system') {
-        // 시스템 메시지는 첫 user 메시지에 합치거나 별도 처리
-        // 여기서는 첫 user 메시지 앞에 프리펜드로 처리
         continue;
       }
-      contents.push({
-        role: msg.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: this.extractText(msg.content) }],
-      });
-    }
+      const role = msg.role === 'assistant' ? 'model' : 'user';
+      const parts: GeminiPart[] = [];
 
-    // 시스템 메시지가 있다면 첫 user 메시지에 합치기
-    const systemMsg = request.messages.find((m: ChatMessage) => m.role === 'system');
-    if (systemMsg && contents.length > 0 && contents[0].role === 'user') {
-      contents[0].parts[0].text = `${this.extractText(systemMsg.content)}\n\n${contents[0].parts[0].text}`;
+      if (typeof msg.content === 'string') {
+        const text = isFirstUser && systemText ? `${systemText}\n\n${msg.content}` : msg.content;
+        parts.push({ text });
+        if (role === 'user') isFirstUser = false;
+      } else if (Array.isArray(msg.content)) {
+        let prependedSystem = false;
+        for (const item of msg.content as any[]) {
+          if (item?.type === 'text' && typeof item.text === 'string') {
+            const text =
+              isFirstUser && !prependedSystem && systemText
+                ? `${systemText}\n\n${item.text}`
+                : item.text;
+            parts.push({ text });
+            prependedSystem = true;
+          } else if (item?.type === 'image_url' && typeof item.image_url?.url === 'string') {
+            const dataUrl = item.image_url.url;
+            const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+            if (match) {
+              parts.push({
+                inlineData: {
+                  mimeType: match[1],
+                  data: match[2],
+                },
+              });
+            }
+          }
+        }
+        if (role === 'user') isFirstUser = false;
+      }
+
+      if (parts.length > 0) {
+        contents.push({ role, parts });
+      }
     }
 
     return {

@@ -52,8 +52,8 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="hidden sm:inline">AI Gateway</span>
         </div>
 
-        {/* Video Capable Model Selector */}
-        <div className="model-widget" title="비디오 입력 지원 모델만 선별되어 제공됩니다">
+        {/* Vision Capable Model Selector */}
+        <div className="model-widget" title="다중 프레임 시각 분석 지원 모델만 선별되어 제공됩니다">
           <Cpu className="w-3.5 h-3.5 text-[#2563eb] shrink-0" />
           <span className="text-[#64748b] text-[11px] font-mono">모델:</span>
           <select

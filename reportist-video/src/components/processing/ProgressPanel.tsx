@@ -10,10 +10,12 @@ interface ProgressPanelProps {
 }
 
 export const ProgressPanel: React.FC<ProgressPanelProps> = ({ progress, onCancel }) => {
-  const getPhaseStepClass = (targetPhase: 'compress' | 'analyze' | 'stitch') => {
+  const getPhaseStepClass = (targetPhase: 'extract' | 'compress' | 'analyze' | 'stitch') => {
+    const normalizedCurrent = progress.currentPhase === 'extract' ? 'compress' : progress.currentPhase;
+    const normalizedTarget = targetPhase === 'extract' ? 'compress' : targetPhase;
     const phases = ['compress', 'analyze', 'stitch', 'done'];
-    const currentIndex = phases.indexOf(progress.currentPhase);
-    const targetIndex = phases.indexOf(targetPhase);
+    const currentIndex = phases.indexOf(normalizedCurrent);
+    const targetIndex = phases.indexOf(normalizedTarget);
 
     if (currentIndex > targetIndex) return 'done';
     if (currentIndex === targetIndex) return 'active';
@@ -41,7 +43,7 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({ progress, onCancel
       <div className="pipeline-steps">
         <div className={`pipeline-step-item ${getPhaseStepClass('compress')}`}>
           <div className="pipeline-step-dot">1</div>
-          <span>경량 압축</span>
+          <span>주요 프레임 추출</span>
         </div>
         <div className="text-slate-300">→</div>
         <div className={`pipeline-step-item ${getPhaseStepClass('analyze')}`}>
