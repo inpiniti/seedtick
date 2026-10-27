@@ -162,7 +162,7 @@ export interface GuruReportRow {
   verdict: string;
   overall_score: number;
   vote_summary: string | null;
-  datapack: (Record<string, any> & { valuation_consensus?: ValuationConsensus }) | null;
+  datapack: (Record<string, unknown> & { valuation_consensus?: ValuationConsensus }) | null;
   summaries: GuruSummaryItem[] | null;
   final_report: string | null;
   final_report_en?: string | null;
@@ -191,7 +191,7 @@ export interface GuruReportRow {
   bull_points_en?: string[] | null;
   bear_points_en?: string[] | null;
   key_drivers_en?: string[] | null;
-  action_guide?: Record<string, any> | null;
+  action_guide?: Record<string, unknown> | null;
   valuation_flags?: string[] | null;
   parse_mode?: string | null;
   prompt_version?: string | null;
@@ -496,6 +496,12 @@ export interface MarketBriefing {
   topics?: string[];
   tickers?: string[];
   keywords?: string[];
+  // ── 영문 다국어 필드 (i18n) ──
+  title_en?: string | null;
+  content_en?: string | null;
+  summary_3lines_en?: string[] | null;
+  topics_en?: string[] | null;
+  keywords_en?: string[] | null;
   sources?: Record<string, number>;
   raw_count?: number;
   created_at?: string;

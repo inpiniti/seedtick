@@ -20,8 +20,16 @@ from app.domains.curator.prompts import (
     build_curator_user_prompt,
 )
 from app.domains.report.ai_client import AiGatewayClient
+from app.domains.report.structuring import extract_json_object
 
 logger = logging.getLogger("curator_writer")
+
+BRIEFING_TRANSLATION_SYSTEM_PROMPT = """You are a senior Wall Street financial editor and professional journalist for Reportist Research.
+Your mission is to translate and localize daily stock market briefings and community intelligence from Korean into polished, publication-grade English.
+Ensure natural journalistic flow, financial market terminology, and clear structural hierarchy.
+Preserve all stock tickers (e.g., $NVDA, $TSLA), financial ratios, percentages, and markdown formatting (headings, lists, bold text, blockquotes).
+Output MUST be a single valid JSON object without surrounding explanations."""
+
 
 
 class BriefingWriter:
@@ -128,3 +136,99 @@ class BriefingWriter:
         )
 
         return daily_briefing, history_item
+
+    async def translate_briefing_to_en(
+        self,
+        date_str: str,
+        korean_title: str,
+        korean_content: str,
+        summary_3lines: list[str] | None = None,
+        topics: list[str] | None = None,
+        tickers: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """한국어 마켓 브리핑을 100% 영문 마크다운 및 구조화된 영문 메타데이터로 번역·로컬라이징."""
+        summary_bullets = "\n".join(f"- {s}" for s in (summary_3lines or []))
+        tickers_str = ", ".join(tickers or [])
+        user_prompt = f"""Please translate and localize the following Korean Daily Market Briefing ({date_str}) into publication-ready English for Reportist global equity research users.
+
+[Korean Source Title]
+{korean_title}
+
+[Korean Source 3-Line Summary]
+{summary_bullets}
+
+[Korean Source Article Body]
+{korean_content}
+
+[Instructions]
+1. Translate the entire markdown article into fluent, professional English (active voice, financial journalism style).
+2. Maintain all markdown formatting, including '# [Daily Market Briefing] {date_str} ...', '## 📌 Today\'s Market 3-Line Summary', section numbers ('## 1.', '## 2.'), bullet points, bolding, blockquotes, and tables.
+3. Keep all tickers ({tickers_str}) intact.
+4. Translate the 3-line summary into concise English bullets.
+5. Translate the topics into crisp English headline strings.
+6. Absolutely NO Korean characters allowed anywhere in the output.
+
+[Required JSON Output Format]
+{{
+  "title_en": "[Daily Market Briefing] {date_str} <English Headline>",
+  "content_en": "<Full English Markdown Article Body>",
+  "summary_3lines_en": [
+    "<Line 1 summary in English>",
+    "<Line 2 summary in English>",
+    "<Line 3 summary in English>"
+  ],
+  "topics_en": [
+    "<Topic 1 in English>",
+    "<Topic 2 in English>"
+  ],
+  "keywords_en": [
+    "<Keyword 1 in English>",
+    "<Keyword 2 in English>"
+  ]
+}}"""
+
+        target_model = (settings.AI_REPORT_MODEL or settings.AI_GATEWAY_MODEL).strip()
+        logger.info(
+            f"[BriefingWriter] 영문 브리핑 번역 시작 ({date_str}, 모델 고정: {target_model})"
+        )
+
+        try:
+            raw_response = await self.ai.chat(
+                prompt=user_prompt,
+                system_prompt=BRIEFING_TRANSLATION_SYSTEM_PROMPT,
+                model_override=target_model,
+                pin_model=True,
+                max_tokens=8192,
+                temperature_override=0.2,
+            )
+            parsed = extract_json_object(raw_response)
+            if isinstance(parsed, dict) and parsed.get("content_en"):
+                logger.info(f"[BriefingWriter] ✨ 영문 브리핑 번역 성공 ({date_str})")
+                return {
+                    "title_en": str(parsed.get("title_en") or f"[Daily Market Briefing] {date_str} Global Market Radar").strip(),
+                    "content_en": str(parsed.get("content_en")).strip(),
+                    "summary_3lines_en": [str(x).strip() for x in parsed.get("summary_3lines_en") or [] if str(x).strip()],
+                    "topics_en": [str(x).strip() for x in parsed.get("topics_en") or [] if str(x).strip()],
+                    "keywords_en": [str(x).strip() for x in parsed.get("keywords_en") or [] if str(x).strip()],
+                }
+            elif raw_response:
+                logger.warning(f"[BriefingWriter] 영문 브리핑 JSON 파싱 실패 -> 마크다운 텍스트 직접 추출 ({date_str})")
+                title_match = re.search(r'#\s*\[(?:Daily Market Briefing|Market Briefing)\]\s*.*?:?\s*(.*)', raw_response)
+                title_en = title_match.group(0).strip("# ").strip() if title_match else f"[Daily Market Briefing] {date_str} Global Market Radar"
+                return {
+                    "title_en": title_en,
+                    "content_en": raw_response.strip(),
+                    "summary_3lines_en": [f"Market briefing for {date_str}"],
+                    "topics_en": [t for t in (topics or [])],
+                    "keywords_en": [t for t in (tickers or [])],
+                }
+        except Exception as e:
+            logger.error(f"[BriefingWriter] 영문 브리핑 번역 실패 ({date_str}): {e}")
+
+        return {
+            "title_en": f"[Daily Market Briefing] {date_str} Global Market Radar",
+            "content_en": "",
+            "summary_3lines_en": [],
+            "topics_en": [],
+            "keywords_en": [],
+        }

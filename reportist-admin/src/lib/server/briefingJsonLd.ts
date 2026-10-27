@@ -10,18 +10,30 @@ export function buildBriefingArticleJsonLd(
 ) {
   const pagePath = isEn ? `/en/briefings/${briefing.d}` : `/briefings/${briefing.d}`;
   const canonicalUrl = absoluteUrl(pagePath);
-  const headline = briefing.title
+  const headline = (isEn && briefing.title_en ? briefing.title_en : briefing.title)
     .replace(/^#\s*/, "")
-    .replace(/^\[데일리 마켓 브리핑\]\s*[\d-]*\s*/, "")
+    .replace(/^\[(?:데일리 마켓 브리핑|Daily Market Briefing)\]\s*[\d-]*\s*/i, "")
     .trim();
 
+  const activeSummary =
+    isEn && briefing.summary_3lines_en && briefing.summary_3lines_en.length > 0
+      ? briefing.summary_3lines_en
+      : briefing.summary_3lines;
+
   const description =
-    Array.isArray(briefing.summary_3lines) && briefing.summary_3lines.length > 0
-      ? briefing.summary_3lines.join(" ")
+    Array.isArray(activeSummary) && activeSummary.length > 0
+      ? activeSummary.join(" ")
+      : isEn
+      ? `${briefing.d} Reportist Daily AI Market Briefing`
       : `${briefing.d} 리포티스트 일일 AI 마켓 브리핑`;
 
   const datePublished = `${briefing.d}T00:05:00+09:00`;
   const dateModified = briefing.updated_at || datePublished;
+
+  const activeKeywords =
+    isEn && briefing.keywords_en && briefing.keywords_en.length > 0
+      ? briefing.keywords_en
+      : briefing.keywords || [];
 
   return {
     "@context": "https://schema.org",
@@ -34,6 +46,7 @@ export function buildBriefingArticleJsonLd(
     },
     headline,
     description,
+    articleBody: isEn && briefing.content_en ? briefing.content_en : briefing.content,
     datePublished,
     dateModified,
     mainEntityOfPage: {
@@ -61,10 +74,10 @@ export function buildBriefingArticleJsonLd(
       },
     },
     keywords: [
-      ...(briefing.keywords || []),
+      ...activeKeywords,
       ...(briefing.tickers ? briefing.tickers.map((t) => `$${t}`) : []),
-      "데일리 마켓 브리핑",
-      "주식 시장 브리핑",
+      isEn ? "Daily Market Briefing" : "데일리 마켓 브리핑",
+      isEn ? "Stock Market Briefing" : "주식 시장 브리핑",
     ],
     about: (briefing.tickers || []).map((ticker) => ({
       "@type": "Thing",

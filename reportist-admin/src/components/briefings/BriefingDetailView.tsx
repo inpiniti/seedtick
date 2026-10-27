@@ -37,8 +37,18 @@ export function BriefingDetailView({
 
   const sources = briefing.sources || {};
   const tickers = briefing.tickers || [];
-  const topics = briefing.topics || [];
-  const summary3 = briefing.summary_3lines || [];
+  
+  // 영문 다국어 분기 (영문 데이터 우선 사용)
+  const activeTitle = isEn && briefing.title_en ? briefing.title_en : briefing.title;
+  const activeContent = isEn && briefing.content_en ? briefing.content_en : briefing.content;
+  const activeSummary =
+    isEn && briefing.summary_3lines_en && briefing.summary_3lines_en.length > 0
+      ? briefing.summary_3lines_en
+      : briefing.summary_3lines || [];
+  const activeTopics =
+    isEn && briefing.topics_en && briefing.topics_en.length > 0
+      ? briefing.topics_en
+      : briefing.topics || [];
 
   const currentIndex = availableDates.indexOf(briefing.d);
   const prevDate = currentIndex > 0 ? availableDates[currentIndex - 1] : null; // 더 최신
@@ -47,9 +57,9 @@ export function BriefingDetailView({
   const basePath = isEn ? "/en/briefings" : "/briefings";
 
   const handleCopyContent = async () => {
-    if (!briefing.content) return;
+    if (!activeContent) return;
     try {
-      await navigator.clipboard.writeText(briefing.content);
+      await navigator.clipboard.writeText(activeContent);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (e) {
@@ -163,42 +173,49 @@ export function BriefingDetailView({
 
           {sources.news !== undefined && sources.news > 0 && (
             <Badge variant="neutral" className="font-mono">
-              뉴스 {sources.news}건
+              {isEn ? `News ${sources.news}` : `뉴스 ${sources.news}건`}
             </Badge>
           )}
           {sources.reddit !== undefined && sources.reddit > 0 && (
             <Badge variant="neutral" className="font-mono">
-              Reddit {sources.reddit}건
+              {isEn ? `Reddit ${sources.reddit}` : `Reddit ${sources.reddit}건`}
             </Badge>
           )}
           {sources.kr_community !== undefined && sources.kr_community > 0 && (
             <Badge variant="neutral" className="font-mono">
-              국내 커뮤니티 {sources.kr_community}건
+              {isEn ? `KR Community ${sources.kr_community}` : `국내 커뮤니티 ${sources.kr_community}건`}
             </Badge>
           )}
           {sources.stocktwits !== undefined && sources.stocktwits > 0 && (
             <Badge variant="neutral" className="font-mono">
-              StockTwits {sources.stocktwits}건
+              {isEn ? `StockTwits ${sources.stocktwits}` : `StockTwits ${sources.stocktwits}건`}
             </Badge>
           )}
         </div>
 
+        {/* 영문 미번역 시 임시 원문 안내 */}
+        {isEn && !briefing.content_en && (
+          <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 flex items-center gap-2 font-mono">
+            <span>ℹ️ English translation is being generated for this briefing date. Displaying original Korean source text in the meantime.</span>
+          </div>
+        )}
+
         {/* 메인 헤드라인 (SEO 단일 h1) */}
         <div>
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-[#0f172a] leading-tight tracking-tight">
-            {briefing.title}
+            {activeTitle}
           </h1>
         </div>
 
         {/* 오늘의 시장 3줄 핵심 요약 블록 */}
-        {summary3.length > 0 && (
+        {activeSummary.length > 0 && (
           <div className="p-5 sm:p-6 bg-[#f8fafc] border border-[#e2e8f0] rounded-xl space-y-3">
             <div className="flex items-center gap-2 text-sm font-bold text-[#0f172a]">
               <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
               <span>{isEn ? "Today's 3-Line Market Summary" : "오늘의 시장 3줄 핵심 요약"}</span>
             </div>
             <ul className="space-y-2 text-sm text-[#334155] leading-relaxed">
-              {summary3.map((line, idx) => (
+              {activeSummary.map((line, idx) => (
                 <li key={idx} className="flex items-start gap-2.5">
                   <span className="font-mono font-bold text-[#0f172a] shrink-0 select-none">
                     {idx + 1}.
@@ -231,10 +248,10 @@ export function BriefingDetailView({
         )}
 
         {/* 핵심 토픽/키워드 태그 */}
-        {topics.length > 0 && (
+        {activeTopics.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5 pt-1">
             <Tag className="w-3.5 h-3.5 text-[#94a3b8] shrink-0" />
-            {topics.map((topic, i) => (
+            {activeTopics.map((topic, i) => (
               <span
                 key={i}
                 className="text-xs px-2.5 py-0.5 bg-[#f1f5f9] text-[#475569] font-medium rounded-md border border-[#e2e8f0]"
@@ -256,12 +273,12 @@ export function BriefingDetailView({
             </h2>
           </div>
           <span className="text-xs text-[#94a3b8] font-mono">
-            {briefing.content.length.toLocaleString()} chars
+            {activeContent.length.toLocaleString()} chars
           </span>
         </div>
 
         <div className="prose prose-slate max-w-none text-[#0f172a]">
-          <MarkdownViewer content={briefing.content} />
+          <MarkdownViewer content={activeContent} />
         </div>
       </div>
     </article>

@@ -638,7 +638,22 @@ class SupabaseRepo:
             logger.info(f"[Supabase] market_briefings 저장 성공 (일자: {briefing_dict.get('d')})")
             return True
         except Exception as e:
-            logger.warning(f"[Supabase] market_briefings 저장 실패 (테이블 미생성 등): {e}")
+            # 영문 컬럼 미생성 등으로 인한 실패 시, 영문 필드를 제외하고 기본 필드로 2차 폴백 시도
+            err_msg = str(e)
+            if any(col in err_msg for col in ("title_en", "content_en", "summary_3lines_en", "topics_en", "keywords_en")):
+                logger.warning(f"[Supabase] market_briefings 영문 컬럼 미반영 감지 -> 기본 필드로 폴백 저장 시도: {e}")
+                fallback_dict = {
+                    k: v for k, v in briefing_dict.items()
+                    if k not in ("title_en", "content_en", "summary_3lines_en", "topics_en", "keywords_en")
+                }
+                try:
+                    self._client.table("market_briefings").upsert(fallback_dict, on_conflict="d").execute()
+                    logger.info(f"[Supabase] market_briefings 폴백 저장 성공 (일자: {briefing_dict.get('d')})")
+                    return True
+                except Exception as e2:
+                    logger.warning(f"[Supabase] market_briefings 폴백 저장도 실패: {e2}")
+            else:
+                logger.warning(f"[Supabase] market_briefings 저장 실패 (테이블 미생성 등): {e}")
             return False
 
     def get_recent_market_briefings(self, limit: int = 20) -> list[dict]:

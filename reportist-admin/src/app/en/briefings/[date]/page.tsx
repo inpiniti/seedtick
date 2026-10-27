@@ -98,12 +98,16 @@ export default async function BriefingDetailPageEn({
 
       {/* ── SSR Semantic Article Body for Search Engines & AI Crawlers ── */}
       <div className="sr-only" aria-hidden="true">
-        <h1>{data.briefing.title}</h1>
+        <h1>{data.briefing.title_en || data.briefing.title}</h1>
         <p>{data.description}</p>
         <div>
           <h2>Today&apos;s Market 3-Line Summary</h2>
           <ul>
-            {(data.briefing.summary_3lines || []).map((line, i) => (
+            {(
+              (data.briefing.summary_3lines_en && data.briefing.summary_3lines_en.length > 0
+                ? data.briefing.summary_3lines_en
+                : data.briefing.summary_3lines) || []
+            ).map((line, i) => (
               <li key={i}>{line}</li>
             ))}
           </ul>
@@ -112,7 +116,7 @@ export default async function BriefingDetailPageEn({
           <h2>Key Mentioned Tickers</h2>
           <p>{(data.briefing.tickers || []).join(", ")}</p>
         </div>
-        <article>{data.briefing.content}</article>
+        <article>{data.briefing.content_en || data.briefing.content}</article>
       </div>
 
       {/* ── Header ── */}

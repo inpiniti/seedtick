@@ -406,14 +406,19 @@ create table if not exists public.market_briefings (
   d              date        not null unique,      -- 발행 일자
   title          text        not null,             -- 메인 헤드라인
   content        text        not null,             -- 마크다운 브리핑 뉴스레터 전문
-  summary_3lines jsonb       default '[]'::jsonb,  -- 오늘의 시장 3줄 요약
-  topics         text[],                           -- 선정된 핵심 이슈 제목 목록
-  tickers        text[],                           -- 관련 종목 티커 배열 (예: ['NVDA', 'TSLA'])
-  keywords       text[],                           -- 중복 배제 및 검색용 핵심 키워드 배열
-  sources        jsonb       default '{}'::jsonb,  -- 채널별 수집 건수 통계
-  raw_count      integer     default 0,            -- 전체 원천 수집 데이터 수
-  created_at     timestamptz not null default now(),
-  updated_at     timestamptz not null default now()
+  summary_3lines    jsonb       default '[]'::jsonb,  -- 오늘의 시장 3줄 요약
+  topics            text[],                           -- 선정된 핵심 이슈 제목 목록
+  tickers           text[],                           -- 관련 종목 티커 배열 (예: ['NVDA', 'TSLA'])
+  keywords          text[],                           -- 중복 배제 및 검색용 핵심 키워드 배열
+  title_en          text,                             -- 영문 메인 헤드라인
+  content_en        text,                             -- 영문 마크다운 브리핑 뉴스레터 전문
+  summary_3lines_en jsonb       default '[]'::jsonb,  -- 영문 시장 3줄 요약
+  topics_en         text[],                           -- 영문 핵심 이슈 제목 목록
+  keywords_en       text[],                           -- 영문 검색 키워드 배열
+  sources           jsonb       default '{}'::jsonb,  -- 채널별 수집 건수 통계
+  raw_count         integer     default 0,            -- 전체 원천 수집 데이터 수
+  created_at        timestamptz not null default now(),
+  updated_at        timestamptz not null default now()
 );
 
 alter table public.market_briefings enable row level security;

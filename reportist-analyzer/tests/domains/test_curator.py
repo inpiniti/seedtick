@@ -252,10 +252,11 @@ async def test_briefing_writer_and_service_dry_run(tmp_path: Path):
     mock_ai = MagicMock()
     mock_ai.chat = AsyncMock(return_value=fake_ai_article)
 
-    writer = BriefingWriter(ai_client=mock_ai)
-    history_file = tmp_path / "history.json"
-    dedup = DeduplicationEngine(history_file_path=history_file)
-    output_dir = tmp_path / "post"
+    with patch("app.infrastructure.supabase_repo.supabase_repo.get_recent_market_briefings", return_value=[]):
+        writer = BriefingWriter(ai_client=mock_ai)
+        history_file = tmp_path / "history.json"
+        dedup = DeduplicationEngine(history_file_path=history_file)
+        output_dir = tmp_path / "post"
 
     mock_collector = MagicMock()
     mock_collector.name = "mock_collector"
@@ -316,3 +317,46 @@ def test_scheduler_service_registers_daily_curator():
     # 등록된 잡 아이디 확인
     job_ids = [job.id for job in sched._scheduler.get_jobs()]
     assert "daily_curator" in job_ids or hasattr(sched, "_scheduler")
+
+
+@pytest.mark.asyncio
+async def test_briefing_writer_translate_to_en():
+    fake_en_json = """```json
+{
+  "title_en": "[Daily Market Briefing] 2026-10-23 Global Market & Community Radar",
+  "content_en": "# [Daily Market Briefing] 2026-10-23 Global Market Radar\\n\\n## Summary\\nFull English text.",
+  "summary_3lines_en": [
+    "Treasury yields surge above 4.5%",
+    "Tech stocks experience valuation compression",
+    "Semiconductor options seeing heavy flow"
+  ],
+  "topics_en": [
+    "Treasury Yield Surge",
+    "Tech Stock Multiple Compression"
+  ],
+  "keywords_en": [
+    "Treasury",
+    "Inflation",
+    "Semiconductors"
+  ]
+}
+```"""
+    mock_ai = MagicMock()
+    mock_ai.chat = AsyncMock(return_value=fake_en_json)
+
+    writer = BriefingWriter(ai_client=mock_ai)
+    res = await writer.translate_briefing_to_en(
+        date_str="2026-10-23",
+        korean_title="[데일리 마켓 브리핑] 2026-10-23 글로벌 마켓 레이더",
+        korean_content="국채 금리 급등...",
+        summary_3lines=["국채 금리 급등", "기술주 하락", "반도체 옵션 수급"],
+        topics=["국채 금리", "기술주 밸류에이션"],
+        tickers=["NVDA", "QQQ"],
+    )
+
+    assert "Daily Market Briefing" in res["title_en"]
+    assert "Full English text" in res["content_en"]
+    assert len(res["summary_3lines_en"]) == 3
+    assert len(res["topics_en"]) == 2
+    assert "Treasury" in res["keywords_en"]
+

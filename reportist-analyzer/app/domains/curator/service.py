@@ -99,12 +99,30 @@ class DailyCuratorService:
                 "sample_titles": [p.title for p in filtered_posts[:5]],
             }
 
-        # 3. AI 저널리스트 브리핑 생성
+        # 3. AI 저널리스트 브리핑 생성 (한국어)
         daily_briefing, history_item = await self.writer.generate_briefing(
             date_str=date_str,
             posts=filtered_posts,
             history_context=history_context,
         )
+
+        # 3-1. 영문화 (i18n) 번역 및 메타데이터 생성
+        try:
+            en_data = await self.writer.translate_briefing_to_en(
+                date_str=date_str,
+                korean_title=daily_briefing.title,
+                korean_content=daily_briefing.raw_content,
+                summary_3lines=daily_briefing.summary_3lines,
+                topics=history_item.keywords,
+                tickers=history_item.tickers,
+            )
+            daily_briefing.title_en = en_data.get("title_en", "")
+            daily_briefing.raw_content_en = en_data.get("content_en", "")
+            daily_briefing.summary_3lines_en = en_data.get("summary_3lines_en", [])
+            daily_briefing.topics_en = en_data.get("topics_en", [])
+            daily_briefing.keywords_en = en_data.get("keywords_en", [])
+        except Exception as en_err:
+            logger.warning(f"[CuratorService] 영문 브리핑 생성 건너뜀 (오류): {en_err}")
 
         # 4. Supabase DB 적재 (public.market_briefings 테이블)
         from app.infrastructure.supabase_repo import supabase_repo
@@ -118,6 +136,11 @@ class DailyCuratorService:
             "topics": history_item.keywords,
             "tickers": history_item.tickers,
             "keywords": history_item.keywords,
+            "title_en": daily_briefing.title_en or None,
+            "content_en": daily_briefing.raw_content_en or None,
+            "summary_3lines_en": daily_briefing.summary_3lines_en or [],
+            "topics_en": daily_briefing.topics_en or [],
+            "keywords_en": daily_briefing.keywords_en or [],
             "sources": {
                 p.platform.value: sum(1 for x in raw_posts if x.platform == p.platform)
                 for p in raw_posts
@@ -134,9 +157,12 @@ class DailyCuratorService:
         # 4-1. 파일 저장이 활성화된 경우에만 로컬 파일 생성
         if self.save_to_file:
             output_file = self.output_dir / f"{date_str}_market_briefing.txt"
+            output_file_en = self.output_dir / f"{date_str}_market_briefing_en.txt"
             try:
                 self.output_dir.mkdir(parents=True, exist_ok=True)
                 output_file.write_text(daily_briefing.raw_content, encoding="utf-8")
+                if daily_briefing.raw_content_en:
+                    output_file_en.write_text(daily_briefing.raw_content_en, encoding="utf-8")
                 logger.info(f"[CuratorService] 📄 브리핑 파일 저장 완료: {output_file}")
             except Exception as e:
                 logger.error(f"[CuratorService] 파일 저장 실패 ({output_file}): {e}")

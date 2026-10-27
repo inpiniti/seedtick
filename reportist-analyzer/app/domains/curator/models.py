@@ -70,6 +70,12 @@ class DailyBriefing(BaseModel):
         "AI로 요약·정리한 정보 제공용 콘텐츠이며, 특정 종목에 대한 투자 권유나 매수/매도 추천이 아닙니다."
     )
     raw_content: str = ""
+    # ── 영문 다국어 필드 (i18n) ──
+    title_en: str = ""
+    raw_content_en: str = ""
+    summary_3lines_en: list[str] = Field(default_factory=list)
+    topics_en: list[str] = Field(default_factory=list)
+    keywords_en: list[str] = Field(default_factory=list)
 
 
 

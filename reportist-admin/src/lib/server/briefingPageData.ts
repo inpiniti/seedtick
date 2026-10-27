@@ -69,41 +69,63 @@ export async function getBriefingPageData(
     // 3. SEO 타이틀 및 디스크립션 추출
     let title = "";
     let description = "";
-    const keywords: string[] = [
-      "리포티스트",
-      "Reportist",
-      "데일리 마켓 브리핑",
-      "글로벌 증시 브리핑",
-      "주식 뉴스레터",
-      "마켓 레이더",
-    ];
+    const keywords: string[] = isEn
+      ? ["Reportist", "Daily Market Briefing", "Stock Market Radar", "Equity Research", "Financial News"]
+      : [
+          "리포티스트",
+          "Reportist",
+          "데일리 마켓 브리핑",
+          "글로벌 증시 브리핑",
+          "주식 뉴스레터",
+          "마켓 레이더",
+        ];
 
     if (briefing) {
       const datePrefix = `[${briefing.d} 데일리 마켓 브리핑]`;
       const datePrefixEn = `[${briefing.d} Daily Market Briefing]`;
 
-      // 헤드라인 정리
-      const rawTitle = briefing.title
+      // 헤드라인 정리 (영문 우선 분기)
+      const rawTitle = (isEn && briefing.title_en ? briefing.title_en : briefing.title)
         .replace(/^#\s*/, "")
-        .replace(/^\[데일리 마켓 브리핑\]\s*[\d-]*\s*/, "")
+        .replace(/^\[(?:데일리 마켓 브리핑|Daily Market Briefing)\]\s*[\d-]*\s*/i, "")
         .trim();
 
       title = isEn
         ? `${datePrefixEn} ${rawTitle || "Global Community & 24h Market Radar"} · Reportist`
         : `${datePrefix} ${rawTitle || "글로벌 커뮤니티 & 24시간 마켓 레이더"} · 리포티스트`;
 
-      // 3줄 요약 문장으로 설명문 구성 (스니펫 최적화)
-      if (Array.isArray(briefing.summary_3lines) && briefing.summary_3lines.length > 0) {
-        description = `${briefing.summary_3lines.slice(0, 2).join(" ")} 리포티스트 24시간 글로벌 마켓 브리핑 전문을 확인하세요.`;
+      // 3줄 요약 문장으로 설명문 구성 (영문 우선 스니펫 최적화)
+      const activeSummary =
+        isEn && briefing.summary_3lines_en && briefing.summary_3lines_en.length > 0
+          ? briefing.summary_3lines_en
+          : briefing.summary_3lines;
+
+      if (Array.isArray(activeSummary) && activeSummary.length > 0) {
+        description = isEn
+          ? `${activeSummary.slice(0, 2).join(" ")} Read the full Reportist 24h market intelligence briefing.`
+          : `${activeSummary.slice(0, 2).join(" ")} 리포티스트 24시간 글로벌 마켓 브리핑 전문을 확인하세요.`;
       } else {
-        description = `${briefing.d} 글로벌 주식 시장과 레딧, 국내 주식 커뮤니티 여론을 종합한 일일 AI 마켓 브리핑 뉴스레터.`;
+        description = isEn
+          ? `Comprehensive daily market briefing and stock community sentiment for ${briefing.d} by Reportist AI research.`
+          : `${briefing.d} 글로벌 주식 시장과 레딧, 국내 주식 커뮤니티 여론을 종합한 일일 AI 마켓 브리핑 뉴스레터.`;
       }
 
       if (briefing.tickers && briefing.tickers.length > 0) {
         keywords.push(...briefing.tickers.map((t) => `$${t}`));
       }
-      if (briefing.topics && briefing.topics.length > 0) {
-        keywords.push(...briefing.topics.slice(0, 5));
+      const activeTopics =
+        isEn && briefing.topics_en && briefing.topics_en.length > 0
+          ? briefing.topics_en
+          : briefing.topics || [];
+      if (activeTopics.length > 0) {
+        keywords.push(...activeTopics.slice(0, 5));
+      }
+      const activeKeywords =
+        isEn && briefing.keywords_en && briefing.keywords_en.length > 0
+          ? briefing.keywords_en
+          : briefing.keywords || [];
+      if (activeKeywords.length > 0) {
+        keywords.push(...activeKeywords.slice(0, 5));
       }
     } else {
       title = isEn

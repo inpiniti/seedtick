@@ -75,11 +75,23 @@ export function MarketBriefingTab({ isEn = false }: MarketBriefingTabProps) {
     return briefings.find((b) => b.id === selectedId) || briefings[0] || null;
   }, [briefings, selectedId]);
 
+  // 영문 다국어 분기 (영문 데이터 우선 사용)
+  const activeTitle = (isEn && currentBriefing?.title_en) ? currentBriefing.title_en : currentBriefing?.title || "";
+  const activeContent = (isEn && currentBriefing?.content_en) ? currentBriefing.content_en : currentBriefing?.content || "";
+  const activeSummary =
+    isEn && currentBriefing?.summary_3lines_en && currentBriefing.summary_3lines_en.length > 0
+      ? currentBriefing.summary_3lines_en
+      : currentBriefing?.summary_3lines || [];
+  const activeTopics =
+    isEn && currentBriefing?.topics_en && currentBriefing.topics_en.length > 0
+      ? currentBriefing.topics_en
+      : currentBriefing?.topics || [];
+
   // 마크다운 전문 복사
   const handleCopyContent = async () => {
-    if (!currentBriefing?.content) return;
+    if (!activeContent) return;
     try {
-      await navigator.clipboard.writeText(currentBriefing.content);
+      await navigator.clipboard.writeText(activeContent);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (e) {
@@ -135,8 +147,6 @@ export function MarketBriefingTab({ isEn = false }: MarketBriefingTabProps) {
 
   const sources = currentBriefing?.sources || {};
   const tickers = currentBriefing?.tickers || [];
-  const topics = currentBriefing?.topics || [];
-  const summary3 = currentBriefing?.summary_3lines || [];
 
   return (
     <div className="space-y-6 font-sans">
@@ -219,42 +229,49 @@ export function MarketBriefingTab({ isEn = false }: MarketBriefingTabProps) {
 
               {sources.news !== undefined && sources.news > 0 && (
                 <Badge variant="neutral" className="font-mono">
-                  뉴스 {sources.news}건
+                  {isEn ? `News ${sources.news}` : `뉴스 ${sources.news}건`}
                 </Badge>
               )}
               {sources.reddit !== undefined && sources.reddit > 0 && (
                 <Badge variant="neutral" className="font-mono">
-                  Reddit {sources.reddit}건
+                  {isEn ? `Reddit ${sources.reddit}` : `Reddit ${sources.reddit}건`}
                 </Badge>
               )}
               {sources.kr_community !== undefined && sources.kr_community > 0 && (
                 <Badge variant="neutral" className="font-mono">
-                  국내 커뮤니티 {sources.kr_community}건
+                  {isEn ? `KR Community ${sources.kr_community}` : `국내 커뮤니티 ${sources.kr_community}건`}
                 </Badge>
               )}
               {sources.stocktwits !== undefined && sources.stocktwits > 0 && (
                 <Badge variant="neutral" className="font-mono">
-                  StockTwits {sources.stocktwits}건
+                  {isEn ? `StockTwits ${sources.stocktwits}` : `StockTwits ${sources.stocktwits}건`}
                 </Badge>
               )}
             </div>
 
+            {/* 영문 미번역 시 원문 임시 안내 */}
+            {isEn && !currentBriefing.content_en && (
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 flex items-center gap-2 font-mono">
+                <span>ℹ️ English translation is being generated for this briefing date. Displaying original Korean source text in the meantime.</span>
+              </div>
+            )}
+
             {/* 메인 헤드라인 제목 */}
             <div>
               <h1 className="text-lg sm:text-xl font-bold text-[#0f172a] leading-snug tracking-tight">
-                {currentBriefing.title}
+                {activeTitle}
               </h1>
             </div>
 
             {/* 오늘의 시장 3줄 핵심 요약 블록 */}
-            {summary3.length > 0 && (
+            {activeSummary.length > 0 && (
               <div className="p-4 sm:p-5 bg-[#f8fafc] border border-[#e2e8f0] rounded-xl space-y-2.5">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-[#0f172a]">
                   <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
                   <span>{isEn ? "Today's 3-Line Market Summary" : "오늘의 시장 3줄 핵심 요약"}</span>
                 </div>
                 <ul className="space-y-1.5 text-xs sm:text-sm text-[#334155] leading-relaxed">
-                  {summary3.map((line, idx) => (
+                  {activeSummary.map((line, idx) => (
                     <li key={idx} className="flex items-start gap-2">
                       <span className="font-mono font-bold text-[#0f172a] shrink-0 select-none">
                         {idx + 1}.
@@ -271,12 +288,12 @@ export function MarketBriefingTab({ isEn = false }: MarketBriefingTabProps) {
               <div className="pt-1 flex flex-wrap items-center gap-2">
                 <span className="text-xs font-semibold text-[#64748b] flex items-center gap-1">
                   <TrendingUp className="w-3.5 h-3.5" />
-                  {isEn ? "Mentioned Tickers:" : "언급된 주요 종목:"}
+                  {isEn ? "Mentioned Stocks:" : "언급된 주요 종목:"}
                 </span>
                 {tickers.map((ticker) => (
                   <Link
                     key={ticker}
-                    href={`/stocks?ticker=${encodeURIComponent(ticker)}`}
+                    href={isEn ? `/en/stocks/${encodeURIComponent(ticker)}` : `/stocks/${encodeURIComponent(ticker)}`}
                     className="inline-flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-[#f1f5f9] border border-[#cbd5e1] hover:border-[#0f172a] rounded-lg font-mono text-xs font-bold text-[#0f172a] transition-all shadow-2xs group"
                   >
                     <span>${ticker}</span>
@@ -287,10 +304,10 @@ export function MarketBriefingTab({ isEn = false }: MarketBriefingTabProps) {
             )}
 
             {/* 핵심 토픽/키워드 태그 */}
-            {topics.length > 0 && (
+            {activeTopics.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
                 <Tag className="w-3.5 h-3.5 text-[#94a3b8] shrink-0" />
-                {topics.map((topic, i) => (
+                {activeTopics.map((topic, i) => (
                   <span
                     key={i}
                     className="text-[11px] px-2.5 py-0.5 bg-[#f1f5f9] text-[#475569] font-medium rounded-md border border-[#e2e8f0]"
@@ -312,12 +329,12 @@ export function MarketBriefingTab({ isEn = false }: MarketBriefingTabProps) {
                 </h3>
               </div>
               <span className="text-xs text-[#94a3b8] font-mono">
-                {currentBriefing.content.length.toLocaleString()} chars
+                {activeContent.length.toLocaleString()} chars
               </span>
             </div>
 
             <div className="prose prose-slate max-w-none text-[#0f172a]">
-              <MarkdownViewer content={currentBriefing.content} />
+              <MarkdownViewer content={activeContent} />
             </div>
           </div>
         </div>
