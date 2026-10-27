@@ -1,6 +1,5 @@
-fix(gateway): 멀티모달 메시지 content 스키마 Any 허용 및 Vercel 배포 번들(api/index.js) 재빌드
+fix(deploy): Vercel seedtick-ai-gateway 프로젝트 Root Directory 호환을 위한 폴더 동기화 및 배포 최신화
 
-- Elysia chatRoute 스키마에서 messages의 content를 t.Any()로 완화하여 이미지/오디오/비디오 멀티모달 Part 배열 전송 시 TypeBox 422 Unprocessable Entity 에러 원천 차단
-- 다양한 role(tool, function 등) 호환을 위해 role 스키마를 t.String()으로 완화
-- Vercel Serverless Function 진입용 TypeScript 브릿지(api/index.ts) 추가
-- 최신 코드 및 모달리티 메타데이터가 포함된 api/index.js 번들 재생성
+- Vercel에 기 배포된 seedtick-ai-gateway.vercel.app 프로젝트의 Root Directory(seedtick-ai-gateway)와 최신 reportist-ai-gateway 코드 동기화
+- Elysia chatRoute 메시지 content Any 허용 및 스트리밍/멀티모달 최신 번들(api/index.js) 반영
+- OpenRouter 무료 17개 모델 inputModalities 메타데이터 반환 엔드포인트 활성화
