@@ -89,8 +89,8 @@ export type MessageContentPart =
   | { type: string; [key: string]: unknown };
 
 export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string | MessageContentPart[];
+  role: 'system' | 'user' | 'assistant' | (string & {});
+  content: string | MessageContentPart[] | any;
 }
 
 export type ReasoningEffortLevel =

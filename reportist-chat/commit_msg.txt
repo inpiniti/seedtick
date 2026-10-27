@@ -1,5 +1,6 @@
-fix(deploy): Vercel seedtick-ai-gateway 프로젝트 Root Directory 호환을 위한 폴더 동기화 및 배포 최신화
+fix(gateway): GeminiAdapter 멀티모달 타입 에러(TS2322) 수정 및 api/index.ts 중복 충돌 제거
 
-- Vercel에 기 배포된 seedtick-ai-gateway.vercel.app 프로젝트의 Root Directory(seedtick-ai-gateway)와 최신 reportist-ai-gateway 코드 동기화
-- Elysia chatRoute 메시지 content Any 허용 및 스트리밍/멀티모달 최신 번들(api/index.js) 반영
-- OpenRouter 무료 17개 모델 inputModalities 메타데이터 반환 엔드포인트 활성화
+- Vercel 빌드 실패 원인 해결:
+  1. api/index.js와 api/index.ts 동시 존재로 인한 Vercel conflicting_file_path 에러 해결 (api/index.ts 제거)
+  2. GeminiAdapter.ts에서 MessageContentPart[] 멀티모달 Part 배열 처리 시 TS2322 타입 불일치 에러 해결 (extractText 헬퍼 적용)
+- reportist-ai-gateway와 seedtick-ai-gateway 양쪽 동일 번들 및 소스 동기화 반영

@@ -2,13 +2,16 @@
 
 import { Elysia, t } from 'elysia';
 import { proxyService } from '../domain/proxy/ProxyService.ts';
+import type { ChatRequest } from '../domain/types.ts';
 
 export const chatRoute = new Elysia().post(
   '/v1/chat/completions',
   async ({ body, set }) => {
+    const chatReq = body as unknown as ChatRequest;
+
     // 1. 스트리밍 요청
-    if (body.stream) {
-      const streamResult = await proxyService.chatStream(body);
+    if (chatReq.stream) {
+      const streamResult = await proxyService.chatStream(chatReq);
       if ('error' in streamResult) {
         set.status = 503;
         return streamResult as unknown as Response;
@@ -24,7 +27,7 @@ export const chatRoute = new Elysia().post(
     }
 
     // 2. 논스트리밍 요청
-    const result = await proxyService.chat(body);
+    const result = await proxyService.chat(chatReq);
 
     // GatewayError인 경우 503 반환
     if ('error' in result) {

@@ -114,6 +114,19 @@ export class GeminiAdapter implements ILLMAdapter {
     }
   }
 
+  private extractText(content: unknown): string {
+    if (typeof content === 'string') {
+      return content;
+    }
+    if (Array.isArray(content)) {
+      return content
+        .filter((part: any) => part?.type === 'text' && typeof part?.text === 'string')
+        .map((part: any) => part.text)
+        .join('\n');
+    }
+    return String(content ?? '');
+  }
+
   private transformRequest(request: ChatRequest): GeminiRequest {
     const contents: GeminiContent[] = [];
 
@@ -125,14 +138,14 @@ export class GeminiAdapter implements ILLMAdapter {
       }
       contents.push({
         role: msg.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: msg.content }],
+        parts: [{ text: this.extractText(msg.content) }],
       });
     }
 
     // 시스템 메시지가 있다면 첫 user 메시지에 합치기
     const systemMsg = request.messages.find((m: ChatMessage) => m.role === 'system');
     if (systemMsg && contents.length > 0 && contents[0].role === 'user') {
-      contents[0].parts[0].text = `${systemMsg.content}\n\n${contents[0].parts[0].text}`;
+      contents[0].parts[0].text = `${this.extractText(systemMsg.content)}\n\n${contents[0].parts[0].text}`;
     }
 
     return {
