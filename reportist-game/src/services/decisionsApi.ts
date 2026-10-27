@@ -15,13 +15,15 @@ export interface GatewayConfig {
 
 export function loadGatewayConfig(): GatewayConfig {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_GATEWAY_CONFIG);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      return {
-        baseUrl: parsed.baseUrl?.trim() || DEFAULT_GATEWAY_URL,
-        gatewaySecret: parsed.gatewaySecret?.trim() || DEFAULT_GATEWAY_SECRET,
-      };
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const raw = localStorage.getItem(STORAGE_KEY_GATEWAY_CONFIG);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return {
+          baseUrl: parsed.baseUrl?.trim() || DEFAULT_GATEWAY_URL,
+          gatewaySecret: parsed.gatewaySecret?.trim() || DEFAULT_GATEWAY_SECRET,
+        };
+      }
     }
   } catch (e) {
     console.error('Failed to load gateway config:', e);
@@ -34,19 +36,23 @@ export function loadGatewayConfig(): GatewayConfig {
 
 export function saveGatewayConfig(config: GatewayConfig): void {
   try {
-    localStorage.setItem(STORAGE_KEY_GATEWAY_CONFIG, JSON.stringify(config));
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.setItem(STORAGE_KEY_GATEWAY_CONFIG, JSON.stringify(config));
+    }
   } catch (e) {
     console.error('Failed to save gateway config:', e);
   }
 }
 
 export interface DecisionQueryState {
+  obstacleId?: number;
   dinoY: number;
   speed: number;
   distance: number;
   obstacleType: string;
   obstacleWidth: number;
   obstacleHeight: number;
+  obstacleY?: number;
 }
 
 export interface DecisionQueryResult {
@@ -71,10 +77,21 @@ export async function queryDecision(
   const cfg = config || loadGatewayConfig();
   const startTime = performance.now();
 
+  const isBird = state.obstacleType === 'pterodactyl';
+  const isHighBird = isBird && (state.obstacleY ?? 175) < 160;
+
+  let obstacleDesc = '';
+  if (isHighBird) {
+    obstacleDesc = `high-flying pterodactyl (bird flying overhead at height ${state.obstacleHeight}px). Dinosaur can safely run under it.`;
+  } else if (isBird) {
+    obstacleDesc = `low-flying pterodactyl (bird flying close to ground). Dinosaur must jump over it.`;
+  } else {
+    obstacleDesc = `ground obstacle (${state.obstacleType}, width ${state.obstacleWidth}px, height ${state.obstacleHeight}px) directly on the running path.`;
+  }
+
   const stateDescription =
-    `Chrome Dinosaur Game: Dinosaur is running on ground (y=${state.dinoY.toFixed(0)}). ` +
-    `Speed is ${state.speed.toFixed(1)} px/frame. Upcoming obstacle is ${state.obstacleType} ` +
-    `at distance ${state.distance.toFixed(0)}px ahead (width ${state.obstacleWidth}px, height ${state.obstacleHeight}px).`;
+    `Chrome Dinosaur Game: Dinosaur is running on ground at speed ${state.speed.toFixed(1)} px/frame. ` +
+    `Upcoming obstacle is ${obstacleDesc} approaching at distance ${state.distance.toFixed(0)}px ahead.`;
 
   const payload = {
     model: modelId,
@@ -83,10 +100,10 @@ export async function queryDecision(
       action: {
         type: 'choice',
         instructions:
-          'Decide what the dinosaur must do right now based on upcoming obstacle distance and speed.',
+          'Determine the required evasive maneuver to safely overcome this upcoming obstacle.',
         criteria: {
-          JUMP: 'Jump immediately into the air to jump over the approaching obstacle',
-          RUN: 'Keep running on the ground safely without jumping',
+          JUMP: 'The obstacle is a ground obstacle or low-flying obstacle that must be jumped over to avoid collision.',
+          RUN: 'The obstacle is flying high overhead and dinosaur can safely stay running on the ground without jumping.',
         },
       },
     },
@@ -122,18 +139,21 @@ export async function queryDecision(
 
     const action = data.answers?.action;
     const choice = action?.choice === 'JUMP' ? 'JUMP' : 'RUN';
-    const confidence = action?.confidence ?? 0.5;
     const probs = action?.probabilities || {
-      JUMP: choice === 'JUMP' ? 0.8 : 0.2,
-      RUN: choice === 'RUN' ? 0.8 : 0.2,
+      JUMP: choice === 'JUMP' ? 0.95 : 0.05,
+      RUN: choice === 'RUN' ? 0.95 : 0.05,
     };
+    const confidence =
+      action?.confidence !== undefined && action.confidence > 0
+        ? action.confidence
+        : Math.abs((probs.JUMP ?? 0.5) - (probs.RUN ?? 0.5));
 
     return {
       choice,
       confidence,
       probabilities: {
-        JUMP: probs.JUMP ?? 0.5,
-        RUN: probs.RUN ?? 0.5,
+        JUMP: probs.JUMP ?? (choice === 'JUMP' ? 0.95 : 0.05),
+        RUN: probs.RUN ?? (choice === 'RUN' ? 0.95 : 0.05),
       },
       latencyMs,
       model: data.model || modelId,

@@ -15,15 +15,28 @@ export interface DecisionControllerOptions {
   }) => void;
 }
 
+interface ObstaclePlan {
+  obstacleId: number;
+  status: 'querying' | 'planned' | 'cleared';
+  choice: 'JUMP' | 'RUN';
+  confidence: number;
+  triggerDistance: number;
+}
+
 export class DecisionController {
   private engine: DinoEngine | null = null;
   private modelId: DecisionModelId;
   private isEnabled = true;
 
-  // 인플라이트 질의 방지 및 중복 질의 방지
+  // 질의 및 계획 상태 관리
   private isQuerying = false;
-  private lastQueriedDistance = 9999;
-  private pendingJumpTriggerDistance: number | null = null;
+  private obstaclePlans = new Map<number, ObstaclePlan>();
+  private lastJumpedObstacleId: number | null = null;
+
+  // 실시간 최신 장애물 거리 추적 (비동기 응답 도착 시 즉시 점프 판단용)
+  private currentObstacleId: number | null = null;
+  private currentDistance: number = 9999;
+  private currentSpeed: number = 6.2;
 
   // 콜백
   private onDecisionLog?: DecisionControllerOptions['onDecisionLog'];
@@ -48,35 +61,71 @@ export class DecisionController {
   }
 
   /**
-   * 게임 엔진의 장애물 접근 이벤트 수신 시 선제적 질의 실행
+   * 게임 엔진의 장애물 접근 이벤트 수신 시 선제적 질의 및 점프 실행 제어
    */
   async handleObstacleApproaching(state: {
+    obstacleId: number;
     dinoY: number;
     speed: number;
     distance: number;
     obstacleType: string;
     obstacleWidth: number;
     obstacleHeight: number;
+    obstacleY?: number;
   }) {
     if (!this.isEnabled || !this.engine) return;
 
-    // 1. 이미 질의 중이거나 방금 질의한 동일 장애물인 경우 스킵
-    if (this.isQuerying) {
-      // 대기 중인 점프 액션이 사정거리(80~120px)에 도달했는지 체크
-      this.checkPendingJump(state.distance, state.speed);
+    // 1. 실시간 최신 센서 데이터 동기화
+    this.currentObstacleId = state.obstacleId;
+    this.currentDistance = state.distance;
+    this.currentSpeed = state.speed;
+
+    const plan = this.obstaclePlans.get(state.obstacleId);
+    const isGroundObstacle =
+      state.obstacleType.startsWith('cactus') ||
+      (state.obstacleType === 'pterodactyl' && (state.obstacleY ?? 175) >= 160);
+
+    // 2. [실행 1단계] 이미 수립된 AI 계획이 JUMP인 경우, 최적 사정거리 도달 시 점프 실행
+    if (plan && plan.choice === 'JUMP' && plan.status === 'planned') {
+      if (
+        this.lastJumpedObstacleId !== state.obstacleId &&
+        state.distance <= plan.triggerDistance + 18 &&
+        state.distance > 15
+      ) {
+        this.executeJump(state.obstacleId, 'Mercury Decide Action Plan');
+        return;
+      }
+    }
+
+    // 3. [실행 2단계: 안전 반사신경 (Reflex Arc)]
+    // 네트워크 핑 지연(>800ms) 등으로 장애물이 95px까지 근접했는데 아직 도약하지 못한 경우 긴급 도약
+    if (
+      isGroundObstacle &&
+      state.distance <= 95 &&
+      state.distance > 15 &&
+      this.lastJumpedObstacleId !== state.obstacleId &&
+      state.dinoY === 0
+    ) {
+      this.executeJump(state.obstacleId, 'Reflex Arc (Latency Protection)');
       return;
     }
 
-    // 2. 점프 대기 큐 확인
-    this.checkPendingJump(state.distance, state.speed);
+    // 4. [선제적 질의 Lookahead Query]
+    // 장애물이 200px~520px 사정거리에 진입했고 아직 질의하지 않은 장애물인 경우 모델에 질의
+    const isInsideLookaheadZone = state.distance <= 520 && state.distance >= 200;
+    const isNotQueriedYet = !this.obstaclePlans.has(state.obstacleId);
 
-    // 3. 선제적 질의 사정거리: 220px ~ 360px 구간에서 1회 질의
-    const isInsideLookaheadZone = state.distance <= 350 && state.distance >= 200;
-    const isNewObstacle = Math.abs(state.distance - this.lastQueriedDistance) > 120;
-
-    if (isInsideLookaheadZone && isNewObstacle) {
+    if (isInsideLookaheadZone && isNotQueriedYet && !this.isQuerying) {
       this.isQuerying = true;
-      this.lastQueriedDistance = state.distance;
+      const targetObstacleId = state.obstacleId;
+
+      this.obstaclePlans.set(targetObstacleId, {
+        obstacleId: targetObstacleId,
+        status: 'querying',
+        choice: 'RUN',
+        confidence: 0,
+        triggerDistance: Math.max(95, Math.min(135, state.speed * 16)),
+      });
 
       this.onBrainStatus?.({
         state: 'thinking',
@@ -86,18 +135,21 @@ export class DecisionController {
       });
 
       const queryPayload: DecisionQueryState = {
+        obstacleId: targetObstacleId,
         dinoY: state.dinoY,
         speed: state.speed,
         distance: state.distance,
         obstacleType: state.obstacleType,
         obstacleWidth: state.obstacleWidth,
         obstacleHeight: state.obstacleHeight,
+        obstacleY: state.obstacleY,
       };
 
       try {
         const result = await queryDecision(this.modelId, queryPayload);
 
         // 결과 로깅
+        const confidencePct = Math.round(result.confidence * 100);
         const logEntry: DecisionLogEntry = {
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           timestamp: new Date().toLocaleTimeString(),
@@ -105,7 +157,7 @@ export class DecisionController {
           distance: Math.round(state.distance),
           speed: Number(state.speed.toFixed(1)),
           choice: result.choice,
-          confidence: Math.round(result.confidence * 100),
+          confidence: confidencePct,
           probabilities: {
             JUMP: Number(result.probabilities.JUMP.toFixed(2)),
             RUN: Number(result.probabilities.RUN.toFixed(2)),
@@ -117,22 +169,33 @@ export class DecisionController {
 
         this.onDecisionLog?.(logEntry);
 
+        const optimalTriggerDist = Math.max(95, Math.min(135, this.currentSpeed * 16));
+
+        // 계획 확정
+        this.obstaclePlans.set(targetObstacleId, {
+          obstacleId: targetObstacleId,
+          status: 'planned',
+          choice: result.choice,
+          confidence: confidencePct,
+          triggerDistance: optimalTriggerDist,
+        });
+
         this.onBrainStatus?.({
           state: result.choice === 'JUMP' ? 'action_ready' : 'idle',
-          confidence: Math.round(result.confidence * 100),
+          confidence: confidencePct,
           choice: result.choice,
           latencyMs: result.latencyMs,
         });
 
-        if (result.choice === 'JUMP') {
-          // 속도에 따른 최적 점프 시작 거리 산출 (속도 * 14 ~ 18 frame)
-          const optimalJumpDist = Math.max(75, Math.min(135, state.speed * 15));
-          this.pendingJumpTriggerDistance = optimalJumpDist;
-
-          // 이미 그 거리 이내에 들어와 있다면 즉시 점프
-          if (state.distance <= optimalJumpDist + 25) {
-            this.executeJump();
-          }
+        // 질의가 진행되는 동안 이미 공룡이 이동하여 최적 도약 사정거리 이내에 도달한 경우 즉시 점프!
+        if (
+          result.choice === 'JUMP' &&
+          this.currentObstacleId === targetObstacleId &&
+          this.currentDistance <= optimalTriggerDist + 22 &&
+          this.currentDistance > 15 &&
+          this.lastJumpedObstacleId !== targetObstacleId
+        ) {
+          this.executeJump(targetObstacleId, 'Mercury Decide Plan (Immediate)');
         }
       } catch (e) {
         console.error('[DecisionController] Execution failed:', e);
@@ -142,22 +205,9 @@ export class DecisionController {
     }
   }
 
-  private checkPendingJump(currentDistance: number, speed: number) {
-    if (this.pendingJumpTriggerDistance !== null) {
-      const triggerThreshold = this.pendingJumpTriggerDistance;
-      // 공룡이 목표 사정거리 이내로 들어온 순간 점프 트리거
-      if (currentDistance <= triggerThreshold + 15 && currentDistance > 20) {
-        this.executeJump();
-      } else if (currentDistance <= 20) {
-        // 이미 지나친 경우 초기화
-        this.pendingJumpTriggerDistance = null;
-      }
-    }
-  }
-
-  private executeJump() {
+  private executeJump(obstacleId: number, reason: string) {
     if (!this.engine) return;
-    this.pendingJumpTriggerDistance = null;
+    this.lastJumpedObstacleId = obstacleId;
     const jumped = this.engine.jump();
     if (jumped) {
       this.onBrainStatus?.({
@@ -171,7 +221,9 @@ export class DecisionController {
 
   reset() {
     this.isQuerying = false;
-    this.lastQueriedDistance = 9999;
-    this.pendingJumpTriggerDistance = null;
+    this.obstaclePlans.clear();
+    this.lastJumpedObstacleId = null;
+    this.currentObstacleId = null;
+    this.currentDistance = 9999;
   }
 }

@@ -10,12 +10,14 @@ export interface GameEngineOptions {
   onGameOver?: (score: number) => void;
   onMilestone?: () => void;
   onObstacleApproaching?: (state: {
+    obstacleId: number;
     dinoY: number;
     speed: number;
     distance: number;
     obstacleType: string;
     obstacleWidth: number;
     obstacleHeight: number;
+    obstacleY: number;
   }) => void;
 }
 
@@ -237,14 +239,16 @@ export class DinoEngine {
     const nextObstacle = this.obstacles.find((o) => o.x + o.width > this.DINO_X);
     if (nextObstacle) {
       const dist = nextObstacle.x - (this.DINO_X + 44);
-      if (dist > 0 && dist < 380) {
+      if (dist > 0 && dist < 550) {
         this.onObstacleApproaching?.({
+          obstacleId: nextObstacle.id,
           dinoY: this.dinoY,
           speed: this.speed,
           distance: dist,
           obstacleType: nextObstacle.type,
           obstacleWidth: nextObstacle.width,
           obstacleHeight: nextObstacle.height,
+          obstacleY: nextObstacle.y,
         });
       }
     }
