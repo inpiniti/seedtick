@@ -1,7 +1,7 @@
 // ai/DecisionController.ts - Inception Mercury Decide 선제적 질의 및 점프 실행 제어기
 
 import { queryDecision, type DecisionQueryState } from '../services/decisionsApi.ts';
-import type { DecisionLogEntry, DecisionModelId } from '../types/game.ts';
+import type { DecisionLogEntry, DecisionModelId, BrainGaugesState } from '../types/game.ts';
 import type { DinoEngine } from '../game/DinoEngine.ts';
 
 export interface DecisionControllerOptions {
@@ -13,6 +13,7 @@ export interface DecisionControllerOptions {
     choice: 'JUMP' | 'RUN';
     latencyMs: number;
   }) => void;
+  onGaugesUpdate?: (gauges: BrainGaugesState) => void;
 }
 
 interface ObstaclePlan {
@@ -20,6 +21,8 @@ interface ObstaclePlan {
   status: 'querying' | 'planned' | 'cleared';
   choice: 'JUMP' | 'RUN';
   confidence: number;
+  clearanceRate: number;
+  collisionThreat: number;
   triggerDistance: number;
 }
 
@@ -41,11 +44,13 @@ export class DecisionController {
   // 콜백
   private onDecisionLog?: DecisionControllerOptions['onDecisionLog'];
   private onBrainStatus?: DecisionControllerOptions['onBrainStatus'];
+  private onGaugesUpdate?: DecisionControllerOptions['onGaugesUpdate'];
 
   constructor(options: DecisionControllerOptions) {
     this.modelId = options.modelId;
     this.onDecisionLog = options.onDecisionLog;
     this.onBrainStatus = options.onBrainStatus;
+    this.onGaugesUpdate = options.onGaugesUpdate;
   }
 
   attachEngine(engine: DinoEngine) {
@@ -85,19 +90,59 @@ export class DecisionController {
       state.obstacleType.startsWith('cactus') ||
       (state.obstacleType === 'pterodactyl' && (state.obstacleY ?? 175) >= 160);
 
-    // 2. [실행 1단계] 이미 수립된 AI 계획이 JUMP인 경우, 최적 사정거리 도달 시 점프 실행
+    // 2. [실시간 다차원 HUD 게이지 계산 및 브로드캐스트]
+    const optimalTriggerDist = Math.max(95, Math.min(135, state.speed * 16));
+    const distToOptimal = Math.abs(state.distance - optimalTriggerDist);
+
+    // 거리에 비례하여 15% -> 50% -> 70% -> 95%로 실시간 상승하는 충돌 위협도
+    const threatScore = Math.max(
+      12,
+      Math.min(98, Math.round((1 - state.distance / 520) * 85 + (isGroundObstacle ? 12 : 0)))
+    );
+
+    // 도약 최적 궤적 윈도우 정밀도 (거리가 115px에 접근할수록 40% -> 70% -> 96%로 급증)
+    const trajectoryScore = Math.max(
+      15,
+      Math.min(96, Math.round(100 - Math.min(85, distToOptimal * 0.42)))
+    );
+
+    // 장애물 클리어런스 예측률 (모델 응답이 있으면 모델 예측치, 진행 중이면 물리 마진)
+    const clearanceScore = plan?.clearanceRate ?? Math.max(62, Math.min(94, Math.round(92 - (state.speed - 6) * 3)));
+
+    const jumpProb = plan
+      ? plan.choice === 'JUMP'
+        ? plan.confidence
+        : 10
+      : Math.max(20, Math.min(92, Math.round(threatScore * 0.95)));
+
+    const threatLevelText: BrainGaugesState['threatLevelText'] =
+      threatScore > 75 ? 'CRITICAL' : threatScore > 45 ? 'CAUTION' : 'NOMINAL';
+
+    this.onGaugesUpdate?.({
+      collisionThreat: threatScore,
+      jumpTrajectory: trajectoryScore,
+      obstacleClearance: clearanceScore,
+      actionProbability: {
+        JUMP: jumpProb,
+        RUN: 100 - jumpProb,
+      },
+      threatLevelText,
+      currentDistance: Math.round(state.distance),
+    });
+
+    // 3. [실행 1단계] 이미 수립된 AI 계획이 JUMP인 경우, 최적 사정거리 도달 시 점프 실행
     if (plan && plan.choice === 'JUMP' && plan.status === 'planned') {
       if (
         this.lastJumpedObstacleId !== state.obstacleId &&
         state.distance <= plan.triggerDistance + 18 &&
         state.distance > 15
       ) {
-        this.executeJump(state.obstacleId, 'Mercury Decide Action Plan');
+        this.executeJump(state.obstacleId, plan.confidence, 'Mercury Decide Action Plan');
         return;
       }
     }
 
-    // 3. [실행 2단계: 안전 반사신경 (Reflex Arc)]
+    // 4. [실행 2단계: 안전 반사신경 (Reflex Arc)]
     // 네트워크 핑 지연(>800ms) 등으로 장애물이 95px까지 근접했는데 아직 도약하지 못한 경우 긴급 도약
     if (
       isGroundObstacle &&
@@ -106,11 +151,12 @@ export class DecisionController {
       this.lastJumpedObstacleId !== state.obstacleId &&
       state.dinoY === 0
     ) {
-      this.executeJump(state.obstacleId, 'Reflex Arc (Latency Protection)');
+      const reflexConf = Math.round(82 + Math.random() * 12);
+      this.executeJump(state.obstacleId, reflexConf, 'Reflex Arc (Latency Protection)');
       return;
     }
 
-    // 4. [선제적 질의 Lookahead Query]
+    // 5. [선제적 질의 Lookahead Query]
     // 장애물이 200px~520px 사정거리에 진입했고 아직 질의하지 않은 장애물인 경우 모델에 질의
     const isInsideLookaheadZone = state.distance <= 520 && state.distance >= 200;
     const isNotQueriedYet = !this.obstaclePlans.has(state.obstacleId);
@@ -124,7 +170,9 @@ export class DecisionController {
         status: 'querying',
         choice: 'RUN',
         confidence: 0,
-        triggerDistance: Math.max(95, Math.min(135, state.speed * 16)),
+        clearanceRate: 75,
+        collisionThreat: threatScore,
+        triggerDistance: optimalTriggerDist,
       });
 
       this.onBrainStatus?.({
@@ -162,6 +210,8 @@ export class DecisionController {
             JUMP: Number(result.probabilities.JUMP.toFixed(2)),
             RUN: Number(result.probabilities.RUN.toFixed(2)),
           },
+          collisionThreat: result.collisionThreat,
+          clearanceRate: result.clearanceRate,
           latencyMs: result.latencyMs,
           model: result.model,
           actionTaken: result.choice === 'JUMP',
@@ -169,14 +219,14 @@ export class DecisionController {
 
         this.onDecisionLog?.(logEntry);
 
-        const optimalTriggerDist = Math.max(95, Math.min(135, this.currentSpeed * 16));
-
         // 계획 확정
         this.obstaclePlans.set(targetObstacleId, {
           obstacleId: targetObstacleId,
           status: 'planned',
           choice: result.choice,
           confidence: confidencePct,
+          clearanceRate: result.clearanceRate,
+          collisionThreat: result.collisionThreat,
           triggerDistance: optimalTriggerDist,
         });
 
@@ -195,7 +245,7 @@ export class DecisionController {
           this.currentDistance > 15 &&
           this.lastJumpedObstacleId !== targetObstacleId
         ) {
-          this.executeJump(targetObstacleId, 'Mercury Decide Plan (Immediate)');
+          this.executeJump(targetObstacleId, confidencePct, 'Mercury Decide Plan (Immediate)');
         }
       } catch (e) {
         console.error('[DecisionController] Execution failed:', e);
@@ -205,14 +255,14 @@ export class DecisionController {
     }
   }
 
-  private executeJump(obstacleId: number, reason: string) {
+  private executeJump(obstacleId: number, confidence: number, reason: string) {
     if (!this.engine) return;
     this.lastJumpedObstacleId = obstacleId;
     const jumped = this.engine.jump();
     if (jumped) {
       this.onBrainStatus?.({
         state: 'jumped',
-        confidence: 100,
+        confidence,
         choice: 'JUMP',
         latencyMs: 0,
       });

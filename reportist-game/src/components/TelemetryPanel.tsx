@@ -1,8 +1,8 @@
-// components/TelemetryPanel.tsx - AI 의사결정 실시간 텔레메트리 뷰어
+// components/TelemetryPanel.tsx - AI 의사결정 실시간 텔레메트리 & 멀티 게이지 대시보드
 
 import React from 'react';
-import { Activity, Zap, CheckCircle2, ArrowUpCircle, Gauge, Radio } from 'lucide-react';
-import type { DecisionLogEntry } from '../types/game.ts';
+import { Activity, Zap, CheckCircle2, ArrowUpCircle, Radio, Gauge, ShieldAlert } from 'lucide-react';
+import type { DecisionLogEntry, BrainGaugesState } from '../types/game.ts';
 
 interface TelemetryPanelProps {
   logs: DecisionLogEntry[];
@@ -12,6 +12,7 @@ interface TelemetryPanelProps {
     choice: 'JUMP' | 'RUN';
     latencyMs: number;
   };
+  gauges?: BrainGaugesState;
   isAiActive: boolean;
   modelName: string;
 }
@@ -19,6 +20,7 @@ interface TelemetryPanelProps {
 export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({
   logs,
   latestStatus,
+  gauges,
   isAiActive,
   modelName,
 }) => {
@@ -29,7 +31,21 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({
       ? Math.round(logs.reduce((sum, l) => sum + l.latencyMs, 0) / totalDecisions)
       : 0;
 
-  const latestLog = logs[0];
+  const currentGauges: BrainGaugesState = gauges || {
+    collisionThreat: 18,
+    jumpTrajectory: 24,
+    obstacleClearance: 85,
+    actionProbability: { JUMP: 15, RUN: 85 },
+    threatLevelText: 'NOMINAL',
+    currentDistance: 0,
+  };
+
+  const threatColor =
+    currentGauges.collisionThreat > 75
+      ? '#ef4444' // red
+      : currentGauges.collisionThreat > 45
+      ? '#f59e0b' // amber
+      : '#3b82f6'; // blue
 
   return (
     <aside className="telemetry-panel">
@@ -51,7 +67,7 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({
         </div>
       </div>
 
-      {/* 2. 모델 정보 & 지표 카드 */}
+      {/* 2. 상단 핵심 KPI 그리드 */}
       <div className="telemetry-kpi-grid">
         <div className="kpi-card">
           <span className="kpi-label">MODEL</span>
@@ -75,47 +91,111 @@ export const TelemetryPanel: React.FC<TelemetryPanelProps> = ({
         </div>
       </div>
 
-      {/* 3. 최근 의사결정 확률 게이지 바 */}
-      {latestLog && (
-        <div className="decision-gauge-box">
-          <div className="gauge-header">
-            <span className="gauge-label">LATEST PROBABILITY</span>
-            <span className="gauge-choice font-bold">
-              {latestLog.choice === 'JUMP' ? (
-                <span className="text-emerald-600 flex items-center gap-1">
-                  <ArrowUpCircle size={14} /> JUMP ({latestLog.confidence}%)
-                </span>
-              ) : (
-                <span className="text-slate-600 flex items-center gap-1">
-                  <CheckCircle2 size={14} /> RUN ({latestLog.confidence}%)
-                </span>
-              )}
+      {/* 3. 실시간 AI 추론 게이지 매트릭스 (첨부 대시보드 레퍼런스 스타일) */}
+      <div className="neural-gauges-section">
+        <div className="neural-gauges-header">
+          <div className="flex items-center gap-1.5">
+            <Gauge size={13} className="text-blue-600" />
+            <span className="font-mono text-[11px] font-bold text-slate-700 tracking-wider">
+              REAL-TIME NEURAL GAUGES
             </span>
+          </div>
+          <span className={`threat-badge ${currentGauges.threatLevelText.toLowerCase()}`}>
+            {currentGauges.threatLevelText}
+          </span>
+        </div>
+
+        <div className="neural-gauges-list">
+          {/* 게이지 1: COLLISION THREAT */}
+          <div className="gauge-item">
+            <div className="gauge-row-top">
+              <span className="gauge-meta-label">COLLISION THREAT</span>
+              <span className="gauge-meta-desc">
+                {currentGauges.currentDistance > 0
+                  ? `dist ${currentGauges.currentDistance}px`
+                  : 'path clear'}
+              </span>
+              <span className="gauge-meta-pct font-mono font-bold" style={{ color: threatColor }}>
+                {currentGauges.collisionThreat}%
+              </span>
+            </div>
+            <div className="gauge-track">
+              <div
+                className="gauge-fill-animated"
+                style={{
+                  width: `${currentGauges.collisionThreat}%`,
+                  backgroundColor: threatColor,
+                }}
+              />
+            </div>
           </div>
 
-          {/* 양방향 확률 바 */}
-          <div className="prob-bar-track">
-            <div
-              className="prob-bar-fill-jump"
-              style={{ width: `${Math.round(latestLog.probabilities.JUMP * 100)}%` }}
-              title={`JUMP: ${(latestLog.probabilities.JUMP * 100).toFixed(0)}%`}
-            />
-            <div
-              className="prob-bar-fill-run"
-              style={{ width: `${Math.round(latestLog.probabilities.RUN * 100)}%` }}
-              title={`RUN: ${(latestLog.probabilities.RUN * 100).toFixed(0)}%`}
-            />
+          {/* 게이지 2: JUMP TRAJECTORY */}
+          <div className="gauge-item">
+            <div className="gauge-row-top">
+              <span className="gauge-meta-label">JUMP TRAJECTORY</span>
+              <span className="gauge-meta-desc">liftoff precision</span>
+              <span className="gauge-meta-pct font-mono font-bold text-indigo-600">
+                {currentGauges.jumpTrajectory}%
+              </span>
+            </div>
+            <div className="gauge-track">
+              <div
+                className="gauge-fill-striped"
+                style={{
+                  width: `${currentGauges.jumpTrajectory}%`,
+                  background: 'linear-gradient(90deg, #6366f1, #ec4899)',
+                }}
+              />
+            </div>
           </div>
-          <div className="prob-bar-labels">
-            <span className="text-[10px] font-mono text-emerald-600">
-              JUMP {(latestLog.probabilities.JUMP * 100).toFixed(0)}%
-            </span>
-            <span className="text-[10px] font-mono text-slate-500">
-              RUN {(latestLog.probabilities.RUN * 100).toFixed(0)}%
-            </span>
+
+          {/* 게이지 3: OBSTACLE CLEARANCE */}
+          <div className="gauge-item">
+            <div className="gauge-row-top">
+              <span className="gauge-meta-label">OBSTACLE CLEARANCE</span>
+              <span className="gauge-meta-desc">margin of error</span>
+              <span className="gauge-meta-pct font-mono font-bold text-emerald-600">
+                {currentGauges.obstacleClearance}%
+              </span>
+            </div>
+            <div className="gauge-track">
+              <div
+                className="gauge-fill-animated"
+                style={{
+                  width: `${currentGauges.obstacleClearance}%`,
+                  backgroundColor: '#10b981',
+                }}
+              />
+            </div>
+          </div>
+
+          {/* 게이지 4: ACTION PROBABILITY (JUMP vs RUN) */}
+          <div className="gauge-item">
+            <div className="gauge-row-top">
+              <span className="gauge-meta-label">ACTION PROBABILITY</span>
+              <span className="gauge-meta-desc">
+                {currentGauges.actionProbability.JUMP > currentGauges.actionProbability.RUN
+                  ? 'JUMP Favored'
+                  : 'RUN Favored'}
+              </span>
+              <span className="gauge-meta-pct font-mono font-bold text-slate-800">
+                J {currentGauges.actionProbability.JUMP}% / R {currentGauges.actionProbability.RUN}%
+              </span>
+            </div>
+            <div className="dual-prob-track">
+              <div
+                className="dual-fill-jump"
+                style={{ width: `${currentGauges.actionProbability.JUMP}%` }}
+              />
+              <div
+                className="dual-fill-run"
+                style={{ width: `${currentGauges.actionProbability.RUN}%` }}
+              />
+            </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* 4. 실시간 결정 스트림 로그 */}
       <div className="telemetry-stream-section">

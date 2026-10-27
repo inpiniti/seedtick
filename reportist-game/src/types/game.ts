@@ -67,6 +67,18 @@ export interface DinoPhysicsState {
   speed: number;
 }
 
+export interface BrainGaugesState {
+  collisionThreat: number; // 0 ~ 100
+  jumpTrajectory: number; // 0 ~ 100
+  obstacleClearance: number; // 0 ~ 100
+  actionProbability: {
+    JUMP: number; // 0 ~ 100
+    RUN: number; // 0 ~ 100
+  };
+  threatLevelText: 'NOMINAL' | 'CAUTION' | 'CRITICAL';
+  currentDistance: number;
+}
+
 export interface DecisionLogEntry {
   id: string;
   timestamp: string;
@@ -79,6 +91,8 @@ export interface DecisionLogEntry {
     JUMP: number;
     RUN: number;
   };
+  collisionThreat?: number;
+  clearanceRate?: number;
   latencyMs: number;
   model: string;
   actionTaken: boolean;
@@ -94,6 +108,18 @@ export interface DecisionsApiResponse {
         JUMP?: number;
         RUN?: number;
       };
+      confidence?: number;
+    };
+    collision_risk?: {
+      type: string;
+      choice: string;
+      probabilities?: Record<string, number>;
+      confidence?: number;
+    };
+    clearance_rate?: {
+      type: string;
+      choice: string;
+      probabilities?: Record<string, number>;
       confidence?: number;
     };
   };

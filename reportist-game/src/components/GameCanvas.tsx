@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Play, RotateCcw, Pause, Sparkles, AlertCircle } from 'lucide-react';
 import { DinoEngine } from '../game/DinoEngine.ts';
 import { DecisionController } from '../ai/DecisionController.ts';
-import type { DecisionLogEntry, DecisionModelId } from '../types/game.ts';
+import type { DecisionLogEntry, DecisionModelId, BrainGaugesState } from '../types/game.ts';
 
 interface GameCanvasProps {
   isAiMode: boolean;
@@ -18,6 +18,7 @@ interface GameCanvasProps {
     choice: 'JUMP' | 'RUN';
     latencyMs: number;
   }) => void;
+  onGaugesUpdate?: (gauges: BrainGaugesState) => void;
 }
 
 export const GameCanvas: React.FC<GameCanvasProps> = ({
@@ -27,6 +28,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   onGameOver,
   onDecisionLog,
   onBrainStatusChange,
+  onGaugesUpdate,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<DinoEngine | null>(null);
@@ -44,6 +46,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     onGameOver,
     onDecisionLog,
     onBrainStatusChange,
+    onGaugesUpdate,
   });
 
   useEffect(() => {
@@ -52,6 +55,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       onGameOver,
       onDecisionLog,
       onBrainStatusChange,
+      onGaugesUpdate,
     };
   });
 
@@ -71,6 +75,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             setBubbleText(`RUN (${st.confidence}%)`);
           }
         },
+        onGaugesUpdate: (g) => callbacksRef.current.onGaugesUpdate?.(g),
       });
     } else {
       aiControllerRef.current.setModel(modelId);

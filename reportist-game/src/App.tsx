@@ -47,6 +47,26 @@ export function App() {
     latencyMs: 0,
   });
 
+  // 실시간 다차원 HUD 뉴럴 게이지 상태 (첨부 대시보드 스타일 지표)
+  const [brainGauges, setBrainGauges] = useState<{
+    collisionThreat: number;
+    jumpTrajectory: number;
+    obstacleClearance: number;
+    actionProbability: {
+      JUMP: number;
+      RUN: number;
+    };
+    threatLevelText: 'NOMINAL' | 'CAUTION' | 'CRITICAL';
+    currentDistance: number;
+  }>({
+    collisionThreat: 18,
+    jumpTrajectory: 22,
+    obstacleClearance: 88,
+    actionProbability: { JUMP: 15, RUN: 85 },
+    threatLevelText: 'NOMINAL',
+    currentDistance: 0,
+  });
+
   // 점수 갱신 시 하이스코어 체크 (함수형 업데이트로 의존성 제거)
   const handleScoreUpdate = React.useCallback((score: number) => {
     setHighScore((prev) => {
@@ -74,6 +94,23 @@ export function App() {
       latencyMs: number;
     }) => {
       setBrainStatus(status);
+    },
+    []
+  );
+
+  const handleGaugesUpdate = React.useCallback(
+    (gauges: {
+      collisionThreat: number;
+      jumpTrajectory: number;
+      obstacleClearance: number;
+      actionProbability: {
+        JUMP: number;
+        RUN: number;
+      };
+      threatLevelText: 'NOMINAL' | 'CAUTION' | 'CRITICAL';
+      currentDistance: number;
+    }) => {
+      setBrainGauges(gauges);
     },
     []
   );
@@ -108,6 +145,7 @@ export function App() {
               modelId={selectedModel}
               onDecisionLog={handleDecisionLog}
               onBrainStatusChange={handleBrainStatusChange}
+              onGaugesUpdate={handleGaugesUpdate}
             />
           ) : (
             <GameCanvas
@@ -117,6 +155,7 @@ export function App() {
               onGameOver={handleScoreUpdate}
               onDecisionLog={handleDecisionLog}
               onBrainStatusChange={handleBrainStatusChange}
+              onGaugesUpdate={handleGaugesUpdate}
             />
           )}
 
@@ -144,6 +183,7 @@ export function App() {
         <TelemetryPanel
           logs={decisionLogs}
           latestStatus={brainStatus}
+          gauges={brainGauges}
           isAiActive={mode === 'ai' || mode === 'battle'}
           modelName={selectedModel}
         />

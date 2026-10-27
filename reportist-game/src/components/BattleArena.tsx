@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Swords, RotateCcw, Trophy, Sparkles, User, Bot } from 'lucide-react';
 import { DinoEngine } from '../game/DinoEngine.ts';
 import { DecisionController } from '../ai/DecisionController.ts';
-import type { DecisionLogEntry, DecisionModelId } from '../types/game.ts';
+import type { DecisionLogEntry, DecisionModelId, BrainGaugesState } from '../types/game.ts';
 
 interface BattleArenaProps {
   modelId: DecisionModelId;
@@ -15,12 +15,14 @@ interface BattleArenaProps {
     choice: 'JUMP' | 'RUN';
     latencyMs: number;
   }) => void;
+  onGaugesUpdate?: (gauges: BrainGaugesState) => void;
 }
 
 export const BattleArena: React.FC<BattleArenaProps> = ({
   modelId,
   onDecisionLog,
   onBrainStatusChange,
+  onGaugesUpdate,
 }) => {
   const humanCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const aiCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -42,12 +44,14 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
   const callbacksRef = useRef({
     onDecisionLog,
     onBrainStatusChange,
+    onGaugesUpdate,
   });
 
   useEffect(() => {
     callbacksRef.current = {
       onDecisionLog,
       onBrainStatusChange,
+      onGaugesUpdate,
     };
   });
 
@@ -65,6 +69,7 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
             setAiBubble(`RUN (${st.confidence}%)`);
           }
         },
+        onGaugesUpdate: (g) => callbacksRef.current.onGaugesUpdate?.(g),
       });
       if (aiEngineRef.current) {
         aiControllerRef.current.attachEngine(aiEngineRef.current);
