@@ -38,21 +38,41 @@ export const BattleArena: React.FC<BattleArenaProps> = ({
   const [winner, setWinner] = useState<'HUMAN' | 'AI' | 'DRAW' | null>(null);
   const [aiBubble, setAiBubble] = useState<string | null>(null);
 
+  // 부모 콜백들을 ref에 보관
+  const callbacksRef = useRef({
+    onDecisionLog,
+    onBrainStatusChange,
+  });
+
+  useEffect(() => {
+    callbacksRef.current = {
+      onDecisionLog,
+      onBrainStatusChange,
+    };
+  });
+
   // 1. AI 컨트롤러
   useEffect(() => {
-    aiControllerRef.current = new DecisionController({
-      modelId,
-      onDecisionLog,
-      onBrainStatus: (st) => {
-        onBrainStatusChange(st);
-        if (st.choice === 'JUMP') {
-          setAiBubble(`JUMP! (${st.confidence}%)`);
-        } else if (st.choice === 'RUN') {
-          setAiBubble(`RUN (${st.confidence}%)`);
-        }
-      },
-    });
-  }, [modelId, onDecisionLog, onBrainStatusChange]);
+    if (!aiControllerRef.current) {
+      aiControllerRef.current = new DecisionController({
+        modelId,
+        onDecisionLog: (entry) => callbacksRef.current.onDecisionLog(entry),
+        onBrainStatus: (st) => {
+          callbacksRef.current.onBrainStatusChange(st);
+          if (st.choice === 'JUMP') {
+            setAiBubble(`JUMP! (${st.confidence}%)`);
+          } else if (st.choice === 'RUN') {
+            setAiBubble(`RUN (${st.confidence}%)`);
+          }
+        },
+      });
+      if (aiEngineRef.current) {
+        aiControllerRef.current.attachEngine(aiEngineRef.current);
+      }
+    } else {
+      aiControllerRef.current.setModel(modelId);
+    }
+  }, [modelId]);
 
   // 2. 엔진 초기화
   const initEngines = useCallback(() => {

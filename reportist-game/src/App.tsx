@@ -47,27 +47,44 @@ export function App() {
     latencyMs: 0,
   });
 
-  // 점수 갱신 시 하이스코어 체크
-  const handleScoreUpdate = (score: number) => {
-    if (score > highScore) {
-      setHighScore(score);
-      try {
-        localStorage.setItem(STORAGE_KEY_HI_SCORE, String(score));
-      } catch (e) {
-        console.warn('Failed to save high score:', e);
+  // 점수 갱신 시 하이스코어 체크 (함수형 업데이트로 의존성 제거)
+  const handleScoreUpdate = React.useCallback((score: number) => {
+    setHighScore((prev) => {
+      if (score > prev) {
+        try {
+          localStorage.setItem(STORAGE_KEY_HI_SCORE, String(score));
+        } catch (e) {
+          console.warn('Failed to save high score:', e);
+        }
+        return score;
       }
-    }
-  };
+      return prev;
+    });
+  }, []);
 
-  const handleDecisionLog = (entry: DecisionLogEntry) => {
+  const handleDecisionLog = React.useCallback((entry: DecisionLogEntry) => {
     setDecisionLogs((prev) => [entry, ...prev.slice(0, 24)]);
-  };
+  }, []);
 
-  const handleToggleMute = () => {
-    const next = !isMuted;
-    setIsMuted(next);
-    sounds.setMuted(next);
-  };
+  const handleBrainStatusChange = React.useCallback(
+    (status: {
+      state: 'idle' | 'thinking' | 'action_ready' | 'jumped';
+      confidence: number;
+      choice: 'JUMP' | 'RUN';
+      latencyMs: number;
+    }) => {
+      setBrainStatus(status);
+    },
+    []
+  );
+
+  const handleToggleMute = React.useCallback(() => {
+    setIsMuted((prev) => {
+      const next = !prev;
+      sounds.setMuted(next);
+      return next;
+    });
+  }, []);
 
   return (
     <div className="game-app-layout">
@@ -90,7 +107,7 @@ export function App() {
             <BattleArena
               modelId={selectedModel}
               onDecisionLog={handleDecisionLog}
-              onBrainStatusChange={setBrainStatus}
+              onBrainStatusChange={handleBrainStatusChange}
             />
           ) : (
             <GameCanvas
@@ -99,7 +116,7 @@ export function App() {
               onScoreUpdate={handleScoreUpdate}
               onGameOver={handleScoreUpdate}
               onDecisionLog={handleDecisionLog}
-              onBrainStatusChange={setBrainStatus}
+              onBrainStatusChange={handleBrainStatusChange}
             />
           )}
 

@@ -34,30 +34,50 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [isGameOverState, setIsGameOverState] = useState(false);
-  const [score, setScore] = useState(0);
 
   // AI 두뇌 실시간 말풍선 오버레이 상태
   const [bubbleText, setBubbleText] = useState<string | null>(null);
 
-  // 1. AI 컨트롤러 초기화
-  useEffect(() => {
-    aiControllerRef.current = new DecisionController({
-      modelId,
-      onDecisionLog,
-      onBrainStatus: (st) => {
-        onBrainStatusChange(st);
-        if (st.state === 'thinking') {
-          setBubbleText('Thinking...');
-        } else if (st.choice === 'JUMP') {
-          setBubbleText(`JUMP! (${st.confidence}%)`);
-        } else if (st.choice === 'RUN') {
-          setBubbleText(`RUN (${st.confidence}%)`);
-        }
-      },
-    });
-  }, [modelId, onDecisionLog, onBrainStatusChange]);
+  // 부모로부터 전달되는 콜백들을 ref에 보관하여 엔진 라이프사이클과 완전히 분리
+  const callbacksRef = useRef({
+    onScoreUpdate,
+    onGameOver,
+    onDecisionLog,
+    onBrainStatusChange,
+  });
 
-  // 2. 엔진 초기화
+  useEffect(() => {
+    callbacksRef.current = {
+      onScoreUpdate,
+      onGameOver,
+      onDecisionLog,
+      onBrainStatusChange,
+    };
+  });
+
+  // 1. AI 컨트롤러 초기화 및 모델 동적 갱신
+  useEffect(() => {
+    if (!aiControllerRef.current) {
+      aiControllerRef.current = new DecisionController({
+        modelId,
+        onDecisionLog: (entry) => callbacksRef.current.onDecisionLog(entry),
+        onBrainStatus: (st) => {
+          callbacksRef.current.onBrainStatusChange(st);
+          if (st.state === 'thinking') {
+            setBubbleText('Thinking...');
+          } else if (st.choice === 'JUMP') {
+            setBubbleText(`JUMP! (${st.confidence}%)`);
+          } else if (st.choice === 'RUN') {
+            setBubbleText(`RUN (${st.confidence}%)`);
+          }
+        },
+      });
+    } else {
+      aiControllerRef.current.setModel(modelId);
+    }
+  }, [modelId]);
+
+  // 2. 엔진 초기화 (오직 isAiMode 변경 시에만 초기화되며 콜백 변경에 영향받지 않음)
   useEffect(() => {
     if (!canvasRef.current) return;
 
@@ -65,13 +85,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       canvas: canvasRef.current,
       isAiControlled: isAiMode,
       onScore: (s) => {
-        setScore(s);
-        onScoreUpdate(s);
+        callbacksRef.current.onScoreUpdate(s);
       },
       onGameOver: (finalScore) => {
         setIsGameOverState(true);
         setIsPlaying(false);
-        onGameOver(finalScore);
+        callbacksRef.current.onGameOver(finalScore);
       },
       onObstacleApproaching: (st) => {
         if (isAiMode && aiControllerRef.current) {
@@ -92,7 +111,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     return () => {
       engine.destroy();
     };
-  }, [isAiMode, onScoreUpdate, onGameOver]);
+  }, [isAiMode]);
 
   // 3. 키보드 입력 핸들러
   const handleKeyDown = useCallback(
