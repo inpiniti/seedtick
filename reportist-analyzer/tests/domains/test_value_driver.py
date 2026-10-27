@@ -47,6 +47,9 @@ async def test_value_driver_generator_success(tmp_path, sample_datapack):
     out_file = tmp_path / "2026-09-29" / "_data" / "AMAT_VALUE_DRIVERS.md"
     assert out_file.exists()
     assert "AMAT 가치 드라이버 분석" in out_file.read_text(encoding="utf-8")
+    out_file_en = tmp_path / "2026-09-29" / "_data" / "AMAT_VALUE_DRIVERS_EN.md"
+    assert out_file_en.exists()
+    assert sample_datapack.value_drivers_en != ""
 
 
 @pytest.mark.asyncio
@@ -61,3 +64,6 @@ async def test_value_driver_generator_fallback_on_error(tmp_path, sample_datapac
     assert "기본 펀더멘털 기반 생성" in result
     out_file = tmp_path / "2026-09-29" / "_data" / "AMAT_VALUE_DRIVERS.md"
     assert out_file.exists()
+    out_file_en = tmp_path / "2026-09-29" / "_data" / "AMAT_VALUE_DRIVERS_EN.md"
+    assert out_file_en.exists()
+    assert "Key Value Drivers Analysis" in out_file_en.read_text(encoding="utf-8")

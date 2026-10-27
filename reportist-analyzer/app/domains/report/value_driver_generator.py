@@ -3,6 +3,7 @@ ValueDriverGenerator: 기업 특유의 가치 드라이버(KPI 3~5개) 및 최�
 과거 guru-value-driver 에이전트의 동적 분석 역량을 AI-Gateway 기반 파이프라인으로 복원합니다.
 """
 import logging
+import re
 from datetime import date as dt_date
 from pathlib import Path
 
@@ -22,6 +23,23 @@ SYSTEM_PROMPT = """너는 13인의 투자 거장 보고서(Guru Report) 파이�
 5. 반드시 마크다운(Markdown) 형식으로 작성하며 서두나 결미에 불필요한 인사말이나 부연 설명 없이 본문만 출력하라.
 6. 핵심 드라이버 및 촉매 도출이 완료되면 불필요한 꼬리물기 추론 없이 즉시 규격대로 본문을 완결하라.
 7. **마크다운 취소선(~~)과 단일 물결표(~) 범위 표기를 쓰지 마라.** 범위·근사 표기는 '–' 또는 '부터/까지'를 써라(예: Q1–Q3, 140조–150조원, $150 – $175).
+"""
+
+SYSTEM_PROMPT_EN = """You are the Senior Wall Street Equity Research Analyst for the 13 Guru Report pipeline.
+Your mission is to formulate or translate the Key Value Drivers (3-5 KPIs) and latest market catalysts for the given company into high-conviction, professional English investment research markdown.
+
+## Absolute Rules:
+1. Translate all section titles, tables, bullet points, and analysis into natural, rigorous institutional English.
+2. Accurately translate monetary units and figures:
+   - '달러' -> '$' (e.g. 2,159억 달러 -> $215.9B, 1,304억 달러 -> $130.4B, 1,201억 달러 -> $120.1B)
+   - '조원' / '조 원' -> 'T KRW', '억원' / '억 원' -> '00M KRW' (e.g. 100조원 -> 100T KRW)
+   - Priority: '높음' -> 'High', '중간'/'보통' -> 'Medium', '낮음' -> 'Low'
+3. Maintain precise markdown structure:
+   - Header table: | # | Driver | Current Status (as of {date}) | Monitoring Criteria | Priority |
+   - Detailed analysis: ### Driver X: (Name) with - Current: ..., - Monitoring: ..., - Impact: ...
+   - Section: ## Driver Priorities & Risks (**Top Priority Driver**, **Highest Uncertainty Driver**, **Short-term vs Long-term Monitoring**)
+   - Section: ## Recent Market Catalysts & News
+4. Output ONLY the completed markdown document without pleasantries or conversational intros.
 """
 
 
@@ -44,7 +62,8 @@ class ValueDriverGenerator:
     ) -> str:
         """
         StockDataPack의 재무, 시세, 뉴스 데이터를 바탕으로
-        가치 드라이버 분석을 생성하고 docs/report/{date}/_data/{ticker}_VALUE_DRIVERS.md에 저장합니다.
+        가치 드라이버 분석을 생성하고 docs/report/{date}/_data/{ticker}_VALUE_DRIVERS.md 및
+        영문 버전 docs/report/{date}/_data/{ticker}_VALUE_DRIVERS_EN.md에 저장합니다.
         """
         date_str = target_date or datapack.date or dt_date.today().isoformat()
         ticker = datapack.ticker.upper().strip()
@@ -65,14 +84,63 @@ class ValueDriverGenerator:
             logger.error(f"[{ticker}] 가치 드라이버 생성 AI 호출 실패: {e}")
             markdown_content = self._build_fallback_content(datapack, date_str)
 
+        # 영문 가치 드라이버 생성 (국문 분석 기반 번역 및 영문 기관 포맷팅)
+        markdown_content_en = await self.generate_value_drivers_en(
+            datapack,
+            markdown_content,
+            date_str,
+            model_override=model_override,
+            pin_model=pin_model,
+            temperature_override=temperature_override,
+        )
+
+        datapack.value_drivers = markdown_content
+        datapack.value_drivers_en = markdown_content_en
+
         # 파일 저장: docs/report/{date}/_data/{ticker}_VALUE_DRIVERS.md
         out_dir = self.base_report_dir / date_str / "_data"
         out_dir.mkdir(parents=True, exist_ok=True)
         file_path = out_dir / f"{ticker}_VALUE_DRIVERS.md"
         file_path.write_text(markdown_content, encoding="utf-8")
-        logger.info(f"[{ticker}] 가치 드라이버 파일 저장 완료: {file_path}")
+        file_path_en = out_dir / f"{ticker}_VALUE_DRIVERS_EN.md"
+        file_path_en.write_text(markdown_content_en, encoding="utf-8")
+        logger.info(f"[{ticker}] 가치 드라이버 파일(국문/영문) 저장 완료: {file_path}")
 
         return markdown_content
+
+    async def generate_value_drivers_en(
+        self,
+        datapack: StockDataPack,
+        korean_vd_markdown: str,
+        date_str: str,
+        model_override: str | None = None,
+        pin_model: bool = False,
+        temperature_override: float | None = None,
+    ) -> str:
+        """국문 가치 드라이버 마크다운을 정밀 영문 월가 리서치 포맷으로 변환."""
+        ticker = datapack.ticker.upper().strip()
+        company_en = datapack.company_name_en or ticker
+
+        prompt_en = f"""Convert the following Korean Key Value Drivers Analysis for {ticker} ({company_en}) into professional English Wall Street equity research markdown.
+Reference Date: {date_str}
+
+### Korean Value Drivers Source:
+{korean_vd_markdown}
+
+Output the complete English markdown document matching the required structure. Output only the markdown:"""
+
+        try:
+            res = await self.ai.chat(
+                prompt_en,
+                system_prompt=SYSTEM_PROMPT_EN,
+                model_override=model_override,
+                pin_model=pin_model,
+                temperature_override=temperature_override,
+            )
+            return res.strip()
+        except Exception as e:
+            logger.warning(f"[{ticker}] 영문 가치 드라이버 번역 호출 실패 ({e}) - 룰베이스 폴백 적용")
+            return self._build_fallback_content_en(datapack, date_str, korean_vd_markdown)
 
     def _build_prompt(self, dp: StockDataPack, date_str: str) -> str:
         news_lines: list[str] = []
@@ -164,4 +232,46 @@ class ValueDriverGenerator:
 | 1 | 매출 성장세 및 시장 점유율 | 영업이익률 및 마진 추이 | 분기 실적 및 가이던스 달성 여부 | 높음 |
 | 2 | 밸류에이션 및 현금흐름 창출력 | PER {dp.valuation.forward_pe or dp.valuation.trailing_pe or 'N/A'}x | 잉여현금흐름(FCF) 성장률 | 보통 |
 | 3 | 산업 경기 사이클 및 매크로 리스크 | 매크로 금리 및 섹터 수급 | 고객사 캐펙스 및 수요 둔화 여부 | 높음 |
+"""
+
+    def _build_fallback_content_en(
+        self, dp: StockDataPack, date_str: str, korean_content: str = ""
+    ) -> str:
+        ticker = dp.ticker.upper().strip()
+        if korean_content:
+            s = korean_content
+            s = re.sub(rf"^#\s*{re.escape(ticker)}\s*가치\s*드라이버\s*분석", f"# {ticker} Key Value Drivers Analysis", s, flags=re.MULTILINE)
+            s = re.sub(r">\s*작성일:\s*(.*?)\s*\|\s*조사\s*근거:[^\n]+", rf"> Date: \1 | Source: Comprehensive fundamental metrics and latest market catalysts", s)
+            s = re.sub(r">\s*작성일:\s*(.*?)\s*\|\s*기본[^\n]+", rf"> Date: \1 | Generated based on core fundamentals", s)
+            s = re.sub(r"##\s*핵심\s*드라이버\s*3~5개\s*\(표\s*형식\)", "## Key Drivers (Table)", s)
+            s = re.sub(r"##\s*핵심\s*드라이버\s*3~5개", "## Key Drivers", s)
+            s = re.sub(r"\|\s*#\s*\|\s*드라이버명\s*\|\s*현재\s*상태\s*(\(.*?\))?\s*\|\s*변화\s*감시\s*기준\s*\|\s*중요도\s*\|", r"| # | Driver | Current Status \1 | Monitoring Criteria | Priority |", s)
+            s = re.sub(r"\|\s*높음\s*\|", "| High |", s)
+            s = re.sub(r"\|\s*(?:중간|보통)\s*\|", "| Medium |", s)
+            s = re.sub(r"\|\s*낮음\s*\|", "| Low |", s)
+            s = re.sub(r"##\s*각\s*드라이버\s*상세\s*분석", "## Detailed Driver Analysis", s)
+            s = re.sub(r"###\s*드라이버\s*([0-9]+)\s*:", r"### Driver \1:", s)
+            s = re.sub(r"^-\s*현재\s*:", "- Current:", s, flags=re.MULTILINE)
+            s = re.sub(r"^-\s*감시\s*:", "- Monitoring:", s, flags=re.MULTILINE)
+            s = re.sub(r"^-\s*영향\s*:", "- Impact:", s, flags=re.MULTILINE)
+            s = re.sub(r"##\s*드라이버\s*우선순위\s*&\s*리스크", "## Driver Priorities & Risks", s)
+            s = re.sub(r"\*\*\s*가장\s*중요한\s*드라이버\s*\*\*", "**Top Priority Driver**", s)
+            s = re.sub(r"\*\*\s*가장\s*불확실한\s*드라이버\s*\*\*", "**Highest Uncertainty Driver**", s)
+            s = re.sub(r"\*\*\s*단기\s*vs\s*장기\s*감시\s*\*\*", "**Short-term vs Long-term Monitoring**", s)
+            s = re.sub(r"##\s*최신\s*시장\s*촉매[^\n]+", "## Recent Market Catalysts & News", s)
+            s = re.sub(r"달러", "$", s)
+            s = re.sub(r"조\s*원", "T KRW", s)
+            s = re.sub(r"억\s*원", "00M KRW", s)
+            return s
+
+        pe = dp.valuation.forward_pe or dp.valuation.trailing_pe or "N/A"
+        return f"""# {ticker} Key Value Drivers Analysis
+> Date: {date_str} | Generated based on core fundamentals
+
+## Key Drivers (Table)
+| # | Driver | Current Status | Monitoring Criteria | Priority |
+|---|---|---|---|---|
+| 1 | Revenue Growth & Market Expansion | Gross margin & operating margin durability | Quarterly revenue & forward guidance | High |
+| 2 | Valuation & FCF Conversion | Forward P/E {pe}x | Free cash flow growth rate & yield | Medium |
+| 3 | Industry Macro & Cycle Risks | Sector demand & interest rate environment | Customer CapEx and demand trajectory | High |
 """

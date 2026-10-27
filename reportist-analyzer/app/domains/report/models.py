@@ -82,6 +82,7 @@ class StockDataPack(BaseModel):
     forensic_metrics: dict = Field(default_factory=dict)
     checklist_results: dict = Field(default_factory=dict)
     value_drivers: str = ""
+    value_drivers_en: str = ""
     file_path: str = ""
     raw_markdown: str = ""
 
@@ -91,7 +92,8 @@ class PersonaSummaryBlock(BaseModel):
     persona: str                     # 예: 워런-버핏
     verdict: Literal["매수", "보유", "관망", "매도", "미응답"]
     confidence: int | None = 5       # 1-10
-    core_arguments: list[str]        # 수치와 팩트를 포함한 핵심 근거 2~3개
+    core_arguments: list[str]        # 수치와 팩트를 포함한 핵심 근거 2~3개 (한국어)
+    core_arguments_en: list[str] = Field(default_factory=list)  # 영문 핵심 근거
     target_price_range: str | None = None
     target_price_low: float | None = None   # 적정가/매수 가격대 하단 (숫자)
     target_price_high: float | None = None  # 적정가/매수 가격대 상단 (숫자)
@@ -105,8 +107,10 @@ class PersonaSummaryBlock(BaseModel):
     prompt_hash: str | None = None          # 페르소나 프롬프트 템플릿 해시
     model: str | None = None                # 분석에 사용된 LLM 모델명
     data_gaps: list[str] = Field(default_factory=list)  # 데이터 부족 항목
-    trigger_conditions: list[str] = Field(default_factory=list)
-    quote: str                       # 인물 특유 어조의 대표 발언 1개
+    trigger_conditions: list[str] = Field(default_factory=list)  # 한국어 재검토 조건
+    trigger_conditions_en: list[str] = Field(default_factory=list)  # 영문 재검토 조건
+    quote: str                       # 인물 특유 어조의 대표 발언 1개 (한국어)
+    quote_en: str = ""               # 영문 대표 발언 1개
     # 파싱 출처: json(구조화 출력 성공) / regex(텍스트 폴백) / fallback(AI 실패 기본값)
     parse_mode: Literal["json", "regex", "fallback"] = "regex"
     # AI 원문 응답 (guru_opinions.raw_text 저장용, summaries jsonb 에는 제외)

@@ -8,6 +8,30 @@ import { findGuruPersona, getGuruPersonaBilingual } from "@/lib/guruPersonas";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Target, Check, AlertCircle } from "lucide-react";
 
+function cleanLegacySummaryTextEn(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/달러/g, "$")
+    .replace(/조\s*원/g, "T KRW")
+    .replace(/억\s*원/g, "00M KRW")
+    .replace(/원/g, " KRW")
+    .replace(/영업이익률/g, "Operating Margin")
+    .replace(/영업이익/g, "Operating Income")
+    .replace(/매출액|매출/g, "Revenue")
+    .replace(/순이익/g, "Net Income")
+    .replace(/잉여현금흐름/g, "Free Cash Flow")
+    .replace(/시가총액/g, "Market Cap")
+    .replace(/부채비율/g, "Debt-to-Equity")
+    .replace(/자기자본이익률/g, "ROE")
+    .replace(/주당순이익/g, "EPS")
+    .replace(/안전마진/g, "Margin of Safety")
+    .replace(/적정가/g, "Fair Value")
+    .replace(/내재가치/g, "Intrinsic Value")
+    .replace(/투자의견/g, "Verdict")
+    .replace(/이하/g, "or below")
+    .replace(/이상/g, "or above");
+}
+
 interface ReportSummariesViewProps {
   summaries: GuruSummaryItem[] | null;
 }
@@ -120,10 +144,24 @@ export function ReportSummariesView({ summaries }: ReportSummariesViewProps) {
                 .replace(/매수\s*고려/g, "Buy considered")
                 .replace(/매도\s*고려/g, "Sell considered")
             : item.target_price_range;
-          const quote = isEn && persona?.quote ? persona.quote : item.quote;
-          const args =
-            item.core_arguments || (item.rationale ? [item.rationale] : []);
-          const triggers = item.trigger_conditions || [];
+          const quote = isEn && item.quote_en
+            ? item.quote_en
+            : isEn && persona?.quote
+            ? persona.quote
+            : item.quote;
+          const rawArgs = (isEn && item.core_arguments_en && item.core_arguments_en.length > 0)
+            ? item.core_arguments_en
+            : (item.core_arguments || (item.rationale ? [item.rationale] : []));
+          const args = isEn && (!item.core_arguments_en || item.core_arguments_en.length === 0)
+            ? rawArgs.map(cleanLegacySummaryTextEn)
+            : rawArgs;
+
+          const rawTriggers = (isEn && item.trigger_conditions_en && item.trigger_conditions_en.length > 0)
+            ? item.trigger_conditions_en
+            : (item.trigger_conditions || []);
+          const triggers = isEn && (!item.trigger_conditions_en || item.trigger_conditions_en.length === 0)
+            ? rawTriggers.map(cleanLegacySummaryTextEn)
+            : rawTriggers;
 
           return (
             <div

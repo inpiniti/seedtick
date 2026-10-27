@@ -134,10 +134,13 @@ export interface GuruSummaryItem {
   stance?: string;
   confidence?: number;
   core_arguments?: string[];
+  core_arguments_en?: string[];
   rationale?: string;
   target_price_range?: string | null;
   trigger_conditions?: string[];
+  trigger_conditions_en?: string[];
   quote?: string;
+  quote_en?: string;
   parse_mode?: "json" | "regex" | "fallback" | "legacy";
 }
 

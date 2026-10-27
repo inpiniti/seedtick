@@ -216,7 +216,7 @@ Decision sequence: ① Calculate your fair value / buy zone first → ② Compar
 8. 'data_gaps': 0 to 3 critical missing metrics genuinely required. If the core statements suffice to form a conviction, leave this empty ([]).
 9. 'trigger_conditions' are 1 to 2 key events or metrics that would change your verdict or allocation.
 10. 'quote' is a single punchy statement reflecting your unique persona, tone, and conviction.
-11. [CRITICAL LANGUAGE REQUIREMENT] While your internal evaluation and reasoning follow the English principles above, write the values for 'core_arguments', 'data_gaps', 'trigger_conditions', and 'quote' in natural, professional Korean (한국어) for Korean investors.
+11. [BILINGUAL REQUIREMENT] Provide both Korean ('core_arguments', 'trigger_conditions', 'quote') and professional English ('core_arguments_en', 'trigger_conditions_en', 'quote_en') counterparts. Ensure the English fields are concise, professional, and contain exact numerical facts.
 12. When reasoning, once your thesis converges on a conclusion and target range, terminate reasoning immediately and output the JSON without repetitive looping.
 
 [Output Format]
@@ -229,6 +229,11 @@ Decision sequence: ① Calculate your fair value / buy zone first → ② Compar
     "구체적인 수치와 팩트에 기반한 핵심 논거 1 (한국어로 작성)",
     "구체적인 수치와 팩트에 기반한 핵심 논거 2 (한국어로 작성)",
     "구체적인 수치와 팩트에 기반한 핵심 논거 3 (한국어로 작성)"
+  ],
+  "core_arguments_en": [
+    "Fact-based core argument 1 with concrete metrics (in English)",
+    "Fact-based core argument 2 with concrete metrics (in English)",
+    "Fact-based core argument 3 with concrete metrics (in English)"
   ],
   "fair_value": 180.0,
   "buy_below": 150.0,
@@ -247,7 +252,9 @@ Decision sequence: ① Calculate your fair value / buy zone first → ② Compar
   ],
   "data_gaps": [],
   "trigger_conditions": ["핵심 재검토 요건 1 (한국어로 작성)", "핵심 재검토 요건 2 (한국어로 작성)"],
-  "quote": "거장 특유 어조의 명언급 한 줄 발언 (한국어로 작성)"
+  "trigger_conditions_en": ["Key re-evaluation trigger 1 (in English)", "Key re-evaluation trigger 2 (in English)"],
+  "quote": "거장 특유 어조의 명언급 한 줄 발언 (한국어로 작성)",
+  "quote_en": "Signature persona quote in natural English"
 }}
 ```
 """

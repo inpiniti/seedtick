@@ -83,6 +83,7 @@ function formatValueDrivers(content: string, isEn: boolean): string {
     .replace(/\|\s*중요도\s*\|/g, "| Priority |")
     .replace(/\|\s*높음\s*\|/g, "| High |")
     .replace(/\|\s*중간\s*\|/g, "| Medium |")
+    .replace(/\|\s*보통\s*\|/g, "| Medium |")
     .replace(/\|\s*낮음\s*\|/g, "| Low |")
     .replace(/##\s*각\s*드라이버\s*상세\s*분석/g, "## Detailed Driver Analysis")
     .replace(/###\s*드라이버\s*([0-9]+)\s*:/g, "### Driver $1:")
@@ -94,7 +95,18 @@ function formatValueDrivers(content: string, isEn: boolean): string {
     .replace(/\*\*\s*가장\s*불확실한\s*드라이버\s*\*\*/g, "**Highest Uncertainty Driver**")
     .replace(/\*\*\s*단기\s*vs\s*장기\s*감시\s*\*\*/g, "**Short-term vs Long-term Monitoring**")
     .replace(/##\s*최신\s*시장\s*촉매\s*및\s*주요\s*뉴스\s*연계\s*\(Catalysts\)/g, "## Recent Market Catalysts & News")
-    .replace(/##\s*최신\s*시장\s*촉매\s*및\s*주요\s*뉴스\s*연계/g, "## Recent Market Catalysts & News");
+    .replace(/##\s*최신\s*시장\s*촉매\s*및\s*주요\s*뉴스\s*연계/g, "## Recent Market Catalysts & News")
+    .replace(/달러/g, "$")
+    .replace(/조\s*원/g, "T KRW")
+    .replace(/억\s*원/g, "00M KRW")
+    .replace(/원(?=[,\s\)])/g, " KRW")
+    .replace(/영업이익률/g, "Operating Margin")
+    .replace(/영업이익/g, "Operating Income")
+    .replace(/순이익/g, "Net Income")
+    .replace(/매출액|매출/g, "Revenue")
+    .replace(/시가총액/g, "Market Cap")
+    .replace(/기준\)/g, "as of)")
+    .replace(/기준/g, "as of");
 }
 
 // 큰 숫자 포맷팅 (B = Billion, M = Million, T = Trillion, 천단위 콤마)
@@ -152,6 +164,7 @@ export function ReportDatapackView({ datapack, isEn: isEnProp }: ReportDatapackV
     analyst_consensus,
     news_items,
     value_drivers,
+    value_drivers_en,
   } = datapack;
 
   const formattedOverview = React.useMemo(() => {
@@ -165,9 +178,12 @@ export function ReportDatapackView({ datapack, isEn: isEnProp }: ReportDatapackV
   }, [overview, isEn]);
 
   const formattedValueDrivers = React.useMemo(() => {
+    if (isEn && value_drivers_en && typeof value_drivers_en === "string") {
+      return value_drivers_en;
+    }
     if (!value_drivers || typeof value_drivers !== "string") return value_drivers;
     return formatValueDrivers(value_drivers, isEn);
-  }, [value_drivers, isEn]);
+  }, [value_drivers, value_drivers_en, isEn]);
 
   const hasAnnual = Array.isArray(income_annual) && income_annual.length > 0;
   const hasQuarterly = Array.isArray(income_quarterly) && income_quarterly.length > 0;

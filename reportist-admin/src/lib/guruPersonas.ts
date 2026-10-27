@@ -7,6 +7,7 @@ export interface GuruPersona {
   slug: string;
   name: string;
   englishName: string;
+  aliases?: string[];
   style: string;
   styleEn?: string;
   oneLiner: string;
@@ -347,8 +348,19 @@ export const GURU_PERSONAS: Record<string, GuruPersona> = {
   },
   damodaran: {
     slug: "damodaran",
-    name: "아스워스 다모다란",
+    name: "애스워스 다모다란",
     englishName: "Aswath Damodaran",
+    aliases: [
+      "애스워스 다모다란",
+      "애스워스-다모다란",
+      "애스워스다모다란",
+      "아스워스 다모다란",
+      "아스워스-다모다란",
+      "아스워스다모다란",
+      "다모다란",
+      "damodaran",
+      "aswath damodaran",
+    ],
     style: "뉴욕대 가치평가 거장 / DCF 내재가치 평가",
     styleEn: "Dean of Valuation / Intrinsic DCF & Corporate Finance",
     oneLiner: "스토리와 숫자, 성장률·마진·재투자율 기반 내재가치 DCF",
@@ -618,12 +630,14 @@ export const GURU_PERSONAS: Record<string, GuruPersona> = {
 };
 
 export function findGuruPersona(rawName: string): GuruPersona | null {
+  if (!rawName) return null;
   const norm = rawName.replace(/[-\s]/g, "").toLowerCase();
   for (const [key, p] of Object.entries(GURU_PERSONAS)) {
     if (
       norm.includes(key) ||
       norm.includes(p.name.replace(/\s/g, "").toLowerCase()) ||
-      norm.includes(p.englishName.replace(/\s/g, "").toLowerCase())
+      norm.includes(p.englishName.replace(/\s/g, "").toLowerCase()) ||
+      (p.aliases && p.aliases.some((a) => norm.includes(a.replace(/[-\s]/g, "").toLowerCase())))
     ) {
       return p;
     }

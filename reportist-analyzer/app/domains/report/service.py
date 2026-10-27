@@ -329,6 +329,7 @@ class GuruReportService:
                 confidence = 5
 
             args = as_str_list(parsed_json.get("core_arguments"), limit=5)
+            args_en = as_str_list(parsed_json.get("core_arguments_en"), limit=5)
             fair_val = parse_number(parsed_json.get("fair_value"))
             buy_bel = parse_number(parsed_json.get("buy_below"))
             sell_ab = parse_number(parsed_json.get("sell_above"))
@@ -357,7 +358,9 @@ class GuruReportService:
                     low, high = fair_val, fair_val
 
             trigs = as_str_list(parsed_json.get("trigger_conditions"), limit=3)
+            trigs_en = as_str_list(parsed_json.get("trigger_conditions_en"), limit=3)
             q = str(parsed_json.get("quote") or "").strip().strip('*_`"\'')
+            q_en = str(parsed_json.get("quote_en") or "").strip().strip('*_`"\'')
 
             if not q and args:
                 q = f"{persona_key}의 원칙에 따라 분석: {args[0][:40]}..."
@@ -374,6 +377,7 @@ class GuruReportService:
                 verdict=verdict,
                 confidence=confidence,
                 core_arguments=args,
+                core_arguments_en=args_en,
                 target_price_range=target_range_str,
                 target_price_low=low,
                 target_price_high=high,
@@ -388,7 +392,9 @@ class GuruReportService:
                 model=model_name,
                 data_gaps=gaps,
                 trigger_conditions=trigs,
+                trigger_conditions_en=trigs_en,
                 quote=q,
+                quote_en=q_en,
                 parse_mode="json" if is_valid_verdict else "fallback",
             )
 
@@ -561,6 +567,7 @@ class GuruReportService:
             "news_items": datapack.news_items,
             "ir_schedule": datapack.ir_schedule,
             "value_drivers": datapack.value_drivers,
+            "value_drivers_en": getattr(datapack, "value_drivers_en", ""),
             "analysis_metadata": {
                 "model": analysis_model,
                 "temperature": analysis_temperature,
