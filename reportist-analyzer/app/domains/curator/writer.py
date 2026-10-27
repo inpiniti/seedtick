@@ -57,9 +57,16 @@ class BriefingWriter:
                     comments_snippet = " | ".join(p.comments[:3])
                     comments_text = f"\n  - 주요 반응/댓글: {comments_snippet}"
 
+                meta_extra = []
+                if p.url:
+                    meta_extra.append(f"원문 URL: {p.url}")
+                if p.image_url:
+                    meta_extra.append(f"관련 이미지: {p.image_url}")
+                extra_str = f"\n  - {' | '.join(meta_extra)}" if meta_extra else ""
+
                 item_str = (
                     f"- [{p.channel}] {p.title} (반응/점수: {p.score})\n"
-                    f"  {p.body[:350]}{comments_text}\n"
+                    f"  {p.body[:350]}{comments_text}{extra_str}\n"
                 )
                 if current_len + len(item_str) > max_total_chars:
                     chunks.append("\n... (데이터 길이 제한으로 일부 항목 생략) ...")
@@ -166,7 +173,8 @@ class BriefingWriter:
 3. Keep all tickers ({tickers_str}) intact.
 4. Translate the 3-line summary into concise English bullets.
 5. Translate the topics into crisp English headline strings.
-6. Absolutely NO Korean characters allowed anywhere in the output.
+6. Crucially preserve all markdown image tags `![alt](url)` and outbound source links `[Source: ...](url)` or `[...](url)` exactly as in the source markdown.
+7. Absolutely NO Korean characters allowed anywhere in the output.
 
 [Required JSON Output Format]
 {{

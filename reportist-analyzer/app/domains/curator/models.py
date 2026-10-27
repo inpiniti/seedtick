@@ -30,6 +30,7 @@ class CommunityPost(BaseModel):
     score: int = 0  # upvotes or recommendations
     comment_count: int = 0
     url: str = ""
+    image_url: str | None = None  # 원문 대표 이미지/차트/썸네일 URL
     published_at: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 

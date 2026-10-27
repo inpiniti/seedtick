@@ -83,6 +83,17 @@ class NewsCollector(BaseCollector):
                             pub_str = datetime.fromtimestamp(pub_time, timezone.utc).strftime("%Y-%m-%d %H:%M")
                         except Exception:
                             pass
+
+                    # 썸네일 이미지 추출
+                    image_url = None
+                    thumb_dict = n.get("thumbnail")
+                    if isinstance(thumb_dict, dict):
+                        resolutions = thumb_dict.get("resolutions", [])
+                        if resolutions and isinstance(resolutions, list):
+                            image_url = resolutions[-1].get("url")
+                        elif thumb_dict.get("url"):
+                            image_url = thumb_dict.get("url")
+
                     if title:
                         items.append(
                             CommunityPost(
@@ -92,6 +103,7 @@ class NewsCollector(BaseCollector):
                                 title=title,
                                 body=f"출처: {publisher}. 주요 글로벌 마켓 뉴스 ({query})",
                                 url=link,
+                                image_url=image_url,
                                 published_at=pub_str,
                                 score=50,  # 뉴스 가중치
                             )
@@ -129,6 +141,17 @@ class NewsCollector(BaseCollector):
                 source = (source_el.text or "").strip() if source_el is not None else "Google News"
                 pub_raw = (item.findtext("pubDate") or "").strip()
 
+                # 이미지 URL 추출 (enclosure 또는 description img 태그)
+                img_url = None
+                enclosure = item.find("enclosure")
+                if enclosure is not None and enclosure.get("url"):
+                    img_url = enclosure.get("url")
+                if not img_url:
+                    desc = item.findtext("description") or ""
+                    m = re.search(r'<img[^>]+src=["\'](https?://[^"\']+)["\']', desc)
+                    if m:
+                        img_url = m.group(1)
+
                 title, publisher = raw_title, source
                 if " - " in raw_title:
                     title, tail = raw_title.rsplit(" - ", 1)
@@ -152,6 +175,7 @@ class NewsCollector(BaseCollector):
                             title=clean_title,
                             body=f"출처: {publisher}. 지난 24시간 실시간 주요 뉴스.",
                             url=link,
+                            image_url=img_url,
                             published_at=pub_str,
                             score=40,
                         )

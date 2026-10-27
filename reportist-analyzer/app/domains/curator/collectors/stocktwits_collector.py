@@ -71,6 +71,12 @@ class StocktwitsCollector(BaseCollector):
                 sentiment_tag = f"[{sentiment.upper()}] " if sentiment else ""
                 comment = f"{sentiment_tag}{body[:250]}" if body else ""
 
+                # 차트/이미지 추출 (StockTwits entities.chart)
+                chart_info = m.get("entities", {}).get("chart", {}) or m.get("chart", {})
+                image_url = None
+                if isinstance(chart_info, dict):
+                    image_url = chart_info.get("large") or chart_info.get("original") or chart_info.get("thumb")
+
                 posts.append(
                     CommunityPost(
                         id=f"stocktwits_{sym}",
@@ -82,6 +88,7 @@ class StocktwitsCollector(BaseCollector):
                         score=35,
                         comment_count=1,
                         url=f"https://stocktwits.com/symbol/{sym}",
+                        image_url=image_url,
                     )
                 )
                 if len(posts) >= self.top_n_symbols:

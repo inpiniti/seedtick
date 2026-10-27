@@ -3,6 +3,7 @@
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { ExternalLink } from "lucide-react";
 
 interface MarkdownViewerProps {
   content: string;
@@ -59,10 +60,53 @@ export function MarkdownViewer({ content, className = "" }: MarkdownViewerProps)
             <li className="leading-relaxed">{children}</li>
           ),
           blockquote: ({ children }) => (
-            <blockquote className="border-l-2 border-[#0f172a] bg-[#f8fafc] rounded-r-sm pl-4 py-3 my-4 text-xs sm:text-sm text-[#334155] font-medium leading-relaxed">
+            <blockquote className="border-l-4 border-blue-500 bg-[#f8fafc] rounded-r-lg px-4 py-3 my-4 text-xs sm:text-sm text-[#334155] font-medium leading-relaxed shadow-2xs">
               {children}
             </blockquote>
           ),
+          a: ({ href, children }) => {
+            const isExternal = href?.startsWith("http://") || href?.startsWith("https://");
+            return (
+              <a
+                href={href}
+                target={isExternal ? "_blank" : undefined}
+                rel={isExternal ? "noopener noreferrer" : undefined}
+                className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 font-medium underline decoration-blue-300 underline-offset-2 transition-colors break-all"
+              >
+                <span>{children}</span>
+                {isExternal && <ExternalLink className="w-3.5 h-3.5 inline-block shrink-0 opacity-70" />}
+              </a>
+            );
+          },
+          img: ({ src, alt }) => {
+            if (!src) return null;
+            return (
+              <figure className="my-5 flex flex-col items-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={src}
+                  alt={alt || "브리핑 관련 이미지"}
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    // 깨진 이미지(엑박) 렌더링 방지: 이미지 및 감싸는 figure 요소를 보이지 않게 처리
+                    const target = e.currentTarget;
+                    target.style.display = "none";
+                    const parent = target.closest("figure");
+                    if (parent) {
+                      parent.style.display = "none";
+                    }
+                  }}
+                  className="rounded-xl max-h-[440px] w-auto max-w-full object-contain border border-[#e2e8f0] shadow-xs bg-[#f8fafc] transition-transform duration-200 hover:scale-[1.01]"
+                />
+                {alt && alt !== "브리핑 관련 이미지" && (
+                  <figcaption className="text-xs text-[#64748b] mt-2 text-center italic">
+                    {alt}
+                  </figcaption>
+                )}
+              </figure>
+            );
+          },
           table: ({ children }) => (
             <div className="w-full overflow-x-auto my-4 rounded-md border border-[#e2e8f0] shadow-2xs font-mono">
               <table className="w-full text-left border-collapse text-xs min-w-[320px]">

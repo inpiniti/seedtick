@@ -87,6 +87,9 @@ class RedditCollector(BaseCollector):
             permalink = post_data.get("permalink", "")
             num_comments = post_data.get("num_comments", 0)
 
+            # 이미지 URL 추출 (직접 이미지, preview, 썸네일)
+            image_url = self._extract_reddit_image(post_data)
+
             # 본문 길이 제한 (1,200자)
             body_snippet = selftext[:1200] if selftext else ""
             full_url = f"https://www.reddit.com{permalink}"
@@ -106,6 +109,7 @@ class RedditCollector(BaseCollector):
                     score=score,
                     comment_count=num_comments,
                     url=full_url,
+                    image_url=image_url,
                 )
             )
 
@@ -113,6 +117,24 @@ class RedditCollector(BaseCollector):
                 break
 
         return sub_posts
+
+    def _extract_reddit_image(self, post_data: dict) -> str | None:
+        """Reddit 게시글에서 유효한 이미지/차트 URL 추출"""
+        media_url = post_data.get("url", "")
+        if any(media_url.lower().endswith(ext) for ext in (".jpg", ".jpeg", ".png", ".webp")):
+            return media_url
+        if "i.redd.it" in media_url or "i.imgur.com" in media_url:
+            return media_url
+        preview = post_data.get("preview", {})
+        images = preview.get("images", [])
+        if images and isinstance(images, list):
+            src = images[0].get("source", {}).get("url")
+            if src:
+                return html.unescape(src)
+        thumb = post_data.get("thumbnail", "")
+        if thumb and thumb.startswith("http") and not thumb.endswith("default.jpg"):
+            return thumb
+        return None
 
     async def _fetch_top_comments(self, client: httpx.AsyncClient, permalink: str) -> list[str]:
         """게시글의 베스트 댓글 상위 3개 수집"""
