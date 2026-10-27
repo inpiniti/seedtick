@@ -47,6 +47,13 @@ export const SECTION_META: Record<
     labelEn: "Guru Vote Statistics",
     backLabelEn: "Back to Guru Statistics",
   },
+  "sec-briefings": {
+    href: "/briefings",
+    label: "데일리 마켓 브리핑",
+    backLabel: "데일리 마켓 브리핑으로 돌아가기",
+    labelEn: "Daily Market Briefing",
+    backLabelEn: "Back to Market Briefings",
+  },
   "sec-gurus": {
     href: "/gurus",
     label: "13인 투자 거장 철학",

@@ -15,6 +15,7 @@ import {
   Award,
   MessageSquarePlus,
   BarChart3,
+  Newspaper,
 } from "lucide-react";
 import { ReportistLogoBadge } from "@/components/ui/ReportistLogo";
 import { useSubscription } from "@/lib/subscription/SubscriptionContext";
@@ -29,6 +30,7 @@ export type SidebarSectionId =
   | "sec-screener"
   | "sec-outcomes"
   | "sec-stats"
+  | "sec-briefings"
   | "sec-pipeline"
   | "sec-audit"
   | "sec-gurus"
@@ -41,6 +43,7 @@ export const SECTION_HREF_MAP: Record<SidebarSectionId, string> = {
   "sec-screener": "/screener",
   "sec-outcomes": "/outcomes",
   "sec-stats": "/stats",
+  "sec-briefings": "/briefings",
   "sec-pipeline": "/pipeline",
   "sec-gurus": "/gurus",
   "sec-audit": "/admin",
@@ -180,6 +183,12 @@ export function ResearchSidebar({
           label: getSectionLabel("sec-stats", isEn),
           icon: BarChart3,
         },
+        {
+          id: "sec-briefings",
+          prefix: "06",
+          label: getSectionLabel("sec-briefings", isEn),
+          icon: Newspaper,
+        },
       ],
     },
     {
@@ -187,7 +196,7 @@ export function ResearchSidebar({
       items: [
         {
           id: "sec-gurus",
-          prefix: "06",
+          prefix: "07",
           label: getSectionLabel("sec-gurus", isEn),
           badge: "13",
           icon: Users,
@@ -199,7 +208,7 @@ export function ResearchSidebar({
       items: [
         {
           id: "sec-feedback",
-          prefix: "06",
+          prefix: "08",
           label: getSectionLabel("sec-feedback", isEn),
           icon: MessageSquarePlus,
         },

@@ -111,6 +111,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     },
     {
+      url: `${fullBaseUrl}/briefings`,
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 0.9,
+    },
+    {
+      url: `${fullBaseUrl}/en/briefings`,
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 0.9,
+    },
+    {
       url: `${fullBaseUrl}/terms`,
       lastModified: new Date(),
       changeFrequency: "yearly",
@@ -241,6 +253,40 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             });
           }
         }
+      }
+
+      // 4. 데일리 마켓 브리핑 개별 일자 페이지 (/briefings/[date], /en/briefings/[date])
+      try {
+        const { data: briefingRows, error: briefingError } = await supabase
+          .from("market_briefings")
+          .select("d, updated_at, created_at")
+          .order("d", { ascending: false })
+          .limit(1000);
+
+        if (!briefingError && briefingRows) {
+          for (const row of briefingRows) {
+            const d = typeof row.d === "string" ? row.d.trim() : "";
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+            const ts = (row.updated_at || row.created_at || d) as string;
+            const dateObj = new Date(ts);
+            const validDate = isNaN(dateObj.getTime()) ? new Date() : dateObj;
+
+            routes.push({
+              url: `${fullBaseUrl}/briefings/${d}`,
+              lastModified: validDate,
+              changeFrequency: "weekly",
+              priority: 0.8,
+            });
+            routes.push({
+              url: `${fullBaseUrl}/en/briefings/${d}`,
+              lastModified: validDate,
+              changeFrequency: "weekly",
+              priority: 0.8,
+            });
+          }
+        }
+      } catch (briefingCatchErr) {
+        console.warn("[sitemap] Failed to fetch market_briefings:", briefingCatchErr);
       }
     } catch (err) {
       console.warn("[sitemap] Failed to fetch tickers from Supabase:", err);

@@ -942,6 +942,8 @@ export function ResearchCatalogView({
                 (isEn ? "Track Record & Accuracy" : "성과 및 거장 적중률")}
               {activeSectionFilter === "sec-stats" &&
                 (isEn ? "Guru Vote Statistics" : "거장 표결 통계 랭킹")}
+              {activeSectionFilter === "sec-briefings" &&
+                (isEn ? "Daily Market Briefing & 24h News" : "데일리 마켓 브리핑 & 24시간 뉴스")}
               {activeSectionFilter === "sec-gurus" &&
                 (isEn ? "13 Guru Philosophies & Valuation Guide" : "13인 투자 거장 철학 및 밸류에이션 가이드")}
               {activeSectionFilter === "sec-feedback" &&
@@ -1852,7 +1854,35 @@ export function ResearchCatalogView({
         </section>
       )}
 
-      {/* ── 6. SECTION 06: 13인 투자 거장 철학 & 심층 가이드 (my/financial 연동) ── */}
+      {/* ── 6. SECTION 06: 데일리 마켓 브리핑 (Daily Market Briefing) ── */}
+      {isVisible("sec-briefings") && (
+        <section
+          id="sec-briefings"
+          className="px-6 lg:px-12 py-10 lg:py-12 bg-white"
+        >
+          <div className="space-y-6">
+            <div className="flex items-baseline gap-2">
+              <span className="font-mono text-xs font-semibold text-[#94a3b8]">
+                06
+              </span>
+              <h2 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
+                {isEn ? "Daily Market Briefing" : "데일리 마켓 브리핑"}
+              </h2>
+            </div>
+            <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-2xl">
+              {isEn
+                ? "Daily AI journalistic intelligence synthesized from WallStreetBets, financial communities, and 24-hour financial news at 00:05 KST."
+                : "매일 자정 00:05 KST에 수집된 글로벌 레딧, 국내 주식 커뮤니티, 24시간 주요 뉴스를 종합한 AI 마켓 저널리즘 브리핑입니다."}
+            </p>
+
+            <div className="pt-2">
+              <MarketBriefingTab isEn={isEn} />
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── 7. SECTION 07: 13인 투자 거장 철학 & 심층 가이드 (my/financial 연동) ── */}
       {isVisible("sec-gurus") && (
         <section
           id="sec-gurus"
@@ -1861,7 +1891,7 @@ export function ResearchCatalogView({
           <div className="space-y-6">
             <div className="flex items-baseline gap-2">
               <span className="font-mono text-xs font-semibold text-[#94a3b8]">
-                06
+                07
               </span>
               <h2 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
                 {isEn ? "13 Guru Philosophies & Valuation Guide" : "13인 투자 거장 철학 및 밸류에이션 가이드"}
@@ -1947,7 +1977,7 @@ export function ResearchCatalogView({
         </section>
       )}
 
-      {/* ── 6. SECTION 06: 의견 및 기능 제안함 ── */}
+      {/* ── 8. SECTION 08: 의견 및 기능 제안함 ── */}
       {isVisible("sec-feedback") && (
         <section
           id="sec-feedback"
@@ -1957,7 +1987,7 @@ export function ResearchCatalogView({
         </section>
       )}
 
-      {/* ── 7. SECTION 07: PIPELINE (관리자 전용) ── */}
+      {/* ── 9. SECTION 09: PIPELINE (관리자 전용) ── */}
       {isAdmin && isVisible("sec-pipeline") && (
         <section
           id="sec-pipeline"
@@ -1968,7 +1998,7 @@ export function ResearchCatalogView({
             <div className="space-y-4 md:sticky md:top-[72px] md:self-start">
               <div className="flex items-baseline gap-2">
                 <span className="font-mono text-xs font-semibold text-[#94a3b8]">
-                  07
+                  09
                 </span>
                 <h2 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
                   {isEn ? "Pipeline Monitor" : "파이프라인"}
@@ -2020,7 +2050,7 @@ export function ResearchCatalogView({
         </section>
       )}
 
-      {/* ── 8. SECTION 08: ADMIN (트윗 생성기 & 시스템 감사 로그) ── */}
+      {/* ── 10. SECTION 10: ADMIN (트윗 생성기 & 시스템 감사 로그) ── */}
       {isAdmin && isVisible("sec-audit") && (
         <section
           id="sec-audit"
@@ -2032,7 +2062,7 @@ export function ResearchCatalogView({
               <div>
                 <div className="flex items-baseline gap-2">
                   <span className="font-mono text-xs font-semibold text-[#94a3b8]">
-                    08
+                    10
                   </span>
                   <h2 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
                     {adminSubTab === "briefing"
