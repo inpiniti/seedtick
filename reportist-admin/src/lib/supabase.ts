@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { GuruReportRow, SystemLogItem } from "@/types/api";
+import { GuruReportRow, SystemLogItem, MarketBriefing } from "@/types/api";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
@@ -196,3 +196,50 @@ export async function fetchHistoricalValuations(): Promise<HistoricalValuationRe
     return [];
   }
 }
+
+/**
+ * 일일 커뮤니티 & 24시간 뉴스 AI 브리핑 목록 조회 (public.market_briefings)
+ */
+export async function fetchMarketBriefings(limit = 30): Promise<MarketBriefing[]> {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from("market_briefings")
+      .select("*")
+      .order("d", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.warn("fetchMarketBriefings error:", error.message);
+      return [];
+    }
+    return (data || []) as MarketBriefing[];
+  } catch (err) {
+    console.warn("fetchMarketBriefings exception:", err);
+    return [];
+  }
+}
+
+/**
+ * 특정 일자의 마켓 브리핑 단건 조회
+ */
+export async function fetchMarketBriefingByDate(date: string): Promise<MarketBriefing | null> {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase
+      .from("market_briefings")
+      .select("*")
+      .eq("d", date)
+      .maybeSingle();
+
+    if (error) {
+      console.warn("fetchMarketBriefingByDate error:", error.message);
+      return null;
+    }
+    return (data as MarketBriefing) || null;
+  } catch (err) {
+    console.warn("fetchMarketBriefingByDate exception:", err);
+    return null;
+  }
+}
+

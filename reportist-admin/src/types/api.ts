@@ -486,3 +486,19 @@ export interface OnDemandRequestResponse {
   progress?: OnDemandProgress;
 }
 
+// 13. 일일 마켓 & 커뮤니티 AI 브리핑 (market_briefings)
+export interface MarketBriefing {
+  id: string; // YYYY-MM-DD
+  d: string;  // YYYY-MM-DD
+  title: string;
+  content: string;
+  summary_3lines: string[];
+  topics?: string[];
+  tickers?: string[];
+  keywords?: string[];
+  sources?: Record<string, number>;
+  raw_count?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+

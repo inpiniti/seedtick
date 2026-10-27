@@ -16,6 +16,7 @@ import { TallyBar, TallyCounts } from "@/components/ui/TallyBar";
 import { PipelineProgressCard } from "@/components/tabs/PipelineProgressCard";
 import { LogsTab } from "@/components/tabs/LogsTab";
 import { TweetGeneratorTab } from "@/components/tabs/TweetGeneratorTab";
+import { MarketBriefingTab } from "@/components/tabs/MarketBriefingTab";
 import { SidebarSectionId } from "@/components/sidebar/ResearchSidebar";
 import { OutcomesView } from "@/components/outcomes/OutcomesView";
 import { StatsRankingView } from "@/components/stats/StatsRankingView";
@@ -50,6 +51,7 @@ import {
   Award,
   Calendar,
   ShieldAlert,
+  Newspaper,
 } from "lucide-react";
 import { formatPriceByNation, formatMarketCap } from "@/lib/utils";
 import { fetchTickerLogos, fetchTickerNames, fetchStockChart } from "@/lib/api-client";
@@ -197,8 +199,8 @@ export function ResearchCatalogView({
   // 실시간 발굴 후보군 마켓(미국장 vs 한국장)
   const [candidateMarket, setCandidateMarket] = useState<"us" | "kr">("us");
 
-  // 관리자 섹션 하위 탭 (트윗 생성기 vs 감사 로그)
-  const [adminSubTab, setAdminSubTab] = useState<"tweet" | "logs">("tweet");
+  // 관리자 섹션 하위 탭 (마켓 브리핑 vs 트윗 생성기 vs 감사 로그)
+  const [adminSubTab, setAdminSubTab] = useState<"briefing" | "tweet" | "logs">("briefing");
 
   // ── %B 보이는 행만 지연 로딩 (정렬/필터 이후 화면 기준) ──
   // 부모 prop + 로컬 즉시 반영분을 합쳐 렌더. DataCache(5분 TTL)가 진실이며
@@ -2033,7 +2035,11 @@ export function ResearchCatalogView({
                     08
                   </span>
                   <h2 className="text-xl sm:text-2xl font-bold text-[#0f172a] tracking-tight">
-                    {adminSubTab === "tweet"
+                    {adminSubTab === "briefing"
+                      ? isEn
+                        ? "Daily Market & Community Briefing"
+                        : "데일리 마켓 브리핑"
+                      : adminSubTab === "tweet"
                       ? isEn
                         ? "X / Twitter Post Generator"
                         : "X (트위터) 트윗 생성기"
@@ -2043,7 +2049,11 @@ export function ResearchCatalogView({
                   </h2>
                 </div>
                 <p className="text-xs sm:text-sm text-[#64748b] leading-relaxed max-w-md mt-2">
-                  {adminSubTab === "tweet"
+                  {adminSubTab === "briefing"
+                    ? isEn
+                      ? "Daily AI journalistic newsletter synthesized from Reddit, stock forums, and 24-hour financial news."
+                      : "매일 자정 00:05 KST에 수집된 글로벌 레딧, 국내 주식 커뮤니티, 24시간 주요 뉴스를 종합한 AI 마켓 브리핑 뉴스레터입니다."
+                    : adminSubTab === "tweet"
                     ? isEn
                       ? "Select any stock to generate an optimized English tweet with guru consensus, fair value, and one-click copy."
                       : "13인 거장 AI 표결과 적정가를 담은 고품질 트윗을 생성하고, 원클릭 복사 또는 X(트위터) 작성창으로 바로 열어 게시합니다."
@@ -2057,8 +2067,26 @@ export function ResearchCatalogView({
               <div className="flex flex-col gap-2 pt-1">
                 <button
                   type="button"
+                  onClick={() => setAdminSubTab("briefing")}
+                  className={`w-full px-4 py-3 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-3 text-left cursor-pointer ${
+                    adminSubTab === "briefing"
+                      ? "bg-[#0f172a] text-white shadow-sm"
+                      : "bg-[#f8fafc] text-[#64748b] hover:bg-[#f1f5f9] hover:text-[#0f172a] border border-[#e2e8f0]"
+                  }`}
+                >
+                  <Newspaper className="w-4 h-4 shrink-0" />
+                  <div>
+                    <div className="font-bold">{isEn ? "Market Briefing" : "데일리 마켓 브리핑"}</div>
+                    <div className={`text-[11px] ${adminSubTab === "briefing" ? "text-slate-300" : "text-[#94a3b8]"}`}>
+                      {isEn ? "Community & 24h News" : "커뮤니티 & 24시간 뉴스"}
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setAdminSubTab("tweet")}
-                  className={`w-full px-4 py-3 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-3 text-left ${
+                  className={`w-full px-4 py-3 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-3 text-left cursor-pointer ${
                     adminSubTab === "tweet"
                       ? "bg-[#0f172a] text-white shadow-sm"
                       : "bg-[#f8fafc] text-[#64748b] hover:bg-[#f1f5f9] hover:text-[#0f172a] border border-[#e2e8f0]"
@@ -2078,7 +2106,7 @@ export function ResearchCatalogView({
                 <button
                   type="button"
                   onClick={() => setAdminSubTab("logs")}
-                  className={`w-full px-4 py-3 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-3 text-left ${
+                  className={`w-full px-4 py-3 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-3 text-left cursor-pointer ${
                     adminSubTab === "logs"
                       ? "bg-[#0f172a] text-white shadow-sm"
                       : "bg-[#f8fafc] text-[#64748b] hover:bg-[#f1f5f9] hover:text-[#0f172a] border border-[#e2e8f0]"
@@ -2097,7 +2125,9 @@ export function ResearchCatalogView({
 
             {/* 우측 */}
             <div className="min-w-0">
-              {adminSubTab === "tweet" ? (
+              {adminSubTab === "briefing" ? (
+                <MarketBriefingTab isEn={isEn} />
+              ) : adminSubTab === "tweet" ? (
                 <TweetGeneratorTab reports={guruReports} isEn={isEn} />
               ) : (
                 <LogsTab
