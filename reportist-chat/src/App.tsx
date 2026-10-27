@@ -24,6 +24,7 @@ import {
 import './App.css';
 import { MarkdownRenderer } from './components/MarkdownRenderer.tsx';
 import { ModelSelectorModal } from './components/ModelSelectorModal.tsx';
+import { ReportistLogo } from './components/ReportistLogo.tsx';
 import { SettingsModal } from './components/SettingsModal.tsx';
 import {
   FALLBACK_FREE_MODELS,
@@ -623,12 +624,18 @@ export function App() {
       ───────────────────────────────────────────── */}
       <aside className={`sidebar ${isSidebarOpen ? '' : 'hidden'}`}>
         <div className="sidebar-header">
-          <div className="brand-row">
+          <a
+            href="https://www.reportist.kr"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="brand-row"
+            title="Reportist 홈으로 이동"
+          >
             <div className="brand-logo-icon">
-              <Sparkles size={18} />
+              <ReportistLogo size={18} inverted />
             </div>
             <span className="brand-title">Reportist Chat</span>
-          </div>
+          </a>
         </div>
 
         <button type="button" className="new-chat-btn" onClick={handleNewChat}>

@@ -45,13 +45,21 @@
 .brand-logo-icon {
   width: 32px;
   height: 32px;
-  border-radius: var(--radius-md);
-  background: linear-gradient(135deg, #3182f6, #0056d6);
+  border-radius: 8px;
+  background: #0f172a;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  box-shadow: 0 2px 6px rgba(49, 130, 246, 0.3);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  text-decoration: none;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.brand-logo-icon:hover {
+  background: #1e293b;
+  transform: translateY(-1px);
 }
 
 .brand-title {

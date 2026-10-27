@@ -1,7 +1,8 @@
 // components/header/Header.tsx - Reportist Admin 스타일 상단 헤더 및 모델/노력 선택 위젯
 
 import React from 'react';
-import { Film, Cpu, Sparkles, Activity } from 'lucide-react';
+import { Cpu, Sparkles, Activity } from 'lucide-react';
+import { ReportistLogo } from '../common/ReportistLogo.tsx';
 import type { FreeModelMeta, ReasoningEffortOption } from '../../types/gateway.ts';
 
 interface HeaderProps {
@@ -27,15 +28,21 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="top-header">
       {/* Brand Section */}
-      <div className="brand-section">
+      <a
+        href="https://www.reportist.kr"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="brand-section"
+        title="Reportist 홈으로 이동"
+      >
         <div className="brand-logo-icon">
-          <Film className="w-5 h-5" />
+          <ReportistLogo size={18} inverted />
         </div>
         <div className="brand-title">
           <span>Reportist Video</span>
           <span className="brand-badge">AI HIGHLIGHTS</span>
         </div>
-      </div>
+      </a>
 
       {/* Actions & Model Selector */}
       <div className="header-actions">

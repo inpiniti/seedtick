@@ -1630,6 +1630,26 @@ export function DashboardView({
                 >
                   {isEn ? "13 Gurus" : "13인 투자 거장"}
                 </Link>
+                <span>·</span>
+                <a
+                  href="https://chat.reportist.kr"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-[#0f172a] transition-colors"
+                  title="Reportist AI Chat"
+                >
+                  AI Chat
+                </a>
+                <span>·</span>
+                <a
+                  href="https://video.reportist.kr"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-[#0f172a] transition-colors"
+                  title="Reportist AI Video"
+                >
+                  AI Video
+                </a>
               </nav>
               <span className="hidden sm:inline text-slate-300">|</span>
               <div className="flex items-center gap-2">
