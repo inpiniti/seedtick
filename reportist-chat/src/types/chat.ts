@@ -23,6 +23,10 @@ export interface ChatMessage {
   isStreaming?: boolean;
   isError?: boolean;
   errorMsg?: string;
+  modelId?: string;
+  modelName?: string;
+  reasoningEffort?: string;
+  intelligenceIndex?: number | null;
   timestamp: number;
 }
 

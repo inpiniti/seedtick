@@ -224,7 +224,19 @@ export function App() {
     e.stopPropagation();
     const remaining = sessions.filter((s) => s.id !== sessionId);
     if (remaining.length === 0) {
-      handleNewChat();
+      const newSession: ChatSession = {
+        id: `session-${Date.now()}`,
+        title: '새로운 대화',
+        messages: [],
+        modelId: selectedModelId,
+        reasoningEffort,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      setSessions([newSession]);
+      setActiveSessionId(newSession.id);
+      setInputText('');
+      setPendingAttachments([]);
       return;
     }
     setSessions(remaining);
@@ -391,6 +403,10 @@ export function App() {
       content: '',
       reasoning: '',
       isStreaming: true,
+      modelId: selectedModelId,
+      modelName: currentModel.name,
+      reasoningEffort: reasoningEffort,
+      intelligenceIndex: currentModel.intelligenceIndex,
       timestamp: Date.now(),
     };
 
@@ -875,16 +891,18 @@ export function App() {
                     <div className="assistant-meta-header">
                       <div className="assistant-model-info">
                         <Sparkles size={14} color="#3182f6" />
-                        <span>{currentModel.name}</span>
-                        {currentModel.intelligenceIndex != null && (
+                        <span>{message.modelName || currentModel.name}</span>
+                        {(message.intelligenceIndex != null || (!message.modelName && currentModel.intelligenceIndex != null)) && (
                           <span
                             className="assistant-intel-badge"
-                            title={`지능 지수: ${currentModel.intelligenceIndex}점`}
+                            title={`지능 지수: ${message.intelligenceIndex ?? currentModel.intelligenceIndex}점`}
                           >
-                            🧠 {currentModel.intelligenceIndex}
+                            🧠 {message.intelligenceIndex ?? currentModel.intelligenceIndex}
                           </span>
                         )}
-                        <span className="effort-badge">노력: {reasoningEffort}</span>
+                        {(message.reasoningEffort || reasoningEffort) && (
+                          <span className="effort-badge">노력: {message.reasoningEffort || reasoningEffort}</span>
+                        )}
                       </div>
                     </div>
 

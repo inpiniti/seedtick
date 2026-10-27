@@ -41,9 +41,8 @@ export class ProxyService {
     this.errorLogger = errorLogger ?? errorLogService;
     this.rotator = new KeyRotator(
       customProviders ?? [
-        { provider: 'cline', keys: env.clineKeys },
-        { provider: 'kilo', keys: env.kiloKeys },
         { provider: 'openrouter', keys: env.openrouterKeys },
+        { provider: 'kilo', keys: env.kiloKeys },
         { provider: 'gemini', keys: env.geminiKeys },
       ]
     );
@@ -55,7 +54,7 @@ export class ProxyService {
     this.adapters = new Map();
     this.initializeAdapters();
 
-    // 2개 이상 제공사(OpenRouter, Kilo, Cline 등)의 키들을 교차 배치한 통합 슬롯 풀 구성
+    // 2개 제공사(OpenRouter, Kilo)의 키들을 교차 배치한 통합 슬롯 풀 구성 (Cline은 스트리밍 불안정으로 제외)
     this.slots = this.buildInterleavedSlots(customProviders);
   }
 
@@ -65,7 +64,6 @@ export class ProxyService {
     const providers: Array<{ provider: LLMProvider; keys: string[] }> = customProviders ?? [
       { provider: 'openrouter', keys: env.openrouterKeys },
       { provider: 'kilo', keys: env.kiloKeys },
-      ...(env.clineKeys.length > 0 ? [{ provider: 'cline' as LLMProvider, keys: env.clineKeys }] : []),
     ];
     const filtered = providers.filter((p) => p.keys.length > 0);
 
