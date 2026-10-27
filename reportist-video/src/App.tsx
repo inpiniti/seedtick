@@ -21,6 +21,7 @@ import type {
   OverallStep,
   ProcessingProgress,
   FinalVideoResult,
+  HighlightSegment,
 } from './types/video.ts';
 import { Play, Sparkles, AlertCircle } from 'lucide-react';
 
@@ -157,6 +158,9 @@ export function App() {
     });
   };
 
+  // 4. 재병합 상태
+  const [isReStitching, setIsReStitching] = useState<boolean>(false);
+
   // 하이라이트 생성 시작 (순차 압축 -> AI 분석 -> 컷 & 병합)
   const handleStartProcessing = async () => {
     if (videos.length === 0) return;
@@ -168,9 +172,22 @@ export function App() {
 
     const totalVideos = videos.length;
     const updatedVideos = [...videos];
+    const logs: string[] = [];
+
+    const addLog = (msg: string) => {
+      const time = new Date().toTimeString().slice(0, 8);
+      const logEntry = `[${time}] ${msg}`;
+      logs.push(logEntry);
+      setProgress((prev) => ({
+        ...prev,
+        reasoningLogs: [...logs],
+      }));
+    };
+
+    addLog(`🚀 AI 극적 장면 탐색 파이프라인 시작 (총 ${totalVideos}개 영상, 16:9 유튜브 규격)`);
 
     try {
-      // 1. 영상별 순차 루프 (압축 & AI 분석)
+      // 1. 영상별 순차 루프 (프레임 추출 & AI 분석)
       for (let i = 0; i < totalVideos; i++) {
         if (signal.aborted) throw new Error('작업이 취소되었습니다.');
 
@@ -184,7 +201,10 @@ export function App() {
           totalVideos,
           progressPercent: Math.round(((i * 2) / (totalVideos * 2 + 1)) * 100),
           statusMessage: `${i + 1}/${totalVideos}번째 영상 [${currentVideo.name}] 주요 프레임 다중 이미지 추출 중...`,
+          reasoningLogs: [...logs],
         });
+
+        addLog(`📸 [${currentVideo.name}] (길이: ${currentVideo.duration.toFixed(1)}초) 14개 핵심 시각 프레임 추출 시작`);
 
         const frames = await extractVideoFramesForAnalysis(
           currentVideo.url,
@@ -199,6 +219,8 @@ export function App() {
           }
         );
 
+        addLog(`🧠 [${currentVideo.name}] 프레임 추출 완료. AI 모델(${selectedModel.replace(':free', '')})로 시각 시퀀스 전달`);
+
         // 1-B. AI Gateway로 시각 프레임 분석 전송 (극적 구간 JSON 요청)
         setProgress({
           step: 'processing',
@@ -207,6 +229,7 @@ export function App() {
           totalVideos,
           progressPercent: Math.round(((i * 2 + 1) / (totalVideos * 2 + 1)) * 100),
           statusMessage: `${i + 1}/${totalVideos}번째 영상 [${currentVideo.name}] AI 극적 장면 탐색 중...`,
+          reasoningLogs: [...logs],
         });
 
         const segments = await analyzeVideoHighlights({
@@ -223,13 +246,22 @@ export function App() {
         currentVideo.segments = segments;
         currentVideo.status = 'analyzed';
         setVideos([...updatedVideos]);
+
+        const segTotal = segments.reduce((sum, s) => sum + s.duration, 0);
+        const savePct = Math.max(0, Math.round((1 - segTotal / (currentVideo.duration || 1)) * 100));
+        addLog(`🎯 [${currentVideo.name}] ${segments.length}개 극적 구간 확정 (${currentVideo.duration.toFixed(1)}초 → ${segTotal.toFixed(1)}초, -${savePct}% 압축)`);
+        segments.forEach((s, sIdx) => {
+          addLog(`   ✨ #${sIdx + 1} [${s.start.toFixed(1)}s~${s.end.toFixed(1)}s] ${s.reason}`);
+        });
       }
 
-      // 2. 구간 컷 & 이어붙이기 단계 (MediaRecorder 렌더링)
+      // 2. 구간 컷 & 16:9 시네마틱 병합 단계
       const allSegments = updatedVideos.flatMap((v) => v.segments);
       if (allSegments.length === 0) {
         throw new Error('감지된 극적 하이라이트 구간이 없습니다.');
       }
+
+      addLog(`✂️ 총 ${allSegments.length}개 구간을 16:9 유튜브 시네마틱 규격(1280x720)으로 무결점 병합 시작...`);
 
       setProgress({
         step: 'processing',
@@ -237,7 +269,8 @@ export function App() {
         currentVideoIndex: totalVideos - 1,
         totalVideos,
         progressPercent: 85,
-        statusMessage: `총 ${allSegments.length}개 극적 구간을 하나로 병합하는 중...`,
+        statusMessage: `총 ${allSegments.length}개 극적 구간을 16:9 유튜브 규격으로 병합하는 중...`,
+        reasoningLogs: [...logs],
       });
 
       const result = await stitchHighlightedSegments({
@@ -255,6 +288,8 @@ export function App() {
         signal,
       });
 
+      addLog(`🎉 16:9 유튜브 하이라이트 영상 병합 완성! (총 ${result.duration.toFixed(1)}초, ${(result.fileSize / (1024 * 1024)).toFixed(1)}MB)`);
+
       setFinalResult(result);
       setCurrentStep('result');
     } catch (err: unknown) {
@@ -267,6 +302,34 @@ export function App() {
         setErrorMessage(msg);
         setCurrentStep('upload');
       }
+    }
+  };
+
+  // 사용자가 타임라인에서 구간을 직접 삭제/수정했을 때 즉시 다시 병합
+  const handleReStitch = async (updatedSegments: HighlightSegment[]) => {
+    if (updatedSegments.length === 0) return;
+    setIsReStitching(true);
+    setErrorMessage(null);
+
+    try {
+      const result = await stitchHighlightedSegments({
+        videos,
+        allSegments: updatedSegments,
+        onProgress: (pct, msg) => {
+          console.info(`[ReStitch] ${pct}%: ${msg}`);
+        },
+      });
+
+      // 기존 결과 URL 해제 후 새 결과 반영
+      if (finalResult?.url) {
+        URL.revokeObjectURL(finalResult.url);
+      }
+      setFinalResult(result);
+    } catch (err) {
+      console.error('구간 재병합 오류:', err);
+      setErrorMessage(err instanceof Error ? err.message : '하이라이트 재병합에 실패했습니다.');
+    } finally {
+      setIsReStitching(false);
     }
   };
 
@@ -374,12 +437,21 @@ export function App() {
 
         {/* 2단계: 진행 상태 패널 */}
         {currentStep === 'processing' && (
-          <ProgressPanel progress={progress} onCancel={handleCancel} />
+          <ProgressPanel
+            progress={progress}
+            videos={videos}
+            onCancel={handleCancel}
+          />
         )}
 
         {/* 3단계: 결과 뷰어 */}
         {currentStep === 'result' && finalResult && (
-          <ResultView result={finalResult} onReset={handleReset} />
+          <ResultView
+            result={finalResult}
+            onReset={handleReset}
+            onReStitch={handleReStitch}
+            isReStitching={isReStitching}
+          />
         )}
       </main>
     </div>

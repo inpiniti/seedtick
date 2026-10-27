@@ -129,25 +129,30 @@ export async function analyzeVideoHighlights({
   signal,
 }: AnalyzeVideoParams): Promise<HighlightSegment[]> {
   const roundedDuration = Math.round(videoDuration * 10) / 10;
+  // 하이라이트 목표 예산: 영상 전체 길이의 20%~35% (최소 2초, 최대 10초)
+  const maxBudget = Math.max(3.0, Math.min(10.0, Math.round(roundedDuration * 0.35 * 10) / 10));
+  const minBudget = Math.max(1.8, Math.min(maxBudget - 0.5, Math.round(roundedDuration * 0.15 * 10) / 10));
 
   const prompt = `You are an elite cinematic video director and highlight editor.
 We have extracted ${frames.length} sequential keyframes from the video "${videoName}" (Total Duration: ${roundedDuration} seconds).
 Each keyframe is labeled with its exact timestamp in seconds.
 
-YOUR TASK:
-Analyze the visual action, tension, emotion, and storyline progression across these sequential frames to identify 1 to 5 of the most DRAMATIC, EXCITING, EMOTIONAL, or PEAK ACTION highlight intervals.
+YOUR OBJECTIVE:
+Select ONLY the absolute peak 1 to 3 CLIMAX/ACTION/DRAMATIC intervals.
+A highlight video MUST be concise, punchy, and condensed (cutting out all boring buildup, idle frames, and transitions).
 
-CRITICAL RULES:
-1. Return 1 to 5 most dramatic intervals.
-2. Each interval duration MUST be at least 1.0 second (end - start >= 1.0).
-3. Intervals MUST NOT overlap with each other.
-4. Timestamps must be within 0.0 to ${roundedDuration} seconds.
-5. Provide a short, captivating Korean description for 'reason' (e.g. '결정적인 득점 순간', '박진감 넘치는 액션 시퀀스', '감동적인 클라이맥스 표정').
-6. Output MUST BE strictly a valid JSON array of objects with NO other commentary or markdown formatting.
+STRICT DURATION & SELECTION RULES:
+1. TARGET BUDGET: Total combined duration of all highlight intervals MUST be roughly ${minBudget}s to ${maxBudget}s (about 20%~35% of total video length).
+2. DO NOT SELECT THE ENTIRE VIDEO: Selecting more than 50% of the video duration is an absolute FAILURE.
+3. INTERVAL COUNT: Return ONLY 1 to 3 peak intervals (1 single climax interval is preferred; maximum 3).
+4. INDIVIDUAL INTERVAL LENGTH: Each interval MUST be between 1.5 seconds and 4.5 seconds. NEVER return an interval longer than 5.0 seconds.
+5. NO OVERLAPPING: Intervals MUST NOT overlap.
+6. Provide a short, captivating Korean description for 'reason' (e.g. '결정적인 득점 순간', '박진감 넘치는 액션 시퀀스', '감동적인 클라이맥스 표정').
+7. Output MUST BE strictly a valid JSON array of objects with NO other commentary or markdown formatting.
 
 Format:
 [
-  {"start": 1.2, "end": 4.5, "reason": "화려한 기술과 반전이 일어나는 클라이맥스 장면"}
+  {"start": 3.2, "end": 6.5, "reason": "화려한 기술과 반전이 일어나는 클라이맥스 장면"}
 ]`;
 
   const baseUrl = config.baseUrl.replace(/\/+$/, '');
@@ -240,11 +245,20 @@ export function parseAndValidateSegments(
 
       if (isNaN(rawStart) || isNaN(rawEnd)) continue;
 
-      const start = Math.max(0, Math.min(totalDuration, rawStart));
-      const end = Math.max(0, Math.min(totalDuration, rawEnd));
+      let start = Math.max(0, Math.min(totalDuration, rawStart));
+      let end = Math.max(0, Math.min(totalDuration, rawEnd));
 
-      // 최소 1.0초 이상이어야 함
-      if (end - start >= 1.0) {
+      if (start >= end) continue;
+
+      // 단일 구간이 5.5초를 초과하면 클라이맥스 중심 4.0초로 트리밍
+      if (end - start > 5.5) {
+        const mid = (start + end) / 2;
+        start = Math.max(0, Math.round((mid - 2.0) * 10) / 10);
+        end = Math.min(totalDuration, Math.round((mid + 2.0) * 10) / 10);
+      }
+
+      // 최소 1.2초 이상이어야 함
+      if (end - start >= 1.2) {
         validSegments.push({
           id: `${videoId}-${start.toFixed(1)}-${end.toFixed(1)}`,
           sourceVideoId: videoId,
@@ -261,7 +275,7 @@ export function parseAndValidateSegments(
   // 시간순 정렬
   validSegments.sort((a, b) => a.start - b.start);
 
-  // 겹치거나 인접한 구간 병합
+  // 직접 겹치는 구간만 병합 (인접하다고 무조건 합치지 않음)
   const mergedSegments: HighlightSegment[] = [];
   for (const seg of validSegments) {
     if (mergedSegments.length === 0) {
@@ -269,8 +283,8 @@ export function parseAndValidateSegments(
       continue;
     }
     const prev = mergedSegments[mergedSegments.length - 1];
-    if (seg.start <= prev.end + 0.3) {
-      // 겹치거나 0.3초 이내로 바로 이어지는 경우 병합
+    if (seg.start < prev.end) {
+      // 겹치는 경우만 병합
       prev.end = Math.max(prev.end, seg.end);
       prev.duration = Math.round((prev.end - prev.start) * 10) / 10;
       prev.reason = `${prev.reason} + ${seg.reason}`;
@@ -279,10 +293,21 @@ export function parseAndValidateSegments(
     }
   }
 
-  // 만약 AI가 구간을 추출하지 못했거나 영상이 너무 짧은 경우 스마트 폴백
+  // 총 하이라이트 길이가 영상의 45% 또는 12초를 초과하는 경우 압축 정제
+  const maxAllowedTotal = Math.max(3.5, Math.min(12.0, totalDuration * 0.45));
+  while (
+    mergedSegments.length > 1 &&
+    mergedSegments.reduce((sum, s) => sum + s.duration, 0) > maxAllowedTotal
+  ) {
+    // 가장 짧거나 덜 중요한 마지막 구간 제외
+    mergedSegments.pop();
+  }
+
+  // 만약 AI가 구간을 추출하지 못했거나 너무 짧은 경우 스마트 폴백 (중앙 25% 지점의 3~4.5초 구간)
   if (mergedSegments.length === 0) {
-    const fallbackStart = totalDuration > 4 ? Math.round(totalDuration * 0.2 * 10) / 10 : 0;
-    const fallbackEnd = totalDuration > 4 ? Math.round(totalDuration * 0.8 * 10) / 10 : totalDuration;
+    const fallbackDuration = Math.min(4.5, Math.max(2.0, Math.round(totalDuration * 0.25 * 10) / 10));
+    const fallbackStart = Math.round(Math.max(0, (totalDuration - fallbackDuration) * 0.4) * 10) / 10;
+    const fallbackEnd = Math.round((fallbackStart + fallbackDuration) * 10) / 10;
     mergedSegments.push({
       id: `${videoId}-fallback`,
       sourceVideoId: videoId,
@@ -290,7 +315,7 @@ export function parseAndValidateSegments(
       start: fallbackStart,
       end: fallbackEnd,
       duration: Math.round((fallbackEnd - fallbackStart) * 10) / 10,
-      reason: 'AI 주요 관심 구간 (자동 선정)',
+      reason: 'AI 핵심 클라이맥스 구간 (자동 선정)',
     });
   }
 

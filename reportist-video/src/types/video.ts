@@ -50,6 +50,7 @@ export interface ProcessingProgress {
   progressPercent: number;
   statusMessage: string;
   error?: string;
+  reasoningLogs?: string[];
 }
 
 export interface FinalVideoResult {
