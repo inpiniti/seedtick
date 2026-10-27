@@ -495,6 +495,7 @@ export async function streamChatCompletions({
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
+    let receivedAnyText = false;
 
     while (true) {
       const { done, value } = await reader.read();
@@ -516,12 +517,24 @@ export async function streamChatCompletions({
           const jsonStr = trimmed.slice(6);
           try {
             const parsed = JSON.parse(jsonStr);
+
+            // 스트림 내부 에러 객체 감지 방어
+            if (parsed.error) {
+              const msg =
+                typeof parsed.error === 'string'
+                  ? parsed.error
+                  : parsed.error.message || JSON.stringify(parsed.error);
+              onError(msg);
+              return;
+            }
+
             const choice = parsed.choices?.[0];
             if (choice) {
               const delta = choice.delta || {};
               const content = delta.content || '';
               const reasoning = delta.reasoning || delta.reasoning_content || '';
               if (content || reasoning) {
+                receivedAnyText = true;
                 onDelta(content, reasoning);
               }
             }
@@ -530,6 +543,11 @@ export async function streamChatCompletions({
           }
         }
       }
+    }
+
+    if (!receivedAnyText && !signal?.aborted) {
+      onError('AI 모델로부터 응답을 받지 못했어요. 일시적인 모델 과부하 또는 무료 슬롯 한도 초과일 수 있어요.');
+      return;
     }
 
     onFinish();

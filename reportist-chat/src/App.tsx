@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AlertCircle,
   Brain,
   ChevronDown,
   ChevronUp,
@@ -12,6 +13,7 @@ import {
   MessageSquare,
   Paperclip,
   Plus,
+  RotateCcw,
   Settings,
   Sparkles,
   Square,
@@ -463,6 +465,7 @@ export function App() {
       },
       onError: (errorMsg) => {
         setIsStreaming(false);
+        abortControllerRef.current = null;
         setSessions((prev) =>
           prev.map((s) => {
             if (s.id === currentSession.id) {
@@ -470,8 +473,10 @@ export function App() {
                 if (m.id === assistantMessageId) {
                   return {
                     ...m,
-                    content: `⚠️ ${errorMsg}`,
+                    content: '',
                     isStreaming: false,
+                    isError: true,
+                    errorMsg,
                   };
                 }
                 return m;
@@ -504,6 +509,72 @@ export function App() {
         );
       },
     });
+  };
+
+  // 에러 발생 메시지 다시 시도
+  const handleRetryMessage = (failedMessageId: string) => {
+    if (isStreaming) return;
+    const session = currentSession;
+    const msgIndex = session.messages.findIndex((m) => m.id === failedMessageId);
+    if (msgIndex === -1) return;
+
+    // 직전 사용자 메시지 찾기
+    let targetUserMsg: ChatMessage | null = null;
+    for (let i = msgIndex - 1; i >= 0; i--) {
+      if (session.messages[i].role === 'user') {
+        targetUserMsg = session.messages[i];
+        break;
+      }
+    }
+
+    if (!targetUserMsg) return;
+
+    // 실패한 어시스턴트 메시지와 그 뒤의 메시지들을 제거하고 재전송
+    const trimmedMessages = session.messages.slice(0, msgIndex);
+    setSessions((prev) =>
+      prev.map((s) => {
+        if (s.id === session.id) {
+          return {
+            ...s,
+            messages: trimmedMessages,
+          };
+        }
+        return s;
+      })
+    );
+
+    // 다시 전송
+    const textToResend = targetUserMsg.content;
+    const attachmentsToResend = targetUserMsg.attachments;
+    if (attachmentsToResend && attachmentsToResend.length > 0) {
+      setPendingAttachments(attachmentsToResend);
+    }
+    setTimeout(() => {
+      handleSendMessage(textToResend);
+    }, 50);
+  };
+
+  // 안정적인 무료 모델로 빠른 전환
+  const handleSwitchToStableModel = () => {
+    const stableCandidates = [
+      'nvidia/nemotron-3.5-super-vl:free',
+      'google/gemma-4-31b-it:free',
+      'google/gemma-4-26b-a4b-it:free',
+      'nvidia/nemotron-3.5-lightning:free',
+    ];
+    const nextModel = models.find(
+      (m) => stableCandidates.includes(m.id) && m.id !== selectedModelId
+    );
+    if (nextModel) {
+      setSelectedModelId(nextModel.id);
+      alert(`안정적인 '${nextModel.name}' 모델로 변경되었습니다. [다시 시도]를 누르시면 새 모델로 답변을 받아보실 수 있어요.`);
+    } else if (models.length > 1) {
+      const other = models.find((m) => m.id !== selectedModelId);
+      if (other) {
+        setSelectedModelId(other.id);
+        alert(`'${other.name}' 모델로 변경되었습니다.`);
+      }
+    }
   };
 
   // 응답 생성 중단
@@ -846,13 +917,63 @@ export function App() {
                       </div>
                     )}
 
-                    {/* 본문 텍스트 */}
-                    {message.content ? (
+                    {/* 본문 텍스트 또는 에러/빈 응답 안내 */}
+                    {message.isError ? (
+                      <div className="assistant-error-box">
+                        <div className="error-message-row">
+                          <AlertCircle size={16} className="error-icon" />
+                          <span>{message.errorMsg || '답변을 불러오지 못했어요. 일시적인 모델 과부하일 수 있어요.'}</span>
+                        </div>
+                        <div className="error-action-row">
+                          <button
+                            type="button"
+                            className="retry-chat-btn"
+                            onClick={() => handleRetryMessage(message.id)}
+                          >
+                            <RotateCcw size={13} />
+                            <span>다시 시도</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="switch-model-btn"
+                            onClick={handleSwitchToStableModel}
+                          >
+                            <Sparkles size={13} />
+                            <span>다른 추천 모델로 전환</span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : message.content ? (
                       <MarkdownRenderer content={message.content} />
                     ) : message.isStreaming && !hasReasoning ? (
                       <div style={{ color: 'var(--color-text-tertiary)', fontSize: 14 }}>
                         답변을 준비하고 있어요...
                         <span className="streaming-cursor" />
+                      </div>
+                    ) : !message.isStreaming && !message.content && !hasReasoning ? (
+                      <div className="assistant-error-box">
+                        <div className="error-message-row">
+                          <AlertCircle size={16} className="error-icon" />
+                          <span>AI 모델로부터 수신된 내용이 비어있어요.</span>
+                        </div>
+                        <div className="error-action-row">
+                          <button
+                            type="button"
+                            className="retry-chat-btn"
+                            onClick={() => handleRetryMessage(message.id)}
+                          >
+                            <RotateCcw size={13} />
+                            <span>다시 시도</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="switch-model-btn"
+                            onClick={handleSwitchToStableModel}
+                          >
+                            <Sparkles size={13} />
+                            <span>다른 추천 모델로 전환</span>
+                          </button>
+                        </div>
                       </div>
                     ) : null}
 

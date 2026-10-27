@@ -1798,3 +1798,80 @@
     align-items: flex-end;
   }
 }
+
+/* ─────────────────────────────────────────────
+   어시스턴트 에러 및 재시도 액션 박스 (Toss Style)
+───────────────────────────────────────────── */
+.assistant-error-box {
+  margin-top: 8px;
+  padding: 14px 16px;
+  background-color: #fff8f8;
+  border: 1px solid rgba(240, 68, 82, 0.2);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.error-message-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #e03131;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.error-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.error-action-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.retry-chat-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background-color: #ffffff;
+  color: #333d4b;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.retry-chat-btn:hover {
+  background-color: #f2f4f6;
+  border-color: #cbd5e1;
+  color: #191f28;
+}
+
+.switch-model-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary-border);
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.switch-model-btn:hover {
+  background-color: rgba(49, 130, 246, 0.16);
+}

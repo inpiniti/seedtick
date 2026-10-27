@@ -244,10 +244,121 @@ export class OpenAICompatAdapter implements ILLMAdapter {
         };
       }
 
+      // 첫 번째 청크 사전 검증 (Peek & Validate)
+      // 상위 제공자가 HTTP 200을 줬더라도 첫 청크로 429 에러나 빈 스트림을 뱉는 경우 다음 슬롯으로 전환할 수 있게 방어
+      const reader = response.body.getReader();
+      const firstChunkTimeoutMs = 15_000;
+      let firstChunkTimer: ReturnType<typeof setTimeout> | undefined;
+
+      const timeoutPromise = new Promise<{ done: true; value: undefined; timedOut: true }>((resolve) => {
+        firstChunkTimer = setTimeout(
+          () => resolve({ done: true, value: undefined, timedOut: true }),
+          firstChunkTimeoutMs
+        );
+      });
+
+      const readPromise = reader.read().then((res) => ({ ...res, timedOut: false }));
+      const firstResult = await Promise.race([readPromise, timeoutPromise]);
+      clearTimeout(firstChunkTimer);
+
+      if (firstResult.timedOut) {
+        try {
+          await reader.cancel('First token timeout');
+        } catch {}
+        return {
+          ok: false,
+          status: 408,
+          errorBody: `First token timeout after ${firstChunkTimeoutMs}ms (model hung/cold)`,
+        };
+      }
+
+      if (firstResult.done || !firstResult.value || firstResult.value.byteLength === 0) {
+        try {
+          await reader.cancel('Empty stream');
+        } catch {}
+        return {
+          ok: false,
+          status: 502,
+          errorBody: 'Empty stream received from provider (0 bytes before stream completion)',
+        };
+      }
+
+      // 첫 청크 디코딩 및 에러 검사
+      const decoder = new TextDecoder();
+      const firstChunkText = decoder.decode(firstResult.value, { stream: true });
+
+      let isStreamError = false;
+      let errorStatus = 500;
+      let errorMessage = '';
+
+      if (firstChunkText.includes('"error":') || firstChunkText.includes('"error" :')) {
+        isStreamError = true;
+        errorMessage = firstChunkText;
+        if (
+          firstChunkText.includes('429') ||
+          firstChunkText.includes('rate-limited') ||
+          firstChunkText.includes('RateLimit') ||
+          firstChunkText.includes('quota')
+        ) {
+          errorStatus = 429;
+        } else if (
+          firstChunkText.includes('503') ||
+          firstChunkText.includes('overloaded') ||
+          firstChunkText.includes('temporarily unavailable')
+        ) {
+          errorStatus = 503;
+        } else if (firstChunkText.includes('stream_initialization_failed')) {
+          errorStatus = firstChunkText.includes('429') ? 429 : 502;
+        }
+      } else if (firstChunkText.trim() === 'data: [DONE]' || firstChunkText.trim() === '[DONE]') {
+        isStreamError = true;
+        errorStatus = 502;
+        errorMessage = 'Provider sent immediate [DONE] without any completion tokens';
+      }
+
+      if (isStreamError) {
+        try {
+          await reader.cancel('Stream initialization error');
+        } catch {}
+        return {
+          ok: false,
+          status: errorStatus,
+          errorBody: errorMessage,
+        };
+      }
+
+      // 정상 청크 확인 완료: 첫 청크를 프리펜드(Prepend)한 새 ReadableStream 생성
+      const firstChunkValue = firstResult.value;
+      const prependedStream = new ReadableStream<Uint8Array>({
+        async start(streamController) {
+          try {
+            // 1. 검증된 첫 번째 청크 먼저 방출
+            streamController.enqueue(firstChunkValue);
+
+            // 2. 이후 청크 계속 파이프
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              if (value) {
+                streamController.enqueue(value);
+              }
+            }
+            streamController.close();
+          } catch (streamErr) {
+            streamController.error(streamErr);
+          }
+        },
+        cancel(reason) {
+          try {
+            reader.cancel(reason);
+          } catch {}
+        },
+      });
+
       return {
         ok: true,
         status: 200,
-        stream: response.body as ReadableStream<Uint8Array>,
+        stream: prependedStream,
         errorBody: '',
       };
     } catch (error) {

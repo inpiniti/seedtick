@@ -21,6 +21,8 @@ export interface ChatMessage {
   reasoning?: string;
   attachments?: ChatAttachment[];
   isStreaming?: boolean;
+  isError?: boolean;
+  errorMsg?: string;
   timestamp: number;
 }
 
