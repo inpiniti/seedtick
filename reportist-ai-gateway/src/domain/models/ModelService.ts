@@ -17,6 +17,8 @@ const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
       "Flint is an open-weight mixture-of-experts model from Recursive, with about 2.5B active parameters out of 40B total, built by Recursive's autoresearch system Eureka Machine for coding agents.",
     modality: 'text->text',
     inputModalities: ['text'],
+    intelligenceIndex: null,
+    reasoningMandatory: true,
     intelligenceTier: '코딩 에이전트 특화',
     parametersSummary: '40B (활성 2.5B)',
     supportedParameters: ['reasoning', 'temperature', 'tools', 'response_format'],
@@ -34,6 +36,7 @@ const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
       'Xing4.0-29B-A4B is an open-weight mixture-of-experts language model from China Telecom AI team (TeleAI). It has 29B total parameters with 4B active per token.',
     modality: 'text->text',
     inputModalities: ['text'],
+    intelligenceIndex: null,
     intelligenceTier: '다목적 고성능 MoE',
     parametersSummary: '29B (활성 4B)',
     supportedParameters: ['reasoning', 'temperature', 'tools', 'structured_outputs'],
@@ -51,6 +54,7 @@ const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
       'NVIDIA Nemotron 3.5 Super VL is an open multimodal MoE model with 12B active parameters out of 120B total. Takes text, images, docs, GUI screenshots, and video.',
     modality: 'text+image+video->text',
     inputModalities: ['text', 'image', 'video'],
+    intelligenceIndex: 26.5,
     intelligenceTier: '플래그십 멀티모달 & 1M 윈도우',
     parametersSummary: '120B (활성 12B)',
     supportedParameters: ['reasoning', 'temperature', 'tools', 'structured_outputs'],
@@ -68,6 +72,7 @@ const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
       'Dots3-Note Preview is an open-weight MoE model with 16B active parameters out of 280B total. Suited for long-form reasoning and note summarization.',
     modality: 'text+image->text',
     inputModalities: ['text', 'image'],
+    intelligenceIndex: null,
     intelligenceTier: '초대형 280B 추론 MoE',
     parametersSummary: '280B (활성 16B)',
     supportedParameters: ['reasoning', 'temperature', 'tools'],
@@ -85,6 +90,9 @@ const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
       'LFM2.5-2.6B is a compact reasoning model from Liquid AI. Suited for agent workflows, data extraction, and fast RAG.',
     modality: 'text->text',
     inputModalities: ['text'],
+    intelligenceIndex: 8.4,
+    codingIndex: 7.7,
+    reasoningMandatory: true,
     intelligenceTier: '초경량 초고속 추론',
     parametersSummary: '2.6B',
     supportedParameters: ['reasoning', 'temperature', 'tools'],
@@ -102,6 +110,9 @@ const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
       'NVIDIA Nemotron 3.5 Lightning is an open MoE model with 3B active parameters out of 30B total, designed for high-throughput agentic workloads.',
     modality: 'text->text',
     inputModalities: ['text'],
+    intelligenceIndex: 12.9,
+    codingIndex: 26.8,
+    agenticIndex: 3.5,
     intelligenceTier: '초고속 에이전트 MoE',
     parametersSummary: '30B (활성 3B)',
     supportedParameters: ['reasoning', 'temperature', 'tools'],
@@ -119,6 +130,11 @@ const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
       'Inkling Small is an open multimodal MoE model with 12B active parameters out of 276B total. High-efficiency reasoning and tool usage.',
     modality: 'text+image+audio->text',
     inputModalities: ['text', 'image', 'audio'],
+    intelligenceIndex: 25.7,
+    codingIndex: 52.9,
+    agenticIndex: 23.5,
+    supportedEfforts: ['max', 'high', 'medium', 'low', 'minimal', 'none'],
+    defaultEffort: 'high',
     intelligenceTier: '멀티모달 276B MoE',
     parametersSummary: '276B (활성 12B)',
     supportedParameters: ['reasoning', 'reasoning_effort', 'temperature', 'tools'],
@@ -136,6 +152,7 @@ const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
       'Laguna S 2.1 is a top-tier coding agent model with 118B total parameters and 8B active parameters, scoring 70.2% on Terminal-Bench.',
     modality: 'text->text',
     inputModalities: ['text'],
+    intelligenceIndex: null,
     intelligenceTier: '최상위 코딩 에이전트 118B',
     parametersSummary: '118B (활성 8B)',
     supportedParameters: ['reasoning', 'temperature', 'tools'],
@@ -153,6 +170,11 @@ const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
       'Inkling is a mammoth 975B MoE model (41B active) designed for general-purpose frontier reasoning, coding, and tool-use.',
     modality: 'text+image+audio->text',
     inputModalities: ['text', 'image', 'audio'],
+    intelligenceIndex: 25.0,
+    codingIndex: 52.1,
+    agenticIndex: 22.5,
+    supportedEfforts: ['max', 'high', 'medium', 'low', 'minimal', 'none'],
+    defaultEffort: 'high',
     intelligenceTier: '플래그십 거대 975B MoE',
     parametersSummary: '975B (활성 41B)',
     supportedParameters: ['reasoning', 'reasoning_effort', 'temperature', 'tools'],
@@ -170,6 +192,7 @@ const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
       'Laguna XS 2.1 is an efficient 33B-A3B coding model optimized for fast interactive software engineering.',
     modality: 'text->text',
     inputModalities: ['text'],
+    intelligenceIndex: null,
     intelligenceTier: '경량 고속 코딩 MoE',
     parametersSummary: '33B (활성 3B)',
     supportedParameters: ['reasoning', 'temperature', 'tools'],
@@ -187,6 +210,9 @@ const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
       "North Mini Code is Cohere's first agentic coding model. Sparse MoE with 30B total and 3B active parameters.",
     modality: 'text->text',
     inputModalities: ['text'],
+    intelligenceIndex: 9.9,
+    codingIndex: 36.5,
+    agenticIndex: 1.1,
     intelligenceTier: 'Cohere 코딩 에이전트',
     parametersSummary: '30B (활성 3B)',
     supportedParameters: ['reasoning', 'temperature', 'tools'],
@@ -204,6 +230,7 @@ const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
       'NVIDIA Nemotron 3.5 Content Safety is a compact 4B-parameter multimodal guardrail model fine-tuned from Gemma-3-4B.',
     modality: 'text+image->text',
     inputModalities: ['text', 'image'],
+    intelligenceIndex: null,
     intelligenceTier: '안전성 검증 & 필터링',
     parametersSummary: '4B',
     supportedParameters: ['reasoning', 'temperature'],
@@ -221,6 +248,11 @@ const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
       'NVIDIA Nemotron 3 Ultra is an open frontier reasoning model with 55B active out of 550B total parameters (Transformer-Mamba MoE).',
     modality: 'text->text',
     inputModalities: ['text'],
+    intelligenceIndex: 22.9,
+    codingIndex: 49.3,
+    agenticIndex: 20.1,
+    supportedEfforts: ['high', 'medium', 'none'],
+    defaultEffort: 'high',
     intelligenceTier: '플래그십 550B 프론티어 추론',
     parametersSummary: '550B (활성 55B)',
     supportedParameters: ['reasoning', 'reasoning_effort', 'temperature', 'tools'],
@@ -238,6 +270,8 @@ const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
       'Nemotron 3 Nano Omni is a 30B-A3B open multimodal perception and reasoning model for text, images, video, and audio.',
     modality: 'text+image+audio+video->text',
     inputModalities: ['text', 'image', 'audio', 'video'],
+    intelligenceIndex: 10.3,
+    codingIndex: 13.8,
     intelligenceTier: '옴니 멀티모달 추론',
     parametersSummary: '30B (활성 3B)',
     supportedParameters: ['reasoning', 'temperature', 'tools'],
@@ -255,6 +289,9 @@ const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
       'Gemma 4 26B A4B IT is Google DeepMind instruction-tuned MoE. 25.2B total, 3.8B active per token delivering near-31B dense quality.',
     modality: 'text+image+video->text',
     inputModalities: ['text', 'image', 'video'],
+    intelligenceIndex: 16.7,
+    codingIndex: 39.3,
+    agenticIndex: 2.9,
     intelligenceTier: 'Google 경량 고성능 MoE',
     parametersSummary: '25.2B (활성 3.8B)',
     supportedParameters: ['reasoning', 'temperature', 'tools'],
@@ -272,6 +309,9 @@ const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
       "Gemma 4 31B Instruct is Google DeepMind's dense multimodal model with 256K context, configurable thinking/reasoning mode.",
     modality: 'text+image+video->text',
     inputModalities: ['text', 'image', 'video'],
+    intelligenceIndex: 14.7,
+    codingIndex: 43.4,
+    agenticIndex: 4.2,
     intelligenceTier: 'Google 31B Dense 종합 지능',
     parametersSummary: '30.7B Dense',
     supportedParameters: ['reasoning', 'temperature', 'tools'],
@@ -289,6 +329,11 @@ const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
       'NVIDIA Nemotron 3 Super is a 120B hybrid MoE model (12B active), built on hybrid Mamba-Transformer architecture.',
     modality: 'text->text',
     inputModalities: ['text'],
+    intelligenceIndex: 12.8,
+    codingIndex: 37.7,
+    agenticIndex: 1.7,
+    supportedEfforts: ['medium', 'low', 'none'],
+    defaultEffort: 'medium',
     intelligenceTier: '하이브리드 Mamba-MoE 120B',
     parametersSummary: '120B (활성 12B)',
     supportedParameters: ['reasoning', 'reasoning_effort', 'temperature', 'tools'],
@@ -362,11 +407,27 @@ export class ModelService {
           ? (m.supported_parameters as string[])
           : [];
 
+        const benchmarks = (m.benchmarks as Record<string, unknown>) ?? {};
+        const aa = (benchmarks.artificial_analysis as Record<string, unknown>) ?? {};
+        const intelligenceIndex = typeof aa.intelligence_index === 'number' ? aa.intelligence_index : null;
+        const codingIndex = typeof aa.coding_index === 'number' ? aa.coding_index : null;
+        const agenticIndex = typeof aa.agentic_index === 'number' ? aa.agentic_index : null;
+
+        const reasoningObj = (m.reasoning as Record<string, unknown>) ?? {};
+        const supportedEfforts = Array.isArray(reasoningObj.supported_efforts)
+          ? (reasoningObj.supported_efforts as string[])
+          : undefined;
+        const defaultEffort = typeof reasoningObj.default_effort === 'string'
+          ? reasoningObj.default_effort
+          : null;
+        const reasoningMandatory = Boolean(reasoningObj.mandatory);
+
         // 지능 티어 및 파라미터 요약 추출
         const { intelligenceTier, parametersSummary, providerName } = this.deriveModelIntelligence(
           id,
           name,
-          description
+          description,
+          intelligenceIndex
         );
 
         freeModels.push({
@@ -381,6 +442,12 @@ export class ModelService {
           description,
           modality,
           inputModalities,
+          intelligenceIndex,
+          codingIndex,
+          agenticIndex,
+          supportedEfforts,
+          defaultEffort,
+          reasoningMandatory,
           intelligenceTier,
           parametersSummary,
           supportedParameters,
@@ -405,7 +472,8 @@ export class ModelService {
   private deriveModelIntelligence(
     id: string,
     name: string,
-    desc: string
+    desc: string,
+    intelIndex?: number | null
   ): { intelligenceTier: string; parametersSummary: string; providerName: string } {
     const lowerDesc = desc.toLowerCase();
     const [providerPrefix] = id.split('/');

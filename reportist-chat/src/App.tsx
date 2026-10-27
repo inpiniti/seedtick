@@ -38,6 +38,7 @@ import {
   type FreeModelMeta,
   type GatewayConfig,
   getModelInputModalities,
+  getModelSupportedEfforts,
   REASONING_EFFORT_OPTIONS,
   type ReasoningEffortOption,
 } from './types/chat.ts';
@@ -132,6 +133,23 @@ export function App() {
   const canAttachAudio = currentInputModalities.includes('audio');
   const canAttachVideo = currentInputModalities.includes('video');
   const canAttachAny = canAttachImage || canAttachAudio || canAttachVideo;
+
+  // 현재 선택된 모델에서 지원되는 추론 노력도(Reasoning Effort) 목록 계산
+  const supportedEffortKeys = useMemo(
+    () => getModelSupportedEfforts(currentModel),
+    [currentModel]
+  );
+
+  // 모델이 변경되었을 때 지원하지 않는 추론 강도(예: extra/max 미지원 모델)가 선택되어 있다면 안전한 기본값으로 자동 교정
+  useEffect(() => {
+    if (!supportedEffortKeys.includes(reasoningEffort)) {
+      const fallback =
+        (currentModel.defaultEffort?.toLowerCase() as ReasoningEffortOption) ||
+        (supportedEffortKeys.includes('low') ? 'low' : supportedEffortKeys[0]) ||
+        'none';
+      setReasoningEffort(supportedEffortKeys.includes(fallback) ? fallback : 'none');
+    }
+  }, [currentModel, supportedEffortKeys, reasoningEffort]);
 
   const fileAcceptTypes = useMemo(() => {
     const list: string[] = [];
@@ -591,6 +609,17 @@ export function App() {
             >
               <span className="trigger-badge">FREE</span>
               <span className="trigger-name">{currentModel.name}</span>
+
+              {/* 지능 점수 뱃지 (OpenRouter Artificial Analysis) */}
+              {currentModel.intelligenceIndex != null && (
+                <span
+                  className="trigger-intel-tag"
+                  title={`Artificial Analysis 지능 지수: ${currentModel.intelligenceIndex}점`}
+                >
+                  🧠 {currentModel.intelligenceIndex}
+                </span>
+              )}
+
               <div className="trigger-modality-tags">
                 {canAttachImage && <span className="trigger-mod-tag" title="이미지 지원">🖼️</span>}
                 {canAttachAudio && <span className="trigger-mod-tag" title="오디오 지원">🎙️</span>}
@@ -601,20 +630,30 @@ export function App() {
           </div>
 
           <div className="top-right-actions">
-            {/* 노력 선택 세그먼트 */}
+            {/* 노력 선택 세그먼트: 현재 모델이 지원하는 단계만 동적 표시 */}
             <div className="effort-selector-wrapper" title="추론 노력(Reasoning Effort) 설정">
               <Brain size={14} color="#3182f6" style={{ marginLeft: 6 }} />
-              {REASONING_EFFORT_OPTIONS.map((opt) => (
-                <button
-                  key={opt.key}
-                  type="button"
-                  className={`effort-chip ${reasoningEffort === opt.key ? 'active' : ''}`}
-                  onClick={() => setReasoningEffort(opt.key)}
-                  title={`${opt.label}: ${opt.description}`}
+              <span className="effort-title-label">노력:</span>
+              {supportedEffortKeys.length <= 1 ? (
+                <span
+                  className="effort-auto-chip"
+                  title="이 모델은 모델 기본 추론 강도로 자동 동작해요"
                 >
-                  {opt.label}
-                </button>
-              ))}
+                  기본(자동)
+                </span>
+              ) : (
+                REASONING_EFFORT_OPTIONS.filter((opt) => supportedEffortKeys.includes(opt.key)).map((opt) => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    className={`effort-chip ${reasoningEffort === opt.key ? 'active' : ''}`}
+                    onClick={() => setReasoningEffort(opt.key)}
+                    title={`${opt.label} (${opt.englishLabel}): ${opt.description}`}
+                  >
+                    {opt.label}
+                  </button>
+                ))
+              )}
             </div>
 
             {/* 게이트웨이 온라인 상태 뱃지 */}
@@ -766,6 +805,14 @@ export function App() {
                       <div className="assistant-model-info">
                         <Sparkles size={14} color="#3182f6" />
                         <span>{currentModel.name}</span>
+                        {currentModel.intelligenceIndex != null && (
+                          <span
+                            className="assistant-intel-badge"
+                            title={`지능 지수: ${currentModel.intelligenceIndex}점`}
+                          >
+                            🧠 {currentModel.intelligenceIndex}
+                          </span>
+                        )}
                         <span className="effort-badge">노력: {reasoningEffort}</span>
                       </div>
                     </div>

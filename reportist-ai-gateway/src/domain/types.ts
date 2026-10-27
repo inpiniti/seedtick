@@ -127,6 +127,12 @@ export interface FreeModelMeta {
   description: string;
   modality: string;
   inputModalities?: string[];
+  intelligenceIndex?: number | null;
+  codingIndex?: number | null;
+  agenticIndex?: number | null;
+  supportedEfforts?: string[];
+  defaultEffort?: string | null;
+  reasoningMandatory?: boolean;
   intelligenceTier: string;
   parametersSummary: string;
   supportedParameters: string[];

@@ -95,6 +95,12 @@ export interface FreeModelMeta {
   description: string;
   modality: string;
   inputModalities?: string[];
+  intelligenceIndex?: number | null;
+  codingIndex?: number | null;
+  agenticIndex?: number | null;
+  supportedEfforts?: string[];
+  defaultEffort?: string | null;
+  reasoningMandatory?: boolean;
   intelligenceTier: string;
   parametersSummary: string;
   supportedParameters: string[];
@@ -110,6 +116,52 @@ export function getModelInputModalities(model?: FreeModelMeta | null): string[] 
     return inputs.length > 0 ? inputs : ['text'];
   }
   return ['text'];
+}
+
+/**
+ * 모델별로 실제 지원되는 reasoning_effort 옵션 목록 반환
+ * OpenRouter의 reasoning.supported_efforts 메타데이터 기준 동적 필터링
+ */
+export function getModelSupportedEfforts(model?: FreeModelMeta | null): ReasoningEffortOption[] {
+  if (!model) return ['none'];
+
+  // 모델의 OpenRouter 메타데이터에 supportedEfforts가 명시된 경우
+  if (Array.isArray(model.supportedEfforts) && model.supportedEfforts.length > 0) {
+    const rawEfforts = model.supportedEfforts.map((e) => e.toLowerCase().trim());
+    const matched: ReasoningEffortOption[] = [];
+
+    // 항상 '기본' (none) 포함
+    matched.push('none');
+
+    if (rawEfforts.includes('low') || rawEfforts.includes('minimal')) {
+      matched.push('low');
+    }
+    if (rawEfforts.includes('medium')) {
+      matched.push('medium');
+    }
+    if (rawEfforts.includes('high')) {
+      matched.push('high');
+    }
+    if (rawEfforts.includes('extra')) {
+      matched.push('extra');
+    }
+    if (rawEfforts.includes('max')) {
+      matched.push('max');
+    }
+
+    return [...new Set(matched)];
+  }
+
+  // supported_parameters에 reasoning이 아예 없는 모델
+  const hasReasoning = model.supportedParameters?.includes('reasoning') ||
+                       model.supportedParameters?.includes('reasoning_effort');
+  if (!hasReasoning) {
+    return ['none'];
+  }
+
+  // reasoning은 지원하지만 세부 단계(supported_efforts)가 명시되지 않은 모델
+  // (예: Nemotron 3.5 Super VL, Flint 등 -> 무리한 extra/max 대신 안전한 기본/낮음/중간 지원)
+  return ['none', 'low', 'medium'];
 }
 
 export interface GatewayConfig {

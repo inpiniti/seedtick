@@ -33,6 +33,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProvider, setSelectedProvider] = useState<string>('all');
   const [selectedModality, setSelectedModality] = useState<'all' | 'image' | 'audio' | 'video'>('all');
+  const [sortKey, setSortKey] = useState<'newest' | 'intelligence' | 'coding' | 'context'>('newest');
 
   // 제공사 목록 추출
   const providers = useMemo(() => {
@@ -57,9 +58,9 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
     return { all: models.length, image, audio, video };
   }, [models]);
 
-  // 필터링된 모델 목록
-  const filteredModels = useMemo(() => {
-    return models.filter((m) => {
+  // 필터링 및 정렬된 모델 목록
+  const displayedModels = useMemo(() => {
+    const filtered = models.filter((m) => {
       const matchQuery =
         m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         m.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -75,7 +76,27 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
 
       return matchQuery && matchProvider && matchModality;
     });
-  }, [models, searchQuery, selectedProvider, selectedModality]);
+
+    return filtered.sort((a, b) => {
+      if (sortKey === 'intelligence') {
+        const intelA = a.intelligenceIndex ?? -1;
+        const intelB = b.intelligenceIndex ?? -1;
+        if (intelB !== intelA) return intelB - intelA;
+        return a.daysAgo - b.daysAgo;
+      }
+      if (sortKey === 'coding') {
+        const codeA = a.codingIndex ?? -1;
+        const codeB = b.codingIndex ?? -1;
+        if (codeB !== codeA) return codeB - codeA;
+        return a.daysAgo - b.daysAgo;
+      }
+      if (sortKey === 'context') {
+        return b.contextLength - a.contextLength;
+      }
+      // 'newest' (기본): 출시일 최신순
+      return a.daysAgo - b.daysAgo;
+    });
+  }, [models, searchQuery, selectedProvider, selectedModality, sortKey]);
 
   if (!isOpen) return null;
 
@@ -91,7 +112,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
             <div>
               <h2 className="modal-title">AI 모델 선택하기</h2>
               <p className="modal-subtitle">
-                OpenRouter에서 제공하는 총 {models.length}개의 최신 무료 텍스트 모델이에요
+                OpenRouter 무료(:free) 모델 {models.length}개의 지능 점수와 지원 기능을 한눈에 비교해 보세요
               </p>
             </div>
           </div>
@@ -121,6 +142,41 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                 <X size={14} />
               </button>
             )}
+          </div>
+
+          {/* 정렬 옵션 바 */}
+          <div className="sort-tab-row">
+            <span className="filter-label">정렬 기준:</span>
+            <div className="sort-chips">
+              <button
+                type="button"
+                className={`sort-tab-btn ${sortKey === 'newest' ? 'active' : ''}`}
+                onClick={() => setSortKey('newest')}
+              >
+                최신순
+              </button>
+              <button
+                type="button"
+                className={`sort-tab-btn ${sortKey === 'intelligence' ? 'active' : ''}`}
+                onClick={() => setSortKey('intelligence')}
+              >
+                🧠 지능 높은 순
+              </button>
+              <button
+                type="button"
+                className={`sort-tab-btn ${sortKey === 'coding' ? 'active' : ''}`}
+                onClick={() => setSortKey('coding')}
+              >
+                💻 코딩 점수순
+              </button>
+              <button
+                type="button"
+                className={`sort-tab-btn ${sortKey === 'context' ? 'active' : ''}`}
+                onClick={() => setSortKey('context')}
+              >
+                📚 문맥 길이순
+              </button>
+            </div>
           </div>
 
           {/* 모달리티 필터 탭 (사진, 오디오, 비디오, 전체) */}
@@ -185,14 +241,14 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
 
         {/* 모델 카드 리스트 */}
         <div className="model-list-scroll">
-          {filteredModels.length === 0 ? (
+          {displayedModels.length === 0 ? (
             <div className="empty-models">
               <Brain size={36} color="#8b95a1" />
               <p className="empty-title">일치하는 모델이 없어요</p>
               <p className="empty-desc">검색어나 모달리티/제조사 필터를 다시 확인해 주세요</p>
             </div>
           ) : (
-            filteredModels.map((model) => {
+            displayedModels.map((model) => {
               const isSelected = model.id === selectedModelId;
               const isNew = model.daysAgo <= 14;
               const inputMods = getModelInputModalities(model);
@@ -226,6 +282,39 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
 
                   {/* 모델 특징 메타 태그들 */}
                   <div className="model-tags-row">
+                    {/* 지능 지수 (Intelligence Index) - OpenRouter 웹사이트 벤치마크 점수 */}
+                    {model.intelligenceIndex != null && (
+                      <div
+                        className="meta-pill intel-pill"
+                        title={`Artificial Analysis 지능 지수: ${model.intelligenceIndex}점`}
+                      >
+                        <Brain size={13} className="meta-icon" />
+                        <span>지능: <strong>{model.intelligenceIndex}</strong></span>
+                      </div>
+                    )}
+
+                    {/* 코딩 지수 (Coding Index) */}
+                    {model.codingIndex != null && (
+                      <div
+                        className="meta-pill coding-pill"
+                        title={`Artificial Analysis 코딩 지수: ${model.codingIndex}점`}
+                      >
+                        <Cpu size={13} className="meta-icon" />
+                        <span>코딩: <strong>{model.codingIndex}</strong></span>
+                      </div>
+                    )}
+
+                    {/* 지원 추론 노력도 (Reasoning Effort) */}
+                    {model.supportedEfforts && model.supportedEfforts.length > 0 && (
+                      <div
+                        className="meta-pill effort-pill"
+                        title={`지원 추론 노력: ${model.supportedEfforts.join(', ')}`}
+                      >
+                        <Zap size={13} className="meta-icon" />
+                        <span>노력: {model.supportedEfforts.join('·')}</span>
+                      </div>
+                    )}
+
                     {/* 모달리티 뱃지 */}
                     {inputMods.includes('image') && (
                       <span className="meta-pill modality-badge image">🖼️ 이미지</span>
@@ -246,7 +335,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                       <span>{model.daysAgo === 0 ? '오늘 출시' : `${model.daysAgo}일 전`}</span>
                     </div>
 
-                    {/* 지능 및 아키텍처 */}
+                    {/* 지능 및 아키텍처 티어 */}
                     <div className="meta-pill tier-pill">
                       <Brain size={13} className="meta-icon" />
                       <span>{model.intelligenceTier}</span>
