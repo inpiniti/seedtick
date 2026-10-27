@@ -104,6 +104,7 @@ export class ProxyService {
         defaultHeaders: {
           'HTTP-Referer': 'https://reportist.kr',
           'X-Title': 'Reportist',
+          'User-Agent': 'OpenCode/1.0.0',
         },
       })
     );

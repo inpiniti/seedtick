@@ -452,6 +452,7 @@ class AiGatewayClient:
             default_headers={
                 "HTTP-Referer": "https://reportist.kr",
                 "X-Title": "Reportist Analyzer",
+                "User-Agent": "OpenCode/1.0.0",
             },
         )
         self.cline = LLMProvider(
@@ -569,7 +570,7 @@ class AiGatewayClient:
             headers = {
                 "Content-Type": "application/json",
                 "Accept": "text/event-stream",
-                "User-Agent": "reportist-analyzer/0.2.0",
+                "User-Agent": "OpenCode/1.0.0",
                 "Authorization": f"Bearer {current_slot.key}",
                 **current_slot.default_headers,
             }
@@ -796,7 +797,7 @@ class AiGatewayClient:
                 headers = {
                     "Content-Type": "application/json",
                     "Accept": "text/event-stream",
-                    "User-Agent": "reportist-analyzer/0.2.0",
+                    "User-Agent": "OpenCode/1.0.0",
                     "Authorization": f"Bearer {current_key}",
                     **slot.default_headers,
                 }
@@ -1030,7 +1031,7 @@ class AiGatewayClient:
             headers = {
                 "Content-Type": "application/json",
                 "Accept": "text/event-stream",
-                "User-Agent": "reportist-analyzer/0.2.0",
+                "User-Agent": "OpenCode/1.0.0",
             }
             if self.secret:
                 headers["Authorization"] = f"Bearer {self.secret}"
