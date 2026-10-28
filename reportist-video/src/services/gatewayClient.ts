@@ -106,7 +106,18 @@ export async function fetchVideoCapableModels(config: GatewayConfig = DEFAULT_CO
   return FALLBACK_VIDEO_MODELS;
 }
 
-export interface AnalyzeVideoParams {
+export interface VideoAnalysisStreamCallbacks {
+  /** 스트리밍 HTTP 연결이 열린 직후 호출 */
+  onStreamOpen?: () => void;
+  /** 모델의 사고 과정(reasoning) 토큰이 도착할 때마다 호출 */
+  onReasoningDelta?: (chunk: string, fullText: string) => void;
+  /** 모델의 최종 응답(JSON) 토큰이 도착할 때마다 호출 */
+  onContentDelta?: (chunk: string, fullText: string) => void;
+  /** 스트리밍이 실패해 일반(비스트리밍) 요청으로 폴백할 때 호출 */
+  onFallback?: (reason: string) => void;
+}
+
+export interface AnalyzeVideoParams extends VideoAnalysisStreamCallbacks {
   frames: ExtractedFrame[];
   videoDuration: number;
   videoId: string;
@@ -118,6 +129,217 @@ export interface AnalyzeVideoParams {
   metadataDate?: string;
   latitude?: number;
   longitude?: number;
+}
+
+// === 스트리밍 SSE 파싱 헬퍼 =================================================
+
+interface RawStreamDelta {
+  content?: unknown;
+  reasoning?: unknown;
+  reasoning_content?: unknown;
+  reasoning_details?: unknown;
+}
+
+function extractReasoningChunk(delta: RawStreamDelta): string {
+  // OpenRouter/일부 제공사는 reasoning, reasoning_content, reasoning_details를 혼용한다.
+  const direct = delta.reasoning ?? delta.reasoning_content;
+  if (typeof direct === 'string' && direct) return direct;
+
+  if (Array.isArray(direct)) {
+    return direct
+      .map((part) => {
+        if (typeof part === 'string') return part;
+        if (part && typeof part === 'object') {
+          const p = part as Record<string, unknown>;
+          if (typeof p.text === 'string') return p.text;
+          if (typeof p.summary === 'string') return p.summary;
+        }
+        return '';
+      })
+      .join('');
+  }
+
+  if (Array.isArray(delta.reasoning_details)) {
+    return delta.reasoning_details
+      .map((part) => {
+        if (!part || typeof part !== 'object') return '';
+        const p = part as Record<string, unknown>;
+        if (typeof p.text === 'string') return p.text;
+        if (typeof p.summary === 'string') return p.summary;
+        return '';
+      })
+      .join('');
+  }
+
+  return '';
+}
+
+function extractContentChunk(delta: RawStreamDelta): string {
+  if (typeof delta.content === 'string') return delta.content;
+  if (Array.isArray(delta.content)) {
+    return delta.content
+      .map((part) => {
+        if (typeof part === 'string') return part;
+        if (part && typeof part === 'object') {
+          const p = part as Record<string, unknown>;
+          if (typeof p.text === 'string') return p.text;
+        }
+        return '';
+      })
+      .join('');
+  }
+  return '';
+}
+
+/**
+ * AI Gateway의 SSE 스트림을 읽어 사고 과정(reasoning)과 최종 JSON(content)을 누적한다.
+ * 토큰이 도착할 때마다 콜백을 호출하므로 UI에서 실시간 타이핑을 렌더링할 수 있다.
+ */
+async function requestAnalysisStream(
+  url: string,
+  config: GatewayConfig,
+  requestBody: Record<string, unknown>,
+  signal: AbortSignal | undefined,
+  callbacks: VideoAnalysisStreamCallbacks
+): Promise<{ content: string; reasoning: string }> {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+      Authorization: `Bearer ${config.gatewaySecret}`,
+    },
+    body: JSON.stringify({ ...requestBody, stream: true }),
+    signal,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`AI Gateway 스트림 실패 (${response.status}): ${errorText.slice(0, 200)}`);
+  }
+
+  if (!response.body) {
+    throw new Error('AI Gateway가 응답 스트림을 반환하지 않았어요.');
+  }
+
+  callbacks.onStreamOpen?.();
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let content = '';
+  let reasoning = '';
+  let finished = false;
+
+  const handleEventLine = (rawLine: string) => {
+    const line = rawLine.trim();
+    if (!line || line.startsWith(':') || !line.startsWith('data:')) return;
+
+    const payload = line.slice(5).trim();
+    if (!payload) return;
+
+    if (payload === '[DONE]') {
+      finished = true;
+      return;
+    }
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(payload);
+    } catch {
+      // 잘린 JSON 라인은 무시 (다음 청크에서 이어짐)
+      return;
+    }
+
+    // 스트림 내부 에러 객체 감지
+    if (parsed?.error) {
+      const message =
+        typeof parsed.error === 'string'
+          ? parsed.error
+          : parsed.error.message || JSON.stringify(parsed.error);
+      throw new Error(`AI Gateway 스트림 오류: ${message}`);
+    }
+
+    const delta = (parsed?.choices?.[0]?.delta ?? {}) as RawStreamDelta;
+
+    const reasoningChunk = extractReasoningChunk(delta);
+    if (reasoningChunk) {
+      reasoning += reasoningChunk;
+      callbacks.onReasoningDelta?.(reasoningChunk, reasoning);
+    }
+
+    const contentChunk = extractContentChunk(delta);
+    if (contentChunk) {
+      content += contentChunk;
+      callbacks.onContentDelta?.(contentChunk, content);
+    }
+  };
+
+  try {
+    while (!finished) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+
+      for (const line of lines) {
+        handleEventLine(line);
+        if (finished) break;
+      }
+    }
+
+    // [DONE] 없이 스트림이 끝난 경우 남은 버퍼 한 줄 처리
+    if (!finished && buffer.trim()) {
+      try {
+        handleEventLine(buffer);
+      } catch {
+        // 마지막 잘린 라인은 무시
+      }
+    }
+  } catch (err) {
+    try {
+      await reader.cancel();
+    } catch {
+      // ignore
+    }
+    throw err;
+  } finally {
+    try {
+      reader.releaseLock();
+    } catch {
+      // ignore
+    }
+  }
+
+  return { content, reasoning };
+}
+
+/** 스트리밍이 불가능한 경우 기존 방식(비스트리밍)으로 한 번 더 요청한다. */
+async function requestAnalysisNonStreaming(
+  url: string,
+  config: GatewayConfig,
+  requestBody: Record<string, unknown>,
+  signal: AbortSignal | undefined
+): Promise<string> {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${config.gatewaySecret}`,
+    },
+    body: JSON.stringify({ ...requestBody, stream: false }),
+    signal,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`AI Gateway 분석 실패 (${response.status}): ${errorText.slice(0, 200)}`);
+  }
+
+  const result = await response.json();
+  return result.choices?.[0]?.message?.content || '';
 }
 
 // 추출된 프레임 시퀀스를 AI Gateway로 전송하여 극적인 구간 추출
@@ -133,6 +355,10 @@ export async function analyzeVideoHighlights({
   metadataDate,
   latitude,
   longitude,
+  onStreamOpen,
+  onReasoningDelta,
+  onContentDelta,
+  onFallback,
 }: AnalyzeVideoParams): Promise<HighlightSegment[]> {
   const roundedDuration = Math.round(videoDuration * 10) / 10;
   // 하이라이트 목표 예산: 영상 전체 길이의 20%~35% (최소 2초, 최대 10초)
@@ -200,23 +426,47 @@ Format:
     requestBody.reasoning_effort = reasoningEffort;
   }
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${config.gatewaySecret}`,
-    },
-    body: JSON.stringify(requestBody),
-    signal,
-  });
+  const callbacks: VideoAnalysisStreamCallbacks = {
+    onStreamOpen,
+    onReasoningDelta,
+    onContentDelta,
+    onFallback,
+  };
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`AI Gateway 분석 실패 (${response.status}): ${errorText.slice(0, 200)}`);
+  let rawContent = '';
+  let streamedReasoning = '';
+  let streamFailure: string | null = null;
+
+  // 1) 실시간 스트리밍으로 사고 과정 + JSON 토큰 수신
+  try {
+    const streamed = await requestAnalysisStream(url, config, requestBody, signal, callbacks);
+    rawContent = streamed.content;
+    streamedReasoning = streamed.reasoning;
+
+    // 본문이 비었거나 완전한 JSON 배열이 아니면 일반 요청으로 재시도
+    if (!extractSegmentArray(rawContent)) {
+      streamFailure = rawContent.trim()
+        ? '스트림 응답이 완전한 JSON 배열이 아니에요.'
+        : '스트림 응답 본문이 비어 있어요.';
+    }
+  } catch (err) {
+    if (signal?.aborted) throw err;
+    streamFailure = err instanceof Error ? err.message : '스트림 연결에 실패했어요.';
   }
 
-  const result = await response.json();
-  const rawContent = result.choices?.[0]?.message?.content || '';
+  // 2) 스트림이 실패한 경우 기존 비스트리밍 방식으로 폴백
+  if (streamFailure && !signal?.aborted) {
+    onFallback?.(streamFailure);
+    rawContent = await requestAnalysisNonStreaming(url, config, requestBody, signal);
+  }
+
+  if (!rawContent.trim()) {
+    throw new Error(
+      streamedReasoning.trim()
+        ? '모델이 사고 과정만 생성하고 최종 하이라이트 JSON을 만들지 못했어요. 추론 노력을 낮추거나 다른 모델을 선택해 주세요.'
+        : 'AI 모델이 빈 응답을 반환했어요. 다른 모델을 선택하거나 잠시 후 다시 시도해 주세요.'
+    );
+  }
 
   // JSON 파싱 및 구간 검증
   return parseAndValidateSegments(
@@ -230,6 +480,36 @@ Format:
   );
 }
 
+type RawSegmentItem = {
+  start: number;
+  end: number;
+  reason?: string;
+  cropPosition?: 'top' | 'center' | 'bottom' | string;
+};
+
+// LLM 응답에서 JSON 배열만 안전하게 추출 (파싱 실패 시 null)
+export function extractSegmentArray(rawText: string): RawSegmentItem[] | null {
+  if (!rawText || !rawText.trim()) return null;
+
+  try {
+    const parsed = JSON.parse(rawText);
+    if (Array.isArray(parsed)) return parsed as RawSegmentItem[];
+  } catch {
+    // 마크다운 코드블록 또는 텍스트 내 JSON 배열 정규식 추출로 이어짐
+  }
+
+  const match = rawText.match(/\[\s*\{[\s\S]*\}\s*\]/);
+  if (!match) return null;
+
+  try {
+    const parsed = JSON.parse(match[0]);
+    return Array.isArray(parsed) ? (parsed as RawSegmentItem[]) : null;
+  } catch (err) {
+    console.warn('[GatewayClient] JSON 배열 파싱 실패:', err);
+    return null;
+  }
+}
+
 // LLM 텍스트 응답에서 JSON 배열 추출 및 엄격한 구간 정제
 export function parseAndValidateSegments(
   rawText: string,
@@ -240,27 +520,7 @@ export function parseAndValidateSegments(
   latitude?: number,
   longitude?: number
 ): HighlightSegment[] {
-  let parsed: Array<{
-    start: number;
-    end: number;
-    reason?: string;
-    cropPosition?: 'top' | 'center' | 'bottom' | string;
-  }> = [];
-
-  try {
-    // 1. 순수 JSON 파싱 시도
-    parsed = JSON.parse(rawText);
-  } catch {
-    // 2. 마크다운 코드블록 또는 텍스트 내 JSON 배열 정규식 추출
-    const match = rawText.match(/\[\s*\{[\s\S]*\}\s*\]/);
-    if (match) {
-      try {
-        parsed = JSON.parse(match[0]);
-      } catch (e) {
-        console.warn('[GatewayClient] 정규식 JSON 파싱 실패:', e);
-      }
-    }
-  }
+  const parsed: RawSegmentItem[] = extractSegmentArray(rawText) ?? [];
 
   const validSegments: HighlightSegment[] = [];
 

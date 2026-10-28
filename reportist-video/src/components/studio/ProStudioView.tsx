@@ -130,6 +130,21 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [mapModalTarget, setMapModalTarget] = useState<HighlightSegment | null>(null);
   const consoleScrollRef = useRef<HTMLDivElement>(null);
 
+  // 처리 경과 시간 (멈춰있는 느낌 방지용 실시간 타이머)
+  const [processingElapsed, setProcessingElapsed] = useState(0);
+  useEffect(() => {
+    if (!isProcessing) {
+      setProcessingElapsed(0);
+      return;
+    }
+    const startedAt = Date.now();
+    setProcessingElapsed(0);
+    const timer = window.setInterval(() => {
+      setProcessingElapsed(Math.floor((Date.now() - startedAt) / 1000));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [isProcessing]);
+
   // 5. 자막 & 브랜딩 오버레이 상태 (영상 실제 촬영일자 기반)
   const initialDateStr = useMemo(() => {
     if (videos.length > 0 && videos[0].metadataDate) {
@@ -173,12 +188,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   }, [videos]);
 
-  // AI 추론 콘솔 자동 스크롤
+  // AI 추론 콘솔 자동 스크롤 (파이프라인 로그 + 실시간 스트리밍 텍스트)
   useEffect(() => {
     if (consoleScrollRef.current) {
       consoleScrollRef.current.scrollTop = consoleScrollRef.current.scrollHeight;
     }
-  }, [progress.reasoningLogs]);
+  }, [progress.reasoningLogs, progress.liveReasoning, progress.liveContent]);
 
   const handleCustomAudioSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -1514,6 +1529,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     : progress.currentPhase === 'stitch'
                     ? '16:9 무손실 병합 중'
                     : '진행 중'}
+                  {` · ${processingElapsed}s`}
                 </span>
               </div>
               <div className="toss-modal-reasoning-console" ref={consoleScrollRef}>
@@ -1528,6 +1544,34 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     AI 모델 및 영상 프레임 시퀀스 준비 중...
                   </div>
                 )}
+
+                {/* 실제 모델의 사고 과정/응답 스트림 (토큰 단위 실시간 렌더링) */}
+                {(() => {
+                  const reasoningText = (progress.liveReasoning || '').trim();
+                  const contentText = (progress.liveContent || '').trim();
+                  const liveText = reasoningText ? progress.liveReasoning || '' : contentText ? progress.liveContent || '' : '';
+                  if (!liveText) {
+                    return progress.currentPhase === 'analyze' ? (
+                      <div className="toss-reasoning-waiting">
+                        <span className="toss-live-caret" />
+                        <span>모델이 첫 토큰을 생성할 때까지 대기 중... (프레임 전송 완료)</span>
+                      </div>
+                    ) : null;
+                  }
+
+                  return (
+                    <div className={`toss-live-reasoning-block ${reasoningText ? 'is-reasoning' : 'is-content'}`}>
+                      <div className="toss-live-reasoning-label">
+                        <span>{reasoningText ? '💭 모델 사고 과정 (실시간)' : '⌨️ 모델 응답 생성 중 (실시간)'}</span>
+                        <span className="toss-live-reasoning-count">{liveText.length.toLocaleString()}자</span>
+                      </div>
+                      <div className="toss-live-reasoning-text">
+                        {liveText}
+                        <span className="toss-live-caret" />
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 

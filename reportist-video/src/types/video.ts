@@ -71,6 +71,9 @@ export interface ProcessingProgress {
   statusMessage: string;
   error?: string;
   reasoningLogs?: string[];
+  // AI 모델의 실시간 스트리밍 추론/응답 (콘솔에 생생하게 표시)
+  liveReasoning?: string;
+  liveContent?: string;
 }
 
 export interface FinalVideoResult {

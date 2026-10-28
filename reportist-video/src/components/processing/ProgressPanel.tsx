@@ -56,7 +56,7 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
   // 새 로그 추가 시 자동 스크롤
   useEffect(() => {
     terminalEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [progress.reasoningLogs]);
+  }, [progress.reasoningLogs, progress.liveReasoning, progress.liveContent]);
 
   const getPhaseStepClass = (targetPhase: 'extract' | 'compress' | 'analyze' | 'stitch') => {
     const normalizedCurrent = progress.currentPhase === 'extract' ? 'compress' : progress.currentPhase;
@@ -267,6 +267,36 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
               );
             })
           )}
+
+          {(() => {
+            const liveText = (progress.liveReasoning || '').trim()
+              ? progress.liveReasoning || ''
+              : (progress.liveContent || '').trim()
+              ? progress.liveContent || ''
+              : '';
+            if (!liveText) {
+              return progress.currentPhase === 'analyze' ? (
+                <div className="toss-reasoning-waiting">
+                  <span className="toss-live-caret" />
+                  <span>모델이 첫 토큰을 생성할 때까지 대기 중...</span>
+                </div>
+              ) : null;
+            }
+            const isReasoning = Boolean((progress.liveReasoning || '').trim());
+            return (
+              <div className={`toss-live-reasoning-block ${isReasoning ? 'is-reasoning' : 'is-content'}`}>
+                <div className="toss-live-reasoning-label">
+                  <span>{isReasoning ? '💭 모델 사고 과정 (실시간)' : '⌨️ 모델 응답 생성 중 (실시간)'}</span>
+                  <span className="toss-live-reasoning-count">{liveText.length.toLocaleString()}자</span>
+                </div>
+                <div className="toss-live-reasoning-text">
+                  {liveText}
+                  <span className="toss-live-caret" />
+                </div>
+              </div>
+            );
+          })()}
+
           <div ref={terminalEndRef} />
         </div>
       </div>

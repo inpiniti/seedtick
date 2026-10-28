@@ -193,6 +193,44 @@ export function App() {
       }));
     };
 
+    // 실시간 추론 스트림 버퍼: 토큰마다 리렌더링하지 않고 100ms 단위로 UI에 반영
+    let liveReasoning = '';
+    let liveContent = '';
+    let liveFlushTimer: number | null = null;
+
+    const flushLiveStream = () => {
+      if (liveFlushTimer !== null) {
+        window.clearTimeout(liveFlushTimer);
+        liveFlushTimer = null;
+      }
+      setProgress((prev) => ({
+        ...prev,
+        liveReasoning,
+        liveContent,
+      }));
+    };
+
+    const scheduleLiveStreamFlush = () => {
+      if (liveFlushTimer !== null) return;
+      liveFlushTimer = window.setTimeout(() => {
+        liveFlushTimer = null;
+        setProgress((prev) => ({
+          ...prev,
+          liveReasoning,
+          liveContent,
+        }));
+      }, 100);
+    };
+
+    const resetLiveStream = () => {
+      liveReasoning = '';
+      liveContent = '';
+      if (liveFlushTimer !== null) {
+        window.clearTimeout(liveFlushTimer);
+        liveFlushTimer = null;
+      }
+    };
+
     addLog(`🚀 AI 극적 장면 탐색 파이프라인 시작 (총 ${totalVideos}개 영상, 16:9 유튜브 규격)`);
 
     try {
@@ -209,6 +247,7 @@ export function App() {
         }
 
         // 1-A. 브라우저 캔버스 주요 프레임 다중 이미지 추출
+        resetLiveStream();
         setProgress({
           step: 'processing',
           currentPhase: 'extract',
@@ -236,6 +275,9 @@ export function App() {
 
         addLog(`🧠 [${currentVideo.name}] 프레임 추출 완료. AI 모델(${selectedModel.replace(':free', '')})로 시각 시퀀스 전달`);
 
+        // 새 영상 분석 시작 전 이전 영상의 실시간 추론 텍스트 초기화
+        resetLiveStream();
+
         // 1-B. AI Gateway로 시각 프레임 분석 전송 (극적 구간 JSON 요청)
         setProgress({
           step: 'processing',
@@ -259,7 +301,38 @@ export function App() {
           metadataDate: currentVideo.metadataDate,
           latitude: currentVideo.latitude,
           longitude: currentVideo.longitude,
+          onStreamOpen: () => {
+            addLog(`🔌 [${currentVideo.name}] AI 추론 스트림 연결됨 · 첫 토큰 대기 중`);
+          },
+          onReasoningDelta: (_chunk, fullText) => {
+            if (!liveReasoning) {
+              addLog(`💭 [${currentVideo.name}] 모델 사고 과정 실시간 수신 시작`);
+              setProgress((prev) => ({
+                ...prev,
+                statusMessage: `${i + 1}/${totalVideos}번째 영상 [${currentVideo.name}] 실시간 추론 중...`,
+              }));
+            }
+            liveReasoning = fullText;
+            scheduleLiveStreamFlush();
+          },
+          onContentDelta: (_chunk, fullText) => {
+            if (!liveContent) {
+              addLog(`📝 [${currentVideo.name}] 하이라이트 구간 JSON 생성 시작`);
+            }
+            liveContent = fullText;
+            scheduleLiveStreamFlush();
+          },
+          onFallback: (reason) => {
+            console.warn(`[Video] 스트림 폴백 (${currentVideo.name}):`, reason);
+            addLog(`⚠️ [${currentVideo.name}] 실시간 스트림 실패 → 일반 모드로 자동 재시도`);
+          },
         });
+
+        // 스트리밍 중 마지막 버퍼까지 콘솔에 반영
+        flushLiveStream();
+        if (liveReasoning) {
+          addLog(`🧠 [${currentVideo.name}] 실시간 추론 완료 (${liveReasoning.length.toLocaleString()}자)`);
+        }
 
         currentVideo.segments = segments;
         currentVideo.status = 'analyzed';
@@ -316,6 +389,10 @@ export function App() {
       setFinalResult(result);
       setCurrentStep('result');
     } catch (err: unknown) {
+      if (liveFlushTimer !== null) {
+        window.clearTimeout(liveFlushTimer);
+        liveFlushTimer = null;
+      }
       if (signal.aborted) {
         console.info('사용자에 의해 작업이 취소되었습니다.');
         setCurrentStep('upload');
