@@ -193,6 +193,12 @@ export function App() {
 
         const currentVideo = updatedVideos[i];
 
+        // 이미 분석된 구간이 있는 경우 중복 추출/추론 건너뛰기
+        if (currentVideo.status === 'analyzed' && currentVideo.segments && currentVideo.segments.length > 0) {
+          addLog(`⚡ [${currentVideo.name}] 기존 분석된 ${currentVideo.segments.length}개 극적 구간 재사용`);
+          continue;
+        }
+
         // 1-A. 브라우저 캔버스 주요 프레임 다중 이미지 추출
         setProgress({
           step: 'processing',

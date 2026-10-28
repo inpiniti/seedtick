@@ -95,42 +95,67 @@ export async function stitchHighlightedSegments({
 
   // 워커 비디오 엘리먼트 준비
   const videoElem = document.createElement('video');
-  videoElem.muted = true; // 브라우저 자동재생 정책 방어
+  videoElem.muted = true; // 브라우저 자동재생 정책 방어 (사용자 제스처 만료 시에도 항상 재생 허용)
+  videoElem.volume = 0;
   videoElem.playsInline = true;
-  videoElem.crossOrigin = 'anonymous';
 
-  // 오디오 소스 연결
+  // 오디오 소스 연결 (지원되는 경우)
   if (audioCtx && audioDest) {
     try {
       const audioSourceNode = audioCtx.createMediaElementSource(videoElem);
       audioSourceNode.connect(audioDest);
     } catch (e) {
-      console.warn('[VideoStitcher] AudioElementSource 연결 실패:', e);
+      console.warn('[VideoStitcher] AudioElementSource 연결 실패 (무음 처리):', e);
     }
   }
 
   let recorderStarted = false;
 
-  // 16:9 캔버스에 비디오 프레임을 스마트 커버 크롭(인물 상체/얼굴 포커스)하여 그리는 헬퍼
-  const drawCoverFrame = () => {
-    const srcW = videoElem.videoWidth || targetWidth;
-    const srcH = videoElem.videoHeight || targetHeight;
+  // 16:9 캔버스(1280x720)에 원본 영상을 소스 영역 스마트 크롭으로 100% 꽉 채워 그림
+  // (음수 대상 좌표나 우측 검은 여백 버그를 원천 방지하고 정중앙/인물 상반신 완벽 정렬)
+  const drawCoverFrame = (vItem?: VideoItem) => {
+    const vW = videoElem.videoWidth || vItem?.width || targetWidth;
+    const vH = videoElem.videoHeight || vItem?.height || targetHeight;
 
-    // 16:9 비율을 꽉 채우기 위한 스케일 계산 (검은 여백 제거)
-    const scale = Math.max(targetWidth / srcW, targetHeight / srcH);
-    const renderW = srcW * scale;
-    const renderH = srcH * scale;
+    const targetAspect = targetWidth / targetHeight; // 1280 / 720 = 16:9 (~1.777778)
+    const srcAspect = vW / vH;
 
-    const offsetX = (targetWidth - renderW) / 2;
-    let offsetY = (targetHeight - renderH) / 2;
+    let sx = 0;
+    let sy = 0;
+    let sWidth = vW;
+    let sHeight = vH;
 
-    // 세로 영상(9:16 등)인 경우 인물의 얼굴/상체 보호를 위해 상단 35% 포커스로 위아래 크롭
-    if (srcH > srcW) {
-      const excessHeight = renderH - targetHeight;
-      offsetY = -excessHeight * 0.35;
+    if (srcAspect > targetAspect) {
+      // 1) 16:9보다 좌우로 더 넓은 영상 (예: 21:9 시네마틱 뷰, 1920x800)
+      // 높이를 꽉 채우고, 좌우 초과 영역을 중앙에서 균등하게 잘라냄
+      sHeight = vH;
+      sWidth = Math.round(vH * targetAspect);
+      sx = Math.round((vW - sWidth) / 2);
+      sy = 0;
+    } else if (srcAspect < targetAspect) {
+      // 2) 16:9보다 세로로 길쭉한 영상 (예: 9:16 쇼츠/릴스, 4:3)
+      // 너비를 꽉 채우고, 상하 초과 영역을 잘라냄
+      sWidth = vW;
+      sHeight = Math.round(vW / targetAspect);
+      sx = 0;
+
+      if (vH > vW) {
+        // 세로 영상(9:16)은 인물의 얼굴과 상체가 주로 위쪽에 위치하므로
+        // 상단 25% 지점 중심 스마트 편향 크롭 (인물 머리 잘림 방지)
+        const excessHeight = vH - sHeight;
+        sy = Math.round(excessHeight * 0.25);
+      } else {
+        // 4:3 등 일반 가로 영상은 상하 중앙 정렬
+        sy = Math.round((vH - sHeight) / 2);
+      }
     }
 
-    ctx.drawImage(videoElem, 0, 0, srcW, srcH, offsetX, offsetY, renderW, renderH);
+    // 소스 좌표 범위 안전 클램핑
+    sx = Math.max(0, Math.min(sx, Math.max(0, vW - sWidth)));
+    sy = Math.max(0, Math.min(sy, Math.max(0, vH - sHeight)));
+
+    // 대상 캔버스는 항상 (0, 0, 1280, 720) 전체를 정확하게 채움
+    ctx.drawImage(videoElem, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
   };
 
   try {
@@ -169,31 +194,44 @@ export async function stitchHighlightedSegments({
       }
 
       // 2. 지정된 구간 시작 위치로 시크 대기
-      await new Promise<void>((resolve) => {
-        let timeout: ReturnType<typeof setTimeout> | null = setTimeout(() => {
-          resolve();
-        }, 1500);
+      if (Math.abs(videoElem.currentTime - segment.start) > 0.05) {
+        await new Promise<void>((resolve) => {
+          let timeout: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+            resolve();
+          }, 1200);
 
-        videoElem.onseeked = () => {
-          if (timeout) clearTimeout(timeout);
-          resolve();
-        };
-        videoElem.currentTime = segment.start;
-      });
-
-      // 시크 완료 후 첫 프레임을 캔버스에 미리 그려놓기
-      drawCoverFrame();
-
-      // 오디오 컨텍스트 재개
-      if (audioCtx && audioCtx.state === 'suspended') {
-        await audioCtx.resume();
+          const onSeeked = () => {
+            if (timeout) clearTimeout(timeout);
+            videoElem.removeEventListener('seeked', onSeeked);
+            resolve();
+          };
+          videoElem.addEventListener('seeked', onSeeked);
+          videoElem.currentTime = segment.start;
+        });
       }
 
-      // 3. 비디오 재생 시작
-      await videoElem.play();
+      // 시크 완료 후 첫 프레임을 캔버스에 미리 그려놓기
+      drawCoverFrame(videoItem);
+
+      // 오디오 컨텍스트 재개 (실패하더라도 전체 영상 병합이 중단되지 않도록 보호)
+      if (audioCtx && audioCtx.state === 'suspended') {
+        try {
+          await audioCtx.resume();
+        } catch {
+          // 브라우저 자동재생 제약 시 조용히 통과
+        }
+      }
+
+      // 3. 비디오 재생 시작 (무음 강제로 언제나 안전하게 재생 보장)
+      try {
+        await videoElem.play();
+      } catch (playErr) {
+        console.warn('[VideoStitcher] 비디오 재생 재시도:', playErr);
+        videoElem.muted = true;
+        await videoElem.play();
+      }
 
       // ★ [핵심 버그 수정]: 영상이 '실제로 재생을 시작한 순간'에만 레코더를 시작/재개!
-      // 시크나 소스 로딩 중 발생하는 지연 시간이 녹화 영상에 멈춤 화면으로 뻥튀기되는 현상 완벽 방지
       if (!recorderStarted) {
         recorder.start(100);
         recorderStarted = true;
@@ -216,8 +254,8 @@ export async function stitchHighlightedSegments({
             return;
           }
 
-          // 16:9 프레임 그리기
-          drawCoverFrame();
+          // 16:9 프레임 그리기 (소스 스마트 크롭)
+          drawCoverFrame(videoItem);
 
           // 진행률 실시간 반영
           const clipElapsed = Math.max(0, videoElem.currentTime - segment.start);

@@ -14,9 +14,29 @@ import {
 } from 'lucide-react';
 import type { ProcessingProgress, VideoItem } from '../../types/video.ts';
 
-const YoutubeIcon: React.FC<{ className?: string }> = ({ className = 'w-3.5 h-3.5' }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+const YoutubeIcon: React.FC<{ size?: number; className?: string }> = ({
+  size = 15,
+  className = 'youtube-badge-icon',
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="#ef4444"
+    className={className}
+    style={{
+      width: size,
+      height: size,
+      minWidth: size,
+      minHeight: size,
+      maxWidth: size,
+      maxHeight: size,
+      display: 'inline-block',
+      verticalAlign: 'middle',
+      flexShrink: 0,
+    }}
+  >
+    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
   </svg>
 );
 
@@ -142,7 +162,7 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
               <span>{currentVideo.width}x{currentVideo.height}</span>
               <span>•</span>
               <span className="text-blue-600 font-semibold flex items-center gap-1">
-                <YoutubeIcon className="w-3.5 h-3.5 text-red-500" />
+                <YoutubeIcon size={14} />
                 16:9 커버 크롭 예정
               </span>
             </div>
@@ -226,16 +246,26 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
 
         <div className="reasoning-body">
           {(!progress.reasoningLogs || progress.reasoningLogs.length === 0) ? (
-            <div className="text-xs font-mono text-slate-500 italic py-2">
+            <div className="text-xs font-mono text-slate-400 italic py-2">
               AI 비전 모델 초기화 및 프레임 시퀀스 수신 대기 중...
             </div>
           ) : (
-            progress.reasoningLogs.map((log, idx) => (
-              <div key={idx} className="reasoning-log-line">
-                <span className="text-slate-500 mr-2">&gt;</span>
-                <span className="text-slate-200">{log}</span>
-              </div>
-            ))
+            progress.reasoningLogs.map((log, idx) => {
+              const timeMatch = log.match(/^(\[\d{2}:\d{2}:\d{2}\])\s*(.*)$/);
+              return (
+                <div key={idx} className="reasoning-log-line">
+                  <span className="reasoning-prompt-sym">&gt;</span>
+                  {timeMatch ? (
+                    <>
+                      <span className="reasoning-time-tag">{timeMatch[1]}</span>
+                      <span className="reasoning-log-content">{timeMatch[2]}</span>
+                    </>
+                  ) : (
+                    <span className="reasoning-log-content">{log}</span>
+                  )}
+                </div>
+              );
+            })
           )}
           <div ref={terminalEndRef} />
         </div>
