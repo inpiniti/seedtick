@@ -28,13 +28,38 @@ import {
   Clock,
   ArrowLeft,
   Settings2,
+  Upload,
+  Plus,
+  X,
+  Terminal,
+  Activity,
+  ChevronDown,
 } from 'lucide-react';
-import type { FinalVideoResult, HighlightSegment, VideoItem, BgmPreset } from '../../types/video.ts';
+import type {
+  FinalVideoResult,
+  HighlightSegment,
+  VideoItem,
+  BgmPreset,
+  ProcessingProgress,
+} from '../../types/video.ts';
+import type { FreeModelMeta, ReasoningEffortOption } from '../../types/gateway.ts';
 import { BGM_PRESETS, playBgmSynthLoop } from '../../services/audioSynth.ts';
 
 interface ProStudioViewProps {
-  result: FinalVideoResult;
+  result: FinalVideoResult | null;
   videos: VideoItem[];
+  models: FreeModelMeta[];
+  selectedModel: string;
+  onSelectModel: (model: string) => void;
+  selectedEffort: ReasoningEffortOption;
+  onSelectEffort: (effort: ReasoningEffortOption) => void;
+  isLoadingModels: boolean;
+  onFilesSelected: (files: File[]) => void;
+  onRemoveVideo: (id: string) => void;
+  onStartAiAnalysis: () => void;
+  isProcessing: boolean;
+  progress: ProcessingProgress;
+  onCancelProcessing: () => void;
   onReset: () => void;
   onReStitch: (
     updatedSegments: HighlightSegment[],
@@ -60,24 +85,57 @@ const YoutubeBadgeIcon: React.FC = () => (
 export const ProStudioView: React.FC<ProStudioViewProps> = ({
   result,
   videos,
+  models,
+  selectedModel,
+  onSelectModel,
+  selectedEffort,
+  onSelectEffort,
+  isLoadingModels,
+  onFilesSelected,
+  onRemoveVideo,
+  onStartAiAnalysis,
+  isProcessing,
+  progress,
+  onCancelProcessing,
   onReset,
   onReStitch,
   isReStitching,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const timelineTrackRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const terminalEndRef = useRef<HTMLDivElement>(null);
 
   // 1. 에디터 타임라인 상태
-  const [segments, setSegments] = useState<HighlightSegment[]>(result.segments);
+  const initialSegments = useMemo(() => {
+    if (result?.segments && result.segments.length > 0) {
+      return result.segments;
+    }
+    // 결과가 아직 없더라도 업로드된 비디오에서 추출된 세그먼트가 있으면 사용
+    const extracted = videos.flatMap((v) => v.segments);
+    if (extracted.length > 0) return extracted;
+    // 세그먼트가 아직 없으면 각 비디오의 첫 5초를 임시 타임라인 클립으로 표시
+    return videos.map((v, idx) => ({
+      id: `temp_seg_${v.id}`,
+      sourceVideoId: v.id,
+      sourceVideoName: v.name,
+      start: 0,
+      end: Math.min(v.duration || 5, 5),
+      duration: Math.min(v.duration || 5, 5),
+      reason: `클립 #${idx + 1} 원본`,
+    }));
+  }, [result, videos]);
+
+  const [segments, setSegments] = useState<HighlightSegment[]>(initialSegments);
   const [selectedSegmentId, setSelectedSegmentId] = useState<string>(
-    result.segments[0]?.id || ''
+    initialSegments[0]?.id || ''
   );
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [volume, setVolume] = useState<number>(1.0);
-  const [timelineZoom, setTimelineZoom] = useState<number>(1.0); // 1.0 ~ 3.0
-  const [activeLeftTab, setActiveLeftTab] = useState<'clips' | 'bgm'>('clips');
+  const [timelineZoom, setTimelineZoom] = useState<number>(1.0);
+  const [activeLeftTab, setActiveLeftTab] = useState<'media' | 'bgm'>('media');
 
   // 2. BGM 오디오 상태
   const [selectedBgmId, setSelectedBgmId] = useState<string>('acoustic');
@@ -85,22 +143,34 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [previewingBgmId, setPreviewingBgmId] = useState<string | null>(null);
   const bgmPreviewControllerRef = useRef<{ stop: () => void } | null>(null);
 
-  // 상위 결과 갱신 동기화
+  // 결과나 비디오 갱신 시 타임라인 동기화
   useEffect(() => {
-    setSegments(result.segments);
-    if (result.segments[0]) {
-      setSelectedSegmentId(result.segments[0].id);
+    if (result?.segments && result.segments.length > 0) {
+      setSegments(result.segments);
+      if (!selectedSegmentId || !result.segments.some((s) => s.id === selectedSegmentId)) {
+        setSelectedSegmentId(result.segments[0].id);
+      }
+    } else if (videos.length > 0 && segments.length === 0) {
+      const fallback = videos.map((v, idx) => ({
+        id: `temp_seg_${v.id}`,
+        sourceVideoId: v.id,
+        sourceVideoName: v.name,
+        start: 0,
+        end: Math.min(v.duration || 5, 5),
+        duration: Math.min(v.duration || 5, 5),
+        reason: `클립 #${idx + 1}`,
+      }));
+      setSegments(fallback);
+      setSelectedSegmentId(fallback[0]?.id || '');
     }
-  }, [result]);
+  }, [result, videos]);
 
   // 비디오 재생 시간 추적
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
 
-    const onTimeUpdate = () => {
-      setCurrentTime(v.currentTime);
-    };
+    const onTimeUpdate = () => setCurrentTime(v.currentTime);
     const onPlay = () => setIsPlaying(true);
     const onPause = () => setIsPlaying(false);
     const onEnded = () => setIsPlaying(false);
@@ -117,6 +187,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       v.removeEventListener('ended', onEnded);
     };
   }, []);
+
+  // 로그 스크롤
+  useEffect(() => {
+    if (isProcessing) {
+      terminalEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [progress.reasoningLogs, isProcessing]);
 
   // 총 하이라이트 길이 계산
   const totalDuration = useMemo(() => {
@@ -135,7 +212,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     return map;
   }, [videos]);
 
-  // 구간별 누적 시작 시간 맵 (타임라인 상의 위치 계산)
+  // 타임라인 내 누적 시작 시간 맵
   const segmentTimelineOffsets = useMemo(() => {
     let acc = 0;
     const offsets: Record<string, { startOffset: number; endOffset: number }> = {};
@@ -149,7 +226,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     return offsets;
   }, [segments]);
 
-  // 타임라인 내 특정 세그먼트로 이동
+  // 클립 선택
   const handleSelectSegment = (segId: string) => {
     setSelectedSegmentId(segId);
     const offset = segmentTimelineOffsets[segId];
@@ -231,7 +308,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     );
   };
 
-  // 클립 세로 크롭 위치 조정 (0.0: 상단 ~ 0.5: 중앙 ~ 1.0: 하단)
+  // 클립 세로 크롭 위치 조정
   const handleClipCropOffsetChange = (segId: string, ratio: number) => {
     setSegments((prev) =>
       prev.map((s) => (s.id === segId ? { ...s, cropOffsetYRatio: ratio } : s))
@@ -298,8 +375,25 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     onReStitch(segments, selectedBgmId, bgmVolume);
   };
 
+  // 파일 입력 트리거
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      onFilesSelected(Array.from(e.target.files));
+      e.target.value = '';
+    }
+  };
+
+  // 드래그 앤 드롭
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      onFilesSelected(Array.from(e.dataTransfer.files));
+    }
+  };
+
   // 다운로드
   const handleDownload = () => {
+    if (!result?.url) return;
     const a = document.createElement('a');
     a.href = result.url;
     a.download = `reportist_highlight_16x9_${Date.now()}.webm`;
@@ -316,45 +410,89 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${ms}`;
   };
 
-  // 타임라인 플레이헤드 위치 (%)
   const playheadPercent = Math.min(100, Math.max(0, (currentTime / (totalDuration || 1)) * 100));
 
   return (
-    <div className="pro-studio-container">
-      {/* 1. 상단 프로 스튜디오 네비게이션 헤더 (Remotion Studio 스타일) */}
+    <div className="pro-studio-container" onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept="video/*"
+        className="hidden"
+        style={{ display: 'none' }}
+        onChange={handleFileInputChange}
+      />
+
+      {/* 1. 상단 프로 스튜디오 네비게이션 헤더 */}
       <header className="pro-studio-header">
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            className="pro-studio-back-btn"
-            onClick={onReset}
-            title="새 프로젝트 만들기"
-          >
-            <ArrowLeft size={16} />
-            <span>새 프로젝트</span>
-          </button>
-          <div className="h-4 w-px bg-slate-700" />
-          <div className="flex items-center gap-2 text-xs font-mono">
-            <span className="text-slate-400">PROJECT /</span>
-            <span className="text-white font-bold">16:9 유튜브 하이라이트</span>
-            <span className="studio-spec-badge">
-              <YoutubeBadgeIcon />
-              1280x720 HD • 30fps
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-xs shadow-md shadow-blue-500/20">
+              RV
+            </div>
+            <span className="text-white font-bold text-sm tracking-tight">Reportist Studio</span>
+            <span className="text-[10px] font-mono font-bold text-blue-400 bg-blue-950/80 px-2 py-0.5 rounded border border-blue-800/80">
+              PRO NLE
             </span>
+          </div>
+
+          <div className="h-4 w-px bg-slate-800" />
+
+          {/* AI 모델 선택 콤보박스 */}
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-mono text-slate-400">AI MODEL:</span>
+            <select
+              value={selectedModel}
+              onChange={(e) => onSelectModel(e.target.value)}
+              disabled={isProcessing || isLoadingModels}
+              className="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-md px-2 py-1 font-mono focus:outline-none focus:border-blue-500"
+            >
+              {models.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name} {m.id.includes(':free') ? '(무료)' : ''}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
-        {/* 우측 렌더링 및 다운로드 액션 */}
+        {/* 우측 액션: AI 분석 & 렌더링 */}
         <div className="flex items-center gap-2.5">
           <button
             type="button"
             className="pro-studio-btn-sub"
-            onClick={handleDownload}
-            title="현재 완성된 영상 다운로드"
+            onClick={() => fileInputRef.current?.click()}
+            title="새 비디오 파일 추가"
           >
-            <Download size={14} />
-            <span>다운로드 ({(result.fileSize / (1024 * 1024)).toFixed(1)}MB)</span>
+            <Plus size={14} />
+            <span>미디어 추가</span>
           </button>
+
+          {/* AI 하이라이트 자동 추출 버튼 */}
+          <button
+            type="button"
+            className="pro-studio-btn-ai"
+            onClick={onStartAiAnalysis}
+            disabled={isProcessing || videos.length === 0}
+            title="AI가 영상의 극적 장면을 자동 감지하여 타임라인에 배치합니다"
+          >
+            <Sparkles size={14} className={isProcessing ? 'animate-spin' : 'text-amber-400'} />
+            <span>{isProcessing ? 'AI 장면 분석 중...' : '✨ AI 하이라이트 자동 컷'}</span>
+          </button>
+
+          {/* 렌더링 / 다운로드 버튼 */}
+          {result?.url && (
+            <button
+              type="button"
+              className="pro-studio-btn-sub"
+              onClick={handleDownload}
+              title="완성된 영상 다운로드"
+            >
+              <Download size={14} />
+              <span>다운로드 ({(result.fileSize / (1024 * 1024)).toFixed(1)}MB)</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -362,26 +500,24 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             onClick={handleTriggerReStitch}
             disabled={isReStitching || segments.length === 0}
           >
-            <Sparkles size={14} className={isReStitching ? 'animate-spin' : ''} />
-            <span>
-              {isReStitching ? '고화질 렌더링 중...' : '🚀 타임라인 반영 렌더링 (Render)'}
-            </span>
+            <Layers size={14} />
+            <span>{isReStitching ? '렌더링 중...' : '🚀 영상 렌더링 (Render)'}</span>
           </button>
         </div>
       </header>
 
       {/* 2. 메인 워크스페이스 (좌측 에셋 + 중앙 16:9 캔버스 + 우측 인스펙터) */}
       <div className="pro-studio-workspace">
-        {/* 2-A. 좌측 패널 (AI 클립 목록 & BGM 사운드트랙) */}
+        {/* 2-A. 좌측 패널 (미디어 라이브러리 & BGM 사운드트랙) */}
         <aside className="pro-studio-left-panel">
           <div className="pro-studio-tab-bar">
             <button
               type="button"
-              className={`pro-studio-tab-btn ${activeLeftTab === 'clips' ? 'active' : ''}`}
-              onClick={() => setActiveLeftTab('clips')}
+              className={`pro-studio-tab-btn ${activeLeftTab === 'media' ? 'active' : ''}`}
+              onClick={() => setActiveLeftTab('media')}
             >
               <Film size={14} />
-              <span>AI 클립 ({segments.length})</span>
+              <span>미디어 & 클립 ({videos.length})</span>
             </button>
             <button
               type="button"
@@ -394,41 +530,114 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           </div>
 
           <div className="pro-studio-panel-content">
-            {activeLeftTab === 'clips' && (
-              <div className="clip-asset-list">
-                {segments.map((seg, idx) => {
-                  const vItem = videoMap.get(seg.sourceVideoId);
-                  const isSelected = seg.id === selectedSegmentId;
-                  return (
-                    <div
-                      key={seg.id}
-                      className={`clip-asset-card ${isSelected ? 'selected' : ''}`}
-                      onClick={() => handleSelectSegment(seg.id)}
-                    >
-                      <div className="clip-asset-thumb-box">
-                        {vItem?.thumbnailUrl ? (
-                          <img src={vItem.thumbnailUrl} alt={seg.sourceVideoName} className="clip-asset-thumb" />
-                        ) : (
-                          <Film size={18} className="text-slate-500" />
-                        )}
-                        <span className="clip-asset-dur-tag">{seg.duration.toFixed(1)}s</span>
-                      </div>
+            {activeLeftTab === 'media' && (
+              <div className="media-tab-content">
+                {/* 미디어 가져오기 빠른 드롭존 */}
+                <div
+                  className="sidebar-dropzone"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload size={16} className="text-blue-400 mb-1" />
+                  <span className="text-xs font-bold text-slate-200">미디어 가져오기</span>
+                  <span className="text-[10px] text-slate-400">여기에 동영상 드래그 앤 드롭</span>
+                </div>
 
-                      <div className="clip-asset-info">
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="clip-asset-badge">#{idx + 1}</span>
-                          <span className="clip-asset-time">
-                            {seg.start.toFixed(1)}s ~ {seg.end.toFixed(1)}s
-                          </span>
-                        </div>
-                        <div className="clip-asset-title truncate">{seg.sourceVideoName}</div>
-                        <div className="clip-asset-reason truncate" title={seg.reason}>
-                          {seg.reason}
-                        </div>
-                      </div>
+                {/* 업로드된 비디오 목록 */}
+                <div className="mt-3">
+                  <div className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider mb-2">
+                    업로드된 소스 영상 ({videos.length}개)
+                  </div>
+
+                  {videos.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-slate-500 border border-dashed border-slate-800 rounded-lg">
+                      가져온 미디어가 없습니다.
                     </div>
-                  );
-                })}
+                  ) : (
+                    videos.map((vid, idx) => (
+                      <div key={vid.id} className="source-media-card">
+                        <div className="source-media-thumb-box">
+                          {vid.thumbnailUrl ? (
+                            <img src={vid.thumbnailUrl} alt={vid.name} className="source-media-thumb" />
+                          ) : (
+                            <Film size={16} className="text-slate-500" />
+                          )}
+                          <span className="source-media-dur">{vid.duration.toFixed(1)}s</span>
+                        </div>
+
+                        <div className="source-media-info">
+                          <div className="text-xs font-bold text-white truncate" title={vid.name}>
+                            #{idx + 1} {vid.name}
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] font-mono text-slate-400 mt-0.5">
+                            <span>{vid.width}x{vid.height}</span>
+                            <span>•</span>
+                            <span className={vid.segments.length > 0 ? 'text-emerald-400' : 'text-slate-500'}>
+                              {vid.segments.length > 0 ? `AI 구간 ${vid.segments.length}개` : '분석 대기'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          className="source-media-remove-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRemoveVideo(vid.id);
+                          }}
+                          title="미디어 삭제"
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* AI 하이라이트 클립 목록 */}
+                {segments.length > 0 && (
+                  <div className="mt-4 pt-3 border-t border-slate-800">
+                    <div className="text-[10px] font-mono font-bold text-amber-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <Sparkles size={12} />
+                      타임라인 극적 클립 ({segments.length}개)
+                    </div>
+
+                    <div className="clip-asset-list">
+                      {segments.map((seg, idx) => {
+                        const vItem = videoMap.get(seg.sourceVideoId);
+                        const isSelected = seg.id === selectedSegmentId;
+                        return (
+                          <div
+                            key={seg.id}
+                            className={`clip-asset-card ${isSelected ? 'selected' : ''}`}
+                            onClick={() => handleSelectSegment(seg.id)}
+                          >
+                            <div className="clip-asset-thumb-box">
+                              {vItem?.thumbnailUrl ? (
+                                <img src={vItem.thumbnailUrl} alt={seg.sourceVideoName} className="clip-asset-thumb" />
+                              ) : (
+                                <Film size={16} className="text-slate-500" />
+                              )}
+                              <span className="clip-asset-dur-tag">{seg.duration.toFixed(1)}s</span>
+                            </div>
+
+                            <div className="clip-asset-info">
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="clip-asset-badge">#{idx + 1}</span>
+                                <span className="clip-asset-time">
+                                  {seg.start.toFixed(1)}s ~ {seg.end.toFixed(1)}s
+                                </span>
+                              </div>
+                              <div className="clip-asset-title truncate">{seg.sourceVideoName}</div>
+                              <div className="clip-asset-reason truncate" title={seg.reason}>
+                                {seg.reason}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -503,16 +712,46 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         {/* 2-B. 중앙 프리뷰 캔버스 및 트랜스포트 바 */}
         <section className="pro-studio-center-stage">
           <div className="pro-canvas-wrapper">
-            <video
-              ref={videoRef}
-              src={result.url}
-              playsInline
-              className="pro-canvas-video"
-            />
+            {result?.url ? (
+              <video
+                ref={videoRef}
+                src={result.url}
+                playsInline
+                className="pro-canvas-video"
+              />
+            ) : videos.length > 0 && videos[0].url ? (
+              <video
+                ref={videoRef}
+                src={videos[0].url}
+                playsInline
+                className="pro-canvas-video"
+              />
+            ) : (
+              /* 빈 프로젝트 캔버스 플레이스홀더 */
+              <div
+                className="pro-canvas-empty"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <div className="pro-canvas-empty-icon">
+                  <Film size={36} className="text-blue-400" />
+                </div>
+                <h3 className="text-sm font-bold text-white mt-3">
+                  16:9 유튜브 시네마틱 프로젝트
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  동영상 파일을 드래그하여 가져오거나 클릭하여 추가하세요
+                </p>
+                <button type="button" className="pro-canvas-empty-btn mt-3">
+                  <Plus size={14} />
+                  <span>미디어 파일 선택하기</span>
+                </button>
+              </div>
+            )}
+
             {/* 16:9 시네마틱 뱃지 */}
             <div className="pro-canvas-overlay-badge">
               <YoutubeBadgeIcon />
-              <span>16:9 PREVIEW</span>
+              <span>16:9 HD PREVIEW</span>
             </div>
           </div>
 
@@ -613,11 +852,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           <div className="pro-inspector-header">
             <div className="flex items-center gap-2">
               <Sliders size={14} className="text-blue-400" />
-              <h4 className="text-xs font-bold text-white">클립 인스펙터 (CLIP PROPERTIES)</h4>
+              <h4 className="text-xs font-bold text-white">클립 인스펙터 (INSPECTOR)</h4>
             </div>
-            <span className="text-[10px] font-mono text-blue-400 font-bold bg-blue-950/80 px-2 py-0.5 rounded border border-blue-800">
-              #{segments.findIndex((s) => s.id === selectedSegment?.id) + 1}
-            </span>
+            {selectedSegment && (
+              <span className="text-[10px] font-mono text-blue-400 font-bold bg-blue-950/80 px-2 py-0.5 rounded border border-blue-800">
+                #{segments.findIndex((s) => s.id === selectedSegment?.id) + 1}
+              </span>
+            )}
           </div>
 
           {selectedSegment ? (
@@ -772,7 +1013,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             </div>
           ) : (
             <div className="p-6 text-center text-xs text-slate-500 font-mono">
-              선택된 클립이 없습니다.
+              미디어를 추가하면 클립 속성을 조절할 수 있습니다.
             </div>
           )}
         </aside>
@@ -896,7 +1137,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           </div>
         </div>
 
-        {/* 트랙 3: 🎵 사운드트랙 / BGM 파형 트랙 (Waveform & Soundtrack) */}
+        {/* 트랙 3: 🎵 사운드트랙 / BGM 파형 트랙 */}
         <div className="timeline-track-row audio-track">
           <div className="timeline-track-title">
             <Music size={12} className="text-emerald-400" />
@@ -931,6 +1172,90 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           </div>
         </div>
       </footer>
+
+      {/* 4. AI 분석 중 실시간 진행 HUD 모달 */}
+      {isProcessing && (
+        <div className="studio-processing-overlay">
+          <div className="studio-processing-card">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-700">
+              <div className="flex items-center gap-2">
+                <Sparkles size={16} className="text-amber-400 animate-spin" />
+                <h3 className="text-sm font-bold text-white">AI 극적 하이라이트 분석 중...</h3>
+              </div>
+              <button
+                type="button"
+                className="text-slate-400 hover:text-white"
+                onClick={onCancelProcessing}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* 진행률 바 */}
+            <div className="my-4">
+              <div className="flex items-center justify-between text-xs text-slate-300 font-mono mb-1.5">
+                <span>{progress.statusMessage || '분석 중...'}</span>
+                <span className="text-blue-400 font-bold">{progress.progressPercent}%</span>
+              </div>
+              <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-blue-500 to-indigo-500 h-full transition-all duration-300"
+                  style={{ width: `${progress.progressPercent}%` }}
+                />
+              </div>
+            </div>
+
+            {/* 실시간 추론 로그 터미널 */}
+            <div className="reasoning-terminal mt-2">
+              <div className="reasoning-header">
+                <div className="flex items-center gap-2">
+                  <Terminal size={13} className="text-blue-400" />
+                  <span className="text-xs font-mono font-bold text-slate-200">AI LIVE INFERENCE</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-[10px] font-mono text-emerald-400">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>ONLINE</span>
+                </div>
+              </div>
+              <div className="reasoning-body">
+                {(!progress.reasoningLogs || progress.reasoningLogs.length === 0) ? (
+                  <div className="text-xs font-mono text-slate-400 italic py-2">
+                    AI 모델 초기화 및 프레임 전달 대기 중...
+                  </div>
+                ) : (
+                  progress.reasoningLogs.map((log, idx) => {
+                    const timeMatch = log.match(/^(\[\d{2}:\d{2}:\d{2}\])\s*(.*)$/);
+                    return (
+                      <div key={idx} className="reasoning-log-line">
+                        <span className="reasoning-prompt-sym">&gt;</span>
+                        {timeMatch ? (
+                          <>
+                            <span className="reasoning-time-tag">{timeMatch[1]}</span>
+                            <span className="reasoning-log-content">{timeMatch[2]}</span>
+                          </>
+                        ) : (
+                          <span className="reasoning-log-content">{log}</span>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+                <div ref={terminalEndRef} />
+              </div>
+            </div>
+
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                className="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition-colors"
+                onClick={onCancelProcessing}
+              >
+                취소하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

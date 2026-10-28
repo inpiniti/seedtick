@@ -363,110 +363,40 @@ export function App() {
   };
 
   return (
-    <div className="app-container">
-      {/* 상단 헤더 */}
-      <Header
+    <div className="app-container pro-theme">
+      {errorMessage && (
+        <div className="studio-error-banner">
+          <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+          <span>{errorMessage}</span>
+          <button
+            type="button"
+            onClick={() => setErrorMessage(null)}
+            className="ml-auto text-slate-400 hover:text-white"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      <ProStudioView
+        result={finalResult}
+        videos={videos}
         models={models}
         selectedModel={selectedModel}
         onSelectModel={setSelectedModel}
         selectedEffort={selectedEffort}
         onSelectEffort={setSelectedEffort}
         isLoadingModels={isLoadingModels}
+        onFilesSelected={handleFilesSelected}
+        onRemoveVideo={handleRemove}
+        onStartAiAnalysis={handleStartProcessing}
+        isProcessing={currentStep === 'processing'}
+        progress={progress}
+        onCancelProcessing={handleCancel}
+        onReset={handleReset}
+        onReStitch={handleReStitch}
+        isReStitching={isReStitching}
       />
-
-      <main className="main-content">
-        {/* 오류 배너 */}
-        {errorMessage && (
-          <div className="flex items-center gap-2 p-3.5 mb-6 text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl">
-            <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
-            <span>{errorMessage}</span>
-          </div>
-        )}
-
-        {/* 1단계: 업로드 및 영상 목록 */}
-        {currentStep === 'upload' && (
-          <div>
-            <div className="hero-section">
-              <h1 className="hero-title">극적인 순간만 골라 하나의 영상으로</h1>
-              <p className="hero-subtitle">
-                여러 영상을 올리면 AI가 하이라이트 구간을 분석하고,
-                브라우저에서 직접 이어붙여 완성된 영상을 만들어 드려요.
-              </p>
-            </div>
-
-            {/* 드래그 앤 드롭 영역 */}
-            <DropZone onFilesSelected={handleFilesSelected} />
-
-            {/* 업로드된 비디오 목록 */}
-            {videos.length > 0 && (
-              <div>
-                <div className="video-list-header">
-                  <div className="video-list-title">
-                    <span>업로드된 영상</span>
-                    <span className="text-xs font-mono font-semibold bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-full">
-                      {videos.length}개
-                    </span>
-                  </div>
-                  <span className="text-xs text-slate-500">
-                    순서대로 이어붙여져요 (화살표로 순서 조절 가능)
-                  </span>
-                </div>
-
-                <div className="video-grid">
-                  {videos.map((video, idx) => (
-                    <VideoCard
-                      key={video.id}
-                      video={video}
-                      index={idx}
-                      totalCount={videos.length}
-                      onMoveUp={handleMoveUp}
-                      onMoveDown={handleMoveDown}
-                      onRemove={handleRemove}
-                    />
-                  ))}
-                </div>
-
-                {/* 하단 실행 바 */}
-                <div className="action-bottom-bar">
-                  <div className="text-xs text-slate-500 font-mono">
-                    총 재생 시간:{' '}
-                    {Math.round(videos.reduce((acc, v) => acc + v.duration, 0))}초
-                  </div>
-
-                  <button
-                    type="button"
-                    className="btn-primary"
-                    onClick={handleStartProcessing}
-                  >
-                    <Sparkles className="w-4 h-4 text-amber-300" />
-                    AI 하이라이트 영상 만들기
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* 2단계: 진행 상태 패널 */}
-        {currentStep === 'processing' && (
-          <ProgressPanel
-            progress={progress}
-            videos={videos}
-            onCancel={handleCancel}
-          />
-        )}
-
-        {/* 3단계: 프로 비디오 스튜디오 에디터 (Remotion / NLE 멀티트랙 타임라인, 오디오/BGM, 세부 인스펙터) */}
-        {currentStep === 'result' && finalResult && (
-          <ProStudioView
-            result={finalResult}
-            videos={videos}
-            onReset={handleReset}
-            onReStitch={handleReStitch}
-            isReStitching={isReStitching}
-          />
-        )}
-      </main>
     </div>
   );
 }
