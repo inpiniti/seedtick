@@ -8,6 +8,17 @@ export interface HighlightSegment {
   end: number;   // 종료 초 (초 단위 실수)
   duration: number; // 길이 (end - start)
   reason: string; // 하이라이트/극적 장면 선정 이유
+  label?: string; // 챕터/자막 라벨 (커스텀 명칭)
+  volume?: number; // 볼륨 배율 (0.0 ~ 1.5, 기본값 1.0)
+  cropOffsetYRatio?: number; // 세로 영상 크롭 상단 편향 (0.0 ~ 1.0, 기본값 0.25)
+}
+
+export interface BgmPreset {
+  id: string;
+  name: string;
+  mood: string;
+  tempo: string;
+  description: string;
 }
 
 export type VideoProcessingStatus = 

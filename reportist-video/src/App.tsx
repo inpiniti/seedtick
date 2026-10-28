@@ -6,7 +6,7 @@ import { Header } from './components/header/Header.tsx';
 import { DropZone } from './components/upload/DropZone.tsx';
 import { VideoCard } from './components/upload/VideoCard.tsx';
 import { ProgressPanel } from './components/processing/ProgressPanel.tsx';
-import { ResultView } from './components/result/ResultView.tsx';
+import { ProStudioView } from './components/studio/ProStudioView.tsx';
 import {
   fetchVideoCapableModels,
   analyzeVideoHighlights,
@@ -311,8 +311,12 @@ export function App() {
     }
   };
 
-  // 사용자가 타임라인에서 구간을 직접 삭제/수정했을 때 즉시 다시 병합
-  const handleReStitch = async (updatedSegments: HighlightSegment[]) => {
+  // 사용자가 프로 스튜디오 타임라인에서 구간을 직접 수정/트리밍/BGM 변경했을 때 재렌더링
+  const handleReStitch = async (
+    updatedSegments: HighlightSegment[],
+    bgmPresetId = 'acoustic',
+    bgmVolume = 0.35
+  ) => {
     if (updatedSegments.length === 0) return;
     setIsReStitching(true);
     setErrorMessage(null);
@@ -321,6 +325,8 @@ export function App() {
       const result = await stitchHighlightedSegments({
         videos,
         allSegments: updatedSegments,
+        bgmPresetId,
+        bgmVolume,
         onProgress: (pct, msg) => {
           console.info(`[ReStitch] ${pct}%: ${msg}`);
         },
@@ -450,10 +456,11 @@ export function App() {
           />
         )}
 
-        {/* 3단계: 결과 뷰어 */}
+        {/* 3단계: 프로 비디오 스튜디오 에디터 (Remotion / NLE 멀티트랙 타임라인, 오디오/BGM, 세부 인스펙터) */}
         {currentStep === 'result' && finalResult && (
-          <ResultView
+          <ProStudioView
             result={finalResult}
+            videos={videos}
             onReset={handleReset}
             onReStitch={handleReStitch}
             isReStitching={isReStitching}

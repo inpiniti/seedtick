@@ -1,12 +1,13 @@
-// services/videoStitcher.ts - 브라우저 기반 극적 구간 컷 & 이어붙이기(Stitching) 엔진 (16:9 유튜브 규격 & 무결점 병합)
-
 import type { FinalVideoResult, HighlightSegment, VideoItem } from '../types/video.ts';
+import { playBgmSynthLoop } from './audioSynth.ts';
 
 export interface StitchVideosParams {
   videos: VideoItem[];
   allSegments: HighlightSegment[];
   onProgress?: (progressPercent: number, currentMessage: string) => void;
   signal?: AbortSignal;
+  bgmPresetId?: string;
+  bgmVolume?: number;
 }
 
 // 여러 영상에서 추출된 극적 구간들을 순차적으로 잘라 16:9 유튜브 규격의 단일 영상으로 병합
@@ -15,6 +16,8 @@ export async function stitchHighlightedSegments({
   allSegments,
   onProgress,
   signal,
+  bgmPresetId,
+  bgmVolume = 0.35,
 }: StitchVideosParams): Promise<FinalVideoResult> {
   if (allSegments.length === 0) {
     throw new Error('이어붙일 하이라이트 구간이 없습니다.');
@@ -110,6 +113,14 @@ export async function stitchHighlightedSegments({
   }
 
   let recorderStarted = false;
+  let bgmController: { stop: () => void } | null = null;
+  if (bgmPresetId && bgmPresetId !== 'none' && audioCtx && audioDest) {
+    try {
+      bgmController = playBgmSynthLoop(audioCtx, audioDest, bgmPresetId, bgmVolume);
+    } catch (e) {
+      console.warn('[VideoStitcher] BGM 신스 연결 건너뜀:', e);
+    }
+  }
 
   // 16:9 캔버스(1280x720)에 원본 영상을 소스 영역 스마트 크롭으로 100% 꽉 채워 그림
   // (음수 대상 좌표나 우측 검은 여백 버그를 원천 방지하고 정중앙/인물 상반신 완벽 정렬)
@@ -318,6 +329,9 @@ export async function stitchHighlightedSegments({
     };
   } finally {
     try {
+      if (bgmController) {
+        bgmController.stop();
+      }
       videoElem.pause();
       videoElem.src = '';
       if (audioCtx && audioCtx.state !== 'closed') {
