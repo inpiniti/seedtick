@@ -503,8 +503,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
-  const currentSegment = segments.find((s) => s.id === selectedSegmentId) || segments[0];
-
   return (
     <div className="toss-page-container" onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
       <input
@@ -779,7 +777,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   AI가 포착한 극적 순간
                 </h4>
                 <p className="toss-card-desc">
-                  각 구간의 앞뒤를 늘리거나 줄여서 원하는 만큼 다듬을 수 있어요.
+                  구간을 누르면 이 자리에서 자막·촬영 날짜·위치·구도를 바로 수정할 수 있어요.
                 </p>
               </div>
 
@@ -806,71 +804,214 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     <div
                       key={seg.id}
                       className={`toss-segment-item ${isSelected ? 'active' : ''} ${isCurrentPlaying ? 'playing' : ''}`}
-                      onClick={() => handleSelectSegment(seg.id)}
                     >
-                      <div className="toss-segment-left">
-                        {vItem?.thumbnailUrl && (
-                          <img
-                            src={vItem.thumbnailUrl}
-                            alt=""
-                            className="toss-segment-thumb"
-                          />
-                        )}
-                        <div className="toss-segment-info">
-                          <div className="flex items-center gap-1.5">
-                            <span className="toss-segment-number">#{idx + 1}</span>
-                            {isCurrentPlaying && isPlaying && (
-                              <span className="toss-badge-playing">재생 중</span>
-                            )}
-                            <span className="toss-segment-reason truncate">
-                              {seg.reason}
+                      <div
+                        className="toss-segment-row"
+                        onClick={() => handleSelectSegment(seg.id)}
+                        role="button"
+                        tabIndex={0}
+                        aria-expanded={isSelected}
+                        onKeyDown={(e) => {
+                          if (e.target !== e.currentTarget) return;
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleSelectSegment(seg.id);
+                          }
+                        }}
+                      >
+                        <div className="toss-segment-left">
+                          {vItem?.thumbnailUrl && (
+                            <img
+                              src={vItem.thumbnailUrl}
+                              alt=""
+                              className="toss-segment-thumb"
+                            />
+                          )}
+                          <div className="toss-segment-info">
+                            <div className="flex items-center gap-1.5">
+                              <span className="toss-segment-number">#{idx + 1}</span>
+                              {isCurrentPlaying && isPlaying && (
+                                <span className="toss-badge-playing">재생 중</span>
+                              )}
+                              <span className="toss-segment-reason truncate">
+                                {seg.reason}
+                              </span>
+                            </div>
+                            <span className="toss-segment-source truncate">
+                              {seg.sourceVideoName}
                             </span>
                           </div>
-                          <span className="toss-segment-source truncate">
-                            {seg.sourceVideoName}
-                          </span>
+                        </div>
+
+                        {/* 트리밍 버튼 및 길이 */}
+                        <div className="toss-segment-right">
+                          <div className="toss-trim-controls">
+                            <button
+                              type="button"
+                              className="toss-btn-micro"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleTrimChange(seg.id, 'start', -0.5);
+                              }}
+                              title="시작 0.5초 늘리기"
+                            >
+                              -0.5s
+                            </button>
+                            <span className="toss-segment-duration">
+                              {seg.duration.toFixed(1)}초
+                            </span>
+                            <button
+                              type="button"
+                              className="toss-btn-micro"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleTrimChange(seg.id, 'end', 0.5);
+                              }}
+                              title="끝 0.5초 늘리기"
+                            >
+                              +0.5s
+                            </button>
+                          </div>
+
+                          <button
+                            type="button"
+                            className="toss-btn-delete"
+                            onClick={(e) => handleDeleteSegment(seg.id, e)}
+                            title="이 구간 제외하기"
+                          >
+                            <Trash2 size={15} />
+                          </button>
                         </div>
                       </div>
 
-                      {/* 트리밍 버튼 및 길이 */}
-                      <div className="toss-segment-right">
-                        <div className="toss-trim-controls">
-                          <button
-                            type="button"
-                            className="toss-btn-micro"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleTrimChange(seg.id, 'start', -0.5);
-                            }}
-                            title="시작 0.5초 늘리기"
-                          >
-                            -0.5s
-                          </button>
-                          <span className="toss-segment-duration">
-                            {seg.duration.toFixed(1)}초
-                          </span>
-                          <button
-                            type="button"
-                            className="toss-btn-micro"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleTrimChange(seg.id, 'end', 0.5);
-                            }}
-                            title="끝 0.5초 늘리기"
-                          >
-                            +0.5s
-                          </button>
-                        </div>
+                      {/* ★ 선택한 씬의 자막·날짜·위치·구도를 목록 안에서 바로 수정 */}
+                      {isSelected && (
+                        <div className="toss-segment-editor" onClick={(e) => e.stopPropagation()}>
+                          <div className="toss-segment-editor-head">
+                            <span className="toss-segment-editor-title">이 씬의 자막 · 날짜 · 위치</span>
+                            <span className="toss-segment-editor-hint">수정 내용은 다시 병합할 때 반영돼요</span>
+                          </div>
 
-                        <button
-                          type="button"
-                          className="toss-btn-delete"
-                          onClick={(e) => handleDeleteSegment(seg.id, e)}
-                          title="이 구간 제외하기"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
+                          {/* 1. 씬 자막 제목 */}
+                          <div className="toss-branding-row">
+                            <span className="toss-branding-label">씬 자막 제목 (AI 요약 / 직접 수정)</span>
+                            <input
+                              type="text"
+                              value={seg.subtitleTitle ?? seg.reason}
+                              onChange={(e) =>
+                                handleUpdateSegmentSubtitle(seg.id, 'subtitleTitle', e.target.value)
+                              }
+                              placeholder="예: 벚꽃 구경하기, 환하게 웃는 순간"
+                              className="toss-input-sm"
+                            />
+                          </div>
+
+                          {/* 2. 씬 촬영 날짜 & 위치 */}
+                          <div className="toss-branding-row">
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <span className="text-[11px] font-bold text-slate-600 mb-1 block">촬영 날짜</span>
+                                <input
+                                  type="text"
+                                  value={seg.subtitleDate ?? ''}
+                                  onChange={(e) =>
+                                    handleUpdateSegmentSubtitle(seg.id, 'subtitleDate', e.target.value)
+                                  }
+                                  placeholder="예: 9월 10일"
+                                  className="toss-input-sm"
+                                />
+                              </div>
+                              <div>
+                                <span className="text-[11px] font-bold text-slate-600 mb-1 block">위치 명칭</span>
+                                <input
+                                  type="text"
+                                  value={seg.locationName ?? ''}
+                                  onChange={(e) =>
+                                    handleUpdateSegmentSubtitle(seg.id, 'locationName', e.target.value)
+                                  }
+                                  placeholder="예: 해운대 해수욕장"
+                                  className="toss-input-sm"
+                                />
+                              </div>
+                            </div>
+
+                            {/* 지도 확인 버튼들 */}
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                              <button
+                                type="button"
+                                className="toss-btn-micro-action"
+                                onClick={() => setMapModalTarget(seg)}
+                              >
+                                <MapPin size={12} className="text-red-500" />
+                                <span>위치 지도 마커 확인</span>
+                              </button>
+
+                              <a
+                                href={
+                                  seg.locationName
+                                    ? `https://map.naver.com/v5/search/${encodeURIComponent(seg.locationName)}`
+                                    : seg.latitude && seg.longitude
+                                    ? `https://map.naver.com/v5/search/${seg.latitude},${seg.longitude}`
+                                    : `https://map.naver.com/v5/search/${encodeURIComponent(seg.subtitleTitle || seg.reason)}`
+                                }
+                                target="_blank"
+                                rel="noreferrer"
+                                className="toss-btn-micro-action"
+                              >
+                                <ExternalLink size={11} />
+                                <span>네이버 지도</span>
+                              </a>
+
+                              <a
+                                href={
+                                  seg.latitude && seg.longitude
+                                    ? `https://www.google.com/maps/search/?api=1&query=${seg.latitude},${seg.longitude}`
+                                    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(seg.locationName || seg.subtitleTitle || seg.reason)}`
+                                }
+                                target="_blank"
+                                rel="noreferrer"
+                                className="toss-btn-micro-action"
+                              >
+                                <ExternalLink size={11} />
+                                <span>구글 지도</span>
+                              </a>
+                            </div>
+                          </div>
+
+                          {/* 3. 16:9 세로 영상 인물 크롭 기준 */}
+                          <div className="toss-branding-row">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="toss-branding-label">16:9 인물 크롭 위치</span>
+                              <span className="text-[11px] text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded">
+                                AI 추천 반영됨
+                              </span>
+                            </div>
+                            <div className="toss-segment-control">
+                              <button
+                                type="button"
+                                className={`toss-segment-btn ${(seg.cropOffsetYRatio ?? 0.2) <= 0.25 ? 'active' : ''}`}
+                                onClick={() => handleCropAnchorChange(seg.id, 0.15)}
+                              >
+                                상단 (얼굴 보호)
+                              </button>
+                              <button
+                                type="button"
+                                className={`toss-segment-btn ${(seg.cropOffsetYRatio ?? 0.2) > 0.25 && (seg.cropOffsetYRatio ?? 0.2) < 0.75 ? 'active' : ''}`}
+                                onClick={() => handleCropAnchorChange(seg.id, 0.5)}
+                              >
+                                중앙
+                              </button>
+                              <button
+                                type="button"
+                                className={`toss-segment-btn ${(seg.cropOffsetYRatio ?? 0.2) >= 0.75 ? 'active' : ''}`}
+                                onClick={() => handleCropAnchorChange(seg.id, 0.85)}
+                              >
+                                하단
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -1273,144 +1414,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               </div>
             </div>
           </div>
-
-          {/* ★ 선택한 씬 (#X) 상세 자막 & 위치 & 크롭 카드 */}
-          {currentSegment && (
-            <div className="toss-card">
-              <div className="toss-card-header">
-                <div>
-                  <h4 className="toss-card-title flex items-center gap-1.5">
-                    <Scissors size={15} className="text-blue-600" />
-                    선택한 씬 (#{segments.findIndex((s) => s.id === currentSegment.id) + 1}) 자막 & 구도
-                  </h4>
-                  <p className="toss-card-desc">
-                    이 씬에 표시될 자막 문구, 촬영 날짜, 위치 및 크롭을 설정해요.
-                  </p>
-                </div>
-              </div>
-
-              <div className="toss-branding-controls">
-                {/* 1. 씬 자막 제목 */}
-                <div className="toss-branding-row">
-                  <span className="toss-branding-label">씬 자막 제목 (AI 요약 / 직접 수정)</span>
-                  <input
-                    type="text"
-                    value={currentSegment.subtitleTitle ?? currentSegment.reason}
-                    onChange={(e) =>
-                      handleUpdateSegmentSubtitle(currentSegment.id, 'subtitleTitle', e.target.value)
-                    }
-                    placeholder="예: 벚꽃 구경하기, 환하게 웃는 순간"
-                    className="toss-input-sm"
-                  />
-                </div>
-
-                {/* 2. 씬 촬영 날짜 & 위치 */}
-                <div className="toss-branding-row">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <span className="text-[11px] font-bold text-slate-600 mb-1 block">촬영 날짜</span>
-                      <input
-                        type="text"
-                        value={currentSegment.subtitleDate ?? ''}
-                        onChange={(e) =>
-                          handleUpdateSegmentSubtitle(currentSegment.id, 'subtitleDate', e.target.value)
-                        }
-                        placeholder="예: 9월 10일"
-                        className="toss-input-sm"
-                      />
-                    </div>
-                    <div>
-                      <span className="text-[11px] font-bold text-slate-600 mb-1 block">위치 명칭</span>
-                      <input
-                        type="text"
-                        value={currentSegment.locationName ?? ''}
-                        onChange={(e) =>
-                          handleUpdateSegmentSubtitle(currentSegment.id, 'locationName', e.target.value)
-                        }
-                        placeholder="예: 해운대 해수욕장"
-                        className="toss-input-sm"
-                      />
-                    </div>
-                  </div>
-
-                  {/* 지도 확인 버튼들 */}
-                  <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                    <button
-                      type="button"
-                      className="toss-btn-micro-action"
-                      onClick={() => setMapModalTarget(currentSegment)}
-                    >
-                      <MapPin size={12} className="text-red-500" />
-                      <span>위치 지도 마커 확인</span>
-                    </button>
-
-                    <a
-                      href={
-                        currentSegment.locationName
-                          ? `https://map.naver.com/v5/search/${encodeURIComponent(currentSegment.locationName)}`
-                          : currentSegment.latitude && currentSegment.longitude
-                          ? `https://map.naver.com/v5/search/${currentSegment.latitude},${currentSegment.longitude}`
-                          : `https://map.naver.com/v5/search/${encodeURIComponent(currentSegment.subtitleTitle || currentSegment.reason)}`
-                      }
-                      target="_blank"
-                      rel="noreferrer"
-                      className="toss-btn-micro-action"
-                    >
-                      <ExternalLink size={11} />
-                      <span>네이버 지도</span>
-                    </a>
-
-                    <a
-                      href={
-                        currentSegment.latitude && currentSegment.longitude
-                          ? `https://www.google.com/maps/search/?api=1&query=${currentSegment.latitude},${currentSegment.longitude}`
-                          : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(currentSegment.locationName || currentSegment.subtitleTitle || currentSegment.reason)}`
-                      }
-                      target="_blank"
-                      rel="noreferrer"
-                      className="toss-btn-micro-action"
-                    >
-                      <ExternalLink size={11} />
-                      <span>구글 지도</span>
-                    </a>
-                  </div>
-                </div>
-
-                {/* 3. 16:9 세로 영상 인물 크롭 기준 */}
-                <div className="toss-branding-row">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="toss-branding-label">16:9 인물 크롭 위치</span>
-                    <span className="text-[11px] text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded">
-                      AI 추천 반영됨
-                    </span>
-                  </div>
-                  <div className="toss-segment-control">
-                    <button
-                      type="button"
-                      className={`toss-segment-btn ${(currentSegment.cropOffsetYRatio ?? 0.2) <= 0.25 ? 'active' : ''}`}
-                      onClick={() => handleCropAnchorChange(currentSegment.id, 0.15)}
-                    >
-                      상단 (얼굴 보호)
-                    </button>
-                    <button
-                      type="button"
-                      className={`toss-segment-btn ${(currentSegment.cropOffsetYRatio ?? 0.2) > 0.25 && (currentSegment.cropOffsetYRatio ?? 0.2) < 0.75 ? 'active' : ''}`}
-                      onClick={() => handleCropAnchorChange(currentSegment.id, 0.5)}
-                    >
-                      중앙
-                    </button>
-                    <button
-                      type="button"
-                      className={`toss-segment-btn ${(currentSegment.cropOffsetYRatio ?? 0.2) >= 0.75 ? 'active' : ''}`}
-                      onClick={() => handleCropAnchorChange(currentSegment.id, 0.85)}
-                    >
-                      하단
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* 시간 절약 효과 요약 카드 */}
           {originalTotalDuration > 0 && segments.length > 0 && (

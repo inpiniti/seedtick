@@ -1642,22 +1642,32 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 480px;
+  max-height: 640px;
   overflow-y: auto;
   padding-right: 4px;
 }
 
 .toss-segment-item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
   padding: 10px 14px;
   background-color: #ffffff;
   border: 1.5px solid #e5e8eb;
   border-radius: 14px;
-  cursor: pointer;
+  cursor: default;
   transition: all 0.15s ease;
+  gap: 0;
+}
+
+.toss-segment-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
+  min-width: 0;
+  cursor: pointer;
 }
 
 .toss-segment-item:hover {
@@ -1736,6 +1746,41 @@
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
+}
+
+/* 선택한 씬 인라인 편집 영역 (목록 안에서 바로 자막·날짜·위치 수정) */
+.toss-segment-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #cfe0f5;
+  cursor: default;
+}
+
+.toss-segment-editor-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.toss-segment-editor-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: #1b64da;
+}
+
+.toss-segment-editor-hint {
+  font-size: 10.5px;
+  color: #8b95a1;
+}
+
+.toss-segment-editor .toss-branding-row {
+  background-color: #ffffff;
+  border-color: #e5edf7;
 }
 
 .toss-trim-controls {
