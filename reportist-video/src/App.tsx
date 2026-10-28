@@ -18,6 +18,7 @@ import type {
   ProcessingProgress,
   FinalVideoResult,
   HighlightSegment,
+  VideoOverlayOptions,
 } from './types/video.ts';
 import { Play, Sparkles, AlertCircle } from 'lucide-react';
 
@@ -158,7 +159,12 @@ export function App() {
   const [isReStitching, setIsReStitching] = useState<boolean>(false);
 
   // 하이라이트 생성 시작 (순차 압축 -> AI 분석 -> 컷 & 병합)
-  const handleStartProcessing = async () => {
+  const handleStartProcessing = async (
+    overlayOpts?: VideoOverlayOptions,
+    customAudio?: File | null,
+    bgmPresetId = 'acoustic',
+    bgmVol = 0.35
+  ) => {
     if (videos.length === 0) return;
 
     setCurrentStep('processing');
@@ -278,6 +284,10 @@ export function App() {
       const result = await stitchHighlightedSegments({
         videos: updatedVideos,
         allSegments,
+        bgmPresetId,
+        bgmVolume: bgmVol,
+        customAudioFile: customAudio,
+        overlayOptions: overlayOpts,
         onProgress: (pct, msg) => {
           if (signal.aborted) return;
           const overallPct = Math.round(85 + (pct / 100) * 14);
@@ -311,7 +321,9 @@ export function App() {
   const handleReStitch = async (
     updatedSegments: HighlightSegment[],
     bgmPresetId = 'acoustic',
-    bgmVolume = 0.35
+    bgmVolume = 0.35,
+    customAudioFile?: File | null,
+    overlayOptions?: VideoOverlayOptions
   ) => {
     if (updatedSegments.length === 0) return;
     setIsReStitching(true);
@@ -323,6 +335,8 @@ export function App() {
         allSegments: updatedSegments,
         bgmPresetId,
         bgmVolume,
+        customAudioFile,
+        overlayOptions,
         onProgress: (pct, msg) => {
           console.info(`[ReStitch] ${pct}%: ${msg}`);
         },

@@ -72,3 +72,22 @@ export interface FinalVideoResult {
   originalTotalDuration: number;
   fileSize: number;
 }
+
+export interface VideoOverlayOptions {
+  showTitle: boolean;
+  titleText: string;
+  showChannel: boolean;
+  channelText: string;
+  showSubtitle: boolean;
+  subtitleDateText: string;
+  subtitleLocationText: string;
+  showIntro: boolean;
+  showOutro: boolean;
+}
+
+export interface CustomAudioTrack {
+  file: File;
+  url: string;
+  name: string;
+  duration: number;
+}

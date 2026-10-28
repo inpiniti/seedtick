@@ -22,12 +22,15 @@ import {
   AlertCircle,
   Film,
   FastForward,
+  Type,
+  FileAudio,
 } from 'lucide-react';
 import type {
   FinalVideoResult,
   HighlightSegment,
   VideoItem,
   ProcessingProgress,
+  VideoOverlayOptions,
 } from '../../types/video.ts';
 import type { FreeModelMeta, ReasoningEffortOption } from '../../types/gateway.ts';
 import { BGM_PRESETS, playBgmSynthLoop } from '../../services/audioSynth.ts';
@@ -43,7 +46,12 @@ interface ProStudioViewProps {
   isLoadingModels: boolean;
   onFilesSelected: (files: File[]) => void;
   onRemoveVideo: (id: string) => void;
-  onStartAiAnalysis: () => void;
+  onStartAiAnalysis: (
+    overlayOpts?: VideoOverlayOptions,
+    customAudio?: File | null,
+    bgmPresetId?: string,
+    bgmVolume?: number
+  ) => void;
   isProcessing: boolean;
   progress: ProcessingProgress;
   onCancelProcessing: () => void;
@@ -51,7 +59,9 @@ interface ProStudioViewProps {
   onReStitch: (
     updatedSegments: HighlightSegment[],
     bgmPresetId: string,
-    bgmVolume: number
+    bgmVolume: number,
+    customAudioFile?: File | null,
+    overlayOptions?: VideoOverlayOptions
   ) => Promise<void>;
   isReStitching: boolean;
 }
@@ -106,6 +116,53 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [bgmVolume, setBgmVolume] = useState<number>(0.3);
   const [previewingBgmId, setPreviewingBgmId] = useState<string | null>(null);
   const bgmPreviewRef = useRef<{ stop: () => void } | null>(null);
+
+  // 3. 사용자 직접 업로드 음악 상태
+  const [customAudioFile, setCustomAudioFile] = useState<File | null>(null);
+  const [customAudioName, setCustomAudioName] = useState<string>('');
+  const customAudioInputRef = useRef<HTMLInputElement>(null);
+
+  // 4. 자막 & 브랜딩 오버레이 상태 (영상 메타데이터 기반 자동 날짜 추출)
+  const initialDateStr = useMemo(() => {
+    if (videos.length > 0 && videos[0].file?.lastModified) {
+      const d = new Date(videos[0].file.lastModified);
+      return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+    }
+    return '3월 28일';
+  }, [videos]);
+
+  const [overlayOptions, setOverlayOptions] = useState<VideoOverlayOptions>({
+    showTitle: true,
+    titleText: '2021년도 엄마아빠 결혼전',
+    showChannel: true,
+    channelText: '은따니',
+    showSubtitle: true,
+    subtitleDateText: initialDateStr,
+    subtitleLocationText: '장산산책',
+    showIntro: false,
+    showOutro: false,
+  });
+
+  // 영상이 추가되었을 때 촬영 날짜 자동 반영 (사용자가 비워둔 경우)
+  useEffect(() => {
+    if (videos.length > 0 && videos[0].file?.lastModified) {
+      const d = new Date(videos[0].file.lastModified);
+      const formatted = `${d.getMonth() + 1}월 ${d.getDate()}일`;
+      setOverlayOptions((prev) => ({
+        ...prev,
+        subtitleDateText: prev.subtitleDateText || formatted,
+      }));
+    }
+  }, [videos]);
+
+  const handleCustomAudioSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setCustomAudioFile(file);
+      setCustomAudioName(file.name);
+      setSelectedBgmId('custom');
+    }
+  };
 
   // 상위 결과 갱신 동기화
   useEffect(() => {
@@ -447,6 +504,28 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       <Play size={28} className="ml-1 text-white" />
                     </button>
                   )}
+
+                  {/* ★ 실시간 자막 & 브랜딩 오버레이 라이브 프리뷰 */}
+                  {overlayOptions.showTitle && overlayOptions.titleText && (
+                    <div className="toss-live-overlay-title">
+                      {overlayOptions.titleText}
+                    </div>
+                  )}
+
+                  {overlayOptions.showChannel && overlayOptions.channelText && (
+                    <div className="toss-live-overlay-channel">
+                      {overlayOptions.channelText}
+                    </div>
+                  )}
+
+                  {overlayOptions.showSubtitle &&
+                    (overlayOptions.subtitleDateText || overlayOptions.subtitleLocationText) && (
+                      <div className="toss-live-overlay-subtitle">
+                        {[overlayOptions.subtitleDateText, overlayOptions.subtitleLocationText]
+                          .filter(Boolean)
+                          .join(' ')}
+                      </div>
+                    )}
                 </>
               ) : (
                 /* 영상이 없을 때의 빈 상태 안내 */
@@ -817,6 +896,57 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
             {/* BGM 프리셋 목록 */}
             <div className="toss-bgm-list">
+              {/* 사용자 직접 업로드 음악 파일 인풋 & 칩 */}
+              <input
+                ref={customAudioInputRef}
+                type="file"
+                accept="audio/*"
+                style={{ display: 'none' }}
+                onChange={handleCustomAudioSelected}
+              />
+
+              {customAudioFile ? (
+                <div
+                  className={`toss-bgm-chip custom-audio-chip ${selectedBgmId === 'custom' ? 'active' : ''}`}
+                  onClick={() => setSelectedBgmId('custom')}
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <FileAudio size={14} className="text-blue-600" />
+                      <span className="text-xs font-bold text-slate-800 truncate">
+                        {customAudioName}
+                      </span>
+                      {selectedBgmId === 'custom' && <Check size={13} className="text-blue-600" />}
+                    </div>
+                    <span className="text-[11px] text-slate-400 block truncate mt-0.5">
+                      내 음악 파일 ({((customAudioFile.size || 0) / (1024 * 1024)).toFixed(1)}MB)
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="toss-btn-delete-sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCustomAudioFile(null);
+                      setCustomAudioName('');
+                      if (selectedBgmId === 'custom') setSelectedBgmId('acoustic');
+                    }}
+                    title="음악 제거"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="toss-btn-custom-audio"
+                  onClick={() => customAudioInputRef.current?.click()}
+                >
+                  <FileAudio size={14} className="text-blue-600" />
+                  <span>+ 내 배경음악 파일 올리기 (MP3, WAV)</span>
+                </button>
+              )}
+
               {BGM_PRESETS.map((preset) => {
                 const isSelected = selectedBgmId === preset.id;
                 const isPreviewing = previewingBgmId === preset.id;
@@ -849,6 +979,158 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   </div>
                 );
               })}
+            </div>
+          </div>
+
+          {/* ★ 자막 & 브랜딩 (제목 • 채널 • 날짜) 설정 카드 */}
+          <div className="toss-card">
+            <div className="toss-card-header">
+              <div>
+                <h4 className="toss-card-title flex items-center gap-1.5">
+                  <Type size={16} className="text-blue-600" />
+                  자막 & 브랜딩 (제목 • 채널 • 날짜)
+                </h4>
+                <p className="toss-card-desc">
+                  화면 상단 제목/채널명과 하단 날짜·위치 자막을 켜고 끌 수 있어요.
+                </p>
+              </div>
+            </div>
+
+            <div className="toss-branding-controls">
+              {/* 1. 왼쪽 상단 영상 제목 */}
+              <div className="toss-branding-row">
+                <div className="toss-branding-row-header">
+                  <span className="toss-branding-label">왼쪽 상단 영상 제목</span>
+                  <label className="toss-toggle-switch">
+                    <input
+                      type="checkbox"
+                      checked={overlayOptions.showTitle}
+                      onChange={(e) =>
+                        setOverlayOptions((prev) => ({ ...prev, showTitle: e.target.checked }))
+                      }
+                    />
+                    <span className="toss-toggle-slider" />
+                  </label>
+                </div>
+                {overlayOptions.showTitle && (
+                  <input
+                    type="text"
+                    value={overlayOptions.titleText}
+                    onChange={(e) =>
+                      setOverlayOptions((prev) => ({ ...prev, titleText: e.target.value }))
+                    }
+                    placeholder="예: 2021년도 엄마아빠 결혼전"
+                    className="toss-input-sm"
+                  />
+                )}
+              </div>
+
+              {/* 2. 오른쪽 상단 채널 이름 */}
+              <div className="toss-branding-row">
+                <div className="toss-branding-row-header">
+                  <span className="toss-branding-label">오른쪽 상단 채널 이름</span>
+                  <label className="toss-toggle-switch">
+                    <input
+                      type="checkbox"
+                      checked={overlayOptions.showChannel}
+                      onChange={(e) =>
+                        setOverlayOptions((prev) => ({ ...prev, showChannel: e.target.checked }))
+                      }
+                    />
+                    <span className="toss-toggle-slider" />
+                  </label>
+                </div>
+                {overlayOptions.showChannel && (
+                  <input
+                    type="text"
+                    value={overlayOptions.channelText}
+                    onChange={(e) =>
+                      setOverlayOptions((prev) => ({ ...prev, channelText: e.target.value }))
+                    }
+                    placeholder="예: 은따니"
+                    className="toss-input-sm"
+                  />
+                )}
+              </div>
+
+              {/* 3. 하단 자막 (날짜 + 위치) */}
+              <div className="toss-branding-row">
+                <div className="toss-branding-row-header">
+                  <span className="toss-branding-label">하단 자막 (날짜 + 위치)</span>
+                  <label className="toss-toggle-switch">
+                    <input
+                      type="checkbox"
+                      checked={overlayOptions.showSubtitle}
+                      onChange={(e) =>
+                        setOverlayOptions((prev) => ({ ...prev, showSubtitle: e.target.checked }))
+                      }
+                    />
+                    <span className="toss-toggle-slider" />
+                  </label>
+                </div>
+                {overlayOptions.showSubtitle && (
+                  <div className="grid grid-cols-2 gap-2 mt-1">
+                    <input
+                      type="text"
+                      value={overlayOptions.subtitleDateText}
+                      onChange={(e) =>
+                        setOverlayOptions((prev) => ({
+                          ...prev,
+                          subtitleDateText: e.target.value,
+                        }))
+                      }
+                      placeholder="날짜 (예: 3월 28일)"
+                      className="toss-input-sm"
+                      title="동영상 생성 시간 정보 기반"
+                    />
+                    <input
+                      type="text"
+                      value={overlayOptions.subtitleLocationText}
+                      onChange={(e) =>
+                        setOverlayOptions((prev) => ({
+                          ...prev,
+                          subtitleLocationText: e.target.value,
+                        }))
+                      }
+                      placeholder="위치 (예: 장산산책)"
+                      className="toss-input-sm"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* 4. 인트로 & 아웃트로 타이틀 카드 */}
+              <div className="toss-branding-row">
+                <div className="toss-branding-row-header">
+                  <span className="toss-branding-label">시작 인트로 타이틀 카드 (1.6초)</span>
+                  <label className="toss-toggle-switch">
+                    <input
+                      type="checkbox"
+                      checked={overlayOptions.showIntro}
+                      onChange={(e) =>
+                        setOverlayOptions((prev) => ({ ...prev, showIntro: e.target.checked }))
+                      }
+                    />
+                    <span className="toss-toggle-slider" />
+                  </label>
+                </div>
+              </div>
+
+              <div className="toss-branding-row">
+                <div className="toss-branding-row-header">
+                  <span className="toss-branding-label">종료 아웃트로 엔딩 카드 (1.8초)</span>
+                  <label className="toss-toggle-switch">
+                    <input
+                      type="checkbox"
+                      checked={overlayOptions.showOutro}
+                      onChange={(e) =>
+                        setOverlayOptions((prev) => ({ ...prev, showOutro: e.target.checked }))
+                      }
+                    />
+                    <span className="toss-toggle-slider" />
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -931,7 +1213,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <button
               type="button"
               className={`toss-cta-button ${isProcessing ? 'loading' : ''}`}
-              onClick={onStartAiAnalysis}
+              onClick={() =>
+                onStartAiAnalysis(overlayOptions, customAudioFile, selectedBgmId, bgmVolume)
+              }
               disabled={isProcessing}
             >
               <Sparkles size={18} className={isProcessing ? 'animate-spin' : ''} />
@@ -942,7 +1226,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               <button
                 type="button"
                 className="toss-btn-re-render"
-                onClick={() => onReStitch(segments, selectedBgmId, bgmVolume)}
+                onClick={() =>
+                  onReStitch(
+                    segments,
+                    selectedBgmId,
+                    bgmVolume,
+                    customAudioFile,
+                    overlayOptions
+                  )
+                }
                 disabled={isReStitching || segments.length === 0}
               >
                 <Scissors size={15} />
