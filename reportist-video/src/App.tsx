@@ -10,6 +10,7 @@ import {
   DEFAULT_CONFIG,
 } from './services/gatewayClient.ts';
 import { extractVideoMetadata, extractVideoFramesForAnalysis } from './services/videoCompressor.ts';
+import { formatVideoDate, extractGpsFromVideoFile } from './services/videoMetadata.ts';
 import { stitchHighlightedSegments } from './services/videoStitcher.ts';
 import type { FreeModelMeta, ReasoningEffortOption } from './types/gateway.ts';
 import type {
@@ -99,9 +100,12 @@ export function App() {
 
       setVideos((prev) => [...prev, newItem]);
 
-      // 비동기 메타데이터 및 썸네일 추출
+      // 비동기 메타데이터, 촬영일자, GPS 및 썸네일 추출
       extractVideoMetadata(file)
-        .then((meta) => {
+        .then(async (meta) => {
+          const { dateStr } = formatVideoDate(file);
+          const gps = await extractGpsFromVideoFile(file);
+
           setVideos((prev) =>
             prev.map((v) =>
               v.id === videoId
@@ -111,6 +115,9 @@ export function App() {
                     width: meta.width,
                     height: meta.height,
                     thumbnailUrl: meta.thumbnailUrl,
+                    metadataDate: dateStr,
+                    latitude: gps?.latitude,
+                    longitude: gps?.longitude,
                   }
                 : v
             )
@@ -249,6 +256,9 @@ export function App() {
           reasoningEffort: selectedEffort,
           config: DEFAULT_CONFIG,
           signal,
+          metadataDate: currentVideo.metadataDate,
+          latitude: currentVideo.latitude,
+          longitude: currentVideo.longitude,
         });
 
         currentVideo.segments = segments;
@@ -259,7 +269,8 @@ export function App() {
         const savePct = Math.max(0, Math.round((1 - segTotal / (currentVideo.duration || 1)) * 100));
         addLog(`🎯 [${currentVideo.name}] ${segments.length}개 극적 구간 확정 (${currentVideo.duration.toFixed(1)}초 → ${segTotal.toFixed(1)}초, -${savePct}% 압축)`);
         segments.forEach((s, sIdx) => {
-          addLog(`   ✨ #${sIdx + 1} [${s.start.toFixed(1)}s~${s.end.toFixed(1)}s] ${s.reason}`);
+          const cropName = s.cropOffsetYRatio && s.cropOffsetYRatio <= 0.25 ? '상단(얼굴보호)' : s.cropOffsetYRatio && s.cropOffsetYRatio <= 0.65 ? '중앙' : '하단';
+          addLog(`   ✨ #${sIdx + 1} [${s.start.toFixed(1)}s~${s.end.toFixed(1)}s] ${s.reason} (크롭: ${cropName}${s.subtitleDate ? `, ${s.subtitleDate}` : ''})`);
         });
       }
 

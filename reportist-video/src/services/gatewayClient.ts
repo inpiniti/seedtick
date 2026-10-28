@@ -115,6 +115,9 @@ export interface AnalyzeVideoParams {
   reasoningEffort?: ReasoningEffortOption;
   config?: GatewayConfig;
   signal?: AbortSignal;
+  metadataDate?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 // 추출된 프레임 시퀀스를 AI Gateway로 전송하여 극적인 구간 추출
@@ -127,6 +130,9 @@ export async function analyzeVideoHighlights({
   reasoningEffort = 'high',
   config = DEFAULT_CONFIG,
   signal,
+  metadataDate,
+  latitude,
+  longitude,
 }: AnalyzeVideoParams): Promise<HighlightSegment[]> {
   const roundedDuration = Math.round(videoDuration * 10) / 10;
   // 하이라이트 목표 예산: 영상 전체 길이의 20%~35% (최소 2초, 최대 10초)
@@ -147,12 +153,16 @@ STRICT DURATION & SELECTION RULES:
 3. INTERVAL COUNT: Return ONLY 1 to 3 peak intervals (1 single climax interval is preferred; maximum 3).
 4. INDIVIDUAL INTERVAL LENGTH: Each interval MUST be between 1.5 seconds and 4.5 seconds. NEVER return an interval longer than 5.0 seconds.
 5. NO OVERLAPPING: Intervals MUST NOT overlap.
-6. Provide a short, captivating Korean description for 'reason' (e.g. '결정적인 득점 순간', '박진감 넘치는 액션 시퀀스', '감동적인 클라이맥스 표정').
-7. Output MUST BE strictly a valid JSON array of objects with NO other commentary or markdown formatting.
+6. Provide a concise, descriptive Korean scene title for 'reason' (e.g. '환하게 웃는 클라이맥스', '바닷가 산책', '박진감 넘치는 액션 순간'). This will be used as the scene subtitle!
+7. Analyze human faces and main subject position in these keyframes to choose 'cropPosition':
+   - "top": Person's face or eyes are located in the upper area (protects face from getting cropped in 16:9)
+   - "center": Subject is centered or panoramic landscape
+   - "bottom": Action or main subject is lower in the frame
+8. Output MUST BE strictly a valid JSON array of objects with NO other commentary or markdown formatting.
 
 Format:
 [
-  {"start": 3.2, "end": 6.5, "reason": "화려한 기술과 반전이 일어나는 클라이맥스 장면"}
+  {"start": 3.2, "end": 6.5, "reason": "환하게 웃으며 꽃을 건네는 순간", "cropPosition": "top"}
 ]`;
 
   const baseUrl = config.baseUrl.replace(/\/+$/, '');
@@ -209,7 +219,15 @@ Format:
   const rawContent = result.choices?.[0]?.message?.content || '';
 
   // JSON 파싱 및 구간 검증
-  return parseAndValidateSegments(rawContent, roundedDuration, videoId, videoName);
+  return parseAndValidateSegments(
+    rawContent,
+    roundedDuration,
+    videoId,
+    videoName,
+    metadataDate,
+    latitude,
+    longitude
+  );
 }
 
 // LLM 텍스트 응답에서 JSON 배열 추출 및 엄격한 구간 정제
@@ -217,9 +235,17 @@ export function parseAndValidateSegments(
   rawText: string,
   totalDuration: number,
   videoId: string,
-  videoName: string
+  videoName: string,
+  metadataDate?: string,
+  latitude?: number,
+  longitude?: number
 ): HighlightSegment[] {
-  let parsed: Array<{ start: number; end: number; reason?: string }> = [];
+  let parsed: Array<{
+    start: number;
+    end: number;
+    reason?: string;
+    cropPosition?: 'top' | 'center' | 'bottom' | string;
+  }> = [];
 
   try {
     // 1. 순수 JSON 파싱 시도
@@ -257,6 +283,18 @@ export function parseAndValidateSegments(
         end = Math.min(totalDuration, Math.round((mid + 2.0) * 10) / 10);
       }
 
+      // AI가 분석한 주요 인물 위치에 따른 16:9 크롭 오프셋 (얼굴/시선 보호)
+      let cropOffsetYRatio = 0.2; // 기본값 상단 (얼굴 보호)
+      if (item.cropPosition === 'top') {
+        cropOffsetYRatio = 0.15;
+      } else if (item.cropPosition === 'center') {
+        cropOffsetYRatio = 0.5;
+      } else if (item.cropPosition === 'bottom') {
+        cropOffsetYRatio = 0.85;
+      }
+
+      const sceneReason = item.reason || 'AI가 감지한 극적 순간';
+
       // 최소 1.2초 이상이어야 함
       if (end - start >= 1.2) {
         validSegments.push({
@@ -266,7 +304,12 @@ export function parseAndValidateSegments(
           start: Math.round(start * 10) / 10,
           end: Math.round(end * 10) / 10,
           duration: Math.round((end - start) * 10) / 10,
-          reason: item.reason || 'AI가 감지한 극적 순간',
+          reason: sceneReason,
+          cropOffsetYRatio,
+          subtitleDate: metadataDate || '',
+          subtitleTitle: sceneReason,
+          latitude,
+          longitude,
         });
       }
     }
@@ -316,6 +359,11 @@ export function parseAndValidateSegments(
       end: fallbackEnd,
       duration: Math.round((fallbackEnd - fallbackStart) * 10) / 10,
       reason: 'AI 핵심 클라이맥스 구간 (자동 선정)',
+      cropOffsetYRatio: 0.2,
+      subtitleDate: metadataDate || '',
+      subtitleTitle: 'AI 핵심 클라이맥스 구간',
+      latitude,
+      longitude,
     });
   }
 

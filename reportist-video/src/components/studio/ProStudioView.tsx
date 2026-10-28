@@ -24,6 +24,8 @@ import {
   FastForward,
   Type,
   FileAudio,
+  MapPin,
+  ExternalLink,
 } from 'lucide-react';
 import type {
   FinalVideoResult,
@@ -122,13 +124,22 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [customAudioName, setCustomAudioName] = useState<string>('');
   const customAudioInputRef = useRef<HTMLInputElement>(null);
 
-  // 4. 자막 & 브랜딩 오버레이 상태 (영상 메타데이터 기반 자동 날짜 추출)
+  // 4. 인트로 / 아웃트로 비디오 파일 업로드 참조 및 지도 모달 상태
+  const introVideoInputRef = useRef<HTMLInputElement>(null);
+  const outroVideoInputRef = useRef<HTMLInputElement>(null);
+  const [mapModalTarget, setMapModalTarget] = useState<HighlightSegment | null>(null);
+  const consoleScrollRef = useRef<HTMLDivElement>(null);
+
+  // 5. 자막 & 브랜딩 오버레이 상태 (영상 실제 촬영일자 기반)
   const initialDateStr = useMemo(() => {
+    if (videos.length > 0 && videos[0].metadataDate) {
+      return videos[0].metadataDate;
+    }
     if (videos.length > 0 && videos[0].file?.lastModified) {
       const d = new Date(videos[0].file.lastModified);
       return `${d.getMonth() + 1}월 ${d.getDate()}일`;
     }
-    return '3월 28일';
+    return '';
   }, [videos]);
 
   const [overlayOptions, setOverlayOptions] = useState<VideoOverlayOptions>({
@@ -138,22 +149,36 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     channelText: '은따니',
     showSubtitle: true,
     subtitleDateText: initialDateStr,
-    subtitleLocationText: '장산산책',
+    subtitleLocationText: '',
     showIntro: false,
     showOutro: false,
+    introVideoFile: null,
+    outroVideoFile: null,
   });
 
-  // 영상이 추가되었을 때 촬영 날짜 자동 반영 (사용자가 비워둔 경우)
+  // 영상이 추가되었을 때 실제 촬영 날짜 자동 반영
   useEffect(() => {
-    if (videos.length > 0 && videos[0].file?.lastModified) {
-      const d = new Date(videos[0].file.lastModified);
-      const formatted = `${d.getMonth() + 1}월 ${d.getDate()}일`;
-      setOverlayOptions((prev) => ({
-        ...prev,
-        subtitleDateText: prev.subtitleDateText || formatted,
-      }));
+    if (videos.length > 0) {
+      const detectedDate =
+        videos[0].metadataDate ||
+        (videos[0].file?.lastModified
+          ? `${new Date(videos[0].file.lastModified).getMonth() + 1}월 ${new Date(videos[0].file.lastModified).getDate()}일`
+          : '');
+      if (detectedDate) {
+        setOverlayOptions((prev) => ({
+          ...prev,
+          subtitleDateText: prev.subtitleDateText || detectedDate,
+        }));
+      }
     }
   }, [videos]);
+
+  // AI 추론 콘솔 자동 스크롤
+  useEffect(() => {
+    if (consoleScrollRef.current) {
+      consoleScrollRef.current.scrollTop = consoleScrollRef.current.scrollHeight;
+    }
+  }, [progress.reasoningLogs]);
 
   const handleCustomAudioSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -161,6 +186,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       setCustomAudioFile(file);
       setCustomAudioName(file.name);
       setSelectedBgmId('custom');
+    }
+  };
+
+  const handleIntroVideoSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setOverlayOptions((prev) => ({ ...prev, introVideoFile: file, showIntro: true }));
+    }
+  };
+
+  const handleOutroVideoSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setOverlayOptions((prev) => ({ ...prev, outroVideoFile: file, showOutro: true }));
     }
   };
 
@@ -246,6 +285,36 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
     return selectedSegmentId;
   }, [currentTime, segments, result?.url, selectedSegmentId]);
+
+  // 현재 활성 재생 중인 세그먼트 객체
+  const activePlayingSegment = useMemo(() => {
+    return (
+      segments.find((s) => s.id === activePlayingSegmentId) ||
+      segments.find((s) => s.id === selectedSegmentId) ||
+      segments[0]
+    );
+  }, [segments, activePlayingSegmentId, selectedSegmentId]);
+
+  // 실시간 미리보기에 띄울 자막 (씬별 날짜 + 씬 제목 + 위치)
+  const activePlayingSubtitleText = useMemo(() => {
+    if (!activePlayingSegment) return '';
+    const datePart = activePlayingSegment.subtitleDate || '';
+    const titlePart = activePlayingSegment.subtitleTitle || activePlayingSegment.reason || '';
+    const locPart = activePlayingSegment.locationName || '';
+    const parts = [datePart, titlePart, locPart ? `• ${locPart}` : ''].filter(Boolean);
+    return parts.join(' ').trim();
+  }, [activePlayingSegment]);
+
+  // 씬별 자막/날짜/위치 수정 핸들러
+  const handleUpdateSegmentSubtitle = (
+    segId: string,
+    field: 'subtitleTitle' | 'subtitleDate' | 'locationName',
+    value: string
+  ) => {
+    setSegments((prev) =>
+      prev.map((s) => (s.id === segId ? { ...s, [field]: value } : s))
+    );
+  };
 
   // 클립 선택 및 이동
   const handleSelectSegment = (segId: string) => {
@@ -505,27 +574,25 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     </button>
                   )}
 
-                  {/* ★ 실시간 자막 & 브랜딩 오버레이 라이브 프리뷰 */}
-                  {overlayOptions.showTitle && overlayOptions.titleText && (
+                  {/* ★ 실시간 자막 & 브랜딩 오버레이 라이브 프리뷰 
+                      (완성된 병합 영상 재생 시에는 이미 영상 내에 인코딩되어 있으므로 중복 표시를 방지하기 위해 숨김) */}
+                  {!result?.url && overlayOptions.showTitle && overlayOptions.titleText && (
                     <div className="toss-live-overlay-title">
                       {overlayOptions.titleText}
                     </div>
                   )}
 
-                  {overlayOptions.showChannel && overlayOptions.channelText && (
+                  {!result?.url && overlayOptions.showChannel && overlayOptions.channelText && (
                     <div className="toss-live-overlay-channel">
                       {overlayOptions.channelText}
                     </div>
                   )}
 
-                  {overlayOptions.showSubtitle &&
-                    (overlayOptions.subtitleDateText || overlayOptions.subtitleLocationText) && (
-                      <div className="toss-live-overlay-subtitle">
-                        {[overlayOptions.subtitleDateText, overlayOptions.subtitleLocationText]
-                          .filter(Boolean)
-                          .join(' ')}
-                      </div>
-                    )}
+                  {!result?.url && overlayOptions.showSubtitle && activePlayingSubtitleText && (
+                    <div className="toss-live-overlay-subtitle">
+                      {activePlayingSubtitleText}
+                    </div>
+                  )}
                 </>
               ) : (
                 /* 영상이 없을 때의 빈 상태 안내 */
@@ -547,11 +614,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   </button>
                 </div>
               )}
-
-              {/* 16:9 규격 배지 */}
-              <div className="toss-ratio-badge">
-                <span>16:9 HD (1280×720)</span>
-              </div>
             </div>
 
             {/* 비디오 재생 트랜스포트 바 */}
@@ -982,16 +1044,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             </div>
           </div>
 
-          {/* ★ 자막 & 브랜딩 (제목 • 채널 • 날짜) 설정 카드 */}
+          {/* ★ 자막 & 브랜딩 (상단 제목 • 채널 • 인트로/아웃트로) 설정 카드 */}
           <div className="toss-card">
             <div className="toss-card-header">
               <div>
                 <h4 className="toss-card-title flex items-center gap-1.5">
                   <Type size={16} className="text-blue-600" />
-                  자막 & 브랜딩 (제목 • 채널 • 날짜)
+                  영상 브랜딩 & 인트로/아웃트로
                 </h4>
                 <p className="toss-card-desc">
-                  화면 상단 제목/채널명과 하단 날짜·위치 자막을 켜고 끌 수 있어요.
+                  화면 상단 제목/채널명과 시작·종료 클립을 설정해요.
                 </p>
               </div>
             </div>
@@ -1053,10 +1115,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 )}
               </div>
 
-              {/* 3. 하단 자막 (날짜 + 위치) */}
+              {/* 3. 하단 자막 전역 표시 여부 */}
               <div className="toss-branding-row">
                 <div className="toss-branding-row-header">
-                  <span className="toss-branding-label">하단 자막 (날짜 + 위치)</span>
+                  <div>
+                    <span className="toss-branding-label">하단 씬별 자막 표시</span>
+                    <span className="text-[11px] text-slate-400 block mt-0.5">
+                      각 씬에 설정된 촬영일자 및 씬 제목을 하단에 표출합니다.
+                    </span>
+                  </div>
                   <label className="toss-toggle-switch">
                     <input
                       type="checkbox"
@@ -1068,41 +1135,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     <span className="toss-toggle-slider" />
                   </label>
                 </div>
-                {overlayOptions.showSubtitle && (
-                  <div className="grid grid-cols-2 gap-2 mt-1">
-                    <input
-                      type="text"
-                      value={overlayOptions.subtitleDateText}
-                      onChange={(e) =>
-                        setOverlayOptions((prev) => ({
-                          ...prev,
-                          subtitleDateText: e.target.value,
-                        }))
-                      }
-                      placeholder="날짜 (예: 3월 28일)"
-                      className="toss-input-sm"
-                      title="동영상 생성 시간 정보 기반"
-                    />
-                    <input
-                      type="text"
-                      value={overlayOptions.subtitleLocationText}
-                      onChange={(e) =>
-                        setOverlayOptions((prev) => ({
-                          ...prev,
-                          subtitleLocationText: e.target.value,
-                        }))
-                      }
-                      placeholder="위치 (예: 장산산책)"
-                      className="toss-input-sm"
-                    />
-                  </div>
-                )}
               </div>
 
-              {/* 4. 인트로 & 아웃트로 타이틀 카드 */}
+              {/* 4. 시작 인트로 (동영상 파일 직접 삽입 또는 타이틀 카드) */}
               <div className="toss-branding-row">
                 <div className="toss-branding-row-header">
-                  <span className="toss-branding-label">시작 인트로 타이틀 카드 (1.6초)</span>
+                  <span className="toss-branding-label">시작 인트로 삽입</span>
                   <label className="toss-toggle-switch">
                     <input
                       type="checkbox"
@@ -1114,11 +1152,55 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     <span className="toss-toggle-slider" />
                   </label>
                 </div>
+                {overlayOptions.showIntro && (
+                  <div className="mt-1">
+                    <input
+                      ref={introVideoInputRef}
+                      type="file"
+                      accept="video/*"
+                      style={{ display: 'none' }}
+                      onChange={handleIntroVideoSelected}
+                    />
+                    {overlayOptions.introVideoFile ? (
+                      <div className="toss-clip-file-chip">
+                        <Film size={14} className="text-blue-600 flex-shrink-0" />
+                        <span className="truncate text-xs font-semibold text-slate-800">
+                          {overlayOptions.introVideoFile.name}
+                        </span>
+                        <button
+                          type="button"
+                          className="toss-btn-delete-sm ml-auto"
+                          onClick={() =>
+                            setOverlayOptions((prev) => ({ ...prev, introVideoFile: null }))
+                          }
+                          title="영상 제거"
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="toss-btn-custom-audio"
+                        onClick={() => introVideoInputRef.current?.click()}
+                      >
+                        <Film size={14} />
+                        <span>+ 인트로 동영상 올리기 (MP4, MOV)</span>
+                      </button>
+                    )}
+                    <span className="text-[11px] text-slate-400 block mt-1">
+                      {overlayOptions.introVideoFile
+                        ? '업로드된 인트로 영상이 하이라이트 시작부에 합성됩니다.'
+                        : '동영상을 올리지 않으면 시네마틱 타이틀 카드(1.6초)가 표시됩니다.'}
+                    </span>
+                  </div>
+                )}
               </div>
 
+              {/* 5. 종료 아웃트로 (동영상 파일 직접 삽입 또는 엔딩 카드) */}
               <div className="toss-branding-row">
                 <div className="toss-branding-row-header">
-                  <span className="toss-branding-label">종료 아웃트로 엔딩 카드 (1.8초)</span>
+                  <span className="toss-branding-label">종료 아웃트로 삽입</span>
                   <label className="toss-toggle-switch">
                     <input
                       type="checkbox"
@@ -1130,47 +1212,187 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     <span className="toss-toggle-slider" />
                   </label>
                 </div>
+                {overlayOptions.showOutro && (
+                  <div className="mt-1">
+                    <input
+                      ref={outroVideoInputRef}
+                      type="file"
+                      accept="video/*"
+                      style={{ display: 'none' }}
+                      onChange={handleOutroVideoSelected}
+                    />
+                    {overlayOptions.outroVideoFile ? (
+                      <div className="toss-clip-file-chip">
+                        <Film size={14} className="text-blue-600 flex-shrink-0" />
+                        <span className="truncate text-xs font-semibold text-slate-800">
+                          {overlayOptions.outroVideoFile.name}
+                        </span>
+                        <button
+                          type="button"
+                          className="toss-btn-delete-sm ml-auto"
+                          onClick={() =>
+                            setOverlayOptions((prev) => ({ ...prev, outroVideoFile: null }))
+                          }
+                          title="영상 제거"
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="toss-btn-custom-audio"
+                        onClick={() => outroVideoInputRef.current?.click()}
+                      >
+                        <Film size={14} />
+                        <span>+ 아웃트로 동영상 올리기 (MP4, MOV)</span>
+                      </button>
+                    )}
+                    <span className="text-[11px] text-slate-400 block mt-1">
+                      {overlayOptions.outroVideoFile
+                        ? '업로드된 아웃트로 영상이 하이라이트 끝에 합성됩니다.'
+                        : '동영상을 올리지 않으면 시네마틱 엔딩 카드(1.8초)가 표시됩니다.'}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* 세로 영상 16:9 인물 크롭 기준점 */}
+          {/* ★ 선택한 씬 (#X) 상세 자막 & 위치 & 크롭 카드 */}
           {currentSegment && (
             <div className="toss-card">
               <div className="toss-card-header">
                 <div>
                   <h4 className="toss-card-title flex items-center gap-1.5">
-                    <SlidersHorizontal size={15} className="text-slate-700" />
-                    인물 크롭 기준 위치
+                    <Scissors size={15} className="text-blue-600" />
+                    선택한 씬 (#{segments.findIndex((s) => s.id === currentSegment.id) + 1}) 자막 & 구도
                   </h4>
                   <p className="toss-card-desc">
-                    세로로 찍힌 영상에서 인물의 얼굴이 잘리지 않도록 정렬해요.
+                    이 씬에 표시될 자막 문구, 촬영 날짜, 위치 및 크롭을 설정해요.
                   </p>
                 </div>
               </div>
 
-              <div className="toss-segment-control">
-                <button
-                  type="button"
-                  className={`toss-segment-btn ${(currentSegment.cropOffsetYRatio ?? 0.25) <= 0.25 ? 'active' : ''}`}
-                  onClick={() => handleCropAnchorChange(currentSegment.id, 0.15)}
-                >
-                  상단 (얼굴 보호)
-                </button>
-                <button
-                  type="button"
-                  className={`toss-segment-btn ${(currentSegment.cropOffsetYRatio ?? 0.25) > 0.25 && (currentSegment.cropOffsetYRatio ?? 0.25) < 0.75 ? 'active' : ''}`}
-                  onClick={() => handleCropAnchorChange(currentSegment.id, 0.5)}
-                >
-                  중앙
-                </button>
-                <button
-                  type="button"
-                  className={`toss-segment-btn ${(currentSegment.cropOffsetYRatio ?? 0.25) >= 0.75 ? 'active' : ''}`}
-                  onClick={() => handleCropAnchorChange(currentSegment.id, 0.85)}
-                >
-                  하단
-                </button>
+              <div className="toss-branding-controls">
+                {/* 1. 씬 자막 제목 */}
+                <div className="toss-branding-row">
+                  <span className="toss-branding-label">씬 자막 제목 (AI 요약 / 직접 수정)</span>
+                  <input
+                    type="text"
+                    value={currentSegment.subtitleTitle ?? currentSegment.reason}
+                    onChange={(e) =>
+                      handleUpdateSegmentSubtitle(currentSegment.id, 'subtitleTitle', e.target.value)
+                    }
+                    placeholder="예: 벚꽃 구경하기, 환하게 웃는 순간"
+                    className="toss-input-sm"
+                  />
+                </div>
+
+                {/* 2. 씬 촬영 날짜 & 위치 */}
+                <div className="toss-branding-row">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <span className="text-[11px] font-bold text-slate-600 mb-1 block">촬영 날짜</span>
+                      <input
+                        type="text"
+                        value={currentSegment.subtitleDate ?? ''}
+                        onChange={(e) =>
+                          handleUpdateSegmentSubtitle(currentSegment.id, 'subtitleDate', e.target.value)
+                        }
+                        placeholder="예: 9월 10일"
+                        className="toss-input-sm"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-bold text-slate-600 mb-1 block">위치 명칭</span>
+                      <input
+                        type="text"
+                        value={currentSegment.locationName ?? ''}
+                        onChange={(e) =>
+                          handleUpdateSegmentSubtitle(currentSegment.id, 'locationName', e.target.value)
+                        }
+                        placeholder="예: 해운대 해수욕장"
+                        className="toss-input-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 지도 확인 버튼들 */}
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                    <button
+                      type="button"
+                      className="toss-btn-micro-action"
+                      onClick={() => setMapModalTarget(currentSegment)}
+                    >
+                      <MapPin size={12} className="text-red-500" />
+                      <span>위치 지도 마커 확인</span>
+                    </button>
+
+                    <a
+                      href={
+                        currentSegment.locationName
+                          ? `https://map.naver.com/v5/search/${encodeURIComponent(currentSegment.locationName)}`
+                          : currentSegment.latitude && currentSegment.longitude
+                          ? `https://map.naver.com/v5/search/${currentSegment.latitude},${currentSegment.longitude}`
+                          : `https://map.naver.com/v5/search/${encodeURIComponent(currentSegment.subtitleTitle || currentSegment.reason)}`
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                      className="toss-btn-micro-action"
+                    >
+                      <ExternalLink size={11} />
+                      <span>네이버 지도</span>
+                    </a>
+
+                    <a
+                      href={
+                        currentSegment.latitude && currentSegment.longitude
+                          ? `https://www.google.com/maps/search/?api=1&query=${currentSegment.latitude},${currentSegment.longitude}`
+                          : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(currentSegment.locationName || currentSegment.subtitleTitle || currentSegment.reason)}`
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                      className="toss-btn-micro-action"
+                    >
+                      <ExternalLink size={11} />
+                      <span>구글 지도</span>
+                    </a>
+                  </div>
+                </div>
+
+                {/* 3. 16:9 세로 영상 인물 크롭 기준 */}
+                <div className="toss-branding-row">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="toss-branding-label">16:9 인물 크롭 위치</span>
+                    <span className="text-[11px] text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded">
+                      AI 추천 반영됨
+                    </span>
+                  </div>
+                  <div className="toss-segment-control">
+                    <button
+                      type="button"
+                      className={`toss-segment-btn ${(currentSegment.cropOffsetYRatio ?? 0.2) <= 0.25 ? 'active' : ''}`}
+                      onClick={() => handleCropAnchorChange(currentSegment.id, 0.15)}
+                    >
+                      상단 (얼굴 보호)
+                    </button>
+                    <button
+                      type="button"
+                      className={`toss-segment-btn ${(currentSegment.cropOffsetYRatio ?? 0.2) > 0.25 && (currentSegment.cropOffsetYRatio ?? 0.2) < 0.75 ? 'active' : ''}`}
+                      onClick={() => handleCropAnchorChange(currentSegment.id, 0.5)}
+                    >
+                      중앙
+                    </button>
+                    <button
+                      type="button"
+                      className={`toss-segment-btn ${(currentSegment.cropOffsetYRatio ?? 0.2) >= 0.75 ? 'active' : ''}`}
+                      onClick={() => handleCropAnchorChange(currentSegment.id, 0.85)}
+                    >
+                      하단
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -1279,6 +1501,36 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               <span className="font-bold text-blue-600">{progress.progressPercent}%</span>
             </div>
 
+            {/* ★ 실시간 AI 비전 추론 로그 콘솔 (Point 9) */}
+            <div className="toss-modal-reasoning-wrap mt-4 text-left">
+              <div className="toss-modal-reasoning-header flex items-center gap-1.5 mb-1.5 px-1">
+                <span className="toss-reasoning-live-dot" />
+                <span className="text-xs font-bold text-slate-700">실시간 AI 비전 추론 과정</span>
+                <span className="text-[11px] font-mono text-blue-600 ml-auto">
+                  {progress.currentPhase === 'extract'
+                    ? '프레임 추출 중'
+                    : progress.currentPhase === 'analyze'
+                    ? '멀티모달 시각 분석 중'
+                    : progress.currentPhase === 'stitch'
+                    ? '16:9 무손실 병합 중'
+                    : '진행 중'}
+                </span>
+              </div>
+              <div className="toss-modal-reasoning-console" ref={consoleScrollRef}>
+                {progress.reasoningLogs && progress.reasoningLogs.length > 0 ? (
+                  progress.reasoningLogs.map((log, idx) => (
+                    <div key={idx} className="toss-reasoning-log-line">
+                      {log}
+                    </div>
+                  ))
+                ) : (
+                  <div className="toss-reasoning-log-line text-slate-400">
+                    AI 모델 및 영상 프레임 시퀀스 준비 중...
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* 취소 버튼 */}
             <button
               type="button"
@@ -1287,6 +1539,94 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             >
               닫기
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ★ 5. 씬 촬영 위치 지도 확인 모달 (Point 5) */}
+      {mapModalTarget && (
+        <div className="toss-modal-overlay" onClick={() => setMapModalTarget(null)}>
+          <div className="toss-modal-card toss-map-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3 text-left">
+              <div className="flex items-center gap-2">
+                <MapPin size={20} className="text-red-500 flex-shrink-0" />
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 leading-tight">
+                    촬영 위치 지도 확인
+                  </h3>
+                  <span className="text-xs text-slate-400">
+                    {mapModalTarget.locationName || mapModalTarget.subtitleTitle || mapModalTarget.reason}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="toss-btn-icon"
+                onClick={() => setMapModalTarget(null)}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* 임베디드 오픈스트리트맵 지도 */}
+            <div className="toss-map-frame-box">
+              {mapModalTarget.latitude && mapModalTarget.longitude ? (
+                <iframe
+                  title="촬영 위치 지도"
+                  className="w-full h-64 rounded-xl border border-slate-200"
+                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${mapModalTarget.longitude - 0.008}%2C${mapModalTarget.latitude - 0.008}%2C${mapModalTarget.longitude + 0.008}%2C${mapModalTarget.latitude + 0.008}&layer=mapnik&marker=${mapModalTarget.latitude}%2C${mapModalTarget.longitude}`}
+                />
+              ) : (
+                <div className="w-full h-48 rounded-xl bg-slate-50 border border-slate-200 flex flex-col items-center justify-center p-4 text-center">
+                  <MapPin size={28} className="text-slate-300 mb-2" />
+                  <p className="text-xs text-slate-700 font-bold mb-1">
+                    {mapModalTarget.locationName || 'GPS 메타데이터 미포함 영상'}
+                  </p>
+                  <p className="text-[11px] text-slate-400">
+                    동영상 파일에 직접적인 GPS 좌표가 없더라도<br />
+                    아래 네이버 지도 또는 구글 지도를 눌러 장소를 바로 검색하실 수 있습니다.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-end gap-2 mt-4 pt-3 border-t border-slate-100">
+              <a
+                href={
+                  mapModalTarget.locationName
+                    ? `https://map.naver.com/v5/search/${encodeURIComponent(mapModalTarget.locationName)}`
+                    : mapModalTarget.latitude && mapModalTarget.longitude
+                    ? `https://map.naver.com/v5/search/${mapModalTarget.latitude},${mapModalTarget.longitude}`
+                    : `https://map.naver.com/v5/search/${encodeURIComponent(mapModalTarget.subtitleTitle || mapModalTarget.reason)}`
+                }
+                target="_blank"
+                rel="noreferrer"
+                className="toss-btn-secondary"
+              >
+                <ExternalLink size={13} />
+                <span>네이버 지도에서 보기</span>
+              </a>
+              <a
+                href={
+                  mapModalTarget.latitude && mapModalTarget.longitude
+                    ? `https://www.google.com/maps/search/?api=1&query=${mapModalTarget.latitude},${mapModalTarget.longitude}`
+                    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapModalTarget.locationName || mapModalTarget.subtitleTitle || mapModalTarget.reason)}`
+                }
+                target="_blank"
+                rel="noreferrer"
+                className="toss-btn-secondary"
+              >
+                <ExternalLink size={13} />
+                <span>구글 지도에서 보기</span>
+              </a>
+              <button
+                type="button"
+                className="toss-btn-primary"
+                onClick={() => setMapModalTarget(null)}
+              >
+                닫기
+              </button>
+            </div>
           </div>
         </div>
       )}

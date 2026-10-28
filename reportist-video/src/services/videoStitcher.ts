@@ -201,8 +201,8 @@ export async function stitchHighlightedSegments({
     ctx.drawImage(videoElem, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
   };
 
-  // 자막 및 브랜딩 오버레이 (제목, 채널, 하단 날짜+위치) 그리기
-  const drawOverlays = () => {
+  // 자막 및 브랜딩 오버레이 (제목, 채널, 씬별 하단 날짜+제목 자막) 그리기
+  const drawOverlays = (currentSegment?: HighlightSegment) => {
     if (!overlayOptions) return;
 
     // 1. 좌측 상단 영상 제목
@@ -247,10 +247,15 @@ export async function stitchHighlightedSegments({
       ctx.restore();
     }
 
-    // 3. 하단 중앙 날짜 + 위치 자막
+    // 3. 하단 중앙 씬별 날짜 + 씬 제목 자막
     if (overlayOptions.showSubtitle) {
-      const parts = [overlayOptions.subtitleDateText, overlayOptions.subtitleLocationText].filter(Boolean);
-      const subText = parts.join(' ');
+      const datePart = currentSegment?.subtitleDate || overlayOptions.subtitleDateText || '';
+      const titlePart = currentSegment?.subtitleTitle || currentSegment?.reason || '';
+      const locPart = currentSegment?.locationName || overlayOptions.subtitleLocationText || '';
+      
+      const subParts = [datePart, titlePart, locPart ? `• ${locPart}` : ''].filter(Boolean);
+      const subText = subParts.join(' ').trim();
+
       if (subText) {
         ctx.save();
         ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
@@ -276,6 +281,60 @@ export async function stitchHighlightedSegments({
         ctx.fillText(subText, targetWidth / 2, y + boxH / 2);
         ctx.restore();
       }
+    }
+  };
+
+  // 인트로/아웃트로 사용자 동영상 클립 합성 렌더링
+  const renderCustomVideoClip = async (clipFile: File, label: string) => {
+    onProgress?.(label === '시작 인트로' ? 1 : 98, `${label} 영상 로드 및 합성 중...`);
+    const blobUrl = URL.createObjectURL(clipFile);
+    try {
+      videoElem.src = blobUrl;
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error(`${label} 비디오 로드 시간 초과`)), 10000);
+        videoElem.onloadedmetadata = () => {
+          clearTimeout(timeout);
+          resolve();
+        };
+        videoElem.onerror = () => {
+          clearTimeout(timeout);
+          reject(new Error(`${label} 비디오 로드 실패`));
+        };
+      });
+
+      videoElem.currentTime = 0;
+      await videoElem.play();
+
+      if (!recorderStarted) {
+        recorder.start(100);
+        recorderStarted = true;
+      } else if (recorder.state === 'paused') {
+        recorder.resume();
+      }
+
+      await new Promise<void>((resolve) => {
+        let animId: number;
+        const renderLoop = () => {
+          if (videoElem.ended || videoElem.paused) {
+            cancelAnimationFrame(animId);
+            resolve();
+            return;
+          }
+          drawCoverFrame();
+          animId = requestAnimationFrame(renderLoop);
+        };
+        videoElem.onended = () => {
+          cancelAnimationFrame(animId);
+          resolve();
+        };
+        animId = requestAnimationFrame(renderLoop);
+      });
+
+      if (recorder.state === 'recording') {
+        recorder.pause();
+      }
+    } finally {
+      URL.revokeObjectURL(blobUrl);
     }
   };
 
@@ -374,8 +433,14 @@ export async function stitchHighlightedSegments({
   };
 
   try {
-    // 0. 인트로 렌더링 (옵션 활성화 시)
-    await renderIntroSequence();
+    // 0. 인트로 렌더링 (옵션 활성화 시: 영상 파일 우선, 없으면 타이틀 시퀀스)
+    if (overlayOptions?.showIntro) {
+      if (overlayOptions.introVideoFile) {
+        await renderCustomVideoClip(overlayOptions.introVideoFile, '시작 인트로');
+      } else {
+        await renderIntroSequence();
+      }
+    }
 
     // 구간별 비디오 순차 병합
     for (let i = 0; i < allSegments.length; i++) {
@@ -431,7 +496,7 @@ export async function stitchHighlightedSegments({
 
       // 시크 완료 후 첫 프레임을 캔버스에 미리 그려놓기
       drawCoverFrame(videoItem, segment);
-      drawOverlays();
+      drawOverlays(segment);
 
       // 오디오 컨텍스트 재개
       if (audioCtx && audioCtx.state === 'suspended') {
@@ -493,9 +558,9 @@ export async function stitchHighlightedSegments({
             return;
           }
 
-          // 16:9 프레임 그리기 & 자막/오버레이 합성
+          // 16:9 프레임 그리기 & 씬별 자막/오버레이 합성
           drawCoverFrame(videoItem, segment);
-          drawOverlays();
+          drawOverlays(segment);
 
           // 진행률 실시간 반영
           const clipElapsed = Math.max(0, videoElem.currentTime - segment.start);
@@ -528,8 +593,14 @@ export async function stitchHighlightedSegments({
       });
     }
 
-    // 마무리 아웃트로 렌더링 (옵션 활성화 시)
-    await renderOutroSequence();
+    // 마무리 아웃트로 렌더링 (옵션 활성화 시: 영상 파일 우선, 없으면 엔딩 시퀀스)
+    if (overlayOptions?.showOutro) {
+      if (overlayOptions.outroVideoFile) {
+        await renderCustomVideoClip(overlayOptions.outroVideoFile, '종료 아웃트로');
+      } else {
+        await renderOutroSequence();
+      }
+    }
 
     onProgress?.(99, '16:9 고화질 하이라이트 영상 파일 생성 중...');
 
