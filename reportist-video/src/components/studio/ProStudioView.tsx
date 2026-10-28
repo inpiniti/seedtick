@@ -20,6 +20,8 @@ import {
   SlidersHorizontal,
   ChevronRight,
   AlertCircle,
+  Film,
+  FastForward,
 } from 'lucide-react';
 import type {
   FinalVideoResult,
@@ -127,33 +129,24 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   }, [result, videos]);
 
-  // 비디오 재생 시간 추적
+  // 활성 비디오 소스 URL (완성 영상 우선, 없으면 첫 번째 업로드 영상)
+  const activeVideoUrl = useMemo(() => {
+    if (result?.url) return result.url;
+    if (videos.length > 0 && videos[0].url) return videos[0].url;
+    return null;
+  }, [result?.url, videos]);
+
+  // 비디오 소스 전환 시 시간 리셋
   useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
+    setCurrentTime(0);
+    setIsPlaying(false);
+  }, [activeVideoUrl]);
 
-    const onTimeUpdate = () => setCurrentTime(v.currentTime);
-    const onPlay = () => setIsPlaying(true);
-    const onPause = () => setIsPlaying(false);
-    const onEnded = () => setIsPlaying(false);
-
-    v.addEventListener('timeupdate', onTimeUpdate);
-    v.addEventListener('play', onPlay);
-    v.addEventListener('pause', onPause);
-    v.addEventListener('ended', onEnded);
-
-    return () => {
-      v.removeEventListener('timeupdate', onTimeUpdate);
-      v.removeEventListener('play', onPlay);
-      v.removeEventListener('pause', onPause);
-      v.removeEventListener('ended', onEnded);
-    };
-  }, []);
-
-  // 총 시간 계산
+  // 총 시간 계산 (완성 결과가 있으면 실제 duration 반영)
   const totalDuration = useMemo(() => {
+    if (result?.duration && result.duration > 0) return result.duration;
     return segments.reduce((sum, s) => sum + s.duration, 0) || 1;
-  }, [segments]);
+  }, [result?.duration, segments]);
 
   // 원본 영상 총 시간
   const originalTotalDuration = useMemo(() => {
@@ -184,6 +177,19 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     return offsets;
   }, [segments]);
 
+  // 현재 재생 중인 시간대에 위치한 세그먼트 자동 감지
+  const activePlayingSegmentId = useMemo(() => {
+    if (!result?.url) return selectedSegmentId;
+    let acc = 0;
+    for (const seg of segments) {
+      if (currentTime >= acc && currentTime < acc + seg.duration) {
+        return seg.id;
+      }
+      acc += seg.duration;
+    }
+    return selectedSegmentId;
+  }, [currentTime, segments, result?.url, selectedSegmentId]);
+
   // 클립 선택 및 이동
   const handleSelectSegment = (segId: string) => {
     setSelectedSegmentId(segId);
@@ -194,15 +200,55 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   };
 
-  // 재생 / 일시정지 토글
+  // 상대 시간 이동 (-5s, +5s)
+  const seekRelative = (delta: number) => {
+    const v = videoRef.current;
+    if (!v) return;
+    const newT = Math.max(0, Math.min(totalDuration, (v.currentTime || currentTime) + delta));
+    v.currentTime = newT;
+    setCurrentTime(newT);
+  };
+
+  // 프로그레스 바 / 타임라인 위치 클릭 시 직접 이동
+  const handleSeekByPosition = (e: React.MouseEvent<HTMLDivElement>) => {
+    const v = videoRef.current;
+    if (!v || !totalDuration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+    const targetTime = ratio * totalDuration;
+    v.currentTime = targetTime;
+    setCurrentTime(targetTime);
+  };
+
+  // 재생 / 일시정지 토글 (브라우저 자동재생 제약 완벽 대응)
   const togglePlay = () => {
     const v = videoRef.current;
     if (!v) return;
-    if (v.paused) {
-      v.play().catch(() => {});
+    if (v.paused || v.ended) {
+      const p = v.play();
+      if (p !== undefined) {
+        p.then(() => {
+          setIsPlaying(true);
+        }).catch((err) => {
+          console.warn('[VideoPlayer] Play interrupted or blocked, fallback to muted:', err);
+          v.muted = true;
+          setIsMuted(true);
+          v.play().then(() => setIsPlaying(true)).catch(() => {});
+        });
+      }
     } else {
       v.pause();
+      setIsPlaying(false);
     }
+  };
+
+  // 음소거 토글
+  const toggleMute = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = !isMuted;
+    setIsMuted(!isMuted);
   };
 
   // 클립 시작/끝 미세 조절 (-0.5s / +0.5s)
@@ -372,20 +418,36 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           {/* 16:9 비디오 플레이어 카드 */}
           <div className="toss-card toss-player-card">
             <div className="toss-player-wrapper">
-              {result?.url ? (
-                <video
-                  ref={videoRef}
-                  src={result.url}
-                  playsInline
-                  className="toss-video-element"
-                />
-              ) : videos.length > 0 && videos[0].url ? (
-                <video
-                  ref={videoRef}
-                  src={videos[0].url}
-                  playsInline
-                  className="toss-video-element"
-                />
+              {activeVideoUrl ? (
+                <>
+                  <video
+                    key={activeVideoUrl}
+                    ref={videoRef}
+                    src={activeVideoUrl}
+                    playsInline
+                    muted={isMuted}
+                    onPlay={() => setIsPlaying(true)}
+                    onPause={() => setIsPlaying(false)}
+                    onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+                    onEnded={() => {
+                      setIsPlaying(false);
+                      setCurrentTime(0);
+                    }}
+                    onClick={togglePlay}
+                    className="toss-video-element"
+                  />
+                  {/* 정지 중일 때 비디오 중앙에 표시되는 재생 오버레이 버튼 */}
+                  {!isPlaying && (
+                    <button
+                      type="button"
+                      className="toss-canvas-play-overlay"
+                      onClick={togglePlay}
+                      title="재생하기"
+                    >
+                      <Play size={28} className="ml-1 text-white" />
+                    </button>
+                  )}
+                </>
               ) : (
                 /* 영상이 없을 때의 빈 상태 안내 */
                 <div
@@ -413,40 +475,141 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               </div>
             </div>
 
-            {/* 비디오 재생 컨트롤 바 */}
-            {(result?.url || videos.length > 0) && (
+            {/* 비디오 재생 트랜스포트 바 */}
+            {activeVideoUrl && (
               <div className="toss-transport-bar">
-                <button
-                  type="button"
-                  className="toss-play-btn"
-                  onClick={togglePlay}
-                  title={isPlaying ? '일시정지' : '재생'}
-                >
-                  {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
-                </button>
+                <div className="toss-transport-left">
+                  <button
+                    type="button"
+                    className="toss-btn-step"
+                    onClick={() => seekRelative(-5)}
+                    title="5초 뒤로"
+                  >
+                    <RotateCcw size={13} />
+                    <span>-5s</span>
+                  </button>
 
-                <div className="toss-timecode-text">
-                  <span className="font-bold text-slate-900">{formatSec(currentTime)}</span>
-                  <span className="text-slate-400">/</span>
-                  <span className="text-slate-500">{formatSec(totalDuration)}</span>
+                  <button
+                    type="button"
+                    className="toss-play-btn"
+                    onClick={togglePlay}
+                    title={isPlaying ? '일시정지' : '재생'}
+                  >
+                    {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="toss-btn-step"
+                    onClick={() => seekRelative(5)}
+                    title="5초 앞으로"
+                  >
+                    <span>+5s</span>
+                    <FastForward size={13} />
+                  </button>
+
+                  <div className="toss-timecode-text">
+                    <span className="font-bold text-slate-900">{formatSec(currentTime)}</span>
+                    <span className="text-slate-400">/</span>
+                    <span className="text-slate-500">{formatSec(totalDuration)}</span>
+                  </div>
                 </div>
 
-                <div className="toss-progress-track">
+                {/* 프로그레스 스크럽 바 */}
+                <div
+                  className="toss-progress-track"
+                  onClick={handleSeekByPosition}
+                  title="원하는 위치로 이동"
+                >
                   <div
                     className="toss-progress-fill"
                     style={{
                       width: `${Math.min(100, Math.max(0, (currentTime / (totalDuration || 1)) * 100))}%`,
                     }}
                   />
+                  <div
+                    className="toss-progress-thumb"
+                    style={{
+                      left: `${Math.min(100, Math.max(0, (currentTime / (totalDuration || 1)) * 100))}%`,
+                    }}
+                  />
                 </div>
 
-                <button
-                  type="button"
-                  className="toss-btn-icon"
-                  onClick={() => setIsMuted(!isMuted)}
+                <div className="toss-transport-right">
+                  <button
+                    type="button"
+                    className={`toss-btn-icon ${isMuted ? 'muted' : ''}`}
+                    onClick={toggleMute}
+                    title={isMuted ? '음소거 해제' : '음소거'}
+                  >
+                    {isMuted ? <VolumeX size={17} /> : <Volume2 size={17} />}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ★ NLE 감성: 16:9 인터랙티브 시퀀스 타임라인 스트립 */}
+            {segments.length > 0 && (
+              <div className="toss-timeline-sequencer-box">
+                <div className="toss-sequencer-header">
+                  <div className="flex items-center gap-1.5">
+                    <Film size={14} className="text-blue-600" />
+                    <span className="toss-sequencer-title">시퀀스 타임라인</span>
+                    <span className="toss-sequencer-badge">{segments.length}개 클립</span>
+                  </div>
+                  <span className="toss-sequencer-hint">클립을 누르면 해당 구간으로 바로 이동해요</span>
+                </div>
+
+                <div
+                  className="toss-sequencer-track"
+                  onClick={handleSeekByPosition}
+                  title="클릭하여 원하는 시간으로 시크"
                 >
-                  {isMuted ? <VolumeX size={17} /> : <Volume2 size={17} />}
-                </button>
+                  {/* 빨간색 실시간 플레이헤드 침 */}
+                  <div
+                    className="toss-sequencer-playhead"
+                    style={{
+                      left: `${Math.min(100, Math.max(0, (currentTime / (totalDuration || 1)) * 100))}%`,
+                    }}
+                  >
+                    <div className="toss-playhead-cap" />
+                    <div className="toss-playhead-line" />
+                  </div>
+
+                  {/* 연결된 클립 스트립 블록 */}
+                  <div className="toss-sequencer-strip">
+                    {segments.map((seg, idx) => {
+                      const isCurrent = seg.id === activePlayingSegmentId;
+                      const isSelected = seg.id === selectedSegmentId;
+                      const widthPct = (seg.duration / (totalDuration || 1)) * 100;
+                      const vItem = videoMap.get(seg.sourceVideoId);
+                      return (
+                        <div
+                          key={seg.id}
+                          className={`toss-sequencer-block ${isSelected ? 'selected' : ''} ${isCurrent ? 'playing' : ''}`}
+                          style={{ width: `${Math.max(5, widthPct)}%` }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectSegment(seg.id);
+                          }}
+                          title={`#${idx + 1} (${seg.duration.toFixed(1)}초): ${seg.reason}`}
+                        >
+                          {vItem?.thumbnailUrl && (
+                            <img
+                              src={vItem.thumbnailUrl}
+                              alt=""
+                              className="toss-sequencer-block-thumb"
+                            />
+                          )}
+                          <div className="toss-sequencer-block-overlay">
+                            <span className="toss-block-idx">#{idx + 1}</span>
+                            <span className="toss-block-dur">{seg.duration.toFixed(1)}s</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -480,12 +643,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             ) : (
               <div className="toss-segment-list">
                 {segments.map((seg, idx) => {
-                  const isSelected = seg.id === currentSegment?.id;
+                  const isSelected = seg.id === selectedSegmentId;
+                  const isCurrentPlaying = seg.id === activePlayingSegmentId;
                   const vItem = videoMap.get(seg.sourceVideoId);
                   return (
                     <div
                       key={seg.id}
-                      className={`toss-segment-item ${isSelected ? 'active' : ''}`}
+                      className={`toss-segment-item ${isSelected ? 'active' : ''} ${isCurrentPlaying ? 'playing' : ''}`}
                       onClick={() => handleSelectSegment(seg.id)}
                     >
                       <div className="toss-segment-left">
@@ -499,6 +663,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         <div className="toss-segment-info">
                           <div className="flex items-center gap-1.5">
                             <span className="toss-segment-number">#{idx + 1}</span>
+                            {isCurrentPlaying && isPlaying && (
+                              <span className="toss-badge-playing">재생 중</span>
+                            )}
                             <span className="toss-segment-reason truncate">
                               {seg.reason}
                             </span>

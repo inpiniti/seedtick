@@ -1246,6 +1246,33 @@
   height: 100%;
   object-fit: contain;
   background: #000000;
+  cursor: pointer;
+}
+
+.toss-canvas-play-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: rgba(49, 130, 246, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 10;
+}
+
+.toss-canvas-play-overlay:hover {
+  background: #1b64da;
+  transform: translate(-50%, -50%) scale(1.1);
 }
 
 .toss-player-empty {
@@ -1332,9 +1359,45 @@
 .toss-transport-bar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   margin-top: 12px;
-  padding: 4px 6px;
+  padding: 6px 4px;
+}
+
+.toss-transport-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.toss-transport-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.toss-btn-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background-color: #f2f4f6;
+  border: 1px solid #e5e8eb;
+  color: #4e5968;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-mono, monospace);
+  padding: 4px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.toss-btn-step:hover {
+  background-color: #e5e8eb;
+  color: #191f28;
 }
 
 .toss-play-btn {
@@ -1355,7 +1418,7 @@
 
 .toss-play-btn:hover {
   background-color: #1b64da;
-  transform: scale(1.04);
+  transform: scale(1.05);
 }
 
 .toss-timecode-text {
@@ -1364,23 +1427,44 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  margin-left: 4px;
   flex-shrink: 0;
 }
 
 .toss-progress-track {
   flex: 1;
-  height: 6px;
+  height: 7px;
   background-color: #e5e8eb;
   border-radius: 9999px;
-  overflow: hidden;
   position: relative;
+  cursor: pointer;
+  margin: 0 8px;
+  transition: height 0.15s ease;
+}
+
+.toss-progress-track:hover {
+  height: 9px;
 }
 
 .toss-progress-fill {
   height: 100%;
   background-color: #3182f6;
   border-radius: 9999px;
-  transition: width 0.1s linear;
+  transition: width 0.05s linear;
+}
+
+.toss-progress-thumb {
+  position: absolute;
+  top: 50%;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background-color: #ffffff;
+  border: 2px solid #3182f6;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  transition: opacity 0.15s;
 }
 
 .toss-btn-icon {
@@ -1401,6 +1485,156 @@
 .toss-btn-icon:hover {
   background-color: #f2f4f6;
   color: #191f28;
+}
+
+.toss-btn-icon.muted {
+  color: #f04452;
+}
+
+/* ==========================================================================
+   ★ NLE Sequence Timeline Strip (Visual Editor Track)
+   ========================================================================== */
+
+.toss-timeline-sequencer-box {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #f2f4f6;
+}
+
+.toss-sequencer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.toss-sequencer-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #191f28;
+}
+
+.toss-sequencer-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #3182f6;
+  background-color: #e8f3ff;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.toss-sequencer-hint {
+  font-size: 11px;
+  color: #8b95a1;
+}
+
+.toss-sequencer-track {
+  width: 100%;
+  height: 52px;
+  background-color: #f2f4f6;
+  border: 1px solid #e5e8eb;
+  border-radius: 12px;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.toss-sequencer-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  z-index: 20;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.toss-playhead-cap {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 10px;
+  height: 8px;
+  background-color: #f04452;
+  clip-path: polygon(0% 0%, 100% 0%, 50% 100%);
+}
+
+.toss-playhead-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background-color: #f04452;
+  box-shadow: 0 0 4px rgba(240, 68, 82, 0.6);
+}
+
+.toss-sequencer-strip {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  gap: 2px;
+}
+
+.toss-sequencer-block {
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  border-radius: 6px;
+  background-color: #1e293b;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.toss-sequencer-block:hover {
+  border-color: #3182f6;
+  transform: translateY(-1px);
+}
+
+.toss-sequencer-block.selected {
+  border-color: #3182f6;
+  box-shadow: 0 0 0 2px #3182f6;
+}
+
+.toss-sequencer-block.playing {
+  border-color: #04b069;
+  box-shadow: 0 0 0 2px #04b069;
+}
+
+.toss-sequencer-block-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.65;
+}
+
+.toss-sequencer-block-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.2) 60%, rgba(0, 0, 0, 0.7) 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 3px 5px;
+}
+
+.toss-block-idx {
+  font-size: 10px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.toss-block-dur {
+  font-size: 9px;
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
+  color: #93c5fd;
+  text-align: right;
 }
 
 /* Segments Timeline List */
@@ -1435,6 +1669,21 @@
   border-color: #3182f6;
   background-color: #f4f8ff;
   box-shadow: 0 0 0 1px #3182f6;
+}
+
+.toss-segment-item.playing {
+  border-color: #04b069;
+  background-color: #f0fdf4;
+}
+
+.toss-badge-playing {
+  font-size: 10px;
+  font-weight: 700;
+  color: #04b069;
+  background-color: #dcfce7;
+  padding: 1px 5px;
+  border-radius: 4px;
+  animation: toss-pulse 1.5s infinite;
 }
 
 .toss-segment-left {
