@@ -1,45 +1,30 @@
-// components/studio/ProStudioView.tsx - 프로 비디오 스튜디오 에디터 (Remotion / NLE 멀티트랙 타임라인, 오디오 파형, BGM, 세부 인스펙터)
+// components/studio/ProStudioView.tsx - 토스(Toss) 스타일 깔끔하고 정갈한 16:9 AI 영상 스튜디오
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Play,
   Pause,
-  SkipBack,
-  SkipForward,
   RotateCcw,
   Volume2,
   VolumeX,
-  Volume1,
-  Scissors,
+  Sparkles,
   Download,
   Trash2,
-  Copy,
-  Music,
-  Film,
-  Layers,
-  Sparkles,
-  Maximize2,
-  Minimize2,
-  ZoomIn,
-  ZoomOut,
-  Sliders,
-  Check,
-  Radio,
-  Clock,
-  ArrowLeft,
-  Settings2,
   Upload,
   Plus,
   X,
-  Terminal,
-  Activity,
-  ChevronDown,
+  Clock,
+  Music,
+  Check,
+  Scissors,
+  SlidersHorizontal,
+  ChevronRight,
+  AlertCircle,
 } from 'lucide-react';
 import type {
   FinalVideoResult,
   HighlightSegment,
   VideoItem,
-  BgmPreset,
   ProcessingProgress,
 } from '../../types/video.ts';
 import type { FreeModelMeta, ReasoningEffortOption } from '../../types/gateway.ts';
@@ -69,28 +54,12 @@ interface ProStudioViewProps {
   isReStitching: boolean;
 }
 
-// 14px 유튜브 아이콘 컴포넌트
-const YoutubeBadgeIcon: React.FC = () => (
-  <svg
-    width={14}
-    height={14}
-    viewBox="0 0 24 24"
-    fill="#ef4444"
-    style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0 }}
-  >
-    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-  </svg>
-);
-
 export const ProStudioView: React.FC<ProStudioViewProps> = ({
   result,
   videos,
   models,
   selectedModel,
   onSelectModel,
-  selectedEffort,
-  onSelectEffort,
-  isLoadingModels,
   onFilesSelected,
   onRemoveVideo,
   onStartAiAnalysis,
@@ -102,19 +71,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   isReStitching,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const timelineTrackRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const terminalEndRef = useRef<HTMLDivElement>(null);
 
-  // 1. 에디터 타임라인 상태
+  // 1. 타임라인 및 클립 상태
   const initialSegments = useMemo(() => {
     if (result?.segments && result.segments.length > 0) {
       return result.segments;
     }
-    // 결과가 아직 없더라도 업로드된 비디오에서 추출된 세그먼트가 있으면 사용
     const extracted = videos.flatMap((v) => v.segments);
     if (extracted.length > 0) return extracted;
-    // 세그먼트가 아직 없으면 각 비디오의 첫 5초를 임시 타임라인 클립으로 표시
     return videos.map((v, idx) => ({
       id: `temp_seg_${v.id}`,
       sourceVideoId: v.id,
@@ -122,7 +87,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       start: 0,
       end: Math.min(v.duration || 5, 5),
       duration: Math.min(v.duration || 5, 5),
-      reason: `클립 #${idx + 1} 원본`,
+      reason: `클립 #${idx + 1}`,
     }));
   }, [result, videos]);
 
@@ -133,17 +98,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
-  const [volume, setVolume] = useState<number>(1.0);
-  const [timelineZoom, setTimelineZoom] = useState<number>(1.0);
-  const [activeLeftTab, setActiveLeftTab] = useState<'media' | 'bgm'>('media');
 
-  // 2. BGM 오디오 상태
+  // 2. BGM 상태
   const [selectedBgmId, setSelectedBgmId] = useState<string>('acoustic');
   const [bgmVolume, setBgmVolume] = useState<number>(0.3);
   const [previewingBgmId, setPreviewingBgmId] = useState<string | null>(null);
-  const bgmPreviewControllerRef = useRef<{ stop: () => void } | null>(null);
+  const bgmPreviewRef = useRef<{ stop: () => void } | null>(null);
 
-  // 결과나 비디오 갱신 시 타임라인 동기화
+  // 상위 결과 갱신 동기화
   useEffect(() => {
     if (result?.segments && result.segments.length > 0) {
       setSegments(result.segments);
@@ -188,45 +150,41 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     };
   }, []);
 
-  // 로그 스크롤
-  useEffect(() => {
-    if (isProcessing) {
-      terminalEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [progress.reasoningLogs, isProcessing]);
-
-  // 총 하이라이트 길이 계산
+  // 총 시간 계산
   const totalDuration = useMemo(() => {
     return segments.reduce((sum, s) => sum + s.duration, 0) || 1;
   }, [segments]);
 
-  // 현재 선택된 세그먼트 객체
-  const selectedSegment = useMemo(() => {
-    return segments.find((s) => s.id === selectedSegmentId) || segments[0];
-  }, [segments, selectedSegmentId]);
+  // 원본 영상 총 시간
+  const originalTotalDuration = useMemo(() => {
+    return videos.reduce((sum, v) => sum + v.duration, 0);
+  }, [videos]);
 
-  // 비디오 ID 매핑 테이블
+  // 시간 절약 퍼센트
+  const savedPercent = useMemo(() => {
+    if (!originalTotalDuration || originalTotalDuration <= 0) return 0;
+    return Math.max(0, Math.round((1 - totalDuration / originalTotalDuration) * 100));
+  }, [totalDuration, originalTotalDuration]);
+
+  // 비디오 ID 매핑
   const videoMap = useMemo(() => {
     const map = new Map<string, VideoItem>();
     videos.forEach((v) => map.set(v.id, v));
     return map;
   }, [videos]);
 
-  // 타임라인 내 누적 시작 시간 맵
+  // 구간별 누적 시작 오프셋
   const segmentTimelineOffsets = useMemo(() => {
     let acc = 0;
     const offsets: Record<string, { startOffset: number; endOffset: number }> = {};
     segments.forEach((s) => {
-      offsets[s.id] = {
-        startOffset: acc,
-        endOffset: acc + s.duration,
-      };
+      offsets[s.id] = { startOffset: acc, endOffset: acc + s.duration };
       acc += s.duration;
     });
     return offsets;
   }, [segments]);
 
-  // 클립 선택
+  // 클립 선택 및 이동
   const handleSelectSegment = (segId: string) => {
     setSelectedSegmentId(segId);
     const offset = segmentTimelineOffsets[segId];
@@ -247,29 +205,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   };
 
-  // 1초 뒤로 / 앞으로
-  const handleStep = (seconds: number) => {
-    if (videoRef.current) {
-      videoRef.current.currentTime = Math.max(
-        0,
-        Math.min(videoRef.current.duration || totalDuration, videoRef.current.currentTime + seconds)
-      );
-    }
-  };
-
-  // 타임라인 클릭/스크러빙 탐색
-  const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const track = timelineTrackRef.current;
-    if (!track || !videoRef.current) return;
-    const rect = track.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const pct = Math.max(0, Math.min(1, clickX / rect.width));
-    const targetSec = pct * totalDuration;
-    videoRef.current.currentTime = targetSec;
-    setCurrentTime(targetSec);
-  };
-
-  // 클립 시작/끝 트리밍 미세 조정
+  // 클립 시작/끝 미세 조절 (-0.5s / +0.5s)
   const handleTrimChange = (
     segId: string,
     field: 'start' | 'end',
@@ -301,22 +237,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     );
   };
 
-  // 클립 개별 볼륨 조정
-  const handleClipVolumeChange = (segId: string, vol: number) => {
-    setSegments((prev) =>
-      prev.map((s) => (s.id === segId ? { ...s, volume: vol } : s))
-    );
-  };
-
-  // 클립 세로 크롭 위치 조정
-  const handleClipCropOffsetChange = (segId: string, ratio: number) => {
-    setSegments((prev) =>
-      prev.map((s) => (s.id === segId ? { ...s, cropOffsetYRatio: ratio } : s))
-    );
-  };
-
   // 클립 삭제
-  const handleDeleteSegment = (segId: string) => {
+  const handleDeleteSegment = (segId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     const updated = segments.filter((s) => s.id !== segId);
     setSegments(updated);
     if (selectedSegmentId === segId && updated.length > 0) {
@@ -324,58 +247,43 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   };
 
-  // 클립 복제
-  const handleDuplicateSegment = (segId: string) => {
-    const target = segments.find((s) => s.id === segId);
-    if (!target) return;
-    const cloned: HighlightSegment = {
-      ...target,
-      id: `clone_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      label: `${target.label || target.reason} (복제)`,
-    };
-    const idx = segments.findIndex((s) => s.id === segId);
-    const updated = [...segments];
-    updated.splice(idx + 1, 0, cloned);
-    setSegments(updated);
-    setSelectedSegmentId(cloned.id);
+  // 크롭 위치 조정
+  const handleCropAnchorChange = (segId: string, ratio: number) => {
+    setSegments((prev) =>
+      prev.map((s) => (s.id === segId ? { ...s, cropOffsetYRatio: ratio } : s))
+    );
   };
 
-  // BGM 미리듣기 토글
-  const handleToggleBgmPreview = (presetId: string) => {
+  // BGM 미리듣기
+  const handleToggleBgmPreview = (presetId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     if (previewingBgmId === presetId) {
-      bgmPreviewControllerRef.current?.stop();
-      bgmPreviewControllerRef.current = null;
+      bgmPreviewRef.current?.stop();
+      bgmPreviewRef.current = null;
       setPreviewingBgmId(null);
       return;
     }
 
-    bgmPreviewControllerRef.current?.stop();
+    bgmPreviewRef.current?.stop();
     try {
       const AudioContextClass =
         window.AudioContext ||
         (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       const ctx = new AudioContextClass();
       const ctrl = playBgmSynthLoop(ctx, ctx.destination, presetId, bgmVolume);
-      bgmPreviewControllerRef.current = {
+      bgmPreviewRef.current = {
         stop: () => {
           ctrl.stop();
           ctx.close().catch(() => {});
         },
       };
       setPreviewingBgmId(presetId);
-    } catch (e) {
-      console.warn('BGM 미리듣기 실패:', e);
+    } catch {
+      // ignore
     }
   };
 
-  // 렌더링 & 내보내기 실행
-  const handleTriggerReStitch = () => {
-    bgmPreviewControllerRef.current?.stop();
-    setPreviewingBgmId(null);
-    onReStitch(segments, selectedBgmId, bgmVolume);
-  };
-
-  // 파일 입력 트리거
+  // 파일 업로드
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       onFilesSelected(Array.from(e.target.files));
@@ -383,7 +291,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   };
 
-  // 드래그 앤 드롭
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
@@ -391,7 +298,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   };
 
-  // 다운로드
+  // 완성 영상 다운로드
   const handleDownload = () => {
     if (!result?.url) return;
     const a = document.createElement('a');
@@ -402,51 +309,45 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     document.body.removeChild(a);
   };
 
-  // 타임코드 포맷팅 (00:04.2)
-  const formatTimecode = (sec: number) => {
+  // 시간 포맷 (00:04)
+  const formatSec = (sec: number) => {
     const m = Math.floor(sec / 60);
     const s = Math.floor(sec % 60);
-    const ms = Math.floor((sec % 1) * 10);
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${ms}`;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
-  const playheadPercent = Math.min(100, Math.max(0, (currentTime / (totalDuration || 1)) * 100));
+  const currentSegment = segments.find((s) => s.id === selectedSegmentId) || segments[0];
 
   return (
-    <div className="pro-studio-container" onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
+    <div className="toss-page-container" onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
       <input
         ref={fileInputRef}
         type="file"
         multiple
         accept="video/*"
-        className="hidden"
         style={{ display: 'none' }}
         onChange={handleFileInputChange}
       />
 
-      {/* 1. 상단 프로 스튜디오 네비게이션 헤더 */}
-      <header className="pro-studio-header">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-xs shadow-md shadow-blue-500/20">
-              RV
-            </div>
-            <span className="text-white font-bold text-sm tracking-tight">Reportist Studio</span>
-            <span className="text-[10px] font-mono font-bold text-blue-400 bg-blue-950/80 px-2 py-0.5 rounded border border-blue-800/80">
-              PRO NLE
-            </span>
+      {/* 1. 상단 글로벌 내비게이션 바 (토스 스타일) */}
+      <header className="toss-nav-header">
+        <div className="toss-nav-left">
+          <div className="toss-logo-badge">
+            <Sparkles size={16} className="text-white" />
           </div>
+          <span className="toss-nav-title">Reportist Video</span>
+          <span className="toss-tag-blue">16:9 유튜브 하이라이트</span>
+        </div>
 
-          <div className="h-4 w-px bg-slate-800" />
-
-          {/* AI 모델 선택 콤보박스 */}
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-mono text-slate-400">AI MODEL:</span>
+        <div className="toss-nav-right">
+          {/* AI 모델 콤보박스 */}
+          <div className="toss-model-select-wrap">
+            <span className="toss-model-label">AI 모델</span>
             <select
               value={selectedModel}
               onChange={(e) => onSelectModel(e.target.value)}
-              disabled={isProcessing || isLoadingModels}
-              className="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-md px-2 py-1 font-mono focus:outline-none focus:border-blue-500"
+              disabled={isProcessing}
+              className="toss-select"
             >
               {models.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -455,804 +356,478 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               ))}
             </select>
           </div>
-        </div>
 
-        {/* 우측 액션: AI 분석 & 렌더링 */}
-        <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            className="pro-studio-btn-sub"
-            onClick={() => fileInputRef.current?.click()}
-            title="새 비디오 파일 추가"
-          >
-            <Plus size={14} />
-            <span>미디어 추가</span>
-          </button>
-
-          {/* AI 하이라이트 자동 추출 버튼 */}
-          <button
-            type="button"
-            className="pro-studio-btn-ai"
-            onClick={onStartAiAnalysis}
-            disabled={isProcessing || videos.length === 0}
-            title="AI가 영상의 극적 장면을 자동 감지하여 타임라인에 배치합니다"
-          >
-            <Sparkles size={14} className={isProcessing ? 'animate-spin' : 'text-amber-400'} />
-            <span>{isProcessing ? 'AI 장면 분석 중...' : '✨ AI 하이라이트 자동 컷'}</span>
-          </button>
-
-          {/* 렌더링 / 다운로드 버튼 */}
-          {result?.url && (
-            <button
-              type="button"
-              className="pro-studio-btn-sub"
-              onClick={handleDownload}
-              title="완성된 영상 다운로드"
-            >
-              <Download size={14} />
-              <span>다운로드 ({(result.fileSize / (1024 * 1024)).toFixed(1)}MB)</span>
+          {videos.length > 0 && (
+            <button type="button" className="toss-btn-text" onClick={onReset}>
+              새로 시작하기
             </button>
           )}
-
-          <button
-            type="button"
-            className={`pro-studio-btn-render ${isReStitching ? 'loading' : ''}`}
-            onClick={handleTriggerReStitch}
-            disabled={isReStitching || segments.length === 0}
-          >
-            <Layers size={14} />
-            <span>{isReStitching ? '렌더링 중...' : '🚀 영상 렌더링 (Render)'}</span>
-          </button>
         </div>
       </header>
 
-      {/* 2. 메인 워크스페이스 (좌측 에셋 + 중앙 16:9 캔버스 + 우측 인스펙터) */}
-      <div className="pro-studio-workspace">
-        {/* 2-A. 좌측 패널 (미디어 라이브러리 & BGM 사운드트랙) */}
-        <aside className="pro-studio-left-panel">
-          <div className="pro-studio-tab-bar">
-            <button
-              type="button"
-              className={`pro-studio-tab-btn ${activeLeftTab === 'media' ? 'active' : ''}`}
-              onClick={() => setActiveLeftTab('media')}
-            >
-              <Film size={14} />
-              <span>미디어 & 클립 ({videos.length})</span>
-            </button>
-            <button
-              type="button"
-              className={`pro-studio-tab-btn ${activeLeftTab === 'bgm' ? 'active' : ''}`}
-              onClick={() => setActiveLeftTab('bgm')}
-            >
-              <Music size={14} />
-              <span>배경음악 (BGM)</span>
-            </button>
-          </div>
-
-          <div className="pro-studio-panel-content">
-            {activeLeftTab === 'media' && (
-              <div className="media-tab-content">
-                {/* 미디어 가져오기 빠른 드롭존 */}
+      {/* 2. 본문 2열 레이아웃 */}
+      <main className="toss-main-content">
+        {/* 2-A. 왼쪽 열: 16:9 모니터 & 타임라인 클립 목록 */}
+        <section className="toss-column-left">
+          {/* 16:9 비디오 플레이어 카드 */}
+          <div className="toss-card toss-player-card">
+            <div className="toss-player-wrapper">
+              {result?.url ? (
+                <video
+                  ref={videoRef}
+                  src={result.url}
+                  playsInline
+                  className="toss-video-element"
+                />
+              ) : videos.length > 0 && videos[0].url ? (
+                <video
+                  ref={videoRef}
+                  src={videos[0].url}
+                  playsInline
+                  className="toss-video-element"
+                />
+              ) : (
+                /* 영상이 없을 때의 빈 상태 안내 */
                 <div
-                  className="sidebar-dropzone"
+                  className="toss-player-empty"
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <Upload size={16} className="text-blue-400 mb-1" />
-                  <span className="text-xs font-bold text-slate-200">미디어 가져오기</span>
-                  <span className="text-[10px] text-slate-400">여기에 동영상 드래그 앤 드롭</span>
+                  <div className="toss-empty-circle-icon">
+                    <Upload size={28} className="text-blue-500" />
+                  </div>
+                  <h3 className="toss-empty-title">영상을 올려주세요</h3>
+                  <p className="toss-empty-desc">
+                    여기에 동영상을 끌어다 놓거나 눌러서 선택하면<br />
+                    AI가 16:9 유튜브 규격으로 가장 극적인 순간만 모아드려요.
+                  </p>
+                  <button type="button" className="toss-btn-secondary mt-3">
+                    <Plus size={15} />
+                    <span>영상 파일 선택하기</span>
+                  </button>
+                </div>
+              )}
+
+              {/* 16:9 규격 배지 */}
+              <div className="toss-ratio-badge">
+                <span>16:9 HD (1280×720)</span>
+              </div>
+            </div>
+
+            {/* 비디오 재생 컨트롤 바 */}
+            {(result?.url || videos.length > 0) && (
+              <div className="toss-transport-bar">
+                <button
+                  type="button"
+                  className="toss-play-btn"
+                  onClick={togglePlay}
+                  title={isPlaying ? '일시정지' : '재생'}
+                >
+                  {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
+                </button>
+
+                <div className="toss-timecode-text">
+                  <span className="font-bold text-slate-900">{formatSec(currentTime)}</span>
+                  <span className="text-slate-400">/</span>
+                  <span className="text-slate-500">{formatSec(totalDuration)}</span>
                 </div>
 
-                {/* 업로드된 비디오 목록 */}
-                <div className="mt-3">
-                  <div className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider mb-2">
-                    업로드된 소스 영상 ({videos.length}개)
-                  </div>
+                <div className="toss-progress-track">
+                  <div
+                    className="toss-progress-fill"
+                    style={{
+                      width: `${Math.min(100, Math.max(0, (currentTime / (totalDuration || 1)) * 100))}%`,
+                    }}
+                  />
+                </div>
 
-                  {videos.length === 0 ? (
-                    <div className="p-4 text-center text-xs text-slate-500 border border-dashed border-slate-800 rounded-lg">
-                      가져온 미디어가 없습니다.
-                    </div>
-                  ) : (
-                    videos.map((vid, idx) => (
-                      <div key={vid.id} className="source-media-card">
-                        <div className="source-media-thumb-box">
-                          {vid.thumbnailUrl ? (
-                            <img src={vid.thumbnailUrl} alt={vid.name} className="source-media-thumb" />
-                          ) : (
-                            <Film size={16} className="text-slate-500" />
-                          )}
-                          <span className="source-media-dur">{vid.duration.toFixed(1)}s</span>
-                        </div>
+                <button
+                  type="button"
+                  className="toss-btn-icon"
+                  onClick={() => setIsMuted(!isMuted)}
+                >
+                  {isMuted ? <VolumeX size={17} /> : <Volume2 size={17} />}
+                </button>
+              </div>
+            )}
+          </div>
 
-                        <div className="source-media-info">
-                          <div className="text-xs font-bold text-white truncate" title={vid.name}>
-                            #{idx + 1} {vid.name}
-                          </div>
-                          <div className="flex items-center gap-2 text-[10px] font-mono text-slate-400 mt-0.5">
-                            <span>{vid.width}x{vid.height}</span>
-                            <span>•</span>
-                            <span className={vid.segments.length > 0 ? 'text-emerald-400' : 'text-slate-500'}>
-                              {vid.segments.length > 0 ? `AI 구간 ${vid.segments.length}개` : '분석 대기'}
+          {/* 타임라인 극적 구간 리스트 카드 */}
+          <div className="toss-card">
+            <div className="toss-card-header">
+              <div>
+                <h4 className="toss-card-title flex items-center gap-1.5">
+                  <Scissors size={16} className="text-blue-600" />
+                  AI가 포착한 극적 순간
+                </h4>
+                <p className="toss-card-desc">
+                  각 구간의 앞뒤를 늘리거나 줄여서 원하는 만큼 다듬을 수 있어요.
+                </p>
+              </div>
+
+              {segments.length > 0 && (
+                <span className="toss-tag-gray">
+                  총 {segments.length}개 구간 ({totalDuration.toFixed(1)}초)
+                </span>
+              )}
+            </div>
+
+            {segments.length === 0 ? (
+              <div className="toss-empty-state">
+                <p className="text-slate-400 text-sm">
+                  영상을 올리고 오른쪽의 '✨ AI 하이라이트 만들기'를 누르면 극적 구간이 채워져요.
+                </p>
+              </div>
+            ) : (
+              <div className="toss-segment-list">
+                {segments.map((seg, idx) => {
+                  const isSelected = seg.id === currentSegment?.id;
+                  const vItem = videoMap.get(seg.sourceVideoId);
+                  return (
+                    <div
+                      key={seg.id}
+                      className={`toss-segment-item ${isSelected ? 'active' : ''}`}
+                      onClick={() => handleSelectSegment(seg.id)}
+                    >
+                      <div className="toss-segment-left">
+                        {vItem?.thumbnailUrl && (
+                          <img
+                            src={vItem.thumbnailUrl}
+                            alt=""
+                            className="toss-segment-thumb"
+                          />
+                        )}
+                        <div className="toss-segment-info">
+                          <div className="flex items-center gap-1.5">
+                            <span className="toss-segment-number">#{idx + 1}</span>
+                            <span className="toss-segment-reason truncate">
+                              {seg.reason}
                             </span>
                           </div>
+                          <span className="toss-segment-source truncate">
+                            {seg.sourceVideoName}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 트리밍 버튼 및 길이 */}
+                      <div className="toss-segment-right">
+                        <div className="toss-trim-controls">
+                          <button
+                            type="button"
+                            className="toss-btn-micro"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleTrimChange(seg.id, 'start', -0.5);
+                            }}
+                            title="시작 0.5초 늘리기"
+                          >
+                            -0.5s
+                          </button>
+                          <span className="toss-segment-duration">
+                            {seg.duration.toFixed(1)}초
+                          </span>
+                          <button
+                            type="button"
+                            className="toss-btn-micro"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleTrimChange(seg.id, 'end', 0.5);
+                            }}
+                            title="끝 0.5초 늘리기"
+                          >
+                            +0.5s
+                          </button>
                         </div>
 
                         <button
                           type="button"
-                          className="source-media-remove-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onRemoveVideo(vid.id);
-                          }}
-                          title="미디어 삭제"
+                          className="toss-btn-delete"
+                          onClick={(e) => handleDeleteSegment(seg.id, e)}
+                          title="이 구간 제외하기"
                         >
-                          <X size={13} />
+                          <Trash2 size={15} />
                         </button>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                {/* AI 하이라이트 클립 목록 */}
-                {segments.length > 0 && (
-                  <div className="mt-4 pt-3 border-t border-slate-800">
-                    <div className="text-[10px] font-mono font-bold text-amber-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                      <Sparkles size={12} />
-                      타임라인 극적 클립 ({segments.length}개)
-                    </div>
-
-                    <div className="clip-asset-list">
-                      {segments.map((seg, idx) => {
-                        const vItem = videoMap.get(seg.sourceVideoId);
-                        const isSelected = seg.id === selectedSegmentId;
-                        return (
-                          <div
-                            key={seg.id}
-                            className={`clip-asset-card ${isSelected ? 'selected' : ''}`}
-                            onClick={() => handleSelectSegment(seg.id)}
-                          >
-                            <div className="clip-asset-thumb-box">
-                              {vItem?.thumbnailUrl ? (
-                                <img src={vItem.thumbnailUrl} alt={seg.sourceVideoName} className="clip-asset-thumb" />
-                              ) : (
-                                <Film size={16} className="text-slate-500" />
-                              )}
-                              <span className="clip-asset-dur-tag">{seg.duration.toFixed(1)}s</span>
-                            </div>
-
-                            <div className="clip-asset-info">
-                              <div className="flex items-center justify-between gap-1">
-                                <span className="clip-asset-badge">#{idx + 1}</span>
-                                <span className="clip-asset-time">
-                                  {seg.start.toFixed(1)}s ~ {seg.end.toFixed(1)}s
-                                </span>
-                              </div>
-                              <div className="clip-asset-title truncate">{seg.sourceVideoName}</div>
-                              <div className="clip-asset-reason truncate" title={seg.reason}>
-                                {seg.reason}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {activeLeftTab === 'bgm' && (
-              <div className="bgm-asset-list">
-                <div className="bgm-volume-card">
-                  <div className="flex items-center justify-between text-xs font-mono text-slate-300 mb-2">
-                    <span className="flex items-center gap-1.5 font-bold">
-                      <Music size={13} className="text-pink-400" />
-                      배경음악 마스터 볼륨
-                    </span>
-                    <span className="text-pink-400 font-bold">{Math.round(bgmVolume * 100)}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.05"
-                    value={bgmVolume}
-                    onChange={(e) => setBgmVolume(parseFloat(e.target.value))}
-                    className="pro-studio-slider"
-                  />
-                </div>
-
-                {BGM_PRESETS.map((preset) => {
-                  const isCurrent = selectedBgmId === preset.id;
-                  const isPreviewing = previewingBgmId === preset.id;
-                  return (
-                    <div
-                      key={preset.id}
-                      className={`bgm-asset-card ${isCurrent ? 'selected' : ''}`}
-                      onClick={() => setSelectedBgmId(preset.id)}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h5 className="text-xs font-bold text-white">{preset.name}</h5>
-                            {isCurrent && (
-                              <span className="bgm-active-tag">선택됨</span>
-                            )}
-                          </div>
-                          <p className="text-[11px] text-slate-400 mt-1">{preset.description}</p>
-                          <div className="flex items-center gap-2 text-[10px] font-mono text-slate-500 mt-1.5">
-                            <span className="text-indigo-400 font-semibold">{preset.mood}</span>
-                            <span>•</span>
-                            <span>{preset.tempo}</span>
-                          </div>
-                        </div>
-
-                        {preset.id !== 'none' && (
-                          <button
-                            type="button"
-                            className={`bgm-preview-btn ${isPreviewing ? 'playing' : ''}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleToggleBgmPreview(preset.id);
-                            }}
-                            title="BGM 미리듣기"
-                          >
-                            {isPreviewing ? <Pause size={13} /> : <Play size={13} />}
-                          </button>
-                        )}
                       </div>
                     </div>
                   );
                 })}
               </div>
             )}
-          </div>
-        </aside>
-
-        {/* 2-B. 중앙 프리뷰 캔버스 및 트랜스포트 바 */}
-        <section className="pro-studio-center-stage">
-          <div className="pro-canvas-wrapper">
-            {result?.url ? (
-              <video
-                ref={videoRef}
-                src={result.url}
-                playsInline
-                className="pro-canvas-video"
-              />
-            ) : videos.length > 0 && videos[0].url ? (
-              <video
-                ref={videoRef}
-                src={videos[0].url}
-                playsInline
-                className="pro-canvas-video"
-              />
-            ) : (
-              /* 빈 프로젝트 캔버스 플레이스홀더 */
-              <div
-                className="pro-canvas-empty"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <div className="pro-canvas-empty-icon">
-                  <Film size={36} className="text-blue-400" />
-                </div>
-                <h3 className="text-sm font-bold text-white mt-3">
-                  16:9 유튜브 시네마틱 프로젝트
-                </h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  동영상 파일을 드래그하여 가져오거나 클릭하여 추가하세요
-                </p>
-                <button type="button" className="pro-canvas-empty-btn mt-3">
-                  <Plus size={14} />
-                  <span>미디어 파일 선택하기</span>
-                </button>
-              </div>
-            )}
-
-            {/* 16:9 시네마틱 뱃지 */}
-            <div className="pro-canvas-overlay-badge">
-              <YoutubeBadgeIcon />
-              <span>16:9 HD PREVIEW</span>
-            </div>
-          </div>
-
-          {/* 비디오 재생 트랜스포트 컨트롤 바 */}
-          <div className="pro-transport-bar">
-            {/* 좌측: 타임코드 */}
-            <div className="pro-timecode-display">
-              <span className="time-current">{formatTimecode(currentTime)}</span>
-              <span className="time-sep">/</span>
-              <span className="time-total">{formatTimecode(totalDuration)}</span>
-            </div>
-
-            {/* 중앙: 재생 컨트롤 */}
-            <div className="pro-transport-controls">
-              <button
-                type="button"
-                className="transport-btn"
-                onClick={() => handleStep(-1)}
-                title="1초 뒤로"
-              >
-                <SkipBack size={15} />
-              </button>
-
-              <button
-                type="button"
-                className="transport-play-btn"
-                onClick={togglePlay}
-                title={isPlaying ? '일시정지 (Space)' : '재생 (Space)'}
-              >
-                {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
-              </button>
-
-              <button
-                type="button"
-                className="transport-btn"
-                onClick={() => handleStep(1)}
-                title="1초 앞으로"
-              >
-                <SkipForward size={15} />
-              </button>
-            </div>
-
-            {/* 우측: 볼륨 & 줌 */}
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  className="transport-btn"
-                  onClick={() => setIsMuted(!isMuted)}
-                >
-                  {isMuted ? <VolumeX size={15} /> : volume > 0.5 ? <Volume2 size={15} /> : <Volume1 size={15} />}
-                </button>
-                <input
-                  type="range"
-                  min="0"
-                  max="1.5"
-                  step="0.05"
-                  value={isMuted ? 0 : volume}
-                  onChange={(e) => {
-                    const v = parseFloat(e.target.value);
-                    setVolume(v);
-                    setIsMuted(v === 0);
-                    if (videoRef.current) videoRef.current.volume = Math.min(1, v);
-                  }}
-                  className="pro-studio-mini-slider"
-                />
-              </div>
-
-              <div className="h-4 w-px bg-slate-700" />
-
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  className="transport-btn"
-                  onClick={() => setTimelineZoom((z) => Math.max(0.7, z - 0.2))}
-                  title="타임라인 축소"
-                >
-                  <ZoomOut size={14} />
-                </button>
-                <span className="text-[10px] font-mono text-slate-400 w-8 text-center">
-                  {Math.round(timelineZoom * 100)}%
-                </span>
-                <button
-                  type="button"
-                  className="transport-btn"
-                  onClick={() => setTimelineZoom((z) => Math.min(2.5, z + 0.2))}
-                  title="타임라인 확대"
-                >
-                  <ZoomIn size={14} />
-                </button>
-              </div>
-            </div>
           </div>
         </section>
 
-        {/* 2-C. 우측 클립 인스펙터 (선택 클립 정밀 속성 수정) */}
-        <aside className="pro-studio-right-panel">
-          <div className="pro-inspector-header">
-            <div className="flex items-center gap-2">
-              <Sliders size={14} className="text-blue-400" />
-              <h4 className="text-xs font-bold text-white">클립 인스펙터 (INSPECTOR)</h4>
+        {/* 2-B. 오른쪽 열: 사운드트랙 & 인스펙터 & 액션 카드 */}
+        <section className="toss-column-right">
+          {/* 소스 영상 관리 카드 */}
+          <div className="toss-card">
+            <div className="toss-card-header">
+              <h4 className="toss-card-title flex items-center gap-1.5">
+                <Upload size={16} className="text-slate-700" />
+                올린 영상 ({videos.length}개)
+              </h4>
+              <button
+                type="button"
+                className="toss-btn-sm-text"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                + 추가하기
+              </button>
             </div>
-            {selectedSegment && (
-              <span className="text-[10px] font-mono text-blue-400 font-bold bg-blue-950/80 px-2 py-0.5 rounded border border-blue-800">
-                #{segments.findIndex((s) => s.id === selectedSegment?.id) + 1}
-              </span>
+
+            {videos.length === 0 ? (
+              <div
+                className="toss-upload-box"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload size={20} className="text-slate-400 mb-1" />
+                <span className="text-xs font-bold text-slate-700">여기를 눌러 영상을 올려주세요</span>
+                <span className="text-[11px] text-slate-400">MP4, MOV 등 영상 파일 지원</span>
+              </div>
+            ) : (
+              <div className="toss-source-list">
+                {videos.map((vid, idx) => (
+                  <div key={vid.id} className="toss-source-item">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {vid.thumbnailUrl && (
+                        <img src={vid.thumbnailUrl} alt="" className="toss-source-thumb" />
+                      )}
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-slate-800 truncate" title={vid.name}>
+                          #{idx + 1} {vid.name}
+                        </div>
+                        <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                          {vid.duration.toFixed(1)}초 • {vid.width}×{vid.height}
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="toss-btn-delete-sm"
+                      onClick={() => onRemoveVideo(vid.id)}
+                      title="삭제"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 
-          {selectedSegment ? (
-            <div className="pro-inspector-body">
-              {/* 클립 명칭 및 정보 */}
-              <div className="inspector-group">
-                <label className="inspector-label">클립 원본 소스</label>
-                <div className="text-xs font-bold text-white truncate bg-slate-800/80 p-2.5 rounded-lg border border-slate-700">
-                  {selectedSegment.sourceVideoName}
-                </div>
+          {/* 배경음악(BGM) 설정 카드 */}
+          <div className="toss-card">
+            <div className="toss-card-header">
+              <div>
+                <h4 className="toss-card-title flex items-center gap-1.5">
+                  <Music size={16} className="text-blue-600" />
+                  배경음악 (BGM)
+                </h4>
+                <p className="toss-card-desc">
+                  영상의 분위기에 어울리는 무손실 앰비언트 음악을 골라보세요.
+                </p>
               </div>
+            </div>
 
-              {/* AI 포착 사유 */}
-              <div className="inspector-group">
-                <label className="inspector-label flex items-center gap-1">
-                  <Sparkles size={11} className="text-amber-400" />
-                  AI 극적 감지 이유
-                </label>
-                <div className="text-xs text-slate-300 bg-slate-800/60 p-2.5 rounded-lg border border-slate-700 leading-relaxed">
-                  {selectedSegment.reason}
-                </div>
-              </div>
-
-              {/* 시작/종료 트리밍 정밀 제어 */}
-              <div className="inspector-group">
-                <label className="inspector-label">구간 트리밍 정밀 제어 (0.1초 단위)</label>
-                <div className="grid grid-cols-2 gap-2 mt-1.5">
-                  {/* 시작 시간 */}
-                  <div className="trim-control-box">
-                    <span className="trim-control-title">시작 (Start)</span>
-                    <div className="trim-control-val">{selectedSegment.start.toFixed(1)}s</div>
-                    <div className="flex items-center gap-1 mt-1.5">
-                      <button
-                        type="button"
-                        className="trim-step-btn"
-                        onClick={() => handleTrimChange(selectedSegment.id, 'start', -0.5)}
-                      >
-                        -0.5s
-                      </button>
-                      <button
-                        type="button"
-                        className="trim-step-btn"
-                        onClick={() => handleTrimChange(selectedSegment.id, 'start', 0.5)}
-                      >
-                        +0.5s
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 종료 시간 */}
-                  <div className="trim-control-box">
-                    <span className="trim-control-title">종료 (End)</span>
-                    <div className="trim-control-val">{selectedSegment.end.toFixed(1)}s</div>
-                    <div className="flex items-center gap-1 mt-1.5">
-                      <button
-                        type="button"
-                        className="trim-step-btn"
-                        onClick={() => handleTrimChange(selectedSegment.id, 'end', -0.5)}
-                      >
-                        -0.5s
-                      </button>
-                      <button
-                        type="button"
-                        className="trim-step-btn"
-                        onClick={() => handleTrimChange(selectedSegment.id, 'end', 0.5)}
-                      >
-                        +0.5s
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-2 text-center text-xs font-mono font-bold text-emerald-400 bg-emerald-950/40 border border-emerald-800/50 py-1.5 rounded">
-                  클립 재생 길이: {selectedSegment.duration.toFixed(1)}초
-                </div>
-              </div>
-
-              {/* 클립 개별 오디오 볼륨 */}
-              <div className="inspector-group">
-                <div className="flex items-center justify-between">
-                  <label className="inspector-label flex items-center gap-1">
-                    <Volume2 size={12} className="text-emerald-400" />
-                    클립 개별 볼륨
-                  </label>
-                  <span className="text-xs font-mono font-bold text-emerald-400">
-                    {Math.round((selectedSegment.volume ?? 1.0) * 100)}%
-                  </span>
-                </div>
+            {/* BGM 볼륨 슬라이더 */}
+            <div className="toss-bgm-volume-row">
+              <span className="text-xs font-semibold text-slate-600">음악 볼륨</span>
+              <div className="flex items-center gap-2">
                 <input
                   type="range"
                   min="0"
-                  max="1.5"
+                  max="1"
                   step="0.05"
-                  value={selectedSegment.volume ?? 1.0}
-                  onChange={(e) =>
-                    handleClipVolumeChange(selectedSegment.id, parseFloat(e.target.value))
-                  }
-                  className="pro-studio-slider mt-1.5"
+                  value={bgmVolume}
+                  onChange={(e) => setBgmVolume(parseFloat(e.target.value))}
+                  className="toss-slider"
                 />
+                <span className="text-xs font-mono font-bold text-blue-600 w-8 text-right">
+                  {Math.round(bgmVolume * 100)}%
+                </span>
               </div>
+            </div>
 
-              {/* 16:9 세로 영상 인물 상체/얼굴 크롭 앵커 */}
-              <div className="inspector-group">
-                <label className="inspector-label">16:9 인물 스마트 크롭 위치</label>
-                <div className="grid grid-cols-3 gap-1.5 mt-1.5">
-                  <button
-                    type="button"
-                    className={`crop-preset-btn ${(selectedSegment.cropOffsetYRatio ?? 0.25) <= 0.25 ? 'active' : ''}`}
-                    onClick={() => handleClipCropOffsetChange(selectedSegment.id, 0.15)}
+            {/* BGM 프리셋 목록 */}
+            <div className="toss-bgm-list">
+              {BGM_PRESETS.map((preset) => {
+                const isSelected = selectedBgmId === preset.id;
+                const isPreviewing = previewingBgmId === preset.id;
+                return (
+                  <div
+                    key={preset.id}
+                    className={`toss-bgm-chip ${isSelected ? 'active' : ''}`}
+                    onClick={() => setSelectedBgmId(preset.id)}
                   >
-                    상단 (얼굴)
-                  </button>
-                  <button
-                    type="button"
-                    className={`crop-preset-btn ${(selectedSegment.cropOffsetYRatio ?? 0.25) > 0.25 && (selectedSegment.cropOffsetYRatio ?? 0.25) < 0.75 ? 'active' : ''}`}
-                    onClick={() => handleClipCropOffsetChange(selectedSegment.id, 0.5)}
-                  >
-                    중앙 (표준)
-                  </button>
-                  <button
-                    type="button"
-                    className={`crop-preset-btn ${(selectedSegment.cropOffsetYRatio ?? 0.25) >= 0.75 ? 'active' : ''}`}
-                    onClick={() => handleClipCropOffsetChange(selectedSegment.id, 0.85)}
-                  >
-                    하단 (발밑)
-                  </button>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-slate-800">{preset.name}</span>
+                        {isSelected && <Check size={13} className="text-blue-600" />}
+                      </div>
+                      <span className="text-[11px] text-slate-400 block truncate mt-0.5">
+                        {preset.description}
+                      </span>
+                    </div>
+
+                    {preset.id !== 'none' && (
+                      <button
+                        type="button"
+                        className={`toss-bgm-preview-btn ${isPreviewing ? 'playing' : ''}`}
+                        onClick={(e) => handleToggleBgmPreview(preset.id, e)}
+                        title="미리듣기"
+                      >
+                        {isPreviewing ? <Pause size={12} /> : <Play size={12} className="ml-0.5" />}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 세로 영상 16:9 인물 크롭 기준점 */}
+          {currentSegment && (
+            <div className="toss-card">
+              <div className="toss-card-header">
+                <div>
+                  <h4 className="toss-card-title flex items-center gap-1.5">
+                    <SlidersHorizontal size={15} className="text-slate-700" />
+                    인물 크롭 기준 위치
+                  </h4>
+                  <p className="toss-card-desc">
+                    세로로 찍힌 영상에서 인물의 얼굴이 잘리지 않도록 정렬해요.
+                  </p>
                 </div>
               </div>
 
-              {/* 클립 액션 (복제 / 삭제) */}
-              <div className="inspector-group pt-2 border-t border-slate-800 flex items-center gap-2">
+              <div className="toss-segment-control">
                 <button
                   type="button"
-                  className="inspector-action-btn"
-                  onClick={() => handleDuplicateSegment(selectedSegment.id)}
-                  title="이 클립 복제하기"
+                  className={`toss-segment-btn ${(currentSegment.cropOffsetYRatio ?? 0.25) <= 0.25 ? 'active' : ''}`}
+                  onClick={() => handleCropAnchorChange(currentSegment.id, 0.15)}
                 >
-                  <Copy size={13} />
-                  <span>복제</span>
+                  상단 (얼굴 보호)
                 </button>
-
                 <button
                   type="button"
-                  className="inspector-action-btn delete"
-                  onClick={() => handleDeleteSegment(selectedSegment.id)}
-                  title="이 클립 제외하기"
+                  className={`toss-segment-btn ${(currentSegment.cropOffsetYRatio ?? 0.25) > 0.25 && (currentSegment.cropOffsetYRatio ?? 0.25) < 0.75 ? 'active' : ''}`}
+                  onClick={() => handleCropAnchorChange(currentSegment.id, 0.5)}
                 >
-                  <Trash2 size={13} />
-                  <span>삭제</span>
+                  중앙
+                </button>
+                <button
+                  type="button"
+                  className={`toss-segment-btn ${(currentSegment.cropOffsetYRatio ?? 0.25) >= 0.75 ? 'active' : ''}`}
+                  onClick={() => handleCropAnchorChange(currentSegment.id, 0.85)}
+                >
+                  하단
                 </button>
               </div>
-            </div>
-          ) : (
-            <div className="p-6 text-center text-xs text-slate-500 font-mono">
-              미디어를 추가하면 클립 속성을 조절할 수 있습니다.
             </div>
           )}
-        </aside>
-      </div>
 
-      {/* 3. 하단 멀티트랙 NLE 타임라인 (Remotion Studio 스타일) */}
-      <footer className="pro-studio-timeline-panel">
-        {/* 타임라인 상단 룰러 및 스케일 눈금 */}
-        <div className="timeline-header-bar">
-          <div className="timeline-track-label-col">
-            <span className="text-[11px] font-mono font-bold text-slate-400">TRACKS</span>
-          </div>
+          {/* 시간 절약 효과 요약 카드 */}
+          {originalTotalDuration > 0 && segments.length > 0 && (
+            <div className="toss-summary-card">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-500 font-medium">시간 절약률</span>
+                <span className="text-sm font-bold text-emerald-600">
+                  {savedPercent}% 단축
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between mt-1">
+                <span className="text-xs text-slate-400">
+                  {originalTotalDuration.toFixed(1)}초 원본 영상
+                </span>
+                <span className="text-base font-bold text-slate-900 font-mono">
+                  ➔ {totalDuration.toFixed(1)}초 하이라이트
+                </span>
+              </div>
+            </div>
+          )}
+        </section>
+      </main>
 
-          <div
-            ref={timelineTrackRef}
-            className="timeline-ruler-track"
-            onClick={handleTimelineClick}
-          >
-            {/* 눈금선 (5초 간격) */}
-            {Array.from({ length: Math.ceil(totalDuration / 5) + 1 }).map((_, i) => {
-              const sec = i * 5;
-              const leftPct = (sec / (totalDuration || 1)) * 100;
-              if (leftPct > 100) return null;
-              return (
-                <div key={i} className="timeline-ruler-tick" style={{ left: `${leftPct}%` }}>
-                  <span className="timeline-ruler-text">{formatTimecode(sec).slice(0, 5)}</span>
-                </div>
-              );
-            })}
-
-            {/* 빨간색 플레이헤드 스크러버 바 */}
-            <div
-              className="timeline-playhead-line"
-              style={{ left: `${playheadPercent}%` }}
+      {/* 3. 하단 고정 CTA 버튼 바 (Toss Floating Action Bar) */}
+      <footer className="toss-bottom-bar">
+        <div className="toss-bottom-inner">
+          {videos.length === 0 ? (
+            <button
+              type="button"
+              className="toss-cta-button"
+              onClick={() => fileInputRef.current?.click()}
             >
-              <div className="timeline-playhead-cap" />
+              <Plus size={18} />
+              <span>동영상 올리기</span>
+            </button>
+          ) : !result?.url ? (
+            <button
+              type="button"
+              className={`toss-cta-button ${isProcessing ? 'loading' : ''}`}
+              onClick={onStartAiAnalysis}
+              disabled={isProcessing}
+            >
+              <Sparkles size={18} className={isProcessing ? 'animate-spin' : ''} />
+              <span>{isProcessing ? 'AI가 극적인 순간을 찾는 중...' : '✨ AI 하이라이트 만들기'}</span>
+            </button>
+          ) : (
+            <div className="toss-bottom-dual-actions">
+              <button
+                type="button"
+                className="toss-btn-re-render"
+                onClick={() => onReStitch(segments, selectedBgmId, bgmVolume)}
+                disabled={isReStitching || segments.length === 0}
+              >
+                <Scissors size={15} />
+                <span>{isReStitching ? '다시 병합 중...' : '수정된 타임라인 다시 병합'}</span>
+              </button>
+
+              <button
+                type="button"
+                className="toss-cta-button"
+                onClick={handleDownload}
+              >
+                <Download size={18} />
+                <span>🎉 16:9 완성 영상 다운로드하기 ({formatSec(totalDuration)})</span>
+              </button>
             </div>
-          </div>
-        </div>
-
-        {/* 트랙 1: 🏷️ 챕터 트랙 (AI 극적 구간 명칭) */}
-        <div className="timeline-track-row">
-          <div className="timeline-track-title">
-            <Sparkles size={12} className="text-amber-400" />
-            <span>CHAPTERS</span>
-          </div>
-          <div className="timeline-track-content">
-            {segments.map((seg) => {
-              const widthPct = (seg.duration / (totalDuration || 1)) * 100;
-              const isSelected = seg.id === selectedSegmentId;
-              return (
-                <div
-                  key={seg.id}
-                  className={`timeline-chapter-block ${isSelected ? 'selected' : ''}`}
-                  style={{ width: `${widthPct}%` }}
-                  onClick={() => handleSelectSegment(seg.id)}
-                  title={`${seg.sourceVideoName} - ${seg.reason}`}
-                >
-                  <span className="truncate text-[10px] font-bold text-amber-300">
-                    {seg.label || seg.reason}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* 트랙 2: 🎬 비디오 클립 트랙 (필름스트립 & 트리밍 핸들) */}
-        <div className="timeline-track-row video-track">
-          <div className="timeline-track-title">
-            <Film size={12} className="text-blue-400" />
-            <span>VIDEO 1</span>
-          </div>
-
-          <div className="timeline-track-content">
-            {segments.map((seg, idx) => {
-              const vItem = videoMap.get(seg.sourceVideoId);
-              const widthPct = (seg.duration / (totalDuration || 1)) * 100;
-              const isSelected = seg.id === selectedSegmentId;
-
-              return (
-                <div
-                  key={seg.id}
-                  className={`timeline-clip-block ${isSelected ? 'selected' : ''}`}
-                  style={{ width: `${widthPct}%` }}
-                  onClick={() => handleSelectSegment(seg.id)}
-                >
-                  {/* 좌측 트리밍 핸들 */}
-                  <div
-                    className="timeline-trim-handle left"
-                    title="시작 지점 -0.5s"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleTrimChange(seg.id, 'start', -0.5);
-                    }}
-                  />
-
-                  {/* 썸네일 필름스트립 배경 */}
-                  <div className="timeline-clip-filmstrip">
-                    {vItem?.thumbnailUrl && (
-                      <img src={vItem.thumbnailUrl} alt="" className="timeline-clip-thumb" />
-                    )}
-                    <div className="timeline-clip-meta">
-                      <span className="font-bold">#{idx + 1} {seg.sourceVideoName}</span>
-                      <span className="font-mono">{seg.duration.toFixed(1)}s</span>
-                    </div>
-                  </div>
-
-                  {/* 우측 트리밍 핸들 */}
-                  <div
-                    className="timeline-trim-handle right"
-                    title="종료 지점 +0.5s"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleTrimChange(seg.id, 'end', 0.5);
-                    }}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* 트랙 3: 🎵 사운드트랙 / BGM 파형 트랙 */}
-        <div className="timeline-track-row audio-track">
-          <div className="timeline-track-title">
-            <Music size={12} className="text-emerald-400" />
-            <span>SOUNDTRACK</span>
-          </div>
-
-          <div className="timeline-track-content">
-            <div className="timeline-audio-block">
-              {/* SVG 오디오 파형 시각화 */}
-              <div className="timeline-audio-waveform">
-                {Array.from({ length: 64 }).map((_, i) => {
-                  const h = 20 + Math.sin(i * 0.45) * 15 + Math.cos(i * 0.8) * 10;
-                  return (
-                    <div
-                      key={i}
-                      className="timeline-waveform-bar"
-                      style={{ height: `${Math.max(6, Math.min(36, h))}px` }}
-                    />
-                  );
-                })}
-              </div>
-
-              <div className="timeline-audio-meta">
-                <span className="font-bold text-emerald-300">
-                  {BGM_PRESETS.find((b) => b.id === selectedBgmId)?.name || '배경음악'}
-                </span>
-                <span className="text-[10px] text-emerald-400/80 font-mono">
-                  볼륨 {Math.round(bgmVolume * 100)}%
-                </span>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       </footer>
 
-      {/* 4. AI 분석 중 실시간 진행 HUD 모달 */}
+      {/* 4. AI 분석 진행 중 친절한 토스식 모달 (스피너 단독 금지, 진행률 & 안내) */}
       {isProcessing && (
-        <div className="studio-processing-overlay">
-          <div className="studio-processing-card">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-700">
-              <div className="flex items-center gap-2">
-                <Sparkles size={16} className="text-amber-400 animate-spin" />
-                <h3 className="text-sm font-bold text-white">AI 극적 하이라이트 분석 중...</h3>
-              </div>
-              <button
-                type="button"
-                className="text-slate-400 hover:text-white"
-                onClick={onCancelProcessing}
-              >
-                <X size={16} />
-              </button>
+        <div className="toss-modal-overlay">
+          <div className="toss-modal-card">
+            <div className="toss-modal-icon-circle">
+              <Sparkles size={24} className="text-blue-500 animate-pulse" />
             </div>
+
+            <h3 className="toss-modal-title">AI가 극적인 순간을 찾고 있어요</h3>
+            <p className="toss-modal-desc">
+              {progress.statusMessage || '영상의 주요 장면을 분석하고 있어요. 잠시만 기다려 주세요.'}
+            </p>
 
             {/* 진행률 바 */}
-            <div className="my-4">
-              <div className="flex items-center justify-between text-xs text-slate-300 font-mono mb-1.5">
-                <span>{progress.statusMessage || '분석 중...'}</span>
-                <span className="text-blue-400 font-bold">{progress.progressPercent}%</span>
-              </div>
-              <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-blue-500 to-indigo-500 h-full transition-all duration-300"
-                  style={{ width: `${progress.progressPercent}%` }}
-                />
-              </div>
+            <div className="toss-modal-progress-bar">
+              <div
+                className="toss-modal-progress-fill"
+                style={{ width: `${Math.max(5, progress.progressPercent)}%` }}
+              />
+            </div>
+            <div className="flex justify-between items-center text-xs font-mono text-slate-400 mt-1.5 px-0.5">
+              <span>16:9 유튜브 시네마틱 규격</span>
+              <span className="font-bold text-blue-600">{progress.progressPercent}%</span>
             </div>
 
-            {/* 실시간 추론 로그 터미널 */}
-            <div className="reasoning-terminal mt-2">
-              <div className="reasoning-header">
-                <div className="flex items-center gap-2">
-                  <Terminal size={13} className="text-blue-400" />
-                  <span className="text-xs font-mono font-bold text-slate-200">AI LIVE INFERENCE</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-[10px] font-mono text-emerald-400">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>ONLINE</span>
-                </div>
-              </div>
-              <div className="reasoning-body">
-                {(!progress.reasoningLogs || progress.reasoningLogs.length === 0) ? (
-                  <div className="text-xs font-mono text-slate-400 italic py-2">
-                    AI 모델 초기화 및 프레임 전달 대기 중...
-                  </div>
-                ) : (
-                  progress.reasoningLogs.map((log, idx) => {
-                    const timeMatch = log.match(/^(\[\d{2}:\d{2}:\d{2}\])\s*(.*)$/);
-                    return (
-                      <div key={idx} className="reasoning-log-line">
-                        <span className="reasoning-prompt-sym">&gt;</span>
-                        {timeMatch ? (
-                          <>
-                            <span className="reasoning-time-tag">{timeMatch[1]}</span>
-                            <span className="reasoning-log-content">{timeMatch[2]}</span>
-                          </>
-                        ) : (
-                          <span className="reasoning-log-content">{log}</span>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-                <div ref={terminalEndRef} />
-              </div>
-            </div>
-
-            <div className="mt-4 flex justify-end">
-              <button
-                type="button"
-                className="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition-colors"
-                onClick={onCancelProcessing}
-              >
-                취소하기
-              </button>
-            </div>
+            {/* 취소 버튼 */}
+            <button
+              type="button"
+              className="toss-btn-text text-slate-400 mt-4 mx-auto block hover:text-slate-600"
+              onClick={onCancelProcessing}
+            >
+              닫기
+            </button>
           </div>
         </div>
       )}

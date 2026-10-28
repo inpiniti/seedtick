@@ -2,10 +2,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
-import { Header } from './components/header/Header.tsx';
-import { DropZone } from './components/upload/DropZone.tsx';
-import { VideoCard } from './components/upload/VideoCard.tsx';
-import { ProgressPanel } from './components/processing/ProgressPanel.tsx';
 import { ProStudioView } from './components/studio/ProStudioView.tsx';
 import {
   fetchVideoCapableModels,
@@ -363,7 +359,7 @@ export function App() {
   };
 
   return (
-    <div className="app-container pro-theme">
+    <div className="toss-app-root">
       {errorMessage && (
         <div className="studio-error-banner">
           <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
