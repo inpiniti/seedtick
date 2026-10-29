@@ -9,6 +9,7 @@ import { decisionsRoute } from './routes/decisions.ts';
 import { healthRoute } from './routes/health.ts';
 import { modelsRoute } from './routes/models.ts';
 import { yahooRoute } from './routes/yahoo.ts';
+import { youtubeRoute } from './routes/youtube.ts';
 
 export const app = new Elysia()
   .onRequest(({ set }) => {
@@ -16,6 +17,8 @@ export const app = new Elysia()
     set.headers['access-control-allow-methods'] = 'GET, POST, PUT, DELETE, OPTIONS';
     set.headers['access-control-allow-headers'] =
       'Content-Type, Authorization, X-Title, HTTP-Referer';
+    set.headers['access-control-expose-headers'] =
+      'Content-Length, Content-Type, Content-Disposition, X-Youtube-Video-Id, X-Youtube-Title, X-Youtube-Filename, X-Youtube-Duration, X-Youtube-Itag, X-Youtube-Total-Bytes, X-Youtube-Audio-Bytes, X-Youtube-Audio-Seconds, X-Youtube-Truncated';
   })
   .options('/*', ({ set }) => {
     set.status = 204;
@@ -28,4 +31,5 @@ export const app = new Elysia()
   .use(chatRoute)
   .use(decisionsRoute)
   .use(yahooRoute)
+  .use(youtubeRoute)
   .use(debugRoute);

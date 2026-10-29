@@ -26,6 +26,8 @@ import {
   FileAudio,
   MapPin,
   ExternalLink,
+  Loader2,
+  Link2,
 } from 'lucide-react';
 import type {
   FinalVideoResult,
@@ -36,6 +38,11 @@ import type {
 } from '../../types/video.ts';
 import type { FreeModelMeta, ReasoningEffortOption } from '../../types/gateway.ts';
 import { BGM_PRESETS, playBgmSynthLoop } from '../../services/audioSynth.ts';
+import { DEFAULT_CONFIG } from '../../services/gatewayClient.ts';
+import {
+  extractYouTubeVideoId,
+  fetchYouTubeAudioFile,
+} from '../../services/youtubeAudio.ts';
 
 interface ProStudioViewProps {
   result: FinalVideoResult | null;
@@ -118,11 +125,19 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [bgmVolume, setBgmVolume] = useState<number>(0.3);
   const [previewingBgmId, setPreviewingBgmId] = useState<string | null>(null);
   const bgmPreviewRef = useRef<{ stop: () => void } | null>(null);
+  const customPreviewAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // 3. 사용자 직접 업로드 음악 상태
   const [customAudioFile, setCustomAudioFile] = useState<File | null>(null);
   const [customAudioName, setCustomAudioName] = useState<string>('');
   const customAudioInputRef = useRef<HTMLInputElement>(null);
+
+  // 3-1. 유튜브 링크로 배경음악 가져오기 상태
+  const [youtubeInput, setYoutubeInput] = useState<string>('');
+  const [isImportingYoutube, setIsImportingYoutube] = useState<boolean>(false);
+  const [youtubeError, setYoutubeError] = useState<string>('');
+  const [youtubeNotice, setYoutubeNotice] = useState<string>('');
+  const youtubeImportAbortRef = useRef<AbortController | null>(null);
 
   // 4. 인트로 / 아웃트로 비디오 파일 업로드 참조 및 지도 모달 상태
   const introVideoInputRef = useRef<HTMLInputElement>(null);
@@ -198,9 +213,68 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const handleCustomAudioSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      stopBgmPreview();
       setCustomAudioFile(file);
       setCustomAudioName(file.name);
       setSelectedBgmId('custom');
+      setYoutubeError('');
+      setYoutubeNotice('');
+    }
+  };
+
+  // 유튜브 링크/영상 키로 오디오를 추출해 커스텀 BGM으로 적용
+  const handleImportYoutubeAudio = async () => {
+    const input = youtubeInput.trim();
+    if (!input) {
+      setYoutubeError('유튜브 링크나 영상 키를 입력해 주세요.');
+      return;
+    }
+
+    const videoId = extractYouTubeVideoId(input);
+    if (!videoId) {
+      setYoutubeError('유튜브 주소나 11자리 영상 키를 정확히 입력해 주세요.');
+      return;
+    }
+
+    youtubeImportAbortRef.current?.abort();
+    const controller = new AbortController();
+    youtubeImportAbortRef.current = controller;
+
+    stopBgmPreview();
+    setIsImportingYoutube(true);
+    setYoutubeError('');
+    setYoutubeNotice('');
+
+    try {
+      const imported = await fetchYouTubeAudioFile(input, DEFAULT_CONFIG, controller.signal);
+      if (controller.signal.aborted) return;
+
+      setCustomAudioFile(imported.file);
+      setCustomAudioName(imported.file.name);
+      setSelectedBgmId('custom');
+
+      const lengthText =
+        imported.audioSeconds >= 60
+          ? `${Math.round((imported.audioSeconds / 60) * 10) / 10}분`
+          : `${Math.round(imported.audioSeconds)}초`;
+      setYoutubeNotice(
+        imported.truncated
+          ? `"${imported.title}" 앞부분 ${lengthText}를 배경음악으로 가져왔어요.`
+          : `"${imported.title}" ${lengthText}를 배경음악으로 가져왔어요.`
+      );
+      setYoutubeInput('');
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      setYoutubeError(
+        error instanceof Error && error.message
+          ? error.message
+          : '유튜브 오디오를 가져오지 못했어요. 음악 파일을 직접 올려주세요.'
+      );
+    } finally {
+      if (youtubeImportAbortRef.current === controller) {
+        youtubeImportAbortRef.current = null;
+        setIsImportingYoutube(false);
+      }
     }
   };
 
@@ -441,17 +515,22 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     );
   };
 
-  // BGM 미리듣기
+  // BGM 미리듣기 중지 (신스 프리셋 / 커스텀 파일 공통)
+  const stopBgmPreview = () => {
+    bgmPreviewRef.current?.stop();
+    bgmPreviewRef.current = null;
+    setPreviewingBgmId(null);
+  };
+
+  // BGM 미리듣기 (신스 프리셋)
   const handleToggleBgmPreview = (presetId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (previewingBgmId === presetId) {
-      bgmPreviewRef.current?.stop();
-      bgmPreviewRef.current = null;
-      setPreviewingBgmId(null);
+      stopBgmPreview();
       return;
     }
 
-    bgmPreviewRef.current?.stop();
+    stopBgmPreview();
     try {
       const AudioContextClass =
         window.AudioContext ||
@@ -469,6 +548,58 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       // ignore
     }
   };
+
+  // 커스텀 BGM(업로드/유튜브) 미리듣기
+  const handleToggleCustomAudioPreview = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (previewingBgmId === 'custom') {
+      stopBgmPreview();
+      return;
+    }
+
+    stopBgmPreview();
+    if (!customAudioFile) return;
+
+    try {
+      const objectUrl = URL.createObjectURL(customAudioFile);
+      const audio = new Audio(objectUrl);
+      audio.loop = true;
+      audio.volume = Math.max(0, Math.min(1, bgmVolume));
+      audio.onerror = () => stopBgmPreview();
+      customPreviewAudioRef.current = audio;
+
+      bgmPreviewRef.current = {
+        stop: () => {
+          audio.pause();
+          audio.currentTime = 0;
+          URL.revokeObjectURL(objectUrl);
+          if (customPreviewAudioRef.current === audio) {
+            customPreviewAudioRef.current = null;
+          }
+        },
+      };
+      setPreviewingBgmId('custom');
+      audio.play().catch(() => stopBgmPreview());
+    } catch {
+      // ignore
+    }
+  };
+
+  // 미리듣기 정리 (언마운트 / 유튜브 가져오기 취소)
+  useEffect(() => {
+    return () => {
+      bgmPreviewRef.current?.stop();
+      bgmPreviewRef.current = null;
+      youtubeImportAbortRef.current?.abort();
+    };
+  }, []);
+
+  // 볼륨 슬라이더 변경 시 커스텀 미리듣기 볼륨도 동기화
+  useEffect(() => {
+    if (customPreviewAudioRef.current) {
+      customPreviewAudioRef.current.volume = Math.max(0, Math.min(1, bgmVolume));
+    }
+  }, [bgmVolume]);
 
   // 파일 업로드
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1119,6 +1250,64 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
             {/* BGM 프리셋 목록 */}
             <div className="toss-bgm-list">
+              {/* 유튜브 링크 / 영상 키로 배경음악 가져오기 */}
+              <div className="toss-youtube-import">
+                <div className="toss-youtube-import-head">
+                  <Link2 size={15} className="toss-youtube-icon" />
+                  <span>유튜브 링크로 가져오기</span>
+                </div>
+                <div className="toss-youtube-import-row">
+                  <input
+                    type="text"
+                    className="toss-youtube-input"
+                    value={youtubeInput}
+                    onChange={(e) => {
+                      setYoutubeInput(e.target.value);
+                      if (youtubeError) setYoutubeError('');
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !isImportingYoutube) {
+                        e.preventDefault();
+                        void handleImportYoutubeAudio();
+                      }
+                    }}
+                    placeholder="유튜브 링크 또는 영상 키"
+                    aria-label="유튜브 링크 또는 영상 키"
+                    spellCheck={false}
+                    disabled={isImportingYoutube}
+                  />
+                  <button
+                    type="button"
+                    className="toss-youtube-btn"
+                    onClick={() => void handleImportYoutubeAudio()}
+                    disabled={isImportingYoutube || !youtubeInput.trim()}
+                  >
+                    {isImportingYoutube ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <Link2 size={13} />
+                    )}
+                    <span>{isImportingYoutube ? '가져오는 중' : '가져오기'}</span>
+                  </button>
+                </div>
+                {youtubeError && (
+                  <div className="toss-youtube-message error">
+                    <AlertCircle size={12} />
+                    <span>{youtubeError}</span>
+                  </div>
+                )}
+                {youtubeNotice && !youtubeError && (
+                  <div className="toss-youtube-message success">
+                    <Check size={12} />
+                    <span>{youtubeNotice}</span>
+                  </div>
+                )}
+                <p className="toss-youtube-hint">
+                  저작권이 있는 음원은 권리자의 허락을 받은 경우에만 사용해 주세요. 긴 영상은
+                  앞부분 일부만 배경음악으로 사용될 수 있어요.
+                </p>
+              </div>
+
               {/* 사용자 직접 업로드 음악 파일 인풋 & 칩 */}
               <input
                 ref={customAudioInputRef}
@@ -1145,19 +1334,36 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       내 음악 파일 ({((customAudioFile.size || 0) / (1024 * 1024)).toFixed(1)}MB)
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    className="toss-btn-delete-sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setCustomAudioFile(null);
-                      setCustomAudioName('');
-                      if (selectedBgmId === 'custom') setSelectedBgmId('acoustic');
-                    }}
-                    title="음악 제거"
-                  >
-                    <X size={13} />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      className={`toss-bgm-preview-btn ${previewingBgmId === 'custom' ? 'playing' : ''}`}
+                      onClick={handleToggleCustomAudioPreview}
+                      title="미리듣기"
+                    >
+                      {previewingBgmId === 'custom' ? (
+                        <Pause size={12} />
+                      ) : (
+                        <Play size={12} className="ml-0.5" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      className="toss-btn-delete-sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        stopBgmPreview();
+                        setCustomAudioFile(null);
+                        setCustomAudioName('');
+                        setYoutubeNotice('');
+                        setYoutubeError('');
+                        if (selectedBgmId === 'custom') setSelectedBgmId('acoustic');
+                      }}
+                      title="음악 제거"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <button
@@ -1458,9 +1664,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <button
               type="button"
               className={`toss-cta-button ${isProcessing ? 'loading' : ''}`}
-              onClick={() =>
-                onStartAiAnalysis(overlayOptions, customAudioFile, selectedBgmId, bgmVolume)
-              }
+              onClick={() => {
+                stopBgmPreview();
+                onStartAiAnalysis(
+                  overlayOptions,
+                  selectedBgmId === 'custom' ? customAudioFile : null,
+                  selectedBgmId,
+                  bgmVolume
+                );
+              }}
               disabled={isProcessing}
             >
               <Sparkles size={18} className={isProcessing ? 'animate-spin' : ''} />
@@ -1471,15 +1683,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               <button
                 type="button"
                 className="toss-btn-re-render"
-                onClick={() =>
-                  onReStitch(
+                onClick={() => {
+                  stopBgmPreview();
+                  void onReStitch(
                     segments,
                     selectedBgmId,
                     bgmVolume,
-                    customAudioFile,
+                    selectedBgmId === 'custom' ? customAudioFile : null,
                     overlayOptions
-                  )
-                }
+                  );
+                }}
                 disabled={isReStitching || segments.length === 0}
               >
                 <Scissors size={15} />

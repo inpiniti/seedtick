@@ -20,6 +20,10 @@
    - `HTML5 Canvas + MediaRecorder API + Web Audio API`를 사용하여 원본 영상의 고화질 극적 구간들을 매끄럽게 하나의 영상 파일로 병합합니다.
 6. **Reportist Admin / Toss 스타일 프리미엄 UI**
    - Pretendard & Inter 폰트, 직관적인 단계별 파이프라인 진행률, 하이라이트 챕터 인덱스 바, 원클릭 다운로드를 지원합니다.
+7. **유튜브 링크/영상 키로 배경음악(BGM) 가져오기**
+   - 유튜브 URL(`youtu.be`, `watch?v=`, `shorts`, `embed`, `live`) 또는 11자리 영상 키를 입력하면 AI Gateway가 오디오를 추출해 커스텀 BGM으로 적용합니다.
+   - 기존 음악 파일 업로드와 신디사이저 프리셋은 그대로 유지됩니다.
+   - 이 기능은 `reportist-ai-gateway`의 `/v1/youtube/audio` 엔드포인트가 배포되어 있어야 동작합니다. 저작권이 있는 음원은 권리자의 허락을 받은 경우에만 사용하세요.
 
 ---
 

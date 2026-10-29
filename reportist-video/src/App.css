@@ -2446,6 +2446,127 @@
 }
 
 /* ========================================================
+   ★ 유튜브 링크로 배경음악(BGM) 가져오기
+   ======================================================== */
+.toss-youtube-import {
+  background-color: #f9fafb;
+  border: 1px solid #e5e8eb;
+  border-radius: 12px;
+  padding: 11px 12px;
+  margin-bottom: 8px;
+}
+
+.toss-youtube-import-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #333d4b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.toss-youtube-icon {
+  color: #f04452;
+  flex-shrink: 0;
+}
+
+.toss-youtube-import-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.toss-youtube-input {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  padding: 0 10px;
+  background-color: #ffffff;
+  border: 1px solid #e5e8eb;
+  border-radius: 8px;
+  color: #191f28;
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.toss-youtube-input::placeholder {
+  color: #b0b8c1;
+}
+
+.toss-youtube-input:focus {
+  border-color: #3182f6;
+  box-shadow: 0 0 0 2px rgba(49, 130, 246, 0.12);
+}
+
+.toss-youtube-input:disabled {
+  background-color: #f2f4f6;
+  color: #8b95a1;
+}
+
+.toss-youtube-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 34px;
+  padding: 0 12px;
+  background-color: #3182f6;
+  border: none;
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.toss-youtube-btn:hover:not(:disabled) {
+  background-color: #1b64da;
+}
+
+.toss-youtube-btn:disabled {
+  background-color: #b9d7fb;
+  cursor: default;
+}
+
+.toss-youtube-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  margin-top: 8px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.toss-youtube-message svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.toss-youtube-message.error {
+  background-color: #feecee;
+  color: #d22030;
+}
+
+.toss-youtube-message.success {
+  background-color: #e8f3ff;
+  color: #1b64da;
+}
+
+.toss-youtube-hint {
+  margin: 7px 0 0;
+  color: #8b95a1;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+/* ========================================================
    ★ 인트로/아웃트로 비디오 파일 칩 & 마이크로 액션 버튼
    ======================================================== */
 .toss-clip-file-chip {
@@ -2623,5 +2744,4 @@
   overflow: hidden;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
 }
-
 
