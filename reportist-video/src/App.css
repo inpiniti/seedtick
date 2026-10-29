@@ -1648,6 +1648,7 @@
 }
 
 .toss-segment-item {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -1657,7 +1658,7 @@
   border: 1.5px solid #e5e8eb;
   border-radius: 14px;
   cursor: default;
-  transition: all 0.15s ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
   gap: 0;
 }
 
@@ -1686,14 +1687,53 @@
   background-color: #f0fdf4;
 }
 
-.toss-badge-playing {
-  font-size: 10px;
-  font-weight: 700;
-  color: #04b069;
-  background-color: #dcfce7;
-  padding: 1px 5px;
+/* 재생 중 표시: 절대 위치 오버레이라서 씬 전환 시에도 레이아웃을 밀지 않는다 */
+.toss-segment-now-playing {
+  position: absolute;
+  top: 12px;
+  left: 15px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 14px;
+  padding: 0 4px;
   border-radius: 4px;
-  animation: toss-pulse 1.5s infinite;
+  background-color: rgba(4, 176, 105, 0.94);
+  color: #ffffff;
+  font-size: 8.5px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 1px 3px rgba(4, 176, 105, 0.35);
+}
+
+.toss-segment-now-dot {
+  width: 3.5px;
+  height: 3.5px;
+  border-radius: 50%;
+  background-color: #ffffff;
+  animation: toss-pulse 1.2s ease-in-out infinite;
+}
+
+/* 재생 중인 행 왼쪽에 고정 폭(3px) 액센트만 추가 — border 두께는 그대로 유지 */
+.toss-segment-item.playing::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 0;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background-color: #04b069;
+  pointer-events: none;
+}
+
+/* 선택된 씬이 재생 중일 때는 파란 선택 테두리를 유지해 색이 튀지 않게 한다 */
+.toss-segment-item.active.playing {
+  border-color: #3182f6;
+  background-color: #f4f8ff;
 }
 
 .toss-segment-left {
@@ -1716,6 +1756,13 @@
 .toss-segment-info {
   min-width: 0;
   flex: 1;
+}
+
+.toss-segment-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 
 .toss-segment-number {

@@ -805,6 +805,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       key={seg.id}
                       className={`toss-segment-item ${isSelected ? 'active' : ''} ${isCurrentPlaying ? 'playing' : ''}`}
                     >
+                      {/* ★ 재생 중 표시는 absolute 오버레이로만 그려서
+                          씬이 바뀔 때 목록 행의 너비/높이가 흔들리지 않게 한다 */}
+                      {isCurrentPlaying && isPlaying && vItem?.thumbnailUrl && (
+                        <span className="toss-segment-now-playing" aria-hidden="true">
+                          <span className="toss-segment-now-dot" />
+                          재생 중
+                        </span>
+                      )}
                       <div
                         className="toss-segment-row"
                         onClick={() => handleSelectSegment(seg.id)}
@@ -828,11 +836,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             />
                           )}
                           <div className="toss-segment-info">
-                            <div className="flex items-center gap-1.5">
+                            <div className="toss-segment-title-row">
                               <span className="toss-segment-number">#{idx + 1}</span>
-                              {isCurrentPlaying && isPlaying && (
-                                <span className="toss-badge-playing">재생 중</span>
-                              )}
                               <span className="toss-segment-reason truncate">
                                 {seg.reason}
                               </span>
