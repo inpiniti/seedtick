@@ -28,6 +28,8 @@ import {
   ExternalLink,
   Loader2,
   Link2,
+  ChevronDown,
+  Zap,
 } from 'lucide-react';
 import type {
   FinalVideoResult,
@@ -43,6 +45,8 @@ import {
   extractYouTubeVideoId,
   fetchYouTubeAudioFile,
 } from '../../services/youtubeAudio.ts';
+import { getSpeedTier } from '../../services/modelMetrics.ts';
+import { ModelSelectorModal } from './ModelSelectorModal.tsx';
 
 interface ProStudioViewProps {
   result: FinalVideoResult | null;
@@ -81,6 +85,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   models,
   selectedModel,
   onSelectModel,
+  isLoadingModels,
   onFilesSelected,
   onRemoveVideo,
   onStartAiAnalysis,
@@ -144,6 +149,18 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const outroVideoInputRef = useRef<HTMLInputElement>(null);
   const [mapModalTarget, setMapModalTarget] = useState<HighlightSegment | null>(null);
   const consoleScrollRef = useRef<HTMLDivElement>(null);
+
+  // 4-1. AI 모델 선택 모달 상태
+  const [isModelModalOpen, setIsModelModalOpen] = useState<boolean>(false);
+  const currentModel = useMemo(
+    () => models.find((model) => model.id === selectedModel) || models[0] || null,
+    [models, selectedModel]
+  );
+  const currentSpeedTier = getSpeedTier(currentModel?.speedTokensPerSecond);
+
+  useEffect(() => {
+    if (isProcessing) setIsModelModalOpen(false);
+  }, [isProcessing]);
 
   // 처리 경과 시간 (멈춰있는 느낌 방지용 실시간 타이머)
   const [processingElapsed, setProcessingElapsed] = useState(0);
@@ -656,22 +673,33 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         </div>
 
         <div className="toss-nav-right">
-          {/* AI 모델 콤보박스 */}
-          <div className="toss-model-select-wrap">
-            <span className="toss-model-label">AI 모델</span>
-            <select
-              value={selectedModel}
-              onChange={(e) => onSelectModel(e.target.value)}
-              disabled={isProcessing}
-              className="toss-select"
-            >
-              {models.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name} {m.id.includes(':free') ? '(무료)' : ''}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* AI 모델 선택 트리거 */}
+          <button
+            type="button"
+            className="toss-model-trigger"
+            onClick={() => setIsModelModalOpen(true)}
+            disabled={isProcessing || isLoadingModels}
+            title="AI 모델을 선택하세요"
+          >
+            <span className="toss-model-trigger-icon">
+              <Sparkles size={13} />
+            </span>
+            <span className="toss-model-trigger-text">
+              <span className="toss-model-trigger-label">AI 모델</span>
+              <span className="toss-model-trigger-name">
+                {isLoadingModels
+                  ? '모델 불러오는 중...'
+                  : currentModel?.name.replace(':free', '') || '모델 선택'}
+              </span>
+            </span>
+            {currentModel?.speedTokensPerSecond != null && (
+              <span className={`toss-model-trigger-speed ${currentSpeedTier.key}`}>
+                <Zap size={10} />
+                {Math.round(currentModel.speedTokensPerSecond)} tok/s
+              </span>
+            )}
+            <ChevronDown size={14} className="toss-model-trigger-chevron" />
+          </button>
 
           {videos.length > 0 && (
             <button type="button" className="toss-btn-text" onClick={onReset}>
@@ -1895,6 +1923,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* 6. AI 모델 선택 모달 */}
+      <ModelSelectorModal
+        isOpen={isModelModalOpen}
+        onClose={() => setIsModelModalOpen(false)}
+        models={models}
+        selectedModelId={selectedModel}
+        onSelectModel={onSelectModel}
+      />
     </div>
   );
 };

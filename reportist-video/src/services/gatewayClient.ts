@@ -2,6 +2,7 @@
 
 import type { FreeModelMeta, GatewayConfig, ReasoningEffortOption } from '../types/gateway.ts';
 import type { ExtractedFrame, HighlightSegment } from '../types/video.ts';
+import { enrichModelMetrics, isGuardrailModel } from './modelMetrics.ts';
 
 export const DEFAULT_GATEWAY_URL = 'https://seedtick-ai-gateway.vercel.app';
 export const DEFAULT_GATEWAY_SECRET = '377d4fa71b90fdbbd6eab6765f3050598de8c259ed86e615c9b18ae4ed63e8bd';
@@ -21,7 +22,14 @@ export const FALLBACK_VIDEO_MODELS: FreeModelMeta[] = [
     description: 'Google DeepMind의 고성능 멀티모달 모델로 연속 프레임 시퀀스와 타임스탬프 분석에 탁월합니다.',
     modality: 'text+image->text',
     inputModalities: ['text', 'image'],
+    intelligenceIndex: 14.7,
+    codingIndex: 43.4,
+    agenticIndex: 4.2,
+    speedTokensPerSecond: 35.5,
+    latencyMs: 1093,
+    speedIsEstimate: false,
     intelligenceTier: 'Google 31B 비전 멀티모달',
+    parametersSummary: '31B Dense',
     supportedEfforts: ['high', 'medium', 'low'],
     defaultEffort: 'high',
   },
@@ -33,7 +41,14 @@ export const FALLBACK_VIDEO_MODELS: FreeModelMeta[] = [
     description: 'Google DeepMind 경량 고성능 MoE 모델로 빠른 프레임 장면 인식이 가능합니다.',
     modality: 'text+image->text',
     inputModalities: ['text', 'image'],
+    intelligenceIndex: 16.7,
+    codingIndex: 39.3,
+    agenticIndex: 2.9,
+    speedTokensPerSecond: 96.0,
+    latencyMs: 933,
+    speedIsEstimate: false,
     intelligenceTier: 'Google 경량 고성능 MoE',
+    parametersSummary: '26B (활성 3.8B)',
   },
   {
     id: 'nvidia/nemotron-3.5-super-vl:free',
@@ -43,7 +58,12 @@ export const FALLBACK_VIDEO_MODELS: FreeModelMeta[] = [
     description: '120B MoE 오픈 멀티모달 모델. 텍스트, 이미지 시퀀스, GUI 입력을 완벽하게 지원합니다.',
     modality: 'text+image->text',
     inputModalities: ['text', 'image'],
+    intelligenceIndex: 26.5,
+    speedTokensPerSecond: 448.1,
+    latencyMs: 813,
+    speedIsEstimate: false,
     intelligenceTier: '플래그십 120B 멀티모달',
+    parametersSummary: '120B (활성 12B)',
     supportedEfforts: ['high', 'medium', 'low'],
     defaultEffort: 'high',
   },
@@ -55,7 +75,13 @@ export const FALLBACK_VIDEO_MODELS: FreeModelMeta[] = [
     description: '텍스트와 이미지를 통합 인식하는 옴니 멀티모달 추론 모델입니다.',
     modality: 'text+image->text',
     inputModalities: ['text', 'image'],
+    intelligenceIndex: 10.3,
+    codingIndex: 13.8,
+    speedTokensPerSecond: 230.0,
+    latencyMs: 739,
+    speedIsEstimate: false,
     intelligenceTier: '옴니 멀티모달 추론',
+    parametersSummary: '30B (활성 3B)',
   },
   {
     id: 'dots-studio/dots-3-note-preview:free',
@@ -65,7 +91,11 @@ export const FALLBACK_VIDEO_MODELS: FreeModelMeta[] = [
     description: '280B MoE 고지능 비전 모델로 복합 장면 시퀀스 요약에 최적화되어 있습니다.',
     modality: 'text+image->text',
     inputModalities: ['text', 'image'],
+    speedTokensPerSecond: 45.0,
+    latencyMs: 1200,
+    speedIsEstimate: true,
     intelligenceTier: '초대형 280B 비전 MoE',
+    parametersSummary: '280B (활성 16B)',
   },
 ];
 
@@ -83,6 +113,7 @@ export async function fetchVideoCapableModels(config: GatewayConfig = DEFAULT_CO
       const json = await res.json();
       if (Array.isArray(json.data) && json.data.length > 0) {
         // 비전(이미지) 모달리티를 지원하는 모델 필터링
+        // 안전성 가드레일 모델은 하이라이트 분석용이 아니므로 제외한다.
         const visionModels = json.data.filter((m: FreeModelMeta) => {
           const hasImageInput = Array.isArray(m.inputModalities) && m.inputModalities.includes('image');
           const hasImageModality = typeof m.modality === 'string' && m.modality.includes('image');
@@ -91,11 +122,12 @@ export async function fetchVideoCapableModels(config: GatewayConfig = DEFAULT_CO
             m.id.includes('nano-omni') ||
             m.id.includes('gemma-4') ||
             m.id.includes('dots-3');
-          return hasImageInput || hasImageModality || isKnownVision;
+          const isVision = hasImageInput || hasImageModality || isKnownVision;
+          return isVision && !isGuardrailModel(m);
         });
 
         if (visionModels.length > 0) {
-          return visionModels;
+          return enrichModelMetrics(visionModels);
         }
       }
     }
@@ -103,7 +135,7 @@ export async function fetchVideoCapableModels(config: GatewayConfig = DEFAULT_CO
     console.warn('[GatewayClient] 비전 모델 조회 실패, 기본 폴백 목록 사용:', err);
   }
 
-  return FALLBACK_VIDEO_MODELS;
+  return enrichModelMetrics(FALLBACK_VIDEO_MODELS);
 }
 
 export interface VideoAnalysisStreamCallbacks {

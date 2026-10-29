@@ -9,6 +9,7 @@ import {
   FALLBACK_VIDEO_MODELS,
   DEFAULT_CONFIG,
 } from './services/gatewayClient.ts';
+import { enrichModelMetrics, pickDefaultModel } from './services/modelMetrics.ts';
 import { extractVideoMetadata, extractVideoFramesForAnalysis } from './services/videoCompressor.ts';
 import { formatVideoDate, extractGpsFromVideoFile } from './services/videoMetadata.ts';
 import { stitchHighlightedSegments } from './services/videoStitcher.ts';
@@ -23,10 +24,15 @@ import type {
 } from './types/video.ts';
 import { Play, Sparkles, AlertCircle } from 'lucide-react';
 
+const INITIAL_VIDEO_MODELS = enrichModelMetrics(FALLBACK_VIDEO_MODELS);
+const INITIAL_DEFAULT_MODEL = pickDefaultModel(INITIAL_VIDEO_MODELS);
+
 export function App() {
   // 1. 모델 상태
-  const [models, setModels] = useState<FreeModelMeta[]>(FALLBACK_VIDEO_MODELS);
-  const [selectedModel, setSelectedModel] = useState<string>('google/gemma-4-31b-it:free');
+  const [models, setModels] = useState<FreeModelMeta[]>(INITIAL_VIDEO_MODELS);
+  const [selectedModel, setSelectedModel] = useState<string>(
+    INITIAL_DEFAULT_MODEL?.id ?? ''
+  );
   const [selectedEffort, setSelectedEffort] = useState<ReasoningEffortOption>('high');
   const [isLoadingModels, setIsLoadingModels] = useState<boolean>(true);
 
@@ -57,12 +63,15 @@ export function App() {
       try {
         const fetched = await fetchVideoCapableModels(DEFAULT_CONFIG);
         if (isMounted && fetched.length > 0) {
-          setModels(fetched);
-          // 기본 선택 모델 설정
-          const defaultModel = fetched.find((m) => m.id.includes('gemma-4-31b')) || fetched[0];
-          setSelectedModel(defaultModel.id);
-          if (defaultModel.defaultEffort) {
-            setSelectedEffort(defaultModel.defaultEffort as ReasoningEffortOption);
+          const enriched = enrichModelMetrics(fetched);
+          setModels(enriched);
+          // 가장 빠른 비전 모델을 기본값으로 선택한다.
+          const defaultModel = pickDefaultModel(enriched);
+          if (defaultModel) {
+            setSelectedModel(defaultModel.id);
+            if (defaultModel.defaultEffort) {
+              setSelectedEffort(defaultModel.defaultEffort as ReasoningEffortOption);
+            }
           }
         }
       } catch (err) {
