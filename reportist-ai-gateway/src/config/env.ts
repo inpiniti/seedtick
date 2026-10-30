@@ -6,6 +6,7 @@ export interface EnvConfig {
   geminiKeys: string[];
   supabaseUrl: string;
   supabaseServiceRoleKey: string;
+  youtubeCookie: string;
   geminiResetHour: number;
   clineResetHour: number;
   kiloResetHour: number;
@@ -40,6 +41,7 @@ export function loadEnv(): EnvConfig {
     geminiKeys: parseKeys(process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEYS),
     supabaseUrl: process.env.SUPABASE_URL ?? '',
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? '',
+    youtubeCookie: process.env.YOUTUBE_COOKIE ?? '',
     geminiResetHour: parseIntOrDefault(process.env.GEMINI_RESET_HOUR, 8),
     clineResetHour: parseIntOrDefault(process.env.CLINE_RESET_HOUR, 0),
     kiloResetHour: parseIntOrDefault(process.env.KILO_RESET_HOUR, 0),

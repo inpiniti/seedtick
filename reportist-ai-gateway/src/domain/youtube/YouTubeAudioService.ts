@@ -4,6 +4,9 @@
 // URL이 요청 IP에 묶여 있어 재생할 수 없다. 따라서 게이트웨이가 대신 오디오를
 // 내려받아 바이너리로 중계한다.
 
+import { createHash } from 'node:crypto';
+import { env } from '../../config/env.ts';
+
 const PLAYER_URL = 'https://www.youtube.com/youtubei/v1/player?prettyPrint=false';
 const VISITOR_ID_URL = 'https://www.youtube.com/youtubei/v1/visitor_id?prettyPrint=false';
 const VISITOR_ID_CLIENT_VERSION = '2.20240101.00.00';
@@ -13,6 +16,118 @@ const VISITOR_DATA_TTL_MS = 30 * 60 * 1000;
 // adaptiveFormats의 direct audio URL을 돌려주는 것을 확인했다.
 const YOUTUBE_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15';
+
+const YOUTUBE_HOST = 'www.youtube.com';
+const YOUTUBE_ORIGIN = `https://${YOUTUBE_HOST}`;
+const COOKIE_NAME_PATTERN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+
+function isYouTubeCookieDomain(domain: string, includeSubdomains: boolean): boolean {
+  const normalized = domain.toLowerCase().replace(/^\./, '');
+  return (
+    normalized === YOUTUBE_HOST ||
+    (includeSubdomains &&
+      (normalized === 'youtube.com' || YOUTUBE_HOST.endsWith(`.${normalized}`)))
+  );
+}
+
+function cookiePathMatches(requestPath: string, cookiePath: string): boolean {
+  if (!cookiePath.startsWith('/')) return false;
+  if (requestPath === cookiePath) return true;
+  return requestPath.startsWith(cookiePath.endsWith('/') ? cookiePath : `${cookiePath}/`);
+}
+
+/** Accepts a Netscape cookies.txt export or a standard Cookie header value. */
+function parseYouTubeCookies(rawValue: string): Map<string, string> {
+  const cookies = new Map<string, string>();
+  const trimmed = rawValue.trim();
+  if (!trimmed) return cookies;
+
+  const lines = trimmed.split(/\r?\n/);
+  const isNetscapeFile =
+    lines.some((line) => line.includes('\t')) ||
+    lines.some((line) => /^#\s*(?:HTTP )?Cookie File/i.test(line));
+
+  if (!isNetscapeFile) {
+    for (const item of trimmed.split(';')) {
+      const separator = item.indexOf('=');
+      if (separator <= 0) continue;
+      const name = item.slice(0, separator).trim();
+      const value = item.slice(separator + 1).trim();
+      if (
+        COOKIE_NAME_PATTERN.test(name) &&
+        value.length > 0 &&
+        !/[;\r\n]/.test(value)
+      ) {
+        cookies.set(name, value);
+      }
+    }
+    return cookies;
+  }
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  for (const originalLine of lines) {
+    const line = originalLine.startsWith('#HttpOnly_')
+      ? originalLine.slice('#HttpOnly_'.length)
+      : originalLine;
+    if (!line || line.startsWith('#')) continue;
+
+    const fields = line.split('\t');
+    if (fields.length < 7) continue;
+
+    const [domain, includeSubdomains, cookiePath, , expiresAt, name, ...valueParts] = fields;
+    if (!isYouTubeCookieDomain(domain, includeSubdomains.toUpperCase() === 'TRUE')) continue;
+    if (!cookiePathMatches('/youtubei/v1/player', cookiePath)) continue;
+
+    const expiry = Number(expiresAt);
+    if (expiresAt !== '0' && Number.isFinite(expiry) && expiry <= nowSeconds) continue;
+
+    const value = valueParts.join('\t');
+    if (
+      !COOKIE_NAME_PATTERN.test(name) ||
+      value.length === 0 ||
+      /[;\r\n]/.test(value)
+    ) {
+      continue;
+    }
+    cookies.set(name, value);
+  }
+
+  return cookies;
+}
+
+const youtubeCookies = parseYouTubeCookies(env.youtubeCookie);
+
+function createYouTubeCookieAuthHeaders(): Record<string, string> | null {
+  if (youtubeCookies.size === 0) return null;
+
+  const authorization: string[] = [];
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  const addAuthorization = (scheme: string, sapisid: string | undefined) => {
+    if (!sapisid) return;
+    const hash = createHash('sha1')
+      .update(`${timestamp} ${sapisid} ${YOUTUBE_ORIGIN}`)
+      .digest('hex');
+    authorization.push(`${scheme} ${timestamp}_${hash}`);
+  };
+
+  addAuthorization(
+    'SAPISIDHASH',
+    youtubeCookies.get('SAPISID') ?? youtubeCookies.get('__Secure-3PAPISID')
+  );
+  addAuthorization('SAPISID1PHASH', youtubeCookies.get('__Secure-1PAPISID'));
+  addAuthorization('SAPISID3PHASH', youtubeCookies.get('__Secure-3PAPISID'));
+  if (authorization.length === 0) return null;
+
+  const cookieHeader = [...youtubeCookies]
+    .map(([name, value]) => `${name}=${value}`)
+    .join('; ');
+
+  return {
+    Cookie: cookieHeader,
+    Authorization: authorization.join(' '),
+    'X-Origin': YOUTUBE_ORIGIN,
+  };
+}
 
 // Vercel 서버리스 응답 본문 제한(4.5MB)을 넘지 않도록 여유를 둔 상한.
 export const MAX_YOUTUBE_AUDIO_BYTES = 3_800_000;
@@ -320,8 +435,18 @@ async function fetchVisitorData(forceRefresh = false): Promise<string | null> {
 
 async function requestPlayer(
   videoId: string,
-  visitorData: string | null
+  visitorData: string | null,
+  useCookieAuth = false
 ): Promise<InnerTubePlayerResponse> {
+  const cookieAuthHeaders = useCookieAuth ? createYouTubeCookieAuthHeaders() : null;
+  if (useCookieAuth && !cookieAuthHeaders) {
+    throw new YouTubeAudioError(
+      'YOUTUBE_COOKIE_INVALID',
+      'YOUTUBE_COOKIE에 유효한 YouTube 로그인 쿠키를 설정해 주세요.',
+      500
+    );
+  }
+
   let response: Response;
   try {
     response = await fetch(PLAYER_URL, {
@@ -332,6 +457,7 @@ async function requestPlayer(
         'X-Youtube-Client-Name': '101',
         'X-Youtube-Client-Version': '1.02',
         Origin: 'https://www.youtube.com',
+        ...(cookieAuthHeaders ?? {}),
         ...(visitorData ? { 'X-Goog-Visitor-Id': visitorData } : {}),
       },
       body: JSON.stringify({
@@ -504,10 +630,12 @@ export async function fetchYouTubeAudio(
   // googlevideo URL은 IP/시간에 묶여 만료될 수 있으므로 다운로드 실패도 1회 재시도한다.
   let visitorData = await fetchVisitorData();
   let botCheckRetried = false;
+  let cookieAuthRetried = false;
+  let useCookieAuth = false;
   let downloadAttempt = 0;
 
   while (downloadAttempt < 2) {
-    const player = await requestPlayer(videoId, visitorData);
+    const player = await requestPlayer(videoId, visitorData, useCookieAuth);
 
     const playability = player.playabilityStatus;
     if (playability?.status && playability.status !== 'OK') {
@@ -515,6 +643,11 @@ export async function fetchYouTubeAudio(
         if (!botCheckRetried) {
           botCheckRetried = true;
           visitorData = await fetchVisitorData(true);
+          continue;
+        }
+        if (!cookieAuthRetried && env.youtubeCookie.trim()) {
+          cookieAuthRetried = true;
+          useCookieAuth = true;
           continue;
         }
         throw new YouTubeAudioError(
