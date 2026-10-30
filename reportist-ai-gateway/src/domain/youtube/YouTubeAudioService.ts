@@ -730,9 +730,16 @@ export async function fetchYouTubeAudio(
           cookieClientIndex += 1;
           continue;
         }
+        if (useCookieAuth) {
+          throw new YouTubeAudioError(
+            'YOUTUBE_COOKIE_BOT_CHECK',
+            '새 로그인 쿠키 인증까지 시도했지만 YouTube가 계속 서버를 봇으로 차단했어요. 쿠키가 최신인지 확인하고, 최신 쿠키도 거절되면 서버 IP 차단이라 주거용 프록시나 직접 업로드가 필요할 수 있어요.',
+            422
+          );
+        }
         throw new YouTubeAudioError(
           'YOUTUBE_BOT_CHECK',
-          'YouTube가 서버 IP를 봇으로 차단했어요. 잠시 후 다시 시도하거나 음악 파일을 직접 업로드해 주세요.',
+          'visitorData 재시도 후에도 YouTube가 서버 IP를 봇으로 차단했어요. 게이트웨이 Vercel 환경에 YOUTUBE_COOKIE가 설정되어 있는지 확인하거나 음악 파일을 직접 업로드해 주세요.',
           422
         );
       }
