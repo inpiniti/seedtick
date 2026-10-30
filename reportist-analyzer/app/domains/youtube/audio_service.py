@@ -4,6 +4,7 @@ import asyncio
 import logging
 import re
 import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urljoin, urlsplit
@@ -30,6 +31,14 @@ YOUTUBE_HOSTS = {
 }
 STREAM_HOST_SUFFIXES = (".googlevideo.com", ".youtube.com")
 RANGE_PATTERN = re.compile(r"bytes\s+\d+-\d+/(\d+|\*)", re.IGNORECASE)
+URL_PATTERN = re.compile(r"https?://[^\s\"'<>]+", re.IGNORECASE)
+SENSITIVE_HEADER_PATTERN = re.compile(
+    r"(?i)\b(set-cookie|cookie|authorization)\s*[:=]\s*[^\r\n]+"
+)
+SENSITIVE_PARAM_PATTERN = re.compile(
+    r"(?i)([\w-]*(?:token|sid|apisid|auth|cookie|signature|sig|key|visitor_data)[\w-]*)"
+    r"\s*=\s*([^&;\s]+)"
+)
 
 
 class YouTubeAudioError(Exception):
@@ -54,6 +63,14 @@ class YouTubeAudioResult:
     truncated: bool
     audio_seconds: float
     filename: str
+
+
+def _safe_error_detail(message: str) -> str:
+    """Keep useful yt-dlp diagnostics while removing URLs and credential-like values."""
+    sanitized = SENSITIVE_HEADER_PATTERN.sub(r"\1=<redacted>", message)
+    sanitized = URL_PATTERN.sub("<url>", sanitized)
+    sanitized = SENSITIVE_PARAM_PATTERN.sub(r"\1=<redacted>", sanitized)
+    return " ".join(sanitized.split())[:240]
 
 
 class _QuietYtDlpLogger:
@@ -164,7 +181,14 @@ def _extract_info(video_id: str, cookie_file: str | None) -> dict:
         with yt_dlp.YoutubeDL(options) as ydl:
             info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
     except DownloadError as error:
-        reason = str(error).lower()
+        raw_reason = str(error)
+        reason = raw_reason.lower()
+        logger.warning(
+            "[YT-DIAG-c91e] yt-dlp extraction error videoId=%s cookieAuth=%s detail=%s",
+            video_id,
+            bool(cookie_file),
+            _safe_error_detail(raw_reason),
+        )
         if any(
             term in reason
             for term in (
@@ -386,6 +410,7 @@ async def fetch_youtube_audio(input_value: str) -> YouTubeAudioResult:
             "INVALID_YOUTUBE_URL", "유튜브 주소나 11자리 영상 키를 정확히 입력해 주세요.", 400
         )
 
+    request_started = time.monotonic()
     configured_cookie = settings.YOUTUBE_COOKIE.strip()
     cookie_content = _cookie_file_content(configured_cookie)
     if configured_cookie and not cookie_content:
@@ -410,6 +435,7 @@ async def fetch_youtube_audio(input_value: str) -> YouTubeAudioResult:
         selected: tuple[dict, int | None] | None = None
 
         for attempt_index, current_cookie_file in enumerate(attempts):
+            attempt_started = time.monotonic()
             try:
                 candidate_info = await asyncio.to_thread(
                     _extract_info, video_id, current_cookie_file
@@ -418,28 +444,73 @@ async def fetch_youtube_audio(input_value: str) -> YouTubeAudioResult:
                 if candidate_format:
                     info = candidate_info
                     selected = candidate_format
+                    logger.info(
+                        "[YT-DIAG-c91e] Extraction attempt succeeded videoId=%s cookieAuth=%s "
+                        "elapsedSeconds=%.1f directAudioFormats=%s",
+                        video_id,
+                        bool(current_cookie_file),
+                        time.monotonic() - attempt_started,
+                        sum(
+                            1
+                            for item in candidate_info.get("formats", [])
+                            if isinstance(item, dict)
+                            and item.get("acodec") not in (None, "none")
+                            and item.get("vcodec") in (None, "none")
+                            and isinstance(item.get("url"), str)
+                        ),
+                    )
                     break
+                logger.warning(
+                    "[YT-DIAG-c91e] Extraction returned no direct audio videoId=%s cookieAuth=%s "
+                    "elapsedSeconds=%.1f formatCount=%s",
+                    video_id,
+                    bool(current_cookie_file),
+                    time.monotonic() - attempt_started,
+                    len(candidate_info.get("formats") or []),
+                )
                 last_error = YouTubeAudioError(
                     "YOUTUBE_AUDIO_NOT_FOUND",
                     "YouTube가 직접 사용할 수 있는 오디오 스트림을 제공하지 않았어요.",
                     422,
                 )
             except YouTubeAudioError as error:
+                logger.warning(
+                    "[YT-DIAG-c91e] Extraction attempt failed videoId=%s cookieAuth=%s "
+                    "elapsedSeconds=%.1f code=%s",
+                    video_id,
+                    bool(current_cookie_file),
+                    time.monotonic() - attempt_started,
+                    error.code,
+                )
                 last_error = error
                 if error.code == "YOUTUBE_VIDEO_UNAVAILABLE":
                     raise
 
             if attempt_index == 0 and cookie_file:
-                logger.info("[YouTube] Retrying extraction with configured cookies for video %s", video_id)
+                logger.info(
+                    "[YT-DIAG-c91e] Retrying extraction with configured cookies for video %s "
+                    "firstAttemptSeconds=%.1f",
+                    video_id,
+                    time.monotonic() - attempt_started,
+                )
                 continue
             break
 
         if not info or not selected:
-            raise last_error or YouTubeAudioError(
+            final_error = last_error or YouTubeAudioError(
                 "YOUTUBE_AUDIO_NOT_FOUND",
                 "이 영상에서 사용할 수 있는 오디오 스트림을 찾지 못했어요.",
                 422,
             )
+            logger.warning(
+                "[YT-DIAG-c91e] Extraction exhausted attempts videoId=%s attempts=%s "
+                "totalElapsedSeconds=%.1f code=%s",
+                video_id,
+                len(attempts),
+                time.monotonic() - request_started,
+                final_error.code,
+            )
+            raise final_error
 
         audio_format, estimated_size = selected
         duration = float(info.get("duration") or 0)
@@ -471,6 +542,12 @@ async def fetch_youtube_audio(input_value: str) -> YouTubeAudioResult:
         )
 
         data, total_bytes, truncated = await _download_audio(audio_format, estimated_size)
+        logger.info(
+            "[YT-DIAG-c91e] Audio download completed videoId=%s bytes=%s totalElapsedSeconds=%.1f",
+            video_id,
+            len(data),
+            time.monotonic() - request_started,
+        )
         duration_seconds = max(0, round(duration))
         audio_seconds = duration
         if truncated and total_bytes > 0 and duration > 0:
