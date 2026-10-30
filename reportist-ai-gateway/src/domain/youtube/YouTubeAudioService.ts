@@ -20,7 +20,7 @@ interface YouTubePlayerClient {
   name: string;
   version: string;
   id: string;
-  userAgent: string;
+  userAgent?: string;
   clientContext?: Record<string, string>;
   embedUrl?: string;
 }
@@ -39,7 +39,7 @@ const VISIONOS_PLAYER_CLIENT: YouTubePlayerClient = {
 };
 
 // visionOS는 cookies.txt 인증을 지원하지 않는다. 로그인 쿠키 fallback은
-// 쿠키를 지원하는 임베드 및 TV 클라이언트를 순서대로 사용한다.
+// yt-dlp의 쿠키 지원 클라이언트 순서에 맞춰 임베드, 삼성 TV, 웹을 시도한다.
 const YOUTUBE_COOKIE_CLIENTS: YouTubePlayerClient[] = [
   {
     name: 'WEB_EMBEDDED_PLAYER',
@@ -60,6 +60,11 @@ const YOUTUBE_COOKIE_CLIENTS: YouTubePlayerClient[] = [
       osName: 'Tizen',
       osVersion: '2.4.0',
     },
+  },
+  {
+    name: 'WEB',
+    version: '2.20260708.00.00',
+    id: '1',
   },
 ];
 
@@ -504,7 +509,7 @@ async function requestPlayer(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'User-Agent': client.userAgent,
+        ...(client.userAgent ? { 'User-Agent': client.userAgent } : {}),
         'X-Youtube-Client-Name': client.id,
         'X-Youtube-Client-Version': client.version,
         Origin: 'https://www.youtube.com',
@@ -516,7 +521,7 @@ async function requestPlayer(
           client: {
             clientName: client.name,
             clientVersion: client.version,
-            userAgent: client.userAgent,
+            ...(client.userAgent ? { userAgent: client.userAgent } : {}),
             ...client.clientContext,
             // 국가 코드(gl)는 게이트웨이 egress IP에 맞기고, 제목 언어만 한국어로 고정한다.
             hl: 'ko',
