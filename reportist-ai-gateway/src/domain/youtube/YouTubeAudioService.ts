@@ -16,6 +16,16 @@ const VISITOR_DATA_TTL_MS = 30 * 60 * 1000;
 // adaptiveFormats의 direct audio URL을 돌려주는 것을 확인했다.
 const YOUTUBE_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15';
+// visionOS는 cookies.txt 인증을 지원하지 않는다. 로그인 쿠키 fallback에는
+// yt-dlp가 쿠키 지원 클라이언트로 지정한 WEB_EMBEDDED_PLAYER를 사용한다.
+const YOUTUBE_COOKIE_CLIENT = {
+  name: 'WEB_EMBEDDED_PLAYER',
+  version: '2.20260708.00.00',
+  id: '56',
+  userAgent:
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.5 Safari/605.1.15,gzip(gfe)',
+  embedUrl: 'https://www.reddit.com/',
+} as const;
 
 const YOUTUBE_HOST = 'www.youtube.com';
 const YOUTUBE_ORIGIN = `https://${YOUTUBE_HOST}`;
@@ -41,6 +51,7 @@ function parseYouTubeCookies(rawValue: string): Map<string, string> {
   const cookies = new Map<string, string>();
   const trimmed = rawValue.trim();
   if (!trimmed) return cookies;
+  if (/^\s*Set-Cookie\s*:/im.test(trimmed)) return cookies;
 
   const lines = trimmed.split(/\r?\n/);
   const isNetscapeFile =
@@ -442,10 +453,15 @@ async function requestPlayer(
   if (useCookieAuth && !cookieAuthHeaders) {
     throw new YouTubeAudioError(
       'YOUTUBE_COOKIE_INVALID',
-      'YOUTUBE_COOKIE에 유효한 YouTube 로그인 쿠키를 설정해 주세요.',
+      'YOUTUBE_COOKIE에 로그인된 YouTube의 cookies.txt 전체 내용이나 Cookie 요청 헤더를 설정해 주세요. Set-Cookie 응답 헤더는 사용할 수 없어요.',
       500
     );
   }
+
+  const clientName = useCookieAuth ? YOUTUBE_COOKIE_CLIENT.name : 'VISIONOS';
+  const clientVersion = useCookieAuth ? YOUTUBE_COOKIE_CLIENT.version : '1.02';
+  const clientId = useCookieAuth ? YOUTUBE_COOKIE_CLIENT.id : '101';
+  const userAgent = useCookieAuth ? YOUTUBE_COOKIE_CLIENT.userAgent : YOUTUBE_UA;
 
   let response: Response;
   try {
@@ -453,27 +469,34 @@ async function requestPlayer(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'User-Agent': YOUTUBE_UA,
-        'X-Youtube-Client-Name': '101',
-        'X-Youtube-Client-Version': '1.02',
+        'User-Agent': userAgent,
+        'X-Youtube-Client-Name': clientId,
+        'X-Youtube-Client-Version': clientVersion,
         Origin: 'https://www.youtube.com',
         ...(cookieAuthHeaders ?? {}),
-        ...(visitorData ? { 'X-Goog-Visitor-Id': visitorData } : {}),
+        ...(!useCookieAuth && visitorData ? { 'X-Goog-Visitor-Id': visitorData } : {}),
       },
       body: JSON.stringify({
         context: {
           client: {
-            clientName: 'VISIONOS',
-            clientVersion: '1.02',
-            deviceMake: 'Apple',
-            deviceModel: 'RealityDevice17,1',
-            userAgent: YOUTUBE_UA,
-            osName: 'visionOS',
-            osVersion: '26.5.23O471',
+            clientName,
+            clientVersion,
+            userAgent,
+            ...(!useCookieAuth
+              ? {
+                  deviceMake: 'Apple',
+                  deviceModel: 'RealityDevice17,1',
+                  osName: 'visionOS',
+                  osVersion: '26.5.23O471',
+                }
+              : {}),
             // 국가 코드(gl)는 게이트웨이 egress IP에 맞기고, 제목 언어만 한국어로 고정한다.
             hl: 'ko',
-            ...(visitorData ? { visitorData } : {}),
+            ...(!useCookieAuth && visitorData ? { visitorData } : {}),
           },
+          ...(useCookieAuth
+            ? { thirdParty: { embedUrl: YOUTUBE_COOKIE_CLIENT.embedUrl } }
+            : {}),
         },
         videoId,
         contentCheckOk: true,
@@ -491,6 +514,13 @@ async function requestPlayer(
   }
 
   if (!response.ok) {
+    if (useCookieAuth && response.status === 400) {
+      throw new YouTubeAudioError(
+        'YOUTUBE_COOKIE_AUTH_REJECTED',
+        'YouTube가 쿠키 인증 요청을 거절했어요. 로그인된 계정에서 새 cookies.txt 전체 내용을 내보내 YOUTUBE_COOKIE에 설정했는지 확인해 주세요. Set-Cookie 응답 헤더는 사용할 수 없어요.',
+        502
+      );
+    }
     throw new YouTubeAudioError(
       'YOUTUBE_PLAYER_FAILED',
       `YouTube 플레이어가 HTTP ${response.status}로 응답했어요.`,
