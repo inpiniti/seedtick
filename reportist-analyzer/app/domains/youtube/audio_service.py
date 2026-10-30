@@ -192,6 +192,26 @@ def _extract_info(video_id: str, cookie_file: str | None) -> dict:
         if any(
             term in reason
             for term in (
+                "ssl:",
+                "sslerror",
+                "ssl error",
+                "unexpected_eof_while_reading",
+                "eof occurred in violation of protocol",
+                "connection reset",
+                "connection aborted",
+                "timed out",
+                "timeout",
+            )
+        ):
+            raise YouTubeAudioError(
+                "YOUTUBE_NETWORK_ERROR",
+                "Analyzer 서버에서 YouTube 연결이 끊겼어요. 잠시 후 다시 시도해 주세요.",
+                502,
+                True,
+            ) from error
+        if any(
+            term in reason
+            for term in (
                 "confirm you're not a bot",
                 "sign in to confirm",
                 "not a bot",
@@ -433,8 +453,10 @@ async def fetch_youtube_audio(input_value: str) -> YouTubeAudioResult:
         info: dict | None = None
         last_error: YouTubeAudioError | None = None
         selected: tuple[dict, int | None] | None = None
+        attempt_count = 0
 
         for attempt_index, current_cookie_file in enumerate(attempts):
+            attempt_count += 1
             attempt_started = time.monotonic()
             try:
                 candidate_info = await asyncio.to_thread(
@@ -485,6 +507,14 @@ async def fetch_youtube_audio(input_value: str) -> YouTubeAudioResult:
                 last_error = error
                 if error.code == "YOUTUBE_VIDEO_UNAVAILABLE":
                     raise
+                if error.code == "YOUTUBE_NETWORK_ERROR":
+                    logger.info(
+                        "[YT-DIAG-c91e] Skipping cookie fallback after transport failure "
+                        "videoId=%s cookieAuth=%s",
+                        video_id,
+                        bool(current_cookie_file),
+                    )
+                    break
 
             if attempt_index == 0 and cookie_file:
                 logger.info(
@@ -506,7 +536,7 @@ async def fetch_youtube_audio(input_value: str) -> YouTubeAudioResult:
                 "[YT-DIAG-c91e] Extraction exhausted attempts videoId=%s attempts=%s "
                 "totalElapsedSeconds=%.1f code=%s",
                 video_id,
-                len(attempts),
+                attempt_count,
                 time.monotonic() - request_started,
                 final_error.code,
             )
