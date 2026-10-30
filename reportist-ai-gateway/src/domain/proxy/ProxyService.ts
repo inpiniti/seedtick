@@ -223,7 +223,12 @@ export class ProxyService {
               `[Gateway] 429 RateLimit 감지 ([${provider}], 키: ${keyMasked}) -> 다음 슬롯으로 전환 (시도 ${attempt}/${maxAttempts})`
             );
             this.cooldown.setCooldown(provider, targetModel, key, 30_000, 'rpm_exceeded');
-          } else if (result.status === 500 || result.status === 502 || result.status === 503 || result.status === 504) {
+          } else if (
+            result.status === 500 ||
+            result.status === 502 ||
+            result.status === 503 ||
+            result.status === 504
+          ) {
             console.warn(
               `[Gateway] ⚠️ [${provider}] HTTP ${result.status} -> 다음 슬롯으로 전환 (키: ${keyMasked}) (시도 ${attempt}/${maxAttempts})`
             );
@@ -336,7 +341,9 @@ export class ProxyService {
         try {
           const result = await adapter.callStream(request, targetModel, key, 120_000);
           if (result.ok && result.stream) {
-            console.info(`[Gateway] Stream success: [${provider}] ${targetModel} (키: ${keyMasked})`);
+            console.info(
+              `[Gateway] Stream success: [${provider}] ${targetModel} (키: ${keyMasked})`
+            );
             return { ok: true, stream: result.stream };
           }
 
@@ -356,7 +363,12 @@ export class ProxyService {
               `[Gateway] 429 RateLimit 감지 ([${provider}], 키: ${keyMasked}) -> 다음 슬롯으로 전환 (시도 ${attempt}/${maxAttempts})`
             );
             this.cooldown.setCooldown(provider, targetModel, key, 30_000, 'rpm_exceeded');
-          } else if (result.status === 500 || result.status === 502 || result.status === 503 || result.status === 504) {
+          } else if (
+            result.status === 500 ||
+            result.status === 502 ||
+            result.status === 503 ||
+            result.status === 504
+          ) {
             console.warn(
               `[Gateway] ⚠️ [${provider}] HTTP ${result.status} -> 다음 슬롯으로 전환 (키: ${keyMasked}) (시도 ${attempt}/${maxAttempts})`
             );

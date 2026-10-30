@@ -52,7 +52,9 @@ export class ErrorLogService {
       if (error) {
         if (error.message.includes('Could not find the table') || error.code === '42P01') {
           if (!this.tableUnavailable) {
-            console.warn('[ErrorLogger] error_logs 테이블이 Supabase에 존재하지 않아 원격 로깅을 건너뜁니다.');
+            console.warn(
+              '[ErrorLogger] error_logs 테이블이 Supabase에 존재하지 않아 원격 로깅을 건너뜁니다.'
+            );
             this.tableUnavailable = true;
           }
         } else {

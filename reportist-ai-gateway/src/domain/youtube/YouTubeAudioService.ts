@@ -4,8 +4,8 @@
 // URL이 요청 IP에 묶여 있어 재생할 수 없다. 따라서 게이트웨이가 대신 오디오를
 // 내려받아 바이너리로 중계한다.
 
-import { createHash } from 'node:crypto';
 import { env } from '../../config/env.ts';
+import { fetchAudioWithCookies } from './YouTubeCookieExtractor.ts';
 
 const PLAYER_URL = 'https://www.youtube.com/youtubei/v1/player?prettyPrint=false';
 const VISITOR_ID_URL = 'https://www.youtube.com/youtubei/v1/visitor_id?prettyPrint=false';
@@ -38,46 +38,15 @@ const VISIONOS_PLAYER_CLIENT: YouTubePlayerClient = {
   },
 };
 
-// visionOS는 cookies.txt 인증을 지원하지 않는다. 로그인 쿠키 fallback은
-// yt-dlp의 쿠키 지원 클라이언트 순서에 맞춰 임베드, 삼성 TV, 웹을 시도한다.
-const YOUTUBE_COOKIE_CLIENTS: YouTubePlayerClient[] = [
-  {
-    name: 'WEB_EMBEDDED_PLAYER',
-    version: '2.20260708.00.00',
-    id: '56',
-    userAgent:
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.5 Safari/605.1.15,gzip(gfe)',
-    embedUrl: 'https://www.reddit.com/',
-  },
-  {
-    name: 'TVHTML5',
-    version: '5.20260707',
-    id: '7',
-    userAgent: 'Mozilla/5.0 (SMART-TV; Linux; Tizen 2.4.0) AppleWebKit/538.1 (KHTML, like Gecko) Version/2.4.0 TV Safari/538.1',
-    clientContext: {
-      deviceMake: 'Samsung',
-      deviceModel: 'UKS9800',
-      osName: 'Tizen',
-      osVersion: '2.4.0',
-    },
-  },
-  {
-    name: 'WEB',
-    version: '2.20260708.00.00',
-    id: '1',
-  },
-];
-
-const YOUTUBE_HOST = 'www.youtube.com';
-const YOUTUBE_ORIGIN = `https://${YOUTUBE_HOST}`;
+export const YOUTUBE_HOST = 'www.youtube.com';
+export const YOUTUBE_ORIGIN = `https://${YOUTUBE_HOST}`;
 const COOKIE_NAME_PATTERN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
 
 function isYouTubeCookieDomain(domain: string, includeSubdomains: boolean): boolean {
   const normalized = domain.toLowerCase().replace(/^\./, '');
   return (
     normalized === YOUTUBE_HOST ||
-    (includeSubdomains &&
-      (normalized === 'youtube.com' || YOUTUBE_HOST.endsWith(`.${normalized}`)))
+    (includeSubdomains && (normalized === 'youtube.com' || YOUTUBE_HOST.endsWith(`.${normalized}`)))
   );
 }
 
@@ -88,7 +57,7 @@ function cookiePathMatches(requestPath: string, cookiePath: string): boolean {
 }
 
 /** Accepts a Netscape cookies.txt export or a standard Cookie header value. */
-function parseYouTubeCookies(rawValue: string): Map<string, string> {
+export function parseYouTubeCookies(rawValue: string): Map<string, string> {
   const cookies = new Map<string, string>();
   const trimmed = rawValue.trim();
   if (!trimmed) return cookies;
@@ -105,11 +74,7 @@ function parseYouTubeCookies(rawValue: string): Map<string, string> {
       if (separator <= 0) continue;
       const name = item.slice(0, separator).trim();
       const value = item.slice(separator + 1).trim();
-      if (
-        COOKIE_NAME_PATTERN.test(name) &&
-        value.length > 0 &&
-        !/[;\r\n]/.test(value)
-      ) {
+      if (COOKIE_NAME_PATTERN.test(name) && value.length > 0 && !/[;\r\n]/.test(value)) {
         cookies.set(name, value);
       }
     }
@@ -134,51 +99,13 @@ function parseYouTubeCookies(rawValue: string): Map<string, string> {
     if (expiresAt !== '0' && Number.isFinite(expiry) && expiry <= nowSeconds) continue;
 
     const value = valueParts.join('\t');
-    if (
-      !COOKIE_NAME_PATTERN.test(name) ||
-      value.length === 0 ||
-      /[;\r\n]/.test(value)
-    ) {
+    if (!COOKIE_NAME_PATTERN.test(name) || value.length === 0 || /[;\r\n]/.test(value)) {
       continue;
     }
     cookies.set(name, value);
   }
 
   return cookies;
-}
-
-const youtubeCookies = parseYouTubeCookies(env.youtubeCookie);
-
-function createYouTubeCookieAuthHeaders(): Record<string, string> | null {
-  if (youtubeCookies.size === 0) return null;
-
-  const authorization: string[] = [];
-  const timestamp = Math.floor(Date.now() / 1000).toString();
-  const addAuthorization = (scheme: string, sapisid: string | undefined) => {
-    if (!sapisid) return;
-    const hash = createHash('sha1')
-      .update(`${timestamp} ${sapisid} ${YOUTUBE_ORIGIN}`)
-      .digest('hex');
-    authorization.push(`${scheme} ${timestamp}_${hash}`);
-  };
-
-  addAuthorization(
-    'SAPISIDHASH',
-    youtubeCookies.get('SAPISID') ?? youtubeCookies.get('__Secure-3PAPISID')
-  );
-  addAuthorization('SAPISID1PHASH', youtubeCookies.get('__Secure-1PAPISID'));
-  addAuthorization('SAPISID3PHASH', youtubeCookies.get('__Secure-3PAPISID'));
-  if (authorization.length === 0) return null;
-
-  const cookieHeader = [...youtubeCookies]
-    .map(([name, value]) => `${name}=${value}`)
-    .join('; ');
-
-  return {
-    Cookie: cookieHeader,
-    Authorization: authorization.join(' '),
-    'X-Origin': YOUTUBE_ORIGIN,
-  };
 }
 
 // Vercel 서버리스 응답 본문 제한(4.5MB)을 넘지 않도록 여유를 둔 상한.
@@ -514,21 +441,9 @@ async function fetchVisitorData(forceRefresh = false): Promise<string | null> {
 
 async function requestPlayer(
   videoId: string,
-  visitorData: string | null,
-  useCookieAuth = false,
-  cookieClientIndex = 0
+  visitorData: string | null
 ): Promise<InnerTubePlayerResponse> {
-  const cookieAuthHeaders = useCookieAuth ? createYouTubeCookieAuthHeaders() : null;
-  if (useCookieAuth && !cookieAuthHeaders) {
-    throw new YouTubeAudioError(
-      'YOUTUBE_COOKIE_INVALID',
-      'YOUTUBE_COOKIE에 로그인된 YouTube의 cookies.txt 전체 내용이나 Cookie 요청 헤더를 설정해 주세요. Set-Cookie 응답 헤더는 사용할 수 없어요.',
-      500
-    );
-  }
-
-  const cookieClient = YOUTUBE_COOKIE_CLIENTS[cookieClientIndex] ?? YOUTUBE_COOKIE_CLIENTS[0];
-  const client = useCookieAuth ? cookieClient : VISIONOS_PLAYER_CLIENT;
+  const client = VISIONOS_PLAYER_CLIENT;
 
   let response: Response;
   try {
@@ -540,8 +455,7 @@ async function requestPlayer(
         'X-Youtube-Client-Name': client.id,
         'X-Youtube-Client-Version': client.version,
         Origin: 'https://www.youtube.com',
-        ...(cookieAuthHeaders ?? {}),
-        ...(!useCookieAuth && visitorData ? { 'X-Goog-Visitor-Id': visitorData } : {}),
+        ...(visitorData ? { 'X-Goog-Visitor-Id': visitorData } : {}),
       },
       body: JSON.stringify({
         context: {
@@ -552,11 +466,8 @@ async function requestPlayer(
             ...client.clientContext,
             // 국가 코드(gl)는 게이트웨이 egress IP에 맞기고, 제목 언어만 한국어로 고정한다.
             hl: 'ko',
-            ...(!useCookieAuth && visitorData ? { visitorData } : {}),
+            ...(visitorData ? { visitorData } : {}),
           },
-          ...(useCookieAuth && cookieClient.embedUrl
-            ? { thirdParty: { embedUrl: cookieClient.embedUrl } }
-            : {}),
         },
         videoId,
         contentCheckOk: true,
@@ -568,7 +479,6 @@ async function requestPlayer(
     console.warn('[YouTube] Player request failed', {
       videoId,
       client: client.name,
-      cookieAuth: useCookieAuth,
       errorType: error instanceof Error ? error.name : 'UnknownError',
     });
     throw new YouTubeAudioError(
@@ -583,16 +493,8 @@ async function requestPlayer(
     console.warn('[YouTube] Player returned non-OK HTTP status', {
       videoId,
       client: client.name,
-      cookieAuth: useCookieAuth,
       httpStatus: response.status,
     });
-    if (useCookieAuth && response.status === 400) {
-      throw new YouTubeAudioError(
-        'YOUTUBE_COOKIE_AUTH_REJECTED',
-        'YouTube가 쿠키 인증 요청을 거절했어요. 로그인된 계정에서 새 cookies.txt 전체 내용을 내보내 YOUTUBE_COOKIE에 설정했는지 확인해 주세요. Set-Cookie 응답 헤더는 사용할 수 없어요.',
-        502
-      );
-    }
     throw new YouTubeAudioError(
       'YOUTUBE_PLAYER_FAILED',
       `YouTube 플레이어가 HTTP ${response.status}로 응답했어요.`,
@@ -726,34 +628,28 @@ export async function fetchYouTubeAudio(
   }
 
   const maxBytes = options.maxBytes ?? MAX_YOUTUBE_AUDIO_BYTES;
-  let lastError: YouTubeAudioError | null = null;
 
-  // 봇 체크 시 visitorData를 새로 발급받아 1회 재시도한다.
-  // googlevideo URL은 IP/시간에 묶여 만료될 수 있으므로 다운로드 실패도 1회 재시도한다.
+  // 개발/검증 플래그: 쿠키 경로 강제 실행
+  if (process.env.YOUTUBE_FORCE_COOKIE_PATH === '1') {
+    return await fetchAudioWithCookies(videoId, { maxBytes });
+  }
+
+  let lastError: YouTubeAudioError | null = null;
   let visitorData = await fetchVisitorData();
   let botCheckRetried = false;
-  let cookieAuthRetried = false;
-  let useCookieAuth = false;
-  let cookieClientIndex = 0;
   let downloadAttempt = 0;
   let playerReloadRetried = false;
 
   while (downloadAttempt < 2) {
-    const currentPlayerClient = useCookieAuth
-      ? YOUTUBE_COOKIE_CLIENTS[cookieClientIndex] ?? YOUTUBE_COOKIE_CLIENTS[0]
-      : VISIONOS_PLAYER_CLIENT;
     let player: InnerTubePlayerResponse;
     try {
-      player = await requestPlayer(videoId, visitorData, useCookieAuth, cookieClientIndex);
+      player = await requestPlayer(videoId, visitorData);
     } catch (error) {
-      if (
-        useCookieAuth &&
-        error instanceof YouTubeAudioError &&
-        error.code === 'YOUTUBE_COOKIE_AUTH_REJECTED' &&
-        cookieClientIndex < YOUTUBE_COOKIE_CLIENTS.length - 1
-      ) {
-        cookieClientIndex += 1;
-        continue;
+      if (env.youtubeCookie.trim()) {
+        console.info(
+          '[YouTube] Anonymous player request failed, falling back to YouTubeCookieExtractor'
+        );
+        return await fetchAudioWithCookies(videoId, { maxBytes });
       }
       throw error;
     }
@@ -762,34 +658,22 @@ export async function fetchYouTubeAudio(
     if (playability?.status && playability.status !== 'OK') {
       console.warn('[YouTube] Player rejected video', {
         videoId,
-        client: currentPlayerClient.name,
-        cookieAuth: useCookieAuth,
+        client: VISIONOS_PLAYER_CLIENT.name,
         cookieConfigured: Boolean(env.youtubeCookie.trim()),
         playabilityStatus: playability.status,
         reason: playability.reason ?? null,
         ...summarizePlayerResponse(player),
       });
+
       if (isYouTubeBotCheck(playability.reason)) {
-        if (!useCookieAuth && !botCheckRetried) {
+        if (!botCheckRetried) {
           botCheckRetried = true;
           visitorData = await fetchVisitorData(true);
           continue;
         }
-        if (!cookieAuthRetried && env.youtubeCookie.trim()) {
-          cookieAuthRetried = true;
-          useCookieAuth = true;
-          continue;
-        }
-        if (useCookieAuth && cookieClientIndex < YOUTUBE_COOKIE_CLIENTS.length - 1) {
-          cookieClientIndex += 1;
-          continue;
-        }
-        if (useCookieAuth) {
-          throw new YouTubeAudioError(
-            'YOUTUBE_COOKIE_BOT_CHECK',
-            'YouTube가 쿠키 인증 후에도 로그인하여 봇 확인을 요구했어요. YOUTUBE_COOKIE가 만료되지 않은 로그인 쿠키인지 확인해 주세요. 유효한 최신 쿠키도 같은 응답이면 서버 IP 제한일 수 있어요. 음악 파일을 직접 업로드할 수도 있어요.',
-            422
-          );
+        if (env.youtubeCookie.trim()) {
+          console.info('[YouTube] Bot check encountered, delegating to YouTubeCookieExtractor');
+          return await fetchAudioWithCookies(videoId, { maxBytes });
         }
         throw new YouTubeAudioError(
           'YOUTUBE_BOT_CHECK',
@@ -797,25 +681,27 @@ export async function fetchYouTubeAudio(
           422
         );
       }
+
       if (isYouTubePlayerReloadRequired(playability.reason) && !playerReloadRetried) {
         playerReloadRetried = true;
         console.info('[YouTube] Retrying player request after reload-required response', {
           videoId,
-          client: currentPlayerClient.name,
-          cookieAuth: useCookieAuth,
         });
-        if (!useCookieAuth) visitorData = await fetchVisitorData(true);
+        visitorData = await fetchVisitorData(true);
         continue;
       }
-      if (!cookieAuthRetried && env.youtubeCookie.trim()) {
-        cookieAuthRetried = true;
-        useCookieAuth = true;
-        continue;
+
+      if (env.youtubeCookie.trim()) {
+        console.info(
+          '[YouTube] Player response unplayable, attempting YouTubeCookieExtractor fallback',
+          {
+            reason: playability.reason,
+            status: playability.status,
+          }
+        );
+        return await fetchAudioWithCookies(videoId, { maxBytes });
       }
-      if (useCookieAuth && cookieClientIndex < YOUTUBE_COOKIE_CLIENTS.length - 1) {
-        cookieClientIndex += 1;
-        continue;
-      }
+
       if (isYouTubePlayerReloadRequired(playability.reason)) {
         throw new YouTubeAudioError(
           'YOUTUBE_PLAYER_RELOAD_REQUIRED',
@@ -824,17 +710,17 @@ export async function fetchYouTubeAudio(
           true
         );
       }
+
       throw new YouTubeAudioError(
         'YOUTUBE_VIDEO_UNAVAILABLE',
-        `YouTube가 ${currentPlayerClient.name} 플레이어에서 이 영상을 재생할 수 없다고 응답했어요 (${playability.reason || playability.status}).`,
+        `YouTube가 VISIONOS 플레이어에서 이 영상을 재생할 수 없다고 응답했어요 (${playability.reason || playability.status}).`,
         422
       );
     }
 
     console.info('[YouTube] Player response summary', {
       videoId,
-      client: currentPlayerClient.name,
-      cookieAuth: useCookieAuth,
+      client: VISIONOS_PLAYER_CLIENT.name,
       playabilityStatus: playability?.status ?? null,
       ...summarizePlayerResponse(player),
     });
@@ -853,9 +739,11 @@ export async function fetchYouTubeAudio(
     const selected = selectYouTubeAudioFormat(audioFormats, maxBytes);
 
     if (!selected) {
-      if (useCookieAuth && cookieClientIndex < YOUTUBE_COOKIE_CLIENTS.length - 1) {
-        cookieClientIndex += 1;
-        continue;
+      if (env.youtubeCookie.trim()) {
+        console.info(
+          '[YouTube] Direct audio formats missing, falling back to YouTubeCookieExtractor'
+        );
+        return await fetchAudioWithCookies(videoId, { maxBytes });
       }
       const hasCipheredAudio = rawFormats.some(
         (format) =>
@@ -874,7 +762,6 @@ export async function fetchYouTubeAudio(
 
     try {
       const { data, hitCap } = await downloadAudioFormat(selected.format, maxBytes);
-
       const declaredTotal = estimateFormatBytes(selected.format) ?? selected.totalBytes;
       const totalBytes = declaredTotal > 0 ? declaredTotal : data.byteLength;
       const truncated = totalBytes > data.byteLength || (hitCap && !selected.format.contentLength);
@@ -919,8 +806,20 @@ export async function fetchYouTubeAudio(
       if (!(error instanceof YouTubeAudioError)) throw error;
       lastError = error;
       downloadAttempt += 1;
-      if (!error.retryable || downloadAttempt >= 2) throw error;
+      if (downloadAttempt >= 2) {
+        if (env.youtubeCookie.trim()) {
+          console.info(
+            '[YouTube] Anonymous download failed twice, falling back to YouTubeCookieExtractor'
+          );
+          return await fetchAudioWithCookies(videoId, { maxBytes });
+        }
+        throw error;
+      }
     }
+  }
+
+  if (env.youtubeCookie.trim()) {
+    return await fetchAudioWithCookies(videoId, { maxBytes });
   }
 
   throw (

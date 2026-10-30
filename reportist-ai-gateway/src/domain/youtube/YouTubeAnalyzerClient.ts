@@ -27,7 +27,12 @@ async function readAudioBody(response: Response): Promise<Uint8Array> {
     );
   }
   if (!response.body) {
-    throw new YouTubeAudioError('YOUTUBE_AUDIO_EMPTY', 'Analyzer가 빈 오디오를 반환했어요.', 502, true);
+    throw new YouTubeAudioError(
+      'YOUTUBE_AUDIO_EMPTY',
+      'Analyzer가 빈 오디오를 반환했어요.',
+      502,
+      true
+    );
   }
 
   const reader = response.body.getReader();
@@ -131,15 +136,22 @@ export async function fetchYouTubeAudioFromAnalyzer(input: string): Promise<YouT
 
   const data = await readAudioBody(response);
   if (data.byteLength === 0) {
-    throw new YouTubeAudioError('YOUTUBE_AUDIO_EMPTY', 'Analyzer가 빈 오디오를 반환했어요.', 502, true);
+    throw new YouTubeAudioError(
+      'YOUTUBE_AUDIO_EMPTY',
+      'Analyzer가 빈 오디오를 반환했어요.',
+      502,
+      true
+    );
   }
 
   const mimeType = response.headers.get('content-type')?.split(';')[0]?.trim() || 'audio/mp4';
   const extension: 'm4a' | 'webm' = mimeType.includes('webm') ? 'webm' : 'm4a';
   const videoId = response.headers.get('x-youtube-video-id') ?? '';
-  const title = decodeHeaderValue(response.headers.get('x-youtube-title')) || `YouTube 오디오 (${videoId})`;
+  const title =
+    decodeHeaderValue(response.headers.get('x-youtube-title')) || `YouTube 오디오 (${videoId})`;
   const filename =
-    decodeHeaderValue(response.headers.get('x-youtube-filename')) || `youtube-${videoId}.${extension}`;
+    decodeHeaderValue(response.headers.get('x-youtube-filename')) ||
+    `youtube-${videoId}.${extension}`;
   const parsedItag = Number.parseInt(response.headers.get('x-youtube-itag') ?? '', 10);
 
   return {

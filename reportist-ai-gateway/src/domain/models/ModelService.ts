@@ -401,7 +401,9 @@ export class ModelService {
         const modality = typeof arch.modality === 'string' ? arch.modality : 'text->text';
         const rawInputModalities = Array.isArray(arch.input_modalities)
           ? (arch.input_modalities as string[])
-          : (modality.includes('->') ? modality.split('->')[0].split('+') : ['text']);
+          : modality.includes('->')
+            ? modality.split('->')[0].split('+')
+            : ['text'];
         const inputModalities = [...new Set(rawInputModalities)];
         const supportedParameters = Array.isArray(m.supported_parameters)
           ? (m.supported_parameters as string[])
@@ -409,7 +411,8 @@ export class ModelService {
 
         const benchmarks = (m.benchmarks as Record<string, unknown>) ?? {};
         const aa = (benchmarks.artificial_analysis as Record<string, unknown>) ?? {};
-        const intelligenceIndex = typeof aa.intelligence_index === 'number' ? aa.intelligence_index : null;
+        const intelligenceIndex =
+          typeof aa.intelligence_index === 'number' ? aa.intelligence_index : null;
         const codingIndex = typeof aa.coding_index === 'number' ? aa.coding_index : null;
         const agenticIndex = typeof aa.agentic_index === 'number' ? aa.agentic_index : null;
 
@@ -417,9 +420,8 @@ export class ModelService {
         const supportedEfforts = Array.isArray(reasoningObj.supported_efforts)
           ? (reasoningObj.supported_efforts as string[])
           : undefined;
-        const defaultEffort = typeof reasoningObj.default_effort === 'string'
-          ? reasoningObj.default_effort
-          : null;
+        const defaultEffort =
+          typeof reasoningObj.default_effort === 'string' ? reasoningObj.default_effort : null;
         const reasoningMandatory = Boolean(reasoningObj.mandatory);
 
         // 지능 티어 및 파라미터 요약 추출

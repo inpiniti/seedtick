@@ -250,12 +250,14 @@ export class OpenAICompatAdapter implements ILLMAdapter {
       const firstChunkTimeoutMs = 15_000;
       let firstChunkTimer: ReturnType<typeof setTimeout> | undefined;
 
-      const timeoutPromise = new Promise<{ done: true; value: undefined; timedOut: true }>((resolve) => {
-        firstChunkTimer = setTimeout(
-          () => resolve({ done: true, value: undefined, timedOut: true }),
-          firstChunkTimeoutMs
-        );
-      });
+      const timeoutPromise = new Promise<{ done: true; value: undefined; timedOut: true }>(
+        (resolve) => {
+          firstChunkTimer = setTimeout(
+            () => resolve({ done: true, value: undefined, timedOut: true }),
+            firstChunkTimeoutMs
+          );
+        }
+      );
 
       const readPromise = reader.read().then((res) => ({ ...res, timedOut: false }));
       const firstResult = await Promise.race([readPromise, timeoutPromise]);

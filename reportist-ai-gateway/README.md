@@ -73,7 +73,8 @@ bun run typecheck
 - `YOUTUBE_ANALYZER_URL`과 `YOUTUBE_ANALYZER_SECRET`을 설정하면 yt-dlp 기반 Analyzer 작업자로 위임하고, 설정하지 않으면 기존 게이트웨이 VISIONOS 추출 경로를 사용합니다. 두 경로 모두 오디오를 서버에서 가져와 중계합니다.
 - Vercel 서버리스 응답 제한(4.5MB)을 피하기 위해 최대 `3,800,000` 바이트까지만 반환합니다. 포맷은 m4a(itag 140 → 139)를 우선하고, 초과 시 더 작은 포맷의 앞부분을 사용합니다.
 - 응답 헤더: `X-Youtube-Title`(URL 인코딩), `X-Youtube-Duration`, `X-Youtube-Itag`, `X-Youtube-Audio-Seconds`, `X-Youtube-Truncated`, `X-Youtube-Filename`.
-- YouTube 봇 체크(`LOGIN_REQUIRED`)가 발생하면 `visitorData`를 새로 발급받아 1회 재시도합니다. 쿠키 미설정 상태에서 계속 차단되면 `YOUTUBE_BOT_CHECK`(422), 쿠키 인증까지 시도한 뒤에도 차단되면 `YOUTUBE_COOKIE_BOT_CHECK`(422)를 반환합니다.
-- 기존 게이트웨이 직접 추출 경로에서는 선택 설정 `YOUTUBE_COOKIE`를 사용합니다. Analyzer 위임 경로에서는 `YOUTUBE_COOKIE`를 Analyzer 배포 Secret에 설정해야 합니다. 두 경로 모두 쿠키 없이 먼저 시도하며, 필요할 때만 로그인 쿠키로 재시도합니다. `Set-Cookie` 응답 헤더는 사용할 수 없습니다. 로그인 쿠키는 계정 인증정보이므로 저장소나 로그에 넣지 마세요.
+- YouTube 봇 체크(`LOGIN_REQUIRED`)가 발생하면 `visitorData`를 새로 발급받아 1회 재시도합니다. 쿠키 미설정 상태에서 계속 차단되면 `YOUTUBE_BOT_CHECK`(422)를 반환합니다.
+- `YOUTUBE_COOKIE`가 설정되어 있으면 `youtubei.js` 기반 쿠키 추출기(`YouTubeCookieExtractor`)로 자동 전환되어 VISIONOS / IOS / TV / MWEB 다중 클라이언트 및 플레이어 서명 해독(decipher)을 수행합니다. 쿠키 인증까지 시도한 뒤에도 차단되면 `YOUTUBE_COOKIE_BOT_CHECK`(422)를 반환합니다.
+- 로그인 쿠키는 계정 인증정보이므로 저장소나 로그에 넣지 마세요. Vercel 환경변수 또는 `.env.local`에만 설정해야 합니다. Set-Cookie 응답 헤더는 사용할 수 없습니다.
 - 추출 로그에는 video ID와 포맷 개수 등 진단 요약만 남깁니다. 쿠키 값, 인증 헤더, 서명된 오디오 주소는 로그에 남기지 않습니다.
 - 저작권이 있는 음원은 권리자의 허락을 받은 경우에만 사용해야 합니다.
