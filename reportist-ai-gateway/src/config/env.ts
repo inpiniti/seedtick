@@ -6,9 +6,6 @@ export interface EnvConfig {
   geminiKeys: string[];
   supabaseUrl: string;
   supabaseServiceRoleKey: string;
-  youtubeCookie: string;
-  youtubeAnalyzerUrl: string;
-  youtubeAnalyzerSecret: string;
   geminiResetHour: number;
   clineResetHour: number;
   kiloResetHour: number;
@@ -43,9 +40,6 @@ export function loadEnv(): EnvConfig {
     geminiKeys: parseKeys(process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEYS),
     supabaseUrl: process.env.SUPABASE_URL ?? '',
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? '',
-    youtubeCookie: process.env.YOUTUBE_COOKIE ?? '',
-    youtubeAnalyzerUrl: process.env.YOUTUBE_ANALYZER_URL?.trim() ?? '',
-    youtubeAnalyzerSecret: process.env.YOUTUBE_ANALYZER_SECRET?.trim() ?? '',
     geminiResetHour: parseIntOrDefault(process.env.GEMINI_RESET_HOUR, 8),
     clineResetHour: parseIntOrDefault(process.env.CLINE_RESET_HOUR, 0),
     kiloResetHour: parseIntOrDefault(process.env.KILO_RESET_HOUR, 0),
@@ -63,8 +57,5 @@ export function validateEnv(): string[] {
   }
   if (!env.supabaseUrl) errors.push('SUPABASE_URL is required');
   if (!env.supabaseServiceRoleKey) errors.push('SUPABASE_SERVICE_ROLE_KEY is required');
-  if (env.youtubeAnalyzerUrl && !env.youtubeAnalyzerSecret) {
-    errors.push('YOUTUBE_ANALYZER_SECRET is required when YOUTUBE_ANALYZER_URL is set');
-  }
   return errors;
 }
