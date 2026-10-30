@@ -12,6 +12,7 @@ from app.api.routes.scheduler import router as scheduler_router
 from app.api.routes.screener import router as screener_router
 from app.api.routes.debug_ai import router as debug_ai_router
 from app.api.routes.debug_yahoo import router as debug_yahoo_router
+from app.api.routes.youtube import router as youtube_router
 from app.config.settings import settings
 from app.domains.error_log.handlers import SupabaseLogHandler
 from app.domains.screener.logo_warmup_service import logo_warmup_service
@@ -73,6 +74,7 @@ app.include_router(report_router)
 app.include_router(scheduler_router)
 app.include_router(debug_ai_router)
 app.include_router(debug_yahoo_router)
+app.include_router(youtube_router)
 
 
 

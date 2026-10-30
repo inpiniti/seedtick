@@ -100,5 +100,9 @@ class Settings(BaseSettings):
     TWITTER_CLIENT_ID: str = ""
     TWITTER_CLIENT_SECRET: str = ""
 
+    # YouTube 오디오 작업자 (AI Gateway에서 서버 간 호출)
+    YOUTUBE_WORKER_SECRET: str = ""
+    YOUTUBE_COOKIE: str = ""
+
 
 settings = Settings()

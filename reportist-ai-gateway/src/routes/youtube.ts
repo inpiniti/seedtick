@@ -2,6 +2,8 @@
 // YouTube 영상의 오디오를 추출해 브라우저로 중계한다.
 
 import { Elysia, t } from 'elysia';
+import { env } from '../config/env.ts';
+import { fetchYouTubeAudioFromAnalyzer } from '../domain/youtube/YouTubeAnalyzerClient.ts';
 import { YouTubeAudioError, fetchYouTubeAudio } from '../domain/youtube/YouTubeAudioService.ts';
 import { verifyGatewayAuth } from '../middleware/auth.ts';
 
@@ -31,7 +33,9 @@ export const youtubeRoute = new Elysia().onBeforeHandle(verifyGatewayAuth).get(
     }
 
     try {
-      const audio = await fetchYouTubeAudio(input);
+      const audio = env.youtubeAnalyzerUrl
+        ? await fetchYouTubeAudioFromAnalyzer(input)
+        : await fetchYouTubeAudio(input);
 
       const headers = toHeaderRecord(set.headers);
       headers['content-type'] = audio.mimeType;

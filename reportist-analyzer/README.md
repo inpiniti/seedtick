@@ -52,3 +52,13 @@ pytest -v
 - `POST /api/report/generate?ticker={ticker}` : 13인 거장 4단계 리포트 생성 및 DB 저장
 - `POST /api/scheduler/trigger` : 일일 파이프라인 수동 즉시 트리거 (백그라운드 실행 후 즉시 응답, dry_run·force 플래그 지원)
 - `GET /api/scheduler/progress` : 13인 거장 파이프라인 실시간 진행 상태 (단계, n/총, n/13, 경과 시간, 단계별 소요 시간)
+
+### YouTube 오디오 작업자
+
+`GET /internal/youtube/audio?url={videoId}`는 YouTube 오디오를 최대 3,800,000바이트까지 가져옵니다. 이 경로는 공개 API가 아니며, 요청에 `Authorization: Bearer {YOUTUBE_WORKER_SECRET}`가 필요합니다.
+
+- Analyzer 배포 환경의 Secret에 `YOUTUBE_WORKER_SECRET`을 설정하고, AI Gateway에는 같은 값을 `YOUTUBE_ANALYZER_SECRET`으로 설정합니다.
+- AI Gateway의 `YOUTUBE_ANALYZER_URL`에는 Analyzer의 공개 HTTPS 주소를 설정합니다. 값이 설정되면 게이트웨이는 오디오 추출을 Analyzer에 위임합니다.
+- `YOUTUBE_COOKIE`는 선택 사항입니다. 우선 쿠키 없이 요청하고, 추출이 실패하면 설정된 쿠키로 재시도합니다. Netscape `cookies.txt` 전체 내용이나 `Cookie` 요청 헤더 값을 사용할 수 있습니다. 쿠키는 Analyzer의 배포 Secret에만 저장하고 로그나 저장소에 넣지 마세요.
+- yt-dlp는 현재 기본 플레이어 클라이언트를 사용하며, JavaScript 챌린지 처리를 위해 Node.js 22 런타임을 포함합니다.
+- Analyzer의 외부 IP도 YouTube에서 차단될 수 있으므로, 배포 후 이 엔드포인트에서 실제 추출이 되는지 확인해야 합니다.
