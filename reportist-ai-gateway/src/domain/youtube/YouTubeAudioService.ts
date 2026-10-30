@@ -533,6 +533,12 @@ async function requestPlayer(
       signal: AbortSignal.timeout(15_000),
     });
   } catch (error) {
+    console.warn('[YouTube] Player request failed', {
+      videoId,
+      client: client.name,
+      cookieAuth: useCookieAuth,
+      errorType: error instanceof Error ? error.name : 'UnknownError',
+    });
     throw new YouTubeAudioError(
       'YOUTUBE_PLAYER_UNREACHABLE',
       `YouTube 플레이어 요청에 실패했어요: ${error instanceof Error ? error.message : String(error)}`,
@@ -542,6 +548,12 @@ async function requestPlayer(
   }
 
   if (!response.ok) {
+    console.warn('[YouTube] Player returned non-OK HTTP status', {
+      videoId,
+      client: client.name,
+      cookieAuth: useCookieAuth,
+      httpStatus: response.status,
+    });
     if (useCookieAuth && response.status === 400) {
       throw new YouTubeAudioError(
         'YOUTUBE_COOKIE_AUTH_REJECTED',
@@ -715,6 +727,14 @@ export async function fetchYouTubeAudio(
 
     const playability = player.playabilityStatus;
     if (playability?.status && playability.status !== 'OK') {
+      console.warn('[YouTube] Player rejected video', {
+        videoId,
+        client: currentPlayerClient.name,
+        cookieAuth: useCookieAuth,
+        cookieConfigured: Boolean(env.youtubeCookie.trim()),
+        playabilityStatus: playability.status,
+        reason: playability.reason ?? null,
+      });
       if (isYouTubeBotCheck(playability.reason)) {
         if (!botCheckRetried) {
           botCheckRetried = true;
