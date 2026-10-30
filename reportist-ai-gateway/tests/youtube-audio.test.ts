@@ -1,12 +1,16 @@
 // tests/youtube-audio.test.ts - YouTube URL 파싱 및 오디오 포맷 선택 테스트
 
-import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'bun:test';
 import { app } from '../src/app.ts';
 import { env } from '../src/config/env.ts';
 import {
   MAX_YOUTUBE_AUDIO_BYTES,
+  YouTubeAudioError,
   type YouTubeAudioFormat,
   extractYouTubeVideoId,
+  fetchYouTubeAudio,
+  isYouTubeBotCheck,
+  resetYouTubeVisitorDataCache,
   selectYouTubeAudioFormat,
 } from '../src/domain/youtube/YouTubeAudioService.ts';
 
@@ -128,6 +132,163 @@ describe('selectYouTubeAudioFormat', () => {
         }),
       ])
     ).toBeNull();
+  });
+});
+
+describe('isYouTubeBotCheck', () => {
+  it('detects English and Korean bot-check reasons', () => {
+    expect(isYouTubeBotCheck("Sign in to confirm you're not a bot")).toBe(true);
+    expect(isYouTubeBotCheck('로그인하여 봇이 아님을 확인하세요.')).toBe(true);
+  });
+
+  it('does not classify age or private-video restrictions as bot checks', () => {
+    expect(isYouTubeBotCheck('Sign in to confirm your age')).toBe(false);
+    expect(isYouTubeBotCheck('This video is private')).toBe(false);
+    expect(isYouTubeBotCheck(undefined)).toBe(false);
+  });
+});
+
+describe('fetchYouTubeAudio visitorData retry', () => {
+  const originalFetch = globalThis.fetch;
+  const calls: Array<{ url: string; init: RequestInit }> = [];
+
+  const jsonResponse = (body: unknown) =>
+    new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+  beforeEach(() => {
+    resetYouTubeVisitorDataCache();
+    calls.length = 0;
+
+    globalThis.fetch = (async (input: string | URL | Request, init: RequestInit = {}) => {
+      const url =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      calls.push({ url, init });
+
+      if (url.includes('/youtubei/v1/visitor_id')) {
+        const visitorCallCount = calls.filter((call) => call.url.includes('/visitor_id')).length;
+        return jsonResponse({
+          responseContext: { visitorData: `VISITOR_${visitorCallCount}` },
+        });
+      }
+
+      if (url.includes('/youtubei/v1/player')) {
+        const playerCallCount = calls.filter((call) =>
+          call.url.includes('/youtubei/v1/player')
+        ).length;
+
+        if (playerCallCount === 1) {
+          return jsonResponse({
+            playabilityStatus: {
+              status: 'LOGIN_REQUIRED',
+              reason: "Sign in to confirm you're not a bot",
+            },
+          });
+        }
+
+        return jsonResponse({
+          playabilityStatus: { status: 'OK' },
+          videoDetails: {
+            videoId: 'dQw4w9WgXcQ',
+            title: 'Test video',
+            lengthSeconds: '1',
+          },
+          streamingData: {
+            adaptiveFormats: [
+              {
+                itag: 140,
+                mimeType: 'audio/mp4; codecs="mp4a.40.2"',
+                bitrate: 128_000,
+                contentLength: '3',
+                approxDurationMs: '1000',
+                url: 'https://example.com/audio',
+              },
+            ],
+          },
+        });
+      }
+
+      if (url === 'https://example.com/audio') {
+        return new Response(new Uint8Array([1, 2, 3]), {
+          status: 200,
+          headers: { 'Content-Type': 'audio/mp4' },
+        });
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    }) as typeof fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    resetYouTubeVisitorDataCache();
+  });
+
+  it('refreshes visitorData and retries once when YouTube asks for a bot check', async () => {
+    const result = await fetchYouTubeAudio('dQw4w9WgXcQ');
+
+    expect(result.videoId).toBe('dQw4w9WgXcQ');
+    expect(result.data.byteLength).toBe(3);
+
+    const visitorCalls = calls.filter((call) => call.url.includes('/visitor_id'));
+    const playerCalls = calls.filter((call) => call.url.includes('/youtubei/v1/player'));
+    expect(visitorCalls).toHaveLength(2);
+    expect(playerCalls).toHaveLength(2);
+
+    const firstBody = JSON.parse(String(playerCalls[0].init.body)) as {
+      context: { client: { visitorData?: string } };
+    };
+    const secondBody = JSON.parse(String(playerCalls[1].init.body)) as {
+      context: { client: { visitorData?: string } };
+    };
+    expect(firstBody.context.client.visitorData).toBe('VISITOR_1');
+    expect(secondBody.context.client.visitorData).toBe('VISITOR_2');
+
+    const secondHeaders = (playerCalls[1].init.headers ?? {}) as Record<string, string>;
+    expect(secondHeaders['X-Goog-Visitor-Id']).toBe('VISITOR_2');
+  });
+
+  it('throws YOUTUBE_BOT_CHECK after one retry instead of looping', async () => {
+    calls.length = 0;
+    globalThis.fetch = (async (input: string | URL | Request, init: RequestInit = {}) => {
+      const url =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      calls.push({ url, init });
+
+      if (url.includes('/youtubei/v1/visitor_id')) {
+        const visitorCallCount = calls.filter((call) => call.url.includes('/visitor_id')).length;
+        return jsonResponse({
+          responseContext: { visitorData: `VISITOR_${visitorCallCount}` },
+        });
+      }
+
+      if (url.includes('/youtubei/v1/player')) {
+        return jsonResponse({
+          playabilityStatus: {
+            status: 'LOGIN_REQUIRED',
+            reason: "Sign in to confirm you're not a bot",
+          },
+        });
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    }) as typeof fetch;
+
+    let caught: unknown;
+    try {
+      await fetchYouTubeAudio('dQw4w9WgXcQ');
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(YouTubeAudioError);
+    const error = caught as YouTubeAudioError;
+    expect(error.code).toBe('YOUTUBE_BOT_CHECK');
+    expect(error.status).toBe(422);
+    expect(error.retryable).toBe(false);
+    expect(calls.filter((call) => call.url.includes('/youtubei/v1/player'))).toHaveLength(2);
   });
 });
 

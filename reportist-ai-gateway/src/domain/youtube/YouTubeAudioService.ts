@@ -5,6 +5,9 @@
 // 내려받아 바이너리로 중계한다.
 
 const PLAYER_URL = 'https://www.youtube.com/youtubei/v1/player?prettyPrint=false';
+const VISITOR_ID_URL = 'https://www.youtube.com/youtubei/v1/visitor_id?prettyPrint=false';
+const VISITOR_ID_CLIENT_VERSION = '2.20240101.00.00';
+const VISITOR_DATA_TTL_MS = 30 * 60 * 1000;
 
 // yt-dlp의 visionOS 클라이언트 설정과 동일하다. PO token 없이도
 // adaptiveFormats의 direct audio URL을 돌려주는 것을 확인했다.
@@ -87,6 +90,35 @@ interface InnerTubePlayerResponse {
   streamingData?: {
     adaptiveFormats?: InnerTubeFormat[];
   };
+}
+
+interface VisitorIdResponse {
+  responseContext?: {
+    visitorData?: string;
+  };
+}
+
+interface VisitorDataCacheEntry {
+  value: string;
+  expiresAt: number;
+}
+
+interface VisitorDataRequest {
+  generation: number;
+  refreshed: boolean;
+  promise: Promise<string | null>;
+}
+
+let visitorDataCache: VisitorDataCacheEntry | null = null;
+// 오래 걸린 이전 요청이 갱신 토큰을 덮어쓰지 않도록 세대를 구분한다.
+let visitorDataGeneration = 0;
+let visitorDataRequest: VisitorDataRequest | null = null;
+
+/** 테스트에서 캐시를 초기화할 때 사용한다. */
+export function resetYouTubeVisitorDataCache(): void {
+  visitorDataGeneration += 1;
+  visitorDataCache = null;
+  visitorDataRequest = null;
 }
 
 /** 유튜브 URL, 공유 링크, 11자리 영상 키에서 videoId를 추출한다. */
@@ -216,7 +248,80 @@ export function selectYouTubeAudioFormat(
   };
 }
 
-async function requestPlayer(videoId: string): Promise<InnerTubePlayerResponse> {
+const BOT_CHECK_REASON_PATTERN = /not a bot|bot check|봇이 아님|봇인지|로봇/i;
+
+/** YouTube의 봇 확인 응답인지 판별한다. */
+export function isYouTubeBotCheck(reason?: string | null): boolean {
+  return BOT_CHECK_REASON_PATTERN.test(reason ?? '');
+}
+
+/**
+ * YouTube가 발급하는 visitorData를 가져온다.
+ * 봇 체크가 발생하면 forceRefresh=true로 새 세션 토큰을 발급받는다.
+ */
+async function fetchVisitorData(forceRefresh = false): Promise<string | null> {
+  if (forceRefresh) {
+    if (visitorDataRequest?.refreshed) return visitorDataRequest.promise;
+    visitorDataCache = null;
+    visitorDataGeneration += 1;
+  } else {
+    if (visitorDataCache && visitorDataCache.expiresAt > Date.now()) {
+      return visitorDataCache.value;
+    }
+    if (visitorDataRequest) return visitorDataRequest.promise;
+  }
+
+  const generation = visitorDataGeneration;
+  const request = (async () => {
+    try {
+      const response = await fetch(VISITOR_ID_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': YOUTUBE_UA,
+          Origin: 'https://www.youtube.com',
+        },
+        body: JSON.stringify({
+          context: {
+            client: {
+              clientName: 'WEB',
+              clientVersion: VISITOR_ID_CLIENT_VERSION,
+              hl: 'en',
+            },
+          },
+        }),
+        signal: AbortSignal.timeout(5_000),
+      });
+
+      if (!response.ok) return null;
+
+      const json = (await response.json()) as VisitorIdResponse;
+      const visitorData = json.responseContext?.visitorData;
+      if (typeof visitorData !== 'string' || !visitorData) return null;
+
+      if (generation === visitorDataGeneration) {
+        visitorDataCache = {
+          value: visitorData,
+          expiresAt: Date.now() + VISITOR_DATA_TTL_MS,
+        };
+      }
+      return visitorData;
+    } catch {
+      // visitorData 없이도 시도할 수 있으므로 실패는 치명적이지 않다.
+      return null;
+    } finally {
+      if (visitorDataRequest?.generation === generation) visitorDataRequest = null;
+    }
+  })();
+
+  visitorDataRequest = { generation, refreshed: forceRefresh, promise: request };
+  return request;
+}
+
+async function requestPlayer(
+  videoId: string,
+  visitorData: string | null
+): Promise<InnerTubePlayerResponse> {
   let response: Response;
   try {
     response = await fetch(PLAYER_URL, {
@@ -227,6 +332,7 @@ async function requestPlayer(videoId: string): Promise<InnerTubePlayerResponse> 
         'X-Youtube-Client-Name': '101',
         'X-Youtube-Client-Version': '1.02',
         Origin: 'https://www.youtube.com',
+        ...(visitorData ? { 'X-Goog-Visitor-Id': visitorData } : {}),
       },
       body: JSON.stringify({
         context: {
@@ -238,8 +344,9 @@ async function requestPlayer(videoId: string): Promise<InnerTubePlayerResponse> 
             userAgent: YOUTUBE_UA,
             osName: 'visionOS',
             osVersion: '26.5.23O471',
+            // 국가 코드(gl)는 게이트웨이 egress IP에 맞기고, 제목 언어만 한국어로 고정한다.
             hl: 'ko',
-            gl: 'KR',
+            ...(visitorData ? { visitorData } : {}),
           },
         },
         videoId,
@@ -393,12 +500,29 @@ export async function fetchYouTubeAudio(
   const maxBytes = options.maxBytes ?? MAX_YOUTUBE_AUDIO_BYTES;
   let lastError: YouTubeAudioError | null = null;
 
-  // googlevideo URL은 IP/시간에 묶여 만료될 수 있으므로 1회 재시도한다.
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const player = await requestPlayer(videoId);
+  // 봇 체크 시 visitorData를 새로 발급받아 1회 재시도한다.
+  // googlevideo URL은 IP/시간에 묶여 만료될 수 있으므로 다운로드 실패도 1회 재시도한다.
+  let visitorData = await fetchVisitorData();
+  let botCheckRetried = false;
+  let downloadAttempt = 0;
+
+  while (downloadAttempt < 2) {
+    const player = await requestPlayer(videoId, visitorData);
 
     const playability = player.playabilityStatus;
     if (playability?.status && playability.status !== 'OK') {
+      if (isYouTubeBotCheck(playability.reason)) {
+        if (!botCheckRetried) {
+          botCheckRetried = true;
+          visitorData = await fetchVisitorData(true);
+          continue;
+        }
+        throw new YouTubeAudioError(
+          'YOUTUBE_BOT_CHECK',
+          'YouTube가 서버 IP를 봇으로 차단했어요. 잠시 후 다시 시도하거나 음악 파일을 직접 업로드해 주세요.',
+          422
+        );
+      }
       throw new YouTubeAudioError(
         'YOUTUBE_VIDEO_UNAVAILABLE',
         `YouTube 영상을 재생할 수 없어요 (${playability.reason || playability.status}).`,
@@ -481,7 +605,8 @@ export async function fetchYouTubeAudio(
     } catch (error) {
       if (!(error instanceof YouTubeAudioError)) throw error;
       lastError = error;
-      if (!error.retryable || attempt === 1) throw error;
+      downloadAttempt += 1;
+      if (!error.retryable || downloadAttempt >= 2) throw error;
     }
   }
 

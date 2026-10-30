@@ -69,5 +69,6 @@ bun run typecheck
 - YouTube InnerTube(VISIONOS 클라이언트)로 오디오 direct URL을 얻은 뒤 게이트웨이가 대신 내려받아 중계합니다. 브라우저에서 `googlevideo.com`을 직접 호출하면 CORS 헤더가 없고 URL이 요청 IP에 묶여 실패합니다.
 - Vercel 서버리스 응답 제한(4.5MB)을 피하기 위해 최대 `3,800,000` 바이트까지만 반환합니다. 포맷은 m4a(itag 140 → 139)를 우선하고, 초과 시 더 작은 포맷의 앞부분을 사용합니다.
 - 응답 헤더: `X-Youtube-Title`(URL 인코딩), `X-Youtube-Duration`, `X-Youtube-Itag`, `X-Youtube-Audio-Seconds`, `X-Youtube-Truncated`, `X-Youtube-Filename`.
+- YouTube 봇 체크(`LOGIN_REQUIRED`)가 발생하면 `visitorData`를 새로 발급받아 1회 재시도합니다. 계속 차단되면 `YOUTUBE_BOT_CHECK`(422)와 함께 음악 파일 직접 업로드를 안내합니다.
 - YouTube가 데이터센터/Vercel IP를 차단하면 `502` 또는 `422`와 함께 음악 파일 직접 업로드를 안내하는 메시지를 반환합니다. 이 기능은 게이트웨이를 최신 버전으로 배포해야 동작합니다.
 - 저작권이 있는 음원은 권리자의 허락을 받은 경우에만 사용해야 합니다.
