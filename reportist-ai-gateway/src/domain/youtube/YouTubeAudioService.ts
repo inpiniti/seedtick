@@ -416,10 +416,37 @@ export function selectYouTubeAudioFormat(
 }
 
 const BOT_CHECK_REASON_PATTERN = /not a bot|bot check|봇이 아님|봇인지|로봇/i;
+const PLAYER_RELOAD_REASON_PATTERN =
+  /page needs to be reloaded|refresh the page|페이지를 새로고침해야 합니다|페이지 새로고침/i;
 
 /** YouTube의 봇 확인 응답인지 판별한다. */
 export function isYouTubeBotCheck(reason?: string | null): boolean {
   return BOT_CHECK_REASON_PATTERN.test(reason ?? '');
+}
+
+/** YouTube 플레이어가 현재 재생 컨텍스트의 갱신을 요구하는지 판별한다. */
+function isYouTubePlayerReloadRequired(reason?: string | null): boolean {
+  return PLAYER_RELOAD_REASON_PATTERN.test(reason ?? '');
+}
+
+/** 로컬과 배포 환경의 응답을 비교할 수 있도록 민감한 스트림 주소 없이 요약한다. */
+function summarizePlayerResponse(player: InnerTubePlayerResponse) {
+  const formats = player.streamingData?.adaptiveFormats ?? [];
+  const audioFormats = formats.filter(
+    (format) => typeof format.mimeType === 'string' && format.mimeType.startsWith('audio/')
+  );
+
+  return {
+    hasVideoDetails: Boolean(player.videoDetails),
+    adaptiveFormatCount: formats.length,
+    audioFormatCount: audioFormats.length,
+    directAudioFormatCount: audioFormats.filter(
+      (format) => typeof format.url === 'string' && format.url.length > 0
+    ).length,
+    cipheredAudioFormatCount: audioFormats.filter(
+      (format) => typeof format.signatureCipher === 'string' && format.signatureCipher.length > 0
+    ).length,
+  };
 }
 
 /**
@@ -709,6 +736,7 @@ export async function fetchYouTubeAudio(
   let useCookieAuth = false;
   let cookieClientIndex = 0;
   let downloadAttempt = 0;
+  let playerReloadRetried = false;
 
   while (downloadAttempt < 2) {
     const currentPlayerClient = useCookieAuth
@@ -739,6 +767,7 @@ export async function fetchYouTubeAudio(
         cookieConfigured: Boolean(env.youtubeCookie.trim()),
         playabilityStatus: playability.status,
         reason: playability.reason ?? null,
+        ...summarizePlayerResponse(player),
       });
       if (isYouTubeBotCheck(playability.reason)) {
         if (!useCookieAuth && !botCheckRetried) {
@@ -768,6 +797,16 @@ export async function fetchYouTubeAudio(
           422
         );
       }
+      if (isYouTubePlayerReloadRequired(playability.reason) && !playerReloadRetried) {
+        playerReloadRetried = true;
+        console.info('[YouTube] Retrying player request after reload-required response', {
+          videoId,
+          client: currentPlayerClient.name,
+          cookieAuth: useCookieAuth,
+        });
+        if (!useCookieAuth) visitorData = await fetchVisitorData(true);
+        continue;
+      }
       if (!cookieAuthRetried && env.youtubeCookie.trim()) {
         cookieAuthRetried = true;
         useCookieAuth = true;
@@ -777,12 +816,28 @@ export async function fetchYouTubeAudio(
         cookieClientIndex += 1;
         continue;
       }
+      if (isYouTubePlayerReloadRequired(playability.reason)) {
+        throw new YouTubeAudioError(
+          'YOUTUBE_PLAYER_RELOAD_REQUIRED',
+          'YouTube 플레이어가 새 재생 응답을 요구했지만 재시도 후에도 스트림을 제공하지 않았어요. 잠시 후 다시 시도해 주세요.',
+          502,
+          true
+        );
+      }
       throw new YouTubeAudioError(
         'YOUTUBE_VIDEO_UNAVAILABLE',
         `YouTube가 ${currentPlayerClient.name} 플레이어에서 이 영상을 재생할 수 없다고 응답했어요 (${playability.reason || playability.status}).`,
         422
       );
     }
+
+    console.info('[YouTube] Player response summary', {
+      videoId,
+      client: currentPlayerClient.name,
+      cookieAuth: useCookieAuth,
+      playabilityStatus: playability?.status ?? null,
+      ...summarizePlayerResponse(player),
+    });
 
     const video = player.videoDetails;
     if (video?.isLive) {
