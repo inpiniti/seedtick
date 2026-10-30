@@ -70,6 +70,6 @@ bun run typecheck
 - Vercel 서버리스 응답 제한(4.5MB)을 피하기 위해 최대 `3,800,000` 바이트까지만 반환합니다. 포맷은 m4a(itag 140 → 139)를 우선하고, 초과 시 더 작은 포맷의 앞부분을 사용합니다.
 - 응답 헤더: `X-Youtube-Title`(URL 인코딩), `X-Youtube-Duration`, `X-Youtube-Itag`, `X-Youtube-Audio-Seconds`, `X-Youtube-Truncated`, `X-Youtube-Filename`.
 - YouTube 봇 체크(`LOGIN_REQUIRED`)가 발생하면 `visitorData`를 새로 발급받아 1회 재시도합니다. 계속 차단되면 `YOUTUBE_BOT_CHECK`(422)와 함께 음악 파일 직접 업로드를 안내합니다.
-- 선택 설정 `YOUTUBE_COOKIE`에 Netscape 형식 `cookies.txt` 전체 내용을 넣으면 `visitorData` 재시도 후에도 봇 체크가 계속될 때만 로그인 쿠키 인증으로 한 번 더 시도합니다. 쿠키 인증은 쿠키를 지원하는 `WEB_EMBEDDED_PLAYER`로 요청하고, 갱신된 `visitorData`는 쿠키와 섞지 않습니다. `.youtube.com` 쿠키만 읽고 인증 쿠키는 YouTube 플레이어 요청에만 전달하며, 오디오 다운로드 호스트에는 전달하지 않습니다. `Set-Cookie` 응답 헤더는 입력으로 사용할 수 없습니다. 로그인 쿠키는 계정 비밀번호와 같은 비밀정보이므로 저장소에 넣지 말고 배포 환경의 환경변수로 설정해야 합니다.
+- 선택 설정 `YOUTUBE_COOKIE`에 Netscape 형식 `cookies.txt` 전체 내용을 넣으면 `visitorData` 재시도 후에도 봇 체크나 재생 불가 응답이 계속될 때 로그인 쿠키 인증을 시도합니다. 쿠키 인증은 쿠키를 지원하는 `WEB_EMBEDDED_PLAYER`, `TVHTML5` 클라이언트를 순서대로 요청하고, 갱신된 `visitorData`는 쿠키와 섞지 않습니다. `.youtube.com` 쿠키만 읽고 인증 쿠키는 YouTube 플레이어 요청에만 전달하며, 오디오 다운로드 호스트에는 전달하지 않습니다. `Set-Cookie` 응답 헤더는 입력으로 사용할 수 없습니다. 로그인 쿠키는 계정 비밀번호와 같은 비밀정보이므로 저장소에 넣지 말고 배포 환경의 환경변수로 설정해야 합니다.
 - YouTube가 데이터센터/Vercel IP를 차단하면 `502` 또는 `422`와 함께 음악 파일 직접 업로드를 안내하는 메시지를 반환합니다. 이 기능은 게이트웨이를 최신 버전으로 배포해야 동작합니다.
 - 저작권이 있는 음원은 권리자의 허락을 받은 경우에만 사용해야 합니다.

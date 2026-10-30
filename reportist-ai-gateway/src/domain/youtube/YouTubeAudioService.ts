@@ -16,16 +16,52 @@ const VISITOR_DATA_TTL_MS = 30 * 60 * 1000;
 // adaptiveFormats의 direct audio URL을 돌려주는 것을 확인했다.
 const YOUTUBE_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15';
-// visionOS는 cookies.txt 인증을 지원하지 않는다. 로그인 쿠키 fallback에는
-// yt-dlp가 쿠키 지원 클라이언트로 지정한 WEB_EMBEDDED_PLAYER를 사용한다.
-const YOUTUBE_COOKIE_CLIENT = {
-  name: 'WEB_EMBEDDED_PLAYER',
-  version: '2.20260708.00.00',
-  id: '56',
-  userAgent:
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.5 Safari/605.1.15,gzip(gfe)',
-  embedUrl: 'https://www.reddit.com/',
-} as const;
+interface YouTubePlayerClient {
+  name: string;
+  version: string;
+  id: string;
+  userAgent: string;
+  clientContext?: Record<string, string>;
+  embedUrl?: string;
+}
+
+const VISIONOS_PLAYER_CLIENT: YouTubePlayerClient = {
+  name: 'VISIONOS',
+  version: '1.02',
+  id: '101',
+  userAgent: YOUTUBE_UA,
+  clientContext: {
+    deviceMake: 'Apple',
+    deviceModel: 'RealityDevice17,1',
+    osName: 'visionOS',
+    osVersion: '26.5.23O471',
+  },
+};
+
+// visionOS는 cookies.txt 인증을 지원하지 않는다. 로그인 쿠키 fallback은
+// 쿠키를 지원하는 임베드 및 TV 클라이언트를 순서대로 사용한다.
+const YOUTUBE_COOKIE_CLIENTS: YouTubePlayerClient[] = [
+  {
+    name: 'WEB_EMBEDDED_PLAYER',
+    version: '2.20260708.00.00',
+    id: '56',
+    userAgent:
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.5 Safari/605.1.15,gzip(gfe)',
+    embedUrl: 'https://www.reddit.com/',
+  },
+  {
+    name: 'TVHTML5',
+    version: '5.20260707',
+    id: '7',
+    userAgent: 'Mozilla/5.0 (SMART-TV; Linux; Tizen 2.4.0) AppleWebKit/538.1 (KHTML, like Gecko) Version/2.4.0 TV Safari/538.1',
+    clientContext: {
+      deviceMake: 'Samsung',
+      deviceModel: 'UKS9800',
+      osName: 'Tizen',
+      osVersion: '2.4.0',
+    },
+  },
+];
 
 const YOUTUBE_HOST = 'www.youtube.com';
 const YOUTUBE_ORIGIN = `https://${YOUTUBE_HOST}`;
@@ -447,7 +483,8 @@ async function fetchVisitorData(forceRefresh = false): Promise<string | null> {
 async function requestPlayer(
   videoId: string,
   visitorData: string | null,
-  useCookieAuth = false
+  useCookieAuth = false,
+  cookieClientIndex = 0
 ): Promise<InnerTubePlayerResponse> {
   const cookieAuthHeaders = useCookieAuth ? createYouTubeCookieAuthHeaders() : null;
   if (useCookieAuth && !cookieAuthHeaders) {
@@ -458,10 +495,8 @@ async function requestPlayer(
     );
   }
 
-  const clientName = useCookieAuth ? YOUTUBE_COOKIE_CLIENT.name : 'VISIONOS';
-  const clientVersion = useCookieAuth ? YOUTUBE_COOKIE_CLIENT.version : '1.02';
-  const clientId = useCookieAuth ? YOUTUBE_COOKIE_CLIENT.id : '101';
-  const userAgent = useCookieAuth ? YOUTUBE_COOKIE_CLIENT.userAgent : YOUTUBE_UA;
+  const cookieClient = YOUTUBE_COOKIE_CLIENTS[cookieClientIndex] ?? YOUTUBE_COOKIE_CLIENTS[0];
+  const client = useCookieAuth ? cookieClient : VISIONOS_PLAYER_CLIENT;
 
   let response: Response;
   try {
@@ -469,9 +504,9 @@ async function requestPlayer(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'User-Agent': userAgent,
-        'X-Youtube-Client-Name': clientId,
-        'X-Youtube-Client-Version': clientVersion,
+        'User-Agent': client.userAgent,
+        'X-Youtube-Client-Name': client.id,
+        'X-Youtube-Client-Version': client.version,
         Origin: 'https://www.youtube.com',
         ...(cookieAuthHeaders ?? {}),
         ...(!useCookieAuth && visitorData ? { 'X-Goog-Visitor-Id': visitorData } : {}),
@@ -479,23 +514,16 @@ async function requestPlayer(
       body: JSON.stringify({
         context: {
           client: {
-            clientName,
-            clientVersion,
-            userAgent,
-            ...(!useCookieAuth
-              ? {
-                  deviceMake: 'Apple',
-                  deviceModel: 'RealityDevice17,1',
-                  osName: 'visionOS',
-                  osVersion: '26.5.23O471',
-                }
-              : {}),
+            clientName: client.name,
+            clientVersion: client.version,
+            userAgent: client.userAgent,
+            ...client.clientContext,
             // 국가 코드(gl)는 게이트웨이 egress IP에 맞기고, 제목 언어만 한국어로 고정한다.
             hl: 'ko',
             ...(!useCookieAuth && visitorData ? { visitorData } : {}),
           },
-          ...(useCookieAuth
-            ? { thirdParty: { embedUrl: YOUTUBE_COOKIE_CLIENT.embedUrl } }
+          ...(useCookieAuth && cookieClient.embedUrl
+            ? { thirdParty: { embedUrl: cookieClient.embedUrl } }
             : {}),
         },
         videoId,
@@ -662,10 +690,28 @@ export async function fetchYouTubeAudio(
   let botCheckRetried = false;
   let cookieAuthRetried = false;
   let useCookieAuth = false;
+  let cookieClientIndex = 0;
   let downloadAttempt = 0;
 
   while (downloadAttempt < 2) {
-    const player = await requestPlayer(videoId, visitorData, useCookieAuth);
+    const currentPlayerClient = useCookieAuth
+      ? YOUTUBE_COOKIE_CLIENTS[cookieClientIndex] ?? YOUTUBE_COOKIE_CLIENTS[0]
+      : VISIONOS_PLAYER_CLIENT;
+    let player: InnerTubePlayerResponse;
+    try {
+      player = await requestPlayer(videoId, visitorData, useCookieAuth, cookieClientIndex);
+    } catch (error) {
+      if (
+        useCookieAuth &&
+        error instanceof YouTubeAudioError &&
+        error.code === 'YOUTUBE_COOKIE_AUTH_REJECTED' &&
+        cookieClientIndex < YOUTUBE_COOKIE_CLIENTS.length - 1
+      ) {
+        cookieClientIndex += 1;
+        continue;
+      }
+      throw error;
+    }
 
     const playability = player.playabilityStatus;
     if (playability?.status && playability.status !== 'OK') {
@@ -680,15 +726,28 @@ export async function fetchYouTubeAudio(
           useCookieAuth = true;
           continue;
         }
+        if (useCookieAuth && cookieClientIndex < YOUTUBE_COOKIE_CLIENTS.length - 1) {
+          cookieClientIndex += 1;
+          continue;
+        }
         throw new YouTubeAudioError(
           'YOUTUBE_BOT_CHECK',
           'YouTube가 서버 IP를 봇으로 차단했어요. 잠시 후 다시 시도하거나 음악 파일을 직접 업로드해 주세요.',
           422
         );
       }
+      if (!cookieAuthRetried && env.youtubeCookie.trim()) {
+        cookieAuthRetried = true;
+        useCookieAuth = true;
+        continue;
+      }
+      if (useCookieAuth && cookieClientIndex < YOUTUBE_COOKIE_CLIENTS.length - 1) {
+        cookieClientIndex += 1;
+        continue;
+      }
       throw new YouTubeAudioError(
         'YOUTUBE_VIDEO_UNAVAILABLE',
-        `YouTube 영상을 재생할 수 없어요 (${playability.reason || playability.status}).`,
+        `YouTube가 ${currentPlayerClient.name} 플레이어에서 이 영상을 재생할 수 없다고 응답했어요 (${playability.reason || playability.status}).`,
         422
       );
     }
@@ -707,6 +766,10 @@ export async function fetchYouTubeAudio(
     const selected = selectYouTubeAudioFormat(audioFormats, maxBytes);
 
     if (!selected) {
+      if (useCookieAuth && cookieClientIndex < YOUTUBE_COOKIE_CLIENTS.length - 1) {
+        cookieClientIndex += 1;
+        continue;
+      }
       const hasCipheredAudio = rawFormats.some(
         (format) =>
           typeof format.mimeType === 'string' &&
