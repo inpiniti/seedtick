@@ -736,7 +736,7 @@ export async function fetchYouTubeAudio(
         reason: playability.reason ?? null,
       });
       if (isYouTubeBotCheck(playability.reason)) {
-        if (!botCheckRetried) {
+        if (!useCookieAuth && !botCheckRetried) {
           botCheckRetried = true;
           visitorData = await fetchVisitorData(true);
           continue;
@@ -753,7 +753,7 @@ export async function fetchYouTubeAudio(
         if (useCookieAuth) {
           throw new YouTubeAudioError(
             'YOUTUBE_COOKIE_BOT_CHECK',
-            '새 로그인 쿠키 인증까지 시도했지만 YouTube가 계속 서버를 봇으로 차단했어요. 쿠키가 최신인지 확인하고, 최신 쿠키도 거절되면 서버 IP 차단이라 주거용 프록시나 직접 업로드가 필요할 수 있어요.',
+            'YouTube가 쿠키 인증 후에도 로그인하여 봇 확인을 요구했어요. YOUTUBE_COOKIE가 만료되지 않은 로그인 쿠키인지 확인해 주세요. 유효한 최신 쿠키도 같은 응답이면 서버 IP 제한일 수 있어요. 음악 파일을 직접 업로드할 수도 있어요.',
             422
           );
         }
