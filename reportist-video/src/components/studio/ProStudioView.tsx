@@ -884,9 +884,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           <div className="toss-card toss-bgm-card">
             <div className="toss-card-header">
               <div>
-                <h4 className="toss-card-title flex items-center gap-1.5">
-                  <Music size={16} className="text-blue-600" />
-                  배경음악
+                <h4 className="toss-card-title">
+                  <Music size={15} className="text-blue-600 shrink-0" />
+                  <span>배경음악</span>
                 </h4>
                 <p className="toss-card-desc">
                   직접 준비한 음악 파일(MP3, WAV)을 올려 영상에 BGM을 입혀보세요.
@@ -981,12 +981,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           {/* ★ [1] 극적순간 상단: 시작 인트로 카드 */}
           <div className="toss-card toss-intro-card">
             <div className="toss-card-header">
-              <div className="flex items-center gap-2">
-                <Film size={16} className="text-blue-600" />
-                <div>
-                  <h4 className="toss-card-title">시작 인트로</h4>
-                  <p className="toss-card-desc">영상 시작 시 재생할 인트로를 설정해요.</p>
-                </div>
+              <div>
+                <h4 className="toss-card-title">
+                  <Film size={15} className="text-blue-600 shrink-0" />
+                  <span>시작 인트로</span>
+                </h4>
+                <p className="toss-card-desc">영상 시작 시 재생할 인트로를 설정해요.</p>
               </div>
               <label className="toss-toggle-switch">
                 <input
@@ -1049,16 +1049,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           <div className="toss-card">
             <div className="toss-card-header">
               <div>
-                <h4 className="toss-card-title flex items-center gap-1.5">
-                  <Scissors size={16} className="text-blue-600" />
-                  AI가 포착한 극적 순간
+                <h4 className="toss-card-title">
+                  <Scissors size={15} className="text-blue-600 shrink-0" />
+                  <span>AI가 포착한 극적 순간</span>
                 </h4>
                 <p className="toss-card-desc">
                   구간을 누르면 자막·촬영 날짜·위치·구도를 바로 수정할 수 있어요.
                 </p>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 shrink-0">
                 {segments.length > 0 && (
                   <span className="toss-tag-gray">
                     총 {segments.length}개 구간 ({totalDuration.toFixed(1)}초)
@@ -1319,12 +1319,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           {/* ★ [3] 극적순간 하단: 종료 아웃트로 카드 */}
           <div className="toss-card toss-outro-card">
             <div className="toss-card-header">
-              <div className="flex items-center gap-2">
-                <Film size={16} className="text-blue-600" />
-                <div>
-                  <h4 className="toss-card-title">종료 아웃트로</h4>
-                  <p className="toss-card-desc">영상 종료 시 재생할 아웃트로를 설정해요.</p>
-                </div>
+              <div>
+                <h4 className="toss-card-title">
+                  <Film size={15} className="text-blue-600 shrink-0" />
+                  <span>종료 아웃트로</span>
+                </h4>
+                <p className="toss-card-desc">영상 종료 시 재생할 아웃트로를 설정해요.</p>
               </div>
               <label className="toss-toggle-switch">
                 <input
