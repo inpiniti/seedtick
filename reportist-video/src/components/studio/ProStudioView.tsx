@@ -669,7 +669,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               </div>
             </div>
 
-            <div className="toss-player-wrapper">
+            <div className={`toss-player-wrapper ${activeVideoUrl ? 'has-video' : 'is-empty'}`}>
               {activeVideoUrl ? (
                 <>
                   <video

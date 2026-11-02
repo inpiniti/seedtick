@@ -1659,14 +1659,27 @@ body,
   aspect-ratio: 16 / 9;
   width: 100%;
   max-width: 100%;
-  background-color: #000000;
+  background-color: #f9fafb;
+  border: 1px solid #e5e8eb;
   border-radius: 12px;
   overflow: hidden;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  transition: all 0.15s ease;
+}
+
+.toss-player-wrapper.has-video {
+  background-color: #000000;
+  border-color: #000000;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.toss-player-wrapper.is-empty:hover {
+  border-color: #3182f6;
+  background-color: #f2f4f6;
 }
 
 .toss-video-element {
@@ -1706,7 +1719,7 @@ body,
 .toss-player-empty {
   width: 100%;
   height: 100%;
-  background-color: #f9fafb;
+  background-color: transparent;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1718,7 +1731,7 @@ body,
 }
 
 .toss-player-empty:hover {
-  background-color: #f2f4f6;
+  background-color: transparent;
 }
 
 .toss-empty-circle-icon {
