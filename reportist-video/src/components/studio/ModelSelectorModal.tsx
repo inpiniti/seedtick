@@ -1,7 +1,4 @@
-// components/studio/ModelSelectorModal.tsx - 영상 분석용 AI 모델 선택 모달
-//
-// reportist-chat의 모델 선택 UI와 동일한 카드형 레이아웃에
-// 지능 지수 · 출력 속도(tok/s) · 레이턴시(TTFT)를 함께 보여준다.
+// components/studio/ModelSelectorModal.tsx - AI Vision Model Selector Modal with i18n
 
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -23,6 +20,7 @@ import {
   getSpeedTier,
   pickDefaultModel,
 } from '../../services/modelMetrics.ts';
+import { useI18n } from '../../i18n/index.tsx';
 
 interface ModelSelectorModalProps {
   isOpen: boolean;
@@ -36,7 +34,7 @@ type SortKey = 'speed' | 'intelligence' | 'newest' | 'context';
 type ModalityFilter = 'all' | 'image' | 'video' | 'audio';
 
 function getProviderName(model: FreeModelMeta): string {
-  return model.providerName || model.id.split('/')[0] || '기타';
+  return model.providerName || model.id.split('/')[0] || 'Other';
 }
 
 function formatIntelligence(value?: number | null): string {
@@ -61,6 +59,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
   selectedModelId,
   onSelectModel,
 }) => {
+  const { dict, interpolate } = useI18n();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProvider, setSelectedProvider] = useState<string>('all');
   const [selectedModality, setSelectedModality] = useState<ModalityFilter>('all');
@@ -75,14 +74,14 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  // 제조사 목록 추출
+  // Extract provider list
   const providers = useMemo(() => {
     const set = new Set<string>();
     models.forEach((model) => set.add(getProviderName(model)));
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [models]);
 
-  // 입력 모달리티별 모델 수 계산
+  // Modality counts
   const modalityCounts = useMemo(() => {
     let image = 0;
     let video = 0;
@@ -96,57 +95,68 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
     return { all: models.length, image, video, audio };
   }, [models]);
 
-  // 가장 빠른 모델 (기본 선택 대상)
+  // Fastest model
   const fastestModel = useMemo(() => pickDefaultModel(models), [models]);
-  const maxSpeed = useMemo(
-    () => Math.max(1, ...models.map((model) => model.speedTokensPerSecond ?? 0)),
-    [models]
-  );
 
-  // 필터링 및 정렬된 모델 목록
+  // Speed max benchmark
+  const maxSpeed = useMemo(() => {
+    let max = 1;
+    for (const model of models) {
+      if (model.speedTokensPerSecond && model.speedTokensPerSecond > max) {
+        max = model.speedTokensPerSecond;
+      }
+    }
+    return max;
+  }, [models]);
+
+  // Filtered and sorted models
   const displayedModels = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
     const filtered = models.filter((model) => {
-      const matchQuery =
-        !query ||
-        [
-          model.name,
-          model.id,
-          model.description,
-          model.intelligenceTier,
-          getProviderName(model),
-        ]
-          .filter(Boolean)
-          .some((value) => String(value).toLowerCase().includes(query));
+      if (query) {
+        const nameMatch = model.name.toLowerCase().includes(query);
+        const idMatch = model.id.toLowerCase().includes(query);
+        const providerMatch = getProviderName(model).toLowerCase().includes(query);
+        const descMatch = (model.description || '').toLowerCase().includes(query);
+        if (!nameMatch && !idMatch && !providerMatch && !descMatch) {
+          return false;
+        }
+      }
 
-      const matchProvider =
-        selectedProvider === 'all' || getProviderName(model) === selectedProvider;
+      if (selectedProvider !== 'all' && getProviderName(model) !== selectedProvider) {
+        return false;
+      }
 
-      const modalities = getModelInputModalities(model);
-      const matchModality =
-        selectedModality === 'all' || modalities.includes(selectedModality);
+      if (selectedModality !== 'all') {
+        const modalities = getModelInputModalities(model);
+        if (!modalities.includes(selectedModality)) {
+          return false;
+        }
+      }
 
-      return matchQuery && matchProvider && matchModality;
+      return true;
     });
 
     return filtered.sort((a, b) => {
+      if (a.id === selectedModelId) return -1;
+      if (b.id === selectedModelId) return 1;
+
       if (sortKey === 'speed') {
         const speedA = a.speedTokensPerSecond ?? 0;
         const speedB = b.speedTokensPerSecond ?? 0;
         if (speedB !== speedA) return speedB - speedA;
-
-        const latencyA = a.latencyMs ?? Number.POSITIVE_INFINITY;
-        const latencyB = b.latencyMs ?? Number.POSITIVE_INFINITY;
-        if (latencyA !== latencyB) return latencyA - latencyB;
-
         return (b.intelligenceIndex ?? 0) - (a.intelligenceIndex ?? 0);
       }
 
       if (sortKey === 'intelligence') {
-        const intelA = a.intelligenceIndex ?? -1;
-        const intelB = b.intelligenceIndex ?? -1;
-        if (intelB !== intelA) return intelB - intelA;
+        const intA = a.intelligenceIndex ?? 0;
+        const intB = b.intelligenceIndex ?? 0;
+        if (intB !== intA) return intB - intA;
+        return (b.speedTokensPerSecond ?? 0) - (a.speedTokensPerSecond ?? 0);
+      }
+
+      if (sortKey === 'newest') {
         return (a.daysAgo ?? 9999) - (b.daysAgo ?? 9999);
       }
 
@@ -154,10 +164,9 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
         return (b.contextLength ?? 0) - (a.contextLength ?? 0);
       }
 
-      // 'newest' (최신순)
       return (a.daysAgo ?? 9999) - (b.daysAgo ?? 9999);
     });
-  }, [models, searchQuery, selectedProvider, selectedModality, sortKey]);
+  }, [models, searchQuery, selectedProvider, selectedModality, sortKey, selectedModelId]);
 
   if (!isOpen) return null;
 
@@ -170,7 +179,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
         aria-labelledby="model-modal-title"
         onClick={(event) => event.stopPropagation()}
       >
-        {/* 모달 헤더 */}
+        {/* Modal Header */}
         <div className="model-modal-header">
           <div className="model-modal-title-row">
             <div className="model-modal-icon-badge">
@@ -178,10 +187,10 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
             </div>
             <div>
               <h2 className="model-modal-title" id="model-modal-title">
-                AI 모델 선택하기
+                {dict.modelModal.title}
               </h2>
               <p className="model-modal-subtitle">
-                영상 하이라이트 분석용 비전 모델 {models.length}개의 지능·속도·레이턴시를 한눈에 비교해 보세요
+                {dict.modelModal.subtitle}
               </p>
             </div>
           </div>
@@ -189,19 +198,19 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
             type="button"
             className="model-modal-close-btn"
             onClick={onClose}
-            aria-label="모델 선택창 닫기"
+            aria-label={dict.common.close}
           >
             <X size={20} />
           </button>
         </div>
 
-        {/* 검색 및 필터 */}
+        {/* Search & Filter */}
         <div className="model-modal-search-section">
           <div className="model-modal-search-wrapper">
             <Search size={18} className="model-modal-search-icon" />
             <input
               type="text"
-              placeholder="모델명, 제조사, 특징으로 검색해 보세요"
+              placeholder={dict.modelModal.searchPlaceholder}
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               className="model-modal-search-input"
@@ -212,91 +221,91 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                 type="button"
                 className="model-modal-clear-search-btn"
                 onClick={() => setSearchQuery('')}
-                aria-label="검색어 지우기"
+                aria-label={dict.common.delete}
               >
                 <X size={14} />
               </button>
             )}
           </div>
 
-          {/* 정렬 옵션 바 */}
+          {/* Sort bar */}
           <div className="model-modal-filter-row">
-            <span className="model-modal-filter-label">정렬 기준:</span>
+            <span className="model-modal-filter-label">{dict.common.actions}:</span>
             <div className="model-modal-chips">
               <button
                 type="button"
                 className={`model-modal-chip ${sortKey === 'speed' ? 'active' : ''}`}
                 onClick={() => setSortKey('speed')}
               >
-                ⚡ 빠른 순
+                ⚡ {dict.modelModal.sortSpeed}
               </button>
               <button
                 type="button"
                 className={`model-modal-chip ${sortKey === 'intelligence' ? 'active' : ''}`}
                 onClick={() => setSortKey('intelligence')}
               >
-                🧠 지능 높은 순
+                🧠 {dict.modelModal.sortIntelligence}
               </button>
               <button
                 type="button"
                 className={`model-modal-chip ${sortKey === 'newest' ? 'active' : ''}`}
                 onClick={() => setSortKey('newest')}
               >
-                🕒 최신순
+                🕒 {dict.modelModal.sortNewest}
               </button>
               <button
                 type="button"
                 className={`model-modal-chip ${sortKey === 'context' ? 'active' : ''}`}
                 onClick={() => setSortKey('context')}
               >
-                📚 문맥 길이순
+                📚 {dict.modelModal.sortContext}
               </button>
             </div>
           </div>
 
-          {/* 입력 모달리티 필터 */}
+          {/* Modality filter */}
           <div className="model-modal-filter-row">
-            <span className="model-modal-filter-label">입력 지원:</span>
+            <span className="model-modal-filter-label">{dict.modelModal.filterVideo.split(' ')[0]}:</span>
             <div className="model-modal-chips">
               <button
                 type="button"
                 className={`model-modal-chip ${selectedModality === 'all' ? 'active' : ''}`}
                 onClick={() => setSelectedModality('all')}
               >
-                전체 ({modalityCounts.all})
+                {interpolate(dict.modelModal.filterAll, { count: modalityCounts.all })}
               </button>
               <button
                 type="button"
                 className={`model-modal-chip ${selectedModality === 'image' ? 'active' : ''}`}
                 onClick={() => setSelectedModality('image')}
               >
-                🖼️ 이미지 ({modalityCounts.image})
+                🖼️ {interpolate(dict.modelModal.filterImage, { count: modalityCounts.image })}
               </button>
               <button
                 type="button"
                 className={`model-modal-chip ${selectedModality === 'video' ? 'active' : ''}`}
                 onClick={() => setSelectedModality('video')}
               >
-                🎬 비디오 ({modalityCounts.video})
+                🎬 {interpolate(dict.modelModal.filterVideo, { count: modalityCounts.video })}
               </button>
               <button
                 type="button"
                 className={`model-modal-chip ${selectedModality === 'audio' ? 'active' : ''}`}
                 onClick={() => setSelectedModality('audio')}
               >
-                🎙️ 오디오 ({modalityCounts.audio})
+                🎙️ {interpolate(dict.modelModal.filterAudio, { count: modalityCounts.audio })}
               </button>
             </div>
           </div>
 
-          {/* 제조사 필터 칩 */}
+          {/* Provider chips */}
           <div className="model-modal-provider-chips">
             <button
               type="button"
               className={`model-modal-provider-chip ${selectedProvider === 'all' ? 'active' : ''}`}
               onClick={() => setSelectedProvider('all')}
             >
-              제조사 전체 ({models.length})
+              {dict.modelModal.providerAll} ({models.length})
             </button>
             {providers.map((provider) => {
               const count = models.filter((model) => getProviderName(model) === provider).length;
@@ -314,14 +323,14 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
           </div>
         </div>
 
-        {/* 모델 카드 리스트 */}
+        {/* Model Card List */}
         <div className="model-modal-list">
           {displayedModels.length === 0 ? (
             <div className="model-modal-empty">
               <Brain size={36} color="#8b95a1" />
-              <p className="model-modal-empty-title">일치하는 모델이 없어요</p>
+              <p className="model-modal-empty-title">{dict.modelModal.noModels}</p>
               <p className="model-modal-empty-desc">
-                검색어나 입력 지원/제조사 필터를 다시 확인해 주세요
+                {dict.modelModal.searchPlaceholder}
               </p>
             </div>
           ) : (
@@ -370,7 +379,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                       {isFastest && (
                         <span className="model-modal-fastest-badge">
                           <Zap size={11} />
-                          가장 빠름
+                          {dict.modelModal.badgeFastest}
                         </span>
                       )}
                       {isNew && <span className="model-modal-new-badge">NEW</span>}
@@ -387,43 +396,43 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                     </div>
                   </div>
 
-                  {/* 지능 · 속도 · 레이턴시 핵심 지표 */}
+                  {/* Metrics */}
                   <div className="model-modal-metrics">
                     <div className="model-modal-metric intelligence">
                       <div className="model-modal-metric-label">
                         <Brain size={12} />
-                        <span>지능 지수</span>
+                        <span>{dict.modelModal.metricIntelligence}</span>
                       </div>
                       <div className="model-modal-metric-value">
                         <strong>{formatIntelligence(model.intelligenceIndex)}</strong>
-                        <span>{model.intelligenceIndex != null ? 'AA' : '미측정'}</span>
+                        <span>{model.intelligenceIndex != null ? 'AA' : '—'}</span>
                       </div>
                     </div>
 
                     <div className="model-modal-metric speed">
                       <div className="model-modal-metric-label">
                         <Gauge size={12} />
-                        <span>출력 속도</span>
+                        <span>{dict.modelModal.metricSpeed}</span>
                       </div>
                       <div className="model-modal-metric-value">
                         <strong>{formatSpeed(model.speedTokensPerSecond)}</strong>
-                        <span>{model.speedTokensPerSecond != null ? 'tok/s' : '미측정'}</span>
+                        <span>{model.speedTokensPerSecond != null ? dict.modelModal.speedUnit : '—'}</span>
                       </div>
                     </div>
 
                     <div className="model-modal-metric latency">
                       <div className="model-modal-metric-label">
                         <Timer size={12} />
-                        <span>레이턴시</span>
+                        <span>{dict.modelModal.metricTtft}</span>
                       </div>
                       <div className="model-modal-metric-value">
                         <strong>{formatLatency(model.latencyMs)}</strong>
-                        <span>{model.latencyMs != null ? '초 TTFT' : '미측정'}</span>
+                        <span>{model.latencyMs != null ? dict.modelModal.ttftUnit : '—'}</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* 상대 속도 바 (실제 속도 데이터가 수신된 경우에만 표시) */}
+                  {/* Speed bar */}
                   {model.speedTokensPerSecond != null && (
                     <div className="model-modal-speed-row">
                       <div className="model-modal-speed-track">
@@ -438,58 +447,45 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                     </div>
                   )}
 
-                  {/* 모델 특징 메타 태그들 */}
+                  {/* Metadata tags */}
                   <div className="model-modal-tags">
                     {model.codingIndex != null && (
-                      <div
-                        className="model-modal-tag coding"
-                        title={`Artificial Analysis 코딩 지수: ${model.codingIndex}점`}
-                      >
+                      <div className="model-modal-tag coding">
                         <Cpu size={12} />
                         <span>
-                          코딩 <strong>{formatIntelligence(model.codingIndex)}</strong>
+                          Coding <strong>{formatIntelligence(model.codingIndex)}</strong>
                         </span>
                       </div>
                     )}
 
                     {model.supportedEfforts && model.supportedEfforts.length > 0 && (
-                      <div
-                        className="model-modal-tag effort"
-                        title={`지원 추론 노력: ${model.supportedEfforts.join(', ')}`}
-                      >
+                      <div className="model-modal-tag effort">
                         <Zap size={12} />
-                        <span>노력 {model.supportedEfforts.join('·')}</span>
+                        <span>Effort {model.supportedEfforts.join('·')}</span>
                       </div>
                     )}
 
                     {inputModalities.includes('image') && (
-                      <span className="model-modal-tag modality image">🖼️ 이미지</span>
+                      <span className="model-modal-tag modality image">🖼️ Image</span>
                     )}
                     {inputModalities.includes('video') && (
-                      <span className="model-modal-tag modality video">🎬 비디오</span>
+                      <span className="model-modal-tag modality video">🎬 Video</span>
                     )}
                     {inputModalities.includes('audio') && (
-                      <span className="model-modal-tag modality audio">🎙️ 오디오</span>
+                      <span className="model-modal-tag modality audio">🎙️ Audio</span>
                     )}
                     {!inputModalities.includes('image') &&
                       !inputModalities.includes('video') &&
                       !inputModalities.includes('audio') && (
-                        <span className="model-modal-tag modality text">📝 텍스트 전용</span>
+                        <span className="model-modal-tag modality text">📝 Text</span>
                       )}
 
-                    <div
-                      className="model-modal-tag date"
-                      title={`출시일: ${model.createdDate ?? '미상'}`}
-                    >
-                      <Calendar size={12} />
-                      <span>
-                        {model.daysAgo == null
-                          ? '출시일 미상'
-                          : model.daysAgo === 0
-                            ? '오늘 출시'
-                            : `${model.daysAgo}일 전`}
-                      </span>
-                    </div>
+                    {model.createdDate && (
+                      <div className="model-modal-tag date">
+                        <Calendar size={12} />
+                        <span>{model.createdDate}</span>
+                      </div>
+                    )}
 
                     {model.intelligenceTier && (
                       <div className="model-modal-tag tier">
@@ -522,16 +518,16 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
           )}
         </div>
 
-        {/* 모달 하단 */}
+        {/* Modal Footer */}
         <div className="model-modal-footer">
           <div className="model-modal-footer-tip">
             <Sparkles size={14} color="#3182f6" />
             <span>
-              OpenRouter 및 Artificial Analysis 공식 벤치마크 기준 · 미측정 항목은 '—'로 표시돼요
+              Official benchmarks via OpenRouter & Artificial Analysis
             </span>
           </div>
           <button type="button" className="model-modal-confirm-btn" onClick={onClose}>
-            닫기
+            {dict.common.close}
           </button>
         </div>
       </div>

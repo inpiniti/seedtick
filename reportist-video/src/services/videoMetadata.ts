@@ -11,17 +11,16 @@ export interface VideoMetadata {
 /**
  * 동영상 파일에서 촬영 날짜를 안정적으로 포맷팅
  */
-export function formatVideoDate(file: File): { dateStr: string; fullDateStr: string } {
+export function formatVideoDate(file: File, locale = 'en'): { dateStr: string; fullDateStr: string } {
   const timestamp = file.lastModified || Date.now();
   const d = new Date(timestamp);
-  
-  const month = d.getMonth() + 1;
-  const day = d.getDate();
-  const year = d.getFullYear();
+
+  const dateStr = d.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+  const fullDateStr = d.toLocaleDateString(locale, { year: 'numeric', month: 'short', day: 'numeric' });
 
   return {
-    dateStr: `${month}월 ${day}일`,
-    fullDateStr: `${year}년 ${month}월 ${day}일`,
+    dateStr,
+    fullDateStr,
   };
 }
 

@@ -95,6 +95,7 @@ export interface VideoOverlayOptions {
   subtitleLocationText?: string;
   showIntro: boolean;
   showOutro: boolean;
+  outroText?: string;
   introVideoFile?: File | null; // 사용자 직접 삽입 인트로 영상 파일
   outroVideoFile?: File | null; // 사용자 직접 삽입 아웃트로 영상 파일
 }

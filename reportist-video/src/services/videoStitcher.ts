@@ -372,7 +372,7 @@ export async function stitchHighlightedSegments({
       ctx.save();
       ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
 
-      const title = overlayOptions.titleText || '우리들의 소중한 순간';
+      const title = overlayOptions.titleText || 'Highlights';
       ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
       ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
@@ -396,7 +396,7 @@ export async function stitchHighlightedSegments({
   // 아웃트로 시퀀스 렌더링 (약 1.8초)
   const renderOutroSequence = async () => {
     if (!overlayOptions?.showOutro) return;
-    onProgress?.(98, '마무리 아웃트로 엔드 시퀀스 생성 중...');
+    onProgress?.(98, 'Generating outro end card...');
 
     const outroFrames = 54; // 약 1.8초
     if (recorder.state === 'paused') {
@@ -404,7 +404,7 @@ export async function stitchHighlightedSegments({
     }
 
     for (let f = 0; f < outroFrames; f++) {
-      if (signal?.aborted) throw new Error('작업 취소');
+      if (signal?.aborted) throw new Error('Cancelled');
 
       const progress = f / outroFrames;
       const alpha = progress < 0.2 ? progress / 0.2 : progress > 0.85 ? (1 - progress) / 0.15 : 1.0;
@@ -419,7 +419,8 @@ export async function stitchHighlightedSegments({
       ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('시청해 주셔서 감사합니다', targetWidth / 2, targetHeight / 2 - 16);
+      const outroMessage = overlayOptions.outroText || 'Thank you for watching';
+      ctx.fillText(outroMessage, targetWidth / 2, targetHeight / 2 - 16);
 
       if (overlayOptions.channelText) {
         ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';

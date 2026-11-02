@@ -1,4 +1,4 @@
-// App.tsx - Reportist Video 메인 애플리케이션
+// App.tsx - Reportist Video 메인 애플리케이션 (i18n 다국어 지원)
 
 import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
@@ -22,12 +22,15 @@ import type {
   HighlightSegment,
   VideoOverlayOptions,
 } from './types/video.ts';
-import { Play, Sparkles, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
+import { useI18n } from './i18n/index.tsx';
 
 const INITIAL_VIDEO_MODELS = enrichModelMetrics(FALLBACK_VIDEO_MODELS);
 const INITIAL_DEFAULT_MODEL = pickDefaultModel(INITIAL_VIDEO_MODELS);
 
 export function App() {
+  const { dict, locale, interpolate } = useI18n();
+
   // 1. 모델 상태
   const [models, setModels] = useState<FreeModelMeta[]>(INITIAL_VIDEO_MODELS);
   const [selectedModel, setSelectedModel] = useState<string>(
@@ -65,7 +68,6 @@ export function App() {
         if (isMounted && fetched.length > 0) {
           const enriched = enrichModelMetrics(fetched);
           setModels(enriched);
-          // 가장 빠른 비전 모델을 기본값으로 선택한다.
           const defaultModel = pickDefaultModel(enriched);
           if (defaultModel) {
             setSelectedModel(defaultModel.id);
@@ -75,7 +77,7 @@ export function App() {
           }
         }
       } catch (err) {
-        console.warn('모델 로드 실패:', err);
+        console.warn('Failed to load models:', err);
       } finally {
         if (isMounted) setIsLoadingModels(false);
       }
@@ -86,14 +88,13 @@ export function App() {
     };
   }, []);
 
-  // 파일 업로드 핸들러 (브라우저 로컬 메타데이터 추출)
+  // 파일 업로드 핸들러
   const handleFilesSelected = async (newFiles: File[]) => {
     setErrorMessage(null);
     for (const file of newFiles) {
       const videoId = `vid-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
       const blobUrl = URL.createObjectURL(file);
 
-      // 기본 항목 추가
       const newItem: VideoItem = {
         id: videoId,
         file,
@@ -109,7 +110,7 @@ export function App() {
 
       setVideos((prev) => [...prev, newItem]);
 
-      // 비동기 메타데이터, 촬영일자, GPS 및 썸네일 추출
+      // 메타데이터, 촬영일자, GPS 추출
       extractVideoMetadata(file)
         .then(async (meta) => {
           const { dateStr } = formatVideoDate(file);
@@ -133,32 +134,9 @@ export function App() {
           );
         })
         .catch((err) => {
-          console.warn('메타데이터 추출 오류:', err);
+          console.warn('Metadata extraction error:', err);
         });
     }
-  };
-
-  // 비디오 순서 변경 및 삭제 핸들러
-  const handleMoveUp = (index: number) => {
-    if (index === 0) return;
-    setVideos((prev) => {
-      const next = [...prev];
-      const temp = next[index];
-      next[index] = next[index - 1];
-      next[index - 1] = temp;
-      return next;
-    });
-  };
-
-  const handleMoveDown = (index: number) => {
-    if (index === videos.length - 1) return;
-    setVideos((prev) => {
-      const next = [...prev];
-      const temp = next[index];
-      next[index] = next[index + 1];
-      next[index + 1] = temp;
-      return next;
-    });
   };
 
   const handleRemove = (id: string) => {
@@ -174,7 +152,7 @@ export function App() {
   // 4. 재병합 상태
   const [isReStitching, setIsReStitching] = useState<boolean>(false);
 
-  // 하이라이트 생성 시작 (순차 압축 -> AI 분석 -> 컷 & 병합)
+  // 하이라이트 생성 시작
   const handleStartProcessing = async (
     overlayOpts?: VideoOverlayOptions,
     customAudio?: File | null,
@@ -202,7 +180,6 @@ export function App() {
       }));
     };
 
-    // 실시간 추론 스트림 버퍼: 토큰마다 리렌더링하지 않고 100ms 단위로 UI에 반영
     let liveReasoning = '';
     let liveContent = '';
     let liveFlushTimer: number | null = null;
@@ -240,22 +217,21 @@ export function App() {
       }
     };
 
-    addLog(`🚀 AI 극적 장면 탐색 파이프라인 시작 (총 ${totalVideos}개 영상, 16:9 유튜브 규격)`);
+    addLog(interpolate(dict.logs.pipelineStart, { count: totalVideos }));
 
     try {
-      // 1. 영상별 순차 루프 (프레임 추출 & AI 분석)
+      // 1. 영상별 순차 루프
       for (let i = 0; i < totalVideos; i++) {
-        if (signal.aborted) throw new Error('작업이 취소되었습니다.');
+        if (signal.aborted) throw new Error(dict.logs.cancelledByUser);
 
         const currentVideo = updatedVideos[i];
 
-        // 이미 분석된 구간이 있는 경우 중복 추출/추론 건너뛰기
         if (currentVideo.status === 'analyzed' && currentVideo.segments && currentVideo.segments.length > 0) {
-          addLog(`⚡ [${currentVideo.name}] 기존 분석된 ${currentVideo.segments.length}개 극적 구간 재사용`);
+          addLog(interpolate(dict.logs.reusingSegments, { name: currentVideo.name, count: currentVideo.segments.length }));
           continue;
         }
 
-        // 1-A. 브라우저 캔버스 주요 프레임 다중 이미지 추출
+        // 1-A. 주요 프레임 다중 이미지 추출
         resetLiveStream();
         setProgress({
           step: 'processing',
@@ -263,11 +239,19 @@ export function App() {
           currentVideoIndex: i,
           totalVideos,
           progressPercent: Math.round(((i * 2) / (totalVideos * 2 + 1)) * 100),
-          statusMessage: `${i + 1}/${totalVideos}번째 영상 [${currentVideo.name}] 주요 프레임 다중 이미지 추출 중...`,
+          statusMessage: interpolate(dict.logs.statusExtracting, {
+            index: i + 1,
+            total: totalVideos,
+            name: currentVideo.name,
+          }),
           reasoningLogs: [...logs],
         });
 
-        addLog(`📸 [${currentVideo.name}] (길이: ${currentVideo.duration.toFixed(1)}초) 14개 핵심 시각 프레임 추출 시작`);
+        addLog(interpolate(dict.logs.extractingFrames, {
+          name: currentVideo.name,
+          duration: currentVideo.duration.toFixed(1),
+          frames: 14,
+        }));
 
         const frames = await extractVideoFramesForAnalysis(
           currentVideo.url,
@@ -282,19 +266,25 @@ export function App() {
           }
         );
 
-        addLog(`🧠 [${currentVideo.name}] 프레임 추출 완료. AI 모델(${selectedModel.replace(':free', '')})로 시각 시퀀스 전달`);
+        addLog(interpolate(dict.logs.framesExtracted, {
+          name: currentVideo.name,
+          model: selectedModel.replace(':free', ''),
+        }));
 
-        // 새 영상 분석 시작 전 이전 영상의 실시간 추론 텍스트 초기화
         resetLiveStream();
 
-        // 1-B. AI Gateway로 시각 프레임 분석 전송 (극적 구간 JSON 요청)
+        // 1-B. AI Gateway 다중 프레임 분석
         setProgress({
           step: 'processing',
           currentPhase: 'analyze',
           currentVideoIndex: i,
           totalVideos,
           progressPercent: Math.round(((i * 2 + 1) / (totalVideos * 2 + 1)) * 100),
-          statusMessage: `${i + 1}/${totalVideos}번째 영상 [${currentVideo.name}] AI 극적 장면 탐색 중...`,
+          statusMessage: interpolate(dict.logs.statusAnalyzing, {
+            index: i + 1,
+            total: totalVideos,
+            name: currentVideo.name,
+          }),
           reasoningLogs: [...logs],
         });
 
@@ -310,15 +300,20 @@ export function App() {
           metadataDate: currentVideo.metadataDate,
           latitude: currentVideo.latitude,
           longitude: currentVideo.longitude,
+          locale,
           onStreamOpen: () => {
-            addLog(`🔌 [${currentVideo.name}] AI 추론 스트림 연결됨 · 첫 토큰 대기 중`);
+            addLog(interpolate(dict.logs.streamConnected, { name: currentVideo.name }));
           },
           onReasoningDelta: (_chunk, fullText) => {
             if (!liveReasoning) {
-              addLog(`💭 [${currentVideo.name}] 모델 사고 과정 실시간 수신 시작`);
+              addLog(interpolate(dict.logs.reasoningStarted, { name: currentVideo.name }));
               setProgress((prev) => ({
                 ...prev,
-                statusMessage: `${i + 1}/${totalVideos}번째 영상 [${currentVideo.name}] 실시간 추론 중...`,
+                statusMessage: interpolate(dict.logs.statusReasoning, {
+                  index: i + 1,
+                  total: totalVideos,
+                  name: currentVideo.name,
+                }),
               }));
             }
             liveReasoning = fullText;
@@ -326,21 +321,23 @@ export function App() {
           },
           onContentDelta: (_chunk, fullText) => {
             if (!liveContent) {
-              addLog(`📝 [${currentVideo.name}] 하이라이트 구간 JSON 생성 시작`);
+              addLog(interpolate(dict.logs.jsonStarted, { name: currentVideo.name }));
             }
             liveContent = fullText;
             scheduleLiveStreamFlush();
           },
           onFallback: (reason) => {
-            console.warn(`[Video] 스트림 폴백 (${currentVideo.name}):`, reason);
-            addLog(`⚠️ [${currentVideo.name}] 실시간 스트림 실패 → 일반 모드로 자동 재시도`);
+            console.warn(`[Video] Stream fallback (${currentVideo.name}):`, reason);
+            addLog(interpolate(dict.logs.streamFallback, { name: currentVideo.name }));
           },
         });
 
-        // 스트리밍 중 마지막 버퍼까지 콘솔에 반영
         flushLiveStream();
         if (liveReasoning) {
-          addLog(`🧠 [${currentVideo.name}] 실시간 추론 완료 (${liveReasoning.length.toLocaleString()}자)`);
+          addLog(interpolate(dict.logs.reasoningComplete, {
+            name: currentVideo.name,
+            chars: liveReasoning.length.toLocaleString(),
+          }));
         }
 
         currentVideo.segments = segments;
@@ -349,20 +346,31 @@ export function App() {
 
         const segTotal = segments.reduce((sum, s) => sum + s.duration, 0);
         const savePct = Math.max(0, Math.round((1 - segTotal / (currentVideo.duration || 1)) * 100));
-        addLog(`🎯 [${currentVideo.name}] ${segments.length}개 극적 구간 확정 (${currentVideo.duration.toFixed(1)}초 → ${segTotal.toFixed(1)}초, -${savePct}% 압축)`);
+        addLog(interpolate(dict.logs.segmentsConfirmed, {
+          name: currentVideo.name,
+          count: segments.length,
+          orig: currentVideo.duration.toFixed(1),
+          seg: segTotal.toFixed(1),
+          save: savePct,
+        }));
         segments.forEach((s, sIdx) => {
-          const cropName = s.cropOffsetYRatio && s.cropOffsetYRatio <= 0.25 ? '상단(얼굴보호)' : s.cropOffsetYRatio && s.cropOffsetYRatio <= 0.65 ? '중앙' : '하단';
-          addLog(`   ✨ #${sIdx + 1} [${s.start.toFixed(1)}s~${s.end.toFixed(1)}s] ${s.reason} (크롭: ${cropName}${s.subtitleDate ? `, ${s.subtitleDate}` : ''})`);
+          const cropName =
+            s.cropOffsetYRatio && s.cropOffsetYRatio <= 0.25
+              ? dict.logs.cropTopName
+              : s.cropOffsetYRatio && s.cropOffsetYRatio <= 0.65
+              ? dict.logs.cropCenterName
+              : dict.logs.cropBottomName;
+          addLog(`   ✨ #${sIdx + 1} [${s.start.toFixed(1)}s~${s.end.toFixed(1)}s] ${s.reason} (${cropName}${s.subtitleDate ? `, ${s.subtitleDate}` : ''})`);
         });
       }
 
-      // 2. 구간 컷 & 16:9 시네마틱 병합 단계
+      // 2. 구간 컷 & 16:9 병합 단계
       const allSegments = updatedVideos.flatMap((v) => v.segments);
       if (allSegments.length === 0) {
-        throw new Error('감지된 극적 하이라이트 구간이 없습니다.');
+        throw new Error(dict.logs.noClimaxFound);
       }
 
-      addLog(`✂️ 총 ${allSegments.length}개 구간을 16:9 유튜브 시네마틱 규격(1280x720)으로 무결점 병합 시작...`);
+      addLog(interpolate(dict.logs.stitchingStart, { count: allSegments.length }));
 
       setProgress({
         step: 'processing',
@@ -370,7 +378,7 @@ export function App() {
         currentVideoIndex: totalVideos - 1,
         totalVideos,
         progressPercent: 85,
-        statusMessage: `총 ${allSegments.length}개 극적 구간을 16:9 유튜브 규격으로 병합하는 중...`,
+        statusMessage: interpolate(dict.logs.stitchingProgress, { count: allSegments.length }),
         reasoningLogs: [...logs],
       });
 
@@ -393,7 +401,10 @@ export function App() {
         signal,
       });
 
-      addLog(`🎉 16:9 유튜브 하이라이트 영상 병합 완성! (총 ${result.duration.toFixed(1)}초, ${(result.fileSize / (1024 * 1024)).toFixed(1)}MB)`);
+      addLog(interpolate(dict.logs.stitchingComplete, {
+        duration: result.duration.toFixed(1),
+        size: (result.fileSize / (1024 * 1024)).toFixed(1),
+      }));
 
       setFinalResult(result);
       setCurrentStep('result');
@@ -403,18 +414,18 @@ export function App() {
         liveFlushTimer = null;
       }
       if (signal.aborted) {
-        console.info('사용자에 의해 작업이 취소되었습니다.');
+        console.info('Processing cancelled by user.');
         setCurrentStep('upload');
       } else {
-        const msg = err instanceof Error ? err.message : '하이라이트 생성 중 오류가 발생했습니다.';
-        console.error('처리 오류:', err);
+        const msg = err instanceof Error ? err.message : dict.logs.genericError;
+        console.error('Processing error:', err);
         setErrorMessage(msg);
         setCurrentStep('upload');
       }
     }
   };
 
-  // 사용자가 프로 스튜디오 타임라인에서 구간을 직접 수정/트리밍/BGM 변경했을 때 재렌더링
+  // 재병합 핸들러
   const handleReStitch = async (
     updatedSegments: HighlightSegment[],
     bgmPresetId = 'none',
@@ -439,14 +450,13 @@ export function App() {
         },
       });
 
-      // 기존 결과 URL 해제 후 새 결과 반영
       if (finalResult?.url) {
         URL.revokeObjectURL(finalResult.url);
       }
       setFinalResult(result);
     } catch (err) {
-      console.error('구간 재병합 오류:', err);
-      setErrorMessage(err instanceof Error ? err.message : '하이라이트 재병합에 실패했습니다.');
+      console.error('Re-stitching error:', err);
+      setErrorMessage(err instanceof Error ? err.message : dict.logs.reStitchError);
     } finally {
       setIsReStitching(false);
     }
@@ -507,4 +517,5 @@ export function App() {
     </div>
   );
 }
+
 export default App;

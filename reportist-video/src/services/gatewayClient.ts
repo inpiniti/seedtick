@@ -152,6 +152,7 @@ export interface AnalyzeVideoParams extends VideoAnalysisStreamCallbacks {
   metadataDate?: string;
   latitude?: number;
   longitude?: number;
+  locale?: string;
 }
 
 // === 스트리밍 SSE 파싱 헬퍼 =================================================
@@ -378,6 +379,7 @@ export async function analyzeVideoHighlights({
   metadataDate,
   latitude,
   longitude,
+  locale = 'en',
   onStreamOpen,
   onReasoningDelta,
   onContentDelta,
@@ -387,6 +389,25 @@ export async function analyzeVideoHighlights({
   // 하이라이트 목표 예산: 영상 전체 길이의 20%~35% (최소 2초, 최대 10초)
   const maxBudget = Math.max(3.0, Math.min(10.0, Math.round(roundedDuration * 0.35 * 10) / 10));
   const minBudget = Math.max(1.8, Math.min(maxBudget - 0.5, Math.round(roundedDuration * 0.15 * 10) / 10));
+
+  const getLanguageRule = (loc?: string) => {
+    switch (loc) {
+      case 'ko':
+        return `6. Provide a concise, descriptive Korean scene title for 'reason' (e.g. '환하게 웃는 클라이맥스', '바닷가 산책', '박진감 넘치는 액션 순간'). This will be used as the scene subtitle!`;
+      case 'ja':
+        return `6. Provide a concise, descriptive Japanese scene title for 'reason' (e.g. '笑顔あふれるクライマックス', '海辺の散歩', '迫力のアクションシーン'). This will be used as the scene subtitle!`;
+      case 'zh':
+        return `6. Provide a concise, descriptive Chinese scene title for 'reason' (e.g. '灿烂微笑的高光时刻', '海边散步', '扣人心弦的动作瞬间'). This will be used as the scene subtitle!`;
+      case 'es':
+        return `6. Provide a concise, descriptive Spanish scene title for 'reason' (e.g. 'Clímax con sonrisa radiante', 'Paseo por la playa', 'Momento de acción emocionante'). This will be used as the scene subtitle!`;
+      case 'fr':
+        return `6. Provide a concise, descriptive French scene title for 'reason' (e.g. 'Climax souriant et radieux', 'Balade au bord de la mer', 'Moment d\\'action intense'). This will be used as the scene subtitle!`;
+      case 'de':
+        return `6. Provide a concise, descriptive German scene title for 'reason' (e.g. 'Strahlender Höhepunkt', 'Spaziergang am Strand', 'Packender Actionmoment'). This will be used as the scene subtitle!`;
+      default:
+        return `6. Provide a concise, descriptive English scene title for 'reason' (e.g. 'Bright smiling climax', 'Beach walk', 'Thrilling action moment'). This will be used as the scene subtitle!`;
+    }
+  };
 
   const prompt = `You are an elite cinematic video director and highlight editor.
 We have extracted ${frames.length} sequential keyframes from the video "${videoName}" (Total Duration: ${roundedDuration} seconds).
@@ -402,7 +423,7 @@ STRICT DURATION & SELECTION RULES:
 3. INTERVAL COUNT: Return ONLY 1 to 3 peak intervals (1 single climax interval is preferred; maximum 3).
 4. INDIVIDUAL INTERVAL LENGTH: Each interval MUST be between 1.5 seconds and 4.5 seconds. NEVER return an interval longer than 5.0 seconds.
 5. NO OVERLAPPING: Intervals MUST NOT overlap.
-6. Provide a concise, descriptive Korean scene title for 'reason' (e.g. '환하게 웃는 클라이맥스', '바닷가 산책', '박진감 넘치는 액션 순간'). This will be used as the scene subtitle!
+${getLanguageRule(locale)}
 7. Analyze human faces and main subject position in these keyframes to choose 'cropPosition':
    - "top": Person's face or eyes are located in the upper area (protects face from getting cropped in 16:9)
    - "center": Subject is centered or panoramic landscape
@@ -411,7 +432,7 @@ STRICT DURATION & SELECTION RULES:
 
 Format:
 [
-  {"start": 3.2, "end": 6.5, "reason": "환하게 웃으며 꽃을 건네는 순간", "cropPosition": "top"}
+  {"start": 3.2, "end": 6.5, "reason": "Joyful smiling climax", "cropPosition": "top"}
 ]`;
 
   const baseUrl = config.baseUrl.replace(/\/+$/, '');

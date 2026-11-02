@@ -3897,3 +3897,107 @@ body,
   .model-modal-metric-value strong {
     font-size: 14px;
 }
+
+
+/* ========================================================
+   Internationalization (i18n) Language Selector
+   ======================================================== */
+.toss-lang-selector-container {
+  position: relative;
+  display: inline-block;
+}
+
+.toss-lang-trigger {
+  max-width: 200px;
+}
+
+.toss-lang-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 200px;
+  background-color: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e5e8eb;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  padding: 6px;
+  z-index: 250;
+  animation: tossDropdownFadeIn 0.15s ease-out;
+}
+
+@keyframes tossDropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.toss-lang-dropdown-header {
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #8b95a1;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid #f2f4f6;
+  margin-bottom: 4px;
+}
+
+.toss-lang-dropdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toss-lang-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  text-align: left;
+}
+
+.toss-lang-menu-item:hover {
+  background-color: #f2f4f6;
+}
+
+.toss-lang-menu-item.selected {
+  background-color: #e8f3ff;
+}
+
+.toss-lang-flag {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.toss-lang-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.toss-lang-native {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #191f28;
+}
+
+.toss-lang-menu-item.selected .toss-lang-native {
+  color: #1b64da;
+  font-weight: 700;
+}
+
+.toss-lang-english {
+  font-size: 10.5px;
+  color: #8b95a1;
+}

@@ -1,4 +1,4 @@
-// components/studio/ProStudioView.tsx - 토스(Toss) 스타일 깔끔하고 정갈한 16:9 AI 영상 스튜디오
+// components/studio/ProStudioView.tsx - Toss-style 16:9 AI Video Studio with i18n
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
@@ -15,11 +15,7 @@ import {
   X,
   Clock,
   Music,
-  Check,
   Scissors,
-  SlidersHorizontal,
-  ChevronRight,
-  AlertCircle,
   Film,
   FastForward,
   Type,
@@ -40,6 +36,8 @@ import type { FreeModelMeta, ReasoningEffortOption } from '../../types/gateway.t
 import { getSpeedTier } from '../../services/modelMetrics.ts';
 import { ModelSelectorModal } from './ModelSelectorModal.tsx';
 import { VideoListModal } from './VideoListModal.tsx';
+import { useI18n } from '../../i18n/index.tsx';
+import { LanguageSelector } from '../../i18n/LanguageSelector.tsx';
 
 interface ProStudioViewProps {
   result: FinalVideoResult | null;
@@ -89,6 +87,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   onReStitch,
   isReStitching,
 }) => {
+  const { dict, interpolate } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -106,7 +105,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       start: 0,
       end: Math.min(v.duration || 5, 5),
       duration: Math.min(v.duration || 5, 5),
-      reason: `클립 #${idx + 1}`,
+      reason: `Clip #${idx + 1}`,
     }));
   }, [result, videos]);
 
@@ -118,7 +117,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
 
-  // 2. 배경음악(BGM) 상태 (업로드 전용)
+  // 2. 배경음악(BGM) 상태
   const [selectedBgmId, setSelectedBgmId] = useState<string>('none');
   const [bgmVolume, setBgmVolume] = useState<number>(0.3);
 
@@ -149,7 +148,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   }, [isProcessing]);
 
-  // 처리 경과 시간 (멈춰있는 느낌 방지용 실시간 타이머)
+  // 처리 경과 시간 타이머
   const [processingElapsed, setProcessingElapsed] = useState(0);
   useEffect(() => {
     if (!isProcessing) {
@@ -164,23 +163,23 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     return () => window.clearInterval(timer);
   }, [isProcessing]);
 
-  // 5. 자막 & 브랜딩 오버레이 상태 (영상 실제 촬영일자 기반)
+  // 5. 자막 & 브랜딩 오버레이 상태
   const initialDateStr = useMemo(() => {
     if (videos.length > 0 && videos[0].metadataDate) {
       return videos[0].metadataDate;
     }
     if (videos.length > 0 && videos[0].file?.lastModified) {
       const d = new Date(videos[0].file.lastModified);
-      return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     }
     return '';
   }, [videos]);
 
   const [overlayOptions, setOverlayOptions] = useState<VideoOverlayOptions>({
     showTitle: true,
-    titleText: '2021년도 엄마아빠 결혼전',
+    titleText: dict.player.defaultTitleText,
     showChannel: true,
-    channelText: '은따니',
+    channelText: dict.player.defaultChannelText,
     showSubtitle: true,
     subtitleDateText: initialDateStr,
     subtitleLocationText: '',
@@ -190,13 +189,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     outroVideoFile: null,
   });
 
+  const effectiveOverlayOptions = useMemo<VideoOverlayOptions>(() => ({
+    ...overlayOptions,
+    titleText: overlayOptions.titleText || dict.player.defaultTitleText,
+    channelText: overlayOptions.channelText || dict.player.defaultChannelText,
+    outroText: overlayOptions.outroText || dict.introOutro.outroDefaultText,
+  }), [overlayOptions, dict]);
+
   // 영상이 추가되었을 때 실제 촬영 날짜 자동 반영
   useEffect(() => {
     if (videos.length > 0) {
       const detectedDate =
         videos[0].metadataDate ||
         (videos[0].file?.lastModified
-          ? `${new Date(videos[0].file.lastModified).getMonth() + 1}월 ${new Date(videos[0].file.lastModified).getDate()}일`
+          ? new Date(videos[0].file.lastModified).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
           : '');
       if (detectedDate) {
         setOverlayOptions((prev) => ({
@@ -207,7 +213,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   }, [videos]);
 
-  // AI 추론 콘솔 자동 스크롤 (파이프라인 로그 + 실시간 스트리밍 텍스트)
+  // AI 추론 콘솔 자동 스크롤
   useEffect(() => {
     if (consoleScrollRef.current) {
       consoleScrollRef.current.scrollTop = consoleScrollRef.current.scrollHeight;
@@ -252,27 +258,26 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         start: 0,
         end: Math.min(v.duration || 5, 5),
         duration: Math.min(v.duration || 5, 5),
-        reason: `클립 #${idx + 1}`,
+        reason: `Clip #${idx + 1}`,
       }));
       setSegments(fallback);
       setSelectedSegmentId(fallback[0]?.id || '');
     }
   }, [result, videos]);
 
-  // 활성 비디오 소스 URL (완성 영상 우선, 없으면 첫 번째 업로드 영상)
+  // 활성 비디오 소스 URL
   const activeVideoUrl = useMemo(() => {
     if (result?.url) return result.url;
     if (videos.length > 0 && videos[0].url) return videos[0].url;
     return null;
   }, [result?.url, videos]);
 
-  // 비디오 소스 전환 시 시간 리셋
   useEffect(() => {
     setCurrentTime(0);
     setIsPlaying(false);
   }, [activeVideoUrl]);
 
-  // 총 시간 계산 (완성 결과가 있으면 실제 duration 반영)
+  // 총 시간 계산
   const totalDuration = useMemo(() => {
     if (result?.duration && result.duration > 0) return result.duration;
     return segments.reduce((sum, s) => sum + s.duration, 0) || 1;
@@ -329,7 +334,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     );
   }, [segments, activePlayingSegmentId, selectedSegmentId]);
 
-  // 실시간 미리보기에 띄울 자막 (씬별 날짜 + 씬 제목 + 위치)
+  // 실시간 미리보기에 띄울 자막
   const activePlayingSubtitleText = useMemo(() => {
     if (!activePlayingSegment) return '';
     const datePart = activePlayingSegment.subtitleDate || '';
@@ -381,7 +386,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     setCurrentTime(targetTime);
   };
 
-  // 재생 / 일시정지 토글 (브라우저 자동재생 제약 완벽 대응)
+  // 재생 / 일시정지 토글
   const togglePlay = () => {
     const v = videoRef.current;
     if (!v) return;
@@ -460,8 +465,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     );
   };
 
-
-
   // 파일 업로드
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -506,34 +509,37 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         onChange={handleFileInputChange}
       />
 
-      {/* 1. 상단 글로벌 내비게이션 바 (토스 스타일) */}
+      {/* 1. 상단 글로벌 내비게이션 바 */}
       <header className="toss-nav-header">
         <div className="toss-nav-left">
           <div className="toss-logo-badge">
             <Sparkles size={16} className="text-white" />
           </div>
-          <span className="toss-nav-title">Reportist Video</span>
-          <span className="toss-tag-blue">16:9 유튜브 하이라이트</span>
+          <span className="toss-nav-title">{dict.common.brandName}</span>
+          <span className="toss-tag-blue">{dict.common.taglineBadge}</span>
         </div>
 
         <div className="toss-nav-right">
+          {/* 다국어 언어 선택 위젯 */}
+          <LanguageSelector />
+
           {/* AI 모델 선택 트리거 */}
           <button
             type="button"
             className="toss-model-trigger"
             onClick={() => setIsModelModalOpen(true)}
             disabled={isProcessing || isLoadingModels}
-            title="AI 모델을 선택하세요"
+            title={dict.header.selectModelTitle}
           >
             <span className="toss-model-trigger-icon">
               <Sparkles size={13} />
             </span>
             <span className="toss-model-trigger-text">
-              <span className="toss-model-trigger-label">AI 모델</span>
+              <span className="toss-model-trigger-label">{dict.header.aiModel}</span>
               <span className="toss-model-trigger-name">
                 {isLoadingModels
-                  ? '모델 불러오는 중...'
-                  : currentModel?.name.replace(':free', '') || '모델 선택'}
+                  ? dict.header.loadingModels
+                  : currentModel?.name.replace(':free', '') || dict.header.selectModel}
               </span>
             </span>
             {currentModel?.speedTokensPerSecond != null && (
@@ -545,38 +551,38 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <ChevronDown size={14} className="toss-model-trigger-chevron" />
           </button>
 
-          {/* ★ 올린 원본 영상 리스트 트리거 (AI 모델과 동일한 룩앤필) */}
+          {/* 올린 원본 영상 리스트 트리거 */}
           <button
             type="button"
             className="toss-model-trigger"
             onClick={() => setIsVideoListModalOpen(true)}
-            title="올린 원본 영상 목록을 확인하고 추가/삭제합니다"
+            title={dict.header.manageVideosTitle}
           >
             <span className="toss-model-trigger-icon">
               <Film size={13} />
             </span>
             <span className="toss-model-trigger-text">
-              <span className="toss-model-trigger-label">올린 영상</span>
+              <span className="toss-model-trigger-label">{dict.header.uploadedVideos}</span>
               <span className="toss-model-trigger-name">
-                {videos.length === 0 ? '영상 없음' : `${videos.length}개 영상`}
+                {videos.length === 0 ? dict.common.noVideos : `${videos.length} ${dict.common.videos}`}
               </span>
             </span>
             <ChevronDown size={14} className="toss-model-trigger-chevron" />
           </button>
 
-          {/* ★ 메인 액션 버튼: 하단에서 상단 헤더로 이동 */}
+          {/* 메인 액션 버튼 */}
           {videos.length > 0 && (
             !result?.url ? (
               <button
                 type="button"
                 className={`toss-nav-cta-btn ${isProcessing ? 'loading' : ''}`}
                 onClick={() =>
-                  onStartAiAnalysis(overlayOptions, customAudioFile, selectedBgmId, bgmVolume)
+                  onStartAiAnalysis(effectiveOverlayOptions, customAudioFile, selectedBgmId, bgmVolume)
                 }
                 disabled={isProcessing}
               >
                 <Sparkles size={14} className={isProcessing ? 'animate-spin' : ''} />
-                <span>{isProcessing ? 'AI 분석 중...' : '✨ AI 하이라이트 만들기'}</span>
+                <span>{isProcessing ? dict.header.analyzingAi : dict.header.startAiHighlight}</span>
               </button>
             ) : (
               <div className="toss-nav-dual-actions">
@@ -589,24 +595,24 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       selectedBgmId,
                       bgmVolume,
                       customAudioFile,
-                      overlayOptions
+                      effectiveOverlayOptions
                     )
                   }
                   disabled={isReStitching || segments.length === 0}
-                  title="수정된 타임라인 다시 병합"
+                  title={dict.header.reStitchTitle}
                 >
                   <Scissors size={13} />
-                  <span>{isReStitching ? '병합 중...' : '다시 병합'}</span>
+                  <span>{isReStitching ? dict.header.stitching : dict.header.reStitch}</span>
                 </button>
 
                 <button
                   type="button"
                   className="toss-nav-cta-btn"
                   onClick={handleDownload}
-                  title="16:9 완성 영상 다운로드"
+                  title={dict.header.downloadTitle}
                 >
                   <Download size={14} />
-                  <span>다운로드 ({formatSec(totalDuration)})</span>
+                  <span>{dict.header.download} ({formatSec(totalDuration)})</span>
                 </button>
               </div>
             )
@@ -614,7 +620,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
           {videos.length > 0 && (
             <button type="button" className="toss-btn-text" onClick={onReset}>
-              새로 시작
+              {dict.header.reset}
             </button>
           )}
         </div>
@@ -622,16 +628,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
       {/* 2. 본문 2열 레이아웃 */}
       <main className="toss-main-content">
-        {/* 2-A. 왼쪽 열: 상단 문구 & 16:9 모니터 & 배경음악 업로드 */}
+        {/* 2-A. 왼쪽 열: 16:9 모니터 & 배경음악 업로드 */}
         <section className="toss-column-left">
-          {/* 16:9 비디오 플레이어 카드 (상단에 직관적인 좌/우 문구 입력창 일체형 배치) */}
           <div className="toss-card toss-player-card">
-            {/* ★ 영상 상단 왼쪽, 오른쪽 문구 직관 입력창 */}
+            {/* 영상 상단 왼쪽, 오른쪽 문구 직관 입력창 */}
             <div className="toss-video-header-bar">
               <div className="toss-header-input-wrap">
                 <label className="toss-header-input-label">
                   <Type size={12} className="text-blue-500" />
-                  <span>왼쪽 문구</span>
+                  <span>{dict.player.leftTitleLabel}</span>
                 </label>
                 <input
                   type="text"
@@ -643,14 +648,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       showTitle: e.target.value.trim().length > 0,
                     }))
                   }
-                  placeholder="영상 왼쪽 상단 문구 (비워두면 표시 안 됨)"
+                  placeholder={dict.player.leftTitlePlaceholder}
                   className="toss-header-input"
                 />
               </div>
 
               <div className="toss-header-input-wrap toss-header-input-wrap-right">
                 <label className="toss-header-input-label toss-label-right">
-                  <span>오른쪽 문구</span>
+                  <span>{dict.player.rightTitleLabel}</span>
                   <Type size={12} className="text-blue-500" />
                 </label>
                 <input
@@ -663,7 +668,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       showChannel: e.target.value.trim().length > 0,
                     }))
                   }
-                  placeholder="영상 오른쪽 상단 문구 (비워두면 표시 안 됨)"
+                  placeholder={dict.player.rightTitlePlaceholder}
                   className="toss-header-input toss-input-right"
                 />
               </div>
@@ -688,19 +693,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     onClick={togglePlay}
                     className="toss-video-element"
                   />
-                  {/* 정지 중일 때 비디오 중앙에 표시되는 재생 오버레이 버튼 */}
                   {!isPlaying && (
                     <button
                       type="button"
                       className="toss-canvas-play-overlay"
                       onClick={togglePlay}
-                      title="재생하기"
+                      title={dict.player.play}
                     >
                       <Play size={28} className="ml-1 text-white" />
                     </button>
                   )}
 
-                  {/* ★ 실시간 자막 & 문구 오버레이 라이브 프리뷰 */}
                   {!result?.url && overlayOptions.showTitle && overlayOptions.titleText && (
                     <div className="toss-live-overlay-title">
                       {overlayOptions.titleText}
@@ -720,7 +723,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   )}
                 </>
               ) : (
-                /* 영상이 없을 때의 빈 상태 안내 */
                 <div
                   className="toss-player-empty"
                   onClick={() => fileInputRef.current?.click()}
@@ -728,14 +730,18 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   <div className="toss-empty-circle-icon">
                     <Upload size={28} className="text-blue-500" />
                   </div>
-                  <h3 className="toss-empty-title">영상을 올려주세요</h3>
+                  <h3 className="toss-empty-title">{dict.player.emptyTitle}</h3>
                   <p className="toss-empty-desc">
-                    여기에 동영상을 끌어다 놓거나 눌러서 선택하면<br />
-                    AI가 16:9 유튜브 규격으로 가장 극적인 순간만 모아드려요.
+                    {dict.player.emptyDesc.split('\n').map((line, i) => (
+                      <React.Fragment key={i}>
+                        {line}
+                        {i === 0 && <br />}
+                      </React.Fragment>
+                    ))}
                   </p>
                   <button type="button" className="toss-btn-secondary mt-3">
                     <Plus size={15} />
-                    <span>영상 파일 선택하기</span>
+                    <span>{dict.player.selectVideoFiles}</span>
                   </button>
                 </div>
               )}
@@ -749,7 +755,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     type="button"
                     className="toss-btn-step"
                     onClick={() => seekRelative(-5)}
-                    title="5초 뒤로"
+                    title={dict.player.rewind5s}
                   >
                     <RotateCcw size={13} />
                     <span>-5s</span>
@@ -759,7 +765,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     type="button"
                     className="toss-play-btn"
                     onClick={togglePlay}
-                    title={isPlaying ? '일시정지' : '재생'}
+                    title={isPlaying ? dict.player.pause : dict.player.play}
                   >
                     {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
                   </button>
@@ -768,7 +774,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     type="button"
                     className="toss-btn-step"
                     onClick={() => seekRelative(5)}
-                    title="5초 앞으로"
+                    title={dict.player.forward5s}
                   >
                     <span>+5s</span>
                     <FastForward size={13} />
@@ -785,7 +791,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 <div
                   className="toss-progress-track"
                   onClick={handleSeekByPosition}
-                  title="원하는 위치로 이동"
+                  title={dict.player.seekTooltip}
                 >
                   <div
                     className="toss-progress-fill"
@@ -806,7 +812,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     type="button"
                     className={`toss-btn-icon ${isMuted ? 'muted' : ''}`}
                     onClick={toggleMute}
-                    title={isMuted ? '음소거 해제' : '음소거'}
+                    title={isMuted ? dict.player.unmute : dict.player.mute}
                   >
                     {isMuted ? <VolumeX size={17} /> : <Volume2 size={17} />}
                   </button>
@@ -814,24 +820,25 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               </div>
             )}
 
-            {/* ★ NLE 감성: 16:9 인터랙티브 시퀀스 타임라인 스트립 */}
+            {/* 시퀀스 타임라인 스트립 */}
             {segments.length > 0 && (
               <div className="toss-timeline-sequencer-box">
                 <div className="toss-sequencer-header">
                   <div className="flex items-center gap-1.5">
                     <Film size={14} className="text-blue-600" />
-                    <span className="toss-sequencer-title">시퀀스 타임라인</span>
-                    <span className="toss-sequencer-badge">{segments.length}개 클립</span>
+                    <span className="toss-sequencer-title">{dict.sequencer.title}</span>
+                    <span className="toss-sequencer-badge">
+                      {interpolate(dict.sequencer.clipsCount, { count: segments.length })}
+                    </span>
                   </div>
-                  <span className="toss-sequencer-hint">클립을 누르면 해당 구간으로 바로 이동해요</span>
+                  <span className="toss-sequencer-hint">{dict.sequencer.hint}</span>
                 </div>
 
                 <div
                   className="toss-sequencer-track"
                   onClick={handleSeekByPosition}
-                  title="클릭하여 원하는 시간으로 시크"
+                  title={dict.player.seekTooltip}
                 >
-                  {/* 빨간색 실시간 플레이헤드 침 */}
                   <div
                     className="toss-sequencer-playhead"
                     style={{
@@ -842,7 +849,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     <div className="toss-playhead-line" />
                   </div>
 
-                  {/* 연결된 클립 스트립 블록 */}
                   <div className="toss-sequencer-strip">
                     {segments.map((seg, idx) => {
                       const isCurrent = seg.id === activePlayingSegmentId;
@@ -858,7 +864,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             e.stopPropagation();
                             handleSelectSegment(seg.id);
                           }}
-                          title={`#${idx + 1} (${seg.duration.toFixed(1)}초): ${seg.reason}`}
+                          title={interpolate(dict.sequencer.clipTitle, {
+                            idx: idx + 1,
+                            duration: seg.duration.toFixed(1),
+                            reason: seg.reason,
+                          })}
                         >
                           {vItem?.thumbnailUrl && (
                             <img
@@ -880,22 +890,22 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             )}
           </div>
 
-          {/* ★ 영상 바로 아래쪽: 배경음악 (BGM 업로드 전용) */}
+          {/* 배경음악 카드 */}
           <div className="toss-card toss-bgm-card">
             <div className="toss-card-header">
               <div>
                 <h4 className="toss-card-title">
                   <Music size={15} className="text-blue-600 shrink-0" />
-                  <span>배경음악</span>
+                  <span>{dict.bgm.title}</span>
                 </h4>
                 <p className="toss-card-desc">
-                  직접 준비한 음악 파일(MP3, WAV)을 올려 영상에 BGM을 입혀보세요.
+                  {dict.bgm.desc}
                 </p>
               </div>
 
               {customAudioFile && (
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-slate-500">볼륨</span>
+                  <span className="text-xs font-semibold text-slate-500">{dict.bgm.volume}</span>
                   <input
                     type="range"
                     min="0"
@@ -931,7 +941,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       {customAudioName}
                     </div>
                     <div className="text-[11px] text-slate-400 mt-0.5">
-                      내 음악 파일 ({((customAudioFile.size || 0) / (1024 * 1024)).toFixed(1)}MB) • 적용 완료
+                      {dict.bgm.myAudioFile} ({((customAudioFile.size || 0) / (1024 * 1024)).toFixed(1)}MB) • {dict.bgm.applied}
                     </div>
                   </div>
                 </div>
@@ -942,7 +952,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     className="toss-btn-secondary toss-btn-xs"
                     onClick={() => customAudioInputRef.current?.click()}
                   >
-                    파일 변경
+                    {dict.bgm.changeFile}
                   </button>
                   <button
                     type="button"
@@ -952,7 +962,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       setCustomAudioName('');
                       setSelectedBgmId('none');
                     }}
-                    title="배경음악 삭제"
+                    title={dict.bgm.deleteBgm}
                   >
                     <X size={15} />
                   </button>
@@ -966,27 +976,27 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               >
                 <FileAudio size={22} className="text-blue-500 mb-1" />
                 <span className="text-xs font-bold text-slate-800">
-                  + 배경음악 파일 올리기 (MP3, WAV)
+                  {dict.bgm.uploadButton}
                 </span>
                 <span className="text-[11px] text-slate-400 mt-0.5">
-                  영상을 더욱 풍성하게 만들어줄 BGM 음원을 업로드하세요
+                  {dict.bgm.uploadHint}
                 </span>
               </button>
             )}
           </div>
         </section>
 
-        {/* 2-B. 오른쪽 열: [상단 인트로] -> [중간 AI가 포착한 극적 순간] -> [하단 아웃트로] -> [요약] */}
+        {/* 2-B. 오른쪽 열: [인트로] -> [AI 극적 순간] -> [아웃트로] -> [요약] */}
         <section className="toss-column-right">
-          {/* ★ [1] 극적순간 상단: 시작 인트로 카드 */}
+          {/* 시작 인트로 카드 */}
           <div className="toss-card toss-intro-card">
             <div className="toss-card-header">
               <div>
                 <h4 className="toss-card-title">
                   <Film size={15} className="text-blue-600 shrink-0" />
-                  <span>시작 인트로</span>
+                  <span>{dict.introOutro.introTitle}</span>
                 </h4>
-                <p className="toss-card-desc">영상 시작 시 재생할 인트로를 설정해요.</p>
+                <p className="toss-card-desc">{dict.introOutro.introDesc}</p>
               </div>
               <label className="toss-toggle-switch">
                 <input
@@ -1021,7 +1031,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       onClick={() =>
                         setOverlayOptions((prev) => ({ ...prev, introVideoFile: null }))
                       }
-                      title="영상 제거"
+                      title={dict.introOutro.removeVideo}
                     >
                       <X size={13} />
                     </button>
@@ -1033,39 +1043,45 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     onClick={() => introVideoInputRef.current?.click()}
                   >
                     <Plus size={14} />
-                    <span>+ 인트로 동영상 올리기 (MP4, MOV)</span>
+                    <span>{dict.introOutro.uploadIntro}</span>
                   </button>
                 )}
                 <span className="text-[11px] text-slate-400 block mt-1.5">
                   {overlayOptions.introVideoFile
-                    ? '업로드된 인트로 영상이 하이라이트 시작부에 합성됩니다.'
-                    : '동영상을 올리지 않으면 시네마틱 타이틀 카드(1.6초)가 자동으로 적용됩니다.'}
+                    ? dict.introOutro.introApplied
+                    : dict.introOutro.introDefault}
                 </span>
               </div>
             )}
           </div>
 
-          {/* ★ [2] AI가 포착한 극적 순간 카드 */}
+          {/* AI가 포착한 극적 순간 카드 */}
           <div className="toss-card">
             <div className="toss-card-header">
               <div>
                 <h4 className="toss-card-title">
                   <Scissors size={15} className="text-blue-600 shrink-0" />
-                  <span>AI가 포착한 극적 순간</span>
+                  <span>{dict.dramaticClips.title}</span>
                 </h4>
                 <p className="toss-card-desc">
-                  구간을 누르면 자막·촬영 날짜·위치·구도를 바로 수정할 수 있어요.
+                  {dict.dramaticClips.desc}
                 </p>
               </div>
 
               <div className="flex items-center gap-3 shrink-0">
                 {segments.length > 0 && (
                   <span className="toss-tag-gray">
-                    총 {segments.length}개 구간 ({totalDuration.toFixed(1)}초)
+                    {interpolate(dict.dramaticClips.totalIntervals, {
+                      count: segments.length,
+                      duration: totalDuration.toFixed(1),
+                    })}
                   </span>
                 )}
-                <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-600" title="영상 하단에 씬별 날짜와 자막을 표시합니다">
-                  <span>하단 자막</span>
+                <label
+                  className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-600"
+                  title={dict.dramaticClips.bottomSubtitleTitle}
+                >
+                  <span>{dict.dramaticClips.bottomSubtitleToggle}</span>
                   <span className="toss-toggle-switch">
                     <input
                       type="checkbox"
@@ -1083,7 +1099,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             {segments.length === 0 ? (
               <div className="toss-empty-state">
                 <p className="text-slate-400 text-sm">
-                  영상을 올리고 상단의 '✨ AI 하이라이트 만들기'를 누르면 극적 구간이 채워져요.
+                  {dict.dramaticClips.emptyNotice}
                 </p>
               </div>
             ) : (
@@ -1097,12 +1113,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       key={seg.id}
                       className={`toss-segment-item ${isSelected ? 'active' : ''} ${isCurrentPlaying ? 'playing' : ''}`}
                     >
-                      {/* ★ 재생 중 표시는 absolute 오버레이로만 그려서
-                          씬이 바뀔 때 목록 행의 너비/높이가 흔들리지 않게 한다 */}
                       {isCurrentPlaying && isPlaying && vItem?.thumbnailUrl && (
                         <span className="toss-segment-now-playing" aria-hidden="true">
                           <span className="toss-segment-now-dot" />
-                          재생 중
+                          {dict.dramaticClips.nowPlaying}
                         </span>
                       )}
                       <div
@@ -1150,12 +1164,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                 e.stopPropagation();
                                 handleTrimChange(seg.id, 'start', -0.5);
                               }}
-                              title="시작 0.5초 늘리기"
+                              title={dict.dramaticClips.trimMinus}
                             >
                               -0.5s
                             </button>
                             <span className="toss-segment-duration">
-                              {seg.duration.toFixed(1)}초
+                              {seg.duration.toFixed(1)}s
                             </span>
                             <button
                               type="button"
@@ -1164,7 +1178,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                 e.stopPropagation();
                                 handleTrimChange(seg.id, 'end', 0.5);
                               }}
-                              title="끝 0.5초 늘리기"
+                              title={dict.dramaticClips.trimPlus}
                             >
                               +0.5s
                             </button>
@@ -1174,31 +1188,31 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             type="button"
                             className="toss-btn-delete"
                             onClick={(e) => handleDeleteSegment(seg.id, e)}
-                            title="이 구간 제외하기"
+                            title={dict.dramaticClips.excludeInterval}
                           >
                             <Trash2 size={15} />
                           </button>
                         </div>
                       </div>
 
-                      {/* ★ 선택한 씬의 자막·날짜·위치·구도를 목록 안에서 바로 수정 */}
+                      {/* 선택한 씬의 자막/날짜/위치/구도 수정 */}
                       {isSelected && (
                         <div className="toss-segment-editor" onClick={(e) => e.stopPropagation()}>
                           <div className="toss-segment-editor-head">
-                            <span className="toss-segment-editor-title">이 씬의 자막 · 날짜 · 위치</span>
-                            <span className="toss-segment-editor-hint">수정 내용은 다시 병합할 때 반영돼요</span>
+                            <span className="toss-segment-editor-title">{dict.dramaticClips.editorTitle}</span>
+                            <span className="toss-segment-editor-hint">{dict.dramaticClips.editorHint}</span>
                           </div>
 
                           {/* 1. 씬 자막 제목 */}
                           <div className="toss-branding-row">
-                            <span className="toss-branding-label">씬 자막 제목 (AI 요약 / 직접 수정)</span>
+                            <span className="toss-branding-label">{dict.dramaticClips.subtitleLabel}</span>
                             <input
                               type="text"
                               value={seg.subtitleTitle ?? seg.reason}
                               onChange={(e) =>
                                 handleUpdateSegmentSubtitle(seg.id, 'subtitleTitle', e.target.value)
                               }
-                              placeholder="예: 벚꽃 구경하기, 환하게 웃는 순간"
+                              placeholder={dict.dramaticClips.subtitlePlaceholder}
                               className="toss-input-sm"
                             />
                           </div>
@@ -1207,26 +1221,26 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           <div className="toss-branding-row">
                             <div className="grid grid-cols-2 gap-2">
                               <div>
-                                <span className="text-[11px] font-bold text-slate-600 mb-1 block">촬영 날짜</span>
+                                <span className="text-[11px] font-bold text-slate-600 mb-1 block">{dict.dramaticClips.dateLabel}</span>
                                 <input
                                   type="text"
                                   value={seg.subtitleDate ?? ''}
                                   onChange={(e) =>
                                     handleUpdateSegmentSubtitle(seg.id, 'subtitleDate', e.target.value)
                                   }
-                                  placeholder="예: 9월 10일"
+                                  placeholder={dict.dramaticClips.datePlaceholder}
                                   className="toss-input-sm"
                                 />
                               </div>
                               <div>
-                                <span className="text-[11px] font-bold text-slate-600 mb-1 block">위치 명칭</span>
+                                <span className="text-[11px] font-bold text-slate-600 mb-1 block">{dict.dramaticClips.locationLabel}</span>
                                 <input
                                   type="text"
                                   value={seg.locationName ?? ''}
                                   onChange={(e) =>
                                     handleUpdateSegmentSubtitle(seg.id, 'locationName', e.target.value)
                                   }
-                                  placeholder="예: 해운대 해수욕장"
+                                  placeholder={dict.dramaticClips.locationPlaceholder}
                                   className="toss-input-sm"
                                 />
                               </div>
@@ -1240,7 +1254,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                 onClick={() => setMapModalTarget(seg)}
                               >
                                 <MapPin size={12} className="text-red-500" />
-                                <span>위치 지도 마커 확인</span>
+                                <span>{dict.dramaticClips.checkMapMarker}</span>
                               </button>
 
                               <a
@@ -1256,7 +1270,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                 className="toss-btn-micro-action"
                               >
                                 <ExternalLink size={11} />
-                                <span>네이버 지도</span>
+                                <span>{dict.dramaticClips.naverMap}</span>
                               </a>
 
                               <a
@@ -1270,7 +1284,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                 className="toss-btn-micro-action"
                               >
                                 <ExternalLink size={11} />
-                                <span>구글 지도</span>
+                                <span>{dict.dramaticClips.googleMap}</span>
                               </a>
                             </div>
                           </div>
@@ -1278,9 +1292,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           {/* 3. 16:9 세로 영상 인물 크롭 기준 */}
                           <div className="toss-branding-row">
                             <div className="flex items-center justify-between mb-1">
-                              <span className="toss-branding-label">16:9 인물 크롭 위치</span>
+                              <span className="toss-branding-label">{dict.dramaticClips.cropLabel}</span>
                               <span className="text-[11px] text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded">
-                                AI 추천 반영됨
+                                {dict.dramaticClips.aiRecommended}
                               </span>
                             </div>
                             <div className="toss-segment-control">
@@ -1289,21 +1303,21 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                 className={`toss-segment-btn ${(seg.cropOffsetYRatio ?? 0.2) <= 0.25 ? 'active' : ''}`}
                                 onClick={() => handleCropAnchorChange(seg.id, 0.15)}
                               >
-                                상단 (얼굴 보호)
+                                {dict.dramaticClips.cropTop}
                               </button>
                               <button
                                 type="button"
                                 className={`toss-segment-btn ${(seg.cropOffsetYRatio ?? 0.2) > 0.25 && (seg.cropOffsetYRatio ?? 0.2) < 0.75 ? 'active' : ''}`}
                                 onClick={() => handleCropAnchorChange(seg.id, 0.5)}
                               >
-                                중앙
+                                {dict.dramaticClips.cropCenter}
                               </button>
                               <button
                                 type="button"
                                 className={`toss-segment-btn ${(seg.cropOffsetYRatio ?? 0.2) >= 0.75 ? 'active' : ''}`}
                                 onClick={() => handleCropAnchorChange(seg.id, 0.85)}
                               >
-                                하단
+                                {dict.dramaticClips.cropBottom}
                               </button>
                             </div>
                           </div>
@@ -1316,15 +1330,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             )}
           </div>
 
-          {/* ★ [3] 극적순간 하단: 종료 아웃트로 카드 */}
+          {/* 종료 아웃트로 카드 */}
           <div className="toss-card toss-outro-card">
             <div className="toss-card-header">
               <div>
                 <h4 className="toss-card-title">
                   <Film size={15} className="text-blue-600 shrink-0" />
-                  <span>종료 아웃트로</span>
+                  <span>{dict.introOutro.outroTitle}</span>
                 </h4>
-                <p className="toss-card-desc">영상 종료 시 재생할 아웃트로를 설정해요.</p>
+                <p className="toss-card-desc">{dict.introOutro.outroDesc}</p>
               </div>
               <label className="toss-toggle-switch">
                 <input
@@ -1359,7 +1373,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       onClick={() =>
                         setOverlayOptions((prev) => ({ ...prev, outroVideoFile: null }))
                       }
-                      title="영상 제거"
+                      title={dict.introOutro.removeVideo}
                     >
                       <X size={13} />
                     </button>
@@ -1371,33 +1385,33 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     onClick={() => outroVideoInputRef.current?.click()}
                   >
                     <Plus size={14} />
-                    <span>+ 아웃트로 동영상 올리기 (MP4, MOV)</span>
+                    <span>{dict.introOutro.uploadOutro}</span>
                   </button>
                 )}
                 <span className="text-[11px] text-slate-400 block mt-1.5">
                   {overlayOptions.outroVideoFile
-                    ? '업로드된 아웃트로 영상이 하이라이트 끝에 합성됩니다.'
-                    : '동영상을 올리지 않으면 시네마틱 엔딩 카드(1.8초)가 자동으로 적용됩니다.'}
+                    ? dict.introOutro.outroApplied
+                    : dict.introOutro.outroDefault}
                 </span>
               </div>
             )}
           </div>
 
-          {/* ★ [4] 시간 절약 효과 요약 카드 */}
+          {/* 시간 절약 효과 요약 카드 */}
           {originalTotalDuration > 0 && segments.length > 0 && (
             <div className="toss-summary-card">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-500 font-medium">시간 절약률</span>
+                <span className="text-xs text-slate-500 font-medium">{dict.summaryCard.timeSavedRate}</span>
                 <span className="text-sm font-bold text-emerald-600">
-                  {savedPercent}% 단축
+                  {interpolate(dict.summaryCard.reducedBy, { percent: savedPercent })}
                 </span>
               </div>
               <div className="flex items-baseline justify-between mt-1">
                 <span className="text-xs text-slate-400">
-                  {originalTotalDuration.toFixed(1)}초 원본 영상
+                  {interpolate(dict.summaryCard.originalVideo, { duration: originalTotalDuration.toFixed(1) })}
                 </span>
                 <span className="text-base font-bold text-slate-900 font-mono">
-                  ➔ {totalDuration.toFixed(1)}초 하이라이트
+                  {interpolate(dict.summaryCard.highlightVideo, { duration: totalDuration.toFixed(1) })}
                 </span>
               </div>
             </div>
@@ -1405,9 +1419,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         </section>
       </main>
 
-
-
-      {/* 4. AI 분석 진행 중 친절한 토스식 모달 (스피너 단독 금지, 진행률 & 안내) */}
+      {/* AI 분석 진행 중 토스식 모달 */}
       {isProcessing && (
         <div className="toss-modal-overlay">
           <div className="toss-modal-card">
@@ -1415,9 +1427,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               <Sparkles size={24} className="text-blue-500 animate-pulse" />
             </div>
 
-            <h3 className="toss-modal-title">AI가 극적인 순간을 찾고 있어요</h3>
+            <h3 className="toss-modal-title">{dict.processingModal.title}</h3>
             <p className="toss-modal-desc">
-              {progress.statusMessage || '영상의 주요 장면을 분석하고 있어요. 잠시만 기다려 주세요.'}
+              {progress.statusMessage || dict.processingModal.defaultDesc}
             </p>
 
             {/* 진행률 바 */}
@@ -1428,23 +1440,23 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               />
             </div>
             <div className="flex justify-between items-center text-xs font-mono text-slate-400 mt-1.5 px-0.5">
-              <span>16:9 유튜브 시네마틱 규격</span>
+              <span>{dict.processingModal.youtubeSpec}</span>
               <span className="font-bold text-blue-600">{progress.progressPercent}%</span>
             </div>
 
-            {/* ★ 실시간 AI 비전 추론 로그 콘솔 (Point 9) */}
+            {/* 실시간 AI 비전 추론 로그 콘솔 */}
             <div className="toss-modal-reasoning-wrap mt-4 text-left">
               <div className="toss-modal-reasoning-header flex items-center gap-1.5 mb-1.5 px-1">
                 <span className="toss-reasoning-live-dot" />
-                <span className="text-xs font-bold text-slate-700">실시간 AI 비전 추론 과정</span>
+                <span className="text-xs font-bold text-slate-700">{dict.processingModal.reasoningHeader}</span>
                 <span className="text-[11px] font-mono text-blue-600 ml-auto">
                   {progress.currentPhase === 'extract'
-                    ? '프레임 추출 중'
+                    ? dict.processingModal.phaseExtract
                     : progress.currentPhase === 'analyze'
-                    ? '멀티모달 시각 분석 중'
+                    ? dict.processingModal.phaseAnalyze
                     : progress.currentPhase === 'stitch'
-                    ? '16:9 무손실 병합 중'
-                    : '진행 중'}
+                    ? dict.processingModal.phaseStitch
+                    : dict.processingModal.phaseProcessing}
                   {` · ${processingElapsed}s`}
                 </span>
               </div>
@@ -1457,11 +1469,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   ))
                 ) : (
                   <div className="toss-reasoning-log-line text-slate-400">
-                    AI 모델 및 영상 프레임 시퀀스 준비 중...
+                    {dict.processingModal.waitingModel}
                   </div>
                 )}
 
-                {/* 실제 모델의 사고 과정/응답 스트림 (토큰 단위 실시간 렌더링) */}
                 {(() => {
                   const reasoningText = (progress.liveReasoning || '').trim();
                   const contentText = (progress.liveContent || '').trim();
@@ -1470,7 +1481,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     return progress.currentPhase === 'analyze' ? (
                       <div className="toss-reasoning-waiting">
                         <span className="toss-live-caret" />
-                        <span>모델이 첫 토큰을 생성할 때까지 대기 중... (프레임 전송 완료)</span>
+                        <span>{dict.processingModal.waitingFirstToken}</span>
                       </div>
                     ) : null;
                   }
@@ -1478,8 +1489,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   return (
                     <div className={`toss-live-reasoning-block ${reasoningText ? 'is-reasoning' : 'is-content'}`}>
                       <div className="toss-live-reasoning-label">
-                        <span>{reasoningText ? '💭 모델 사고 과정 (실시간)' : '⌨️ 모델 응답 생성 중 (실시간)'}</span>
-                        <span className="toss-live-reasoning-count">{liveText.length.toLocaleString()}자</span>
+                        <span>{reasoningText ? dict.processingModal.reasoningProcess : dict.processingModal.responseGeneration}</span>
+                        <span className="toss-live-reasoning-count">
+                          {interpolate(dict.processingModal.charsCount, { count: liveText.length.toLocaleString() })}
+                        </span>
                       </div>
                       <div className="toss-live-reasoning-text">
                         {liveText}
@@ -1497,13 +1510,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               className="toss-btn-text text-slate-400 mt-4 mx-auto block hover:text-slate-600"
               onClick={onCancelProcessing}
             >
-              닫기
+              {dict.common.cancel}
             </button>
           </div>
         </div>
       )}
 
-      {/* ★ 5. 씬 촬영 위치 지도 확인 모달 (Point 5) */}
+      {/* 5. 씬 촬영 위치 지도 확인 모달 */}
       {mapModalTarget && (
         <div className="toss-modal-overlay" onClick={() => setMapModalTarget(null)}>
           <div className="toss-modal-card toss-map-modal-card" onClick={(e) => e.stopPropagation()}>
@@ -1512,7 +1525,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 <MapPin size={20} className="text-red-500 flex-shrink-0" />
                 <div>
                   <h3 className="text-base font-bold text-slate-900 leading-tight">
-                    촬영 위치 지도 확인
+                    {dict.mapModal.title}
                   </h3>
                   <span className="text-xs text-slate-400">
                     {mapModalTarget.locationName || mapModalTarget.subtitleTitle || mapModalTarget.reason}
@@ -1523,6 +1536,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 type="button"
                 className="toss-btn-icon"
                 onClick={() => setMapModalTarget(null)}
+                title={dict.common.close}
               >
                 <X size={16} />
               </button>
@@ -1532,7 +1546,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <div className="toss-map-frame-box">
               {mapModalTarget.latitude && mapModalTarget.longitude ? (
                 <iframe
-                  title="촬영 위치 지도"
+                  title={dict.mapModal.title}
                   className="w-full h-64 rounded-xl border border-slate-200"
                   src={`https://www.openstreetmap.org/export/embed.html?bbox=${mapModalTarget.longitude - 0.008}%2C${mapModalTarget.latitude - 0.008}%2C${mapModalTarget.longitude + 0.008}%2C${mapModalTarget.latitude + 0.008}&layer=mapnik&marker=${mapModalTarget.latitude}%2C${mapModalTarget.longitude}`}
                 />
@@ -1540,11 +1554,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 <div className="w-full h-48 rounded-xl bg-slate-50 border border-slate-200 flex flex-col items-center justify-center p-4 text-center">
                   <MapPin size={28} className="text-slate-300 mb-2" />
                   <p className="text-xs text-slate-700 font-bold mb-1">
-                    {mapModalTarget.locationName || 'GPS 메타데이터 미포함 영상'}
+                    {interpolate(dict.mapModal.noGpsTitle, {
+                      location: mapModalTarget.locationName || dict.common.videos,
+                    })}
                   </p>
                   <p className="text-[11px] text-slate-400">
-                    동영상 파일에 직접적인 GPS 좌표가 없더라도<br />
-                    아래 네이버 지도 또는 구글 지도를 눌러 장소를 바로 검색하실 수 있습니다.
+                    {dict.mapModal.noGpsDesc}
                   </p>
                 </div>
               )}
@@ -1564,7 +1579,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 className="toss-btn-secondary"
               >
                 <ExternalLink size={13} />
-                <span>네이버 지도에서 보기</span>
+                <span>{dict.mapModal.viewNaverMap}</span>
               </a>
               <a
                 href={
@@ -1577,14 +1592,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 className="toss-btn-secondary"
               >
                 <ExternalLink size={13} />
-                <span>구글 지도에서 보기</span>
+                <span>{dict.mapModal.viewGoogleMap}</span>
               </a>
               <button
                 type="button"
                 className="toss-btn-primary"
                 onClick={() => setMapModalTarget(null)}
               >
-                닫기
+                {dict.common.close}
               </button>
             </div>
           </div>
