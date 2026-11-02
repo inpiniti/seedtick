@@ -178,7 +178,7 @@ export function App() {
   const handleStartProcessing = async (
     overlayOpts?: VideoOverlayOptions,
     customAudio?: File | null,
-    bgmPresetId = 'acoustic',
+    bgmPresetId = 'none',
     bgmVol = 0.35
   ) => {
     if (videos.length === 0) return;
@@ -417,7 +417,7 @@ export function App() {
   // 사용자가 프로 스튜디오 타임라인에서 구간을 직접 수정/트리밍/BGM 변경했을 때 재렌더링
   const handleReStitch = async (
     updatedSegments: HighlightSegment[],
-    bgmPresetId = 'acoustic',
+    bgmPresetId = 'none',
     bgmVolume = 0.35,
     customAudioFile?: File | null,
     overlayOptions?: VideoOverlayOptions

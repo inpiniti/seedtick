@@ -37,7 +37,6 @@ import type {
   VideoOverlayOptions,
 } from '../../types/video.ts';
 import type { FreeModelMeta, ReasoningEffortOption } from '../../types/gateway.ts';
-import { BGM_PRESETS, playBgmSynthLoop } from '../../services/audioSynth.ts';
 import { getSpeedTier } from '../../services/modelMetrics.ts';
 import { ModelSelectorModal } from './ModelSelectorModal.tsx';
 
@@ -118,11 +117,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
 
-  // 2. BGM 상태
-  const [selectedBgmId, setSelectedBgmId] = useState<string>('acoustic');
+  // 2. 배경음악(BGM) 상태 (업로드 전용)
+  const [selectedBgmId, setSelectedBgmId] = useState<string>('none');
   const [bgmVolume, setBgmVolume] = useState<number>(0.3);
-  const [previewingBgmId, setPreviewingBgmId] = useState<string | null>(null);
-  const bgmPreviewRef = useRef<{ stop: () => void } | null>(null);
 
   // 3. 사용자 직접 업로드 음악 상태
   const [customAudioFile, setCustomAudioFile] = useState<File | null>(null);
@@ -458,34 +455,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     );
   };
 
-  // BGM 미리듣기
-  const handleToggleBgmPreview = (presetId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (previewingBgmId === presetId) {
-      bgmPreviewRef.current?.stop();
-      bgmPreviewRef.current = null;
-      setPreviewingBgmId(null);
-      return;
-    }
 
-    bgmPreviewRef.current?.stop();
-    try {
-      const AudioContextClass =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      const ctx = new AudioContextClass();
-      const ctrl = playBgmSynthLoop(ctx, ctx.destination, presetId, bgmVolume);
-      bgmPreviewRef.current = {
-        stop: () => {
-          ctrl.stop();
-          ctx.close().catch(() => {});
-        },
-      };
-      setPreviewingBgmId(presetId);
-    } catch {
-      // ignore
-    }
-  };
 
   // 파일 업로드
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -580,10 +550,53 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
       {/* 2. 본문 2열 레이아웃 */}
       <main className="toss-main-content">
-        {/* 2-A. 왼쪽 열: 16:9 모니터 & 타임라인 클립 목록 */}
+        {/* 2-A. 왼쪽 열: 상단 문구 & 16:9 모니터 & 배경음악 업로드 & 소스 영상 관리 */}
         <section className="toss-column-left">
-          {/* 16:9 비디오 플레이어 카드 */}
+          {/* 16:9 비디오 플레이어 카드 (상단에 직관적인 좌/우 문구 입력창 일체형 배치) */}
           <div className="toss-card toss-player-card">
+            {/* ★ 영상 상단 왼쪽, 오른쪽 문구 직관 입력창 */}
+            <div className="toss-video-header-bar">
+              <div className="toss-header-input-wrap">
+                <label className="toss-header-input-label">
+                  <Type size={12} className="text-blue-500" />
+                  <span>왼쪽 문구</span>
+                </label>
+                <input
+                  type="text"
+                  value={overlayOptions.titleText}
+                  onChange={(e) =>
+                    setOverlayOptions((prev) => ({
+                      ...prev,
+                      titleText: e.target.value,
+                      showTitle: e.target.value.trim().length > 0,
+                    }))
+                  }
+                  placeholder="왼쪽 상단 문구 (비워두면 표시 안 됨)"
+                  className="toss-header-input"
+                />
+              </div>
+
+              <div className="toss-header-input-wrap text-right">
+                <label className="toss-header-input-label justify-end">
+                  <span>오른쪽 문구</span>
+                  <Type size={12} className="text-blue-500" />
+                </label>
+                <input
+                  type="text"
+                  value={overlayOptions.channelText}
+                  onChange={(e) =>
+                    setOverlayOptions((prev) => ({
+                      ...prev,
+                      channelText: e.target.value,
+                      showChannel: e.target.value.trim().length > 0,
+                    }))
+                  }
+                  placeholder="오른쪽 상단 문구 (비워두면 표시 안 됨)"
+                  className="toss-header-input text-right"
+                />
+              </div>
+            </div>
+
             <div className="toss-player-wrapper">
               {activeVideoUrl ? (
                 <>
@@ -615,8 +628,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     </button>
                   )}
 
-                  {/* ★ 실시간 자막 & 브랜딩 오버레이 라이브 프리뷰 
-                      (완성된 병합 영상 재생 시에는 이미 영상 내에 인코딩되어 있으므로 중복 표시를 방지하기 위해 숨김) */}
+                  {/* ★ 실시간 자막 & 문구 오버레이 라이브 프리뷰 */}
                   {!result?.url && overlayOptions.showTitle && overlayOptions.titleText && (
                     <div className="toss-live-overlay-title">
                       {overlayOptions.titleText}
@@ -796,7 +808,231 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             )}
           </div>
 
-          {/* 타임라인 극적 구간 리스트 카드 */}
+          {/* ★ 영상 바로 아래쪽: 배경음악 (BGM 업로드 전용) */}
+          <div className="toss-card toss-bgm-card">
+            <div className="toss-card-header">
+              <div>
+                <h4 className="toss-card-title flex items-center gap-1.5">
+                  <Music size={16} className="text-blue-600" />
+                  배경음악
+                </h4>
+                <p className="toss-card-desc">
+                  직접 준비한 음악 파일(MP3, WAV)을 올려 영상에 BGM을 입혀보세요.
+                </p>
+              </div>
+
+              {customAudioFile && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-slate-500">볼륨</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={bgmVolume}
+                    onChange={(e) => setBgmVolume(parseFloat(e.target.value))}
+                    className="toss-slider"
+                  />
+                  <span className="text-xs font-mono font-bold text-blue-600 w-8 text-right">
+                    {Math.round(bgmVolume * 100)}%
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <input
+              ref={customAudioInputRef}
+              type="file"
+              accept="audio/*"
+              style={{ display: 'none' }}
+              onChange={handleCustomAudioSelected}
+            />
+
+            {customAudioFile ? (
+              <div className="toss-bgm-uploaded-box">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="toss-audio-icon-box">
+                    <FileAudio size={18} className="text-blue-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-slate-800 truncate">
+                      {customAudioName}
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">
+                      내 음악 파일 ({((customAudioFile.size || 0) / (1024 * 1024)).toFixed(1)}MB) • 적용 완료
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    className="toss-btn-secondary toss-btn-xs"
+                    onClick={() => customAudioInputRef.current?.click()}
+                  >
+                    파일 변경
+                  </button>
+                  <button
+                    type="button"
+                    className="toss-btn-delete-sm"
+                    onClick={() => {
+                      setCustomAudioFile(null);
+                      setCustomAudioName('');
+                      setSelectedBgmId('none');
+                    }}
+                    title="배경음악 삭제"
+                  >
+                    <X size={15} />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="toss-upload-box toss-audio-upload-box"
+                onClick={() => customAudioInputRef.current?.click()}
+              >
+                <FileAudio size={22} className="text-blue-500 mb-1" />
+                <span className="text-xs font-bold text-slate-800">
+                  + 배경음악 파일 올리기 (MP3, WAV)
+                </span>
+                <span className="text-[11px] text-slate-400 mt-0.5">
+                  영상을 더욱 풍성하게 만들어줄 BGM 음원을 업로드하세요
+                </span>
+              </button>
+            )}
+          </div>
+
+          {/* 소스 영상 관리 카드 */}
+          <div className="toss-card">
+            <div className="toss-card-header">
+              <h4 className="toss-card-title flex items-center gap-1.5">
+                <Upload size={16} className="text-slate-700" />
+                올린 원본 영상 ({videos.length}개)
+              </h4>
+              <button
+                type="button"
+                className="toss-btn-sm-text"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                + 추가하기
+              </button>
+            </div>
+
+            {videos.length === 0 ? (
+              <div
+                className="toss-upload-box"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload size={20} className="text-slate-400 mb-1" />
+                <span className="text-xs font-bold text-slate-700">여기를 눌러 영상을 올려주세요</span>
+                <span className="text-[11px] text-slate-400">MP4, MOV 등 영상 파일 지원</span>
+              </div>
+            ) : (
+              <div className="toss-source-list">
+                {videos.map((vid, idx) => (
+                  <div key={vid.id} className="toss-source-item">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {vid.thumbnailUrl && (
+                        <img src={vid.thumbnailUrl} alt="" className="toss-source-thumb" />
+                      )}
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-slate-800 truncate" title={vid.name}>
+                          #{idx + 1} {vid.name}
+                        </div>
+                        <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                          {vid.duration.toFixed(1)}초 • {vid.width}×{vid.height}
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="toss-btn-delete-sm"
+                      onClick={() => onRemoveVideo(vid.id)}
+                      title="삭제"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* 2-B. 오른쪽 열: [상단 인트로] -> [중간 AI가 포착한 극적 순간] -> [하단 아웃트로] -> [요약] */}
+        <section className="toss-column-right">
+          {/* ★ [1] 극적순간 상단: 시작 인트로 카드 */}
+          <div className="toss-card toss-intro-card">
+            <div className="toss-card-header">
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-2">
+                  <Film size={16} className="text-blue-600" />
+                  <div>
+                    <h4 className="toss-card-title">시작 인트로</h4>
+                    <p className="toss-card-desc">영상 시작 시 재생할 인트로를 설정해요.</p>
+                  </div>
+                </div>
+                <label className="toss-toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={overlayOptions.showIntro}
+                    onChange={(e) =>
+                      setOverlayOptions((prev) => ({ ...prev, showIntro: e.target.checked }))
+                    }
+                  />
+                  <span className="toss-toggle-slider" />
+                </label>
+              </div>
+            </div>
+
+            {overlayOptions.showIntro && (
+              <div className="toss-intro-content mt-2">
+                <input
+                  ref={introVideoInputRef}
+                  type="file"
+                  accept="video/*"
+                  style={{ display: 'none' }}
+                  onChange={handleIntroVideoSelected}
+                />
+                {overlayOptions.introVideoFile ? (
+                  <div className="toss-clip-file-chip">
+                    <Film size={14} className="text-blue-600 flex-shrink-0" />
+                    <span className="truncate text-xs font-semibold text-slate-800">
+                      {overlayOptions.introVideoFile.name}
+                    </span>
+                    <button
+                      type="button"
+                      className="toss-btn-delete-sm ml-auto"
+                      onClick={() =>
+                        setOverlayOptions((prev) => ({ ...prev, introVideoFile: null }))
+                      }
+                      title="영상 제거"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="toss-btn-custom-audio w-full"
+                    onClick={() => introVideoInputRef.current?.click()}
+                  >
+                    <Plus size={14} />
+                    <span>+ 인트로 동영상 올리기 (MP4, MOV)</span>
+                  </button>
+                )}
+                <span className="text-[11px] text-slate-400 block mt-1.5">
+                  {overlayOptions.introVideoFile
+                    ? '업로드된 인트로 영상이 하이라이트 시작부에 합성됩니다.'
+                    : '동영상을 올리지 않으면 시네마틱 타이틀 카드(1.6초)가 자동으로 적용됩니다.'}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* ★ [2] AI가 포착한 극적 순간 카드 */}
           <div className="toss-card">
             <div className="toss-card-header">
               <div>
@@ -805,21 +1041,36 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   AI가 포착한 극적 순간
                 </h4>
                 <p className="toss-card-desc">
-                  구간을 누르면 이 자리에서 자막·촬영 날짜·위치·구도를 바로 수정할 수 있어요.
+                  구간을 누르면 자막·촬영 날짜·위치·구도를 바로 수정할 수 있어요.
                 </p>
               </div>
 
-              {segments.length > 0 && (
-                <span className="toss-tag-gray">
-                  총 {segments.length}개 구간 ({totalDuration.toFixed(1)}초)
-                </span>
-              )}
+              <div className="flex items-center gap-3">
+                {segments.length > 0 && (
+                  <span className="toss-tag-gray">
+                    총 {segments.length}개 구간 ({totalDuration.toFixed(1)}초)
+                  </span>
+                )}
+                <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-600" title="영상 하단에 씬별 날짜와 자막을 표시합니다">
+                  <span>하단 자막</span>
+                  <span className="toss-toggle-switch">
+                    <input
+                      type="checkbox"
+                      checked={overlayOptions.showSubtitle}
+                      onChange={(e) =>
+                        setOverlayOptions((prev) => ({ ...prev, showSubtitle: e.target.checked }))
+                      }
+                    />
+                    <span className="toss-toggle-slider" />
+                  </span>
+                </label>
+              </div>
             </div>
 
             {segments.length === 0 ? (
               <div className="toss-empty-state">
                 <p className="text-slate-400 text-sm">
-                  영상을 올리고 오른쪽의 '✨ AI 하이라이트 만들기'를 누르면 극적 구간이 채워져요.
+                  영상을 올리고 하단의 '✨ AI 하이라이트 만들기'를 누르면 극적 구간이 채워져요.
                 </p>
               </div>
             ) : (
@@ -1051,404 +1302,77 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               </div>
             )}
           </div>
-        </section>
 
-        {/* 2-B. 오른쪽 열: 사운드트랙 & 인스펙터 & 액션 카드 */}
-        <section className="toss-column-right">
-          {/* 소스 영상 관리 카드 */}
-          <div className="toss-card">
+          {/* ★ [3] 극적순간 하단: 종료 아웃트로 카드 */}
+          <div className="toss-card toss-outro-card">
             <div className="toss-card-header">
-              <h4 className="toss-card-title flex items-center gap-1.5">
-                <Upload size={16} className="text-slate-700" />
-                올린 영상 ({videos.length}개)
-              </h4>
-              <button
-                type="button"
-                className="toss-btn-sm-text"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                + 추가하기
-              </button>
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-2">
+                  <Film size={16} className="text-blue-600" />
+                  <div>
+                    <h4 className="toss-card-title">종료 아웃트로</h4>
+                    <p className="toss-card-desc">영상 종료 시 재생할 아웃트로를 설정해요.</p>
+                  </div>
+                </div>
+                <label className="toss-toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={overlayOptions.showOutro}
+                    onChange={(e) =>
+                      setOverlayOptions((prev) => ({ ...prev, showOutro: e.target.checked }))
+                    }
+                  />
+                  <span className="toss-toggle-slider" />
+                </label>
+              </div>
             </div>
 
-            {videos.length === 0 ? (
-              <div
-                className="toss-upload-box"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Upload size={20} className="text-slate-400 mb-1" />
-                <span className="text-xs font-bold text-slate-700">여기를 눌러 영상을 올려주세요</span>
-                <span className="text-[11px] text-slate-400">MP4, MOV 등 영상 파일 지원</span>
-              </div>
-            ) : (
-              <div className="toss-source-list">
-                {videos.map((vid, idx) => (
-                  <div key={vid.id} className="toss-source-item">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      {vid.thumbnailUrl && (
-                        <img src={vid.thumbnailUrl} alt="" className="toss-source-thumb" />
-                      )}
-                      <div className="min-w-0">
-                        <div className="text-xs font-bold text-slate-800 truncate" title={vid.name}>
-                          #{idx + 1} {vid.name}
-                        </div>
-                        <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                          {vid.duration.toFixed(1)}초 • {vid.width}×{vid.height}
-                        </div>
-                      </div>
-                    </div>
-
+            {overlayOptions.showOutro && (
+              <div className="toss-outro-content mt-2">
+                <input
+                  ref={outroVideoInputRef}
+                  type="file"
+                  accept="video/*"
+                  style={{ display: 'none' }}
+                  onChange={handleOutroVideoSelected}
+                />
+                {overlayOptions.outroVideoFile ? (
+                  <div className="toss-clip-file-chip">
+                    <Film size={14} className="text-blue-600 flex-shrink-0" />
+                    <span className="truncate text-xs font-semibold text-slate-800">
+                      {overlayOptions.outroVideoFile.name}
+                    </span>
                     <button
                       type="button"
-                      className="toss-btn-delete-sm"
-                      onClick={() => onRemoveVideo(vid.id)}
-                      title="삭제"
+                      className="toss-btn-delete-sm ml-auto"
+                      onClick={() =>
+                        setOverlayOptions((prev) => ({ ...prev, outroVideoFile: null }))
+                      }
+                      title="영상 제거"
                     >
-                      <X size={14} />
+                      <X size={13} />
                     </button>
                   </div>
-                ))}
+                ) : (
+                  <button
+                    type="button"
+                    className="toss-btn-custom-audio w-full"
+                    onClick={() => outroVideoInputRef.current?.click()}
+                  >
+                    <Plus size={14} />
+                    <span>+ 아웃트로 동영상 올리기 (MP4, MOV)</span>
+                  </button>
+                )}
+                <span className="text-[11px] text-slate-400 block mt-1.5">
+                  {overlayOptions.outroVideoFile
+                    ? '업로드된 아웃트로 영상이 하이라이트 끝에 합성됩니다.'
+                    : '동영상을 올리지 않으면 시네마틱 엔딩 카드(1.8초)가 자동으로 적용됩니다.'}
+                </span>
               </div>
             )}
           </div>
 
-          {/* 배경음악(BGM) 설정 카드 */}
-          <div className="toss-card">
-            <div className="toss-card-header">
-              <div>
-                <h4 className="toss-card-title flex items-center gap-1.5">
-                  <Music size={16} className="text-blue-600" />
-                  배경음악 (BGM)
-                </h4>
-                <p className="toss-card-desc">
-                  영상의 분위기에 어울리는 무손실 앰비언트 음악을 골라보세요.
-                </p>
-              </div>
-            </div>
-
-            {/* BGM 볼륨 슬라이더 */}
-            <div className="toss-bgm-volume-row">
-              <span className="text-xs font-semibold text-slate-600">음악 볼륨</span>
-              <div className="flex items-center gap-2">
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value={bgmVolume}
-                  onChange={(e) => setBgmVolume(parseFloat(e.target.value))}
-                  className="toss-slider"
-                />
-                <span className="text-xs font-mono font-bold text-blue-600 w-8 text-right">
-                  {Math.round(bgmVolume * 100)}%
-                </span>
-              </div>
-            </div>
-
-            {/* BGM 프리셋 목록 */}
-            <div className="toss-bgm-list">
-              {/* 사용자 직접 업로드 음악 파일 인풋 & 칩 */}
-              <input
-                ref={customAudioInputRef}
-                type="file"
-                accept="audio/*"
-                style={{ display: 'none' }}
-                onChange={handleCustomAudioSelected}
-              />
-
-              {customAudioFile ? (
-                <div
-                  className={`toss-bgm-chip custom-audio-chip ${selectedBgmId === 'custom' ? 'active' : ''}`}
-                  onClick={() => setSelectedBgmId('custom')}
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <FileAudio size={14} className="text-blue-600" />
-                      <span className="text-xs font-bold text-slate-800 truncate">
-                        {customAudioName}
-                      </span>
-                      {selectedBgmId === 'custom' && <Check size={13} className="text-blue-600" />}
-                    </div>
-                    <span className="text-[11px] text-slate-400 block truncate mt-0.5">
-                      내 음악 파일 ({((customAudioFile.size || 0) / (1024 * 1024)).toFixed(1)}MB)
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    className="toss-btn-delete-sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setCustomAudioFile(null);
-                      setCustomAudioName('');
-                      if (selectedBgmId === 'custom') setSelectedBgmId('acoustic');
-                    }}
-                    title="음악 제거"
-                  >
-                    <X size={13} />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className="toss-btn-custom-audio"
-                  onClick={() => customAudioInputRef.current?.click()}
-                >
-                  <FileAudio size={14} className="text-blue-600" />
-                  <span>+ 내 배경음악 파일 올리기 (MP3, WAV)</span>
-                </button>
-              )}
-
-              {BGM_PRESETS.map((preset) => {
-                const isSelected = selectedBgmId === preset.id;
-                const isPreviewing = previewingBgmId === preset.id;
-                return (
-                  <div
-                    key={preset.id}
-                    className={`toss-bgm-chip ${isSelected ? 'active' : ''}`}
-                    onClick={() => setSelectedBgmId(preset.id)}
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-bold text-slate-800">{preset.name}</span>
-                        {isSelected && <Check size={13} className="text-blue-600" />}
-                      </div>
-                      <span className="text-[11px] text-slate-400 block truncate mt-0.5">
-                        {preset.description}
-                      </span>
-                    </div>
-
-                    {preset.id !== 'none' && (
-                      <button
-                        type="button"
-                        className={`toss-bgm-preview-btn ${isPreviewing ? 'playing' : ''}`}
-                        onClick={(e) => handleToggleBgmPreview(preset.id, e)}
-                        title="미리듣기"
-                      >
-                        {isPreviewing ? <Pause size={12} /> : <Play size={12} className="ml-0.5" />}
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* ★ 자막 & 브랜딩 (상단 제목 • 채널 • 인트로/아웃트로) 설정 카드 */}
-          <div className="toss-card">
-            <div className="toss-card-header">
-              <div>
-                <h4 className="toss-card-title flex items-center gap-1.5">
-                  <Type size={16} className="text-blue-600" />
-                  영상 브랜딩 & 인트로/아웃트로
-                </h4>
-                <p className="toss-card-desc">
-                  화면 상단 제목/채널명과 시작·종료 클립을 설정해요.
-                </p>
-              </div>
-            </div>
-
-            <div className="toss-branding-controls">
-              {/* 1. 왼쪽 상단 영상 제목 */}
-              <div className="toss-branding-row">
-                <div className="toss-branding-row-header">
-                  <span className="toss-branding-label">왼쪽 상단 영상 제목</span>
-                  <label className="toss-toggle-switch">
-                    <input
-                      type="checkbox"
-                      checked={overlayOptions.showTitle}
-                      onChange={(e) =>
-                        setOverlayOptions((prev) => ({ ...prev, showTitle: e.target.checked }))
-                      }
-                    />
-                    <span className="toss-toggle-slider" />
-                  </label>
-                </div>
-                {overlayOptions.showTitle && (
-                  <input
-                    type="text"
-                    value={overlayOptions.titleText}
-                    onChange={(e) =>
-                      setOverlayOptions((prev) => ({ ...prev, titleText: e.target.value }))
-                    }
-                    placeholder="예: 2021년도 엄마아빠 결혼전"
-                    className="toss-input-sm"
-                  />
-                )}
-              </div>
-
-              {/* 2. 오른쪽 상단 채널 이름 */}
-              <div className="toss-branding-row">
-                <div className="toss-branding-row-header">
-                  <span className="toss-branding-label">오른쪽 상단 채널 이름</span>
-                  <label className="toss-toggle-switch">
-                    <input
-                      type="checkbox"
-                      checked={overlayOptions.showChannel}
-                      onChange={(e) =>
-                        setOverlayOptions((prev) => ({ ...prev, showChannel: e.target.checked }))
-                      }
-                    />
-                    <span className="toss-toggle-slider" />
-                  </label>
-                </div>
-                {overlayOptions.showChannel && (
-                  <input
-                    type="text"
-                    value={overlayOptions.channelText}
-                    onChange={(e) =>
-                      setOverlayOptions((prev) => ({ ...prev, channelText: e.target.value }))
-                    }
-                    placeholder="예: 은따니"
-                    className="toss-input-sm"
-                  />
-                )}
-              </div>
-
-              {/* 3. 하단 자막 전역 표시 여부 */}
-              <div className="toss-branding-row">
-                <div className="toss-branding-row-header">
-                  <div>
-                    <span className="toss-branding-label">하단 씬별 자막 표시</span>
-                    <span className="text-[11px] text-slate-400 block mt-0.5">
-                      각 씬에 설정된 촬영일자 및 씬 제목을 하단에 표출합니다.
-                    </span>
-                  </div>
-                  <label className="toss-toggle-switch">
-                    <input
-                      type="checkbox"
-                      checked={overlayOptions.showSubtitle}
-                      onChange={(e) =>
-                        setOverlayOptions((prev) => ({ ...prev, showSubtitle: e.target.checked }))
-                      }
-                    />
-                    <span className="toss-toggle-slider" />
-                  </label>
-                </div>
-              </div>
-
-              {/* 4. 시작 인트로 (동영상 파일 직접 삽입 또는 타이틀 카드) */}
-              <div className="toss-branding-row">
-                <div className="toss-branding-row-header">
-                  <span className="toss-branding-label">시작 인트로 삽입</span>
-                  <label className="toss-toggle-switch">
-                    <input
-                      type="checkbox"
-                      checked={overlayOptions.showIntro}
-                      onChange={(e) =>
-                        setOverlayOptions((prev) => ({ ...prev, showIntro: e.target.checked }))
-                      }
-                    />
-                    <span className="toss-toggle-slider" />
-                  </label>
-                </div>
-                {overlayOptions.showIntro && (
-                  <div className="mt-1">
-                    <input
-                      ref={introVideoInputRef}
-                      type="file"
-                      accept="video/*"
-                      style={{ display: 'none' }}
-                      onChange={handleIntroVideoSelected}
-                    />
-                    {overlayOptions.introVideoFile ? (
-                      <div className="toss-clip-file-chip">
-                        <Film size={14} className="text-blue-600 flex-shrink-0" />
-                        <span className="truncate text-xs font-semibold text-slate-800">
-                          {overlayOptions.introVideoFile.name}
-                        </span>
-                        <button
-                          type="button"
-                          className="toss-btn-delete-sm ml-auto"
-                          onClick={() =>
-                            setOverlayOptions((prev) => ({ ...prev, introVideoFile: null }))
-                          }
-                          title="영상 제거"
-                        >
-                          <X size={13} />
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        className="toss-btn-custom-audio"
-                        onClick={() => introVideoInputRef.current?.click()}
-                      >
-                        <Film size={14} />
-                        <span>+ 인트로 동영상 올리기 (MP4, MOV)</span>
-                      </button>
-                    )}
-                    <span className="text-[11px] text-slate-400 block mt-1">
-                      {overlayOptions.introVideoFile
-                        ? '업로드된 인트로 영상이 하이라이트 시작부에 합성됩니다.'
-                        : '동영상을 올리지 않으면 시네마틱 타이틀 카드(1.6초)가 표시됩니다.'}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* 5. 종료 아웃트로 (동영상 파일 직접 삽입 또는 엔딩 카드) */}
-              <div className="toss-branding-row">
-                <div className="toss-branding-row-header">
-                  <span className="toss-branding-label">종료 아웃트로 삽입</span>
-                  <label className="toss-toggle-switch">
-                    <input
-                      type="checkbox"
-                      checked={overlayOptions.showOutro}
-                      onChange={(e) =>
-                        setOverlayOptions((prev) => ({ ...prev, showOutro: e.target.checked }))
-                      }
-                    />
-                    <span className="toss-toggle-slider" />
-                  </label>
-                </div>
-                {overlayOptions.showOutro && (
-                  <div className="mt-1">
-                    <input
-                      ref={outroVideoInputRef}
-                      type="file"
-                      accept="video/*"
-                      style={{ display: 'none' }}
-                      onChange={handleOutroVideoSelected}
-                    />
-                    {overlayOptions.outroVideoFile ? (
-                      <div className="toss-clip-file-chip">
-                        <Film size={14} className="text-blue-600 flex-shrink-0" />
-                        <span className="truncate text-xs font-semibold text-slate-800">
-                          {overlayOptions.outroVideoFile.name}
-                        </span>
-                        <button
-                          type="button"
-                          className="toss-btn-delete-sm ml-auto"
-                          onClick={() =>
-                            setOverlayOptions((prev) => ({ ...prev, outroVideoFile: null }))
-                          }
-                          title="영상 제거"
-                        >
-                          <X size={13} />
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        className="toss-btn-custom-audio"
-                        onClick={() => outroVideoInputRef.current?.click()}
-                      >
-                        <Film size={14} />
-                        <span>+ 아웃트로 동영상 올리기 (MP4, MOV)</span>
-                      </button>
-                    )}
-                    <span className="text-[11px] text-slate-400 block mt-1">
-                      {overlayOptions.outroVideoFile
-                        ? '업로드된 아웃트로 영상이 하이라이트 끝에 합성됩니다.'
-                        : '동영상을 올리지 않으면 시네마틱 엔딩 카드(1.8초)가 표시됩니다.'}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* 시간 절약 효과 요약 카드 */}
+          {/* ★ [4] 시간 절약 효과 요약 카드 */}
           {originalTotalDuration > 0 && segments.length > 0 && (
             <div className="toss-summary-card">
               <div className="flex items-center justify-between">
