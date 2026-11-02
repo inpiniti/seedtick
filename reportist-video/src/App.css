@@ -1,5 +1,15 @@
 /* App.css - Reportist Video 통합 스타일 */
 
+html,
+body,
+#root {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
 .app-container {
   min-height: 100vh;
   display: flex;
@@ -1245,7 +1255,7 @@
   margin: 0;
   padding: 10px 16px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(440px, 520px);
+  grid-template-columns: minmax(420px, 44fr) minmax(500px, 56fr);
   gap: 12px;
   align-items: stretch;
   box-sizing: border-box;
@@ -1647,8 +1657,7 @@
 
 .toss-player-wrapper {
   aspect-ratio: 16 / 9;
-  max-height: calc(100vh - 275px);
-  width: auto;
+  width: 100%;
   max-width: 100%;
   background-color: #000000;
   border-radius: 12px;
@@ -1658,7 +1667,6 @@
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-  margin: 0 auto;
 }
 
 .toss-video-element {
