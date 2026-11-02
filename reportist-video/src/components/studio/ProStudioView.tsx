@@ -39,6 +39,7 @@ import type {
 import type { FreeModelMeta, ReasoningEffortOption } from '../../types/gateway.ts';
 import { getSpeedTier } from '../../services/modelMetrics.ts';
 import { ModelSelectorModal } from './ModelSelectorModal.tsx';
+import { VideoListModal } from './VideoListModal.tsx';
 
 interface ProStudioViewProps {
   result: FinalVideoResult | null;
@@ -132,8 +133,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [mapModalTarget, setMapModalTarget] = useState<HighlightSegment | null>(null);
   const consoleScrollRef = useRef<HTMLDivElement>(null);
 
-  // 4-1. AI 모델 선택 모달 상태
+  // 4-1. AI 모델 및 원본 영상 목록 모달 상태
   const [isModelModalOpen, setIsModelModalOpen] = useState<boolean>(false);
+  const [isVideoListModalOpen, setIsVideoListModalOpen] = useState<boolean>(false);
   const currentModel = useMemo(
     () => models.find((model) => model.id === selectedModel) || models[0] || null,
     [models, selectedModel]
@@ -141,7 +143,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const currentSpeedTier = getSpeedTier(currentModel?.speedTokensPerSecond);
 
   useEffect(() => {
-    if (isProcessing) setIsModelModalOpen(false);
+    if (isProcessing) {
+      setIsModelModalOpen(false);
+      setIsVideoListModalOpen(false);
+    }
   }, [isProcessing]);
 
   // 처리 경과 시간 (멈춰있는 느낌 방지용 실시간 타이머)
@@ -540,6 +545,25 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <ChevronDown size={14} className="toss-model-trigger-chevron" />
           </button>
 
+          {/* ★ 올린 원본 영상 리스트 트리거 (AI 모델과 동일한 룩앤필) */}
+          <button
+            type="button"
+            className="toss-model-trigger"
+            onClick={() => setIsVideoListModalOpen(true)}
+            title="올린 원본 영상 목록을 확인하고 추가/삭제합니다"
+          >
+            <span className="toss-model-trigger-icon">
+              <Film size={13} />
+            </span>
+            <span className="toss-model-trigger-text">
+              <span className="toss-model-trigger-label">올린 영상</span>
+              <span className="toss-model-trigger-name">
+                {videos.length === 0 ? '영상 없음' : `${videos.length}개 영상`}
+              </span>
+            </span>
+            <ChevronDown size={14} className="toss-model-trigger-chevron" />
+          </button>
+
           {videos.length > 0 && (
             <button type="button" className="toss-btn-text" onClick={onReset}>
               새로 시작하기
@@ -550,7 +574,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
       {/* 2. 본문 2열 레이아웃 */}
       <main className="toss-main-content">
-        {/* 2-A. 왼쪽 열: 상단 문구 & 16:9 모니터 & 배경음악 업로드 & 소스 영상 관리 */}
+        {/* 2-A. 왼쪽 열: 상단 문구 & 16:9 모니터 & 배경음악 업로드 */}
         <section className="toss-column-left">
           {/* 16:9 비디오 플레이어 카드 (상단에 직관적인 좌/우 문구 입력창 일체형 배치) */}
           <div className="toss-card toss-player-card">
@@ -571,13 +595,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       showTitle: e.target.value.trim().length > 0,
                     }))
                   }
-                  placeholder="왼쪽 상단 문구 (비워두면 표시 안 됨)"
+                  placeholder="영상 왼쪽 상단 문구 (비워두면 표시 안 됨)"
                   className="toss-header-input"
                 />
               </div>
 
-              <div className="toss-header-input-wrap text-right">
-                <label className="toss-header-input-label justify-end">
+              <div className="toss-header-input-wrap toss-header-input-wrap-right">
+                <label className="toss-header-input-label toss-label-right">
                   <span>오른쪽 문구</span>
                   <Type size={12} className="text-blue-500" />
                 </label>
@@ -591,8 +615,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       showChannel: e.target.value.trim().length > 0,
                     }))
                   }
-                  placeholder="오른쪽 상단 문구 (비워두면 표시 안 됨)"
-                  className="toss-header-input text-right"
+                  placeholder="영상 오른쪽 상단 문구 (비워두면 표시 안 됨)"
+                  className="toss-header-input toss-input-right"
                 />
               </div>
             </div>
@@ -902,63 +926,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               </button>
             )}
           </div>
-
-          {/* 소스 영상 관리 카드 */}
-          <div className="toss-card">
-            <div className="toss-card-header">
-              <h4 className="toss-card-title flex items-center gap-1.5">
-                <Upload size={16} className="text-slate-700" />
-                올린 원본 영상 ({videos.length}개)
-              </h4>
-              <button
-                type="button"
-                className="toss-btn-sm-text"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                + 추가하기
-              </button>
-            </div>
-
-            {videos.length === 0 ? (
-              <div
-                className="toss-upload-box"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Upload size={20} className="text-slate-400 mb-1" />
-                <span className="text-xs font-bold text-slate-700">여기를 눌러 영상을 올려주세요</span>
-                <span className="text-[11px] text-slate-400">MP4, MOV 등 영상 파일 지원</span>
-              </div>
-            ) : (
-              <div className="toss-source-list">
-                {videos.map((vid, idx) => (
-                  <div key={vid.id} className="toss-source-item">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      {vid.thumbnailUrl && (
-                        <img src={vid.thumbnailUrl} alt="" className="toss-source-thumb" />
-                      )}
-                      <div className="min-w-0">
-                        <div className="text-xs font-bold text-slate-800 truncate" title={vid.name}>
-                          #{idx + 1} {vid.name}
-                        </div>
-                        <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                          {vid.duration.toFixed(1)}초 • {vid.width}×{vid.height}
-                        </div>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      className="toss-btn-delete-sm"
-                      onClick={() => onRemoveVideo(vid.id)}
-                      title="삭제"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </section>
 
         {/* 2-B. 오른쪽 열: [상단 인트로] -> [중간 AI가 포착한 극적 순간] -> [하단 아웃트로] -> [요약] */}
@@ -966,25 +933,23 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           {/* ★ [1] 극적순간 상단: 시작 인트로 카드 */}
           <div className="toss-card toss-intro-card">
             <div className="toss-card-header">
-              <div className="flex items-center justify-between w-full">
-                <div className="flex items-center gap-2">
-                  <Film size={16} className="text-blue-600" />
-                  <div>
-                    <h4 className="toss-card-title">시작 인트로</h4>
-                    <p className="toss-card-desc">영상 시작 시 재생할 인트로를 설정해요.</p>
-                  </div>
+              <div className="flex items-center gap-2">
+                <Film size={16} className="text-blue-600" />
+                <div>
+                  <h4 className="toss-card-title">시작 인트로</h4>
+                  <p className="toss-card-desc">영상 시작 시 재생할 인트로를 설정해요.</p>
                 </div>
-                <label className="toss-toggle-switch">
-                  <input
-                    type="checkbox"
-                    checked={overlayOptions.showIntro}
-                    onChange={(e) =>
-                      setOverlayOptions((prev) => ({ ...prev, showIntro: e.target.checked }))
-                    }
-                  />
-                  <span className="toss-toggle-slider" />
-                </label>
               </div>
+              <label className="toss-toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={overlayOptions.showIntro}
+                  onChange={(e) =>
+                    setOverlayOptions((prev) => ({ ...prev, showIntro: e.target.checked }))
+                  }
+                />
+                <span className="toss-toggle-slider" />
+              </label>
             </div>
 
             {overlayOptions.showIntro && (
@@ -1306,25 +1271,23 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           {/* ★ [3] 극적순간 하단: 종료 아웃트로 카드 */}
           <div className="toss-card toss-outro-card">
             <div className="toss-card-header">
-              <div className="flex items-center justify-between w-full">
-                <div className="flex items-center gap-2">
-                  <Film size={16} className="text-blue-600" />
-                  <div>
-                    <h4 className="toss-card-title">종료 아웃트로</h4>
-                    <p className="toss-card-desc">영상 종료 시 재생할 아웃트로를 설정해요.</p>
-                  </div>
+              <div className="flex items-center gap-2">
+                <Film size={16} className="text-blue-600" />
+                <div>
+                  <h4 className="toss-card-title">종료 아웃트로</h4>
+                  <p className="toss-card-desc">영상 종료 시 재생할 아웃트로를 설정해요.</p>
                 </div>
-                <label className="toss-toggle-switch">
-                  <input
-                    type="checkbox"
-                    checked={overlayOptions.showOutro}
-                    onChange={(e) =>
-                      setOverlayOptions((prev) => ({ ...prev, showOutro: e.target.checked }))
-                    }
-                  />
-                  <span className="toss-toggle-slider" />
-                </label>
               </div>
+              <label className="toss-toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={overlayOptions.showOutro}
+                  onChange={(e) =>
+                    setOverlayOptions((prev) => ({ ...prev, showOutro: e.target.checked }))
+                  }
+                />
+                <span className="toss-toggle-slider" />
+              </label>
             </div>
 
             {overlayOptions.showOutro && (
@@ -1394,62 +1357,55 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         </section>
       </main>
 
-      {/* 3. 하단 고정 CTA 버튼 바 (Toss Floating Action Bar) */}
-      <footer className="toss-bottom-bar">
-        <div className="toss-bottom-inner">
-          {videos.length === 0 ? (
-            <button
-              type="button"
-              className="toss-cta-button"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Plus size={18} />
-              <span>동영상 올리기</span>
-            </button>
-          ) : !result?.url ? (
-            <button
-              type="button"
-              className={`toss-cta-button ${isProcessing ? 'loading' : ''}`}
-              onClick={() =>
-                onStartAiAnalysis(overlayOptions, customAudioFile, selectedBgmId, bgmVolume)
-              }
-              disabled={isProcessing}
-            >
-              <Sparkles size={18} className={isProcessing ? 'animate-spin' : ''} />
-              <span>{isProcessing ? 'AI가 극적인 순간을 찾는 중...' : '✨ AI 하이라이트 만들기'}</span>
-            </button>
-          ) : (
-            <div className="toss-bottom-dual-actions">
+      {/* 3. 하단 고정 CTA 버튼 바 (영상이 있을 때만 액션 활성화) */}
+      {videos.length > 0 && (
+        <footer className="toss-bottom-bar">
+          <div className="toss-bottom-inner">
+            {!result?.url ? (
               <button
                 type="button"
-                className="toss-btn-re-render"
+                className={`toss-cta-button ${isProcessing ? 'loading' : ''}`}
                 onClick={() =>
-                  onReStitch(
-                    segments,
-                    selectedBgmId,
-                    bgmVolume,
-                    customAudioFile,
-                    overlayOptions
-                  )
+                  onStartAiAnalysis(overlayOptions, customAudioFile, selectedBgmId, bgmVolume)
                 }
-                disabled={isReStitching || segments.length === 0}
+                disabled={isProcessing}
               >
-                <Scissors size={15} />
-                <span>{isReStitching ? '다시 병합 중...' : '수정된 타임라인 다시 병합'}</span>
+                <Sparkles size={18} className={isProcessing ? 'animate-spin' : ''} />
+                <span>{isProcessing ? 'AI가 극적인 순간을 찾는 중...' : '✨ AI 하이라이트 만들기'}</span>
               </button>
+            ) : (
+              <div className="toss-bottom-dual-actions">
+                <button
+                  type="button"
+                  className="toss-btn-re-render"
+                  onClick={() =>
+                    onReStitch(
+                      segments,
+                      selectedBgmId,
+                      bgmVolume,
+                      customAudioFile,
+                      overlayOptions
+                    )
+                  }
+                  disabled={isReStitching || segments.length === 0}
+                >
+                  <Scissors size={15} />
+                  <span>{isReStitching ? '다시 병합 중...' : '수정된 타임라인 다시 병합'}</span>
+                </button>
 
-              <button
-                type="button"
-                className="toss-cta-button"
-                onClick={handleDownload}
-              >
-                <Download size={18} />
-                <span>🎉 16:9 완성 영상 다운로드하기 ({formatSec(totalDuration)})</span>
-              </button>
-            </div>
-          )}
-        </div>
-      </footer>
+                <button
+                  type="button"
+                  className="toss-cta-button"
+                  onClick={handleDownload}
+                >
+                  <Download size={18} />
+                  <span>🎉 16:9 완성 영상 다운로드하기 ({formatSec(totalDuration)})</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </footer>
+      )}
 
       {/* 4. AI 분석 진행 중 친절한 토스식 모달 (스피너 단독 금지, 진행률 & 안내) */}
       {isProcessing && (
@@ -1642,6 +1598,18 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         models={models}
         selectedModelId={selectedModel}
         onSelectModel={onSelectModel}
+      />
+
+      {/* 7. 올린 원본 영상 목록 모달 */}
+      <VideoListModal
+        isOpen={isVideoListModalOpen}
+        onClose={() => setIsVideoListModalOpen(false)}
+        videos={videos}
+        onRemoveVideo={onRemoveVideo}
+        onAddFilesClick={() => {
+          setIsVideoListModalOpen(false);
+          fileInputRef.current?.click();
+        }}
       />
     </div>
   );
