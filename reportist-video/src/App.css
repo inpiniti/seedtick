@@ -1039,33 +1039,42 @@
   }
 }
 
-/* Toss Studio Root Layout */
+/* Toss Studio Root Layout - Fullscreen IDE / NLE Studio Workspace (세로 스크롤 제거) */
 .toss-app-root {
-  min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
   background-color: #f7f9fc;
   color: #191f28;
   font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
+  display: flex;
+  flex-direction: column;
 }
 
 .toss-page-container {
-  min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
   background-color: #f7f9fc;
-  padding-bottom: 120px;
+  padding-bottom: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 1. Global Navigation Header */
 .toss-nav-header {
-  height: 60px;
+  height: 54px;
+  min-height: 54px;
   background-color: #ffffff;
   border-bottom: 1px solid #e5e8eb;
-  padding: 0 28px;
+  padding: 0 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 50;
+  flex-shrink: 0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
@@ -1076,9 +1085,9 @@
 }
 
 .toss-logo-badge {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
   background: #3182f6;
   display: flex;
   align-items: center;
@@ -1088,65 +1097,105 @@
 }
 
 .toss-nav-title {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 800;
   color: #191f28;
   letter-spacing: -0.3px;
 }
 
 .toss-tag-blue {
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 700;
   color: #3182f6;
   background-color: #e8f3ff;
-  padding: 3px 8px;
-  border-radius: 6px;
+  padding: 2.5px 7px;
+  border-radius: 5px;
   margin-left: 2px;
 }
 
 .toss-nav-right {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
 }
 
-.toss-model-select-wrap {
+/* Header Top CTA Buttons (하단에서 상단으로 이전된 메인 액션 버튼) */
+.toss-nav-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #3182f6;
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 9px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(49, 130, 246, 0.25);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.toss-nav-cta-btn:hover:not(:disabled) {
+  background: #1b64da;
+  box-shadow: 0 3px 12px rgba(49, 130, 246, 0.38);
+  transform: translateY(-1px);
+}
+
+.toss-nav-cta-btn:disabled {
+  background: #a8c7fa;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.toss-nav-cta-btn.loading {
+  background: #2b70d3;
+}
+
+.toss-nav-dual-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background-color: #f2f4f6;
-  padding: 4px 12px;
-  border-radius: 10px;
-  border: 1px solid #e5e8eb;
+  gap: 6px;
 }
 
-.toss-model-label {
-  font-size: 11.5px;
-  font-weight: 700;
-  color: #6b7684;
-}
-
-.toss-select {
-  background: transparent;
-  border: none;
-  font-size: 12.5px;
+.toss-nav-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #f2f4f6;
+  color: #333d4b;
+  font-size: 12px;
   font-weight: 600;
-  color: #191f28;
-  outline: none;
+  padding: 6px 11px;
+  border-radius: 9px;
+  border: 1px solid #e5e8eb;
   cursor: pointer;
-  max-width: 200px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.toss-nav-btn-secondary:hover:not(:disabled) {
+  background: #e5e8eb;
+  color: #191f28;
+}
+
+.toss-nav-btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .toss-btn-text {
   background: transparent;
   border: none;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
   color: #6b7684;
   cursor: pointer;
-  padding: 6px 10px;
-  border-radius: 8px;
+  padding: 6px 9px;
+  border-radius: 7px;
   transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
 .toss-btn-text:hover {
@@ -1154,74 +1203,127 @@
   color: #191f28;
 }
 
-/* 2. Main Content 2-Column Grid (화면 가득 채우는 풀 와이드 레이아웃) */
+/* 2. Main Content 2-Column Grid (IDE 편집 툴 워크스페이스: 페이지 스크롤 없음) */
 .toss-main-content {
+  flex: 1;
+  min-height: 0;
+  height: calc(100vh - 54px);
   width: 100%;
   max-width: none;
-  margin: 16px auto 0;
-  padding: 0 24px;
+  margin: 0;
+  padding: 10px 16px;
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(420px, 0.8fr);
-  gap: 20px;
-  align-items: start;
+  grid-template-columns: minmax(0, 1.25fr) minmax(380px, 460px);
+  gap: 12px;
+  align-items: stretch;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1024px) {
   .toss-main-content {
     grid-template-columns: 1fr;
-    padding: 0 16px;
-    gap: 16px;
+    overflow-y: auto;
+    height: auto;
   }
 }
 
-/* Cards */
+/* 좌측 열: 비디오 모니터 & 트랜스포트 & BGM (화면에 딱 맞게 독립 패널) */
+.toss-column-left {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  gap: 10px;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+}
+
+/* 우측 열: 인트로 -> AI 극적 순간 타임라인 -> 아웃트로 -> 요약 (독립 패널 스크롤!) */
+.toss-column-right {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  gap: 10px;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+}
+
+.toss-column-left::-webkit-scrollbar,
+.toss-column-right::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.toss-column-left::-webkit-scrollbar-track,
+.toss-column-right::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.toss-column-left::-webkit-scrollbar-thumb,
+.toss-column-right::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+.toss-column-left::-webkit-scrollbar-thumb:hover,
+.toss-column-right::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* NLE 컴팩트 카드 (불필요한 여백/패딩 최소화) */
 .toss-card {
   background: #ffffff;
   border: 1px solid #e5e8eb;
-  border-radius: 20px;
-  padding: 20px 22px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-  margin-bottom: 20px;
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  margin-bottom: 0;
   transition: box-shadow 0.15s ease;
+  box-sizing: border-box;
 }
 
 .toss-card:hover {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .toss-card-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
-  gap: 12px;
+  margin-bottom: 8px;
+  gap: 8px;
 }
 
 .toss-card-title {
-  font-size: 15px;
+  font-size: 13.5px;
   font-weight: 700;
   color: #191f28;
   letter-spacing: -0.2px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .toss-card-desc {
-  font-size: 12.5px;
-  color: #6b7684;
-  margin-top: 3px;
-  line-height: 1.4;
+  font-size: 11px;
+  color: #8b95a1;
+  margin-top: 1px;
+  line-height: 1.3;
 }
 
 .toss-tag-gray {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
   color: #6b7684;
   background-color: #f2f4f6;
-  padding: 3px 8px;
-  border-radius: 6px;
+  padding: 2.5px 7px;
+  border-radius: 5px;
   white-space: nowrap;
 }
 
@@ -1230,11 +1332,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   width: 100%;
   box-sizing: border-box;
-  padding: 0 0 14px 0;
-  margin-bottom: 14px;
+  padding: 0 0 8px 0;
+  margin-bottom: 8px;
   border-bottom: 1px solid #f2f4f6;
 }
 
@@ -1242,7 +1344,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -1251,12 +1353,12 @@
 }
 
 .toss-header-input-label {
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 700;
   color: #4e5968;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   line-height: 1;
 }
 
@@ -1269,9 +1371,9 @@
   box-sizing: border-box;
   background: #f9fafb;
   border: 1px solid #e5e8eb;
-  border-radius: 10px;
-  padding: 9px 12px;
-  font-size: 13px;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12.5px;
   font-weight: 600;
   color: #191f28;
   outline: none;
@@ -1286,18 +1388,18 @@
 
 .toss-input-right {
   text-align: right;
-  padding-right: 14px;
+  padding-right: 12px;
 }
 
 .toss-header-input::placeholder {
   color: #b0b8c1;
   font-weight: 500;
-  font-size: 12.5px;
+  font-size: 12px;
 }
 
 /* 16:9 Video Player Card */
 .toss-player-card {
-  padding: 16px;
+  padding: 12px 14px;
 }
 
 /* Video List Modal */
@@ -1511,14 +1613,18 @@
 
 .toss-player-wrapper {
   aspect-ratio: 16 / 9;
+  max-height: calc(100vh - 300px);
+  width: 100%;
+  max-width: 100%;
   background-color: #000000;
-  border-radius: 14px;
+  border-radius: 12px;
   overflow: hidden;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  margin: 0 auto;
 }
 
 .toss-video-element {
@@ -1534,8 +1640,8 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 60px;
-  height: 60px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   background: rgba(49, 130, 246, 0.85);
   backdrop-filter: blur(8px);
@@ -1640,9 +1746,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-top: 12px;
-  padding: 6px 4px;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 4px 2px;
 }
 
 .toss-transport-left {
@@ -1776,8 +1882,8 @@
    ========================================================================== */
 
 .toss-timeline-sequencer-box {
-  margin-top: 14px;
-  padding-top: 14px;
+  margin-top: 10px;
+  padding-top: 10px;
   border-top: 1px solid #f2f4f6;
 }
 
@@ -1785,11 +1891,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .toss-sequencer-title {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 700;
   color: #191f28;
 }
@@ -1810,10 +1916,10 @@
 
 .toss-sequencer-track {
   width: 100%;
-  height: 52px;
+  height: 44px;
   background-color: #f2f4f6;
   border: 1px solid #e5e8eb;
-  border-radius: 12px;
+  border-radius: 10px;
   position: relative;
   overflow: hidden;
   cursor: pointer;
@@ -1917,14 +2023,13 @@
   text-align: right;
 }
 
-/* Segments Timeline List */
+/* Segments Timeline List (독립 패널 내에서 자연스럽게 스크롤되도록 설정) */
 .toss-segment-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  max-height: 640px;
-  overflow-y: auto;
-  padding-right: 4px;
+  gap: 6px;
+  overflow: visible;
+  padding-right: 0;
 }
 
 .toss-segment-item {
@@ -1933,10 +2038,10 @@
   flex-direction: column;
   align-items: stretch;
   justify-content: flex-start;
-  padding: 10px 14px;
+  padding: 8px 12px;
   background-color: #ffffff;
   border: 1.5px solid #e5e8eb;
-  border-radius: 14px;
+  border-radius: 11px;
   cursor: default;
   transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
   gap: 0;

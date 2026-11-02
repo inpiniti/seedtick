@@ -564,9 +564,57 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <ChevronDown size={14} className="toss-model-trigger-chevron" />
           </button>
 
+          {/* ★ 메인 액션 버튼: 하단에서 상단 헤더로 이동 */}
+          {videos.length > 0 && (
+            !result?.url ? (
+              <button
+                type="button"
+                className={`toss-nav-cta-btn ${isProcessing ? 'loading' : ''}`}
+                onClick={() =>
+                  onStartAiAnalysis(overlayOptions, customAudioFile, selectedBgmId, bgmVolume)
+                }
+                disabled={isProcessing}
+              >
+                <Sparkles size={14} className={isProcessing ? 'animate-spin' : ''} />
+                <span>{isProcessing ? 'AI 분석 중...' : '✨ AI 하이라이트 만들기'}</span>
+              </button>
+            ) : (
+              <div className="toss-nav-dual-actions">
+                <button
+                  type="button"
+                  className="toss-nav-btn-secondary"
+                  onClick={() =>
+                    onReStitch(
+                      segments,
+                      selectedBgmId,
+                      bgmVolume,
+                      customAudioFile,
+                      overlayOptions
+                    )
+                  }
+                  disabled={isReStitching || segments.length === 0}
+                  title="수정된 타임라인 다시 병합"
+                >
+                  <Scissors size={13} />
+                  <span>{isReStitching ? '병합 중...' : '다시 병합'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="toss-nav-cta-btn"
+                  onClick={handleDownload}
+                  title="16:9 완성 영상 다운로드"
+                >
+                  <Download size={14} />
+                  <span>다운로드 ({formatSec(totalDuration)})</span>
+                </button>
+              </div>
+            )
+          )}
+
           {videos.length > 0 && (
             <button type="button" className="toss-btn-text" onClick={onReset}>
-              새로 시작하기
+              새로 시작
             </button>
           )}
         </div>
@@ -1035,7 +1083,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             {segments.length === 0 ? (
               <div className="toss-empty-state">
                 <p className="text-slate-400 text-sm">
-                  영상을 올리고 하단의 '✨ AI 하이라이트 만들기'를 누르면 극적 구간이 채워져요.
+                  영상을 올리고 상단의 '✨ AI 하이라이트 만들기'를 누르면 극적 구간이 채워져요.
                 </p>
               </div>
             ) : (
@@ -1357,55 +1405,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         </section>
       </main>
 
-      {/* 3. 하단 고정 CTA 버튼 바 (영상이 있을 때만 액션 활성화) */}
-      {videos.length > 0 && (
-        <footer className="toss-bottom-bar">
-          <div className="toss-bottom-inner">
-            {!result?.url ? (
-              <button
-                type="button"
-                className={`toss-cta-button ${isProcessing ? 'loading' : ''}`}
-                onClick={() =>
-                  onStartAiAnalysis(overlayOptions, customAudioFile, selectedBgmId, bgmVolume)
-                }
-                disabled={isProcessing}
-              >
-                <Sparkles size={18} className={isProcessing ? 'animate-spin' : ''} />
-                <span>{isProcessing ? 'AI가 극적인 순간을 찾는 중...' : '✨ AI 하이라이트 만들기'}</span>
-              </button>
-            ) : (
-              <div className="toss-bottom-dual-actions">
-                <button
-                  type="button"
-                  className="toss-btn-re-render"
-                  onClick={() =>
-                    onReStitch(
-                      segments,
-                      selectedBgmId,
-                      bgmVolume,
-                      customAudioFile,
-                      overlayOptions
-                    )
-                  }
-                  disabled={isReStitching || segments.length === 0}
-                >
-                  <Scissors size={15} />
-                  <span>{isReStitching ? '다시 병합 중...' : '수정된 타임라인 다시 병합'}</span>
-                </button>
 
-                <button
-                  type="button"
-                  className="toss-cta-button"
-                  onClick={handleDownload}
-                >
-                  <Download size={18} />
-                  <span>🎉 16:9 완성 영상 다운로드하기 ({formatSec(totalDuration)})</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </footer>
-      )}
 
       {/* 4. AI 분석 진행 중 친절한 토스식 모달 (스피너 단독 금지, 진행률 & 안내) */}
       {isProcessing && (
