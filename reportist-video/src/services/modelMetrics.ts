@@ -1,13 +1,12 @@
 // services/modelMetrics.ts - 영상 분석 모델의 지능·속도·레이턴시 메타데이터
 //
-// 속도(tok/s)와 레이턴시(TTFT)는 Artificial Analysis 공개 측정값을 기준으로 하며,
-// 측정값이 없는 모델은 활성 파라미터 수를 바탕으로 보수적으로 추정한다.
+// 인위적인 하드코딩이나 추정치 없이 AI Gateway 및 OpenRouter 원천 데이터의 수신값을 그대로 사용한다.
 
 import type { FreeModelMeta } from '../types/gateway.ts';
 
 export interface ModelSpeedInfo {
-  tokensPerSecond: number;
-  latencyMs: number;
+  tokensPerSecond: number | null;
+  latencyMs: number | null;
   isEstimate: boolean;
 }
 
@@ -16,72 +15,6 @@ export interface ModelSpeedTier {
   label: string;
 }
 
-interface KnownModelMetric extends ModelSpeedInfo {
-  intelligenceIndex?: number;
-  codingIndex?: number;
-  agenticIndex?: number;
-}
-
-// Artificial Analysis 측정값 (2026-10 기준)
-// 키는 :free / :batch 접미사를 제거한 정규화 ID를 사용한다.
-const KNOWN_MODEL_METRICS: Record<string, KnownModelMetric> = {
-  'nvidia/nemotron-3.5-super-vl': {
-    tokensPerSecond: 448.1,
-    latencyMs: 813,
-    isEstimate: false,
-    intelligenceIndex: 26.5,
-  },
-  'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning': {
-    tokensPerSecond: 230.0,
-    latencyMs: 739,
-    isEstimate: false,
-    intelligenceIndex: 10.3,
-    codingIndex: 13.8,
-  },
-  'thinkingmachines/inkling-small': {
-    tokensPerSecond: 208.2,
-    latencyMs: 1598,
-    isEstimate: false,
-    intelligenceIndex: 25.7,
-    codingIndex: 52.9,
-    agenticIndex: 23.5,
-  },
-  'thinkingmachines/inkling': {
-    tokensPerSecond: 194.2,
-    latencyMs: 1754,
-    isEstimate: false,
-    intelligenceIndex: 25.0,
-    codingIndex: 52.1,
-    agenticIndex: 22.5,
-  },
-  'google/gemma-4-26b-a4b-it': {
-    tokensPerSecond: 96.0,
-    latencyMs: 933,
-    isEstimate: false,
-    intelligenceIndex: 16.7,
-    codingIndex: 39.3,
-    agenticIndex: 2.9,
-  },
-  'google/gemma-4-31b-it': {
-    tokensPerSecond: 35.5,
-    latencyMs: 1093,
-    isEstimate: false,
-    intelligenceIndex: 14.7,
-    codingIndex: 43.4,
-    agenticIndex: 4.2,
-  },
-  'dots-studio/dots-3-note-preview': {
-    tokensPerSecond: 45.0,
-    latencyMs: 1200,
-    isEstimate: true,
-  },
-  'nvidia/nemotron-3.5-content-safety': {
-    tokensPerSecond: 140.0,
-    latencyMs: 450,
-    isEstimate: true,
-  },
-};
-
 export function canonicalModelId(modelId: string): string {
   return modelId
     .replace(/:free$/i, '')
@@ -89,71 +22,17 @@ export function canonicalModelId(modelId: string): string {
     .trim();
 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
-function parseActiveParametersB(parametersSummary?: string): number | null {
-  if (!parametersSummary) return null;
-
-  // "120B (활성 12B)" 형태
-  const activeMatch = parametersSummary.match(/활성\s*([\d.]+)\s*B/i);
-  if (activeMatch) {
-    const value = Number(activeMatch[1]);
-    return Number.isFinite(value) ? value : null;
-  }
-
-  // "30B-A3B" 형태
-  const moeMatch = parametersSummary.match(/([\d.]+)\s*B\s*[-–]\s*A\s*([\d.]+)\s*B/i);
-  if (moeMatch) {
-    const value = Number(moeMatch[2]);
-    return Number.isFinite(value) ? value : null;
-  }
-
-  // "2.6B" 같은 dense 모델
-  const denseMatch = parametersSummary.match(/([\d.]+)\s*B/i);
-  if (denseMatch) {
-    const value = Number(denseMatch[1]);
-    return Number.isFinite(value) ? value : null;
-  }
-
-  return null;
-}
-
-function estimateSpeedFromParameters(activeParametersB: number | null): ModelSpeedInfo {
-  if (
-    activeParametersB == null ||
-    !Number.isFinite(activeParametersB) ||
-    activeParametersB <= 0
-  ) {
-    return { tokensPerSecond: 80, latencyMs: 900, isEstimate: true };
-  }
-
-  // 활성 파라미터가 작을수록 빠르다는 경험적 곡선. 너무 낙관적인 값을 피하기 위해 상한을 둔다.
-  const tokensPerSecond = Math.round(
-    clamp(220 / Math.pow(activeParametersB, 0.35), 25, 220)
-  );
-  const latencyMs = Math.round(clamp(250 + activeParametersB * 35, 350, 2500));
-
-  return { tokensPerSecond, latencyMs, isEstimate: true };
-}
-
 export function getModelSpeedInfo(model: FreeModelMeta): ModelSpeedInfo {
-  const known = KNOWN_MODEL_METRICS[canonicalModelId(model.id)];
-  if (known) {
-    return {
-      tokensPerSecond: known.tokensPerSecond,
-      latencyMs: known.latencyMs,
-      isEstimate: known.isEstimate,
-    };
-  }
-
-  return estimateSpeedFromParameters(parseActiveParametersB(model.parametersSummary));
+  return {
+    tokensPerSecond: model.speedTokensPerSecond ?? null,
+    latencyMs: model.latencyMs ?? null,
+    isEstimate: false,
+  };
 }
 
 export function getSpeedTier(tokensPerSecond?: number | null): ModelSpeedTier {
-  if (tokensPerSecond == null || !Number.isFinite(tokensPerSecond)) {
-    return { key: 'balanced', label: '측정 전' };
+  if (tokensPerSecond == null || !Number.isFinite(tokensPerSecond) || tokensPerSecond <= 0) {
+    return { key: 'balanced', label: '미측정' };
   }
   if (tokensPerSecond >= 300) return { key: 'ultra', label: '초고속' };
   if (tokensPerSecond >= 150) return { key: 'fast', label: '빠름' };
@@ -173,46 +52,68 @@ export function isGuardrailModel(model: FreeModelMeta): boolean {
 
 export function sortModelsBySpeed(models: FreeModelMeta[]): FreeModelMeta[] {
   return [...models].sort((a, b) => {
-    const speedA = a.speedTokensPerSecond ?? 0;
-    const speedB = b.speedTokensPerSecond ?? 0;
-    if (speedB !== speedA) return speedB - speedA;
+    // 1. 실제 측정 속도가 있는 경우 속도 내림차순 (미측정은 하단)
+    const speedA = a.speedTokensPerSecond ?? null;
+    const speedB = b.speedTokensPerSecond ?? null;
+    if (speedA != null && speedB != null && speedB !== speedA) {
+      return speedB - speedA;
+    }
+    if (speedA != null && speedB == null) return -1;
+    if (speedA == null && speedB != null) return 1;
 
-    const latencyA = a.latencyMs ?? Number.POSITIVE_INFINITY;
-    const latencyB = b.latencyMs ?? Number.POSITIVE_INFINITY;
-    if (latencyA !== latencyB) return latencyA - latencyB;
+    // 2. 레이턴시 오름차순 (빠를수록 상위)
+    const latencyA = a.latencyMs ?? null;
+    const latencyB = b.latencyMs ?? null;
+    if (latencyA != null && latencyB != null && latencyA !== latencyB) {
+      return latencyA - latencyB;
+    }
 
-    return (b.intelligenceIndex ?? 0) - (a.intelligenceIndex ?? 0);
+    // 3. 지능 지수 내림차순
+    const intelA = a.intelligenceIndex ?? -1;
+    const intelB = b.intelligenceIndex ?? -1;
+    if (intelB !== intelA) return intelB - intelA;
+
+    // 4. 코딩 지수 내림차순
+    const codingA = a.codingIndex ?? -1;
+    const codingB = b.codingIndex ?? -1;
+    if (codingB !== codingA) return codingB - codingA;
+
+    // 5. 최신순
+    return (a.daysAgo ?? 9999) - (b.daysAgo ?? 9999);
   });
 }
 
 /**
  * 영상 하이라이트 분석에 쓸 기본 모델을 고른다.
- * 안전성 가드레일 모델은 제외하고, 가장 빠른 모델을 기본값으로 사용한다.
+ * 안전성 가드레일 모델은 제외하고, 추천 순위가 가장 높은 모델을 기본값으로 사용한다.
  */
 export function pickDefaultModel(models: FreeModelMeta[]): FreeModelMeta | null {
   const usable = models.filter((model) => !isGuardrailModel(model));
-  const ranked = sortModelsBySpeed(usable.length > 0 ? usable : models);
+  const pool = usable.length > 0 ? usable : models;
+  if (pool.length === 0) return null;
+
+  // 플래그십 비전 모델(Nemotron Super VL 또는 Gemma 26B/31B) 우선 매칭
+  const preferred = pool.find((m) => m.id.includes('super-vl')) ||
+                    pool.find((m) => m.id.includes('gemma-4-26b')) ||
+                    pool.find((m) => m.id.includes('gemma-4-31b'));
+  if (preferred) return preferred;
+
+  const ranked = sortModelsBySpeed(pool);
   return ranked[0] ?? null;
 }
 
 /**
- * 게이트웨이 응답에 없는 벤치마크/속도 정보를 보강한다.
- * 게이트웨이가 내려준 값이 있으면 그 값을 우선한다.
+ * 게이트웨이가 수신한 원천 메타데이터를 정규화하여 반환한다.
+ * 인위적인 임의 추정이나 덮어쓰기 없이 수신값을 100% 신뢰한다.
  */
 export function enrichModelMetrics(models: FreeModelMeta[]): FreeModelMeta[] {
-  return models.map((model) => {
-    const known = KNOWN_MODEL_METRICS[canonicalModelId(model.id)];
-    const speedInfo = getModelSpeedInfo(model);
-
-    return {
-      ...model,
-      intelligenceIndex: model.intelligenceIndex ?? known?.intelligenceIndex ?? null,
-      codingIndex: model.codingIndex ?? known?.codingIndex ?? null,
-      agenticIndex: model.agenticIndex ?? known?.agenticIndex ?? null,
-      speedTokensPerSecond:
-        model.speedTokensPerSecond ?? speedInfo.tokensPerSecond,
-      latencyMs: model.latencyMs ?? speedInfo.latencyMs,
-      speedIsEstimate: model.speedIsEstimate ?? speedInfo.isEstimate,
-    };
-  });
+  return models.map((model) => ({
+    ...model,
+    intelligenceIndex: model.intelligenceIndex ?? null,
+    codingIndex: model.codingIndex ?? null,
+    agenticIndex: model.agenticIndex ?? null,
+    speedTokensPerSecond: model.speedTokensPerSecond ?? null,
+    latencyMs: model.latencyMs ?? null,
+    speedIsEstimate: false,
+  }));
 }

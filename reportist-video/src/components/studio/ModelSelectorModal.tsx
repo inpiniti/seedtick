@@ -396,7 +396,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                       </div>
                       <div className="model-modal-metric-value">
                         <strong>{formatIntelligence(model.intelligenceIndex)}</strong>
-                        <span>{model.intelligenceIndex != null ? 'AA' : '측정 전'}</span>
+                        <span>{model.intelligenceIndex != null ? 'AA' : '미측정'}</span>
                       </div>
                     </div>
 
@@ -407,7 +407,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                       </div>
                       <div className="model-modal-metric-value">
                         <strong>{formatSpeed(model.speedTokensPerSecond)}</strong>
-                        <span>tok/s</span>
+                        <span>{model.speedTokensPerSecond != null ? 'tok/s' : '미측정'}</span>
                       </div>
                     </div>
 
@@ -418,31 +418,25 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                       </div>
                       <div className="model-modal-metric-value">
                         <strong>{formatLatency(model.latencyMs)}</strong>
-                        <span>초 TTFT</span>
+                        <span>{model.latencyMs != null ? '초 TTFT' : '미측정'}</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* 상대 속도 바 */}
-                  <div className="model-modal-speed-row">
-                    <div className="model-modal-speed-track">
-                      <div
-                        className={`model-modal-speed-fill ${speedTier.key}`}
-                        style={{ width: `${speedPercent}%` }}
-                      />
-                    </div>
-                    <span className={`model-modal-speed-tier ${speedTier.key}`}>
-                      {speedTier.label}
-                    </span>
-                    {model.speedIsEstimate && (
-                      <span
-                        className="model-modal-estimate-badge"
-                        title="활성 파라미터 수를 기준으로 한 추정치예요"
-                      >
-                        추정
+                  {/* 상대 속도 바 (실제 속도 데이터가 수신된 경우에만 표시) */}
+                  {model.speedTokensPerSecond != null && (
+                    <div className="model-modal-speed-row">
+                      <div className="model-modal-speed-track">
+                        <div
+                          className={`model-modal-speed-fill ${speedTier.key}`}
+                          style={{ width: `${speedPercent}%` }}
+                        />
+                      </div>
+                      <span className={`model-modal-speed-tier ${speedTier.key}`}>
+                        {speedTier.label}
                       </span>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
                   {/* 모델 특징 메타 태그들 */}
                   <div className="model-modal-tags">
@@ -531,10 +525,9 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
         {/* 모달 하단 */}
         <div className="model-modal-footer">
           <div className="model-modal-footer-tip">
-            <Zap size={14} color="#3182f6" />
+            <Sparkles size={14} color="#3182f6" />
             <span>
-              가장 빠른 모델이 기본으로 선택돼요 · 속도/레이턴시는 Artificial Analysis 측정값
-              기준(일부 추정)
+              OpenRouter 및 Artificial Analysis 공식 벤치마크 기준 · 미측정 항목은 '—'로 표시돼요
             </span>
           </div>
           <button type="button" className="model-modal-confirm-btn" onClick={onClose}>
