@@ -1045,8 +1045,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             )}
           </div>
 
-          {/* ★ [2] AI가 포착한 극적 순간 카드 (Vercel Inspector 스타일 패널) */}
-          <div className="toss-card toss-moments-card">
+          {/* ★ [2] AI가 포착한 극적 순간 카드 */}
+          <div className="toss-card">
             <div className="toss-card-header">
               <div>
                 <h4 className="toss-card-title flex items-center gap-1.5">
