@@ -583,31 +583,58 @@ export async function stitchHighlightedSegments({
     onProgress?.(Math.min(97, Math.max(0, Math.round(pct))), message);
   };
 
-  const seekVideo = (time: number, timeoutMs = 2000) =>
-    new Promise<void>((resolve) => {
-      if (Math.abs(videoElem.currentTime - time) < 0.02) {
-        resolve();
+  const seekVideo = (time: number, timeoutMs = 8000) =>
+    new Promise<boolean>((resolve) => {
+      if (Math.abs(videoElem.currentTime - time) < 0.02 && videoElem.readyState >= 2) {
+        resolve(true);
         return;
       }
       let settled = false;
       let timer: ReturnType<typeof setTimeout> | null = null;
-      const finish = () => {
+      const finish = (ok: boolean) => {
         if (settled) return;
         settled = true;
-        videoElem.removeEventListener('seeked', finish);
+        videoElem.removeEventListener('seeked', onSeeked);
+        videoElem.removeEventListener('error', onError);
         if (timer) clearTimeout(timer);
-        resolve();
+        resolve(ok);
       };
-      timer = setTimeout(finish, timeoutMs);
-      videoElem.addEventListener('seeked', finish);
+      const onSeeked = () => finish(true);
+      const onError = () => finish(false);
+      timer = setTimeout(() => finish(Math.abs(videoElem.currentTime - time) < 0.3), timeoutMs);
+      videoElem.addEventListener('seeked', onSeeked);
+      videoElem.addEventListener('error', onError);
       try {
         videoElem.currentTime = time;
       } catch {
-        finish();
+        finish(false);
       }
     });
 
-  const loadVideoSource = async (url: string, name: string, timeoutMs = 8000) => {
+  // 비디오가 지정 시점으로 seek된 후 실제 재생 가능한 버퍼(readyState >= 3)를 확보할 때까지 대기
+  const waitForVideoReady = (timeoutMs = 6000): Promise<boolean> => {
+    if (videoElem.readyState >= 3) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      let settled = false;
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      const finish = (ok: boolean) => {
+        if (settled) return;
+        settled = true;
+        videoElem.removeEventListener('canplay', onReady);
+        videoElem.removeEventListener('canplaythrough', onReady);
+        videoElem.removeEventListener('playing', onReady);
+        if (timer) clearTimeout(timer);
+        resolve(ok);
+      };
+      const onReady = () => finish(true);
+      timer = setTimeout(() => finish(videoElem.readyState >= 2), timeoutMs);
+      videoElem.addEventListener('canplay', onReady);
+      videoElem.addEventListener('canplaythrough', onReady);
+      videoElem.addEventListener('playing', onReady);
+    });
+  };
+
+  const loadVideoSource = async (url: string, name: string, timeoutMs = 10000) => {
     if (videoElem.src === url && videoElem.readyState >= 1) return;
 
     videoElem.src = url;
@@ -685,7 +712,8 @@ export async function stitchHighlightedSegments({
       await loadVideoSource(blobUrl, label, 12000);
       const clipDuration = videoElem.duration && Number.isFinite(videoElem.duration) ? videoElem.duration : 0;
 
-      await seekVideo(0, 2000);
+      await seekVideo(0, 6000);
+      await waitForVideoReady(6000);
       drawCoverFrame();
 
       const playing = await startPlayback(IS_IOS ? 2500 : 5000);
@@ -825,18 +853,30 @@ export async function stitchHighlightedSegments({
     return outroFrames / 30;
   };
 
-  // 실시간 재생 기반 렌더링. 재생이 시작되지 않거나 시간이 흐르지 않으면 false를 반환해
-  // 시크(seek) 기반 프레임 스텝 렌더링으로 자동 폴백한다.
+  // 실시간 재생 기반 렌더링. 비디오 버퍼링을 충분히 대기하고 실제 재생 시작 순간에 녹화를 개시하여 끊김 방지.
   const renderSegmentWithPlayback = async (
     videoItem: VideoItem,
     segment: HighlightSegment,
     clipMessage: string
   ): Promise<boolean> => {
-    await seekVideo(segment.start, 2000);
+    try {
+      videoElem.pause();
+    } catch {
+      // ignore
+    }
+
+    // 1. 목표 시작 시점으로 seek 및 비디오 디코더 버퍼 확보 대기
+    const seekOk = await seekVideo(segment.start, 10000);
+    if (!seekOk) {
+      console.warn(`[VideoStitcher] 구간 시작 시점(${segment.start}s) seek 지연`);
+    }
+    await waitForVideoReady(8000);
+
     drawCoverFrame(videoItem, segment);
     drawOverlays(segment);
 
-    const playing = await startPlayback(IS_IOS ? 3000 : 6000);
+    // 2. 비디오 재생 시작
+    const playing = await startPlayback(IS_IOS ? 5000 : 8000);
     if (!playing) {
       try {
         videoElem.pause();
@@ -846,7 +886,8 @@ export async function stitchHighlightedSegments({
       return false;
     }
 
-    const advanced = await waitForPlaybackAdvance(segment.start, IS_IOS ? 1500 : 2000);
+    // 3. 비디오가 실제로 재생되어 시간을 전진시키는지 확인 (최대 6~8초 대기)
+    const advanced = await waitForPlaybackAdvance(segment.start, IS_IOS ? 4000 : 8000);
     if (!advanced) {
       try {
         videoElem.pause();
@@ -856,32 +897,38 @@ export async function stitchHighlightedSegments({
       return false;
     }
 
-    // waitForPlaybackAdvance 검증으로 인해 영상이 앞서 나간 경우
-    // 정확히 segment.start 위치로 재정렬하여 앞부분 손실 및 겹침 방지
-    if (videoElem.currentTime > segment.start + 0.04) {
-      try {
-        videoElem.pause();
-      } catch {
-        // ignore
-      }
-      await seekVideo(segment.start, 1200);
-      drawCoverFrame(videoItem, segment);
-      drawOverlays(segment);
-      await startPlayback(2000);
-    }
-
+    // 비디오가 실제로 정상 전진 중이므로 이 시점에 정확히 레코더를 시작/재개!
     await startOrResumeRecorder();
 
+    // 4. 비디오 재생과 캔버스 녹화 실시간 동기화 루프
     await new Promise<void>((resolve, reject) => {
       const startedAt = performance.now();
-      const maxRealDurationMs = (segment.duration + 1.5) * 1000;
+      // 네트워크 지연/버퍼링을 감안하여 최대 허용 시간 넉넉하게 설정
+      const maxRealDurationMs = Math.max(5000, (segment.duration * 2.5 + 5) * 1000);
       let intervalId: number | null = null;
       let settled = false;
+
+      // 비디오 버퍼링(일시 멈춤) 발생 시 레코더도 일시정지하여 정지 프레임 녹화 방지
+      const onWaiting = () => {
+        if (settled) return;
+        void pauseRecorder();
+      };
+      const onPlaying = () => {
+        if (settled) return;
+        void startOrResumeRecorder();
+      };
+
+      videoElem.addEventListener('waiting', onWaiting);
+      videoElem.addEventListener('stalled', onWaiting);
+      videoElem.addEventListener('playing', onPlaying);
 
       const finish = async (error?: Error) => {
         if (settled) return;
         settled = true;
         if (intervalId !== null) window.clearInterval(intervalId);
+        videoElem.removeEventListener('waiting', onWaiting);
+        videoElem.removeEventListener('stalled', onWaiting);
+        videoElem.removeEventListener('playing', onPlaying);
         try {
           videoElem.pause();
         } catch {
@@ -904,8 +951,11 @@ export async function stitchHighlightedSegments({
           return;
         }
 
-        drawCoverFrame(videoItem, segment);
-        drawOverlays(segment);
+        // 비디오가 실제로 재생 중일 때만 캔버스 프레임 갱신
+        if (!videoElem.paused && !videoElem.seeking) {
+          drawCoverFrame(videoItem, segment);
+          drawOverlays(segment);
+        }
 
         const clipElapsed = Math.max(0, Math.min(segment.duration, videoElem.currentTime - segment.start));
         reportProgress(
@@ -929,8 +979,8 @@ export async function stitchHighlightedSegments({
     return true;
   };
 
-  // 시크 기반 프레임 스텝 렌더링 (모바일에서 동영상 실시간 재생이 막힐 때의 폴백).
-  // 분석 단계의 프레임 추출과 동일한 방식이라 iOS Safari에서도 확실하게 동작한다.
+  // 시크 기반 프레임 스텝 렌더링 (모바일 등에서 실시간 재생이 완전히 막힐 때의 최후 폴백)
+  // seek 대기 시간 중에는 recorder를 pause 처리하여 결과물 영상이 늘어지거나 멈추지 않도록 방어
   const renderSegmentByStepping = async (
     videoItem: VideoItem,
     segment: HighlightSegment,
@@ -942,8 +992,6 @@ export async function stitchHighlightedSegments({
       // ignore
     }
 
-    await startOrResumeRecorder();
-
     const fps = 30;
     const frameCount = Math.max(2, Math.ceil(segment.duration * fps));
     const frameInterval = 1000 / fps;
@@ -951,34 +999,29 @@ export async function stitchHighlightedSegments({
     for (let frame = 0; frame < frameCount; frame++) {
       if (signal?.aborted) throw new Error('작업 취소');
       if (recorderError) throw recorderError;
-      if (!videoElem.paused) {
-        try {
-          videoElem.pause();
-        } catch {
-          // ignore
-        }
-      }
 
       const time = Math.min(
         segment.start + frame / fps,
         Math.max(segment.start, segment.end - 0.05)
       );
-      await seekVideo(time, 1200);
 
-      const frameStartedAt = performance.now();
+      // 탐색(seek) 중에는 레코더를 정지하여 seek 대기 시간이 영상 길이에 포함되지 않도록 방지
+      await pauseRecorder();
+      await seekVideo(time, 2500);
+
       drawCoverFrame(videoItem, segment);
       drawOverlays(segment);
+
+      // 프레임이 준비된 후 레코더를 켜고 frameInterval 동안 녹화
+      await startOrResumeRecorder();
+      await sleep(frameInterval);
+
       reportProgress(
         ((recordedDurationSoFar + Math.min(segment.duration, frame / fps)) /
           (totalSegmentsDuration || 1)) *
           100,
         clipMessage
       );
-
-      const elapsed = performance.now() - frameStartedAt;
-      if (elapsed < frameInterval) {
-        await sleep(frameInterval - elapsed);
-      }
     }
 
     await pauseRecorder();
@@ -1024,7 +1067,20 @@ export async function stitchHighlightedSegments({
 
       await loadVideoSource(videoItem.url, videoItem.name);
 
-      const played = await renderSegmentWithPlayback(videoItem, segment, clipMessage);
+      let played = await renderSegmentWithPlayback(videoItem, segment, clipMessage);
+      if (!played) {
+        // 1회차 실패 시 버퍼링을 확보하고 1회 재시도
+        onLog?.(`[${videoItem.name}] 구간 ${i + 1} 비디오 버퍼링 대기 후 재생 재시도 중...`);
+        await sleep(1000);
+        try {
+          videoElem.load();
+        } catch {
+          // ignore
+        }
+        await loadVideoSource(videoItem.url, videoItem.name);
+        played = await renderSegmentWithPlayback(videoItem, segment, clipMessage);
+      }
+
       if (!played) {
         onLog?.(
           `[${videoItem.name}] 실시간 재생이 지연되어 프레임 스텝 모드로 구간 ${i + 1}을 병합합니다.`
