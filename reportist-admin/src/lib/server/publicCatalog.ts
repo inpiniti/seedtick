@@ -12,6 +12,7 @@
  *   목록 렌더링에 필요하지 않으므로 조회하지 않는다. (HTML 페이로드 폭주 방지)
  */
 
+import { cache } from "react";
 import { getServerSupabaseClient } from "@/lib/subscription/supabaseServer";
 import {
   getDefaultReportDate,
@@ -349,7 +350,9 @@ export async function getPublicReportForDate(
  * 특정 티커의 발행 일자 목록 (최신순).
  * 종목 상세 페이지의 "분석 이력" 링크를 SSR에 포함시키기 위해 사용한다.
  */
-export async function getTickerReportDates(ticker: string): Promise<string[]> {
+export const getTickerReportDates = cache(async function getTickerReportDates(
+  ticker: string
+): Promise<string[]> {
   const supabase = getServerSupabaseClient();
   if (!supabase) return [];
   const normTicker = (ticker || "").trim().toUpperCase();
@@ -374,7 +377,10 @@ export async function getTickerReportDates(ticker: string): Promise<string[]> {
   } catch {
     return [];
   }
-}
+});
+
+let cachedFreeDateState: { date: string | undefined; expiresAt: number } | null = null;
+const FREE_DATE_TTL_MS = 10 * 60 * 1000; // 10분 TTL 캐시 (서버리스 인스턴스 내 1000행 DB 쿼리 폭주 방지)
 
 /**
  * free 기준 허용 기본 일자 (SSR 마스킹 기준일).
@@ -382,9 +388,15 @@ export async function getTickerReportDates(ticker: string): Promise<string[]> {
  * /api/reports/detail 과 동일한 기준(getServerAllowedFreeDate)을 사용한다.
  */
 export async function getServerFreeDate(): Promise<string | undefined> {
+  const now = Date.now();
+  if (cachedFreeDateState && cachedFreeDateState.expiresAt > now) {
+    return cachedFreeDateState.date;
+  }
   const supabase = getServerSupabaseClient();
   if (!supabase) return undefined;
-  return (await getServerAllowedFreeDate(supabase, new Date())) || undefined;
+  const res = (await getServerAllowedFreeDate(supabase, new Date())) || undefined;
+  cachedFreeDateState = { date: res, expiresAt: now + FREE_DATE_TTL_MS };
+  return res;
 }
 
 export interface TimelineStatItem {

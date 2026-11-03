@@ -3,38 +3,25 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DashboardView } from "@/components/dashboard/DashboardView";
 import { UnanalyzedStockView } from "@/components/research/UnanalyzedStockView";
-import type { ResearchDocTab } from "@/components/research/ResearchDocumentView";
 import { StockStatsSummaryTable } from "@/components/research/StockStatsSummaryTable";
 import { getStockPageData } from "@/lib/server/stockPageData";
 import { buildStockJsonLd } from "@/lib/server/stockJsonLd";
 import { absoluteUrl } from "@/lib/siteConfig";
 
+export const revalidate = 3600; // 1시간 주기 ISR 캐시 (크롤러 Edge CDN 캐시 히트)
+
 interface StockDetailPageProps {
   params: Promise<{ ticker: string }>;
-  searchParams: Promise<{ tab?: string; date?: string; from?: string }>;
 }
 
 /**
  * 기준 경로의 canonical 을 만드는 헬퍼.
- * - 공개 열람 가능한 날짜면 날짜 포함 경로(/stocks/{ticker}/{date})가 canonical
- * - 잠긴 날짜면 종목 경로(/stocks/{ticker})로 통합 (중복 콘텐츠 방지)
+ * 최신 종목 경로는 /stocks/{ticker} 로 통합
  */
 async function buildCanonical(
-  ticker: string,
-  date: string | undefined
+  ticker: string
 ): Promise<{ canonicalPath: string; isPublicDate: boolean; publishedDate: string; displayName: string; seoKeywords: string[]; report: Awaited<ReturnType<typeof getStockPageData>>["report"]; isUnknownTicker: boolean }> {
-  const data = await getStockPageData(ticker, date);
-  if (date && data.isPublicDate && data.publishedDate) {
-    return {
-      canonicalPath: `/stocks/${data.ticker}/${data.publishedDate}`,
-      isPublicDate: true,
-      publishedDate: data.publishedDate,
-      displayName: data.displayName,
-      seoKeywords: data.seoKeywords,
-      report: data.report,
-      isUnknownTicker: data.isUnknownTicker,
-    };
-  }
+  const data = await getStockPageData(ticker, undefined);
   return {
     canonicalPath: `/stocks/${data.ticker}`,
     isPublicDate: data.isPublicDate,
@@ -48,13 +35,11 @@ async function buildCanonical(
 
 export async function generateMetadata({
   params,
-  searchParams,
 }: StockDetailPageProps): Promise<Metadata> {
   const { ticker: rawTicker } = await params;
-  const { date } = await searchParams;
   const ticker = (rawTicker || "").toUpperCase();
 
-  const meta = await buildCanonical(ticker, date);
+  const meta = await buildCanonical(ticker);
 
   if (meta.isUnknownTicker) {
     const isValidTickerPattern = /^[A-Z0-9.\-]{1,10}$/.test(ticker);
@@ -114,23 +99,14 @@ export async function generateMetadata({
 
 export default async function StockDetailPage({
   params,
-  searchParams,
 }: StockDetailPageProps) {
   const { ticker: rawTicker } = await params;
-  const { tab, date, from } = await searchParams;
   const ticker = (rawTicker || "").toUpperCase();
-  // ?from= 출처는 SEO·민감정보와 무관 — 클라에서만 사용하므로 서버 렌더에는 영향 없음
-  void from;
-
-  const validTabs: ResearchDocTab[] = ["final", "summaries", "datapack", "chart"];
-  const validatedTab = validTabs.includes(tab as ResearchDocTab)
-    ? (tab as ResearchDocTab)
-    : undefined;
 
   // SSR initialReport도 public 마스킹 티저만 전달 (원문 절대 미포함).
   // 로그인 유저의 전체 열람은 클라이언트가 /api/reports/detail로 재조회합니다.
   // 단, free 폴백으로 공개 열람 가능한 일자는 공개 범위 안에서 그대로 노출됩니다.
-  const pageData = await getStockPageData(ticker, date);
+  const pageData = await getStockPageData(ticker, undefined);
 
   // 대중적 통칭/별칭 결합명 (예: "알파벳 A (구글)")
   const displayName = pageData.displayName;
@@ -193,8 +169,6 @@ export default async function StockDetailPage({
           initialSection="sec-reports"
           initialTicker={ticker}
           initialReport={reportForRender}
-          initialTab={validatedTab}
-          initialDate={date}
           initialReportDates={pageData.availableDates}
         />
       </Suspense>

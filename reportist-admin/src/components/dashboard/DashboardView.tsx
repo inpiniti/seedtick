@@ -400,6 +400,8 @@ export function DashboardView({
     // SSR 티저 구간에도 마스터 탭을 유지 (remount 시 final→chart→final 깜빡임 방지)
     const validTabs: ResearchDocTab[] = ["final", "summaries", "datapack", "chart"];
     if (initialTab && validTabs.includes(initialTab)) return initialTab;
+    const urlTab = getBrowserSearchParam("tab") as ResearchDocTab | null;
+    if (urlTab && validTabs.includes(urlTab)) return urlTab;
     const remembered = initialReport ? lastOpenedDocTabById[initialReport.id] : undefined;
     if (remembered && validTabs.includes(remembered)) return remembered;
     return undefined;
@@ -410,7 +412,7 @@ export function DashboardView({
   );
   const [selectedReportDate, setSelectedReportDate] = useState<
     string | undefined
-  >(initialDate || initialReport?.d);
+  >(initialDate || getBrowserSearchParam("date") || initialReport?.d);
   const [isLoadingReportDate, setIsLoadingReportDate] = useState(false);
 
   // 후보군 로고 맵

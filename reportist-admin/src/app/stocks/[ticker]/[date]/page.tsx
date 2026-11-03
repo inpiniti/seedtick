@@ -2,15 +2,15 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DashboardView } from "@/components/dashboard/DashboardView";
-import type { ResearchDocTab } from "@/components/research/ResearchDocumentView";
 import { StockStatsSummaryTable } from "@/components/research/StockStatsSummaryTable";
 import { getStockPageData } from "@/lib/server/stockPageData";
 import { buildStockJsonLd } from "@/lib/server/stockJsonLd";
 import { absoluteUrl } from "@/lib/siteConfig";
 
+export const revalidate = 86400; // 과거 일자 분석은 24시간 ISR 캐시 (과거 데이터는 불변)
+
 interface StockDateDetailPageProps {
   params: Promise<{ ticker: string; date: string }>;
-  searchParams: Promise<{ tab?: string; from?: string }>;
 }
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -110,22 +110,12 @@ export async function generateMetadata({
 
 export default async function StockDateDetailPage({
   params,
-  searchParams,
 }: StockDateDetailPageProps) {
   const { ticker: rawTicker, date: rawDate } = await params;
-  const { tab, from } = await searchParams;
   const ticker = (rawTicker || "").toUpperCase();
   const date = normalizeDate(rawDate);
 
-  // ?from= 출처는 SEO·민감정보와 무관 — 클라에서만 사용
-  void from;
-
   if (!date) notFound();
-
-  const validTabs: ResearchDocTab[] = ["final", "summaries", "datapack", "chart"];
-  const validatedTab = validTabs.includes(tab as ResearchDocTab)
-    ? (tab as ResearchDocTab)
-    : undefined;
 
   const pageData = await getStockPageData(ticker, date);
   // 존재하지 않는 티커/일자는 404 처리 (soft 404 로 색인되는 것 방지)
@@ -180,7 +170,6 @@ export default async function StockDateDetailPage({
           initialSection="sec-reports"
           initialTicker={ticker}
           initialReport={reportForRender}
-          initialTab={validatedTab}
           initialDate={date}
           initialReportDates={pageData.availableDates}
         />

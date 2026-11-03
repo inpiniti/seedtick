@@ -4,6 +4,7 @@
  * - 공개(비로그인) 기준으로만 마스킹하며, 서버 API와 동일한 free 폴백 규칙을 따른다.
  */
 
+import { cache } from "react";
 import { getServerSupabaseClient } from "@/lib/subscription/supabaseServer";
 import { isReportRestricted } from "@/lib/subscription/subscriptionPolicy";
 import { getServerFreeDate, getPublicReportForDate, getTickerReportDates } from "@/lib/server/publicCatalog";
@@ -47,11 +48,12 @@ export interface StockPageData {
 
 /**
  * 종목 상세 페이지를 위한 공개 데이터를 조회한다.
+ * React cache()로 래핑되어 동일 렌더링(generateMetadata + Page) 내 중복 DB 조회를 1회로 통합한다.
  * @param ticker 티커
  * @param date  특정 분석일자 (없으면 최신 리포트)
  * @param lang  언어 ('ko' | 'en')
  */
-export async function getStockPageData(
+export const getStockPageData = cache(async function getStockPageData(
   ticker: string,
   date?: string,
   lang: "ko" | "en" = "ko"
@@ -135,12 +137,12 @@ export async function getStockPageData(
     availableDates,
     isUnknownTicker,
   };
-}
+});
 
 /**
  * 종목 한글명 조회 (비민감 공개 데이터만 사용).
  */
-async function resolveKoreanName(
+const resolveKoreanName = cache(async function resolveKoreanName(
   ticker: string,
   reportCompanyName: string
 ): Promise<{ name: string; exists: boolean }> {
@@ -159,12 +161,12 @@ async function resolveKoreanName(
   } catch {
     return { name: ticker, exists: false };
   }
-}
+});
 
 /**
  * 종목 영문명 조회 (비민감 공개 데이터 및 사전 매핑 사용).
  */
-async function resolveEnglishName(
+const resolveEnglishName = cache(async function resolveEnglishName(
   ticker: string,
   reportCompanyNameEn: string
 ): Promise<{ name: string; exists: boolean }> {
@@ -191,4 +193,4 @@ async function resolveEnglishName(
   } catch {
     return { name: presetEnglish || ticker, exists: false };
   }
-}
+});

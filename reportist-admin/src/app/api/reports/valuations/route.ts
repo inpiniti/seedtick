@@ -62,7 +62,11 @@ export async function GET(req: Request) {
         });
       }
     }
-    return NextResponse.json({ success: true, records });
+    const cacheHeaders =
+      access.tier === "free" && !access.isTrialActive
+        ? { "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=86400" }
+        : { "Cache-Control": "private, no-cache" };
+    return NextResponse.json({ success: true, records }, { headers: cacheHeaders });
   } catch (err) {
     return NextResponse.json(
       {

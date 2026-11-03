@@ -39,7 +39,14 @@ export async function GET(req: Request) {
     const dates = Array.from(
       new Set(((data as Array<{ d: string }>) || []).map((r) => r.d))
     );
-    return NextResponse.json({ success: true, dates });
+    return NextResponse.json(
+      { success: true, dates },
+      {
+        headers: {
+          "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+        },
+      }
+    );
   } catch (err) {
     return NextResponse.json(
       {

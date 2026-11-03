@@ -3,33 +3,21 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DashboardView } from "@/components/dashboard/DashboardView";
 import { UnanalyzedStockView } from "@/components/research/UnanalyzedStockView";
-import type { ResearchDocTab } from "@/components/research/ResearchDocumentView";
 import { StockStatsSummaryTable } from "@/components/research/StockStatsSummaryTable";
 import { getStockPageData } from "@/lib/server/stockPageData";
 import { buildStockJsonLd } from "@/lib/server/stockJsonLd";
 import { absoluteUrl } from "@/lib/siteConfig";
 
+export const revalidate = 3600; // 1시간 주기 ISR 캐시 (크롤러 Edge CDN 캐시 히트)
+
 interface EnglishStockDetailPageProps {
   params: Promise<{ ticker: string }>;
-  searchParams: Promise<{ tab?: string; date?: string; from?: string }>;
 }
 
 async function buildEnglishCanonical(
-  ticker: string,
-  date: string | undefined
+  ticker: string
 ) {
-  const data = await getStockPageData(ticker, date, "en");
-  if (date && data.isPublicDate && data.publishedDate) {
-    return {
-      canonicalPath: `/en/stocks/${data.ticker}/${data.publishedDate}`,
-      isPublicDate: true,
-      publishedDate: data.publishedDate,
-      displayName: data.displayName,
-      seoKeywords: data.seoKeywords,
-      report: data.report,
-      isUnknownTicker: data.isUnknownTicker,
-    };
-  }
+  const data = await getStockPageData(ticker, undefined, "en");
   return {
     canonicalPath: `/en/stocks/${data.ticker}`,
     isPublicDate: data.isPublicDate,
@@ -43,13 +31,11 @@ async function buildEnglishCanonical(
 
 export async function generateMetadata({
   params,
-  searchParams,
 }: EnglishStockDetailPageProps): Promise<Metadata> {
   const { ticker: rawTicker } = await params;
-  const { date } = await searchParams;
   const ticker = (rawTicker || "").toUpperCase();
 
-  const meta = await buildEnglishCanonical(ticker, date);
+  const meta = await buildEnglishCanonical(ticker);
 
   if (meta.isUnknownTicker) {
     const isValidTickerPattern = /^[A-Z0-9.\-]{1,10}$/.test(ticker);
@@ -116,22 +102,15 @@ export async function generateMetadata({
 
 export default async function EnglishStockDetailPage({
   params,
-  searchParams,
 }: EnglishStockDetailPageProps) {
   const { ticker: rawTicker } = await params;
-  const { tab, date, from } = await searchParams;
   const ticker = (rawTicker || "").toUpperCase();
 
-  const data = await getStockPageData(ticker, date, "en");
+  const data = await getStockPageData(ticker, undefined, "en");
 
   if (data.isUnknownTicker) {
     notFound();
   }
-
-  const validTabs: ResearchDocTab[] = ["final", "summaries", "datapack", "chart"];
-  const initialTab = validTabs.includes(tab as ResearchDocTab)
-    ? (tab as ResearchDocTab)
-    : undefined;
 
   const jsonLd = buildStockJsonLd({
     displayName: data.displayName,
@@ -180,8 +159,6 @@ export default async function EnglishStockDetailPage({
               initialSection="sec-reports"
               initialTicker={ticker}
               initialReport={data.report}
-              initialTab={initialTab}
-              initialDate={date}
               initialReportDates={data.availableDates}
               lang="en"
             />

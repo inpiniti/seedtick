@@ -3,15 +3,15 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DashboardView } from "@/components/dashboard/DashboardView";
 import { UnanalyzedStockView } from "@/components/research/UnanalyzedStockView";
-import type { ResearchDocTab } from "@/components/research/ResearchDocumentView";
 import { StockStatsSummaryTable } from "@/components/research/StockStatsSummaryTable";
 import { getStockPageData } from "@/lib/server/stockPageData";
 import { buildStockJsonLd } from "@/lib/server/stockJsonLd";
 import { absoluteUrl } from "@/lib/siteConfig";
 
+export const revalidate = 86400; // 과거 일자 분석은 24시간 ISR 캐시 (과거 데이터는 불변)
+
 interface EnglishStockDatePageProps {
   params: Promise<{ ticker: string; date: string }>;
-  searchParams: Promise<{ tab?: string; from?: string }>;
 }
 
 export async function generateMetadata({
@@ -87,10 +87,8 @@ export async function generateMetadata({
 
 export default async function EnglishStockDateDetailPage({
   params,
-  searchParams,
 }: EnglishStockDatePageProps) {
   const { ticker: rawTicker, date } = await params;
-  const { tab } = await searchParams;
   const ticker = (rawTicker || "").toUpperCase();
 
   const data = await getStockPageData(ticker, date, "en");
@@ -98,11 +96,6 @@ export default async function EnglishStockDateDetailPage({
   if (data.isUnknownTicker) {
     notFound();
   }
-
-  const validTabs: ResearchDocTab[] = ["final", "summaries", "datapack", "chart"];
-  const initialTab = validTabs.includes(tab as ResearchDocTab)
-    ? (tab as ResearchDocTab)
-    : undefined;
 
   const jsonLd = buildStockJsonLd({
     displayName: data.displayName,
@@ -151,7 +144,6 @@ export default async function EnglishStockDateDetailPage({
               initialSection="sec-reports"
               initialTicker={ticker}
               initialReport={data.report}
-              initialTab={initialTab}
               initialDate={date}
               initialReportDates={data.availableDates}
               lang="en"
