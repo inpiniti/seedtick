@@ -201,6 +201,10 @@ export const ko: Dictionary = {
   },
   processingModal: {
     title: 'AI가 극적인 순간을 찾고 있어요',
+    titleStitching: '하이라이트 영상을 병합하고 있어요',
+    stitchProgressLabel: '병합 진행률',
+    reStitchModalTitle: '수정된 타임라인으로 영상을 병합하고 있어요',
+    reStitchModalDesc: '고화질 프레임과 자막, 오디오를 싱크에 맞춰 재합성 중입니다.',
     defaultDesc: '영상의 주요 장면을 분석하고 있어요. 잠시만 기다려 주세요.',
     youtubeSpec: '16:9 유튜브 시네마틱 규격',
     reasoningHeader: '실시간 AI 비전 추론 과정',

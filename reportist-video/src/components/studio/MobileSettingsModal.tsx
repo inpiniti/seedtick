@@ -33,6 +33,10 @@ export interface MobileSettingsModalProps {
   onDownloadThumbnail?: () => void;
   onReStitch?: () => void;
   isReStitching?: boolean;
+  reStitchProgress?: {
+    progressPercent: number;
+    statusMessage: string;
+  };
 }
 
 export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
@@ -51,6 +55,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   onDownloadThumbnail,
   onReStitch,
   isReStitching,
+  reStitchProgress,
 }) => {
   const { dict } = useI18n();
 
@@ -254,7 +259,11 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                     </div>
                   </div>
                   <div className="settings-modal-item-action">
-                    <span>{isReStitching ? dict.header.stitching : (dict.common.retry || '조합')}</span>
+                    <span>
+                      {isReStitching
+                        ? `${dict.header.stitching} (${reStitchProgress?.progressPercent ?? 0}%)`
+                        : (dict.common.retry || '조합')}
+                    </span>
                     <ChevronRight size={15} color="#94a3b8" />
                   </div>
                 </button>

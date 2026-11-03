@@ -209,6 +209,10 @@ export interface Dictionary {
   };
   processingModal: {
     title: string;
+    titleStitching?: string;
+    stitchProgressLabel?: string;
+    reStitchModalTitle?: string;
+    reStitchModalDesc?: string;
     defaultDesc: string;
     youtubeSpec: string;
     reasoningHeader: string;

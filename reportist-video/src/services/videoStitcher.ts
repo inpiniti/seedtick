@@ -847,7 +847,7 @@ export async function stitchHighlightedSegments({
   // 아웃트로 시퀀스 렌더링 (약 1.8초)
   const renderOutroSequence = async (): Promise<number> => {
     if (!overlayOptions?.showOutro) return 0;
-    onProgress?.(98, 'Generating outro end card...');
+    onProgress?.(98, '종료 아웃트로 엔드 카드 생성 중...');
 
     const outroFrames = 54; // 약 1.8초
     await startOrResumeRecorder();

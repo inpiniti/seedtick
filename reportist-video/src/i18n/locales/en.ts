@@ -201,6 +201,10 @@ export const en: Dictionary = {
   },
   processingModal: {
     title: 'AI is finding dramatic moments',
+    titleStitching: 'Stitching Highlight Video',
+    stitchProgressLabel: 'Stitch Progress',
+    reStitchModalTitle: 'Re-stitching Video',
+    reStitchModalDesc: 'Re-synthesizing video frames, subtitles, and audio to the updated timeline.',
     defaultDesc: 'Analyzing key visual moments in your videos. Please hold on.',
     youtubeSpec: '16:9 YouTube Cinematic',
     reasoningHeader: 'Live AI Vision Reasoning',

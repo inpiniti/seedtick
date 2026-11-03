@@ -150,8 +150,15 @@ export function App() {
     });
   };
 
-  // 4. 재병합 상태
+  // 4. 재병합 상태 및 진행률
   const [isReStitching, setIsReStitching] = useState<boolean>(false);
+  const [reStitchProgress, setReStitchProgress] = useState<{
+    progressPercent: number;
+    statusMessage: string;
+  }>({
+    progressPercent: 0,
+    statusMessage: '',
+  });
 
   // 하이라이트 생성 시작
   const handleStartProcessing = async (
@@ -410,6 +417,7 @@ export function App() {
         currentVideoIndex: totalVideos - 1,
         totalVideos,
         progressPercent: 85,
+        stitchProgressPercent: 0,
         statusMessage: interpolate(dict.logs.stitchingProgress, { count: allSegments.length }),
         reasoningLogs: [...logs],
       });
@@ -428,6 +436,7 @@ export function App() {
           setProgress((prev) => ({
             ...prev,
             progressPercent: Math.min(99, overallPct),
+            stitchProgressPercent: pct,
             statusMessage: msg,
           }));
         },
@@ -537,6 +546,10 @@ export function App() {
     primeAudioContext();
 
     setIsReStitching(true);
+    setReStitchProgress({
+      progressPercent: 0,
+      statusMessage: interpolate(dict.logs.stitchingProgress, { count: updatedSegments.length }) || '영상 병합을 준비하고 있어요...',
+    });
     setErrorMessage(null);
 
     try {
@@ -549,7 +562,10 @@ export function App() {
         overlayOptions,
         onLog: (msg) => console.info(`[ReStitch] ${msg}`),
         onProgress: (pct, msg) => {
-          console.info(`[ReStitch] ${pct}%: ${msg}`);
+          setReStitchProgress({
+            progressPercent: pct,
+            statusMessage: msg,
+          });
         },
       });
 
@@ -621,6 +637,7 @@ export function App() {
         onReset={handleReset}
         onReStitch={handleReStitch}
         isReStitching={isReStitching}
+        reStitchProgress={reStitchProgress}
       />
     </div>
   );

@@ -69,6 +69,8 @@ export interface ProcessingProgress {
   currentVideoIndex: number;
   totalVideos: number;
   progressPercent: number;
+  // 영상 병합 단계 자체의 세부 진행률 (0~100)
+  stitchProgressPercent?: number;
   statusMessage: string;
   error?: string;
   reasoningLogs?: string[];

@@ -95,6 +95,10 @@ interface ProStudioViewProps {
     overlayOptions?: VideoOverlayOptions
   ) => Promise<void>;
   isReStitching: boolean;
+  reStitchProgress?: {
+    progressPercent: number;
+    statusMessage: string;
+  };
   onUpdateVideosDateFormat?: (format: DateFormatOption) => void;
 }
 
@@ -114,6 +118,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   onReset,
   onReStitch,
   isReStitching,
+  reStitchProgress,
   onUpdateVideosDateFormat,
 }) => {
   const { dict, interpolate, currentLocaleInfo } = useI18n();
@@ -976,38 +981,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   disabled={isReStitching || segments.length === 0}
                   title={dict.header.reStitchTitle}
                 >
-                  <Scissors size={13} />
-                  <span>{isReStitching ? dict.header.stitching : dict.header.reStitch}</span>
-                </button>
-
-                <button
-                  type="button"
-                  className="toss-nav-btn-secondary toss-nav-secondary-action"
-                  onClick={handleDownloadThumbnail}
-                  title={dict.thumbnail?.downloadBtn || dict.header.downloadThumbnail}
-                >
-                  <ImageIcon size={13} className="text-blue-600" />
-                  <span>{dict.thumbnail?.downloadBtn || dict.header.downloadThumbnail}</span>
-                </button>
-
-                <button
-                  type="button"
-                  className="toss-nav-cta-btn"
-                  onClick={handleDownload}
-                  title={dict.header.downloadTitle}
-                >
-                  <Download size={14} />
-                  <span>{dict.header.download} ({formatSec(totalDuration)})</span>
+                  <Scissors size={13} className={isReStitching ? 'animate-spin' : ''} />
+                  <span>
+                    {isReStitching
+                      ? `${dict.header.stitching} (${reStitchProgress?.progressPercent ?? 0}%)`
+                      : dict.header.reStitch}
+                  </span>
                 </button>
               </div>
             )
           )}
 
-          {videos.length > 0 && (
-            <button type="button" className="toss-btn-text" onClick={onReset}>
-              {dict.header.reset}
-            </button>
-          )}
             </>
           )}
 
@@ -1356,6 +1340,21 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     )}
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* 완성 영상 다운로드 - 시퀀스 타임라인 아래쪽에 배치 */}
+            {Boolean(result?.url) && (
+              <div className="toss-timeline-actions">
+                <button
+                  type="button"
+                  className="toss-btn-download-video"
+                  onClick={handleDownload}
+                  title={dict.header.downloadTitle}
+                >
+                  <Download size={15} />
+                  <span>{dict.header.download} ({formatSec(totalDuration)})</span>
+                </button>
               </div>
             )}
           </div>
@@ -2054,10 +2053,18 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         <div className="toss-modal-overlay">
           <div className="toss-modal-card">
             <div className="toss-modal-icon-circle">
-              <Sparkles size={24} className="text-blue-500 animate-pulse" />
+              {progress.currentPhase === 'stitch' ? (
+                <Scissors size={24} className="text-blue-500 animate-pulse" />
+              ) : (
+                <Sparkles size={24} className="text-blue-500 animate-pulse" />
+              )}
             </div>
 
-            <h3 className="toss-modal-title">{dict.processingModal.title}</h3>
+            <h3 className="toss-modal-title">
+              {progress.currentPhase === 'stitch'
+                ? (dict.processingModal.titleStitching || '하이라이트 영상을 병합하고 있어요')
+                : dict.processingModal.title}
+            </h3>
             <p className="toss-modal-desc">
               {progress.statusMessage || dict.processingModal.defaultDesc}
             </p>
@@ -2066,12 +2073,27 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <div className="toss-modal-progress-bar">
               <div
                 className="toss-modal-progress-fill"
-                style={{ width: `${Math.max(5, progress.progressPercent)}%` }}
+                style={{
+                  width: `${Math.max(
+                    5,
+                    progress.currentPhase === 'stitch' && progress.stitchProgressPercent !== undefined
+                      ? progress.stitchProgressPercent
+                      : progress.progressPercent
+                  )}%`
+                }}
               />
             </div>
             <div className="flex justify-between items-center text-xs font-mono text-slate-400 mt-1.5 px-0.5">
-              <span>{dict.processingModal.youtubeSpec}</span>
-              <span className="font-bold text-blue-600">{progress.progressPercent}%</span>
+              <span>
+                {progress.currentPhase === 'stitch' && progress.stitchProgressPercent !== undefined
+                  ? `${dict.processingModal.stitchProgressLabel || '병합 진행률'} (전체 ${progress.progressPercent}%)`
+                  : dict.processingModal.youtubeSpec}
+              </span>
+              <span className="font-bold text-blue-600">
+                {progress.currentPhase === 'stitch' && progress.stitchProgressPercent !== undefined
+                  ? `${progress.stitchProgressPercent}%`
+                  : `${progress.progressPercent}%`}
+              </span>
             </div>
 
             {/* 실시간 AI 비전 추론 로그 콘솔 */}
@@ -2142,6 +2164,40 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             >
               {dict.common.cancel}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 4-B. 타임라인 재병합 진행 모달 */}
+      {isReStitching && (
+        <div className="toss-modal-overlay toss-restitch-modal-overlay">
+          <div className="toss-modal-card">
+            <div className="toss-modal-icon-circle">
+              <Scissors size={24} className="text-blue-500 animate-pulse" />
+            </div>
+
+            <h3 className="toss-modal-title">
+              {dict.processingModal.reStitchModalTitle || '수정된 타임라인으로 영상을 병합하고 있어요'}
+            </h3>
+            <p className="toss-modal-desc">
+              {reStitchProgress?.statusMessage ||
+                dict.processingModal.reStitchModalDesc ||
+                '고화질 프레임과 자막, 오디오를 싱크에 맞춰 재합성 중입니다.'}
+            </p>
+
+            {/* 진행률 바 */}
+            <div className="toss-modal-progress-bar">
+              <div
+                className="toss-modal-progress-fill"
+                style={{ width: `${Math.max(5, reStitchProgress?.progressPercent ?? 0)}%` }}
+              />
+            </div>
+            <div className="flex justify-between items-center text-xs font-mono text-slate-400 mt-2 px-0.5">
+              <span>{dict.processingModal.youtubeSpec}</span>
+              <span className="font-bold text-blue-600 text-sm">
+                {reStitchProgress?.progressPercent ?? 0}%
+              </span>
+            </div>
           </div>
         </div>
       )}
@@ -2285,16 +2341,18 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         onReset={onReset}
         hasStitchedResult={Boolean(result?.url)}
         onDownloadThumbnail={handleDownloadThumbnail}
-        onReStitch={() =>
+        onReStitch={() => {
+          setIsSettingsModalOpen(false);
           onReStitch(
             segments,
             selectedBgmId,
             bgmVolume,
             customAudioFile,
             effectiveOverlayOptions
-          )
-        }
+          );
+        }}
         isReStitching={isReStitching}
+        reStitchProgress={reStitchProgress}
       />
     </div>
   );
