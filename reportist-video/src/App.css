@@ -1709,6 +1709,47 @@
   border-radius: 8px;
 }
 
+/* Primary Button (Toss design system) */
+.toss-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background-color: #3182f6;
+  color: #ffffff;
+  border: none;
+  padding: 9px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 3px rgba(49, 130, 246, 0.25);
+}
+
+.toss-btn-primary:hover:not(:disabled) {
+  background-color: #2b74d6;
+  box-shadow: 0 2px 6px rgba(49, 130, 246, 0.35);
+}
+
+.toss-btn-primary:disabled {
+  background-color: #c7cfe0;
+  color: #8b95a1;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.toss-btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+
+.toss-btn-primary.toss-btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
 /* Intro / Outro Cards */
 .toss-intro-card,
 .toss-outro-card {
