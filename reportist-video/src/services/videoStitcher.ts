@@ -102,22 +102,36 @@ function getSharedAudioContext(): AudioContext | null {
 // MediaRecorder 코덱 선택 (iOS Safari는 WebM을 지원하지 않으므로 MP4 우선)
 // ---------------------------------------------------------------------------
 
-const WEBM_CANDIDATES = [
+const MP4_AUDIO_CANDIDATES = [
+  'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+  'video/mp4;codecs=avc1.42001E,mp4a.40.2',
+  'video/mp4',
+];
+
+const MP4_VIDEO_ONLY_CANDIDATES = [
+  'video/mp4;codecs=avc1.42E01E',
+  'video/mp4;codecs=avc1.42001E',
+  'video/mp4',
+];
+
+const WEBM_AUDIO_CANDIDATES = [
   'video/webm;codecs=vp8,opus',
   'video/webm;codecs=vp9,opus',
   'video/webm;codecs=vp8',
   'video/webm',
 ];
 
-const MP4_CANDIDATES = [
-  'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
-  'video/mp4;codecs=avc1.42E01E',
-  'video/mp4',
+const WEBM_VIDEO_ONLY_CANDIDATES = [
+  'video/webm;codecs=vp8',
+  'video/webm;codecs=vp9',
+  'video/webm',
 ];
 
-function supportedRecorderMimes(): string[] {
+function supportedRecorderMimes(hasAudio: boolean): string[] {
   if (typeof MediaRecorder === 'undefined') return [];
-  const order = IS_IOS || IS_SAFARI ? [...MP4_CANDIDATES, ...WEBM_CANDIDATES] : [...WEBM_CANDIDATES, ...MP4_CANDIDATES];
+  const mp4List = hasAudio ? MP4_AUDIO_CANDIDATES : MP4_VIDEO_ONLY_CANDIDATES;
+  const webmList = hasAudio ? WEBM_AUDIO_CANDIDATES : WEBM_VIDEO_ONLY_CANDIDATES;
+  const order = IS_IOS || IS_SAFARI ? [...mp4List, ...webmList] : [...webmList, ...mp4List];
   return order.filter((mime) => {
     try {
       return MediaRecorder.isTypeSupported(mime);
@@ -134,8 +148,10 @@ function createMediaRecorder(stream: MediaStream): { recorder: MediaRecorder; mi
     );
   }
 
-  const videoBitsPerSecond = IS_IOS ? 2_000_000 : 2_800_000;
-  const candidates = [...supportedRecorderMimes(), ''];
+  const hasAudio = stream.getAudioTracks().length > 0;
+  const videoBitsPerSecond = IS_IOS ? 1_800_000 : 2_800_000;
+  // 빈 문자열('')은 브라우저 자체 기본 코덱(가장 안전한 기본값) 선택을 위한 최후 후보
+  const candidates = [...supportedRecorderMimes(hasAudio), ''];
   let lastError: unknown = null;
 
   for (const mime of candidates) {
@@ -154,7 +170,7 @@ function createMediaRecorder(stream: MediaStream): { recorder: MediaRecorder; mi
 }
 
 // 모바일 Safari는 화면 밖으로 밀어낸 canvas/video의 프레임을 캡처하지 못하거나
-// 재생을 스로틀하는 경우가 있어, 뷰포트 안쪽 16x9px 영역에 마운트한다.
+// 레이어 컬링으로 captureStream 프레임이 멈추는 경우가 있어, 뷰포트 하단 모서리에 안전하게 마운트한다.
 function mountHiddenStage(canvas: HTMLCanvasElement, video: HTMLVideoElement): HTMLDivElement {
   const stage = document.createElement('div');
   stage.setAttribute('aria-hidden', 'true');
@@ -162,16 +178,16 @@ function mountHiddenStage(canvas: HTMLCanvasElement, video: HTMLVideoElement): H
     'position:fixed',
     'left:0',
     'bottom:0',
-    'width:16px',
-    'height:9px',
-    'opacity:0.02',
+    'width:80px',
+    'height:45px',
+    'opacity:0.08',
     'pointer-events:none',
     'overflow:hidden',
-    'z-index:2147483646',
+    'z-index:1',
   ].join(';');
   for (const el of [canvas, video]) {
-    el.style.width = '16px';
-    el.style.height = '9px';
+    el.style.width = '80px';
+    el.style.height = '45px';
   }
   stage.appendChild(canvas);
   stage.appendChild(video);
@@ -406,12 +422,12 @@ export async function stitchHighlightedSegments({
       await resumeAudioContext();
 
       if (recorder.state === 'inactive') {
-        // iOS/Safari는 timeslice 분할 녹화에서 조각이 깨지는 사례가 있어
-        // 한 번에 모았다가 stop 시점에 하나의 파일로 받는다.
-        if (IS_IOS || IS_SAFARI) {
+        // timeslice(1000ms): 1초 주기로 ondataavailable을 발생시켜
+        // 아이폰 XR 등 저메모리 기기에서 버퍼 누락 없이 실시간으로 청크를 안전하게 수집
+        try {
+          recorder.start(1000);
+        } catch {
           recorder.start();
-        } else {
-          recorder.start(500);
         }
         recorderStarted = true;
       } else if (recorder.state === 'paused') {
