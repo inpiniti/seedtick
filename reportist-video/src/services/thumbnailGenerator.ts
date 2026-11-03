@@ -14,11 +14,11 @@ export interface ThumbnailRenderOptions {
 
 export const DEFAULT_THUMBNAIL_OPTIONS: ThumbnailRenderOptions = {
   titleText: '',
-  channelText: 'Reportist',
-  badgeText: '✨ AI 하이라이트',
+  channelText: '',
+  badgeText: '',
   showTitle: true,
-  showBadge: true,
-  showChannel: true,
+  showBadge: false,
+  showChannel: false,
   stylePreset: 'youtube-bold',
   textColor: '#ffffff',
   accentColor: '#3182f6',
@@ -286,12 +286,14 @@ export function renderThumbnailArtwork(
   ctx.drawImage(bgCanvas, 0, 0, targetWidth, targetHeight);
 
   // 2. 유튜브 시네마틱 비네팅 & 하단/상단 가독성 그라데이션
-  // 상단 은은한 섀도우 (채널명/배지 가독성)
-  const topGrad = ctx.createLinearGradient(0, 0, 0, 200);
-  topGrad.addColorStop(0, 'rgba(0, 0, 0, 0.65)');
-  topGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-  ctx.fillStyle = topGrad;
-  ctx.fillRect(0, 0, targetWidth, 200);
+  // 상단 은은한 섀도우 (채널명/배지가 있을 때만 적용하여 원본 비디오 화면 보존)
+  if ((options.showBadge && options.badgeText) || (options.showChannel && options.channelText)) {
+    const topGrad = ctx.createLinearGradient(0, 0, 0, 180);
+    topGrad.addColorStop(0, 'rgba(0, 0, 0, 0.6)');
+    topGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = topGrad;
+    ctx.fillRect(0, 0, targetWidth, 180);
+  }
 
   // 하단 딥 다크 그라데이션 (타이틀 가독성 극대화)
   const bottomGrad = ctx.createLinearGradient(0, targetHeight - 380, 0, targetHeight);

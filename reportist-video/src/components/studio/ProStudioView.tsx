@@ -358,11 +358,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         if (!targetUrl) return;
 
         const targetTime =
-          result?.bestThumbnailTime && result.bestThumbnailTime > 0
+          result?.bestThumbnailTime && result.bestThumbnailTime > 0.5
             ? result.bestThumbnailTime
             : (result?.segments && result.segments[0]
-                ? result.segments[0].start + result.segments[0].duration * 0.35
-                : 0.1);
+                ? result.segments[0].start + Math.max(0.5, result.segments[0].duration * 0.4)
+                : 0.5);
 
         const bg = await captureVideoFrameAtTime(
           targetUrl,
@@ -380,17 +380,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   }, [result, dict.player.defaultTitleText, videos]);
 
-  // 타이틀/채널명/스타일 변경 시 실시간 썸네일 재렌더링
+  // 타이틀/스타일 변경 시 실시간 썸네일 재렌더링
   useEffect(() => {
     if (!thumbnailBgCanvasRef.current) return;
     try {
       const artCanvas = renderThumbnailArtwork(thumbnailBgCanvasRef.current, {
         titleText: overlayOptions.titleText,
-        channelText: overlayOptions.channelText,
-        badgeText: '✨ AI 하이라이트',
+        channelText: '',
+        badgeText: '',
         showTitle: showThumbnailTitle && Boolean(overlayOptions.titleText?.trim()),
-        showBadge: true,
-        showChannel: Boolean(overlayOptions.showChannel),
+        showBadge: false,
+        showChannel: false,
         stylePreset: thumbnailStyle,
       });
       setThumbnailUrl(artCanvas.toDataURL('image/jpeg', 0.95));
@@ -399,8 +399,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   }, [
     overlayOptions.titleText,
-    overlayOptions.channelText,
-    overlayOptions.showChannel,
     thumbnailStyle,
     showThumbnailTitle,
   ]);
@@ -638,11 +636,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       if (thumbnailBgCanvasRef.current) {
         const artCanvas = renderThumbnailArtwork(thumbnailBgCanvasRef.current, {
           titleText: overlayOptions.titleText,
-          channelText: overlayOptions.channelText,
-          badgeText: '✨ AI 하이라이트',
+          channelText: '',
+          badgeText: '',
           showTitle: showThumbnailTitle && Boolean(overlayOptions.titleText?.trim()),
-          showBadge: true,
-          showChannel: Boolean(overlayOptions.showChannel),
+          showBadge: false,
+          showChannel: false,
           stylePreset: thumbnailStyle,
         });
         await downloadThumbnailFile(artCanvas, overlayOptions.titleText || 'highlight');
@@ -681,11 +679,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
         const artCanvas = renderThumbnailArtwork(bg, {
           titleText: overlayOptions.titleText,
-          channelText: overlayOptions.channelText,
-          badgeText: '✨ AI 하이라이트',
+          channelText: '',
+          badgeText: '',
           showTitle: showThumbnailTitle && Boolean(overlayOptions.titleText?.trim()),
-          showBadge: true,
-          showChannel: Boolean(overlayOptions.showChannel),
+          showBadge: false,
+          showChannel: false,
           stylePreset: thumbnailStyle,
         });
 
@@ -705,7 +703,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     try {
       const targetVideo = videoMap.get(seg.sourceVideoId) || videos[0];
       if (!targetVideo) return;
-      const targetTime = seg.start + seg.duration * 0.35;
+      const targetTime = seg.start + Math.max(0.5, seg.duration * 0.4);
       const bg = await captureVideoFrameAtTime(
         targetVideo.url,
         targetTime,
@@ -715,11 +713,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
       const artCanvas = renderThumbnailArtwork(bg, {
         titleText: overlayOptions.titleText,
-        channelText: overlayOptions.channelText,
-        badgeText: '✨ AI 하이라이트',
+        channelText: '',
+        badgeText: '',
         showTitle: showThumbnailTitle && Boolean(overlayOptions.titleText?.trim()),
-        showBadge: true,
-        showChannel: Boolean(overlayOptions.showChannel),
+        showBadge: false,
+        showChannel: false,
         stylePreset: thumbnailStyle,
       });
 
@@ -1001,11 +999,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           if (!thumbnailUrl) {
                             const artCanvas = renderThumbnailArtwork(bg, {
                               titleText: overlayOptions.titleText,
-                              channelText: overlayOptions.channelText,
-                              badgeText: '✨ AI 하이라이트',
+                              channelText: '',
+                              badgeText: '',
                               showTitle: showThumbnailTitle && Boolean(overlayOptions.titleText?.trim()),
-                              showBadge: true,
-                              showChannel: Boolean(overlayOptions.showChannel),
+                              showBadge: false,
+                              showChannel: false,
                               stylePreset: thumbnailStyle,
                             });
                             setThumbnailUrl(artCanvas.toDataURL('image/jpeg', 0.95));
@@ -1365,13 +1363,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     </button>
                   </div>
                 )}
-                <div className="toss-thumb-badge-top-left">
-                  <Sparkles size={11} className="text-yellow-400" />
-                  <span>{dict.thumbnail?.currentBestBadge || 'AI 베스트 컷'}</span>
-                </div>
-                <div className="toss-thumb-badge-top-right">
-                  1280 × 720 HD
-                </div>
               </div>
 
               {/* 썸네일 타이틀 및 스타일 컨트롤 */}

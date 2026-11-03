@@ -442,11 +442,11 @@ export function App() {
         const thumbVideo =
           updatedVideos.find((v) => v.id === bestThumbVideoId) || updatedVideos[0];
         const targetTime =
-          bestThumbTimestamp > 0
+          bestThumbTimestamp > 0.5
             ? bestThumbTimestamp
             : allSegments[0]
-            ? allSegments[0].start + allSegments[0].duration * 0.35
-            : 0.1;
+            ? allSegments[0].start + Math.max(0.5, allSegments[0].duration * 0.4)
+            : 0.5;
 
         if (thumbVideo) {
           try {
@@ -460,7 +460,7 @@ export function App() {
             if (result.url) {
               bgCanvas = await captureVideoFrameAtTime(
                 result.url,
-                0.2,
+                0.5,
                 bestThumbCropOffsetYRatio
               );
             }
@@ -468,7 +468,7 @@ export function App() {
         } else if (result.url) {
           bgCanvas = await captureVideoFrameAtTime(
             result.url,
-            0.2,
+            0.5,
             bestThumbCropOffsetYRatio
           );
         }
@@ -479,11 +479,11 @@ export function App() {
 
           const thumbCanvas = renderThumbnailArtwork(bgCanvas, {
             titleText: finalTitle,
-            channelText: overlayOpts?.channelText || dict.player.defaultChannelText,
-            badgeText: '✨ AI 하이라이트',
+            channelText: '',
+            badgeText: '',
             showTitle: true,
-            showBadge: true,
-            showChannel: Boolean(overlayOpts?.showChannel),
+            showBadge: false,
+            showChannel: false,
             stylePreset: 'youtube-bold',
           });
 
