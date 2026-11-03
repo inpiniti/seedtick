@@ -2987,6 +2987,20 @@
   margin: 0 auto 16px;
 }
 
+.toss-modal-thumb-box {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background-color: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(226, 232, 240, 0.85);
+}
+
 .toss-modal-title {
   font-size: 18px;
   font-weight: 800;
@@ -3301,6 +3315,12 @@
     opacity: 0.4;
     transform: scale(0.85);
   }
+}
+
+.toss-modal-reasoning-single {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
 }
 
 .toss-modal-reasoning-console {
