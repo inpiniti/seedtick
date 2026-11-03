@@ -305,6 +305,12 @@ export interface Dictionary {
     language: string;
     dateFormat?: string;
     dateFormatDesc?: string;
+    ageOption?: string;
+    ageOptionDesc?: string;
+    birthDateLabel?: string;
+    birthDatePlaceholder?: string;
+    agePreviewLabel?: string;
+    birthDatePrompt?: string;
     projectActions: string;
     thumbnailDesc: string;
     resetDesc: string;

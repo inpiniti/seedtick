@@ -11,9 +11,14 @@ import {
   X,
   Zap,
   Scissors,
+  Baby,
 } from 'lucide-react';
 import type { FreeModelMeta } from '../../types/gateway.ts';
-import type { DateFormatOption } from '../../services/videoMetadata.ts';
+import {
+  formatDateByPattern,
+  formatDateWithAge,
+  type DateFormatOption,
+} from '../../services/videoMetadata.ts';
 import { cleanModelName, getSpeedTier } from '../../services/modelMetrics.ts';
 import { useI18n } from '../../i18n/index.tsx';
 
@@ -24,6 +29,11 @@ export interface MobileSettingsModalProps {
   onOpenLanguageModal: () => void;
   onOpenDateFormatModal?: () => void;
   currentDateFormat?: DateFormatOption;
+  showAge?: boolean;
+  onToggleShowAge?: (enabled: boolean) => void;
+  birthDate?: string;
+  onChangeBirthDate?: (dateStr: string) => void;
+  referenceDate?: Date;
   currentModel?: FreeModelMeta;
   isLoadingModels?: boolean;
   currentLocaleInfo: { flag: string; nativeName: string; name: string };
@@ -46,6 +56,11 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   onOpenLanguageModal,
   onOpenDateFormatModal,
   currentDateFormat,
+  showAge = false,
+  onToggleShowAge,
+  birthDate = '',
+  onChangeBirthDate,
+  referenceDate,
   currentModel,
   isLoadingModels,
   currentLocaleInfo,
@@ -71,6 +86,11 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   if (!isOpen) return null;
 
   const currentSpeedTier = currentModel ? getSpeedTier(currentModel.speedTokensPerSecond) : null;
+  const sampleDate = referenceDate || new Date();
+  const sampleBaseDateStr = formatDateByPattern(sampleDate, currentDateFormat || 'YYYY.MM.DD');
+  const previewFormattedAge = birthDate.trim()
+    ? formatDateWithAge(sampleBaseDateStr, sampleDate, true, birthDate)
+    : '';
 
   return (
     <div className="model-modal-backdrop" onClick={onClose}>
@@ -228,7 +248,72 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
             </div>
           )}
 
-          {/* Group 4: Project Actions */}
+          {/* Group 4: Child Age Display (아이 나이 표시) */}
+          <div className="settings-modal-group">
+            <span className="settings-modal-group-title">
+              {dict.settingsModal?.ageOption || '아이 나이 표시'}
+            </span>
+            <div className="settings-modal-card-box">
+              <div className="settings-modal-toggle-row">
+                <div className="settings-modal-item-left">
+                  <div
+                    className="settings-modal-icon-badge"
+                    style={{ backgroundColor: '#fdf2f8', color: '#db2777' }}
+                  >
+                    <Baby size={18} />
+                  </div>
+                  <div className="settings-modal-item-text">
+                    <div className="settings-modal-item-title">
+                      {dict.settingsModal?.ageOption || '아이 나이 표시'}
+                    </div>
+                    <div className="settings-modal-item-desc">
+                      {dict.settingsModal?.ageOptionDesc || '촬영 날짜 옆에 만 나이(2살 미만은 개월수)를 함께 표시해요'}
+                    </div>
+                  </div>
+                </div>
+                <label className="toss-toggle-switch" style={{ margin: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={showAge}
+                    onChange={(e) => onToggleShowAge?.(e.target.checked)}
+                  />
+                  <span className="toss-toggle-slider" />
+                </label>
+              </div>
+
+              {/* 생년월일 입력창 (나이 표시 켰을 때만 노출) */}
+              {showAge && (
+                <div className="settings-age-input-section">
+                  <div className="settings-age-input-row">
+                    <label className="settings-age-input-label">
+                      <Calendar size={13} className="text-pink-500" />
+                      <span>{dict.settingsModal?.birthDateLabel || '생년월일'}</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={birthDate}
+                      onChange={(e) => onChangeBirthDate?.(e.target.value)}
+                      className="settings-age-date-input"
+                      max={new Date().toISOString().split('T')[0]}
+                      placeholder={dict.settingsModal?.birthDatePlaceholder || 'YYYY-MM-DD'}
+                    />
+                  </div>
+
+                  {/* 실시간 미리보기 뱃지 */}
+                  <div className="settings-age-preview-badge">
+                    <span className="settings-age-preview-label">
+                      {dict.settingsModal?.agePreviewLabel || '미리보기'}
+                    </span>
+                    <span className="settings-age-preview-value">
+                      {previewFormattedAge || (dict.settingsModal?.birthDatePrompt || '생년월일을 입력하면 날짜 옆에 나이가 표시돼요')}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Group 5: Project Actions */}
           {(hasStitchedResult || hasVideos) && (
             <div className="settings-modal-group">
               <span className="settings-modal-group-title">
@@ -344,3 +429,6 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
     </div>
   );
 };
+
+export const StudioSettingsModal = MobileSettingsModal;
+export default MobileSettingsModal;

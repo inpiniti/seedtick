@@ -21,6 +21,9 @@ export interface DateFormatItem {
 export const DATE_FORMAT_STORAGE_KEY = 'reportist_video_date_format';
 export const DEFAULT_DATE_FORMAT: DateFormatOption = 'YYYY.MM.DD';
 
+export const SHOW_AGE_STORAGE_KEY = 'reportist_video_show_age';
+export const BIRTH_DATE_STORAGE_KEY = 'reportist_video_birth_date';
+
 export interface VideoMetadata {
   dateStr: string; // e.g. "2026.11.03"
   fullDateStr: string; // e.g. "2026년 11월 3일"
@@ -59,6 +62,168 @@ export function setStoredDateFormat(format: DateFormatOption): void {
   try {
     localStorage.setItem(DATE_FORMAT_STORAGE_KEY, format);
   } catch {}
+}
+
+/**
+ * 나이 표시 옵션 활성화 여부 불러오기
+ */
+export function getStoredShowAge(): boolean {
+  try {
+    const saved = localStorage.getItem(SHOW_AGE_STORAGE_KEY);
+    return saved === 'true';
+  } catch {}
+  return false;
+}
+
+/**
+ * 나이 표시 옵션 localStorage에 저장
+ */
+export function setStoredShowAge(show: boolean): void {
+  try {
+    localStorage.setItem(SHOW_AGE_STORAGE_KEY, String(show));
+  } catch {}
+}
+
+/**
+ * 생년월일(YYYY-MM-DD) 불러오기
+ */
+export function getStoredBirthDate(): string {
+  try {
+    return localStorage.getItem(BIRTH_DATE_STORAGE_KEY) || '';
+  } catch {}
+  return '';
+}
+
+/**
+ * 생년월일 localStorage에 저장
+ */
+export function setStoredBirthDate(dateStr: string): void {
+  try {
+    localStorage.setItem(BIRTH_DATE_STORAGE_KEY, dateStr);
+  } catch {}
+}
+
+/**
+ * 날짜 문자열에서 끝에 붙은 나이 괄호(예: " (1살 8개월)", " (2살)") 제거
+ */
+export function stripAgeFromDate(dateStr: string): string {
+  if (!dateStr) return '';
+  return dateStr.replace(/\s*\([^)]*\)\s*$/, '').trim();
+}
+
+/**
+ * 날짜 문자열(다양한 포맷)에서 Date 객체 파싱
+ */
+export function parseDateFromString(str: string): Date | null {
+  if (!str) return null;
+  const clean = stripAgeFromDate(str);
+
+  // YYYY.MM.DD / YYYY-MM-DD / YYYY/MM/DD
+  const ymd = clean.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})/);
+  if (ymd) {
+    const d = new Date(parseInt(ymd[1], 10), parseInt(ymd[2], 10) - 1, parseInt(ymd[3], 10));
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  // YYYY년 M월 D일
+  const koYmd = clean.match(/^(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/);
+  if (koYmd) {
+    const d = new Date(parseInt(koYmd[1], 10), parseInt(koYmd[2], 10) - 1, parseInt(koYmd[3], 10));
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  // MM/DD/YYYY or DD/MM/YYYY
+  const slash = clean.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (slash) {
+    const d = new Date(parseInt(slash[3], 10), parseInt(slash[1], 10) - 1, parseInt(slash[2], 10));
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  const fallback = new Date(clean);
+  if (!isNaN(fallback.getTime())) return fallback;
+  return null;
+}
+
+/**
+ * 만 나이 계산:
+ * - 2살 이상: 만 나이만 표시 (예: "2살", "3살")
+ * - 2살 미만: 개월수도 표시
+ *   - 1살: 1살 X개월 (0개월일 땐 "1살")
+ *   - 0살: X개월 (0개월일 땐 "0개월")
+ */
+export function calculateAgeText(
+  birthDateInput: string | Date,
+  targetDateInput: string | Date | number
+): string | null {
+  if (!birthDateInput || !targetDateInput) return null;
+
+  const birth =
+    typeof birthDateInput === 'string'
+      ? parseDateFromString(birthDateInput) || new Date(birthDateInput)
+      : birthDateInput;
+  const target =
+    typeof targetDateInput === 'number'
+      ? new Date(targetDateInput)
+      : typeof targetDateInput === 'string'
+      ? parseDateFromString(targetDateInput) || new Date(targetDateInput)
+      : targetDateInput;
+
+  if (!birth || isNaN(birth.getTime()) || !target || isNaN(target.getTime())) {
+    return null;
+  }
+
+  // 출생일 이전의 영상인 경우 표시하지 않음
+  if (target.getTime() < birth.getTime()) {
+    return null;
+  }
+
+  let years = target.getFullYear() - birth.getFullYear();
+  let months = target.getMonth() - birth.getMonth();
+  let days = target.getDate() - birth.getDate();
+
+  if (days < 0) {
+    months -= 1;
+  }
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+
+  // 만 나이 (2살 이상은 살 단위만 표시)
+  if (years >= 2) {
+    return `${years}살`;
+  }
+
+  // 2살 미만: 개월수도 표시 (예: 1살 8개월, 1살)
+  if (years === 1) {
+    return months > 0 ? `1살 ${months}개월` : '1살';
+  }
+
+  // 0살 (1세 미만: 예: 8개월, 0개월)
+  return `${months}개월`;
+}
+
+/**
+ * 기본 날짜 문자열에 나이 정보 결합
+ * 예: 2026.11.03 -> 2026.11.03 (1살 8개월)
+ */
+export function formatDateWithAge(
+  baseDateStr: string,
+  targetDateInput: string | Date | number,
+  showAge: boolean,
+  birthDate: string
+): string {
+  const cleanBase = stripAgeFromDate(baseDateStr);
+  if (!showAge || !birthDate || !birthDate.trim()) {
+    return cleanBase;
+  }
+
+  const ageText = calculateAgeText(birthDate, targetDateInput);
+  if (!ageText) {
+    return cleanBase;
+  }
+
+  return `${cleanBase} (${ageText})`;
 }
 
 /**
@@ -291,15 +456,18 @@ export async function extractMediaRecordedDate(file: File): Promise<Date> {
 }
 
 /**
- * 동영상/사진 파일에서 촬영 날짜를 안정적으로 포맷팅
+ * 동영상/사진 파일에서 촬영 날짜를 안정적으로 포맷팅 (나이 옵션 활성화 시 나이 병기)
  */
 export function formatVideoDate(
   file: File,
   pattern: DateFormatOption = getStoredDateFormat(),
-  recordedDate?: Date
+  recordedDate?: Date,
+  showAge: boolean = getStoredShowAge(),
+  birthDate: string = getStoredBirthDate()
 ): { dateStr: string; fullDateStr: string; recordedTimestamp: number } {
   const d = recordedDate || (file.lastModified ? new Date(file.lastModified) : new Date());
-  const dateStr = formatDateByPattern(d, pattern);
+  const baseDateStr = formatDateByPattern(d, pattern);
+  const dateStr = formatDateWithAge(baseDateStr, d, showAge, birthDate);
   const fullDateStr = formatDateByPattern(d, 'YYYY년 M월 D일');
 
   return {

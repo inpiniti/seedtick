@@ -58,6 +58,13 @@ import {
   formatDateByPattern,
   getStoredDateFormat,
   setStoredDateFormat,
+  getStoredShowAge,
+  setStoredShowAge,
+  getStoredBirthDate,
+  setStoredBirthDate,
+  formatDateWithAge,
+  stripAgeFromDate,
+  parseDateFromString,
 } from '../../services/videoMetadata.ts';
 import {
   loadLibraryAudioFile,
@@ -177,6 +184,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
   const [isDateFormatModalOpen, setIsDateFormatModalOpen] = useState<boolean>(false);
   const [currentDateFormat, setCurrentDateFormat] = useState<DateFormatOption>(getStoredDateFormat);
+  const [showAge, setShowAge] = useState<boolean>(getStoredShowAge);
+  const [birthDate, setBirthDate] = useState<string>(getStoredBirthDate);
 
   const currentModel = useMemo(
     () => models.find((model) => model.id === selectedModel) || models[0] || null,
@@ -216,14 +225,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 5. 자막 & 브랜딩 오버레이 상태
   const initialDateStr = useMemo(() => {
     if (videos.length > 0 && videos[0].metadataDate) {
-      return videos[0].metadataDate;
+      const ts = videos[0]?.recordedTimestamp || videos[0]?.file?.lastModified;
+      const targetDate = ts ? new Date(ts) : parseDateFromString(videos[0].metadataDate) || new Date();
+      return formatDateWithAge(videos[0].metadataDate, targetDate, showAge, birthDate);
     }
     const ts = videos[0]?.recordedTimestamp || videos[0]?.file?.lastModified;
     if (ts) {
-      return formatDateByPattern(new Date(ts), currentDateFormat);
+      const base = formatDateByPattern(new Date(ts), currentDateFormat);
+      return formatDateWithAge(base, new Date(ts), showAge, birthDate);
     }
     return '';
-  }, [videos, currentDateFormat]);
+  }, [videos, currentDateFormat, showAge, birthDate]);
 
   const [overlayOptions, setOverlayOptions] = useState<VideoOverlayOptions>({
     showTitle: true,
@@ -257,17 +269,19 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   useEffect(() => {
     if (videos.length > 0) {
       const ts = videos[0].recordedTimestamp || videos[0].file?.lastModified;
-      const detectedDate =
+      let detectedDate =
         videos[0].metadataDate ||
         (ts ? formatDateByPattern(new Date(ts), currentDateFormat) : '');
       if (detectedDate) {
+        const targetDate = ts ? new Date(ts) : parseDateFromString(detectedDate) || new Date();
+        const formattedWithAge = formatDateWithAge(detectedDate, targetDate, showAge, birthDate);
         setOverlayOptions((prev) => ({
           ...prev,
-          subtitleDateText: prev.subtitleDateText || detectedDate,
+          subtitleDateText: prev.subtitleDateText || formattedWithAge,
         }));
       }
     }
-  }, [videos, currentDateFormat]);
+  }, [videos, currentDateFormat, showAge, birthDate]);
 
   // 날짜 표기 형식 변경 시 세그먼트 자막 및 비디오 메타데이터 일괄 갱신
   const handleSelectDateFormat = (newFormat: DateFormatOption) => {
@@ -279,10 +293,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       prev.map((seg) => {
         const vItem = videoMap.get(seg.sourceVideoId);
         const ts = vItem?.recordedTimestamp || vItem?.file?.lastModified;
-        if (!ts) return seg;
+        const targetDate = ts ? new Date(ts) : parseDateFromString(seg.subtitleDate || '') || new Date();
+        const baseDate = ts ? formatDateByPattern(new Date(ts), newFormat) : formatDateByPattern(targetDate, newFormat);
         return {
           ...seg,
-          subtitleDate: formatDateByPattern(new Date(ts), newFormat),
+          subtitleDate: formatDateWithAge(baseDate, targetDate, showAge, birthDate),
         };
       })
     );
@@ -290,16 +305,88 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     // 2. 전체 기본 하단 자막(subtitleDateText) 갱신
     if (videos.length > 0) {
       const firstTs = videos[0].recordedTimestamp || videos[0].file?.lastModified;
-      if (firstTs) {
-        setOverlayOptions((prev) => ({
-          ...prev,
-          subtitleDateText: formatDateByPattern(new Date(firstTs), newFormat),
-        }));
-      }
+      const targetDate = firstTs ? new Date(firstTs) : parseDateFromString(overlayOptions.subtitleDateText || '') || new Date();
+      const baseDate = formatDateByPattern(targetDate, newFormat);
+      setOverlayOptions((prev) => ({
+        ...prev,
+        subtitleDateText: formatDateWithAge(baseDate, targetDate, showAge, birthDate),
+      }));
     }
 
     // 3. 상위 컴포넌트(App)의 videos metadataDate 갱신
     onUpdateVideosDateFormat?.(newFormat);
+  };
+
+  // 나이 표시 옵션 토글 핸들러
+  const handleToggleShowAge = (enabled: boolean) => {
+    setShowAge(enabled);
+    setStoredShowAge(enabled);
+
+    // 1. 타임라인 세그먼트들의 subtitleDate 일괄 갱신
+    setSegments((prev) =>
+      prev.map((seg) => {
+        const vItem = videoMap.get(seg.sourceVideoId);
+        const ts = vItem?.recordedTimestamp || vItem?.file?.lastModified;
+        const targetDate = ts ? new Date(ts) : parseDateFromString(seg.subtitleDate || '') || new Date();
+        const baseDate = ts
+          ? formatDateByPattern(new Date(ts), currentDateFormat)
+          : stripAgeFromDate(seg.subtitleDate || '');
+        return {
+          ...seg,
+          subtitleDate: formatDateWithAge(baseDate, targetDate, enabled, birthDate),
+        };
+      })
+    );
+
+    // 2. 전체 기본 하단 자막(subtitleDateText) 갱신
+    const firstTs = videos[0]?.recordedTimestamp || videos[0]?.file?.lastModified;
+    const targetDate = firstTs
+      ? new Date(firstTs)
+      : parseDateFromString(overlayOptions.subtitleDateText || '') || new Date();
+    const baseDate = firstTs
+      ? formatDateByPattern(new Date(firstTs), currentDateFormat)
+      : stripAgeFromDate(overlayOptions.subtitleDateText || '');
+    setOverlayOptions((prev) => ({
+      ...prev,
+      subtitleDateText: formatDateWithAge(baseDate, targetDate, enabled, birthDate),
+    }));
+  };
+
+  // 생년월일 변경 핸들러
+  const handleChangeBirthDate = (newBirthDate: string) => {
+    setBirthDate(newBirthDate);
+    setStoredBirthDate(newBirthDate);
+
+    if (!showAge) return;
+
+    // 1. 타임라인 세그먼트들의 subtitleDate 일괄 갱신
+    setSegments((prev) =>
+      prev.map((seg) => {
+        const vItem = videoMap.get(seg.sourceVideoId);
+        const ts = vItem?.recordedTimestamp || vItem?.file?.lastModified;
+        const targetDate = ts ? new Date(ts) : parseDateFromString(seg.subtitleDate || '') || new Date();
+        const baseDate = ts
+          ? formatDateByPattern(new Date(ts), currentDateFormat)
+          : stripAgeFromDate(seg.subtitleDate || '');
+        return {
+          ...seg,
+          subtitleDate: formatDateWithAge(baseDate, targetDate, showAge, newBirthDate),
+        };
+      })
+    );
+
+    // 2. 전체 기본 하단 자막(subtitleDateText) 갱신
+    const firstTs = videos[0]?.recordedTimestamp || videos[0]?.file?.lastModified;
+    const targetDate = firstTs
+      ? new Date(firstTs)
+      : parseDateFromString(overlayOptions.subtitleDateText || '') || new Date();
+    const baseDate = firstTs
+      ? formatDateByPattern(new Date(firstTs), currentDateFormat)
+      : stripAgeFromDate(overlayOptions.subtitleDateText || '');
+    setOverlayOptions((prev) => ({
+      ...prev,
+      subtitleDateText: formatDateWithAge(baseDate, targetDate, showAge, newBirthDate),
+    }));
   };
 
   // AI 추론 콘솔 자동 스크롤
@@ -995,7 +1082,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             </>
           )}
 
-          {/* 모바일 설정 트리거 버튼 */}
+          {/* 스튜디오 설정 트리거 버튼 (데스크탑 & 모바일) */}
           <button
             type="button"
             className="toss-settings-trigger"
@@ -1003,7 +1090,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             title={dict.common.settings || '설정'}
             aria-label={dict.common.settings || '설정'}
           >
-            <Settings size={16} />
+            <Settings size={15} />
+            <span className="toss-settings-trigger-text">{dict.common.settings || '설정'}</span>
           </button>
         </div>
       </header>
@@ -2328,12 +2416,19 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         onApply={handleApplyLibraryAudio}
       />
 
-      {/* 10. 모바일 전용 스튜디오 설정 모달 (AI 모델, 언어, 초기화 등) */}
+      {/* 10. 스튜디오 설정 모달 (AI 모델, 언어, 날짜 표기, 아이 나이, 초기화 등) */}
       <MobileSettingsModal
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
         onOpenModelModal={() => setIsModelModalOpen(true)}
         onOpenLanguageModal={() => setIsLanguageModalOpen(true)}
+        onOpenDateFormatModal={() => setIsDateFormatModalOpen(true)}
+        currentDateFormat={currentDateFormat}
+        showAge={showAge}
+        onToggleShowAge={handleToggleShowAge}
+        birthDate={birthDate}
+        onChangeBirthDate={handleChangeBirthDate}
+        referenceDate={videos[0]?.recordedTimestamp ? new Date(videos[0].recordedTimestamp) : undefined}
         currentModel={currentModel || undefined}
         isLoadingModels={isLoadingModels}
         currentLocaleInfo={currentLocaleInfo}
@@ -2353,6 +2448,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         }}
         isReStitching={isReStitching}
         reStitchProgress={reStitchProgress}
+      />
+
+      {/* 11. 촬영 날짜 포맷 선택 모달 */}
+      <DateFormatSelectorModal
+        isOpen={isDateFormatModalOpen}
+        onClose={() => setIsDateFormatModalOpen(false)}
+        currentFormat={currentDateFormat}
+        onSelectFormat={handleSelectDateFormat}
+        referenceDate={videos[0]?.recordedTimestamp ? new Date(videos[0].recordedTimestamp) : undefined}
       />
     </div>
   );
