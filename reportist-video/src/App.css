@@ -3469,13 +3469,39 @@
     border-radius: 8px;
   }
 
+  /* 모바일 상단 네비게이션 탭: 텍스트 숨기고 아이콘만 노출하여 우측 버튼 공간 확보 */
+  .toss-nav-tabs-group {
+    margin-left: 2px;
+    padding: 2px;
+    gap: 2px;
+    border-radius: 8px;
+  }
+
+  .toss-nav-tab-btn {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    gap: 0;
+  }
+
+  .toss-nav-tab-btn span {
+    display: none !important;
+  }
+
+  .toss-nav-tab-badge {
+    display: none !important;
+  }
+
   .toss-nav-right {
     display: flex;
     align-items: center;
     gap: 5px;
     flex-shrink: 1;
     min-width: 0;
-    justify-content: flex-end;
     overflow-x: auto;
     scrollbar-width: none;
     -ms-overflow-style: none;

@@ -762,18 +762,19 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               type="button"
               className={`toss-nav-tab-btn ${activeTab === 'studio' ? 'active' : ''}`}
               onClick={() => setActiveTab('studio')}
+              title={dict.community?.studioTab || '스튜디오'}
             >
-              <Film size={13} />
+              <Film size={14} />
               <span>{dict.community?.studioTab || '스튜디오'}</span>
             </button>
             <button
               type="button"
               className={`toss-nav-tab-btn ${activeTab === 'community' ? 'active' : ''}`}
               onClick={() => setActiveTab('community')}
+              title={dict.community?.communityTab || '영상 공유'}
             >
-              <Share2 size={13} />
+              <Share2 size={14} />
               <span>{dict.community?.communityTab || '영상 공유'}</span>
-              <span className="toss-nav-tab-badge">NEW</span>
             </button>
           </div>
         </div>
