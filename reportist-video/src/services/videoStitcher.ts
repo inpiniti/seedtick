@@ -103,12 +103,14 @@ function getSharedAudioContext(): AudioContext | null {
 // ---------------------------------------------------------------------------
 
 const MP4_AUDIO_CANDIDATES = [
+  'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',
   'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
   'video/mp4;codecs=avc1.42001E,mp4a.40.2',
   'video/mp4',
 ];
 
 const MP4_VIDEO_ONLY_CANDIDATES = [
+  'video/mp4;codecs="avc1.42E01E"',
   'video/mp4;codecs=avc1.42E01E',
   'video/mp4;codecs=avc1.42001E',
   'video/mp4',
@@ -149,7 +151,7 @@ function createMediaRecorder(stream: MediaStream): { recorder: MediaRecorder; mi
   }
 
   const hasAudio = stream.getAudioTracks().length > 0;
-  const videoBitsPerSecond = IS_IOS ? 1_800_000 : 2_800_000;
+  const videoBitsPerSecond = IS_IOS ? 1_500_000 : 2_800_000;
   // 빈 문자열('')은 브라우저 자체 기본 코덱(가장 안전한 기본값) 선택을 위한 최후 후보
   const candidates = [...supportedRecorderMimes(hasAudio), ''];
   let lastError: unknown = null;
@@ -239,13 +241,15 @@ export async function stitchHighlightedSegments({
   ctx.fillStyle = '#080c14';
   ctx.fillRect(0, 0, targetWidth, targetHeight);
 
-  // 워커 비디오 엘리먼트 준비 (모바일 자동재생 정책 방어)
+  // 워커 비디오 엘리먼트 준비 (모바일 자동재생 정책 방어 & Canvas Tainting 방지)
   const videoElem = document.createElement('video');
   videoElem.muted = true;
   videoElem.defaultMuted = true;
   videoElem.volume = 0;
   videoElem.playsInline = true;
   videoElem.preload = 'auto';
+  videoElem.crossOrigin = 'anonymous';
+  videoElem.setAttribute('crossorigin', 'anonymous');
   videoElem.setAttribute('playsinline', '');
   videoElem.setAttribute('webkit-playsinline', '');
   videoElem.setAttribute('muted', '');
@@ -333,6 +337,18 @@ export async function stitchHighlightedSegments({
   let recorderStarted = false;
   let bgmController: { stop: () => void } | null = null;
   const wakeLockRef: { current: WakeLockSentinel | null } = { current: null };
+
+  // 캔버스 상시 30fps 하트비트 루프 (WebKit Frame Starvation 및 트랙 침묵 방어)
+  // 비디오가 탐색(seek) 중이거나 세그먼트 전환 중일 때도 canvas.captureStream()에 끊김 없이 프레임을 밀어넣음
+  let isStitchingActive = true;
+  const heartbeatTimer = window.setInterval(() => {
+    if (!isStitchingActive) return;
+    if (ctx) {
+      // 캔버스 모서리에 육안으로 구분 불가능한 극미세 픽셀 갱신(alpha 0.005)을 주어 WebKit 렌더러가 새 프레임 방출을 트리거
+      ctx.fillStyle = 'rgba(8, 12, 20, 0.005)';
+      ctx.fillRect(0, 0, 1, 1);
+    }
+  }, 1000 / 30);
 
   // 모바일에서 화면이 꺼지면 JS 타이머와 녹화가 멈춰 병합이 깨진다.
   // 병합이 끝날 때까지 화면 꺼짐을 막는다. (지원 브라우저에서만 동작)
@@ -422,10 +438,14 @@ export async function stitchHighlightedSegments({
       await resumeAudioContext();
 
       if (recorder.state === 'inactive') {
-        // timeslice(1000ms): 1초 주기로 ondataavailable을 발생시켜
-        // 아이폰 XR 등 저메모리 기기에서 버퍼 누락 없이 실시간으로 청크를 안전하게 수집
+        // 첫 프레임 보장 대기 (Frame Starvation 방지: 첫 draw 후 최소 50ms 대기)
+        await sleep(50);
         try {
-          recorder.start(1000);
+          if (IS_IOS || IS_SAFARI) {
+            recorder.start();
+          } else {
+            recorder.start(1000);
+          }
         } catch {
           recorder.start();
         }
@@ -1200,8 +1220,11 @@ export async function stitchHighlightedSegments({
       throw new Error('녹화된 영상 구간이 없습니다. 브라우저를 새로고침한 뒤 다시 시도해 주세요.');
     }
 
+    // WebKit VideoToolbox 하드웨어 인코더 플러시 대기 (마지막 프레임 렌더 후 최소 350ms 대기 필수)
+    await sleep(350);
+
     // 레코더 중지 및 Blob 완성 대기 (onstop이 오지 않는 모바일 브라우저 방어)
-    const finalMimeType = recorder.mimeType || mimeType || 'video/webm';
+    const finalMimeType = recorder.mimeType || mimeType || 'video/mp4';
     const finalBlob = await new Promise<Blob>((resolve) => {
       let settled = false;
       const finish = () => {
@@ -1219,14 +1242,7 @@ export async function stitchHighlightedSegments({
             // ignore
           }
         }
-        // 남은 인코딩 버퍼 명시적 플러시 요청
-        if (recorder.state !== 'inactive' && typeof recorder.requestData === 'function') {
-          try {
-            recorder.requestData();
-          } catch {
-            // ignore
-          }
-        }
+        // 주의: WebKit Bug 212275 - requestData() 호출 시 빈 Blob을 반환하거나 버퍼를 망가뜨리므로 호출하지 않음
         if (recorder.state !== 'inactive') {
           recorder.stop();
         } else {
@@ -1235,7 +1251,7 @@ export async function stitchHighlightedSegments({
       } catch {
         finish();
       }
-      setTimeout(finish, 6000);
+      setTimeout(finish, 8000);
     });
 
     if (finalBlob.size === 0) {
@@ -1281,6 +1297,8 @@ export async function stitchHighlightedSegments({
       if (audioCtx && audioCtx.state === 'running') {
         void audioCtx.suspend().catch(() => {});
       }
+      isStitchingActive = false;
+      window.clearInterval(heartbeatTimer);
       if (wakeLockRef.current) {
         void wakeLockRef.current.release().catch(() => {});
         wakeLockRef.current = null;
