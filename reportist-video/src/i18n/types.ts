@@ -88,6 +88,21 @@ export interface Dictionary {
     uploadButton: string;
     uploadHint: string;
   };
+  audioLibrary: {
+    openButton: string;
+    title: string;
+    subtitle: string;
+    preview: string;
+    stopPreview: string;
+    selected: string;
+    apply: string;
+    none: string;
+    noneDesc: string;
+    loading: string;
+    error: string;
+    footerTip: string;
+    fromLibrary: string;
+  };
   introOutro: {
     introTitle: string;
     introDesc: string;

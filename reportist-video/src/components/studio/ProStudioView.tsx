@@ -15,6 +15,7 @@ import {
   X,
   Clock,
   Music,
+  ListMusic,
   Scissors,
   Film,
   FastForward,
@@ -38,6 +39,11 @@ import { cleanModelName, getSpeedTier } from '../../services/modelMetrics.ts';
 import { ModelSelectorModal } from './ModelSelectorModal.tsx';
 import { VideoListModal } from './VideoListModal.tsx';
 import { LanguageSelectorModal } from './LanguageSelectorModal.tsx';
+import { AudioLibraryModal } from './AudioLibraryModal.tsx';
+import {
+  loadLibraryAudioFile,
+  type AudioLibraryTrack,
+} from '../../data/audioLibrary.ts';
 import { useI18n } from '../../i18n/index.tsx';
 
 interface ProStudioViewProps {
@@ -127,6 +133,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [customAudioName, setCustomAudioName] = useState<string>('');
   const customAudioInputRef = useRef<HTMLInputElement>(null);
 
+  // 3-1. 오디오 보관함 상태
+  const [isAudioLibraryOpen, setIsAudioLibraryOpen] = useState<boolean>(false);
+  const [selectedLibraryTrackId, setSelectedLibraryTrackId] = useState<string | null>(null);
+
   // 4. 인트로 / 아웃트로 비디오 파일 업로드 참조 및 지도 모달 상태
   const introVideoInputRef = useRef<HTMLInputElement>(null);
   const outroVideoInputRef = useRef<HTMLInputElement>(null);
@@ -148,6 +158,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       setIsLanguageModalOpen(false);
       setIsModelModalOpen(false);
       setIsVideoListModalOpen(false);
+      setIsAudioLibraryOpen(false);
     }
   }, [isProcessing]);
 
@@ -229,7 +240,25 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       setCustomAudioFile(file);
       setCustomAudioName(file.name);
       setSelectedBgmId('custom');
+      setSelectedLibraryTrackId(null);
     }
+  };
+
+  // 오디오 보관함 음원 선택 (파일을 불러와 기존 커스텀 BGM 파이프라인에 연결)
+  const handleApplyLibraryAudio = async (track: AudioLibraryTrack | null) => {
+    if (!track) {
+      setCustomAudioFile(null);
+      setCustomAudioName('');
+      setSelectedBgmId('none');
+      setSelectedLibraryTrackId(null);
+      return;
+    }
+
+    const file = await loadLibraryAudioFile(track);
+    setCustomAudioFile(file);
+    setCustomAudioName(track.name);
+    setSelectedBgmId('custom');
+    setSelectedLibraryTrackId(track.id);
   };
 
   const handleIntroVideoSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -928,23 +957,33 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 </p>
               </div>
 
-              {customAudioFile && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-slate-500">{dict.bgm.volume}</span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.05"
-                    value={bgmVolume}
-                    onChange={(e) => setBgmVolume(parseFloat(e.target.value))}
-                    className="toss-slider"
-                  />
-                  <span className="text-xs font-mono font-bold text-blue-600 w-8 text-right">
-                    {Math.round(bgmVolume * 100)}%
-                  </span>
-                </div>
-              )}
+              <div className="toss-bgm-header-actions">
+                {customAudioFile && (
+                  <div className="toss-bgm-volume-control">
+                    <span className="text-xs font-semibold text-slate-500">{dict.bgm.volume}</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={bgmVolume}
+                      onChange={(e) => setBgmVolume(parseFloat(e.target.value))}
+                      className="toss-slider"
+                    />
+                    <span className="text-xs font-mono font-bold text-blue-600 w-8 text-right">
+                      {Math.round(bgmVolume * 100)}%
+                    </span>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  className="toss-btn-audio-library"
+                  onClick={() => setIsAudioLibraryOpen(true)}
+                >
+                  <ListMusic size={13} />
+                  <span>{dict.audioLibrary.openButton}</span>
+                </button>
+              </div>
             </div>
 
             <input
@@ -966,7 +1005,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       {customAudioName}
                     </div>
                     <div className="text-[11px] text-slate-400 mt-0.5">
-                      {dict.bgm.myAudioFile} ({((customAudioFile.size || 0) / (1024 * 1024)).toFixed(1)}MB) • {dict.bgm.applied}
+                      {selectedLibraryTrackId ? dict.audioLibrary.fromLibrary : dict.bgm.myAudioFile} ({((customAudioFile.size || 0) / (1024 * 1024)).toFixed(1)}MB) • {dict.bgm.applied}
                     </div>
                   </div>
                 </div>
@@ -986,6 +1025,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       setCustomAudioFile(null);
                       setCustomAudioName('');
                       setSelectedBgmId('none');
+                      setSelectedLibraryTrackId(null);
                     }}
                     title={dict.bgm.deleteBgm}
                   >
@@ -1656,6 +1696,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       <LanguageSelectorModal
         isOpen={isLanguageModalOpen}
         onClose={() => setIsLanguageModalOpen(false)}
+      />
+
+      {/* 9. 오디오 보관함 모달 */}
+      <AudioLibraryModal
+        isOpen={isAudioLibraryOpen}
+        onClose={() => setIsAudioLibraryOpen(false)}
+        selectedTrackId={selectedLibraryTrackId}
+        hasAppliedAudio={Boolean(customAudioFile)}
+        onApply={handleApplyLibraryAudio}
       />
     </div>
   );
