@@ -230,7 +230,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
   },
   {
     id: 'nvidia/nemotron-3.5-content-safety:free',
-    name: 'NVIDIA: Nemotron 3.5 Content Safety (free)',
+    name: 'NVIDIA: Nemotron 3.5 Content Safety',
     providerName: 'NVIDIA',
     created: 1780617600,
     createdDate: '2026-06-04',
