@@ -95,7 +95,7 @@ export async function fetchSharedVideos(
       const { data, error } = await query;
 
       if (!error && data) {
-        const items: VideoShareItem[] = data.map((row) => ({
+        let items: VideoShareItem[] = data.map((row) => ({
           id: row.id,
           youtubeVideoId: row.youtube_video_id,
           title: row.title,
@@ -107,6 +107,11 @@ export async function fetchSharedVideos(
           durationSec: row.duration_sec,
           createdAt: row.created_at,
         }));
+
+        // DB에 아직 공유된 영상이 하나도 없으면 샘플 시드 영상들을 노출하여 빈 화면 방지
+        if (items.length === 0 && !searchQuery.trim()) {
+          items = SEED_VIDEOS;
+        }
 
         // Google API Key가 제공된 경우 실시간 유튜브 공식 조회수 비동기 갱신 시도
         syncYouTubeOfficialViews(items).catch(() => {});

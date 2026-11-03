@@ -164,7 +164,7 @@ export const ko: Dictionary = {
     navTitle: '영상 공유',
     headerTitle: '공유된 영상 둘러보기',
     headerDesc: 'Reportist Video로 제작하여 유튜브에 올린 하이라이트 영상들을 만나보세요.',
-    shareMyVideo: '+ 내 영상 공유하기',
+    shareMyVideo: '영상 공유하기',
     searchPlaceholder: '영상 제목 또는 작성자 검색...',
     sortLatest: '최신순',
     sortViews: '조회수순',

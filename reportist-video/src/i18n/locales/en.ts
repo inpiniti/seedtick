@@ -164,7 +164,7 @@ export const en: Dictionary = {
     navTitle: 'Video Community',
     headerTitle: 'Explore Shared Videos',
     headerDesc: 'Discover highlights created with Reportist Video and shared on YouTube.',
-    shareMyVideo: '+ Share My Video',
+    shareMyVideo: 'Share Video',
     searchPlaceholder: 'Search by video title or creator...',
     sortLatest: 'Latest',
     sortViews: 'Most Viewed',
