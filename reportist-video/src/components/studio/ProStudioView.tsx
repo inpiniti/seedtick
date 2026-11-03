@@ -526,7 +526,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           {/* 다국어 언어 선택 트리거 */}
           <button
             type="button"
-            className="toss-model-trigger"
+            className="toss-model-trigger toss-lang-trigger"
             onClick={() => setIsLanguageModalOpen(true)}
             title={dict.languageModal.title}
           >
@@ -537,7 +537,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               <span className="toss-model-trigger-label">{dict.common.language || 'Language'}</span>
               <span className="toss-model-trigger-name flex items-center gap-1.5">
                 <span className="text-xs leading-none">{currentLocaleInfo.flag}</span>
-                <span>{currentLocaleInfo.nativeName}</span>
+                <span className="toss-lang-name">{currentLocaleInfo.nativeName}</span>
               </span>
             </span>
             <ChevronDown size={14} className="toss-model-trigger-chevron" />
@@ -546,7 +546,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           {/* AI 모델 선택 트리거 */}
           <button
             type="button"
-            className="toss-model-trigger"
+            className="toss-model-trigger toss-ai-model-trigger"
             onClick={() => setIsModelModalOpen(true)}
             disabled={isProcessing || isLoadingModels}
             title={dict.header.selectModelTitle}
@@ -574,7 +574,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           {/* 올린 원본 영상 리스트 트리거 */}
           <button
             type="button"
-            className="toss-model-trigger"
+            className="toss-model-trigger toss-video-list-trigger"
             onClick={() => setIsVideoListModalOpen(true)}
             title={dict.header.manageVideosTitle}
           >
@@ -584,7 +584,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <span className="toss-model-trigger-text">
               <span className="toss-model-trigger-label">{dict.header.uploadedVideos}</span>
               <span className="toss-model-trigger-name">
-                {videos.length === 0 ? dict.common.noVideos : `${videos.length} ${dict.common.videos}`}
+                <span className="toss-video-count-full">
+                  {videos.length === 0 ? dict.common.noVideos : `${videos.length} ${dict.common.videos}`}
+                </span>
+                <span className="toss-video-count-short">
+                  {videos.length}
+                </span>
               </span>
             </span>
             <ChevronDown size={14} className="toss-model-trigger-chevron" />

@@ -1,13 +1,38 @@
 /* App.css - Reportist Video 통합 스타일 */
 
-html,
-body,
-#root {
-  margin: 0 !important;
-  padding: 0 !important;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
+@media (min-width: 1025px) {
+  html,
+  body,
+  #root {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+}
+
+@media (max-width: 1024px) {
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100%;
+    height: auto !important;
+    min-height: 100% !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #root {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100%;
+    height: auto !important;
+    min-height: 100% !important;
+    overflow: visible !important;
+  }
 }
 
 .app-container {
@@ -1263,10 +1288,52 @@ body,
 }
 
 @media (max-width: 1024px) {
+  .toss-tag-blue {
+    display: none !important;
+  }
+
+  .toss-app-root {
+    height: auto !important;
+    min-height: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .toss-page-container {
+    height: auto !important;
+    min-height: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .toss-nav-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
   .toss-main-content {
-    grid-template-columns: 1fr;
-    overflow-y: auto;
-    height: auto;
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: none !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 10px 12px 40px 12px;
+    gap: 12px;
+  }
+
+  .toss-column-left,
+  .toss-column-right {
+    display: flex !important;
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding-right: 0 !important;
+    gap: 12px;
   }
 }
 
@@ -3171,6 +3238,14 @@ body,
   color: #8b95a1;
 }
 
+.toss-video-count-full {
+  display: inline;
+}
+
+.toss-video-count-short {
+  display: none;
+}
+
 @media (max-width: 1100px) {
   .toss-model-trigger {
     max-width: 340px;
@@ -3181,29 +3256,154 @@ body,
   }
 }
 
-@media (max-width: 760px) {
-  .toss-model-trigger {
-    max-width: 170px;
+@media (max-width: 768px) {
+  .toss-nav-header {
+    padding: 0 10px;
+    height: 50px;
+    min-height: 50px;
+    gap: 8px;
+  }
+
+  .toss-nav-left {
     gap: 6px;
-    padding: 4px 8px 4px 6px;
+    flex-shrink: 0;
+  }
+
+  /* 모바일에서 불필요한 앱명 및 16:9 배지 숨김 */
+  .toss-nav-title {
+    display: none !important;
+  }
+
+  .toss-tag-blue {
+    display: none !important;
+  }
+
+  .toss-logo-badge {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+  }
+
+  .toss-nav-right {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 1;
+    min-width: 0;
+    justify-content: flex-end;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .toss-nav-right::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* 공통 트리거 컴팩트 스타일 */
+  .toss-model-trigger {
+    max-width: 130px;
+    gap: 4px;
+    padding: 4px 7px 4px 6px;
+    border-radius: 9px;
   }
 
   .toss-model-trigger-icon {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
   }
 
   .toss-model-trigger-label {
-    display: none;
+    display: none !important;
   }
 
   .toss-model-trigger-speed {
-    display: none;
+    display: none !important;
   }
 
   .toss-model-trigger-name {
-    max-width: 105px;
+    max-width: 75px;
+    font-size: 11px;
+  }
+
+  .toss-model-trigger-chevron {
+    width: 12px;
+    height: 12px;
+  }
+
+  /* 언어 선택 트리거: 국기 + 꺽쇠만 깔끔하게 노출 */
+  .toss-lang-trigger {
+    padding: 4px 6px;
+    gap: 3px;
+    flex-shrink: 0;
+    max-width: 50px;
+  }
+
+  .toss-lang-trigger .toss-model-trigger-icon {
+    display: none !important;
+  }
+
+  .toss-lang-name {
+    display: none !important;
+  }
+
+  .toss-lang-trigger .toss-model-trigger-name {
+    font-size: 13px;
+    max-width: none;
+  }
+
+  /* 영상 목록 트리거: 아이콘 + 숫자 배지 */
+  .toss-video-count-full {
+    display: none !important;
+  }
+
+  .toss-video-count-short {
+    display: inline-block !important;
+    font-weight: 700;
+    font-size: 11px;
+    color: #3182f6;
+  }
+
+  .toss-video-list-trigger {
+    padding: 4px 6px 4px 5px;
+    gap: 3px;
+    max-width: 55px;
+    flex-shrink: 0;
+  }
+
+  .toss-video-list-trigger .toss-model-trigger-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
+  }
+
+  /* 헤더 내 액션 버튼 모바일 최적화 */
+  .toss-nav-cta-btn {
+    padding: 5px 10px;
     font-size: 11.5px;
+    gap: 4px;
+    border-radius: 8px;
+    flex-shrink: 0;
+  }
+
+  .toss-nav-btn-secondary {
+    padding: 5px 8px;
+    font-size: 11px;
+    gap: 3px;
+    border-radius: 8px;
+    flex-shrink: 0;
+  }
+
+  .toss-btn-text {
+    padding: 4px 6px;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+
+  .toss-nav-dual-actions {
+    gap: 4px;
+    flex-shrink: 0;
   }
 }
 

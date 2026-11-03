@@ -55,6 +55,23 @@ body {
   overflow: hidden;
 }
 
+@media (max-width: 1024px) {
+  html,
+  body {
+    height: auto !important;
+    min-height: 100% !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #root {
+    height: auto !important;
+    min-height: 100% !important;
+    overflow: visible !important;
+  }
+}
+
 /* Minimal Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
