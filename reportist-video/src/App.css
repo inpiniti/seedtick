@@ -3549,6 +3549,7 @@
     cursor: pointer;
     flex-shrink: 0;
     padding: 0;
+    box-sizing: border-box;
     transition: all 0.15s ease;
   }
 
@@ -3559,7 +3560,58 @@
     border-color: #d1d5db;
   }
 
-  /* 영상 목록 트리거: 아이콘 + 숫자 배지만 노출하여 초소형화 */
+  /* 영상 목록 트리거: 32px 높이 통일, 아이콘 + 숫자 배지만 노출하여 깔끔한 캡슐 버튼화 */
+  .toss-video-list-trigger {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    height: 32px;
+    min-width: 32px;
+    padding: 0 8px 0 5px;
+    gap: 4px;
+    max-width: none;
+    border-radius: 9px;
+    border: 1px solid #e5e8eb;
+    background-color: #ffffff;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    transition: all 0.15s ease;
+  }
+
+  .toss-video-list-trigger:hover,
+  .toss-video-list-trigger:active {
+    background-color: #f2f4f6;
+    border-color: #d1d5db;
+  }
+
+  .toss-video-list-trigger .toss-model-trigger-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
+    background-color: #e8f3ff;
+    color: #3182f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .toss-video-list-trigger .toss-model-trigger-text {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .toss-video-list-trigger .toss-model-trigger-label,
+  .toss-model-trigger-label {
+    display: none !important;
+  }
+
+  .toss-video-list-trigger .toss-model-trigger-chevron {
+    display: none !important;
+  }
+
   .toss-video-count-full {
     display: none !important;
   }
@@ -3567,33 +3619,37 @@
   .toss-video-count-short {
     display: inline-block !important;
     font-weight: 700;
-    font-size: 11px;
+    font-size: 12px;
     color: #3182f6;
+    line-height: 1;
   }
 
-  .toss-video-list-trigger {
-    padding: 4px 6px 4px 5px;
-    gap: 3px;
-    max-width: 55px;
-    flex-shrink: 0;
+  .toss-video-list-trigger .toss-model-trigger-name {
+    display: flex;
+    align-items: center;
+    line-height: 1;
+    max-width: none;
   }
 
-  .toss-video-list-trigger .toss-model-trigger-icon {
-    width: 22px;
-    height: 22px;
-    border-radius: 7px;
-  }
-
-  /* 헤더 내 액션 버튼 모바일 최적화 */
+  /* 헤더 내 액션 버튼 모바일 최적화 (높이 32px 통일) */
   .toss-nav-cta-btn {
-    padding: 5px 10px;
-    font-size: 11.5px;
+    height: 32px;
+    padding: 0 11px;
+    font-size: 12px;
+    font-weight: 700;
     gap: 4px;
-    border-radius: 8px;
+    border-radius: 9px;
     flex-shrink: 0;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
   }
 
   .toss-nav-dual-actions {
+    display: flex;
+    align-items: center;
     gap: 4px;
     flex-shrink: 0;
   }
