@@ -12,7 +12,7 @@ import {
 import { enrichModelMetrics, pickDefaultModel } from './services/modelMetrics.ts';
 import { extractVideoMetadata, extractVideoFramesForAnalysis } from './services/videoCompressor.ts';
 import { formatVideoDate, extractGpsFromVideoFile } from './services/videoMetadata.ts';
-import { stitchHighlightedSegments } from './services/videoStitcher.ts';
+import { primeAudioContext, stitchHighlightedSegments } from './services/videoStitcher.ts';
 import type { FreeModelMeta, ReasoningEffortOption } from './types/gateway.ts';
 import type {
   VideoItem,
@@ -160,6 +160,10 @@ export function App() {
     bgmVol = 0.35
   ) => {
     if (videos.length === 0) return;
+
+    // iOS Safari는 사용자 제스처 안에서만 오디오를 잠금 해제할 수 있으므로
+    // 병합 단계(AudioContext 사용) 전에 미리 준비해 둔다.
+    primeAudioContext();
 
     setCurrentStep('processing');
     setErrorMessage(null);
@@ -389,6 +393,7 @@ export function App() {
         bgmVolume: bgmVol,
         customAudioFile: customAudio,
         overlayOptions: overlayOpts,
+        onLog: addLog,
         onProgress: (pct, msg) => {
           if (signal.aborted) return;
           const overallPct = Math.round(85 + (pct / 100) * 14);
@@ -434,6 +439,10 @@ export function App() {
     overlayOptions?: VideoOverlayOptions
   ) => {
     if (updatedSegments.length === 0) return;
+
+    // 재병합도 사용자 클릭(제스처) 안에서 오디오를 미리 잠금 해제한다.
+    primeAudioContext();
+
     setIsReStitching(true);
     setErrorMessage(null);
 
@@ -445,6 +454,7 @@ export function App() {
         bgmVolume,
         customAudioFile,
         overlayOptions,
+        onLog: (msg) => console.info(`[ReStitch] ${msg}`),
         onProgress: (pct, msg) => {
           console.info(`[ReStitch] ${pct}%: ${msg}`);
         },

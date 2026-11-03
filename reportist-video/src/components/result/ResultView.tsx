@@ -68,13 +68,30 @@ export const ResultView: React.FC<ResultViewProps> = ({
       : 0;
 
   // 다운로드 핸들러
-  const handleDownload = () => {
-    const a = document.createElement('a');
-    a.href = result.url;
+  const handleDownload = async () => {
     const now = new Date();
     const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
     const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '');
-    a.download = `reportist-highlight-16x9-${dateStr}-${timeStr}.webm`;
+    // iOS Safari는 MP4로 녹화되므로 실제 Blob 타입에 맞춰 확장자를 정한다.
+    const extension = result.blob.type.includes('mp4') ? 'mp4' : 'webm';
+    const fileName = `reportist-highlight-16x9-${dateStr}-${timeStr}.${extension}`;
+
+    // iOS 홈화면/인앱 브라우저는 <a download>로 Blob 저장이 막히는 경우가 많아
+    // 파일 공유 시트(사진/파일에 저장)를 우선 사용한다.
+    try {
+      const file = new File([result.blob], fileName, { type: result.blob.type || 'video/webm' });
+      if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Reportist Highlight' });
+        return;
+      }
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      // 공유 실패 시 일반 다운로드로 폴백
+    }
+
+    const a = document.createElement('a');
+    a.href = result.url;
+    a.download = fileName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
