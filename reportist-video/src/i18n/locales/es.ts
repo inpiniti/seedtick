@@ -189,6 +189,15 @@ export const es: Dictionary = {
     totalDurationLabel: 'Total',
     totalSizeLabel: 'Total',
   },
+  languageModal: {
+    title: 'Seleccionar idioma',
+    subtitle: 'Elige tu idioma preferido para la interfaz y los subtítulos de análisis de IA.',
+    searchPlaceholder: 'Buscar idioma por nombre o país...',
+    tip: 'Guardado en el navegador · Los subtítulos de IA se generarán en el idioma elegido',
+    defaultBadge: 'Predeterminado',
+    supportedBadge: 'Subtítulos IA compatibles',
+    close: 'Cerrar',
+  },
   logs: {
     pipelineStart: '🚀 Iniciado pipeline de búsqueda de escenas dramáticas (total {count} videos, formato 16:9)',
     reusingSegments: '⚡ [{name}] Reutilizando {count} segmentos dramáticos analizados previamente',

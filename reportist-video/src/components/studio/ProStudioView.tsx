@@ -24,6 +24,7 @@ import {
   ExternalLink,
   ChevronDown,
   Zap,
+  Globe,
 } from 'lucide-react';
 import type {
   FinalVideoResult,
@@ -36,8 +37,8 @@ import type { FreeModelMeta, ReasoningEffortOption } from '../../types/gateway.t
 import { getSpeedTier } from '../../services/modelMetrics.ts';
 import { ModelSelectorModal } from './ModelSelectorModal.tsx';
 import { VideoListModal } from './VideoListModal.tsx';
+import { LanguageSelectorModal } from './LanguageSelectorModal.tsx';
 import { useI18n } from '../../i18n/index.tsx';
-import { LanguageSelector } from '../../i18n/LanguageSelector.tsx';
 
 interface ProStudioViewProps {
   result: FinalVideoResult | null;
@@ -87,7 +88,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   onReStitch,
   isReStitching,
 }) => {
-  const { dict, interpolate } = useI18n();
+  const { dict, interpolate, currentLocaleInfo } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -132,7 +133,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [mapModalTarget, setMapModalTarget] = useState<HighlightSegment | null>(null);
   const consoleScrollRef = useRef<HTMLDivElement>(null);
 
-  // 4-1. AI 모델 및 원본 영상 목록 모달 상태
+  // 4-1. 다국어, AI 모델 및 원본 영상 목록 모달 상태
+  const [isLanguageModalOpen, setIsLanguageModalOpen] = useState<boolean>(false);
   const [isModelModalOpen, setIsModelModalOpen] = useState<boolean>(false);
   const [isVideoListModalOpen, setIsVideoListModalOpen] = useState<boolean>(false);
   const currentModel = useMemo(
@@ -143,6 +145,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
   useEffect(() => {
     if (isProcessing) {
+      setIsLanguageModalOpen(false);
       setIsModelModalOpen(false);
       setIsVideoListModalOpen(false);
     }
@@ -520,8 +523,25 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         </div>
 
         <div className="toss-nav-right">
-          {/* 다국어 언어 선택 위젯 */}
-          <LanguageSelector />
+          {/* 다국어 언어 선택 트리거 */}
+          <button
+            type="button"
+            className="toss-model-trigger"
+            onClick={() => setIsLanguageModalOpen(true)}
+            title={dict.languageModal.title}
+          >
+            <span className="toss-model-trigger-icon">
+              <Globe size={13} />
+            </span>
+            <span className="toss-model-trigger-text">
+              <span className="toss-model-trigger-label">{dict.common.language || 'Language'}</span>
+              <span className="toss-model-trigger-name flex items-center gap-1.5">
+                <span className="text-xs leading-none">{currentLocaleInfo.flag}</span>
+                <span>{currentLocaleInfo.nativeName}</span>
+              </span>
+            </span>
+            <ChevronDown size={14} className="toss-model-trigger-chevron" />
+          </button>
 
           {/* AI 모델 선택 트리거 */}
           <button
@@ -1625,6 +1645,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           setIsVideoListModalOpen(false);
           fileInputRef.current?.click();
         }}
+      />
+
+      {/* 8. 다국어 언어 선택 모달 (ModelSelectorModal과 동일한 팝업 UI) */}
+      <LanguageSelectorModal
+        isOpen={isLanguageModalOpen}
+        onClose={() => setIsLanguageModalOpen(false)}
       />
     </div>
   );

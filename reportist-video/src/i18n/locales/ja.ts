@@ -189,6 +189,15 @@ export const ja: Dictionary = {
     totalDurationLabel: '合計',
     totalSizeLabel: '合計',
   },
+  languageModal: {
+    title: '言語を選択',
+    subtitle: 'インターフェースおよびAIビジョン字幕に適用する言語を選択してください。',
+    searchPlaceholder: '言語名または国名で検索...',
+    tip: 'ブラウザに自動保存 · AIシーン字幕も選択した言語で自動生成されます',
+    defaultBadge: 'デフォルト',
+    supportedBadge: 'AI字幕対応',
+    close: '閉じる',
+  },
   logs: {
     pipelineStart: '🚀 AI劇的シーン検出パイプライン開始 (全{count}本動画、16:9規格)',
     reusingSegments: '⚡ [{name}] 分析済みの{count}個の劇的区間を再利用',

@@ -189,6 +189,15 @@ export const fr: Dictionary = {
     totalDurationLabel: 'Total',
     totalSizeLabel: 'Total',
   },
+  languageModal: {
+    title: 'Choisir la langue',
+    subtitle: 'Choisissez votre langue pour l\'interface et les sous-titres d\'analyse IA.',
+    searchPlaceholder: 'Rechercher une langue par nom ou pays...',
+    tip: 'Enregistré dans le navigateur · Sous-titres IA générés dans la langue choisie',
+    defaultBadge: 'Par défaut',
+    supportedBadge: 'Sous-titres IA pris en charge',
+    close: 'Fermer',
+  },
   logs: {
     pipelineStart: '🚀 Lancement du pipeline d\'extraction IA ({count} vidéos, format 16:9)',
     reusingSegments: '⚡ [{name}] Réutilisation de {count} séquences déjà analysées',

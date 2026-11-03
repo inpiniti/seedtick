@@ -189,6 +189,15 @@ export const zh: Dictionary = {
     totalDurationLabel: '总计',
     totalSizeLabel: '总计',
   },
+  languageModal: {
+    title: '选择语言',
+    subtitle: '请选择工作室界面和AI视觉分析字幕使用的语言。',
+    searchPlaceholder: '搜索语言名称或国家...',
+    tip: '已自动保存在浏览器中 · AI字幕也将以选定语言生成',
+    defaultBadge: '默认',
+    supportedBadge: '支持AI字幕',
+    close: '关闭',
+  },
   logs: {
     pipelineStart: '🚀 启动 AI 高光场景探索流水线 (共 {count} 个视频, 16:9 画幅)',
     reusingSegments: '⚡ [{name}] 复用已有的 {count} 个高光片段',

@@ -3896,108 +3896,127 @@ body,
 
   .model-modal-metric-value strong {
     font-size: 14px;
+  }
 }
 
 
 /* ========================================================
-   Internationalization (i18n) Language Selector
+   Language Selector Modal (Matching ModelSelectorModal)
    ======================================================== */
-.toss-lang-selector-container {
-  position: relative;
-  display: inline-block;
+.language-modal-card {
+  max-width: 580px;
 }
 
-.toss-lang-trigger {
-  max-width: 200px;
+.language-modal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 24px;
+  overflow-y: auto;
+  max-height: 52vh;
 }
 
-.toss-lang-dropdown-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  width: 200px;
+.language-modal-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-radius: 16px;
+  border: 1.5px solid #e5e8eb;
   background-color: #ffffff;
-  border-radius: 14px;
-  border: 1px solid #e5e8eb;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
-  padding: 6px;
-  z-index: 250;
-  animation: tossDropdownFadeIn 0.15s ease-out;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
 }
 
-@keyframes tossDropdownFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+.language-modal-item:hover {
+  border-color: #94a3b8;
+  background-color: #f8fafc;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
 }
 
-.toss-lang-dropdown-header {
-  padding: 6px 10px;
-  font-size: 11px;
-  font-weight: 700;
-  color: #8b95a1;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  border-bottom: 1px solid #f2f4f6;
-  margin-bottom: 4px;
+.language-modal-item.selected {
+  border-color: #3182f6;
+  background-color: #f0f7ff;
+  box-shadow: 0 4px 16px rgba(49, 130, 246, 0.12);
 }
 
-.toss-lang-dropdown-list {
+.language-modal-item-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.language-modal-flag-badge {
+  font-size: 26px;
+  line-height: 1;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background-color: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid #e2e8f0;
+}
+
+.language-modal-item.selected .language-modal-flag-badge {
+  background-color: #e0edff;
+  border-color: #bfdbfe;
+}
+
+.language-modal-item-text {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
-.toss-lang-menu-item {
+.language-modal-item-native-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 8px 10px;
-  border: none;
-  background: transparent;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.12s ease;
-  text-align: left;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.toss-lang-menu-item:hover {
-  background-color: #f2f4f6;
-}
-
-.toss-lang-menu-item.selected {
-  background-color: #e8f3ff;
-}
-
-.toss-lang-flag {
-  font-size: 16px;
-  line-height: 1;
-}
-
-.toss-lang-info {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.toss-lang-native {
-  font-size: 12.5px;
-  font-weight: 600;
+.language-modal-item-native {
+  font-size: 15px;
+  font-weight: 700;
   color: #191f28;
 }
 
-.toss-lang-menu-item.selected .toss-lang-native {
+.language-modal-item.selected .language-modal-item-native {
   color: #1b64da;
-  font-weight: 700;
 }
 
-.toss-lang-english {
-  font-size: 10.5px;
-  color: #8b95a1;
+.language-modal-item-english {
+  font-size: 12.5px;
+  color: #6b7684;
+}
+
+.language-modal-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 5px;
+}
+
+.language-modal-badge.default {
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
+.language-modal-badge.supported {
+  background-color: #eff6ff;
+  color: #2563eb;
+}
+
+.language-modal-item-right {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: 12px;
 }

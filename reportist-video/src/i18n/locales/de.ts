@@ -189,6 +189,15 @@ export const de: Dictionary = {
     totalDurationLabel: 'Gesamt',
     totalSizeLabel: 'Gesamt',
   },
+  languageModal: {
+    title: 'Sprache auswählen',
+    subtitle: 'Wählen Sie Ihre bevorzugte Sprache für die Benutzeroberfläche und KI-Untertitel.',
+    searchPlaceholder: 'Sprache nach Name oder Land suchen...',
+    tip: 'Im Browser gespeichert · KI-Untertitel werden in der gewählten Sprache generiert',
+    defaultBadge: 'Standard',
+    supportedBadge: 'KI-Untertitel unterstützt',
+    close: 'Schließen',
+  },
   logs: {
     pipelineStart: '🚀 KI-Highlight-Pipeline gestartet (insgesamt {count} Videos, 16:9 Format)',
     reusingSegments: '⚡ [{name}] {count} bereits analysierte Szenen wiederverwendet',

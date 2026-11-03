@@ -189,6 +189,15 @@ export const en: Dictionary = {
     totalDurationLabel: 'Total',
     totalSizeLabel: 'Total',
   },
+  languageModal: {
+    title: 'Select Language',
+    subtitle: 'Choose your preferred language for the interface and AI vision subtitles.',
+    searchPlaceholder: 'Search language by name or country...',
+    tip: 'Saved in browser · AI scene subtitles automatically generated in chosen language',
+    defaultBadge: 'Default',
+    supportedBadge: 'AI Subtitle Supported',
+    close: 'Close',
+  },
   logs: {
     pipelineStart: '🚀 AI dramatic scene search pipeline started (total {count} videos, 16:9 format)',
     reusingSegments: '⚡ [{name}] Reusing {count} existing analyzed dramatic segments',

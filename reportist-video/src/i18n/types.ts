@@ -197,6 +197,15 @@ export interface Dictionary {
     totalDurationLabel: string;
     totalSizeLabel: string;
   };
+  languageModal: {
+    title: string;
+    subtitle: string;
+    searchPlaceholder: string;
+    tip: string;
+    defaultBadge: string;
+    supportedBadge: string;
+    close: string;
+  };
   logs: {
     pipelineStart: string;
     reusingSegments: string;

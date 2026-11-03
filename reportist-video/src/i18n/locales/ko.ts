@@ -189,6 +189,15 @@ export const ko: Dictionary = {
     totalDurationLabel: '총',
     totalSizeLabel: '총',
   },
+  languageModal: {
+    title: '언어 선택',
+    subtitle: '스튜디오 인터페이스 및 AI 비전 분석 자막에 적용할 언어를 선택하세요.',
+    searchPlaceholder: '언어 이름 또는 국가 검색...',
+    tip: '브라우저에 자동 저장됨 · AI 하이라이트 자막도 선택한 언어로 자동 생성됩니다',
+    defaultBadge: '기본값',
+    supportedBadge: 'AI 자막 지원',
+    close: '닫기',
+  },
   logs: {
     pipelineStart: '🚀 AI 극적 장면 탐색 파이프라인 시작 (총 {count}개 영상, 16:9 유튜브 규격)',
     reusingSegments: '⚡ [{name}] 기존 분석된 {count}개 극적 구간 재사용',
