@@ -154,7 +154,7 @@ function createMediaRecorder(stream: MediaStream): { recorder: MediaRecorder; mi
 }
 
 // 모바일 Safari는 화면 밖으로 밀어낸 canvas/video의 프레임을 캡처하지 못하거나
-// 재생을 스로틀하는 경우가 있어, 뷰포트 안쪽 1px 영역에 실제로 마운트한다.
+// 재생을 스로틀하는 경우가 있어, 뷰포트 안쪽 16x9px 영역에 마운트한다.
 function mountHiddenStage(canvas: HTMLCanvasElement, video: HTMLVideoElement): HTMLDivElement {
   const stage = document.createElement('div');
   stage.setAttribute('aria-hidden', 'true');
@@ -162,16 +162,16 @@ function mountHiddenStage(canvas: HTMLCanvasElement, video: HTMLVideoElement): H
     'position:fixed',
     'left:0',
     'bottom:0',
-    'width:1px',
-    'height:1px',
-    'opacity:0.01',
+    'width:16px',
+    'height:9px',
+    'opacity:0.02',
     'pointer-events:none',
     'overflow:hidden',
     'z-index:2147483646',
   ].join(';');
   for (const el of [canvas, video]) {
-    el.style.width = '1px';
-    el.style.height = '1px';
+    el.style.width = '16px';
+    el.style.height = '9px';
   }
   stage.appendChild(canvas);
   stage.appendChild(video);
@@ -236,12 +236,26 @@ export async function stitchHighlightedSegments({
 
   const stage = mountHiddenStage(canvas, videoElem);
 
-  // 오디오 컨텍스트 및 목적지 스트림 생성 (가능한 경우)
-  const audioCtx = getSharedAudioContext();
+  // BGM 또는 커스텀 오디오 파일이 실제로 존재하는지 여부 확인
+  const hasAudioSource = Boolean(
+    customAudioFile || (bgmPresetId && bgmPresetId !== 'none')
+  );
+
+  // 오디오 컨텍스트 및 목적지 스트림 생성 (오디오가 있을 때만 활성화하여 iOS 0바이트 먹싱 블로킹 방어)
+  const audioCtx = hasAudioSource ? getSharedAudioContext() : null;
   let audioDest: MediaStreamAudioDestinationNode | null = null;
   if (audioCtx) {
     try {
       audioDest = audioCtx.createMediaStreamDestination();
+      // iOS Safari AVAssetWriter가 오디오 패킷 부족으로 비디오 기록을 멈추는 현상을 막기 위해
+      // 지속적인 미세 무음 노드를 audioDest에 상시 공급
+      const silenceGain = audioCtx.createGain();
+      silenceGain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+      const osc = audioCtx.createOscillator();
+      osc.frequency.setValueAtTime(10, audioCtx.currentTime);
+      osc.connect(silenceGain);
+      silenceGain.connect(audioDest);
+      osc.start();
     } catch (err) {
       console.warn('[VideoStitcher] 오디오 목적지 생성 실패 (무음 처리):', err);
     }
@@ -250,7 +264,7 @@ export async function stitchHighlightedSegments({
   // 30fps 비디오 스트림 캡처
   const canvasStream = canvas.captureStream(30);
   let audioTrackAdded = false;
-  if (audioDest && audioDest.stream.getAudioTracks().length > 0) {
+  if (hasAudioSource && audioDest && audioDest.stream.getAudioTracks().length > 0) {
     try {
       canvasStream.addTrack(audioDest.stream.getAudioTracks()[0]);
       audioTrackAdded = true;
@@ -409,6 +423,11 @@ export async function stitchHighlightedSegments({
   };
 
   const pauseRecorder = async () => {
+    // iOS Safari에서는 pause()/resume() 시 WebKit MP4 하드웨어 인코더가 타임스탬프를 잃고 stop 시 0바이트를 뱉는 버그가 있다.
+    // 따라서 iOS 환경에서는 세그먼트 전환 중 불필요한 pause를 수행하지 않고 연속 녹화를 유지한다.
+    if (IS_IOS || IS_SAFARI) {
+      return;
+    }
     try {
       if (recorder.state === 'recording') {
         recorder.pause();
@@ -990,7 +1009,8 @@ export async function stitchHighlightedSegments({
         }
       };
 
-      // requestVideoFrameCallback 지원 브라우저는 디코더 프레임과 100% 동기화
+      // 데스크톱 Chrome 등에서는 requestVideoFrameCallback으로 디코더 프레임과 100% 동기화
+      // iOS Safari는 16px 히든 비디오의 rVFC 콜백이 스로틀되므로 안정적인 30fps 고정 타이머 사용
       const vProto = HTMLVideoElement.prototype as unknown as {
         requestVideoFrameCallback?: (cb: () => void) => number;
         cancelVideoFrameCallback?: (id: number) => void;
@@ -1000,7 +1020,7 @@ export async function stitchHighlightedSegments({
         cancelVideoFrameCallback?: (id: number) => void;
       };
 
-      if (typeof vProto.requestVideoFrameCallback === 'function' && typeof vElemAny.requestVideoFrameCallback === 'function') {
+      if (!IS_IOS && !IS_SAFARI && typeof vProto.requestVideoFrameCallback === 'function' && typeof vElemAny.requestVideoFrameCallback === 'function') {
         let rvfcHandle: number | null = null;
         let isRunning = true;
 
@@ -1175,6 +1195,22 @@ export async function stitchHighlightedSegments({
       };
       recorder.onstop = finish;
       try {
+        // iOS Safari는 paused 상태에서 stop()을 호출하면 버퍼 데이터를 버리고 ondataavailable을 주지 않는다.
+        if (recorder.state === 'paused') {
+          try {
+            recorder.resume();
+          } catch {
+            // ignore
+          }
+        }
+        // 남은 인코딩 버퍼 명시적 플러시 요청
+        if (recorder.state !== 'inactive' && typeof recorder.requestData === 'function') {
+          try {
+            recorder.requestData();
+          } catch {
+            // ignore
+          }
+        }
         if (recorder.state !== 'inactive') {
           recorder.stop();
         } else {
