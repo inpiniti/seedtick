@@ -12,6 +12,7 @@ import {
   Zap,
   Scissors,
   Baby,
+  Subtitles,
 } from 'lucide-react';
 import type { FreeModelMeta } from '../../types/gateway.ts';
 import {
@@ -34,6 +35,8 @@ export interface MobileSettingsModalProps {
   birthDate?: string;
   onChangeBirthDate?: (dateStr: string) => void;
   referenceDate?: Date;
+  showSubtitle?: boolean;
+  onToggleShowSubtitle?: (enabled: boolean) => void;
   currentModel?: FreeModelMeta;
   isLoadingModels?: boolean;
   currentLocaleInfo: { flag: string; nativeName: string; name: string };
@@ -41,6 +44,7 @@ export interface MobileSettingsModalProps {
   onReset?: () => void;
   hasStitchedResult: boolean;
   onDownloadThumbnail?: () => void;
+  onDownloadSubtitles?: () => void;
   onReStitch?: () => void;
   isReStitching?: boolean;
   reStitchProgress?: {
@@ -61,6 +65,8 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   birthDate = '',
   onChangeBirthDate,
   referenceDate,
+  showSubtitle = true,
+  onToggleShowSubtitle,
   currentModel,
   isLoadingModels,
   currentLocaleInfo,
@@ -68,6 +74,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   onReset,
   hasStitchedResult,
   onDownloadThumbnail,
+  onDownloadSubtitles,
   onReStitch,
   isReStitching,
   reStitchProgress,
@@ -313,7 +320,44 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
             </div>
           </div>
 
-          {/* Group 5: Project Actions */}
+          {/* Group 5: Subtitle Display (영상 자막 표시) */}
+          {onToggleShowSubtitle && (
+            <div className="settings-modal-group">
+              <span className="settings-modal-group-title">
+                {dict.settingsModal?.subtitleOption || '영상 자막 설정'}
+              </span>
+              <div className="settings-modal-card-box">
+                <div className="settings-modal-toggle-row">
+                  <div className="settings-modal-item-left">
+                    <div
+                      className="settings-modal-icon-badge"
+                      style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}
+                    >
+                      <Subtitles size={18} />
+                    </div>
+                    <div className="settings-modal-item-text">
+                      <div className="settings-modal-item-title">
+                        {dict.settingsModal?.subtitleOption || '영상 자막 표시'}
+                      </div>
+                      <div className="settings-modal-item-desc">
+                        {dict.settingsModal?.subtitleOptionDesc || '영상 화면에 씬 제목 자막을 표시해요 (꺼도 자막 다운로드는 가능해요)'}
+                      </div>
+                    </div>
+                  </div>
+                  <label className="toss-toggle-switch" style={{ margin: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={showSubtitle}
+                      onChange={(e) => onToggleShowSubtitle(e.target.checked)}
+                    />
+                    <span className="toss-toggle-slider" />
+                  </label>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Group 6: Project Actions */}
           {(hasStitchedResult || hasVideos) && (
             <div className="settings-modal-group">
               <span className="settings-modal-group-title">
@@ -372,6 +416,35 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                       </div>
                       <div className="settings-modal-item-desc">
                         {dict.settingsModal?.thumbnailDesc || '16:9 AI 썸네일 아트워크 이미지 저장'}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="settings-modal-item-action">
+                    <span>{dict.header.download || '다운로드'}</span>
+                    <ChevronRight size={15} color="#94a3b8" />
+                  </div>
+                </button>
+              )}
+
+              {(hasStitchedResult || hasVideos) && onDownloadSubtitles && (
+                <button
+                  type="button"
+                  className="settings-modal-item"
+                  onClick={() => {
+                    onClose();
+                    onDownloadSubtitles();
+                  }}
+                >
+                  <div className="settings-modal-item-left">
+                    <div className="settings-modal-icon-badge" style={{ backgroundColor: '#f0fdf4', color: '#16a34a' }}>
+                      <Subtitles size={18} />
+                    </div>
+                    <div className="settings-modal-item-text">
+                      <div className="settings-modal-item-title">
+                        {dict.settingsModal?.downloadSubtitles || dict.subtitleDownload?.buttonText || '자막 다운로드 (.srt)'}
+                      </div>
+                      <div className="settings-modal-item-desc">
+                        {dict.settingsModal?.downloadSubtitlesDesc || '유튜브 업로드용 다국어 자막 파일 다운로드'}
                       </div>
                     </div>
                   </div>

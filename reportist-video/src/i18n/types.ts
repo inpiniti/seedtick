@@ -311,10 +311,31 @@ export interface Dictionary {
     birthDatePlaceholder?: string;
     agePreviewLabel?: string;
     birthDatePrompt?: string;
+    subtitleOption?: string;
+    subtitleOptionDesc?: string;
+    downloadSubtitles?: string;
+    downloadSubtitlesDesc?: string;
     projectActions: string;
     thumbnailDesc: string;
     resetDesc: string;
     reStitchDesc: string;
+  };
+  subtitleDownload?: {
+    buttonText: string;
+    buttonTitle: string;
+    modalTitle: string;
+    modalSubtitle: string;
+    selectLanguage: string;
+    previewTitle: string;
+    translating: string;
+    downloadBtn: string;
+    downloadAllBtn: string;
+    copied: string;
+    copySrt: string;
+    downloadSuccess: string;
+    youtubeNotice: string;
+    totalCues: string;
+    close: string;
   };
   dateFormatModal?: {
     title: string;

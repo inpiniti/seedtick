@@ -30,6 +30,7 @@ import {
   Image as ImageIcon,
   Share2,
   Settings,
+  Subtitles,
 } from 'lucide-react';
 import { VideoCommunityView } from '../community/VideoCommunityView.tsx';
 import type {
@@ -53,6 +54,7 @@ import { LanguageSelectorModal } from './LanguageSelectorModal.tsx';
 import { AudioLibraryModal } from './AudioLibraryModal.tsx';
 import { MobileSettingsModal } from './MobileSettingsModal.tsx';
 import { DateFormatSelectorModal } from './DateFormatSelectorModal.tsx';
+import { SubtitleDownloadModal } from './SubtitleDownloadModal.tsx';
 import {
   type DateFormatOption,
   formatDateByPattern,
@@ -183,6 +185,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [isVideoListModalOpen, setIsVideoListModalOpen] = useState<boolean>(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
   const [isDateFormatModalOpen, setIsDateFormatModalOpen] = useState<boolean>(false);
+  const [isSubtitleModalOpen, setIsSubtitleModalOpen] = useState<boolean>(false);
   const [currentDateFormat, setCurrentDateFormat] = useState<DateFormatOption>(getStoredDateFormat);
   const [showAge, setShowAge] = useState<boolean>(getStoredShowAge);
   const [birthDate, setBirthDate] = useState<string>(getStoredBirthDate);
@@ -201,6 +204,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       setIsAudioLibraryOpen(false);
       setIsSettingsModalOpen(false);
       setIsDateFormatModalOpen(false);
+      setIsSubtitleModalOpen(false);
     }
   }, [isProcessing]);
 
@@ -1431,7 +1435,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               </div>
             )}
 
-            {/* 완성 영상 다운로드 - 시퀀스 타임라인 아래쪽에 배치 */}
+            {/* 완성 영상 다운로드 및 유튜브 호환 자막 다운로드 */}
             {Boolean(result?.url) && (
               <div className="toss-timeline-actions">
                 <button
@@ -1442,6 +1446,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 >
                   <Download size={15} />
                   <span>{dict.header.download} ({formatSec(totalDuration)})</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="toss-btn-download-subtitle"
+                  onClick={() => setIsSubtitleModalOpen(true)}
+                  title={dict.subtitleDownload?.buttonTitle || '유튜브 호환 자막 (.srt) 다운로드'}
+                >
+                  <Subtitles size={15} />
+                  <span>{dict.subtitleDownload?.buttonText || '자막 다운로드 (.srt)'}</span>
                 </button>
               </div>
             )}
@@ -1774,7 +1788,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 </p>
               </div>
 
-              <div className="flex items-center gap-3 shrink-0">
+              <div className="flex items-center gap-2.5 shrink-0 flex-wrap justify-end">
                 {segments.length > 0 && (
                   <span className="toss-tag-gray">
                     {interpolate(dict.dramaticClips.totalIntervals, {
@@ -1782,6 +1796,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       duration: totalDuration.toFixed(1),
                     })}
                   </span>
+                )}
+                {segments.length > 0 && (
+                  <button
+                    type="button"
+                    className="toss-btn-subtitle-header"
+                    onClick={() => setIsSubtitleModalOpen(true)}
+                    title={dict.subtitleDownload?.buttonTitle || '유튜브 호환 자막 (.srt) 다운로드'}
+                  >
+                    <Subtitles size={13} />
+                    <span>{dict.subtitleDownload?.buttonText || '자막 다운로드'}</span>
+                  </button>
                 )}
                 <label
                   className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-600"
@@ -2429,6 +2454,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         birthDate={birthDate}
         onChangeBirthDate={handleChangeBirthDate}
         referenceDate={videos[0]?.recordedTimestamp ? new Date(videos[0].recordedTimestamp) : undefined}
+        showSubtitle={overlayOptions.showSubtitle}
+        onToggleShowSubtitle={(val) =>
+          setOverlayOptions((prev) => ({ ...prev, showSubtitle: val }))
+        }
         currentModel={currentModel || undefined}
         isLoadingModels={isLoadingModels}
         currentLocaleInfo={currentLocaleInfo}
@@ -2436,6 +2465,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         onReset={onReset}
         hasStitchedResult={Boolean(result?.url)}
         onDownloadThumbnail={handleDownloadThumbnail}
+        onDownloadSubtitles={() => {
+          setIsSettingsModalOpen(false);
+          setIsSubtitleModalOpen(true);
+        }}
         onReStitch={() => {
           setIsSettingsModalOpen(false);
           onReStitch(
@@ -2457,6 +2490,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         currentFormat={currentDateFormat}
         onSelectFormat={handleSelectDateFormat}
         referenceDate={videos[0]?.recordedTimestamp ? new Date(videos[0].recordedTimestamp) : undefined}
+      />
+
+      {/* 12. 유튜브 호환 다국어 자막 다운로드 모달 */}
+      <SubtitleDownloadModal
+        isOpen={isSubtitleModalOpen}
+        onClose={() => setIsSubtitleModalOpen(false)}
+        segments={segments}
+        introDuration={introDuration}
+        videoTitle={overlayOptions.titleText || result?.suggestedTitle || 'highlight'}
       />
     </div>
   );
