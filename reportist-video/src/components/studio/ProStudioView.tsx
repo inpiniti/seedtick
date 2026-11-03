@@ -445,19 +445,23 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
   // 구간별 누적 시작 오프셋
   const segmentTimelineOffsets = useMemo(() => {
-    let acc = 0;
+    let acc = (result?.url && result.introDuration) ? result.introDuration : 0;
     const offsets: Record<string, { startOffset: number; endOffset: number }> = {};
     segments.forEach((s) => {
       offsets[s.id] = { startOffset: acc, endOffset: acc + s.duration };
       acc += s.duration;
     });
     return offsets;
-  }, [segments]);
+  }, [segments, result?.url, result?.introDuration]);
 
   // 현재 재생 중인 시간대에 위치한 세그먼트 자동 감지
   const activePlayingSegmentId = useMemo(() => {
     if (!result?.url) return selectedSegmentId;
-    let acc = 0;
+    const introOffset = result.introDuration || 0;
+    if (currentTime < introOffset && segments.length > 0) {
+      return segments[0].id;
+    }
+    let acc = introOffset;
     for (const seg of segments) {
       if (currentTime >= acc && currentTime < acc + seg.duration) {
         return seg.id;
@@ -465,7 +469,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       acc += seg.duration;
     }
     return selectedSegmentId;
-  }, [currentTime, segments, result?.url, selectedSegmentId]);
+  }, [currentTime, segments, result?.url, result?.introDuration, selectedSegmentId]);
 
   // 현재 활성 재생 중인 세그먼트 객체
   const activePlayingSegment = useMemo(() => {

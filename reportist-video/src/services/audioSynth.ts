@@ -107,6 +107,12 @@ export function playBgmSynthLoop(
   const playChordStep = () => {
     if (!isRunning || ctx.state === 'closed') return;
 
+    if (ctx.state === 'suspended') {
+      // AudioContext가 일시정지 상태인 동안에는 대기
+      timerId = setTimeout(playChordStep, 100);
+      return;
+    }
+
     const chord = chords[chordIndex % chords.length];
     chordIndex++;
     const now = ctx.currentTime;

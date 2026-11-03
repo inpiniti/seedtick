@@ -80,6 +80,8 @@ export interface FinalVideoResult {
   blob: Blob;
   url: string;
   duration: number;
+  introDuration?: number; // 시작 인트로 실제 재생 시간 (초)
+  outroDuration?: number; // 마무리 아웃트로 실제 재생 시간 (초)
   segments: HighlightSegment[];
   originalTotalDuration: number;
   fileSize: number;

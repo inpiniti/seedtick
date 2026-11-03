@@ -100,7 +100,7 @@ export const ResultView: React.FC<ResultViewProps> = ({
   // 챕터 클릭 시 해당 위치로 시크
   const handleSeekToSegment = (segIndex: number) => {
     if (!videoRef.current) return;
-    let accumulatedTime = 0;
+    let accumulatedTime = result.introDuration || 0;
     for (let i = 0; i < segIndex; i++) {
       accumulatedTime += result.segments[i].duration;
     }

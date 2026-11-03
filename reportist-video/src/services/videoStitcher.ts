@@ -300,17 +300,6 @@ export async function stitchHighlightedSegments({
   const totalSegmentsDuration = allSegments.reduce((sum, s) => sum + s.duration, 0);
   let recordedDurationSoFar = 0;
 
-  // 비디오 원본 오디오 소스 연결
-  let audioSourceNode: MediaElementAudioSourceNode | null = null;
-  if (audioCtx && audioDest) {
-    try {
-      audioSourceNode = audioCtx.createMediaElementSource(videoElem);
-      audioSourceNode.connect(audioDest);
-    } catch (err) {
-      console.warn('[VideoStitcher] AudioElementSource 연결 실패 (무음 처리):', err);
-    }
-  }
-
   let recorderStarted = false;
   let bgmController: { stop: () => void } | null = null;
   const wakeLockRef: { current: WakeLockSentinel | null } = { current: null };
@@ -339,8 +328,69 @@ export async function stitchHighlightedSegments({
     }
   };
 
-  const startOrResumeRecorder = () => {
+  // BGM 준비: 파일 디코딩 및 오디오 버퍼 노드 준비 (실제 재생 시작은 녹화 시작 시점으로 지연)
+  let customSourceNode: AudioBufferSourceNode | null = null;
+  if (customAudioFile && audioCtx && audioDest) {
     try {
+      const arrayBufferResult = await raceWithTimeout(customAudioFile.arrayBuffer(), 8000);
+      if (arrayBufferResult.status === 'ok') {
+        const decodedResult = await raceWithTimeout(audioCtx.decodeAudioData(arrayBufferResult.value), 15000);
+        if (decodedResult.status === 'ok') {
+          customSourceNode = audioCtx.createBufferSource();
+          customSourceNode.buffer = decodedResult.value;
+          customSourceNode.loop = true;
+
+          const gainNode = audioCtx.createGain();
+          gainNode.gain.setValueAtTime(Math.max(0, Math.min(1, bgmVolume)), audioCtx.currentTime);
+
+          customSourceNode.connect(gainNode);
+          gainNode.connect(audioDest);
+
+          bgmController = {
+            stop: () => {
+              try {
+                customSourceNode?.stop();
+                customSourceNode?.disconnect();
+              } catch {
+                // ignore
+              }
+            },
+          };
+        } else {
+          console.warn('[VideoStitcher] 커스텀 BGM 디코딩 실패:', decodedResult.status);
+        }
+      } else {
+        console.warn('[VideoStitcher] 커스텀 BGM 읽기 실패:', arrayBufferResult.status);
+      }
+    } catch (err) {
+      console.warn('[VideoStitcher] 커스텀 BGM 디코딩 실패, 기본 신스 폴백:', err);
+    }
+  }
+
+  let bgmStarted = false;
+  const startBgmPlayback = () => {
+    if (bgmStarted) return;
+    bgmStarted = true;
+    if (customSourceNode) {
+      try {
+        customSourceNode.start(0);
+      } catch (err) {
+        console.warn('[VideoStitcher] 커스텀 BGM 시작 실패:', err);
+      }
+    } else if (bgmPresetId && bgmPresetId !== 'none' && audioCtx && audioDest) {
+      try {
+        bgmController = playBgmSynthLoop(audioCtx, audioDest, bgmPresetId, bgmVolume);
+      } catch (e) {
+        console.warn('[VideoStitcher] BGM 신스 연결 건너뜀:', e);
+      }
+    }
+  };
+
+  const startOrResumeRecorder = async () => {
+    try {
+      startBgmPlayback();
+      await resumeAudioContext();
+
       if (recorder.state === 'inactive') {
         // iOS/Safari는 timeslice 분할 녹화에서 조각이 깨지는 사례가 있어
         // 한 번에 모았다가 stop 시점에 하나의 파일로 받는다.
@@ -358,62 +408,18 @@ export async function stitchHighlightedSegments({
     }
   };
 
-  const pauseRecorder = () => {
+  const pauseRecorder = async () => {
     try {
       if (recorder.state === 'recording') {
         recorder.pause();
+      }
+      if (audioCtx && audioCtx.state === 'running') {
+        await audioCtx.suspend().catch(() => {});
       }
     } catch (err) {
       console.warn('[VideoStitcher] 레코더 일시정지 실패:', err);
     }
   };
-
-  // BGM 처리: 사용자 업로드 파일 우선, 없으면 신디사이저 프리셋 연결
-  if (customAudioFile && audioCtx && audioDest) {
-    try {
-      const arrayBufferResult = await raceWithTimeout(customAudioFile.arrayBuffer(), 8000);
-      if (arrayBufferResult.status === 'ok') {
-        const decodedResult = await raceWithTimeout(audioCtx.decodeAudioData(arrayBufferResult.value), 15000);
-        if (decodedResult.status === 'ok') {
-          const customSourceNode = audioCtx.createBufferSource();
-          customSourceNode.buffer = decodedResult.value;
-          customSourceNode.loop = true;
-
-          const gainNode = audioCtx.createGain();
-          gainNode.gain.setValueAtTime(Math.max(0, Math.min(1, bgmVolume)), audioCtx.currentTime);
-
-          customSourceNode.connect(gainNode);
-          gainNode.connect(audioDest);
-          customSourceNode.start(0);
-
-          bgmController = {
-            stop: () => {
-              try {
-                customSourceNode.stop();
-                customSourceNode.disconnect();
-              } catch {
-                // ignore
-              }
-            },
-          };
-        } else {
-          console.warn('[VideoStitcher] 커스텀 BGM 디코딩 실패:', decodedResult.status);
-        }
-      } else {
-        console.warn('[VideoStitcher] 커스텀 BGM 읽기 실패:', arrayBufferResult.status);
-      }
-    } catch (err) {
-      console.warn('[VideoStitcher] 커스텀 BGM 디코딩 실패, 기본 신스 폴백:', err);
-    }
-  }
-
-  if (!bgmController && bgmPresetId && bgmPresetId !== 'none' && audioCtx && audioDest) {
-    try {
-      bgmController = playBgmSynthLoop(audioCtx, audioDest, bgmPresetId, bgmVolume);
-    } catch (e) {
-      console.warn('[VideoStitcher] BGM 신스 연결 건너뜀:', e);
-    }
-  }
 
   // 16:9 캔버스(1280x720)에 원본 영상을 소스 영역 스마트 크롭으로 100% 꽉 채워 그림
   const drawCoverFrame = (vItem?: VideoItem, segment?: HighlightSegment) => {
@@ -647,33 +653,42 @@ export async function stitchHighlightedSegments({
     });
 
   // 인트로/아웃트로 사용자 동영상 클립 합성 렌더링
-  const renderCustomVideoClip = async (clipFile: File, label: string) => {
+  const renderCustomVideoClip = async (clipFile: File, label: string): Promise<number> => {
     onProgress?.(label === '시작 인트로' ? 1 : 98, `${label} 영상 로드 및 합성 중...`);
     const blobUrl = URL.createObjectURL(clipFile);
     try {
       await loadVideoSource(blobUrl, label, 12000);
+      const clipDuration = videoElem.duration && Number.isFinite(videoElem.duration) ? videoElem.duration : 0;
 
-      videoElem.currentTime = 0;
+      await seekVideo(0, 2000);
+      drawCoverFrame();
+
       const playing = await startPlayback(IS_IOS ? 2500 : 5000);
       if (!playing) {
         onLog?.(`${label} 영상을 재생할 수 없어 건너뜁니다.`);
-        return;
+        return 0;
       }
 
-      startOrResumeRecorder();
+      await startOrResumeRecorder();
 
       await new Promise<void>((resolve) => {
         const startedAt = performance.now();
+        const maxRealDurationMs = Math.max(3000, (clipDuration + 1.5) * 1000);
         let intervalId: number | null = null;
         let finished = false;
         const finish = () => {
           if (finished) return;
           finished = true;
           if (intervalId !== null) window.clearInterval(intervalId);
+          try {
+            videoElem.pause();
+          } catch {
+            // ignore
+          }
           resolve();
         };
         const tick = () => {
-          if (videoElem.ended || videoElem.paused || performance.now() - startedAt > 30_000) {
+          if (videoElem.ended || videoElem.paused || performance.now() - startedAt >= maxRealDurationMs) {
             finish();
             return;
           }
@@ -684,19 +699,20 @@ export async function stitchHighlightedSegments({
         tick();
       });
 
-      pauseRecorder();
+      await pauseRecorder();
+      return clipDuration;
     } finally {
       URL.revokeObjectURL(blobUrl);
     }
   };
 
   // 인트로 시퀀스 렌더링 (약 1.6초)
-  const renderIntroSequence = async () => {
-    if (!overlayOptions?.showIntro) return;
+  const renderIntroSequence = async (): Promise<number> => {
+    if (!overlayOptions?.showIntro) return 0;
     onProgress?.(1, '시작 인트로 타이틀 시퀀스 생성 중...');
 
     const introFrames = 48; // 30fps 기준 약 1.6초
-    startOrResumeRecorder();
+    await startOrResumeRecorder();
 
     for (let f = 0; f < introFrames; f++) {
       if (signal?.aborted) throw new Error('작업 취소');
@@ -738,19 +754,18 @@ export async function stitchHighlightedSegments({
       ctx.restore();
       await sleep(33);
     }
+
+    await pauseRecorder();
+    return introFrames / 30;
   };
 
   // 아웃트로 시퀀스 렌더링 (약 1.8초)
-  const renderOutroSequence = async () => {
-    if (!overlayOptions?.showOutro) return;
+  const renderOutroSequence = async (): Promise<number> => {
+    if (!overlayOptions?.showOutro) return 0;
     onProgress?.(98, 'Generating outro end card...');
 
     const outroFrames = 54; // 약 1.8초
-    try {
-      if (recorder.state === 'paused') recorder.resume();
-    } catch {
-      // ignore
-    }
+    await startOrResumeRecorder();
 
     for (let f = 0; f < outroFrames; f++) {
       if (signal?.aborted) throw new Error('Cancelled');
@@ -780,6 +795,9 @@ export async function stitchHighlightedSegments({
       ctx.restore();
       await sleep(33);
     }
+
+    await pauseRecorder();
+    return outroFrames / 30;
   };
 
   // 실시간 재생 기반 렌더링. 재생이 시작되지 않거나 시간이 흐르지 않으면 false를 반환해
@@ -792,8 +810,6 @@ export async function stitchHighlightedSegments({
     await seekVideo(segment.start, 2000);
     drawCoverFrame(videoItem, segment);
     drawOverlays(segment);
-
-    await resumeAudioContext();
 
     const playing = await startPlayback(IS_IOS ? 3000 : 6000);
     if (!playing) {
@@ -815,7 +831,21 @@ export async function stitchHighlightedSegments({
       return false;
     }
 
-    startOrResumeRecorder();
+    // waitForPlaybackAdvance 검증으로 인해 영상이 앞서 나간 경우
+    // 정확히 segment.start 위치로 재정렬하여 앞부분 손실 및 겹침 방지
+    if (videoElem.currentTime > segment.start + 0.04) {
+      try {
+        videoElem.pause();
+      } catch {
+        // ignore
+      }
+      await seekVideo(segment.start, 1200);
+      drawCoverFrame(videoItem, segment);
+      drawOverlays(segment);
+      await startPlayback(2000);
+    }
+
+    await startOrResumeRecorder();
 
     await new Promise<void>((resolve, reject) => {
       const startedAt = performance.now();
@@ -823,7 +853,7 @@ export async function stitchHighlightedSegments({
       let intervalId: number | null = null;
       let settled = false;
 
-      const finish = (error?: Error) => {
+      const finish = async (error?: Error) => {
         if (settled) return;
         settled = true;
         if (intervalId !== null) window.clearInterval(intervalId);
@@ -832,7 +862,7 @@ export async function stitchHighlightedSegments({
         } catch {
           // ignore
         }
-        pauseRecorder();
+        await pauseRecorder();
         if (error) reject(error);
         else resolve();
       };
@@ -841,11 +871,11 @@ export async function stitchHighlightedSegments({
         if (settled) return;
 
         if (signal?.aborted) {
-          finish(new Error('작업 취소'));
+          void finish(new Error('작업 취소'));
           return;
         }
         if (recorderError) {
-          finish(recorderError);
+          void finish(recorderError);
           return;
         }
 
@@ -863,7 +893,7 @@ export async function stitchHighlightedSegments({
           videoElem.ended ||
           performance.now() - startedAt >= maxRealDurationMs
         ) {
-          finish();
+          void finish();
         }
       };
 
@@ -887,7 +917,7 @@ export async function stitchHighlightedSegments({
       // ignore
     }
 
-    startOrResumeRecorder();
+    await startOrResumeRecorder();
 
     const fps = 30;
     const frameCount = Math.max(2, Math.ceil(segment.duration * fps));
@@ -926,18 +956,26 @@ export async function stitchHighlightedSegments({
       }
     }
 
-    pauseRecorder();
+    await pauseRecorder();
   };
 
   try {
     await requestWakeLock();
 
+    // 시작 시점에 공용 AudioContext가 켜져 있으면 잠시 멈춰두고 첫 녹화 시점에 resume
+    if (audioCtx && audioCtx.state === 'running') {
+      await audioCtx.suspend().catch(() => {});
+    }
+
+    let actualIntroDuration = 0;
+    let actualOutroDuration = 0;
+
     // 0. 인트로 렌더링 (옵션 활성화 시: 영상 파일 우선, 없으면 타이틀 시퀀스)
     if (overlayOptions?.showIntro) {
       if (overlayOptions.introVideoFile) {
-        await renderCustomVideoClip(overlayOptions.introVideoFile, '시작 인트로');
+        actualIntroDuration = await renderCustomVideoClip(overlayOptions.introVideoFile, '시작 인트로');
       } else {
-        await renderIntroSequence();
+        actualIntroDuration = await renderIntroSequence();
       }
     }
 
@@ -975,9 +1013,9 @@ export async function stitchHighlightedSegments({
     // 마무리 아웃트로 렌더링 (옵션 활성화 시: 영상 파일 우선, 없으면 엔딩 시퀀스)
     if (overlayOptions?.showOutro) {
       if (overlayOptions.outroVideoFile) {
-        await renderCustomVideoClip(overlayOptions.outroVideoFile, '종료 아웃트로');
+        actualOutroDuration = await renderCustomVideoClip(overlayOptions.outroVideoFile, '종료 아웃트로');
       } else {
-        await renderOutroSequence();
+        actualOutroDuration = await renderOutroSequence();
       }
     }
 
@@ -1017,6 +1055,7 @@ export async function stitchHighlightedSegments({
 
     const finalUrl = URL.createObjectURL(finalBlob);
     const originalTotalDuration = videos.reduce((sum, v) => sum + v.duration, 0);
+    const totalCalculatedDuration = actualIntroDuration + totalSegmentsDuration + actualOutroDuration;
 
     onLog?.(`병합 완료: ${(finalBlob.size / (1024 * 1024)).toFixed(1)}MB · ${finalMimeType || 'video/webm'}`);
     onProgress?.(100, '극적 하이라이트 영상이 완성되었습니다!');
@@ -1024,7 +1063,9 @@ export async function stitchHighlightedSegments({
     return {
       blob: finalBlob,
       url: finalUrl,
-      duration: Math.round(totalSegmentsDuration * 10) / 10,
+      duration: Math.round(totalCalculatedDuration * 10) / 10,
+      introDuration: Math.round(actualIntroDuration * 10) / 10,
+      outroDuration: Math.round(actualOutroDuration * 10) / 10,
       segments: allSegments,
       originalTotalDuration: Math.round(originalTotalDuration * 10) / 10,
       fileSize: finalBlob.size,
@@ -1033,13 +1074,6 @@ export async function stitchHighlightedSegments({
     try {
       if (bgmController) {
         bgmController.stop();
-      }
-      if (audioSourceNode) {
-        try {
-          audioSourceNode.disconnect();
-        } catch {
-          // ignore
-        }
       }
       try {
         videoElem.pause();
