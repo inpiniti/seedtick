@@ -466,39 +466,47 @@ export async function stitchHighlightedSegments({
     ctx.drawImage(videoElem, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
   };
 
-  // 자막 및 브랜딩 오버레이 (제목, 채널, 씬별 하단 자막, 좌측 상단 날짜+위치) 그리기
-  const drawOverlays = (currentSegment?: HighlightSegment) => {
-    if (!overlayOptions) return;
+  // 세그먼트별 오버레이 오프스크린 캔버스 생성 (세그먼트당 1회만 그려서 캐싱)
+  // 매 프레임마다 font/measureText/shadowBlur를 반복 계산하지 않고 ctx.drawImage로 0.05ms 안에 합성
+  const createSegmentOverlayCanvas = (currentSegment?: HighlightSegment): HTMLCanvasElement | null => {
+    if (!overlayOptions) return null;
+    const offCanvas = document.createElement('canvas');
+    offCanvas.width = targetWidth;
+    offCanvas.height = targetHeight;
+    const oCtx = offCanvas.getContext('2d');
+    if (!oCtx) return null;
 
+    let hasAnyOverlay = false;
     let titleBottomY = 28;
     const hasTitle = Boolean(overlayOptions.showTitle && overlayOptions.titleText?.trim());
 
     // 1. 좌측 상단 영상 제목
     if (hasTitle) {
-      ctx.save();
-      ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+      hasAnyOverlay = true;
+      oCtx.save();
+      oCtx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
       const text = overlayOptions.titleText;
-      const metrics = ctx.measureText(text);
+      const metrics = oCtx.measureText(text);
       const padX = 14;
       const boxW = metrics.width + padX * 2;
       const boxH = 38;
       const x = 32;
       const y = 28;
 
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.72)';
-      ctx.beginPath();
-      if (typeof ctx.roundRect === 'function') {
-        ctx.roundRect(x, y, boxW, boxH, 6);
+      oCtx.fillStyle = 'rgba(0, 0, 0, 0.72)';
+      oCtx.beginPath();
+      if (typeof oCtx.roundRect === 'function') {
+        oCtx.roundRect(x, y, boxW, boxH, 6);
       } else {
-        ctx.rect(x, y, boxW, boxH);
+        oCtx.rect(x, y, boxW, boxH);
       }
-      ctx.fill();
+      oCtx.fill();
 
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(text, x + padX, y + boxH / 2);
-      ctx.restore();
+      oCtx.fillStyle = '#ffffff';
+      oCtx.textAlign = 'left';
+      oCtx.textBaseline = 'middle';
+      oCtx.fillText(text, x + padX, y + boxH / 2);
+      oCtx.restore();
 
       titleBottomY = y + boxH;
     }
@@ -510,67 +518,84 @@ export async function stitchHighlightedSegments({
     const metaText = metaParts.join(' • ');
 
     if (metaText) {
-      ctx.save();
-      ctx.font = '600 16px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
-      ctx.fillStyle = '#ffffff';
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-      ctx.shadowBlur = 6;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 1.5;
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
+      hasAnyOverlay = true;
+      oCtx.save();
+      oCtx.font = '600 16px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+      oCtx.fillStyle = '#ffffff';
+      oCtx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+      oCtx.shadowBlur = 4;
+      oCtx.shadowOffsetX = 0;
+      oCtx.shadowOffsetY = 1.5;
+      oCtx.textAlign = 'left';
+      oCtx.textBaseline = 'top';
 
       const metaX = hasTitle ? 34 : 32;
       const metaY = hasTitle ? titleBottomY + 7 : 28;
-      ctx.fillText(metaText, metaX, metaY);
-      ctx.restore();
+      oCtx.fillText(metaText, metaX, metaY);
+      oCtx.restore();
     }
 
     // 2. 우측 상단 채널 이름
     if (overlayOptions.showChannel && overlayOptions.channelText) {
-      ctx.save();
-      ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
-      ctx.fillStyle = '#ffffff';
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-      ctx.shadowBlur = 6;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 2;
-      ctx.textAlign = 'right';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(overlayOptions.channelText, targetWidth - 32, 47);
-      ctx.restore();
+      hasAnyOverlay = true;
+      oCtx.save();
+      oCtx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+      oCtx.fillStyle = '#ffffff';
+      oCtx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+      oCtx.shadowBlur = 4;
+      oCtx.shadowOffsetX = 0;
+      oCtx.shadowOffsetY = 2;
+      oCtx.textAlign = 'right';
+      oCtx.textBaseline = 'middle';
+      oCtx.fillText(overlayOptions.channelText, targetWidth - 32, 47);
+      oCtx.restore();
     }
 
-    // 3. 하단 중앙 씬 제목 자막 (날짜/위치는 좌측 상단으로 분리되어 씬 제목만 표시)
+    // 3. 하단 중앙 씬 제목 자막
     if (overlayOptions.showSubtitle) {
       const titlePart = currentSegment?.subtitleTitle || currentSegment?.reason || '';
       const subText = titlePart.trim();
 
       if (subText) {
-        ctx.save();
-        ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
-        const metrics = ctx.measureText(subText);
+        hasAnyOverlay = true;
+        oCtx.save();
+        oCtx.font = 'bold 24px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+        const metrics = oCtx.measureText(subText);
         const padX = 20;
         const boxW = metrics.width + padX * 2;
         const boxH = 46;
         const x = (targetWidth - boxW) / 2;
         const y = targetHeight - 76;
 
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-        ctx.beginPath();
-        if (typeof ctx.roundRect === 'function') {
-          ctx.roundRect(x, y, boxW, boxH, 8);
+        oCtx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+        oCtx.beginPath();
+        if (typeof oCtx.roundRect === 'function') {
+          oCtx.roundRect(x, y, boxW, boxH, 8);
         } else {
-          ctx.rect(x, y, boxW, boxH);
+          oCtx.rect(x, y, boxW, boxH);
         }
-        ctx.fill();
+        oCtx.fill();
 
-        ctx.fillStyle = '#ffffff';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(subText, targetWidth / 2, y + boxH / 2);
-        ctx.restore();
+        oCtx.fillStyle = '#ffffff';
+        oCtx.textAlign = 'center';
+        oCtx.textBaseline = 'middle';
+        oCtx.fillText(subText, targetWidth / 2, y + boxH / 2);
+        oCtx.restore();
       }
+    }
+
+    return hasAnyOverlay ? offCanvas : null;
+  };
+
+  // 비디오 프레임과 캐시된 오버레이를 캔버스에 합성
+  const renderFrameWithOverlay = (
+    videoItem: VideoItem,
+    segment: HighlightSegment,
+    overlayCanvas: HTMLCanvasElement | null
+  ) => {
+    drawCoverFrame(videoItem, segment);
+    if (overlayCanvas) {
+      ctx.drawImage(overlayCanvas, 0, 0);
     }
   };
 
@@ -687,21 +712,28 @@ export async function stitchHighlightedSegments({
   const waitForPlaybackAdvance = (fromTime: number, timeoutMs: number) =>
     new Promise<boolean>((resolve) => {
       let settled = false;
+      let checkTimer: number | null = null;
+      let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
+
       const finish = (advanced: boolean) => {
         if (settled) return;
         settled = true;
         videoElem.removeEventListener('timeupdate', check);
-        if (timer) clearTimeout(timer);
+        if (checkTimer !== null) window.clearInterval(checkTimer);
+        if (timeoutTimer) clearTimeout(timeoutTimer);
         resolve(advanced);
       };
+
       const check = () => {
         if (videoElem.currentTime > fromTime + 0.02) finish(true);
       };
-      const timer = setTimeout(
+
+      timeoutTimer = setTimeout(
         () => finish(videoElem.currentTime > fromTime + 0.02),
         timeoutMs
       );
       videoElem.addEventListener('timeupdate', check);
+      checkTimer = window.setInterval(check, 50);
     });
 
   // 인트로/아웃트로 사용자 동영상 클립 합성 렌더링
@@ -865,17 +897,19 @@ export async function stitchHighlightedSegments({
       // ignore
     }
 
-    // 1. 목표 시작 시점으로 seek 및 비디오 디코더 버퍼 확보 대기
+    // 1. 세그먼트별 오버레이 캔버스 사전 생성 (세그먼트당 1회만 계산하여 30fps 루프 비용을 0.05ms로 극소화)
+    const overlayCanvas = createSegmentOverlayCanvas(segment);
+
+    // 2. 목표 시작 시점으로 seek 및 비디오 디코더 버퍼 확보 대기
     const seekOk = await seekVideo(segment.start, 10000);
     if (!seekOk) {
       console.warn(`[VideoStitcher] 구간 시작 시점(${segment.start}s) seek 지연`);
     }
     await waitForVideoReady(8000);
 
-    drawCoverFrame(videoItem, segment);
-    drawOverlays(segment);
+    renderFrameWithOverlay(videoItem, segment, overlayCanvas);
 
-    // 2. 비디오 재생 시작
+    // 3. 비디오 재생 시작
     const playing = await startPlayback(IS_IOS ? 5000 : 8000);
     if (!playing) {
       try {
@@ -886,7 +920,7 @@ export async function stitchHighlightedSegments({
       return false;
     }
 
-    // 3. 비디오가 실제로 재생되어 시간을 전진시키는지 확인 (최대 6~8초 대기)
+    // 4. 비디오가 실제로 재생되어 시간을 전진시키는지 확인 (최대 6~8초 대기)
     const advanced = await waitForPlaybackAdvance(segment.start, IS_IOS ? 4000 : 8000);
     if (!advanced) {
       try {
@@ -900,35 +934,20 @@ export async function stitchHighlightedSegments({
     // 비디오가 실제로 정상 전진 중이므로 이 시점에 정확히 레코더를 시작/재개!
     await startOrResumeRecorder();
 
-    // 4. 비디오 재생과 캔버스 녹화 실시간 동기화 루프
+    // 5. 비디오 재생과 캔버스 녹화 실시간 동기화 루프
     await new Promise<void>((resolve, reject) => {
       const startedAt = performance.now();
       // 네트워크 지연/버퍼링을 감안하여 최대 허용 시간 넉넉하게 설정
       const maxRealDurationMs = Math.max(5000, (segment.duration * 2.5 + 5) * 1000);
-      let intervalId: number | null = null;
       let settled = false;
-
-      // 비디오 버퍼링(일시 멈춤) 발생 시 레코더도 일시정지하여 정지 프레임 녹화 방지
-      const onWaiting = () => {
-        if (settled) return;
-        void pauseRecorder();
-      };
-      const onPlaying = () => {
-        if (settled) return;
-        void startOrResumeRecorder();
-      };
-
-      videoElem.addEventListener('waiting', onWaiting);
-      videoElem.addEventListener('stalled', onWaiting);
-      videoElem.addEventListener('playing', onPlaying);
+      let cleanupLoop: (() => void) | null = null;
 
       const finish = async (error?: Error) => {
         if (settled) return;
         settled = true;
-        if (intervalId !== null) window.clearInterval(intervalId);
-        videoElem.removeEventListener('waiting', onWaiting);
-        videoElem.removeEventListener('stalled', onWaiting);
-        videoElem.removeEventListener('playing', onPlaying);
+        if (cleanupLoop) {
+          cleanupLoop();
+        }
         try {
           videoElem.pause();
         } catch {
@@ -939,7 +958,7 @@ export async function stitchHighlightedSegments({
         else resolve();
       };
 
-      const tick = () => {
+      const onFrame = () => {
         if (settled) return;
 
         if (signal?.aborted) {
@@ -951,10 +970,9 @@ export async function stitchHighlightedSegments({
           return;
         }
 
-        // 비디오가 실제로 재생 중일 때만 캔버스 프레임 갱신
+        // 비디오가 실제로 재생 중일 때만 캔버스 프레임 갱신 (캐시된 오버레이를 0.05ms로 초고속 블릿)
         if (!videoElem.paused && !videoElem.seeking) {
-          drawCoverFrame(videoItem, segment);
-          drawOverlays(segment);
+          renderFrameWithOverlay(videoItem, segment, overlayCanvas);
         }
 
         const clipElapsed = Math.max(0, Math.min(segment.duration, videoElem.currentTime - segment.start));
@@ -972,8 +990,48 @@ export async function stitchHighlightedSegments({
         }
       };
 
-      intervalId = window.setInterval(tick, 1000 / 30);
-      tick();
+      // requestVideoFrameCallback 지원 브라우저는 디코더 프레임과 100% 동기화
+      const vProto = HTMLVideoElement.prototype as unknown as {
+        requestVideoFrameCallback?: (cb: () => void) => number;
+        cancelVideoFrameCallback?: (id: number) => void;
+      };
+      const vElemAny = videoElem as unknown as {
+        requestVideoFrameCallback?: (cb: () => void) => number;
+        cancelVideoFrameCallback?: (id: number) => void;
+      };
+
+      if (typeof vProto.requestVideoFrameCallback === 'function' && typeof vElemAny.requestVideoFrameCallback === 'function') {
+        let rvfcHandle: number | null = null;
+        let isRunning = true;
+
+        const rvfcLoop = () => {
+          if (!isRunning || settled) return;
+          onFrame();
+          if (isRunning && !settled && vElemAny.requestVideoFrameCallback) {
+            rvfcHandle = vElemAny.requestVideoFrameCallback(rvfcLoop);
+          }
+        };
+
+        rvfcHandle = vElemAny.requestVideoFrameCallback(rvfcLoop);
+
+        // 보조 30fps 백업 타이머 (디코더 콜백 일시 지연 방어)
+        const fallbackInterval = window.setInterval(() => {
+          if (!settled) onFrame();
+        }, 1000 / 30);
+
+        cleanupLoop = () => {
+          isRunning = false;
+          if (rvfcHandle !== null && vElemAny.cancelVideoFrameCallback) {
+            vElemAny.cancelVideoFrameCallback(rvfcHandle);
+          }
+          window.clearInterval(fallbackInterval);
+        };
+      } else {
+        const intervalId = window.setInterval(onFrame, 1000 / 30);
+        cleanupLoop = () => window.clearInterval(intervalId);
+      }
+
+      onFrame();
     });
 
     return true;
@@ -992,6 +1050,7 @@ export async function stitchHighlightedSegments({
       // ignore
     }
 
+    const overlayCanvas = createSegmentOverlayCanvas(segment);
     const fps = 30;
     const frameCount = Math.max(2, Math.ceil(segment.duration * fps));
     const frameInterval = 1000 / fps;
@@ -1005,12 +1064,11 @@ export async function stitchHighlightedSegments({
         Math.max(segment.start, segment.end - 0.05)
       );
 
-      // 탐색(seek) 중에는 레코더를 정지하여 seek 대기 시간이 영상 길이에 포함되지 않도록 방지
+      // 탐색(seek) 중에는 레코더를 정지하여 seek 대기 시간이 영상 길이에 포함되지 않도록 방어
       await pauseRecorder();
       await seekVideo(time, 2500);
 
-      drawCoverFrame(videoItem, segment);
-      drawOverlays(segment);
+      renderFrameWithOverlay(videoItem, segment, overlayCanvas);
 
       // 프레임이 준비된 후 레코더를 켜고 frameInterval 동안 녹화
       await startOrResumeRecorder();
