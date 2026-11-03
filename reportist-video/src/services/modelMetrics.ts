@@ -83,6 +83,56 @@ export function sortModelsBySpeed(models: FreeModelMeta[]): FreeModelMeta[] {
   });
 }
 
+export function compareModelsByIntelligence(a: FreeModelMeta, b: FreeModelMeta): number {
+  // 1. 인공지능 지능 지수(Artificial Analysis Intelligence Index) 내림차순 (높은 순서)
+  const intelA = a.intelligenceIndex ?? null;
+  const intelB = b.intelligenceIndex ?? null;
+  if (intelA != null && intelB != null && intelB !== intelA) {
+    return intelB - intelA;
+  }
+  if (intelA != null && intelB == null) return -1;
+  if (intelA == null && intelB != null) return 1;
+
+  // 2. 코딩 및 추론 지수 내림차순 (높은 순서)
+  const codingA = a.codingIndex ?? null;
+  const codingB = b.codingIndex ?? null;
+  if (codingA != null && codingB != null && codingB !== codingA) {
+    return codingB - codingA;
+  }
+  if (codingA != null && codingB == null) return -1;
+  if (codingA == null && codingB != null) return 1;
+
+  // 3. 에이전틱 지수 내림차순
+  const agenticA = a.agenticIndex ?? null;
+  const agenticB = b.agenticIndex ?? null;
+  if (agenticA != null && agenticB != null && agenticB !== agenticA) {
+    return agenticB - agenticA;
+  }
+  if (agenticA != null && agenticB == null) return -1;
+  if (agenticA == null && agenticB != null) return 1;
+
+  // 4. 컨텍스트 길이 내림차순
+  const contextA = a.contextLength ?? 0;
+  const contextB = b.contextLength ?? 0;
+  if (contextB !== contextA) {
+    return contextB - contextA;
+  }
+
+  // 5. 속도 내림차순 (토큰/초)
+  const speedA = a.speedTokensPerSecond ?? 0;
+  const speedB = b.speedTokensPerSecond ?? 0;
+  if (speedB !== speedA) {
+    return speedB - speedA;
+  }
+
+  // 6. 최신 출시순
+  return (a.daysAgo ?? 9999) - (b.daysAgo ?? 9999);
+}
+
+export function sortModelsByIntelligence(models: FreeModelMeta[]): FreeModelMeta[] {
+  return [...models].sort(compareModelsByIntelligence);
+}
+
 export function cleanModelName(name?: string | null): string {
   if (!name) return '';
   return name
@@ -95,29 +145,23 @@ export function cleanModelName(name?: string | null): string {
 
 /**
  * 영상 하이라이트 분석에 쓸 기본 모델을 고른다.
- * 안전성 가드레일 모델 및 Nemotron Super VL은 제외하고, 추천 순위가 가장 높은 모델을 기본값으로 사용한다.
+ * 안전성 가드레일 모델 및 Nemotron Super VL은 제외하고, 지능이 가장 높은 모델을 기본값으로 사용한다.
  */
 export function pickDefaultModel(models: FreeModelMeta[]): FreeModelMeta | null {
   const usable = models.filter((model) => !isGuardrailModel(model) && !model.id.includes('super-vl'));
   const pool = usable.length > 0 ? usable : models;
   if (pool.length === 0) return null;
 
-  // 플래그십 비전 모델(Gemma 31B/26B 또는 Dots 3) 우선 매칭
-  const preferred = pool.find((m) => m.id.includes('gemma-4-31b')) ||
-                    pool.find((m) => m.id.includes('gemma-4-26b')) ||
-                    pool.find((m) => m.id.includes('dots-3'));
-  if (preferred) return preferred;
-
-  const ranked = sortModelsBySpeed(pool);
+  const ranked = sortModelsByIntelligence(pool);
   return ranked[0] ?? null;
 }
 
 /**
- * 게이트웨이가 수신한 원천 메타데이터를 정규화하여 반환한다.
+ * 게이트웨이가 수신한 원천 메타데이터를 정규화하고 지능순으로 정렬하여 반환한다.
  * 인위적인 임의 추정이나 덮어쓰기 없이 수신값을 100% 신뢰한다.
  */
 export function enrichModelMetrics(models: FreeModelMeta[]): FreeModelMeta[] {
-  return models.map((model) => ({
+  const enriched = models.map((model) => ({
     ...model,
     name: cleanModelName(model.name),
     intelligenceIndex: model.intelligenceIndex ?? null,
@@ -127,4 +171,5 @@ export function enrichModelMetrics(models: FreeModelMeta[]): FreeModelMeta[] {
     latencyMs: model.latencyMs ?? null,
     speedIsEstimate: false,
   }));
+  return sortModelsByIntelligence(enriched);
 }

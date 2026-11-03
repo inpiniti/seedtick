@@ -18,6 +18,7 @@ import type { FreeModelMeta } from '../../types/gateway.ts';
 import { getModelInputModalities } from '../../types/gateway.ts';
 import {
   cleanModelName,
+  compareModelsByIntelligence,
   getSpeedTier,
   pickDefaultModel,
 } from '../../services/modelMetrics.ts';
@@ -36,7 +37,7 @@ interface ModelSelectorModalProps {
   onSelectModel: (modelId: string) => void;
 }
 
-type SortKey = 'speed' | 'intelligence' | 'newest' | 'context';
+type SortKey = 'intelligence' | 'speed' | 'newest' | 'context';
 type ModalityFilter = 'all' | 'image' | 'video' | 'audio';
 
 function getProviderName(model: FreeModelMeta): string {
@@ -69,7 +70,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProvider, setSelectedProvider] = useState<string>('all');
   const [selectedModality, setSelectedModality] = useState<ModalityFilter>('all');
-  const [sortKey, setSortKey] = useState<SortKey>('speed');
+  const [sortKey, setSortKey] = useState<SortKey>('intelligence');
 
   useEffect(() => {
     if (!isOpen) return;
@@ -101,8 +102,21 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
     return { all: models.length, image, video, audio };
   }, [models]);
 
+  // Recommended (top intelligence default) model
+  const recommendedModel = useMemo(() => pickDefaultModel(models), [models]);
+
   // Fastest model
-  const fastestModel = useMemo(() => pickDefaultModel(models), [models]);
+  const fastestModel = useMemo(() => {
+    let fastest: FreeModelMeta | null = null;
+    let max = 0;
+    for (const model of models) {
+      if (model.speedTokensPerSecond && model.speedTokensPerSecond > max) {
+        max = model.speedTokensPerSecond;
+        fastest = model;
+      }
+    }
+    return fastest;
+  }, [models]);
 
   // Speed max benchmark
   const maxSpeed = useMemo(() => {
@@ -154,18 +168,15 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
       if (a.id === selectedModelId) return -1;
       if (b.id === selectedModelId) return 1;
 
+      if (sortKey === 'intelligence') {
+        return compareModelsByIntelligence(a, b);
+      }
+
       if (sortKey === 'speed') {
         const speedA = a.speedTokensPerSecond ?? 0;
         const speedB = b.speedTokensPerSecond ?? 0;
         if (speedB !== speedA) return speedB - speedA;
-        return (b.intelligenceIndex ?? 0) - (a.intelligenceIndex ?? 0);
-      }
-
-      if (sortKey === 'intelligence') {
-        const intA = a.intelligenceIndex ?? 0;
-        const intB = b.intelligenceIndex ?? 0;
-        if (intB !== intA) return intB - intA;
-        return (b.speedTokensPerSecond ?? 0) - (a.speedTokensPerSecond ?? 0);
+        return compareModelsByIntelligence(a, b);
       }
 
       if (sortKey === 'newest') {
@@ -176,7 +187,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
         return (b.contextLength ?? 0) - (a.contextLength ?? 0);
       }
 
-      return (a.daysAgo ?? 9999) - (b.daysAgo ?? 9999);
+      return compareModelsByIntelligence(a, b);
     });
   }, [models, searchQuery, selectedProvider, selectedModality, sortKey, selectedModelId]);
 
@@ -246,17 +257,17 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
             <div className="model-modal-chips">
               <button
                 type="button"
-                className={`model-modal-chip ${sortKey === 'speed' ? 'active' : ''}`}
-                onClick={() => setSortKey('speed')}
-              >
-                ⚡ {dict.modelModal.sortSpeed}
-              </button>
-              <button
-                type="button"
                 className={`model-modal-chip ${sortKey === 'intelligence' ? 'active' : ''}`}
                 onClick={() => setSortKey('intelligence')}
               >
                 🧠 {dict.modelModal.sortIntelligence}
+              </button>
+              <button
+                type="button"
+                className={`model-modal-chip ${sortKey === 'speed' ? 'active' : ''}`}
+                onClick={() => setSortKey('speed')}
+              >
+                ⚡ {dict.modelModal.sortSpeed}
               </button>
               <button
                 type="button"
@@ -348,7 +359,8 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
           ) : (
             displayedModels.map((model) => {
               const isSelected = model.id === selectedModelId;
-              const isFastest = fastestModel?.id === model.id;
+              const isRecommended = recommendedModel?.id === model.id;
+              const isFastest = fastestModel?.id === model.id && !isRecommended;
               const isNew = (model.daysAgo ?? 9999) <= 14;
               const inputModalities = getModelInputModalities(model);
               const speedTier = getSpeedTier(model.speedTokensPerSecond);
@@ -388,6 +400,12 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                       <h3 className="model-modal-model-name">
                         {cleanModelName(model.name)}
                       </h3>
+                      {isRecommended && (
+                        <span className="model-modal-fastest-badge">
+                          <Sparkles size={11} />
+                          {dict.modelModal.badgeRecommended}
+                        </span>
+                      )}
                       {isFastest && (
                         <span className="model-modal-fastest-badge">
                           <Zap size={11} />

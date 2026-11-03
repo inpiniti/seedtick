@@ -12,21 +12,35 @@ export const DEFAULT_CONFIG: GatewayConfig = {
   gatewaySecret: DEFAULT_GATEWAY_SECRET,
 };
 
-// 다중 프레임 시각 분석을 공식 지원하는 고성능 모델 목록 (비상시 폴백)
+// 다중 프레임 시각 분석을 공식 지원하는 고성능 모델 목록 (비상시 폴백, 지능 지수순)
 export const FALLBACK_VIDEO_MODELS: FreeModelMeta[] = [
   {
-    id: 'google/gemma-4-26b-a4b-it:free',
-    name: 'Google: Gemma 4 26B A4B',
-    providerName: 'Google DeepMind',
+    id: 'thinkingmachines/inkling-small:free',
+    name: 'Thinking Machines: Inkling Small',
+    providerName: 'Thinking Machines',
     contextLengthFormatted: '256K tokens',
-    description: 'Google DeepMind 경량 고성능 MoE 모델로 빠른 프레임 장면 인식이 가능합니다.',
-    modality: 'text+image+video->text',
-    inputModalities: ['text', 'image', 'video'],
-    intelligenceIndex: null,
-    codingIndex: 39.3,
-    agenticIndex: 2.9,
-    intelligenceTier: 'Google 경량 고성능 MoE',
-    parametersSummary: '26B (활성 3.8B)',
+    description: '초대형 멀티모달 고지능 추론 모델로 연속 프레임 시퀀스와 타임스탬프 분석에 탁월합니다.',
+    modality: 'text+image+audio->text',
+    inputModalities: ['text', 'image', 'audio'],
+    intelligenceIndex: 12.9,
+    codingIndex: 52.9,
+    agenticIndex: null,
+    intelligenceTier: '최상위 지능 멀티모달',
+    parametersSummary: '276B (활성 12B)',
+  },
+  {
+    id: 'thinkingmachines/inkling:free',
+    name: 'Thinking Machines: Inkling',
+    providerName: 'Thinking Machines',
+    contextLengthFormatted: '256K tokens',
+    description: '975B MoE 최첨단 고지능 비전 추론 모델입니다.',
+    modality: 'text+image+audio->text',
+    inputModalities: ['text', 'image', 'audio'],
+    intelligenceIndex: 12.5,
+    codingIndex: 52.1,
+    agenticIndex: null,
+    intelligenceTier: '초대형 975B 고지능 MoE',
+    parametersSummary: '975B (활성 41B)',
   },
   {
     id: 'google/gemma-4-31b-it:free',
@@ -43,6 +57,20 @@ export const FALLBACK_VIDEO_MODELS: FreeModelMeta[] = [
     parametersSummary: '31B Dense',
     supportedEfforts: ['high', 'medium', 'low'],
     defaultEffort: 'high',
+  },
+  {
+    id: 'google/gemma-4-26b-a4b-it:free',
+    name: 'Google: Gemma 4 26B A4B',
+    providerName: 'Google DeepMind',
+    contextLengthFormatted: '256K tokens',
+    description: 'Google DeepMind 경량 고성능 MoE 모델로 빠른 프레임 장면 인식이 가능합니다.',
+    modality: 'text+image+video->text',
+    inputModalities: ['text', 'image', 'video'],
+    intelligenceIndex: null,
+    codingIndex: 39.3,
+    agenticIndex: 2.9,
+    intelligenceTier: 'Google 경량 고성능 MoE',
+    parametersSummary: '26B (활성 3.8B)',
   },
   {
     id: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
@@ -102,7 +130,8 @@ export async function fetchVideoCapableModels(config: GatewayConfig = DEFAULT_CO
           const isKnownVision =
             m.id.includes('nano-omni') ||
             m.id.includes('gemma-4') ||
-            m.id.includes('dots-3');
+            m.id.includes('dots-3') ||
+            m.id.includes('inkling');
           const isVision = hasImageInput || hasImageModality || isKnownVision;
           return isVision && !isGuardrailModel(m);
         });
