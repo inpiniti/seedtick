@@ -98,11 +98,12 @@ export const ResultView: React.FC<ResultViewProps> = ({
   };
 
   // 챕터 클릭 시 해당 위치로 시크
-  const handleSeekToSegment = (segIndex: number) => {
+  const handleSeekToSegment = (segId: string) => {
     if (!videoRef.current) return;
     let accumulatedTime = result.introDuration || 0;
-    for (let i = 0; i < segIndex; i++) {
-      accumulatedTime += result.segments[i].duration;
+    for (const s of result.segments) {
+      if (s.id === segId) break;
+      accumulatedTime += s.duration;
     }
     videoRef.current.currentTime = accumulatedTime;
     videoRef.current.play().catch(() => {});
@@ -266,7 +267,7 @@ export const ResultView: React.FC<ResultViewProps> = ({
               <div
                 key={segment.id}
                 className="segment-item group"
-                onClick={() => handleSeekToSegment(idx)}
+                onClick={() => handleSeekToSegment(segment.id)}
                 title="클릭하여 이 장면으로 이동"
               >
                 <div className="segment-left">

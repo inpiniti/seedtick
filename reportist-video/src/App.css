@@ -2965,20 +2965,41 @@
 /* ========================================================
    ★ 실시간 자막 & 브랜딩 라이브 오버레이 (비디오 플레이어 위)
    ======================================================== */
-.toss-live-overlay-title {
+.toss-live-overlay-top-left {
   position: absolute;
   top: 14px;
   left: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  z-index: 15;
+  pointer-events: none;
+  max-width: 65%;
+}
+
+.toss-live-overlay-title {
   background: rgba(0, 0, 0, 0.74);
   color: #ffffff;
   padding: 4px 10px;
   border-radius: 4px;
   font-weight: 700;
   font-size: 13.5px;
-  z-index: 15;
-  pointer-events: none;
   letter-spacing: -0.2px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+.toss-live-overlay-meta {
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  line-height: 1.35;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 6px rgba(0, 0, 0, 0.65);
+  padding-left: 2px;
+  word-break: break-word;
 }
 
 .toss-live-overlay-channel {

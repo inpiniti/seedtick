@@ -136,6 +136,7 @@ export interface Dictionary {
     subtitlePlaceholder: string;
     dateLabel: string;
     datePlaceholder: string;
+    changeFormatTip?: string;
     locationLabel: string;
     locationPlaceholder: string;
     checkMapMarker: string;
@@ -298,10 +299,19 @@ export interface Dictionary {
     subtitle: string;
     aiEngine: string;
     language: string;
+    dateFormat?: string;
+    dateFormatDesc?: string;
     projectActions: string;
     thumbnailDesc: string;
     resetDesc: string;
     reStitchDesc: string;
+  };
+  dateFormatModal?: {
+    title: string;
+    subtitle: string;
+    defaultBadge: string;
+    tip: string;
+    close: string;
   };
   logs: {
     pipelineStart: string;

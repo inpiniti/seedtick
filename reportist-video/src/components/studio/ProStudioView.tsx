@@ -26,6 +26,7 @@ import {
   ChevronDown,
   Zap,
   Globe,
+  Calendar,
   Image as ImageIcon,
   Share2,
   Settings,
@@ -51,6 +52,13 @@ import { VideoListModal } from './VideoListModal.tsx';
 import { LanguageSelectorModal } from './LanguageSelectorModal.tsx';
 import { AudioLibraryModal } from './AudioLibraryModal.tsx';
 import { MobileSettingsModal } from './MobileSettingsModal.tsx';
+import { DateFormatSelectorModal } from './DateFormatSelectorModal.tsx';
+import {
+  type DateFormatOption,
+  formatDateByPattern,
+  getStoredDateFormat,
+  setStoredDateFormat,
+} from '../../services/videoMetadata.ts';
 import {
   loadLibraryAudioFile,
   type AudioLibraryTrack,
@@ -87,6 +95,7 @@ interface ProStudioViewProps {
     overlayOptions?: VideoOverlayOptions
   ) => Promise<void>;
   isReStitching: boolean;
+  onUpdateVideosDateFormat?: (format: DateFormatOption) => void;
 }
 
 export const ProStudioView: React.FC<ProStudioViewProps> = ({
@@ -105,6 +114,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   onReset,
   onReStitch,
   isReStitching,
+  onUpdateVideosDateFormat,
 }) => {
   const { dict, interpolate, currentLocaleInfo } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -160,6 +170,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [isModelModalOpen, setIsModelModalOpen] = useState<boolean>(false);
   const [isVideoListModalOpen, setIsVideoListModalOpen] = useState<boolean>(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
+  const [isDateFormatModalOpen, setIsDateFormatModalOpen] = useState<boolean>(false);
+  const [currentDateFormat, setCurrentDateFormat] = useState<DateFormatOption>(getStoredDateFormat);
+
   const currentModel = useMemo(
     () => models.find((model) => model.id === selectedModel) || models[0] || null,
     [models, selectedModel]
@@ -173,6 +186,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       setIsVideoListModalOpen(false);
       setIsAudioLibraryOpen(false);
       setIsSettingsModalOpen(false);
+      setIsDateFormatModalOpen(false);
     }
   }, [isProcessing]);
 
@@ -199,12 +213,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     if (videos.length > 0 && videos[0].metadataDate) {
       return videos[0].metadataDate;
     }
-    if (videos.length > 0 && videos[0].file?.lastModified) {
-      const d = new Date(videos[0].file.lastModified);
-      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const ts = videos[0]?.recordedTimestamp || videos[0]?.file?.lastModified;
+    if (ts) {
+      return formatDateByPattern(new Date(ts), currentDateFormat);
     }
     return '';
-  }, [videos]);
+  }, [videos, currentDateFormat]);
 
   const [overlayOptions, setOverlayOptions] = useState<VideoOverlayOptions>({
     showTitle: true,
@@ -237,11 +251,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 영상이 추가되었을 때 실제 촬영 날짜 자동 반영
   useEffect(() => {
     if (videos.length > 0) {
+      const ts = videos[0].recordedTimestamp || videos[0].file?.lastModified;
       const detectedDate =
         videos[0].metadataDate ||
-        (videos[0].file?.lastModified
-          ? new Date(videos[0].file.lastModified).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-          : '');
+        (ts ? formatDateByPattern(new Date(ts), currentDateFormat) : '');
       if (detectedDate) {
         setOverlayOptions((prev) => ({
           ...prev,
@@ -249,7 +262,40 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         }));
       }
     }
-  }, [videos]);
+  }, [videos, currentDateFormat]);
+
+  // 날짜 표기 형식 변경 시 세그먼트 자막 및 비디오 메타데이터 일괄 갱신
+  const handleSelectDateFormat = (newFormat: DateFormatOption) => {
+    setCurrentDateFormat(newFormat);
+    setStoredDateFormat(newFormat);
+
+    // 1. 타임라인 세그먼트들의 subtitleDate 일괄 갱신
+    setSegments((prev) =>
+      prev.map((seg) => {
+        const vItem = videoMap.get(seg.sourceVideoId);
+        const ts = vItem?.recordedTimestamp || vItem?.file?.lastModified;
+        if (!ts) return seg;
+        return {
+          ...seg,
+          subtitleDate: formatDateByPattern(new Date(ts), newFormat),
+        };
+      })
+    );
+
+    // 2. 전체 기본 하단 자막(subtitleDateText) 갱신
+    if (videos.length > 0) {
+      const firstTs = videos[0].recordedTimestamp || videos[0].file?.lastModified;
+      if (firstTs) {
+        setOverlayOptions((prev) => ({
+          ...prev,
+          subtitleDateText: formatDateByPattern(new Date(firstTs), newFormat),
+        }));
+      }
+    }
+
+    // 3. 상위 컴포넌트(App)의 videos metadataDate 갱신
+    onUpdateVideosDateFormat?.(newFormat);
+  };
 
   // AI 추론 콘솔 자동 스크롤
   useEffect(() => {
@@ -443,33 +489,41 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     return map;
   }, [videos]);
 
+  // 인트로 및 아웃트로 실제 적용 시간
+  const introDuration = (result?.url && result.introDuration) ? result.introDuration : 0;
+  const outroDuration = (result?.url && result.outroDuration) ? result.outroDuration : 0;
+
   // 구간별 누적 시작 오프셋
   const segmentTimelineOffsets = useMemo(() => {
-    let acc = (result?.url && result.introDuration) ? result.introDuration : 0;
+    let acc = introDuration;
     const offsets: Record<string, { startOffset: number; endOffset: number }> = {};
     segments.forEach((s) => {
       offsets[s.id] = { startOffset: acc, endOffset: acc + s.duration };
       acc += s.duration;
     });
     return offsets;
-  }, [segments, result?.url, result?.introDuration]);
+  }, [segments, introDuration]);
 
   // 현재 재생 중인 시간대에 위치한 세그먼트 자동 감지
   const activePlayingSegmentId = useMemo(() => {
     if (!result?.url) return selectedSegmentId;
-    const introOffset = result.introDuration || 0;
-    if (currentTime < introOffset && segments.length > 0) {
-      return segments[0].id;
+    if (introDuration > 0 && currentTime < introDuration) {
+      return 'intro';
     }
-    let acc = introOffset;
-    for (const seg of segments) {
-      if (currentTime >= acc && currentTime < acc + seg.duration) {
+    if (outroDuration > 0 && currentTime >= totalDuration - outroDuration) {
+      return 'outro';
+    }
+    let acc = introDuration;
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i];
+      const isLast = i === segments.length - 1 && outroDuration === 0;
+      if (currentTime >= acc && (isLast ? currentTime <= acc + seg.duration + 0.1 : currentTime < acc + seg.duration)) {
         return seg.id;
       }
       acc += seg.duration;
     }
     return selectedSegmentId;
-  }, [currentTime, segments, result?.url, result?.introDuration, selectedSegmentId]);
+  }, [currentTime, segments, result?.url, introDuration, outroDuration, totalDuration, selectedSegmentId]);
 
   // 현재 활성 재생 중인 세그먼트 객체
   const activePlayingSegment = useMemo(() => {
@@ -480,15 +534,21 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     );
   }, [segments, activePlayingSegmentId, selectedSegmentId]);
 
-  // 실시간 미리보기에 띄울 자막
+  // 실시간 미리보기에 띄울 자막 (날짜/위치는 상단 문구 아래로 이동하고 씬 제목만 표시)
   const activePlayingSubtitleText = useMemo(() => {
     if (!activePlayingSegment) return '';
-    const datePart = activePlayingSegment.subtitleDate || '';
     const titlePart = activePlayingSegment.subtitleTitle || activePlayingSegment.reason || '';
-    const locPart = activePlayingSegment.locationName || '';
-    const parts = [datePart, titlePart, locPart ? `• ${locPart}` : ''].filter(Boolean);
-    return parts.join(' ').trim();
+    return titlePart.trim();
   }, [activePlayingSegment]);
+
+  // 실시간 미리보기 영상 좌측 상단 문구 아래 표시할 날짜 및 위치 (흰색 글씨)
+  const activePlayingMetaText = useMemo(() => {
+    if (!activePlayingSegment) return '';
+    const datePart = activePlayingSegment.subtitleDate || overlayOptions.subtitleDateText || '';
+    const locPart = activePlayingSegment.locationName || overlayOptions.subtitleLocationText || '';
+    const parts = [datePart, locPart].filter(Boolean);
+    return parts.join(' • ').trim();
+  }, [activePlayingSegment, overlayOptions.subtitleDateText, overlayOptions.subtitleLocationText]);
 
   // 씬별 자막/날짜/위치 수정 핸들러
   const handleUpdateSegmentSubtitle = (
@@ -504,6 +564,29 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 클립 선택 및 이동
   const handleSelectSegment = (segId: string) => {
     setSelectedSegmentId(segId);
+    if (!result?.url) {
+      const seg = segments.find((s) => s.id === segId);
+      if (seg && videoRef.current) {
+        videoRef.current.currentTime = seg.start;
+        setCurrentTime(seg.start);
+      }
+      return;
+    }
+    if (segId === 'intro') {
+      if (videoRef.current) {
+        videoRef.current.currentTime = 0;
+        setCurrentTime(0);
+      }
+      return;
+    }
+    if (segId === 'outro') {
+      const outroStart = Math.max(0, totalDuration - outroDuration);
+      if (videoRef.current) {
+        videoRef.current.currentTime = outroStart;
+        setCurrentTime(outroStart);
+      }
+      return;
+    }
     const offset = segmentTimelineOffsets[segId];
     if (offset && videoRef.current) {
       videoRef.current.currentTime = offset.startOffset + 0.05;
@@ -1045,11 +1128,21 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     </button>
                   )}
 
-                  {!result?.url && overlayOptions.showTitle && overlayOptions.titleText && (
-                    <div className="toss-live-overlay-title">
-                      {overlayOptions.titleText}
-                    </div>
-                  )}
+                  {!result?.url &&
+                    ((overlayOptions.showTitle && overlayOptions.titleText) || activePlayingMetaText) && (
+                      <div className="toss-live-overlay-top-left">
+                        {overlayOptions.showTitle && overlayOptions.titleText && (
+                          <div className="toss-live-overlay-title">
+                            {overlayOptions.titleText}
+                          </div>
+                        )}
+                        {activePlayingMetaText && (
+                          <div className="toss-live-overlay-meta">
+                            {activePlayingMetaText}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                   {!result?.url && overlayOptions.showChannel && overlayOptions.channelText && (
                     <div className="toss-live-overlay-channel">
@@ -1191,6 +1284,24 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   </div>
 
                   <div className="toss-sequencer-strip">
+                    {/* 시작 인트로 블록 (인트로가 포함된 경우) */}
+                    {introDuration > 0 && (
+                      <div
+                        className={`toss-sequencer-block toss-sequencer-intro-block ${activePlayingSegmentId === 'intro' ? 'playing' : ''} ${selectedSegmentId === 'intro' ? 'selected' : ''}`}
+                        style={{ width: `${(introDuration / (totalDuration || 1)) * 100}%` }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectSegment('intro');
+                        }}
+                        title={`${dict.introOutro.introTitle} (${introDuration.toFixed(1)}s)`}
+                      >
+                        <div className="toss-sequencer-block-overlay">
+                          <span className="toss-block-idx">Intro</span>
+                          <span className="toss-block-dur">{introDuration.toFixed(1)}s</span>
+                        </div>
+                      </div>
+                    )}
+
                     {segments.map((seg, idx) => {
                       const isCurrent = seg.id === activePlayingSegmentId;
                       const isSelected = seg.id === selectedSegmentId;
@@ -1200,7 +1311,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         <div
                           key={seg.id}
                           className={`toss-sequencer-block ${isSelected ? 'selected' : ''} ${isCurrent ? 'playing' : ''}`}
-                          style={{ width: `${Math.max(5, widthPct)}%` }}
+                          style={{ width: `${widthPct}%` }}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleSelectSegment(seg.id);
@@ -1225,6 +1336,24 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         </div>
                       );
                     })}
+
+                    {/* 종료 아웃트로 블록 (아웃트로가 포함된 경우) */}
+                    {outroDuration > 0 && (
+                      <div
+                        className={`toss-sequencer-block toss-sequencer-outro-block ${activePlayingSegmentId === 'outro' ? 'playing' : ''} ${selectedSegmentId === 'outro' ? 'selected' : ''}`}
+                        style={{ width: `${(outroDuration / (totalDuration || 1)) * 100}%` }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectSegment('outro');
+                        }}
+                        title={`${dict.introOutro.outroTitle} (${outroDuration.toFixed(1)}s)`}
+                      >
+                        <div className="toss-sequencer-block-overlay">
+                          <span className="toss-block-idx">Outro</span>
+                          <span className="toss-block-dur">{outroDuration.toFixed(1)}s</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

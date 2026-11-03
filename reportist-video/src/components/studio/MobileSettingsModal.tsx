@@ -4,6 +4,7 @@ import {
   Settings,
   Sparkles,
   Globe,
+  Calendar,
   RotateCcw,
   Image as ImageIcon,
   ChevronRight,
@@ -12,6 +13,7 @@ import {
   Scissors,
 } from 'lucide-react';
 import type { FreeModelMeta } from '../../types/gateway.ts';
+import type { DateFormatOption } from '../../services/videoMetadata.ts';
 import { cleanModelName, getSpeedTier } from '../../services/modelMetrics.ts';
 import { useI18n } from '../../i18n/index.tsx';
 
@@ -20,6 +22,8 @@ export interface MobileSettingsModalProps {
   onClose: () => void;
   onOpenModelModal: () => void;
   onOpenLanguageModal: () => void;
+  onOpenDateFormatModal?: () => void;
+  currentDateFormat?: DateFormatOption;
   currentModel?: FreeModelMeta;
   isLoadingModels?: boolean;
   currentLocaleInfo: { flag: string; nativeName: string; name: string };
@@ -36,6 +40,8 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   onClose,
   onOpenModelModal,
   onOpenLanguageModal,
+  onOpenDateFormatModal,
+  currentDateFormat,
   currentModel,
   isLoadingModels,
   currentLocaleInfo,
@@ -170,7 +176,54 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
             </button>
           </div>
 
-          {/* Group 3: Project Actions */}
+          {/* Group 3: Date Format */}
+          {onOpenDateFormatModal && (
+            <div className="settings-modal-group">
+              <span className="settings-modal-group-title">
+                {dict.settingsModal?.dateFormat || '촬영 날짜 표기 형식'}
+              </span>
+              <button
+                type="button"
+                className="settings-modal-item"
+                onClick={() => {
+                  onClose();
+                  onOpenDateFormatModal();
+                }}
+              >
+                <div className="settings-modal-item-left">
+                  <div
+                    className="settings-modal-icon-badge"
+                    style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}
+                  >
+                    <Calendar size={18} />
+                  </div>
+                  <div className="settings-modal-item-text">
+                    <div className="settings-modal-item-title">
+                      {dict.settingsModal?.dateFormat || '촬영 날짜 표기 형식'}
+                    </div>
+                    <div className="settings-modal-item-desc">
+                      <span
+                        style={{
+                          fontWeight: 700,
+                          color: '#1e293b',
+                          fontFamily: 'monospace',
+                          letterSpacing: '-0.3px',
+                        }}
+                      >
+                        {currentDateFormat || 'YYYY.MM.DD'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="settings-modal-item-action">
+                  <span>{dict.common.edit || '변경'}</span>
+                  <ChevronRight size={15} color="#94a3b8" />
+                </div>
+              </button>
+            </div>
+          )}
+
+          {/* Group 4: Project Actions */}
           {(hasStitchedResult || hasVideos) && (
             <div className="settings-modal-group">
               <span className="settings-modal-group-title">

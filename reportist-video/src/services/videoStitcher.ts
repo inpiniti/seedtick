@@ -466,12 +466,15 @@ export async function stitchHighlightedSegments({
     ctx.drawImage(videoElem, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
   };
 
-  // 자막 및 브랜딩 오버레이 (제목, 채널, 씬별 하단 날짜+제목 자막) 그리기
+  // 자막 및 브랜딩 오버레이 (제목, 채널, 씬별 하단 자막, 좌측 상단 날짜+위치) 그리기
   const drawOverlays = (currentSegment?: HighlightSegment) => {
     if (!overlayOptions) return;
 
+    let titleBottomY = 28;
+    const hasTitle = Boolean(overlayOptions.showTitle && overlayOptions.titleText?.trim());
+
     // 1. 좌측 상단 영상 제목
-    if (overlayOptions.showTitle && overlayOptions.titleText) {
+    if (hasTitle) {
       ctx.save();
       ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
       const text = overlayOptions.titleText;
@@ -492,8 +495,34 @@ export async function stitchHighlightedSegments({
       ctx.fill();
 
       ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
       ctx.fillText(text, x + padX, y + boxH / 2);
+      ctx.restore();
+
+      titleBottomY = y + boxH;
+    }
+
+    // 1-1. 좌측 상단 문구 아래: 흰색 글씨로 날짜 및 위치 표시
+    const datePart = currentSegment?.subtitleDate || overlayOptions.subtitleDateText || '';
+    const locPart = currentSegment?.locationName || overlayOptions.subtitleLocationText || '';
+    const metaParts = [datePart, locPart].filter(Boolean);
+    const metaText = metaParts.join(' • ');
+
+    if (metaText) {
+      ctx.save();
+      ctx.font = '600 16px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+      ctx.shadowBlur = 6;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 1.5;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+
+      const metaX = hasTitle ? 34 : 32;
+      const metaY = hasTitle ? titleBottomY + 7 : 28;
+      ctx.fillText(metaText, metaX, metaY);
       ctx.restore();
     }
 
@@ -512,14 +541,10 @@ export async function stitchHighlightedSegments({
       ctx.restore();
     }
 
-    // 3. 하단 중앙 씬별 날짜 + 씬 제목 자막
+    // 3. 하단 중앙 씬 제목 자막 (날짜/위치는 좌측 상단으로 분리되어 씬 제목만 표시)
     if (overlayOptions.showSubtitle) {
-      const datePart = currentSegment?.subtitleDate || overlayOptions.subtitleDateText || '';
       const titlePart = currentSegment?.subtitleTitle || currentSegment?.reason || '';
-      const locPart = currentSegment?.locationName || overlayOptions.subtitleLocationText || '';
-
-      const subParts = [datePart, titlePart, locPart ? `• ${locPart}` : ''].filter(Boolean);
-      const subText = subParts.join(' ').trim();
+      const subText = titlePart.trim();
 
       if (subText) {
         ctx.save();

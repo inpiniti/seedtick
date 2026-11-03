@@ -50,7 +50,8 @@ export interface VideoItem {
   statusMessage?: string;
   segments: HighlightSegment[];
   error?: string;
-  metadataDate?: string; // e.g. "9월 10일"
+  metadataDate?: string; // e.g. "2026.11.03"
+  recordedTimestamp?: number; // e.g. 1793710800000 (ms)
   latitude?: number;
   longitude?: number;
 }
