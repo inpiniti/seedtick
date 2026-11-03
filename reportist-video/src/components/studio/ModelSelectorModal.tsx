@@ -17,6 +17,7 @@ import {
 import type { FreeModelMeta } from '../../types/gateway.ts';
 import { getModelInputModalities } from '../../types/gateway.ts';
 import {
+  cleanModelName,
   getSpeedTier,
   pickDefaultModel,
 } from '../../services/modelMetrics.ts';
@@ -385,7 +386,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                         {getProviderName(model)}
                       </span>
                       <h3 className="model-modal-model-name">
-                        {model.name.replace(':free', '')}
+                        {cleanModelName(model.name)}
                       </h3>
                       {isFastest && (
                         <span className="model-modal-fastest-badge">

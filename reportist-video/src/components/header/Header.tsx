@@ -4,6 +4,7 @@ import React from 'react';
 import { Cpu, Sparkles, Activity } from 'lucide-react';
 import { ReportistLogo } from '../common/ReportistLogo.tsx';
 import type { FreeModelMeta, ReasoningEffortOption } from '../../types/gateway.ts';
+import { cleanModelName } from '../../services/modelMetrics.ts';
 
 interface HeaderProps {
   models: FreeModelMeta[];
@@ -64,7 +65,7 @@ export const Header: React.FC<HeaderProps> = ({
           >
             {models.map((model) => (
               <option key={model.id} value={model.id}>
-                {model.name.replace(':free', '')}
+                {cleanModelName(model.name)}
               </option>
             ))}
           </select>

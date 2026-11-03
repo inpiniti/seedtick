@@ -34,7 +34,7 @@ import type {
   VideoOverlayOptions,
 } from '../../types/video.ts';
 import type { FreeModelMeta, ReasoningEffortOption } from '../../types/gateway.ts';
-import { getSpeedTier } from '../../services/modelMetrics.ts';
+import { cleanModelName, getSpeedTier } from '../../services/modelMetrics.ts';
 import { ModelSelectorModal } from './ModelSelectorModal.tsx';
 import { VideoListModal } from './VideoListModal.tsx';
 import { LanguageSelectorModal } from './LanguageSelectorModal.tsx';
@@ -559,7 +559,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               <span className="toss-model-trigger-name">
                 {isLoadingModels
                   ? dict.header.loadingModels
-                  : currentModel?.name.replace(':free', '') || dict.header.selectModel}
+                  : cleanModelName(currentModel?.name) || dict.header.selectModel}
               </span>
             </span>
             {currentModel?.speedTokensPerSecond != null && (

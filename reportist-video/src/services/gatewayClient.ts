@@ -90,10 +90,16 @@ export async function fetchVideoCapableModels(config: GatewayConfig = DEFAULT_CO
         // 비전(이미지) 모달리티를 지원하는 모델 필터링
         // 안전성 가드레일 모델은 하이라이트 분석용이 아니므로 제외한다.
         const visionModels = json.data.filter((m: FreeModelMeta) => {
+          // NVIDIA: Nemotron 3.5 Super VL 모델 제외
+          const isNemotronSuperVl =
+            m.id.includes('nemotron-3.5-super-vl') ||
+            (m.id.includes('nemotron') && m.id.includes('super-vl')) ||
+            m.name.toLowerCase().includes('nemotron 3.5 super vl');
+          if (isNemotronSuperVl) return false;
+
           const hasImageInput = Array.isArray(m.inputModalities) && m.inputModalities.includes('image');
           const hasImageModality = typeof m.modality === 'string' && m.modality.includes('image');
           const isKnownVision =
-            m.id.includes('super-vl') ||
             m.id.includes('nano-omni') ||
             m.id.includes('gemma-4') ||
             m.id.includes('dots-3');

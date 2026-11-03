@@ -83,19 +83,29 @@ export function sortModelsBySpeed(models: FreeModelMeta[]): FreeModelMeta[] {
   });
 }
 
+export function cleanModelName(name?: string | null): string {
+  if (!name) return '';
+  return name
+    .replace(/\s*\((?:free|Free)\)/g, '')
+    .replace(/\s*\[(?:free|Free)\]/g, '')
+    .replace(/:free\b/gi, '')
+    .replace(/\s+free\b/gi, '')
+    .trim();
+}
+
 /**
  * 영상 하이라이트 분석에 쓸 기본 모델을 고른다.
- * 안전성 가드레일 모델은 제외하고, 추천 순위가 가장 높은 모델을 기본값으로 사용한다.
+ * 안전성 가드레일 모델 및 Nemotron Super VL은 제외하고, 추천 순위가 가장 높은 모델을 기본값으로 사용한다.
  */
 export function pickDefaultModel(models: FreeModelMeta[]): FreeModelMeta | null {
-  const usable = models.filter((model) => !isGuardrailModel(model));
+  const usable = models.filter((model) => !isGuardrailModel(model) && !model.id.includes('super-vl'));
   const pool = usable.length > 0 ? usable : models;
   if (pool.length === 0) return null;
 
-  // 플래그십 비전 모델(Nemotron Super VL 또는 Gemma 26B/31B) 우선 매칭
-  const preferred = pool.find((m) => m.id.includes('super-vl')) ||
+  // 플래그십 비전 모델(Gemma 31B/26B 또는 Dots 3) 우선 매칭
+  const preferred = pool.find((m) => m.id.includes('gemma-4-31b')) ||
                     pool.find((m) => m.id.includes('gemma-4-26b')) ||
-                    pool.find((m) => m.id.includes('gemma-4-31b'));
+                    pool.find((m) => m.id.includes('dots-3'));
   if (preferred) return preferred;
 
   const ranked = sortModelsBySpeed(pool);
@@ -109,6 +119,7 @@ export function pickDefaultModel(models: FreeModelMeta[]): FreeModelMeta | null 
 export function enrichModelMetrics(models: FreeModelMeta[]): FreeModelMeta[] {
   return models.map((model) => ({
     ...model,
+    name: cleanModelName(model.name),
     intelligenceIndex: model.intelligenceIndex ?? null,
     codingIndex: model.codingIndex ?? null,
     agenticIndex: model.agenticIndex ?? null,
