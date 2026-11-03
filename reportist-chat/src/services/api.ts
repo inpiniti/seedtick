@@ -70,7 +70,7 @@ export function saveGatewayConfig(config: GatewayConfig): void {
 export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
   {
     id: 'recursive/flint-v1.0:free',
-    name: 'Recursive: Flint (free)',
+    name: 'Recursive: Flint',
     providerName: 'Recursive',
     created: 1792627200,
     createdDate: '2026-10-21',
@@ -86,7 +86,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
   },
   {
     id: 'xingchen-agi/xing4.0-29b-a4b:free',
-    name: 'XingChen: Xing4.0 29B A4B (free)',
+    name: 'XingChen: Xing4.0 29B A4B',
     providerName: 'XingChen (TeleAI)',
     created: 1792195200,
     createdDate: '2026-10-16',
@@ -101,24 +101,8 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
     supportedParameters: ['reasoning', 'temperature', 'tools'],
   },
   {
-    id: 'nvidia/nemotron-3.5-super-vl:free',
-    name: 'NVIDIA: Nemotron 3.5 Super VL (free)',
-    providerName: 'NVIDIA',
-    created: 1792108800,
-    createdDate: '2026-10-15',
-    daysAgo: 11,
-    contextLength: 1000000,
-    contextLengthFormatted: '1M tokens (초대용량)',
-    description: 'NVIDIA Nemotron 3.5 Super VL is an open multimodal MoE model with 12B active parameters out of 120B total. Takes text, images, docs, GUI screenshots, and video.',
-    modality: 'text+image+video->text',
-    inputModalities: ['text', 'image', 'video'],
-    intelligenceTier: '플래그십 120B 멀티모달 & 1M 윈도우',
-    parametersSummary: '120B (활성 12B)',
-    supportedParameters: ['reasoning', 'temperature', 'tools'],
-  },
-  {
     id: 'dots-studio/dots-3-note-preview:free',
-    name: 'Dots Studio: Dots3-Note Preview (free)',
+    name: 'Dots Studio: Dots3-Note Preview',
     providerName: 'Dots Studio',
     created: 1786752000,
     createdDate: '2026-08-14',
@@ -134,7 +118,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
   },
   {
     id: 'liquid/lfm-2.5-2.6b:free',
-    name: 'LiquidAI: LFM2.5-2.6B (free)',
+    name: 'LiquidAI: LFM2.5-2.6B',
     providerName: 'Liquid AI',
     created: 1786492800,
     createdDate: '2026-08-11',
@@ -150,7 +134,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
   },
   {
     id: 'nvidia/nemotron-3.5-lightning:free',
-    name: 'NVIDIA: Nemotron 3.5 Lightning (free)',
+    name: 'NVIDIA: Nemotron 3.5 Lightning',
     providerName: 'NVIDIA',
     created: 1786492800,
     createdDate: '2026-08-11',
@@ -166,7 +150,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
   },
   {
     id: 'thinkingmachines/inkling-small:free',
-    name: 'Thinking Machines: Inkling Small (free)',
+    name: 'Thinking Machines: Inkling Small',
     providerName: 'Thinking Machines Lab',
     created: 1785456000,
     createdDate: '2026-07-30',
@@ -182,7 +166,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
   },
   {
     id: 'poolside/laguna-s-2.1:free',
-    name: 'Poolside: Laguna S 2.1 (free)',
+    name: 'Poolside: Laguna S 2.1',
     providerName: 'Poolside',
     created: 1784678400,
     createdDate: '2026-07-21',
@@ -198,7 +182,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
   },
   {
     id: 'thinkingmachines/inkling:free',
-    name: 'Thinking Machines: Inkling (free)',
+    name: 'Thinking Machines: Inkling',
     providerName: 'Thinking Machines Lab',
     created: 1784332800,
     createdDate: '2026-07-17',
@@ -214,7 +198,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
   },
   {
     id: 'poolside/laguna-xs-2.1:free',
-    name: 'Poolside: Laguna XS 2.1 (free)',
+    name: 'Poolside: Laguna XS 2.1',
     providerName: 'Poolside',
     created: 1783036800,
     createdDate: '2026-07-02',
@@ -230,7 +214,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
   },
   {
     id: 'cohere/north-mini-code:free',
-    name: 'Cohere: North Mini Code (free)',
+    name: 'Cohere: North Mini Code',
     providerName: 'Cohere',
     created: 1781740800,
     createdDate: '2026-06-17',
@@ -262,7 +246,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
   },
   {
     id: 'nvidia/nemotron-3-ultra-550b-a55b:free',
-    name: 'NVIDIA: Nemotron 3 Ultra (free)',
+    name: 'NVIDIA: Nemotron 3 Ultra',
     providerName: 'NVIDIA',
     created: 1780588800,
     createdDate: '2026-06-04',
@@ -278,7 +262,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
   },
   {
     id: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
-    name: 'NVIDIA: Nemotron 3 Nano Omni (free)',
+    name: 'NVIDIA: Nemotron 3 Nano Omni',
     providerName: 'NVIDIA',
     created: 1777420800,
     createdDate: '2026-04-28',
@@ -294,7 +278,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
   },
   {
     id: 'google/gemma-4-26b-a4b-it:free',
-    name: 'Google: Gemma 4 26B A4B (free)',
+    name: 'Google: Gemma 4 26B A4B',
     providerName: 'Google DeepMind',
     created: 1775260800,
     createdDate: '2026-04-03',
@@ -310,7 +294,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
   },
   {
     id: 'google/gemma-4-31b-it:free',
-    name: 'Google: Gemma 4 31B (free)',
+    name: 'Google: Gemma 4 31B',
     providerName: 'Google DeepMind',
     created: 1775174400,
     createdDate: '2026-04-02',
@@ -326,7 +310,7 @@ export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
   },
   {
     id: 'nvidia/nemotron-3-super-120b-a12b:free',
-    name: 'NVIDIA: Nemotron 3 Super (free)',
+    name: 'NVIDIA: Nemotron 3 Super',
     providerName: 'NVIDIA',
     created: 1773273600,
     createdDate: '2026-03-11',

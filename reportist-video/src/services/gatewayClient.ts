@@ -12,27 +12,11 @@ export const DEFAULT_CONFIG: GatewayConfig = {
   gatewaySecret: DEFAULT_GATEWAY_SECRET,
 };
 
-// 다중 프레임 시각 분석을 공식 지원하는 고성능 무료 모델 목록 (비상시 폴백)
+// 다중 프레임 시각 분석을 공식 지원하는 고성능 모델 목록 (비상시 폴백)
 export const FALLBACK_VIDEO_MODELS: FreeModelMeta[] = [
   {
-    id: 'nvidia/nemotron-3.5-super-vl:free',
-    name: 'NVIDIA: Nemotron 3.5 Super VL (free)',
-    providerName: 'NVIDIA',
-    contextLengthFormatted: '1M tokens (초대용량)',
-    description: '120B MoE 오픈 멀티모달 모델. 텍스트, 이미지 시퀀스, GUI 입력을 완벽하게 지원합니다.',
-    modality: 'text+image+video->text',
-    inputModalities: ['text', 'image', 'video'],
-    intelligenceIndex: 13.6,
-    codingIndex: null,
-    agenticIndex: null,
-    intelligenceTier: '플래그십 120B 멀티모달',
-    parametersSummary: '120B (활성 12B)',
-    supportedEfforts: ['high', 'medium', 'low'],
-    defaultEffort: 'high',
-  },
-  {
     id: 'google/gemma-4-26b-a4b-it:free',
-    name: 'Google: Gemma 4 26B A4B (free)',
+    name: 'Google: Gemma 4 26B A4B',
     providerName: 'Google DeepMind',
     contextLengthFormatted: '256K tokens',
     description: 'Google DeepMind 경량 고성능 MoE 모델로 빠른 프레임 장면 인식이 가능합니다.',
@@ -46,7 +30,7 @@ export const FALLBACK_VIDEO_MODELS: FreeModelMeta[] = [
   },
   {
     id: 'google/gemma-4-31b-it:free',
-    name: 'Google: Gemma 4 31B (free)',
+    name: 'Google: Gemma 4 31B',
     providerName: 'Google DeepMind',
     contextLengthFormatted: '256K tokens',
     description: 'Google DeepMind의 고성능 멀티모달 모델로 연속 프레임 시퀀스와 타임스탬프 분석에 탁월합니다.',
@@ -62,7 +46,7 @@ export const FALLBACK_VIDEO_MODELS: FreeModelMeta[] = [
   },
   {
     id: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
-    name: 'NVIDIA: Nemotron 3 Nano Omni (free)',
+    name: 'NVIDIA: Nemotron 3 Nano Omni',
     providerName: 'NVIDIA',
     contextLengthFormatted: '256K tokens',
     description: '텍스트와 이미지를 통합 인식하는 옴니 멀티모달 추론 모델입니다.',
@@ -76,7 +60,7 @@ export const FALLBACK_VIDEO_MODELS: FreeModelMeta[] = [
   },
   {
     id: 'dots-studio/dots-3-note-preview:free',
-    name: 'Dots Studio: Dots3-Note Preview (free)',
+    name: 'Dots Studio: Dots3-Note Preview',
     providerName: 'Dots Studio',
     contextLengthFormatted: '512K tokens',
     description: '280B MoE 고지능 비전 모델로 복합 장면 시퀀스 요약에 최적화되어 있습니다.',
