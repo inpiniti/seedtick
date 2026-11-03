@@ -606,16 +606,31 @@ export function App() {
   return (
     <div className="toss-app-root">
       {errorMessage && (
-        <div className="studio-error-banner">
-          <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
-          <span>{errorMessage}</span>
-          <button
-            type="button"
-            onClick={() => setErrorMessage(null)}
-            className="ml-auto text-slate-400 hover:text-white"
-          >
-            ✕
-          </button>
+        <div className="studio-error-banner flex-col items-start gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-300">
+          <div className="flex items-center gap-2 w-full">
+            <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+            <span className="font-bold text-xs text-red-200">영상 병합 중 오류가 발생했습니다</span>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard?.writeText(errorMessage).catch(() => {});
+                alert('진단 리포트가 클립보드에 복사되었습니다.');
+              }}
+              className="ml-auto text-[10px] font-bold px-2 py-0.5 bg-red-500/20 hover:bg-red-500/30 text-red-200 rounded border border-red-500/30"
+            >
+              리포트 복사
+            </button>
+            <button
+              type="button"
+              onClick={() => setErrorMessage(null)}
+              className="text-slate-400 hover:text-white p-1"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="w-full font-mono text-[11px] leading-relaxed whitespace-pre-wrap break-all bg-black/40 p-2.5 rounded-lg border border-red-500/20 text-red-100 max-h-60 overflow-y-auto">
+            {errorMessage}
+          </div>
         </div>
       )}
 

@@ -319,8 +319,18 @@ export async function stitchHighlightedSegments({
 
   const chunks: Blob[] = [];
   let recorderError: Error | null = null;
+  let dataAvailableCalls = 0;
+  let startEventFired = false;
+  let onstopFired = false;
+  let onstopWaitTimeout = false;
+  let totalDrawCalls = 0;
+  const renderModeHistory: string[] = [];
 
+  recorder.onstart = () => {
+    startEventFired = true;
+  };
   recorder.ondataavailable = (e) => {
+    dataAvailableCalls++;
     if (e.data && e.data.size > 0) {
       chunks.push(e.data);
     }
@@ -648,6 +658,7 @@ export async function stitchHighlightedSegments({
     segment: HighlightSegment,
     overlayCanvas: HTMLCanvasElement | null
   ) => {
+    totalDrawCalls++;
     drawCoverFrame(videoItem, segment);
     if (overlayCanvas) {
       ctx.drawImage(overlayCanvas, 0, 0);
@@ -967,6 +978,7 @@ export async function stitchHighlightedSegments({
     // 3. 비디오 재생 시작
     const playing = await startPlayback(IS_IOS ? 5000 : 8000);
     if (!playing) {
+      renderModeHistory.push(`[seg#${segment.id.slice(-4)}: play실패 (readyState=${videoElem.readyState})]`);
       try {
         videoElem.pause();
       } catch {
@@ -978,6 +990,7 @@ export async function stitchHighlightedSegments({
     // 4. 비디오가 실제로 재생되어 시간을 전진시키는지 확인 (최대 6~8초 대기)
     const advanced = await waitForPlaybackAdvance(segment.start, IS_IOS ? 4000 : 8000);
     if (!advanced) {
+      renderModeHistory.push(`[seg#${segment.id.slice(-4)}: 시간전진실패 (cur=${videoElem.currentTime.toFixed(2)})]`);
       try {
         videoElem.pause();
       } catch {
@@ -985,6 +998,8 @@ export async function stitchHighlightedSegments({
       }
       return false;
     }
+
+    renderModeHistory.push(`[seg#${segment.id.slice(-4)}: playback정상]`);
 
     // 비디오가 실제로 정상 전진 중이므로 이 시점에 정확히 레코더를 시작/재개!
     await startOrResumeRecorder();
@@ -1110,6 +1125,7 @@ export async function stitchHighlightedSegments({
     const fps = 30;
     const frameCount = Math.max(2, Math.ceil(segment.duration * fps));
     const frameInterval = 1000 / fps;
+    renderModeHistory.push(`[seg#${segment.id.slice(-4)}: stepping (${frameCount}f)]`);
 
     for (let frame = 0; frame < frameCount; frame++) {
       if (signal?.aborted) throw new Error('작업 취소');
@@ -1227,12 +1243,14 @@ export async function stitchHighlightedSegments({
     const finalMimeType = recorder.mimeType || mimeType || 'video/mp4';
     const finalBlob = await new Promise<Blob>((resolve) => {
       let settled = false;
-      const finish = () => {
+      const finish = (timedOut = false) => {
         if (settled) return;
         settled = true;
+        if (timedOut) onstopWaitTimeout = true;
+        else onstopFired = true;
         resolve(new Blob(chunks, { type: finalMimeType }));
       };
-      recorder.onstop = finish;
+      recorder.onstop = () => finish(false);
       try {
         // iOS Safari는 paused 상태에서 stop()을 호출하면 버퍼 데이터를 버리고 ondataavailable을 주지 않는다.
         if (recorder.state === 'paused') {
@@ -1242,21 +1260,35 @@ export async function stitchHighlightedSegments({
             // ignore
           }
         }
-        // 주의: WebKit Bug 212275 - requestData() 호출 시 빈 Blob을 반환하거나 버퍼를 망가뜨리므로 호출하지 않음
         if (recorder.state !== 'inactive') {
           recorder.stop();
         } else {
-          finish();
+          finish(false);
         }
       } catch {
-        finish();
+        finish(false);
       }
-      setTimeout(finish, 8000);
+      setTimeout(() => finish(true), 8000);
     });
 
     if (finalBlob.size === 0) {
+      const vTrack = canvasStream.getVideoTracks()[0];
+      const audioTracks = canvasStream.getAudioTracks();
+      const chunksSummary = chunks.map((c) => `${c.size}B`).slice(0, 8).join(', ');
+
+      const diagLines = [
+        `[1] 인코더: ${finalMimeType} | 상태: ${recorder.state} | 시작이벤트: ${startEventFired}`,
+        `[2] 청크: ${chunks.length}개 (ondataavailable: ${dataAvailableCalls}회, 크기들: [${chunksSummary || '없음'}])`,
+        `[3] onstop: ${onstopFired ? '수신완료' : onstopWaitTimeout ? '타임아웃' : '미수신'}`,
+        `[4] 캔버스트랙: ${vTrack ? `상태=${vTrack.readyState}, muted=${vTrack.muted}, enabled=${vTrack.enabled}` : '없음'} (오디오트랙: ${audioTracks.length}개)`,
+        `[5] 소스비디오: ${videoElem.videoWidth}x${videoElem.videoHeight}, ready=${videoElem.readyState}, cur=${videoElem.currentTime.toFixed(2)}s, paused=${videoElem.paused}${videoElem.error ? `, err=${videoElem.error.message}` : ''}`,
+        `[6] 총드로우: ${totalDrawCalls}회 실행`,
+        `[7] 모드이력: ${renderModeHistory.join(' → ')}`,
+        `[8] 환경: iOS=${IS_IOS}, Safari=${IS_SAFARI}`,
+      ];
+
       throw new Error(
-        `브라우저가 영상 프레임을 캡처하지 못했습니다. (${finalMimeType}) 최신 Safari/Chrome에서 다시 시도해 주세요.`
+        `브라우저가 영상 프레임을 캡처하지 못했습니다. (0 bytes)\n\n=== [아이폰 상세 진단 리포트] ===\n${diagLines.join('\n')}`
       );
     }
 
