@@ -164,6 +164,8 @@ export interface Dictionary {
     title: string;
     subtitle: string;
     searchPlaceholder: string;
+    sortLabel: string;
+    filterModality: string;
     filterAll: string;
     filterImage: string;
     filterVideo: string;
@@ -175,6 +177,7 @@ export interface Dictionary {
     providerAll: string;
     badgeFastest: string;
     badgeRecommended: string;
+    badgeNew: string;
     speedUnit: string;
     ttftUnit: string;
     metricIntelligence: string;
@@ -183,6 +186,20 @@ export interface Dictionary {
     metricContext: string;
     noModels: string;
     close: string;
+    tagCoding: string;
+    tagEffort: string;
+    modalityText: string;
+    modalityImage: string;
+    modalityVideo: string;
+    modalityAudio: string;
+    benchmarkTip: string;
+    speedTiers: {
+      ultra: string;
+      fast: string;
+      balanced: string;
+      slow: string;
+      unmeasured: string;
+    };
   };
   videoListModal: {
     title: string;

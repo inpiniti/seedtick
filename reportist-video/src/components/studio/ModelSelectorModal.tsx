@@ -21,6 +21,11 @@ import {
   pickDefaultModel,
 } from '../../services/modelMetrics.ts';
 import { useI18n } from '../../i18n/index.tsx';
+import {
+  localizeIntelligenceTier,
+  localizeParametersSummary,
+  localizeContextLength,
+} from '../../i18n/modelLocalization.ts';
 
 interface ModelSelectorModalProps {
   isOpen: boolean;
@@ -59,7 +64,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
   selectedModelId,
   onSelectModel,
 }) => {
-  const { dict, interpolate } = useI18n();
+  const { dict, interpolate, locale } = useI18n();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProvider, setSelectedProvider] = useState<string>('all');
   const [selectedModality, setSelectedModality] = useState<ModalityFilter>('all');
@@ -119,7 +124,13 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
         const idMatch = model.id.toLowerCase().includes(query);
         const providerMatch = getProviderName(model).toLowerCase().includes(query);
         const descMatch = (model.description || '').toLowerCase().includes(query);
-        if (!nameMatch && !idMatch && !providerMatch && !descMatch) {
+        const tierMatch =
+          localizeIntelligenceTier(model.intelligenceTier, locale).toLowerCase().includes(query) ||
+          (model.intelligenceTier || '').toLowerCase().includes(query);
+        const paramMatch =
+          localizeParametersSummary(model.parametersSummary, locale).toLowerCase().includes(query) ||
+          (model.parametersSummary || '').toLowerCase().includes(query);
+        if (!nameMatch && !idMatch && !providerMatch && !descMatch && !tierMatch && !paramMatch) {
           return false;
         }
       }
@@ -230,7 +241,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
 
           {/* Sort bar */}
           <div className="model-modal-filter-row">
-            <span className="model-modal-filter-label">{dict.common.actions}:</span>
+            <span className="model-modal-filter-label">{dict.modelModal.sortLabel}:</span>
             <div className="model-modal-chips">
               <button
                 type="button"
@@ -265,7 +276,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
 
           {/* Modality filter */}
           <div className="model-modal-filter-row">
-            <span className="model-modal-filter-label">{dict.modelModal.filterVideo.split(' ')[0]}:</span>
+            <span className="model-modal-filter-label">{dict.modelModal.filterModality}:</span>
             <div className="model-modal-chips">
               <button
                 type="button"
@@ -382,7 +393,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                           {dict.modelModal.badgeFastest}
                         </span>
                       )}
-                      {isNew && <span className="model-modal-new-badge">NEW</span>}
+                      {isNew && <span className="model-modal-new-badge">{dict.modelModal.badgeNew}</span>}
                     </div>
 
                     <div className="model-modal-select-indicator">
@@ -442,7 +453,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                         />
                       </div>
                       <span className={`model-modal-speed-tier ${speedTier.key}`}>
-                        {speedTier.label}
+                        {dict.modelModal.speedTiers[speedTier.key]}
                       </span>
                     </div>
                   )}
@@ -453,7 +464,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                       <div className="model-modal-tag coding">
                         <Cpu size={12} />
                         <span>
-                          Coding <strong>{formatIntelligence(model.codingIndex)}</strong>
+                          {dict.modelModal.tagCoding} <strong>{formatIntelligence(model.codingIndex)}</strong>
                         </span>
                       </div>
                     )}
@@ -461,23 +472,23 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                     {model.supportedEfforts && model.supportedEfforts.length > 0 && (
                       <div className="model-modal-tag effort">
                         <Zap size={12} />
-                        <span>Effort {model.supportedEfforts.join('·')}</span>
+                        <span>{dict.modelModal.tagEffort} {model.supportedEfforts.join('·')}</span>
                       </div>
                     )}
 
                     {inputModalities.includes('image') && (
-                      <span className="model-modal-tag modality image">🖼️ Image</span>
+                      <span className="model-modal-tag modality image">🖼️ {dict.modelModal.modalityImage}</span>
                     )}
                     {inputModalities.includes('video') && (
-                      <span className="model-modal-tag modality video">🎬 Video</span>
+                      <span className="model-modal-tag modality video">🎬 {dict.modelModal.modalityVideo}</span>
                     )}
                     {inputModalities.includes('audio') && (
-                      <span className="model-modal-tag modality audio">🎙️ Audio</span>
+                      <span className="model-modal-tag modality audio">🎙️ {dict.modelModal.modalityAudio}</span>
                     )}
                     {!inputModalities.includes('image') &&
                       !inputModalities.includes('video') &&
                       !inputModalities.includes('audio') && (
-                        <span className="model-modal-tag modality text">📝 Text</span>
+                        <span className="model-modal-tag modality text">📝 {dict.modelModal.modalityText}</span>
                       )}
 
                     {model.createdDate && (
@@ -490,21 +501,21 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                     {model.intelligenceTier && (
                       <div className="model-modal-tag tier">
                         <Brain size={12} />
-                        <span>{model.intelligenceTier}</span>
+                        <span>{localizeIntelligenceTier(model.intelligenceTier, locale)}</span>
                       </div>
                     )}
 
                     {model.parametersSummary && model.parametersSummary !== 'N/A' && (
                       <div className="model-modal-tag param">
                         <Cpu size={12} />
-                        <span>{model.parametersSummary}</span>
+                        <span>{localizeParametersSummary(model.parametersSummary, locale)}</span>
                       </div>
                     )}
 
                     {model.contextLengthFormatted && (
                       <div className="model-modal-tag context">
                         <Layers size={12} />
-                        <span>{model.contextLengthFormatted}</span>
+                        <span>{localizeContextLength(model.contextLengthFormatted, locale)}</span>
                       </div>
                     )}
                   </div>
@@ -523,7 +534,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
           <div className="model-modal-footer-tip">
             <Sparkles size={14} color="#3182f6" />
             <span>
-              Official benchmarks via OpenRouter & Artificial Analysis
+              {dict.modelModal.benchmarkTip}
             </span>
           </div>
           <button type="button" className="model-modal-confirm-btn" onClick={onClose}>
