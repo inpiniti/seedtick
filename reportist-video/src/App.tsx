@@ -438,22 +438,42 @@ export function App() {
       addLog('✨ AI 추천 베스트 프레임으로 16:9 고화질 썸네일 생성 중...');
       let generatedThumbnailUrl: string | undefined = undefined;
       try {
+        let bgCanvas: HTMLCanvasElement | null = null;
         const thumbVideo =
           updatedVideos.find((v) => v.id === bestThumbVideoId) || updatedVideos[0];
-        if (thumbVideo) {
-          const targetTime =
-            bestThumbTimestamp > 0
-              ? bestThumbTimestamp
-              : allSegments[0]
-              ? allSegments[0].start + allSegments[0].duration * 0.35
-              : 0;
+        const targetTime =
+          bestThumbTimestamp > 0
+            ? bestThumbTimestamp
+            : allSegments[0]
+            ? allSegments[0].start + allSegments[0].duration * 0.35
+            : 0.1;
 
-          const bgCanvas = await captureVideoFrameAtTime(
-            thumbVideo.url,
-            targetTime,
+        if (thumbVideo) {
+          try {
+            bgCanvas = await captureVideoFrameAtTime(
+              thumbVideo.url,
+              targetTime,
+              bestThumbCropOffsetYRatio
+            );
+          } catch (sourceErr) {
+            console.warn('Source video capture failed, falling back to stitched result URL:', sourceErr);
+            if (result.url) {
+              bgCanvas = await captureVideoFrameAtTime(
+                result.url,
+                0.2,
+                bestThumbCropOffsetYRatio
+              );
+            }
+          }
+        } else if (result.url) {
+          bgCanvas = await captureVideoFrameAtTime(
+            result.url,
+            0.2,
             bestThumbCropOffsetYRatio
           );
+        }
 
+        if (bgCanvas) {
           const finalTitle =
             overlayOpts?.titleText || aiDiscoveredTitle || dict.player.defaultTitleText;
 

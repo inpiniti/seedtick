@@ -41,6 +41,7 @@ import type { FreeModelMeta, ReasoningEffortOption } from '../../types/gateway.t
 import { cleanModelName, getSpeedTier } from '../../services/modelMetrics.ts';
 import {
   captureVideoFrameAtTime,
+  captureVideoFrameFromElement,
   renderThumbnailArtwork,
   downloadThumbnailFile,
 } from '../../services/thumbnailGenerator.ts';
@@ -329,23 +330,42 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
     if (result?.thumbnailUrl) {
       setThumbnailUrl(result.thumbnailUrl);
+
+      // 이미 완성된 썸네일 이미지를 배경 캔버스로 즉시 캐시해두어 실시간 편집 보장
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = img.naturalWidth || 1280;
+        c.height = img.naturalHeight || 720;
+        const ctx = c.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          if (!thumbnailBgCanvasRef.current) {
+            thumbnailBgCanvasRef.current = c;
+          }
+        }
+      };
+      img.src = result.thumbnailUrl;
     }
 
     // 썸네일용 배경 프레임 캔버스 캡처/캐싱 (실시간 타이틀 편집 지원)
     const prepareThumbnailBg = async () => {
-      if (!videos.length) return;
+      if (!videos.length && !result?.url) return;
       try {
         const targetVideo =
           videos.find((v) => v.id === result?.bestSourceVideoId) || videos[0];
+        const targetUrl = targetVideo ? targetVideo.url : result?.url;
+        if (!targetUrl) return;
+
         const targetTime =
           result?.bestThumbnailTime && result.bestThumbnailTime > 0
             ? result.bestThumbnailTime
             : (result?.segments && result.segments[0]
                 ? result.segments[0].start + result.segments[0].duration * 0.35
-                : 0);
+                : 0.1);
 
         const bg = await captureVideoFrameAtTime(
-          targetVideo.url,
+          targetUrl,
           targetTime,
           result?.segments?.[0]?.cropOffsetYRatio ?? 0.2
         );
@@ -636,28 +656,41 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
   // 현재 재생 시점 프레임으로 썸네일 배경 변경
   const handleCaptureCurrentFrame = async () => {
-    if (!videoRef.current || !activeVideoUrl) return;
+    if (!videoRef.current && !activeVideoUrl) return;
     setIsUpdatingThumbnail(true);
     try {
-      const curTime = videoRef.current.currentTime || currentTime;
-      const bg = await captureVideoFrameAtTime(
-        activeVideoUrl,
-        curTime,
-        activePlayingSegment?.cropOffsetYRatio ?? 0.2
-      );
-      thumbnailBgCanvasRef.current = bg;
+      let bg: HTMLCanvasElement | null = null;
+      if (videoRef.current && videoRef.current.readyState >= 2) {
+        bg = captureVideoFrameFromElement(
+          videoRef.current,
+          activePlayingSegment?.cropOffsetYRatio ?? 0.2
+        );
+      }
 
-      const artCanvas = renderThumbnailArtwork(bg, {
-        titleText: overlayOptions.titleText,
-        channelText: overlayOptions.channelText,
-        badgeText: '✨ AI 하이라이트',
-        showTitle: showThumbnailTitle && Boolean(overlayOptions.titleText?.trim()),
-        showBadge: true,
-        showChannel: Boolean(overlayOptions.showChannel),
-        stylePreset: thumbnailStyle,
-      });
+      if (!bg && activeVideoUrl) {
+        const curTime = videoRef.current?.currentTime || currentTime || 0.1;
+        bg = await captureVideoFrameAtTime(
+          activeVideoUrl,
+          curTime,
+          activePlayingSegment?.cropOffsetYRatio ?? 0.2
+        );
+      }
 
-      setThumbnailUrl(artCanvas.toDataURL('image/jpeg', 0.95));
+      if (bg) {
+        thumbnailBgCanvasRef.current = bg;
+
+        const artCanvas = renderThumbnailArtwork(bg, {
+          titleText: overlayOptions.titleText,
+          channelText: overlayOptions.channelText,
+          badgeText: '✨ AI 하이라이트',
+          showTitle: showThumbnailTitle && Boolean(overlayOptions.titleText?.trim()),
+          showBadge: true,
+          showChannel: Boolean(overlayOptions.showChannel),
+          stylePreset: thumbnailStyle,
+        });
+
+        setThumbnailUrl(artCanvas.toDataURL('image/jpeg', 0.95));
+      }
     } catch (err) {
       console.warn('Frame capture failed:', err);
     } finally {
@@ -956,6 +989,29 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     onEnded={() => {
                       setIsPlaying(false);
                       setCurrentTime(0);
+                    }}
+                    onLoadedData={() => {
+                      if (!thumbnailBgCanvasRef.current && videoRef.current) {
+                        const bg = captureVideoFrameFromElement(
+                          videoRef.current,
+                          activePlayingSegment?.cropOffsetYRatio ?? 0.2
+                        );
+                        if (bg) {
+                          thumbnailBgCanvasRef.current = bg;
+                          if (!thumbnailUrl) {
+                            const artCanvas = renderThumbnailArtwork(bg, {
+                              titleText: overlayOptions.titleText,
+                              channelText: overlayOptions.channelText,
+                              badgeText: '✨ AI 하이라이트',
+                              showTitle: showThumbnailTitle && Boolean(overlayOptions.titleText?.trim()),
+                              showBadge: true,
+                              showChannel: Boolean(overlayOptions.showChannel),
+                              stylePreset: thumbnailStyle,
+                            });
+                            setThumbnailUrl(artCanvas.toDataURL('image/jpeg', 0.95));
+                          }
+                        }
+                      }
                     }}
                     onClick={togglePlay}
                     className="toss-video-element"
@@ -1294,9 +1350,19 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     className="toss-thumbnail-img"
                   />
                 ) : (
-                  <div className="flex flex-col items-center justify-center w-full h-full text-slate-400 py-12">
-                    <ImageIcon size={32} className="text-slate-500 mb-2" />
-                    <span className="text-xs">썸네일 생성 중...</span>
+                  <div className="flex flex-col items-center justify-center w-full h-full text-slate-400 py-10 px-4 text-center">
+                    <ImageIcon size={32} className="text-blue-500 mb-2 animate-pulse" />
+                    <span className="text-xs font-semibold text-slate-600 mb-2">
+                      {isUpdatingThumbnail ? '썸네일 생성 중...' : '썸네일 이미지를 불러오는 중이에요'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCaptureCurrentFrame}
+                      disabled={isUpdatingThumbnail}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all"
+                    >
+                      현재 비디오 화면으로 썸네일 생성
+                    </button>
                   </div>
                 )}
                 <div className="toss-thumb-badge-top-left">

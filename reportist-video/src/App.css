@@ -4634,6 +4634,7 @@
   position: relative;
   overflow: hidden;
   transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 .toss-thumbnail-card:hover {
@@ -4650,6 +4651,11 @@
   border: 1px solid #e2e8f0;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
   margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  flex-shrink: 0;
 }
 
 .toss-thumbnail-img {

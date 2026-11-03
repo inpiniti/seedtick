@@ -36,33 +36,42 @@ export async function captureVideoFrameAtTime(
 ): Promise<HTMLCanvasElement> {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
-    video.src = videoUrl;
     video.muted = true;
     video.playsInline = true;
-    video.crossOrigin = 'anonymous';
     video.preload = 'auto';
 
+    if (videoUrl.startsWith('http://') || videoUrl.startsWith('https://')) {
+      video.crossOrigin = 'anonymous';
+    }
+
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let isFinished = false;
 
     const cleanup = () => {
       if (timeoutId) clearTimeout(timeoutId);
       video.removeEventListener('seeked', onSeeked);
       video.removeEventListener('error', onError);
+      video.removeEventListener('loadedmetadata', startSeeking);
+      video.removeEventListener('loadeddata', onDataLoaded);
     };
 
     const onError = () => {
+      if (isFinished) return;
+      isFinished = true;
       cleanup();
       reject(new Error('비디오 프레임 추출에 실패했습니다.'));
     };
 
-    const onSeeked = () => {
+    const drawFrame = () => {
+      if (isFinished) return;
+      isFinished = true;
+      cleanup();
       try {
         const canvas = document.createElement('canvas');
         canvas.width = targetWidth;
         canvas.height = targetHeight;
         const ctx = canvas.getContext('2d');
         if (!ctx) {
-          cleanup();
           reject(new Error('Canvas context 생성 실패'));
           return;
         }
@@ -100,30 +109,120 @@ export async function captureVideoFrameAtTime(
         // 1280x720 캔버스에 그리기
         ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
 
-        cleanup();
         resolve(canvas);
       } catch (err) {
-        cleanup();
         reject(err);
       }
     };
 
-    video.onloadedmetadata = () => {
-      const dur = video.duration || 1;
-      const targetTime = Math.max(0, Math.min(dur - 0.05, timestamp));
-
-      timeoutId = setTimeout(() => {
-        cleanup();
-        reject(new Error('비디오 프레임 추출 타임아웃'));
-      }, 5000);
-
-      video.addEventListener('seeked', onSeeked);
-      video.addEventListener('error', onError);
-      video.currentTime = targetTime;
+    const onSeeked = () => {
+      drawFrame();
     };
 
-    video.onerror = onError;
+    const onDataLoaded = () => {
+      if (video.readyState >= 2 && Math.abs(video.currentTime - (targetTimeRef || 0)) < 0.1) {
+        drawFrame();
+      }
+    };
+
+    let targetTimeRef = 0;
+
+    const startSeeking = () => {
+      const dur = video.duration || 1;
+      const targetTime = Math.max(0.05, Math.min(dur - 0.05, timestamp));
+      targetTimeRef = targetTime;
+
+      // 타임아웃 안전장치: 3초 후 readyState가 있으면 즉시 그리고, 없으면 현재 프레임 시도
+      timeoutId = setTimeout(() => {
+        if (isFinished) return;
+        if (video.readyState >= 2 || video.videoWidth > 0) {
+          drawFrame();
+        } else {
+          cleanup();
+          reject(new Error('비디오 프레임 추출 타임아웃'));
+        }
+      }, 3500);
+
+      video.addEventListener('seeked', onSeeked);
+      video.addEventListener('loadeddata', onDataLoaded);
+
+      if (video.readyState >= 2 && Math.abs(video.currentTime - targetTime) < 0.05) {
+        drawFrame();
+        return;
+      }
+
+      try {
+        video.currentTime = targetTime;
+      } catch {
+        // currentTime 세팅 실패 시 즉시 그리기 시도
+        drawFrame();
+      }
+    };
+
+    video.addEventListener('loadedmetadata', startSeeking);
+    video.addEventListener('error', onError);
+
+    video.src = videoUrl;
+
+    if (video.readyState >= 1) {
+      startSeeking();
+    } else {
+      video.load();
+    }
   });
+}
+
+/**
+ * 활성 비디오 엘리먼트(HTMLVideoElement)로부터 직접 16:9 프레임을 즉시 캡처합니다.
+ */
+export function captureVideoFrameFromElement(
+  videoElement: HTMLVideoElement,
+  cropOffsetYRatio = 0.2,
+  targetWidth = 1280,
+  targetHeight = 720
+): HTMLCanvasElement | null {
+  try {
+    if (!videoElement || videoElement.readyState < 2) return null;
+    const vW = videoElement.videoWidth;
+    const vH = videoElement.videoHeight;
+    if (!vW || !vH) return null;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    const targetAspect = targetWidth / targetHeight;
+    const videoAspect = vW / vH;
+
+    let sx = 0;
+    let sy = 0;
+    let sWidth = vW;
+    let sHeight = vH;
+
+    if (videoAspect > targetAspect) {
+      sWidth = Math.round(vH * targetAspect);
+      sx = Math.round((vW - sWidth) / 2);
+    } else if (videoAspect < targetAspect) {
+      sHeight = Math.round(vW / targetAspect);
+      if (videoAspect < 1.0) {
+        const maxSy = Math.max(0, vH - sHeight);
+        sy = Math.round(maxSy * Math.max(0, Math.min(1, cropOffsetYRatio)));
+      } else {
+        sy = Math.round((vH - sHeight) / 2);
+      }
+    }
+
+    sx = Math.max(0, Math.min(sx, Math.max(0, vW - sWidth)));
+    sy = Math.max(0, Math.min(sy, Math.max(0, vH - sHeight)));
+
+    ctx.drawImage(videoElement, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
+    return canvas;
+  } catch (err) {
+    console.warn('captureVideoFrameFromElement failed:', err);
+    return null;
+  }
 }
 
 /**
