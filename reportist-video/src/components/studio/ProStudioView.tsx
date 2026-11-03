@@ -44,6 +44,7 @@ import {
   loadLibraryAudioFile,
   type AudioLibraryTrack,
 } from '../../data/audioLibrary.ts';
+import { ReportistLogo } from '../common/ReportistLogo.tsx';
 import { useI18n } from '../../i18n/index.tsx';
 
 interface ProStudioViewProps {
@@ -545,7 +546,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       <header className="toss-nav-header">
         <div className="toss-nav-left">
           <div className="toss-logo-badge">
-            <Sparkles size={16} className="text-white" />
+            <ReportistLogo size={18} inverted />
           </div>
           <span className="toss-nav-title">{dict.common.brandName}</span>
           <span className="toss-tag-blue">{dict.common.taglineBadge}</span>
