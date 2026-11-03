@@ -116,7 +116,7 @@ export const ja: Dictionary = {
     desc: '区間をクリックして字幕・撮影日時・場所・16:9構図を直接編集できます。',
     totalIntervals: '全{count}区間 ({duration}秒)',
     bottomSubtitleToggle: '下部字幕',
-    bottomSubtitleTitle: '動画の下部にシーン別の日時と字幕を表示します',
+    bottomSubtitleTitle: '動画の下部にシーン別のタイトル字幕を表示します',
     emptyNotice: "動画をアップロードして上の「✨ AIハイライトを作成」を押すと劇的な区間が追加されます。",
     nowPlaying: '再生中',
     trimMinus: '開始を0.5秒延長',

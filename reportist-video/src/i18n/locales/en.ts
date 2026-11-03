@@ -116,7 +116,7 @@ export const en: Dictionary = {
     desc: 'Click any interval to edit subtitles, date, location, and 16:9 framing directly.',
     totalIntervals: 'Total {count} intervals ({duration}s)',
     bottomSubtitleToggle: 'Bottom Subtitle',
-    bottomSubtitleTitle: 'Display scene date, title, and location at the bottom of the video',
+    bottomSubtitleTitle: 'Display scene title subtitles at the bottom of the video',
     emptyNotice: "Upload videos and click '✨ Create AI Highlight' above to populate dramatic moments.",
     nowPlaying: 'Playing',
     trimMinus: 'Extend start -0.5s',
