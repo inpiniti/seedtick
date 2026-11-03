@@ -1320,6 +1320,11 @@
   color: #191f28;
 }
 
+/* Mobile Settings Trigger (Desktop hidden) */
+.toss-settings-trigger {
+  display: none;
+}
+
 /* 2. Main Content 2-Column Grid (IDE 편집 툴 워크스페이스: 페이지 스크롤 없음) */
 .toss-main-content {
   flex: 1;
@@ -3512,59 +3517,49 @@
   }
 
   /* 공통 트리거 컴팩트 스타일 */
-  .toss-model-trigger {
-    max-width: 130px;
-    gap: 4px;
-    padding: 4px 7px 4px 6px;
-    border-radius: 9px;
-  }
-
-  .toss-model-trigger-icon {
-    width: 22px;
-    height: 22px;
-    border-radius: 7px;
-  }
-
-  .toss-model-trigger-label {
+  /* 모바일에서 AI 모델, 언어 선택, 리셋, 보조 액션 버튼은 설정 모달로 분리하여 상단바에서 숨김 */
+  .toss-ai-model-trigger {
     display: none !important;
   }
 
-  .toss-model-trigger-speed {
-    display: none !important;
-  }
-
-  .toss-model-trigger-name {
-    max-width: 75px;
-    font-size: 11px;
-  }
-
-  .toss-model-trigger-chevron {
-    width: 12px;
-    height: 12px;
-  }
-
-  /* 언어 선택 트리거: 국기 + 꺽쇠만 깔끔하게 노출 */
   .toss-lang-trigger {
-    padding: 4px 6px;
-    gap: 3px;
+    display: none !important;
+  }
+
+  .toss-btn-text {
+    display: none !important;
+  }
+
+  .toss-nav-secondary-action {
+    display: none !important;
+  }
+
+  /* 모바일 설정 트리거 버튼 노출 */
+  .toss-settings-trigger {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    border-radius: 9px;
+    border: 1px solid #e5e8eb;
+    background-color: #ffffff;
+    color: #4e5968;
+    cursor: pointer;
     flex-shrink: 0;
-    max-width: 50px;
+    padding: 0;
+    transition: all 0.15s ease;
   }
 
-  .toss-lang-trigger .toss-model-trigger-icon {
-    display: none !important;
+  .toss-settings-trigger:hover,
+  .toss-settings-trigger:active {
+    background-color: #f2f4f6;
+    color: #191f28;
+    border-color: #d1d5db;
   }
 
-  .toss-lang-name {
-    display: none !important;
-  }
-
-  .toss-lang-trigger .toss-model-trigger-name {
-    font-size: 13px;
-    max-width: none;
-  }
-
-  /* 영상 목록 트리거: 아이콘 + 숫자 배지 */
+  /* 영상 목록 트리거: 아이콘 + 숫자 배지만 노출하여 초소형화 */
   .toss-video-count-full {
     display: none !important;
   }
@@ -3595,20 +3590,6 @@
     font-size: 11.5px;
     gap: 4px;
     border-radius: 8px;
-    flex-shrink: 0;
-  }
-
-  .toss-nav-btn-secondary {
-    padding: 5px 8px;
-    font-size: 11px;
-    gap: 3px;
-    border-radius: 8px;
-    flex-shrink: 0;
-  }
-
-  .toss-btn-text {
-    padding: 4px 6px;
-    font-size: 11px;
     flex-shrink: 0;
   }
 
@@ -4430,6 +4411,124 @@
   align-items: center;
   flex-shrink: 0;
   margin-left: 12px;
+}
+
+/* ========================================================
+   Mobile Settings Modal (Toss Design System)
+   ======================================================== */
+.settings-modal-card {
+  max-width: 460px;
+}
+
+.settings-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 20px 20px;
+  overflow-y: auto;
+  max-height: 65vh;
+}
+
+.settings-modal-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-modal-group-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #8b95a1;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding-left: 2px;
+}
+
+.settings-modal-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background-color: #ffffff;
+  border: 1.5px solid #e5e8eb;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: left;
+  user-select: none;
+  font-family: inherit;
+}
+
+.settings-modal-item:hover {
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+.settings-modal-item:active {
+  transform: scale(0.99);
+}
+
+.settings-modal-item:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.settings-modal-item-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.settings-modal-icon-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.settings-modal-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.settings-modal-item-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #191f28;
+}
+
+.settings-modal-item-desc {
+  font-size: 12px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-modal-item-action {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  flex-shrink: 0;
+  margin-left: 8px;
 }
 
 /* ========================================================

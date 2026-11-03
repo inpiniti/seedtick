@@ -28,6 +28,7 @@ import {
   Globe,
   Image as ImageIcon,
   Share2,
+  Settings,
 } from 'lucide-react';
 import { VideoCommunityView } from '../community/VideoCommunityView.tsx';
 import type {
@@ -49,6 +50,7 @@ import { ModelSelectorModal } from './ModelSelectorModal.tsx';
 import { VideoListModal } from './VideoListModal.tsx';
 import { LanguageSelectorModal } from './LanguageSelectorModal.tsx';
 import { AudioLibraryModal } from './AudioLibraryModal.tsx';
+import { MobileSettingsModal } from './MobileSettingsModal.tsx';
 import {
   loadLibraryAudioFile,
   type AudioLibraryTrack,
@@ -157,6 +159,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState<boolean>(false);
   const [isModelModalOpen, setIsModelModalOpen] = useState<boolean>(false);
   const [isVideoListModalOpen, setIsVideoListModalOpen] = useState<boolean>(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
   const currentModel = useMemo(
     () => models.find((model) => model.id === selectedModel) || models[0] || null,
     [models, selectedModel]
@@ -169,6 +172,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       setIsModelModalOpen(false);
       setIsVideoListModalOpen(false);
       setIsAudioLibraryOpen(false);
+      setIsSettingsModalOpen(false);
     }
   }, [isProcessing]);
 
@@ -872,7 +876,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               <div className="toss-nav-dual-actions">
                 <button
                   type="button"
-                  className="toss-nav-btn-secondary"
+                  className="toss-nav-btn-secondary toss-nav-secondary-action"
                   onClick={() =>
                     onReStitch(
                       segments,
@@ -891,7 +895,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
                 <button
                   type="button"
-                  className="toss-nav-btn-secondary"
+                  className="toss-nav-btn-secondary toss-nav-secondary-action"
                   onClick={handleDownloadThumbnail}
                   title={dict.thumbnail?.downloadBtn || dict.header.downloadThumbnail}
                 >
@@ -919,6 +923,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           )}
             </>
           )}
+
+          {/* 모바일 설정 트리거 버튼 */}
+          <button
+            type="button"
+            className="toss-settings-trigger"
+            onClick={() => setIsSettingsModalOpen(true)}
+            title={dict.common.settings || '설정'}
+            aria-label={dict.common.settings || '설정'}
+          >
+            <Settings size={16} />
+          </button>
         </div>
       </header>
 
@@ -2122,6 +2137,31 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         selectedTrackId={selectedLibraryTrackId}
         hasAppliedAudio={Boolean(customAudioFile)}
         onApply={handleApplyLibraryAudio}
+      />
+
+      {/* 10. 모바일 전용 스튜디오 설정 모달 (AI 모델, 언어, 초기화 등) */}
+      <MobileSettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        onOpenModelModal={() => setIsModelModalOpen(true)}
+        onOpenLanguageModal={() => setIsLanguageModalOpen(true)}
+        currentModel={currentModel || undefined}
+        isLoadingModels={isLoadingModels}
+        currentLocaleInfo={currentLocaleInfo}
+        hasVideos={videos.length > 0}
+        onReset={onReset}
+        hasStitchedResult={Boolean(result?.url)}
+        onDownloadThumbnail={handleDownloadThumbnail}
+        onReStitch={() =>
+          onReStitch(
+            segments,
+            selectedBgmId,
+            bgmVolume,
+            customAudioFile,
+            effectiveOverlayOptions
+          )
+        }
+        isReStitching={isReStitching}
       />
     </div>
   );

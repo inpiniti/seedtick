@@ -34,6 +34,7 @@ export interface Dictionary {
     noVideos: string;
     actions: string;
     language: string;
+    settings?: string;
     timeSec: string;
     fileSizeMb: string;
   };
@@ -291,6 +292,16 @@ export interface Dictionary {
     defaultBadge: string;
     supportedBadge: string;
     close: string;
+  };
+  settingsModal?: {
+    title: string;
+    subtitle: string;
+    aiEngine: string;
+    language: string;
+    projectActions: string;
+    thumbnailDesc: string;
+    resetDesc: string;
+    reStitchDesc: string;
   };
   logs: {
     pipelineStart: string;
