@@ -13,6 +13,7 @@ import { enrichModelMetrics, pickDefaultModel } from './services/modelMetrics.ts
 import { extractVideoMetadata, extractVideoFramesForAnalysis } from './services/videoCompressor.ts';
 import { formatVideoDate, extractGpsFromVideoFile } from './services/videoMetadata.ts';
 import { primeAudioContext, stitchHighlightedSegments } from './services/videoStitcher.ts';
+import { captureVideoFrameAtTime, renderThumbnailArtwork } from './services/thumbnailGenerator.ts';
 import type { FreeModelMeta, ReasoningEffortOption } from './types/gateway.ts';
 import type {
   VideoItem,
@@ -223,6 +224,11 @@ export function App() {
 
     addLog(interpolate(dict.logs.pipelineStart, { count: totalVideos }));
 
+    let aiDiscoveredTitle = '';
+    let bestThumbVideoId = updatedVideos[0]?.id || '';
+    let bestThumbTimestamp = 0;
+    let bestThumbCropOffsetYRatio = 0.2;
+
     try {
       // 1. 영상별 순차 루프
       for (let i = 0; i < totalVideos; i++) {
@@ -348,6 +354,18 @@ export function App() {
         currentVideo.status = 'analyzed';
         setVideos([...updatedVideos]);
 
+        // AI 추천 타이틀 및 베스트 썸네일 정보 수집
+        const segSuggestedTitle = (segments as any)?.suggestedTitle;
+        const segThumbTime = (segments as any)?.bestThumbnailTimestamp;
+        if (segSuggestedTitle && !aiDiscoveredTitle) {
+          aiDiscoveredTitle = segSuggestedTitle;
+        }
+        if (typeof segThumbTime === 'number' && (!bestThumbTimestamp || i === 0)) {
+          bestThumbTimestamp = segThumbTime;
+          bestThumbVideoId = currentVideo.id;
+          bestThumbCropOffsetYRatio = segments[0]?.cropOffsetYRatio ?? 0.2;
+        }
+
         const segTotal = segments.reduce((sum, s) => sum + s.duration, 0);
         const savePct = Math.max(0, Math.round((1 - segTotal / (currentVideo.duration || 1)) * 100));
         addLog(interpolate(dict.logs.segmentsConfirmed, {
@@ -372,6 +390,16 @@ export function App() {
       const allSegments = updatedVideos.flatMap((v) => v.segments);
       if (allSegments.length === 0) {
         throw new Error(dict.logs.noClimaxFound);
+      }
+
+      // AI가 추천한 제목이 있고, 사용자가 직접 수정한 제목이 없으면 자동 적용
+      if (aiDiscoveredTitle) {
+        if (!overlayOpts?.titleText || overlayOpts.titleText === dict.player.defaultTitleText) {
+          if (overlayOpts) {
+            overlayOpts.titleText = aiDiscoveredTitle;
+            overlayOpts.showTitle = true;
+          }
+        }
       }
 
       addLog(interpolate(dict.logs.stitchingStart, { count: allSegments.length }));
@@ -405,6 +433,51 @@ export function App() {
         },
         signal,
       });
+
+      // 3. 16:9 유튜브 고화질 썸네일 자동 생성
+      addLog('✨ AI 추천 베스트 프레임으로 16:9 고화질 썸네일 생성 중...');
+      let generatedThumbnailUrl: string | undefined = undefined;
+      try {
+        const thumbVideo =
+          updatedVideos.find((v) => v.id === bestThumbVideoId) || updatedVideos[0];
+        if (thumbVideo) {
+          const targetTime =
+            bestThumbTimestamp > 0
+              ? bestThumbTimestamp
+              : allSegments[0]
+              ? allSegments[0].start + allSegments[0].duration * 0.35
+              : 0;
+
+          const bgCanvas = await captureVideoFrameAtTime(
+            thumbVideo.url,
+            targetTime,
+            bestThumbCropOffsetYRatio
+          );
+
+          const finalTitle =
+            overlayOpts?.titleText || aiDiscoveredTitle || dict.player.defaultTitleText;
+
+          const thumbCanvas = renderThumbnailArtwork(bgCanvas, {
+            titleText: finalTitle,
+            channelText: overlayOpts?.channelText || dict.player.defaultChannelText,
+            badgeText: '✨ AI 하이라이트',
+            showTitle: true,
+            showBadge: true,
+            showChannel: Boolean(overlayOpts?.showChannel),
+            stylePreset: 'youtube-bold',
+          });
+
+          generatedThumbnailUrl = thumbCanvas.toDataURL('image/jpeg', 0.95);
+          addLog('🎉 16:9 유튜브 맞춤 썸네일 자동 완성!');
+        }
+      } catch (thumbErr) {
+        console.warn('Thumbnail generation warning:', thumbErr);
+      }
+
+      result.thumbnailUrl = generatedThumbnailUrl;
+      result.suggestedTitle = aiDiscoveredTitle;
+      result.bestThumbnailTime = bestThumbTimestamp;
+      result.bestSourceVideoId = bestThumbVideoId;
 
       addLog(interpolate(dict.logs.stitchingComplete, {
         duration: result.duration.toFixed(1),
@@ -459,6 +532,11 @@ export function App() {
           console.info(`[ReStitch] ${pct}%: ${msg}`);
         },
       });
+
+      result.thumbnailUrl = finalResult?.thumbnailUrl;
+      result.suggestedTitle = finalResult?.suggestedTitle;
+      result.bestThumbnailTime = finalResult?.bestThumbnailTime;
+      result.bestSourceVideoId = finalResult?.bestSourceVideoId;
 
       if (finalResult?.url) {
         URL.revokeObjectURL(finalResult.url);

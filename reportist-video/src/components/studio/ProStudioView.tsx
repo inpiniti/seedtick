@@ -26,7 +26,10 @@ import {
   ChevronDown,
   Zap,
   Globe,
+  Image as ImageIcon,
+  Share2,
 } from 'lucide-react';
+import { VideoCommunityView } from '../community/VideoCommunityView.tsx';
 import type {
   FinalVideoResult,
   HighlightSegment,
@@ -36,6 +39,11 @@ import type {
 } from '../../types/video.ts';
 import type { FreeModelMeta, ReasoningEffortOption } from '../../types/gateway.ts';
 import { cleanModelName, getSpeedTier } from '../../services/modelMetrics.ts';
+import {
+  captureVideoFrameAtTime,
+  renderThumbnailArtwork,
+  downloadThumbnailFile,
+} from '../../services/thumbnailGenerator.ts';
 import { ModelSelectorModal } from './ModelSelectorModal.tsx';
 import { VideoListModal } from './VideoListModal.tsx';
 import { LanguageSelectorModal } from './LanguageSelectorModal.tsx';
@@ -178,6 +186,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     return () => window.clearInterval(timer);
   }, [isProcessing]);
 
+  // 4-2. 상단 탭 상태 (스튜디오 vs 영상 공유 커뮤니티)
+  const [activeTab, setActiveTab] = useState<'studio' | 'community'>('studio');
+
   // 5. 자막 & 브랜딩 오버레이 상태
   const initialDateStr = useMemo(() => {
     if (videos.length > 0 && videos[0].metadataDate) {
@@ -210,6 +221,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     channelText: overlayOptions.channelText || dict.player.defaultChannelText,
     outroText: overlayOptions.outroText || dict.introOutro.outroDefaultText,
   }), [overlayOptions, dict]);
+
+  // 6. AI 16:9 유튜브 썸네일 상태
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(result?.thumbnailUrl || null);
+  const [thumbnailStyle, setThumbnailStyle] = useState<'youtube-bold' | 'banner-box' | 'cinematic-clean'>('youtube-bold');
+  const [showThumbnailTitle, setShowThumbnailTitle] = useState<boolean>(true);
+  const thumbnailBgCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [isUpdatingThumbnail, setIsUpdatingThumbnail] = useState<boolean>(false);
 
   // 영상이 추가되었을 때 실제 촬영 날짜 자동 반영
   useEffect(() => {
@@ -277,6 +295,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   };
 
   // 상위 결과 갱신 동기화
+  // 상위 결과 갱신 동기화 및 썸네일/타이틀 준비
   useEffect(() => {
     if (result?.segments && result.segments.length > 0) {
       setSegments(result.segments);
@@ -296,7 +315,75 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       setSegments(fallback);
       setSelectedSegmentId(fallback[0]?.id || '');
     }
-  }, [result, videos]);
+
+    if (result?.suggestedTitle) {
+      setOverlayOptions((prev) => ({
+        ...prev,
+        titleText:
+          prev.titleText && prev.titleText !== dict.player.defaultTitleText
+            ? prev.titleText
+            : result.suggestedTitle!,
+        showTitle: true,
+      }));
+    }
+
+    if (result?.thumbnailUrl) {
+      setThumbnailUrl(result.thumbnailUrl);
+    }
+
+    // 썸네일용 배경 프레임 캔버스 캡처/캐싱 (실시간 타이틀 편집 지원)
+    const prepareThumbnailBg = async () => {
+      if (!videos.length) return;
+      try {
+        const targetVideo =
+          videos.find((v) => v.id === result?.bestSourceVideoId) || videos[0];
+        const targetTime =
+          result?.bestThumbnailTime && result.bestThumbnailTime > 0
+            ? result.bestThumbnailTime
+            : (result?.segments && result.segments[0]
+                ? result.segments[0].start + result.segments[0].duration * 0.35
+                : 0);
+
+        const bg = await captureVideoFrameAtTime(
+          targetVideo.url,
+          targetTime,
+          result?.segments?.[0]?.cropOffsetYRatio ?? 0.2
+        );
+        thumbnailBgCanvasRef.current = bg;
+      } catch (err) {
+        console.warn('Failed to prepare thumbnail background canvas:', err);
+      }
+    };
+
+    if (result) {
+      prepareThumbnailBg();
+    }
+  }, [result, dict.player.defaultTitleText, videos]);
+
+  // 타이틀/채널명/스타일 변경 시 실시간 썸네일 재렌더링
+  useEffect(() => {
+    if (!thumbnailBgCanvasRef.current) return;
+    try {
+      const artCanvas = renderThumbnailArtwork(thumbnailBgCanvasRef.current, {
+        titleText: overlayOptions.titleText,
+        channelText: overlayOptions.channelText,
+        badgeText: '✨ AI 하이라이트',
+        showTitle: showThumbnailTitle && Boolean(overlayOptions.titleText?.trim()),
+        showBadge: true,
+        showChannel: Boolean(overlayOptions.showChannel),
+        stylePreset: thumbnailStyle,
+      });
+      setThumbnailUrl(artCanvas.toDataURL('image/jpeg', 0.95));
+    } catch (e) {
+      console.warn('Live thumbnail render failed:', e);
+    }
+  }, [
+    overlayOptions.titleText,
+    overlayOptions.channelText,
+    overlayOptions.showChannel,
+    thumbnailStyle,
+    showThumbnailTitle,
+  ]);
 
   // 활성 비디오 소스 URL
   const activeVideoUrl = useMemo(() => {
@@ -524,6 +611,93 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     document.body.removeChild(a);
   };
 
+  // 16:9 고화질 썸네일 다운로드
+  const handleDownloadThumbnail = async () => {
+    if (!thumbnailUrl && !thumbnailBgCanvasRef.current) return;
+    try {
+      if (thumbnailBgCanvasRef.current) {
+        const artCanvas = renderThumbnailArtwork(thumbnailBgCanvasRef.current, {
+          titleText: overlayOptions.titleText,
+          channelText: overlayOptions.channelText,
+          badgeText: '✨ AI 하이라이트',
+          showTitle: showThumbnailTitle && Boolean(overlayOptions.titleText?.trim()),
+          showBadge: true,
+          showChannel: Boolean(overlayOptions.showChannel),
+          stylePreset: thumbnailStyle,
+        });
+        await downloadThumbnailFile(artCanvas, overlayOptions.titleText || 'highlight');
+      } else if (thumbnailUrl) {
+        await downloadThumbnailFile(thumbnailUrl, overlayOptions.titleText || 'highlight');
+      }
+    } catch (err) {
+      console.error('Thumbnail download failed:', err);
+    }
+  };
+
+  // 현재 재생 시점 프레임으로 썸네일 배경 변경
+  const handleCaptureCurrentFrame = async () => {
+    if (!videoRef.current || !activeVideoUrl) return;
+    setIsUpdatingThumbnail(true);
+    try {
+      const curTime = videoRef.current.currentTime || currentTime;
+      const bg = await captureVideoFrameAtTime(
+        activeVideoUrl,
+        curTime,
+        activePlayingSegment?.cropOffsetYRatio ?? 0.2
+      );
+      thumbnailBgCanvasRef.current = bg;
+
+      const artCanvas = renderThumbnailArtwork(bg, {
+        titleText: overlayOptions.titleText,
+        channelText: overlayOptions.channelText,
+        badgeText: '✨ AI 하이라이트',
+        showTitle: showThumbnailTitle && Boolean(overlayOptions.titleText?.trim()),
+        showBadge: true,
+        showChannel: Boolean(overlayOptions.showChannel),
+        stylePreset: thumbnailStyle,
+      });
+
+      setThumbnailUrl(artCanvas.toDataURL('image/jpeg', 0.95));
+    } catch (err) {
+      console.warn('Frame capture failed:', err);
+    } finally {
+      setIsUpdatingThumbnail(false);
+    }
+  };
+
+  // 특정 하이라이트 구간의 프레임으로 썸네일 변경
+  const handleSetSegmentAsThumbnail = async (seg: HighlightSegment, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsUpdatingThumbnail(true);
+    try {
+      const targetVideo = videoMap.get(seg.sourceVideoId) || videos[0];
+      if (!targetVideo) return;
+      const targetTime = seg.start + seg.duration * 0.35;
+      const bg = await captureVideoFrameAtTime(
+        targetVideo.url,
+        targetTime,
+        seg.cropOffsetYRatio ?? 0.2
+      );
+      thumbnailBgCanvasRef.current = bg;
+
+      const artCanvas = renderThumbnailArtwork(bg, {
+        titleText: overlayOptions.titleText,
+        channelText: overlayOptions.channelText,
+        badgeText: '✨ AI 하이라이트',
+        showTitle: showThumbnailTitle && Boolean(overlayOptions.titleText?.trim()),
+        showBadge: true,
+        showChannel: Boolean(overlayOptions.showChannel),
+        stylePreset: thumbnailStyle,
+      });
+
+      setThumbnailUrl(artCanvas.toDataURL('image/jpeg', 0.95));
+    } catch (err) {
+      console.warn('Segment thumbnail capture failed:', err);
+    } finally {
+      setIsUpdatingThumbnail(false);
+    }
+  };
+
   // 시간 포맷 (00:04)
   const formatSec = (sec: number) => {
     const m = Math.floor(sec / 60);
@@ -550,6 +724,27 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           </div>
           <span className="toss-nav-title">{dict.common.brandName}</span>
           <span className="toss-tag-blue">{dict.common.taglineBadge}</span>
+
+          {/* 상단 네비게이션 탭 (스튜디오 / 영상 공유 커뮤니티) */}
+          <div className="toss-nav-tabs-group">
+            <button
+              type="button"
+              className={`toss-nav-tab-btn ${activeTab === 'studio' ? 'active' : ''}`}
+              onClick={() => setActiveTab('studio')}
+            >
+              <Film size={13} />
+              <span>{dict.community?.studioTab || '스튜디오'}</span>
+            </button>
+            <button
+              type="button"
+              className={`toss-nav-tab-btn ${activeTab === 'community' ? 'active' : ''}`}
+              onClick={() => setActiveTab('community')}
+            >
+              <Share2 size={13} />
+              <span>{dict.community?.communityTab || '영상 공유'}</span>
+              <span className="toss-nav-tab-badge">NEW</span>
+            </button>
+          </div>
         </div>
 
         <div className="toss-nav-right">
@@ -573,7 +768,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <ChevronDown size={14} className="toss-model-trigger-chevron" />
           </button>
 
-          {/* AI 모델 선택 트리거 */}
+          {activeTab === 'studio' && (
+            <>
+              {/* AI 모델 선택 트리거 */}
           <button
             type="button"
             className="toss-model-trigger toss-ai-model-trigger"
@@ -662,6 +859,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
                 <button
                   type="button"
+                  className="toss-nav-btn-secondary"
+                  onClick={handleDownloadThumbnail}
+                  title={dict.thumbnail?.downloadBtn || dict.header.downloadThumbnail}
+                >
+                  <ImageIcon size={13} className="text-blue-600" />
+                  <span>{dict.thumbnail?.downloadBtn || dict.header.downloadThumbnail}</span>
+                </button>
+
+                <button
+                  type="button"
                   className="toss-nav-cta-btn"
                   onClick={handleDownload}
                   title={dict.header.downloadTitle}
@@ -678,11 +885,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               {dict.header.reset}
             </button>
           )}
+            </>
+          )}
         </div>
       </header>
 
-      {/* 2. 본문 2열 레이아웃 */}
-      <main className="toss-main-content">
+      {/* 2. 본문: 영상 공유 커뮤니티 또는 스튜디오 2열 레이아웃 */}
+      {activeTab === 'community' ? (
+        <VideoCommunityView onOpenStudio={() => setActiveTab('studio')} />
+      ) : (
+        <main className="toss-main-content">
         {/* 2-A. 왼쪽 열: 16:9 모니터 & 배경음악 업로드 */}
         <section className="toss-column-left">
           <div className="toss-card toss-player-card">
@@ -1052,8 +1264,143 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           </div>
         </section>
 
-        {/* 2-B. 오른쪽 열: [인트로] -> [AI 극적 순간] -> [아웃트로] -> [요약] */}
+        {/* 2-B. 오른쪽 열: [썸네일(완성시)] -> [인트로] -> [AI 극적 순간] -> [아웃트로] -> [요약] */}
         <section className="toss-column-right">
+          {/* AI 맞춤 16:9 썸네일 카드 */}
+          {(result || thumbnailUrl) && (
+            <div className="toss-card toss-thumbnail-card">
+              <div className="toss-card-header">
+                <div>
+                  <h4 className="toss-card-title">
+                    <ImageIcon size={16} className="text-blue-600 shrink-0" />
+                    <span>{dict.thumbnail?.cardTitle || 'AI 맞춤 썸네일 (16:9)'}</span>
+                  </h4>
+                  <p className="toss-card-desc">
+                    {dict.thumbnail?.cardDesc ||
+                      'AI가 감지한 가장 매력적인 순간과 추천 타이틀로 완성된 유튜브 맞춤 썸네일이에요.'}
+                  </p>
+                </div>
+                <span className="toss-tag-blue">
+                  {dict.thumbnail?.previewBadge || '16:9 유튜브 규격'}
+                </span>
+              </div>
+
+              {/* 썸네일 16:9 프리뷰 */}
+              <div className="toss-thumbnail-preview-wrap">
+                {thumbnailUrl ? (
+                  <img
+                    src={thumbnailUrl}
+                    alt="AI YouTube Thumbnail"
+                    className="toss-thumbnail-img"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center w-full h-full text-slate-400 py-12">
+                    <ImageIcon size={32} className="text-slate-500 mb-2" />
+                    <span className="text-xs">썸네일 생성 중...</span>
+                  </div>
+                )}
+                <div className="toss-thumb-badge-top-left">
+                  <Sparkles size={11} className="text-yellow-400" />
+                  <span>{dict.thumbnail?.currentBestBadge || 'AI 베스트 컷'}</span>
+                </div>
+                <div className="toss-thumb-badge-top-right">
+                  1280 × 720 HD
+                </div>
+              </div>
+
+              {/* 썸네일 타이틀 및 스타일 컨트롤 */}
+              <div className="toss-thumbnail-controls">
+                <div className="toss-thumbnail-input-group">
+                  <div className="toss-thumbnail-label-row">
+                    <label className="toss-thumbnail-label">
+                      <Type size={13} className="text-blue-600" />
+                      <span>{dict.thumbnail?.titleInputLabel || '썸네일 & 영상 타이틀'}</span>
+                    </label>
+                    {result?.suggestedTitle && overlayOptions.titleText === result.suggestedTitle && (
+                      <span className="toss-thumbnail-ai-tag">
+                        {dict.thumbnail?.aiTitleBadge || 'AI 추천 타이틀'}
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    value={overlayOptions.titleText}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setOverlayOptions((prev) => ({
+                        ...prev,
+                        titleText: val,
+                        showTitle: val.trim().length > 0,
+                      }));
+                    }}
+                    placeholder={
+                      dict.thumbnail?.titleInputPlaceholder ||
+                      '유튜브 클릭률을 높일 매력적인 제목을 입력하세요'
+                    }
+                    className="toss-thumbnail-input"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-xs font-semibold text-slate-500">스타일 프리셋</span>
+                  <div className="toss-thumbnail-style-group">
+                    <button
+                      type="button"
+                      className={`toss-thumb-style-btn ${thumbnailStyle === 'youtube-bold' ? 'active' : ''}`}
+                      onClick={() => setThumbnailStyle('youtube-bold')}
+                    >
+                      {dict.thumbnail?.styleBold || '유튜브 볼드'}
+                    </button>
+                    <button
+                      type="button"
+                      className={`toss-thumb-style-btn ${thumbnailStyle === 'banner-box' ? 'active' : ''}`}
+                      onClick={() => setThumbnailStyle('banner-box')}
+                    >
+                      {dict.thumbnail?.styleBanner || '하이라이트 박스'}
+                    </button>
+                    <button
+                      type="button"
+                      className={`toss-thumb-style-btn ${thumbnailStyle === 'cinematic-clean' ? 'active' : ''}`}
+                      onClick={() => setThumbnailStyle('cinematic-clean')}
+                    >
+                      {dict.thumbnail?.styleClean || '시네마틱'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="toss-thumbnail-actions">
+                  <button
+                    type="button"
+                    className="toss-btn-download-thumb"
+                    onClick={handleDownloadThumbnail}
+                    title={dict.thumbnail?.downloadHd || '썸네일 다운로드 (1280x720 HD)'}
+                  >
+                    <Download size={15} />
+                    <span>{dict.thumbnail?.downloadHd || '썸네일 다운로드 (1280x720 HD)'}</span>
+                  </button>
+
+                  {activeVideoUrl && (
+                    <button
+                      type="button"
+                      className="toss-btn-frame-capture"
+                      onClick={handleCaptureCurrentFrame}
+                      disabled={isUpdatingThumbnail}
+                      title="현재 영상 재생 위치의 프레임으로 썸네일 배경 변경"
+                    >
+                      <ImageIcon size={13} className="text-blue-600" />
+                      <span>{isUpdatingThumbnail ? '캡처 중...' : '현재 프레임 적용'}</span>
+                    </button>
+                  )}
+                </div>
+
+                <p className="text-[11px] text-slate-400 text-center">
+                  {dict.thumbnail?.selectFrameHint ||
+                    '아래 하이라이트 장면의 [썸네일] 버튼을 눌러 배경 이미지를 바꿀 수도 있어요.'}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* 시작 인트로 카드 */}
           <div className="toss-card toss-intro-card">
             <div className="toss-card-header">
@@ -1249,6 +1596,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                               +0.5s
                             </button>
                           </div>
+
+                          <button
+                            type="button"
+                            className="toss-clip-thumb-btn"
+                            onClick={(e) => handleSetSegmentAsThumbnail(seg, e)}
+                            title="이 장면으로 썸네일 배경 설정"
+                          >
+                            <ImageIcon size={11} />
+                            <span>썸네일</span>
+                          </button>
 
                           <button
                             type="button"
@@ -1484,6 +1841,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           )}
         </section>
       </main>
+      )}
 
       {/* AI 분석 진행 중 토스식 모달 */}
       {isProcessing && (

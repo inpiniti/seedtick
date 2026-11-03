@@ -412,19 +412,19 @@ export async function analyzeVideoHighlights({
   const getLanguageRule = (loc?: string) => {
     switch (loc) {
       case 'ko':
-        return `6. Provide a concise, descriptive Korean scene title for 'reason' (e.g. '환하게 웃는 클라이맥스', '바닷가 산책', '박진감 넘치는 액션 순간'). This will be used as the scene subtitle!`;
+        return `6. Provide a concise, descriptive Korean scene title for 'reason' (e.g. '환하게 웃는 클라이맥스', '바닷가 산책', '박진감 넘치는 액션 순간'). This will be used as the scene subtitle!\n7. Suggest a catchy, attractive YouTube title in Korean for 'videoTitle' (e.g. '눈부신 바다와 함께한 찬란한 순간들', '짜릿했던 우리들의 하이라이트').`;
       case 'ja':
-        return `6. Provide a concise, descriptive Japanese scene title for 'reason' (e.g. '笑顔あふれるクライマックス', '海辺の散歩', '迫力のアクションシーン'). This will be used as the scene subtitle!`;
+        return `6. Provide a concise, descriptive Japanese scene title for 'reason' (e.g. '笑顔あふれるクライマックス', '海辺の散歩', '迫力のアクションシーン'). This will be used as the scene subtitle!\n7. Suggest an attractive YouTube title in Japanese for 'videoTitle'.`;
       case 'zh':
-        return `6. Provide a concise, descriptive Chinese scene title for 'reason' (e.g. '灿烂微笑的高光时刻', '海边散步', '扣人心弦的动作瞬间'). This will be used as the scene subtitle!`;
+        return `6. Provide a concise, descriptive Chinese scene title for 'reason' (e.g. '灿烂微笑的高光时刻', '海边散步', '扣人心弦的动作瞬间'). This will be used as the scene subtitle!\n7. Suggest an attractive YouTube title in Chinese for 'videoTitle'.`;
       case 'es':
-        return `6. Provide a concise, descriptive Spanish scene title for 'reason' (e.g. 'Clímax con sonrisa radiante', 'Paseo por la playa', 'Momento de acción emocionante'). This will be used as the scene subtitle!`;
+        return `6. Provide a concise, descriptive Spanish scene title for 'reason' (e.g. 'Clímax con sonrisa radiante', 'Paseo por la playa', 'Momento de acción emocionante'). This will be used as the scene subtitle!\n7. Suggest an attractive YouTube title in Spanish for 'videoTitle'.`;
       case 'fr':
-        return `6. Provide a concise, descriptive French scene title for 'reason' (e.g. 'Climax souriant et radieux', 'Balade au bord de la mer', 'Moment d\\'action intense'). This will be used as the scene subtitle!`;
+        return `6. Provide a concise, descriptive French scene title for 'reason' (e.g. 'Climax souriant et radieux', 'Balade au bord de la mer', 'Moment d\\'action intense'). This will be used as the scene subtitle!\n7. Suggest an attractive YouTube title in French for 'videoTitle'.`;
       case 'de':
-        return `6. Provide a concise, descriptive German scene title for 'reason' (e.g. 'Strahlender Höhepunkt', 'Spaziergang am Strand', 'Packender Actionmoment'). This will be used as the scene subtitle!`;
+        return `6. Provide a concise, descriptive German scene title for 'reason' (e.g. 'Strahlender Höhepunkt', 'Spaziergang am Strand', 'Packender Actionmoment'). This will be used as the scene subtitle!\n7. Suggest an attractive YouTube title in German for 'videoTitle'.`;
       default:
-        return `6. Provide a concise, descriptive English scene title for 'reason' (e.g. 'Bright smiling climax', 'Beach walk', 'Thrilling action moment'). This will be used as the scene subtitle!`;
+        return `6. Provide a concise, descriptive English scene title for 'reason' (e.g. 'Bright smiling climax', 'Beach walk', 'Thrilling action moment'). This will be used as the scene subtitle!\n7. Suggest a catchy, attractive YouTube title for 'videoTitle' (e.g. 'Unforgettable Golden Hours by the Ocean').`;
     }
   };
 
@@ -443,16 +443,22 @@ STRICT DURATION & SELECTION RULES:
 4. INDIVIDUAL INTERVAL LENGTH: Each interval MUST be between 1.5 seconds and 4.5 seconds. NEVER return an interval longer than 5.0 seconds.
 5. NO OVERLAPPING: Intervals MUST NOT overlap.
 ${getLanguageRule(locale)}
-7. Analyze human faces and main subject position in these keyframes to choose 'cropPosition':
+8. Analyze human faces and main subject position in these keyframes to choose 'cropPosition':
    - "top": Person's face or eyes are located in the upper area (protects face from getting cropped in 16:9)
    - "center": Subject is centered or panoramic landscape
    - "bottom": Action or main subject is lower in the frame
-8. Output MUST BE strictly a valid JSON array of objects with NO other commentary or markdown formatting.
+9. THUMBNAIL SELECTION:
+   Choose the single best keyframe timestamp (seconds) for 'bestThumbnailTimestamp' that is the most photogenic, emotional, or visually stunning moment for a YouTube thumbnail.
+10. Output MUST BE strictly valid JSON with NO commentary or markdown formatting.
 
 Format:
-[
-  {"start": 3.2, "end": 6.5, "reason": "Joyful smiling climax", "cropPosition": "top"}
-]`;
+{
+  "videoTitle": "Catchy YouTube Video Title",
+  "bestThumbnailTimestamp": 3.8,
+  "segments": [
+    {"start": 3.2, "end": 6.5, "reason": "Joyful smiling climax", "cropPosition": "top"}
+  ]
+}`;
 
   const baseUrl = config.baseUrl.replace(/\/+$/, '');
   const url = `${baseUrl}/v1/chat/completions`;
@@ -550,27 +556,72 @@ type RawSegmentItem = {
   cropPosition?: 'top' | 'center' | 'bottom' | string;
 };
 
-// LLM 응답에서 JSON 배열만 안전하게 추출 (파싱 실패 시 null)
-export function extractSegmentArray(rawText: string): RawSegmentItem[] | null {
+export interface ParsedAnalysisPayload {
+  videoTitle?: string;
+  bestThumbnailTimestamp?: number;
+  segments: RawSegmentItem[];
+}
+
+// LLM 응답에서 JSON 객체 또는 배열을 안전하게 추출
+export function extractAnalysisData(rawText: string): ParsedAnalysisPayload | null {
   if (!rawText || !rawText.trim()) return null;
 
+  // 1. 순수 JSON 파싱 시도
   try {
-    const parsed = JSON.parse(rawText);
-    if (Array.isArray(parsed)) return parsed as RawSegmentItem[];
+    const parsed = JSON.parse(rawText.trim());
+    if (Array.isArray(parsed)) {
+      return { segments: parsed as RawSegmentItem[] };
+    }
+    if (parsed && typeof parsed === 'object') {
+      const segs = Array.isArray(parsed.segments) ? parsed.segments : [];
+      return {
+        videoTitle: typeof parsed.videoTitle === 'string' ? parsed.videoTitle : typeof parsed.title === 'string' ? parsed.title : undefined,
+        bestThumbnailTimestamp: typeof parsed.bestThumbnailTimestamp === 'number' ? parsed.bestThumbnailTimestamp : undefined,
+        segments: segs as RawSegmentItem[],
+      };
+    }
   } catch {
-    // 마크다운 코드블록 또는 텍스트 내 JSON 배열 정규식 추출로 이어짐
+    // regex fallback
   }
 
-  const match = rawText.match(/\[\s*\{[\s\S]*\}\s*\]/);
-  if (!match) return null;
-
-  try {
-    const parsed = JSON.parse(match[0]);
-    return Array.isArray(parsed) ? (parsed as RawSegmentItem[]) : null;
-  } catch (err) {
-    console.warn('[GatewayClient] JSON 배열 파싱 실패:', err);
-    return null;
+  // 2. 객체 매칭: { ... "segments": [ ... ] ... }
+  const objMatch = rawText.match(/\{[\s\S]*"segments"\s*:\s*\[[\s\S]*\][\s\S]*\}/);
+  if (objMatch) {
+    try {
+      const parsed = JSON.parse(objMatch[0]);
+      if (parsed && typeof parsed === 'object') {
+        const segs = Array.isArray(parsed.segments) ? parsed.segments : [];
+        return {
+          videoTitle: typeof parsed.videoTitle === 'string' ? parsed.videoTitle : typeof parsed.title === 'string' ? parsed.title : undefined,
+          bestThumbnailTimestamp: typeof parsed.bestThumbnailTimestamp === 'number' ? parsed.bestThumbnailTimestamp : undefined,
+          segments: segs as RawSegmentItem[],
+        };
+      }
+    } catch {
+      // ignore
+    }
   }
+
+  // 3. 배열 매칭: [ { ... } ]
+  const arrMatch = rawText.match(/\[\s*\{[\s\S]*\}\s*\]/);
+  if (arrMatch) {
+    try {
+      const parsed = JSON.parse(arrMatch[0]);
+      if (Array.isArray(parsed)) {
+        return { segments: parsed as RawSegmentItem[] };
+      }
+    } catch (err) {
+      console.warn('[GatewayClient] JSON 배열 파싱 실패:', err);
+    }
+  }
+
+  return null;
+}
+
+// 기존 호환성을 위한 extractSegmentArray
+export function extractSegmentArray(rawText: string): RawSegmentItem[] | null {
+  const data = extractAnalysisData(rawText);
+  return data ? data.segments : null;
 }
 
 // LLM 텍스트 응답에서 JSON 배열 추출 및 엄격한 구간 정제
@@ -583,7 +634,8 @@ export function parseAndValidateSegments(
   latitude?: number,
   longitude?: number
 ): HighlightSegment[] {
-  const parsed: RawSegmentItem[] = extractSegmentArray(rawText) ?? [];
+  const analysisData = extractAnalysisData(rawText);
+  const parsed: RawSegmentItem[] = analysisData?.segments ?? [];
 
   const validSegments: HighlightSegment[] = [];
 
@@ -689,6 +741,25 @@ export function parseAndValidateSegments(
       longitude,
     });
   }
+
+  // AI 추천 타이틀 및 썸네일 타임스탬프 메타데이터 첨부
+  const resolvedTitle =
+    analysisData?.videoTitle?.trim() ||
+    mergedSegments[0]?.subtitleTitle ||
+    mergedSegments[0]?.reason ||
+    videoName.replace(/\.[^/.]+$/, '');
+
+  const resolvedThumbTime =
+    typeof analysisData?.bestThumbnailTimestamp === 'number'
+      ? Math.max(0, Math.min(totalDuration, analysisData.bestThumbnailTimestamp))
+      : mergedSegments[0]
+      ? Math.round((mergedSegments[0].start + mergedSegments[0].duration * 0.35) * 10) / 10
+      : 0;
+
+  Object.assign(mergedSegments, {
+    suggestedTitle: resolvedTitle,
+    bestThumbnailTimestamp: resolvedThumbTime,
+  });
 
   return mergedSegments;
 }

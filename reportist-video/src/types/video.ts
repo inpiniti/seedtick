@@ -83,6 +83,10 @@ export interface FinalVideoResult {
   segments: HighlightSegment[];
   originalTotalDuration: number;
   fileSize: number;
+  thumbnailUrl?: string; // 16:9 규격 완성 썸네일 이미지 URL
+  suggestedTitle?: string; // AI가 영상 내용을 기반으로 추천한 타이틀
+  bestThumbnailTime?: number; // 썸네일에 사용된 최적의 시각(초)
+  bestSourceVideoId?: string; // 썸네일에 사용된 원본 비디오 ID
 }
 
 export interface VideoOverlayOptions {
