@@ -2278,8 +2278,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <div className="toss-modal-reasoning-wrap mt-4 text-left">
               <div className="toss-modal-reasoning-header flex items-center gap-1.5 mb-1.5 px-1">
                 <span className="toss-reasoning-live-dot" />
-                <span className="text-xs font-bold text-slate-300">{dict.processingModal.reasoningHeader}</span>
-                <span className="text-[11px] font-mono text-blue-400 ml-auto font-medium">
+                <span className="text-xs font-bold text-slate-700">{dict.processingModal.reasoningHeader}</span>
+                <span className="text-[11px] font-mono text-blue-600 ml-auto font-semibold">
                   {progress.currentPhase === 'extract'
                     ? dict.processingModal.phaseExtract
                     : progress.currentPhase === 'analyze'
@@ -2291,7 +2291,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 </span>
               </div>
               <div className="toss-modal-reasoning-single px-1">
-                <div className="text-xs font-mono text-slate-200 leading-relaxed line-clamp-2 break-all">
+                <div className="text-[13px] font-sans font-medium text-slate-800 leading-relaxed line-clamp-2 break-all">
                   <span>{latestTask.text}</span>
                   {latestTask.isStreaming && <span className="toss-live-caret" />}
                 </div>
