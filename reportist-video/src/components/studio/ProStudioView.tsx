@@ -24,7 +24,6 @@ import {
   MapPin,
   ExternalLink,
   ChevronDown,
-  Zap,
   Globe,
   Calendar,
   Image as ImageIcon,
@@ -41,7 +40,6 @@ import type {
   VideoOverlayOptions,
 } from '../../types/video.ts';
 import type { FreeModelMeta, ReasoningEffortOption } from '../../types/gateway.ts';
-import { cleanModelName, getSpeedTier } from '../../services/modelMetrics.ts';
 import {
   captureVideoFrameAtTime,
   captureVideoFrameFromElement,
@@ -194,7 +192,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     () => models.find((model) => model.id === selectedModel) || models[0] || null,
     [models, selectedModel]
   );
-  const currentSpeedTier = getSpeedTier(currentModel?.speedTokensPerSecond);
 
   useEffect(() => {
     if (isProcessing) {
@@ -1032,35 +1029,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
           {activeTab === 'studio' && (
             <>
-              {/* AI 모델 선택 트리거 */}
-          <button
-            type="button"
-            className="toss-model-trigger toss-ai-model-trigger"
-            onClick={() => setIsModelModalOpen(true)}
-            disabled={isProcessing || isLoadingModels}
-            title={dict.header.selectModelTitle}
-          >
-            <span className="toss-model-trigger-icon">
-              <Sparkles size={13} />
-            </span>
-            <span className="toss-model-trigger-text">
-              <span className="toss-model-trigger-label">{dict.header.aiModel}</span>
-              <span className="toss-model-trigger-name">
-                {isLoadingModels
-                  ? dict.header.loadingModels
-                  : cleanModelName(currentModel?.name) || dict.header.selectModel}
-              </span>
-            </span>
-            {currentModel?.speedTokensPerSecond != null && (
-              <span className={`toss-model-trigger-speed ${currentSpeedTier.key}`}>
-                <Zap size={10} />
-                {Math.round(currentModel.speedTokensPerSecond)} tok/s
-              </span>
-            )}
-            <ChevronDown size={14} className="toss-model-trigger-chevron" />
-          </button>
-
-          {/* 올린 원본 영상 리스트 트리거 */}
+              {/* 올린 원본 영상 리스트 트리거 */}
           <button
             type="button"
             className="toss-model-trigger toss-video-list-trigger"
