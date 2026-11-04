@@ -806,53 +806,70 @@ export async function reverseGeocodeCoordinates(latitude: number, longitude: num
   }
 
   try {
-    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&accept-language=ko`;
+    // BigDataCloud 클라이언트 전용 리버스 지오코딩 API (무료, CORS 완벽 지원, 브라우저 클라이언트 공식 지원)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+    const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=ko`;
     const res = await fetch(url, {
+      signal: controller.signal,
       headers: {
         Accept: 'application/json',
       },
     });
+    clearTimeout(timeoutId);
 
     if (res.ok) {
       const data = await res.json();
-      const addr = data.address || {};
-      const name = data.name || '';
+      const locality = typeof data.locality === 'string' ? data.locality.trim() : '';
+      const city = typeof data.city === 'string' ? data.city.trim() : '';
+      const adminList = Array.isArray(data.localityInfo?.administrative)
+        ? data.localityInfo.administrative
+        : [];
 
-      // 맥 사진 앱 A안: POI/명소/공원/빌딩 이름이 있으면 최우선
-      const landmark =
-        name ||
-        addr.tourism ||
-        addr.leisure ||
-        addr.amenity ||
-        addr.attraction ||
-        addr.park ||
-        addr.historic ||
-        addr.building;
-
-      if (landmark && typeof landmark === 'string' && landmark.trim()) {
-        const cleaned = landmark.trim();
-        locationCache.set(cacheKey, cleaned);
-        return cleaned;
+      // 자치구/일반구 (예: 광진구, 강남구, 분당구, 해운대구 등) 검색
+      let district = '';
+      for (const item of adminList) {
+        if (typeof item?.name === 'string') {
+          const nm = item.name.trim();
+          if (/.+[구군]$/.test(nm) && nm !== city) {
+            district = nm;
+          }
+        }
       }
 
-      // 명소가 없을 경우 동/읍/면 또는 구 단위
-      const neighborhood =
-        addr.neighbourhood ||
-        addr.suburb ||
-        addr.quarter ||
-        addr.town ||
-        addr.village ||
-        addr.city_district ||
-        addr.city;
+      let placeName = '';
+      if (locality) {
+        if (district && district !== locality && !locality.includes(district)) {
+          placeName = `${district} ${locality}`;
+        } else if (
+          city &&
+          !city.includes('특별시') &&
+          !city.includes('광역시') &&
+          city !== locality &&
+          !locality.includes(city)
+        ) {
+          placeName = `${city} ${locality}`;
+        } else {
+          placeName = locality;
+        }
+      } else if (district) {
+        placeName = district;
+      } else if (city) {
+        placeName = city;
+      } else if (data.principalSubdivision) {
+        placeName = String(data.principalSubdivision).trim();
+      } else if (data.countryName) {
+        placeName = String(data.countryName).trim();
+      }
 
-      if (neighborhood && typeof neighborhood === 'string' && neighborhood.trim()) {
-        const cleaned = neighborhood.trim();
-        locationCache.set(cacheKey, cleaned);
-        return cleaned;
+      if (placeName) {
+        locationCache.set(cacheKey, placeName);
+        return placeName;
       }
     }
   } catch (err) {
-    console.debug('[videoMetadata] 역지오코딩 실패 (좌표 표기로 대체):', err);
+    console.debug('[videoMetadata] 역지오코딩 조회 건너뜀 (좌표 표기로 대체):', err);
   }
 
   const fallback = `${latitude.toFixed(3)}, ${longitude.toFixed(3)}`;

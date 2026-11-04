@@ -93,9 +93,23 @@ export interface FinalVideoResult {
   originalTotalDuration: number;
   fileSize: number;
   thumbnailUrl?: string; // 16:9 규격 완성 썸네일 이미지 URL
+  cleanThumbnailUrl?: string; // 오버레이 및 문구 일체 없는 순수 고화질 배경 이미지 URL
   suggestedTitle?: string; // AI가 영상 내용을 기반으로 추천한 타이틀
   bestThumbnailTime?: number; // 썸네일에 사용된 최적의 시각(초)
   bestSourceVideoId?: string; // 썸네일에 사용된 원본 비디오 ID
+  bestThumbnailReason?: string; // AI가 이 프레임을 썸네일로 추천한 이유
+  bestThumbnailCropOffsetYRatio?: number;
+  bestThumbnailRotation?: number;
+  bestThumbnailCleanDataUrl?: string; // AI 키프레임 기반 클린 이미지 Data URL
+  aiThumbnailRecommendations?: Array<{
+    videoId: string;
+    videoName: string;
+    timestamp: number;
+    reason?: string;
+    cleanDataUrl?: string;
+    cropOffsetYRatio?: number;
+    rotation?: number;
+  }>;
 }
 
 export interface VideoOverlayOptions {

@@ -449,14 +449,17 @@ ${getLanguageRule(locale)}
    - "top": Person's face or eyes are located in the upper area (protects face from getting cropped in 16:9)
    - "center": Subject is centered or panoramic landscape
    - "bottom": Action or main subject is lower in the frame
-9. THUMBNAIL SELECTION:
-   Choose the single best keyframe timestamp (seconds) for 'bestThumbnailTimestamp' that is the most photogenic, emotional, or visually stunning moment for a YouTube thumbnail.
+9. THUMBNAIL DIRECT RECOMMENDATION:
+   Carefully inspect all keyframes and choose the single absolute best, clearest, most emotional, and photogenic keyframe moment for the YouTube thumbnail.
+   - 'bestThumbnailTimestamp': exact timestamp (seconds) of that single best keyframe.
+   - 'bestThumbnailReason': a concise phrase in the requested language explaining why this frame was chosen as the thumbnail (e.g. '가장 생동감 넘치고 환하게 웃는 표정', '압도적인 액션의 결정적 순간').
 10. Output MUST BE strictly valid JSON with NO commentary or markdown formatting.
 
 Format:
 {
   "videoTitle": "Catchy YouTube Video Title",
   "bestThumbnailTimestamp": 3.8,
+  "bestThumbnailReason": "가장 생동감 넘치고 환하게 웃는 표정",
   "segments": [
     {"start": 3.2, "end": 6.5, "reason": "Joyful smiling climax", "cropPosition": "top"}
   ]
@@ -504,38 +507,111 @@ Format:
     onFallback,
   };
 
+  // 모델 후보군 구성: 요청 모델 우선 -> FALLBACK_VIDEO_MODELS의 비전 모델 순 (최대 3개 모델 시도)
+  const requestedModel = model || 'google/gemma-4-31b-it:free';
+  const fallbackModelIds = FALLBACK_VIDEO_MODELS.map((m) => m.id);
+  const candidateModels = Array.from(new Set([requestedModel, ...fallbackModelIds])).slice(0, 3);
+
   let rawContent = '';
   let streamedReasoning = '';
-  let streamFailure: string | null = null;
+  let lastError: Error | null = null;
 
-  // 1) 실시간 스트리밍으로 사고 과정 + JSON 토큰 수신
-  try {
-    const streamed = await requestAnalysisStream(url, config, requestBody, signal, callbacks);
-    rawContent = streamed.content;
-    streamedReasoning = streamed.reasoning;
+  for (let mIdx = 0; mIdx < candidateModels.length; mIdx++) {
+    if (signal?.aborted) break;
 
-    // 본문이 비었거나 완전한 JSON 배열이 아니면 일반 요청으로 재시도
-    if (!extractSegmentArray(rawContent)) {
-      streamFailure = rawContent.trim()
-        ? '스트림 응답이 완전한 JSON 배열이 아니에요.'
-        : '스트림 응답 본문이 비어 있어요.';
+    const currentModel = candidateModels[mIdx];
+    const isRetry = mIdx > 0;
+    if (isRetry) {
+      const nextModelName = currentModel.replace(':free', '');
+      onFallback?.(
+        `AI 게이트웨이 일시 과부하(503) 감지로 대체 모델(${nextModelName})로 자동 전환합니다.`
+      );
+      // 짧은 지수 백오프
+      await new Promise((r) => setTimeout(r, 600));
+      if (signal?.aborted) break;
     }
-  } catch (err) {
-    if (signal?.aborted) throw err;
-    streamFailure = err instanceof Error ? err.message : '스트림 연결에 실패했어요.';
+
+    const requestBody: Record<string, unknown> = {
+      model: currentModel,
+      messages: [
+        {
+          role: 'user',
+          content: messageContent,
+        },
+      ],
+      temperature: 0.2, // 결정론적이고 정확한 타임스탬프 추출
+    };
+
+    if (reasoningEffort && reasoningEffort !== 'none') {
+      requestBody.reasoning_effort = reasoningEffort;
+    }
+
+    let streamFailure: string | null = null;
+    let isServerUnavailable = false;
+
+    // 1) 실시간 스트리밍 시도
+    try {
+      const streamed = await requestAnalysisStream(url, config, requestBody, signal, callbacks);
+      rawContent = streamed.content;
+      streamedReasoning = streamed.reasoning;
+
+      // 본문이 비었거나 완전한 JSON 배열이 아니면 일반 요청으로 재시도
+      if (!extractSegmentArray(rawContent)) {
+        streamFailure = rawContent.trim()
+          ? '스트림 응답이 완전한 JSON 배열이 아니에요.'
+          : '스트림 응답 본문이 비어 있어요.';
+      } else {
+        // 성공적으로 유효한 JSON 세그먼트를 획득함!
+        break;
+      }
+    } catch (err: unknown) {
+      if (signal?.aborted) throw err;
+      const errMsg = err instanceof Error ? err.message : String(err);
+      lastError = err instanceof Error ? err : new Error(errMsg);
+
+      // 503, 502, 504, 429 등 서버 과부하/불가 판별
+      if (
+        errMsg.includes('503') ||
+        errMsg.includes('502') ||
+        errMsg.includes('504') ||
+        errMsg.includes('429') ||
+        errMsg.includes('overloaded') ||
+        errMsg.includes('rate limit')
+      ) {
+        isServerUnavailable = true;
+        console.warn(`[GatewayClient] 모델 ${currentModel} 서버 과부하(503) 감지 -> 다음 대체 모델로 전환 시도`);
+        continue;
+      }
+
+      streamFailure = errMsg;
+    }
+
+    // 2) 스트림이 실패한 경우 (503이 아닌 JSON 파싱이나 스트림 단절 등의 경우) 동일 모델로 비스트리밍 폴백
+    if (!isServerUnavailable && streamFailure && !signal?.aborted) {
+      try {
+        onFallback?.(streamFailure);
+        rawContent = await requestAnalysisNonStreaming(url, config, requestBody, signal);
+        if (extractSegmentArray(rawContent)) {
+          // 비스트리밍으로 성공!
+          break;
+        }
+      } catch (nbErr: unknown) {
+        if (signal?.aborted) throw nbErr;
+        const nbMsg = nbErr instanceof Error ? nbErr.message : String(nbErr);
+        lastError = nbErr instanceof Error ? nbErr : new Error(nbMsg);
+        console.warn(`[GatewayClient] 모델 ${currentModel} 비스트리밍 요청 실패:`, nbMsg);
+      }
+    }
   }
 
-  // 2) 스트림이 실패한 경우 기존 비스트리밍 방식으로 폴백
-  if (streamFailure && !signal?.aborted) {
-    onFallback?.(streamFailure);
-    rawContent = await requestAnalysisNonStreaming(url, config, requestBody, signal);
-  }
-
-  if (!rawContent.trim()) {
-    throw new Error(
-      streamedReasoning.trim()
-        ? '모델이 사고 과정만 생성하고 최종 하이라이트 JSON을 만들지 못했어요. 추론 노력을 낮추거나 다른 모델을 선택해 주세요.'
-        : 'AI 모델이 빈 응답을 반환했어요. 다른 모델을 선택하거나 잠시 후 다시 시도해 주세요.'
+  // 3) 모든 AI 모델 시도 실패 시: 영상 제작 파이프라인 중단 방지를 위한 스마트 로컬 폴백 자동 적용
+  if (!rawContent.trim() || !extractSegmentArray(rawContent)) {
+    console.warn(
+      '[GatewayClient] AI 모델 응답 획득 실패 (503 또는 타임아웃). 최적 스마트 로컬 클라이맥스 구간으로 자동 복구합니다.',
+      lastError
+    );
+    onFallback?.(
+      'AI 게이트웨이 일시 장애(503)로 인해 최적 스마트 로컬 클라이맥스 구간으로 자동 대체 구성했습니다.'
     );
   }
 

@@ -9,29 +9,31 @@ export interface VideoMetadata {
 
 // 영상 길이에 따라 최적의 프레임 샘플링 타임스탬프 계산 (최대 12~14개 프레임)
 export function calculateSampleTimestamps(totalDuration: number, maxFrames = 14): number[] {
-  if (totalDuration <= 1.0) {
-    return [Math.max(0.1, totalDuration * 0.5)];
+  const safeDuration = Number.isFinite(totalDuration) && totalDuration > 0 ? totalDuration : 3.0;
+
+  if (safeDuration <= 1.0) {
+    return [Math.max(0.1, safeDuration * 0.5)];
   }
 
   // 5초 이하 짧은 영상
-  if (totalDuration <= 5.0) {
-    const count = Math.min(maxFrames, Math.max(4, Math.floor(totalDuration / 0.6)));
-    const step = (totalDuration - 0.2) / (count - 1);
+  if (safeDuration <= 5.0) {
+    const count = Math.min(maxFrames, Math.max(4, Math.floor(safeDuration / 0.6)));
+    const step = (safeDuration - 0.2) / Math.max(1, count - 1);
     return Array.from({ length: count }, (_, i) => Math.round((0.1 + i * step) * 10) / 10);
   }
 
   // 5초 ~ 15초 영상
-  if (totalDuration <= 15.0) {
-    const count = Math.min(maxFrames, Math.max(8, Math.floor(totalDuration / 1.0)));
-    const step = (totalDuration - 0.4) / (count - 1);
+  if (safeDuration <= 15.0) {
+    const count = Math.min(maxFrames, Math.max(8, Math.floor(safeDuration / 1.0)));
+    const step = (safeDuration - 0.4) / Math.max(1, count - 1);
     return Array.from({ length: count }, (_, i) => Math.round((0.2 + i * step) * 10) / 10);
   }
 
   // 15초 초과 영상: 12~14개 프레임 균등 배치
   const count = Math.min(maxFrames, 14);
-  const startOffset = Math.max(0.3, totalDuration * 0.02);
-  const endOffset = Math.min(totalDuration - 0.3, totalDuration * 0.98);
-  const step = (endOffset - startOffset) / (count - 1);
+  const startOffset = Math.max(0.3, safeDuration * 0.02);
+  const endOffset = Math.min(safeDuration - 0.3, safeDuration * 0.98);
+  const step = (endOffset - startOffset) / Math.max(1, count - 1);
   return Array.from({ length: count }, (_, i) => Math.round((startOffset + i * step) * 10) / 10);
 }
 
@@ -51,7 +53,14 @@ export async function extractVideoFramesForAnalysis(
 
     video.onloadedmetadata = async () => {
       try {
-        const duration = video.duration || totalDuration || 1;
+        const rawDur =
+          Number.isFinite(video.duration) && video.duration > 0
+            ? video.duration
+            : Number.isFinite(totalDuration) && totalDuration > 0
+            ? totalDuration
+            : 3.0;
+        const duration = Math.max(0.5, rawDur);
+
         // 시각 분석에 최적화된 저해상도 설정 (너비 420px, 종횡비 유지)
         const targetWidth = 420;
         const aspectRatio = (video.videoHeight || 360) / (video.videoWidth || 640);
@@ -89,7 +98,19 @@ export async function extractVideoFramesForAnalysis(
             }, 1000);
 
             video.addEventListener('seeked', onSeeked);
-            video.currentTime = Math.min(Math.max(0, ts), Math.max(0, duration - 0.05));
+
+            const safeTs = Number.isFinite(ts) ? ts : 0;
+            const targetTime = Math.min(Math.max(0, safeTs), Math.max(0, duration - 0.05));
+            if (Number.isFinite(targetTime)) {
+              try {
+                video.currentTime = targetTime;
+              } catch (e) {
+                console.warn('[videoCompressor] currentTime 설정 오류 방어:', e);
+                seekResolve();
+              }
+            } else {
+              seekResolve();
+            }
           });
 
           // 캔버스에 프레임 그리기
@@ -178,13 +199,19 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
     video.src = objectUrl;
 
     video.onloadedmetadata = () => {
-      const duration = video.duration || 1;
+      const rawDur = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 1;
       const width = video.videoWidth || 640;
       const height = video.videoHeight || 360;
 
       // 썸네일을 위해 0.5초 또는 10% 지점으로 이동
-      const seekTime = Math.min(1.0, duration * 0.1);
-      video.currentTime = seekTime;
+      const seekTime = Math.min(1.0, rawDur * 0.1);
+      if (Number.isFinite(seekTime)) {
+        try {
+          video.currentTime = seekTime;
+        } catch {
+          // ignore
+        }
+      }
     };
 
     video.onseeked = () => {

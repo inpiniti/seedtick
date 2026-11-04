@@ -40,6 +40,14 @@ export async function captureVideoFrameAtTime(
     video.muted = true;
     video.playsInline = true;
     video.preload = 'auto';
+    video.style.position = 'fixed';
+    video.style.top = '-9999px';
+    video.style.left = '-9999px';
+    video.style.opacity = '0';
+    video.style.pointerEvents = 'none';
+    if (typeof document !== 'undefined' && document.body) {
+      document.body.appendChild(video);
+    }
 
     if (videoUrl.startsWith('http://') || videoUrl.startsWith('https://')) {
       video.crossOrigin = 'anonymous';
@@ -54,6 +62,9 @@ export async function captureVideoFrameAtTime(
       video.removeEventListener('error', onError);
       video.removeEventListener('loadedmetadata', startSeeking);
       video.removeEventListener('loadeddata', onDataLoaded);
+      if (video.parentNode) {
+        video.parentNode.removeChild(video);
+      }
     };
 
     const onError = () => {
@@ -163,11 +174,12 @@ export async function captureVideoFrameAtTime(
     let targetTimeRef = 0;
 
     const startSeeking = () => {
-      const dur = video.duration || 1;
-      const targetTime = Math.max(0.05, Math.min(dur - 0.05, timestamp));
+      const dur = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 1;
+      const safeTs = Number.isFinite(timestamp) ? timestamp : 0.05;
+      const targetTime = Math.max(0.05, Math.min(dur - 0.05, safeTs));
       targetTimeRef = targetTime;
 
-      // 타임아웃 안전장치: 3초 후 readyState가 있으면 즉시 그리고, 없으면 현재 프레임 시도
+      // 타임아웃 안전장치: 7초 후 readyState가 있으면 즉시 그리고, 없으면 현재 프레임 시도
       timeoutId = setTimeout(() => {
         if (isFinished) return;
         if (video.readyState >= 2 || video.videoWidth > 0) {
@@ -176,7 +188,7 @@ export async function captureVideoFrameAtTime(
           cleanup();
           reject(new Error('비디오 프레임 추출 타임아웃'));
         }
-      }, 3500);
+      }, 7000);
 
       video.addEventListener('seeked', onSeeked);
       video.addEventListener('loadeddata', onDataLoaded);
@@ -204,6 +216,107 @@ export async function captureVideoFrameAtTime(
     } else {
       video.load();
     }
+  });
+}
+
+/**
+ * AI 분석 단계에서 추출된 클린 키프레임 Data URL(오버레이 일체 없음)로부터 16:9 규격 캔버스를 생성합니다.
+ */
+export async function createCanvasFromImageDataUrl(
+  dataUrl: string,
+  targetWidth = 1280,
+  targetHeight = 720,
+  cropOffsetYRatio = 0.2,
+  rotation = 0
+): Promise<HTMLCanvasElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Canvas context 생성 실패'));
+          return;
+        }
+
+        const rawW = img.naturalWidth || img.width || 1280;
+        const rawH = img.naturalHeight || img.height || 720;
+        const normRot = ((rotation % 360) + 360) % 360;
+        const isSideways = normRot === 90 || normRot === 270;
+        const vW = isSideways ? rawH : rawW;
+        const vH = isSideways ? rawW : rawH;
+
+        const targetAspect = targetWidth / targetHeight;
+        const scale = Math.max(targetWidth / vW, targetHeight / vH);
+        const renderW = vW * scale;
+        const renderH = vH * scale;
+
+        const offsetX = (targetWidth - renderW) / 2;
+        let offsetY: number;
+        if (vH > vW) {
+          const excessHeight = renderH - targetHeight;
+          offsetY = -excessHeight * Math.max(0, Math.min(1, cropOffsetYRatio));
+        } else {
+          offsetY = (targetHeight - renderH) / 2;
+        }
+
+        if (normRot === 0) {
+          const aspect = vW / vH;
+          let sx = 0;
+          let sy = 0;
+          let sWidth = vW;
+          let sHeight = vH;
+
+          if (aspect > targetAspect) {
+            sWidth = Math.round(vH * targetAspect);
+            sx = Math.round((vW - sWidth) / 2);
+          } else if (aspect < targetAspect) {
+            sHeight = Math.round(vW / targetAspect);
+            if (aspect < 1.0) {
+              const maxSy = Math.max(0, vH - sHeight);
+              sy = Math.round(maxSy * Math.max(0, Math.min(1, cropOffsetYRatio)));
+            } else {
+              sy = Math.round((vH - sHeight) / 2);
+            }
+          }
+
+          sx = Math.max(0, Math.min(sx, Math.max(0, vW - sWidth)));
+          sy = Math.max(0, Math.min(sy, Math.max(0, vH - sHeight)));
+
+          ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
+        } else {
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(0, 0, targetWidth, targetHeight);
+          ctx.clip();
+
+          const centerX = offsetX + renderW / 2;
+          const centerY = offsetY + renderH / 2;
+
+          ctx.translate(centerX, centerY);
+          ctx.rotate((normRot * Math.PI) / 180);
+
+          ctx.drawImage(
+            img,
+            (-rawW * scale) / 2,
+            (-rawH * scale) / 2,
+            rawW * scale,
+            rawH * scale
+          );
+          ctx.restore();
+        }
+
+        resolve(canvas);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    img.onerror = (e) => reject(new Error('이미지 로드 실패: ' + e));
+    img.src = dataUrl;
   });
 }
 
@@ -358,97 +471,40 @@ export function renderThumbnailArtwork(
   const ctx = canvas.getContext('2d');
   if (!ctx) return canvas;
 
-  // 1. 배경 프레임 그리기
+  // 1. 순수 배경 프레임 그리기
   ctx.drawImage(bgCanvas, 0, 0, targetWidth, targetHeight);
 
-  // 2. 유튜브 시네마틱 비네팅 & 하단/상단 가독성 그라데이션
-  // 상단 은은한 섀도우 (채널명/배지가 있을 때만 적용하여 원본 비디오 화면 보존)
-  if ((options.showBadge && options.badgeText) || (options.showChannel && options.channelText)) {
-    const topGrad = ctx.createLinearGradient(0, 0, 0, 180);
-    topGrad.addColorStop(0, 'rgba(0, 0, 0, 0.6)');
-    topGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = topGrad;
-    ctx.fillRect(0, 0, targetWidth, 180);
+  // 상단 왼쪽 문구, 오른쪽 문구, 날짜 등의 문구는 썸네일 이미지에 일체 표시되지 않아야 하므로 렌더링하지 않습니다.
+  const shouldRenderTitle = Boolean(options.showTitle && options.titleText && options.titleText.trim());
+
+  // 타이틀이 활성화된 경우에만 하단 가독성 그라데이션 및 비네팅 적용
+  if (shouldRenderTitle) {
+    // 하단 딥 다크 그라데이션 (타이틀 가독성 극대화)
+    const bottomGrad = ctx.createLinearGradient(0, targetHeight - 380, 0, targetHeight);
+    bottomGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    bottomGrad.addColorStop(0.35, 'rgba(0, 0, 0, 0.45)');
+    bottomGrad.addColorStop(0.8, 'rgba(0, 0, 0, 0.85)');
+    bottomGrad.addColorStop(1, 'rgba(0, 0, 0, 0.95)');
+    ctx.fillStyle = bottomGrad;
+    ctx.fillRect(0, targetHeight - 380, targetWidth, 380);
+
+    // 비네팅 (가장자리 어둡게)
+    const vignette = ctx.createRadialGradient(
+      targetWidth / 2,
+      targetHeight / 2,
+      targetWidth * 0.35,
+      targetWidth / 2,
+      targetHeight / 2,
+      targetWidth * 0.72
+    );
+    vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    vignette.addColorStop(1, 'rgba(0, 0, 0, 0.55)');
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, targetWidth, targetHeight);
   }
 
-  // 하단 딥 다크 그라데이션 (타이틀 가독성 극대화)
-  const bottomGrad = ctx.createLinearGradient(0, targetHeight - 380, 0, targetHeight);
-  bottomGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-  bottomGrad.addColorStop(0.35, 'rgba(0, 0, 0, 0.45)');
-  bottomGrad.addColorStop(0.8, 'rgba(0, 0, 0, 0.85)');
-  bottomGrad.addColorStop(1, 'rgba(0, 0, 0, 0.95)');
-  ctx.fillStyle = bottomGrad;
-  ctx.fillRect(0, targetHeight - 380, targetWidth, 380);
-
-  // 비네팅 (가장자리 어둡게)
-  const vignette = ctx.createRadialGradient(
-    targetWidth / 2,
-    targetHeight / 2,
-    targetWidth * 0.35,
-    targetWidth / 2,
-    targetHeight / 2,
-    targetWidth * 0.72
-  );
-  vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
-  vignette.addColorStop(1, 'rgba(0, 0, 0, 0.55)');
-  ctx.fillStyle = vignette;
-  ctx.fillRect(0, 0, targetWidth, targetHeight);
-
-  // 3. 상단 좌측 배지 (AI 하이라이트)
-  if (options.showBadge && options.badgeText) {
-    ctx.save();
-    ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif';
-    const badgeText = options.badgeText;
-    const badgeMetrics = ctx.measureText(badgeText);
-    const bPadX = 16;
-    const bPadY = 9;
-    const bW = badgeMetrics.width + bPadX * 2;
-    const bH = 38;
-    const bX = 48;
-    const bY = 44;
-
-    // 배지 배경 (선명한 블루 그라데이션)
-    const bGrad = ctx.createLinearGradient(bX, bY, bX + bW, bY + bH);
-    bGrad.addColorStop(0, '#2563eb');
-    bGrad.addColorStop(1, '#4f46e5');
-    ctx.fillStyle = bGrad;
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-    ctx.shadowBlur = 12;
-    ctx.shadowOffsetY = 4;
-
-    ctx.beginPath();
-    if (typeof ctx.roundRect === 'function') {
-      ctx.roundRect(bX, bY, bW, bH, 8);
-    } else {
-      ctx.rect(bX, bY, bW, bH);
-    }
-    ctx.fill();
-
-    // 배지 텍스트
-    ctx.shadowColor = 'transparent';
-    ctx.fillStyle = '#ffffff';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(badgeText, bX + bPadX, bY + bH / 2);
-    ctx.restore();
-  }
-
-  // 4. 상단 우측 채널명
-  if (options.showChannel && options.channelText) {
-    ctx.save();
-    ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif';
-    ctx.fillStyle = '#ffffff';
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-    ctx.shadowBlur = 8;
-    ctx.shadowOffsetY = 2;
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(options.channelText, targetWidth - 48, 63);
-    ctx.restore();
-  }
-
-  // 5. 메인 타이틀 텍스트 렌더링
-  if (options.showTitle && options.titleText && options.titleText.trim()) {
+  // 2. 메인 타이틀 텍스트 렌더링 (사용자가 원할 때만 하단에 렌더링)
+  if (shouldRenderTitle) {
     const rawTitle = options.titleText.trim();
     ctx.save();
 
