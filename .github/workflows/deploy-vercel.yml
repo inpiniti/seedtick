@@ -1,6 +1,12 @@
 name: Deploy Monorepo to Vercel
 
 on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Deploy target (all or specific project: video, seedtick, gateway, chat, game)'
+        required: true
+        default: 'all'
   push:
     branches:
       - main
@@ -31,7 +37,13 @@ jobs:
       - name: Check if reportist-video changed
         id: filter
         run: |
-          if git diff --name-only HEAD^ HEAD | grep -q "^reportist-video/"; then
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ github.event.inputs.target }}" = "all" ] || [ "${{ github.event.inputs.target }}" = "video" ]; then
+              echo "changed=true" >> $GITHUB_OUTPUT
+            else
+              echo "changed=false" >> $GITHUB_OUTPUT
+            fi
+          elif git diff --name-only HEAD^ HEAD | grep -q "^reportist-video/"; then
             echo "changed=true" >> $GITHUB_OUTPUT
           else
             echo "changed=false" >> $GITHUB_OUTPUT
@@ -60,8 +72,13 @@ jobs:
       - name: Check if seedtick root changed
         id: filter
         run: |
-          # 루트 디렉토리의 파일이나 공통 리소스 변경 시
-          if git diff --name-only HEAD^ HEAD | grep -E -v "^(reportist-|seedtick-ai-gateway/|\.github/)" | grep -q .; then
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ github.event.inputs.target }}" = "all" ] || [ "${{ github.event.inputs.target }}" = "seedtick" ]; then
+              echo "changed=true" >> $GITHUB_OUTPUT
+            else
+              echo "changed=false" >> $GITHUB_OUTPUT
+            fi
+          elif git diff --name-only HEAD^ HEAD | grep -E -v "^(reportist-|seedtick-ai-gateway/|\.github/)" | grep -q .; then
             echo "changed=true" >> $GITHUB_OUTPUT
           else
             echo "changed=false" >> $GITHUB_OUTPUT
@@ -90,7 +107,13 @@ jobs:
       - name: Check if seedtick-ai-gateway changed
         id: filter
         run: |
-          if git diff --name-only HEAD^ HEAD | grep -q "^reportist-ai-gateway/"; then
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ github.event.inputs.target }}" = "all" ] || [ "${{ github.event.inputs.target }}" = "gateway" ]; then
+              echo "changed=true" >> $GITHUB_OUTPUT
+            else
+              echo "changed=false" >> $GITHUB_OUTPUT
+            fi
+          elif git diff --name-only HEAD^ HEAD | grep -q "^reportist-ai-gateway/"; then
             echo "changed=true" >> $GITHUB_OUTPUT
           else
             echo "changed=false" >> $GITHUB_OUTPUT
@@ -119,7 +142,13 @@ jobs:
       - name: Check if reportist-chat changed
         id: filter
         run: |
-          if git diff --name-only HEAD^ HEAD | grep -q "^reportist-chat/"; then
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ github.event.inputs.target }}" = "all" ] || [ "${{ github.event.inputs.target }}" = "chat" ]; then
+              echo "changed=true" >> $GITHUB_OUTPUT
+            else
+              echo "changed=false" >> $GITHUB_OUTPUT
+            fi
+          elif git diff --name-only HEAD^ HEAD | grep -q "^reportist-chat/"; then
             echo "changed=true" >> $GITHUB_OUTPUT
           else
             echo "changed=false" >> $GITHUB_OUTPUT
@@ -148,7 +177,13 @@ jobs:
       - name: Check if reportist-game changed
         id: filter
         run: |
-          if git diff --name-only HEAD^ HEAD | grep -q "^reportist-game/"; then
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ github.event.inputs.target }}" = "all" ] || [ "${{ github.event.inputs.target }}" = "game" ]; then
+              echo "changed=true" >> $GITHUB_OUTPUT
+            else
+              echo "changed=false" >> $GITHUB_OUTPUT
+            fi
+          elif git diff --name-only HEAD^ HEAD | grep -q "^reportist-game/"; then
             echo "changed=true" >> $GITHUB_OUTPUT
           else
             echo "changed=false" >> $GITHUB_OUTPUT
