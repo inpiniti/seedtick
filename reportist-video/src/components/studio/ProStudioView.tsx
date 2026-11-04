@@ -208,21 +208,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   }, [isProcessing]);
 
-  // 처리 경과 시간 타이머
-  const [processingElapsed, setProcessingElapsed] = useState(0);
-  useEffect(() => {
-    if (!isProcessing) {
-      setProcessingElapsed(0);
-      return;
-    }
-    const startedAt = Date.now();
-    setProcessingElapsed(0);
-    const timer = window.setInterval(() => {
-      setProcessingElapsed(Math.floor((Date.now() - startedAt) / 1000));
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [isProcessing]);
-
   // 현재 AI 분석/처리 중인 비디오 및 썸네일
   const currentProcessingVideo = videos[progress.currentVideoIndex] || videos[0];
   const currentVideoThumbnail = currentProcessingVideo?.thumbnailUrl;
@@ -2274,27 +2259,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               </span>
             </div>
 
-            {/* 실시간 AI 비전 추론 로그 콘솔 (가장 최근 작업 1줄만 표시) */}
+            {/* 최근 작업/추론 단일 라인 인포 바 (1줄 고정, 넘치면 ...) */}
             <div className="toss-modal-reasoning-wrap mt-4 text-left">
-              <div className="toss-modal-reasoning-header flex items-center gap-1.5 mb-1.5 px-1">
-                <span className="toss-reasoning-live-dot" />
-                <span className="text-xs font-bold text-slate-700">{dict.processingModal.reasoningHeader}</span>
-                <span className="text-[11px] font-mono text-blue-600 ml-auto font-semibold">
-                  {progress.currentPhase === 'extract'
-                    ? dict.processingModal.phaseExtract
-                    : progress.currentPhase === 'analyze'
-                    ? dict.processingModal.phaseAnalyze
-                    : progress.currentPhase === 'stitch'
-                    ? dict.processingModal.phaseStitch
-                    : dict.processingModal.phaseProcessing}
-                  {` · ${processingElapsed}s`}
-                </span>
-              </div>
-              <div className="toss-modal-reasoning-single px-1">
-                <div className="text-[13px] font-sans font-medium text-slate-800 leading-relaxed line-clamp-2 break-all">
-                  <span>{latestTask.text}</span>
-                  {latestTask.isStreaming && <span className="toss-live-caret" />}
-                </div>
+              <span className="toss-reasoning-live-dot mr-2 flex-shrink-0" />
+              <div className="flex-1 min-w-0 flex items-center text-[12px] font-mono text-slate-500 overflow-hidden">
+                <span className="truncate">{latestTask.text}</span>
+                {latestTask.isStreaming && <span className="toss-live-caret flex-shrink-0" />}
               </div>
             </div>
 
