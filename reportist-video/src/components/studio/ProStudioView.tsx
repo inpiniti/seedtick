@@ -5,6 +5,7 @@ import {
   Play,
   Pause,
   RotateCcw,
+  RotateCw,
   Volume2,
   VolumeX,
   Sparkles,
@@ -30,6 +31,10 @@ import {
   Share2,
   Settings,
   Subtitles,
+  ArrowUpDown,
+  Check,
+  Maximize,
+  Minimize,
 } from 'lucide-react';
 import { VideoCommunityView } from '../community/VideoCommunityView.tsx';
 import type {
@@ -69,6 +74,9 @@ import {
   formatDateWithAge,
   stripAgeFromDate,
   parseDateFromString,
+  sortSegmentsByRecordedTime,
+  formatSegmentRecordedDateTime,
+  calculateSegmentTimestamp,
 } from '../../services/videoMetadata.ts';
 import {
   loadLibraryAudioFile,
@@ -134,7 +142,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 }) => {
   const { dict, interpolate, currentLocaleInfo } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const playerStageRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   // 1. 타임라인 및 클립 상태
   const initialSegments = useMemo(() => {
@@ -203,6 +213,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [currentDateFormat, setCurrentDateFormat] = useState<DateFormatOption>(getStoredDateFormat);
   const [showAge, setShowAge] = useState<boolean>(getStoredShowAge);
   const [birthDate, setBirthDate] = useState<string>(getStoredBirthDate);
+  const [sortToastMessage, setSortToastMessage] = useState<string | null>(null);
+  const sortToastTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (sortToastTimeoutRef.current) {
+        window.clearTimeout(sortToastTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const currentModel = useMemo(
     () => models.find((model) => model.id === selectedModel) || models[0] || null,
@@ -803,11 +823,116 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     setCurrentTime(targetTime);
   };
 
-  // 재생 / 일시정지 토글
+  // 영상 종료 시점 여부 (시크바가 끝에 도달했거나 v.ended 인 경우)
+  const isAtEnd = Boolean(
+    (videoRef.current?.ended ?? false) ||
+    (totalDuration > 0 && currentTime >= totalDuration - 0.25)
+  );
+
+  // 전체화면 변경 이벤트 동기화
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isFs = Boolean(
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement
+      );
+      setIsFullscreen(isFs);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
+  }, []);
+
+  // 전체화면 상태일 때 ESC 키 대응
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        } else {
+          setIsFullscreen(false);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullscreen]);
+
+  // 영상 확대(전체화면) 토글 핸들러
+  const toggleFullscreen = async () => {
+    const stage = playerStageRef.current;
+    if (!stage) return;
+
+    try {
+      const isFs = Boolean(
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement
+      );
+
+      if (!isFs) {
+        if (stage.requestFullscreen) {
+          await stage.requestFullscreen();
+        } else if ((stage as any).webkitRequestFullscreen) {
+          await (stage as any).webkitRequestFullscreen();
+        } else if ((stage as any).mozRequestFullScreen) {
+          await (stage as any).mozRequestFullScreen();
+        } else if ((stage as any).msRequestFullscreen) {
+          await (stage as any).msRequestFullscreen();
+        } else if (videoRef.current && (videoRef.current as any).webkitEnterFullscreen) {
+          (videoRef.current as any).webkitEnterFullscreen();
+        } else {
+          setIsFullscreen(true);
+        }
+      } else {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if ((document as any).webkitExitFullscreen) {
+          await (document as any).webkitExitFullscreen();
+        } else if ((document as any).mozCancelFullScreen) {
+          await (document as any).mozCancelFullScreen();
+        } else if ((document as any).msExitFullscreen) {
+          await (document as any).msExitFullscreen();
+        } else {
+          setIsFullscreen(false);
+        }
+      }
+    } catch (err) {
+      console.warn('Fullscreen toggle failed, fallback to CSS:', err);
+      setIsFullscreen((prev) => !prev);
+    }
+  };
+
+  // 재생 / 일시정지 토글 (영상 종료 시점이면 0초 처음부터 재생)
   const togglePlay = () => {
     const v = videoRef.current;
     if (!v) return;
     if (v.paused || v.ended) {
+      const dur = Number.isFinite(v.duration) && v.duration > 0 ? v.duration : totalDuration;
+      const effectiveEnd = Math.min(dur || totalDuration, totalDuration || dur);
+      const isEndedOrAtEnd =
+        v.ended ||
+        (effectiveEnd > 0 && v.currentTime >= effectiveEnd - 0.25) ||
+        (totalDuration > 0 && currentTime >= totalDuration - 0.25);
+
+      if (isEndedOrAtEnd) {
+        v.currentTime = 0;
+        setCurrentTime(0);
+      }
+
       const p = v.play();
       if (p !== undefined) {
         p.then(() => {
@@ -875,10 +1000,50 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   };
 
+  // 촬영일시(날짜 및 시·분·초) 기준 시간순 정렬
+  const handleSortSegmentsByRecordedTime = () => {
+    if (segments.length <= 1) return;
+    const sorted = sortSegmentsByRecordedTime(segments, videoMap);
+    setSegments(sorted);
+
+    // 토스트 알림 피드백
+    setSortToastMessage(dict.dramaticClips.sortByRecordedDateToast);
+    if (sortToastTimeoutRef.current) {
+      window.clearTimeout(sortToastTimeoutRef.current);
+    }
+    sortToastTimeoutRef.current = window.setTimeout(() => {
+      setSortToastMessage(null);
+    }, 2200);
+  };
+
   // 크롭 위치 조정
   const handleCropAnchorChange = (segId: string, ratio: number) => {
     setSegments((prev) =>
       prev.map((s) => (s.id === segId ? { ...s, cropOffsetYRatio: ratio } : s))
+    );
+  };
+
+  // 씬 영상 회전 각도 조정 (90도씩 좌/우 회전: delta = -90 | 90)
+  const handleRotateSegment = (segId: string, delta: number, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setSegments((prev) =>
+      prev.map((s) => {
+        if (s.id !== segId) return s;
+        const currentRot = s.rotation ?? 0;
+        const newRot = (currentRot + delta + 360) % 360;
+        return {
+          ...s,
+          rotation: newRot,
+        };
+      })
+    );
+  };
+
+  // 씬 영상 회전 각도 0도로 초기화
+  const handleResetSegmentRotation = (segId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setSegments((prev) =>
+      prev.map((s) => (s.id === segId ? { ...s, rotation: 0 } : s))
     );
   };
 
@@ -940,7 +1105,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       if (videoRef.current && videoRef.current.readyState >= 2) {
         bg = captureVideoFrameFromElement(
           videoRef.current,
-          activePlayingSegment?.cropOffsetYRatio ?? 0.2
+          activePlayingSegment?.cropOffsetYRatio ?? 0.2,
+          1280,
+          720,
+          activePlayingSegment?.rotation ?? 0
         );
       }
 
@@ -949,7 +1117,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         bg = await captureVideoFrameAtTime(
           activeVideoUrl,
           curTime,
-          activePlayingSegment?.cropOffsetYRatio ?? 0.2
+          activePlayingSegment?.cropOffsetYRatio ?? 0.2,
+          1280,
+          720,
+          activePlayingSegment?.rotation ?? 0
         );
       }
 
@@ -986,7 +1157,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       const bg = await captureVideoFrameAtTime(
         targetVideo.url,
         targetTime,
-        seg.cropOffsetYRatio ?? 0.2
+        seg.cropOffsetYRatio ?? 0.2,
+        1280,
+        720,
+        seg.rotation ?? 0
       );
       thumbnailBgCanvasRef.current = bg;
 
@@ -1215,199 +1389,274 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               </div>
             </div>
 
-            <div className={`toss-player-wrapper ${activeVideoUrl ? 'has-video' : 'is-empty'}`}>
-              {activeVideoUrl ? (
-                <>
-                  <video
-                    key={activeVideoUrl}
-                    ref={videoRef}
-                    src={activeVideoUrl}
-                    playsInline
-                    muted={isMuted}
-                    onPlay={() => setIsPlaying(true)}
-                    onPause={() => setIsPlaying(false)}
-                    onTimeUpdate={(e) => {
-                      const cur = e.currentTarget.currentTime;
-                      const nativeDur = e.currentTarget.duration;
-                      const effectiveMaxDur =
-                        Number.isFinite(nativeDur) && nativeDur > 0
-                          ? Math.max(totalDuration, nativeDur)
-                          : totalDuration;
-                      if (result?.url && effectiveMaxDur > 0 && cur >= effectiveMaxDur) {
-                        e.currentTarget.pause();
-                        e.currentTarget.currentTime = effectiveMaxDur;
+            {/* 플레이어 스테이지 (전체화면 지원) */}
+            <div
+              ref={playerStageRef}
+              className={`toss-player-stage ${isFullscreen ? 'is-fullscreen' : ''}`}
+            >
+              <div className={`toss-player-wrapper ${activeVideoUrl ? 'has-video' : 'is-empty'}`}>
+                {activeVideoUrl ? (
+                  <>
+                    <video
+                      key={activeVideoUrl}
+                      ref={videoRef}
+                      src={activeVideoUrl}
+                      playsInline
+                      muted={isMuted}
+                      onPlay={() => setIsPlaying(true)}
+                      onPause={() => setIsPlaying(false)}
+                      onTimeUpdate={(e) => {
+                        const cur = e.currentTarget.currentTime;
+                        const nativeDur = e.currentTarget.duration;
+                        const effectiveMaxDur =
+                          Number.isFinite(nativeDur) && nativeDur > 0
+                            ? Math.max(totalDuration, nativeDur)
+                            : totalDuration;
+                        if (result?.url && effectiveMaxDur > 0 && cur >= effectiveMaxDur) {
+                          e.currentTarget.pause();
+                          e.currentTarget.currentTime = effectiveMaxDur;
+                          setCurrentTime(totalDuration);
+                          setIsPlaying(false);
+                          return;
+                        }
                         setCurrentTime(Math.min(cur, totalDuration));
+                      }}
+                      onEnded={() => {
                         setIsPlaying(false);
-                        return;
-                      }
-                      setCurrentTime(Math.min(cur, totalDuration));
-                    }}
-                    onEnded={() => {
-                      setIsPlaying(false);
-                      setCurrentTime(0);
-                    }}
-                    onLoadedData={() => {
-                      if (!thumbnailBgCanvasRef.current && videoRef.current) {
-                        const bg = captureVideoFrameFromElement(
-                          videoRef.current,
-                          activePlayingSegment?.cropOffsetYRatio ?? 0.2
-                        );
-                        if (bg) {
-                          thumbnailBgCanvasRef.current = bg;
-                          if (!thumbnailUrl) {
-                            const artCanvas = renderThumbnailArtwork(bg, {
-                              titleText: overlayOptions.titleText,
-                              channelText: '',
-                              badgeText: '',
-                              showTitle: showThumbnailTitle && Boolean(overlayOptions.titleText?.trim()),
-                              showBadge: false,
-                              showChannel: false,
-                              stylePreset: thumbnailStyle,
-                            });
-                            setThumbnailUrl(artCanvas.toDataURL('image/jpeg', 0.95));
+                        if (totalDuration > 0) {
+                          setCurrentTime(totalDuration);
+                        }
+                      }}
+                      onLoadedData={() => {
+                        if (!thumbnailBgCanvasRef.current && videoRef.current) {
+                          const bg = captureVideoFrameFromElement(
+                            videoRef.current,
+                            activePlayingSegment?.cropOffsetYRatio ?? 0.2,
+                            1280,
+                            720,
+                            activePlayingSegment?.rotation ?? 0
+                          );
+                          if (bg) {
+                            thumbnailBgCanvasRef.current = bg;
+                            if (!thumbnailUrl) {
+                              const artCanvas = renderThumbnailArtwork(bg, {
+                                titleText: overlayOptions.titleText,
+                                channelText: '',
+                                badgeText: '',
+                                showTitle: showThumbnailTitle && Boolean(overlayOptions.titleText?.trim()),
+                                showBadge: false,
+                                showChannel: false,
+                                stylePreset: thumbnailStyle,
+                              });
+                              setThumbnailUrl(artCanvas.toDataURL('image/jpeg', 0.95));
+                            }
                           }
                         }
+                      }}
+                      onClick={togglePlay}
+                      onDoubleClick={toggleFullscreen}
+                      className="toss-video-element"
+                      style={
+                        !result?.url && activePlayingSegment?.rotation
+                          ? {
+                              transform: `rotate(${activePlayingSegment.rotation}deg)${
+                                activePlayingSegment.rotation === 90 || activePlayingSegment.rotation === 270
+                                  ? ' scale(0.5625)'
+                                  : ''
+                              }`,
+                              transition: 'transform 0.25s ease',
+                            }
+                          : undefined
                       }
-                    }}
-                    onClick={togglePlay}
-                    className="toss-video-element"
-                  />
-                  {!isPlaying && (
+                    />
+
+                    {/* 영상 우측 상단 퀵 확대/축소 버튼 */}
                     <button
                       type="button"
-                      className="toss-canvas-play-overlay"
-                      onClick={togglePlay}
-                      title={dict.player.play}
+                      className="toss-video-fullscreen-overlay-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFullscreen();
+                      }}
+                      title={
+                        isFullscreen
+                          ? (dict.player?.exitFullscreen || '전체화면 축소')
+                          : (dict.player?.fullscreen || '전체화면 확대')
+                      }
                     >
-                      <Play size={28} className="ml-1 text-white" />
+                      {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
                     </button>
-                  )}
 
-                  {!result?.url &&
-                    ((overlayOptions.showTitle && overlayOptions.titleText) || activePlayingMetaText) && (
-                      <div className="toss-live-overlay-top-left">
-                        {overlayOptions.showTitle && overlayOptions.titleText && (
-                          <div className="toss-live-overlay-title">
-                            {overlayOptions.titleText}
-                          </div>
+                    {!isPlaying && (
+                      <button
+                        type="button"
+                        className="toss-canvas-play-overlay"
+                        onClick={togglePlay}
+                        title={
+                          isAtEnd
+                            ? (dict.player?.replay || '처음부터 다시 재생')
+                            : dict.player.play
+                        }
+                      >
+                        {isAtEnd ? (
+                          <RotateCcw size={28} className="text-white" />
+                        ) : (
+                          <Play size={28} className="ml-1 text-white" />
                         )}
-                        {activePlayingMetaText && (
-                          <div className="toss-live-overlay-meta">
-                            {activePlayingMetaText}
-                          </div>
-                        )}
+                      </button>
+                    )}
+
+                    {!result?.url &&
+                      ((overlayOptions.showTitle && overlayOptions.titleText) || activePlayingMetaText) && (
+                        <div className="toss-live-overlay-top-left">
+                          {overlayOptions.showTitle && overlayOptions.titleText && (
+                            <div className="toss-live-overlay-title">
+                              {overlayOptions.titleText}
+                            </div>
+                          )}
+                          {activePlayingMetaText && (
+                            <div className="toss-live-overlay-meta">
+                              {activePlayingMetaText}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                    {!result?.url && overlayOptions.showChannel && overlayOptions.channelText && (
+                      <div className="toss-live-overlay-channel">
+                        {overlayOptions.channelText}
                       </div>
                     )}
 
-                  {!result?.url && overlayOptions.showChannel && overlayOptions.channelText && (
-                    <div className="toss-live-overlay-channel">
-                      {overlayOptions.channelText}
+                    {!result?.url && overlayOptions.showSubtitle && activePlayingSubtitleText && (
+                      <div className="toss-live-overlay-subtitle">
+                        {activePlayingSubtitleText}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div
+                    className="toss-player-empty"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <div className="toss-empty-circle-icon">
+                      <Upload size={28} className="text-blue-500" />
                     </div>
-                  )}
-
-                  {!result?.url && overlayOptions.showSubtitle && activePlayingSubtitleText && (
-                    <div className="toss-live-overlay-subtitle">
-                      {activePlayingSubtitleText}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div
-                  className="toss-player-empty"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <div className="toss-empty-circle-icon">
-                    <Upload size={28} className="text-blue-500" />
+                    <h3 className="toss-empty-title">{dict.player.emptyTitle}</h3>
+                    <p className="toss-empty-desc">
+                      {dict.player.emptyDesc.split('\n').map((line, i) => (
+                        <React.Fragment key={i}>
+                          {line}
+                          {i === 0 && <br />}
+                        </React.Fragment>
+                      ))}
+                    </p>
+                    <button type="button" className="toss-btn-secondary mt-3">
+                      <Plus size={15} />
+                      <span>{dict.player.selectVideoFiles}</span>
+                    </button>
                   </div>
-                  <h3 className="toss-empty-title">{dict.player.emptyTitle}</h3>
-                  <p className="toss-empty-desc">
-                    {dict.player.emptyDesc.split('\n').map((line, i) => (
-                      <React.Fragment key={i}>
-                        {line}
-                        {i === 0 && <br />}
-                      </React.Fragment>
-                    ))}
-                  </p>
-                  <button type="button" className="toss-btn-secondary mt-3">
-                    <Plus size={15} />
-                    <span>{dict.player.selectVideoFiles}</span>
-                  </button>
+                )}
+              </div>
+
+              {/* 비디오 재생 트랜스포트 바 */}
+              {activeVideoUrl && (
+                <div className="toss-transport-bar">
+                  <div className="toss-transport-left">
+                    <button
+                      type="button"
+                      className="toss-btn-step"
+                      onClick={() => seekRelative(-5)}
+                      title={dict.player.rewind5s}
+                    >
+                      <RotateCcw size={13} />
+                      <span>-5s</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="toss-play-btn"
+                      onClick={togglePlay}
+                      title={
+                        isPlaying
+                          ? dict.player.pause
+                          : isAtEnd
+                          ? (dict.player?.replay || '처음부터 다시 재생')
+                          : dict.player.play
+                      }
+                    >
+                      {isPlaying ? (
+                        <Pause size={18} />
+                      ) : isAtEnd ? (
+                        <RotateCcw size={18} />
+                      ) : (
+                        <Play size={18} className="ml-0.5" />
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      className="toss-btn-step"
+                      onClick={() => seekRelative(5)}
+                      title={dict.player.forward5s}
+                    >
+                      <span>+5s</span>
+                      <FastForward size={13} />
+                    </button>
+
+                    <div className="toss-timecode-text">
+                      <span className="font-bold text-slate-900">{formatSec(currentTime)}</span>
+                      <span className="text-slate-400">/</span>
+                      <span className="text-slate-500">{formatSec(totalDuration)}</span>
+                    </div>
+                  </div>
+
+                  {/* 프로그레스 스크럽 바 */}
+                  <div
+                    className="toss-progress-track"
+                    onClick={handleSeekByPosition}
+                    title={dict.player.seekTooltip}
+                  >
+                    <div
+                      className="toss-progress-fill"
+                      style={{
+                        width: `${Math.min(100, Math.max(0, (currentTime / (totalDuration || 1)) * 100))}%`,
+                      }}
+                    />
+                    <div
+                      className="toss-progress-thumb"
+                      style={{
+                        left: `${Math.min(100, Math.max(0, (currentTime / (totalDuration || 1)) * 100))}%`,
+                      }}
+                    />
+                  </div>
+
+                  <div className="toss-transport-right">
+                    <button
+                      type="button"
+                      className={`toss-btn-icon ${isMuted ? 'muted' : ''}`}
+                      onClick={toggleMute}
+                      title={isMuted ? dict.player.unmute : dict.player.mute}
+                    >
+                      {isMuted ? <VolumeX size={17} /> : <Volume2 size={17} />}
+                    </button>
+
+                    <button
+                      type="button"
+                      className={`toss-btn-icon ${isFullscreen ? 'active' : ''}`}
+                      onClick={toggleFullscreen}
+                      title={
+                        isFullscreen
+                          ? (dict.player?.exitFullscreen || '전체화면 축소')
+                          : (dict.player?.fullscreen || '전체화면 확대')
+                      }
+                    >
+                      {isFullscreen ? <Minimize size={17} /> : <Maximize size={17} />}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
-
-            {/* 비디오 재생 트랜스포트 바 */}
-            {activeVideoUrl && (
-              <div className="toss-transport-bar">
-                <div className="toss-transport-left">
-                  <button
-                    type="button"
-                    className="toss-btn-step"
-                    onClick={() => seekRelative(-5)}
-                    title={dict.player.rewind5s}
-                  >
-                    <RotateCcw size={13} />
-                    <span>-5s</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    className="toss-play-btn"
-                    onClick={togglePlay}
-                    title={isPlaying ? dict.player.pause : dict.player.play}
-                  >
-                    {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
-                  </button>
-
-                  <button
-                    type="button"
-                    className="toss-btn-step"
-                    onClick={() => seekRelative(5)}
-                    title={dict.player.forward5s}
-                  >
-                    <span>+5s</span>
-                    <FastForward size={13} />
-                  </button>
-
-                  <div className="toss-timecode-text">
-                    <span className="font-bold text-slate-900">{formatSec(currentTime)}</span>
-                    <span className="text-slate-400">/</span>
-                    <span className="text-slate-500">{formatSec(totalDuration)}</span>
-                  </div>
-                </div>
-
-                {/* 프로그레스 스크럽 바 */}
-                <div
-                  className="toss-progress-track"
-                  onClick={handleSeekByPosition}
-                  title={dict.player.seekTooltip}
-                >
-                  <div
-                    className="toss-progress-fill"
-                    style={{
-                      width: `${Math.min(100, Math.max(0, (currentTime / (totalDuration || 1)) * 100))}%`,
-                    }}
-                  />
-                  <div
-                    className="toss-progress-thumb"
-                    style={{
-                      left: `${Math.min(100, Math.max(0, (currentTime / (totalDuration || 1)) * 100))}%`,
-                    }}
-                  />
-                </div>
-
-                <div className="toss-transport-right">
-                  <button
-                    type="button"
-                    className={`toss-btn-icon ${isMuted ? 'muted' : ''}`}
-                    onClick={toggleMute}
-                    title={isMuted ? dict.player.unmute : dict.player.mute}
-                  >
-                    {isMuted ? <VolumeX size={17} /> : <Volume2 size={17} />}
-                  </button>
-                </div>
-              </div>
-            )}
 
             {/* 시퀀스 타임라인 스트립 */}
             {segments.length > 0 && (
@@ -1917,6 +2166,25 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       <span>{dict.subtitleDownload?.buttonText || '자막 다운로드'}</span>
                     </button>
                   )}
+                  {segments.length > 0 && (
+                    <div className="toss-sort-toast-container">
+                      <button
+                        type="button"
+                        className="toss-btn-sort-time"
+                        onClick={handleSortSegmentsByRecordedTime}
+                        title={dict.dramaticClips.sortByRecordedDateTitle}
+                      >
+                        <ArrowUpDown size={12} className="text-slate-500" />
+                        <span>{dict.dramaticClips.sortByRecordedDate}</span>
+                      </button>
+                      {sortToastMessage && (
+                        <div className="toss-sort-toast" role="status">
+                          <Check size={12} className="text-emerald-400 shrink-0" />
+                          <span>{sortToastMessage}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-3 shrink-0 ml-auto sm:ml-0">
                   <label
@@ -1967,6 +2235,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   const isSelected = seg.id === selectedSegmentId;
                   const isCurrentPlaying = seg.id === activePlayingSegmentId;
                   const vItem = videoMap.get(seg.sourceVideoId);
+                  const segTimeInfo = formatSegmentRecordedDateTime(seg, videoMap);
                   const bridgeEval = idx > 0
                     ? evaluateChapterBridge(segments[idx - 1], seg, idx, segments.length, overlayOptions)
                     : null;
@@ -2032,9 +2301,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                 {seg.reason}
                               </span>
                             </div>
-                            <span className="toss-segment-source truncate">
-                              {seg.sourceVideoName}
-                            </span>
+                            <div className="toss-segment-meta-row">
+                              <span className="toss-segment-source truncate">
+                                {seg.sourceVideoName}
+                              </span>
+                              {segTimeInfo.full && (
+                                <span
+                                  className="toss-segment-time-badge"
+                                  title={`${dict.dramaticClips.recordedTimeLabel}: ${segTimeInfo.full}`}
+                                >
+                                  <Clock size={10} className="shrink-0" />
+                                  <span>{segTimeInfo.full}</span>
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
 
@@ -2125,6 +2405,21 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                   placeholder={dict.dramaticClips.datePlaceholder}
                                   className="toss-input-sm"
                                 />
+                                {segTimeInfo.full && (
+                                  <span
+                                    className="toss-original-recorded-tip"
+                                    title={interpolate(dict.dramaticClips.originalRecordedTime, {
+                                      time: segTimeInfo.full,
+                                    })}
+                                  >
+                                    <Clock size={10} className="shrink-0 text-slate-400" />
+                                    <span className="truncate">
+                                      {interpolate(dict.dramaticClips.originalRecordedTime, {
+                                        time: segTimeInfo.full,
+                                      })}
+                                    </span>
+                                  </span>
+                                )}
                               </div>
                               <div>
                                 <span className="text-[11px] font-bold text-slate-600 mb-1 block">{dict.dramaticClips.locationLabel}</span>

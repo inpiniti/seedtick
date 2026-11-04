@@ -499,49 +499,92 @@ export async function stitchHighlightedSegments({
     }
   };
 
-  // 16:9 캔버스(1280x720)에 원본 영상을 소스 영역 스마트 크롭으로 100% 꽉 채워 그림
+  // 16:9 캔버스(1280x720)에 원본 영상을 소스 영역 스마트 크롭으로 100% 꽉 채워 그림 (개별 90도 회전 지원)
   const drawCoverFrame = (video: HTMLVideoElement, vItem?: VideoItem, segment?: HighlightSegment) => {
-    const vW = video.videoWidth || vItem?.width || targetWidth;
-    const vH = video.videoHeight || vItem?.height || targetHeight;
+    const rawVW = video.videoWidth || vItem?.width || targetWidth;
+    const rawVH = video.videoHeight || vItem?.height || targetHeight;
+    const rotation = ((segment?.rotation ?? 0) % 360 + 360) % 360;
+
+    const isSideways = rotation === 90 || rotation === 270;
+    const vW = isSideways ? rawVH : rawVW;
+    const vH = isSideways ? rawVW : rawVH;
 
     const targetAspect = targetWidth / targetHeight; // 1280 / 720 = 16:9 (~1.777778)
     const srcAspect = vW / vH;
 
-    let sx = 0;
-    let sy = 0;
-    let sWidth = vW;
-    let sHeight = vH;
+    const scale = Math.max(targetWidth / vW, targetHeight / vH);
+    const renderW = vW * scale;
+    const renderH = vH * scale;
 
-    if (srcAspect > targetAspect) {
-      // 1) 16:9보다 좌우로 더 넓은 영상 (예: 21:9 시네마틱 뷰, 1920x800)
-      sHeight = vH;
-      sWidth = Math.round(vH * targetAspect);
-      sx = Math.round((vW - sWidth) / 2);
-      sy = 0;
-    } else if (srcAspect < targetAspect) {
-      // 2) 16:9보다 세로로 길쭉한 영상 (예: 9:16 쇼츠/릴스, 4:3)
-      sWidth = vW;
-      sHeight = Math.round(vW / targetAspect);
-      sx = 0;
+    const offsetX = (targetWidth - renderW) / 2;
+    let offsetY: number;
 
-      if (vH > vW) {
-        // 세로 영상(9:16)은 인물의 얼굴과 상체가 주로 위쪽에 위치하므로
-        // 사용자가 지정한 크롭 상단 편향 반영 (기본값: 0.25)
-        const excessHeight = vH - sHeight;
-        const ratio = segment?.cropOffsetYRatio ?? 0.25;
-        sy = Math.round(excessHeight * ratio);
-      } else {
-        // 4:3 등 일반 가로 영상은 상하 중앙 정렬
-        sy = Math.round((vH - sHeight) / 2);
-      }
+    if (vH > vW) {
+      // 세로 영상(9:16)은 인물의 얼굴과 상체가 주로 위쪽에 위치하므로
+      // 사용자가 지정한 크롭 상단 편향 반영 (기본값: 0.25)
+      const excessHeight = renderH - targetHeight;
+      const ratio = segment?.cropOffsetYRatio ?? 0.25;
+      offsetY = -excessHeight * ratio;
+    } else {
+      // 4:3 등 일반 가로 영상은 상하 중앙 정렬
+      offsetY = (targetHeight - renderH) / 2;
     }
 
-    // 소스 좌표 범위 안전 클램핑
-    sx = Math.max(0, Math.min(sx, Math.max(0, vW - sWidth)));
-    sy = Math.max(0, Math.min(sy, Math.max(0, vH - sHeight)));
+    if (rotation === 0) {
+      let sx = 0;
+      let sy = 0;
+      let sWidth = rawVW;
+      let sHeight = rawVH;
 
-    // 대상 캔버스는 항상 (0, 0, 1280, 720) 전체를 정확하게 채움
-    ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
+      if (srcAspect > targetAspect) {
+        // 1) 16:9보다 좌우로 더 넓은 영상 (예: 21:9 시네마틱 뷰, 1920x800)
+        sHeight = rawVH;
+        sWidth = Math.round(rawVH * targetAspect);
+        sx = Math.round((rawVW - sWidth) / 2);
+        sy = 0;
+      } else if (srcAspect < targetAspect) {
+        // 2) 16:9보다 세로로 길쭉한 영상 (예: 9:16 쇼츠/릴스, 4:3)
+        sWidth = rawVW;
+        sHeight = Math.round(rawVW / targetAspect);
+        sx = 0;
+
+        if (rawVH > rawVW) {
+          const excessHeight = rawVH - sHeight;
+          const ratio = segment?.cropOffsetYRatio ?? 0.25;
+          sy = Math.round(excessHeight * ratio);
+        } else {
+          sy = Math.round((rawVH - sHeight) / 2);
+        }
+      }
+
+      // 소스 좌표 범위 안전 클램핑
+      sx = Math.max(0, Math.min(sx, Math.max(0, rawVW - sWidth)));
+      sy = Math.max(0, Math.min(sy, Math.max(0, rawVH - sHeight)));
+
+      // 대상 캔버스는 항상 (0, 0, 1280, 720) 전체를 정확하게 채움
+      ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
+    } else {
+      // 90°, 180°, 270° 회전 변환 렌더링
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, targetWidth, targetHeight);
+      ctx.clip();
+
+      const centerX = offsetX + renderW / 2;
+      const centerY = offsetY + renderH / 2;
+
+      ctx.translate(centerX, centerY);
+      ctx.rotate((rotation * Math.PI) / 180);
+
+      ctx.drawImage(
+        video,
+        (-rawVW * scale) / 2,
+        (-rawVH * scale) / 2,
+        rawVW * scale,
+        rawVH * scale
+      );
+      ctx.restore();
+    }
   };
 
   // 세그먼트별 오버레이 오프스크린 캔버스 생성 (세그먼트당 1회만 그려서 캐싱)

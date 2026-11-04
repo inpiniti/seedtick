@@ -32,7 +32,8 @@ export async function captureVideoFrameAtTime(
   timestamp: number,
   cropOffsetYRatio = 0.2,
   targetWidth = 1280,
-  targetHeight = 720
+  targetHeight = 720,
+  rotation = 0
 ): Promise<HTMLCanvasElement> {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
@@ -76,38 +77,72 @@ export async function captureVideoFrameAtTime(
           return;
         }
 
-        const vW = video.videoWidth || 1280;
-        const vH = video.videoHeight || 720;
+        const rawVW = video.videoWidth || 1280;
+        const rawVH = video.videoHeight || 720;
+        const normRot = ((rotation % 360) + 360) % 360;
+        const isSideways = normRot === 90 || normRot === 270;
+        const vW = isSideways ? rawVH : rawVW;
+        const vH = isSideways ? rawVW : rawVH;
+
         const targetAspect = targetWidth / targetHeight; // 16:9 = 1.777...
-        const videoAspect = vW / vH;
+        const scale = Math.max(targetWidth / vW, targetHeight / vH);
+        const renderW = vW * scale;
+        const renderH = vH * scale;
 
-        let sx = 0;
-        let sy = 0;
-        let sWidth = vW;
-        let sHeight = vH;
-
-        if (videoAspect > targetAspect) {
-          // 비디오가 16:9보다 더 넓은 가로 영상 -> 좌우 중앙 크롭
-          sWidth = Math.round(vH * targetAspect);
-          sx = Math.round((vW - sWidth) / 2);
-        } else if (videoAspect < targetAspect) {
-          // 세로 영상(9:16) 또는 4:3 영상 -> 상하 크롭
-          sHeight = Math.round(vW / targetAspect);
-          if (videoAspect < 1.0) {
-            // 세로 영상: 인물 얼굴을 보호하기 위해 상단 편향 크롭
-            const maxSy = Math.max(0, vH - sHeight);
-            sy = Math.round(maxSy * Math.max(0, Math.min(1, cropOffsetYRatio)));
-          } else {
-            // 4:3 등 일반 가로 영상: 중앙 정렬
-            sy = Math.round((vH - sHeight) / 2);
-          }
+        const offsetX = (targetWidth - renderW) / 2;
+        let offsetY: number;
+        if (vH > vW) {
+          const excessHeight = renderH - targetHeight;
+          offsetY = -excessHeight * Math.max(0, Math.min(1, cropOffsetYRatio));
+        } else {
+          offsetY = (targetHeight - renderH) / 2;
         }
 
-        sx = Math.max(0, Math.min(sx, Math.max(0, vW - sWidth)));
-        sy = Math.max(0, Math.min(sy, Math.max(0, vH - sHeight)));
+        if (normRot === 0) {
+          const videoAspect = vW / vH;
+          let sx = 0;
+          let sy = 0;
+          let sWidth = vW;
+          let sHeight = vH;
 
-        // 1280x720 캔버스에 그리기
-        ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
+          if (videoAspect > targetAspect) {
+            sWidth = Math.round(vH * targetAspect);
+            sx = Math.round((vW - sWidth) / 2);
+          } else if (videoAspect < targetAspect) {
+            sHeight = Math.round(vW / targetAspect);
+            if (videoAspect < 1.0) {
+              const maxSy = Math.max(0, vH - sHeight);
+              sy = Math.round(maxSy * Math.max(0, Math.min(1, cropOffsetYRatio)));
+            } else {
+              sy = Math.round((vH - sHeight) / 2);
+            }
+          }
+
+          sx = Math.max(0, Math.min(sx, Math.max(0, vW - sWidth)));
+          sy = Math.max(0, Math.min(sy, Math.max(0, vH - sHeight)));
+
+          ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
+        } else {
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(0, 0, targetWidth, targetHeight);
+          ctx.clip();
+
+          const centerX = offsetX + renderW / 2;
+          const centerY = offsetY + renderH / 2;
+
+          ctx.translate(centerX, centerY);
+          ctx.rotate((normRot * Math.PI) / 180);
+
+          ctx.drawImage(
+            video,
+            (-rawVW * scale) / 2,
+            (-rawVH * scale) / 2,
+            rawVW * scale,
+            rawVH * scale
+          );
+          ctx.restore();
+        }
 
         resolve(canvas);
       } catch (err) {
@@ -179,13 +214,14 @@ export function captureVideoFrameFromElement(
   videoElement: HTMLVideoElement,
   cropOffsetYRatio = 0.2,
   targetWidth = 1280,
-  targetHeight = 720
+  targetHeight = 720,
+  rotation = 0
 ): HTMLCanvasElement | null {
   try {
     if (!videoElement || videoElement.readyState < 2) return null;
-    const vW = videoElement.videoWidth;
-    const vH = videoElement.videoHeight;
-    if (!vW || !vH) return null;
+    const rawVW = videoElement.videoWidth;
+    const rawVH = videoElement.videoHeight;
+    if (!rawVW || !rawVH) return null;
 
     const canvas = document.createElement('canvas');
     canvas.width = targetWidth;
@@ -193,31 +229,71 @@ export function captureVideoFrameFromElement(
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
 
+    const normRot = ((rotation % 360) + 360) % 360;
+    const isSideways = normRot === 90 || normRot === 270;
+    const vW = isSideways ? rawVH : rawVW;
+    const vH = isSideways ? rawVW : rawVH;
+
     const targetAspect = targetWidth / targetHeight;
-    const videoAspect = vW / vH;
+    const scale = Math.max(targetWidth / vW, targetHeight / vH);
+    const renderW = vW * scale;
+    const renderH = vH * scale;
 
-    let sx = 0;
-    let sy = 0;
-    let sWidth = vW;
-    let sHeight = vH;
-
-    if (videoAspect > targetAspect) {
-      sWidth = Math.round(vH * targetAspect);
-      sx = Math.round((vW - sWidth) / 2);
-    } else if (videoAspect < targetAspect) {
-      sHeight = Math.round(vW / targetAspect);
-      if (videoAspect < 1.0) {
-        const maxSy = Math.max(0, vH - sHeight);
-        sy = Math.round(maxSy * Math.max(0, Math.min(1, cropOffsetYRatio)));
-      } else {
-        sy = Math.round((vH - sHeight) / 2);
-      }
+    const offsetX = (targetWidth - renderW) / 2;
+    let offsetY: number;
+    if (vH > vW) {
+      const excessHeight = renderH - targetHeight;
+      offsetY = -excessHeight * Math.max(0, Math.min(1, cropOffsetYRatio));
+    } else {
+      offsetY = (targetHeight - renderH) / 2;
     }
 
-    sx = Math.max(0, Math.min(sx, Math.max(0, vW - sWidth)));
-    sy = Math.max(0, Math.min(sy, Math.max(0, vH - sHeight)));
+    if (normRot === 0) {
+      const videoAspect = vW / vH;
+      let sx = 0;
+      let sy = 0;
+      let sWidth = vW;
+      let sHeight = vH;
 
-    ctx.drawImage(videoElement, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
+      if (videoAspect > targetAspect) {
+        sWidth = Math.round(vH * targetAspect);
+        sx = Math.round((vW - sWidth) / 2);
+      } else if (videoAspect < targetAspect) {
+        sHeight = Math.round(vW / targetAspect);
+        if (videoAspect < 1.0) {
+          const maxSy = Math.max(0, vH - sHeight);
+          sy = Math.round(maxSy * Math.max(0, Math.min(1, cropOffsetYRatio)));
+        } else {
+          sy = Math.round((vH - sHeight) / 2);
+        }
+      }
+
+      sx = Math.max(0, Math.min(sx, Math.max(0, vW - sWidth)));
+      sy = Math.max(0, Math.min(sy, Math.max(0, vH - sHeight)));
+
+      ctx.drawImage(videoElement, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
+    } else {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, targetWidth, targetHeight);
+      ctx.clip();
+
+      const centerX = offsetX + renderW / 2;
+      const centerY = offsetY + renderH / 2;
+
+      ctx.translate(centerX, centerY);
+      ctx.rotate((normRot * Math.PI) / 180);
+
+      ctx.drawImage(
+        videoElement,
+        (-rawVW * scale) / 2,
+        (-rawVH * scale) / 2,
+        rawVW * scale,
+        rawVH * scale
+      );
+      ctx.restore();
+    }
+
     return canvas;
   } catch (err) {
     console.warn('captureVideoFrameFromElement failed:', err);

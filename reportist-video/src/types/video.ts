@@ -18,6 +18,7 @@ export interface HighlightSegment {
   latitude?: number;        // GPS 위도
   longitude?: number;       // GPS 경도
   recordedTimestamp?: number; // 씬 실제 촬영 시각 타임스탬프 (ms, 시분초 포함)
+  rotation?: number;        // 씬 영상 회전 각도 (0, 90, 180, 270도)
 }
 
 export interface BgmPreset {

@@ -63,6 +63,9 @@ export const de: Dictionary = {
     emptyDesc: 'Ziehen Sie Videos hierher oder klicken Sie zum Auswählen.\nDie KI wählt nur die dramatischsten Höhepunkte im 16:9-Format aus.',
     selectVideoFiles: 'Videodateien auswählen',
     seekTooltip: 'Klicken zum Springen',
+    fullscreen: 'Vollbild',
+    exitFullscreen: 'Vollbild beenden',
+    replay: 'Von vorne abspielen',
   },
   sequencer: {
     title: 'Sequenz-Timeline',
@@ -138,6 +141,11 @@ export const de: Dictionary = {
     cropTop: 'Oben (Gesichtsschutz)',
     cropCenter: 'Mitte',
     cropBottom: 'Unten',
+    sortByRecordedDate: 'Nach Aufnahmezeit sortieren',
+    sortByRecordedDateTitle: 'Clips chronologisch nach Datum und Uhrzeit (hh:mm:ss) sortieren',
+    sortByRecordedDateToast: 'Nach Aufnahmezeit (hh:mm:ss) sortiert.',
+    recordedTimeLabel: 'Aufnahmezeit',
+    originalRecordedTime: 'Ursprüngliche Aufnahmezeit: {time}',
   },
   summaryCard: {
     timeSavedRate: 'Zeitersparnis',

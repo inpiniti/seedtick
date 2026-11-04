@@ -64,6 +64,9 @@ export const zh: Dictionary = {
     emptyDesc: '将视频文件拖拽至此处或点击选择文件。\nAI 将按照 16:9 电影画幅自动挑选最精彩的高光片段。',
     selectVideoFiles: '选择视频文件',
     seekTooltip: '点击跳转进度',
+    fullscreen: '全屏放大',
+    exitFullscreen: '退出全屏',
+    replay: '从头播放',
   },
   sequencer: {
     title: '片段序列时间线',
@@ -139,6 +142,11 @@ export const zh: Dictionary = {
     cropTop: '顶部 (保全人脸)',
     cropCenter: '居中',
     cropBottom: '底部',
+    sortByRecordedDate: '按拍摄时间排序',
+    sortByRecordedDateTitle: '按拍摄日期和时间（时分秒）顺序排列片段',
+    sortByRecordedDateToast: '已按拍摄时间（时分秒）排序。',
+    recordedTimeLabel: '拍摄时间',
+    originalRecordedTime: '原始拍摄时间: {time}',
   },
   summaryCard: {
     timeSavedRate: '时长浓缩率',

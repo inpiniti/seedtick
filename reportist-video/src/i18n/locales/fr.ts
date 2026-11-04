@@ -63,6 +63,9 @@ export const fr: Dictionary = {
     emptyDesc: 'Glissez-déposez vos fichiers vidéo ici ou cliquez pour parcourir.\nL\'IA sélectionnera uniquement les moments les plus intenses au format cinéma 16:9.',
     selectVideoFiles: 'Sélectionner des Vidéos',
     seekTooltip: 'Cliquer pour naviguer',
+    fullscreen: 'Plein écran',
+    exitFullscreen: 'Quitter le plein écran',
+    replay: 'Rejouer depuis le début',
   },
   sequencer: {
     title: 'Chronologie des Séquences',
@@ -138,6 +141,11 @@ export const fr: Dictionary = {
     cropTop: 'Haut (Protéger le Visage)',
     cropCenter: 'Centre',
     cropBottom: 'Bas',
+    sortByRecordedDate: 'Trier par date/heure',
+    sortByRecordedDateTitle: 'Trier les clips par date et heure de tournage (hh:mm:ss)',
+    sortByRecordedDateToast: 'Trié par ordre chronologique (hh:mm:ss).',
+    recordedTimeLabel: 'Heure de tournage',
+    originalRecordedTime: 'Date/heure d’origine: {time}',
   },
   summaryCard: {
     timeSavedRate: 'Temps Économisé',

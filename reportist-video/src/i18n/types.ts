@@ -72,6 +72,9 @@ export interface Dictionary {
     emptyDesc: string;
     selectVideoFiles: string;
     seekTooltip: string;
+    fullscreen?: string;
+    exitFullscreen?: string;
+    replay?: string;
   };
   sequencer: {
     title: string;
@@ -147,6 +150,17 @@ export interface Dictionary {
     cropTop: string;
     cropCenter: string;
     cropBottom: string;
+    rotateLabel?: string;
+    rotateDefault?: string;
+    rotateCcw?: string;
+    rotateCw?: string;
+    rotateReset?: string;
+    rotateBadge?: string;
+    sortByRecordedDate: string;
+    sortByRecordedDateTitle: string;
+    sortByRecordedDateToast: string;
+    recordedTimeLabel: string;
+    originalRecordedTime: string;
   };
   summaryCard: {
     timeSavedRate: string;

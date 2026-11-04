@@ -63,6 +63,9 @@ export const es: Dictionary = {
     emptyDesc: 'Arrastra y suelta archivos de video aquí o haz clic para explorar.\nLa IA ensamblará solo los momentos más dramáticos en formato cinematográfico 16:9.',
     selectVideoFiles: 'Seleccionar Archivos de Video',
     seekTooltip: 'Haz clic para saltar en la línea de tiempo',
+    fullscreen: 'Pantalla completa',
+    exitFullscreen: 'Salir de pantalla completa',
+    replay: 'Reproducir desde el inicio',
   },
   sequencer: {
     title: 'Línea de Tiempo de Secuencia',
@@ -138,6 +141,11 @@ export const es: Dictionary = {
     cropTop: 'Superior (Proteger Rostro)',
     cropCenter: 'Centro',
     cropBottom: 'Inferior',
+    sortByRecordedDate: 'Ordenar por fecha y hora',
+    sortByRecordedDateTitle: 'Ordenar clips cronológicamente por fecha y hora (hh:mm:ss)',
+    sortByRecordedDateToast: 'Ordenado por fecha y hora (hh:mm:ss).',
+    recordedTimeLabel: 'Hora de grabación',
+    originalRecordedTime: 'Hora original de grabación: {time}',
   },
   summaryCard: {
     timeSavedRate: 'Tiempo Ahorrado',

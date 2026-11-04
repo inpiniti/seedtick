@@ -64,6 +64,9 @@ export const ja: Dictionary = {
     emptyDesc: 'ここに動画ファイルをドラッグ＆ドロップするかクリックして選択してください。\nAIが16:9 YouTube規格で最も劇的な瞬間だけを厳選してまとめます。',
     selectVideoFiles: '動画ファイルを選択',
     seekTooltip: 'クリックしてシーク',
+    fullscreen: '全画面拡大',
+    exitFullscreen: '全画面終了',
+    replay: '最初から再生',
   },
   sequencer: {
     title: 'シーケンスタイムライン',
@@ -139,6 +142,11 @@ export const ja: Dictionary = {
     cropTop: '上部 (顔を保護)',
     cropCenter: '中央',
     cropBottom: '下部',
+    sortByRecordedDate: '撮影日時順に並び替え',
+    sortByRecordedDateTitle: '撮影日時（時・分・秒）順にクリップを並び替えます',
+    sortByRecordedDateToast: '撮影日時順（時・分・秒）に並び替えました。',
+    recordedTimeLabel: '撮影時刻',
+    originalRecordedTime: '元の撮影日時: {time}',
   },
   summaryCard: {
     timeSavedRate: '時間短縮率',
