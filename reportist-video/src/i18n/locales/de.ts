@@ -146,6 +146,12 @@ export const de: Dictionary = {
     sortByRecordedDateToast: 'Nach Aufnahmezeit (hh:mm:ss) sortiert.',
     recordedTimeLabel: 'Aufnahmezeit',
     originalRecordedTime: 'Ursprüngliche Aufnahmezeit: {time}',
+    rotateLabel: 'Video drehen',
+    rotateDefault: 'Standard (0°)',
+    rotateCcw: 'Links (↶ 90°)',
+    rotateCw: 'Rechts (↷ 90°)',
+    rotateReset: 'Zurücksetzen',
+    rotateBadge: 'Um {deg}° gedreht',
   },
   summaryCard: {
     timeSavedRate: 'Zeitersparnis',

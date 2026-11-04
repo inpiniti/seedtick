@@ -147,6 +147,12 @@ export const ja: Dictionary = {
     sortByRecordedDateToast: '撮影日時順（時・分・秒）に並び替えました。',
     recordedTimeLabel: '撮影時刻',
     originalRecordedTime: '元の撮影日時: {time}',
+    rotateLabel: '動画の向きを回転',
+    rotateDefault: '元の向き (0°)',
+    rotateCcw: '左回転 (↶ 90°)',
+    rotateCw: '右回転 (↷ 90°)',
+    rotateReset: 'リセット',
+    rotateBadge: '{deg}° 回転済み',
   },
   summaryCard: {
     timeSavedRate: '時間短縮率',

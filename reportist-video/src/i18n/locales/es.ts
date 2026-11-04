@@ -146,6 +146,12 @@ export const es: Dictionary = {
     sortByRecordedDateToast: 'Ordenado por fecha y hora (hh:mm:ss).',
     recordedTimeLabel: 'Hora de grabación',
     originalRecordedTime: 'Hora original de grabación: {time}',
+    rotateLabel: 'Girar video',
+    rotateDefault: 'Predeterminado (0°)',
+    rotateCcw: 'Izquierda (↶ 90°)',
+    rotateCw: 'Derecha (↷ 90°)',
+    rotateReset: 'Restablecer',
+    rotateBadge: 'Girado {deg}°',
   },
   summaryCard: {
     timeSavedRate: 'Tiempo Ahorrado',

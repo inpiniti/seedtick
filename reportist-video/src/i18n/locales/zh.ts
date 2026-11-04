@@ -147,6 +147,12 @@ export const zh: Dictionary = {
     sortByRecordedDateToast: '已按拍摄时间（时分秒）排序。',
     recordedTimeLabel: '拍摄时间',
     originalRecordedTime: '原始拍摄时间: {time}',
+    rotateLabel: '旋转视频方向',
+    rotateDefault: '默认方向 (0°)',
+    rotateCcw: '向左旋转 (↶ 90°)',
+    rotateCw: '向右旋转 (↷ 90°)',
+    rotateReset: '恢复默认',
+    rotateBadge: '已旋转 {deg}°',
   },
   summaryCard: {
     timeSavedRate: '时长浓缩率',
