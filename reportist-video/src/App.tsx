@@ -662,9 +662,15 @@ export function App() {
       });
 
       result.thumbnailUrl = finalResult?.thumbnailUrl;
+      result.cleanThumbnailUrl = finalResult?.cleanThumbnailUrl;
       result.suggestedTitle = finalResult?.suggestedTitle;
       result.bestThumbnailTime = finalResult?.bestThumbnailTime;
       result.bestSourceVideoId = finalResult?.bestSourceVideoId;
+      result.bestThumbnailReason = finalResult?.bestThumbnailReason;
+      result.bestThumbnailCropOffsetYRatio = finalResult?.bestThumbnailCropOffsetYRatio;
+      result.bestThumbnailRotation = finalResult?.bestThumbnailRotation;
+      result.bestThumbnailCleanDataUrl = finalResult?.bestThumbnailCleanDataUrl;
+      result.aiThumbnailRecommendations = finalResult?.aiThumbnailRecommendations;
 
       if (finalResult?.url) {
         URL.revokeObjectURL(finalResult.url);
