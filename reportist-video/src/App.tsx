@@ -468,6 +468,9 @@ export function App() {
         let bgCanvas: HTMLCanvasElement | null = null;
         const thumbVideo =
           updatedVideos.find((v) => v.id === bestThumbVideoId) || updatedVideos[0];
+        const bestSeg =
+          allSegments.find((s) => s.sourceVideoId === bestThumbVideoId) || allSegments[0];
+        const bestThumbRotation = bestSeg?.rotation ?? 0;
         const targetTime =
           bestThumbTimestamp > 0.5
             ? bestThumbTimestamp
@@ -480,7 +483,10 @@ export function App() {
             bgCanvas = await captureVideoFrameAtTime(
               thumbVideo.url,
               targetTime,
-              bestThumbCropOffsetYRatio
+              bestThumbCropOffsetYRatio,
+              1280,
+              720,
+              bestThumbRotation
             );
           } catch (sourceErr) {
             console.warn('Source video capture failed, falling back to stitched result URL:', sourceErr);

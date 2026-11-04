@@ -1759,6 +1759,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                 src={vItem.thumbnailUrl}
                                 alt=""
                                 className="toss-sequencer-block-thumb"
+                                style={
+                                  seg.rotation
+                                    ? {
+                                        transform: `rotate(${seg.rotation}deg)${
+                                          seg.rotation === 90 || seg.rotation === 270 ? ' scale(0.6)' : ''
+                                        }`,
+                                      }
+                                    : undefined
+                                }
                               />
                             )}
                             <div className="toss-sequencer-block-overlay">
