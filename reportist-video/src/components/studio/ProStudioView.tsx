@@ -212,24 +212,25 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const currentProcessingVideo = videos[progress.currentVideoIndex] || videos[0];
   const currentVideoThumbnail = currentProcessingVideo?.thumbnailUrl;
 
-  // 모달에 표시할 가장 최근 작업 문구 1줄 (추론 중일 때는 실시간 추론 스트림의 마지막 줄)
+  // 모달에 표시할 가장 최근 작업 문구 (최근 2줄 분량, 초과 시 ...)
   const latestTask = useMemo(() => {
     const reasoningText = (progress.liveReasoning || '').trim();
     const contentText = (progress.liveContent || '').trim();
     const liveText = reasoningText || contentText;
 
-    // 1. 실시간 추론 또는 응답 스트리밍 중 -> 마지막 비어있지 않은 한 줄 추출
+    // 1. 실시간 추론 또는 응답 스트리밍 중 -> 최근 1~2줄 추출
     if (liveText) {
       const lines = liveText
         .split('\n')
         .map((l) => l.trim())
         .filter(Boolean);
-      const lastLine = lines.length > 0 ? lines[lines.length - 1] : '';
+      const recentLines = lines.slice(-2);
+      const textPart = recentLines.join('\n');
       const prefix = reasoningText ? '💭 ' : '⌨️ ';
       return {
         isStreaming: true,
-        text: lastLine
-          ? `${prefix}${lastLine}`
+        text: textPart
+          ? `${prefix}${textPart}`
           : reasoningText
           ? dict.processingModal.reasoningProcess
           : dict.processingModal.responseGeneration,
@@ -244,12 +245,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       };
     }
 
-    // 3. 누적된 작업 로그 중 가장 마지막 로그 1줄
+    // 3. 누적된 작업 로그 중 가장 최근 1~2개 로그
     if (progress.reasoningLogs && progress.reasoningLogs.length > 0) {
-      const lastLog = progress.reasoningLogs[progress.reasoningLogs.length - 1];
+      const recentLogs = progress.reasoningLogs.slice(-2);
       return {
         isStreaming: false,
-        text: lastLog,
+        text: recentLogs.join('\n'),
       };
     }
 
@@ -2259,12 +2260,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               </span>
             </div>
 
-            {/* 최근 작업/추론 단일 라인 인포 바 (1줄 고정, 넘치면 ...) */}
+            {/* 최근 작업/추론 2줄 안내 박스 (2줄 고정 높이, 넘치면 ...) */}
             <div className="toss-modal-reasoning-wrap mt-4 text-left">
-              <span className="toss-reasoning-live-dot mr-2 flex-shrink-0" />
-              <div className="flex-1 min-w-0 flex items-center text-[12px] font-mono text-slate-500 overflow-hidden">
-                <span className="truncate">{latestTask.text}</span>
-                {latestTask.isStreaming && <span className="toss-live-caret flex-shrink-0" />}
+              <span className="toss-reasoning-live-dot mr-2.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0 toss-modal-reasoning-text">
+                <span>{latestTask.text}</span>
+                {latestTask.isStreaming && <span className="toss-live-caret" />}
               </div>
             </div>
 
