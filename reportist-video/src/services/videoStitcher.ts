@@ -180,19 +180,17 @@ function mountHiddenStage(canvas: HTMLCanvasElement, ...videos: HTMLVideoElement
     'position:fixed',
     'left:0',
     'bottom:0',
-    'width:80px',
-    'height:45px',
-    'opacity:0.08',
+    'width:120px',
+    'height:68px',
+    'opacity:0.12',
     'pointer-events:none',
     'overflow:hidden',
-    'z-index:1',
+    'z-index:99999',
   ].join(';');
-  canvas.style.width = '80px';
-  canvas.style.height = '45px';
+  canvas.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;';
   stage.appendChild(canvas);
   for (const el of videos) {
-    el.style.width = '80px';
-    el.style.height = '45px';
+    el.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;';
     stage.appendChild(el);
   }
   document.body.appendChild(stage);
@@ -211,6 +209,7 @@ function createWorkerVideo(): HTMLVideoElement {
   videoElem.setAttribute('playsinline', '');
   videoElem.setAttribute('webkit-playsinline', '');
   videoElem.setAttribute('muted', '');
+  videoElem.setAttribute('autoplay', '');
   return videoElem;
 }
 
@@ -478,7 +477,6 @@ export async function stitchHighlightedSegments({
 
   const pauseRecorder = async () => {
     try {
-      if (IS_IOS || IS_SAFARI) return; // iOS Safari MediaRecorder 버그 방어: pause 후 resume 시 이후 청크가 누락되는 치명적 WebKit 결함
       if (recorder.state === 'recording') {
         recorder.pause();
       }
@@ -734,6 +732,13 @@ export async function stitchHighlightedSegments({
     if (video.src === url && video.readyState >= 1) return;
 
     video.src = url;
+    video.muted = true;
+    video.defaultMuted = true;
+    video.volume = 0;
+    video.playsInline = true;
+    video.setAttribute('playsinline', '');
+    video.setAttribute('webkit-playsinline', '');
+    video.setAttribute('muted', '');
     try {
       video.load();
     } catch {
@@ -765,6 +770,13 @@ export async function stitchHighlightedSegments({
   };
 
   const startPlayback = async (video: HTMLVideoElement, timeoutMs: number): Promise<boolean> => {
+    video.muted = true;
+    video.defaultMuted = true;
+    video.volume = 0;
+    video.playsInline = true;
+    video.setAttribute('playsinline', '');
+    video.setAttribute('webkit-playsinline', '');
+    video.setAttribute('muted', '');
     let playPromise: Promise<void>;
     try {
       playPromise = video.play();
@@ -1016,134 +1028,220 @@ export async function stitchHighlightedSegments({
       standbyPromise = prepareWorkerForSegment(workerB, allSegments[1]);
     }
 
+    // 시크 기반 프레임 스텝 렌더링 (저전력 모드 또는 실시간 재생 차단 환경을 위한 무결점 폴백)
+    const renderSegmentByStepping = async (
+      worker: HTMLVideoElement,
+      videoItem: VideoItem,
+      segment: HighlightSegment,
+      overlayCanvas: HTMLCanvasElement | null,
+      clipMessage: string,
+      isLastSegment = false
+    ) => {
+      try {
+        worker.pause();
+      } catch {
+        // ignore
+      }
+
+      const fps = 30;
+      const frameCount = Math.max(2, Math.ceil(segment.duration * fps));
+      const frameInterval = 1000 / fps;
+      renderModeHistory.push(`[seg#${segment.id.slice(-4)}: stepping (${frameCount}f)]`);
+
+      for (let frame = 0; frame < frameCount; frame++) {
+        if (signal?.aborted) throw new Error('사용자에 의해 작업이 취소되었습니다.');
+        if (recorderError) throw recorderError;
+
+        const time = Math.min(
+          segment.start + frame / fps,
+          Math.max(segment.start, segment.end - 0.05)
+        );
+
+        // 탐색(seek) 중에는 레코더를 일시정지하여 seek 대기 시간이 녹화본에 들어가지 않도록 방어
+        await pauseRecorder();
+        await seekVideo(worker, time, 2500);
+
+        renderFrameWithOverlay(worker, videoItem, segment, overlayCanvas);
+
+        // 프레임이 준비된 후 레코더를 켜고 1프레임 시간 동안 녹화
+        await startOrResumeRecorder();
+        await sleep(frameInterval);
+
+        const clipElapsed = Math.min(segment.duration, frame / fps);
+        reportProgress(
+          ((recordedDurationSoFar + clipElapsed) / (totalSegmentsDuration || 1)) * 100,
+          clipMessage
+        );
+      }
+
+      if (!isLastSegment) {
+        await pauseRecorder();
+      }
+    };
+
     // 3. 첫 번째 구간 재생 시작 및 레코더 개시
     let currentWorker = workerA;
     let standbyWorker = workerB;
     let currentSegmentIdx = 0;
 
-    let initialPlaying = await startPlayback(currentWorker, 8000);
+    let initialPlaying = await startPlayback(currentWorker, IS_IOS ? 3000 : 6000);
     if (!initialPlaying) {
       onLog?.(`구간 1 비디오 버퍼 대기 후 재생 재시도 중...`);
-      await sleep(600);
-      initialPlaying = await startPlayback(currentWorker, 8000);
+      await sleep(500);
+      initialPlaying = await startPlayback(currentWorker, IS_IOS ? 3000 : 6000);
     }
+
     if (!initialPlaying) {
-      throw new Error(`첫 번째 영상 구간 재생에 실패했습니다.`);
-    }
+      onLog?.('실시간 재생이 지연/차단되어(아이폰 저전력 모드 또는 브라우저 정책) 정밀 프레임 스텝 모드로 자동 전환하여 병합합니다.');
+      renderModeHistory.push('[pipeline: fallback to frame stepping]');
 
-    await waitForPlaybackAdvance(currentWorker, currentWorker.currentTime, 5000);
-    await startOrResumeRecorder();
+      for (let i = 0; i < allSegments.length; i++) {
+        if (signal?.aborted) throw new Error('사용자에 의해 작업이 취소되었습니다.');
+        if (recorderError) throw recorderError;
 
-    // 4. 듀얼 워커 핑퐁 실시간 합성 루프 (30fps) - 세그먼트 간 0ms 무지연 전환
-    await new Promise<void>((resolve, reject) => {
-      let isTransitioning = false;
-      let settled = false;
-      let intervalId: number | null = null;
-      let segmentStartedAt = performance.now();
+        const segment = allSegments[i];
+        const videoItem = videoMap.get(segment.sourceVideoId);
+        if (!videoItem) continue;
 
-      const finishAll = (err?: Error) => {
-        if (settled) return;
-        settled = true;
-        if (intervalId !== null) window.clearInterval(intervalId);
-        try {
-          currentWorker.pause();
-          standbyWorker.pause();
-        } catch {}
-        if (err) reject(err);
-        else resolve();
-      };
-
-      const tick = async () => {
-        if (settled) return;
-        if (signal?.aborted) {
-          finishAll(new Error('사용자에 의해 작업이 취소되었습니다.'));
-          return;
-        }
-        if (recorderError) {
-          finishAll(recorderError);
-          return;
-        }
-
-        const currentSegment = allSegments[currentSegmentIdx];
-        const currentVideoItem = videoMap.get(currentSegment.sourceVideoId);
-        const currentOverlay = overlayCanvases[currentSegmentIdx];
-
-        if (currentVideoItem && !currentWorker.paused && !currentWorker.seeking) {
-          renderFrameWithOverlay(currentWorker, currentVideoItem, currentSegment, currentOverlay);
-        }
-
-        const clipElapsed = Math.max(
-          0,
-          Math.min(currentSegment.duration, currentWorker.currentTime - currentSegment.start)
-        );
+        const isLastSegment = i === allSegments.length - 1 && !overlayOptions?.showOutro;
+        const clipMessage = `구간 ${i + 1}/${allSegments.length} 정밀 병합 중: [${videoItem.name}] (${segment.start.toFixed(1)}s ~ ${segment.end.toFixed(1)}s)`;
         reportProgress(
-          ((recordedDurationSoFar + clipElapsed) / (totalSegmentsDuration || 1)) * 100,
-          `구간 ${currentSegmentIdx + 1}/${allSegments.length} 병합 중: [${currentVideoItem?.name ?? ''}]`
+          (recordedDurationSoFar / (totalSegmentsDuration || 1)) * 100,
+          clipMessage,
+          true
         );
 
-        const maxDurationMs = Math.max(4000, (currentSegment.duration * 2.2 + 3) * 1000);
-        const isSegmentDone =
-          currentWorker.currentTime >= currentSegment.end - 0.04 ||
-          currentWorker.ended ||
-          performance.now() - segmentStartedAt >= maxDurationMs;
-
-        if (isSegmentDone && !isTransitioning) {
-          isTransitioning = true;
-          recordedDurationSoFar += currentSegment.duration;
-          currentSegmentIdx++;
-
-          if (currentSegmentIdx < allSegments.length) {
-            const nextSegment = allSegments[currentSegmentIdx];
-            const nextVideoItem = videoMap.get(nextSegment.sourceVideoId);
-            const nextOverlay = overlayCanvases[currentSegmentIdx];
-
-            // 대기 워커 준비 완료 대기
-            if (standbyPromise) {
-              const ok = await standbyPromise.catch(() => false);
-              standbyPromise = null;
-              if (!ok) {
-                await prepareWorkerForSegment(standbyWorker, nextSegment);
-              }
-            }
-
-            // 대기 워커의 첫 프레임 즉시 캔버스에 렌더링 (깜빡임/블랙 프레임 방지)
-            if (nextVideoItem) {
-              renderFrameWithOverlay(standbyWorker, nextVideoItem, nextSegment, nextOverlay);
-            }
-
-            // 대기 워커 재생 즉시 시작
-            await startPlayback(standbyWorker, 4000);
-
-            // 이전 워커 일시정지
-            try {
-              currentWorker.pause();
-            } catch {}
-
-            // 워커 스왑 (0ms 전환)
-            const prevWorker = currentWorker;
-            currentWorker = standbyWorker;
-            standbyWorker = prevWorker;
-
-            segmentStartedAt = performance.now();
-            isTransitioning = false;
-
-            // 다음 다음 세그먼트가 있다면 대기 워커에 백그라운드 프리로드 시작
-            const nextNextIdx = currentSegmentIdx + 1;
-            if (nextNextIdx < allSegments.length) {
-              standbyPromise = prepareWorkerForSegment(standbyWorker, allSegments[nextNextIdx]);
-            }
-          } else {
-            // 모든 구간 완료
-            finishAll();
-          }
+        if (i > 0) {
+          await prepareWorkerForSegment(workerA, segment);
         }
-      };
 
-      intervalId = window.setInterval(() => {
+        await renderSegmentByStepping(
+          workerA,
+          videoItem,
+          segment,
+          overlayCanvases[i],
+          clipMessage,
+          isLastSegment
+        );
+
+        recordedDurationSoFar += segment.duration;
+      }
+    } else {
+      renderModeHistory.push('[pipeline: dual-worker realtime playback]');
+      await waitForPlaybackAdvance(currentWorker, currentWorker.currentTime, 5000);
+      await startOrResumeRecorder();
+
+      // 4. 듀얼 워커 핑퐁 실시간 합성 루프 (30fps) - 세그먼트 간 0ms 무지연 전환
+      await new Promise<void>((resolve, reject) => {
+        let isTransitioning = false;
+        let settled = false;
+        let intervalId: number | null = null;
+        let segmentStartedAt = performance.now();
+
+        const finishAll = (err?: Error) => {
+          if (settled) return;
+          settled = true;
+          if (intervalId !== null) window.clearInterval(intervalId);
+          try {
+            currentWorker.pause();
+            standbyWorker.pause();
+          } catch {}
+          if (err) reject(err);
+          else resolve();
+        };
+
+        const tick = async () => {
+          if (settled) return;
+          if (signal?.aborted) {
+            finishAll(new Error('사용자에 의해 작업이 취소되었습니다.'));
+            return;
+          }
+          if (recorderError) {
+            finishAll(recorderError);
+            return;
+          }
+
+          const currentSegment = allSegments[currentSegmentIdx];
+          const currentVideoItem = videoMap.get(currentSegment.sourceVideoId);
+          const currentOverlay = overlayCanvases[currentSegmentIdx];
+
+          if (currentVideoItem && !currentWorker.paused && !currentWorker.seeking) {
+            renderFrameWithOverlay(currentWorker, currentVideoItem, currentSegment, currentOverlay);
+          }
+
+          const clipElapsed = Math.max(
+            0,
+            Math.min(currentSegment.duration, currentWorker.currentTime - currentSegment.start)
+          );
+          reportProgress(
+            ((recordedDurationSoFar + clipElapsed) / (totalSegmentsDuration || 1)) * 100,
+            `구간 ${currentSegmentIdx + 1}/${allSegments.length} 병합 중: [${currentVideoItem?.name ?? ''}]`
+          );
+
+          const maxDurationMs = Math.max(4000, (currentSegment.duration * 2.2 + 3) * 1000);
+          const isSegmentDone =
+            currentWorker.currentTime >= currentSegment.end - 0.04 ||
+            currentWorker.ended ||
+            performance.now() - segmentStartedAt >= maxDurationMs;
+
+          if (isSegmentDone && !isTransitioning) {
+            isTransitioning = true;
+            recordedDurationSoFar += currentSegment.duration;
+            currentSegmentIdx++;
+
+            if (currentSegmentIdx < allSegments.length) {
+              const nextSegment = allSegments[currentSegmentIdx];
+              const nextVideoItem = videoMap.get(nextSegment.sourceVideoId);
+              const nextOverlay = overlayCanvases[currentSegmentIdx];
+
+              // 대기 워커 준비 완료 대기
+              if (standbyPromise) {
+                const ok = await standbyPromise.catch(() => false);
+                standbyPromise = null;
+                if (!ok) {
+                  await prepareWorkerForSegment(standbyWorker, nextSegment);
+                }
+              }
+
+              // 대기 워커의 첫 프레임 즉시 캔버스에 렌더링 (깜빡임/블랙 프레임 방지)
+              if (nextVideoItem) {
+                renderFrameWithOverlay(standbyWorker, nextVideoItem, nextSegment, nextOverlay);
+              }
+
+              // 대기 워커 재생 즉시 시작
+              await startPlayback(standbyWorker, 4000);
+
+              // 이전 워커 일시정지
+              try {
+                currentWorker.pause();
+              } catch {}
+
+              // 워커 스왑 (0ms 전환)
+              const prevWorker = currentWorker;
+              currentWorker = standbyWorker;
+              standbyWorker = prevWorker;
+
+              segmentStartedAt = performance.now();
+              isTransitioning = false;
+
+              // 다음 다음 세그먼트가 있다면 대기 워커에 백그라운드 프리로드 시작
+              const nextNextIdx = currentSegmentIdx + 1;
+              if (nextNextIdx < allSegments.length) {
+                standbyPromise = prepareWorkerForSegment(standbyWorker, allSegments[nextNextIdx]);
+              }
+            } else {
+              // 모든 구간 완료
+              finishAll();
+            }
+          }
+        };
+
+        intervalId = window.setInterval(() => {
+          void tick();
+        }, 1000 / 30);
         void tick();
-      }, 1000 / 30);
-      void tick();
-    });
+      });
+    }
 
     // 마무리 아웃트로 렌더링 (옵션 활성화 시: 영상 파일 우선, 없으면 엔딩 시퀀스)
     if (overlayOptions?.showOutro) {
