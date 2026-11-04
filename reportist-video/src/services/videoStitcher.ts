@@ -256,10 +256,9 @@ export async function stitchHighlightedSegments({
   ctx.fillStyle = '#080c14';
   ctx.fillRect(0, 0, targetWidth, targetHeight);
 
-  // 워커 비디오 엘리먼트 준비 (듀얼 워커 핑퐁 버퍼로 세그먼트 간 0ms 컷 전환 지원)
+  // 워커 비디오 엘리먼트 준비 (iOS Safari 단일 하드웨어 디코더 충돌 방지를 위해 단일 워커 사용)
   const workerA = createWorkerVideo();
-  const workerB = createWorkerVideo();
-  const stage = mountHiddenStage(canvas, workerA, workerB);
+  const stage = mountHiddenStage(canvas, workerA);
 
   // BGM 또는 커스텀 오디오 파일이 실제로 존재하는지 여부 확인
   const hasAudioSource = Boolean(
@@ -1036,12 +1035,6 @@ export async function stitchHighlightedSegments({
       renderFrameWithOverlay(workerA, firstVideoItem, allSegments[0], overlayCanvases[0]);
     }
 
-    // 2. 두 번째 구간이 있다면 workerB에 미리 백그라운드로 로드 및 seek 시작!
-    let standbyPromise: Promise<boolean> | null = null;
-    if (allSegments.length > 1) {
-      standbyPromise = prepareWorkerForSegment(workerB, allSegments[1]);
-    }
-
     // 시크 기반 프레임 스텝 렌더링 (저전력 모드 또는 실시간 재생 차단 환경을 위한 무결점 폴백)
     const renderSegmentByStepping = async (
       worker: HTMLVideoElement,
@@ -1093,21 +1086,21 @@ export async function stitchHighlightedSegments({
       }
     };
 
-    // 3. 첫 번째 구간 재생 시작 및 레코더 개시
-    let currentWorker = workerA;
-    let standbyWorker = workerB;
+    // 2. 첫 번째 구간 재생 시작 및 레코더 개시 (단일 하드웨어 디코더 연속 재생 파이프라인)
     let currentSegmentIdx = 0;
+    let recordingWallStartAt = 0;
 
-    let initialPlaying = await startPlayback(currentWorker, IS_IOS ? 3000 : 6000);
+    let initialPlaying = await startPlayback(workerA, IS_IOS ? 3000 : 6000);
     if (!initialPlaying) {
       onLog?.(`구간 1 비디오 버퍼 대기 후 재생 재시도 중...`);
       await sleep(500);
-      initialPlaying = await startPlayback(currentWorker, IS_IOS ? 3000 : 6000);
+      initialPlaying = await startPlayback(workerA, IS_IOS ? 3000 : 6000);
     }
 
     if (!initialPlaying) {
       onLog?.('실시간 재생이 지연/차단되어(아이폰 저전력 모드 또는 브라우저 정책) 정밀 프레임 스텝 모드로 자동 전환하여 병합합니다.');
       renderModeHistory.push('[pipeline: fallback to frame stepping]');
+      recordingWallStartAt = performance.now();
 
       for (let i = 0; i < allSegments.length; i++) {
         if (signal?.aborted) throw new Error('사용자에 의해 작업이 취소되었습니다.');
@@ -1141,32 +1134,38 @@ export async function stitchHighlightedSegments({
         recordedDurationSoFar += segment.duration;
       }
     } else {
-      renderModeHistory.push('[pipeline: dual-worker realtime playback]');
-      await waitForPlaybackAdvance(currentWorker, currentWorker.currentTime, 5000);
+      renderModeHistory.push('[pipeline: single-worker continuous hardware playback]');
+      await waitForPlaybackAdvance(workerA, workerA.currentTime, 5000);
       await startOrResumeRecorder();
+      recordingWallStartAt = performance.now();
 
-      // 4. 듀얼 워커 핑퐁 실시간 합성 루프 (30fps) - 세그먼트 간 0ms 무지연 전환
+      // 3. 단일 워커 무중단 실시간 합성 루프 (30fps)
+      // iOS Safari의 단일 하드웨어 디코더 제한을 회피하기 위해 pause()나 2번째 video 엘리먼트 없이
+      // 하나의 video 엘리먼트에서 재생 상태를 유지한 채 currentTime 점프만으로 세그먼트를 전환한다.
       await new Promise<void>((resolve, reject) => {
         let isTransitioning = false;
         let settled = false;
         let intervalId: number | null = null;
         let segmentStartedAt = performance.now();
+        let activePlaybackAccumSec = 0;
+        let lastTickAt = performance.now();
 
         const finishAll = (err?: Error) => {
           if (settled) return;
           settled = true;
           if (intervalId !== null) window.clearInterval(intervalId);
           try {
-            currentWorker.pause();
-            standbyWorker.pause();
+            workerA.pause();
           } catch {}
           if (err) reject(err);
           else resolve();
         };
 
-        let isSteppingCurrentSegment = false;
-
         const tick = async () => {
+          const now = performance.now();
+          const dtSec = Math.min(0.1, Math.max(0, (now - lastTickAt) / 1000));
+          lastTickAt = now;
+
           if (settled || isTransitioning) return;
           if (signal?.aborted) {
             finishAll(new Error('사용자에 의해 작업이 취소되었습니다.'));
@@ -1181,55 +1180,47 @@ export async function stitchHighlightedSegments({
           const currentVideoItem = videoMap.get(currentSegment.sourceVideoId);
           const currentOverlay = overlayCanvases[currentSegmentIdx];
 
-          const realWallElapsedSec = (performance.now() - segmentStartedAt) / 1000;
-
-          if (currentVideoItem) {
-            if (isSteppingCurrentSegment) {
-              // iOS Safari가 2번째 워커의 play()를 거부한 경우, 실시간 벽시계 타이밍에 맞춰 시크하여 프레임 공급
-              const targetTime = Math.min(
-                currentSegment.start + realWallElapsedSec,
-                Math.max(currentSegment.start, currentSegment.end - 0.05)
-              );
-              if (!currentWorker.seeking && Math.abs(currentWorker.currentTime - targetTime) > 0.06) {
-                try {
-                  currentWorker.currentTime = targetTime;
-                } catch {}
-              }
-              renderFrameWithOverlay(currentWorker, currentVideoItem, currentSegment, currentOverlay);
-            } else if (!currentWorker.paused && !currentWorker.seeking) {
-              renderFrameWithOverlay(currentWorker, currentVideoItem, currentSegment, currentOverlay);
-            } else if (currentWorker.paused && !currentWorker.ended && realWallElapsedSec > 0.35) {
-              // 재생 도중 Safari가 임의로 pause 시킨 경우 즉시 실시간 시크 모드로 전환하여 멈춤 방지
-              isSteppingCurrentSegment = true;
+          // 실제 비디오가 시크 중이 아니고 정상 재생 중일 때만 프레임을 그리고 실제 재생 시간을 누적
+          if (currentVideoItem && !workerA.seeking) {
+            if (workerA.paused && !workerA.ended) {
+              // 만약 시크 직후 일시적으로 paused 상태가 되었다면 즉시 재개
+              void workerA.play().catch(() => {});
+            } else {
+              activePlaybackAccumSec += dtSec;
             }
+            renderFrameWithOverlay(workerA, currentVideoItem, currentSegment, currentOverlay);
           }
 
-          const clipElapsed = isSteppingCurrentSegment
-            ? Math.max(0, Math.min(currentSegment.duration, realWallElapsedSec))
-            : Math.max(
-                0,
-                Math.min(currentSegment.duration, currentWorker.currentTime - currentSegment.start)
-              );
+          const clipElapsed = Math.max(
+            0,
+            Math.min(
+              currentSegment.duration,
+              Math.max(activePlaybackAccumSec, workerA.currentTime - currentSegment.start)
+            )
+          );
           reportProgress(
             ((recordedDurationSoFar + clipElapsed) / (totalSegmentsDuration || 1)) * 100,
             `구간 ${currentSegmentIdx + 1}/${allSegments.length} 병합 중: [${currentVideoItem?.name ?? ''}]`
           );
 
-          const maxDurationMs = Math.max(4000, (currentSegment.duration * 2.2 + 3) * 1000);
-          // 최소 실제 구간 길이의 90% 이상은 반드시 경과해야 세그먼트 종료로 판정 (조기 스킵 원천 차단)
-          const minRequiredWallSec = Math.max(0.4, currentSegment.duration * 0.9);
-          const isTimeReached = isSteppingCurrentSegment
-            ? realWallElapsedSec >= currentSegment.duration
-            : realWallElapsedSec >= minRequiredWallSec &&
-              (currentWorker.currentTime >= currentSegment.end - 0.04 || currentWorker.ended);
+          const realWallElapsedSec = (now - segmentStartedAt) / 1000;
+          const maxDurationMs = Math.max(5000, (currentSegment.duration * 2.5 + 4) * 1000);
+
+          // 중요: 시크 지연 시간(seeking)을 제외한 실제 재생 누적 시간이 구간 길이의 92% 이상이고
+          // 비디오의 currentTime이 실제로 segment.end에 도달했을 때만 세그먼트 완료로 판정!
+          const isTimeReached =
+            !workerA.seeking &&
+            activePlaybackAccumSec >= currentSegment.duration * 0.88 &&
+            (workerA.currentTime >= currentSegment.end - 0.04 || workerA.ended);
 
           const isSegmentDone =
             isTimeReached ||
-            performance.now() - segmentStartedAt >= maxDurationMs;
+            realWallElapsedSec * 1000 >= maxDurationMs;
 
           if (isSegmentDone && !isTransitioning) {
             isTransitioning = true;
             recordedDurationSoFar += currentSegment.duration;
+            const prevSegment = currentSegment;
             currentSegmentIdx++;
 
             if (currentSegmentIdx < allSegments.length) {
@@ -1237,47 +1228,49 @@ export async function stitchHighlightedSegments({
               const nextVideoItem = videoMap.get(nextSegment.sourceVideoId);
               const nextOverlay = overlayCanvases[currentSegmentIdx];
 
-              // 대기 워커 준비 완료 대기
-              if (standbyPromise) {
-                const ok = await standbyPromise.catch(() => false);
-                standbyPromise = null;
-                if (!ok) {
-                  await prepareWorkerForSegment(standbyWorker, nextSegment);
+              if (nextSegment.sourceVideoId === prevSegment.sourceVideoId) {
+                // 동일 영상 내 다른 구간으로 이동: pause() 없이 재생 상태를 그대로 유지한 채 즉시 점프!
+                // (iOS Safari에서 재생 권한 및 하드웨어 디코더 파이프라인이 절대 끊기지 않음)
+                try {
+                  workerA.currentTime = nextSegment.start;
+                } catch {}
+
+                // 시크가 완료되어 실제 프레임이 준비될 때까지 짧게 대기 (최대 1.5초)
+                await new Promise<void>((res) => {
+                  if (!workerA.seeking && Math.abs(workerA.currentTime - nextSegment.start) < 0.25) {
+                    res();
+                    return;
+                  }
+                  let done = false;
+                  const onSeeked = () => {
+                    if (done) return;
+                    done = true;
+                    workerA.removeEventListener('seeked', onSeeked);
+                    res();
+                  };
+                  workerA.addEventListener('seeked', onSeeked);
+                  setTimeout(onSeeked, 1500);
+                });
+
+                if (workerA.paused) {
+                  await startPlayback(workerA, 2000);
                 }
+              } else if (nextVideoItem) {
+                // 다른 영상 파일로 전환하는 경우
+                await loadVideoSource(workerA, nextVideoItem.url, nextVideoItem.name, 10000);
+                await seekVideo(workerA, nextSegment.start, 6000);
+                await waitForVideoReady(workerA, 5000);
+                await startPlayback(workerA, 3000);
               }
 
-              // 혹시라도 대기 워커의 currentTime이 nextSegment.start에서 벗어나 있다면 즉시 정밀 재조정
-              if (Math.abs(standbyWorker.currentTime - nextSegment.start) > 0.12) {
-                await seekVideo(standbyWorker, nextSegment.start, 2500);
-              }
-
-              // 대기 워커의 첫 프레임 즉시 캔버스에 렌더링 (깜빡임/블랙 프레임 방지)
               if (nextVideoItem) {
-                renderFrameWithOverlay(standbyWorker, nextVideoItem, nextSegment, nextOverlay);
+                renderFrameWithOverlay(workerA, nextVideoItem, nextSegment, nextOverlay);
               }
 
-              // 이전 워커를 먼저 일시정지하여 모바일 하드웨어 디코더 슬롯 확보
-              try {
-                currentWorker.pause();
-              } catch {}
-
-              // 대기 워커 재생 즉시 시작 (최대 1.2초 내 응답 없으면 실시간 시크 폴백으로 즉시 전환하여 멈춤 방지)
-              const playedNext = await startPlayback(standbyWorker, 1200);
-              isSteppingCurrentSegment = !playedNext;
-
-              // 워커 스왑 (0ms 전환)
-              const prevWorker = currentWorker;
-              currentWorker = standbyWorker;
-              standbyWorker = prevWorker;
-
+              activePlaybackAccumSec = 0;
               segmentStartedAt = performance.now();
+              lastTickAt = performance.now();
               isTransitioning = false;
-
-              // 다음 다음 세그먼트가 있다면 대기 워커에 백그라운드 프리로드 시작
-              const nextNextIdx = currentSegmentIdx + 1;
-              if (nextNextIdx < allSegments.length) {
-                standbyPromise = prepareWorkerForSegment(standbyWorker, allSegments[nextNextIdx]);
-              }
             } else {
               // 모든 구간 완료
               finishAll();
@@ -1300,6 +1293,12 @@ export async function stitchHighlightedSegments({
         actualOutroDuration = await renderOutroSequence();
       }
     }
+
+    // 실제 레코더가 녹화한 총 경과 시간 측정 (시크에 걸린 미세 시간까지 반영하여 플레이어 조기 끊김 방지)
+    const actualRecordedSegmentsSec =
+      recordingWallStartAt > 0
+        ? Math.max(totalSegmentsDuration, (performance.now() - recordingWallStartAt) / 1000)
+        : totalSegmentsDuration;
 
     onProgress?.(99, '16:9 고화질 하이라이트 영상 파일 생성 중...');
 
@@ -1352,7 +1351,7 @@ export async function stitchHighlightedSegments({
         `[2] 청크: ${chunks.length}개 (ondataavailable: ${dataAvailableCalls}회, 크기들: [${chunksSummary || '없음'}])`,
         `[3] onstop: ${onstopFired ? '수신완료' : onstopWaitTimeout ? '타임아웃' : '미수신'}`,
         `[4] 캔버스트랙: ${vTrack ? `상태=${vTrack.readyState}, muted=${vTrack.muted}, enabled=${vTrack.enabled}` : '없음'} (오디오트랙: ${audioTracks.length}개)`,
-        `[5] 워커 상태: [A] ${workerA.videoWidth}x${workerA.videoHeight}, ready=${workerA.readyState}, cur=${workerA.currentTime.toFixed(2)}s | [B] ${workerB.videoWidth}x${workerB.videoHeight}, ready=${workerB.readyState}, cur=${workerB.currentTime.toFixed(2)}s`,
+        `[5] 워커 상태: ${workerA.videoWidth}x${workerA.videoHeight}, ready=${workerA.readyState}, cur=${workerA.currentTime.toFixed(2)}s, paused=${workerA.paused}`,
         `[6] 총드로우: ${totalDrawCalls}회 실행`,
         `[7] 모드이력: ${renderModeHistory.join(' → ')}`,
         `[8] 환경: iOS=${IS_IOS}, Safari=${IS_SAFARI}`,
@@ -1365,7 +1364,12 @@ export async function stitchHighlightedSegments({
 
     const finalUrl = URL.createObjectURL(finalBlob);
     const originalTotalDuration = videos.reduce((sum, v) => sum + v.duration, 0);
-    const totalCalculatedDuration = actualIntroDuration + totalSegmentsDuration + actualOutroDuration;
+    // 시크 딜레이가 약간 포함된 경우에도 마지막 씬이 끝까지 재생되도록 최대 1.2초 범위 내에서 실제 녹화 시간 반영
+    const effectiveSegmentsDuration = Math.min(
+      totalSegmentsDuration + allSegments.length * 0.6,
+      actualRecordedSegmentsSec
+    );
+    const totalCalculatedDuration = actualIntroDuration + effectiveSegmentsDuration + actualOutroDuration;
 
     onLog?.(`병합 완료: ${(finalBlob.size / (1024 * 1024)).toFixed(1)}MB · ${finalMimeType || 'video/webm'}`);
     onProgress?.(100, '극적 하이라이트 영상이 완성되었습니다!');
@@ -1385,18 +1389,16 @@ export async function stitchHighlightedSegments({
       if (bgmController) {
         bgmController.stop();
       }
-      for (const w of [workerA, workerB]) {
-        try {
-          w.pause();
-        } catch {
-          // ignore
-        }
-        w.removeAttribute('src');
-        try {
-          w.load();
-        } catch {
-          // ignore
-        }
+      try {
+        workerA.pause();
+      } catch {
+        // ignore
+      }
+      workerA.removeAttribute('src');
+      try {
+        workerA.load();
+      } catch {
+        // ignore
       }
       // 공용 AudioContext는 재병합에서 재사용하므로 닫지 않고 잠시 중지만 한다.
       if (audioCtx && audioCtx.state === 'running') {

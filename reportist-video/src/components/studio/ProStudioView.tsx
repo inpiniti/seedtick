@@ -656,7 +656,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     for (let i = 0; i < segments.length; i++) {
       const seg = segments[i];
       const isLast = i === segments.length - 1 && outroDuration === 0;
-      if (currentTime >= acc && (isLast ? currentTime <= acc + seg.duration + 0.1 : currentTime < acc + seg.duration)) {
+      if (currentTime >= acc && (isLast ? currentTime <= totalDuration + 2.0 : currentTime < acc + seg.duration)) {
         return seg.id;
       }
       acc += seg.duration;
@@ -1207,14 +1207,19 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     onPause={() => setIsPlaying(false)}
                     onTimeUpdate={(e) => {
                       const cur = e.currentTarget.currentTime;
-                      if (result?.url && totalDuration > 0 && cur >= totalDuration) {
+                      const nativeDur = e.currentTarget.duration;
+                      const effectiveMaxDur =
+                        Number.isFinite(nativeDur) && nativeDur > 0
+                          ? Math.max(totalDuration, nativeDur)
+                          : totalDuration;
+                      if (result?.url && effectiveMaxDur > 0 && cur >= effectiveMaxDur) {
                         e.currentTarget.pause();
-                        e.currentTarget.currentTime = totalDuration;
-                        setCurrentTime(totalDuration);
+                        e.currentTarget.currentTime = effectiveMaxDur;
+                        setCurrentTime(Math.min(cur, totalDuration));
                         setIsPlaying(false);
                         return;
                       }
-                      setCurrentTime(cur);
+                      setCurrentTime(Math.min(cur, totalDuration));
                     }}
                     onEnded={() => {
                       setIsPlaying(false);
