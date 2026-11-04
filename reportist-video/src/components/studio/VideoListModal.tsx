@@ -1,7 +1,5 @@
-// components/studio/VideoListModal.tsx - Uploaded videos management modal with i18n
-
 import React, { useEffect } from 'react';
-import { Film, Upload, Trash2, X, Plus, Clock, FileVideo } from 'lucide-react';
+import { Film, Upload, Trash2, X, Plus, Clock, FileVideo, Calendar, MapPin } from 'lucide-react';
 import type { VideoItem } from '../../types/video.ts';
 import { useI18n } from '../../i18n/index.tsx';
 
@@ -138,7 +136,7 @@ export const VideoListModal: React.FC<VideoListModalProps> = ({
                           {vid.name}
                         </span>
                       </div>
-                      <div className="text-[11px] text-slate-400 font-mono mt-1 flex items-center gap-2">
+                      <div className="text-[11px] text-slate-400 font-mono mt-1 flex items-center gap-2 flex-wrap">
                         <span>{vid.duration.toFixed(1)}{dict.common.timeSec}</span>
                         <span>•</span>
                         <span>
@@ -148,6 +146,24 @@ export const VideoListModal: React.FC<VideoListModalProps> = ({
                         </span>
                         <span>•</span>
                         <span>{((vid.sizeBytes || 0) / (1024 * 1024)).toFixed(1)}{dict.common.fileSizeMb}</span>
+                        {vid.metadataDate && (
+                          <>
+                            <span>•</span>
+                            <span className="inline-flex items-center gap-1 text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-sans">
+                              <Calendar size={11} />
+                              {vid.metadataDate}
+                            </span>
+                          </>
+                        )}
+                        {vid.locationName && (
+                          <>
+                            <span>•</span>
+                            <span className="inline-flex items-center gap-1 text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded font-sans">
+                              <MapPin size={11} />
+                              {vid.locationName}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>

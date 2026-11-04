@@ -119,8 +119,55 @@ export async function extractVideoFramesForAnalysis(
   });
 }
 
-// 비디오 파일로부터 재생 시간, 해상도, 대표 썸네일 추출
+// 미디어(비디오 또는 사진) 파일로부터 재생 시간, 해상도, 대표 썸네일 추출
 export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
+  // 사진 파일 처리 분기
+  if (file.type.startsWith('image/') || /\.(jpg|jpeg|png|heic|webp|avif)$/i.test(file.name)) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      img.onload = () => {
+        const width = img.naturalWidth || 1280;
+        const height = img.naturalHeight || 720;
+        const canvas = document.createElement('canvas');
+        const maxThumbWidth = 320;
+        const scale = Math.min(1, maxThumbWidth / width);
+        canvas.width = Math.round(width * scale);
+        canvas.height = Math.round(height * scale);
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const thumbnailUrl = canvas.toDataURL('image/jpeg', 0.75);
+          URL.revokeObjectURL(objectUrl);
+          resolve({
+            duration: 3.5, // 사진의 기본 클립 재생 시간 3.5초
+            width,
+            height,
+            thumbnailUrl,
+          });
+          return;
+        }
+        URL.revokeObjectURL(objectUrl);
+        resolve({
+          duration: 3.5,
+          width,
+          height,
+          thumbnailUrl: objectUrl,
+        });
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve({
+          duration: 3.5,
+          width: 1280,
+          height: 720,
+          thumbnailUrl: '',
+        });
+      };
+      img.src = objectUrl;
+    });
+  }
+
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
     video.preload = 'metadata';

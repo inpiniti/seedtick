@@ -10,8 +10,12 @@ import {
   DEFAULT_CONFIG,
 } from './services/gatewayClient.ts';
 import { enrichModelMetrics, pickDefaultModel } from './services/modelMetrics.ts';
-import { extractVideoMetadata, extractVideoFramesForAnalysis } from './services/videoCompressor.ts';
-import { formatVideoDate, extractGpsFromVideoFile } from './services/videoMetadata.ts';
+import { extractVideoMetadata as extractVideoVisualDimensions, extractVideoFramesForAnalysis } from './services/videoCompressor.ts';
+import {
+  extractVideoMetadata as extractMediaMetadata,
+  formatVideoDate,
+  extractGpsFromVideoFile,
+} from './services/videoMetadata.ts';
 import { primeAudioContext, stitchHighlightedSegments } from './services/videoStitcher.ts';
 import { captureVideoFrameAtTime, renderThumbnailArtwork } from './services/thumbnailGenerator.ts';
 import type { FreeModelMeta, ReasoningEffortOption } from './types/gateway.ts';
@@ -111,32 +115,45 @@ export function App() {
 
       setVideos((prev) => [...prev, newItem]);
 
-      // 메타데이터, 촬영일자, GPS 추출
-      extractVideoMetadata(file)
-        .then(async (meta) => {
-          const { dateStr } = formatVideoDate(file);
-          const gps = await extractGpsFromVideoFile(file);
-
-          setVideos((prev) =>
-            prev.map((v) =>
-              v.id === videoId
-                ? {
-                    ...v,
-                    duration: meta.duration,
-                    width: meta.width,
-                    height: meta.height,
-                    thumbnailUrl: meta.thumbnailUrl,
-                    metadataDate: dateStr,
-                    latitude: gps?.latitude,
-                    longitude: gps?.longitude,
-                  }
-                : v
-            )
-          );
-        })
-        .catch((err) => {
-          console.warn('Metadata extraction error:', err);
-        });
+      // 메타데이터(실제 촬영일자, 타임스탬프, GPS 좌표, 역지오코딩 장소명) 및 영상 해상도/썸네일 동시 추출
+      Promise.all([
+        extractVideoVisualDimensions(file).catch(() => ({
+          duration: 0,
+          width: 0,
+          height: 0,
+          thumbnailUrl: '',
+        })),
+        extractMediaMetadata(file).catch(() => ({
+          dateStr: formatVideoDate(file).dateStr,
+          fullDateStr: '',
+          recordedTimestamp: file.lastModified || Date.now(),
+          latitude: undefined,
+          longitude: undefined,
+          locationQuery: undefined,
+          locationName: undefined,
+        })),
+      ]).then(([visualMeta, mediaMeta]) => {
+        setVideos((prev) =>
+          prev.map((v) =>
+            v.id === videoId
+              ? {
+                  ...v,
+                  duration: visualMeta.duration,
+                  width: visualMeta.width,
+                  height: visualMeta.height,
+                  thumbnailUrl: visualMeta.thumbnailUrl,
+                  metadataDate: mediaMeta.dateStr,
+                  recordedTimestamp: mediaMeta.recordedTimestamp,
+                  latitude: mediaMeta.latitude,
+                  longitude: mediaMeta.longitude,
+                  locationName: mediaMeta.locationName,
+                }
+              : v
+          )
+        );
+      }).catch((err) => {
+        console.warn('Metadata extraction error:', err);
+      });
     }
   };
 
@@ -317,6 +334,7 @@ export function App() {
           metadataDate: currentVideo.metadataDate,
           latitude: currentVideo.latitude,
           longitude: currentVideo.longitude,
+          locationName: currentVideo.locationName,
           locale,
           onStreamOpen: () => {
             addLog(interpolate(dict.logs.streamConnected, { name: currentVideo.name }));

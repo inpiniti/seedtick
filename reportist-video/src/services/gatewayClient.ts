@@ -171,6 +171,7 @@ export interface AnalyzeVideoParams extends VideoAnalysisStreamCallbacks {
   metadataDate?: string;
   latitude?: number;
   longitude?: number;
+  locationName?: string;
   locale?: string;
 }
 
@@ -398,6 +399,7 @@ export async function analyzeVideoHighlights({
   metadataDate,
   latitude,
   longitude,
+  locationName,
   locale = 'en',
   onStreamOpen,
   onReasoningDelta,
@@ -545,7 +547,8 @@ Format:
     videoName,
     metadataDate,
     latitude,
-    longitude
+    longitude,
+    locationName
   );
 }
 
@@ -632,7 +635,8 @@ export function parseAndValidateSegments(
   videoName: string,
   metadataDate?: string,
   latitude?: number,
-  longitude?: number
+  longitude?: number,
+  locationName?: string
 ): HighlightSegment[] {
   const analysisData = extractAnalysisData(rawText);
   const parsed: RawSegmentItem[] = analysisData?.segments ?? [];
@@ -683,6 +687,7 @@ export function parseAndValidateSegments(
           cropOffsetYRatio,
           subtitleDate: metadataDate || '',
           subtitleTitle: sceneReason,
+          locationName,
           latitude,
           longitude,
         });

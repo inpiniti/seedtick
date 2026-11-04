@@ -29,11 +29,13 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFilesSelected, disabled = 
     if (disabled) return;
 
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const videoFiles = Array.from(e.dataTransfer.files).filter((file) =>
-        file.type.startsWith('video/') || /\.(mp4|webm|mov|mkv|avi|m4v)$/i.test(file.name)
+      const mediaFiles = Array.from(e.dataTransfer.files).filter((file) =>
+        file.type.startsWith('video/') ||
+        file.type.startsWith('image/') ||
+        /\.(mp4|webm|mov|mkv|avi|m4v|jpg|jpeg|png|heic|webp)$/i.test(file.name)
       );
-      if (videoFiles.length > 0) {
-        onFilesSelected(videoFiles);
+      if (mediaFiles.length > 0) {
+        onFilesSelected(mediaFiles);
       }
     }
   };
@@ -58,7 +60,7 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFilesSelected, disabled = 
         ref={fileInputRef}
         type="file"
         multiple
-        accept="video/*"
+        accept="video/*,image/*"
         style={{ display: 'none' }}
         onChange={handleFileInputChange}
         disabled={disabled}

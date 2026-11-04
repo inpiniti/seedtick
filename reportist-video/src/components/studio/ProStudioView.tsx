@@ -151,8 +151,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       end: Math.min(v.duration || 5, 5),
       duration: Math.min(v.duration || 5, 5),
       reason: `Clip #${idx + 1}`,
+      subtitleDate: v.metadataDate || '',
+      subtitleTitle: `Clip #${idx + 1}`,
+      locationName: v.locationName || '',
+      latitude: v.latitude,
+      longitude: v.longitude,
     }));
   }, [result, videos]);
+
+  // 비디오 ID 매핑 (상위 선언)
+  const videoMap = useMemo(() => {
+    const map = new Map<string, VideoItem>();
+    videos.forEach((v) => map.set(v.id, v));
+    return map;
+  }, [videos]);
 
   const [segments, setSegments] = useState<HighlightSegment[]>(initialSegments);
   const [selectedSegmentId, setSelectedSegmentId] = useState<string>(
@@ -314,23 +326,46 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const thumbnailBgCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isUpdatingThumbnail, setIsUpdatingThumbnail] = useState<boolean>(false);
 
-  // 영상이 추가되었을 때 실제 촬영 날짜 자동 반영
+  // 영상이 추가되었을 때 실제 촬영 날짜 및 위치 자동 반영
   useEffect(() => {
     if (videos.length > 0) {
       const ts = videos[0].recordedTimestamp || videos[0].file?.lastModified;
       let detectedDate =
         videos[0].metadataDate ||
         (ts ? formatDateByPattern(new Date(ts), currentDateFormat) : '');
+      const detectedLocation = videos[0].locationName || '';
+
       if (detectedDate) {
         const targetDate = ts ? new Date(ts) : parseDateFromString(detectedDate) || new Date();
         const formattedWithAge = formatDateWithAge(detectedDate, targetDate, showAge, birthDate);
         setOverlayOptions((prev) => ({
           ...prev,
           subtitleDateText: prev.subtitleDateText || formattedWithAge,
+          subtitleLocationText: prev.subtitleLocationText || detectedLocation,
+        }));
+      } else if (detectedLocation) {
+        setOverlayOptions((prev) => ({
+          ...prev,
+          subtitleLocationText: prev.subtitleLocationText || detectedLocation,
         }));
       }
+
+      // segments의 subtitleDate / locationName이 비어있으면 videos의 최신 메타데이터로 보충
+      setSegments((prev) =>
+        prev.map((seg) => {
+          const v = videoMap.get(seg.sourceVideoId);
+          if (!v) return seg;
+          return {
+            ...seg,
+            subtitleDate: seg.subtitleDate || v.metadataDate || '',
+            locationName: seg.locationName || v.locationName || '',
+            latitude: seg.latitude ?? v.latitude,
+            longitude: seg.longitude ?? v.longitude,
+          };
+        })
+      );
     }
-  }, [videos, currentDateFormat, showAge, birthDate]);
+  }, [videos, currentDateFormat, showAge, birthDate, videoMap]);
 
   // 날짜 표기 형식 변경 시 세그먼트 자막 및 비디오 메타데이터 일괄 갱신
   const handleSelectDateFormat = (newFormat: DateFormatOption) => {
@@ -623,12 +658,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     return Math.max(0, Math.round((1 - totalDuration / originalTotalDuration) * 100));
   }, [totalDuration, originalTotalDuration]);
 
-  // 비디오 ID 매핑
-  const videoMap = useMemo(() => {
-    const map = new Map<string, VideoItem>();
-    videos.forEach((v) => map.set(v.id, v));
-    return map;
-  }, [videos]);
+  // 비디오 ID 매핑 (상단으로 이동됨)
 
   // 인트로, 아웃트로 및 챕터 브릿지 실제 적용 시간
   const introDuration = (result?.url && result.introDuration) ? result.introDuration : 0;

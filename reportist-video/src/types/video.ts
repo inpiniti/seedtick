@@ -17,6 +17,7 @@ export interface HighlightSegment {
   locationName?: string;    // 씬 위치 명칭 (예: '해운대 해수욕장')
   latitude?: number;        // GPS 위도
   longitude?: number;       // GPS 경도
+  recordedTimestamp?: number; // 씬 실제 촬영 시각 타임스탬프 (ms, 시분초 포함)
 }
 
 export interface BgmPreset {
@@ -54,6 +55,7 @@ export interface VideoItem {
   recordedTimestamp?: number; // e.g. 1793710800000 (ms)
   latitude?: number;
   longitude?: number;
+  locationName?: string; // e.g. "어린이대공원"
 }
 
 export interface ExtractedFrame {
