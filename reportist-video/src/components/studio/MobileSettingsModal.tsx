@@ -345,7 +345,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                           스토리 챕터 브릿지 표시
                         </div>
                         <div className="settings-modal-item-desc">
-                          날짜·장소·원본 영상이 바뀌는 구간 사이에 시네마틱 챕터 전환 카드를 삽입해요
+                          날짜나 장소가 바뀌는 구간 사이에 플립 시계 / 이동 경로 브릿지를 삽입해요
                         </div>
                       </div>
                     </div>

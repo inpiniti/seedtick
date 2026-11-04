@@ -1891,7 +1891,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 <div className="flex items-center gap-3 shrink-0 ml-auto sm:ml-0">
                   <label
                     className="toss-toggle-label flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-600"
-                    title="날짜·장소·원본 영상이 바뀌는 구간 사이에 시네마틱 챕터 브릿지 카드를 삽입합니다"
+                    title="날짜 또는 장소가 바뀌는 구간 사이에 플립 시계 / 이동 경로 브릿지를 삽입합니다"
                   >
                     <span>챕터 브릿지</span>
                     <span className="toss-toggle-switch">
@@ -1945,17 +1945,22 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       {bridgeEval?.shouldBridge && (
                         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-dashed border-blue-200 text-[11px] text-slate-600">
                           <span className="px-1.5 py-0.5 rounded bg-blue-600 text-white font-bold text-[10px] tracking-wider">
-                            {bridgeEval.isDateChanged
-                              ? 'TIMELINE JUMP'
-                              : bridgeEval.isLocationChanged
-                              ? 'LOCATION SHIFT'
-                              : `CHAPTER ${String(bridgeEval.chapterIndex).padStart(2, '0')}`}
+                            {bridgeEval.isDateChanged && bridgeEval.isLocationChanged
+                              ? 'DATE & ROUTE'
+                              : bridgeEval.isDateChanged
+                              ? 'FLIP DATE'
+                              : 'ROUTE MOVE'}
                           </span>
                           <span className="font-medium text-slate-700 truncate">
-                            {[bridgeEval.toDate, bridgeEval.toLocation].filter(Boolean).join(' • ') || bridgeEval.sceneTitle}
+                            {[
+                              bridgeEval.isDateChanged ? `${bridgeEval.fromDate} → ${bridgeEval.toDate}` : '',
+                              bridgeEval.isLocationChanged ? `${bridgeEval.fromLocation} → ${bridgeEval.toLocation}` : '',
+                            ]
+                              .filter(Boolean)
+                              .join('  •  ')}
                           </span>
                           <span className="ml-auto font-mono text-[10px] text-blue-600 font-semibold shrink-0">
-                            +1.3s 브릿지
+                            +2.2s 브릿지
                           </span>
                         </div>
                       )}
