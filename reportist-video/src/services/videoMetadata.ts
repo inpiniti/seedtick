@@ -810,63 +810,66 @@ export async function reverseGeocodeCoordinates(latitude: number, longitude: num
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-    const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=ko`;
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        Accept: 'application/json',
-      },
-    });
-    clearTimeout(timeoutId);
+    try {
+      const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=ko`;
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+        },
+      });
 
-    if (res.ok) {
-      const data = await res.json();
-      const locality = typeof data.locality === 'string' ? data.locality.trim() : '';
-      const city = typeof data.city === 'string' ? data.city.trim() : '';
-      const adminList = Array.isArray(data.localityInfo?.administrative)
-        ? data.localityInfo.administrative
-        : [];
+      if (res.ok) {
+        const data = await res.json();
+        const locality = typeof data.locality === 'string' ? data.locality.trim() : '';
+        const city = typeof data.city === 'string' ? data.city.trim() : '';
+        const adminList = Array.isArray(data.localityInfo?.administrative)
+          ? data.localityInfo.administrative
+          : [];
 
-      // 자치구/일반구 (예: 광진구, 강남구, 분당구, 해운대구 등) 검색
-      let district = '';
-      for (const item of adminList) {
-        if (typeof item?.name === 'string') {
-          const nm = item.name.trim();
-          if (/.+[구군]$/.test(nm) && nm !== city) {
-            district = nm;
+        // 자치구/일반구 (예: 광진구, 강남구, 분당구, 해운대구 등) 검색
+        let district = '';
+        for (const item of adminList) {
+          if (typeof item?.name === 'string') {
+            const nm = item.name.trim();
+            if (/.+[구군]$/.test(nm) && nm !== city) {
+              district = nm;
+            }
           }
         }
-      }
 
-      let placeName = '';
-      if (locality) {
-        if (district && district !== locality && !locality.includes(district)) {
-          placeName = `${district} ${locality}`;
-        } else if (
-          city &&
-          !city.includes('특별시') &&
-          !city.includes('광역시') &&
-          city !== locality &&
-          !locality.includes(city)
-        ) {
-          placeName = `${city} ${locality}`;
-        } else {
-          placeName = locality;
+        let placeName = '';
+        if (locality) {
+          if (district && district !== locality && !locality.includes(district)) {
+            placeName = `${district} ${locality}`;
+          } else if (
+            city &&
+            !city.includes('특별시') &&
+            !city.includes('광역시') &&
+            city !== locality &&
+            !locality.includes(city)
+          ) {
+            placeName = `${city} ${locality}`;
+          } else {
+            placeName = locality;
+          }
+        } else if (district) {
+          placeName = district;
+        } else if (city) {
+          placeName = city;
+        } else if (data.principalSubdivision) {
+          placeName = String(data.principalSubdivision).trim();
+        } else if (data.countryName) {
+          placeName = String(data.countryName).trim();
         }
-      } else if (district) {
-        placeName = district;
-      } else if (city) {
-        placeName = city;
-      } else if (data.principalSubdivision) {
-        placeName = String(data.principalSubdivision).trim();
-      } else if (data.countryName) {
-        placeName = String(data.countryName).trim();
-      }
 
-      if (placeName) {
-        locationCache.set(cacheKey, placeName);
-        return placeName;
+        if (placeName) {
+          locationCache.set(cacheKey, placeName);
+          return placeName;
+        }
       }
+    } finally {
+      clearTimeout(timeoutId);
     }
   } catch (err) {
     console.debug('[videoMetadata] 역지오코딩 조회 건너뜀 (좌표 표기로 대체):', err);

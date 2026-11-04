@@ -17,7 +17,7 @@ import {
   extractGpsFromVideoFile,
 } from './services/videoMetadata.ts';
 import { primeAudioContext, stitchHighlightedSegments } from './services/videoStitcher.ts';
-import { captureVideoFrameAtTime, renderThumbnailArtwork } from './services/thumbnailGenerator.ts';
+import { captureVideoFrameAtTime, createCanvasFromImageDataUrl, renderThumbnailArtwork } from './services/thumbnailGenerator.ts';
 import type { FreeModelMeta, ReasoningEffortOption } from './types/gateway.ts';
 import type {
   VideoItem,
@@ -252,6 +252,18 @@ export function App() {
     let bestThumbVideoId = updatedVideos[0]?.id || '';
     let bestThumbTimestamp = 0;
     let bestThumbCropOffsetYRatio = 0.2;
+    let bestThumbRotation = 0;
+    let bestThumbReason = '';
+    let bestThumbCleanDataUrl = '';
+    const aiThumbnailRecommendations: Array<{
+      videoId: string;
+      videoName: string;
+      timestamp: number;
+      reason?: string;
+      cleanDataUrl?: string;
+      cropOffsetYRatio?: number;
+      rotation?: number;
+    }> = [];
 
     try {
       // 1. 영상별 순차 루프
@@ -382,13 +394,41 @@ export function App() {
         // AI 추천 타이틀 및 베스트 썸네일 정보 수집
         const segSuggestedTitle = (segments as any)?.suggestedTitle;
         const segThumbTime = (segments as any)?.bestThumbnailTimestamp;
+        const segThumbReason = (segments as any)?.bestThumbnailReason;
         if (segSuggestedTitle && !aiDiscoveredTitle) {
           aiDiscoveredTitle = segSuggestedTitle;
         }
-        if (typeof segThumbTime === 'number' && (!bestThumbTimestamp || i === 0)) {
-          bestThumbTimestamp = segThumbTime;
+
+        // AI가 추천한 타임스탬프와 가장 가까운 클린 키프레임 추출 (오버레이 없는 순수 이미지)
+        const closestFrame = typeof segThumbTime === 'number' && frames.length > 0
+          ? frames.reduce((prev, curr) =>
+              Math.abs(curr.timestamp - segThumbTime) < Math.abs(prev.timestamp - segThumbTime) ? curr : prev
+            , frames[0])
+          : frames[0];
+
+        const candidateThumbTime = typeof segThumbTime === 'number' ? segThumbTime : (closestFrame?.timestamp ?? 0.5);
+        const candidateReason = segThumbReason || segments[0]?.reason || 'AI가 선정한 하이라이트 순간';
+        const candidateCrop = segments[0]?.cropOffsetYRatio ?? 0.2;
+        const candidateRotation = segments[0]?.rotation ?? 0;
+        const candidateCleanDataUrl = closestFrame?.dataUrl || '';
+
+        aiThumbnailRecommendations.push({
+          videoId: currentVideo.id,
+          videoName: currentVideo.name,
+          timestamp: candidateThumbTime,
+          reason: candidateReason,
+          cleanDataUrl: candidateCleanDataUrl,
+          cropOffsetYRatio: candidateCrop,
+          rotation: candidateRotation,
+        });
+
+        if (!bestThumbTimestamp || i === 0) {
+          bestThumbTimestamp = candidateThumbTime;
           bestThumbVideoId = currentVideo.id;
-          bestThumbCropOffsetYRatio = segments[0]?.cropOffsetYRatio ?? 0.2;
+          bestThumbCropOffsetYRatio = candidateCrop;
+          bestThumbRotation = candidateRotation;
+          bestThumbReason = candidateReason;
+          bestThumbCleanDataUrl = candidateCleanDataUrl;
         }
 
         const segTotal = segments.reduce((sum, s) => sum + s.duration, 0);
@@ -462,75 +502,103 @@ export function App() {
       });
 
       // 3. 16:9 유튜브 고화질 썸네일 자동 생성
-      addLog('✨ AI 추천 베스트 프레임으로 16:9 고화질 썸네일 생성 중...');
+      addLog('✨ AI가 직접 추천한 베스트 썸네일 프레임 생성 중...');
       let generatedThumbnailUrl: string | undefined = undefined;
+      let cleanThumbnailUrl: string | undefined = undefined;
       try {
         let bgCanvas: HTMLCanvasElement | null = null;
         const thumbVideo =
           updatedVideos.find((v) => v.id === bestThumbVideoId) || updatedVideos[0];
         const bestSeg =
           allSegments.find((s) => s.sourceVideoId === bestThumbVideoId) || allSegments[0];
-        const bestThumbRotation = bestSeg?.rotation ?? 0;
+        const effectiveRotation = bestThumbRotation || bestSeg?.rotation || 0;
+        const effectiveCrop = bestThumbCropOffsetYRatio ?? bestSeg?.cropOffsetYRatio ?? 0.2;
         const targetTime =
-          bestThumbTimestamp > 0.5
+          bestThumbTimestamp > 0.05
             ? bestThumbTimestamp
-            : allSegments[0]
-            ? allSegments[0].start + Math.max(0.5, allSegments[0].duration * 0.4)
+            : bestSeg
+            ? bestSeg.start + Math.max(0.5, bestSeg.duration * 0.4)
             : 0.5;
 
-        if (thumbVideo) {
+        // 1단계: 원본 소스 비디오에서 직접 1280x720 고화질 캡처 시도 (순수 원본 영상, 자막/오버레이 전혀 없음)
+        if (thumbVideo?.url) {
           try {
             bgCanvas = await captureVideoFrameAtTime(
               thumbVideo.url,
               targetTime,
-              bestThumbCropOffsetYRatio,
+              effectiveCrop,
               1280,
               720,
-              bestThumbRotation
+              effectiveRotation
             );
           } catch (sourceErr) {
-            console.warn('Source video capture failed, falling back to stitched result URL:', sourceErr);
-            if (result.url) {
-              bgCanvas = await captureVideoFrameAtTime(
-                result.url,
-                0.5,
-                bestThumbCropOffsetYRatio
-              );
-            }
+            console.warn('Source video high-res frame capture failed, falling back to AI clean keyframe dataUrl:', sourceErr);
           }
-        } else if (result.url) {
-          bgCanvas = await captureVideoFrameAtTime(
-            result.url,
-            0.5,
-            bestThumbCropOffsetYRatio
-          );
+        }
+
+        // 2단계: 소스 비디오 직접 캡처 실패 시, AI 분석 단계에서 이미 추출해 둔 100% 클린 키프레임 사용 (오버레이 절대 미포함)
+        if (!bgCanvas && bestThumbCleanDataUrl) {
+          try {
+            bgCanvas = await createCanvasFromImageDataUrl(
+              bestThumbCleanDataUrl,
+              1280,
+              720,
+              effectiveCrop,
+              effectiveRotation
+            );
+          } catch (cleanDataErr) {
+            console.warn('Failed to render from AI keyframe dataUrl:', cleanDataErr);
+          }
+        }
+
+        // 3단계: 여전히 없으면 첫 번째 클린 키프레임 또는 0.1초 소스 캡처 시도 (절대로 result.url에는 접근하지 않음!)
+        if (!bgCanvas && updatedVideos[0]?.url) {
+          try {
+            bgCanvas = await captureVideoFrameAtTime(
+              updatedVideos[0].url,
+              0.1,
+              0.2,
+              1280,
+              720,
+              0
+            );
+          } catch {}
         }
 
         if (bgCanvas) {
+          cleanThumbnailUrl = bgCanvas.toDataURL('image/jpeg', 0.95);
+
           const finalTitle =
             overlayOpts?.titleText || aiDiscoveredTitle || dict.player.defaultTitleText;
 
+          // 썸네일 아트워크 생성 (상단 왼쪽 문구, 오른쪽 문구, 날짜 등 일체 미포함)
           const thumbCanvas = renderThumbnailArtwork(bgCanvas, {
             titleText: finalTitle,
             channelText: '',
             badgeText: '',
-            showTitle: true,
+            showTitle: Boolean(finalTitle?.trim()),
             showBadge: false,
             showChannel: false,
             stylePreset: 'youtube-bold',
           });
 
           generatedThumbnailUrl = thumbCanvas.toDataURL('image/jpeg', 0.95);
-          addLog('🎉 16:9 유튜브 맞춤 썸네일 자동 완성!');
+          addLog(`🎉 AI 추천 썸네일 완성: ${bestThumbReason || '베스트 순간'}`);
         }
       } catch (thumbErr) {
         console.warn('Thumbnail generation warning:', thumbErr);
       }
 
       result.thumbnailUrl = generatedThumbnailUrl;
+      result.cleanThumbnailUrl = cleanThumbnailUrl;
       result.suggestedTitle = aiDiscoveredTitle;
       result.bestThumbnailTime = bestThumbTimestamp;
       result.bestSourceVideoId = bestThumbVideoId;
+      result.bestThumbnailReason = bestThumbReason;
+      result.bestThumbnailCropOffsetYRatio = bestThumbCropOffsetYRatio;
+      result.bestThumbnailRotation = bestThumbRotation;
+      result.bestThumbnailCleanDataUrl = bestThumbCleanDataUrl;
+      result.aiThumbnailRecommendations = aiThumbnailRecommendations;
 
       addLog(interpolate(dict.logs.stitchingComplete, {
         duration: result.duration.toFixed(1),

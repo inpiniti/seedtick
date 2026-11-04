@@ -638,6 +638,7 @@ type RawSegmentItem = {
 export interface ParsedAnalysisPayload {
   videoTitle?: string;
   bestThumbnailTimestamp?: number;
+  bestThumbnailReason?: string;
   segments: RawSegmentItem[];
 }
 
@@ -656,6 +657,7 @@ export function extractAnalysisData(rawText: string): ParsedAnalysisPayload | nu
       return {
         videoTitle: typeof parsed.videoTitle === 'string' ? parsed.videoTitle : typeof parsed.title === 'string' ? parsed.title : undefined,
         bestThumbnailTimestamp: typeof parsed.bestThumbnailTimestamp === 'number' ? parsed.bestThumbnailTimestamp : undefined,
+        bestThumbnailReason: typeof parsed.bestThumbnailReason === 'string' ? parsed.bestThumbnailReason.trim() : typeof parsed.thumbnailReason === 'string' ? parsed.thumbnailReason.trim() : undefined,
         segments: segs as RawSegmentItem[],
       };
     }
@@ -673,6 +675,7 @@ export function extractAnalysisData(rawText: string): ParsedAnalysisPayload | nu
         return {
           videoTitle: typeof parsed.videoTitle === 'string' ? parsed.videoTitle : typeof parsed.title === 'string' ? parsed.title : undefined,
           bestThumbnailTimestamp: typeof parsed.bestThumbnailTimestamp === 'number' ? parsed.bestThumbnailTimestamp : undefined,
+          bestThumbnailReason: typeof parsed.bestThumbnailReason === 'string' ? parsed.bestThumbnailReason.trim() : typeof parsed.thumbnailReason === 'string' ? parsed.thumbnailReason.trim() : undefined,
           segments: segs as RawSegmentItem[],
         };
       }
@@ -837,9 +840,16 @@ export function parseAndValidateSegments(
       ? Math.round((mergedSegments[0].start + mergedSegments[0].duration * 0.35) * 10) / 10
       : 0;
 
+  const resolvedThumbReason =
+    analysisData?.bestThumbnailReason?.trim() ||
+    mergedSegments[0]?.subtitleTitle ||
+    mergedSegments[0]?.reason ||
+    'AI가 추천한 베스트 순간';
+
   Object.assign(mergedSegments, {
     suggestedTitle: resolvedTitle,
     bestThumbnailTimestamp: resolvedThumbTime,
+    bestThumbnailReason: resolvedThumbReason,
   });
 
   return mergedSegments;
