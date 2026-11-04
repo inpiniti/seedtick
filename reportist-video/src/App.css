@@ -2001,13 +2001,19 @@
 
 .toss-player-wrapper.has-video {
   background-color: #000000;
-  border-color: #000000;
+  border: 1px solid #000000;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.toss-player-wrapper.is-empty {
+  background-color: #f8fafc;
+  border: 1.5px dashed #cbd5e1;
+  cursor: pointer;
 }
 
 .toss-player-wrapper.is-empty:hover {
   border-color: #3182f6;
-  background-color: #f2f4f6;
+  background-color: #f0f7ff;
 }
 
 .toss-video-element {
