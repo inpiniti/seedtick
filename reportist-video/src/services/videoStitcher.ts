@@ -173,7 +173,7 @@ function createMediaRecorder(stream: MediaStream): { recorder: MediaRecorder; mi
 
 // 모바일 Safari는 화면 밖으로 밀어낸 canvas/video의 프레임을 캡처하지 못하거나
 // 레이어 컬링으로 captureStream 프레임이 멈추는 경우가 있어, 뷰포트 하단 모서리에 안전하게 마운트한다.
-function mountHiddenStage(canvas: HTMLCanvasElement, video: HTMLVideoElement): HTMLDivElement {
+function mountHiddenStage(canvas: HTMLCanvasElement, ...videos: HTMLVideoElement[]): HTMLDivElement {
   const stage = document.createElement('div');
   stage.setAttribute('aria-hidden', 'true');
   stage.style.cssText = [
@@ -187,14 +187,31 @@ function mountHiddenStage(canvas: HTMLCanvasElement, video: HTMLVideoElement): H
     'overflow:hidden',
     'z-index:1',
   ].join(';');
-  for (const el of [canvas, video]) {
+  canvas.style.width = '80px';
+  canvas.style.height = '45px';
+  stage.appendChild(canvas);
+  for (const el of videos) {
     el.style.width = '80px';
     el.style.height = '45px';
+    stage.appendChild(el);
   }
-  stage.appendChild(canvas);
-  stage.appendChild(video);
   document.body.appendChild(stage);
   return stage;
+}
+
+function createWorkerVideo(): HTMLVideoElement {
+  const videoElem = document.createElement('video');
+  videoElem.muted = true;
+  videoElem.defaultMuted = true;
+  videoElem.volume = 0;
+  videoElem.playsInline = true;
+  videoElem.preload = 'auto';
+  videoElem.crossOrigin = 'anonymous';
+  videoElem.setAttribute('crossorigin', 'anonymous');
+  videoElem.setAttribute('playsinline', '');
+  videoElem.setAttribute('webkit-playsinline', '');
+  videoElem.setAttribute('muted', '');
+  return videoElem;
 }
 
 // 여러 영상에서 추출된 극적 구간들을 순차적으로 잘라 16:9 유튜브 규격의 단일 영상으로 병합
@@ -241,20 +258,10 @@ export async function stitchHighlightedSegments({
   ctx.fillStyle = '#080c14';
   ctx.fillRect(0, 0, targetWidth, targetHeight);
 
-  // 워커 비디오 엘리먼트 준비 (모바일 자동재생 정책 방어 & Canvas Tainting 방지)
-  const videoElem = document.createElement('video');
-  videoElem.muted = true;
-  videoElem.defaultMuted = true;
-  videoElem.volume = 0;
-  videoElem.playsInline = true;
-  videoElem.preload = 'auto';
-  videoElem.crossOrigin = 'anonymous';
-  videoElem.setAttribute('crossorigin', 'anonymous');
-  videoElem.setAttribute('playsinline', '');
-  videoElem.setAttribute('webkit-playsinline', '');
-  videoElem.setAttribute('muted', '');
-
-  const stage = mountHiddenStage(canvas, videoElem);
+  // 워커 비디오 엘리먼트 준비 (듀얼 워커 핑퐁 버퍼로 세그먼트 간 0ms 컷 전환 지원)
+  const workerA = createWorkerVideo();
+  const workerB = createWorkerVideo();
+  const stage = mountHiddenStage(canvas, workerA, workerB);
 
   // BGM 또는 커스텀 오디오 파일이 실제로 존재하는지 여부 확인
   const hasAudioSource = Boolean(
@@ -471,6 +478,7 @@ export async function stitchHighlightedSegments({
 
   const pauseRecorder = async () => {
     try {
+      if (IS_IOS || IS_SAFARI) return; // iOS Safari MediaRecorder 버그 방어: pause 후 resume 시 이후 청크가 누락되는 치명적 WebKit 결함
       if (recorder.state === 'recording') {
         recorder.pause();
       }
@@ -483,9 +491,9 @@ export async function stitchHighlightedSegments({
   };
 
   // 16:9 캔버스(1280x720)에 원본 영상을 소스 영역 스마트 크롭으로 100% 꽉 채워 그림
-  const drawCoverFrame = (vItem?: VideoItem, segment?: HighlightSegment) => {
-    const vW = videoElem.videoWidth || vItem?.width || targetWidth;
-    const vH = videoElem.videoHeight || vItem?.height || targetHeight;
+  const drawCoverFrame = (video: HTMLVideoElement, vItem?: VideoItem, segment?: HighlightSegment) => {
+    const vW = video.videoWidth || vItem?.width || targetWidth;
+    const vH = video.videoHeight || vItem?.height || targetHeight;
 
     const targetAspect = targetWidth / targetHeight; // 1280 / 720 = 16:9 (~1.777778)
     const srcAspect = vW / vH;
@@ -524,7 +532,7 @@ export async function stitchHighlightedSegments({
     sy = Math.max(0, Math.min(sy, Math.max(0, vH - sHeight)));
 
     // 대상 캔버스는 항상 (0, 0, 1280, 720) 전체를 정확하게 채움
-    ctx.drawImage(videoElem, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
+    ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
   };
 
   // 세그먼트별 오버레이 오프스크린 캔버스 생성 (세그먼트당 1회만 그려서 캐싱)
@@ -650,18 +658,19 @@ export async function stitchHighlightedSegments({
 
   // 비디오 프레임과 캐시된 오버레이를 캔버스에 합성
   const renderFrameWithOverlay = (
+    video: HTMLVideoElement,
     videoItem: VideoItem,
     segment: HighlightSegment,
     overlayCanvas: HTMLCanvasElement | null
   ) => {
     totalDrawCalls++;
-    drawCoverFrame(videoItem, segment);
+    drawCoverFrame(video, videoItem, segment);
     if (overlayCanvas) {
       ctx.drawImage(overlayCanvas, 0, 0);
     }
   };
 
-  // 진행률 콜백 스로틀 (모바일에서 초당 60회 React 리렌더로 렌더 루프가 굶는 현상 방지)
+  // 진행률 콜백 스로틀 (모바일에서 초당 60회 React 리렌더로 렌더 루프가 굳는 현상 방지)
   let lastProgressAt = 0;
   const reportProgress = (pct: number, message: string, force = false) => {
     const now = performance.now();
@@ -670,9 +679,9 @@ export async function stitchHighlightedSegments({
     onProgress?.(Math.min(97, Math.max(0, Math.round(pct))), message);
   };
 
-  const seekVideo = (time: number, timeoutMs = 8000) =>
+  const seekVideo = (video: HTMLVideoElement, time: number, timeoutMs = 8000) =>
     new Promise<boolean>((resolve) => {
-      if (Math.abs(videoElem.currentTime - time) < 0.02 && videoElem.readyState >= 2) {
+      if (Math.abs(video.currentTime - time) < 0.02 && video.readyState >= 2) {
         resolve(true);
         return;
       }
@@ -681,52 +690,52 @@ export async function stitchHighlightedSegments({
       const finish = (ok: boolean) => {
         if (settled) return;
         settled = true;
-        videoElem.removeEventListener('seeked', onSeeked);
-        videoElem.removeEventListener('error', onError);
+        video.removeEventListener('seeked', onSeeked);
+        video.removeEventListener('error', onError);
         if (timer) clearTimeout(timer);
         resolve(ok);
       };
       const onSeeked = () => finish(true);
       const onError = () => finish(false);
-      timer = setTimeout(() => finish(Math.abs(videoElem.currentTime - time) < 0.3), timeoutMs);
-      videoElem.addEventListener('seeked', onSeeked);
-      videoElem.addEventListener('error', onError);
+      timer = setTimeout(() => finish(Math.abs(video.currentTime - time) < 0.3), timeoutMs);
+      video.addEventListener('seeked', onSeeked);
+      video.addEventListener('error', onError);
       try {
-        videoElem.currentTime = time;
+        video.currentTime = time;
       } catch {
         finish(false);
       }
     });
 
   // 비디오가 지정 시점으로 seek된 후 실제 재생 가능한 버퍼(readyState >= 3)를 확보할 때까지 대기
-  const waitForVideoReady = (timeoutMs = 6000): Promise<boolean> => {
-    if (videoElem.readyState >= 3) return Promise.resolve(true);
+  const waitForVideoReady = (video: HTMLVideoElement, timeoutMs = 6000): Promise<boolean> => {
+    if (video.readyState >= 3) return Promise.resolve(true);
     return new Promise((resolve) => {
       let settled = false;
       let timer: ReturnType<typeof setTimeout> | null = null;
       const finish = (ok: boolean) => {
         if (settled) return;
         settled = true;
-        videoElem.removeEventListener('canplay', onReady);
-        videoElem.removeEventListener('canplaythrough', onReady);
-        videoElem.removeEventListener('playing', onReady);
+        video.removeEventListener('canplay', onReady);
+        video.removeEventListener('canplaythrough', onReady);
+        video.removeEventListener('playing', onReady);
         if (timer) clearTimeout(timer);
         resolve(ok);
       };
       const onReady = () => finish(true);
-      timer = setTimeout(() => finish(videoElem.readyState >= 2), timeoutMs);
-      videoElem.addEventListener('canplay', onReady);
-      videoElem.addEventListener('canplaythrough', onReady);
-      videoElem.addEventListener('playing', onReady);
+      timer = setTimeout(() => finish(video.readyState >= 2), timeoutMs);
+      video.addEventListener('canplay', onReady);
+      video.addEventListener('canplaythrough', onReady);
+      video.addEventListener('playing', onReady);
     });
   };
 
-  const loadVideoSource = async (url: string, name: string, timeoutMs = 10000) => {
-    if (videoElem.src === url && videoElem.readyState >= 1) return;
+  const loadVideoSource = async (video: HTMLVideoElement, url: string, name: string, timeoutMs = 10000) => {
+    if (video.src === url && video.readyState >= 1) return;
 
-    videoElem.src = url;
+    video.src = url;
     try {
-      videoElem.load();
+      video.load();
     } catch {
       // ignore
     }
@@ -734,8 +743,8 @@ export async function stitchHighlightedSegments({
     const result = await raceWithTimeout(
       new Promise<void>((resolve, reject) => {
         const cleanup = () => {
-          videoElem.removeEventListener('loadedmetadata', onLoaded);
-          videoElem.removeEventListener('error', onError);
+          video.removeEventListener('loadedmetadata', onLoaded);
+          video.removeEventListener('error', onError);
         };
         const onLoaded = () => {
           cleanup();
@@ -745,8 +754,8 @@ export async function stitchHighlightedSegments({
           cleanup();
           reject(new Error(`비디오 로드 실패: ${name}`));
         };
-        videoElem.addEventListener('loadedmetadata', onLoaded);
-        videoElem.addEventListener('error', onError);
+        video.addEventListener('loadedmetadata', onLoaded);
+        video.addEventListener('error', onError);
       }),
       timeoutMs
     );
@@ -755,10 +764,10 @@ export async function stitchHighlightedSegments({
     if (result.status === 'timeout') throw new Error(`비디오 로드 시간 초과: ${name}`);
   };
 
-  const startPlayback = async (timeoutMs: number): Promise<boolean> => {
+  const startPlayback = async (video: HTMLVideoElement, timeoutMs: number): Promise<boolean> => {
     let playPromise: Promise<void>;
     try {
-      playPromise = videoElem.play();
+      playPromise = video.play();
     } catch (err) {
       console.warn('[VideoStitcher] play() 즉시 실패:', err);
       return false;
@@ -771,7 +780,7 @@ export async function stitchHighlightedSegments({
     return false;
   };
 
-  const waitForPlaybackAdvance = (fromTime: number, timeoutMs: number) =>
+  const waitForPlaybackAdvance = (video: HTMLVideoElement, fromTime: number, timeoutMs: number) =>
     new Promise<boolean>((resolve) => {
       let settled = false;
       let checkTimer: number | null = null;
@@ -780,37 +789,54 @@ export async function stitchHighlightedSegments({
       const finish = (advanced: boolean) => {
         if (settled) return;
         settled = true;
-        videoElem.removeEventListener('timeupdate', check);
+        video.removeEventListener('timeupdate', check);
         if (checkTimer !== null) window.clearInterval(checkTimer);
         if (timeoutTimer) clearTimeout(timeoutTimer);
         resolve(advanced);
       };
 
       const check = () => {
-        if (videoElem.currentTime > fromTime + 0.02) finish(true);
+        if (video.currentTime > fromTime + 0.02) finish(true);
       };
 
       timeoutTimer = setTimeout(
-        () => finish(videoElem.currentTime > fromTime + 0.02),
+        () => finish(video.currentTime > fromTime + 0.02),
         timeoutMs
       );
-      videoElem.addEventListener('timeupdate', check);
+      video.addEventListener('timeupdate', check);
       checkTimer = window.setInterval(check, 50);
     });
+
+  const prepareWorkerForSegment = async (
+    worker: HTMLVideoElement,
+    segment: HighlightSegment
+  ): Promise<boolean> => {
+    const videoItem = videoMap.get(segment.sourceVideoId);
+    if (!videoItem) return false;
+    try {
+      await loadVideoSource(worker, videoItem.url, videoItem.name, 12000);
+      await seekVideo(worker, segment.start, 10000);
+      await waitForVideoReady(worker, 8000);
+      return true;
+    } catch (err) {
+      console.warn('[VideoStitcher] prepareWorkerForSegment 실패:', err);
+      return false;
+    }
+  };
 
   // 인트로/아웃트로 사용자 동영상 클립 합성 렌더링
   const renderCustomVideoClip = async (clipFile: File, label: string): Promise<number> => {
     onProgress?.(label === '시작 인트로' ? 1 : 98, `${label} 영상 로드 및 합성 중...`);
     const blobUrl = URL.createObjectURL(clipFile);
     try {
-      await loadVideoSource(blobUrl, label, 12000);
-      const clipDuration = videoElem.duration && Number.isFinite(videoElem.duration) ? videoElem.duration : 0;
+      await loadVideoSource(workerA, blobUrl, label, 12000);
+      const clipDuration = workerA.duration && Number.isFinite(workerA.duration) ? workerA.duration : 0;
 
-      await seekVideo(0, 6000);
-      await waitForVideoReady(6000);
-      drawCoverFrame();
+      await seekVideo(workerA, 0, 6000);
+      await waitForVideoReady(workerA, 6000);
+      drawCoverFrame(workerA);
 
-      const playing = await startPlayback(IS_IOS ? 2500 : 5000);
+      const playing = await startPlayback(workerA, IS_IOS ? 2500 : 5000);
       if (!playing) {
         onLog?.(`${label} 영상을 재생할 수 없어 건너뜁니다.`);
         return 0;
@@ -828,20 +854,20 @@ export async function stitchHighlightedSegments({
           finished = true;
           if (intervalId !== null) window.clearInterval(intervalId);
           try {
-            videoElem.pause();
+            workerA.pause();
           } catch {
             // ignore
           }
           resolve();
         };
         const tick = () => {
-          if (videoElem.ended || videoElem.paused || performance.now() - startedAt >= maxRealDurationMs) {
+          if (workerA.ended || workerA.paused || performance.now() - startedAt >= maxRealDurationMs) {
             finish();
             return;
           }
-          drawCoverFrame();
+          drawCoverFrame(workerA);
         };
-        videoElem.addEventListener('ended', finish, { once: true });
+        workerA.addEventListener('ended', finish, { once: true });
         intervalId = window.setInterval(tick, 1000 / 30);
         tick();
       });
@@ -904,7 +930,7 @@ export async function stitchHighlightedSegments({
       await sleep(33);
     }
 
-    await pauseRecorder();
+    // 인트로 직후 첫 세그먼트로 바로 이어지므로 recorder pause 없이 continuous recording
     return introFrames / 30;
   };
 
@@ -949,223 +975,6 @@ export async function stitchHighlightedSegments({
     return outroFrames / 30;
   };
 
-  // 실시간 재생 기반 렌더링. 비디오 버퍼링을 충분히 대기하고 실제 재생 시작 순간에 녹화를 개시하여 끊김 방지.
-  const renderSegmentWithPlayback = async (
-    videoItem: VideoItem,
-    segment: HighlightSegment,
-    clipMessage: string,
-    isLastSegment = false
-  ): Promise<boolean> => {
-    try {
-      videoElem.pause();
-    } catch {
-      // ignore
-    }
-
-    // 1. 세그먼트별 오버레이 캔버스 사전 생성 (세그먼트당 1회만 계산하여 30fps 루프 비용을 0.05ms로 극소화)
-    const overlayCanvas = createSegmentOverlayCanvas(segment);
-
-    // 2. 목표 시작 시점으로 seek 및 비디오 디코더 버퍼 확보 대기
-    const seekOk = await seekVideo(segment.start, 10000);
-    if (!seekOk) {
-      console.warn(`[VideoStitcher] 구간 시작 시점(${segment.start}s) seek 지연`);
-    }
-    await waitForVideoReady(8000);
-
-    renderFrameWithOverlay(videoItem, segment, overlayCanvas);
-
-    // seek 완료 후 실제 비디오 현재 시점 기록 (playback 전진 감지 기준점)
-    const initialTime = videoElem.currentTime;
-
-    // 3. 비디오 재생 시작
-    const playing = await startPlayback(8000);
-    if (!playing) {
-      renderModeHistory.push(`[seg#${segment.id.slice(-4)}: play실패 (readyState=${videoElem.readyState})]`);
-      try {
-        videoElem.pause();
-      } catch {
-        // ignore
-      }
-      return false;
-    }
-
-    // 4. 비디오가 실제로 재생되어 시간을 전진시키는지 확인 (최대 8초 대기)
-    const advanced = await waitForPlaybackAdvance(initialTime, 8000);
-    if (!advanced) {
-      renderModeHistory.push(`[seg#${segment.id.slice(-4)}: 시간전진실패 (cur=${videoElem.currentTime.toFixed(2)})]`);
-      try {
-        videoElem.pause();
-      } catch {
-        // ignore
-      }
-      return false;
-    }
-
-    renderModeHistory.push(`[seg#${segment.id.slice(-4)}: playback정상]`);
-
-    // 비디오가 실제로 정상 전진 중이므로 이 시점에 정확히 레코더를 시작/재개!
-    await startOrResumeRecorder();
-
-    // 5. 비디오 재생과 캔버스 녹화 실시간 동기화 루프
-    await new Promise<void>((resolve, reject) => {
-      const startedAt = performance.now();
-      // 네트워크 지연/버퍼링을 감안하여 최대 허용 시간 넉넉하게 설정
-      const maxRealDurationMs = Math.max(5000, (segment.duration * 2.5 + 5) * 1000);
-      let settled = false;
-      let cleanupLoop: (() => void) | null = null;
-
-      const finish = async (error?: Error) => {
-        if (settled) return;
-        settled = true;
-        if (cleanupLoop) {
-          cleanupLoop();
-        }
-        try {
-          videoElem.pause();
-        } catch {
-          // ignore
-        }
-        // 마지막 세그먼트가 아니라면 다음 구간 전환(seek/load) 동안 녹화를 일시정지하여 멈춤 구간 녹화 방지
-        // 마지막 세그먼트라면 paused 상태에서 stop() 호출 시 발생하는 WebKit 버그(0바이트)를 방지하기 위해 recording 상태 유지
-        if (!isLastSegment) {
-          await pauseRecorder();
-        }
-        if (error) reject(error);
-        else resolve();
-      };
-
-      const onFrame = () => {
-        if (settled) return;
-
-        if (signal?.aborted) {
-          void finish(new Error('작업 취소'));
-          return;
-        }
-        if (recorderError) {
-          void finish(recorderError);
-          return;
-        }
-
-        // 비디오가 실제로 재생 중일 때만 캔버스 프레임 갱신 (캐시된 오버레이를 0.05ms로 초고속 블릿)
-        if (!videoElem.paused && !videoElem.seeking) {
-          renderFrameWithOverlay(videoItem, segment, overlayCanvas);
-        }
-
-        const clipElapsed = Math.max(0, Math.min(segment.duration, videoElem.currentTime - segment.start));
-        reportProgress(
-          ((recordedDurationSoFar + clipElapsed) / (totalSegmentsDuration || 1)) * 100,
-          clipMessage
-        );
-
-        if (
-          videoElem.currentTime >= segment.end - 0.04 ||
-          videoElem.ended ||
-          performance.now() - startedAt >= maxRealDurationMs
-        ) {
-          void finish();
-        }
-      };
-
-      // 데스크톱 Chrome 등에서는 requestVideoFrameCallback으로 디코더 프레임과 100% 동기화
-      // iOS Safari는 16px 히든 비디오의 rVFC 콜백이 스로틀되므로 안정적인 30fps 고정 타이머 사용
-      const vProto = HTMLVideoElement.prototype as unknown as {
-        requestVideoFrameCallback?: (cb: () => void) => number;
-        cancelVideoFrameCallback?: (id: number) => void;
-      };
-      const vElemAny = videoElem as unknown as {
-        requestVideoFrameCallback?: (cb: () => void) => number;
-        cancelVideoFrameCallback?: (id: number) => void;
-      };
-
-      if (!IS_IOS && !IS_SAFARI && typeof vProto.requestVideoFrameCallback === 'function' && typeof vElemAny.requestVideoFrameCallback === 'function') {
-        let rvfcHandle: number | null = null;
-        let isRunning = true;
-
-        const rvfcLoop = () => {
-          if (!isRunning || settled) return;
-          onFrame();
-          if (isRunning && !settled && vElemAny.requestVideoFrameCallback) {
-            rvfcHandle = vElemAny.requestVideoFrameCallback(rvfcLoop);
-          }
-        };
-
-        rvfcHandle = vElemAny.requestVideoFrameCallback(rvfcLoop);
-
-        // 보조 30fps 백업 타이머 (디코더 콜백 일시 지연 방어)
-        const fallbackInterval = window.setInterval(() => {
-          if (!settled) onFrame();
-        }, 1000 / 30);
-
-        cleanupLoop = () => {
-          isRunning = false;
-          if (rvfcHandle !== null && vElemAny.cancelVideoFrameCallback) {
-            vElemAny.cancelVideoFrameCallback(rvfcHandle);
-          }
-          window.clearInterval(fallbackInterval);
-        };
-      } else {
-        const intervalId = window.setInterval(onFrame, 1000 / 30);
-        cleanupLoop = () => window.clearInterval(intervalId);
-      }
-
-      onFrame();
-    });
-
-    return true;
-  };
-
-  // 시크 기반 프레임 스텝 렌더링 (모바일 등에서 실시간 재생이 완전히 막힐 때의 최후 폴백)
-  // seek 대기 시간 중에는 recorder를 pause 처리하여 결과물 영상이 늘어지거나 멈추지 않도록 방어
-  const renderSegmentByStepping = async (
-    videoItem: VideoItem,
-    segment: HighlightSegment,
-    clipMessage: string,
-    isLastSegment = false
-  ) => {
-    try {
-      videoElem.pause();
-    } catch {
-      // ignore
-    }
-
-    const overlayCanvas = createSegmentOverlayCanvas(segment);
-    const fps = 30;
-    const frameCount = Math.max(2, Math.ceil(segment.duration * fps));
-    const frameInterval = 1000 / fps;
-    renderModeHistory.push(`[seg#${segment.id.slice(-4)}: stepping (${frameCount}f)]`);
-
-    for (let frame = 0; frame < frameCount; frame++) {
-      if (signal?.aborted) throw new Error('작업 취소');
-      if (recorderError) throw recorderError;
-
-      const time = Math.min(
-        segment.start + frame / fps,
-        Math.max(segment.start, segment.end - 0.05)
-      );
-
-      // 탐색(seek) 중에는 레코더를 정지하여 seek 대기 시간이 영상 길이에 포함되지 않도록 방어
-      await pauseRecorder();
-      await seekVideo(time, 2500);
-
-      renderFrameWithOverlay(videoItem, segment, overlayCanvas);
-
-      // 프레임이 준비된 후 레코더를 켜고 frameInterval 동안 녹화
-      await startOrResumeRecorder();
-      await sleep(frameInterval);
-
-      reportProgress(
-        ((recordedDurationSoFar + Math.min(segment.duration, frame / fps)) /
-          (totalSegmentsDuration || 1)) *
-          100,
-        clipMessage
-      );
-    }
-
-    if (!isLastSegment) {
-      await pauseRecorder();
-    }
-  };
-
   try {
     await requestWakeLock();
 
@@ -1186,44 +995,155 @@ export async function stitchHighlightedSegments({
       }
     }
 
-    // 구간별 비디오 순차 병합
-    for (let i = 0; i < allSegments.length; i++) {
-      if (signal?.aborted) {
-        throw new Error('사용자에 의해 작업이 취소되었습니다.');
-      }
-      if (recorderError) throw recorderError;
+    // 세그먼트별 오버레이 캔버스 사전 생성 (각 세그먼트마다 1회만 계산하여 렌더링 오버헤드 0.05ms로 최소화)
+    const overlayCanvases = allSegments.map((segment) => createSegmentOverlayCanvas(segment));
 
-      const segment = allSegments[i];
-      const videoItem = videoMap.get(segment.sourceVideoId);
-      if (!videoItem) continue;
-
-      const isLastSegment = i === allSegments.length - 1 && !overlayOptions?.showOutro;
-      const clipMessage = `구간 ${i + 1}/${allSegments.length} 병합 중: [${videoItem.name}] (${segment.start.toFixed(1)}s ~ ${segment.end.toFixed(1)}s)`;
-      reportProgress(
-        (recordedDurationSoFar / (totalSegmentsDuration || 1)) * 100,
-        clipMessage,
-        true
-      );
-
-      await loadVideoSource(videoItem.url, videoItem.name);
-
-      let played = await renderSegmentWithPlayback(videoItem, segment, clipMessage, isLastSegment);
-      if (!played) {
-        // 1회차 실패 시 버퍼링을 확보하고 1회 재시도 (videoElem.load() 호출 시 iOS 재생 권한이 초기화되므로 load() 없이 재시도)
-        onLog?.(`[${videoItem.name}] 구간 ${i + 1} 비디오 버퍼링 대기 후 재생 재시도 중...`);
-        await sleep(600);
-        played = await renderSegmentWithPlayback(videoItem, segment, clipMessage, isLastSegment);
-      }
-
-      if (!played) {
-        onLog?.(
-          `[${videoItem.name}] 실시간 재생이 지연되어 프레임 스텝 모드로 구간 ${i + 1}을 병합합니다.`
-        );
-        await renderSegmentByStepping(videoItem, segment, clipMessage, isLastSegment);
-      }
-
-      recordedDurationSoFar += segment.duration;
+    // 1. 첫 번째 구간을 workerA에 준비
+    reportProgress(0, `구간 1/${allSegments.length} 비디오 버퍼 준비 중...`, true);
+    const seg0Ok = await prepareWorkerForSegment(workerA, allSegments[0]);
+    if (!seg0Ok) {
+      throw new Error(`첫 번째 구간 비디오를 준비하지 못했습니다: ${allSegments[0].sourceVideoId}`);
     }
+
+    const firstVideoItem = videoMap.get(allSegments[0].sourceVideoId);
+    if (firstVideoItem) {
+      renderFrameWithOverlay(workerA, firstVideoItem, allSegments[0], overlayCanvases[0]);
+    }
+
+    // 2. 두 번째 구간이 있다면 workerB에 미리 백그라운드로 로드 및 seek 시작!
+    let standbyPromise: Promise<boolean> | null = null;
+    if (allSegments.length > 1) {
+      standbyPromise = prepareWorkerForSegment(workerB, allSegments[1]);
+    }
+
+    // 3. 첫 번째 구간 재생 시작 및 레코더 개시
+    let currentWorker = workerA;
+    let standbyWorker = workerB;
+    let currentSegmentIdx = 0;
+
+    let initialPlaying = await startPlayback(currentWorker, 8000);
+    if (!initialPlaying) {
+      onLog?.(`구간 1 비디오 버퍼 대기 후 재생 재시도 중...`);
+      await sleep(600);
+      initialPlaying = await startPlayback(currentWorker, 8000);
+    }
+    if (!initialPlaying) {
+      throw new Error(`첫 번째 영상 구간 재생에 실패했습니다.`);
+    }
+
+    await waitForPlaybackAdvance(currentWorker, currentWorker.currentTime, 5000);
+    await startOrResumeRecorder();
+
+    // 4. 듀얼 워커 핑퐁 실시간 합성 루프 (30fps) - 세그먼트 간 0ms 무지연 전환
+    await new Promise<void>((resolve, reject) => {
+      let isTransitioning = false;
+      let settled = false;
+      let intervalId: number | null = null;
+      let segmentStartedAt = performance.now();
+
+      const finishAll = (err?: Error) => {
+        if (settled) return;
+        settled = true;
+        if (intervalId !== null) window.clearInterval(intervalId);
+        try {
+          currentWorker.pause();
+          standbyWorker.pause();
+        } catch {}
+        if (err) reject(err);
+        else resolve();
+      };
+
+      const tick = async () => {
+        if (settled) return;
+        if (signal?.aborted) {
+          finishAll(new Error('사용자에 의해 작업이 취소되었습니다.'));
+          return;
+        }
+        if (recorderError) {
+          finishAll(recorderError);
+          return;
+        }
+
+        const currentSegment = allSegments[currentSegmentIdx];
+        const currentVideoItem = videoMap.get(currentSegment.sourceVideoId);
+        const currentOverlay = overlayCanvases[currentSegmentIdx];
+
+        if (currentVideoItem && !currentWorker.paused && !currentWorker.seeking) {
+          renderFrameWithOverlay(currentWorker, currentVideoItem, currentSegment, currentOverlay);
+        }
+
+        const clipElapsed = Math.max(
+          0,
+          Math.min(currentSegment.duration, currentWorker.currentTime - currentSegment.start)
+        );
+        reportProgress(
+          ((recordedDurationSoFar + clipElapsed) / (totalSegmentsDuration || 1)) * 100,
+          `구간 ${currentSegmentIdx + 1}/${allSegments.length} 병합 중: [${currentVideoItem?.name ?? ''}]`
+        );
+
+        const maxDurationMs = Math.max(4000, (currentSegment.duration * 2.2 + 3) * 1000);
+        const isSegmentDone =
+          currentWorker.currentTime >= currentSegment.end - 0.04 ||
+          currentWorker.ended ||
+          performance.now() - segmentStartedAt >= maxDurationMs;
+
+        if (isSegmentDone && !isTransitioning) {
+          isTransitioning = true;
+          recordedDurationSoFar += currentSegment.duration;
+          currentSegmentIdx++;
+
+          if (currentSegmentIdx < allSegments.length) {
+            const nextSegment = allSegments[currentSegmentIdx];
+            const nextVideoItem = videoMap.get(nextSegment.sourceVideoId);
+            const nextOverlay = overlayCanvases[currentSegmentIdx];
+
+            // 대기 워커 준비 완료 대기
+            if (standbyPromise) {
+              const ok = await standbyPromise.catch(() => false);
+              standbyPromise = null;
+              if (!ok) {
+                await prepareWorkerForSegment(standbyWorker, nextSegment);
+              }
+            }
+
+            // 대기 워커의 첫 프레임 즉시 캔버스에 렌더링 (깜빡임/블랙 프레임 방지)
+            if (nextVideoItem) {
+              renderFrameWithOverlay(standbyWorker, nextVideoItem, nextSegment, nextOverlay);
+            }
+
+            // 대기 워커 재생 즉시 시작
+            await startPlayback(standbyWorker, 4000);
+
+            // 이전 워커 일시정지
+            try {
+              currentWorker.pause();
+            } catch {}
+
+            // 워커 스왑 (0ms 전환)
+            const prevWorker = currentWorker;
+            currentWorker = standbyWorker;
+            standbyWorker = prevWorker;
+
+            segmentStartedAt = performance.now();
+            isTransitioning = false;
+
+            // 다음 다음 세그먼트가 있다면 대기 워커에 백그라운드 프리로드 시작
+            const nextNextIdx = currentSegmentIdx + 1;
+            if (nextNextIdx < allSegments.length) {
+              standbyPromise = prepareWorkerForSegment(standbyWorker, allSegments[nextNextIdx]);
+            }
+          } else {
+            // 모든 구간 완료
+            finishAll();
+          }
+        }
+      };
+
+      intervalId = window.setInterval(() => {
+        void tick();
+      }, 1000 / 30);
+      void tick();
+    });
 
     // 마무리 아웃트로 렌더링 (옵션 활성화 시: 영상 파일 우선, 없으면 엔딩 시퀀스)
     if (overlayOptions?.showOutro) {
@@ -1285,7 +1205,7 @@ export async function stitchHighlightedSegments({
         `[2] 청크: ${chunks.length}개 (ondataavailable: ${dataAvailableCalls}회, 크기들: [${chunksSummary || '없음'}])`,
         `[3] onstop: ${onstopFired ? '수신완료' : onstopWaitTimeout ? '타임아웃' : '미수신'}`,
         `[4] 캔버스트랙: ${vTrack ? `상태=${vTrack.readyState}, muted=${vTrack.muted}, enabled=${vTrack.enabled}` : '없음'} (오디오트랙: ${audioTracks.length}개)`,
-        `[5] 소스비디오: ${videoElem.videoWidth}x${videoElem.videoHeight}, ready=${videoElem.readyState}, cur=${videoElem.currentTime.toFixed(2)}s, paused=${videoElem.paused}${videoElem.error ? `, err=${videoElem.error.message}` : ''}`,
+        `[5] 워커 상태: [A] ${workerA.videoWidth}x${workerA.videoHeight}, ready=${workerA.readyState}, cur=${workerA.currentTime.toFixed(2)}s | [B] ${workerB.videoWidth}x${workerB.videoHeight}, ready=${workerB.readyState}, cur=${workerB.currentTime.toFixed(2)}s`,
         `[6] 총드로우: ${totalDrawCalls}회 실행`,
         `[7] 모드이력: ${renderModeHistory.join(' → ')}`,
         `[8] 환경: iOS=${IS_IOS}, Safari=${IS_SAFARI}`,
@@ -1318,16 +1238,18 @@ export async function stitchHighlightedSegments({
       if (bgmController) {
         bgmController.stop();
       }
-      try {
-        videoElem.pause();
-      } catch {
-        // ignore
-      }
-      videoElem.removeAttribute('src');
-      try {
-        videoElem.load();
-      } catch {
-        // ignore
+      for (const w of [workerA, workerB]) {
+        try {
+          w.pause();
+        } catch {
+          // ignore
+        }
+        w.removeAttribute('src');
+        try {
+          w.load();
+        } catch {
+          // ignore
+        }
       }
       // 공용 AudioContext는 재병합에서 재사용하므로 닫지 않고 잠시 중지만 한다.
       if (audioCtx && audioCtx.state === 'running') {

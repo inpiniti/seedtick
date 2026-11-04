@@ -3282,26 +3282,38 @@
    ★ 실시간 AI 비전 추론 로그 콘솔 (Processing Modal)
    ======================================================== */
 .toss-modal-reasoning-wrap {
-  background-color: #0b1120;
-  border: 1px solid #1e293b;
-  border-radius: 14px;
-  padding: 10px 12px;
+  background-color: #f8fafc;
+  border: 1px solid #e5e8eb;
+  border-radius: 12px;
+  padding: 8px 12px;
   margin-top: 16px;
-  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  height: 52px;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
 }
 
-.toss-modal-reasoning-header {
-  border-bottom: 1px solid #1e293b;
-  padding-bottom: 6px;
-  margin-bottom: 6px;
+.toss-modal-reasoning-text {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Pretendard", sans-serif;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #64748b;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-all;
+  white-space: pre-line;
 }
 
 .toss-reasoning-live-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background-color: #10b981;
-  box-shadow: 0 0 8px #10b981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
   display: inline-block;
   animation: pulse-dot 1.4s infinite ease-in-out;
 }
@@ -3315,12 +3327,6 @@
     opacity: 0.4;
     transform: scale(0.85);
   }
-}
-
-.toss-modal-reasoning-single {
-  min-height: 38px;
-  display: flex;
-  align-items: center;
 }
 
 .toss-modal-reasoning-console {
@@ -3399,11 +3405,11 @@
 
 .toss-live-caret {
   display: inline-block;
-  width: 6px;
-  height: 12px;
+  width: 4px;
+  height: 11px;
   margin-left: 2px;
-  background-color: #60a5fa;
-  vertical-align: text-bottom;
+  background-color: #3182f6;
+  vertical-align: -1px;
   animation: live-caret-blink 1s steps(2, start) infinite;
 }
 

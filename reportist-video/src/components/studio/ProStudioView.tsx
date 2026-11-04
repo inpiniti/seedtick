@@ -208,67 +208,52 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   }, [isProcessing]);
 
-  // 처리 경과 시간 타이머
-  const [processingElapsed, setProcessingElapsed] = useState(0);
-  useEffect(() => {
-    if (!isProcessing) {
-      setProcessingElapsed(0);
-      return;
-    }
-    const startedAt = Date.now();
-    setProcessingElapsed(0);
-    const timer = window.setInterval(() => {
-      setProcessingElapsed(Math.floor((Date.now() - startedAt) / 1000));
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [isProcessing]);
-
   // 현재 AI 분석/처리 중인 비디오 및 썸네일
   const currentProcessingVideo = videos[progress.currentVideoIndex] || videos[0];
   const currentVideoThumbnail = currentProcessingVideo?.thumbnailUrl;
 
-  // 모달에 표시할 가장 최근 작업 문구 1줄 (추론 중일 때는 실시간 추론 스트림의 마지막 줄)
+  // 모달에 표시할 가장 최근 작업 문구 (최근 2줄 분량, 초과 시 ...)
   const latestTask = useMemo(() => {
     const reasoningText = (progress.liveReasoning || '').trim();
     const contentText = (progress.liveContent || '').trim();
     const liveText = reasoningText || contentText;
 
-    // 1. 실시간 추론 또는 응답 스트리밍 중 -> 마지막 비어있지 않은 한 줄 추출
+    // 1. 실시간 추론 또는 응답 스트리밍 중 -> 최근 1~2줄 추출
     if (liveText) {
       const lines = liveText
         .split('\n')
         .map((l) => l.trim())
         .filter(Boolean);
-      const lastLine = lines.length > 0 ? lines[lines.length - 1] : '';
+      const recentLines = lines.slice(-2);
+      const textPart = recentLines.join('\n');
       const prefix = reasoningText ? '💭 ' : '⌨️ ';
       return {
         isStreaming: true,
-        text: lastLine
-          ? `${prefix}${lastLine}`
+        text: textPart
+          ? `${prefix}${textPart}`
           : reasoningText
           ? dict.processingModal.reasoningProcess
           : dict.processingModal.responseGeneration,
       };
     }
 
-    // 2. 멀티모달 시각 분석 단계에서 모델 첫 토큰 대기 중
-    if (progress.currentPhase === 'analyze') {
-      return {
-        isStreaming: true,
-        text: dict.processingModal.waitingFirstToken,
-      };
-    }
-
-    // 3. 누적된 작업 로그 중 가장 마지막 로그 1줄
-    if (progress.reasoningLogs && progress.reasoningLogs.length > 0) {
-      const lastLog = progress.reasoningLogs[progress.reasoningLogs.length - 1];
+    // 2. 현재 단계 기본 문구 (추론 전/단계 전환 시)
+    if (progress.statusMessage) {
       return {
         isStreaming: false,
-        text: lastLog,
+        text: progress.statusMessage,
       };
     }
 
-    // 4. 초기 상태: 모델 및 시퀀스 준비 중
+    // 3. 누적된 작업 로그 중 가장 최근 1~2개 로그
+    if (progress.reasoningLogs && progress.reasoningLogs.length > 0) {
+      const recentLogs = progress.reasoningLogs.slice(-2);
+      return {
+        isStreaming: false,
+        text: recentLogs.join('\n'),
+      };
+    }
+
     return {
       isStreaming: false,
       text: dict.processingModal.waitingModel,
@@ -276,9 +261,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   }, [
     progress.liveReasoning,
     progress.liveContent,
-    progress.currentPhase,
+    progress.statusMessage,
     progress.reasoningLogs,
-    dict.processingModal,
+    dict,
   ]);
 
   // 4-2. 상단 탭 상태 (스튜디오 vs 영상 공유 커뮤니티)
@@ -2284,27 +2269,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               </span>
             </div>
 
-            {/* 실시간 AI 비전 추론 로그 콘솔 (가장 최근 작업 1줄만 표시) */}
+            {/* 최근 작업/추론 2줄 안내 박스 (2줄 고정 높이, 넘치면 ...) */}
             <div className="toss-modal-reasoning-wrap mt-4 text-left">
-              <div className="toss-modal-reasoning-header flex items-center gap-1.5 mb-1.5 px-1">
-                <span className="toss-reasoning-live-dot" />
-                <span className="text-xs font-bold text-slate-300">{dict.processingModal.reasoningHeader}</span>
-                <span className="text-[11px] font-mono text-blue-400 ml-auto font-medium">
-                  {progress.currentPhase === 'extract'
-                    ? dict.processingModal.phaseExtract
-                    : progress.currentPhase === 'analyze'
-                    ? dict.processingModal.phaseAnalyze
-                    : progress.currentPhase === 'stitch'
-                    ? dict.processingModal.phaseStitch
-                    : dict.processingModal.phaseProcessing}
-                  {` · ${processingElapsed}s`}
-                </span>
-              </div>
-              <div className="toss-modal-reasoning-single px-1">
-                <div className="text-xs font-mono text-slate-200 leading-relaxed line-clamp-2 break-all">
-                  <span>{latestTask.text}</span>
-                  {latestTask.isStreaming && <span className="toss-live-caret" />}
-                </div>
+              <span className="toss-reasoning-live-dot mr-2.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0 toss-modal-reasoning-text">
+                <span>{latestTask.text}</span>
+                {latestTask.isStreaming && <span className="toss-live-caret" />}
               </div>
             </div>
 
