@@ -1,0 +1,165 @@
+name: Deploy Monorepo to Vercel
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'reportist-video/**'
+      - 'seedtick-ai-gateway/**'
+      - 'reportist-chat/**'
+      - 'reportist-game/**'
+      - 'docs/**'
+      - 'post/**'
+      - 'reportist-admin/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # 1. reportist-video 배포
+  deploy-video:
+    name: Deploy reportist-video
+    runs-on: ubuntu-latest
+    if: "!cancelled()"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check if reportist-video changed
+        id: filter
+        run: |
+          if git diff --name-only HEAD^ HEAD | grep -q "^reportist-video/"; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy to Vercel
+        if: steps.filter.outputs.changed == 'true'
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID_VIDEO }}
+          working-directory: ./reportist-video
+          vercel-args: '--prod'
+
+  # 2. seedtick (메인 웹) 배포
+  deploy-seedtick:
+    name: Deploy seedtick
+    runs-on: ubuntu-latest
+    if: "!cancelled()"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check if seedtick root changed
+        id: filter
+        run: |
+          # 루트 디렉토리의 파일이나 공통 리소스 변경 시
+          if git diff --name-only HEAD^ HEAD | grep -E -v "^(reportist-|seedtick-ai-gateway/|\.github/)" | grep -q .; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy to Vercel
+        if: steps.filter.outputs.changed == 'true'
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID_SEEDTICK }}
+          working-directory: ./
+          vercel-args: '--prod'
+
+  # 3. seedtick-ai-gateway 배포
+  deploy-gateway:
+    name: Deploy seedtick-ai-gateway
+    runs-on: ubuntu-latest
+    if: "!cancelled()"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check if seedtick-ai-gateway changed
+        id: filter
+        run: |
+          if git diff --name-only HEAD^ HEAD | grep -q "^reportist-ai-gateway/"; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy to Vercel
+        if: steps.filter.outputs.changed == 'true'
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID_GATEWAY }}
+          working-directory: ./reportist-ai-gateway
+          vercel-args: '--prod'
+
+  # 4. reportist-chat 배포
+  deploy-chat:
+    name: Deploy reportist-chat
+    runs-on: ubuntu-latest
+    if: "!cancelled()"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check if reportist-chat changed
+        id: filter
+        run: |
+          if git diff --name-only HEAD^ HEAD | grep -q "^reportist-chat/"; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy to Vercel
+        if: steps.filter.outputs.changed == 'true'
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID_CHAT }}
+          working-directory: ./reportist-chat
+          vercel-args: '--prod'
+
+  # 5. reportist-game 배포
+  deploy-game:
+    name: Deploy reportist-game
+    runs-on: ubuntu-latest
+    if: "!cancelled()"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check if reportist-game changed
+        id: filter
+        run: |
+          if git diff --name-only HEAD^ HEAD | grep -q "^reportist-game/"; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy to Vercel
+        if: steps.filter.outputs.changed == 'true'
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID_GAME }}
+          working-directory: ./reportist-game
+          vercel-args: '--prod'
