@@ -1955,7 +1955,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             {[bridgeEval.toDate, bridgeEval.toLocation].filter(Boolean).join(' • ') || bridgeEval.sceneTitle}
                           </span>
                           <span className="ml-auto font-mono text-[10px] text-blue-600 font-semibold shrink-0">
-                            +1.2s 브릿지
+                            +1.3s 브릿지
                           </span>
                         </div>
                       )}

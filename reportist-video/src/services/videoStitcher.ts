@@ -1013,7 +1013,20 @@ export async function stitchHighlightedSegments({
     return outroFrames / 30;
   };
 
-  // HyperFrames (GSAP 결정론적 타임라인 seek + Canvas 2D) 챕터 브릿지 렌더링 (약 1.2초, 36프레임)
+  // 브릿지 시작 시 이전 장면의 마지막 프레임을 보존하기 위한 오프스크린 캔버스
+  const prevFrameBufferCanvas = document.createElement('canvas');
+  prevFrameBufferCanvas.width = targetWidth;
+  prevFrameBufferCanvas.height = targetHeight;
+  const prevFrameBufferCtx = prevFrameBufferCanvas.getContext('2d');
+  const capturePrevFrameSnapshot = () => {
+    try {
+      prevFrameBufferCtx?.drawImage(canvas, 0, 0);
+    } catch {
+      // ignore
+    }
+  };
+
+  // HyperFrames (GSAP 결정론적 타임라인 seek + Canvas 2D) 챕터 브릿지 렌더링 (약 1.3초, 39프레임)
   const renderChapterBridgeSequence = async (
     prevSeg: HighlightSegment,
     nextSeg: HighlightSegment,
@@ -1044,9 +1057,12 @@ export async function stitchHighlightedSegments({
           if (nextVideoItem) {
             drawCoverFrame(workerA, nextVideoItem, nextSeg);
           } else {
-            ctx.fillStyle = '#080c14';
+            ctx.fillStyle = '#07090e';
             ctx.fillRect(0, 0, targetWidth, targetHeight);
           }
+        },
+        () => {
+          ctx.drawImage(prevFrameBufferCanvas, 0, 0);
         }
       );
 
@@ -1183,6 +1199,7 @@ export async function stitchHighlightedSegments({
 
         if (i > 0) {
           await pauseRecorder();
+          capturePrevFrameSnapshot();
           await prepareWorkerForSegment(workerA, segment);
           await renderChapterBridgeSequence(allSegments[i - 1], segment, i, videoItem);
         }
@@ -1295,9 +1312,12 @@ export async function stitchHighlightedSegments({
               const bridgeEval = evaluateChapterBridge(prevSegment, nextSegment, currentSegmentIdx, allSegments.length, overlayOptions);
 
               if (bridgeEval.shouldBridge) {
-                // 챕터 브릿지가 필요한 경우: 시크 중에는 레코더를 잠시 일시정지하여 첫 프레임을 정확히 맞춘 뒤
-                // HyperFrames GSAP 타임라인 브릿지를 1.2초(36프레임) 동안 녹화하고 다음 구간 재생 시작!
+                // 챕터 브릿지가 필요한 경우:
+                // 1) 레코더를 일시정지하고 이전 장면의 마지막 프레임을 스냅샷으로 보존
+                // 2) workerA를 다음 장면의 시작 프레임으로 시크한 뒤
+                // 3) 이전 장면 위로 5단 루버가 샤샤샥 닫히고 -> 마스크 타이포 -> 다음 장면으로 샤샤샥 열리는 1.3초 브릿지 녹화!
                 await pauseRecorder();
+                capturePrevFrameSnapshot();
                 try {
                   workerA.pause();
                 } catch {}
