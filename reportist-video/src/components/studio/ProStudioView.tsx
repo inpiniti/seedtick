@@ -1815,28 +1815,30 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 </p>
               </div>
 
-              <div className="toss-dramatic-header-actions flex items-center gap-2.5 shrink-0 flex-wrap justify-end">
-                {segments.length > 0 && (
-                  <span className="toss-tag-gray">
-                    {interpolate(dict.dramaticClips.totalIntervals, {
-                      count: segments.length,
-                      duration: totalDuration.toFixed(1),
-                    })}
-                  </span>
-                )}
-                {segments.length > 0 && (
-                  <button
-                    type="button"
-                    className="toss-btn-subtitle-header"
-                    onClick={() => setIsSubtitleModalOpen(true)}
-                    title={dict.subtitleDownload?.buttonTitle || '유튜브 호환 자막 (.srt) 다운로드'}
-                  >
-                    <Subtitles size={13} />
-                    <span>{dict.subtitleDownload?.buttonText || '자막 다운로드'}</span>
-                  </button>
-                )}
+              <div className="toss-dramatic-header-actions flex items-center justify-between sm:justify-end gap-2 shrink-0 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {segments.length > 0 && (
+                    <span className="toss-tag-gray">
+                      {interpolate(dict.dramaticClips.totalIntervals, {
+                        count: segments.length,
+                        duration: totalDuration.toFixed(1),
+                      })}
+                    </span>
+                  )}
+                  {segments.length > 0 && (
+                    <button
+                      type="button"
+                      className="toss-btn-subtitle-header"
+                      onClick={() => setIsSubtitleModalOpen(true)}
+                      title={dict.subtitleDownload?.buttonTitle || '유튜브 호환 자막 (.srt) 다운로드'}
+                    >
+                      <Subtitles size={13} />
+                      <span>{dict.subtitleDownload?.buttonText || '자막 다운로드'}</span>
+                    </button>
+                  )}
+                </div>
                 <label
-                  className="toss-toggle-label flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-600 shrink-0"
+                  className="toss-toggle-label flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-600 shrink-0 ml-auto sm:ml-0"
                   title={dict.dramaticClips.bottomSubtitleTitle}
                 >
                   <span>{dict.dramaticClips.bottomSubtitleToggle}</span>
