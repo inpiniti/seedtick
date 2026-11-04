@@ -1491,6 +1491,24 @@
   gap: 8px;
 }
 
+.toss-card-header > div:first-child {
+  min-width: 0;
+}
+
+.toss-dramatic-header {
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+
+.toss-dramatic-header-title {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.toss-dramatic-header-actions {
+  flex-shrink: 0;
+}
+
 .toss-card-title {
   font-size: 13.5px;
   font-weight: 700;
@@ -1876,6 +1894,32 @@
   .toss-bgm-uploaded-box > div:last-child {
     width: 100%;
     justify-content: flex-end;
+  }
+
+  /* 모바일: AI 포착 극적 순간 카드 헤더 찌그러짐 방지 및 컨트롤 행 분리 */
+  .toss-dramatic-card .toss-card-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .toss-dramatic-header-title {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .toss-dramatic-header-actions {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 2px;
+  }
+
+  .toss-dramatic-header-actions .toss-toggle-label {
+    margin-left: auto;
   }
 }
 
@@ -5256,7 +5300,7 @@
   width: 100%;
   height: calc(100vh - 54px);
   overflow-y: auto;
-  background-color: #f2f4f6;
+  background-color: #f7f9fc;
   -webkit-overflow-scrolling: touch;
   box-sizing: border-box;
 }
@@ -5270,12 +5314,13 @@
 }
 
 .toss-community-inner {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 18px 24px 64px;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 10px 16px 64px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 14px;
   box-sizing: border-box;
 }
 
@@ -5283,12 +5328,12 @@
 .toss-community-header-card {
   background-color: #ffffff;
   border: 1px solid #eef2f6;
-  border-radius: 20px;
-  padding: 22px 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  border-radius: 18px;
+  padding: 18px 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .toss-community-header-top {
@@ -5538,11 +5583,37 @@
   background: #f8fafc;
 }
 
-/* 2. Video Grid */
+/* 2. Video Grid - Responsive 5, 4, 3, 2, 1 columns */
 .toss-community-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (min-width: 640px) {
+  .toss-community-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 960px) {
+  .toss-community-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .toss-community-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1600px) {
+  .toss-community-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
 }
 
 .toss-video-card {
@@ -6174,13 +6245,13 @@
 
 @media (max-width: 640px) {
   .toss-community-inner {
-    padding: 12px 12px 48px;
-    gap: 14px;
+    padding: 10px 12px 48px;
+    gap: 12px;
   }
 
   .toss-community-header-card {
     padding: 16px;
-    border-radius: 16px;
+    border-radius: 14px;
   }
 
   .toss-community-header-actions {
@@ -6208,7 +6279,7 @@
 
   .toss-community-grid {
     grid-template-columns: 1fr;
-    gap: 14px;
+    gap: 12px;
   }
 }
 

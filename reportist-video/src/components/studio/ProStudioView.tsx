@@ -1803,9 +1803,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           </div>
 
           {/* AI가 포착한 극적 순간 카드 */}
-          <div className="toss-card">
-            <div className="toss-card-header">
-              <div>
+          <div className="toss-card toss-dramatic-card">
+            <div className="toss-card-header toss-dramatic-header">
+              <div className="toss-dramatic-header-title">
                 <h4 className="toss-card-title">
                   <Scissors size={15} className="text-blue-600 shrink-0" />
                   <span>{dict.dramaticClips.title}</span>
@@ -1815,7 +1815,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 </p>
               </div>
 
-              <div className="flex items-center gap-2.5 shrink-0 flex-wrap justify-end">
+              <div className="toss-dramatic-header-actions flex items-center gap-2.5 shrink-0 flex-wrap justify-end">
                 {segments.length > 0 && (
                   <span className="toss-tag-gray">
                     {interpolate(dict.dramaticClips.totalIntervals, {
@@ -1836,7 +1836,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   </button>
                 )}
                 <label
-                  className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-600"
+                  className="toss-toggle-label flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-600 shrink-0"
                   title={dict.dramaticClips.bottomSubtitleTitle}
                 >
                   <span>{dict.dramaticClips.bottomSubtitleToggle}</span>
