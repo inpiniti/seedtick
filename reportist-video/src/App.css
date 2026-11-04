@@ -2758,11 +2758,99 @@
   color: #191f28;
 }
 
+.toss-segment-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-top: 3px;
+  flex-wrap: wrap;
+}
+
 .toss-segment-source {
   font-size: 11px;
   color: #8b95a1;
-  display: block;
-  margin-top: 2px;
+  display: inline-block;
+  line-height: 1.3;
+}
+
+.toss-segment-time-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #4e5968;
+  background-color: #f2f4f6;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+  line-height: 1.3;
+  flex-shrink: 0;
+}
+
+.toss-original-recorded-tip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #8b95a1;
+  margin-top: 4px;
+  line-height: 1.3;
+}
+
+/* Chapter Bridge in Segment List (클립 사이 스토리 브릿지 표시) */
+.toss-segment-bridge-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  margin: 2px 0;
+  background-color: #f8fafc;
+  border: 1px dashed #bfdbfe;
+  border-radius: 8px;
+  font-size: 11px;
+  color: #475569;
+  transition: all 0.15s ease;
+}
+
+.toss-segment-bridge-item:hover {
+  background-color: #eff6ff;
+  border-color: #93c5fd;
+}
+
+.toss-segment-bridge-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 5px;
+  background-color: #2563eb;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border-radius: 4px;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
+.toss-segment-bridge-desc {
+  font-size: 11px;
+  font-weight: 500;
+  color: #334155;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.toss-segment-bridge-time {
+  margin-left: auto;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+  font-size: 10px;
+  font-weight: 600;
+  color: #2563eb;
+  flex-shrink: 0;
 }
 
 .toss-segment-right {
@@ -6578,6 +6666,81 @@
   background-color: #dbeafe;
   border-color: #93c5fd;
   transform: translateY(-0.5px);
+}
+
+/* Sort by Recorded Time Button & Toast */
+.toss-sort-toast-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.toss-btn-sort-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background-color: #f2f4f6;
+  border: 1px solid #e5e8eb;
+  color: #4e5968;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.toss-btn-sort-time:hover {
+  background-color: #e5e8eb;
+  border-color: #d1d6db;
+  color: #191f28;
+  transform: translateY(-0.5px);
+}
+
+.toss-btn-sort-time:active {
+  background-color: #d1d6db;
+  transform: translateY(0);
+}
+
+.toss-btn-sort-time svg {
+  color: #6b7684;
+  transition: color 0.15s ease;
+}
+
+.toss-btn-sort-time:hover svg {
+  color: #3182f6;
+}
+
+.toss-sort-toast {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background-color: rgba(25, 31, 40, 0.92);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 5px 10px;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  white-space: nowrap;
+  z-index: 50;
+  pointer-events: none;
+  animation: tossFadeInUp 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes tossFadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Subtitle Download Modal */

@@ -2251,15 +2251,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   return (
                     <React.Fragment key={seg.id}>
                       {bridgeEval?.shouldBridge && (
-                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-dashed border-blue-200 text-[11px] text-slate-600">
-                          <span className="px-1.5 py-0.5 rounded bg-blue-600 text-white font-bold text-[10px] tracking-wider">
+                        <div className="toss-segment-bridge-item">
+                          <span className="toss-segment-bridge-badge">
                             {bridgeEval.isDateChanged && bridgeEval.isLocationChanged
                               ? 'DATE & ROUTE'
                               : bridgeEval.isDateChanged
                               ? 'FLIP DATE'
                               : 'ROUTE MOVE'}
                           </span>
-                          <span className="font-medium text-slate-700 truncate">
+                          <span className="toss-segment-bridge-desc">
                             {[
                               bridgeEval.isDateChanged ? `${bridgeEval.fromDate} → ${bridgeEval.toDate}` : '',
                               bridgeEval.isLocationChanged ? `${bridgeEval.fromLocation} → ${bridgeEval.toLocation}` : '',
@@ -2267,7 +2267,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                               .filter(Boolean)
                               .join('  •  ')}
                           </span>
-                          <span className="ml-auto font-mono text-[10px] text-blue-600 font-semibold shrink-0">
+                          <span className="toss-segment-bridge-time">
                             +2.2s 브릿지
                           </span>
                         </div>
@@ -2409,15 +2409,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             </button>
                           </div>
 
-                          <button
-                            type="button"
-                            className="toss-clip-thumb-btn"
-                            onClick={(e) => handleSetSegmentAsThumbnail(seg, e)}
-                            title="이 장면으로 썸네일 배경 설정"
-                          >
-                            <ImageIcon size={11} />
-                            <span>썸네일</span>
-                          </button>
 
                           <button
                             type="button"
