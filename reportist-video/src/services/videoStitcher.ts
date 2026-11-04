@@ -349,10 +349,11 @@ export async function stitchHighlightedSegments({
   const wakeLockRef: { current: WakeLockSentinel | null } = { current: null };
 
   // 캔버스 상시 30fps 하트비트 루프 (WebKit Frame Starvation 및 트랙 침묵 방어)
-  // 비디오가 탐색(seek) 중이거나 세그먼트 전환 중일 때도 canvas.captureStream()에 끊김 없이 프레임을 밀어넣음
+  // 녹화가 활성 상태(recording)일 때만 캔버스 하트비트를 발생시켜, 세그먼트 전환 및 대기 중 불필요한 프레임 캡처 방지
   let isStitchingActive = true;
   const heartbeatTimer = window.setInterval(() => {
     if (!isStitchingActive) return;
+    if (recorder.state !== 'recording') return;
     if (ctx) {
       // 캔버스 모서리에 육안으로 구분 불가능한 극미세 픽셀 갱신(alpha 0.005)을 주어 WebKit 렌더러가 새 프레임 방출을 트리거
       ctx.fillStyle = 'rgba(8, 12, 20, 0.005)';
@@ -469,11 +470,6 @@ export async function stitchHighlightedSegments({
   };
 
   const pauseRecorder = async () => {
-    // iOS Safari에서는 pause()/resume() 시 WebKit MP4 하드웨어 인코더가 타임스탬프를 잃고 stop 시 0바이트를 뱉는 버그가 있다.
-    // 따라서 iOS 환경에서는 세그먼트 전환 중 불필요한 pause를 수행하지 않고 연속 녹화를 유지한다.
-    if (IS_IOS || IS_SAFARI) {
-      return;
-    }
     try {
       if (recorder.state === 'recording') {
         recorder.pause();
@@ -850,7 +846,9 @@ export async function stitchHighlightedSegments({
         tick();
       });
 
-      await pauseRecorder();
+      if (label !== '종료 아웃트로') {
+        await pauseRecorder();
+      }
       return clipDuration;
     } finally {
       URL.revokeObjectURL(blobUrl);
@@ -947,7 +945,7 @@ export async function stitchHighlightedSegments({
       await sleep(33);
     }
 
-    await pauseRecorder();
+    // 아웃트로 직후 finalBlob 생성으로 이어지므로 pause하지 않고 recording 상태 유지
     return outroFrames / 30;
   };
 
@@ -955,7 +953,8 @@ export async function stitchHighlightedSegments({
   const renderSegmentWithPlayback = async (
     videoItem: VideoItem,
     segment: HighlightSegment,
-    clipMessage: string
+    clipMessage: string,
+    isLastSegment = false
   ): Promise<boolean> => {
     try {
       videoElem.pause();
@@ -975,8 +974,11 @@ export async function stitchHighlightedSegments({
 
     renderFrameWithOverlay(videoItem, segment, overlayCanvas);
 
+    // seek 완료 후 실제 비디오 현재 시점 기록 (playback 전진 감지 기준점)
+    const initialTime = videoElem.currentTime;
+
     // 3. 비디오 재생 시작
-    const playing = await startPlayback(IS_IOS ? 5000 : 8000);
+    const playing = await startPlayback(8000);
     if (!playing) {
       renderModeHistory.push(`[seg#${segment.id.slice(-4)}: play실패 (readyState=${videoElem.readyState})]`);
       try {
@@ -987,8 +989,8 @@ export async function stitchHighlightedSegments({
       return false;
     }
 
-    // 4. 비디오가 실제로 재생되어 시간을 전진시키는지 확인 (최대 6~8초 대기)
-    const advanced = await waitForPlaybackAdvance(segment.start, IS_IOS ? 4000 : 8000);
+    // 4. 비디오가 실제로 재생되어 시간을 전진시키는지 확인 (최대 8초 대기)
+    const advanced = await waitForPlaybackAdvance(initialTime, 8000);
     if (!advanced) {
       renderModeHistory.push(`[seg#${segment.id.slice(-4)}: 시간전진실패 (cur=${videoElem.currentTime.toFixed(2)})]`);
       try {
@@ -1023,7 +1025,11 @@ export async function stitchHighlightedSegments({
         } catch {
           // ignore
         }
-        await pauseRecorder();
+        // 마지막 세그먼트가 아니라면 다음 구간 전환(seek/load) 동안 녹화를 일시정지하여 멈춤 구간 녹화 방지
+        // 마지막 세그먼트라면 paused 상태에서 stop() 호출 시 발생하는 WebKit 버그(0바이트)를 방지하기 위해 recording 상태 유지
+        if (!isLastSegment) {
+          await pauseRecorder();
+        }
         if (error) reject(error);
         else resolve();
       };
@@ -1113,7 +1119,8 @@ export async function stitchHighlightedSegments({
   const renderSegmentByStepping = async (
     videoItem: VideoItem,
     segment: HighlightSegment,
-    clipMessage: string
+    clipMessage: string,
+    isLastSegment = false
   ) => {
     try {
       videoElem.pause();
@@ -1154,7 +1161,9 @@ export async function stitchHighlightedSegments({
       );
     }
 
-    await pauseRecorder();
+    if (!isLastSegment) {
+      await pauseRecorder();
+    }
   };
 
   try {
@@ -1188,6 +1197,7 @@ export async function stitchHighlightedSegments({
       const videoItem = videoMap.get(segment.sourceVideoId);
       if (!videoItem) continue;
 
+      const isLastSegment = i === allSegments.length - 1 && !overlayOptions?.showOutro;
       const clipMessage = `구간 ${i + 1}/${allSegments.length} 병합 중: [${videoItem.name}] (${segment.start.toFixed(1)}s ~ ${segment.end.toFixed(1)}s)`;
       reportProgress(
         (recordedDurationSoFar / (totalSegmentsDuration || 1)) * 100,
@@ -1197,25 +1207,19 @@ export async function stitchHighlightedSegments({
 
       await loadVideoSource(videoItem.url, videoItem.name);
 
-      let played = await renderSegmentWithPlayback(videoItem, segment, clipMessage);
+      let played = await renderSegmentWithPlayback(videoItem, segment, clipMessage, isLastSegment);
       if (!played) {
-        // 1회차 실패 시 버퍼링을 확보하고 1회 재시도
+        // 1회차 실패 시 버퍼링을 확보하고 1회 재시도 (videoElem.load() 호출 시 iOS 재생 권한이 초기화되므로 load() 없이 재시도)
         onLog?.(`[${videoItem.name}] 구간 ${i + 1} 비디오 버퍼링 대기 후 재생 재시도 중...`);
-        await sleep(1000);
-        try {
-          videoElem.load();
-        } catch {
-          // ignore
-        }
-        await loadVideoSource(videoItem.url, videoItem.name);
-        played = await renderSegmentWithPlayback(videoItem, segment, clipMessage);
+        await sleep(600);
+        played = await renderSegmentWithPlayback(videoItem, segment, clipMessage, isLastSegment);
       }
 
       if (!played) {
         onLog?.(
           `[${videoItem.name}] 실시간 재생이 지연되어 프레임 스텝 모드로 구간 ${i + 1}을 병합합니다.`
         );
-        await renderSegmentByStepping(videoItem, segment, clipMessage);
+        await renderSegmentByStepping(videoItem, segment, clipMessage, isLastSegment);
       }
 
       recordedDurationSoFar += segment.duration;
