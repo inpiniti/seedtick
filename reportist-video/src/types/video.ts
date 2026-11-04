@@ -85,6 +85,7 @@ export interface FinalVideoResult {
   duration: number;
   introDuration?: number; // 시작 인트로 실제 재생 시간 (초)
   outroDuration?: number; // 마무리 아웃트로 실제 재생 시간 (초)
+  bridgeDurationMap?: Record<string, number>; // 각 세그먼트(id) 직전에 삽입된 챕터 브릿지 길이 (초)
   segments: HighlightSegment[];
   originalTotalDuration: number;
   fileSize: number;
@@ -107,6 +108,7 @@ export interface VideoOverlayOptions {
   outroText?: string;
   introVideoFile?: File | null; // 사용자 직접 삽입 인트로 영상 파일
   outroVideoFile?: File | null; // 사용자 직접 삽입 아웃트로 영상 파일
+  showChapterBridge?: boolean; // 날짜·장소·원본 영상 전환 시 HyperFrames 챕터 브릿지 효과 표시 (기본 true)
 }
 
 export interface CustomAudioTrack {

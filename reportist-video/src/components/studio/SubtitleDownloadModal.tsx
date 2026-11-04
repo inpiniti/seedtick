@@ -29,6 +29,7 @@ export interface SubtitleDownloadModalProps {
   onClose: () => void;
   segments: HighlightSegment[];
   introDuration?: number;
+  bridgeDurationMap?: Record<string, number>;
   videoTitle?: string;
 }
 
@@ -37,6 +38,7 @@ export const SubtitleDownloadModal: React.FC<SubtitleDownloadModalProps> = ({
   onClose,
   segments,
   introDuration = 0,
+  bridgeDurationMap,
   videoTitle = 'highlight',
 }) => {
   const { dict, locale: currentAppLocale, interpolate } = useI18n();
@@ -115,8 +117,8 @@ export const SubtitleDownloadModal: React.FC<SubtitleDownloadModalProps> = ({
 
   // Generate current SRT content
   const currentSrtContent = useMemo(() => {
-    return buildSrtFromSegments(segments, introDuration, currentTranslations);
-  }, [segments, introDuration, currentTranslations]);
+    return buildSrtFromSegments(segments, introDuration, currentTranslations, bridgeDurationMap);
+  }, [segments, introDuration, currentTranslations, bridgeDurationMap]);
 
   // Copy to clipboard
   const handleCopySrt = async () => {
@@ -152,7 +154,7 @@ export const SubtitleDownloadModal: React.FC<SubtitleDownloadModalProps> = ({
           setTranslationsCache((prev) => ({ ...prev, [locInfo.code]: newTrans }));
         }
 
-        const srt = buildSrtFromSegments(segments, introDuration, trans);
+        const srt = buildSrtFromSegments(segments, introDuration, trans, bridgeDurationMap);
         const fileName = getSubtitleFileName(videoTitle, locInfo.code);
         downloadSrtFile(srt, fileName);
         // Small delay between browser downloads
@@ -172,6 +174,7 @@ export const SubtitleDownloadModal: React.FC<SubtitleDownloadModalProps> = ({
   // Timeline preview cues
   let offsetAcc = Math.max(0, introDuration);
   const previewCues = segments.map((seg, idx) => {
+    offsetAcc += Math.max(0, bridgeDurationMap?.[seg.id] || 0);
     const startSec = offsetAcc;
     const endSec = offsetAcc + seg.duration;
     offsetAcc = endSec;

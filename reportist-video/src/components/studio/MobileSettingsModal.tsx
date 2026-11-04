@@ -37,6 +37,8 @@ export interface MobileSettingsModalProps {
   referenceDate?: Date;
   showSubtitle?: boolean;
   onToggleShowSubtitle?: (enabled: boolean) => void;
+  showChapterBridge?: boolean;
+  onToggleShowChapterBridge?: (enabled: boolean) => void;
   currentModel?: FreeModelMeta;
   isLoadingModels?: boolean;
   currentLocaleInfo: { flag: string; nativeName: string; name: string };
@@ -67,6 +69,8 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   referenceDate,
   showSubtitle = true,
   onToggleShowSubtitle,
+  showChapterBridge = true,
+  onToggleShowChapterBridge,
   currentModel,
   isLoadingModels,
   currentLocaleInfo,
@@ -320,40 +324,72 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
             </div>
           </div>
 
-          {/* Group 5: Subtitle Display (영상 자막 표시) */}
-          {onToggleShowSubtitle && (
+          {/* Group 5: Subtitle & Chapter Bridge Display (영상 자막 및 챕터 브릿지 표시) */}
+          {(onToggleShowSubtitle || onToggleShowChapterBridge) && (
             <div className="settings-modal-group">
               <span className="settings-modal-group-title">
-                {dict.settingsModal?.subtitleOption || '영상 자막 설정'}
+                {dict.settingsModal?.subtitleOption || '영상 자막 및 브릿지 설정'}
               </span>
-              <div className="settings-modal-card-box">
-                <div className="settings-modal-toggle-row">
-                  <div className="settings-modal-item-left">
-                    <div
-                      className="settings-modal-icon-badge"
-                      style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}
-                    >
-                      <Subtitles size={18} />
-                    </div>
-                    <div className="settings-modal-item-text">
-                      <div className="settings-modal-item-title">
-                        {dict.settingsModal?.subtitleOption || '영상 자막 표시'}
+              {onToggleShowChapterBridge && (
+                <div className="settings-modal-card-box mb-2">
+                  <div className="settings-modal-toggle-row">
+                    <div className="settings-modal-item-left">
+                      <div
+                        className="settings-modal-icon-badge"
+                        style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}
+                      >
+                        <Sparkles size={18} />
                       </div>
-                      <div className="settings-modal-item-desc">
-                        {dict.settingsModal?.subtitleOptionDesc || '영상 화면에 씬 제목 자막을 표시해요 (꺼도 자막 다운로드는 가능해요)'}
+                      <div className="settings-modal-item-text">
+                        <div className="settings-modal-item-title">
+                          스토리 챕터 브릿지 표시
+                        </div>
+                        <div className="settings-modal-item-desc">
+                          날짜·장소·원본 영상이 바뀌는 구간 사이에 시네마틱 챕터 전환 카드를 삽입해요
+                        </div>
                       </div>
                     </div>
+                    <label className="toss-toggle-switch" style={{ margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={showChapterBridge}
+                        onChange={(e) => onToggleShowChapterBridge(e.target.checked)}
+                      />
+                      <span className="toss-toggle-slider" />
+                    </label>
                   </div>
-                  <label className="toss-toggle-switch" style={{ margin: 0 }}>
-                    <input
-                      type="checkbox"
-                      checked={showSubtitle}
-                      onChange={(e) => onToggleShowSubtitle(e.target.checked)}
-                    />
-                    <span className="toss-toggle-slider" />
-                  </label>
                 </div>
-              </div>
+              )}
+              {onToggleShowSubtitle && (
+                <div className="settings-modal-card-box">
+                  <div className="settings-modal-toggle-row">
+                    <div className="settings-modal-item-left">
+                      <div
+                        className="settings-modal-icon-badge"
+                        style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}
+                      >
+                        <Subtitles size={18} />
+                      </div>
+                      <div className="settings-modal-item-text">
+                        <div className="settings-modal-item-title">
+                          {dict.settingsModal?.subtitleOption || '영상 자막 표시'}
+                        </div>
+                        <div className="settings-modal-item-desc">
+                          {dict.settingsModal?.subtitleOptionDesc || '영상 화면에 씬 제목 자막을 표시해요 (꺼도 자막 다운로드는 가능해요)'}
+                        </div>
+                      </div>
+                    </div>
+                    <label className="toss-toggle-switch" style={{ margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={showSubtitle}
+                        onChange={(e) => onToggleShowSubtitle(e.target.checked)}
+                      />
+                      <span className="toss-toggle-slider" />
+                    </label>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

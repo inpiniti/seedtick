@@ -2,6 +2,15 @@
 
 import type { FinalVideoResult, HighlightSegment, VideoItem, VideoOverlayOptions } from '../types/video.ts';
 import { playBgmSynthLoop } from './audioSynth.ts';
+import {
+  CHAPTER_BRIDGE_DURATION,
+  CHAPTER_BRIDGE_FPS,
+  CHAPTER_BRIDGE_FRAMES,
+  computeBridgeDurationMap,
+  createHyperframesBridgeController,
+  evaluateChapterBridge,
+  type ChapterBridgeTransitionInfo,
+} from './hyperframesBridgeRenderer.ts';
 
 export interface StitchVideosParams {
   videos: VideoItem[];
@@ -345,7 +354,11 @@ export async function stitchHighlightedSegments({
     console.error('[VideoStitcher] MediaRecorder 오류:', err);
   };
 
-  const totalSegmentsDuration = allSegments.reduce((sum, s) => sum + s.duration, 0);
+  const plannedBridgeDurationMap = computeBridgeDurationMap(allSegments, overlayOptions);
+  const totalPlannedBridgeDuration = Object.values(plannedBridgeDurationMap).reduce((sum, d) => sum + d, 0);
+  const totalSegmentsDuration = allSegments.reduce((sum, s) => sum + s.duration, 0) + totalPlannedBridgeDuration;
+  const actualBridgeDurationMap: Record<string, number> = {};
+  const bridgeController = createHyperframesBridgeController(CHAPTER_BRIDGE_DURATION);
   let recordedDurationSoFar = 0;
 
   let recorderStarted = false;
@@ -1000,6 +1013,56 @@ export async function stitchHighlightedSegments({
     return outroFrames / 30;
   };
 
+  // HyperFrames (GSAP 결정론적 타임라인 seek + Canvas 2D) 챕터 브릿지 렌더링 (약 1.2초, 36프레임)
+  const renderChapterBridgeSequence = async (
+    prevSeg: HighlightSegment,
+    nextSeg: HighlightSegment,
+    nextIdx: number,
+    nextVideoItem?: VideoItem
+  ): Promise<number> => {
+    const bridgeInfo = evaluateChapterBridge(prevSeg, nextSeg, nextIdx, allSegments.length, overlayOptions);
+    if (!bridgeInfo.shouldBridge) return 0;
+
+    renderModeHistory.push(`[bridge->seg#${nextSeg.id.slice(-4)}: ${CHAPTER_BRIDGE_FRAMES}f]`);
+    const frameInterval = 1000 / 30;
+
+    await startOrResumeRecorder();
+
+    for (let f = 0; f < CHAPTER_BRIDGE_FRAMES; f++) {
+      if (signal?.aborted) throw new Error('사용자에 의해 작업이 취소되었습니다.');
+      if (recorderError) throw recorderError;
+
+      const timeSec = f / 30;
+      totalDrawCalls++;
+      bridgeController.seekAndRender(
+        ctx,
+        timeSec,
+        targetWidth,
+        targetHeight,
+        bridgeInfo,
+        () => {
+          if (nextVideoItem) {
+            drawCoverFrame(workerA, nextVideoItem, nextSeg);
+          } else {
+            ctx.fillStyle = '#080c14';
+            ctx.fillRect(0, 0, targetWidth, targetHeight);
+          }
+        }
+      );
+
+      await sleep(frameInterval);
+
+      reportProgress(
+        ((recordedDurationSoFar + timeSec) / (totalSegmentsDuration || 1)) * 100,
+        `챕터 전환 브릿지 합성 중 (${bridgeInfo.chapterIndex}장)...`
+      );
+    }
+
+    actualBridgeDurationMap[nextSeg.id] = CHAPTER_BRIDGE_DURATION;
+    recordedDurationSoFar += CHAPTER_BRIDGE_DURATION;
+    return CHAPTER_BRIDGE_DURATION;
+  };
+
   try {
     await requestWakeLock();
 
@@ -1119,7 +1182,9 @@ export async function stitchHighlightedSegments({
         );
 
         if (i > 0) {
+          await pauseRecorder();
           await prepareWorkerForSegment(workerA, segment);
+          await renderChapterBridgeSequence(allSegments[i - 1], segment, i, videoItem);
         }
 
         await renderSegmentByStepping(
@@ -1227,8 +1292,26 @@ export async function stitchHighlightedSegments({
               const nextSegment = allSegments[currentSegmentIdx];
               const nextVideoItem = videoMap.get(nextSegment.sourceVideoId);
               const nextOverlay = overlayCanvases[currentSegmentIdx];
+              const bridgeEval = evaluateChapterBridge(prevSegment, nextSegment, currentSegmentIdx, allSegments.length, overlayOptions);
 
-              if (nextSegment.sourceVideoId === prevSegment.sourceVideoId) {
+              if (bridgeEval.shouldBridge) {
+                // 챕터 브릿지가 필요한 경우: 시크 중에는 레코더를 잠시 일시정지하여 첫 프레임을 정확히 맞춘 뒤
+                // HyperFrames GSAP 타임라인 브릿지를 1.2초(36프레임) 동안 녹화하고 다음 구간 재생 시작!
+                await pauseRecorder();
+                try {
+                  workerA.pause();
+                } catch {}
+
+                if (nextSegment.sourceVideoId !== prevSegment.sourceVideoId && nextVideoItem) {
+                  await loadVideoSource(workerA, nextVideoItem.url, nextVideoItem.name, 10000);
+                }
+                await seekVideo(workerA, nextSegment.start, 6000);
+                await waitForVideoReady(workerA, 5000);
+
+                await renderChapterBridgeSequence(prevSegment, nextSegment, currentSegmentIdx, nextVideoItem);
+
+                await startPlayback(workerA, 3000);
+              } else if (nextSegment.sourceVideoId === prevSegment.sourceVideoId) {
                 // 동일 영상 내 다른 구간으로 이동: pause() 없이 재생 상태를 그대로 유지한 채 즉시 점프!
                 // (iOS Safari에서 재생 권한 및 하드웨어 디코더 파이프라인이 절대 끊기지 않음)
                 try {
@@ -1380,12 +1463,14 @@ export async function stitchHighlightedSegments({
       duration: Math.round(totalCalculatedDuration * 10) / 10,
       introDuration: Math.round(actualIntroDuration * 10) / 10,
       outroDuration: Math.round(actualOutroDuration * 10) / 10,
+      bridgeDurationMap: actualBridgeDurationMap,
       segments: allSegments,
       originalTotalDuration: Math.round(originalTotalDuration * 10) / 10,
       fileSize: finalBlob.size,
     };
   } finally {
     try {
+      bridgeController.dispose();
       if (bgmController) {
         bgmController.stop();
       }

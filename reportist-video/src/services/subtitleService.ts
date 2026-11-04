@@ -28,7 +28,8 @@ export function formatSrtTimestamp(seconds: number): string {
 export function buildSrtFromSegments(
   segments: HighlightSegment[],
   introDuration = 0,
-  translations?: Record<string, string>
+  translations?: Record<string, string>,
+  bridgeDurationMap?: Record<string, number>
 ): string {
   if (!segments || segments.length === 0) return '';
 
@@ -37,6 +38,7 @@ export function buildSrtFromSegments(
   let cueIndex = 1;
 
   for (const seg of segments) {
+    currentOffset += Math.max(0, bridgeDurationMap?.[seg.id] || 0);
     const startSec = currentOffset;
     const endSec = currentOffset + Math.max(0.5, seg.duration);
     currentOffset = endSec;

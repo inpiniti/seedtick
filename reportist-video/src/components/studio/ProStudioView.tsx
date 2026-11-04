@@ -46,6 +46,10 @@ import {
   renderThumbnailArtwork,
   downloadThumbnailFile,
 } from '../../services/thumbnailGenerator.ts';
+import {
+  computeBridgeDurationMap,
+  evaluateChapterBridge,
+} from '../../services/hyperframesBridgeRenderer.ts';
 import { ModelSelectorModal } from './ModelSelectorModal.tsx';
 import { VideoListModal } from './VideoListModal.tsx';
 import { LanguageSelectorModal } from './LanguageSelectorModal.tsx';
@@ -291,6 +295,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     subtitleLocationText: '',
     showIntro: false,
     showOutro: false,
+    showChapterBridge: true,
     introVideoFile: null,
     outroVideoFile: null,
   });
@@ -625,20 +630,34 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     return map;
   }, [videos]);
 
-  // 인트로 및 아웃트로 실제 적용 시간
+  // 인트로, 아웃트로 및 챕터 브릿지 실제 적용 시간
   const introDuration = (result?.url && result.introDuration) ? result.introDuration : 0;
   const outroDuration = (result?.url && result.outroDuration) ? result.outroDuration : 0;
+  const effectiveBridgeDurationMap = useMemo(() => {
+    if (result?.url && result.bridgeDurationMap) {
+      return result.bridgeDurationMap;
+    }
+    return computeBridgeDurationMap(segments, overlayOptions);
+  }, [result?.url, result?.bridgeDurationMap, segments, overlayOptions]);
 
-  // 구간별 누적 시작 오프셋
+  // 구간별 누적 시작 오프셋 (챕터 브릿지 구간 시간 반영)
   const segmentTimelineOffsets = useMemo(() => {
     let acc = introDuration;
-    const offsets: Record<string, { startOffset: number; endOffset: number }> = {};
+    const offsets: Record<string, { bridgeStartOffset: number; startOffset: number; endOffset: number; bridgeDuration: number }> = {};
     segments.forEach((s) => {
-      offsets[s.id] = { startOffset: acc, endOffset: acc + s.duration };
+      const bridgeDur = (result?.url ? (result.bridgeDurationMap?.[s.id] ?? 0) : (effectiveBridgeDurationMap[s.id] ?? 0));
+      const bridgeStart = acc;
+      acc += bridgeDur;
+      offsets[s.id] = {
+        bridgeStartOffset: bridgeStart,
+        startOffset: acc,
+        endOffset: acc + s.duration,
+        bridgeDuration: bridgeDur,
+      };
       acc += s.duration;
     });
     return offsets;
-  }, [segments, introDuration]);
+  }, [segments, introDuration, result?.url, result?.bridgeDurationMap, effectiveBridgeDurationMap]);
 
   // 현재 재생 중인 시간대에 위치한 세그먼트 자동 감지
   const activePlayingSegmentId = useMemo(() => {
@@ -652,14 +671,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     let acc = introDuration;
     for (let i = 0; i < segments.length; i++) {
       const seg = segments[i];
+      const bridgeDur = result.bridgeDurationMap?.[seg.id] ?? 0;
+      const segBlockStart = acc;
+      const segEnd = acc + bridgeDur + seg.duration;
       const isLast = i === segments.length - 1 && outroDuration === 0;
-      if (currentTime >= acc && (isLast ? currentTime <= totalDuration + 2.0 : currentTime < acc + seg.duration)) {
+      if (currentTime >= segBlockStart && (isLast ? currentTime <= totalDuration + 2.0 : currentTime < segEnd)) {
         return seg.id;
       }
-      acc += seg.duration;
+      acc = segEnd;
     }
     return selectedSegmentId;
-  }, [currentTime, segments, result?.url, introDuration, outroDuration, totalDuration, selectedSegmentId]);
+  }, [currentTime, segments, result?.url, result?.bridgeDurationMap, introDuration, outroDuration, totalDuration, selectedSegmentId]);
 
   // 현재 활성 재생 중인 세그먼트 객체
   const activePlayingSegment = useMemo(() => {
@@ -1408,35 +1430,64 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     {segments.map((seg, idx) => {
                       const isCurrent = seg.id === activePlayingSegmentId;
                       const isSelected = seg.id === selectedSegmentId;
+                      const bridgeDur = effectiveBridgeDurationMap[seg.id] ?? 0;
+                      const bridgeWidthPct = (bridgeDur / (totalDuration || 1)) * 100;
                       const widthPct = (seg.duration / (totalDuration || 1)) * 100;
                       const vItem = videoMap.get(seg.sourceVideoId);
                       return (
-                        <div
-                          key={seg.id}
-                          className={`toss-sequencer-block ${isSelected ? 'selected' : ''} ${isCurrent ? 'playing' : ''}`}
-                          style={{ width: `${widthPct}%` }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSelectSegment(seg.id);
-                          }}
-                          title={interpolate(dict.sequencer.clipTitle, {
-                            idx: idx + 1,
-                            duration: seg.duration.toFixed(1),
-                            reason: seg.reason,
-                          })}
-                        >
-                          {vItem?.thumbnailUrl && (
-                            <img
-                              src={vItem.thumbnailUrl}
-                              alt=""
-                              className="toss-sequencer-block-thumb"
-                            />
+                        <React.Fragment key={seg.id}>
+                          {bridgeDur > 0 && (
+                            <div
+                              className={`toss-sequencer-block toss-sequencer-intro-block ${isCurrent ? 'playing' : ''}`}
+                              style={{
+                                width: `${bridgeWidthPct}%`,
+                                minWidth: '14px',
+                                background: 'linear-gradient(135deg, #1e293b 0%, #3b82f6 100%)',
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const offset = segmentTimelineOffsets[seg.id];
+                                if (offset && videoRef.current && result?.url) {
+                                  videoRef.current.currentTime = offset.bridgeStartOffset + 0.05;
+                                  setCurrentTime(offset.bridgeStartOffset + 0.05);
+                                  setSelectedSegmentId(seg.id);
+                                } else {
+                                  handleSelectSegment(seg.id);
+                                }
+                              }}
+                              title={`챕터 브릿지 → #${idx + 1} (${bridgeDur.toFixed(1)}s)`}
+                            >
+                              <div className="toss-sequencer-block-overlay">
+                                <span className="toss-block-idx">✦</span>
+                              </div>
+                            </div>
                           )}
-                          <div className="toss-sequencer-block-overlay">
-                            <span className="toss-block-idx">#{idx + 1}</span>
-                            <span className="toss-block-dur">{seg.duration.toFixed(1)}s</span>
+                          <div
+                            className={`toss-sequencer-block ${isSelected ? 'selected' : ''} ${isCurrent ? 'playing' : ''}`}
+                            style={{ width: `${widthPct}%` }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectSegment(seg.id);
+                            }}
+                            title={interpolate(dict.sequencer.clipTitle, {
+                              idx: idx + 1,
+                              duration: seg.duration.toFixed(1),
+                              reason: seg.reason,
+                            })}
+                          >
+                            {vItem?.thumbnailUrl && (
+                              <img
+                                src={vItem.thumbnailUrl}
+                                alt=""
+                                className="toss-sequencer-block-thumb"
+                              />
+                            )}
+                            <div className="toss-sequencer-block-overlay">
+                              <span className="toss-block-idx">#{idx + 1}</span>
+                              <span className="toss-block-dur">{seg.duration.toFixed(1)}s</span>
+                            </div>
                           </div>
-                        </div>
+                        </React.Fragment>
                       );
                     })}
 
@@ -1837,22 +1888,40 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     </button>
                   )}
                 </div>
-                <label
-                  className="toss-toggle-label flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-600 shrink-0 ml-auto sm:ml-0"
-                  title={dict.dramaticClips.bottomSubtitleTitle}
-                >
-                  <span>{dict.dramaticClips.bottomSubtitleToggle}</span>
-                  <span className="toss-toggle-switch">
-                    <input
-                      type="checkbox"
-                      checked={overlayOptions.showSubtitle}
-                      onChange={(e) =>
-                        setOverlayOptions((prev) => ({ ...prev, showSubtitle: e.target.checked }))
-                      }
-                    />
-                    <span className="toss-toggle-slider" />
-                  </span>
-                </label>
+                <div className="flex items-center gap-3 shrink-0 ml-auto sm:ml-0">
+                  <label
+                    className="toss-toggle-label flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-600"
+                    title="날짜·장소·원본 영상이 바뀌는 구간 사이에 시네마틱 챕터 브릿지 카드를 삽입합니다"
+                  >
+                    <span>챕터 브릿지</span>
+                    <span className="toss-toggle-switch">
+                      <input
+                        type="checkbox"
+                        checked={overlayOptions.showChapterBridge !== false}
+                        onChange={(e) =>
+                          setOverlayOptions((prev) => ({ ...prev, showChapterBridge: e.target.checked }))
+                        }
+                      />
+                      <span className="toss-toggle-slider" />
+                    </span>
+                  </label>
+                  <label
+                    className="toss-toggle-label flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-600"
+                    title={dict.dramaticClips.bottomSubtitleTitle}
+                  >
+                    <span>{dict.dramaticClips.bottomSubtitleToggle}</span>
+                    <span className="toss-toggle-switch">
+                      <input
+                        type="checkbox"
+                        checked={overlayOptions.showSubtitle}
+                        onChange={(e) =>
+                          setOverlayOptions((prev) => ({ ...prev, showSubtitle: e.target.checked }))
+                        }
+                      />
+                      <span className="toss-toggle-slider" />
+                    </span>
+                  </label>
+                </div>
               </div>
             </div>
 
@@ -1868,11 +1937,31 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   const isSelected = seg.id === selectedSegmentId;
                   const isCurrentPlaying = seg.id === activePlayingSegmentId;
                   const vItem = videoMap.get(seg.sourceVideoId);
+                  const bridgeEval = idx > 0
+                    ? evaluateChapterBridge(segments[idx - 1], seg, idx, segments.length, overlayOptions)
+                    : null;
                   return (
-                    <div
-                      key={seg.id}
-                      className={`toss-segment-item ${isSelected ? 'active' : ''} ${isCurrentPlaying ? 'playing' : ''}`}
-                    >
+                    <React.Fragment key={seg.id}>
+                      {bridgeEval?.shouldBridge && (
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-dashed border-blue-200 text-[11px] text-slate-600">
+                          <span className="px-1.5 py-0.5 rounded bg-blue-600 text-white font-bold text-[10px] tracking-wider">
+                            {bridgeEval.isDateChanged
+                              ? 'TIMELINE JUMP'
+                              : bridgeEval.isLocationChanged
+                              ? 'LOCATION SHIFT'
+                              : `CHAPTER ${String(bridgeEval.chapterIndex).padStart(2, '0')}`}
+                          </span>
+                          <span className="font-medium text-slate-700 truncate">
+                            {[bridgeEval.toDate, bridgeEval.toLocation].filter(Boolean).join(' • ') || bridgeEval.sceneTitle}
+                          </span>
+                          <span className="ml-auto font-mono text-[10px] text-blue-600 font-semibold shrink-0">
+                            +1.2s 브릿지
+                          </span>
+                        </div>
+                      )}
+                      <div
+                        className={`toss-segment-item ${isSelected ? 'active' : ''} ${isCurrentPlaying ? 'playing' : ''}`}
+                      >
                       {isCurrentPlaying && isPlaying && vItem?.thumbnailUrl && (
                         <span className="toss-segment-now-playing" aria-hidden="true">
                           <span className="toss-segment-now-dot" />
@@ -2093,7 +2182,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           </div>
                         </div>
                       )}
-                    </div>
+                      </div>
+                    </React.Fragment>
                   );
                 })}
               </div>
@@ -2443,6 +2533,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         onToggleShowSubtitle={(val) =>
           setOverlayOptions((prev) => ({ ...prev, showSubtitle: val }))
         }
+        showChapterBridge={overlayOptions.showChapterBridge !== false}
+        onToggleShowChapterBridge={(val) =>
+          setOverlayOptions((prev) => ({ ...prev, showChapterBridge: val }))
+        }
         currentModel={currentModel || undefined}
         isLoadingModels={isLoadingModels}
         currentLocaleInfo={currentLocaleInfo}
@@ -2483,6 +2577,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         onClose={() => setIsSubtitleModalOpen(false)}
         segments={segments}
         introDuration={introDuration}
+        bridgeDurationMap={effectiveBridgeDurationMap}
         videoTitle={overlayOptions.titleText || result?.suggestedTitle || 'highlight'}
       />
     </div>
