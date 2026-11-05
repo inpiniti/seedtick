@@ -1235,12 +1235,27 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   };
 
-  // 완성 영상 다운로드
-  const handleDownload = () => {
+  // 완성 영상 다운로드 (iOS Safari MP4 확장자 및 공유 시트 대응)
+  const handleDownload = async () => {
     if (!result?.url) return;
+    const ext = result.blob?.type?.includes('mp4') ? 'mp4' : 'webm';
+    const fileName = `reportist_highlight_16x9_${Date.now()}.${ext}`;
+
+    if (result.blob) {
+      try {
+        const file = new File([result.blob], fileName, { type: result.blob.type || `video/${ext}` });
+        if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: overlayOptions.titleText || 'Reportist Highlight' });
+          return;
+        }
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+      }
+    }
+
     const a = document.createElement('a');
     a.href = result.url;
-    a.download = `reportist_highlight_16x9_${Date.now()}.webm`;
+    a.download = fileName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

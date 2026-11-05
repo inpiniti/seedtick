@@ -1532,16 +1532,22 @@ export async function stitchHighlightedSegments({
                   await startPlayback(workerA, 2000);
                 }
               } else if (nextVideoItem) {
-                // 다른 영상 파일로 전환하는 경우: 로딩 및 시크 대기 시간 동안 오디오/레코더가 먼저 흘러가지 않도록 일시정지 후 재개
-                await pauseRecorder();
+                // 다른 영상 파일로 전환하는 경우:
+                // 데스크탑은 로딩/시크 중 프리즈 프레임을 방지하기 위해 레코더를 일시정지하고,
+                // iOS/Safari는 AVAssetWriter 무중단 안정성을 위해 레코더를 끊지 않은 채 전환한다.
+                if (!IS_IOS && !IS_SAFARI) {
+                  await pauseRecorder();
+                }
                 await loadVideoSource(workerA, nextVideoItem.url, nextVideoItem.name, 10000);
                 await seekVideo(workerA, nextSegment.start, 6000);
                 await waitForVideoReady(workerA, 5000);
                 await startPlayback(workerA, 3000);
-                await startOrResumeRecorder();
+                if (!IS_IOS && !IS_SAFARI) {
+                  await startOrResumeRecorder();
+                }
               }
 
-              if (nextVideoItem) {
+              if (nextVideoItem && !workerA.seeking) {
                 lastDrawnMediaTime = workerA.currentTime;
                 lastDrawnSegmentIdx = currentSegmentIdx;
                 renderFrameWithOverlay(workerA, nextVideoItem, nextSegment, nextOverlay);
