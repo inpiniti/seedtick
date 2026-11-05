@@ -2503,20 +2503,24 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               {/* 썸네일 타이틀 및 스타일 컨트롤 */}
               <div className="toss-thumbnail-controls">
                 {result?.aiThumbnailRecommendations && result.aiThumbnailRecommendations.length > 1 && (
-                  <div className="flex flex-col gap-1.5 mb-2 pb-2 border-b border-slate-100">
-                    <span className="text-[11px] font-semibold text-slate-500">AI 추천 프레임 선택:</span>
-                    <div className="flex items-center gap-1.5 overflow-x-auto py-1">
+                  <div className="toss-thumbnail-frames">
+                    <span className="toss-thumbnail-frames-label">AI 추천 프레임 선택</span>
+                    <div className="toss-thumbnail-frame-list">
                       {result.aiThumbnailRecommendations.map((cand, idx) => (
                         <button
                           key={`${cand.videoId}-${cand.timestamp}-${idx}`}
                           type="button"
                           onClick={() => handleSelectThumbnailCandidate(cand)}
                           disabled={isUpdatingThumbnail}
-                          className="shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium border border-slate-200 hover:border-blue-500 bg-white hover:bg-blue-50/40 text-slate-700 transition-all shadow-xs"
+                          className="toss-thumbnail-frame-btn"
                           title={cand.reason || cand.videoName}
                         >
-                          <Sparkles size={11} className="text-blue-500" />
-                          <span>#{idx + 1} {cand.videoName.slice(0, 8)} ({cand.timestamp.toFixed(1)}s)</span>
+                          <Sparkles size={11} className="toss-thumbnail-frame-icon" />
+                          <span className="toss-thumbnail-frame-index">#{idx + 1}</span>
+                          <span className="toss-thumbnail-frame-name">{cand.videoName}</span>
+                          <span className="toss-thumbnail-frame-time">
+                            {cand.timestamp.toFixed(1)}s
+                          </span>
                         </button>
                       ))}
                     </div>
@@ -2529,24 +2533,26 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       <Type size={13} className="text-blue-600" />
                       <span>{dict.thumbnail?.titleInputLabel || '썸네일 & 영상 타이틀'}</span>
                     </label>
-                    <div className="flex items-center gap-1.5">
+                    <div className="toss-thumbnail-label-actions">
                       {result?.suggestedTitle && overlayOptions.titleText === result.suggestedTitle && (
                         <span className="toss-thumbnail-ai-tag">
                           {dict.thumbnail?.aiTitleBadge || 'AI 추천 타이틀'}
                         </span>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => setShowThumbnailTitle((prev) => !prev)}
-                        className={`text-[11px] font-semibold px-2 py-0.5 rounded transition-colors ${
-                          showThumbnailTitle
-                            ? 'bg-blue-50 text-blue-600 hover:bg-blue-100'
-                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                        }`}
+                      <label
+                        className="toss-thumbnail-title-toggle"
                         title="썸네일 내 타이틀 문구 표시 여부"
                       >
-                        {showThumbnailTitle ? '타이틀 켜짐' : '타이틀 숨김 (순수 사진)'}
-                      </button>
+                        <span>{dict.thumbnail?.overlayToggle || '타이틀 텍스트 오버레이'}</span>
+                        <span className="toss-toggle-switch">
+                          <input
+                            type="checkbox"
+                            checked={showThumbnailTitle}
+                            onChange={(e) => setShowThumbnailTitle(e.target.checked)}
+                          />
+                          <span className="toss-toggle-slider" />
+                        </span>
+                      </label>
                     </div>
                   </div>
                   <input

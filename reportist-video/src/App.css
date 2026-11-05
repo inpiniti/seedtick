@@ -5896,18 +5896,108 @@
   flex-direction: column;
   gap: 12px;
   margin-top: 14px;
+  min-width: 0;
+}
+
+.toss-thumbnail-frames {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eef2f6;
+  min-width: 0;
+}
+
+.toss-thumbnail-frames-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: -0.01em;
+}
+
+.toss-thumbnail-frame-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.toss-thumbnail-frame-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  min-height: 28px;
+  padding: 4px 9px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background-color: #ffffff;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.toss-thumbnail-frame-btn:hover:not(:disabled) {
+  border-color: #93c5fd;
+  background-color: #eff6ff;
+  color: #1d4ed8;
+}
+
+.toss-thumbnail-frame-btn:focus-visible {
+  outline: none;
+  border-color: #3182f6;
+  box-shadow: 0 0 0 3px rgba(49, 130, 246, 0.15);
+}
+
+.toss-thumbnail-frame-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.toss-thumbnail-frame-icon {
+  color: #3182f6;
+  flex-shrink: 0;
+}
+
+.toss-thumbnail-frame-index {
+  color: #2563eb;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.toss-thumbnail-frame-name {
+  min-width: 0;
+  max-width: 148px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toss-thumbnail-frame-time {
+  color: #94a3b8;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
 }
 
 .toss-thumbnail-input-group {
   display: flex;
   flex-direction: column;
   gap: 5px;
+  min-width: 0;
 }
 
 .toss-thumbnail-label-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  min-width: 0;
 }
 
 .toss-thumbnail-label {
@@ -5917,6 +6007,16 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  min-width: 0;
+}
+
+.toss-thumbnail-label-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
 }
 
 .toss-thumbnail-ai-tag {
@@ -5924,8 +6024,30 @@
   font-weight: 700;
   color: #2563eb;
   background-color: #dbeafe;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 3px 7px;
+  border-radius: 6px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.toss-thumbnail-title-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.toss-thumbnail-title-toggle:hover {
+  color: #334155;
+}
+
+.toss-thumbnail-title-toggle .toss-toggle-switch {
+  flex-shrink: 0;
 }
 
 .toss-thumbnail-input {
