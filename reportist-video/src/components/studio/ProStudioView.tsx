@@ -35,8 +35,11 @@ import {
   Check,
   Maximize,
   Minimize,
+  FolderOpen,
 } from 'lucide-react';
 import { VideoCommunityView } from '../community/VideoCommunityView.tsx';
+import { StudioProjectListView } from './StudioProjectListView.tsx';
+import type { StudioProjectSummary } from '../../types/project.ts';
 import type {
   FinalVideoResult,
   HighlightSegment,
@@ -122,6 +125,21 @@ interface ProStudioViewProps {
     statusMessage: string;
   };
   onUpdateVideosDateFormat?: (format: DateFormatOption) => void;
+  currentProjectId?: string | null;
+  saveStatus?: 'saved' | 'saving' | 'idle';
+  projectSummaries?: StudioProjectSummary[];
+  isLoadingProjects?: boolean;
+  onOpenProject?: (id: string) => void;
+  onDuplicateProject?: (id: string) => void;
+  onDeleteProject?: (id: string) => void;
+  onStartNewProject?: () => void;
+  initialOverlayOptions?: VideoOverlayOptions | null;
+  initialBgmPresetId?: string;
+  initialBgmVolume?: number;
+  initialCustomAudioFile?: File | null;
+  onOverlayOptionsChange?: (options: VideoOverlayOptions) => void;
+  onBgmChange?: (bgmId: string, volume: number) => void;
+  onCustomAudioChange?: (file: File | null) => void;
 }
 
 export const ProStudioView: React.FC<ProStudioViewProps> = ({
@@ -142,6 +160,21 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   isReStitching,
   reStitchProgress,
   onUpdateVideosDateFormat,
+  currentProjectId,
+  saveStatus = 'saved',
+  projectSummaries = [],
+  isLoadingProjects = false,
+  onOpenProject,
+  onDuplicateProject,
+  onDeleteProject,
+  onStartNewProject,
+  initialOverlayOptions,
+  initialBgmPresetId,
+  initialBgmVolume,
+  initialCustomAudioFile,
+  onOverlayOptionsChange,
+  onBgmChange,
+  onCustomAudioChange,
 }) => {
   const { dict, interpolate, currentLocaleInfo } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
