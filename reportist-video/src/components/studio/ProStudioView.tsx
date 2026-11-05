@@ -192,7 +192,62 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 3. 사용자 직접 업로드 음악 상태
   const [customAudioFile, setCustomAudioFile] = useState<File | null>(null);
   const [customAudioName, setCustomAudioName] = useState<string>('');
+  const [customAudioDuration, setCustomAudioDuration] = useState<number | null>(null);
   const customAudioInputRef = useRef<HTMLInputElement>(null);
+
+  // 선택된 배경음악(customAudioFile)의 실제 재생 길이(초) 자동 추출
+  useEffect(() => {
+    if (!customAudioFile) {
+      setCustomAudioDuration(null);
+      return;
+    }
+
+    let isCancelled = false;
+    const objectUrl = URL.createObjectURL(customAudioFile);
+    const audio = new Audio();
+    audio.preload = 'metadata';
+
+    const decodeFallback = async () => {
+      try {
+        const AudioCtx =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const buf = await customAudioFile.arrayBuffer();
+        const decoded = await ctx.decodeAudioData(buf);
+        if (!isCancelled && decoded.duration > 0) {
+          setCustomAudioDuration(Math.round(decoded.duration * 10) / 10);
+        }
+        void ctx.close().catch(() => {});
+      } catch {
+        // ignore fallback error
+      }
+    };
+
+    audio.onloadedmetadata = () => {
+      if (isCancelled) return;
+      if (Number.isFinite(audio.duration) && audio.duration > 0) {
+        setCustomAudioDuration(Math.round(audio.duration * 10) / 10);
+      } else {
+        void decodeFallback();
+      }
+    };
+
+    audio.onerror = () => {
+      if (!isCancelled) {
+        void decodeFallback();
+      }
+    };
+
+    audio.src = objectUrl;
+
+    return () => {
+      isCancelled = true;
+      audio.src = '';
+      URL.revokeObjectURL(objectUrl);
+    };
+  }, [customAudioFile]);
 
   // 3-1. 오디오 보관함 상태
   const [isAudioLibraryOpen, setIsAudioLibraryOpen] = useState<boolean>(false);
@@ -697,11 +752,28 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     setIsPlaying(false);
   }, [activeVideoUrl]);
 
-  // 총 시간 계산
+  // 인트로, 아웃트로 및 챕터 브릿지 실제 적용 시간
+  const introDuration = overlayOptions.showIntro
+    ? (result?.url && result.introDuration ? result.introDuration : 1.6)
+    : 0;
+  const outroDuration = overlayOptions.showOutro
+    ? (result?.url && result.outroDuration ? result.outroDuration : 1.8)
+    : 0;
+  const effectiveBridgeDurationMap = useMemo(() => {
+    return computeBridgeDurationMap(segments, overlayOptions);
+  }, [segments, overlayOptions]);
+
+  // 총 시간 계산 (인트로 + 클립 + 챕터 브릿지 + 아웃트로 실시간 합산: 클립 제거/조절 시 즉시 갱신)
   const totalDuration = useMemo(() => {
+    const segsAndBridges = segments.reduce(
+      (sum, s) => sum + s.duration + (effectiveBridgeDurationMap[s.id] ?? 0),
+      0
+    );
+    const computed = Math.round((introDuration + segsAndBridges + outroDuration) * 10) / 10;
+    if (computed > 0) return computed;
     if (result?.duration && result.duration > 0) return result.duration;
-    return segments.reduce((sum, s) => sum + s.duration, 0) || 1;
-  }, [result?.duration, segments]);
+    return 1;
+  }, [segments, effectiveBridgeDurationMap, introDuration, outroDuration, result?.duration]);
 
   // 원본 영상 총 시간
   const originalTotalDuration = useMemo(() => {
@@ -714,24 +786,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     return Math.max(0, Math.round((1 - totalDuration / originalTotalDuration) * 100));
   }, [totalDuration, originalTotalDuration]);
 
-  // 비디오 ID 매핑 (상단으로 이동됨)
-
-  // 인트로, 아웃트로 및 챕터 브릿지 실제 적용 시간
-  const introDuration = (result?.url && result.introDuration) ? result.introDuration : 0;
-  const outroDuration = (result?.url && result.outroDuration) ? result.outroDuration : 0;
-  const effectiveBridgeDurationMap = useMemo(() => {
-    if (result?.url && result.bridgeDurationMap) {
-      return result.bridgeDurationMap;
-    }
-    return computeBridgeDurationMap(segments, overlayOptions);
-  }, [result?.url, result?.bridgeDurationMap, segments, overlayOptions]);
-
   // 구간별 누적 시작 오프셋 (챕터 브릿지 구간 시간 반영)
   const segmentTimelineOffsets = useMemo(() => {
     let acc = introDuration;
     const offsets: Record<string, { bridgeStartOffset: number; startOffset: number; endOffset: number; bridgeDuration: number }> = {};
     segments.forEach((s) => {
-      const bridgeDur = (result?.url ? (result.bridgeDurationMap?.[s.id] ?? 0) : (effectiveBridgeDurationMap[s.id] ?? 0));
+      const bridgeDur = effectiveBridgeDurationMap[s.id] ?? 0;
       const bridgeStart = acc;
       acc += bridgeDur;
       offsets[s.id] = {
@@ -743,7 +803,84 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       acc += s.duration;
     });
     return offsets;
-  }, [segments, introDuration, result?.url, result?.bridgeDurationMap, effectiveBridgeDurationMap]);
+  }, [segments, introDuration, effectiveBridgeDurationMap]);
+
+  // 시퀀스 타임라인용 배경음악(A1) 구간 블록 계산 (1회차 원곡 재생 구간 + 초과 시 반복 재생 구간)
+  const audioTimelineBlocks = useMemo(() => {
+    if (!customAudioFile || !customAudioDuration || customAudioDuration <= 0 || totalDuration <= 0) {
+      return [];
+    }
+    const blocks: Array<{
+      cycleIndex: number;
+      startSec: number;
+      endSec: number;
+      durationSec: number;
+      widthPct: number;
+      isLoop: boolean;
+    }> = [];
+    let cursor = 0;
+    let cycle = 0;
+    while (cursor < totalDuration - 0.05 && cycle < 20) {
+      const remaining = totalDuration - cursor;
+      const dur = Math.min(customAudioDuration, remaining);
+      blocks.push({
+        cycleIndex: cycle,
+        startSec: Math.round(cursor * 10) / 10,
+        endSec: Math.round((cursor + dur) * 10) / 10,
+        durationSec: Math.round(dur * 10) / 10,
+        widthPct: (dur / totalDuration) * 100,
+        isLoop: cycle > 0,
+      });
+      cursor += dur;
+      cycle++;
+    }
+    return blocks;
+  }, [customAudioFile, customAudioDuration, totalDuration]);
+
+  const isMusicExceeded = Boolean(
+    customAudioFile &&
+    customAudioDuration &&
+    customAudioDuration > 0 &&
+    totalDuration > customAudioDuration + 0.15
+  );
+
+  const musicOverflowSec = useMemo(() => {
+    if (!isMusicExceeded || !customAudioDuration) return 0;
+    return Math.max(0, Math.round((totalDuration - customAudioDuration) * 10) / 10);
+  }, [isMusicExceeded, totalDuration, customAudioDuration]);
+
+  // 음악 1회차 길이를 초과하는 뒷부분 클립 자동 제외 (최소 1개 클립 유지)
+  const handleFitSegmentsToMusic = () => {
+    if (!customAudioDuration || customAudioDuration <= 0 || segments.length <= 1) return;
+    const kept: HighlightSegment[] = [];
+    for (let i = 0; i < segments.length; i++) {
+      const candidate = [...kept, segments[i]];
+      const bridgeMap = computeBridgeDurationMap(candidate, overlayOptions);
+      const segsDur = candidate.reduce((sum, s) => sum + s.duration + (bridgeMap[s.id] ?? 0), 0);
+      const candidateTotal = introDuration + segsDur + outroDuration;
+      if (candidateTotal <= customAudioDuration + 0.15 || kept.length === 0) {
+        kept.push(segments[i]);
+      } else {
+        break;
+      }
+    }
+    const removedCount = segments.length - kept.length;
+    if (removedCount > 0) {
+      setSegments(kept);
+      if (!kept.some((s) => s.id === selectedSegmentId)) {
+        setSelectedSegmentId(kept[0]?.id || '');
+      }
+      setSortToastMessage(
+        `음악 길이(${formatSec(customAudioDuration)})를 넘기는 ${removedCount}개 구간을 제외했어요.`
+      );
+      if (sortToastTimeoutRef.current) {
+        window.clearTimeout(sortToastTimeoutRef.current);
+      }
+      sortToastTimeoutRef.current = window.setTimeout(() => {
+        setSortToastMessage(null);
+      }, 2600);
+    }
+  };
 
   // 현재 재생 중인 시간대에 위치한 세그먼트 자동 감지
   const activePlayingSegmentId = useMemo(() => {
@@ -1826,146 +1963,365 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               )}
             </div>
 
-            {/* 시퀀스 타임라인 스트립 */}
+            {/* 시퀀스 타임라인 스트립 (V1 영상 + A1 배경음악 멀티트랙) */}
             {segments.length > 0 && (
               <div className="toss-timeline-sequencer-box">
                 <div className="toss-sequencer-header">
-                  <div className="flex items-center gap-1.5">
-                    <Film size={14} className="text-blue-600" />
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Film size={14} className="text-blue-600 shrink-0" />
                     <span className="toss-sequencer-title">{dict.sequencer.title}</span>
                     <span className="toss-sequencer-badge">
-                      {interpolate(dict.sequencer.clipsCount, { count: segments.length })}
+                      {interpolate(dict.sequencer.clipsCount, { count: segments.length })} · {formatSec(totalDuration)}
                     </span>
+                    {customAudioFile && customAudioDuration && customAudioDuration > 0 && (
+                      isMusicExceeded ? (
+                        <span
+                          className="toss-sequencer-music-badge warning"
+                          title="영상 총 길이가 배경음악 1곡 길이를 초과하여 음악이 한 번 더 반복 재생돼요"
+                        >
+                          <Music size={10} className="shrink-0" />
+                          <span>
+                            음악 {formatSec(customAudioDuration)} · +{musicOverflowSec.toFixed(1)}s 초과 (반복 재생)
+                          </span>
+                        </span>
+                      ) : (
+                        <span
+                          className="toss-sequencer-music-badge ok"
+                          title="영상이 배경음악 1회 재생 길이 안에 깔끔하게 들어와요"
+                        >
+                          <Music size={10} className="shrink-0" />
+                          <span>
+                            음악 {formatSec(customAudioDuration)} (반복 없음)
+                          </span>
+                        </span>
+                      )
+                    )}
                   </div>
-                  <span className="toss-sequencer-hint">{dict.sequencer.hint}</span>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {isMusicExceeded && segments.length > 1 && (
+                      <button
+                        type="button"
+                        className="toss-sequencer-fit-music-btn"
+                        onClick={handleFitSegmentsToMusic}
+                        title="배경음악 1곡 길이를 넘어가는 뒷부분 영상 클립들을 자동으로 제외해요"
+                      >
+                        <Scissors size={11} />
+                        <span>음악 길이에 맞춰 초과 클립 제외</span>
+                      </button>
+                    )}
+                    <span className="toss-sequencer-hint">{dict.sequencer.hint}</span>
+                  </div>
                 </div>
 
-                <div
-                  className="toss-sequencer-track"
-                  onClick={handleSeekByPosition}
-                  title={dict.player.seekTooltip}
-                >
-                  <div
-                    className="toss-sequencer-playhead"
-                    style={{
-                      left: `${Math.min(100, Math.max(0, (currentTime / (totalDuration || 1)) * 100))}%`,
-                    }}
-                  >
-                    <div className="toss-playhead-cap" />
-                    <div className="toss-playhead-line" />
+                <div className="toss-sequencer-multitrack">
+                  {/* 좌측 트랙 헤더 (Ruler / V1 영상 / A1 음악) */}
+                  <div className="toss-sequencer-track-labels" aria-hidden="true">
+                    <div className="toss-track-label-ruler">TIME</div>
+                    <div className="toss-track-label-row video">
+                      <Film size={11} />
+                      <span>V1 영상</span>
+                    </div>
+                    <div className="toss-track-label-row audio">
+                      <Music size={11} />
+                      <span>A1 음악</span>
+                    </div>
                   </div>
 
-                  <div className="toss-sequencer-strip">
-                    {/* 시작 인트로 블록 (인트로가 포함된 경우) */}
-                    {introDuration > 0 && (
+                  {/* 우측 타임라인 캔버스 (클릭 시 해당 시간으로 시크) */}
+                  <div
+                    className="toss-sequencer-tracks-canvas"
+                    onClick={handleSeekByPosition}
+                    title={dict.player.seekTooltip}
+                  >
+                    {/* 상단 타임코드 눈금자 (Ruler) */}
+                    <div className="toss-sequencer-ruler">
+                      <span className="toss-ruler-tick" style={{ left: '0%' }}>
+                        00:00
+                      </span>
+                      <span className="toss-ruler-tick" style={{ left: '25%' }}>
+                        {formatSec(totalDuration * 0.25)}
+                      </span>
+                      <span className="toss-ruler-tick" style={{ left: '50%' }}>
+                        {formatSec(totalDuration * 0.5)}
+                      </span>
+                      <span className="toss-ruler-tick" style={{ left: '75%' }}>
+                        {formatSec(totalDuration * 0.75)}
+                      </span>
+                      <span className="toss-ruler-tick end" style={{ left: '100%' }}>
+                        {formatSec(totalDuration)}
+                      </span>
+                      {isMusicExceeded && customAudioDuration && (
+                        <span
+                          className="toss-ruler-music-end-tag"
+                          style={{
+                            left: `${Math.min(96, Math.max(4, (customAudioDuration / (totalDuration || 1)) * 100))}%`,
+                          }}
+                          title={`배경음악 1회차 종료 시점 (${formatSec(customAudioDuration)})`}
+                        >
+                          🎵 {formatSec(customAudioDuration)} 음악 끝
+                        </span>
+                      )}
+                    </div>
+
+                    {/* 재생 헤드 (V1 + A1 관통) */}
+                    <div
+                      className="toss-sequencer-playhead"
+                      style={{
+                        left: `${Math.min(100, Math.max(0, (currentTime / (totalDuration || 1)) * 100))}%`,
+                      }}
+                    >
+                      <div className="toss-playhead-cap" />
+                      <div className="toss-playhead-line" />
+                    </div>
+
+                    {/* 음악 1회차 종료 & 반복 시작 경계선 (V1 + A1 관통) */}
+                    {isMusicExceeded && customAudioDuration && (
                       <div
-                        className={`toss-sequencer-block toss-sequencer-intro-block ${activePlayingSegmentId === 'intro' ? 'playing' : ''} ${selectedSegmentId === 'intro' ? 'selected' : ''}`}
-                        style={{ width: `${(introDuration / (totalDuration || 1)) * 100}%` }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSelectSegment('intro');
+                        className="toss-sequencer-music-limit-line"
+                        style={{
+                          left: `${Math.min(100, Math.max(0, (customAudioDuration / (totalDuration || 1)) * 100))}%`,
                         }}
-                        title={`${dict.introOutro.introTitle} (${introDuration.toFixed(1)}s)`}
-                      >
-                        <div className="toss-sequencer-block-overlay">
-                          <span className="toss-block-idx">Intro</span>
-                          <span className="toss-block-dur">{introDuration.toFixed(1)}s</span>
-                        </div>
-                      </div>
+                        title={`배경음악 1회차 종료 (${formatSec(customAudioDuration)}) — 이후 구간은 음악이 처음부터 다시 반복돼요`}
+                      />
                     )}
 
-                    {segments.map((seg, idx) => {
-                      const isCurrent = seg.id === activePlayingSegmentId;
-                      const isSelected = seg.id === selectedSegmentId;
-                      const bridgeDur = effectiveBridgeDurationMap[seg.id] ?? 0;
-                      const bridgeWidthPct = (bridgeDur / (totalDuration || 1)) * 100;
-                      const widthPct = (seg.duration / (totalDuration || 1)) * 100;
-                      const vItem = videoMap.get(seg.sourceVideoId);
-                      return (
-                        <React.Fragment key={seg.id}>
-                          {bridgeDur > 0 && (
+                    {/* V1: 비디오 클립 시퀀스 트랙 */}
+                    <div className="toss-sequencer-strip">
+                      {/* 시작 인트로 블록 (인트로가 포함된 경우) */}
+                      {introDuration > 0 && (
+                        <div
+                          className={`toss-sequencer-block toss-sequencer-intro-block ${activePlayingSegmentId === 'intro' ? 'playing' : ''} ${selectedSegmentId === 'intro' ? 'selected' : ''}`}
+                          style={{ width: `${(introDuration / (totalDuration || 1)) * 100}%` }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectSegment('intro');
+                          }}
+                          title={`${dict.introOutro.introTitle} (${introDuration.toFixed(1)}s)`}
+                        >
+                          <div className="toss-sequencer-block-overlay">
+                            <span className="toss-block-idx">Intro</span>
+                            <span className="toss-block-dur">{introDuration.toFixed(1)}s</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {segments.map((seg, idx) => {
+                        const isCurrent = seg.id === activePlayingSegmentId;
+                        const isSelected = seg.id === selectedSegmentId;
+                        const bridgeDur = effectiveBridgeDurationMap[seg.id] ?? 0;
+                        const bridgeWidthPct = (bridgeDur / (totalDuration || 1)) * 100;
+                        const widthPct = (seg.duration / (totalDuration || 1)) * 100;
+                        const vItem = videoMap.get(seg.sourceVideoId);
+                        const segOffset = segmentTimelineOffsets[seg.id];
+                        const isExceedingMusic = Boolean(
+                          isMusicExceeded &&
+                          customAudioDuration &&
+                          segOffset &&
+                          segOffset.endOffset > customAudioDuration + 0.15
+                        );
+                        const isFullyBeyondMusic = Boolean(
+                          isMusicExceeded &&
+                          customAudioDuration &&
+                          segOffset &&
+                          segOffset.startOffset >= customAudioDuration - 0.05
+                        );
+
+                        return (
+                          <React.Fragment key={seg.id}>
+                            {bridgeDur > 0 && (
+                              <div
+                                className={`toss-sequencer-block toss-sequencer-intro-block ${isCurrent ? 'playing' : ''}`}
+                                style={{
+                                  width: `${bridgeWidthPct}%`,
+                                  minWidth: '14px',
+                                  background: 'linear-gradient(135deg, #1e293b 0%, #3b82f6 100%)',
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const offset = segmentTimelineOffsets[seg.id];
+                                  if (offset && videoRef.current && result?.url) {
+                                    videoRef.current.currentTime = offset.bridgeStartOffset + 0.05;
+                                    setCurrentTime(offset.bridgeStartOffset + 0.05);
+                                    setSelectedSegmentId(seg.id);
+                                  } else {
+                                    handleSelectSegment(seg.id);
+                                  }
+                                }}
+                                title={`챕터 브릿지 → #${idx + 1} (${bridgeDur.toFixed(1)}s)`}
+                              >
+                                <div className="toss-sequencer-block-overlay">
+                                  <span className="toss-block-idx">✦</span>
+                                </div>
+                              </div>
+                            )}
                             <div
-                              className={`toss-sequencer-block toss-sequencer-intro-block ${isCurrent ? 'playing' : ''}`}
-                              style={{
-                                width: `${bridgeWidthPct}%`,
-                                minWidth: '14px',
-                                background: 'linear-gradient(135deg, #1e293b 0%, #3b82f6 100%)',
-                              }}
+                              className={`toss-sequencer-block ${isSelected ? 'selected' : ''} ${isCurrent ? 'playing' : ''} ${isExceedingMusic ? 'exceeds-music' : ''} ${isFullyBeyondMusic ? 'beyond-music' : ''}`}
+                              style={{ width: `${widthPct}%` }}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                const offset = segmentTimelineOffsets[seg.id];
-                                if (offset && videoRef.current && result?.url) {
-                                  videoRef.current.currentTime = offset.bridgeStartOffset + 0.05;
-                                  setCurrentTime(offset.bridgeStartOffset + 0.05);
-                                  setSelectedSegmentId(seg.id);
-                                } else {
-                                  handleSelectSegment(seg.id);
-                                }
+                                handleSelectSegment(seg.id);
                               }}
-                              title={`챕터 브릿지 → #${idx + 1} (${bridgeDur.toFixed(1)}s)`}
+                              title={
+                                isExceedingMusic && customAudioDuration
+                                  ? `${interpolate(dict.sequencer.clipTitle, {
+                                      idx: idx + 1,
+                                      duration: seg.duration.toFixed(1),
+                                      reason: seg.reason,
+                                    })} • 음악 길이(${formatSec(customAudioDuration)}) 초과 구간`
+                                  : interpolate(dict.sequencer.clipTitle, {
+                                      idx: idx + 1,
+                                      duration: seg.duration.toFixed(1),
+                                      reason: seg.reason,
+                                    })
+                              }
                             >
+                              {vItem?.thumbnailUrl && (
+                                <img
+                                  src={vItem.thumbnailUrl}
+                                  alt=""
+                                  className="toss-sequencer-block-thumb"
+                                  style={
+                                    seg.rotation
+                                      ? {
+                                          transform: `rotate(${seg.rotation}deg)${
+                                            seg.rotation === 90 || seg.rotation === 270 ? ' scale(0.6)' : ''
+                                          }`,
+                                        }
+                                      : undefined
+                                  }
+                                />
+                              )}
                               <div className="toss-sequencer-block-overlay">
-                                <span className="toss-block-idx">✦</span>
+                                <div className="toss-block-top-row">
+                                  <span className="toss-block-idx">#{idx + 1}</span>
+                                  {segments.length > 1 && (
+                                    <button
+                                      type="button"
+                                      className="toss-sequencer-block-delete"
+                                      onClick={(e) => handleDeleteSegment(seg.id, e)}
+                                      title={`#${idx + 1} 구간 제외하기`}
+                                      aria-label={`#${idx + 1} 구간 제외하기`}
+                                    >
+                                      <X size={10} />
+                                    </button>
+                                  )}
+                                </div>
+                                <div className="toss-block-bottom-row">
+                                  {isExceedingMusic && (
+                                    <span className="toss-block-overflow-dot" title="음악 길이 초과 구간" />
+                                  )}
+                                  <span className="toss-block-dur">{seg.duration.toFixed(1)}s</span>
+                                </div>
                               </div>
                             </div>
-                          )}
+                          </React.Fragment>
+                        );
+                      })}
+
+                      {/* 종료 아웃트로 블록 (아웃트로가 포함된 경우) */}
+                      {outroDuration > 0 && (
+                        <div
+                          className={`toss-sequencer-block toss-sequencer-outro-block ${activePlayingSegmentId === 'outro' ? 'playing' : ''} ${selectedSegmentId === 'outro' ? 'selected' : ''}`}
+                          style={{ width: `${(outroDuration / (totalDuration || 1)) * 100}%` }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectSegment('outro');
+                          }}
+                          title={`${dict.introOutro.outroTitle} (${outroDuration.toFixed(1)}s)`}
+                        >
+                          <div className="toss-sequencer-block-overlay">
+                            <span className="toss-block-idx">Outro</span>
+                            <span className="toss-block-dur">{outroDuration.toFixed(1)}s</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* A1: 배경음악 구간 트랙 (1회차 원곡 재생 구간 & 초과 시 반복 구간 표시) */}
+                    <div className="toss-sequencer-audio-strip">
+                      {customAudioFile ? (
+                        audioTimelineBlocks.length > 0 ? (
+                          audioTimelineBlocks.map((block) => (
+                            <div
+                              key={`audio_cycle_${block.cycleIndex}`}
+                              className={`toss-sequencer-audio-block ${block.isLoop ? 'loop-overflow' : 'primary'}`}
+                              style={{ width: `${block.widthPct}%` }}
+                              title={
+                                block.isLoop
+                                  ? `${customAudioName} — ${block.cycleIndex + 1}회차 반복 재생 구간 (${formatSec(block.startSec)} ~ ${formatSec(block.endSec)}, +${block.durationSec.toFixed(1)}s)`
+                                  : `${customAudioName} — 1회차 원곡 재생 (${formatSec(block.startSec)} ~ ${formatSec(block.endSec)} / 원곡 총 ${formatSec(customAudioDuration || block.durationSec)})`
+                              }
+                            >
+                              <div className="toss-audio-waveform-bg" aria-hidden="true" />
+                              <div className="toss-audio-block-content">
+                                <div className="toss-audio-block-left">
+                                  {block.isLoop ? (
+                                    <RotateCw size={10} className="shrink-0" />
+                                  ) : (
+                                    <Music size={10} className="shrink-0" />
+                                  )}
+                                  <span className="toss-audio-block-name truncate">
+                                    {block.isLoop
+                                      ? `${block.cycleIndex + 1}회차 반복 · ${customAudioName}`
+                                      : customAudioName}
+                                  </span>
+                                </div>
+                                <span className="toss-audio-block-dur">
+                                  {block.isLoop
+                                    ? `+${block.durationSec.toFixed(1)}s 반복`
+                                    : !isMusicExceeded && customAudioDuration && customAudioDuration > totalDuration + 0.5
+                                    ? `${formatSec(block.durationSec)} / 원곡 ${formatSec(customAudioDuration)}`
+                                    : formatSec(block.durationSec)}
+                                </span>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
                           <div
-                            className={`toss-sequencer-block ${isSelected ? 'selected' : ''} ${isCurrent ? 'playing' : ''}`}
-                            style={{ width: `${widthPct}%` }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleSelectSegment(seg.id);
-                            }}
-                            title={interpolate(dict.sequencer.clipTitle, {
-                              idx: idx + 1,
-                              duration: seg.duration.toFixed(1),
-                              reason: seg.reason,
-                            })}
+                            className="toss-sequencer-audio-block primary"
+                            style={{ width: '100%' }}
                           >
-                            {vItem?.thumbnailUrl && (
-                              <img
-                                src={vItem.thumbnailUrl}
-                                alt=""
-                                className="toss-sequencer-block-thumb"
-                                style={
-                                  seg.rotation
-                                    ? {
-                                        transform: `rotate(${seg.rotation}deg)${
-                                          seg.rotation === 90 || seg.rotation === 270 ? ' scale(0.6)' : ''
-                                        }`,
-                                      }
-                                    : undefined
-                                }
-                              />
-                            )}
-                            <div className="toss-sequencer-block-overlay">
-                              <span className="toss-block-idx">#{idx + 1}</span>
-                              <span className="toss-block-dur">{seg.duration.toFixed(1)}s</span>
+                            <div className="toss-audio-waveform-bg" aria-hidden="true" />
+                            <div className="toss-audio-block-content">
+                              <div className="toss-audio-block-left">
+                                <Music size={10} className="shrink-0" />
+                                <span className="toss-audio-block-name truncate">{customAudioName}</span>
+                              </div>
+                              <span className="toss-audio-block-dur">{formatSec(totalDuration)}</span>
                             </div>
                           </div>
-                        </React.Fragment>
-                      );
-                    })}
-
-                    {/* 종료 아웃트로 블록 (아웃트로가 포함된 경우) */}
-                    {outroDuration > 0 && (
-                      <div
-                        className={`toss-sequencer-block toss-sequencer-outro-block ${activePlayingSegmentId === 'outro' ? 'playing' : ''} ${selectedSegmentId === 'outro' ? 'selected' : ''}`}
-                        style={{ width: `${(outroDuration / (totalDuration || 1)) * 100}%` }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSelectSegment('outro');
-                        }}
-                        title={`${dict.introOutro.outroTitle} (${outroDuration.toFixed(1)}s)`}
-                      >
-                        <div className="toss-sequencer-block-overlay">
-                          <span className="toss-block-idx">Outro</span>
-                          <span className="toss-block-dur">{outroDuration.toFixed(1)}s</span>
-                        </div>
-                      </div>
-                    )}
+                        )
+                      ) : (
+                        <button
+                          type="button"
+                          className="toss-sequencer-audio-empty"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsAudioLibraryOpen(true);
+                          }}
+                          title="오디오 보관함에서 배경음악을 선택하면 영상 길이 대비 음악 구간이 표시돼요"
+                        >
+                          <Music size={11} className="shrink-0" />
+                          <span className="truncate">
+                            배경음악 미선택 — 클릭하여 음악을 선택하면 영상 대비 음악 길이가 함께 표시돼요
+                          </span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
+
+                {isMusicExceeded && customAudioDuration && (
+                  <div className="toss-sequencer-overflow-notice">
+                    <span className="toss-overflow-dot" />
+                    <span>
+                      영상이 음악 길이({formatSec(customAudioDuration)})보다{' '}
+                      <strong>+{musicOverflowSec.toFixed(1)}초</strong> 길어 점선 이후 구간에서 음악이 한 번 더 재생돼요.
+                      초과 구간의 영상 클립(주황색 테두리)을 몇 개 제외하면 깔끔하게 맞출 수 있어요.
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -2056,7 +2412,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       {customAudioName}
                     </div>
                     <div className="text-[11px] text-slate-400 mt-0.5">
-                      {selectedLibraryTrackId ? dict.audioLibrary.fromLibrary : dict.bgm.myAudioFile} ({((customAudioFile.size || 0) / (1024 * 1024)).toFixed(1)}MB) • {dict.bgm.applied}
+                      {selectedLibraryTrackId ? dict.audioLibrary.fromLibrary : dict.bgm.myAudioFile}
+                      {customAudioDuration ? ` · ${formatSec(customAudioDuration)}` : ''} ({((customAudioFile.size || 0) / (1024 * 1024)).toFixed(1)}MB) • {dict.bgm.applied}
                     </div>
                   </div>
                 </div>
@@ -2467,6 +2824,19 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   const isCurrentPlaying = seg.id === activePlayingSegmentId;
                   const vItem = videoMap.get(seg.sourceVideoId);
                   const segTimeInfo = formatSegmentRecordedDateTime(seg, videoMap);
+                  const segOffset = segmentTimelineOffsets[seg.id];
+                  const isSegExceedingMusic = Boolean(
+                    isMusicExceeded &&
+                    customAudioDuration &&
+                    segOffset &&
+                    segOffset.endOffset > customAudioDuration + 0.15
+                  );
+                  const isSegFullyBeyondMusic = Boolean(
+                    isMusicExceeded &&
+                    customAudioDuration &&
+                    segOffset &&
+                    segOffset.startOffset >= customAudioDuration - 0.05
+                  );
                   const bridgeEval = idx > 0
                     ? evaluateChapterBridge(segments[idx - 1], seg, idx, segments.length, overlayOptions)
                     : null;
@@ -2495,7 +2865,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         </div>
                       )}
                       <div
-                        className={`toss-segment-item ${isSelected ? 'active' : ''} ${isCurrentPlaying ? 'playing' : ''}`}
+                        className={`toss-segment-item ${isSelected ? 'active' : ''} ${isCurrentPlaying ? 'playing' : ''} ${isSegExceedingMusic ? 'exceeds-music' : ''}`}
                       >
                       {isCurrentPlaying && isPlaying && vItem?.thumbnailUrl && (
                         <span className="toss-segment-now-playing" aria-hidden="true">
@@ -2551,11 +2921,32 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                               <span className="toss-segment-reason truncate">
                                 {seg.reason}
                               </span>
+                              {isSegExceedingMusic && (
+                                <span
+                                  className={`toss-segment-music-over-badge ${isSegFullyBeyondMusic ? 'beyond' : 'boundary'}`}
+                                  title={
+                                    customAudioDuration
+                                      ? `배경음악 1회차 길이(${formatSec(customAudioDuration)})를 넘어 음악이 반복되는 구간이에요`
+                                      : '음악 길이 초과 구간'
+                                  }
+                                >
+                                  <Music size={9} className="shrink-0" />
+                                  <span>{isSegFullyBeyondMusic ? '음악 초과' : '음악 끝 경계'}</span>
+                                </span>
+                              )}
                             </div>
                             <div className="toss-segment-meta-row">
                               <span className="toss-segment-source truncate">
                                 {seg.sourceVideoName}
                               </span>
+                              {segOffset && (
+                                <span
+                                  className="toss-segment-timeline-range"
+                                  title={`시퀀스 타임라인 위치: ${formatSec(segOffset.startOffset)} ~ ${formatSec(segOffset.endOffset)}`}
+                                >
+                                  {formatSec(segOffset.startOffset)}~{formatSec(segOffset.endOffset)}
+                                </span>
+                              )}
                               {segTimeInfo.full && (
                                 <span
                                   className="toss-segment-time-badge"

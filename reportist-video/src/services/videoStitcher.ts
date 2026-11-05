@@ -138,6 +138,17 @@ const WEBM_VIDEO_ONLY_CANDIDATES = [
   'video/webm',
 ];
 
+// CanvasCaptureMediaStreamTrack의 명시적 프레임 방출 API 타입
+type CanvasCaptureTrackWithRequestFrame = MediaStreamTrack & {
+  requestFrame?: () => void;
+};
+
+// HTMLVideoElement.requestVideoFrameCallback 타입
+type VideoWithFrameCallback = HTMLVideoElement & {
+  requestVideoFrameCallback?: (callback: (now: number, metadata: { mediaTime: number }) => void) => number;
+  cancelVideoFrameCallback?: (handle: number) => void;
+};
+
 function supportedRecorderMimes(hasAudio: boolean): string[] {
   if (typeof MediaRecorder === 'undefined') return [];
   const mp4List = hasAudio ? MP4_AUDIO_CANDIDATES : MP4_VIDEO_ONLY_CANDIDATES;
@@ -160,7 +171,9 @@ function createMediaRecorder(stream: MediaStream): { recorder: MediaRecorder; mi
   }
 
   const hasAudio = stream.getAudioTracks().length > 0;
-  const videoBitsPerSecond = IS_IOS ? 1_500_000 : 2_800_000;
+  // 실시간 인코딩 시 비트레이트 부족으로 인한 프레임 스킵 및 모션 뭉개짐을 방지하기 위해
+  // iOS는 메모리/발열에 안전한 3.2Mbps, 데스크탑은 60fps 고화질을 충분히 소화하는 6.5Mbps로 상향
+  const videoBitsPerSecond = IS_IOS ? 3_200_000 : 6_500_000;
   // 빈 문자열('')은 브라우저 자체 기본 코덱(가장 안전한 기본값) 선택을 위한 최후 후보
   const candidates = [...supportedRecorderMimes(hasAudio), ''];
   let lastError: unknown = null;
@@ -246,13 +259,22 @@ export async function stitchHighlightedSegments({
   // 1. 유튜브 최적화 16:9 표준 규격 (1280x720 HD) 고정
   const targetWidth = 1280;
   const targetHeight = 720;
+  // iOS는 하드웨어 인코더/메모리 안정성을 위해 30fps 유지, 데스크탑은 60fps 고주사율로 부드러움 극대화
+  const targetFps = IS_IOS ? 30 : 60;
+  const targetFrameIntervalMs = 1000 / targetFps;
 
   const canvas = document.createElement('canvas');
   canvas.width = targetWidth;
   canvas.height = targetHeight;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { alpha: false }) || canvas.getContext('2d');
   if (!ctx) {
     throw new Error('캔버스 렌더링 컨텍스트를 생성할 수 없습니다.');
+  }
+  ctx.imageSmoothingEnabled = true;
+  try {
+    ctx.imageSmoothingQuality = IS_IOS ? 'medium' : 'high';
+  } catch {
+    // ignore
   }
 
   if (typeof canvas.captureStream !== 'function') {
@@ -294,8 +316,24 @@ export async function stitchHighlightedSegments({
     }
   }
 
-  // 30fps 비디오 스트림 캡처
-  const canvasStream = canvas.captureStream(30);
+  // 비디오 스트림 캡처 (iOS 30fps, 데스크탑 60fps)
+  const canvasStream = canvas.captureStream(targetFps);
+  const canvasVideoTrack = (canvasStream.getVideoTracks()[0] || null) as CanvasCaptureTrackWithRequestFrame | null;
+  let lastCanvasDrawAt = performance.now();
+
+  // 캔버스 드로우 완료 직후 스트림 트랙에 즉시 프레임 캡처를 요청하여
+  // 브라우저 내부 캡처 타이머와의 위상차(Phase Mismatch)로 인한 마이크로 스터터링을 제거한다.
+  const commitCanvasFrame = () => {
+    lastCanvasDrawAt = performance.now();
+    try {
+      if (canvasVideoTrack && typeof canvasVideoTrack.requestFrame === 'function') {
+        canvasVideoTrack.requestFrame();
+      }
+    } catch {
+      // 일부 브라우저에서 requestFrame 미지원 시 captureStream(targetFps) 자동 캡처가 동작
+    }
+  };
+
   let audioTrackAdded = false;
   if (hasAudioSource && audioDest && audioDest.stream.getAudioTracks().length > 0) {
     try {
@@ -328,7 +366,7 @@ export async function stitchHighlightedSegments({
     }
   }
 
-  onLog?.(`렌더러 준비 완료: ${mimeType || '브라우저 기본 코덱'}${IS_IOS ? ' · iOS 호환 모드' : ''}`);
+  onLog?.(`렌더러 준비 완료: ${mimeType || '브라우저 기본 코덱'} (${targetFps}fps)${IS_IOS ? ' · iOS 호환 모드' : ''}`);
 
   const chunks: Blob[] = [];
   let recorderError: Error | null = null;
@@ -365,16 +403,20 @@ export async function stitchHighlightedSegments({
   let bgmController: { stop: () => void } | null = null;
   const wakeLockRef: { current: WakeLockSentinel | null } = { current: null };
 
-  // 캔버스 상시 30fps 하트비트 루프 (WebKit Frame Starvation 및 트랙 침묵 방어)
-  // 녹화가 활성 상태(recording)일 때만 캔버스 하트비트를 발생시켜, 세그먼트 전환 및 대기 중 불필요한 프레임 캡처 방지
+  // 캔버스 유휴(Idle) 하트비트 루프 (WebKit Frame Starvation 및 트랙 침묵 방어)
+  // 중요: 정상 재생 중 본 렌더 루프가 프레임을 활발히 그리고 있을 때(최근 48ms 이내 드로우됨)는
+  // 하트비트 픽셀 갱신을 건너뛰어 captureStream의 프레임 슬롯을 빼앗거나 간섭하지 않도록 한다!
+  // 오직 시크(seek) 대기 등으로 실제 프레임 드로우가 48ms 이상 멈췄을 때만 작동하여 iOS 멈춤을 100% 방어한다.
   let isStitchingActive = true;
   const heartbeatTimer = window.setInterval(() => {
     if (!isStitchingActive) return;
     if (recorder.state !== 'recording') return;
+    if (performance.now() - lastCanvasDrawAt < 48) return;
     if (ctx) {
       // 캔버스 모서리에 육안으로 구분 불가능한 극미세 픽셀 갱신(alpha 0.005)을 주어 WebKit 렌더러가 새 프레임 방출을 트리거
       ctx.fillStyle = 'rgba(8, 12, 20, 0.005)';
       ctx.fillRect(0, 0, 1, 1);
+      commitCanvasFrame();
     }
   }, 1000 / 30);
 
@@ -412,7 +454,10 @@ export async function stitchHighlightedSegments({
         if (decodedResult.status === 'ok') {
           customSourceNode = audioCtx.createBufferSource();
           customSourceNode.buffer = decodedResult.value;
-          customSourceNode.loop = true;
+          const expectedIntroSec = overlayOptions?.showIntro ? 1.6 : 0;
+          const expectedOutroSec = overlayOptions?.showOutro ? 1.8 : 0;
+          const plannedTotalVideoSec = totalSegmentsDuration + expectedIntroSec + expectedOutroSec;
+          customSourceNode.loop = plannedTotalVideoSec > decodedResult.value.duration + 0.5;
 
           const gainNode = audioCtx.createGain();
           gainNode.gain.setValueAtTime(Math.max(0, Math.min(1, bgmVolume)), audioCtx.currentTime);
@@ -708,7 +753,7 @@ export async function stitchHighlightedSegments({
     return hasAnyOverlay ? offCanvas : null;
   };
 
-  // 비디오 프레임과 캐시된 오버레이를 캔버스에 합성
+  // 비디오 프레임과 캐시된 오버레이를 캔버스에 합성하고 즉시 캡처 트랙에 프레임 방출 요청
   const renderFrameWithOverlay = (
     video: HTMLVideoElement,
     videoItem: VideoItem,
@@ -720,13 +765,14 @@ export async function stitchHighlightedSegments({
     if (overlayCanvas) {
       ctx.drawImage(overlayCanvas, 0, 0);
     }
+    commitCanvasFrame();
   };
 
   // 진행률 콜백 스로틀 (모바일에서 초당 60회 React 리렌더로 렌더 루프가 굳는 현상 방지)
   let lastProgressAt = 0;
   const reportProgress = (pct: number, message: string, force = false) => {
     const now = performance.now();
-    if (!force && now - lastProgressAt < 150) return;
+    if (!force && now - lastProgressAt < 180) return;
     lastProgressAt = now;
     onProgress?.(Math.min(97, Math.max(0, Math.round(pct))), message);
   };
@@ -916,6 +962,7 @@ export async function stitchHighlightedSegments({
       await seekVideo(workerA, 0, 6000);
       await waitForVideoReady(workerA, 6000);
       drawCoverFrame(workerA);
+      commitCanvasFrame();
 
       const playing = await startPlayback(workerA, IS_IOS ? 2500 : 5000);
       if (!playing) {
@@ -929,11 +976,15 @@ export async function stitchHighlightedSegments({
         const startedAt = performance.now();
         const maxRealDurationMs = Math.max(3000, (clipDuration + 1.5) * 1000);
         let intervalId: number | null = null;
+        let rafId: number | null = null;
         let finished = false;
+        let lastDrawnClipTime = -1;
+
         const finish = () => {
           if (finished) return;
           finished = true;
           if (intervalId !== null) window.clearInterval(intervalId);
+          if (rafId !== null) window.cancelAnimationFrame(rafId);
           try {
             workerA.pause();
           } catch {
@@ -941,15 +992,32 @@ export async function stitchHighlightedSegments({
           }
           resolve();
         };
+
         const tick = () => {
+          if (finished) return;
           if (workerA.ended || workerA.paused || performance.now() - startedAt >= maxRealDurationMs) {
             finish();
             return;
           }
-          drawCoverFrame(workerA);
+          const curT = workerA.currentTime;
+          if (Math.abs(curT - lastDrawnClipTime) >= 0.004 || performance.now() - lastCanvasDrawAt >= targetFrameIntervalMs) {
+            lastDrawnClipTime = curT;
+            drawCoverFrame(workerA);
+            commitCanvasFrame();
+          }
         };
+
+        const rafLoop = () => {
+          if (finished) return;
+          tick();
+          if (!finished) {
+            rafId = window.requestAnimationFrame(rafLoop);
+          }
+        };
+
         workerA.addEventListener('ended', finish, { once: true });
-        intervalId = window.setInterval(tick, 1000 / 30);
+        intervalId = window.setInterval(tick, targetFrameIntervalMs);
+        rafId = window.requestAnimationFrame(rafLoop);
         tick();
       });
 
@@ -962,13 +1030,16 @@ export async function stitchHighlightedSegments({
     }
   };
 
-  // 인트로 시퀀스 렌더링 (약 1.6초)
+  // 인트로 시퀀스 렌더링 (약 1.6초 - 드리프트 보정 Wall-Clock 페이싱 적용)
   const renderIntroSequence = async (): Promise<number> => {
     if (!overlayOptions?.showIntro) return 0;
     onProgress?.(1, '시작 인트로 타이틀 시퀀스 생성 중...');
 
-    const introFrames = 48; // 30fps 기준 약 1.6초
+    const introDurationSec = 1.6;
+    const introFrames = Math.round(introDurationSec * targetFps);
+    const frameInterval = 1000 / targetFps;
     await startOrResumeRecorder();
+    const seqStartWall = performance.now();
 
     for (let f = 0; f < introFrames; f++) {
       if (signal?.aborted) throw new Error('작업 취소');
@@ -1008,20 +1079,28 @@ export async function stitchHighlightedSegments({
       }
 
       ctx.restore();
-      await sleep(33);
+      commitCanvasFrame();
+
+      // 드로우 소요 시간을 차감하여 정확한 프레임 간격 유지 (드리프트 0%)
+      const targetNextWall = seqStartWall + (f + 1) * frameInterval;
+      const waitMs = Math.max(2, targetNextWall - performance.now());
+      await sleep(waitMs);
     }
 
     // 인트로 직후 첫 세그먼트로 바로 이어지므로 recorder pause 없이 continuous recording
-    return introFrames / 30;
+    return introDurationSec;
   };
 
-  // 아웃트로 시퀀스 렌더링 (약 1.8초)
+  // 아웃트로 시퀀스 렌더링 (약 1.8초 - 드리프트 보정 Wall-Clock 페이싱 적용)
   const renderOutroSequence = async (): Promise<number> => {
     if (!overlayOptions?.showOutro) return 0;
     onProgress?.(98, '종료 아웃트로 엔드 카드 생성 중...');
 
-    const outroFrames = 54; // 약 1.8초
+    const outroDurationSec = 1.8;
+    const outroFrames = Math.round(outroDurationSec * targetFps);
+    const frameInterval = 1000 / targetFps;
     await startOrResumeRecorder();
+    const seqStartWall = performance.now();
 
     for (let f = 0; f < outroFrames; f++) {
       if (signal?.aborted) throw new Error('Cancelled');
@@ -1049,11 +1128,15 @@ export async function stitchHighlightedSegments({
       }
 
       ctx.restore();
-      await sleep(33);
+      commitCanvasFrame();
+
+      const targetNextWall = seqStartWall + (f + 1) * frameInterval;
+      const waitMs = Math.max(2, targetNextWall - performance.now());
+      await sleep(waitMs);
     }
 
     // 아웃트로 직후 finalBlob 생성으로 이어지므로 pause하지 않고 recording 상태 유지
-    return outroFrames / 30;
+    return outroDurationSec;
   };
 
   // 브릿지 시작 시 이전 장면의 마지막 프레임을 보존하기 위한 오프스크린 캔버스
@@ -1069,7 +1152,14 @@ export async function stitchHighlightedSegments({
     }
   };
 
-  // HyperFrames (GSAP 결정론적 타임라인 seek + Canvas 2D) 챕터 브릿지 렌더링 (약 1.3초, 39프레임)
+  // 브릿지 종료 시 열릴 다음 장면의 첫 프레임을 사전 캐싱하기 위한 오프스크린 캔버스
+  // (매 브릿지 프레임마다 video 엘리먼트에서 크롭/스케일링을 반복 계산하지 않고 오프스크린 복사로 부하 제거)
+  const nextFrameBufferCanvas = document.createElement('canvas');
+  nextFrameBufferCanvas.width = targetWidth;
+  nextFrameBufferCanvas.height = targetHeight;
+  const nextFrameBufferCtx = nextFrameBufferCanvas.getContext('2d');
+
+  // HyperFrames (GSAP 결정론적 타임라인 seek + Canvas 2D) 챕터 브릿지 렌더링 (약 2.2초 - 드리프트 보정 페이싱)
   const renderChapterBridgeSequence = async (
     prevSeg: HighlightSegment,
     nextSeg: HighlightSegment,
@@ -1079,16 +1169,32 @@ export async function stitchHighlightedSegments({
     const bridgeInfo = evaluateChapterBridge(prevSeg, nextSeg, nextIdx, allSegments.length, overlayOptions);
     if (!bridgeInfo.shouldBridge) return 0;
 
-    renderModeHistory.push(`[bridge->seg#${nextSeg.id.slice(-4)}: ${CHAPTER_BRIDGE_FRAMES}f]`);
-    const frameInterval = 1000 / 30;
+    const bridgeTotalFrames = Math.round(CHAPTER_BRIDGE_DURATION * targetFps);
+    const frameInterval = 1000 / targetFps;
+    renderModeHistory.push(`[bridge->seg#${nextSeg.id.slice(-4)}: ${bridgeTotalFrames}f]`);
+
+    // 다음 장면 첫 프레임을 브릿지 시작 전 1회만 그려서 오프스크린 버퍼에 캐싱
+    if (nextFrameBufferCtx) {
+      if (nextVideoItem) {
+        drawCoverFrame(workerA, nextVideoItem, nextSeg);
+        nextFrameBufferCtx.drawImage(canvas, 0, 0);
+      } else {
+        nextFrameBufferCtx.fillStyle = '#07090e';
+        nextFrameBufferCtx.fillRect(0, 0, targetWidth, targetHeight);
+      }
+      // 캔버스를 이전 장면 스냅샷으로 복원한 상태에서 브릿지 시작
+      ctx.drawImage(prevFrameBufferCanvas, 0, 0);
+      commitCanvasFrame();
+    }
 
     await startOrResumeRecorder();
+    const bridgeStartWall = performance.now();
 
-    for (let f = 0; f < CHAPTER_BRIDGE_FRAMES; f++) {
+    for (let f = 0; f < bridgeTotalFrames; f++) {
       if (signal?.aborted) throw new Error('사용자에 의해 작업이 취소되었습니다.');
       if (recorderError) throw recorderError;
 
-      const timeSec = f / 30;
+      const timeSec = (f / bridgeTotalFrames) * CHAPTER_BRIDGE_DURATION;
       totalDrawCalls++;
       bridgeController.seekAndRender(
         ctx,
@@ -1097,19 +1203,17 @@ export async function stitchHighlightedSegments({
         targetHeight,
         bridgeInfo,
         () => {
-          if (nextVideoItem) {
-            drawCoverFrame(workerA, nextVideoItem, nextSeg);
-          } else {
-            ctx.fillStyle = '#07090e';
-            ctx.fillRect(0, 0, targetWidth, targetHeight);
-          }
+          ctx.drawImage(nextFrameBufferCanvas, 0, 0);
         },
         () => {
           ctx.drawImage(prevFrameBufferCanvas, 0, 0);
         }
       );
+      commitCanvasFrame();
 
-      await sleep(frameInterval);
+      const targetNextWall = bridgeStartWall + (f + 1) * frameInterval;
+      const waitMs = Math.max(2, targetNextWall - performance.now());
+      await sleep(waitMs);
 
       reportProgress(
         ((recordedDurationSoFar + timeSec) / (totalSegmentsDuration || 1)) * 100,
@@ -1264,21 +1368,35 @@ export async function stitchHighlightedSegments({
       await startOrResumeRecorder();
       recordingWallStartAt = performance.now();
 
-      // 3. 단일 워커 무중단 실시간 합성 루프 (30fps)
+      // 3. 단일 워커 무중단 실시간 합성 루프 (VSync + VideoFrameCallback + 백업 인터벌 3중 하이브리드)
       // iOS Safari의 단일 하드웨어 디코더 제한을 회피하기 위해 pause()나 2번째 video 엘리먼트 없이
       // 하나의 video 엘리먼트에서 재생 상태를 유지한 채 currentTime 점프만으로 세그먼트를 전환한다.
       await new Promise<void>((resolve, reject) => {
         let isTransitioning = false;
         let settled = false;
         let intervalId: number | null = null;
+        let rafId: number | null = null;
+        let rvfcId: number | null = null;
         let segmentStartedAt = performance.now();
         let activePlaybackAccumSec = 0;
         let lastTickAt = performance.now();
+        let lastDrawnMediaTime = -1;
+        let lastDrawnSegmentIdx = -1;
+
+        const videoWithRvfc = workerA as VideoWithFrameCallback;
 
         const finishAll = (err?: Error) => {
           if (settled) return;
           settled = true;
           if (intervalId !== null) window.clearInterval(intervalId);
+          if (rafId !== null) window.cancelAnimationFrame(rafId);
+          if (rvfcId !== null && typeof videoWithRvfc.cancelVideoFrameCallback === 'function') {
+            try {
+              videoWithRvfc.cancelVideoFrameCallback(rvfcId);
+            } catch {
+              // ignore
+            }
+          }
           try {
             workerA.pause();
           } catch {}
@@ -1286,7 +1404,7 @@ export async function stitchHighlightedSegments({
           else resolve();
         };
 
-        const tick = async () => {
+        const tick = async (forceDraw = false) => {
           const now = performance.now();
           const dtSec = Math.min(0.1, Math.max(0, (now - lastTickAt) / 1000));
           lastTickAt = now;
@@ -1313,7 +1431,19 @@ export async function stitchHighlightedSegments({
             } else {
               activePlaybackAccumSec += dtSec;
             }
-            renderFrameWithOverlay(workerA, currentVideoItem, currentSegment, currentOverlay);
+
+            const curMediaTime = workerA.currentTime;
+            const mediaTimeAdvanced = Math.abs(curMediaTime - lastDrawnMediaTime) >= 0.002;
+            const segmentChanged = currentSegmentIdx !== lastDrawnSegmentIdx;
+            const keepAliveDue = now - lastCanvasDrawAt >= 32;
+
+            // 새 디코딩 프레임이 도착했거나(mediaTimeAdvanced / forceDraw)
+            // 인코더 CFR 유지를 위해 최소 32ms가 경과했을 때만 드로우하여 불필요한 중복 GPU 합성 방지
+            if (forceDraw || mediaTimeAdvanced || segmentChanged || keepAliveDue) {
+              lastDrawnMediaTime = curMediaTime;
+              lastDrawnSegmentIdx = currentSegmentIdx;
+              renderFrameWithOverlay(workerA, currentVideoItem, currentSegment, currentOverlay);
+            }
           }
 
           const clipElapsed = Math.max(
@@ -1331,7 +1461,7 @@ export async function stitchHighlightedSegments({
           const realWallElapsedSec = (now - segmentStartedAt) / 1000;
           const maxDurationMs = Math.max(5000, (currentSegment.duration * 2.5 + 4) * 1000);
 
-          // 중요: 시크 지연 시간(seeking)을 제외한 실제 재생 누적 시간이 구간 길이의 92% 이상이고
+          // 중요: 시크 지연 시간(seeking)을 제외한 실제 재생 누적 시간이 구간 길이의 88% 이상이고
           // 비디오의 currentTime이 실제로 segment.end에 도달했을 때만 세그먼트 완료로 판정!
           const isTimeReached =
             !workerA.seeking &&
@@ -1358,7 +1488,7 @@ export async function stitchHighlightedSegments({
                 // 챕터 브릿지가 필요한 경우:
                 // 1) 레코더를 일시정지하고 이전 장면의 마지막 프레임을 스냅샷으로 보존
                 // 2) workerA를 다음 장면의 시작 프레임으로 시크한 뒤
-                // 3) 이전 장면 위로 5단 루버가 샤샤샥 닫히고 -> 마스크 타이포 -> 다음 장면으로 샤샤샥 열리는 1.3초 브릿지 녹화!
+                // 3) 이전 장면 위로 5단 루버가 샤샤샥 닫히고 -> 마스크 타이포 -> 다음 장면으로 샤샤샥 열리는 브릿지 녹화!
                 await pauseRecorder();
                 capturePrevFrameSnapshot();
                 try {
@@ -1402,14 +1532,18 @@ export async function stitchHighlightedSegments({
                   await startPlayback(workerA, 2000);
                 }
               } else if (nextVideoItem) {
-                // 다른 영상 파일로 전환하는 경우
+                // 다른 영상 파일로 전환하는 경우: 로딩 및 시크 대기 시간 동안 오디오/레코더가 먼저 흘러가지 않도록 일시정지 후 재개
+                await pauseRecorder();
                 await loadVideoSource(workerA, nextVideoItem.url, nextVideoItem.name, 10000);
                 await seekVideo(workerA, nextSegment.start, 6000);
                 await waitForVideoReady(workerA, 5000);
                 await startPlayback(workerA, 3000);
+                await startOrResumeRecorder();
               }
 
               if (nextVideoItem) {
+                lastDrawnMediaTime = workerA.currentTime;
+                lastDrawnSegmentIdx = currentSegmentIdx;
                 renderFrameWithOverlay(workerA, nextVideoItem, nextSegment, nextOverlay);
               }
 
@@ -1424,10 +1558,34 @@ export async function stitchHighlightedSegments({
           }
         };
 
+        // 1) 비디오 디코더가 새 프레임을 내놓는 즉시 실행되는 콜백 (Safari 15.4+ & Chrome 지원)
+        if (typeof videoWithRvfc.requestVideoFrameCallback === 'function') {
+          const onVideoFrame = () => {
+            if (settled) return;
+            void tick(true);
+            if (!settled && typeof videoWithRvfc.requestVideoFrameCallback === 'function') {
+              rvfcId = videoWithRvfc.requestVideoFrameCallback(onVideoFrame);
+            }
+          };
+          rvfcId = videoWithRvfc.requestVideoFrameCallback(onVideoFrame);
+        }
+
+        // 2) 디스플레이 주사율(VSync) 동기화 루프
+        const onAnimationFrame = () => {
+          if (settled) return;
+          void tick(false);
+          if (!settled) {
+            rafId = window.requestAnimationFrame(onAnimationFrame);
+          }
+        };
+        rafId = window.requestAnimationFrame(onAnimationFrame);
+
+        // 3) 백그라운드 탭/모바일 스크롤 등으로 rAF가 지연될 때도 절대 멈추지 않게 보장하는 백업 인터벌
         intervalId = window.setInterval(() => {
-          void tick();
+          void tick(false);
         }, 1000 / 30);
-        void tick();
+
+        void tick(true);
       });
     }
 

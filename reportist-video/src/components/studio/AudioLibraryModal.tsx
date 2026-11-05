@@ -25,7 +25,42 @@ export const AudioLibraryModal: React.FC<AudioLibraryModalProps> = ({
   const [previewTrackId, setPreviewTrackId] = useState<string | null>(null);
   const [isApplying, setIsApplying] = useState<boolean>(false);
   const [applyError, setApplyError] = useState<string | null>(null);
+  const [trackDurations, setTrackDurations] = useState<Record<string, number>>({});
   const audioRef = useRef<HTMLAudioElement>(null);
+
+  const formatDurationLabel = (sec?: number) => {
+    if (!sec || !Number.isFinite(sec) || sec <= 0) return null;
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
+
+  // 보관함 음원 길이 메타데이터 로드
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    const probes: HTMLAudioElement[] = [];
+
+    AUDIO_LIBRARY.forEach((track) => {
+      if (trackDurations[track.id]) return;
+      const a = new Audio();
+      a.preload = 'metadata';
+      a.onloadedmetadata = () => {
+        if (!cancelled && Number.isFinite(a.duration) && a.duration > 0) {
+          setTrackDurations((prev) => ({ ...prev, [track.id]: a.duration }));
+        }
+      };
+      a.src = track.src;
+      probes.push(a);
+    });
+
+    return () => {
+      cancelled = true;
+      probes.forEach((a) => {
+        a.src = '';
+      });
+    };
+  }, [isOpen, trackDurations]);
 
   // 팝업이 열릴 때 현재 적용된 음원 상태로 선택값 초기화
   useEffect(() => {
@@ -190,7 +225,9 @@ export const AudioLibraryModal: React.FC<AudioLibraryModalProps> = ({
                       <span className="audio-library-badge">{dict.audioLibrary.selected}</span>
                     )}
                   </span>
-                  <span className="audio-library-item-meta">MP3 · Reportist</span>
+                  <span className="audio-library-item-meta">
+                    MP3{formatDurationLabel(trackDurations[track.id]) ? ` · ${formatDurationLabel(trackDurations[track.id])}` : ''} · Reportist
+                  </span>
                 </span>
 
                 {isPreviewing && (
