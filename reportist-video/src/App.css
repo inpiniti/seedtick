@@ -1360,8 +1360,8 @@
   width: 100%;
   max-width: none;
   margin: 0;
-  /* 상·하단 여백을 유지해 패널이 뷰포트 가장자리에 붙지 않도록 함 */
-  padding: 10px 16px;
+  /* 좌우 여백만 두고, 상·하단 여백은 각 컬럼(스크롤 영역) 내부에서 확보 */
+  padding: 0 16px;
   display: grid;
   grid-template-columns: minmax(420px, 44fr) minmax(500px, 56fr);
   gap: 12px;
@@ -1415,6 +1415,7 @@
     min-height: auto !important;
     max-height: none !important;
     overflow: visible !important;
+    padding-top: 0 !important;
     padding-right: 0 !important;
     padding-bottom: 0 !important;
     gap: 12px;
@@ -1429,9 +1430,8 @@
   height: 100%;
   overflow-y: auto;
   gap: 10px;
-  /* 스크롤 끝에서 마지막 카드가 하단 경계에 잘리거나 붙지 않도록 내부 여백 확보 */
-  padding-right: 4px;
-  padding-bottom: 12px;
+  /* 스크롤 영역 내부 상·하단 여백: 첫 카드와 마지막 카드가 경계에 붙거나 잘리지 않도록 함 */
+  padding: 10px 4px 10px 0;
   scrollbar-width: thin;
   scrollbar-color: #d1d5db transparent;
 }
@@ -1444,9 +1444,8 @@
   height: 100%;
   overflow-y: auto;
   gap: 10px;
-  /* 스크롤 끝에서 마지막 카드가 하단 경계에 잘리거나 붙지 않도록 내부 여백 확보 */
-  padding-right: 4px;
-  padding-bottom: 12px;
+  /* 스크롤 영역 내부 상·하단 여백: 첫 카드와 마지막 카드가 경계에 붙거나 잘리지 않도록 함 */
+  padding: 10px 4px 10px 0;
   scrollbar-width: thin;
   scrollbar-color: #d1d5db transparent;
 }
