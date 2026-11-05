@@ -1360,7 +1360,8 @@
   width: 100%;
   max-width: none;
   margin: 0;
-  padding: 10px 16px;
+  /* 하단 공백 제거: 좌우 패널이 데스크탑 뷰포트 바닥까지 꽉 차도록 함 */
+  padding: 10px 16px 0;
   display: grid;
   grid-template-columns: minmax(420px, 44fr) minmax(500px, 56fr);
   gap: 12px;
