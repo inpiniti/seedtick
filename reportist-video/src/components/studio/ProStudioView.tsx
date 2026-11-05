@@ -35,8 +35,11 @@ import {
   Check,
   Maximize,
   Minimize,
+  FolderOpen,
 } from 'lucide-react';
 import { VideoCommunityView } from '../community/VideoCommunityView.tsx';
+import { StudioProjectListView } from './StudioProjectListView.tsx';
+import type { StudioProjectSummary } from '../../types/project.ts';
 import type {
   FinalVideoResult,
   HighlightSegment,
@@ -70,6 +73,8 @@ import {
   setStoredDateFormat,
   getStoredShowAge,
   setStoredShowAge,
+  getStoredShowDate,
+  setStoredShowDate,
   getStoredBirthDate,
   setStoredBirthDate,
   formatDateWithAge,
@@ -120,6 +125,21 @@ interface ProStudioViewProps {
     statusMessage: string;
   };
   onUpdateVideosDateFormat?: (format: DateFormatOption) => void;
+  currentProjectId?: string | null;
+  saveStatus?: 'saved' | 'saving' | 'idle';
+  projectSummaries?: StudioProjectSummary[];
+  isLoadingProjects?: boolean;
+  onOpenProject?: (id: string) => void;
+  onDuplicateProject?: (id: string) => void;
+  onDeleteProject?: (id: string) => void;
+  onStartNewProject?: () => void;
+  initialOverlayOptions?: VideoOverlayOptions | null;
+  initialBgmPresetId?: string;
+  initialBgmVolume?: number;
+  initialCustomAudioFile?: File | null;
+  onOverlayOptionsChange?: (options: VideoOverlayOptions) => void;
+  onBgmChange?: (bgmId: string, volume: number) => void;
+  onCustomAudioChange?: (file: File | null) => void;
 }
 
 export const ProStudioView: React.FC<ProStudioViewProps> = ({
@@ -140,6 +160,21 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   isReStitching,
   reStitchProgress,
   onUpdateVideosDateFormat,
+  currentProjectId,
+  saveStatus = 'saved',
+  projectSummaries = [],
+  isLoadingProjects = false,
+  onOpenProject,
+  onDuplicateProject,
+  onDeleteProject,
+  onStartNewProject,
+  initialOverlayOptions,
+  initialBgmPresetId,
+  initialBgmVolume,
+  initialCustomAudioFile,
+  onOverlayOptionsChange,
+  onBgmChange,
+  onCustomAudioChange,
 }) => {
   const { dict, interpolate, currentLocaleInfo } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -268,6 +303,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [isSubtitleModalOpen, setIsSubtitleModalOpen] = useState<boolean>(false);
   const [currentDateFormat, setCurrentDateFormat] = useState<DateFormatOption>(getStoredDateFormat);
   const [showAge, setShowAge] = useState<boolean>(getStoredShowAge);
+  const [showDate, setShowDate] = useState<boolean>(getStoredShowDate);
   const [birthDate, setBirthDate] = useState<string>(getStoredBirthDate);
   const [sortToastMessage, setSortToastMessage] = useState<string | null>(null);
   const sortToastTimeoutRef = useRef<number | null>(null);
@@ -379,6 +415,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     showChannel: true,
     channelText: dict.player.defaultChannelText,
     showSubtitle: true,
+    showDate,
     subtitleDateText: initialDateStr,
     subtitleLocationText: '',
     showIntro: false,
@@ -510,6 +547,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       ...prev,
       subtitleDateText: formatDateWithAge(baseDate, targetDate, enabled, birthDate),
     }));
+  };
+
+  // 촬영 날짜 표시 on/off 토글 핸들러
+  const handleToggleShowDate = (enabled: boolean) => {
+    setShowDate(enabled);
+    setStoredShowDate(enabled);
+    setOverlayOptions((prev) => ({ ...prev, showDate: enabled }));
   };
 
   // 생년월일 변경 핸들러
@@ -925,11 +969,19 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 실시간 미리보기 영상 좌측 상단 문구 아래 표시할 날짜 및 위치 (흰색 글씨)
   const activePlayingMetaText = useMemo(() => {
     if (!activePlayingSegment) return '';
-    const datePart = activePlayingSegment.subtitleDate || overlayOptions.subtitleDateText || '';
+    const datePart =
+      overlayOptions.showDate === false
+        ? ''
+        : activePlayingSegment.subtitleDate || overlayOptions.subtitleDateText || '';
     const locPart = activePlayingSegment.locationName || overlayOptions.subtitleLocationText || '';
     const parts = [datePart, locPart].filter(Boolean);
     return parts.join(' • ').trim();
-  }, [activePlayingSegment, overlayOptions.subtitleDateText, overlayOptions.subtitleLocationText]);
+  }, [
+    activePlayingSegment,
+    overlayOptions.showDate,
+    overlayOptions.subtitleDateText,
+    overlayOptions.subtitleLocationText,
+  ]);
 
   // 씬별 자막/날짜/위치 수정 핸들러
   const handleUpdateSegmentSubtitle = (
@@ -1525,8 +1577,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           <div className="toss-logo-badge">
             <ReportistLogo size={18} inverted />
           </div>
-          <span className="toss-nav-title">{dict.common.brandName}</span>
-          <span className="toss-tag-blue">{dict.common.taglineBadge}</span>
+          <div className="toss-nav-brand-block">
+            <span className="toss-nav-title">{dict.common.brandName}</span>
+            <span className="toss-nav-tagline">{dict.common.taglineBadge}</span>
+          </div>
 
           {/* 상단 네비게이션 탭 (스튜디오 / 영상 공유 커뮤니티) */}
           <div className="toss-nav-tabs-group">
@@ -2787,6 +2841,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   </label>
                   <label
                     className="toss-toggle-label flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-600"
+                    title={dict.settingsModal?.showDateOptionDesc || '영상 화면에 촬영 날짜를 표시해요 (끄면 날짜 없이 장소만 표시)'}
+                  >
+                    <span>{dict.settingsModal?.showDateOption || '촬영 날짜'}</span>
+                    <span className="toss-toggle-switch">
+                      <input
+                        type="checkbox"
+                        checked={showDate}
+                        onChange={(e) => handleToggleShowDate(e.target.checked)}
+                      />
+                      <span className="toss-toggle-slider" />
+                    </span>
+                  </label>
+                  <label
+                    className="toss-toggle-label flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-600"
                     title={dict.dramaticClips.bottomSubtitleTitle}
                   >
                     <span>{dict.dramaticClips.bottomSubtitleToggle}</span>
@@ -3383,9 +3451,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             </div>
 
             {/* 최근 작업/추론 2줄 안내 박스 (2줄 고정 높이, 넘치면 ...) */}
-            <div className="toss-modal-reasoning-wrap mt-4 text-left">
-              <span className="toss-reasoning-live-dot mr-2.5 flex-shrink-0" />
-              <div className="flex-1 min-w-0 toss-modal-reasoning-text">
+            <div className="toss-modal-reasoning-wrap">
+              <div className="toss-modal-reasoning-text">
                 <span>{latestTask.text}</span>
                 {latestTask.isStreaming && <span className="toss-live-caret" />}
               </div>
@@ -3394,7 +3461,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             {/* 취소 버튼 */}
             <button
               type="button"
-              className="toss-btn-text text-slate-400 mt-4 mx-auto block hover:text-slate-600"
+              className="toss-modal-cancel-btn"
               onClick={onCancelProcessing}
             >
               {dict.common.cancel}
@@ -3571,6 +3638,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         onOpenLanguageModal={() => setIsLanguageModalOpen(true)}
         onOpenDateFormatModal={() => setIsDateFormatModalOpen(true)}
         currentDateFormat={currentDateFormat}
+        showDate={showDate}
+        onToggleShowDate={handleToggleShowDate}
         showAge={showAge}
         onToggleShowAge={handleToggleShowAge}
         birthDate={birthDate}

@@ -678,7 +678,10 @@ export async function stitchHighlightedSegments({
     }
 
     // 1-1. 좌측 상단 문구 아래: 흰색 글씨로 날짜 및 위치 표시
-    const datePart = currentSegment?.subtitleDate || overlayOptions.subtitleDateText || '';
+    const datePart =
+      overlayOptions.showDate === false
+        ? ''
+        : currentSegment?.subtitleDate || overlayOptions.subtitleDateText || '';
     const locPart = currentSegment?.locationName || overlayOptions.subtitleLocationText || '';
     const metaParts = [datePart, locPart].filter(Boolean);
     const metaText = metaParts.join(' • ');
@@ -1071,7 +1074,11 @@ export async function stitchHighlightedSegments({
       ctx.shadowBlur = 12;
       ctx.fillText(title, targetWidth / 2, targetHeight / 2 - 20);
 
-      const sub = [overlayOptions.subtitleDateText, overlayOptions.subtitleLocationText, overlayOptions.channelText].filter(Boolean).join(' • ');
+      const sub = [
+        overlayOptions.showDate === false ? '' : overlayOptions.subtitleDateText,
+        overlayOptions.subtitleLocationText,
+        overlayOptions.channelText,
+      ].filter(Boolean).join(' • ');
       if (sub) {
         ctx.font = '600 19px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
         ctx.fillStyle = '#93c5fd';

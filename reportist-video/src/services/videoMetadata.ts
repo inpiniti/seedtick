@@ -24,6 +24,7 @@ export const DEFAULT_DATE_FORMAT: DateFormatOption = 'YYYY.MM.DD';
 
 export const SHOW_AGE_STORAGE_KEY = 'reportist_video_show_age';
 export const BIRTH_DATE_STORAGE_KEY = 'reportist_video_birth_date';
+export const SHOW_DATE_STORAGE_KEY = 'reportist_video_show_date';
 
 export interface VideoMetadata {
   dateStr: string; // e.g. "2026.11.03"
@@ -83,6 +84,27 @@ export function getStoredShowAge(): boolean {
 export function setStoredShowAge(show: boolean): void {
   try {
     localStorage.setItem(SHOW_AGE_STORAGE_KEY, String(show));
+  } catch {}
+}
+
+/**
+ * 촬영 날짜 표시 옵션 활성화 여부 불러오기 (기본값: true)
+ */
+export function getStoredShowDate(): boolean {
+  try {
+    const saved = localStorage.getItem(SHOW_DATE_STORAGE_KEY);
+    if (saved === null) return true;
+    return saved === 'true';
+  } catch {}
+  return true;
+}
+
+/**
+ * 촬영 날짜 표시 옵션 localStorage에 저장
+ */
+export function setStoredShowDate(show: boolean): void {
+  try {
+    localStorage.setItem(SHOW_DATE_STORAGE_KEY, String(show));
   } catch {}
 }
 

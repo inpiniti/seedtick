@@ -30,6 +30,8 @@ export interface MobileSettingsModalProps {
   onOpenLanguageModal: () => void;
   onOpenDateFormatModal?: () => void;
   currentDateFormat?: DateFormatOption;
+  showDate?: boolean;
+  onToggleShowDate?: (enabled: boolean) => void;
   showAge?: boolean;
   onToggleShowAge?: (enabled: boolean) => void;
   birthDate?: string;
@@ -62,6 +64,8 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   onOpenLanguageModal,
   onOpenDateFormatModal,
   currentDateFormat,
+  showDate = true,
+  onToggleShowDate,
   showAge = false,
   onToggleShowAge,
   birthDate = '',
@@ -213,49 +217,82 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
           </div>
 
           {/* Group 3: Date Format */}
-          {onOpenDateFormatModal && (
+          {(onOpenDateFormatModal || onToggleShowDate) && (
             <div className="settings-modal-group">
               <span className="settings-modal-group-title">
-                {dict.settingsModal?.dateFormat || '촬영 날짜 표기 형식'}
+                {dict.settingsModal?.dateSection || '촬영 날짜'}
               </span>
-              <button
-                type="button"
-                className="settings-modal-item"
-                onClick={() => {
-                  onClose();
-                  onOpenDateFormatModal();
-                }}
-              >
-                <div className="settings-modal-item-left">
-                  <div
-                    className="settings-modal-icon-badge"
-                    style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}
-                  >
-                    <Calendar size={18} />
-                  </div>
-                  <div className="settings-modal-item-text">
-                    <div className="settings-modal-item-title">
-                      {dict.settingsModal?.dateFormat || '촬영 날짜 표기 형식'}
-                    </div>
-                    <div className="settings-modal-item-desc">
-                      <span
-                        style={{
-                          fontWeight: 700,
-                          color: '#1e293b',
-                          fontFamily: 'monospace',
-                          letterSpacing: '-0.3px',
-                        }}
+              {onToggleShowDate && (
+                <div className="settings-modal-card-box" style={{ marginBottom: 8 }}>
+                  <div className="settings-modal-toggle-row">
+                    <div className="settings-modal-item-left">
+                      <div
+                        className="settings-modal-icon-badge"
+                        style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}
                       >
-                        {currentDateFormat || 'YYYY.MM.DD'}
-                      </span>
+                        <Calendar size={18} />
+                      </div>
+                      <div className="settings-modal-item-text">
+                        <div className="settings-modal-item-title">
+                          {dict.settingsModal?.showDateOption || '촬영 날짜 표시'}
+                        </div>
+                        <div className="settings-modal-item-desc">
+                          {dict.settingsModal?.showDateOptionDesc ||
+                            '영상 화면에 촬영 날짜를 표시해요 (끄면 날짜 없이 장소만 표시)'}
+                        </div>
+                      </div>
                     </div>
+                    <label className="toss-toggle-switch" style={{ margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={showDate}
+                        onChange={(e) => onToggleShowDate(e.target.checked)}
+                      />
+                      <span className="toss-toggle-slider" />
+                    </label>
                   </div>
                 </div>
-                <div className="settings-modal-item-action">
-                  <span>{dict.common.edit || '변경'}</span>
-                  <ChevronRight size={15} color="#94a3b8" />
-                </div>
-              </button>
+              )}
+              {onOpenDateFormatModal && (
+                <button
+                  type="button"
+                  className="settings-modal-item"
+                  onClick={() => {
+                    onClose();
+                    onOpenDateFormatModal();
+                  }}
+                >
+                  <div className="settings-modal-item-left">
+                    <div
+                      className="settings-modal-icon-badge"
+                      style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}
+                    >
+                      <Calendar size={18} />
+                    </div>
+                    <div className="settings-modal-item-text">
+                      <div className="settings-modal-item-title">
+                        {dict.settingsModal?.dateFormat || '촬영 날짜 표기 형식'}
+                      </div>
+                      <div className="settings-modal-item-desc">
+                        <span
+                          style={{
+                            fontWeight: 700,
+                            color: '#1e293b',
+                            fontFamily: 'monospace',
+                            letterSpacing: '-0.3px',
+                          }}
+                        >
+                          {currentDateFormat || 'YYYY.MM.DD'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="settings-modal-item-action">
+                    <span>{dict.common.edit || '변경'}</span>
+                    <ChevronRight size={15} color="#94a3b8" />
+                  </div>
+                </button>
+              )}
             </div>
           )}
 

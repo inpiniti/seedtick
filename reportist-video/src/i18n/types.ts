@@ -218,8 +218,37 @@ export interface Dictionary {
     close: string;
     studioTab: string;
     communityTab: string;
+    projectsTab?: string;
     watchVideo: string;
     dbNotice: string;
+  };
+  projects?: {
+    tabTitle: string;
+    pageTitle: string;
+    pageDesc: string;
+    newProjectBtn: string;
+    emptyTitle: string;
+    emptyDesc: string;
+    startStudioBtn: string;
+    autoSaved: string;
+    saving: string;
+    saveManualBtn: string;
+    openBtn: string;
+    duplicateBtn: string;
+    deleteBtn: string;
+    currentBadge: string;
+    completedBadge: string;
+    editingBadge: string;
+    clipsCount: string;
+    deleteModalTitle: string;
+    deleteModalDesc: string;
+    confirmDelete: string;
+    cancelDelete: string;
+    loadedToast: string;
+    savedToast: string;
+    newProjectConfirmTitle: string;
+    newProjectConfirmDesc: string;
+    startNew: string;
   };
   processingModal: {
     title: string;
@@ -319,6 +348,9 @@ export interface Dictionary {
     language: string;
     dateFormat?: string;
     dateFormatDesc?: string;
+    dateSection?: string;
+    showDateOption?: string;
+    showDateOptionDesc?: string;
     ageOption?: string;
     ageOptionDesc?: string;
     birthDateLabel?: string;

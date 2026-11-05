@@ -94,11 +94,16 @@ export function evaluateChapterBridge(
     };
   }
 
-  const fallbackDate = normalizeMeta(overlayOptions?.subtitleDateText);
+  const dateVisible = overlayOptions?.showDate !== false;
+  const fallbackDate = dateVisible ? normalizeMeta(overlayOptions?.subtitleDateText) : '';
   const fallbackLoc = normalizeMeta(overlayOptions?.subtitleLocationText);
 
-  const fromDate = normalizeMeta(prevSegment.subtitleDate) || fallbackDate;
-  const toDate = normalizeMeta(nextSegment.subtitleDate) || fallbackDate;
+  const fromDate = dateVisible
+    ? normalizeMeta(prevSegment.subtitleDate) || fallbackDate
+    : '';
+  const toDate = dateVisible
+    ? normalizeMeta(nextSegment.subtitleDate) || fallbackDate
+    : '';
 
   const fromLocation = normalizeMeta(prevSegment.locationName) || fallbackLoc;
   const toLocation = normalizeMeta(nextSegment.locationName) || fallbackLoc;

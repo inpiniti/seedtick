@@ -1164,11 +1164,34 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+.toss-nav-brand-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+}
+
 .toss-nav-title {
   font-size: 16px;
   font-weight: 800;
   color: #191f28;
   letter-spacing: -0.3px;
+  line-height: 1.1;
+}
+
+/* 브랜드명 아래 서브 타이틀 (배경색·음영 없이 담백한 텍스트) */
+.toss-nav-tagline {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #8b95a1;
+  letter-spacing: -0.15px;
+  line-height: 1.2;
+  background: none;
+  padding: 0;
+  box-shadow: none;
+  text-shadow: none;
 }
 
 .toss-tag-blue {
@@ -1240,18 +1263,22 @@
 .toss-nav-cta-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   background: #3182f6;
   color: #ffffff;
   font-size: 12.5px;
   font-weight: 700;
-  padding: 6px 14px;
+  height: 38px;
+  padding: 0 14px;
   border-radius: 9px;
   border: none;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(49, 130, 246, 0.25);
   transition: all 0.15s ease;
   white-space: nowrap;
+  box-sizing: border-box;
+  line-height: 1;
 }
 
 .toss-nav-cta-btn:hover:not(:disabled) {
@@ -1279,17 +1306,21 @@
 .toss-nav-btn-secondary {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
   background: #f2f4f6;
   color: #333d4b;
   font-size: 12px;
   font-weight: 600;
-  padding: 6px 11px;
+  height: 38px;
+  padding: 0 11px;
   border-radius: 9px;
   border: 1px solid #e5e8eb;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
+  box-sizing: border-box;
+  line-height: 1;
 }
 
 .toss-nav-btn-secondary:hover:not(:disabled) {
@@ -1372,6 +1403,10 @@
 
 @media (max-width: 1024px) {
   .toss-tag-blue {
+    display: none !important;
+  }
+
+  .toss-nav-tagline {
     display: none !important;
   }
 
@@ -2991,6 +3026,7 @@
 .toss-btn-download-video {
   flex: 1;
   width: 100%;
+  height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2999,10 +3035,12 @@
   color: #ffffff;
   border: none;
   border-radius: 12px;
-  padding: 10px 16px;
+  padding: 0 16px;
   font-size: 13.5px;
   font-weight: 700;
   cursor: pointer;
+  box-sizing: border-box;
+  line-height: 1;
   transition: all 0.15s ease;
   box-shadow: 0 3px 10px rgba(49, 130, 246, 0.3);
 }
@@ -3813,6 +3851,37 @@
   margin-bottom: 20px;
 }
 
+/* 진행 모달 하단 취소 버튼 (텍스트가 아닌 명확한 버튼 형태) */
+.toss-modal-cancel-btn {
+  display: block;
+  width: 100%;
+  height: 46px;
+  margin-top: 20px;
+  border-radius: 12px;
+  border: 1px solid #e5e8eb;
+  background-color: #f2f4f6;
+  color: #4e5968;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease,
+    transform 0.1s ease;
+  box-sizing: border-box;
+}
+
+.toss-modal-cancel-btn:hover {
+  background-color: #e5e8eb;
+  border-color: #d1d5db;
+  color: #191f28;
+}
+
+.toss-modal-cancel-btn:active {
+  background-color: #dde1e6;
+  transform: scale(0.99);
+}
+
 .toss-modal-progress-bar {
   width: 100%;
   height: 8px;
@@ -4101,8 +4170,12 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  word-break: break-all;
+  text-align: left;
+  word-break: break-word;
+  overflow-wrap: anywhere;
   white-space: pre-line;
+  width: 100%;
+  min-width: 0;
 }
 
 .toss-reasoning-live-dot {
@@ -4240,11 +4313,13 @@
   align-items: center;
   gap: 9px;
   max-width: 400px;
-  padding: 5px 10px 5px 7px;
-  border-radius: 12px;
+  height: 38px;
+  padding: 0 10px 0 7px;
+  border-radius: 9px;
   border: 1px solid #e5e8eb;
   background-color: #f2f4f6;
   cursor: pointer;
+  box-sizing: border-box;
   transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -4376,6 +4451,10 @@
   }
 
   .toss-tag-blue {
+    display: none !important;
+  }
+
+  .toss-nav-tagline {
     display: none !important;
   }
 
@@ -4547,7 +4626,8 @@
   }
 
   /* 헤더 내 액션 버튼 모바일 최적화 (높이 32px 통일) */
-  .toss-nav-cta-btn {
+  .toss-nav-cta-btn,
+  .toss-nav-btn-secondary {
     height: 32px;
     padding: 0 11px;
     font-size: 12px;
@@ -6034,12 +6114,12 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  max-width: 100%;
   font-size: 11px;
   font-weight: 600;
   color: #64748b;
   cursor: pointer;
   user-select: none;
-  white-space: nowrap;
 }
 
 .toss-thumbnail-title-toggle:hover {
@@ -7171,6 +7251,7 @@
 .toss-btn-download-subtitle {
   flex: 1;
   width: 100%;
+  height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -7179,10 +7260,12 @@
   color: #2563eb;
   border: 1.5px solid #bfdbfe;
   border-radius: 12px;
-  padding: 10px 16px;
+  padding: 0 16px;
   font-size: 13.5px;
   font-weight: 700;
   cursor: pointer;
+  box-sizing: border-box;
+  line-height: 1;
   transition: all 0.15s ease;
   box-shadow: 0 2px 6px rgba(37, 99, 235, 0.08);
 }
@@ -7202,15 +7285,19 @@
 .toss-btn-subtitle-header {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
+  height: 28px;
   background-color: #eff6ff;
   border: 1px solid #bfdbfe;
   color: #2563eb;
   font-size: 11.5px;
   font-weight: 700;
-  padding: 4px 9px;
+  padding: 0 9px;
   border-radius: 8px;
   cursor: pointer;
+  box-sizing: border-box;
+  line-height: 1;
   transition: all 0.15s ease;
 }
 
@@ -7230,15 +7317,19 @@
 .toss-btn-sort-time {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
+  height: 28px;
   background-color: #f2f4f6;
   border: 1px solid #e5e8eb;
   color: #4e5968;
   font-size: 11.5px;
   font-weight: 600;
-  padding: 4px 9px;
+  padding: 0 9px;
   border-radius: 8px;
   cursor: pointer;
+  box-sizing: border-box;
+  line-height: 1;
   transition: all 0.15s ease;
   white-space: nowrap;
 }
@@ -7549,4 +7640,545 @@
     min-width: 0 !important;
   }
 }
+
+/* ==========================================================================
+   Toss Studio Project Library (내 작업 보관함) Styles
+   ========================================================================== */
+
+.toss-projects-view-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 20px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  box-sizing: border-box;
+}
+
+.toss-projects-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 8px;
+}
+
+.toss-projects-title-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.toss-projects-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: #191f28;
+  letter-spacing: -0.02em;
+  margin: 0;
+  line-height: 1.25;
+}
+
+.toss-projects-count-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 9999px;
+  background-color: #eff6ff;
+  color: #3182f6;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.toss-projects-desc {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.toss-projects-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.toss-projects-storage-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  background-color: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  user-select: none;
+}
+
+.toss-projects-new-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(49, 130, 246, 0.25);
+}
+
+/* 프로젝트 그리드 */
+.toss-projects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 20px;
+}
+
+.toss-project-card {
+  position: relative;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.18s ease;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+}
+
+.toss-project-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+  border-color: #bfdbfe;
+}
+
+.toss-project-card.current-active {
+  border-color: #3182f6;
+  box-shadow: 0 4px 14px rgba(49, 130, 246, 0.15);
+}
+
+.toss-project-card.current-active::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background-color: #3182f6;
+}
+
+/* 썸네일 영역 */
+.toss-project-card-thumb-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background-color: #0f172a;
+  overflow: hidden;
+}
+
+.toss-project-card-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.toss-project-card-thumb-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+}
+
+.toss-project-duration-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background-color: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.toss-project-card-badges {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.toss-project-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  backdrop-filter: blur(6px);
+}
+
+.toss-project-status-pill.active {
+  background-color: rgba(49, 130, 246, 0.92);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(49, 130, 246, 0.3);
+}
+
+.toss-project-status-pill.completed {
+  background-color: rgba(16, 185, 129, 0.92);
+  color: #ffffff;
+}
+
+.toss-project-status-pill.editing {
+  background-color: rgba(30, 41, 59, 0.85);
+  color: #f1f5f9;
+}
+
+/* 카드 본문 */
+.toss-project-card-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.toss-project-card-meta-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #8b95a1;
+  font-weight: 500;
+}
+
+.toss-project-clips-count {
+  color: #3182f6;
+  font-weight: 700;
+}
+
+.toss-project-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #94a3b8;
+}
+
+.toss-project-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #191f28;
+  margin: 0;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  min-height: 42px;
+}
+
+/* 카드 하단 액션 */
+.toss-project-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.toss-project-open-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 10px;
+}
+
+.toss-btn-icon-subtle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: 1px solid #e2e8f0;
+  background-color: #ffffff;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.toss-btn-icon-subtle:hover {
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+
+.toss-btn-icon-subtle.danger:hover {
+  background-color: #fef2f2;
+  border-color: #fecaca;
+  color: #ef4444;
+}
+
+/* 빈 상태 (Empty State) */
+.toss-projects-empty-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 64px 24px;
+  background-color: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 24px;
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.toss-projects-empty-icon-wrap {
+  width: 80px;
+  height: 80px;
+  border-radius: 24px;
+  background-color: #eff6ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.toss-projects-empty-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: #191f28;
+  margin: 0;
+}
+
+.toss-projects-empty-desc {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0 0 10px;
+  max-width: 360px;
+  line-height: 1.5;
+}
+
+.toss-projects-empty-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 24px;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+/* 로딩 스켈레톤 */
+.toss-projects-loading-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 20px;
+}
+
+.toss-project-skeleton-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.toss-project-skeleton-thumb {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.toss-project-skeleton-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.toss-project-skeleton-line {
+  height: 16px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+.toss-project-skeleton-line.short {
+  width: 40%;
+  height: 12px;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* 확인 다이얼로그 (토스 스타일) */
+.toss-confirm-dialog {
+  max-width: 400px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+  border-radius: 24px;
+}
+
+.toss-confirm-icon-wrap {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toss-confirm-icon-wrap.danger {
+  background-color: #fee2e2;
+}
+
+.toss-confirm-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #191f28;
+  margin: 0;
+}
+
+.toss-confirm-desc {
+  font-size: 14px;
+  color: #4e5968;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.toss-confirm-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.toss-confirm-actions button {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.toss-btn-danger {
+  background-color: #f04452;
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.toss-btn-danger:hover {
+  background-color: #dc2626;
+}
+
+/* 자동 저장 뱃지 (헤더 영역) */
+.toss-autosave-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  user-select: none;
+  transition: all 0.2s ease;
+}
+
+.toss-autosave-badge.saving {
+  color: #3182f6;
+  background-color: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.toss-autosave-badge.saved {
+  color: #10b981;
+}
+
+.toss-autosave-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #10b981;
+}
+
+.toss-autosave-badge.saving .toss-autosave-dot {
+  background-color: #3182f6;
+  animation: toss-pulse 1s infinite;
+}
+
+@keyframes toss-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+}
+
+@media (max-width: 640px) {
+  .toss-projects-view-container {
+    padding: 16px 14px 40px;
+    gap: 18px;
+  }
+
+  .toss-projects-title {
+    font-size: 20px;
+  }
+
+  .toss-projects-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+}
+
 
