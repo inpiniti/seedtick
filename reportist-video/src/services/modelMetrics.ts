@@ -93,7 +93,17 @@ export function compareModelsByIntelligence(a: FreeModelMeta, b: FreeModelMeta):
   if (intelA != null && intelB == null) return -1;
   if (intelA == null && intelB != null) return 1;
 
-  // 2. 코딩 및 추론 지수 내림차순 (높은 순서)
+  // 2. 지능 지수가 없는 모델들은 최신 출시순으로 정렬 (지능 지수 미집계 모델이 다수)
+  //    지능 지수가 없는 모델끼리는 출시일이 최신인 순서를 우선한다.
+  if (intelA == null && intelB == null) {
+    const daysA = a.daysAgo ?? null;
+    const daysB = b.daysAgo ?? null;
+    if (daysA != null && daysB != null && daysB !== daysA) return daysA - daysB;
+    if (daysA != null && daysB == null) return -1;
+    if (daysA == null && daysB != null) return 1;
+  }
+
+  // 3. 코딩 및 추론 지수 내림차순 (높은 순서)
   const codingA = a.codingIndex ?? null;
   const codingB = b.codingIndex ?? null;
   if (codingA != null && codingB != null && codingB !== codingA) {
@@ -102,7 +112,7 @@ export function compareModelsByIntelligence(a: FreeModelMeta, b: FreeModelMeta):
   if (codingA != null && codingB == null) return -1;
   if (codingA == null && codingB != null) return 1;
 
-  // 3. 에이전틱 지수 내림차순
+  // 4. 에이전틱 지수 내림차순
   const agenticA = a.agenticIndex ?? null;
   const agenticB = b.agenticIndex ?? null;
   if (agenticA != null && agenticB != null && agenticB !== agenticA) {
@@ -111,21 +121,21 @@ export function compareModelsByIntelligence(a: FreeModelMeta, b: FreeModelMeta):
   if (agenticA != null && agenticB == null) return -1;
   if (agenticA == null && agenticB != null) return 1;
 
-  // 4. 컨텍스트 길이 내림차순
+  // 5. 컨텍스트 길이 내림차순
   const contextA = a.contextLength ?? 0;
   const contextB = b.contextLength ?? 0;
   if (contextB !== contextA) {
     return contextB - contextA;
   }
 
-  // 5. 속도 내림차순 (토큰/초)
+  // 6. 속도 내림차순 (토큰/초)
   const speedA = a.speedTokensPerSecond ?? 0;
   const speedB = b.speedTokensPerSecond ?? 0;
   if (speedB !== speedA) {
     return speedB - speedA;
   }
 
-  // 6. 최신 출시순
+  // 7. 최신 출시순
   return (a.daysAgo ?? 9999) - (b.daysAgo ?? 9999);
 }
 
@@ -146,6 +156,7 @@ export function cleanModelName(name?: string | null): string {
 /**
  * 영상 하이라이트 분석에 쓸 기본 모델을 고른다.
  * 안전성 가드레일 모델 및 Nemotron Super VL은 제외하고, 지능이 가장 높은 모델을 기본값으로 사용한다.
+ * 지능 지수가 없는 모델만 남는 경우에는 가장 최신 출시 모델을 사용한다.
  */
 export function pickDefaultModel(models: FreeModelMeta[]): FreeModelMeta | null {
   const usable = models.filter((model) => !isGuardrailModel(model) && !model.id.includes('super-vl'));
@@ -158,6 +169,7 @@ export function pickDefaultModel(models: FreeModelMeta[]): FreeModelMeta | null 
 
 /**
  * 게이트웨이가 수신한 원천 메타데이터를 정규화하고 지능순으로 정렬하여 반환한다.
+ * 지능 지수가 없는 모델은 최신 출시순으로 뒤에 정렬한다.
  * 인위적인 임의 추정이나 덮어쓰기 없이 수신값을 100% 신뢰한다.
  */
 export function enrichModelMetrics(models: FreeModelMeta[]): FreeModelMeta[] {
