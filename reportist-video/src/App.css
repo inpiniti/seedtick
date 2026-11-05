@@ -1360,8 +1360,8 @@
   width: 100%;
   max-width: none;
   margin: 0;
-  /* 하단 공백 제거: 좌우 패널이 데스크탑 뷰포트 바닥까지 꽉 차도록 함 */
-  padding: 10px 16px 0;
+  /* 상·하단 여백을 유지해 패널이 뷰포트 가장자리에 붙지 않도록 함 */
+  padding: 10px 16px;
   display: grid;
   grid-template-columns: minmax(420px, 44fr) minmax(500px, 56fr);
   gap: 12px;
@@ -1416,6 +1416,7 @@
     max-height: none !important;
     overflow: visible !important;
     padding-right: 0 !important;
+    padding-bottom: 0 !important;
     gap: 12px;
   }
 }
@@ -1428,7 +1429,9 @@
   height: 100%;
   overflow-y: auto;
   gap: 10px;
+  /* 스크롤 끝에서 마지막 카드가 하단 경계에 잘리거나 붙지 않도록 내부 여백 확보 */
   padding-right: 4px;
+  padding-bottom: 12px;
   scrollbar-width: thin;
   scrollbar-color: #d1d5db transparent;
 }
@@ -1441,7 +1444,9 @@
   height: 100%;
   overflow-y: auto;
   gap: 10px;
+  /* 스크롤 끝에서 마지막 카드가 하단 경계에 잘리거나 붙지 않도록 내부 여백 확보 */
   padding-right: 4px;
+  padding-bottom: 12px;
   scrollbar-width: thin;
   scrollbar-color: #d1d5db transparent;
 }
