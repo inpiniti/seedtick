@@ -2446,6 +2446,9 @@
 }
 
 .toss-sequencer-music-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 10.5px;
   font-weight: 700;
   color: #037a4b;
@@ -2456,17 +2459,17 @@
   font-family: var(--font-mono, monospace);
 }
 
+.toss-sequencer-music-badge.ok {
+  color: #037a4b;
+  background-color: #e6f8f0;
+  border-color: #b8ebd3;
+}
+
+.toss-sequencer-music-badge.warning,
 .toss-sequencer-music-badge.exceeded {
   color: #d9381e;
   background-color: #fff0ed;
   border-color: #ffc5ba;
-}
-
-.toss-sequencer-header-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
 }
 
 .toss-sequencer-hint {
@@ -2474,106 +2477,86 @@
   color: #8b95a1;
 }
 
-.toss-btn-fit-music {
+.toss-sequencer-fit-music-btn {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 9px;
+  padding: 3px 8px;
   font-size: 11px;
   font-weight: 700;
-  color: #ffffff;
-  background: linear-gradient(135deg, #f04452 0%, #e11d48 100%);
-  border: none;
+  color: #e11d48;
+  background-color: #fff1f2;
+  border: 1px solid #fecdd3;
   border-radius: 6px;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(240, 68, 82, 0.25);
   transition: all 0.15s ease;
 }
 
-.toss-btn-fit-music:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 10px rgba(240, 68, 82, 0.35);
+.toss-sequencer-fit-music-btn:hover {
+  background-color: #ffe4e6;
+  border-color: #fda4af;
 }
 
-.toss-btn-fit-music:active {
-  transform: scale(0.97);
-}
-
-/* NLE Dark Multi-Track Container (inspired by video editor bottom dock) */
-.toss-nle-multitrack {
+/* Toss Multi-Track Container (TIME + V1 영상 + A1 음악) */
+.toss-sequencer-multitrack {
   display: flex;
   width: 100%;
-  background-color: #181c23;
-  border: 1px solid #2b3240;
+  background-color: #f8fafc;
+  border: 1px solid #e5e8eb;
   border-radius: 10px;
   overflow: hidden;
-  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
-.toss-nle-track-labels {
+.toss-sequencer-track-labels {
   width: 68px;
   flex-shrink: 0;
-  background-color: #202631;
-  border-right: 1px solid #2e3646;
+  background-color: #f2f4f6;
+  border-right: 1px solid #e5e8eb;
   display: flex;
   flex-direction: column;
   user-select: none;
 }
 
-.toss-nle-ruler-corner {
+.toss-track-label-ruler {
   height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  color: #6b7684;
-  border-bottom: 1px solid #2b3240;
+  letter-spacing: 0.05em;
+  color: #8b95a1;
+  border-bottom: 1px solid #e5e8eb;
   font-family: var(--font-mono, monospace);
+  box-sizing: border-box;
 }
 
-.toss-nle-track-label {
+.toss-track-label-row {
   display: flex;
   align-items: center;
   gap: 4px;
   padding: 0 7px;
-}
-
-.toss-nle-track-label.video-label {
-  height: 48px;
-  background-color: rgba(49, 130, 246, 0.08);
-  border-bottom: 1px solid #2b3240;
-}
-
-.toss-nle-track-label.audio-label {
-  height: 36px;
-  background-color: rgba(16, 185, 129, 0.08);
-}
-
-.toss-nle-track-code {
-  font-size: 10px;
-  font-weight: 800;
-  font-family: var(--font-mono, monospace);
-  padding: 1px 4px;
-  border-radius: 3px;
-  background-color: #3182f6;
-  color: #ffffff;
-  line-height: 1.2;
-}
-
-.toss-nle-track-label.audio-label .toss-nle-track-code {
-  background-color: #10b981;
-}
-
-.toss-nle-track-name {
   font-size: 10.5px;
   font-weight: 700;
-  color: #d1d6db;
+  color: #4e5968;
   white-space: nowrap;
+  box-sizing: border-box;
 }
 
-.toss-sequencer-track {
+.toss-track-label-row.video {
+  height: 48px;
+  color: #1d4ed8;
+  background-color: #f8fafc;
+  border-bottom: 1px solid #e5e8eb;
+}
+
+.toss-track-label-row.audio {
+  height: 34px;
+  color: #047857;
+  background-color: #f8fafc;
+}
+
+.toss-sequencer-tracks-canvas {
   flex: 1;
   min-width: 0;
   position: relative;
@@ -2581,83 +2564,64 @@
   cursor: pointer;
   display: flex;
   flex-direction: column;
+  background-color: #f2f4f6;
 }
 
 /* Time Ruler Row */
-.toss-nle-ruler {
+.toss-sequencer-ruler {
   position: relative;
   height: 20px;
   width: 100%;
-  background-color: #14181f;
-  border-bottom: 1px solid #2b3240;
+  background-color: #f8fafc;
+  border-bottom: 1px solid #e5e8eb;
   pointer-events: none;
+  box-sizing: border-box;
 }
 
-.toss-nle-ruler-tick {
+.toss-ruler-tick {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.toss-nle-ruler-tick:first-child {
-  transform: translateX(2px);
-  align-items: flex-start;
-}
-
-.toss-nle-ruler-tick:last-child {
-  transform: translateX(-100%);
-  align-items: flex-end;
-}
-
-.toss-nle-ruler-tick::before {
-  content: '';
-  width: 1px;
-  height: 5px;
-  background-color: #4e5968;
-}
-
-.toss-nle-ruler-time {
-  font-size: 8.5px;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 9px;
+  font-weight: 600;
   font-family: var(--font-mono, monospace);
   color: #8b95a1;
   line-height: 1;
-  margin-top: 2px;
   white-space: nowrap;
 }
 
-.toss-nle-ruler-music-pin {
-  position: absolute;
-  top: 1px;
-  transform: translateX(-50%);
-  z-index: 6;
+.toss-ruler-tick.start,
+.toss-ruler-tick:first-child {
+  transform: translate(6px, -50%);
 }
 
-.toss-nle-ruler-music-pin span {
-  display: inline-block;
+.toss-ruler-tick.end {
+  transform: translate(calc(-100% - 6px), -50%);
+}
+
+.toss-ruler-music-end-tag {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 6;
   font-size: 8.5px;
-  font-weight: 800;
+  font-weight: 700;
   color: #ffffff;
   background-color: #f04452;
   padding: 1px 5px;
-  border-radius: 3px;
+  border-radius: 4px;
   white-space: nowrap;
-  box-shadow: 0 1px 4px rgba(240, 68, 82, 0.45);
 }
 
 /* Vertical boundary line where 1st BGM playback ends */
 .toss-sequencer-music-limit-line {
   position: absolute;
-  top: 0;
+  top: 20px;
   bottom: 0;
   width: 0;
   border-left: 2px dashed #f04452;
   z-index: 15;
   pointer-events: none;
-  box-shadow: 0 0 6px rgba(240, 68, 82, 0.55);
 }
 
 .toss-sequencer-playhead {
@@ -2677,7 +2641,7 @@
   transform: translateX(-50%);
   width: 10px;
   height: 8px;
-  background-color: #f59e0b;
+  background-color: #f04452;
   clip-path: polygon(0% 0%, 100% 0%, 50% 100%);
 }
 
@@ -2688,22 +2652,20 @@
   left: 50%;
   width: 2px;
   transform: translateX(-50%);
-  background-color: #f59e0b;
-  box-shadow: 0 0 5px rgba(245, 158, 11, 0.8);
+  background-color: #f04452;
+  box-shadow: 0 0 4px rgba(240, 68, 82, 0.5);
 }
 
 /* V1 Video Strip */
 .toss-sequencer-strip {
   display: flex;
+  align-items: stretch;
   width: 100%;
-}
-
-.toss-sequencer-strip.video-strip {
   height: 48px;
-  padding: 3px 2px;
+  padding: 3px;
   gap: 2px;
-  background-color: #1c222d;
-  border-bottom: 1px solid #2b3240;
+  background-color: #f2f4f6;
+  border-bottom: 1px solid #e5e8eb;
   box-sizing: border-box;
 }
 
@@ -2711,79 +2673,45 @@
   height: 100%;
   position: relative;
   overflow: hidden;
-  border-radius: 5px;
+  border-radius: 6px;
   background-color: #1e293b;
-  border: 1.5px solid #3b82f6;
+  border: 1.5px solid transparent;
   cursor: pointer;
   transition: all 0.15s ease;
   flex-shrink: 0;
   min-width: 6px;
+  box-sizing: border-box;
 }
 
 .toss-sequencer-block:hover {
-  border-color: #60a5fa;
-  transform: translateY(-1px);
+  border-color: #3182f6;
   z-index: 5;
 }
 
 .toss-sequencer-block.selected {
-  border-color: #38bdf8;
-  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.65);
+  border-color: #3182f6;
+  box-shadow: 0 0 0 1.5px #3182f6;
   z-index: 6;
 }
 
 .toss-sequencer-block.playing {
-  border-color: #10b981;
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.7);
+  border-color: #04b069;
+  box-shadow: 0 0 0 1.5px #04b069;
   z-index: 7;
 }
 
-/* Video blocks that overflow past the music duration */
-.toss-sequencer-block.over-music {
-  border-color: #f04452;
-  background-color: #3b1822;
-}
-
-.toss-sequencer-block.over-music::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    -45deg,
-    rgba(240, 68, 82, 0.28),
-    rgba(240, 68, 82, 0.28) 5px,
-    rgba(0, 0, 0, 0.12) 5px,
-    rgba(0, 0, 0, 0.12) 10px
-  );
-  pointer-events: none;
-}
-
-.toss-sequencer-block.crossing-music {
+.toss-sequencer-block.exceeds-music {
   border-color: #f59e0b;
 }
 
-.toss-sequencer-block.fixed-block {
+.toss-sequencer-block.beyond-music {
+  border-color: #f04452;
+}
+
+.toss-sequencer-intro-block,
+.toss-sequencer-outro-block {
   background: linear-gradient(135deg, #1e3a8a 0%, #312e81 100%);
   border-color: #6366f1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: default;
-}
-
-.toss-sequencer-block.bridge-block {
-  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
-  border-color: #60a5fa;
-  opacity: 0.85;
-  cursor: default;
-}
-
-.toss-sequencer-fixed-label {
-  font-size: 8.5px;
-  font-weight: 800;
-  color: #e0e7ff;
-  letter-spacing: 0.04em;
-  font-family: var(--font-mono, monospace);
 }
 
 .toss-sequencer-block-thumb {
@@ -2791,16 +2719,17 @@
   height: 100%;
   object-fit: cover;
   opacity: 0.72;
+  display: block;
 }
 
 .toss-sequencer-block-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.65) 0%, rgba(0, 0, 0, 0.15) 55%, rgba(0, 0, 0, 0.78) 100%);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.62) 0%, rgba(0, 0, 0, 0.15) 55%, rgba(0, 0, 0, 0.75) 100%);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 2px 4px;
+  padding: 2px 5px;
   z-index: 2;
 }
 
@@ -2818,50 +2747,46 @@
   line-height: 1.1;
 }
 
-.toss-block-quick-del {
+.toss-sequencer-block-delete {
   width: 15px;
   height: 15px;
-  border-radius: 3px;
+  border-radius: 4px;
   border: none;
-  background-color: rgba(240, 68, 82, 0.9);
+  background-color: rgba(25, 31, 40, 0.72);
   color: #ffffff;
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   padding: 0;
   opacity: 0;
-  transition: opacity 0.12s ease, transform 0.12s ease;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
 }
 
-.toss-sequencer-block:hover .toss-block-quick-del,
-.toss-sequencer-block.over-music .toss-block-quick-del {
+.toss-sequencer-block:hover .toss-sequencer-block-delete,
+.toss-sequencer-block.exceeds-music .toss-sequencer-block-delete,
+.toss-sequencer-block.beyond-music .toss-sequencer-block-delete {
   opacity: 1;
 }
 
-.toss-block-quick-del:hover {
-  background-color: #e11d48;
-  transform: scale(1.1);
+.toss-sequencer-block-delete:hover {
+  background-color: #f04452;
 }
 
 .toss-block-bottom-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 2px;
+  gap: 3px;
 }
 
-.toss-block-over-tag {
-  font-size: 8px;
-  font-weight: 800;
-  color: #ffffff;
-  background-color: #f04452;
-  padding: 0.5px 3px;
-  border-radius: 2px;
-  line-height: 1.1;
+.toss-block-overflow-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #f59e0b;
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.9);
+  flex-shrink: 0;
 }
 
 .toss-block-dur {
@@ -2873,71 +2798,44 @@
   line-height: 1.1;
 }
 
-/* A1 Audio Track Strip (Mint/Green waveform bar + repeated loop warning bar) */
-.toss-sequencer-strip.audio-strip {
-  height: 36px;
-  padding: 3px 2px;
-  gap: 2px;
-  background-color: #151a22;
-  box-sizing: border-box;
+/* A1 Audio Track Strip */
+.toss-sequencer-audio-strip {
+  display: flex;
   align-items: stretch;
+  width: 100%;
+  height: 34px;
+  padding: 3px;
+  gap: 2px;
+  background-color: #f2f4f6;
+  box-sizing: border-box;
 }
 
-.toss-audio-track-segment {
+.toss-sequencer-audio-block {
   height: 100%;
   position: relative;
   overflow: hidden;
-  border-radius: 5px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
-  padding: 0 7px;
+  padding: 0 8px;
   box-sizing: border-box;
   flex-shrink: 0;
   min-width: 8px;
 }
 
-.toss-audio-track-segment.primary-play {
-  background: linear-gradient(180deg, #b8f5d8 0%, #6ee7b7 100%);
-  border: 1.5px solid #10b981;
-  color: #064e3b;
+.toss-sequencer-audio-block.primary {
+  background: linear-gradient(180deg, #e6f8f0 0%, #d1f2e3 100%);
+  border: 1px solid #6ee7b7;
+  color: #065f46;
 }
 
-.toss-audio-track-segment.loop-play {
-  background: repeating-linear-gradient(
-    -45deg,
-    #fee2e2,
-    #fee2e2 6px,
-    #fecaca 6px,
-    #fecaca 12px
-  );
-  border: 1.5px dashed #f04452;
-  color: #881337;
+.toss-sequencer-audio-block.loop-overflow {
+  background: linear-gradient(180deg, #fff1f2 0%, #ffe4e6 100%);
+  border: 1px dashed #f43f5e;
+  color: #9f1239;
 }
 
-.toss-audio-track-segment.synth-bgm {
-  width: 100%;
-  background: linear-gradient(90deg, rgba(16, 185, 129, 0.22) 0%, rgba(59, 130, 246, 0.22) 100%);
-  border: 1px solid rgba(16, 185, 129, 0.45);
-  color: #a7f3d0;
-}
-
-.toss-audio-waveform-bg {
-  position: absolute;
-  inset: 0;
-  opacity: 0.28;
-  background-image: repeating-linear-gradient(
-    90deg,
-    currentColor 0px,
-    currentColor 1.5px,
-    transparent 1.5px,
-    transparent 4px
-  );
-  mask-image: linear-gradient(180deg, transparent 15%, #000 50%, transparent 85%);
-  -webkit-mask-image: linear-gradient(180deg, transparent 15%, #000 50%, transparent 85%);
-  pointer-events: none;
-}
-
-.toss-audio-track-seg-content {
+.toss-audio-block-content {
   position: relative;
   z-index: 2;
   display: flex;
@@ -2948,24 +2846,84 @@
   min-width: 0;
 }
 
-.toss-audio-seg-title {
-  font-size: 10px;
+.toss-audio-block-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.toss-audio-block-name {
+  font-size: 10.5px;
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.toss-audio-seg-dur {
+.toss-audio-block-dur {
   font-size: 9.5px;
-  font-weight: 800;
+  font-weight: 700;
   font-family: var(--font-mono, monospace);
   white-space: nowrap;
   flex-shrink: 0;
   opacity: 0.9;
 }
 
+/* Toss-styled Empty Audio Track Button (matches .toss-btn-library-trigger & .toss-upload-box) */
+.toss-sequencer-audio-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px;
+  border-radius: 6px;
+  background-color: #ffffff;
+  border: 1px dashed #cbd5e1;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.toss-sequencer-audio-empty:hover {
+  background-color: #f0f7ff;
+  border-color: #3182f6;
+  color: #1d4ed8;
+}
+
+.toss-sequencer-audio-empty-left {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  flex: 1;
+  color: inherit;
+}
+
+.toss-sequencer-audio-empty-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #2563eb;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .toss-sequencer-overflow-notice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin-top: 7px;
   padding: 7px 10px;
   border-radius: 8px;
@@ -2976,39 +2934,52 @@
   line-height: 1.45;
 }
 
-/* Overflowing Segment Item Highlights in Segment List */
-.toss-segment-item.over-music-segment {
-  border-color: #fca5a5;
-  background-color: #fffafa;
+.toss-overflow-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #f04452;
+  flex-shrink: 0;
 }
 
-.toss-segment-number.over-music {
-  background-color: #fee2e2;
-  color: #dc2626;
+/* Overflowing Segment Item Highlights in Segment List */
+.toss-segment-item.exceeds-music {
+  border-color: #fcd34d;
+  background-color: #fffdf7;
 }
 
 .toss-segment-music-over-badge {
   display: inline-flex;
   align-items: center;
+  gap: 3px;
   font-size: 10px;
   font-weight: 700;
   color: #dc2626;
   background-color: #fee2e2;
   border: 1px solid #fecaca;
-  padding: 1px 5px;
+  padding: 1px 6px;
   border-radius: 4px;
   flex-shrink: 0;
 }
 
-.toss-segment-music-over-badge.partial {
+.toss-segment-music-over-badge.boundary {
   color: #b45309;
   background-color: #fef3c7;
   border-color: #fde68a;
 }
 
-.toss-segment-time-badge.timeline-pos {
-  background-color: #eef2ff;
-  color: #3730a3;
+.toss-segment-timeline-range {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: #2563eb;
+  background-color: #eff6ff;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: var(--font-mono, monospace);
+  line-height: 1.3;
+  flex-shrink: 0;
 }
 
 .toss-timeline-actions {

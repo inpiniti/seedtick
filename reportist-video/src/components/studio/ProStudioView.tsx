@@ -2125,8 +2125,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         const isCurrent = seg.id === activePlayingSegmentId;
                         const isSelected = seg.id === selectedSegmentId;
                         const bridgeDur = effectiveBridgeDurationMap[seg.id] ?? 0;
-                        const bridgeWidthPct = (bridgeDur / (totalDuration || 1)) * 100;
-                        const widthPct = (seg.duration / (totalDuration || 1)) * 100;
+                        const widthPct = ((seg.duration + bridgeDur) / (totalDuration || 1)) * 100;
                         const vItem = videoMap.get(seg.sourceVideoId);
                         const segOffset = segmentTimelineOffsets[seg.id];
                         const isExceedingMusic = Boolean(
@@ -2143,94 +2142,67 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         );
 
                         return (
-                          <React.Fragment key={seg.id}>
-                            {bridgeDur > 0 && (
-                              <div
-                                className={`toss-sequencer-block toss-sequencer-intro-block ${isCurrent ? 'playing' : ''}`}
-                                style={{
-                                  width: `${bridgeWidthPct}%`,
-                                  minWidth: '14px',
-                                  background: 'linear-gradient(135deg, #1e293b 0%, #3b82f6 100%)',
-                                }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const offset = segmentTimelineOffsets[seg.id];
-                                  if (offset && videoRef.current && result?.url) {
-                                    videoRef.current.currentTime = offset.bridgeStartOffset + 0.05;
-                                    setCurrentTime(offset.bridgeStartOffset + 0.05);
-                                    setSelectedSegmentId(seg.id);
-                                  } else {
-                                    handleSelectSegment(seg.id);
-                                  }
-                                }}
-                                title={`챕터 브릿지 → #${idx + 1} (${bridgeDur.toFixed(1)}s)`}
-                              >
-                                <div className="toss-sequencer-block-overlay">
-                                  <span className="toss-block-idx">✦</span>
-                                </div>
-                              </div>
+                          <div
+                            key={seg.id}
+                            className={`toss-sequencer-block ${isSelected ? 'selected' : ''} ${isCurrent ? 'playing' : ''} ${isExceedingMusic ? 'exceeds-music' : ''} ${isFullyBeyondMusic ? 'beyond-music' : ''}`}
+                            style={{ width: `${widthPct}%` }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectSegment(seg.id);
+                            }}
+                            title={
+                              isExceedingMusic && customAudioDuration
+                                ? `${interpolate(dict.sequencer.clipTitle, {
+                                    idx: idx + 1,
+                                    duration: seg.duration.toFixed(1),
+                                    reason: seg.reason,
+                                  })} • 음악 길이(${formatSec(customAudioDuration)}) 초과 구간`
+                                : interpolate(dict.sequencer.clipTitle, {
+                                    idx: idx + 1,
+                                    duration: seg.duration.toFixed(1),
+                                    reason: seg.reason,
+                                  })
+                            }
+                          >
+                            {vItem?.thumbnailUrl && (
+                              <img
+                                src={vItem.thumbnailUrl}
+                                alt=""
+                                className="toss-sequencer-block-thumb"
+                                style={
+                                  seg.rotation
+                                    ? {
+                                        transform: `rotate(${seg.rotation}deg)${
+                                          seg.rotation === 90 || seg.rotation === 270 ? ' scale(0.6)' : ''
+                                        }`,
+                                      }
+                                    : undefined
+                                }
+                              />
                             )}
-                            <div
-                              className={`toss-sequencer-block ${isSelected ? 'selected' : ''} ${isCurrent ? 'playing' : ''} ${isExceedingMusic ? 'exceeds-music' : ''} ${isFullyBeyondMusic ? 'beyond-music' : ''}`}
-                              style={{ width: `${widthPct}%` }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleSelectSegment(seg.id);
-                              }}
-                              title={
-                                isExceedingMusic && customAudioDuration
-                                  ? `${interpolate(dict.sequencer.clipTitle, {
-                                      idx: idx + 1,
-                                      duration: seg.duration.toFixed(1),
-                                      reason: seg.reason,
-                                    })} • 음악 길이(${formatSec(customAudioDuration)}) 초과 구간`
-                                  : interpolate(dict.sequencer.clipTitle, {
-                                      idx: idx + 1,
-                                      duration: seg.duration.toFixed(1),
-                                      reason: seg.reason,
-                                    })
-                              }
-                            >
-                              {vItem?.thumbnailUrl && (
-                                <img
-                                  src={vItem.thumbnailUrl}
-                                  alt=""
-                                  className="toss-sequencer-block-thumb"
-                                  style={
-                                    seg.rotation
-                                      ? {
-                                          transform: `rotate(${seg.rotation}deg)${
-                                            seg.rotation === 90 || seg.rotation === 270 ? ' scale(0.6)' : ''
-                                          }`,
-                                        }
-                                      : undefined
-                                  }
-                                />
-                              )}
-                              <div className="toss-sequencer-block-overlay">
-                                <div className="toss-block-top-row">
-                                  <span className="toss-block-idx">#{idx + 1}</span>
-                                  {segments.length > 1 && (
-                                    <button
-                                      type="button"
-                                      className="toss-sequencer-block-delete"
-                                      onClick={(e) => handleDeleteSegment(seg.id, e)}
-                                      title={`#${idx + 1} 구간 제외하기`}
-                                      aria-label={`#${idx + 1} 구간 제외하기`}
-                                    >
-                                      <X size={10} />
-                                    </button>
-                                  )}
-                                </div>
-                                <div className="toss-block-bottom-row">
-                                  {isExceedingMusic && (
-                                    <span className="toss-block-overflow-dot" title="음악 길이 초과 구간" />
-                                  )}
-                                  <span className="toss-block-dur">{seg.duration.toFixed(1)}s</span>
-                                </div>
+                            <div className="toss-sequencer-block-overlay">
+                              <div className="toss-block-top-row">
+                                <span className="toss-block-idx">#{idx + 1}</span>
+                                {segments.length > 1 && (
+                                  <button
+                                    type="button"
+                                    className="toss-sequencer-block-delete"
+                                    onClick={(e) => handleDeleteSegment(seg.id, e)}
+                                    title={`#${idx + 1} 구간 제외하기`}
+                                    aria-label={`#${idx + 1} 구간 제외하기`}
+                                  >
+                                    <X size={10} />
+                                  </button>
+                                )}
+                              </div>
+                              <div className="toss-block-bottom-row">
+                                {isExceedingMusic && (
+                                  <span className="toss-block-overflow-dot" title="음악 길이 초과 구간" />
+                                )}
+                                <span className="toss-block-dur">{seg.duration.toFixed(1)}s</span>
                               </div>
                             </div>
-                          </React.Fragment>
+                          </div>
                         );
                       })}
 
@@ -2268,7 +2240,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                   : `${customAudioName} — 1회차 원곡 재생 (${formatSec(block.startSec)} ~ ${formatSec(block.endSec)} / 원곡 총 ${formatSec(customAudioDuration || block.durationSec)})`
                               }
                             >
-                              <div className="toss-audio-waveform-bg" aria-hidden="true" />
                               <div className="toss-audio-block-content">
                                 <div className="toss-audio-block-left">
                                   {block.isLoop ? (
@@ -2297,7 +2268,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             className="toss-sequencer-audio-block primary"
                             style={{ width: '100%' }}
                           >
-                            <div className="toss-audio-waveform-bg" aria-hidden="true" />
                             <div className="toss-audio-block-content">
                               <div className="toss-audio-block-left">
                                 <Music size={10} className="shrink-0" />
@@ -2317,10 +2287,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           }}
                           title="오디오 보관함에서 배경음악을 선택하면 영상 길이 대비 음악 구간이 표시돼요"
                         >
-                          <Music size={11} className="shrink-0" />
-                          <span className="truncate">
-                            배경음악 미선택 — 클릭하여 음악을 선택하면 영상 대비 음악 길이가 함께 표시돼요
+                          <span className="toss-sequencer-audio-empty-left">
+                            <Music size={11} className="shrink-0" />
+                            <span className="truncate">
+                              배경음악 미선택 · 음악을 추가하면 영상 대비 길이가 표시돼요
+                            </span>
                           </span>
+                          <span className="toss-sequencer-audio-empty-badge">+ 오디오 보관함</span>
                         </button>
                       )}
                     </div>
