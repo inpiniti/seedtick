@@ -114,7 +114,7 @@ export const VideoListModal: React.FC<VideoListModalProps> = ({
             <div className="toss-video-modal-list">
               {videos.map((vid, idx) => (
                 <div key={vid.id} className="toss-video-modal-item">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="toss-video-modal-content">
                     {vid.thumbnailUrl ? (
                       <img
                         src={vid.thumbnailUrl}
@@ -123,38 +123,38 @@ export const VideoListModal: React.FC<VideoListModalProps> = ({
                       />
                     ) : (
                       <div className="toss-video-modal-thumb-fallback">
-                        <FileVideo size={20} className="text-slate-400" />
+                        <FileVideo size={18} className="text-slate-400" />
                       </div>
                     )}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="toss-video-modal-badge shrink-0">#{idx + 1}</span>
+                    <div className="toss-video-modal-info">
+                      <div className="toss-video-modal-name-row">
+                        <span className="toss-video-modal-badge">#{idx + 1}</span>
                         <span
-                          className="text-xs font-bold text-slate-800 truncate block flex-1"
+                          className="toss-video-modal-name"
                           title={vid.name}
                         >
                           {vid.name}
                         </span>
                       </div>
-                      <div className="text-[11px] text-slate-400 font-mono mt-1 flex items-center gap-x-2 gap-y-1 flex-wrap">
-                        <span className="shrink-0">{vid.duration.toFixed(1)}{dict.common.timeSec}</span>
-                        <span className="text-slate-300 shrink-0">•</span>
-                        <span className="shrink-0">
+                      <div className="toss-video-modal-meta">
+                        <span>{vid.duration.toFixed(1)}{dict.common.timeSec}</span>
+                        <span className="toss-video-modal-meta-dot">•</span>
+                        <span>
                           {vid.width > 0 && vid.height > 0
                             ? `${vid.width}×${vid.height}`
                             : dict.videoListModal.analyzingResolution}
                         </span>
-                        <span className="text-slate-300 shrink-0">•</span>
-                        <span className="shrink-0">{((vid.sizeBytes || 0) / (1024 * 1024)).toFixed(1)}{dict.common.fileSizeMb}</span>
+                        <span className="toss-video-modal-meta-dot">•</span>
+                        <span>{((vid.sizeBytes || 0) / (1024 * 1024)).toFixed(1)}{dict.common.fileSizeMb}</span>
                         {vid.metadataDate && (
-                          <span className="inline-flex items-center gap-1 text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-sans text-[10px] font-medium shrink-0 whitespace-nowrap">
-                            <Calendar size={11} className="shrink-0" />
+                          <span className="toss-video-modal-meta-badge date">
+                            <Calendar size={10} className="shrink-0" />
                             <span>{vid.metadataDate}</span>
                           </span>
                         )}
                         {vid.locationName && (
-                          <span className="inline-flex items-center gap-1 text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded font-sans text-[10px] font-medium shrink-0 whitespace-nowrap">
-                            <MapPin size={11} className="shrink-0" />
+                          <span className="toss-video-modal-meta-badge location">
+                            <MapPin size={10} className="shrink-0" />
                             <span>{vid.locationName}</span>
                           </span>
                         )}
