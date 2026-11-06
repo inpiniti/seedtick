@@ -492,131 +492,177 @@ export function useDateFormat() {
 /**
  * QuickTime / MP4 컨테이너의 mvhd 박스 및 메타데이터 문자열에서 실제 촬영 일시를 파싱
  */
-export async function extractMediaRecordedDate(file: File): Promise<Date> {
-  try {
-    // 1. MP4 / MOV / 사진 파일의 헤더 (처음 2MB)
-    const headerChunkSize = Math.min(file.size, 1024 * 1024 * 2);
-    const headerBuffer = await file.slice(0, headerChunkSize).arrayBuffer();
-    const bytes = new Uint8Array(headerBuffer);
-    const view = new DataView(headerBuffer);
+/**
+ * 바이너리 텍스트(latin1)에서 특정 키 뒤에 나타나는 날짜 문자열 추출
+ */
+function findDateAfterKey(text: string, key: string, maxWindow = 350): Date | null {
+  const idx = text.indexOf(key);
+  if (idx === -1) return null;
+  const chunk = text.slice(idx + key.length, idx + key.length + maxWindow);
 
-    // 1-A. MP4 / QuickTime mvhd 박스 파싱
-    // mvhd 네 바이트: 'm'(0x6D), 'v'(0x76), 'h'(0x68), 'd'(0x64)
-    for (let i = 0; i < bytes.length - 16; i++) {
-      if (
-        bytes[i] === 0x6d &&
-        bytes[i + 1] === 0x76 &&
-        bytes[i + 2] === 0x68 &&
-        bytes[i + 3] === 0x64
-      ) {
-        const version = view.getUint8(i + 4);
-        let creationSec = 0;
-        if (version === 0) {
-          creationSec = view.getUint32(i + 8, false); // big-endian
-        } else if (version === 1 && i + 16 < bytes.length) {
-          creationSec = Number(view.getBigUint64(i + 8, false));
-        }
+  // 1. ISO 8601 포맷: 2024-05-12T14:32:05+09:00 또는 2024-05-12T14:32:05Z 또는 2024-05-12 14:32:05
+  const isoMatch = chunk.match(
+    /(\d{4})[-/.](0[1-9]|1[0-2])[-/.](0[1-9]|[12]\d|3[01])(?:[T\s]([01]\d|2[0-3]):([0-5]\d):([0-5]\d)(?:\.\d+)?(?:([+-][0-2]\d:?[0-5]\d)|Z)?)?/
+  );
+  if (isoMatch) {
+    const raw = isoMatch[0];
+    const parsed = new Date(raw);
+    if (!isNaN(parsed.getTime()) && parsed.getFullYear() >= 2000 && parsed.getFullYear() <= 2040) {
+      return parsed;
+    }
+    const y = parseInt(isoMatch[1], 10);
+    const m = parseInt(isoMatch[2], 10) - 1;
+    const d = parseInt(isoMatch[3], 10);
+    const hh = isoMatch[4] ? parseInt(isoMatch[4], 10) : 12;
+    const mm = isoMatch[5] ? parseInt(isoMatch[5], 10) : 0;
+    const ss = isoMatch[6] ? parseInt(isoMatch[6], 10) : 0;
+    const fallbackDate = new Date(y, m, d, hh, mm, ss);
+    if (!isNaN(fallbackDate.getTime()) && fallbackDate.getFullYear() >= 2000 && fallbackDate.getFullYear() <= 2040) {
+      return fallbackDate;
+    }
+  }
 
-        // QuickTime epoch (1904-01-01 UTC) 차이: 2,082,844,800 초
-        if (creationSec > 2082844800) {
-          const unixMs = (creationSec - 2082844800) * 1000;
-          const candidate = new Date(unixMs);
-          const year = candidate.getFullYear();
-          if (year >= 2000 && year <= 2040) {
-            return candidate;
-          }
+  // 2. 콜론 구분 EXIF 형식: 2024:05:12 14:32:05
+  const colonMatch = chunk.match(
+    /(\d{4}):(0[1-9]|1[0-2]):(0[1-9]|[12]\d|3[01])(?:\s+([01]\d|2[0-3]):([0-5]\d):([0-5]\d))?/
+  );
+  if (colonMatch) {
+    const y = parseInt(colonMatch[1], 10);
+    const m = parseInt(colonMatch[2], 10) - 1;
+    const d = parseInt(colonMatch[3], 10);
+    const hh = colonMatch[4] ? parseInt(colonMatch[4], 10) : 12;
+    const mm = colonMatch[5] ? parseInt(colonMatch[5], 10) : 0;
+    const ss = colonMatch[6] ? parseInt(colonMatch[6], 10) : 0;
+    const dt = new Date(y, m, d, hh, mm, ss);
+    if (!isNaN(dt.getTime()) && dt.getFullYear() >= 2000 && dt.getFullYear() <= 2040) {
+      return dt;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * DataView에서 QuickTime/MP4 mvhd 박스의 creation_time 추출
+ */
+function findMvhdCreationDate(view: DataView): Date | null {
+  const len = view.byteLength;
+  for (let i = 0; i < len - 16; i++) {
+    if (
+      view.getUint8(i) === 0x6d &&
+      view.getUint8(i + 1) === 0x76 &&
+      view.getUint8(i + 2) === 0x68 &&
+      view.getUint8(i + 3) === 0x64
+    ) {
+      const version = view.getUint8(i + 4);
+      let creationSec = 0;
+      if (version === 0) {
+        creationSec = view.getUint32(i + 8, false); // big-endian
+      } else if (version === 1 && i + 16 < len) {
+        creationSec = Number(view.getBigUint64(i + 8, false));
+      }
+      // QuickTime epoch (1904-01-01 UTC) 차이: 2,082,844,800 초
+      if (creationSec > 2082844800) {
+        const unixMs = (creationSec - 2082844800) * 1000;
+        const candidate = new Date(unixMs);
+        const year = candidate.getFullYear();
+        if (year >= 2000 && year <= 2040) {
+          return candidate;
         }
       }
     }
+  }
+  return null;
+}
 
-    // 1-B. iPhone / Android QuickTime text 메타데이터 (com.apple.quicktime.creationdate 또는 ©day)
+/**
+ * QuickTime / MP4 컨테이너의 mvhd 박스 및 메타데이터 문자열에서 실제 촬영 일시를 파싱
+ * 
+ * [아이폰 모바일 Safari 특성 대응]
+ * - 아이폰 Photos 앱에서 Safari로 영상을 업로드할 때, iOS는 샌드박스로 영상을 export/트랜스코딩합니다.
+ * - 이때 생성된 임시 파일의 file.lastModified와 mvhd.creation_time은 "방금 업로드한 오늘 시각"으로 설정됩니다.
+ * - 반면 원본 촬영 일시는 QuickTime User Data / Meta box의 com.apple.quicktime.creationdate 에 안전하게 보존됩니다.
+ * - 따라서 com.apple.quicktime.creationdate 와 EXIF 태그를 1순위로 탐색해야 아이폰에서도 진짜 촬영일자가 정확히 인식됩니다.
+ */
+export async function extractMediaRecordedDate(file: File): Promise<Date> {
+  try {
+    // 1. 헤더 (처음 4MB) 및 테일 (마지막 8MB) 버퍼 준비
+    // 아이폰 4K 등 대용량 영상은 moov 박스가 파일 끝에 위치하므로 tail을 충분히 읽어야 함
+    const headerChunkSize = Math.min(file.size, 1024 * 1024 * 4);
+    const headerBuffer = await file.slice(0, headerChunkSize).arrayBuffer();
     const decoder = new TextDecoder('latin1');
     const headerText = decoder.decode(headerBuffer);
 
-    const appleMatch = headerText.match(
-      /com\.apple\.quicktime\.creationdate[^\d]*(\d{4}[-/.][01]\d[-/.][0-3]\d(?:[T\s][0-2]\d:[0-5]\d:[0-5]\d(?:\.\d+)?(?:[+-][0-2]\d:?[0-5]\d|Z)?)?)/i
-    );
-    if (appleMatch && appleMatch[1]) {
-      const parsed = new Date(appleMatch[1]);
-      if (!isNaN(parsed.getTime()) && parsed.getFullYear() >= 2000 && parsed.getFullYear() <= 2040) {
-        return parsed;
-      }
-    }
-
-    // 1-C. EXIF DateTimeOriginal (JPEG/사진 또는 비디오 EXIF 태그): "YYYY:MM:DD HH:MM:SS"
-    const exifMatch = headerText.match(
-      /(\d{4}):(0[1-9]|1[0-2]):(0[1-9]|[12]\d|3[01])\s+([01]\d|2[0-3]):([0-5]\d):([0-5]\d)/
-    );
-    if (exifMatch) {
-      const [, y, m, d, hh, mm, ss] = exifMatch;
-      const parsed = new Date(
-        Number(y),
-        Number(m) - 1,
-        Number(d),
-        Number(hh),
-        Number(mm),
-        Number(ss)
-      );
-      if (!isNaN(parsed.getTime()) && parsed.getFullYear() >= 2000 && parsed.getFullYear() <= 2040) {
-        return parsed;
-      }
-    }
-
-    // 1-D. 파일 끝부분(tail 1MB)에서도 QuickTime moov가 있을 수 있음
+    let tailBuffer: ArrayBuffer | null = null;
+    let tailText = '';
     if (file.size > headerChunkSize) {
-      const tailStart = Math.max(0, file.size - 1024 * 1024);
-      const tailBuffer = await file.slice(tailStart).arrayBuffer();
-      const tailText = decoder.decode(tailBuffer);
+      const tailSize = Math.min(file.size - headerChunkSize, 1024 * 1024 * 8);
+      const tailStart = file.size - tailSize;
+      tailBuffer = await file.slice(tailStart).arrayBuffer();
+      tailText = decoder.decode(tailBuffer);
+    }
 
-      const tailAppleMatch = tailText.match(
-        /com\.apple\.quicktime\.creationdate[^\d]*(\d{4}[-/.][01]\d[-/.][0-3]\d(?:[T\s][0-2]\d:[0-5]\d:[0-5]\d(?:\.\d+)?(?:[+-][0-2]\d:?[0-5]\d|Z)?)?)/i
-      );
-      if (tailAppleMatch && tailAppleMatch[1]) {
-        const parsed = new Date(tailAppleMatch[1]);
+    // 1-A. [최우선 1순위] iPhone / Apple QuickTime 원본 촬영일시 태그 (com.apple.quicktime.creationdate)
+    // iOS 카메라 앱이 기록하는 실제 촬영 일시 및 타임존 (+09:00 등)
+    const appleHeaderDate = findDateAfterKey(headerText, 'com.apple.quicktime.creationdate');
+    if (appleHeaderDate) return appleHeaderDate;
+
+    if (tailText) {
+      const appleTailDate = findDateAfterKey(tailText, 'com.apple.quicktime.creationdate');
+      if (appleTailDate) return appleTailDate;
+    }
+
+    // 1-B. [2순위] QuickTime User Data ©day 태그
+    const dayHeaderDate = findDateAfterKey(headerText, '\xa9day') || findDateAfterKey(headerText, '©day');
+    if (dayHeaderDate) return dayHeaderDate;
+
+    if (tailText) {
+      const dayTailDate = findDateAfterKey(tailText, '\xa9day') || findDateAfterKey(tailText, '©day');
+      if (dayTailDate) return dayTailDate;
+    }
+
+    // 1-C. [3순위] EXIF DateTimeOriginal / CreateDate (사진 및 일부 비디오)
+    const exifRegex = /(\d{4}):(0[1-9]|1[0-2]):(0[1-9]|[12]\d|3[01])\s+([01]\d|2[0-3]):([0-5]\d):([0-5]\d)/;
+    const exifHeaderMatch = headerText.match(exifRegex);
+    if (exifHeaderMatch) {
+      const [, y, m, d, hh, mm, ss] = exifHeaderMatch;
+      const parsed = new Date(Number(y), Number(m) - 1, Number(d), Number(hh), Number(mm), Number(ss));
+      if (!isNaN(parsed.getTime()) && parsed.getFullYear() >= 2000 && parsed.getFullYear() <= 2040) {
+        return parsed;
+      }
+    }
+
+    if (tailText) {
+      const exifTailMatch = tailText.match(exifRegex);
+      if (exifTailMatch) {
+        const [, y, m, d, hh, mm, ss] = exifTailMatch;
+        const parsed = new Date(Number(y), Number(m) - 1, Number(d), Number(hh), Number(mm), Number(ss));
         if (!isNaN(parsed.getTime()) && parsed.getFullYear() >= 2000 && parsed.getFullYear() <= 2040) {
           return parsed;
         }
       }
+    }
 
-      // Tail mvhd
-      const tailBytes = new Uint8Array(tailBuffer);
-      const tailView = new DataView(tailBuffer);
-      for (let i = 0; i < tailBytes.length - 16; i++) {
-        if (
-          tailBytes[i] === 0x6d &&
-          tailBytes[i + 1] === 0x76 &&
-          tailBytes[i + 2] === 0x68 &&
-          tailBytes[i + 3] === 0x64
-        ) {
-          const version = tailView.getUint8(i + 4);
-          let creationSec = 0;
-          if (version === 0) {
-            creationSec = tailView.getUint32(i + 8, false);
-          } else if (version === 1 && i + 16 < tailBytes.length) {
-            creationSec = Number(tailView.getBigUint64(i + 8, false));
-          }
-          if (creationSec > 2082844800) {
-            const unixMs = (creationSec - 2082844800) * 1000;
-            const candidate = new Date(unixMs);
-            const year = candidate.getFullYear();
-            if (year >= 2000 && year <= 2040) {
-              return candidate;
-            }
-          }
-        }
-      }
+    // 1-D. [4순위] 파일명에서 날짜 패턴 파싱 (카톡 다운로드, 갤럭시 포맷, 클라우드 다운로드 등)
+    const filenameDate = parseDateFromFilename(file.name);
+    if (filenameDate) {
+      return filenameDate;
+    }
+
+    // 1-E. [5순위] QuickTime / MP4 mvhd 박스 파싱 (컨테이너 생성 시간)
+    // 원본 메타데이터가 없는 일반 MP4 파일의 경우 유용
+    const mvhdHeaderDate = findMvhdCreationDate(new DataView(headerBuffer));
+    if (mvhdHeaderDate) return mvhdHeaderDate;
+
+    if (tailBuffer) {
+      const mvhdTailDate = findMvhdCreationDate(new DataView(tailBuffer));
+      if (mvhdTailDate) return mvhdTailDate;
     }
   } catch (err) {
     console.debug('[videoMetadata] 촬영일 메타데이터 파싱 건너뜀 (fallback으로 전환):', err);
   }
 
-  // 1-E. 파일명에서 날짜 패턴 보조 파싱 (카카오톡, 삼성 갤럭시, 아이폰 등)
-  const filenameDate = parseDateFromFilename(file.name);
-  if (filenameDate) {
-    return filenameDate;
-  }
-
-  // 2. 파일 시스템 수정일 (lastModified) fallback
+  // 2. 파일 시스템 수정일 (lastModified) fallback (데스크탑 업로드 시 원본 일시 보존됨)
   if (file.lastModified) {
     return new Date(file.lastModified);
   }
@@ -669,36 +715,69 @@ export function formatVideoDate(
 
 /**
  * 사진(JPEG, WebP 등) 및 영상(MP4, MOV 등)에서 GPS 좌표를 파싱
+ * - QuickTime com.apple.quicktime.location.ISO6709 또는 ©xyz
  * - ISO 6709 패턴 (+/-DD.DDDD+/-DDD.DDDD)
  * - EXIF GPS IFD 태그 (JPEG 등 사진 파일)
  */
 export async function extractGpsFromVideoFile(file: File): Promise<{ latitude: number; longitude: number } | null> {
   try {
-    const headerChunkSize = Math.min(file.size, 1024 * 1024 * 2);
+    const headerChunkSize = Math.min(file.size, 1024 * 1024 * 4);
     const headerBuffer = await file.slice(0, headerChunkSize).arrayBuffer();
     const decoder = new TextDecoder('latin1');
     const headerText = decoder.decode(headerBuffer);
 
-    // ISO 6709 패턴: +/-DD.DDDD+/-DDD.DDDD (위도, 경도)
-    const iso6709Regex = /([+-]\d{2}\.\d{3,})([+-]\d{3}\.\d{3,})/;
-    let match = headerText.match(iso6709Regex);
-
-    if (!match && file.size > headerChunkSize) {
-      const tailStart = Math.max(0, file.size - 1024 * 1024);
+    let tailText = '';
+    if (file.size > headerChunkSize) {
+      const tailSize = Math.min(file.size - headerChunkSize, 1024 * 1024 * 8);
+      const tailStart = file.size - tailSize;
       const tailBuffer = await file.slice(tailStart).arrayBuffer();
-      const tailText = decoder.decode(tailBuffer);
-      match = tailText.match(iso6709Regex);
+      tailText = decoder.decode(tailBuffer);
     }
 
-    if (match) {
-      const lat = parseFloat(match[1]);
-      const lng = parseFloat(match[2]);
-      if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
-        return { latitude: lat, longitude: lng };
+    const iso6709Regex = /([+-]\d{2,3}\.\d{3,})([+-]\d{2,3}\.\d{3,})/;
+
+    // 1. Apple QuickTime location 메타데이터 키 검색
+    for (const text of [headerText, tailText]) {
+      if (!text) continue;
+      const locKeyIdx = text.indexOf('com.apple.quicktime.location.ISO6709');
+      if (locKeyIdx !== -1) {
+        const chunk = text.slice(locKeyIdx + 36, locKeyIdx + 150);
+        const match = chunk.match(iso6709Regex);
+        if (match) {
+          const lat = parseFloat(match[1]);
+          const lng = parseFloat(match[2]);
+          if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+            return { latitude: lat, longitude: lng };
+          }
+        }
+      }
+
+      // QuickTime ©xyz
+      const xyzKeyIdx = text.indexOf('\xa9xyz') !== -1 ? text.indexOf('\xa9xyz') : text.indexOf('©xyz');
+      if (xyzKeyIdx !== -1) {
+        const chunk = text.slice(xyzKeyIdx + 4, xyzKeyIdx + 100);
+        const match = chunk.match(iso6709Regex);
+        if (match) {
+          const lat = parseFloat(match[1]);
+          const lng = parseFloat(match[2]);
+          if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+            return { latitude: lat, longitude: lng };
+          }
+        }
+      }
+
+      // 일반 ISO 6709 검색
+      const generalMatch = text.match(iso6709Regex);
+      if (generalMatch) {
+        const lat = parseFloat(generalMatch[1]);
+        const lng = parseFloat(generalMatch[2]);
+        if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+          return { latitude: lat, longitude: lng };
+        }
       }
     }
 
-    // EXIF GPS 태그 파싱 (사진 파일)
+    // 2. EXIF GPS 태그 파싱 (사진 파일)
     const exifGps = parseExifGps(headerBuffer);
     if (exifGps) {
       return exifGps;
