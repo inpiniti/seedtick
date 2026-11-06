@@ -2204,7 +2204,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     : dict.header.reStitch}
                 </span>
               </button>
-            ) : null
+            ) : (
+              <button
+                type="button"
+                className="toss-nav-cta-btn"
+                onClick={handleDownload}
+                title={dict.header.downloadTitle}
+              >
+                <Download size={14} />
+                <span>{dict.header.download} ({formatSec(totalDuration)})</span>
+              </button>
+            )
           )}
 
             </>
@@ -3145,15 +3155,40 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             {/* 완성 영상 다운로드 및 유튜브 호환 자막 다운로드 */}
             {Boolean(result?.url) && (
               <div className="toss-timeline-actions">
-                <button
-                  type="button"
-                  className="toss-btn-download-video"
-                  onClick={handleDownload}
-                  title={dict.header.downloadTitle}
-                >
-                  <Download size={15} />
-                  <span>{dict.header.download} ({formatSec(totalDuration)})</span>
-                </button>
+                {isModified || isReStitching ? (
+                  <button
+                    type="button"
+                    className={`toss-btn-download-video toss-btn-restitch-timeline ${isReStitching ? 'loading' : ''}`}
+                    onClick={() =>
+                      onReStitch(
+                        segments,
+                        selectedBgmId,
+                        bgmVolume,
+                        customAudioFile,
+                        effectiveOverlayOptions
+                      )
+                    }
+                    disabled={isReStitching || segments.length === 0}
+                    title={dict.header.reStitchTitle}
+                  >
+                    <Scissors size={15} className={isReStitching ? 'animate-spin' : ''} />
+                    <span>
+                      {isReStitching
+                        ? `${dict.header.stitching} (${reStitchProgress?.progressPercent ?? 0}%)`
+                        : dict.header.reStitch}
+                    </span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="toss-btn-download-video"
+                    onClick={handleDownload}
+                    title={dict.header.downloadTitle}
+                  >
+                    <Download size={15} />
+                    <span>{dict.header.download} ({formatSec(totalDuration)})</span>
+                  </button>
+                )}
 
                 <button
                   type="button"

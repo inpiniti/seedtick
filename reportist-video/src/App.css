@@ -3646,6 +3646,21 @@
   transform: translateY(0);
 }
 
+.toss-btn-download-video:disabled {
+  background-color: #a8c7fa;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.toss-btn-download-video.loading {
+  background-color: #2b70d3;
+}
+
+.toss-btn-restitch-timeline {
+  animation: tossButtonPop 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 /* Segments Timeline List (독립 패널 내에서 자연스럽게 스크롤되도록 설정) */
 .toss-segment-list {
   display: flex;
