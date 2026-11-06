@@ -416,44 +416,78 @@ export function captureVideoFrameFromElement(
 
 /**
  * 텍스트를 줄바꿈하여 여러 줄 배열로 반환합니다.
+ * - 단어(어절) 단위 줄바꿈을 기본으로 하되, 긴 단어는 글자 단위로 분할합니다.
+ * - 사용자가 직접 입력한 줄바꿈(\n)을 존중합니다.
+ * - 최대 줄 수(maxLines, 기본 3줄)를 초과하면 마지막 줄 끝에 말줄임표(...)를 붙입니다.
  */
 function wrapText(
   ctx: CanvasRenderingContext2D,
   text: string,
-  maxWidth: number
+  maxWidth: number,
+  maxLines = 3
 ): string[] {
-  // 사용자가 직접 줄바꿈(\n)을 넣은 경우 먼저 분리
-  const rawLines = text.split('\n');
-  const result: string[] = [];
+  const rawParagraphs = text.split('\n');
+  const lines: string[] = [];
 
-  for (const rawLine of rawLines) {
-    if (!rawLine) {
-      result.push('');
+  for (const paragraph of rawParagraphs) {
+    if (!paragraph.trim()) {
       continue;
     }
 
-    const words = rawLine.split(' ');
+    const words = paragraph.split(' ');
     let currentLine = '';
 
     for (let i = 0; i < words.length; i++) {
       const word = words[i];
+      if (!word) continue;
+
       const testLine = currentLine ? `${currentLine} ${word}` : word;
       const metrics = ctx.measureText(testLine);
 
-      if (metrics.width > maxWidth && currentLine) {
-        result.push(currentLine);
-        currentLine = word;
+      if (metrics.width > maxWidth) {
+        if (currentLine) {
+          lines.push(currentLine);
+          currentLine = '';
+        }
+
+        // 단어 자체가 maxWidth보다 긴 경우 글자 단위로 안전하게 분할
+        const singleWordMetrics = ctx.measureText(word);
+        if (singleWordMetrics.width > maxWidth) {
+          let charBuf = '';
+          for (const char of word) {
+            const testChar = charBuf + char;
+            if (ctx.measureText(testChar).width > maxWidth && charBuf) {
+              lines.push(charBuf);
+              charBuf = char;
+            } else {
+              charBuf = testChar;
+            }
+          }
+          currentLine = charBuf;
+        } else {
+          currentLine = word;
+        }
       } else {
         currentLine = testLine;
       }
     }
 
     if (currentLine) {
-      result.push(currentLine);
+      lines.push(currentLine);
     }
   }
 
-  return result;
+  if (lines.length > maxLines) {
+    const trimmed = lines.slice(0, maxLines);
+    let last = trimmed[maxLines - 1];
+    while (last.length > 0 && ctx.measureText(last + '...').width > maxWidth) {
+      last = last.slice(0, -1);
+    }
+    trimmed[maxLines - 1] = last ? `${last.trim()}...` : '...';
+    return trimmed;
+  }
+
+  return lines;
 }
 
 /**
@@ -477,16 +511,32 @@ export function renderThumbnailArtwork(
   // 상단 왼쪽 문구, 오른쪽 문구, 날짜 등의 문구는 썸네일 이미지에 일체 표시되지 않아야 하므로 렌더링하지 않습니다.
   const shouldRenderTitle = Boolean(options.showTitle && options.titleText && options.titleText.trim());
 
-  // 타이틀이 활성화된 경우에만 하단 가독성 그라데이션 및 비네팅 적용
+  // 2. 타이틀 텍스트 준비 및 줄바꿈 (줄 수에 맞춰 하단 그라데이션 높이 동적 조절)
+  let lines: string[] = [];
+  const fontSize = 52; // 글씨 양에 따른 폰트 축소 없이 일관된 크기(52px) 유지
+  const lineHeight = Math.round(fontSize * 1.25);
+
   if (shouldRenderTitle) {
-    // 하단 딥 다크 그라데이션 (타이틀 가독성 극대화)
-    const bottomGrad = ctx.createLinearGradient(0, targetHeight - 380, 0, targetHeight);
+    const rawTitle = options.titleText.trim();
+    ctx.save();
+    ctx.font = `900 ${fontSize}px -apple-system, BlinkMacSystemFont, "Pretendard", "Noto Sans KR", sans-serif`;
+    const maxTextWidth = targetWidth - 110;
+    // 글씨가 길어지면 크기 축소 없이 2줄, 3줄로 자연스럽게 늘어남 (최대 3줄)
+    lines = wrapText(ctx, rawTitle, maxTextWidth, 3);
+    ctx.restore();
+  }
+
+  // 타이틀이 활성화된 경우에만 하단 가독성 그라데이션 및 비네팅 적용
+  if (shouldRenderTitle && lines.length > 0) {
+    // 텍스트 줄 수(1줄~3줄)에 맞춰 하단 그라데이션 높이를 동적으로 최적화
+    const gradHeight = Math.max(380, 220 + lines.length * 75);
+    const bottomGrad = ctx.createLinearGradient(0, targetHeight - gradHeight, 0, targetHeight);
     bottomGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-    bottomGrad.addColorStop(0.35, 'rgba(0, 0, 0, 0.45)');
-    bottomGrad.addColorStop(0.8, 'rgba(0, 0, 0, 0.85)');
-    bottomGrad.addColorStop(1, 'rgba(0, 0, 0, 0.95)');
+    bottomGrad.addColorStop(0.3, 'rgba(0, 0, 0, 0.45)');
+    bottomGrad.addColorStop(0.75, 'rgba(0, 0, 0, 0.85)');
+    bottomGrad.addColorStop(1, 'rgba(0, 0, 0, 0.96)');
     ctx.fillStyle = bottomGrad;
-    ctx.fillRect(0, targetHeight - 380, targetWidth, 380);
+    ctx.fillRect(0, targetHeight - gradHeight, targetWidth, gradHeight);
 
     // 비네팅 (가장자리 어둡게)
     const vignette = ctx.createRadialGradient(
@@ -503,22 +553,11 @@ export function renderThumbnailArtwork(
     ctx.fillRect(0, 0, targetWidth, targetHeight);
   }
 
-  // 2. 메인 타이틀 텍스트 렌더링 (사용자가 원할 때만 하단에 렌더링)
-  if (shouldRenderTitle) {
-    const rawTitle = options.titleText.trim();
+  // 3. 메인 타이틀 텍스트 렌더링
+  if (shouldRenderTitle && lines.length > 0) {
     ctx.save();
-
-    // 타이틀 길이에 따라 폰트 크기 자동 조절
-    let fontSize = 54;
-    if (rawTitle.length > 25) fontSize = 44;
-    if (rawTitle.length > 40) fontSize = 38;
-
     ctx.font = `900 ${fontSize}px -apple-system, BlinkMacSystemFont, "Pretendard", "Noto Sans KR", sans-serif`;
 
-    const maxTextWidth = targetWidth - 110;
-    const lines = wrapText(ctx, rawTitle, maxTextWidth).slice(0, 2); // 최대 2줄 표시
-
-    const lineHeight = fontSize * 1.25;
     const totalTextHeight = lines.length * lineHeight;
     const startY = targetHeight - 56 - totalTextHeight + fontSize;
 
@@ -553,7 +592,7 @@ export function renderThumbnailArtwork(
 
         // 두꺼운 블랙 스트로크 외곽선
         ctx.strokeStyle = '#000000';
-        ctx.lineWidth = Math.max(6, Math.round(fontSize * 0.14));
+        ctx.lineWidth = Math.max(7, Math.round(fontSize * 0.15));
         ctx.lineJoin = 'round';
         ctx.miterLimit = 2;
         ctx.strokeText(line, textX, lineY);
@@ -569,7 +608,7 @@ export function renderThumbnailArtwork(
         ctx.textAlign = 'left';
         ctx.fillText(line, textX, lineY);
 
-        // 첫 번째 줄 또는 특정 단어에 옐로우 하이라이트 효과 (옵션)
+        // 첫 번째 줄에 옐로우 하이라이트 효과 (여러 줄일 때)
         if (index === 0 && lines.length > 1) {
           ctx.fillStyle = '#fef08a'; // 부드러운 옐로우
           ctx.fillText(line, textX, lineY);

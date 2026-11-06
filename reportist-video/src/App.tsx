@@ -1006,12 +1006,31 @@ export function App() {
       }
 
       // AI가 추천한 제목이 있고, 사용자가 직접 수정한 제목이 없으면 자동 적용
-      if (aiDiscoveredTitle) {
-        if (!overlayOpts?.titleText || overlayOpts.titleText === dict.player.defaultTitleText) {
-          if (overlayOpts) {
-            overlayOpts.titleText = aiDiscoveredTitle;
-            overlayOpts.showTitle = true;
-          }
+      const isDefaultOrEmptyTitle =
+        !overlayOpts?.titleText ||
+        !overlayOpts.titleText.trim() ||
+        overlayOpts.titleText.trim() === dict.player.defaultTitleText.trim();
+
+      if (aiDiscoveredTitle && isDefaultOrEmptyTitle) {
+        if (!overlayOpts) {
+          overlayOpts = {
+            showTitle: true,
+            titleText: aiDiscoveredTitle,
+            showChannel: true,
+            channelText: dict.player.defaultChannelText,
+            showSubtitle: true,
+            showDate: false,
+            subtitleDateText: '',
+            subtitleLocationText: '',
+            showIntro: false,
+            showOutro: false,
+            showChapterBridge: true,
+            introVideoFile: null,
+            outroVideoFile: null,
+          };
+        } else {
+          overlayOpts.titleText = aiDiscoveredTitle;
+          overlayOpts.showTitle = true;
         }
       }
 
@@ -1118,7 +1137,9 @@ export function App() {
           cleanThumbnailUrl = bgCanvas.toDataURL('image/jpeg', 0.95);
 
           const finalTitle =
-            overlayOpts?.titleText || aiDiscoveredTitle || dict.player.defaultTitleText;
+            (aiDiscoveredTitle && isDefaultOrEmptyTitle)
+              ? aiDiscoveredTitle
+              : overlayOpts?.titleText || aiDiscoveredTitle || dict.player.defaultTitleText;
 
           // 썸네일 아트워크 생성 (상단 왼쪽 문구, 오른쪽 문구, 날짜 등 일체 미포함)
           const thumbCanvas = renderThumbnailArtwork(bgCanvas, {

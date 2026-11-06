@@ -842,10 +842,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
 
     let effectiveTitle = overlayOptions.titleText || dict.player.defaultTitleText;
+    const isDefaultOrEmptyTitle =
+      !overlayOptions.titleText ||
+      !overlayOptions.titleText.trim() ||
+      overlayOptions.titleText.trim() === dict.player.defaultTitleText.trim();
+
     if (result?.suggestedTitle && appliedSuggestedTitleRef.current !== result.suggestedTitle) {
       appliedSuggestedTitleRef.current = result.suggestedTitle;
-      const isDefault = !overlayOptions.titleText || overlayOptions.titleText === dict.player.defaultTitleText;
-      if (isDefault || overlayOptions.titleText === result.suggestedTitle) {
+      if (isDefaultOrEmptyTitle || overlayOptions.titleText === result.suggestedTitle) {
         effectiveTitle = result.suggestedTitle;
         setOverlayOptions((prev) => ({
           ...prev,
@@ -880,35 +884,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
     if (result?.thumbnailUrl) {
       setThumbnailUrl(result.thumbnailUrl);
-
-      // 이미 완성된 썸네일 이미지를 배경 캔버스로 즉시 캐시해두어 실시간 편집 보장
-      const img = new Image();
-      img.onload = () => {
-        const c = document.createElement('canvas');
-        c.width = img.naturalWidth || 1280;
-        c.height = img.naturalHeight || 720;
-        const ctx = c.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0);
-          if (!thumbnailBgCanvasRef.current) {
-            thumbnailBgCanvasRef.current = c;
-          }
-        }
-      };
-      img.onerror = () => {
-        // 썸네일 이미지 로드 실패 시 조용히 스킵
-      };
-      img.src = result.thumbnailUrl;
     }
 
-    // 썸네일용 배경 프레임 캔버스 캡처/캐싱 (실시간 타이틀 편집 지원)
+    // 썸네일용 클린 배경 프레임 캔버스 캡처/캐싱 (실시간 타이틀 편집 지원)
+    // 주의: 이미 텍스트가 박힌 thumbnailUrl은 절대 배경 캔버스로 사용하지 않음
     const prepareThumbnailBg = async () => {
       try {
         let bg: HTMLCanvasElement | null = null;
         const targetVideo =
           videos.find((v) => v.id === result?.bestSourceVideoId) || videos[0];
 
-        // 1. 소스 비디오에서 직접 캡처 시도 (오버레이 및 문구 일체 없는 순수 원본 영상, 유효한 파일 크기일 때만)
+        // 1. 소스 비디오에서 직접 캡처 시도 (오버레이 및 문구 일체 없는 순수 원본 영상)
         if (targetVideo?.url && targetVideo.file && targetVideo.file.size > 0) {
           const targetTime =
             result?.bestThumbnailTime && result.bestThumbnailTime > 0.05
@@ -934,7 +920,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           }
         }
 
-        // 2. 소스 비디오 캡처 실패 시, 저장된 클린 이미지(dataUrl) 활용 (절대로 result.url은 사용 안 함!)
+        // 2. 소스 비디오 캡처 실패 시, 저장된 클린 이미지(dataUrl) 활용
         if (!bg && result?.cleanThumbnailUrl) {
           try {
             bg = await createCanvasFromImageDataUrl(result.cleanThumbnailUrl, 1280, 720);
@@ -947,11 +933,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
         if (bg) {
           thumbnailBgCanvasRef.current = bg;
+          // 클로저의 옛날 titleText 대신 계산된 effectiveTitle을 적용하여 썸네일 불일치 원천 방지
+          const titleToRender = effectiveTitle || overlayOptions.titleText;
           const artCanvas = renderThumbnailArtwork(bg, {
-            titleText: overlayOptions.titleText,
+            titleText: titleToRender,
             channelText: '',
             badgeText: '',
-            showTitle: showThumbnailTitle && Boolean(overlayOptions.titleText?.trim()),
+            showTitle: showThumbnailTitle && Boolean(titleToRender?.trim()),
             showBadge: false,
             showChannel: false,
             stylePreset: thumbnailStyle,
@@ -970,25 +958,38 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
   // 타이틀/스타일 변경 시 실시간 썸네일 재렌더링
   useEffect(() => {
-    if (!thumbnailBgCanvasRef.current) return;
-    try {
-      const artCanvas = renderThumbnailArtwork(thumbnailBgCanvasRef.current, {
-        titleText: overlayOptions.titleText,
-        channelText: '',
-        badgeText: '',
-        showTitle: showThumbnailTitle && Boolean(overlayOptions.titleText?.trim()),
-        showBadge: false,
-        showChannel: false,
-        stylePreset: thumbnailStyle,
-      });
-      setThumbnailUrl(artCanvas.toDataURL('image/jpeg', 0.95));
-    } catch (e) {
-      console.warn('Live thumbnail render failed:', e);
+    const renderWithBg = (bg: HTMLCanvasElement) => {
+      try {
+        const artCanvas = renderThumbnailArtwork(bg, {
+          titleText: overlayOptions.titleText,
+          channelText: '',
+          badgeText: '',
+          showTitle: showThumbnailTitle && Boolean(overlayOptions.titleText?.trim()),
+          showBadge: false,
+          showChannel: false,
+          stylePreset: thumbnailStyle,
+        });
+        setThumbnailUrl(artCanvas.toDataURL('image/jpeg', 0.95));
+      } catch (e) {
+        console.warn('Live thumbnail render failed:', e);
+      }
+    };
+
+    if (thumbnailBgCanvasRef.current) {
+      renderWithBg(thumbnailBgCanvasRef.current);
+    } else if (result?.cleanThumbnailUrl) {
+      createCanvasFromImageDataUrl(result.cleanThumbnailUrl, 1280, 720)
+        .then((bg) => {
+          thumbnailBgCanvasRef.current = bg;
+          renderWithBg(bg);
+        })
+        .catch(() => {});
     }
   }, [
     overlayOptions.titleText,
     thumbnailStyle,
     showThumbnailTitle,
+    result?.cleanThumbnailUrl,
   ]);
 
   // 하이라이트 전 원본 영상 미리보기 모드 (AI 결과가 없고 시퀀스 클립도 없는 상태)
