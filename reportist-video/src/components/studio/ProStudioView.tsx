@@ -244,6 +244,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const isScrubbingRef = useRef<boolean>(false);
   const wasPlayingBeforeScrubRef = useRef<boolean>(false);
   const scrubRafRef = useRef<number | null>(null);
+  const pendingScrubTimeRef = useRef<number | null>(null);
+  const isRafSeekingRef = useRef<boolean>(false);
   const suppressSegmentClickRef = useRef<boolean>(false);
   const [isScrubbing, setIsScrubbing] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
@@ -253,6 +255,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       if (scrubRafRef.current) {
         cancelAnimationFrame(scrubRafRef.current);
       }
+      isRafSeekingRef.current = false;
+      pendingScrubTimeRef.current = null;
     };
   }, []);
 
@@ -1298,12 +1302,66 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   };
 
+  // 타임라인 시간(0 ~ totalDuration)을 현재 활성 비디오 엘리먼트의 currentTime으로 변환
+  const mapTimelineToMediaTime = (timelineTime: number): { time: number; videoId?: string } => {
+    const clampedTimeline = Math.max(0, Math.min(totalDuration, timelineTime));
+    if (result?.url) {
+      // 합성된 완성 영상일 때는 타임라인 시간과 비디오 시간이 1:1로 일치
+      return { time: clampedTimeline };
+    }
+    // 합성 전(result.url 없음): 세그먼트 기반 프리뷰
+    if (segments.length === 0) {
+      return { time: clampedTimeline };
+    }
+    if (introDuration > 0 && clampedTimeline < introDuration) {
+      return { time: 0, videoId: segments[0]?.sourceVideoId };
+    }
+    if (outroDuration > 0 && clampedTimeline >= totalDuration - outroDuration) {
+      const lastSeg = segments[segments.length - 1];
+      return { time: lastSeg?.end || 0, videoId: lastSeg?.sourceVideoId };
+    }
+
+    // 타임라인 위치에 해당하는 세그먼트 탐색
+    for (const seg of segments) {
+      const offset = segmentTimelineOffsets[seg.id];
+      if (!offset) continue;
+      if (clampedTimeline >= offset.bridgeStartOffset && clampedTimeline <= offset.endOffset) {
+        const elapsed = Math.max(0, clampedTimeline - offset.startOffset);
+        const mappedTime = Math.min(seg.end, Math.max(seg.start, seg.start + elapsed));
+        return { time: mappedTime, videoId: seg.sourceVideoId };
+      }
+    }
+
+    const fallbackSeg = segments[0];
+    return { time: fallbackSeg?.start || 0, videoId: fallbackSeg?.sourceVideoId };
+  };
+
+  // 비디오 프레임 시크 (fastSeek 버그 방지 및 iOS Safari 포함 즉각적인 프레임 렌더링 보장)
+  const applyVideoSeek = (timelineTime: number) => {
+    const v = videoRef.current;
+    if (!v) return;
+
+    const { time: mediaTime, videoId } = mapTimelineToMediaTime(timelineTime);
+
+    if (!result?.url && videoId && videoId !== previewVideoId) {
+      setPreviewVideoId(videoId);
+    }
+
+    try {
+      // Safari/WebKit fastSeek 버그 회피: 일시정지 상태에서 fastSeek는 화면이 갱신되지 않으므로
+      // 직접 currentTime을 설정하여 항상 즉시 디코딩된 프레임이 화면에 렌더링되도록 함
+      v.currentTime = mediaTime;
+    } catch (err) {
+      console.warn('[VideoPlayer] Video seek failed:', err);
+    }
+  };
+
   // 상대 시간 이동 (-5s, +5s)
   const seekRelative = (delta: number) => {
     const v = videoRef.current;
     if (!v) return;
     const newT = Math.max(0, Math.min(totalDuration, (v.currentTime || currentTime) + delta));
-    v.currentTime = newT;
+    applyVideoSeek(newT);
     setCurrentTime(newT);
   };
 
@@ -1343,37 +1401,35 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
 
     setCurrentTime(clampedTime);
-    if (v) {
-      if (typeof (v as any).fastSeek === 'function') {
-        (v as any).fastSeek(clampedTime);
-      } else {
-        v.currentTime = clampedTime;
-      }
-    }
+    applyVideoSeek(clampedTime);
   };
 
   // 스크러빙 진행 (마우스/터치 드래그 중 실시간 위치 및 비디오 프레임 갱신)
   const updateScrubTime = (targetTime: number) => {
     if (!totalDuration || totalDuration <= 0) return;
     const clampedTime = Math.max(0, Math.min(totalDuration, targetTime));
-    setCurrentTime(clampedTime);
 
-    if (scrubRafRef.current) {
-      cancelAnimationFrame(scrubRafRef.current);
-    }
-    scrubRafRef.current = requestAnimationFrame(() => {
-      if (videoRef.current) {
-        if (typeof (videoRef.current as any).fastSeek === 'function') {
-          (videoRef.current as any).fastSeek(clampedTime);
-        } else {
-          videoRef.current.currentTime = clampedTime;
+    // UI(타임라인 빨간 선 및 타임코드)는 지연 없이 즉각 반응 (60fps)
+    setCurrentTime(clampedTime);
+    pendingScrubTimeRef.current = clampedTime;
+
+    // 비디오 디코딩 시크는 requestAnimationFrame으로 쓰로틀링하되 이전 요청 취소 없이 누락 없이 갱신
+    if (!isRafSeekingRef.current) {
+      isRafSeekingRef.current = true;
+      scrubRafRef.current = requestAnimationFrame(() => {
+        isRafSeekingRef.current = false;
+        scrubRafRef.current = null;
+        if (pendingScrubTimeRef.current !== null) {
+          applyVideoSeek(pendingScrubTimeRef.current);
         }
-      }
-    });
+      });
+    }
   };
 
   // 스크러빙 종료 (마우스/터치 릴리즈)
   const stopScrubbing = (finalTime?: number) => {
+    isRafSeekingRef.current = false;
+    pendingScrubTimeRef.current = null;
     if (scrubRafRef.current) {
       cancelAnimationFrame(scrubRafRef.current);
       scrubRafRef.current = null;
@@ -1384,14 +1440,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
     const v = videoRef.current;
     if (v) {
-      if (typeof finalTime === 'number' && Number.isFinite(finalTime)) {
-        const clampedFinal = Math.max(0, Math.min(totalDuration, finalTime));
-        v.currentTime = clampedFinal;
-        setCurrentTime(clampedFinal);
-      }
+      const clampedFinal =
+        typeof finalTime === 'number' && Number.isFinite(finalTime)
+          ? Math.max(0, Math.min(totalDuration, finalTime))
+          : currentTime;
+
+      setCurrentTime(clampedFinal);
+      applyVideoSeek(clampedFinal);
+
       if (
         wasPlayingBeforeScrubRef.current &&
-        (typeof finalTime !== 'number' || finalTime < totalDuration - 0.1)
+        clampedFinal < totalDuration - 0.1
       ) {
         v.play().catch(() => {});
       }
@@ -1405,6 +1464,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     if (!totalDuration) return;
 
     e.preventDefault();
+    const pointerId = e.pointerId;
+    const trackEl = e.currentTarget;
+    try {
+      trackEl.setPointerCapture(pointerId);
+    } catch {}
+
     const initialTime = calculateTimeFromProgressEvent(e.clientX);
     startScrubbing(initialTime);
 
@@ -1415,6 +1480,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     };
 
     const cleanup = () => {
+      try {
+        if (trackEl.hasPointerCapture(pointerId)) {
+          trackEl.releasePointerCapture(pointerId);
+        }
+      } catch {}
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('pointercancel', handlePointerUp);
@@ -1438,7 +1508,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     window.addEventListener('blur', handleBlur);
   };
 
-  // 2. 시퀀서 타임라인 마우스/터치 드래그 시작
+  // 2. 시퀀서 타임라인 마우스/터치 드래그 시작 (빨간선 플레이헤드 즉시 드래그 및 실시간 영상 변경)
   const handleSequencerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
     if (!totalDuration) return;
@@ -1447,12 +1517,24 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     // 클립 삭제 버튼 클릭은 드래그/시크 대상에서 제외
     if (target.closest('.toss-sequencer-block-delete')) return;
 
+    const pointerId = e.pointerId;
+    const canvasEl = e.currentTarget;
+    try {
+      canvasEl.setPointerCapture(pointerId);
+    } catch {}
+
     const isBlock = Boolean(target.closest('.toss-sequencer-block'));
+    const isPlayhead = Boolean(
+      target.closest('.toss-sequencer-playhead') ||
+      target.closest('.toss-playhead-cap') ||
+      target.closest('.toss-playhead-line')
+    );
+
     const startX = e.clientX;
     let hasMoved = false;
 
-    if (!isBlock) {
-      // 룰러, 빨간선(플레이헤드), 오디오 트랙, 빈 캔버스 클릭 시 즉시 시크 & 스크러빙 시작
+    // 플레이헤드, 룰러, 오디오 트랙, 빈 캔버스 클릭 시 즉시 시크 & 스크러빙 시작
+    if (!isBlock || isPlayhead) {
       e.preventDefault();
       const initialTime = calculateTimeFromSequencerEvent(startX);
       startScrubbing(initialTime);
@@ -1460,24 +1542,30 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
       const currentX = moveEvent.clientX;
+      const deltaX = Math.abs(currentX - startX);
 
-      if (isBlock && !hasMoved) {
-        if (Math.abs(currentX - startX) >= 4) {
-          hasMoved = true;
-          suppressSegmentClickRef.current = true;
+      if (!hasMoved && deltaX >= 3) {
+        hasMoved = true;
+        suppressSegmentClickRef.current = true;
+        if (isBlock && !isPlayhead) {
           const startTime = calculateTimeFromSequencerEvent(currentX);
           startScrubbing(startTime);
-        } else {
-          return;
         }
       }
 
-      moveEvent.preventDefault();
-      const moveTime = calculateTimeFromSequencerEvent(currentX);
-      updateScrubTime(moveTime);
+      if (hasMoved || !isBlock || isPlayhead) {
+        moveEvent.preventDefault();
+        const moveTime = calculateTimeFromSequencerEvent(currentX);
+        updateScrubTime(moveTime);
+      }
     };
 
     const cleanup = () => {
+      try {
+        if (canvasEl.hasPointerCapture(pointerId)) {
+          canvasEl.releasePointerCapture(pointerId);
+        }
+      } catch {}
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('pointercancel', handlePointerUp);
@@ -1487,16 +1575,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     const handlePointerUp = (upEvent: PointerEvent) => {
       cleanup();
 
-      if (isBlock && !hasMoved) {
+      if (isBlock && !isPlayhead && !hasMoved) {
         // 클립 단순 클릭인 경우 클립 자체 onClick(handleSelectSegment)이 동작하도록 종료
         return;
       }
 
-      if (hasMoved) {
-        // 드래그가 발생한 경우 클립의 클릭 핸들러가 시간을 덮어쓰지 못하도록 잠시 억제
+      if (hasMoved || isPlayhead) {
+        // 드래그가 발생했거나 플레이헤드를 조작한 경우 클립의 클릭 핸들러가 시간을 덮어쓰지 못하도록 충분한 시간(400ms) 억제
+        suppressSegmentClickRef.current = true;
         setTimeout(() => {
           suppressSegmentClickRef.current = false;
-        }, 100);
+        }, 400);
       }
 
       const finalTime = calculateTimeFromSequencerEvent(upEvent.clientX);
@@ -1522,7 +1611,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     const clickX = e.clientX - rect.left;
     const ratio = Math.max(0, Math.min(1, clickX / rect.width));
     const targetTime = ratio * totalDuration;
-    v.currentTime = targetTime;
+    applyVideoSeek(targetTime);
     setCurrentTime(targetTime);
   };
 
@@ -2317,6 +2406,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       key={activeVideoUrl}
                       ref={videoRef}
                       src={activeVideoUrl}
+                      preload="auto"
                       playsInline
                       muted={isMuted}
                       onPlay={() => setIsPlaying(true)}
