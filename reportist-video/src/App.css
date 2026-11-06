@@ -1479,7 +1479,7 @@
   padding: 0 7px;
   display: grid;
   grid-template-columns: minmax(420px, 44fr) minmax(500px, 56fr);
-  gap: 12px;
+  gap: 8px;
   align-items: stretch;
   box-sizing: border-box;
   overflow: hidden;
@@ -1523,7 +1523,7 @@
     max-height: none !important;
     overflow: visible !important;
     padding: 10px 12px;
-    gap: 12px;
+    gap: 8px;
   }
 
   .toss-column-left,
