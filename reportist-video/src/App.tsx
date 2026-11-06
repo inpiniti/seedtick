@@ -639,21 +639,34 @@ export function App() {
           continue;
         }
 
+        // 각 영상별 진행률 구간 (총 85% 중 1/N 균등 배분)
+        const TOTAL_ANALYSIS_PCT = 85;
+        const videoSpan = TOTAL_ANALYSIS_PCT / totalVideos;
+        const videoStartPct = i * videoSpan;
+        const videoEndPct = (i + 1) * videoSpan;
+        // 1-A 프레임 추출: 비디오 구간의 10% 비중 (순식간에 끝나므로 최소 가중치)
+        const extractSpan = videoSpan * 0.1;
+        // 1-B AI 추론/분석: 비디오 구간의 90% 비중 (실제 대기 시간 대부분 차지)
+        const analyzeSpan = videoSpan * 0.9;
+        const analyzeBasePct = videoStartPct + extractSpan;
+        const analyzeTargetPct = videoEndPct;
+
         // 1-A. 주요 프레임 다중 이미지 추출
         resetLiveStream();
-        setProgress({
+        setProgress((prev) => ({
+          ...prev,
           step: 'processing',
           currentPhase: 'extract',
           currentVideoIndex: i,
           totalVideos,
-          progressPercent: Math.round(((i * 2) / (totalVideos * 2 + 1)) * 100),
+          progressPercent: Math.min(99, Math.max(prev.progressPercent, Math.round(videoStartPct))),
           statusMessage: interpolate(dict.logs.statusExtracting, {
             index: i + 1,
             total: totalVideos,
             name: currentVideo.name,
           }),
           reasoningLogs: [...logs],
-        });
+        }));
 
         addLog(interpolate(dict.logs.extractingFrames, {
           name: currentVideo.name,
@@ -666,10 +679,10 @@ export function App() {
           currentVideo.duration,
           (pct) => {
             if (signal.aborted) return;
-            const overallPct = Math.round(((i * 2 + pct / 100) / (totalVideos * 2 + 1)) * 100);
+            const currentExtractPct = Math.round(videoStartPct + (pct / 100) * extractSpan);
             setProgress((prev) => ({
               ...prev,
-              progressPercent: Math.min(99, overallPct),
+              progressPercent: Math.min(99, Math.max(prev.progressPercent, currentExtractPct)),
             }));
           }
         );
@@ -682,64 +695,101 @@ export function App() {
         resetLiveStream();
 
         // 1-B. AI Gateway 다중 프레임 분석
-        setProgress({
+        const analyzeStartTime = Date.now();
+        const updateAnalyzeProgress = () => {
+          if (signal.aborted) return;
+          const elapsedSec = (Date.now() - analyzeStartTime) / 1000;
+          // 시간 경과에 따른 지수 점근 곡선 (15초 기준 약 63%, 30초 기준 약 86%)
+          const timeFactor = 1 - Math.exp(-elapsedSec / 15);
+          // 실시간 스트리밍된 토큰(추론 텍스트 + 생성 JSON) 분량 반영 (약 1,200자 기준)
+          const totalChars = (liveReasoning?.length || 0) + (liveContent?.length || 0);
+          const streamFactor = Math.min(1, totalChars / 1200);
+          // 두 요소를 종합하되, 실제 분석 완료 전에는 해당 영상 구간의 최대 95%까지만 점근
+          const combinedFactor = Math.max(timeFactor, streamFactor * 0.92);
+          const cappedFactor = Math.min(0.95, combinedFactor);
+          const currentPct = Math.round(analyzeBasePct + cappedFactor * analyzeSpan);
+
+          setProgress((prev) => ({
+            ...prev,
+            progressPercent: Math.min(99, Math.max(prev.progressPercent, currentPct)),
+          }));
+        };
+
+        setProgress((prev) => ({
+          ...prev,
           step: 'processing',
           currentPhase: 'analyze',
           currentVideoIndex: i,
           totalVideos,
-          progressPercent: Math.round(((i * 2 + 1) / (totalVideos * 2 + 1)) * 100),
+          progressPercent: Math.min(99, Math.max(prev.progressPercent, Math.round(analyzeBasePct))),
           statusMessage: interpolate(dict.logs.statusAnalyzing, {
             index: i + 1,
             total: totalVideos,
             name: currentVideo.name,
           }),
           reasoningLogs: [...logs],
-        });
+        }));
 
-        const segments = await analyzeVideoHighlights({
-          frames,
-          videoDuration: currentVideo.duration,
-          videoId: currentVideo.id,
-          videoName: currentVideo.name,
-          model: selectedModel,
-          reasoningEffort: selectedEffort,
-          config: DEFAULT_CONFIG,
-          signal,
-          metadataDate: currentVideo.metadataDate,
-          latitude: currentVideo.latitude,
-          longitude: currentVideo.longitude,
-          locationName: currentVideo.locationName,
-          locale,
-          onStreamOpen: () => {
-            addLog(interpolate(dict.logs.streamConnected, { name: currentVideo.name }));
-          },
-          onReasoningDelta: (_chunk, fullText) => {
-            if (!liveReasoning) {
-              addLog(interpolate(dict.logs.reasoningStarted, { name: currentVideo.name }));
-              setProgress((prev) => ({
-                ...prev,
-                statusMessage: interpolate(dict.logs.statusReasoning, {
-                  index: i + 1,
-                  total: totalVideos,
-                  name: currentVideo.name,
-                }),
-              }));
-            }
-            liveReasoning = fullText;
-            scheduleLiveStreamFlush();
-          },
-          onContentDelta: (_chunk, fullText) => {
-            if (!liveContent) {
-              addLog(interpolate(dict.logs.jsonStarted, { name: currentVideo.name }));
-            }
-            liveContent = fullText;
-            scheduleLiveStreamFlush();
-          },
-          onFallback: (reason) => {
-            console.warn(`[Video] Stream fallback (${currentVideo.name}):`, reason);
-            addLog(interpolate(dict.logs.streamFallback, { name: currentVideo.name }));
-          },
-        });
+        // 사용자가 보는 동안 진행률 바가 멈추지 않고 1%씩 부드럽게 상승하도록 150ms마다 보간
+        const analyzeSmoothTimer = window.setInterval(updateAnalyzeProgress, 150);
+
+        let segments: any[] = [];
+        try {
+          segments = await analyzeVideoHighlights({
+            frames,
+            videoDuration: currentVideo.duration,
+            videoId: currentVideo.id,
+            videoName: currentVideo.name,
+            model: selectedModel,
+            reasoningEffort: selectedEffort,
+            config: DEFAULT_CONFIG,
+            signal,
+            metadataDate: currentVideo.metadataDate,
+            latitude: currentVideo.latitude,
+            longitude: currentVideo.longitude,
+            locationName: currentVideo.locationName,
+            locale,
+            onStreamOpen: () => {
+              addLog(interpolate(dict.logs.streamConnected, { name: currentVideo.name }));
+            },
+            onReasoningDelta: (_chunk, fullText) => {
+              if (!liveReasoning) {
+                addLog(interpolate(dict.logs.reasoningStarted, { name: currentVideo.name }));
+                setProgress((prev) => ({
+                  ...prev,
+                  statusMessage: interpolate(dict.logs.statusReasoning, {
+                    index: i + 1,
+                    total: totalVideos,
+                    name: currentVideo.name,
+                  }),
+                }));
+              }
+              liveReasoning = fullText;
+              scheduleLiveStreamFlush();
+              updateAnalyzeProgress();
+            },
+            onContentDelta: (_chunk, fullText) => {
+              if (!liveContent) {
+                addLog(interpolate(dict.logs.jsonStarted, { name: currentVideo.name }));
+              }
+              liveContent = fullText;
+              scheduleLiveStreamFlush();
+              updateAnalyzeProgress();
+            },
+            onFallback: (reason) => {
+              console.warn(`[Video] Stream fallback (${currentVideo.name}):`, reason);
+              addLog(interpolate(dict.logs.streamFallback, { name: currentVideo.name }));
+            },
+          });
+        } finally {
+          window.clearInterval(analyzeSmoothTimer);
+        }
+
+        // 해당 영상 분석 완료: 해당 영상에 할당된 목표치로 부드럽게 안착
+        setProgress((prev) => ({
+          ...prev,
+          progressPercent: Math.min(99, Math.max(prev.progressPercent, Math.round(analyzeTargetPct))),
+        }));
 
         flushLiveStream();
         if (liveReasoning) {
@@ -968,6 +1018,10 @@ export function App() {
       }));
 
       setFinalResult(result);
+      setProgress((prev) => ({
+        ...prev,
+        progressPercent: 100,
+      }));
       setCurrentStep('result');
     } catch (err: unknown) {
       if (liveFlushTimer !== null) {

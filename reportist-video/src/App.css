@@ -3393,18 +3393,6 @@
   animation: toss-pulse 1.2s ease-in-out infinite;
 }
 
-/* 재생 중인 행 왼쪽에 고정 폭(3px) 액센트만 추가 — border 두께는 그대로 유지 */
-.toss-segment-item.playing::before {
-  content: '';
-  position: absolute;
-  top: 10px;
-  bottom: 10px;
-  left: 0;
-  width: 3px;
-  border-radius: 0 3px 3px 0;
-  background-color: #04b069;
-  pointer-events: none;
-}
 
 /* 선택된 씬이 재생 중일 때는 파란 선택 테두리를 유지해 색이 튀지 않게 한다 */
 .toss-segment-item.active.playing {
@@ -4152,9 +4140,20 @@
 
 .toss-modal-progress-fill {
   height: 100%;
-  background-color: #3182f6;
+  background: linear-gradient(90deg, #3182f6 0%, #60a5fa 50%, #3182f6 100%);
+  background-size: 200% 100%;
   border-radius: 9999px;
-  transition: width 0.25s ease;
+  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: tossProgressShimmer 2.2s infinite linear;
+}
+
+@keyframes tossProgressShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 .studio-error-banner {
@@ -8039,15 +8038,6 @@
   box-shadow: 0 4px 14px rgba(49, 130, 246, 0.15);
 }
 
-.toss-project-card.current-active::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background-color: #3182f6;
-}
 
 /* 썸네일 영역 */
 .toss-project-card-thumb-wrap {
