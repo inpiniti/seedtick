@@ -226,8 +226,9 @@ function createWorkerVideo(): HTMLVideoElement {
   videoElem.volume = 0;
   videoElem.playsInline = true;
   videoElem.preload = 'auto';
-  videoElem.crossOrigin = 'anonymous';
-  videoElem.setAttribute('crossorigin', 'anonymous');
+  // blob: URL에 crossorigin="anonymous"가 지정되면 iOS Safari/WebKit에서
+  // 리소스 보안 검증 오류(CORS 실패 / MEDIA_ERR_SRC_NOT_SUPPORTED)가 발생하므로
+  // 기본 속성에서는 제거하고 원격 URL 로드 시에만 동적으로 부여합니다.
   videoElem.setAttribute('playsinline', '');
   videoElem.setAttribute('webkit-playsinline', '');
   videoElem.setAttribute('muted', '');
@@ -248,6 +249,19 @@ export async function stitchHighlightedSegments({
 }: StitchVideosParams): Promise<FinalVideoResult> {
   if (allSegments.length === 0) {
     throw new Error('이어붙일 하이라이트 구간이 없습니다.');
+  }
+
+  // 모바일 Safari/WebKit의 하드웨어 비디오 디코더 단일 인스턴스 잠금 방지:
+  // 페이지 내에서 재생 중이거나 백그라운드 버퍼를 잡고 있는 다른 모든 비디오를 일시정지합니다.
+  if (typeof document !== 'undefined') {
+    try {
+      const activeVideos = document.querySelectorAll('video');
+      activeVideos.forEach((v) => {
+        try {
+          if (!v.paused) v.pause();
+        } catch {}
+      });
+    } catch {}
   }
 
   // 비디오 ID 매핑 테이블 구성
@@ -831,8 +845,21 @@ export async function stitchHighlightedSegments({
     });
   };
 
-  const loadVideoSource = async (video: HTMLVideoElement, url: string, name: string, timeoutMs = 10000) => {
+  const loadVideoSource = async (video: HTMLVideoElement, url: string, name: string, timeoutMs = 12000) => {
+    if (!url || typeof url !== 'string' || url.trim() === '') {
+      throw new Error(`[${name || '영상'}] 비디오 재생 URL이 비어 있습니다. (모바일 메모리 정리로 인해 파일이 언로드되었을 수 있으니 영상을 다시 선택해 주세요)`);
+    }
+
     if (video.src === url && video.readyState >= 1) return;
+
+    // blob: URL에는 crossOrigin 속성을 부여하지 않아야 WebKit CORS 차단을 방지함
+    if (url.startsWith('blob:')) {
+      video.removeAttribute('crossorigin');
+      video.crossOrigin = null;
+    } else {
+      video.crossOrigin = 'anonymous';
+      video.setAttribute('crossorigin', 'anonymous');
+    }
 
     video.src = url;
     video.muted = true;
@@ -860,7 +887,10 @@ export async function stitchHighlightedSegments({
         };
         const onError = () => {
           cleanup();
-          reject(new Error(`비디오 로드 실패: ${name}`));
+          const errCode = video.error?.code;
+          const errMsg = video.error?.message;
+          const detail = errCode ? ` (코드 ${errCode}${errMsg ? `: ${errMsg}` : ''})` : '';
+          reject(new Error(`비디오 로드 실패: ${name}${detail}`));
         };
         video.addEventListener('loadedmetadata', onLoaded);
         video.addEventListener('error', onError);
@@ -869,7 +899,9 @@ export async function stitchHighlightedSegments({
     );
 
     if (result.status === 'error') throw result.error;
-    if (result.status === 'timeout') throw new Error(`비디오 로드 시간 초과: ${name}`);
+    if (result.status === 'timeout') {
+      throw new Error(`비디오 로드 시간 초과 (${Math.round(timeoutMs / 1000)}초): ${name} (readyState=${video.readyState})`);
+    }
   };
 
   const startPlayback = async (video: HTMLVideoElement, timeoutMs: number): Promise<boolean> => {
@@ -925,9 +957,17 @@ export async function stitchHighlightedSegments({
   const prepareWorkerForSegment = async (
     worker: HTMLVideoElement,
     segment: HighlightSegment
-  ): Promise<boolean> => {
+  ): Promise<{ ok: boolean; reason?: string }> => {
     const videoItem = videoMap.get(segment.sourceVideoId);
-    if (!videoItem) return false;
+    if (!videoItem) {
+      return { ok: false, reason: `비디오 정보를 찾을 수 없습니다 (ID: ${segment.sourceVideoId})` };
+    }
+    if (!videoItem.url || videoItem.url.trim() === '') {
+      return {
+        ok: false,
+        reason: `[${videoItem.name}] 영상의 재생 데이터(Blob URL)가 비어 있습니다. 모바일 브라우저 재접속 또는 메모리 절약으로 인해 비디오가 언로드되었을 수 있으니 영상을 다시 선택해 주세요.`,
+      };
+    }
     try {
       try {
         worker.pause();
@@ -947,10 +987,11 @@ export async function stitchHighlightedSegments({
       } catch {
         // ignore
       }
-      return true;
+      return { ok: true };
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
       console.warn('[VideoStitcher] prepareWorkerForSegment 실패:', err);
-      return false;
+      return { ok: false, reason: msg };
     }
   };
 
@@ -1258,9 +1299,9 @@ export async function stitchHighlightedSegments({
 
     // 1. 첫 번째 구간을 workerA에 준비
     reportProgress(0, `구간 1/${allSegments.length} 비디오 버퍼 준비 중...`, true);
-    const seg0Ok = await prepareWorkerForSegment(workerA, allSegments[0]);
-    if (!seg0Ok) {
-      throw new Error(`첫 번째 구간 비디오를 준비하지 못했습니다: ${allSegments[0].sourceVideoId}`);
+    const seg0Prep = await prepareWorkerForSegment(workerA, allSegments[0]);
+    if (!seg0Prep.ok) {
+      throw new Error(`첫 번째 구간 비디오를 준비하지 못했습니다: ${seg0Prep.reason || allSegments[0].sourceVideoId}`);
     }
 
     const firstVideoItem = videoMap.get(allSegments[0].sourceVideoId);
@@ -1354,7 +1395,10 @@ export async function stitchHighlightedSegments({
         if (i > 0) {
           await pauseRecorder();
           capturePrevFrameSnapshot();
-          await prepareWorkerForSegment(workerA, segment);
+          const segPrep = await prepareWorkerForSegment(workerA, segment);
+          if (!segPrep.ok) {
+            throw new Error(`구간 ${i + 1} 비디오를 준비하지 못했습니다: ${segPrep.reason || segment.sourceVideoId}`);
+          }
           await renderChapterBridgeSequence(allSegments[i - 1], segment, i, videoItem);
         }
 

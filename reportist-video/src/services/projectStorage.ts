@@ -119,12 +119,14 @@ function sanitizeProjectForStorage(project: StudioProject, stripBlobs = false): 
 async function executePut(db: IDBDatabase, data: StudioProject): Promise<void> {
   return new Promise((resolve, reject) => {
     let finished = false;
+    // 모바일 기기에서 수백 MB의 비디오 Blob을 직렬화 및 플래시 스토리지에 기록할 때
+    // 4초는 타임아웃이 발생하기 쉬우므로 25초로 안전 마진을 대폭 상향합니다.
     const timeout = setTimeout(() => {
       if (!finished) {
         finished = true;
-        reject(new Error('IndexedDB put timed out.'));
+        reject(new Error('IndexedDB put timed out (25s).'));
       }
-    }, 4000);
+    }, 25000);
 
     try {
       const tx = db.transaction(STORE_NAME, 'readwrite');

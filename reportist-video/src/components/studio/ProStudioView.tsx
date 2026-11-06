@@ -2278,7 +2278,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         <span className="toss-draft-preview-meta">
                           <span className="toss-draft-preview-name">{v.name}</span>
                           <span className="toss-draft-preview-dur">
-                            {v.duration > 0 ? formatSec(v.duration) : '--:--'}
+                            {(!v.url || (v.file && v.file.size === 0) || v.error) ? (
+                              <span className="text-red-500 font-bold">재선택 필요</span>
+                            ) : v.duration > 0 ? (
+                              formatSec(v.duration)
+                            ) : (
+                              '--:--'
+                            )}
                           </span>
                         </span>
                       </button>
@@ -3854,85 +3860,101 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
       {/* 5. 씬 촬영 위치 지도 확인 모달 */}
       {mapModalTarget && (
-        <div className="toss-modal-overlay" onClick={() => setMapModalTarget(null)}>
-          <div className="toss-modal-card toss-map-modal-card" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3 text-left">
-              <div className="flex items-center gap-2">
-                <MapPin size={20} className="text-red-500 flex-shrink-0" />
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 leading-tight">
+        <div className="model-modal-backdrop" onClick={() => setMapModalTarget(null)}>
+          <div
+            className="model-modal-card toss-map-modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="map-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="model-modal-header">
+              <div className="model-modal-title-row">
+                <div className="model-modal-icon-badge" style={{ backgroundColor: '#fef2f2', color: '#ef4444' }}>
+                  <MapPin size={22} color="#ef4444" />
+                </div>
+                <div className="model-modal-titles">
+                  <h2 id="map-modal-title" className="model-modal-title">
                     {dict.mapModal.title}
-                  </h3>
-                  <span className="text-xs text-slate-400">
+                  </h2>
+                  <p className="model-modal-subtitle">
                     {mapModalTarget.locationName || mapModalTarget.subtitleTitle || mapModalTarget.reason}
-                  </span>
+                  </p>
                 </div>
               </div>
               <button
                 type="button"
-                className="toss-btn-icon"
+                className="model-modal-close-btn"
                 onClick={() => setMapModalTarget(null)}
-                title={dict.common.close}
+                aria-label={dict.common.close}
               >
-                <X size={16} />
+                <X size={18} />
               </button>
             </div>
 
-            {/* 임베디드 오픈스트리트맵 지도 */}
-            <div className="toss-map-frame-box">
-              {mapModalTarget.latitude && mapModalTarget.longitude ? (
-                <iframe
-                  title={dict.mapModal.title}
-                  className="w-full h-64 rounded-xl border border-slate-200"
-                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${mapModalTarget.longitude - 0.008}%2C${mapModalTarget.latitude - 0.008}%2C${mapModalTarget.longitude + 0.008}%2C${mapModalTarget.latitude + 0.008}&layer=mapnik&marker=${mapModalTarget.latitude}%2C${mapModalTarget.longitude}`}
-                />
-              ) : (
-                <div className="w-full h-48 rounded-xl bg-slate-50 border border-slate-200 flex flex-col items-center justify-center p-4 text-center">
-                  <MapPin size={28} className="text-slate-300 mb-2" />
-                  <p className="text-xs text-slate-700 font-bold mb-1">
-                    {interpolate(dict.mapModal.noGpsTitle, {
-                      location: mapModalTarget.locationName || dict.common.videos,
-                    })}
-                  </p>
-                  <p className="text-[11px] text-slate-400">
-                    {dict.mapModal.noGpsDesc}
-                  </p>
-                </div>
-              )}
+            {/* Modal Body */}
+            <div style={{ padding: '20px 24px', overflowY: 'auto' }}>
+              <div className="toss-map-frame-box">
+                {mapModalTarget.latitude && mapModalTarget.longitude ? (
+                  <iframe
+                    title={dict.mapModal.title}
+                    className="w-full h-64 rounded-xl border border-slate-200"
+                    src={`https://www.openstreetmap.org/export/embed.html?bbox=${mapModalTarget.longitude - 0.008}%2C${mapModalTarget.latitude - 0.008}%2C${mapModalTarget.longitude + 0.008}%2C${mapModalTarget.latitude + 0.008}&layer=mapnik&marker=${mapModalTarget.latitude}%2C${mapModalTarget.longitude}`}
+                  />
+                ) : (
+                  <div className="w-full h-48 rounded-xl bg-slate-50 border border-slate-200 flex flex-col items-center justify-center p-4 text-center">
+                    <MapPin size={28} className="text-slate-300 mb-2" />
+                    <p className="text-xs text-slate-700 font-bold mb-1">
+                      {interpolate(dict.mapModal.noGpsTitle, {
+                        location: mapModalTarget.locationName || dict.common.videos,
+                      })}
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      {dict.mapModal.noGpsDesc}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-end gap-2 mt-4 pt-3 border-t border-slate-100">
-              <a
-                href={
-                  mapModalTarget.locationName
-                    ? `https://map.naver.com/v5/search/${encodeURIComponent(mapModalTarget.locationName)}`
-                    : mapModalTarget.latitude && mapModalTarget.longitude
-                    ? `https://map.naver.com/v5/search/${mapModalTarget.latitude},${mapModalTarget.longitude}`
-                    : `https://map.naver.com/v5/search/${encodeURIComponent(mapModalTarget.subtitleTitle || mapModalTarget.reason)}`
-                }
-                target="_blank"
-                rel="noreferrer"
-                className="toss-btn-secondary"
-              >
-                <ExternalLink size={13} />
-                <span>{dict.mapModal.viewNaverMap}</span>
-              </a>
-              <a
-                href={
-                  mapModalTarget.latitude && mapModalTarget.longitude
-                    ? `https://www.google.com/maps/search/?api=1&query=${mapModalTarget.latitude},${mapModalTarget.longitude}`
-                    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapModalTarget.locationName || mapModalTarget.subtitleTitle || mapModalTarget.reason)}`
-                }
-                target="_blank"
-                rel="noreferrer"
-                className="toss-btn-secondary"
-              >
-                <ExternalLink size={13} />
-                <span>{dict.mapModal.viewGoogleMap}</span>
-              </a>
+            {/* Modal Footer */}
+            <div className="model-modal-footer">
+              <div className="flex flex-wrap items-center gap-2">
+                <a
+                  href={
+                    mapModalTarget.locationName
+                      ? `https://map.naver.com/v5/search/${encodeURIComponent(mapModalTarget.locationName)}`
+                      : mapModalTarget.latitude && mapModalTarget.longitude
+                      ? `https://map.naver.com/v5/search/${mapModalTarget.latitude},${mapModalTarget.longitude}`
+                      : `https://map.naver.com/v5/search/${encodeURIComponent(mapModalTarget.subtitleTitle || mapModalTarget.reason)}`
+                  }
+                  target="_blank"
+                  rel="noreferrer"
+                  className="toss-modal-btn-close"
+                  style={{ padding: '8px 14px', fontSize: '12.5px', gap: '5px' }}
+                >
+                  <ExternalLink size={13} />
+                  <span>{dict.mapModal.viewNaverMap}</span>
+                </a>
+                <a
+                  href={
+                    mapModalTarget.latitude && mapModalTarget.longitude
+                      ? `https://www.google.com/maps/search/?api=1&query=${mapModalTarget.latitude},${mapModalTarget.longitude}`
+                      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapModalTarget.locationName || mapModalTarget.subtitleTitle || mapModalTarget.reason)}`
+                  }
+                  target="_blank"
+                  rel="noreferrer"
+                  className="toss-modal-btn-close"
+                  style={{ padding: '8px 14px', fontSize: '12.5px', gap: '5px' }}
+                >
+                  <ExternalLink size={13} />
+                  <span>{dict.mapModal.viewGoogleMap}</span>
+                </a>
+              </div>
               <button
                 type="button"
-                className="toss-btn-primary"
+                className="toss-modal-btn-close"
                 onClick={() => setMapModalTarget(null)}
               >
                 {dict.common.close}

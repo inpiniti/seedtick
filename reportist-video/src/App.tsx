@@ -173,7 +173,9 @@ export function App() {
           duration: v.duration,
           width: v.width,
           height: v.height,
-          status: v.status,
+          // 파일 데이터가 소실된 경우 status를 idle로 리셋하여 거짓 분석 완료(analyzed) 상태 방지
+          status: hasValidBlob ? v.status : 'idle',
+          error: hasValidBlob ? undefined : '모바일 메모리 정리로 인해 파일이 언로드되었습니다. 영상을 다시 선택해 주세요.',
           segments: v.segments || [],
           metadataDate: v.metadataDate,
           recordedTimestamp: v.recordedTimestamp,
@@ -598,6 +600,39 @@ export function App() {
     statusMessage: '',
   });
 
+  // 유효한 비디오 Blob URL 확인 및 복구
+  const refreshVideoBlobUrls = (videoList: VideoItem[]): VideoItem[] => {
+    return videoList.map((v) => {
+      let url = v.url;
+      const hasValidFile = Boolean(v.file instanceof Blob && v.file.size > 0);
+      if ((!url || url.trim() === '') && hasValidFile) {
+        url = URL.createObjectURL(v.file);
+      }
+      return {
+        ...v,
+        url,
+      };
+    });
+  };
+
+  // 처리 시작 전 비디오 상태 전수 검증
+  const validateVideosForProcessing = (videoList: VideoItem[]): void => {
+    if (videoList.length === 0) {
+      throw new Error('처리할 영상이 없습니다.');
+    }
+
+    // 1) 실제 파일 데이터(Blob/File)가 소실된 비디오 검사
+    const missingFileVideos = videoList.filter(
+      (v) => (!v.file || !(v.file instanceof Blob) || v.file.size === 0) && (!v.url || v.url.trim() === '')
+    );
+    if (missingFileVideos.length > 0) {
+      const names = missingFileVideos.map((v) => v.name).join(', ');
+      throw new Error(
+        `[${names}] 영상의 원본 파일 데이터가 없습니다.\n모바일 브라우저 재접속 또는 메모리 정리 시 브라우저 보안 정책상 파일이 언로드되므로, 원본 영상을 다시 선택해 주세요.`
+      );
+    }
+  };
+
   // 하이라이트 생성 시작
   const handleStartProcessing = async (
     overlayOpts?: VideoOverlayOptions,
@@ -606,6 +641,17 @@ export function App() {
     bgmVol = 0.35
   ) => {
     if (videos.length === 0) return;
+
+    // 1. 영상 URL 갱신 및 파일 유효성 사전 검사
+    const readyVideos = refreshVideoBlobUrls(videos);
+    try {
+      validateVideosForProcessing(readyVideos);
+    } catch (vErr) {
+      const msg = vErr instanceof Error ? vErr.message : '영상을 확인할 수 없습니다.';
+      setErrorMessage(msg);
+      return;
+    }
+    setVideos(readyVideos);
 
     // iOS Safari는 사용자 제스처 안에서만 오디오를 잠금 해제할 수 있으므로
     // 병합 단계(AudioContext 사용) 전에 미리 준비해 둔다.
@@ -616,8 +662,8 @@ export function App() {
     abortControllerRef.current = new AbortController();
     const signal = abortControllerRef.current.signal;
 
-    const totalVideos = videos.length;
-    const updatedVideos = [...videos];
+    const totalVideos = readyVideos.length;
+    const updatedVideos = [...readyVideos];
     const logs: string[] = [];
 
     const addLog = (msg: string) => {
@@ -1141,6 +1187,17 @@ export function App() {
   ) => {
     if (updatedSegments.length === 0) return;
 
+    // 1. 영상 URL 갱신 및 파일 유효성 사전 검사
+    const readyVideos = refreshVideoBlobUrls(videos);
+    try {
+      validateVideosForProcessing(readyVideos);
+    } catch (vErr) {
+      const msg = vErr instanceof Error ? vErr.message : '영상을 확인할 수 없습니다.';
+      setErrorMessage(msg);
+      return;
+    }
+    setVideos(readyVideos);
+
     // 재병합도 사용자 클릭(제스처) 안에서 오디오를 미리 잠금 해제한다.
     primeAudioContext();
 
@@ -1153,7 +1210,7 @@ export function App() {
 
     try {
       const result = await stitchHighlightedSegments({
-        videos,
+        videos: readyVideos,
         allSegments: updatedSegments,
         bgmPresetId,
         bgmVolume,
