@@ -350,6 +350,8 @@ export const ja: Dictionary = {
     emptyDesc: 'スタジオで動画をアップロードすると、自動的に安全に保管されます。',
     startStudioBtn: '新しい動画を作成',
     autoSaved: '保存済み',
+    bottomSaved: '端末（IndexedDB）に安全に自動保存済み',
+    studioReady: 'スタジオ準備完了 · 動画をアップロードしてください',
     saving: '保存中...',
     saveManualBtn: '保存',
     openBtn: '作業を再開',

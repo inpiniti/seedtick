@@ -342,6 +342,8 @@ export const es: Dictionary = {
     emptyDesc: 'Suba videos en el Studio y se guardarán automáticamente.',
     startStudioBtn: 'Crear Nuevo Video',
     autoSaved: 'Guardado',
+    bottomSaved: 'Guardado seguro en el dispositivo (IndexedDB)',
+    studioReady: 'Studio listo · Suba videos para comenzar',
     saving: 'Guardando...',
     saveManualBtn: 'Guardar',
     openBtn: 'Continuar Trabajo',

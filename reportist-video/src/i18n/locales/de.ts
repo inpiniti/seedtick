@@ -342,6 +342,8 @@ export const de: Dictionary = {
     emptyDesc: 'Laden Sie Videos im Studio hoch, und sie werden automatisch gespeichert.',
     startStudioBtn: 'Neues Video erstellen',
     autoSaved: 'Gespeichert',
+    bottomSaved: 'Sicher auf dem Gerät gespeichert (IndexedDB)',
+    studioReady: 'Studio bereit · Laden Sie Videos hoch',
     saving: 'Speichern...',
     saveManualBtn: 'Speichern',
     openBtn: 'Fortsetzen',

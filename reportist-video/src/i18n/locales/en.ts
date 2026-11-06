@@ -223,6 +223,8 @@ export const en: Dictionary = {
     emptyDesc: 'Upload videos in the Studio, and they will be saved automatically.',
     startStudioBtn: 'Create New Video',
     autoSaved: 'Saved',
+    bottomSaved: 'Safely saved to device (IndexedDB)',
+    studioReady: 'Studio ready · Upload videos to get started',
     saving: 'Saving...',
     saveManualBtn: 'Save',
     openBtn: 'Resume Work',

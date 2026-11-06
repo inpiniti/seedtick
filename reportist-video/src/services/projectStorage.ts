@@ -1,4 +1,4 @@
-﻿import type { StudioProject, StudioProjectSummary } from '../types/project.ts';
+import type { StudioProject, StudioProjectSummary } from '../types/project.ts';
 
 const DB_NAME = 'reportist_video_studio_db';
 const DB_VERSION = 1;
@@ -62,29 +62,128 @@ export function setLastActiveProjectId(id: string | null): void {
 }
 
 /**
+ * 프로젝트 저장 데이터 정제 (직렬화 불가능한 필드 제거)
+ */
+function sanitizeProjectForStorage(project: StudioProject, stripBlobs = false): StudioProject {
+  const sanitizedOverlay = project.overlayOptions
+    ? {
+        ...project.overlayOptions,
+        introVideoFile: null,
+        outroVideoFile: null,
+      }
+    : undefined;
+
+  const sanitizedVideos = (project.videos || []).map((v) => ({
+    id: v.id,
+    name: v.name,
+    sizeBytes: v.sizeBytes,
+    duration: v.duration,
+    width: v.width,
+    height: v.height,
+    status: v.status,
+    segments: v.segments || [],
+    metadataDate: v.metadataDate,
+    recordedTimestamp: v.recordedTimestamp,
+    latitude: v.latitude,
+    longitude: v.longitude,
+    locationName: v.locationName,
+    thumbnailUrl: v.thumbnailUrl,
+    fileBlob: stripBlobs ? undefined : v.fileBlob,
+  }));
+
+  const sanitizedFinalResult = project.finalResult
+    ? {
+        ...project.finalResult,
+        videoBlob: stripBlobs ? undefined : project.finalResult.videoBlob,
+      }
+    : null;
+
+  return {
+    ...project,
+    updatedAt: Date.now(),
+    videos: sanitizedVideos,
+    finalResult: sanitizedFinalResult,
+    overlayOptions: sanitizedOverlay,
+    customAudioBlob: stripBlobs ? undefined : project.customAudioBlob,
+  };
+}
+
+/**
+ * 단일 트랜잭션 실행 헬퍼
+ */
+async function executePut(db: IDBDatabase, data: StudioProject): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let finished = false;
+    const timeout = setTimeout(() => {
+      if (!finished) {
+        finished = true;
+        reject(new Error('IndexedDB put timed out.'));
+      }
+    }, 4000);
+
+    try {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+
+      tx.oncomplete = () => {
+        if (!finished) {
+          finished = true;
+          clearTimeout(timeout);
+          resolve();
+        }
+      };
+
+      tx.onerror = () => {
+        if (!finished) {
+          finished = true;
+          clearTimeout(timeout);
+          reject(tx.error || new Error('Transaction error while saving project.'));
+        }
+      };
+
+      tx.onabort = () => {
+        if (!finished) {
+          finished = true;
+          clearTimeout(timeout);
+          reject(tx.error || new Error('Transaction aborted while saving project.'));
+        }
+      };
+
+      store.put(data);
+    } catch (err) {
+      if (!finished) {
+        finished = true;
+        clearTimeout(timeout);
+        reject(err);
+      }
+    }
+  });
+}
+
+/**
  * 프로젝트 저장 또는 업데이트 (IndexedDB)
+ * 대용량 Blob으로 인한 저장 실패(Quota/Clone) 시 메타데이터 우선 저장으로 안전하게 fallback
  */
 export async function saveProject(project: StudioProject): Promise<void> {
   const db = await getDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    const store = tx.objectStore(STORE_NAME);
 
-    const updatedProject: StudioProject = {
-      ...project,
-      updatedAt: Date.now(),
-    };
+  // 1차: Blob 포함 저장 시도
+  try {
+    const fullData = sanitizeProjectForStorage(project, false);
+    await executePut(db, fullData);
+    return;
+  } catch (firstErr) {
+    console.warn('saveProject: Full save with Blobs failed, attempting metadata-only fallback:', firstErr);
+  }
 
-    const req = store.put(updatedProject);
-
-    req.onsuccess = () => {
-      resolve();
-    };
-
-    req.onerror = () => {
-      reject(req.error || new Error('Failed to save project.'));
-    };
-  });
+  // 2차: QuotaExceeded 또는 Blob 복제 에러 발생 시 Blob 제외 후 메타데이터 우선 저장
+  try {
+    const safeData = sanitizeProjectForStorage(project, true);
+    await executePut(db, safeData);
+  } catch (secondErr) {
+    console.error('saveProject: Metadata-only save also failed:', secondErr);
+    throw secondErr;
+  }
 }
 
 /**

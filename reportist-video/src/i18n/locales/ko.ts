@@ -223,6 +223,8 @@ export const ko: Dictionary = {
     emptyDesc: '스튜디오에서 영상을 올리면 자동으로 안전하게 보관돼요.',
     startStudioBtn: '새 영상 만들러 가기',
     autoSaved: '저장됨',
+    bottomSaved: '기기(IndexedDB)에 안전하게 보관됨',
+    studioReady: '스튜디오 준비됨 · 영상을 올려보세요',
     saving: '저장 중...',
     saveManualBtn: '저장',
     openBtn: '이어서 작업하기',

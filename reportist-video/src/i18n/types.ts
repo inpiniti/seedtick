@@ -249,6 +249,8 @@ export interface Dictionary {
     newProjectConfirmTitle: string;
     newProjectConfirmDesc: string;
     startNew: string;
+    bottomSaved?: string;
+    studioReady?: string;
   };
   processingModal: {
     title: string;

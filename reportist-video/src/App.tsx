@@ -76,7 +76,7 @@ export function App() {
 
   // 4. 프로젝트 보관함 & IndexedDB 상태
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'idle'>('saved');
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'idle'>('idle');
   const [projectSummaries, setProjectSummaries] = useState<StudioProjectSummary[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState<boolean>(true);
 
@@ -229,7 +229,8 @@ export function App() {
     setCurrentBgmPresetId('none');
     setCurrentBgmVolume(0.3);
     setCurrentCustomAudio(null);
-    setSaveStatus('saved');
+    setCurrentProjectId(null);
+    setSaveStatus('idle');
   };
 
   // 프로젝트 복제
@@ -258,6 +259,7 @@ export function App() {
   // 자동 저장 수행
   const performSave = async () => {
     if (videos.length === 0 || currentStep === 'processing' || isRestoringProjectRef.current) {
+      if (videos.length === 0) setSaveStatus('idle');
       return;
     }
 
@@ -346,6 +348,9 @@ export function App() {
   // 변경 감지 시 자동 저장 (Debounced)
   useEffect(() => {
     if (videos.length === 0 || currentStep === 'processing' || isRestoringProjectRef.current) {
+      if (videos.length === 0) {
+        setSaveStatus('idle');
+      }
       return;
     }
 
@@ -357,7 +362,7 @@ export function App() {
     autoSaveTimerRef.current = window.setTimeout(() => {
       autoSaveTimerRef.current = null;
       void performSave();
-    }, 800);
+    }, 600);
 
     return () => {
       if (autoSaveTimerRef.current !== null) {

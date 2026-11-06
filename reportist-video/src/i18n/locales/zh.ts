@@ -350,6 +350,8 @@ export const zh: Dictionary = {
     emptyDesc: '在工作区上传视频后，系统会自动安全保存。',
     startStudioBtn: '去制作新视频',
     autoSaved: '已保存',
+    bottomSaved: '已安全自动保存至本地设备 (IndexedDB)',
+    studioReady: '工作区已就绪 · 请上传视频开始制作',
     saving: '保存中...',
     saveManualBtn: '保存',
     openBtn: '继续编辑',

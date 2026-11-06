@@ -8181,4 +8181,158 @@
   }
 }
 
+/* ==========================================================================
+   화면 하단 고정 슬림 상태바 (자동 저장 상태 + 시간 절약률)
+   ========================================================================== */
+.toss-bottom-status-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 38px;
+  background-color: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid #e2e8f0;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.03);
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  user-select: none;
+}
+
+.toss-bottom-status-inner {
+  width: 100%;
+  max-width: 1700px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.toss-bottom-status-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  min-width: 0;
+}
+
+.toss-bottom-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.toss-bottom-status-dot.idle {
+  background-color: #cbd5e1;
+}
+
+.toss-bottom-status-dot.saving {
+  background-color: #3182f6;
+  animation: toss-pulse 1s infinite;
+}
+
+.toss-bottom-status-dot.saved {
+  background-color: #10b981;
+}
+
+.toss-bottom-status-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12px;
+}
+
+.toss-bottom-status-link {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #475569;
+  background-color: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.toss-bottom-status-link:hover {
+  background-color: #e2e8f0;
+  color: #0f172a;
+}
+
+.toss-bottom-status-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.toss-bottom-savings-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.toss-bottom-savings-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  background-color: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+}
+
+.toss-bottom-savings-times {
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.toss-bottom-savings-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #059669;
+  background-color: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 1px 8px;
+  border-radius: 9999px;
+  letter-spacing: -0.2px;
+}
+
+.toss-bottom-summary-simple {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* 하단 바에 의한 메인 본문 가림 방지 */
+.toss-page-container {
+  padding-bottom: 46px;
+}
+
+@media (max-width: 640px) {
+  .toss-bottom-status-bar {
+    height: 36px;
+    padding: 0 12px;
+  }
+
+  .toss-bottom-savings-times {
+    display: none;
+  }
+
+  .toss-bottom-status-text {
+    max-width: 180px;
+  }
+}
+
 

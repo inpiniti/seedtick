@@ -1678,25 +1678,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
           {activeTab === 'studio' && (
             <>
-              {/* 자동 저장 상태 뱃지 */}
-              {currentProjectId && (
-                <div
-                  className={`toss-autosave-badge ${saveStatus === 'saving' ? 'saving' : 'saved'}`}
-                  title={
-                    saveStatus === 'saving'
-                      ? (dict.projects?.saving || '저장 중...')
-                      : (dict.projects?.autoSaved || '자동 저장됨')
-                  }
-                >
-                  <span className="toss-autosave-dot" />
-                  <span className="hidden sm:inline">
-                    {saveStatus === 'saving'
-                      ? (dict.projects?.saving || '저장 중...')
-                      : (dict.projects?.autoSaved || '저장됨')}
-                  </span>
-                </div>
-              )}
-
               {/* 올린 원본 영상 리스트 트리거 */}
           <button
             type="button"
@@ -3781,6 +3762,84 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         bridgeDurationMap={effectiveBridgeDurationMap}
         videoTitle={overlayOptions.titleText || result?.suggestedTitle || 'highlight'}
       />
+
+      {/* 13. 화면 하단 고정 슬림 상태바 (자동 저장 상태 + 시간 절약률 요약) */}
+      {activeTab === 'studio' && (
+        <aside className="toss-bottom-status-bar" aria-label="작업 상태바">
+          <div className="toss-bottom-status-inner">
+            {/* 좌측: 자동 저장 상태 */}
+            <div className="toss-bottom-status-left">
+              <span
+                className={`toss-bottom-status-dot ${
+                  videos.length === 0
+                    ? 'idle'
+                    : saveStatus === 'saving'
+                    ? 'saving'
+                    : 'saved'
+                }`}
+              />
+              <span className="toss-bottom-status-text">
+                {videos.length === 0 ? (
+                  <span className="text-slate-500 font-normal">
+                    {dict.projects?.studioReady || '스튜디오 준비됨 · 영상을 올려보세요'}
+                  </span>
+                ) : saveStatus === 'saving' ? (
+                  <span className="text-blue-600 font-medium">
+                    {dict.projects?.saving || '기기에 안전하게 보관 중...'}
+                  </span>
+                ) : (
+                  <span className="text-slate-700 font-medium">
+                    {dict.projects?.bottomSaved || dict.projects?.autoSaved || '기기(IndexedDB)에 안전하게 보관됨'}
+                  </span>
+                )}
+              </span>
+
+              {videos.length > 0 && saveStatus === 'saved' && (
+                <button
+                  type="button"
+                  className="toss-bottom-status-link"
+                  onClick={() => setActiveTab('projects')}
+                  title="내 작업 보관함으로 이동"
+                >
+                  <FolderOpen size={12} className="inline mr-1 text-slate-500" />
+                  <span>보관함 보기</span>
+                </button>
+              )}
+            </div>
+
+            {/* 우측: 시간 절약률 / 영상 요약 */}
+            <div className="toss-bottom-status-right">
+              {originalTotalDuration > 0 && segments.length > 0 ? (
+                <div className="toss-bottom-savings-box">
+                  <span className="toss-bottom-savings-label">
+                    {dict.summaryCard.timeSavedRate}
+                  </span>
+                  <span className="toss-bottom-savings-times">
+                    <span className="text-slate-500">
+                      {originalTotalDuration.toFixed(1)}초 원본 영상
+                    </span>
+                    <span className="mx-1 text-slate-400">➔</span>
+                    <strong className="text-slate-900 font-mono font-semibold">
+                      {totalDuration.toFixed(1)}초 하이라이트
+                    </strong>
+                  </span>
+                  {savedPercent > 0 && (
+                    <span className="toss-bottom-savings-badge">
+                      {interpolate(dict.summaryCard.reducedBy, { percent: savedPercent })}
+                    </span>
+                  )}
+                </div>
+              ) : videos.length > 0 ? (
+                <div className="toss-bottom-summary-simple">
+                  <span className="text-slate-500 text-xs font-mono">
+                    총 {videos.length}개 영상 ({originalTotalDuration.toFixed(1)}초)
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </aside>
+      )}
     </div>
   );
 };

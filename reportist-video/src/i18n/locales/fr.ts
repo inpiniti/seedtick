@@ -343,6 +343,8 @@ export const fr: Dictionary = {
     emptyDesc: 'Importez des vidéos dans le Studio et elles seront enregistrées automatiquement.',
     startStudioBtn: 'Créer une nouvelle vidéo',
     autoSaved: 'Enregistré',
+    bottomSaved: 'Enregistré en toute sécurité (IndexedDB)',
+    studioReady: 'Studio prêt · Importez des vidéos',
     saving: 'Enregistrement...',
     saveManualBtn: 'Enregistrer',
     openBtn: 'Reprendre',
