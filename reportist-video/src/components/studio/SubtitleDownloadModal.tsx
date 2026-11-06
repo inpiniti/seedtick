@@ -234,7 +234,7 @@ export const SubtitleDownloadModal: React.FC<SubtitleDownloadModalProps> = ({
               </span>
               <span className="subtitle-youtube-badge">
                 <Check size={12} className="text-emerald-500" />
-                <span>YouTube 100% 호환</span>
+                <span>{dict.subtitleDownload?.compatibleBadge || 'YouTube 100% 호환'}</span>
               </span>
             </div>
 
@@ -327,7 +327,7 @@ export const SubtitleDownloadModal: React.FC<SubtitleDownloadModalProps> = ({
                       ) : (
                         cue.text || (
                           <span className="text-slate-400 italic">
-                            (자막 내용 없음)
+                            {dict.subtitleDownload?.noSubtitleText || '(자막 내용 없음)'}
                           </span>
                         )
                       )}
@@ -341,7 +341,11 @@ export const SubtitleDownloadModal: React.FC<SubtitleDownloadModalProps> = ({
             <div className="subtitle-guide-tip">
               <Sparkles size={14} className="text-blue-500 shrink-0 mt-0.5" />
               <div className="text-xs text-slate-600 leading-relaxed">
-                <strong>유튜브 업로드 팁:</strong> 유튜브 스튜디오의 동영상 세부정보 &gt; <strong>자막</strong> 탭에서 <strong>파일 업로드(타이밍 포함)</strong>를 선택한 뒤 다운로드한 <code>.srt</code> 파일을 등록하면 다국어 자막이 완벽하게 동기화됩니다.
+                {dict.subtitleDownload?.youtubeNotice || (
+                  <>
+                    <strong>유튜브 업로드 팁:</strong> 유튜브 스튜디오의 동영상 세부정보 &gt; <strong>자막</strong> 탭에서 <strong>파일 업로드(타이밍 포함)</strong>를 선택한 뒤 다운로드한 <code>.srt</code> 파일을 등록하면 다국어 자막이 완벽하게 동기화됩니다.
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -367,7 +371,7 @@ export const SubtitleDownloadModal: React.FC<SubtitleDownloadModalProps> = ({
             <Download size={15} />
             <span>
               {isDownloadingAll
-                ? '다운로드 중...'
+                ? (dict.subtitleDownload?.downloading || dict.common.loading || '다운로드 중...')
                 : (dict.subtitleDownload?.downloadAllBtn || '모든 언어 일괄 다운로드 (7개)')}
             </span>
           </button>
@@ -381,7 +385,7 @@ export const SubtitleDownloadModal: React.FC<SubtitleDownloadModalProps> = ({
           >
             <Download size={16} />
             <span>
-              {selectedLocaleInfo.flag} {selectedLocaleInfo.nativeName} 자막 (.srt)
+              {selectedLocaleInfo.flag} {selectedLocaleInfo.nativeName} {dict.subtitleDownload?.buttonText?.includes('Subtitles') ? 'Subtitles (.srt)' : '자막 (.srt)'}
             </span>
           </button>
         </div>

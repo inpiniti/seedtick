@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import {
   FolderOpen,
   Plus,
@@ -55,10 +55,10 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
-    if (minutes < 1) return '방금 전';
-    if (minutes < 60) return `${minutes}분 전`;
-    if (hours < 24) return `${hours}시간 전`;
-    if (days < 7) return `${days}일 전`;
+    if (minutes < 1) return dict.common.justNow || '방금 전';
+    if (minutes < 60) return interpolate(dict.common.minutesAgo || '{count}분 전', { count: minutes });
+    if (hours < 24) return interpolate(dict.common.hoursAgo || '{count}시간 전', { count: hours });
+    if (days < 7) return interpolate(dict.common.daysAgo || '{count}일 전', { count: days });
 
     const d = new Date(timestamp);
     const year = d.getFullYear();
@@ -78,7 +78,7 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
     autoSaved: '저장됨',
     saving: '저장 중...',
     saveManualBtn: '저장',
-    openBtn: '이어서 작업하기',
+    openBtn: '이어 작업하기',
     duplicateBtn: '복제',
     deleteBtn: '삭제',
     currentBadge: '현재 작업 중',
@@ -94,6 +94,8 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
     newProjectConfirmTitle: '새 작업을 시작할까요?',
     newProjectConfirmDesc: '현재 진행 중인 작업은 보관함에 안전하게 보관돼요.',
     startNew: '시작하기',
+    localStorageBadge: '기기 내 저장 (100% 로컬)',
+    localStorageTip: '브라우저 로컬 IndexedDB에 안전 저장',
   };
 
   const targetProjectToDelete = projects.find((p) => p.id === deleteTargetId);
@@ -111,9 +113,12 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
         </div>
 
         <div className="toss-projects-header-actions">
-          <div className="toss-projects-storage-pill" title="브라우저 로컬 IndexedDB에 안전 저장">
+          <div
+            className="toss-projects-storage-pill"
+            title={pDict.localStorageTip || '브라우저 로컬 IndexedDB에 안전 저장'}
+          >
             <HardDrive size={13} className="text-blue-600" />
-            <span>기기 내 저장 (100% 로컬)</span>
+            <span>{pDict.localStorageBadge || '기기 내 저장 (100% 로컬)'}</span>
           </div>
           <button
             type="button"

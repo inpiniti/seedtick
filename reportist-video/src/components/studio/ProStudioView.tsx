@@ -2828,7 +2828,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   <div className="flex flex-col items-center justify-center w-full h-full text-slate-400 py-10 px-4 text-center">
                     <ImageIcon size={32} className="text-blue-500 mb-2 animate-pulse" />
                     <span className="text-xs font-semibold text-slate-600 mb-2">
-                      {isUpdatingThumbnail ? '썸네일 생성 중...' : '썸네일 이미지를 불러오는 중이에요'}
+                      {isUpdatingThumbnail
+                        ? (dict.thumbnail?.generatingThumbnail || '썸네일 생성 중...')
+                        : (dict.thumbnail?.loadingThumbnail || '썸네일 이미지를 불러오는 중이에요')}
                     </span>
                     <button
                       type="button"
@@ -2836,7 +2838,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       disabled={isUpdatingThumbnail}
                       className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all"
                     >
-                      현재 비디오 화면으로 썸네일 생성
+                      {dict.thumbnail?.generateFromCurrentVideo || '현재 비디오 화면으로 썸네일 생성'}
                     </button>
                   </div>
                 )}
@@ -2846,7 +2848,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               <div className="toss-thumbnail-controls">
                 {result?.aiThumbnailRecommendations && result.aiThumbnailRecommendations.length > 1 && (
                   <div className="toss-thumbnail-frames">
-                    <span className="toss-thumbnail-frames-label">AI 추천 프레임 선택</span>
+                    <span className="toss-thumbnail-frames-label">
+                      {dict.thumbnail?.selectAiFrame || 'AI 추천 프레임 선택'}
+                    </span>
                     <div className="toss-thumbnail-frame-list">
                       {result.aiThumbnailRecommendations.map((cand, idx) => (
                         <button
@@ -2883,7 +2887,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       )}
                       <label
                         className="toss-thumbnail-title-toggle"
-                        title="썸네일 내 타이틀 문구 표시 여부"
+                        title={dict.thumbnail?.overlayToggleTip || '썸네일 내 타이틀 문구 표시 여부'}
                       >
                         <span>{dict.thumbnail?.overlayToggle || '타이틀 텍스트 오버레이'}</span>
                         <span className="toss-toggle-switch">
@@ -2918,7 +2922,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
                 {showThumbnailTitle && (
                   <div className="flex items-center justify-between mt-1">
-                    <span className="text-xs font-semibold text-slate-500">스타일 프리셋</span>
+                    <span className="text-xs font-semibold text-slate-500">
+                      {dict.thumbnail?.stylePreset || '스타일 프리셋'}
+                    </span>
                     <div className="toss-thumbnail-style-group">
                       <button
                         type="button"
@@ -2961,10 +2967,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     className="toss-btn-frame-capture"
                     onClick={handleRestoreAiThumbnail}
                     disabled={isUpdatingThumbnail}
-                    title="AI가 직접 추천한 베스트 프레임으로 복원"
+                    title={
+                      dict.thumbnail?.restoreAiFrameTip ||
+                      'AI가 직접 추천한 베스트 프레임으로 복원'
+                    }
                   >
                     <Sparkles size={13} className="text-blue-600" />
-                    <span>AI 추천 복원</span>
+                    <span>{dict.thumbnail?.restoreAiFrame || 'AI 추천 복원'}</span>
                   </button>
 
                   {activeVideoUrl && (
@@ -2973,10 +2982,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       className="toss-btn-frame-capture"
                       onClick={handleCaptureCurrentFrame}
                       disabled={isUpdatingThumbnail}
-                      title="현재 영상 재생 위치의 프레임으로 썸네일 배경 변경 (오버레이 미포함)"
+                      title={
+                        dict.thumbnail?.captureCurrentFrameTip ||
+                        '현재 영상 재생 위치의 프레임으로 썸네일 배경 변경 (오버레이 미포함)'
+                      }
                     >
                       <ImageIcon size={13} className="text-blue-600" />
-                      <span>{isUpdatingThumbnail ? '캡처 중...' : '현재 프레임 적용'}</span>
+                      <span>
+                        {isUpdatingThumbnail
+                          ? (dict.thumbnail?.capturing || '캡처 중...')
+                          : (dict.thumbnail?.applyCurrentFrame || '현재 프레임 적용')}
+                      </span>
                     </button>
                   )}
                 </div>
@@ -3113,9 +3129,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 <div className="flex items-center gap-3 shrink-0 ml-auto sm:ml-0">
                   <label
                     className="toss-toggle-label flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-600"
-                    title="날짜 또는 장소가 바뀌는 구간 사이에 플립 시계 / 이동 경로 브릿지를 삽입합니다"
+                    title={
+                      dict.dramaticClips.chapterBridgeTitle ||
+                      '날짜 또는 장소가 바뀌는 구간 사이에 플립 시계 / 이동 경로 브릿지를 삽입합니다'
+                    }
                   >
-                    <span>챕터 브릿지</span>
+                    <span>{dict.dramaticClips.chapterBridgeToggle || '챕터 브릿지'}</span>
                     <span className="toss-toggle-switch">
                       <input
                         type="checkbox"
@@ -3210,7 +3229,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                               .join('  •  ')}
                           </span>
                           <span className="toss-segment-bridge-time">
-                            +2.2s 브릿지
+                            {interpolate(
+                              dict.dramaticClips.bridgeBadge || '+{duration}s 브릿지',
+                              { duration: '2.2' }
+                            )}
                           </span>
                         </div>
                       )}
@@ -3259,7 +3281,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             {Boolean(seg.rotation) && (
                               <span
                                 className="toss-segment-thumb-badge"
-                                title={`${seg.rotation}° 회전됨`}
+                                title={interpolate(dict.dramaticClips.rotateBadge || '{deg}° 회전됨', {
+                                  deg: seg.rotation ?? 0,
+                                })}
                               >
                                 {seg.rotation}°
                               </span>
@@ -3276,12 +3300,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                   className={`toss-segment-music-over-badge ${isSegFullyBeyondMusic ? 'beyond' : 'boundary'}`}
                                   title={
                                     customAudioDuration
-                                      ? `배경음악 1회차 길이(${formatSec(customAudioDuration)})를 넘어 음악이 반복되는 구간이에요`
-                                      : '음악 길이 초과 구간'
+                                      ? interpolate(
+                                          dict.dramaticClips.musicOverflowTip ||
+                                            '배경음악 1회차 길이({duration})를 넘어 음악이 반복되는 구간이에요',
+                                          { duration: formatSec(customAudioDuration) }
+                                        )
+                                      : dict.dramaticClips.musicOverflowSegmentTip || '음악 길이 초과 구간'
                                   }
                                 >
                                   <Music size={9} className="shrink-0" />
-                                  <span>{isSegFullyBeyondMusic ? '음악 초과' : '음악 끝 경계'}</span>
+                                  <span>
+                                    {isSegFullyBeyondMusic
+                                      ? dict.dramaticClips.musicOverflowBadge || '음악 초과'
+                                      : dict.dramaticClips.musicBoundaryBadge || '음악 끝 경계'}
+                                  </span>
                                 </span>
                               )}
                             </div>
@@ -3292,7 +3324,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                               {segOffset && (
                                 <span
                                   className="toss-segment-timeline-range"
-                                  title={`시퀀스 타임라인 위치: ${formatSec(segOffset.startOffset)} ~ ${formatSec(segOffset.endOffset)}`}
+                                  title={interpolate(
+                                    dict.dramaticClips.timelinePositionTip ||
+                                      '시퀀스 타임라인 위치: {start} ~ {end}',
+                                    {
+                                      start: formatSec(segOffset.startOffset),
+                                      end: formatSec(segOffset.endOffset),
+                                    }
+                                  )}
                                 >
                                   {formatSec(segOffset.startOffset)}~{formatSec(segOffset.endOffset)}
                                 </span>
@@ -4024,10 +4063,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   type="button"
                   className="toss-bottom-status-link"
                   onClick={() => setActiveTab('projects')}
-                  title="내 작업 보관함으로 이동"
+                  title={dict.projects?.goToProjects || '내 작업 보관함으로 이동'}
                 >
                   <FolderOpen size={12} className="inline mr-1 text-slate-500" />
-                  <span>보관함 보기</span>
+                  <span>{dict.projects?.viewProjects || '보관함 보기'}</span>
                 </button>
               )}
             </div>
@@ -4041,11 +4080,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   </span>
                   <span className="toss-bottom-savings-times">
                     <span className="text-slate-500">
-                      {originalTotalDuration.toFixed(1)}초 원본 영상
+                      {interpolate(dict.summaryCard.originalVideo, {
+                        duration: originalTotalDuration.toFixed(1),
+                      })}
                     </span>
                     <span className="mx-1 text-slate-400">➔</span>
                     <strong className="text-slate-900 font-mono font-semibold">
-                      {totalDuration.toFixed(1)}초 하이라이트
+                      {interpolate(dict.summaryCard.highlightOnly || '{duration}초 하이라이트', {
+                        duration: totalDuration.toFixed(1),
+                      })}
                     </strong>
                   </span>
                   {savedPercent > 0 && (
@@ -4057,7 +4100,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               ) : videos.length > 0 ? (
                 <div className="toss-bottom-summary-simple">
                   <span className="text-slate-500 text-xs font-mono">
-                    총 {videos.length}개 영상 ({originalTotalDuration.toFixed(1)}초)
+                    {interpolate(
+                      dict.summaryCard.totalVideosSummary || '총 {count}개 영상 ({duration}초)',
+                      {
+                        count: videos.length,
+                        duration: originalTotalDuration.toFixed(1),
+                      }
+                    )}
                   </span>
                 </div>
               ) : null}

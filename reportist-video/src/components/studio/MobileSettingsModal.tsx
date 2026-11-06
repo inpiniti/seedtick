@@ -365,7 +365,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
           {(onToggleShowSubtitle || onToggleShowChapterBridge) && (
             <div className="settings-modal-group">
               <span className="settings-modal-group-title">
-                {dict.settingsModal?.subtitleOption || '영상 자막 및 브릿지 설정'}
+                {dict.settingsModal?.subtitleSection || dict.settingsModal?.subtitleOption || '영상 자막 및 스토리 브릿지 설정'}
               </span>
               {onToggleShowChapterBridge && (
                 <div className="settings-modal-card-box mb-2">
@@ -379,10 +379,11 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                       </div>
                       <div className="settings-modal-item-text">
                         <div className="settings-modal-item-title">
-                          스토리 챕터 브릿지 표시
+                          {dict.settingsModal?.chapterBridgeOption || '스토리 챕터 브릿지 표시'}
                         </div>
                         <div className="settings-modal-item-desc">
-                          날짜나 장소가 바뀌는 구간 사이에 플립 시계 / 이동 경로 브릿지를 삽입해요
+                          {dict.settingsModal?.chapterBridgeOptionDesc ||
+                            '날짜나 장소가 바뀌는 구간 사이에 플립 시계 / 이동 경로 브릿지를 삽입해요'}
                         </div>
                       </div>
                     </div>

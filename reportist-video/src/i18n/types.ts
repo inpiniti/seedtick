@@ -37,6 +37,16 @@ export interface Dictionary {
     settings?: string;
     timeSec: string;
     fileSizeMb: string;
+    errorStitching?: string;
+    reportCopied?: string;
+    copyReport?: string;
+    justNow?: string;
+    minutesAgo?: string;
+    hoursAgo?: string;
+    daysAgo?: string;
+    modelLabel?: string;
+    effortLabel?: string;
+    modelWidgetTitle?: string;
   };
   header: {
     aiModel: string;
@@ -81,6 +91,23 @@ export interface Dictionary {
     clipsCount: string;
     hint: string;
     clipTitle: string;
+    trackVideo?: string;
+    trackAudio?: string;
+    fitMusicBtn?: string;
+    fitMusicBtnTip?: string;
+    fitMusicToast?: string;
+    musicBadgeOverflow?: string;
+    musicBadgeOverflowTip?: string;
+    musicBadgeOk?: string;
+    musicBadgeOkTip?: string;
+    musicEndTag?: string;
+    musicEndTagTip?: string;
+    musicLimitLineTip?: string;
+    musicEmptyNotice?: string;
+    musicEmptyNoticeTip?: string;
+    openAudioLibrary?: string;
+    musicOverflowNotice?: string;
+    deleteClipTip?: string;
   };
   bgm: {
     title: string;
@@ -161,12 +188,23 @@ export interface Dictionary {
     sortByRecordedDateToast: string;
     recordedTimeLabel: string;
     originalRecordedTime: string;
+    chapterBridgeToggle?: string;
+    chapterBridgeTitle?: string;
+    bridgeBadge?: string;
+    bridgeBadgeText?: string;
+    musicOverflowBadge?: string;
+    musicBoundaryBadge?: string;
+    musicOverflowTip?: string;
+    musicOverflowSegmentTip?: string;
+    timelinePositionTip?: string;
   };
   summaryCard: {
     timeSavedRate: string;
     reducedBy: string;
     originalVideo: string;
     highlightVideo: string;
+    highlightOnly?: string;
+    totalVideosSummary?: string;
   };
   thumbnail?: {
     cardTitle: string;
@@ -183,6 +221,18 @@ export interface Dictionary {
     styleBold: string;
     styleBanner: string;
     styleClean: string;
+    selectAiFrame?: string;
+    overlayToggleTip?: string;
+    stylePreset?: string;
+    restoreAiFrameTip?: string;
+    restoreAiFrame?: string;
+    captureCurrentFrameTip?: string;
+    applyCurrentFrame?: string;
+    capturing?: string;
+    generateFromCurrentVideo?: string;
+    loadingThumbnail?: string;
+    generatingThumbnail?: string;
+    aiHighlightMoment?: string;
   };
   community?: {
     navTitle: string;
@@ -251,6 +301,12 @@ export interface Dictionary {
     startNew: string;
     bottomSaved?: string;
     studioReady?: string;
+    localStorageBadge?: string;
+    localStorageTip?: string;
+    goToProjects?: string;
+    viewProjects?: string;
+    projectSuffix?: string;
+    newProjectTitle?: string;
   };
   processingModal: {
     title: string;
@@ -359,6 +415,9 @@ export interface Dictionary {
     birthDatePlaceholder?: string;
     agePreviewLabel?: string;
     birthDatePrompt?: string;
+    subtitleSection?: string;
+    chapterBridgeOption?: string;
+    chapterBridgeOptionDesc?: string;
     subtitleOption?: string;
     subtitleOptionDesc?: string;
     downloadSubtitles?: string;
@@ -384,6 +443,9 @@ export interface Dictionary {
     youtubeNotice: string;
     totalCues: string;
     close: string;
+    compatibleBadge?: string;
+    noSubtitleText?: string;
+    downloading?: string;
   };
   dateFormatModal?: {
     title: string;
@@ -391,6 +453,13 @@ export interface Dictionary {
     defaultBadge: string;
     tip: string;
     close: string;
+    formatLabelDot?: string;
+    formatLabelHyphen?: string;
+    formatLabelSlash?: string;
+    formatLabelAsian?: string;
+    formatLabelMonthDay?: string;
+    formatLabelUS?: string;
+    formatLabelEU?: string;
   };
   logs: {
     pipelineStart: string;

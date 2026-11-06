@@ -52,6 +52,27 @@ export const DateFormatSelectorModal: React.FC<DateFormatSelectorModalProps> = (
     dict.dateFormatModal?.tip ||
     '선택하신 날짜 포맷은 브라우저에 저장되며, 모든 영상 자막 및 편집 타임라인에 실시간 적용됩니다.';
 
+  const getFormatLabel = (fmt: { id: DateFormatOption; label: string }) => {
+    switch (fmt.id) {
+      case 'YYYY.MM.DD':
+        return dict.dateFormatModal?.formatLabelDot || fmt.label;
+      case 'YYYY-MM-DD':
+        return dict.dateFormatModal?.formatLabelHyphen || fmt.label;
+      case 'YYYY/MM/DD':
+        return dict.dateFormatModal?.formatLabelSlash || fmt.label;
+      case 'YYYY년 M월 D일':
+        return dict.dateFormatModal?.formatLabelAsian || fmt.label;
+      case 'M월 D일':
+        return dict.dateFormatModal?.formatLabelMonthDay || fmt.label;
+      case 'MM/DD/YYYY':
+        return dict.dateFormatModal?.formatLabelUS || fmt.label;
+      case 'DD/MM/YYYY':
+        return dict.dateFormatModal?.formatLabelEU || fmt.label;
+      default:
+        return fmt.label;
+    }
+  };
+
   return (
     <div className="model-modal-backdrop" onClick={onClose}>
       <div
@@ -134,7 +155,7 @@ export const DateFormatSelectorModal: React.FC<DateFormatSelectorModalProps> = (
                       )}
                     </div>
                     <span className="language-modal-item-english" style={{ fontSize: '12px', color: '#64748b' }}>
-                      {fmt.label} ({fmt.formatName})
+                      {getFormatLabel(fmt)} ({fmt.formatName})
                     </span>
                   </div>
                 </div>
