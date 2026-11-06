@@ -1522,7 +1522,7 @@
     min-height: auto !important;
     max-height: none !important;
     overflow: visible !important;
-    padding: 10px 12px 40px 12px;
+    padding: 10px 12px;
     gap: 12px;
   }
 
@@ -4167,6 +4167,7 @@
   0% {
     background-position: 200% 0;
   }
+
   100% {
     background-position: -200% 0;
   }
@@ -8835,7 +8836,7 @@
 
 /* 하단 바에 의한 메인 본문 가림 방지 */
 .toss-page-container {
-  padding-bottom: 46px;
+  padding-bottom: 38px;
 }
 
 @media (max-width: 640px) {
