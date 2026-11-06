@@ -627,32 +627,9 @@ export function App() {
       rotation?: number;
     }> = [];
 
-    // 영상 길이(duration)에 비례한 동적 가중치 계산 (총 85% 구간 분배)
-    // 영상별 duration이 없거나 짧을 경우를 대비해 기본 균등 가중치 35% + 길이 비례 가중치 65% 혼합
-    const TOTAL_ANALYSIS_PCT = 85;
-    const totalDuration = updatedVideos.reduce(
-      (sum, v) => sum + Math.max(v.duration || 10, 5),
-      0
-    );
-    const videoWeights = updatedVideos.map((v) => {
-      const durationRatio = Math.max(v.duration || 10, 5) / (totalDuration || 1);
-      const equalRatio = 1 / totalVideos;
-      return equalRatio * 0.35 + durationRatio * 0.65;
-    });
-    const weightSum = videoWeights.reduce((sum, w) => sum + w, 0);
-    const normalizedWeights = videoWeights.map((w) => w / (weightSum || 1));
-
-    let cumulativeStart = 0;
-    const videoProgressRanges = normalizedWeights.map((weight) => {
-      const start = cumulativeStart;
-      const span = weight * TOTAL_ANALYSIS_PCT;
-      cumulativeStart += span;
-      return {
-        startPct: start,
-        endPct: cumulativeStart,
-        spanPct: span,
-      };
-    });
+    // 영상 분석 단계 총합: 90% (영상 개수로 균등 분할: 3개 영상 기준 각 30%, 60%, 90% 마일스톤)
+    const TOTAL_ANALYSIS_PCT = 90;
+    const videoSpan = TOTAL_ANALYSIS_PCT / totalVideos;
 
     try {
       // 1. 영상별 순차 루프
@@ -666,21 +643,13 @@ export function App() {
           continue;
         }
 
-        // 각 영상별 동적 진행률 구간 (영상 길이에 따라 가변 분배)
-        const range = videoProgressRanges[i] || {
-          startPct: (i / totalVideos) * TOTAL_ANALYSIS_PCT,
-          endPct: ((i + 1) / totalVideos) * TOTAL_ANALYSIS_PCT,
-          spanPct: TOTAL_ANALYSIS_PCT / totalVideos,
-        };
-        const videoStartPct = range.startPct;
-        const videoEndPct = range.endPct;
-        const videoSpan = range.spanPct;
+        // 각 영상별 목표 구간 (예: 3개 영상이면 [0~30%], [30~60%], [60~90%])
+        const videoStartPct = i * videoSpan;
+        const videoEndPct = (i + 1) * videoSpan;
 
-        // 1-A 프레임 추출: 비디오 구간의 8% 비중 (순식간에 끝나므로 최소 가중치)
-        const extractSpan = videoSpan * 0.08;
-        // 1-B AI 추론/분석: 비디오 구간의 92% 비중 (실제 대기 시간 대부분 차지)
-        const analyzeSpan = videoSpan * 0.92;
-        const analyzeBasePct = videoStartPct + extractSpan;
+        // 1-A 프레임 추출: 비디오 구간의 처음 2%만 살짝 사용
+        const extractSpan = Math.min(2.0, videoSpan * 0.1);
+        const analyzeStartPct = videoStartPct + extractSpan;
         const analyzeTargetPct = videoEndPct;
 
         // 1-A. 주요 프레임 다중 이미지 추출
@@ -711,7 +680,7 @@ export function App() {
           currentVideo.duration,
           (pct) => {
             if (signal.aborted) return;
-            const currentExtractPct = Math.round(videoStartPct + (pct / 100) * extractSpan);
+            const currentExtractPct = Number((videoStartPct + (pct / 100) * extractSpan).toFixed(1));
             setProgress((prev) => ({
               ...prev,
               progressPercent: Math.min(99, Math.max(prev.progressPercent, currentExtractPct)),
@@ -727,28 +696,28 @@ export function App() {
         resetLiveStream();
 
         // 1-B. AI Gateway 다중 프레임 분석
+        // [진짜 제논(Zeno) 감속 점근]: 목표치(analyzeTargetPct)에 다가갈수록 1/2, 1/4, 1/8로 자연스럽게 감속
+        let currentVisualPct = Math.max(videoStartPct + extractSpan, analyzeStartPct);
         const analyzeStartTime = Date.now();
-        // 영상 길이 및 모델 처리에 기반한 예상 소요 시간(초)
-        const expectedSec = Math.max(
-          22,
-          Math.round(18 + Math.min(50, (currentVideo.duration || 10) * 0.15))
-        );
 
-        const updateAnalyzeProgress = () => {
+        const updateAnalyzeProgress = (bonusDelta = 0) => {
           if (signal.aborted) return;
           const elapsedSec = (Date.now() - analyzeStartTime) / 1000;
           const totalChars = (liveReasoning?.length || 0) + (liveContent?.length || 0);
 
-          // 1단계 지수 점근
-          const timeRatio = 1 - Math.exp(-elapsedSec / expectedSec);
-          const charRatio = Math.min(1, totalChars / 1800);
-          const baseFactor = Math.max(timeRatio * 0.85, charRatio * 0.85);
+          // 남은 거리: targetPct에 다가갈수록 remaining이 줄어듦
+          const remaining = analyzeTargetPct - currentVisualPct;
 
-          // 2단계: AI 추론이 길어져도 특정 %에서 멈추지 않는 연속 점근 크롤링 (Zeno's crawl)
-          const overtimeSec = Math.max(0, elapsedSec - expectedSec * 0.7);
-          const crawlFactor = (1 - Math.exp(-overtimeSec / 45)) * 0.14;
-          const effectiveFactor = Math.min(0.99, baseFactor + crawlFactor);
-          const currentPct = Math.round(analyzeBasePct + effectiveFactor * analyzeSpan);
+          if (remaining > 0.15) {
+            // 제논의 법칙: 남은 거리의 0.35%씩 전진 (거리가 멀면 빠르고, 가까워지면 1/2, 1/4 속도로 완만해짐)
+            const decayStep = Math.max(0.006, remaining * 0.0035);
+            currentVisualPct = Math.min(analyzeTargetPct - 0.1, currentVisualPct + decayStep + bonusDelta);
+          } else {
+            // 목표치 0.15% 이내로 근접했을 때 (완료 직전): 초미세 크롤링
+            currentVisualPct = Math.min(analyzeTargetPct - 0.05, currentVisualPct + 0.001);
+          }
+
+          const displayPct = Number(currentVisualPct.toFixed(1));
 
           // 실시간 경과 시간 및 분석 글자 수 카운터 포맷팅
           const elapsedInt = Math.max(1, Math.floor(elapsedSec));
@@ -772,7 +741,7 @@ export function App() {
 
           setProgress((prev) => ({
             ...prev,
-            progressPercent: Math.min(99, Math.max(prev.progressPercent, currentPct)),
+            progressPercent: Math.min(99, Math.max(prev.progressPercent, displayPct)),
             statusMessage: `${baseStatus}${counterSuffix}`,
           }));
         };
@@ -783,7 +752,7 @@ export function App() {
           currentPhase: 'analyze',
           currentVideoIndex: i,
           totalVideos,
-          progressPercent: Math.min(99, Math.max(prev.progressPercent, Math.round(analyzeBasePct))),
+          progressPercent: Math.min(99, Math.max(prev.progressPercent, Number(currentVisualPct.toFixed(1)))),
           statusMessage: `${interpolate(dict.logs.statusAnalyzing, {
             index: i + 1,
             total: totalVideos,
@@ -792,8 +761,8 @@ export function App() {
           reasoningLogs: [...logs],
         }));
 
-        // 사용자가 보는 동안 진행률 바가 멈추지 않고 1%씩 부드럽게 상승하도록 150ms마다 보간
-        const analyzeSmoothTimer = window.setInterval(updateAnalyzeProgress, 150);
+        // 100ms마다 제논 감속 시뮬레이터 실행 (1초에 10회 부드럽게 갱신)
+        const analyzeSmoothTimer = window.setInterval(() => updateAnalyzeProgress(0), 100);
 
         let segments: any[] = [];
         try {
@@ -820,7 +789,8 @@ export function App() {
               }
               liveReasoning = fullText;
               scheduleLiveStreamFlush();
-              updateAnalyzeProgress();
+              // 청크 수신 시 0.005% 미세 펄스 가미
+              updateAnalyzeProgress(0.005);
             },
             onContentDelta: (_chunk, fullText) => {
               if (!liveContent) {
@@ -828,7 +798,7 @@ export function App() {
               }
               liveContent = fullText;
               scheduleLiveStreamFlush();
-              updateAnalyzeProgress();
+              updateAnalyzeProgress(0.005);
             },
             onFallback: (reason) => {
               console.warn(`[Video] Stream fallback (${currentVideo.name}):`, reason);
@@ -839,10 +809,10 @@ export function App() {
           window.clearInterval(analyzeSmoothTimer);
         }
 
-        // 해당 영상 분석 완료: 해당 영상에 할당된 목표치로 부드럽게 안착
+        // 해당 영상 분석 완료: 해당 영상의 목표치(30%, 60%, 90%)로 정확하고 깔끔하게 안착
         setProgress((prev) => ({
           ...prev,
-          progressPercent: Math.min(99, Math.max(prev.progressPercent, Math.round(analyzeTargetPct))),
+          progressPercent: Math.min(99, Math.max(prev.progressPercent, Math.round(videoEndPct))),
         }));
 
         flushLiveStream();
@@ -940,7 +910,7 @@ export function App() {
         currentPhase: 'stitch',
         currentVideoIndex: totalVideos - 1,
         totalVideos,
-        progressPercent: 85,
+        progressPercent: 90,
         stitchProgressPercent: 0,
         statusMessage: interpolate(dict.logs.stitchingProgress, { count: allSegments.length }),
         reasoningLogs: [...logs],
@@ -956,7 +926,7 @@ export function App() {
         onLog: addLog,
         onProgress: (pct, msg) => {
           if (signal.aborted) return;
-          const overallPct = Math.round(85 + (pct / 100) * 14);
+          const overallPct = Math.round(90 + (pct / 100) * 9);
           setProgress((prev) => ({
             ...prev,
             progressPercent: Math.min(99, overallPct),

@@ -3777,13 +3777,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <div className="flex justify-between items-center text-xs font-mono text-slate-400 mt-1.5 px-0.5">
               <span>
                 {progress.currentPhase === 'stitch' && progress.stitchProgressPercent !== undefined
-                  ? `${dict.processingModal.stitchProgressLabel || '병합 진행률'} (전체 ${progress.progressPercent}%)`
+                  ? `${dict.processingModal.stitchProgressLabel || '병합 진행률'} (전체 ${Math.floor(progress.progressPercent)}%)`
                   : dict.processingModal.youtubeSpec}
               </span>
               <span className="font-bold text-blue-600">
                 {progress.currentPhase === 'stitch' && progress.stitchProgressPercent !== undefined
-                  ? `${progress.stitchProgressPercent}%`
-                  : `${progress.progressPercent}%`}
+                  ? `${Math.floor(progress.stitchProgressPercent)}%`
+                  : `${Math.floor(progress.progressPercent)}%`}
               </span>
             </div>
 
