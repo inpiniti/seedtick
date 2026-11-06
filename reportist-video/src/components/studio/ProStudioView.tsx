@@ -6,6 +6,7 @@ import {
   Pause,
   RotateCcw,
   RotateCw,
+  ArrowRight,
   Volume2,
   VolumeX,
   Sparkles,
@@ -1036,6 +1037,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     customAudioDuration &&
     customAudioDuration > 0 &&
     totalDuration > customAudioDuration + 0.15
+  );
+
+  const isMusicTrimmed = Boolean(
+    customAudioFile &&
+    customAudioDuration &&
+    customAudioDuration > totalDuration + 0.5 &&
+    !isMusicExceeded
   );
 
   const musicOverflowSec = useMemo(() => {
@@ -2557,18 +2565,35 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         </span>
                       ) : (
                         <span
-                          className="toss-sequencer-music-badge ok"
+                          className={`toss-sequencer-music-badge ${isMusicTrimmed ? 'trimmed' : 'ok'}`}
                           title={
-                            dict.sequencer.musicBadgeOkTip ||
-                            '영상이 배경음악 1회 재생 길이 안에 깔끔하게 들어와요'
+                            isMusicTrimmed
+                              ? interpolate(
+                                  dict.sequencer.musicBadgeTrimmedTip ||
+                                    '배경음악 원곡({duration})이 영상 길이({used})보다 길어 영상에 맞춰 앞부분만 사용돼요',
+                                  {
+                                    duration: formatSec(customAudioDuration),
+                                    used: formatSec(totalDuration),
+                                  }
+                                )
+                              : (dict.sequencer.musicBadgeOkTip ||
+                                  '영상이 배경음악 1회 재생 길이 안에 깔끔하게 들어와요')
                           }
                         >
                           <Music size={10} className="shrink-0" />
                           <span>
-                            {interpolate(
-                              dict.sequencer.musicBadgeOk || '음악 {duration} (반복 없음)',
-                              { duration: formatSec(customAudioDuration) }
-                            )}
+                            {isMusicTrimmed
+                              ? interpolate(
+                                  dict.sequencer.musicBadgeTrimmed || '원곡 {duration} 중 {used} 사용',
+                                  {
+                                    duration: formatSec(customAudioDuration),
+                                    used: formatSec(totalDuration),
+                                  }
+                                )
+                              : interpolate(
+                                  dict.sequencer.musicBadgeOk || '음악 {duration} (반복 없음)',
+                                  { duration: formatSec(customAudioDuration) }
+                                )}
                           </span>
                         </span>
                       )
@@ -2663,6 +2688,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       <div className="toss-playhead-line" />
                     </div>
 
+                    {/* 영상 종료 시점 경계선 (100% 끝에서 영상이 확실하게 닫힘 표시) */}
+                    <div
+                      className="toss-sequencer-end-boundary"
+                      title={interpolate(dict.sequencer.videoEndTagTip || '영상 종료 시점 ({duration})', {
+                        duration: formatSec(totalDuration),
+                      })}
+                    />
+
                     {/* 음악 1회차 종료 & 반복 시작 경계선 (V1 + A1 관통) */}
                     {isMusicExceeded && customAudioDuration && (
                       <div
@@ -2680,11 +2713,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
                     {/* V1: 비디오 클립 시퀀스 트랙 */}
                     <div className="toss-sequencer-strip">
-                      {/* 시작 인트로 블록 (인트로가 포함된 경우) */}
+                      {/* 시작 인트로 블록 (인터로가 포함된 경우) */}
                       {introDuration > 0 && (
                         <div
                           className={`toss-sequencer-block toss-sequencer-intro-block ${activePlayingSegmentId === 'intro' ? 'playing' : ''} ${selectedSegmentId === 'intro' ? 'selected' : ''}`}
-                          style={{ width: `${(introDuration / (totalDuration || 1)) * 100}%` }}
+                          style={{
+                            flex: `${Math.max(0.01, introDuration)} 1 0%`,
+                            minWidth: 0,
+                          }}
                           onClick={(e) => {
                             e.stopPropagation();
                             if (suppressSegmentClickRef.current) {
@@ -2721,12 +2757,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           segOffset &&
                           segOffset.startOffset >= customAudioDuration - 0.05
                         );
+                        const segDur = seg.duration + bridgeDur;
+                        const isLastClip = idx === segments.length - 1 && outroDuration === 0;
 
                         return (
                           <div
                             key={seg.id}
-                            className={`toss-sequencer-block ${isSelected ? 'selected' : ''} ${isCurrent ? 'playing' : ''} ${isExceedingMusic ? 'exceeds-music' : ''} ${isFullyBeyondMusic ? 'beyond-music' : ''}`}
-                            style={{ width: `${widthPct}%` }}
+                            className={`toss-sequencer-block ${isSelected ? 'selected' : ''} ${isCurrent ? 'playing' : ''} ${isExceedingMusic ? 'exceeds-music' : ''} ${isFullyBeyondMusic ? 'beyond-music' : ''} ${isLastClip ? 'is-video-end-clip' : ''}`}
+                            style={{
+                              flex: `${Math.max(0.01, segDur)} 1 0%`,
+                              minWidth: 0,
+                            }}
                             onClick={(e) => {
                               e.stopPropagation();
                               if (suppressSegmentClickRef.current) {
@@ -2806,8 +2847,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       {/* 종료 아웃트로 블록 (아웃트로가 포함된 경우) */}
                       {outroDuration > 0 && (
                         <div
-                          className={`toss-sequencer-block toss-sequencer-outro-block ${activePlayingSegmentId === 'outro' ? 'playing' : ''} ${selectedSegmentId === 'outro' ? 'selected' : ''}`}
-                          style={{ width: `${(outroDuration / (totalDuration || 1)) * 100}%` }}
+                          className={`toss-sequencer-block toss-sequencer-outro-block is-video-end-clip ${activePlayingSegmentId === 'outro' ? 'playing' : ''} ${selectedSegmentId === 'outro' ? 'selected' : ''}`}
+                          style={{
+                            flex: `${Math.max(0.01, outroDuration)} 1 0%`,
+                            minWidth: 0,
+                          }}
                           onClick={(e) => {
                             e.stopPropagation();
                             if (suppressSegmentClickRef.current) {
@@ -2830,43 +2874,77 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     <div className="toss-sequencer-audio-strip">
                       {customAudioFile ? (
                         audioTimelineBlocks.length > 0 ? (
-                          audioTimelineBlocks.map((block) => (
-                            <div
-                              key={`audio_cycle_${block.cycleIndex}`}
-                              className={`toss-sequencer-audio-block ${block.isLoop ? 'loop-overflow' : 'primary'}`}
-                              style={{ width: `${block.widthPct}%` }}
-                              title={
-                                block.isLoop
-                                  ? `${customAudioName} — ${block.cycleIndex + 1}회차 반복 재생 구간 (${formatSec(block.startSec)} ~ ${formatSec(block.endSec)}, +${block.durationSec.toFixed(1)}s)`
-                                  : `${customAudioName} — 1회차 원곡 재생 (${formatSec(block.startSec)} ~ ${formatSec(block.endSec)} / 원곡 총 ${formatSec(customAudioDuration || block.durationSec)})`
-                              }
-                            >
-                              <div className="toss-audio-block-content">
-                                <div className="toss-audio-block-left">
-                                  {block.isLoop ? (
-                                    <RotateCw size={10} className="shrink-0" />
-                                  ) : (
-                                    <Music size={10} className="shrink-0" />
-                                  )}
-                                  <span className="toss-audio-block-name truncate">
-                                    {block.isLoop
-                                      ? `${block.cycleIndex + 1}회차 반복 · ${customAudioName}`
-                                      : customAudioName}
-                                  </span>
+                          audioTimelineBlocks.map((block) => {
+                            const isTrailingTrimmed = isMusicTrimmed && !block.isLoop;
+                            return (
+                              <div
+                                key={`audio_cycle_${block.cycleIndex}`}
+                                className={`toss-sequencer-audio-block ${block.isLoop ? 'loop-overflow' : 'primary'} ${isTrailingTrimmed ? 'is-trimmed-trailing' : ''}`}
+                                style={{ width: `${block.widthPct}%` }}
+                                title={
+                                  block.isLoop
+                                    ? `${customAudioName} — ${block.cycleIndex + 1}회차 반복 재생 구간 (${formatSec(block.startSec)} ~ ${formatSec(block.endSec)}, +${block.durationSec.toFixed(1)}s)`
+                                    : isTrailingTrimmed
+                                    ? interpolate(
+                                        dict.sequencer.musicTrimmedTip ||
+                                          '{name} — 원곡({total}) 중 영상에 맞춰 앞부분 {used} 재생 (이후 페이드아웃, 뒤에 더 긴 원곡이 있어요)',
+                                        {
+                                          name: customAudioName,
+                                          total: formatSec(customAudioDuration || block.durationSec),
+                                          used: formatSec(block.durationSec),
+                                        }
+                                      )
+                                    : `${customAudioName} — 1회차 원곡 재생 (${formatSec(block.startSec)} ~ ${formatSec(block.endSec)} / 원곡 총 ${formatSec(customAudioDuration || block.durationSec)})`
+                                }
+                              >
+                                <div className="toss-audio-block-content">
+                                  <div className="toss-audio-block-left">
+                                    {block.isLoop ? (
+                                      <RotateCw size={10} className="shrink-0" />
+                                    ) : (
+                                      <Music size={10} className="shrink-0" />
+                                    )}
+                                    <span className="toss-audio-block-name truncate">
+                                      {block.isLoop
+                                        ? `${block.cycleIndex + 1}회차 반복 · ${customAudioName}`
+                                        : customAudioName}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <span className="toss-audio-block-dur">
+                                      {block.isLoop
+                                        ? `+${block.durationSec.toFixed(1)}s 반복`
+                                        : isTrailingTrimmed
+                                        ? `${formatSec(block.durationSec)} / 원곡 ${formatSec(customAudioDuration || 0)}`
+                                        : formatSec(block.durationSec)}
+                                    </span>
+                                    {isTrailingTrimmed && (
+                                      <span
+                                        className="toss-audio-trailing-badge"
+                                        title={interpolate(
+                                          dict.sequencer.musicTrimmedTagTip ||
+                                            '원곡 {duration} 중 {used} 사용됨 (뒤에 원곡이 더 이어져요)',
+                                          {
+                                            duration: formatSec(customAudioDuration || 0),
+                                            used: formatSec(block.durationSec),
+                                          }
+                                        )}
+                                      >
+                                        <span>{dict.sequencer.musicTrimmedTag || '원곡 더 있음'}</span>
+                                        <ArrowRight size={9} className="shrink-0" />
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
-                                <span className="toss-audio-block-dur">
-                                  {block.isLoop
-                                    ? `+${block.durationSec.toFixed(1)}s 반복`
-                                    : !isMusicExceeded && customAudioDuration && customAudioDuration > totalDuration + 0.5
-                                    ? `${formatSec(block.durationSec)} / 원곡 ${formatSec(customAudioDuration)}`
-                                    : formatSec(block.durationSec)}
-                                </span>
+                                {isTrailingTrimmed && (
+                                  <div className="toss-audio-trailing-fade-mask" aria-hidden="true" />
+                                )}
                               </div>
-                            </div>
-                          ))
+                            );
+                          })
                         ) : (
                           <div
-                            className="toss-sequencer-audio-block primary"
+                            className={`toss-sequencer-audio-block primary ${isMusicTrimmed ? 'is-trimmed-trailing' : ''}`}
                             style={{ width: '100%' }}
                           >
                             <div className="toss-audio-block-content">
@@ -2874,8 +2952,23 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                 <Music size={10} className="shrink-0" />
                                 <span className="toss-audio-block-name truncate">{customAudioName}</span>
                               </div>
-                              <span className="toss-audio-block-dur">{formatSec(totalDuration)}</span>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="toss-audio-block-dur">
+                                  {isMusicTrimmed && customAudioDuration
+                                    ? `${formatSec(totalDuration)} / 원곡 ${formatSec(customAudioDuration)}`
+                                    : formatSec(totalDuration)}
+                                </span>
+                                {isMusicTrimmed && (
+                                  <span className="toss-audio-trailing-badge">
+                                    <span>{dict.sequencer.musicTrimmedTag || '원곡 더 있음'}</span>
+                                    <ArrowRight size={9} className="shrink-0" />
+                                  </span>
+                                )}
+                              </div>
                             </div>
+                            {isMusicTrimmed && (
+                              <div className="toss-audio-trailing-fade-mask" aria-hidden="true" />
+                            )}
                           </div>
                         )
                       ) : (

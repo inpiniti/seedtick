@@ -101,6 +101,13 @@ export interface Dictionary {
     musicBadgeOverflowTip?: string;
     musicBadgeOk?: string;
     musicBadgeOkTip?: string;
+    musicBadgeTrimmed?: string;
+    musicBadgeTrimmedTip?: string;
+    musicTrimmedTag?: string;
+    musicTrimmedTagTip?: string;
+    musicTrimmedTip?: string;
+    videoEndTag?: string;
+    videoEndTagTip?: string;
     musicEndTag?: string;
     musicEndTagTip?: string;
     musicLimitLineTip?: string;
