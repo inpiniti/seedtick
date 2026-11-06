@@ -4061,26 +4061,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               </div>
             )}
           </div>
-
-          {/* 시간 절약 효과 요약 카드 */}
-          {originalTotalDuration > 0 && hasHighlight && (
-            <div className="toss-summary-card">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-500 font-medium">{dict.summaryCard.timeSavedRate}</span>
-                <span className="text-sm font-bold text-emerald-600">
-                  {interpolate(dict.summaryCard.reducedBy, { percent: savedPercent })}
-                </span>
-              </div>
-              <div className="flex items-baseline justify-between mt-1">
-                <span className="text-xs text-slate-400">
-                  {interpolate(dict.summaryCard.originalVideo, { duration: originalTotalDuration.toFixed(1) })}
-                </span>
-                <span className="text-base font-bold text-slate-900 font-mono">
-                  {interpolate(dict.summaryCard.highlightVideo, { duration: totalDuration.toFixed(1) })}
-                </span>
-              </div>
-            </div>
-          )}
         </section>
       </main>
       )}
@@ -4407,7 +4387,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         videoTitle={overlayOptions.titleText || result?.suggestedTitle || 'highlight'}
       />
 
-      {/* 13. 화면 하단 고정 슬림 상태바 (자동 저장 상태 + 영상 요약) */}
+      {/* 13. 화면 하단 고정 슬림 상태바 (자동 저장 상태 + 시간 절약률 요약) */}
       {activeTab === 'studio' && (
         <aside className="toss-bottom-status-bar" aria-label={dict.projects?.tabTitle || '작업 상태바'}>
           <div className="toss-bottom-status-inner">
@@ -4451,9 +4431,33 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               )}
             </div>
 
-            {/* 우측: 영상 요약 (시간 절약률은 상단 요약 카드에서만 노출) */}
+            {/* 우측: 시간 절약률 / 영상 요약 */}
             <div className="toss-bottom-status-right">
-              {videos.length > 0 ? (
+              {originalTotalDuration > 0 && hasHighlight ? (
+                <div className="toss-bottom-savings-box">
+                  <span className="toss-bottom-savings-label">
+                    {dict.summaryCard.timeSavedRate}
+                  </span>
+                  <span className="toss-bottom-savings-times">
+                    <span className="text-slate-500">
+                      {interpolate(dict.summaryCard.originalVideo, {
+                        duration: originalTotalDuration.toFixed(1),
+                      })}
+                    </span>
+                    <span className="mx-1 text-slate-400">➔</span>
+                    <strong className="text-slate-900 font-mono font-semibold">
+                      {interpolate(dict.summaryCard.highlightOnly || '{duration}초 하이라이트', {
+                        duration: totalDuration.toFixed(1),
+                      })}
+                    </strong>
+                  </span>
+                  {savedPercent > 0 && (
+                    <span className="toss-bottom-savings-badge">
+                      {interpolate(dict.summaryCard.reducedBy, { percent: savedPercent })}
+                    </span>
+                  )}
+                </div>
+              ) : videos.length > 0 ? (
                 <div className="toss-bottom-summary-simple">
                   <span className="text-slate-500 text-xs font-mono">
                     {interpolate(

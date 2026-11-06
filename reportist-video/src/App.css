@@ -4275,15 +4275,6 @@
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
-/* Summary Card */
-.toss-summary-card {
-  background: #f0fdf4;
-  border: 1.5px solid #bbf7d0;
-  border-radius: 16px;
-  padding: 16px 18px;
-  box-shadow: 0 2px 6px rgba(4, 176, 105, 0.06);
-}
-
 /* 3. Floating Bottom Action Bar */
 .toss-bottom-bar {
   position: fixed;
@@ -9094,7 +9085,7 @@
 }
 
 /* ==========================================================================
-   화면 하단 고정 슬림 상태바 (자동 저장 상태 + 영상 요약)
+   화면 하단 고정 슬림 상태바 (자동 저장 상태 + 시간 절약률)
    ========================================================================== */
 .toss-bottom-status-bar {
   position: fixed;
@@ -9188,6 +9179,40 @@
   flex-shrink: 0;
 }
 
+.toss-bottom-savings-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.toss-bottom-savings-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  background-color: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+}
+
+.toss-bottom-savings-times {
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.toss-bottom-savings-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #059669;
+  background-color: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 1px 8px;
+  border-radius: 9999px;
+  letter-spacing: -0.2px;
+}
+
 .toss-bottom-summary-simple {
   font-size: 12px;
   color: #64748b;
@@ -9202,6 +9227,10 @@
   .toss-bottom-status-bar {
     height: 36px;
     padding: 0 12px;
+  }
+
+  .toss-bottom-savings-times {
+    display: none;
   }
 
   .toss-bottom-status-text {
