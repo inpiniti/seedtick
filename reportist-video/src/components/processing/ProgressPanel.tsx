@@ -169,7 +169,7 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
 
             <div className="current-video-stage-pill">
               {progress.currentPhase === 'extract' && '📸 캔버스 기반 14개 핵심 프레임 추출 중...'}
-              {progress.currentPhase === 'analyze' && '🧠 Google Gemma 4 31B 멀티모달 긴장도(Tension) 추론 중...'}
+              {progress.currentPhase === 'analyze' && '🧠 AI 멀티모달 긴장도(Tension) 추론 중...'}
               {progress.currentPhase === 'stitch' && '✂️ 16:9 유튜브 시네마틱 캔버스(1280x720) 무결점 병합 중...'}
               {progress.currentPhase === 'compress' && '⚡ 프레임 리샘플링 중...'}
             </div>

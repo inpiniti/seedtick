@@ -155,11 +155,17 @@ export function cleanModelName(name?: string | null): string {
 
 /**
  * 영상 하이라이트 분석에 쓸 기본 모델을 고른다.
- * 안전성 가드레일 모델 및 Nemotron Super VL은 제외하고, 지능이 가장 높은 모델을 기본값으로 사용한다.
+ * 안전성 가드레일 모델, Nemotron Super VL 및 Google Gemma 모델은 제외하고, 지능이 가장 높은 모델을 기본값으로 사용한다.
  * 지능 지수가 없는 모델만 남는 경우에는 가장 최신 출시 모델을 사용한다.
  */
 export function pickDefaultModel(models: FreeModelMeta[]): FreeModelMeta | null {
-  const usable = models.filter((model) => !isGuardrailModel(model) && !model.id.includes('super-vl'));
+  const usable = models.filter(
+    (model) =>
+      !isGuardrailModel(model) &&
+      !model.id.includes('super-vl') &&
+      !model.id.toLowerCase().includes('gemma') &&
+      !model.name.toLowerCase().includes('gemma')
+  );
   const pool = usable.length > 0 ? usable : models;
   if (pool.length === 0) return null;
 

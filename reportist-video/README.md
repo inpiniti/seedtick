@@ -10,7 +10,7 @@
 1. **순수 브라우저 처리 (100% Client-Side Privacy)**
    - 대용량 원본 영상을 외부 서버로 업로드하지 않고 브라우저 로컬 메모리(Blob URL)에서 안전하게 처리합니다.
 2. **비디오 전용 LLM 모델 & 추론 노력(Reasoning Effort) 선택**
-   - AI Gateway(`reportist-ai-gateway`)에서 비디오 모달리티를 지원하는 모델(`NVIDIA Nemotron 3.5 Super VL`, `Google Gemma 4` 등)만 선별 제공합니다.
+   - AI Gateway(`reportist-ai-gateway`)에서 비디오 모달리티를 지원하는 고성능 비전 모델(`Thinking Machines Inkling`, `Dots Studio Dots3-Note` 등)만 선별 제공합니다.
    - 추론 노력(High, Medium, Low) 옵션을 통해 분석의 깊이를 조절할 수 있습니다.
 3. **고속 브라우저 캔버스 압축 (Vercel 4.5MB Serverless 제한 준수)**
    - 원본 비디오를 HTML5 Canvas 기반 초경량 비디오로 빠르게 리샘플링하여 AI Gateway로 순차 전송합니다.

@@ -43,36 +43,6 @@ export const FALLBACK_VIDEO_MODELS: FreeModelMeta[] = [
     parametersSummary: '975B (활성 41B)',
   },
   {
-    id: 'google/gemma-4-31b-it:free',
-    name: 'Google: Gemma 4 31B',
-    providerName: 'Google DeepMind',
-    contextLengthFormatted: '256K tokens',
-    description: 'Google DeepMind의 고성능 멀티모달 모델로 연속 프레임 시퀀스와 타임스탬프 분석에 탁월합니다.',
-    modality: 'text+image+video->text',
-    inputModalities: ['text', 'image', 'video'],
-    intelligenceIndex: null,
-    codingIndex: 43.4,
-    agenticIndex: 4.2,
-    intelligenceTier: 'Google 31B 비전 멀티모달',
-    parametersSummary: '31B Dense',
-    supportedEfforts: ['high', 'medium', 'low'],
-    defaultEffort: 'high',
-  },
-  {
-    id: 'google/gemma-4-26b-a4b-it:free',
-    name: 'Google: Gemma 4 26B A4B',
-    providerName: 'Google DeepMind',
-    contextLengthFormatted: '256K tokens',
-    description: 'Google DeepMind 경량 고성능 MoE 모델로 빠른 프레임 장면 인식이 가능합니다.',
-    modality: 'text+image+video->text',
-    inputModalities: ['text', 'image', 'video'],
-    intelligenceIndex: null,
-    codingIndex: 39.3,
-    agenticIndex: 2.9,
-    intelligenceTier: 'Google 경량 고성능 MoE',
-    parametersSummary: '26B (활성 3.8B)',
-  },
-  {
     id: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
     name: 'NVIDIA: Nemotron 3 Nano Omni',
     providerName: 'NVIDIA',
@@ -125,11 +95,16 @@ export async function fetchVideoCapableModels(config: GatewayConfig = DEFAULT_CO
             m.name.toLowerCase().includes('nemotron 3.5 super vl');
           if (isNemotronSuperVl) return false;
 
+          // Google Gemma 모델 제외 (오류 빈발로 제외)
+          const isGoogleGemma =
+            m.id.toLowerCase().includes('gemma') ||
+            m.name.toLowerCase().includes('gemma');
+          if (isGoogleGemma) return false;
+
           const hasImageInput = Array.isArray(m.inputModalities) && m.inputModalities.includes('image');
           const hasImageModality = typeof m.modality === 'string' && m.modality.includes('image');
           const isKnownVision =
             m.id.includes('nano-omni') ||
-            m.id.includes('gemma-4') ||
             m.id.includes('dots-3') ||
             m.id.includes('inkling');
           const isVision = hasImageInput || hasImageModality || isKnownVision;
@@ -485,8 +460,10 @@ Format:
     });
   }
 
+  const defaultModelId = FALLBACK_VIDEO_MODELS[0]?.id || 'thinkingmachines/inkling-small:free';
+
   const requestBody: Record<string, unknown> = {
-    model: model || 'google/gemma-4-31b-it:free',
+    model: model || defaultModelId,
     messages: [
       {
         role: 'user',
@@ -508,7 +485,7 @@ Format:
   };
 
   // 모델 후보군 구성: 요청 모델 우선 -> FALLBACK_VIDEO_MODELS의 비전 모델 순 (최대 3개 모델 시도)
-  const requestedModel = model || 'google/gemma-4-31b-it:free';
+  const requestedModel = model || defaultModelId;
   const fallbackModelIds = FALLBACK_VIDEO_MODELS.map((m) => m.id);
   const candidateModels = Array.from(new Set([requestedModel, ...fallbackModelIds])).slice(0, 3);
 

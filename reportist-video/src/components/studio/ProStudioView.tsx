@@ -399,8 +399,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     dict,
   ]);
 
-  // 4-2. 상단 탭 상태 (스튜디오 vs 내 작업 보관함 vs 영상 공유 커뮤니티)
-  const [activeTab, setActiveTab] = useState<'studio' | 'projects' | 'community'>('studio');
+  // 4-2. 상단 탭 상태 (내 작업 보관함 vs 스튜디오 vs 영상 공유 커뮤니티)
+  const [activeTab, setActiveTab] = useState<'projects' | 'studio' | 'community'>('projects');
 
   // 5. 자막 & 브랜딩 오버레이 상태
   const initialDateStr = useMemo(() => {
@@ -1688,17 +1688,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <span className="toss-nav-tagline">{dict.common.taglineBadge}</span>
           </div>
 
-          {/* 상단 네비게이션 탭 (스튜디오 / 내 작업 보관함 / 영상 공유 커뮤니티) */}
+          {/* 상단 네비게이션 탭 (내 작업 보관함 / 스튜디오 / 영상 공유 커뮤니티) */}
           <div className="toss-nav-tabs-group">
-            <button
-              type="button"
-              className={`toss-nav-tab-btn ${activeTab === 'studio' ? 'active' : ''}`}
-              onClick={() => setActiveTab('studio')}
-              title={dict.community?.studioTab || '스튜디오'}
-            >
-              <Film size={14} />
-              <span>{dict.community?.studioTab || '스튜디오'}</span>
-            </button>
             <button
               type="button"
               className={`toss-nav-tab-btn ${activeTab === 'projects' ? 'active' : ''}`}
@@ -1707,6 +1698,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             >
               <FolderOpen size={14} />
               <span>{dict.projects?.tabTitle || '보관함'}</span>
+            </button>
+            <button
+              type="button"
+              className={`toss-nav-tab-btn ${activeTab === 'studio' ? 'active' : ''}`}
+              onClick={() => setActiveTab('studio')}
+              title={dict.community?.studioTab || '스튜디오'}
+            >
+              <Film size={14} />
+              <span>{dict.community?.studioTab || '스튜디오'}</span>
             </button>
             <button
               type="button"

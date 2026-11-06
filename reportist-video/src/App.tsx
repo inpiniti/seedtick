@@ -221,7 +221,12 @@ export function App() {
       setCurrentCustomAudio(restoredAudioFile);
 
       if (project.selectedModel) {
-        setSelectedModel(project.selectedModel);
+        const isExcluded =
+          project.selectedModel.toLowerCase().includes('gemma') ||
+          project.selectedModel.toLowerCase().includes('super-vl');
+        if (!isExcluded) {
+          setSelectedModel(project.selectedModel);
+        }
       }
       if (project.selectedEffort) {
         setSelectedEffort(project.selectedEffort);
