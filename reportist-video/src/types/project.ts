@@ -17,6 +17,7 @@ export interface StoredVideoItem {
   locationName?: string;
   thumbnailUrl?: string;
   fileBlob?: Blob;
+  hasOpfsFile?: boolean;
 }
 
 export interface StoredFinalResult {
@@ -68,6 +69,8 @@ export interface StudioProject {
   birthDate?: string;
   selectedModel?: string;
   selectedEffort?: ReasoningEffortOption;
+  storageMode?: 'auto' | 'full' | 'lightweight';
+  hasOpfsFiles?: boolean;
 }
 
 export interface StudioProjectSummary {
@@ -80,4 +83,6 @@ export interface StudioProjectSummary {
   videoCount: number;
   hasResult: boolean;
   step: 'upload' | 'processing' | 'result';
+  storageMode?: 'auto' | 'full' | 'lightweight';
+  hasOpfsFiles?: boolean;
 }

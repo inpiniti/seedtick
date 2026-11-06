@@ -373,3 +373,152 @@ export async function compressVideoForAnalysis(
     };
   });
 }
+
+export interface CodecInfo {
+  name: string;
+  label: string;
+  mimeType: string;
+  isSupported: boolean;
+  priority: number;
+  efficiency: 'high' | 'medium' | 'standard';
+}
+
+/**
+ * 브라우저에서 지원하는 비디오 녹화/인코딩 코덱 목록 및 효율성 순위 반환
+ */
+export function getSupportedCodecsList(): CodecInfo[] {
+  if (typeof window === 'undefined' || !('MediaRecorder' in window)) {
+    return [];
+  }
+  const candidates: Array<{
+    name: string;
+    label: string;
+    mimeType: string;
+    priority: number;
+    efficiency: 'high' | 'medium' | 'standard';
+  }> = [
+    { name: 'av1', label: 'AV1 (차세대 초고압축)', mimeType: 'video/webm;codecs=av01', priority: 1, efficiency: 'high' },
+    { name: 'vp9', label: 'VP9 (웹 고효율 압축)', mimeType: 'video/webm;codecs=vp9', priority: 2, efficiency: 'high' },
+    { name: 'h264_mp4', label: 'H.264 / MP4 (광범위 호환)', mimeType: 'video/mp4;codecs=avc1', priority: 3, efficiency: 'medium' },
+    { name: 'h264_webm', label: 'H.264 / WebM', mimeType: 'video/webm;codecs=h264', priority: 4, efficiency: 'medium' },
+    { name: 'vp8', label: 'VP8 / WebM (범용 표준)', mimeType: 'video/webm;codecs=vp8', priority: 5, efficiency: 'standard' },
+    { name: 'webm', label: '기본 WebM', mimeType: 'video/webm', priority: 6, efficiency: 'standard' },
+  ];
+
+  return candidates.map((c) => ({
+    ...c,
+    isSupported: MediaRecorder.isTypeSupported(c.mimeType),
+  }));
+}
+
+/**
+ * 현재 브라우저에서 지원하는 최적(최고 압축률) 코덱 감지
+ */
+export function detectOptimalCodec(): CodecInfo | null {
+  const list = getSupportedCodecsList();
+  return list.find((c) => c.isSupported) || null;
+}
+
+/**
+ * 스토리지 보관 및 모바일 캐시를 위한 경량 비디오 압축
+ */
+export async function compressVideoForStorage(
+  blob: Blob,
+  options: {
+    targetWidth?: number;
+    videoBitsPerSecond?: number;
+    onProgress?: (percent: number) => void;
+  } = {}
+): Promise<{ compressedBlob: Blob; sizeRatio: number; codec: string }> {
+  const { targetWidth = 960, videoBitsPerSecond = 800_000, onProgress } = options;
+  const optimalCodec = detectOptimalCodec();
+  const mimeType = optimalCodec?.mimeType || 'video/webm';
+  const url = URL.createObjectURL(blob);
+
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.src = url;
+    video.muted = true;
+    video.playsInline = true;
+    video.crossOrigin = 'anonymous';
+
+    video.onloadedmetadata = () => {
+      try {
+        const aspect = (video.videoHeight || 720) / (video.videoWidth || 1280);
+        const outWidth = Math.min(targetWidth, video.videoWidth || targetWidth);
+        const outHeight = Math.round((outWidth * aspect) / 2) * 2;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = outWidth;
+        canvas.height = outHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          URL.revokeObjectURL(url);
+          resolve({ compressedBlob: blob, sizeRatio: 0, codec: 'original' });
+          return;
+        }
+
+        const stream = canvas.captureStream(24);
+        const recorderOptions: MediaRecorderOptions = { videoBitsPerSecond };
+        if (optimalCodec?.isSupported) {
+          recorderOptions.mimeType = mimeType;
+        }
+
+        const recorder = new MediaRecorder(stream, recorderOptions);
+        const chunks: Blob[] = [];
+
+        recorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) chunks.push(e.data);
+        };
+
+        recorder.onstop = () => {
+          URL.revokeObjectURL(url);
+          const compressed = new Blob(chunks, { type: mimeType });
+          const sizeRatio = blob.size > 0 ? Math.max(0, Math.round((1 - compressed.size / blob.size) * 100)) : 0;
+          resolve({
+            compressedBlob: compressed.size < blob.size ? compressed : blob,
+            sizeRatio,
+            codec: optimalCodec?.name || 'default',
+          });
+        };
+
+        let animId: number;
+        const render = () => {
+          if (video.paused || video.ended) return;
+          ctx.drawImage(video, 0, 0, outWidth, outHeight);
+          if (onProgress && video.duration > 0) {
+            onProgress(Math.min(100, Math.round((video.currentTime / video.duration) * 100)));
+          }
+          animId = requestAnimationFrame(render);
+        };
+
+        video.onended = () => {
+          cancelAnimationFrame(animId);
+          if (recorder.state === 'recording') recorder.stop();
+        };
+
+        video.onerror = () => {
+          cancelAnimationFrame(animId);
+          if (recorder.state === 'recording') recorder.stop();
+          URL.revokeObjectURL(url);
+          resolve({ compressedBlob: blob, sizeRatio: 0, codec: 'original' });
+        };
+
+        recorder.start(250);
+        video.play().then(() => render()).catch(() => {
+          URL.revokeObjectURL(url);
+          resolve({ compressedBlob: blob, sizeRatio: 0, codec: 'original' });
+        });
+      } catch {
+        URL.revokeObjectURL(url);
+        resolve({ compressedBlob: blob, sizeRatio: 0, codec: 'original' });
+      }
+    };
+
+    video.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve({ compressedBlob: blob, sizeRatio: 0, codec: 'original' });
+    };
+  });
+}
+

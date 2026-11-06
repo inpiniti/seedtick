@@ -1,7 +1,5 @@
-// components/upload/VideoCard.tsx - 업로드된 개별 영상 카드 컴포넌트
-
-import React from 'react';
-import { ChevronUp, ChevronDown, Trash2, Film, CheckCircle2 } from 'lucide-react';
+import React, { useRef } from 'react';
+import { ChevronUp, ChevronDown, Trash2, Film, CheckCircle2, Link2, AlertCircle } from 'lucide-react';
 import type { VideoItem } from '../../types/video.ts';
 
 interface VideoCardProps {
@@ -11,6 +9,7 @@ interface VideoCardProps {
   onMoveUp: (index: number) => void;
   onMoveDown: (index: number) => void;
   onRemove: (id: string) => void;
+  onRelink?: (id: string, file: File) => void;
   disabled?: boolean;
 }
 
@@ -21,8 +20,10 @@ export const VideoCard: React.FC<VideoCardProps> = ({
   onMoveUp,
   onMoveDown,
   onRemove,
+  onRelink,
   disabled = false,
 }) => {
+  const relinkInputRef = useRef<HTMLInputElement>(null);
   // 시간 포맷 (mm:ss)
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -68,11 +69,42 @@ export const VideoCard: React.FC<VideoCardProps> = ({
               극적 구간 {video.segments.length}개
             </span>
           )}
+          {video.isMissingFile && (
+            <span className="inline-flex items-center gap-1 text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+              <AlertCircle className="w-3 h-3 text-amber-600" />
+              원본 연결 필요
+            </span>
+          )}
         </div>
       </div>
 
       {/* 조작 버튼: 위/아래 순서 변경 및 삭제 */}
       <div className="video-card-actions">
+        {video.isMissingFile && onRelink && (
+          <>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 text-xs text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1.5 rounded-md font-semibold transition-colors mr-1"
+              title="로컬 영상 파일 다시 연결하기"
+              onClick={() => relinkInputRef.current?.click()}
+            >
+              <Link2 className="w-3.5 h-3.5" />
+              <span>연결</span>
+            </button>
+            <input
+              ref={relinkInputRef}
+              type="file"
+              accept="video/*,image/*"
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files && e.target.files[0]) {
+                  onRelink(video.id, e.target.files[0]);
+                  e.target.value = '';
+                }
+              }}
+            />
+          </>
+        )}
         <button
           type="button"
           className="action-icon-btn"

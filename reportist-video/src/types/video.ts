@@ -57,6 +57,11 @@ export interface VideoItem {
   latitude?: number;
   longitude?: number;
   locationName?: string; // e.g. "어린이대공원"
+  isMissingFile?: boolean; // 로컬 원본 비디오 파일 재연결 필요 여부
+  compressionInfo?: {
+    codec: string;
+    sizeRatio: number;
+  };
 }
 
 export interface ExtractedFrame {

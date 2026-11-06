@@ -1,4 +1,14 @@
 import type { StudioProject, StudioProjectSummary } from '../types/project.ts';
+import { getStorageEstimate, getStoredStorageMode } from './storageQuotaService.ts';
+import {
+  saveVideoToOPFS,
+  getVideoFromOPFS,
+  saveFinalResultToOPFS,
+  getFinalResultFromOPFS,
+  deleteProjectOPFS,
+  copyProjectOPFS,
+  isOpfsAvailable,
+} from './opfsStorage.ts';
 
 const DB_NAME = 'reportist_video_studio_db';
 const DB_VERSION = 1;
@@ -91,6 +101,7 @@ function sanitizeProjectForStorage(project: StudioProject, stripBlobs = false): 
     locationName: v.locationName,
     thumbnailUrl: sanitizeThumbnail(v.thumbnailUrl),
     fileBlob: stripBlobs ? undefined : v.fileBlob,
+    hasOpfsFile: v.hasOpfsFile,
   }));
 
   const sanitizedFinalResult = project.finalResult
@@ -119,14 +130,12 @@ function sanitizeProjectForStorage(project: StudioProject, stripBlobs = false): 
 async function executePut(db: IDBDatabase, data: StudioProject): Promise<void> {
   return new Promise((resolve, reject) => {
     let finished = false;
-    // 모바일 기기에서 수백 MB의 비디오 Blob을 직렬화 및 플래시 스토리지에 기록할 때
-    // 4초는 타임아웃이 발생하기 쉬우므로 25초로 안전 마진을 대폭 상향합니다.
     const timeout = setTimeout(() => {
       if (!finished) {
         finished = true;
-        reject(new Error('IndexedDB put timed out (25s).'));
+        reject(new Error('IndexedDB put timed out.'));
       }
-    }, 25000);
+    }, 15000);
 
     try {
       const tx = db.transaction(STORE_NAME, 'readwrite');
@@ -168,37 +177,100 @@ async function executePut(db: IDBDatabase, data: StudioProject): Promise<void> {
 }
 
 /**
- * 프로젝트 저장 또는 업데이트 (IndexedDB)
- * 대용량 Blob으로 인한 저장 실패(Quota/Clone) 시 메타데이터 우선 저장으로 안전하게 fallback
+ * 프로젝트 저장 또는 업데이트 (OPFS 분리 저장 + IndexedDB 하이브리드)
  */
 export async function saveProject(project: StudioProject): Promise<void> {
   const db = await getDB();
+  const currentMode = project.storageMode || getStoredStorageMode();
+  let hasOpfs = false;
 
-  // 1차: Blob 포함 저장 시도
-  try {
-    const fullData = sanitizeProjectForStorage(project, false);
-    await executePut(db, fullData);
+  // 1. 경량 모드(lightweight)인 경우: 대용량 Blob 제외하고 타임라인/메타데이터만 초고속 저장
+  if (currentMode === 'lightweight') {
+    const safeData = sanitizeProjectForStorage({
+      ...project,
+      storageMode: 'lightweight',
+      hasOpfsFiles: false,
+    }, true);
+    await executePut(db, safeData);
     return;
-  } catch (firstErr) {
-    console.warn('saveProject: Full save with Blobs failed, attempting metadata-only fallback:', firstErr);
   }
 
-  // 2차: QuotaExceeded 또는 Blob 복제 에러 발생 시 Blob 제외 후 메타데이터 우선 저장
-  try {
-    const safeData = sanitizeProjectForStorage(project, true);
+  // 2. OPFS 지원 환경: 비디오 바이너리를 가상 파일시스템(OPFS)에 안전하게 기록
+  if (isOpfsAvailable()) {
+    try {
+      const opfsTasks: Promise<boolean>[] = [];
+
+      for (const v of project.videos || []) {
+        if (v.fileBlob && v.fileBlob.size > 0) {
+          opfsTasks.push(
+            saveVideoToOPFS(project.id, v.id, v.fileBlob).then((ok) => {
+              if (ok) v.hasOpfsFile = true;
+              return ok;
+            })
+          );
+        }
+      }
+
+      if (project.finalResult?.videoBlob && project.finalResult.videoBlob.size > 0) {
+        opfsTasks.push(saveFinalResultToOPFS(project.id, project.finalResult.videoBlob));
+      }
+
+      const results = await Promise.all(opfsTasks);
+      hasOpfs = results.some(Boolean);
+    } catch (opfsErr) {
+      console.warn('[projectStorage] OPFS storage partial error, falling back:', opfsErr);
+    }
+  }
+
+  // 3. OPFS에 저장된 경우: IndexedDB에는 가벼운 메타데이터만 기록 (직렬화 오버헤드 0, OOM 방지)
+  if (hasOpfs) {
+    const opfsMetadataOnly = sanitizeProjectForStorage({
+      ...project,
+      storageMode: currentMode,
+      hasOpfsFiles: true,
+    }, true);
+    await executePut(db, opfsMetadataOnly);
+    return;
+  }
+
+  // 4. OPFS 미지원 환경: 사전 쿼터(Quota) 체크
+  const estimate = await getStorageEstimate();
+  if (estimate.isLowStorage) {
+    console.warn('[projectStorage] Storage quota critically low, saving metadata-only to prevent crash.');
+    const safeData = sanitizeProjectForStorage({
+      ...project,
+      storageMode: 'lightweight',
+      hasOpfsFiles: false,
+    }, true);
     await executePut(db, safeData);
-  } catch (secondErr) {
-    console.error('saveProject: Metadata-only save also failed:', secondErr);
-    throw secondErr;
+    return;
+  }
+
+  // 5. IndexedDB 폴백: Blob 포함 저장 시도 후 실패 시 메타데이터 fallback
+  try {
+    const fullData = sanitizeProjectForStorage({
+      ...project,
+      storageMode: currentMode,
+      hasOpfsFiles: false,
+    }, false);
+    await executePut(db, fullData);
+  } catch (firstErr) {
+    console.warn('[projectStorage] Full save with Blobs failed, falling back to metadata-only:', firstErr);
+    const safeData = sanitizeProjectForStorage({
+      ...project,
+      storageMode: 'lightweight',
+      hasOpfsFiles: false,
+    }, true);
+    await executePut(db, safeData);
   }
 }
 
 /**
- * 단일 프로젝트 상세 불러오기 (비디오 Blob 포함)
+ * 단일 프로젝트 상세 불러오기 (OPFS 및 IndexedDB 하이브리드 복원)
  */
 export async function getProject(id: string): Promise<StudioProject | null> {
   const db = await getDB();
-  return new Promise((resolve, reject) => {
+  const project: StudioProject | null = await new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readonly');
     const store = tx.objectStore(STORE_NAME);
     const req = store.get(id);
@@ -211,6 +283,40 @@ export async function getProject(id: string): Promise<StudioProject | null> {
       reject(req.error || new Error('Failed to get project.'));
     };
   });
+
+  if (!project) return null;
+
+  // OPFS가 지원되고 바이너리 복원이 필요한 경우
+  if (isOpfsAvailable()) {
+    try {
+      // 1. 각 비디오 Blob 복원
+      if (project.videos && project.videos.length > 0) {
+        await Promise.all(
+          project.videos.map(async (v) => {
+            if (!v.fileBlob || v.fileBlob.size === 0) {
+              const opfsBlob = await getVideoFromOPFS(project.id, v.id);
+              if (opfsBlob) {
+                v.fileBlob = opfsBlob;
+                v.hasOpfsFile = true;
+              }
+            }
+          })
+        );
+      }
+
+      // 2. 최종 결과물 비디오 Blob 복원
+      if (project.finalResult && (!project.finalResult.videoBlob || project.finalResult.videoBlob.size === 0)) {
+        const opfsFinalBlob = await getFinalResultFromOPFS(project.id);
+        if (opfsFinalBlob) {
+          project.finalResult.videoBlob = opfsFinalBlob;
+        }
+      }
+    } catch (err) {
+      console.warn('[projectStorage] Error loading blobs from OPFS:', err);
+    }
+  }
+
+  return project;
 }
 
 /**
@@ -224,7 +330,6 @@ export async function getAllProjectSummaries(): Promise<StudioProjectSummary[]> 
     const index = store.index('by_updatedAt');
     const summaries: StudioProjectSummary[] = [];
 
-    // 최신순 (prev) 방향으로 순회
     const req = index.openCursor(null, 'prev');
 
     req.onsuccess = () => {
@@ -243,6 +348,8 @@ export async function getAllProjectSummaries(): Promise<StudioProjectSummary[]> 
           videoCount: item.videoCount || (item.videos ? item.videos.length : 0),
           hasResult: Boolean(item.finalResult && (item.finalResult.videoBlob || item.finalResult.duration > 0)),
           step: item.step || 'upload',
+          storageMode: item.storageMode,
+          hasOpfsFiles: item.hasOpfsFiles,
         });
         cursor.continue();
       } else {
@@ -257,11 +364,11 @@ export async function getAllProjectSummaries(): Promise<StudioProjectSummary[]> 
 }
 
 /**
- * 프로젝트 삭제
+ * 프로젝트 삭제 (IndexedDB 및 OPFS 동시 정리)
  */
 export async function deleteProject(id: string): Promise<void> {
   const db = await getDB();
-  return new Promise((resolve, reject) => {
+  await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readwrite');
     const store = tx.objectStore(STORE_NAME);
     const req = store.delete(id);
@@ -277,10 +384,13 @@ export async function deleteProject(id: string): Promise<void> {
       reject(req.error || new Error('Failed to delete project.'));
     };
   });
+
+  // OPFS 파일 정리
+  await deleteProjectOPFS(id);
 }
 
 /**
- * 프로젝트 복제
+ * 프로젝트 복제 (IndexedDB 메타데이터 및 OPFS 파일 복제)
  */
 export async function duplicateProject(id: string): Promise<StudioProject> {
   const original = await getProject(id);
@@ -297,6 +407,7 @@ export async function duplicateProject(id: string): Promise<StudioProject> {
     updatedAt: Date.now(),
   };
 
+  await copyProjectOPFS(id, newId);
   await saveProject(duplicated);
   return duplicated;
 }

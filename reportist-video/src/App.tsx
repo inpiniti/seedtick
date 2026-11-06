@@ -38,6 +38,7 @@ import {
   deleteProject,
   duplicateProject,
 } from './services/projectStorage.ts';
+import { saveVideoToOPFS } from './services/opfsStorage.ts';
 import { AlertCircle } from 'lucide-react';
 import { useI18n } from './i18n/index.tsx';
 
@@ -173,9 +174,10 @@ export function App() {
           duration: v.duration,
           width: v.width,
           height: v.height,
-          // 파일 데이터가 소실된 경우 status를 idle로 리셋하여 거짓 분석 완료(analyzed) 상태 방지
+          // 파일 데이터가 소실된 경우 status를 idle로 리셋하고 재연결 플래그 설정
           status: hasValidBlob ? v.status : 'idle',
-          error: hasValidBlob ? undefined : '모바일 메모리 정리로 인해 파일이 언로드되었습니다. 영상을 다시 선택해 주세요.',
+          error: hasValidBlob ? undefined : '로컬 원본 영상 재연결이 필요합니다.',
+          isMissingFile: !hasValidBlob,
           segments: v.segments || [],
           metadataDate: v.metadataDate,
           recordedTimestamp: v.recordedTimestamp,
@@ -588,6 +590,78 @@ export function App() {
       }
       return prev.filter((v) => v.id !== id);
     });
+  };
+
+  // 단일 영상 로컬 파일 재연결
+  const handleRelinkSingleVideo = (videoId: string, newFile: File) => {
+    const newUrl = URL.createObjectURL(newFile);
+    setVideos((prev) =>
+      prev.map((v) => {
+        if (v.id !== videoId) return v;
+        if (v.url && v.url.startsWith('blob:')) {
+          try {
+            URL.revokeObjectURL(v.url);
+          } catch {}
+        }
+        return {
+          ...v,
+          file: newFile,
+          url: newUrl,
+          sizeBytes: newFile.size,
+          isMissingFile: false,
+          error: undefined,
+          status: v.segments.length > 0 ? 'analyzed' : 'idle',
+        };
+      })
+    );
+    if (currentProjectId) {
+      void saveVideoToOPFS(currentProjectId, videoId, newFile);
+    }
+  };
+
+  // 누락 영상 파일 일괄 자동 매칭 및 재연결
+  const handleRelinkBatch = (files: File[]) => {
+    let matchedCount = 0;
+    setVideos((prev) =>
+      prev.map((v) => {
+        const isMissing = !v.url || (v.file && v.file.size === 0) || v.isMissingFile;
+        if (!isMissing) return v;
+
+        // 매칭: 파일명이 같거나(대소문자 무시) 파일 크기가 일치하는 파일 탐색
+        const match =
+          files.find((f) => f.name.toLowerCase() === v.name.toLowerCase()) ||
+          files.find((f) => f.size === v.sizeBytes);
+
+        if (match) {
+          matchedCount++;
+          if (v.url && v.url.startsWith('blob:')) {
+            try {
+              URL.revokeObjectURL(v.url);
+            } catch {}
+          }
+          const newUrl = URL.createObjectURL(match);
+          if (currentProjectId) {
+            void saveVideoToOPFS(currentProjectId, v.id, match);
+          }
+          return {
+            ...v,
+            file: match,
+            url: newUrl,
+            sizeBytes: match.size,
+            isMissingFile: false,
+            error: undefined,
+            status: v.segments.length > 0 ? 'analyzed' : 'idle',
+          };
+        }
+        return v;
+      })
+    );
+
+    if (matchedCount > 0) {
+      alert(`${matchedCount}개의 영상 파일이 정상적으로 재연결되었습니다.`);
+    } else {
+      alert('선택하신 파일 중 이름이나 용량이 일치하는 영상이 없습니다. 개별 연결을 사용해 주세요.');
+    }
   };
 
   // 4. 재병합 상태 및 진행률
@@ -1357,6 +1431,8 @@ export function App() {
           setCurrentBgmVolume(vol);
         }}
         onCustomAudioChange={setCurrentCustomAudio}
+        onRelinkVideo={handleRelinkSingleVideo}
+        onRelinkBatch={handleRelinkBatch}
       />
     </div>
   );

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import type { StudioProjectSummary } from '../../types/project.ts';
 import { useI18n } from '../../i18n/index.tsx';
+import { isOpfsAvailable } from '../../services/opfsStorage.ts';
 
 interface StudioProjectListViewProps {
   projects: StudioProjectSummary[];
@@ -116,10 +117,14 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
         <div className="toss-projects-header-actions">
           <div
             className="toss-projects-storage-pill"
-            title={pDict.localStorageTip || '브라우저 로컬 IndexedDB에 안전 저장'}
+            title={isOpfsAvailable() ? '고성능 OPFS(가상 파일시스템)로 대용량 비디오가 안전하게 보관돼요' : pDict.localStorageTip || '브라우저 로컬 IndexedDB에 안전 저장'}
           >
             <HardDrive size={13} className="text-blue-600" />
-            <span>{pDict.localStorageBadge || '기기 내 저장 (100% 로컬)'}</span>
+            <span>
+              {isOpfsAvailable()
+                ? '기기 내 저장 (OPFS 파일시스템)'
+                : pDict.localStorageBadge || '기기 내 저장 (100% 로컬)'}
+            </span>
           </div>
           <button
             type="button"
@@ -216,6 +221,16 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
                       <span className="toss-project-status-pill editing">
                         <Film size={11} />
                         {pDict.editingBadge}
+                      </span>
+                    )}
+                    {proj.hasOpfsFiles && (
+                      <span className="toss-project-status-pill" style={{ background: '#f0fdf4', color: '#16a34a', borderColor: '#bbf7d0' }}>
+                        OPFS
+                      </span>
+                    )}
+                    {proj.storageMode === 'lightweight' && (
+                      <span className="toss-project-status-pill" style={{ background: '#f8fafc', color: '#64748b', borderColor: '#e2e8f0' }}>
+                        경량
                       </span>
                     )}
                   </div>

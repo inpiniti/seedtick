@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Settings,
   Sparkles,
@@ -12,6 +12,11 @@ import {
   Scissors,
   Baby,
   Subtitles,
+  HardDrive,
+  ShieldCheck,
+  ShieldAlert,
+  Database,
+  Layers,
 } from 'lucide-react';
 import type { FreeModelMeta } from '../../types/gateway.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
@@ -22,6 +27,17 @@ import {
 } from '../../services/videoMetadata.ts';
 import { cleanModelName, getSpeedTier } from '../../services/modelMetrics.ts';
 import { useI18n } from '../../i18n/index.tsx';
+import {
+  getStorageEstimate,
+  requestPersistentStorage,
+  getStoredStorageMode,
+  setStoredStorageMode,
+  formatBytes,
+  type StorageEstimateInfo,
+  type StorageMode,
+} from '../../services/storageQuotaService.ts';
+import { isOpfsAvailable } from '../../services/opfsStorage.ts';
+import { detectOptimalCodec } from '../../services/videoCompressor.ts';
 
 export interface MobileSettingsModalProps {
   isOpen: boolean;
@@ -94,6 +110,41 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
     overlayRef,
     scrollableSelector: '.settings-modal-body, [data-modal-scrollable="true"]',
   });
+
+  const [storageEstimate, setStorageEstimate] = useState<StorageEstimateInfo | null>(null);
+  const [storageMode, setStorageMode] = useState<StorageMode>(getStoredStorageMode());
+  const [isPersisted, setIsPersisted] = useState<boolean>(false);
+  const [isRequestingPersist, setIsRequestingPersist] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      void getStorageEstimate().then((info) => {
+        setStorageEstimate(info);
+        setIsPersisted(info.isPersisted);
+      });
+      setStorageMode(getStoredStorageMode());
+    }
+  }, [isOpen]);
+
+  const handleRequestPersist = async () => {
+    setIsRequestingPersist(true);
+    try {
+      const ok = await requestPersistentStorage();
+      setIsPersisted(ok);
+      const updated = await getStorageEstimate();
+      setStorageEstimate(updated);
+    } finally {
+      setIsRequestingPersist(false);
+    }
+  };
+
+  const handleSelectStorageMode = (mode: StorageMode) => {
+    setStorageMode(mode);
+    setStoredStorageMode(mode);
+  };
+
+  const optimalCodec = detectOptimalCodec();
+  const opfsSupported = isOpfsAvailable();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -455,6 +506,109 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
               )}
             </div>
           )}
+
+          {/* Group: Storage & Persistence Settings (스토리지 엔진 및 보관 설정) */}
+          <div className="settings-modal-group">
+            <span className="settings-modal-group-title">
+              저장소 및 보관 설정 (스토리지 엔진)
+            </span>
+            <div className="settings-modal-card-box p-3.5 space-y-3">
+              {/* 1. 용량 및 엔진 정보 */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="settings-modal-icon-badge" style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}>
+                    <HardDrive size={18} />
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-slate-800">
+                      {opfsSupported ? 'OPFS 가상 파일시스템' : 'IndexedDB 로컬 스토리지'}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      {storageEstimate
+                        ? `사용 중: ${formatBytes(storageEstimate.usageBytes)} · 남은 공간: ${formatBytes(storageEstimate.availableBytes)}`
+                        : '스토리지 사용량 측정 중...'}
+                    </div>
+                  </div>
+                </div>
+                {optimalCodec && (
+                  <span className="px-2 py-0.5 text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded shrink-0">
+                    {optimalCodec.name.toUpperCase()} 지원
+                  </span>
+                )}
+              </div>
+
+              {/* 2. 영구 보존 상태 및 요청 */}
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-150">
+                <div className="flex items-center gap-2">
+                  {isPersisted ? (
+                    <ShieldCheck size={16} className="text-emerald-600 shrink-0" />
+                  ) : (
+                    <ShieldAlert size={16} className="text-amber-500 shrink-0" />
+                  )}
+                  <span className="text-xs text-slate-700 font-medium">
+                    {isPersisted
+                      ? '영구 보존됨 (브라우저 자동 삭제 방지)'
+                      : '임시 보관 (캐시 정리 시 삭제될 수 있음)'}
+                  </span>
+                </div>
+                {!isPersisted && (
+                  <button
+                    type="button"
+                    onClick={handleRequestPersist}
+                    disabled={isRequestingPersist}
+                    className="px-2 py-1 text-xs font-semibold rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors shrink-0"
+                  >
+                    {isRequestingPersist ? '확인 중...' : '영구 보존 요청'}
+                  </button>
+                )}
+              </div>
+
+              {/* 3. 보관 모드 선택 */}
+              <div>
+                <div className="text-xs font-bold text-slate-700 mb-1.5">보관 모드</div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleSelectStorageMode('auto')}
+                    className={`px-2 py-2 text-xs font-medium rounded-lg border text-center transition-all ${
+                      storageMode === 'auto'
+                        ? 'bg-blue-50 border-blue-400 text-blue-700 font-bold shadow-xs'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div>자동 (권장)</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">용량 맞춤 최적화</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSelectStorageMode('full')}
+                    className={`px-2 py-2 text-xs font-medium rounded-lg border text-center transition-all ${
+                      storageMode === 'full'
+                        ? 'bg-blue-50 border-blue-400 text-blue-700 font-bold shadow-xs'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div>전체 보관</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">원본 비디오 보관</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSelectStorageMode('lightweight')}
+                    className={`px-2 py-2 text-xs font-medium rounded-lg border text-center transition-all ${
+                      storageMode === 'lightweight'
+                        ? 'bg-blue-50 border-blue-400 text-blue-700 font-bold shadow-xs'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div>초경량 모드</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">용량 99% 절약</div>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Group 6: Project Actions */}
           {(hasStitchedResult || hasVideos) && (

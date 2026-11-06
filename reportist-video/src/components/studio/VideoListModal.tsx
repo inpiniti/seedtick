@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Film, Upload, Trash2, X, Plus, Clock, FileVideo, Calendar, MapPin } from 'lucide-react';
+import { Film, Upload, Trash2, X, Plus, Clock, FileVideo, Calendar, MapPin, Link2, AlertTriangle } from 'lucide-react';
 import type { VideoItem } from '../../types/video.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
@@ -11,6 +11,8 @@ interface VideoListModalProps {
   onRemoveVideo: (id: string) => void;
   onAddFilesClick: () => void;
   onFilesSelected?: (files: File[]) => void;
+  onRelinkVideo?: (id: string, file: File) => void;
+  onRelinkBatch?: (files: File[]) => void;
 }
 
 export const VideoListModal: React.FC<VideoListModalProps> = ({
@@ -20,6 +22,8 @@ export const VideoListModal: React.FC<VideoListModalProps> = ({
   onRemoveVideo,
   onAddFilesClick,
   onFilesSelected,
+  onRelinkVideo,
+  onRelinkBatch,
 }) => {
   const { dict, interpolate } = useI18n();
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -131,6 +135,36 @@ export const VideoListModal: React.FC<VideoListModalProps> = ({
           </div>
         )}
 
+        {/* 누락 파일 일괄 재연결 알림 배너 */}
+        {videos.some((v) => !v.url || (v.file && v.file.size === 0) || v.error || v.isMissingFile) && (
+          <div className="p-3 mx-4 my-2 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={16} className="text-amber-600 shrink-0" />
+              <span className="text-xs font-semibold text-amber-800">
+                원본 영상 {videos.filter((v) => !v.url || (v.file && v.file.size === 0) || v.error || v.isMissingFile).length}개 재연결 필요
+              </span>
+            </div>
+            {onRelinkBatch && (
+              <label className="cursor-pointer inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition-colors">
+                <Link2 size={13} />
+                <span>일괄 재연결</span>
+                <input
+                  type="file"
+                  multiple
+                  accept="video/*,image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0) {
+                      onRelinkBatch(Array.from(e.target.files));
+                      e.target.value = '';
+                    }
+                  }}
+                />
+              </label>
+            )}
+          </div>
+        )}
+
         {/* Video List Body */}
         <div
           className="video-list-modal-body"
@@ -202,7 +236,7 @@ export const VideoListModal: React.FC<VideoListModalProps> = ({
                             <span>{vid.locationName}</span>
                           </span>
                         )}
-                        {(!vid.url || (vid.file && vid.file.size === 0) || vid.error) && (
+                        {(!vid.url || (vid.file && vid.file.size === 0) || vid.error || vid.isMissingFile) && (
                           <span className="toss-video-modal-meta-badge" style={{ background: '#fef2f2', color: '#ef4444', borderColor: '#fca5a5' }}>
                             <span>⚠️ 파일 재선택 필요</span>
                           </span>
@@ -211,14 +245,33 @@ export const VideoListModal: React.FC<VideoListModalProps> = ({
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    className="toss-btn-delete-sm shrink-0"
-                    onClick={() => onRemoveVideo(vid.id)}
-                    title={dict.videoListModal.deleteVideo}
-                  >
-                    <Trash2 size={15} />
-                  </button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {(!vid.url || (vid.file && vid.file.size === 0) || vid.error || vid.isMissingFile) && onRelinkVideo && (
+                      <label className="cursor-pointer inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 transition-colors">
+                        <Link2 size={12} />
+                        <span>연결</span>
+                        <input
+                          type="file"
+                          accept="video/*,image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              onRelinkVideo(vid.id, e.target.files[0]);
+                              e.target.value = '';
+                            }
+                          }}
+                        />
+                      </label>
+                    )}
+                    <button
+                      type="button"
+                      className="toss-btn-delete-sm"
+                      onClick={() => onRemoveVideo(vid.id)}
+                      title={dict.videoListModal.deleteVideo}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
