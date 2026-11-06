@@ -3427,8 +3427,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     onClick={handleDownloadThumbnail}
                     title={dict.thumbnail?.downloadHd || '썸네일 다운로드 (1280x720 HD)'}
                   >
-                    <Download size={15} />
-                    <span>{dict.thumbnail?.downloadHd || '썸네일 다운로드 (1280x720 HD)'}</span>
+                    <Download size={14} className="shrink-0" />
+                    <span className="toss-btn-text-content">
+                      <span className="toss-btn-download-label-long">
+                        {dict.thumbnail?.downloadBtn || '썸네일 다운로드'}
+                      </span>
+                      <span className="toss-btn-download-label-short">
+                        {dict.header?.downloadThumbnail || '다운로드'}
+                      </span>
+                      <span className="toss-btn-hd-spec"> (1280x720 HD)</span>
+                    </span>
                   </button>
 
                   <button
@@ -3441,8 +3449,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       'AI가 직접 추천한 베스트 프레임으로 복원'
                     }
                   >
-                    <Sparkles size={13} className="text-blue-600" />
-                    <span>{dict.thumbnail?.restoreAiFrame || 'AI 추천 복원'}</span>
+                    <Sparkles size={13} className="text-blue-600 shrink-0" />
+                    <span className="toss-btn-text-content">
+                      <span className="toss-btn-label-long">{dict.thumbnail?.restoreAiFrame || 'AI 추천 복원'}</span>
+                      <span className="toss-btn-label-mid">AI 복원</span>
+                      <span className="toss-btn-label-short">AI</span>
+                    </span>
                   </button>
 
                   {activeVideoUrl && (
@@ -3456,11 +3468,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         '현재 영상 재생 위치의 프레임으로 썸네일 배경 변경 (오버레이 미포함)'
                       }
                     >
-                      <ImageIcon size={13} className="text-blue-600" />
-                      <span>
-                        {isUpdatingThumbnail
-                          ? (dict.thumbnail?.capturing || '캡처 중...')
-                          : (dict.thumbnail?.applyCurrentFrame || '현재 프레임 적용')}
+                      <ImageIcon size={13} className="text-blue-600 shrink-0" />
+                      <span className="toss-btn-text-content">
+                        {isUpdatingThumbnail ? (
+                          (dict.thumbnail?.capturing || '캡처 중...')
+                        ) : (
+                          <>
+                            <span className="toss-btn-label-long">{dict.thumbnail?.applyCurrentFrame || '현재 프레임 적용'}</span>
+                            <span className="toss-btn-label-mid">현재 프레임</span>
+                            <span className="toss-btn-label-short">프레임</span>
+                          </>
+                        )}
                       </span>
                     </button>
                   )}
