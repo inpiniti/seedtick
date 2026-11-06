@@ -4108,25 +4108,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             </div>
                           )}
 
-                          {/* 4. 원본 영상 기반 클립 구간 세밀 편집 버튼 */}
-                          <div className="toss-branding-row flex items-center justify-between">
-                            <div>
-                              <span className="text-[11px] font-bold text-slate-700 block">
-                                원본 영상 구간 조절 ({seg.duration.toFixed(1)}초 선택됨)
-                              </span>
-                              <span className="text-[10.5px] text-slate-400">
-                                시작 {seg.start.toFixed(1)}s ~ 끝 {seg.end.toFixed(1)}s
-                              </span>
-                            </div>
-                            <button
-                              type="button"
-                              className="toss-btn-editor-trim"
-                              onClick={() => setTrimModalTarget(seg)}
-                            >
-                              <Scissors size={13} />
-                              <span>{dict.dramaticClips.trimEdit || '구간 편집'}</span>
-                            </button>
-                          </div>
 
                         </div>
                       )}

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   Scissors,
   X,
@@ -40,6 +40,7 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
   const { dict } = useI18n();
   const overlayRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const ambientVideoRef = useRef<HTMLVideoElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
 
   const [start, setStart] = useState<number>(0);
@@ -48,6 +49,11 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isPreviewing, setIsPreviewing] = useState<boolean>(false);
   const [duration, setDuration] = useState<number>(100);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+
+  // Dragging refs
+  const isDraggingRef = useRef<boolean>(false);
+  const wasPlayingBeforeDragRef = useRef<boolean>(false);
 
   // Modal scroll lock
   useModalScrollLock(isOpen, {
@@ -65,12 +71,17 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
     setCurrentTime(initialStart);
     setIsPlaying(false);
     setIsPreviewing(false);
+    setIsDragging(false);
+    isDraggingRef.current = false;
 
     const videoDur = sourceVideo?.duration || segment.duration || 100;
     setDuration(videoDur);
 
     if (videoRef.current) {
       videoRef.current.currentTime = initialStart;
+    }
+    if (ambientVideoRef.current) {
+      ambientVideoRef.current.currentTime = initialStart;
     }
   }, [isOpen, segment, sourceVideo]);
 
@@ -86,8 +97,6 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  if (!isOpen || !segment || !sourceVideo) return null;
-
   const maxDuration = Math.max(duration, end, 1);
   const clipDuration = Math.max(0, Math.round((end - start) * 10) / 10);
 
@@ -100,18 +109,35 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
       }
       videoRef.current.currentTime = start;
     }
+    if (ambientVideoRef.current && videoRef.current) {
+      ambientVideoRef.current.currentTime = videoRef.current.currentTime;
+    }
   };
 
   // Video time update
   const handleTimeUpdate = () => {
     if (!videoRef.current) return;
     const cur = videoRef.current.currentTime;
-    setCurrentTime(cur);
+    if (!isDraggingRef.current) {
+      setCurrentTime(cur);
+    }
+
+    // Sync ambient video when playing
+    if (ambientVideoRef.current) {
+      const diff = Math.abs(ambientVideoRef.current.currentTime - cur);
+      if (diff > 0.35) {
+        ambientVideoRef.current.currentTime = cur;
+      }
+    }
 
     // Range preview auto-stop
     if (isPreviewing && cur >= end) {
       videoRef.current.pause();
       videoRef.current.currentTime = start;
+      if (ambientVideoRef.current) {
+        ambientVideoRef.current.pause();
+        ambientVideoRef.current.currentTime = start;
+      }
       setIsPlaying(false);
       setIsPreviewing(false);
     }
@@ -120,13 +146,16 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
   // Play / Pause Toggle
   const togglePlay = () => {
     const v = videoRef.current;
+    const amb = ambientVideoRef.current;
     if (!v) return;
     if (isPlaying) {
       v.pause();
+      amb?.pause();
       setIsPlaying(false);
       setIsPreviewing(false);
     } else {
       v.play().catch(() => {});
+      amb?.play().catch(() => {});
       setIsPlaying(true);
     }
   };
@@ -134,33 +163,99 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
   // Range preview
   const handleTogglePreviewRange = () => {
     const v = videoRef.current;
+    const amb = ambientVideoRef.current;
     if (!v) return;
 
     if (isPreviewing) {
       v.pause();
+      amb?.pause();
       setIsPlaying(false);
       setIsPreviewing(false);
     } else {
       v.currentTime = start;
+      if (amb) amb.currentTime = start;
       v.play().catch(() => {});
+      amb?.play().catch(() => {});
       setIsPlaying(true);
       setIsPreviewing(true);
     }
   };
 
-  // Timeline click seek
-  const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
+  // Seek helper by clientX
+  const seekByClientX = useCallback((clientX: number) => {
     const bar = timelineRef.current;
     const v = videoRef.current;
     if (!bar || !v) return;
 
     const rect = bar.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const ratio = Math.max(0, Math.min(1, clickX / rect.width));
-    const targetTime = Math.round(ratio * maxDuration * 10) / 10;
+    if (rect.width <= 0) return;
+    const clickX = Math.max(0, Math.min(rect.width, clientX - rect.left));
+    const ratio = clickX / rect.width;
+    const targetTime = Math.max(0, Math.min(maxDuration, Math.round(ratio * maxDuration * 10) / 10));
 
     v.currentTime = targetTime;
+    if (ambientVideoRef.current) {
+      ambientVideoRef.current.currentTime = targetTime;
+    }
     setCurrentTime(targetTime);
+  }, [maxDuration]);
+
+  // Pointer Down (Mouse & Touch scrub start)
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    isDraggingRef.current = true;
+    setIsDragging(true);
+
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+
+    const v = videoRef.current;
+    if (v && !v.paused) {
+      wasPlayingBeforeDragRef.current = true;
+      v.pause();
+      ambientVideoRef.current?.pause();
+      setIsPlaying(false);
+    } else {
+      wasPlayingBeforeDragRef.current = false;
+    }
+
+    seekByClientX(e.clientX);
+  };
+
+  // Pointer Move (Scrubbing)
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
+    seekByClientX(e.clientX);
+  };
+
+  // Pointer Up (Scrub end)
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    setIsDragging(false);
+
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
+
+    seekByClientX(e.clientX);
+
+    if (wasPlayingBeforeDragRef.current && videoRef.current) {
+      videoRef.current.play().catch(() => {});
+      ambientVideoRef.current?.play().catch(() => {});
+      setIsPlaying(true);
+    }
+  };
+
+  // Pointer Cancel
+  const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    setIsDragging(false);
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
   };
 
   // Start delta change
@@ -169,6 +264,7 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
     setStart(newStart);
     if (videoRef.current) {
       videoRef.current.currentTime = newStart;
+      if (ambientVideoRef.current) ambientVideoRef.current.currentTime = newStart;
       setCurrentTime(newStart);
     }
   };
@@ -179,6 +275,7 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
     setEnd(newEnd);
     if (videoRef.current) {
       videoRef.current.currentTime = newEnd;
+      if (ambientVideoRef.current) ambientVideoRef.current.currentTime = newEnd;
       setCurrentTime(newEnd);
     }
   };
@@ -197,22 +294,26 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
 
   // Reset to original AI suggested range
   const handleResetToAi = () => {
+    if (!segment) return;
     const s = Math.max(0, Math.round((segment.start || 0) * 10) / 10);
     const e = Math.max(s + 0.5, Math.round((segment.end || s + 3) * 10) / 10);
     setStart(s);
     setEnd(e);
     if (videoRef.current) {
       videoRef.current.currentTime = s;
+      if (ambientVideoRef.current) ambientVideoRef.current.currentTime = s;
       setCurrentTime(s);
     }
   };
 
   // Save changes
   const handleSave = () => {
-    if (clipDuration < 0.5) return;
+    if (!segment || clipDuration < 0.5) return;
     onSave(segment.id, start, end);
     onClose();
   };
+
+  if (!isOpen || !segment || !sourceVideo) return null;
 
   // Start & End positions in percent
   const startPercent = Math.max(0, Math.min(100, (start / maxDuration) * 100));
@@ -239,6 +340,10 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
     minDurationWarning: '클립 길이는 최소 0.5초 이상이어야 해요.',
     seekHint: '타임라인을 클릭하거나 재생하며 원하는 장면을 찾아보세요.',
   };
+
+  const rotationStyle = segment.rotation
+    ? { transform: `rotate(${segment.rotation}deg)` }
+    : undefined;
 
   return (
     <div
@@ -285,25 +390,42 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
           {/* Video Player Box */}
           <div className="segment-trim-player-container">
             <div className="segment-trim-video-wrapper">
+              {/* Ambient blurred backdrop to eliminate black empty side bars */}
+              <video
+                ref={ambientVideoRef}
+                src={sourceVideo.url}
+                className="segment-trim-video-ambient-bg"
+                aria-hidden="true"
+                tabIndex={-1}
+                playsInline
+                muted
+                preload="metadata"
+                style={rotationStyle}
+              />
+
+              {/* Main crisp video */}
               <video
                 ref={videoRef}
                 src={sourceVideo.url}
                 className="segment-trim-video"
                 onLoadedMetadata={handleLoadedMetadata}
                 onTimeUpdate={handleTimeUpdate}
-                onPlay={() => setIsPlaying(true)}
-                onPause={() => setIsPlaying(false)}
+                onPlay={() => {
+                  setIsPlaying(true);
+                  ambientVideoRef.current?.play().catch(() => {});
+                }}
+                onPause={() => {
+                  setIsPlaying(false);
+                  ambientVideoRef.current?.pause();
+                }}
                 onEnded={() => {
                   setIsPlaying(false);
                   setIsPreviewing(false);
+                  ambientVideoRef.current?.pause();
                 }}
                 playsInline
                 preload="metadata"
-                style={
-                  segment.rotation
-                    ? { transform: `rotate(${segment.rotation}deg)` }
-                    : undefined
-                }
+                style={rotationStyle}
               />
 
               {/* Video Overlay Info */}
@@ -353,7 +475,7 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
             </div>
           </div>
 
-          {/* Interactive Timeline Bar */}
+          {/* Interactive Timeline Bar (Draggable Scrubbing Track) */}
           <div className="segment-trim-timeline-section">
             <div className="segment-trim-timeline-head">
               <span className="segment-trim-timeline-label">
@@ -367,8 +489,12 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
 
             <div
               ref={timelineRef}
-              className="segment-trim-timeline-track"
-              onClick={handleTimelineClick}
+              className={`segment-trim-timeline-track ${isDragging ? 'is-dragging' : ''}`}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerCancel}
+              title="타임라인을 누르거나 빨간색 선을 드래그하여 재생 위치를 탐색하세요"
             >
               {/* Selected highlight range */}
               <div
@@ -383,9 +509,9 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
                 </span>
               </div>
 
-              {/* Current Playhead indicator */}
+              {/* Current Playhead indicator (Draggable Red Line) */}
               <div
-                className="segment-trim-playhead"
+                className={`segment-trim-playhead ${isDragging ? 'active' : ''}`}
                 style={{ left: `${playheadPercent}%` }}
               >
                 <div className="segment-trim-playhead-handle" />
