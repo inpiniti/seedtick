@@ -67,6 +67,7 @@ import { AudioLibraryModal } from './AudioLibraryModal.tsx';
 import { MobileSettingsModal } from './MobileSettingsModal.tsx';
 import { DateFormatSelectorModal } from './DateFormatSelectorModal.tsx';
 import { SubtitleDownloadModal } from './SubtitleDownloadModal.tsx';
+import { SegmentTrimModal } from './SegmentTrimModal.tsx';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 import {
   type DateFormatOption,
@@ -360,6 +361,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const introVideoInputRef = useRef<HTMLInputElement>(null);
   const outroVideoInputRef = useRef<HTMLInputElement>(null);
   const [mapModalTarget, setMapModalTarget] = useState<HighlightSegment | null>(null);
+  const [trimModalTarget, setTrimModalTarget] = useState<HighlightSegment | null>(null);
   const consoleScrollRef = useRef<HTMLDivElement>(null);
 
   // 4-1. 다국어, AI 모델 및 원본 영상 목록 모달 상태
@@ -389,8 +391,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     [models, selectedModel]
   );
 
-  // Lock background scroll when inline modals (processing, restitching, map) are active
-  const isAnyInlineModalOpen = isProcessing || isReStitching || Boolean(mapModalTarget);
+  // Lock background scroll when inline modals (processing, restitching, map, trim) are active
+  const isAnyInlineModalOpen = isProcessing || isReStitching || Boolean(mapModalTarget) || Boolean(trimModalTarget);
   useModalScrollLock(isAnyInlineModalOpen);
 
   useEffect(() => {
@@ -1692,6 +1694,22 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           newEnd = Math.max(s.start + 0.8, Math.min(maxDur, Math.round((s.end + delta) * 10) / 10));
         }
 
+        const newDuration = Math.round((newEnd - newStart) * 10) / 10;
+        return {
+          ...s,
+          start: newStart,
+          end: newEnd,
+          duration: newDuration,
+        };
+      })
+    );
+  };
+
+  // 모달을 통한 클립 구간 세밀 조정 저장
+  const handleSaveTrimRange = (segId: string, newStart: number, newEnd: number) => {
+    setSegments((prev) =>
+      prev.map((s) => {
+        if (s.id !== segId) return s;
         const newDuration = Math.round((newEnd - newStart) * 10) / 10;
         return {
           ...s,
@@ -3850,30 +3868,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         {/* 트리밍 버튼 및 회전, 길이 */}
                         <div className="toss-segment-right">
                           <div className="toss-trim-controls">
-                            <button
-                              type="button"
-                              className="toss-btn-micro"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleTrimChange(seg.id, 'start', -0.5);
-                              }}
-                              title={dict.dramaticClips.trimMinus}
-                            >
-                              -0.5s
-                            </button>
                             <span className="toss-segment-duration">
                               {seg.duration.toFixed(1)}s
                             </span>
                             <button
                               type="button"
-                              className="toss-btn-micro"
+                              className="toss-btn-trim-edit"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleTrimChange(seg.id, 'end', 0.5);
+                                setTrimModalTarget(seg);
                               }}
-                              title={dict.dramaticClips.trimPlus}
+                              title={dict.dramaticClips.trimEdit || '구간 편집'}
                             >
-                              +0.5s
+                              <Scissors size={11} />
+                              <span>{dict.dramaticClips.trimEdit || '구간 편집'}</span>
                             </button>
                           </div>
 
@@ -4064,6 +4072,26 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                               </div>
                             </div>
                           )}
+
+                          {/* 4. 원본 영상 기반 클립 구간 세밀 편집 버튼 */}
+                          <div className="toss-branding-row flex items-center justify-between">
+                            <div>
+                              <span className="text-[11px] font-bold text-slate-700 block">
+                                원본 영상 구간 조절 ({seg.duration.toFixed(1)}초 선택됨)
+                              </span>
+                              <span className="text-[10.5px] text-slate-400">
+                                시작 {seg.start.toFixed(1)}s ~ 끝 {seg.end.toFixed(1)}s
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              className="toss-btn-editor-trim"
+                              onClick={() => setTrimModalTarget(seg)}
+                            >
+                              <Scissors size={13} />
+                              <span>{dict.dramaticClips.trimEdit || '구간 편집'}</span>
+                            </button>
+                          </div>
 
                         </div>
                       )}
@@ -4465,6 +4493,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         introDuration={introDuration}
         bridgeDurationMap={effectiveBridgeDurationMap}
         videoTitle={overlayOptions.titleText || result?.suggestedTitle || 'highlight'}
+      />
+
+      {/* 12-2. 클립 구간 세밀 편집 모달 (원본 비디오 확인 & 조절) */}
+      <SegmentTrimModal
+        isOpen={Boolean(trimModalTarget)}
+        onClose={() => setTrimModalTarget(null)}
+        segment={trimModalTarget}
+        sourceVideo={trimModalTarget ? videoMap.get(trimModalTarget.sourceVideoId) : undefined}
+        onSave={handleSaveTrimRange}
       />
 
       {/* 13. 화면 하단 고정 슬림 상태바 (자동 저장 상태 + 시간 절약률 요약) */}

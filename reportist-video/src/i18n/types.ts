@@ -174,6 +174,7 @@ export interface Dictionary {
     nowPlaying: string;
     trimMinus: string;
     trimPlus: string;
+    trimEdit?: string;
     excludeInterval: string;
     editorTitle: string;
     editorHint: string;
@@ -481,6 +482,25 @@ export interface Dictionary {
     formatLabelMonthDay?: string;
     formatLabelUS?: string;
     formatLabelEU?: string;
+  };
+  trimModal?: {
+    title: string;
+    subtitle: string;
+    play: string;
+    pause: string;
+    previewRange: string;
+    stopPreview: string;
+    currentTime: string;
+    totalDuration: string;
+    startTime: string;
+    endTime: string;
+    duration: string;
+    setCurrentAsStart: string;
+    setCurrentAsEnd: string;
+    apply: string;
+    cancel: string;
+    minDurationWarning?: string;
+    seekHint: string;
   };
   logs: {
     pipelineStart: string;
