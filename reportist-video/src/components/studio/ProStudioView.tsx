@@ -66,6 +66,7 @@ import { AudioLibraryModal } from './AudioLibraryModal.tsx';
 import { MobileSettingsModal } from './MobileSettingsModal.tsx';
 import { DateFormatSelectorModal } from './DateFormatSelectorModal.tsx';
 import { SubtitleDownloadModal } from './SubtitleDownloadModal.tsx';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 import {
   type DateFormatOption,
   formatDateByPattern,
@@ -318,6 +319,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     () => models.find((model) => model.id === selectedModel) || models[0] || null,
     [models, selectedModel]
   );
+
+  // Lock background scroll when inline modals (processing, restitching, map) are active
+  const isAnyInlineModalOpen = isProcessing || isReStitching || Boolean(mapModalTarget);
+  useModalScrollLock(isAnyInlineModalOpen);
 
   useEffect(() => {
     if (isProcessing) {
@@ -3983,6 +3988,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           setIsVideoListModalOpen(false);
           fileInputRef.current?.click();
         }}
+        onFilesSelected={onFilesSelected}
       />
 
       {/* 8. 다국어 언어 선택 모달 (ModelSelectorModal과 동일한 팝업 UI) */}

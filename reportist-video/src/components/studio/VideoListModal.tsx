@@ -1,7 +1,8 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Film, Upload, Trash2, X, Plus, Clock, FileVideo, Calendar, MapPin } from 'lucide-react';
 import type { VideoItem } from '../../types/video.ts';
 import { useI18n } from '../../i18n/index.tsx';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 
 interface VideoListModalProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface VideoListModalProps {
   videos: VideoItem[];
   onRemoveVideo: (id: string) => void;
   onAddFilesClick: () => void;
+  onFilesSelected?: (files: File[]) => void;
 }
 
 export const VideoListModal: React.FC<VideoListModalProps> = ({
@@ -17,8 +19,16 @@ export const VideoListModal: React.FC<VideoListModalProps> = ({
   videos,
   onRemoveVideo,
   onAddFilesClick,
+  onFilesSelected,
 }) => {
   const { dict, interpolate } = useI18n();
+  const overlayRef = useRef<HTMLDivElement>(null);
+
+  // Lock background scroll and completely block touch/drag leakages behind popup
+  useModalScrollLock(isOpen, {
+    overlayRef,
+    scrollableSelector: '.video-list-modal-body, [data-modal-scrollable="true"]',
+  });
 
   // Close on ESC
   useEffect(() => {
@@ -30,16 +40,42 @@ export const VideoListModal: React.FC<VideoListModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  const handleDragPrevent = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0 && onFilesSelected) {
+      onFilesSelected(Array.from(e.dataTransfer.files));
+    }
+  };
+
   if (!isOpen) return null;
 
   const totalDuration = videos.reduce((acc, v) => acc + (v.duration || 0), 0);
   const totalSizeBytes = videos.reduce((acc, v) => acc + (v.sizeBytes || 0), 0);
 
   return (
-    <div className="model-modal-backdrop" onClick={onClose}>
+    <div
+      ref={overlayRef}
+      className="model-modal-backdrop"
+      onClick={onClose}
+      onDragOver={handleDragPrevent}
+      onDragEnter={handleDragPrevent}
+      onDragLeave={handleDragPrevent}
+      onDrop={handleDrop}
+    >
       <div
         className="model-modal-card video-list-modal-card"
         onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
+        onDragOver={handleDragPrevent}
+        onDragEnter={handleDragPrevent}
+        onDrop={handleDrop}
         role="dialog"
         aria-modal="true"
         aria-labelledby="video-list-modal-title"
@@ -96,7 +132,12 @@ export const VideoListModal: React.FC<VideoListModalProps> = ({
         )}
 
         {/* Video List Body */}
-        <div className="video-list-modal-body">
+        <div
+          className="video-list-modal-body"
+          data-modal-scrollable="true"
+          onTouchMove={(e) => e.stopPropagation()}
+          onWheel={(e) => e.stopPropagation()}
+        >
           {videos.length === 0 ? (
             <div className="toss-video-modal-empty" onClick={onAddFilesClick}>
               <div className="toss-empty-circle-icon">

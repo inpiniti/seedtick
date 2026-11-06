@@ -1,5 +1,4 @@
-// src/components/studio/MobileSettingsModal.tsx - Modal for mobile studio settings (AI Model, Language, etc.)
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   Settings,
   Sparkles,
@@ -15,6 +14,7 @@ import {
   Subtitles,
 } from 'lucide-react';
 import type { FreeModelMeta } from '../../types/gateway.ts';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 import {
   formatDateByPattern,
   formatDateWithAge,
@@ -88,6 +88,12 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   reStitchProgress,
 }) => {
   const { dict } = useI18n();
+  const overlayRef = useRef<HTMLDivElement>(null);
+
+  useModalScrollLock(isOpen, {
+    overlayRef,
+    scrollableSelector: '.settings-modal-body, [data-modal-scrollable="true"]',
+  });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -108,13 +114,27 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
     : '';
 
   return (
-    <div className="model-modal-backdrop" onClick={onClose}>
+    <div
+      ref={overlayRef}
+      className="model-modal-backdrop"
+      onClick={onClose}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+    >
       <div
         className="model-modal-card settings-modal-card"
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-modal-title"
         onClick={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+        onTouchStart={(event) => event.stopPropagation()}
       >
         {/* Modal Header */}
         <div className="model-modal-header">
@@ -142,7 +162,12 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="settings-modal-body">
+        <div
+          className="settings-modal-body"
+          data-modal-scrollable="true"
+          onTouchMove={(e) => e.stopPropagation()}
+          onWheel={(e) => e.stopPropagation()}
+        >
           {/* Group 1: AI Model */}
           <div className="settings-modal-group">
             <span className="settings-modal-group-title">

@@ -1,5 +1,4 @@
-// src/components/studio/SubtitleDownloadModal.tsx - Modal for YouTube-compatible multilingual subtitle download
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Subtitles,
   X,
@@ -23,6 +22,7 @@ import {
   downloadSrtFile,
   getSubtitleFileName,
 } from '../../services/subtitleService.ts';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 
 export interface SubtitleDownloadModalProps {
   isOpen: boolean;
@@ -42,6 +42,12 @@ export const SubtitleDownloadModal: React.FC<SubtitleDownloadModalProps> = ({
   videoTitle = 'highlight',
 }) => {
   const { dict, locale: currentAppLocale, interpolate } = useI18n();
+  const overlayRef = useRef<HTMLDivElement>(null);
+
+  useModalScrollLock(isOpen, {
+    overlayRef,
+    scrollableSelector: '.subtitle-modal-body, .subtitle-cues-list, [data-modal-scrollable="true"]',
+  });
 
   const [selectedLocale, setSelectedLocale] = useState<Locale>(currentAppLocale);
   const [translationsCache, setTranslationsCache] = useState<
@@ -189,13 +195,27 @@ export const SubtitleDownloadModal: React.FC<SubtitleDownloadModalProps> = ({
   });
 
   return (
-    <div className="model-modal-backdrop" onClick={onClose}>
+    <div
+      ref={overlayRef}
+      className="model-modal-backdrop"
+      onClick={onClose}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+    >
       <div
         className="model-modal-card subtitle-modal-card"
         role="dialog"
         aria-modal="true"
         aria-labelledby="subtitle-modal-title"
         onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="model-modal-header">
@@ -301,7 +321,12 @@ export const SubtitleDownloadModal: React.FC<SubtitleDownloadModalProps> = ({
             </div>
 
             {/* Cue Cards Container */}
-            <div className="subtitle-cues-list">
+            <div
+              className="subtitle-cues-list"
+              data-modal-scrollable="true"
+              onTouchMove={(e) => e.stopPropagation()}
+              onWheel={(e) => e.stopPropagation()}
+            >
               {segments.length === 0 ? (
                 <div className="toss-empty-state py-8">
                   <p className="text-slate-400 text-sm">

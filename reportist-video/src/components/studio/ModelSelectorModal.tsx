@@ -1,6 +1,6 @@
 // components/studio/ModelSelectorModal.tsx - AI Vision Model Selector Modal with i18n
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Brain,
   Calendar,
@@ -28,6 +28,7 @@ import {
   localizeParametersSummary,
   localizeContextLength,
 } from '../../i18n/modelLocalization.ts';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 
 interface ModelSelectorModalProps {
   isOpen: boolean;
@@ -67,10 +68,16 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
   onSelectModel,
 }) => {
   const { dict, interpolate, locale } = useI18n();
+  const overlayRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProvider, setSelectedProvider] = useState<string>('all');
   const [selectedModality, setSelectedModality] = useState<ModalityFilter>('all');
   const [sortKey, setSortKey] = useState<SortKey>('intelligence');
+
+  useModalScrollLock(isOpen, {
+    overlayRef,
+    scrollableSelector: '.model-modal-list, [data-modal-scrollable="true"]',
+  });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -194,13 +201,27 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="model-modal-backdrop" onClick={onClose}>
+    <div
+      ref={overlayRef}
+      className="model-modal-backdrop"
+      onClick={onClose}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+    >
       <div
         className="model-modal-card"
         role="dialog"
         aria-modal="true"
         aria-labelledby="model-modal-title"
         onClick={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+        onTouchStart={(event) => event.stopPropagation()}
       >
         {/* Modal Header */}
         <div className="model-modal-header">
@@ -347,7 +368,12 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
         </div>
 
         {/* Model Card List */}
-        <div className="model-modal-list">
+        <div
+          className="model-modal-list"
+          data-modal-scrollable="true"
+          onTouchMove={(e) => e.stopPropagation()}
+          onWheel={(e) => e.stopPropagation()}
+        >
           {displayedModels.length === 0 ? (
             <div className="model-modal-empty">
               <Brain size={36} color="#8b95a1" />

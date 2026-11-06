@@ -1,11 +1,11 @@
-// src/components/studio/DateFormatSelectorModal.tsx - Modal for selecting filming date format (Toss modal style)
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Calendar, X, Check, Sparkles } from 'lucide-react';
 import { useI18n } from '../../i18n/index.tsx';
 import {
   getDateFormats,
   type DateFormatOption,
 } from '../../services/videoMetadata.ts';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 
 export interface DateFormatSelectorModalProps {
   isOpen: boolean;
@@ -23,6 +23,12 @@ export const DateFormatSelectorModal: React.FC<DateFormatSelectorModalProps> = (
   referenceDate,
 }) => {
   const { dict } = useI18n();
+  const overlayRef = useRef<HTMLDivElement>(null);
+
+  useModalScrollLock(isOpen, {
+    overlayRef,
+    scrollableSelector: '.language-modal-list, .model-modal-list, [data-modal-scrollable="true"]',
+  });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -74,13 +80,27 @@ export const DateFormatSelectorModal: React.FC<DateFormatSelectorModalProps> = (
   };
 
   return (
-    <div className="model-modal-backdrop" onClick={onClose}>
+    <div
+      ref={overlayRef}
+      className="model-modal-backdrop"
+      onClick={onClose}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+    >
       <div
         className="model-modal-card language-modal-card date-format-modal-card"
         role="dialog"
         aria-modal="true"
         aria-labelledby="date-format-modal-title"
         onClick={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+        onTouchStart={(event) => event.stopPropagation()}
       >
         {/* Modal Header */}
         <div className="model-modal-header">
@@ -106,7 +126,13 @@ export const DateFormatSelectorModal: React.FC<DateFormatSelectorModalProps> = (
         </div>
 
         {/* Format List */}
-        <div className="model-modal-list language-modal-list" style={{ maxHeight: '380px' }}>
+        <div
+          className="model-modal-list language-modal-list"
+          data-modal-scrollable="true"
+          style={{ maxHeight: '380px' }}
+          onTouchMove={(e) => e.stopPropagation()}
+          onWheel={(e) => e.stopPropagation()}
+        >
           {formats.map((fmt) => {
             const isSelected = fmt.id === currentFormat;
             return (

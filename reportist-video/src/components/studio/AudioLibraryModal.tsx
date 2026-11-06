@@ -1,9 +1,8 @@
-// components/studio/AudioLibraryModal.tsx - 내장 배경음악을 미리 듣고 선택하는 오디오 보관함 팝업
-
 import React, { useEffect, useRef, useState } from 'react';
 import { Check, Headphones, ListMusic, Loader2, Pause, Play, VolumeX, X } from 'lucide-react';
 import { AUDIO_LIBRARY, type AudioLibraryTrack } from '../../data/audioLibrary.ts';
 import { useI18n } from '../../i18n/index.tsx';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 
 interface AudioLibraryModalProps {
   isOpen: boolean;
@@ -27,6 +26,12 @@ export const AudioLibraryModal: React.FC<AudioLibraryModalProps> = ({
   const [applyError, setApplyError] = useState<string | null>(null);
   const [trackDurations, setTrackDurations] = useState<Record<string, number>>({});
   const audioRef = useRef<HTMLAudioElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+
+  useModalScrollLock(isOpen, {
+    overlayRef,
+    scrollableSelector: '.audio-library-body, [data-modal-scrollable="true"]',
+  });
 
   const formatDurationLabel = (sec?: number) => {
     if (!sec || !Number.isFinite(sec) || sec <= 0) return null;
@@ -134,13 +139,27 @@ export const AudioLibraryModal: React.FC<AudioLibraryModalProps> = ({
   };
 
   return (
-    <div className="model-modal-backdrop" onClick={onClose}>
+    <div
+      ref={overlayRef}
+      className="model-modal-backdrop"
+      onClick={onClose}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+    >
       <div
         className="model-modal-card audio-library-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="audio-library-title"
         onClick={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+        onTouchStart={(event) => event.stopPropagation()}
       >
         <div className="model-modal-header">
           <div className="model-modal-title-row">
@@ -164,7 +183,12 @@ export const AudioLibraryModal: React.FC<AudioLibraryModalProps> = ({
           </button>
         </div>
 
-        <div className="audio-library-body">
+        <div
+          className="audio-library-body"
+          data-modal-scrollable="true"
+          onTouchMove={(e) => e.stopPropagation()}
+          onWheel={(e) => e.stopPropagation()}
+        >
           <button
             type="button"
             className={`audio-library-item audio-library-none ${

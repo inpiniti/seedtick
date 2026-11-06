@@ -1,8 +1,9 @@
 // src/components/studio/LanguageSelectorModal.tsx - Modal for selecting language (Toss modal style)
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Globe, Search, X, Check, Sparkles } from 'lucide-react';
 import { useI18n } from '../../i18n/index.tsx';
 import type { Locale } from '../../i18n/types.ts';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 
 export interface LanguageSelectorModalProps {
   isOpen: boolean;
@@ -15,6 +16,12 @@ export const LanguageSelectorModal: React.FC<LanguageSelectorModalProps> = ({
 }) => {
   const { locale, setLocale, locales, dict } = useI18n();
   const [searchQuery, setSearchQuery] = useState('');
+  const overlayRef = useRef<HTMLDivElement>(null);
+
+  useModalScrollLock(isOpen, {
+    overlayRef,
+    scrollableSelector: '.language-modal-list, .model-modal-list, [data-modal-scrollable="true"]',
+  });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -44,13 +51,27 @@ export const LanguageSelectorModal: React.FC<LanguageSelectorModalProps> = ({
   };
 
   return (
-    <div className="model-modal-backdrop" onClick={onClose}>
+    <div
+      ref={overlayRef}
+      className="model-modal-backdrop"
+      onClick={onClose}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+    >
       <div
         className="model-modal-card language-modal-card"
         role="dialog"
         aria-modal="true"
         aria-labelledby="language-modal-title"
         onClick={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+        onTouchStart={(event) => event.stopPropagation()}
       >
         {/* Modal Header */}
         <div className="model-modal-header">
@@ -103,7 +124,12 @@ export const LanguageSelectorModal: React.FC<LanguageSelectorModalProps> = ({
         </div>
 
         {/* Language List */}
-        <div className="model-modal-list language-modal-list">
+        <div
+          className="model-modal-list language-modal-list"
+          data-modal-scrollable="true"
+          onTouchMove={(e) => e.stopPropagation()}
+          onWheel={(e) => e.stopPropagation()}
+        >
           {filteredLocales.length === 0 ? (
             <div className="model-modal-empty">
               <Globe size={36} color="#8b95a1" />
