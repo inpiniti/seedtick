@@ -2550,6 +2550,127 @@
   color: #8b95a1;
 }
 
+/* 하이라이트 전 원본 영상 미리보기 선택 */
+.toss-draft-preview-desc {
+  margin: 0 0 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #4e5968;
+}
+
+.toss-draft-preview-list {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.toss-draft-preview-list::-webkit-scrollbar {
+  display: none;
+}
+
+.toss-draft-preview-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-height: 48px;
+  max-width: 200px;
+  padding: 6px 10px 6px 6px;
+  border: 1px solid #e5e8eb;
+  border-radius: 12px;
+  background-color: #ffffff;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.toss-draft-preview-item:hover {
+  background-color: #f7f9fc;
+}
+
+.toss-draft-preview-item.active {
+  border-color: #3182f6;
+  background-color: #e8f3ff;
+}
+
+.toss-draft-preview-thumb {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 56px;
+  height: 36px;
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: #f2f4f6;
+}
+
+.toss-draft-preview-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.toss-draft-preview-idx {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  padding: 0 4px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 14px;
+  color: #ffffff;
+  background-color: rgba(0, 0, 0, 0.55);
+}
+
+.toss-draft-preview-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.toss-draft-preview-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  font-weight: 600;
+  color: #191f28;
+}
+
+.toss-draft-preview-dur {
+  font-size: 11px;
+  font-family: var(--font-mono, monospace);
+  color: #8b95a1;
+}
+
+/* 미리보기 재생 실패 안내 */
+.toss-playback-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #4e5968;
+  background-color: #fff4f4;
+}
+
+.toss-playback-error-dot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background-color: #f04452;
+}
+
 .toss-sequencer-fit-music-btn {
   display: inline-flex;
   align-items: center;

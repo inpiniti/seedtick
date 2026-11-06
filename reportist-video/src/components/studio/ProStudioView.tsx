@@ -91,6 +91,9 @@ import {
 import { ReportistLogo } from '../common/ReportistLogo.tsx';
 import { useI18n } from '../../i18n/index.tsx';
 
+const PLAYBACK_ERROR_MESSAGE =
+  '이 영상은 미리보기를 재생할 수 없어요. 영상을 다시 올리거나 다른 형식(MP4)으로 시도해 주세요.';
+
 interface ProStudioViewProps {
   result: FinalVideoResult | null;
   videos: VideoItem[];
@@ -183,27 +186,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   // 1. 타임라인 및 클립 상태
-  const initialSegments = useMemo(() => {
+  // AI 하이라이트 결과가 있을 때만 시퀀스 클립을 채운다.
+  // (하이라이트 전에는 임시 클립을 만들지 않고 원본 영상 미리보기 모드로 동작)
+  const initialSegments = useMemo<HighlightSegment[]>(() => {
     if (result?.segments && result.segments.length > 0) {
       return result.segments;
     }
-    const extracted = videos.flatMap((v) => v.segments);
-    if (extracted.length > 0) return extracted;
-    return videos.map((v, idx) => ({
-      id: `temp_seg_${v.id}`,
-      sourceVideoId: v.id,
-      sourceVideoName: v.name,
-      start: 0,
-      end: Math.min(v.duration || 5, 5),
-      duration: Math.min(v.duration || 5, 5),
-      reason: `Clip #${idx + 1}`,
-      subtitleDate: v.metadataDate || '',
-      subtitleTitle: `Clip #${idx + 1}`,
-      locationName: v.locationName || '',
-      latitude: v.latitude,
-      longitude: v.longitude,
-    }));
-  }, [result, videos]);
+    return [];
+  }, [result]);
 
   // 비디오 ID 매핑 (상위 선언)
   const videoMap = useMemo(() => {
@@ -749,20 +739,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       if (!selectedSegmentId || !result.segments.some((s) => s.id === selectedSegmentId)) {
         setSelectedSegmentId(result.segments[0].id);
       }
-    } else if (videos.length > 0 && segments.length === 0) {
-      const fallback = videos.map((v, idx) => ({
-        id: `temp_seg_${v.id}`,
-        sourceVideoId: v.id,
-        sourceVideoName: v.name,
-        start: 0,
-        end: Math.min(v.duration || 5, 5),
-        duration: Math.min(v.duration || 5, 5),
-        reason: `Clip #${idx + 1}`,
-      }));
-      setSegments(fallback);
-      setSelectedSegmentId(fallback[0]?.id || '');
-    } else if (videos.length === 0 && !result) {
-      resetStudioState();
+    } else if (!result) {
+      if (videos.length === 0) {
+        resetStudioState();
+      } else {
+        // 하이라이트 전에는 임시 클립을 만들지 않는다 (원본 영상 미리보기 모드)
+        setSegments((prev) => (prev.length > 0 ? [] : prev));
+        setSelectedSegmentId('');
+      }
     }
 
     if (result?.suggestedTitle && appliedSuggestedTitleRef.current !== result.suggestedTitle) {
@@ -890,16 +874,33 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     showThumbnailTitle,
   ]);
 
+  // 하이라이트 전 원본 영상 미리보기 모드 (AI 결과가 없고 시퀀스 클립도 없는 상태)
+  const isDraftPreview = !result && segments.length === 0;
+  // 실제 하이라이트 결과가 있을 때만 시간 절약률을 계산/노출한다
+  const hasHighlight = Boolean(result) && segments.length > 0;
+
+  // 미리보기 모드에서 재생할 원본 영상 (기본: 첫 번째 영상)
+  const [previewVideoId, setPreviewVideoId] = useState<string>('');
+  const previewVideo = useMemo(
+    () => videos.find((v) => v.id === previewVideoId) || videos[0] || null,
+    [videos, previewVideoId]
+  );
+  // 메타데이터 추출 전에도 정확한 길이를 쓰기 위한 <video> 실제 길이
+  const [previewNativeDuration, setPreviewNativeDuration] = useState<number>(0);
+  const [playbackError, setPlaybackError] = useState<string | null>(null);
+
   // 활성 비디오 소스 URL
   const activeVideoUrl = useMemo(() => {
     if (result?.url) return result.url;
-    if (videos.length > 0 && videos[0].url) return videos[0].url;
+    if (previewVideo?.url) return previewVideo.url;
     return null;
-  }, [result?.url, videos]);
+  }, [result?.url, previewVideo?.url]);
 
   useEffect(() => {
     setCurrentTime(0);
     setIsPlaying(false);
+    setPreviewNativeDuration(0);
+    setPlaybackError(null);
   }, [activeVideoUrl]);
 
   // 인트로, 아웃트로 및 챕터 브릿지 실제 적용 시간
@@ -915,6 +916,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
   // 총 시간 계산 (인트로 + 클립 + 챕터 브릿지 + 아웃트로 실시간 합산: 클립 제거/조절 시 즉시 갱신)
   const totalDuration = useMemo(() => {
+    // 미리보기 모드에서는 원본 영상 길이 그대로 재생
+    if (isDraftPreview) {
+      const d = previewNativeDuration || previewVideo?.duration || 0;
+      return d > 0 ? d : 1;
+    }
     const segsAndBridges = segments.reduce(
       (sum, s) => sum + s.duration + (effectiveBridgeDurationMap[s.id] ?? 0),
       0
@@ -923,18 +929,28 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     if (computed > 0) return computed;
     if (result?.duration && result.duration > 0) return result.duration;
     return 1;
-  }, [segments, effectiveBridgeDurationMap, introDuration, outroDuration, result?.duration]);
+  }, [
+    isDraftPreview,
+    previewNativeDuration,
+    previewVideo?.duration,
+    segments,
+    effectiveBridgeDurationMap,
+    introDuration,
+    outroDuration,
+    result?.duration,
+  ]);
 
   // 원본 영상 총 시간
   const originalTotalDuration = useMemo(() => {
     return videos.reduce((sum, v) => sum + v.duration, 0);
   }, [videos]);
 
-  // 시간 절약 퍼센트
+  // 시간 절약 퍼센트 (하이라이트가 만들어진 뒤에만 의미 있음)
   const savedPercent = useMemo(() => {
+    if (!hasHighlight) return 0;
     if (!originalTotalDuration || originalTotalDuration <= 0) return 0;
     return Math.max(0, Math.round((1 - totalDuration / originalTotalDuration) * 100));
-  }, [totalDuration, originalTotalDuration]);
+  }, [hasHighlight, totalDuration, originalTotalDuration]);
 
   // 구간별 누적 시작 오프셋 (챕터 브릿지 구간 시간 반영)
   const segmentTimelineOffsets = useMemo(() => {
@@ -1021,7 +1037,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         setSelectedSegmentId(kept[0]?.id || '');
       }
       setSortToastMessage(
-        `음악 길이(${formatSec(customAudioDuration)})를 넘기는 ${removedCount}개 구간을 제외했어요.`
+        interpolate(
+          dict.sequencer.fitMusicToast || '음악 길이({duration})를 넘기는 {count}개 구간을 제외했어요.',
+          { duration: formatSec(customAudioDuration), count: removedCount }
+        )
       );
       if (sortToastTimeoutRef.current) {
         window.clearTimeout(sortToastTimeoutRef.current);
@@ -1264,6 +1283,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         setCurrentTime(0);
       }
 
+      setPlaybackError(null);
       const p = v.play();
       if (p !== undefined) {
         p.then(() => {
@@ -1272,7 +1292,18 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           console.warn('[VideoPlayer] Play interrupted or blocked, fallback to muted:', err);
           v.muted = true;
           setIsMuted(true);
-          v.play().then(() => setIsPlaying(true)).catch(() => {});
+          v.play()
+            .then(() => setIsPlaying(true))
+            .catch((retryErr) => {
+              console.error('[VideoPlayer] Muted playback also failed:', retryErr, {
+                src: v.currentSrc,
+                mediaError: v.error ? { code: v.error.code, message: v.error.message } : null,
+                readyState: v.readyState,
+                networkState: v.networkState,
+              });
+              setIsPlaying(false);
+              setPlaybackError(PLAYBACK_ERROR_MESSAGE);
+            });
         });
       }
     } else {
@@ -1910,6 +1941,22 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       muted={isMuted}
                       onPlay={() => setIsPlaying(true)}
                       onPause={() => setIsPlaying(false)}
+                      onLoadedMetadata={(e) => {
+                        const d = e.currentTarget.duration;
+                        if (!result?.url && Number.isFinite(d) && d > 0) {
+                          setPreviewNativeDuration(d);
+                        }
+                      }}
+                      onError={(e) => {
+                        const err = e.currentTarget.error;
+                        console.error('[VideoPlayer] Media load error:', {
+                          src: e.currentTarget.currentSrc,
+                          code: err?.code,
+                          message: err?.message,
+                        });
+                        setIsPlaying(false);
+                        setPlaybackError(PLAYBACK_ERROR_MESSAGE);
+                      }}
                       onTimeUpdate={(e) => {
                         const cur = e.currentTarget.currentTime;
                         const nativeDur = e.currentTarget.duration;
@@ -2164,6 +2211,62 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               )}
             </div>
 
+            {playbackError && (
+              <div className="toss-playback-error" role="alert">
+                <span className="toss-playback-error-dot" />
+                <span>{playbackError}</span>
+              </div>
+            )}
+
+            {/* 하이라이트 전: 가짜 시퀀스 대신 원본 영상 미리보기 선택 */}
+            {isDraftPreview && videos.length > 0 && (
+              <div className="toss-timeline-sequencer-box toss-draft-preview-box">
+                <div className="toss-sequencer-header">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Film size={14} className="text-blue-600 shrink-0" />
+                    <span className="toss-sequencer-title">원본 영상 미리보기</span>
+                    <span className="toss-sequencer-badge">
+                      {videos.length}개 영상 · {formatSec(originalTotalDuration)}
+                    </span>
+                  </div>
+                </div>
+                <p className="toss-draft-preview-desc">
+                  AI 하이라이트를 만들면 여기에 클립이 채워져요. 지금은 올린 영상을 그대로 볼 수 있어요.
+                </p>
+                <div className="toss-draft-preview-list" role="listbox" aria-label="미리볼 원본 영상">
+                  {videos.map((v, idx) => {
+                    const isActive = v.id === previewVideo?.id;
+                    return (
+                      <button
+                        key={v.id}
+                        type="button"
+                        role="option"
+                        aria-selected={isActive}
+                        className={`toss-draft-preview-item ${isActive ? 'active' : ''}`}
+                        onClick={() => setPreviewVideoId(v.id)}
+                        title={v.name}
+                      >
+                        <span className="toss-draft-preview-thumb">
+                          {v.thumbnailUrl ? (
+                            <img src={v.thumbnailUrl} alt="" />
+                          ) : (
+                            <Film size={14} className="text-slate-400" />
+                          )}
+                          <span className="toss-draft-preview-idx">{idx + 1}</span>
+                        </span>
+                        <span className="toss-draft-preview-meta">
+                          <span className="toss-draft-preview-name">{v.name}</span>
+                          <span className="toss-draft-preview-dur">
+                            {v.duration > 0 ? formatSec(v.duration) : '--:--'}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* 시퀀스 타임라인 스트립 (V1 영상 + A1 배경음악 멀티트랙) */}
             {segments.length > 0 && (
               <div className="toss-timeline-sequencer-box">
@@ -2178,21 +2281,37 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       isMusicExceeded ? (
                         <span
                           className="toss-sequencer-music-badge warning"
-                          title="영상 총 길이가 배경음악 1곡 길이를 초과하여 음악이 한 번 더 반복 재생돼요"
+                          title={
+                            dict.sequencer.musicBadgeOverflowTip ||
+                            '영상 총 길이가 배경음악 1곡 길이를 초과하여 음악이 한 번 더 반복 재생돼요'
+                          }
                         >
                           <Music size={10} className="shrink-0" />
                           <span>
-                            음악 {formatSec(customAudioDuration)} · +{musicOverflowSec.toFixed(1)}s 초과 (반복 재생)
+                            {interpolate(
+                              dict.sequencer.musicBadgeOverflow ||
+                                '음악 {duration} · +{overflow}s 초과 (반복 재생)',
+                              {
+                                duration: formatSec(customAudioDuration),
+                                overflow: musicOverflowSec.toFixed(1),
+                              }
+                            )}
                           </span>
                         </span>
                       ) : (
                         <span
                           className="toss-sequencer-music-badge ok"
-                          title="영상이 배경음악 1회 재생 길이 안에 깔끔하게 들어와요"
+                          title={
+                            dict.sequencer.musicBadgeOkTip ||
+                            '영상이 배경음악 1회 재생 길이 안에 깔끔하게 들어와요'
+                          }
                         >
                           <Music size={10} className="shrink-0" />
                           <span>
-                            음악 {formatSec(customAudioDuration)} (반복 없음)
+                            {interpolate(
+                              dict.sequencer.musicBadgeOk || '음악 {duration} (반복 없음)',
+                              { duration: formatSec(customAudioDuration) }
+                            )}
                           </span>
                         </span>
                       )
@@ -2205,10 +2324,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         type="button"
                         className="toss-sequencer-fit-music-btn"
                         onClick={handleFitSegmentsToMusic}
-                        title="배경음악 1곡 길이를 넘어가는 뒷부분 영상 클립들을 자동으로 제외해요"
+                        title={
+                          dict.sequencer.fitMusicBtnTip ||
+                          '배경음악 1곡 길이를 넘어가는 뒷부분 영상 클립들을 자동으로 제외해요'
+                        }
                       >
                         <Scissors size={11} />
-                        <span>음악 길이에 맞춰 초과 클립 제외</span>
+                        <span>
+                          {dict.sequencer.fitMusicBtn || '음악 길이에 맞춰 초과 클립 제외'}
+                        </span>
                       </button>
                     )}
                     <span className="toss-sequencer-hint">{dict.sequencer.hint}</span>
@@ -2221,11 +2345,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     <div className="toss-track-label-ruler">TIME</div>
                     <div className="toss-track-label-row video">
                       <Film size={11} />
-                      <span>V1 영상</span>
+                      <span>{dict.sequencer.trackVideo || 'V1 영상'}</span>
                     </div>
                     <div className="toss-track-label-row audio">
                       <Music size={11} />
-                      <span>A1 음악</span>
+                      <span>{dict.sequencer.trackAudio || 'A1 음악'}</span>
                     </div>
                   </div>
 
@@ -2258,9 +2382,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           style={{
                             left: `${Math.min(96, Math.max(4, (customAudioDuration / (totalDuration || 1)) * 100))}%`,
                           }}
-                          title={`배경음악 1회차 종료 시점 (${formatSec(customAudioDuration)})`}
+                          title={interpolate(
+                            dict.sequencer.musicEndTagTip || '배경음악 1회차 종료 시점 ({duration})',
+                            { duration: formatSec(customAudioDuration) }
+                          )}
                         >
-                          🎵 {formatSec(customAudioDuration)} 음악 끝
+                          {interpolate(dict.sequencer.musicEndTag || '🎵 {duration} 음악 끝', {
+                            duration: formatSec(customAudioDuration),
+                          })}
                         </span>
                       )}
                     </div>
@@ -2283,7 +2412,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         style={{
                           left: `${Math.min(100, Math.max(0, (customAudioDuration / (totalDuration || 1)) * 100))}%`,
                         }}
-                        title={`배경음악 1회차 종료 (${formatSec(customAudioDuration)}) — 이후 구간은 음악이 처음부터 다시 반복돼요`}
+                        title={interpolate(
+                          dict.sequencer.musicLimitLineTip ||
+                            '배경음악 1회차 종료 ({duration}) — 이후 구간은 음악이 처음부터 다시 반복돼요',
+                          { duration: formatSec(customAudioDuration) }
+                        )}
                       />
                     )}
 
@@ -2374,8 +2507,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                     type="button"
                                     className="toss-sequencer-block-delete"
                                     onClick={(e) => handleDeleteSegment(seg.id, e)}
-                                    title={`#${idx + 1} 구간 제외하기`}
-                                    aria-label={`#${idx + 1} 구간 제외하기`}
+                                    title={interpolate(
+                                      dict.sequencer.deleteClipTip || '#{idx} 구간 제외하기',
+                                      { idx: idx + 1 }
+                                    )}
+                                    aria-label={interpolate(
+                                      dict.sequencer.deleteClipTip || '#{idx} 구간 제외하기',
+                                      { idx: idx + 1 }
+                                    )}
                                   >
                                     <X size={10} />
                                   </button>
@@ -2383,7 +2522,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                               </div>
                               <div className="toss-block-bottom-row">
                                 {isExceedingMusic && (
-                                  <span className="toss-block-overflow-dot" title="음악 길이 초과 구간" />
+                                  <span
+                                    className="toss-block-overflow-dot"
+                                    title={
+                                      dict.dramaticClips.musicOverflowSegmentTip ||
+                                      '음악 길이 초과 구간'
+                                    }
+                                  />
                                 )}
                                 <span className="toss-block-dur">{seg.duration.toFixed(1)}s</span>
                               </div>
@@ -2471,15 +2616,21 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             e.stopPropagation();
                             setIsAudioLibraryOpen(true);
                           }}
-                          title="오디오 보관함에서 배경음악을 선택하면 영상 길이 대비 음악 구간이 표시돼요"
+                          title={
+                            dict.sequencer.musicEmptyNoticeTip ||
+                            '오디오 보관함에서 배경음악을 선택하면 영상 길이 대비 음악 구간이 표시돼요'
+                          }
                         >
                           <span className="toss-sequencer-audio-empty-left">
                             <Music size={11} className="shrink-0" />
                             <span className="truncate">
-                              배경음악 미선택 · 음악을 추가하면 영상 대비 길이가 표시돼요
+                              {dict.sequencer.musicEmptyNotice ||
+                                '배경음악 미선택 · 음악을 추가하면 영상 대비 길이가 표시돼요'}
                             </span>
                           </span>
-                          <span className="toss-sequencer-audio-empty-badge">+ 오디오 보관함</span>
+                          <span className="toss-sequencer-audio-empty-badge">
+                            {dict.sequencer.openAudioLibrary || '+ 오디오 보관함'}
+                          </span>
                         </button>
                       )}
                     </div>
@@ -2490,9 +2641,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   <div className="toss-sequencer-overflow-notice">
                     <span className="toss-overflow-dot" />
                     <span>
-                      영상이 음악 길이({formatSec(customAudioDuration)})보다{' '}
-                      <strong>+{musicOverflowSec.toFixed(1)}초</strong> 길어 점선 이후 구간에서 음악이 한 번 더 재생돼요.
-                      초과 구간의 영상 클립(주황색 테두리)을 몇 개 제외하면 깔끔하게 맞출 수 있어요.
+                      {interpolate(
+                        dict.sequencer.musicOverflowNotice ||
+                          '영상이 음악 길이({duration})보다 +{overflow}초 길어 점선 이후 구간에서 음악이 한 번 더 재생돼요. 초과 구간의 영상 클립(주황색 테두리)을 몇 개 제외하면 깔끔하게 맞출 수 있어요.',
+                        {
+                          duration: formatSec(customAudioDuration),
+                          overflow: musicOverflowSec.toFixed(1),
+                        }
+                      )}
                     </span>
                   </div>
                 )}
@@ -3505,7 +3661,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           </div>
 
           {/* 시간 절약 효과 요약 카드 */}
-          {originalTotalDuration > 0 && segments.length > 0 && (
+          {originalTotalDuration > 0 && hasHighlight && (
             <div className="toss-summary-card">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-slate-500 font-medium">{dict.summaryCard.timeSavedRate}</span>
@@ -3878,7 +4034,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
             {/* 우측: 시간 절약률 / 영상 요약 */}
             <div className="toss-bottom-status-right">
-              {originalTotalDuration > 0 && segments.length > 0 ? (
+              {originalTotalDuration > 0 && hasHighlight ? (
                 <div className="toss-bottom-savings-box">
                   <span className="toss-bottom-savings-label">
                     {dict.summaryCard.timeSavedRate}
