@@ -453,7 +453,8 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
                 className="segment-trim-set-current-btn"
                 onClick={handleSetCurrentAsStart}
               >
-                <span>📍 {t.setCurrentAsStart}</span>
+                <span className="segment-trim-btn-label-long">📍 {t.setCurrentAsStart}</span>
+                <span className="segment-trim-btn-label-short">📍 시작점으로</span>
                 <span className="segment-trim-btn-subtime">({formatTime(currentTime)})</span>
               </button>
             </div>
@@ -508,7 +509,8 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
                 className="segment-trim-set-current-btn"
                 onClick={handleSetCurrentAsEnd}
               >
-                <span>📍 {t.setCurrentAsEnd}</span>
+                <span className="segment-trim-btn-label-long">📍 {t.setCurrentAsEnd}</span>
+                <span className="segment-trim-btn-label-short">📍 끝점으로</span>
                 <span className="segment-trim-btn-subtime">({formatTime(currentTime)})</span>
               </button>
             </div>

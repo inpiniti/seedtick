@@ -9840,6 +9840,14 @@
   color: #3b82f6;
 }
 
+.segment-trim-btn-label-long {
+  display: inline;
+}
+
+.segment-trim-btn-label-short {
+  display: none;
+}
+
 /* Notice */
 .segment-trim-notice {
   display: flex;
@@ -9932,30 +9940,167 @@
 }
 
 @media (max-width: 640px) {
+  .segment-trim-modal-backdrop {
+    padding: 6px;
+    align-items: center;
+  }
+
   .segment-trim-modal-card {
-    max-height: 94vh;
+    max-height: 98vh;
     border-radius: 16px;
   }
 
+  .segment-trim-modal-header {
+    padding: 8px 12px;
+  }
+
+  .segment-trim-icon-badge {
+    width: 28px !important;
+    height: 28px !important;
+  }
+
+  .segment-trim-modal-header .model-modal-title {
+    font-size: 14px;
+  }
+
+  .segment-trim-modal-header .model-modal-subtitle {
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 210px;
+  }
+
   .segment-trim-modal-body {
-    padding: 12px 14px;
-    gap: 12px;
+    padding: 8px 10px;
+    gap: 6px;
   }
 
-  .segment-trim-grid {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-
-  .segment-trim-timeline-hint {
-    display: none;
+  .segment-trim-player-container {
+    border-radius: 10px;
   }
 
   .segment-trim-video-wrapper {
-    max-height: 200px;
+    max-height: 155px;
+  }
+
+  .segment-trim-playback-bar {
+    padding: 4px 6px;
+    gap: 4px;
+  }
+
+  .segment-trim-ctrl-btn {
+    padding: 3px 7px;
+    font-size: 11px;
+    height: 26px;
+    border-radius: 6px;
+    gap: 3px;
+  }
+
+  .segment-trim-ctrl-btn-text {
+    padding: 2px 5px;
+    font-size: 10px;
+    gap: 2px;
+  }
+
+  .segment-trim-timeline-section {
+    padding: 6px 8px;
+    gap: 4px;
+    border-radius: 10px;
+  }
+
+  .segment-trim-timeline-head {
+    display: none !important;
+  }
+
+  .segment-trim-timeline-track {
+    height: 26px;
+  }
+
+  .segment-trim-timeline-footer-times {
+    font-size: 10px;
+  }
+
+  .segment-trim-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px;
+  }
+
+  .segment-trim-card {
+    padding: 6px 7px;
+    gap: 4px;
+    border-radius: 8px;
+  }
+
+  .segment-trim-card-title {
+    font-size: 10.5px;
+  }
+
+  .segment-trim-card-value {
+    font-size: 11px;
+    padding: 1px 4px;
+  }
+
+  .segment-trim-delta-buttons {
+    gap: 2px;
+  }
+
+  .segment-trim-delta-btn {
+    padding: 3px 0;
+    font-size: 10px;
+    height: 24px;
+    border-radius: 4px;
+  }
+
+  .segment-trim-set-current-btn {
+    padding: 4px 6px;
+    font-size: 10.5px;
+    height: 26px;
+    border-radius: 6px;
+    justify-content: center;
+  }
+
+  .segment-trim-btn-subtime {
+    display: none !important;
+  }
+
+  .segment-trim-btn-label-long {
+    display: none !important;
+  }
+
+  .segment-trim-btn-label-short {
+    display: inline !important;
+  }
+
+  .segment-trim-notice {
+    display: none !important;
   }
 
   .segment-trim-modal-footer {
-    padding: 10px 14px;
+    padding: 6px 12px;
   }
-}
+
+  .segment-trim-footer-label {
+    font-size: 11px;
+  }
+
+  .segment-trim-footer-duration {
+    font-size: 12px;
+    padding: 1px 6px;
+  }
+
+  .segment-trim-cancel-btn {
+    padding: 5px 12px;
+    font-size: 12px;
+    height: 32px;
+    border-radius: 8px;
+  }
+
+  .segment-trim-apply-btn {
+    padding: 5px 14px;
+    font-size: 12px;
+    height: 32px;
+    border-radius: 8px;
+  }
+}
+
