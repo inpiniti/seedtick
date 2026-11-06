@@ -1,6 +1,6 @@
 // App.tsx - Reportist Video 메인 애플리케이션 (i18n 다국어 지원)
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './App.css';
 import { ProStudioView } from './components/studio/ProStudioView.tsx';
 import {
@@ -85,6 +85,29 @@ export function App() {
   const [currentBgmPresetId, setCurrentBgmPresetId] = useState<string>('none');
   const [currentBgmVolume, setCurrentBgmVolume] = useState<number>(0.3);
   const [currentCustomAudio, setCurrentCustomAudio] = useState<File | null>(null);
+
+  // 편집 오버레이 옵션 변경 핸들러 (실제 값이 같으면 참조 유지하여 무한 리렌더링 및 저장 루프 방지)
+  const handleOverlayOptionsChange = useCallback((newOpts: VideoOverlayOptions) => {
+    setCurrentOverlayOptions((prev) => {
+      if (!prev) return newOpts;
+      if (
+        prev.titleText === newOpts.titleText &&
+        prev.channelText === newOpts.channelText &&
+        prev.showTitle === newOpts.showTitle &&
+        prev.showChannel === newOpts.showChannel &&
+        prev.showSubtitle === newOpts.showSubtitle &&
+        prev.showDate === newOpts.showDate &&
+        prev.subtitleDateText === newOpts.subtitleDateText &&
+        prev.subtitleLocationText === newOpts.subtitleLocationText &&
+        prev.showIntro === newOpts.showIntro &&
+        prev.showOutro === newOpts.showOutro &&
+        prev.showChapterBridge === newOpts.showChapterBridge
+      ) {
+        return prev;
+      }
+      return newOpts;
+    });
+  }, []);
 
   const isRestoringProjectRef = useRef<boolean>(false);
   const autoSaveTimerRef = useRef<number | null>(null);
@@ -1097,7 +1120,7 @@ export function App() {
         initialBgmPresetId={currentBgmPresetId}
         initialBgmVolume={currentBgmVolume}
         initialCustomAudioFile={currentCustomAudio}
-        onOverlayOptionsChange={setCurrentOverlayOptions}
+        onOverlayOptionsChange={handleOverlayOptionsChange}
         onBgmChange={(bgmId: string, vol: number) => {
           setCurrentBgmPresetId(bgmId);
           setCurrentBgmVolume(vol);

@@ -437,15 +437,41 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   });
 
   // 외부(보관함 로드 등)에서 initialOverlayOptions 전달 시 동기화
+  // 자식 자신이 발생시킨 변경이 부모를 거쳐 다시 자식으로 되돌아오는 무한 루프(Echo) 방지
+  const lastEmittedOverlayJsonRef = useRef<string>('');
+  const lastLoadedProjectIdRef = useRef<string | null>(currentProjectId || null);
+
   useEffect(() => {
-    if (initialOverlayOptions) {
+    if (!initialOverlayOptions) return;
+
+    const incomingJson = JSON.stringify({
+      ...initialOverlayOptions,
+      introVideoFile: null,
+      outroVideoFile: null,
+    });
+
+    const isDifferentProject = currentProjectId !== lastLoadedProjectIdRef.current;
+    const isExternalChange = incomingJson !== lastEmittedOverlayJsonRef.current;
+
+    if (isDifferentProject || isExternalChange) {
+      lastLoadedProjectIdRef.current = currentProjectId || null;
+      lastEmittedOverlayJsonRef.current = incomingJson;
       setOverlayOptions(initialOverlayOptions);
     }
-  }, [initialOverlayOptions]);
+  }, [initialOverlayOptions, currentProjectId]);
 
-  // 외부로 overlayOptions 변경 전파
+  // 외부로 overlayOptions 변경 전파 (실제 내용이 변경되었을 때만 전파)
   useEffect(() => {
-    onOverlayOptionsChange?.(overlayOptions);
+    const currentJson = JSON.stringify({
+      ...overlayOptions,
+      introVideoFile: null,
+      outroVideoFile: null,
+    });
+
+    if (currentJson !== lastEmittedOverlayJsonRef.current) {
+      lastEmittedOverlayJsonRef.current = currentJson;
+      onOverlayOptionsChange?.(overlayOptions);
+    }
   }, [overlayOptions, onOverlayOptionsChange]);
 
   // 외부에서 BGM 프리셋/볼륨 전달 시 동기화
@@ -682,8 +708,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   };
 
-  // 상위 결과 갱신 동기화
   // 상위 결과 갱신 동기화 및 썸네일/타이틀 준비
+  const appliedSuggestedTitleRef = useRef<string | null>(null);
   useEffect(() => {
     if (result?.segments && result.segments.length > 0) {
       setSegments(result.segments);
@@ -704,15 +730,19 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       setSelectedSegmentId(fallback[0]?.id || '');
     }
 
-    if (result?.suggestedTitle) {
-      setOverlayOptions((prev) => ({
-        ...prev,
-        titleText:
-          prev.titleText && prev.titleText !== dict.player.defaultTitleText
-            ? prev.titleText
-            : result.suggestedTitle!,
-        showTitle: true,
-      }));
+    if (result?.suggestedTitle && appliedSuggestedTitleRef.current !== result.suggestedTitle) {
+      appliedSuggestedTitleRef.current = result.suggestedTitle;
+      setOverlayOptions((prev) => {
+        const isDefault = !prev.titleText || prev.titleText === dict.player.defaultTitleText;
+        if (!isDefault && prev.titleText !== result.suggestedTitle) {
+          return prev;
+        }
+        return {
+          ...prev,
+          titleText: result.suggestedTitle!,
+          showTitle: true,
+        };
+      });
     }
 
     if (result?.thumbnailUrl) {
