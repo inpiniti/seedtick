@@ -17,55 +17,46 @@ async def test_scheduler_jobs_registration():
     service.start()
     try:
         jobs = {job.id: job for job in service._scheduler.get_jobs()}
-        assert "cleanup_old_logs" in jobs
-        assert "daily_outcome_tracking" in jobs
-        assert "us_daily_pipeline" in jobs
-        assert "kr_daily_pipeline" in jobs
-        assert "reset_model_rotation" in jobs
+        assert set(jobs) == {
+            "reset_model_rotation",
+            "daily_curator",
+            "cleanup_old_logs",
+        }
+        # 보고서 생성(미장/국장)과 성과 추적은 자동 스케줄에서 제외됨 (수동 트리거만 지원)
+        assert "us_daily_pipeline" not in jobs
+        assert "kr_daily_pipeline" not in jobs
+        assert "daily_outcome_tracking" not in jobs
         # 장외 예약 주문은 폐기됨: 정규장 개장 후 예약 발주 잡이 등록되지 않는다
         assert "execute_pending_orders" not in jobs
 
-        # 0-1. 일일 성과 추적 잡이 08:30 KST에 실행되는지 검증
-        outcome_job = jobs["daily_outcome_tracking"]
-        outcome_trigger = outcome_job.trigger
-        assert isinstance(outcome_trigger, CronTrigger)
         test_dt = datetime(2026, 9, 30, 0, 0, tzinfo=zoneinfo.ZoneInfo("Asia/Seoul"))
-        next_outcome = outcome_trigger.get_next_fire_time(None, test_dt)
-        assert next_outcome is not None
-        next_outcome_kst = next_outcome.astimezone(zoneinfo.ZoneInfo("Asia/Seoul"))
-        assert next_outcome_kst.hour == 8
-        assert next_outcome_kst.minute == 30
+
+        # 0. 모델 초기화 트리거가 00:01 KST에 실행되는지 검증
+        model_trigger = jobs["reset_model_rotation"].trigger
+        assert isinstance(model_trigger, CronTrigger)
+        next_model = model_trigger.get_next_fire_time(None, test_dt)
+        assert next_model is not None
+        next_model_kst = next_model.astimezone(zoneinfo.ZoneInfo("Asia/Seoul"))
+        assert next_model_kst.hour == 0
+        assert next_model_kst.minute == 1
+
+        # 0-1. 뉴스 큐레이터 트리거가 00:05 KST에 실행되는지 검증
+        curator_trigger = jobs["daily_curator"].trigger
+        assert isinstance(curator_trigger, CronTrigger)
+        next_curator = curator_trigger.get_next_fire_time(None, test_dt)
+        assert next_curator is not None
+        next_curator_kst = next_curator.astimezone(zoneinfo.ZoneInfo("Asia/Seoul"))
+        assert next_curator_kst.hour == 0
+        assert next_curator_kst.minute == 5
 
         # 1. 만료 로그 정리 트리거가 08:00 KST에 실행되는지 검증
-        cleanup_job = jobs["cleanup_old_logs"]
-        cleanup_trigger = cleanup_job.trigger
+        cleanup_trigger = jobs["cleanup_old_logs"].trigger
         assert isinstance(cleanup_trigger, CronTrigger)
-        test_dt = datetime(2026, 9, 30, 0, 0, tzinfo=zoneinfo.ZoneInfo("Asia/Seoul"))
         next_cleanup = cleanup_trigger.get_next_fire_time(None, test_dt)
         assert next_cleanup is not None
         next_cleanup_kst = next_cleanup.astimezone(zoneinfo.ZoneInfo("Asia/Seoul"))
         assert next_cleanup_kst.hour == 8
         assert next_cleanup_kst.minute == 0
-
-        # 2. 미국 파이프라인 트리거가 09:00 KST에 실행되는지 검증
-        us_job = jobs["us_daily_pipeline"]
-        us_trigger = us_job.trigger
-        assert isinstance(us_trigger, CronTrigger)
-        next_us = us_trigger.get_next_fire_time(None, test_dt)
-        assert next_us is not None
-        next_us_kst = next_us.astimezone(zoneinfo.ZoneInfo("Asia/Seoul"))
-        assert next_us_kst.hour == 9
-        assert next_us_kst.minute == 0
-
-        # 3. 한국 파이프라인 트리거가 16:00 KST에 실행되는지 검증
-        kr_job = jobs["kr_daily_pipeline"]
-        kr_trigger = kr_job.trigger
-        assert isinstance(kr_trigger, CronTrigger)
-        next_kr = kr_trigger.get_next_fire_time(None, test_dt)
-        assert next_kr is not None
-        next_kr_kst = next_kr.astimezone(zoneinfo.ZoneInfo("Asia/Seoul"))
-        assert next_kr_kst.hour == 16
-        assert next_kr_kst.minute == 0
     finally:
         service.shutdown()
 

@@ -36,9 +36,9 @@ async def lifespan(app: FastAPI):
     scheduler_service.start()
     # 등록 잡:
     # 00:01 KST - reset_model_rotation_job
+    # 00:05 KST - daily_curator_job
     # 08:00 KST - cleanup_old_logs_job
-    # 09:00 KST - us_daily_pipeline_job (월~금)
-    # 16:00 KST - kr_daily_pipeline_job (월~금)
+    # 보고서 생성/성과 추적은 자동 등록하지 않음 (수동 API 전용)
     yield
     scheduler_service.shutdown()
 ```

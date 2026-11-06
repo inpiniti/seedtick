@@ -2,16 +2,17 @@
 
 ## 역할
 
-미국 정규장 개장 전, 스크리닝 → 심층 분석(13인 거장) → 매매 배치 파이프라인을 자동 실행합니다.
+모델 초기화·뉴스 큐레이터·로그 정리 잡을 자동 실행하고, 보고서 생성(스크리닝 → 13인 심층 분석)과 성과 추적은 수동 트리거로 실행합니다.
 
 ## 스케줄 및 휴장일 스킵 정책
 
 | 잡 | 시간 (KST) | 설명 | 대상 시장 |
 |:---|:---|:---|:---|
-| `reset_model_rotation` | 매일 00:01 (KST) | AI 모델 순위 1순위 초기화 | 공통 |
-| `cleanup_old_logs` | 매일 08:00 (KST) | 미국장 배치 1시간 전, 24시간 이전의 만료된 INFO 시스템 로그 선별 삭제 (DB 용량 최적화) | 공통 |
-| `us_daily_pipeline` | 매일 09:00 (월~금) | 미국 정규장 마감 후: 토스 해외 200 + DataRoma 스크리닝 → 13인 정밀 리포트 | 미국(NYSE) |
-| `kr_daily_pipeline` | 매일 16:00 (월~금) | 한국 정규장(15:30) 마감 후: 국장 실시간 발굴(조건강화 5단계) → 13인 정밀 리포트 | 한국(KRX) |
+| `reset_model_rotation` | 매일 00:01 | AI 모델 순위 1순위 초기화 | 공통 |
+| `daily_curator` | 매일 00:05 | 커뮤니티·뉴스 수집 → AI 브리핑 생성 → Supabase `market_briefings` 적재 | 공통 |
+| `cleanup_old_logs` | 매일 08:00 | 24시간 이전의 만료된 INFO 시스템 로그 선별 삭제 (DB 용량 최적화) | 공통 |
+
+> **수동 전용**: `us_daily_pipeline`, `kr_daily_pipeline`, `daily_outcome_tracking`은 자동 스케줄에 등록하지 않는다. 필요할 때만 `POST /api/scheduler/trigger`, `POST /api/scheduler/outcomes`로 실행한다.
 
 ### ⚠️ 필수 휴장일 가드 (Market Holiday Guard)
 - **주말 스킵**: 토요일, 일요일은 파이프라인을 실행하지 않고 즉시 스킵합니다.
