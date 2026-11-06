@@ -3928,63 +3928,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             </div>
                           </div>
 
-                          {/* 4. 씬 영상 회전 (90도 회전) */}
-                          <div className="toss-branding-row">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="toss-branding-label">
-                                {dict.dramaticClips.rotateLabel || '영상 방향 회전'}
-                              </span>
-                              {Boolean(seg.rotation) ? (
-                                <span className="text-[11px] text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded flex items-center gap-1">
-                                  <span>
-                                    {interpolate(dict.dramaticClips.rotateBadge || '{deg}° 회전됨', {
-                                      deg: seg.rotation ?? 0,
-                                    })}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => handleResetSegmentRotation(seg.id, e)}
-                                    className="text-slate-400 hover:text-slate-700 ml-1 font-bold text-[10px]"
-                                    title="원래대로 복구 (0°)"
-                                  >
-                                    ✕
-                                  </button>
-                                </span>
-                              ) : (
-                                <span className="text-[11px] text-slate-400 font-medium">
-                                  {dict.dramaticClips.rotateDefault || '기본 방향 (0°)'}
-                                </span>
-                              )}
-                            </div>
-                            <div className="toss-segment-control toss-rotate-control">
-                              <button
-                                type="button"
-                                className="toss-segment-btn flex items-center justify-center gap-1.5"
-                                onClick={(e) => handleRotateSegment(seg.id, -90, e)}
-                                title="반시계 방향으로 90° 회전합니다"
-                              >
-                                <RotateCcw size={13} />
-                                <span>{dict.dramaticClips.rotateCcw || '좌회전 (↶ 90°)'}</span>
-                              </button>
-                              <button
-                                type="button"
-                                className={`toss-segment-btn flex items-center justify-center gap-1.5 ${!seg.rotation ? 'active' : ''}`}
-                                onClick={(e) => handleResetSegmentRotation(seg.id, e)}
-                                title="원래 회전 각도로 복구합니다"
-                              >
-                                <span>{dict.dramaticClips.rotateReset || '원래대로'}</span>
-                              </button>
-                              <button
-                                type="button"
-                                className="toss-segment-btn flex items-center justify-center gap-1.5"
-                                onClick={(e) => handleRotateSegment(seg.id, 90, e)}
-                                title="시계 방향으로 90° 회전합니다"
-                              >
-                                <RotateCw size={13} />
-                                <span>{dict.dramaticClips.rotateCw || '우회전 (↷ 90°)'}</span>
-                              </button>
-                            </div>
-                          </div>
                         </div>
                       )}
                       </div>
