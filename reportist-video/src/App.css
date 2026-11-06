@@ -1774,10 +1774,50 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
+  gap: 8px;
+  padding: 8px 12px;
   background-color: #f9fafb;
   border-radius: 12px;
   margin: 12px 0 8px;
+  flex-wrap: wrap;
+}
+
+.toss-video-modal-summary-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: #4e5968;
+  white-space: nowrap;
+  min-width: 0;
+  flex-shrink: 0;
+}
+
+.toss-video-modal-summary-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.toss-video-modal-summary-item strong {
+  font-weight: 600;
+  color: #191f28;
+  font-variant-numeric: tabular-nums;
+  margin-left: 1px;
+}
+
+.toss-video-modal-summary-dot {
+  color: #cbd5e1;
+  font-size: 8px;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.toss-video-modal-summary-btn {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .toss-video-modal-body {
@@ -1948,6 +1988,72 @@
   padding-top: 14px;
   border-top: 1px solid #f2f4f6;
   margin-top: 6px;
+}
+
+@media (max-width: 640px) {
+  .toss-video-list-modal {
+    width: 94%;
+    padding: 16px 14px;
+    border-radius: 16px;
+    max-height: 85vh;
+  }
+
+  .toss-video-modal-header {
+    padding-bottom: 10px;
+    gap: 8px;
+  }
+
+  .toss-video-modal-icon-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+  }
+
+  .toss-video-modal-title {
+    font-size: 15.5px;
+  }
+
+  .toss-video-modal-desc {
+    font-size: 11.5px;
+  }
+
+  .toss-video-modal-summary {
+    padding: 8px 10px;
+    gap: 6px;
+    margin: 8px 0 6px;
+  }
+
+  .toss-video-modal-summary-stats {
+    font-size: 11px;
+    gap: 6px;
+  }
+
+  .toss-video-modal-summary-btn {
+    padding: 4.5px 8px;
+    font-size: 11px;
+    gap: 4px;
+  }
+
+  .toss-video-modal-footer {
+    padding-top: 10px;
+  }
+}
+
+@media (max-width: 350px) {
+  .toss-video-modal-summary {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .toss-video-modal-summary-stats {
+    justify-content: center;
+  }
+
+  .toss-video-modal-summary-btn {
+    justify-content: center;
+    width: 100%;
+  }
 }
 
 /* Background Music Upload (업로드 전용 스타일) */
@@ -2127,6 +2233,7 @@
   padding: 5px 10px;
   font-size: 11.5px;
   border-radius: 8px;
+  white-space: nowrap;
 }
 
 /* Primary Button (Toss design system) */

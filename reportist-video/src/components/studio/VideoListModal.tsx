@@ -71,22 +71,24 @@ export const VideoListModal: React.FC<VideoListModalProps> = ({
         {/* Top Summary */}
         {videos.length > 0 && (
           <div className="toss-video-modal-summary">
-            <div className="flex items-center gap-3 text-xs text-slate-600">
-              <span className="flex items-center gap-1">
-                <Clock size={13} className="text-slate-400" />
-                {dict.videoListModal.totalDurationLabel} <strong>{totalDuration.toFixed(1)}{dict.common.timeSec}</strong>
+            <div className="toss-video-modal-summary-stats">
+              <span className="toss-video-modal-summary-item">
+                <Clock size={13} className="text-slate-400 shrink-0" />
+                <span>{dict.videoListModal.totalDurationLabel}</span>
+                <strong>{totalDuration.toFixed(1)}{dict.common.timeSec}</strong>
               </span>
-              <span>•</span>
-              <span>
-                {dict.videoListModal.totalSizeLabel} <strong>{(totalSizeBytes / (1024 * 1024)).toFixed(1)} {dict.common.fileSizeMb}</strong>
+              <span className="toss-video-modal-summary-dot">•</span>
+              <span className="toss-video-modal-summary-item">
+                <span>{dict.videoListModal.totalSizeLabel}</span>
+                <strong>{(totalSizeBytes / (1024 * 1024)).toFixed(1)} {dict.common.fileSizeMb}</strong>
               </span>
             </div>
             <button
               type="button"
-              className="toss-btn-secondary toss-btn-xs"
+              className="toss-btn-secondary toss-btn-xs toss-video-modal-summary-btn"
               onClick={onAddFilesClick}
             >
-              <Plus size={13} />
+              <Plus size={13} className="shrink-0" />
               <span>{dict.videoListModal.addMoreVideos}</span>
             </button>
           </div>
