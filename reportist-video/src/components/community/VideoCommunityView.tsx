@@ -198,7 +198,7 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
                 type="button"
                 onClick={loadVideos}
                 className="toss-community-refresh-icon-btn"
-                title="새로고침"
+                title={dict.common?.retry || '새로고침'}
               >
                 <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
               </button>
@@ -231,7 +231,7 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
             </h3>
             <p className="toss-community-empty-desc">
               {searchQuery
-                ? '다른 검색어를 입력하시거나 검색창을 지워보세요.'
+                ? (cDict?.emptySearchDesc || (locale === 'ko' ? '다른 검색어를 입력하시거나 검색창을 지워보세요.' : 'Try another search term or clear the search field.'))
                 : (cDict?.emptyDesc ||
                   '직접 만든 하이라이트 영상을 유튜브에 올리고 첫 번째로 공유해 보세요!')}
             </p>
@@ -241,7 +241,7 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
                 onClick={() => setSearchQuery('')}
                 className="toss-btn-studio-switch"
               >
-                전체 목록 보기
+                {cDict?.viewAll || (locale === 'ko' ? '전체 목록 보기' : 'View All')}
               </button>
             ) : (
               <button

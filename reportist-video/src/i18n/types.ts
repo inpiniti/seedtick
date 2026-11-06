@@ -264,6 +264,10 @@ export interface Dictionary {
     titlePlaceholder: string;
     authorLabel: string;
     authorPlaceholder: string;
+    descriptionLabel?: string;
+    descriptionPlaceholder?: string;
+    detectedVideoId?: string;
+    submitError?: string;
     previewLabel: string;
     submitBtn: string;
     submitting: string;
@@ -279,6 +283,8 @@ export interface Dictionary {
     projectsTab?: string;
     watchVideo: string;
     dbNotice: string;
+    emptySearchDesc?: string;
+    viewAll?: string;
   };
   projects?: {
     tabTitle: string;

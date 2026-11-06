@@ -119,10 +119,10 @@ export const ShareVideoModal: React.FC<ShareVideoModalProps> = ({
         setAuthorName('');
         setDescription('');
       } else {
-        setErrorMsg(res.error || '영상 등록 중 오류가 발생했습니다.');
+        setErrorMsg(res.error || cDict?.submitError || '영상 등록 중 오류가 발생했습니다.');
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : '영상 등록 중 오류가 발생했습니다.';
+      const msg = err instanceof Error ? err.message : (cDict?.submitError || '영상 등록 중 오류가 발생했습니다.');
       setErrorMsg(msg);
     } finally {
       setIsSubmitting(false);
@@ -201,7 +201,7 @@ export const ShareVideoModal: React.FC<ShareVideoModalProps> = ({
               {extractedId && (
                 <div style={{ fontSize: '11.5px', color: '#03b26c', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2, fontFamily: 'monospace' }}>
                   <Sparkles size={11} />
-                  감지된 비디오 ID: {extractedId}
+                  {cDict?.detectedVideoId ? `${cDict.detectedVideoId}: ${extractedId}` : `감지된 비디오 ID: ${extractedId}`}
                 </div>
               )}
             </div>
@@ -223,10 +223,10 @@ export const ShareVideoModal: React.FC<ShareVideoModalProps> = ({
                 </div>
                 <div className="toss-preview-info">
                   <div className="toss-preview-title">
-                    {title || '영상 제목'}
+                    {title || cDict?.titleLabel || '영상 제목'}
                   </div>
                   <div className="toss-preview-channel">
-                    {authorName || '채널명'}
+                    {authorName || cDict?.authorLabel || '채널명'}
                   </div>
                 </div>
               </div>
@@ -263,13 +263,13 @@ export const ShareVideoModal: React.FC<ShareVideoModalProps> = ({
             {/* 4. Description / Note (optional) */}
             <div className="toss-form-group">
               <label className="toss-form-label">
-                소개 또는 하이라이트 설명 (선택)
+                {cDict?.descriptionLabel || '소개 또는 하이라이트 설명 (선택)'}
               </label>
               <textarea
                 rows={2}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="영상에 대한 간단한 소개나 사용한 프롬프트 등을 남겨보세요."
+                placeholder={cDict?.descriptionPlaceholder || '영상에 대한 간단한 소개나 사용한 프롬프트 등을 남겨보세요.'}
                 className="toss-form-textarea"
               />
             </div>
