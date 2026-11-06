@@ -1381,6 +1381,21 @@
   background: #2b70d3;
 }
 
+.toss-nav-restitch-btn {
+  animation: tossButtonPop 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes tossButtonPop {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .toss-nav-dual-actions {
   display: flex;
   align-items: center;

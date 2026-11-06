@@ -96,6 +96,59 @@ import { useI18n } from '../../i18n/index.tsx';
 const PLAYBACK_ERROR_MESSAGE =
   '이 영상은 미리보기를 재생할 수 없어요. 영상을 다시 올리거나 다른 형식(MP4)으로 시도해 주세요.';
 
+// 영상 병합(스티치)에 반영되는 모든 편집 상태의 정규화 스냅샷 생성
+function computeStitchSnapshot(
+  segs: HighlightSegment[],
+  overlay: VideoOverlayOptions,
+  bgmId: string,
+  bgmVol: number,
+  customAudio: File | null
+): string {
+  const segsData = segs.map((s) => ({
+    id: s.id,
+    sourceVideoId: s.sourceVideoId,
+    start: Number((s.start ?? 0).toFixed(2)),
+    end: Number((s.end ?? 0).toFixed(2)),
+    duration: Number((s.duration ?? 0).toFixed(2)),
+    rotation: ((s.rotation ?? 0) % 360 + 360) % 360,
+    cropOffsetYRatio: Number((s.cropOffsetYRatio ?? 0.5).toFixed(2)),
+    subtitleTitle: (s.subtitleTitle ?? '').trim(),
+    subtitleDate: (s.subtitleDate ?? '').trim(),
+    locationName: (s.locationName ?? '').trim(),
+  }));
+
+  const overlayData = {
+    showTitle: Boolean(overlay.showTitle),
+    titleText: (overlay.titleText ?? '').trim(),
+    showChannel: Boolean(overlay.showChannel),
+    channelText: (overlay.channelText ?? '').trim(),
+    showSubtitle: overlay.showSubtitle !== false,
+    showDate: overlay.showDate !== false,
+    subtitleDateText: (overlay.subtitleDateText ?? '').trim(),
+    subtitleLocationText: (overlay.subtitleLocationText ?? '').trim(),
+    showIntro: Boolean(overlay.showIntro),
+    introFile: overlay.introVideoFile
+      ? `${overlay.introVideoFile.name}_${overlay.introVideoFile.size}_${overlay.introVideoFile.lastModified}`
+      : '',
+    showOutro: Boolean(overlay.showOutro),
+    outroFile: overlay.outroVideoFile
+      ? `${overlay.outroVideoFile.name}_${overlay.outroVideoFile.size}_${overlay.outroVideoFile.lastModified}`
+      : '',
+    outroText: (overlay.outroText ?? '').trim(),
+    showChapterBridge: overlay.showChapterBridge !== false,
+  };
+
+  const audioData = {
+    bgmId: bgmId || 'none',
+    bgmVol: Number((bgmVol ?? 0.3).toFixed(2)),
+    customAudio: customAudio
+      ? `${customAudio.name}_${customAudio.size}_${customAudio.lastModified}`
+      : '',
+  };
+
+  return JSON.stringify({ segs: segsData, overlay: overlayData, audio: audioData });
+}
+
 interface ProStudioViewProps {
   result: FinalVideoResult | null;
   videos: VideoItem[];
@@ -750,10 +803,22 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     });
     lastEmittedOverlayJsonRef.current = '';
     lastLoadedProjectIdRef.current = null;
+    lastStitchedResultUrlRef.current = null;
+    setLastStitchedSnapshot(null);
   }, [dict.player.defaultTitleText, dict.player.defaultChannelText, showDate]);
 
   // 상위 결과 갱신 동기화 및 썸네일/타이틀 준비
   const appliedSuggestedTitleRef = useRef<string | null>(null);
+  const lastStitchedResultUrlRef = useRef<string | null>(null);
+  const [lastStitchedSnapshot, setLastStitchedSnapshot] = useState<string | null>(null);
+
+  // 프로젝트 전환 시 스티치 결과 URL 캐시 초기화
+  useEffect(() => {
+    if (currentProjectId !== lastLoadedProjectIdRef.current) {
+      lastStitchedResultUrlRef.current = null;
+    }
+  }, [currentProjectId]);
+
   useEffect(() => {
     if (result?.segments && result.segments.length > 0) {
       setSegments(result.segments);
@@ -770,19 +835,41 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       }
     }
 
+    let effectiveTitle = overlayOptions.titleText || dict.player.defaultTitleText;
     if (result?.suggestedTitle && appliedSuggestedTitleRef.current !== result.suggestedTitle) {
       appliedSuggestedTitleRef.current = result.suggestedTitle;
-      setOverlayOptions((prev) => {
-        const isDefault = !prev.titleText || prev.titleText === dict.player.defaultTitleText;
-        if (!isDefault && prev.titleText !== result.suggestedTitle) {
-          return prev;
-        }
-        return {
+      const isDefault = !overlayOptions.titleText || overlayOptions.titleText === dict.player.defaultTitleText;
+      if (isDefault || overlayOptions.titleText === result.suggestedTitle) {
+        effectiveTitle = result.suggestedTitle;
+        setOverlayOptions((prev) => ({
           ...prev,
           titleText: result.suggestedTitle!,
           showTitle: true,
-        };
-      });
+        }));
+      }
+    }
+
+    // 영상 병합 결과가 새로 생성/갱신되었을 때(AI 하이라이트 완료 또는 다시 병합 완료) 기준 스냅샷 동기화
+    if (result?.url && result.url !== lastStitchedResultUrlRef.current) {
+      lastStitchedResultUrlRef.current = result.url;
+      const baselineOverlay: VideoOverlayOptions = {
+        ...effectiveOverlayOptions,
+        titleText: effectiveTitle,
+      };
+      const baselineSegments =
+        result.segments && result.segments.length > 0 ? result.segments : segments;
+      setLastStitchedSnapshot(
+        computeStitchSnapshot(
+          baselineSegments,
+          baselineOverlay,
+          selectedBgmId,
+          bgmVolume,
+          customAudioFile
+        )
+      );
+    } else if (!result?.url) {
+      lastStitchedResultUrlRef.current = null;
+      setLastStitchedSnapshot(null);
     }
 
     if (result?.thumbnailUrl) {
@@ -902,6 +989,27 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const isDraftPreview = !result && segments.length === 0;
   // 실제 하이라이트 결과가 있을 때만 시간 절약률을 계산/노출한다
   const hasHighlight = Boolean(result) && segments.length > 0;
+
+  // 마지막으로 병합된 영상 대비 현재 편집(문구, 인트로/아웃트로, 자막, 위치, 회전, 삭제 등) 변경 여부 감지
+  const isModified = useMemo(() => {
+    if (!result?.url || !lastStitchedSnapshot) return false;
+    const currentSnapshot = computeStitchSnapshot(
+      segments,
+      effectiveOverlayOptions,
+      selectedBgmId,
+      bgmVolume,
+      customAudioFile
+    );
+    return currentSnapshot !== lastStitchedSnapshot;
+  }, [
+    result?.url,
+    lastStitchedSnapshot,
+    segments,
+    effectiveOverlayOptions,
+    selectedBgmId,
+    bgmVolume,
+    customAudioFile,
+  ]);
 
   // 미리보기 모드에서 재생할 원본 영상 (기본: 첫 번째 영상)
   const [previewVideoId, setPreviewVideoId] = useState<string>('');
@@ -2055,32 +2163,30 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 <Sparkles size={14} className={isProcessing ? 'animate-spin' : ''} />
                 <span>{isProcessing ? dict.header.analyzingAi : dict.header.startAiHighlight}</span>
               </button>
-            ) : (
-              <div className="toss-nav-dual-actions">
-                <button
-                  type="button"
-                  className="toss-nav-btn-secondary toss-nav-secondary-action"
-                  onClick={() =>
-                    onReStitch(
-                      segments,
-                      selectedBgmId,
-                      bgmVolume,
-                      customAudioFile,
-                      effectiveOverlayOptions
-                    )
-                  }
-                  disabled={isReStitching || segments.length === 0}
-                  title={dict.header.reStitchTitle}
-                >
-                  <Scissors size={13} className={isReStitching ? 'animate-spin' : ''} />
-                  <span>
-                    {isReStitching
-                      ? `${dict.header.stitching} (${reStitchProgress?.progressPercent ?? 0}%)`
-                      : dict.header.reStitch}
-                  </span>
-                </button>
-              </div>
-            )
+            ) : (isModified || isReStitching) ? (
+              <button
+                type="button"
+                className={`toss-nav-cta-btn toss-nav-restitch-btn ${isReStitching ? 'loading' : ''}`}
+                onClick={() =>
+                  onReStitch(
+                    segments,
+                    selectedBgmId,
+                    bgmVolume,
+                    customAudioFile,
+                    effectiveOverlayOptions
+                  )
+                }
+                disabled={isReStitching || segments.length === 0}
+                title={dict.header.reStitchTitle}
+              >
+                <Scissors size={14} className={isReStitching ? 'animate-spin' : ''} />
+                <span>
+                  {isReStitching
+                    ? `${dict.header.stitching} (${reStitchProgress?.progressPercent ?? 0}%)`
+                    : dict.header.reStitch}
+                </span>
+              </button>
+            ) : null
           )}
 
             </>
