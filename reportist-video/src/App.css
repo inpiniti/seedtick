@@ -2753,9 +2753,21 @@
   cursor: pointer;
   margin: 0 8px;
   transition: height 0.15s ease;
+  touch-action: none;
+  user-select: none;
 }
 
-.toss-progress-track:hover {
+.toss-progress-track::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  bottom: -8px;
+  left: 0;
+  right: 0;
+}
+
+.toss-progress-track:hover,
+.toss-progress-track.is-scrubbing {
   height: 9px;
 }
 
@@ -2764,6 +2776,10 @@
   background-color: #3182f6;
   border-radius: 9999px;
   transition: width 0.05s linear;
+}
+
+.toss-progress-track.is-scrubbing .toss-progress-fill {
+  transition: none;
 }
 
 .toss-progress-thumb {
@@ -2778,6 +2794,10 @@
   transform: translate(-50%, -50%);
   pointer-events: none;
   transition: opacity 0.15s;
+}
+
+.toss-progress-track.is-scrubbing .toss-progress-thumb {
+  transform: translate(-50%, -50%) scale(1.15);
 }
 
 .toss-btn-icon {
@@ -3079,6 +3099,12 @@
   display: flex;
   flex-direction: column;
   background-color: #f2f4f6;
+  touch-action: none;
+  user-select: none;
+}
+
+.toss-sequencer-tracks-canvas.is-scrubbing {
+  cursor: grabbing;
 }
 
 /* Time Ruler Row */
@@ -3142,10 +3168,12 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 2px;
+  width: 14px;
   z-index: 20;
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: ew-resize;
   transform: translateX(-50%);
+  touch-action: none;
 }
 
 .toss-playhead-cap {
@@ -3157,6 +3185,7 @@
   height: 8px;
   background-color: #f04452;
   clip-path: polygon(0% 0%, 100% 0%, 50% 100%);
+  cursor: ew-resize;
 }
 
 .toss-playhead-line {
@@ -3168,6 +3197,7 @@
   transform: translateX(-50%);
   background-color: #f04452;
   box-shadow: 0 0 4px rgba(240, 68, 82, 0.5);
+  cursor: ew-resize;
 }
 
 /* V1 Video Strip */

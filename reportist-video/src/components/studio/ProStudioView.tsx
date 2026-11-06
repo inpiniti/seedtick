@@ -184,7 +184,22 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerStageRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const progressTrackRef = useRef<HTMLDivElement>(null);
+  const sequencerCanvasRef = useRef<HTMLDivElement>(null);
+  const isScrubbingRef = useRef<boolean>(false);
+  const wasPlayingBeforeScrubRef = useRef<boolean>(false);
+  const scrubRafRef = useRef<number | null>(null);
+  const suppressSegmentClickRef = useRef<boolean>(false);
+  const [isScrubbing, setIsScrubbing] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+  useEffect(() => {
+    return () => {
+      if (scrubRafRef.current) {
+        cancelAnimationFrame(scrubRafRef.current);
+      }
+    };
+  }, []);
 
   // 1. 타임라인 및 클립 상태
   // AI 하이라이트 결과가 있을 때만 시퀀스 클립을 채운다.
@@ -1174,6 +1189,213 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     setCurrentTime(newT);
   };
 
+  // 프로그레스 바 드래그 시 좌표 -> 시간 변환
+  const calculateTimeFromProgressEvent = (clientX: number): number => {
+    const track = progressTrackRef.current;
+    if (!track || !totalDuration || totalDuration <= 0) return 0;
+    const rect = track.getBoundingClientRect();
+    if (rect.width <= 0) return 0;
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    return ratio * totalDuration;
+  };
+
+  // 시퀀서 타임라인 드래그 시 좌표 -> 시간 변환
+  const calculateTimeFromSequencerEvent = (clientX: number): number => {
+    const canvas = sequencerCanvasRef.current;
+    if (!canvas || !totalDuration || totalDuration <= 0) return 0;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width <= 0) return 0;
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    return ratio * totalDuration;
+  };
+
+  // 스크러빙 시작 (마우스/터치 다운)
+  const startScrubbing = (targetTime: number) => {
+    if (!totalDuration || totalDuration <= 0) return;
+    const clampedTime = Math.max(0, Math.min(totalDuration, targetTime));
+    isScrubbingRef.current = true;
+    setIsScrubbing(true);
+
+    const v = videoRef.current;
+    if (v && !v.paused) {
+      wasPlayingBeforeScrubRef.current = true;
+      v.pause();
+    } else {
+      wasPlayingBeforeScrubRef.current = false;
+    }
+
+    setCurrentTime(clampedTime);
+    if (v) {
+      if (typeof (v as any).fastSeek === 'function') {
+        (v as any).fastSeek(clampedTime);
+      } else {
+        v.currentTime = clampedTime;
+      }
+    }
+  };
+
+  // 스크러빙 진행 (마우스/터치 드래그 중 실시간 위치 및 비디오 프레임 갱신)
+  const updateScrubTime = (targetTime: number) => {
+    if (!totalDuration || totalDuration <= 0) return;
+    const clampedTime = Math.max(0, Math.min(totalDuration, targetTime));
+    setCurrentTime(clampedTime);
+
+    if (scrubRafRef.current) {
+      cancelAnimationFrame(scrubRafRef.current);
+    }
+    scrubRafRef.current = requestAnimationFrame(() => {
+      if (videoRef.current) {
+        if (typeof (videoRef.current as any).fastSeek === 'function') {
+          (videoRef.current as any).fastSeek(clampedTime);
+        } else {
+          videoRef.current.currentTime = clampedTime;
+        }
+      }
+    });
+  };
+
+  // 스크러빙 종료 (마우스/터치 릴리즈)
+  const stopScrubbing = (finalTime?: number) => {
+    if (scrubRafRef.current) {
+      cancelAnimationFrame(scrubRafRef.current);
+      scrubRafRef.current = null;
+    }
+
+    isScrubbingRef.current = false;
+    setIsScrubbing(false);
+
+    const v = videoRef.current;
+    if (v) {
+      if (typeof finalTime === 'number' && Number.isFinite(finalTime)) {
+        const clampedFinal = Math.max(0, Math.min(totalDuration, finalTime));
+        v.currentTime = clampedFinal;
+        setCurrentTime(clampedFinal);
+      }
+      if (
+        wasPlayingBeforeScrubRef.current &&
+        (typeof finalTime !== 'number' || finalTime < totalDuration - 0.1)
+      ) {
+        v.play().catch(() => {});
+      }
+    }
+    wasPlayingBeforeScrubRef.current = false;
+  };
+
+  // 1. 영상 프로그레스 바 마우스/터치 드래그 시작
+  const handleProgressPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    if (!totalDuration) return;
+
+    e.preventDefault();
+    const initialTime = calculateTimeFromProgressEvent(e.clientX);
+    startScrubbing(initialTime);
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      moveEvent.preventDefault();
+      const moveTime = calculateTimeFromProgressEvent(moveEvent.clientX);
+      updateScrubTime(moveTime);
+    };
+
+    const cleanup = () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+      window.removeEventListener('blur', handleBlur);
+    };
+
+    const handlePointerUp = (upEvent: PointerEvent) => {
+      cleanup();
+      const finalTime = calculateTimeFromProgressEvent(upEvent.clientX);
+      stopScrubbing(finalTime);
+    };
+
+    const handleBlur = () => {
+      cleanup();
+      stopScrubbing();
+    };
+
+    window.addEventListener('pointermove', handlePointerMove, { passive: false });
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+    window.addEventListener('blur', handleBlur);
+  };
+
+  // 2. 시퀀서 타임라인 마우스/터치 드래그 시작
+  const handleSequencerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    if (!totalDuration) return;
+
+    const target = e.target as HTMLElement;
+    // 클립 삭제 버튼 클릭은 드래그/시크 대상에서 제외
+    if (target.closest('.toss-sequencer-block-delete')) return;
+
+    const isBlock = Boolean(target.closest('.toss-sequencer-block'));
+    const startX = e.clientX;
+    let hasMoved = false;
+
+    if (!isBlock) {
+      // 룰러, 빨간선(플레이헤드), 오디오 트랙, 빈 캔버스 클릭 시 즉시 시크 & 스크러빙 시작
+      e.preventDefault();
+      const initialTime = calculateTimeFromSequencerEvent(startX);
+      startScrubbing(initialTime);
+    }
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const currentX = moveEvent.clientX;
+
+      if (isBlock && !hasMoved) {
+        if (Math.abs(currentX - startX) >= 4) {
+          hasMoved = true;
+          suppressSegmentClickRef.current = true;
+          const startTime = calculateTimeFromSequencerEvent(currentX);
+          startScrubbing(startTime);
+        } else {
+          return;
+        }
+      }
+
+      moveEvent.preventDefault();
+      const moveTime = calculateTimeFromSequencerEvent(currentX);
+      updateScrubTime(moveTime);
+    };
+
+    const cleanup = () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+      window.removeEventListener('blur', handleBlur);
+    };
+
+    const handlePointerUp = (upEvent: PointerEvent) => {
+      cleanup();
+
+      if (isBlock && !hasMoved) {
+        // 클립 단순 클릭인 경우 클립 자체 onClick(handleSelectSegment)이 동작하도록 종료
+        return;
+      }
+
+      if (hasMoved) {
+        // 드래그가 발생한 경우 클립의 클릭 핸들러가 시간을 덮어쓰지 못하도록 잠시 억제
+        setTimeout(() => {
+          suppressSegmentClickRef.current = false;
+        }, 100);
+      }
+
+      const finalTime = calculateTimeFromSequencerEvent(upEvent.clientX);
+      stopScrubbing(finalTime);
+    };
+
+    const handleBlur = () => {
+      cleanup();
+      stopScrubbing();
+    };
+
+    window.addEventListener('pointermove', handlePointerMove, { passive: false });
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+    window.addEventListener('blur', handleBlur);
+  };
+
   // 프로그레스 바 / 타임라인 위치 클릭 시 직접 이동
   const handleSeekByPosition = (e: React.MouseEvent<HTMLDivElement>) => {
     const v = videoRef.current;
@@ -1974,6 +2196,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         setPlaybackError(dict.draftPreview?.playbackError || PLAYBACK_ERROR_MESSAGE);
                       }}
                       onTimeUpdate={(e) => {
+                        if (isScrubbingRef.current) return;
                         const cur = e.currentTarget.currentTime;
                         const nativeDur = e.currentTarget.duration;
                         const effectiveMaxDur =
@@ -2182,14 +2405,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
                   {/* 프로그레스 스크럽 바 */}
                   <div
-                    className="toss-progress-track"
-                    onClick={handleSeekByPosition}
+                    ref={progressTrackRef}
+                    className={`toss-progress-track ${isScrubbing ? 'is-scrubbing' : ''}`}
+                    onPointerDown={handleProgressPointerDown}
                     title={dict.player.seekTooltip}
                   >
                     <div
                       className="toss-progress-fill"
                       style={{
                         width: `${Math.min(100, Math.max(0, (currentTime / (totalDuration || 1)) * 100))}%`,
+                        transition: isScrubbing ? 'none' : undefined,
                       }}
                     />
                     <div
@@ -2385,10 +2610,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     </div>
                   </div>
 
-                  {/* 우측 타임라인 캔버스 (클릭 시 해당 시간으로 시크) */}
+                  {/* 우측 타임라인 캔버스 (클릭 및 드래그 시 해당 시간으로 실시간 시크) */}
                   <div
-                    className="toss-sequencer-tracks-canvas"
-                    onClick={handleSeekByPosition}
+                    ref={sequencerCanvasRef}
+                    className={`toss-sequencer-tracks-canvas ${isScrubbing ? 'is-scrubbing' : ''}`}
+                    onPointerDown={handleSequencerPointerDown}
                     title={dict.player.seekTooltip}
                   >
                     {/* 상단 타임코드 눈금자 (Ruler) */}
@@ -2461,6 +2687,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           style={{ width: `${(introDuration / (totalDuration || 1)) * 100}%` }}
                           onClick={(e) => {
                             e.stopPropagation();
+                            if (suppressSegmentClickRef.current) {
+                              suppressSegmentClickRef.current = false;
+                              return;
+                            }
                             handleSelectSegment('intro');
                           }}
                           title={`${dict.introOutro.introTitle} (${introDuration.toFixed(1)}s)`}
@@ -2499,6 +2729,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             style={{ width: `${widthPct}%` }}
                             onClick={(e) => {
                               e.stopPropagation();
+                              if (suppressSegmentClickRef.current) {
+                                suppressSegmentClickRef.current = false;
+                                return;
+                              }
                               handleSelectSegment(seg.id);
                             }}
                             title={
@@ -2576,6 +2810,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           style={{ width: `${(outroDuration / (totalDuration || 1)) * 100}%` }}
                           onClick={(e) => {
                             e.stopPropagation();
+                            if (suppressSegmentClickRef.current) {
+                              suppressSegmentClickRef.current = false;
+                              return;
+                            }
                             handleSelectSegment('outro');
                           }}
                           title={`${dict.introOutro.outroTitle} (${outroDuration.toFixed(1)}s)`}
