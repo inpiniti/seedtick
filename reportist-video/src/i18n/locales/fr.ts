@@ -38,6 +38,7 @@ export const fr: Dictionary = {
     modelLabel: 'Modèle:',
     effortLabel: 'Effort:',
     modelWidgetTitle: 'Seuls les modèles prenant en charge l’analyse visuelle multitrames sont sélectionnés',
+    visitReportistHome: 'Aller sur Reportist',
   },
   header: {
     aiModel: 'Modèle IA',

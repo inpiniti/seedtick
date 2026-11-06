@@ -39,6 +39,7 @@ export const ja: Dictionary = {
     modelLabel: 'モデル:',
     effortLabel: '推論努力:',
     modelWidgetTitle: '複数フレーム視覚分析対応モデルのみ厳選して提供されます',
+    visitReportistHome: 'Reportist ホームへ移動',
   },
   header: {
     aiModel: 'AIモデル',

@@ -321,8 +321,8 @@ export function App() {
         currentOverlayOptions?.titleText ||
         finalResult?.suggestedTitle ||
         (videos[0]?.name
-          ? `${videos[0].name.replace(/\.[^/.]+$/, '')} 작업`
-          : '새 스튜디오 작업');
+          ? `${videos[0].name.replace(/\.[^/.]+$/, '')} ${dict.projects?.projectSuffix || '작업'}`
+          : dict.projects?.newProjectTitle || '새 스튜디오 작업');
 
       const projectData: StudioProject = {
         id: projId,
@@ -1065,16 +1065,18 @@ export function App() {
         <div className="studio-error-banner flex-col items-start gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-300">
           <div className="flex items-center gap-2 w-full">
             <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
-            <span className="font-bold text-xs text-red-200">영상 병합 중 오류가 발생했습니다</span>
+            <span className="font-bold text-xs text-red-200">
+              {dict.common.errorStitching || '영상 병합 중 오류가 발생했습니다'}
+            </span>
             <button
               type="button"
               onClick={() => {
                 navigator.clipboard?.writeText(errorMessage).catch(() => {});
-                alert('진단 리포트가 클립보드에 복사되었습니다.');
+                alert(dict.common.reportCopied || '진단 리포트가 클립보드에 복사되었습니다.');
               }}
               className="ml-auto text-[10px] font-bold px-2 py-0.5 bg-red-500/20 hover:bg-red-500/30 text-red-200 rounded border border-red-500/30"
             >
-              리포트 복사
+              {dict.common.copyReport || '리포트 복사'}
             </button>
             <button
               type="button"

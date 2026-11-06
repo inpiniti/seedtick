@@ -39,6 +39,7 @@ export const zh: Dictionary = {
     modelLabel: '模型:',
     effortLabel: '推理投入:',
     modelWidgetTitle: '仅提供经过筛选支持多帧视觉分析的高性能模型',
+    visitReportistHome: '前往 Reportist 首页',
   },
   header: {
     aiModel: 'AI 模型',

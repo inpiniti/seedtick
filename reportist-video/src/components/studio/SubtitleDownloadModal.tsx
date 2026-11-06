@@ -283,12 +283,12 @@ export const SubtitleDownloadModal: React.FC<SubtitleDownloadModalProps> = ({
                   type="button"
                   className="toss-btn-micro"
                   onClick={handleCopySrt}
-                  title="SRT 텍스트 복사"
+                  title={dict.subtitleDownload?.copySrt || 'SRT'}
                 >
                   {copiedToast ? (
                     <>
                       <Check size={12} className="text-emerald-600" />
-                      <span className="text-emerald-600 font-bold">복사 완료!</span>
+                      <span className="text-emerald-600 font-bold">{dict.community?.copiedToast || '복사 완료!'}</span>
                     </>
                   ) : (
                     <>
@@ -385,7 +385,7 @@ export const SubtitleDownloadModal: React.FC<SubtitleDownloadModalProps> = ({
           >
             <Download size={16} />
             <span>
-              {selectedLocaleInfo.flag} {selectedLocaleInfo.nativeName} {dict.subtitleDownload?.buttonText?.includes('Subtitles') ? 'Subtitles (.srt)' : '자막 (.srt)'}
+              {selectedLocaleInfo.flag} {selectedLocaleInfo.nativeName} {dict.subtitleDownload?.buttonText || '자막 (.srt)'}
             </span>
           </button>
         </div>

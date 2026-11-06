@@ -4029,7 +4029,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
       {/* 13. 화면 하단 고정 슬림 상태바 (자동 저장 상태 + 시간 절약률 요약) */}
       {activeTab === 'studio' && (
-        <aside className="toss-bottom-status-bar" aria-label="작업 상태바">
+        <aside className="toss-bottom-status-bar" aria-label={dict.projects?.tabTitle || '작업 상태바'}>
           <div className="toss-bottom-status-inner">
             {/* 좌측: 자동 저장 상태 */}
             <div className="toss-bottom-status-left">

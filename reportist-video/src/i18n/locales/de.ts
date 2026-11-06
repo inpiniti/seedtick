@@ -38,6 +38,7 @@ export const de: Dictionary = {
     modelLabel: 'Modell:',
     effortLabel: 'Aufwand:',
     modelWidgetTitle: 'Nur für Multi-Frame-Sichtanalyse geeignete Modelle werden bereitgestellt',
+    visitReportistHome: 'Zur Reportist-Startseite',
   },
   header: {
     aiModel: 'KI-Modell',

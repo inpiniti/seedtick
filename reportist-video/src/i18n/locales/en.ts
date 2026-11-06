@@ -39,6 +39,7 @@ export const en: Dictionary = {
     modelLabel: 'Model:',
     effortLabel: 'Effort:',
     modelWidgetTitle: 'Only models supporting multi-frame sequential visual analysis are provided',
+    visitReportistHome: 'Go to Reportist Home',
   },
   header: {
     aiModel: 'AI Model',

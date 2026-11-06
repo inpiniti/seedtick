@@ -47,6 +47,7 @@ export interface Dictionary {
     modelLabel?: string;
     effortLabel?: string;
     modelWidgetTitle?: string;
+    visitReportistHome?: string;
   };
   header: {
     aiModel: string;

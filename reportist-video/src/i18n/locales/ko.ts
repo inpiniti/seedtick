@@ -39,6 +39,7 @@ export const ko: Dictionary = {
     modelLabel: '모델:',
     effortLabel: '노력:',
     modelWidgetTitle: '다중 프레임 시각 분석 지원 모델만 선별되어 제공됩니다',
+    visitReportistHome: 'Reportist 홈으로 이동',
   },
   header: {
     aiModel: 'AI 모델',
