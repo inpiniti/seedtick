@@ -110,6 +110,13 @@ export interface Dictionary {
     musicOverflowNotice?: string;
     deleteClipTip?: string;
   };
+  draftPreview: {
+    title: string;
+    videosCount: string;
+    desc: string;
+    listAriaLabel: string;
+    playbackError: string;
+  };
   bgm: {
     title: string;
     desc: string;

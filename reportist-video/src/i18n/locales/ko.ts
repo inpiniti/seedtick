@@ -102,6 +102,13 @@ export const ko: Dictionary = {
     musicOverflowNotice: '영상이 음악 길이({duration})보다 +{overflow}초 길어 점선 이후 구간에서 음악이 한 번 더 재생돼요. 초과 구간의 영상 클립(주황색 테두리)을 몇 개 제외하면 깔끔하게 맞출 수 있어요.',
     deleteClipTip: '#{idx} 구간 제외하기',
   },
+  draftPreview: {
+    title: '원본 영상 미리보기',
+    videosCount: '{count}개 영상',
+    desc: 'AI 하이라이트를 만들면 여기에 클립이 채워져요. 지금은 올린 영상을 그대로 볼 수 있어요.',
+    listAriaLabel: '미리볼 원본 영상',
+    playbackError: '이 영상은 미리보기를 재생할 수 없어요. 영상을 다시 올리거나 다른 형식(MP4)으로 시도해 주세요.',
+  },
   bgm: {
     title: '배경음악',
     desc: '직접 준비한 음악 파일(MP3, WAV)을 올려 영상에 BGM을 입혀보세요.',

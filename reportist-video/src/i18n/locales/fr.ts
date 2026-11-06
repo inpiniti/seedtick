@@ -101,6 +101,13 @@ export const fr: Dictionary = {
     musicOverflowNotice: 'La vidéo dépasse la musique ({duration}) de +{overflow}s et bouclera après la ligne pointillée. Supprimez des clips (bordure orange) pour ajuster.',
     deleteClipTip: 'Exclure le clip #{idx}',
   },
+  draftPreview: {
+    title: 'Aperçu de la vidéo originale',
+    videosCount: '{count} vidéos',
+    desc: 'Lorsque vous créez des moments forts avec l’IA, les clips apparaîtront ici. Pour l’instant, vous pouvez prévisualiser directement les vidéos importées.',
+    listAriaLabel: 'Vidéos originales à prévisualiser',
+    playbackError: 'Impossible de lire l’aperçu de cette vidéo. Veuillez la réimporter ou essayer un autre format (MP4).',
+  },
   bgm: {
     title: 'Musique de Fond',
     desc: 'Ajoutez votre propre musique (MP3, WAV) pour dynamiser votre vidéo.',

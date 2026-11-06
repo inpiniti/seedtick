@@ -101,6 +101,13 @@ export const es: Dictionary = {
     musicOverflowNotice: 'El video supera en +{overflow}s la música ({duration}) y se repetirá tras la línea discontinua. Excluye clips sobrantes (borde naranja) para encajar.',
     deleteClipTip: 'Excluir clip #{idx}',
   },
+  draftPreview: {
+    title: 'Vista previa del video original',
+    videosCount: '{count} videos',
+    desc: 'Cuando crees momentos destacados con IA, los clips aparecerán aquí. Por ahora, puedes previsualizar los videos subidos directamente.',
+    listAriaLabel: 'Videos originales para previsualizar',
+    playbackError: 'No se puede reproducir la vista previa de este video. Vuelve a subirlo o prueba con otro formato (MP4).',
+  },
   bgm: {
     title: 'Música de Fondo',
     desc: 'Sube un archivo de audio (MP3, WAV) para agregar música de fondo a tu video.',

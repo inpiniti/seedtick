@@ -102,6 +102,13 @@ export const en: Dictionary = {
     musicOverflowNotice: 'Video is +{overflow}s longer than music ({duration}) and will loop after the dashed line. Exclude trailing clips (orange border) to match cleanly.',
     deleteClipTip: 'Exclude clip #{idx}',
   },
+  draftPreview: {
+    title: 'Original Video Preview',
+    videosCount: '{count} Videos',
+    desc: 'When you create AI highlights, clips will appear here. For now, you can preview the uploaded videos directly.',
+    listAriaLabel: 'Original videos to preview',
+    playbackError: 'Cannot play preview for this video. Please re-upload or try a different format (MP4).',
+  },
   bgm: {
     title: 'Background Music',
     desc: 'Upload an audio file (MP3, WAV) to add background music to your video.',

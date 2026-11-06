@@ -1694,7 +1694,7 @@
 
 /* Video List Modal */
 .toss-video-list-modal {
-  max-width: 520px;
+  max-width: 560px;
   width: 92%;
   max-height: 80vh;
   display: flex;
@@ -1784,11 +1784,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   padding: 10px 14px;
   background-color: #ffffff;
   border: 1px solid #e5e8eb;
   border-radius: 12px;
   transition: all 0.15s ease;
+  overflow: hidden;
 }
 
 .toss-video-modal-item:hover {

@@ -102,6 +102,13 @@ export const zh: Dictionary = {
     musicOverflowNotice: '视频比音乐时长({duration})长 +{overflow}秒，虚线后音乐将再次播放。排除超出部分视频片段（橙色边框）即可完美契合。',
     deleteClipTip: '排除片段 #{idx}',
   },
+  draftPreview: {
+    title: '原始视频预览',
+    videosCount: '{count}个视频',
+    desc: '制作AI高光时，剪辑将填充在此处。目前可直接预览已上传的视频。',
+    listAriaLabel: '要预览的原始视频',
+    playbackError: '无法播放此视频的预览。请重新上传视频或尝试其他格式（MP4）。',
+  },
   bgm: {
     title: '背景音乐',
     desc: '上传本地音频文件（MP3、WAV）为高光视频添加专属背景音乐。',

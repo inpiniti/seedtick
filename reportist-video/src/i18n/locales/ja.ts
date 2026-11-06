@@ -102,6 +102,13 @@ export const ja: Dictionary = {
     musicOverflowNotice: '動画が音楽の長さ({duration})より+{overflow}秒長いため、点線以降で音楽が再ループされます。超過クリップ（オレンジ色の枠）を除外するとピッタリ合います。',
     deleteClipTip: '#{idx}区間を除外',
   },
+  draftPreview: {
+    title: '元動画プレビュー',
+    videosCount: '{count}本の動画',
+    desc: 'AIハイライトを作成すると、ここにクリップが表示されます。現在はアップロードした動画をそのままプレビューできます。',
+    listAriaLabel: 'プレビューする元動画',
+    playbackError: 'この動画のプレビューを再生できません。動画を再アップロードするか、別の形式（MP4）でお試しください。',
+  },
   bgm: {
     title: 'BGM・背景音楽',
     desc: '用意した音楽ファイル（MP3、WAV）をアップロードして動画にBGMを追加しましょう。',

@@ -101,6 +101,13 @@ export const de: Dictionary = {
     musicOverflowNotice: 'Das Video ist +{overflow}s länger als die Musik ({duration}) und wiederholt sich ab der gestrichelten Linie. Entfernen Sie überstehende Clips (orangefarbener Rand).',
     deleteClipTip: 'Clip #{idx} ausschließen',
   },
+  draftPreview: {
+    title: 'Originalvideo-Vorschau',
+    videosCount: '{count} Videos',
+    desc: 'Sobald Sie KI-Highlights erstellen, erscheinen die Clips hier. Vorerst können Sie die hochgeladenen Videos direkt ansehen.',
+    listAriaLabel: 'Originalvideos zur Vorschau',
+    playbackError: 'Die Vorschau für dieses Video kann nicht abgespielt werden. Bitte laden Sie das Video erneut hoch oder verwenden Sie ein anderes Format (MP4).',
+  },
   bgm: {
     title: 'Hintergrundmusik',
     desc: 'Laden Sie eine Audiodatei (MP3, WAV) hoch, um Ihr Video mit Musik zu unterlegen.',

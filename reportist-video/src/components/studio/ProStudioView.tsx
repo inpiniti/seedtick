@@ -1302,7 +1302,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 networkState: v.networkState,
               });
               setIsPlaying(false);
-              setPlaybackError(PLAYBACK_ERROR_MESSAGE);
+              setPlaybackError(dict.draftPreview?.playbackError || PLAYBACK_ERROR_MESSAGE);
             });
         });
       }
@@ -1955,7 +1955,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           message: err?.message,
                         });
                         setIsPlaying(false);
-                        setPlaybackError(PLAYBACK_ERROR_MESSAGE);
+                        setPlaybackError(dict.draftPreview?.playbackError || PLAYBACK_ERROR_MESSAGE);
                       }}
                       onTimeUpdate={(e) => {
                         const cur = e.currentTarget.currentTime;
@@ -2224,16 +2224,26 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 <div className="toss-sequencer-header">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <Film size={14} className="text-blue-600 shrink-0" />
-                    <span className="toss-sequencer-title">원본 영상 미리보기</span>
+                    <span className="toss-sequencer-title">
+                      {dict.draftPreview?.title || '원본 영상 미리보기'}
+                    </span>
                     <span className="toss-sequencer-badge">
-                      {videos.length}개 영상 · {formatSec(originalTotalDuration)}
+                      {interpolate(dict.draftPreview?.videosCount || '{count}개 영상', {
+                        count: videos.length,
+                      })}{' '}
+                      · {formatSec(originalTotalDuration)}
                     </span>
                   </div>
                 </div>
                 <p className="toss-draft-preview-desc">
-                  AI 하이라이트를 만들면 여기에 클립이 채워져요. 지금은 올린 영상을 그대로 볼 수 있어요.
+                  {dict.draftPreview?.desc ||
+                    'AI 하이라이트를 만들면 여기에 클립이 채워져요. 지금은 올린 영상을 그대로 볼 수 있어요.'}
                 </p>
-                <div className="toss-draft-preview-list" role="listbox" aria-label="미리볼 원본 영상">
+                <div
+                  className="toss-draft-preview-list"
+                  role="listbox"
+                  aria-label={dict.draftPreview?.listAriaLabel || '미리볼 원본 영상'}
+                >
                   {videos.map((v, idx) => {
                     const isActive = v.id === previewVideo?.id;
                     return (
