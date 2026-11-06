@@ -627,6 +627,33 @@ export function App() {
       rotation?: number;
     }> = [];
 
+    // 영상 길이(duration)에 비례한 동적 가중치 계산 (총 85% 구간 분배)
+    // 영상별 duration이 없거나 짧을 경우를 대비해 기본 균등 가중치 35% + 길이 비례 가중치 65% 혼합
+    const TOTAL_ANALYSIS_PCT = 85;
+    const totalDuration = updatedVideos.reduce(
+      (sum, v) => sum + Math.max(v.duration || 10, 5),
+      0
+    );
+    const videoWeights = updatedVideos.map((v) => {
+      const durationRatio = Math.max(v.duration || 10, 5) / (totalDuration || 1);
+      const equalRatio = 1 / totalVideos;
+      return equalRatio * 0.35 + durationRatio * 0.65;
+    });
+    const weightSum = videoWeights.reduce((sum, w) => sum + w, 0);
+    const normalizedWeights = videoWeights.map((w) => w / (weightSum || 1));
+
+    let cumulativeStart = 0;
+    const videoProgressRanges = normalizedWeights.map((weight) => {
+      const start = cumulativeStart;
+      const span = weight * TOTAL_ANALYSIS_PCT;
+      cumulativeStart += span;
+      return {
+        startPct: start,
+        endPct: cumulativeStart,
+        spanPct: span,
+      };
+    });
+
     try {
       // 1. 영상별 순차 루프
       for (let i = 0; i < totalVideos; i++) {
@@ -639,15 +666,20 @@ export function App() {
           continue;
         }
 
-        // 각 영상별 진행률 구간 (총 85% 중 1/N 균등 배분)
-        const TOTAL_ANALYSIS_PCT = 85;
-        const videoSpan = TOTAL_ANALYSIS_PCT / totalVideos;
-        const videoStartPct = i * videoSpan;
-        const videoEndPct = (i + 1) * videoSpan;
-        // 1-A 프레임 추출: 비디오 구간의 10% 비중 (순식간에 끝나므로 최소 가중치)
-        const extractSpan = videoSpan * 0.1;
-        // 1-B AI 추론/분석: 비디오 구간의 90% 비중 (실제 대기 시간 대부분 차지)
-        const analyzeSpan = videoSpan * 0.9;
+        // 각 영상별 동적 진행률 구간 (영상 길이에 따라 가변 분배)
+        const range = videoProgressRanges[i] || {
+          startPct: (i / totalVideos) * TOTAL_ANALYSIS_PCT,
+          endPct: ((i + 1) / totalVideos) * TOTAL_ANALYSIS_PCT,
+          spanPct: TOTAL_ANALYSIS_PCT / totalVideos,
+        };
+        const videoStartPct = range.startPct;
+        const videoEndPct = range.endPct;
+        const videoSpan = range.spanPct;
+
+        // 1-A 프레임 추출: 비디오 구간의 8% 비중 (순식간에 끝나므로 최소 가중치)
+        const extractSpan = videoSpan * 0.08;
+        // 1-B AI 추론/분석: 비디오 구간의 92% 비중 (실제 대기 시간 대부분 차지)
+        const analyzeSpan = videoSpan * 0.92;
         const analyzeBasePct = videoStartPct + extractSpan;
         const analyzeTargetPct = videoEndPct;
 
@@ -696,22 +728,52 @@ export function App() {
 
         // 1-B. AI Gateway 다중 프레임 분석
         const analyzeStartTime = Date.now();
+        // 영상 길이 및 모델 처리에 기반한 예상 소요 시간(초)
+        const expectedSec = Math.max(
+          22,
+          Math.round(18 + Math.min(50, (currentVideo.duration || 10) * 0.15))
+        );
+
         const updateAnalyzeProgress = () => {
           if (signal.aborted) return;
           const elapsedSec = (Date.now() - analyzeStartTime) / 1000;
-          // 시간 경과에 따른 지수 점근 곡선 (15초 기준 약 63%, 30초 기준 약 86%)
-          const timeFactor = 1 - Math.exp(-elapsedSec / 15);
-          // 실시간 스트리밍된 토큰(추론 텍스트 + 생성 JSON) 분량 반영 (약 1,200자 기준)
           const totalChars = (liveReasoning?.length || 0) + (liveContent?.length || 0);
-          const streamFactor = Math.min(1, totalChars / 1200);
-          // 두 요소를 종합하되, 실제 분석 완료 전에는 해당 영상 구간의 최대 95%까지만 점근
-          const combinedFactor = Math.max(timeFactor, streamFactor * 0.92);
-          const cappedFactor = Math.min(0.95, combinedFactor);
-          const currentPct = Math.round(analyzeBasePct + cappedFactor * analyzeSpan);
+
+          // 1단계 지수 점근
+          const timeRatio = 1 - Math.exp(-elapsedSec / expectedSec);
+          const charRatio = Math.min(1, totalChars / 1800);
+          const baseFactor = Math.max(timeRatio * 0.85, charRatio * 0.85);
+
+          // 2단계: AI 추론이 길어져도 특정 %에서 멈추지 않는 연속 점근 크롤링 (Zeno's crawl)
+          const overtimeSec = Math.max(0, elapsedSec - expectedSec * 0.7);
+          const crawlFactor = (1 - Math.exp(-overtimeSec / 45)) * 0.14;
+          const effectiveFactor = Math.min(0.99, baseFactor + crawlFactor);
+          const currentPct = Math.round(analyzeBasePct + effectiveFactor * analyzeSpan);
+
+          // 실시간 경과 시간 및 분석 글자 수 카운터 포맷팅
+          const elapsedInt = Math.max(1, Math.floor(elapsedSec));
+          const timeUnit = locale === 'ko' ? '초' : locale === 'ja' ? '秒' : 's';
+          const charUnit = locale === 'ko' ? '자' : locale === 'ja' ? '文字' : ' chars';
+          const counterSuffix = totalChars > 0
+            ? ` (${elapsedInt}${timeUnit} · ${totalChars.toLocaleString()}${charUnit})`
+            : ` (${elapsedInt}${timeUnit})`;
+
+          const baseStatus = liveReasoning
+            ? interpolate(dict.logs.statusReasoning, {
+                index: i + 1,
+                total: totalVideos,
+                name: currentVideo.name,
+              })
+            : interpolate(dict.logs.statusAnalyzing, {
+                index: i + 1,
+                total: totalVideos,
+                name: currentVideo.name,
+              });
 
           setProgress((prev) => ({
             ...prev,
             progressPercent: Math.min(99, Math.max(prev.progressPercent, currentPct)),
+            statusMessage: `${baseStatus}${counterSuffix}`,
           }));
         };
 
@@ -722,11 +784,11 @@ export function App() {
           currentVideoIndex: i,
           totalVideos,
           progressPercent: Math.min(99, Math.max(prev.progressPercent, Math.round(analyzeBasePct))),
-          statusMessage: interpolate(dict.logs.statusAnalyzing, {
+          statusMessage: `${interpolate(dict.logs.statusAnalyzing, {
             index: i + 1,
             total: totalVideos,
             name: currentVideo.name,
-          }),
+          })} (0${locale === 'ko' ? '초' : locale === 'ja' ? '秒' : 's'})`,
           reasoningLogs: [...logs],
         }));
 
@@ -755,14 +817,6 @@ export function App() {
             onReasoningDelta: (_chunk, fullText) => {
               if (!liveReasoning) {
                 addLog(interpolate(dict.logs.reasoningStarted, { name: currentVideo.name }));
-                setProgress((prev) => ({
-                  ...prev,
-                  statusMessage: interpolate(dict.logs.statusReasoning, {
-                    index: i + 1,
-                    total: totalVideos,
-                    name: currentVideo.name,
-                  }),
-                }));
               }
               liveReasoning = fullText;
               scheduleLiveStreamFlush();
