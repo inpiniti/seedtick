@@ -3661,6 +3661,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   const isSelected = seg.id === selectedSegmentId;
                   const isCurrentPlaying = seg.id === activePlayingSegmentId;
                   const vItem = videoMap.get(seg.sourceVideoId);
+                  // 16:9 인물 크롭 위치는 세로 원본 영상에서만 의미가 있음
+                  // (90°/270° 회전 시 원본의 가로/세로가 뒤집히므로 회전도 반영)
+                  const srcWidth = vItem?.width ?? 0;
+                  const srcHeight = vItem?.height ?? 0;
+                  const isRotatedQuarter = ((seg.rotation ?? 0) % 360 + 360) % 360 % 180 !== 0;
+                  const effectiveWidth = isRotatedQuarter ? srcHeight : srcWidth;
+                  const effectiveHeight = isRotatedQuarter ? srcWidth : srcHeight;
+                  const isPortraitSource =
+                    effectiveWidth > 0 && effectiveHeight > 0
+                      ? effectiveHeight > effectiveWidth
+                      : false;
                   const segTimeInfo = formatSegmentRecordedDateTime(seg, videoMap);
                   const segOffset = segmentTimelineOffsets[seg.id];
                   const isSegExceedingMusic = Boolean(
@@ -4001,38 +4012,40 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             </div>
                           </div>
 
-                          {/* 3. 16:9 세로 영상 인물 크롭 기준 */}
-                          <div className="toss-branding-row">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="toss-branding-label">{dict.dramaticClips.cropLabel}</span>
-                              <span className="text-[11px] text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded">
-                                {dict.dramaticClips.aiRecommended}
-                              </span>
+                          {/* 3. 16:9 세로 영상 인물 크롭 기준 (세로 원본 영상에서만 노출) */}
+                          {isPortraitSource && (
+                            <div className="toss-branding-row">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="toss-branding-label">{dict.dramaticClips.cropLabel}</span>
+                                <span className="text-[11px] text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded">
+                                  {dict.dramaticClips.aiRecommended}
+                                </span>
+                              </div>
+                              <div className="toss-segment-control">
+                                <button
+                                  type="button"
+                                  className={`toss-segment-btn ${(seg.cropOffsetYRatio ?? 0.2) <= 0.25 ? 'active' : ''}`}
+                                  onClick={() => handleCropAnchorChange(seg.id, 0.15)}
+                                >
+                                  {dict.dramaticClips.cropTop}
+                                </button>
+                                <button
+                                  type="button"
+                                  className={`toss-segment-btn ${(seg.cropOffsetYRatio ?? 0.2) > 0.25 && (seg.cropOffsetYRatio ?? 0.2) < 0.75 ? 'active' : ''}`}
+                                  onClick={() => handleCropAnchorChange(seg.id, 0.5)}
+                                >
+                                  {dict.dramaticClips.cropCenter}
+                                </button>
+                                <button
+                                  type="button"
+                                  className={`toss-segment-btn ${(seg.cropOffsetYRatio ?? 0.2) >= 0.75 ? 'active' : ''}`}
+                                  onClick={() => handleCropAnchorChange(seg.id, 0.85)}
+                                >
+                                  {dict.dramaticClips.cropBottom}
+                                </button>
+                              </div>
                             </div>
-                            <div className="toss-segment-control">
-                              <button
-                                type="button"
-                                className={`toss-segment-btn ${(seg.cropOffsetYRatio ?? 0.2) <= 0.25 ? 'active' : ''}`}
-                                onClick={() => handleCropAnchorChange(seg.id, 0.15)}
-                              >
-                                {dict.dramaticClips.cropTop}
-                              </button>
-                              <button
-                                type="button"
-                                className={`toss-segment-btn ${(seg.cropOffsetYRatio ?? 0.2) > 0.25 && (seg.cropOffsetYRatio ?? 0.2) < 0.75 ? 'active' : ''}`}
-                                onClick={() => handleCropAnchorChange(seg.id, 0.5)}
-                              >
-                                {dict.dramaticClips.cropCenter}
-                              </button>
-                              <button
-                                type="button"
-                                className={`toss-segment-btn ${(seg.cropOffsetYRatio ?? 0.2) >= 0.75 ? 'active' : ''}`}
-                                onClick={() => handleCropAnchorChange(seg.id, 0.85)}
-                              >
-                                {dict.dramaticClips.cropBottom}
-                              </button>
-                            </div>
-                          </div>
+                          )}
 
                         </div>
                       )}
