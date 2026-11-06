@@ -27,6 +27,17 @@ import type {
   HighlightSegment,
   VideoOverlayOptions,
 } from './types/video.ts';
+import type { StudioProject, StudioProjectSummary } from './types/project.ts';
+import {
+  generateProjectId,
+  getLastActiveProjectId,
+  setLastActiveProjectId,
+  saveProject,
+  getProject,
+  getAllProjectSummaries,
+  deleteProject,
+  duplicateProject,
+} from './services/projectStorage.ts';
 import { AlertCircle } from 'lucide-react';
 import { useI18n } from './i18n/index.tsx';
 
@@ -62,6 +73,324 @@ export function App() {
 
   // 취소용 AbortController
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // 4. 프로젝트 보관함 & IndexedDB 상태
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'idle'>('saved');
+  const [projectSummaries, setProjectSummaries] = useState<StudioProjectSummary[]>([]);
+  const [isLoadingProjects, setIsLoadingProjects] = useState<boolean>(true);
+
+  // 편집 설정 상태
+  const [currentOverlayOptions, setCurrentOverlayOptions] = useState<VideoOverlayOptions | null>(null);
+  const [currentBgmPresetId, setCurrentBgmPresetId] = useState<string>('none');
+  const [currentBgmVolume, setCurrentBgmVolume] = useState<number>(0.3);
+  const [currentCustomAudio, setCurrentCustomAudio] = useState<File | null>(null);
+
+  const isRestoringProjectRef = useRef<boolean>(false);
+  const autoSaveTimerRef = useRef<number | null>(null);
+
+  // 프로젝트 요약 목록 새로고침
+  const refreshProjectSummaries = async () => {
+    try {
+      setIsLoadingProjects(true);
+      const list = await getAllProjectSummaries();
+      setProjectSummaries(list);
+    } catch (err) {
+      console.warn('Failed to list projects:', err);
+    } finally {
+      setIsLoadingProjects(false);
+    }
+  };
+
+  // 특정 프로젝트 로드
+  const handleOpenProject = async (projectId: string) => {
+    try {
+      const project = await getProject(projectId);
+      if (!project) return;
+
+      isRestoringProjectRef.current = true;
+
+      // 기존 ObjectURL 정리
+      videos.forEach((v: VideoItem) => URL.revokeObjectURL(v.url));
+      if (finalResult?.url) URL.revokeObjectURL(finalResult.url);
+
+      // 비디오 목록 복원
+      const restoredVideos: VideoItem[] = (project.videos || []).map((v) => {
+        const file =
+          v.fileBlob instanceof File
+            ? v.fileBlob
+            : v.fileBlob
+            ? new File([v.fileBlob], v.name, {
+                type: v.fileBlob.type || 'video/mp4',
+                lastModified: v.recordedTimestamp || Date.now(),
+              })
+            : new File([], v.name, { type: 'video/mp4' });
+        const url = URL.createObjectURL(file);
+        return {
+          id: v.id,
+          file,
+          url,
+          name: v.name,
+          sizeBytes: v.sizeBytes,
+          duration: v.duration,
+          width: v.width,
+          height: v.height,
+          status: v.status,
+          segments: v.segments || [],
+          metadataDate: v.metadataDate,
+          recordedTimestamp: v.recordedTimestamp,
+          latitude: v.latitude,
+          longitude: v.longitude,
+          locationName: v.locationName,
+          thumbnailUrl: v.thumbnailUrl,
+        };
+      });
+
+      // 최종 결과 복원
+      let restoredResult: FinalVideoResult | null = null;
+      if (project.finalResult && project.finalResult.videoBlob) {
+        const url = URL.createObjectURL(project.finalResult.videoBlob);
+        restoredResult = {
+          blob: project.finalResult.videoBlob,
+          url,
+          duration: project.finalResult.duration,
+          segments: project.finalResult.segments || [],
+          originalTotalDuration: project.duration || 0,
+          fileSize: project.finalResult.fileSize || 0,
+          thumbnailUrl: project.finalResult.thumbnailUrl,
+          cleanThumbnailUrl: project.finalResult.cleanThumbnailUrl,
+          suggestedTitle: project.finalResult.suggestedTitle,
+          bestThumbnailTime: project.finalResult.bestThumbnailTime,
+          bestSourceVideoId: project.finalResult.bestSourceVideoId,
+          bestThumbnailReason: project.finalResult.bestThumbnailReason,
+          bestThumbnailCropOffsetYRatio: project.finalResult.bestThumbnailCropOffsetYRatio,
+          bestThumbnailRotation: project.finalResult.bestThumbnailRotation,
+          bestThumbnailCleanDataUrl: project.finalResult.bestThumbnailCleanDataUrl,
+          aiThumbnailRecommendations: project.finalResult.aiThumbnailRecommendations,
+        };
+      }
+
+      // 커스텀 오디오 복원
+      let restoredAudioFile: File | null = null;
+      if (project.customAudioBlob) {
+        restoredAudioFile = new File(
+          [project.customAudioBlob],
+          project.customAudioName || 'audio.mp3',
+          { type: project.customAudioBlob.type || 'audio/mpeg' }
+        );
+      }
+
+      setVideos(restoredVideos);
+      setFinalResult(restoredResult);
+      setCurrentStep(restoredResult ? 'result' : 'upload');
+      setCurrentProjectId(project.id);
+      setLastActiveProjectId(project.id);
+
+      if (project.overlayOptions) {
+        setCurrentOverlayOptions(project.overlayOptions);
+      }
+      if (project.bgmPresetId) {
+        setCurrentBgmPresetId(project.bgmPresetId);
+      }
+      if (typeof project.bgmVolume === 'number') {
+        setCurrentBgmVolume(project.bgmVolume);
+      }
+      setCurrentCustomAudio(restoredAudioFile);
+
+      if (project.selectedModel) {
+        setSelectedModel(project.selectedModel);
+      }
+      if (project.selectedEffort) {
+        setSelectedEffort(project.selectedEffort);
+      }
+
+      setSaveStatus('saved');
+      await refreshProjectSummaries();
+    } catch (err) {
+      console.error('Failed to open project:', err);
+    } finally {
+      setTimeout(() => {
+        isRestoringProjectRef.current = false;
+      }, 500);
+    }
+  };
+
+  // 새 작업 시작
+  const handleStartNewProject = () => {
+    videos.forEach((v: VideoItem) => URL.revokeObjectURL(v.url));
+    if (finalResult?.url) URL.revokeObjectURL(finalResult.url);
+
+    setVideos([]);
+    setFinalResult(null);
+    setCurrentStep('upload');
+    setCurrentProjectId(generateProjectId());
+    setLastActiveProjectId(null);
+    setCurrentOverlayOptions(null);
+    setCurrentBgmPresetId('none');
+    setCurrentBgmVolume(0.3);
+    setCurrentCustomAudio(null);
+    setSaveStatus('saved');
+  };
+
+  // 프로젝트 복제
+  const handleDuplicateProject = async (id: string) => {
+    try {
+      await duplicateProject(id);
+      await refreshProjectSummaries();
+    } catch (err) {
+      console.error('Failed to duplicate project:', err);
+    }
+  };
+
+  // 프로젝트 삭제
+  const handleDeleteProject = async (id: string) => {
+    try {
+      await deleteProject(id);
+      if (currentProjectId === id) {
+        handleStartNewProject();
+      }
+      await refreshProjectSummaries();
+    } catch (err) {
+      console.error('Failed to delete project:', err);
+    }
+  };
+
+  // 자동 저장 수행
+  const performSave = async () => {
+    if (videos.length === 0 || currentStep === 'processing' || isRestoringProjectRef.current) {
+      return;
+    }
+
+    const projId = currentProjectId || generateProjectId();
+    if (!currentProjectId) {
+      setCurrentProjectId(projId);
+    }
+
+    setSaveStatus('saving');
+
+    try {
+      const storedVideos = videos.map((v) => ({
+        id: v.id,
+        name: v.name,
+        sizeBytes: v.sizeBytes,
+        duration: v.duration,
+        width: v.width,
+        height: v.height,
+        status: v.status,
+        segments: v.segments || [],
+        metadataDate: v.metadataDate,
+        recordedTimestamp: v.recordedTimestamp,
+        latitude: v.latitude,
+        longitude: v.longitude,
+        locationName: v.locationName,
+        thumbnailUrl: v.thumbnailUrl,
+        fileBlob: v.file,
+      }));
+
+      const projectTitle =
+        currentOverlayOptions?.titleText ||
+        finalResult?.suggestedTitle ||
+        (videos[0]?.name
+          ? `${videos[0].name.replace(/\.[^/.]+$/, '')} 작업`
+          : '새 스튜디오 작업');
+
+      const projectData: StudioProject = {
+        id: projId,
+        title: projectTitle,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        thumbnailUrl: finalResult?.thumbnailUrl || videos[0]?.thumbnailUrl,
+        duration: finalResult?.duration || videos.reduce((acc, v) => acc + (v.duration || 0), 0),
+        videoCount: videos.length,
+        step: finalResult ? 'result' : 'upload',
+        videos: storedVideos,
+        finalResult: finalResult
+          ? {
+              videoBlob: finalResult.blob,
+              duration: finalResult.duration,
+              fileSize: finalResult.fileSize,
+              width: 1280,
+              height: 720,
+              segments: finalResult.segments,
+              suggestedTitle: finalResult.suggestedTitle,
+              thumbnailUrl: finalResult.thumbnailUrl,
+              cleanThumbnailUrl: finalResult.cleanThumbnailUrl,
+              bestThumbnailTime: finalResult.bestThumbnailTime,
+              bestSourceVideoId: finalResult.bestSourceVideoId,
+              bestThumbnailReason: finalResult.bestThumbnailReason,
+              bestThumbnailCropOffsetYRatio: finalResult.bestThumbnailCropOffsetYRatio,
+              bestThumbnailRotation: finalResult.bestThumbnailRotation,
+              bestThumbnailCleanDataUrl: finalResult.bestThumbnailCleanDataUrl,
+              aiThumbnailRecommendations: finalResult.aiThumbnailRecommendations,
+            }
+          : null,
+        overlayOptions: currentOverlayOptions || undefined,
+        bgmPresetId: currentBgmPresetId,
+        bgmVolume: currentBgmVolume,
+        customAudioBlob: currentCustomAudio,
+        customAudioName: currentCustomAudio?.name,
+        selectedModel,
+        selectedEffort,
+      };
+
+      await saveProject(projectData);
+      setLastActiveProjectId(projId);
+      setSaveStatus('saved');
+      await refreshProjectSummaries();
+    } catch (err) {
+      console.warn('Auto-save failed:', err);
+      setSaveStatus('saved');
+    }
+  };
+
+  // 변경 감지 시 자동 저장 (Debounced)
+  useEffect(() => {
+    if (videos.length === 0 || currentStep === 'processing' || isRestoringProjectRef.current) {
+      return;
+    }
+
+    if (autoSaveTimerRef.current !== null) {
+      window.clearTimeout(autoSaveTimerRef.current);
+    }
+
+    setSaveStatus('saving');
+    autoSaveTimerRef.current = window.setTimeout(() => {
+      autoSaveTimerRef.current = null;
+      void performSave();
+    }, 800);
+
+    return () => {
+      if (autoSaveTimerRef.current !== null) {
+        window.clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [
+    videos,
+    finalResult,
+    currentOverlayOptions,
+    currentBgmPresetId,
+    currentBgmVolume,
+    currentCustomAudio,
+    currentStep,
+  ]);
+
+  // 최초 마운트 시 저장소 초기화 및 마지막 활성 프로젝트 복원
+  useEffect(() => {
+    let isMounted = true;
+    async function initProjects() {
+      await refreshProjectSummaries();
+      const lastId = getLastActiveProjectId();
+      if (lastId && isMounted) {
+        await handleOpenProject(lastId);
+      } else if (isMounted && !currentProjectId) {
+        setCurrentProjectId(generateProjectId());
+      }
+    }
+    void initProjects();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // 초기 모델 목록 로드
   useEffect(() => {
@@ -751,6 +1080,24 @@ export function App() {
         onReStitch={handleReStitch}
         isReStitching={isReStitching}
         reStitchProgress={reStitchProgress}
+        currentProjectId={currentProjectId}
+        saveStatus={saveStatus}
+        projectSummaries={projectSummaries}
+        isLoadingProjects={isLoadingProjects}
+        onOpenProject={handleOpenProject}
+        onDuplicateProject={handleDuplicateProject}
+        onDeleteProject={handleDeleteProject}
+        onStartNewProject={handleStartNewProject}
+        initialOverlayOptions={currentOverlayOptions}
+        initialBgmPresetId={currentBgmPresetId}
+        initialBgmVolume={currentBgmVolume}
+        initialCustomAudioFile={currentCustomAudio}
+        onOverlayOptionsChange={setCurrentOverlayOptions}
+        onBgmChange={(bgmId: string, vol: number) => {
+          setCurrentBgmPresetId(bgmId);
+          setCurrentBgmVolume(vol);
+        }}
+        onCustomAudioChange={setCurrentCustomAudio}
       />
     </div>
   );

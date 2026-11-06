@@ -230,6 +230,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [customAudioDuration, setCustomAudioDuration] = useState<number | null>(null);
   const customAudioInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    onBgmChange?.(selectedBgmId, bgmVolume);
+  }, [selectedBgmId, bgmVolume, onBgmChange]);
+
+  useEffect(() => {
+    onCustomAudioChange?.(customAudioFile);
+  }, [customAudioFile, onCustomAudioChange]);
+
   // 선택된 배경음악(customAudioFile)의 실제 재생 길이(초) 자동 추출
   useEffect(() => {
     if (!customAudioFile) {
@@ -391,8 +399,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     dict,
   ]);
 
-  // 4-2. 상단 탭 상태 (스튜디오 vs 영상 공유 커뮤니티)
-  const [activeTab, setActiveTab] = useState<'studio' | 'community'>('studio');
+  // 4-2. 상단 탭 상태 (스튜디오 vs 내 작업 보관함 vs 영상 공유 커뮤니티)
+  const [activeTab, setActiveTab] = useState<'studio' | 'projects' | 'community'>('studio');
 
   // 5. 자막 & 브랜딩 오버레이 상태
   const initialDateStr = useMemo(() => {
@@ -409,21 +417,54 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     return '';
   }, [videos, currentDateFormat, showAge, birthDate]);
 
-  const [overlayOptions, setOverlayOptions] = useState<VideoOverlayOptions>({
-    showTitle: true,
-    titleText: dict.player.defaultTitleText,
-    showChannel: true,
-    channelText: dict.player.defaultChannelText,
-    showSubtitle: true,
-    showDate,
-    subtitleDateText: initialDateStr,
-    subtitleLocationText: '',
-    showIntro: false,
-    showOutro: false,
-    showChapterBridge: true,
-    introVideoFile: null,
-    outroVideoFile: null,
+  const [overlayOptions, setOverlayOptions] = useState<VideoOverlayOptions>(() => {
+    if (initialOverlayOptions) return initialOverlayOptions;
+    return {
+      showTitle: true,
+      titleText: dict.player.defaultTitleText,
+      showChannel: true,
+      channelText: dict.player.defaultChannelText,
+      showSubtitle: true,
+      showDate,
+      subtitleDateText: initialDateStr,
+      subtitleLocationText: '',
+      showIntro: false,
+      showOutro: false,
+      showChapterBridge: true,
+      introVideoFile: null,
+      outroVideoFile: null,
+    };
   });
+
+  // 외부(보관함 로드 등)에서 initialOverlayOptions 전달 시 동기화
+  useEffect(() => {
+    if (initialOverlayOptions) {
+      setOverlayOptions(initialOverlayOptions);
+    }
+  }, [initialOverlayOptions]);
+
+  // 외부로 overlayOptions 변경 전파
+  useEffect(() => {
+    onOverlayOptionsChange?.(overlayOptions);
+  }, [overlayOptions, onOverlayOptionsChange]);
+
+  // 외부에서 BGM 프리셋/볼륨 전달 시 동기화
+  useEffect(() => {
+    if (initialBgmPresetId !== undefined) {
+      setSelectedBgmId(initialBgmPresetId);
+    }
+    if (typeof initialBgmVolume === 'number') {
+      setBgmVolume(initialBgmVolume);
+    }
+  }, [initialBgmPresetId, initialBgmVolume]);
+
+  // 외부에서 커스텀 오디오 파일 전달 시 동기화
+  useEffect(() => {
+    if (initialCustomAudioFile !== undefined) {
+      setCustomAudioFile(initialCustomAudioFile);
+      setCustomAudioName(initialCustomAudioFile ? initialCustomAudioFile.name : '');
+    }
+  }, [initialCustomAudioFile]);
 
   const effectiveOverlayOptions = useMemo<VideoOverlayOptions>(() => ({
     ...overlayOptions,
@@ -1582,7 +1623,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <span className="toss-nav-tagline">{dict.common.taglineBadge}</span>
           </div>
 
-          {/* 상단 네비게이션 탭 (스튜디오 / 영상 공유 커뮤니티) */}
+          {/* 상단 네비게이션 탭 (스튜디오 / 내 작업 보관함 / 영상 공유 커뮤니티) */}
           <div className="toss-nav-tabs-group">
             <button
               type="button"
@@ -1592,6 +1633,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             >
               <Film size={14} />
               <span>{dict.community?.studioTab || '스튜디오'}</span>
+            </button>
+            <button
+              type="button"
+              className={`toss-nav-tab-btn ${activeTab === 'projects' ? 'active' : ''}`}
+              onClick={() => setActiveTab('projects')}
+              title={dict.projects?.tabTitle || '보관함'}
+            >
+              <FolderOpen size={14} />
+              <span>{dict.projects?.tabTitle || '보관함'}</span>
             </button>
             <button
               type="button"
@@ -1628,6 +1678,25 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
           {activeTab === 'studio' && (
             <>
+              {/* 자동 저장 상태 뱃지 */}
+              {currentProjectId && (
+                <div
+                  className={`toss-autosave-badge ${saveStatus === 'saving' ? 'saving' : 'saved'}`}
+                  title={
+                    saveStatus === 'saving'
+                      ? (dict.projects?.saving || '저장 중...')
+                      : (dict.projects?.autoSaved || '자동 저장됨')
+                  }
+                >
+                  <span className="toss-autosave-dot" />
+                  <span className="hidden sm:inline">
+                    {saveStatus === 'saving'
+                      ? (dict.projects?.saving || '저장 중...')
+                      : (dict.projects?.autoSaved || '저장됨')}
+                  </span>
+                </div>
+              )}
+
               {/* 올린 원본 영상 리스트 트리거 */}
           <button
             type="button"
@@ -1711,9 +1780,25 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         </div>
       </header>
 
-      {/* 2. 본문: 영상 공유 커뮤니티 또는 스튜디오 2열 레이아웃 */}
+      {/* 2. 본문: 영상 공유 커뮤니티 또는 내 작업 보관함 또는 스튜디오 2열 레이아웃 */}
       {activeTab === 'community' ? (
         <VideoCommunityView onOpenStudio={() => setActiveTab('studio')} />
+      ) : activeTab === 'projects' ? (
+        <StudioProjectListView
+          projects={projectSummaries}
+          currentProjectId={currentProjectId || null}
+          isLoading={isLoadingProjects}
+          onOpenProject={(id) => {
+            onOpenProject?.(id);
+            setActiveTab('studio');
+          }}
+          onDuplicateProject={(id) => onDuplicateProject?.(id)}
+          onDeleteProject={(id) => onDeleteProject?.(id)}
+          onStartNewProject={() => {
+            onStartNewProject?.();
+            setActiveTab('studio');
+          }}
+        />
       ) : (
         <main className="toss-main-content">
         {/* 2-A. 왼쪽 열: 16:9 모니터 & 배경음악 업로드 */}

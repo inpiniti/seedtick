@@ -1,4 +1,4 @@
-﻿import type { HighlightSegment, VideoOverlayOptions } from './video.ts';
+import type { HighlightSegment, VideoOverlayOptions, VideoProcessingStatus } from './video.ts';
 import type { ReasoningEffortOption } from './gateway.ts';
 
 export interface StoredVideoItem {
@@ -8,7 +8,7 @@ export interface StoredVideoItem {
   duration: number;
   width: number;
   height: number;
-  status: 'idle' | 'analyzing' | 'analyzed' | 'stitching' | 'done' | 'error';
+  status: VideoProcessingStatus;
   segments: HighlightSegment[];
   metadataDate?: string;
   recordedTimestamp?: number;
