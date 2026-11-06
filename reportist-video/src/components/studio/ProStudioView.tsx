@@ -2948,7 +2948,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           onClick={(e) => {
                             e.stopPropagation();
                             if (suppressSegmentClickRef.current) {
-                              suppressSegmentClickRef.current = false;
                               return;
                             }
                             handleSelectSegment('intro');
@@ -2995,7 +2994,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             onClick={(e) => {
                               e.stopPropagation();
                               if (suppressSegmentClickRef.current) {
-                                suppressSegmentClickRef.current = false;
                                 return;
                               }
                               handleSelectSegment(seg.id);
@@ -3079,7 +3077,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           onClick={(e) => {
                             e.stopPropagation();
                             if (suppressSegmentClickRef.current) {
-                              suppressSegmentClickRef.current = false;
                               return;
                             }
                             handleSelectSegment('outro');
