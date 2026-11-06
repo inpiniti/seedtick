@@ -1715,6 +1715,7 @@
   background: #ffffff;
   border-radius: 20px;
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.16);
+  text-align: left;
 }
 
 .toss-video-modal-header {
@@ -1724,6 +1725,7 @@
   padding-bottom: 14px;
   border-bottom: 1px solid #f2f4f6;
   gap: 12px;
+  text-align: left;
 }
 
 .toss-video-modal-icon-badge {
@@ -1738,16 +1740,18 @@
 }
 
 .toss-video-modal-title {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
   color: #191f28;
   line-height: 1.3;
+  text-align: left;
 }
 
 .toss-video-modal-desc {
   font-size: 12px;
   color: #8b95a1;
   margin-top: 3px;
+  text-align: left;
 }
 
 .toss-video-modal-summary {
@@ -1841,16 +1845,21 @@
 .toss-video-modal-info {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   min-width: 0;
   flex: 1;
-  gap: 2px;
+  gap: 3px;
+  text-align: left;
 }
 
 .toss-video-modal-name-row {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 6px;
   min-width: 0;
+  width: 100%;
+  text-align: left;
 }
 
 .toss-video-modal-badge {
@@ -1864,24 +1873,27 @@
 }
 
 .toss-video-modal-name {
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 700;
   color: #191f28;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: left;
   flex: 1;
 }
 
 .toss-video-modal-meta {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   flex-wrap: wrap;
   gap: 2px 6px;
   font-size: 10px;
   color: #8b95a1;
   font-variant-numeric: tabular-nums;
   line-height: 1.3;
+  text-align: left;
 }
 
 .toss-video-modal-meta-dot {
