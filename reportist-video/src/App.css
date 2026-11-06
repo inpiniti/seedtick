@@ -1467,8 +1467,7 @@
   gap: 10px;
   /* 스크롤 영역 내부 상·하단 여백: 첫 카드와 마지막 카드가 경계에 붙거나 잘리지 않도록 함 */
   padding: 10px 4px 10px 0;
-  scrollbar-width: thin;
-  scrollbar-color: #d1d5db transparent;
+  scrollbar-width: none;
 }
 
 /* 우측 열: 인트로 -> AI 극적 순간 타임라인 -> 아웃트로 -> 요약 (독립 패널 스크롤!) */
@@ -1481,30 +1480,14 @@
   gap: 10px;
   /* 스크롤 영역 내부 상·하단 여백: 첫 카드와 마지막 카드가 경계에 붙거나 잘리지 않도록 함 */
   padding: 10px 4px 10px 0;
-  scrollbar-width: thin;
-  scrollbar-color: #d1d5db transparent;
+  scrollbar-width: none;
 }
 
 .toss-column-left::-webkit-scrollbar,
 .toss-column-right::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.toss-column-left::-webkit-scrollbar-track,
-.toss-column-right::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.toss-column-left::-webkit-scrollbar-thumb,
-.toss-column-right::-webkit-scrollbar-thumb {
-  background: #d1d5db;
-  border-radius: 4px;
-}
-
-.toss-column-left::-webkit-scrollbar-thumb:hover,
-.toss-column-right::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 /* NLE 컴팩트 카드 (영상 패널과 완벽히 일치하는 패딩 & 좌측 상단 밀착 타이틀) */
