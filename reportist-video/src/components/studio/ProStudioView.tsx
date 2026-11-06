@@ -1,6 +1,6 @@
 // components/studio/ProStudioView.tsx - Toss-style 16:9 AI Video Studio with i18n
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   Play,
   Pause,
@@ -708,6 +708,39 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   };
 
+  // 신규 작업 또는 영상 리셋 시 스튜디오 내부 상태 완전 초기화
+  const resetStudioState = useCallback(() => {
+    setSegments([]);
+    setSelectedSegmentId('');
+    setThumbnailUrl(null);
+    thumbnailBgCanvasRef.current = null;
+    appliedSuggestedTitleRef.current = null;
+    setCurrentTime(0);
+    setIsPlaying(false);
+    setSelectedBgmId('none');
+    setBgmVolume(0.3);
+    setCustomAudioFile(null);
+    setCustomAudioName('');
+    setCustomAudioDuration(0);
+    setOverlayOptions({
+      showTitle: true,
+      titleText: dict.player.defaultTitleText,
+      showChannel: true,
+      channelText: dict.player.defaultChannelText,
+      showSubtitle: true,
+      showDate,
+      subtitleDateText: '',
+      subtitleLocationText: '',
+      showIntro: false,
+      showOutro: false,
+      showChapterBridge: true,
+      introVideoFile: null,
+      outroVideoFile: null,
+    });
+    lastEmittedOverlayJsonRef.current = '';
+    lastLoadedProjectIdRef.current = null;
+  }, [dict.player.defaultTitleText, dict.player.defaultChannelText, showDate]);
+
   // 상위 결과 갱신 동기화 및 썸네일/타이틀 준비
   const appliedSuggestedTitleRef = useRef<string | null>(null);
   useEffect(() => {
@@ -728,6 +761,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       }));
       setSegments(fallback);
       setSelectedSegmentId(fallback[0]?.id || '');
+    } else if (videos.length === 0 && !result) {
+      resetStudioState();
     }
 
     if (result?.suggestedTitle && appliedSuggestedTitleRef.current !== result.suggestedTitle) {
@@ -1806,6 +1841,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           onDuplicateProject={(id) => onDuplicateProject?.(id)}
           onDeleteProject={(id) => onDeleteProject?.(id)}
           onStartNewProject={() => {
+            resetStudioState();
             onStartNewProject?.();
             setActiveTab('studio');
           }}
@@ -3753,7 +3789,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         isLoadingModels={isLoadingModels}
         currentLocaleInfo={currentLocaleInfo}
         hasVideos={videos.length > 0}
-        onReset={onReset}
+        onReset={() => {
+          resetStudioState();
+          onReset();
+        }}
         hasStitchedResult={Boolean(result?.url)}
         onDownloadThumbnail={handleDownloadThumbnail}
         onDownloadSubtitles={() => {

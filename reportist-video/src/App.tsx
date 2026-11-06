@@ -1051,11 +1051,7 @@ export function App() {
 
   // 새로 만들기 리셋
   const handleReset = () => {
-    if (finalResult?.url) {
-      URL.revokeObjectURL(finalResult.url);
-    }
-    setFinalResult(null);
-    setCurrentStep('upload');
+    handleStartNewProject();
   };
 
   return (
