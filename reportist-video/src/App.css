@@ -2878,6 +2878,12 @@
   border-color: #b8ebd3;
 }
 
+.toss-sequencer-music-badge.trimmed {
+  color: #047857;
+  background-color: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
 .toss-sequencer-music-badge.warning,
 .toss-sequencer-music-badge.exceeded {
   color: #d9381e;
@@ -3976,6 +3982,50 @@
   padding: 7px 6px;
   font-size: 11.5px;
   font-weight: 600;
+}
+
+/* 모바일: 씬 아이템에서 썸네일/텍스트와 트리밍·회전·삭제 컨트롤이 한 줄에 겹치지 않도록 2단 배치 */
+@media (max-width: 640px) {
+  .toss-segment-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .toss-segment-left {
+    width: 100%;
+    gap: 10px;
+  }
+
+  .toss-segment-info {
+    overflow: hidden;
+  }
+
+  .toss-segment-reason {
+    min-width: 0;
+  }
+
+  .toss-segment-source {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .toss-segment-right {
+    width: 100%;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .toss-trim-controls {
+    min-width: 0;
+    flex-wrap: nowrap;
+  }
+
+  .toss-segment-duration {
+    padding: 0 2px;
+  }
 }
 
 /* Upload & Source List */
