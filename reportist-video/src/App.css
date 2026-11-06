@@ -1207,6 +1207,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
   position: relative;
   z-index: 50;
   flex-shrink: 0;
@@ -1217,6 +1220,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
+  flex-shrink: 0;
 }
 
 .toss-logo-badge {
@@ -1230,6 +1235,7 @@
   color: #ffffff;
   box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
 }
 
 .toss-nav-brand-block {
@@ -1239,6 +1245,7 @@
   justify-content: center;
   gap: 2px;
   min-width: 0;
+  flex-shrink: 0;
 }
 
 .toss-nav-title {
@@ -1247,6 +1254,7 @@
   color: #191f28;
   letter-spacing: -0.3px;
   line-height: 1.1;
+  white-space: nowrap;
 }
 
 /* 브랜드명 아래 서브 타이틀 (배경색·음영 없이 담백한 텍스트) */
@@ -1260,6 +1268,7 @@
   padding: 0;
   box-shadow: none;
   text-shadow: none;
+  white-space: nowrap;
 }
 
 .toss-tag-blue {
@@ -1270,6 +1279,7 @@
   padding: 2.5px 7px;
   border-radius: 5px;
   margin-left: 2px;
+  white-space: nowrap;
 }
 
 /* Nav Tabs (Studio vs Video Sharing Community) */
@@ -1282,6 +1292,7 @@
   border-radius: 10px;
   margin-left: 12px;
   border: 1px solid #e2e8f0;
+  flex-shrink: 0;
 }
 
 .toss-nav-tab-btn {
@@ -1298,6 +1309,7 @@
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .toss-nav-tab-btn:hover {
@@ -1319,12 +1331,16 @@
   padding: 1px 4px;
   border-radius: 4px;
   letter-spacing: 0.2px;
+  white-space: nowrap;
 }
 
 .toss-nav-right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  min-width: 0;
+  flex-shrink: 0;
+  justify-content: flex-end;
 }
 
 /* Header Top CTA Buttons (하단에서 상단으로 이전된 메인 액션 버튼) */
@@ -4211,7 +4227,7 @@
 .toss-live-overlay-channel {
   position: absolute;
   top: 14px;
-  right: 16px;
+  right: 54px;
   color: #ffffff;
   font-weight: 700;
   font-size: 13.5px;
@@ -4688,7 +4704,32 @@
   display: none;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1200px) {
+  .toss-nav-header {
+    padding: 0 14px;
+    gap: 10px;
+  }
+
+  .toss-nav-tagline {
+    display: none !important;
+  }
+
+  .toss-settings-trigger-text {
+    display: none !important;
+  }
+
+  .toss-settings-trigger {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    padding: 0 !important;
+  }
+
+  .toss-lang-trigger .toss-model-trigger-label,
+  .toss-video-list-trigger .toss-model-trigger-label {
+    display: none !important;
+  }
+
   .toss-model-trigger {
     max-width: 340px;
   }
@@ -4698,12 +4739,160 @@
   }
 }
 
+@media (max-width: 1024px) {
+  .toss-nav-header {
+    padding: 0 12px;
+    gap: 8px;
+  }
+
+  .toss-nav-left {
+    gap: 8px;
+  }
+
+  .toss-nav-title {
+    font-size: 15px;
+  }
+
+  .toss-nav-tabs-group {
+    margin-left: 6px;
+    padding: 2px;
+    gap: 2px;
+  }
+
+  .toss-nav-tab-btn {
+    padding: 5px 8px;
+    font-size: 11.5px;
+    gap: 4px;
+  }
+
+  .toss-nav-right {
+    gap: 6px;
+  }
+
+  .toss-lang-trigger {
+    padding: 0 8px 0 6px;
+    gap: 4px;
+    height: 36px;
+  }
+
+  .toss-lang-trigger .toss-model-trigger-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .toss-lang-trigger .toss-model-trigger-chevron {
+    display: none !important;
+  }
+
+  .toss-video-list-trigger {
+    height: 36px;
+    min-width: 36px;
+    padding: 0 8px 0 6px;
+    gap: 4px;
+  }
+
+  .toss-video-list-trigger .toss-model-trigger-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .toss-video-list-trigger .toss-model-trigger-chevron {
+    display: none !important;
+  }
+
+  .toss-video-count-full {
+    display: none !important;
+  }
+
+  .toss-video-count-short {
+    display: inline-block !important;
+    font-weight: 700;
+    font-size: 12px;
+    color: #3182f6;
+  }
+
+  .toss-video-list-trigger .toss-model-trigger-name {
+    display: flex;
+    align-items: center;
+    line-height: 1;
+    max-width: none;
+  }
+
+  .toss-nav-cta-btn,
+  .toss-nav-btn-secondary {
+    height: 36px;
+    padding: 0 12px;
+    font-size: 12px;
+  }
+
+  .toss-settings-trigger {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+  }
+}
+
+@media (max-width: 860px) {
+  .toss-nav-header {
+    padding: 0 10px;
+    gap: 6px;
+  }
+
+  .toss-nav-left {
+    gap: 6px;
+  }
+
+  .toss-nav-title {
+    font-size: 14px;
+  }
+
+  .toss-nav-tab-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 7px;
+    gap: 0;
+  }
+
+  .toss-nav-tab-btn span {
+    display: none !important;
+  }
+
+  .toss-nav-tab-badge {
+    display: none !important;
+  }
+
+  .toss-lang-name {
+    display: none !important;
+  }
+
+  .toss-lang-trigger {
+    padding: 0 6px 0 5px;
+  }
+
+  .toss-nav-cta-btn,
+  .toss-nav-btn-secondary {
+    height: 34px;
+    padding: 0 10px;
+    font-size: 11.5px;
+  }
+
+  .toss-settings-trigger {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+  }
+}
+
 @media (max-width: 768px) {
   .toss-nav-header {
     padding: 0 10px;
     height: 50px;
     min-height: 50px;
-    gap: 8px;
+    gap: 6px;
   }
 
   .toss-nav-left {
@@ -4761,15 +4950,9 @@
     display: flex;
     align-items: center;
     gap: 5px;
-    flex-shrink: 1;
+    flex-shrink: 0;
     min-width: 0;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-
-  .toss-nav-right::-webkit-scrollbar {
-    display: none;
+    justify-content: flex-end;
   }
 
   /* 공통 트리거 컴팩트 스타일 */
@@ -4913,6 +5096,74 @@
     align-items: center;
     gap: 4px;
     flex-shrink: 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .toss-nav-header {
+    padding: 0 6px;
+    gap: 4px;
+    height: 48px;
+    min-height: 48px;
+  }
+
+  .toss-nav-left {
+    gap: 4px;
+  }
+
+  .toss-logo-badge {
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+  }
+
+  .toss-nav-tabs-group {
+    margin-left: 2px;
+    padding: 1.5px;
+    gap: 1.5px;
+  }
+
+  .toss-nav-tab-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 5px;
+  }
+
+  .toss-nav-right {
+    gap: 4px;
+  }
+
+  .toss-video-list-trigger {
+    height: 29px;
+    min-width: 29px;
+    padding: 0 5px 0 4px;
+    gap: 3px;
+    border-radius: 8px;
+  }
+
+  .toss-video-list-trigger .toss-model-trigger-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .toss-video-count-short {
+    font-size: 11px;
+  }
+
+  .toss-nav-cta-btn,
+  .toss-nav-btn-secondary {
+    height: 29px;
+    padding: 0 8px;
+    font-size: 11px;
+    gap: 3px;
+    border-radius: 8px;
+  }
+
+  .toss-settings-trigger {
+    width: 29px;
+    height: 29px;
+    min-width: 29px;
+    border-radius: 8px;
   }
 }
 

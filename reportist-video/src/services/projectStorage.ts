@@ -73,6 +73,8 @@ function sanitizeProjectForStorage(project: StudioProject, stripBlobs = false): 
       }
     : undefined;
 
+  const sanitizeThumbnail = (url?: string) => (url && !url.startsWith('blob:') ? url : undefined);
+
   const sanitizedVideos = (project.videos || []).map((v) => ({
     id: v.id,
     name: v.name,
@@ -87,13 +89,15 @@ function sanitizeProjectForStorage(project: StudioProject, stripBlobs = false): 
     latitude: v.latitude,
     longitude: v.longitude,
     locationName: v.locationName,
-    thumbnailUrl: v.thumbnailUrl,
+    thumbnailUrl: sanitizeThumbnail(v.thumbnailUrl),
     fileBlob: stripBlobs ? undefined : v.fileBlob,
   }));
 
   const sanitizedFinalResult = project.finalResult
     ? {
         ...project.finalResult,
+        thumbnailUrl: sanitizeThumbnail(project.finalResult.thumbnailUrl),
+        cleanThumbnailUrl: sanitizeThumbnail(project.finalResult.cleanThumbnailUrl),
         videoBlob: stripBlobs ? undefined : project.finalResult.videoBlob,
       }
     : null;
@@ -101,6 +105,7 @@ function sanitizeProjectForStorage(project: StudioProject, stripBlobs = false): 
   return {
     ...project,
     updatedAt: Date.now(),
+    thumbnailUrl: sanitizeThumbnail(project.thumbnailUrl),
     videos: sanitizedVideos,
     finalResult: sanitizedFinalResult,
     overlayOptions: sanitizedOverlay,
@@ -224,12 +229,14 @@ export async function getAllProjectSummaries(): Promise<StudioProjectSummary[]> 
       const cursor = req.result;
       if (cursor) {
         const item = cursor.value as StudioProject;
+        const rawThumb = item.thumbnailUrl || (item.videos && item.videos[0]?.thumbnailUrl);
+        const safeThumb = rawThumb && !rawThumb.startsWith('blob:') ? rawThumb : undefined;
         summaries.push({
           id: item.id,
           title: item.title || '이름 없는 작업',
           createdAt: item.createdAt,
           updatedAt: item.updatedAt,
-          thumbnailUrl: item.thumbnailUrl || (item.videos && item.videos[0]?.thumbnailUrl),
+          thumbnailUrl: safeThumb,
           duration: item.duration || 0,
           videoCount: item.videoCount || (item.videos ? item.videos.length : 0),
           hasResult: Boolean(item.finalResult && (item.finalResult.videoBlob || item.finalResult.duration > 0)),

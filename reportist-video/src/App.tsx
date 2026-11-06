@@ -128,27 +128,42 @@ export function App() {
   // 특정 프로젝트 로드
   const handleOpenProject = async (projectId: string) => {
     try {
+      if (projectId === currentProjectId && (videos.length > 0 || finalResult)) {
+        return;
+      }
+
       const project = await getProject(projectId);
       if (!project) return;
 
       isRestoringProjectRef.current = true;
 
-      // 기존 ObjectURL 정리
-      videos.forEach((v: VideoItem) => URL.revokeObjectURL(v.url));
-      if (finalResult?.url) URL.revokeObjectURL(finalResult.url);
+      // 이전 ObjectURL 수집 (DOM 전환 후 비동기로 안전하게 해제하여 ERR_FILE_NOT_FOUND 방지)
+      const urlsToRevoke: string[] = [];
+      videos.forEach((v: VideoItem) => {
+        if (v.url && v.url.startsWith('blob:')) urlsToRevoke.push(v.url);
+      });
+      if (finalResult?.url && finalResult.url.startsWith('blob:')) {
+        urlsToRevoke.push(finalResult.url);
+      }
 
-      // 비디오 목록 복원
+      // 비디오 목록 복원 (유효한 Blob인 경우에만 ObjectURL 생성)
       const restoredVideos: VideoItem[] = (project.videos || []).map((v) => {
+        const blob = v.fileBlob;
+        const hasValidBlob = Boolean(blob instanceof Blob && blob.size > 0);
         const file =
-          v.fileBlob instanceof File
-            ? v.fileBlob
-            : v.fileBlob
-            ? new File([v.fileBlob], v.name, {
-                type: v.fileBlob.type || 'video/mp4',
+          blob instanceof File
+            ? blob
+            : blob instanceof Blob && blob.size > 0
+            ? new File([blob], v.name, {
+                type: blob.type || 'video/mp4',
                 lastModified: v.recordedTimestamp || Date.now(),
               })
             : new File([], v.name, { type: 'video/mp4' });
-        const url = URL.createObjectURL(file);
+        const url = hasValidBlob ? URL.createObjectURL(file) : '';
+        const safeThumb =
+          v.thumbnailUrl && !v.thumbnailUrl.startsWith('blob:')
+            ? v.thumbnailUrl
+            : '';
         return {
           id: v.id,
           file,
@@ -165,23 +180,32 @@ export function App() {
           latitude: v.latitude,
           longitude: v.longitude,
           locationName: v.locationName,
-          thumbnailUrl: v.thumbnailUrl,
+          thumbnailUrl: safeThumb,
         };
       });
 
-      // 최종 결과 복원
+      // 최종 결과 복원 (유효한 Blob인 경우에만 ObjectURL 생성)
       let restoredResult: FinalVideoResult | null = null;
-      if (project.finalResult && project.finalResult.videoBlob) {
-        const url = URL.createObjectURL(project.finalResult.videoBlob);
+      const finalBlob = project.finalResult?.videoBlob;
+      if (project.finalResult && finalBlob instanceof Blob && finalBlob.size > 0) {
+        const url = URL.createObjectURL(finalBlob);
+        const safeFinalThumb =
+          project.finalResult.thumbnailUrl && !project.finalResult.thumbnailUrl.startsWith('blob:')
+            ? project.finalResult.thumbnailUrl
+            : undefined;
+        const safeCleanThumb =
+          project.finalResult.cleanThumbnailUrl && !project.finalResult.cleanThumbnailUrl.startsWith('blob:')
+            ? project.finalResult.cleanThumbnailUrl
+            : undefined;
         restoredResult = {
-          blob: project.finalResult.videoBlob,
+          blob: finalBlob,
           url,
           duration: project.finalResult.duration,
           segments: project.finalResult.segments || [],
           originalTotalDuration: project.duration || 0,
           fileSize: project.finalResult.fileSize || 0,
-          thumbnailUrl: project.finalResult.thumbnailUrl,
-          cleanThumbnailUrl: project.finalResult.cleanThumbnailUrl,
+          thumbnailUrl: safeFinalThumb,
+          cleanThumbnailUrl: safeCleanThumb,
           suggestedTitle: project.finalResult.suggestedTitle,
           bestThumbnailTime: project.finalResult.bestThumbnailTime,
           bestSourceVideoId: project.finalResult.bestSourceVideoId,
@@ -234,6 +258,17 @@ export function App() {
 
       setSaveStatus('saved');
       await refreshProjectSummaries();
+
+      // 브라우저 렌더러가 새 미디어 소스로 완전히 전환한 후 이전 ObjectURL 안전하게 해제
+      if (urlsToRevoke.length > 0) {
+        setTimeout(() => {
+          urlsToRevoke.forEach((u) => {
+            try {
+              URL.revokeObjectURL(u);
+            } catch {}
+          });
+        }, 1500);
+      }
     } catch (err) {
       console.error('Failed to open project:', err);
     } finally {
@@ -245,8 +280,13 @@ export function App() {
 
   // 새 작업 시작
   const handleStartNewProject = () => {
-    videos.forEach((v: VideoItem) => URL.revokeObjectURL(v.url));
-    if (finalResult?.url) URL.revokeObjectURL(finalResult.url);
+    const urlsToRevoke: string[] = [];
+    videos.forEach((v: VideoItem) => {
+      if (v.url && v.url.startsWith('blob:')) urlsToRevoke.push(v.url);
+    });
+    if (finalResult?.url && finalResult.url.startsWith('blob:')) {
+      urlsToRevoke.push(finalResult.url);
+    }
 
     setVideos([]);
     setFinalResult(null);
@@ -257,6 +297,16 @@ export function App() {
     setCurrentBgmPresetId('none');
     setCurrentBgmVolume(0.3);
     setCurrentCustomAudio(null);
+
+    if (urlsToRevoke.length > 0) {
+      setTimeout(() => {
+        urlsToRevoke.forEach((u) => {
+          try {
+            URL.revokeObjectURL(u);
+          } catch {}
+        });
+      }, 1000);
+    }
     setCurrentProjectId(null);
     setSaveStatus('idle');
   };
@@ -313,7 +363,7 @@ export function App() {
         latitude: v.latitude,
         longitude: v.longitude,
         locationName: v.locationName,
-        thumbnailUrl: v.thumbnailUrl,
+        thumbnailUrl: v.thumbnailUrl && !v.thumbnailUrl.startsWith('blob:') ? v.thumbnailUrl : undefined,
         fileBlob: v.file,
       }));
 
@@ -324,12 +374,21 @@ export function App() {
           ? `${videos[0].name.replace(/\.[^/.]+$/, '')} ${dict.projects?.projectSuffix || '작업'}`
           : dict.projects?.newProjectTitle || '새 스튜디오 작업');
 
+      const safeFinalThumb =
+        finalResult?.thumbnailUrl && !finalResult.thumbnailUrl.startsWith('blob:')
+          ? finalResult.thumbnailUrl
+          : undefined;
+      const safeVideoThumb =
+        videos[0]?.thumbnailUrl && !videos[0].thumbnailUrl.startsWith('blob:')
+          ? videos[0].thumbnailUrl
+          : undefined;
+
       const projectData: StudioProject = {
         id: projId,
         title: projectTitle,
         createdAt: Date.now(),
         updatedAt: Date.now(),
-        thumbnailUrl: finalResult?.thumbnailUrl || videos[0]?.thumbnailUrl,
+        thumbnailUrl: safeFinalThumb || safeVideoThumb,
         duration: finalResult?.duration || videos.reduce((acc, v) => acc + (v.duration || 0), 0),
         videoCount: videos.length,
         step: finalResult ? 'result' : 'upload',
@@ -1112,10 +1171,15 @@ export function App() {
       result.bestThumbnailCleanDataUrl = finalResult?.bestThumbnailCleanDataUrl;
       result.aiThumbnailRecommendations = finalResult?.aiThumbnailRecommendations;
 
-      if (finalResult?.url) {
-        URL.revokeObjectURL(finalResult.url);
-      }
+      const oldResultUrl = finalResult?.url;
       setFinalResult(result);
+      if (oldResultUrl && oldResultUrl.startsWith('blob:')) {
+        setTimeout(() => {
+          try {
+            URL.revokeObjectURL(oldResultUrl);
+          } catch {}
+        }, 1500);
+      }
     } catch (err) {
       console.error('Re-stitching error:', err);
       setErrorMessage(err instanceof Error ? err.message : dict.logs.reStitchError);

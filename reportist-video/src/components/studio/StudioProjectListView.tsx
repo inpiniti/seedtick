@@ -37,6 +37,7 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
 }) => {
   const { dict, interpolate } = useI18n();
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [failedThumbIds, setFailedThumbIds] = useState<Set<string>>(() => new Set());
 
   // 시간 포맷팅 헬퍼 (초 -> mm:ss)
   const formatDuration = (seconds: number) => {
@@ -174,12 +175,15 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
               >
                 {/* 썸네일 영역 */}
                 <div className="toss-project-card-thumb-wrap">
-                  {proj.thumbnailUrl ? (
+                  {proj.thumbnailUrl && !failedThumbIds.has(proj.id) ? (
                     <img
                       src={proj.thumbnailUrl}
                       alt={proj.title}
                       className="toss-project-card-thumb-img"
                       loading="lazy"
+                      onError={() => {
+                        setFailedThumbIds((prev) => new Set(prev).add(proj.id));
+                      }}
                     />
                   ) : (
                     <div className="toss-project-card-thumb-placeholder">

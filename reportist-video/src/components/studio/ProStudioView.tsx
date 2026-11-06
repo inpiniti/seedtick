@@ -132,7 +132,7 @@ interface ProStudioViewProps {
   saveStatus?: 'saved' | 'saving' | 'idle';
   projectSummaries?: StudioProjectSummary[];
   isLoadingProjects?: boolean;
-  onOpenProject?: (id: string) => void;
+  onOpenProject?: (id: string) => void | Promise<void>;
   onDuplicateProject?: (id: string) => void;
   onDeleteProject?: (id: string) => void;
   onStartNewProject?: () => void;
@@ -781,6 +781,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           }
         }
       };
+      img.onerror = () => {
+        // 썸네일 이미지 로드 실패 시 조용히 스킵
+      };
       img.src = result.thumbnailUrl;
     }
 
@@ -791,8 +794,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         const targetVideo =
           videos.find((v) => v.id === result?.bestSourceVideoId) || videos[0];
 
-        // 1. 소스 비디오에서 직접 캡처 시도 (오버레이 및 문구 일체 없는 순수 원본 영상)
-        if (targetVideo?.url) {
+        // 1. 소스 비디오에서 직접 캡처 시도 (오버레이 및 문구 일체 없는 순수 원본 영상, 유효한 파일 크기일 때만)
+        if (targetVideo?.url && targetVideo.file && targetVideo.file.size > 0) {
           const targetTime =
             result?.bestThumbnailTime && result.bestThumbnailTime > 0.05
               ? result.bestThumbnailTime
@@ -897,6 +900,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   }, [result?.url, previewVideo?.url]);
 
   useEffect(() => {
+    if (videoRef.current) {
+      try {
+        videoRef.current.pause();
+      } catch {}
+    }
     setCurrentTime(0);
     setIsPlaying(false);
     setPreviewNativeDuration(0);
@@ -1865,9 +1873,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           projects={projectSummaries}
           currentProjectId={currentProjectId || null}
           isLoading={isLoadingProjects}
-          onOpenProject={(id) => {
-            onOpenProject?.(id);
-            setActiveTab('studio');
+          onOpenProject={async (id) => {
+            try {
+              await onOpenProject?.(id);
+            } finally {
+              setActiveTab('studio');
+            }
           }}
           onDuplicateProject={(id) => onDuplicateProject?.(id)}
           onDeleteProject={(id) => onDeleteProject?.(id)}

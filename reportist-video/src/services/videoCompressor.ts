@@ -173,7 +173,7 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
           duration: 3.5,
           width,
           height,
-          thumbnailUrl: objectUrl,
+          thumbnailUrl: '',
         });
       };
       img.onerror = () => {
