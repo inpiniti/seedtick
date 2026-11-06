@@ -8170,9 +8170,12 @@
    ========================================================================== */
 
 .toss-projects-view-container {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
+  max-width: none;
+  margin: 0;
   padding: 24px 20px 48px;
   display: flex;
   flex-direction: column;
