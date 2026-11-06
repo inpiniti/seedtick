@@ -8176,10 +8176,10 @@
   width: 100%;
   max-width: none;
   margin: 0;
-  padding: 24px 20px 48px;
+  padding: 24px 16px 48px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 14px;
   box-sizing: border-box;
 }
 
@@ -8260,11 +8260,42 @@
   box-shadow: 0 2px 6px rgba(49, 130, 246, 0.25);
 }
 
-/* 프로젝트 그리드 */
-.toss-projects-grid {
+/* 프로젝트 그리드 (영상 공유와 동일한 5·4·3·2·1 반응형 그리드) */
+.toss-projects-grid,
+.toss-projects-loading-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (min-width: 640px) {
+  .toss-projects-grid,
+  .toss-projects-loading-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 960px) {
+  .toss-projects-grid,
+  .toss-projects-loading-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .toss-projects-grid,
+  .toss-projects-loading-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1600px) {
+  .toss-projects-grid,
+  .toss-projects-loading-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
 }
 
 .toss-project-card {
@@ -8517,12 +8548,6 @@
 }
 
 /* 로딩 스켈레톤 */
-.toss-projects-loading-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-  gap: 20px;
-}
-
 .toss-project-skeleton-card {
   background-color: #ffffff;
   border: 1px solid #e2e8f0;
@@ -8689,17 +8714,18 @@
 
 @media (max-width: 640px) {
   .toss-projects-view-container {
-    padding: 16px 14px 40px;
-    gap: 18px;
+    padding: 16px 12px 40px;
+    gap: 12px;
   }
 
   .toss-projects-title {
     font-size: 20px;
   }
 
-  .toss-projects-grid {
+  .toss-projects-grid,
+  .toss-projects-loading-grid {
     grid-template-columns: 1fr;
-    gap: 14px;
+    gap: 12px;
   }
 }
 
