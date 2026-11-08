@@ -11,6 +11,7 @@ import {
   evaluateChapterBridge,
   type ChapterBridgeTransitionInfo,
 } from './hyperframesBridgeRenderer.ts';
+import { isWebCodecsSupported, stitchVideosWebCodecs } from './videoStitcherWebCodecs.ts';
 
 export interface StitchVideosParams {
   videos: VideoItem[];
@@ -249,6 +250,27 @@ export async function stitchHighlightedSegments({
 }: StitchVideosParams): Promise<FinalVideoResult> {
   if (allSegments.length === 0) {
     throw new Error('이어붙일 하이라이트 구간이 없습니다.');
+  }
+
+  // 0. 최신 브라우저: GPU 하드웨어 가속(WebCodecs 60fps 무결점) 렌더러 우선 시도
+  if (isWebCodecsSupported()) {
+    try {
+      return await stitchVideosWebCodecs({
+        videos,
+        allSegments,
+        onProgress,
+        onLog,
+        signal,
+        bgmPresetId,
+        bgmVolume,
+        customAudioFile,
+        overlayOptions,
+      });
+    } catch (webCodecsErr) {
+      if (signal?.aborted) throw webCodecsErr;
+      console.warn('[VideoStitcher] WebCodecs GPU 렌더러 오류, MediaRecorder 모드로 폴백합니다:', webCodecsErr);
+      onLog?.('GPU 렌더링 중 호환성 문제가 감지되어 표준 렌더러로 자동 전환합니다.');
+    }
   }
 
   // 모바일 Safari/WebKit의 하드웨어 비디오 디코더 단일 인스턴스 잠금 방지:
