@@ -35,6 +35,11 @@ export function isWebCodecsSupported(): boolean {
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+const IS_MOBILE =
+  typeof navigator !== 'undefined' &&
+  (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
 // 비디오 시크 헬퍼
 function seekVideoElement(video: HTMLVideoElement, time: number, timeoutMs = 8000): Promise<boolean> {
   return new Promise((resolve) => {
@@ -149,12 +154,31 @@ export async function stitchVideosWebCodecs({
     throw new Error('이어붙일 하이라이트 구간이 없습니다.');
   }
 
-  onLog?.('🚀 WebCodecs GPU 하드웨어 가속 비디오 렌더러를 시작합니다 (60fps 무결점 모드)');
+  // 모바일/아이폰은 배터리 및 하드웨어 디코더 부하를 줄이고 인코딩 속도를 2배 단축하기 위해 30fps 적용, 데스크탑은 60fps 고주사율 유지
+  const targetFps = IS_MOBILE ? 30 : 60;
+  const targetBitrate = IS_MOBILE ? 4_500_000 : 10_000_000;
+  const frameDurationMicros = Math.round(1_000_000 / targetFps);
+  const queueFlushThreshold = IS_MOBILE ? 6 : 12;
+
+  onLog?.(
+    `🚀 WebCodecs GPU 하드웨어 가속 비디오 렌더러 시작 (${targetFps}fps · ${
+      IS_MOBILE ? '모바일 전력/메모리 최적화 모드' : '데스크탑 60fps 최고화질 모드'
+    })`
+  );
+
+  // 모바일 병합 중 화면 꺼짐 방지 (Screen Wake Lock)
+  let wakeLock: WakeLockSentinel | null = null;
+  try {
+    const nav = navigator as Navigator & {
+      wakeLock?: { request: (type: 'screen') => Promise<WakeLockSentinel> };
+    };
+    if (nav.wakeLock?.request) {
+      wakeLock = await nav.wakeLock.request('screen');
+    }
+  } catch {}
 
   const targetWidth = 1280;
   const targetHeight = 720;
-  const targetFps = 60;
-  const frameDurationMicros = Math.round(1_000_000 / targetFps); // ~16,666 µs
 
   // 1. 비디오 맵 구성
   const videoMap = new Map<string, VideoItem>();
@@ -428,13 +452,13 @@ export async function stitchVideosWebCodecs({
     },
   });
 
-  // 고품질 60fps H.264 하드웨어 가속 설정
+  // 고품질 H.264 하드웨어 가속 설정
   // avc1.640028 (High Profile Level 4.0, 1080p/720p 60fps 지원)
   const videoEncoderConfig: VideoEncoderConfig = {
     codec: 'avc1.640028',
     width: targetWidth,
     height: targetHeight,
-    bitrate: 10_000_000, // 10Mbps 고화질
+    bitrate: targetBitrate,
     framerate: targetFps,
     hardwareAcceleration: 'prefer-hardware',
     avc: { format: 'avc' },
@@ -444,7 +468,7 @@ export async function stitchVideosWebCodecs({
   const support = await VideoEncoder.isConfigSupported(videoEncoderConfig);
   if (!support.supported) {
     videoEncoderConfig.codec = 'avc1.42001f'; // Baseline 3.1
-    videoEncoderConfig.bitrate = 6_000_000;
+    videoEncoderConfig.bitrate = Math.min(targetBitrate, 5_000_000);
   }
   videoEncoder.configure(videoEncoderConfig);
 
@@ -494,8 +518,8 @@ export async function stitchVideosWebCodecs({
     totalFramesEncoded++;
     currentTimestampMicros += frameDurationMicros;
 
-    // 인코더 백프레셔 제어: 큐가 쌓이면 잠시 비워줌
-    if (videoEncoder.encodeQueueSize > 12) {
+    // 인코더 백프레셔 제어: 큐가 쌓이면 잠시 비워줌 (모바일 메모리 보호)
+    if (videoEncoder.encodeQueueSize > queueFlushThreshold) {
       await videoEncoder.flush();
     }
   };
@@ -803,9 +827,9 @@ export async function stitchVideosWebCodecs({
     const originalTotalDuration = videos.reduce((sum, v) => sum + v.duration, 0);
 
     onLog?.(
-      `🎉 GPU 하드웨어 가속 병합 완료: ${(finalBlob.size / (1024 * 1024)).toFixed(1)}MB · ${totalFramesEncoded}프레임 (60fps 무결점)`
+      `🎉 GPU 하드웨어 가속 병합 완료: ${(finalBlob.size / (1024 * 1024)).toFixed(1)}MB · ${totalFramesEncoded}프레임 (${targetFps}fps 무결점)`
     );
-    onProgress?.(100, '60fps 초고화질 하이라이트 영상이 완성되었습니다!');
+    onProgress?.(100, `${targetFps}fps 초고화질 하이라이트 영상이 완성되었습니다!`);
 
     return {
       blob: finalBlob,
@@ -820,6 +844,10 @@ export async function stitchVideosWebCodecs({
     };
   } finally {
     try {
+      if (wakeLock) {
+        void wakeLock.release().catch(() => {});
+        wakeLock = null;
+      }
       bridgeController.dispose();
       workerVideo.remove();
     } catch {}
