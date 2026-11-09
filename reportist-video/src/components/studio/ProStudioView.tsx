@@ -4087,26 +4087,29 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
             {/* 완성 영상 다운로드 및 유튜브 호환 자막 다운로드 */}
             {isSequenceMode && (
-              <div className="flex flex-col gap-2">
+              <div className="toss-timeline-actions-wrap">
                 <div className="toss-timeline-actions">
-                  {/* 720p / 1080p 해상도 선택 토글 */}
-                  <div className="toss-resolution-selector" role="radiogroup" aria-label="Export Resolution">
+                  {/* 720p / 1080p 해상도 세그먼트 토글 컨트롤 */}
+                  <div className="toss-timeline-res-control" role="radiogroup" aria-label="Export Resolution">
                     <button
                       type="button"
+                      role="radio"
+                      aria-checked={exportResolution === '720p'}
                       onClick={() => setExportResolution('720p')}
-                      className={`toss-resolution-btn ${exportResolution === '720p' ? 'active' : ''}`}
+                      className={`toss-res-compact-btn ${exportResolution === '720p' ? 'active' : ''}`}
                       title={dict.exportSettings?.res720pDesc || '720p HD (빠르고 안정적)'}
                     >
-                      <span>720p</span>
+                      720p
                     </button>
                     <button
                       type="button"
+                      role="radio"
+                      aria-checked={exportResolution === '1080p'}
                       onClick={() => setExportResolution('1080p')}
-                      className={`toss-resolution-btn ${exportResolution === '1080p' ? 'active' : ''}`}
+                      className={`toss-res-compact-btn ${exportResolution === '1080p' ? 'active' : ''}`}
                       title={dict.exportSettings?.res1080pDesc || '1080p FHD (선명한 고화질)'}
                     >
-                      <span>1080p</span>
-                      <span className="toss-resolution-badge">FHD</span>
+                      1080p
                     </button>
                   </div>
 
@@ -4137,8 +4140,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 </div>
 
                 {isMobileDevice && exportResolution === '1080p' && (
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50/90 border border-amber-200/80 rounded-xl text-[11px] text-amber-800">
-                    <AlertTriangle size={13} className="text-amber-600 shrink-0" />
+                  <div className="toss-timeline-res-warning">
+                    <AlertTriangle size={13} className="shrink-0" />
                     <span>
                       {dict.exportSettings?.mobileWarning ||
                         '모바일 기기에서는 영상 길이에 따라 브라우저 메모리 부족으로 튕길 수 있어요.'}
@@ -5175,7 +5178,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <div className="toss-card-header">
               <div>
                 <h4 className="toss-card-title">
-                  <Film size={15} className="text-blue-600 shrink-0" />
+                  <Film size={15} className="toss-card-title-icon" />
                   <span>{dict.exportSettings?.cardTitle || '내보내기 화질'}</span>
                 </h4>
                 <p className="toss-card-desc">
@@ -5187,56 +5190,52 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 mt-3">
+            <div className="toss-studio-res-grid">
               <button
                 type="button"
+                role="radio"
+                aria-checked={exportResolution === '720p'}
                 onClick={() => setExportResolution('720p')}
-                className={`p-3 rounded-xl border text-left transition-all ${
-                  exportResolution === '720p'
-                    ? 'border-blue-500 bg-blue-50/70 text-blue-900 shadow-sm'
-                    : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
-                }`}
+                className={`toss-studio-res-btn ${exportResolution === '720p' ? 'active' : ''}`}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold font-mono">720p HD</span>
-                  {exportResolution === '720p' && (
-                    <span className="w-2 h-2 rounded-full bg-blue-600" />
-                  )}
+                <div className="toss-studio-res-btn-top">
+                  <span className="toss-studio-res-btn-title">720p HD</span>
+                  <div className={`toss-studio-res-radio ${exportResolution === '720p' ? 'active' : ''}`}>
+                    {exportResolution === '720p' && <div className="toss-studio-res-radio-dot" />}
+                  </div>
                 </div>
-                <span className="text-[11px] text-slate-500 leading-tight block">
+                <span className="toss-studio-res-btn-desc">
                   {dict.exportSettings?.res720pDesc || '빠르고 안정적인 렌더링'}
                 </span>
               </button>
 
               <button
                 type="button"
+                role="radio"
+                aria-checked={exportResolution === '1080p'}
                 onClick={() => setExportResolution('1080p')}
-                className={`p-3 rounded-xl border text-left transition-all ${
-                  exportResolution === '1080p'
-                    ? 'border-blue-500 bg-blue-50/70 text-blue-900 shadow-sm'
-                    : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
-                }`}
+                className={`toss-studio-res-btn ${exportResolution === '1080p' ? 'active' : ''}`}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-bold font-mono">1080p FHD</span>
-                    <span className="text-[9px] font-semibold px-1 py-0.5 bg-blue-100 text-blue-700 rounded">
+                <div className="toss-studio-res-btn-top">
+                  <div className="toss-studio-res-title-wrap">
+                    <span className="toss-studio-res-btn-title">1080p FHD</span>
+                    <span className="toss-modal-res-subbadge desktop">
                       {dict.exportSettings?.desktopRecommended || '권장'}
                     </span>
                   </div>
-                  {exportResolution === '1080p' && (
-                    <span className="w-2 h-2 rounded-full bg-blue-600" />
-                  )}
+                  <div className={`toss-studio-res-radio ${exportResolution === '1080p' ? 'active' : ''}`}>
+                    {exportResolution === '1080p' && <div className="toss-studio-res-radio-dot" />}
+                  </div>
                 </div>
-                <span className="text-[11px] text-slate-500 leading-tight block">
+                <span className="toss-studio-res-btn-desc">
                   {dict.exportSettings?.res1080pDesc || '선명하고 또렷한 고해상도'}
                 </span>
               </button>
             </div>
 
             {isMobileDevice && exportResolution === '1080p' && (
-              <div className="flex items-start gap-1.5 mt-2.5 p-2 bg-amber-50/90 border border-amber-200/80 rounded-xl text-[11px] text-amber-800 leading-snug">
-                <AlertTriangle size={13} className="text-amber-600 shrink-0 mt-0.5" />
+              <div className="toss-res-warning">
+                <AlertTriangle size={14} className="toss-res-warning-icon" />
                 <span>
                   {dict.exportSettings?.mobileWarning ||
                     '모바일 기기 사양이나 영상 길이에 따라 브라우저 메모리 부족으로 튕길 수 있어요.'}

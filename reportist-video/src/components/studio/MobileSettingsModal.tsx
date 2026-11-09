@@ -516,68 +516,69 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
           {/* Group: 내보내기 화질 설정 (해상도) */}
           <div className="settings-modal-group">
             <span className="settings-modal-group-title">
-              {dict.settingsModal?.resolutionSection || '내보내기 영상 화질'}
+              {dict.settingsModal?.resolutionSection || '내보내기 영상 화질 (해상도)'}
             </span>
-            <div className="settings-modal-card-box p-3">
-              <div className="flex flex-col gap-2.5">
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => onSelectResolution?.('720p')}
-                    className={`flex flex-col items-start p-2.5 rounded-xl border text-left transition-all ${
-                      selectedResolution === '720p'
-                        ? 'border-blue-500 bg-blue-50/80 text-blue-900 shadow-sm'
-                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between w-full mb-1">
-                      <span className="text-xs font-bold font-mono">720p HD</span>
-                      {selectedResolution === '720p' && (
-                        <span className="w-2 h-2 rounded-full bg-blue-600" />
-                      )}
+            <div className="settings-modal-card-box toss-modal-res-box">
+              <div className="toss-modal-res-list" role="radiogroup" aria-label="Export Resolution">
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={selectedResolution === '720p'}
+                  onClick={() => onSelectResolution?.('720p')}
+                  className={`toss-modal-res-item ${selectedResolution === '720p' ? 'active' : ''}`}
+                >
+                  <div className="toss-modal-res-item-left">
+                    <div className="toss-modal-res-radio">
+                      {selectedResolution === '720p' && <div className="toss-modal-res-radio-dot" />}
                     </div>
-                    <span className="text-[11px] text-slate-500 leading-tight">
-                      {dict.settingsModal?.resolution720pDesc || '빠르고 안정적인 렌더링'}
-                    </span>
-                  </button>
+                    <div className="toss-modal-res-content">
+                      <div className="toss-modal-res-title-row">
+                        <span className="toss-modal-res-title">720p HD</span>
+                        <span className="toss-modal-res-subbadge standard">기본</span>
+                      </div>
+                      <div className="toss-modal-res-desc">
+                        {dict.settingsModal?.resolution720pDesc || '인코딩이 빠르고 모든 기기에서 안정적이에요'}
+                      </div>
+                    </div>
+                  </div>
+                </button>
 
-                  <button
-                    type="button"
-                    onClick={() => onSelectResolution?.('1080p')}
-                    className={`flex flex-col items-start p-2.5 rounded-xl border text-left transition-all ${
-                      selectedResolution === '1080p'
-                        ? 'border-blue-500 bg-blue-50/80 text-blue-900 shadow-sm'
-                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between w-full mb-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-bold font-mono">1080p FHD</span>
-                        <span className="text-[9px] font-semibold px-1 py-0.5 bg-blue-100 text-blue-700 rounded">
-                          {dict.settingsModal?.resolutionDesktopBadge || '고화질'}
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={selectedResolution === '1080p'}
+                  onClick={() => onSelectResolution?.('1080p')}
+                  className={`toss-modal-res-item ${selectedResolution === '1080p' ? 'active' : ''}`}
+                >
+                  <div className="toss-modal-res-item-left">
+                    <div className="toss-modal-res-radio">
+                      {selectedResolution === '1080p' && <div className="toss-modal-res-radio-dot" />}
+                    </div>
+                    <div className="toss-modal-res-content">
+                      <div className="toss-modal-res-title-row">
+                        <span className="toss-modal-res-title">1080p FHD</span>
+                        <span className="toss-modal-res-subbadge desktop">
+                          {dict.settingsModal?.resolutionDesktopBadge || '데스크탑 권장'}
                         </span>
                       </div>
-                      {selectedResolution === '1080p' && (
-                        <span className="w-2 h-2 rounded-full bg-blue-600" />
-                      )}
+                      <div className="toss-modal-res-desc">
+                        {dict.settingsModal?.resolution1080pDesc || '더 선명하고 또렷한 고해상도로 내보내요'}
+                      </div>
                     </div>
-                    <span className="text-[11px] text-slate-500 leading-tight">
-                      {dict.settingsModal?.resolution1080pDesc || '선명한 고해상도'}
-                    </span>
-                  </button>
-                </div>
-
-                {/* 모바일 1080p 선택 시 경고 안내 */}
-                {selectedResolution === '1080p' && (
-                  <div className="flex items-start gap-1.5 p-2 bg-amber-50/90 border border-amber-200/80 rounded-lg text-[11px] text-amber-800 leading-snug">
-                    <AlertTriangle size={13} className="text-amber-600 shrink-0 mt-0.5" />
-                    <span>
-                      {dict.settingsModal?.resolutionMobileWarning ||
-                        '모바일 기기에서는 영상 길이에 따라 브라우저 메모리 부족으로 튕길 수 있어요.'}
-                    </span>
                   </div>
-                )}
+                </button>
               </div>
+
+              {/* 모바일 1080p 선택 시 경고 안내 */}
+              {selectedResolution === '1080p' && (
+                <div className="toss-modal-res-warning">
+                  <AlertTriangle size={15} className="toss-modal-res-warning-icon" />
+                  <span className="toss-modal-res-warning-text">
+                    {dict.settingsModal?.resolutionMobileWarning ||
+                      '모바일 기기에서는 영상 길이에 따라 브라우저 메모리 부족으로 튕길 수 있어요.'}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
