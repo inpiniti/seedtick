@@ -746,6 +746,19 @@ export function App() {
     const updatedVideos = [...readyVideos];
     const logs: string[] = [];
 
+    // 진행율 완전 초기화 (이전 실행 결과로 인한 99%/100% 잔여값 방지)
+    setProgress({
+      step: 'processing',
+      currentPhase: 'extract',
+      currentVideoIndex: 0,
+      totalVideos,
+      progressPercent: 0,
+      statusMessage: `${1}/${totalVideos} [${readyVideos[0]?.name || ''}] ${dict.header.analyzingAi}...`,
+      reasoningLogs: [],
+      liveReasoning: '',
+      liveContent: '',
+    });
+
     const addLog = (msg: string) => {
       const time = new Date().toTimeString().slice(0, 8);
       const logEntry = `[${time}] ${msg}`;
@@ -812,9 +825,9 @@ export function App() {
       rotation?: number;
     }> = [];
 
-    // 전체 AI 분석 상한선 (88%까지 끊김 없이 연속 전진, 88%~99%는 최종 병합)
-    const MAX_ANALYSIS_PCT = 88;
-    // 전체 진행률을 단일 강물(Stream)처럼 공유 관리하여 어떤 구간에서도 멈추지 않음
+    // 1/N 균등 분할 진행율 엔진:
+    // N개 영상일 때 각 영상은 정확히 1/N씩 균등 분할
+    // (예: 3개 영상이면 1번 0%~33%, 2번 33%~66%, 3번 66%~99% -> 최종 완료 시 100%)
     let globalRunningPct = 0;
 
     try {
@@ -824,23 +837,36 @@ export function App() {
 
         const currentVideo = updatedVideos[i];
 
+        // 1/N 균등 분할 구간 계산 (예: 3개 영상 기준 0~33%, 33~66%, 66~100%)
+        const videoStartPct = Math.floor((i / totalVideos) * 100);
+        const videoEndPct = Math.floor(((i + 1) / totalVideos) * 100);
+        const isLastVideo = i === totalVideos - 1;
+        // AI 분석 중 도달할 수 있는 상한선 (완료 전 다음 영상 구간으로 넘치지 않도록 제한)
+        const videoMaxAnalysisPct = isLastVideo ? 99 : Math.max(videoStartPct, videoEndPct - 1);
+        const videoRange = Math.max(1, videoEndPct - videoStartPct);
+        const extractSlice = Math.max(1, videoRange * 0.15); // 프레임 추출에 해당 영상 지분의 15% 배정
+
         if (currentVideo.status === 'analyzed' && currentVideo.segments && currentVideo.segments.length > 0) {
           addLog(interpolate(dict.logs.reusingSegments, { name: currentVideo.name, count: currentVideo.segments.length }));
+          globalRunningPct = Math.max(globalRunningPct, isLastVideo ? 99 : videoEndPct);
+          setProgress((prev) => ({
+            ...prev,
+            currentVideoIndex: i,
+            progressPercent: Math.floor(globalRunningPct),
+          }));
           continue;
         }
 
-        // 해당 영상의 명목상 목표치 (예: 3개 영상이면 1번 29%, 2번 58%, 3번 88%)
-        const nominalTargetPct = Math.round(((i + 1) / totalVideos) * MAX_ANALYSIS_PCT);
-
         // 1-A. 주요 프레임 다중 이미지 추출
         resetLiveStream();
+        globalRunningPct = Math.max(globalRunningPct, videoStartPct);
         setProgress((prev) => ({
           ...prev,
           step: 'processing',
           currentPhase: 'extract',
           currentVideoIndex: i,
           totalVideos,
-          progressPercent: Math.min(99, Math.max(prev.progressPercent, Math.floor(globalRunningPct))),
+          progressPercent: Math.floor(globalRunningPct),
           statusMessage: interpolate(dict.logs.statusExtracting, {
             index: i + 1,
             total: totalVideos,
@@ -860,16 +886,17 @@ export function App() {
           currentVideo.duration,
           (pct) => {
             if (signal.aborted) return;
-            // 프레임 추출 중에도 미세하게 전진 (최대 1.5% 전진)
-            const extractVisualPct = globalRunningPct + (pct / 100) * 1.5;
+            // 프레임 추출 중에도 1/N 구간 내에서 미세 전진
+            const extractVisualPct = videoStartPct + (pct / 100) * extractSlice;
+            globalRunningPct = Math.max(globalRunningPct, Math.min(videoMaxAnalysisPct, extractVisualPct));
             setProgress((prev) => ({
               ...prev,
-              progressPercent: Math.min(99, Math.max(prev.progressPercent, Math.floor(extractVisualPct))),
+              progressPercent: Math.floor(globalRunningPct),
             }));
           }
         );
 
-        globalRunningPct = Math.max(globalRunningPct, globalRunningPct + 1.2);
+        globalRunningPct = Math.max(globalRunningPct, videoStartPct + extractSlice);
 
         addLog(interpolate(dict.logs.framesExtracted, {
           name: currentVideo.name,
@@ -879,7 +906,7 @@ export function App() {
         resetLiveStream();
 
         // 1-B. AI Gateway 다중 프레임 분석
-        // [멈춤 제로(Zero-Freeze) & 가짜 최저 속도 보장 엔진]: AI 추론이 길어져도 숫자가 절대 멈추지 않음
+        // [멈춤 제로(Zero-Freeze) & 가짜 최저 속도 보장 엔진]: AI 추론이 길어져도 1/N 구간 내에서 숫자가 절대 멈추지 않음
         const analyzeStartTime = Date.now();
 
         const updateAnalyzeProgress = (bonus = 0) => {
@@ -887,18 +914,17 @@ export function App() {
           const elapsedSec = (Date.now() - analyzeStartTime) / 1000;
           const totalChars = (liveReasoning?.length || 0) + (liveContent?.length || 0);
 
-          // 남은 전체 여유 거리 (최대 88%까지)
-          const remainingToMax = Math.max(0, MAX_ANALYSIS_PCT - globalRunningPct);
+          // 해당 영상의 AI 분석 여유 거리
+          const remainingToMax = Math.max(0, videoMaxAnalysisPct - globalRunningPct);
 
-          // 기본 전진 스텝: 남은 거리에 비례 (제논 점근)
-          // + 가짜 최저 속도 보장: 100ms당 최소 0.035% (초당 ~0.35%, 약 2.8초에 1%씩 무조건 전진)
-          const adaptiveStep = Math.max(0.035, remainingToMax * 0.0025);
+          // 기본 전진 스텝: 남은 거리에 비례 (제논 점근) + 100ms당 최소 0.02% 보장
+          const adaptiveStep = Math.max(0.02, remainingToMax * 0.0035);
 
-          if (globalRunningPct < MAX_ANALYSIS_PCT - 0.2) {
-            globalRunningPct = Math.min(MAX_ANALYSIS_PCT - 0.1, globalRunningPct + adaptiveStep + bonus);
+          if (globalRunningPct < videoMaxAnalysisPct - 0.2) {
+            globalRunningPct = Math.min(videoMaxAnalysisPct - 0.1, globalRunningPct + adaptiveStep + bonus);
           } else {
-            // 88% 직전 도달 시 극초미세 전진
-            globalRunningPct = Math.min(MAX_ANALYSIS_PCT - 0.02, globalRunningPct + 0.002);
+            // 상한선 직전 극초미세 전진
+            globalRunningPct = Math.min(videoMaxAnalysisPct, globalRunningPct + 0.002);
           }
 
           const currentIntPct = Math.floor(globalRunningPct);
@@ -909,7 +935,7 @@ export function App() {
             if (elapsedSec < 8) dynamicStageText = '핵심 프레임 시각적 요소 분석 중';
             else if (elapsedSec < 18) dynamicStageText = '가장 극적인 클라이맥스 순간 탐색 중';
             else if (elapsedSec < 32) dynamicStageText = '인물 표정 및 하이라이트 감정선 분석 중';
-            else if (elapsedSec < 48) dynamicStageText = '16:9 시네마틱 구도 및 최적 컷팅 계산 중';
+            else if (elapsedSec < 48) dynamicStageText = '16:9 시네마틱 구도 및 최적 커팅 계산 중';
             else dynamicStageText = '베스트 하이라이트 구간 최종 정리 중';
           } else if (locale === 'ja') {
             if (elapsedSec < 8) dynamicStageText = '重要フレームの視覚要素を分析中';
@@ -937,7 +963,7 @@ export function App() {
 
           setProgress((prev) => ({
             ...prev,
-            progressPercent: Math.min(99, Math.max(prev.progressPercent, currentIntPct)),
+            progressPercent: currentIntPct,
             statusMessage: statusMsg,
           }));
         };
@@ -948,7 +974,7 @@ export function App() {
           currentPhase: 'analyze',
           currentVideoIndex: i,
           totalVideos,
-          progressPercent: Math.min(99, Math.max(prev.progressPercent, Math.floor(globalRunningPct))),
+          progressPercent: Math.floor(globalRunningPct),
           statusMessage: `${i + 1}/${totalVideos} [${currentVideo.name}] ${dict.header.analyzingAi}... (0${locale === 'ko' ? '초' : locale === 'ja' ? '秒' : 's'})`,
           reasoningLogs: [...logs],
         }));
@@ -1000,11 +1026,11 @@ export function App() {
           window.clearInterval(analyzeSmoothTimer);
         }
 
-        // 해당 영상 분석 성공 완료 시: 최소 목표치(nominalTargetPct)와 현재치 중 큰 값으로 안전하게 진입
-        globalRunningPct = Math.max(globalRunningPct, nominalTargetPct);
+        // 해당 영상 분석 성공 완료 시: 1/N 목표치(videoEndPct)로 진입 (마지막 영상은 99% 유지)
+        globalRunningPct = Math.max(globalRunningPct, isLastVideo ? 99 : videoEndPct);
         setProgress((prev) => ({
           ...prev,
-          progressPercent: Math.min(99, Math.max(prev.progressPercent, Math.floor(globalRunningPct))),
+          progressPercent: Math.floor(globalRunningPct),
         }));
 
         flushLiveStream();
@@ -1261,14 +1287,19 @@ export function App() {
         window.clearTimeout(liveFlushTimer);
         liveFlushTimer = null;
       }
+      setProgress((prev) => ({
+        ...prev,
+        progressPercent: 0,
+        statusMessage: '',
+      }));
       if (signal.aborted) {
         console.info('Processing cancelled by user.');
-        setCurrentStep('upload');
+        setCurrentStep(finalResult ? 'result' : 'upload');
       } else {
         const msg = err instanceof Error ? err.message : dict.logs.genericError;
         console.error('Processing error:', err);
         setErrorMessage(msg);
-        setCurrentStep('upload');
+        setCurrentStep(finalResult ? 'result' : 'upload');
       }
     }
   };
@@ -1356,7 +1387,14 @@ export function App() {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
-    setCurrentStep('upload');
+    setProgress((prev) => ({
+      ...prev,
+      progressPercent: 0,
+      statusMessage: '',
+      liveReasoning: '',
+      liveContent: '',
+    }));
+    setCurrentStep(finalResult ? 'result' : 'upload');
   };
 
   // 새로 만들기 리셋
