@@ -51,13 +51,19 @@ function formatIntelligence(value?: number | null): string {
 }
 
 function formatSpeed(value?: number | null): string {
-  if (value == null || !Number.isFinite(value)) return '—';
+  if (value == null || !Number.isFinite(value) || value <= 0) return '—';
   return Math.round(value).toLocaleString();
 }
 
 function formatLatency(value?: number | null): string {
-  if (value == null || !Number.isFinite(value)) return '—';
-  return (value / 1000).toFixed(2);
+  if (value == null || !Number.isFinite(value) || value <= 0) return '—';
+  const sec = value / 1000;
+  if (sec >= 10) return sec.toFixed(1);
+  if (sec >= 1) {
+    const formatted = sec.toFixed(2);
+    return formatted.endsWith('0') ? sec.toFixed(1) : formatted;
+  }
+  return sec.toFixed(2);
 }
 
 export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
@@ -472,7 +478,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                       </div>
                       <div className="model-modal-metric-value">
                         <strong>{formatSpeed(model.speedTokensPerSecond)}</strong>
-                        <span>{model.speedTokensPerSecond != null ? dict.modelModal.speedUnit : '—'}</span>
+                        <span>{model.speedTokensPerSecond != null && model.speedTokensPerSecond > 0 ? dict.modelModal.speedUnit : '—'}</span>
                       </div>
                     </div>
 
@@ -483,13 +489,13 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                       </div>
                       <div className="model-modal-metric-value">
                         <strong>{formatLatency(model.latencyMs)}</strong>
-                        <span>{model.latencyMs != null ? dict.modelModal.ttftUnit : '—'}</span>
+                        <span>{model.latencyMs != null && model.latencyMs > 0 ? dict.modelModal.ttftUnit : '—'}</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Speed bar */}
-                  {model.speedTokensPerSecond != null && (
+                  {model.speedTokensPerSecond != null && model.speedTokensPerSecond > 0 && (
                     <div className="model-modal-speed-row">
                       <div className="model-modal-speed-track">
                         <div
