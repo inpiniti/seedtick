@@ -2455,7 +2455,9 @@
 }
 
 .toss-player-stage.is-fullscreen .toss-video-element,
-.toss-player-stage:fullscreen .toss-video-element {
+.toss-player-stage:fullscreen .toss-video-element,
+.toss-player-stage.is-fullscreen .toss-video-canvas,
+.toss-player-stage:fullscreen .toss-video-canvas {
   width: 100%;
   height: 100%;
   object-fit: contain;
@@ -2583,12 +2585,14 @@
   background-color: #f0f7ff;
 }
 
-.toss-video-element {
+.toss-video-element,
+.toss-video-canvas {
   width: 100%;
   height: 100%;
   object-fit: contain;
   background: #000000;
   cursor: pointer;
+  display: block;
 }
 
 .toss-canvas-play-overlay {

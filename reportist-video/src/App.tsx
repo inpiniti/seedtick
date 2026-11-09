@@ -17,6 +17,7 @@ import {
   extractGpsFromVideoFile,
 } from './services/videoMetadata.ts';
 import { primeAudioContext, stitchHighlightedSegments } from './services/videoStitcher.ts';
+import { computeBridgeDurationMap } from './services/hyperframesBridgeRenderer.ts';
 import { captureVideoFrameAtTime, createCanvasFromImageDataUrl, renderThumbnailArtwork } from './services/thumbnailGenerator.ts';
 import type { FreeModelMeta, ReasoningEffortOption } from './types/gateway.ts';
 import type {
@@ -188,11 +189,15 @@ export function App() {
         };
       });
 
-      // 최종 결과 복원 (유효한 Blob인 경우에만 ObjectURL 생성)
+      // 최종 결과 복원 (실시간 타임라인 편집 모드: 세그먼트가 있거나 유효한 Blob인 경우 복원)
       let restoredResult: FinalVideoResult | null = null;
       const finalBlob = project.finalResult?.videoBlob;
-      if (project.finalResult && finalBlob instanceof Blob && finalBlob.size > 0) {
-        const url = URL.createObjectURL(finalBlob);
+      const hasValidFinalBlob = Boolean(finalBlob instanceof Blob && finalBlob.size > 0);
+      const hasSegments = Boolean(
+        project.finalResult?.segments && project.finalResult.segments.length > 0
+      );
+      if (project.finalResult && (hasValidFinalBlob || hasSegments)) {
+        const url = hasValidFinalBlob && finalBlob ? URL.createObjectURL(finalBlob) : '';
         const safeFinalThumb =
           project.finalResult.thumbnailUrl && !project.finalResult.thumbnailUrl.startsWith('blob:')
             ? project.finalResult.thumbnailUrl
@@ -202,7 +207,7 @@ export function App() {
             ? project.finalResult.cleanThumbnailUrl
             : undefined;
         restoredResult = {
-          blob: finalBlob,
+          blob: hasValidFinalBlob && finalBlob ? finalBlob : new Blob([]),
           url,
           duration: project.finalResult.duration,
           segments: project.finalResult.segments || [],
@@ -1073,7 +1078,7 @@ export function App() {
         });
       }
 
-      // 2. 구간 컷 & 16:9 병합 단계
+      // 2. 실시간 타임라인 시퀀스 구성 (초기 인코딩 없이 즉시 실시간 프리뷰 진입)
       const allSegments = updatedVideos.flatMap((v) => v.segments);
       if (allSegments.length === 0) {
         throw new Error(dict.logs.noClimaxFound);
@@ -1108,42 +1113,19 @@ export function App() {
         }
       }
 
-      addLog(interpolate(dict.logs.stitchingStart, { count: allSegments.length }));
-
-      globalRunningPct = Math.max(globalRunningPct, 88);
-      setProgress({
+      // 3. 16:9 유튜브 고화질 썸네일 자동 생성
+      globalRunningPct = Math.max(globalRunningPct, 94);
+      setProgress((prev) => ({
+        ...prev,
         step: 'processing',
-        currentPhase: 'stitch',
+        currentPhase: 'analyze',
         currentVideoIndex: totalVideos - 1,
         totalVideos,
         progressPercent: Math.floor(globalRunningPct),
-        stitchProgressPercent: 0,
-        statusMessage: interpolate(dict.logs.stitchingProgress, { count: allSegments.length }),
+        statusMessage: 'AI 추천 16:9 썸네일 및 실시간 타임라인 준비 중...',
         reasoningLogs: [...logs],
-      });
+      }));
 
-      const result = await stitchHighlightedSegments({
-        videos: updatedVideos,
-        allSegments,
-        bgmPresetId,
-        bgmVolume: bgmVol,
-        customAudioFile: customAudio,
-        overlayOptions: overlayOpts,
-        onLog: addLog,
-        onProgress: (pct, msg) => {
-          if (signal.aborted) return;
-          const overallPct = Math.round(88 + (pct / 100) * 11);
-          setProgress((prev) => ({
-            ...prev,
-            progressPercent: Math.min(99, overallPct),
-            stitchProgressPercent: pct,
-            statusMessage: msg,
-          }));
-        },
-        signal,
-      });
-
-      // 3. 16:9 유튜브 고화질 썸네일 자동 생성
       addLog('✨ AI가 직접 추천한 베스트 썸네일 프레임 생성 중...');
       let generatedThumbnailUrl: string | undefined = undefined;
       let cleanThumbnailUrl: string | undefined = undefined;
@@ -1233,21 +1215,39 @@ export function App() {
         console.warn('Thumbnail generation warning:', thumbErr);
       }
 
-      result.thumbnailUrl = generatedThumbnailUrl;
-      result.cleanThumbnailUrl = cleanThumbnailUrl;
-      result.suggestedTitle = aiDiscoveredTitle;
-      result.bestThumbnailTime = bestThumbTimestamp;
-      result.bestSourceVideoId = bestThumbVideoId;
-      result.bestThumbnailReason = bestThumbReason;
-      result.bestThumbnailCropOffsetYRatio = bestThumbCropOffsetYRatio;
-      result.bestThumbnailRotation = bestThumbRotation;
-      result.bestThumbnailCleanDataUrl = bestThumbCleanDataUrl;
-      result.aiThumbnailRecommendations = aiThumbnailRecommendations;
+      const bridgeMap = computeBridgeDurationMap(allSegments, overlayOpts);
+      const introDur = overlayOpts?.showIntro ? 1.6 : 0;
+      const outroDur = overlayOpts?.showOutro ? 1.8 : 0;
+      const segsAndBridgesDur = allSegments.reduce(
+        (sum, s) => sum + s.duration + (bridgeMap[s.id] ?? 0),
+        0
+      );
+      const computedDuration = Math.round((introDur + segsAndBridgesDur + outroDur) * 10) / 10;
+      const origTotalDuration = updatedVideos.reduce((sum, v) => sum + (v.duration || 0), 0);
 
-      addLog(interpolate(dict.logs.stitchingComplete, {
-        duration: result.duration.toFixed(1),
-        size: (result.fileSize / (1024 * 1024)).toFixed(1),
-      }));
+      const result: FinalVideoResult = {
+        blob: new Blob([]),
+        url: '',
+        duration: computedDuration,
+        introDuration: introDur,
+        outroDuration: outroDur,
+        bridgeDurationMap: bridgeMap,
+        segments: allSegments,
+        originalTotalDuration: origTotalDuration,
+        fileSize: 0,
+        thumbnailUrl: generatedThumbnailUrl,
+        cleanThumbnailUrl,
+        suggestedTitle: aiDiscoveredTitle,
+        bestThumbnailTime: bestThumbTimestamp,
+        bestSourceVideoId: bestThumbVideoId,
+        bestThumbnailReason: bestThumbReason,
+        bestThumbnailCropOffsetYRatio: bestThumbCropOffsetYRatio,
+        bestThumbnailRotation: bestThumbRotation,
+        bestThumbnailCleanDataUrl: bestThumbCleanDataUrl,
+        aiThumbnailRecommendations,
+      };
+
+      addLog(`✨ 실시간 하이라이트 타임라인 구성 완료 (${allSegments.length}개 구간, 총 ${computedDuration.toFixed(1)}초)`);
 
       setFinalResult(result);
       setProgress((prev) => ({
@@ -1272,15 +1272,15 @@ export function App() {
     }
   };
 
-  // 재병합 핸들러
+  // 최종 내보내기(인코딩 및 병합) 핸들러
   const handleReStitch = async (
     updatedSegments: HighlightSegment[],
     bgmPresetId = 'none',
     bgmVolume = 0.35,
     customAudioFile?: File | null,
     overlayOptions?: VideoOverlayOptions
-  ) => {
-    if (updatedSegments.length === 0) return;
+  ): Promise<FinalVideoResult | null> => {
+    if (updatedSegments.length === 0) return null;
 
     // 1. 영상 URL 갱신 및 파일 유효성 사전 검사
     const readyVideos = refreshVideoBlobUrls(videos);
@@ -1289,17 +1289,17 @@ export function App() {
     } catch (vErr) {
       const msg = vErr instanceof Error ? vErr.message : '영상을 확인할 수 없습니다.';
       setErrorMessage(msg);
-      return;
+      return null;
     }
     setVideos(readyVideos);
 
-    // 재병합도 사용자 클릭(제스처) 안에서 오디오를 미리 잠금 해제한다.
+    // 내보내기 클릭(제스처) 안에서 오디오를 미리 잠금 해제한다.
     primeAudioContext();
 
     setIsReStitching(true);
     setReStitchProgress({
       progressPercent: 0,
-      statusMessage: interpolate(dict.logs.stitchingProgress, { count: updatedSegments.length }) || '영상 병합을 준비하고 있어요...',
+      statusMessage: interpolate(dict.logs.stitchingProgress, { count: updatedSegments.length }) || '영상 내보내기를 준비하고 있어요...',
     });
     setErrorMessage(null);
 
@@ -1311,7 +1311,7 @@ export function App() {
         bgmVolume,
         customAudioFile,
         overlayOptions,
-        onLog: (msg) => console.info(`[ReStitch] ${msg}`),
+        onLog: (msg) => console.info(`[Export] ${msg}`),
         onProgress: (pct, msg) => {
           setReStitchProgress({
             progressPercent: pct,
@@ -1340,9 +1340,11 @@ export function App() {
           } catch {}
         }, 1500);
       }
+      return result;
     } catch (err) {
-      console.error('Re-stitching error:', err);
+      console.error('Export stitching error:', err);
       setErrorMessage(err instanceof Error ? err.message : dict.logs.reStitchError);
+      return null;
     } finally {
       setIsReStitching(false);
     }

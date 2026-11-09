@@ -61,7 +61,17 @@ import {
 import {
   computeBridgeDurationMap,
   evaluateChapterBridge,
+  createHyperframesBridgeController,
 } from '../../services/hyperframesBridgeRenderer.ts';
+import {
+  COMPOSITOR_WIDTH,
+  COMPOSITOR_HEIGHT,
+  drawCompositorCoverFrame,
+  drawCompositorSegmentOverlay,
+  drawCompositorIntroFrame,
+  drawCompositorOutroFrame,
+} from '../../services/previewCompositor.ts';
+import { playBgmSynthLoop } from '../../services/audioSynth.ts';
 import { ModelSelectorModal } from './ModelSelectorModal.tsx';
 import { VideoListModal } from './VideoListModal.tsx';
 import { LanguageSelectorModal } from './LanguageSelectorModal.tsx';
@@ -179,7 +189,7 @@ interface ProStudioViewProps {
     bgmVolume: number,
     customAudioFile?: File | null,
     overlayOptions?: VideoOverlayOptions
-  ) => Promise<void>;
+  ) => Promise<FinalVideoResult | null>;
   isReStitching: boolean;
   reStitchProgress?: {
     progressPercent: number;
@@ -998,14 +1008,18 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     result?.cleanThumbnailUrl,
   ]);
 
-  // 하이라이트 전 원본 영상 미리보기 모드 (AI 결과가 없고 시퀀스 클립도 없는 상태)
-  const isDraftPreview = !result && segments.length === 0;
+  // 하이라이트 전 원본 영상 미리보기 모드 (시퀀스 클립이 없는 상태)
+  const isDraftPreview = segments.length === 0;
+  // 시퀀스 하이라이트 모드 여부 (캡컷 방식 실시간 시퀀스 프리뷰)
+  const isSequenceMode = segments.length > 0;
   // 실제 하이라이트 결과가 있을 때만 시간 절약률을 계산/노출한다
-  const hasHighlight = Boolean(result) && segments.length > 0;
+  const hasHighlight = segments.length > 0;
 
-  // 마지막으로 병합된 영상 대비 현재 편집(문구, 인트로/아웃트로, 자막, 위치, 회전, 삭제 등) 변경 여부 감지
+  // 마지막으로 내보내기(Export)된 캐시 영상 대비 현재 편집 변경 여부 감지
   const isModified = useMemo(() => {
-    if (!result?.url || !lastStitchedSnapshot) return false;
+    if (!result?.url || !result?.blob || result.blob.size === 0 || !lastStitchedSnapshot) {
+      return true;
+    }
     const currentSnapshot = computeStitchSnapshot(
       segments,
       effectiveOverlayOptions,
@@ -1016,6 +1030,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     return currentSnapshot !== lastStitchedSnapshot;
   }, [
     result?.url,
+    result?.blob,
     lastStitchedSnapshot,
     segments,
     effectiveOverlayOptions,
@@ -1024,7 +1039,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     customAudioFile,
   ]);
 
-  // 미리보기 모드에서 재생할 원본 영상 (기본: 첫 번째 영상)
+  // 미리보기 모드 및 시퀀스 재생에서 사용할 원본 영상 (기본: 첫 번째 영상)
   const [previewVideoId, setPreviewVideoId] = useState<string>('');
   const previewVideo = useMemo(
     () => videos.find((v) => v.id === previewVideoId) || videos[0] || null,
@@ -1034,14 +1049,141 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [previewNativeDuration, setPreviewNativeDuration] = useState<number>(0);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
 
-  // 활성 비디오 소스 URL
-  const activeVideoUrl = useMemo(() => {
-    if (result?.url) return result.url;
-    if (previewVideo?.url) return previewVideo.url;
-    return null;
-  }, [result?.url, previewVideo?.url]);
+  // 실시간 1280x720 WYSIWYG 캔버스 프리뷰 및 커스텀 인트로/아웃트로/BGM 오디오 레퍼런스
+  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+  const introCustomVideoRef = useRef<HTMLVideoElement | null>(null);
+  const outroCustomVideoRef = useRef<HTMLVideoElement | null>(null);
+  const [introCustomDuration, setIntroCustomDuration] = useState<number>(1.6);
+  const [outroCustomDuration, setOutroCustomDuration] = useState<number>(1.8);
+  const bridgePreviewCacheRef = useRef<{
+    key: string;
+    ctrl: ReturnType<typeof createHyperframesBridgeController>;
+  } | null>(null);
 
+  // 실시간 배경음악(BGM) 오디오 엘리먼트 / Web Audio GainNode / 프리셋 신스 루프
+  const bgmAudioElRef = useRef<HTMLAudioElement | null>(null);
+  const bgmAudioUrlRef = useRef<string | null>(null);
+  const bgmWebAudioCtxRef = useRef<AudioContext | null>(null);
+  const bgmGainNodeRef = useRef<GainNode | null>(null);
+  const bgmSynthStopRef = useRef<(() => void) | null>(null);
+
+  // 시퀀스 재생 루프 상태 레퍼런스
+  const currentTimeRef = useRef<number>(0);
   useEffect(() => {
+    currentTimeRef.current = currentTime;
+  }, [currentTime]);
+  const isSequencePlayingRef = useRef<boolean>(false);
+  const seqPlayRafRef = useRef<number | null>(null);
+  const seqLastFrameTsRef = useRef<number>(0);
+  const activeSequencePhaseRef = useRef<string>('');
+
+  // 커스텀 인트로 비디오 로드 및 실제 길이 측정
+  useEffect(() => {
+    if (!overlayOptions.introVideoFile) {
+      if (introCustomVideoRef.current) {
+        try {
+          introCustomVideoRef.current.pause();
+          introCustomVideoRef.current.removeAttribute('src');
+          introCustomVideoRef.current.load();
+        } catch {}
+        introCustomVideoRef.current = null;
+      }
+      setIntroCustomDuration(1.6);
+      return;
+    }
+    const url = URL.createObjectURL(overlayOptions.introVideoFile);
+    const v = document.createElement('video');
+    v.src = url;
+    v.muted = true;
+    v.playsInline = true;
+    v.preload = 'auto';
+    v.onloadedmetadata = () => {
+      const dur = Number.isFinite(v.duration) && v.duration > 0 ? Math.min(v.duration, 6.0) : 2.0;
+      setIntroCustomDuration(Math.round(dur * 10) / 10);
+    };
+    introCustomVideoRef.current = v;
+    return () => {
+      try {
+        v.pause();
+        v.removeAttribute('src');
+        v.load();
+      } catch {}
+      URL.revokeObjectURL(url);
+    };
+  }, [overlayOptions.introVideoFile]);
+
+  // 커스텀 아웃트로 비디오 로드 및 실제 길이 측정
+  useEffect(() => {
+    if (!overlayOptions.outroVideoFile) {
+      if (outroCustomVideoRef.current) {
+        try {
+          outroCustomVideoRef.current.pause();
+          outroCustomVideoRef.current.removeAttribute('src');
+          outroCustomVideoRef.current.load();
+        } catch {}
+        outroCustomVideoRef.current = null;
+      }
+      setOutroCustomDuration(1.8);
+      return;
+    }
+    const url = URL.createObjectURL(overlayOptions.outroVideoFile);
+    const v = document.createElement('video');
+    v.src = url;
+    v.muted = true;
+    v.playsInline = true;
+    v.preload = 'auto';
+    v.onloadedmetadata = () => {
+      const dur = Number.isFinite(v.duration) && v.duration > 0 ? Math.min(v.duration, 6.0) : 2.2;
+      setOutroCustomDuration(Math.round(dur * 10) / 10);
+    };
+    outroCustomVideoRef.current = v;
+    return () => {
+      try {
+        v.pause();
+        v.removeAttribute('src');
+        v.load();
+      } catch {}
+      URL.revokeObjectURL(url);
+    };
+  }, [overlayOptions.outroVideoFile]);
+
+  // 언마운트 시 HyperFrames 브릿지 컨트롤러 및 BGM 리소스 정리
+  useEffect(() => {
+    return () => {
+      if (bridgePreviewCacheRef.current) {
+        bridgePreviewCacheRef.current.ctrl.dispose();
+        bridgePreviewCacheRef.current = null;
+      }
+      if (bgmSynthStopRef.current) {
+        bgmSynthStopRef.current();
+        bgmSynthStopRef.current = null;
+      }
+      if (bgmAudioElRef.current) {
+        try {
+          bgmAudioElRef.current.pause();
+        } catch {}
+        bgmAudioElRef.current = null;
+      }
+      if (bgmAudioUrlRef.current) {
+        URL.revokeObjectURL(bgmAudioUrlRef.current);
+        bgmAudioUrlRef.current = null;
+      }
+      if (bgmWebAudioCtxRef.current && bgmWebAudioCtxRef.current.state !== 'closed') {
+        bgmWebAudioCtxRef.current.close().catch(() => {});
+      }
+    };
+  }, []);
+
+  // 활성 비디오 소스 URL (항상 원본 비디오를 사용하여 재병합 없이 즉각 실시간 프리뷰 제공)
+  const activeVideoUrl = useMemo(() => {
+    if (previewVideo?.url) return previewVideo.url;
+    if (videos[0]?.url) return videos[0].url;
+    return null;
+  }, [previewVideo?.url, videos]);
+
+  // 드래프트 모드에서만 비디오 변경 시 재생 초기화
+  useEffect(() => {
+    if (isSequenceMode) return;
     if (videoRef.current) {
       try {
         videoRef.current.pause();
@@ -1051,14 +1193,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     setIsPlaying(false);
     setPreviewNativeDuration(0);
     setPlaybackError(null);
-  }, [activeVideoUrl]);
+  }, [activeVideoUrl, isSequenceMode]);
 
-  // 인트로, 아웃트로 및 챕터 브릿지 실제 적용 시간
+  // 인트로, 아웃트로 및 챕터 브릿지 실제 적용 시간 (실시간 즉시 반영)
   const introDuration = overlayOptions.showIntro
-    ? (result?.url && result.introDuration ? result.introDuration : 1.6)
+    ? (overlayOptions.introVideoFile ? introCustomDuration : 1.6)
     : 0;
   const outroDuration = overlayOptions.showOutro
-    ? (result?.url && result.outroDuration ? result.outroDuration : 1.8)
+    ? (overlayOptions.outroVideoFile ? outroCustomDuration : 1.8)
     : 0;
   const effectiveBridgeDurationMap = useMemo(() => {
     return computeBridgeDurationMap(segments, overlayOptions);
@@ -1066,7 +1208,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
   // 총 시간 계산 (인트로 + 클립 + 챕터 브릿지 + 아웃트로 실시간 합산: 클립 제거/조절 시 즉시 갱신)
   const totalDuration = useMemo(() => {
-    // 미리보기 모드에서는 원본 영상 길이 그대로 재생
     if (isDraftPreview) {
       const d = previewNativeDuration || previewVideo?.duration || 0;
       return d > 0 ? d : 1;
@@ -1105,7 +1246,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 구간별 누적 시작 오프셋 (챕터 브릿지 구간 시간 반영)
   const segmentTimelineOffsets = useMemo(() => {
     let acc = introDuration;
-    const offsets: Record<string, { bridgeStartOffset: number; startOffset: number; endOffset: number; bridgeDuration: number }> = {};
+    const offsets: Record<
+      string,
+      { bridgeStartOffset: number; startOffset: number; endOffset: number; bridgeDuration: number }
+    > = {};
     segments.forEach((s) => {
       const bridgeDur = effectiveBridgeDurationMap[s.id] ?? 0;
       const bridgeStart = acc;
@@ -1208,9 +1352,98 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   };
 
-  // 현재 재생 중인 시간대에 위치한 세그먼트 자동 감지
+  // 타임라인 시점(0 ~ totalDuration)을 인트로 / 챕터 브릿지 / 클립 / 아웃트로 페이즈로 해석
+  type TimelineResolution =
+    | { phase: 'draft'; mediaTime: number; videoId?: string }
+    | { phase: 'intro'; elapsed: number; duration: number; nextSeg?: HighlightSegment }
+    | {
+        phase: 'bridge';
+        seg: HighlightSegment;
+        segIndex: number;
+        elapsed: number;
+        duration: number;
+      }
+    | {
+        phase: 'segment';
+        seg: HighlightSegment;
+        segIndex: number;
+        elapsed: number;
+        duration: number;
+        mediaTime: number;
+        videoId: string;
+      }
+    | { phase: 'outro'; elapsed: number; duration: number; prevSeg?: HighlightSegment };
+
+  const resolveTimelineAt = (timelineTime: number): TimelineResolution => {
+    const clamped = Math.max(0, Math.min(totalDuration, timelineTime));
+    if (!isSequenceMode || segments.length === 0) {
+      return { phase: 'draft', mediaTime: clamped, videoId: previewVideo?.id };
+    }
+    if (introDuration > 0 && clamped < introDuration) {
+      return {
+        phase: 'intro',
+        elapsed: clamped,
+        duration: introDuration,
+        nextSeg: segments[0],
+      };
+    }
+    if (outroDuration > 0 && clamped >= totalDuration - outroDuration - 0.001) {
+      const outroStart = Math.max(0, totalDuration - outroDuration);
+      return {
+        phase: 'outro',
+        elapsed: Math.max(0, clamped - outroStart),
+        duration: outroDuration,
+        prevSeg: segments[segments.length - 1],
+      };
+    }
+
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i];
+      const offset = segmentTimelineOffsets[seg.id];
+      if (!offset) continue;
+      const isLast = i === segments.length - 1 && outroDuration === 0;
+      if (
+        clamped >= offset.bridgeStartOffset &&
+        (isLast ? clamped <= offset.endOffset + 0.5 : clamped < offset.endOffset)
+      ) {
+        if (offset.bridgeDuration > 0 && clamped < offset.startOffset) {
+          return {
+            phase: 'bridge',
+            seg,
+            segIndex: i,
+            elapsed: Math.max(0, clamped - offset.bridgeStartOffset),
+            duration: offset.bridgeDuration,
+          };
+        }
+        const elapsed = Math.max(0, clamped - offset.startOffset);
+        const mediaTime = Math.min(seg.end, Math.max(seg.start, seg.start + elapsed));
+        return {
+          phase: 'segment',
+          seg,
+          segIndex: i,
+          elapsed,
+          duration: seg.duration,
+          mediaTime,
+          videoId: seg.sourceVideoId,
+        };
+      }
+    }
+
+    const fallbackSeg = segments[segments.length - 1] || segments[0];
+    return {
+      phase: 'segment',
+      seg: fallbackSeg,
+      segIndex: Math.max(0, segments.length - 1),
+      elapsed: fallbackSeg.duration,
+      duration: fallbackSeg.duration,
+      mediaTime: fallbackSeg.end,
+      videoId: fallbackSeg.sourceVideoId,
+    };
+  };
+
+  // 현재 재생 중인 시간대에 위치한 세그먼트 자동 감지 (재병합 없이 실시간 동작)
   const activePlayingSegmentId = useMemo(() => {
-    if (!result?.url) return selectedSegmentId;
+    if (!isSequenceMode) return selectedSegmentId;
     if (introDuration > 0 && currentTime < introDuration) {
       return 'intro';
     }
@@ -1220,7 +1453,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     let acc = introDuration;
     for (let i = 0; i < segments.length; i++) {
       const seg = segments[i];
-      const bridgeDur = result.bridgeDurationMap?.[seg.id] ?? 0;
+      const bridgeDur = effectiveBridgeDurationMap[seg.id] ?? 0;
       const segBlockStart = acc;
       const segEnd = acc + bridgeDur + seg.duration;
       const isLast = i === segments.length - 1 && outroDuration === 0;
@@ -1230,7 +1463,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       acc = segEnd;
     }
     return selectedSegmentId;
-  }, [currentTime, segments, result?.url, result?.bridgeDurationMap, introDuration, outroDuration, totalDuration, selectedSegmentId]);
+  }, [currentTime, segments, isSequenceMode, effectiveBridgeDurationMap, introDuration, outroDuration, totalDuration, selectedSegmentId]);
 
   // 현재 활성 재생 중인 세그먼트 객체
   const activePlayingSegment = useMemo(() => {
@@ -1265,6 +1498,270 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     overlayOptions.subtitleLocationText,
   ]);
 
+  // 실시간 BGM 파일 로드 및 GainNode 구성
+  useEffect(() => {
+    if (bgmAudioElRef.current) {
+      try {
+        bgmAudioElRef.current.pause();
+      } catch {}
+      bgmAudioElRef.current = null;
+    }
+    if (bgmAudioUrlRef.current) {
+      URL.revokeObjectURL(bgmAudioUrlRef.current);
+      bgmAudioUrlRef.current = null;
+    }
+    bgmGainNodeRef.current = null;
+
+    if (!customAudioFile) return;
+
+    const url = URL.createObjectURL(customAudioFile);
+    bgmAudioUrlRef.current = url;
+    const audio = new Audio(url);
+    audio.loop = true;
+    audio.preload = 'auto';
+
+    try {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (AudioCtx) {
+        if (!bgmWebAudioCtxRef.current || bgmWebAudioCtxRef.current.state === 'closed') {
+          bgmWebAudioCtxRef.current = new AudioCtx();
+        }
+        const ctx = bgmWebAudioCtxRef.current;
+        const src = ctx.createMediaElementSource(audio);
+        const gain = ctx.createGain();
+        gain.gain.value = isMuted ? 0 : Math.min(2.5, Math.max(0, bgmVolume) * 1.4);
+        src.connect(gain);
+        gain.connect(ctx.destination);
+        bgmGainNodeRef.current = gain;
+      } else {
+        audio.volume = isMuted ? 0 : Math.min(1, Math.max(0, bgmVolume));
+      }
+    } catch {
+      audio.volume = isMuted ? 0 : Math.min(1, Math.max(0, bgmVolume));
+    }
+
+    bgmAudioElRef.current = audio;
+
+    if (isSequencePlayingRef.current && isSequenceMode && !isMuted && bgmVolume > 0) {
+      const dur = customAudioDuration && customAudioDuration > 0 ? customAudioDuration : audio.duration || 0;
+      if (dur > 0) {
+        audio.currentTime = currentTimeRef.current % dur;
+      }
+      bgmWebAudioCtxRef.current?.resume().catch(() => {});
+      audio.play().catch(() => {});
+    }
+  }, [customAudioFile]);
+
+  // BGM 볼륨 및 음소거 실시간 즉시 반영
+  useEffect(() => {
+    if (bgmGainNodeRef.current && bgmWebAudioCtxRef.current) {
+      bgmGainNodeRef.current.gain.setValueAtTime(
+        isMuted ? 0 : Math.min(2.5, Math.max(0, bgmVolume) * 1.4),
+        bgmWebAudioCtxRef.current.currentTime
+      );
+    }
+    if (bgmAudioElRef.current && !bgmGainNodeRef.current) {
+      bgmAudioElRef.current.volume = isMuted ? 0 : Math.min(1, Math.max(0, bgmVolume));
+    }
+    if (!customAudioFile && isSequencePlayingRef.current && isSequenceMode) {
+      if (bgmSynthStopRef.current) {
+        bgmSynthStopRef.current();
+        bgmSynthStopRef.current = null;
+      }
+      if (!isMuted && selectedBgmId !== 'none' && bgmVolume > 0) {
+        const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        if (AudioCtx) {
+          if (!bgmWebAudioCtxRef.current || bgmWebAudioCtxRef.current.state === 'closed') {
+            bgmWebAudioCtxRef.current = new AudioCtx();
+          }
+          const ctx = bgmWebAudioCtxRef.current;
+          ctx.resume().catch(() => {});
+          const gain = ctx.createGain();
+          gain.gain.value = Math.min(2.5, Math.max(0, bgmVolume) * 1.4);
+          gain.connect(ctx.destination);
+          bgmSynthStopRef.current = playBgmSynthLoop(ctx, gain, selectedBgmId, bgmVolume).stop;
+        }
+      }
+    }
+  }, [bgmVolume, isMuted, selectedBgmId, customAudioFile, isSequenceMode]);
+
+  // BGM 재생/일시정지/시크 동기화 헬퍼
+  const syncBgmPlayback = (play: boolean, timelineSec?: number) => {
+    if (!isSequenceMode) return;
+    if (customAudioFile && bgmAudioElRef.current) {
+      const audio = bgmAudioElRef.current;
+      if (typeof timelineSec === 'number' && Number.isFinite(timelineSec)) {
+        const dur =
+          (customAudioDuration && customAudioDuration > 0 ? customAudioDuration : 0) ||
+          (Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0);
+        if (dur > 0) {
+          try {
+            audio.currentTime = Math.max(0, timelineSec % dur);
+          } catch {}
+        }
+      }
+      if (play && !isMuted && bgmVolume > 0) {
+        bgmWebAudioCtxRef.current?.resume().catch(() => {});
+        if (audio.paused) {
+          audio.play().catch(() => {});
+        }
+      } else {
+        if (!audio.paused) {
+          audio.pause();
+        }
+      }
+    } else {
+      if (bgmSynthStopRef.current) {
+        bgmSynthStopRef.current();
+        bgmSynthStopRef.current = null;
+      }
+      if (play && !isMuted && selectedBgmId !== 'none' && bgmVolume > 0) {
+        const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        if (AudioCtx) {
+          if (!bgmWebAudioCtxRef.current || bgmWebAudioCtxRef.current.state === 'closed') {
+            bgmWebAudioCtxRef.current = new AudioCtx();
+          }
+          const ctx = bgmWebAudioCtxRef.current;
+          ctx.resume().catch(() => {});
+          const gain = ctx.createGain();
+          gain.gain.value = Math.min(2.5, Math.max(0, bgmVolume) * 1.4);
+          gain.connect(ctx.destination);
+          bgmSynthStopRef.current = playBgmSynthLoop(ctx, gain, selectedBgmId, bgmVolume).stop;
+        }
+      }
+    }
+  };
+
+  // 1280x720 WYSIWYG 캔버스 컴포지터 렌더링 (Export 결과물과 100% 동일한 프리뷰)
+  const renderCompositorAt = (timelineTime: number) => {
+    const canvas = previewCanvasRef.current;
+    if (!canvas || !isSequenceMode) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const res = resolveTimelineAt(timelineTime);
+    const v = videoRef.current;
+
+    if (res.phase === 'intro') {
+      const customIntroV = introCustomVideoRef.current;
+      if (overlayOptions.introVideoFile && customIntroV && customIntroV.readyState >= 2) {
+        if (Math.abs(customIntroV.currentTime - res.elapsed) > 0.12) {
+          try {
+            customIntroV.currentTime = res.elapsed;
+          } catch {}
+        }
+        drawCompositorCoverFrame(ctx, customIntroV, undefined, undefined, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
+      } else {
+        const prog = res.duration > 0 ? res.elapsed / res.duration : 0;
+        drawCompositorIntroFrame(
+          ctx,
+          prog,
+          effectiveOverlayOptions,
+          COMPOSITOR_WIDTH,
+          COMPOSITOR_HEIGHT
+        );
+      }
+      return;
+    }
+
+    if (res.phase === 'outro') {
+      const customOutroV = outroCustomVideoRef.current;
+      if (overlayOptions.outroVideoFile && customOutroV && customOutroV.readyState >= 2) {
+        if (Math.abs(customOutroV.currentTime - res.elapsed) > 0.12) {
+          try {
+            customOutroV.currentTime = res.elapsed;
+          } catch {}
+        }
+        drawCompositorCoverFrame(ctx, customOutroV, undefined, undefined, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
+      } else {
+        const prog = res.duration > 0 ? res.elapsed / res.duration : 0;
+        drawCompositorOutroFrame(
+          ctx,
+          prog,
+          effectiveOverlayOptions,
+          COMPOSITOR_WIDTH,
+          COMPOSITOR_HEIGHT
+        );
+      }
+      return;
+    }
+
+    if (res.phase === 'bridge') {
+      const seg = res.seg;
+      const prevSeg = res.segIndex > 0 ? segments[res.segIndex - 1] : undefined;
+      const bridgeInfo = evaluateChapterBridge(
+        prevSeg,
+        seg,
+        res.segIndex,
+        segments.length,
+        effectiveOverlayOptions
+      );
+      const cacheKey = `${seg.id}|${bridgeInfo.fromDate}|${bridgeInfo.toDate}|${bridgeInfo.fromLocation}|${bridgeInfo.toLocation}|${res.duration}`;
+
+      if (!bridgePreviewCacheRef.current || bridgePreviewCacheRef.current.key !== cacheKey) {
+        bridgePreviewCacheRef.current?.ctrl.dispose();
+        bridgePreviewCacheRef.current = {
+          key: cacheKey,
+          ctrl: createHyperframesBridgeController(res.duration),
+        };
+      }
+      const vItem = videoMap.get(seg.sourceVideoId) || videos[0];
+      const drawNextFrame =
+        v && v.readyState >= 2
+          ? () => drawCompositorCoverFrame(ctx, v, vItem, seg, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT)
+          : undefined;
+
+      bridgePreviewCacheRef.current.ctrl.seekAndRender(
+        ctx,
+        res.elapsed,
+        COMPOSITOR_WIDTH,
+        COMPOSITOR_HEIGHT,
+        bridgeInfo,
+        drawNextFrame,
+        drawNextFrame
+      );
+      return;
+    }
+
+    if (res.phase === 'segment') {
+      const seg = res.seg;
+      const vItem = videoMap.get(seg.sourceVideoId) || videos[0];
+      if (v && v.readyState >= 2) {
+        drawCompositorCoverFrame(
+          ctx,
+          v,
+          vItem,
+          seg,
+          COMPOSITOR_WIDTH,
+          COMPOSITOR_HEIGHT
+        );
+      }
+
+      drawCompositorSegmentOverlay(
+        ctx,
+        effectiveOverlayOptions,
+        seg,
+        COMPOSITOR_WIDTH,
+        COMPOSITOR_HEIGHT
+      );
+    }
+  };
+
+  // 편집 상태(자막, 제목, 날짜, 회전, 크롭, 인트로/아웃트로 등) 변경 시 즉시 캔버스 다시 그리기 (0초 반응)
+  useEffect(() => {
+    if (!isSequenceMode) return;
+    renderCompositorAt(currentTimeRef.current);
+  }, [
+    isSequenceMode,
+    currentTime,
+    segments,
+    effectiveOverlayOptions,
+    introDuration,
+    outroDuration,
+    effectiveBridgeDurationMap,
+    previewVideoId,
+  ]);
+
   // 씬별 자막/날짜/위치 수정 핸들러
   const handleUpdateSegmentSubtitle = (
     segId: string,
@@ -1276,10 +1773,217 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     );
   };
 
+  // 타임라인 시점(0 ~ totalDuration)으로 원본 비디오 및 컴포지터 즉시 시크
+  const applyVideoSeek = (timelineTime: number) => {
+    const clampedTimeline = Math.max(0, Math.min(totalDuration, timelineTime));
+    const v = videoRef.current;
+
+    if (!isSequenceMode) {
+      if (v) {
+        try {
+          v.currentTime = clampedTimeline;
+        } catch {}
+      }
+      return;
+    }
+
+    const res = resolveTimelineAt(clampedTimeline);
+    let targetVideoId: string | undefined;
+    let targetMediaTime = 0;
+
+    if (res.phase === 'intro') {
+      targetVideoId = res.nextSeg?.sourceVideoId;
+      targetMediaTime = res.nextSeg?.start || 0;
+    } else if (res.phase === 'bridge') {
+      targetVideoId = res.seg.sourceVideoId;
+      targetMediaTime = res.seg.start;
+    } else if (res.phase === 'segment') {
+      targetVideoId = res.videoId;
+      targetMediaTime = res.mediaTime;
+    } else if (res.phase === 'outro') {
+      targetVideoId = res.prevSeg?.sourceVideoId;
+      targetMediaTime = res.prevSeg?.end || 0;
+    }
+
+    if (targetVideoId && targetVideoId !== previewVideoId) {
+      setPreviewVideoId(targetVideoId);
+      const nextUrl = videoMap.get(targetVideoId)?.url;
+      if (v && nextUrl && v.src !== nextUrl) {
+        v.src = nextUrl;
+      }
+    }
+
+    if (v) {
+      try {
+        if (Math.abs(v.currentTime - targetMediaTime) > 0.03) {
+          v.currentTime = targetMediaTime;
+        }
+      } catch (err) {
+        console.warn('[VideoPlayer] Video seek failed:', err);
+      }
+    }
+
+    if (isSequencePlayingRef.current) {
+      syncBgmPlayback(true, clampedTimeline);
+    }
+    renderCompositorAt(clampedTimeline);
+  };
+
+  // 시퀀스 연속 재생 루프 (인트로 -> 챕터 브릿지 -> 멀티 클립 -> 아웃트로 끊김 없이 재생)
+  const stopSequencePlayback = () => {
+    isSequencePlayingRef.current = false;
+    activeSequencePhaseRef.current = '';
+    if (seqPlayRafRef.current) {
+      cancelAnimationFrame(seqPlayRafRef.current);
+      seqPlayRafRef.current = null;
+    }
+    if (videoRef.current && !videoRef.current.paused) {
+      try {
+        videoRef.current.pause();
+      } catch {}
+    }
+    syncBgmPlayback(false);
+    setIsPlaying(false);
+  };
+
+  const startSequencePlayback = (fromTimelineTime?: number) => {
+    if (!isSequenceMode) return;
+    let startT =
+      typeof fromTimelineTime === 'number' && Number.isFinite(fromTimelineTime)
+        ? fromTimelineTime
+        : currentTimeRef.current;
+
+    if (startT >= totalDuration - 0.15) {
+      startT = 0;
+    }
+    startT = Math.max(0, Math.min(totalDuration, startT));
+    currentTimeRef.current = startT;
+    setCurrentTime(startT);
+
+    isSequencePlayingRef.current = true;
+    activeSequencePhaseRef.current = '';
+    seqLastFrameTsRef.current = performance.now();
+    setPlaybackError(null);
+    setIsPlaying(true);
+    syncBgmPlayback(true, startT);
+
+    if (seqPlayRafRef.current) {
+      cancelAnimationFrame(seqPlayRafRef.current);
+      seqPlayRafRef.current = null;
+    }
+
+    const step = (now: number) => {
+      if (!isSequencePlayingRef.current) return;
+      const dt = Math.min(0.1, Math.max(0, (now - seqLastFrameTsRef.current) / 1000));
+      seqLastFrameTsRef.current = now;
+
+      let nextT = currentTimeRef.current + dt;
+      const v = videoRef.current;
+      const res = resolveTimelineAt(nextT);
+
+      if (res.phase === 'segment') {
+        const phaseKey = `segment:${res.seg.id}`;
+        const targetVideo = videoMap.get(res.videoId) || videos[0];
+
+        if (activeSequencePhaseRef.current !== phaseKey) {
+          activeSequencePhaseRef.current = phaseKey;
+          if (res.videoId !== previewVideoId) {
+            setPreviewVideoId(res.videoId);
+          }
+          if (v && targetVideo?.url) {
+            if (!v.src.endsWith(targetVideo.url) && v.src !== targetVideo.url) {
+              v.src = targetVideo.url;
+            }
+            try {
+              if (Math.abs(v.currentTime - res.mediaTime) > 0.15) {
+                v.currentTime = res.mediaTime;
+              }
+            } catch {}
+            v.muted = isMuted;
+            v.play().catch(() => {
+              v.muted = true;
+              setIsMuted(true);
+              v.play().catch(() => {});
+            });
+          }
+        } else if (v) {
+          if (v.paused && v.readyState >= 2 && nextT < totalDuration - 0.05) {
+            v.play().catch(() => {});
+          }
+          // 비디오 디코더의 실제 재생 시점과 타임라인 시점 동기화 (오디오/비디오 드리프트 방지)
+          const offset = segmentTimelineOffsets[res.seg.id];
+          if (offset && !v.paused && !v.seeking && v.readyState >= 2) {
+            const actualMediaT = v.currentTime;
+            if (actualMediaT >= res.seg.start - 0.05 && actualMediaT <= res.seg.end + 0.15) {
+              const syncedTimelineT = offset.startOffset + Math.max(0, actualMediaT - res.seg.start);
+              if (Math.abs(syncedTimelineT - nextT) < 0.35) {
+                nextT = syncedTimelineT;
+              }
+            }
+          }
+        }
+      } else {
+        // 인트로 / 챕터 브릿지 / 아웃트로 구간에서는 원본 비디오를 일시정지하고 다가올 클립 시작 지점으로 미리 시크(Pre-seek)
+        const phaseKey =
+          res.phase === 'bridge' ? `bridge:${res.seg.id}` : res.phase;
+        if (activeSequencePhaseRef.current !== phaseKey) {
+          activeSequencePhaseRef.current = phaseKey;
+          if (v && !v.paused) {
+            try {
+              v.pause();
+            } catch {}
+          }
+          const preloadSeg =
+            res.phase === 'intro'
+              ? res.nextSeg
+              : res.phase === 'bridge'
+              ? res.seg
+              : res.phase === 'outro'
+              ? res.prevSeg
+              : undefined;
+          const preloadTime =
+            res.phase === 'outro' ? preloadSeg?.end || 0 : preloadSeg?.start || 0;
+
+          if (preloadSeg) {
+            if (preloadSeg.sourceVideoId !== previewVideoId) {
+              setPreviewVideoId(preloadSeg.sourceVideoId);
+            }
+            const preloadUrl = videoMap.get(preloadSeg.sourceVideoId)?.url;
+            if (v && preloadUrl) {
+              if (v.src !== preloadUrl) {
+                v.src = preloadUrl;
+              }
+              try {
+                if (Math.abs(v.currentTime - preloadTime) > 0.1) {
+                  v.currentTime = preloadTime;
+                }
+              } catch {}
+            }
+          }
+        }
+      }
+
+      if (nextT >= totalDuration) {
+        currentTimeRef.current = totalDuration;
+        setCurrentTime(totalDuration);
+        renderCompositorAt(totalDuration);
+        stopSequencePlayback();
+        return;
+      }
+
+      currentTimeRef.current = nextT;
+      setCurrentTime(nextT);
+      renderCompositorAt(nextT);
+      seqPlayRafRef.current = requestAnimationFrame(step);
+    };
+
+    seqPlayRafRef.current = requestAnimationFrame(step);
+  };
+
   // 클립 선택 및 이동
   const handleSelectSegment = (segId: string) => {
     setSelectedSegmentId(segId);
-    if (!result?.url) {
+    if (!isSequenceMode) {
       const seg = segments.find((s) => s.id === segId);
       if (seg && videoRef.current) {
         videoRef.current.currentTime = seg.start;
@@ -1288,86 +1992,38 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       return;
     }
     if (segId === 'intro') {
-      if (videoRef.current) {
-        videoRef.current.currentTime = 0;
-        setCurrentTime(0);
-      }
+      currentTimeRef.current = 0;
+      setCurrentTime(0);
+      activeSequencePhaseRef.current = '';
+      applyVideoSeek(0);
       return;
     }
     if (segId === 'outro') {
       const outroStart = Math.max(0, totalDuration - outroDuration);
-      if (videoRef.current) {
-        videoRef.current.currentTime = outroStart;
-        setCurrentTime(outroStart);
-      }
+      currentTimeRef.current = outroStart;
+      setCurrentTime(outroStart);
+      activeSequencePhaseRef.current = '';
+      applyVideoSeek(outroStart);
       return;
     }
     const offset = segmentTimelineOffsets[segId];
-    if (offset && videoRef.current) {
-      videoRef.current.currentTime = offset.startOffset + 0.05;
-      setCurrentTime(offset.startOffset + 0.05);
-    }
-  };
-
-  // 타임라인 시간(0 ~ totalDuration)을 현재 활성 비디오 엘리먼트의 currentTime으로 변환
-  const mapTimelineToMediaTime = (timelineTime: number): { time: number; videoId?: string } => {
-    const clampedTimeline = Math.max(0, Math.min(totalDuration, timelineTime));
-    if (result?.url) {
-      // 합성된 완성 영상일 때는 타임라인 시간과 비디오 시간이 1:1로 일치
-      return { time: clampedTimeline };
-    }
-    // 합성 전(result.url 없음): 세그먼트 기반 프리뷰
-    if (segments.length === 0) {
-      return { time: clampedTimeline };
-    }
-    if (introDuration > 0 && clampedTimeline < introDuration) {
-      return { time: 0, videoId: segments[0]?.sourceVideoId };
-    }
-    if (outroDuration > 0 && clampedTimeline >= totalDuration - outroDuration) {
-      const lastSeg = segments[segments.length - 1];
-      return { time: lastSeg?.end || 0, videoId: lastSeg?.sourceVideoId };
-    }
-
-    // 타임라인 위치에 해당하는 세그먼트 탐색
-    for (const seg of segments) {
-      const offset = segmentTimelineOffsets[seg.id];
-      if (!offset) continue;
-      if (clampedTimeline >= offset.bridgeStartOffset && clampedTimeline <= offset.endOffset) {
-        const elapsed = Math.max(0, clampedTimeline - offset.startOffset);
-        const mappedTime = Math.min(seg.end, Math.max(seg.start, seg.start + elapsed));
-        return { time: mappedTime, videoId: seg.sourceVideoId };
-      }
-    }
-
-    const fallbackSeg = segments[0];
-    return { time: fallbackSeg?.start || 0, videoId: fallbackSeg?.sourceVideoId };
-  };
-
-  // 비디오 프레임 시크 (fastSeek 버그 방지 및 iOS Safari 포함 즉각적인 프레임 렌더링 보장)
-  const applyVideoSeek = (timelineTime: number) => {
-    const v = videoRef.current;
-    if (!v) return;
-
-    const { time: mediaTime, videoId } = mapTimelineToMediaTime(timelineTime);
-
-    if (!result?.url && videoId && videoId !== previewVideoId) {
-      setPreviewVideoId(videoId);
-    }
-
-    try {
-      // Safari/WebKit fastSeek 버그 회피: 일시정지 상태에서 fastSeek는 화면이 갱신되지 않으므로
-      // 직접 currentTime을 설정하여 항상 즉시 디코딩된 프레임이 화면에 렌더링되도록 함
-      v.currentTime = mediaTime;
-    } catch (err) {
-      console.warn('[VideoPlayer] Video seek failed:', err);
+    if (offset) {
+      const targetT = offset.startOffset + 0.05;
+      currentTimeRef.current = targetT;
+      setCurrentTime(targetT);
+      activeSequencePhaseRef.current = '';
+      applyVideoSeek(targetT);
     }
   };
 
   // 상대 시간 이동 (-5s, +5s)
   const seekRelative = (delta: number) => {
-    const v = videoRef.current;
-    if (!v) return;
-    const newT = Math.max(0, Math.min(totalDuration, (v.currentTime || currentTime) + delta));
+    const baseTime = isSequenceMode
+      ? currentTimeRef.current
+      : videoRef.current?.currentTime || currentTime;
+    const newT = Math.max(0, Math.min(totalDuration, baseTime + delta));
+    currentTimeRef.current = newT;
+    activeSequencePhaseRef.current = '';
     applyVideoSeek(newT);
     setCurrentTime(newT);
   };
@@ -1399,14 +2055,24 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     isScrubbingRef.current = true;
     setIsScrubbing(true);
 
-    const v = videoRef.current;
-    if (v && !v.paused) {
-      wasPlayingBeforeScrubRef.current = true;
-      v.pause();
+    if (isSequenceMode) {
+      if (isSequencePlayingRef.current) {
+        wasPlayingBeforeScrubRef.current = true;
+        stopSequencePlayback();
+      } else {
+        wasPlayingBeforeScrubRef.current = false;
+      }
     } else {
-      wasPlayingBeforeScrubRef.current = false;
+      const v = videoRef.current;
+      if (v && !v.paused) {
+        wasPlayingBeforeScrubRef.current = true;
+        v.pause();
+      } else {
+        wasPlayingBeforeScrubRef.current = false;
+      }
     }
 
+    currentTimeRef.current = clampedTime;
     setCurrentTime(clampedTime);
     applyVideoSeek(clampedTime);
   };
@@ -1416,11 +2082,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     if (!totalDuration || totalDuration <= 0) return;
     const clampedTime = Math.max(0, Math.min(totalDuration, targetTime));
 
-    // UI(타임라인 빨간 선 및 타임코드)는 지연 없이 즉각 반응 (60fps)
+    currentTimeRef.current = clampedTime;
     setCurrentTime(clampedTime);
     pendingScrubTimeRef.current = clampedTime;
 
-    // 비디오 디코딩 시크는 requestAnimationFrame으로 쓰로틀링하되 이전 요청 취소 없이 누락 없이 갱신
     if (!isRafSeekingRef.current) {
       isRafSeekingRef.current = true;
       scrubRafRef.current = requestAnimationFrame(() => {
@@ -1445,21 +2110,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     isScrubbingRef.current = false;
     setIsScrubbing(false);
 
-    const v = videoRef.current;
-    if (v) {
-      const clampedFinal =
-        typeof finalTime === 'number' && Number.isFinite(finalTime)
-          ? Math.max(0, Math.min(totalDuration, finalTime))
-          : currentTime;
+    const clampedFinal =
+      typeof finalTime === 'number' && Number.isFinite(finalTime)
+        ? Math.max(0, Math.min(totalDuration, finalTime))
+        : currentTimeRef.current;
 
-      setCurrentTime(clampedFinal);
-      applyVideoSeek(clampedFinal);
+    currentTimeRef.current = clampedFinal;
+    setCurrentTime(clampedFinal);
+    applyVideoSeek(clampedFinal);
 
-      if (
-        wasPlayingBeforeScrubRef.current &&
-        clampedFinal < totalDuration - 0.1
-      ) {
-        v.play().catch(() => {});
+    if (wasPlayingBeforeScrubRef.current && clampedFinal < totalDuration - 0.1) {
+      if (isSequenceMode) {
+        startSequencePlayback(clampedFinal);
+      } else {
+        videoRef.current?.play().catch(() => {});
       }
     }
     wasPlayingBeforeScrubRef.current = false;
@@ -1521,7 +2185,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     if (!totalDuration) return;
 
     const target = e.target as HTMLElement;
-    // 클립 삭제 버튼 클릭은 드래그/시크 대상에서 제외
     if (target.closest('.toss-sequencer-block-delete')) return;
 
     const pointerId = e.pointerId;
@@ -1540,7 +2203,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     const startX = e.clientX;
     let hasMoved = false;
 
-    // 플레이헤드, 룰러, 오디오 트랙, 빈 캔버스 클릭 시 즉시 시크 & 스크러빙 시작
     if (!isBlock || isPlayhead) {
       e.preventDefault();
       const initialTime = calculateTimeFromSequencerEvent(startX);
@@ -1583,12 +2245,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       cleanup();
 
       if (isBlock && !isPlayhead && !hasMoved) {
-        // 클립 단순 클릭인 경우 클립 자체 onClick(handleSelectSegment)이 동작하도록 종료
         return;
       }
 
       if (hasMoved || isPlayhead) {
-        // 드래그가 발생했거나 플레이헤드를 조작한 경우 클립의 클릭 핸들러가 시간을 덮어쓰지 못하도록 충분한 시간(400ms) 억제
         suppressSegmentClickRef.current = true;
         setTimeout(() => {
           suppressSegmentClickRef.current = false;
@@ -1612,19 +2272,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
   // 프로그레스 바 / 타임라인 위치 클릭 시 직접 이동
   const handleSeekByPosition = (e: React.MouseEvent<HTMLDivElement>) => {
-    const v = videoRef.current;
-    if (!v || !totalDuration) return;
+    if (!totalDuration) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const ratio = Math.max(0, Math.min(1, clickX / rect.width));
     const targetTime = ratio * totalDuration;
+    currentTimeRef.current = targetTime;
+    activeSequencePhaseRef.current = '';
     applyVideoSeek(targetTime);
     setCurrentTime(targetTime);
   };
 
-  // 영상 종료 시점 여부 (시크바가 끝에 도달했거나 v.ended 인 경우)
+  // 영상 종료 시점 여부
   const isAtEnd = Boolean(
-    (videoRef.current?.ended ?? false) ||
+    (!isSequenceMode && (videoRef.current?.ended ?? false)) ||
     (totalDuration > 0 && currentTime >= totalDuration - 0.25)
   );
 
@@ -1717,6 +2378,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
   // 재생 / 일시정지 토글 (영상 종료 시점이면 0초 처음부터 재생)
   const togglePlay = () => {
+    if (isSequenceMode) {
+      if (isSequencePlayingRef.current || isPlaying) {
+        stopSequencePlayback();
+      } else {
+        const startT = currentTime >= totalDuration - 0.25 ? 0 : currentTime;
+        startSequencePlayback(startT);
+      }
+      return;
+    }
+
     const v = videoRef.current;
     if (!v) return;
     if (v.paused || v.ended) {
@@ -1763,10 +2434,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
   // 음소거 토글
   const toggleMute = () => {
-    const v = videoRef.current;
-    if (!v) return;
-    v.muted = !isMuted;
-    setIsMuted(!isMuted);
+    const nextMuted = !isMuted;
+    if (videoRef.current) {
+      videoRef.current.muted = nextMuted;
+    }
+    setIsMuted(nextMuted);
   };
 
   // 클립 시작/끝 미세 조절 (-0.5s / +0.5s)
@@ -1889,17 +2561,22 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   };
 
-  // 완성 영상 다운로드 (iOS Safari MP4 확장자 및 공유 시트 대응)
-  const handleDownload = async () => {
-    if (!result?.url) return;
-    const ext = result.blob?.type?.includes('mp4') ? 'mp4' : 'webm';
+  // 완성 영상 내보내기 및 다운로드 (캐시 히트 시 0초 즉시 다운로드, 미합성/편집 변경 시 단 1회 내보내기 후 자동 다운로드)
+  const triggerVideoFileDownload = async (targetResult: FinalVideoResult) => {
+    if (!targetResult.url) return;
+    const ext = targetResult.blob?.type?.includes('mp4') ? 'mp4' : 'webm';
     const fileName = `reportist_highlight_16x9_${Date.now()}.${ext}`;
 
-    if (result.blob) {
+    if (targetResult.blob && targetResult.blob.size > 0) {
       try {
-        const file = new File([result.blob], fileName, { type: result.blob.type || `video/${ext}` });
+        const file = new File([targetResult.blob], fileName, {
+          type: targetResult.blob.type || `video/${ext}`,
+        });
         if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: overlayOptions.titleText || 'Reportist Highlight' });
+          await navigator.share({
+            files: [file],
+            title: overlayOptions.titleText || 'Reportist Highlight',
+          });
           return;
         }
       } catch (err) {
@@ -1908,11 +2585,37 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
 
     const a = document.createElement('a');
-    a.href = result.url;
+    a.href = targetResult.url;
     a.download = fileName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+  };
+
+  const handleDownload = async () => {
+    if (segments.length === 0 || isReStitching) return;
+
+    if (isSequencePlayingRef.current) {
+      stopSequencePlayback();
+    }
+
+    // 이미 현재 스냅샷과 동일한 결과물이 캐시되어 있다면 0초 만에 즉시 파일 다운로드
+    if (!isModified && result?.url && result?.blob && result.blob.size > 0) {
+      await triggerVideoFileDownload(result);
+      return;
+    }
+
+    // 내보내기(Export) 수행 후 완료 즉시 다운로드 트리거
+    const stitched = await onReStitch(
+      segments,
+      selectedBgmId,
+      bgmVolume,
+      customAudioFile,
+      effectiveOverlayOptions
+    );
+    if (stitched && stitched.url) {
+      await triggerVideoFileDownload(stitched);
+    }
   };
 
   // 16:9 고화질 썸네일 다운로드
@@ -1944,13 +2647,23 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     try {
       let bg: HTMLCanvasElement | null = null;
 
-      // 1. result.url(오버레이가 이미 합성된 최종 비디오)이 활성화된 경우:
-      // 화면에 보이는 자막/상단 문구/날짜/채널명이 썸네일에 들어가지 않도록, 원본 소스 비디오에서 동일 시점을 캡처합니다!
-      if (result?.url && activePlayingSegment) {
+      // 1. 현재 활성 원본 비디오 엘리먼트에서 즉시 무오버레이 캡처
+      if (videoRef.current && videoRef.current.readyState >= 2) {
+        bg = captureVideoFrameFromElement(
+          videoRef.current,
+          activePlayingSegment?.cropOffsetYRatio ?? 0.2,
+          1280,
+          720,
+          activePlayingSegment?.rotation ?? 0
+        );
+      }
+
+      // 2. 원본 비디오 URL에서 현재 타임라인 시점으로 정밀 캡처
+      if (!bg && activePlayingSegment) {
         const targetVideo = videoMap.get(activePlayingSegment.sourceVideoId) || videos[0];
         if (targetVideo?.url) {
           const segOffset = segmentTimelineOffsets[activePlayingSegment.id];
-          const curTime = videoRef.current?.currentTime || currentTime || 0;
+          const curTime = currentTimeRef.current || currentTime || 0;
           const elapsedInSeg = segOffset ? Math.max(0, curTime - segOffset.startOffset) : 0;
           const sourceTime = Math.min(
             activePlayingSegment.end,
@@ -1970,18 +2683,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             console.warn('handleCaptureCurrentFrame source capture failed:', sourceErr);
           }
         }
-      }
-
-      // 2. result.url이 없는 경우(병합 전 소스 비디오 직접 재생):
-      // 이때는 videoRef.current 자체가 원본 영상이므로 직접 캡처해도 오버레이가 없음
-      if (!bg && videoRef.current && videoRef.current.readyState >= 2 && !result?.url) {
-        bg = captureVideoFrameFromElement(
-          videoRef.current,
-          activePlayingSegment?.cropOffsetYRatio ?? 0.2,
-          1280,
-          720,
-          activePlayingSegment?.rotation ?? 0
-        );
       }
 
       // 3. 만약 위에서 실패했고 targetVideo가 있다면 세그먼트 시작 시점으로 fallback
@@ -2265,7 +2966,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
           {/* 메인 액션 버튼 */}
           {videos.length > 0 && (
-            !result?.url ? (
+            !isSequenceMode ? (
               <button
                 type="button"
                 className={`toss-nav-cta-btn ${isProcessing ? 'loading' : ''}`}
@@ -2277,38 +2978,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 <Sparkles size={14} className={isProcessing ? 'animate-spin' : ''} />
                 <span>{isProcessing ? dict.header.analyzingAi : dict.header.startAiHighlight}</span>
               </button>
-            ) : (isModified || isReStitching) ? (
-              <button
-                type="button"
-                className={`toss-nav-cta-btn toss-nav-restitch-btn ${isReStitching ? 'loading' : ''}`}
-                onClick={() =>
-                  onReStitch(
-                    segments,
-                    selectedBgmId,
-                    bgmVolume,
-                    customAudioFile,
-                    effectiveOverlayOptions
-                  )
-                }
-                disabled={isReStitching || segments.length === 0}
-                title={dict.header.reStitchTitle}
-              >
-                <Scissors size={14} className={isReStitching ? 'animate-spin' : ''} />
-                <span>
-                  {isReStitching
-                    ? `${dict.header.stitching} (${reStitchProgress?.progressPercent ?? 0}%)`
-                    : dict.header.reStitch}
-                </span>
-              </button>
             ) : (
               <button
                 type="button"
-                className="toss-nav-cta-btn"
+                className={`toss-nav-cta-btn ${isReStitching ? 'loading' : ''}`}
                 onClick={handleDownload}
+                disabled={isReStitching || segments.length === 0}
                 title={dict.header.downloadTitle}
               >
-                <Download size={14} />
-                <span>{dict.header.download} ({formatSec(totalDuration)})</span>
+                <Download size={14} className={isReStitching ? 'animate-bounce' : ''} />
+                <span>
+                  {isReStitching
+                    ? `${dict.header.stitching} (${reStitchProgress?.progressPercent ?? 0}%)`
+                    : `${dict.header.download} (${formatSec(totalDuration)})`}
+                </span>
               </button>
             )
           )}
@@ -2456,18 +3139,33 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 {activeVideoUrl ? (
                   <>
                     <video
-                      key={activeVideoUrl}
                       ref={videoRef}
                       src={activeVideoUrl}
                       preload="auto"
                       playsInline
                       muted={isMuted}
-                      onPlay={() => setIsPlaying(true)}
-                      onPause={() => setIsPlaying(false)}
+                      onPlay={() => {
+                        if (!isSequenceMode) {
+                          setIsPlaying(true);
+                        }
+                      }}
+                      onPause={() => {
+                        if (!isSequenceMode) {
+                          setIsPlaying(false);
+                        }
+                      }}
                       onLoadedMetadata={(e) => {
                         const d = e.currentTarget.duration;
-                        if (!result?.url && Number.isFinite(d) && d > 0) {
+                        if (Number.isFinite(d) && d > 0) {
                           setPreviewNativeDuration(d);
+                        }
+                        if (isSequenceMode) {
+                          renderCompositorAt(currentTimeRef.current);
+                        }
+                      }}
+                      onSeeked={() => {
+                        if (isSequenceMode) {
+                          renderCompositorAt(currentTimeRef.current);
                         }
                       }}
                       onError={(e) => {
@@ -2477,35 +3175,25 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           code: err?.code,
                           message: err?.message,
                         });
-                        setIsPlaying(false);
-                        setPlaybackError(dict.draftPreview?.playbackError || PLAYBACK_ERROR_MESSAGE);
+                        if (!isSequenceMode) {
+                          setIsPlaying(false);
+                          setPlaybackError(dict.draftPreview?.playbackError || PLAYBACK_ERROR_MESSAGE);
+                        }
                       }}
                       onTimeUpdate={(e) => {
-                        if (isScrubbingRef.current) return;
+                        if (isSequenceMode || isScrubbingRef.current) return;
                         const cur = e.currentTarget.currentTime;
-                        const nativeDur = e.currentTarget.duration;
-                        const effectiveMaxDur =
-                          Number.isFinite(nativeDur) && nativeDur > 0
-                            ? Math.max(totalDuration, nativeDur)
-                            : totalDuration;
-                        if (result?.url && effectiveMaxDur > 0 && cur >= effectiveMaxDur) {
-                          e.currentTarget.pause();
-                          e.currentTarget.currentTime = effectiveMaxDur;
-                          setCurrentTime(totalDuration);
-                          setIsPlaying(false);
-                          return;
-                        }
                         setCurrentTime(Math.min(cur, totalDuration));
                       }}
                       onEnded={() => {
+                        if (isSequenceMode) return;
                         setIsPlaying(false);
                         if (totalDuration > 0) {
                           setCurrentTime(totalDuration);
                         }
                       }}
                       onLoadedData={() => {
-                        // result.url(오버레이 합성 비디오)이 활성화되어 있을 때는 원본이 아니므로 캡처하지 않음
-                        if (!result?.url && !thumbnailBgCanvasRef.current && videoRef.current) {
+                        if (!thumbnailBgCanvasRef.current && videoRef.current) {
                           const bg = captureVideoFrameFromElement(
                             videoRef.current,
                             activePlayingSegment?.cropOffsetYRatio ?? 0.2,
@@ -2529,12 +3217,22 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             }
                           }
                         }
+                        if (isSequenceMode) {
+                          renderCompositorAt(currentTimeRef.current);
+                        }
                       }}
                       onClick={togglePlay}
                       onDoubleClick={toggleFullscreen}
                       className="toss-video-element"
                       style={
-                        !result?.url && activePlayingSegment?.rotation
+                        isSequenceMode
+                          ? {
+                              opacity: 0,
+                              pointerEvents: 'none',
+                              position: 'absolute',
+                              inset: 0,
+                            }
+                          : activePlayingSegment?.rotation
                           ? {
                               transform: `rotate(${activePlayingSegment.rotation}deg)${
                                 activePlayingSegment.rotation === 90 || activePlayingSegment.rotation === 270
@@ -2546,6 +3244,18 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           : undefined
                       }
                     />
+
+                    {/* 시퀀스 모드: Export 결과물과 100% 동일한 실시간 1280x720 WYSIWYG 캔버스 모니터 */}
+                    {isSequenceMode && (
+                      <canvas
+                        ref={previewCanvasRef}
+                        width={COMPOSITOR_WIDTH}
+                        height={COMPOSITOR_HEIGHT}
+                        onClick={togglePlay}
+                        onDoubleClick={toggleFullscreen}
+                        className="toss-video-canvas"
+                      />
+                    )}
 
                     {/* 영상 우측 상단 퀵 확대/축소 버튼 */}
                     <button
@@ -2583,7 +3293,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       </button>
                     )}
 
-                    {!result?.url &&
+                    {!isSequenceMode &&
                       ((overlayOptions.showTitle && overlayOptions.titleText) || activePlayingMetaText) && (
                         <div className="toss-live-overlay-top-left">
                           {overlayOptions.showTitle && overlayOptions.titleText && (
@@ -2599,13 +3309,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         </div>
                       )}
 
-                    {!result?.url && overlayOptions.showChannel && overlayOptions.channelText && (
+                    {!isSequenceMode && overlayOptions.showChannel && overlayOptions.channelText && (
                       <div className="toss-live-overlay-channel">
                         {overlayOptions.channelText}
                       </div>
                     )}
 
-                    {!result?.url && overlayOptions.showSubtitle && activePlayingSubtitleText && (
+                    {!isSequenceMode && overlayOptions.showSubtitle && activePlayingSubtitleText && (
                       <div className="toss-live-overlay-subtitle">
                         {activePlayingSubtitleText}
                       </div>
@@ -3293,42 +4003,22 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             )}
 
             {/* 완성 영상 다운로드 및 유튜브 호환 자막 다운로드 */}
-            {Boolean(result?.url) && (
+            {isSequenceMode && (
               <div className="toss-timeline-actions">
-                {isModified || isReStitching ? (
-                  <button
-                    type="button"
-                    className={`toss-btn-download-video toss-btn-restitch-timeline ${isReStitching ? 'loading' : ''}`}
-                    onClick={() =>
-                      onReStitch(
-                        segments,
-                        selectedBgmId,
-                        bgmVolume,
-                        customAudioFile,
-                        effectiveOverlayOptions
-                      )
-                    }
-                    disabled={isReStitching || segments.length === 0}
-                    title={dict.header.reStitchTitle}
-                  >
-                    <Scissors size={15} className={isReStitching ? 'animate-spin' : ''} />
-                    <span>
-                      {isReStitching
-                        ? `${dict.header.stitching} (${reStitchProgress?.progressPercent ?? 0}%)`
-                        : dict.header.reStitch}
-                    </span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="toss-btn-download-video"
-                    onClick={handleDownload}
-                    title={dict.header.downloadTitle}
-                  >
-                    <Download size={15} />
-                    <span>{dict.header.download} ({formatSec(totalDuration)})</span>
-                  </button>
-                )}
+                <button
+                  type="button"
+                  className={`toss-btn-download-video ${isReStitching ? 'loading' : ''}`}
+                  onClick={handleDownload}
+                  disabled={isReStitching || segments.length === 0}
+                  title={dict.header.downloadTitle}
+                >
+                  <Download size={15} className={isReStitching ? 'animate-bounce' : ''} />
+                  <span>
+                    {isReStitching
+                      ? `${dict.header.stitching} (${reStitchProgress?.progressPercent ?? 0}%)`
+                      : `${dict.header.download} ({formatSec(totalDuration)})`}
+                  </span>
+                </button>
 
                 <button
                   type="button"
@@ -4614,7 +5304,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           resetStudioState();
           onReset();
         }}
-        hasStitchedResult={Boolean(result?.url)}
+        hasStitchedResult={isSequenceMode}
         onDownloadThumbnail={handleDownloadThumbnail}
         onDownloadSubtitles={() => {
           setIsSettingsModalOpen(false);
@@ -4622,13 +5312,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         }}
         onReStitch={() => {
           setIsSettingsModalOpen(false);
-          onReStitch(
-            segments,
-            selectedBgmId,
-            bgmVolume,
-            customAudioFile,
-            effectiveOverlayOptions
-          );
+          void handleDownload();
         }}
         isReStitching={isReStitching}
         reStitchProgress={reStitchProgress}
