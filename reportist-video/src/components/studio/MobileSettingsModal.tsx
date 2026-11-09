@@ -17,8 +17,10 @@ import {
   ShieldAlert,
   Database,
   Layers,
+  AlertTriangle,
 } from 'lucide-react';
 import type { FreeModelMeta } from '../../types/gateway.ts';
+import type { ExportResolution } from '../../types/video.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 import {
   formatDateByPattern,
@@ -57,6 +59,8 @@ export interface MobileSettingsModalProps {
   onToggleShowSubtitle?: (enabled: boolean) => void;
   showChapterBridge?: boolean;
   onToggleShowChapterBridge?: (enabled: boolean) => void;
+  selectedResolution?: ExportResolution;
+  onSelectResolution?: (res: ExportResolution) => void;
   currentModel?: FreeModelMeta;
   isLoadingModels?: boolean;
   currentLocaleInfo: { flag: string; nativeName: string; name: string };
@@ -91,6 +95,8 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   onToggleShowSubtitle,
   showChapterBridge = true,
   onToggleShowChapterBridge,
+  selectedResolution = '1080p',
+  onSelectResolution,
   currentModel,
   isLoadingModels,
   currentLocaleInfo,
@@ -507,103 +513,184 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
             </div>
           )}
 
+          {/* Group: 내보내기 화질 설정 (해상도) */}
+          <div className="settings-modal-group">
+            <span className="settings-modal-group-title">
+              {dict.settingsModal?.resolutionSection || '내보내기 영상 화질'}
+            </span>
+            <div className="settings-modal-card-box p-3">
+              <div className="flex flex-col gap-2.5">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onSelectResolution?.('720p')}
+                    className={`flex flex-col items-start p-2.5 rounded-xl border text-left transition-all ${
+                      selectedResolution === '720p'
+                        ? 'border-blue-500 bg-blue-50/80 text-blue-900 shadow-sm'
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full mb-1">
+                      <span className="text-xs font-bold font-mono">720p HD</span>
+                      {selectedResolution === '720p' && (
+                        <span className="w-2 h-2 rounded-full bg-blue-600" />
+                      )}
+                    </div>
+                    <span className="text-[11px] text-slate-500 leading-tight">
+                      {dict.settingsModal?.resolution720pDesc || '빠르고 안정적인 렌더링'}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onSelectResolution?.('1080p')}
+                    className={`flex flex-col items-start p-2.5 rounded-xl border text-left transition-all ${
+                      selectedResolution === '1080p'
+                        ? 'border-blue-500 bg-blue-50/80 text-blue-900 shadow-sm'
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold font-mono">1080p FHD</span>
+                        <span className="text-[9px] font-semibold px-1 py-0.5 bg-blue-100 text-blue-700 rounded">
+                          {dict.settingsModal?.resolutionDesktopBadge || '고화질'}
+                        </span>
+                      </div>
+                      {selectedResolution === '1080p' && (
+                        <span className="w-2 h-2 rounded-full bg-blue-600" />
+                      )}
+                    </div>
+                    <span className="text-[11px] text-slate-500 leading-tight">
+                      {dict.settingsModal?.resolution1080pDesc || '선명한 고해상도'}
+                    </span>
+                  </button>
+                </div>
+
+                {/* 모바일 1080p 선택 시 경고 안내 */}
+                {selectedResolution === '1080p' && (
+                  <div className="flex items-start gap-1.5 p-2 bg-amber-50/90 border border-amber-200/80 rounded-lg text-[11px] text-amber-800 leading-snug">
+                    <AlertTriangle size={13} className="text-amber-600 shrink-0 mt-0.5" />
+                    <span>
+                      {dict.settingsModal?.resolutionMobileWarning ||
+                        '모바일 기기에서는 영상 길이에 따라 브라우저 메모리 부족으로 튕길 수 있어요.'}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Group: Storage & Persistence Settings (스토리지 엔진 및 보관 설정) */}
           <div className="settings-modal-group">
             <span className="settings-modal-group-title">
-              저장소 및 보관 설정 (스토리지 엔진)
+              {dict.settingsModal?.storageSection || '저장소 및 보관 설정'}
             </span>
-            <div className="settings-modal-card-box p-3.5 space-y-3">
-              {/* 1. 용량 및 엔진 정보 */}
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-2.5">
+            <div className="settings-modal-card-box toss-storage-card">
+              {/* 1. 스토리지 엔진 및 가용 공간 */}
+              <div className="toss-storage-header">
+                <div className="toss-storage-header-left">
                   <div className="settings-modal-icon-badge" style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}>
                     <HardDrive size={18} />
                   </div>
-                  <div>
-                    <div className="text-sm font-bold text-slate-800">
-                      {opfsSupported ? 'OPFS 가상 파일시스템' : 'IndexedDB 로컬 스토리지'}
+                  <div className="toss-storage-title-wrap">
+                    <div className="toss-storage-title-row">
+                      <span className="toss-storage-engine-title">
+                        {opfsSupported ? 'OPFS 가상 파일시스템' : 'IndexedDB 로컬 스토리지'}
+                      </span>
+                      {optimalCodec && (
+                        <span className="toss-storage-badge-codec">
+                          {optimalCodec.name.toUpperCase()} 지원
+                        </span>
+                      )}
                     </div>
-                    <div className="text-xs text-slate-500 mt-0.5">
+                    <div className="toss-storage-quota-desc">
                       {storageEstimate
                         ? `사용 중: ${formatBytes(storageEstimate.usageBytes)} · 남은 공간: ${formatBytes(storageEstimate.availableBytes)}`
                         : '스토리지 사용량 측정 중...'}
                     </div>
                   </div>
                 </div>
-                {optimalCodec && (
-                  <span className="px-2 py-0.5 text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded shrink-0">
-                    {optimalCodec.name.toUpperCase()} 지원
-                  </span>
-                )}
               </div>
 
-              {/* 2. 영구 보존 상태 및 요청 */}
-              <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-150">
-                <div className="flex items-center gap-2">
-                  {isPersisted ? (
-                    <ShieldCheck size={16} className="text-emerald-600 shrink-0" />
-                  ) : (
-                    <ShieldAlert size={16} className="text-amber-500 shrink-0" />
-                  )}
-                  <span className="text-xs text-slate-700 font-medium">
-                    {isPersisted
-                      ? '영구 보존됨 (브라우저 자동 삭제 방지)'
-                      : '임시 보관 (캐시 정리 시 삭제될 수 있음)'}
-                  </span>
+              {/* 스토리지 사용량 게이지 바 */}
+              {storageEstimate && storageEstimate.quotaBytes > 0 && (
+                <div className="toss-storage-bar-container">
+                  <div className="toss-storage-bar-track">
+                    <div
+                      className={`toss-storage-bar-fill ${storageEstimate.isLowStorage ? 'danger' : ''}`}
+                      style={{ width: `${Math.min(100, Math.max(3, storageEstimate.percentUsed))}%` }}
+                    />
+                  </div>
+                  <div className="toss-storage-bar-label">
+                    <span>전체 {formatBytes(storageEstimate.quotaBytes)} 중 {storageEstimate.percentUsed}% 사용 중</span>
+                    {storageEstimate.isLowStorage && <span className="toss-storage-low-warning">저장 공간 부족</span>}
+                  </div>
                 </div>
-                {!isPersisted && (
+              )}
+
+              {/* 2. 영구 보존 상태 및 권한 요청 */}
+              <div className={`toss-storage-persist-row ${isPersisted ? 'persisted' : ''}`}>
+                <div className="toss-storage-persist-left">
+                  {isPersisted ? (
+                    <ShieldCheck size={18} className="toss-icon-persisted" />
+                  ) : (
+                    <ShieldAlert size={18} className="toss-icon-temporary" />
+                  )}
+                  <div className="toss-storage-persist-text">
+                    <div className="toss-storage-persist-title">
+                      {isPersisted ? '영구 보존 중 (브라우저 자동 삭제 방지)' : '임시 보관 (캐시 정리 시 삭제 위험)'}
+                    </div>
+                    <div className="toss-storage-persist-desc">
+                      {isPersisted
+                        ? '용량이 부족해도 브라우저가 임의로 프로젝트를 지우지 않아요'
+                        : '기기 용량 부족 시 브라우저 정책에 의해 캐시가 삭제될 수 있어요'}
+                    </div>
+                  </div>
+                </div>
+                {!isPersisted ? (
                   <button
                     type="button"
                     onClick={handleRequestPersist}
                     disabled={isRequestingPersist}
-                    className="px-2 py-1 text-xs font-semibold rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors shrink-0"
+                    className="toss-storage-persist-btn"
                   >
                     {isRequestingPersist ? '확인 중...' : '영구 보존 요청'}
                   </button>
+                ) : (
+                  <span className="toss-storage-persist-badge">보호 중</span>
                 )}
               </div>
 
               {/* 3. 보관 모드 선택 */}
-              <div>
-                <div className="text-xs font-bold text-slate-700 mb-1.5">보관 모드</div>
-                <div className="grid grid-cols-3 gap-1.5">
+              <div className="toss-storage-mode-group">
+                <div className="toss-storage-mode-title">보관 모드</div>
+                <div className="toss-storage-mode-grid">
                   <button
                     type="button"
                     onClick={() => handleSelectStorageMode('auto')}
-                    className={`px-2 py-2 text-xs font-medium rounded-lg border text-center transition-all ${
-                      storageMode === 'auto'
-                        ? 'bg-blue-50 border-blue-400 text-blue-700 font-bold shadow-xs'
-                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
+                    className={`toss-storage-mode-btn ${storageMode === 'auto' ? 'active' : ''}`}
                   >
-                    <div>자동 (권장)</div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">용량 맞춤 최적화</div>
+                    <div className="toss-storage-mode-name">자동 (권장)</div>
+                    <div className="toss-storage-mode-sub">용량 맞춤 최적화</div>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleSelectStorageMode('full')}
-                    className={`px-2 py-2 text-xs font-medium rounded-lg border text-center transition-all ${
-                      storageMode === 'full'
-                        ? 'bg-blue-50 border-blue-400 text-blue-700 font-bold shadow-xs'
-                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
+                    className={`toss-storage-mode-btn ${storageMode === 'full' ? 'active' : ''}`}
                   >
-                    <div>전체 보관</div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">원본 비디오 보관</div>
+                    <div className="toss-storage-mode-name">전체 보관</div>
+                    <div className="toss-storage-mode-sub">원본 비디오 보관</div>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleSelectStorageMode('lightweight')}
-                    className={`px-2 py-2 text-xs font-medium rounded-lg border text-center transition-all ${
-                      storageMode === 'lightweight'
-                        ? 'bg-blue-50 border-blue-400 text-blue-700 font-bold shadow-xs'
-                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
+                    className={`toss-storage-mode-btn ${storageMode === 'lightweight' ? 'active' : ''}`}
                   >
-                    <div>초경량 모드</div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">용량 99% 절약</div>
+                    <div className="toss-storage-mode-name">초경량 모드</div>
+                    <div className="toss-storage-mode-sub">용량 99% 절약</div>
                   </button>
                 </div>
               </div>

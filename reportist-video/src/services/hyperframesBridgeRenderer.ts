@@ -653,11 +653,14 @@ export function createHyperframesBridgeController(durationSec = CHAPTER_BRIDGE_D
         ctx.fillRect(0, 0, targetWidth, targetHeight);
       }
 
+      // 해상도(720p vs 1080p)에 따른 동적 스케일링 계수 (720p=1.0, 1080p=1.5)
+      const scale = targetWidth / 1280;
+
       // 2. 5단 사선 루버 블라인드(Staggered Louver Blades)
       const closes = [state.s0Close, state.s1Close, state.s2Close, state.s3Close, state.s4Close];
       const opens = [state.s0Open, state.s1Open, state.s2Open, state.s3Open, state.s4Open];
       const sliceH = Math.ceil(targetHeight / SLICE_COUNT) + 2;
-      const slant = 90;
+      const slant = Math.round(90 * scale);
       const totalSpanW = targetWidth + slant * 2;
 
       for (let i = 0; i < SLICE_COUNT; i++) {
@@ -753,18 +756,18 @@ export function createHyperframesBridgeController(durationSec = CHAPTER_BRIDGE_D
         // [A] 날짜 변경 연출: 아날로그 스플릿 플립 탁상시계 (Split-Flap Flip Clock)
         // ---------------------------------------------------------------------
         if (showDateSection) {
-          const clockCenterY = bothActive ? centerY - 95 : centerY - 12;
+          const clockCenterY = bothActive ? centerY - Math.round(95 * scale) : centerY - Math.round(12 * scale);
 
           // 상단 미니멀 라벨
           ctx.save();
-          ctx.font = '700 13px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+          ctx.font = `700 ${Math.round(13 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
           ctx.fillStyle = '#f5d07d';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           if ('letterSpacing' in ctx) {
-            (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = '4px';
+            (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = `${Math.round(4 * scale)}px`;
           }
-          ctx.fillText('DATE CHANGE', centerX, clockCenterY - (bothActive ? 68 : 84));
+          ctx.fillText('DATE CHANGE', centerX, clockCenterY - Math.round((bothActive ? 68 : 84) * scale));
           ctx.restore();
 
           // 나이 괄호 등 부가 텍스트는 분리하고 핵심 날짜 문자열을 플립 타일로 구성
@@ -783,10 +786,10 @@ export function createHyperframesBridgeController(durationSec = CHAPTER_BRIDGE_D
           const paddedFrom = fromCore.padEnd(maxLen, ' ');
           const paddedTo = toCore.padEnd(maxLen, ' ');
 
-          const tileH = bothActive ? 74 : 92;
-          const digitW = bothActive ? 50 : 62;
-          const punctW = bothActive ? 22 : 26;
-          const gap = 6;
+          const tileH = Math.round((bothActive ? 74 : 92) * scale);
+          const digitW = Math.round((bothActive ? 50 : 62) * scale);
+          const punctW = Math.round((bothActive ? 22 : 26) * scale);
+          const gap = Math.round(6 * scale);
 
           const charWidths = paddedTo.split('').map((ch) =>
             /[0-9A-Za-z가-힣]/.test(ch) ? digitW : punctW
@@ -795,23 +798,24 @@ export function createHyperframesBridgeController(durationSec = CHAPTER_BRIDGE_D
             charWidths.reduce((acc, w) => acc + w, 0) + Math.max(0, maxLen - 1) * gap;
 
           // 플립 시계 하우징 프레임 (실제 탁상시계 같은 묵직한 메탈릭 베젤)
-          const framePadX = 22;
-          const framePadY = 14;
+          const framePadX = Math.round(22 * scale);
+          const framePadY = Math.round(14 * scale);
           ctx.save();
           ctx.fillStyle = 'rgba(7, 10, 16, 0.85)';
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-          ctx.lineWidth = 1.5;
+          ctx.lineWidth = Math.max(1, 1.5 * scale);
           ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-          ctx.shadowBlur = 24;
-          ctx.shadowOffsetY = 8;
+          ctx.shadowBlur = Math.round(24 * scale);
+          ctx.shadowOffsetY = Math.round(8 * scale);
           ctx.beginPath();
+          const frameRadius = Math.round(16 * scale);
           if (typeof ctx.roundRect === 'function') {
             ctx.roundRect(
               centerX - totalClockW / 2 - framePadX,
               clockCenterY - tileH / 2 - framePadY,
               totalClockW + framePadX * 2,
               tileH + framePadY * 2,
-              16
+              frameRadius
             );
           } else {
             ctx.rect(
@@ -853,10 +857,10 @@ export function createHyperframesBridgeController(durationSec = CHAPTER_BRIDGE_D
           // 플립 시계 아래에 "이전 날짜 → 새 날짜" 비교 표시 (사용자가 전/후 날짜를 한눈에 인지!)
           const fromSuffix = extractSuffix(info.fromDate);
           const toSuffix = extractSuffix(info.toDate);
-          const summaryY = clockCenterY + tileH / 2 + (bothActive ? 34 : 46);
+          const summaryY = clockCenterY + tileH / 2 + Math.round((bothActive ? 34 : 46) * scale);
 
           ctx.save();
-          ctx.font = '600 18px -apple-system, BlinkMacSystemFont, "Pretendard Variable", monospace';
+          ctx.font = `600 ${Math.round(18 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", monospace`;
           ctx.textBaseline = 'middle';
 
           const leftLabel = `${fromCore}${fromSuffix ? ' ' + fromSuffix : ''}`;
@@ -877,7 +881,7 @@ export function createHyperframesBridgeController(durationSec = CHAPTER_BRIDGE_D
           ctx.fillText(arrowStr, startSumX + leftW, summaryY);
 
           ctx.fillStyle = state.flipProgress > 0.75 ? '#ffffff' : 'rgba(255, 255, 255, 0.45)';
-          ctx.font = '700 19px -apple-system, BlinkMacSystemFont, "Pretendard Variable", monospace';
+          ctx.font = `700 ${Math.round(19 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", monospace`;
           ctx.fillText(rightLabel, startSumX + leftW + arrowW, summaryY);
           ctx.restore();
         }
@@ -886,24 +890,24 @@ export function createHyperframesBridgeController(durationSec = CHAPTER_BRIDGE_D
         // [B] 장소 변경 연출: 구불구불한 점선 경로(Winding Dashed Route) + 자동차/비행기 이동
         // ---------------------------------------------------------------------
         if (showLocationSection) {
-          const mapCenterY = bothActive ? centerY + 115 : centerY + 6;
-          const routeSpanW = Math.min(620, targetWidth * 0.52);
+          const mapCenterY = bothActive ? centerY + Math.round(115 * scale) : centerY + Math.round(6 * scale);
+          const routeSpanW = Math.min(620 * scale, targetWidth * 0.52);
           const startX = centerX - routeSpanW / 2;
           const endX = centerX + routeSpanW / 2;
-          const startY = mapCenterY + 12;
-          const endY = mapCenterY - 12;
+          const startY = mapCenterY + Math.round(12 * scale);
+          const endY = mapCenterY - Math.round(12 * scale);
 
           // 상단 미니멀 라벨 (장소 단독 변경 시에만 상단 표시)
           if (!bothActive) {
             ctx.save();
-            ctx.font = '700 13px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+            ctx.font = `700 ${Math.round(13 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
             ctx.fillStyle = '#38bdf8';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             if ('letterSpacing' in ctx) {
-              (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = '4px';
+              (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = `${Math.round(4 * scale)}px`;
             }
-            ctx.fillText('LOCATION ROUTE', centerX, mapCenterY - 105);
+            ctx.fillText('LOCATION ROUTE', centerX, mapCenterY - Math.round(105 * scale));
             ctx.restore();
           }
 
@@ -917,8 +921,8 @@ export function createHyperframesBridgeController(durationSec = CHAPTER_BRIDGE_D
             else ctx.lineTo(pt.x, pt.y);
           }
           ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)';
-          ctx.lineWidth = 2.5;
-          ctx.setLineDash([6, 9]);
+          ctx.lineWidth = Math.max(1.5, 2.5 * scale);
+          ctx.setLineDash([Math.round(6 * scale), Math.round(9 * scale)]);
           ctx.lineCap = 'round';
           ctx.stroke();
           ctx.restore();
@@ -935,15 +939,14 @@ export function createHyperframesBridgeController(durationSec = CHAPTER_BRIDGE_D
               else ctx.lineTo(pt.x, pt.y);
             }
             ctx.strokeStyle = '#f5d07d';
-            ctx.lineWidth = 4;
-            ctx.setLineDash([10, 8]);
+            ctx.lineWidth = Math.max(2, 4 * scale);
+            ctx.setLineDash([Math.round(10 * scale), Math.round(8 * scale)]);
             ctx.lineCap = 'round';
             ctx.shadowColor = 'rgba(245, 208, 125, 0.55)';
-            ctx.shadowBlur = 10;
+            ctx.shadowBlur = Math.round(10 * scale);
             ctx.stroke();
             ctx.restore();
           }
-
           // 3) 출발지 포인트 (Origin Pin & 이전 장소명)
           ctx.save();
           ctx.fillStyle = '#0f172a';

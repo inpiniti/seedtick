@@ -64,14 +64,25 @@ export const VideoCard: React.FC<VideoCardProps> = ({
             </span>
           )}
           {video.segments.length > 0 && (
-            <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-              <CheckCircle2 className="w-3 h-3" />
+            <span
+              className="video-meta-pill"
+              style={{
+                color: '#059669',
+                backgroundColor: '#ecfdf5',
+                border: '1px solid #a7f3d0',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px',
+                fontWeight: 600,
+              }}
+            >
+              <CheckCircle2 size={12} />
               극적 구간 {video.segments.length}개
             </span>
           )}
           {video.isMissingFile && (
-            <span className="inline-flex items-center gap-1 text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-              <AlertCircle className="w-3 h-3 text-amber-600" />
+            <span className="toss-relink-badge">
+              <AlertCircle size={12} style={{ color: '#d97706' }} />
               원본 연결 필요
             </span>
           )}
@@ -84,18 +95,18 @@ export const VideoCard: React.FC<VideoCardProps> = ({
           <>
             <button
               type="button"
-              className="inline-flex items-center gap-1 text-xs text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2.5 py-1.5 rounded-md font-semibold transition-colors mr-1"
+              className="toss-btn-relink-card"
               title="로컬 영상 파일 다시 연결하기"
               onClick={() => relinkInputRef.current?.click()}
             >
-              <Link2 className="w-3.5 h-3.5" />
+              <Link2 size={13} />
               <span>연결</span>
             </button>
             <input
               ref={relinkInputRef}
               type="file"
               accept="video/*,image/*"
-              className="hidden"
+              style={{ display: 'none' }}
               onChange={(e) => {
                 if (e.target.files && e.target.files[0]) {
                   onRelink(video.id, e.target.files[0]);

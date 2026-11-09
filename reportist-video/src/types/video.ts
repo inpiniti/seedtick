@@ -87,10 +87,15 @@ export interface ProcessingProgress {
   liveContent?: string;
 }
 
+export type ExportResolution = '720p' | '1080p';
+
 export interface FinalVideoResult {
   blob: Blob;
   url: string;
   duration: number;
+  width?: number; // 1280 or 1920
+  height?: number; // 720 or 1080
+  resolution?: ExportResolution; // '720p' | '1080p'
   introDuration?: number; // 시작 인트로 실제 재생 시간 (초)
   outroDuration?: number; // 마무리 아웃트로 실제 재생 시간 (초)
   bridgeDurationMap?: Record<string, number>; // 각 세그먼트(id) 직전에 삽입된 챕터 브릿지 길이 (초)

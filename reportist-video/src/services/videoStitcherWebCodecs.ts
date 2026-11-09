@@ -2,7 +2,7 @@
 // VideoEncoder + mp4-muxer + OfflineAudioContext를 활용하여 실시간 녹화의 프레임 누락(Stuttering)을 완전 제거합니다.
 
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
-import type { FinalVideoResult, HighlightSegment, VideoItem, VideoOverlayOptions } from '../types/video.ts';
+import type { ExportResolution, FinalVideoResult, HighlightSegment, VideoItem, VideoOverlayOptions } from '../types/video.ts';
 import {
   CHAPTER_BRIDGE_DURATION,
   computeBridgeDurationMap,
@@ -20,6 +20,7 @@ export interface StitchVideosWebCodecsParams {
   bgmVolume?: number;
   customAudioFile?: File | null;
   overlayOptions?: VideoOverlayOptions;
+  resolution?: ExportResolution;
 }
 
 /**
@@ -305,6 +306,7 @@ export async function stitchVideosWebCodecs({
   bgmVolume = 0.35,
   customAudioFile,
   overlayOptions,
+  resolution,
 }: StitchVideosWebCodecsParams): Promise<FinalVideoResult> {
   if (allSegments.length === 0) {
     throw new Error('이어붙일 하이라이트 구간이 없습니다.');
@@ -321,14 +323,23 @@ export async function stitchVideosWebCodecs({
     } catch {}
   }
 
+  // 해상도 결정: 전달된 옵션이 있거나, 없으면 데스크톱은 1080p, 모바일은 720p 권장 기본값
+  const is1080p = resolution === '1080p' || (!resolution && !IS_MOBILE);
+  const targetResolution: ExportResolution = is1080p ? '1080p' : '720p';
+  const targetWidth = is1080p ? 1920 : 1280;
+  const targetHeight = is1080p ? 1080 : 720;
+  const scale = targetWidth / 1280; // 1.0 (720p) vs 1.5 (1080p)
+
   // 모바일/아이폰은 배터리 및 하드웨어 디코더 부하를 줄이고 인코딩 속도를 2배 단축하기 위해 30fps 적용, 데스크톱은 60fps 고주사율 유지
   const targetFps = IS_MOBILE ? 30 : 60;
-  const targetBitrate = IS_MOBILE ? 4_500_000 : 10_000_000;
+  const targetBitrate = is1080p
+    ? (IS_MOBILE ? 9_000_000 : 18_000_000)
+    : (IS_MOBILE ? 4_500_000 : 10_000_000);
   const frameDurationMicros = Math.round(1_000_000 / targetFps);
   const queueBackpressureThreshold = IS_MOBILE ? 10 : 24;
 
   onLog?.(
-    `🚀 WebCodecs GPU 하드웨어 가속 비디오 렌더러 시작 (${targetFps}fps · ${
+    `🚀 WebCodecs GPU 하드웨어 가속 비디오 렌더러 시작 (${targetResolution} ${targetWidth}x${targetHeight} · ${targetFps}fps · ${
       IS_MOBILE ? '모바일 전력/메모리 최적화 모드' : '데스크톱 60fps 최고화질 모드'
     })`
   );
@@ -343,9 +354,6 @@ export async function stitchVideosWebCodecs({
       wakeLock = await nav.wakeLock.request('screen');
     }
   } catch {}
-
-  const targetWidth = 1280;
-  const targetHeight = 720;
 
   // 1. 비디오 맵 구성
   const videoMap = new Map<string, VideoItem>();
@@ -387,25 +395,27 @@ export async function stitchVideosWebCodecs({
     if (!oCtx) return null;
 
     let hasAnyOverlay = false;
-    let titleBottomY = 28;
+    let titleBottomY = Math.round(28 * scale);
     const hasTitle = Boolean(overlayOptions.showTitle && overlayOptions.titleText?.trim());
 
     if (hasTitle) {
       hasAnyOverlay = true;
       oCtx.save();
-      oCtx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+      const titleFont = Math.round(22 * scale);
+      oCtx.font = `bold ${titleFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
       const text = overlayOptions.titleText || '';
       const metrics = oCtx.measureText(text);
-      const padX = 14;
+      const padX = Math.round(14 * scale);
       const boxW = metrics.width + padX * 2;
-      const boxH = 38;
-      const x = 32;
-      const y = 28;
+      const boxH = Math.round(38 * scale);
+      const x = Math.round(32 * scale);
+      const y = Math.round(28 * scale);
+      const roundR = Math.round(6 * scale);
 
       oCtx.fillStyle = 'rgba(0, 0, 0, 0.72)';
       oCtx.beginPath();
       if (typeof oCtx.roundRect === 'function') {
-        oCtx.roundRect(x, y, boxW, boxH, 6);
+        oCtx.roundRect(x, y, boxW, boxH, roundR);
       } else {
         oCtx.rect(x, y, boxW, boxH);
       }
@@ -431,17 +441,18 @@ export async function stitchVideosWebCodecs({
     if (metaText) {
       hasAnyOverlay = true;
       oCtx.save();
-      oCtx.font = '600 16px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+      const metaFont = Math.round(16 * scale);
+      oCtx.font = `600 ${metaFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
       oCtx.fillStyle = '#ffffff';
       oCtx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-      oCtx.shadowBlur = 4;
+      oCtx.shadowBlur = Math.round(4 * scale);
       oCtx.shadowOffsetX = 0;
-      oCtx.shadowOffsetY = 1.5;
+      oCtx.shadowOffsetY = Math.round(1.5 * scale);
       oCtx.textAlign = 'left';
       oCtx.textBaseline = 'top';
 
-      const metaX = hasTitle ? 34 : 32;
-      const metaY = hasTitle ? titleBottomY + 7 : 28;
+      const metaX = hasTitle ? Math.round(34 * scale) : Math.round(32 * scale);
+      const metaY = hasTitle ? titleBottomY + Math.round(7 * scale) : Math.round(28 * scale);
       oCtx.fillText(metaText, metaX, metaY);
       oCtx.restore();
     }
@@ -449,15 +460,16 @@ export async function stitchVideosWebCodecs({
     if (overlayOptions.showChannel && overlayOptions.channelText) {
       hasAnyOverlay = true;
       oCtx.save();
-      oCtx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+      const chFont = Math.round(22 * scale);
+      oCtx.font = `bold ${chFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
       oCtx.fillStyle = '#ffffff';
       oCtx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-      oCtx.shadowBlur = 4;
+      oCtx.shadowBlur = Math.round(4 * scale);
       oCtx.shadowOffsetX = 0;
-      oCtx.shadowOffsetY = 2;
+      oCtx.shadowOffsetY = Math.round(2 * scale);
       oCtx.textAlign = 'right';
       oCtx.textBaseline = 'middle';
-      oCtx.fillText(overlayOptions.channelText, targetWidth - 32, 47);
+      oCtx.fillText(overlayOptions.channelText, targetWidth - Math.round(32 * scale), Math.round(47 * scale));
       oCtx.restore();
     }
 
@@ -468,18 +480,20 @@ export async function stitchVideosWebCodecs({
       if (subText) {
         hasAnyOverlay = true;
         oCtx.save();
-        oCtx.font = 'bold 24px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+        const subFont = Math.round(24 * scale);
+        oCtx.font = `bold ${subFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
         const metrics = oCtx.measureText(subText);
-        const padX = 20;
+        const padX = Math.round(20 * scale);
         const boxW = metrics.width + padX * 2;
-        const boxH = 46;
+        const boxH = Math.round(46 * scale);
         const x = (targetWidth - boxW) / 2;
-        const y = targetHeight - 76;
+        const y = targetHeight - Math.round(76 * scale);
+        const roundR = Math.round(8 * scale);
 
         oCtx.fillStyle = 'rgba(0, 0, 0, 0.75)';
         oCtx.beginPath();
         if (typeof oCtx.roundRect === 'function') {
-          oCtx.roundRect(x, y, boxW, boxH, 8);
+          oCtx.roundRect(x, y, boxW, boxH, roundR);
         } else {
           oCtx.rect(x, y, boxW, boxH);
         }
@@ -623,9 +637,33 @@ export async function stitchVideosWebCodecs({
   });
 
   // 고품질 H.264 하드웨어 가속 설정
-  // avc1.640028 (High Profile Level 4.0, 1080p/720p 60fps 지원)
+  // 1080p 60fps는 Level 4.2 (avc1.64002a), 1080p 30fps/720p 60fps는 Level 4.0 (avc1.640028)
+  const candidateCodecs = is1080p
+    ? ['avc1.64002a', 'avc1.640028', 'avc1.4d4028', 'avc1.420028', 'avc1.42001f']
+    : ['avc1.640028', 'avc1.4d401f', 'avc1.42001f'];
+
+  let chosenCodec = is1080p ? 'avc1.640028' : 'avc1.640028';
+  for (const c of candidateCodecs) {
+    const probeConfig: VideoEncoderConfig = {
+      codec: c,
+      width: targetWidth,
+      height: targetHeight,
+      bitrate: targetBitrate,
+      framerate: targetFps,
+      hardwareAcceleration: 'prefer-hardware',
+      avc: { format: 'avc' },
+    };
+    try {
+      const probeSupport = await VideoEncoder.isConfigSupported(probeConfig);
+      if (probeSupport.supported) {
+        chosenCodec = c;
+        break;
+      }
+    } catch {}
+  }
+
   const videoEncoderConfig: VideoEncoderConfig = {
-    codec: 'avc1.640028',
+    codec: chosenCodec,
     width: targetWidth,
     height: targetHeight,
     bitrate: targetBitrate,
@@ -633,13 +671,6 @@ export async function stitchVideosWebCodecs({
     hardwareAcceleration: 'prefer-hardware',
     avc: { format: 'avc' },
   };
-
-  // 지원 여부 검증 (필요시 Baseline으로 폴백)
-  const support = await VideoEncoder.isConfigSupported(videoEncoderConfig);
-  if (!support.supported) {
-    videoEncoderConfig.codec = 'avc1.42001f'; // Baseline 3.1
-    videoEncoderConfig.bitrate = Math.min(targetBitrate, 5_000_000);
-  }
   videoEncoder.configure(videoEncoderConfig);
 
   // 9. 오디오 인코더 설정
@@ -944,8 +975,8 @@ export async function stitchVideosWebCodecs({
           ctx.fillRect(0, 0, targetWidth, targetHeight);
 
           const grad = ctx.createRadialGradient(
-            targetWidth / 2, targetHeight / 2, 30,
-            targetWidth / 2, targetHeight / 2, 450
+            targetWidth / 2, targetHeight / 2, Math.round(30 * scale),
+            targetWidth / 2, targetHeight / 2, Math.round(450 * scale)
           );
           grad.addColorStop(0, `rgba(49, 130, 246, ${0.32 * alpha})`);
           grad.addColorStop(1, 'rgba(8, 12, 20, 0)');
@@ -956,13 +987,14 @@ export async function stitchVideosWebCodecs({
           ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
 
           const title = overlayOptions.titleText || 'Highlights';
-          ctx.font = 'bold 38px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+          const introTitleFont = Math.round(38 * scale);
+          ctx.font = `bold ${introTitleFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
           ctx.fillStyle = '#ffffff';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-          ctx.shadowBlur = 14;
-          ctx.fillText(title, targetWidth / 2, targetHeight / 2 - 20);
+          ctx.shadowBlur = Math.round(14 * scale);
+          ctx.fillText(title, targetWidth / 2, targetHeight / 2 - Math.round(20 * scale));
 
           const sub = [
             overlayOptions.showDate === false ? '' : overlayOptions.subtitleDateText,
@@ -970,9 +1002,10 @@ export async function stitchVideosWebCodecs({
             overlayOptions.channelText,
           ].filter(Boolean).join(' • ');
           if (sub) {
-            ctx.font = '600 20px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+            const introSubFont = Math.round(20 * scale);
+            ctx.font = `600 ${introSubFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
             ctx.fillStyle = '#93c5fd';
-            ctx.fillText(sub, targetWidth / 2, targetHeight / 2 + 32);
+            ctx.fillText(sub, targetWidth / 2, targetHeight / 2 + Math.round(32 * scale));
           }
           ctx.restore();
 
@@ -1117,17 +1150,19 @@ export async function stitchVideosWebCodecs({
           ctx.save();
           ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
 
-          ctx.font = 'bold 34px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+          const outroTitleFont = Math.round(34 * scale);
+          ctx.font = `bold ${outroTitleFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
           ctx.fillStyle = '#ffffff';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           const outroMessage = overlayOptions.outroText || 'Thank you for watching';
-          ctx.fillText(outroMessage, targetWidth / 2, targetHeight / 2 - 16);
+          ctx.fillText(outroMessage, targetWidth / 2, targetHeight / 2 - Math.round(16 * scale));
 
           if (overlayOptions.channelText) {
-            ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+            const outroChFont = Math.round(22 * scale);
+            ctx.font = `bold ${outroChFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
             ctx.fillStyle = '#3182f6';
-            ctx.fillText(overlayOptions.channelText, targetWidth / 2, targetHeight / 2 + 30);
+            ctx.fillText(overlayOptions.channelText, targetWidth / 2, targetHeight / 2 + Math.round(30 * scale));
           }
           ctx.restore();
 
@@ -1292,6 +1327,9 @@ export async function stitchVideosWebCodecs({
       blob: finalBlob,
       url: finalUrl,
       duration: Math.round(totalVideoDurationSec * 10) / 10,
+      width: targetWidth,
+      height: targetHeight,
+      resolution: targetResolution,
       introDuration: Math.round(actualIntroDuration * 10) / 10,
       outroDuration: Math.round(actualOutroDuration * 10) / 10,
       bridgeDurationMap: actualBridgeDurationMap,

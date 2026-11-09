@@ -443,6 +443,14 @@ export const ko: Dictionary = {
     subtitleSection: '영상 자막 및 스토리 브릿지 설정',
     chapterBridgeOption: '스토리 챕터 브릿지 표시',
     chapterBridgeOptionDesc: '날짜나 장소가 바뀌는 구간 사이에 플립 시계 / 이동 경로 브릿지를 삽입해요',
+    resolutionSection: '내보내기 영상 화질 (해상도)',
+    resolution720p: '720p HD (빠르고 안정적)',
+    resolution720pDesc: '인코딩이 빠르고 모든 기기에서 안정적이에요',
+    resolution1080p: '1080p FHD (선명한 고화질)',
+    resolution1080pDesc: '더 선명하고 또렷한 고해상도로 내보내요',
+    resolutionDesktopBadge: '데스크탑 권장',
+    resolutionMobileWarning: '모바일 기기에서는 영상 길이에 따라 브라우저 메모리 부족으로 튕길 수 있어요.',
+    storageSection: '저장소 및 보관 설정',
   },
   subtitleDownload: {
     buttonText: '자막 다운로드 (.srt)',
@@ -525,5 +533,17 @@ export const ko: Dictionary = {
   prompt: {
     languageInstruction: 'Provide a concise, descriptive Korean scene title for "reason" (e.g. "환하게 웃는 클라이맥스", "바닷가 산책", "박진감 넘치는 액션 순간"). This will be used as the scene subtitle!',
     examples: 'Format: [{"start": 3.2, "end": 6.5, "reason": "환하게 웃으며 꽃을 건네는 순간", "cropPosition": "top"}]',
+  },
+  exportSettings: {
+    cardTitle: '내보내기 화질 설정',
+    cardDesc: '완성 영상의 해상도와 인코딩 비트레이트를 선택해요.',
+    qualityLabel: '영상 해상도',
+    res720p: '720p HD',
+    res720pDesc: '빠르고 안정적인 렌더링',
+    res1080p: '1080p FHD',
+    res1080pDesc: '선명하고 또렷한 고해상도',
+    desktopRecommended: '데스크탑 권장',
+    mobileWarning: '모바일 기기 사양이나 영상 길이에 따라 브라우저 메모리 부족으로 튕길 수 있어요.',
+    mobileWarningTitle: '모바일 메모리 주의',
   },
 };

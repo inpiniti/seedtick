@@ -27,6 +27,7 @@ import type {
   FinalVideoResult,
   HighlightSegment,
   VideoOverlayOptions,
+  ExportResolution,
 } from './types/video.ts';
 import type { StudioProject, StudioProjectSummary } from './types/project.ts';
 import {
@@ -211,6 +212,9 @@ export function App() {
           blob: hasValidFinalBlob && finalBlob ? finalBlob : new Blob([]),
           url,
           duration: project.finalResult.duration,
+          width: project.finalResult.width || (project.finalResult.resolution === '1080p' ? 1920 : 1280),
+          height: project.finalResult.height || (project.finalResult.resolution === '1080p' ? 1080 : 720),
+          resolution: project.finalResult.resolution || project.exportResolution,
           segments: project.finalResult.segments || [],
           originalTotalDuration: project.duration || 0,
           fileSize: project.finalResult.fileSize || 0,
@@ -408,8 +412,9 @@ export function App() {
               videoBlob: finalResult.blob,
               duration: finalResult.duration,
               fileSize: finalResult.fileSize,
-              width: 1280,
-              height: 720,
+              width: finalResult.width || (finalResult.resolution === '1080p' ? 1920 : 1280),
+              height: finalResult.height || (finalResult.resolution === '1080p' ? 1080 : 720),
+              resolution: finalResult.resolution,
               segments: finalResult.segments,
               suggestedTitle: finalResult.suggestedTitle,
               thumbnailUrl: finalResult.thumbnailUrl,
@@ -430,6 +435,7 @@ export function App() {
         customAudioName: currentCustomAudio?.name,
         selectedModel,
         selectedEffort,
+        exportResolution: finalResult?.resolution,
       };
 
       await saveProject(projectData);
@@ -1310,7 +1316,8 @@ export function App() {
     bgmPresetId = 'none',
     bgmVolume = 0.35,
     customAudioFile?: File | null,
-    overlayOptions?: VideoOverlayOptions
+    overlayOptions?: VideoOverlayOptions,
+    resolution?: ExportResolution
   ): Promise<FinalVideoResult | null> => {
     if (updatedSegments.length === 0) return null;
 
@@ -1343,6 +1350,7 @@ export function App() {
         bgmVolume,
         customAudioFile,
         overlayOptions,
+        resolution,
         onLog: (msg) => console.info(`[Export] ${msg}`),
         onProgress: (pct, msg) => {
           setReStitchProgress({

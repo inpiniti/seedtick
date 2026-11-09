@@ -445,6 +445,14 @@ export interface Dictionary {
     chapterBridgeOptionDesc?: string;
     subtitleOption?: string;
     subtitleOptionDesc?: string;
+    resolutionSection?: string;
+    resolution720p?: string;
+    resolution720pDesc?: string;
+    resolution1080p?: string;
+    resolution1080pDesc?: string;
+    resolutionDesktopBadge?: string;
+    resolutionMobileWarning?: string;
+    storageSection?: string;
     downloadSubtitles?: string;
     downloadSubtitlesDesc?: string;
     projectActions: string;
@@ -533,6 +541,18 @@ export interface Dictionary {
   prompt: {
     languageInstruction: string;
     examples: string;
+  };
+  exportSettings?: {
+    cardTitle: string;
+    cardDesc: string;
+    qualityLabel: string;
+    res720p: string;
+    res720pDesc: string;
+    res1080p: string;
+    res1080pDesc: string;
+    desktopRecommended: string;
+    mobileWarning: string;
+    mobileWarningTitle: string;
   };
 }
 

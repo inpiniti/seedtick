@@ -1,4 +1,4 @@
-import type { HighlightSegment, VideoOverlayOptions, VideoProcessingStatus } from './video.ts';
+import type { ExportResolution, HighlightSegment, VideoOverlayOptions, VideoProcessingStatus } from './video.ts';
 import type { ReasoningEffortOption } from './gateway.ts';
 
 export interface StoredVideoItem {
@@ -26,6 +26,7 @@ export interface StoredFinalResult {
   fileSize: number;
   width: number;
   height: number;
+  resolution?: ExportResolution;
   segments: HighlightSegment[];
   suggestedTitle?: string;
   thumbnailUrl?: string;
@@ -69,6 +70,7 @@ export interface StudioProject {
   birthDate?: string;
   selectedModel?: string;
   selectedEffort?: ReasoningEffortOption;
+  exportResolution?: ExportResolution;
   storageMode?: 'auto' | 'full' | 'lightweight';
   hasOpfsFiles?: boolean;
 }

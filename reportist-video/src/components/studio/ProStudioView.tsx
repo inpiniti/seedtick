@@ -3084,30 +3084,30 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         <main className="toss-main-content">
         {/* 누락 파일 일괄 재연결 알림 배너 */}
         {videos.some((v) => !v.url || (v.file && v.file.size === 0) || v.error || v.isMissingFile) && (
-          <div className="mb-3.5 p-3 sm:p-4 rounded-2xl bg-amber-50/90 border border-amber-200 flex flex-wrap items-center justify-between gap-3 shadow-xs">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 shrink-0">
+          <div className="toss-relink-banner">
+            <div className="toss-relink-banner-left">
+              <div className="toss-relink-icon-wrap">
                 <AlertTriangle size={18} />
               </div>
               <div>
-                <div className="text-xs sm:text-sm font-bold text-amber-950">
+                <div className="toss-relink-title">
                   원본 영상 {videos.filter((v) => !v.url || (v.file && v.file.size === 0) || v.error || v.isMissingFile).length}개의 연결이 필요해요
                 </div>
-                <div className="text-[11px] sm:text-xs text-amber-700 mt-0.5">
+                <div className="toss-relink-desc">
                   기기 스토리지 정리로 파일이 분리되었습니다. 영상 파일을 다시 지정하면 이전 편집점과 분석 결과를 그대로 이어서 작업할 수 있어요.
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="toss-relink-actions">
               {onRelinkBatch && (
-                <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all shadow-xs">
+                <label className="toss-relink-btn-batch">
                   <Link2 size={13} />
                   <span>누락 영상 일괄 연결</span>
                   <input
                     type="file"
                     multiple
                     accept="video/*,image/*"
-                    className="hidden"
+                    style={{ display: 'none' }}
                     onChange={(e) => {
                       if (e.target.files && e.target.files.length > 0) {
                         onRelinkBatch(Array.from(e.target.files));
@@ -3120,7 +3120,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               <button
                 type="button"
                 onClick={() => setIsVideoListModalOpen(true)}
-                className="px-2.5 py-1.5 rounded-xl bg-white border border-amber-300 text-amber-800 hover:bg-amber-50 text-xs font-semibold transition-colors"
+                className="toss-relink-btn-list"
               >
                 목록 확인
               </button>

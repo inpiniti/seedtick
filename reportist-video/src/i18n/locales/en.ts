@@ -443,6 +443,14 @@ export const en: Dictionary = {
     subtitleSection: 'Subtitles & Story Bridges',
     chapterBridgeOption: 'Show Story Chapter Bridges',
     chapterBridgeOptionDesc: 'Insert flip clock / route movement bridges between scenes when date or location changes',
+    resolutionSection: 'Export Video Quality (Resolution)',
+    resolution720p: '720p HD (Fast & Stable)',
+    resolution720pDesc: 'Fast rendering, safe for all devices',
+    resolution1080p: '1080p FHD (Crisp High-Definition)',
+    resolution1080pDesc: 'Crisp and sharp high resolution output',
+    resolutionDesktopBadge: 'Desktop Recommended',
+    resolutionMobileWarning: 'On mobile devices, long videos may crash the browser due to RAM limits.',
+    storageSection: 'Storage & Persistence',
   },
   subtitleDownload: {
     buttonText: 'Download Subtitles (.srt)',
@@ -525,5 +533,17 @@ export const en: Dictionary = {
   prompt: {
     languageInstruction: 'Provide a concise, descriptive scene title for "reason" in English (e.g. "Bright smiling climax", "Beach walk", "Thrilling action moment"). This will be used as the scene subtitle!',
     examples: 'Format: [{"start": 3.2, "end": 6.5, "reason": "Joyful smiling climax", "cropPosition": "top"}]',
+  },
+  exportSettings: {
+    cardTitle: 'Export Quality Settings',
+    cardDesc: 'Select export resolution and bitrate for the final highlight video.',
+    qualityLabel: 'Video Resolution',
+    res720p: '720p HD',
+    res720pDesc: 'Fast & Stable Rendering',
+    res1080p: '1080p FHD',
+    res1080pDesc: 'Crisp High-Definition',
+    desktopRecommended: 'Desktop Recommended',
+    mobileWarning: 'On mobile devices, long videos or high clip counts may crash the browser due to RAM limits.',
+    mobileWarningTitle: 'Mobile Memory Notice',
   },
 };

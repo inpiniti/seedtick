@@ -1,6 +1,6 @@
 // services/videoStitcher.ts - 16:9 유튜브 시네마틱 비디오 병합기, 자막/브랜딩 오버레이, 인트로/아웃트로 & 커스텀 BGM 지원
 
-import type { FinalVideoResult, HighlightSegment, VideoItem, VideoOverlayOptions } from '../types/video.ts';
+import type { ExportResolution, FinalVideoResult, HighlightSegment, VideoItem, VideoOverlayOptions } from '../types/video.ts';
 import { playBgmSynthLoop } from './audioSynth.ts';
 import {
   CHAPTER_BRIDGE_DURATION,
@@ -23,6 +23,7 @@ export interface StitchVideosParams {
   bgmVolume?: number;
   customAudioFile?: File | null;
   overlayOptions?: VideoOverlayOptions;
+  resolution?: ExportResolution;
 }
 
 // ---------------------------------------------------------------------------
@@ -164,7 +165,7 @@ function supportedRecorderMimes(hasAudio: boolean): string[] {
   });
 }
 
-function createMediaRecorder(stream: MediaStream): { recorder: MediaRecorder; mimeType: string } {
+function createMediaRecorder(stream: MediaStream, customBitrate?: number): { recorder: MediaRecorder; mimeType: string } {
   if (typeof MediaRecorder === 'undefined') {
     throw new Error(
       '이 브라우저는 영상 녹화(MediaRecorder)를 지원하지 않습니다. 최신 Safari 또는 Chrome에서 다시 시도해 주세요.'
@@ -172,9 +173,9 @@ function createMediaRecorder(stream: MediaStream): { recorder: MediaRecorder; mi
   }
 
   const hasAudio = stream.getAudioTracks().length > 0;
-  // 실시간 인코딩 시 비트레이트 부족으로 인한 프레임 스킵 및 모션 뭉개짐을 방지하기 위해
-  // iOS는 메모리/발열에 안전한 3.2Mbps, 데스크탑은 60fps 고화질을 충분히 소화하는 6.5Mbps로 상향
-  const videoBitsPerSecond = IS_IOS ? 3_200_000 : 6_500_000;
+  // 실시간 인코딩 시 비트레이트 부족으로 인한 프레임 스탁 및 모션 뭉개짐을 방지하기 위해
+  // iOS는 메모리/발열에 안전한 3.2Mbps(720p)/6.5Mbps(1080p), 데스크탑은 6.5Mbps(720p)/14Mbps(1080p)로 상향
+  const videoBitsPerSecond = customBitrate ?? (IS_IOS ? 3_200_000 : 6_500_000);
   // 빈 문자열('')은 브라우저 자체 기본 코덱(가장 안전한 기본값) 선택을 위한 최후 후보
   const candidates = [...supportedRecorderMimes(hasAudio), ''];
   let lastError: unknown = null;
@@ -247,6 +248,7 @@ export async function stitchHighlightedSegments({
   bgmVolume = 0.35,
   customAudioFile,
   overlayOptions,
+  resolution,
 }: StitchVideosParams): Promise<FinalVideoResult> {
   if (allSegments.length === 0) {
     throw new Error('이어붙일 하이라이트 구간이 없습니다.');
@@ -265,6 +267,7 @@ export async function stitchHighlightedSegments({
         bgmVolume,
         customAudioFile,
         overlayOptions,
+        resolution,
       });
     } catch (webCodecsErr) {
       if (signal?.aborted) throw webCodecsErr;
@@ -292,9 +295,14 @@ export async function stitchHighlightedSegments({
     videoMap.set(v.id, v);
   }
 
-  // 1. 유튜브 최적화 16:9 표준 규격 (1280x720 HD) 고정
-  const targetWidth = 1280;
-  const targetHeight = 720;
+  // 1. 해상도 결정 (1080p FHD vs 720p HD)
+  const is1080p = resolution === '1080p' || (!resolution && !IS_IOS);
+  const targetResolution: ExportResolution = is1080p ? '1080p' : '720p';
+  const targetWidth = is1080p ? 1920 : 1280;
+  const targetHeight = is1080p ? 1080 : 720;
+  const scale = targetWidth / 1280;
+  const recorderBitrate = is1080p ? (IS_IOS ? 6_500_000 : 14_000_000) : (IS_IOS ? 3_200_000 : 6_500_000);
+
   // iOS는 하드웨어 인코더/메모리 안정성을 위해 30fps 유지, 데스크탑은 60fps 고주사율로 부드러움 극대화
   const targetFps = IS_IOS ? 30 : 60;
   const targetFrameIntervalMs = 1000 / targetFps;
@@ -383,7 +391,7 @@ export async function stitchHighlightedSegments({
   let recorder: MediaRecorder;
   let mimeType: string;
   try {
-    ({ recorder, mimeType } = createMediaRecorder(canvasStream));
+    ({ recorder, mimeType } = createMediaRecorder(canvasStream, recorderBitrate));
   } catch (err) {
     // 일부 모바일 브라우저는 오디오 트랙이 섞인 스트림을 녹화하지 못한다 → 무음 영상으로 재시도
     if (audioTrackAdded) {
@@ -392,7 +400,7 @@ export async function stitchHighlightedSegments({
           canvasStream.removeTrack(track);
         }
         audioTrackAdded = false;
-        ({ recorder, mimeType } = createMediaRecorder(canvasStream));
+        ({ recorder, mimeType } = createMediaRecorder(canvasStream, recorderBitrate));
         onLog?.('오디오 트랙을 사용할 수 없어 무음 영상으로 병합합니다.');
       } catch {
         throw err;
@@ -689,26 +697,28 @@ export async function stitchHighlightedSegments({
     if (!oCtx) return null;
 
     let hasAnyOverlay = false;
-    let titleBottomY = 28;
+    let titleBottomY = Math.round(28 * scale);
     const hasTitle = Boolean(overlayOptions.showTitle && overlayOptions.titleText?.trim());
 
     // 1. 좌측 상단 영상 제목
     if (hasTitle) {
       hasAnyOverlay = true;
       oCtx.save();
-      oCtx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+      const titleFont = Math.round(22 * scale);
+      oCtx.font = `bold ${titleFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
       const text = overlayOptions.titleText;
       const metrics = oCtx.measureText(text);
-      const padX = 14;
+      const padX = Math.round(14 * scale);
       const boxW = metrics.width + padX * 2;
-      const boxH = 38;
-      const x = 32;
-      const y = 28;
+      const boxH = Math.round(38 * scale);
+      const x = Math.round(32 * scale);
+      const y = Math.round(28 * scale);
+      const roundR = Math.round(6 * scale);
 
       oCtx.fillStyle = 'rgba(0, 0, 0, 0.72)';
       oCtx.beginPath();
       if (typeof oCtx.roundRect === 'function') {
-        oCtx.roundRect(x, y, boxW, boxH, 6);
+        oCtx.roundRect(x, y, boxW, boxH, roundR);
       } else {
         oCtx.rect(x, y, boxW, boxH);
       }
@@ -735,17 +745,18 @@ export async function stitchHighlightedSegments({
     if (metaText) {
       hasAnyOverlay = true;
       oCtx.save();
-      oCtx.font = '600 16px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+      const metaFont = Math.round(16 * scale);
+      oCtx.font = `600 ${metaFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
       oCtx.fillStyle = '#ffffff';
       oCtx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-      oCtx.shadowBlur = 4;
+      oCtx.shadowBlur = Math.round(4 * scale);
       oCtx.shadowOffsetX = 0;
-      oCtx.shadowOffsetY = 1.5;
+      oCtx.shadowOffsetY = Math.round(1.5 * scale);
       oCtx.textAlign = 'left';
       oCtx.textBaseline = 'top';
 
-      const metaX = hasTitle ? 34 : 32;
-      const metaY = hasTitle ? titleBottomY + 7 : 28;
+      const metaX = hasTitle ? Math.round(34 * scale) : Math.round(32 * scale);
+      const metaY = hasTitle ? titleBottomY + Math.round(7 * scale) : Math.round(28 * scale);
       oCtx.fillText(metaText, metaX, metaY);
       oCtx.restore();
     }
@@ -754,15 +765,16 @@ export async function stitchHighlightedSegments({
     if (overlayOptions.showChannel && overlayOptions.channelText) {
       hasAnyOverlay = true;
       oCtx.save();
-      oCtx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+      const chFont = Math.round(22 * scale);
+      oCtx.font = `bold ${chFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
       oCtx.fillStyle = '#ffffff';
       oCtx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-      oCtx.shadowBlur = 4;
+      oCtx.shadowBlur = Math.round(4 * scale);
       oCtx.shadowOffsetX = 0;
-      oCtx.shadowOffsetY = 2;
+      oCtx.shadowOffsetY = Math.round(2 * scale);
       oCtx.textAlign = 'right';
       oCtx.textBaseline = 'middle';
-      oCtx.fillText(overlayOptions.channelText, targetWidth - 32, 47);
+      oCtx.fillText(overlayOptions.channelText, targetWidth - Math.round(32 * scale), Math.round(47 * scale));
       oCtx.restore();
     }
 
@@ -774,18 +786,20 @@ export async function stitchHighlightedSegments({
       if (subText) {
         hasAnyOverlay = true;
         oCtx.save();
-        oCtx.font = 'bold 24px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+        const subFont = Math.round(24 * scale);
+        oCtx.font = `bold ${subFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
         const metrics = oCtx.measureText(subText);
-        const padX = 20;
+        const padX = Math.round(20 * scale);
         const boxW = metrics.width + padX * 2;
-        const boxH = 46;
+        const boxH = Math.round(46 * scale);
         const x = (targetWidth - boxW) / 2;
-        const y = targetHeight - 76;
+        const y = targetHeight - Math.round(76 * scale);
+        const roundR = Math.round(8 * scale);
 
         oCtx.fillStyle = 'rgba(0, 0, 0, 0.75)';
         oCtx.beginPath();
         if (typeof oCtx.roundRect === 'function') {
-          oCtx.roundRect(x, y, boxW, boxH, 8);
+          oCtx.roundRect(x, y, boxW, boxH, roundR);
         } else {
           oCtx.rect(x, y, boxW, boxH);
         }
@@ -1130,8 +1144,8 @@ export async function stitchHighlightedSegments({
       ctx.fillRect(0, 0, targetWidth, targetHeight);
 
       const grad = ctx.createRadialGradient(
-        targetWidth / 2, targetHeight / 2, 30,
-        targetWidth / 2, targetHeight / 2, 450
+        targetWidth / 2, targetHeight / 2, Math.round(30 * scale),
+        targetWidth / 2, targetHeight / 2, Math.round(450 * scale)
       );
       grad.addColorStop(0, `rgba(49, 130, 246, ${0.28 * alpha})`);
       grad.addColorStop(1, 'rgba(8, 12, 20, 0)');
@@ -1142,13 +1156,14 @@ export async function stitchHighlightedSegments({
       ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
 
       const title = overlayOptions.titleText || 'Highlights';
-      ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+      const introTitleFont = Math.round(36 * scale);
+      ctx.font = `bold ${introTitleFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
       ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-      ctx.shadowBlur = 12;
-      ctx.fillText(title, targetWidth / 2, targetHeight / 2 - 20);
+      ctx.shadowBlur = Math.round(12 * scale);
+      ctx.fillText(title, targetWidth / 2, targetHeight / 2 - Math.round(20 * scale));
 
       const sub = [
         overlayOptions.showDate === false ? '' : overlayOptions.subtitleDateText,
@@ -1156,9 +1171,10 @@ export async function stitchHighlightedSegments({
         overlayOptions.channelText,
       ].filter(Boolean).join(' • ');
       if (sub) {
-        ctx.font = '600 19px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+        const introSubFont = Math.round(19 * scale);
+        ctx.font = `600 ${introSubFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
         ctx.fillStyle = '#93c5fd';
-        ctx.fillText(sub, targetWidth / 2, targetHeight / 2 + 30);
+        ctx.fillText(sub, targetWidth / 2, targetHeight / 2 + Math.round(30 * scale));
       }
 
       ctx.restore();
@@ -1197,17 +1213,19 @@ export async function stitchHighlightedSegments({
       ctx.save();
       ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
 
-      ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+      const outroTitleFont = Math.round(32 * scale);
+      ctx.font = `bold ${outroTitleFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
       ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       const outroMessage = overlayOptions.outroText || 'Thank you for watching';
-      ctx.fillText(outroMessage, targetWidth / 2, targetHeight / 2 - 16);
+      ctx.fillText(outroMessage, targetWidth / 2, targetHeight / 2 - Math.round(16 * scale));
 
       if (overlayOptions.channelText) {
-        ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+        const outroChFont = Math.round(20 * scale);
+        ctx.font = `bold ${outroChFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
         ctx.fillStyle = '#3182f6';
-        ctx.fillText(overlayOptions.channelText, targetWidth / 2, targetHeight / 2 + 28);
+        ctx.fillText(overlayOptions.channelText, targetWidth / 2, targetHeight / 2 + Math.round(28 * scale));
       }
 
       ctx.restore();
@@ -1774,6 +1792,9 @@ export async function stitchHighlightedSegments({
       blob: finalBlob,
       url: finalUrl,
       duration: Math.round(totalCalculatedDuration * 10) / 10,
+      width: targetWidth,
+      height: targetHeight,
+      resolution: targetResolution,
       introDuration: Math.round(actualIntroDuration * 10) / 10,
       outroDuration: Math.round(actualOutroDuration * 10) / 10,
       bridgeDurationMap: actualBridgeDurationMap,
