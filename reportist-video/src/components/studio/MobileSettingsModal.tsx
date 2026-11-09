@@ -608,18 +608,24 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                   <div className="toss-storage-title-wrap">
                     <div className="toss-storage-title-row">
                       <span className="toss-storage-engine-title">
-                        {opfsSupported ? 'OPFS 가상 파일시스템' : 'IndexedDB 로컬 스토리지'}
+                        {opfsSupported
+                          ? dict.settingsModal?.storageEngineOpfs || 'OPFS 가상 파일시스템'
+                          : dict.settingsModal?.storageEngineIdb || 'IndexedDB 로컬 스토리지'}
                       </span>
                       {optimalCodec && (
                         <span className="toss-storage-badge-codec">
-                          {optimalCodec.name.toUpperCase()} 지원
+                          {optimalCodec.name.toUpperCase()} {dict.settingsModal?.storageCodecSupport || '지원'}
                         </span>
                       )}
                     </div>
                     <div className="toss-storage-quota-desc">
                       {storageEstimate
-                        ? `사용 중: ${formatBytes(storageEstimate.usageBytes)} · 남은 공간: ${formatBytes(storageEstimate.availableBytes)}`
-                        : '스토리지 사용량 측정 중...'}
+                        ? (dict.settingsModal?.storageUsageInfo
+                            ? dict.settingsModal.storageUsageInfo
+                                .replace('{used}', formatBytes(storageEstimate.usageBytes))
+                                .replace('{available}', formatBytes(storageEstimate.availableBytes))
+                            : `사용 중: ${formatBytes(storageEstimate.usageBytes)} · 남은 공간: ${formatBytes(storageEstimate.availableBytes)}`)
+                        : dict.settingsModal?.storageMeasuring || '스토리지 사용량 측정 중...'}
                     </div>
                   </div>
                 </div>
@@ -635,8 +641,18 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                     />
                   </div>
                   <div className="toss-storage-bar-label">
-                    <span>전체 {formatBytes(storageEstimate.quotaBytes)} 중 {storageEstimate.percentUsed}% 사용 중</span>
-                    {storageEstimate.isLowStorage && <span className="toss-storage-low-warning">저장 공간 부족</span>}
+                    <span>
+                      {dict.settingsModal?.storageBarLabel
+                        ? dict.settingsModal.storageBarLabel
+                            .replace('{quota}', formatBytes(storageEstimate.quotaBytes))
+                            .replace('{percent}', String(storageEstimate.percentUsed))
+                        : `전체 ${formatBytes(storageEstimate.quotaBytes)} 중 ${storageEstimate.percentUsed}% 사용 중`}
+                    </span>
+                    {storageEstimate.isLowStorage && (
+                      <span className="toss-storage-low-warning">
+                        {dict.settingsModal?.storageLowWarning || '저장 공간 부족'}
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
@@ -651,12 +667,14 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                   )}
                   <div className="toss-storage-persist-text">
                     <div className="toss-storage-persist-title">
-                      {isPersisted ? '영구 보존 중 (브라우저 자동 삭제 방지)' : '임시 보관 (캐시 정리 시 삭제 위험)'}
+                      {isPersisted
+                        ? dict.settingsModal?.persistProtectedTitle || '영구 보존 중 (브라우저 자동 삭제 방지)'
+                        : dict.settingsModal?.persistTemporaryTitle || '임시 보관 (캐시 정리 시 삭제 위험)'}
                     </div>
                     <div className="toss-storage-persist-desc">
                       {isPersisted
-                        ? '용량이 부족해도 브라우저가 임의로 프로젝트를 지우지 않아요'
-                        : '기기 용량 부족 시 브라우저 정책에 의해 캐시가 삭제될 수 있어요'}
+                        ? dict.settingsModal?.persistProtectedDesc || '용량이 부족해도 브라우저가 임의로 프로젝트를 지우지 않아요'
+                        : dict.settingsModal?.persistTemporaryDesc || '기기 용량 부족 시 브라우저 정책에 의해 캐시가 삭제될 수 있어요'}
                     </div>
                   </div>
                 </div>
@@ -667,24 +685,34 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                     disabled={isRequestingPersist}
                     className="toss-storage-persist-btn"
                   >
-                    {isRequestingPersist ? '확인 중...' : '영구 보존 요청'}
+                    {isRequestingPersist
+                      ? dict.settingsModal?.persistChecking || '확인 중...'
+                      : dict.settingsModal?.persistRequestBtn || '영구 보존 요청'}
                   </button>
                 ) : (
-                  <span className="toss-storage-persist-badge">보호 중</span>
+                  <span className="toss-storage-persist-badge">
+                    {dict.settingsModal?.persistBadge || '보호 중'}
+                  </span>
                 )}
               </div>
 
               {/* 3. 보관 모드 선택 */}
               <div className="toss-storage-mode-group">
-                <div className="toss-storage-mode-title">보관 모드</div>
+                <div className="toss-storage-mode-title">
+                  {dict.settingsModal?.storageModeTitle || '보관 모드'}
+                </div>
                 <div className="toss-storage-mode-grid">
                   <button
                     type="button"
                     onClick={() => handleSelectStorageMode('auto')}
                     className={`toss-storage-mode-btn ${storageMode === 'auto' ? 'active' : ''}`}
                   >
-                    <div className="toss-storage-mode-name">자동 (권장)</div>
-                    <div className="toss-storage-mode-sub">용량 맞춤 최적화</div>
+                    <div className="toss-storage-mode-name">
+                      {dict.settingsModal?.storageModeAuto || '자동 (권장)'}
+                    </div>
+                    <div className="toss-storage-mode-sub">
+                      {dict.settingsModal?.storageModeAutoDesc || '용량 맞춤 최적화'}
+                    </div>
                   </button>
 
                   <button
@@ -692,8 +720,12 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                     onClick={() => handleSelectStorageMode('full')}
                     className={`toss-storage-mode-btn ${storageMode === 'full' ? 'active' : ''}`}
                   >
-                    <div className="toss-storage-mode-name">전체 보관</div>
-                    <div className="toss-storage-mode-sub">원본 비디오 보관</div>
+                    <div className="toss-storage-mode-name">
+                      {dict.settingsModal?.storageModeFull || '전체 보관'}
+                    </div>
+                    <div className="toss-storage-mode-sub">
+                      {dict.settingsModal?.storageModeFullDesc || '원본 비디오 보관'}
+                    </div>
                   </button>
 
                   <button
@@ -701,8 +733,12 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                     onClick={() => handleSelectStorageMode('lightweight')}
                     className={`toss-storage-mode-btn ${storageMode === 'lightweight' ? 'active' : ''}`}
                   >
-                    <div className="toss-storage-mode-name">초경량 모드</div>
-                    <div className="toss-storage-mode-sub">용량 99% 절약</div>
+                    <div className="toss-storage-mode-name">
+                      {dict.settingsModal?.storageModeLight || '초경량 모드'}
+                    </div>
+                    <div className="toss-storage-mode-sub">
+                      {dict.settingsModal?.storageModeLightDesc || '용량 99% 절약'}
+                    </div>
                   </button>
                 </div>
               </div>
@@ -713,7 +749,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
           {(onOpenFeedbackModal || onOpenPatchNotesModal) && (
             <div className="settings-modal-group">
               <span className="settings-modal-group-title">
-                고객 지원 및 업데이트
+                {dict.settingsModal?.supportSection || '고객 지원 및 업데이트'}
               </span>
 
               {onOpenFeedbackModal && (
@@ -739,7 +775,9 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                     </div>
                   </div>
                   <div className="settings-modal-item-action">
-                    <span style={{ color: '#3182f6', fontWeight: 600 }}>게시판 열기</span>
+                    <span style={{ color: '#3182f6', fontWeight: 600 }}>
+                      {dict.feedback?.openBoard || '게시판 열기'}
+                    </span>
                     <ChevronRight size={15} color="#3182f6" />
                   </div>
                 </button>
@@ -760,16 +798,18 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                     </div>
                     <div className="settings-modal-item-text">
                       <div className="settings-modal-item-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span>패치 노트</span>
+                        <span>{dict.patchNotes?.title || '패치 노트'}</span>
                         <span className="toss-version-badge">v{CURRENT_APP_VERSION}</span>
                       </div>
                       <div className="settings-modal-item-desc">
-                        지금까지의 기능 추가 및 업데이트 내역을 확인해요
+                        {dict.patchNotes?.desc || '지금까지의 기능 추가 및 업데이트 내역을 확인해요'}
                       </div>
                     </div>
                   </div>
                   <div className="settings-modal-item-action">
-                    <span style={{ color: '#16a34a', fontWeight: 600 }}>내역 보기</span>
+                    <span style={{ color: '#16a34a', fontWeight: 600 }}>
+                      {dict.patchNotes?.viewHistory || '내역 보기'}
+                    </span>
                     <ChevronRight size={15} color="#16a34a" />
                   </div>
                 </button>

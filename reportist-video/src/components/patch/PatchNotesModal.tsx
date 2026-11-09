@@ -19,6 +19,7 @@ import {
   type PatchCommit,
 } from '../../data/patchNotes.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
+import { useI18n } from '../../i18n/index.tsx';
 
 export interface PatchNotesModalProps {
   isOpen: boolean;
@@ -26,9 +27,57 @@ export interface PatchNotesModalProps {
 }
 
 export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClose }) => {
+  const { dict, interpolate } = useI18n();
   const overlayRef = useRef<HTMLDivElement>(null);
   const [filterType, setFilterType] = useState<'all' | 'major'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // 10회 클릭 시 개발자 모드 전환 기능
+  const versionClickCountRef = useRef<number>(0);
+  const versionClickTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (versionClickTimerRef.current) {
+        window.clearTimeout(versionClickTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleVersionClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    versionClickCountRef.current += 1;
+
+    if (versionClickTimerRef.current) {
+      window.clearTimeout(versionClickTimerRef.current);
+    }
+
+    // 3초 내에 추가 클릭이 없으면 클릭 카운트 초기화
+    versionClickTimerRef.current = window.setTimeout(() => {
+      versionClickCountRef.current = 0;
+    }, 3000);
+
+    if (versionClickCountRef.current >= 10) {
+      versionClickCountRef.current = 0;
+      if (versionClickTimerRef.current) {
+        window.clearTimeout(versionClickTimerRef.current);
+      }
+
+      const isDev = localStorage.getItem('reportist_feedback_admin_mode') === 'true';
+      const confirmMessage = isDev
+        ? '현재 개발자 모드가 활성화되어 있습니다. 개발자 모드를 해제하시겠습니까?'
+        : '개발자 모드로 전환하시겠습니까?';
+
+      if (window.confirm(confirmMessage)) {
+        const nextState = !isDev;
+        localStorage.setItem('reportist_feedback_admin_mode', String(nextState));
+        window.dispatchEvent(new Event('reportist_admin_mode_change'));
+        window.dispatchEvent(new Event('storage'));
+        alert(nextState ? '개발자 모드로 전환되었습니다.' : '개발자 모드가 해제되었습니다.');
+      }
+    }
+  };
   
   // 첫 2개 버전은 기본으로 펼침 상태
   const [expandedVersions, setExpandedVersions] = useState<Record<string, boolean>>(() => {
@@ -131,14 +180,19 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClos
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <h2 className="model-modal-title" id="patch-dialog-title" style={{ margin: 0 }}>
-                  패치 노트
+                  {dict.patchNotes?.title || '패치 노트'}
                 </h2>
-                <span className="toss-patch-current-version-badge">
-                  v{CURRENT_APP_VERSION} 최신
+                <span
+                  className="toss-patch-current-version-badge"
+                  onClick={handleVersionClick}
+                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                  title={`v${CURRENT_APP_VERSION}`}
+                >
+                  v{CURRENT_APP_VERSION} {dict.patchNotes?.latestBadge || '최신'}
                 </span>
               </div>
               <p className="model-modal-subtitle">
-                Reportist Video의 모든 업데이트와 새로운 기능들을 모아봤어요.
+                {dict.patchNotes?.subtitle || 'Reportist Video의 모든 업데이트와 새로운 기능들을 모아봤어요.'}
               </p>
             </div>
           </div>
@@ -146,7 +200,7 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClos
             type="button"
             className="model-modal-close-btn"
             onClick={onClose}
-            aria-label="닫기"
+            aria-label={dict.settingsModal?.close || '닫기'}
           >
             <X size={20} />
           </button>
@@ -160,14 +214,14 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClos
               className={`toss-patch-tab-btn ${filterType === 'all' ? 'active' : ''}`}
               onClick={() => setFilterType('all')}
             >
-              전체 릴리즈 ({PATCH_RELEASES.length})
+              {dict.patchNotes?.allReleases || '전체 릴리즈'} ({PATCH_RELEASES.length})
             </button>
             <button
               type="button"
               className={`toss-patch-tab-btn ${filterType === 'major' ? 'active' : ''}`}
               onClick={() => setFilterType('major')}
             >
-              주요 업데이트 ({PATCH_RELEASES.filter((r) => r.type === 'major').length})
+              {dict.patchNotes?.majorUpdates || '주요 업데이트'} ({PATCH_RELEASES.filter((r) => r.type === 'major').length})
             </button>
           </div>
 
@@ -178,7 +232,7 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClos
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="기능 또는 키워드 검색..."
+                placeholder={dict.patchNotes?.searchPlaceholder || '기능 또는 키워드 검색...'}
                 className="toss-patch-search-input"
               />
               {searchQuery && (
@@ -197,18 +251,18 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClos
                 type="button"
                 className="toss-patch-text-btn"
                 onClick={expandAll}
-                title="모든 상세 내역 펼치기"
+                title={dict.patchNotes?.expandAll || '모두 펼치기'}
               >
-                모두 펼치기
+                {dict.patchNotes?.expandAll || '모두 펼치기'}
               </button>
               <span className="toss-patch-divider">|</span>
               <button
                 type="button"
                 className="toss-patch-text-btn"
                 onClick={collapseAll}
-                title="모든 상세 내역 접기"
+                title={dict.patchNotes?.collapseAll || '모두 접기'}
               >
-                모두 접기
+                {dict.patchNotes?.collapseAll || '모두 접기'}
               </button>
             </div>
           </div>
@@ -224,8 +278,12 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClos
           {filteredReleases.length === 0 ? (
             <div className="toss-patch-empty-state">
               <Search size={32} color="#cbd5e1" />
-              <p className="toss-patch-empty-title">일치하는 패치 내역이 없어요</p>
-              <p className="toss-patch-empty-desc">다른 검색어로 검색해보세요.</p>
+              <p className="toss-patch-empty-title">
+                {dict.patchNotes?.noResults || '일치하는 패치 내역이 없어요'}
+              </p>
+              <p className="toss-patch-empty-desc">
+                {dict.patchNotes?.noResultsDesc || '다른 검색어로 검색해보세요.'}
+              </p>
             </div>
           ) : (
             <div className="toss-patch-timeline">

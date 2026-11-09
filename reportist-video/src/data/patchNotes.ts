@@ -68,8 +68,8 @@ export const PATCH_RELEASES: PatchRelease[] = [
         "date": "2026-11-09",
         "type": "style",
         "scope": "video",
-        "message": "내보내기 화질 선택 UI 토스 디자인 시스템 적용 및 스타일 개선",
-        "rawSubject": "style(video): 내보내기 화질 선택 UI 토스 디자인 시스템 적용 및 스타일 개선"
+        "message": "내보내기 화질 선택 UI 디자인 시스템 적용 및 스타일 개선",
+        "rawSubject": "style(video): 내보내기 화질 선택 UI 디자인 시스템 적용 및 스타일 개선"
       },
       {
         "hash": "258de0a",
@@ -126,8 +126,8 @@ export const PATCH_RELEASES: PatchRelease[] = [
         "date": "2026-11-09",
         "type": "fix",
         "scope": "video",
-        "message": "스토리지 엔진 및 보관 설정 UI 토스 스타일 적용 및 미적용 클래스 수정",
-        "rawSubject": "fix(video): 스토리지 엔진 및 보관 설정 UI 토스 스타일 적용 및 미적용 클래스 수정"
+        "message": "스토리지 엔진 및 보관 설정 UI 스타일 적용 및 미적용 클래스 수정",
+        "rawSubject": "fix(video): 스토리지 엔진 및 보관 설정 UI 스타일 적용 및 미적용 클래스 수정"
       }
     ]
   },
@@ -990,7 +990,7 @@ export const PATCH_RELEASES: PatchRelease[] = [
     "title": "유튜브 영상 공유 커뮤니티 갤러리 및 DB 연동",
     "date": "2026-11-03",
     "type": "major",
-    "summary": "완성된 하이라이트 영상을 사용자들과 공유할 수 있는 커뮤니티 갤러리 탭 및 Supabase DB 연동을 추가하고 토스 디자인 시스템 테마를 전면 적용했습니다.",
+    "summary": "완성된 하이라이트 영상을 사용자들과 공유할 수 있는 커뮤니티 갤러리 탭 및 Supabase DB 연동을 추가하고 모던 디자인 시스템 테마를 전면 적용했습니다.",
     "totalCommits": 10,
     "commits": [
       {
@@ -1022,8 +1022,8 @@ export const PATCH_RELEASES: PatchRelease[] = [
         "date": "2026-11-03",
         "type": "fix",
         "scope": "video",
-        "message": "영상 공유 커뮤니티 UI를 기존 Toss 디자인 시스템 및 카드 테마로 전면 통일",
-        "rawSubject": "fix(video): 영상 공유 커뮤니티 UI를 기존 Toss 디자인 시스템 및 카드 테마로 전면 통일"
+        "message": "영상 공유 커뮤니티 UI를 기존 모던 디자인 시스템 및 카드 테마로 전면 통일",
+        "rawSubject": "fix(video): 영상 공유 커뮤니티 UI를 기존 모던 디자인 시스템 및 카드 테마로 전면 통일"
       },
       {
         "hash": "ae3ab35",
@@ -1199,10 +1199,10 @@ export const PATCH_RELEASES: PatchRelease[] = [
   },
   {
     "version": "0.2.0",
-    "title": "NLE 멀티트랙 스튜디오 & 토스(Toss) 디자인 전면 리뉴얼",
+    "title": "NLE 멀티트랙 스튜디오 & 디자인 전면 리뉴얼",
     "date": "2026-11-03",
     "type": "major",
-    "summary": "NLE 멀티트랙 타임라인, BGM 신디사이저, Remotion 감성의 프로 스튜디오 에디터 구축 및 깔끔하고 직관적인 토스(Toss) 디자인 시스템으로 전면 리뉴얼했습니다.",
+    "summary": "NLE 멀티트랙 타임라인, BGM 신디사이저, Remotion 감성의 프로 스튜디오 에디터 구축 및 깔끔하고 직관적인 모던 디자인 시스템으로 전면 리뉴얼했습니다.",
     "totalCommits": 19,
     "commits": [
       {
@@ -1226,8 +1226,8 @@ export const PATCH_RELEASES: PatchRelease[] = [
         "date": "2026-10-28",
         "type": "feat",
         "scope": "video",
-        "message": "토스(Toss) 스타일 깔끔하고 정갈한 16:9 AI 영상 스튜디오 전면 리뉴얼",
-        "rawSubject": "feat(video): 토스(Toss) 스타일 깔끔하고 정갈한 16:9 AI 영상 스튜디오 전면 리뉴얼"
+        "message": "깔끔하고 정갈한 16:9 AI 영상 스튜디오 전면 리뉴얼",
+        "rawSubject": "feat(video): 깔끔하고 정갈한 16:9 AI 영상 스튜디오 전면 리뉴얼"
       },
       {
         "hash": "9fa14eb",

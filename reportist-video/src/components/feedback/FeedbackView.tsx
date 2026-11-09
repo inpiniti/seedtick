@@ -84,21 +84,27 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
     loadFeedbacks();
   }, [loadFeedbacks]);
 
-  // Handle admin mode toggle
+  // Handle admin mode sync
+  useEffect(() => {
+    const handleAdminModeChange = () => {
+      setIsAdminMode(localStorage.getItem('reportist_feedback_admin_mode') === 'true');
+    };
+    window.addEventListener('reportist_admin_mode_change', handleAdminModeChange);
+    window.addEventListener('storage', handleAdminModeChange);
+    return () => {
+      window.removeEventListener('reportist_admin_mode_change', handleAdminModeChange);
+      window.removeEventListener('storage', handleAdminModeChange);
+    };
+  }, []);
+
+  // Handle admin mode toggle (exit admin mode)
   const handleToggleAdminMode = () => {
     if (isAdminMode) {
       setIsAdminMode(false);
       localStorage.setItem('reportist_feedback_admin_mode', 'false');
+      window.dispatchEvent(new Event('reportist_admin_mode_change'));
+      window.dispatchEvent(new Event('storage'));
       showToast('개발자 관리 모드가 해제되었습니다.');
-    } else {
-      const code = window.prompt('개발자 모드 활성화를 위한 비밀번호를 입력해주세요: (기본값: admin)');
-      if (code === 'admin' || code === 'seedtick') {
-        setIsAdminMode(true);
-        localStorage.setItem('reportist_feedback_admin_mode', 'true');
-        showToast('개발자 관리 모드가 활성화되었습니다.');
-      } else if (code !== null) {
-        alert('비밀번호가 올바르지 않습니다.');
-      }
     }
   };
 
@@ -249,17 +255,17 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
             </div>
 
             <div className="toss-community-header-actions">
-              <button
-                type="button"
-                className={`toss-btn-secondary text-xs flex items-center gap-1.5 ${
-                  isAdminMode ? 'border-purple-300 text-purple-700 bg-purple-50' : ''
-                }`}
-                onClick={handleToggleAdminMode}
-                title="개발자 전용 처리 상태 변경 및 답변 작성 모드"
-              >
-                <ShieldCheck size={14} className={isAdminMode ? 'text-purple-600' : 'text-slate-500'} />
-                <span>{isAdminMode ? '관리자 모드 해제' : '개발자 모드'}</span>
-              </button>
+              {isAdminMode && (
+                <button
+                  type="button"
+                  className="toss-btn-secondary text-xs flex items-center gap-1.5 border-purple-300 text-purple-700 bg-purple-50"
+                  onClick={handleToggleAdminMode}
+                  title="개발자 관리 모드 해제"
+                >
+                  <ShieldCheck size={14} className="text-purple-600" />
+                  <span>관리자 모드 해제</span>
+                </button>
+              )}
 
               <button
                 type="button"
