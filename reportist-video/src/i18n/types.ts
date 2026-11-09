@@ -351,6 +351,7 @@ export interface Dictionary {
     noResultsDesc: string;
     desc: string;
     viewHistory: string;
+    close?: string;
   };
   projects?: {
     tabTitle: string;
@@ -536,6 +537,7 @@ export interface Dictionary {
     thumbnailDesc: string;
     resetDesc: string;
     reStitchDesc: string;
+    close?: string;
   };
   subtitleDownload?: {
     buttonText: string;

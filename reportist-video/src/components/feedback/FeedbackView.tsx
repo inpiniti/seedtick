@@ -36,6 +36,7 @@ import {
 } from '../../services/feedbackService.ts';
 import { CreateFeedbackModal } from './CreateFeedbackModal.tsx';
 import { FeedbackDetailModal } from './FeedbackDetailModal.tsx';
+import { useI18n } from '../../i18n/index.tsx';
 
 interface FeedbackViewProps {
   onOpenStudio?: () => void;
@@ -43,6 +44,7 @@ interface FeedbackViewProps {
 }
 
 export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbedded = false }) => {
+  const { dict } = useI18n();
   const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isUsingFallback, setIsUsingFallback] = useState<boolean>(false);
@@ -104,7 +106,7 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
       localStorage.setItem('reportist_feedback_admin_mode', 'false');
       window.dispatchEvent(new Event('reportist_admin_mode_change'));
       window.dispatchEvent(new Event('storage'));
-      showToast('개발자 관리 모드가 해제되었습니다.');
+      showToast(dict.feedback?.adminModeOffToast || '개발자 관리 모드가 해제되었습니다.');
     }
   };
 
@@ -112,7 +114,7 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
   const handleCreateSubmit = async (data: NewFeedbackInput) => {
     const newItem = await createFeedback(data);
     setFeedbacks((prev) => [newItem, ...prev]);
-    showToast('소중한 피드백이 등록되었습니다! 개발자가 확인 후 반영하겠습니다.');
+    showToast(dict.feedback?.createdToast || '소중한 피드백이 등록되었습니다! 개발자가 확인 후 반영하겠습니다.');
   };
 
   // Like feedback
@@ -124,7 +126,7 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
     if (selectedFeedback && selectedFeedback.id === id) {
       setSelectedFeedback((prev) => (prev ? { ...prev, likeCount: newLikes } : prev));
     }
-    showToast('의견에 공감했습니다 ❤️');
+    showToast(dict.feedback?.likedToast || '의견에 공감했습니다 ❤️');
   };
 
   // Update status & response (admin)
@@ -137,7 +139,7 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
     if (updated) {
       setFeedbacks((prev) => prev.map((f) => (f.id === id ? updated : f)));
       setSelectedFeedback(updated);
-      showToast('개발자 처리 내용 및 상태가 성공적으로 반영되었습니다.');
+      showToast(dict.feedback?.statusUpdatedToast || '개발자 처리 내용 및 상태가 성공적으로 반영되었습니다.');
     }
   };
 
@@ -145,7 +147,7 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
   const handleDeleteFeedback = async (id: string) => {
     await deleteFeedback(id);
     setFeedbacks((prev) => prev.filter((f) => f.id !== id));
-    showToast('피드백이 삭제되었습니다.');
+    showToast(dict.feedback?.deletedToast || '피드백이 삭제되었습니다.');
   };
 
   // Status counts for tabs
@@ -164,28 +166,28 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
         return (
           <span className="toss-badge bg-red-50 text-red-600 border border-red-200">
             <Bug size={10} />
-            <span>버그</span>
+            <span>{dict.feedback?.catBug || '버그'}</span>
           </span>
         );
       case 'feature':
         return (
           <span className="toss-badge bg-amber-50 text-amber-700 border border-amber-200">
             <Lightbulb size={10} />
-            <span>기능제안</span>
+            <span>{dict.feedback?.catFeature || '기능제안'}</span>
           </span>
         );
       case 'improvement':
         return (
           <span className="toss-badge bg-blue-50 text-blue-600 border border-blue-200">
             <Sparkles size={10} />
-            <span>개선요청</span>
+            <span>{dict.feedback?.catImprovement || '개선요청'}</span>
           </span>
         );
       default:
         return (
           <span className="toss-badge bg-purple-50 text-purple-600 border border-purple-200">
             <HelpCircle size={10} />
-            <span>기타</span>
+            <span>{dict.feedback?.catOther || '기타'}</span>
           </span>
         );
     }
@@ -197,20 +199,20 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
         return (
           <span className="toss-badge bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
             <CheckCircle2 size={11} className="text-emerald-600" />
-            <span>해결 완료</span>
+            <span>{dict.feedback?.statusCompleted || '해결 완료'}</span>
           </span>
         );
       case 'in_progress':
         return (
           <span className="toss-badge bg-blue-50 text-blue-700 border border-blue-200 font-bold">
             <Clock size={11} className="text-blue-600" />
-            <span>진행중</span>
+            <span>{dict.feedback?.statusInProgress || '진행중'}</span>
           </span>
         );
       case 'closed':
         return (
           <span className="toss-badge bg-slate-100 text-slate-500 border border-slate-200">
-            <span>보류</span>
+            <span>{dict.feedback?.statusClosed || '보류'}</span>
           </span>
         );
       case 'open':
@@ -239,18 +241,20 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
           <div className="toss-feedback-header-top">
             <div className="toss-feedback-header-left">
               <div className="toss-community-badge-row">
-                <span className="toss-community-badge">FEEDBACK & ROADMAP</span>
+                <span className="toss-community-badge">{dict.feedback?.badge || 'FEEDBACK & ROADMAP'}</span>
                 {isAdminMode && (
                   <span className="toss-badge bg-purple-100 text-purple-800 border border-purple-200 font-bold flex items-center gap-1">
                     <ShieldCheck size={11} />
-                    <span>개발자 관리자 모드 ON</span>
+                    <span>{dict.feedback?.adminModeOn || '개발자 관리자 모드 ON'}</span>
                   </span>
                 )}
               </div>
-              {!isEmbedded && <h1 className="toss-community-title">피드백 & 개선 요청</h1>}
+              {!isEmbedded && (
+                <h1 className="toss-community-title">{dict.feedback?.headerTitle || '피드백 & 개선 요청'}</h1>
+              )}
               <p className="toss-community-desc">
-                서비스를 이용하며 느낀 불편사항이나 필요한 기능을 남겨주세요.
-                개발자가 직접 확인하고 처리 결과를 공유합니다.
+                {dict.feedback?.headerDesc ||
+                  '서비스를 이용하며 느낀 불편사항이나 필요한 기능을 남겨주세요. 개발자가 직접 확인하고 처리 결과를 공유합니다.'}
               </p>
             </div>
 
@@ -260,10 +264,10 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
                   type="button"
                   className="toss-btn-secondary text-xs flex items-center gap-1.5 border-purple-300 text-purple-700 bg-purple-50"
                   onClick={handleToggleAdminMode}
-                  title="개발자 관리 모드 해제"
+                  title={dict.feedback?.adminModeExit || '관리자 모드 해제'}
                 >
                   <ShieldCheck size={14} className="text-purple-600" />
-                  <span>관리자 모드 해제</span>
+                  <span>{dict.feedback?.adminModeExit || '관리자 모드 해제'}</span>
                 </button>
               )}
 
@@ -273,7 +277,7 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
                 onClick={() => setIsCreateModalOpen(true)}
               >
                 <Plus size={16} />
-                <span>피드백 남기기</span>
+                <span>{dict.feedback?.newFeedbackBtn || '피드백 남기기'}</span>
               </button>
             </div>
           </div>
@@ -288,28 +292,28 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
               className={`toss-status-tab-btn ${statusFilter === 'all' ? 'active' : ''}`}
               onClick={() => setStatusFilter('all')}
             >
-              전체
+              {dict.feedback?.filterAll || '전체'}
             </button>
             <button
               type="button"
               className={`toss-status-tab-btn ${statusFilter === 'completed' ? 'active' : ''}`}
               onClick={() => setStatusFilter('completed')}
             >
-              해결 완료 🎉
+              {dict.feedback?.statusCompleted || '해결 완료'} 🎉
             </button>
             <button
               type="button"
               className={`toss-status-tab-btn ${statusFilter === 'in_progress' ? 'active' : ''}`}
               onClick={() => setStatusFilter('in_progress')}
             >
-              진행중 🛠️
+              {dict.feedback?.statusInProgress || '진행중'} 🛠️
             </button>
             <button
               type="button"
               className={`toss-status-tab-btn ${statusFilter === 'open' ? 'active' : ''}`}
               onClick={() => setStatusFilter('open')}
             >
-              대기중 💬
+              {dict.feedback?.statusOpen || '대기중'} 💬
             </button>
           </div>
 
@@ -320,18 +324,18 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value as FeedbackCategoryFilter)}
             >
-              <option value="all">모든 분류</option>
-              <option value="improvement">사용성 개선</option>
-              <option value="feature">새로운 기능</option>
-              <option value="bug">버그 제보</option>
-              <option value="other">기타</option>
+              <option value="all">{dict.feedback?.catAll || '모든 분류'}</option>
+              <option value="improvement">{dict.feedback?.catImprovement || '사용성 개선'}</option>
+              <option value="feature">{dict.feedback?.catFeature || '새로운 기능'}</option>
+              <option value="bug">{dict.feedback?.catBug || '버그 제보'}</option>
+              <option value="other">{dict.feedback?.catOther || '기타'}</option>
             </select>
 
             <div className="toss-search-box relative flex-1 sm:w-64">
               <Search size={14} className="toss-community-search-icon" />
               <input
                 type="text"
-                placeholder="제목, 내용 검색..."
+                placeholder={dict.feedback?.searchPlaceholder || '제목, 내용 검색...'}
                 className="toss-search-input text-xs"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -353,14 +357,14 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-3">
             <RefreshCw size={24} className="animate-spin text-blue-500" />
-            <span className="text-sm">피드백 목록을 불러오는 중입니다...</span>
+            <span className="text-sm">{dict.feedback?.loadingText || '피드백 목록을 불러오는 중입니다...'}</span>
           </div>
         ) : feedbacks.length === 0 ? (
           <div className="toss-feedback-empty-card">
             <MessageSquare size={36} className="text-slate-300 mb-2" />
-            <h3 className="text-base font-bold text-slate-700">등록된 피드백이 없습니다</h3>
+            <h3 className="text-base font-bold text-slate-700">{dict.feedback?.emptyTitle || '등록된 피드백이 없습니다'}</h3>
             <p className="text-xs text-slate-500 mt-1 max-w-sm text-center">
-              불편했던 점이나 추가를 원하는 기능이 있다면 첫 번째 피드백을 남겨보세요!
+              {dict.feedback?.emptyDesc || '불편했던 점이나 추가를 원하는 기능이 있다면 첫 번째 피드백을 남겨보세요!'}
             </p>
             <button
               type="button"
@@ -368,7 +372,7 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
               onClick={() => setIsCreateModalOpen(true)}
             >
               <Plus size={14} />
-              <span>피드백 작성하기</span>
+              <span>{dict.feedback?.writeBtn || '피드백 작성하기'}</span>
             </button>
           </div>
         ) : (
@@ -388,7 +392,7 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
                   {item.adminResponse && (
                     <span className="toss-badge bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold flex items-center gap-1">
                       <ShieldCheck size={11} className="text-blue-600" />
-                      <span>답변 완료</span>
+                      <span>{dict.feedback?.adminReplied || '답변 완료'}</span>
                     </span>
                   )}
                 </div>
@@ -402,7 +406,7 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
                 {/* Admin Response Snippet Preview if present */}
                 {item.adminResponse && (
                   <div className="toss-feedback-admin-snippet">
-                    <span className="font-bold text-blue-700">개발자 답변: </span>
+                    <span className="font-bold text-blue-700">{dict.feedback?.adminResponsePrefix || '개발자 답변: '}</span>
                     <span>{item.adminResponse}</span>
                   </div>
                 )}

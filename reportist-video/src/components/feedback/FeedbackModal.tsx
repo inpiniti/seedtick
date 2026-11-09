@@ -3,6 +3,7 @@ import React, { useEffect, useRef } from 'react';
 import { X, MessageSquare } from 'lucide-react';
 import { FeedbackView } from './FeedbackView.tsx';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
+import { useI18n } from '../../i18n/index.tsx';
 
 export interface FeedbackModalProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ export interface FeedbackModalProps {
 }
 
 export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose }) => {
+  const { dict } = useI18n();
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useModalScrollLock(isOpen, {
@@ -59,10 +61,10 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose })
             </div>
             <div>
               <h2 className="model-modal-title" id="feedback-dialog-title">
-                피드백 & 개선 요청
+                {dict.feedback?.headerTitle || '피드백 & 개선 요청'}
               </h2>
               <p className="model-modal-subtitle">
-                불편사항이나 필요한 기능을 남겨주시면 개발자가 직접 확인하고 처리 결과를 공유합니다.
+                {dict.feedback?.headerDesc || '불편사항이나 필요한 기능을 남겨주시면 개발자가 직접 확인하고 처리 결과를 공유합니다.'}
               </p>
             </div>
           </div>
@@ -70,7 +72,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose })
             type="button"
             className="model-modal-close-btn"
             onClick={onClose}
-            aria-label="닫기"
+            aria-label={dict.feedback?.close || '닫기'}
           >
             <X size={20} />
           </button>

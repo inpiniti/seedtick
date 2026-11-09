@@ -200,7 +200,7 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClos
             type="button"
             className="model-modal-close-btn"
             onClick={onClose}
-            aria-label={dict.settingsModal?.close || '닫기'}
+            aria-label={dict.common?.close || '닫기'}
           >
             <X size={20} />
           </button>
@@ -317,13 +317,17 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClos
                           {isLatest && (
                             <span className="toss-patch-tag-latest">
                               <CheckCircle2 size={11} />
-                              최신 버전
+                              {dict.patchNotes?.latestBadge || '최신 버전'}
                             </span>
                           )}
                           {release.type === 'major' ? (
-                            <span className="toss-patch-tag-major">주요 업데이트</span>
+                            <span className="toss-patch-tag-major">
+                              {dict.patchNotes?.majorUpdates || '주요 업데이트'}
+                            </span>
                           ) : (
-                            <span className="toss-patch-tag-minor">개선 & 버그 수정</span>
+                            <span className="toss-patch-tag-minor">
+                              {dict.patchNotes?.minorUpdates || '개선 & 버그 수정'}
+                            </span>
                           )}
                           <span className="toss-patch-date">
                             <Calendar size={12} />
@@ -336,7 +340,11 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClos
 
                       <div className="toss-patch-card-right">
                         <span className="toss-patch-commit-count">
-                          {release.totalCommits}개 변경
+                          {interpolate
+                            ? interpolate(dict.patchNotes?.changesCount || '{count}개 변경', {
+                                count: release.totalCommits,
+                              })
+                            : `${release.totalCommits}개 변경`}
                         </span>
                         <div className="toss-patch-expand-icon">
                           {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
@@ -349,7 +357,9 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClos
                       <div className="toss-patch-commit-list">
                         <div className="toss-patch-commit-list-header">
                           <GitCommit size={14} color="#64748b" />
-                          <span>상세 커밋 내역 ({release.commits.length})</span>
+                          <span>
+                            {dict.patchNotes?.commitDetails || '상세 커밋 내역'} ({release.commits.length})
+                          </span>
                         </div>
                         <div className="toss-patch-commit-items">
                           {release.commits.map((commit) => {
