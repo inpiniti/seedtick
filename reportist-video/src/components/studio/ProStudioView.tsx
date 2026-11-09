@@ -49,6 +49,7 @@ import type {
   VideoItem,
   ProcessingProgress,
   VideoOverlayOptions,
+  ExportResolution,
 } from '../../types/video.ts';
 import type { FreeModelMeta, ReasoningEffortOption } from '../../types/gateway.ts';
 import {
@@ -189,7 +190,8 @@ interface ProStudioViewProps {
     bgmPresetId: string,
     bgmVolume: number,
     customAudioFile?: File | null,
-    overlayOptions?: VideoOverlayOptions
+    overlayOptions?: VideoOverlayOptions,
+    resolution?: ExportResolution
   ) => Promise<FinalVideoResult | null>;
   isReStitching: boolean;
   reStitchProgress?: {
@@ -311,6 +313,31 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [customAudioName, setCustomAudioName] = useState<string>('');
   const [customAudioDuration, setCustomAudioDuration] = useState<number | null>(null);
   const customAudioInputRef = useRef<HTMLInputElement>(null);
+
+  // 3-1. 내보내기 해상도 상태 (모바일은 720p 기본 권장, 데스크탑은 1080p FHD 기본 권장)
+  const isMobileDevice = useMemo(() => {
+    if (typeof navigator === 'undefined') return false;
+    return (
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+    );
+  }, []);
+
+  const [exportResolution, setExportResolutionState] = useState<ExportResolution>(() => {
+    if (result?.resolution) return result.resolution;
+    try {
+      const saved = localStorage.getItem('reportist_export_resolution');
+      if (saved === '720p' || saved === '1080p') return saved;
+    } catch {}
+    return isMobileDevice ? '720p' : '1080p';
+  });
+
+  const setExportResolution = useCallback((res: ExportResolution) => {
+    setExportResolutionState(res);
+    try {
+      localStorage.setItem('reportist_export_resolution', res);
+    } catch {}
+  }, []);
 
   useEffect(() => {
     onBgmChange?.(selectedBgmId, bgmVolume);
@@ -2643,8 +2670,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       stopSequencePlayback();
     }
 
-    // 이미 현재 스냅샷과 동일한 결과물이 캐시되어 있다면 0초 만에 즉시 파일 다운로드
-    if (!isModified && result?.url && result?.blob && result.blob.size > 0) {
+    // 이미 현재 스냅샷과 동일한 결과물이 캐시되어 있고 선택한 해상도와 일치한다면 0초 만에 즉시 파일 다운로드
+    const isResolutionMatched = !result?.resolution || result.resolution === exportResolution;
+    if (!isModified && result?.url && result?.blob && result.blob.size > 0 && isResolutionMatched) {
       await triggerVideoFileDownload(result);
       return;
     }
@@ -2655,7 +2683,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       selectedBgmId,
       bgmVolume,
       customAudioFile,
-      effectiveOverlayOptions
+      effectiveOverlayOptions,
+      exportResolution
     );
     if (stitched && stitched.url) {
       await triggerVideoFileDownload(stitched);
@@ -3034,7 +3063,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 <span>
                   {isReStitching
                     ? `${dict.header.stitching} (${reStitchProgress?.progressPercent ?? 0}%)`
-                    : `${dict.header.download} (${formatSec(totalDuration)})`}
+                    : `${dict.header.download} (${exportResolution} · ${formatSec(totalDuration)})`}
                 </span>
               </button>
             )
@@ -4058,31 +4087,64 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
             {/* 완성 영상 다운로드 및 유튜브 호환 자막 다운로드 */}
             {isSequenceMode && (
-              <div className="toss-timeline-actions">
-                <button
-                  type="button"
-                  className={`toss-btn-download-video ${isReStitching ? 'loading' : ''}`}
-                  onClick={handleDownload}
-                  disabled={isReStitching || segments.length === 0}
-                  title={dict.header.downloadTitle}
-                >
-                  <Download size={15} className={isReStitching ? 'animate-bounce' : ''} />
-                  <span>
-                    {isReStitching
-                      ? `${dict.header.stitching} (${reStitchProgress?.progressPercent ?? 0}%)`
-                      : `${dict.header.download} ({formatSec(totalDuration)})`}
-                  </span>
-                </button>
+              <div className="flex flex-col gap-2">
+                <div className="toss-timeline-actions">
+                  {/* 720p / 1080p 해상도 선택 토글 */}
+                  <div className="toss-resolution-selector" role="radiogroup" aria-label="Export Resolution">
+                    <button
+                      type="button"
+                      onClick={() => setExportResolution('720p')}
+                      className={`toss-resolution-btn ${exportResolution === '720p' ? 'active' : ''}`}
+                      title={dict.exportSettings?.res720pDesc || '720p HD (빠르고 안정적)'}
+                    >
+                      <span>720p</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExportResolution('1080p')}
+                      className={`toss-resolution-btn ${exportResolution === '1080p' ? 'active' : ''}`}
+                      title={dict.exportSettings?.res1080pDesc || '1080p FHD (선명한 고화질)'}
+                    >
+                      <span>1080p</span>
+                      <span className="toss-resolution-badge">FHD</span>
+                    </button>
+                  </div>
 
-                <button
-                  type="button"
-                  className="toss-btn-download-subtitle"
-                  onClick={() => setIsSubtitleModalOpen(true)}
-                  title={dict.subtitleDownload?.buttonTitle || '유튜브 호환 자막 (.srt) 다운로드'}
-                >
-                  <Subtitles size={15} />
-                  <span>{dict.subtitleDownload?.buttonText || '자막 다운로드 (.srt)'}</span>
-                </button>
+                  <button
+                    type="button"
+                    className={`toss-btn-download-video ${isReStitching ? 'loading' : ''}`}
+                    onClick={handleDownload}
+                    disabled={isReStitching || segments.length === 0}
+                    title={dict.header.downloadTitle}
+                  >
+                    <Download size={15} className={isReStitching ? 'animate-bounce' : ''} />
+                    <span>
+                      {isReStitching
+                        ? `${dict.header.stitching} (${reStitchProgress?.progressPercent ?? 0}%)`
+                        : `${dict.header.download} (${exportResolution} · ${formatSec(totalDuration)})`}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="toss-btn-download-subtitle"
+                    onClick={() => setIsSubtitleModalOpen(true)}
+                    title={dict.subtitleDownload?.buttonTitle || '유튜브 호환 자막 (.srt) 다운로드'}
+                  >
+                    <Subtitles size={15} />
+                    <span>{dict.subtitleDownload?.buttonText || '자막 다운로드 (.srt)'}</span>
+                  </button>
+                </div>
+
+                {isMobileDevice && exportResolution === '1080p' && (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50/90 border border-amber-200/80 rounded-xl text-[11px] text-amber-800">
+                    <AlertTriangle size={13} className="text-amber-600 shrink-0" />
+                    <span>
+                      {dict.exportSettings?.mobileWarning ||
+                        '모바일 기기에서는 영상 길이에 따라 브라우저 메모리 부족으로 튕길 수 있어요.'}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -5107,6 +5169,81 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               </div>
             )}
           </div>
+
+          {/* 내보내기 화질 설정 카드 */}
+          <div className="toss-card toss-resolution-card">
+            <div className="toss-card-header">
+              <div>
+                <h4 className="toss-card-title">
+                  <Film size={15} className="text-blue-600 shrink-0" />
+                  <span>{dict.exportSettings?.cardTitle || '내보내기 화질'}</span>
+                </h4>
+                <p className="toss-card-desc">
+                  {dict.exportSettings?.cardDesc || '완성 영상의 해상도와 인코딩 품질을 선택해요.'}
+                </p>
+              </div>
+              <span className="toss-tag-blue">
+                {exportResolution === '1080p' ? '1080p FHD' : '720p HD'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 mt-3">
+              <button
+                type="button"
+                onClick={() => setExportResolution('720p')}
+                className={`p-3 rounded-xl border text-left transition-all ${
+                  exportResolution === '720p'
+                    ? 'border-blue-500 bg-blue-50/70 text-blue-900 shadow-sm'
+                    : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold font-mono">720p HD</span>
+                  {exportResolution === '720p' && (
+                    <span className="w-2 h-2 rounded-full bg-blue-600" />
+                  )}
+                </div>
+                <span className="text-[11px] text-slate-500 leading-tight block">
+                  {dict.exportSettings?.res720pDesc || '빠르고 안정적인 렌더링'}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setExportResolution('1080p')}
+                className={`p-3 rounded-xl border text-left transition-all ${
+                  exportResolution === '1080p'
+                    ? 'border-blue-500 bg-blue-50/70 text-blue-900 shadow-sm'
+                    : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold font-mono">1080p FHD</span>
+                    <span className="text-[9px] font-semibold px-1 py-0.5 bg-blue-100 text-blue-700 rounded">
+                      {dict.exportSettings?.desktopRecommended || '권장'}
+                    </span>
+                  </div>
+                  {exportResolution === '1080p' && (
+                    <span className="w-2 h-2 rounded-full bg-blue-600" />
+                  )}
+                </div>
+                <span className="text-[11px] text-slate-500 leading-tight block">
+                  {dict.exportSettings?.res1080pDesc || '선명하고 또렷한 고해상도'}
+                </span>
+              </button>
+            </div>
+
+            {isMobileDevice && exportResolution === '1080p' && (
+              <div className="flex items-start gap-1.5 mt-2.5 p-2 bg-amber-50/90 border border-amber-200/80 rounded-xl text-[11px] text-amber-800 leading-snug">
+                <AlertTriangle size={13} className="text-amber-600 shrink-0 mt-0.5" />
+                <span>
+                  {dict.exportSettings?.mobileWarning ||
+                    '모바일 기기 사양이나 영상 길이에 따라 브라우저 메모리 부족으로 튕길 수 있어요.'}
+                </span>
+              </div>
+            )}
+          </div>
         </section>
       </main>
       )}
@@ -5408,6 +5545,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         }}
         isReStitching={isReStitching}
         reStitchProgress={reStitchProgress}
+        selectedResolution={exportResolution}
+        onSelectResolution={setExportResolution}
       />
 
       {/* 11. 촬영 날짜 포맷 선택 모달 */}
