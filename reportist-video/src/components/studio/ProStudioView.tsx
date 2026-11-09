@@ -80,6 +80,7 @@ import { AudioLibraryModal } from './AudioLibraryModal.tsx';
 import { MobileSettingsModal } from './MobileSettingsModal.tsx';
 import { DateFormatSelectorModal } from './DateFormatSelectorModal.tsx';
 import { SubtitleDownloadModal } from './SubtitleDownloadModal.tsx';
+import { VideoExportModal } from './VideoExportModal.tsx';
 import { SegmentTrimModal } from './SegmentTrimModal.tsx';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 import {
@@ -419,6 +420,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
   const [isDateFormatModalOpen, setIsDateFormatModalOpen] = useState<boolean>(false);
   const [isSubtitleModalOpen, setIsSubtitleModalOpen] = useState<boolean>(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
   const [currentDateFormat, setCurrentDateFormat] = useState<DateFormatOption>(getStoredDateFormat);
   const [showAge, setShowAge] = useState<boolean>(getStoredShowAge);
   const [showDate, setShowDate] = useState<boolean>(getStoredShowDate);
@@ -452,6 +454,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       setIsSettingsModalOpen(false);
       setIsDateFormatModalOpen(false);
       setIsSubtitleModalOpen(false);
+      setIsExportModalOpen(false);
     }
   }, [isProcessing]);
 
@@ -2663,15 +2666,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     document.body.removeChild(a);
   };
 
-  const handleDownload = async () => {
+  const handleDownload = async (targetRes?: ExportResolution) => {
     if (segments.length === 0 || isReStitching) return;
+    const resToUse = targetRes || exportResolution;
 
     if (isSequencePlayingRef.current) {
       stopSequencePlayback();
     }
 
     // 이미 현재 스냅샷과 동일한 결과물이 캐시되어 있고 선택한 해상도와 일치한다면 0초 만에 즉시 파일 다운로드
-    const isResolutionMatched = !result?.resolution || result.resolution === exportResolution;
+    const isResolutionMatched = !result?.resolution || result.resolution === resToUse;
     if (!isModified && result?.url && result?.blob && result.blob.size > 0 && isResolutionMatched) {
       await triggerVideoFileDownload(result);
       return;
@@ -2684,7 +2688,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       bgmVolume,
       customAudioFile,
       effectiveOverlayOptions,
-      exportResolution
+      resToUse
     );
     if (stitched && stitched.url) {
       await triggerVideoFileDownload(stitched);
@@ -3055,7 +3059,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               <button
                 type="button"
                 className={`toss-nav-cta-btn ${isReStitching ? 'loading' : ''}`}
-                onClick={handleDownload}
+                onClick={() => {
+                  if (isReStitching) return;
+                  setIsExportModalOpen(true);
+                }}
                 disabled={isReStitching || segments.length === 0}
                 title={dict.header.downloadTitle}
               >
@@ -4087,67 +4094,34 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
             {/* 완성 영상 다운로드 및 유튜브 호환 자막 다운로드 */}
             {isSequenceMode && (
-              <div className="toss-timeline-actions-wrap">
-                <div className="toss-timeline-actions">
-                  {/* 720p / 1080p 해상도 세그먼트 토글 컨트롤 */}
-                  <div className="toss-timeline-res-control" role="radiogroup" aria-label="Export Resolution">
-                    <button
-                      type="button"
-                      role="radio"
-                      aria-checked={exportResolution === '720p'}
-                      onClick={() => setExportResolution('720p')}
-                      className={`toss-res-compact-btn ${exportResolution === '720p' ? 'active' : ''}`}
-                      title={dict.exportSettings?.res720pDesc || '720p HD (빠르고 안정적)'}
-                    >
-                      720p
-                    </button>
-                    <button
-                      type="button"
-                      role="radio"
-                      aria-checked={exportResolution === '1080p'}
-                      onClick={() => setExportResolution('1080p')}
-                      className={`toss-res-compact-btn ${exportResolution === '1080p' ? 'active' : ''}`}
-                      title={dict.exportSettings?.res1080pDesc || '1080p FHD (선명한 고화질)'}
-                    >
-                      1080p
-                    </button>
-                  </div>
+              <div className="toss-timeline-actions">
+                <button
+                  type="button"
+                  className={`toss-btn-download-video ${isReStitching ? 'loading' : ''}`}
+                  onClick={() => {
+                    if (isReStitching) return;
+                    setIsExportModalOpen(true);
+                  }}
+                  disabled={isReStitching || segments.length === 0}
+                  title={dict.header.downloadTitle}
+                >
+                  <Download size={15} className={isReStitching ? 'animate-bounce' : ''} />
+                  <span>
+                    {isReStitching
+                      ? `${dict.header.stitching} (${reStitchProgress?.progressPercent ?? 0}%)`
+                      : `${dict.header.download} (${exportResolution} · ${formatSec(totalDuration)})`}
+                  </span>
+                </button>
 
-                  <button
-                    type="button"
-                    className={`toss-btn-download-video ${isReStitching ? 'loading' : ''}`}
-                    onClick={handleDownload}
-                    disabled={isReStitching || segments.length === 0}
-                    title={dict.header.downloadTitle}
-                  >
-                    <Download size={15} className={isReStitching ? 'animate-bounce' : ''} />
-                    <span>
-                      {isReStitching
-                        ? `${dict.header.stitching} (${reStitchProgress?.progressPercent ?? 0}%)`
-                        : `${dict.header.download} (${exportResolution} · ${formatSec(totalDuration)})`}
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    className="toss-btn-download-subtitle"
-                    onClick={() => setIsSubtitleModalOpen(true)}
-                    title={dict.subtitleDownload?.buttonTitle || '유튜브 호환 자막 (.srt) 다운로드'}
-                  >
-                    <Subtitles size={15} />
-                    <span>{dict.subtitleDownload?.buttonText || '자막 다운로드 (.srt)'}</span>
-                  </button>
-                </div>
-
-                {isMobileDevice && exportResolution === '1080p' && (
-                  <div className="toss-timeline-res-warning">
-                    <AlertTriangle size={13} className="shrink-0" />
-                    <span>
-                      {dict.exportSettings?.mobileWarning ||
-                        '모바일 기기에서는 영상 길이에 따라 브라우저 메모리 부족으로 튕길 수 있어요.'}
-                    </span>
-                  </div>
-                )}
+                <button
+                  type="button"
+                  className="toss-btn-download-subtitle"
+                  onClick={() => setIsSubtitleModalOpen(true)}
+                  title={dict.subtitleDownload?.buttonTitle || '유튜브 호환 자막 (.srt) 다운로드'}
+                >
+                  <Subtitles size={15} />
+                  <span>{dict.subtitleDownload?.buttonText || '자막 다운로드 (.srt)'}</span>
+                </button>
               </div>
             )}
           </div>
@@ -5172,77 +5146,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               </div>
             )}
           </div>
-
-          {/* 내보내기 화질 설정 카드 */}
-          <div className="toss-card toss-resolution-card">
-            <div className="toss-card-header">
-              <div>
-                <h4 className="toss-card-title">
-                  <Film size={15} className="toss-card-title-icon" />
-                  <span>{dict.exportSettings?.cardTitle || '내보내기 화질'}</span>
-                </h4>
-                <p className="toss-card-desc">
-                  {dict.exportSettings?.cardDesc || '완성 영상의 해상도와 인코딩 품질을 선택해요.'}
-                </p>
-              </div>
-              <span className="toss-tag-blue">
-                {exportResolution === '1080p' ? '1080p FHD' : '720p HD'}
-              </span>
-            </div>
-
-            <div className="toss-studio-res-grid">
-              <button
-                type="button"
-                role="radio"
-                aria-checked={exportResolution === '720p'}
-                onClick={() => setExportResolution('720p')}
-                className={`toss-studio-res-btn ${exportResolution === '720p' ? 'active' : ''}`}
-              >
-                <div className="toss-studio-res-btn-top">
-                  <span className="toss-studio-res-btn-title">720p HD</span>
-                  <div className={`toss-studio-res-radio ${exportResolution === '720p' ? 'active' : ''}`}>
-                    {exportResolution === '720p' && <div className="toss-studio-res-radio-dot" />}
-                  </div>
-                </div>
-                <span className="toss-studio-res-btn-desc">
-                  {dict.exportSettings?.res720pDesc || '빠르고 안정적인 렌더링'}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                role="radio"
-                aria-checked={exportResolution === '1080p'}
-                onClick={() => setExportResolution('1080p')}
-                className={`toss-studio-res-btn ${exportResolution === '1080p' ? 'active' : ''}`}
-              >
-                <div className="toss-studio-res-btn-top">
-                  <div className="toss-studio-res-title-wrap">
-                    <span className="toss-studio-res-btn-title">1080p FHD</span>
-                    <span className="toss-modal-res-subbadge desktop">
-                      {dict.exportSettings?.desktopRecommended || '권장'}
-                    </span>
-                  </div>
-                  <div className={`toss-studio-res-radio ${exportResolution === '1080p' ? 'active' : ''}`}>
-                    {exportResolution === '1080p' && <div className="toss-studio-res-radio-dot" />}
-                  </div>
-                </div>
-                <span className="toss-studio-res-btn-desc">
-                  {dict.exportSettings?.res1080pDesc || '선명하고 또렷한 고해상도'}
-                </span>
-              </button>
-            </div>
-
-            {isMobileDevice && exportResolution === '1080p' && (
-              <div className="toss-res-warning">
-                <AlertTriangle size={14} className="toss-res-warning-icon" />
-                <span>
-                  {dict.exportSettings?.mobileWarning ||
-                    '모바일 기기 사양이나 영상 길이에 따라 브라우저 메모리 부족으로 튕길 수 있어요.'}
-                </span>
-              </div>
-            )}
-          </div>
         </section>
       </main>
       )}
@@ -5565,6 +5468,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         introDuration={introDuration}
         bridgeDurationMap={effectiveBridgeDurationMap}
         videoTitle={overlayOptions.titleText || result?.suggestedTitle || 'highlight'}
+      />
+
+      {/* 12-1. 완성 영상 해상도 선택 및 내보내기 모달 */}
+      <VideoExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        currentResolution={exportResolution}
+        onConfirmDownload={(res) => {
+          setExportResolution(res);
+          void handleDownload(res);
+        }}
+        totalDurationText={formatSec(totalDuration)}
+        segmentCount={segments.length}
+        isMobileDevice={isMobileDevice}
       />
 
       {/* 12-2. 클립 구간 세밀 편집 모달 (원본 비디오 확인 & 조절) */}

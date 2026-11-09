@@ -11009,5 +11009,103 @@
   margin-top: 1px;
 }
 
+/* 4. 완성 영상 내보내기 모달 (VideoExportModal) */
+.export-modal-card {
+  max-width: 440px;
+  width: 90%;
+  border-radius: 20px;
+  background-color: #ffffff;
+}
+
+.export-modal-body {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.export-modal-meta-box {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 12.5px;
+}
+
+.export-modal-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.export-modal-meta-label {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.export-modal-meta-val {
+  color: #191f28;
+  font-weight: 700;
+  font-family: inherit;
+}
+
+.export-modal-meta-dot {
+  color: #cbd5e1;
+  user-select: none;
+}
+
+.export-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 20px;
+  border-top: 1px solid #f1f5f9;
+  background-color: #ffffff;
+}
+
+.export-modal-cancel-btn {
+  padding: 9px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background-color: #ffffff;
+  color: #4e5968;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.export-modal-cancel-btn:hover {
+  background-color: #f8fafc;
+  color: #191f28;
+  border-color: #cbd5e1;
+}
+
+.export-modal-confirm-btn {
+  padding: 9px 18px;
+  border: none;
+  border-radius: 10px;
+  background-color: #3182f6;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  font-family: inherit;
+}
+
+.export-modal-confirm-btn:hover {
+  background-color: #1b64da;
+}
+
+
 
 
