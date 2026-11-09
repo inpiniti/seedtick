@@ -18,6 +18,7 @@ import {
   type PatchRelease,
   type PatchCommit,
 } from '../../data/patchNotes.ts';
+import { getLocalizedPatchReleases } from '../../data/patchNotesLocalization.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 import { useI18n } from '../../i18n/index.tsx';
 
@@ -27,10 +28,12 @@ export interface PatchNotesModalProps {
 }
 
 export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClose }) => {
-  const { dict, interpolate } = useI18n();
+  const { dict, interpolate, locale } = useI18n();
   const overlayRef = useRef<HTMLDivElement>(null);
   const [filterType, setFilterType] = useState<'all' | 'major'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const localizedReleases = useMemo(() => getLocalizedPatchReleases(locale), [locale]);
 
   // 10회 클릭 시 개발자 모드 전환 기능
   const versionClickCountRef = useRef<number>(0);
@@ -79,11 +82,11 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClos
     }
   };
   
-  // 첫 2개 버전은 기본으로 펼침 상태
+  // 첫 2개 버전은 기본적으로 펼침 상태
   const [expandedVersions, setExpandedVersions] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
-    if (PATCH_RELEASES.length > 0) initial[PATCH_RELEASES[0].version] = true;
-    if (PATCH_RELEASES.length > 1) initial[PATCH_RELEASES[1].version] = true;
+    if (localizedReleases.length > 0) initial[localizedReleases[0].version] = true;
+    if (localizedReleases.length > 1) initial[localizedReleases[1].version] = true;
     return initial;
   });
 
@@ -110,7 +113,7 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClos
 
   const expandAll = () => {
     const all: Record<string, boolean> = {};
-    PATCH_RELEASES.forEach((r) => {
+    localizedReleases.forEach((r) => {
       all[r.version] = true;
     });
     setExpandedVersions(all);
@@ -121,7 +124,7 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClos
   };
 
   const filteredReleases = useMemo(() => {
-    return PATCH_RELEASES.filter((rel) => {
+    return localizedReleases.filter((rel) => {
       if (filterType === 'major' && rel.type !== 'major') {
         return false;
       }
@@ -140,11 +143,11 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClos
 
       return inVersion || inTitle || inSummary || inCommits;
     });
-  }, [filterType, searchQuery]);
+  }, [localizedReleases, filterType, searchQuery]);
 
   const totalCommitsCount = useMemo(() => {
-    return PATCH_RELEASES.reduce((acc, r) => acc + r.totalCommits, 0);
-  }, []);
+    return localizedReleases.reduce((acc, r) => acc + r.totalCommits, 0);
+  }, [localizedReleases]);
 
   if (!isOpen) return null;
 
@@ -212,14 +215,14 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClos
               className={`toss-patch-tab-btn ${filterType === 'all' ? 'active' : ''}`}
               onClick={() => setFilterType('all')}
             >
-              {dict.patchNotes?.allReleases || '전체 릴리즈'} ({PATCH_RELEASES.length})
+              {dict.patchNotes?.allReleases || '전체 릴리즈'} ({localizedReleases.length})
             </button>
             <button
               type="button"
               className={`toss-patch-tab-btn ${filterType === 'major' ? 'active' : ''}`}
               onClick={() => setFilterType('major')}
             >
-              {dict.patchNotes?.majorUpdates || '주요 업데이트'} ({PATCH_RELEASES.filter((r) => r.type === 'major').length})
+              {dict.patchNotes?.majorUpdates || '주요 업데이트'} ({localizedReleases.filter((r) => r.type === 'major').length})
             </button>
           </div>
 
@@ -401,7 +404,12 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClos
         {/* Footer */}
         <div className="model-modal-footer toss-patch-footer">
           <div className="toss-patch-footer-info">
-            총 <strong>{PATCH_RELEASES.length}개</strong>의 릴리즈 · <strong>{totalCommitsCount}개</strong>의 커밋 반영됨
+            {interpolate
+              ? interpolate(dict.patchNotes?.footerInfo || '총 {releases}개의 릴리즈 · {commits}개의 커밋 반영됨', {
+                  releases: localizedReleases.length,
+                  commits: totalCommitsCount,
+                })
+              : `총 ${localizedReleases.length}개의 릴리즈 · ${totalCommitsCount}개의 커밋 반영됨`}
           </div>
           <button
             type="button"
@@ -409,7 +417,7 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClos
             onClick={onClose}
             style={{ minWidth: '100px' }}
           >
-            확인
+            {dict.patchNotes?.confirmButton || dict.common?.confirm || '확인'}
           </button>
         </div>
       </div>
