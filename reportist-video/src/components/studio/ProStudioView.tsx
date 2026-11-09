@@ -42,7 +42,7 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import { VideoCommunityView } from '../community/VideoCommunityView.tsx';
-import { FeedbackView } from '../feedback/FeedbackView.tsx';
+import { FeedbackModal } from '../feedback/FeedbackModal.tsx';
 import { StudioProjectListView } from './StudioProjectListView.tsx';
 import type { StudioProjectSummary } from '../../types/project.ts';
 import type {
@@ -420,6 +420,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [isModelModalOpen, setIsModelModalOpen] = useState<boolean>(false);
   const [isVideoListModalOpen, setIsVideoListModalOpen] = useState<boolean>(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState<boolean>(false);
   const [isDateFormatModalOpen, setIsDateFormatModalOpen] = useState<boolean>(false);
   const [isSubtitleModalOpen, setIsSubtitleModalOpen] = useState<boolean>(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
@@ -518,8 +519,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     dict,
   ]);
 
-  // 4-2. 상단 탭 상태 (내 작업 보관함 vs 스튜디오 vs 영상 공유 커뮤니티 vs 피드백)
-  const [activeTab, setActiveTab] = useState<'projects' | 'studio' | 'community' | 'feedback'>('projects');
+  // 4-2. 상단 탭 상태 (내 작업 보관함 vs 스튜디오 vs 영상 공유 커뮤니티)
+  const [activeTab, setActiveTab] = useState<'projects' | 'studio' | 'community'>('projects');
 
   // 5. 자막 & 브랜딩 오버레이 상태
   const initialDateStr = useMemo(() => {
@@ -2993,15 +2994,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               <Share2 size={14} />
               <span>{dict.community?.communityTab || '영상 공유'}</span>
             </button>
-            <button
-              type="button"
-              className={`toss-nav-tab-btn ${activeTab === 'feedback' ? 'active' : ''}`}
-              onClick={() => setActiveTab('feedback')}
-              title={dict.feedback?.navTab || '피드백'}
-            >
-              <MessageSquare size={14} />
-              <span>{dict.feedback?.navTab || '피드백'}</span>
-            </button>
           </div>
         </div>
 
@@ -3104,10 +3096,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         </div>
       </header>
 
-      {/* 2. 본문: 피드백 & 개선 요청 또는 영상 공유 커뮤니티 또는 내 작업 보관함 또는 스튜디오 2열 레이아웃 */}
-      {activeTab === 'feedback' ? (
-        <FeedbackView onOpenStudio={() => setActiveTab('studio')} />
-      ) : activeTab === 'community' ? (
+      {/* 2. 본문: 영상 공유 커뮤니티 또는 내 작업 보관함 또는 스튜디오 2열 레이아웃 */}
+      {activeTab === 'community' ? (
         <VideoCommunityView onOpenStudio={() => setActiveTab('studio')} />
       ) : activeTab === 'projects' ? (
         <StudioProjectListView
@@ -5423,6 +5413,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         onClose={() => setIsSettingsModalOpen(false)}
         onOpenModelModal={() => setIsModelModalOpen(true)}
         onOpenLanguageModal={() => setIsLanguageModalOpen(true)}
+        onOpenFeedbackModal={() => setIsFeedbackModalOpen(true)}
         onOpenDateFormatModal={() => setIsDateFormatModalOpen(true)}
         currentDateFormat={currentDateFormat}
         showDate={showDate}
@@ -5504,6 +5495,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         segment={trimModalTarget}
         sourceVideo={trimModalTarget ? videoMap.get(trimModalTarget.sourceVideoId) : undefined}
         onSave={handleSaveTrimRange}
+      />
+
+      {/* 12-3. 피드백 & 개선 요청 모달 (설정 메뉴에서 진입) */}
+      <FeedbackModal
+        isOpen={isFeedbackModalOpen}
+        onClose={() => setIsFeedbackModalOpen(false)}
       />
 
       {/* 13. 화면 하단 고정 슬림 상태바 (자동 저장 상태 + 시간 절약률 요약) */}

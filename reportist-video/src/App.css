@@ -11415,3 +11415,36 @@
   border-color: #fecdd3;
   transform: scale(1.02);
 }
+
+/* Feedback Dialog inside Modal */
+.toss-feedback-dialog-card {
+  width: 94vw;
+  max-width: 980px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.toss-feedback-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  background-color: #f8fafc;
+  padding: 0;
+}
+
+.toss-feedback-wrapper.embedded {
+  height: auto;
+  min-height: auto;
+  background-color: transparent;
+}
+
+.toss-feedback-inner.embedded {
+  max-width: 100%;
+  padding: 16px 20px 32px;
+  gap: 14px;
+}
+
+.toss-feedback-header-card.embedded {
+  padding: 14px 18px;
+  border-radius: 14px;
+}

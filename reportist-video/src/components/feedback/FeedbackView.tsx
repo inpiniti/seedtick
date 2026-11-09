@@ -39,9 +39,10 @@ import { FeedbackDetailModal } from './FeedbackDetailModal.tsx';
 
 interface FeedbackViewProps {
   onOpenStudio?: () => void;
+  isEmbedded?: boolean;
 }
 
-export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio }) => {
+export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbedded = false }) => {
   const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isUsingFallback, setIsUsingFallback] = useState<boolean>(false);
@@ -217,7 +218,7 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio }) => {
   };
 
   return (
-    <div className="toss-feedback-wrapper">
+    <div className={`toss-feedback-wrapper ${isEmbedded ? 'embedded' : ''}`}>
       {/* Toast Notification */}
       {toastMessage && (
         <div className="toss-toast-float">
@@ -226,9 +227,9 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio }) => {
         </div>
       )}
 
-      <div className="toss-feedback-inner">
+      <div className={`toss-feedback-inner ${isEmbedded ? 'embedded' : ''}`}>
         {/* 1. Toss Style Header Card */}
-        <section className="toss-feedback-header-card">
+        <section className={`toss-feedback-header-card ${isEmbedded ? 'embedded' : ''}`}>
           <div className="toss-feedback-header-top">
             <div className="toss-feedback-header-left">
               <div className="toss-community-badge-row">
@@ -240,7 +241,7 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio }) => {
                   </span>
                 )}
               </div>
-              <h1 className="toss-community-title">피드백 & 개선 요청</h1>
+              {!isEmbedded && <h1 className="toss-community-title">피드백 & 개선 요청</h1>}
               <p className="toss-community-desc">
                 서비스를 이용하며 느낀 불편사항이나 필요한 기능을 남겨주세요.
                 개발자가 직접 확인하고 처리 결과를 공유합니다.

@@ -18,6 +18,7 @@ import {
   Database,
   Layers,
   AlertTriangle,
+  MessageSquare,
 } from 'lucide-react';
 import type { FreeModelMeta } from '../../types/gateway.ts';
 import type { ExportResolution } from '../../types/video.ts';
@@ -46,6 +47,7 @@ export interface MobileSettingsModalProps {
   onClose: () => void;
   onOpenModelModal: () => void;
   onOpenLanguageModal: () => void;
+  onOpenFeedbackModal?: () => void;
   onOpenDateFormatModal?: () => void;
   currentDateFormat?: DateFormatOption;
   showDate?: boolean;
@@ -82,6 +84,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   onClose,
   onOpenModelModal,
   onOpenLanguageModal,
+  onOpenFeedbackModal,
   onOpenDateFormatModal,
   currentDateFormat,
   showDate = true,
@@ -697,6 +700,41 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Group: Feedback & Customer Support */}
+          {onOpenFeedbackModal && (
+            <div className="settings-modal-group">
+              <span className="settings-modal-group-title">
+                {dict.feedback?.headerTitle || '피드백 & 고객 지원'}
+              </span>
+              <button
+                type="button"
+                className="settings-modal-item"
+                onClick={() => {
+                  onClose();
+                  onOpenFeedbackModal();
+                }}
+              >
+                <div className="settings-modal-item-left">
+                  <div className="settings-modal-icon-badge" style={{ backgroundColor: '#eff6ff', color: '#3182f6' }}>
+                    <MessageSquare size={18} />
+                  </div>
+                  <div className="settings-modal-item-text">
+                    <div className="settings-modal-item-title">
+                      {dict.feedback?.headerTitle || '피드백 & 개선 요청'}
+                    </div>
+                    <div className="settings-modal-item-desc">
+                      {dict.feedback?.headerDesc || '불편사항이나 필요한 기능을 남겨주시면 개발자가 답변해드려요'}
+                    </div>
+                  </div>
+                </div>
+                <div className="settings-modal-item-action">
+                  <span style={{ color: '#3182f6', fontWeight: 600 }}>게시판 열기</span>
+                  <ChevronRight size={15} color="#3182f6" />
+                </div>
+              </button>
+            </div>
+          )}
 
           {/* Group 6: Project Actions */}
           {(hasStitchedResult || hasVideos) && (
