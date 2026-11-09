@@ -757,13 +757,25 @@ export async function stitchVideosWebCodecs({
           const decoded = await offlineAudioCtx.decodeAudioData(ab);
           const srcNode = offlineAudioCtx.createBufferSource();
           srcNode.buffer = decoded;
-          srcNode.loop = totalVideoDurationSec > decoded.duration;
+
+          const fitToVideo = Boolean(overlayOptions?.bgmFitToVideo);
+          const introOffset = actualIntroDuration > 0 ? actualIntroDuration : 0;
+          const targetMusicDuration = Math.max(0.1, totalVideoDurationSec - introOffset);
+
+          if (fitToVideo && decoded.duration > 0 && targetMusicDuration > 0) {
+            const calculatedRate = decoded.duration / targetMusicDuration;
+            srcNode.playbackRate.value = Math.max(0.1, Math.min(10.0, calculatedRate));
+            srcNode.loop = false;
+          } else {
+            srcNode.loop = totalVideoDurationSec > decoded.duration;
+          }
 
           const gain = offlineAudioCtx.createGain();
           gain.gain.value = Math.max(0, Math.min(1, bgmVolume));
+
           srcNode.connect(gain);
           gain.connect(offlineAudioCtx.destination);
-          srcNode.start(actualIntroDuration > 0 ? actualIntroDuration : 0);
+          srcNode.start(introOffset);
         }
 
         const renderedBuffer = await offlineAudioCtx.startRendering();

@@ -125,6 +125,9 @@ export const fr: Dictionary = {
     deleteBgm: 'Supprimer la musique',
     uploadButton: '+ Importer de la Musique (MP3, WAV)',
     uploadHint: 'Ajoutez une bande-son pour rendre votre montage encore plus cinématographique',
+    fitToVideo: 'Ajuster la vitesse de la musique à la durée',
+    fitToVideoDesc: 'Ajuste la vitesse de lecture pour correspondre exactement à la durée de la vidéo',
+    speedRateNotice: 'Synchronisé à env. {rate}x pour correspondre à la durée de la vidéo',
   },
   audioLibrary: {
     openButton: 'Bibliothèque audio',

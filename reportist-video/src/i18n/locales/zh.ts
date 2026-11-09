@@ -126,6 +126,9 @@ export const zh: Dictionary = {
     deleteBgm: '移除背景音乐',
     uploadButton: '+ 上传背景音乐 (MP3, WAV)',
     uploadHint: '上传专属 BGM，为精彩高光注入更强感染力',
+    fitToVideo: '自动调节 BGM 速度以匹配视频长度',
+    fitToVideoDesc: '根据视频总时长自动调整音乐播放速度，使其完美契合',
+    speedRateNotice: '已按约 {rate} 倍速同步至视频长度',
   },
   audioLibrary: {
     openButton: '音频库',

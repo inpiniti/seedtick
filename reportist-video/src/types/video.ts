@@ -132,6 +132,7 @@ export interface VideoOverlayOptions {
   introVideoFile?: File | null; // 사용자 직접 삽입 인트로 영상 파일
   outroVideoFile?: File | null; // 사용자 직접 삽입 아웃트로 영상 파일
   showChapterBridge?: boolean; // 날짜·장소·원본 영상 전환 시 HyperFrames 챕터 브릿지 효과 표시 (기본 true)
+  bgmFitToVideo?: boolean;     // 영상 길이에 맞춰 BGM 배속 자동 조절 여부 (기본 false)
 }
 
 export interface CustomAudioTrack {

@@ -149,6 +149,7 @@ function computeStitchSnapshot(
       : '',
     outroText: (overlay.outroText ?? '').trim(),
     showChapterBridge: overlay.showChapterBridge !== false,
+    bgmFitToVideo: Boolean(overlay.bgmFitToVideo),
   };
 
   const audioData = {
@@ -517,6 +518,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       showIntro: false,
       showOutro: false,
       showChapterBridge: true,
+      bgmFitToVideo: false,
       introVideoFile: null,
       outroVideoFile: null,
     };
@@ -1265,10 +1267,29 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     return offsets;
   }, [segments, introDuration, effectiveBridgeDurationMap]);
 
+  const calculatedBgmSpeed = useMemo(() => {
+    if (!customAudioDuration || customAudioDuration <= 0 || !totalDuration || totalDuration <= 0) return null;
+    const rate = customAudioDuration / totalDuration;
+    return rate.toFixed(2);
+  }, [customAudioDuration, totalDuration]);
+
   // 시퀀스 타임라인용 배경음악(A1) 구간 블록 계산 (1회차 원곡 재생 구간 + 초과 시 반복 재생 구간)
   const audioTimelineBlocks = useMemo(() => {
     if (!customAudioFile || !customAudioDuration || customAudioDuration <= 0 || totalDuration <= 0) {
       return [];
+    }
+    // 영상 길이에 배속 자동 조절 활성화 시 100% 길이의 단일 블록으로 표시
+    if (overlayOptions.bgmFitToVideo) {
+      return [
+        {
+          cycleIndex: 0,
+          startSec: 0,
+          endSec: Math.round(totalDuration * 10) / 10,
+          durationSec: Math.round(totalDuration * 10) / 10,
+          widthPct: 100,
+          isLoop: false,
+        },
+      ];
     }
     const blocks: Array<{
       cycleIndex: number;
@@ -1295,9 +1316,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       cycle++;
     }
     return blocks;
-  }, [customAudioFile, customAudioDuration, totalDuration]);
+  }, [customAudioFile, customAudioDuration, totalDuration, overlayOptions.bgmFitToVideo]);
 
   const isMusicExceeded = Boolean(
+    !overlayOptions.bgmFitToVideo &&
     customAudioFile &&
     customAudioDuration &&
     customAudioDuration > 0 &&
@@ -1305,6 +1327,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   );
 
   const isMusicTrimmed = Boolean(
+    !overlayOptions.bgmFitToVideo &&
     customAudioFile &&
     customAudioDuration &&
     customAudioDuration > totalDuration + 0.5 &&
@@ -1585,6 +1608,22 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   }, [bgmVolume, isMuted, selectedBgmId, customAudioFile, isSequenceMode]);
 
+  // BGM 배속 자동 조절 (영상 길이에 동기화) 실시간 반영
+  useEffect(() => {
+    if (!bgmAudioElRef.current) return;
+    const audio = bgmAudioElRef.current;
+    const fit = Boolean(overlayOptions.bgmFitToVideo);
+    if (fit && customAudioDuration && customAudioDuration > 0 && totalDuration > 0) {
+      const rate = customAudioDuration / totalDuration;
+      audio.playbackRate = Math.max(0.25, Math.min(4.0, Number(rate.toFixed(3))));
+      audio.preservesPitch = true;
+      audio.loop = false;
+    } else {
+      audio.playbackRate = 1.0;
+      audio.loop = true;
+    }
+  }, [overlayOptions.bgmFitToVideo, customAudioDuration, totalDuration]);
+
   // BGM 재생/일시정지/시크 동기화 헬퍼
   const syncBgmPlayback = (play: boolean, timelineSec?: number) => {
     if (!isSequenceMode) return;
@@ -1596,7 +1635,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           (Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0);
         if (dur > 0) {
           try {
-            audio.currentTime = Math.max(0, timelineSec % dur);
+            const fit = Boolean(overlayOptions.bgmFitToVideo);
+            if (fit && totalDuration > 0) {
+              audio.currentTime = Math.max(0, Math.min(dur, timelineSec * (dur / totalDuration)));
+            } else {
+              audio.currentTime = Math.max(0, timelineSec % dur);
+            }
           } catch {}
         }
       }
@@ -3530,7 +3574,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       {interpolate(dict.sequencer.clipsCount, { count: segments.length })} · {formatSec(totalDuration)}
                     </span>
                     {customAudioFile && customAudioDuration && customAudioDuration > 0 && (
-                      isMusicExceeded ? (
+                      overlayOptions.bgmFitToVideo ? (
+                        <span
+                          className="toss-sequencer-music-badge ok"
+                          title="배경음악이 영상 전체 길이에 맞춰 배속으로 딱 맞게 동기화돼요"
+                        >
+                          <Music size={10} className="shrink-0" />
+                          <span>
+                            {`배속 동기화 (${calculatedBgmSpeed || '1.0'}x · ${formatSec(totalDuration)})`}
+                          </span>
+                        </span>
+                      ) : isMusicExceeded ? (
                         <span
                           className="toss-sequencer-music-badge warning"
                           title={
@@ -4084,45 +4138,83 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             />
 
             {customAudioFile ? (
-              <div className="toss-bgm-uploaded-box">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="toss-audio-icon-box">
-                    <FileAudio size={18} className="text-blue-600" />
+              <>
+                <div className="toss-bgm-uploaded-box">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="toss-audio-icon-box">
+                      <FileAudio size={18} className="text-blue-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-slate-800 truncate">
+                        {customAudioName}
+                      </div>
+                      <div className="text-[11px] text-slate-400 mt-0.5">
+                        {selectedLibraryTrackId ? dict.audioLibrary.fromLibrary : dict.bgm.myAudioFile}
+                        {customAudioDuration ? ` · ${formatSec(customAudioDuration)}` : ''} ({((customAudioFile.size || 0) / (1024 * 1024)).toFixed(1)}MB) • {dict.bgm.applied}
+                      </div>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <div className="text-xs font-bold text-slate-800 truncate">
-                      {customAudioName}
-                    </div>
-                    <div className="text-[11px] text-slate-400 mt-0.5">
-                      {selectedLibraryTrackId ? dict.audioLibrary.fromLibrary : dict.bgm.myAudioFile}
-                      {customAudioDuration ? ` · ${formatSec(customAudioDuration)}` : ''} ({((customAudioFile.size || 0) / (1024 * 1024)).toFixed(1)}MB) • {dict.bgm.applied}
-                    </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      className="toss-btn-secondary toss-btn-xs"
+                      onClick={() => customAudioInputRef.current?.click()}
+                    >
+                      {dict.bgm.changeFile}
+                    </button>
+                    <button
+                      type="button"
+                      className="toss-btn-delete-sm"
+                      onClick={() => {
+                        setCustomAudioFile(null);
+                        setCustomAudioName('');
+                        setSelectedBgmId('none');
+                        setSelectedLibraryTrackId(null);
+                      }}
+                      title={dict.bgm.deleteBgm}
+                    >
+                      <X size={15} />
+                    </button>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    className="toss-btn-secondary toss-btn-xs"
-                    onClick={() => customAudioInputRef.current?.click()}
-                  >
-                    {dict.bgm.changeFile}
-                  </button>
-                  <button
-                    type="button"
-                    className="toss-btn-delete-sm"
-                    onClick={() => {
-                      setCustomAudioFile(null);
-                      setCustomAudioName('');
-                      setSelectedBgmId('none');
-                      setSelectedLibraryTrackId(null);
-                    }}
-                    title={dict.bgm.deleteBgm}
-                  >
-                    <X size={15} />
-                  </button>
+                {/* BGM 상세 옵션 (영상 길이에 배속 맞춤) */}
+                <div className="toss-bgm-options-panel mt-3 pt-3 border-t border-slate-100 flex flex-col gap-2">
+                  <div className="flex items-center justify-between gap-3 p-2.5 bg-slate-50/70 rounded-xl hover:bg-slate-50 transition-colors">
+                    <div className="flex flex-col min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-bold text-slate-800">
+                          {dict.bgm.fitToVideo}
+                        </span>
+                        {overlayOptions.bgmFitToVideo && calculatedBgmSpeed && (
+                          <span className="text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-200/60 px-1.5 py-0.5 rounded-md">
+                            ⚡ {calculatedBgmSpeed}x
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[11px] text-slate-400 mt-0.5">
+                        {overlayOptions.bgmFitToVideo && calculatedBgmSpeed
+                          ? interpolate(dict.bgm.speedRateNotice, { rate: calculatedBgmSpeed })
+                          : dict.bgm.fitToVideoDesc}
+                      </span>
+                    </div>
+                    <label className="toss-toggle-switch shrink-0" style={{ margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(overlayOptions.bgmFitToVideo)}
+                        onChange={(e) =>
+                          setOverlayOptions((prev) => ({
+                            ...prev,
+                            bgmFitToVideo: e.target.checked,
+                          }))
+                        }
+                      />
+                      <span className="toss-toggle-slider" />
+                    </label>
+                  </div>
                 </div>
-              </div>
+              </>
             ) : (
               <button
                 type="button"

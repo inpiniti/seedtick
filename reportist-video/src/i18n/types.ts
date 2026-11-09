@@ -134,6 +134,9 @@ export interface Dictionary {
     deleteBgm: string;
     uploadButton: string;
     uploadHint: string;
+    fitToVideo: string;
+    fitToVideoDesc: string;
+    speedRateNotice: string;
   };
   audioLibrary: {
     openButton: string;

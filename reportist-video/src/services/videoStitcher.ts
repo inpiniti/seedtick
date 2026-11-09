@@ -493,7 +493,17 @@ export async function stitchHighlightedSegments({
           const expectedIntroSec = overlayOptions?.showIntro ? 1.6 : 0;
           const expectedOutroSec = overlayOptions?.showOutro ? 1.8 : 0;
           const plannedTotalVideoSec = totalSegmentsDuration + expectedIntroSec + expectedOutroSec;
-          customSourceNode.loop = plannedTotalVideoSec > decodedResult.value.duration + 0.5;
+
+          const fitToVideo = Boolean(overlayOptions?.bgmFitToVideo);
+          const targetMusicDuration = Math.max(0.1, plannedTotalVideoSec - expectedIntroSec);
+
+          if (fitToVideo && decodedResult.value.duration > 0 && targetMusicDuration > 0) {
+            const calculatedRate = decodedResult.value.duration / targetMusicDuration;
+            customSourceNode.playbackRate.value = Math.max(0.1, Math.min(10.0, calculatedRate));
+            customSourceNode.loop = false;
+          } else {
+            customSourceNode.loop = plannedTotalVideoSec > decodedResult.value.duration + 0.5;
+          }
 
           const gainNode = audioCtx.createGain();
           gainNode.gain.setValueAtTime(Math.max(0, Math.min(1, bgmVolume)), audioCtx.currentTime);

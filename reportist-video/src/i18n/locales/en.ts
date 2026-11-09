@@ -126,6 +126,9 @@ export const en: Dictionary = {
     deleteBgm: 'Remove BGM',
     uploadButton: '+ Upload BGM File (MP3, WAV)',
     uploadHint: 'Upload background music to make your video highlights more cinematic and engaging',
+    fitToVideo: 'Auto-adjust BGM speed to video length',
+    fitToVideoDesc: 'Adjust audio playback speed to perfectly match total video length',
+    speedRateNotice: 'Synchronized at approx. {rate}x speed to fit video duration',
   },
   audioLibrary: {
     openButton: 'Audio Library',

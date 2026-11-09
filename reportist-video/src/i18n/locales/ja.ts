@@ -126,6 +126,9 @@ export const ja: Dictionary = {
     deleteBgm: 'BGM削除',
     uploadButton: '+ BGMファイルをアップロード (MP3, WAV)',
     uploadHint: 'ハイライト動画をよりシネマティックに演出するBGMをアップロードしてください',
+    fitToVideo: '動画の長さに合わせてBGM倍速を自動調節',
+    fitToVideoDesc: '動画全体の長さに合わせて音楽の再生速度を調節しピッタリ合わせます',
+    speedRateNotice: '現在の動画の長さに合わせて約{rate}倍速で同期されます',
   },
   audioLibrary: {
     openButton: 'オーディオライブラリ',

@@ -126,6 +126,9 @@ export const ko: Dictionary = {
     deleteBgm: '배경음악 삭제',
     uploadButton: '+ 배경음악 파일 올리기 (MP3, WAV)',
     uploadHint: '영상을 더욱 풍성하게 만들어줄 BGM 음원을 업로드하세요',
+    fitToVideo: '영상 길이에 배속 자동 조절',
+    fitToVideoDesc: '영상 전체 길이에 맞춰 음악 재생 속도를 조절해 딱 맞춰요',
+    speedRateNotice: '현재 영상 길이에 맞춰 약 {rate}배속으로 동기화돼요',
   },
   audioLibrary: {
     openButton: '오디오 보관함',

@@ -103,7 +103,8 @@ export function App() {
         prev.subtitleLocationText === newOpts.subtitleLocationText &&
         prev.showIntro === newOpts.showIntro &&
         prev.showOutro === newOpts.showOutro &&
-        prev.showChapterBridge === newOpts.showChapterBridge
+        prev.showChapterBridge === newOpts.showChapterBridge &&
+        prev.bgmFitToVideo === newOpts.bgmFitToVideo
       ) {
         return prev;
       }
