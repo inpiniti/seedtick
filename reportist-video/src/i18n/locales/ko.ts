@@ -289,6 +289,13 @@ export const ko: Dictionary = {
     watchVideo: '영상 재생하기',
     dbNotice: 'Supabase DB와 연동되어 모든 사용자와 실시간으로 공유됩니다.',
   },
+  feedback: {
+    navTab: '피드백',
+    headerTitle: '피드백 & 개선 요청',
+    headerDesc: 'Reportist Video를 사용하며 겪은 불편사항이나 제안을 남겨주세요. 개발자가 직접 확인하고 처리 결과를 공유합니다.',
+    newFeedbackBtn: '피드백 남기기',
+    adminModeBtn: '개발자 모드',
+  },
   projects: {
     tabTitle: '보관함',
     pageTitle: '내 작업 보관함',

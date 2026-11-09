@@ -39,8 +39,10 @@ import {
   FolderOpen,
   Link2,
   AlertTriangle,
+  MessageSquare,
 } from 'lucide-react';
 import { VideoCommunityView } from '../community/VideoCommunityView.tsx';
+import { FeedbackView } from '../feedback/FeedbackView.tsx';
 import { StudioProjectListView } from './StudioProjectListView.tsx';
 import type { StudioProjectSummary } from '../../types/project.ts';
 import type {
@@ -516,8 +518,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     dict,
   ]);
 
-  // 4-2. 상단 탭 상태 (내 작업 보관함 vs 스튜디오 vs 영상 공유 커뮤니티)
-  const [activeTab, setActiveTab] = useState<'projects' | 'studio' | 'community'>('projects');
+  // 4-2. 상단 탭 상태 (내 작업 보관함 vs 스튜디오 vs 영상 공유 커뮤니티 vs 피드백)
+  const [activeTab, setActiveTab] = useState<'projects' | 'studio' | 'community' | 'feedback'>('projects');
 
   // 5. 자막 & 브랜딩 오버레이 상태
   const initialDateStr = useMemo(() => {
@@ -2991,6 +2993,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               <Share2 size={14} />
               <span>{dict.community?.communityTab || '영상 공유'}</span>
             </button>
+            <button
+              type="button"
+              className={`toss-nav-tab-btn ${activeTab === 'feedback' ? 'active' : ''}`}
+              onClick={() => setActiveTab('feedback')}
+              title={dict.feedback?.navTab || '피드백'}
+            >
+              <MessageSquare size={14} />
+              <span>{dict.feedback?.navTab || '피드백'}</span>
+            </button>
           </div>
         </div>
 
@@ -3093,8 +3104,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         </div>
       </header>
 
-      {/* 2. 본문: 영상 공유 커뮤니티 또는 내 작업 보관함 또는 스튜디오 2열 레이아웃 */}
-      {activeTab === 'community' ? (
+      {/* 2. 본문: 피드백 & 개선 요청 또는 영상 공유 커뮤니티 또는 내 작업 보관함 또는 스튜디오 2열 레이아웃 */}
+      {activeTab === 'feedback' ? (
+        <FeedbackView onOpenStudio={() => setActiveTab('studio')} />
+      ) : activeTab === 'community' ? (
         <VideoCommunityView onOpenStudio={() => setActiveTab('studio')} />
       ) : activeTab === 'projects' ? (
         <StudioProjectListView

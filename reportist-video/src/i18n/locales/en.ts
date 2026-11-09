@@ -289,6 +289,13 @@ export const en: Dictionary = {
     watchVideo: 'Play Video',
     dbNotice: 'Synced with Supabase DB in real time with everyone.',
   },
+  feedback: {
+    navTab: 'Feedback',
+    headerTitle: 'User Feedback & Roadmap',
+    headerDesc: 'Share any issues, ideas, or feature requests. The developer directly reviews and shares resolution updates.',
+    newFeedbackBtn: 'Give Feedback',
+    adminModeBtn: 'Developer Mode',
+  },
   projects: {
     tabTitle: 'Projects',
     pageTitle: 'Studio Projects',

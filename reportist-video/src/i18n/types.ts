@@ -297,6 +297,13 @@ export interface Dictionary {
     emptySearchDesc?: string;
     viewAll?: string;
   };
+  feedback?: {
+    navTab: string;
+    headerTitle: string;
+    headerDesc: string;
+    newFeedbackBtn: string;
+    adminModeBtn: string;
+  };
   projects?: {
     tabTitle: string;
     pageTitle: string;

@@ -11108,4 +11108,310 @@
 
 
 
-
+
+
+/* ==========================================================================
+   Toss-style User Feedback & Issue Tracker / Developer Roadmap Styles
+   ========================================================================== */
+
+.toss-feedback-wrapper {
+  flex: 1;
+  width: 100%;
+  height: calc(100vh - 54px);
+  overflow-y: auto;
+  background-color: #f7f9fc;
+}
+
+@media (max-width: 768px) {
+  .toss-feedback-wrapper {
+    height: auto;
+    min-height: calc(100vh - 54px);
+    overflow: visible;
+  }
+}
+
+.toss-feedback-inner {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px 20px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.toss-feedback-header-card {
+  background-color: #ffffff;
+  border: 1px solid #eef2f6;
+  border-radius: 18px;
+  padding: 20px 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.toss-feedback-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.toss-feedback-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.toss-feedback-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background-color: #ffffff;
+  border: 1px solid #eef2f6;
+  border-radius: 16px;
+  padding: 10px 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.toss-status-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background-color: #f1f5f9;
+  padding: 4px;
+  border-radius: 12px;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.toss-status-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: #64748b;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.toss-status-tab-btn:hover {
+  color: #0f172a;
+}
+
+.toss-status-tab-btn.active {
+  background-color: #ffffff;
+  color: #3182f6;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.toss-search-box {
+  position: relative;
+  min-width: 220px;
+}
+
+.toss-search-input {
+  width: 100%;
+  height: 38px;
+  padding: 0 32px 0 34px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  color: #0f172a;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.toss-search-input:focus {
+  background-color: #ffffff;
+  border-color: #3182f6;
+  box-shadow: 0 0 0 3px rgba(49, 130, 246, 0.12);
+}
+
+/* Feedback Cards */
+.toss-feedback-card {
+  background-color: #ffffff;
+  border: 1px solid #eef2f6;
+  border-radius: 16px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.toss-feedback-card:hover {
+  transform: translateY(-2px);
+  border-color: #cbd5e1;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+}
+
+.toss-feedback-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.toss-feedback-card-snippet {
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.5;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toss-feedback-admin-snippet {
+  background-color: #eff6ff;
+  border-left: 3px solid #3182f6;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #1e3a8a;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toss-feedback-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 8px;
+  border-top: 1px solid #f1f5f9;
+  margin-top: 4px;
+}
+
+.toss-feedback-empty-card {
+  background-color: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 20px;
+  padding: 64px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Modals */
+.toss-feedback-modal,
+.toss-feedback-detail-modal {
+  width: 100%;
+  max-width: 620px;
+}
+
+.toss-category-select-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  background-color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.toss-category-select-btn:hover {
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.toss-category-select-btn.active {
+  border-color: #3182f6;
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
+.toss-status-select-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  background-color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.toss-status-select-btn.active {
+  border-color: #7c3aed;
+  background-color: #f5f3ff;
+  color: #6d28d9;
+  font-weight: 700;
+}
+
+.toss-paste-tip-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px 12px;
+  background-color: #f0f7ff;
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  font-size: 11.5px;
+  color: #1e40af;
+  line-height: 1.45;
+}
+
+.toss-admin-response-card {
+  background: linear-gradient(180deg, #f0f7ff 0%, #ffffff 100%);
+  border: 1.5px solid #bfdbfe;
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+
+.toss-dev-admin-panel {
+  background-color: #faf5ff;
+  border: 1.5px solid #e9d5ff;
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+
+.toss-feedback-like-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid #fee2e2;
+  border-radius: 20px;
+  background-color: #fff1f2;
+  color: #e11d48;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.toss-feedback-like-btn:hover {
+  background-color: #ffe4e6;
+  border-color: #fecdd3;
+  transform: scale(1.02);
+}
