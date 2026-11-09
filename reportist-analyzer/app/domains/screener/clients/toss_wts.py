@@ -744,6 +744,8 @@ class TossWtsClient:
                 "accept": "application/json",
                 "referer": "https://www.tossinvest.com/",
             },
+            # wts-info-api는 deviceId 쿠키가 없으면 400 invalid-client-state를 반환한다.
+            cookies={"deviceId": self._device_id},
         ) as client:
             for i in range(0, len(normalized_codes), chunk_size):
                 chunk = normalized_codes[i : i + chunk_size]
@@ -803,6 +805,8 @@ class TossWtsClient:
                 "content-type": "application/json",
                 "referer": "https://www.tossinvest.com/",
             },
+            # wts-info-api는 deviceId 쿠키가 없으면 400 invalid-client-state를 반환한다.
+            cookies={"deviceId": self._device_id},
             follow_redirects=True,
         ) as client:
             res = await client.post(SEARCH_URL, json=body)
