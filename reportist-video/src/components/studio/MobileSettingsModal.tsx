@@ -41,6 +41,7 @@ import {
 } from '../../services/storageQuotaService.ts';
 import { isOpfsAvailable } from '../../services/opfsStorage.ts';
 import { detectOptimalCodec } from '../../services/videoCompressor.ts';
+import { CURRENT_APP_VERSION } from '../../data/patchNotes.ts';
 
 export interface MobileSettingsModalProps {
   isOpen: boolean;
@@ -48,6 +49,7 @@ export interface MobileSettingsModalProps {
   onOpenModelModal: () => void;
   onOpenLanguageModal: () => void;
   onOpenFeedbackModal?: () => void;
+  onOpenPatchNotesModal?: () => void;
   onOpenDateFormatModal?: () => void;
   currentDateFormat?: DateFormatOption;
   showDate?: boolean;
@@ -85,6 +87,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   onOpenModelModal,
   onOpenLanguageModal,
   onOpenFeedbackModal,
+  onOpenPatchNotesModal,
   onOpenDateFormatModal,
   currentDateFormat,
   showDate = true,
@@ -203,9 +206,14 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
               <Settings size={22} color="#3182f6" />
             </div>
             <div className="model-modal-titles">
-              <h2 id="settings-modal-title" className="model-modal-title">
-                {dict.settingsModal?.title || dict.common.settings || '스튜디오 설정'}
-              </h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h2 id="settings-modal-title" className="model-modal-title" style={{ margin: 0 }}>
+                  {dict.settingsModal?.title || dict.common.settings || '스튜디오 설정'}
+                </h2>
+                <span className="toss-version-badge">
+                  v{CURRENT_APP_VERSION}
+                </span>
+              </div>
               <p className="model-modal-subtitle">
                 {dict.settingsModal?.subtitle || 'AI 모델 및 환경설정을 관리해요'}
               </p>
@@ -701,38 +709,71 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
             </div>
           </div>
 
-          {/* Group: Feedback & Customer Support */}
-          {onOpenFeedbackModal && (
+          {/* Group: Feedback & Customer Support / Updates */}
+          {(onOpenFeedbackModal || onOpenPatchNotesModal) && (
             <div className="settings-modal-group">
               <span className="settings-modal-group-title">
-                {dict.feedback?.headerTitle || '피드백 & 고객 지원'}
+                고객 지원 및 업데이트
               </span>
-              <button
-                type="button"
-                className="settings-modal-item"
-                onClick={() => {
-                  onClose();
-                  onOpenFeedbackModal();
-                }}
-              >
-                <div className="settings-modal-item-left">
-                  <div className="settings-modal-icon-badge" style={{ backgroundColor: '#eff6ff', color: '#3182f6' }}>
-                    <MessageSquare size={18} />
-                  </div>
-                  <div className="settings-modal-item-text">
-                    <div className="settings-modal-item-title">
-                      {dict.feedback?.headerTitle || '피드백 & 개선 요청'}
+
+              {onOpenFeedbackModal && (
+                <button
+                  type="button"
+                  className="settings-modal-item"
+                  onClick={() => {
+                    onClose();
+                    onOpenFeedbackModal();
+                  }}
+                >
+                  <div className="settings-modal-item-left">
+                    <div className="settings-modal-icon-badge" style={{ backgroundColor: '#eff6ff', color: '#3182f6' }}>
+                      <MessageSquare size={18} />
                     </div>
-                    <div className="settings-modal-item-desc">
-                      {dict.feedback?.headerDesc || '불편사항이나 필요한 기능을 남겨주시면 개발자가 답변해드려요'}
+                    <div className="settings-modal-item-text">
+                      <div className="settings-modal-item-title">
+                        {dict.feedback?.headerTitle || '피드백 & 개선 요청'}
+                      </div>
+                      <div className="settings-modal-item-desc">
+                        {dict.feedback?.headerDesc || '불편사항이나 필요한 기능을 남겨주시면 개발자가 답변해드려요'}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="settings-modal-item-action">
-                  <span style={{ color: '#3182f6', fontWeight: 600 }}>게시판 열기</span>
-                  <ChevronRight size={15} color="#3182f6" />
-                </div>
-              </button>
+                  <div className="settings-modal-item-action">
+                    <span style={{ color: '#3182f6', fontWeight: 600 }}>게시판 열기</span>
+                    <ChevronRight size={15} color="#3182f6" />
+                  </div>
+                </button>
+              )}
+
+              {onOpenPatchNotesModal && (
+                <button
+                  type="button"
+                  className="settings-modal-item"
+                  onClick={() => {
+                    onClose();
+                    onOpenPatchNotesModal();
+                  }}
+                >
+                  <div className="settings-modal-item-left">
+                    <div className="settings-modal-icon-badge" style={{ backgroundColor: '#f0fdf4', color: '#16a34a' }}>
+                      <Sparkles size={18} />
+                    </div>
+                    <div className="settings-modal-item-text">
+                      <div className="settings-modal-item-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>패치 노트</span>
+                        <span className="toss-version-badge">v{CURRENT_APP_VERSION}</span>
+                      </div>
+                      <div className="settings-modal-item-desc">
+                        지금까지의 기능 추가 및 업데이트 내역을 확인해요
+                      </div>
+                    </div>
+                  </div>
+                  <div className="settings-modal-item-action">
+                    <span style={{ color: '#16a34a', fontWeight: 600 }}>내역 보기</span>
+                    <ChevronRight size={15} color="#16a34a" />
+                  </div>
+                </button>
+              )}
             </div>
           )}
 

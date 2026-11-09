@@ -11448,3 +11448,419 @@
   padding: 14px 18px;
   border-radius: 14px;
 }
+
+/* ==========================================================================
+   Toss Design System: Patch Notes (Changelog) Modal
+   ========================================================================== */
+
+.toss-patch-dialog-card {
+  width: 94vw;
+  max-width: 860px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.toss-patch-current-version-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #2563eb;
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 9999px;
+  letter-spacing: -0.01em;
+}
+
+.toss-patch-control-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 20px;
+  background-color: #f8fafc;
+  border-bottom: 1px solid #eef2f6;
+}
+
+.toss-patch-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toss-patch-tab-btn {
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background-color: #ffffff;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.toss-patch-tab-btn:hover {
+  background-color: #f1f5f9;
+  color: #334155;
+}
+
+.toss-patch-tab-btn.active {
+  background-color: #3182f6;
+  border-color: #3182f6;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(49, 130, 246, 0.25);
+}
+
+.toss-patch-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.toss-patch-search-box {
+  flex: 1;
+  max-width: 360px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  transition: border-color 0.15s ease;
+}
+
+.toss-patch-search-box:focus-within {
+  border-color: #3182f6;
+  box-shadow: 0 0 0 3px rgba(49, 130, 246, 0.1);
+}
+
+.toss-patch-search-input {
+  border: none;
+  outline: none;
+  width: 100%;
+  font-size: 13px;
+  color: #1e293b;
+  background: transparent;
+}
+
+.toss-patch-search-clear {
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+}
+
+.toss-patch-toggle-btns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toss-patch-text-btn {
+  background: none;
+  border: none;
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.toss-patch-text-btn:hover {
+  color: #3182f6;
+  background-color: #eff6ff;
+}
+
+.toss-patch-divider {
+  color: #cbd5e1;
+  font-size: 11px;
+}
+
+.toss-patch-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  background-color: #f8fafc;
+}
+
+.toss-patch-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.toss-patch-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.18s ease;
+}
+
+.toss-patch-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+.toss-patch-card.major-card {
+  border-left: 4px solid #3182f6;
+}
+
+.toss-patch-card.latest-card {
+  border-color: #bfdbfe;
+  box-shadow: 0 4px 14px rgba(49, 130, 246, 0.08);
+}
+
+.toss-patch-card-header {
+  padding: 16px 18px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toss-patch-card-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.toss-patch-badge-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.toss-patch-ver-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  font-size: 12px;
+  font-weight: 800;
+  border-radius: 7px;
+  letter-spacing: -0.01em;
+}
+
+.toss-patch-ver-tag.major {
+  background-color: #3182f6;
+  color: #ffffff;
+}
+
+.toss-patch-ver-tag.patch {
+  background-color: #e2e8f0;
+  color: #334155;
+}
+
+.toss-patch-tag-latest {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #16a34a;
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+}
+
+.toss-patch-tag-major {
+  display: inline-flex;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #2563eb;
+  background-color: #eff6ff;
+  border-radius: 6px;
+}
+
+.toss-patch-tag-minor {
+  display: inline-flex;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+  background-color: #f1f5f9;
+  border-radius: 6px;
+}
+
+.toss-patch-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  color: #94a3b8;
+  margin-left: 2px;
+}
+
+.toss-patch-title {
+  margin: 2px 0 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+}
+
+.toss-patch-summary {
+  margin: 0;
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.toss-patch-card-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.toss-patch-commit-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  background-color: #f1f5f9;
+  padding: 4px 9px;
+  border-radius: 8px;
+}
+
+.toss-patch-expand-icon {
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.toss-patch-commit-list {
+  padding: 14px 18px 18px;
+  border-top: 1px solid #f1f5f9;
+  background-color: #fafbfc;
+}
+
+.toss-patch-commit-list-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 10px;
+}
+
+.toss-patch-commit-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toss-patch-commit-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  padding: 6px 10px;
+  background-color: #ffffff;
+  border: 1px solid #edf2f7;
+  border-radius: 8px;
+  line-height: 1.4;
+}
+
+.toss-patch-commit-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 5px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+}
+
+.toss-patch-commit-scope {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.toss-patch-commit-msg {
+  flex: 1;
+  color: #334155;
+  font-weight: 500;
+}
+
+.toss-patch-commit-hash {
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.toss-patch-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 20px;
+  text-align: center;
+}
+
+.toss-patch-empty-title {
+  margin: 12px 0 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.toss-patch-empty-desc {
+  margin: 0;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.toss-patch-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-top: 1px solid #eef2f6;
+  background-color: #ffffff;
+}
+
+.toss-patch-footer-info {
+  font-size: 12.5px;
+  color: #64748b;
+}
+
+.toss-patch-footer-info strong {
+  color: #1e293b;
+}
+
+/* Settings Modal version tag */
+.toss-version-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #2563eb;
+  background-color: #eff6ff;
+  border: 1px solid #dbeafe;
+  border-radius: 9999px;
+}

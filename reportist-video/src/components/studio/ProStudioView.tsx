@@ -43,6 +43,7 @@ import {
 } from 'lucide-react';
 import { VideoCommunityView } from '../community/VideoCommunityView.tsx';
 import { FeedbackModal } from '../feedback/FeedbackModal.tsx';
+import { PatchNotesModal } from '../patch/PatchNotesModal.tsx';
 import { StudioProjectListView } from './StudioProjectListView.tsx';
 import type { StudioProjectSummary } from '../../types/project.ts';
 import type {
@@ -421,6 +422,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [isVideoListModalOpen, setIsVideoListModalOpen] = useState<boolean>(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState<boolean>(false);
+  const [isPatchNotesModalOpen, setIsPatchNotesModalOpen] = useState<boolean>(false);
   const [isDateFormatModalOpen, setIsDateFormatModalOpen] = useState<boolean>(false);
   const [isSubtitleModalOpen, setIsSubtitleModalOpen] = useState<boolean>(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
@@ -5414,6 +5416,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         onOpenModelModal={() => setIsModelModalOpen(true)}
         onOpenLanguageModal={() => setIsLanguageModalOpen(true)}
         onOpenFeedbackModal={() => setIsFeedbackModalOpen(true)}
+        onOpenPatchNotesModal={() => setIsPatchNotesModalOpen(true)}
         onOpenDateFormatModal={() => setIsDateFormatModalOpen(true)}
         currentDateFormat={currentDateFormat}
         showDate={showDate}
@@ -5501,6 +5504,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       <FeedbackModal
         isOpen={isFeedbackModalOpen}
         onClose={() => setIsFeedbackModalOpen(false)}
+      />
+
+      {/* 12-4. 패치 노트 모달 (설정 메뉴에서 진입) */}
+      <PatchNotesModal
+        isOpen={isPatchNotesModalOpen}
+        onClose={() => setIsPatchNotesModalOpen(false)}
       />
 
       {/* 13. 화면 하단 고정 슬림 상태바 (자동 저장 상태 + 시간 절약률 요약) */}
