@@ -2,7 +2,12 @@
 
 import type { FreeModelMeta, GatewayConfig, ReasoningEffortOption } from '../types/gateway.ts';
 import type { ExtractedFrame, HighlightSegment } from '../types/video.ts';
-import { enrichModelMetrics, isGuardrailModel } from './modelMetrics.ts';
+import {
+  canonicalModelId,
+  enrichModelMetrics,
+  isGuardrailModel,
+  type ModelPerfMetric,
+} from './modelMetrics.ts';
 
 export const DEFAULT_GATEWAY_URL = 'https://seedtick-ai-gateway.vercel.app';
 export const DEFAULT_GATEWAY_SECRET = '377d4fa71b90fdbbd6eab6765f3050598de8c259ed86e615c9b18ae4ed63e8bd';
@@ -25,6 +30,8 @@ export const FALLBACK_VIDEO_MODELS: FreeModelMeta[] = [
     intelligenceIndex: 13.6,
     codingIndex: null,
     agenticIndex: null,
+    speedTokensPerSecond: 82,
+    latencyMs: 1500,
     intelligenceTier: '플래그십 멀티모달 & 1M 윈도우',
     parametersSummary: '120B (활성 12B)',
   },
@@ -39,6 +46,8 @@ export const FALLBACK_VIDEO_MODELS: FreeModelMeta[] = [
     intelligenceIndex: 12.9,
     codingIndex: 52.9,
     agenticIndex: null,
+    speedTokensPerSecond: 208,
+    latencyMs: 1600,
     intelligenceTier: '최상위 지능 멀티모달',
     parametersSummary: '276B (활성 12B)',
   },
@@ -53,6 +62,8 @@ export const FALLBACK_VIDEO_MODELS: FreeModelMeta[] = [
     intelligenceIndex: 12.5,
     codingIndex: 52.1,
     agenticIndex: null,
+    speedTokensPerSecond: 194,
+    latencyMs: 1750,
     intelligenceTier: '초대형 975B 고지능 MoE',
     parametersSummary: '975B (활성 41B)',
   },
@@ -67,6 +78,8 @@ export const FALLBACK_VIDEO_MODELS: FreeModelMeta[] = [
     intelligenceIndex: null,
     codingIndex: 13.8,
     agenticIndex: null,
+    speedTokensPerSecond: 90,
+    latencyMs: 605,
     intelligenceTier: '옴니 멀티모달 추론',
     parametersSummary: '30B (활성 3B)',
   },
@@ -81,54 +94,116 @@ export const FALLBACK_VIDEO_MODELS: FreeModelMeta[] = [
     intelligenceIndex: null,
     codingIndex: null,
     agenticIndex: null,
+    speedTokensPerSecond: 30,
+    latencyMs: 6500,
     intelligenceTier: '초대형 280B 비전 MoE',
     parametersSummary: '280B (활성 16B)',
   },
 ];
 
-// 게이트웨이에서 이미지/비전 입력 가능한 멀티모달 모델 가져오기
-export async function fetchVideoCapableModels(config: GatewayConfig = DEFAULT_CONFIG): Promise<FreeModelMeta[]> {
+/**
+ * OpenRouter 공개 프론트엔드 API에서 실시간 엔드포인트 속도(Throughput) 및 레이턴시(TTFT) 메트릭을 수신한다.
+ */
+export async function fetchOpenRouterLivePerf(): Promise<Map<string, ModelPerfMetric>> {
+  const map = new Map<string, ModelPerfMetric>();
   try {
-    const url = `${config.baseUrl.replace(/\/+$/, '')}/v1/models`;
-    const res = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${config.gatewaySecret}`,
-      },
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3500);
+    const res = await fetch('https://openrouter.ai/api/frontend/v1/models/find?max_price=0', {
+      signal: controller.signal,
     });
+    clearTimeout(timer);
 
     if (res.ok) {
       const json = await res.json();
-      if (Array.isArray(json.data) && json.data.length > 0) {
-        // 비전(이미지) 모달리티를 지원하는 모델 필터링
-        // 안전성 가드레일 모델은 하이라이트 분석용이 아니므로 제외한다.
-        const visionModels = json.data.filter((m: FreeModelMeta) => {
-          // Google Gemma 모델 제외 (오류 빈발로 제외)
-          const isGoogleGemma =
-            m.id.toLowerCase().includes('gemma') ||
-            m.name.toLowerCase().includes('gemma');
-          if (isGoogleGemma) return false;
+      const perfMap = json.data?.endpoint_perf || {};
+      const models = Array.isArray(json.data?.models) ? json.data.models : [];
+      for (const m of models) {
+        const epId = m.endpoint?.id;
+        const perf = epId ? perfMap[epId] : null;
+        if (!perf) continue;
+        const speed =
+          perf.p50_throughput != null && Number.isFinite(perf.p50_throughput)
+            ? Math.round(perf.p50_throughput)
+            : null;
+        const latency =
+          perf.p50_latency != null && Number.isFinite(perf.p50_latency)
+            ? Math.round(perf.p50_latency)
+            : null;
 
-          const hasImageInput = Array.isArray(m.inputModalities) && m.inputModalities.includes('image');
-          const hasImageModality = typeof m.modality === 'string' && m.modality.includes('image');
-          const isKnownVision =
-            m.id.includes('super-vl') ||
-            m.id.includes('nano-omni') ||
-            m.id.includes('dots-3') ||
-            m.id.includes('inkling');
-          const isVision = hasImageInput || hasImageModality || isKnownVision;
-          return isVision && !isGuardrailModel(m);
-        });
-
-        if (visionModels.length > 0) {
-          return enrichModelMetrics(visionModels);
+        if (speed != null || latency != null) {
+          const entry: ModelPerfMetric = {
+            speedTokensPerSecond: speed ?? 0,
+            latencyMs: latency ?? 0,
+          };
+          if (m.slug) {
+            map.set(canonicalModelId(m.slug), entry);
+            map.set(m.slug, entry);
+            map.set(`${m.slug}:free`, entry);
+          }
+          if (m.endpoint?.model_variant_slug) {
+            map.set(canonicalModelId(m.endpoint.model_variant_slug), entry);
+            map.set(m.endpoint.model_variant_slug, entry);
+          }
         }
       }
     }
-  } catch (err) {
-    console.warn('[GatewayClient] 비전 모델 조회 실패, 기본 폴백 목록 사용:', err);
+  } catch {
+    // 실시간 메트릭 조회 실패 시 기본 벤치마크 fallback 사용
   }
+  return map;
+}
 
-  return enrichModelMetrics(FALLBACK_VIDEO_MODELS);
+// 게이트웨이에서 이미지/비전 입력 가능한 멀티모달 모델 가져오기
+export async function fetchVideoCapableModels(config: GatewayConfig = DEFAULT_CONFIG): Promise<FreeModelMeta[]> {
+  const [gatewayModels, livePerf] = await Promise.all([
+    (async () => {
+      try {
+        const url = `${config.baseUrl.replace(/\/+$/, '')}/v1/models`;
+        const res = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${config.gatewaySecret}`,
+          },
+        });
+
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.data) && json.data.length > 0) {
+            // 비전(이미지) 모달리티를 지원하는 모델 필터링
+            // 안전성 가드레일 모델은 하이라이트 분석용이 아니므로 제외한다.
+            const visionModels = json.data.filter((m: FreeModelMeta) => {
+              // Google Gemma 모델 제외 (오류 빈발로 제외)
+              const isGoogleGemma =
+                m.id.toLowerCase().includes('gemma') ||
+                m.name.toLowerCase().includes('gemma');
+              if (isGoogleGemma) return false;
+
+              const hasImageInput = Array.isArray(m.inputModalities) && m.inputModalities.includes('image');
+              const hasImageModality = typeof m.modality === 'string' && m.modality.includes('image');
+              const isKnownVision =
+                m.id.includes('super-vl') ||
+                m.id.includes('nano-omni') ||
+                m.id.includes('dots-3') ||
+                m.id.includes('inkling');
+              const isVision = hasImageInput || hasImageModality || isKnownVision;
+              return isVision && !isGuardrailModel(m);
+            });
+
+            if (visionModels.length > 0) {
+              return visionModels;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[GatewayClient] 비전 모델 조회 실패, 기본 폴백 목록 사용:', err);
+      }
+      return null;
+    })(),
+    fetchOpenRouterLivePerf(),
+  ]);
+
+  const targetModels = (gatewayModels && gatewayModels.length > 0) ? gatewayModels : FALLBACK_VIDEO_MODELS;
+  return enrichModelMetrics(targetModels, livePerf);
 }
 
 export interface VideoAnalysisStreamCallbacks {

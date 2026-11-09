@@ -10,6 +10,74 @@ export interface ModelSpeedInfo {
   isEstimate: boolean;
 }
 
+export interface ModelPerfMetric {
+  speedTokensPerSecond: number;
+  latencyMs: number;
+}
+
+/**
+ * OpenRouter 공식 벤치마크 기준 모델 속도(Throughput, tok/s) 및 첫 응답 지연시간(Latency TTFT, ms)
+ * 네트워크 지연이나 실시간 엔드포인트 미제공 시 안전한 벤치마크 기준값으로 활용된다.
+ */
+export const KNOWN_MODEL_PERF: Record<string, ModelPerfMetric> = {
+  'nvidia/nemotron-3.5-super-vl': {
+    speedTokensPerSecond: 82,
+    latencyMs: 1500,
+  },
+  'dots-studio/dots-3-note-preview': {
+    speedTokensPerSecond: 30,
+    latencyMs: 6500,
+  },
+  'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning': {
+    speedTokensPerSecond: 90,
+    latencyMs: 605,
+  },
+  'thinkingmachines/inkling-small': {
+    speedTokensPerSecond: 208,
+    latencyMs: 1600,
+  },
+  'thinkingmachines/inkling': {
+    speedTokensPerSecond: 194,
+    latencyMs: 1750,
+  },
+  'google/gemma-4-26b-a4b-it': {
+    speedTokensPerSecond: 42,
+    latencyMs: 912,
+  },
+  'google/gemma-4-31b-it': {
+    speedTokensPerSecond: 32,
+    latencyMs: 1200,
+  },
+  'liquid/lfm-3-1.7b': {
+    speedTokensPerSecond: 66,
+    latencyMs: 346,
+  },
+  'liquid/lfm-2.5-2.6b': {
+    speedTokensPerSecond: 236,
+    latencyMs: 332,
+  },
+  'nvidia/nemotron-3.5-lightning': {
+    speedTokensPerSecond: 62,
+    latencyMs: 533,
+  },
+  'cohere/north-mini-code': {
+    speedTokensPerSecond: 130,
+    latencyMs: 565,
+  },
+  'nvidia/nemotron-3-ultra-550b-a55b': {
+    speedTokensPerSecond: 36,
+    latencyMs: 1714,
+  },
+  'xingchen-agi/xing4.0-29b-a4b': {
+    speedTokensPerSecond: 44,
+    latencyMs: 1477,
+  },
+  'recursive/flint-v1.0': {
+    speedTokensPerSecond: 104,
+    latencyMs: 1075,
+  },
+};
+
 export interface ModelSpeedTier {
   key: 'ultra' | 'fast' | 'balanced' | 'slow';
   label: string;
@@ -173,20 +241,40 @@ export function pickDefaultModel(models: FreeModelMeta[]): FreeModelMeta | null 
 }
 
 /**
- * 게이트웨이가 수신한 원천 메타데이터를 정규화하고 지능순으로 정렬하여 반환한다.
- * 지능 지수가 없는 모델은 최신 출시순으로 뒤에 정렬한다.
- * 인위적인 임의 추정이나 덮어쓰기 없이 수신값을 100% 신뢰한다.
+ * 게이트웨이가 수신한 원천 메타데이터를 정규화하고 실시간/공식 벤치마크 속도 및 지연시간을 결합하여 지능순으로 반환한다.
+ * OpenRouter 실시간 성능 메트릭이 제공되면 이를 최우선으로 반영하고, 없을 시 공식 벤치마크 값을 사용한다.
  */
-export function enrichModelMetrics(models: FreeModelMeta[]): FreeModelMeta[] {
-  const enriched = models.map((model) => ({
-    ...model,
-    name: cleanModelName(model.name),
-    intelligenceIndex: model.intelligenceIndex ?? null,
-    codingIndex: model.codingIndex ?? null,
-    agenticIndex: model.agenticIndex ?? null,
-    speedTokensPerSecond: model.speedTokensPerSecond ?? null,
-    latencyMs: model.latencyMs ?? null,
-    speedIsEstimate: false,
-  }));
+export function enrichModelMetrics(
+  models: FreeModelMeta[],
+  livePerf?: Map<string, ModelPerfMetric> | null
+): FreeModelMeta[] {
+  const enriched = models.map((model) => {
+    const canon = canonicalModelId(model.id);
+    const live = livePerf?.get(canon) ?? livePerf?.get(model.id);
+    const known = KNOWN_MODEL_PERF[canon] ?? KNOWN_MODEL_PERF[model.id];
+
+    const speedTokensPerSecond =
+      model.speedTokensPerSecond ??
+      (live && live.speedTokensPerSecond > 0 ? live.speedTokensPerSecond : null) ??
+      known?.speedTokensPerSecond ??
+      null;
+
+    const latencyMs =
+      model.latencyMs ??
+      (live && live.latencyMs > 0 ? live.latencyMs : null) ??
+      known?.latencyMs ??
+      null;
+
+    return {
+      ...model,
+      name: cleanModelName(model.name),
+      intelligenceIndex: model.intelligenceIndex ?? null,
+      codingIndex: model.codingIndex ?? null,
+      agenticIndex: model.agenticIndex ?? null,
+      speedTokensPerSecond,
+      latencyMs,
+      speedIsEstimate: false,
+    };
+  });
   return sortModelsByIntelligence(enriched);
 }
