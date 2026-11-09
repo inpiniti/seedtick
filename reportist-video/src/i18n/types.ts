@@ -334,6 +334,47 @@ export interface Dictionary {
     statusUpdatedToast?: string;
     deletedToast?: string;
     close?: string;
+    // Navigation & Form
+    backToList?: string;
+    createTitle?: string;
+    createDesc?: string;
+    categoryLabel?: string;
+    authorLabel?: string;
+    authorPlaceholder?: string;
+    titleLabel?: string;
+    titlePlaceholder?: string;
+    contentLabel?: string;
+    contentPlaceholder?: string;
+    attachImagesLabel?: string;
+    findFileBtn?: string;
+    pasteTipStrong?: string;
+    pasteTipText?: string;
+    uploadingImages?: string;
+    deviceInfoNotice?: string;
+    cancelBtn?: string;
+    submitBtn?: string;
+    submittingBtn?: string;
+    titleRequiredError?: string;
+    contentRequiredError?: string;
+    submitFailedError?: string;
+    anonymousAuthor?: string;
+    // Detail View
+    likeCountText?: string;
+    attachedImagesTitle?: string;
+    zoomImageText?: string;
+    adminResponseTitle?: string;
+    adminResponseCompletedBadge?: string;
+    adminResponsePendingText?: string;
+    adminControlsTitle?: string;
+    statusChangeLabel?: string;
+    adminReplyLabel?: string;
+    adminReplyPlaceholder?: string;
+    adminSaveBtn?: string;
+    adminSavingBtn?: string;
+    deleteFeedbackConfirm?: string;
+    deleteFeedbackBtn?: string;
+    statusWaiting?: string;
+    statusReviewing?: string;
   };
   patchNotes?: {
     title: string;
@@ -351,6 +392,8 @@ export interface Dictionary {
     noResultsDesc: string;
     desc: string;
     viewHistory: string;
+    footerInfo?: string;
+    confirmButton?: string;
     close?: string;
   };
   projects?: {
