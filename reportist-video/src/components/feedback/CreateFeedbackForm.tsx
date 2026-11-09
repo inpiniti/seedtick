@@ -136,46 +136,41 @@ export const CreateFeedbackForm: React.FC<CreateFeedbackFormProps> = ({
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="toss-feedback-form">
       {/* Header with Back button */}
       {showBackHeader && (
-        <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100">
-          <div className="flex items-center gap-3">
+        <div className="toss-feedback-create-header">
+          <div className="toss-feedback-create-header-left">
             <button
               type="button"
               className="toss-feedback-back-btn"
               onClick={onCancel}
               title={dict.feedback?.backToList || '목록으로 돌아가기'}
             >
-              <ArrowLeft size={16} />
+              <ArrowLeft size={15} />
               <span>{dict.feedback?.backToList || '목록으로'}</span>
             </button>
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-snug">
-                {dict.feedback?.createTitle || '피드백 & 개선 요청 보내기'}
-              </h2>
-              <p className="text-xs text-slate-500">
-                {dict.feedback?.createDesc || '불편한 점이나 추가되었으면 하는 기능을 편하게 남겨주세요.'}
-              </p>
-            </div>
+            <span className="toss-feedback-step-indicator">
+              {dict.feedback?.createTitle || '피드백 & 개선 요청 작성'}
+            </span>
           </div>
         </div>
       )}
 
       {/* Form Content */}
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <form onSubmit={handleSubmit} className="toss-feedback-form">
         {errorMessage && (
-          <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-xs font-medium">
+          <div className="toss-feedback-error-banner">
             {errorMessage}
           </div>
         )}
 
         {/* Category Select Buttons */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-bold text-slate-700">
+        <div className="toss-feedback-form-group">
+          <label className="toss-feedback-label">
             {dict.feedback?.categoryLabel || '분류'}
           </label>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="toss-category-select-grid">
             <button
               type="button"
               className={`toss-category-select-btn ${category === 'improvement' ? 'active' : ''}`}
@@ -212,14 +207,13 @@ export const CreateFeedbackForm: React.FC<CreateFeedbackFormProps> = ({
         </div>
 
         {/* Author Name */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-bold text-slate-700">
+        <div className="toss-feedback-form-group">
+          <label className="toss-feedback-label">
             {dict.feedback?.authorLabel || '작성자 닉네임 (선택)'}
           </label>
           <input
             type="text"
-            className="toss-search-input text-xs"
-            style={{ padding: '0 14px' }}
+            className="toss-feedback-input"
             placeholder={dict.feedback?.authorPlaceholder || '예: 유튜브 크리에이터 (미입력 시 익명 사용자)'}
             value={authorName}
             onChange={(e) => setAuthorName(e.target.value)}
@@ -228,14 +222,13 @@ export const CreateFeedbackForm: React.FC<CreateFeedbackFormProps> = ({
         </div>
 
         {/* Title */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-bold text-slate-700">
+        <div className="toss-feedback-form-group">
+          <label className="toss-feedback-label">
             {dict.feedback?.titleLabel || '제목 *'}
           </label>
           <input
             type="text"
-            className="toss-search-input text-xs"
-            style={{ padding: '0 14px' }}
+            className="toss-feedback-input"
             placeholder={dict.feedback?.titlePlaceholder || '핵심 내용을 한 줄로 요약해주세요'}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -245,13 +238,13 @@ export const CreateFeedbackForm: React.FC<CreateFeedbackFormProps> = ({
         </div>
 
         {/* Content */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-bold text-slate-700">
+        <div className="toss-feedback-form-group">
+          <label className="toss-feedback-label">
             {dict.feedback?.contentLabel || '내용 *'}
           </label>
           <textarea
             ref={contentAreaRef}
-            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 outline-none focus:bg-white focus:border-blue-500 transition-all resize-y leading-relaxed"
+            className="toss-feedback-textarea"
             placeholder={
               dict.feedback?.contentPlaceholder ||
               '어떤 상황에서 어떤 점이 불편했거나, 어떤 기능이 추가되면 좋을지 자세히 적어주세요.\n💡 화면을 캡처한 뒤 이 창에서 바로 Ctrl+V를 누르면 이미지가 첨부됩니다!'
@@ -264,10 +257,10 @@ export const CreateFeedbackForm: React.FC<CreateFeedbackFormProps> = ({
         </div>
 
         {/* Image Attachments */}
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-              <ImageIcon size={14} className="text-blue-500" />
+        <div className="toss-feedback-form-group">
+          <div className="toss-feedback-images-header">
+            <label className="toss-feedback-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <ImageIcon size={14} color="#3182f6" />
               <span>
                 {dict.feedback?.attachImagesLabel || '이미지 / 스크린샷 첨부'} ({images.length}
                 {dict.feedback?.attachedImagesTitle ? '' : '장'})
@@ -277,7 +270,7 @@ export const CreateFeedbackForm: React.FC<CreateFeedbackFormProps> = ({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              className="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1 transition-colors"
+              className="toss-feedback-upload-btn"
             >
               <Upload size={12} />
               <span>{dict.feedback?.findFileBtn || '파일 찾기'}</span>
@@ -287,14 +280,14 @@ export const CreateFeedbackForm: React.FC<CreateFeedbackFormProps> = ({
               type="file"
               accept="image/*"
               multiple
-              className="hidden"
+              style={{ display: 'none' }}
               onChange={(e) => handleFileUpload(e.target.files)}
             />
           </div>
 
           {/* Paste Guide Banner */}
           <div className="toss-paste-tip-box">
-            <Info size={13} className="text-blue-500 shrink-0 mt-0.5" />
+            <Info size={13} color="#2563eb" style={{ flexShrink: 0, marginTop: '2px' }} />
             <span>
               <strong>{dict.feedback?.pasteTipStrong || 'Tip:'}</strong>{' '}
               {dict.feedback?.pasteTipText ||
@@ -304,21 +297,17 @@ export const CreateFeedbackForm: React.FC<CreateFeedbackFormProps> = ({
 
           {/* Images Grid */}
           {images.length > 0 && (
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 pt-1">
+            <div className="toss-feedback-images-grid">
               {images.map((imgUrl, idx) => (
-                <div
-                  key={idx}
-                  className="relative group rounded-xl overflow-hidden border border-slate-200 aspect-video bg-slate-100 shadow-sm"
-                >
+                <div key={idx} className="toss-feedback-image-tile">
                   <img
                     src={imgUrl}
                     alt={`Attachment ${idx + 1}`}
-                    className="w-full h-full object-cover"
                   />
                   <button
                     type="button"
                     onClick={() => handleRemoveImage(idx)}
-                    className="absolute top-1 right-1 p-1 bg-black/60 hover:bg-red-600 text-white rounded-full transition-colors opacity-90 group-hover:opacity-100"
+                    className="toss-feedback-image-del-btn"
                     title={dict.feedback?.deleteFeedbackBtn || '삭제'}
                   >
                     <Trash2 size={12} />
@@ -329,20 +318,20 @@ export const CreateFeedbackForm: React.FC<CreateFeedbackFormProps> = ({
           )}
 
           {isUploading && (
-            <div className="flex items-center gap-2 text-xs text-slate-500 py-2">
-              <Loader2 size={14} className="animate-spin text-blue-500" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#64748b', padding: '4px 0' }}>
+              <Loader2 size={14} className="animate-spin" color="#3182f6" />
               <span>{dict.feedback?.uploadingImages || '이미지를 업로드하고 있어요...'}</span>
             </div>
           )}
         </div>
 
         {/* Device Info Checkbox */}
-        <label className="flex items-center gap-2 cursor-pointer pt-1 text-slate-600 text-xs select-none">
+        <label className="toss-feedback-checkbox-label">
           <input
             type="checkbox"
             checked={includeDeviceInfo}
             onChange={(e) => setIncludeDeviceInfo(e.target.checked)}
-            className="rounded text-blue-600 focus:ring-blue-500"
+            style={{ width: '15px', height: '15px', accentColor: '#3182f6', cursor: 'pointer' }}
           />
           <span>
             {dict.feedback?.deviceInfoNotice ||
@@ -351,7 +340,7 @@ export const CreateFeedbackForm: React.FC<CreateFeedbackFormProps> = ({
         </label>
 
         {/* Footer Action Buttons */}
-        <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 mt-2">
+        <div className="toss-feedback-form-footer">
           <button
             type="button"
             className="toss-btn-secondary text-xs"
@@ -362,7 +351,8 @@ export const CreateFeedbackForm: React.FC<CreateFeedbackFormProps> = ({
           </button>
           <button
             type="submit"
-            className="toss-btn-primary text-xs flex items-center gap-1.5"
+            className="toss-btn-primary text-xs"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
             disabled={isSubmitting || isUploading}
           >
             {isSubmitting ? (

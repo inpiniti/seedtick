@@ -11550,7 +11550,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 7px 14px;
   border-radius: 10px;
   border: 1px solid #e2e8f0;
   background-color: #ffffff;
@@ -11560,6 +11560,7 @@
   cursor: pointer;
   transition: all 0.15s ease;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  white-space: nowrap;
 }
 
 .toss-feedback-back-btn:hover {
@@ -11572,8 +11573,289 @@
   background-color: #ffffff;
   border: 1px solid #eef2f6;
   border-radius: 18px;
-  padding: 20px 24px;
+  padding: 24px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.toss-feedback-create-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.toss-feedback-create-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toss-feedback-step-indicator {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.toss-feedback-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.toss-feedback-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.toss-feedback-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.toss-category-select-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .toss-category-select-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.toss-feedback-input {
+  width: 100%;
+  height: 42px;
+  padding: 0 14px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  color: #0f172a;
+  font-size: 13px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  outline: none;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.toss-feedback-input:focus {
+  background-color: #ffffff;
+  border-color: #3182f6;
+  box-shadow: 0 0 0 3px rgba(49, 130, 246, 0.12);
+}
+
+.toss-feedback-input::placeholder {
+  color: #94a3b8;
+}
+
+.toss-feedback-textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 12px 14px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  color: #0f172a;
+  font-size: 13px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.6;
+  outline: none;
+  resize: vertical;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.toss-feedback-textarea:focus {
+  background-color: #ffffff;
+  border-color: #3182f6;
+  box-shadow: 0 0 0 3px rgba(49, 130, 246, 0.12);
+}
+
+.toss-feedback-textarea::placeholder {
+  color: #94a3b8;
+}
+
+.toss-feedback-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  color: #2563eb;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.toss-feedback-upload-btn:hover {
+  background-color: #dbeafe;
+}
+
+.toss-feedback-upload-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.toss-feedback-images-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.toss-feedback-images-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding-top: 4px;
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .toss-feedback-images-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.toss-feedback-image-tile {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  aspect-ratio: 16 / 9;
+  background-color: #f1f5f9;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.toss-feedback-image-tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.toss-feedback-image-del-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: rgba(0, 0, 0, 0.65);
+  color: #ffffff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.toss-feedback-image-del-btn:hover {
+  background-color: #dc2626;
+}
+
+.toss-feedback-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding-top: 2px;
+  color: #475569;
+  font-size: 12px;
+  user-select: none;
+}
+
+.toss-feedback-form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 18px;
+  border-top: 1px solid #f1f5f9;
+  margin-top: 4px;
+  width: 100%;
+}
+
+/* Detail View Specific Styles */
+.toss-feedback-detail-container {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+}
+
+.toss-feedback-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.toss-feedback-detail-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.toss-feedback-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 6px;
+}
+
+.toss-feedback-detail-body {
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: #1e293b;
+  background-color: #f8fafc;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid #eef2f6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.toss-feedback-status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .toss-feedback-status-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.toss-feedback-admin-footer {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
 }
 
 /* Modal Backdrops & Containers */

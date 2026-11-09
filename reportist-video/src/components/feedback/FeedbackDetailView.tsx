@@ -148,38 +148,38 @@ export const FeedbackDetailView: React.FC<FeedbackDetailViewProps> = ({
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="toss-feedback-detail-container">
       {/* Top Header Row with Back Button */}
-      <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100">
+      <div className="toss-feedback-detail-header">
         <button
           type="button"
           className="toss-feedback-back-btn"
           onClick={onBack}
           title={dict.feedback?.backToList || '목록으로 돌아가기'}
         >
-          <ArrowLeft size={16} />
+          <ArrowLeft size={15} />
           <span>{dict.feedback?.backToList || '목록으로'}</span>
         </button>
 
-        <div className="flex items-center gap-2">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {getCategoryBadge()}
           {getStatusBadge(feedback.status)}
         </div>
       </div>
 
       {/* Detail Content Card */}
-      <div className="flex flex-col gap-5">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <div>
-          <h2 className="text-lg sm:text-xl font-bold text-slate-900 leading-snug">
+          <h2 className="toss-feedback-detail-title">
             {feedback.title}
           </h2>
-          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 mt-2">
-            <span className="flex items-center gap-1 text-slate-600 font-medium">
+          <div className="toss-feedback-detail-meta">
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#475569', fontWeight: 600 }}>
               <User size={12} />
               {feedback.authorName}
             </span>
             <span>•</span>
-            <span className="flex items-center gap-1">
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <Clock size={12} />
               {formatDate(feedback.createdAt)}
             </span>
@@ -187,7 +187,7 @@ export const FeedbackDetailView: React.FC<FeedbackDetailViewProps> = ({
               <>
                 <span>•</span>
                 <span
-                  className="flex items-center gap-1 text-slate-400 truncate max-w-[220px]"
+                  style={{ display: 'flex', alignItems: 'center', gap: '4px', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                   title={feedback.deviceInfo}
                 >
                   <Monitor size={12} />
@@ -199,29 +199,45 @@ export const FeedbackDetailView: React.FC<FeedbackDetailViewProps> = ({
         </div>
 
         {/* Feedback Body */}
-        <div className="text-slate-800 text-sm leading-relaxed whitespace-pre-wrap break-words bg-slate-50/70 p-4 rounded-2xl border border-slate-100">
+        <div className="toss-feedback-detail-body">
           {feedback.content}
         </div>
 
         {/* Attached Images */}
         {feedback.imageUrls && feedback.imageUrls.length > 0 && (
-          <div className="flex flex-col gap-2">
-            <span className="text-xs font-bold text-slate-700">
+          <div className="toss-feedback-form-group">
+            <span className="toss-feedback-label">
               {dict.feedback?.attachedImagesTitle || '첨부 이미지'} ({feedback.imageUrls.length})
             </span>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div className="toss-feedback-images-grid">
               {feedback.imageUrls.map((url, idx) => (
                 <div
                   key={idx}
-                  className="relative rounded-xl overflow-hidden border border-slate-200 aspect-video cursor-pointer hover:opacity-95 group transition-all shadow-sm"
+                  className="toss-feedback-image-tile"
+                  style={{ cursor: 'pointer' }}
                   onClick={() => setSelectedImage(url)}
                 >
                   <img
                     src={url}
                     alt={`Attachment ${idx + 1}`}
-                    className="w-full h-full object-cover"
                   />
-                  <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-xs font-semibold">
+                  <div
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      backgroundColor: 'rgba(0, 0, 0, 0.25)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#ffffff',
+                      fontSize: '11.5px',
+                      fontWeight: 600,
+                      opacity: 0,
+                      transition: 'opacity 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.opacity = '0'; }}
+                  >
                     {dict.feedback?.zoomImageText || '확대 보기'}
                   </div>
                 </div>
@@ -231,7 +247,7 @@ export const FeedbackDetailView: React.FC<FeedbackDetailViewProps> = ({
         )}
 
         {/* Like Button */}
-        <div className="flex items-center justify-between pt-1">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', paddingTop: '4px' }}>
           <button
             type="button"
             onClick={() => onLike(feedback.id)}
@@ -246,30 +262,30 @@ export const FeedbackDetailView: React.FC<FeedbackDetailViewProps> = ({
 
         {/* Developer Response Section */}
         <div className="toss-admin-response-card">
-          <div className="flex items-center justify-between border-b border-blue-100/60 pb-2.5">
-            <div className="flex items-center gap-1.5 text-blue-700 font-bold text-xs">
-              <ShieldCheck size={16} className="text-blue-600" />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(191, 219, 254, 0.6)', paddingBottom: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#1d4ed8', fontWeight: 700, fontSize: '12.5px' }}>
+              <ShieldCheck size={16} color="#2563eb" />
               <span>{dict.feedback?.adminResponseTitle || '개발자 처리 내용'}</span>
               {feedback.status === 'completed' && (
-                <span className="ml-1 text-[11px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-semibold">
+                <span style={{ marginLeft: '4px', fontSize: '11px', backgroundColor: '#d1fae5', color: '#065f46', padding: '2px 7px', borderRadius: '6px', fontWeight: 700 }}>
                   {dict.feedback?.adminResponseCompletedBadge || '반영 완료 🎉'}
                 </span>
               )}
             </div>
             {feedback.adminRespondedAt && (
-              <span className="text-[11px] text-slate-400">
+              <span style={{ fontSize: '11px', color: '#94a3b8' }}>
                 {formatDate(feedback.adminRespondedAt)}
               </span>
             )}
           </div>
 
           {feedback.adminResponse ? (
-            <div className="text-slate-800 text-xs sm:text-sm leading-relaxed whitespace-pre-wrap break-words pt-2.5">
+            <div style={{ color: '#1e293b', fontSize: '13px', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word', paddingTop: '10px' }}>
               {feedback.adminResponse}
             </div>
           ) : (
-            <div className="text-slate-400 text-xs italic py-2 flex items-center gap-2">
-              <MessageSquare size={14} className="text-slate-300" />
+            <div style={{ color: '#94a3b8', fontSize: '12px', fontStyle: 'italic', padding: '8px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <MessageSquare size={14} color="#cbd5e1" />
               <span>
                 {dict.feedback?.adminResponsePendingText ||
                   '개발자가 확인 후 처리 내용과 일정을 공유할 예정입니다.'}
@@ -281,8 +297,8 @@ export const FeedbackDetailView: React.FC<FeedbackDetailViewProps> = ({
         {/* Developer Admin Management Panel */}
         {isAdminMode && (
           <div className="toss-dev-admin-panel">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-purple-700">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 700, color: '#6b21a8' }}>
                 <ShieldCheck size={14} />
                 <span>{dict.feedback?.adminControlsTitle || '개발자 관리자 모드 (Admin Controls)'}</span>
               </div>
@@ -290,7 +306,7 @@ export const FeedbackDetailView: React.FC<FeedbackDetailViewProps> = ({
                 type="button"
                 onClick={handleDelete}
                 disabled={isDeleting}
-                className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1"
+                style={{ fontSize: '12px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
               >
                 <Trash2 size={12} />
                 <span>{dict.feedback?.deleteFeedbackBtn || '삭제'}</span>
@@ -298,11 +314,11 @@ export const FeedbackDetailView: React.FC<FeedbackDetailViewProps> = ({
             </div>
 
             {/* Status Switcher */}
-            <div className="flex flex-col gap-1.5 mb-3">
-              <label className="text-[11px] font-bold text-slate-600">
+            <div className="toss-feedback-form-group" style={{ marginBottom: '12px' }}>
+              <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#475569' }}>
                 {dict.feedback?.statusChangeLabel || '진행 상태 변경'}
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+              <div className="toss-feedback-status-grid">
                 {(['open', 'in_progress', 'completed', 'closed'] as FeedbackStatus[]).map((st) => (
                   <button
                     key={st}
@@ -320,12 +336,13 @@ export const FeedbackDetailView: React.FC<FeedbackDetailViewProps> = ({
             </div>
 
             {/* Response Textarea */}
-            <div className="flex flex-col gap-1.5 mb-3">
-              <label className="text-[11px] font-bold text-slate-600">
+            <div className="toss-feedback-form-group" style={{ marginBottom: '12px' }}>
+              <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#475569' }}>
                 {dict.feedback?.adminReplyLabel || '개발자 공식 처리/답변 내용 작성'}
               </label>
               <textarea
-                className="w-full p-2.5 bg-white border border-purple-200 rounded-xl text-xs text-slate-800 outline-none focus:border-purple-500 transition-all resize-y leading-relaxed"
+                className="toss-feedback-textarea"
+                style={{ backgroundColor: '#ffffff', borderColor: '#e9d5ff', minHeight: '90px' }}
                 rows={4}
                 placeholder={
                   dict.feedback?.adminReplyPlaceholder ||
@@ -336,12 +353,13 @@ export const FeedbackDetailView: React.FC<FeedbackDetailViewProps> = ({
               />
             </div>
 
-            <div className="flex justify-end">
+            <div className="toss-feedback-admin-footer">
               <button
                 type="button"
                 onClick={handleSaveAdmin}
                 disabled={isSaving}
-                className="toss-btn-primary text-xs flex items-center gap-1.5"
+                className="toss-btn-primary text-xs"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
               >
                 {isSaving ? (
                   <>
@@ -364,11 +382,12 @@ export const FeedbackDetailView: React.FC<FeedbackDetailViewProps> = ({
       {selectedImage && (
         <div
           className="fixed inset-0 z-[1200] bg-black/85 flex items-center justify-center p-4 backdrop-blur-sm"
+          style={{ position: 'fixed', inset: 0, zIndex: 1200, backgroundColor: 'rgba(0, 0, 0, 0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
           onClick={() => setSelectedImage(null)}
         >
           <button
             type="button"
-            className="absolute top-4 right-4 text-white hover:text-slate-300 p-2"
+            style={{ position: 'absolute', top: '16px', right: '16px', color: '#ffffff', background: 'none', border: 'none', cursor: 'pointer', padding: '8px' }}
             onClick={() => setSelectedImage(null)}
           >
             <X size={24} />
@@ -376,7 +395,7 @@ export const FeedbackDetailView: React.FC<FeedbackDetailViewProps> = ({
           <img
             src={selectedImage}
             alt="Expanded attachment"
-            className="max-w-full max-h-[90vh] object-contain rounded-xl shadow-2xl"
+            style={{ maxWidth: '100%', maxHeight: '90vh', objectFit: 'contain', borderRadius: '14px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}
             onClick={(e) => e.stopPropagation()}
           />
         </div>
