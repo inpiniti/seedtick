@@ -185,8 +185,6 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClos
                 <span
                   className="toss-patch-current-version-badge"
                   onClick={handleVersionClick}
-                  style={{ cursor: 'pointer', userSelect: 'none' }}
-                  title={`v${CURRENT_APP_VERSION}`}
                 >
                   v{CURRENT_APP_VERSION} {dict.patchNotes?.latestBadge || '최신'}
                 </span>
