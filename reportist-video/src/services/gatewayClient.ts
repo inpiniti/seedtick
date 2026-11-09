@@ -15,6 +15,20 @@ export const DEFAULT_CONFIG: GatewayConfig = {
 // 다중 프레임 시각 분석을 공식 지원하는 고성능 모델 목록 (비상시 폴백, 지능 지수순)
 export const FALLBACK_VIDEO_MODELS: FreeModelMeta[] = [
   {
+    id: 'nvidia/nemotron-3.5-super-vl:free',
+    name: 'NVIDIA: Nemotron 3.5 Super VL',
+    providerName: 'NVIDIA',
+    contextLengthFormatted: '1M tokens (초대용량)',
+    description: 'NVIDIA Nemotron 3.5 Super VL is an open multimodal MoE model with 12B active parameters out of 120B total. Takes text, images, docs, GUI screenshots, and video.',
+    modality: 'text+image+video->text',
+    inputModalities: ['text', 'image', 'video'],
+    intelligenceIndex: 13.6,
+    codingIndex: null,
+    agenticIndex: null,
+    intelligenceTier: '플래그십 멀티모달 & 1M 윈도우',
+    parametersSummary: '120B (활성 12B)',
+  },
+  {
     id: 'thinkingmachines/inkling-small:free',
     name: 'Thinking Machines: Inkling Small',
     providerName: 'Thinking Machines',
@@ -88,13 +102,6 @@ export async function fetchVideoCapableModels(config: GatewayConfig = DEFAULT_CO
         // 비전(이미지) 모달리티를 지원하는 모델 필터링
         // 안전성 가드레일 모델은 하이라이트 분석용이 아니므로 제외한다.
         const visionModels = json.data.filter((m: FreeModelMeta) => {
-          // NVIDIA: Nemotron 3.5 Super VL 모델 제외
-          const isNemotronSuperVl =
-            m.id.includes('nemotron-3.5-super-vl') ||
-            (m.id.includes('nemotron') && m.id.includes('super-vl')) ||
-            m.name.toLowerCase().includes('nemotron 3.5 super vl');
-          if (isNemotronSuperVl) return false;
-
           // Google Gemma 모델 제외 (오류 빈발로 제외)
           const isGoogleGemma =
             m.id.toLowerCase().includes('gemma') ||
@@ -104,6 +111,7 @@ export async function fetchVideoCapableModels(config: GatewayConfig = DEFAULT_CO
           const hasImageInput = Array.isArray(m.inputModalities) && m.inputModalities.includes('image');
           const hasImageModality = typeof m.modality === 'string' && m.modality.includes('image');
           const isKnownVision =
+            m.id.includes('super-vl') ||
             m.id.includes('nano-omni') ||
             m.id.includes('dots-3') ||
             m.id.includes('inkling');

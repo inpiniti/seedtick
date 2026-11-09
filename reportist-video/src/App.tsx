@@ -260,8 +260,7 @@ export function App() {
 
       if (project.selectedModel) {
         const isExcluded =
-          project.selectedModel.toLowerCase().includes('gemma') ||
-          project.selectedModel.toLowerCase().includes('super-vl');
+          project.selectedModel.toLowerCase().includes('gemma');
         if (!isExcluded) {
           setSelectedModel(project.selectedModel);
         }
