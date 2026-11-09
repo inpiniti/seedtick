@@ -40,30 +40,76 @@ const IS_MOBILE =
   (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
 
-// 비디오 시크 헬퍼
+type VideoWithRvfc = HTMLVideoElement & {
+  requestVideoFrameCallback?: (
+    callback: (now: DOMHighResTimeStamp, metadata: { mediaTime: number; presentedFrames: number }) => void
+  ) => number;
+  cancelVideoFrameCallback?: (handle: number) => void;
+};
+
+// 비디오 시크 후 실제 디코딩된 프레임이 GPU 텍스처에 올라올 때까지 대기하는 정밀 시크 헬퍼
 function seekVideoElement(video: HTMLVideoElement, time: number, timeoutMs = 8000): Promise<boolean> {
   return new Promise((resolve) => {
-    if (Math.abs(video.currentTime - time) < 0.02 && video.readyState >= 2) {
+    const targetTime = Math.max(0, time);
+    if (Math.abs(video.currentTime - targetTime) < 0.0005 && video.readyState >= 2 && !video.seeking) {
       resolve(true);
       return;
     }
+
+    const vRvfc = video as VideoWithRvfc;
     let settled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
-    const finish = (ok: boolean) => {
-      if (settled) return;
-      settled = true;
+    let rvfcHandle: number | null = null;
+    let rvfcFired = false;
+
+    const cleanup = () => {
       video.removeEventListener('seeked', onSeeked);
       video.removeEventListener('error', onError);
       if (timer) clearTimeout(timer);
+      if (rvfcHandle !== null && typeof vRvfc.cancelVideoFrameCallback === 'function') {
+        try {
+          vRvfc.cancelVideoFrameCallback(rvfcHandle);
+        } catch {}
+      }
+    };
+
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
       resolve(ok);
     };
-    const onSeeked = () => finish(true);
+
+    if (typeof vRvfc.requestVideoFrameCallback === 'function') {
+      try {
+        rvfcHandle = vRvfc.requestVideoFrameCallback(() => {
+          rvfcFired = true;
+          if (!video.seeking && video.readyState >= 2) {
+            finish(true);
+          }
+        });
+      } catch {}
+    }
+
+    const onSeeked = () => {
+      if (rvfcFired) {
+        finish(true);
+        return;
+      }
+      // seeked 직후 컴포지터가 새 비디오 텍스처를 바인딩할 시간을 1프레임 보장
+      requestAnimationFrame(() => {
+        finish(true);
+      });
+    };
+
     const onError = () => finish(false);
-    timer = setTimeout(() => finish(Math.abs(video.currentTime - time) < 0.3), timeoutMs);
-    video.addEventListener('seeked', onSeeked);
-    video.addEventListener('error', onError);
+    timer = setTimeout(() => finish(Math.abs(video.currentTime - targetTime) < 0.25), timeoutMs);
+
+    video.addEventListener('seeked', onSeeked, { once: true });
+    video.addEventListener('error', onError, { once: true });
+
     try {
-      video.currentTime = time;
+      video.currentTime = targetTime;
     } catch {
       finish(false);
     }
@@ -71,7 +117,7 @@ function seekVideoElement(video: HTMLVideoElement, time: number, timeoutMs = 800
 }
 
 function waitForVideoReady(video: HTMLVideoElement, timeoutMs = 6000): Promise<boolean> {
-  if (video.readyState >= 3) return Promise.resolve(true);
+  if (video.readyState >= 3 && !video.seeking) return Promise.resolve(true);
   return new Promise((resolve) => {
     let settled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -80,6 +126,7 @@ function waitForVideoReady(video: HTMLVideoElement, timeoutMs = 6000): Promise<b
       settled = true;
       video.removeEventListener('canplay', onReady);
       video.removeEventListener('canplaythrough', onReady);
+      video.removeEventListener('playing', onReady);
       if (timer) clearTimeout(timer);
       resolve(ok);
     };
@@ -87,6 +134,111 @@ function waitForVideoReady(video: HTMLVideoElement, timeoutMs = 6000): Promise<b
     timer = setTimeout(() => finish(video.readyState >= 2), timeoutMs);
     video.addEventListener('canplay', onReady);
     video.addEventListener('canplaythrough', onReady);
+    video.addEventListener('playing', onReady);
+  });
+}
+
+async function startVideoPlayback(video: HTMLVideoElement, timeoutMs = 4000): Promise<boolean> {
+  video.muted = true;
+  video.defaultMuted = true;
+  video.volume = 0;
+  video.playsInline = true;
+  video.playbackRate = 1.0;
+
+  let playPromise: Promise<void>;
+  try {
+    playPromise = video.play();
+  } catch {
+    return false;
+  }
+
+  return new Promise<boolean>((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      resolve(!video.paused);
+    }, timeoutMs);
+
+    playPromise
+      .then(() => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(true);
+      })
+      .catch(() => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(false);
+      });
+  });
+}
+
+function waitForPlaybackAdvance(video: HTMLVideoElement, fromTime: number, timeoutMs = 1500): Promise<boolean> {
+  return new Promise((resolve) => {
+    const vRvfc = video as VideoWithRvfc;
+    let settled = false;
+    let rvfcId: number | null = null;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      video.removeEventListener('timeupdate', check);
+      if (intervalId) clearInterval(intervalId);
+      if (timerId) clearTimeout(timerId);
+      if (rvfcId !== null && typeof vRvfc.cancelVideoFrameCallback === 'function') {
+        try {
+          vRvfc.cancelVideoFrameCallback(rvfcId);
+        } catch {}
+      }
+      resolve(ok);
+    };
+
+    const check = () => {
+      if (video.currentTime > fromTime + 0.008 || video.ended) {
+        finish(true);
+      }
+    };
+
+    if (typeof vRvfc.requestVideoFrameCallback === 'function') {
+      try {
+        rvfcId = vRvfc.requestVideoFrameCallback((_, meta) => {
+          if (meta.mediaTime >= fromTime) {
+            finish(true);
+          }
+        });
+      } catch {}
+    }
+
+    timerId = setTimeout(() => finish(video.currentTime > fromTime + 0.004), timeoutMs);
+    video.addEventListener('timeupdate', check);
+    intervalId = setInterval(check, 16);
+  });
+}
+
+function waitForEncoderQueueBelow(encoder: VideoEncoder, maxQueueSize: number): Promise<void> {
+  if (encoder.encodeQueueSize <= maxQueueSize) return Promise.resolve();
+  return new Promise((resolve) => {
+    let settled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      encoder.removeEventListener('dequeue', onDequeue);
+      if (timer) clearTimeout(timer);
+      resolve();
+    };
+    const onDequeue = () => {
+      if (encoder.encodeQueueSize <= maxQueueSize) {
+        finish();
+      }
+    };
+    encoder.addEventListener('dequeue', onDequeue);
+    timer = setTimeout(finish, 60);
   });
 }
 
@@ -106,6 +258,10 @@ function loadVideoSource(video: HTMLVideoElement, url: string, timeoutMs = 12000
   video.defaultMuted = true;
   video.volume = 0;
   video.playsInline = true;
+  video.preload = 'auto';
+  video.setAttribute('playsinline', '');
+  video.setAttribute('webkit-playsinline', '');
+  video.setAttribute('muted', '');
   try {
     video.load();
   } catch {}
@@ -154,15 +310,26 @@ export async function stitchVideosWebCodecs({
     throw new Error('이어붙일 하이라이트 구간이 없습니다.');
   }
 
-  // 모바일/아이폰은 배터리 및 하드웨어 디코더 부하를 줄이고 인코딩 속도를 2배 단축하기 위해 30fps 적용, 데스크탑은 60fps 고주사율 유지
+  // 페이지 내 다른 비디오가 하드웨어 디코더 리소스를 점유하지 않도록 일시정지
+  if (typeof document !== 'undefined') {
+    try {
+      document.querySelectorAll('video').forEach((v) => {
+        try {
+          if (!v.paused) v.pause();
+        } catch {}
+      });
+    } catch {}
+  }
+
+  // 모바일/아이폰은 배터리 및 하드웨어 디코더 부하를 줄이고 인코딩 속도를 2배 단축하기 위해 30fps 적용, 데스크톱은 60fps 고주사율 유지
   const targetFps = IS_MOBILE ? 30 : 60;
   const targetBitrate = IS_MOBILE ? 4_500_000 : 10_000_000;
   const frameDurationMicros = Math.round(1_000_000 / targetFps);
-  const queueFlushThreshold = IS_MOBILE ? 6 : 12;
+  const queueBackpressureThreshold = IS_MOBILE ? 10 : 24;
 
   onLog?.(
     `🚀 WebCodecs GPU 하드웨어 가속 비디오 렌더러 시작 (${targetFps}fps · ${
-      IS_MOBILE ? '모바일 전력/메모리 최적화 모드' : '데스크탑 60fps 최고화질 모드'
+      IS_MOBILE ? '모바일 전력/메모리 최적화 모드' : '데스크톱 60fps 최고화질 모드'
     })`
   );
 
@@ -196,13 +363,18 @@ export async function stitchVideosWebCodecs({
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
 
-  // 3. 작업용 비디오 엘리먼트
+  // 3. 작업용 비디오 엘리먼트 (뷰포트 내부 우측 하단에 배치하여 Chromium/WebKit의 화면 밖 비디오 디코더 스로틀링 원천 차단!)
   const workerVideo = document.createElement('video');
   workerVideo.muted = true;
   workerVideo.defaultMuted = true;
   workerVideo.volume = 0;
   workerVideo.playsInline = true;
-  workerVideo.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:128px;height:72px;opacity:0.01;pointer-events:none;';
+  workerVideo.preload = 'auto';
+  workerVideo.setAttribute('playsinline', '');
+  workerVideo.setAttribute('webkit-playsinline', '');
+  workerVideo.setAttribute('muted', '');
+  workerVideo.style.cssText =
+    'position:fixed;right:0;bottom:0;width:4px;height:4px;opacity:0.01;pointer-events:none;z-index:-1;';
   document.body.appendChild(workerVideo);
 
   // 4. 세그먼트별 오버레이 캔버스 캐싱
@@ -412,10 +584,8 @@ export async function stitchVideosWebCodecs({
   const actualBridgeDurationMap: Record<string, number> = {};
   const bridgeController = createHyperframesBridgeController(CHAPTER_BRIDGE_DURATION);
 
-  // 6. Audio 준비 (Web Audio API OfflineAudioContext / AudioEncoder)
-  const hasAudioSource = Boolean(
-    customAudioFile || (bgmPresetId && bgmPresetId !== 'none')
-  );
+  // 6. Audio 준비 (Web Audio API OfflineAudioContext / AudioEncoder — 원본 비디오 오디오 + BGM 믹싱)
+  const hasAudioSource = true;
 
   let audioEncoder: AudioEncoder | null = null;
   let audioDataAvailable = false;
@@ -503,6 +673,8 @@ export async function stitchVideosWebCodecs({
   let currentTimestampMicros = 0;
 
   // 프레임 푸시 헬퍼 (캔버스를 VideoFrame으로 변환 후 인코더에 푸시)
+  // 주의: 스트림 중간에 videoEncoder.flush()를 호출하면 하드웨어 H.264 레퍼런스/B-프레임 파이프라인이
+  // 강제 드레인되어 20~50ms 블로킹 및 끊김이 발생하므로, dequeue 이벤트 기반 비차단 백프레셔만 사용!
   const pushCanvasFrame = async (isKeyFrame = false) => {
     if (signal?.aborted) throw new Error('작업 취소');
     if (videoEncoderError) throw videoEncoderError;
@@ -518,9 +690,8 @@ export async function stitchVideosWebCodecs({
     totalFramesEncoded++;
     currentTimestampMicros += frameDurationMicros;
 
-    // 인코더 백프레셔 제어: 큐가 쌓이면 잠시 비워줌 (모바일 메모리 보호)
-    if (videoEncoder.encodeQueueSize > queueFlushThreshold) {
-      await videoEncoder.flush();
+    if (videoEncoder.encodeQueueSize > queueBackpressureThreshold) {
+      await waitForEncoderQueueBelow(videoEncoder, Math.max(4, queueBackpressureThreshold >> 1));
     }
   };
 
@@ -533,66 +704,285 @@ export async function stitchVideosWebCodecs({
     onProgress?.(Math.min(98, Math.max(1, Math.round(pct))), message);
   };
 
+  /**
+   * 실시간 프리뷰와 동일한 하드웨어 연속 순차 재생(workerVideo.play()) 파이프라인으로
+   * GOP 재탐색(seek thrashing) 없이 매 프레임을 부드럽게 캡처하여 CFR VideoEncoder에 공급하는 핵심 헬퍼
+   */
+  const encodeVideoRangeSequentially = async (params: {
+    rangeStart: number;
+    rangeEnd: number;
+    videoItem?: VideoItem;
+    segment?: HighlightSegment;
+    overlayCanvas?: HTMLCanvasElement | null;
+    forceFirstKeyFrame?: boolean;
+    keepPlayingOnEnd?: boolean;
+    onFrameProgress?: (elapsedSec: number) => void;
+  }): Promise<void> => {
+    const {
+      rangeStart,
+      rangeEnd,
+      videoItem,
+      segment,
+      overlayCanvas,
+      forceFirstKeyFrame = false,
+      keepPlayingOnEnd = false,
+      onFrameProgress,
+    } = params;
+
+    const duration = Math.max(0.05, rangeEnd - rangeStart);
+    const segFrames = Math.max(2, Math.round(duration * targetFps));
+    const segTimeStep = duration / segFrames;
+
+    // 1. 시작 위치가 현재 위치와 다르면 정확히 1회만 시크 후 디코더 준비 대기
+    if (Math.abs(workerVideo.currentTime - rangeStart) > 0.04 || workerVideo.readyState < 2) {
+      try {
+        workerVideo.pause();
+      } catch {}
+      await seekVideoElement(workerVideo, rangeStart, 8000);
+      await waitForVideoReady(workerVideo, 5000);
+    }
+
+    // 첫 프레임 즉시 합성
+    drawCoverFrame(workerVideo, videoItem, segment);
+    if (overlayCanvas) {
+      ctx.drawImage(overlayCanvas, 0, 0);
+    }
+
+    // 2. 하드웨어 연속 재생 시작 (프리뷰와 동일한 순차 디코딩 파이프라인)
+    const isPlaying = await startVideoPlayback(workerVideo, 4000);
+    if (isPlaying) {
+      await waitForPlaybackAdvance(workerVideo, rangeStart, 1200);
+
+      const vRvfc = workerVideo as VideoWithRvfc;
+      let latestRvfcMediaTime = workerVideo.currentTime;
+      let rvfcHandle: number | null = null;
+      let loopActive = true;
+
+      const registerRvfc = () => {
+        if (!loopActive || typeof vRvfc.requestVideoFrameCallback !== 'function') return;
+        try {
+          rvfcHandle = vRvfc.requestVideoFrameCallback((_, meta) => {
+            if (!loopActive) return;
+            latestRvfcMediaTime = meta.mediaTime;
+            registerRvfc();
+          });
+        } catch {}
+      };
+      registerRvfc();
+
+      try {
+        let smoothElapsedSec = Math.max(0, workerVideo.currentTime - rangeStart);
+        let lastWallNow = performance.now();
+        let lastMediaTimeSeen = workerVideo.currentTime;
+        let lastMediaAdvanceWall = performance.now();
+
+        for (let f = 0; f < segFrames; f++) {
+          if (signal?.aborted) throw new Error('작업 취소');
+          if (videoEncoderError) throw videoEncoderError;
+
+          const targetElapsedSec = f * segTimeStep;
+          const targetMediaTime = Math.min(rangeEnd, rangeStart + targetElapsedSec);
+
+          if (f > 0) {
+            // 하드웨어 디코더가 targetElapsedSec 시점의 프레임을 출력할 때까지 자연스럽게 대기
+            while (!signal?.aborted) {
+              const now = performance.now();
+              const dtSec = Math.min(0.05, Math.max(0, (now - lastWallNow) / 1000));
+              lastWallNow = now;
+
+              if (workerVideo.paused && !workerVideo.ended && workerVideo.currentTime < rangeEnd - 0.03) {
+                void workerVideo.play().catch(() => {});
+              }
+
+              const curMediaPos = Math.max(workerVideo.currentTime, latestRvfcMediaTime);
+              if (Math.abs(curMediaPos - lastMediaTimeSeen) >= 0.001) {
+                lastMediaTimeSeen = curMediaPos;
+                lastMediaAdvanceWall = now;
+              }
+
+              const rawMediaElapsed = Math.max(0, curMediaPos - rangeStart);
+              if (!workerVideo.paused && !workerVideo.seeking && workerVideo.readyState >= 2) {
+                smoothElapsedSec += dtSec;
+                // currentTime 업데이트 주기와 보간 클럭 간의 드리프트를 부드럽게 동기화
+                if (Math.abs(smoothElapsedSec - rawMediaElapsed) > 0.045) {
+                  smoothElapsedSec = rawMediaElapsed;
+                }
+              } else {
+                smoothElapsedSec = rawMediaElapsed;
+              }
+
+              const effectiveElapsed = workerVideo.ended
+                ? duration
+                : Math.max(rawMediaElapsed, smoothElapsedSec);
+
+              if (
+                effectiveElapsed >= targetElapsedSec - 0.002 ||
+                curMediaPos >= rangeEnd - 0.015 ||
+                workerVideo.ended
+              ) {
+                break;
+              }
+
+              // 만약 백그라운드 탭 전환 등으로 비디오 재생이 800ms 이상 멈췄다면 즉시 해당 위치로 시크하여 복구
+              if (now - lastMediaAdvanceWall > 800) {
+                await seekVideoElement(workerVideo, targetMediaTime, 2500);
+                lastMediaAdvanceWall = performance.now();
+                lastWallNow = performance.now();
+                smoothElapsedSec = targetElapsedSec;
+                break;
+              }
+
+              // 인코더 백프레셔가 걸려있다면 비디오를 잠시 일시정지해 프레임 드롭 방지
+              if (videoEncoder.encodeQueueSize > queueBackpressureThreshold) {
+                try {
+                  workerVideo.pause();
+                } catch {}
+                await waitForEncoderQueueBelow(videoEncoder, Math.max(4, queueBackpressureThreshold >> 1));
+                void workerVideo.play().catch(() => {});
+                lastWallNow = performance.now();
+                lastMediaAdvanceWall = performance.now();
+              }
+
+              const remainMs = (targetElapsedSec - effectiveElapsed) * 1000;
+              await sleep(Math.min(6, Math.max(1, Math.floor(remainMs * 0.75))));
+            }
+          }
+
+          // 현재 하드웨어 디코더가 출력 중인 최신 프레임을 캔버스에 합성 후 인코딩
+          drawCoverFrame(workerVideo, videoItem, segment);
+          if (overlayCanvas) {
+            ctx.drawImage(overlayCanvas, 0, 0);
+          }
+
+          await pushCanvasFrame(f === 0 && forceFirstKeyFrame);
+          onFrameProgress?.(targetElapsedSec);
+        }
+      } finally {
+        loopActive = false;
+        if (rvfcHandle !== null && typeof vRvfc.cancelVideoFrameCallback === 'function') {
+          try {
+            vRvfc.cancelVideoFrameCallback(rvfcHandle);
+          } catch {}
+        }
+        if (!keepPlayingOnEnd) {
+          try {
+            workerVideo.pause();
+          } catch {}
+        }
+      }
+      return;
+    }
+
+    // 3. 폴백: 자동재생이 차단된 특수 환경에서는 정밀 시크(30fps 스텝 + 텍스처 동기화)로 렌더링
+    const stepSampleStride = targetFps >= 60 ? 2 : 1;
+    for (let f = 0; f < segFrames; f++) {
+      if (signal?.aborted) throw new Error('작업 취소');
+
+      if (f % stepSampleStride === 0) {
+        const targetMediaTime = Math.min(
+          rangeStart + f * segTimeStep,
+          Math.max(rangeStart, rangeEnd - 0.015)
+        );
+        await seekVideoElement(workerVideo, targetMediaTime, 2500);
+        drawCoverFrame(workerVideo, videoItem, segment);
+        if (overlayCanvas) {
+          ctx.drawImage(overlayCanvas, 0, 0);
+        }
+      }
+
+      await pushCanvasFrame(f === 0 && forceFirstKeyFrame);
+      onFrameProgress?.(f * segTimeStep);
+    }
+  };
+
+  // 사용자 지정 인트로/아웃트로 동영상 파일 렌더링 헬퍼
+  const renderCustomVideoClip = async (clipFile: File, label: string, isFirstKeyFrame: boolean): Promise<number> => {
+    reportProgress(label === '시작 인트로' ? 2 : 96, `${label} 영상 로드 및 합성 중...`, true);
+    const blobUrl = URL.createObjectURL(clipFile);
+    try {
+      await loadVideoSource(workerVideo, blobUrl, 12000);
+      const clipDuration =
+        workerVideo.duration && Number.isFinite(workerVideo.duration) && workerVideo.duration > 0
+          ? workerVideo.duration
+          : 0;
+      if (clipDuration <= 0.05) return 0;
+
+      await encodeVideoRangeSequentially({
+        rangeStart: 0,
+        rangeEnd: clipDuration,
+        forceFirstKeyFrame: isFirstKeyFrame,
+        keepPlayingOnEnd: false,
+      });
+      return clipDuration;
+    } finally {
+      URL.revokeObjectURL(blobUrl);
+    }
+  };
+
   try {
     let actualIntroDuration = 0;
     let actualOutroDuration = 0;
 
     // -------------------------------------------------------------------------
-    // STEP A. 인트로 렌더링
+    // STEP A. 인트로 렌더링 (사용자 지정 비디오 클립 우선, 없으면 타이틀 카드)
     // -------------------------------------------------------------------------
     if (overlayOptions?.showIntro) {
-      reportProgress(2, '시작 인트로 시퀀스 생성 중...', true);
-      const introSec = 1.6;
-      const introFrames = Math.round(introSec * targetFps);
-      actualIntroDuration = introSec;
+      if (overlayOptions.introVideoFile) {
+        actualIntroDuration = await renderCustomVideoClip(overlayOptions.introVideoFile, '시작 인트로', true);
+      } else {
+        reportProgress(2, '시작 인트로 시퀀스 생성 중...', true);
+        const introSec = 1.6;
+        const introFrames = Math.round(introSec * targetFps);
+        actualIntroDuration = introSec;
 
-      for (let f = 0; f < introFrames; f++) {
-        if (signal?.aborted) throw new Error('작업 취소');
-        const progress = f / introFrames;
-        const alpha = progress < 0.25 ? progress / 0.25 : progress > 0.8 ? (1 - progress) / 0.2 : 1.0;
+        for (let f = 0; f < introFrames; f++) {
+          if (signal?.aborted) throw new Error('작업 취소');
+          const progress = f / introFrames;
+          const alpha = progress < 0.25 ? progress / 0.25 : progress > 0.8 ? (1 - progress) / 0.2 : 1.0;
 
-        ctx.fillStyle = '#080c14';
-        ctx.fillRect(0, 0, targetWidth, targetHeight);
+          ctx.fillStyle = '#080c14';
+          ctx.fillRect(0, 0, targetWidth, targetHeight);
 
-        const grad = ctx.createRadialGradient(
-          targetWidth / 2, targetHeight / 2, 30,
-          targetWidth / 2, targetHeight / 2, 450
-        );
-        grad.addColorStop(0, `rgba(49, 130, 246, ${0.32 * alpha})`);
-        grad.addColorStop(1, 'rgba(8, 12, 20, 0)');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, targetWidth, targetHeight);
+          const grad = ctx.createRadialGradient(
+            targetWidth / 2, targetHeight / 2, 30,
+            targetWidth / 2, targetHeight / 2, 450
+          );
+          grad.addColorStop(0, `rgba(49, 130, 246, ${0.32 * alpha})`);
+          grad.addColorStop(1, 'rgba(8, 12, 20, 0)');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, targetWidth, targetHeight);
 
-        ctx.save();
-        ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
 
-        const title = overlayOptions.titleText || 'Highlights';
-        ctx.font = 'bold 38px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
-        ctx.fillStyle = '#ffffff';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-        ctx.shadowBlur = 14;
-        ctx.fillText(title, targetWidth / 2, targetHeight / 2 - 20);
+          const title = overlayOptions.titleText || 'Highlights';
+          ctx.font = 'bold 38px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+          ctx.fillStyle = '#ffffff';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+          ctx.shadowBlur = 14;
+          ctx.fillText(title, targetWidth / 2, targetHeight / 2 - 20);
 
-        const sub = [
-          overlayOptions.showDate === false ? '' : overlayOptions.subtitleDateText,
-          overlayOptions.subtitleLocationText,
-          overlayOptions.channelText,
-        ].filter(Boolean).join(' • ');
-        if (sub) {
-          ctx.font = '600 20px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
-          ctx.fillStyle = '#93c5fd';
-          ctx.fillText(sub, targetWidth / 2, targetHeight / 2 + 32);
+          const sub = [
+            overlayOptions.showDate === false ? '' : overlayOptions.subtitleDateText,
+            overlayOptions.subtitleLocationText,
+            overlayOptions.channelText,
+          ].filter(Boolean).join(' • ');
+          if (sub) {
+            ctx.font = '600 20px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+            ctx.fillStyle = '#93c5fd';
+            ctx.fillText(sub, targetWidth / 2, targetHeight / 2 + 32);
+          }
+          ctx.restore();
+
+          await pushCanvasFrame(f === 0);
         }
-        ctx.restore();
-
-        await pushCanvasFrame(f === 0);
       }
     }
 
     // -------------------------------------------------------------------------
-    // STEP B. 하이라이트 세그먼트 프레임 렌더링
+    // STEP B. 하이라이트 세그먼트 프레임 렌더링 (실시간 프리뷰와 동일한 순차 하드웨어 디코딩)
     // -------------------------------------------------------------------------
     const prevFrameBufferCanvas = document.createElement('canvas');
     prevFrameBufferCanvas.width = targetWidth;
@@ -618,82 +1008,83 @@ export async function stitchVideosWebCodecs({
 
       // 비디오 소스 로드
       await loadVideoSource(workerVideo, videoItem.url, 12000);
-      await seekVideoElement(workerVideo, segment.start, 8000);
-      await waitForVideoReady(workerVideo, 6000);
+
+      const prevSeg = segIdx > 0 ? allSegments[segIdx - 1] : null;
+      const bridgeInfo = prevSeg
+        ? evaluateChapterBridge(prevSeg, segment, segIdx, allSegments.length, overlayOptions)
+        : null;
 
       // 챕터 전환 브릿지 트랜지션 (이전 세그먼트가 있고 날짜/장소가 변경된 경우)
-      if (segIdx > 0) {
-        const prevSeg = allSegments[segIdx - 1];
-        const bridgeInfo = evaluateChapterBridge(prevSeg, segment, segIdx, allSegments.length, overlayOptions);
+      if (bridgeInfo?.shouldBridge) {
+        try {
+          workerVideo.pause();
+        } catch {}
+        await seekVideoElement(workerVideo, segment.start, 8000);
+        await waitForVideoReady(workerVideo, 6000);
 
-        if (bridgeInfo.shouldBridge) {
-          const bridgeFrames = Math.round(CHAPTER_BRIDGE_DURATION * targetFps);
-          actualBridgeDurationMap[segment.id] = CHAPTER_BRIDGE_DURATION;
+        const bridgeFrames = Math.round(CHAPTER_BRIDGE_DURATION * targetFps);
+        actualBridgeDurationMap[segment.id] = CHAPTER_BRIDGE_DURATION;
 
-          // 다음 장면 첫 프레임 캐싱
-          if (nextFrameBufferCtx) {
-            drawCoverFrame(workerVideo, videoItem, segment);
-            nextFrameBufferCtx.drawImage(canvas, 0, 0);
-          }
-
-          for (let bf = 0; bf < bridgeFrames; bf++) {
-            if (signal?.aborted) throw new Error('작업 취소');
-            const timeSec = (bf / bridgeFrames) * CHAPTER_BRIDGE_DURATION;
-            bridgeController.seekAndRender(
-              ctx,
-              timeSec,
-              targetWidth,
-              targetHeight,
-              bridgeInfo,
-              () => {
-                if (nextFrameBufferCanvas) ctx.drawImage(nextFrameBufferCanvas, 0, 0);
-              },
-              () => {
-                if (prevFrameBufferCanvas) ctx.drawImage(prevFrameBufferCanvas, 0, 0);
-              }
-            );
-            await pushCanvasFrame(bf === 0);
-
-            reportProgress(
-              ((totalSegmentTimeProcessed + timeSec) / (totalSegmentsDuration || 1)) * 95,
-              `챕터 전환 브릿지 합성 중 (${bridgeInfo.chapterIndex}장)...`
-            );
-          }
-          totalSegmentTimeProcessed += CHAPTER_BRIDGE_DURATION;
-        }
-      }
-
-      // 세그먼트 본체 프레임별 정확한 렌더링 (60fps 결정론적)
-      const segFrames = Math.max(2, Math.round(segment.duration * targetFps));
-      const segTimeStep = segment.duration / segFrames;
-
-      for (let f = 0; f < segFrames; f++) {
-        if (signal?.aborted) throw new Error('작업 취소');
-
-        const targetMediaTime = Math.min(
-          segment.start + f * segTimeStep,
-          Math.max(segment.start, segment.end - 0.02)
-        );
-
-        // 프레임 탐색
-        await seekVideoElement(workerVideo, targetMediaTime, 2000);
-
-        // 16:9 맞춤 프레임 드로우
-        drawCoverFrame(workerVideo, videoItem, segment);
-
-        // 자막/오버레이 합성
-        if (overlayCanvas) {
-          ctx.drawImage(overlayCanvas, 0, 0);
+        // 다음 장면 첫 프레임 캐싱
+        if (nextFrameBufferCtx) {
+          drawCoverFrame(workerVideo, videoItem, segment);
+          nextFrameBufferCtx.drawImage(canvas, 0, 0);
         }
 
-        await pushCanvasFrame(f === 0 && segIdx === 0);
+        for (let bf = 0; bf < bridgeFrames; bf++) {
+          if (signal?.aborted) throw new Error('작업 취소');
+          const timeSec = (bf / bridgeFrames) * CHAPTER_BRIDGE_DURATION;
+          bridgeController.seekAndRender(
+            ctx,
+            timeSec,
+            targetWidth,
+            targetHeight,
+            bridgeInfo,
+            () => {
+              if (nextFrameBufferCanvas) ctx.drawImage(nextFrameBufferCanvas, 0, 0);
+            },
+            () => {
+              if (prevFrameBufferCanvas) ctx.drawImage(prevFrameBufferCanvas, 0, 0);
+            }
+          );
+          await pushCanvasFrame(bf === 0);
 
-        const currentSegProgressSec = totalSegmentTimeProcessed + f * segTimeStep;
-        reportProgress(
-          (currentSegProgressSec / (totalSegmentsDuration || 1)) * 95,
-          `구간 ${segIdx + 1}/${allSegments.length} GPU 인코딩 중: [${videoItem.name || ''}]`
-        );
+          reportProgress(
+            ((totalSegmentTimeProcessed + timeSec) / (totalSegmentsDuration || 1)) * 95,
+            `챕터 전환 브릿지 합성 중 (${bridgeInfo.chapterIndex}장)...`
+          );
+        }
+        totalSegmentTimeProcessed += CHAPTER_BRIDGE_DURATION;
       }
+
+      // 다음 세그먼트가 동일 비디오에서 연속 이어지고 브릿지가 없다면 재생 상태를 끊지 않고 유지
+      const nextSeg = segIdx + 1 < allSegments.length ? allSegments[segIdx + 1] : null;
+      const nextBridge = nextSeg
+        ? evaluateChapterBridge(segment, nextSeg, segIdx + 1, allSegments.length, overlayOptions)
+        : null;
+      const canKeepPlayingToNext = Boolean(
+        nextSeg &&
+          nextSeg.sourceVideoId === segment.sourceVideoId &&
+          !nextBridge?.shouldBridge &&
+          Math.abs(nextSeg.start - segment.end) < 0.08
+      );
+
+      await encodeVideoRangeSequentially({
+        rangeStart: segment.start,
+        rangeEnd: segment.end,
+        videoItem,
+        segment,
+        overlayCanvas,
+        forceFirstKeyFrame: segIdx === 0 && actualIntroDuration === 0,
+        keepPlayingOnEnd: canKeepPlayingToNext,
+        onFrameProgress: (elapsedSec) => {
+          const currentSegProgressSec = totalSegmentTimeProcessed + elapsedSec;
+          reportProgress(
+            (currentSegProgressSec / (totalSegmentsDuration || 1)) * 95,
+            `구간 ${segIdx + 1}/${allSegments.length} GPU 인코딩 중: [${videoItem.name || ''}]`
+          );
+        },
+      });
 
       totalSegmentTimeProcessed += segment.duration;
 
@@ -704,54 +1095,108 @@ export async function stitchVideosWebCodecs({
     }
 
     // -------------------------------------------------------------------------
-    // STEP C. 아웃트로 렌더링
+    // STEP C. 아웃트로 렌더링 (사용자 지정 비디오 클립 우선, 없으면 엔드 카드)
     // -------------------------------------------------------------------------
     if (overlayOptions?.showOutro) {
-      reportProgress(96, '종료 아웃트로 엔드 카드 생성 중...', true);
-      const outroSec = 1.8;
-      const outroFrames = Math.round(outroSec * targetFps);
-      actualOutroDuration = outroSec;
+      if (overlayOptions.outroVideoFile) {
+        actualOutroDuration = await renderCustomVideoClip(overlayOptions.outroVideoFile, '종료 아웃트로', false);
+      } else {
+        reportProgress(96, '종료 아웃트로 엔드 카드 생성 중...', true);
+        const outroSec = 1.8;
+        const outroFrames = Math.round(outroSec * targetFps);
+        actualOutroDuration = outroSec;
 
-      for (let f = 0; f < outroFrames; f++) {
-        if (signal?.aborted) throw new Error('작업 취소');
-        const progress = f / outroFrames;
-        const alpha = progress < 0.2 ? progress / 0.2 : progress > 0.85 ? (1 - progress) / 0.15 : 1.0;
+        for (let f = 0; f < outroFrames; f++) {
+          if (signal?.aborted) throw new Error('작업 취소');
+          const progress = f / outroFrames;
+          const alpha = progress < 0.2 ? progress / 0.2 : progress > 0.85 ? (1 - progress) / 0.15 : 1.0;
 
-        ctx.fillStyle = '#080c14';
-        ctx.fillRect(0, 0, targetWidth, targetHeight);
+          ctx.fillStyle = '#080c14';
+          ctx.fillRect(0, 0, targetWidth, targetHeight);
 
-        ctx.save();
-        ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
 
-        ctx.font = 'bold 34px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
-        ctx.fillStyle = '#ffffff';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        const outroMessage = overlayOptions.outroText || 'Thank you for watching';
-        ctx.fillText(outroMessage, targetWidth / 2, targetHeight / 2 - 16);
+          ctx.font = 'bold 34px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+          ctx.fillStyle = '#ffffff';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          const outroMessage = overlayOptions.outroText || 'Thank you for watching';
+          ctx.fillText(outroMessage, targetWidth / 2, targetHeight / 2 - 16);
 
-        if (overlayOptions.channelText) {
-          ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
-          ctx.fillStyle = '#3182f6';
-          ctx.fillText(overlayOptions.channelText, targetWidth / 2, targetHeight / 2 + 30);
+          if (overlayOptions.channelText) {
+            ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+            ctx.fillStyle = '#3182f6';
+            ctx.fillText(overlayOptions.channelText, targetWidth / 2, targetHeight / 2 + 30);
+          }
+          ctx.restore();
+
+          await pushCanvasFrame(f === 0);
         }
-        ctx.restore();
-
-        await pushCanvasFrame(f === 0);
       }
     }
 
     // -------------------------------------------------------------------------
-    // STEP D. 오디오 렌더링 & AudioEncoder 주입
+    // STEP D. 오디오 렌더링 & AudioEncoder 주입 (원본 비디오 오디오 + BGM 믹싱)
     // -------------------------------------------------------------------------
     const totalVideoDurationSec = actualIntroDuration + totalSegmentsDuration + actualOutroDuration;
 
     if (audioEncoder && audioDataAvailable) {
       try {
         reportProgress(97, '오디오 트랙 고화질 믹싱 및 동기화 중...', true);
-        const totalSampleCount = Math.ceil(totalVideoDurationSec * audioSampleRate);
+        const totalSampleCount = Math.max(1024, Math.ceil(totalVideoDurationSec * audioSampleRate));
         const offlineAudioCtx = new OfflineAudioContext(audioChannels, totalSampleCount, audioSampleRate);
 
+        // 1) 각 비디오 클립의 원본 오디오 디코딩(비디오 ID별 1회 캐싱) 및 타임라인 배치
+        const decodedVideoAudioCache = new Map<string, AudioBuffer | null>();
+        let timelineAudioCursorSec = actualIntroDuration;
+
+        for (let segIdx = 0; segIdx < allSegments.length; segIdx++) {
+          const seg = allSegments[segIdx];
+          if (segIdx > 0 && actualBridgeDurationMap[seg.id]) {
+            timelineAudioCursorSec += actualBridgeDurationMap[seg.id];
+          }
+
+          const vItem = videoMap.get(seg.sourceVideoId);
+          if (vItem?.file) {
+            if (!decodedVideoAudioCache.has(vItem.id)) {
+              try {
+                const ab = await vItem.file.arrayBuffer();
+                const decodedBuf = await offlineAudioCtx.decodeAudioData(ab.slice(0));
+                decodedVideoAudioCache.set(vItem.id, decodedBuf);
+              } catch {
+                decodedVideoAudioCache.set(vItem.id, null);
+              }
+            }
+
+            const clipAudioBuf = decodedVideoAudioCache.get(vItem.id);
+            if (clipAudioBuf && seg.duration > 0.05) {
+              try {
+                const segSource = offlineAudioCtx.createBufferSource();
+                segSource.buffer = clipAudioBuf;
+                const segGain = offlineAudioCtx.createGain();
+                const startT = timelineAudioCursorSec;
+                const endT = timelineAudioCursorSec + seg.duration;
+                const fadeSec = Math.min(0.04, seg.duration * 0.15);
+                // 세그먼트 경계 팝 노이즈 방지를 위한 마이크로 페이드 인/아웃
+                segGain.gain.setValueAtTime(0.001, startT);
+                segGain.gain.linearRampToValueAtTime(0.85, startT + fadeSec);
+                segGain.gain.setValueAtTime(0.85, Math.max(startT + fadeSec, endT - fadeSec));
+                segGain.gain.linearRampToValueAtTime(0.001, endT);
+
+                segSource.connect(segGain);
+                segGain.connect(offlineAudioCtx.destination);
+                const safeOffset = Math.max(0, Math.min(seg.start, Math.max(0, clipAudioBuf.duration - 0.05)));
+                const safeDuration = Math.max(0.02, Math.min(seg.duration, clipAudioBuf.duration - safeOffset));
+                segSource.start(startT, safeOffset, safeDuration);
+              } catch {}
+            }
+          }
+
+          timelineAudioCursorSec += seg.duration;
+        }
+
+        // 2) 사용자 지정 배경음악(customAudioFile) 믹싱
         if (customAudioFile) {
           const ab = await customAudioFile.arrayBuffer();
           const decoded = await offlineAudioCtx.decodeAudioData(ab);

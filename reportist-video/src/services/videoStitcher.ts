@@ -828,7 +828,8 @@ export async function stitchHighlightedSegments({
 
   const seekVideo = (video: HTMLVideoElement, time: number, timeoutMs = 8000) =>
     new Promise<boolean>((resolve) => {
-      if (Math.abs(video.currentTime - time) < 0.02 && video.readyState >= 2) {
+      const targetTime = Math.max(0, time);
+      if (Math.abs(video.currentTime - targetTime) < 0.0005 && video.readyState >= 2 && !video.seeking) {
         resolve(true);
         return;
       }
@@ -842,13 +843,15 @@ export async function stitchHighlightedSegments({
         if (timer) clearTimeout(timer);
         resolve(ok);
       };
-      const onSeeked = () => finish(true);
+      const onSeeked = () => {
+        requestAnimationFrame(() => finish(true));
+      };
       const onError = () => finish(false);
-      timer = setTimeout(() => finish(Math.abs(video.currentTime - time) < 0.3), timeoutMs);
-      video.addEventListener('seeked', onSeeked);
-      video.addEventListener('error', onError);
+      timer = setTimeout(() => finish(Math.abs(video.currentTime - targetTime) < 0.3), timeoutMs);
+      video.addEventListener('seeked', onSeeked, { once: true });
+      video.addEventListener('error', onError, { once: true });
       try {
-        video.currentTime = time;
+        video.currentTime = targetTime;
       } catch {
         finish(false);
       }
