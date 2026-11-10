@@ -25,6 +25,7 @@ export const DEFAULT_DATE_FORMAT: DateFormatOption = 'YYYY.MM.DD';
 export const SHOW_AGE_STORAGE_KEY = 'reportist_video_show_age';
 export const BIRTH_DATE_STORAGE_KEY = 'reportist_video_birth_date';
 export const SHOW_DATE_STORAGE_KEY = 'reportist_video_show_date';
+export const AUTO_SORT_BY_RECORDED_TIME_STORAGE_KEY = 'reportist_video_auto_sort_by_recorded_time';
 
 export interface VideoMetadata {
   dateStr: string; // e.g. "2026.11.03"
@@ -128,6 +129,26 @@ export function getStoredBirthDate(): string {
 export function setStoredBirthDate(dateStr: string): void {
   try {
     localStorage.setItem(BIRTH_DATE_STORAGE_KEY, dateStr);
+  } catch {}
+}
+
+/**
+ * 촬영일시 순 기본 정렬 활성화 여부 불러오기 (기본값: false)
+ */
+export function getStoredAutoSortByRecordedTime(): boolean {
+  try {
+    const saved = localStorage.getItem(AUTO_SORT_BY_RECORDED_TIME_STORAGE_KEY);
+    return saved === 'true';
+  } catch {}
+  return false;
+}
+
+/**
+ * 촬영일시 순 기본 정렬 활성화 여부 localStorage에 저장
+ */
+export function setStoredAutoSortByRecordedTime(enabled: boolean): void {
+  try {
+    localStorage.setItem(AUTO_SORT_BY_RECORDED_TIME_STORAGE_KEY, String(enabled));
   } catch {}
 }
 

@@ -338,10 +338,12 @@ export const fr: Dictionary = {
     language: "Langue d'affichage",
     dateFormat: 'Format de date de tournage',
     dateFormatDesc: 'Définir le format de date sur les sous-titres et les clips',
-    dateSection: 'Date de tournage',
+    dateSection: 'Date de tournage et ordre',
     showDateOption: 'Afficher la date de tournage',
     showDateOptionDesc:
       'Affiche la date de tournage sur la vidéo (désactivez pour n’afficher que le lieu)',
+    autoSortByRecordedDate: 'Tri chronologique par défaut',
+    autoSortByRecordedDateDesc: 'Organise automatiquement les clips par ordre chronologique de tournage',
     ageOption: "Afficher l'âge de l'enfant",
     ageOptionDesc: "Affiche l'âge (avec les mois pour les moins de 2 ans) à côté de la date",
     birthDateLabel: 'Date de naissance',

@@ -8,6 +8,26 @@ export interface ReleaseI18nEntry {
 }
 
 export const RELEASE_TRANSLATIONS: Record<string, ReleaseI18nEntry> = {
+  "0.9.8": {
+    "title": {
+      "ko": "설정 모달 내 클립 촬영일시 순 기본 정렬 옵션 추가 및 AI 하이라이트 생성 시 자동 정렬 연동",
+      "en": "Add Default Sort by Filming Time in Settings & Auto-Order Clips on AI Highlight Generation",
+      "ja": "設定モーダルに撮影日時順のデフォルト整列オプションを追加＆AIハイライト作成時の自動整列に対応",
+      "zh": "在设置弹窗中添加默认按拍摄时间排序选项并支持AI高光生成时自动整列",
+      "es": "Añadir orden cronológico predeterminado en Ajustes y ordenar clips automáticamente al generar momentos destacados",
+      "fr": "Ajout du tri chronologique par défaut dans les paramètres et organisation automatique des clips lors de la génération IA",
+      "de": "Option 'Standardmäßig nach Aufnahmezeit sortieren' in den Einstellungen hinzugefügt & automatische Sortierung bei KI-Highlights"
+    },
+    "summary": {
+      "ko": "스튜디오 설정 모달 내 '촬영일시 순 기본 정렬' 토글 옵션을 추가하여, 개별 버튼을 수동으로 누르지 않아도 영상을 불러오거나 AI 하이라이트 분석 시 자동으로 클립들을 촬영일시(시·분·초) 기준 시간순으로 정렬하도록 사용성을 개선했습니다. 설정 값은 브라우저 로컬 저장소에 영구 보관되며, 설정 창에서 토글을 켜는 즉시 현재 작업 중인 타임라인 클립도 시간순으로 정렬됩니다.",
+      "en": "Added a 'Default Sort by Filming Time' toggle option in Studio Settings, allowing clips to be automatically ordered chronologically (date, hour, minute, second) upon video import or AI highlight generation without needing to manually press the sort button every time. Preferences are permanently saved in local storage, and enabling the toggle immediately reorders existing timeline clips chronologically.",
+      "ja": "スタジオ設定モーダルに「撮影日時順のデフォルト整列」トグルオプションを追加しました。動画読み込み時やAIハイライト作成時に手動ボタンを押すことなく、撮影日時（時・分・秒）順にクリップが自動的に時系列整列されます。設定内容はローカルストレージに永続保存され、トグルをオンにした瞬間に作業中のタイムラインクリップも即座に時系列順へ再整列されます。",
+      "zh": "在工作室设置弹窗中增加了“默认按拍摄时间排序”开关选项。在导入视频或生成 AI 高光时，无需手动点击排序按钮即可自动按拍摄日期和时间（时分秒）顺序排列片段。设置项永久保存在本地存储中，开启开关时也会立即将当前时间线上的片段按时间顺序重新排列。",
+      "es": "Se añadió la opción 'Orden cronológico predeterminado' en los Ajustes del Estudio para ordenar automáticamente los clips por fecha y hora de grabación sin necesidad de pulsar manualmente el botón de ordenar.",
+      "fr": "Ajout d'une option 'Tri chronologique par défaut' dans les Paramètres du Studio pour organiser automatiquement les clips selon la date et l'heure de tournage lors de l'import ou de l'analyse IA.",
+      "de": "Option 'Standardmäßig nach Aufnahmezeit sortieren' in den Studio-Einstellungen hinzugefügt, um Clips beim Laden oder Generieren automatisch chronologisch nach Aufnahmezeit anzuordnen."
+    }
+  },
   "0.9.7": {
     "title": {
       "ko": "백그라운드 탭·앱 전환 시 브라우저 프로세스 동결 방지(WakeLock·킵얼라이브) 및 화면 복귀 시 중단 지점 자동 재개 지원",

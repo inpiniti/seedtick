@@ -15,6 +15,8 @@ import {
   extractVideoMetadata as extractMediaMetadata,
   formatVideoDate,
   extractGpsFromVideoFile,
+  sortSegmentsByRecordedTime,
+  getStoredAutoSortByRecordedTime,
 } from './services/videoMetadata.ts';
 import { primeAudioContext, stitchHighlightedSegments } from './services/videoStitcher.ts';
 import { backgroundGuard } from './services/backgroundKeepAlive.ts';
@@ -1336,10 +1338,13 @@ export function App() {
       }
 
       // 2. 실시간 타임라인 시퀀스 구성 (초기 인코딩 없이 즉시 실시간 프리뷰 진입)
-      const allSegments = updatedVideos.flatMap((v) => v.segments);
-      if (allSegments.length === 0) {
+      const rawSegments = updatedVideos.flatMap((v) => v.segments);
+      if (rawSegments.length === 0) {
         throw new Error(dict.logs.noClimaxFound);
       }
+      const allSegments = getStoredAutoSortByRecordedTime()
+        ? sortSegmentsByRecordedTime(rawSegments, new Map(updatedVideos.map((v) => [v.id, v])))
+        : rawSegments;
 
       // AI가 추천한 제목이 있고, 사용자가 직접 수정한 제목이 없으면 자동 적용
       const isDefaultOrEmptyTitle =

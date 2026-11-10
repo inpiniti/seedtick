@@ -20,6 +20,7 @@ import {
   AlertTriangle,
   MessageSquare,
   Trash2,
+  ArrowUpDown,
 } from 'lucide-react';
 import type { FreeModelMeta } from '../../types/gateway.ts';
 import type { ExportResolution } from '../../types/video.ts';
@@ -56,6 +57,8 @@ export interface MobileSettingsModalProps {
   currentDateFormat?: DateFormatOption;
   showDate?: boolean;
   onToggleShowDate?: (enabled: boolean) => void;
+  autoSortByRecordedDate?: boolean;
+  onToggleAutoSortByRecordedDate?: (enabled: boolean) => void;
   showAge?: boolean;
   onToggleShowAge?: (enabled: boolean) => void;
   birthDate?: string;
@@ -94,6 +97,8 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   currentDateFormat,
   showDate = true,
   onToggleShowDate,
+  autoSortByRecordedDate = false,
+  onToggleAutoSortByRecordedDate,
   showAge = false,
   onToggleShowAge,
   birthDate = '',
@@ -329,11 +334,11 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
             </button>
           </div>
 
-          {/* Group 3: Date Format */}
-          {(onOpenDateFormatModal || onToggleShowDate) && (
+          {/* Group 3: Date & Order Settings */}
+          {(onOpenDateFormatModal || onToggleShowDate || onToggleAutoSortByRecordedDate) && (
             <div className="settings-modal-group">
               <span className="settings-modal-group-title">
-                {dict.settingsModal?.dateSection || '촬영 날짜'}
+                {dict.settingsModal?.dateSection || '촬영 날짜 및 정렬'}
               </span>
               {onToggleShowDate && (
                 <div className="settings-modal-card-box" style={{ marginBottom: 8 }}>
@@ -360,6 +365,37 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                         type="checkbox"
                         checked={showDate}
                         onChange={(e) => onToggleShowDate(e.target.checked)}
+                      />
+                      <span className="toss-toggle-slider" />
+                    </label>
+                  </div>
+                </div>
+              )}
+              {onToggleAutoSortByRecordedDate && (
+                <div className="settings-modal-card-box" style={{ marginBottom: 8 }}>
+                  <div className="settings-modal-toggle-row">
+                    <div className="settings-modal-item-left">
+                      <div
+                        className="settings-modal-icon-badge"
+                        style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}
+                      >
+                        <ArrowUpDown size={18} />
+                      </div>
+                      <div className="settings-modal-item-text">
+                        <div className="settings-modal-item-title">
+                          {dict.settingsModal?.autoSortByRecordedDate || '촬영일시 순 기본 정렬'}
+                        </div>
+                        <div className="settings-modal-item-desc">
+                          {dict.settingsModal?.autoSortByRecordedDateDesc ||
+                            '클립을 타임라인에 배치할 때 촬영일시 순서대로 자동 정렬해요'}
+                        </div>
+                      </div>
+                    </div>
+                    <label className="toss-toggle-switch" style={{ margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={autoSortByRecordedDate}
+                        onChange={(e) => onToggleAutoSortByRecordedDate(e.target.checked)}
                       />
                       <span className="toss-toggle-slider" />
                     </label>

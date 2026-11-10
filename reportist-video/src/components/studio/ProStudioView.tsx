@@ -97,6 +97,8 @@ import {
   setStoredShowDate,
   getStoredBirthDate,
   setStoredBirthDate,
+  getStoredAutoSortByRecordedTime,
+  setStoredAutoSortByRecordedTime,
   formatDateWithAge,
   stripAgeFromDate,
   parseDateFromString,
@@ -283,22 +285,29 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     };
   }, []);
 
-  // 1. 타임라인 및 클립 상태
-  // AI 하이라이트 결과가 있을 때만 시퀀스 클립을 채운다.
-  // (하이라이트 전에는 임시 클립을 만들지 않고 원본 영상 미리보기 모드로 동작)
-  const initialSegments = useMemo<HighlightSegment[]>(() => {
-    if (result?.segments && result.segments.length > 0) {
-      return result.segments;
-    }
-    return [];
-  }, [result]);
-
   // 비디오 ID 매핑 (상위 선언)
   const videoMap = useMemo(() => {
     const map = new Map<string, VideoItem>();
     videos.forEach((v) => map.set(v.id, v));
     return map;
   }, [videos]);
+
+  const [autoSortByRecordedDate, setAutoSortByRecordedDate] = useState<boolean>(
+    getStoredAutoSortByRecordedTime
+  );
+
+  // 1. 타임라인 및 클립 상태
+  // AI 하이라이트 결과가 있을 때만 시퀀스 클립을 채운다.
+  // (하이라이트 전에는 임시 클립을 만들지 않고 원본 영상 미리보기 모드로 동작)
+  const initialSegments = useMemo<HighlightSegment[]>(() => {
+    if (result?.segments && result.segments.length > 0) {
+      if (autoSortByRecordedDate) {
+        return sortSegmentsByRecordedTime(result.segments, videoMap);
+      }
+      return result.segments;
+    }
+    return [];
+  }, [result, autoSortByRecordedDate, videoMap]);
 
   const [segments, setSegments] = useState<HighlightSegment[]>(initialSegments);
   const [selectedSegmentId, setSelectedSegmentId] = useState<string>(
@@ -746,6 +755,23 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     setOverlayOptions((prev) => ({ ...prev, showDate: enabled }));
   };
 
+  // 촬영일시 순 기본 정렬 on/off 토글 핸들러
+  const handleToggleAutoSortByRecordedDate = (enabled: boolean) => {
+    setAutoSortByRecordedDate(enabled);
+    setStoredAutoSortByRecordedTime(enabled);
+    if (enabled && segments.length > 1) {
+      const sorted = sortSegmentsByRecordedTime(segments, videoMap);
+      setSegments(sorted);
+      setSortToastMessage(dict.dramaticClips.sortByRecordedDateToast);
+      if (sortToastTimeoutRef.current) {
+        window.clearTimeout(sortToastTimeoutRef.current);
+      }
+      sortToastTimeoutRef.current = window.setTimeout(() => {
+        setSortToastMessage(null);
+      }, 2200);
+    }
+  };
+
   // 생년월일 변경 핸들러
   const handleChangeBirthDate = (newBirthDate: string) => {
     setBirthDate(newBirthDate);
@@ -880,9 +906,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
   useEffect(() => {
     if (result?.segments && result.segments.length > 0) {
-      setSegments(result.segments);
-      if (!selectedSegmentId || !result.segments.some((s) => s.id === selectedSegmentId)) {
-        setSelectedSegmentId(result.segments[0].id);
+      const segsToSet = autoSortByRecordedDate
+        ? sortSegmentsByRecordedTime(result.segments, videoMap)
+        : result.segments;
+      setSegments(segsToSet);
+      if (!selectedSegmentId || !segsToSet.some((s) => s.id === selectedSegmentId)) {
+        setSelectedSegmentId(segsToSet[0].id);
       }
     } else if (!result) {
       if (videos.length === 0) {
@@ -1013,6 +1042,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     result?.bestThumbnailTime,
     result?.suggestedTitle,
     dict.player.defaultTitleText,
+    autoSortByRecordedDate,
+    videoMap,
   ]);
 
   // 타이틀/스타일 변경 시 실시간 썸네일 재렌더링
@@ -5457,6 +5488,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         currentDateFormat={currentDateFormat}
         showDate={showDate}
         onToggleShowDate={handleToggleShowDate}
+        autoSortByRecordedDate={autoSortByRecordedDate}
+        onToggleAutoSortByRecordedDate={handleToggleAutoSortByRecordedDate}
         showAge={showAge}
         onToggleShowAge={handleToggleShowAge}
         birthDate={birthDate}

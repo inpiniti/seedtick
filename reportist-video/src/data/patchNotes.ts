@@ -18,9 +18,27 @@ export interface PatchRelease {
   commits: PatchCommit[];
 }
 
-export const CURRENT_APP_VERSION = '0.9.7';
+export const CURRENT_APP_VERSION = '0.9.8';
 
 export const PATCH_RELEASES: PatchRelease[] = [
+  {
+    "version": "0.9.8",
+    "title": "설정 모달 내 클립 촬영일시 순 기본 정렬 옵션 추가 및 AI 하이라이트 생성 시 자동 정렬 연동",
+    "date": "2026-11-10",
+    "type": "patch",
+    "summary": "스튜디오 설정 모달 내 '촬영일시 순 기본 정렬' 토글 옵션을 추가하여, 개별 버튼을 수동으로 누르지 않아도 영상을 불러오거나 AI 하이라이트 분석 시 자동으로 클립들을 촬영일시(시·분·초) 기준 시간순으로 정렬하도록 사용성을 개선했습니다. 설정 값은 브라우저 로컬 저장소에 영구 보관되며, 설정 창에서 토글을 켜는 즉시 현재 작업 중인 타임라인 클립도 시간순으로 정렬됩니다.",
+    "totalCommits": 1,
+    "commits": [
+      {
+        "hash": "st098",
+        "date": "2026-11-10",
+        "type": "feat",
+        "scope": "video",
+        "message": "설정 모달 내 클립 촬영일시 순 기본 정렬 옵션 추가 및 AI 하이라이트 생성 시 자동 정렬 연동 (v0.9.8)",
+        "rawSubject": "feat(video): 설정 모달 내 클립 촬영일시 순 기본 정렬 옵션 추가 및 AI 하이라이트 생성 시 자동 정렬 연동 (v0.9.8)"
+      }
+    ]
+  },
   {
     "version": "0.9.7",
     "title": "백그라운드 탭·앱 전환 시 브라우저 프로세스 동결 방지(WakeLock·킵얼라이브) 및 화면 복귀 시 중단 지점 자동 재개 지원",
