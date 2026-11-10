@@ -217,9 +217,12 @@ interface ProStudioViewProps {
   initialBgmPresetId?: string;
   initialBgmVolume?: number;
   initialCustomAudioFile?: File | null;
+  initialSelectedLibraryTrackId?: string | null;
   onOverlayOptionsChange?: (options: VideoOverlayOptions) => void;
-  onBgmChange?: (bgmId: string, volume: number) => void;
+  onBgmChange?: (bgmId: string, volume: number, libraryTrackId?: string | null) => void;
   onCustomAudioChange?: (file: File | null) => void;
+  onUpdateFinalResult?: (updated: FinalVideoResult) => void;
+  onViewProjects?: () => void;
   onRelinkVideo?: (id: string, file: File) => void;
   onRelinkBatch?: (files: File[]) => void;
 }
@@ -254,9 +257,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   initialBgmPresetId,
   initialBgmVolume,
   initialCustomAudioFile,
+  initialSelectedLibraryTrackId,
   onOverlayOptionsChange,
   onBgmChange,
   onCustomAudioChange,
+  onUpdateFinalResult,
+  onViewProjects,
   onRelinkVideo,
   onRelinkBatch,
 }) => {
@@ -324,6 +330,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 2. 배경음악(BGM) 상태
   const [selectedBgmId, setSelectedBgmId] = useState<string>('none');
   const [bgmVolume, setBgmVolume] = useState<number>(0.3);
+  const [selectedLibraryTrackId, setSelectedLibraryTrackId] = useState<string | null>(
+    initialSelectedLibraryTrackId || null
+  );
+
+  useEffect(() => {
+    if (initialSelectedLibraryTrackId !== undefined) {
+      setSelectedLibraryTrackId(initialSelectedLibraryTrackId);
+    }
+  }, [initialSelectedLibraryTrackId]);
 
   // 3. 사용자 직접 업로드 음악 상태
   const [customAudioFile, setCustomAudioFile] = useState<File | null>(null);
@@ -357,8 +372,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   }, []);
 
   useEffect(() => {
-    onBgmChange?.(selectedBgmId, bgmVolume);
-  }, [selectedBgmId, bgmVolume, onBgmChange]);
+    onBgmChange?.(selectedBgmId, bgmVolume, selectedLibraryTrackId);
+  }, [selectedBgmId, bgmVolume, selectedLibraryTrackId, onBgmChange]);
 
   useEffect(() => {
     onCustomAudioChange?.(customAudioFile);
@@ -420,7 +435,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
   // 3-1. 오디오 보관함 상태
   const [isAudioLibraryOpen, setIsAudioLibraryOpen] = useState<boolean>(false);
-  const [selectedLibraryTrackId, setSelectedLibraryTrackId] = useState<string | null>(null);
 
   // 4. 인트로 / 아웃트로 비디오 파일 업로드 참조 및 지도 모달 상태
   const introVideoInputRef = useRef<HTMLInputElement>(null);
@@ -582,8 +596,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
     const incomingJson = JSON.stringify({
       ...initialOverlayOptions,
-      introVideoFile: null,
-      outroVideoFile: null,
+      introVideoFile: initialOverlayOptions.introVideoFile
+        ? `${initialOverlayOptions.introVideoFile.name}_${initialOverlayOptions.introVideoFile.size}`
+        : null,
+      outroVideoFile: initialOverlayOptions.outroVideoFile
+        ? `${initialOverlayOptions.outroVideoFile.name}_${initialOverlayOptions.outroVideoFile.size}`
+        : null,
     });
 
     const isDifferentProject = currentProjectId !== lastLoadedProjectIdRef.current;
@@ -600,8 +618,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   useEffect(() => {
     const currentJson = JSON.stringify({
       ...overlayOptions,
-      introVideoFile: null,
-      outroVideoFile: null,
+      introVideoFile: overlayOptions.introVideoFile
+        ? `${overlayOptions.introVideoFile.name}_${overlayOptions.introVideoFile.size}`
+        : null,
+      outroVideoFile: overlayOptions.outroVideoFile
+        ? `${overlayOptions.outroVideoFile.name}_${overlayOptions.outroVideoFile.size}`
+        : null,
     });
 
     if (currentJson !== lastEmittedOverlayJsonRef.current) {
@@ -640,6 +662,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [thumbnailStyle, setThumbnailStyle] = useState<'youtube-bold' | 'banner-box' | 'cinematic-clean'>('youtube-bold');
   const [showThumbnailTitle, setShowThumbnailTitle] = useState<boolean>(true);
   const thumbnailBgCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const lastPreparedThumbKeyRef = useRef<string>('');
   const [isUpdatingThumbnail, setIsUpdatingThumbnail] = useState<boolean>(false);
 
   // 영상이 추가되었을 때 실제 촬영 날짜 및 위치 자동 반영
@@ -875,6 +898,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     setCustomAudioFile(null);
     setCustomAudioName('');
     setCustomAudioDuration(0);
+    setSelectedLibraryTrackId(null);
+    lastPreparedThumbKeyRef.current = '';
     setOverlayOptions({
       showTitle: true,
       titleText: dict.player.defaultTitleText,
@@ -975,6 +1000,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     // 썸네일용 클린 배경 프레임 캔버스 캡처/캐싱 (실시간 타이틀 편집 지원)
     // 주의: 이미 텍스트가 박힌 thumbnailUrl은 절대 배경 캔버스로 사용하지 않음
     const prepareThumbnailBg = async () => {
+      const currentThumbKey = `${result?.bestSourceVideoId}_${result?.bestThumbnailTime}_${result?.bestThumbnailRotation}_${result?.bestThumbnailCropOffsetYRatio}`;
+      if (lastPreparedThumbKeyRef.current === currentThumbKey && thumbnailBgCanvasRef.current) {
+        return;
+      }
+
       try {
         let bg: HTMLCanvasElement | null = null;
         const targetVideo =
@@ -1019,6 +1049,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
         if (bg) {
           thumbnailBgCanvasRef.current = bg;
+          lastPreparedThumbKeyRef.current = currentThumbKey;
           // 클로저의 옛날 titleText 대신 계산된 effectiveTitle을 적용하여 썸네일 불일치 원천 방지
           const titleToRender = effectiveTitle || overlayOptions.titleText;
           const artCanvas = renderThumbnailArtwork(bg, {
@@ -1030,7 +1061,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             showChannel: false,
             stylePreset: thumbnailStyle,
           });
-          setThumbnailUrl(artCanvas.toDataURL('image/jpeg', 0.95));
+          const newThumbUrl = artCanvas.toDataURL('image/jpeg', 0.95);
+          setThumbnailUrl(newThumbUrl);
+          if (result && result.thumbnailUrl !== newThumbUrl) {
+            onUpdateFinalResult?.({
+              ...result,
+              thumbnailUrl: newThumbUrl,
+            });
+          }
         }
       } catch (err) {
         console.warn('Failed to prepare thumbnail background canvas:', err);
@@ -1063,7 +1101,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           showChannel: false,
           stylePreset: thumbnailStyle,
         });
-        setThumbnailUrl(artCanvas.toDataURL('image/jpeg', 0.95));
+        const newThumb = artCanvas.toDataURL('image/jpeg', 0.95);
+        setThumbnailUrl(newThumb);
+        if (result && result.thumbnailUrl !== newThumb) {
+          onUpdateFinalResult?.({
+            ...result,
+            thumbnailUrl: newThumb,
+          });
+        }
       } catch (e) {
         console.warn('Live thumbnail render failed:', e);
       }
@@ -3111,7 +3156,25 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           showChannel: false,
           stylePreset: thumbnailStyle,
         });
-        setThumbnailUrl(artCanvas.toDataURL('image/jpeg', 0.95));
+        const newThumbUrl = artCanvas.toDataURL('image/jpeg', 0.95);
+        const newCleanUrl = bg.toDataURL('image/jpeg', 0.95);
+        setThumbnailUrl(newThumbUrl);
+
+        lastPreparedThumbKeyRef.current = `${cand.videoId}_${cand.timestamp}_${cand.rotation ?? 0}_${cand.cropOffsetYRatio ?? 0.2}`;
+
+        if (result) {
+          onUpdateFinalResult?.({
+            ...result,
+            thumbnailUrl: newThumbUrl,
+            cleanThumbnailUrl: newCleanUrl,
+            bestSourceVideoId: cand.videoId,
+            bestThumbnailTime: cand.timestamp,
+            bestThumbnailReason: cand.reason,
+            bestThumbnailCropOffsetYRatio: cand.cropOffsetYRatio,
+            bestThumbnailRotation: cand.rotation,
+            bestThumbnailCleanDataUrl: cand.cleanDataUrl || newCleanUrl,
+          });
+        }
       }
     } catch (err) {
       console.warn('Failed to select thumbnail candidate:', err);
@@ -3148,7 +3211,25 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         stylePreset: thumbnailStyle,
       });
 
-      setThumbnailUrl(artCanvas.toDataURL('image/jpeg', 0.95));
+      const newThumbUrl = artCanvas.toDataURL('image/jpeg', 0.95);
+      const newCleanUrl = bg.toDataURL('image/jpeg', 0.95);
+      setThumbnailUrl(newThumbUrl);
+
+      lastPreparedThumbKeyRef.current = `${targetVideo.id}_${targetTime}_${seg.rotation ?? 0}_${seg.cropOffsetYRatio ?? 0.2}`;
+
+      if (result) {
+        onUpdateFinalResult?.({
+          ...result,
+          thumbnailUrl: newThumbUrl,
+          cleanThumbnailUrl: newCleanUrl,
+          bestSourceVideoId: targetVideo.id,
+          bestThumbnailTime: targetTime,
+          bestThumbnailReason: seg.reason,
+          bestThumbnailCropOffsetYRatio: seg.cropOffsetYRatio ?? 0.2,
+          bestThumbnailRotation: seg.rotation ?? 0,
+          bestThumbnailCleanDataUrl: newCleanUrl,
+        });
+      }
     } catch (err) {
       console.warn('Segment thumbnail capture failed:', err);
     } finally {
@@ -3190,7 +3271,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <button
               type="button"
               className={`toss-nav-tab-btn ${activeTab === 'projects' ? 'active' : ''}`}
-              onClick={() => setActiveTab('projects')}
+              onClick={() => {
+                onViewProjects?.();
+                setActiveTab('projects');
+              }}
               title={dict.projects?.tabTitle || '보관함'}
             >
               <FolderOpen size={14} />
@@ -4609,23 +4693,28 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       {dict.thumbnail?.selectAiFrame || 'AI 추천 프레임 선택'}
                     </span>
                     <div className="toss-thumbnail-frame-list">
-                      {result.aiThumbnailRecommendations.map((cand, idx) => (
-                        <button
-                          key={`${cand.videoId}-${cand.timestamp}-${idx}`}
-                          type="button"
-                          onClick={() => handleSelectThumbnailCandidate(cand)}
-                          disabled={isUpdatingThumbnail}
-                          className="toss-thumbnail-frame-btn"
-                          title={cand.reason || cand.videoName}
-                        >
-                          <Sparkles size={11} className="toss-thumbnail-frame-icon" />
-                          <span className="toss-thumbnail-frame-index">#{idx + 1}</span>
-                          <span className="toss-thumbnail-frame-name">{cand.videoName}</span>
-                          <span className="toss-thumbnail-frame-time">
-                            {cand.timestamp.toFixed(1)}s
-                          </span>
-                        </button>
-                      ))}
+                      {result.aiThumbnailRecommendations.map((cand, idx) => {
+                        const isCandSelected =
+                          result?.bestSourceVideoId === cand.videoId &&
+                          Math.abs((result?.bestThumbnailTime ?? -999) - cand.timestamp) < 0.1;
+                        return (
+                          <button
+                            key={`${cand.videoId}-${cand.timestamp}-${idx}`}
+                            type="button"
+                            onClick={() => handleSelectThumbnailCandidate(cand)}
+                            disabled={isUpdatingThumbnail}
+                            className={`toss-thumbnail-frame-btn ${isCandSelected ? 'active' : ''}`}
+                            title={cand.reason || cand.videoName}
+                          >
+                            <Sparkles size={11} className="toss-thumbnail-frame-icon" />
+                            <span className="toss-thumbnail-frame-index">#{idx + 1}</span>
+                            <span className="toss-thumbnail-frame-name">{cand.videoName}</span>
+                            <span className="toss-thumbnail-frame-time">
+                              {cand.timestamp.toFixed(1)}s
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -5828,7 +5917,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 <button
                   type="button"
                   className="toss-bottom-status-link"
-                  onClick={() => setActiveTab('projects')}
+                  onClick={() => {
+                    onViewProjects?.();
+                    setActiveTab('projects');
+                  }}
                   title={dict.projects?.goToProjects || '내 작업 보관함으로 이동'}
                 >
                   <FolderOpen size={12} className="inline mr-1 text-slate-500" />

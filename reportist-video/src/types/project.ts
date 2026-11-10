@@ -62,8 +62,13 @@ export interface StudioProject {
   overlayOptions?: VideoOverlayOptions;
   bgmPresetId?: string;
   bgmVolume?: number;
+  selectedLibraryTrackId?: string | null;
   customAudioBlob?: Blob | null;
   customAudioName?: string;
+  introVideoBlob?: Blob | null;
+  introVideoName?: string;
+  outroVideoBlob?: Blob | null;
+  outroVideoName?: string;
   currentDateFormat?: string;
   showDate?: boolean;
   showAge?: boolean;

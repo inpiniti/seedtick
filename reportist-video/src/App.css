@@ -6999,6 +6999,14 @@
   color: #1d4ed8;
 }
 
+.toss-thumbnail-frame-btn.active {
+  border-color: #3182f6;
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 700;
+  box-shadow: 0 0 0 2px rgba(49, 130, 246, 0.2);
+}
+
 .toss-thumbnail-frame-btn:focus-visible {
   outline: none;
   border-color: #3182f6;

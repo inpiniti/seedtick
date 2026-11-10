@@ -71,6 +71,45 @@ export function setLastActiveProjectId(id: string | null): void {
   } catch {}
 }
 
+export const SELECTED_MODEL_KEY = 'reportist_video_selected_model';
+export const SELECTED_EFFORT_KEY = 'reportist_video_selected_effort';
+
+export function getStoredSelectedModel(): string | null {
+  try {
+    return localStorage.getItem(SELECTED_MODEL_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredSelectedModel(modelId: string | null): void {
+  try {
+    if (modelId) {
+      localStorage.setItem(SELECTED_MODEL_KEY, modelId);
+    } else {
+      localStorage.removeItem(SELECTED_MODEL_KEY);
+    }
+  } catch {}
+}
+
+export function getStoredSelectedEffort(): string | null {
+  try {
+    return localStorage.getItem(SELECTED_EFFORT_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredSelectedEffort(effort: string | null): void {
+  try {
+    if (effort) {
+      localStorage.setItem(SELECTED_EFFORT_KEY, effort);
+    } else {
+      localStorage.removeItem(SELECTED_EFFORT_KEY);
+    }
+  } catch {}
+}
+
 /**
  * 프로젝트 저장 데이터 정제 (직렬화 불가능한 필드 제거)
  * @param stripRawVideos 원본 다중 비디오 파일(수백MB~수GB) 제외 여부 (모바일 OOM 방지)
@@ -125,6 +164,22 @@ function sanitizeProjectForStorage(
       }
     : null;
 
+  // 오디오 및 인트로/아웃트로 클립은 수십MB 이하의 가벼운 에셋이므로 stripRawVideos(수GB 원본 비디오 스트립)와 무관하게 안전 보존
+  const safeAudioBlob =
+    project.customAudioBlob && project.customAudioBlob.size < 50 * 1024 * 1024
+      ? project.customAudioBlob
+      : undefined;
+
+  const safeIntroBlob =
+    project.introVideoBlob && project.introVideoBlob.size < 100 * 1024 * 1024
+      ? project.introVideoBlob
+      : undefined;
+
+  const safeOutroBlob =
+    project.outroVideoBlob && project.outroVideoBlob.size < 100 * 1024 * 1024
+      ? project.outroVideoBlob
+      : undefined;
+
   return {
     ...project,
     updatedAt: Date.now(),
@@ -132,7 +187,13 @@ function sanitizeProjectForStorage(
     videos: sanitizedVideos,
     finalResult: sanitizedFinalResult,
     overlayOptions: sanitizedOverlay,
-    customAudioBlob: stripRawVideos ? undefined : project.customAudioBlob,
+    selectedLibraryTrackId: project.selectedLibraryTrackId,
+    customAudioBlob: safeAudioBlob,
+    customAudioName: safeAudioBlob ? project.customAudioName : undefined,
+    introVideoBlob: safeIntroBlob,
+    introVideoName: safeIntroBlob ? project.introVideoName : undefined,
+    outroVideoBlob: safeOutroBlob,
+    outroVideoName: safeOutroBlob ? project.outroVideoName : undefined,
   };
 }
 

@@ -37,12 +37,17 @@ import {
   generateProjectId,
   getLastActiveProjectId,
   setLastActiveProjectId,
+  getStoredSelectedModel,
+  setStoredSelectedModel,
+  getStoredSelectedEffort,
+  setStoredSelectedEffort,
   saveProject,
   getProject,
   getAllProjectSummaries,
   deleteProject,
   duplicateProject,
 } from './services/projectStorage.ts';
+import { AUDIO_LIBRARY, loadLibraryAudioFile } from './data/audioLibrary.ts';
 import { saveVideoToOPFS } from './services/opfsStorage.ts';
 import { AlertCircle } from 'lucide-react';
 import { useI18n } from './i18n/index.tsx';
@@ -53,13 +58,25 @@ const INITIAL_DEFAULT_MODEL = pickDefaultModel(INITIAL_VIDEO_MODELS);
 export function App() {
   const { dict, locale, interpolate } = useI18n();
 
-  // 1. 모델 상태
+  // 1. 모델 상태 (재시작 시에도 유지되도록 localStorage 연동)
   const [models, setModels] = useState<FreeModelMeta[]>(INITIAL_VIDEO_MODELS);
-  const [selectedModel, setSelectedModel] = useState<string>(
-    INITIAL_DEFAULT_MODEL?.id ?? ''
-  );
-  const [selectedEffort, setSelectedEffort] = useState<ReasoningEffortOption>('high');
+  const [selectedModel, setSelectedModelState] = useState<string>(() => {
+    return getStoredSelectedModel() || (INITIAL_DEFAULT_MODEL?.id ?? '');
+  });
+  const [selectedEffort, setSelectedEffortState] = useState<ReasoningEffortOption>(() => {
+    return (getStoredSelectedEffort() as ReasoningEffortOption) || 'high';
+  });
   const [isLoadingModels, setIsLoadingModels] = useState<boolean>(true);
+
+  const setSelectedModel = useCallback((modelId: string) => {
+    setSelectedModelState(modelId);
+    setStoredSelectedModel(modelId);
+  }, []);
+
+  const setSelectedEffort = useCallback((effort: ReasoningEffortOption) => {
+    setSelectedEffortState(effort);
+    setStoredSelectedEffort(effort);
+  }, []);
 
   // 2. 비디오 목록 및 처리 상태
   const [videos, setVideos] = useState<VideoItem[]>([]);
@@ -91,6 +108,7 @@ export function App() {
   const [currentBgmPresetId, setCurrentBgmPresetId] = useState<string>('none');
   const [currentBgmVolume, setCurrentBgmVolume] = useState<number>(0.3);
   const [currentCustomAudio, setCurrentCustomAudio] = useState<File | null>(null);
+  const [currentLibraryTrackId, setCurrentLibraryTrackId] = useState<string | null>(null);
 
   // 편집 오버레이 옵션 변경 핸들러 (실제 값이 같으면 참조 유지하여 무한 리렌더링 및 저장 루프 방지)
   const handleOverlayOptionsChange = useCallback((newOpts: VideoOverlayOptions) => {
@@ -108,7 +126,9 @@ export function App() {
         prev.showIntro === newOpts.showIntro &&
         prev.showOutro === newOpts.showOutro &&
         prev.showChapterBridge === newOpts.showChapterBridge &&
-        prev.bgmFitToVideo === newOpts.bgmFitToVideo
+        prev.bgmFitToVideo === newOpts.bgmFitToVideo &&
+        prev.introVideoFile === newOpts.introVideoFile &&
+        prev.outroVideoFile === newOpts.outroVideoFile
       ) {
         return prev;
       }
@@ -237,13 +257,40 @@ export function App() {
         };
       }
 
-      // 커스텀 오디오 복원
+      // 커스텀 오디오 복원 (사용자 업로드 파일 또는 내장 오디오 보관함 음원)
       let restoredAudioFile: File | null = null;
-      if (project.customAudioBlob) {
+      if (project.customAudioBlob && project.customAudioBlob.size > 0) {
         restoredAudioFile = new File(
           [project.customAudioBlob],
           project.customAudioName || 'audio.mp3',
           { type: project.customAudioBlob.type || 'audio/mpeg' }
+        );
+      } else if (project.selectedLibraryTrackId) {
+        const track = AUDIO_LIBRARY.find((t) => t.id === project.selectedLibraryTrackId);
+        if (track) {
+          try {
+            restoredAudioFile = await loadLibraryAudioFile(track);
+          } catch (e) {
+            console.warn('Failed to restore library audio track:', e);
+          }
+        }
+      }
+
+      // 인트로 및 아웃트로 사용자 영상 파일 복원
+      let restoredIntroFile: File | null = null;
+      if (project.introVideoBlob && project.introVideoBlob.size > 0) {
+        restoredIntroFile = new File(
+          [project.introVideoBlob],
+          project.introVideoName || 'intro.mp4',
+          { type: project.introVideoBlob.type || 'video/mp4' }
+        );
+      }
+      let restoredOutroFile: File | null = null;
+      if (project.outroVideoBlob && project.outroVideoBlob.size > 0) {
+        restoredOutroFile = new File(
+          [project.outroVideoBlob],
+          project.outroVideoName || 'outro.mp4',
+          { type: project.outroVideoBlob.type || 'video/mp4' }
         );
       }
 
@@ -254,7 +301,11 @@ export function App() {
       setLastActiveProjectId(project.id);
 
       if (project.overlayOptions) {
-        setCurrentOverlayOptions(project.overlayOptions);
+        setCurrentOverlayOptions({
+          ...project.overlayOptions,
+          introVideoFile: restoredIntroFile,
+          outroVideoFile: restoredOutroFile,
+        });
       }
       if (project.bgmPresetId) {
         setCurrentBgmPresetId(project.bgmPresetId);
@@ -263,6 +314,7 @@ export function App() {
         setCurrentBgmVolume(project.bgmVolume);
       }
       setCurrentCustomAudio(restoredAudioFile);
+      setCurrentLibraryTrackId(project.selectedLibraryTrackId || null);
 
       if (project.selectedModel) {
         const isExcluded =
@@ -316,6 +368,7 @@ export function App() {
     setCurrentBgmPresetId('none');
     setCurrentBgmVolume(0.3);
     setCurrentCustomAudio(null);
+    setCurrentLibraryTrackId(null);
 
     if (urlsToRevoke.length > 0) {
       setTimeout(() => {
@@ -459,8 +512,13 @@ export function App() {
         overlayOptions: currentOverlayOptions || undefined,
         bgmPresetId: currentBgmPresetId,
         bgmVolume: currentBgmVolume,
+        selectedLibraryTrackId: currentLibraryTrackId,
         customAudioBlob: currentCustomAudio,
         customAudioName: currentCustomAudio?.name,
+        introVideoBlob: currentOverlayOptions?.introVideoFile || undefined,
+        introVideoName: currentOverlayOptions?.introVideoFile?.name,
+        outroVideoBlob: currentOverlayOptions?.outroVideoFile || undefined,
+        outroVideoName: currentOverlayOptions?.outroVideoFile?.name,
         selectedModel,
         selectedEffort,
         exportResolution: finalResult?.resolution,
@@ -524,7 +582,10 @@ export function App() {
     currentBgmPresetId,
     currentBgmVolume,
     currentCustomAudio,
+    currentLibraryTrackId,
     currentStep,
+    selectedModel,
+    selectedEffort,
   ]);
 
   // 최초 마운트 시 저장소 초기화 및 마지막 활성 프로젝트 복원
@@ -545,7 +606,7 @@ export function App() {
     };
   }, []);
 
-  // 초기 모델 목록 로드
+  // 초기 모델 목록 로드 (사용자가 이전에 선택한 모델 설정 기억 및 복원)
   useEffect(() => {
     let isMounted = true;
     async function loadModels() {
@@ -555,11 +616,25 @@ export function App() {
         if (isMounted && fetched.length > 0) {
           const enriched = enrichModelMetrics(fetched);
           setModels(enriched);
-          const defaultModel = pickDefaultModel(enriched);
-          if (defaultModel) {
-            setSelectedModel(defaultModel.id);
-            if (defaultModel.defaultEffort) {
-              setSelectedEffort(defaultModel.defaultEffort as ReasoningEffortOption);
+
+          // 사용자가 이전에 저장/선택한 모델이 존재하는지 확인하고 유지
+          const targetModelId = getStoredSelectedModel() || selectedModel;
+          const foundStoredModel = enriched.find((m) => m.id === targetModelId);
+
+          if (foundStoredModel) {
+            setSelectedModelState(foundStoredModel.id);
+            if (!getStoredSelectedEffort() && foundStoredModel.defaultEffort) {
+              setSelectedEffortState(foundStoredModel.defaultEffort as ReasoningEffortOption);
+            }
+          } else {
+            const defaultModel = pickDefaultModel(enriched);
+            if (defaultModel) {
+              setSelectedModelState(defaultModel.id);
+              setStoredSelectedModel(defaultModel.id);
+              if (defaultModel.defaultEffort && !getStoredSelectedEffort()) {
+                setSelectedEffortState(defaultModel.defaultEffort as ReasoningEffortOption);
+                setStoredSelectedEffort(defaultModel.defaultEffort as ReasoningEffortOption);
+              }
             }
           }
         }
@@ -1663,6 +1738,26 @@ export function App() {
     handleStartNewProject();
   };
 
+  const handleViewProjects = useCallback(async () => {
+    if (autoSaveTimerRef.current !== null) {
+      window.clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+      await performSave();
+    } else {
+      await refreshProjectSummaries();
+    }
+  }, [
+    videos,
+    finalResult,
+    currentOverlayOptions,
+    currentBgmPresetId,
+    currentBgmVolume,
+    currentCustomAudio,
+    currentLibraryTrackId,
+    selectedModel,
+    selectedEffort,
+  ]);
+
   return (
     <div className="toss-app-root">
       {errorMessage && (
@@ -1698,6 +1793,7 @@ export function App() {
 
       <ProStudioView
         result={finalResult}
+        onUpdateFinalResult={setFinalResult}
         videos={videos}
         models={models}
         selectedModel={selectedModel}
@@ -1723,14 +1819,19 @@ export function App() {
         onDuplicateProject={handleDuplicateProject}
         onDeleteProject={handleDeleteProject}
         onStartNewProject={handleStartNewProject}
+        onViewProjects={handleViewProjects}
         initialOverlayOptions={currentOverlayOptions}
         initialBgmPresetId={currentBgmPresetId}
         initialBgmVolume={currentBgmVolume}
         initialCustomAudioFile={currentCustomAudio}
+        initialSelectedLibraryTrackId={currentLibraryTrackId}
         onOverlayOptionsChange={handleOverlayOptionsChange}
-        onBgmChange={(bgmId: string, vol: number) => {
+        onBgmChange={(bgmId: string, vol: number, libTrackId?: string | null) => {
           setCurrentBgmPresetId(bgmId);
           setCurrentBgmVolume(vol);
+          if (libTrackId !== undefined) {
+            setCurrentLibraryTrackId(libTrackId);
+          }
         }}
         onCustomAudioChange={setCurrentCustomAudio}
         onRelinkVideo={handleRelinkSingleVideo}
