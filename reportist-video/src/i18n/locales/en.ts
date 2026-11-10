@@ -441,6 +441,8 @@ export const en: Dictionary = {
     responseGeneration: 'Model Response Generation (Live)',
     charsCount: '{count} chars',
     cancelButton: 'Cancel',
+    backgroundGuardBadge: '🔒 Screen Wake Lock & Background Auto-Resume Active',
+    backgroundGuardNotice: 'You can switch tabs or apps safely without losing progress.',
   },
   mapModal: {
     title: 'Filming Location Map',

@@ -215,6 +215,8 @@ export interface VideoAnalysisStreamCallbacks {
   onContentDelta?: (chunk: string, fullText: string) => void;
   /** 스트리밍이 실패해 일반(비스트리밍) 요청으로 폴백할 때 호출 */
   onFallback?: (reason: string) => void;
+  /** 스트림/요청 활성 데이터 수신 시 호출 (백그라운드 복귀 및 와치독 검사용) */
+  onActivity?: () => void;
 }
 
 export interface AnalyzeVideoParams extends VideoAnalysisStreamCallbacks {
@@ -304,27 +306,55 @@ async function requestAnalysisStream(
   signal: AbortSignal | undefined,
   callbacks: VideoAnalysisStreamCallbacks
 ): Promise<{ content: string; reasoning: string }> {
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'text/event-stream',
-      Authorization: `Bearer ${config.gatewaySecret}`,
-    },
-    body: JSON.stringify({ ...requestBody, stream: true }),
-    signal,
-  });
+  // 백그라운드 탭 전환 시 소켓이 끊기거나 응답이 영구 정체(Stall)되는 것을 방지하기 위한 워치독 타임아웃
+  const CHUNK_INACTIVITY_TIMEOUT_MS = 25000; // 청크 미수신 최대 허용 시간 (25초)
+  const TOTAL_STREAM_TIMEOUT_MS = 85000; // 단일 스트림 전체 최대 허용 시간 (85초)
+
+  // 스트림 전체 타임아웃 컨트롤러
+  const streamAbortController = new AbortController();
+  const onParentAbort = () => streamAbortController.abort();
+  if (signal) {
+    if (signal.aborted) streamAbortController.abort();
+    else signal.addEventListener('abort', onParentAbort, { once: true });
+  }
+
+  const totalTimer = setTimeout(() => {
+    streamAbortController.abort(new Error('AI Gateway 스트림 응답 전체 시간 초과(85초)'));
+  }, TOTAL_STREAM_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+        Authorization: `Bearer ${config.gatewaySecret}`,
+      },
+      body: JSON.stringify({ ...requestBody, stream: true }),
+      signal: streamAbortController.signal,
+    });
+  } catch (fetchErr) {
+    clearTimeout(totalTimer);
+    if (signal) signal.removeEventListener('abort', onParentAbort);
+    throw fetchErr;
+  }
 
   if (!response.ok) {
+    clearTimeout(totalTimer);
+    if (signal) signal.removeEventListener('abort', onParentAbort);
     const errorText = await response.text();
     throw new Error(`AI Gateway 스트림 실패 (${response.status}): ${errorText.slice(0, 200)}`);
   }
 
   if (!response.body) {
+    clearTimeout(totalTimer);
+    if (signal) signal.removeEventListener('abort', onParentAbort);
     throw new Error('AI Gateway가 응답 스트림을 반환하지 않았어요.');
   }
 
   callbacks.onStreamOpen?.();
+  callbacks.onActivity?.();
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
@@ -368,20 +398,42 @@ async function requestAnalysisStream(
     if (reasoningChunk) {
       reasoning += reasoningChunk;
       callbacks.onReasoningDelta?.(reasoningChunk, reasoning);
+      callbacks.onActivity?.();
     }
 
     const contentChunk = extractContentChunk(delta);
     if (contentChunk) {
       content += contentChunk;
       callbacks.onContentDelta?.(contentChunk, content);
+      callbacks.onActivity?.();
     }
   };
 
   try {
     while (!finished) {
-      const { done, value } = await reader.read();
+      if (signal?.aborted) {
+        throw new Error('사용자에 의해 작업이 취소되었습니다.');
+      }
+
+      // 청크 비활성 감지(Inactivity Watchdog): 백그라운드 전환 등으로 연결이 끊기면 25초 내 감지
+      let chunkTimer: ReturnType<typeof setTimeout> | null = null;
+      const inactivityPromise = new Promise<never>((_, reject) => {
+        chunkTimer = setTimeout(() => {
+          reject(new Error('AI Gateway 응답 패킷이 25초 이상 수신되지 않아 자동 복구(재시도)로 전환합니다.'));
+        }, CHUNK_INACTIVITY_TIMEOUT_MS);
+      });
+
+      let readResult: ReadableStreamReadResult<Uint8Array>;
+      try {
+        readResult = await Promise.race([reader.read(), inactivityPromise]);
+      } finally {
+        if (chunkTimer) clearTimeout(chunkTimer);
+      }
+
+      const { done, value } = readResult;
       if (done) break;
 
+      callbacks.onActivity?.();
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
       buffer = lines.pop() ?? '';
@@ -408,6 +460,8 @@ async function requestAnalysisStream(
     }
     throw err;
   } finally {
+    clearTimeout(totalTimer);
+    if (signal) signal.removeEventListener('abort', onParentAbort);
     try {
       reader.releaseLock();
     } catch {
@@ -425,23 +479,40 @@ async function requestAnalysisNonStreaming(
   requestBody: Record<string, unknown>,
   signal: AbortSignal | undefined
 ): Promise<string> {
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${config.gatewaySecret}`,
-    },
-    body: JSON.stringify({ ...requestBody, stream: false }),
-    signal,
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`AI Gateway 분석 실패 (${response.status}): ${errorText.slice(0, 200)}`);
+  const NON_STREAM_TIMEOUT_MS = 45000;
+  const timeoutController = new AbortController();
+  const onParentAbort = () => timeoutController.abort();
+  if (signal) {
+    if (signal.aborted) timeoutController.abort();
+    else signal.addEventListener('abort', onParentAbort, { once: true });
   }
 
-  const result = await response.json();
-  return result.choices?.[0]?.message?.content || '';
+  const timer = setTimeout(() => {
+    timeoutController.abort(new Error('AI Gateway 비스트리밍 요청 시간 초과(45초)'));
+  }, NON_STREAM_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${config.gatewaySecret}`,
+      },
+      body: JSON.stringify({ ...requestBody, stream: false }),
+      signal: timeoutController.signal,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`AI Gateway 분석 실패 (${response.status}): ${errorText.slice(0, 200)}`);
+    }
+
+    const result = await response.json();
+    return result.choices?.[0]?.message?.content || '';
+  } finally {
+    clearTimeout(timer);
+    if (signal) signal.removeEventListener('abort', onParentAbort);
+  }
 }
 
 // 추출된 프레임 시퀀스를 AI Gateway로 전송하여 극적인 구간 추출
@@ -463,6 +534,7 @@ export async function analyzeVideoHighlights({
   onReasoningDelta,
   onContentDelta,
   onFallback,
+  onActivity,
 }: AnalyzeVideoParams): Promise<HighlightSegment[]> {
   const roundedDuration = Math.round(videoDuration * 10) / 10;
   // 하이라이트 목표 예산: 영상 전체 길이의 20%~35% (최소 2초, 최대 10초)
@@ -565,6 +637,7 @@ Format:
     onReasoningDelta,
     onContentDelta,
     onFallback,
+    onActivity,
   };
 
   // 모델 후보군 구성: 요청 모델 우선 -> FALLBACK_VIDEO_MODELS의 비전 모델 순 (최대 3개 모델 시도)
@@ -584,7 +657,7 @@ Format:
     if (isRetry) {
       const nextModelName = currentModel.replace(':free', '');
       onFallback?.(
-        `AI 게이트웨이 일시 과부하(503) 감지로 대체 모델(${nextModelName})로 자동 전환합니다.`
+        `AI 게이트웨이 일시 과부하/지연 감지로 대체 모델(${nextModelName})로 자동 전환합니다.`
       );
       // 짧은 지수 백오프
       await new Promise((r) => setTimeout(r, 600));
@@ -599,7 +672,7 @@ Format:
           content: messageContent,
         },
       ],
-      temperature: 0.2, // 결정론적이고 정확한 타임스탬프 추출
+      temperature: 0.2,
     };
 
     if (reasoningEffort && reasoningEffort !== 'none') {
@@ -629,17 +702,23 @@ Format:
       const errMsg = err instanceof Error ? err.message : String(err);
       lastError = err instanceof Error ? err : new Error(errMsg);
 
-      // 503, 502, 504, 429 등 서버 과부하/불가 판별
+      // 503, 502, 504, 429, 네트워크 단절, 스트림 정체(Stall), 타임아웃 판별
       if (
         errMsg.includes('503') ||
         errMsg.includes('502') ||
         errMsg.includes('504') ||
         errMsg.includes('429') ||
         errMsg.includes('overloaded') ||
-        errMsg.includes('rate limit')
+        errMsg.includes('rate limit') ||
+        errMsg.includes('Failed to fetch') ||
+        errMsg.includes('NetworkError') ||
+        errMsg.includes('지연') ||
+        errMsg.includes('시간 초과') ||
+        errMsg.includes('Stall') ||
+        errMsg.includes('timeout')
       ) {
         isServerUnavailable = true;
-        console.warn(`[GatewayClient] 모델 ${currentModel} 서버 과부하(503) 감지 -> 다음 대체 모델로 전환 시도`);
+        console.warn(`[GatewayClient] 모델 ${currentModel} 서버 과부하/네트워크 지연 감지 -> 다음 대체 모델로 전환 시도`);
         continue;
       }
 

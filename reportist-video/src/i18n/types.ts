@@ -452,6 +452,8 @@ export interface Dictionary {
     responseGeneration: string;
     charsCount: string;
     cancelButton: string;
+    backgroundGuardBadge?: string;
+    backgroundGuardNotice?: string;
   };
   mapModal: {
     title: string;

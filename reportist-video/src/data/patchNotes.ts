@@ -18,9 +18,27 @@ export interface PatchRelease {
   commits: PatchCommit[];
 }
 
-export const CURRENT_APP_VERSION = '0.9.6';
+export const CURRENT_APP_VERSION = '0.9.7';
 
 export const PATCH_RELEASES: PatchRelease[] = [
+  {
+    "version": "0.9.7",
+    "title": "백그라운드 탭·앱 전환 시 브라우저 프로세스 동결 방지(WakeLock·킵얼라이브) 및 화면 복귀 시 중단 지점 자동 재개 지원",
+    "date": "2026-11-10",
+    "type": "patch",
+    "summary": "AI 하이라이트 분석 및 영상 생성 도중 사용자가 크롬 다른 탭으로 이동하거나 모바일에서 다른 앱을 켤 때 브라우저 프로세스가 동결(Freezing)되거나 TCP 소켓이 조용히 끊어져 작업이 멈추는 문제를 전면 해결했습니다. Screen Wake Lock API와 무음 오디오 킵얼라이브 및 Web Worker 정밀 하트비트를 도입하여 백그라운드에서도 네트워크 연결을 안정적으로 유지하며, AI Gateway 응답에 25초 무응답 워치독(Inactivity Timeout)을 탑재했습니다. 특히 다른 앱을 다녀와 화면으로 복귀했을 때 정체된 연결을 감지해 멈춘 위치부터 즉시 작업을 자동으로 재개(Auto-Resume)하며, 영상별 분석 완료 시마다 중간 체크포인트를 저장하여 완료된 결과는 영구 보존됩니다.",
+    "totalCommits": 1,
+    "commits": [
+      {
+        "hash": "bg097",
+        "date": "2026-11-10",
+        "type": "fix",
+        "scope": "video",
+        "message": "백그라운드 탭·앱 전환 시 브라우저 프로세스 동결 방지(WakeLock·킵얼라이브) 및 화면 복귀 시 중단 지점 자동 재개 지원 (v0.9.7)",
+        "rawSubject": "fix(video): 백그라운드 탭·앱 전환 시 브라우저 프로세스 동결 방지(WakeLock·킵얼라이브) 및 화면 복귀 시 중단 지점 자동 재개 지원 (v0.9.7)"
+      }
+    ]
+  },
   {
     "version": "0.9.6",
     "title": "모바일 Safari 완성본 비디오(Blob) IndexedDB 영구 보존 및 브라우저 재실행 시 0초 즉시 재생·다운로드 모드 지원",

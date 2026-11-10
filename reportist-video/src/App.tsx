@@ -17,6 +17,7 @@ import {
   extractGpsFromVideoFile,
 } from './services/videoMetadata.ts';
 import { primeAudioContext, stitchHighlightedSegments } from './services/videoStitcher.ts';
+import { backgroundGuard } from './services/backgroundKeepAlive.ts';
 import { computeBridgeDurationMap } from './services/hyperframesBridgeRenderer.ts';
 import { captureVideoFrameAtTime, createCanvasFromImageDataUrl, renderThumbnailArtwork } from './services/thumbnailGenerator.ts';
 import type { FreeModelMeta, ReasoningEffortOption } from './types/gateway.ts';
@@ -869,6 +870,9 @@ export function App() {
     // 병합 단계(AudioContext 사용) 전에 미리 준비해 둔다.
     primeAudioContext();
 
+    // 화면 꺼짐 방지(Screen Wake Lock) 및 백그라운드 프로세스 동결 방지 가드 가동
+    void backgroundGuard.start();
+
     setCurrentStep('processing');
     setErrorMessage(null);
     abortControllerRef.current = new AbortController();
@@ -878,7 +882,7 @@ export function App() {
     const updatedVideos = [...readyVideos];
     const logs: string[] = [];
 
-    // 진행율 완전 초기화 (이전 실행 결과로 인한 99%/100% 잔여값 방지)
+    // 진행률 완전 초기화 (이전 실행 결과로 인한 99%/100% 잔여값 방지)
     setProgress({
       step: 'processing',
       currentPhase: 'extract',
@@ -900,6 +904,35 @@ export function App() {
         reasoningLogs: [...logs],
       }));
     };
+
+    // 백그라운드 탭 복귀 및 무응답 감지용 활성 타임스탬프
+    let lastActivityTimestamp = Date.now();
+    let currentVideoAbortController: AbortController | null = null;
+    let isStallRecovering = false;
+
+    // 화면 복귀(크롬 탭 복귀, 모바일 앱 복귀) 시 정체 감지 및 자동 재개 리스너
+    const handleVisibilityOrFocus = () => {
+      if (typeof document === 'undefined') return;
+      if (document.visibilityState === 'visible' && !signal.aborted) {
+        const idleDuration = Date.now() - lastActivityTimestamp;
+        // 마지막 활동으로부터 10초 이상 지났는데 아직 분석 중인 경우 백그라운드 소켓 단절로 판단하여 즉각 재시도
+        if (idleDuration > 10000 && currentVideoAbortController && !isStallRecovering) {
+          isStallRecovering = true;
+          addLog('🔄 화면 복귀 감지: 백그라운드 동안 정체된 AI 연결을 감지하여 자동으로 즉시 재개합니다.');
+          try {
+            currentVideoAbortController.abort(new Error('화면 복귀로 인한 연결 재개'));
+          } catch {
+            // ignore
+          }
+        }
+      }
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.addEventListener('focus', handleVisibilityOrFocus);
+      window.addEventListener('pageshow', handleVisibilityOrFocus);
+    }
 
     let liveReasoning = '';
     let liveContent = '';
@@ -1113,49 +1146,107 @@ export function App() {
 
         // 100ms마다 실행되는 무정지(Zero-Freeze) 진행률 엔진
         const analyzeSmoothTimer = window.setInterval(() => updateAnalyzeProgress(0), 100);
+        // Worker 하트비트: 백그라운드 탭에서도 1초마다 진행률 갱신 유지
+        const unbindHeartbeat = backgroundGuard.onTick(() => updateAnalyzeProgress(0));
 
         let segments: any[] = [];
+        let videoSuccess = false;
+        const maxVideoAttempts = 2; // 개별 비디오당 최대 2회 시도
+
         try {
-          segments = await analyzeVideoHighlights({
-            frames,
-            videoDuration: currentVideo.duration,
-            videoId: currentVideo.id,
-            videoName: currentVideo.name,
-            model: selectedModel,
-            reasoningEffort: selectedEffort,
-            config: DEFAULT_CONFIG,
-            signal,
-            metadataDate: currentVideo.metadataDate,
-            latitude: currentVideo.latitude,
-            longitude: currentVideo.longitude,
-            locationName: currentVideo.locationName,
-            locale,
-            onStreamOpen: () => {
-              addLog(interpolate(dict.logs.streamConnected, { name: currentVideo.name }));
-            },
-            onReasoningDelta: (_chunk, fullText) => {
-              if (!liveReasoning) {
-                addLog(interpolate(dict.logs.reasoningStarted, { name: currentVideo.name }));
+          for (let attempt = 0; attempt < maxVideoAttempts && !videoSuccess; attempt++) {
+            if (signal.aborted) break;
+
+            currentVideoAbortController = new AbortController();
+            const videoSignal = currentVideoAbortController.signal;
+            const onParentAbort = () => currentVideoAbortController?.abort();
+            signal.addEventListener('abort', onParentAbort, { once: true });
+
+            isStallRecovering = false;
+            lastActivityTimestamp = Date.now();
+
+            try {
+              segments = await analyzeVideoHighlights({
+                frames,
+                videoDuration: currentVideo.duration,
+                videoId: currentVideo.id,
+                videoName: currentVideo.name,
+                model: selectedModel,
+                reasoningEffort: selectedEffort,
+                config: DEFAULT_CONFIG,
+                signal: videoSignal,
+                metadataDate: currentVideo.metadataDate,
+                latitude: currentVideo.latitude,
+                longitude: currentVideo.longitude,
+                locationName: currentVideo.locationName,
+                locale,
+                onStreamOpen: () => {
+                  lastActivityTimestamp = Date.now();
+                  addLog(interpolate(dict.logs.streamConnected, { name: currentVideo.name }));
+                },
+                onReasoningDelta: (_chunk, fullText) => {
+                  lastActivityTimestamp = Date.now();
+                  if (!liveReasoning) {
+                    addLog(interpolate(dict.logs.reasoningStarted, { name: currentVideo.name }));
+                  }
+                  liveReasoning = fullText;
+                  scheduleLiveStreamFlush();
+                  updateAnalyzeProgress(0.01);
+                },
+                onContentDelta: (_chunk, fullText) => {
+                  lastActivityTimestamp = Date.now();
+                  if (!liveContent) {
+                    addLog(interpolate(dict.logs.jsonStarted, { name: currentVideo.name }));
+                  }
+                  liveContent = fullText;
+                  scheduleLiveStreamFlush();
+                  updateAnalyzeProgress(0.01);
+                },
+                onFallback: (reason) => {
+                  lastActivityTimestamp = Date.now();
+                  console.warn(`[Video] Stream fallback (${currentVideo.name}):`, reason);
+                  addLog(interpolate(dict.logs.streamFallback, { name: currentVideo.name }));
+                },
+                onActivity: () => {
+                  lastActivityTimestamp = Date.now();
+                },
+              });
+
+              if (segments && segments.length > 0) {
+                videoSuccess = true;
               }
-              liveReasoning = fullText;
-              scheduleLiveStreamFlush();
-              updateAnalyzeProgress(0.01);
-            },
-            onContentDelta: (_chunk, fullText) => {
-              if (!liveContent) {
-                addLog(interpolate(dict.logs.jsonStarted, { name: currentVideo.name }));
+            } catch (vidErr: unknown) {
+              if (signal.aborted) throw vidErr;
+              const errMsg = vidErr instanceof Error ? vidErr.message : String(vidErr);
+              console.warn(`[Video] Video ${currentVideo.name} attempt ${attempt + 1} failed:`, errMsg);
+
+              if (attempt < maxVideoAttempts - 1) {
+                addLog(`🔄 [${currentVideo.name}] 백그라운드 지연/연결 정체 감지로 자동 재개합니다 (${attempt + 2}/${maxVideoAttempts})`);
+                await new Promise((r) => setTimeout(r, 600));
+              } else {
+                // 2회 실패 시 파이프라인 전체 중단 방지를 위해 스마트 로컬 클라이맥스 자동 대체
+                addLog(`⚠️ [${currentVideo.name}] AI 응답 불가로 최적 스마트 로컬 클라이맥스 구간으로 자동 복구하여 작업을 이어갑니다.`);
+                segments = await analyzeVideoHighlights({
+                  frames,
+                  videoDuration: currentVideo.duration,
+                  videoId: currentVideo.id,
+                  videoName: currentVideo.name,
+                  model: 'smart-local-fallback',
+                  reasoningEffort: 'none',
+                  config: DEFAULT_CONFIG,
+                  signal: undefined,
+                  locale,
+                });
+                videoSuccess = true;
               }
-              liveContent = fullText;
-              scheduleLiveStreamFlush();
-              updateAnalyzeProgress(0.01);
-            },
-            onFallback: (reason) => {
-              console.warn(`[Video] Stream fallback (${currentVideo.name}):`, reason);
-              addLog(interpolate(dict.logs.streamFallback, { name: currentVideo.name }));
-            },
-          });
+            } finally {
+              signal.removeEventListener('abort', onParentAbort);
+              currentVideoAbortController = null;
+            }
+          }
         } finally {
           window.clearInterval(analyzeSmoothTimer);
+          unbindHeartbeat();
         }
 
         // 해당 영상 분석 성공 완료 시: 1/N 목표치(videoEndPct)로 진입 (마지막 영상은 99% 유지)
@@ -1176,6 +1267,9 @@ export function App() {
         currentVideo.segments = segments;
         currentVideo.status = 'analyzed';
         setVideos([...updatedVideos]);
+
+        // 개별 영상 분석 완료 시 중간 체크포인트 자동 저장 (브라우저 종료/새로고침 시에도 이미 분석된 영상 100% 보존)
+        void performSave();
 
         // AI 추천 타이틀 및 베스트 썸네일 정보 수집
         const segSuggestedTitle = (segments as any)?.suggestedTitle;
@@ -1434,8 +1528,19 @@ export function App() {
       } else {
         const msg = err instanceof Error ? err.message : dict.logs.genericError;
         console.error('Processing error:', err);
-        setErrorMessage(msg);
+        const analyzedCount = updatedVideos.filter((v) => v.status === 'analyzed' && v.segments && v.segments.length > 0).length;
+        const resumeNotice = analyzedCount > 0
+          ? `\n\n💡 총 ${totalVideos}개 중 ${analyzedCount}개 영상의 분석 결과가 안전하게 보존되어 있어요. 다시 시작하시면 완료된 영상은 0초 만에 건너뛰고 멈춘 위치부터 즉시 이어져요.`
+          : '';
+        setErrorMessage(`${msg}${resumeNotice}`);
         setCurrentStep(finalResult ? 'result' : 'upload');
+      }
+    } finally {
+      backgroundGuard.stop();
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+        window.removeEventListener('focus', handleVisibilityOrFocus);
+        window.removeEventListener('pageshow', handleVisibilityOrFocus);
       }
     }
   };
@@ -1464,6 +1569,9 @@ export function App() {
 
     // 내보내기 클릭(제스처) 안에서 오디오를 미리 잠금 해제한다.
     primeAudioContext();
+
+    // 내보내기/인코딩 중 화면 꺼짐 및 프로세스 동결 방지
+    void backgroundGuard.start();
 
     setIsReStitching(true);
     setReStitchProgress({
@@ -1517,6 +1625,7 @@ export function App() {
       return null;
     } finally {
       setIsReStitching(false);
+      backgroundGuard.stop();
     }
   };
 

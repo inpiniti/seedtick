@@ -441,6 +441,8 @@ export const ko: Dictionary = {
     responseGeneration: '모델 응답 생성 중 (실시간)',
     charsCount: '{count}자',
     cancelButton: '닫기',
+    backgroundGuardBadge: '🔒 화면 꺼짐 방지 및 백그라운드 자동 재개 가동 중',
+    backgroundGuardNotice: '다른 탭으로 이동하거나 앱을 전환하셔도 작업이 안전하게 이어져요.',
   },
   mapModal: {
     title: '촬영 위치 지도 확인',

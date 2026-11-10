@@ -8,6 +8,26 @@ export interface ReleaseI18nEntry {
 }
 
 export const RELEASE_TRANSLATIONS: Record<string, ReleaseI18nEntry> = {
+  "0.9.7": {
+    "title": {
+      "ko": "백그라운드 탭·앱 전환 시 브라우저 프로세스 동결 방지(WakeLock·킵얼라이브) 및 화면 복귀 시 중단 지점 자동 재개 지원",
+      "en": "Prevent Background Browser Freezing (WakeLock & Keep-Alive) and Auto-Resume Stalled Analysis on Focus Return",
+      "ja": "バックグラウンドタブ・アプリ切替時のブラウザプロセス凍結防止(WakeLock・キープアライブ)＆画面復帰時の中断地点自動再開に対応",
+      "zh": "防止切出后台时浏览器进程冻结（WakeLock 与保活机制）并支持返回时自动恢复中断进度",
+      "es": "Evitar congelamiento en segundo plano (WakeLock y Keep-Alive) y reanudar an\u00e1lisis autom\u00e1ticamente al volver",
+      "fr": "Emp\u00eacher le gel en arri\u00e8re-plan (WakeLock & Keep-Alive) et reprendre l'analyse automatiquement au retour",
+      "de": "Verhindern von Hintergrund-Einfrieren (WakeLock & Keep-Alive) und automatisches Fortsetzen bei R\u00fcckkehr"
+    },
+    "summary": {
+      "ko": "AI 하이라이트 분석 및 영상 생성 도중 사용자가 크롬 다른 탭으로 이동하거나 모바일에서 다른 앱을 켤 때 브라우저 프로세스가 동결(Freezing)되거나 TCP 소켓이 조용히 끊어져 작업이 멈추는 문제를 전면 해결했습니다. Screen Wake Lock API와 무음 오디오 킵얼라이브 및 Web Worker 정밀 하트비트를 도입하여 백그라운드에서도 네트워크 연결을 안정적으로 유지하며, AI Gateway 응답에 25초 무응답 워치독(Inactivity Timeout)을 탑재했습니다. 특히 다른 앱을 다녀와 화면으로 복귀했을 때 정체된 연결을 감지해 멈춘 위치부터 즉시 작업을 자동으로 재개(Auto-Resume)하며, 영상별 분석 완료 시마다 중간 체크포인트를 저장하여 완료된 결과는 영구 보존됩니다.",
+      "en": "Completely resolves the issue where backgrounding Chrome or switching apps on mobile freezes the browser process or silently drops streaming sockets during long AI highlight generation. Integrates the Screen Wake Lock API, silent audio keep-alive, and Web Worker precision heartbeats to maintain active sockets in the background. Introduces a 25-second inactivity watchdog on AI Gateway streams. When returning to the app, it instantly detects stalled connections and auto-resumes progress seamlessly, saving intermediate checkpoints for each finished clip.",
+      "ja": "AIハイライト分析中にChromeの他タブへ移動したりスマホで別アプリを開いた際に、ブラウザプロセスが凍結(Freezing)したりTCPソケットが切断されて進行が止まる問題を解決しました。Screen Wake Lock API、無音オーディオキープアライブ、Web Workerハートビートを導入しバックグラウンドでもネットワーク接続を維持。25秒無通信検知ウォッチドッグを備え、画面復帰時に停滞した接続を検知して停止位置から即座に自動再開(Auto-Resume)します。",
+      "zh": "彻底解决在生成 AI 高光时因切换 Chrome 标签页或在手机上打开其他 App 导致浏览器进程冻结或 TCP 连接静默断开而卡住的问题。引入 Screen Wake Lock API、静音音频保活及 Web Worker 精密心跳维持后台活跃连接，并在 AI Gateway 流中加入 25 秒无响应看门狗。切回前台时可立即识别停滞连接并无缝自动恢复进度，且每段视频分析完成后均自动保存断点。",
+      "es": "Evita el congelamiento del navegador y la desconexi\u00f3n de sockets al cambiar de pesta\u00f1a o app mediante WakeLock y Keep-Alive, reanudando autom\u00e1ticamente el progreso al volver.",
+      "fr": "Emp\u00eache le gel du navigateur et la coupure de socket en arri\u00e8re-plan gr\u00e2ce \u00e0 WakeLock et Keep-Alive, avec reprise automatique au retour.",
+      "de": "Verhindert das Einfrieren des Browsers und Socket-Abbr\u00fcche im Hintergrund durch WakeLock und Keep-Alive und setzt den Fortschritt bei R\u00fcckkehr automatisch fort."
+    }
+  },
   "0.9.6": {
     "title": {
       "ko": "모바일 Safari 완성본 비디오(Blob) IndexedDB 영구 보존 및 브라우저 재실행 시 0초 즉시 재생·다운로드 모드 지원",

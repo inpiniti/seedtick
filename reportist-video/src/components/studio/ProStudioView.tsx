@@ -5246,6 +5246,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               </div>
             </div>
 
+            {/* 백그라운드 보호 및 화면 꺼짐 방지 안심 배너 */}
+            <div className="flex items-center gap-2 px-3 py-2 mt-1 mb-2 bg-blue-50/80 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/60 rounded-xl text-left">
+              <span className="text-xs shrink-0">🛡️</span>
+              <p className="text-[11px] leading-tight text-blue-700 dark:text-blue-300 font-medium">
+                {dict.processingModal.backgroundGuardNotice || '다른 탭이나 다른 앱을 다녀오셔도 작업이 안전하게 이어져요.'}
+              </p>
+            </div>
+
             {/* 취소 버튼 */}
             <button
               type="button"
