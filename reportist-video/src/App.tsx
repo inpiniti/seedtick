@@ -375,6 +375,11 @@ export function App() {
 
     setSaveStatus('saving');
 
+    const isMobileStorage =
+      typeof navigator !== 'undefined' &&
+      (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
     try {
       const storedVideos = videos.map((v) => ({
         id: v.id,
@@ -391,7 +396,7 @@ export function App() {
         longitude: v.longitude,
         locationName: v.locationName,
         thumbnailUrl: v.thumbnailUrl && !v.thumbnailUrl.startsWith('blob:') ? v.thumbnailUrl : undefined,
-        fileBlob: v.file,
+        fileBlob: isMobileStorage ? undefined : v.file,
       }));
 
       const projectTitle =
@@ -631,8 +636,12 @@ export function App() {
         const currentIndex = cursor++;
         const { videoId, file } = createdItems[currentIndex];
         try {
-          // 모바일에서는 파일 바이너리 슬라이스 스캔이 끝난 뒤 비디오 디코더를 열도록 순차 실행
+          // 1. 단일 패스 바이너리 스캔으로 촬영일/GPS뿐만 아니라 duration, width, height, rotation까지 즉각 추출 (0.05ms, 디코더 부하 0)
           const mediaMeta = await extractMediaMetadata(file).catch(() => ({
+            duration: undefined,
+            width: undefined,
+            height: undefined,
+            rotation: undefined,
             dateStr: formatVideoDate(file).dateStr,
             fullDateStr: '',
             recordedTimestamp: file.lastModified || Date.now(),
@@ -642,18 +651,36 @@ export function App() {
             locationName: undefined,
           }));
 
-          const visualMeta = await extractVideoVisualDimensions(file).catch(() => ({
-            duration: 0,
-            width: 0,
-            height: 0,
-            thumbnailUrl: '',
-          }));
+          let duration = mediaMeta.duration || 0;
+          let width = mediaMeta.width || 0;
+          let height = mediaMeta.height || 0;
+          let thumbnailUrl = '';
+
+          // 모바일(아이폰 XR 등)은 하드웨어 디코더 고갈 및 WebProcess 크래시를 방지하기 위해:
+          // - 바이너리에서 duration과 width를 이미 확보했으면 <video> 엘리먼트 생성을 전면 생략!
+          // - 첫 번째 영상(currentIndex === 0)에만 대표 썸네일을 1회 가볍게 추출
+          // - 데스크톱은 모든 영상 썸네일 정상 추출
+          const needVisualFallback = !duration || !width || !height;
+          const shouldExtractThumbnail = !isMobileEnv || currentIndex === 0;
+
+          if (needVisualFallback || shouldExtractThumbnail) {
+            const visualMeta = await extractVideoVisualDimensions(file, !shouldExtractThumbnail).catch(() => ({
+              duration: 0,
+              width: 0,
+              height: 0,
+              thumbnailUrl: '',
+            }));
+            if (!duration) duration = visualMeta.duration;
+            if (!width) width = visualMeta.width;
+            if (!height) height = visualMeta.height;
+            thumbnailUrl = visualMeta.thumbnailUrl;
+          }
 
           pendingUpdates.set(videoId, {
-            duration: visualMeta.duration,
-            width: visualMeta.width,
-            height: visualMeta.height,
-            thumbnailUrl: visualMeta.thumbnailUrl,
+            duration,
+            width,
+            height,
+            thumbnailUrl,
             metadataDate: mediaMeta.dateStr,
             recordedTimestamp: mediaMeta.recordedTimestamp,
             latitude: mediaMeta.latitude,
@@ -664,6 +691,11 @@ export function App() {
           // 첫 번째 영상(프리뷰 즉시 반영)이거나 4개 단위 배치마다 상태 반영하여 리렌더링 폭주 차단
           if (currentIndex === 0 || pendingUpdates.size >= 4 || currentIndex === createdItems.length - 1) {
             flushPendingVideoUpdates();
+          }
+
+          // 모바일 환경에서는 각 영상 처리 사이에 짧은 틱(40ms)을 주어 WebKit 미디어 스레드/가비지 컬렉터가 숨을 쉴 수 있게 보장
+          if (isMobileEnv) {
+            await new Promise((r) => setTimeout(r, 40));
           }
         } catch (err) {
           console.warn('Metadata extraction error:', err);

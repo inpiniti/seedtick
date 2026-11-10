@@ -257,16 +257,16 @@ export async function extractVideoFramesForAnalysis(
 }
 
 // 미디어(비디오 또는 사진) 파일로부터 재생 시간, 해상도, 대표 썸네일 추출 (동시성 제어 큐 적용)
-export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
+export async function extractVideoMetadata(file: File, skipThumbnail = false): Promise<VideoMetadata> {
   await acquireMetadataSlot();
   try {
-    return await extractVideoMetadataInternal(file);
+    return await extractVideoMetadataInternal(file, skipThumbnail);
   } finally {
     releaseMetadataSlot();
   }
 }
 
-async function extractVideoMetadataInternal(file: File): Promise<VideoMetadata> {
+async function extractVideoMetadataInternal(file: File, skipThumbnail = false): Promise<VideoMetadata> {
   // 사진 파일 처리 분기
   if (file.type.startsWith('image/') || /\.(jpg|jpeg|png|heic|webp|avif)$/i.test(file.name)) {
     return new Promise((resolve) => {
@@ -359,6 +359,21 @@ async function extractVideoMetadataInternal(file: File): Promise<VideoMetadata> 
 
     video.onloadedmetadata = () => {
       const rawDur = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 1;
+      const w = video.videoWidth || 640;
+      const h = video.videoHeight || 360;
+
+      if (skipThumbnail) {
+        if (settled) return;
+        settled = true;
+        cleanup(null);
+        resolve({
+          duration: rawDur,
+          width: w,
+          height: h,
+          thumbnailUrl: '',
+        });
+        return;
+      }
 
       // 썸네일을 위해 0.5초 또는 10% 지점으로 이동
       const seekTime = Math.min(1.0, rawDur * 0.1);

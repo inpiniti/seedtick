@@ -389,7 +389,7 @@ export async function getAllProjectSummaries(): Promise<StudioProjectSummary[]> 
 
     req.onsuccess = () => {
       const cursor = req.result;
-      if (cursor) {
+      if (cursor && summaries.length < 20) {
         const item = cursor.value as StudioProject;
         const rawThumb = item.thumbnailUrl || (item.videos && item.videos[0]?.thumbnailUrl);
         const safeThumb = rawThumb && !rawThumb.startsWith('blob:') ? rawThumb : undefined;

@@ -1007,7 +1007,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     if (result) {
       prepareThumbnailBg();
     }
-  }, [result, dict.player.defaultTitleText, videos]);
+  }, [
+    result?.url,
+    result?.bestSourceVideoId,
+    result?.bestThumbnailTime,
+    result?.suggestedTitle,
+    dict.player.defaultTitleText,
+  ]);
 
   // 타이틀/스타일 변경 시 실시간 썸네일 재렌더링
   useEffect(() => {

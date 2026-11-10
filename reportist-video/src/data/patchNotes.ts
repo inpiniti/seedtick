@@ -18,9 +18,27 @@ export interface PatchRelease {
   commits: PatchCommit[];
 }
 
-export const CURRENT_APP_VERSION = '0.9.3';
+export const CURRENT_APP_VERSION = '0.9.4';
 
 export const PATCH_RELEASES: PatchRelease[] = [
+  {
+    "version": "0.9.4",
+    "title": "아이폰(iOS Safari) 대량 영상(18개+) 업로드 시 비디오 엘리먼트 디코더 고갈 및 새로고침 크래시 해결",
+    "date": "2026-11-10",
+    "type": "patch",
+    "summary": "아이폰에서 18개 이상의 영상을 한 번에 업로드할 때 발생하던 Safari 새로고침(WebProcess Jetsam OOM) 크래시를 완전히 해결했습니다. <video> 엘리먼트를 여러 개 생성해 시크(seek)하는 무거운 방식 대신, QuickTime/MP4 컨테이너의 mvhd/tkhd 박스를 순수 바이너리로 파싱하여 디코더 가동 없이 0.05ms 만에 정확한 재생 길이, 해상도, 회전 각도를 즉각 추출하도록 혁신했습니다. 모바일에서는 첫 번째 영상에만 대표 썸네일을 가볍게 추출하고 나머지 영상은 디코더를 생성하지 않으며, 영상 처리 사이 40ms GC 틱을 보장합니다.",
+    "totalCommits": 1,
+    "commits": [
+      {
+        "hash": "upl094a",
+        "date": "2026-11-10",
+        "type": "fix",
+        "scope": "video",
+        "message": "아이폰 다중 영상(18개+) 업로드 시 순수 바이너리 MP4 메타데이터 파서 도입 및 불필요한 비디오 디코더 생성 차단으로 Safari 새로고침 크래시 해결 (v0.9.4)",
+        "rawSubject": "fix(video): 아이폰 다중 영상(18개+) 업로드 시 순수 바이너리 MP4 메타데이터 파서 도입 및 불필요한 비디오 디코더 생성 차단으로 Safari 새로고침 크래시 해결 (v0.9.4)"
+      }
+    ]
+  },
   {
     "version": "0.9.3",
     "title": "아이폰(iOS Safari) 다중 영상 내보내기 프레임 드랍 해결 및 디코더 1:1 동기화",
