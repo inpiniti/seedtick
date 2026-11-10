@@ -1,4 +1,5 @@
 // src/services/storageQuotaService.ts - 브라우저 저장소 쿼터 감시, 영구 보존(Persist) 요청 및 모드 관리
+import { purgeAllOPFSStorage } from './opfsStorage.ts';
 
 export type StorageMode = 'auto' | 'full' | 'lightweight';
 
@@ -109,4 +110,29 @@ export function setStoredStorageMode(mode: StorageMode): void {
   try {
     localStorage.setItem(STORAGE_MODE_KEY, mode);
   } catch {}
+}
+
+/**
+ * 앱 전체 캐시 및 OPFS 가상 파일시스템 완전 정리 (잔여 고아 파일 및 캐시 일괄 삭제)
+ */
+export async function clearAllAppStorage(): Promise<StorageEstimateInfo> {
+  // 1. OPFS 디렉터리 및 고아 임시 파일 완전 제거
+  await purgeAllOPFSStorage().catch((err) => {
+    console.warn('[storageQuotaService] OPFS purge failed:', err);
+  });
+
+  // 2. 브라우저 CacheStorage 비디오 캐시 정리
+  if (typeof window !== 'undefined' && 'caches' in window) {
+    try {
+      const keys = await window.caches.keys();
+      await Promise.all(
+        keys.map((k) => window.caches.delete(k))
+      );
+    } catch (cacheErr) {
+      console.warn('[storageQuotaService] Cache clear failed:', cacheErr);
+    }
+  }
+
+  // 3. 최신 측정값 즉각 재측정 및 반환
+  return await getStorageEstimate();
 }

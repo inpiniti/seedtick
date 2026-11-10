@@ -574,6 +574,10 @@ export interface Dictionary {
     storageModeFullDesc?: string;
     storageModeLight?: string;
     storageModeLightDesc?: string;
+    storageClearBtn?: string;
+    storageClearing?: string;
+    storageClearSuccess?: string;
+    storageClearHint?: string;
     downloadSubtitles?: string;
     downloadSubtitlesDesc?: string;
     projectActions: string;

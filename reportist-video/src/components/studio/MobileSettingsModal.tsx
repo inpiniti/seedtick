@@ -19,6 +19,7 @@ import {
   Layers,
   AlertTriangle,
   MessageSquare,
+  Trash2,
 } from 'lucide-react';
 import type { FreeModelMeta } from '../../types/gateway.ts';
 import type { ExportResolution } from '../../types/video.ts';
@@ -35,6 +36,7 @@ import {
   requestPersistentStorage,
   getStoredStorageMode,
   setStoredStorageMode,
+  clearAllAppStorage,
   formatBytes,
   type StorageEstimateInfo,
   type StorageMode,
@@ -127,6 +129,8 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   const [storageMode, setStorageMode] = useState<StorageMode>(getStoredStorageMode());
   const [isPersisted, setIsPersisted] = useState<boolean>(false);
   const [isRequestingPersist, setIsRequestingPersist] = useState<boolean>(false);
+  const [isClearingStorage, setIsClearingStorage] = useState<boolean>(false);
+  const [storageClearMessage, setStorageClearMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -135,6 +139,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
         setIsPersisted(info.isPersisted);
       });
       setStorageMode(getStoredStorageMode());
+      setStorageClearMessage(null);
     }
   }, [isOpen]);
 
@@ -147,6 +152,21 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
       setStorageEstimate(updated);
     } finally {
       setIsRequestingPersist(false);
+    }
+  };
+
+  const handleClearStorage = async () => {
+    setIsClearingStorage(true);
+    setStorageClearMessage(null);
+    try {
+      const updated = await clearAllAppStorage();
+      setStorageEstimate(updated);
+      setStorageClearMessage(dict.settingsModal?.storageClearSuccess || 'OPFS 임시 파일 및 캐시가 모두 정리되었습니다.');
+      setTimeout(() => {
+        setStorageClearMessage(null);
+      }, 4000);
+    } finally {
+      setIsClearingStorage(false);
     }
   };
 
@@ -741,6 +761,72 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                     </div>
                   </button>
                 </div>
+              </div>
+
+              {/* 4. 저장 공간 정리 (캐시 및 OPFS 잔여 파일 완전 비우기) */}
+              <div
+                className="toss-storage-clear-row"
+                style={{
+                  marginTop: '14px',
+                  paddingTop: '12px',
+                  borderTop: '1px solid #f1f5f9',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#1e293b' }}>
+                      {dict.settingsModal?.storageClearBtn || '저장 공간 정리 (캐시 비우기)'}
+                    </span>
+                    <span style={{ fontSize: '11px', color: '#64748b', lineHeight: 1.35 }}>
+                      {dict.settingsModal?.storageClearHint || '보관함을 비워도 브라우저 리소스 캐시가 남아있을 수 있어요. 필요할 때 즉시 정리할 수 있어요.'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleClearStorage}
+                    disabled={isClearingStorage}
+                    style={{
+                      fontSize: '11.5px',
+                      fontWeight: 600,
+                      padding: '6px 12px',
+                      flexShrink: 0,
+                      borderRadius: '8px',
+                      border: '1px solid #ffe4e6',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      color: isClearingStorage ? '#94a3b8' : '#e11d48',
+                      backgroundColor: '#fff1f2',
+                      cursor: isClearingStorage ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    <Trash2 size={13} />
+                    <span>
+                      {isClearingStorage
+                        ? dict.settingsModal?.storageClearing || '정리 중...'
+                        : '정리하기'}
+                    </span>
+                  </button>
+                </div>
+                {storageClearMessage && (
+                  <div
+                    style={{
+                      marginTop: '4px',
+                      fontSize: '11.5px',
+                      color: '#059669',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontWeight: 500,
+                    }}
+                  >
+                    <ShieldCheck size={14} />
+                    <span>{storageClearMessage}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

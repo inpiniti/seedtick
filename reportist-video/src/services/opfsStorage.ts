@@ -176,3 +176,37 @@ export async function copyProjectOPFS(sourceProjectId: string, targetProjectId: 
     console.warn('[opfsStorage] Failed to copy OPFS project files:', err);
   }
 }
+
+/**
+ * OPFS 전체 가상 파일시스템 정리 (모든 프로젝트 및 잔여 임시 파일 완전 삭제)
+ */
+export async function purgeAllOPFSStorage(): Promise<boolean> {
+  if (!isOpfsAvailable()) return false;
+  try {
+    const root = await navigator.storage.getDirectory();
+    try {
+      await root.removeEntry(OPFS_ROOT_DIR, { recursive: true });
+    } catch {
+      // 이미 없거나 삭제 실패 시 무시
+    }
+
+    try {
+      // @ts-ignore
+      if (typeof (root as any).values === 'function') {
+        // @ts-ignore
+        for await (const handle of (root as any).values()) {
+          try {
+            await root.removeEntry(handle.name, { recursive: true });
+          } catch {}
+        }
+      }
+    } catch {}
+
+    // 깨끗한 루트 디렉터리 재구축
+    await root.getDirectoryHandle(OPFS_ROOT_DIR, { create: true });
+    return true;
+  } catch (err) {
+    console.warn('[opfsStorage] Failed to purge OPFS storage:', err);
+    return false;
+  }
+}

@@ -389,6 +389,10 @@ export const ja: Dictionary = {
     storageModeFullDesc: '元動画を保管',
     storageModeLight: '超軽量モード',
     storageModeLightDesc: '容量99%節約',
+    storageClearBtn: 'ストレージ整理 (キャッシュ削除)',
+    storageClearing: '整理中...',
+    storageClearSuccess: 'OPFS一時ファイルおよびキャッシュが完全に削除されました。',
+    storageClearHint: 'プロジェクトを削除してもブラウザキャッシュが残る場合があります。いつでも整理できます。',
   },
   subtitleDownload: {
     buttonText: '字幕ダウンロード (.srt)',

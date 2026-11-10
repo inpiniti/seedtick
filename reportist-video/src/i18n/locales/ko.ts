@@ -569,6 +569,10 @@ export const ko: Dictionary = {
     storageModeFullDesc: '원본 비디오 보관',
     storageModeLight: '초경량 모드',
     storageModeLightDesc: '용량 99% 절약',
+    storageClearBtn: '저장 공간 정리 (캐시 비우기)',
+    storageClearing: '정리 중...',
+    storageClearSuccess: 'OPFS 임시 파일 및 캐시가 모두 정리되었습니다.',
+    storageClearHint: '보관함을 비워도 브라우저 리소스 캐시가 남아있을 수 있어요. 필요할 때 즉시 정리할 수 있어요.',
   },
   subtitleDownload: {
     buttonText: '자막 다운로드 (.srt)',

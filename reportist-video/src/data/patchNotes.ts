@@ -18,9 +18,27 @@ export interface PatchRelease {
   commits: PatchCommit[];
 }
 
-export const CURRENT_APP_VERSION = '0.9.4';
+export const CURRENT_APP_VERSION = '0.9.5';
 
 export const PATCH_RELEASES: PatchRelease[] = [
+  {
+    "version": "0.9.5",
+    "title": "스토리지 설정 내 OPFS 가상 파일시스템 및 브라우저 캐시 비우기 기능 추가",
+    "date": "2026-11-10",
+    "type": "patch",
+    "summary": "보관함 내 프로젝트를 모두 삭제한 이후에도 브라우저 Origin 스토리지(OPFS 잔여 임시 파일, Service Worker/CacheStorage 비디오 캐시, 리소스 버퍼)에 수백 MB가 남아있을 수 있던 현상을 완전히 해소하기 위해, 스튜디오 설정에 [저장 공간 정리 (캐시 비우기)] 버튼을 도입했습니다. 또한 아이폰에서 18개 이상의 고화질 영상을 동시 선택할 때 iOS 사진 선택창(Photo Picker)이 자체 메모리 초과로 닫히는 현상에 대응하여 기기 공간 확보 및 분할 추가 가이드를 마련했습니다.",
+    "totalCommits": 1,
+    "commits": [
+      {
+        "hash": "opfs095",
+        "date": "2026-11-10",
+        "type": "fix",
+        "scope": "storage",
+        "message": "OPFS 가상 파일시스템 및 잔여 브라우저 캐시 일괄 정리 기능 추가 (v0.9.5)",
+        "rawSubject": "fix(storage): OPFS 가상 파일시스템 및 잔여 브라우저 캐시 일괄 정리 기능 추가 (v0.9.5)"
+      }
+    ]
+  },
   {
     "version": "0.9.4",
     "title": "아이폰(iOS Safari) 대량 영상(18개+) 업로드 시 비디오 엘리먼트 디코더 고갈 및 새로고침 크래시 해결",

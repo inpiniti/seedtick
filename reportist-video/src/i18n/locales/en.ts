@@ -569,6 +569,10 @@ export const en: Dictionary = {
     storageModeFullDesc: 'Keep original video clips',
     storageModeLight: 'Lightweight Mode',
     storageModeLightDesc: 'Save 99% device space',
+    storageClearBtn: 'Clear Storage (Purge Cache)',
+    storageClearing: 'Clearing...',
+    storageClearSuccess: 'OPFS temp files and caches have been purged.',
+    storageClearHint: 'Browser cache may remain even after deleting projects. You can clean it up anytime.',
   },
   subtitleDownload: {
     buttonText: 'Download Subtitles (.srt)',

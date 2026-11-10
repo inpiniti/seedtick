@@ -389,6 +389,10 @@ export const zh: Dictionary = {
     storageModeFullDesc: '保留原始高清视频',
     storageModeLight: '超轻量模式',
     storageModeLightDesc: '节省99%存储空间',
+    storageClearBtn: '清理存储空间（清除缓存）',
+    storageClearing: '清理中...',
+    storageClearSuccess: 'OPFS临时文件及浏览器缓存已完全清理。',
+    storageClearHint: '删除项目后可能仍保留部分浏览器缓存。您可以随时点击清理。',
   },
   subtitleDownload: {
     buttonText: '下载字幕 (.srt)',

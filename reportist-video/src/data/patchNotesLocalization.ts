@@ -8,6 +8,26 @@ export interface ReleaseI18nEntry {
 }
 
 export const RELEASE_TRANSLATIONS: Record<string, ReleaseI18nEntry> = {
+  "0.9.5": {
+    "title": {
+      "ko": "스토리지 설정 내 OPFS 가상 파일시스템 및 브라우저 캐시 비우기 기능 추가",
+      "en": "Add OPFS Virtual Filesystem & Browser Storage Purge Button in Settings",
+      "ja": "ストレージ設定にOPFS仮想ファイルシステムおよびブラウザキャッシュ削除機能を追加",
+      "zh": "在设置中新增 OPFS 虚拟文件系统及浏览器存储缓存一键清理功能",
+      "es": "Botón de purga de almacenamiento y sistema de archivos OPFS en configuración",
+      "fr": "Bouton de purge du cache du stockage du navigateur et du système OPFS dans les paramètres",
+      "de": "Speicherbereinigung und OPFS-Dateisystem-Löschfunktion in den Einstellungen hinzugefügt"
+    },
+    "summary": {
+      "ko": "보관함 내 프로젝트를 모두 삭제한 이후에도 브라우저 Origin 스토리지(OPFS 잔여 임시 파일, Service Worker/CacheStorage 비디오 캐시, 리소스 버퍼)에 수백 MB가 남아있을 수 있던 현상을 완전히 해소하기 위해, 스튜디오 설정에 [저장 공간 정리 (캐시 비우기)] 버튼을 도입했습니다. 또한 아이폰에서 18개 이상의 고화질 영상을 동시 선택할 때 iOS 사진 선택창(Photo Picker)이 자체 메모리 초과로 닫히는 현상에 대응하여 기기 공간 확보 및 분할 추가 가이드를 마련했습니다.",
+      "en": "Introduced a dedicated 'Clear Storage (Purge Cache)' button in Studio Settings to wipe orphaned OPFS temporary directories and browser CacheStorage. Addressed iOS native Photo Picker crashes where selecting 18+ high-res clips causes the picker sheet to abruptly dismiss due to iOS memory pressure.",
+      "ja": "プロジェクトを全削除した後もブラウザストレージ（OPFS残存一時ファイル、CacheStorage動画キャッシュ）に残る容量を完全にリセットできる「ストレージ整理（キャッシュ削除）」ボタンを追加しました。またiPhoneで18本以上の動画選択時にiOS写真ピッカーがメモリ制限で閉じる問題への対処ガイドを整備しました。",
+      "zh": "在工作台设置中新增「清理存储空间（清除缓存）」功能，可彻底删除 OPFS 遗留临时目录及浏览器缓存。同时针对 iPhone 批量选择 18+ 视频时因 iOS 系统相册内存超限自动关闭的问题提供分批上传建议。",
+      "es": "Se agregó un botón para limpiar el almacenamiento de caché y OPFS en la configuración del estudio.",
+      "fr": "Ajout d'un bouton de nettoyage du stockage et du système OPFS dans les paramètres du studio.",
+      "de": "Schaltfläche zur vollständigen Bereinigung von OPFS-Dateien und Browser-Caches in den Studio-Einstellungen hinzugefügt."
+    }
+  },
   "0.9.4": {
     "title": {
       "ko": "아이폰(iOS Safari) 대량 영상(18개+) 업로드 시 비디오 엘리먼트 디코더 고갈 및 새로고침 크래시 해결",
