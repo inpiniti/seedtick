@@ -176,47 +176,72 @@ async function executePut(db: IDBDatabase, data: StudioProject): Promise<void> {
   });
 }
 
+const IS_MOBILE_STORAGE_ENV =
+  typeof navigator !== 'undefined' &&
+  (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
+// IndexedDB 단일 레코드에 원본 비디오 Blob을 직접 직렬화할 수 있는 최대 안전 한도 (35MB, 최대 2개 이하)
+const MAX_IDB_INLINE_BLOB_BYTES = 35 * 1024 * 1024;
+const MAX_IDB_INLINE_VIDEO_COUNT = 2;
+
 /**
- * 프로젝트 저장 또는 업데이트 (OPFS 분리 저장 + IndexedDB 하이브리드)
+ * 프로젝트 저장 또는 업데이트 (OPFS 분리 저장 + IndexedDB 하이브리드, 모바일 OOM 원천 차단)
  */
 export async function saveProject(project: StudioProject): Promise<void> {
   const db = await getDB();
   const currentMode = project.storageMode || getStoredStorageMode();
   let hasOpfs = false;
 
-  // 1. 경량 모드(lightweight)인 경우: 대용량 Blob 제외하고 타임라인/메타데이터만 초고속 저장
-  if (currentMode === 'lightweight') {
-    const safeData = sanitizeProjectForStorage({
-      ...project,
-      storageMode: 'lightweight',
-      hasOpfsFiles: false,
-    }, true);
+  const videoList = project.videos || [];
+  const totalVideoBlobBytes =
+    videoList.reduce((sum, v) => sum + (v.fileBlob?.size || v.sizeBytes || 0), 0) +
+    (project.finalResult?.videoBlob?.size || 0);
+
+  // 1. 경량 모드(lightweight)이거나 모바일(iOS/Android) 환경인 경우:
+  // 모바일 Safari(예: iPhone XR)에서 수백 MB의 원본 비디오 Blob을 메인 스레드에서 OPFS/IndexedDB로
+  // 직렬화(Structured Clone)하면 업로드 직후 0.6초 뒤 즉시 WebKit OOM 크래시(새로고침)가 발생하므로
+  // 메타데이터/타임라인만 초고속으로 저장하고, 현재 세션 메모리의 File 참조만 유지한다.
+  if (currentMode === 'lightweight' || (IS_MOBILE_STORAGE_ENV && currentMode !== 'full')) {
+    const safeData = sanitizeProjectForStorage(
+      {
+        ...project,
+        storageMode: currentMode === 'lightweight' ? 'lightweight' : currentMode,
+        hasOpfsFiles: false,
+      },
+      true
+    );
     await executePut(db, safeData);
     return;
   }
 
-  // 2. OPFS 지원 환경: 비디오 바이너리를 가상 파일시스템(OPFS)에 안전하게 기록
+  // 2. 데스크톱 OPFS 지원 환경: Promise.all 병렬 쓰기 대신 1개씩 순차 기록 (메모리 스파이크 방지)
   if (isOpfsAvailable()) {
     try {
-      const opfsTasks: Promise<boolean>[] = [];
+      let anySaved = false;
 
-      for (const v of project.videos || []) {
+      for (const v of videoList) {
+        if (v.hasOpfsFile) {
+          anySaved = true;
+          continue;
+        }
         if (v.fileBlob && v.fileBlob.size > 0) {
-          opfsTasks.push(
-            saveVideoToOPFS(project.id, v.id, v.fileBlob).then((ok) => {
-              if (ok) v.hasOpfsFile = true;
-              return ok;
-            })
-          );
+          const ok = await saveVideoToOPFS(project.id, v.id, v.fileBlob);
+          if (ok) {
+            v.hasOpfsFile = true;
+            anySaved = true;
+          } else {
+            // 첫 파일에서 OPFS 쓰기(createWritable 미지원 등)가 실패하면 즉시 루프 중단
+            break;
+          }
         }
       }
 
-      if (project.finalResult?.videoBlob && project.finalResult.videoBlob.size > 0) {
-        opfsTasks.push(saveFinalResultToOPFS(project.id, project.finalResult.videoBlob));
+      if (anySaved && project.finalResult?.videoBlob && project.finalResult.videoBlob.size > 0) {
+        await saveFinalResultToOPFS(project.id, project.finalResult.videoBlob);
       }
 
-      const results = await Promise.all(opfsTasks);
-      hasOpfs = results.some(Boolean);
+      hasOpfs = anySaved;
     } catch (opfsErr) {
       console.warn('[projectStorage] OPFS storage partial error, falling back:', opfsErr);
     }
@@ -224,43 +249,73 @@ export async function saveProject(project: StudioProject): Promise<void> {
 
   // 3. OPFS에 저장된 경우: IndexedDB에는 가벼운 메타데이터만 기록 (직렬화 오버헤드 0, OOM 방지)
   if (hasOpfs) {
-    const opfsMetadataOnly = sanitizeProjectForStorage({
-      ...project,
-      storageMode: currentMode,
-      hasOpfsFiles: true,
-    }, true);
+    const opfsMetadataOnly = sanitizeProjectForStorage(
+      {
+        ...project,
+        storageMode: currentMode,
+        hasOpfsFiles: true,
+      },
+      true
+    );
     await executePut(db, opfsMetadataOnly);
     return;
   }
 
-  // 4. OPFS 미지원 환경: 사전 쿼터(Quota) 체크
-  const estimate = await getStorageEstimate();
-  if (estimate.isLowStorage) {
-    console.warn('[projectStorage] Storage quota critically low, saving metadata-only to prevent crash.');
-    const safeData = sanitizeProjectForStorage({
-      ...project,
-      storageMode: 'lightweight',
-      hasOpfsFiles: false,
-    }, true);
+  // 4. OPFS 미지원/실패 환경: 다중 영상이거나 용량이 큰 경우 IndexedDB에 원본 Blob 통째 직렬화 금지!
+  const exceedsInlineLimit =
+    IS_MOBILE_STORAGE_ENV ||
+    videoList.length > MAX_IDB_INLINE_VIDEO_COUNT ||
+    totalVideoBlobBytes > MAX_IDB_INLINE_BLOB_BYTES;
+
+  if (exceedsInlineLimit) {
+    const safeData = sanitizeProjectForStorage(
+      {
+        ...project,
+        storageMode: 'lightweight',
+        hasOpfsFiles: false,
+      },
+      true
+    );
     await executePut(db, safeData);
     return;
   }
 
-  // 5. IndexedDB 폴백: Blob 포함 저장 시도 후 실패 시 메타데이터 fallback
+  // 5. 소용량(2개 이하 & 35MB 이하) 데스크톱 프로젝트만 쿼터 확인 후 IndexedDB 폴백 저장
+  const estimate = await getStorageEstimate();
+  if (estimate.isLowStorage) {
+    console.warn('[projectStorage] Storage quota critically low, saving metadata-only to prevent crash.');
+    const safeData = sanitizeProjectForStorage(
+      {
+        ...project,
+        storageMode: 'lightweight',
+        hasOpfsFiles: false,
+      },
+      true
+    );
+    await executePut(db, safeData);
+    return;
+  }
+
   try {
-    const fullData = sanitizeProjectForStorage({
-      ...project,
-      storageMode: currentMode,
-      hasOpfsFiles: false,
-    }, false);
+    const fullData = sanitizeProjectForStorage(
+      {
+        ...project,
+        storageMode: currentMode,
+        hasOpfsFiles: false,
+      },
+      false
+    );
     await executePut(db, fullData);
   } catch (firstErr) {
     console.warn('[projectStorage] Full save with Blobs failed, falling back to metadata-only:', firstErr);
-    const safeData = sanitizeProjectForStorage({
-      ...project,
-      storageMode: 'lightweight',
-      hasOpfsFiles: false,
-    }, true);
+    const safeData = sanitizeProjectForStorage(
+      {
+        ...project,
+        storageMode: 'lightweight',
+        hasOpfsFiles: false,
+      },
+      true
+    );
     await executePut(db, safeData);
   }
 }

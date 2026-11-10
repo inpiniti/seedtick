@@ -73,10 +73,37 @@ async function readFileFromDir(dir: FileSystemDirectoryHandle, fileName: string)
 }
 
 /**
- * 개별 비디오 Blob을 OPFS에 저장
+ * OPFS에 해당 비디오 파일이 이미 정상 크기(expectedSize)로 존재하는지 확인
+ */
+export async function hasVideoInOPFS(
+  projectId: string,
+  videoId: string,
+  expectedSize?: number
+): Promise<boolean> {
+  if (!isOpfsAvailable()) return false;
+  const dir = await getProjectDir(projectId, false);
+  if (!dir) return false;
+  try {
+    const fileHandle = await dir.getFileHandle(`video_${videoId}.bin`);
+    const file = await fileHandle.getFile();
+    if (!file || file.size === 0) return false;
+    if (typeof expectedSize === 'number' && expectedSize > 0) {
+      return file.size === expectedSize;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 개별 비디오 Blob을 OPFS에 저장 (이미 동일 크기로 저장된 경우 재기록 생략)
  */
 export async function saveVideoToOPFS(projectId: string, videoId: string, blob: Blob): Promise<boolean> {
   if (!isOpfsAvailable() || !blob || blob.size === 0) return false;
+  if (await hasVideoInOPFS(projectId, videoId, blob.size)) {
+    return true;
+  }
   const dir = await getProjectDir(projectId, true);
   if (!dir) return false;
   return await writeBlobToFile(dir, `video_${videoId}.bin`, blob);

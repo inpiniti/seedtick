@@ -3226,7 +3226,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     <video
                       ref={videoRef}
                       src={activeVideoUrl}
-                      preload="auto"
+                      preload={isSequenceMode ? 'auto' : 'metadata'}
                       playsInline
                       muted={isMuted}
                       onPlay={() => {
@@ -3278,7 +3278,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         }
                       }}
                       onLoadedData={() => {
-                        if (!thumbnailBgCanvasRef.current && videoRef.current) {
+                        if (isSequenceMode && !thumbnailBgCanvasRef.current && videoRef.current) {
                           const bg = captureVideoFrameFromElement(
                             videoRef.current,
                             activePlayingSegment?.cropOffsetYRatio ?? 0.2,
@@ -3299,6 +3299,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                 stylePreset: thumbnailStyle,
                               });
                               setThumbnailUrl(artCanvas.toDataURL('image/jpeg', 0.95));
+                              artCanvas.width = 0;
+                              artCanvas.height = 0;
                             }
                           }
                         }

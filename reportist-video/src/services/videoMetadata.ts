@@ -531,9 +531,25 @@ async function extractMoovBuffer(file: File): Promise<ArrayBuffer | null> {
       if (boxSize < headerSize || isNaN(boxSize) || !isFinite(boxSize)) break;
 
       if (boxType === 'moov') {
-        // moov 박스 발견! 메타데이터 분석용으로 최대 32MB까지 안전하게 읽기
-        const readLen = Math.min(boxSize, 1024 * 1024 * 32);
-        return await file.slice(offset, offset + readLen).arrayBuffer();
+        const safeBoxEnd = Math.min(fileSize, offset + boxSize);
+        const actualMoovLen = safeBoxEnd - offset;
+        const maxDirectRead = 1024 * 1024 * 1.5; // 1.5MB 이하 moov는 통째로 읽기
+
+        if (actualMoovLen <= maxDirectRead) {
+          return await file.slice(offset, safeBoxEnd).arrayBuffer();
+        }
+
+        // 대용량 moov (중간이 수십 MB의 stbl 샘플 테이블인 경우):
+        // 실제 촬영일/GPS가 위치한 앞단(mvhd, tkhd, mdhd, meta) 768KB와 뒷단(udta, meta, ilst) 768KB만 핀포인트 추출하여 OOM 원천 차단
+        const halfWindow = 768 * 1024;
+        const [moovHead, moovTail] = await Promise.all([
+          file.slice(offset, offset + halfWindow).arrayBuffer(),
+          file.slice(safeBoxEnd - halfWindow, safeBoxEnd).arrayBuffer(),
+        ]);
+        const combined = new Uint8Array(moovHead.byteLength + moovTail.byteLength);
+        combined.set(new Uint8Array(moovHead), 0);
+        combined.set(new Uint8Array(moovTail), moovHead.byteLength);
+        return combined.buffer;
       }
 
       offset += boxSize;
@@ -779,6 +795,44 @@ function extractDateFromTiff(view: DataView, tiffStart: number): Date | null {
   return null;
 }
 
+interface MetadataScanSlices {
+  headerBuffer: ArrayBuffer;
+  allBuffers: ArrayBuffer[];
+  allTexts: string[];
+}
+
+/**
+ * 촬영일시 및 GPS 추출에 필요한 최소한의 헤더/moov/테일 슬라이스를 단 1회만 경량 로드 (최대 ~2MB 이하)
+ * 기존에는 촬영일과 GPS에서 각각 최대 44MB 버퍼 + 88MB 문자열을 중복 생성하여 모바일 Safari OOM을 유발했음.
+ */
+async function loadMetadataScanSlices(file: File): Promise<MetadataScanSlices> {
+  const moovBuffer = await extractMoovBuffer(file);
+  const decoder = new TextDecoder('latin1');
+  const moovText = moovBuffer ? decoder.decode(moovBuffer) : '';
+
+  // moov가 이미 확보된 경우 EXIF/ftyp 확인용 256KB만 읽고, 없는 경우에도 512KB로 제한
+  const maxHeaderBytes = moovBuffer ? 256 * 1024 : 512 * 1024;
+  const headerChunkSize = Math.min(file.size, maxHeaderBytes);
+  const headerBuffer = await file.slice(0, headerChunkSize).arrayBuffer();
+  const headerText = decoder.decode(headerBuffer);
+
+  let tailBuffer: ArrayBuffer | null = null;
+  let tailText = '';
+  if (file.size > headerChunkSize) {
+    const maxTailBytes = moovBuffer ? 256 * 1024 : 512 * 1024;
+    const tailSize = Math.min(file.size - headerChunkSize, maxTailBytes);
+    const tailStart = file.size - tailSize;
+    tailBuffer = await file.slice(tailStart).arrayBuffer();
+    tailText = decoder.decode(tailBuffer);
+  }
+
+  return {
+    headerBuffer,
+    allBuffers: [moovBuffer, headerBuffer, tailBuffer].filter(Boolean) as ArrayBuffer[],
+    allTexts: [moovText, headerText, tailText].filter(Boolean),
+  };
+}
+
 /**
  * QuickTime / MP4 컨테이너의 moov/mvhd 박스 및 메타데이터 문자열에서 실제 촬영 일시를 파싱
  * 
@@ -787,28 +841,13 @@ function extractDateFromTiff(view: DataView, tiffStart: number): Date | null {
  * - 원본 촬영일시는 QuickTime com.apple.quicktime.creationdate, XMP 메타데이터, ISO 8601 문자열,
  *   mvhd/tkhd 박스 생성시간, 파일명 등에 안전하게 보존되어 있으므로 다단계로 정밀 파싱.
  */
-export async function extractMediaRecordedDate(file: File): Promise<Date> {
+export async function extractMediaRecordedDate(
+  file: File,
+  sharedSlices?: MetadataScanSlices
+): Promise<Date> {
   try {
-    // 0. MP4 atom 점프 탐색으로 moov 박스 버퍼 우선 확보 (대용량 4K/FHD 파일 대응)
-    const moovBuffer = await extractMoovBuffer(file);
-    const decoder = new TextDecoder('latin1');
-    const moovText = moovBuffer ? decoder.decode(moovBuffer) : '';
-
-    // 1. 헤더 (처음 4MB) 및 테일 (마지막 8MB) 버퍼 준비
-    const headerChunkSize = Math.min(file.size, 1024 * 1024 * 4);
-    const headerBuffer = await file.slice(0, headerChunkSize).arrayBuffer();
-    const headerText = decoder.decode(headerBuffer);
-
-    let tailBuffer: ArrayBuffer | null = null;
-    let tailText = '';
-    if (file.size > headerChunkSize) {
-      const tailSize = Math.min(file.size - headerChunkSize, 1024 * 1024 * 8);
-      const tailStart = file.size - tailSize;
-      tailBuffer = await file.slice(tailStart).arrayBuffer();
-      tailText = decoder.decode(tailBuffer);
-    }
-
-    const allTexts = [moovText, headerText, tailText].filter(Boolean);
+    const { headerBuffer, allBuffers, allTexts } =
+      sharedSlices || (await loadMetadataScanSlices(file));
 
     // 1-A. [최우선 1순위] iPhone / Apple QuickTime 원본 촬영일시 태그 (com.apple.quicktime.creationdate)
     // iOS 카메라 앱이 기록하는 실제 촬영 일시 및 타임존 (+09:00 등)
@@ -834,7 +873,6 @@ export async function extractMediaRecordedDate(file: File): Promise<Date> {
     if (exifDate) return exifDate;
 
     // 1-E. [5순위] QuickTime / MP4 mvhd, tkhd, mdhd 컨테이너 생성 시간 파싱
-    const allBuffers = [moovBuffer, headerBuffer, tailBuffer].filter(Boolean) as ArrayBuffer[];
     for (const buf of allBuffers) {
       const headerDates = findMp4HeaderDates(new DataView(buf));
       if (headerDates.length > 0) {
@@ -853,7 +891,7 @@ export async function extractMediaRecordedDate(file: File): Promise<Date> {
     console.debug('[videoMetadata] 촬영일 메타데이터 파싱 건너뜀 (fallback으로 전환):', err);
   }
 
-  // 2. 파일 시스템 수정일 (lastModified) fallback (데스크탑 원본 파일 보존 시 유효)
+  // 2. 파일 시스템 수정일 (lastModified) fallback (데스크톱 원본 파일 보존 시 유효)
   if (file.lastModified) {
     return new Date(file.lastModified);
   }
@@ -936,26 +974,15 @@ export function formatVideoDate(
  * - ISO 6709 패턴 (+/-DD.DDDD+/-DDD.DDDD)
  * - EXIF GPS IFD 태그 (JPEG 등 사진 파일)
  */
-export async function extractGpsFromVideoFile(file: File): Promise<{ latitude: number; longitude: number } | null> {
+export async function extractGpsFromVideoFile(
+  file: File,
+  sharedSlices?: MetadataScanSlices
+): Promise<{ latitude: number; longitude: number } | null> {
   try {
-    const moovBuffer = await extractMoovBuffer(file);
-    const decoder = new TextDecoder('latin1');
-    const moovText = moovBuffer ? decoder.decode(moovBuffer) : '';
-
-    const headerChunkSize = Math.min(file.size, 1024 * 1024 * 4);
-    const headerBuffer = await file.slice(0, headerChunkSize).arrayBuffer();
-    const headerText = decoder.decode(headerBuffer);
-
-    let tailText = '';
-    if (file.size > headerChunkSize) {
-      const tailSize = Math.min(file.size - headerChunkSize, 1024 * 1024 * 8);
-      const tailStart = file.size - tailSize;
-      const tailBuffer = await file.slice(tailStart).arrayBuffer();
-      tailText = decoder.decode(tailBuffer);
-    }
+    const { headerBuffer, allTexts } =
+      sharedSlices || (await loadMetadataScanSlices(file));
 
     const iso6709Regex = /([+-]\d{2,3}\.\d{3,})([+-]\d{2,3}\.\d{3,})/;
-    const allTexts = [moovText, headerText, tailText].filter(Boolean);
 
     // 1. Apple QuickTime location 메타데이터 키 검색 (최대 64KB 범위 스캔)
     for (const text of allTexts) {
@@ -1208,9 +1235,21 @@ export async function extractVideoMetadata(
   file: File,
   pattern: DateFormatOption = getStoredDateFormat()
 ): Promise<VideoMetadata> {
-  const recordedDate = await extractMediaRecordedDate(file);
+  let sharedSlices: MetadataScanSlices | undefined = undefined;
+  try {
+    sharedSlices = await loadMetadataScanSlices(file);
+  } catch {}
+
+  const recordedDate = await extractMediaRecordedDate(file, sharedSlices);
   const { dateStr, fullDateStr, recordedTimestamp } = formatVideoDate(file, pattern, recordedDate);
-  const gps = await extractGpsFromVideoFile(file);
+  const gps = await extractGpsFromVideoFile(file, sharedSlices);
+
+  if (sharedSlices) {
+    sharedSlices.allTexts.length = 0;
+    sharedSlices.allBuffers.length = 0;
+    sharedSlices = undefined;
+  }
+
   let locationName: string | undefined = undefined;
 
   if (gps) {

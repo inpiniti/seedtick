@@ -115,6 +115,9 @@ export function App() {
 
   const isRestoringProjectRef = useRef<boolean>(false);
   const autoSaveTimerRef = useRef<number | null>(null);
+  const activeMetadataBatchCountRef = useRef<number>(0);
+  const isSavingProjectRef = useRef<boolean>(false);
+  const pendingSaveAfterLockRef = useRef<boolean>(false);
 
   // 프로젝트 요약 목록 새로고침
   const refreshProjectSummaries = async () => {
@@ -347,13 +350,24 @@ export function App() {
     }
   };
 
-  // 자동 저장 수행
+  // 자동 저장 수행 (중복 실행 잠금 및 초기 메타데이터 추출 중 실행 보류)
   const performSave = async () => {
-    if (videos.length === 0 || currentStep === 'processing' || isRestoringProjectRef.current) {
+    if (
+      videos.length === 0 ||
+      currentStep === 'processing' ||
+      isRestoringProjectRef.current ||
+      activeMetadataBatchCountRef.current > 0
+    ) {
       if (videos.length === 0) setSaveStatus('idle');
       return;
     }
 
+    if (isSavingProjectRef.current) {
+      pendingSaveAfterLockRef.current = true;
+      return;
+    }
+
+    isSavingProjectRef.current = true;
     const projId = currentProjectId || generateProjectId();
     if (!currentProjectId) {
       setCurrentProjectId(projId);
@@ -444,12 +458,29 @@ export function App() {
     } catch (err) {
       console.warn('Auto-save failed:', err);
       setSaveStatus('saved');
+    } finally {
+      isSavingProjectRef.current = false;
+      if (pendingSaveAfterLockRef.current) {
+        pendingSaveAfterLockRef.current = false;
+        if (autoSaveTimerRef.current !== null) {
+          window.clearTimeout(autoSaveTimerRef.current);
+        }
+        autoSaveTimerRef.current = window.setTimeout(() => {
+          autoSaveTimerRef.current = null;
+          void performSave();
+        }, 600);
+      }
     }
   };
 
-  // 변경 감지 시 자동 저장 (Debounced)
+  // 변경 감지 시 자동 저장 (Debounced, 업로드 메타데이터 추출 중에는 보류)
   useEffect(() => {
-    if (videos.length === 0 || currentStep === 'processing' || isRestoringProjectRef.current) {
+    if (
+      videos.length === 0 ||
+      currentStep === 'processing' ||
+      isRestoringProjectRef.current ||
+      activeMetadataBatchCountRef.current > 0
+    ) {
       if (videos.length === 0) {
         setSaveStatus('idle');
       }
@@ -534,6 +565,11 @@ export function App() {
     if (newFiles.length === 0) return;
     setErrorMessage(null);
 
+    const isMobileEnv =
+      typeof navigator !== 'undefined' &&
+      (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
     const createdItems: Array<{ videoId: string; file: File; item: VideoItem }> = newFiles.map(
       (file, idx) => {
         const videoId = `vid-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 7)}`;
@@ -554,60 +590,102 @@ export function App() {
       }
     );
 
+    // 메타데이터 추출이 진행되는 동안 자동 저장(performSave)이 중첩 실행되지 않도록 잠금
+    activeMetadataBatchCountRef.current += 1;
+
     // 1회 배치 상태 업데이트로 N번 연속 리렌더링 방지
     setVideos((prev) => [...prev, ...createdItems.map((c) => c.item)]);
 
-    // 최대 2개 워커로 순차 메타데이터(해상도/썸네일/촬영일자/GPS) 추출하여 하드웨어 디코더 및 메모리 스파이크 원천 차단
+    // 모바일(iPhone XR 등)은 하드웨어 디코더 및 메모리 보호를 위해 동시성 1개 직렬 처리, 데스크톱은 최대 2개
     let cursor = 0;
-    const workerCount = Math.min(2, createdItems.length);
+    const workerCount = Math.min(isMobileEnv ? 1 : 2, createdItems.length);
+    const pendingUpdates = new Map<
+      string,
+      {
+        duration: number;
+        width: number;
+        height: number;
+        thumbnailUrl: string;
+        metadataDate: string;
+        recordedTimestamp?: number;
+        latitude?: number;
+        longitude?: number;
+        locationName?: string;
+      }
+    >();
+
+    const flushPendingVideoUpdates = () => {
+      if (pendingUpdates.size === 0) return;
+      const snapshot = new Map(pendingUpdates);
+      pendingUpdates.clear();
+      setVideos((prev) =>
+        prev.map((v) => {
+          const upd = snapshot.get(v.id);
+          return upd ? { ...v, ...upd } : v;
+        })
+      );
+    };
+
     const runWorker = async () => {
       while (cursor < createdItems.length) {
         const currentIndex = cursor++;
         const { videoId, file } = createdItems[currentIndex];
         try {
-          const [visualMeta, mediaMeta] = await Promise.all([
-            extractVideoVisualDimensions(file).catch(() => ({
-              duration: 0,
-              width: 0,
-              height: 0,
-              thumbnailUrl: '',
-            })),
-            extractMediaMetadata(file).catch(() => ({
-              dateStr: formatVideoDate(file).dateStr,
-              fullDateStr: '',
-              recordedTimestamp: file.lastModified || Date.now(),
-              latitude: undefined,
-              longitude: undefined,
-              locationQuery: undefined,
-              locationName: undefined,
-            })),
-          ]);
+          // 모바일에서는 파일 바이너리 슬라이스 스캔이 끝난 뒤 비디오 디코더를 열도록 순차 실행
+          const mediaMeta = await extractMediaMetadata(file).catch(() => ({
+            dateStr: formatVideoDate(file).dateStr,
+            fullDateStr: '',
+            recordedTimestamp: file.lastModified || Date.now(),
+            latitude: undefined,
+            longitude: undefined,
+            locationQuery: undefined,
+            locationName: undefined,
+          }));
 
-          setVideos((prev) =>
-            prev.map((v) =>
-              v.id === videoId
-                ? {
-                    ...v,
-                    duration: visualMeta.duration,
-                    width: visualMeta.width,
-                    height: visualMeta.height,
-                    thumbnailUrl: visualMeta.thumbnailUrl,
-                    metadataDate: mediaMeta.dateStr,
-                    recordedTimestamp: mediaMeta.recordedTimestamp,
-                    latitude: mediaMeta.latitude,
-                    longitude: mediaMeta.longitude,
-                    locationName: mediaMeta.locationName,
-                  }
-                : v
-            )
-          );
+          const visualMeta = await extractVideoVisualDimensions(file).catch(() => ({
+            duration: 0,
+            width: 0,
+            height: 0,
+            thumbnailUrl: '',
+          }));
+
+          pendingUpdates.set(videoId, {
+            duration: visualMeta.duration,
+            width: visualMeta.width,
+            height: visualMeta.height,
+            thumbnailUrl: visualMeta.thumbnailUrl,
+            metadataDate: mediaMeta.dateStr,
+            recordedTimestamp: mediaMeta.recordedTimestamp,
+            latitude: mediaMeta.latitude,
+            longitude: mediaMeta.longitude,
+            locationName: mediaMeta.locationName,
+          });
+
+          // 첫 번째 영상(프리뷰 즉시 반영)이거나 4개 단위 배치마다 상태 반영하여 리렌더링 폭주 차단
+          if (currentIndex === 0 || pendingUpdates.size >= 4 || currentIndex === createdItems.length - 1) {
+            flushPendingVideoUpdates();
+          }
         } catch (err) {
           console.warn('Metadata extraction error:', err);
         }
       }
     };
 
-    void Promise.all(Array.from({ length: workerCount }, () => runWorker()));
+    try {
+      await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
+      flushPendingVideoUpdates();
+    } finally {
+      activeMetadataBatchCountRef.current = Math.max(0, activeMetadataBatchCountRef.current - 1);
+      if (activeMetadataBatchCountRef.current === 0) {
+        if (autoSaveTimerRef.current !== null) {
+          window.clearTimeout(autoSaveTimerRef.current);
+        }
+        autoSaveTimerRef.current = window.setTimeout(() => {
+          autoSaveTimerRef.current = null;
+          void performSave();
+        }, 600);
+      }
+    }
   };
 
   const handleRemove = (id: string) => {

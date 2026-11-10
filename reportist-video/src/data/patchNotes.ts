@@ -18,9 +18,27 @@ export interface PatchRelease {
   commits: PatchCommit[];
 }
 
-export const CURRENT_APP_VERSION = '0.9.1';
+export const CURRENT_APP_VERSION = '0.9.2';
 
 export const PATCH_RELEASES: PatchRelease[] = [
+  {
+    "version": "0.9.2",
+    "title": "아이폰(iOS Safari) 업로드 직후 자동 저장·메타데이터 파싱 메모리 크래시 원천 차단",
+    "date": "2026-11-10",
+    "type": "patch",
+    "summary": "아이폰 XR 등 모바일 기기에서 다중 영상 업로드 직후 아무 버튼을 누르지 않아도 백그라운드 자동 저장(IndexedDB/OPFS 원본 Blob 직렬화)과 촬영일·GPS 메타데이터 중복 버퍼 스캔으로 인해 Safari가 강제 새로고침되던 문제를 완벽히 해결했습니다.",
+    "totalCommits": 1,
+    "commits": [
+      {
+        "hash": "ios092a",
+        "date": "2026-11-10",
+        "type": "fix",
+        "scope": "video",
+        "message": "아이폰 다중 영상 업로드 직후 자동 저장 Blob 직렬화 차단 및 메타데이터 단일 패스 경량화로 Safari 새로고침 크래시 해결",
+        "rawSubject": "fix(video): 아이폰 다중 영상 업로드 직후 자동 저장 Blob 직렬화 차단 및 메타데이터 단일 패스 경량화로 Safari 새로고침 크래시 해결"
+      }
+    ]
+  },
   {
     "version": "0.9.1",
     "title": "다중 영상 처리 메모리·디코더 최적화 및 메타데이터·성능 표기 개선",

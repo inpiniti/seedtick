@@ -8,6 +8,26 @@ export interface ReleaseI18nEntry {
 }
 
 export const RELEASE_TRANSLATIONS: Record<string, ReleaseI18nEntry> = {
+  "0.9.2": {
+    "title": {
+      "ko": "아이폰(iOS Safari) 업로드 직후 자동 저장·메타데이터 파싱 메모리 크래시 원천 차단",
+      "en": "Prevent iOS Safari Post-Upload Auto-Save & Metadata Parsing Memory Crashes",
+      "ja": "iPhone(iOS Safari)アップロード直後の自動保存・メタデータ解析によるメモリクラッシュを防止",
+      "zh": "彻底解决 iPhone (iOS Safari) 批量上传视频后自动保存与元数据解析导致的内存崩溃刷新问题",
+      "es": "Prevención de cierres de memoria en iOS Safari tras subir videos por autoguardado y metadatos",
+      "fr": "Correction des plantages mémoire iOS Safari après l'envoi liés à la sauvegarde auto et aux métadonnées",
+      "de": "Behebung von iOS-Safari-Speicherabstürzen nach dem Upload durch Auto-Save und Metadaten-Parsing"
+    },
+    "summary": {
+      "ko": "아이폰 XR 등 모바일 기기에서 다중 영상 업로드 직후 아무 버튼을 누르지 않아도 백그라운드 자동 저장(IndexedDB/OPFS 원본 Blob 직렬화)과 촬영일·GPS 메타데이터 중복 버퍼 스캔으로 인해 Safari가 강제 새로고침되던 문제를 완벽히 해결했습니다.",
+      "en": "Resolved an issue on iPhone XR and mobile Safari where the page crashed and reloaded shortly after uploading multiple videos due to background auto-save raw Blob serialization in IndexedDB/OPFS and duplicate multi-megabyte metadata buffer scans.",
+      "ja": "iPhone XRなどのモバイル端末で複数動画をアップロードした直後、バックグラウンド自動保存（IndexedDB/OPFSへの元動画Blobシリアライズ）や撮影日・GPSメタデータの重複バッファ走査によりSafariが強制再読み込みされる問題を解決しました。",
+      "zh": "解决了 iPhone XR 等移动设备在上传多个视频后，即使不点击任何按钮也会因后台自动保存（IndexedDB/OPFS 原始视频 Blob 序列化）及拍摄日期与 GPS 元数据重复大缓冲区扫描导致 Safari 强制刷新的问题。",
+      "es": "Se resolvió el problema en iPhone XR y Safari móvil donde la página se reiniciaba poco después de subir varios videos debido a la serialización de Blobs en el autoguardado y el escaneo duplicado de metadatos.",
+      "fr": "Résolution du rechargement forcé de Safari sur iPhone XR peu après l'envoi de plusieurs vidéos, causé par la sérialisation de fichiers bruts lors de la sauvegarde automatique et l'analyse dupliquée des métadonnées.",
+      "de": "Problem auf dem iPhone XR und im mobilen Safari behoben, bei dem die Seite kurz nach dem Hochladen mehrerer Videos durch Rohdaten-Serialisierung beim Auto-Save und doppeltes Metadaten-Scannen neu geladen wurde."
+    }
+  },
   "0.9.1": {
     "title": {
       "ko": "다중 영상 처리 메모리·디코더 최적화 및 메타데이터·성능 표기 개선",
@@ -331,6 +351,15 @@ export const RELEASE_TRANSLATIONS: Record<string, ReleaseI18nEntry> = {
 };
 
 export const COMMIT_TRANSLATIONS: Record<string, Record<Locale, string>> = {
+  "ios092a": {
+    "ko": "아이폰 다중 영상 업로드 직후 자동 저장 Blob 직렬화 차단 및 메타데이터 단일 패스 경량화로 Safari 새로고침 크래시 해결",
+    "en": "Prevent auto-save raw Blob serialization and streamline metadata extraction to a single lightweight pass to fix iOS Safari post-upload crash",
+    "ja": "iPhone複数動画アップロード直後の自動保存Blobシリアライズ遮断およびメタデータ単一パス軽量化によりSafari再読み込みクラッシュを解決",
+    "zh": "拦截 iPhone 批量上传视频后的自动保存原始 Blob 序列化并将元数据解析精简为单次轻量扫描，解决 Safari 强制刷新崩溃",
+    "es": "Evitar serialización de Blobs en autoguardado y optimizar metadatos en una sola pasada ligera para corregir reinicios en iOS Safari",
+    "fr": "Blocage de la sérialisation Blob en sauvegarde auto et analyse légère des métadonnées en une passe pour corriger le crash iOS Safari",
+    "de": "Roh-Blob-Serialisierung beim Auto-Save verhindert und Metadaten-Parsing auf einen leichten Durchgang reduziert, um iOS-Safari-Abstürze zu beheben"
+  },
   "mem091a": {
     "ko": "대량 영상 처리 시 비디오·캔버스 디코더 즉시 해제, 업로드 동시성 제어 및 오디오·자막 캔버스 메모리 최적화",
     "en": "Immediate video/canvas decoder release, upload concurrency queue, and audio/subtitle canvas memory optimization for large video batches",
