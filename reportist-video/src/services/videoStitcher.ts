@@ -1443,6 +1443,9 @@ export async function stitchHighlightedSegments({
       } catch {
         // ignore
       }
+      if (workerAudioGain && audioCtx) {
+        workerAudioGain.gain.setValueAtTime(Math.max(0, Math.min(2.0, segment.volume ?? 1.0)), audioCtx.currentTime);
+      }
 
       const fps = 30;
       const frameCount = Math.max(2, Math.ceil(segment.duration * fps));
@@ -1535,6 +1538,9 @@ export async function stitchHighlightedSegments({
       }
     } else {
       renderModeHistory.push('[pipeline: single-worker continuous hardware playback]');
+      if (workerAudioGain && audioCtx) {
+        workerAudioGain.gain.setValueAtTime(Math.max(0, Math.min(2.0, allSegments[0]?.volume ?? 1.0)), audioCtx.currentTime);
+      }
       await waitForPlaybackAdvance(workerA, workerA.currentTime, 5000);
       await startOrResumeRecorder();
       recordingWallStartAt = performance.now();
@@ -1723,6 +1729,10 @@ export async function stitchHighlightedSegments({
                 lastDrawnMediaTime = workerA.currentTime;
                 lastDrawnSegmentIdx = currentSegmentIdx;
                 renderFrameWithOverlay(workerA, nextVideoItem, nextSegment, nextOverlay);
+              }
+
+              if (workerAudioGain && audioCtx) {
+                workerAudioGain.gain.setValueAtTime(Math.max(0, Math.min(2.0, nextSegment.volume ?? 1.0)), audioCtx.currentTime);
               }
 
               activePlaybackAccumSec = 0;
