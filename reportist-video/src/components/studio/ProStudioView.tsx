@@ -3179,8 +3179,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         />
       ) : (
         <main className="toss-main-content">
-        {/* 누락 파일 일괄 재연결 알림 배너: 이미 완성본 비디오가 존재하는 프로젝트는 불필요한 경고를 노출하지 않음 */}
-        {!result?.url && videos.some((v) => !v.url || (v.file && v.file.size === 0) || v.error || v.isMissingFile) && (
+        {/* 누락 파일 일괄 재연결 알림 배너: 아직 하이라이트 분석 전(초기 업로드 단계)에만 표시 */}
+        {isDraftPreview && !result?.url && videos.some((v) => !v.url || (v.file && v.file.size === 0) || v.error || v.isMissingFile) && (
           <div className="toss-relink-banner">
             <div className="toss-relink-banner-left">
               <div className="toss-relink-icon-wrap">
@@ -3465,6 +3465,54 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       </div>
                     )}
                   </>
+                ) : segments.length > 0 ? (
+                  /* 원본 영상이 메모리 정리로 분리되었으나, 하이라이트 편집 데이터가 안전 보관된 상태 */
+                  <div className="toss-player-preserved-wrapper">
+                    {thumbnailUrl ? (
+                      <img
+                        src={thumbnailUrl}
+                        alt="Project Thumbnail"
+                        className="toss-player-preserved-bg"
+                      />
+                    ) : (
+                      <div className="toss-player-preserved-placeholder" />
+                    )}
+                    <div className="toss-player-preserved-overlay">
+                      <div className="toss-player-preserved-badge">
+                        <Sparkles size={12} />
+                        <span>보관된 하이라이트 세션</span>
+                      </div>
+                      <h3 className="toss-player-preserved-title">
+                        {overlayOptions.titleText || 'AI 하이라이트 영상'}
+                      </h3>
+                      <p className="toss-player-preserved-desc">
+                        {segments.length}개 클립 · {formatSec(totalDuration)} 편집 구간이 안전하게 보관되어 있어요.
+                      </p>
+                      <div className="toss-player-preserved-actions">
+                        <button
+                          type="button"
+                          className="toss-btn-primary"
+                          onClick={() => handleDownload()}
+                        >
+                          <Download size={13} />
+                          <span>영상 내보내기 & 다운로드</span>
+                        </button>
+                        {onStartNewProject && (
+                          <button
+                            type="button"
+                            className="toss-btn-secondary"
+                            onClick={() => {
+                              resetStudioState();
+                              onStartNewProject();
+                            }}
+                          >
+                            <Plus size={13} />
+                            <span>새 영상 만들기</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 ) : (
                   <div
                     className="toss-player-empty"

@@ -8,6 +8,26 @@ export interface ReleaseI18nEntry {
 }
 
 export const RELEASE_TRANSLATIONS: Record<string, ReleaseI18nEntry> = {
+  "0.9.9": {
+    "title": {
+      "ko": "모바일 소용량 원본 비디오 보존 허용, 다운로드 즉시 DB 동기화 및 보관된 하이라이트 전용 뷰어 도입",
+      "en": "Allow Small Mobile Raw Video Blobs, Instant Download DB Sync & Dedicated Preserved Highlight Viewer",
+      "ja": "モバイル小容量元動画の保持許可、ダウンロード即時DB同期＆保存済みハイライト専用ビューアー導入",
+      "zh": "移动端支持小体积原始视频完整保存、下载后即时同步数据库并引入归档高光专属播放视图",
+      "es": "Permitir guardar videos originales ligeros en móviles, sincronización inmediata tras descarga y visor dedicado para sesiones guardadas",
+      "fr": "Conservation des vidéos sources légères sur mobile, synchronisation immédiate après téléchargement et visionneuse de projet dédiée",
+      "de": "Beibehaltung kleiner Originalvideos auf Mobilgeräten, sofortige DB-Synchronisierung nach dem Download & dedizierter Highlight-Viewer"
+    },
+    "summary": {
+      "ko": "소용량 영상(3개 이하 & 80MB 이하)은 아이폰 Safari에서도 원본 비디오를 IndexedDB에 안전하게 영구 보관하도록 스토리지를 개선했습니다. 또한 완성 영상 다운로드 완료 즉시 동기적 저장을 실행하여 브라우저 강제 종료 시에도 완성본이 100% 보존되도록 했으며, 원본이 분리된 프로젝트라도 '영상을 올려주세요' 빈 화면이나 위협적인 경고 배너 대신 보관된 썸네일 아트워크와 하이라이트 정보 카드를 단정하게 제공하도록 UX를 혁신했습니다.",
+      "en": "Enables saving raw video blobs into IndexedDB for small mobile projects (up to 3 clips and 80MB), preventing missing file issues upon reopen. Guarantees immediate database synchronization right after export download so rendered files are 100% preserved even during abrupt browser exit. Replaced the empty upload dropzone and intrusive warning banners with an elegant preserved highlight viewer showcasing saved artwork, clip counts, and duration.",
+      "ja": "3本以下かつ80MB以下の軽量プロジェクトではiPhone Safariでも元動画BlobをIndexedDBへ安全に完全保存できるように改善。ダウンロード完了と同時に同期保存を実行し、強制終了時も完成動画を確実に保持。元動画がアンロードされたプロジェクトでも「動画をアップロードしてください」空表示や威圧的な警告を出さず、保存済みサムネイルとハイライト情報カードを上品に表示します。",
+      "zh": "针对 3 个以内且总计 80MB 以下的轻量移动端项目，允许将原始视频 Blob 完整持久化至 IndexedDB。在完成导出下载时立即触发同步保存，彻底防止强退后成品丢失。对于原始视频已卸载的项目，消除空上传引导和刺眼警告条，改为展示典雅的已归档高光项目卡片及作品缩略图。",
+      "es": "Permite conservar videos originales de menos de 80MB en móviles, sincroniza la base de datos al descargar y muestra un visor elegante para proyectos guardados.",
+      "fr": "Permet de conserver les vidéos sources légères sur mobile, synchronise instantanément la base après téléchargement et propose une visionneuse élégante.",
+      "de": "Ermöglicht das Speichern kleiner Originalvideos auf Mobilgeräten, synchronisiert die DB sofort nach dem Download und bietet eine elegante Projektansicht."
+    }
+  },
   "0.9.8": {
     "title": {
       "ko": "설정 모달 내 클립 촬영일시 순 기본 정렬 옵션 추가 및 AI 하이라이트 생성 시 자동 정렬 연동",

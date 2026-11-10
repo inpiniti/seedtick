@@ -211,20 +211,44 @@ export async function saveProject(project: StudioProject): Promise<void> {
     (project.finalResult?.videoBlob?.size || 0);
 
   // 1. 경량 모드(lightweight)이거나 모바일(iOS/Android) 환경인 경우:
-  // 모바일 Safari(예: iPhone XR)에서 수백 MB~수 GB의 원본 18개 비디오 Blob을 메인 스레드에서
-  // IndexedDB로 직렬화(Structured Clone)하면 OOM 크래시가 발생하므로 원본 비디오 Blob은 제외하되,
-  // 이미 합성 완료된 "단 1개의 최종 완성본 비디오(수십 MB)"는 IndexedDB에 안전하게 영구 보존한다.
+  // 모바일 Safari(예: iPhone XR)에서 수십 개의 고용량 원본 비디오를 IndexedDB에 직렬화하면 OOM이 발생하지만,
+  // 3개 이하 & 80MB 이하의 소용량 프로젝트는 모바일 Safari에서도 IndexedDB에 안전하게 전체 보존할 수 있다.
+  // 반면 대용량 다중 영상(18개 등)은 원본을 제외하고 "최종 완성본 비디오(수십 MB)"만 IndexedDB에 안전하게 영구 보존한다.
   if (currentMode === 'lightweight' || (IS_MOBILE_STORAGE_ENV && currentMode !== 'full')) {
+    const isSafeSmallMobile =
+      currentMode !== 'lightweight' &&
+      videoList.length <= 3 &&
+      totalVideoBlobBytes <= 80 * 1024 * 1024;
+
     try {
-      // 1-1. 원본 비디오는 제외하고, 최종 완성본 비디오는 포함하여 저장 시도
+      // 1-1. 소용량 모바일이면 원본까지 전체 보존 시도
+      if (isSafeSmallMobile) {
+        const fullData = sanitizeProjectForStorage(
+          {
+            ...project,
+            storageMode: currentMode,
+            hasOpfsFiles: false,
+          },
+          false, // stripRawVideos = false (소용량 영상은 원본까지 보존!)
+          false  // stripFinalResult = false (완성본도 보존)
+        );
+        await executePut(db, fullData);
+        return;
+      }
+    } catch (smallSaveErr) {
+      console.warn('[projectStorage] Full small mobile save failed, falling back to raw-strip:', smallSaveErr);
+    }
+
+    try {
+      // 1-2. 대용량 모바일 프로젝트: 원본 다중 영상은 제외하고 최종 완성본 1개만 안전 보존
       const safeData = sanitizeProjectForStorage(
         {
           ...project,
           storageMode: currentMode === 'lightweight' ? 'lightweight' : currentMode,
           hasOpfsFiles: false,
         },
-        true, // stripRawVideos = true (원본 18개 비디오 제외)
-        false // stripFinalResult = false (최종 완성본 1개는 IndexedDB 보존!)
+        true, // stripRawVideos = true (원본 제외)
+        false // stripFinalResult = false (완성본 1개는 IndexedDB 보존!)
       );
       await executePut(db, safeData);
       return;

@@ -18,9 +18,27 @@ export interface PatchRelease {
   commits: PatchCommit[];
 }
 
-export const CURRENT_APP_VERSION = '0.9.8';
+export const CURRENT_APP_VERSION = '0.9.9';
 
 export const PATCH_RELEASES: PatchRelease[] = [
+  {
+    "version": "0.9.9",
+    "title": "모바일 소용량 원본 비디오 보존 허용, 다운로드 즉시 DB 동기화 및 보관된 하이라이트 전용 뷰어 도입",
+    "date": "2026-11-10",
+    "type": "patch",
+    "summary": "소용량 영상(3개 이하 & 80MB 이하)은 아이폰 Safari에서도 원본 비디오를 IndexedDB에 안전하게 영구 보관하도록 스토리지를 개선했습니다. 또한 완성 영상 다운로드 완료 즉시 동기적 저장을 실행하여 브라우저 강제 종료 시에도 완성본이 100% 보존되도록 했으며, 원본이 분리된 프로젝트라도 '영상을 올려주세요' 빈 화면이나 위협적인 경고 배너 대신 보관된 썸네일 아트워크와 하이라이트 정보 카드를 단정하게 제공하도록 UX를 혁신했습니다.",
+    "totalCommits": 1,
+    "commits": [
+      {
+        "hash": "str099",
+        "date": "2026-11-10",
+        "type": "fix",
+        "scope": "storage",
+        "message": "소용량 모바일 원본 비디오 보존 허용 및 보관된 하이라이트 전용 뷰어 도입 (v0.9.9)",
+        "rawSubject": "fix(storage): 소용량 모바일 원본 비디오 보존 허용 및 보관된 하이라이트 전용 뷰어 도입 (v0.9.9)"
+      }
+    ]
+  },
   {
     "version": "0.9.8",
     "title": "설정 모달 내 클립 촬영일시 순 기본 정렬 옵션 추가 및 AI 하이라이트 생성 시 자동 정렬 연동",

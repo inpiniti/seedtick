@@ -354,7 +354,7 @@ export function App() {
   };
 
   // 자동 저장 수행 (중복 실행 잠금 및 초기 메타데이터 추출 중 실행 보류)
-  const performSave = async () => {
+  const performSave = async (overrideFinalResult?: FinalVideoResult) => {
     if (
       videos.length === 0 ||
       currentStep === 'processing' ||
@@ -383,6 +383,13 @@ export function App() {
       (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
 
+    const totalVideoBytes = videos.reduce((sum, v) => sum + (v.file?.size || v.sizeBytes || 0), 0);
+    // 모바일 환경이라도 3개 이하 & 80MB 이하 소용량 영상은 IndexedDB에 원본 Blob 저장을 허용 (재접속 시 완벽 보존)
+    const isSafeSmallMobile = isMobileStorage && videos.length <= 3 && totalVideoBytes <= 80 * 1024 * 1024;
+    const stripRawOnSave = isMobileStorage && !isSafeSmallMobile;
+
+    const targetFinalResult = overrideFinalResult || finalResult;
+
     try {
       const storedVideos = videos.map((v) => ({
         id: v.id,
@@ -399,19 +406,19 @@ export function App() {
         longitude: v.longitude,
         locationName: v.locationName,
         thumbnailUrl: v.thumbnailUrl && !v.thumbnailUrl.startsWith('blob:') ? v.thumbnailUrl : undefined,
-        fileBlob: isMobileStorage ? undefined : v.file,
+        fileBlob: stripRawOnSave ? undefined : v.file,
       }));
 
       const projectTitle =
         currentOverlayOptions?.titleText ||
-        finalResult?.suggestedTitle ||
+        targetFinalResult?.suggestedTitle ||
         (videos[0]?.name
           ? `${videos[0].name.replace(/\.[^/.]+$/, '')} ${dict.projects?.projectSuffix || '작업'}`
           : dict.projects?.newProjectTitle || '새 스튜디오 작업');
 
       const safeFinalThumb =
-        finalResult?.thumbnailUrl && !finalResult.thumbnailUrl.startsWith('blob:')
-          ? finalResult.thumbnailUrl
+        targetFinalResult?.thumbnailUrl && !targetFinalResult.thumbnailUrl.startsWith('blob:')
+          ? targetFinalResult.thumbnailUrl
           : undefined;
       const safeVideoThumb =
         videos[0]?.thumbnailUrl && !videos[0].thumbnailUrl.startsWith('blob:')
@@ -424,29 +431,29 @@ export function App() {
         createdAt: Date.now(),
         updatedAt: Date.now(),
         thumbnailUrl: safeFinalThumb || safeVideoThumb,
-        duration: finalResult?.duration || videos.reduce((acc, v) => acc + (v.duration || 0), 0),
+        duration: targetFinalResult?.duration || videos.reduce((acc, v) => acc + (v.duration || 0), 0),
         videoCount: videos.length,
-        step: finalResult ? 'result' : 'upload',
+        step: targetFinalResult ? 'result' : 'upload',
         videos: storedVideos,
-        finalResult: finalResult
+        finalResult: targetFinalResult
           ? {
-              videoBlob: finalResult.blob,
-              duration: finalResult.duration,
-              fileSize: finalResult.fileSize,
-              width: finalResult.width || (finalResult.resolution === '1080p' ? 1920 : 1280),
-              height: finalResult.height || (finalResult.resolution === '1080p' ? 1080 : 720),
-              resolution: finalResult.resolution,
-              segments: finalResult.segments,
-              suggestedTitle: finalResult.suggestedTitle,
-              thumbnailUrl: finalResult.thumbnailUrl,
-              cleanThumbnailUrl: finalResult.cleanThumbnailUrl,
-              bestThumbnailTime: finalResult.bestThumbnailTime,
-              bestSourceVideoId: finalResult.bestSourceVideoId,
-              bestThumbnailReason: finalResult.bestThumbnailReason,
-              bestThumbnailCropOffsetYRatio: finalResult.bestThumbnailCropOffsetYRatio,
-              bestThumbnailRotation: finalResult.bestThumbnailRotation,
-              bestThumbnailCleanDataUrl: finalResult.bestThumbnailCleanDataUrl,
-              aiThumbnailRecommendations: finalResult.aiThumbnailRecommendations,
+              videoBlob: targetFinalResult.blob,
+              duration: targetFinalResult.duration,
+              fileSize: targetFinalResult.fileSize,
+              width: targetFinalResult.width || (targetFinalResult.resolution === '1080p' ? 1920 : 1280),
+              height: targetFinalResult.height || (targetFinalResult.resolution === '1080p' ? 1080 : 720),
+              resolution: targetFinalResult.resolution,
+              segments: targetFinalResult.segments,
+              suggestedTitle: targetFinalResult.suggestedTitle,
+              thumbnailUrl: targetFinalResult.thumbnailUrl,
+              cleanThumbnailUrl: targetFinalResult.cleanThumbnailUrl,
+              bestThumbnailTime: targetFinalResult.bestThumbnailTime,
+              bestSourceVideoId: targetFinalResult.bestSourceVideoId,
+              bestThumbnailReason: targetFinalResult.bestThumbnailReason,
+              bestThumbnailCropOffsetYRatio: targetFinalResult.bestThumbnailCropOffsetYRatio,
+              bestThumbnailRotation: targetFinalResult.bestThumbnailRotation,
+              bestThumbnailCleanDataUrl: targetFinalResult.bestThumbnailCleanDataUrl,
+              aiThumbnailRecommendations: targetFinalResult.aiThumbnailRecommendations,
             }
           : null,
         overlayOptions: currentOverlayOptions || undefined,
@@ -1616,6 +1623,8 @@ export function App() {
 
       const oldResultUrl = finalResult?.url;
       setFinalResult(result);
+      // 다운로드 직후 사용자가 브라우저를 닫아도 완성본 비디오(Blob)가 100% 보존되도록 즉시 강제 저장
+      void performSave(result);
       if (oldResultUrl && oldResultUrl.startsWith('blob:')) {
         setTimeout(() => {
           try {

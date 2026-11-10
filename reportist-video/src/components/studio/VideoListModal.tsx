@@ -137,11 +137,13 @@ export const VideoListModal: React.FC<VideoListModalProps> = ({
 
         {/* 누락 파일 일괄 재연결 알림 배너 */}
         {videos.some((v) => !v.url || (v.file && v.file.size === 0) || v.error || v.isMissingFile) && (
-          <div className="toss-relink-modal-banner">
+          <div className="toss-relink-modal-banner" style={{ background: '#f8fafc', borderColor: '#e2e8f0' }}>
             <div className="toss-relink-modal-title">
-              <AlertTriangle size={16} style={{ color: '#d97706', flexShrink: 0 }} />
-              <span>
-                원본 영상 {videos.filter((v) => !v.url || (v.file && v.file.size === 0) || v.error || v.isMissingFile).length}개 재연결 필요
+              <span style={{ fontSize: '14px' }}>💡</span>
+              <span style={{ color: '#475569', fontSize: '12px' }}>
+                {videos.every((v) => v.segments && v.segments.length > 0)
+                  ? '기기 메모리 보호를 위해 원본은 분리되었지만 클립 편집점은 안전하게 보존되어 있어요'
+                  : `원본 영상 ${videos.filter((v) => !v.url || (v.file && v.file.size === 0) || v.error || v.isMissingFile).length}개 재연결 필요`}
               </span>
             </div>
             {onRelinkBatch && (
@@ -237,9 +239,15 @@ export const VideoListModal: React.FC<VideoListModalProps> = ({
                           </span>
                         )}
                         {(!vid.url || (vid.file && vid.file.size === 0) || vid.error || vid.isMissingFile) && (
-                          <span className="toss-video-modal-meta-badge" style={{ background: '#fef2f2', color: '#ef4444', borderColor: '#fca5a5' }}>
-                            <span>⚠️ 파일 재선택 필요</span>
-                          </span>
+                          vid.segments && vid.segments.length > 0 ? (
+                            <span className="toss-video-modal-meta-badge" style={{ background: '#f0fdf4', color: '#16a34a', borderColor: '#bbf7d0' }}>
+                              <span>✓ 클립 보관됨 ({vid.segments.length}개)</span>
+                            </span>
+                          ) : (
+                            <span className="toss-video-modal-meta-badge" style={{ background: '#fef2f2', color: '#ef4444', borderColor: '#fca5a5' }}>
+                              <span>⚠️ 파일 재선택 필요</span>
+                            </span>
+                          )
                         )}
                       </div>
                     </div>
