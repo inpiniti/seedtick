@@ -1257,6 +1257,9 @@ export async function stitchHighlightedSegments({
   // 아웃트로 시퀀스 렌더링 (약 1.8초 - 드리프트 보정 Wall-Clock 페이싱 적용)
   const renderOutroSequence = async (): Promise<number> => {
     if (!overlayOptions?.showOutro) return 0;
+    if (workerAudioGain && audioCtx) {
+      workerAudioGain.gain.setValueAtTime(0, audioCtx.currentTime);
+    }
     onProgress?.(98, '종료 아웃트로 엔드 카드 생성 중...');
 
     const outroDurationSec = 1.8;
@@ -1333,6 +1336,9 @@ export async function stitchHighlightedSegments({
   ): Promise<number> => {
     const bridgeInfo = evaluateChapterBridge(prevSeg, nextSeg, nextIdx, allSegments.length, overlayOptions);
     if (!bridgeInfo.shouldBridge) return 0;
+    if (workerAudioGain && audioCtx) {
+      workerAudioGain.gain.setValueAtTime(0, audioCtx.currentTime);
+    }
 
     const bridgeTotalFrames = Math.round(CHAPTER_BRIDGE_DURATION * targetFps);
     const frameInterval = 1000 / targetFps;
