@@ -18,9 +18,27 @@ export interface PatchRelease {
   commits: PatchCommit[];
 }
 
-export const CURRENT_APP_VERSION = '0.9.9';
+export const CURRENT_APP_VERSION = '0.9.10';
 
 export const PATCH_RELEASES: PatchRelease[] = [
+  {
+    "version": "0.9.10",
+    "title": "AI 모델 데이터 학습 차단(Zero Data Retention) 연동 및 모델 선택창 내 실시간 프라이버시(학습·보관) 뱃지 도입",
+    "date": "2026-11-10",
+    "type": "patch",
+    "summary": "영상 분석 요청 시 OpenRouter의 data_collection='deny' 및 zdr=true 파라미터를 강제 적용하여 사용자 영상 및 프레임이 모델 학습에 사용되지 않도록 보안을 강화했습니다. 또한 AI 모델 선택 창에서 각 모델의 실제 데이터 학습 여부(학습 미사용/학습에 사용됨) 및 보관 일수(즉시 삭제/보관 N일)를 직관적인 보안 뱃지로 실시간 확인할 수 있도록 UI를 개선했습니다.",
+    "totalCommits": 1,
+    "commits": [
+      {
+        "hash": "sec0910",
+        "date": "2026-11-10",
+        "type": "feat",
+        "scope": "security",
+        "message": "AI 모델 데이터 학습 차단(ZDR) 연동 및 모델 선택창 내 프라이버시(학습·보관) 뱃지 도입 (v0.9.10)",
+        "rawSubject": "feat(security): AI 모델 데이터 학습 차단(ZDR) 연동 및 모델 선택창 내 프라이버시(학습·보관) 뱃지 도입 (v0.9.10)"
+      }
+    ]
+  },
   {
     "version": "0.9.9",
     "title": "모바일 소용량 원본 비디오 보존 허용, 다운로드 즉시 DB 동기화 및 보관된 하이라이트 전용 뷰어 도입",

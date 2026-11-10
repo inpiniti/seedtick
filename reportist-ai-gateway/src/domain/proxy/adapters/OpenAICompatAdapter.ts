@@ -40,6 +40,13 @@ export class OpenAICompatAdapter implements ILLMAdapter {
       body.reasoning_effort = normalizedEffort;
     }
 
+    if (request.data_collection) {
+      body.data_collection = request.data_collection;
+    }
+    if (request.zdr !== undefined) {
+      body.zdr = request.zdr;
+    }
+
     return body;
   }
 

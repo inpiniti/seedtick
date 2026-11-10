@@ -1,4 +1,15 @@
-// types/gateway.ts - AI Gateway 및 모델 관련 타입 정의
+export interface ModelDataPolicy {
+  /** 모델 학습(Training)에 사용자 입출력 데이터가 사용되는지 여부 */
+  training?: boolean;
+  /** OpenRouter 자체 학습에 데이터가 사용되는지 여부 */
+  trainingOpenRouter?: boolean;
+  /** 프롬프트/응답 데이터를 서버에 보관(저장)하는지 여부 */
+  retainsPrompts?: boolean;
+  /** 데이터 보관 일수 */
+  retentionDays?: number | null;
+  /** 학대 방지 등 안전 목적의 임시 보관 여부 */
+  safetyRetention?: boolean;
+}
 
 export interface FreeModelMeta {
   id: string;
@@ -27,6 +38,8 @@ export interface FreeModelMeta {
   intelligenceTier?: string;
   parametersSummary?: string;
   supportedParameters?: string[];
+  /** OpenRouter 제공사 데이터 정책 (학습 여부, 보관 기간 등) */
+  dataPolicy?: ModelDataPolicy;
 }
 
 export function getModelInputModalities(model?: FreeModelMeta | null): string[] {

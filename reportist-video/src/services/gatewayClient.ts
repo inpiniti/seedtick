@@ -121,20 +121,48 @@ export async function fetchOpenRouterLivePerf(): Promise<Map<string, ModelPerfMe
       for (const m of models) {
         const epId = m.endpoint?.id;
         const perf = epId ? perfMap[epId] : null;
-        if (!perf) continue;
+
+        const rawDataPolicy =
+          m.endpoint?.provider_info?.dataPolicy ||
+          m.endpoint?.data_policy ||
+          m.data_policy;
+
+        const dataPolicy = rawDataPolicy
+          ? {
+              training: typeof rawDataPolicy.training === 'boolean' ? rawDataPolicy.training : undefined,
+              trainingOpenRouter:
+                typeof rawDataPolicy.trainingOpenRouter === 'boolean'
+                  ? rawDataPolicy.trainingOpenRouter
+                  : undefined,
+              retainsPrompts:
+                typeof rawDataPolicy.retainsPrompts === 'boolean'
+                  ? rawDataPolicy.retainsPrompts
+                  : undefined,
+              retentionDays:
+                typeof rawDataPolicy.retentionDays === 'number'
+                  ? rawDataPolicy.retentionDays
+                  : rawDataPolicy.prompt_retention_days ?? null,
+              safetyRetention:
+                typeof rawDataPolicy.safetyRetention === 'boolean'
+                  ? rawDataPolicy.safetyRetention
+                  : undefined,
+            }
+          : undefined;
+
         const speed =
-          perf.p50_throughput != null && Number.isFinite(perf.p50_throughput)
+          perf?.p50_throughput != null && Number.isFinite(perf.p50_throughput)
             ? Math.round(perf.p50_throughput)
             : null;
         const latency =
-          perf.p50_latency != null && Number.isFinite(perf.p50_latency)
+          perf?.p50_latency != null && Number.isFinite(perf.p50_latency)
             ? Math.round(perf.p50_latency)
             : null;
 
-        if (speed != null || latency != null) {
+        if (speed != null || latency != null || dataPolicy != null) {
           const entry: ModelPerfMetric = {
             speedTokensPerSecond: speed ?? 0,
             latencyMs: latency ?? 0,
+            dataPolicy,
           };
           if (m.slug) {
             map.set(canonicalModelId(m.slug), entry);
@@ -626,6 +654,8 @@ Format:
       },
     ],
     temperature: 0.2, // 결정론적이고 정확한 타임스탬프 추출
+    data_collection: 'deny',
+    zdr: true,
   };
 
   if (reasoningEffort && reasoningEffort !== 'none') {

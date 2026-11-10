@@ -9,6 +9,8 @@ import {
   Gauge,
   Layers,
   Search,
+  ShieldAlert,
+  ShieldCheck,
   Sparkles,
   Timer,
   X,
@@ -445,6 +447,34 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                         </span>
                       )}
                       {isNew && <span className="model-modal-new-badge">{dict.modelModal.badgeNew}</span>}
+                      {model.dataPolicy?.training === false && (
+                        <span
+                          className="model-modal-fastest-badge"
+                          style={{
+                            background: 'rgba(16, 185, 129, 0.1)',
+                            color: '#059669',
+                            borderColor: 'rgba(16, 185, 129, 0.3)',
+                          }}
+                          title="이 모델은 입력 데이터를 학습에 사용하지 않습니다."
+                        >
+                          <ShieldCheck size={11} />
+                          {dict.modelModal.privacyNoTraining ?? '학습 미사용'}
+                        </span>
+                      )}
+                      {model.dataPolicy?.training === true && (
+                        <span
+                          className="model-modal-fastest-badge"
+                          style={{
+                            background: 'rgba(245, 158, 11, 0.1)',
+                            color: '#d97706',
+                            borderColor: 'rgba(245, 158, 11, 0.3)',
+                          }}
+                          title="주의: 이 엔드포인트는 데이터가 모델 학습에 사용될 수 있습니다."
+                        >
+                          <ShieldAlert size={11} />
+                          {dict.modelModal.privacyTraining ?? '학습에 사용됨'}
+                        </span>
+                      )}
                     </div>
 
                     <div className="model-modal-select-indicator">
@@ -568,6 +598,57 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                         <Layers size={12} />
                         <span>{localizeContextLength(model.contextLengthFormatted, locale)}</span>
                       </div>
+                    )}
+
+                    {/* Data Policy & Privacy Badge */}
+                    {model.dataPolicy && (
+                      <>
+                        {model.dataPolicy.training === false ? (
+                          <div
+                            className="model-modal-tag privacy-safe"
+                            title={
+                              locale === 'ko'
+                                ? '이 모델 제공사는 입력된 영상/데이터를 모델 학습에 사용하지 않습니다.'
+                                : 'This provider does not use input data to train models.'
+                            }
+                          >
+                            <ShieldCheck size={12} color="#10b981" />
+                            <span style={{ color: '#059669', fontWeight: 600 }}>
+                              {dict.modelModal.privacyNoTraining ?? '학습 미사용'}
+                            </span>
+                          </div>
+                        ) : model.dataPolicy.training === true ? (
+                          <div
+                            className="model-modal-tag privacy-warning"
+                            title={
+                              locale === 'ko'
+                                ? '주의: 이 무료 엔드포인트는 입력된 데이터가 모델 학습에 활용될 수 있습니다.'
+                                : 'Caution: Input data on this endpoint may be used for model training.'
+                            }
+                          >
+                            <ShieldAlert size={12} color="#f59e0b" />
+                            <span style={{ color: '#d97706', fontWeight: 600 }}>
+                              {dict.modelModal.privacyTraining ?? '학습에 사용됨'}
+                            </span>
+                          </div>
+                        ) : null}
+
+                        {model.dataPolicy.retainsPrompts === false ? (
+                          <div className="model-modal-tag privacy-zdr">
+                            <span style={{ color: '#059669' }}>
+                              {dict.modelModal.privacyZdr ?? '즉시 삭제 (ZDR)'}
+                            </span>
+                          </div>
+                        ) : typeof model.dataPolicy.retentionDays === 'number' && model.dataPolicy.retentionDays > 0 ? (
+                          <div className="model-modal-tag privacy-retention">
+                            <span style={{ color: '#6b7280' }}>
+                              {interpolate(dict.modelModal.privacyRetention ?? '보관 {days}일', {
+                                days: model.dataPolicy.retentionDays,
+                              })}
+                            </span>
+                          </div>
+                        ) : null}
+                      </>
                     )}
                   </div>
 

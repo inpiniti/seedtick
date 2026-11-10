@@ -113,6 +113,8 @@ export interface ChatRequest {
   max_tokens?: number;
   stream?: boolean;
   reasoning_effort?: ReasoningEffortLevel | string;
+  data_collection?: 'allow' | 'deny';
+  zdr?: boolean;
 }
 
 export interface FreeModelMeta {

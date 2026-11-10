@@ -49,6 +49,8 @@ export const chatRoute = new Elysia().post(
       max_tokens: t.Optional(t.Integer({ minimum: 1, maximum: 32768 })),
       stream: t.Optional(t.Boolean()),
       reasoning_effort: t.Optional(t.String()),
+      data_collection: t.Optional(t.String()),
+      zdr: t.Optional(t.Boolean()),
     }),
     response: t.Union([
       t.Object({

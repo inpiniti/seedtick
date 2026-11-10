@@ -13,6 +13,7 @@ export interface ModelSpeedInfo {
 export interface ModelPerfMetric {
   speedTokensPerSecond: number;
   latencyMs: number;
+  dataPolicy?: import('../types/gateway.ts').ModelDataPolicy;
 }
 
 /**
@@ -265,6 +266,8 @@ export function enrichModelMetrics(
       known?.latencyMs ??
       null;
 
+    const dataPolicy = model.dataPolicy ?? live?.dataPolicy ?? known?.dataPolicy;
+
     return {
       ...model,
       name: cleanModelName(model.name),
@@ -273,6 +276,7 @@ export function enrichModelMetrics(
       agenticIndex: model.agenticIndex ?? null,
       speedTokensPerSecond,
       latencyMs,
+      dataPolicy,
       speedIsEstimate: false,
     };
   });

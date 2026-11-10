@@ -491,6 +491,10 @@ export interface Dictionary {
     close: string;
     tagCoding: string;
     tagEffort: string;
+    privacyNoTraining?: string;
+    privacyTraining?: string;
+    privacyRetention?: string;
+    privacyZdr?: string;
     modalityText: string;
     modalityImage: string;
     modalityVideo: string;
