@@ -316,6 +316,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
+  const isMutedRef = useRef<boolean>(false);
+  useEffect(() => {
+    isMutedRef.current = isMuted;
+  }, [isMuted]);
 
   // 2. 배경음악(BGM) 상태
   const [selectedBgmId, setSelectedBgmId] = useState<string>('none');
@@ -1729,7 +1733,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           } catch {}
         }
       }
-      if (play && !isMuted && bgmVolume > 0) {
+      if (play && !isMutedRef.current && bgmVolume > 0) {
         bgmWebAudioCtxRef.current?.resume().catch(() => {});
         if (audio.paused) {
           audio.play().catch(() => {});
@@ -1744,7 +1748,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         bgmSynthStopRef.current();
         bgmSynthStopRef.current = null;
       }
-      if (play && !isMuted && selectedBgmId !== 'none' && bgmVolume > 0) {
+      if (play && !isMutedRef.current && selectedBgmId !== 'none' && bgmVolume > 0) {
         const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         if (AudioCtx) {
           if (!bgmWebAudioCtxRef.current || bgmWebAudioCtxRef.current.state === 'closed') {
@@ -2097,6 +2101,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
         const phaseKey = `segment:${res.seg.id}`;
         const targetVideo = videoMap.get(res.videoId) || videos[0];
+        const segVol =
+          typeof res.seg.volume === 'number' && Number.isFinite(res.seg.volume)
+            ? Math.max(0, Math.min(1.0, res.seg.volume))
+            : 1.0;
 
         if (activeSequencePhaseRef.current !== phaseKey) {
           activeSequencePhaseRef.current = phaseKey;
@@ -2112,14 +2120,21 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 v.currentTime = res.mediaTime;
               }
             } catch {}
-            v.muted = isMuted;
-            v.play().catch(() => {
-              v.muted = true;
-              setIsMuted(true);
-              v.play().catch(() => {});
-            });
+            v.muted = isMutedRef.current;
+            v.volume = segVol;
+            const p = v.play();
+            if (p !== undefined) {
+              p.catch((err) => {
+                if (err?.name === 'NotAllowedError') {
+                  v.muted = true;
+                  v.play().catch(() => {});
+                }
+              });
+            }
           }
         } else if (v) {
+          v.muted = isMutedRef.current;
+          v.volume = segVol;
           if (v.paused && v.readyState >= 2 && nextT < totalDuration - 0.05) {
             v.play().catch(() => {});
           }
@@ -2678,21 +2693,26 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         p.then(() => {
           setIsPlaying(true);
         }).catch((err) => {
+          if (err?.name === 'AbortError') return;
           console.warn('[VideoPlayer] Play interrupted or blocked, fallback to muted:', err);
-          v.muted = true;
-          setIsMuted(true);
-          v.play()
-            .then(() => setIsPlaying(true))
-            .catch((retryErr) => {
-              console.error('[VideoPlayer] Muted playback also failed:', retryErr, {
-                src: v.currentSrc,
-                mediaError: v.error ? { code: v.error.code, message: v.error.message } : null,
-                readyState: v.readyState,
-                networkState: v.networkState,
+          if (err?.name === 'NotAllowedError') {
+            v.muted = true;
+            setIsMuted(true);
+            isMutedRef.current = true;
+            v.play()
+              .then(() => setIsPlaying(true))
+              .catch((retryErr) => {
+                if (retryErr?.name === 'AbortError') return;
+                console.error('[VideoPlayer] Muted playback also failed:', retryErr, {
+                  src: v.currentSrc,
+                  mediaError: v.error ? { code: v.error.code, message: v.error.message } : null,
+                  readyState: v.readyState,
+                  networkState: v.networkState,
+                });
+                setIsPlaying(false);
+                setPlaybackError(dict.draftPreview?.playbackError || PLAYBACK_ERROR_MESSAGE);
               });
-              setIsPlaying(false);
-              setPlaybackError(dict.draftPreview?.playbackError || PLAYBACK_ERROR_MESSAGE);
-            });
+          }
         });
       }
     } else {
@@ -2704,6 +2724,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 음소거 토글
   const toggleMute = () => {
     const nextMuted = !isMuted;
+    isMutedRef.current = nextMuted;
     if (videoRef.current) {
       videoRef.current.muted = nextMuted;
     }
