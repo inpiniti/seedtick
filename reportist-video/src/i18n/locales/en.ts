@@ -395,6 +395,7 @@ export const en: Dictionary = {
     startStudioBtn: 'Create New Video',
     autoSaved: 'Saved',
     bottomSaved: 'Safely saved to device (IndexedDB)',
+    finalResultSaved: 'Final video safely saved on device',
     studioReady: 'Studio ready · Upload videos to get started',
     saving: 'Saving...',
     saveManualBtn: 'Save',

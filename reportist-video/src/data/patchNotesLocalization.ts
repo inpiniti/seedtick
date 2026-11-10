@@ -8,6 +8,26 @@ export interface ReleaseI18nEntry {
 }
 
 export const RELEASE_TRANSLATIONS: Record<string, ReleaseI18nEntry> = {
+  "0.9.6": {
+    "title": {
+      "ko": "모바일 Safari 완성본 비디오(Blob) IndexedDB 영구 보존 및 브라우저 재실행 시 0초 즉시 재생·다운로드 모드 지원",
+      "en": "Preserve Stitched Final Video in IndexedDB on Mobile & Enable Instant 0s Playback & Download on Reopen",
+      "ja": "モバイルSafariで完成動画(Blob)をIndexedDBに永続保持＆再起動時0秒即時再生・ダウンロードに対応",
+      "zh": "移动端 Safari 最终成品视频 (Blob) IndexedDB 持久化保存与重开即享 0 秒直接播放/下载",
+      "es": "Conservar el video final en IndexedDB en móviles y permitir reproducción y descarga instantáneas al reabrir",
+      "fr": "Conserver la vidéo finale dans IndexedDB sur mobile et activer la lecture et le téléchargement instantanés à la réouverture",
+      "de": "Speichern des fertigen Videos in IndexedDB auf Mobilgeräten & sofortiges Abspielen und Herunterladen beim Neustart"
+    },
+    "summary": {
+      "ko": "아이폰 Safari 등 모바일 환경에서 수백 MB의 원본 영상 18개는 메모리 보호를 위해 분리 보관하면서도, 최종 완성본 비디오(Blob) 1개는 IndexedDB에 안전하게 영구 보존하도록 스토리지를 개선했습니다. 브라우저를 완전히 강제 종료한 뒤 재접속하더라도 불필요한 '원본 영상 18개 연결 필요' 경고를 띄우지 않고, 완성본 비디오를 고화질 하드웨어 가속으로 즉시 재생하거나 0초 만에 바로 다운로드할 수 있도록 사용자 경험을 전면 개선했습니다.",
+      "en": "Safely stores the single rendered final video blob in IndexedDB on mobile browsers, while leaving multi-gigabyte raw source clips unloaded to prevent WebKit memory crashes. When reopening the browser, users can immediately watch or download their finished video in 0 seconds without being asked to reconnect 18 raw files.",
+      "ja": "iPhone Safari等のモバイル環境で数十本の重い元動画はメモリ保護のため除外したまま、完成した単一の動画BlobをIndexedDBへ安全に永続保存。ブラウザ強制終了後の再起動時も「元動画18件の再接続が必要」警告を出さず、完成動画を即座に再生・ダウンロードできるように改善しました。",
+      "zh": "在移动端 Safari 环境中，将多段庞大原始视频排除以保护内存，同时将已合成完毕的单一成品视频 (Blob) 安全持久化至 IndexedDB。重启浏览器后不再弹出烦人的「需重新关联18个原始视频」警告，支持 0 秒直接播放与免重新合成下载。",
+      "es": "Guarda el video final en IndexedDB en navegadores móviles para evitar advertencias de reconexión y permitir la descarga instantánea.",
+      "fr": "Enregistre la vidéo finale dans IndexedDB sur les navigateurs mobiles pour éviter les avertissements de reconnexion et permettre un téléchargement instantané.",
+      "de": "Speichert das fertige Video in IndexedDB auf Mobilgeräten, um Neuverbindungswarnungen zu vermeiden und sofortiges Herunterladen zu ermöglichen."
+    }
+  },
   "0.9.5": {
     "title": {
       "ko": "스토리지 설정 내 OPFS 가상 파일시스템 및 브라우저 캐시 비우기 기능 추가",

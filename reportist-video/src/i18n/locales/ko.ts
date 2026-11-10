@@ -395,6 +395,7 @@ export const ko: Dictionary = {
     startStudioBtn: '새 영상 만들러 가기',
     autoSaved: '저장됨',
     bottomSaved: '기기(IndexedDB)에 안전하게 보관됨',
+    finalResultSaved: '최종 완성본 영상이 기기에 보관됨',
     studioReady: '스튜디오 준비됨 · 영상을 올려보세요',
     saving: '저장 중...',
     saveManualBtn: '저장',

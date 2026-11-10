@@ -424,6 +424,7 @@ export interface Dictionary {
     newProjectConfirmDesc: string;
     startNew: string;
     bottomSaved?: string;
+    finalResultSaved?: string;
     studioReady?: string;
     localStorageBadge?: string;
     localStorageTip?: string;

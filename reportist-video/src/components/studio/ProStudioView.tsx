@@ -1051,10 +1051,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     result?.cleanThumbnailUrl,
   ]);
 
+  // 재생 가능한 로컬 원본 비디오 소스 유무 판별
+  const hasPlayableSourceVideos = useMemo(
+    () => videos.some((v) => v.url && (!v.file || v.file.size > 0) && !v.isMissingFile),
+    [videos]
+  );
+
   // 하이라이트 전 원본 영상 미리보기 모드 (시퀀스 클립이 없는 상태)
   const isDraftPreview = segments.length === 0;
-  // 시퀀스 하이라이트 모드 여부 (캡컷 방식 실시간 시퀀스 프리뷰)
-  const isSequenceMode = segments.length > 0;
+  // 시퀀스 하이라이트 모드 여부 (캡컷 방식 실시간 시퀀스 프리뷰: 원본 소스가 있거나 완성본이 아직 없는 경우)
+  // 원본 소스가 기기 메모리 정리로 분리되었더라도 완성본 비디오(result.url)가 있다면 캔버스 합성이 아닌 완성본 직접 재생 모드로 전환
+  const isSequenceMode = segments.length > 0 && (hasPlayableSourceVideos || !result?.url);
   // 실제 하이라이트 결과가 있을 때만 시간 절약률을 계산/노출한다
   const hasHighlight = segments.length > 0;
 
@@ -1217,12 +1224,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     };
   }, []);
 
-  // 활성 비디오 소스 URL (항상 원본 비디오를 사용하여 재병합 없이 즉각 실시간 프리뷰 제공)
+  // 활성 비디오 소스 URL (원본 비디오가 있으면 실시간 프리뷰에 사용, 원본이 분리되고 완성본이 있다면 완성본 비디오 사용)
   const activeVideoUrl = useMemo(() => {
+    if (hasPlayableSourceVideos) {
+      if (previewVideo?.url) return previewVideo.url;
+      if (videos[0]?.url) return videos[0].url;
+    }
+    if (result?.url) return result.url;
     if (previewVideo?.url) return previewVideo.url;
     if (videos[0]?.url) return videos[0].url;
     return null;
-  }, [previewVideo?.url, videos]);
+  }, [hasPlayableSourceVideos, previewVideo?.url, videos, result?.url]);
 
   // 드래프트 모드에서만 비디오 변경 시 재생 초기화
   useEffect(() => {
@@ -2692,6 +2704,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       return;
     }
 
+    // 만약 원본 비디오 파일이 분리된 상태(모바일 재접속 등)에서 이미 완성본 비디오가 있는 경우
+    // 원본이 없어 재합성이 불가능하므로, 기존 완성본 파일을 안전하게 즉시 다운로드
+    if (!hasPlayableSourceVideos && result?.url && result?.blob && result.blob.size > 0) {
+      await triggerVideoFileDownload(result);
+      return;
+    }
+
     // 내보내기(Export) 수행 후 완료 즉시 다운로드 트리거
     const stitched = await onReStitch(
       segments,
@@ -3129,8 +3148,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         />
       ) : (
         <main className="toss-main-content">
-        {/* 누락 파일 일괄 재연결 알림 배너 */}
-        {videos.some((v) => !v.url || (v.file && v.file.size === 0) || v.error || v.isMissingFile) && (
+        {/* 누락 파일 일괄 재연결 알림 배너: 이미 완성본 비디오가 존재하는 프로젝트는 불필요한 경고를 노출하지 않음 */}
+        {!result?.url && videos.some((v) => !v.url || (v.file && v.file.size === 0) || v.error || v.isMissingFile) && (
           <div className="toss-relink-banner">
             <div className="toss-relink-banner-left">
               <div className="toss-relink-icon-wrap">
@@ -3387,6 +3406,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     )}
 
                     {!isSequenceMode &&
+                      !result?.url &&
                       ((overlayOptions.showTitle && overlayOptions.titleText) || activePlayingMetaText) && (
                         <div className="toss-live-overlay-top-left">
                           {overlayOptions.showTitle && overlayOptions.titleText && (
@@ -3402,13 +3422,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         </div>
                       )}
 
-                    {!isSequenceMode && overlayOptions.showChannel && overlayOptions.channelText && (
+                    {!isSequenceMode && !result?.url && overlayOptions.showChannel && overlayOptions.channelText && (
                       <div className="toss-live-overlay-channel">
                         {overlayOptions.channelText}
                       </div>
                     )}
 
-                    {!isSequenceMode && overlayOptions.showSubtitle && activePlayingSubtitleText && (
+                    {!isSequenceMode && !result?.url && overlayOptions.showSubtitle && activePlayingSubtitleText && (
                       <div className="toss-live-overlay-subtitle">
                         {activePlayingSubtitleText}
                       </div>
@@ -5546,7 +5566,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   </span>
                 ) : (
                   <span className="text-slate-700 font-medium">
-                    {dict.projects?.bottomSaved || dict.projects?.autoSaved || '기기(IndexedDB)에 안전하게 보관됨'}
+                    {result?.url && !hasPlayableSourceVideos
+                      ? (dict.projects?.finalResultSaved || '최종 완성 영상이 기기에 보관됨')
+                      : dict.projects?.bottomSaved || dict.projects?.autoSaved || '기기(IndexedDB)에 안전하게 보관됨'}
                   </span>
                 )}
               </span>

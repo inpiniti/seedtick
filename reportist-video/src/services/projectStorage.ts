@@ -73,8 +73,14 @@ export function setLastActiveProjectId(id: string | null): void {
 
 /**
  * 프로젝트 저장 데이터 정제 (직렬화 불가능한 필드 제거)
+ * @param stripRawVideos 원본 다중 비디오 파일(수백MB~수GB) 제외 여부 (모바일 OOM 방지)
+ * @param stripFinalResult 최종 완성본 비디오 1개 제외 여부
  */
-function sanitizeProjectForStorage(project: StudioProject, stripBlobs = false): StudioProject {
+function sanitizeProjectForStorage(
+  project: StudioProject,
+  stripRawVideos = false,
+  stripFinalResult = false
+): StudioProject {
   const sanitizedOverlay = project.overlayOptions
     ? {
         ...project.overlayOptions,
@@ -100,16 +106,22 @@ function sanitizeProjectForStorage(project: StudioProject, stripBlobs = false): 
     longitude: v.longitude,
     locationName: v.locationName,
     thumbnailUrl: sanitizeThumbnail(v.thumbnailUrl),
-    fileBlob: stripBlobs ? undefined : v.fileBlob,
+    fileBlob: stripRawVideos ? undefined : v.fileBlob,
     hasOpfsFile: v.hasOpfsFile,
   }));
+
+  const finalBlob = project.finalResult?.videoBlob;
+  // 단일 최종 완성본 Blob이 비정상적으로 거대하지 않은지 체크 (최대 200MB까지 안전 보관)
+  const isFinalBlobTooLarge = Boolean(
+    finalBlob && finalBlob.size > 200 * 1024 * 1024
+  );
 
   const sanitizedFinalResult = project.finalResult
     ? {
         ...project.finalResult,
         thumbnailUrl: sanitizeThumbnail(project.finalResult.thumbnailUrl),
         cleanThumbnailUrl: sanitizeThumbnail(project.finalResult.cleanThumbnailUrl),
-        videoBlob: stripBlobs ? undefined : project.finalResult.videoBlob,
+        videoBlob: stripFinalResult || isFinalBlobTooLarge ? undefined : finalBlob,
       }
     : null;
 
@@ -120,7 +132,7 @@ function sanitizeProjectForStorage(project: StudioProject, stripBlobs = false): 
     videos: sanitizedVideos,
     finalResult: sanitizedFinalResult,
     overlayOptions: sanitizedOverlay,
-    customAudioBlob: stripBlobs ? undefined : project.customAudioBlob,
+    customAudioBlob: stripRawVideos ? undefined : project.customAudioBlob,
   };
 }
 
@@ -199,20 +211,38 @@ export async function saveProject(project: StudioProject): Promise<void> {
     (project.finalResult?.videoBlob?.size || 0);
 
   // 1. 경량 모드(lightweight)이거나 모바일(iOS/Android) 환경인 경우:
-  // 모바일 Safari(예: iPhone XR)에서 수백 MB의 원본 비디오 Blob을 메인 스레드에서 OPFS/IndexedDB로
-  // 직렬화(Structured Clone)하면 업로드 직후 0.6초 뒤 즉시 WebKit OOM 크래시(새로고침)가 발생하므로
-  // 메타데이터/타임라인만 초고속으로 저장하고, 현재 세션 메모리의 File 참조만 유지한다.
+  // 모바일 Safari(예: iPhone XR)에서 수백 MB~수 GB의 원본 18개 비디오 Blob을 메인 스레드에서
+  // IndexedDB로 직렬화(Structured Clone)하면 OOM 크래시가 발생하므로 원본 비디오 Blob은 제외하되,
+  // 이미 합성 완료된 "단 1개의 최종 완성본 비디오(수십 MB)"는 IndexedDB에 안전하게 영구 보존한다.
   if (currentMode === 'lightweight' || (IS_MOBILE_STORAGE_ENV && currentMode !== 'full')) {
-    const safeData = sanitizeProjectForStorage(
-      {
-        ...project,
-        storageMode: currentMode === 'lightweight' ? 'lightweight' : currentMode,
-        hasOpfsFiles: false,
-      },
-      true
-    );
-    await executePut(db, safeData);
-    return;
+    try {
+      // 1-1. 원본 비디오는 제외하고, 최종 완성본 비디오는 포함하여 저장 시도
+      const safeData = sanitizeProjectForStorage(
+        {
+          ...project,
+          storageMode: currentMode === 'lightweight' ? 'lightweight' : currentMode,
+          hasOpfsFiles: false,
+        },
+        true, // stripRawVideos = true (원본 18개 비디오 제외)
+        false // stripFinalResult = false (최종 완성본 1개는 IndexedDB 보존!)
+      );
+      await executePut(db, safeData);
+      return;
+    } catch (mobileSaveErr) {
+      console.warn('[projectStorage] Mobile save with finalResult blob failed, falling back to pure metadata:', mobileSaveErr);
+      // 저장 공간 쿼터 초과 등으로 최종본 저장마저 실패한 경우 순수 메타데이터만 폴백 저장
+      const fallbackData = sanitizeProjectForStorage(
+        {
+          ...project,
+          storageMode: 'lightweight',
+          hasOpfsFiles: false,
+        },
+        true,
+        true
+      );
+      await executePut(db, fallbackData);
+      return;
+    }
   }
 
   // 2. 데스크톱 OPFS 지원 환경: Promise.all 병렬 쓰기 대신 1개씩 순차 기록 (메모리 스파이크 방지)
@@ -255,29 +285,45 @@ export async function saveProject(project: StudioProject): Promise<void> {
         storageMode: currentMode,
         hasOpfsFiles: true,
       },
+      true,
       true
     );
     await executePut(db, opfsMetadataOnly);
     return;
   }
 
-  // 4. OPFS 미지원/실패 환경: 다중 영상이거나 용량이 큰 경우 IndexedDB에 원본 Blob 통째 직렬화 금지!
+  // 4. OPFS 미지원/실패 환경: 다중 영상이거나 용량이 큰 경우 원본 영상 직렬화 제외하되 완성본은 보존
   const exceedsInlineLimit =
     IS_MOBILE_STORAGE_ENV ||
     videoList.length > MAX_IDB_INLINE_VIDEO_COUNT ||
     totalVideoBlobBytes > MAX_IDB_INLINE_BLOB_BYTES;
 
   if (exceedsInlineLimit) {
-    const safeData = sanitizeProjectForStorage(
-      {
-        ...project,
-        storageMode: 'lightweight',
-        hasOpfsFiles: false,
-      },
-      true
-    );
-    await executePut(db, safeData);
-    return;
+    try {
+      const safeData = sanitizeProjectForStorage(
+        {
+          ...project,
+          storageMode: 'lightweight',
+          hasOpfsFiles: false,
+        },
+        true,
+        false
+      );
+      await executePut(db, safeData);
+      return;
+    } catch {
+      const metadataOnly = sanitizeProjectForStorage(
+        {
+          ...project,
+          storageMode: 'lightweight',
+          hasOpfsFiles: false,
+        },
+        true,
+        true
+      );
+      await executePut(db, metadataOnly);
+      return;
+    }
   }
 
   // 5. 소용량(2개 이하 & 35MB 이하) 데스크톱 프로젝트만 쿼터 확인 후 IndexedDB 폴백 저장
@@ -290,7 +336,8 @@ export async function saveProject(project: StudioProject): Promise<void> {
         storageMode: 'lightweight',
         hasOpfsFiles: false,
       },
-      true
+      true,
+      false
     );
     await executePut(db, safeData);
     return;
@@ -303,6 +350,7 @@ export async function saveProject(project: StudioProject): Promise<void> {
         storageMode: currentMode,
         hasOpfsFiles: false,
       },
+      false,
       false
     );
     await executePut(db, fullData);
@@ -314,7 +362,8 @@ export async function saveProject(project: StudioProject): Promise<void> {
         storageMode: 'lightweight',
         hasOpfsFiles: false,
       },
-      true
+      true,
+      false
     );
     await executePut(db, safeData);
   }
