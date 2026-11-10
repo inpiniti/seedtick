@@ -18,9 +18,51 @@ export interface PatchRelease {
   commits: PatchCommit[];
 }
 
-export const CURRENT_APP_VERSION = '0.9.0';
+export const CURRENT_APP_VERSION = '0.9.1';
 
 export const PATCH_RELEASES: PatchRelease[] = [
+  {
+    "version": "0.9.1",
+    "title": "다중 영상 처리 메모리·디코더 최적화 및 메타데이터·성능 표기 개선",
+    "date": "2026-11-10",
+    "type": "patch",
+    "summary": "모바일·PC 대량 영상 업로드 및 AI 하이라이트 분석·병합 시 비디오 디코더 즉시 해제, 단일 캔버스 재사용, 오디오 구간 슬라이싱으로 메모리 초과(OOM) 크래시를 방지하고, 촬영일자·GPS 인식 및 모델 성능 메트릭 표기를 정밀화했습니다.",
+    "totalCommits": 4,
+    "commits": [
+      {
+        "hash": "mem091a",
+        "date": "2026-11-10",
+        "type": "perf",
+        "scope": "video",
+        "message": "대량 영상 처리 시 비디오·캔버스 디코더 즉시 해제, 업로드 동시성 제어 및 오디오·자막 캔버스 메모리 최적화",
+        "rawSubject": "perf(video): 대량 영상 처리 시 비디오·캔버스 디코더 즉시 해제, 업로드 동시성 제어 및 오디오·자막 캔버스 메모리 최적화"
+      },
+      {
+        "hash": "4e4442b",
+        "date": "2026-11-10",
+        "type": "fix",
+        "scope": "video",
+        "message": "동영상 메타데이터(촬영일자·GPS) 파서 고도화 및 구글 포토 다운로드 영상 인식 개선",
+        "rawSubject": "fix(video): 동영상 메타데이터(촬영일자·GPS) 파서 고도화 및 구글 포토 다운로드 영상 인식 개선"
+      },
+      {
+        "hash": "0203382",
+        "date": "2026-11-09",
+        "type": "fix",
+        "scope": "video",
+        "message": "모델 선택 모달의 응답 속도 및 지연시간 표기 포맷 정밀화",
+        "rawSubject": "fix(video): 모델 선택 모달의 응답 속도 및 지연시간 표기 포맷 정밀화"
+      },
+      {
+        "hash": "9e4ebf2",
+        "date": "2026-11-09",
+        "type": "feat",
+        "scope": "video",
+        "message": "OpenRouter 실시간 성능 메트릭 연동 및 공식 벤치마크 보강",
+        "rawSubject": "feat(video): OpenRouter 실시간 성능 메트릭 연동 및 공식 벤치마크 보강"
+      }
+    ]
+  },
   {
     "version": "0.9.0",
     "title": "피드백 & 개선 요청 게시판 연동 및 패치노트 시스템 도입",

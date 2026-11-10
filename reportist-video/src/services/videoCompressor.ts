@@ -7,8 +7,79 @@ export interface VideoMetadata {
   thumbnailUrl: string;
 }
 
-// 영상 길이에 따라 최적의 프레임 샘플링 타임스탬프 계산 (최대 12~14개 프레임)
-export function calculateSampleTimestamps(totalDuration: number, maxFrames = 14): number[] {
+const IS_MOBILE_DEVICE =
+  typeof navigator !== 'undefined' &&
+  (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
+/**
+ * WebKit/Chromium의 네이티브 하드웨어 비디오 디코더 및 GPU 캔버스 백킹 메모리를 즉시 강제 반환하는 헬퍼.
+ * 단순히 DOM 참조만 끊으면 iOS Safari의 CoreMedia 버퍼가 반환되지 않아 다중 영상 처리 시 OOM 크래시가 발생함.
+ */
+export function releaseMediaResources(
+  video?: HTMLVideoElement | null,
+  canvas?: HTMLCanvasElement | null
+): void {
+  if (video) {
+    try {
+      video.pause();
+    } catch {}
+    try {
+      video.onloadedmetadata = null;
+      video.onseeked = null;
+      video.onerror = null;
+      video.onended = null;
+      video.removeAttribute('src');
+      video.srcObject = null;
+      video.load();
+      if (video.parentNode) {
+        video.parentNode.removeChild(video);
+      }
+    } catch {}
+  }
+  if (canvas) {
+    try {
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      canvas.width = 0;
+      canvas.height = 0;
+    } catch {}
+  }
+}
+
+// 다중 파일(예: 16~100개) 동시 업로드 시 하드웨어 디코더 고갈을 막는 동시성 제어 큐 (최대 2개 병렬)
+const MAX_CONCURRENT_METADATA_EXTRACTIONS = IS_MOBILE_DEVICE ? 1 : 2;
+let activeMetadataExtractions = 0;
+const metadataQueue: Array<() => void> = [];
+
+function acquireMetadataSlot(): Promise<void> {
+  if (activeMetadataExtractions < MAX_CONCURRENT_METADATA_EXTRACTIONS) {
+    activeMetadataExtractions++;
+    return Promise.resolve();
+  }
+  return new Promise<void>((resolve) => {
+    metadataQueue.push(() => {
+      activeMetadataExtractions++;
+      resolve();
+    });
+  });
+}
+
+function releaseMetadataSlot(): void {
+  activeMetadataExtractions = Math.max(0, activeMetadataExtractions - 1);
+  const next = metadataQueue.shift();
+  if (next) {
+    next();
+  }
+}
+
+// 영상 길이에 따라 최적의 프레임 샘플링 타임스탬프 계산 (최대 10~14개 프레임, 모바일은 메모리 보호를 위해 최대 10개)
+export function calculateSampleTimestamps(
+  totalDuration: number,
+  maxFrames = IS_MOBILE_DEVICE ? 10 : 14
+): number[] {
   const safeDuration = Number.isFinite(totalDuration) && totalDuration > 0 ? totalDuration : 3.0;
 
   if (safeDuration <= 1.0) {
@@ -24,20 +95,40 @@ export function calculateSampleTimestamps(totalDuration: number, maxFrames = 14)
 
   // 5초 ~ 15초 영상
   if (safeDuration <= 15.0) {
-    const count = Math.min(maxFrames, Math.max(8, Math.floor(safeDuration / 1.0)));
+    const count = Math.min(maxFrames, Math.max(6, Math.floor(safeDuration / 1.0)));
     const step = (safeDuration - 0.4) / Math.max(1, count - 1);
     return Array.from({ length: count }, (_, i) => Math.round((0.2 + i * step) * 10) / 10);
   }
 
-  // 15초 초과 영상: 12~14개 프레임 균등 배치
-  const count = Math.min(maxFrames, 14);
+  // 15초 초과 영상: 10~14개 프레임 균등 배치
+  const count = Math.min(maxFrames, IS_MOBILE_DEVICE ? 10 : 14);
   const startOffset = Math.max(0.3, safeDuration * 0.02);
   const endOffset = Math.min(safeDuration - 0.3, safeDuration * 0.98);
   const step = (endOffset - startOffset) / Math.max(1, count - 1);
   return Array.from({ length: count }, (_, i) => Math.round((startOffset + i * step) * 10) / 10);
 }
 
-// 브라우저 캔버스를 이용해 비디오에서 주요 타임스탬프별 프레임 이미지를 초고속 추출
+// 분석용 단일 캔버스 재사용 (매 영상마다 캔버스 인스턴스를 누적 생성하지 않도록 관리)
+let sharedAnalysisCanvas: HTMLCanvasElement | null = null;
+
+function getSharedAnalysisCanvas(width: number, height: number): {
+  canvas: HTMLCanvasElement;
+  ctx: CanvasRenderingContext2D;
+} {
+  if (!sharedAnalysisCanvas && typeof document !== 'undefined') {
+    sharedAnalysisCanvas = document.createElement('canvas');
+  }
+  const canvas = sharedAnalysisCanvas || document.createElement('canvas');
+  if (canvas.width !== width) canvas.width = width;
+  if (canvas.height !== height) canvas.height = height;
+  const ctx = canvas.getContext('2d', { alpha: false }) || canvas.getContext('2d');
+  if (!ctx) {
+    throw new Error('캔버스 컨텍스트를 생성할 수 없습니다.');
+  }
+  return { canvas, ctx };
+}
+
+// 브라우저 캔버스를 이용해 비디오에서 주요 타임스탬프별 프레임 이미지를 초고속 추출 (추출 직후 디코더 즉시 반환)
 export async function extractVideoFramesForAnalysis(
   videoUrl: string,
   totalDuration: number,
@@ -45,11 +136,30 @@ export async function extractVideoFramesForAnalysis(
 ): Promise<ExtractedFrame[]> {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
-    video.src = videoUrl;
     video.muted = true;
+    video.defaultMuted = true;
     video.playsInline = true;
-    video.crossOrigin = 'anonymous';
+    video.setAttribute('playsinline', '');
+    video.setAttribute('webkit-playsinline', '');
+    video.setAttribute('muted', '');
+    if (!videoUrl.startsWith('blob:')) {
+      video.crossOrigin = 'anonymous';
+    }
     video.preload = 'auto';
+
+    let settled = false;
+    const finishSuccess = (frames: ExtractedFrame[]) => {
+      if (settled) return;
+      settled = true;
+      releaseMediaResources(video, null);
+      resolve(frames);
+    };
+    const finishError = (err: unknown) => {
+      if (settled) return;
+      settled = true;
+      releaseMediaResources(video, null);
+      reject(err instanceof Error ? err : new Error(String(err)));
+    };
 
     video.onloadedmetadata = async () => {
       try {
@@ -64,18 +174,12 @@ export async function extractVideoFramesForAnalysis(
         // 시각 분석에 최적화된 저해상도 설정 (너비 420px, 종횡비 유지)
         const targetWidth = 420;
         const aspectRatio = (video.videoHeight || 360) / (video.videoWidth || 640);
-        const targetHeight = Math.round((targetWidth * aspectRatio) / 2) * 2;
+        const targetHeight = Math.max(2, Math.round((targetWidth * aspectRatio) / 2) * 2);
 
-        const canvas = document.createElement('canvas');
-        canvas.width = targetWidth;
-        canvas.height = targetHeight;
-        const ctx = canvas.getContext('2d');
+        const { canvas, ctx } = getSharedAnalysisCanvas(targetWidth, targetHeight);
 
-        if (!ctx) {
-          throw new Error('캔버스 컨텍스트를 생성할 수 없습니다.');
-        }
-
-        const timestamps = calculateSampleTimestamps(duration, 14);
+        const maxFrameCount = IS_MOBILE_DEVICE ? 10 : 14;
+        const timestamps = calculateSampleTimestamps(duration, maxFrameCount);
         const frames: ExtractedFrame[] = [];
 
         for (let i = 0; i < timestamps.length; i++) {
@@ -128,20 +232,41 @@ export async function extractVideoFramesForAnalysis(
           }
         }
 
-        resolve(frames);
+        // 공유 캔버스의 버퍼도 일시 축소하여 유휴 GPU 메모리 즉시 반환
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        canvas.width = 1;
+        canvas.height = 1;
+
+        finishSuccess(frames);
       } catch (err) {
-        reject(err);
+        finishError(err);
       }
     };
 
     video.onerror = () => {
-      reject(new Error('비디오 로드에 실패했습니다. 올바른 비디오 형식인지 확인해 주세요.'));
+      finishError(
+        new Error('비디오 로드에 실패했습니다. 올바른 비디오 형식인지 확인해 주세요.')
+      );
     };
+
+    video.src = videoUrl;
+    try {
+      video.load();
+    } catch {}
   });
 }
 
-// 미디어(비디오 또는 사진) 파일로부터 재생 시간, 해상도, 대표 썸네일 추출
+// 미디어(비디오 또는 사진) 파일로부터 재생 시간, 해상도, 대표 썸네일 추출 (동시성 제어 큐 적용)
 export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
+  await acquireMetadataSlot();
+  try {
+    return await extractVideoMetadataInternal(file);
+  } finally {
+    releaseMetadataSlot();
+  }
+}
+
+async function extractVideoMetadataInternal(file: File): Promise<VideoMetadata> {
   // 사진 파일 처리 분기
   if (file.type.startsWith('image/') || /\.(jpg|jpeg|png|heic|webp|avif)$/i.test(file.name)) {
     return new Promise((resolve) => {
@@ -159,6 +284,7 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
         if (ctx) {
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
           const thumbnailUrl = canvas.toDataURL('image/jpeg', 0.75);
+          releaseMediaResources(null, canvas);
           URL.revokeObjectURL(objectUrl);
           resolve({
             duration: 3.5, // 사진의 기본 클립 재생 시간 3.5초
@@ -168,6 +294,7 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
           });
           return;
         }
+        releaseMediaResources(null, canvas);
         URL.revokeObjectURL(objectUrl);
         resolve({
           duration: 3.5,
@@ -193,15 +320,45 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
     const video = document.createElement('video');
     video.preload = 'metadata';
     video.muted = true;
+    video.defaultMuted = true;
     video.playsInline = true;
+    video.setAttribute('playsinline', '');
+    video.setAttribute('webkit-playsinline', '');
+    video.setAttribute('muted', '');
 
     const objectUrl = URL.createObjectURL(file);
-    video.src = objectUrl;
+    let settled = false;
+    let safetyTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const cleanup = (canvas?: HTMLCanvasElement | null) => {
+      if (safetyTimer) {
+        clearTimeout(safetyTimer);
+        safetyTimer = null;
+      }
+      releaseMediaResources(video, canvas);
+      try {
+        URL.revokeObjectURL(objectUrl);
+      } catch {}
+    };
+
+    // 메타데이터/시크가 지연될 경우 디코더 슬롯이 영구 잠기지 않도록 8초 타임아웃 방어
+    safetyTimer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      const fallbackDur = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 1;
+      const fallbackW = video.videoWidth || 640;
+      const fallbackH = video.videoHeight || 360;
+      cleanup(null);
+      resolve({
+        duration: fallbackDur,
+        width: fallbackW,
+        height: fallbackH,
+        thumbnailUrl: '',
+      });
+    }, 8000);
 
     video.onloadedmetadata = () => {
       const rawDur = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 1;
-      const width = video.videoWidth || 640;
-      const height = video.videoHeight || 360;
 
       // 썸네일을 위해 0.5초 또는 10% 지점으로 이동
       const seekTime = Math.min(1.0, rawDur * 0.1);
@@ -215,8 +372,11 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
     };
 
     video.onseeked = () => {
+      if (settled) return;
+      settled = true;
+      let canvas: HTMLCanvasElement | null = null;
       try {
-        const canvas = document.createElement('canvas');
+        canvas = document.createElement('canvas');
         const maxThumbWidth = 320;
         const scale = Math.min(1, maxThumbWidth / (video.videoWidth || 640));
         canvas.width = Math.round((video.videoWidth || 640) * scale);
@@ -226,11 +386,14 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
         if (ctx) {
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           const thumbnailUrl = canvas.toDataURL('image/jpeg', 0.7);
-          URL.revokeObjectURL(objectUrl);
+          const dur = video.duration || 1;
+          const w = video.videoWidth || 640;
+          const h = video.videoHeight || 360;
+          cleanup(canvas);
           resolve({
-            duration: video.duration || 1,
-            width: video.videoWidth || 640,
-            height: video.videoHeight || 360,
+            duration: dur,
+            width: w,
+            height: h,
             thumbnailUrl,
           });
           return;
@@ -239,19 +402,29 @@ export async function extractVideoMetadata(file: File): Promise<VideoMetadata> {
         console.warn('[VideoCompressor] 썸네일 생성 실패:', err);
       }
 
-      URL.revokeObjectURL(objectUrl);
+      const dur = video.duration || 1;
+      const w = video.videoWidth || 640;
+      const h = video.videoHeight || 360;
+      cleanup(canvas);
       resolve({
-        duration: video.duration || 1,
-        width: video.videoWidth || 640,
-        height: video.videoHeight || 360,
+        duration: dur,
+        width: w,
+        height: h,
         thumbnailUrl: '',
       });
     };
 
     video.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
+      if (settled) return;
+      settled = true;
+      cleanup(null);
       reject(new Error('비디오 메타데이터를 읽어올 수 없습니다. 지원하는 영상 형식인지 확인해 주세요.'));
     };
+
+    video.src = objectUrl;
+    try {
+      video.load();
+    } catch {}
   });
 }
 

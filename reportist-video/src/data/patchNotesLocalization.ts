@@ -8,6 +8,26 @@ export interface ReleaseI18nEntry {
 }
 
 export const RELEASE_TRANSLATIONS: Record<string, ReleaseI18nEntry> = {
+  "0.9.1": {
+    "title": {
+      "ko": "다중 영상 처리 메모리·디코더 최적화 및 메타데이터·성능 표기 개선",
+      "en": "Multi-Video Memory & Decoder Optimization and Metadata/Performance Refinements",
+      "ja": "複数動画処理のメモリ・デコーダー最適化およびメタデータ・性能表示の改善",
+      "zh": "多视频处理内存与解码器优化及元数据、性能指标显示改进",
+      "es": "Optimización de memoria y decodificador para múltiples videos y mejoras de metadatos",
+      "fr": "Optimisation mémoire et décodeur multi-vidéos et améliorations des métadonnées",
+      "de": "Speicher- und Decoder-Optimierung für mehrere Videos sowie Metadaten-Verbesserungen"
+    },
+    "summary": {
+      "ko": "모바일·PC 대량 영상 업로드 및 AI 하이라이트 분석·병합 시 비디오 디코더 즉시 해제, 단일 캔버스 재사용, 오디오 구간 슬라이싱으로 메모리 초과(OOM) 크래시를 방지하고, 촬영일자·GPS 인식 및 모델 성능 메트릭 표기를 정밀화했습니다.",
+      "en": "Prevented Out-Of-Memory (OOM) crashes during large batch uploads, AI highlight analysis, and stitching on mobile and PC via immediate decoder cleanup, single canvas reuse, and audio buffer slicing, alongside enhanced date/GPS parsing and live model performance metrics.",
+      "ja": "モバイル・PCでの大量動画アップロードやAIハイライト解析・結合時に、デコーダー即時解放、単一キャンバスの再利用、音声区間スライシングによりメモリ不足(OOM)クラッシュを防止し、撮影日時・GPS認識およびモデル性能表示を精緻化しました。",
+      "zh": "在移动端与PC端批量上传视频及AI高光分析、拼接时，通过立即释放解码器、复用单一画布及音频片段裁剪防止内存溢出(OOM)崩溃，并优化了拍摄日期、GPS解析与模型性能指标展示。",
+      "es": "Se evitaron cierres por falta de memoria (OOM) al procesar muchos videos mediante liberación inmediata del decodificador, reutilización de lienzo único y recorte de búfer de audio, además de mejorar la detección de fecha/GPS.",
+      "fr": "Prévention des plantages mémoire (OOM) lors du traitement de nombreuses vidéos grâce à la libération immédiate du décodeur, la réutilisation d'un canevas unique et le découpage audio, avec amélioration des métadonnées.",
+      "de": "Speicherabstürze (OOM) bei vielen Videos auf Mobilgeräten und PCs durch sofortige Decoder-Freigabe, Einzel-Canvas-Wiederverwendung und Audio-Slicing behoben sowie Aufnahmezeit-/GPS-Erkennung verbessert."
+    }
+  },
   "0.9.0": {
     "title": {
       "ko": "피드백 & 개선 요청 게시판 연동 및 패치노트 시스템 도입",
@@ -311,6 +331,42 @@ export const RELEASE_TRANSLATIONS: Record<string, ReleaseI18nEntry> = {
 };
 
 export const COMMIT_TRANSLATIONS: Record<string, Record<Locale, string>> = {
+  "mem091a": {
+    "ko": "대량 영상 처리 시 비디오·캔버스 디코더 즉시 해제, 업로드 동시성 제어 및 오디오·자막 캔버스 메모리 최적화",
+    "en": "Immediate video/canvas decoder release, upload concurrency queue, and audio/subtitle canvas memory optimization for large video batches",
+    "ja": "大量動画処理時のビデオ・キャンバスデコーダー即時解放、アップロード同時実行制御および音声・字幕キャンバスのメモリ最適化",
+    "zh": "批量视频处理时立即释放视频与画布解码器、控制上传并发，并优化音频与字幕画布内存占用",
+    "es": "Liberación inmediata del decodificador de video/lienzo, control de concurrencia de subida y optimización de memoria de audio y subtítulos",
+    "fr": "Libération immédiate du décodeur vidéo/canevas, file d'attente d'envoi et optimisation mémoire audio et sous-titres",
+    "de": "Sofortige Video-/Canvas-Decoder-Freigabe, Upload-Parallelitätssteuerung und Audio-/Untertitel-Canvas-Speicheroptimierung"
+  },
+  "4e4442b": {
+    "ko": "동영상 메타데이터(촬영일자·GPS) 파서 고도화 및 구글 포토 다운로드 영상 인식 개선",
+    "en": "Enhance video metadata (creation date & GPS) parser and improve recognition for Google Photos downloads",
+    "ja": "動画メタデータ（撮影日時・GPS）パーサーの高度化およびGoogleフォトダウンロード動画の認識改善",
+    "zh": "升级视频元数据（拍摄日期与GPS）解析器并改进对 Google 相册下载视频的识别",
+    "es": "Mejora del analizador de metadatos de video (fecha y GPS) y reconocimiento de videos de Google Fotos",
+    "fr": "Amélioration de l'analyseur de métadonnées vidéo (date et GPS) et prise en charge des vidéos Google Photos",
+    "de": "Verbesserter Video-Metadaten-Parser (Aufnahmedatum & GPS) und Erkennung von Google Fotos-Videos"
+  },
+  "0203382": {
+    "ko": "모델 선택 모달의 응답 속도 및 지연시간 표기 포맷 정밀화",
+    "en": "Refine throughput speed and latency display formatting in model selector modal",
+    "ja": "モデル選択モーダルでの応答速度およびレイテンシ表記フォーマットの精緻化",
+    "zh": "精细化模型选择弹窗中的响应速度与延迟时间显示格式",
+    "es": "Refinar el formato de visualización de velocidad de respuesta y latencia en el selector de modelos",
+    "fr": "Affinement du format d'affichage de la vitesse de réponse et de la latence dans le sélecteur de modèles",
+    "de": "Präzisierung der Anzeigeformate für Antwortgeschwindigkeit und Latenz im Modellauswahl-Modal"
+  },
+  "9e4ebf2": {
+    "ko": "OpenRouter 실시간 성능 메트릭 연동 및 공식 벤치마크 보강",
+    "en": "Integrate OpenRouter live performance metrics and enrich official intelligence benchmarks",
+    "ja": "OpenRouterリアルタイム性能メトリクス連携および公式ベンチマークデータの補強",
+    "zh": "接入 OpenRouter 实时性能指标并补充官方基准测试数据",
+    "es": "Integración de métricas de rendimiento en tiempo real de OpenRouter y puntos de referencia oficiales",
+    "fr": "Intégration des métriques de performance en direct d'OpenRouter et enrichissement des benchmarks officiels",
+    "de": "Integration von OpenRouter-Echtzeit-Leistungsmetriken und Ergänzung offizieller Benchmarks"
+  },
   "7357529": {
     "ko": "날짜 플립 탁상시계 및 장소 곡선 점선 이동 브릿지 연출 고도화",
     "en": "Implement story chapter bridge motion synthesis engine powered by HyperFrames (GSAP deterministic timeline)",

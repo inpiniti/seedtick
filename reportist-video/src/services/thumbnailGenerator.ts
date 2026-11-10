@@ -62,6 +62,12 @@ export async function captureVideoFrameAtTime(
       video.removeEventListener('error', onError);
       video.removeEventListener('loadedmetadata', startSeeking);
       video.removeEventListener('loadeddata', onDataLoaded);
+      try {
+        video.pause();
+        video.removeAttribute('src');
+        video.srcObject = null;
+        video.load();
+      } catch {}
       if (video.parentNode) {
         video.parentNode.removeChild(video);
       }

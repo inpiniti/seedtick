@@ -385,14 +385,16 @@ export async function stitchVideosWebCodecs({
     'position:fixed;right:0;bottom:0;width:4px;height:4px;opacity:0.01;pointer-events:none;z-index:-1;';
   document.body.appendChild(workerVideo);
 
-  // 4. 세그먼트별 오버레이 캔버스 캐싱
-  const createSegmentOverlayCanvas = (currentSegment?: HighlightSegment): HTMLCanvasElement | null => {
-    if (!overlayOptions) return null;
-    const offCanvas = document.createElement('canvas');
-    offCanvas.width = targetWidth;
-    offCanvas.height = targetHeight;
-    const oCtx = offCanvas.getContext('2d');
-    if (!oCtx) return null;
+  // 4. 세그먼트별 오버레이 캔버스 단일 재사용 (100개 세그먼트 시 1.6GB 캔버스 사전 할당 대신 단 1개의 오프스크린 캔버스만 덮어쓰기)
+  const sharedOverlayCanvas = document.createElement('canvas');
+  sharedOverlayCanvas.width = targetWidth;
+  sharedOverlayCanvas.height = targetHeight;
+  const sharedOverlayCtx = sharedOverlayCanvas.getContext('2d');
+
+  const renderSegmentOverlayToSharedCanvas = (currentSegment?: HighlightSegment): HTMLCanvasElement | null => {
+    if (!overlayOptions || !sharedOverlayCtx) return null;
+    const oCtx = sharedOverlayCtx;
+    oCtx.clearRect(0, 0, targetWidth, targetHeight);
 
     let hasAnyOverlay = false;
     let titleBottomY = Math.round(28 * scale);
@@ -507,10 +509,8 @@ export async function stitchVideosWebCodecs({
       }
     }
 
-    return hasAnyOverlay ? offCanvas : null;
+    return hasAnyOverlay ? sharedOverlayCanvas : null;
   };
-
-  const overlayCanvases = allSegments.map((seg) => createSegmentOverlayCanvas(seg));
 
   // 비디오 프레임 16:9 맞춤 스마트 크롭 드로잉
   const drawCoverFrame = (video: HTMLVideoElement, vItem?: VideoItem, segment?: HighlightSegment) => {
@@ -950,6 +950,16 @@ export async function stitchVideosWebCodecs({
     }
   };
 
+  const prevFrameBufferCanvas = document.createElement('canvas');
+  prevFrameBufferCanvas.width = targetWidth;
+  prevFrameBufferCanvas.height = targetHeight;
+  const prevFrameBufferCtx = prevFrameBufferCanvas.getContext('2d');
+
+  const nextFrameBufferCanvas = document.createElement('canvas');
+  nextFrameBufferCanvas.width = targetWidth;
+  nextFrameBufferCanvas.height = targetHeight;
+  const nextFrameBufferCtx = nextFrameBufferCanvas.getContext('2d');
+
   try {
     let actualIntroDuration = 0;
     let actualOutroDuration = 0;
@@ -1017,23 +1027,13 @@ export async function stitchVideosWebCodecs({
     // -------------------------------------------------------------------------
     // STEP B. 하이라이트 세그먼트 프레임 렌더링 (실시간 프리뷰와 동일한 순차 하드웨어 디코딩)
     // -------------------------------------------------------------------------
-    const prevFrameBufferCanvas = document.createElement('canvas');
-    prevFrameBufferCanvas.width = targetWidth;
-    prevFrameBufferCanvas.height = targetHeight;
-    const prevFrameBufferCtx = prevFrameBufferCanvas.getContext('2d');
-
-    const nextFrameBufferCanvas = document.createElement('canvas');
-    nextFrameBufferCanvas.width = targetWidth;
-    nextFrameBufferCanvas.height = targetHeight;
-    const nextFrameBufferCtx = nextFrameBufferCanvas.getContext('2d');
-
     let totalSegmentTimeProcessed = 0;
 
     for (let segIdx = 0; segIdx < allSegments.length; segIdx++) {
       if (signal?.aborted) throw new Error('작업 취소');
       const segment = allSegments[segIdx];
       const videoItem = videoMap.get(segment.sourceVideoId);
-      const overlayCanvas = overlayCanvases[segIdx];
+      const overlayCanvas = renderSegmentOverlayToSharedCanvas(segment);
 
       if (!videoItem || !videoItem.url) {
         throw new Error(`[${segment.sourceVideoId}] 비디오 URL을 찾을 수 없습니다.`);
@@ -1171,6 +1171,13 @@ export async function stitchVideosWebCodecs({
       }
     }
 
+    // 비디오 인코딩이 끝났으므로 오디오 믹싱 진입 전에 workerVideo 하드웨어 디코더 버퍼를 즉시 반환
+    try {
+      workerVideo.pause();
+      workerVideo.removeAttribute('src');
+      workerVideo.load();
+    } catch {}
+
     // -------------------------------------------------------------------------
     // STEP D. 오디오 렌더링 & AudioEncoder 주입 (원본 비디오 오디오 + BGM 믹싱)
     // -------------------------------------------------------------------------
@@ -1182,7 +1189,14 @@ export async function stitchVideosWebCodecs({
         const totalSampleCount = Math.max(1024, Math.ceil(totalVideoDurationSec * audioSampleRate));
         const offlineAudioCtx = new OfflineAudioContext(audioChannels, totalSampleCount, audioSampleRate);
 
-        // 1) 각 비디오 클립의 원본 오디오 디코딩(비디오 ID별 1회 캐싱) 및 타임라인 배치
+        // 각 비디오가 마지막으로 등장하는 세그먼트 인덱스를 사전 계산하여,
+        // 더 이상 참조되지 않는 비디오의 AudioBuffer를 즉시 캐시에서 제거(GC 유도)
+        const lastSegmentIdxByVideoId = new Map<string, number>();
+        for (let idx = 0; idx < allSegments.length; idx++) {
+          lastSegmentIdxByVideoId.set(allSegments[idx].sourceVideoId, idx);
+        }
+
+        // 1) 각 비디오 클립의 원본 오디오 디코딩 (하이라이트 구간만 슬라이스 추출하여 100개 영상 시 수십 GB 메모리 점유 방지)
         const decodedVideoAudioCache = new Map<string, AudioBuffer | null>();
         let timelineAudioCursorSec = actualIntroDuration;
 
@@ -1197,18 +1211,37 @@ export async function stitchVideosWebCodecs({
             if (!decodedVideoAudioCache.has(vItem.id)) {
               try {
                 const ab = await vItem.file.arrayBuffer();
-                const decodedBuf = await offlineAudioCtx.decodeAudioData(ab.slice(0));
-                decodedVideoAudioCache.set(vItem.id, decodedBuf);
+                const fullDecodedBuf = await offlineAudioCtx.decodeAudioData(ab);
+                decodedVideoAudioCache.set(vItem.id, fullDecodedBuf);
               } catch {
                 decodedVideoAudioCache.set(vItem.id, null);
               }
             }
 
-            const clipAudioBuf = decodedVideoAudioCache.get(vItem.id);
-            if (clipAudioBuf && seg.duration > 0.05) {
+            const fullAudioBuf = decodedVideoAudioCache.get(vItem.id);
+            if (fullAudioBuf && seg.duration > 0.05) {
               try {
+                const safeOffset = Math.max(0, Math.min(seg.start, Math.max(0, fullAudioBuf.duration - 0.05)));
+                const safeDuration = Math.max(0.02, Math.min(seg.duration, fullAudioBuf.duration - safeOffset));
+
+                // 원본 전체(예: 5분짜리) AudioBuffer를 OfflineAudioContext 그래프에 그대로 물려두면
+                // startRendering() 완료 전까지 100개 영상 전체 PCM이 RAM에 유지되므로,
+                // 실제 사용하는 세그먼트 구간(예: 3초)만 소형 AudioBuffer로 잘라내어 연결하고 원본은 즉시 해제!
+                const startSample = Math.floor(safeOffset * fullAudioBuf.sampleRate);
+                const frameLen = Math.max(1, Math.ceil(safeDuration * fullAudioBuf.sampleRate));
+                const numCh = fullAudioBuf.numberOfChannels;
+                const slicedBuf = offlineAudioCtx.createBuffer(numCh, frameLen, fullAudioBuf.sampleRate);
+                for (let ch = 0; ch < numCh; ch++) {
+                  const srcData = fullAudioBuf.getChannelData(ch);
+                  const dstData = slicedBuf.getChannelData(ch);
+                  const endSample = Math.min(srcData.length, startSample + frameLen);
+                  if (endSample > startSample) {
+                    dstData.set(srcData.subarray(startSample, endSample), 0);
+                  }
+                }
+
                 const segSource = offlineAudioCtx.createBufferSource();
-                segSource.buffer = clipAudioBuf;
+                segSource.buffer = slicedBuf;
                 const segGain = offlineAudioCtx.createGain();
                 const startT = timelineAudioCursorSec;
                 const endT = timelineAudioCursorSec + seg.duration;
@@ -1221,15 +1254,19 @@ export async function stitchVideosWebCodecs({
 
                 segSource.connect(segGain);
                 segGain.connect(offlineAudioCtx.destination);
-                const safeOffset = Math.max(0, Math.min(seg.start, Math.max(0, clipAudioBuf.duration - 0.05)));
-                const safeDuration = Math.max(0.02, Math.min(seg.duration, clipAudioBuf.duration - safeOffset));
-                segSource.start(startT, safeOffset, safeDuration);
+                segSource.start(startT, 0, safeDuration);
               } catch {}
+            }
+
+            // 이 비디오의 마지막 세그먼트까지 처리를 마쳤다면 대용량 원본 AudioBuffer 즉시 메모리 해제
+            if (lastSegmentIdxByVideoId.get(vItem.id) === segIdx) {
+              decodedVideoAudioCache.delete(vItem.id);
             }
           }
 
           timelineAudioCursorSec += seg.duration;
         }
+        decodedVideoAudioCache.clear();
 
         // 2) 사용자 지정 배경음악(customAudioFile) 믹싱
         if (customAudioFile) {
@@ -1344,7 +1381,19 @@ export async function stitchVideosWebCodecs({
         wakeLock = null;
       }
       bridgeController.dispose();
+      try {
+        workerVideo.pause();
+        workerVideo.removeAttribute('src');
+        workerVideo.srcObject = null;
+        workerVideo.load();
+      } catch {}
       workerVideo.remove();
+      for (const c of [canvas, sharedOverlayCanvas, prevFrameBufferCanvas, nextFrameBufferCanvas]) {
+        try {
+          c.width = 0;
+          c.height = 0;
+        } catch {}
+      }
     } catch {}
   }
 }

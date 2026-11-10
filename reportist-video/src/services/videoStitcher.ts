@@ -686,15 +686,22 @@ export async function stitchHighlightedSegments({
     }
   };
 
-  // 세그먼트별 오버레이 오프스크린 캔버스 생성 (세그먼트당 1회만 그려서 캐싱)
-  // 매 프레임마다 font/measureText/shadowBlur를 반복 계산하지 않고 ctx.drawImage로 0.05ms 안에 합성
-  const createSegmentOverlayCanvas = (currentSegment?: HighlightSegment): HTMLCanvasElement | null => {
-    if (!overlayOptions) return null;
-    const offCanvas = document.createElement('canvas');
-    offCanvas.width = targetWidth;
-    offCanvas.height = targetHeight;
-    const oCtx = offCanvas.getContext('2d');
-    if (!oCtx) return null;
+  // 세그먼트별 오버레이 오프스크린 캔버스 단일 재사용 (세그먼트 전환 시마다 덮어쓰기하여 N개 캔버스 메모리 누적 원천 차단)
+  const sharedOverlayCanvas = document.createElement('canvas');
+  sharedOverlayCanvas.width = targetWidth;
+  sharedOverlayCanvas.height = targetHeight;
+  const sharedOverlayCtx = sharedOverlayCanvas.getContext('2d');
+  let cachedOverlaySegmentId: string | null = null;
+  let cachedOverlayResult: HTMLCanvasElement | null = null;
+
+  const getSegmentOverlayCanvas = (currentSegment?: HighlightSegment): HTMLCanvasElement | null => {
+    if (!overlayOptions || !sharedOverlayCtx) return null;
+    if (currentSegment?.id && cachedOverlaySegmentId === currentSegment.id) {
+      return cachedOverlayResult;
+    }
+
+    const oCtx = sharedOverlayCtx;
+    oCtx.clearRect(0, 0, targetWidth, targetHeight);
 
     let hasAnyOverlay = false;
     let titleBottomY = Math.round(28 * scale);
@@ -813,7 +820,9 @@ export async function stitchHighlightedSegments({
       }
     }
 
-    return hasAnyOverlay ? offCanvas : null;
+    cachedOverlaySegmentId = currentSegment?.id ?? null;
+    cachedOverlayResult = hasAnyOverlay ? sharedOverlayCanvas : null;
+    return cachedOverlayResult;
   };
 
   // 비디오 프레임과 캐시된 오버레이를 캔버스에 합성하고 즉시 캡처 트랙에 프레임 방출 요청
@@ -1347,9 +1356,6 @@ export async function stitchHighlightedSegments({
       }
     }
 
-    // 세그먼트별 오버레이 캔버스 사전 생성 (각 세그먼트마다 1회만 계산하여 렌더링 오버헤드 0.05ms로 최소화)
-    const overlayCanvases = allSegments.map((segment) => createSegmentOverlayCanvas(segment));
-
     // 1. 첫 번째 구간을 workerA에 준비
     reportProgress(0, `구간 1/${allSegments.length} 비디오 버퍼 준비 중...`, true);
     const seg0Prep = await prepareWorkerForSegment(workerA, allSegments[0]);
@@ -1359,7 +1365,7 @@ export async function stitchHighlightedSegments({
 
     const firstVideoItem = videoMap.get(allSegments[0].sourceVideoId);
     if (firstVideoItem) {
-      renderFrameWithOverlay(workerA, firstVideoItem, allSegments[0], overlayCanvases[0]);
+      renderFrameWithOverlay(workerA, firstVideoItem, allSegments[0], getSegmentOverlayCanvas(allSegments[0]));
     }
 
     // 시크 기반 프레임 스텝 렌더링 (저전력 모드 또는 실시간 재생 차단 환경을 위한 무결점 폴백)
@@ -1459,7 +1465,7 @@ export async function stitchHighlightedSegments({
           workerA,
           videoItem,
           segment,
-          overlayCanvases[i],
+          getSegmentOverlayCanvas(segment),
           clipMessage,
           isLastSegment
         );
@@ -1525,7 +1531,7 @@ export async function stitchHighlightedSegments({
 
           const currentSegment = allSegments[currentSegmentIdx];
           const currentVideoItem = videoMap.get(currentSegment.sourceVideoId);
-          const currentOverlay = overlayCanvases[currentSegmentIdx];
+          const currentOverlay = getSegmentOverlayCanvas(currentSegment);
 
           // 실제 비디오가 시크 중이 아니고 정상 재생 중일 때만 프레임을 그리고 실제 재생 시간을 누적
           if (currentVideoItem && !workerA.seeking) {
@@ -1585,7 +1591,7 @@ export async function stitchHighlightedSegments({
             if (currentSegmentIdx < allSegments.length) {
               const nextSegment = allSegments[currentSegmentIdx];
               const nextVideoItem = videoMap.get(nextSegment.sourceVideoId);
-              const nextOverlay = overlayCanvases[currentSegmentIdx];
+              const nextOverlay = getSegmentOverlayCanvas(nextSegment);
               const bridgeEval = evaluateChapterBridge(prevSegment, nextSegment, currentSegmentIdx, allSegments.length, overlayOptions);
 
               if (bridgeEval.shouldBridge) {
@@ -1814,10 +1820,17 @@ export async function stitchHighlightedSegments({
         // ignore
       }
       workerA.removeAttribute('src');
+      workerA.srcObject = null;
       try {
         workerA.load();
       } catch {
         // ignore
+      }
+      for (const c of [canvas, sharedOverlayCanvas, prevFrameBufferCanvas, nextFrameBufferCanvas]) {
+        try {
+          c.width = 0;
+          c.height = 0;
+        } catch {}
       }
       // 공용 AudioContext는 재병합에서 재사용하므로 닫지 않고 잠시 중지만 한다.
       if (audioCtx && audioCtx.state === 'running') {

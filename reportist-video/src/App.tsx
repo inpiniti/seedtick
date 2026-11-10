@@ -529,68 +529,85 @@ export function App() {
     };
   }, []);
 
-  // 파일 업로드 핸들러
+  // 파일 업로드 핸들러 (16~100개 이상 대량 업로드 시에도 리렌더링 폭주 및 디코더 크래시가 없도록 배치 등록 & 동시성 제한 큐 적용)
   const handleFilesSelected = async (newFiles: File[]) => {
+    if (newFiles.length === 0) return;
     setErrorMessage(null);
-    for (const file of newFiles) {
-      const videoId = `vid-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-      const blobUrl = URL.createObjectURL(file);
 
-      const newItem: VideoItem = {
-        id: videoId,
-        file,
-        url: blobUrl,
-        name: file.name,
-        sizeBytes: file.size,
-        duration: 0,
-        width: 0,
-        height: 0,
-        status: 'idle',
-        segments: [],
-      };
-
-      setVideos((prev) => [...prev, newItem]);
-
-      // 메타데이터(실제 촬영일자, 타임스탬프, GPS 좌표, 역지오코딩 장소명) 및 영상 해상도/썸네일 동시 추출
-      Promise.all([
-        extractVideoVisualDimensions(file).catch(() => ({
+    const createdItems: Array<{ videoId: string; file: File; item: VideoItem }> = newFiles.map(
+      (file, idx) => {
+        const videoId = `vid-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 7)}`;
+        const blobUrl = URL.createObjectURL(file);
+        const item: VideoItem = {
+          id: videoId,
+          file,
+          url: blobUrl,
+          name: file.name,
+          sizeBytes: file.size,
           duration: 0,
           width: 0,
           height: 0,
-          thumbnailUrl: '',
-        })),
-        extractMediaMetadata(file).catch(() => ({
-          dateStr: formatVideoDate(file).dateStr,
-          fullDateStr: '',
-          recordedTimestamp: file.lastModified || Date.now(),
-          latitude: undefined,
-          longitude: undefined,
-          locationQuery: undefined,
-          locationName: undefined,
-        })),
-      ]).then(([visualMeta, mediaMeta]) => {
-        setVideos((prev) =>
-          prev.map((v) =>
-            v.id === videoId
-              ? {
-                  ...v,
-                  duration: visualMeta.duration,
-                  width: visualMeta.width,
-                  height: visualMeta.height,
-                  thumbnailUrl: visualMeta.thumbnailUrl,
-                  metadataDate: mediaMeta.dateStr,
-                  recordedTimestamp: mediaMeta.recordedTimestamp,
-                  latitude: mediaMeta.latitude,
-                  longitude: mediaMeta.longitude,
-                  locationName: mediaMeta.locationName,
-                }
-              : v
-          )
-        );
-      }).catch((err) => {
-        console.warn('Metadata extraction error:', err);
-      });
-    }
+          status: 'idle',
+          segments: [],
+        };
+        return { videoId, file, item };
+      }
+    );
+
+    // 1회 배치 상태 업데이트로 N번 연속 리렌더링 방지
+    setVideos((prev) => [...prev, ...createdItems.map((c) => c.item)]);
+
+    // 최대 2개 워커로 순차 메타데이터(해상도/썸네일/촬영일자/GPS) 추출하여 하드웨어 디코더 및 메모리 스파이크 원천 차단
+    let cursor = 0;
+    const workerCount = Math.min(2, createdItems.length);
+    const runWorker = async () => {
+      while (cursor < createdItems.length) {
+        const currentIndex = cursor++;
+        const { videoId, file } = createdItems[currentIndex];
+        try {
+          const [visualMeta, mediaMeta] = await Promise.all([
+            extractVideoVisualDimensions(file).catch(() => ({
+              duration: 0,
+              width: 0,
+              height: 0,
+              thumbnailUrl: '',
+            })),
+            extractMediaMetadata(file).catch(() => ({
+              dateStr: formatVideoDate(file).dateStr,
+              fullDateStr: '',
+              recordedTimestamp: file.lastModified || Date.now(),
+              latitude: undefined,
+              longitude: undefined,
+              locationQuery: undefined,
+              locationName: undefined,
+            })),
+          ]);
+
+          setVideos((prev) =>
+            prev.map((v) =>
+              v.id === videoId
+                ? {
+                    ...v,
+                    duration: visualMeta.duration,
+                    width: visualMeta.width,
+                    height: visualMeta.height,
+                    thumbnailUrl: visualMeta.thumbnailUrl,
+                    metadataDate: mediaMeta.dateStr,
+                    recordedTimestamp: mediaMeta.recordedTimestamp,
+                    latitude: mediaMeta.latitude,
+                    longitude: mediaMeta.longitude,
+                    locationName: mediaMeta.locationName,
+                  }
+                : v
+            )
+          );
+        } catch (err) {
+          console.warn('Metadata extraction error:', err);
+        }
+      }
+    };
+
+    void Promise.all(Array.from({ length: workerCount }, () => runWorker()));
   };
 
   const handleRemove = (id: string) => {
@@ -1071,12 +1088,13 @@ export function App() {
         const candidateRotation = segments[0]?.rotation ?? 0;
         const candidateCleanDataUrl = closestFrame?.dataUrl || '';
 
+        // 대량 영상(예: 16~100개) 분석 시 cleanDataUrl 문자열 누적을 방지하기 위해 상위 24개까지만 원본 DataURL 보관
         aiThumbnailRecommendations.push({
           videoId: currentVideo.id,
           videoName: currentVideo.name,
           timestamp: candidateThumbTime,
           reason: candidateReason,
-          cleanDataUrl: candidateCleanDataUrl,
+          cleanDataUrl: aiThumbnailRecommendations.length < 24 ? candidateCleanDataUrl : '',
           cropOffsetYRatio: candidateCrop,
           rotation: candidateRotation,
         });
@@ -1089,6 +1107,9 @@ export function App() {
           bestThumbReason = candidateReason;
           bestThumbCleanDataUrl = candidateCleanDataUrl;
         }
+
+        // 분석이 끝난 영상의 추출 프레임 배열을 즉시 비워 가비지 컬렉션 유도
+        frames.length = 0;
 
         const segTotal = segments.reduce((sum, s) => sum + s.duration, 0);
         const savePct = Math.max(0, Math.round((1 - segTotal / (currentVideo.duration || 1)) * 100));
