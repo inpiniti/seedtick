@@ -519,7 +519,8 @@ export async function stitchHighlightedSegments({
           const plannedTotalVideoSec = totalSegmentsDuration + expectedIntroSec + expectedOutroSec;
 
           const fitToVideo = Boolean(overlayOptions?.bgmFitToVideo);
-          const targetMusicDuration = Math.max(0.1, plannedTotalVideoSec - expectedIntroSec);
+          // 배경음악(BGM)은 인트로를 포함한 전체 영상 길이에 맞춰 배속 동기화
+          const targetMusicDuration = Math.max(0.1, plannedTotalVideoSec);
 
           if (fitToVideo && decodedResult.value.duration > 0 && targetMusicDuration > 0) {
             const calculatedRate = decodedResult.value.duration / targetMusicDuration;

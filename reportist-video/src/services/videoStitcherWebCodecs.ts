@@ -1344,8 +1344,7 @@ export async function stitchVideosWebCodecs({
           srcNode.buffer = decoded;
 
           const fitToVideo = Boolean(overlayOptions?.bgmFitToVideo);
-          const introOffset = actualIntroDuration > 0 ? actualIntroDuration : 0;
-          const targetMusicDuration = Math.max(0.1, totalVideoDurationSec - introOffset);
+          const targetMusicDuration = Math.max(0.1, totalVideoDurationSec);
 
           if (fitToVideo && decoded.duration > 0 && targetMusicDuration > 0) {
             const calculatedRate = decoded.duration / targetMusicDuration;
@@ -1360,7 +1359,8 @@ export async function stitchVideosWebCodecs({
 
           srcNode.connect(gain);
           gain.connect(offlineAudioCtx.destination);
-          srcNode.start(introOffset);
+          // 배경음악(BGM)은 인트로 시작 시점(0초)부터 전체 영상에 맞춰 흐르도록 0초에 시작
+          srcNode.start(0);
         }
 
         const renderedBuffer = await offlineAudioCtx.startRendering();

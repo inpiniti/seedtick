@@ -8,6 +8,46 @@ export interface ReleaseI18nEntry {
 }
 
 export const RELEASE_TRANSLATIONS: Record<string, ReleaseI18nEntry> = {
+  "0.9.11": {
+    "title": {
+      "ko": "데스크탑 비디오 인코딩 및 시퀀스 미리보기 프레임 드랍(지터·스킵) 해결",
+      "en": "Fix Desktop Video Encoding & Sequence Preview Frame Drops (Stutter & Skip)",
+      "ja": "デスクトップ環境における動画エンコードおよびプレビューのフレームドロップ（ジッター・スキップ）解決",
+      "zh": "解决桌面端视频编码导出及序列预览时的掉帧卡顿（微卡顿与跳帧）问题",
+      "es": "Solución a caídas de fotogramas y tirones en exportación y vista previa en escritorio",
+      "fr": "Correction des pertes d'images et saccades à l'encodage et prévisualisation sur ordinateur",
+      "de": "Behebung von Frame-Drops und Rucklern beim Video-Export und in der Sequenzvorschau auf dem Desktop"
+    },
+    "summary": {
+      "ko": "데스크탑 환경에서 발생하던 영상 끊김 및 프레임 드랍 현상을 해결했습니다. 원본 동영상(대부분 24~30fps)과 인코더 간 주사율 불일치(60fps 강제로 인한 프레임 중복 및 16.6ms 벽시계 캡처 경쟁 레이스)를 글로벌 표준 30fps(CFR) 1:1 완벽 동기화로 최적화하고, 스튜디오 시퀀스 미리보기 시 60Hz React 전역 리렌더링 병목을 쓰로틀링(12.5Hz)하여 캔버스 60fps 재생을 매끄럽게 유지하도록 개선했습니다.",
+      "en": "Resolved video stuttering and frame drop issues on desktop. Fixed the refresh rate mismatch between source videos (24~30fps) and forced 60fps encoding by standardizing on 30fps CFR with 1:1 frame pacing, eliminating frame duplication and 16.6ms wall-clock race conditions. Also throttled React state updates during sequence preview to 12.5Hz while keeping canvas rendering at a smooth 60fps.",
+      "ja": "デスクトップ環境で発生していた動画のガタつきやフレームドロップを解決しました。元動画（大半が24〜30fps）と60fps強制エンコードによるフレーム重複および16.6ms競合を解消し、グローバル標準の30fps CFR 1:1完全同期へと最適化しました。またシーケンスプレビュー時のReact全体再レンダリングを間引くことで、滑らかな60fpsキャンバス描画を維持します。",
+      "zh": "彻底解决了桌面端视频导出及工作台播放时的画面跳帧与微卡顿。将原本强制 60fps 导致的帧率失配优化为契合主流手机摄像头的 30fps CFR 1:1 完美帧步进，消除了 16.6ms 竞争跳帧。同时对序列播放时的全局 React 重渲染进行节流优化，确保画布以 60fps 流畅呈现。",
+      "es": "Solución a caídas de fotogramas al estandarizar a 30fps CFR y optimizar la vista previa reduciendo la sobrecarga de React.",
+      "fr": "Résolution des pertes d'images sur ordinateur grâce au standard 30fps CFR et à l'optimisation des rendus React.",
+      "de": "Behebung von Frame-Drops auf dem Desktop durch 30fps CFR-Standardisierung und Drosselung unnötiger React-Rerenders."
+    }
+  },
+  "0.9.10": {
+    "title": {
+      "ko": "AI 모델 데이터 학습 차단(Zero Data Retention) 연동 및 모델 선택창 내 실시간 프라이버시(학습·보관) 뱃지 도입",
+      "en": "Enforce Zero Data Retention (ZDR) & Real-time Privacy Badges in Model Selector",
+      "ja": "AIモデルのデータ学習遮断(ZDR)連携およびモデル選択画面でのリアルタイムプライバシーバッジ導入",
+      "zh": "接入 AI 模型零数据保留(ZDR)并于模型选择器新增实时隐私保护徽标",
+      "es": "Retención cero de datos (ZDR) y distintivos de privacidad en tiempo real",
+      "fr": "Blocage de l'entraînement des données (ZDR) et badges de confidentialité",
+      "de": "Zero Data Retention (ZDR) & Echtzeit-Datenschutz-Badges im Modell-Auswahlmenü"
+    },
+    "summary": {
+      "ko": "영상 분석 요청 시 OpenRouter의 data_collection='deny' 및 zdr=true 파라미터를 강제 적용하여 사용자 영상 및 프레임이 모델 학습에 사용되지 않도록 보안을 강화했습니다. 또한 AI 모델 선택 창에서 각 모델의 실제 데이터 학습 여부(학습 미사용/학습에 사용됨) 및 보관 일수(즉시 삭제/보관 N일)를 직관적인 보안 뱃지로 실시간 확인할 수 있도록 UI를 개선했습니다.",
+      "en": "Enforces OpenRouter data_collection='deny' and zdr=true headers to prevent user video frames from being trained on. Introduces real-time privacy badges in the model selector indicating training policy and retention windows.",
+      "ja": "動画解析時にOpenRouterのdata_collection='deny'およびzdr=trueを強制適用し、モデル学習への利用を防止。モデル選択画面で学習方針と保持日数を直感的に確認できるバッジを追加しました。",
+      "zh": "视频分析时强制应用 data_collection='deny' 与 zdr=true，保障用户素材绝不用于训练。并在模型选择框中以直观徽标展示保留周期与训练政策。",
+      "es": "Protección de datos mediante ZDR e indicadores de privacidad en tiempo real.",
+      "fr": "Blocage de l'entraînement IA via ZDR et affichage en temps réel des règles de rétention.",
+      "de": "Verhinderung von KI-Training durch ZDR und Anzeige von Datenschutz-Badges."
+    }
+  },
   "0.9.9": {
     "title": {
       "ko": "모바일 소용량 원본 비디오 보존 허용, 다운로드 즉시 DB 동기화 및 보관된 하이라이트 전용 뷰어 도입",

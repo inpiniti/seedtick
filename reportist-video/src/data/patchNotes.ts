@@ -18,9 +18,35 @@ export interface PatchRelease {
   commits: PatchCommit[];
 }
 
-export const CURRENT_APP_VERSION = '0.9.10';
+export const CURRENT_APP_VERSION = '0.9.11';
 
 export const PATCH_RELEASES: PatchRelease[] = [
+  {
+    "version": "0.9.11",
+    "title": "데스크탑 비디오 인코딩 및 시퀀스 미리보기 프레임 드랍(지터·스킵) 해결",
+    "date": "2026-11-10",
+    "type": "patch",
+    "summary": "데스크탑 환경에서 발생하던 영상 끊김 및 프레임 드랍 현상을 해결했습니다. 원본 동영상(대부분 24~30fps)과 인코더 간 주사율 불일치(60fps 강제로 인한 프레임 중복 및 16.6ms 벽시계 캡처 경쟁 레이스)를 글로벌 표준 30fps(CFR) 1:1 완벽 동기화로 최적화하고, 스튜디오 시퀀스 미리보기 시 60Hz React 전역 리렌더링 병목을 쓰로틀링(12.5Hz)하여 캔버스 60fps 재생을 매끄럽게 유지하도록 개선했습니다.",
+    "totalCommits": 2,
+    "commits": [
+      {
+        "hash": "bgm0911",
+        "date": "2026-11-10",
+        "type": "fix",
+        "scope": "video",
+        "message": "비디오 병합 시 배경음악(BGM) 음원이 인트로 시작(0초)부터 전체 영상에 맞춰 재생되도록 동기화 수정 (v0.9.11)",
+        "rawSubject": "fix(video): 비디오 병합 시 배경음악(BGM) 음원이 인트로 시작(0초)부터 전체 영상에 맞춰 재생되도록 동기화 수정 (v0.9.11)"
+      },
+      {
+        "hash": "fps0911",
+        "date": "2026-11-10",
+        "type": "fix",
+        "scope": "video",
+        "message": "데스크탑 30fps CFR 동기화 및 스튜디오 미리보기 리렌더링 쓰로틀링으로 프레임 드랍 해결 (v0.9.11)",
+        "rawSubject": "fix(video): 데스크탑 30fps CFR 동기화 및 스튜디오 미리보기 리렌더링 쓰로틀링으로 프레임 드랍 해결 (v0.9.11)"
+      }
+    ]
+  },
   {
     "version": "0.9.10",
     "title": "AI 모델 데이터 학습 차단(Zero Data Retention) 연동 및 모델 선택창 내 실시간 프라이버시(학습·보관) 뱃지 도입",

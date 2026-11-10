@@ -1156,6 +1156,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const isSequencePlayingRef = useRef<boolean>(false);
   const seqPlayRafRef = useRef<number | null>(null);
   const seqLastFrameTsRef = useRef<number>(0);
+  const seqLastStateSyncTsRef = useRef<number>(0);
   const activeSequencePhaseRef = useRef<string>('');
 
   // 커스텀 인트로 비디오 로드 및 실제 길이 측정
@@ -1972,6 +1973,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
     syncBgmPlayback(false);
     setIsPlaying(false);
+    setCurrentTime(currentTimeRef.current);
   };
 
   const startSequencePlayback = (fromTimelineTime?: number) => {
@@ -1991,6 +1993,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     isSequencePlayingRef.current = true;
     activeSequencePhaseRef.current = '';
     seqLastFrameTsRef.current = performance.now();
+    seqLastStateSyncTsRef.current = performance.now();
     setPlaybackError(null);
     setIsPlaying(true);
     syncBgmPlayback(true, startT);
@@ -2100,8 +2103,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       }
 
       currentTimeRef.current = nextT;
-      setCurrentTime(nextT);
       renderCompositorAt(nextT);
+
+      // React 상태 업데이트 쓰로틀링 (매 프레임 60Hz 리렌더링으로 인한 데스크탑/모바일 메인 스레드 프레임 드랍 원천 차단)
+      if (now - seqLastStateSyncTsRef.current >= 80) {
+        seqLastStateSyncTsRef.current = now;
+        setCurrentTime(nextT);
+      }
       seqPlayRafRef.current = requestAnimationFrame(step);
     };
 
