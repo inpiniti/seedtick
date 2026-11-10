@@ -183,3 +183,71 @@ export function playBgmSynthLoop(
     },
   };
 }
+
+/**
+ * OfflineAudioContext 또는 타임라인 기반 렌더러에서 지정된 구간 동안 신스 BGM을 미리 스케줄링하여 믹싱
+ */
+export function scheduleBgmSynthTrack(
+  ctx: BaseAudioContext,
+  destination: AudioNode,
+  presetId: string,
+  totalDurationSec: number,
+  volume = 0.35
+): void {
+  if (presetId === 'none' || !CHORD_PROGRESSIONS[presetId] || totalDurationSec <= 0) {
+    return;
+  }
+
+  const chords = CHORD_PROGRESSIONS[presetId];
+  const chordDurationSec = presetId === 'energetic' ? 1.6 : 2.4;
+
+  const masterGain = ctx.createGain();
+  masterGain.gain.setValueAtTime(Math.max(0, Math.min(1, volume)), 0);
+
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(presetId === 'chill' ? 1200 : 2800, 0);
+  filter.Q.setValueAtTime(1.5, 0);
+
+  masterGain.connect(filter);
+  filter.connect(destination);
+
+  let currentTimeline = 0;
+  let chordIndex = 0;
+
+  while (currentTimeline < totalDurationSec) {
+    const chord = chords[chordIndex % chords.length];
+    chordIndex++;
+    const stepStart = currentTimeline;
+
+    chord.forEach((freq, i) => {
+      try {
+        const osc = ctx.createOscillator();
+        const noteGain = ctx.createGain();
+
+        osc.type = presetId === 'energetic' && i === 0 ? 'sawtooth' : i % 2 === 0 ? 'triangle' : 'sine';
+        osc.frequency.setValueAtTime(freq, stepStart);
+
+        const noteStart = stepStart + i * 0.08;
+        const noteEnd = Math.min(totalDurationSec, noteStart + chordDurationSec);
+
+        if (noteEnd > noteStart) {
+          noteGain.gain.setValueAtTime(0.0001, noteStart);
+          noteGain.gain.exponentialRampToValueAtTime(0.18 / chord.length, Math.min(noteEnd, noteStart + 0.06));
+          noteGain.gain.exponentialRampToValueAtTime(0.0001, Math.max(noteStart + 0.061, noteEnd - 0.05));
+
+          osc.connect(noteGain);
+          noteGain.connect(masterGain);
+
+          osc.start(noteStart);
+          osc.stop(noteEnd);
+        }
+      } catch {
+        // ignore
+      }
+    });
+
+    currentTimeline += chordDurationSec;
+  }
+}
+

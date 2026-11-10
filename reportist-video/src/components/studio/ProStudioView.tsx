@@ -1772,46 +1772,68 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     const v = videoRef.current;
 
     if (res.phase === 'intro') {
-      const customIntroV = introCustomVideoRef.current;
-      if (overlayOptions.introVideoFile && customIntroV && customIntroV.readyState >= 2) {
-        if (Math.abs(customIntroV.currentTime - res.elapsed) > 0.12) {
-          try {
-            customIntroV.currentTime = res.elapsed;
-          } catch {}
+      if (overlayOptions.introVideoFile) {
+        const customIntroV = introCustomVideoRef.current;
+        if (customIntroV) {
+          if (!isSequencePlayingRef.current && Math.abs(customIntroV.currentTime - res.elapsed) > 0.05) {
+            try {
+              customIntroV.currentTime = res.elapsed;
+            } catch {}
+          }
+          if (customIntroV.readyState >= 1) {
+            drawCompositorCoverFrame(ctx, customIntroV, undefined, undefined, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
+          } else {
+            ctx.fillStyle = '#0a0f1d';
+            ctx.fillRect(0, 0, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
+          }
+        } else {
+          ctx.fillStyle = '#0a0f1d';
+          ctx.fillRect(0, 0, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
         }
-        drawCompositorCoverFrame(ctx, customIntroV, undefined, undefined, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
-      } else {
-        const prog = res.duration > 0 ? res.elapsed / res.duration : 0;
-        drawCompositorIntroFrame(
-          ctx,
-          prog,
-          effectiveOverlayOptions,
-          COMPOSITOR_WIDTH,
-          COMPOSITOR_HEIGHT
-        );
+        return;
       }
+
+      const prog = res.duration > 0 ? res.elapsed / res.duration : 0;
+      drawCompositorIntroFrame(
+        ctx,
+        prog,
+        effectiveOverlayOptions,
+        COMPOSITOR_WIDTH,
+        COMPOSITOR_HEIGHT
+      );
       return;
     }
 
     if (res.phase === 'outro') {
-      const customOutroV = outroCustomVideoRef.current;
-      if (overlayOptions.outroVideoFile && customOutroV && customOutroV.readyState >= 2) {
-        if (Math.abs(customOutroV.currentTime - res.elapsed) > 0.12) {
-          try {
-            customOutroV.currentTime = res.elapsed;
-          } catch {}
+      if (overlayOptions.outroVideoFile) {
+        const customOutroV = outroCustomVideoRef.current;
+        if (customOutroV) {
+          if (!isSequencePlayingRef.current && Math.abs(customOutroV.currentTime - res.elapsed) > 0.05) {
+            try {
+              customOutroV.currentTime = res.elapsed;
+            } catch {}
+          }
+          if (customOutroV.readyState >= 1) {
+            drawCompositorCoverFrame(ctx, customOutroV, undefined, undefined, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
+          } else {
+            ctx.fillStyle = '#0a0f1d';
+            ctx.fillRect(0, 0, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
+          }
+        } else {
+          ctx.fillStyle = '#0a0f1d';
+          ctx.fillRect(0, 0, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
         }
-        drawCompositorCoverFrame(ctx, customOutroV, undefined, undefined, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
-      } else {
-        const prog = res.duration > 0 ? res.elapsed / res.duration : 0;
-        drawCompositorOutroFrame(
-          ctx,
-          prog,
-          effectiveOverlayOptions,
-          COMPOSITOR_WIDTH,
-          COMPOSITOR_HEIGHT
-        );
+        return;
       }
+
+      const prog = res.duration > 0 ? res.elapsed / res.duration : 0;
+      drawCompositorOutroFrame(
+        ctx,
+        prog,
+        effectiveOverlayOptions,
+        COMPOSITOR_WIDTH,
+        COMPOSITOR_HEIGHT
+      );
       return;
     }
 
@@ -1923,15 +1945,41 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     if (res.phase === 'intro') {
       targetVideoId = res.nextSeg?.sourceVideoId;
       targetMediaTime = res.nextSeg?.start || 0;
+      if (introCustomVideoRef.current) {
+        try {
+          introCustomVideoRef.current.currentTime = res.elapsed;
+        } catch {}
+      }
+      if (!isSequencePlayingRef.current) {
+        introCustomVideoRef.current?.pause();
+        outroCustomVideoRef.current?.pause();
+      }
     } else if (res.phase === 'bridge') {
       targetVideoId = res.seg.sourceVideoId;
       targetMediaTime = res.seg.start;
+      if (!isSequencePlayingRef.current) {
+        introCustomVideoRef.current?.pause();
+        outroCustomVideoRef.current?.pause();
+      }
     } else if (res.phase === 'segment') {
       targetVideoId = res.videoId;
       targetMediaTime = res.mediaTime;
+      if (!isSequencePlayingRef.current) {
+        introCustomVideoRef.current?.pause();
+        outroCustomVideoRef.current?.pause();
+      }
     } else if (res.phase === 'outro') {
       targetVideoId = res.prevSeg?.sourceVideoId;
       targetMediaTime = res.prevSeg?.end || 0;
+      if (outroCustomVideoRef.current) {
+        try {
+          outroCustomVideoRef.current.currentTime = res.elapsed;
+        } catch {}
+      }
+      if (!isSequencePlayingRef.current) {
+        introCustomVideoRef.current?.pause();
+        outroCustomVideoRef.current?.pause();
+      }
     }
 
     if (targetVideoId && targetVideoId !== previewVideoId) {
@@ -1971,6 +2019,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         videoRef.current.pause();
       } catch {}
     }
+    if (introCustomVideoRef.current && !introCustomVideoRef.current.paused) {
+      try {
+        introCustomVideoRef.current.pause();
+      } catch {}
+    }
+    if (outroCustomVideoRef.current && !outroCustomVideoRef.current.paused) {
+      try {
+        outroCustomVideoRef.current.pause();
+      } catch {}
+    }
     syncBgmPlayback(false);
     setIsPlaying(false);
     setCurrentTime(currentTimeRef.current);
@@ -1998,6 +2056,19 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     setIsPlaying(true);
     syncBgmPlayback(true, startT);
 
+    const initRes = resolveTimelineAt(startT);
+    if (initRes.phase === 'intro' && overlayOptions.introVideoFile && introCustomVideoRef.current) {
+      try {
+        introCustomVideoRef.current.currentTime = initRes.elapsed;
+      } catch {}
+      introCustomVideoRef.current.play().catch(() => {});
+    } else if (initRes.phase === 'outro' && overlayOptions.outroVideoFile && outroCustomVideoRef.current) {
+      try {
+        outroCustomVideoRef.current.currentTime = initRes.elapsed;
+      } catch {}
+      outroCustomVideoRef.current.play().catch(() => {});
+    }
+
     if (seqPlayRafRef.current) {
       cancelAnimationFrame(seqPlayRafRef.current);
       seqPlayRafRef.current = null;
@@ -2013,6 +2084,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       const res = resolveTimelineAt(nextT);
 
       if (res.phase === 'segment') {
+        if (introCustomVideoRef.current && !introCustomVideoRef.current.paused) {
+          try {
+            introCustomVideoRef.current.pause();
+          } catch {}
+        }
+        if (outroCustomVideoRef.current && !outroCustomVideoRef.current.paused) {
+          try {
+            outroCustomVideoRef.current.pause();
+          } catch {}
+        }
+
         const phaseKey = `segment:${res.seg.id}`;
         const targetVideo = videoMap.get(res.videoId) || videos[0];
 
@@ -2064,6 +2146,34 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               v.pause();
             } catch {}
           }
+
+          if (res.phase === 'intro') {
+            if (outroCustomVideoRef.current && !outroCustomVideoRef.current.paused) {
+              try { outroCustomVideoRef.current.pause(); } catch {}
+            }
+            if (overlayOptions.introVideoFile && introCustomVideoRef.current) {
+              const civ = introCustomVideoRef.current;
+              try { civ.currentTime = res.elapsed; } catch {}
+              civ.play().catch(() => {});
+            }
+          } else if (res.phase === 'outro') {
+            if (introCustomVideoRef.current && !introCustomVideoRef.current.paused) {
+              try { introCustomVideoRef.current.pause(); } catch {}
+            }
+            if (overlayOptions.outroVideoFile && outroCustomVideoRef.current) {
+              const cov = outroCustomVideoRef.current;
+              try { cov.currentTime = res.elapsed; } catch {}
+              cov.play().catch(() => {});
+            }
+          } else {
+            if (introCustomVideoRef.current && !introCustomVideoRef.current.paused) {
+              try { introCustomVideoRef.current.pause(); } catch {}
+            }
+            if (outroCustomVideoRef.current && !outroCustomVideoRef.current.paused) {
+              try { outroCustomVideoRef.current.pause(); } catch {}
+            }
+          }
+
           const preloadSeg =
             res.phase === 'intro'
               ? res.nextSeg
@@ -2088,6 +2198,29 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 if (Math.abs(v.currentTime - preloadTime) > 0.1) {
                   v.currentTime = preloadTime;
                 }
+              } catch {}
+            }
+          }
+        } else {
+          // 동일 페이즈 진행 중: 커스텀 인트로/아웃트로 비디오 연속 재생 및 드리프트 보정
+          if (res.phase === 'intro' && overlayOptions.introVideoFile && introCustomVideoRef.current) {
+            const civ = introCustomVideoRef.current;
+            if (civ.paused && civ.readyState >= 2) {
+              civ.play().catch(() => {});
+            }
+            if (Math.abs(civ.currentTime - res.elapsed) > 0.3) {
+              try {
+                civ.currentTime = res.elapsed;
+              } catch {}
+            }
+          } else if (res.phase === 'outro' && overlayOptions.outroVideoFile && outroCustomVideoRef.current) {
+            const cov = outroCustomVideoRef.current;
+            if (cov.paused && cov.readyState >= 2) {
+              cov.play().catch(() => {});
+            }
+            if (Math.abs(cov.currentTime - res.elapsed) > 0.3) {
+              try {
+                cov.currentTime = res.elapsed;
               } catch {}
             }
           }

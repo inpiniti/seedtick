@@ -9,6 +9,7 @@ import {
   createHyperframesBridgeController,
   evaluateChapterBridge,
 } from './hyperframesBridgeRenderer.ts';
+import { scheduleBgmSynthTrack } from './audioSynth.ts';
 
 export interface StitchVideosWebCodecsParams {
   videos: VideoItem[];
@@ -1257,14 +1258,66 @@ export async function stitchVideosWebCodecs({
         const totalSampleCount = Math.max(1024, Math.ceil(totalVideoDurationSec * audioSampleRate));
         const offlineAudioCtx = new OfflineAudioContext(audioChannels, totalSampleCount, audioSampleRate);
 
-        // 각 비디오가 마지막으로 등장하는 세그먼트 인덱스를 사전 계산하여,
-        // 더 이상 참조되지 않는 비디오의 AudioBuffer를 즉시 캐시에서 제거(GC 유도)
+        // 원본 비디오 오디오 디코딩 헬퍼 (표준 AudioContext 우선 시도 후 2차 fallback)
+        const decodeVideoAudio = async (vItem: VideoItem): Promise<AudioBuffer | null> => {
+          try {
+            let ab: ArrayBuffer | null = null;
+            if (vItem.file && vItem.file.size > 0) {
+              ab = await vItem.file.slice(0).arrayBuffer();
+            } else if (vItem.url) {
+              try {
+                const resp = await fetch(vItem.url);
+                if (resp.ok) {
+                  ab = await resp.arrayBuffer();
+                }
+              } catch (fetchErr) {
+                console.warn(`[WebCodecs] 비디오 ${vItem.name || vItem.id} URL 읽기 실패:`, fetchErr);
+              }
+            }
+
+            if (!ab || ab.byteLength === 0) return null;
+
+            const AudioCtxCtor =
+              window.AudioContext ||
+              (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+
+            // 1차: 표준 AudioContext로 디코딩 (대다수 브라우저에서 MP4 비디오 컨테이너 오디오 디코딩 지원)
+            if (AudioCtxCtor) {
+              try {
+                const stdCtx = new AudioCtxCtor({ sampleRate: audioSampleRate });
+                const decoded = await Promise.race([
+                  stdCtx.decodeAudioData(ab.slice(0)),
+                  new Promise<null>((resolve) => setTimeout(() => resolve(null), 12000)),
+                ]);
+                void stdCtx.close().catch(() => {});
+                if (decoded && decoded.duration > 0) return decoded;
+              } catch (e1) {
+                console.warn(`[WebCodecs] 표준 AudioContext 디코딩 경고 (${vItem.name || vItem.id}):`, e1);
+              }
+            }
+
+            // 2차: offlineAudioCtx로 시도
+            try {
+              const decoded = await offlineAudioCtx.decodeAudioData(ab.slice(0));
+              if (decoded && decoded.duration > 0) return decoded;
+            } catch (e2) {
+              console.warn(`[WebCodecs] OfflineAudioContext 디코딩 경고 (${vItem.name || vItem.id}):`, e2);
+            }
+
+            return null;
+          } catch (err) {
+            console.warn(`[WebCodecs] 비디오 ${vItem.name || vItem.id} 오디오 추출 실패:`, err);
+            return null;
+          }
+        };
+
+        // 각 비디오가 마지막으로 등장하는 세그먼트 인덱스를 사전 계산하여 GC 유도
         const lastSegmentIdxByVideoId = new Map<string, number>();
         for (let idx = 0; idx < allSegments.length; idx++) {
           lastSegmentIdxByVideoId.set(allSegments[idx].sourceVideoId, idx);
         }
 
-        // 1) 각 비디오 클립의 원본 오디오 디코딩 (하이라이트 구간만 슬라이스 추출하여 100개 영상 시 수십 GB 메모리 점유 방지)
+        // 1) 각 비디오 클립의 원본 오디오 디코딩 및 타임라인에 배치 (배경음악 유무와 관계없이 항상 원본 소리 보존!)
         const decodedVideoAudioCache = new Map<string, AudioBuffer | null>();
         let timelineAudioCursorSec = actualIntroDuration;
 
@@ -1275,58 +1328,48 @@ export async function stitchVideosWebCodecs({
           }
 
           const vItem = videoMap.get(seg.sourceVideoId);
-          if (vItem?.file) {
+          if (vItem) {
             if (!decodedVideoAudioCache.has(vItem.id)) {
-              try {
-                const ab = await vItem.file.arrayBuffer();
-                const fullDecodedBuf = await offlineAudioCtx.decodeAudioData(ab);
-                decodedVideoAudioCache.set(vItem.id, fullDecodedBuf);
-              } catch {
-                decodedVideoAudioCache.set(vItem.id, null);
-              }
+              const fullDecodedBuf = await decodeVideoAudio(vItem);
+              decodedVideoAudioCache.set(vItem.id, fullDecodedBuf);
             }
 
             const fullAudioBuf = decodedVideoAudioCache.get(vItem.id);
             if (fullAudioBuf && seg.duration > 0.05) {
               try {
-                const safeOffset = Math.max(0, Math.min(seg.start, Math.max(0, fullAudioBuf.duration - 0.05)));
+                const safeOffset = Math.max(0, Math.min(seg.start, Math.max(0, fullAudioBuf.duration - 0.02)));
                 const safeDuration = Math.max(0.02, Math.min(seg.duration, fullAudioBuf.duration - safeOffset));
 
-                // 원본 전체(예: 5분짜리) AudioBuffer를 OfflineAudioContext 그래프에 그대로 물려두면
-                // startRendering() 완료 전까지 100개 영상 전체 PCM이 RAM에 유지되므로,
-                // 실제 사용하는 세그먼트 구간(예: 3초)만 소형 AudioBuffer로 잘라내어 연결하고 원본은 즉시 해제!
-                const startSample = Math.floor(safeOffset * fullAudioBuf.sampleRate);
-                const frameLen = Math.max(1, Math.ceil(safeDuration * fullAudioBuf.sampleRate));
-                const numCh = fullAudioBuf.numberOfChannels;
-                const slicedBuf = offlineAudioCtx.createBuffer(numCh, frameLen, fullAudioBuf.sampleRate);
-                for (let ch = 0; ch < numCh; ch++) {
-                  const srcData = fullAudioBuf.getChannelData(ch);
-                  const dstData = slicedBuf.getChannelData(ch);
-                  const endSample = Math.min(srcData.length, startSample + frameLen);
-                  if (endSample > startSample) {
-                    dstData.set(srcData.subarray(startSample, endSample), 0);
-                  }
-                }
-
                 const segSource = offlineAudioCtx.createBufferSource();
-                segSource.buffer = slicedBuf;
+                segSource.buffer = fullAudioBuf;
+
                 const segGain = offlineAudioCtx.createGain();
+                const userVol = typeof seg.volume === 'number' && Number.isFinite(seg.volume) ? seg.volume : 1.0;
+                const targetVol = Math.max(0, Math.min(2.0, userVol));
+
                 const startT = timelineAudioCursorSec;
                 const endT = timelineAudioCursorSec + seg.duration;
-                const fadeSec = Math.min(0.04, seg.duration * 0.15);
-                // 세그먼트 경계 팝 노이즈 방지를 위한 마이크로 페이드 인/아웃
-                segGain.gain.setValueAtTime(0.001, startT);
-                segGain.gain.linearRampToValueAtTime(0.85, startT + fadeSec);
-                segGain.gain.setValueAtTime(0.85, Math.max(startT + fadeSec, endT - fadeSec));
-                segGain.gain.linearRampToValueAtTime(0.001, endT);
+                const fadeSec = Math.min(0.02, safeDuration * 0.1);
+
+                // 세그먼트 경계 팝 노이즈 방지 마이크로 페이드 (시간 역전 방지)
+                if (fadeSec > 0.005 && endT - fadeSec > startT + fadeSec) {
+                  segGain.gain.setValueAtTime(0.001, startT);
+                  segGain.gain.linearRampToValueAtTime(targetVol, startT + fadeSec);
+                  segGain.gain.setValueAtTime(targetVol, endT - fadeSec);
+                  segGain.gain.linearRampToValueAtTime(0.001, endT);
+                } else {
+                  segGain.gain.setValueAtTime(targetVol, startT);
+                }
 
                 segSource.connect(segGain);
                 segGain.connect(offlineAudioCtx.destination);
-                segSource.start(startT, 0, safeDuration);
-              } catch {}
+                segSource.start(startT, safeOffset, safeDuration);
+              } catch (segAudioErr) {
+                console.warn(`[WebCodecs] 세그먼트 ${seg.id} 오디오 배치 경고:`, segAudioErr);
+              }
             }
 
-            // 이 비디오의 마지막 세그먼트까지 처리를 마쳤다면 대용량 원본 AudioBuffer 즉시 메모리 해제
+            // 이 비디오의 마지막 세그먼트까지 처리를 마쳤다면 원본 AudioBuffer 캐시 메모리 해제
             if (lastSegmentIdxByVideoId.get(vItem.id) === segIdx) {
               decodedVideoAudioCache.delete(vItem.id);
             }
@@ -1336,31 +1379,63 @@ export async function stitchVideosWebCodecs({
         }
         decodedVideoAudioCache.clear();
 
-        // 2) 사용자 지정 배경음악(customAudioFile) 믹싱
+        // 2) 배경음악 믹싱: 사용자 지정 오디오 파일 또는 BGM 프리셋
         if (customAudioFile) {
-          const ab = await customAudioFile.arrayBuffer();
-          const decoded = await offlineAudioCtx.decodeAudioData(ab);
-          const srcNode = offlineAudioCtx.createBufferSource();
-          srcNode.buffer = decoded;
+          try {
+            const ab = await customAudioFile.arrayBuffer();
+            let decoded: AudioBuffer | null = null;
+            try {
+              decoded = await offlineAudioCtx.decodeAudioData(ab.slice(0));
+            } catch {
+              const AudioCtxCtor =
+                window.AudioContext ||
+                (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+              if (AudioCtxCtor) {
+                const stdCtx = new AudioCtxCtor({ sampleRate: audioSampleRate });
+                decoded = await stdCtx.decodeAudioData(ab.slice(0));
+                void stdCtx.close().catch(() => {});
+              }
+            }
 
-          const fitToVideo = Boolean(overlayOptions?.bgmFitToVideo);
-          const targetMusicDuration = Math.max(0.1, totalVideoDurationSec);
+            if (decoded) {
+              const srcNode = offlineAudioCtx.createBufferSource();
+              srcNode.buffer = decoded;
 
-          if (fitToVideo && decoded.duration > 0 && targetMusicDuration > 0) {
-            const calculatedRate = decoded.duration / targetMusicDuration;
-            srcNode.playbackRate.value = Math.max(0.1, Math.min(10.0, calculatedRate));
-            srcNode.loop = false;
-          } else {
-            srcNode.loop = totalVideoDurationSec > decoded.duration;
+              const fitToVideo = Boolean(overlayOptions?.bgmFitToVideo);
+              const targetMusicDuration = Math.max(0.1, totalVideoDurationSec);
+
+              if (fitToVideo && decoded.duration > 0 && targetMusicDuration > 0) {
+                const calculatedRate = decoded.duration / targetMusicDuration;
+                srcNode.playbackRate.value = Math.max(0.1, Math.min(10.0, calculatedRate));
+                srcNode.loop = false;
+              } else {
+                srcNode.loop = totalVideoDurationSec > decoded.duration;
+              }
+
+              const gain = offlineAudioCtx.createGain();
+              gain.gain.value = Math.max(0, Math.min(1, bgmVolume));
+
+              srcNode.connect(gain);
+              gain.connect(offlineAudioCtx.destination);
+              // 배경음악(BGM)은 영상 시작(0초)부터 전체 영상에 맞춰 흐르도록 시작
+              srcNode.start(0);
+            }
+          } catch (bgmErr) {
+            console.warn('[WebCodecs] 커스텀 BGM 디코딩 경고:', bgmErr);
           }
-
-          const gain = offlineAudioCtx.createGain();
-          gain.gain.value = Math.max(0, Math.min(1, bgmVolume));
-
-          srcNode.connect(gain);
-          gain.connect(offlineAudioCtx.destination);
-          // 배경음악(BGM)은 인트로 시작 시점(0초)부터 전체 영상에 맞춰 흐르도록 0초에 시작
-          srcNode.start(0);
+        } else if (bgmPresetId && bgmPresetId !== 'none') {
+          // BGM 프리셋 신디사이저 사운드트랙 오프라인 렌더링 믹싱
+          try {
+            scheduleBgmSynthTrack(
+              offlineAudioCtx,
+              offlineAudioCtx.destination,
+              bgmPresetId,
+              totalVideoDurationSec,
+              bgmVolume
+            );
+          } catch (synthErr) {
+            console.warn('[WebCodecs] BGM 프리셋 신스 믹싱 경고:', synthErr);
+          }
         }
 
         const renderedBuffer = await offlineAudioCtx.startRendering();

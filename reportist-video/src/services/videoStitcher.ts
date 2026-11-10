@@ -351,17 +351,33 @@ export async function stitchHighlightedSegments({
   const workerA = createWorkerVideo();
   const stage = mountHiddenStage(canvas, workerA);
 
-  // BGM 또는 커스텀 오디오 파일이 실제로 존재하는지 여부 확인
-  const hasAudioSource = Boolean(
-    customAudioFile || (bgmPresetId && bgmPresetId !== 'none')
-  );
+  // BGM 또는 원본 비디오 오디오 등 항상 오디오 소스 활성화
+  const hasAudioSource = true;
 
-  // 오디오 컨텍스트 및 목적지 스트림 생성 (오디오가 있을 때만 활성화하여 iOS 0바이트 먹싱 블로킹 방어)
-  const audioCtx = hasAudioSource ? getSharedAudioContext() : null;
+  // 오디오 컨텍스트 및 목적지 스트림 생성
+  const audioCtx = getSharedAudioContext() || (typeof AudioContext !== 'undefined' ? new AudioContext() : null);
   let audioDest: MediaStreamAudioDestinationNode | null = null;
+  let workerAudioGain: GainNode | null = null;
+
   if (audioCtx) {
     try {
       audioDest = audioCtx.createMediaStreamDestination();
+
+      // workerA(원본 비디오)의 소리를 Web Audio 그래프로 라우팅 (스피커로 나가지 않고 녹음 목적지 audioDest로만 라우팅됨)
+      try {
+        workerAudioGain = audioCtx.createGain();
+        workerAudioGain.gain.setValueAtTime(1.0, audioCtx.currentTime);
+        workerAudioGain.connect(audioDest);
+
+        const workerSource = audioCtx.createMediaElementSource(workerA);
+        workerSource.connect(workerAudioGain);
+        workerA.muted = false;
+        workerA.defaultMuted = false;
+        workerA.volume = 1.0;
+      } catch (workerErr) {
+        console.warn('[VideoStitcher] workerA MediaElementAudioSource 연결 경고:', workerErr);
+      }
+
       // iOS Safari AVAssetWriter가 오디오 패킷 부족으로 비디오 기록을 멈추는 현상을 막기 위해
       // 지속적인 미세 무음 노드를 audioDest에 상시 공급
       const silenceGain = audioCtx.createGain();
@@ -937,13 +953,21 @@ export async function stitchHighlightedSegments({
     }
 
     video.src = url;
-    video.muted = true;
-    video.defaultMuted = true;
-    video.volume = 0;
+    if (workerAudioGain) {
+      video.muted = false;
+      video.defaultMuted = false;
+      video.volume = 1.0;
+    } else {
+      video.muted = true;
+      video.defaultMuted = true;
+      video.volume = 0;
+    }
     video.playsInline = true;
     video.setAttribute('playsinline', '');
     video.setAttribute('webkit-playsinline', '');
-    video.setAttribute('muted', '');
+    if (!workerAudioGain) {
+      video.setAttribute('muted', '');
+    }
     try {
       video.load();
     } catch {
@@ -980,19 +1004,30 @@ export async function stitchHighlightedSegments({
   };
 
   const startPlayback = async (video: HTMLVideoElement, timeoutMs: number): Promise<boolean> => {
-    video.muted = true;
-    video.defaultMuted = true;
-    video.volume = 0;
+    if (workerAudioGain) {
+      video.muted = false;
+      video.defaultMuted = false;
+      video.volume = 1.0;
+    } else {
+      video.muted = true;
+      video.defaultMuted = true;
+      video.volume = 0;
+      video.setAttribute('muted', '');
+    }
     video.playsInline = true;
     video.setAttribute('playsinline', '');
     video.setAttribute('webkit-playsinline', '');
-    video.setAttribute('muted', '');
     let playPromise: Promise<void>;
     try {
       playPromise = video.play();
     } catch (err) {
-      console.warn('[VideoStitcher] play() 즉시 실패:', err);
-      return false;
+      console.warn('[VideoStitcher] play() 즉시 실패, muted 폴백:', err);
+      video.muted = true;
+      try {
+        playPromise = video.play();
+      } catch {
+        return false;
+      }
     }
     const result = await raceWithTimeout(playPromise, timeoutMs);
     if (result.status === 'ok') return true;
@@ -1152,6 +1187,9 @@ export async function stitchHighlightedSegments({
   // 인트로 시퀀스 렌더링 (약 1.6초 - 드리프트 보정 Wall-Clock 페이싱 적용)
   const renderIntroSequence = async (): Promise<number> => {
     if (!overlayOptions?.showIntro) return 0;
+    if (workerAudioGain && audioCtx) {
+      workerAudioGain.gain.setValueAtTime(0, audioCtx.currentTime);
+    }
     onProgress?.(1, '시작 인트로 타이틀 시퀀스 생성 중...');
 
     const introDurationSec = 1.6;
