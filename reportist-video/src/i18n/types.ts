@@ -494,6 +494,7 @@ export interface Dictionary {
     privacyNoTraining?: string;
     privacyTraining?: string;
     privacyRetention?: string;
+    privacyRetained30d?: string;
     privacyZdr?: string;
     modalityText: string;
     modalityImage: string;

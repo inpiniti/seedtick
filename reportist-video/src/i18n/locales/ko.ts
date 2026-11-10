@@ -483,6 +483,7 @@ export const ko: Dictionary = {
     privacyNoTraining: '학습 미사용',
     privacyTraining: '학습에 사용됨',
     privacyRetention: '보관 {days}일',
+    privacyRetained30d: '보관 30일',
     privacyZdr: '즉시 삭제 (ZDR)',
     modalityText: '텍스트',
     modalityImage: '이미지',

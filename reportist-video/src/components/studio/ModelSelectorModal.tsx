@@ -634,17 +634,33 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                         ) : null}
 
                         {model.dataPolicy.retainsPrompts === false ? (
-                          <div className="model-modal-tag privacy-zdr">
-                            <span style={{ color: '#059669' }}>
-                              {dict.modelModal.privacyZdr ?? '즉시 삭제 (ZDR)'}
+                          <div
+                            className="model-modal-tag privacy-zdr"
+                            title={
+                              locale === 'ko'
+                                ? '요청 완료 후 데이터가 서버에 일체 보관되지 않고 즉시 삭제됩니다 (Zero Data Retention).'
+                                : 'No data retained after request completion (Zero Data Retention).'
+                            }
+                          >
+                            <span style={{ color: '#059669', fontWeight: 600 }}>
+                              🛡️ {dict.modelModal.privacyZdr ?? '즉시 삭제 (ZDR)'}
                             </span>
                           </div>
-                        ) : typeof model.dataPolicy.retentionDays === 'number' && model.dataPolicy.retentionDays > 0 ? (
-                          <div className="model-modal-tag privacy-retention">
-                            <span style={{ color: '#6b7280' }}>
-                              {interpolate(dict.modelModal.privacyRetention ?? '보관 {days}일', {
-                                days: model.dataPolicy.retentionDays,
-                              })}
+                        ) : model.dataPolicy.retainsPrompts === true ? (
+                          <div
+                            className="model-modal-tag privacy-retention"
+                            title={
+                              locale === 'ko'
+                                ? `서버 보안 및 악용 방지 로그 목적으로 ${model.dataPolicy.retentionDays || 30}일간 임시 보관된 후 삭제됩니다.`
+                                : `Retained for ${model.dataPolicy.retentionDays || 30} days for security/abuse prevention before deletion.`
+                            }
+                          >
+                            <span style={{ color: '#4b5563' }}>
+                              ⏱️ {typeof model.dataPolicy.retentionDays === 'number' && model.dataPolicy.retentionDays > 0
+                                ? interpolate(dict.modelModal.privacyRetention ?? '보관 {days}일', {
+                                    days: model.dataPolicy.retentionDays,
+                                  })
+                                : (dict.modelModal.privacyRetained30d ?? '보관 30일')}
                             </span>
                           </div>
                         ) : null}

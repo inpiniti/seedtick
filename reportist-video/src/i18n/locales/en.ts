@@ -483,6 +483,7 @@ export const en: Dictionary = {
     privacyNoTraining: 'No Training',
     privacyTraining: 'Used for Training',
     privacyRetention: 'Retained {days}d',
+    privacyRetained30d: 'Retained 30d',
     privacyZdr: 'Zero Data Retention (ZDR)',
     modalityText: 'Text',
     modalityImage: 'Image',
