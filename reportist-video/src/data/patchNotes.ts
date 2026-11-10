@@ -18,9 +18,27 @@ export interface PatchRelease {
   commits: PatchCommit[];
 }
 
-export const CURRENT_APP_VERSION = '0.9.2';
+export const CURRENT_APP_VERSION = '0.9.3';
 
 export const PATCH_RELEASES: PatchRelease[] = [
+  {
+    "version": "0.9.3",
+    "title": "아이폰(iOS Safari) 다중 영상 내보내기 프레임 드랍 해결 및 디코더 1:1 동기화",
+    "date": "2026-11-10",
+    "type": "patch",
+    "summary": "아이폰에서 다수의 영상을 편집·병합하여 다운로드할 때 발생하던 프레임 드랍(멈칫거림·건너뛰기) 현상을 해결했습니다. 벽시계 가상 보간 클럭으로 인한 중복/스킵 캡처를 제거하고 requestVideoFrameCallback 실측 미디어 시간 1:1 동기화, DOM 프리뷰 비디오 디코더 슬롯 임시 반환 및 다중 영상 전환 시 디코더 플러시를 적용했습니다.",
+    "totalCommits": 1,
+    "commits": [
+      {
+        "hash": "fps093a",
+        "date": "2026-11-10",
+        "type": "fix",
+        "scope": "video",
+        "message": "아이폰 다중 영상 내보내기 시 하드웨어 디코더 슬롯 독점 보장 및 실측 프레임 1:1 동기화로 프레임 드랍 해결",
+        "rawSubject": "fix(video): 아이폰 다중 영상 내보내기 시 하드웨어 디코더 슬롯 독점 보장 및 실측 프레임 1:1 동기화로 프레임 드랍 해결"
+      }
+    ]
+  },
   {
     "version": "0.9.2",
     "title": "아이폰(iOS Safari) 업로드 직후 자동 저장·메타데이터 파싱 메모리 크래시 원천 차단",

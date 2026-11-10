@@ -312,12 +312,30 @@ export async function stitchVideosWebCodecs({
     throw new Error('이어붙일 하이라이트 구간이 없습니다.');
   }
 
-  // 페이지 내 다른 비디오가 하드웨어 디코더 리소스를 점유하지 않도록 일시정지
+  // 페이지 내 다른 비디오가 하드웨어 디코더 리소스를 점유하지 않도록 일시정지 및 소스 임시 분리
+  // (iOS WebKit은 프로세스당 하드웨어 비디오 디코더 슬롯이 극도로 제한되어 있어,
+  // DOM의 프리뷰 <video>가 src를 물고 있으면 workerVideo가 소프트웨어 폴백되거나 심각한 프레임 드랍이 발생함)
+  const suspendedDomVideos: Array<{
+    el: HTMLVideoElement;
+    srcAttr: string | null;
+    currentTime: number;
+  }> = [];
+
   if (typeof document !== 'undefined') {
     try {
       document.querySelectorAll('video').forEach((v) => {
         try {
           if (!v.paused) v.pause();
+          const srcAttr = v.getAttribute('src');
+          if (srcAttr) {
+            suspendedDomVideos.push({
+              el: v,
+              srcAttr,
+              currentTime: v.currentTime || 0,
+            });
+            v.removeAttribute('src');
+            v.load();
+          }
         } catch {}
       });
     } catch {}
@@ -361,17 +379,17 @@ export async function stitchVideosWebCodecs({
     videoMap.set(v.id, v);
   }
 
-  // 2. 렌더링 캔버스 생성
+  // 2. 렌더링 캔버스 생성 (iOS/WebKit에서 desynchronized: true는 VideoFrame 복사 시 텍스처 동기화 누락/티어링을 유발할 수 있으므로 표준 2D 컨텍스트 사용)
   const canvas = document.createElement('canvas');
   canvas.width = targetWidth;
   canvas.height = targetHeight;
-  const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true }) || canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { alpha: false }) || canvas.getContext('2d');
   if (!ctx) throw new Error('캔버스 2D 컨텍스트를 생성할 수 없습니다.');
 
   ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
+  ctx.imageSmoothingQuality = IS_MOBILE ? 'medium' : 'high';
 
-  // 3. 작업용 비디오 엘리먼트 (뷰포트 내부 우측 하단에 배치하여 Chromium/WebKit의 화면 밖 비디오 디코더 스로틀링 원천 차단!)
+  // 3. 작업용 비디오 엘리먼트 (뷰포트 내부 우측 하단에 양수 z-index로 배치하여 iOS WebKit/Chromium의 백그라운드 레이어 디코더 스로틀링 원천 차단!)
   const workerVideo = document.createElement('video');
   workerVideo.muted = true;
   workerVideo.defaultMuted = true;
@@ -382,7 +400,7 @@ export async function stitchVideosWebCodecs({
   workerVideo.setAttribute('webkit-playsinline', '');
   workerVideo.setAttribute('muted', '');
   workerVideo.style.cssText =
-    'position:fixed;right:0;bottom:0;width:4px;height:4px;opacity:0.01;pointer-events:none;z-index:-1;';
+    'position:fixed;right:0;bottom:0;width:16px;height:16px;opacity:0.015;pointer-events:none;z-index:99998;';
   document.body.appendChild(workerVideo);
 
   // 4. 세그먼트별 오버레이 캔버스 단일 재사용 (100개 세그먼트 시 1.6GB 캔버스 사전 할당 대신 단 1개의 오프스크린 캔버스만 덮어쓰기)
@@ -726,18 +744,26 @@ export async function stitchVideosWebCodecs({
     }
   };
 
-  // 진행률 보고 헬퍼
+  // 진행률 보고 헬퍼 (모바일에서는 React 상태 업데이트 주기를 완화하여 메인 스레드/디코더 간섭 최소화)
+  const progressThrottleMs = IS_MOBILE ? 220 : 120;
   let lastProgressReportAt = 0;
   const reportProgress = (pct: number, message: string, force = false) => {
     const now = performance.now();
-    if (!force && now - lastProgressReportAt < 120) return;
+    if (!force && now - lastProgressReportAt < progressThrottleMs) return;
     lastProgressReportAt = now;
     onProgress?.(Math.min(98, Math.max(1, Math.round(pct))), message);
   };
 
   /**
    * 실시간 프리뷰와 동일한 하드웨어 연속 순차 재생(workerVideo.play()) 파이프라인으로
-   * GOP 재탐색(seek thrashing) 없이 매 프레임을 부드럽게 캡처하여 CFR VideoEncoder에 공급하는 핵심 헬퍼
+   * GOP 재탐색(seek thrashing) 없이 매 프레임을 부드럽게 캡처하여 CFR VideoEncoder에 공급하는 핵심 헬퍼.
+   *
+   * 핵심 개선:
+   * - 기존에는 벽시계(dtSec) 보간값(smoothElapsedSec)이 실제 디코더(rawMediaElapsed)보다 앞서가면서
+   *   디코더가 아직 이전 프레임에 머물러 있는데도 루프를 탈출해 동일 프레임을 중복 인코딩하고,
+   *   이후 디코더가 새 프레임을 낼 때 중간 프레임을 건너뛰는(Frame Drop & Stutter) 현상이 있었음.
+   * - 이제 requestVideoFrameCallback(rvfc)의 정밀 mediaTime 및 실제 디코딩된 미디어 진행 시간을
+   *   유일한 진실 공급원(Single Source of Truth)으로 삼아, 실제 비디오 프레임이 전진했을 때만 캡처함.
    */
   const encodeVideoRangeSequentially = async (params: {
     rangeStart: number;
@@ -785,26 +811,54 @@ export async function stitchVideosWebCodecs({
       await waitForPlaybackAdvance(workerVideo, rangeStart, 1200);
 
       const vRvfc = workerVideo as VideoWithRvfc;
+      const hasRvfc = typeof vRvfc.requestVideoFrameCallback === 'function';
       let latestRvfcMediaTime = workerVideo.currentTime;
       let rvfcHandle: number | null = null;
       let loopActive = true;
+      let frameNotifyResolve: (() => void) | null = null;
+
+      const notifyFrameWaiter = () => {
+        if (frameNotifyResolve) {
+          const r = frameNotifyResolve;
+          frameNotifyResolve = null;
+          r();
+        }
+      };
 
       const registerRvfc = () => {
-        if (!loopActive || typeof vRvfc.requestVideoFrameCallback !== 'function') return;
+        if (!loopActive || !hasRvfc) return;
         try {
-          rvfcHandle = vRvfc.requestVideoFrameCallback((_, meta) => {
+          rvfcHandle = vRvfc.requestVideoFrameCallback!((_, meta) => {
             if (!loopActive) return;
             latestRvfcMediaTime = meta.mediaTime;
+            notifyFrameWaiter();
             registerRvfc();
           });
         } catch {}
       };
       registerRvfc();
 
+      // rvfc 이벤트 또는 짧은 타임아웃(최대 maxWaitMs)까지 대기하는 정밀 신호 헬퍼
+      const waitForNextVideoTick = (maxWaitMs: number): Promise<void> =>
+        new Promise((resolve) => {
+          let done = false;
+          const timer = setTimeout(() => {
+            if (done) return;
+            done = true;
+            if (frameNotifyResolve === onSignal) frameNotifyResolve = null;
+            resolve();
+          }, maxWaitMs);
+          const onSignal = () => {
+            if (done) return;
+            done = true;
+            clearTimeout(timer);
+            resolve();
+          };
+          frameNotifyResolve = onSignal;
+        });
+
       try {
-        let smoothElapsedSec = Math.max(0, workerVideo.currentTime - rangeStart);
-        let lastWallNow = performance.now();
-        let lastMediaTimeSeen = workerVideo.currentTime;
+        let lastMediaTimeSeen = Math.max(workerVideo.currentTime, latestRvfcMediaTime);
         let lastMediaAdvanceWall = performance.now();
 
         for (let f = 0; f < segFrames; f++) {
@@ -815,67 +869,68 @@ export async function stitchVideosWebCodecs({
           const targetMediaTime = Math.min(rangeEnd, rangeStart + targetElapsedSec);
 
           if (f > 0) {
-            // 하드웨어 디코더가 targetElapsedSec 시점의 프레임을 출력할 때까지 자연스럽게 대기
+            // 하드웨어 디코더가 실제로 targetElapsedSec 시점의 프레임을 디코딩해 내놓을 때까지 대기
             while (!signal?.aborted) {
-              const now = performance.now();
-              const dtSec = Math.min(0.05, Math.max(0, (now - lastWallNow) / 1000));
-              lastWallNow = now;
+              // 인코더 백프레셔가 걸려있다면 비디오를 잠시 일시정지해 디코더가 프레임을 혼자 흘려보내지(Drop) 않게 보호!
+              if (videoEncoder.encodeQueueSize > queueBackpressureThreshold) {
+                try {
+                  workerVideo.pause();
+                } catch {}
+                await waitForEncoderQueueBelow(videoEncoder, Math.max(4, queueBackpressureThreshold >> 1));
+                if (!workerVideo.ended && workerVideo.currentTime < rangeEnd - 0.02) {
+                  void workerVideo.play().catch(() => {});
+                }
+                lastMediaAdvanceWall = performance.now();
+              }
 
               if (workerVideo.paused && !workerVideo.ended && workerVideo.currentTime < rangeEnd - 0.03) {
                 void workerVideo.play().catch(() => {});
               }
 
-              const curMediaPos = Math.max(workerVideo.currentTime, latestRvfcMediaTime);
+              const curMediaPos = hasRvfc
+                ? Math.max(workerVideo.currentTime, latestRvfcMediaTime)
+                : workerVideo.currentTime;
+              const now = performance.now();
+
               if (Math.abs(curMediaPos - lastMediaTimeSeen) >= 0.001) {
                 lastMediaTimeSeen = curMediaPos;
                 lastMediaAdvanceWall = now;
               }
 
               const rawMediaElapsed = Math.max(0, curMediaPos - rangeStart);
-              if (!workerVideo.paused && !workerVideo.seeking && workerVideo.readyState >= 2) {
-                smoothElapsedSec += dtSec;
-                // currentTime 업데이트 주기와 보간 클럭 간의 드리프트를 부드럽게 동기화
-                if (Math.abs(smoothElapsedSec - rawMediaElapsed) > 0.045) {
-                  smoothElapsedSec = rawMediaElapsed;
-                }
-              } else {
-                smoothElapsedSec = rawMediaElapsed;
-              }
-
+              // requestVideoFrameCallback 미지원 환경에서만 제한적 보간(최대 22ms)을 허용하고,
+              // iOS Safari / Chrome 등 rvfc 지원 환경에서는 100% 실제 디코딩된 미디어 시간만 신뢰함
+              const fallbackInterpSec = !hasRvfc && !workerVideo.paused && !workerVideo.seeking
+                ? Math.min(0.022, Math.max(0, (now - lastMediaAdvanceWall) / 1000))
+                : 0;
               const effectiveElapsed = workerVideo.ended
                 ? duration
-                : Math.max(rawMediaElapsed, smoothElapsedSec);
+                : rawMediaElapsed + fallbackInterpSec;
 
+              // 허용 오차: 1/4 프레임(약 8ms @ 30fps, 4ms @ 60fps) 이내로 실제 프레임이 도달했을 때 캡처
+              const toleranceSec = segTimeStep * 0.28;
               if (
-                effectiveElapsed >= targetElapsedSec - 0.002 ||
+                effectiveElapsed >= targetElapsedSec - toleranceSec ||
                 curMediaPos >= rangeEnd - 0.015 ||
                 workerVideo.ended
               ) {
                 break;
               }
 
-              // 만약 백그라운드 탭 전환 등으로 비디오 재생이 800ms 이상 멈췄다면 즉시 해당 위치로 시크하여 복구
-              if (now - lastMediaAdvanceWall > 800) {
+              // 만약 iOS 디코더 스톨 또는 백그라운드 전환 등으로 재생이 450ms 이상 멈췄다면 즉시 목표 시점으로 정밀 시크 후 재생 재개
+              if (now - lastMediaAdvanceWall > 450) {
                 await seekVideoElement(workerVideo, targetMediaTime, 2500);
+                latestRvfcMediaTime = workerVideo.currentTime;
+                lastMediaTimeSeen = workerVideo.currentTime;
                 lastMediaAdvanceWall = performance.now();
-                lastWallNow = performance.now();
-                smoothElapsedSec = targetElapsedSec;
+                if (workerVideo.paused && !workerVideo.ended && workerVideo.currentTime < rangeEnd - 0.03) {
+                  void workerVideo.play().catch(() => {});
+                }
                 break;
               }
 
-              // 인코더 백프레셔가 걸려있다면 비디오를 잠시 일시정지해 프레임 드롭 방지
-              if (videoEncoder.encodeQueueSize > queueBackpressureThreshold) {
-                try {
-                  workerVideo.pause();
-                } catch {}
-                await waitForEncoderQueueBelow(videoEncoder, Math.max(4, queueBackpressureThreshold >> 1));
-                void workerVideo.play().catch(() => {});
-                lastWallNow = performance.now();
-                lastMediaAdvanceWall = performance.now();
-              }
-
               const remainMs = (targetElapsedSec - effectiveElapsed) * 1000;
-              await sleep(Math.min(6, Math.max(1, Math.floor(remainMs * 0.75))));
+              await waitForNextVideoTick(Math.min(12, Math.max(2, Math.ceil(remainMs * 0.85))));
             }
           }
 
@@ -890,6 +945,7 @@ export async function stitchVideosWebCodecs({
         }
       } finally {
         loopActive = false;
+        notifyFrameWaiter();
         if (rvfcHandle !== null && typeof vRvfc.cancelVideoFrameCallback === 'function') {
           try {
             vRvfc.cancelVideoFrameCallback(rvfcHandle);
@@ -1039,10 +1095,22 @@ export async function stitchVideosWebCodecs({
         throw new Error(`[${segment.sourceVideoId}] 비디오 URL을 찾을 수 없습니다.`);
       }
 
+      const prevSeg = segIdx > 0 ? allSegments[segIdx - 1] : null;
+      const isSourceSwitch = Boolean(prevSeg && prevSeg.sourceVideoId !== segment.sourceVideoId);
+
+      // 다른 원본 영상으로 전환할 때(예: 18개 영상 연속 병합) 이전 비디오 디코더 파이프라인을 명시적으로 비운 뒤 로드하여
+      // iOS WebKit VideoToolbox 하드웨어 디코더 재할당 지연 및 초반 프레임 드랍 방지
+      if (isSourceSwitch) {
+        try {
+          workerVideo.pause();
+          workerVideo.removeAttribute('src');
+          workerVideo.load();
+        } catch {}
+      }
+
       // 비디오 소스 로드
       await loadVideoSource(workerVideo, videoItem.url, 12000);
 
-      const prevSeg = segIdx > 0 ? allSegments[segIdx - 1] : null;
       const bridgeInfo = prevSeg
         ? evaluateChapterBridge(prevSeg, segment, segIdx, allSegments.length, overlayOptions)
         : null;
@@ -1392,6 +1460,27 @@ export async function stitchVideosWebCodecs({
         try {
           c.width = 0;
           c.height = 0;
+        } catch {}
+      }
+      // 임시로 디코더 슬롯을 반환했던 DOM 프리뷰 비디오 복원
+      for (const item of suspendedDomVideos) {
+        try {
+          if (item.srcAttr && item.el.isConnected) {
+            item.el.setAttribute('src', item.srcAttr);
+            item.el.load();
+            if (item.currentTime > 0) {
+              const restoreTime = item.currentTime;
+              item.el.addEventListener(
+                'loadedmetadata',
+                () => {
+                  try {
+                    item.el.currentTime = restoreTime;
+                  } catch {}
+                },
+                { once: true }
+              );
+            }
+          }
         } catch {}
       }
     } catch {}

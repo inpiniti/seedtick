@@ -8,6 +8,26 @@ export interface ReleaseI18nEntry {
 }
 
 export const RELEASE_TRANSLATIONS: Record<string, ReleaseI18nEntry> = {
+  "0.9.3": {
+    "title": {
+      "ko": "아이폰(iOS Safari) 다중 영상 내보내기 프레임 드랍 해결 및 디코더 1:1 동기화",
+      "en": "Fix Multi-Video Export Frame Drops on iPhone (iOS Safari) & 1:1 Decoder Frame Sync",
+      "ja": "iPhone(iOS Safari)複数動画書き出し時のフレームドロップ解決およびデコーダ1:1同期化",
+      "zh": "解决 iPhone (iOS Safari) 多视频导出掉帧卡顿问题并实现解码器 1:1 帧同步",
+      "es": "Corrección de caída de fotogramas al exportar múltiples videos en iPhone (iOS Safari) y sincronización 1:1",
+      "fr": "Correction des pertes d'images à l'export multi-vidéos sur iPhone (iOS Safari) et synchronisation 1:1",
+      "de": "Behebung von Frame-Drops beim Multi-Video-Export auf dem iPhone (iOS Safari) & 1:1-Decoder-Synchronisation"
+    },
+    "summary": {
+      "ko": "아이폰에서 다수의 영상을 편집·병합하여 다운로드할 때 발생하던 프레임 드랍(멈칫거림·건너뛰기) 현상을 해결했습니다. 벽시계 가상 보간 클럭으로 인한 중복/스킵 캡처를 제거하고 requestVideoFrameCallback 실측 미디어 시간 1:1 동기화, DOM 프리뷰 비디오 디코더 슬롯 임시 반환 및 다중 영상 전환 시 디코더 플러시를 적용했습니다.",
+      "en": "Eliminated severe frame drops and stuttering when exporting 18+ clips on iPhone by replacing synthetic wall-clock interpolation with strict requestVideoFrameCallback mediaTime synchronization, releasing DOM preview hardware decoder slots during export, and flushing decoder pipelines across clip switches.",
+      "ja": "iPhoneで多数の動画を編集・結合してダウンロードする際に発生していたフレームドロップ（カクつき・フレーム飛ばし）を解決しました。仮想補間クロックによる重複・スキップを排除し、requestVideoFrameCallbackの実測メディア時間との1:1同期、DOMプレビュー動画のデコーダスロット一時解放、動画切り替え時のデコーダフラッシュを適用しました。",
+      "zh": "解决了在 iPhone 上编辑并导出多个视频时出现的严重掉帧与卡顿现象。移除了虚拟时钟插值导致的重复/跳帧捕获，改为基于 requestVideoFrameCallback 实际解码时间的 1:1 精确同步，并在导出期间释放 DOM 预览视频硬件解码器槽位。",
+      "es": "Se eliminaron las caídas de fotogramas al exportar múltiples clips en iPhone sincronizando estrictamente con el tiempo real de requestVideoFrameCallback, liberando ranuras de decodificador de hardware durante la exportación y limpiando el pipeline entre videos.",
+      "fr": "Résolution des saccades et pertes d'images lors de l'export de nombreuses vidéos sur iPhone grâce à la synchronisation 1:1 via requestVideoFrameCallback, la libération temporaire des décodeurs matériels du DOM et le vidage du pipeline entre les clips.",
+      "de": "Starke Frame-Drops beim Exportieren vieler Clips auf dem iPhone wurden behoben, indem die synthetische Zeitinterpolation durch eine strikte 1:1-Synchronisation via requestVideoFrameCallback ersetzt und Hardware-Decoder-Slots während des Exports freigegeben wurden."
+    }
+  },
   "0.9.2": {
     "title": {
       "ko": "아이폰(iOS Safari) 업로드 직후 자동 저장·메타데이터 파싱 메모리 크래시 원천 차단",
@@ -351,6 +371,15 @@ export const RELEASE_TRANSLATIONS: Record<string, ReleaseI18nEntry> = {
 };
 
 export const COMMIT_TRANSLATIONS: Record<string, Record<Locale, string>> = {
+  "fps093a": {
+    "ko": "아이폰 다중 영상 내보내기 시 하드웨어 디코더 슬롯 독점 보장 및 실측 프레임 1:1 동기화로 프레임 드랍 해결",
+    "en": "Guarantee exclusive hardware decoder slot and strict 1:1 decoded frame sync to eliminate frame drops when exporting multiple videos on iPhone",
+    "ja": "iPhone複数動画書き出し時のハードウェアデコーダスロット独占保証および実測フレーム1:1同期によりフレームドロップを解決",
+    "zh": "在 iPhone 导出多视频时保障硬件解码器槽位独占并采用实测帧 1:1 同步，彻底解决掉帧问题",
+    "es": "Garantizar ranura exclusiva de decodificador de hardware y sincronización 1:1 de fotogramas reales para eliminar caídas en iPhone",
+    "fr": "Garantir l'exclusivité du décodeur matériel et la synchronisation 1:1 des images décodées pour éliminer les pertes d'images sur iPhone",
+    "de": "Exklusiven Hardware-Decoder-Slot und strikte 1:1-Frame-Synchronisation garantieren, um Frame-Drops beim Multi-Video-Export auf dem iPhone zu beheben"
+  },
   "ios092a": {
     "ko": "아이폰 다중 영상 업로드 직후 자동 저장 Blob 직렬화 차단 및 메타데이터 단일 패스 경량화로 Safari 새로고침 크래시 해결",
     "en": "Prevent auto-save raw Blob serialization and streamline metadata extraction to a single lightweight pass to fix iOS Safari post-upload crash",

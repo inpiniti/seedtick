@@ -277,13 +277,29 @@ export async function stitchHighlightedSegments({
   }
 
   // 모바일 Safari/WebKit의 하드웨어 비디오 디코더 단일 인스턴스 잠금 방지:
-  // 페이지 내에서 재생 중이거나 백그라운드 버퍼를 잡고 있는 다른 모든 비디오를 일시정지합니다.
+  // 페이지 내에서 재생 중이거나 백그라운드 버퍼를 잡고 있는 다른 모든 비디오의 소스를 임시 해제합니다.
+  const suspendedDomVideos: Array<{
+    el: HTMLVideoElement;
+    srcAttr: string | null;
+    currentTime: number;
+  }> = [];
+
   if (typeof document !== 'undefined') {
     try {
       const activeVideos = document.querySelectorAll('video');
       activeVideos.forEach((v) => {
         try {
           if (!v.paused) v.pause();
+          const srcAttr = v.getAttribute('src');
+          if (srcAttr) {
+            suspendedDomVideos.push({
+              el: v,
+              srcAttr,
+              currentTime: v.currentTime || 0,
+            });
+            v.removeAttribute('src');
+            v.load();
+          }
         } catch {}
       });
     } catch {}
@@ -1642,19 +1658,20 @@ export async function stitchHighlightedSegments({
                   await startPlayback(workerA, 2000);
                 }
               } else if (nextVideoItem) {
-                // 다른 영상 파일로 전환하는 경우:
-                // 데스크탑은 로딩/시크 중 프리즈 프레임을 방지하기 위해 레코더를 일시정지하고,
-                // iOS/Safari는 AVAssetWriter 무중단 안정성을 위해 레코더를 끊지 않은 채 전환한다.
-                if (!IS_IOS && !IS_SAFARI) {
-                  await pauseRecorder();
-                }
+                // 다른 영상 파일로 전환하는 경우(예: 18개 영상 연속 병합):
+                // 로딩/시크(최대 수백 ms ~ 2초) 동안 이전 프레임이 멈춘 채로 녹화(프리즈 프레임 드랍)되는 현상을 방지하기 위해
+                // 레코더를 일시정지하고 이전 디코더 버퍼를 비운 뒤 새 영상을 준비한다.
+                await pauseRecorder();
+                try {
+                  workerA.pause();
+                  workerA.removeAttribute('src');
+                  workerA.load();
+                } catch {}
                 await loadVideoSource(workerA, nextVideoItem.url, nextVideoItem.name, 10000);
                 await seekVideo(workerA, nextSegment.start, 6000);
                 await waitForVideoReady(workerA, 5000);
                 await startPlayback(workerA, 3000);
-                if (!IS_IOS && !IS_SAFARI) {
-                  await startOrResumeRecorder();
-                }
+                await startOrResumeRecorder();
               }
 
               if (nextVideoItem && !workerA.seeking) {
@@ -1843,6 +1860,26 @@ export async function stitchHighlightedSegments({
         wakeLockRef.current = null;
       }
       stage.remove();
+      for (const item of suspendedDomVideos) {
+        try {
+          if (item.srcAttr && item.el.isConnected) {
+            item.el.setAttribute('src', item.srcAttr);
+            item.el.load();
+            if (item.currentTime > 0) {
+              const restoreTime = item.currentTime;
+              item.el.addEventListener(
+                'loadedmetadata',
+                () => {
+                  try {
+                    item.el.currentTime = restoreTime;
+                  } catch {}
+                },
+                { once: true }
+              );
+            }
+          }
+        } catch {}
+      }
     } catch {
       // ignore cleanup errors
     }
