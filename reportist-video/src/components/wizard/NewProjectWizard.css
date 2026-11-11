@@ -71,8 +71,8 @@
 .wizard-brand-badge {
   font-size: 10.5px;
   font-weight: 800;
-  color: #3182f6;
-  background: #eff6ff;
+  color: #ffffff;
+  background: #0f172a;
   padding: 3px 8px;
   border-radius: 6px;
   letter-spacing: 0.5px;
@@ -164,9 +164,9 @@
 }
 
 .wizard-step-node.active .wizard-step-circle {
-  background: #3182f6;
+  background: #0f172a;
   color: #ffffff;
-  box-shadow: 0 4px 12px rgba(49, 130, 246, 0.35);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.35);
 }
 
 .wizard-step-node.active .wizard-step-title {
@@ -175,7 +175,7 @@
 }
 
 .wizard-step-node.active .wizard-step-sub {
-  color: #3182f6;
+  color: #0f172a;
   font-weight: 600;
 }
 
@@ -250,8 +250,8 @@
 
 .wizard-dropzone:hover,
 .wizard-dropzone.is-dragover {
-  border-color: #3182f6;
-  background: #eff6ff;
+  border-color: #0f172a;
+  background: #f1f5f9;
   transform: translateY(-2px);
 }
 
@@ -839,7 +839,7 @@
 
 .wizard-progressbar-fill {
   height: 100%;
-  background: linear-gradient(90deg, #3182f6 0%, #60a5fa 100%);
+  background: linear-gradient(90deg, #0f172a 0%, #475569 100%);
   border-radius: 999px;
   transition: width 0.25s ease-out;
 }
@@ -996,7 +996,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  background: #3182f6;
+  background: #0f172a;
   color: #ffffff;
   font-size: 14px;
   font-weight: 700;
@@ -1004,12 +1004,12 @@
   border-radius: 12px;
   border: none;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(49, 130, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25);
   transition: all 0.15s ease;
 }
 
 .wizard-btn-primary:hover:not(:disabled) {
-  background: #1b64da;
+  background: #1e293b;
   transform: translateY(-1px);
 }
 

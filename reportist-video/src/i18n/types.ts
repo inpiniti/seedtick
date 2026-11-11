@@ -49,6 +49,7 @@ export interface Dictionary {
     modelWidgetTitle?: string;
     visitReportistHome?: string;
     visitPenguinCutHome?: string;
+    undo?: string;
   };
   header: {
     aiModel: string;

@@ -126,7 +126,7 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
                 : pDict.localStorageTip || '브라우저 로컬 IndexedDB에 안전 저장'
             }
           >
-            <HardDrive size={13} className="text-blue-600" />
+            <HardDrive size={13} className="text-slate-800" />
             <span>
               {isOpfsAvailable()
                 ? pDict.opfsStorageBadge || '기기 내 저장 (OPFS 파일시스템)'
@@ -161,7 +161,7 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
         /* 빈 상태 (Empty State) */
         <div className="toss-projects-empty-card">
           <div className="toss-projects-empty-icon-wrap">
-            <FolderOpen size={44} className="text-blue-500" />
+            <FolderOpen size={44} className="text-slate-700" />
           </div>
           <h2 className="toss-projects-empty-title">{pDict.emptyTitle}</h2>
           <p className="toss-projects-empty-desc">{pDict.emptyDesc}</p>

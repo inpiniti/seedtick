@@ -1,4 +1,5 @@
 /* App.css - Reportist Video 통합 스타일 */
+@import './components/common/AiVisualEffects.css';
 
 @media (min-width: 1025px) {
 
@@ -1410,7 +1411,7 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  background: #3182f6;
+  background: #0f172a;
   color: #ffffff;
   font-size: 12.5px;
   font-weight: 700;
@@ -1419,7 +1420,7 @@
   border-radius: 9px;
   border: none;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(49, 130, 246, 0.25);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.25);
   transition: all 0.15s ease;
   white-space: nowrap;
   box-sizing: border-box;
@@ -1427,13 +1428,14 @@
 }
 
 .toss-nav-cta-btn:hover:not(:disabled) {
-  background: #1b64da;
-  box-shadow: 0 3px 12px rgba(49, 130, 246, 0.38);
+  background: #1e293b;
+  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.38);
   transform: translateY(-1px);
 }
 
 .toss-nav-cta-btn:disabled {
-  background: #a8c7fa;
+  background: #cbd5e1;
+  color: #94a3b8;
   cursor: not-allowed;
   box-shadow: none;
 }
@@ -2422,7 +2424,7 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  background-color: #3182f6;
+  background-color: #0f172a;
   color: #ffffff;
   border: none;
   padding: 9px 16px;
@@ -2431,17 +2433,17 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
-  box-shadow: 0 1px 3px rgba(49, 130, 246, 0.25);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
 }
 
 .toss-btn-primary:hover:not(:disabled) {
-  background-color: #2b74d6;
-  box-shadow: 0 2px 6px rgba(49, 130, 246, 0.35);
+  background-color: #1e293b;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.35);
 }
 
 .toss-btn-primary:disabled {
-  background-color: #c7cfe0;
-  color: #8b95a1;
+  background-color: #e2e8f0;
+  color: #94a3b8;
   cursor: not-allowed;
   box-shadow: none;
 }
@@ -9160,8 +9162,8 @@
   height: 22px;
   padding: 0 8px;
   border-radius: 9999px;
-  background-color: #eff6ff;
-  color: #3182f6;
+  background-color: #0f172a;
+  color: #ffffff;
   font-size: 12px;
   font-weight: 700;
 }
@@ -9204,7 +9206,7 @@
   border-radius: 12px;
   font-size: 14px;
   font-weight: 700;
-  box-shadow: 0 2px 6px rgba(49, 130, 246, 0.25);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
 }
 
 /* 프로젝트 그리드 (영상 공유와 동일한 5·4·3·2·1 반응형 그리드) */
@@ -9265,13 +9267,13 @@
 .toss-project-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
-  border-color: #bfdbfe;
+  border-color: #cbd5e1;
 }
 
-/* 현재 작업 중인 프로젝트 카드: 사방 균일한 1px 테두리 및 블루 색상 유지 */
+/* 현재 작업 중인 프로젝트 카드: 사방 균일한 1px 테두리 및 흑백 모노크롬 유지 */
 .toss-project-card.current-active {
-  border-color: #3182f6;
-  box-shadow: 0 4px 14px rgba(49, 130, 246, 0.15);
+  border-color: #0f172a;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
 }
 
 /* 썸네일 영역 */
@@ -9337,9 +9339,9 @@
 }
 
 .toss-project-status-pill.active {
-  background-color: rgba(49, 130, 246, 0.92);
+  background-color: rgba(15, 23, 42, 0.92);
   color: #ffffff;
-  box-shadow: 0 2px 6px rgba(49, 130, 246, 0.3);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
 }
 
 .toss-project-status-pill.completed {
@@ -9371,7 +9373,7 @@
 }
 
 .toss-project-clips-count {
-  color: #3182f6;
+  color: #0f172a;
   font-weight: 700;
 }
 
@@ -9466,7 +9468,7 @@
   width: 80px;
   height: 80px;
   border-radius: 24px;
-  background-color: #eff6ff;
+  background-color: #f1f5f9;
   display: flex;
   align-items: center;
   justify-content: center;
