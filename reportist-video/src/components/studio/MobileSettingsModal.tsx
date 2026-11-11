@@ -227,7 +227,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
         setStorageClearMessage(null);
       }, 4000);
     } catch {
-      notify.error('저장공간 정리에 실패했습니다.');
+      notify.error(dict.settingsModal?.storageClearError || '저장공간 정리에 실패했습니다.');
     } finally {
       setIsClearingStorage(false);
     }
@@ -286,7 +286,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
         <div className="model-modal-header">
           <div className="model-modal-title-row">
             <div className="model-modal-icon-badge">
-              <Settings size={22} color="#3182f6" />
+              <Settings size={22} color="#0f172a" />
             </div>
             <div className="model-modal-titles">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -333,7 +333,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
               }}
             >
               <div className="settings-modal-item-left">
-                <div className="settings-modal-icon-badge" style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}>
+                <div className="settings-modal-icon-badge" style={{ backgroundColor: '#f1f5f9', color: '#0f172a' }}>
                   <Sparkles size={18} />
                 </div>
                 <div className="settings-modal-item-text">
@@ -404,7 +404,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                     <div className="settings-modal-item-left">
                       <div
                         className="settings-modal-icon-badge"
-                        style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}
+                        style={{ backgroundColor: '#f1f5f9', color: '#0f172a' }}
                       >
                         <Calendar size={18} />
                       </div>
@@ -435,7 +435,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                     <div className="settings-modal-item-left">
                       <div
                         className="settings-modal-icon-badge"
-                        style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}
+                        style={{ backgroundColor: '#f1f5f9', color: '#0f172a' }}
                       >
                         <ArrowUpDown size={18} />
                       </div>
@@ -472,7 +472,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                   <div className="settings-modal-item-left">
                     <div
                       className="settings-modal-icon-badge"
-                      style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}
+                      style={{ backgroundColor: '#f1f5f9', color: '#0f172a' }}
                     >
                       <Calendar size={18} />
                     </div>
@@ -580,7 +580,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                     <div className="settings-modal-item-left">
                       <div
                         className="settings-modal-icon-badge"
-                        style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}
+                        style={{ backgroundColor: '#f1f5f9', color: '#0f172a' }}
                       >
                         <Sparkles size={18} />
                       </div>
@@ -611,7 +611,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                     <div className="settings-modal-item-left">
                       <div
                         className="settings-modal-icon-badge"
-                        style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}
+                        style={{ backgroundColor: '#f1f5f9', color: '#0f172a' }}
                       >
                         <Subtitles size={18} />
                       </div>
@@ -709,7 +709,9 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                     <div className="toss-modal-res-content">
                       <div className="toss-modal-res-title-row">
                         <span className="toss-modal-res-title">720p HD</span>
-                        <span className="toss-modal-res-subbadge standard">기본</span>
+                        <span className="toss-modal-res-subbadge standard">
+                          {dict.exportSettings?.standardBadge || '기본'}
+                        </span>
                       </div>
                       <div className="toss-modal-res-desc">
                         {dict.settingsModal?.resolution720pDesc || '인코딩이 빠르고 모든 기기에서 안정적이에요'}
@@ -766,7 +768,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
               {/* 1. 스토리지 엔진 및 가용 공간 */}
               <div className="toss-storage-header">
                 <div className="toss-storage-header-left">
-                  <div className="settings-modal-icon-badge" style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}>
+                  <div className="settings-modal-icon-badge" style={{ backgroundColor: '#f1f5f9', color: '#0f172a' }}>
                     <HardDrive size={18} />
                   </div>
                   <div className="toss-storage-title-wrap">
@@ -922,7 +924,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                     <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#1e293b' }}>
-                      {dict.settingsModal?.storageClearBtn || '저장 공간 정리 (캐시 비우기)'}
+                      {dict.settingsModal?.storageClearTitle || dict.settingsModal?.storageClearBtn || '저장 공간 정리 (캐시 비우기)'}
                     </span>
                     <span style={{ fontSize: '11px', color: '#64748b', lineHeight: 1.35 }}>
                       {dict.settingsModal?.storageClearHint || '보관함을 비워도 브라우저 리소스 캐시가 남아있을 수 있어요. 필요할 때 즉시 정리할 수 있어요.'}
@@ -951,7 +953,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                     <span>
                       {isClearingStorage
                         ? dict.settingsModal?.storageClearing || '정리 중...'
-                        : '정리하기'}
+                        : dict.settingsModal?.storageClearAction || '정리하기'}
                     </span>
                   </button>
                 </div>
@@ -992,7 +994,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                   }}
                 >
                   <div className="settings-modal-item-left">
-                    <div className="settings-modal-icon-badge" style={{ backgroundColor: '#eff6ff', color: '#3182f6' }}>
+                    <div className="settings-modal-icon-badge" style={{ backgroundColor: '#f1f5f9', color: '#0f172a' }}>
                       <MessageSquare size={18} />
                     </div>
                     <div className="settings-modal-item-text">
@@ -1005,10 +1007,10 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                     </div>
                   </div>
                   <div className="settings-modal-item-action">
-                    <span style={{ color: '#3182f6', fontWeight: 600 }}>
+                    <span style={{ color: '#0f172a', fontWeight: 600 }}>
                       {dict.feedback?.openBoard || '게시판 열기'}
                     </span>
-                    <ChevronRight size={15} color="#3182f6" />
+                    <ChevronRight size={15} color="#0f172a" />
                   </div>
                 </button>
               )}
@@ -1097,7 +1099,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                   }}
                 >
                   <div className="settings-modal-item-left">
-                    <div className="settings-modal-icon-badge" style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}>
+                    <div className="settings-modal-icon-badge" style={{ backgroundColor: '#f1f5f9', color: '#0f172a' }}>
                       <ImageIcon size={18} />
                     </div>
                     <div className="settings-modal-item-text">

@@ -77,7 +77,7 @@ export const LanguageSelectorModal: React.FC<LanguageSelectorModalProps> = ({
         <div className="model-modal-header">
           <div className="model-modal-title-row">
             <div className="model-modal-icon-badge">
-              <Globe size={22} color="#3182f6" />
+              <Globe size={22} color="#0f172a" />
             </div>
             <div>
               <h2 className="model-modal-title" id="language-modal-title">
@@ -193,7 +193,7 @@ export const LanguageSelectorModal: React.FC<LanguageSelectorModalProps> = ({
         {/* Footer */}
         <div className="model-modal-footer">
           <div className="model-modal-footer-tip">
-            <Sparkles size={14} color="#3182f6" />
+            <Sparkles size={14} color="#0f172a" />
             <span>{dict.languageModal.tip}</span>
           </div>
           <button

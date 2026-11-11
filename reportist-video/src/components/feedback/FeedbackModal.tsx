@@ -56,7 +56,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose })
         {/* Header */}
         <div className="model-modal-header" style={{ borderBottom: '1px solid #eef2f6', paddingBottom: '14px' }}>
           <div className="model-modal-title-row">
-            <div className="model-modal-icon-badge" style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}>
+            <div className="model-modal-icon-badge" style={{ backgroundColor: '#f1f5f9', color: '#0f172a' }}>
               <MessageSquare size={20} />
             </div>
             <div>

@@ -614,9 +614,10 @@ export const en: Dictionary = {
     storageModeFullDesc: 'Keep original video clips',
     storageModeLight: 'Lightweight Mode',
     storageModeLightDesc: 'Save 99% device space',
-    storageClearBtn: 'Clear Storage (Purge Cache)',
+        storageClearTitle: 'Clear Storage (Purge Cache)',
+    storageClearAction: 'Clean Up',
     storageClearing: 'Clearing...',
-    storageClearSuccess: 'OPFS temp files and caches have been purged.',
+        storageClearError: 'Failed to clear storage.',
     storageClearHint: 'Browser cache may remain even after deleting projects. You can clean it up anytime.',
   },
   subtitleDownload: {

@@ -74,7 +74,7 @@ export const YouTubePlayerModal: React.FC<YouTubePlayerModalProps> = ({ item, on
               </h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '12.5px', color: '#6b7684', flexWrap: 'wrap' }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 700, color: '#191f28' }}>
-                  <User size={14} color="#3182f6" />
+                  <User size={14} color="#0f172a" />
                   {item.authorName}
                 </span>
                 <span>·</span>

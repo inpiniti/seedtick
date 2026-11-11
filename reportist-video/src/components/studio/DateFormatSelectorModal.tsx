@@ -105,8 +105,8 @@ export const DateFormatSelectorModal: React.FC<DateFormatSelectorModalProps> = (
         {/* Modal Header */}
         <div className="model-modal-header">
           <div className="model-modal-title-row">
-            <div className="model-modal-icon-badge" style={{ backgroundColor: '#eff6ff', color: '#3182f6' }}>
-              <Calendar size={22} color="#3182f6" />
+            <div className="model-modal-icon-badge" style={{ backgroundColor: '#f1f5f9', color: '#0f172a' }}>
+              <Calendar size={22} color="#0f172a" />
             </div>
             <div>
               <h2 className="model-modal-title" id="date-format-modal-title">
@@ -155,8 +155,8 @@ export const DateFormatSelectorModal: React.FC<DateFormatSelectorModalProps> = (
                     style={{
                       width: '38px',
                       height: '38px',
-                      backgroundColor: isSelected ? '#eff6ff' : '#f8fafc',
-                      color: isSelected ? '#2563eb' : '#64748b',
+                      backgroundColor: isSelected ? '#f1f5f9' : '#f8fafc',
+                      color: isSelected ? '#0f172a' : '#64748b',
                       borderRadius: '10px',
                       display: 'flex',
                       alignItems: 'center',
@@ -174,7 +174,7 @@ export const DateFormatSelectorModal: React.FC<DateFormatSelectorModalProps> = (
                         {fmt.example}
                       </span>
                       {fmt.isDefault && (
-                        <span className="language-modal-badge default" style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}>
+                        <span className="language-modal-badge default" style={{ backgroundColor: '#f1f5f9', color: '#0f172a' }}>
                           <Sparkles size={11} style={{ display: 'inline', marginRight: '3px' }} />
                           {defaultBadgeText}
                         </span>

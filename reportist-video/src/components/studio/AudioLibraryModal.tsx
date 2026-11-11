@@ -164,7 +164,7 @@ export const AudioLibraryModal: React.FC<AudioLibraryModalProps> = ({
         <div className="model-modal-header">
           <div className="model-modal-title-row">
             <div className="model-modal-icon-badge">
-              <ListMusic size={21} color="#3182f6" />
+              <ListMusic size={21} color="#0f172a" />
             </div>
             <div>
               <h2 className="model-modal-title" id="audio-library-title">
@@ -274,7 +274,7 @@ export const AudioLibraryModal: React.FC<AudioLibraryModalProps> = ({
 
         <div className="model-modal-footer">
           <div className="model-modal-footer-tip">
-            <Headphones size={14} color="#3182f6" />
+            <Headphones size={14} color="#0f172a" />
             <span>{dict.audioLibrary.footerTip}</span>
           </div>
           <button

@@ -3779,7 +3779,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <div className="toss-video-header-bar">
               <div className="toss-header-input-wrap">
                 <label className="toss-header-input-label">
-                  <Type size={12} className="text-blue-500" />
+                  <Type size={12} className="text-slate-700" />
                   <span>{dict.player.leftTitleLabel}</span>
                 </label>
                 <input
@@ -3800,7 +3800,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               <div className="toss-header-input-wrap toss-header-input-wrap-right">
                 <label className="toss-header-input-label toss-label-right">
                   <span>{dict.player.rightTitleLabel}</span>
-                  <Type size={12} className="text-blue-500" />
+                  <Type size={12} className="text-slate-700" />
                 </label>
                 <input
                   type="text"
@@ -4814,7 +4814,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <div className="toss-card-header">
               <div>
                 <h4 className="toss-card-title">
-                  <Music size={15} className="text-blue-600 shrink-0" />
+                  <Music size={15} className="text-slate-800 shrink-0" />
                   <span>{dict.bgm.title}</span>
                 </h4>
                 <p className="toss-card-desc">
@@ -4835,7 +4835,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       onChange={(e) => setBgmVolume(parseFloat(e.target.value))}
                       className="toss-slider"
                     />
-                    <span className="text-xs font-mono font-bold text-blue-600 w-8 text-right">
+                    <span className="text-xs font-mono font-bold text-slate-800 w-8 text-right">
                       {Math.round(bgmVolume * 100)}%
                     </span>
                   </div>
@@ -4864,7 +4864,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 <div className="toss-bgm-uploaded-box">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="toss-audio-icon-box">
-                      <FileAudio size={18} className="text-blue-600" />
+                      <FileAudio size={18} className="text-slate-800" />
                     </div>
                     <div className="min-w-0">
                       <div className="text-xs font-bold text-slate-800 truncate">
@@ -4910,7 +4910,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           {dict.bgm.fitToVideo}
                         </span>
                         {overlayOptions.bgmFitToVideo && calculatedBgmSpeed && (
-                          <span className="text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-200/60 px-1.5 py-0.5 rounded-md">
+                          <span className="text-[10px] font-bold text-slate-800 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-md">
                             ⚡ {calculatedBgmSpeed}x
                           </span>
                         )}
@@ -4943,7 +4943,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 className="toss-upload-box toss-audio-upload-box"
                 onClick={() => customAudioInputRef.current?.click()}
               >
-                <FileAudio size={22} className="text-blue-500 mb-1" />
+                <FileAudio size={22} className="text-slate-700 mb-1" />
                 <span className="text-xs font-bold text-slate-800">
                   {dict.bgm.uploadButton}
                 </span>
@@ -4967,7 +4967,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               <div className="toss-card-header">
                 <div>
                   <h4 className="toss-card-title">
-                    <ImageIcon size={16} className="text-blue-600 shrink-0" />
+                    <ImageIcon size={16} className="text-slate-800 shrink-0" />
                     <span>{dict.thumbnail?.cardTitle || 'AI 맞춤 썸네일 (16:9)'}</span>
                   </h4>
                   <p className="toss-card-desc">
@@ -4975,8 +4975,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       'AI가 직접 추천한 베스트 프레임과 타이틀로 완성된 16:9 맞춤 썸네일이에요.'}
                   </p>
                   {result?.bestThumbnailReason && (
-                    <div className="flex items-center gap-1.5 mt-2 px-2.5 py-1 bg-blue-50/90 border border-blue-100 rounded-lg text-[11px] font-semibold text-blue-700">
-                      <Sparkles size={12} className="text-blue-500 shrink-0" />
+                    <div className="flex items-center gap-1.5 mt-2 px-2.5 py-1 bg-slate-100 border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-800">
+                      <Sparkles size={12} className="text-slate-700 shrink-0" />
                       <span>{(dict.thumbnail?.aiRecommendedPrefix || 'AI 추천')}: {result.bestThumbnailReason}</span>
                     </div>
                   )}
@@ -4996,7 +4996,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   />
                 ) : (
                   <div className="flex flex-col items-center justify-center w-full h-full text-slate-400 py-10 px-4 text-center">
-                    <ImageIcon size={32} className="text-blue-500 mb-2 animate-pulse" />
+                    <ImageIcon size={32} className="text-slate-600 mb-2 animate-pulse" />
                     <span className="text-xs font-semibold text-slate-600 mb-2">
                       {isUpdatingThumbnail
                         ? (dict.thumbnail?.generatingThumbnail || '썸네일 생성 중...')
@@ -5006,7 +5006,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       type="button"
                       onClick={handleCaptureCurrentFrame}
                       disabled={isUpdatingThumbnail}
-                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all"
+                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold shadow-sm transition-all"
                     >
                       {dict.thumbnail?.generateFromCurrentVideo || '현재 비디오 화면으로 썸네일 생성'}
                     </button>
@@ -5051,7 +5051,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 <div className="toss-thumbnail-input-group">
                   <div className="toss-thumbnail-label-row">
                     <label className="toss-thumbnail-label">
-                      <Type size={13} className="text-blue-600" />
+                      <Type size={13} className="text-slate-800" />
                       <span>{dict.thumbnail?.titleInputLabel || '썸네일 & 영상 타이틀'}</span>
                     </label>
                     <div className="toss-thumbnail-label-actions">
@@ -5155,7 +5155,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       'AI가 직접 추천한 베스트 프레임으로 복원'
                     }
                   >
-                    <Sparkles size={13} className="text-blue-600 shrink-0" />
+                    <Sparkles size={13} className="text-slate-700 shrink-0" />
                     <span className="toss-btn-text-content">
                       <span className="toss-btn-label-long">
                         <ShinyText theme="light" text={dict.thumbnail?.restoreAiFrame || 'AI 추천 복원'} />
@@ -5176,7 +5176,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         '현재 영상 재생 위치의 프레임으로 썸네일 배경 변경 (오버레이 미포함)'
                       }
                     >
-                      <ImageIcon size={13} className="text-blue-600 shrink-0" />
+                      <ImageIcon size={13} className="text-slate-700 shrink-0" />
                       <span className="toss-btn-text-content">
                         {isUpdatingThumbnail ? (
                           (dict.thumbnail?.capturing || '캡처 중...')
@@ -5205,7 +5205,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <div className="toss-card-header">
               <div>
                 <h4 className="toss-card-title">
-                  <Film size={15} className="text-blue-600 shrink-0" />
+                  <Film size={15} className="text-slate-800 shrink-0" />
                   <span>{dict.introOutro.introTitle}</span>
                 </h4>
                 <p className="toss-card-desc">{dict.introOutro.introDesc}</p>
@@ -5233,7 +5233,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 />
                 {overlayOptions.introVideoFile ? (
                   <div className="toss-clip-file-chip">
-                    <Film size={14} className="text-blue-600 flex-shrink-0" />
+                    <Film size={14} className="text-slate-700 flex-shrink-0" />
                     <span className="truncate text-xs font-semibold text-slate-800">
                       {overlayOptions.introVideoFile.name}
                     </span>
@@ -5278,7 +5278,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <div className="toss-card-header toss-dramatic-header">
               <div className="toss-dramatic-header-title">
                 <h4 className="toss-card-title">
-                  <Scissors size={15} className="text-blue-600 shrink-0" />
+                  <Scissors size={15} className="text-slate-800 shrink-0" />
                   <span>{dict.dramaticClips.title}</span>
                 </h4>
                 <p className="toss-card-desc">
@@ -5800,7 +5800,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             <div className="toss-branding-row">
                               <div className="flex items-center justify-between mb-1">
                                 <span className="toss-branding-label">{dict.dramaticClips.cropLabel}</span>
-                                <span className="text-[11px] text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded">
+                                <span className="text-[11px] text-slate-800 font-semibold bg-slate-100 px-2 py-0.5 rounded">
                                   {dict.dramaticClips.aiRecommended}
                                 </span>
                               </div>
@@ -5846,7 +5846,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <div className="toss-card-header">
               <div>
                 <h4 className="toss-card-title">
-                  <Film size={15} className="text-blue-600 shrink-0" />
+                  <Film size={15} className="text-slate-800 shrink-0" />
                   <span>{dict.introOutro.outroTitle}</span>
                 </h4>
                 <p className="toss-card-desc">{dict.introOutro.outroDesc}</p>
@@ -5874,7 +5874,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 />
                 {overlayOptions.outroVideoFile ? (
                   <div className="toss-clip-file-chip">
-                    <Film size={14} className="text-blue-600 flex-shrink-0" />
+                    <Film size={14} className="text-slate-700 flex-shrink-0" />
                     <span className="truncate text-xs font-semibold text-slate-800">
                       {overlayOptions.outroVideoFile.name}
                     </span>
@@ -5928,9 +5928,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   className="w-full h-full object-cover"
                 />
               ) : progress.currentPhase === 'stitch' ? (
-                <Scissors size={24} className="text-blue-500 animate-pulse" />
+                <Scissors size={24} className="text-slate-700 animate-pulse" />
               ) : (
-                <Sparkles size={24} className="text-blue-500 animate-pulse" />
+                <Sparkles size={24} className="text-slate-700 animate-pulse" />
               )}
             </div>
 
@@ -5965,7 +5965,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   ? `${dict.processingModal.stitchProgressLabel || '병합 진행률'} (전체 ${Math.floor(progress.progressPercent)}%)`
                   : dict.processingModal.youtubeSpec}
               </span>
-              <span className="font-bold text-blue-600">
+              <span className="font-bold text-slate-800">
                 {progress.currentPhase === 'stitch' && progress.stitchProgressPercent !== undefined
                   ? `${Math.floor(progress.stitchProgressPercent)}%`
                   : `${Math.floor(progress.progressPercent)}%`}
@@ -5981,9 +5981,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             </div>
 
             {/* 백그라운드 보호 및 화면 꺼짐 방지 안심 배너 */}
-            <div className="flex items-center gap-2 px-3 py-2 mt-1 mb-2 bg-blue-50/80 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/60 rounded-xl text-left">
+            <div className="flex items-center gap-2 px-3 py-2 mt-1 mb-2 bg-slate-100 border border-slate-200 rounded-xl text-left">
               <span className="text-xs shrink-0">🛡️</span>
-              <p className="text-[11px] leading-tight text-blue-700 dark:text-blue-300 font-medium">
+              <p className="text-[11px] leading-tight text-slate-700 font-medium">
                 {dict.processingModal.backgroundGuardNotice || '다른 탭이나 다른 앱을 다녀오셔도 작업이 안전하게 이어져요.'}
               </p>
             </div>
@@ -6005,7 +6005,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         <div className="toss-modal-overlay toss-restitch-modal-overlay">
           <div className="toss-modal-card">
             <div className="toss-modal-icon-circle">
-              <Scissors size={24} className="text-blue-500 animate-pulse" />
+              <Scissors size={24} className="text-slate-700 animate-pulse" />
             </div>
 
             <h3 className="toss-modal-title">
@@ -6026,7 +6026,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             </div>
             <div className="flex justify-between items-center text-xs font-mono text-slate-400 mt-2 px-0.5">
               <span>{dict.processingModal.youtubeSpec}</span>
-              <span className="font-bold text-blue-600 text-sm">
+              <span className="font-bold text-slate-800 text-sm">
                 {reStitchProgress?.progressPercent ?? 0}%
               </span>
             </div>
@@ -6307,7 +6307,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     {dict.projects?.studioReady || '스튜디오 준비됨 · 영상을 올려보세요'}
                   </span>
                 ) : saveStatus === 'saving' ? (
-                  <span className="text-blue-600 font-medium">
+                  <span className="text-slate-800 font-medium">
                     {dict.projects?.saving || '기기에 안전하게 보관 중...'}
                   </span>
                 ) : (

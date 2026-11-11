@@ -88,7 +88,7 @@ export const VideoListModal: React.FC<VideoListModalProps> = ({
         <div className="model-modal-header">
           <div className="model-modal-title-row">
             <div className="model-modal-icon-badge">
-              <Film size={22} color="#3182f6" />
+              <Film size={22} color="#0f172a" />
             </div>
             <div className="model-modal-titles">
               <h2 id="video-list-modal-title" className="model-modal-title">

@@ -90,7 +90,7 @@ export const VideoExportModal: React.FC<VideoExportModalProps> = ({
         {/* Header */}
         <div className="model-modal-header">
           <div className="model-modal-title-row">
-            <div className="model-modal-icon-badge" style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}>
+            <div className="model-modal-icon-badge" style={{ backgroundColor: '#f1f5f9', color: '#0f172a' }}>
               <Download size={22} />
             </div>
             <div className="model-modal-titles">

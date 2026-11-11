@@ -621,9 +621,12 @@ export interface Dictionary {
     storageModeFullDesc?: string;
     storageModeLight?: string;
     storageModeLightDesc?: string;
+    storageClearTitle?: string;
+    storageClearAction?: string;
     storageClearBtn?: string;
     storageClearing?: string;
     storageClearSuccess?: string;
+    storageClearError?: string;
     storageClearHint?: string;
     downloadSubtitles?: string;
     downloadSubtitlesDesc?: string;

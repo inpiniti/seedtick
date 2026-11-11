@@ -235,7 +235,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
         <div className="model-modal-header">
           <div className="model-modal-title-row">
             <div className="model-modal-icon-badge">
-              <Sparkles size={20} color="#3182f6" />
+              <Sparkles size={20} color="#0f172a" />
             </div>
             <div>
               <h2 className="model-modal-title" id="model-modal-title">
@@ -668,7 +668,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
         {/* Modal Footer */}
         <div className="model-modal-footer">
           <div className="model-modal-footer-tip">
-            <Sparkles size={14} color="#3182f6" />
+            <Sparkles size={14} color="#0f172a" />
             <span>
               {dict.modelModal.benchmarkTip}
             </span>

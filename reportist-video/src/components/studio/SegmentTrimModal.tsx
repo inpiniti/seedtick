@@ -362,7 +362,7 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
         <div className="model-modal-header segment-trim-modal-header">
           <div className="model-modal-title-row">
             <div className="model-modal-icon-badge segment-trim-icon-badge">
-              <Scissors size={20} color="#3182f6" />
+              <Scissors size={20} color="#0f172a" />
             </div>
             <div className="model-modal-titles">
               <h2 id="segment-trim-modal-title" className="model-modal-title">
