@@ -472,6 +472,40 @@
   box-shadow: 0 0 0 2px rgba(49, 130, 246, 0.15);
 }
 
+.wizard-btn-map {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.wizard-btn-map:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+.wizard-btn-map.has-gps {
+  background: #eff6ff;
+  color: #3182f6;
+  border-color: #bfdbfe;
+}
+
+.wizard-btn-map.has-gps:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
 .wizard-video-delete-btn {
   background: transparent;
   border: none;
@@ -1023,6 +1057,263 @@
 .wizard-btn-ghost:hover {
   background: #f1f5f9;
   color: #0f172a;
+}
+
+/* ==================== 커스텀 인트로/아웃트로 영상 첨부 ==================== */
+.wizard-custom-clip-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.wizard-clip-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wizard-clip-file-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  padding: 8px 12px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.wizard-clip-file-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.wizard-clip-remove-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wizard-clip-remove-btn:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.wizard-btn-upload-clip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  padding: 9px 14px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.wizard-btn-upload-clip:hover {
+  border-color: #3182f6;
+  color: #3182f6;
+  background: #eff6ff;
+}
+
+.wizard-clip-help-text {
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+/* ==================== 촬영 위치 지도 확인 모달 ==================== */
+.wizard-map-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10005;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: wizardFadeIn 0.2s ease-out;
+}
+
+.wizard-map-modal-card {
+  width: 100%;
+  max-width: 560px;
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: wizardCardSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.wizard-map-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f1f5f9;
+  background: #ffffff;
+}
+
+.wizard-map-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wizard-map-icon-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #ef4444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.wizard-map-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+}
+
+.wizard-map-sub {
+  font-size: 11.5px;
+  color: #64748b;
+  margin: 2px 0 0 0;
+}
+
+.wizard-map-close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wizard-map-close-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.wizard-map-body {
+  padding: 16px 20px;
+  background: #ffffff;
+}
+
+.wizard-map-iframe {
+  width: 100%;
+  height: 280px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.wizard-map-nogps-box {
+  height: 220px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  text-align: center;
+}
+
+.wizard-map-nogps-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 4px 0;
+}
+
+.wizard-map-nogps-desc {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0;
+  max-width: 360px;
+}
+
+.wizard-map-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-top: 1px solid #f1f5f9;
+  background: #f8fafc;
+}
+
+.wizard-map-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wizard-btn-external-map {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.wizard-btn-external-map:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+.wizard-btn-map-close {
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.wizard-btn-map-close:hover {
+  background: #e2e8f0;
+  color: #1e293b;
 }
 
 /* 반응형 모바일 */

@@ -1,7 +1,7 @@
 // src/components/wizard/NewProjectWizard.tsx
 // 새 프로젝트 시작 시 진행되는 3단계 온보딩 위저드 (스텝퍼)
-// Step 1: 영상 업로드 & 개별 위치명 확인 및 수정
-// Step 2: 스타일 & 연출 설정 (BGM 음원, 인트로, 아웃트로)
+// Step 1: 영상 업로드 & 개별 위치명 확인 및 수정 + 지도 보기
+// Step 2: 스타일 & 연출 설정 (BGM 음원, 오프닝 인트로 영상/타이틀, 엔딩 아웃트로 영상/문구)
 // Step 3: AI 하이라이트 분석 및 생성 -> 완료 시 스튜디오로 자동 전환
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -28,6 +28,7 @@ import {
   Terminal,
   Activity,
   Calendar,
+  ExternalLink,
 } from 'lucide-react';
 import type { VideoItem, VideoOverlayOptions, ProcessingProgress } from '../../types/video.ts';
 import type { FreeModelMeta, ReasoningEffortOption } from '../../types/gateway.ts';
@@ -97,7 +98,6 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const audioInputRef = useRef<HTMLInputElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const terminalEndRef = useRef<HTMLDivElement>(null);
 
@@ -112,6 +112,19 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
   const [channelText, setChannelText] = useState(overlayOptions?.channelText || '');
   const [showChapterBridge, setShowChapterBridge] = useState(overlayOptions?.showChapterBridge ?? true);
 
+  // 인트로 & 아웃트로 커스텀 비디오 파일
+  const [introVideoFile, setIntroVideoFile] = useState<File | null>(
+    overlayOptions?.introVideoFile || null
+  );
+  const [outroVideoFile, setOutroVideoFile] = useState<File | null>(
+    overlayOptions?.outroVideoFile || null
+  );
+  const introVideoInputRef = useRef<HTMLInputElement>(null);
+  const outroVideoInputRef = useRef<HTMLInputElement>(null);
+
+  // 지도 위치 확인 모달 대상 비디오
+  const [mapModalVideo, setMapModalVideo] = useState<VideoItem | null>(null);
+
   // 모달 스크롤 락
   useModalScrollLock(isOpen, {
     overlayRef,
@@ -125,13 +138,17 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
     }
   }, [isProcessing]);
 
-  // 브라우저 뒤로가기(popstate) 연동: 웹페이지 이탈 방지 및 이전 스텝/닫기 처리
+  // 브라우저 뒤로가기(popstate) 연동
   useEffect(() => {
     if (!isOpen) return;
     window.history.pushState({ wizard: true, step: currentStep }, '', window.location.hash);
 
     const handlePopState = () => {
       if (isProcessing) return;
+      if (mapModalVideo) {
+        setMapModalVideo(null);
+        return;
+      }
       if (currentStep > 1) {
         setCurrentStep((prev) => (prev > 1 ? (prev - 1 as 1 | 2 | 3) : 1));
       } else {
@@ -140,20 +157,28 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
     };
 
     window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [isOpen, currentStep, isProcessing, onClose]);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [isOpen, currentStep, isProcessing, mapModalVideo, onClose]);
 
   // ESC 키 닫기
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isProcessing) {
-        onClose();
+      if (e.key === 'Escape') {
+        if (mapModalVideo) {
+          setMapModalVideo(null);
+          return;
+        }
+        if (!isProcessing) {
+          onClose();
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isProcessing, onClose]);
+  }, [isOpen, isProcessing, mapModalVideo, onClose]);
 
   // 오디오 미리듣기 정리
   useEffect(() => {
@@ -240,16 +265,6 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
     }
   };
 
-  // 사용자 오디오 파일 업로드
-  const handleCustomAudioSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      onCustomAudioChange(file);
-      onBgmChange('custom', bgmVolume, null);
-      e.target.value = '';
-    }
-  };
-
   // 오버레이 옵션 병합 반환
   const buildCurrentOverlayOptions = (): VideoOverlayOptions => {
     return {
@@ -261,12 +276,12 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
       showDate: overlayOptions?.showDate ?? false,
       subtitleDateText: overlayOptions?.subtitleDateText || '',
       subtitleLocationText: overlayOptions?.subtitleLocationText || '',
-      showIntro,
-      showOutro,
+      showIntro: showIntro || Boolean(introVideoFile),
+      showOutro: showOutro || Boolean(outroVideoFile),
       showChapterBridge,
       bgmFitToVideo: overlayOptions?.bgmFitToVideo ?? true,
-      introVideoFile: overlayOptions?.introVideoFile || null,
-      outroVideoFile: overlayOptions?.outroVideoFile || null,
+      introVideoFile: introVideoFile || null,
+      outroVideoFile: outroVideoFile || null,
     };
   };
 
@@ -374,7 +389,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                   하이라이트를 생성할 동영상들을 업로드해주세요.
                 </p>
                 <p className="wizard-pane-sub">
-                  여러 개의 영상을 한 번에 올릴 수 있으며, 업로드된 영상의 촬영 장소명을 직접 입력하거나 수정할 수 있어요.
+                  여러 개의 영상을 한 번에 올릴 수 있으며, 촬영 장소명을 직접 수정하거나 지도로 확인할 수 있어요.
                 </p>
               </div>
 
@@ -472,7 +487,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                               )}
                             </div>
 
-                            {/* 위치명 수정 인풋 (개별) */}
+                            {/* 위치명 수정 인풋 및 지도 보기 버튼 */}
                             <div className="wizard-location-input-row">
                               <MapPin size={13} className="wizard-location-pin" />
                               <input
@@ -482,6 +497,15 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                                 value={vid.locationName || ''}
                                 onChange={(e) => onUpdateVideoLocation(vid.id, e.target.value)}
                               />
+                              <button
+                                type="button"
+                                className={`wizard-btn-map ${vid.latitude && vid.longitude ? 'has-gps' : ''}`}
+                                onClick={() => setMapModalVideo(vid)}
+                                title="지도에서 위치 확인하기"
+                              >
+                                <ExternalLink size={12} />
+                                <span>{vid.latitude && vid.longitude ? 'GPS 지도' : '지도 보기'}</span>
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -510,7 +534,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                   영상의 분위기에 어울리는 배경음악과 연출을 설정해보세요.
                 </p>
                 <p className="wizard-pane-sub">
-                  설정하지 않고 바로 시작해도 AI가 가장 최적의 타이틀과 구성을 자동으로 준비해드려요.
+                  오프닝 인트로 영상이나 엔딩 아웃트로 영상을 직접 첨부하여 더욱 완성도 높은 영상을 만들 수 있어요.
                 </p>
               </div>
 
@@ -623,9 +647,9 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                     <Type size={18} />
                   </div>
                   <div>
-                    <h3 className="wizard-config-title">인트로 타이틀 설정</h3>
+                    <h3 className="wizard-config-title">오프닝 인트로 설정</h3>
                     <p className="wizard-config-subtitle">
-                      영상의 첫 장면에 표시될 제목과 오프닝 연출을 설정합니다
+                      영상의 첫 장면에 표시될 제목과 오프닝 영상/연출을 설정합니다
                     </p>
                   </div>
                 </div>
@@ -644,11 +668,65 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                   />
                 </div>
 
+                {/* 인트로 커스텀 영상 첨부 */}
+                <div className="wizard-custom-clip-section">
+                  <input
+                    ref={introVideoInputRef}
+                    type="file"
+                    accept="video/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setIntroVideoFile(e.target.files[0]);
+                        setShowIntro(true);
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+                  <div className="wizard-clip-header-row">
+                    <label className="wizard-form-label mb-0">
+                      <span>오프닝 인트로 영상 파일</span>
+                      <span className="wizard-label-badge">선택 사항</span>
+                    </label>
+                  </div>
+
+                  {introVideoFile ? (
+                    <div className="wizard-clip-file-chip">
+                      <Film size={14} className="text-blue-600 flex-shrink-0" />
+                      <span className="wizard-clip-file-name" title={introVideoFile.name}>
+                        {introVideoFile.name} ({(introVideoFile.size / (1024 * 1024)).toFixed(1)}MB)
+                      </span>
+                      <button
+                        type="button"
+                        className="wizard-clip-remove-btn"
+                        onClick={() => setIntroVideoFile(null)}
+                        title="인트로 영상 삭제"
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="wizard-btn-upload-clip"
+                      onClick={() => introVideoInputRef.current?.click()}
+                    >
+                      <Plus size={14} />
+                      <span>인트로 영상 파일 첨부하기 (MP4, MOV 등)</span>
+                    </button>
+                  )}
+                  <span className="wizard-clip-help-text">
+                    {introVideoFile
+                      ? '✓ 첨부된 인트로 영상이 본편 시작 전에 매끄럽게 연결되어 재생됩니다.'
+                      : '별도의 인트로 영상이 있으면 첨부해보세요. 미첨부 시 타이틀 애니메이션이 적용됩니다.'}
+                  </span>
+                </div>
+
                 <div className="wizard-toggle-grid">
                   <label className="wizard-toggle-item">
                     <input
                       type="checkbox"
-                      checked={showIntro}
+                      checked={showIntro || Boolean(introVideoFile)}
                       onChange={(e) => setShowIntro(e.target.checked)}
                       className="wizard-checkbox"
                     />
@@ -680,9 +758,9 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                     <Flag size={18} />
                   </div>
                   <div>
-                    <h3 className="wizard-config-title">아웃트로 (엔딩 크레딧)</h3>
+                    <h3 className="wizard-config-title">엔딩 아웃트로 설정</h3>
                     <p className="wizard-config-subtitle">
-                      영상이 끝날 때 표시할 채널명이나 마무리 인사를 남겨보세요
+                      영상이 끝날 때 표시할 채널명이나 마무리 엔딩 영상을 추가해보세요
                     </p>
                   </div>
                 </div>
@@ -690,7 +768,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                 <label className="wizard-toggle-item mb-3">
                   <input
                     type="checkbox"
-                    checked={showOutro}
+                    checked={showOutro || Boolean(outroVideoFile)}
                     onChange={(e) => setShowOutro(e.target.checked)}
                     className="wizard-checkbox"
                   />
@@ -700,8 +778,57 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                   </div>
                 </label>
 
-                {showOutro && (
-                  <div className="wizard-form-group">
+                {/* 아웃트로 커스텀 영상 첨부 */}
+                <div className="wizard-custom-clip-section">
+                  <input
+                    ref={outroVideoInputRef}
+                    type="file"
+                    accept="video/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setOutroVideoFile(e.target.files[0]);
+                        setShowOutro(true);
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+                  <div className="wizard-clip-header-row">
+                    <label className="wizard-form-label mb-0">
+                      <span>엔딩 아웃트로 영상 파일</span>
+                      <span className="wizard-label-badge">선택 사항</span>
+                    </label>
+                  </div>
+
+                  {outroVideoFile ? (
+                    <div className="wizard-clip-file-chip">
+                      <Film size={14} className="text-emerald-600 flex-shrink-0" />
+                      <span className="wizard-clip-file-name" title={outroVideoFile.name}>
+                        {outroVideoFile.name} ({(outroVideoFile.size / (1024 * 1024)).toFixed(1)}MB)
+                      </span>
+                      <button
+                        type="button"
+                        className="wizard-clip-remove-btn"
+                        onClick={() => setOutroVideoFile(null)}
+                        title="아웃트로 영상 삭제"
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="wizard-btn-upload-clip"
+                      onClick={() => outroVideoInputRef.current?.click()}
+                    >
+                      <Plus size={14} />
+                      <span>엔딩 아웃트로 영상 파일 첨부하기 (MP4, MOV 등)</span>
+                    </button>
+                  )}
+                </div>
+
+                {(showOutro || Boolean(outroVideoFile)) && (
+                  <div className="wizard-form-group mt-2">
                     <label className="wizard-form-label">
                       <span>채널명 / 엔딩 문구</span>
                     </label>
@@ -859,6 +986,103 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
           )}
         </div>
       </div>
+
+      {/* ==================== 촬영 위치 지도 확인 모달 ==================== */}
+      {mapModalVideo && (
+        <div className="wizard-map-backdrop" onClick={() => setMapModalVideo(null)}>
+          <div
+            className="wizard-map-modal-card"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="wizard-map-modal-header">
+              <div className="wizard-map-title-row">
+                <div className="wizard-map-icon-badge">
+                  <MapPin size={18} />
+                </div>
+                <div>
+                  <h3 className="wizard-map-title">
+                    {mapModalVideo.locationName || mapModalVideo.name}
+                  </h3>
+                  <p className="wizard-map-sub">
+                    {mapModalVideo.latitude && mapModalVideo.longitude
+                      ? `GPS: ${mapModalVideo.latitude.toFixed(5)}, ${mapModalVideo.longitude.toFixed(5)}`
+                      : '촬영 위치 정보'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="wizard-map-close-btn"
+                onClick={() => setMapModalVideo(null)}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="wizard-map-body">
+              {mapModalVideo.latitude && mapModalVideo.longitude ? (
+                <iframe
+                  title="촬영 위치 지도"
+                  className="wizard-map-iframe"
+                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${mapModalVideo.longitude - 0.008}%2C${mapModalVideo.latitude - 0.008}%2C${mapModalVideo.longitude + 0.008}%2C${mapModalVideo.latitude + 0.008}&layer=mapnik&marker=${mapModalVideo.latitude}%2C${mapModalVideo.longitude}`}
+                />
+              ) : (
+                <div className="wizard-map-nogps-box">
+                  <MapPin size={32} className="text-slate-300 mb-2" />
+                  <p className="wizard-map-nogps-title">
+                    {mapModalVideo.locationName ? `[${mapModalVideo.locationName}] 위치 검색` : 'GPS 좌표가 없는 영상입니다'}
+                  </p>
+                  <p className="wizard-map-nogps-desc">
+                    아래 네이버 지도 또는 구글 지도 링크를 눌러 장소를 검색하고 확인해보세요.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="wizard-map-footer">
+              <div className="wizard-map-links">
+                <a
+                  href={
+                    mapModalVideo.locationName
+                      ? `https://map.naver.com/v5/search/${encodeURIComponent(mapModalVideo.locationName)}`
+                      : mapModalVideo.latitude && mapModalVideo.longitude
+                      ? `https://map.naver.com/v5/search/${mapModalVideo.latitude},${mapModalVideo.longitude}`
+                      : `https://map.naver.com/v5/search/${encodeURIComponent(mapModalVideo.name)}`
+                  }
+                  target="_blank"
+                  rel="noreferrer"
+                  className="wizard-btn-external-map"
+                >
+                  <ExternalLink size={12} />
+                  <span>네이버 지도</span>
+                </a>
+                <a
+                  href={
+                    mapModalVideo.latitude && mapModalVideo.longitude
+                      ? `https://www.google.com/maps/search/?api=1&query=${mapModalVideo.latitude},${mapModalVideo.longitude}`
+                      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapModalVideo.locationName || mapModalVideo.name)}`
+                  }
+                  target="_blank"
+                  rel="noreferrer"
+                  className="wizard-btn-external-map"
+                >
+                  <ExternalLink size={12} />
+                  <span>구글 지도</span>
+                </a>
+              </div>
+              <button
+                type="button"
+                className="wizard-btn-map-close"
+                onClick={() => setMapModalVideo(null)}
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
