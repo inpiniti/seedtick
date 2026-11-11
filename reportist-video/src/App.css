@@ -1342,6 +1342,36 @@
   white-space: nowrap;
 }
 
+/* Studio Hierarchy: Back to Project List Button */
+.toss-nav-back-to-list-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: 6px;
+}
+
+.toss-nav-back-to-list-btn:hover {
+  color: #0f172a;
+  background-color: #e2e8f0;
+  border-color: #cbd5e1;
+}
+
+.toss-nav-back-to-list-btn:active {
+  transform: scale(0.98);
+}
+
 .toss-nav-right {
   display: flex;
   align-items: center;
@@ -5288,6 +5318,18 @@
     display: none !important;
   }
 
+  .toss-nav-back-to-list-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    margin-left: 3px;
+    border-radius: 7px;
+  }
+
+  .toss-nav-back-to-list-btn span {
+    display: none !important;
+  }
+
   .toss-lang-name {
     display: none !important;
   }
@@ -5549,6 +5591,13 @@
   .toss-nav-tab-btn {
     width: 28px;
     height: 28px;
+    border-radius: 5px;
+  }
+
+  .toss-nav-back-to-list-btn {
+    width: 28px;
+    height: 28px;
+    margin-left: 2px;
     border-radius: 5px;
   }
 

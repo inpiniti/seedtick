@@ -430,6 +430,7 @@ export interface Dictionary {
     localStorageTip?: string;
     goToProjects?: string;
     viewProjects?: string;
+    backToList?: string;
     projectSuffix?: string;
     newProjectTitle?: string;
   };

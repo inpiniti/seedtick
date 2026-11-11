@@ -26,6 +26,7 @@ import {
   MapPin,
   ExternalLink,
   ChevronDown,
+  ChevronLeft,
   Globe,
   Calendar,
   Image as ImageIcon,
@@ -3266,28 +3267,25 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <span className="toss-nav-tagline">{dict.common.taglineBadge}</span>
           </div>
 
-          {/* 상단 네비게이션 탭 (내 작업 보관함 / 스튜디오 / 영상 공유 커뮤니티) */}
+          {/* 상단 네비게이션 탭 (스튜디오 목록/상세 계층 구조 & 영상 공유 커뮤니티) */}
           <div className="toss-nav-tabs-group">
             <button
               type="button"
-              className={`toss-nav-tab-btn ${activeTab === 'projects' ? 'active' : ''}`}
+              className={`toss-nav-tab-btn ${activeTab === 'projects' || activeTab === 'studio' ? 'active' : ''}`}
               onClick={() => {
-                onViewProjects?.();
-                setActiveTab('projects');
+                if (activeTab === 'studio') {
+                  onViewProjects?.();
+                  setActiveTab('projects');
+                } else if (activeTab === 'projects') {
+                  onViewProjects?.();
+                } else {
+                  setActiveTab('projects');
+                }
               }}
-              title={dict.projects?.tabTitle || '보관함'}
-            >
-              <FolderOpen size={14} />
-              <span>{dict.projects?.tabTitle || '보관함'}</span>
-            </button>
-            <button
-              type="button"
-              className={`toss-nav-tab-btn ${activeTab === 'studio' ? 'active' : ''}`}
-              onClick={() => setActiveTab('studio')}
-              title={dict.community?.studioTab || '스튜디오'}
+              title={dict.community?.studioTab || dict.projects?.tabTitle || '스튜디오'}
             >
               <Film size={14} />
-              <span>{dict.community?.studioTab || '스튜디오'}</span>
+              <span>{dict.community?.studioTab || dict.projects?.tabTitle || '스튜디오'}</span>
             </button>
             <button
               type="button"
@@ -3299,6 +3297,22 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               <span>{dict.community?.communityTab || '영상 공유'}</span>
             </button>
           </div>
+
+          {/* 스튜디오 상세(편집 화면) 진입 시 목록으로 돌아가기 (목록 - 상세 하이라키 구조) */}
+          {activeTab === 'studio' && (
+            <button
+              type="button"
+              className="toss-nav-back-to-list-btn"
+              onClick={() => {
+                onViewProjects?.();
+                setActiveTab('projects');
+              }}
+              title={dict.projects?.backToList || '스튜디오 목록으로'}
+            >
+              <ChevronLeft size={14} />
+              <span>{dict.projects?.backToList || '스튜디오 목록'}</span>
+            </button>
+          )}
         </div>
 
         <div className="toss-nav-right">
@@ -3400,9 +3414,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         </div>
       </header>
 
-      {/* 2. 본문: 영상 공유 커뮤니티 또는 내 작업 보관함 또는 스튜디오 2열 레이아웃 */}
+      {/* 2. 본문: 영상 공유 커뮤니티 또는 스튜디오 프로젝트 목록 또는 스튜디오 상세 2열 레이아웃 */}
       {activeTab === 'community' ? (
-        <VideoCommunityView onOpenStudio={() => setActiveTab('studio')} />
+        <VideoCommunityView
+          onOpenStudio={() => {
+            if (videos.length > 0 || result) {
+              setActiveTab('studio');
+            } else {
+              setActiveTab('projects');
+            }
+          }}
+        />
       ) : activeTab === 'projects' ? (
         <StudioProjectListView
           projects={projectSummaries}
@@ -5921,10 +5943,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     onViewProjects?.();
                     setActiveTab('projects');
                   }}
-                  title={dict.projects?.goToProjects || '내 작업 보관함으로 이동'}
+                  title={dict.projects?.goToProjects || '스튜디오 목록으로 이동'}
                 >
                   <FolderOpen size={12} className="inline mr-1 text-slate-500" />
-                  <span>{dict.projects?.viewProjects || '보관함 보기'}</span>
+                  <span>{dict.projects?.viewProjects || '스튜디오 목록'}</span>
                 </button>
               )}
             </div>
