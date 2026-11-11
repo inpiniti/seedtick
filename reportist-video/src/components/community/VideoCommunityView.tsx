@@ -12,7 +12,6 @@ import {
   Database,
   Film,
   RefreshCw,
-  ChevronLeft,
 } from 'lucide-react';
 import type { VideoShareItem, VideoSortOrder } from '../../types/share.ts';
 import { fetchSharedVideos, incrementVideoShareView } from '../../services/videoShareService.ts';
@@ -129,17 +128,6 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
         <section className="toss-community-header-card">
           <div className="toss-community-header-top">
             <div className="toss-community-header-left">
-              {onOpenStudio && (
-                <button
-                  type="button"
-                  onClick={onOpenStudio}
-                  className="toss-community-back-btn"
-                  title={dict.projects?.backToList || '스튜디오로 돌아가기'}
-                >
-                  <ChevronLeft size={15} />
-                  <span>{dict.projects?.backToList || '스튜디오로 돌아가기'}</span>
-                </button>
-              )}
               <div className="toss-community-badge-row">
                 <span className="toss-community-badge youtube">
                   <Play size={10} fill="currentColor" />
