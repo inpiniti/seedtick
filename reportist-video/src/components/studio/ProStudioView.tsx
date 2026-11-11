@@ -654,6 +654,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     };
   }, [closeAllModals, onViewProjects]);
 
+  // AI 분석 완료 또는 결과물 세팅 시 자동으로 스튜디오 상세 탭으로 전환
+  useEffect(() => {
+    if (result && result.segments && result.segments.length > 0) {
+      setActiveTab('studio');
+      window.history.replaceState({ tab: 'studio', timestamp: Date.now() }, '', '#studio');
+    }
+  }, [result]);
+
   // 모달 오픈 시 브라우저 히스토리 푸시 (모달에서 뒤로가기 시 웹페이지 밖으로 나가지 않고 모달만 닫히도록)
   const isAnyModalOpen = Boolean(
     isLanguageModalOpen ||
@@ -3574,7 +3582,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           onStartNewProject={() => {
             resetStudioState();
             onStartNewProject?.();
-            navigateToTab('studio');
           }}
         />
       ) : (

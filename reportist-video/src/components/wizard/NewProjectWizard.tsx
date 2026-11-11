@@ -320,9 +320,9 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                 type="button"
                 className="wizard-close-btn"
                 onClick={onClose}
-                title="스튜디오로 이동"
+                title="닫기 (목록으로)"
               >
-                <span className="wizard-close-text">스튜디오로 건너뛰기</span>
+                <span className="wizard-close-text">닫기</span>
                 <X size={18} />
               </button>
             )}
@@ -940,7 +940,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                 className="wizard-btn-ghost"
                 onClick={onClose}
               >
-                스튜디오로 이동
+                취소 (목록으로)
               </button>
 
               <button

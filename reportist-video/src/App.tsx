@@ -103,6 +103,24 @@ export function App() {
   });
   const [finalResult, setFinalResult] = useState<FinalVideoResult | null>(null);
 
+  // 마법사 닫기 / 취소 핸들러 (목록 화면으로 안전하게 복귀)
+  const handleCloseWizard = useCallback(() => {
+    setIsWizardOpen(false);
+    if (!finalResult) {
+      videos.forEach((v) => {
+        if (v.url && v.url.startsWith('blob:')) {
+          try {
+            URL.revokeObjectURL(v.url);
+          } catch {}
+        }
+      });
+      setVideos([]);
+      setCurrentStep('upload');
+      setLastActiveProjectId(null);
+    }
+    window.location.hash = '#projects';
+  }, [finalResult, videos]);
+
   // 취소용 AbortController
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -1611,6 +1629,7 @@ export function App() {
       }));
       setCurrentStep('result');
       setIsWizardOpen(false);
+      window.location.hash = '#studio';
     } catch (err: unknown) {
       if (liveFlushTimer !== null) {
         window.clearTimeout(liveFlushTimer);
@@ -1854,7 +1873,7 @@ export function App() {
       {/* 새 작업 시작 시 진행되는 3단계 온보딩 마법사 (스텝퍼) */}
       <NewProjectWizard
         isOpen={isWizardOpen}
-        onClose={() => setIsWizardOpen(false)}
+        onClose={handleCloseWizard}
         videos={videos}
         onFilesSelected={handleFilesSelected}
         onRemoveVideo={handleRemove}
