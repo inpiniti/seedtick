@@ -3579,44 +3579,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         />
       ) : (
         <main className="toss-main-content">
-          {/* 스튜디오 상세 서브헤더 바 (직관적인 화면 내 뒤로가기 + 프로젝트 타이틀 브레드크럼) */}
-          <div className="toss-studio-detail-header-bar">
-            <button
-              type="button"
-              className="toss-studio-back-btn"
-              onClick={handleBackToProjects}
-              title={dict.projects?.backToList || '스튜디오 목록으로'}
-            >
-              <ChevronLeft size={16} />
-              <span>{dict.projects?.backToList || '스튜디오 목록으로'}</span>
-            </button>
-
-            <div className="toss-studio-breadcrumb-info">
-              <span
-                className="toss-studio-breadcrumb-parent"
-                onClick={handleBackToProjects}
-                title={dict.projects?.goToProjects || '스튜디오 목록으로 이동'}
-              >
-                {dict.projects?.tabTitle || '스튜디오'}
-              </span>
-              <span className="toss-studio-breadcrumb-sep">/</span>
-              <span className="toss-studio-breadcrumb-title" title={currentProjectTitle}>
-                {currentProjectTitle}
-              </span>
-              {videos.length > 0 && (
-                <span className="toss-studio-breadcrumb-badge">
-                  {dict.projects?.clipsCount ? interpolate(dict.projects.clipsCount, { count: videos.length }) : `${videos.length}개 영상`}
-                </span>
-              )}
-            </div>
-
-            <div className="toss-studio-header-save-indicator">
-              <span className={`toss-bottom-status-dot ${videos.length === 0 ? 'idle' : saveStatus === 'saving' ? 'saving' : 'saved'}`} />
-              <span className="toss-studio-header-save-text">
-                {saveStatus === 'saving' ? (dict.projects?.saving || '기기에 저장 중...') : (dict.projects?.autoSaved || '기기에 안전 저장됨')}
-              </span>
-            </div>
-          </div>
         {/* 누락 파일 일괄 재연결 알림 배너: 아직 하이라이트 분석 전(초기 업로드 단계)에만 표시 */}
         {isDraftPreview && !result?.url && videos.some((v) => !v.url || (v.file && v.file.size === 0) || v.error || v.isMissingFile) && (
           <div className="toss-relink-banner">

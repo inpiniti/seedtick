@@ -1372,141 +1372,6 @@
   transform: scale(0.98);
 }
 
-/* ==========================================================================
-   Studio Detail Sub-header Bar (Back to List & Breadcrumb)
-   ========================================================================== */
-.toss-studio-detail-header-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 10px 16px;
-  margin-bottom: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-}
-
-.toss-studio-back-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 13px;
-  background-color: #f1f5f9;
-  color: #1e293b;
-  border: 1px solid #cbd5e1;
-  border-radius: 9px;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.toss-studio-back-btn:hover {
-  background-color: #e2e8f0;
-  border-color: #94a3b8;
-  color: #0f172a;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06);
-}
-
-.toss-studio-back-btn:active {
-  transform: scale(0.97);
-}
-
-.toss-studio-breadcrumb-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  flex: 1;
-  margin: 0 8px;
-}
-
-.toss-studio-breadcrumb-parent {
-  font-size: 13px;
-  font-weight: 600;
-  color: #64748b;
-  cursor: pointer;
-  transition: color 0.15s ease;
-  white-space: nowrap;
-}
-
-.toss-studio-breadcrumb-parent:hover {
-  color: #3182f6;
-  text-decoration: underline;
-}
-
-.toss-studio-breadcrumb-sep {
-  font-size: 13px;
-  color: #cbd5e1;
-  font-weight: 400;
-}
-
-.toss-studio-breadcrumb-title {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: #1e293b;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 380px;
-}
-
-.toss-studio-breadcrumb-badge {
-  font-size: 11px;
-  font-weight: 700;
-  color: #3b82f6;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  padding: 2px 8px;
-  border-radius: 6px;
-  white-space: nowrap;
-}
-
-.toss-studio-header-save-indicator {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.toss-studio-header-save-text {
-  font-size: 11.5px;
-  font-weight: 500;
-  color: #64748b;
-  white-space: nowrap;
-}
-
-.toss-community-back-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 11px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #475569;
-  cursor: pointer;
-  margin-bottom: 8px;
-  width: fit-content;
-  transition: all 0.15s ease;
-}
-
-.toss-community-back-btn:hover {
-  background: #e2e8f0;
-  color: #0f172a;
-  border-color: #cbd5e1;
-}
-
-.toss-community-back-btn:active {
-  transform: scale(0.97);
-}
-
 .toss-nav-right {
   display: flex;
   align-items: center;
@@ -5465,31 +5330,7 @@
     display: none !important;
   }
 
-  .toss-studio-detail-header-bar {
-    padding: 8px 10px;
-    margin-bottom: 8px;
-    border-radius: 10px;
-    gap: 8px;
-  }
-
-  .toss-studio-back-btn {
-    padding: 5px 9px;
-    font-size: 12px;
-    border-radius: 7px;
-  }
-
-  .toss-studio-breadcrumb-title {
-    max-width: 140px;
-    font-size: 12px;
-  }
-
-  .toss-studio-breadcrumb-parent {
-    font-size: 12px;
-  }
-
-  .toss-studio-header-save-text {
-    display: none;
-  }
+  
 
   .toss-lang-name {
     display: none !important;
@@ -11323,8 +11164,6 @@
 .export-modal-confirm-btn:hover {
   background-color: #1b64da;
 }
-
-
 
 
 
