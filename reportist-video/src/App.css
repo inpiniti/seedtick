@@ -7590,10 +7590,12 @@
    ★ Toss Design Video Community Styles (Native CSS)
    ======================================================== */
 .toss-community-wrapper {
+  position: relative;
   flex: 1;
   width: 100%;
   height: calc(100vh - 54px);
   overflow-y: auto;
+  overflow-x: hidden;
   background-color: #f7f9fc;
   -webkit-overflow-scrolling: touch;
   box-sizing: border-box;
@@ -7608,6 +7610,8 @@
 }
 
 .toss-community-inner {
+  position: relative;
+  z-index: 1;
   width: 100%;
   max-width: none;
   margin: 0;
@@ -7913,7 +7917,9 @@
 }
 
 .toss-video-card {
-  background-color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.90);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border: 1px solid #eef2f6;
   border-radius: 18px;
   overflow: hidden;
@@ -7931,7 +7937,7 @@
 .toss-video-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.09);
-  border-color: #cbdcf8;
+  border-color: #cbd5e1;
 }
 
 .toss-video-thumb-container {
@@ -8104,13 +8110,17 @@
 
 .toss-video-quick-share:hover {
   background-color: #f2f4f6;
-  color: #3182f6;
+  color: #0f172a;
 }
 
 /* 3. Empty State */
 .toss-community-empty {
-  background-color: #ffffff;
-  border: 1px solid #eef2f6;
+  position: relative;
+  z-index: 1;
+  background-color: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(238, 242, 246, 0.9);
   border-radius: 20px;
   padding: 64px 24px;
   display: flex;
@@ -8124,8 +8134,8 @@
   width: 64px;
   height: 64px;
   border-radius: 20px;
-  background-color: #eff6ff;
-  color: #3182f6;
+  background-color: #f1f5f9;
+  color: #0f172a;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -9255,7 +9265,9 @@
 
 .toss-project-card {
   position: relative;
-  background-color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border: 1px solid #e2e8f0;
   border-radius: 20px;
   overflow: hidden;
@@ -9461,8 +9473,10 @@
   justify-content: center;
   text-align: center;
   padding: 64px 24px;
-  background-color: #ffffff;
-  border: 1px dashed #cbd5e1;
+  background-color: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px dashed rgba(203, 213, 225, 0.85);
   border-radius: 24px;
   gap: 14px;
   margin-top: 8px;
@@ -9702,14 +9716,14 @@
 .toss-projects-bg-penguin {
   position: fixed;
   right: -40px;
-  bottom: -180px;
-  width: 720px;
-  height: 720px;
+  bottom: -130px;
+  width: 740px;
+  height: 740px;
   pointer-events: none;
   user-select: none;
   z-index: 0;
   color: #0f172a;
-  opacity: 0.08;
+  opacity: 0.11;
   transition: opacity 0.25s ease, transform 0.25s ease;
 }
 
@@ -9721,31 +9735,84 @@
 
 @media (max-width: 1440px) {
   .toss-projects-bg-penguin {
-    width: 580px;
-    height: 580px;
+    width: 600px;
+    height: 600px;
     right: -30px;
-    bottom: -140px;
-    opacity: 0.08;
+    bottom: -110px;
+    opacity: 0.11;
   }
 }
 
 @media (max-width: 1024px) {
   .toss-projects-bg-penguin {
-    width: 420px;
-    height: 420px;
+    width: 440px;
+    height: 440px;
     right: -20px;
-    bottom: -100px;
-    opacity: 0.075;
+    bottom: -85px;
+    opacity: 0.10;
   }
 }
 
 @media (max-width: 640px) {
   .toss-projects-bg-penguin {
-    width: 260px;
-    height: 260px;
+    width: 280px;
+    height: 280px;
     right: -12px;
-    bottom: -65px;
-    opacity: 0.06;
+    bottom: -55px;
+    opacity: 0.08;
+  }
+}
+
+/* ==========================================================================
+   비디오 커뮤니티 우측 하단 펭귄 상반신 배경 장식 (모노크롬 워터마크)
+   ========================================================================== */
+.toss-community-bg-penguin {
+  position: fixed;
+  right: -40px;
+  bottom: -130px;
+  width: 740px;
+  height: 740px;
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+  color: #0f172a;
+  opacity: 0.11;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.toss-community-bg-penguin svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+@media (max-width: 1440px) {
+  .toss-community-bg-penguin {
+    width: 600px;
+    height: 600px;
+    right: -30px;
+    bottom: -110px;
+    opacity: 0.11;
+  }
+}
+
+@media (max-width: 1024px) {
+  .toss-community-bg-penguin {
+    width: 440px;
+    height: 440px;
+    right: -20px;
+    bottom: -85px;
+    opacity: 0.10;
+  }
+}
+
+@media (max-width: 640px) {
+  .toss-community-bg-penguin {
+    width: 280px;
+    height: 280px;
+    right: -12px;
+    bottom: -55px;
+    opacity: 0.08;
   }
 }
 

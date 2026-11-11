@@ -18,6 +18,7 @@ import { fetchSharedVideos, incrementVideoShareView } from '../../services/video
 import { formatViewCount, formatTimeAgo } from '../../services/youtubeService.ts';
 import { YouTubePlayerModal } from './YouTubePlayerModal.tsx';
 import { ShareVideoModal } from './ShareVideoModal.tsx';
+import { PenguinLogo } from '../common/PenguinLogo.tsx';
 import { useI18n } from '../../i18n/index.tsx';
 import { notify } from '../../services/toastService.ts';
 
@@ -330,6 +331,11 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
         onClose={() => setIsShareModalOpen(false)}
         onSuccess={handleShareSuccess}
       />
+
+      {/* 우측 하단 펭귄 상반신 배경 장식 (모노크롬 워터마크) */}
+      <div className="toss-community-bg-penguin" aria-hidden="true">
+        <PenguinLogo size="100%" color="currentColor" />
+      </div>
     </div>
   );
 };
