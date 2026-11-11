@@ -9691,19 +9691,19 @@
 }
 
 /* ==========================================================================
-   프로젝트 목록 우측 하단 펭귄 상반신 배경 장식 (Watermark Mascot)
+   프로젝트 목록 우측 하단 펭귄 상반신 배경 장식 (흑백 워터마크 마스코트)
    ========================================================================== */
 .toss-projects-bg-penguin {
   position: fixed;
-  right: -24px;
-  bottom: -110px;
-  width: 440px;
-  height: 440px;
+  right: -40px;
+  bottom: -180px;
+  width: 720px;
+  height: 720px;
   pointer-events: none;
   user-select: none;
   z-index: 0;
-  color: #3182f6;
-  opacity: 0.085;
+  color: #0f172a;
+  opacity: 0.08;
   transition: opacity 0.25s ease, transform 0.25s ease;
 }
 
@@ -9713,22 +9713,32 @@
   display: block;
 }
 
+@media (max-width: 1440px) {
+  .toss-projects-bg-penguin {
+    width: 580px;
+    height: 580px;
+    right: -30px;
+    bottom: -140px;
+    opacity: 0.08;
+  }
+}
+
 @media (max-width: 1024px) {
   .toss-projects-bg-penguin {
-    width: 340px;
-    height: 340px;
+    width: 420px;
+    height: 420px;
     right: -20px;
-    bottom: -85px;
+    bottom: -100px;
     opacity: 0.075;
   }
 }
 
 @media (max-width: 640px) {
   .toss-projects-bg-penguin {
-    width: 220px;
-    height: 220px;
-    right: -14px;
-    bottom: -55px;
+    width: 260px;
+    height: 260px;
+    right: -12px;
+    bottom: -65px;
     opacity: 0.06;
   }
 }
