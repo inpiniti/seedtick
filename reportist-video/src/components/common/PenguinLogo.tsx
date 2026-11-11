@@ -67,10 +67,10 @@ export function PenguinLogoBadge({
   className = "",
 }: PenguinLogoBadgeProps) {
   const sizeConfig = {
-    xs: { box: "w-5 h-5 rounded-[4px]", icon: 14 },
-    sm: { box: "w-6 h-6 rounded-md", icon: 16 },
-    md: { box: "w-8 h-8 rounded-lg", icon: 22 },
-    lg: { box: "w-9 h-9 rounded-lg", icon: 26 },
+    xs: { box: "w-5 h-5 rounded-[4px]", icon: 16 },
+    sm: { box: "w-6 h-6 rounded-md", icon: 20 },
+    md: { box: "w-8 h-8 rounded-lg", icon: 26 },
+    lg: { box: "w-9 h-9 rounded-lg", icon: 30 },
   }[size];
 
   const variantStyles = {
