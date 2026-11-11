@@ -630,7 +630,6 @@ export function App() {
         await handleOpenProject(lastId);
       } else if (isMounted && !currentProjectId) {
         setCurrentProjectId(generateProjectId());
-        setIsWizardOpen(true);
       }
     }
     void initProjects();

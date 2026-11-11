@@ -711,14 +711,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 화면 내 '스튜디오 목록으로' 뒤로가기 액션
   const handleBackToProjects = useCallback(() => {
     onViewProjects?.();
-    if (window.history.state && window.history.state.tab === 'studio' && window.history.length > 1) {
+    const st = window.history.state;
+    if (st && st.tab === 'studio' && !st.root && window.history.length > 1) {
       window.history.back();
     } else {
       navigateToTab('projects');
     }
   }, [onViewProjects, navigateToTab]);
 
-  // 브라우저 뒤로가기(popstate) 및 초기 해시 동기화
+  // 브라우저 뒤로가기(popstate), 해시 변경(hashchange) 및 초기 해시 동기화
   useEffect(() => {
     const hash = window.location.hash.toLowerCase();
     let initialTab: 'projects' | 'studio' | 'community' = 'projects';
@@ -730,22 +731,36 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       initialTab = 'projects';
     }
     setActiveTab(initialTab);
-    window.history.replaceState({ tab: initialTab, root: true, timestamp: Date.now() }, '', window.location.hash || '#projects');
 
-    const handlePopState = (e: PopStateEvent) => {
+    // 초기 히스토리 스택 설정
+    if (initialTab === 'studio') {
+      // #studio로 직접 진입한 경우에도 뒤로가기 시 사이트 밖으로 나가지 않고 목록으로 갈 수 있도록 베이스 #projects를 먼저 기록
+      window.history.replaceState({ tab: 'projects', root: true, timestamp: Date.now() }, '', '#projects');
+      window.history.pushState({ tab: 'studio', timestamp: Date.now() }, '', '#studio');
+    } else {
+      window.history.replaceState(
+        { tab: initialTab, root: true, timestamp: Date.now() },
+        '',
+        initialTab === 'projects' ? '#projects' : window.location.hash
+      );
+    }
+
+    const syncLocationTab = (e?: PopStateEvent | HashChangeEvent) => {
       // 1. 모달이 열려있는 상태에서 뒤로가기를 누른 경우 모달을 먼저 닫음
-      const closedModal = closeAllModals();
-      if (closedModal) {
-        return;
+      if (e && 'type' in e && e.type === 'popstate') {
+        const closedModal = closeAllModals();
+        if (closedModal) {
+          return;
+        }
       }
 
       // 2. 화면 탭 전환 처리
-      const stateTab = e.state?.tab;
+      const stateTab = (window.history.state as { tab?: string } | null)?.tab;
       const curHash = window.location.hash.toLowerCase();
       let targetTab: 'projects' | 'studio' | 'community' = 'projects';
-      if (stateTab === 'studio' || curHash === '#studio') {
+      if (curHash === '#studio' || stateTab === 'studio') {
         targetTab = 'studio';
-      } else if (stateTab === 'community' || curHash === '#community') {
+      } else if (curHash === '#community' || stateTab === 'community') {
         targetTab = 'community';
       } else {
         targetTab = 'projects';
@@ -757,19 +772,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       setActiveTab(targetTab);
     };
 
-    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('popstate', syncLocationTab);
+    window.addEventListener('hashchange', syncLocationTab);
     return () => {
-      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('popstate', syncLocationTab);
+      window.removeEventListener('hashchange', syncLocationTab);
     };
   }, [closeAllModals, onViewProjects]);
-
-  // AI 분석 완료 또는 결과물 세팅 시 자동으로 스튜디오 상세 탭으로 전환
-  useEffect(() => {
-    if (result && result.segments && result.segments.length > 0) {
-      setActiveTab('studio');
-      window.history.replaceState({ tab: 'studio', timestamp: Date.now() }, '', '#studio');
-    }
-  }, [result]);
 
   // 모달 오픈 시 브라우저 히스토리 푸시 (모달에서 뒤로가기 시 웹페이지 밖으로 나가지 않고 모달만 닫히도록)
   const isAnyModalOpen = Boolean(
