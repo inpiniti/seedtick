@@ -16,6 +16,7 @@ import {
 import type { StudioProjectSummary } from '../../types/project.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { isOpfsAvailable } from '../../services/opfsStorage.ts';
+import { PenguinLogo } from '../common/PenguinLogo.tsx';
 
 interface StudioProjectListViewProps {
   projects: StudioProjectSummary[];
@@ -347,6 +348,11 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* 4. 우측 하단 펭귄 상반신 배경 장식 */}
+      <div className="toss-projects-bg-penguin" aria-hidden="true">
+        <PenguinLogo size="100%" color="currentColor" />
+      </div>
     </div>
   );
 };
