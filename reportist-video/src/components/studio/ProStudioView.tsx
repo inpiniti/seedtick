@@ -456,21 +456,23 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   };
 
   // 2. 배경음악(BGM) 상태
-  const [selectedBgmId, setSelectedBgmId] = useState<string>('none');
-  const [bgmVolume, setBgmVolume] = useState<number>(0.3);
+  const [selectedBgmId, setSelectedBgmId] = useState<string>(
+    initialBgmPresetId || 'none'
+  );
+  const [bgmVolume, setBgmVolume] = useState<number>(
+    typeof initialBgmVolume === 'number' ? initialBgmVolume : 0.3
+  );
   const [selectedLibraryTrackId, setSelectedLibraryTrackId] = useState<string | null>(
     initialSelectedLibraryTrackId || null
   );
 
-  useEffect(() => {
-    if (initialSelectedLibraryTrackId !== undefined) {
-      setSelectedLibraryTrackId(initialSelectedLibraryTrackId);
-    }
-  }, [initialSelectedLibraryTrackId]);
-
   // 3. 사용자 직접 업로드 음악 상태
-  const [customAudioFile, setCustomAudioFile] = useState<File | null>(null);
-  const [customAudioName, setCustomAudioName] = useState<string>('');
+  const [customAudioFile, setCustomAudioFile] = useState<File | null>(
+    initialCustomAudioFile || null
+  );
+  const [customAudioName, setCustomAudioName] = useState<string>(
+    initialCustomAudioFile ? initialCustomAudioFile.name : ''
+  );
   const [customAudioDuration, setCustomAudioDuration] = useState<number | null>(null);
   const customAudioInputRef = useRef<HTMLInputElement>(null);
 
@@ -498,14 +500,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       localStorage.setItem('reportist_export_resolution', res);
     } catch {}
   }, []);
-
-  useEffect(() => {
-    onBgmChange?.(selectedBgmId, bgmVolume, selectedLibraryTrackId);
-  }, [selectedBgmId, bgmVolume, selectedLibraryTrackId, onBgmChange]);
-
-  useEffect(() => {
-    onCustomAudioChange?.(customAudioFile);
-  }, [customAudioFile, onCustomAudioChange]);
 
   // 선택된 배경음악(customAudioFile)의 실제 재생 길이(초) 자동 추출
   useEffect(() => {
@@ -893,23 +887,56 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   }, [overlayOptions, onOverlayOptionsChange]);
 
-  // 외부에서 BGM 프리셋/볼륨 전달 시 동기화
+  // 외부에서 BGM 프리셋/볼륨/보관함 트랙 전달 시 동기화 (외부 prop 변경 시 로컬 상태 업데이트 및 중복 역전파 방지)
+  const lastEmittedBgmRef = useRef<string>(
+    `${initialBgmPresetId ?? 'none'}_${initialBgmVolume ?? 0.3}_${initialSelectedLibraryTrackId ?? 'null'}`
+  );
+
   useEffect(() => {
+    const nextBgmId = initialBgmPresetId !== undefined ? initialBgmPresetId : selectedBgmId;
+    const nextVolume = typeof initialBgmVolume === 'number' ? initialBgmVolume : bgmVolume;
+    const nextTrackId = initialSelectedLibraryTrackId !== undefined ? initialSelectedLibraryTrackId : selectedLibraryTrackId;
+
+    lastEmittedBgmRef.current = `${nextBgmId}_${nextVolume}_${nextTrackId ?? 'null'}`;
+
     if (initialBgmPresetId !== undefined) {
-      setSelectedBgmId(initialBgmPresetId);
+      setSelectedBgmId((prev) => (prev !== initialBgmPresetId ? initialBgmPresetId : prev));
     }
     if (typeof initialBgmVolume === 'number') {
-      setBgmVolume(initialBgmVolume);
+      setBgmVolume((prev) => (Math.abs(prev - initialBgmVolume) > 0.001 ? initialBgmVolume : prev));
     }
-  }, [initialBgmPresetId, initialBgmVolume]);
+    if (initialSelectedLibraryTrackId !== undefined) {
+      setSelectedLibraryTrackId((prev) => (prev !== initialSelectedLibraryTrackId ? initialSelectedLibraryTrackId : prev));
+    }
+  }, [initialBgmPresetId, initialBgmVolume, initialSelectedLibraryTrackId]);
+
+  // 외부로 BGM 변경 전파 (스튜디오 내부 사용자 액션으로 변경 시에만 전파)
+  useEffect(() => {
+    const currentKey = `${selectedBgmId}_${bgmVolume}_${selectedLibraryTrackId ?? 'null'}`;
+    if (currentKey !== lastEmittedBgmRef.current) {
+      lastEmittedBgmRef.current = currentKey;
+      onBgmChange?.(selectedBgmId, bgmVolume, selectedLibraryTrackId);
+    }
+  }, [selectedBgmId, bgmVolume, selectedLibraryTrackId, onBgmChange]);
 
   // 외부에서 커스텀 오디오 파일 전달 시 동기화
+  const lastEmittedCustomAudioRef = useRef<File | null | undefined>(initialCustomAudioFile);
+
   useEffect(() => {
     if (initialCustomAudioFile !== undefined) {
-      setCustomAudioFile(initialCustomAudioFile);
+      lastEmittedCustomAudioRef.current = initialCustomAudioFile;
+      setCustomAudioFile((prev) => (prev !== initialCustomAudioFile ? initialCustomAudioFile : prev));
       setCustomAudioName(initialCustomAudioFile ? initialCustomAudioFile.name : '');
     }
   }, [initialCustomAudioFile]);
+
+  // 외부로 커스텀 오디오 변경 전파 (스튜디오 내부 사용자 액션으로 변경 시에만 전파)
+  useEffect(() => {
+    if (lastEmittedCustomAudioRef.current !== customAudioFile) {
+      lastEmittedCustomAudioRef.current = customAudioFile;
+      onCustomAudioChange?.(customAudioFile);
+    }
+  }, [customAudioFile, onCustomAudioChange]);
 
   const effectiveOverlayOptions = useMemo<VideoOverlayOptions>(() => ({
     ...overlayOptions,

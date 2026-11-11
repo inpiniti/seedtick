@@ -4062,8 +4062,8 @@
 }
 
 .toss-btn-micro:hover {
-  background-color: #3182f6;
-  border-color: #3182f6;
+  background-color: #0f172a;
+  border-color: #0f172a;
   color: #ffffff;
 }
 
@@ -4083,7 +4083,7 @@
   gap: 3.5px;
   background-color: #ffffff;
   border: 1px solid #d1d5db;
-  color: #3182f6;
+  color: #0f172a;
   font-size: 11px;
   font-weight: 700;
   padding: 2.5px 7px;
@@ -4094,9 +4094,9 @@
 }
 
 .toss-btn-trim-edit:hover {
-  background-color: #e8f3ff;
-  border-color: #3182f6;
-  color: #1d4ed8;
+  background-color: #f1f5f9;
+  border-color: #0f172a;
+  color: #0f172a;
 }
 
 .toss-btn-trim-edit:active {
@@ -4437,7 +4437,7 @@
 .toss-cta-button {
   width: 100%;
   height: 54px;
-  background-color: #3182f6;
+  background-color: #0f172a;
   color: #ffffff;
   border: none;
   border-radius: 16px;
@@ -4449,13 +4449,13 @@
   gap: 8px;
   cursor: pointer;
   transition: all 0.15s ease;
-  box-shadow: 0 4px 14px rgba(49, 130, 246, 0.35);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.25);
 }
 
 .toss-cta-button:hover:not(:disabled) {
-  background-color: #1b64da;
+  background-color: #1e293b;
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(49, 130, 246, 0.45);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.35);
 }
 
 .toss-cta-button:disabled {
@@ -4464,7 +4464,7 @@
 }
 
 .toss-cta-button.loading {
-  background-color: #2b70d3;
+  background-color: #334155;
 }
 
 .toss-bottom-dual-actions {
@@ -5893,11 +5893,11 @@
 }
 
 .model-modal-chip.active {
-  background-color: #eff6ff;
-  border-color: #bfdbfe;
-  color: #1d4ed8;
+  background-color: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
   font-weight: 800;
-  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.12);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
 }
 
 .model-modal-provider-chips {
@@ -5927,9 +5927,9 @@
 }
 
 .model-modal-provider-chip.active {
-  background-color: #eff6ff;
-  border-color: #bfdbfe;
-  color: #1d4ed8;
+  background-color: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
   font-weight: 800;
 }
 
@@ -6714,9 +6714,9 @@
 }
 
 .settings-age-date-input:focus {
-  border-color: #3182f6;
+  border-color: #0f172a;
   background-color: #ffffff;
-  box-shadow: 0 0 0 3px rgba(49, 130, 246, 0.12);
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.12);
 }
 
 .settings-age-preview-badge {
@@ -6725,14 +6725,14 @@
   gap: 8px;
   padding: 8px 12px;
   border-radius: 10px;
-  background-color: #eff6ff;
-  border: 1px solid #dbeafe;
+  background-color: #f1f5f9;
+  border: 1px solid #e2e8f0;
 }
 
 .settings-age-preview-label {
   font-size: 11px;
   font-weight: 700;
-  color: #2563eb;
+  color: #0f172a;
   padding: 2px 6px;
   background-color: #ffffff;
   border-radius: 5px;
@@ -6742,7 +6742,7 @@
 .settings-age-preview-value {
   font-size: 12.5px;
   font-weight: 700;
-  color: #1e3a8a;
+  color: #0f172a;
   letter-spacing: -0.2px;
 }
 
@@ -6805,9 +6805,9 @@
 }
 
 .settings-modal-tone-card.active {
-  background-color: #f0f7ff;
-  border-color: #3182f6;
-  box-shadow: 0 2px 8px rgba(49, 130, 246, 0.1);
+  background-color: #f8fafc;
+  border-color: #0f172a;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
 }
 
 .settings-modal-tone-card-top {
@@ -6829,7 +6829,7 @@
 }
 
 .settings-modal-tone-card.active .settings-modal-tone-card-title {
-  color: #1b64da;
+  color: #0f172a;
 }
 
 .settings-modal-tone-radio {
@@ -6846,8 +6846,8 @@
 }
 
 .settings-modal-tone-card.active .settings-modal-tone-radio {
-  border-color: #3182f6;
-  background-color: #3182f6;
+  border-color: #0f172a;
+  background-color: #0f172a;
 }
 
 .settings-modal-tone-radio-dot {

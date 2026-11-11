@@ -169,6 +169,23 @@ export function App() {
     });
   }, []);
 
+  // 배경음악 변경 핸들러 (실제 값이 같으면 상태 유지하여 무한 리렌더링 방지)
+  const handleBgmChange = useCallback(
+    (bgmId: string, vol: number, libTrackId?: string | null) => {
+      setCurrentBgmPresetId((prev) => (prev !== bgmId ? bgmId : prev));
+      setCurrentBgmVolume((prev) => (Math.abs(prev - vol) > 0.001 ? vol : prev));
+      if (libTrackId !== undefined) {
+        setCurrentLibraryTrackId((prev) => (prev !== libTrackId ? libTrackId : prev));
+      }
+    },
+    []
+  );
+
+  // 커스텀 오디오 파일 변경 핸들러
+  const handleCustomAudioChange = useCallback((file: File | null) => {
+    setCurrentCustomAudio((prev) => (prev !== file ? file : prev));
+  }, []);
+
   const isRestoringProjectRef = useRef<boolean>(false);
   const autoSaveTimerRef = useRef<number | null>(null);
   const activeMetadataBatchCountRef = useRef<number>(0);
@@ -1908,14 +1925,8 @@ export function App() {
         initialCustomAudioFile={currentCustomAudio}
         initialSelectedLibraryTrackId={currentLibraryTrackId}
         onOverlayOptionsChange={handleOverlayOptionsChange}
-        onBgmChange={(bgmId: string, vol: number, libTrackId?: string | null) => {
-          setCurrentBgmPresetId(bgmId);
-          setCurrentBgmVolume(vol);
-          if (libTrackId !== undefined) {
-            setCurrentLibraryTrackId(libTrackId);
-          }
-        }}
-        onCustomAudioChange={setCurrentCustomAudio}
+        onBgmChange={handleBgmChange}
+        onCustomAudioChange={handleCustomAudioChange}
         onRelinkVideo={handleRelinkSingleVideo}
         onRelinkBatch={handleRelinkBatch}
       />
@@ -1930,15 +1941,9 @@ export function App() {
         onUpdateVideoLocation={handleUpdateVideoLocation}
         selectedLibraryTrackId={currentLibraryTrackId}
         bgmVolume={currentBgmVolume}
-        onBgmChange={(bgmId: string, vol: number, libTrackId?: string | null) => {
-          setCurrentBgmPresetId(bgmId);
-          setCurrentBgmVolume(vol);
-          if (libTrackId !== undefined) {
-            setCurrentLibraryTrackId(libTrackId);
-          }
-        }}
+        onBgmChange={handleBgmChange}
         customAudioFile={currentCustomAudio}
-        onCustomAudioChange={setCurrentCustomAudio}
+        onCustomAudioChange={handleCustomAudioChange}
         overlayOptions={currentOverlayOptions}
         onOverlayOptionsChange={handleOverlayOptionsChange}
         selectedModel={selectedModel}

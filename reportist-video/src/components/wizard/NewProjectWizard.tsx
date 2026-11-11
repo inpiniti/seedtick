@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import type { VideoItem, VideoOverlayOptions, ProcessingProgress } from '../../types/video.ts';
 import type { FreeModelMeta, ReasoningEffortOption } from '../../types/gateway.ts';
-import { AUDIO_LIBRARY, type AudioLibraryTrack } from '../../data/audioLibrary.ts';
+import { AUDIO_LIBRARY, loadLibraryAudioFile, type AudioLibraryTrack } from '../../data/audioLibrary.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { ShinyText } from '../common/ShinyText.tsx';
@@ -261,13 +261,21 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
   };
 
   // 음원 선택
-  const handleSelectBgmTrack = (trackId: string | null) => {
+  const handleSelectBgmTrack = async (trackId: string | null) => {
     if (trackId === null) {
       onBgmChange('none', bgmVolume, null);
       onCustomAudioChange(null);
     } else {
       onBgmChange('preset', bgmVolume, trackId);
-      onCustomAudioChange(null);
+      const track = AUDIO_LIBRARY.find((t) => t.id === trackId);
+      if (track) {
+        try {
+          const file = await loadLibraryAudioFile(track);
+          onCustomAudioChange(file);
+        } catch (e) {
+          console.warn('Failed to load library audio:', e);
+        }
+      }
     }
   };
 
@@ -302,11 +310,24 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
       setPreviewTrackId(null);
     }
 
+    let finalAudio = customAudioFile;
+    if (selectedLibraryTrackId && !finalAudio) {
+      const track = AUDIO_LIBRARY.find((t) => t.id === selectedLibraryTrackId);
+      if (track) {
+        try {
+          finalAudio = await loadLibraryAudioFile(track);
+          onCustomAudioChange(finalAudio);
+        } catch (e) {
+          console.warn('Failed to load library audio file:', e);
+        }
+      }
+    }
+
     setCurrentStep(3);
     await onStartAiAnalysis(
       finalOpts,
-      customAudioFile,
-      selectedLibraryTrackId ? 'preset' : customAudioFile ? 'custom' : 'none',
+      finalAudio,
+      selectedLibraryTrackId ? 'preset' : finalAudio ? 'custom' : 'none',
       bgmVolume
     );
   };
