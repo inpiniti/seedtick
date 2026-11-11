@@ -6741,6 +6741,128 @@
   letter-spacing: -0.2px;
 }
 
+/* Subtitle Tone Selection Box in Settings Modal */
+.settings-modal-tone-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  border-radius: 16px;
+  background-color: #ffffff;
+  border: 1.5px solid #e5e8eb;
+  box-sizing: border-box;
+}
+
+.settings-modal-tone-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.settings-modal-tone-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 480px) {
+  .settings-modal-tone-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.settings-modal-tone-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background-color: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
+  outline: none;
+  width: 100%;
+  min-height: 64px;
+}
+
+.settings-modal-tone-card:hover {
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.settings-modal-tone-card.active {
+  background-color: #f0f7ff;
+  border-color: #3182f6;
+  box-shadow: 0 2px 8px rgba(49, 130, 246, 0.1);
+}
+
+.settings-modal-tone-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 6px;
+}
+
+.settings-modal-tone-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #191f28;
+  line-height: 1.2;
+}
+
+.settings-modal-tone-card.active .settings-modal-tone-card-title {
+  color: #1b64da;
+}
+
+.settings-modal-tone-radio {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid #cbd5e1;
+  background-color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.settings-modal-tone-card.active .settings-modal-tone-radio {
+  border-color: #3182f6;
+  background-color: #3182f6;
+}
+
+.settings-modal-tone-radio-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #ffffff;
+}
+
+.settings-modal-tone-card-desc {
+  font-size: 11px;
+  color: #6b7684;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.settings-modal-tone-card.active .settings-modal-tone-card-desc {
+  color: #4b5563;
+}
+
 /* ========================================================
    Audio Library Modal (오디오 보관함)
    ======================================================== */

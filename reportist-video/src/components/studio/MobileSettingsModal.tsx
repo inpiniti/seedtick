@@ -21,7 +21,6 @@ import {
   MessageSquare,
   Trash2,
   ArrowUpDown,
-  Check,
 } from 'lucide-react';
 import type { FreeModelMeta } from '../../types/gateway.ts';
 import type { ExportResolution, SubtitleTone } from '../../types/video.ts';
@@ -633,8 +632,8 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
               )}
 
               {/* 자막 톤앤매너 선택 */}
-              <div className="settings-modal-card-box mt-2.5 p-3.5">
-                <div className="flex items-center gap-2 mb-2.5">
+              <div className="settings-modal-tone-box mt-2.5">
+                <div className="settings-modal-tone-header">
                   <div
                     className="settings-modal-icon-badge"
                     style={{ backgroundColor: '#f0fdf4', color: '#16a34a' }}
@@ -652,28 +651,28 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 mt-2">
+                <div className="settings-modal-tone-grid" role="radiogroup" aria-label="Subtitle Tone">
                   {toneOptions.map((opt) => {
                     const isSelected = activeTone === opt.id;
                     return (
                       <button
                         key={opt.id}
                         type="button"
-                        className={`p-2.5 rounded-xl border text-left transition-all ${
-                          isSelected
-                            ? 'border-blue-600 bg-blue-50/80 shadow-sm ring-1 ring-blue-500/30'
-                            : 'border-slate-200 bg-white hover:bg-slate-50'
-                        }`}
+                        role="radio"
+                        aria-checked={isSelected}
+                        className={`settings-modal-tone-card ${isSelected ? 'active' : ''}`}
                         onClick={() => handleToneChange(opt.id)}
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-800 flex items-center gap-1">
+                        <div className="settings-modal-tone-card-top">
+                          <span className="settings-modal-tone-card-title">
                             <span>{opt.icon}</span>
                             <span>{opt.label}</span>
                           </span>
-                          {isSelected && <Check size={14} className="text-blue-600 shrink-0" />}
+                          <div className="settings-modal-tone-radio">
+                            {isSelected && <div className="settings-modal-tone-radio-dot" />}
+                          </div>
                         </div>
-                        <p className="text-[11px] text-slate-500 mt-1 line-clamp-1">
+                        <p className="settings-modal-tone-card-desc">
                           {opt.desc}
                         </p>
                       </button>
