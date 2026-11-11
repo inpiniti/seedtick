@@ -125,6 +125,24 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
     }
   }, [isProcessing]);
 
+  // 브라우저 뒤로가기(popstate) 연동: 웹페이지 이탈 방지 및 이전 스텝/닫기 처리
+  useEffect(() => {
+    if (!isOpen) return;
+    window.history.pushState({ wizard: true, step: currentStep }, '', window.location.hash);
+
+    const handlePopState = () => {
+      if (isProcessing) return;
+      if (currentStep > 1) {
+        setCurrentStep((prev) => (prev > 1 ? (prev - 1 as 1 | 2 | 3) : 1));
+      } else {
+        onClose();
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isOpen, currentStep, isProcessing, onClose]);
+
   // ESC 키 닫기
   useEffect(() => {
     if (!isOpen) return;
