@@ -1,0 +1,846 @@
+// src/components/wizard/NewProjectWizard.tsx
+// 새 프로젝트 시작 시 진행되는 3단계 온보딩 위저드 (스텝퍼)
+// Step 1: 영상 업로드 & 개별 위치명 확인 및 수정
+// Step 2: 스타일 & 연출 설정 (BGM 음원, 인트로, 아웃트로)
+// Step 3: AI 하이라이트 분석 및 생성 -> 완료 시 스튜디오로 자동 전환
+
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  Upload,
+  Check,
+  ArrowRight,
+  ArrowLeft,
+  Sparkles,
+  Music,
+  Play,
+  Pause,
+  Film,
+  MapPin,
+  Trash2,
+  Clock,
+  Volume2,
+  VolumeX,
+  Type,
+  Flag,
+  X,
+  FileVideo,
+  Plus,
+  Terminal,
+  Activity,
+  Calendar,
+} from 'lucide-react';
+import type { VideoItem, VideoOverlayOptions, ProcessingProgress } from '../../types/video.ts';
+import type { FreeModelMeta, ReasoningEffortOption } from '../../types/gateway.ts';
+import { AUDIO_LIBRARY, type AudioLibraryTrack } from '../../data/audioLibrary.ts';
+import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
+import './NewProjectWizard.css';
+
+interface NewProjectWizardProps {
+  isOpen: boolean;
+  onClose: () => void;
+  videos: VideoItem[];
+  onFilesSelected: (files: File[]) => void;
+  onRemoveVideo: (id: string) => void;
+  onUpdateVideoLocation: (id: string, locationName: string) => void;
+  // BGM & 스타일
+  selectedLibraryTrackId: string | null;
+  bgmVolume: number;
+  onBgmChange: (bgmId: string, volume: number, libraryTrackId?: string | null) => void;
+  customAudioFile: File | null;
+  onCustomAudioChange: (file: File | null) => void;
+  overlayOptions: VideoOverlayOptions | null;
+  onOverlayOptionsChange: (opts: VideoOverlayOptions) => void;
+  // AI 모델
+  selectedModel: string;
+  selectedEffort: ReasoningEffortOption;
+  models: FreeModelMeta[];
+  isLoadingModels: boolean;
+  onSelectModel: (modelId: string) => void;
+  onSelectEffort: (effort: ReasoningEffortOption) => void;
+  // AI 생성 시작 및 진행률
+  onStartAiAnalysis: (
+    overlayOpts?: VideoOverlayOptions,
+    customAudio?: File | null,
+    bgmPresetId?: string,
+    bgmVol?: number
+  ) => Promise<void>;
+  isProcessing: boolean;
+  progress: ProcessingProgress;
+  onCancelProcessing: () => void;
+}
+
+export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
+  isOpen,
+  onClose,
+  videos,
+  onFilesSelected,
+  onRemoveVideo,
+  onUpdateVideoLocation,
+  selectedLibraryTrackId,
+  bgmVolume,
+  onBgmChange,
+  customAudioFile,
+  onCustomAudioChange,
+  overlayOptions,
+  onOverlayOptionsChange,
+  selectedModel,
+  selectedEffort,
+  models,
+  isLoadingModels,
+  onSelectModel,
+  onSelectEffort,
+  onStartAiAnalysis,
+  isProcessing,
+  progress,
+  onCancelProcessing,
+}) => {
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const terminalEndRef = useRef<HTMLDivElement>(null);
+
+  // 음원 미리듣기용 오디오 객체
+  const [previewTrackId, setPreviewTrackId] = useState<string | null>(null);
+  const audioPreviewRef = useRef<HTMLAudioElement | null>(null);
+
+  // 로컬 스타일/오버레이 상태
+  const [titleText, setTitleText] = useState(overlayOptions?.titleText || '');
+  const [showIntro, setShowIntro] = useState(overlayOptions?.showIntro ?? false);
+  const [showOutro, setShowOutro] = useState(overlayOptions?.showOutro ?? false);
+  const [channelText, setChannelText] = useState(overlayOptions?.channelText || '');
+  const [showChapterBridge, setShowChapterBridge] = useState(overlayOptions?.showChapterBridge ?? true);
+
+  // 모달 스크롤 락
+  useModalScrollLock(isOpen, {
+    overlayRef,
+    scrollableSelector: '.wizard-body, [data-modal-scrollable="true"]',
+  });
+
+  // 진행 중일 때는 3단계(AI 생성)로 고정
+  useEffect(() => {
+    if (isProcessing) {
+      setCurrentStep(3);
+    }
+  }, [isProcessing]);
+
+  // ESC 키 닫기
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isProcessing) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isProcessing, onClose]);
+
+  // 오디오 미리듣기 정리
+  useEffect(() => {
+    return () => {
+      if (audioPreviewRef.current) {
+        audioPreviewRef.current.pause();
+        audioPreviewRef.current = null;
+      }
+    };
+  }, []);
+
+  // 로그 스크롤
+  useEffect(() => {
+    if (currentStep === 3) {
+      terminalEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [currentStep, progress.reasoningLogs, progress.liveReasoning, progress.liveContent]);
+
+  if (!isOpen) return null;
+
+  // 총 시간 및 크기 계산
+  const totalDuration = videos.reduce((acc, v) => acc + (v.duration || 0), 0);
+  const totalSizeBytes = videos.reduce((acc, v) => acc + (v.sizeBytes || 0), 0);
+
+  // 드래그 앤 드롭 핸들러
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const mediaFiles = Array.from(e.dataTransfer.files).filter((file) =>
+        file.type.startsWith('video/') ||
+        /\.(mp4|webm|mov|mkv|avi|m4v)$/i.test(file.name)
+      );
+      if (mediaFiles.length > 0) {
+        onFilesSelected(mediaFiles);
+      }
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      onFilesSelected(Array.from(e.target.files));
+      e.target.value = '';
+    }
+  };
+
+  // 음원 미리듣기 토글
+  const handleTogglePreviewAudio = (track: AudioLibraryTrack) => {
+    if (previewTrackId === track.id) {
+      if (audioPreviewRef.current) {
+        audioPreviewRef.current.pause();
+      }
+      setPreviewTrackId(null);
+      return;
+    }
+
+    if (audioPreviewRef.current) {
+      audioPreviewRef.current.pause();
+    }
+    const audio = new Audio(track.src);
+    audio.volume = bgmVolume;
+    audio.play().catch(() => {});
+    audio.onended = () => setPreviewTrackId(null);
+    audioPreviewRef.current = audio;
+    setPreviewTrackId(track.id);
+  };
+
+  // 음원 선택
+  const handleSelectBgmTrack = (trackId: string | null) => {
+    if (trackId === null) {
+      onBgmChange('none', bgmVolume, null);
+      onCustomAudioChange(null);
+    } else {
+      onBgmChange('preset', bgmVolume, trackId);
+      onCustomAudioChange(null);
+    }
+  };
+
+  // 사용자 오디오 파일 업로드
+  const handleCustomAudioSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      onCustomAudioChange(file);
+      onBgmChange('custom', bgmVolume, null);
+      e.target.value = '';
+    }
+  };
+
+  // 오버레이 옵션 병합 반환
+  const buildCurrentOverlayOptions = (): VideoOverlayOptions => {
+    return {
+      showTitle: Boolean(titleText.trim()) || (overlayOptions?.showTitle ?? true),
+      titleText: titleText.trim(),
+      showChannel: Boolean(channelText.trim()) || (overlayOptions?.showChannel ?? false),
+      channelText: channelText.trim(),
+      showSubtitle: overlayOptions?.showSubtitle ?? true,
+      showDate: overlayOptions?.showDate ?? false,
+      subtitleDateText: overlayOptions?.subtitleDateText || '',
+      subtitleLocationText: overlayOptions?.subtitleLocationText || '',
+      showIntro,
+      showOutro,
+      showChapterBridge,
+      bgmFitToVideo: overlayOptions?.bgmFitToVideo ?? true,
+      introVideoFile: overlayOptions?.introVideoFile || null,
+      outroVideoFile: overlayOptions?.outroVideoFile || null,
+    };
+  };
+
+  // AI 분석 시작
+  const handleStartAnalysis = async () => {
+    if (videos.length === 0) return;
+    const finalOpts = buildCurrentOverlayOptions();
+    onOverlayOptionsChange(finalOpts);
+
+    if (audioPreviewRef.current) {
+      audioPreviewRef.current.pause();
+      setPreviewTrackId(null);
+    }
+
+    setCurrentStep(3);
+    await onStartAiAnalysis(
+      finalOpts,
+      customAudioFile,
+      selectedLibraryTrackId ? 'preset' : customAudioFile ? 'custom' : 'none',
+      bgmVolume
+    );
+  };
+
+  return (
+    <div ref={overlayRef} className="wizard-modal-backdrop">
+      <div className="wizard-modal-card">
+        {/* 상단 헤더 & 스텝퍼 */}
+        <div className="wizard-modal-header">
+          <div className="wizard-header-top">
+            <div className="wizard-brand">
+              <span className="wizard-brand-badge">NEW</span>
+              <h2 className="wizard-brand-title">새 비디오 프로젝트 만들기</h2>
+            </div>
+            {!isProcessing && (
+              <button
+                type="button"
+                className="wizard-close-btn"
+                onClick={onClose}
+                title="스튜디오로 이동"
+              >
+                <span className="wizard-close-text">스튜디오로 건너뛰기</span>
+                <X size={18} />
+              </button>
+            )}
+          </div>
+
+          {/* Stepper 인디케이터 */}
+          <div className="wizard-stepper">
+            {/* Step 1 */}
+            <div
+              className={`wizard-step-node ${currentStep === 1 ? 'active' : currentStep > 1 ? 'completed' : ''}`}
+              onClick={() => !isProcessing && setCurrentStep(1)}
+            >
+              <div className="wizard-step-circle">
+                {currentStep > 1 ? <Check size={14} strokeWidth={3} /> : '1'}
+              </div>
+              <div className="wizard-step-info">
+                <span className="wizard-step-title">영상 업로드 & 위치</span>
+                <span className="wizard-step-sub">
+                  {videos.length > 0 ? `${videos.length}개 선택됨` : '원본 영상 선택'}
+                </span>
+              </div>
+            </div>
+
+            <div className={`wizard-step-divider ${currentStep > 1 ? 'completed' : ''}`} />
+
+            {/* Step 2 */}
+            <div
+              className={`wizard-step-node ${currentStep === 2 ? 'active' : currentStep > 2 ? 'completed' : ''}`}
+              onClick={() => !isProcessing && videos.length > 0 && setCurrentStep(2)}
+            >
+              <div className="wizard-step-circle">
+                {currentStep > 2 ? <Check size={14} strokeWidth={3} /> : '2'}
+              </div>
+              <div className="wizard-step-info">
+                <span className="wizard-step-title">스타일 & 연출</span>
+                <span className="wizard-step-sub">음원 · 인트로 · 아웃트로</span>
+              </div>
+            </div>
+
+            <div className={`wizard-step-divider ${currentStep > 2 ? 'completed' : ''}`} />
+
+            {/* Step 3 */}
+            <div className={`wizard-step-node ${currentStep === 3 ? 'active' : ''}`}>
+              <div className="wizard-step-circle">
+                <Sparkles size={14} />
+              </div>
+              <div className="wizard-step-info">
+                <span className="wizard-step-title">AI 하이라이트 생성</span>
+                <span className="wizard-step-sub">
+                  {isProcessing ? `${progress.progressPercent}% 진행 중` : '스튜디오 전환'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 바디 영역 */}
+        <div className="wizard-body" data-modal-scrollable="true">
+          {/* ==================== STEP 1: 영상 업로드 & 위치 ==================== */}
+          {currentStep === 1 && (
+            <div className="wizard-step-pane">
+              <div className="wizard-pane-desc">
+                <p className="wizard-pane-lead">
+                  하이라이트를 생성할 동영상들을 업로드해주세요.
+                </p>
+                <p className="wizard-pane-sub">
+                  여러 개의 영상을 한 번에 올릴 수 있으며, 업로드된 영상의 촬영 장소명을 직접 입력하거나 수정할 수 있어요.
+                </p>
+              </div>
+
+              {/* 드래그 앤 드롭 존 */}
+              <div
+                className={`wizard-dropzone ${isDragOver ? 'is-dragover' : ''}`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept="video/*,.mp4,.mov,.webm,.mkv,.avi,.m4v"
+                  style={{ display: 'none' }}
+                  onChange={handleFileInputChange}
+                />
+                <div className="wizard-dropzone-icon">
+                  <Upload size={28} className="text-blue-500" />
+                </div>
+                <div className="wizard-dropzone-text">
+                  <strong>동영상 파일을 끌어다 놓거나 클릭하여 선택하세요</strong>
+                  <span>MP4, MOV, WebM, MKV 등 고화질 영상 지원 (브라우저 메모리 100% 비공개 처리)</span>
+                </div>
+              </div>
+
+              {/* 업로드된 영상 목록 & 위치 수정 카드 */}
+              {videos.length > 0 && (
+                <div className="wizard-video-section">
+                  <div className="wizard-video-summary-bar">
+                    <div className="wizard-summary-stats">
+                      <span className="wizard-summary-tag">
+                        총 <strong>{videos.length}</strong>개 영상
+                      </span>
+                      <span className="wizard-summary-dot">•</span>
+                      <span className="wizard-summary-tag">
+                        <Clock size={12} className="inline mr-1" />
+                        총 <strong>{totalDuration.toFixed(1)}초</strong>
+                      </span>
+                      <span className="wizard-summary-dot">•</span>
+                      <span className="wizard-summary-tag">
+                        총 <strong>{(totalSizeBytes / (1024 * 1024)).toFixed(1)} MB</strong>
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="wizard-btn-add-more"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Plus size={13} />
+                      <span>영상 추가</span>
+                    </button>
+                  </div>
+
+                  <div className="wizard-video-list">
+                    {videos.map((vid, idx) => (
+                      <div key={vid.id} className="wizard-video-card">
+                        <div className="wizard-video-card-left">
+                          <div className="wizard-video-thumb-wrap">
+                            {vid.thumbnailUrl ? (
+                              <img
+                                src={vid.thumbnailUrl}
+                                alt={vid.name}
+                                className="wizard-video-thumb"
+                              />
+                            ) : (
+                              <div className="wizard-video-thumb-fallback">
+                                <FileVideo size={20} className="text-slate-400" />
+                              </div>
+                            )}
+                            <span className="wizard-video-index-badge">#{idx + 1}</span>
+                          </div>
+
+                          <div className="wizard-video-details">
+                            <span className="wizard-video-name" title={vid.name}>
+                              {vid.name}
+                            </span>
+                            <div className="wizard-video-meta">
+                              <span>{vid.duration > 0 ? `${vid.duration.toFixed(1)}초` : '길이 확인 중'}</span>
+                              <span className="wizard-video-meta-dot">•</span>
+                              <span>
+                                {vid.width > 0 ? `${vid.width}×${vid.height}` : '해상도 확인 중'}
+                              </span>
+                              {vid.metadataDate && (
+                                <>
+                                  <span className="wizard-video-meta-dot">•</span>
+                                  <span className="wizard-meta-date">
+                                    <Calendar size={11} className="inline mr-0.5" />
+                                    {vid.metadataDate}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+
+                            {/* 위치명 수정 인풋 (개별) */}
+                            <div className="wizard-location-input-row">
+                              <MapPin size={13} className="wizard-location-pin" />
+                              <input
+                                type="text"
+                                className="wizard-location-input"
+                                placeholder="촬영 위치 수정 (예: 해운대 해수욕장, 제주 성산일출봉)"
+                                value={vid.locationName || ''}
+                                onChange={(e) => onUpdateVideoLocation(vid.id, e.target.value)}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          className="wizard-video-delete-btn"
+                          onClick={() => onRemoveVideo(vid.id)}
+                          title="목록에서 삭제"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ==================== STEP 2: 스타일 & 연출 ==================== */}
+          {currentStep === 2 && (
+            <div className="wizard-step-pane">
+              <div className="wizard-pane-desc">
+                <p className="wizard-pane-lead">
+                  영상의 분위기에 어울리는 배경음악과 연출을 설정해보세요.
+                </p>
+                <p className="wizard-pane-sub">
+                  설정하지 않고 바로 시작해도 AI가 가장 최적의 타이틀과 구성을 자동으로 준비해드려요.
+                </p>
+              </div>
+
+              {/* 1. 배경음악(BGM) 설정 카드 */}
+              <div className="wizard-config-card">
+                <div className="wizard-config-card-header">
+                  <div className="wizard-config-icon-badge bg-blue-50 text-blue-600">
+                    <Music size={18} />
+                  </div>
+                  <div>
+                    <h3 className="wizard-config-title">배경음악 (BGM) 선택</h3>
+                    <p className="wizard-config-subtitle">
+                      분위기에 맞는 무료 라이선스 음악을 선택하거나 미리 들어보세요
+                    </p>
+                  </div>
+                </div>
+
+                <div className="wizard-bgm-grid">
+                  {/* 음악 없음 */}
+                  <div
+                    className={`wizard-bgm-item ${
+                      !selectedLibraryTrackId && !customAudioFile ? 'selected' : ''
+                    }`}
+                    onClick={() => handleSelectBgmTrack(null)}
+                  >
+                    <div className="wizard-bgm-item-left">
+                      <VolumeX size={16} className="text-slate-400" />
+                      <div>
+                        <div className="wizard-bgm-name">배경음악 없음</div>
+                        <div className="wizard-bgm-desc">영상 원본 소리만 재생</div>
+                      </div>
+                    </div>
+                    {!selectedLibraryTrackId && !customAudioFile && (
+                      <Check size={16} className="text-blue-500" strokeWidth={3} />
+                    )}
+                  </div>
+
+                  {/* 내장 오디오 보관함 트랙 */}
+                  {AUDIO_LIBRARY.map((track) => {
+                    const isSelected = selectedLibraryTrackId === track.id;
+                    const isPlaying = previewTrackId === track.id;
+                    return (
+                      <div
+                        key={track.id}
+                        className={`wizard-bgm-item ${isSelected ? 'selected' : ''}`}
+                        onClick={() => handleSelectBgmTrack(track.id)}
+                      >
+                        <div className="wizard-bgm-item-left">
+                          <button
+                            type="button"
+                            className={`wizard-bgm-preview-btn ${isPlaying ? 'playing' : ''}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleTogglePreviewAudio(track);
+                            }}
+                            title={isPlaying ? '일시정지' : '미리듣기'}
+                          >
+                            {isPlaying ? <Pause size={13} /> : <Play size={13} className="ml-0.5" />}
+                          </button>
+                          <div>
+                            <div className="wizard-bgm-name">{track.name}</div>
+                            <div className="wizard-bgm-desc">
+                              {track.id === 'lively-day'
+                                ? '밝고 활기찬 무드'
+                                : track.id === 'dreaming'
+                                ? '감성적이고 잔잔한 무드'
+                                : '경쾌한 어쿠스틱 무드'}
+                            </div>
+                          </div>
+                        </div>
+                        {isSelected && (
+                          <Check size={16} className="text-blue-500" strokeWidth={3} />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* BGM 볼륨 슬라이더 */}
+                {(selectedLibraryTrackId || customAudioFile) && (
+                  <div className="wizard-volume-row">
+                    <div className="wizard-volume-label">
+                      <Volume2 size={15} className="text-slate-500" />
+                      <span>배경음악 음량</span>
+                      <strong>{Math.round(bgmVolume * 100)}%</strong>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      value={bgmVolume}
+                      onChange={(e) =>
+                        onBgmChange(
+                          selectedLibraryTrackId ? 'preset' : 'custom',
+                          parseFloat(e.target.value),
+                          selectedLibraryTrackId
+                        )
+                      }
+                      className="wizard-volume-slider"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* 2. 인트로 및 오프닝 타이틀 설정 */}
+              <div className="wizard-config-card">
+                <div className="wizard-config-card-header">
+                  <div className="wizard-config-icon-badge bg-indigo-50 text-indigo-600">
+                    <Type size={18} />
+                  </div>
+                  <div>
+                    <h3 className="wizard-config-title">인트로 타이틀 설정</h3>
+                    <p className="wizard-config-subtitle">
+                      영상의 첫 장면에 표시될 제목과 오프닝 연출을 설정합니다
+                    </p>
+                  </div>
+                </div>
+
+                <div className="wizard-form-group">
+                  <label className="wizard-form-label">
+                    <span>영상 메인 제목</span>
+                    <span className="wizard-label-badge">미입력 시 AI 자동 추천</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="wizard-input-text"
+                    placeholder="예: 부산 2박 3일 여름 여행 하이라이트 (비워두면 AI 자동 생성)"
+                    value={titleText}
+                    onChange={(e) => setTitleText(e.target.value)}
+                  />
+                </div>
+
+                <div className="wizard-toggle-grid">
+                  <label className="wizard-toggle-item">
+                    <input
+                      type="checkbox"
+                      checked={showIntro}
+                      onChange={(e) => setShowIntro(e.target.checked)}
+                      className="wizard-checkbox"
+                    />
+                    <div>
+                      <div className="wizard-toggle-title">오프닝 인트로 연출 적용</div>
+                      <div className="wizard-toggle-desc">영상 시작 시 감성적인 타이틀 애니메이션을 표시합니다</div>
+                    </div>
+                  </label>
+
+                  <label className="wizard-toggle-item">
+                    <input
+                      type="checkbox"
+                      checked={showChapterBridge}
+                      onChange={(e) => setShowChapterBridge(e.target.checked)}
+                      className="wizard-checkbox"
+                    />
+                    <div>
+                      <div className="wizard-toggle-title">구간 챕터 브릿지 자막</div>
+                      <div className="wizard-toggle-desc">새로운 영상 구간으로 넘어갈 때 장소/시간 자막을 띄웁니다</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* 3. 아웃트로(엔딩) 설정 */}
+              <div className="wizard-config-card">
+                <div className="wizard-config-card-header">
+                  <div className="wizard-config-icon-badge bg-emerald-50 text-emerald-600">
+                    <Flag size={18} />
+                  </div>
+                  <div>
+                    <h3 className="wizard-config-title">아웃트로 (엔딩 크레딧)</h3>
+                    <p className="wizard-config-subtitle">
+                      영상이 끝날 때 표시할 채널명이나 마무리 인사를 남겨보세요
+                    </p>
+                  </div>
+                </div>
+
+                <label className="wizard-toggle-item mb-3">
+                  <input
+                    type="checkbox"
+                    checked={showOutro}
+                    onChange={(e) => setShowOutro(e.target.checked)}
+                    className="wizard-checkbox"
+                  />
+                  <div>
+                    <div className="wizard-toggle-title">엔딩 아웃트로 연출 적용</div>
+                    <div className="wizard-toggle-desc">영상 마지막에 부드러운 페이드아웃과 서명을 표시합니다</div>
+                  </div>
+                </label>
+
+                {showOutro && (
+                  <div className="wizard-form-group">
+                    <label className="wizard-form-label">
+                      <span>채널명 / 엔딩 문구</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="wizard-input-text"
+                      placeholder="예: Reportist Travel · 구독과 좋아요 부탁드려요!"
+                      value={channelText}
+                      onChange={(e) => setChannelText(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ==================== STEP 3: AI 하이라이트 생성 (진행 상황) ==================== */}
+          {currentStep === 3 && (
+            <div className="wizard-step-pane wizard-processing-pane">
+              <div className="wizard-processing-hero">
+                <div className="wizard-processing-pulse">
+                  <Sparkles size={36} className="text-blue-500 animate-spin-slow" />
+                </div>
+                <h3 className="wizard-processing-title">
+                  AI가 영상의 극적인 순간을 분석하고 있어요
+                </h3>
+                <p className="wizard-processing-desc">
+                  {progress.statusMessage || '영상의 주요 프레임을 분석하여 하이라이트를 탐색 중입니다...'}
+                </p>
+              </div>
+
+              {/* 프로그레스 바 */}
+              <div className="wizard-progress-card">
+                <div className="wizard-progress-header">
+                  <span className="wizard-progress-stage">
+                    {progress.currentPhase === 'extract'
+                      ? '1단계: 영상 프레임 고속 추출'
+                      : '2단계: 비전 AI 극적 장면 분석 & 컷팅'}
+                  </span>
+                  <span className="wizard-progress-pct">{progress.progressPercent}%</span>
+                </div>
+                <div className="wizard-progressbar-track">
+                  <div
+                    className="wizard-progressbar-fill"
+                    style={{ width: `${Math.max(4, progress.progressPercent)}%` }}
+                  />
+                </div>
+
+                <div className="wizard-stage-steps">
+                  <div className={`wizard-stage-chip ${progress.progressPercent >= 15 ? 'done' : 'active'}`}>
+                    {progress.progressPercent >= 15 ? <Check size={12} /> : '1'} 프레임 추출
+                  </div>
+                  <div className={`wizard-stage-chip ${progress.progressPercent >= 85 ? 'done' : progress.progressPercent >= 15 ? 'active' : ''}`}>
+                    {progress.progressPercent >= 85 ? <Check size={12} /> : '2'} AI 하이라이트 탐색
+                  </div>
+                  <div className={`wizard-stage-chip ${progress.progressPercent >= 100 ? 'done' : progress.progressPercent >= 85 ? 'active' : ''}`}>
+                    {progress.progressPercent >= 100 ? <Check size={12} /> : '3'} 타임라인 & 자막 구성
+                  </div>
+                </div>
+              </div>
+
+              {/* 실시간 AI 추론 터미널 콘솔 */}
+              <div className="wizard-terminal-card">
+                <div className="wizard-terminal-header">
+                  <Terminal size={14} className="text-slate-400" />
+                  <span>실시간 분석 로그</span>
+                  <Activity size={13} className="text-emerald-400 ml-auto animate-pulse" />
+                </div>
+                <div className="wizard-terminal-content">
+                  {progress.liveReasoning && (
+                    <div className="wizard-live-stream-box">
+                      <div className="wizard-stream-badge">AI Thinking</div>
+                      <p className="wizard-stream-text">{progress.liveReasoning}</p>
+                    </div>
+                  )}
+                  {progress.reasoningLogs && progress.reasoningLogs.length > 0 ? (
+                    progress.reasoningLogs.map((log, idx) => (
+                      <div key={idx} className="wizard-terminal-log">
+                        {log}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="wizard-terminal-empty">AI 분석 파이프라인 준비 중...</div>
+                  )}
+                  <div ref={terminalEndRef} />
+                </div>
+              </div>
+
+              {/* 취소 버튼 */}
+              <div className="wizard-processing-actions">
+                <button
+                  type="button"
+                  className="wizard-btn-cancel"
+                  onClick={onCancelProcessing}
+                >
+                  분석 중단하기
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 하단 푸터 액션 바 */}
+        <div className="wizard-modal-footer">
+          {currentStep === 1 && (
+            <>
+              <button
+                type="button"
+                className="wizard-btn-ghost"
+                onClick={onClose}
+              >
+                스튜디오로 이동
+              </button>
+
+              <button
+                type="button"
+                className="wizard-btn-primary"
+                disabled={videos.length === 0}
+                onClick={() => setCurrentStep(2)}
+              >
+                <span>다음: 스타일 & 연출</span>
+                <ArrowRight size={16} />
+              </button>
+            </>
+          )}
+
+          {currentStep === 2 && (
+            <>
+              <button
+                type="button"
+                className="wizard-btn-secondary"
+                onClick={() => setCurrentStep(1)}
+              >
+                <ArrowLeft size={16} />
+                <span>이전</span>
+              </button>
+
+              <div className="wizard-footer-right">
+                <button
+                  type="button"
+                  className="wizard-btn-primary"
+                  onClick={handleStartAnalysis}
+                >
+                  <Sparkles size={16} />
+                  <span>AI 하이라이트 생성 시작</span>
+                </button>
+              </div>
+            </>
+          )}
+
+          {currentStep === 3 && (
+            <div className="wizard-footer-processing-note">
+              <span>💡 분석이 완료되면 스튜디오로 자동 전환되어 자막과 구간을 바로 편집할 수 있어요.</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};

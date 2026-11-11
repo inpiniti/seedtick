@@ -214,6 +214,7 @@ interface ProStudioViewProps {
   onDuplicateProject?: (id: string) => void;
   onDeleteProject?: (id: string) => void;
   onStartNewProject?: () => void;
+  onOpenNewProjectWizard?: () => void;
   initialOverlayOptions?: VideoOverlayOptions | null;
   initialBgmPresetId?: string;
   initialBgmVolume?: number;
@@ -254,6 +255,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   onDuplicateProject,
   onDeleteProject,
   onStartNewProject,
+  onOpenNewProjectWizard,
   initialOverlayOptions,
   initialBgmPresetId,
   initialBgmVolume,
@@ -549,8 +551,134 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     dict,
   ]);
 
-  // 4-2. 상단 탭 상태 (내 작업 보관함 vs 스튜디오 vs 영상 공유 커뮤니티)
+  // 4-2. 상단 탭 상태 (스튜디오 목록 vs 스튜디오 상세 vs 영상 공유 커뮤니티)
   const [activeTab, setActiveTab] = useState<'projects' | 'studio' | 'community'>('projects');
+
+  // 모든 모달 일괄 닫기 헬퍼 (브라우저 뒤로가기 시 활용)
+  const closeAllModals = useCallback((): boolean => {
+    let hadOpenModal = false;
+    if (isLanguageModalOpen) { setIsLanguageModalOpen(false); hadOpenModal = true; }
+    if (isModelModalOpen) { setIsModelModalOpen(false); hadOpenModal = true; }
+    if (isVideoListModalOpen) { setIsVideoListModalOpen(false); hadOpenModal = true; }
+    if (isAudioLibraryOpen) { setIsAudioLibraryOpen(false); hadOpenModal = true; }
+    if (isSettingsModalOpen) { setIsSettingsModalOpen(false); hadOpenModal = true; }
+    if (isFeedbackModalOpen) { setIsFeedbackModalOpen(false); hadOpenModal = true; }
+    if (isPatchNotesModalOpen) { setIsPatchNotesModalOpen(false); hadOpenModal = true; }
+    if (isDateFormatModalOpen) { setIsDateFormatModalOpen(false); hadOpenModal = true; }
+    if (isSubtitleModalOpen) { setIsSubtitleModalOpen(false); hadOpenModal = true; }
+    if (isExportModalOpen) { setIsExportModalOpen(false); hadOpenModal = true; }
+    if (trimModalTarget) { setTrimModalTarget(null); hadOpenModal = true; }
+    if (mapModalTarget) { setMapModalTarget(null); hadOpenModal = true; }
+    return hadOpenModal;
+  }, [
+    isLanguageModalOpen,
+    isModelModalOpen,
+    isVideoListModalOpen,
+    isAudioLibraryOpen,
+    isSettingsModalOpen,
+    isFeedbackModalOpen,
+    isPatchNotesModalOpen,
+    isDateFormatModalOpen,
+    isSubtitleModalOpen,
+    isExportModalOpen,
+    trimModalTarget,
+    mapModalTarget,
+  ]);
+
+  // 브라우저 History API 연동 탭 네비게이션
+  const navigateToTab = useCallback((nextTab: 'projects' | 'studio' | 'community', replace = false) => {
+    setActiveTab((prev) => {
+      if (prev === nextTab) return prev;
+      const targetHash = nextTab === 'projects' ? '#projects' : nextTab === 'studio' ? '#studio' : '#community';
+      if (replace) {
+        window.history.replaceState({ tab: nextTab, timestamp: Date.now() }, '', targetHash);
+      } else {
+        window.history.pushState({ tab: nextTab, timestamp: Date.now() }, '', targetHash);
+      }
+      return nextTab;
+    });
+  }, []);
+
+  // 화면 내 '스튜디오 목록으로' 뒤로가기 액션
+  const handleBackToProjects = useCallback(() => {
+    onViewProjects?.();
+    if (window.history.state && window.history.state.tab === 'studio' && window.history.length > 1) {
+      window.history.back();
+    } else {
+      navigateToTab('projects');
+    }
+  }, [onViewProjects, navigateToTab]);
+
+  // 브라우저 뒤로가기(popstate) 및 초기 해시 동기화
+  useEffect(() => {
+    const hash = window.location.hash.toLowerCase();
+    let initialTab: 'projects' | 'studio' | 'community' = 'projects';
+    if (hash === '#studio') {
+      initialTab = 'studio';
+    } else if (hash === '#community') {
+      initialTab = 'community';
+    } else {
+      initialTab = 'projects';
+    }
+    setActiveTab(initialTab);
+    window.history.replaceState({ tab: initialTab, root: true, timestamp: Date.now() }, '', window.location.hash || '#projects');
+
+    const handlePopState = (e: PopStateEvent) => {
+      // 1. 모달이 열려있는 상태에서 뒤로가기를 누른 경우 모달을 먼저 닫음
+      const closedModal = closeAllModals();
+      if (closedModal) {
+        return;
+      }
+
+      // 2. 화면 탭 전환 처리
+      const stateTab = e.state?.tab;
+      const curHash = window.location.hash.toLowerCase();
+      let targetTab: 'projects' | 'studio' | 'community' = 'projects';
+      if (stateTab === 'studio' || curHash === '#studio') {
+        targetTab = 'studio';
+      } else if (stateTab === 'community' || curHash === '#community') {
+        targetTab = 'community';
+      } else {
+        targetTab = 'projects';
+      }
+
+      if (targetTab === 'projects') {
+        onViewProjects?.();
+      }
+      setActiveTab(targetTab);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [closeAllModals, onViewProjects]);
+
+  // 모달 오픈 시 브라우저 히스토리 푸시 (모달에서 뒤로가기 시 웹페이지 밖으로 나가지 않고 모달만 닫히도록)
+  const isAnyModalOpen = Boolean(
+    isLanguageModalOpen ||
+    isModelModalOpen ||
+    isVideoListModalOpen ||
+    isAudioLibraryOpen ||
+    isSettingsModalOpen ||
+    isFeedbackModalOpen ||
+    isPatchNotesModalOpen ||
+    isDateFormatModalOpen ||
+    isSubtitleModalOpen ||
+    isExportModalOpen ||
+    trimModalTarget ||
+    mapModalTarget
+  );
+  const modalHistoryPushedRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (isAnyModalOpen && !modalHistoryPushedRef.current) {
+      window.history.pushState({ tab: activeTab, isModal: true, timestamp: Date.now() }, '', window.location.hash);
+      modalHistoryPushedRef.current = true;
+    } else if (!isAnyModalOpen && modalHistoryPushedRef.current) {
+      modalHistoryPushedRef.current = false;
+    }
+  }, [isAnyModalOpen, activeTab]);
 
   // 5. 자막 & 브랜딩 오버레이 상태
   const initialDateStr = useMemo(() => {
@@ -657,6 +785,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     channelText: overlayOptions.channelText || dict.player.defaultChannelText,
     outroText: overlayOptions.outroText || dict.introOutro.outroDefaultText,
   }), [overlayOptions, dict]);
+
+  const currentProjectTitle = useMemo(() => {
+    return (
+      effectiveOverlayOptions?.titleText ||
+      result?.suggestedTitle ||
+      (videos[0]?.name ? videos[0].name.replace(/\.[^/.]+$/, '') : (dict.projects?.newProjectTitle || '새 스튜디오 작업'))
+    );
+  }, [effectiveOverlayOptions?.titleText, result?.suggestedTitle, videos, dict.projects?.newProjectTitle]);
 
   // 6. AI 16:9 유튜브 썸네일 상태
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(result?.thumbnailUrl || null);
@@ -3274,12 +3410,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               className={`toss-nav-tab-btn ${activeTab === 'projects' || activeTab === 'studio' ? 'active' : ''}`}
               onClick={() => {
                 if (activeTab === 'studio') {
-                  onViewProjects?.();
-                  setActiveTab('projects');
+                  handleBackToProjects();
                 } else if (activeTab === 'projects') {
                   onViewProjects?.();
                 } else {
-                  setActiveTab('projects');
+                  navigateToTab('projects');
                 }
               }}
               title={dict.community?.studioTab || dict.projects?.tabTitle || '스튜디오'}
@@ -3290,7 +3425,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <button
               type="button"
               className={`toss-nav-tab-btn ${activeTab === 'community' ? 'active' : ''}`}
-              onClick={() => setActiveTab('community')}
+              onClick={() => navigateToTab('community')}
               title={dict.community?.communityTab || '영상 공유'}
             >
               <Share2 size={14} />
@@ -3303,10 +3438,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <button
               type="button"
               className="toss-nav-back-to-list-btn"
-              onClick={() => {
-                onViewProjects?.();
-                setActiveTab('projects');
-              }}
+              onClick={handleBackToProjects}
               title={dict.projects?.backToList || '스튜디오 목록으로'}
             >
               <ChevronLeft size={14} />
@@ -3419,9 +3551,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         <VideoCommunityView
           onOpenStudio={() => {
             if (videos.length > 0 || result) {
-              setActiveTab('studio');
+              navigateToTab('studio');
             } else {
-              setActiveTab('projects');
+              navigateToTab('projects');
             }
           }}
         />
@@ -3434,7 +3566,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             try {
               await onOpenProject?.(id);
             } finally {
-              setActiveTab('studio');
+              navigateToTab('studio');
             }
           }}
           onDuplicateProject={(id) => onDuplicateProject?.(id)}
@@ -3442,11 +3574,49 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           onStartNewProject={() => {
             resetStudioState();
             onStartNewProject?.();
-            setActiveTab('studio');
+            navigateToTab('studio');
           }}
         />
       ) : (
         <main className="toss-main-content">
+          {/* 스튜디오 상세 서브헤더 바 (직관적인 화면 내 뒤로가기 + 프로젝트 타이틀 브레드크럼) */}
+          <div className="toss-studio-detail-header-bar">
+            <button
+              type="button"
+              className="toss-studio-back-btn"
+              onClick={handleBackToProjects}
+              title={dict.projects?.backToList || '스튜디오 목록으로'}
+            >
+              <ChevronLeft size={16} />
+              <span>{dict.projects?.backToList || '스튜디오 목록으로'}</span>
+            </button>
+
+            <div className="toss-studio-breadcrumb-info">
+              <span
+                className="toss-studio-breadcrumb-parent"
+                onClick={handleBackToProjects}
+                title={dict.projects?.goToProjects || '스튜디오 목록으로 이동'}
+              >
+                {dict.projects?.tabTitle || '스튜디오'}
+              </span>
+              <span className="toss-studio-breadcrumb-sep">/</span>
+              <span className="toss-studio-breadcrumb-title" title={currentProjectTitle}>
+                {currentProjectTitle}
+              </span>
+              {videos.length > 0 && (
+                <span className="toss-studio-breadcrumb-badge">
+                  {dict.projects?.clipsCount ? interpolate(dict.projects.clipsCount, { count: videos.length }) : `${videos.length}개 영상`}
+                </span>
+              )}
+            </div>
+
+            <div className="toss-studio-header-save-indicator">
+              <span className={`toss-bottom-status-dot ${videos.length === 0 ? 'idle' : saveStatus === 'saving' ? 'saving' : 'saved'}`} />
+              <span className="toss-studio-header-save-text">
+                {saveStatus === 'saving' ? (dict.projects?.saving || '기기에 저장 중...') : (dict.projects?.autoSaved || '기기에 안전 저장됨')}
+              </span>
+            </div>
+          </div>
         {/* 누락 파일 일괄 재연결 알림 배너: 아직 하이라이트 분석 전(초기 업로드 단계)에만 표시 */}
         {isDraftPreview && !result?.url && videos.some((v) => !v.url || (v.file && v.file.size === 0) || v.error || v.isMissingFile) && (
           <div className="toss-relink-banner">
@@ -3784,24 +3954,48 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 ) : (
                   <div
                     className="toss-player-empty"
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={() => {
+                      if (onOpenNewProjectWizard) {
+                        onOpenNewProjectWizard();
+                      } else if (onStartNewProject) {
+                        onStartNewProject();
+                      } else {
+                        fileInputRef.current?.click();
+                      }
+                    }}
                   >
                     <div className="toss-empty-circle-icon">
-                      <Upload size={28} className="text-blue-500" />
+                      <Sparkles size={28} className="text-blue-500" />
                     </div>
-                    <h3 className="toss-empty-title">{dict.player.emptyTitle}</h3>
+                    <h3 className="toss-empty-title">새 AI 영상 작업 시작하기</h3>
                     <p className="toss-empty-desc">
-                      {dict.player.emptyDesc.split('\n').map((line, i) => (
-                        <React.Fragment key={i}>
-                          {line}
-                          {i === 0 && <br />}
-                        </React.Fragment>
-                      ))}
+                      마법사를 통해 영상 업로드, 개별 위치명 확인, BGM 설정을 거쳐<br />
+                      AI 하이라이트를 간편하게 완성해보세요.
                     </p>
-                    <button type="button" className="toss-btn-secondary mt-3">
-                      <Plus size={15} />
-                      <span>{dict.player.selectVideoFiles}</span>
-                    </button>
+                    <div className="flex items-center gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        className="toss-btn-primary"
+                        onClick={() => {
+                          if (onOpenNewProjectWizard) {
+                            onOpenNewProjectWizard();
+                          } else if (onStartNewProject) {
+                            onStartNewProject();
+                          }
+                        }}
+                      >
+                        <Sparkles size={14} />
+                        <span>새 프로젝트 마법사</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="toss-btn-secondary"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <Upload size={14} />
+                        <span>영상 파일 직접 선택</span>
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -5939,10 +6133,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 <button
                   type="button"
                   className="toss-bottom-status-link"
-                  onClick={() => {
-                    onViewProjects?.();
-                    setActiveTab('projects');
-                  }}
+                  onClick={handleBackToProjects}
                   title={dict.projects?.goToProjects || '스튜디오 목록으로 이동'}
                 >
                   <FolderOpen size={12} className="inline mr-1 text-slate-500" />

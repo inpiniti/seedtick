@@ -51,6 +51,7 @@ import { AUDIO_LIBRARY, loadLibraryAudioFile } from './data/audioLibrary.ts';
 import { saveVideoToOPFS } from './services/opfsStorage.ts';
 import { AlertCircle } from 'lucide-react';
 import { useI18n } from './i18n/index.tsx';
+import { NewProjectWizard } from './components/wizard/NewProjectWizard.tsx';
 
 const INITIAL_VIDEO_MODELS = enrichModelMetrics(FALLBACK_VIDEO_MODELS);
 const INITIAL_DEFAULT_MODEL = pickDefaultModel(INITIAL_VIDEO_MODELS);
@@ -81,7 +82,15 @@ export function App() {
   // 2. 비디오 목록 및 처리 상태
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [currentStep, setCurrentStep] = useState<OverallStep>('upload');
+  const [isWizardOpen, setIsWizardOpen] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // 개별 영상 위치/장소명 수정 핸들러
+  const handleUpdateVideoLocation = useCallback((id: string, locationName: string) => {
+    setVideos((prev) =>
+      prev.map((v) => (v.id === id ? { ...v, locationName } : v))
+    );
+  }, []);
 
   // 3. 진행률 및 결과
   const [progress, setProgress] = useState<ProcessingProgress>({
@@ -349,7 +358,7 @@ export function App() {
     }
   };
 
-  // 새 작업 시작
+  // 새 작업 시작 (온보딩 마법사 열기)
   const handleStartNewProject = () => {
     const urlsToRevoke: string[] = [];
     videos.forEach((v: VideoItem) => {
@@ -362,13 +371,15 @@ export function App() {
     setVideos([]);
     setFinalResult(null);
     setCurrentStep('upload');
-    setCurrentProjectId(generateProjectId());
+    const newProjId = generateProjectId();
+    setCurrentProjectId(newProjId);
     setLastActiveProjectId(null);
     setCurrentOverlayOptions(null);
     setCurrentBgmPresetId('none');
     setCurrentBgmVolume(0.3);
     setCurrentCustomAudio(null);
     setCurrentLibraryTrackId(null);
+    setIsWizardOpen(true);
 
     if (urlsToRevoke.length > 0) {
       setTimeout(() => {
@@ -379,7 +390,6 @@ export function App() {
         });
       }, 1000);
     }
-    setCurrentProjectId(null);
     setSaveStatus('idle');
   };
 
@@ -598,6 +608,7 @@ export function App() {
         await handleOpenProject(lastId);
       } else if (isMounted && !currentProjectId) {
         setCurrentProjectId(generateProjectId());
+        setIsWizardOpen(true);
       }
     }
     void initProjects();
@@ -1599,6 +1610,7 @@ export function App() {
         progressPercent: 100,
       }));
       setCurrentStep('result');
+      setIsWizardOpen(false);
     } catch (err: unknown) {
       if (liveFlushTimer !== null) {
         window.clearTimeout(liveFlushTimer);
@@ -1819,6 +1831,7 @@ export function App() {
         onDuplicateProject={handleDuplicateProject}
         onDeleteProject={handleDeleteProject}
         onStartNewProject={handleStartNewProject}
+        onOpenNewProjectWizard={() => setIsWizardOpen(true)}
         onViewProjects={handleViewProjects}
         initialOverlayOptions={currentOverlayOptions}
         initialBgmPresetId={currentBgmPresetId}
@@ -1836,6 +1849,39 @@ export function App() {
         onCustomAudioChange={setCurrentCustomAudio}
         onRelinkVideo={handleRelinkSingleVideo}
         onRelinkBatch={handleRelinkBatch}
+      />
+
+      {/* 새 작업 시작 시 진행되는 3단계 온보딩 마법사 (스텝퍼) */}
+      <NewProjectWizard
+        isOpen={isWizardOpen}
+        onClose={() => setIsWizardOpen(false)}
+        videos={videos}
+        onFilesSelected={handleFilesSelected}
+        onRemoveVideo={handleRemove}
+        onUpdateVideoLocation={handleUpdateVideoLocation}
+        selectedLibraryTrackId={currentLibraryTrackId}
+        bgmVolume={currentBgmVolume}
+        onBgmChange={(bgmId: string, vol: number, libTrackId?: string | null) => {
+          setCurrentBgmPresetId(bgmId);
+          setCurrentBgmVolume(vol);
+          if (libTrackId !== undefined) {
+            setCurrentLibraryTrackId(libTrackId);
+          }
+        }}
+        customAudioFile={currentCustomAudio}
+        onCustomAudioChange={setCurrentCustomAudio}
+        overlayOptions={currentOverlayOptions}
+        onOverlayOptionsChange={handleOverlayOptionsChange}
+        selectedModel={selectedModel}
+        selectedEffort={selectedEffort}
+        models={models}
+        isLoadingModels={isLoadingModels}
+        onSelectModel={setSelectedModel}
+        onSelectEffort={setSelectedEffort}
+        onStartAiAnalysis={handleStartProcessing}
+        isProcessing={currentStep === 'processing'}
+        progress={progress}
+        onCancelProcessing={handleCancel}
       />
     </div>
   );

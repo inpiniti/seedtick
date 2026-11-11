@@ -12,6 +12,7 @@ import {
   Database,
   Film,
   RefreshCw,
+  ChevronLeft,
 } from 'lucide-react';
 import type { VideoShareItem, VideoSortOrder } from '../../types/share.ts';
 import { fetchSharedVideos, incrementVideoShareView } from '../../services/videoShareService.ts';
@@ -37,6 +38,24 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
   // Modals state
   const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false);
   const [selectedVideo, setSelectedVideo] = useState<VideoShareItem | null>(null);
+
+  // 모달 오픈 시 브라우저 뒤로가기 연동 (뒤로가기 시 웹페이지를 빠져나가지 않고 모달만 닫힘)
+  useEffect(() => {
+    const isAnyModalOpen = Boolean(isShareModalOpen || selectedVideo);
+    if (!isAnyModalOpen) return;
+
+    window.history.pushState({ communityModal: true }, '', window.location.hash);
+
+    const handlePopState = () => {
+      setIsShareModalOpen(false);
+      setSelectedVideo(null);
+    };
+
+    window.addEventListener('popstate', handlePopState, { once: true });
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [isShareModalOpen, selectedVideo]);
 
   // Toast feedback
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -110,6 +129,17 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
         <section className="toss-community-header-card">
           <div className="toss-community-header-top">
             <div className="toss-community-header-left">
+              {onOpenStudio && (
+                <button
+                  type="button"
+                  onClick={onOpenStudio}
+                  className="toss-community-back-btn"
+                  title={dict.projects?.backToList || '스튜디오로 돌아가기'}
+                >
+                  <ChevronLeft size={15} />
+                  <span>{dict.projects?.backToList || '스튜디오로 돌아가기'}</span>
+                </button>
+              )}
               <div className="toss-community-badge-row">
                 <span className="toss-community-badge youtube">
                   <Play size={10} fill="currentColor" />
