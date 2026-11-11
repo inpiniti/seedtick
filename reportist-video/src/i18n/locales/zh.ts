@@ -3,12 +3,12 @@ import type { Dictionary } from '../types.ts';
 
 export const zh: Dictionary = {
   meta: {
-    title: 'Reportist Video — AI 高光精彩片段生成器',
+    title: 'PenguinCut — AI 高光精彩片段生成器',
     description: 'AI 精准捕捉多段视频中最震撼的高光时刻，一键无损合成 16:9 电影级精彩合辑。',
-    keywords: 'Reportist, Reportist Video, 视频AI, 精彩片段提取, AI高光生成器, 智能视频剪辑',
+    keywords: 'PenguinCut, PenguinCut, 视频AI, 精彩片段提取, AI高光生成器, 智能视频剪辑',
   },
   common: {
-    brandName: 'Reportist Video',
+    brandName: 'PenguinCut',
     taglineBadge: '16:9 YouTube 精彩合辑',
     loading: '加载中...',
     cancel: '取消',
@@ -39,7 +39,7 @@ export const zh: Dictionary = {
     modelLabel: '模型:',
     effortLabel: '推理投入:',
     modelWidgetTitle: '仅提供经过筛选支持多帧视觉分析的高性能模型',
-    visitReportistHome: '前往 Reportist 首页',
+    visitPenguinCutHome: '前往 PenguinCut 首页',
   },
   header: {
     aiModel: 'AI 模型',
@@ -64,7 +64,7 @@ export const zh: Dictionary = {
     rightTitleLabel: '右上角文案',
     rightTitlePlaceholder: '视频右上角频道/作者（留空则不显示）',
     defaultTitleText: '我们的高光时刻',
-    defaultChannelText: 'Reportist',
+    defaultChannelText: 'PenguinCut',
     play: '播放',
     pause: '暂停',
     rewind5s: '快退 5 秒',
@@ -133,7 +133,7 @@ export const zh: Dictionary = {
   audioLibrary: {
     openButton: '音频库',
     title: '音频库',
-    subtitle: '试听 Reportist 准备的背景音乐，挑选一首加入视频。',
+    subtitle: '试听 PenguinCut 准备的背景音乐，挑选一首加入视频。',
     preview: '试听',
     stopPreview: '停止试听',
     selected: '已选择',
@@ -494,7 +494,7 @@ export const zh: Dictionary = {
   community: {
     navTitle: '视频社区',
     headerTitle: '探索分享的视频',
-    headerDesc: '发现使用 Reportist Video 制作并分享到 YouTube 的精彩片段。',
+    headerDesc: '发现使用 PenguinCut 制作并分享到 YouTube 的精彩片段。',
     shareMyVideo: '分享视频',
     searchPlaceholder: '搜索视频标题或创作者...',
     sortLatest: '最新',
@@ -615,7 +615,7 @@ export const zh: Dictionary = {
   patchNotes: {
     title: '更新日志',
     latestBadge: '最新版本',
-    subtitle: '汇总 Reportist Video 的所有更新和新特性。',
+    subtitle: '汇总 PenguinCut 的所有更新和新特性。',
     allReleases: '所有版本',
     majorUpdates: '主要更新',
     minorUpdates: '优化与修复',
@@ -743,7 +743,7 @@ export const zh: Dictionary = {
     removeOutroClip: "删除片尾视频",
     attachOutroClip: "添加片尾视频文件 (MP4, MOV 等)",
     channelLabel: "频道名称 / 结束寄语",
-    channelPlaceholder: "例如：Reportist Travel · 欢迎关注与点赞！",
+    channelPlaceholder: "例如：PenguinCut Travel · 欢迎关注与点赞！",
     step3HeroTitle: "AI 正在分析视频中的高光时刻",
     step3DefaultStatus: "正在分析关键帧以寻找高光瞬间...",
     stageExtract: "第 1 阶段：快速提取视频帧",

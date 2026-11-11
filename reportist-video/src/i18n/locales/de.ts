@@ -3,12 +3,12 @@ import type { Dictionary } from '../types.ts';
 
 export const de: Dictionary = {
   meta: {
-    title: 'Reportist Video — KI Höhepunkt- & Highlight-Videogenerator',
+    title: 'PenguinCut — KI Höhepunkt- & Highlight-Videogenerator',
     description: 'KI erkennt und extrahiert präzise die dramatischsten Höhepunkte aus mehreren Videos und erstellt automatisch ein kinoreifes 16:9-Highlight-Video.',
-    keywords: 'Reportist, Reportist Video, Video KI, Highlight Extraktion, KI Highlight Generator, KI Video Editor',
+    keywords: 'PenguinCut, PenguinCut, Video KI, Highlight Extraktion, KI Highlight Generator, KI Video Editor',
   },
   common: {
-    brandName: 'Reportist Video',
+    brandName: 'PenguinCut',
     taglineBadge: '16:9 YouTube Highlight',
     loading: 'Laden...',
     cancel: 'Abbrechen',
@@ -38,7 +38,7 @@ export const de: Dictionary = {
     modelLabel: 'Modell:',
     effortLabel: 'Aufwand:',
     modelWidgetTitle: 'Nur für Multi-Frame-Sichtanalyse geeignete Modelle werden bereitgestellt',
-    visitReportistHome: 'Zur Reportist-Startseite',
+    visitPenguinCutHome: 'Zur PenguinCut-Startseite',
   },
   header: {
     aiModel: 'KI-Modell',
@@ -63,7 +63,7 @@ export const de: Dictionary = {
     rightTitleLabel: 'Rechter Titel',
     rightTitlePlaceholder: 'Kanal/Autor oben rechts (leer lassen zum Ausblenden)',
     defaultTitleText: 'Meine Highlights',
-    defaultChannelText: 'Reportist',
+    defaultChannelText: 'PenguinCut',
     play: 'Abspielen',
     pause: 'Pause',
     rewind5s: '5s zurück',
@@ -132,7 +132,7 @@ export const de: Dictionary = {
   audioLibrary: {
     openButton: 'Audio-Bibliothek',
     title: 'Audio-Bibliothek',
-    subtitle: 'Hören Sie die von Reportist vorbereiteten Soundtracks an und wählen Sie einen für Ihr Video.',
+    subtitle: 'Hören Sie die von PenguinCut vorbereiteten Soundtracks an und wählen Sie einen für Ihr Video.',
     preview: 'Anhören',
     stopPreview: 'Stoppen',
     selected: 'Ausgewählt',
@@ -426,7 +426,7 @@ export const de: Dictionary = {
   community: {
     navTitle: 'Video-Community',
     headerTitle: 'Geteilte Videos entdecken',
-    headerDesc: 'Entdecken Sie Highlights, die mit Reportist Video erstellt und auf YouTube geteilt wurden.',
+    headerDesc: 'Entdecken Sie Highlights, die mit PenguinCut erstellt und auf YouTube geteilt wurden.',
     shareMyVideo: 'Video teilen',
     searchPlaceholder: 'Nach Videotitel oder Ersteller suchen...',
     sortLatest: 'Neueste',
@@ -547,7 +547,7 @@ export const de: Dictionary = {
   patchNotes: {
     title: 'Patch-Notes',
     latestBadge: 'Neueste Version',
-    subtitle: 'Alle Updates und neuen Funktionen von Reportist Video auf einen Blick.',
+    subtitle: 'Alle Updates und neuen Funktionen von PenguinCut auf einen Blick.',
     allReleases: 'Alle Releases',
     majorUpdates: 'Wichtige Updates',
     minorUpdates: 'Verbesserungen & Fehlerbehebungen',
@@ -708,7 +708,7 @@ export const de: Dictionary = {
     removeOutroClip: "Outro-Video entfernen",
     attachOutroClip: "Outro-Videodatei anhängen (MP4, MOV usw.)",
     channelLabel: "Kanalname / Schlusssatz",
-    channelPlaceholder: "Z. B. Reportist Travel · Abonnieren und Liken nicht vergessen!",
+    channelPlaceholder: "Z. B. PenguinCut Travel · Abonnieren und Liken nicht vergessen!",
     step3HeroTitle: "Die KI analysiert die spannendsten Momente Ihrer Videos",
     step3DefaultStatus: "Schlüsselframes werden analysiert, um Highlights zu finden...",
     stageExtract: "Stufe 1: Schnelle Video-Frame-Extraktion",

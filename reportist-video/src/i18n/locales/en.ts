@@ -3,12 +3,12 @@ import type { Dictionary } from '../types.ts';
 
 export const en: Dictionary = {
   meta: {
-    title: 'Reportist Video — AI Climax Highlight Generator',
+    title: 'PenguinCut — AI Video Highlight Editor',
     description: 'AI precisely detects and extracts the most dramatic climax moments from multiple videos into a unified 16:9 cinematic highlight.',
-    keywords: 'Reportist, Reportist Video, Video AI, highlight extraction, AI highlight generator, AI video editor',
+    keywords: 'PenguinCut, PenguinCut, Video AI, highlight extraction, AI highlight generator, AI video editor',
   },
   common: {
-    brandName: 'Reportist Video',
+    brandName: 'PenguinCut',
     taglineBadge: '16:9 YouTube Highlight',
     loading: 'Loading...',
     cancel: 'Cancel',
@@ -39,7 +39,7 @@ export const en: Dictionary = {
     modelLabel: 'Model:',
     effortLabel: 'Effort:',
     modelWidgetTitle: 'Only models supporting multi-frame sequential visual analysis are provided',
-    visitReportistHome: 'Go to Reportist Home',
+    visitPenguinCutHome: 'Go to PenguinCut Home',
   },
   header: {
     aiModel: 'AI Model',
@@ -64,7 +64,7 @@ export const en: Dictionary = {
     rightTitleLabel: 'Right Title',
     rightTitlePlaceholder: 'Top-right channel/author (leave blank to hide)',
     defaultTitleText: 'My Video Highlights',
-    defaultChannelText: 'Reportist',
+    defaultChannelText: 'PenguinCut',
     play: 'Play',
     pause: 'Pause',
     rewind5s: 'Rewind 5s',
@@ -133,7 +133,7 @@ export const en: Dictionary = {
   audioLibrary: {
     openButton: 'Audio Library',
     title: 'Audio Library',
-    subtitle: 'Preview the soundtracks prepared by Reportist and pick one for your video.',
+    subtitle: 'Preview the soundtracks prepared by PenguinCut and pick one for your video.',
     preview: 'Preview',
     stopPreview: 'Stop preview',
     selected: 'Selected',
@@ -266,7 +266,7 @@ export const en: Dictionary = {
   community: {
     navTitle: 'Video Community',
     headerTitle: 'Explore Shared Videos',
-    headerDesc: 'Discover highlights created with Reportist Video and shared on YouTube.',
+    headerDesc: 'Discover highlights created with PenguinCut and shared on YouTube.',
     shareMyVideo: 'Share Video',
     searchPlaceholder: 'Search by video title or creator...',
     sortLatest: 'Latest',
@@ -387,7 +387,7 @@ export const en: Dictionary = {
   patchNotes: {
     title: 'Patch Notes',
     latestBadge: 'Latest',
-    subtitle: 'All recent updates, new features, and improvements for Reportist Video.',
+    subtitle: 'All recent updates, new features, and improvements for PenguinCut.',
     allReleases: 'All Releases',
     majorUpdates: 'Major Updates',
     minorUpdates: 'Fixes & Improvements',
@@ -791,7 +791,7 @@ export const en: Dictionary = {
     removeOutroClip: "Remove outro video",
     attachOutroClip: "Attach ending outro video file (MP4, MOV, etc.)",
     channelLabel: "Channel Name / Ending Text",
-    channelPlaceholder: "e.g. Reportist Travel · Subscribe and Like!",
+    channelPlaceholder: "e.g. PenguinCut Travel · Subscribe and Like!",
     step3HeroTitle: "AI is analyzing dramatic moments in your videos",
     step3DefaultStatus: "Analyzing key frames to discover highlights...",
     stageExtract: "Stage 1: High-speed video frame extraction",

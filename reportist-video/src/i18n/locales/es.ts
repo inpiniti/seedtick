@@ -3,12 +3,12 @@ import type { Dictionary } from '../types.ts';
 
 export const es: Dictionary = {
   meta: {
-    title: 'Reportist Video — Generador de Momentos Clímax con IA',
+    title: 'PenguinCut — Generador de Momentos Clímax con IA',
     description: 'La IA detecta y extrae con precisión los momentos más dramáticos de múltiples videos para crear un video resumen cinematográfico en 16:9.',
-    keywords: 'Reportist, Reportist Video, Video IA, extracción de momentos destacados, editor de video IA',
+    keywords: 'PenguinCut, PenguinCut, Video IA, extracción de momentos destacados, editor de video IA',
   },
   common: {
-    brandName: 'Reportist Video',
+    brandName: 'PenguinCut',
     taglineBadge: 'Resumen 16:9 para YouTube',
     loading: 'Cargando...',
     cancel: 'Cancelar',
@@ -38,7 +38,7 @@ export const es: Dictionary = {
     modelLabel: 'Modelo:',
     effortLabel: 'Esfuerzo:',
     modelWidgetTitle: 'Solo se seleccionan y proporcionan modelos con soporte de análisis visual multifotograma',
-    visitReportistHome: 'Ir a la página de Reportist',
+    visitPenguinCutHome: 'Ir a la página de PenguinCut',
   },
   header: {
     aiModel: 'Modelo IA',
@@ -63,7 +63,7 @@ export const es: Dictionary = {
     rightTitleLabel: 'Título Derecho',
     rightTitlePlaceholder: 'Canal o autor superior derecho (dejar vacío para ocultar)',
     defaultTitleText: 'Mis Momentos Inolvidables',
-    defaultChannelText: 'Reportist',
+    defaultChannelText: 'PenguinCut',
     play: 'Reproducir',
     pause: 'Pausar',
     rewind5s: 'Retroceder 5s',
@@ -132,7 +132,7 @@ export const es: Dictionary = {
   audioLibrary: {
     openButton: 'Biblioteca de audio',
     title: 'Biblioteca de audio',
-    subtitle: 'Escucha las pistas preparadas por Reportist y elige una para tu video.',
+    subtitle: 'Escucha las pistas preparadas por PenguinCut y elige una para tu video.',
     preview: 'Escuchar',
     stopPreview: 'Detener',
     selected: 'Seleccionado',
@@ -426,7 +426,7 @@ export const es: Dictionary = {
   community: {
     navTitle: 'Comunidad de videos',
     headerTitle: 'Explorar videos compartidos',
-    headerDesc: 'Descubre destacados creados con Reportist Video y compartidos en YouTube.',
+    headerDesc: 'Descubre destacados creados con PenguinCut y compartidos en YouTube.',
     shareMyVideo: 'Compartir video',
     searchPlaceholder: 'Buscar por título o creador...',
     sortLatest: 'Más recientes',
@@ -547,7 +547,7 @@ export const es: Dictionary = {
   patchNotes: {
     title: 'Notas del parche',
     latestBadge: 'Última versión',
-    subtitle: 'Todas las actualizaciones y nuevas funciones de Reportist Video.',
+    subtitle: 'Todas las actualizaciones y nuevas funciones de PenguinCut.',
     allReleases: 'Todas las versiones',
     majorUpdates: 'Actualizaciones principales',
     minorUpdates: 'Mejoras y correcciones',
@@ -708,7 +708,7 @@ export const es: Dictionary = {
     removeOutroClip: "Eliminar video de outro",
     attachOutroClip: "Adjuntar archivo de video de outro (MP4, MOV, etc.)",
     channelLabel: "Nombre del canal / Frase de cierre",
-    channelPlaceholder: "Ej.: Reportist Travel · ¡Suscríbete y dale like!",
+    channelPlaceholder: "Ej.: PenguinCut Travel · ¡Suscríbete y dale like!",
     step3HeroTitle: "La IA está analizando los momentos más emocionantes del video",
     step3DefaultStatus: "Analizando fotogramas clave para detectar los momentos destacados...",
     stageExtract: "Fase 1: Extracción rápida de fotogramas",

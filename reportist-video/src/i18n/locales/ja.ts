@@ -3,12 +3,12 @@ import type { Dictionary } from '../types.ts';
 
 export const ja: Dictionary = {
   meta: {
-    title: 'Reportist Video — AI クライマックスハイライト動画ジェネレーター',
+    title: 'PenguinCut — AI クライマックスハイライト動画ジェネレーター',
     description: '複数の動画から最も劇的なクライマックス瞬間をAIが精密に検出・抽出し、1つの16:9シネマティックハイライト動画に自動編集します。',
-    keywords: 'Reportist, Reportist Video, 動画AI, ハイライト抽出, AIハイライト生成, AI動画編集',
+    keywords: 'PenguinCut, PenguinCut, 動画AI, ハイライト抽出, AIハイライト生成, AI動画編集',
   },
   common: {
-    brandName: 'Reportist Video',
+    brandName: 'PenguinCut',
     taglineBadge: '16:9 YouTube ハイライト',
     loading: '読み込み中...',
     cancel: 'キャンセル',
@@ -39,7 +39,7 @@ export const ja: Dictionary = {
     modelLabel: 'モデル:',
     effortLabel: '推論努力:',
     modelWidgetTitle: '複数フレーム視覚分析対応モデルのみ厳選して提供されます',
-    visitReportistHome: 'Reportist ホームへ移動',
+    visitPenguinCutHome: 'PenguinCut ホームへ移動',
   },
   header: {
     aiModel: 'AIモデル',
@@ -64,7 +64,7 @@ export const ja: Dictionary = {
     rightTitleLabel: '右上チャンネル名',
     rightTitlePlaceholder: '動画右上のチャンネル名（空欄で非表示）',
     defaultTitleText: '思い出のハイライト',
-    defaultChannelText: 'Reportist',
+    defaultChannelText: 'PenguinCut',
     play: '再生',
     pause: '一時停止',
     rewind5s: '5秒戻る',
@@ -133,7 +133,7 @@ export const ja: Dictionary = {
   audioLibrary: {
     openButton: 'オーディオライブラリ',
     title: 'オーディオライブラリ',
-    subtitle: 'Reportistが用意したBGMを試聴して選んでみましょう。',
+    subtitle: 'PenguinCutが用意したBGMを試聴して選んでみましょう。',
     preview: '試聴',
     stopPreview: '試聴を停止',
     selected: '選択中',
@@ -494,7 +494,7 @@ export const ja: Dictionary = {
   community: {
     navTitle: '動画共有',
     headerTitle: '共有動画を見る',
-    headerDesc: 'Reportist Videoで作成してYouTubeに共有されたハイライト動画をご覧ください。',
+    headerDesc: 'PenguinCutで作成してYouTubeに共有されたハイライト動画をご覧ください。',
     shareMyVideo: '動画を共有する',
     searchPlaceholder: '動画タイトルまたは投稿者で検索...',
     sortLatest: '最新順',
@@ -615,7 +615,7 @@ export const ja: Dictionary = {
   patchNotes: {
     title: 'パッチノート',
     latestBadge: '最新バージョン',
-    subtitle: 'Reportist Videoのすべてのアップデートと新機能の履歴です。',
+    subtitle: 'PenguinCutのすべてのアップデートと新機能の履歴です。',
     allReleases: 'すべてのリリース',
     majorUpdates: '主要アップデート',
     minorUpdates: '改善＆バグ修正',
@@ -743,7 +743,7 @@ export const ja: Dictionary = {
     removeOutroClip: "アウトロ動画を削除",
     attachOutroClip: "エンディング動画ファイルを添付 (MP4, MOV等)",
     channelLabel: "チャンネル名 / エンディング文",
-    channelPlaceholder: "例: Reportist Travel · チャンネル登録よろしくお願いします！",
+    channelPlaceholder: "例: PenguinCut Travel · チャンネル登録よろしくお願いします！",
     step3HeroTitle: "AIが動画のドラマチックな瞬間を分析中",
     step3DefaultStatus: "主要フレームを分析してハイライトを探索しています...",
     stageExtract: "第1段階: 動画フレームの高速抽出",

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Cpu, Sparkles } from 'lucide-react';
-import { ReportistLogo } from '../common/ReportistLogo.tsx';
+import { PenguinLogo } from '../common/PenguinLogo.tsx';
 import type { FreeModelMeta, ReasoningEffortOption } from '../../types/gateway.ts';
 import { cleanModelName } from '../../services/modelMetrics.ts';
 import { useI18n } from '../../i18n/index.tsx';
@@ -32,18 +32,16 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="top-header">
       {/* Brand Section */}
       <a
-        href="https://www.reportist.kr"
-        target="_blank"
-        rel="noopener noreferrer"
+        href="/"
         className="brand-section"
-        title={dict.common.visitReportistHome || 'Reportist'}
+        title={dict.common.brandName || 'PenguinCut'}
       >
         <div className="brand-logo-icon">
-          <ReportistLogo size={18} inverted />
+          <PenguinLogo size={18} inverted />
         </div>
         <div className="brand-title">
-          <span>Reportist Video</span>
-          <span className="brand-badge">AI HIGHLIGHTS</span>
+          <span>PenguinCut</span>
+          <span className="brand-badge">AI VIDEO</span>
         </div>
       </a>
 

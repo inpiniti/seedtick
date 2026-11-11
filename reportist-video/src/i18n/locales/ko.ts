@@ -3,12 +3,12 @@ import type { Dictionary } from '../types.ts';
 
 export const ko: Dictionary = {
   meta: {
-    title: 'Reportist Video — AI 극적 하이라이트 영상 생성기',
+    title: 'PenguinCut — AI 영상 하이라이트 편집기',
     description: '여러 영상에서 가장 극적인 순간만 AI가 정밀하게 감지하고 추출하여 하나의 하이라이트 영상으로 자동 완성해 드립니다.',
-    keywords: 'Reportist, Reportist Video, 리포티스트, 비디오 AI, 영상 하이라이트 추출, AI 하이라이트 생성기, AI 비디오 편집',
+    keywords: 'PenguinCut, 펭귄컷, 비디오 AI, 영상 하이라이트 추출, AI 하이라이트 생성기, AI 비디오 편집, 딸각 편집',
   },
   common: {
-    brandName: 'Reportist Video',
+    brandName: 'PenguinCut',
     taglineBadge: '16:9 유튜브 하이라이트',
     loading: '불러오는 중...',
     cancel: '취소',
@@ -39,7 +39,7 @@ export const ko: Dictionary = {
     modelLabel: '모델:',
     effortLabel: '노력:',
     modelWidgetTitle: '다중 프레임 시각 분석 지원 모델만 선별되어 제공됩니다',
-    visitReportistHome: 'Reportist 홈으로 이동',
+    visitPenguinCutHome: 'PenguinCut 홈으로 이동',
   },
   header: {
     aiModel: 'AI 모델',
@@ -64,7 +64,7 @@ export const ko: Dictionary = {
     rightTitleLabel: '오른쪽 문구',
     rightTitlePlaceholder: '영상 오른쪽 상단 문구 (비워두면 표시 안 됨)',
     defaultTitleText: '우리들의 하이라이트 순간',
-    defaultChannelText: 'Reportist',
+    defaultChannelText: 'PenguinCut',
     play: '재생',
     pause: '일시정지',
     rewind5s: '5초 뒤로',
@@ -133,7 +133,7 @@ export const ko: Dictionary = {
   audioLibrary: {
     openButton: '오디오 보관함',
     title: '오디오 보관함',
-    subtitle: 'Reportist가 준비한 배경음악을 미리 듣고 골라보세요.',
+    subtitle: 'PenguinCut가 준비한 배경음악을 미리 듣고 골라보세요.',
     preview: '미리 듣기',
     stopPreview: '미리 듣기 정지',
     selected: '선택됨',
@@ -266,7 +266,7 @@ export const ko: Dictionary = {
   community: {
     navTitle: '영상 공유',
     headerTitle: '공유된 영상 둘러보기',
-    headerDesc: 'Reportist Video로 제작하여 유튜브에 올린 하이라이트 영상들을 만나보세요.',
+    headerDesc: 'PenguinCut로 제작하여 유튜브에 올린 하이라이트 영상들을 만나보세요.',
     shareMyVideo: '영상 공유하기',
     searchPlaceholder: '영상 제목 또는 작성자 검색...',
     sortLatest: '최신순',
@@ -310,7 +310,7 @@ export const ko: Dictionary = {
   feedback: {
     navTab: '피드백',
     headerTitle: '피드백 & 개선 요청',
-    headerDesc: 'Reportist Video를 사용하며 겪은 불편사항이나 제안을 남겨주세요. 개발자가 직접 확인하고 처리 결과를 공유합니다.',
+    headerDesc: 'PenguinCut를 사용하며 겪은 불편사항이나 제안을 남겨주세요. 개발자가 직접 확인하고 처리 결과를 공유합니다.',
     newFeedbackBtn: '피드백 남기기',
     adminModeBtn: '개발자 모드',
     adminModeBtnTitle: '개발자 전용 처리 상태 변경 및 답변 작성 모드',
@@ -387,7 +387,7 @@ export const ko: Dictionary = {
   patchNotes: {
     title: '패치 노트',
     latestBadge: '최신 버전',
-    subtitle: 'Reportist Video의 모든 업데이트와 새로운 기능들을 모아봤어요.',
+    subtitle: 'PenguinCut의 모든 업데이트와 새로운 기능들을 모아봤어요.',
     allReleases: '전체 릴리즈',
     majorUpdates: '주요 업데이트',
     minorUpdates: '개선 & 버그 수정',
@@ -791,7 +791,7 @@ export const ko: Dictionary = {
     removeOutroClip: "아웃트로 영상 삭제",
     attachOutroClip: "엔딩 아웃트로 영상 파일 첨부하기 (MP4, MOV 등)",
     channelLabel: "채널명 / 엔딩 문구",
-    channelPlaceholder: "예: Reportist Travel · 구독과 좋아요 부탁드려요!",
+    channelPlaceholder: "예: PenguinCut Travel · 구독과 좋아요 부탁드려요!",
     step3HeroTitle: "AI가 영상의 극적인 순간을 분석하고 있어요",
     step3DefaultStatus: "영상의 주요 프레임을 분석하여 하이라이트를 탐색 중입니다...",
     stageExtract: "1단계: 영상 프레임 고속 추출",

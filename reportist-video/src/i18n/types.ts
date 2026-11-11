@@ -48,6 +48,7 @@ export interface Dictionary {
     effortLabel?: string;
     modelWidgetTitle?: string;
     visitReportistHome?: string;
+    visitPenguinCutHome?: string;
   };
   header: {
     aiModel: string;
