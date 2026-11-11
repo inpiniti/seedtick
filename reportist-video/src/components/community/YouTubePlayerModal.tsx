@@ -4,6 +4,7 @@ import { X, ExternalLink, Share2, Check, Eye, User, Calendar } from 'lucide-reac
 import type { VideoShareItem } from '../../types/share.ts';
 import { formatViewCount, formatTimeAgo } from '../../services/youtubeService.ts';
 import { useI18n } from '../../i18n/index.tsx';
+import { notify } from '../../services/toastService.ts';
 
 interface YouTubePlayerModalProps {
   item: VideoShareItem | null;
@@ -23,9 +24,10 @@ export const YouTubePlayerModal: React.FC<YouTubePlayerModalProps> = ({ item, on
     try {
       await navigator.clipboard.writeText(youtubeUrl);
       setCopied(true);
+      notify.success(dict.community?.copiedToast || '유튜브 링크를 복사했어요.');
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // fallback
+      notify.error('링크 복사에 실패했습니다.');
     }
   };
 

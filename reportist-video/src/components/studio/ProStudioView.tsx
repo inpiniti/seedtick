@@ -94,6 +94,7 @@ import { DateFormatSelectorModal } from './DateFormatSelectorModal.tsx';
 import { SubtitleDownloadModal } from './SubtitleDownloadModal.tsx';
 import { VideoExportModal } from './VideoExportModal.tsx';
 import { SegmentTrimModal } from './SegmentTrimModal.tsx';
+import { notify } from '../../services/toastService.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 import {
   type DateFormatOption,
@@ -120,6 +121,9 @@ import {
   type AudioLibraryTrack,
 } from '../../data/audioLibrary.ts';
 import { PenguinLogo } from '../common/PenguinLogo.tsx';
+import { ShinyText } from '../common/ShinyText.tsx';
+import { SpecularButton } from '../common/SpecularButton.tsx';
+import { BorderBeam } from '../common/BorderBeam.tsx';
 import { useI18n } from '../../i18n/index.tsx';
 
 const PLAYBACK_ERROR_MESSAGE =
@@ -341,7 +345,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 1-1. 자막 톤앤매너 및 다듬기 상태
   const [currentSubtitleTone, setCurrentSubtitleTone] = useState<SubtitleTone>(getStoredSubtitleTone);
   const [isRefiningSubtitles, setIsRefiningSubtitles] = useState<boolean>(false);
-  const [refineToastMessage, setRefineToastMessage] = useState<string | null>(null);
   const [isToneSelectorOpen, setIsToneSelectorOpen] = useState<boolean>(false);
   const toneSelectorRef = useRef<HTMLDivElement>(null);
 
@@ -410,6 +413,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         model: selectedModel,
       });
 
+      const prevSubtitles = new Map(segments.map((s) => [s.id, s.subtitleTitle]));
+
       setSegments((prev) =>
         prev.map((s) => (refinedMap[s.id] ? { ...s, subtitleTitle: refinedMap[s.id] } : s))
       );
@@ -426,12 +431,23 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         natural: dict.dramaticClips?.toneNatural || '자연스러운 구어체',
         minimal: dict.dramaticClips?.toneMinimal || '담백한 일상',
       };
-      setRefineToastMessage(
+      notify.action(
         interpolate(dict.dramaticClips?.refinedToast || '{tone} 스타일로 자막을 다듬었어요.', {
           tone: toneNameMap[tone] || '선택한',
-        })
+        }),
+        dict.common?.undo || '되돌리기',
+        () => {
+          setSegments((prev) =>
+            prev.map((s) => (prevSubtitles.has(s.id) ? { ...s, subtitleTitle: prevSubtitles.get(s.id) } : s))
+          );
+          videos.forEach((v) => {
+            v.segments = v.segments.map((s) =>
+              prevSubtitles.has(s.id) ? { ...s, subtitleTitle: prevSubtitles.get(s.id) } : s
+            );
+          });
+          return { title: '자막을 원래대로 되돌렸어요.', action: null };
+        }
       );
-      setTimeout(() => setRefineToastMessage(null), 3200);
     } catch (err) {
       console.error('Failed to refine subtitles:', err);
     } finally {
@@ -569,16 +585,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [showAge, setShowAge] = useState<boolean>(getStoredShowAge);
   const [showDate, setShowDate] = useState<boolean>(getStoredShowDate);
   const [birthDate, setBirthDate] = useState<string>(getStoredBirthDate);
-  const [sortToastMessage, setSortToastMessage] = useState<string | null>(null);
-  const sortToastTimeoutRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (sortToastTimeoutRef.current) {
-        window.clearTimeout(sortToastTimeoutRef.current);
-      }
-    };
-  }, []);
 
   const currentModel = useMemo(
     () => models.find((model) => model.id === selectedModel) || models[0] || null,
@@ -1050,15 +1056,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     setAutoSortByRecordedDate(enabled);
     setStoredAutoSortByRecordedTime(enabled);
     if (enabled && segments.length > 1) {
+      const prevSegments = [...segments];
       const sorted = sortSegmentsByRecordedTime(segments, videoMap);
       setSegments(sorted);
-      setSortToastMessage(dict.dramaticClips.sortByRecordedDateToast);
-      if (sortToastTimeoutRef.current) {
-        window.clearTimeout(sortToastTimeoutRef.current);
-      }
-      sortToastTimeoutRef.current = window.setTimeout(() => {
-        setSortToastMessage(null);
-      }, 2200);
+      notify.action(
+        dict.dramaticClips.sortByRecordedDateToast || '촬영일시 순으로 정렬했어요.',
+        dict.common?.undo || '되돌리기',
+        () => {
+          setSegments(prevSegments);
+          return { title: '원래 순서로 되돌렸어요.', action: null };
+        }
+      );
     }
   };
 
@@ -1753,22 +1761,24 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
     const removedCount = segments.length - kept.length;
     if (removedCount > 0) {
+      const prevSegments = [...segments];
+      const prevSelectedId = selectedSegmentId;
       setSegments(kept);
       if (!kept.some((s) => s.id === selectedSegmentId)) {
         setSelectedSegmentId(kept[0]?.id || '');
       }
-      setSortToastMessage(
+      notify.action(
         interpolate(
           dict.sequencer.fitMusicToast || '음악 길이({duration})를 넘기는 {count}개 구간을 제외했어요.',
           { duration: formatSec(customAudioDuration), count: removedCount }
-        )
+        ),
+        dict.common?.undo || '되돌리기',
+        () => {
+          setSegments(prevSegments);
+          setSelectedSegmentId(prevSelectedId);
+          return { title: '클립을 원래대로 복구했어요.', action: null };
+        }
       );
-      if (sortToastTimeoutRef.current) {
-        window.clearTimeout(sortToastTimeoutRef.current);
-      }
-      sortToastTimeoutRef.current = window.setTimeout(() => {
-        setSortToastMessage(null);
-      }, 2600);
     }
   };
 
@@ -3100,17 +3110,19 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 촬영일시(날짜 및 시·분·초) 기준 시간순 정렬
   const handleSortSegmentsByRecordedTime = () => {
     if (segments.length <= 1) return;
+    const prevSegments = [...segments];
     const sorted = sortSegmentsByRecordedTime(segments, videoMap);
     setSegments(sorted);
 
-    // 토스트 알림 피드백
-    setSortToastMessage(dict.dramaticClips.sortByRecordedDateToast);
-    if (sortToastTimeoutRef.current) {
-      window.clearTimeout(sortToastTimeoutRef.current);
-    }
-    sortToastTimeoutRef.current = window.setTimeout(() => {
-      setSortToastMessage(null);
-    }, 2200);
+    // Ding 다이나믹 토스트 알림 및 되돌리기 액션
+    notify.action(
+      dict.dramaticClips.sortByRecordedDateToast || '촬영일시 순으로 정렬했어요.',
+      dict.common?.undo || '되돌리기',
+      () => {
+        setSegments(prevSegments);
+        return { title: '원래 순서로 되돌렸어요.', action: null };
+      }
+    );
   };
 
   // 크롭 위치 조정
@@ -3188,6 +3200,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+    notify.success('비디오 다운로드가 시작되었어요!');
   };
 
   const handleDownload = async (targetRes?: ExportResolution) => {
@@ -3244,6 +3257,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       } else if (thumbnailUrl) {
         await downloadThumbnailFile(thumbnailUrl, overlayOptions.titleText || 'highlight');
       }
+      notify.success('16:9 고화질 썸네일을 다운로드했어요!');
     } catch (err) {
       console.error('Thumbnail download failed:', err);
     }
@@ -3625,17 +3639,23 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           {/* 메인 액션 버튼 */}
           {videos.length > 0 && (
             !isSequenceMode ? (
-              <button
+              <SpecularButton
                 type="button"
                 className={`toss-nav-cta-btn ${isProcessing ? 'loading' : ''}`}
                 onClick={() =>
                   onStartAiAnalysis(effectiveOverlayOptions, customAudioFile, selectedBgmId, bgmVolume)
                 }
                 disabled={isProcessing}
+                loading={isProcessing}
+                specularColor="#ffffff"
+                glowColor="rgba(147, 197, 253, 0.95)"
               >
                 <Sparkles size={14} className={isProcessing ? 'animate-spin' : ''} />
-                <span>{isProcessing ? dict.header.analyzingAi : dict.header.startAiHighlight}</span>
-              </button>
+                <ShinyText
+                  text={isProcessing ? dict.header.analyzingAi : dict.header.startAiHighlight}
+                  speed={2.6}
+                />
+              </SpecularButton>
             ) : (
               <button
                 type="button"
@@ -4940,6 +4960,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           {/* AI 맞춤 16:9 썸네일 카드 */}
           {(result || thumbnailUrl) && (
             <div className="toss-card toss-thumbnail-card">
+              <BorderBeam
+                colorFrom="#60a5fa"
+                colorTo="#c084fc"
+                duration={9}
+                borderWidth={1.5}
+              />
               <div className="toss-card-header">
                 <div>
                   <h4 className="toss-card-title">
@@ -5133,7 +5159,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   >
                     <Sparkles size={13} className="text-blue-600 shrink-0" />
                     <span className="toss-btn-text-content">
-                      <span className="toss-btn-label-long">{dict.thumbnail?.restoreAiFrame || 'AI 추천 복원'}</span>
+                      <span className="toss-btn-label-long">
+                        <ShinyText theme="light" text={dict.thumbnail?.restoreAiFrame || 'AI 추천 복원'} />
+                      </span>
                       <span className="toss-btn-label-mid">{dict.thumbnail?.restoreAiFrameShort || 'AI 복원'}</span>
                       <span className="toss-btn-label-short">AI</span>
                     </span>
@@ -5243,6 +5271,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
           {/* AI가 포착한 극적 순간 카드 */}
           <div className="toss-card toss-dramatic-card">
+            {segments.length > 0 && (
+              <BorderBeam
+                colorFrom="#38bdf8"
+                colorTo="#818cf8"
+                duration={7}
+                borderWidth={1.5}
+              />
+            )}
             <div className="toss-card-header toss-dramatic-header">
               <div className="toss-dramatic-header-title">
                 <h4 className="toss-card-title">
@@ -5276,23 +5312,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     </button>
                   )}
                   {segments.length > 0 && (
-                    <div className="toss-sort-toast-container">
-                      <button
-                        type="button"
-                        className="toss-btn-sort-time"
-                        onClick={handleSortSegmentsByRecordedTime}
-                        title={dict.dramaticClips.sortByRecordedDateTitle}
-                      >
-                        <ArrowUpDown size={12} className="text-slate-500" />
-                        <span>{dict.dramaticClips.sortByRecordedDate}</span>
-                      </button>
-                      {sortToastMessage && (
-                        <div className="toss-sort-toast" role="status">
-                          <Check size={12} className="text-emerald-400 shrink-0" />
-                          <span>{sortToastMessage}</span>
-                        </div>
-                      )}
-                    </div>
+                    <button
+                      type="button"
+                      className="toss-btn-sort-time"
+                      onClick={handleSortSegmentsByRecordedTime}
+                      title={dict.dramaticClips.sortByRecordedDateTitle}
+                    >
+                      <ArrowUpDown size={12} className="text-slate-500" />
+                      <span>{dict.dramaticClips.sortByRecordedDate}</span>
+                    </button>
                   )}
                   {segments.length > 0 && (
                     <div className="relative inline-flex items-center" ref={toneSelectorRef}>
@@ -5338,32 +5366,30 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     </div>
                   )}
                   {segments.length > 0 && (
-                    <div className="toss-refine-toast-container">
-                      <button
-                        type="button"
-                        className="toss-btn-refine-subtitles"
-                        onClick={() => handleRefineSubtitles()}
-                        disabled={isRefiningSubtitles}
-                        title={dict.dramaticClips?.refineSubtitlesBtnTitle || '전체 맥락을 이해하여 브이로그 스타일의 자연스러운 자막으로 교정합니다'}
-                      >
-                        {isRefiningSubtitles ? (
-                          <Loader2 size={12} className="animate-spin text-blue-600" />
-                        ) : (
-                          <Wand2 size={12} className="text-blue-600" />
-                        )}
-                        <span>
-                          {isRefiningSubtitles
-                            ? (dict.dramaticClips?.refiningSubtitles || '다듬는 중...')
-                            : (dict.dramaticClips?.refineSubtitlesBtn || 'AI 자막 다듬기')}
-                        </span>
-                      </button>
-                      {refineToastMessage && (
-                        <div className="toss-sort-toast toss-refine-toast" role="status">
-                          <Check size={12} className="text-emerald-400 shrink-0" />
-                          <span>{refineToastMessage}</span>
-                        </div>
+                    <SpecularButton
+                      type="button"
+                      variant="subtle"
+                      className="toss-btn-refine-subtitles"
+                      onClick={() => handleRefineSubtitles()}
+                      disabled={isRefiningSubtitles}
+                      loading={isRefiningSubtitles}
+                      title={dict.dramaticClips?.refineSubtitlesBtnTitle || '전체 맥락을 이해하여 브이로그 스타일의 자연스러운 자막으로 교정합니다'}
+                    >
+                      {isRefiningSubtitles ? (
+                        <Loader2 size={12} className="animate-spin text-blue-600" />
+                      ) : (
+                        <Wand2 size={12} className="text-blue-600" />
                       )}
-                    </div>
+                      <ShinyText
+                        theme="light"
+                        speed={3}
+                        text={
+                          isRefiningSubtitles
+                            ? (dict.dramaticClips?.refiningSubtitles || '다듬는 중...')
+                            : (dict.dramaticClips?.refineSubtitlesBtn || 'AI 자막 다듬기')
+                        }
+                      />
+                    </SpecularButton>
                   )}
                 </div>
                 <div className="flex items-center gap-3 shrink-0 ml-auto sm:ml-0">
@@ -5893,6 +5919,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       {isProcessing && (
         <div className="toss-modal-overlay">
           <div className="toss-modal-card">
+            <BorderBeam
+              colorFrom="#38bdf8"
+              colorTo="#818cf8"
+              duration={4.5}
+              borderWidth={2}
+            />
             {/* 상단 비디오 썸네일 또는 기본 아이콘 */}
             <div className={currentVideoThumbnail ? 'toss-modal-thumb-box' : 'toss-modal-icon-circle'}>
               {currentVideoThumbnail ? (
@@ -5909,9 +5941,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             </div>
 
             <h3 className="toss-modal-title">
-              {progress.currentPhase === 'stitch'
-                ? (dict.processingModal.titleStitching || '하이라이트 영상을 병합하고 있어요')
-                : dict.processingModal.title}
+              <ShinyText theme="light" speed={2.5}>
+                {progress.currentPhase === 'stitch'
+                  ? (dict.processingModal.titleStitching || '하이라이트 영상을 병합하고 있어요')
+                  : dict.processingModal.title}
+              </ShinyText>
             </h3>
             <p className="toss-modal-desc">
               {progress.statusMessage || dict.processingModal.defaultDesc}

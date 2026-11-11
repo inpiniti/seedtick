@@ -21,6 +21,7 @@ import {
 import { getLocalizedPatchReleases } from '../../data/patchNotesLocalization.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 import { useI18n } from '../../i18n/index.tsx';
+import { notify } from '../../services/toastService.ts';
 
 export interface PatchNotesModalProps {
   isOpen: boolean;
@@ -77,7 +78,7 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClos
         localStorage.setItem('reportist_feedback_admin_mode', String(nextState));
         window.dispatchEvent(new Event('reportist_admin_mode_change'));
         window.dispatchEvent(new Event('storage'));
-        alert(nextState ? '개발자 모드로 전환되었습니다.' : '개발자 모드가 해제되었습니다.');
+        notify.info(nextState ? '개발자 모드로 전환되었습니다.' : '개발자 모드가 해제되었습니다.');
       }
     }
   };

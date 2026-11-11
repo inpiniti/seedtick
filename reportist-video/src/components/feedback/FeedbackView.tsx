@@ -38,6 +38,7 @@ import {
 import { CreateFeedbackForm } from './CreateFeedbackForm.tsx';
 import { FeedbackDetailView } from './FeedbackDetailView.tsx';
 import { useI18n } from '../../i18n/index.tsx';
+import { notify } from '../../services/toastService.ts';
 
 type FeedbackViewMode = 'list' | 'create' | 'detail';
 
@@ -63,18 +64,10 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Developer Mode & Toast
+  // Developer Mode
   const [isAdminMode, setIsAdminMode] = useState<boolean>(() => {
     return localStorage.getItem('reportist_feedback_admin_mode') === 'true';
   });
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-  const showToast = useCallback((msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage((prev) => (prev === msg ? null : prev));
-    }, 2500);
-  }, []);
 
   const loadFeedbacks = useCallback(async () => {
     setIsLoading(true);
@@ -131,7 +124,7 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
       localStorage.setItem('reportist_feedback_admin_mode', 'false');
       window.dispatchEvent(new Event('reportist_admin_mode_change'));
       window.dispatchEvent(new Event('storage'));
-      showToast(dict.feedback?.adminModeOffToast || '개발자 관리 모드가 해제되었습니다.');
+      notify.info(dict.feedback?.adminModeOffToast || '개발자 관리 모드가 해제되었습니다.');
     }
   };
 
@@ -140,7 +133,7 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
     const newItem = await createFeedback(data);
     setFeedbacks((prev) => [newItem, ...prev]);
     setViewMode('list');
-    showToast(
+    notify.success(
       dict.feedback?.createdToast ||
         '소중한 피드백이 등록되었습니다! 개발자가 확인 후 반영하겠습니다.'
     );
@@ -155,7 +148,7 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
     if (selectedFeedback && selectedFeedback.id === id) {
       setSelectedFeedback((prev) => (prev ? { ...prev, likeCount: newLikes } : prev));
     }
-    showToast(dict.feedback?.likedToast || '의견에 공감했습니다 ❤️');
+    notify.success(dict.feedback?.likedToast || '의견에 공감했습니다 ❤️');
   };
 
   // Update status & response (admin)
@@ -168,7 +161,7 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
     if (updated) {
       setFeedbacks((prev) => prev.map((f) => (f.id === id ? updated : f)));
       setSelectedFeedback(updated);
-      showToast(
+      notify.success(
         dict.feedback?.statusUpdatedToast ||
           '개발자 처리 내용 및 상태가 성공적으로 반영되었습니다.'
       );
@@ -181,7 +174,7 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
     setFeedbacks((prev) => prev.filter((f) => f.id !== id));
     setSelectedFeedback(null);
     setViewMode('list');
-    showToast(dict.feedback?.deletedToast || '피드백이 삭제되었습니다.');
+    notify.success(dict.feedback?.deletedToast || '피드백이 삭제되었습니다.');
   };
 
   const getCategoryBadge = (category: FeedbackCategory) => {
@@ -288,13 +281,6 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
 
   return (
     <div className={`toss-feedback-wrapper ${isEmbedded ? 'embedded' : ''}`}>
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className="toss-toast-float">
-          <Sparkles size={15} color="#fbbf24" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
 
       <div className={`toss-feedback-inner ${isEmbedded ? 'embedded' : ''}`}>
         {/* =========================================================

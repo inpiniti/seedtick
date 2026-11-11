@@ -36,6 +36,7 @@ import {
 } from '../../services/videoMetadata.ts';
 import { cleanModelName, getSpeedTier } from '../../services/modelMetrics.ts';
 import { useI18n } from '../../i18n/index.tsx';
+import { notify } from '../../services/toastService.ts';
 import {
   getStorageEstimate,
   requestPersistentStorage,
@@ -219,10 +220,14 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
     try {
       const updated = await clearAllAppStorage();
       setStorageEstimate(updated);
-      setStorageClearMessage(dict.settingsModal?.storageClearSuccess || 'OPFS 임시 파일 및 캐시가 모두 정리되었습니다.');
+      const successMsg = dict.settingsModal?.storageClearSuccess || 'OPFS 임시 파일 및 캐시가 모두 정리되었습니다.';
+      setStorageClearMessage(successMsg);
+      notify.success(successMsg);
       setTimeout(() => {
         setStorageClearMessage(null);
       }, 4000);
+    } catch {
+      notify.error('저장공간 정리에 실패했습니다.');
     } finally {
       setIsClearingStorage(false);
     }

@@ -19,6 +19,7 @@ import { formatViewCount, formatTimeAgo } from '../../services/youtubeService.ts
 import { YouTubePlayerModal } from './YouTubePlayerModal.tsx';
 import { ShareVideoModal } from './ShareVideoModal.tsx';
 import { useI18n } from '../../i18n/index.tsx';
+import { notify } from '../../services/toastService.ts';
 
 interface VideoCommunityViewProps {
   onOpenStudio?: () => void;
@@ -56,16 +57,6 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
     };
   }, [isShareModalOpen, selectedVideo]);
 
-  // Toast feedback
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-  const showToast = useCallback((msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage((prev) => (prev === msg ? null : prev));
-    }, 2500);
-  }, []);
-
   // 비디오 목록 로드
   const loadVideos = useCallback(async () => {
     setIsLoading(true);
@@ -98,7 +89,7 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
   // 영상 공유 완료 후 핸들러
   const handleShareSuccess = (newItem: VideoShareItem) => {
     setVideos((prev) => [newItem, ...prev]);
-    showToast(cDict?.successToast || '영상이 성공적으로 공유되었어요!');
+    notify.success(cDict?.successToast || '영상이 성공적으로 공유되었어요!');
   };
 
   // 링크 복사
@@ -107,22 +98,14 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
     try {
       const url = `https://www.youtube.com/watch?v=${videoId}`;
       await navigator.clipboard.writeText(url);
-      showToast(cDict?.copiedToast || '영상 링크를 복사했어요.');
+      notify.success(cDict?.copiedToast || '영상 링크를 복사했어요.');
     } catch {
-      // ignore
+      notify.error('링크 복사에 실패했습니다.');
     }
   };
 
   return (
     <div className="toss-community-wrapper">
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className="toss-toast-float">
-          <Sparkles size={15} color="#fbbf24" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
-
       <div className="toss-community-inner">
         {/* 1. Toss Style Header Card */}
         <section className="toss-community-header-card">

@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './App.css';
+import { Toaster } from '@yusufceng1z/ding-react';
+import { notify } from './services/toastService.ts';
 import { ProStudioView } from './components/studio/ProStudioView.tsx';
 import {
   fetchVideoCapableModels,
@@ -420,8 +422,10 @@ export function App() {
     try {
       await duplicateProject(id);
       await refreshProjectSummaries();
+      notify.success('프로젝트가 복제되었어요.');
     } catch (err) {
       console.error('Failed to duplicate project:', err);
+      notify.error('프로젝트 복제에 실패했습니다.');
     }
   };
 
@@ -433,8 +437,10 @@ export function App() {
         handleStartNewProject();
       }
       await refreshProjectSummaries();
+      notify.success('프로젝트가 삭제되었어요.');
     } catch (err) {
       console.error('Failed to delete project:', err);
+      notify.error('프로젝트 삭제에 실패했습니다.');
     }
   };
 
@@ -913,14 +919,14 @@ export function App() {
     );
 
     if (matchedCount > 0) {
-      alert(
+      notify.success(
         interpolate(
           dict.videoListModal?.relinkBatchSuccess || '{count}개의 영상 파일이 정상적으로 재연결되었습니다.',
           { count: matchedCount }
         )
       );
     } else {
-      alert(
+      notify.warning(
         dict.videoListModal?.relinkBatchNone ||
           '선택하신 파일 중 이름이나 용량이 일치하는 영상이 없습니다. 개별 연결을 사용해 주세요.'
       );
@@ -1834,6 +1840,7 @@ export function App() {
 
   return (
     <div className="toss-app-root">
+      <Toaster position="top-center" theme="dark" />
       {errorMessage && (
         <div className="studio-error-banner flex-col items-start gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-300">
           <div className="flex items-center gap-2 w-full">
@@ -1845,7 +1852,7 @@ export function App() {
               type="button"
               onClick={() => {
                 navigator.clipboard?.writeText(errorMessage).catch(() => {});
-                alert(dict.common.reportCopied || '진단 리포트가 클립보드에 복사되었습니다.');
+                notify.success(dict.common.reportCopied || '진단 리포트가 클립보드에 복사되었습니다.');
               }}
               className="ml-auto text-[10px] font-bold px-2 py-0.5 bg-red-500/20 hover:bg-red-500/30 text-red-200 rounded border border-red-500/30"
             >
