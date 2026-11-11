@@ -35,6 +35,9 @@ import type { FreeModelMeta, ReasoningEffortOption } from '../../types/gateway.t
 import { AUDIO_LIBRARY, type AudioLibraryTrack } from '../../data/audioLibrary.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 import { useI18n } from '../../i18n/index.tsx';
+import { ShinyText } from '../common/ShinyText.tsx';
+import { SpecularButton } from '../common/SpecularButton.tsx';
+import { BorderBeam } from '../common/BorderBeam.tsx';
 import './NewProjectWizard.css';
 
 interface NewProjectWizardProps {
@@ -852,11 +855,19 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
           {currentStep === 3 && (
             <div className="wizard-step-pane wizard-processing-pane">
               <div className="wizard-processing-hero">
+                <BorderBeam
+                  colorFrom="#38bdf8"
+                  colorTo="#818cf8"
+                  duration={5}
+                  borderWidth={2}
+                />
                 <div className="wizard-processing-pulse">
                   <Sparkles size={36} className="text-blue-500 animate-spin-slow" />
                 </div>
                 <h3 className="wizard-processing-title">
-                  {w?.step3HeroTitle || 'AI가 영상의 극적인 순간을 분석하고 있어요'}
+                  <ShinyText theme="light" speed={2.5}>
+                    {w?.step3HeroTitle || 'AI가 영상의 극적인 순간을 분석하고 있어요'}
+                  </ShinyText>
                 </h3>
                 <p className="wizard-processing-desc">
                   {progress.statusMessage || (w?.step3DefaultStatus || '영상의 주요 프레임을 분석하여 하이라이트를 탐색 중입니다...')}
@@ -970,14 +981,16 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
               </button>
 
               <div className="wizard-footer-right">
-                <button
+                <SpecularButton
                   type="button"
                   className="wizard-btn-primary"
                   onClick={handleStartAnalysis}
+                  radius={12}
+                  disabled={videos.length === 0}
                 >
                   <Sparkles size={16} />
-                  <span>{w?.startAiHighlight || 'AI 하이라이트 생성 시작'}</span>
-                </button>
+                  <ShinyText text={w?.startAiHighlight || 'AI 하이라이트 생성 시작'} />
+                </SpecularButton>
               </div>
             </>
           )}

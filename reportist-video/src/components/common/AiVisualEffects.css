@@ -1,0 +1,110 @@
+/* ========================================================
+   AI Visual Effects
+   - ReactBits: ShinyText (Metallic / Light sweep text)
+   - ReactBits: SpecularButton (Glass button with shader rim reflection)
+   - Cult UI: BorderBeam & BorderBeamCard (Traveling beam strictly on the border)
+   ======================================================== */
+
+/* --------------------------------------------------------
+   1. ShinyText (ReactBits)
+   -------------------------------------------------------- */
+.shiny-text-root {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-clip: text;
+  -webkit-background-clip: text;
+  vertical-align: middle;
+  line-height: inherit;
+  background-repeat: no-repeat;
+  text-decoration: inherit;
+}
+
+.shiny-text-root.animate-shine {
+  animation: shinySweep 4s linear infinite;
+}
+
+.shiny-text-root.disabled {
+  background-image: none !important;
+  color: inherit !important;
+  -webkit-text-fill-color: initial !important;
+}
+
+@keyframes shinySweep {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+/* --------------------------------------------------------
+   2. Cult UI: BorderBeam & BorderBeamCard (오직 보더만 빛남)
+   - 카드 중앙은 100% 비워두고 오직 보더 라인에서만 빔이 회전
+   -------------------------------------------------------- */
+.border-beam-card-container {
+  position: relative;
+  isolation: isolate;
+}
+
+.toss-dramatic-card,
+.toss-thumbnail-card,
+.wizard-processing-hero,
+.toss-modal-card {
+  position: relative !important;
+}
+
+.border-beam-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: var(--beam-border-width, 1.5px);
+  pointer-events: none;
+  z-index: 2;
+  overflow: hidden;
+  box-sizing: border-box;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+}
+
+.border-beam-core {
+  position: absolute;
+  inset: -150%;
+  width: 400%;
+  height: 400%;
+  margin: auto;
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    transparent 0deg,
+    transparent 280deg,
+    var(--beam-color-to, #818cf8) 320deg,
+    var(--beam-color-from, #38bdf8) 348deg,
+    #ffffff 357deg,
+    transparent 360deg
+  );
+  animation: borderBeamRotate var(--beam-duration, 6s) linear infinite;
+  animation-delay: var(--beam-delay, 0s);
+}
+
+.border-beam-overlay.reverse .border-beam-core {
+  animation-direction: reverse;
+}
+
+@keyframes borderBeamRotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Accessibility: Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .shiny-text-root.animate-shine {
+    animation: none;
+    background-image: none;
+  }
+  .border-beam-core {
+    animation: none;
+  }
+}
