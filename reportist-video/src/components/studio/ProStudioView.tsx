@@ -4961,9 +4961,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           {(result || thumbnailUrl) && (
             <div className="toss-card toss-thumbnail-card">
               <BorderBeam
-                colorFrom="#60a5fa"
-                colorTo="#c084fc"
-                duration={9}
+                duration={8}
                 borderWidth={1.5}
               />
               <div className="toss-card-header">
@@ -5273,8 +5271,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           <div className="toss-card toss-dramatic-card">
             {segments.length > 0 && (
               <BorderBeam
-                colorFrom="#38bdf8"
-                colorTo="#818cf8"
                 duration={7}
                 borderWidth={1.5}
               />
@@ -5920,8 +5916,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         <div className="toss-modal-overlay">
           <div className="toss-modal-card">
             <BorderBeam
-              colorFrom="#38bdf8"
-              colorTo="#818cf8"
               duration={4.5}
               borderWidth={2}
             />

@@ -1,8 +1,8 @@
 /* ========================================================
    AI Visual Effects
-   - ReactBits: ShinyText (Metallic / Light sweep text)
-   - ReactBits: SpecularButton (Glass button with shader rim reflection)
-   - Cult UI: BorderBeam & BorderBeamCard (Traveling beam strictly on the border)
+   - ReactBits: ShinyText (Metallic / White light sweep text)
+   - ReactBits: SpecularButton (Glass button with white shader rim reflection)
+   - Cult UI: BorderBeam & BorderBeamCard (White traveling beam strictly on the border)
    ======================================================== */
 
 /* --------------------------------------------------------
@@ -40,7 +40,8 @@
 }
 
 /* --------------------------------------------------------
-   2. Cult UI: BorderBeam & BorderBeamCard (오직 보더만 빛남)
+   2. Cult UI: BorderBeam & BorderBeamCard (화이트 순백색 보더만 빛남)
+   - 무지개 색상 배제, 순백색(White) 빔 적용
    - 카드 중앙은 100% 비워두고 오직 보더 라인에서만 빔이 회전
    -------------------------------------------------------- */
 .border-beam-card-container {
@@ -80,8 +81,8 @@
     from 0deg at 50% 50%,
     transparent 0deg,
     transparent 280deg,
-    var(--beam-color-to, #818cf8) 320deg,
-    var(--beam-color-from, #38bdf8) 348deg,
+    var(--beam-color-to, rgba(255, 255, 255, 0.15)) 310deg,
+    var(--beam-color-from, rgba(255, 255, 255, 0.8)) 345deg,
     #ffffff 357deg,
     transparent 360deg
   );

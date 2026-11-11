@@ -1,6 +1,6 @@
 // src/components/common/BorderBeamCard.tsx
 // Cult UI inspired Border Beam Card container
-// 오직 카드 보더 선을 따라 빔이 회전합니다.
+// 오직 카드 보더 선을 따라 순백색(White) 빔이 회전합니다.
 
 import React from 'react';
 import { BorderBeam } from './BorderBeam.tsx';
@@ -20,8 +20,8 @@ export interface BorderBeamCardProps
 
 export const BorderBeamCard: React.FC<BorderBeamCardProps> = ({
   children,
-  beamColorFrom = '#38bdf8',
-  beamColorTo = '#818cf8',
+  beamColorFrom = '#ffffff',
+  beamColorTo = 'rgba(255, 255, 255, 0.2)',
   beamDuration = 6,
   beamBorderWidth = 1.5,
   showBeam = true,

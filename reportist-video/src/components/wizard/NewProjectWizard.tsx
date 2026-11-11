@@ -856,8 +856,6 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
             <div className="wizard-step-pane wizard-processing-pane">
               <div className="wizard-processing-hero">
                 <BorderBeam
-                  colorFrom="#38bdf8"
-                  colorTo="#818cf8"
                   duration={5}
                   borderWidth={2}
                 />
