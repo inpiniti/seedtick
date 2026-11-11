@@ -3403,55 +3403,57 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       {/* 1. 상단 글로벌 내비게이션 바 */}
       <header className="toss-nav-header">
         <div className="toss-nav-left">
-          <div className="toss-logo-badge">
-            <ReportistLogo size={18} inverted />
-          </div>
-          <div className="toss-nav-brand-block">
-            <span className="toss-nav-title">{dict.common.brandName}</span>
-            <span className="toss-nav-tagline">{dict.common.taglineBadge}</span>
-          </div>
-
-          {/* 상단 네비게이션 탭 (스튜디오 목록/상세 계층 구조 & 영상 공유 커뮤니티) */}
-          <div className="toss-nav-tabs-group">
+          {activeTab === 'studio' ? (
+            /* 스튜디오 상세(편집 화면): 로고 대신 뒤로가기 버튼 표시 및 다른 탭 메뉴 숨김 */
             <button
               type="button"
-              className={`toss-nav-tab-btn ${activeTab === 'projects' || activeTab === 'studio' ? 'active' : ''}`}
-              onClick={() => {
-                if (activeTab === 'studio') {
-                  handleBackToProjects();
-                } else if (activeTab === 'projects') {
-                  onViewProjects?.();
-                } else {
-                  navigateToTab('projects');
-                }
-              }}
-              title={dict.community?.studioTab || dict.projects?.tabTitle || '스튜디오'}
-            >
-              <Film size={14} />
-              <span>{dict.community?.studioTab || dict.projects?.tabTitle || '스튜디오'}</span>
-            </button>
-            <button
-              type="button"
-              className={`toss-nav-tab-btn ${activeTab === 'community' ? 'active' : ''}`}
-              onClick={() => navigateToTab('community')}
-              title={dict.community?.communityTab || '영상 공유'}
-            >
-              <Share2 size={14} />
-              <span>{dict.community?.communityTab || '영상 공유'}</span>
-            </button>
-          </div>
-
-          {/* 스튜디오 상세(편집 화면) 진입 시 목록으로 돌아가기 (목록 - 상세 하이라키 구조) */}
-          {activeTab === 'studio' && (
-            <button
-              type="button"
-              className="toss-nav-back-to-list-btn"
+              className="toss-nav-back-btn"
               onClick={handleBackToProjects}
               title={dict.projects?.backToList || '스튜디오 목록으로'}
+              aria-label={dict.projects?.backToList || '스튜디오 목록으로'}
             >
-              <ChevronLeft size={14} />
-              <span>{dict.projects?.backToList || '스튜디오 목록'}</span>
+              <ChevronLeft size={18} className="toss-nav-back-icon" />
+              <span className="toss-nav-back-text">{dict.projects?.backToList || '스튜디오 목록'}</span>
             </button>
+          ) : (
+            /* 목록 및 커뮤니티 화면: 로고, 브랜드명, 상단 탭 노출 */
+            <>
+              <div className="toss-logo-badge">
+                <ReportistLogo size={18} inverted />
+              </div>
+              <div className="toss-nav-brand-block">
+                <span className="toss-nav-title">{dict.common.brandName}</span>
+                <span className="toss-nav-tagline">{dict.common.taglineBadge}</span>
+              </div>
+
+              {/* 상단 네비게이션 탭 (스튜디오 목록 & 영상 공유 커뮤니티) */}
+              <div className="toss-nav-tabs-group">
+                <button
+                  type="button"
+                  className={`toss-nav-tab-btn ${activeTab === 'projects' ? 'active' : ''}`}
+                  onClick={() => {
+                    if (activeTab === 'projects') {
+                      onViewProjects?.();
+                    } else {
+                      navigateToTab('projects');
+                    }
+                  }}
+                  title={dict.community?.studioTab || dict.projects?.tabTitle || '스튜디오'}
+                >
+                  <Film size={14} />
+                  <span>{dict.community?.studioTab || dict.projects?.tabTitle || '스튜디오'}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`toss-nav-tab-btn ${activeTab === 'community' ? 'active' : ''}`}
+                  onClick={() => navigateToTab('community')}
+                  title={dict.community?.communityTab || '영상 공유'}
+                >
+                  <Share2 size={14} />
+                  <span>{dict.community?.communityTab || '영상 공유'}</span>
+                </button>
+              </div>
+            </>
           )}
         </div>
 

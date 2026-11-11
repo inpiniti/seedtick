@@ -1342,34 +1342,57 @@
   white-space: nowrap;
 }
 
-/* Studio Hierarchy: Back to Project List Button */
+/* Studio Hierarchy: Back to Project List Button (replaces logo & tabs in detail view) */
+.toss-nav-back-btn,
 .toss-nav-back-to-list-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 5px 10px;
-  border-radius: 8px;
-  font-size: 12px;
+  gap: 5px;
+  height: 36px;
+  padding: 0 12px 0 8px;
+  border-radius: 9px;
+  font-size: 13px;
   font-weight: 600;
-  color: #475569;
-  background-color: #f8fafc;
-  border: 1px solid #e2e8f0;
+  color: #333d4b;
+  background-color: #f2f4f6;
+  border: 1px solid #e5e8eb;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
   flex-shrink: 0;
-  margin-left: 6px;
+  text-decoration: none;
+  box-sizing: border-box;
 }
 
+.toss-nav-back-btn:hover,
 .toss-nav-back-to-list-btn:hover {
-  color: #0f172a;
-  background-color: #e2e8f0;
-  border-color: #cbd5e1;
+  background-color: #e5e8eb;
+  color: #191f28;
+  border-color: #d1d5db;
 }
 
+.toss-nav-back-btn:active,
 .toss-nav-back-to-list-btn:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
+  background-color: #dbe0e5;
+}
+
+.toss-nav-back-icon {
+  flex-shrink: 0;
+  color: #4e5968;
+  transition: transform 0.15s ease;
+}
+
+.toss-nav-back-btn:hover .toss-nav-back-icon,
+.toss-nav-back-to-list-btn:hover .toss-nav-back-icon {
+  transform: translateX(-2px);
+  color: #191f28;
+}
+
+.toss-nav-back-text {
+  letter-spacing: -0.2px;
+  line-height: 1;
 }
 
 .toss-nav-right {
@@ -5318,16 +5341,11 @@
     display: none !important;
   }
 
+  .toss-nav-back-btn,
   .toss-nav-back-to-list-btn {
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    margin-left: 3px;
-    border-radius: 7px;
-  }
-
-  .toss-nav-back-to-list-btn span {
-    display: none !important;
+    height: 34px;
+    padding: 0 10px 0 6px;
+    font-size: 12px;
   }
 
   
@@ -5384,6 +5402,37 @@
     width: 28px;
     height: 28px;
     border-radius: 8px;
+  }
+
+  /* 모바일 스튜디오 상세: 로고 자리에 뒤로가기 아이콘 버튼 배치 */
+  .toss-nav-back-btn,
+  .toss-nav-back-to-list-btn {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    padding: 0;
+    gap: 0;
+    border-radius: 8px;
+    background-color: #f2f4f6;
+    border: 1px solid #e5e8eb;
+    color: #333d4b;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .toss-nav-back-btn:hover,
+  .toss-nav-back-btn:active,
+  .toss-nav-back-to-list-btn:hover,
+  .toss-nav-back-to-list-btn:active {
+    background-color: #e5e8eb;
+    color: #191f28;
+    border-color: #d1d5db;
+  }
+
+  .toss-nav-back-btn .toss-nav-back-text,
+  .toss-nav-back-to-list-btn span {
+    display: none !important;
   }
 
   /* 모바일 상단 네비게이션 탭: 텍스트 숨기고 아이콘만 노출하여 우측 버튼 공간 확보 */
@@ -5596,11 +5645,12 @@
     border-radius: 5px;
   }
 
+  .toss-nav-back-btn,
   .toss-nav-back-to-list-btn {
     width: 28px;
     height: 28px;
-    margin-left: 2px;
-    border-radius: 5px;
+    min-width: 28px;
+    border-radius: 6px;
   }
 
   .toss-nav-right {
