@@ -30,7 +30,7 @@ export const VideoExportModal: React.FC<VideoExportModalProps> = ({
   segmentCount,
   isMobileDevice,
 }) => {
-  const { dict } = useI18n();
+  const { dict, interpolate } = useI18n();
   const overlayRef = useRef<HTMLDivElement>(null);
   const [selectedRes, setSelectedRes] = useState<ExportResolution>(currentResolution);
 
@@ -123,14 +123,16 @@ export const VideoExportModal: React.FC<VideoExportModalProps> = ({
           <div className="export-modal-meta-box">
             <div className="export-modal-meta-item">
               <Clock size={14} className="text-blue-500" />
-              <span className="export-modal-meta-label">총 길이:</span>
+              <span className="export-modal-meta-label">{dict.exportSettings?.totalDurationLabel || '총 길이:'}</span>
               <strong className="export-modal-meta-val">{totalDurationText}</strong>
             </div>
             <span className="export-modal-meta-dot">·</span>
             <div className="export-modal-meta-item">
               <Film size={14} className="text-blue-500" />
-              <span className="export-modal-meta-label">하이라이트:</span>
-              <strong className="export-modal-meta-val">{segmentCount}개 클립</strong>
+              <span className="export-modal-meta-label">{dict.exportSettings?.highlightsLabel || '하이라이트:'}</span>
+              <strong className="export-modal-meta-val">
+                {interpolate(dict.exportSettings?.segmentCount || '{count}개 클립', { count: segmentCount })}
+              </strong>
             </div>
           </div>
 
@@ -155,7 +157,9 @@ export const VideoExportModal: React.FC<VideoExportModalProps> = ({
                   <div className="toss-modal-res-content">
                     <div className="toss-modal-res-title-row">
                       <span className="toss-modal-res-title">720p HD</span>
-                      <span className="toss-modal-res-subbadge standard">기본</span>
+                      <span className="toss-modal-res-subbadge standard">
+                        {dict.exportSettings?.standardBadge || '기본'}
+                      </span>
                     </div>
                     <div className="toss-modal-res-desc">
                       {dict.settingsModal?.resolution720pDesc || '인코딩이 빠르고 모든 기기에서 안정적이에요'}
@@ -220,7 +224,9 @@ export const VideoExportModal: React.FC<VideoExportModalProps> = ({
             onClick={handleConfirm}
           >
             <Download size={14} style={{ marginRight: 6 }} />
-            <span>{selectedRes} 다운로드</span>
+            <span>
+              {interpolate(dict.exportSettings?.downloadRes || '{res} 다운로드', { res: selectedRes })}
+            </span>
           </button>
         </div>
       </div>

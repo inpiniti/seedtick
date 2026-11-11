@@ -34,6 +34,7 @@ import type { VideoItem, VideoOverlayOptions, ProcessingProgress } from '../../t
 import type { FreeModelMeta, ReasoningEffortOption } from '../../types/gateway.ts';
 import { AUDIO_LIBRARY, type AudioLibraryTrack } from '../../data/audioLibrary.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
+import { useI18n } from '../../i18n/index.tsx';
 import './NewProjectWizard.css';
 
 interface NewProjectWizardProps {
@@ -95,6 +96,8 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
   progress,
   onCancelProcessing,
 }) => {
+  const { dict, interpolate } = useI18n();
+  const w = dict.wizard;
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -313,16 +316,16 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
           <div className="wizard-header-top">
             <div className="wizard-brand">
               <span className="wizard-brand-badge">NEW</span>
-              <h2 className="wizard-brand-title">새 비디오 프로젝트 만들기</h2>
+              <h2 className="wizard-brand-title">{w?.modalTitle || '새 비디오 프로젝트 만들기'}</h2>
             </div>
             {!isProcessing && (
               <button
                 type="button"
                 className="wizard-close-btn"
                 onClick={onClose}
-                title="닫기 (목록으로)"
+                title={w?.closeBtn || '닫기 (목록으로)'}
               >
-                <span className="wizard-close-text">닫기</span>
+                <span className="wizard-close-text">{dict.common.close || '닫기'}</span>
                 <X size={18} />
               </button>
             )}
@@ -339,9 +342,9 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                 {currentStep > 1 ? <Check size={14} strokeWidth={3} /> : '1'}
               </div>
               <div className="wizard-step-info">
-                <span className="wizard-step-title">영상 업로드 & 위치</span>
+                <span className="wizard-step-title">{w?.step1Title || '영상 업로드 & 위치'}</span>
                 <span className="wizard-step-sub">
-                  {videos.length > 0 ? `${videos.length}개 선택됨` : '원본 영상 선택'}
+                  {videos.length > 0 ? interpolate(w?.step1Sub || '{count}개 선택됨', { count: videos.length }) : (w?.step1SubEmpty || '원본 영상 선택')}
                 </span>
               </div>
             </div>
@@ -357,8 +360,8 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                 {currentStep > 2 ? <Check size={14} strokeWidth={3} /> : '2'}
               </div>
               <div className="wizard-step-info">
-                <span className="wizard-step-title">스타일 & 연출</span>
-                <span className="wizard-step-sub">음원 · 인트로 · 아웃트로</span>
+                <span className="wizard-step-title">{w?.step2Title || '스타일 & 연출'}</span>
+                <span className="wizard-step-sub">{w?.step2Sub || '음원 · 인트로 · 아웃트로'}</span>
               </div>
             </div>
 
@@ -370,9 +373,9 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                 <Sparkles size={14} />
               </div>
               <div className="wizard-step-info">
-                <span className="wizard-step-title">AI 하이라이트 생성</span>
+                <span className="wizard-step-title">{w?.step3Title || 'AI 하이라이트 생성'}</span>
                 <span className="wizard-step-sub">
-                  {isProcessing ? `${progress.progressPercent}% 진행 중` : '스튜디오 전환'}
+                  {isProcessing ? interpolate(w?.step3SubProcessing || '{pct}% 진행 중', { pct: progress.progressPercent }) : (w?.step3SubReady || '스튜디오 전환')}
                 </span>
               </div>
             </div>
@@ -386,10 +389,10 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
             <div className="wizard-step-pane">
               <div className="wizard-pane-desc">
                 <p className="wizard-pane-lead">
-                  하이라이트를 생성할 동영상들을 업로드해주세요.
+                  {w?.step1Lead || '하이라이트를 생성할 동영상들을 업로드해주세요.'}
                 </p>
                 <p className="wizard-pane-sub">
-                  여러 개의 영상을 한 번에 올릴 수 있으며, 촬영 장소명을 직접 수정하거나 지도로 확인할 수 있어요.
+                  {w?.step1Desc || '여러 개의 영상을 한 번에 올릴 수 있으며, 촬영 장소명을 직접 수정하거나 지도로 확인할 수 있어요.'}
                 </p>
               </div>
 
@@ -413,8 +416,8 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                   <Upload size={28} className="text-blue-500" />
                 </div>
                 <div className="wizard-dropzone-text">
-                  <strong>동영상 파일을 끌어다 놓거나 클릭하여 선택하세요</strong>
-                  <span>MP4, MOV, WebM, MKV 등 고화질 영상 지원 (브라우저 메모리 100% 비공개 처리)</span>
+                  <strong>{w?.dropzoneTitle || '동영상 파일을 끌어다 놓거나 클릭하여 선택하세요'}</strong>
+                  <span>{w?.dropzoneSub || 'MP4, MOV, WebM, MKV 등 고화질 영상 지원 (브라우저 메모리 100% 비공개 처리)'}</span>
                 </div>
               </div>
 
@@ -424,16 +427,16 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                   <div className="wizard-video-summary-bar">
                     <div className="wizard-summary-stats">
                       <span className="wizard-summary-tag">
-                        총 <strong>{videos.length}</strong>개 영상
+                        {interpolate(w?.summaryVideos || '총 {count}개 영상', { count: videos.length })}
                       </span>
                       <span className="wizard-summary-dot">•</span>
                       <span className="wizard-summary-tag">
                         <Clock size={12} className="inline mr-1" />
-                        총 <strong>{totalDuration.toFixed(1)}초</strong>
+                        {interpolate(w?.summaryDuration || '총 {sec}초', { sec: totalDuration.toFixed(1) })}
                       </span>
                       <span className="wizard-summary-dot">•</span>
                       <span className="wizard-summary-tag">
-                        총 <strong>{(totalSizeBytes / (1024 * 1024)).toFixed(1)} MB</strong>
+                        {interpolate(w?.summarySize || '총 {mb} MB', { mb: (totalSizeBytes / (1024 * 1024)).toFixed(1) })}
                       </span>
                     </div>
 
@@ -443,7 +446,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                       onClick={() => fileInputRef.current?.click()}
                     >
                       <Plus size={13} />
-                      <span>영상 추가</span>
+                      <span>{w?.addMoreVideos || '영상 추가'}</span>
                     </button>
                   </div>
 
@@ -471,10 +474,10 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                               {vid.name}
                             </span>
                             <div className="wizard-video-meta">
-                              <span>{vid.duration > 0 ? `${vid.duration.toFixed(1)}초` : '길이 확인 중'}</span>
+                              <span>{vid.duration > 0 ? `${vid.duration.toFixed(1)}${dict.common.timeSec}` : (w?.checkingDuration || '길이 확인 중')}</span>
                               <span className="wizard-video-meta-dot">•</span>
                               <span>
-                                {vid.width > 0 ? `${vid.width}×${vid.height}` : '해상도 확인 중'}
+                                {vid.width > 0 ? `${vid.width}×${vid.height}` : (w?.checkingResolution || '해상도 확인 중')}
                               </span>
                               {vid.metadataDate && (
                                 <>
@@ -493,7 +496,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                               <input
                                 type="text"
                                 className="wizard-location-input"
-                                placeholder="촬영 위치 수정 (예: 해운대 해수욕장, 제주 성산일출봉)"
+                                placeholder={w?.editLocationPlaceholder || '촬영 위치 수정 (예: 해운대 해수욕장, 제주 성산일출봉)'}
                                 value={vid.locationName || ''}
                                 onChange={(e) => onUpdateVideoLocation(vid.id, e.target.value)}
                               />
@@ -501,10 +504,10 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                                 type="button"
                                 className={`wizard-btn-map ${vid.latitude && vid.longitude ? 'has-gps' : ''}`}
                                 onClick={() => setMapModalVideo(vid)}
-                                title="지도에서 위치 확인하기"
+                                title={w?.viewMapTitle || '지도에서 위치 확인하기'}
                               >
                                 <ExternalLink size={12} />
-                                <span>{vid.latitude && vid.longitude ? 'GPS 지도' : '지도 보기'}</span>
+                                <span>{vid.latitude && vid.longitude ? (w?.gpsMapBtn || 'GPS 지도') : (w?.viewMapBtn || '지도 보기')}</span>
                               </button>
                             </div>
                           </div>
@@ -514,7 +517,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                           type="button"
                           className="wizard-video-delete-btn"
                           onClick={() => onRemoveVideo(vid.id)}
-                          title="목록에서 삭제"
+                          title={w?.removeVideoTitle || '목록에서 삭제'}
                         >
                           <Trash2 size={15} />
                         </button>
@@ -531,10 +534,10 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
             <div className="wizard-step-pane">
               <div className="wizard-pane-desc">
                 <p className="wizard-pane-lead">
-                  영상의 분위기에 어울리는 배경음악과 연출을 설정해보세요.
+                  {w?.step2Lead || '영상의 분위기에 어울리는 배경음악과 연출을 설정해보세요.'}
                 </p>
                 <p className="wizard-pane-sub">
-                  오프닝 인트로 영상이나 엔딩 아웃트로 영상을 직접 첨부하여 더욱 완성도 높은 영상을 만들 수 있어요.
+                  {w?.step2Desc || '오프닝 인트로 영상이나 엔딩 아웃트로 영상을 직접 첨부하여 더욱 완성도 높은 영상을 만들 수 있어요.'}
                 </p>
               </div>
 
@@ -545,9 +548,9 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                     <Music size={18} />
                   </div>
                   <div>
-                    <h3 className="wizard-config-title">배경음악 (BGM) 선택</h3>
+                    <h3 className="wizard-config-title">{w?.bgmSectionTitle || '배경음악 (BGM) 선택'}</h3>
                     <p className="wizard-config-subtitle">
-                      분위기에 맞는 무료 라이선스 음악을 선택하거나 미리 들어보세요
+                      {w?.bgmSectionSub || '분위기에 맞는 무료 라이선스 음악을 선택하거나 미리 들어보세요'}
                     </p>
                   </div>
                 </div>
@@ -563,8 +566,8 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                     <div className="wizard-bgm-item-left">
                       <VolumeX size={16} className="text-slate-400" />
                       <div>
-                        <div className="wizard-bgm-name">배경음악 없음</div>
-                        <div className="wizard-bgm-desc">영상 원본 소리만 재생</div>
+                        <div className="wizard-bgm-name">{w?.noBgmTitle || '배경음악 없음'}</div>
+                        <div className="wizard-bgm-desc">{w?.noBgmDesc || '영상 원본 소리만 재생'}</div>
                       </div>
                     </div>
                     {!selectedLibraryTrackId && !customAudioFile && (
@@ -590,7 +593,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                               e.stopPropagation();
                               handleTogglePreviewAudio(track);
                             }}
-                            title={isPlaying ? '일시정지' : '미리듣기'}
+                            title={isPlaying ? (w?.previewPause || '일시정지') : (w?.previewPlay || '미리듣기')}
                           >
                             {isPlaying ? <Pause size={13} /> : <Play size={13} className="ml-0.5" />}
                           </button>
@@ -598,10 +601,10 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                             <div className="wizard-bgm-name">{track.name}</div>
                             <div className="wizard-bgm-desc">
                               {track.id === 'lively-day'
-                                ? '밝고 활기찬 무드'
+                                ? (w?.bgmLively || '밝고 활기찬 무드')
                                 : track.id === 'dreaming'
-                                ? '감성적이고 잔잔한 무드'
-                                : '경쾌한 어쿠스틱 무드'}
+                                ? (w?.bgmDreaming || '감성적이고 잔잔한 무드')
+                                : (w?.bgmEnergetic || '경쾌한 어쿠스틱 무드')}
                             </div>
                           </div>
                         </div>
@@ -618,7 +621,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                   <div className="wizard-volume-row">
                     <div className="wizard-volume-label">
                       <Volume2 size={15} className="text-slate-500" />
-                      <span>배경음악 음량</span>
+                      <span>{w?.bgmVolumeLabel || '배경음악 음량'}</span>
                       <strong>{Math.round(bgmVolume * 100)}%</strong>
                     </div>
                     <input
@@ -647,22 +650,22 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                     <Type size={18} />
                   </div>
                   <div>
-                    <h3 className="wizard-config-title">오프닝 인트로 설정</h3>
+                    <h3 className="wizard-config-title">{w?.introSectionTitle || '오프닝 인트로 설정'}</h3>
                     <p className="wizard-config-subtitle">
-                      영상의 첫 장면에 표시될 제목과 오프닝 영상/연출을 설정합니다
+                      {w?.introSectionSub || '영상의 첫 장면에 표시될 제목과 오프닝 영상/연출을 설정합니다'}
                     </p>
                   </div>
                 </div>
 
                 <div className="wizard-form-group">
                   <label className="wizard-form-label">
-                    <span>영상 메인 제목</span>
-                    <span className="wizard-label-badge">미입력 시 AI 자동 추천</span>
+                    <span>{w?.videoMainTitle || '영상 메인 제목'}</span>
+                    <span className="wizard-label-badge">{w?.aiAutoRecommend || '미입력 시 AI 자동 추천'}</span>
                   </label>
                   <input
                     type="text"
                     className="wizard-input-text"
-                    placeholder="예: 부산 2박 3일 여름 여행 하이라이트 (비워두면 AI 자동 생성)"
+                    placeholder={w?.titlePlaceholder || '예: 부산 2박 3일 여름 여행 하이라이트 (비워두면 AI 자동 생성)'}
                     value={titleText}
                     onChange={(e) => setTitleText(e.target.value)}
                   />
@@ -685,8 +688,8 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                   />
                   <div className="wizard-clip-header-row">
                     <label className="wizard-form-label mb-0">
-                      <span>오프닝 인트로 영상 파일</span>
-                      <span className="wizard-label-badge">선택 사항</span>
+                      <span>{w?.introClipLabel || '오프닝 인트로 영상 파일'}</span>
+                      <span className="wizard-label-badge">{w?.optionalBadge || '선택 사항'}</span>
                     </label>
                   </div>
 
@@ -700,7 +703,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                         type="button"
                         className="wizard-clip-remove-btn"
                         onClick={() => setIntroVideoFile(null)}
-                        title="인트로 영상 삭제"
+                        title={w?.removeIntroClip || '인트로 영상 삭제'}
                       >
                         <X size={13} />
                       </button>
@@ -712,13 +715,13 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                       onClick={() => introVideoInputRef.current?.click()}
                     >
                       <Plus size={14} />
-                      <span>인트로 영상 파일 첨부하기 (MP4, MOV 등)</span>
+                      <span>{w?.attachIntroClip || '인트로 영상 파일 첨부하기 (MP4, MOV 등)'}</span>
                     </button>
                   )}
                   <span className="wizard-clip-help-text">
                     {introVideoFile
-                      ? '✓ 첨부된 인트로 영상이 본편 시작 전에 매끄럽게 연결되어 재생됩니다.'
-                      : '별도의 인트로 영상이 있으면 첨부해보세요. 미첨부 시 타이틀 애니메이션이 적용됩니다.'}
+                      ? (w?.introHelpAttached || '✓ 첨부된 인트로 영상이 본편 시작 전에 매끄럽게 연결되어 재생됩니다.')
+                      : (w?.introHelpDefault || '별도의 인트로 영상이 있으면 첨부해보세요. 미첨부 시 타이틀 애니메이션이 적용됩니다.')}
                   </span>
                 </div>
 
@@ -731,8 +734,8 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                       className="wizard-checkbox"
                     />
                     <div>
-                      <div className="wizard-toggle-title">오프닝 인트로 연출 적용</div>
-                      <div className="wizard-toggle-desc">영상 시작 시 감성적인 타이틀 애니메이션을 표시합니다</div>
+                      <div className="wizard-toggle-title">{w?.toggleIntro || '오프닝 인트로 연출 적용'}</div>
+                      <div className="wizard-toggle-desc">{w?.toggleIntroDesc || '영상 시작 시 감성적인 타이틀 애니메이션을 표시합니다'}</div>
                     </div>
                   </label>
 
@@ -744,8 +747,8 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                       className="wizard-checkbox"
                     />
                     <div>
-                      <div className="wizard-toggle-title">구간 챕터 브릿지 자막</div>
-                      <div className="wizard-toggle-desc">새로운 영상 구간으로 넘어갈 때 장소/시간 자막을 띄웁니다</div>
+                      <div className="wizard-toggle-title">{w?.toggleChapterBridge || '구간 챕터 브릿지 자막'}</div>
+                      <div className="wizard-toggle-desc">{w?.toggleChapterBridgeDesc || '새로운 영상 구간으로 넘어갈 때 장소/시간 자막을 띄웁니다'}</div>
                     </div>
                   </label>
                 </div>
@@ -758,9 +761,9 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                     <Flag size={18} />
                   </div>
                   <div>
-                    <h3 className="wizard-config-title">엔딩 아웃트로 설정</h3>
+                    <h3 className="wizard-config-title">{w?.outroSectionTitle || '엔딩 아웃트로 설정'}</h3>
                     <p className="wizard-config-subtitle">
-                      영상이 끝날 때 표시할 채널명이나 마무리 엔딩 영상을 추가해보세요
+                      {w?.outroSectionSub || '영상이 끝날 때 표시할 채널명이나 마무리 엔딩 영상을 추가해보세요'}
                     </p>
                   </div>
                 </div>
@@ -773,8 +776,8 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                     className="wizard-checkbox"
                   />
                   <div>
-                    <div className="wizard-toggle-title">엔딩 아웃트로 연출 적용</div>
-                    <div className="wizard-toggle-desc">영상 마지막에 부드러운 페이드아웃과 서명을 표시합니다</div>
+                    <div className="wizard-toggle-title">{w?.toggleOutro || '엔딩 아웃트로 연출 적용'}</div>
+                    <div className="wizard-toggle-desc">{w?.toggleOutroDesc || '영상 마지막에 부드러운 페이드아웃과 서명을 표시합니다'}</div>
                   </div>
                 </label>
 
@@ -795,8 +798,8 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                   />
                   <div className="wizard-clip-header-row">
                     <label className="wizard-form-label mb-0">
-                      <span>엔딩 아웃트로 영상 파일</span>
-                      <span className="wizard-label-badge">선택 사항</span>
+                      <span>{w?.outroClipLabel || '엔딩 아웃트로 영상 파일'}</span>
+                      <span className="wizard-label-badge">{w?.optionalBadge || '선택 사항'}</span>
                     </label>
                   </div>
 
@@ -810,7 +813,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                         type="button"
                         className="wizard-clip-remove-btn"
                         onClick={() => setOutroVideoFile(null)}
-                        title="아웃트로 영상 삭제"
+                        title={w?.removeOutroClip || '아웃트로 영상 삭제'}
                       >
                         <X size={13} />
                       </button>
@@ -822,7 +825,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                       onClick={() => outroVideoInputRef.current?.click()}
                     >
                       <Plus size={14} />
-                      <span>엔딩 아웃트로 영상 파일 첨부하기 (MP4, MOV 등)</span>
+                      <span>{w?.attachOutroClip || '엔딩 아웃트로 영상 파일 첨부하기 (MP4, MOV 등)'}</span>
                     </button>
                   )}
                 </div>
@@ -830,12 +833,12 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                 {(showOutro || Boolean(outroVideoFile)) && (
                   <div className="wizard-form-group mt-2">
                     <label className="wizard-form-label">
-                      <span>채널명 / 엔딩 문구</span>
+                      <span>{w?.channelLabel || '채널명 / 엔딩 문구'}</span>
                     </label>
                     <input
                       type="text"
                       className="wizard-input-text"
-                      placeholder="예: Reportist Travel · 구독과 좋아요 부탁드려요!"
+                      placeholder={w?.channelPlaceholder || '예: Reportist Travel · 구독과 좋아요 부탁드려요!'}
                       value={channelText}
                       onChange={(e) => setChannelText(e.target.value)}
                     />
@@ -853,10 +856,10 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                   <Sparkles size={36} className="text-blue-500 animate-spin-slow" />
                 </div>
                 <h3 className="wizard-processing-title">
-                  AI가 영상의 극적인 순간을 분석하고 있어요
+                  {w?.step3HeroTitle || 'AI가 영상의 극적인 순간을 분석하고 있어요'}
                 </h3>
                 <p className="wizard-processing-desc">
-                  {progress.statusMessage || '영상의 주요 프레임을 분석하여 하이라이트를 탐색 중입니다...'}
+                  {progress.statusMessage || (w?.step3DefaultStatus || '영상의 주요 프레임을 분석하여 하이라이트를 탐색 중입니다...')}
                 </p>
               </div>
 
@@ -865,8 +868,8 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                 <div className="wizard-progress-header">
                   <span className="wizard-progress-stage">
                     {progress.currentPhase === 'extract'
-                      ? '1단계: 영상 프레임 고속 추출'
-                      : '2단계: 비전 AI 극적 장면 분석 & 컷팅'}
+                      ? (w?.stageExtract || '1단계: 영상 프레임 고속 추출')
+                      : (w?.stageAnalyze || '2단계: 비전 AI 극적 장면 분석 & 컷팅')}
                   </span>
                   <span className="wizard-progress-pct">{progress.progressPercent}%</span>
                 </div>
@@ -879,13 +882,13 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
 
                 <div className="wizard-stage-steps">
                   <div className={`wizard-stage-chip ${progress.progressPercent >= 15 ? 'done' : 'active'}`}>
-                    {progress.progressPercent >= 15 ? <Check size={12} /> : '1'} 프레임 추출
+                    {progress.progressPercent >= 15 ? <Check size={12} /> : '1'} {w?.stepFrameExtract || '프레임 추출'}
                   </div>
                   <div className={`wizard-stage-chip ${progress.progressPercent >= 85 ? 'done' : progress.progressPercent >= 15 ? 'active' : ''}`}>
-                    {progress.progressPercent >= 85 ? <Check size={12} /> : '2'} AI 하이라이트 탐색
+                    {progress.progressPercent >= 85 ? <Check size={12} /> : '2'} {w?.stepAiExplore || 'AI 하이라이트 탐색'}
                   </div>
                   <div className={`wizard-stage-chip ${progress.progressPercent >= 100 ? 'done' : progress.progressPercent >= 85 ? 'active' : ''}`}>
-                    {progress.progressPercent >= 100 ? <Check size={12} /> : '3'} 타임라인 & 자막 구성
+                    {progress.progressPercent >= 100 ? <Check size={12} /> : '3'} {w?.stepTimelineCompose || '타임라인 & 자막 구성'}
                   </div>
                 </div>
               </div>
@@ -894,7 +897,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
               <div className="wizard-terminal-card">
                 <div className="wizard-terminal-header">
                   <Terminal size={14} className="text-slate-400" />
-                  <span>실시간 분석 로그</span>
+                  <span>{w?.liveLogHeader || '실시간 분석 로그'}</span>
                   <Activity size={13} className="text-emerald-400 ml-auto animate-pulse" />
                 </div>
                 <div className="wizard-terminal-content">
@@ -911,7 +914,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                       </div>
                     ))
                   ) : (
-                    <div className="wizard-terminal-empty">AI 분석 파이프라인 준비 중...</div>
+                    <div className="wizard-terminal-empty">{w?.pipelinePreparing || 'AI 분석 파이프라인 준비 중...'}</div>
                   )}
                   <div ref={terminalEndRef} />
                 </div>
@@ -924,7 +927,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                   className="wizard-btn-cancel"
                   onClick={onCancelProcessing}
                 >
-                  분석 중단하기
+                  {w?.cancelAnalysis || '분석 중단하기'}
                 </button>
               </div>
             </div>
@@ -940,7 +943,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                 className="wizard-btn-ghost"
                 onClick={onClose}
               >
-                취소 (목록으로)
+                {w?.cancelToList || '취소 (목록으로)'}
               </button>
 
               <button
@@ -949,7 +952,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                 disabled={videos.length === 0}
                 onClick={() => setCurrentStep(2)}
               >
-                <span>다음: 스타일 & 연출</span>
+                <span>{w?.nextStyle || '다음: 스타일 & 연출'}</span>
                 <ArrowRight size={16} />
               </button>
             </>
@@ -963,7 +966,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                 onClick={() => setCurrentStep(1)}
               >
                 <ArrowLeft size={16} />
-                <span>이전</span>
+                <span>{w?.prevStep || '이전'}</span>
               </button>
 
               <div className="wizard-footer-right">
@@ -973,7 +976,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                   onClick={handleStartAnalysis}
                 >
                   <Sparkles size={16} />
-                  <span>AI 하이라이트 생성 시작</span>
+                  <span>{w?.startAiHighlight || 'AI 하이라이트 생성 시작'}</span>
                 </button>
               </div>
             </>
@@ -981,7 +984,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
 
           {currentStep === 3 && (
             <div className="wizard-footer-processing-note">
-              <span>💡 분석이 완료되면 스튜디오로 자동 전환되어 자막과 구간을 바로 편집할 수 있어요.</span>
+              <span>{w?.footerAutoTransition || '💡 분석이 완료되면 스튜디오로 자동 전환되어 자막과 구간을 바로 편집할 수 있어요.'}</span>
             </div>
           )}
         </div>
@@ -1008,7 +1011,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                   <p className="wizard-map-sub">
                     {mapModalVideo.latitude && mapModalVideo.longitude
                       ? `GPS: ${mapModalVideo.latitude.toFixed(5)}, ${mapModalVideo.longitude.toFixed(5)}`
-                      : '촬영 위치 정보'}
+                      : (w?.mapInfoTitle || '촬영 위치 정보')}
                   </p>
                 </div>
               </div>
@@ -1024,7 +1027,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
             <div className="wizard-map-body">
               {mapModalVideo.latitude && mapModalVideo.longitude ? (
                 <iframe
-                  title="촬영 위치 지도"
+                  title={w?.mapIframeTitle || '촬영 위치 지도'}
                   className="wizard-map-iframe"
                   src={`https://www.openstreetmap.org/export/embed.html?bbox=${mapModalVideo.longitude - 0.008}%2C${mapModalVideo.latitude - 0.008}%2C${mapModalVideo.longitude + 0.008}%2C${mapModalVideo.latitude + 0.008}&layer=mapnik&marker=${mapModalVideo.latitude}%2C${mapModalVideo.longitude}`}
                 />
@@ -1032,10 +1035,10 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                 <div className="wizard-map-nogps-box">
                   <MapPin size={32} className="text-slate-300 mb-2" />
                   <p className="wizard-map-nogps-title">
-                    {mapModalVideo.locationName ? `[${mapModalVideo.locationName}] 위치 검색` : 'GPS 좌표가 없는 영상입니다'}
+                    {mapModalVideo.locationName ? interpolate(w?.mapSearchQuery || '[{location}] 위치 검색', { location: mapModalVideo.locationName }) : (w?.mapNoGps || 'GPS 좌표가 없는 영상입니다')}
                   </p>
                   <p className="wizard-map-nogps-desc">
-                    아래 네이버 지도 또는 구글 지도 링크를 눌러 장소를 검색하고 확인해보세요.
+                    {w?.mapNoGpsDesc || '아래 네이버 지도 또는 구글 지도 링크를 눌러 장소를 검색하고 확인해보세요.'}
                   </p>
                 </div>
               )}
@@ -1056,7 +1059,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                   className="wizard-btn-external-map"
                 >
                   <ExternalLink size={12} />
-                  <span>네이버 지도</span>
+                  <span>{w?.naverMap || '네이버 지도'}</span>
                 </a>
                 <a
                   href={
@@ -1069,7 +1072,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                   className="wizard-btn-external-map"
                 >
                   <ExternalLink size={12} />
-                  <span>구글 지도</span>
+                  <span>{w?.googleMap || '구글 지도'}</span>
                 </a>
               </div>
               <button
@@ -1077,7 +1080,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                 className="wizard-btn-map-close"
                 onClick={() => setMapModalVideo(null)}
               >
-                닫기
+                {dict.common.close || '닫기'}
               </button>
             </div>
           </div>

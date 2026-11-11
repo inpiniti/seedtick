@@ -142,14 +142,16 @@ export const VideoListModal: React.FC<VideoListModalProps> = ({
               <span style={{ fontSize: '14px' }}>💡</span>
               <span style={{ color: '#475569', fontSize: '12px' }}>
                 {videos.every((v) => v.segments && v.segments.length > 0)
-                  ? '기기 메모리 보호를 위해 원본은 분리되었지만 클립 편집점은 안전하게 보존되어 있어요'
-                  : `원본 영상 ${videos.filter((v) => !v.url || (v.file && v.file.size === 0) || v.error || v.isMissingFile).length}개 재연결 필요`}
+                  ? (dict.videoListModal.relinkBannerSafe || '기기 메모리 보호를 위해 원본은 분리되었지만 클립 편집점은 안전하게 보존되어 있어요')
+                  : interpolate(dict.videoListModal.relinkBannerNeed || '원본 영상 {count}개 재연결 필요', {
+                      count: videos.filter((v) => !v.url || (v.file && v.file.size === 0) || v.error || v.isMissingFile).length,
+                    })}
               </span>
             </div>
             {onRelinkBatch && (
               <label className="toss-relink-btn-batch" style={{ padding: '5px 10px', fontSize: '11.5px', borderRadius: '8px' }}>
                 <Link2 size={13} />
-                <span>일괄 재연결</span>
+                <span>{dict.videoListModal.relinkBatchBtn || '일괄 재연결'}</span>
                 <input
                   type="file"
                   multiple
@@ -241,11 +243,11 @@ export const VideoListModal: React.FC<VideoListModalProps> = ({
                         {(!vid.url || (vid.file && vid.file.size === 0) || vid.error || vid.isMissingFile) && (
                           vid.segments && vid.segments.length > 0 ? (
                             <span className="toss-video-modal-meta-badge" style={{ background: '#f0fdf4', color: '#16a34a', borderColor: '#bbf7d0' }}>
-                              <span>✓ 클립 보관됨 ({vid.segments.length}개)</span>
+                              <span>{interpolate(dict.videoListModal.clipsPreserved || '✓ 클립 보관됨 ({count}개)', { count: vid.segments.length })}</span>
                             </span>
                           ) : (
                             <span className="toss-video-modal-meta-badge" style={{ background: '#fef2f2', color: '#ef4444', borderColor: '#fca5a5' }}>
-                              <span>⚠️ 파일 재선택 필요</span>
+                              <span>{dict.videoListModal.reselectFile || '⚠️ 파일 재선택 필요'}</span>
                             </span>
                           )
                         )}
@@ -257,7 +259,7 @@ export const VideoListModal: React.FC<VideoListModalProps> = ({
                     {(!vid.url || (vid.file && vid.file.size === 0) || vid.error || vid.isMissingFile) && onRelinkVideo && (
                       <label className="toss-btn-relink-inline">
                         <Link2 size={12} />
-                        <span>연결</span>
+                        <span>{dict.videoListModal.relinkBtn || '연결'}</span>
                         <input
                           type="file"
                           accept="video/*,image/*"

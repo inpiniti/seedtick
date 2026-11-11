@@ -98,6 +98,8 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
     startNew: '시작하기',
     localStorageBadge: '기기 내 저장 (100% 로컬)',
     localStorageTip: '브라우저 로컬 IndexedDB에 안전 저장',
+    opfsStorageBadge: '기기 내 저장 (OPFS 파일시스템)',
+    opfsStorageTip: '고성능 OPFS(가상 파일시스템)로 대용량 비디오가 안전하게 보관돼요',
   };
 
   const targetProjectToDelete = projects.find((p) => p.id === deleteTargetId);
@@ -117,12 +119,16 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
         <div className="toss-projects-header-actions">
           <div
             className="toss-projects-storage-pill"
-            title={isOpfsAvailable() ? '고성능 OPFS(가상 파일시스템)로 대용량 비디오가 안전하게 보관돼요' : pDict.localStorageTip || '브라우저 로컬 IndexedDB에 안전 저장'}
+            title={
+              isOpfsAvailable()
+                ? pDict.opfsStorageTip || '고성능 OPFS(가상 파일시스템)로 대용량 비디오가 안전하게 보관돼요'
+                : pDict.localStorageTip || '브라우저 로컬 IndexedDB에 안전 저장'
+            }
           >
             <HardDrive size={13} className="text-blue-600" />
             <span>
               {isOpfsAvailable()
-                ? '기기 내 저장 (OPFS 파일시스템)'
+                ? pDict.opfsStorageBadge || '기기 내 저장 (OPFS 파일시스템)'
                 : pDict.localStorageBadge || '기기 내 저장 (100% 로컬)'}
             </span>
           </div>

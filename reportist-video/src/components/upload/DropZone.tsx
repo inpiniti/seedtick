@@ -1,7 +1,6 @@
-// components/upload/DropZone.tsx - 다중 영상 드래그 앤 드롭 업로드 영역
-
 import React, { useState, useRef } from 'react';
 import { UploadCloud, Plus } from 'lucide-react';
+import { useI18n } from '../../i18n/index.tsx';
 
 interface DropZoneProps {
   onFilesSelected: (files: File[]) => void;
@@ -9,6 +8,7 @@ interface DropZoneProps {
 }
 
 export const DropZone: React.FC<DropZoneProps> = ({ onFilesSelected, disabled = false }) => {
+  const { dict } = useI18n();
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -71,10 +71,10 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFilesSelected, disabled = 
       </div>
 
       <div className="dropzone-title">
-        여러 영상을 여기에 끌어다 놓아주세요
+        {dict.upload?.dropZoneTitle || '여러 영상을 여기에 끌어다 놓아주세요'}
       </div>
       <div className="dropzone-subtext">
-        MP4, WebM, MOV 등 모든 일반 동영상 형식을 지원해요 · 영상은 서버로 전송되지 않고 브라우저에서 안전하게 처리돼요
+        {dict.upload?.dropZoneSubtext || 'MP4, WebM, MOV 등 모든 일반 동영상 형식을 지원해요 · 영상은 서버로 전송되지 않고 브라우저에서 안전하게 처리돼요'}
       </div>
 
       <button
@@ -87,7 +87,7 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFilesSelected, disabled = 
         disabled={disabled}
       >
         <Plus className="w-4 h-4 text-[#2563eb]" />
-        내 컴퓨터에서 영상 선택하기
+        {dict.upload?.dropZoneBtn || '내 컴퓨터에서 영상 선택하기'}
       </button>
     </div>
   );

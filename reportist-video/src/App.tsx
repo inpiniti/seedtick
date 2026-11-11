@@ -913,9 +913,17 @@ export function App() {
     );
 
     if (matchedCount > 0) {
-      alert(`${matchedCount}개의 영상 파일이 정상적으로 재연결되었습니다.`);
+      alert(
+        interpolate(
+          dict.videoListModal?.relinkBatchSuccess || '{count}개의 영상 파일이 정상적으로 재연결되었습니다.',
+          { count: matchedCount }
+        )
+      );
     } else {
-      alert('선택하신 파일 중 이름이나 용량이 일치하는 영상이 없습니다. 개별 연결을 사용해 주세요.');
+      alert(
+        dict.videoListModal?.relinkBatchNone ||
+          '선택하신 파일 중 이름이나 용량이 일치하는 영상이 없습니다. 개별 연결을 사용해 주세요.'
+      );
     }
   };
 

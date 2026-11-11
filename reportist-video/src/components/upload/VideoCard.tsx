@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { ChevronUp, ChevronDown, Trash2, Film, CheckCircle2, Link2, AlertCircle } from 'lucide-react';
 import type { VideoItem } from '../../types/video.ts';
+import { useI18n } from '../../i18n/index.tsx';
 
 interface VideoCardProps {
   video: VideoItem;
@@ -23,6 +24,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
   onRelink,
   disabled = false,
 }) => {
+  const { dict, interpolate } = useI18n();
   const relinkInputRef = useRef<HTMLInputElement>(null);
   // 시간 포맷 (mm:ss)
   const formatDuration = (seconds: number) => {
@@ -77,13 +79,13 @@ export const VideoCard: React.FC<VideoCardProps> = ({
               }}
             >
               <CheckCircle2 size={12} />
-              극적 구간 {video.segments.length}개
+              {interpolate(dict.upload?.cardClipsCount || '극적 구간 {count}개', { count: video.segments.length })}
             </span>
           )}
           {video.isMissingFile && (
             <span className="toss-relink-badge">
               <AlertCircle size={12} style={{ color: '#d97706' }} />
-              원본 연결 필요
+              {dict.upload?.cardRelinkNeeded || '원본 연결 필요'}
             </span>
           )}
         </div>
@@ -96,11 +98,11 @@ export const VideoCard: React.FC<VideoCardProps> = ({
             <button
               type="button"
               className="toss-btn-relink-card"
-              title="로컬 영상 파일 다시 연결하기"
+              title={dict.upload?.cardRelinkTitle || '로컬 영상 파일 다시 연결하기'}
               onClick={() => relinkInputRef.current?.click()}
             >
               <Link2 size={13} />
-              <span>연결</span>
+              <span>{dict.upload?.cardRelinkBtn || '연결'}</span>
             </button>
             <input
               ref={relinkInputRef}
@@ -119,7 +121,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
         <button
           type="button"
           className="action-icon-btn"
-          title="앞 순서로 이동"
+          title={dict.upload?.moveUp || '앞 순서로 이동'}
           disabled={disabled || index === 0}
           onClick={() => onMoveUp(index)}
         >
@@ -129,7 +131,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
         <button
           type="button"
           className="action-icon-btn"
-          title="다음 순서로 이동"
+          title={dict.upload?.moveDown || '다음 순서로 이동'}
           disabled={disabled || index === totalCount - 1}
           onClick={() => onMoveDown(index)}
         >
@@ -139,7 +141,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
         <button
           type="button"
           className="action-icon-btn danger"
-          title="목록에서 제거"
+          title={dict.upload?.removeFromList || '목록에서 제거'}
           disabled={disabled}
           onClick={() => onRemove(video.id)}
         >

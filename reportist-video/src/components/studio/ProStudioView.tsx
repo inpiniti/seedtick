@@ -4953,7 +4953,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   {result?.bestThumbnailReason && (
                     <div className="flex items-center gap-1.5 mt-2 px-2.5 py-1 bg-blue-50/90 border border-blue-100 rounded-lg text-[11px] font-semibold text-blue-700">
                       <Sparkles size={12} className="text-blue-500 shrink-0" />
-                      <span>AI 추천: {result.bestThumbnailReason}</span>
+                      <span>{(dict.thumbnail?.aiRecommendedPrefix || 'AI 추천')}: {result.bestThumbnailReason}</span>
                     </div>
                   )}
                 </div>
@@ -5134,7 +5134,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     <Sparkles size={13} className="text-blue-600 shrink-0" />
                     <span className="toss-btn-text-content">
                       <span className="toss-btn-label-long">{dict.thumbnail?.restoreAiFrame || 'AI 추천 복원'}</span>
-                      <span className="toss-btn-label-mid">AI 복원</span>
+                      <span className="toss-btn-label-mid">{dict.thumbnail?.restoreAiFrameShort || 'AI 복원'}</span>
                       <span className="toss-btn-label-short">AI</span>
                     </span>
                   </button>
@@ -5157,8 +5157,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         ) : (
                           <>
                             <span className="toss-btn-label-long">{dict.thumbnail?.applyCurrentFrame || '현재 프레임 적용'}</span>
-                            <span className="toss-btn-label-mid">현재 프레임</span>
-                            <span className="toss-btn-label-short">프레임</span>
+                            <span className="toss-btn-label-mid">{dict.thumbnail?.applyCurrentFrameShort || '현재 프레임'}</span>
+                            <span className="toss-btn-label-short">{dict.thumbnail?.applyCurrentFrameTiny || '프레임'}</span>
                           </>
                         )}
                       </span>
