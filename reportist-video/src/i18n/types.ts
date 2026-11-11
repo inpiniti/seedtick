@@ -216,6 +216,19 @@ export interface Dictionary {
     musicOverflowTip?: string;
     musicOverflowSegmentTip?: string;
     timelinePositionTip?: string;
+    refineSubtitlesBtn?: string;
+    refineSubtitlesBtnTitle?: string;
+    refiningSubtitles?: string;
+    refinedToast?: string;
+    subtitleToneLabel?: string;
+    toneVlog?: string;
+    toneShorts?: string;
+    toneNatural?: string;
+    toneMinimal?: string;
+    toneVlogDesc?: string;
+    toneShortsDesc?: string;
+    toneNaturalDesc?: string;
+    toneMinimalDesc?: string;
   };
   summaryCard: {
     timeSavedRate: string;
@@ -551,6 +564,8 @@ export interface Dictionary {
     agePreviewLabel?: string;
     birthDatePrompt?: string;
     subtitleSection?: string;
+    subtitleTone?: string;
+    subtitleToneDesc?: string;
     chapterBridgeOption?: string;
     chapterBridgeOptionDesc?: string;
     subtitleOption?: string;

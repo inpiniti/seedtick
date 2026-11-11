@@ -1,5 +1,7 @@
 // types/video.ts - 비디오 항목, 극적 구간, 처리 상태 타입 정의
 
+export type SubtitleTone = 'vlog' | 'shorts' | 'natural' | 'minimal';
+
 export interface HighlightSegment {
   id: string;
   sourceVideoId: string;

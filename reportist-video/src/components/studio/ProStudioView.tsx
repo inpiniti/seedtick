@@ -41,7 +41,15 @@ import {
   Link2,
   AlertTriangle,
   MessageSquare,
+  Wand2,
+  Loader2,
 } from 'lucide-react';
+import type { SubtitleTone } from '../../types/video.ts';
+import {
+  refineSubtitlesWithContext,
+  getStoredSubtitleTone,
+  setStoredSubtitleTone,
+} from '../../services/subtitleRefineService.ts';
 import { VideoCommunityView } from '../community/VideoCommunityView.tsx';
 import { FeedbackModal } from '../feedback/FeedbackModal.tsx';
 import { PatchNotesModal } from '../patch/PatchNotesModal.tsx';
@@ -269,7 +277,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   onRelinkVideo,
   onRelinkBatch,
 }) => {
-  const { dict, interpolate, currentLocaleInfo } = useI18n();
+  const { dict, interpolate, currentLocaleInfo, locale } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerStageRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -329,6 +337,107 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   useEffect(() => {
     isMutedRef.current = isMuted;
   }, [isMuted]);
+
+  // 1-1. 자막 톤앤매너 및 다듬기 상태
+  const [currentSubtitleTone, setCurrentSubtitleTone] = useState<SubtitleTone>(getStoredSubtitleTone);
+  const [isRefiningSubtitles, setIsRefiningSubtitles] = useState<boolean>(false);
+  const [refineToastMessage, setRefineToastMessage] = useState<string | null>(null);
+  const [isToneSelectorOpen, setIsToneSelectorOpen] = useState<boolean>(false);
+  const toneSelectorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isToneSelectorOpen) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (toneSelectorRef.current && !toneSelectorRef.current.contains(e.target as Node)) {
+        setIsToneSelectorOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [isToneSelectorOpen]);
+
+  const toneOptions = useMemo<Array<{ id: SubtitleTone; label: string; desc: string; icon: string }>>(
+    () => [
+      {
+        id: 'vlog',
+        label: dict.dramaticClips?.toneVlog || '감성 브이로그',
+        desc: dict.dramaticClips?.toneVlogDesc || '1인칭 감성, 일상의 따뜻한 분위기와 여운',
+        icon: '🌿',
+      },
+      {
+        id: 'shorts',
+        label: dict.dramaticClips?.toneShorts || '텐션 UP 쇼츠',
+        desc: dict.dramaticClips?.toneShortsDesc || '짧고 굵은 리액션, 위트와 감탄사',
+        icon: '⚡',
+      },
+      {
+        id: 'natural',
+        label: dict.dramaticClips?.toneNatural || '자연스러운 구어체',
+        desc: dict.dramaticClips?.toneNaturalDesc || '대화하듯 편안한 ~해요/~했어 어조',
+        icon: '💬',
+      },
+      {
+        id: 'minimal',
+        label: dict.dramaticClips?.toneMinimal || '담백한 일상',
+        desc: dict.dramaticClips?.toneMinimalDesc || '군더더기 없는 깔끔한 상황 요약',
+        icon: '📝',
+      },
+    ],
+    [dict]
+  );
+
+  const currentToneMeta = useMemo(() => {
+    return toneOptions.find((t) => t.id === currentSubtitleTone) || toneOptions[0];
+  }, [toneOptions, currentSubtitleTone]);
+
+  const handleSelectSubtitleTone = (tone: SubtitleTone) => {
+    setCurrentSubtitleTone(tone);
+    setStoredSubtitleTone(tone);
+    setIsToneSelectorOpen(false);
+  };
+
+  const handleRefineSubtitles = async (toneToUse?: SubtitleTone) => {
+    const tone = toneToUse || currentSubtitleTone;
+    if (isRefiningSubtitles || segments.length === 0) return;
+    setIsRefiningSubtitles(true);
+    setIsToneSelectorOpen(false);
+    try {
+      const refinedMap = await refineSubtitlesWithContext({
+        segments,
+        tone,
+        videoTitle: effectiveOverlayOptions?.titleText || '',
+        locale,
+        model: selectedModel,
+      });
+
+      setSegments((prev) =>
+        prev.map((s) => (refinedMap[s.id] ? { ...s, subtitleTitle: refinedMap[s.id] } : s))
+      );
+
+      videos.forEach((v) => {
+        v.segments = v.segments.map((s) =>
+          refinedMap[s.id] ? { ...s, subtitleTitle: refinedMap[s.id] } : s
+        );
+      });
+
+      const toneNameMap: Record<SubtitleTone, string> = {
+        vlog: dict.dramaticClips?.toneVlog || '감성 브이로그',
+        shorts: dict.dramaticClips?.toneShorts || '텐션 UP 쇼츠',
+        natural: dict.dramaticClips?.toneNatural || '자연스러운 구어체',
+        minimal: dict.dramaticClips?.toneMinimal || '담백한 일상',
+      };
+      setRefineToastMessage(
+        interpolate(dict.dramaticClips?.refinedToast || '{tone} 스타일로 자막을 다듬었어요.', {
+          tone: toneNameMap[tone] || '선택한',
+        })
+      );
+      setTimeout(() => setRefineToastMessage(null), 3200);
+    } catch (err) {
+      console.error('Failed to refine subtitles:', err);
+    } finally {
+      setIsRefiningSubtitles(false);
+    }
+  };
 
   // 2. 배경음악(BGM) 상태
   const [selectedBgmId, setSelectedBgmId] = useState<string>('none');
@@ -5176,6 +5285,77 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       )}
                     </div>
                   )}
+                  {segments.length > 0 && (
+                    <div className="relative inline-flex items-center" ref={toneSelectorRef}>
+                      <button
+                        type="button"
+                        className="toss-btn-tone-selector"
+                        onClick={() => setIsToneSelectorOpen((prev) => !prev)}
+                        title={dict.dramaticClips?.subtitleToneLabel || '자막 톤앤매너'}
+                      >
+                        <span className="text-xs">{currentToneMeta.icon}</span>
+                        <span className="text-xs font-semibold">{currentToneMeta.label}</span>
+                        <ChevronDown size={11} className="text-slate-400" />
+                      </button>
+
+                      {isToneSelectorOpen && (
+                        <div className="toss-tone-dropdown-menu">
+                          <div className="p-1.5 space-y-1">
+                            {toneOptions.map((opt) => {
+                              const isSelected = currentSubtitleTone === opt.id;
+                              return (
+                                <button
+                                  key={opt.id}
+                                  type="button"
+                                  className={`toss-tone-dropdown-item ${isSelected ? 'active' : ''}`}
+                                  onClick={() => handleSelectSubtitleTone(opt.id)}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-bold text-xs flex items-center gap-1.5 text-slate-800">
+                                      <span>{opt.icon}</span>
+                                      <span>{opt.label}</span>
+                                    </span>
+                                    {isSelected && <Check size={12} className="text-blue-600 shrink-0" />}
+                                  </div>
+                                  <span className="text-[11px] text-slate-500 block mt-0.5 line-clamp-1">
+                                    {opt.desc}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {segments.length > 0 && (
+                    <div className="toss-refine-toast-container">
+                      <button
+                        type="button"
+                        className="toss-btn-refine-subtitles"
+                        onClick={() => handleRefineSubtitles()}
+                        disabled={isRefiningSubtitles}
+                        title={dict.dramaticClips?.refineSubtitlesBtnTitle || '전체 맥락을 이해하여 브이로그 스타일의 자연스러운 자막으로 교정합니다'}
+                      >
+                        {isRefiningSubtitles ? (
+                          <Loader2 size={12} className="animate-spin text-blue-600" />
+                        ) : (
+                          <Wand2 size={12} className="text-blue-600" />
+                        )}
+                        <span>
+                          {isRefiningSubtitles
+                            ? (dict.dramaticClips?.refiningSubtitles || '다듬는 중...')
+                            : (dict.dramaticClips?.refineSubtitlesBtn || 'AI 자막 다듬기')}
+                        </span>
+                      </button>
+                      {refineToastMessage && (
+                        <div className="toss-sort-toast toss-refine-toast" role="status">
+                          <Check size={12} className="text-emerald-400 shrink-0" />
+                          <span>{refineToastMessage}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-3 shrink-0 ml-auto sm:ml-0">
                   <label
@@ -5989,6 +6169,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         onToggleShowChapterBridge={(val) =>
           setOverlayOptions((prev) => ({ ...prev, showChapterBridge: val }))
         }
+        currentSubtitleTone={currentSubtitleTone}
+        onSelectSubtitleTone={handleSelectSubtitleTone}
         currentModel={currentModel || undefined}
         isLoadingModels={isLoadingModels}
         currentLocaleInfo={currentLocaleInfo}

@@ -572,19 +572,26 @@ export async function analyzeVideoHighlights({
   const getLanguageRule = (loc?: string) => {
     switch (loc) {
       case 'ko':
-        return `6. Provide a concise, descriptive Korean scene title for 'reason' (e.g. '환하게 웃는 클라이맥스', '바닷가 산책', '박진감 넘치는 액션 순간'). This will be used as the scene subtitle!\n7. Suggest a catchy, attractive YouTube title in Korean for 'videoTitle' (e.g. '눈부신 바다와 함께한 찬란한 순간들', '짜릿했던 우리들의 하이라이트').`;
+        return `6. Provide a natural, warm vlog-style scene title in Korean for 'reason' (e.g. '카드 쥐고 신나게 움직이기', '케이크 묻히고 활짝 웃는 얼굴', '조심조심 걷다가 털썩!'). NEVER use robotic clichés like '클라이맥스', '순간', '장면', '액션 순간', '최고의 순간'! This will be directly shown as the vlog subtitle.
+7. Suggest a catchy, attractive YouTube title in Korean for 'videoTitle' (e.g. '눈부신 바다와 함께한 찬란한 하루', '우리들의 소중한 일상 하이라이트').`;
       case 'ja':
-        return `6. Provide a concise, descriptive Japanese scene title for 'reason' (e.g. '笑顔あふれるクライマックス', '海辺の散歩', '迫力のアクションシーン'). This will be used as the scene subtitle!\n7. Suggest an attractive YouTube title in Japanese for 'videoTitle'.`;
+        return `6. Provide a natural, engaging vlog caption in Japanese for 'reason' (e.g. 'カードを持って楽しそうに動く', 'ケーキをほおばる笑顔', 'よちよち歩いて座り込む'). NEVER use robotic phrases like 'クライマックス', '瞬間', 'シーン'! This will be used as the scene subtitle!
+7. Suggest an attractive YouTube title in Japanese for 'videoTitle'.`;
       case 'zh':
-        return `6. Provide a concise, descriptive Chinese scene title for 'reason' (e.g. '灿烂微笑的高光时刻', '海边散步', '扣人心弦的动作瞬间'). This will be used as the scene subtitle!\n7. Suggest an attractive YouTube title in Chinese for 'videoTitle'.`;
+        return `6. Provide a natural, warm vlog-style scene title in Chinese for 'reason' (e.g. '抓着卡片兴奋地挥动', '沾着蛋糕灿烂微笑', '摇摇晃晃走着坐下'). NEVER use robotic words like '高光时刻', '瞬间', '高潮'! This will be used as the scene subtitle!
+7. Suggest an attractive YouTube title in Chinese for 'videoTitle'.`;
       case 'es':
-        return `6. Provide a concise, descriptive Spanish scene title for 'reason' (e.g. 'Clímax con sonrisa radiante', 'Paseo por la playa', 'Momento de acción emocionante'). This will be used as the scene subtitle!\n7. Suggest an attractive YouTube title in Spanish for 'videoTitle'.`;
+        return `6. Provide a natural, lively vlog caption in Spanish for 'reason' (e.g. 'Moviéndose emocionado con la tarjeta', 'Sonrisa radiante con pastel', 'Caminando con cuidado y sentándose'). NEVER use robotic clichés like 'clímax', 'momento cumbre'!
+7. Suggest an attractive YouTube title in Spanish for 'videoTitle'.`;
       case 'fr':
-        return `6. Provide a concise, descriptive French scene title for 'reason' (e.g. 'Climax souriant et radieux', 'Balade au bord de la mer', 'Moment d\\'action intense'). This will be used as the scene subtitle!\n7. Suggest an attractive YouTube title in French for 'videoTitle'.`;
+        return `6. Provide a natural, charming vlog caption in French for 'reason' (e.g. 'S\\'agitant joyeusement avec la carte', 'Sourire éclatant plein de gâteau', 'Marchant doucement avant de s\\'asseoir'). NEVER use robotic clichés like 'climax', 'moment fort'!
+7. Suggest an attractive YouTube title in French for 'videoTitle'.`;
       case 'de':
-        return `6. Provide a concise, descriptive German scene title for 'reason' (e.g. 'Strahlender Höhepunkt', 'Spaziergang am Strand', 'Packender Actionmoment'). This will be used as the scene subtitle!\n7. Suggest an attractive YouTube title in German for 'videoTitle'.`;
+        return `6. Provide a natural, lively vlog caption in German for 'reason' (e.g. 'Begeistert mit der Karte in der Hand', 'Strahlendes Lächeln mit Kuchen', 'Vorsichtig gelaufen und hingesetzt'). NEVER use robotic words like 'Höhepunkt', 'Moment'!
+7. Suggest an attractive YouTube title in German for 'videoTitle'.`;
       default:
-        return `6. Provide a concise, descriptive English scene title for 'reason' (e.g. 'Bright smiling climax', 'Beach walk', 'Thrilling action moment'). This will be used as the scene subtitle!\n7. Suggest a catchy, attractive YouTube title for 'videoTitle' (e.g. 'Unforgettable Golden Hours by the Ocean').`;
+        return `6. Provide a natural, warm vlog caption for 'reason' (e.g. 'Excitedly waving the card', 'Bright cake-covered smile', 'Waddling along and plopping down'). NEVER use robotic clichés like 'climax', 'action moment', 'peak scene'! This will be used as the scene subtitle!
+7. Suggest a catchy, attractive YouTube title for 'videoTitle' (e.g. 'Golden Hours and Precious Memories').`;
     }
   };
 

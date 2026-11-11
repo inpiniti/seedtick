@@ -21,9 +21,14 @@ import {
   MessageSquare,
   Trash2,
   ArrowUpDown,
+  Check,
 } from 'lucide-react';
 import type { FreeModelMeta } from '../../types/gateway.ts';
-import type { ExportResolution } from '../../types/video.ts';
+import type { ExportResolution, SubtitleTone } from '../../types/video.ts';
+import {
+  getStoredSubtitleTone,
+  setStoredSubtitleTone,
+} from '../../services/subtitleRefineService.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 import {
   formatDateByPattern,
@@ -68,6 +73,8 @@ export interface MobileSettingsModalProps {
   onToggleShowSubtitle?: (enabled: boolean) => void;
   showChapterBridge?: boolean;
   onToggleShowChapterBridge?: (enabled: boolean) => void;
+  currentSubtitleTone?: SubtitleTone;
+  onSelectSubtitleTone?: (tone: SubtitleTone) => void;
   selectedResolution?: ExportResolution;
   onSelectResolution?: (res: ExportResolution) => void;
   currentModel?: FreeModelMeta;
@@ -108,6 +115,8 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   onToggleShowSubtitle,
   showChapterBridge = true,
   onToggleShowChapterBridge,
+  currentSubtitleTone,
+  onSelectSubtitleTone,
   selectedResolution = '1080p',
   onSelectResolution,
   currentModel,
@@ -136,6 +145,51 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   const [isRequestingPersist, setIsRequestingPersist] = useState<boolean>(false);
   const [isClearingStorage, setIsClearingStorage] = useState<boolean>(false);
   const [storageClearMessage, setStorageClearMessage] = useState<string | null>(null);
+
+  const [activeTone, setActiveTone] = useState<SubtitleTone>(
+    currentSubtitleTone || getStoredSubtitleTone()
+  );
+
+  useEffect(() => {
+    if (currentSubtitleTone) {
+      setActiveTone(currentSubtitleTone);
+    } else if (isOpen) {
+      setActiveTone(getStoredSubtitleTone());
+    }
+  }, [currentSubtitleTone, isOpen]);
+
+  const handleToneChange = (tone: SubtitleTone) => {
+    setActiveTone(tone);
+    setStoredSubtitleTone(tone);
+    onSelectSubtitleTone?.(tone);
+  };
+
+  const toneOptions: Array<{ id: SubtitleTone; label: string; desc: string; icon: string }> = [
+    {
+      id: 'vlog',
+      label: dict.dramaticClips?.toneVlog || '감성 브이로그',
+      desc: dict.dramaticClips?.toneVlogDesc || '1인칭 감성, 일상의 따뜻한 분위기와 여운',
+      icon: '🌿',
+    },
+    {
+      id: 'shorts',
+      label: dict.dramaticClips?.toneShorts || '텐션 UP 쇼츠',
+      desc: dict.dramaticClips?.toneShortsDesc || '짧고 굵은 리액션, 위트와 감탄사',
+      icon: '⚡',
+    },
+    {
+      id: 'natural',
+      label: dict.dramaticClips?.toneNatural || '자연스러운 구어체',
+      desc: dict.dramaticClips?.toneNaturalDesc || '대화하듯 편안한 ~해요/~했어 어조',
+      icon: '💬',
+    },
+    {
+      id: 'minimal',
+      label: dict.dramaticClips?.toneMinimal || '담백한 일상',
+      desc: dict.dramaticClips?.toneMinimalDesc || '군더더기 없는 깔끔한 상황 요약',
+      icon: '📝',
+    },
+  ];
 
   useEffect(() => {
     if (isOpen) {
@@ -577,6 +631,56 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* 자막 톤앤매너 선택 */}
+              <div className="settings-modal-card-box mt-2.5 p-3.5">
+                <div className="flex items-center gap-2 mb-2.5">
+                  <div
+                    className="settings-modal-icon-badge"
+                    style={{ backgroundColor: '#f0fdf4', color: '#16a34a' }}
+                  >
+                    <Sparkles size={18} />
+                  </div>
+                  <div className="settings-modal-item-text">
+                    <div className="settings-modal-item-title">
+                      {dict.settingsModal?.subtitleTone || '기본 자막 톤앤매너'}
+                    </div>
+                    <div className="settings-modal-item-desc">
+                      {dict.settingsModal?.subtitleToneDesc ||
+                        'AI가 자막을 생성하거나 다듬을 때 적용할 기본 말투를 설정해요'}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  {toneOptions.map((opt) => {
+                    const isSelected = activeTone === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        className={`p-2.5 rounded-xl border text-left transition-all ${
+                          isSelected
+                            ? 'border-blue-600 bg-blue-50/80 shadow-sm ring-1 ring-blue-500/30'
+                            : 'border-slate-200 bg-white hover:bg-slate-50'
+                        }`}
+                        onClick={() => handleToneChange(opt.id)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-800 flex items-center gap-1">
+                            <span>{opt.icon}</span>
+                            <span>{opt.label}</span>
+                          </span>
+                          {isSelected && <Check size={14} className="text-blue-600 shrink-0" />}
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-1 line-clamp-1">
+                          {opt.desc}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           )}
 

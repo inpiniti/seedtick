@@ -18,6 +18,10 @@ import {
   sortSegmentsByRecordedTime,
   getStoredAutoSortByRecordedTime,
 } from './services/videoMetadata.ts';
+import {
+  refineSubtitlesWithContext,
+  getStoredSubtitleTone,
+} from './services/subtitleRefineService.ts';
 import { primeAudioContext, stitchHighlightedSegments } from './services/videoStitcher.ts';
 import { backgroundGuard } from './services/backgroundKeepAlive.ts';
 import { computeBridgeDurationMap } from './services/hyperframesBridgeRenderer.ts';
@@ -1456,6 +1460,38 @@ export function App() {
       const allSegments = getStoredAutoSortByRecordedTime()
         ? sortSegmentsByRecordedTime(rawSegments, new Map(updatedVideos.map((v) => [v.id, v])))
         : rawSegments;
+
+      // 2-1. 전체 맥락 기반 자막 브이로그화 정제 (감성 브이로그 디폴트 톤 적용)
+      try {
+        const storedTone = getStoredSubtitleTone();
+        addLog(`✨ 전체 맥락을 분석하여 브이로그 자막으로 다듬는 중... (${storedTone})`);
+        const refinedMap = await refineSubtitlesWithContext({
+          segments: allSegments,
+          tone: storedTone,
+          videoTitle: aiDiscoveredTitle || '',
+          locale,
+          model: selectedModel,
+          signal,
+        });
+
+        for (const seg of allSegments) {
+          if (refinedMap[seg.id]) {
+            seg.subtitleTitle = refinedMap[seg.id];
+          }
+        }
+        for (const uv of updatedVideos) {
+          for (const s of uv.segments) {
+            if (refinedMap[s.id]) {
+              s.subtitleTitle = refinedMap[s.id];
+            }
+          }
+        }
+        setVideos([...updatedVideos]);
+        void performSave();
+        addLog('✨ 전체 맥락에 어울리는 자연스러운 브이로그 자막으로 다듬었습니다.');
+      } catch (refineErr) {
+        console.warn('[Subtitle] Contextual refine error:', refineErr);
+      }
 
       // AI가 추천한 제목이 있고, 사용자가 직접 수정한 제목이 없으면 자동 적용
       const isDefaultOrEmptyTitle =
