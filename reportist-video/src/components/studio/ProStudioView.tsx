@@ -119,7 +119,7 @@ import {
   loadLibraryAudioFile,
   type AudioLibraryTrack,
 } from '../../data/audioLibrary.ts';
-import { ReportistLogo } from '../common/ReportistLogo.tsx';
+import { PenguinLogo } from '../common/PenguinLogo.tsx';
 import { useI18n } from '../../i18n/index.tsx';
 
 const PLAYBACK_ERROR_MESSAGE =
@@ -3537,7 +3537,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             /* 목록 및 커뮤니티 화면: 로고, 브랜드명, 상단 탭 노출 */
             <>
               <div className="toss-logo-badge">
-                <ReportistLogo size={18} inverted />
+                <PenguinLogo size={24} inverted />
               </div>
               <div className="toss-nav-brand-block">
                 <span className="toss-nav-title">{dict.common.brandName}</span>

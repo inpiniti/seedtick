@@ -36,7 +36,7 @@ export function PenguinLogo({
     <svg
       width={size}
       height={size}
-      viewBox="0 0 100 100"
+      viewBox="6 6 88 88"
       fill={activeColor}
       fillRule="evenodd"
       xmlns="http://www.w3.org/2000/svg"
