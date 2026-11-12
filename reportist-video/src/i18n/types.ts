@@ -879,7 +879,7 @@ export interface ChapterBridgeModalDictionary {
   exitFullscreen: string;
   tabDate: string;
   tabLocation: string;
-  allView: string;
+  allView?: string;
   tipDescription: string;
   templates: {
     date: {

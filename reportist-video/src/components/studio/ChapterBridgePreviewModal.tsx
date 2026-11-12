@@ -14,7 +14,6 @@ import {
   Check,
   Maximize2,
   Minimize2,
-  Layers,
   HelpCircle,
 } from 'lucide-react';
 import {
@@ -40,7 +39,7 @@ export const DATE_TEMPLATE_OPTIONS: Array<{
   name: string;
   desc: string;
 }> = [
-  { id: 'flip-clock', num: 1, name: '플립 시계 (기본)', desc: '착착 넘어가는 아날로그 탁상 시계' },
+  { id: 'flip-clock', num: 1, name: '플립 시계', desc: '착착 넘어가는 아날로그 탁상 시계' },
   { id: 'watch-spin', num: 2, name: '럭셔리 워치', desc: '고속 회전하는 클래식 시계 바늘' },
   { id: 'calendar-page', num: 3, name: '일력 달력', desc: '바람에 펄럭이며 넘어가는 일력 종이' },
   { id: 'minimal-editorial', num: 4, name: '미니멀 매거진', desc: '모던 잡지 스타일의 감성 타이포' },
@@ -53,14 +52,14 @@ export const LOCATION_TEMPLATE_OPTIONS: Array<{
   name: string;
   desc: string;
 }> = [
-  { id: 'winding-route', num: 1, name: '로드트립 S경로 (기본)', desc: '지도 위 구불구불한 점선과 주행 차량' },
+  { id: 'winding-route', num: 1, name: '로드트립 S경로', desc: '지도 위 구불구불한 점선과 주행 차량' },
   { id: 'globe-spin', num: 2, name: '3D 글로브 아크', desc: '회전하는 지구본과 포물선 비행 궤적' },
   { id: 'boarding-pass', num: 3, name: '보딩패스 티켓', desc: '항공권 바코드와 도착 고무 스탬프' },
   { id: 'minimal-editorial', num: 4, name: '미니멀 에디토리얼', desc: '우아한 라인과 다음 여행지 안내' },
   { id: 'gps-cyber', num: 5, name: 'GPS 내비게이션 HUD', desc: '첨단 차량 내비와 3D 도로 경로선' },
 ];
 
-type ActiveTab = 'all' | 'date' | 'location';
+type ActiveTab = 'date' | 'location';
 
 export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps> = ({
   isOpen,
@@ -76,7 +75,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
   const [locationTemplate, setLocationTemplate] = useState<BridgeLocationTemplateId>(initialLocationTemplate);
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [currentTime, setCurrentTime] = useState<number>(0);
-  const [activeTab, setActiveTab] = useState<ActiveTab>('all');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('date');
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -600,7 +599,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
 
           {/* [우측 템플릿 선택 패널] */}
           <div className="bridge-preview-panel">
-            {/* 탭 헤더 */}
+            {/* 탭 헤더 (2개 탭: 날짜 스타일 / 장소 스타일) */}
             <div
               style={{
                 display: 'flex',
@@ -613,37 +612,13 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
             >
               <button
                 type="button"
-                onClick={() => setActiveTab('all')}
-                style={{
-                  flex: 1,
-                  padding: '7px 10px',
-                  borderRadius: '9px',
-                  border: 'none',
-                  fontSize: '12.5px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  backgroundColor: activeTab === 'all' ? '#ffffff' : 'transparent',
-                  color: activeTab === 'all' ? '#0f172a' : '#64748b',
-                  boxShadow: activeTab === 'all' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
-                  transition: 'all 0.15s ease',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '4px',
-                }}
-              >
-                <Layers size={13} />
-                {cDict?.allView || '한눈에 보기'}
-              </button>
-              <button
-                type="button"
                 onClick={() => setActiveTab('date')}
                 style={{
                   flex: 1,
-                  padding: '7px 10px',
+                  padding: '9px 12px',
                   borderRadius: '9px',
                   border: 'none',
-                  fontSize: '12.5px',
+                  fontSize: '13px',
                   fontWeight: 700,
                   cursor: 'pointer',
                   backgroundColor: activeTab === 'date' ? '#ffffff' : 'transparent',
@@ -653,21 +628,22 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '4px',
+                  gap: '6px',
+                  whiteSpace: 'nowrap',
                 }}
               >
-                <Clock size={13} />
-                {cDict?.tabDate || '날짜 (5)'}
+                <Clock size={15} />
+                <span>{cDict?.tabDate || '날짜 스타일'}</span>
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab('location')}
                 style={{
                   flex: 1,
-                  padding: '7px 10px',
+                  padding: '9px 12px',
                   borderRadius: '9px',
                   border: 'none',
-                  fontSize: '12.5px',
+                  fontSize: '13px',
                   fontWeight: 700,
                   cursor: 'pointer',
                   backgroundColor: activeTab === 'location' ? '#ffffff' : 'transparent',
@@ -677,16 +653,17 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '4px',
+                  gap: '6px',
+                  whiteSpace: 'nowrap',
                 }}
               >
-                <Navigation size={13} />
-                {cDict?.tabLocation || '장소 (5)'}
+                <Navigation size={15} />
+                <span>{cDict?.tabLocation || '장소 스타일'}</span>
               </button>
             </div>
 
             {/* 날짜 템플릿 목록 */}
-            {(activeTab === 'all' || activeTab === 'date') && (
+            {activeTab === 'date' && (
               <div
                 style={{
                   backgroundColor: '#ffffff',
@@ -711,7 +688,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                   }}
                 >
                   <Clock size={16} />
-                  <span>{cDict?.dateSectionTitle || '날짜(시간) 변경 스타일 (1~5번)'}</span>
+                  <span>{cDict?.dateSectionTitle || '날짜 스타일'}</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {dateOptions.map((opt) => {
@@ -722,7 +699,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                         type="button"
                         onClick={(e) => handleSelectDate(e, opt.id)}
                         style={{
-                          padding: '10px 12px',
+                          padding: '12px 14px',
                           borderRadius: '10px',
                           border: selected ? '2px solid #f59e0b' : '1px solid #f1f5f9',
                           backgroundColor: selected ? '#fef3c7' : '#ffffff',
@@ -739,16 +716,16 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div
                             style={{
-                              fontSize: '13px',
+                              fontSize: '13.5px',
                               fontWeight: 700,
                               color: selected ? '#92400e' : '#1e293b',
                             }}
                           >
-                            {opt.num}. {opt.name}
+                            {opt.name}
                           </div>
                           <div
                             style={{
-                              fontSize: '11.5px',
+                              fontSize: '12px',
                               color: '#64748b',
                               marginTop: '2px',
                               lineHeight: 1.35,
@@ -782,7 +759,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
             )}
 
             {/* 장소 템플릿 목록 */}
-            {(activeTab === 'all' || activeTab === 'location') && (
+            {activeTab === 'location' && (
               <div
                 style={{
                   backgroundColor: '#ffffff',
@@ -807,7 +784,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                   }}
                 >
                   <Navigation size={16} />
-                  <span>{cDict?.locationSectionTitle || '장소(위치) 이동 스타일 (1~5번)'}</span>
+                  <span>{cDict?.locationSectionTitle || '장소 스타일'}</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {locationOptions.map((opt) => {
@@ -818,7 +795,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                         type="button"
                         onClick={(e) => handleSelectLocation(e, opt.id)}
                         style={{
-                          padding: '10px 12px',
+                          padding: '12px 14px',
                           borderRadius: '10px',
                           border: selected ? '2px solid #0284c7' : '1px solid #f1f5f9',
                           backgroundColor: selected ? '#e0f2fe' : '#ffffff',
@@ -835,16 +812,16 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div
                             style={{
-                              fontSize: '13px',
+                              fontSize: '13.5px',
                               fontWeight: 700,
                               color: selected ? '#075985' : '#1e293b',
                             }}
                           >
-                            {opt.num}. {opt.name}
+                            {opt.name}
                           </div>
                           <div
                             style={{
-                              fontSize: '11.5px',
+                              fontSize: '12px',
                               color: '#64748b',
                               marginTop: '2px',
                               lineHeight: 1.35,

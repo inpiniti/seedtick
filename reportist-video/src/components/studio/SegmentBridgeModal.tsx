@@ -245,7 +245,7 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
                       marginBottom: '6px',
                     }}
                   >
-                    {sDict?.dateSelectLabel || '날짜(시간) 변경 스타일'}
+                    {sDict?.dateSelectLabel || '날짜 스타일'}
                   </label>
                   <select
                     value={dateTemplate || ''}
@@ -265,13 +265,13 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
                     }}
                   >
                     <option value="">
-                      {interpolate(sDict?.projectDefault || '[프로젝트 기본값] ({name})', {
+                      {interpolate(sDict?.projectDefault || '프로젝트 기본값: {name}', {
                         name: defaultDateName,
                       })}
                     </option>
                     {dateOptions.map((opt) => (
                       <option key={opt.id} value={opt.id}>
-                        {opt.num}. {opt.name} - {opt.desc}
+                        {opt.name} - {opt.desc}
                       </option>
                     ))}
                   </select>
@@ -288,7 +288,7 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
                       marginBottom: '6px',
                     }}
                   >
-                    {sDict?.locationSelectLabel || '장소(위치) 이동 스타일'}
+                    {sDict?.locationSelectLabel || '장소 스타일'}
                   </label>
                   <select
                     value={locationTemplate || ''}
@@ -308,13 +308,13 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
                     }}
                   >
                     <option value="">
-                      {interpolate(sDict?.projectDefault || '[프로젝트 기본값] ({name})', {
+                      {interpolate(sDict?.projectDefault || '프로젝트 기본값: {name}', {
                         name: defaultLocationName,
                       })}
                     </option>
                     {locationOptions.map((opt) => (
                       <option key={opt.id} value={opt.id}>
-                        {opt.num}. {opt.name} - {opt.desc}
+                        {opt.name} - {opt.desc}
                       </option>
                     ))}
                   </select>
