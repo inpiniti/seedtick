@@ -166,6 +166,12 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   const [storageClearMessage, setStorageClearMessage] = useState<string | null>(null);
   const [isBridgePreviewOpen, setIsBridgePreviewOpen] = useState<boolean>(false);
 
+  useEffect(() => {
+    if (!isOpen) {
+      setIsBridgePreviewOpen(false);
+    }
+  }, [isOpen]);
+
   const [activeTone, setActiveTone] = useState<SubtitleTone>(
     currentSubtitleTone || getStoredSubtitleTone()
   );
@@ -280,9 +286,10 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
     : '';
 
   return (
-    <div
-      ref={overlayRef}
-      className="model-modal-backdrop"
+    <>
+      <div
+        ref={overlayRef}
+        className="model-modal-backdrop"
       onClick={onClose}
       onDragOver={(e) => {
         e.preventDefault();
@@ -652,7 +659,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                       style={{
                         marginTop: '12px',
                         paddingTop: '12px',
-                        borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                        borderTop: '1px solid #f1f5f9',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
@@ -663,26 +670,26 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                         <span
                           style={{
-                            fontSize: '11px',
+                            fontSize: '11.5px',
                             fontWeight: 700,
-                            padding: '3px 8px',
+                            padding: '4px 9px',
                             borderRadius: '6px',
-                            backgroundColor: 'rgba(245, 208, 125, 0.15)',
-                            color: '#f5d07d',
-                            border: '1px solid rgba(245, 208, 125, 0.3)',
+                            backgroundColor: '#fef3c7',
+                            color: '#b45309',
+                            border: '1px solid #fde68a',
                           }}
                         >
                           날짜: {DATE_TEMPLATE_OPTIONS.find((o) => o.id === chapterBridgeDateTemplate)?.name || '플립 시계'}
                         </span>
                         <span
                           style={{
-                            fontSize: '11px',
+                            fontSize: '11.5px',
                             fontWeight: 700,
-                            padding: '3px 8px',
+                            padding: '4px 9px',
                             borderRadius: '6px',
-                            backgroundColor: 'rgba(56, 189, 248, 0.15)',
-                            color: '#38bdf8',
-                            border: '1px solid rgba(56, 189, 248, 0.3)',
+                            backgroundColor: '#e0f2fe',
+                            color: '#0369a1',
+                            border: '1px solid #bae6fd',
                           }}
                         >
                           장소: {LOCATION_TEMPLATE_OPTIONS.find((o) => o.id === chapterBridgeLocationTemplate)?.name || '로드트립 S경로'}
@@ -690,22 +697,26 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                       </div>
                       <button
                         type="button"
-                        onClick={() => setIsBridgePreviewOpen(true)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsBridgePreviewOpen(true);
+                        }}
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: '6px',
-                          padding: '6px 12px',
-                          borderRadius: '8px',
-                          backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                          border: '1px solid rgba(255, 255, 255, 0.12)',
-                          color: '#f8fafc',
-                          fontSize: '12px',
+                          padding: '8px 14px',
+                          borderRadius: '10px',
+                          backgroundColor: '#0f172a',
+                          border: 'none',
+                          color: '#ffffff',
+                          fontSize: '12.5px',
                           fontWeight: 700,
                           cursor: 'pointer',
+                          boxShadow: '0 2px 6px rgba(15, 23, 42, 0.15)',
                         }}
                       >
-                        <Eye size={13} />
+                        <Eye size={14} />
                         모션 템플릿 & 실시간 미리보기
                       </button>
                     </div>
@@ -1298,21 +1309,22 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
           </button>
         </div>
       </div>
-
-      {/* 챕터 브릿지 모션 템플릿 실시간 미리보기 모달 */}
-      <ChapterBridgePreviewModal
-        isOpen={isBridgePreviewOpen}
-        onClose={() => setIsBridgePreviewOpen(false)}
-        initialDateTemplate={chapterBridgeDateTemplate}
-        initialLocationTemplate={chapterBridgeLocationTemplate}
-        onApply={(dateTpl, locTpl) => {
-          if (onChangeChapterBridgeTemplates) {
-            onChangeChapterBridgeTemplates(dateTpl, locTpl);
-          }
-        }}
-      />
     </div>
-  );
+
+    {/* 챕터 브릿지 모션 템플릿 실시간 미리보기 모달 (완전 독립 오버레이) */}
+    <ChapterBridgePreviewModal
+      isOpen={isBridgePreviewOpen}
+      onClose={() => setIsBridgePreviewOpen(false)}
+      initialDateTemplate={chapterBridgeDateTemplate}
+      initialLocationTemplate={chapterBridgeLocationTemplate}
+      onApply={(dateTpl, locTpl) => {
+        if (onChangeChapterBridgeTemplates) {
+          onChangeChapterBridgeTemplates(dateTpl, locTpl);
+        }
+      }}
+    />
+  </>
+);
 };
 
 export const StudioSettingsModal = MobileSettingsModal;

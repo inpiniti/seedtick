@@ -1,5 +1,5 @@
 // src/components/studio/SegmentBridgeModal.tsx
-// 영상 편집 중 특정 클립 직전의 브릿지 효과를 개별 변경/건너뛰기 할 수 있는 모달
+// 영상 편집 중 특정 클립 직전의 브릿지 효과를 개별 변경/건너뛰기 할 수 있는 모달 (토스 라이트 테마)
 
 import React, { useState } from 'react';
 import { X, Sparkles, Eye, Check } from 'lucide-react';
@@ -40,7 +40,8 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleApply = () => {
+  const handleApply = (e: React.MouseEvent) => {
+    e.stopPropagation();
     onSave({
       ...segment,
       skipChapterBridge: skipBridge,
@@ -56,29 +57,38 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
   return (
     <>
       <div
+        className="model-modal-backdrop"
         style={{
           position: 'fixed',
           inset: 0,
           zIndex: 9998,
-          backgroundColor: 'rgba(3, 7, 18, 0.8)',
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
           backdropFilter: 'blur(6px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           padding: '16px',
         }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose();
+        }}
       >
         <div
+          className="model-modal-card"
           style={{
             width: '100%',
-            maxWidth: '560px',
-            backgroundColor: '#0f172a',
-            borderRadius: '18px',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.6)',
+            maxWidth: '520px',
+            backgroundColor: '#ffffff',
+            borderRadius: '20px',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
             overflow: 'hidden',
-            color: '#f8fafc',
+            color: '#0f172a',
           }}
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
         >
           {/* 헤더 */}
           <div
@@ -86,38 +96,45 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '16px 20px',
-              borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+              padding: '18px 22px',
+              borderBottom: '1px solid #f1f5f9',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <div
                 style={{
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '6px',
-                  backgroundColor: 'rgba(245, 208, 125, 0.2)',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  backgroundColor: '#fef3c7',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#f5d07d',
+                  color: '#d97706',
                 }}
               >
-                <Sparkles size={16} />
+                <Sparkles size={18} />
               </div>
-              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>
+              <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: '#0f172a' }}>
                 클립 #{segmentIndex + 1} 챕터 브릿지 개별 설정
               </h3>
             </div>
             <button
-              onClick={onClose}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+              }}
               style={{
-                background: 'transparent',
+                background: '#f1f5f9',
                 border: 'none',
-                color: '#94a3b8',
+                color: '#475569',
                 cursor: 'pointer',
-                padding: '4px',
-                borderRadius: '6px',
+                padding: '6px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
             >
               <X size={18} />
@@ -125,26 +142,27 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
           </div>
 
           {/* 본문 */}
-          <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {/* 세그먼트 메타 프리뷰 */}
             <div
               style={{
-                backgroundColor: 'rgba(30, 41, 59, 0.5)',
-                padding: '12px 14px',
-                borderRadius: '10px',
-                fontSize: '12px',
-                color: '#94a3b8',
+                backgroundColor: '#f8fafc',
+                padding: '12px 16px',
+                borderRadius: '12px',
+                border: '1px solid #e2e8f0',
+                fontSize: '13px',
+                color: '#64748b',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '4px',
               }}
             >
               <div>
-                <strong style={{ color: '#f1f5f9' }}>날짜:</strong>{' '}
+                <strong style={{ color: '#0f172a' }}>구간 날짜:</strong>{' '}
                 {segment.subtitleDate || '(이전 클립과 동일/미지정)'}
               </div>
               <div>
-                <strong style={{ color: '#f1f5f9' }}>장소:</strong>{' '}
+                <strong style={{ color: '#0f172a' }}>구간 장소:</strong>{' '}
                 {segment.locationName || '(이전 클립과 동일/미지정)'}
               </div>
             </div>
@@ -155,17 +173,17 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '12px 14px',
-                borderRadius: '10px',
-                backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                border: '1px solid rgba(255, 255, 255, 0.06)',
+                padding: '14px 16px',
+                borderRadius: '12px',
+                backgroundColor: '#ffffff',
+                border: '1px solid #e2e8f0',
               }}
             >
               <div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#f8fafc' }}>
+                <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
                   이 구간 챕터 브릿지 건너뛰기
                 </div>
-                <div style={{ fontSize: '11px', color: '#64748b' }}>
+                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
                   날짜나 장소가 바뀌어도 전환 효과 없이 바로 다음 클립으로 넘어갑니다.
                 </div>
               </div>
@@ -173,7 +191,7 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
                 type="checkbox"
                 checked={skipBridge}
                 onChange={(e) => setSkipBridge(e.target.checked)}
-                style={{ width: '18px', height: '18px', accentColor: '#f5d07d', cursor: 'pointer' }}
+                style={{ width: '18px', height: '18px', accentColor: '#0f172a', cursor: 'pointer' }}
               />
             </div>
 
@@ -186,7 +204,7 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
                       display: 'block',
                       fontSize: '13px',
                       fontWeight: 700,
-                      color: '#f5d07d',
+                      color: '#b45309',
                       marginBottom: '6px',
                     }}
                   >
@@ -199,12 +217,13 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
                     }
                     style={{
                       width: '100%',
-                      padding: '10px 12px',
-                      borderRadius: '8px',
-                      backgroundColor: '#1e293b',
-                      border: '1px solid rgba(255, 255, 255, 0.12)',
-                      color: '#ffffff',
-                      fontSize: '13px',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #cbd5e1',
+                      color: '#0f172a',
+                      fontSize: '13.5px',
+                      fontWeight: 500,
                       cursor: 'pointer',
                     }}
                   >
@@ -226,7 +245,7 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
                       display: 'block',
                       fontSize: '13px',
                       fontWeight: 700,
-                      color: '#38bdf8',
+                      color: '#0369a1',
                       marginBottom: '6px',
                     }}
                   >
@@ -239,12 +258,13 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
                     }
                     style={{
                       width: '100%',
-                      padding: '10px 12px',
-                      borderRadius: '8px',
-                      backgroundColor: '#1e293b',
-                      border: '1px solid rgba(255, 255, 255, 0.12)',
-                      color: '#ffffff',
-                      fontSize: '13px',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #cbd5e1',
+                      color: '#0f172a',
+                      fontSize: '13.5px',
+                      fontWeight: 500,
                       cursor: 'pointer',
                     }}
                   >
@@ -262,23 +282,27 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
                 {/* 미리보기 버튼 */}
                 <button
                   type="button"
-                  onClick={() => setIsPreviewOpen(true)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsPreviewOpen(true);
+                  }}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '6px',
-                    padding: '9px',
-                    borderRadius: '8px',
-                    backgroundColor: 'rgba(56, 189, 248, 0.12)',
-                    border: '1px solid rgba(56, 189, 248, 0.3)',
-                    color: '#38bdf8',
-                    fontSize: '12px',
+                    padding: '10px',
+                    borderRadius: '10px',
+                    backgroundColor: '#f1f5f9',
+                    border: '1px solid #e2e8f0',
+                    color: '#0f172a',
+                    fontSize: '13px',
                     fontWeight: 700,
                     cursor: 'pointer',
+                    transition: 'all 0.15s ease',
                   }}
                 >
-                  <Eye size={14} />이 조합 모션 실시간 미리보기
+                  <Eye size={15} />이 조합 모션 실시간 미리보기
                 </button>
               </>
             )}
@@ -287,45 +311,52 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
           {/* 풋터 */}
           <div
             style={{
-              padding: '14px 20px',
-              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+              padding: '16px 22px',
+              borderTop: '1px solid #f1f5f9',
               display: 'flex',
               justifyContent: 'flex-end',
               gap: '10px',
-              backgroundColor: 'rgba(15, 23, 42, 0.95)',
+              backgroundColor: '#ffffff',
             }}
           >
             <button
-              onClick={onClose}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+              }}
               style={{
-                padding: '8px 16px',
-                borderRadius: '6px',
-                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                padding: '9px 18px',
+                borderRadius: '10px',
+                backgroundColor: '#f1f5f9',
                 border: 'none',
-                color: '#94a3b8',
-                fontSize: '13px',
+                color: '#475569',
+                fontSize: '13.5px',
+                fontWeight: 600,
                 cursor: 'pointer',
               }}
             >
               취소
             </button>
             <button
+              type="button"
               onClick={handleApply}
               style={{
-                padding: '8px 20px',
-                borderRadius: '6px',
-                backgroundColor: '#f5d07d',
+                padding: '9px 20px',
+                borderRadius: '10px',
+                backgroundColor: '#0f172a',
                 border: 'none',
-                color: '#0f172a',
-                fontSize: '13px',
-                fontWeight: 800,
+                color: '#ffffff',
+                fontSize: '13.5px',
+                fontWeight: 700,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
+                boxShadow: '0 2px 6px rgba(15, 23, 42, 0.2)',
               }}
             >
-              <Check size={14} />
+              <Check size={15} />
               적용하기
             </button>
           </div>
