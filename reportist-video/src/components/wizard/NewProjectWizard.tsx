@@ -407,7 +407,8 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
 
   return (
     <div ref={overlayRef} className="wizard-modal-backdrop">
-      <div className="wizard-modal-card">
+      <div className={`wizard-modal-card ${currentStep === 3 ? 'is-analyzing' : ''}`}>
+        {currentStep === 3 && <BorderBeam duration={4.5} borderWidth={2} />}
         {/* 상단 헤더 & 스텝퍼 */}
         <div className="wizard-modal-header">
           <div className="wizard-header-top">
@@ -956,9 +957,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
           {/* ==================== STEP 3: AI 하이라이트 생성 (진행 상황) ==================== */}
           {currentStep === 3 && (
             <div className="wizard-step-pane wizard-processing-pane">
-              <div className="wizard-analysis-card">
-                <BorderBeam duration={4.5} borderWidth={2} />
-
+              <div className="wizard-analysis-stage">
                 {/* 현재 작업 중인 원본 영상 썸네일 */}
                 <div className="wizard-analysis-thumb">
                   {currentVideoThumbnail ? (
