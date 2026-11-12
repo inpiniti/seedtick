@@ -2470,6 +2470,327 @@
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 모션 템플릿 섹션 */
+.toss-io-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.toss-io-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.toss-io-section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #4e5968;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+}
+
+.toss-io-accent-intro {
+  color: #3182f6;
+}
+
+.toss-io-accent-outro {
+  color: #ec4899;
+}
+
+.toss-io-preview-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 8px;
+  background-color: #eff6ff;
+  color: #3182f6;
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.toss-io-preview-btn:hover {
+  background-color: #dbeafe;
+}
+
+.toss-io-preview-btn-outro {
+  background-color: #fdf2f8;
+  color: #db2777;
+}
+
+.toss-io-preview-btn-outro:hover {
+  background-color: #fce7f3;
+}
+
+/* 템플릿 카드 그리드 */
+.toss-io-template-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.toss-io-template-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid #e5e8eb;
+  border-radius: 12px;
+  background-color: #ffffff;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.toss-io-template-card:hover {
+  border-color: #cbd5e1;
+  background-color: #fafbfc;
+}
+
+.toss-io-template-card.selected {
+  border-color: #3182f6;
+  background-color: #f4f8ff;
+  box-shadow: 0 0 0 1px rgba(49, 130, 246, 0.35);
+}
+
+.toss-io-template-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  row-gap: 4px;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+
+.toss-io-template-name {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #191f28;
+  letter-spacing: -0.2px;
+  overflow-wrap: anywhere;
+}
+
+.toss-io-template-card.selected .toss-io-template-name {
+  color: #1b64da;
+}
+
+.toss-io-template-badge {
+  flex-shrink: 0;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background-color: #f2f4f6;
+  color: #6b7684;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.toss-io-template-card.selected .toss-io-template-badge {
+  background-color: #3182f6;
+  color: #ffffff;
+}
+
+.toss-io-template-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #8b95a1;
+}
+
+.toss-io-template-check {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background-color: #3182f6;
+  color: #ffffff;
+  box-shadow: 0 1px 4px rgba(49, 130, 246, 0.45);
+}
+
+/* 아웃트로는 3종 → 2열 배치 후 마지막 카드는 한 줄 전체 사용 */
+.toss-outro-content .toss-io-template-grid>.toss-io-template-card:last-child {
+  grid-column: 1 / -1;
+}
+
+/* 재생 시간 / 옵션 행 */
+.toss-io-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.toss-io-row-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #4e5968;
+  white-space: nowrap;
+}
+
+.toss-io-row-label svg {
+  color: #b0b8c1;
+}
+
+.toss-io-chips {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.toss-io-chip {
+  padding: 5px 10px;
+  border: none;
+  border-radius: 9px;
+  background-color: #f2f4f6;
+  color: #4e5968;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.toss-io-chip:hover {
+  background-color: #e5e8eb;
+}
+
+.toss-io-chip.active {
+  background-color: #191f28;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+/* 클로징 문구 입력 */
+.toss-io-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.toss-io-field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #4e5968;
+}
+
+.toss-io-text-input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid #e5e8eb;
+  border-radius: 10px;
+  background-color: #ffffff;
+  color: #191f28;
+  font-family: inherit;
+  font-size: 12.5px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.toss-io-text-input::placeholder {
+  color: #b0b8c1;
+}
+
+.toss-io-text-input:focus {
+  outline: none;
+  border-color: #3182f6;
+  box-shadow: 0 0 0 3px rgba(49, 130, 246, 0.12);
+}
+
+/* 직접 업로드 영역 */
+.toss-io-upload {
+  padding-top: 10px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.toss-io-upload-btn {
+  margin-bottom: 0;
+}
+
+.toss-io-file-icon {
+  flex-shrink: 0;
+  color: #3182f6;
+}
+
+.toss-io-file-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.toss-io-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+  color: #191f28;
+}
+
+.toss-io-file-meta {
+  font-size: 10px;
+  font-weight: 600;
+  color: #3182f6;
+}
+
+.toss-io-file-remove {
+  margin-left: auto;
+}
+
+@media (max-width: 400px) {
+  .toss-io-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .toss-io-chips {
+    justify-content: flex-start;
+  }
 }
 
 /* Player Stage & Fullscreen Container */

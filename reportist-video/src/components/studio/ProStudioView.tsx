@@ -5398,12 +5398,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             </div>
 
             {overlayOptions.showIntro && (
-              <div className="toss-intro-content mt-3 space-y-3">
+              <div className="toss-intro-content">
                 {/* 1. HyperFrames 인트로 모션 템플릿 선택 그리드 */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                      <Sparkles size={12} className="text-blue-500" />
+                <div className="toss-io-section">
+                  <div className="toss-io-section-head">
+                    <span className="toss-io-section-label">
+                      <Sparkles size={12} className="toss-io-accent-intro" />
                       <span>{ioDict?.templateSelectLabel || '모션 템플릿 선택'}</span>
                     </span>
                     <button
@@ -5412,45 +5412,34 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         setIntroOutroModalTab('intro');
                         setIsIntroOutroModalOpen(true);
                       }}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 text-[11px] font-bold transition-colors cursor-pointer"
+                      className="toss-io-preview-btn"
                     >
                       <Eye size={12} />
-                      <span>{dict.settingsModal?.introOutroPreviewBtn || '실시간 미리보기'}</span>
+                      <span>{dict.settingsModal?.introOutroPreviewBtn || '모션 템플릿 & 실시간 미리보기'}</span>
                     </button>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="toss-io-template-grid">
                     {introTemplateOptions.map((tpl) => {
                       const isSelected = (overlayOptions.introTemplate || 'kinetic-slide') === tpl.id;
                       return (
                         <button
                           key={tpl.id}
                           type="button"
+                          aria-pressed={isSelected}
                           onClick={() => {
                             setStoredIntroTemplate(tpl.id);
                             setOverlayOptions((prev) => ({ ...prev, introTemplate: tpl.id }));
                           }}
-                          className={`p-2.5 rounded-xl border text-left transition-all relative ${
-                            isSelected
-                              ? 'border-blue-500 bg-blue-50/70 shadow-sm'
-                              : 'border-slate-200 bg-white hover:border-slate-300'
-                          }`}
+                          className={`toss-io-template-card ${isSelected ? 'selected' : ''}`}
                         >
-                          <div className="flex items-center justify-between mb-1">
-                            <span className={`text-xs font-bold ${isSelected ? 'text-blue-700' : 'text-slate-800'}`}>
-                              {tpl.label}
-                            </span>
-                            <span
-                              className={`text-[10px] px-1.5 py-0.5 rounded-md font-semibold ${
-                                isSelected ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
-                              }`}
-                            >
-                              {tpl.badge}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-500 line-clamp-1 leading-relaxed">{tpl.desc}</p>
+                          <span className="toss-io-template-top">
+                            <span className="toss-io-template-name">{tpl.label}</span>
+                            <span className="toss-io-template-badge">{tpl.badge}</span>
+                          </span>
+                          <span className="toss-io-template-desc">{tpl.desc}</span>
                           {isSelected && (
-                            <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] shadow">
-                              ✓
+                            <span className="toss-io-template-check" aria-hidden="true">
+                              <Check size={10} strokeWidth={3} />
                             </span>
                           )}
                         </button>
@@ -5460,12 +5449,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 </div>
 
                 {/* 2. 재생 시간(초) 설정 */}
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-xs font-semibold text-slate-600 flex items-center gap-1">
-                    <Clock size={12} className="text-slate-400" />
+                <div className="toss-io-row">
+                  <span className="toss-io-row-label">
+                    <Clock size={12} />
                     <span>{ioDict?.durationLabel || '재생 시간'}</span>
                   </span>
-                  <div className="flex items-center gap-1.5">
+                  <div className="toss-io-chips">
                     {INTRO_DURATIONS.map((sec) => {
                       const isCurrent = (overlayOptions.introDurationSec || 2.0) === sec;
                       return (
@@ -5476,11 +5465,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             setStoredIntroDuration(sec);
                             setOverlayOptions((prev) => ({ ...prev, introDurationSec: sec }));
                           }}
-                          className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-colors ${
-                            isCurrent
-                              ? 'bg-slate-900 text-white font-semibold shadow-xs'
-                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                          }`}
+                          className={`toss-io-chip ${isCurrent ? 'active' : ''}`}
                         >
                           {sec.toFixed(1)}{secUnit}
                         </button>
@@ -5490,7 +5475,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 </div>
 
                 {/* 3. 직접 업로드한 영상 (우선 적용) */}
-                <div className="pt-2 border-t border-slate-100">
+                <div className="toss-io-upload">
                   <input
                     ref={introVideoInputRef}
                     type="file"
@@ -5500,16 +5485,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   />
                   {overlayOptions.introVideoFile ? (
                     <div className="toss-clip-file-chip">
-                      <Film size={14} className="text-blue-600 flex-shrink-0" />
-                      <div className="flex flex-col truncate min-w-0">
-                        <span className="truncate text-xs font-semibold text-slate-800">
+                      <Film size={14} className="toss-io-file-icon" />
+                      <div className="toss-io-file-text">
+                        <span className="toss-io-file-name">
                           {overlayOptions.introVideoFile.name}
                         </span>
-                        <span className="text-[10px] text-blue-600 font-medium">사용자 영상 우선 재생</span>
+                        <span className="toss-io-file-meta">사용자 영상 우선 재생</span>
                       </div>
                       <button
                         type="button"
-                        className="toss-btn-delete-sm ml-auto"
+                        className="toss-btn-delete-sm toss-io-file-remove"
                         onClick={() =>
                           setOverlayOptions((prev) => ({ ...prev, introVideoFile: null }))
                         }
@@ -5521,7 +5506,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   ) : (
                     <button
                       type="button"
-                      className="toss-btn-custom-audio w-full py-1.5 text-xs text-slate-600"
+                      className="toss-btn-custom-audio toss-io-upload-btn"
                       onClick={() => introVideoInputRef.current?.click()}
                     >
                       <Plus size={13} />
@@ -6155,12 +6140,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             </div>
 
             {overlayOptions.showOutro && (
-              <div className="toss-outro-content mt-3 space-y-3">
+              <div className="toss-outro-content">
                 {/* 1. HyperFrames 아웃트로 모션 템플릿 선택 그리드 */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                      <Sparkles size={12} className="text-pink-500" />
+                <div className="toss-io-section">
+                  <div className="toss-io-section-head">
+                    <span className="toss-io-section-label">
+                      <Sparkles size={12} className="toss-io-accent-outro" />
                       <span>{ioDict?.templateSelectLabel || '모션 템플릿 선택'}</span>
                     </span>
                     <button
@@ -6169,45 +6154,34 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         setIntroOutroModalTab('outro');
                         setIsIntroOutroModalOpen(true);
                       }}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-pink-50 text-pink-600 hover:bg-pink-100 text-[11px] font-bold transition-colors cursor-pointer"
+                      className="toss-io-preview-btn toss-io-preview-btn-outro"
                     >
                       <Eye size={12} />
-                      <span>{dict.settingsModal?.introOutroPreviewBtn || '실시간 미리보기'}</span>
+                      <span>{dict.settingsModal?.introOutroPreviewBtn || '모션 템플릿 & 실시간 미리보기'}</span>
                     </button>
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="toss-io-template-grid">
                     {outroTemplateOptions.map((tpl) => {
                       const isSelected = (overlayOptions.outroTemplate || 'modern-endcard') === tpl.id;
                       return (
                         <button
                           key={tpl.id}
                           type="button"
+                          aria-pressed={isSelected}
                           onClick={() => {
                             setStoredOutroTemplate(tpl.id);
                             setOverlayOptions((prev) => ({ ...prev, outroTemplate: tpl.id }));
                           }}
-                          className={`p-2.5 rounded-xl border text-left transition-all relative ${
-                            isSelected
-                              ? 'border-blue-500 bg-blue-50/70 shadow-sm'
-                              : 'border-slate-200 bg-white hover:border-slate-300'
-                          }`}
+                          className={`toss-io-template-card ${isSelected ? 'selected' : ''}`}
                         >
-                          <div className="flex items-center justify-between mb-1">
-                            <span className={`text-xs font-bold ${isSelected ? 'text-blue-700' : 'text-slate-800'}`}>
-                              {tpl.label}
-                            </span>
-                          </div>
-                          <span
-                            className={`text-[10px] px-1.5 py-0.5 rounded-md font-semibold inline-block mb-1 ${
-                              isSelected ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
-                            }`}
-                          >
-                            {tpl.badge}
+                          <span className="toss-io-template-top">
+                            <span className="toss-io-template-name">{tpl.label}</span>
+                            <span className="toss-io-template-badge">{tpl.badge}</span>
                           </span>
-                          <p className="text-[11px] text-slate-500 line-clamp-1 leading-relaxed">{tpl.desc}</p>
+                          <span className="toss-io-template-desc">{tpl.desc}</span>
                           {isSelected && (
-                            <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] shadow">
-                              ✓
+                            <span className="toss-io-template-check" aria-hidden="true">
+                              <Check size={10} strokeWidth={3} />
                             </span>
                           )}
                         </button>
@@ -6216,12 +6190,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   </div>
                 </div>
 
-                {/* 2. 감사 메시지 문구 설정 */}
-                <div className="pt-1">
-                  <label className="text-xs font-semibold text-slate-600 block mb-1">
-                    {ioDict?.outroTextLabel || '감사 문구'}
+                {/* 2. 클로징 문구 설정 */}
+                <div className="toss-io-field">
+                  <label className="toss-io-field-label" htmlFor="toss-outro-text">
+                    {ioDict?.outroTextLabel || '클로징 문구'}
                   </label>
                   <input
+                    id="toss-outro-text"
                     type="text"
                     value={overlayOptions.outroText ?? ''}
                     placeholder={ioDict?.outroTextPlaceholder || dict.introOutro?.outroDefaultText || '시청해 주셔서 감사합니다'}
@@ -6230,17 +6205,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       setStoredOutroText(val);
                       setOverlayOptions((prev) => ({ ...prev, outroText: val }));
                     }}
-                    className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 bg-white text-slate-800 placeholder-slate-400 transition-colors"
+                    className="toss-io-text-input"
                   />
                 </div>
 
                 {/* 3. 재생 시간(초) 설정 */}
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-xs font-semibold text-slate-600 flex items-center gap-1">
-                    <Clock size={12} className="text-slate-400" />
+                <div className="toss-io-row">
+                  <span className="toss-io-row-label">
+                    <Clock size={12} />
                     <span>{ioDict?.durationLabel || '재생 시간'}</span>
                   </span>
-                  <div className="flex items-center gap-1.5">
+                  <div className="toss-io-chips">
                     {OUTRO_DURATIONS.map((sec) => {
                       const isCurrent = (overlayOptions.outroDurationSec || 2.2) === sec;
                       return (
@@ -6251,11 +6226,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             setStoredOutroDuration(sec);
                             setOverlayOptions((prev) => ({ ...prev, outroDurationSec: sec }));
                           }}
-                          className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-colors ${
-                            isCurrent
-                              ? 'bg-slate-900 text-white font-semibold shadow-xs'
-                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                          }`}
+                          className={`toss-io-chip ${isCurrent ? 'active' : ''}`}
                         >
                           {sec.toFixed(1)}{secUnit}
                         </button>
@@ -6265,7 +6236,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 </div>
 
                 {/* 4. 직접 업로드한 영상 (우선 적용) */}
-                <div className="pt-2 border-t border-slate-100">
+                <div className="toss-io-upload">
                   <input
                     ref={outroVideoInputRef}
                     type="file"
@@ -6275,16 +6246,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   />
                   {overlayOptions.outroVideoFile ? (
                     <div className="toss-clip-file-chip">
-                      <Film size={14} className="text-blue-600 flex-shrink-0" />
-                      <div className="flex flex-col truncate min-w-0">
-                        <span className="truncate text-xs font-semibold text-slate-800">
+                      <Film size={14} className="toss-io-file-icon" />
+                      <div className="toss-io-file-text">
+                        <span className="toss-io-file-name">
                           {overlayOptions.outroVideoFile.name}
                         </span>
-                        <span className="text-[10px] text-blue-600 font-medium">사용자 영상 우선 재생</span>
+                        <span className="toss-io-file-meta">사용자 영상 우선 재생</span>
                       </div>
                       <button
                         type="button"
-                        className="toss-btn-delete-sm ml-auto"
+                        className="toss-btn-delete-sm toss-io-file-remove"
                         onClick={() =>
                           setOverlayOptions((prev) => ({ ...prev, outroVideoFile: null }))
                         }
@@ -6296,7 +6267,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   ) : (
                     <button
                       type="button"
-                      className="toss-btn-custom-audio w-full py-1.5 text-xs text-slate-600"
+                      className="toss-btn-custom-audio toss-io-upload-btn"
                       onClick={() => outroVideoInputRef.current?.click()}
                     >
                       <Plus size={13} />
