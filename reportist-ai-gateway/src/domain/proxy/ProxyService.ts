@@ -601,6 +601,35 @@ export class ProxyService {
     return [...this.slots];
   }
 
+  private sanitizeCustomBaseUrl(rawUrl: string | undefined): string | undefined {
+    if (!rawUrl) return undefined;
+    try {
+      const parsed = new URL(rawUrl);
+      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+        return undefined;
+      }
+      const host = parsed.hostname.toLowerCase();
+      // 사설망 및 로컬호스트 / 클라우드 메타데이터 IP 접근 차단 (SSRF 방어)
+      if (
+        host === 'localhost' ||
+        host === '127.0.0.1' ||
+        host === '::1' ||
+        host === '0.0.0.0' ||
+        host === '169.254.169.254' ||
+        host.endsWith('.local') ||
+        host.endsWith('.internal') ||
+        /^10\./.test(host) ||
+        /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host) ||
+        /^192\.168\./.test(host)
+      ) {
+        return undefined;
+      }
+      return parsed.toString();
+    } catch {
+      return undefined;
+    }
+  }
+
   // === 사용자 직접 입력 API 키(BYOK) 패스스루 처리 ===
   private resolvePassThroughAdapter(config: UserPassThroughConfig): {
     adapter: ILLMAdapter;
@@ -608,7 +637,7 @@ export class ProxyService {
     provider: string;
   } {
     const rawProvider = (config.provider || 'openai').toLowerCase().trim();
-    let baseUrl = config.baseUrl?.trim();
+    let baseUrl = this.sanitizeCustomBaseUrl(config.baseUrl?.trim());
     let resolvedModel = config.model?.trim();
 
     if (rawProvider === 'claude' || rawProvider === 'anthropic') {

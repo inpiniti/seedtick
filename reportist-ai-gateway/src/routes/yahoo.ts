@@ -108,8 +108,21 @@ async function fetchQuoteSummary(ticker: string): Promise<Record<string, unknown
 export const yahooRoute = new Elysia().get(
   '/v1/yahoo/quote-summary/:ticker',
   async ({ params: { ticker }, set }) => {
+    // 티커 유효성 검증 (알파벳, 숫자, 점, 대시, 캐럿만 허용: 1~15자)
+    const normalizedTicker = ticker.trim().toUpperCase();
+    if (!/^[A-Z0-9.\-^=]{1,15}$/.test(normalizedTicker)) {
+      set.status = 400;
+      return {
+        error: {
+          code: 'INVALID_TICKER',
+          message: 'Invalid ticker symbol format',
+          ticker,
+        },
+      };
+    }
+
     try {
-      const data = await fetchQuoteSummary(ticker);
+      const data = await fetchQuoteSummary(normalizedTicker);
       return data;
     } catch (err: unknown) {
       set.status = 502;
