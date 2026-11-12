@@ -784,7 +784,7 @@ defaultDesc: 'Analysiere Schlüsselszenen in Ihren Videos. Bitte einen Moment Ge
     formatLabelDot: 'Mit Punkten getrennt (Empfohlen)',
     formatLabelHyphen: 'Mit Bindestrichen getrennt (ISO-Standard)',
     formatLabelSlash: 'Mit Schrägstrichen getrennt',
-    formatLabelAsian: 'Ostasiatisches Format (Jahr/Monat/Tag)',
+    formatLabelAsian: 'Langes Datum (lokalisiert)',
     formatLabelMonthDay: 'Kurzform Monat/Tag',
     formatLabelUS: 'US-Format (Monat/Tag/Jahr)',
     formatLabelEU: 'Europäisches Format (Tag/Monat/Jahr)',

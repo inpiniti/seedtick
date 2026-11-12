@@ -874,18 +874,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
   // 5. 자막 & 브랜딩 오버레이 상태
   const initialDateStr = useMemo(() => {
-    if (videos.length > 0 && videos[0].metadataDate) {
+    if (videos.length > 0) {
       const ts = videos[0]?.recordedTimestamp || videos[0]?.file?.lastModified;
-      const targetDate = ts ? new Date(ts) : parseDateFromString(videos[0].metadataDate) || new Date();
-      return formatDateWithAge(videos[0].metadataDate, targetDate, showAge, birthDate);
-    }
-    const ts = videos[0]?.recordedTimestamp || videos[0]?.file?.lastModified;
-    if (ts) {
-      const base = formatDateByPattern(new Date(ts), currentDateFormat);
-      return formatDateWithAge(base, new Date(ts), showAge, birthDate);
+      if (ts) {
+        const targetDate = new Date(ts);
+        const base = formatDateByPattern(targetDate, currentDateFormat, locale);
+        return formatDateWithAge(base, targetDate, showAge, birthDate, locale);
+      }
+      if (videos[0].metadataDate) {
+        const targetDate = parseDateFromString(videos[0].metadataDate) || new Date();
+        return formatDateWithAge(videos[0].metadataDate, targetDate, showAge, birthDate, locale);
+      }
     }
     return '';
-  }, [videos, currentDateFormat, showAge, birthDate]);
+  }, [videos, currentDateFormat, showAge, birthDate, locale]);
 
   const [overlayOptions, setOverlayOptions] = useState<VideoOverlayOptions>(() => {
     const introOutroDefaults = getStoredIntroOutroDefaults();
@@ -1049,14 +1051,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   useEffect(() => {
     if (videos.length > 0) {
       const ts = videos[0].recordedTimestamp || videos[0].file?.lastModified;
-      let detectedDate =
-        videos[0].metadataDate ||
-        (ts ? formatDateByPattern(new Date(ts), currentDateFormat) : '');
+      let detectedDate = ts
+        ? formatDateByPattern(new Date(ts), currentDateFormat, locale)
+        : videos[0].metadataDate || '';
       const detectedLocation = videos[0].locationName || '';
 
       if (detectedDate) {
         const targetDate = ts ? new Date(ts) : parseDateFromString(detectedDate) || new Date();
-        const formattedWithAge = formatDateWithAge(detectedDate, targetDate, showAge, birthDate);
+        const formattedWithAge = formatDateWithAge(detectedDate, targetDate, showAge, birthDate, locale);
         setOverlayOptions((prev) => ({
           ...prev,
           subtitleDateText: prev.subtitleDateText || formattedWithAge,
@@ -1084,23 +1086,22 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         })
       );
     }
-  }, [videos, currentDateFormat, showAge, birthDate, videoMap]);
+  }, [videos, currentDateFormat, showAge, birthDate, videoMap, locale]);
 
-  // 날짜 표기 형식 변경 시 세그먼트 자막 및 비디오 메타데이터 일괄 갱신
-  const handleSelectDateFormat = (newFormat: DateFormatOption) => {
-    setCurrentDateFormat(newFormat);
-    setStoredDateFormat(newFormat);
-
+  // 현재 날짜 표기 형식과 UI 언어 기준으로 세그먼트 자막 및 기본 하단 자막 날짜를 일괄 재생성
+  const reformatAllDates = (format: DateFormatOption) => {
     // 1. 타임라인 세그먼트들의 subtitleDate 일괄 갱신
     setSegments((prev) =>
       prev.map((seg) => {
         const vItem = videoMap.get(seg.sourceVideoId);
         const ts = vItem?.recordedTimestamp || vItem?.file?.lastModified;
         const targetDate = ts ? new Date(ts) : parseDateFromString(seg.subtitleDate || '') || new Date();
-        const baseDate = ts ? formatDateByPattern(new Date(ts), newFormat) : formatDateByPattern(targetDate, newFormat);
+        const baseDate = ts
+          ? formatDateByPattern(new Date(ts), format, locale)
+          : formatDateByPattern(targetDate, format, locale);
         return {
           ...seg,
-          subtitleDate: formatDateWithAge(baseDate, targetDate, showAge, birthDate),
+          subtitleDate: formatDateWithAge(baseDate, targetDate, showAge, birthDate, locale),
         };
       })
     );
@@ -1108,17 +1109,34 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     // 2. 전체 기본 하단 자막(subtitleDateText) 갱신
     if (videos.length > 0) {
       const firstTs = videos[0].recordedTimestamp || videos[0].file?.lastModified;
-      const targetDate = firstTs ? new Date(firstTs) : parseDateFromString(overlayOptions.subtitleDateText || '') || new Date();
-      const baseDate = formatDateByPattern(targetDate, newFormat);
+      const targetDate = firstTs
+        ? new Date(firstTs)
+        : parseDateFromString(overlayOptions.subtitleDateText || '') || new Date();
+      const baseDate = formatDateByPattern(targetDate, format, locale);
       setOverlayOptions((prev) => ({
         ...prev,
-        subtitleDateText: formatDateWithAge(baseDate, targetDate, showAge, birthDate),
+        subtitleDateText: formatDateWithAge(baseDate, targetDate, showAge, birthDate, locale),
       }));
     }
+  };
 
-    // 3. 상위 컴포넌트(App)의 videos metadataDate 갱신
+  // 날짜 표기 형식 변경 시 세그먼트 자막 및 비디오 메타데이터 일괄 갱신
+  const handleSelectDateFormat = (newFormat: DateFormatOption) => {
+    setCurrentDateFormat(newFormat);
+    setStoredDateFormat(newFormat);
+    reformatAllDates(newFormat);
+
+    // 상위 컴포넌트(App)의 videos metadataDate 갱신
     onUpdateVideosDateFormat?.(newFormat);
   };
+
+  // UI 언어 변경 시 이미 생성된 자막/클립 날짜의 월 이름·나이 단위도 즉시 갱신
+  const lastDateLocaleRef = useRef(locale);
+  useEffect(() => {
+    if (lastDateLocaleRef.current === locale) return;
+    lastDateLocaleRef.current = locale;
+    reformatAllDates(currentDateFormat);
+  }, [locale]);
 
   // 나이 표시 옵션 토글 핸들러
   const handleToggleShowAge = (enabled: boolean) => {
@@ -1132,11 +1150,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         const ts = vItem?.recordedTimestamp || vItem?.file?.lastModified;
         const targetDate = ts ? new Date(ts) : parseDateFromString(seg.subtitleDate || '') || new Date();
         const baseDate = ts
-          ? formatDateByPattern(new Date(ts), currentDateFormat)
+          ? formatDateByPattern(new Date(ts), currentDateFormat, locale)
           : stripAgeFromDate(seg.subtitleDate || '');
         return {
           ...seg,
-          subtitleDate: formatDateWithAge(baseDate, targetDate, enabled, birthDate),
+          subtitleDate: formatDateWithAge(baseDate, targetDate, enabled, birthDate, locale),
         };
       })
     );
@@ -1147,11 +1165,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       ? new Date(firstTs)
       : parseDateFromString(overlayOptions.subtitleDateText || '') || new Date();
     const baseDate = firstTs
-      ? formatDateByPattern(new Date(firstTs), currentDateFormat)
+      ? formatDateByPattern(new Date(firstTs), currentDateFormat, locale)
       : stripAgeFromDate(overlayOptions.subtitleDateText || '');
     setOverlayOptions((prev) => ({
       ...prev,
-      subtitleDateText: formatDateWithAge(baseDate, targetDate, enabled, birthDate),
+      subtitleDateText: formatDateWithAge(baseDate, targetDate, enabled, birthDate, locale),
     }));
 
     if (enabled) {
@@ -1224,11 +1242,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         const ts = vItem?.recordedTimestamp || vItem?.file?.lastModified;
         const targetDate = ts ? new Date(ts) : parseDateFromString(seg.subtitleDate || '') || new Date();
         const baseDate = ts
-          ? formatDateByPattern(new Date(ts), currentDateFormat)
+          ? formatDateByPattern(new Date(ts), currentDateFormat, locale)
           : stripAgeFromDate(seg.subtitleDate || '');
         return {
           ...seg,
-          subtitleDate: formatDateWithAge(baseDate, targetDate, showAge, newBirthDate),
+          subtitleDate: formatDateWithAge(baseDate, targetDate, showAge, newBirthDate, locale),
         };
       })
     );
@@ -1239,11 +1257,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       ? new Date(firstTs)
       : parseDateFromString(overlayOptions.subtitleDateText || '') || new Date();
     const baseDate = firstTs
-      ? formatDateByPattern(new Date(firstTs), currentDateFormat)
+      ? formatDateByPattern(new Date(firstTs), currentDateFormat, locale)
       : stripAgeFromDate(overlayOptions.subtitleDateText || '');
     setOverlayOptions((prev) => ({
       ...prev,
-      subtitleDateText: formatDateWithAge(baseDate, targetDate, showAge, newBirthDate),
+      subtitleDateText: formatDateWithAge(baseDate, targetDate, showAge, newBirthDate, locale),
     }));
   };
 

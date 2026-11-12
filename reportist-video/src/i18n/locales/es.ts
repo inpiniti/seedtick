@@ -784,7 +784,7 @@ defaultDesc: 'Analizando las escenas clave de tus videos. Por favor espera un mo
     formatLabelDot: 'Separado por puntos (Recomendado)',
     formatLabelHyphen: 'Separado por guiones (Estándar ISO)',
     formatLabelSlash: 'Separado por barras',
-    formatLabelAsian: 'Año/Mes/Día asiático',
+    formatLabelAsian: 'Fecha larga (localizada)',
     formatLabelMonthDay: 'Mes/Día corto',
     formatLabelUS: 'Formato estadounidense (Mes/Día/Año)',
     formatLabelEU: 'Formato europeo (Día/Mes/Año)',

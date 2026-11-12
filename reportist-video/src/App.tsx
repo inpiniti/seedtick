@@ -1,6 +1,6 @@
 // App.tsx - Reportist Video 메인 애플리케이션 (i18n 다국어 지원)
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import './App.css';
 import { Toaster } from '@yusufceng1z/ding-react';
 import { notify } from './services/toastService.ts';
@@ -17,6 +17,11 @@ import { extractVideoMetadata as extractVideoVisualDimensions, extractVideoFrame
 import {
   extractVideoMetadata as extractMediaMetadata,
   formatVideoDate,
+  formatDateByPattern,
+  formatDateWithAge,
+  getStoredDateFormat,
+  getStoredShowAge,
+  getStoredBirthDate,
   extractGpsFromVideoFile,
   sortSegmentsByRecordedTime,
   getStoredAutoSortByRecordedTime,
@@ -98,6 +103,38 @@ export function App() {
       prev.map((v) => (v.id === id ? { ...v, locationName } : v))
     );
   }, []);
+
+  // UI 언어 변경/프로젝트 복원 시 영상 목록의 촬영일 표기(월 이름·나이 단위)를 현재 언어로 갱신
+  const metadataDateLocaleKey = useMemo(
+    () =>
+      videos
+        .map((video) => `${video.id}:${video.recordedTimestamp ?? video.file?.lastModified ?? ''}`)
+        .join('|'),
+    [videos]
+  );
+
+  useEffect(() => {
+    setVideos((prev) => {
+      let changed = false;
+      const next = prev.map((video) => {
+        const ts = video.recordedTimestamp || video.file?.lastModified;
+        if (!ts) return video;
+        const targetDate = new Date(ts);
+        const base = formatDateByPattern(targetDate, getStoredDateFormat(), locale);
+        const metadataDate = formatDateWithAge(
+          base,
+          targetDate,
+          getStoredShowAge(),
+          getStoredBirthDate(),
+          locale
+        );
+        if (metadataDate === video.metadataDate) return video;
+        changed = true;
+        return { ...video, metadataDate };
+      });
+      return changed ? next : prev;
+    });
+  }, [locale, metadataDateLocaleKey]);
 
   // 3. 진행률 및 결과
   const [progress, setProgress] = useState<ProcessingProgress>({

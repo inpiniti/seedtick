@@ -785,7 +785,7 @@ defaultDesc: 'Analyse des séquences visuelles clés en cours. Veuillez patiente
     formatLabelDot: 'Séparé par des points (Recommandé)',
     formatLabelHyphen: 'Séparé par des tirets (Norme ISO)',
     formatLabelSlash: 'Séparé par des barres obliques',
-    formatLabelAsian: 'Année/Mois/Jour asiatique',
+    formatLabelAsian: 'Date longue (localisée)',
     formatLabelMonthDay: 'Mois/Jour court',
     formatLabelUS: 'Format américain (Mois/Jour/Année)',
     formatLabelEU: 'Format européen (Jour/Mois/Année)',

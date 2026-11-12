@@ -1,6 +1,8 @@
 // services/videoMetadata.ts - 영상 메타데이터(촬영일자, GPS 좌표) 추출 유틸리티
 import { useState, useCallback } from 'react';
 import type { HighlightSegment, VideoItem } from '../types/video.ts';
+import { getIntlLocale, getRuntimeLocale, SUPPORTED_LOCALES } from '../i18n/localeState.ts';
+import type { Locale } from '../i18n/types.ts';
 
 export type DateFormatOption =
   | 'YYYY.MM.DD'
@@ -26,6 +28,214 @@ export const SHOW_AGE_STORAGE_KEY = 'reportist_video_show_age';
 export const BIRTH_DATE_STORAGE_KEY = 'reportist_video_birth_date';
 export const SHOW_DATE_STORAGE_KEY = 'reportist_video_show_date';
 export const AUTO_SORT_BY_RECORDED_TIME_STORAGE_KEY = 'reportist_video_auto_sort_by_recorded_time';
+
+/**
+ * Intl 출력의 비분리 공백(NBSP/NNBSP)을 일반 공백으로 정규화하여
+ * 자막/클립보드/파싱에서 동일한 문자열로 다루도록 통일
+ */
+function normalizeIntlSpaces(value: string): string {
+  return value.replace(/[\u00A0\u202F]/g, ' ').trim();
+}
+
+const longDateFormatterCache = new Map<string, Intl.DateTimeFormat>();
+const monthDayFormatterCache = new Map<string, Intl.DateTimeFormat>();
+
+function getLongDateFormatter(locale: Locale): Intl.DateTimeFormat {
+  const key = getIntlLocale(locale);
+  let formatter = longDateFormatterCache.get(key);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat(key, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    longDateFormatterCache.set(key, formatter);
+  }
+  return formatter;
+}
+
+function getMonthDayFormatter(locale: Locale): Intl.DateTimeFormat {
+  const key = getIntlLocale(locale);
+  let formatter = monthDayFormatterCache.get(key);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat(key, {
+      month: 'short',
+      day: 'numeric',
+    });
+    monthDayFormatterCache.set(key, formatter);
+  }
+  return formatter;
+}
+
+/**
+ * 내부 저장 ID는 한국어 토큰(YYYY년 M월 D일 등)을 그대로 유지하되,
+ * 모달에 표시되는 패턴 설명은 현재 언어에 맞는 표기로 보여준다.
+ */
+const LOCALIZED_LONG_PATTERN_NAMES: Record<Locale, string> = {
+  en: 'MMMM D, YYYY',
+  ko: 'YYYY년 M월 D일',
+  ja: 'YYYY年M月D日',
+  zh: 'YYYY年M月D日',
+  es: 'D de MMMM de YYYY',
+  fr: 'D MMMM YYYY',
+  de: 'D. MMMM YYYY',
+};
+
+const LOCALIZED_MONTH_DAY_PATTERN_NAMES: Record<Locale, string> = {
+  en: 'MMM D',
+  ko: 'M월 D일',
+  ja: 'M月D日',
+  zh: 'M月D日',
+  es: 'D MMM',
+  fr: 'D MMM',
+  de: 'D. MMM',
+};
+
+function getLocalizedPatternName(pattern: DateFormatOption, locale: Locale): string {
+  if (pattern === 'YYYY년 M월 D일') {
+    return LOCALIZED_LONG_PATTERN_NAMES[locale] || pattern;
+  }
+  if (pattern === 'M월 D일') {
+    return LOCALIZED_MONTH_DAY_PATTERN_NAMES[locale] || pattern;
+  }
+  return pattern;
+}
+
+let monthNameEntries: Array<[string, number]> | null = null;
+
+/**
+ * 7개 지원 언어의 월 이름(긴 이름/짧은 이름)을 모두 모아 파싱 사전을 구성.
+ * - 언어를 바꾸기 전에 저장된 다른 언어권 날짜 문자열도 파싱할 수 있도록 전체 언어를 수집
+ * - 긴 이름이 짧은 이름보다 먼저 매칭되도록 길이 내림차순 정렬
+ */
+function getMonthNameEntries(): Array<[string, number]> {
+  if (monthNameEntries) return monthNameEntries;
+
+  const entries = new Map<string, number>();
+  for (const locale of SUPPORTED_LOCALES) {
+    const intlLocale = getIntlLocale(locale);
+    const longFormatter = new Intl.DateTimeFormat(intlLocale, { month: 'long' });
+    const shortFormatter = new Intl.DateTimeFormat(intlLocale, { month: 'short' });
+    for (let month = 0; month < 12; month++) {
+      const sample = new Date(2020, month, 15);
+      for (const formatter of [longFormatter, shortFormatter]) {
+        const name = formatter
+          .format(sample)
+          .toLowerCase()
+          .normalize('NFC')
+          .replace(/\./g, '')
+          .trim();
+        // 일본어/중국어/한국어의 "1月", "1월"처럼 숫자가 포함된 이름은 CJK 정규식에서 처리
+        if (name && !/\d/.test(name)) {
+          entries.set(name, month + 1);
+        }
+      }
+    }
+  }
+
+  monthNameEntries = [...entries.entries()].sort((a, b) => b[0].length - a[0].length);
+  return monthNameEntries;
+}
+
+/**
+ * "November 12, 2026", "12 de noviembre de 2026", "12. November 2026", "Nov 12" 등
+ * 월 이름이 포함된 로컬라이즈 날짜 문자열 파싱
+ */
+function parseLocalizedMonthNameDate(
+  clean: string,
+  hh = 0,
+  mm = 0,
+  ss = 0
+): Date | null {
+  const normalized = clean
+    .toLowerCase()
+    .normalize('NFC')
+    .replace(/[\u00A0\u202F]/g, ' ')
+    .replace(/\./g, ' ');
+
+  let month = 0;
+  for (const [name, monthIndex] of getMonthNameEntries()) {
+    if (normalized.includes(name)) {
+      month = monthIndex;
+      break;
+    }
+  }
+  if (!month) return null;
+
+  const yearMatch = normalized.match(/(?:^|\D)(\d{4})(?:\D|$)/);
+  const year = yearMatch ? parseInt(yearMatch[1], 10) : new Date().getFullYear();
+  if (year < 2000 || year > 2040) return null;
+
+  const daySource = yearMatch ? normalized.replace(yearMatch[0], ' ') : normalized;
+  const dayMatch = daySource.match(/(?:^|\D)(\d{1,2})(?:st|nd|rd|th)?(?:\D|$)/);
+  if (!dayMatch) return null;
+
+  const day = parseInt(dayMatch[1], 10);
+  if (day < 1 || day > 31) return null;
+
+  const date = new Date(year, month - 1, day, hh, mm, ss);
+  return isNaN(date.getTime()) ? null : date;
+}
+
+/**
+ * 만 나이 단위를 현재 언어에 맞게 표기
+ */
+function formatAgeYears(years: number, locale: Locale): string {
+  switch (locale) {
+    case 'ko':
+      return `${years}살`;
+    case 'ja':
+      return `${years}歳`;
+    case 'zh':
+      return `${years}岁`;
+    case 'es':
+      return `${years} ${years === 1 ? 'año' : 'años'}`;
+    case 'fr':
+      return `${years} ${years === 1 ? 'an' : 'ans'}`;
+    case 'de':
+      return `${years} ${years === 1 ? 'Jahr' : 'Jahre'}`;
+    default:
+      return `${years} ${years === 1 ? 'year' : 'years'}`;
+  }
+}
+
+function formatAgeMonths(months: number, locale: Locale): string {
+  switch (locale) {
+    case 'ko':
+      return `${months}개월`;
+    case 'ja':
+      return `${months}か月`;
+    case 'zh':
+      return `${months}个月`;
+    case 'es':
+      return `${months} ${months === 1 ? 'mes' : 'meses'}`;
+    case 'fr':
+      return `${months} mois`;
+    case 'de':
+      return `${months} ${months === 1 ? 'Monat' : 'Monate'}`;
+    default:
+      return `${months} ${months === 1 ? 'month' : 'months'}`;
+  }
+}
+
+function formatAgeYearsMonths(years: number, months: number, locale: Locale): string {
+  switch (locale) {
+    case 'ko':
+      return `${years}살 ${months}개월`;
+    case 'ja':
+      return `${years}歳${months}か月`;
+    case 'zh':
+      return `${years}岁${months}个月`;
+    case 'es':
+      return `${years} ${years === 1 ? 'año' : 'años'} ${months} ${months === 1 ? 'mes' : 'meses'}`;
+    case 'fr':
+      return `${years} ${years === 1 ? 'an' : 'ans'} ${months} mois`;
+    case 'de':
+      return `${years} ${years === 1 ? 'Jahr' : 'Jahre'} ${months} ${months === 1 ? 'Monat' : 'Monate'}`;
+    default:
+      return `${years} ${years === 1 ? 'year' : 'years'} ${months} ${months === 1 ? 'month' : 'months'}`;
+  }
+}
 
 export interface VideoMetadata {
   dateStr: string; // e.g. "2026.11.03"
@@ -188,10 +398,10 @@ export function parseDateTimeFromString(str: string): { date: Date; hasTime: boo
     if (!isNaN(d.getTime())) return { date: d, hasTime };
   }
 
-  // YYYY년 M월 D일
-  const koYmd = clean.match(/^(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/);
-  if (koYmd) {
-    const d = new Date(parseInt(koYmd[1], 10), parseInt(koYmd[2], 10) - 1, parseInt(koYmd[3], 10), hh, mm, ss);
+  // YYYY년 M월 D일 / YYYY年M月D日 (한국어·일본어·중국어)
+  const cjkYmd = clean.match(/^(\d{4})\s*[년年]\s*(\d{1,2})\s*[월月]\s*(\d{1,2})\s*[일日]/);
+  if (cjkYmd) {
+    const d = new Date(parseInt(cjkYmd[1], 10), parseInt(cjkYmd[2], 10) - 1, parseInt(cjkYmd[3], 10), hh, mm, ss);
     if (!isNaN(d.getTime())) return { date: d, hasTime };
   }
 
@@ -202,12 +412,18 @@ export function parseDateTimeFromString(str: string): { date: Date; hasTime: boo
     if (!isNaN(d.getTime())) return { date: d, hasTime };
   }
 
-  // M월 D일 (연도 생략된 경우 현재 연도 기준)
-  const koMd = clean.match(/^(\d{1,2})월\s*(\d{1,2})일/);
-  if (koMd) {
+  // M월 D일 / M月D日 (연도 생략된 경우 현재 연도 기준)
+  const cjkMd = clean.match(/^(\d{1,2})\s*[월月]\s*(\d{1,2})\s*[일日]/);
+  if (cjkMd) {
     const curYear = new Date().getFullYear();
-    const d = new Date(curYear, parseInt(koMd[1], 10) - 1, parseInt(koMd[2], 10), hh, mm, ss);
+    const d = new Date(curYear, parseInt(cjkMd[1], 10) - 1, parseInt(cjkMd[2], 10), hh, mm, ss);
     if (!isNaN(d.getTime())) return { date: d, hasTime };
+  }
+
+  // 영어·스페인어·프랑스어·독일어 등 월 이름이 포함된 로컬라이즈 날짜
+  const localizedMonthDate = parseLocalizedMonthNameDate(clean, hh, mm, ss);
+  if (localizedMonthDate) {
+    return { date: localizedMonthDate, hasTime };
   }
 
   const fallback = new Date(clean);
@@ -341,7 +557,8 @@ export function formatSegmentRecordedDateTime(
  */
 export function calculateAgeText(
   birthDateInput: string | Date,
-  targetDateInput: string | Date | number
+  targetDateInput: string | Date | number,
+  locale: Locale = getRuntimeLocale()
 ): string | null {
   if (!birthDateInput || !targetDateInput) return null;
 
@@ -379,16 +596,16 @@ export function calculateAgeText(
 
   // 만 나이 (2살 이상은 살 단위만 표시)
   if (years >= 2) {
-    return `${years}살`;
+    return formatAgeYears(years, locale);
   }
 
   // 2살 미만: 개월수도 표시 (예: 1살 8개월, 1살)
   if (years === 1) {
-    return months > 0 ? `1살 ${months}개월` : '1살';
+    return months > 0 ? formatAgeYearsMonths(1, months, locale) : formatAgeYears(1, locale);
   }
 
   // 0살 (1세 미만: 예: 8개월, 0개월)
-  return `${months}개월`;
+  return formatAgeMonths(months, locale);
 }
 
 /**
@@ -399,14 +616,15 @@ export function formatDateWithAge(
   baseDateStr: string,
   targetDateInput: string | Date | number,
   showAge: boolean,
-  birthDate: string
+  birthDate: string,
+  locale: Locale = getRuntimeLocale()
 ): string {
   const cleanBase = stripAgeFromDate(baseDateStr);
   if (!showAge || !birthDate || !birthDate.trim()) {
     return cleanBase;
   }
 
-  const ageText = calculateAgeText(birthDate, targetDateInput);
+  const ageText = calculateAgeText(birthDate, targetDateInput, locale);
   if (!ageText) {
     return cleanBase;
   }
@@ -419,7 +637,8 @@ export function formatDateWithAge(
  */
 export function formatDateByPattern(
   dateInput: Date | number,
-  pattern: DateFormatOption = getStoredDateFormat()
+  pattern: DateFormatOption = getStoredDateFormat(),
+  locale: Locale = getRuntimeLocale()
 ): string {
   const d = typeof dateInput === 'number' ? new Date(dateInput) : dateInput;
   if (!d || isNaN(d.getTime())) return '';
@@ -437,9 +656,11 @@ export function formatDateByPattern(
     case 'YYYY/MM/DD':
       return `${year}/${pad2(month)}/${pad2(day)}`;
     case 'YYYY년 M월 D일':
-      return `${year}년 ${month}월 ${day}일`;
+      // 내부 ID는 한국어 토큰을 유지하지만, 실제 표기는 선택한 UI 언어의 긴 날짜 형식으로 출력
+      return normalizeIntlSpaces(getLongDateFormatter(locale).format(d));
     case 'M월 D일':
-      return `${month}월 ${day}일`;
+      // 예: ko "11월 12일", en "Nov 12", ja "11月12日", de "12. Nov."
+      return normalizeIntlSpaces(getMonthDayFormatter(locale).format(d));
     case 'MM/DD/YYYY':
       return `${pad2(month)}/${pad2(day)}/${year}`;
     case 'DD/MM/YYYY':
@@ -452,50 +673,53 @@ export function formatDateByPattern(
 /**
  * 지원하는 모든 날짜 포맷 목록 및 예시 반환
  */
-export function getDateFormats(sampleDate: Date = new Date()): DateFormatItem[] {
+export function getDateFormats(
+  sampleDate: Date = new Date(),
+  locale: Locale = getRuntimeLocale()
+): DateFormatItem[] {
   return [
     {
       id: 'YYYY.MM.DD',
       formatName: 'YYYY.MM.DD',
       label: '점 구분 (권장 기본값)',
-      example: formatDateByPattern(sampleDate, 'YYYY.MM.DD'),
+      example: formatDateByPattern(sampleDate, 'YYYY.MM.DD', locale),
       isDefault: true,
     },
     {
       id: 'YYYY-MM-DD',
       formatName: 'YYYY-MM-DD',
       label: '하이픈 구분 (ISO 규격)',
-      example: formatDateByPattern(sampleDate, 'YYYY-MM-DD'),
+      example: formatDateByPattern(sampleDate, 'YYYY-MM-DD', locale),
     },
     {
       id: 'YYYY/MM/DD',
       formatName: 'YYYY/MM/DD',
       label: '슬래시 구분',
-      example: formatDateByPattern(sampleDate, 'YYYY/MM/DD'),
+      example: formatDateByPattern(sampleDate, 'YYYY/MM/DD', locale),
     },
     {
       id: 'YYYY년 M월 D일',
-      formatName: 'YYYY년 M월 D일',
+      formatName: getLocalizedPatternName('YYYY년 M월 D일', locale),
       label: '한국어 연월일',
-      example: formatDateByPattern(sampleDate, 'YYYY년 M월 D일'),
+      example: formatDateByPattern(sampleDate, 'YYYY년 M월 D일', locale),
     },
     {
       id: 'M월 D일',
-      formatName: 'M월 D일',
+      formatName: getLocalizedPatternName('M월 D일', locale),
       label: '간략형 월일',
-      example: formatDateByPattern(sampleDate, 'M월 D일'),
+      example: formatDateByPattern(sampleDate, 'M월 D일', locale),
     },
     {
       id: 'MM/DD/YYYY',
       formatName: 'MM/DD/YYYY',
       label: '미국식 (월/일/년)',
-      example: formatDateByPattern(sampleDate, 'MM/DD/YYYY'),
+      example: formatDateByPattern(sampleDate, 'MM/DD/YYYY', locale),
     },
     {
       id: 'DD/MM/YYYY',
       formatName: 'DD/MM/YYYY',
       label: '유럽식 (일/월/년)',
-      example: formatDateByPattern(sampleDate, 'DD/MM/YYYY'),
+      example: formatDateByPattern(sampleDate, 'DD/MM/YYYY', locale),
     },
   ];
 }
@@ -1078,12 +1302,13 @@ export function formatVideoDate(
   pattern: DateFormatOption = getStoredDateFormat(),
   recordedDate?: Date,
   showAge: boolean = getStoredShowAge(),
-  birthDate: string = getStoredBirthDate()
+  birthDate: string = getStoredBirthDate(),
+  locale: Locale = getRuntimeLocale()
 ): { dateStr: string; fullDateStr: string; recordedTimestamp: number } {
   const d = recordedDate || (file.lastModified ? new Date(file.lastModified) : new Date());
-  const baseDateStr = formatDateByPattern(d, pattern);
-  const dateStr = formatDateWithAge(baseDateStr, d, showAge, birthDate);
-  const fullDateStr = formatDateByPattern(d, 'YYYY년 M월 D일');
+  const baseDateStr = formatDateByPattern(d, pattern, locale);
+  const dateStr = formatDateWithAge(baseDateStr, d, showAge, birthDate, locale);
+  const fullDateStr = formatDateByPattern(d, 'YYYY년 M월 D일', locale);
 
   return {
     dateStr,
@@ -1357,7 +1582,8 @@ export async function reverseGeocodeCoordinates(latitude: number, longitude: num
  */
 export async function extractVideoMetadata(
   file: File,
-  pattern: DateFormatOption = getStoredDateFormat()
+  pattern: DateFormatOption = getStoredDateFormat(),
+  locale: Locale = getRuntimeLocale()
 ): Promise<VideoMetadata> {
   let sharedSlices: MetadataScanSlices | undefined = undefined;
   try {
@@ -1365,7 +1591,7 @@ export async function extractVideoMetadata(
   } catch {}
 
   const recordedDate = await extractMediaRecordedDate(file, sharedSlices);
-  const { dateStr, fullDateStr, recordedTimestamp } = formatVideoDate(file, pattern, recordedDate);
+  const { dateStr, fullDateStr, recordedTimestamp } = formatVideoDate(file, pattern, recordedDate, undefined, undefined, locale);
   const gps = await extractGpsFromVideoFile(file, sharedSlices);
 
   let visualMeta: ParsedMp4VisualMeta | null = null;

@@ -758,7 +758,7 @@ export const en: Dictionary = {
     formatLabelDot: 'Dot separated (Recommended)',
     formatLabelHyphen: 'Hyphen separated (ISO standard)',
     formatLabelSlash: 'Slash separated',
-    formatLabelAsian: 'East Asian Date (Year/Month/Day)',
+    formatLabelAsian: 'Long date (localized)',
     formatLabelMonthDay: 'Short Month/Day',
     formatLabelUS: 'US format (Month/Day/Year)',
     formatLabelEU: 'European/UK format (Day/Month/Year)',

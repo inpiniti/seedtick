@@ -2,6 +2,11 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import type { Locale, Dictionary, LocaleInfo } from './types.ts';
 import { LOCALES } from './types.ts';
+import {
+  LOCALE_STORAGE_KEY,
+  getRuntimeLocale,
+  setRuntimeLocale,
+} from './localeState.ts';
 import { en } from './locales/en.ts';
 import { ko } from './locales/ko.ts';
 import { ja } from './locales/ja.ts';
@@ -11,6 +16,7 @@ import { fr } from './locales/fr.ts';
 import { de } from './locales/de.ts';
 
 export * from './types.ts';
+export { DEFAULT_LOCALE } from './localeState.ts';
 
 export const DICTIONARIES: Record<Locale, Dictionary> = {
   en,
@@ -21,9 +27,6 @@ export const DICTIONARIES: Record<Locale, Dictionary> = {
   fr,
   de,
 };
-
-export const DEFAULT_LOCALE: Locale = 'en';
-const STORAGE_KEY = 'reportist_video_language';
 
 /**
  * Helper to interpolate template string like "Total {count} videos" with { count: 5 }
@@ -48,13 +51,7 @@ interface I18nContextType {
 const I18nContext = createContext<I18nContextType | null>(null);
 
 function getInitialLocale(): Locale {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY) as Locale | null;
-    if (saved && saved in DICTIONARIES) {
-      return saved;
-    }
-  } catch {}
-  return DEFAULT_LOCALE;
+  return getRuntimeLocale();
 }
 
 export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -69,9 +66,10 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const setLocale = useCallback((nextLocale: Locale) => {
     if (nextLocale in DICTIONARIES) {
+      setRuntimeLocale(nextLocale);
       setLocaleState(nextLocale);
       try {
-        localStorage.setItem(STORAGE_KEY, nextLocale);
+        localStorage.setItem(LOCALE_STORAGE_KEY, nextLocale);
       } catch {}
     }
   }, []);
