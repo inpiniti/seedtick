@@ -38,6 +38,17 @@ import { useI18n } from '../../i18n/index.tsx';
 import { ShinyText } from '../common/ShinyText.tsx';
 import { SpecularButton } from '../common/SpecularButton.tsx';
 import { BorderBeam } from '../common/BorderBeam.tsx';
+import {
+  getStoredShowIntro,
+  setStoredShowIntro,
+  getStoredShowOutro,
+  setStoredShowOutro,
+  getStoredIntroTemplate,
+  getStoredIntroDuration,
+  getStoredOutroTemplate,
+  getStoredOutroDuration,
+  getStoredOutroText,
+} from '../../services/introOutroStorage.ts';
 import './NewProjectWizard.css';
 
 interface NewProjectWizardProps {
@@ -113,8 +124,12 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
 
   // 로컬 스타일/오버레이 상태
   const [titleText, setTitleText] = useState(overlayOptions?.titleText || '');
-  const [showIntro, setShowIntro] = useState(overlayOptions?.showIntro ?? false);
-  const [showOutro, setShowOutro] = useState(overlayOptions?.showOutro ?? false);
+  const [showIntro, setShowIntro] = useState(
+    overlayOptions?.showIntro !== undefined ? overlayOptions.showIntro : getStoredShowIntro()
+  );
+  const [showOutro, setShowOutro] = useState(
+    overlayOptions?.showOutro !== undefined ? overlayOptions.showOutro : getStoredShowOutro()
+  );
   const [channelText, setChannelText] = useState(overlayOptions?.channelText || '');
   const [showChapterBridge, setShowChapterBridge] = useState(overlayOptions?.showChapterBridge ?? true);
 
@@ -292,10 +307,14 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
       subtitleLocationText: overlayOptions?.subtitleLocationText || '',
       showIntro: showIntro || Boolean(introVideoFile),
       showOutro: showOutro || Boolean(outroVideoFile),
-      introTemplate: overlayOptions?.introTemplate || 'kinetic-slide',
-      outroTemplate: overlayOptions?.outroTemplate || 'modern-endcard',
-      introDurationSec: overlayOptions?.introDurationSec || 2.0,
-      outroDurationSec: overlayOptions?.outroDurationSec || 2.2,
+      introTemplate: overlayOptions?.introTemplate || getStoredIntroTemplate(),
+      outroTemplate: overlayOptions?.outroTemplate || getStoredOutroTemplate(),
+      introDurationSec: overlayOptions?.introDurationSec || getStoredIntroDuration(),
+      outroDurationSec: overlayOptions?.outroDurationSec || getStoredOutroDuration(),
+      outroText:
+        overlayOptions?.outroText !== undefined
+          ? overlayOptions.outroText
+          : getStoredOutroText(),
       showChapterBridge,
       chapterBridgeDateTemplate: overlayOptions?.chapterBridgeDateTemplate || 'flip-clock',
       chapterBridgeLocationTemplate: overlayOptions?.chapterBridgeLocationTemplate || 'winding-route',
@@ -760,7 +779,11 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                     <input
                       type="checkbox"
                       checked={showIntro || Boolean(introVideoFile)}
-                      onChange={(e) => setShowIntro(e.target.checked)}
+                      onChange={(e) => {
+                        const val = e.target.checked;
+                        setStoredShowIntro(val);
+                        setShowIntro(val);
+                      }}
                       className="wizard-checkbox"
                     />
                     <div>
@@ -802,7 +825,11 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                   <input
                     type="checkbox"
                     checked={showOutro || Boolean(outroVideoFile)}
-                    onChange={(e) => setShowOutro(e.target.checked)}
+                    onChange={(e) => {
+                      const val = e.target.checked;
+                      setStoredShowOutro(val);
+                      setShowOutro(val);
+                    }}
                     className="wizard-checkbox"
                   />
                   <div>

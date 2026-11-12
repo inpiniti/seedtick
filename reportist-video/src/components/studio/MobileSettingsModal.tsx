@@ -1001,6 +1001,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                         >
                           {interpolate(dict.settingsModal?.introBadge || '인트로: {name} ({sec}초)', {
                             name:
+                              dict.introOutroModal?.templates?.intro?.[introTemplate || 'kinetic-slide']?.name ||
                               INTRO_TEMPLATE_OPTIONS.find((o) => o.id === (introTemplate || 'kinetic-slide'))
                                 ?.name || '키네틱 슬라이드',
                             sec: (introDurationSec || 2.0).toFixed(1),
@@ -1107,6 +1108,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                         >
                           {interpolate(dict.settingsModal?.outroBadge || '아웃트로: {name} ({sec}초)', {
                             name:
+                              dict.introOutroModal?.templates?.outro?.[outroTemplate || 'modern-endcard']?.name ||
                               OUTRO_TEMPLATE_OPTIONS.find((o) => o.id === (outroTemplate || 'modern-endcard'))
                                 ?.name || '유튜브 엔드카드',
                             sec: (outroDurationSec || 2.2).toFixed(1),

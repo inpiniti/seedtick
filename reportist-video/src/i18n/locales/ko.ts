@@ -911,13 +911,28 @@ export const ko: Dictionary = {
     tabIntro: '🎬 시작 인트로 (4종)',
     tabOutro: '🏁 종료 아웃트로 (3종)',
     templateSelectLabel: '모션 템플릿 선택',
-    durationLabel: '재생 시간(초)',
+    durationLabel: '재생 시간',
+    secUnit: '초',
     outroTextLabel: '클로징 문구',
+    outroTextPlaceholder: '시청해 주셔서 감사합니다',
     tipDescription: '💡 템플릿 카드를 클릭하면 왼쪽 대화면에서 GSAP 결정론적 캔버스 모션이 즉시 실시간 렌더링됩니다.',
     cancel: '취소',
     applyDefault: '이 설정으로 기본값 적용',
     mockTitle: '도쿄 여름 여행 브이로그',
     mockOutroText: '시청해 주셔서 감사합니다',
+    templates: {
+      intro: {
+        'kinetic-slide': { name: '키네틱 슬라이드', badge: '추천', desc: '볼드 타이포 & 탄성 오버슈트 바운스' },
+        'split-flap': { name: '레트로 플립보드', badge: '아날로그', desc: '전광판 3D 분할 회전 타일 모션' },
+        'cinematic-letterbox': { name: '시네마틱 줌', badge: '영화관', desc: '2.39:1 레터박스 & 아나모픽 렌즈 플레어' },
+        'film-countdown': { name: '카운트다운 3-2-1', badge: '빈티지', desc: '빈티지 필름 링 & 십자선 모션' },
+      },
+      outro: {
+        'modern-endcard': { name: '유튜브 엔드카드', badge: '추천', desc: '16:9 추천 영상 슬롯 & 채널 펄스 링' },
+        'minimal-fade': { name: '미니멀 페이드', badge: '감성', desc: '딥 다크 비네트 & 우아한 타이포 암전' },
+        'curtain-split': { name: '루버 블라인드', badge: '시그니처', desc: '5단 사선 루버 셔터 클로징 크레딧' },
+      },
+    },
   },
 };
 

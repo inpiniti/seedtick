@@ -911,13 +911,28 @@ export const en: Dictionary = {
     tabIntro: '🎬 Opening Intro (4 Styles)',
     tabOutro: '🏁 Closing Outro (3 Styles)',
     templateSelectLabel: 'Select Motion Template',
-    durationLabel: 'Duration (sec)',
+    durationLabel: 'Duration',
+    secUnit: 's',
     outroTextLabel: 'Closing Message',
+    outroTextPlaceholder: 'Thank you for watching',
     tipDescription: '💡 Click any template card to instantly simulate GSAP motion on the screen.',
     cancel: 'Cancel',
     applyDefault: 'Apply as Default Settings',
     mockTitle: 'Tokyo Summer Vacation Vlog',
     mockOutroText: 'Thank you for watching',
+    templates: {
+      intro: {
+        'kinetic-slide': { name: 'Kinetic Slide', badge: 'Recommended', desc: 'Bold typography & spring overshoot bounce' },
+        'split-flap': { name: 'Retro Split-Flap', badge: 'Analog', desc: '3D split-flap mechanical flip board motion' },
+        'cinematic-letterbox': { name: 'Cinematic Zoom', badge: 'Cinema', desc: '2.39:1 letterbox & anamorphic lens flare' },
+        'film-countdown': { name: 'Countdown 3-2-1', badge: 'Vintage', desc: 'Vintage film ring & crosshair reticle motion' },
+      },
+      outro: {
+        'modern-endcard': { name: 'YouTube End Card', badge: 'Recommended', desc: '16:9 video slots & channel profile pulse ring' },
+        'minimal-fade': { name: 'Minimal Fade', badge: 'Atmospheric', desc: 'Deep dark vignette & elegant typography fade-out' },
+        'curtain-split': { name: 'Louver Blind', badge: 'Signature', desc: '5-stage diagonal louver closing credits' },
+      },
+    },
   },
 };
 

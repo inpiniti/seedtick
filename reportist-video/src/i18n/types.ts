@@ -879,12 +879,29 @@ export interface IntroOutroModalDictionary {
   tabOutro: string;
   templateSelectLabel: string;
   durationLabel: string;
+  secUnit?: string;
   outroTextLabel: string;
+  outroTextPlaceholder?: string;
   tipDescription: string;
   cancel: string;
   applyDefault: string;
   mockTitle?: string;
   mockOutroText?: string;
+  templates?: {
+    intro?: {
+      'kinetic-slide'?: { name: string; badge: string; desc: string };
+      'split-flap'?: { name: string; badge: string; desc: string };
+      'cinematic-letterbox'?: { name: string; badge: string; desc: string };
+      'film-countdown'?: { name: string; badge: string; desc: string };
+      [key: string]: { name: string; badge: string; desc: string } | undefined;
+    };
+    outro?: {
+      'modern-endcard'?: { name: string; badge: string; desc: string };
+      'minimal-fade'?: { name: string; badge: string; desc: string };
+      'curtain-split'?: { name: string; badge: string; desc: string };
+      [key: string]: { name: string; badge: string; desc: string } | undefined;
+    };
+  };
 }
 
 export interface ChapterBridgeModalDictionary {

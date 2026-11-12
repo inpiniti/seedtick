@@ -31,6 +31,7 @@ import type {
 } from '../../types/video.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { notify } from '../../services/toastService.ts';
+import { setStoredIntroOutroDefaults } from '../../services/introOutroStorage.ts';
 
 export interface IntroOutroPreviewModalProps {
   isOpen: boolean;
@@ -130,6 +131,31 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
 }) => {
   const { dict } = useI18n();
   const ioDict = dict.introOutroModal;
+  const secUnit = ioDict?.secUnit || '초';
+
+  const introOptions = useMemo(() => {
+    return INTRO_TEMPLATE_OPTIONS.map((opt) => {
+      const trans = ioDict?.templates?.intro?.[opt.id];
+      return {
+        id: opt.id,
+        name: trans?.name || opt.name,
+        badge: trans?.badge || opt.badge,
+        desc: trans?.desc || opt.desc,
+      };
+    });
+  }, [ioDict]);
+
+  const outroOptions = useMemo(() => {
+    return OUTRO_TEMPLATE_OPTIONS.map((opt) => {
+      const trans = ioDict?.templates?.outro?.[opt.id];
+      return {
+        id: opt.id,
+        name: trans?.name || opt.name,
+        badge: trans?.badge || opt.badge,
+        desc: trans?.desc || opt.desc,
+      };
+    });
+  }, [ioDict]);
 
   const [activeTab, setActiveTab] = useState<'intro' | 'outro'>(initialTab);
   const [introTemplate, setIntroTemplate] = useState<IntroTemplateId>(initialIntroTemplate);
@@ -309,20 +335,28 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
 
   const handleApply = (e: React.MouseEvent) => {
     e.stopPropagation();
+    const settings = {
+      introTemplate,
+      introDurationSec: introDuration,
+      outroTemplate,
+      outroDurationSec: outroDuration,
+      outroText,
+    };
+    setStoredIntroOutroDefaults(settings);
     if (onApply) {
-      onApply({
-        introTemplate,
-        introDurationSec: introDuration,
-        outroTemplate,
-        outroDurationSec: outroDuration,
-        outroText,
-      });
+      onApply(settings);
     }
     onClose();
-    const introOpt = INTRO_TEMPLATE_OPTIONS.find((i) => i.id === introTemplate);
-    const outroOpt = OUTRO_TEMPLATE_OPTIONS.find((o) => o.id === outroTemplate);
-    notify.success('인트로/아웃트로 모션 적용 완료', {
-      description: `시작: ${introOpt?.name || introTemplate}(${introDuration.toFixed(1)}초) · 종료: ${outroOpt?.name || outroTemplate}(${outroDuration.toFixed(1)}초)`,
+    const introOptName =
+      ioDict?.templates?.intro?.[introTemplate]?.name ||
+      INTRO_TEMPLATE_OPTIONS.find((i) => i.id === introTemplate)?.name ||
+      introTemplate;
+    const outroOptName =
+      ioDict?.templates?.outro?.[outroTemplate]?.name ||
+      OUTRO_TEMPLATE_OPTIONS.find((o) => o.id === outroTemplate)?.name ||
+      outroTemplate;
+    notify.success(ioDict?.applyDefault || '인트로/아웃트로 모션 적용 완료', {
+      description: `${introOptName} (${introDuration.toFixed(1)}${secUnit}) · ${outroOptName} (${outroDuration.toFixed(1)}${secUnit})`,
     });
   };
 
@@ -737,7 +771,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {INTRO_TEMPLATE_OPTIONS.map((tpl) => {
+                  {introOptions.map((tpl) => {
                     const isSelected = introTemplate === tpl.id;
                     return (
                       <button
@@ -852,10 +886,10 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                       }}
                     >
                       <Clock size={13} className="text-slate-400" />
-                      <span>{ioDict?.durationLabel || '재생 시간(초)'}</span>
+                      <span>{ioDict?.durationLabel || '재생 시간'}</span>
                     </span>
                     <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#2563eb' }}>
-                      {introDuration.toFixed(1)}초
+                      {introDuration.toFixed(1)}{secUnit}
                     </span>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
@@ -878,7 +912,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                             transition: 'all 0.15s ease',
                           }}
                         >
-                          {sec.toFixed(1)}초
+                          {sec.toFixed(1)}{secUnit}
                         </button>
                       );
                     })}
@@ -897,7 +931,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {OUTRO_TEMPLATE_OPTIONS.map((tpl) => {
+                  {outroOptions.map((tpl) => {
                     const isSelected = outroTemplate === tpl.id;
                     return (
                       <button
@@ -1012,10 +1046,10 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                       }}
                     >
                       <Clock size={13} className="text-slate-400" />
-                      <span>{ioDict?.durationLabel || '재생 시간(초)'}</span>
+                      <span>{ioDict?.durationLabel || '재생 시간'}</span>
                     </span>
                     <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#2563eb' }}>
-                      {outroDuration.toFixed(1)}초
+                      {outroDuration.toFixed(1)}{secUnit}
                     </span>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
@@ -1038,7 +1072,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                             transition: 'all 0.15s ease',
                           }}
                         >
-                          {sec.toFixed(1)}초
+                          {sec.toFixed(1)}{secUnit}
                         </button>
                       );
                     })}
@@ -1072,7 +1106,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                     type="text"
                     value={outroText}
                     onChange={(e) => setOutroText(e.target.value)}
-                    placeholder="시청해 주셔서 감사합니다"
+                    placeholder={ioDict?.outroTextPlaceholder || '시청해 주셔서 감사합니다'}
                     maxLength={40}
                     style={{
                       width: '100%',

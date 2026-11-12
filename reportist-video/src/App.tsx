@@ -158,7 +158,14 @@ export function App() {
         prev.subtitleLocationText === newOpts.subtitleLocationText &&
         prev.showIntro === newOpts.showIntro &&
         prev.showOutro === newOpts.showOutro &&
+        prev.introTemplate === newOpts.introTemplate &&
+        prev.introDurationSec === newOpts.introDurationSec &&
+        prev.outroTemplate === newOpts.outroTemplate &&
+        prev.outroDurationSec === newOpts.outroDurationSec &&
+        prev.outroText === newOpts.outroText &&
         prev.showChapterBridge === newOpts.showChapterBridge &&
+        prev.chapterBridgeDateTemplate === newOpts.chapterBridgeDateTemplate &&
+        prev.chapterBridgeLocationTemplate === newOpts.chapterBridgeLocationTemplate &&
         prev.bgmFitToVideo === newOpts.bgmFitToVideo &&
         prev.introVideoFile === newOpts.introVideoFile &&
         prev.outroVideoFile === newOpts.outroVideoFile

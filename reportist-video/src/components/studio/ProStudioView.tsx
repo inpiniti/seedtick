@@ -98,7 +98,24 @@ import { SubtitleDownloadModal } from './SubtitleDownloadModal.tsx';
 import { VideoExportModal } from './VideoExportModal.tsx';
 import { SegmentTrimModal } from './SegmentTrimModal.tsx';
 import { SegmentBridgeModal } from './SegmentBridgeModal.tsx';
-import { IntroOutroPreviewModal } from './IntroOutroPreviewModal.tsx';
+import {
+  IntroOutroPreviewModal,
+  INTRO_TEMPLATE_OPTIONS,
+  OUTRO_TEMPLATE_OPTIONS,
+  INTRO_DURATIONS,
+  OUTRO_DURATIONS,
+} from './IntroOutroPreviewModal.tsx';
+import {
+  getStoredIntroOutroDefaults,
+  setStoredShowIntro,
+  setStoredShowOutro,
+  setStoredIntroOutroDefaults,
+  setStoredIntroTemplate,
+  setStoredIntroDuration,
+  setStoredOutroTemplate,
+  setStoredOutroDuration,
+  setStoredOutroText,
+} from '../../services/introOutroStorage.ts';
 import { notify } from '../../services/toastService.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 import {
@@ -291,6 +308,32 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   onRelinkBatch,
 }) => {
   const { dict, interpolate, currentLocaleInfo, locale } = useI18n();
+  const ioDict = dict.introOutroModal;
+  const secUnit = ioDict?.secUnit || 's';
+
+  const introTemplateOptions = useMemo(() => {
+    return INTRO_TEMPLATE_OPTIONS.map((opt) => {
+      const trans = ioDict?.templates?.intro?.[opt.id];
+      return {
+        id: opt.id,
+        label: trans?.name || opt.name,
+        badge: trans?.badge || opt.badge,
+        desc: trans?.desc || opt.desc,
+      };
+    });
+  }, [ioDict]);
+
+  const outroTemplateOptions = useMemo(() => {
+    return OUTRO_TEMPLATE_OPTIONS.map((opt) => {
+      const trans = ioDict?.templates?.outro?.[opt.id];
+      return {
+        id: opt.id,
+        label: trans?.name || opt.name,
+        badge: trans?.badge || opt.badge,
+        desc: trans?.desc || opt.desc,
+      };
+    });
+  }, [ioDict]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerStageRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -843,7 +886,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   }, [videos, currentDateFormat, showAge, birthDate]);
 
   const [overlayOptions, setOverlayOptions] = useState<VideoOverlayOptions>(() => {
-    if (initialOverlayOptions) return initialOverlayOptions;
+    const introOutroDefaults = getStoredIntroOutroDefaults();
+    if (initialOverlayOptions) {
+      return {
+        ...initialOverlayOptions,
+        introTemplate: initialOverlayOptions.introTemplate || introOutroDefaults.introTemplate,
+        introDurationSec: initialOverlayOptions.introDurationSec || introOutroDefaults.introDurationSec,
+        outroTemplate: initialOverlayOptions.outroTemplate || introOutroDefaults.outroTemplate,
+        outroDurationSec: initialOverlayOptions.outroDurationSec || introOutroDefaults.outroDurationSec,
+        outroText:
+          initialOverlayOptions.outroText !== undefined
+            ? initialOverlayOptions.outroText
+            : introOutroDefaults.outroText,
+      };
+    }
     return {
       showTitle: true,
       titleText: dict.player.defaultTitleText,
@@ -853,8 +909,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       showDate,
       subtitleDateText: initialDateStr,
       subtitleLocationText: '',
-      showIntro: false,
-      showOutro: false,
+      showIntro: introOutroDefaults.showIntro,
+      introTemplate: introOutroDefaults.introTemplate,
+      introDurationSec: introOutroDefaults.introDurationSec,
+      showOutro: introOutroDefaults.showOutro,
+      outroTemplate: introOutroDefaults.outroTemplate,
+      outroDurationSec: introOutroDefaults.outroDurationSec,
+      outroText: introOutroDefaults.outroText,
       showChapterBridge: true,
       bgmFitToVideo: false,
       introVideoFile: null,
@@ -5306,9 +5367,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 <input
                   type="checkbox"
                   checked={overlayOptions.showIntro}
-                  onChange={(e) =>
-                    setOverlayOptions((prev) => ({ ...prev, showIntro: e.target.checked }))
-                  }
+                  onChange={(e) => {
+                    const val = e.target.checked;
+                    setStoredShowIntro(val);
+                    setOverlayOptions((prev) => ({ ...prev, showIntro: val }));
+                  }}
                 />
                 <span className="toss-toggle-slider" />
               </label>
@@ -5321,7 +5384,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
                       <Sparkles size={12} className="text-blue-500" />
-                      <span>모션 템플릿 선택</span>
+                      <span>{ioDict?.templateSelectLabel || '모션 템플릿 선택'}</span>
                     </span>
                     <button
                       type="button"
@@ -5332,22 +5395,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 text-[11px] font-bold transition-colors cursor-pointer"
                     >
                       <Eye size={12} />
-                      <span>실시간 미리보기</span>
+                      <span>{dict.settingsModal?.introOutroPreviewBtn || '실시간 미리보기'}</span>
                     </button>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { id: 'kinetic-slide' as IntroTemplateId, label: '키네틱 슬라이드', badge: '추천', desc: '볼드 타이포 & 탄성 바운스' },
-                      { id: 'split-flap' as IntroTemplateId, label: '레트로 플립보드', badge: '아날로그', desc: '전광판 3D 플립 모션' },
-                      { id: 'cinematic-letterbox' as IntroTemplateId, label: '시네마틱 줌', badge: '영화관', desc: '레터박스 & 렌즈 플레어' },
-                      { id: 'film-countdown' as IntroTemplateId, label: '카운트다운 3-2-1', badge: '빈티지', desc: '필름 링 & 십자선 모션' },
-                    ].map((tpl) => {
+                    {introTemplateOptions.map((tpl) => {
                       const isSelected = (overlayOptions.introTemplate || 'kinetic-slide') === tpl.id;
                       return (
                         <button
                           key={tpl.id}
                           type="button"
-                          onClick={() => setOverlayOptions((prev) => ({ ...prev, introTemplate: tpl.id }))}
+                          onClick={() => {
+                            setStoredIntroTemplate(tpl.id);
+                            setOverlayOptions((prev) => ({ ...prev, introTemplate: tpl.id }));
+                          }}
                           className={`p-2.5 rounded-xl border text-left transition-all relative ${
                             isSelected
                               ? 'border-blue-500 bg-blue-50/70 shadow-sm'
@@ -5382,23 +5443,26 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 <div className="flex items-center justify-between pt-1">
                   <span className="text-xs font-semibold text-slate-600 flex items-center gap-1">
                     <Clock size={12} className="text-slate-400" />
-                    <span>재생 시간</span>
+                    <span>{ioDict?.durationLabel || '재생 시간'}</span>
                   </span>
                   <div className="flex items-center gap-1.5">
-                    {[1.5, 2.0, 2.5, 3.0].map((sec) => {
+                    {INTRO_DURATIONS.map((sec) => {
                       const isCurrent = (overlayOptions.introDurationSec || 2.0) === sec;
                       return (
                         <button
                           key={sec}
                           type="button"
-                          onClick={() => setOverlayOptions((prev) => ({ ...prev, introDurationSec: sec }))}
+                          onClick={() => {
+                            setStoredIntroDuration(sec);
+                            setOverlayOptions((prev) => ({ ...prev, introDurationSec: sec }));
+                          }}
                           className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-colors ${
                             isCurrent
                               ? 'bg-slate-900 text-white font-semibold shadow-xs'
                               : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                           }`}
                         >
-                          {sec.toFixed(1)}초
+                          {sec.toFixed(1)}{secUnit}
                         </button>
                       );
                     })}
@@ -6060,9 +6124,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 <input
                   type="checkbox"
                   checked={overlayOptions.showOutro}
-                  onChange={(e) =>
-                    setOverlayOptions((prev) => ({ ...prev, showOutro: e.target.checked }))
-                  }
+                  onChange={(e) => {
+                    const val = e.target.checked;
+                    setStoredShowOutro(val);
+                    setOverlayOptions((prev) => ({ ...prev, showOutro: val }));
+                  }}
                 />
                 <span className="toss-toggle-slider" />
               </label>
@@ -6075,7 +6141,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
                       <Sparkles size={12} className="text-pink-500" />
-                      <span>모션 템플릿 선택</span>
+                      <span>{ioDict?.templateSelectLabel || '모션 템플릿 선택'}</span>
                     </span>
                     <button
                       type="button"
@@ -6086,21 +6152,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-pink-50 text-pink-600 hover:bg-pink-100 text-[11px] font-bold transition-colors cursor-pointer"
                     >
                       <Eye size={12} />
-                      <span>실시간 미리보기</span>
+                      <span>{dict.settingsModal?.introOutroPreviewBtn || '실시간 미리보기'}</span>
                     </button>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { id: 'modern-endcard' as OutroTemplateId, label: '유튜브 엔드카드', badge: '추천', desc: '추천 영상 & 펄스 링' },
-                      { id: 'minimal-fade' as OutroTemplateId, label: '미니멀 페이드', badge: '감성', desc: '다크 비네트 & 암전' },
-                      { id: 'curtain-split' as OutroTemplateId, label: '루버 블라인드', badge: '시그니처', desc: '사선 셔터 클로징' },
-                    ].map((tpl) => {
+                    {outroTemplateOptions.map((tpl) => {
                       const isSelected = (overlayOptions.outroTemplate || 'modern-endcard') === tpl.id;
                       return (
                         <button
                           key={tpl.id}
                           type="button"
-                          onClick={() => setOverlayOptions((prev) => ({ ...prev, outroTemplate: tpl.id }))}
+                          onClick={() => {
+                            setStoredOutroTemplate(tpl.id);
+                            setOverlayOptions((prev) => ({ ...prev, outroTemplate: tpl.id }));
+                          }}
                           className={`p-2.5 rounded-xl border text-left transition-all relative ${
                             isSelected
                               ? 'border-blue-500 bg-blue-50/70 shadow-sm'
@@ -6134,15 +6199,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 {/* 2. 감사 메시지 문구 설정 */}
                 <div className="pt-1">
                   <label className="text-xs font-semibold text-slate-600 block mb-1">
-                    감사 문구
+                    {ioDict?.outroTextLabel || '감사 문구'}
                   </label>
                   <input
                     type="text"
                     value={overlayOptions.outroText ?? ''}
-                    placeholder={dict.introOutro?.outroDefaultText || '시청해 주셔서 감사합니다'}
-                    onChange={(e) =>
-                      setOverlayOptions((prev) => ({ ...prev, outroText: e.target.value }))
-                    }
+                    placeholder={ioDict?.outroTextPlaceholder || dict.introOutro?.outroDefaultText || '시청해 주셔서 감사합니다'}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setStoredOutroText(val);
+                      setOverlayOptions((prev) => ({ ...prev, outroText: val }));
+                    }}
                     className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 bg-white text-slate-800 placeholder-slate-400 transition-colors"
                   />
                 </div>
@@ -6151,23 +6218,26 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 <div className="flex items-center justify-between pt-1">
                   <span className="text-xs font-semibold text-slate-600 flex items-center gap-1">
                     <Clock size={12} className="text-slate-400" />
-                    <span>재생 시간</span>
+                    <span>{ioDict?.durationLabel || '재생 시간'}</span>
                   </span>
                   <div className="flex items-center gap-1.5">
-                    {[1.8, 2.2, 2.8].map((sec) => {
+                    {OUTRO_DURATIONS.map((sec) => {
                       const isCurrent = (overlayOptions.outroDurationSec || 2.2) === sec;
                       return (
                         <button
                           key={sec}
                           type="button"
-                          onClick={() => setOverlayOptions((prev) => ({ ...prev, outroDurationSec: sec }))}
+                          onClick={() => {
+                            setStoredOutroDuration(sec);
+                            setOverlayOptions((prev) => ({ ...prev, outroDurationSec: sec }));
+                          }}
                           className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-colors ${
                             isCurrent
                               ? 'bg-slate-900 text-white font-semibold shadow-xs'
                               : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                           }`}
                         >
-                          {sec.toFixed(1)}초
+                          {sec.toFixed(1)}{secUnit}
                         </button>
                       );
                     })}
@@ -6526,19 +6596,22 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           }));
         }}
         showIntro={overlayOptions.showIntro}
-        onToggleShowIntro={(val) =>
-          setOverlayOptions((prev) => ({ ...prev, showIntro: val }))
-        }
+        onToggleShowIntro={(val) => {
+          setStoredShowIntro(val);
+          setOverlayOptions((prev) => ({ ...prev, showIntro: val }));
+        }}
         introTemplate={overlayOptions.introTemplate || 'kinetic-slide'}
         introDurationSec={overlayOptions.introDurationSec || 2.0}
         showOutro={overlayOptions.showOutro}
-        onToggleShowOutro={(val) =>
-          setOverlayOptions((prev) => ({ ...prev, showOutro: val }))
-        }
+        onToggleShowOutro={(val) => {
+          setStoredShowOutro(val);
+          setOverlayOptions((prev) => ({ ...prev, showOutro: val }));
+        }}
         outroTemplate={overlayOptions.outroTemplate || 'modern-endcard'}
         outroDurationSec={overlayOptions.outroDurationSec || 2.2}
         outroText={overlayOptions.outroText}
         onChangeIntroOutroSettings={(settings) => {
+          setStoredIntroOutroDefaults(settings);
           setOverlayOptions((prev) => ({
             ...prev,
             ...settings,
@@ -6656,6 +6729,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         mockDate={overlayOptions.subtitleDateText}
         mockLocation={overlayOptions.subtitleLocationText}
         onApply={(settings) => {
+          setStoredIntroOutroDefaults(settings);
           setOverlayOptions((prev) => ({
             ...prev,
             ...settings,
