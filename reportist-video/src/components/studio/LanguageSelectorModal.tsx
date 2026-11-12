@@ -1,7 +1,7 @@
 // src/components/studio/LanguageSelectorModal.tsx - Modal for selecting language (Toss modal style)
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Globe, Search, X, Check, Sparkles } from 'lucide-react';
-import { useI18n } from '../../i18n/index.tsx';
+import { DICTIONARIES, useI18n } from '../../i18n/index.tsx';
 import type { Locale } from '../../i18n/types.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 import { notify } from '../../services/toastService.ts';
@@ -48,12 +48,14 @@ export const LanguageSelectorModal: React.FC<LanguageSelectorModalProps> = ({
 
   const handleSelectLanguage = (code: Locale) => {
     const selected = locales.find((l) => l.code === code);
+    // Toast should be shown in the newly selected language, not the previous one.
+    const nextDict = DICTIONARIES[code] || dict;
     setLocale(code);
     onClose();
     const flag = selected?.flag || '🌐';
     const name = selected ? `${selected.nativeName} (${selected.name})` : code;
     notify.success(`${flag} ${selected?.nativeName || code}`, {
-      description: interpolate(dict.toasts.languageChangedDesc, { language: name }),
+      description: interpolate(nextDict.toasts.languageChangedDesc, { language: name }),
     });
   };
 
