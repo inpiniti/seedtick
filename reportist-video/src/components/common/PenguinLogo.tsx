@@ -31,12 +31,14 @@ export function PenguinLogo({
   ...props
 }: PenguinLogoProps) {
   const activeColor = color ?? (inverted ? "#ffffff" : "currentColor");
+  const computedWidth =
+    typeof size === "number" ? Math.round((size * 64.24) / 84) : size;
 
   return (
     <svg
-      width={size}
+      width={computedWidth}
       height={size}
-      viewBox="6 6 88 88"
+      viewBox="17.88 8 64.24 84"
       fill={activeColor}
       fillRule="evenodd"
       xmlns="http://www.w3.org/2000/svg"

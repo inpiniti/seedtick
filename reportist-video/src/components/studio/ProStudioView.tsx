@@ -3589,7 +3589,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             /* 목록 및 커뮤니티 화면: 로고, 브랜드명, 상단 탭 노출 */
             <>
               <div className="toss-logo-badge">
-                <PenguinLogo size={24} inverted />
+                <PenguinLogo size={28} color="#191f28" />
               </div>
               <div className="toss-nav-brand-block">
                 <span className="toss-nav-title">{dict.common.brandName}</span>

@@ -37,7 +37,7 @@ export const Header: React.FC<HeaderProps> = ({
         title={dict.common.brandName || 'PenguinCut'}
       >
         <div className="brand-logo-icon">
-          <PenguinLogo size={26} inverted />
+          <PenguinLogo size={28} color="#0f172a" />
         </div>
         <div className="brand-title">
           <span>PenguinCut</span>

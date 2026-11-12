@@ -66,21 +66,20 @@
 }
 
 .brand-logo-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: #0f172a;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  transition: transform 0.15s ease, background-color 0.15s ease;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  color: #0f172a;
+  transition: transform 0.15s ease;
 }
 
 .brand-section:hover .brand-logo-icon {
-  background: #1e293b;
+  background: transparent;
   transform: translateY(-1px);
 }
 
@@ -1232,16 +1231,16 @@
 }
 
 .toss-logo-badge {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  background: #0f172a;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+  color: #191f28;
   flex-shrink: 0;
 }
 
@@ -5403,9 +5402,9 @@
   }
 
   .toss-logo-badge {
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
+    width: auto;
+    height: auto;
+    border-radius: 0;
   }
 
   /* 모바일 스튜디오 상세: 로고 자리에 뒤로가기 아이콘 버튼 배치 */
@@ -5632,9 +5631,9 @@
   }
 
   .toss-logo-badge {
-    width: 26px;
-    height: 26px;
-    border-radius: 7px;
+    width: auto;
+    height: auto;
+    border-radius: 0;
   }
 
   .toss-nav-tabs-group {
