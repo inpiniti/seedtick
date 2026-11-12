@@ -3,6 +3,7 @@ QueueWorker: 백그라운드에서 대기열 작업을 순차/병렬로 꺼내�
 """
 import asyncio
 from collections.abc import Callable, Coroutine
+import contextlib
 import json
 import logging
 import time
@@ -210,12 +211,44 @@ class QueueWorkerManager:
 
         await self.service.update_progress(job.job_id, 60.0, "AI 추론 연산 중")
 
+        # 실시간 추론 미리보기: 모델이 사고 과정을 스트리밍하면 1초 간격으로
+        # 작업 상태(job.reasoning_preview)에 최근 텍스트를 실어 보내
+        # 프론트엔드가 진행 로그 영역에 그대로 표시할 수 있게 한다.
+        reasoning_state: dict[str, str] = {"text": ""}
+
+        def _on_ai_delta(kind: str, full_text: str) -> None:
+            if kind == "reasoning":
+                reasoning_state["text"] = full_text
+
+        async def _pump_reasoning_preview() -> None:
+            last_sent = ""
+            while True:
+                await asyncio.sleep(1.0)
+                preview = reasoning_state["text"].strip()
+                if not preview or preview == last_sent:
+                    continue
+                last_sent = preview
+                # 최근 추론 텍스트만(약 2~3줄 분량) 전달한다. 줄바꿈은 유지해
+                # 프론트엔드가 마지막 1~2줄을 그대로 말줄임 표시할 수 있게 한다.
+                tail = preview[-240:].replace("\r", "").strip()
+                try:
+                    await self.service.update_progress(
+                        job.job_id,
+                        65.0,
+                        reasoning_preview=tail,
+                    )
+                except Exception as e:  # 미리보기 갱신 실패가 분석 자체를 막지 않도록
+                    logger.debug(f"[VideoWorker] 추론 미리보기 갱신 실패: {e}")
+
+        reasoning_task = asyncio.create_task(_pump_reasoning_preview())
+
         try:
             ai_response = await ai_client.chat_messages(
                 messages=[{"role": "user", "content": message_content}],
                 model_override=model or None,
                 temperature_override=0.2,
                 max_tokens=min(getattr(settings, "AI_GATEWAY_MAX_TOKENS", 4096), 4096),
+                on_delta=_on_ai_delta,
             )
             parsed = self._parse_analysis_json(ai_response)
             if parsed is not None:
@@ -230,6 +263,10 @@ class QueueWorkerManager:
         except Exception as e:
             logger.warning(f"[VideoWorker] AI 비전 호출 실패 ({e}), 폴백 결과 생성 시도")
             analysis = self._build_fallback_analysis(video_name, video_duration, locale)
+        finally:
+            reasoning_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await reasoning_task
 
         if job.cancel_requested:
             return {"cancelled": True}

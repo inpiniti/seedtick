@@ -983,7 +983,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                   </ShinyText>
                 </h3>
                 <p className="wizard-processing-desc">
-                  {progress.statusMessage || (w?.step3DefaultStatus || '영상의 주요 프레임을 분석하여 하이라이트를 탐색 중입니다...')}
+                  {latestAnalysisTask.text}
                 </p>
 
                 {progress.isQueued && (

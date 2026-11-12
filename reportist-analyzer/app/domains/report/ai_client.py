@@ -3,6 +3,7 @@ AI 연동 클라이언트: 멀티 프로바이더 직접 호출 (OpenRouter, Kil
 """
 import asyncio
 import contextlib
+from collections.abc import Callable
 from dataclasses import dataclass, field
 import json
 import logging
@@ -190,10 +191,14 @@ async def _stream_post(
 
 async def _consume_stream(
     res: Any,
+    on_delta: Callable[[str, str], None] | None = None,
 ) -> tuple[str, str | None, dict | None]:
     """
     HTTP 200 응답에서 SSE 스트림 또는 JSON 본문을 파싱하여
     (content, finish_reason, error_obj)를 반환한다.
+
+    on_delta(kind, full_text)가 주어지면 스트리밍 중인 추론/응답 누적
+    텍스트를 실시간으로 전달한다. (kind: 'reasoning' | 'content')
     """
     # 1. 단위 테스트 mock 등 aiter_lines 가 실제 스트림이 아니고 json()만 제공된 객체 처리
     has_mock_aiter = isinstance(getattr(res, "aiter_lines", None), (MagicMock, AsyncMock))
@@ -276,6 +281,16 @@ async def _consume_stream(
             r = delta.get("reasoning") or delta.get("reasoning_content")
             if r:
                 reasoning_parts.append(r)
+
+            # 실시간 추론/응답 스트림 전달 (첫 토큰부터 UI에서 바로 표시)
+            if on_delta is not None:
+                try:
+                    if reasoning_parts:
+                        on_delta("reasoning", "".join(reasoning_parts))
+                    elif content_parts:
+                        on_delta("content", "".join(content_parts))
+                except Exception:  # 콜백 오류가 스트림 소비를 막지 않도록 무시
+                    pass
 
     if is_json_fallback:
         full_body = "".join(raw_lines)
@@ -696,6 +711,7 @@ class AiGatewayClient:
         temperature_override: float | None = None,
         allow_continuation: bool | None = None,
         max_continuations: int = 2,
+        on_delta: Callable[[str, str], None] | None = None,
     ) -> str:
         """
         채팅 완성 호출 (전역 AI 세마포어 적용).
@@ -713,6 +729,7 @@ class AiGatewayClient:
                 temperature_override=temperature_override,
                 allow_continuation=allow_continuation,
                 max_continuations=max_continuations,
+                on_delta=on_delta,
             )
 
     async def chat_messages(
@@ -724,6 +741,7 @@ class AiGatewayClient:
         temperature_override: float | None = None,
         allow_continuation: bool | None = None,
         max_continuations: int = 2,
+        on_delta: Callable[[str, str], None] | None = None,
     ) -> str:
         """
         멀티모달(이미지 포함) 메시지 배열을 그대로 전달하는 채팅 완성 호출.
@@ -742,6 +760,7 @@ class AiGatewayClient:
                 temperature_override=temperature_override,
                 allow_continuation=allow_continuation,
                 max_continuations=max_continuations,
+                on_delta=on_delta,
             )
 
     async def _chat_impl(
@@ -755,6 +774,7 @@ class AiGatewayClient:
         allow_continuation: bool | None = None,
         max_continuations: int = 2,
         messages_override: list[dict[str, Any]] | None = None,
+        on_delta: Callable[[str, str], None] | None = None,
     ) -> str:
         """
         채팅 완성 호출 내부 구현.
@@ -889,7 +909,7 @@ class AiGatewayClient:
                                 continue
 
                             # 200 OK — SSE 스트림(또는 JSON 폴백) 소비
-                            content, finish_reason, err_obj = await _consume_stream(res)
+                            content, finish_reason, err_obj = await _consume_stream(res, on_delta)
 
                             # 1) 스트림/응답 내 error 객체 감지
                             if err_obj:
@@ -1075,7 +1095,7 @@ class AiGatewayClient:
                 async with httpx.AsyncClient(timeout=timeout_config) as client:
                     async with _stream_post(client, url, payload, headers) as res:
                         if res.status_code == 200:
-                            content, finish_reason, err_obj = await _consume_stream(res)
+                            content, finish_reason, err_obj = await _consume_stream(res, on_delta)
                             if err_obj:
                                 err_code = err_obj.get("code", "unknown")
                                 err_msg = err_obj.get("message", str(err_obj))

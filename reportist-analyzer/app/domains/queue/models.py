@@ -32,6 +32,7 @@ class JobItem:
     status: JobStatus = JobStatus.QUEUED
     progress: float = 0.0                     # 0.0 ~ 100.0 (%)
     progress_message: str = ""
+    reasoning_preview: str = ""               # AI 실시간 추론 미리보기 (최근 텍스트)
     result: Optional[Any] = None
     error: Optional[str] = None
     created_at: float = field(default_factory=time.time)
@@ -47,6 +48,7 @@ class JobItem:
             "priority": self.priority,
             "progress": self.progress,
             "progress_message": self.progress_message,
+            "reasoning_preview": self.reasoning_preview,
             "created_at": self.created_at,
             "started_at": self.started_at,
             "finished_at": self.finished_at,

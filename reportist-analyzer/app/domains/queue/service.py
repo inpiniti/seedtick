@@ -120,13 +120,21 @@ class InMemoryQueueService:
         effective_concurrency = max(1, concurrency)
         return round((position * avg_duration) / effective_concurrency, 1)
 
-    async def update_progress(self, job_id: str, progress: float, message: str = "") -> None:
+    async def update_progress(
+        self,
+        job_id: str,
+        progress: float,
+        message: str = "",
+        reasoning_preview: str | None = None,
+    ) -> None:
         async with self._lock:
             job = self._jobs.get(job_id)
             if job:
                 job.progress = max(0.0, min(100.0, progress))
                 if message:
                     job.progress_message = message
+                if reasoning_preview is not None:
+                    job.reasoning_preview = reasoning_preview
 
     async def complete_job(self, job_id: str, result: Any) -> None:
         async with self._lock:

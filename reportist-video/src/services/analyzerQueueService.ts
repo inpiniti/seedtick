@@ -21,6 +21,7 @@ export interface QueueJobStatusResponse {
   priority: number;
   progress: number;
   progress_message?: string;
+  reasoning_preview?: string;
   queue_position?: number;
   estimated_wait_sec?: number;
   elapsed_sec: number;
@@ -52,6 +53,7 @@ export interface QueueJobUpdate {
   estimatedWaitSec?: number;
   progress: number;
   message?: string;
+  reasoningPreview?: string;
 }
 
 export interface EnqueueVideoParams {
@@ -231,6 +233,7 @@ export async function pollVideoAnalysisFromQueue({
       estimatedWaitSec: job.estimated_wait_sec,
       progress: job.progress || 0,
       message: job.progress_message,
+      reasoningPreview: job.reasoning_preview,
     });
 
     if (job.status === 'completed') {

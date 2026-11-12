@@ -1452,6 +1452,18 @@ export function App() {
                 },
                 onQueueUpdate: (info) => {
                   lastActivityTimestamp = Date.now();
+
+                  // 자체 대기열 워커가 흘려보내는 실시간 추론 미리보기를
+                  // 진행 로그 영역에 그대로 노출한다. (추론 시작 즉시 표시)
+                  const reasoningPreview = (info.reasoningPreview || '').trim();
+                  if (reasoningPreview && reasoningPreview !== liveReasoning) {
+                    if (!liveReasoning) {
+                      addLog(interpolate(dict.logs.reasoningStarted, { name: currentVideo.name }));
+                    }
+                    liveReasoning = reasoningPreview;
+                    scheduleLiveStreamFlush();
+                  }
+
                   queueInfo = {
                     isQueued: info.status === 'queued',
                     position: info.queuePosition,
