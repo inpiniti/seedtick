@@ -87,6 +87,11 @@ export interface ProcessingProgress {
   statusMessage: string;
   error?: string;
   reasoningLogs?: string[];
+  // 자체 인메모리 큐(Worker) 대기열 관련 상태
+  isQueued?: boolean;
+  queuePosition?: number;
+  estimatedWaitSec?: number;
+  jobId?: string;
   // AI 모델의 실시간 스트리밍 추론/응답 (콘솔에 생생하게 표시)
   liveReasoning?: string;
   liveContent?: string;

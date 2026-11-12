@@ -715,6 +715,35 @@ class AiGatewayClient:
                 max_continuations=max_continuations,
             )
 
+    async def chat_messages(
+        self,
+        messages: list[dict[str, Any]],
+        max_tokens: int | None = None,
+        model_override: str | None = None,
+        pin_model: bool = False,
+        temperature_override: float | None = None,
+        allow_continuation: bool | None = None,
+        max_continuations: int = 2,
+    ) -> str:
+        """
+        멀티모달(이미지 포함) 메시지 배열을 그대로 전달하는 채팅 완성 호출.
+
+        비디오 키프레임처럼 OpenAI 규격의 content 배열(image_url)을
+        사용해야 하는 워커 작업에서 사용한다. 전역 AI 세마포어를 동일하게
+        적용해 백그라운드 작업이 대화형 호출을 고갈시키지 않도록 한다.
+        """
+        async with get_global_ai_semaphore():
+            return await self._chat_impl(
+                prompt="",
+                messages_override=messages,
+                max_tokens=max_tokens,
+                model_override=model_override,
+                pin_model=pin_model,
+                temperature_override=temperature_override,
+                allow_continuation=allow_continuation,
+                max_continuations=max_continuations,
+            )
+
     async def _chat_impl(
         self,
         prompt: str,
@@ -725,6 +754,7 @@ class AiGatewayClient:
         temperature_override: float | None = None,
         allow_continuation: bool | None = None,
         max_continuations: int = 2,
+        messages_override: list[dict[str, Any]] | None = None,
     ) -> str:
         """
         채팅 완성 호출 내부 구현.
@@ -732,11 +762,16 @@ class AiGatewayClient:
         기본 호출은 활성 모델을 사용하고, 모델 레벨 실패 시 순위 체인을
         진행한다. pin_model=True인 보고서 호출은 모델을 고정한 채 다른 키 슬롯만
         재시도한다. temperature_override는 호출별 생성 다양성 설정이다.
+        messages_override가 주어지면 prompt/system_prompt 대신 해당 메시지를
+        그대로 사용한다(멀티모달 입력 지원).
         """
-        messages = []
-        if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
-        messages.append({"role": "user", "content": prompt})
+        if messages_override is not None:
+            messages = list(messages_override)
+        else:
+            messages = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "user", "content": prompt})
 
         tokens_to_request = max_tokens if max_tokens is not None else self.max_tokens
 

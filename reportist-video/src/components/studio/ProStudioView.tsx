@@ -54,6 +54,7 @@ import {
 import { VideoCommunityView } from '../community/VideoCommunityView.tsx';
 import { FeedbackModal } from '../feedback/FeedbackModal.tsx';
 import { PatchNotesModal } from '../patch/PatchNotesModal.tsx';
+import { QueueStatusCard, getQueueCopy } from '../queue/QueueStatusCard.tsx';
 import { StudioProjectListView } from './StudioProjectListView.tsx';
 import type { StudioProjectSummary } from '../../types/project.ts';
 import type {
@@ -308,6 +309,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   onRelinkBatch,
 }) => {
   const { dict, interpolate, currentLocaleInfo, locale } = useI18n();
+  const queueCopy = useMemo(() => getQueueCopy(locale), [locale]);
   const ioDict = dict.introOutroModal;
   const secUnit = ioDict?.secUnit || 's';
 
@@ -6316,14 +6318,25 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
             <h3 className="toss-modal-title">
               <ShinyText theme="light" speed={2.5}>
-                {progress.currentPhase === 'stitch'
-                  ? (dict.processingModal.titleStitching || '하이라이트 영상을 병합하고 있어요')
-                  : dict.processingModal.title}
+                {progress.isQueued
+                  ? queueCopy.waitingTitle
+                  : progress.currentPhase === 'stitch'
+                    ? (dict.processingModal.titleStitching || '하이라이트 영상을 병합하고 있어요')
+                    : dict.processingModal.title}
               </ShinyText>
             </h3>
             <p className="toss-modal-desc">
               {progress.statusMessage || dict.processingModal.defaultDesc}
             </p>
+
+            {/* 대기열 순번/예상 대기 시간 */}
+            {progress.isQueued && (
+              <QueueStatusCard
+                locale={locale}
+                position={progress.queuePosition}
+                estimatedWaitSec={progress.estimatedWaitSec}
+              />
+            )}
 
             {/* 진행률 바 */}
             <div className="toss-modal-progress-bar">
@@ -6374,7 +6387,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               className="toss-modal-cancel-btn"
               onClick={onCancelProcessing}
             >
-              {dict.common.cancel}
+              {progress.isQueued ? queueCopy.cancel : dict.common.cancel}
             </button>
           </div>
         </div>

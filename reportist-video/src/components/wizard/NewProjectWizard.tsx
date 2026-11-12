@@ -38,6 +38,7 @@ import { useI18n } from '../../i18n/index.tsx';
 import { ShinyText } from '../common/ShinyText.tsx';
 import { SpecularButton } from '../common/SpecularButton.tsx';
 import { BorderBeam } from '../common/BorderBeam.tsx';
+import { QueueStatusCard, getQueueCopy } from '../queue/QueueStatusCard.tsx';
 import {
   getStoredShowIntro,
   setStoredShowIntro,
@@ -110,8 +111,9 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
   progress,
   onCancelProcessing,
 }) => {
-  const { dict, interpolate } = useI18n();
+  const { dict, interpolate, locale } = useI18n();
   const w = dict.wizard;
+  const queueCopy = getQueueCopy(locale);
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -918,12 +920,23 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                 </div>
                 <h3 className="wizard-processing-title">
                   <ShinyText theme="light" speed={2.5}>
-                    {w?.step3HeroTitle || 'AI가 영상의 극적인 순간을 분석하고 있어요'}
+                    {progress.isQueued
+                      ? queueCopy.waitingTitle
+                      : (w?.step3HeroTitle || 'AI가 영상의 극적인 순간을 분석하고 있어요')}
                   </ShinyText>
                 </h3>
                 <p className="wizard-processing-desc">
                   {progress.statusMessage || (w?.step3DefaultStatus || '영상의 주요 프레임을 분석하여 하이라이트를 탐색 중입니다...')}
                 </p>
+                {progress.isQueued && (
+                  <div className="mt-3 w-full">
+                    <QueueStatusCard
+                      locale={locale}
+                      position={progress.queuePosition}
+                      estimatedWaitSec={progress.estimatedWaitSec}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* 프로그레스 바 */}
@@ -990,7 +1003,9 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                   className="wizard-btn-cancel"
                   onClick={onCancelProcessing}
                 >
-                  {w?.cancelAnalysis || '분석 중단하기'}
+                  {progress.isQueued
+                    ? queueCopy.cancel
+                    : (w?.cancelAnalysis || '분석 중단하기')}
                 </button>
               </div>
             </div>

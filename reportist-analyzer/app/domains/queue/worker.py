@@ -3,6 +3,7 @@ QueueWorker: 백그라운드에서 대기열 작업을 순차/병렬로 꺼내�
 """
 import asyncio
 from collections.abc import Callable, Coroutine
+import json
 import logging
 import time
 from typing import Any
@@ -140,13 +141,13 @@ class QueueWorkerManager:
         return {"echo": job.payload, "processed_at": time.time()}
 
     async def _handle_video_analysis(self, job: JobItem) -> dict[str, Any]:
-        """비디오 AI 하이라이트 분석 핸들러"""
+        """비디오 AI 하이라이트 분석 핸들러 (멀티모달 프레임 입력 지원)"""
         payload = job.payload
         await self.service.update_progress(job.job_id, 10.0, "영상 메타데이터 파싱 중")
 
         video_name = payload.get("videoName", "unknown_video")
         video_duration = float(payload.get("videoDuration", 0.0))
-        frames = payload.get("frames", [])
+        frames = payload.get("frames", []) or []
         locale = payload.get("locale", "ko")
         model = payload.get("model", "")
         custom_prompt = payload.get("prompt", "")
@@ -156,60 +157,158 @@ class QueueWorkerManager:
             return {"cancelled": True}
 
         await self.service.update_progress(
-            job.job_id, 30.0, f"AI 모델 분석 요청 준비 ({len(frames)} 프레임)"
+            job.job_id, 25.0, f"AI 모델 분석 요청 준비 ({len(frames)} 프레임)"
         )
 
-        # AI 호출 처리 (AIClient 또는 Gateway 경유)
-        from app.domains.report.ai_client import AIClient
-        ai_client = AIClient()
-
-        # 프롬프트 구성 (커스텀 프롬프트가 주어지지 않은 경우 기본 비디오 분석 프롬프트)
+        # 프론트엔드가 전달한 정교한 프롬프트를 우선 사용하고,
+        # 없으면 동일한 JSON 스키마를 요구하는 기본 프롬프트를 사용한다.
         if custom_prompt:
             final_prompt = custom_prompt
         else:
-            final_prompt = (
-                f"You are an elite cinematic video director and editor. "
-                f"Analyze video '{video_name}' (duration: {video_duration}s, {len(frames)} frames). "
-                f"Locale: {locale}. Output valid JSON with 'videoTitle', 'bestThumbnailTimestamp', 'segments'."
+            final_prompt = self._build_default_video_prompt(
+                video_name, video_duration, len(frames), locale
             )
 
-        # AI 질의 실행
-        messages = [
-            {"role": "system", "content": "You are a professional video analysis AI."},
-            {"role": "user", "content": final_prompt},
-        ]
+        # OpenAI 규격의 멀티모달 content 배열 구성 (텍스트 + 키프레임 이미지)
+        message_content: list[dict[str, Any]] = [{"type": "text", "text": final_prompt}]
+        attached_frames = 0
+        for idx, frame in enumerate(frames[:24]):
+            if not isinstance(frame, dict):
+                continue
+            data_url = frame.get("dataUrl") or frame.get("data_url")
+            if not isinstance(data_url, str) or not data_url.startswith("data:image"):
+                continue
+            try:
+                timestamp = float(frame.get("timestamp", 0.0))
+            except (TypeError, ValueError):
+                timestamp = 0.0
+            message_content.append({
+                "type": "text",
+                "text": f"[Frame #{idx + 1} at timestamp {timestamp:.1f}s]",
+            })
+            message_content.append({
+                "type": "image_url",
+                "image_url": {"url": data_url},
+            })
+            attached_frames += 1
+
+        if attached_frames == 0:
+            logger.warning(
+                "[VideoWorker] 전달된 프레임 이미지가 없어 텍스트 메타데이터만으로 분석합니다: %s",
+                job.job_id,
+            )
+
+        await self.service.update_progress(job.job_id, 45.0, "AI 비전 모델에 프레임 전송 중")
+
+        from app.domains.report.ai_client import AiGatewayClient
+
+        ai_client = AiGatewayClient()
+        analysis: dict[str, Any]
+
+        if job.cancel_requested:
+            return {"cancelled": True}
 
         await self.service.update_progress(job.job_id, 60.0, "AI 추론 연산 중")
 
         try:
-            # AIClient의 멀티 프로바이더/로테이션 풀을 활용하여 안정적으로 응답 수신
-            ai_response = await ai_client.call(
-                messages=messages,
-                model=model if model else None,
-                temperature=0.2,
+            ai_response = await ai_client.chat_messages(
+                messages=[{"role": "user", "content": message_content}],
+                model_override=model or None,
+                temperature_override=0.2,
+                max_tokens=min(getattr(settings, "AI_GATEWAY_MAX_TOKENS", 4096), 4096),
             )
+            parsed = self._parse_analysis_json(ai_response)
+            if parsed is not None:
+                analysis = parsed
+            else:
+                # JSON 파싱은 프론트엔드에서 한 번 더 시도할 수 있도록 원문을 보존한다.
+                analysis = {
+                    "videoTitle": f"{video_name} 하이라이트",
+                    "segments": [],
+                    "rawText": ai_response,
+                }
         except Exception as e:
-            logger.warning(f"[VideoWorker] AIClient 호출 실패 ({e}), 폴백 결과 생성 시도")
-            # 필요 시 유효한 기본 하이라이트 구조로 안전 반환
-            ai_response = {
-                "videoTitle": f"{video_name} 하이라이트",
-                "bestThumbnailTimestamp": round(min(video_duration * 0.3, 3.0), 1),
-                "bestThumbnailReason": "가장 생동감 넘치는 핵심 구간",
-                "segments": [
-                    {
-                        "start": round(max(0.0, video_duration * 0.1), 1),
-                        "end": round(min(video_duration, video_duration * 0.1 + 4.0), 1),
-                        "reason": "주요 하이라이트 장면",
-                        "cropPosition": "center",
-                    }
-                ],
-            }
+            logger.warning(f"[VideoWorker] AI 비전 호출 실패 ({e}), 폴백 결과 생성 시도")
+            analysis = self._build_fallback_analysis(video_name, video_duration, locale)
+
+        if job.cancel_requested:
+            return {"cancelled": True}
 
         await self.service.update_progress(job.job_id, 95.0, "결과 구조화 및 포맷팅")
         return {
             "videoName": video_name,
             "videoDuration": video_duration,
-            "analysis": ai_response,
+            "analysis": analysis,
+        }
+
+    @staticmethod
+    def _build_default_video_prompt(
+        video_name: str,
+        video_duration: float,
+        frame_count: int,
+        locale: str,
+    ) -> str:
+        max_budget = max(3.0, min(10.0, round(video_duration * 0.35, 1)))
+        min_budget = max(1.8, min(max_budget - 0.5, round(video_duration * 0.15, 1)))
+        return (
+            "You are an elite cinematic video director and highlight editor. "
+            f"We extracted {frame_count} sequential keyframes from the video '{video_name}' "
+            f"(total duration: {video_duration:.1f} seconds). Each keyframe is labeled with its timestamp. "
+            "Select ONLY the absolute peak 1 to 3 climax intervals. "
+            f"The combined duration must be roughly {min_budget}s to {max_budget}s and must never exceed 50% of the video. "
+            "Each interval must be between 1.5 and 4.5 seconds and intervals must not overlap. "
+            f"Write 'reason' and 'videoTitle' in the requested locale ({locale}). "
+            "Choose 'cropPosition' as top, center, or bottom based on where the main subject is located. "
+            "Output ONLY strictly valid JSON with no markdown or commentary, using this schema: "
+            '{"videoTitle":"...","bestThumbnailTimestamp":3.8,'
+            '"bestThumbnailReason":"...","segments":[{"start":3.2,"end":6.5,'
+            '"reason":"...","cropPosition":"center"}]}'
+        )
+
+    @staticmethod
+    def _parse_analysis_json(raw_text: str) -> dict[str, Any] | None:
+        if not raw_text or not raw_text.strip():
+            return None
+        text = raw_text.strip()
+        if text.startswith("```"):
+            text = text.strip("`")
+            if text.lower().startswith("json"):
+                text = text[4:].lstrip()
+        start = text.find("{")
+        end = text.rfind("}")
+        if start < 0 or end <= start:
+            # 배열 형태로만 응답한 경우도 허용
+            start = text.find("[")
+            end = text.rfind("]")
+            if start < 0 or end <= start:
+                return None
+        try:
+            data = json.loads(text[start:end + 1])
+        except (TypeError, ValueError):
+            return None
+        if isinstance(data, list):
+            return {"segments": data}
+        if isinstance(data, dict):
+            return data
+        return None
+
+    @staticmethod
+    def _build_fallback_analysis(
+        video_name: str, video_duration: float, locale: str
+    ) -> dict[str, Any]:
+        reason = "주요 하이라이트 장면" if locale == "ko" else "Key highlight moment"
+        return {
+            "videoTitle": f"{video_name} 하이라이트",
+            "bestThumbnailTimestamp": round(min(video_duration * 0.3, 3.0), 1),
+            "bestThumbnailReason": reason,
+            "segments": [
+                {
+                    "start": round(max(0.0, video_duration * 0.1), 1),
+                    "end": round(min(video_duration, video_duration * 0.1 + 4.0), 1),
+                    "reason": reason,
+                    "cropPosition": "center",
+                }
+            ],
         }
 
 

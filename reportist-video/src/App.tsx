@@ -12,6 +12,7 @@ import {
   DEFAULT_CONFIG,
 } from './services/gatewayClient.ts';
 import { enrichModelMetrics, pickDefaultModel } from './services/modelMetrics.ts';
+import { cancelVideoAnalysisJob } from './services/analyzerQueueService.ts';
 import { extractVideoMetadata as extractVideoVisualDimensions, extractVideoFramesForAnalysis } from './services/videoCompressor.ts';
 import {
   extractVideoMetadata as extractMediaMetadata,
@@ -129,6 +130,8 @@ export function App() {
 
   // 취소용 AbortController
   const abortControllerRef = useRef<AbortController | null>(null);
+  // 진행 중인 자체 분석 대기열(reportist-analyzer) 작업 ID (취소 시 서버에 즉시 통보)
+  const activeQueueJobIdRef = useRef<string | null>(null);
 
   // 4. 프로젝트 보관함 & IndexedDB 상태
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
@@ -1149,6 +1152,21 @@ export function App() {
     // (예: 3개 영상이면 1번 0%~33%, 2번 33%~66%, 3번 66%~99% -> 최종 완료 시 100%)
     let globalRunningPct = 0;
 
+    // 자체 인메모리 큐(reportist-analyzer) 대기 상태
+    // queued 동안에는 진행률을 멈추고 순번/예상 대기 시간만 갱신한다.
+    let queueInfo: {
+      isQueued: boolean;
+      position?: number;
+      etaSec?: number;
+      jobId?: string;
+    } = { isQueued: false };
+    let queueLoggedStatus: string | null = null;
+    const resetQueueState = () => {
+      queueInfo = { isQueued: false };
+      queueLoggedStatus = null;
+      activeQueueJobIdRef.current = null;
+    };
+
     try {
       // 1. 영상별 순차 루프
       for (let i = 0; i < totalVideos; i++) {
@@ -1230,6 +1248,30 @@ export function App() {
 
         const updateAnalyzeProgress = (bonus = 0) => {
           if (signal.aborted) return;
+
+          // 대기열에서 순서를 기다리는 동안: 진행률은 추출 완료 지점에 고정하고
+          // "내 앞 대기자 N명 · 예상 대기 N초"만 실시간으로 갱신한다.
+          if (queueInfo.isQueued) {
+            const position = Math.max(0, queueInfo.position ?? 0);
+            const etaSec = Math.max(0, Math.round(queueInfo.etaSec ?? 0));
+            const queueMsg = locale === 'ko'
+              ? `잠시만 기다려 주세요 · 내 앞 대기자 ${position}명 · 예상 대기 ${etaSec}초`
+              : locale === 'ja'
+                ? `少々お待ちください · 待機中 ${position}人 · 予想 ${etaSec}秒`
+                : `Please wait · ${position} ahead · ~${etaSec}s`;
+
+            setProgress((prev) => ({
+              ...prev,
+              progressPercent: Math.max(prev.progressPercent, Math.floor(globalRunningPct)),
+              statusMessage: `${i + 1}/${totalVideos} [${currentVideo.name}] ${queueMsg}`,
+              isQueued: true,
+              queuePosition: position,
+              estimatedWaitSec: etaSec,
+              jobId: queueInfo.jobId,
+            }));
+            return;
+          }
+
           const elapsedSec = (Date.now() - analyzeStartTime) / 1000;
           const totalChars = (liveReasoning?.length || 0) + (liveContent?.length || 0);
 
@@ -1284,6 +1326,10 @@ export function App() {
             ...prev,
             progressPercent: currentIntPct,
             statusMessage: statusMsg,
+            isQueued: false,
+            queuePosition: undefined,
+            estimatedWaitSec: undefined,
+            jobId: undefined,
           }));
         };
 
@@ -1310,6 +1356,9 @@ export function App() {
         try {
           for (let attempt = 0; attempt < maxVideoAttempts && !videoSuccess; attempt++) {
             if (signal.aborted) break;
+
+            // 재시도 시 이전 시도의 대기열 순번/작업 ID가 남지 않도록 초기화
+            resetQueueState();
 
             currentVideoAbortController = new AbortController();
             const videoSignal = currentVideoAbortController.signal;
@@ -1364,6 +1413,47 @@ export function App() {
                 onActivity: () => {
                   lastActivityTimestamp = Date.now();
                 },
+                onQueueUpdate: (info) => {
+                  lastActivityTimestamp = Date.now();
+                  queueInfo = {
+                    isQueued: info.status === 'queued',
+                    position: info.queuePosition,
+                    etaSec: info.estimatedWaitSec,
+                    jobId: info.jobId,
+                  };
+                  activeQueueJobIdRef.current = info.jobId;
+
+                  if (info.status !== queueLoggedStatus) {
+                    queueLoggedStatus = info.status;
+                    if (info.status === 'queued') {
+                      const position = Math.max(0, info.queuePosition ?? 0);
+                      const etaSec = Math.max(0, Math.round(info.estimatedWaitSec ?? 0));
+                      addLog(locale === 'ko'
+                        ? `⏳ [${currentVideo.name}] 대기열에 등록되었습니다. 내 앞 대기자 ${position}명 · 예상 대기 ${etaSec}초`
+                        : `⏳ [${currentVideo.name}] Queued. ${position} ahead · ~${etaSec}s`);
+                    } else if (info.status === 'processing') {
+                      addLog(locale === 'ko'
+                        ? `🚀 [${currentVideo.name}] 대기열 순서가 되어 분석을 시작합니다.`
+                        : `🚀 [${currentVideo.name}] Queue turn reached. Starting analysis.`);
+                    }
+                  }
+
+                  updateAnalyzeProgress(0);
+                },
+                onQueueFallback: (reason) => {
+                  lastActivityTimestamp = Date.now();
+                  // 폴링 도중 실패한 경우 서버에 남은 작업을 정리해 중복 분석을 막는다.
+                  if (queueInfo.jobId) {
+                    void cancelVideoAnalysisJob(queueInfo.jobId);
+                  }
+                  queueInfo = { isQueued: false };
+                  activeQueueJobIdRef.current = null;
+                  console.warn(`[Video] Queue fallback (${currentVideo.name}):`, reason);
+                  addLog(locale === 'ko'
+                    ? `ℹ️ [${currentVideo.name}] 대기열을 사용할 수 없어 기존 AI 게이트웨이로 연결합니다.`
+                    : `ℹ️ [${currentVideo.name}] Queue unavailable. Falling back to the AI gateway.`);
+                  updateAnalyzeProgress(0);
+                },
               });
 
               if (segments && segments.length > 0) {
@@ -1373,6 +1463,12 @@ export function App() {
               if (signal.aborted) throw vidErr;
               const errMsg = vidErr instanceof Error ? vidErr.message : String(vidErr);
               console.warn(`[Video] Video ${currentVideo.name} attempt ${attempt + 1} failed:`, errMsg);
+
+              // 실패한 시도의 대기열 작업이 서버에 남아 있으면 정리한다.
+              if (activeQueueJobIdRef.current) {
+                void cancelVideoAnalysisJob(activeQueueJobIdRef.current);
+              }
+              resetQueueState();
 
               if (attempt < maxVideoAttempts - 1) {
                 addLog(`🔄 [${currentVideo.name}] 백그라운드 지연/연결 정체 감지로 자동 재개합니다 (${attempt + 2}/${maxVideoAttempts})`);
@@ -1390,6 +1486,7 @@ export function App() {
                   config: DEFAULT_CONFIG,
                   signal: undefined,
                   locale,
+                  useQueue: false,
                 });
                 videoSuccess = true;
               }
@@ -1403,11 +1500,18 @@ export function App() {
           unbindHeartbeat();
         }
 
+        // 분석이 끝난 뒤에는 대기열 상태를 즉시 지워 다음 영상/모달에 남지 않게 한다.
+        resetQueueState();
+
         // 해당 영상 분석 성공 완료 시: 1/N 목표치(videoEndPct)로 진입 (마지막 영상은 99% 유지)
         globalRunningPct = Math.max(globalRunningPct, isLastVideo ? 99 : videoEndPct);
         setProgress((prev) => ({
           ...prev,
           progressPercent: Math.floor(globalRunningPct),
+          isQueued: false,
+          queuePosition: undefined,
+          estimatedWaitSec: undefined,
+          jobId: undefined,
         }));
 
         flushLiveStream();
@@ -1824,6 +1928,13 @@ export function App() {
 
   // 취소 핸들러
   const handleCancel = () => {
+    // 대기열에 등록된 작업이 있으면 서버에 즉시 취소를 통보해 순번을 반환한다.
+    const queueJobId = activeQueueJobIdRef.current;
+    if (queueJobId) {
+      void cancelVideoAnalysisJob(queueJobId);
+      activeQueueJobIdRef.current = null;
+    }
+
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -1833,6 +1944,10 @@ export function App() {
       statusMessage: '',
       liveReasoning: '',
       liveContent: '',
+      isQueued: false,
+      queuePosition: undefined,
+      estimatedWaitSec: undefined,
+      jobId: undefined,
     }));
     setCurrentStep(finalResult ? 'result' : 'upload');
   };

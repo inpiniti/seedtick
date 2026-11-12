@@ -7,6 +7,12 @@ import {
   type ModelPerfMetric,
 } from './modelMetrics.ts';
 import { getStoredUserApiKeyConfig } from './userApiKeyService.ts';
+import {
+  enqueueVideoToAnalyzerQueue,
+  isAnalyzerQueueEnabled,
+  pollVideoAnalysisFromQueue,
+  type QueueJobUpdate,
+} from './analyzerQueueService.ts';
 
 export const DEFAULT_GATEWAY_URL = 'https://seedtick-ai-gateway.vercel.app';
 export const DEFAULT_GATEWAY_SECRET = '377d4fa71b90fdbbd6eab6765f3050598de8c259ed86e615c9b18ae4ed63e8bd';
@@ -15,6 +21,10 @@ export const DEFAULT_CONFIG: GatewayConfig = {
   baseUrl: DEFAULT_GATEWAY_URL,
   gatewaySecret: DEFAULT_GATEWAY_SECRET,
 };
+
+// 대기열 서버가 잠들어 있거나 아직 배포되지 않은 경우,
+// 매 영상마다 12초씩 기다리지 않도록 실패 후 60초간 직접 호출로 동작한다.
+let queueCooldownUntil = 0;
 
 // 다중 프레임 시각 분석을 공식 지원하는 고성능 모델 목록 (비상시 폴백, 지능 지수순)
 export const FALLBACK_VIDEO_MODELS: FreeModelMeta[] = [
@@ -244,6 +254,10 @@ export interface VideoAnalysisStreamCallbacks {
   onFallback?: (reason: string) => void;
   /** 스트림/요청 활성 데이터 수신 시 호출 (백그라운드 복귀 및 와치독 검사용) */
   onActivity?: () => void;
+  /** 자체 분석 대기열의 순번/진행률이 갱신될 때 호출 */
+  onQueueUpdate?: (info: QueueJobUpdate) => void;
+  /** 대기열을 사용할 수 없어 기존 게이트웨이 직접 호출로 전환할 때 호출 */
+  onQueueFallback?: (reason: string) => void;
 }
 
 export interface AnalyzeVideoParams extends VideoAnalysisStreamCallbacks {
@@ -261,6 +275,11 @@ export interface AnalyzeVideoParams extends VideoAnalysisStreamCallbacks {
   locationName?: string;
   locale?: string;
   userApiKeyConfig?: UserApiKeyConfig | null;
+  /**
+   * 자체 분석 대기열(reportist-analyzer)을 사용할지 여부.
+   * 기본값 true. 대기열이 응답하지 않으면 자동으로 기존 게이트웨이 직접 호출로 폴백한다.
+   */
+  useQueue?: boolean;
 }
 
 // === 스트리밍 SSE 파싱 헬퍼 =================================================
@@ -568,6 +587,9 @@ export async function analyzeVideoHighlights({
   onContentDelta,
   onFallback,
   onActivity,
+  onQueueUpdate,
+  onQueueFallback,
+  useQueue = true,
 }: AnalyzeVideoParams): Promise<HighlightSegment[]> {
   const roundedDuration = Math.round(videoDuration * 10) / 10;
   // 하이라이트 목표 예산: 영상 전체 길이의 20%~35% (최소 2초, 최대 10초)
@@ -660,6 +682,80 @@ Format:
   const customHeaders: Record<string, string> = {};
   const hasUserKey = Boolean(activeUserKeyConfig?.apiKey?.trim());
 
+  const defaultModelId = FALLBACK_VIDEO_MODELS[0]?.id || 'thinkingmachines/inkling-small:free';
+  const effectiveModel = hasUserKey
+    ? (activeUserKeyConfig?.model?.trim() || model || 'gpt-4o-mini')
+    : (model || defaultModelId);
+
+  // ── 자체 분석 대기열(reportist-analyzer) 우선 시도 ──
+  // BYOK 사용자는 본인 키로 직접 호출해야 하므로 대기열을 건너뛴다.
+  if (useQueue && !hasUserKey && isAnalyzerQueueEnabled() && Date.now() >= queueCooldownUntil) {
+    let enqueuedJobId: string | null = null;
+    try {
+      const enqueued = await enqueueVideoToAnalyzerQueue({
+        videoName,
+        videoDuration: roundedDuration,
+        frames,
+        locale,
+        model: effectiveModel,
+        prompt,
+        priority: 10,
+        signal,
+      });
+      enqueuedJobId = enqueued.job_id;
+
+      onQueueUpdate?.({
+        jobId: enqueued.job_id,
+        status: enqueued.status,
+        queuePosition: enqueued.queue_position,
+        estimatedWaitSec: enqueued.estimated_wait_sec,
+        progress: enqueued.progress || 0,
+        message: enqueued.progress_message,
+      });
+
+      const { analysis } = await pollVideoAnalysisFromQueue({
+        jobId: enqueued.job_id,
+        signal,
+        onActivity,
+        onQueueUpdate,
+      });
+
+      const hasUsableAnalysis =
+        Boolean(analysis) &&
+        (Boolean(analysis?.rawText) ||
+          (Array.isArray(analysis?.segments) && analysis!.segments!.length > 0));
+      if (!hasUsableAnalysis) {
+        throw new Error('대기열 응답에 사용할 수 있는 분석 결과가 없습니다.');
+      }
+
+      const rawQueueContent = analysis?.rawText
+        ? analysis.rawText
+        : JSON.stringify(analysis);
+
+      return parseAndValidateSegments(
+        rawQueueContent,
+        roundedDuration,
+        videoId,
+        videoName,
+        metadataDate,
+        latitude,
+        longitude,
+        locationName
+      );
+    } catch (queueErr: unknown) {
+      if (signal?.aborted) throw queueErr;
+
+      // 등록 자체가 실패한 경우(서버 슬립/미배포/네트워크)에만 잠시 대기열을 비활성화한다.
+      if (!enqueuedJobId) {
+        queueCooldownUntil = Date.now() + 60_000;
+      }
+
+      const reason = queueErr instanceof Error ? queueErr.message : String(queueErr);
+      console.warn('[GatewayClient] 분석 대기열 사용 불가, 게이트웨이 직접 호출로 전환:', reason);
+      onQueueFallback?.(reason);
+    }
+  }
+
   if (hasUserKey && activeUserKeyConfig) {
     customHeaders['X-User-Api-Key'] = activeUserKeyConfig.apiKey.trim();
     customHeaders['X-User-Provider'] = activeUserKeyConfig.provider;
@@ -670,11 +766,6 @@ Format:
       customHeaders['X-User-Base-Url'] = activeUserKeyConfig.baseUrl.trim();
     }
   }
-
-  const defaultModelId = FALLBACK_VIDEO_MODELS[0]?.id || 'thinkingmachines/inkling-small:free';
-  const effectiveModel = hasUserKey
-    ? (activeUserKeyConfig?.model?.trim() || model || 'gpt-4o-mini')
-    : (model || defaultModelId);
 
   const requestBody: Record<string, unknown> = {
     model: effectiveModel,
