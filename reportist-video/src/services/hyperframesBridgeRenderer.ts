@@ -1,8 +1,13 @@
 // src/services/hyperframesBridgeRenderer.ts - HyperFrames (GSAP deterministic seekable timeline)
-// Split-Flap Flip Clock (Date Change) & Winding Dashed Route Travel (Location Change) Renderer
+// Modular Chapter Bridge: 5 Date Templates x 5 Location Templates Combinable Renderer
 
 import gsap from 'gsap';
-import type { HighlightSegment, VideoOverlayOptions } from '../types/video.ts';
+import type {
+  BridgeDateTemplateId,
+  BridgeLocationTemplateId,
+  HighlightSegment,
+  VideoOverlayOptions,
+} from '../types/video.ts';
 
 export const CHAPTER_BRIDGE_DURATION = 2.2; // 2.2s (66 frames at 30fps) so viewers clearly recognize From -> To
 export const CHAPTER_BRIDGE_FPS = 30;
@@ -21,6 +26,8 @@ export interface ChapterBridgeTransitionInfo {
   isLocationChanged: boolean;
   isSourceChanged: boolean;
   travelVehicle: 'plane' | 'car';
+  dateTemplate: BridgeDateTemplateId;
+  locationTemplate: BridgeLocationTemplateId;
 }
 
 /**
@@ -56,7 +63,6 @@ function detectTravelVehicle(
   ) {
     const dLat = Math.abs(prevSeg.latitude - nextSeg.latitude);
     const dLon = Math.abs(prevSeg.longitude - nextSeg.longitude);
-    // 위경도 차이가 약 2.2도(약 220km) 이상이면 비행기 연출
     if (Math.hypot(dLat, dLon) > 2.2) {
       return 'plane';
     }
@@ -66,8 +72,9 @@ function detectTravelVehicle(
 
 /**
  * 브릿지 발동 규칙:
- * 원본 영상(sourceVideoId)만 바뀐 경우에는 브릿지를 삽입하지 않고 계속 진행!
- * 오직 이전 클립과 비교하여 날짜(subtitleDate) 또는 장소(locationName)가 실제로 변경되었을 때만 발동합니다.
+ * 1. skipChapterBridge 플래그가 설정되어 있으면 건너뜁니다.
+ * 2. 원본 영상만 바뀐 경우는 전환 없이 계속 진행, 오직 날짜 또는 장소가 실제로 바뀌었을 때만 발동합니다.
+ * 3. 템플릿은 세그먼트 개별 오버라이드 -> 전역 설정(overlayOptions) -> 기본값 순으로 결정됩니다.
  */
 export function evaluateChapterBridge(
   prevSegment: HighlightSegment | undefined,
@@ -77,7 +84,16 @@ export function evaluateChapterBridge(
   overlayOptions?: VideoOverlayOptions
 ): ChapterBridgeTransitionInfo {
   const enabled = overlayOptions?.showChapterBridge !== false;
-  if (!prevSegment || !enabled) {
+  const dateTemplate: BridgeDateTemplateId =
+    nextSegment.bridgeDateTemplateOverride ||
+    overlayOptions?.chapterBridgeDateTemplate ||
+    'flip-clock';
+  const locationTemplate: BridgeLocationTemplateId =
+    nextSegment.bridgeLocationTemplateOverride ||
+    overlayOptions?.chapterBridgeLocationTemplate ||
+    'winding-route';
+
+  if (!prevSegment || !enabled || nextSegment.skipChapterBridge) {
     return {
       shouldBridge: false,
       fromDate: '',
@@ -91,6 +107,8 @@ export function evaluateChapterBridge(
       isLocationChanged: false,
       isSourceChanged: false,
       travelVehicle: 'car',
+      dateTemplate,
+      locationTemplate,
     };
   }
 
@@ -112,7 +130,6 @@ export function evaluateChapterBridge(
   const isLocationChanged = Boolean(fromLocation && toLocation && fromLocation !== toLocation);
   const isSourceChanged = prevSegment.sourceVideoId !== nextSegment.sourceVideoId;
 
-  // 요구사항: 원본 영상만 바뀐 경우는 전환 영상 없이 계속 진행. 오직 날짜 또는 장소가 바뀐 경우만!
   const shouldBridge = isDateChanged || isLocationChanged;
   const sceneTitle = normalizeMeta(nextSegment.subtitleTitle || nextSegment.reason);
   const travelVehicle = detectTravelVehicle(prevSegment, nextSegment, fromLocation, toLocation);
@@ -130,6 +147,8 @@ export function evaluateChapterBridge(
     isLocationChanged,
     isSourceChanged,
     travelVehicle,
+    dateTemplate,
+    locationTemplate,
   };
 }
 
@@ -162,7 +181,6 @@ export function computeBridgeDurationMap(
 const SLICE_COUNT = 5;
 
 export interface BridgeGsapState {
-  // 5단 사선 루버 블라인드 개폐
   s0Close: number;
   s1Close: number;
   s2Close: number;
@@ -175,71 +193,26 @@ export interface BridgeGsapState {
   s4Open: number;
   prevBgScale: number;
   nextBgScale: number;
-  // 컨텐츠 마스터 등장/퇴장
   stageAlpha: number;
   stageY: number;
-  // 플립 탁상시계(Split-Flap) 진행률 (0: 이전 날짜 정지 -> 0~1: 플립 회전 -> 1: 새 날짜 정지)
-  flipProgress: number;
-  // 구불구불한 점선 경로(Winding Route) 이동 진행률 (0: 출발지 대기 -> 0~1: 이동 -> 1: 도착지 도착)
-  routeProgress: number;
-  destPulse: number;
+  flipProgress: number; // 날짜 진행률 (0 -> 1)
+  routeProgress: number; // 장소 진행률 (0 -> 1)
+  destPulse: number; // 도착 펄스 (0 -> 1)
 }
 
-/**
- * 2차/3차 구불구불한 경로(Winding S-Curve) 위의 좌표(x, y)와 접선 각도(angle)를 계산합니다.
- * 너무 직선이 아닌 지도 위 여행 경로처럼 완만한 S자 곡선을 형성합니다.
- */
-function sampleWindingPath(
-  startX: number,
-  startY: number,
-  endX: number,
-  endY: number,
-  t: number
-): { x: number; y: number; angle: number } {
-  const clamped = Math.max(0, Math.min(1, t));
-  const dx = endX - startX;
-  const dy = endY - startY;
-
-  // 기본 선형 보간 + 1.5주기의 사인파 곡률로 자연스럽게 구불구불한 여행 궤적 생성
-  const baseX = startX + dx * clamped;
-  const baseY = startY + dy * clamped;
-
-  // 시작점(t=0)과 끝점(t=1)에서는 정확히 0이 되는 엔벨로프(sin(pi * t))와 S자 굴곡 결합
-  const waveAmplitude = 44;
-  const waveOffsetY =
-    Math.sin(clamped * Math.PI * 2) * waveAmplitude * Math.sin(clamped * Math.PI) -
-    Math.sin(clamped * Math.PI) * 18;
-
-  // 미분값(접선 기울기)을 수치적으로 계산하여 자동차/비행기 진행 방향 회전각 산출
-  const dt = 0.008;
-  const t2 = Math.min(1, clamped + dt);
-  const t1 = Math.max(0, clamped - dt);
-  const x2 = startX + dx * t2;
-  const y2 =
-    startY +
-    dy * t2 +
-    Math.sin(t2 * Math.PI * 2) * waveAmplitude * Math.sin(t2 * Math.PI) -
-    Math.sin(t2 * Math.PI) * 18;
-  const x1 = startX + dx * t1;
-  const y1 =
-    startY +
-    dy * t1 +
-    Math.sin(t1 * Math.PI * 2) * waveAmplitude * Math.sin(t1 * Math.PI) -
-    Math.sin(t1 * Math.PI) * 18;
-
-  const angle = Math.atan2(y2 - y1, x2 - x1);
-
-  return {
-    x: baseX,
-    y: baseY + waveOffsetY,
-    angle,
-  };
+function extractCoreDate(raw: string) {
+  const match = raw.match(/^([^\(\[]+)/);
+  return (match ? match[1] : raw).trim();
 }
 
-/**
- * 아날로그 플립 탁상시계(Split-Flap) 단일 타일 렌더링 헬퍼
- * - 상단/하단 분할 베젤, 좌우 회전축 홈, 3D 플립 리프(Leaf) 애니메이션을 그립니다.
- */
+function extractSuffix(raw: string) {
+  const match = raw.match(/([\([].+)$/);
+  return match ? match[1].trim() : '';
+}
+
+/* =====================================================================
+ * [날짜 1번] 아날로그 플립 탁상시계 (Split-Flap Flip Clock)
+ * ===================================================================== */
 function drawSplitFlapTile(
   ctx: CanvasRenderingContext2D,
   centerX: number,
@@ -248,14 +221,13 @@ function drawSplitFlapTile(
   tileH: number,
   fromChar: string,
   toChar: string,
-  charFlipProgress: number // 0 ~ 1
+  charFlipProgress: number
 ) {
   const x = centerX - tileW / 2;
   const y = centerY - tileH / 2;
   const halfH = tileH / 2;
   const radius = 8;
 
-  // 구분자('.', '-', ' ')는 플립 타일 대신 깔끔한 콜론/도트로 표시
   if (fromChar === toChar && !/[0-9A-Za-z가-힣]/.test(toChar)) {
     ctx.save();
     ctx.font = `800 ${Math.round(tileH * 0.58)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", monospace`;
@@ -267,12 +239,11 @@ function drawSplitFlapTile(
     return;
   }
 
-  // 글자가 바뀌지 않은 자리는 고정 플립 타일로 유지하되 미세한 입체감만 부여
   const isSameChar = fromChar === toChar;
-  const totalSteps = isSameChar ? 1 : 4; // 바뀌는 숫자는 드르륵 4번 넘어가며 목표 숫자로 안착!
+  const totalSteps = isSameChar ? 1 : 4;
   const scaledProg = Math.max(0, Math.min(0.9999, charFlipProgress)) * totalSteps;
   const stepIndex = Math.floor(scaledProg);
-  const localFlap = isSameChar ? 0 : scaledProg - stepIndex; // 현재 1장 넘어가는 0~1 위상
+  const localFlap = isSameChar ? 0 : scaledProg - stepIndex;
 
   const getCharAtStep = (step: number): string => {
     if (step <= 0) return fromChar || '0';
@@ -308,7 +279,6 @@ function drawSplitFlapTile(
     }
     ctx.clip();
 
-    // 플립 타일 배경
     const bgGrad = ctx.createLinearGradient(x, y, x, y + tileH);
     if (half === 'top') {
       bgGrad.addColorStop(0, '#1e2638');
@@ -327,19 +297,16 @@ function drawSplitFlapTile(
     }
     ctx.fill();
 
-    // 타일 테두리
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
     ctx.lineWidth = 1.2;
     ctx.stroke();
 
-    // 텍스트 렌더링
     ctx.font = `900 ${Math.round(tileH * 0.66)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", monospace`;
     ctx.fillStyle = charFlipProgress >= 0.995 ? '#ffffff' : '#f8fafc';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(charToDraw, centerX, centerY + 2);
 
-    // 3D 플립 회전 음영 오버레이
     if (brightness < 1) {
       ctx.fillStyle = `rgba(0, 0, 0, ${(1 - brightness).toFixed(3)})`;
       ctx.fillRect(x, y, tileW, tileH);
@@ -351,16 +318,10 @@ function drawSplitFlapTile(
     ctx.restore();
   };
 
-  // 1) 베이스 레이어:
-  // 위쪽 절반에는 이미 새로 드러나는 nextChar의 상단이 깔려 있고,
-  // 아래쪽 절반에는 아직 덮이기 전인 currentChar의 하단이 깔려 있음
   if (!isSameChar && charFlipProgress > 0.005 && charFlipProgress < 0.995) {
     drawHalfCard('top', nextChar, 1, 0.92);
     drawHalfCard('bottom', currentChar, 1, 0.95);
 
-    // 2) 회전하는 플립 날개(Flap Leaf):
-    // localFlap 0.0 ~ 0.5: 위쪽 currentChar 날개가 앞으로 숙여지며 내려옴 (scaleY: 1 -> 0)
-    // localFlap 0.5 ~ 1.0: 아래쪽 nextChar 날개가 수평선에서 아래로 펼쳐짐 (scaleY: 0 -> 1)
     if (localFlap < 0.5) {
       const flapScale = Math.max(0.04, Math.cos(localFlap * Math.PI));
       drawHalfCard('top', currentChar, flapScale, 1 - localFlap * 0.65);
@@ -374,21 +335,472 @@ function drawSplitFlapTile(
     drawHalfCard('bottom', finalChar, 1, 0.96);
   }
 
-  // 3) 중앙 스플릿 힌지(Hinge) 분할선 & 양옆 금속 핀 디테일
   ctx.save();
   ctx.fillStyle = '#07090e';
   ctx.fillRect(x, centerY - 1.2, tileW, 2.4);
-
-  // 좌우 작은 힌지 노치
   ctx.fillStyle = 'rgba(245, 208, 125, 0.55)';
   ctx.fillRect(x + 1, centerY - 3, 2.5, 6);
   ctx.fillRect(x + tileW - 3.5, centerY - 3, 2.5, 6);
   ctx.restore();
 }
 
-/**
- * 이동 수단 아이콘(자동차 / 비행기) 벡터 드로잉 헬퍼
- */
+function renderDate1_FlipClock(
+  ctx: CanvasRenderingContext2D,
+  centerX: number,
+  centerY: number,
+  scale: number,
+  info: ChapterBridgeTransitionInfo,
+  progress: number,
+  bothActive: boolean
+) {
+  const clockCenterY = bothActive ? centerY - Math.round(95 * scale) : centerY - Math.round(12 * scale);
+
+  ctx.save();
+  ctx.font = `700 ${Math.round(13 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
+  ctx.fillStyle = '#f5d07d';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  if ('letterSpacing' in ctx) {
+    (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = `${Math.round(4 * scale)}px`;
+  }
+  ctx.fillText('DATE CHANGE', centerX, clockCenterY - Math.round((bothActive ? 68 : 84) * scale));
+  ctx.restore();
+
+  const fromCore = extractCoreDate(info.fromDate);
+  const toCore = extractCoreDate(info.toDate);
+  const maxLen = Math.max(fromCore.length, toCore.length);
+  const paddedFrom = fromCore.padEnd(maxLen, ' ');
+  const paddedTo = toCore.padEnd(maxLen, ' ');
+
+  const tileH = Math.round((bothActive ? 74 : 92) * scale);
+  const digitW = Math.round((bothActive ? 50 : 62) * scale);
+  const punctW = Math.round((bothActive ? 22 : 26) * scale);
+  const gap = Math.round(6 * scale);
+
+  const charWidths = paddedTo.split('').map((ch) =>
+    /[0-9A-Za-z가-힣]/.test(ch) ? digitW : punctW
+  );
+  const totalClockW = charWidths.reduce((acc, w) => acc + w, 0) + Math.max(0, maxLen - 1) * gap;
+
+  const framePadX = Math.round(22 * scale);
+  const framePadY = Math.round(14 * scale);
+  ctx.save();
+  ctx.fillStyle = 'rgba(7, 10, 16, 0.85)';
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+  ctx.lineWidth = Math.max(1, 1.5 * scale);
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+  ctx.shadowBlur = Math.round(24 * scale);
+  ctx.shadowOffsetY = Math.round(8 * scale);
+  ctx.beginPath();
+  const frameRadius = Math.round(16 * scale);
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(
+      centerX - totalClockW / 2 - framePadX,
+      clockCenterY - tileH / 2 - framePadY,
+      totalClockW + framePadX * 2,
+      tileH + framePadY * 2,
+      frameRadius
+    );
+  } else {
+    ctx.rect(
+      centerX - totalClockW / 2 - framePadX,
+      clockCenterY - tileH / 2 - framePadY,
+      totalClockW + framePadX * 2,
+      tileH + framePadY * 2
+    );
+  }
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.stroke();
+  ctx.restore();
+
+  let cursorX = centerX - totalClockW / 2;
+  for (let i = 0; i < maxLen; i++) {
+    const w = charWidths[i];
+    const tileCenterX = cursorX + w / 2;
+    const staggerOffset = (i / Math.max(1, maxLen - 1)) * 0.28;
+    const localProg = Math.max(0, Math.min(1, (progress - staggerOffset) / (1 - 0.28)));
+    drawSplitFlapTile(ctx, tileCenterX, clockCenterY, w, tileH, paddedFrom[i], paddedTo[i], localProg);
+    cursorX += w + gap;
+  }
+
+  const fromSuffix = extractSuffix(info.fromDate);
+  const toSuffix = extractSuffix(info.toDate);
+  const summaryY = clockCenterY + tileH / 2 + Math.round((bothActive ? 34 : 46) * scale);
+
+  ctx.save();
+  ctx.font = `600 ${Math.round(18 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", monospace`;
+  ctx.textBaseline = 'middle';
+  const leftLabel = `${fromCore}${fromSuffix ? ' ' + fromSuffix : ''}`;
+  const rightLabel = `${toCore}${toSuffix ? ' ' + toSuffix : ''}`;
+  const arrowStr = '   →   ';
+  const leftW = ctx.measureText(leftLabel).width;
+  const arrowW = ctx.measureText(arrowStr).width;
+  const rightW = ctx.measureText(rightLabel).width;
+  const totalSummaryW = leftW + arrowW + rightW;
+  const startSumX = centerX - totalSummaryW / 2;
+
+  ctx.textAlign = 'left';
+  ctx.fillStyle = 'rgba(148, 163, 184, 0.85)';
+  ctx.fillText(leftLabel, startSumX, summaryY);
+  ctx.fillStyle = '#f5d07d';
+  ctx.fillText(arrowStr, startSumX + leftW, summaryY);
+  ctx.fillStyle = progress > 0.75 ? '#ffffff' : 'rgba(255, 255, 255, 0.45)';
+  ctx.font = `700 ${Math.round(19 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", monospace`;
+  ctx.fillText(rightLabel, startSumX + leftW + arrowW, summaryY);
+  ctx.restore();
+}
+
+/* =====================================================================
+ * [날짜 2번] 럭셔리 워치 회전 (Luxury Watch Hand Spin)
+ * ===================================================================== */
+function renderDate2_WatchSpin(
+  ctx: CanvasRenderingContext2D,
+  centerX: number,
+  centerY: number,
+  scale: number,
+  info: ChapterBridgeTransitionInfo,
+  progress: number,
+  bothActive: boolean
+) {
+  const watchCenterY = bothActive ? centerY - Math.round(92 * scale) : centerY - Math.round(8 * scale);
+  const radius = Math.round((bothActive ? 52 : 68) * scale);
+
+  ctx.save();
+  ctx.font = `700 ${Math.round(12 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
+  ctx.fillStyle = '#e2e8f0';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('TIME TRAVEL', centerX, watchCenterY - radius - Math.round(28 * scale));
+
+  // 시계 베젤 외부 링
+  const bezelGrad = ctx.createLinearGradient(centerX - radius, watchCenterY - radius, centerX + radius, watchCenterY + radius);
+  bezelGrad.addColorStop(0, '#f5d07d');
+  bezelGrad.addColorStop(0.5, '#78350f');
+  bezelGrad.addColorStop(1, '#f5d07d');
+  ctx.strokeStyle = bezelGrad;
+  ctx.lineWidth = Math.round(6 * scale);
+  ctx.beginPath();
+  ctx.arc(centerX, watchCenterY, radius, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // 시계 내부 다이얼
+  ctx.fillStyle = '#090d16';
+  ctx.beginPath();
+  ctx.arc(centerX, watchCenterY, radius - Math.round(3 * scale), 0, Math.PI * 2);
+  ctx.fill();
+
+  // 12개 인덱스 틱
+  for (let i = 0; i < 12; i++) {
+    const angle = (i * Math.PI) / 6;
+    const isMajor = i % 3 === 0;
+    const tickLen = isMajor ? Math.round(8 * scale) : Math.round(4 * scale);
+    const r1 = radius - Math.round(7 * scale);
+    const r2 = r1 - tickLen;
+    ctx.strokeStyle = isMajor ? '#f5d07d' : 'rgba(255, 255, 255, 0.35)';
+    ctx.lineWidth = isMajor ? 2 : 1;
+    ctx.beginPath();
+    ctx.moveTo(centerX + Math.cos(angle) * r1, watchCenterY + Math.sin(angle) * r1);
+    ctx.lineTo(centerX + Math.cos(angle) * r2, watchCenterY + Math.sin(angle) * r2);
+    ctx.stroke();
+  }
+
+  // 바늘 고속 회전 (3바퀴 = 6 * PI)
+  const spinAngle = progress * Math.PI * 6;
+  const minuteAngle = spinAngle;
+  const hourAngle = spinAngle / 12;
+
+  // 시침
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = Math.max(2, 3.5 * scale);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(centerX, watchCenterY);
+  ctx.lineTo(centerX + Math.cos(hourAngle - Math.PI / 2) * (radius * 0.52), watchCenterY + Math.sin(hourAngle - Math.PI / 2) * (radius * 0.52));
+  ctx.stroke();
+
+  // 분침
+  ctx.strokeStyle = '#f5d07d';
+  ctx.lineWidth = Math.max(1.5, 2.2 * scale);
+  ctx.beginPath();
+  ctx.moveTo(centerX, watchCenterY);
+  ctx.lineTo(centerX + Math.cos(minuteAngle - Math.PI / 2) * (radius * 0.78), watchCenterY + Math.sin(minuteAngle - Math.PI / 2) * (radius * 0.78));
+  ctx.stroke();
+
+  // 센터 핀
+  ctx.fillStyle = '#f5d07d';
+  ctx.beginPath();
+  ctx.arc(centerX, watchCenterY, Math.round(4 * scale), 0, Math.PI * 2);
+  ctx.fill();
+
+  // 하단 날짜 표시 배지
+  const fromCore = extractCoreDate(info.fromDate);
+  const toCore = extractCoreDate(info.toDate);
+  const displayDate = progress > 0.65 ? toCore : fromCore;
+
+  const badgeY = watchCenterY + radius + Math.round((bothActive ? 30 : 38) * scale);
+  ctx.font = `800 ${Math.round(20 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
+  ctx.fillStyle = progress > 0.65 ? '#ffffff' : '#94a3b8';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(displayDate, centerX, badgeY);
+
+  ctx.font = `600 ${Math.round(13 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
+  ctx.fillStyle = '#f5d07d';
+  ctx.fillText(`${fromCore}  →  ${toCore}`, centerX, badgeY + Math.round(24 * scale));
+  ctx.restore();
+}
+
+/* =====================================================================
+ * [날짜 3번] 일력 달력 넘기기 (Tear-off Calendar)
+ * ===================================================================== */
+function renderDate3_CalendarPage(
+  ctx: CanvasRenderingContext2D,
+  centerX: number,
+  centerY: number,
+  scale: number,
+  info: ChapterBridgeTransitionInfo,
+  progress: number,
+  bothActive: boolean
+) {
+  const calCenterY = bothActive ? centerY - Math.round(95 * scale) : centerY - Math.round(14 * scale);
+  const cardW = Math.round((bothActive ? 220 : 260) * scale);
+  const cardH = Math.round((bothActive ? 120 : 140) * scale);
+  const x = centerX - cardW / 2;
+  const y = calCenterY - cardH / 2;
+
+  ctx.save();
+  // 1) 밑에 깔린 새 날짜 카드 (Next Date)
+  ctx.fillStyle = '#f8fafc';
+  ctx.beginPath();
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(x, y, cardW, cardH, 12);
+  } else {
+    ctx.rect(x, y, cardW, cardH);
+  }
+  ctx.fill();
+
+  // 레드 상단 헤더
+  ctx.fillStyle = '#dc2626';
+  ctx.fillRect(x, y, cardW, Math.round(32 * scale));
+  ctx.font = `700 ${Math.round(13 * scale)}px -apple-system, sans-serif`;
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('NEW DATE', centerX, y + Math.round(16 * scale));
+
+  // 새 날짜 텍스트
+  const toCore = extractCoreDate(info.toDate);
+  ctx.font = `900 ${Math.round(28 * scale)}px -apple-system, sans-serif`;
+  ctx.fillStyle = '#0f172a';
+  ctx.fillText(toCore, centerX, y + Math.round(76 * scale));
+
+  // 2) 윗장 (찢겨져 날아가는 이전 날짜 카드)
+  if (progress < 0.98) {
+    ctx.save();
+    const tearY = -progress * 130 * scale;
+    const tearX = progress * 60 * scale;
+    const tearRotate = progress * 0.45;
+    const tearAlpha = Math.max(0, 1 - progress * 1.2);
+
+    ctx.translate(centerX + tearX, calCenterY + tearY);
+    ctx.rotate(tearRotate);
+    ctx.globalAlpha = tearAlpha;
+
+    ctx.fillStyle = '#e2e8f0';
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(-cardW / 2, -cardH / 2, cardW, cardH, 12);
+    } else {
+      ctx.rect(-cardW / 2, -cardH / 2, cardW, cardH);
+    }
+    ctx.fill();
+
+    ctx.fillStyle = '#991b1b';
+    ctx.fillRect(-cardW / 2, -cardH / 2, cardW, Math.round(32 * scale));
+    ctx.font = `700 ${Math.round(13 * scale)}px -apple-system, sans-serif`;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('PREVIOUS', 0, -cardH / 2 + Math.round(16 * scale));
+
+    const fromCore = extractCoreDate(info.fromDate);
+    ctx.font = `900 ${Math.round(28 * scale)}px -apple-system, sans-serif`;
+    ctx.fillStyle = '#1e293b';
+    ctx.fillText(fromCore, 0, Math.round(16 * scale));
+
+    ctx.restore();
+  }
+
+  // 상단 바인더 링 2개
+  const ringX1 = centerX - Math.round(50 * scale);
+  const ringX2 = centerX + Math.round(50 * scale);
+  [ringX1, ringX2].forEach((rx) => {
+    ctx.fillStyle = '#475569';
+    ctx.beginPath();
+    ctx.arc(rx, y - 2, Math.round(7 * scale), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath();
+    ctx.arc(rx, y - 2, Math.round(3.5 * scale), 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.restore();
+}
+
+/* =====================================================================
+ * [날짜 4번] 미니멀 매거진 에디토리얼 (Editorial Date)
+ * ===================================================================== */
+function renderDate4_MinimalEditorial(
+  ctx: CanvasRenderingContext2D,
+  centerX: number,
+  centerY: number,
+  scale: number,
+  info: ChapterBridgeTransitionInfo,
+  progress: number,
+  bothActive: boolean
+) {
+  const edCenterY = bothActive ? centerY - Math.round(92 * scale) : centerY - Math.round(14 * scale);
+
+  ctx.save();
+  ctx.font = `600 ${Math.round(13 * scale)}px "Times New Roman", Georgia, serif`;
+  ctx.fillStyle = '#f5d07d';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  if ('letterSpacing' in ctx) {
+    (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = `${Math.round(6 * scale)}px`;
+  }
+  ctx.fillText('CHAPTER DATE TRANSIT', centerX, edCenterY - Math.round(54 * scale));
+
+  // 얇은 골드 구분선
+  const lineW = Math.round((bothActive ? 320 : 420) * scale * Math.min(1, progress * 1.5));
+  ctx.strokeStyle = 'rgba(245, 208, 125, 0.4)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(centerX - lineW / 2, edCenterY - Math.round(36 * scale));
+  ctx.lineTo(centerX + lineW / 2, edCenterY - Math.round(36 * scale));
+  ctx.stroke();
+
+  // 대형 타이포 전환
+  const fromCore = extractCoreDate(info.fromDate);
+  const toCore = extractCoreDate(info.toDate);
+  const curDate = progress > 0.5 ? toCore : fromCore;
+
+  ctx.font = `800 ${Math.round((bothActive ? 32 : 40) * scale)}px "Times New Roman", Georgia, serif`;
+  ctx.fillStyle = progress > 0.5 ? '#ffffff' : 'rgba(255, 255, 255, 0.6)';
+  ctx.fillText(curDate, centerX, edCenterY);
+
+  ctx.font = `500 ${Math.round(16 * scale)}px -apple-system, sans-serif`;
+  ctx.fillStyle = '#94a3b8';
+  ctx.fillText(`${fromCore}   →   ${toCore}`, centerX, edCenterY + Math.round(42 * scale));
+
+  ctx.restore();
+}
+
+/* =====================================================================
+ * [날짜 5번] 네온 디지털 카운트다운 (Neon Digital HUD)
+ * ===================================================================== */
+function renderDate5_NeonDigital(
+  ctx: CanvasRenderingContext2D,
+  centerX: number,
+  centerY: number,
+  scale: number,
+  info: ChapterBridgeTransitionInfo,
+  progress: number,
+  bothActive: boolean
+) {
+  const neonCenterY = bothActive ? centerY - Math.round(92 * scale) : centerY - Math.round(14 * scale);
+  const boxW = Math.round((bothActive ? 340 : 420) * scale);
+  const boxH = Math.round((bothActive ? 90 : 110) * scale);
+
+  ctx.save();
+  // 네온 사이버 프레임
+  ctx.fillStyle = 'rgba(6, 12, 24, 0.9)';
+  ctx.strokeStyle = progress > 0.8 ? '#10b981' : '#06b6d4';
+  ctx.lineWidth = 2;
+  ctx.shadowColor = progress > 0.8 ? 'rgba(16, 185, 129, 0.8)' : 'rgba(6, 182, 212, 0.8)';
+  ctx.shadowBlur = Math.round(16 * scale);
+
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(centerX - boxW / 2, neonCenterY - boxH / 2, boxW, boxH, 8);
+  } else {
+    ctx.rect(centerX - boxW / 2, neonCenterY - boxH / 2, boxW, boxH);
+  }
+  ctx.fill();
+  ctx.stroke();
+  ctx.shadowColor = 'transparent';
+
+  // HUD 라벨
+  ctx.font = `700 ${Math.round(11 * scale)}px monospace`;
+  ctx.fillStyle = '#06b6d4';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillText('>> CHRONO SYNC // DIGITAL COUNTER', centerX - boxW / 2 + 14, neonCenterY - boxH / 2 + 10);
+
+  // 글리치 숫자 롤링
+  const fromCore = extractCoreDate(info.fromDate);
+  const toCore = extractCoreDate(info.toDate);
+  let displayText = toCore;
+  if (progress < 0.8) {
+    const randomSeed = Math.floor(progress * 100);
+    displayText = toCore.replace(/\d/g, (d) => String((parseInt(d, 10) + randomSeed) % 10));
+  }
+
+  ctx.font = `900 ${Math.round((bothActive ? 30 : 38) * scale)}px monospace`;
+  ctx.fillStyle = progress > 0.8 ? '#34d399' : '#38bdf8';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(displayText, centerX, neonCenterY + Math.round(12 * scale));
+
+  ctx.restore();
+}
+
+/* =====================================================================
+ * [장소 1번] 로드트립 패스파인더 (Winding Dashed Route)
+ * ===================================================================== */
+function sampleWindingPath(
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number,
+  t: number
+): { x: number; y: number; angle: number } {
+  const clamped = Math.max(0, Math.min(1, t));
+  const dx = endX - startX;
+  const dy = endY - startY;
+
+  const baseX = startX + dx * clamped;
+  const baseY = startY + dy * clamped;
+
+  const waveAmplitude = 44;
+  const waveOffsetY =
+    Math.sin(clamped * Math.PI * 2) * waveAmplitude * Math.sin(clamped * Math.PI) -
+    Math.sin(clamped * Math.PI) * 18;
+
+  const dt = 0.008;
+  const t2 = Math.min(1, clamped + dt);
+  const t1 = Math.max(0, clamped - dt);
+  const x2 = startX + dx * t2;
+  const y2 =
+    startY +
+    dy * t2 +
+    Math.sin(t2 * Math.PI * 2) * waveAmplitude * Math.sin(t2 * Math.PI) -
+    Math.sin(t2 * Math.PI) * 18;
+  const x1 = startX + dx * t1;
+  const y1 =
+    startY +
+    dy * t1 +
+    Math.sin(t1 * Math.PI * 2) * waveAmplitude * Math.sin(t1 * Math.PI) -
+    Math.sin(t1 * Math.PI) * 18;
+
+  const angle = Math.atan2(y2 - y1, x2 - x1);
+
+  return {
+    x: baseX,
+    y: baseY + waveOffsetY,
+    angle,
+  };
+}
+
 function drawTravelVehicleIcon(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -399,7 +811,6 @@ function drawTravelVehicleIcon(
   ctx.save();
   ctx.translate(x, y);
 
-  // glowing aura around moving vehicle
   const glow = ctx.createRadialGradient(0, 0, 2, 0, 0, 28);
   glow.addColorStop(0, 'rgba(245, 208, 125, 0.95)');
   glow.addColorStop(0.5, 'rgba(56, 189, 248, 0.35)');
@@ -415,7 +826,6 @@ function drawTravelVehicleIcon(
     ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
     ctx.shadowBlur = 8;
 
-    // 세련된 제트 비행기 실루엣 (오른쪽 +X 방향 기준)
     ctx.beginPath();
     ctx.moveTo(16, 0);
     ctx.lineTo(5, -3);
@@ -436,10 +846,7 @@ function drawTravelVehicleIcon(
     ctx.closePath();
     ctx.fill();
   } else {
-    // 자동차는 곡선 기울기를 절반만 반영하여 뒤집히지 않고 귀엽고 세련되게 주행
     ctx.rotate(angle * 0.45);
-
-    // 원형 메달리온 배지 위에 미니멀 투어링 카 아이콘
     ctx.fillStyle = '#0f172a';
     ctx.strokeStyle = '#f5d07d';
     ctx.lineWidth = 2;
@@ -452,7 +859,6 @@ function drawTravelVehicleIcon(
 
     ctx.shadowColor = 'transparent';
     ctx.fillStyle = '#ffffff';
-    // 차체 루프 + 바디
     ctx.beginPath();
     if (typeof ctx.roundRect === 'function') {
       ctx.roundRect(-11, -1, 22, 7, 3);
@@ -469,7 +875,6 @@ function drawTravelVehicleIcon(
     ctx.closePath();
     ctx.fill();
 
-    // 바퀴 2개
     ctx.fillStyle = '#f5d07d';
     ctx.beginPath();
     ctx.arc(-6, 6, 3.2, 0, Math.PI * 2);
@@ -480,13 +885,471 @@ function drawTravelVehicleIcon(
   ctx.restore();
 }
 
+function renderLocation1_WindingRoute(
+  ctx: CanvasRenderingContext2D,
+  centerX: number,
+  centerY: number,
+  targetWidth: number,
+  scale: number,
+  info: ChapterBridgeTransitionInfo,
+  routeProgress: number,
+  destPulse: number,
+  bothActive: boolean
+) {
+  const mapCenterY = bothActive ? centerY + Math.round(115 * scale) : centerY + Math.round(6 * scale);
+  const routeSpanW = Math.min(620 * scale, targetWidth * 0.52);
+  const startX = centerX - routeSpanW / 2;
+  const endX = centerX + routeSpanW / 2;
+  const startY = mapCenterY + Math.round(12 * scale);
+  const endY = mapCenterY - Math.round(12 * scale);
+
+  if (!bothActive) {
+    ctx.save();
+    ctx.font = `700 ${Math.round(13 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
+    ctx.fillStyle = '#38bdf8';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    if ('letterSpacing' in ctx) {
+      (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = `${Math.round(4 * scale)}px`;
+    }
+    ctx.fillText('LOCATION ROUTE', centerX, mapCenterY - Math.round(105 * scale));
+    ctx.restore();
+  }
+
+  const sampleSteps = 64;
+  ctx.save();
+  ctx.beginPath();
+  for (let s = 0; s <= sampleSteps; s++) {
+    const pt = sampleWindingPath(startX, startY, endX, endY, s / sampleSteps);
+    if (s === 0) ctx.moveTo(pt.x, pt.y);
+    else ctx.lineTo(pt.x, pt.y);
+  }
+  ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)';
+  ctx.lineWidth = Math.max(1.5, 2.5 * scale);
+  ctx.setLineDash([Math.round(6 * scale), Math.round(9 * scale)]);
+  ctx.lineCap = 'round';
+  ctx.stroke();
+  ctx.restore();
+
+  const activeSteps = Math.max(1, Math.round(sampleSteps * routeProgress));
+  if (routeProgress > 0.01) {
+    ctx.save();
+    ctx.beginPath();
+    for (let s = 0; s <= activeSteps; s++) {
+      const t = Math.min(routeProgress, s / sampleSteps);
+      const pt = sampleWindingPath(startX, startY, endX, endY, t);
+      if (s === 0) ctx.moveTo(pt.x, pt.y);
+      else ctx.lineTo(pt.x, pt.y);
+    }
+    ctx.strokeStyle = '#f5d07d';
+    ctx.lineWidth = Math.max(2, 4 * scale);
+    ctx.setLineDash([Math.round(10 * scale), Math.round(8 * scale)]);
+    ctx.lineCap = 'round';
+    ctx.shadowColor = 'rgba(245, 208, 125, 0.55)';
+    ctx.shadowBlur = Math.round(10 * scale);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // 출발지 핀
+  ctx.save();
+  ctx.fillStyle = '#0f172a';
+  ctx.strokeStyle = '#94a3b8';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(startX, startY, 9, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = '#cbd5e1';
+  ctx.beginPath();
+  ctx.arc(startX, startY, 3.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  const fromLocLabel = info.fromLocation || '이전 장소';
+  ctx.font = `700 ${bothActive ? 20 : 24}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
+  ctx.fillStyle = 'rgba(203, 213, 225, 0.9)';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText(fromLocLabel, startX, startY + 22);
+
+  ctx.font = '600 11px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+  ctx.fillStyle = 'rgba(148, 163, 184, 0.7)';
+  ctx.fillText('FROM', startX, startY - 26);
+  ctx.restore();
+
+  // 목적지 핀 & 펄스
+  const arrived = routeProgress >= 0.95;
+  ctx.save();
+  if (destPulse > 0.01) {
+    const pulseRadius = 12 + destPulse * 34;
+    const pulseAlpha = Math.max(0, (1 - destPulse) * 0.75);
+    ctx.strokeStyle = `rgba(56, 189, 248, ${pulseAlpha.toFixed(3)})`;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(endX, endY, pulseRadius, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  const pinColor = arrived ? '#38bdf8' : '#64748b';
+  ctx.fillStyle = '#0f172a';
+  ctx.strokeStyle = pinColor;
+  ctx.lineWidth = 3.5;
+  ctx.beginPath();
+  ctx.arc(endX, endY, 11, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = arrived ? '#f5d07d' : '#94a3b8';
+  ctx.beginPath();
+  ctx.arc(endX, endY, 4.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  const toLocLabel = info.toLocation || '다음 장소';
+  ctx.font = `800 ${bothActive ? 22 : 28}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
+  ctx.fillStyle = arrived ? '#ffffff' : 'rgba(226, 232, 240, 0.65)';
+  if (arrived) {
+    ctx.shadowColor = 'rgba(56, 189, 248, 0.5)';
+    ctx.shadowBlur = 14;
+  }
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText(toLocLabel, endX, endY + 22);
+  ctx.shadowColor = 'transparent';
+
+  ctx.font = '700 11px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
+  ctx.fillStyle = arrived ? '#38bdf8' : 'rgba(148, 163, 184, 0.7)';
+  ctx.fillText('TO', endX, endY - 28);
+  ctx.restore();
+
+  // 이동 차량/비행기
+  const currentPos = sampleWindingPath(startX, startY, endX, endY, routeProgress);
+  drawTravelVehicleIcon(ctx, currentPos.x, currentPos.y, currentPos.angle, info.travelVehicle);
+}
+
+/* =====================================================================
+ * [장소 2번] 3D 와이어프레임 지구본 & 포물선 아크 (Globe Arc)
+ * ===================================================================== */
+function renderLocation2_GlobeSpin(
+  ctx: CanvasRenderingContext2D,
+  centerX: number,
+  centerY: number,
+  scale: number,
+  info: ChapterBridgeTransitionInfo,
+  routeProgress: number,
+  destPulse: number,
+  bothActive: boolean
+) {
+  const globeCenterY = bothActive ? centerY + Math.round(110 * scale) : centerY + Math.round(6 * scale);
+  const globeR = Math.round((bothActive ? 55 : 75) * scale);
+
+  ctx.save();
+  // 1) 지구본 와이어프레임 구체
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.arc(centerX, globeCenterY, globeR, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // 회전하는 경도선
+  const rot = routeProgress * 0.8;
+  for (let i = -2; i <= 2; i++) {
+    const rx = Math.cos(rot + (i * Math.PI) / 4) * globeR;
+    ctx.beginPath();
+    ctx.ellipse(centerX, globeCenterY, Math.abs(rx), globeR, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  // 위도선
+  for (let j = -2; j <= 2; j++) {
+    const yOff = (j * globeR) / 3;
+    const rAtY = Math.sqrt(Math.max(0, globeR * globeR - yOff * yOff));
+    ctx.beginPath();
+    ctx.ellipse(centerX, globeCenterY + yOff, rAtY, rAtY * 0.28, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // 2) 포물선 비행 아크 (좌측 출발지 -> 우측 목적지)
+  const arcSpanX = globeR * 1.8;
+  const startX = centerX - arcSpanX / 2;
+  const endX = centerX + arcSpanX / 2;
+  const arcPeakY = globeCenterY - globeR - Math.round(25 * scale);
+
+  // 포물선 점선 가이드
+  ctx.strokeStyle = 'rgba(245, 208, 125, 0.4)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4, 6]);
+  ctx.beginPath();
+  ctx.moveTo(startX, globeCenterY);
+  ctx.quadraticCurveTo(centerX, arcPeakY, endX, globeCenterY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 아크 위를 날아가는 비행기
+  const t = routeProgress;
+  const currentX = (1 - t) * (1 - t) * startX + 2 * (1 - t) * t * centerX + t * t * endX;
+  const currentY = (1 - t) * (1 - t) * globeCenterY + 2 * (1 - t) * t * arcPeakY + t * t * globeCenterY;
+  drawTravelVehicleIcon(ctx, currentX, currentY, t < 0.5 ? -0.4 : 0.4, 'plane');
+
+  // 좌우 장소 라벨
+  ctx.font = `700 ${Math.round(18 * scale)}px -apple-system, sans-serif`;
+  ctx.fillStyle = '#94a3b8';
+  ctx.textAlign = 'right';
+  ctx.fillText(info.fromLocation || '출발지', startX - 16, globeCenterY);
+
+  ctx.fillStyle = routeProgress >= 0.95 ? '#38bdf8' : '#94a3b8';
+  ctx.textAlign = 'left';
+  ctx.fillText(info.toLocation || '도착지', endX + 16, globeCenterY);
+
+  ctx.restore();
+}
+
+/* =====================================================================
+ * [장소 3번] 보딩패스 티켓 & 도착 스탬프 (Boarding Pass & Stamp)
+ * ===================================================================== */
+function renderLocation3_BoardingPass(
+  ctx: CanvasRenderingContext2D,
+  centerX: number,
+  centerY: number,
+  scale: number,
+  info: ChapterBridgeTransitionInfo,
+  routeProgress: number,
+  bothActive: boolean
+) {
+  const passCenterY = bothActive ? centerY + Math.round(112 * scale) : centerY + Math.round(10 * scale);
+  const ticketW = Math.round((bothActive ? 420 : 520) * scale);
+  const ticketH = Math.round((bothActive ? 110 : 130) * scale);
+  const x = centerX - ticketW / 2;
+  const y = passCenterY - ticketH / 2;
+
+  ctx.save();
+  // 티켓 배경
+  ctx.fillStyle = '#0f172a';
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+  ctx.lineWidth = 1.5;
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(x, y, ticketW, ticketH, 12);
+  } else {
+    ctx.rect(x, y, ticketW, ticketH);
+  }
+  ctx.fill();
+  ctx.stroke();
+
+  // 좌우 절취 홈
+  ctx.fillStyle = '#07090e';
+  ctx.beginPath();
+  ctx.arc(x, passCenterY, 12 * scale, -Math.PI / 2, Math.PI / 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(x + ticketW, passCenterY, 12 * scale, Math.PI / 2, (Math.PI * 3) / 2);
+  ctx.fill();
+
+  // 상단 헤더
+  ctx.font = `700 ${Math.round(10 * scale)}px monospace`;
+  ctx.fillStyle = '#f5d07d';
+  ctx.textAlign = 'left';
+  ctx.fillText('BOARDING PASS // TICKET', x + 24 * scale, y + 20 * scale);
+
+  // FROM / TO
+  const fromLoc = info.fromLocation || 'ORIGIN';
+  const toLoc = info.toLocation || 'DESTINATION';
+
+  ctx.font = `800 ${Math.round(24 * scale)}px -apple-system, sans-serif`;
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'left';
+  ctx.fillText(fromLoc, x + 30 * scale, passCenterY + 4 * scale);
+
+  ctx.textAlign = 'right';
+  ctx.fillText(toLoc, x + ticketW - 30 * scale, passCenterY + 4 * scale);
+
+  // 중앙 화살표/비행기
+  ctx.font = `700 ${Math.round(16 * scale)}px sans-serif`;
+  ctx.fillStyle = '#38bdf8';
+  ctx.textAlign = 'center';
+  ctx.fillText('✈ ───→', centerX, passCenterY + 4 * scale);
+
+  // 붉은색 고무도장 쾅! (ARRIVED Stamp)
+  if (routeProgress >= 0.7) {
+    ctx.save();
+    const stampProg = Math.min(1, (routeProgress - 0.7) / 0.2);
+    const stampScale = 1.5 - stampProg * 0.5;
+    ctx.translate(x + ticketW - 60 * scale, passCenterY + 4 * scale);
+    ctx.rotate(-0.25);
+    ctx.scale(stampScale, stampScale);
+    ctx.globalAlpha = stampProg;
+
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 3;
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(-45 * scale, -16 * scale, 90 * scale, 32 * scale, 4);
+    } else {
+      ctx.rect(-45 * scale, -16 * scale, 90 * scale, 32 * scale);
+    }
+    ctx.stroke();
+
+    ctx.font = `900 ${Math.round(13 * scale)}px sans-serif`;
+    ctx.fillStyle = '#ef4444';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('ARRIVED', 0, 0);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+/* =====================================================================
+ * [장소 4번] 미니멀 매거진 에디토리얼 장소 (Editorial Location)
+ * ===================================================================== */
+function renderLocation4_MinimalEditorial(
+  ctx: CanvasRenderingContext2D,
+  centerX: number,
+  centerY: number,
+  scale: number,
+  info: ChapterBridgeTransitionInfo,
+  routeProgress: number,
+  bothActive: boolean
+) {
+  const edCenterY = bothActive ? centerY + Math.round(115 * scale) : centerY + Math.round(10 * scale);
+
+  ctx.save();
+  ctx.font = `600 ${Math.round(12 * scale)}px "Times New Roman", Georgia, serif`;
+  ctx.fillStyle = '#38bdf8';
+  ctx.textAlign = 'center';
+  if ('letterSpacing' in ctx) {
+    (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = `${Math.round(5 * scale)}px`;
+  }
+  ctx.fillText('NEXT DESTINATION', centerX, edCenterY - Math.round(40 * scale));
+
+  const fromLoc = info.fromLocation || '출발지';
+  const toLoc = info.toLocation || '도착지';
+
+  ctx.font = `700 ${Math.round((bothActive ? 24 : 32) * scale)}px "Times New Roman", Georgia, serif`;
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`${fromLoc}   ───→   ${toLoc}`, centerX, edCenterY);
+
+  // 하단 진행선
+  const lineW = Math.round(300 * scale * routeProgress);
+  ctx.strokeStyle = '#f5d07d';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(centerX - lineW / 2, edCenterY + Math.round(32 * scale));
+  ctx.lineTo(centerX + lineW / 2, edCenterY + Math.round(32 * scale));
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+/* =====================================================================
+ * [장소 5번] GPS 내비게이션 & 네온 HUD (GPS Cyber Navigation)
+ * ===================================================================== */
+function renderLocation5_GpsCyber(
+  ctx: CanvasRenderingContext2D,
+  centerX: number,
+  centerY: number,
+  scale: number,
+  info: ChapterBridgeTransitionInfo,
+  routeProgress: number,
+  destPulse: number,
+  bothActive: boolean
+) {
+  const gpsCenterY = bothActive ? centerY + Math.round(112 * scale) : centerY + Math.round(8 * scale);
+  const hudW = Math.round((bothActive ? 480 : 580) * scale);
+  const hudH = Math.round((bothActive ? 120 : 140) * scale);
+  const x = centerX - hudW / 2;
+  const y = gpsCenterY - hudH / 2;
+
+  ctx.save();
+  // 1) HUD 반투명 하우징 & 사이안 보더
+  ctx.fillStyle = 'rgba(7, 14, 28, 0.88)';
+  ctx.strokeStyle = '#06b6d4';
+  ctx.lineWidth = 1.8;
+  ctx.shadowColor = 'rgba(6, 182, 212, 0.45)';
+  ctx.shadowBlur = Math.round(14 * scale);
+
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(x, y, hudW, hudH, 8);
+  } else {
+    ctx.rect(x, y, hudW, hudH);
+  }
+  ctx.fill();
+  ctx.stroke();
+  ctx.shadowColor = 'transparent';
+
+  // 2) 3D 투시 원근 도로 그리드 (소실점으로 모이는 도로선)
+  const vanishX = centerX;
+  const vanishY = y + Math.round(18 * scale);
+  ctx.strokeStyle = 'rgba(6, 182, 212, 0.25)';
+  ctx.lineWidth = 1;
+  const gridL = x + Math.round(40 * scale);
+  const gridR = x + hudW - Math.round(40 * scale);
+  const roadBotY = y + hudH - Math.round(24 * scale);
+
+  for (let g = 0; g <= 4; g++) {
+    const rx = gridL + ((gridR - gridL) * g) / 4;
+    ctx.beginPath();
+    ctx.moveTo(vanishX, vanishY);
+    ctx.lineTo(rx, roadBotY);
+    ctx.stroke();
+  }
+
+  // 3) 내비게이션 경로 셰브론 화살표 질주 (>> >> >>)
+  const chevronCount = 5;
+  const arrived = routeProgress >= 0.95;
+  for (let c = 0; c < chevronCount; c++) {
+    const cT = ((routeProgress * 2 + c / chevronCount) % 1);
+    const cY = vanishY + (roadBotY - vanishY) * cT;
+    const cSpan = Math.round((20 + cT * 40) * scale);
+    ctx.strokeStyle = arrived ? '#10b981' : '#38bdf8';
+    ctx.lineWidth = Math.max(1.5, 2.5 * scale * cT);
+    ctx.beginPath();
+    ctx.moveTo(vanishX - cSpan, cY - 4);
+    ctx.lineTo(vanishX, cY);
+    ctx.lineTo(vanishX + cSpan, cY - 4);
+    ctx.stroke();
+  }
+
+  // 4) 상단 내비 상태 안내 문구
+  ctx.font = `700 ${Math.round(11 * scale)}px monospace`;
+  ctx.fillStyle = arrived ? '#34d399' : '#38bdf8';
+  ctx.textAlign = 'left';
+  ctx.fillText(
+    arrived ? '>> DESTINATION ARRIVED // ROUTE COMPLETE' : '>> GPS ROUTE RE-CALCULATING...',
+    x + 18,
+    y + 16
+  );
+
+  // 5) 출발지 -> 도착지 대형 안내판
+  const fromLoc = info.fromLocation || 'CURRENT';
+  const toLoc = info.toLocation || 'TARGET';
+
+  ctx.font = `700 ${Math.round(16 * scale)}px -apple-system, sans-serif`;
+  ctx.fillStyle = 'rgba(148, 163, 184, 0.85)';
+  ctx.textAlign = 'left';
+  ctx.fillText(`FROM: ${fromLoc}`, x + 24 * scale, y + hudH - Math.round(18 * scale));
+
+  ctx.font = `900 ${Math.round((bothActive ? 20 : 24) * scale)}px -apple-system, sans-serif`;
+  ctx.fillStyle = arrived ? '#ffffff' : '#38bdf8';
+  ctx.textAlign = 'right';
+  ctx.fillText(`TO: ${toLoc}`, x + hudW - 24 * scale, y + hudH - Math.round(18 * scale));
+
+  // 타깃 크로스헤어
+  if (arrived || destPulse > 0.05) {
+    ctx.save();
+    ctx.strokeStyle = '#34d399';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(vanishX, vanishY + 12, 10 + destPulse * 16, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
 /**
  * HyperFrames 결정론적 타임라인 컨트롤러 (총 2.2초)
- * - 0.00s ~ 0.32s: 5단 사선 루버 블라인드가 이전 장면을 샤-샤-샤-샥 덮음
- * - 0.32s ~ 0.68s: [인지 홀드 1] 이전 날짜 / 출발지 장소를 또렷하게 보여줌
- * - 0.68s ~ 1.48s: [핵심 애니메이션] 플립 탁상시계가 탁-탁-탁 넘어가거나, 구불구불한 점선 궤적을 따라 아이콘이 목적지로 이동
- * - 1.48s ~ 1.84s: [인지 홀드 2] 바뀐 새 날짜 / 도착지 장소를 확실히 각인
- * - 1.84s ~ 2.20s: 5단 사선 루버 블라인드가 샤-샤-샤-샥 걷히며 다음 장면 등장
  */
 export function createHyperframesBridgeController(durationSec = CHAPTER_BRIDGE_DURATION) {
   const state: BridgeGsapState = {
@@ -527,7 +1390,7 @@ export function createHyperframesBridgeController(durationSec = CHAPTER_BRIDGE_D
     );
   });
 
-  // 2. 스테이지 등장 (0.28s ~ 0.50s) -> 0.68s까지 "이전 날짜 / 출발지"가 그대로 유지되어 사용자가 먼저 인지!
+  // 2. 메인 스테이지 등장 (0.28s ~ 0.50s)
   tl.to(
     state,
     {
@@ -539,7 +1402,7 @@ export function createHyperframesBridgeController(durationSec = CHAPTER_BRIDGE_D
     0.28
   );
 
-  // 3. 플립 탁상시계 회전 & 구불구불 점선 이동 (0.68s ~ 1.48s, 충분한 0.8초 동안 또렷하게 연출!)
+  // 3. 날짜 플립 & 장소 이동 애니메이션 (0.68s ~ 1.48s)
   tl.to(
     state,
     {
@@ -560,7 +1423,6 @@ export function createHyperframesBridgeController(durationSec = CHAPTER_BRIDGE_D
     0.66
   );
 
-  // 목적지 도착 시 핀 파동 펄스 (1.42s ~ 1.78s)
   tl.to(
     state,
     {
@@ -571,7 +1433,7 @@ export function createHyperframesBridgeController(durationSec = CHAPTER_BRIDGE_D
     1.42
   );
 
-  // 4. 새 날짜/장소 충분히 인지(1.48s ~ 1.78s) 후 스테이지 수렴 (1.76s ~ 1.90s)
+  // 4. 스테이지 수렴 (1.76s ~ 1.90s)
   tl.to(
     state,
     {
@@ -583,7 +1445,7 @@ export function createHyperframesBridgeController(durationSec = CHAPTER_BRIDGE_D
     1.76
   );
 
-  // 5. 5단 루버 와이프 아웃 (1.86s ~ 2.20s) - 샤-샤-샤-샥 열리며 다음 장면 등장
+  // 5. 5단 루버 와이프 아웃 (1.86s ~ 2.20s)
   const openKeys: Array<keyof BridgeGsapState> = ['s0Open', 's1Open', 's2Open', 's3Open', 's4Open'];
   openKeys.forEach((key, idx) => {
     tl.to(
@@ -628,7 +1490,7 @@ export function createHyperframesBridgeController(durationSec = CHAPTER_BRIDGE_D
 
       ctx.save();
 
-      // 1. 기저 비디오 프레임 (0.45초 전까지는 이전 장면 유지, 이후 다음 장면 대기)
+      // 기저 비디오 프레임
       const isOpeningPhase = clampedTime >= 0.45;
       if (!isOpeningPhase && drawPrevVideoFrame) {
         ctx.save();
@@ -653,10 +1515,9 @@ export function createHyperframesBridgeController(durationSec = CHAPTER_BRIDGE_D
         ctx.fillRect(0, 0, targetWidth, targetHeight);
       }
 
-      // 해상도(720p vs 1080p)에 따른 동적 스케일링 계수 (720p=1.0, 1080p=1.5)
       const scale = targetWidth / 1280;
 
-      // 2. 5단 사선 루버 블라인드(Staggered Louver Blades)
+      // 5단 사선 루버 블라인드
       const closes = [state.s0Close, state.s1Close, state.s2Close, state.s3Close, state.s4Close];
       const opens = [state.s0Open, state.s1Open, state.s2Open, state.s3Open, state.s4Open];
       const sliceH = Math.ceil(targetHeight / SLICE_COUNT) + 2;
@@ -724,7 +1585,7 @@ export function createHyperframesBridgeController(durationSec = CHAPTER_BRIDGE_D
         ctx.restore();
       }
 
-      // 3. 메인 연출 스테이지 (날짜 플립 탁상시계 / 장소 구불구불 점선 이동)
+      // 메인 연출 스테이지
       if (state.stageAlpha > 0.01) {
         ctx.save();
         ctx.globalAlpha = Math.max(0, Math.min(1, state.stageAlpha));
@@ -733,7 +1594,6 @@ export function createHyperframesBridgeController(durationSec = CHAPTER_BRIDGE_D
         const centerX = targetWidth / 2;
         const centerY = targetHeight / 2;
 
-        // 은은한 라디얼 배경 글로우
         const ambGrad = ctx.createRadialGradient(
           centerX,
           centerY,
@@ -752,285 +1612,48 @@ export function createHyperframesBridgeController(durationSec = CHAPTER_BRIDGE_D
         const showLocationSection = info.isLocationChanged;
         const bothActive = showDateSection && showLocationSection;
 
-        // ---------------------------------------------------------------------
-        // [A] 날짜 변경 연출: 아날로그 스플릿 플립 탁상시계 (Split-Flap Flip Clock)
-        // ---------------------------------------------------------------------
+        // [A] 날짜 변경 연출 (선택된 템플릿에 따라 분기)
         if (showDateSection) {
-          const clockCenterY = bothActive ? centerY - Math.round(95 * scale) : centerY - Math.round(12 * scale);
-
-          // 상단 미니멀 라벨
-          ctx.save();
-          ctx.font = `700 ${Math.round(13 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-          ctx.fillStyle = '#f5d07d';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          if ('letterSpacing' in ctx) {
-            (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = `${Math.round(4 * scale)}px`;
+          switch (info.dateTemplate) {
+            case 'watch-spin':
+              renderDate2_WatchSpin(ctx, centerX, centerY, scale, info, state.flipProgress, bothActive);
+              break;
+            case 'calendar-page':
+              renderDate3_CalendarPage(ctx, centerX, centerY, scale, info, state.flipProgress, bothActive);
+              break;
+            case 'minimal-editorial':
+              renderDate4_MinimalEditorial(ctx, centerX, centerY, scale, info, state.flipProgress, bothActive);
+              break;
+            case 'neon-digital':
+              renderDate5_NeonDigital(ctx, centerX, centerY, scale, info, state.flipProgress, bothActive);
+              break;
+            case 'flip-clock':
+            default:
+              renderDate1_FlipClock(ctx, centerX, centerY, scale, info, state.flipProgress, bothActive);
+              break;
           }
-          ctx.fillText('DATE CHANGE', centerX, clockCenterY - Math.round((bothActive ? 68 : 84) * scale));
-          ctx.restore();
-
-          // 나이 괄호 등 부가 텍스트는 분리하고 핵심 날짜 문자열을 플립 타일로 구성
-          const extractCoreDate = (raw: string) => {
-            const match = raw.match(/^([^\(\[]+)/);
-            return (match ? match[1] : raw).trim();
-          };
-          const extractSuffix = (raw: string) => {
-            const match = raw.match(/([\([].+)$/);
-            return match ? match[1].trim() : '';
-          };
-
-          const fromCore = extractCoreDate(info.fromDate);
-          const toCore = extractCoreDate(info.toDate);
-          const maxLen = Math.max(fromCore.length, toCore.length);
-          const paddedFrom = fromCore.padEnd(maxLen, ' ');
-          const paddedTo = toCore.padEnd(maxLen, ' ');
-
-          const tileH = Math.round((bothActive ? 74 : 92) * scale);
-          const digitW = Math.round((bothActive ? 50 : 62) * scale);
-          const punctW = Math.round((bothActive ? 22 : 26) * scale);
-          const gap = Math.round(6 * scale);
-
-          const charWidths = paddedTo.split('').map((ch) =>
-            /[0-9A-Za-z가-힣]/.test(ch) ? digitW : punctW
-          );
-          const totalClockW =
-            charWidths.reduce((acc, w) => acc + w, 0) + Math.max(0, maxLen - 1) * gap;
-
-          // 플립 시계 하우징 프레임 (실제 탁상시계 같은 묵직한 메탈릭 베젤)
-          const framePadX = Math.round(22 * scale);
-          const framePadY = Math.round(14 * scale);
-          ctx.save();
-          ctx.fillStyle = 'rgba(7, 10, 16, 0.85)';
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-          ctx.lineWidth = Math.max(1, 1.5 * scale);
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-          ctx.shadowBlur = Math.round(24 * scale);
-          ctx.shadowOffsetY = Math.round(8 * scale);
-          ctx.beginPath();
-          const frameRadius = Math.round(16 * scale);
-          if (typeof ctx.roundRect === 'function') {
-            ctx.roundRect(
-              centerX - totalClockW / 2 - framePadX,
-              clockCenterY - tileH / 2 - framePadY,
-              totalClockW + framePadX * 2,
-              tileH + framePadY * 2,
-              frameRadius
-            );
-          } else {
-            ctx.rect(
-              centerX - totalClockW / 2 - framePadX,
-              clockCenterY - tileH / 2 - framePadY,
-              totalClockW + framePadX * 2,
-              tileH + framePadY * 2
-            );
-          }
-          ctx.fill();
-          ctx.shadowColor = 'transparent';
-          ctx.stroke();
-          ctx.restore();
-
-          // 각 자리별 스태거를 적용해 왼쪽부터 오른쪽으로 드르륵 착! 착! 착! 넘어가는 플립 렌더링
-          let cursorX = centerX - totalClockW / 2;
-          for (let i = 0; i < maxLen; i++) {
-            const w = charWidths[i];
-            const tileCenterX = cursorX + w / 2;
-            const staggerOffset = (i / Math.max(1, maxLen - 1)) * 0.28;
-            const localProg = Math.max(
-              0,
-              Math.min(1, (state.flipProgress - staggerOffset) / (1 - 0.28))
-            );
-
-            drawSplitFlapTile(
-              ctx,
-              tileCenterX,
-              clockCenterY,
-              w,
-              tileH,
-              paddedFrom[i],
-              paddedTo[i],
-              localProg
-            );
-            cursorX += w + gap;
-          }
-
-          // 플립 시계 아래에 "이전 날짜 → 새 날짜" 비교 표시 (사용자가 전/후 날짜를 한눈에 인지!)
-          const fromSuffix = extractSuffix(info.fromDate);
-          const toSuffix = extractSuffix(info.toDate);
-          const summaryY = clockCenterY + tileH / 2 + Math.round((bothActive ? 34 : 46) * scale);
-
-          ctx.save();
-          ctx.font = `600 ${Math.round(18 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", monospace`;
-          ctx.textBaseline = 'middle';
-
-          const leftLabel = `${fromCore}${fromSuffix ? ' ' + fromSuffix : ''}`;
-          const rightLabel = `${toCore}${toSuffix ? ' ' + toSuffix : ''}`;
-          const arrowStr = '   →   ';
-
-          const leftW = ctx.measureText(leftLabel).width;
-          const arrowW = ctx.measureText(arrowStr).width;
-          const rightW = ctx.measureText(rightLabel).width;
-          const totalSummaryW = leftW + arrowW + rightW;
-          const startSumX = centerX - totalSummaryW / 2;
-
-          ctx.textAlign = 'left';
-          ctx.fillStyle = 'rgba(148, 163, 184, 0.85)';
-          ctx.fillText(leftLabel, startSumX, summaryY);
-
-          ctx.fillStyle = '#f5d07d';
-          ctx.fillText(arrowStr, startSumX + leftW, summaryY);
-
-          ctx.fillStyle = state.flipProgress > 0.75 ? '#ffffff' : 'rgba(255, 255, 255, 0.45)';
-          ctx.font = `700 ${Math.round(19 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", monospace`;
-          ctx.fillText(rightLabel, startSumX + leftW + arrowW, summaryY);
-          ctx.restore();
         }
 
-        // ---------------------------------------------------------------------
-        // [B] 장소 변경 연출: 구불구불한 점선 경로(Winding Dashed Route) + 자동차/비행기 이동
-        // ---------------------------------------------------------------------
+        // [B] 장소 변경 연출 (선택된 템플릿에 따라 분기)
         if (showLocationSection) {
-          const mapCenterY = bothActive ? centerY + Math.round(115 * scale) : centerY + Math.round(6 * scale);
-          const routeSpanW = Math.min(620 * scale, targetWidth * 0.52);
-          const startX = centerX - routeSpanW / 2;
-          const endX = centerX + routeSpanW / 2;
-          const startY = mapCenterY + Math.round(12 * scale);
-          const endY = mapCenterY - Math.round(12 * scale);
-
-          // 상단 미니멀 라벨 (장소 단독 변경 시에만 상단 표시)
-          if (!bothActive) {
-            ctx.save();
-            ctx.font = `700 ${Math.round(13 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-            ctx.fillStyle = '#38bdf8';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            if ('letterSpacing' in ctx) {
-              (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = `${Math.round(4 * scale)}px`;
-            }
-            ctx.fillText('LOCATION ROUTE', centerX, mapCenterY - Math.round(105 * scale));
-            ctx.restore();
+          switch (info.locationTemplate) {
+            case 'globe-spin':
+              renderLocation2_GlobeSpin(ctx, centerX, centerY, scale, info, state.routeProgress, state.destPulse, bothActive);
+              break;
+            case 'boarding-pass':
+              renderLocation3_BoardingPass(ctx, centerX, centerY, scale, info, state.routeProgress, bothActive);
+              break;
+            case 'minimal-editorial':
+              renderLocation4_MinimalEditorial(ctx, centerX, centerY, scale, info, state.routeProgress, bothActive);
+              break;
+            case 'gps-cyber':
+              renderLocation5_GpsCyber(ctx, centerX, centerY, scale, info, state.routeProgress, state.destPulse, bothActive);
+              break;
+            case 'winding-route':
+            default:
+              renderLocation1_WindingRoute(ctx, centerX, centerY, targetWidth, scale, info, state.routeProgress, state.destPulse, bothActive);
+              break;
           }
-
-          // 1) 전체 경로의 옅은 베이스 가이드 점선
-          const sampleSteps = 64;
-          ctx.save();
-          ctx.beginPath();
-          for (let s = 0; s <= sampleSteps; s++) {
-            const pt = sampleWindingPath(startX, startY, endX, endY, s / sampleSteps);
-            if (s === 0) ctx.moveTo(pt.x, pt.y);
-            else ctx.lineTo(pt.x, pt.y);
-          }
-          ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)';
-          ctx.lineWidth = Math.max(1.5, 2.5 * scale);
-          ctx.setLineDash([Math.round(6 * scale), Math.round(9 * scale)]);
-          ctx.lineCap = 'round';
-          ctx.stroke();
-          ctx.restore();
-
-          // 2) 이동 수단이 지나간 자리에 실시간으로 생기는 밝은 샴페인 골드 구불구불 점선(Active Dashed Trail)
-          const activeSteps = Math.max(1, Math.round(sampleSteps * state.routeProgress));
-          if (state.routeProgress > 0.01) {
-            ctx.save();
-            ctx.beginPath();
-            for (let s = 0; s <= activeSteps; s++) {
-              const t = Math.min(state.routeProgress, (s / sampleSteps));
-              const pt = sampleWindingPath(startX, startY, endX, endY, t);
-              if (s === 0) ctx.moveTo(pt.x, pt.y);
-              else ctx.lineTo(pt.x, pt.y);
-            }
-            ctx.strokeStyle = '#f5d07d';
-            ctx.lineWidth = Math.max(2, 4 * scale);
-            ctx.setLineDash([Math.round(10 * scale), Math.round(8 * scale)]);
-            ctx.lineCap = 'round';
-            ctx.shadowColor = 'rgba(245, 208, 125, 0.55)';
-            ctx.shadowBlur = Math.round(10 * scale);
-            ctx.stroke();
-            ctx.restore();
-          }
-          // 3) 출발지 포인트 (Origin Pin & 이전 장소명)
-          ctx.save();
-          ctx.fillStyle = '#0f172a';
-          ctx.strokeStyle = '#94a3b8';
-          ctx.lineWidth = 3;
-          ctx.beginPath();
-          ctx.arc(startX, startY, 9, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.stroke();
-
-          ctx.fillStyle = '#cbd5e1';
-          ctx.beginPath();
-          ctx.arc(startX, startY, 3.5, 0, Math.PI * 2);
-          ctx.fill();
-
-          // 출발지 텍스트
-          const fromLocLabel = info.fromLocation || '이전 장소';
-          ctx.font = `700 ${bothActive ? 20 : 24}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-          ctx.fillStyle = 'rgba(203, 213, 225, 0.9)';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'top';
-          ctx.fillText(fromLocLabel, startX, startY + 22);
-
-          ctx.font = '600 11px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
-          ctx.fillStyle = 'rgba(148, 163, 184, 0.7)';
-          ctx.fillText('FROM', startX, startY - 26);
-          ctx.restore();
-
-          // 4) 도착지 포인트 (Destination Pin & 새 장소명 + 도착 리플 파동)
-          const arrived = state.routeProgress >= 0.95;
-          ctx.save();
-
-          if (state.destPulse > 0.01) {
-            const pulseRadius = 12 + state.destPulse * 34;
-            const pulseAlpha = Math.max(0, (1 - state.destPulse) * 0.75);
-            ctx.strokeStyle = `rgba(56, 189, 248, ${pulseAlpha.toFixed(3)})`;
-            ctx.lineWidth = 2.5;
-            ctx.beginPath();
-            ctx.arc(endX, endY, pulseRadius, 0, Math.PI * 2);
-            ctx.stroke();
-          }
-
-          // 도착지 위치 마커 핀
-          const pinColor = arrived ? '#38bdf8' : '#64748b';
-          ctx.fillStyle = '#0f172a';
-          ctx.strokeStyle = pinColor;
-          ctx.lineWidth = 3.5;
-          ctx.beginPath();
-          ctx.arc(endX, endY, 11, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.stroke();
-
-          ctx.fillStyle = arrived ? '#f5d07d' : '#94a3b8';
-          ctx.beginPath();
-          ctx.arc(endX, endY, 4.5, 0, Math.PI * 2);
-          ctx.fill();
-
-          // 도착지 장소명 (도착 시 밝은 화이트 & 스케일 강조)
-          const toLocLabel = info.toLocation || '다음 장소';
-          ctx.font = `800 ${bothActive ? 22 : 28}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-          ctx.fillStyle = arrived ? '#ffffff' : 'rgba(226, 232, 240, 0.65)';
-          if (arrived) {
-            ctx.shadowColor = 'rgba(56, 189, 248, 0.5)';
-            ctx.shadowBlur = 14;
-          }
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'top';
-          ctx.fillText(toLocLabel, endX, endY + 22);
-          ctx.shadowColor = 'transparent';
-
-          ctx.font = '700 11px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
-          ctx.fillStyle = arrived ? '#38bdf8' : 'rgba(148, 163, 184, 0.7)';
-          ctx.fillText('TO', endX, endY - 28);
-          ctx.restore();
-
-          // 5) 구불구불한 경로 위를 실제로 달리는 이동 수단(자동차/비행기) 아이콘
-          const currentPos = sampleWindingPath(startX, startY, endX, endY, state.routeProgress);
-          drawTravelVehicleIcon(
-            ctx,
-            currentPos.x,
-            currentPos.y,
-            currentPos.angle,
-            info.travelVehicle
-          );
         }
 
         ctx.restore();
