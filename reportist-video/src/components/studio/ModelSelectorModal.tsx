@@ -147,7 +147,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
 
   const handleSaveByok = () => {
     if (!apiKeyInput.trim()) {
-      notify.warning('API Key를 입력해 주세요.');
+      notify.warning(dict.modelModal.byokToastMissingKey || 'API Key를 입력해 주세요.');
       return;
     }
 
@@ -161,7 +161,11 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
     setStoredUserApiKeyConfig(payload);
     setStoredUserKey(payload);
     onSelectModel(payload.model);
-    notify.success(`${currentPreset.name} API Key가 브라우저에 안전하게 저장되었습니다!`);
+    notify.success(
+      interpolate(dict.modelModal.byokToastSaved || '{provider} API Key가 브라우저에 안전하게 저장되었습니다!', {
+        provider: currentPreset.name,
+      })
+    );
   };
 
   const handleClearByok = () => {
@@ -170,7 +174,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
     setApiKeyInput('');
     const defaultModel = models[0]?.id || 'nvidia/nemotron-3.5-super-vl:free';
     onSelectModel(defaultModel);
-    notify.info('API Key가 삭제되었습니다. 기본 무료 게이트웨이 모델로 전환됩니다.');
+    notify.info(dict.modelModal.byokToastDeleted || 'API Key가 삭제되었습니다. 펭귄컷 무료 모델로 전환됩니다.');
   };
 
   useModalScrollLock(isOpen, {
@@ -380,7 +384,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
             }}
           >
             <Sparkles size={15} color={activeTab === 'gateway' ? '#3182f6' : '#8b95a1'} />
-            <span>AI Gateway 무료 모델</span>
+            <span>{dict.modelModal.tabPenguinCutFree || '펭귄컷 무료 모델'}</span>
           </button>
           <button
             type="button"
@@ -404,7 +408,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
             }}
           >
             <Key size={15} color={activeTab === 'byok' ? '#00a86b' : '#8b95a1'} />
-            <span>내 API Key 연결 (BYOK)</span>
+            <span>{dict.modelModal.tabByok || '내 API Key 연결 (BYOK)'}</span>
             {storedUserKey && (
               <span
                 style={{
@@ -454,13 +458,16 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: '13.5px', fontWeight: 700, color: storedUserKey ? '#008252' : '#1b64da' }}>
                   {storedUserKey
-                    ? `현재 ${getProviderPreset(storedUserKey.provider).name} (${storedUserKey.model}) 연결됨`
-                    : '내 API Key를 등록하여 플래그십 AI로 하이라이트 분석'}
+                    ? interpolate(dict.modelModal.byokConnectedBannerTitle || '현재 {provider} ({model}) 연결됨', {
+                        provider: getProviderPreset(storedUserKey.provider).name,
+                        model: storedUserKey.model,
+                      })
+                    : (dict.modelModal.byokUnconnectedBannerTitle || '내 API Key를 등록하여 플래그십 AI로 하이라이트 분석')}
                 </div>
                 <div style={{ fontSize: '12px', color: '#4e5968', marginTop: '3px', lineHeight: 1.45 }}>
                   {storedUserKey
-                    ? '브라우저에 안전하게 저장되어 있으며 새로고침해도 유지됩니다. 하이라이트 분석 시 개인 키로 직접 처리됩니다.'
-                    : 'OpenAI, Claude, Gemini 등의 개인 API Key를 넣으면 분당 제한 없이 고화질 멀티모달 분석을 이용할 수 있습니다.'}
+                    ? (dict.modelModal.byokConnectedBannerDesc || '브라우저에 안전하게 저장되어 있으며 새로고침해도 유지됩니다. 하이라이트 분석 시 개인 키로 직접 처리됩니다.')
+                    : (dict.modelModal.byokUnconnectedBannerDesc || 'OpenAI, Claude, Gemini 등의 개인 API Key를 넣으면 분당 제한 없이 고화질 멀티모달 분석을 이용할 수 있습니다.')}
                 </div>
               </div>
             </div>
@@ -476,7 +483,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                   marginBottom: '8px',
                 }}
               >
-                1. AI 제공사 선택
+                {dict.modelModal.byokStepProvider || '1. AI 제공사 선택'}
               </label>
               <div
                 style={{
@@ -520,7 +527,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                               fontWeight: 700,
                             }}
                           >
-                            저장됨
+                            {dict.modelModal.byokSavedBadge || '저장됨'}
                           </span>
                         )}
                       </div>
@@ -556,7 +563,9 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <label style={{ fontSize: '13px', fontWeight: 700, color: '#191f28' }}>
-                  2. {currentPreset.name} API Key 입력
+                  {interpolate(dict.modelModal.byokStepApiKey || '2. {provider} API Key 입력', {
+                    provider: currentPreset.name,
+                  })}
                 </label>
                 {currentPreset.helpUrl && (
                   <a
@@ -573,7 +582,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                       fontWeight: 600,
                     }}
                   >
-                    <span>키 발급받기</span>
+                    <span>{dict.modelModal.byokGetKeyLink || '키 발급받기'}</span>
                     <ExternalLink size={11} />
                   </a>
                 )}
@@ -619,7 +628,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                       color: '#8b95a1',
                       cursor: 'pointer',
                     }}
-                    title={showKeyText ? '숨기기' : '표시'}
+                    title={showKeyText ? (dict.modelModal.byokHideBtn || '숨기기') : (dict.modelModal.byokShowBtn || '표시')}
                   >
                     {showKeyText ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
@@ -642,7 +651,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                       cursor: 'pointer',
                     }}
                   >
-                    붙여넣기
+                    {dict.modelModal.byokPasteBtn || '붙여넣기'}
                   </button>
                 </div>
               </div>
@@ -650,7 +659,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
               {/* 3. 모델 선택 */}
               <div>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#191f28', marginBottom: '6px' }}>
-                  3. 모델 지정 (영상 하이라이트 분석용)
+                  {dict.modelModal.byokStepModel || '3. 모델 지정 (영상 하이라이트 분석용)'}
                 </label>
                 {currentPreset.recommendedModels.length > 0 && (
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
@@ -681,7 +690,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                   type="text"
                   value={modelInput}
                   onChange={(e) => setModelInput(e.target.value)}
-                  placeholder="직접 모델 ID 입력 (예: gpt-4o, claude-3-5-sonnet-20241022)"
+                  placeholder={dict.modelModal.byokModelPlaceholder || "직접 모델 ID 입력 (예: gpt-4o, claude-3-5-sonnet-20241022)"}
                   style={{
                     width: '100%',
                     padding: '10px 14px',
@@ -700,7 +709,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
               {(currentPreset.supportsCustomBaseUrl || selectedByokProvider === 'custom') && (
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#191f28', marginBottom: '4px' }}>
-                    커스텀 엔드포인트 URL (선택)
+                    {dict.modelModal.byokCustomBaseUrlLabel || '커스텀 엔드포인트 URL (선택)'}
                   </label>
                   <input
                     type="text"
@@ -746,7 +755,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                   }}
                 >
                   <Key size={15} />
-                  <span>브라우저에 저장하고 연결하기</span>
+                  <span>{dict.modelModal.byokSaveBtn || '브라우저에 저장하고 연결하기'}</span>
                 </button>
                 {storedUserKey && (
                   <button
@@ -767,10 +776,10 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                       cursor: 'pointer',
                       transition: 'all 0.15s ease',
                     }}
-                    title="키 삭제"
+                    title={dict.modelModal.byokDeleteBtn || '삭제'}
                   >
                     <Trash2 size={15} />
-                    <span>삭제</span>
+                    <span>{dict.modelModal.byokDeleteBtn || '삭제'}</span>
                   </button>
                 )}
               </div>
@@ -793,13 +802,13 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#3182f6', fontWeight: 700, fontSize: '12.5px' }}>
                 <ShieldCheck size={15} />
-                <span>안심 보안 & CORS(Origin) 오류 원천 방지 안내</span>
+                <span>{dict.modelModal.byokSecurityTitle || '안심 보안 & CORS(Origin) 오류 원천 방지 안내'}</span>
               </div>
               <div>
-                • <strong>CORS 에러 제로</strong>: 브라우저에서 직접 AI 제공자로 요청하지 않고 AI Gateway의 보안 패스스루 터널을 거치므로 Origin 차단 오류 없이 안정적으로 호출됩니다.
+                • {dict.modelModal.byokSecurityCors || 'CORS 에러 제로: 브라우저에서 직접 AI 제공자로 요청하지 않고 AI Gateway의 보안 패스스루 터널을 거치므로 Origin 차단 오류 없이 안정적으로 호출됩니다.'}
               </div>
               <div>
-                • <strong>로컬 보관 (Zero DB Storage)</strong>: 입력하신 API Key는 사용자 브라우저의 <code style={{ backgroundColor: '#e5e8eb', color: '#191f28', padding: '1px 5px', borderRadius: '4px', fontSize: '11px' }}>localStorage</code>에만 보관되며 서버 데이터베이스나 로그에 영구 저장되지 않습니다.
+                • {dict.modelModal.byokSecurityStorage || '로컬 보관 (Zero DB Storage): 입력하신 API Key는 사용자 브라우저의 localStorage에만 보관되며 서버 데이터베이스나 로그에 영구 저장되지 않습니다.'}
               </div>
             </div>
           </div>
