@@ -3710,16 +3710,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         <div className="toss-nav-left">
           {activeTab === 'studio' ? (
             /* 스튜디오 상세(편집 화면): 로고 대신 뒤로가기 버튼 표시 및 다른 탭 메뉴 숨김 */
-            <button
-              type="button"
-              className="toss-nav-back-btn"
-              onClick={handleBackToProjects}
-              title={dict.projects?.backToList || '스튜디오 목록으로'}
-              aria-label={dict.projects?.backToList || '스튜디오 목록으로'}
-            >
-              <ChevronLeft size={18} className="toss-nav-back-icon" />
-              <span className="toss-nav-back-text">{dict.projects?.backToList || '스튜디오 목록'}</span>
-            </button>
+            <>
+              <button
+                type="button"
+                className="toss-nav-back-btn"
+                onClick={handleBackToProjects}
+                title={dict.projects?.backToList || '스튜디오 목록으로'}
+                aria-label={dict.projects?.backToList || '스튜디오 목록으로'}
+              >
+                <ChevronLeft size={18} className="toss-nav-back-icon" />
+                <span className="toss-nav-back-text">{dict.projects?.backToList || '스튜디오 목록'}</span>
+              </button>
+              {/* 모바일에서 뒤로가기 옆이 허전하지 않도록 앱명 노출 */}
+              <span className="toss-nav-detail-brand">{dict.common.brandName}</span>
+            </>
           ) : (
             /* 목록 및 커뮤니티 화면: 로고, 브랜드명, 상단 탭 노출 */
             <>

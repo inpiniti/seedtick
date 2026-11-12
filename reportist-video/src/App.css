@@ -1263,6 +1263,18 @@
   white-space: nowrap;
 }
 
+/* 스튜디오 상세 헤더의 앱명: 모바일에서 뒤로가기 옆 공간을 채움 */
+.toss-nav-detail-brand {
+  display: none;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: #191f28;
+  letter-spacing: -0.3px;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
 /* 브랜드명 아래 서브 타이틀 (배경색·음영 없이 담백한 텍스트) */
 .toss-nav-tagline {
   font-size: 10.5px;
@@ -5721,9 +5733,14 @@
     flex-shrink: 0;
   }
 
-  /* 모바일에서 불필요한 앱명 및 16:9 배지 숨김 */
+  /* 모바일에서도 앱명은 로고·뒤로가기 옆에 유지하고, 서브 타이틀과 배지만 숨김 */
   .toss-nav-title {
-    display: none !important;
+    display: inline-block;
+    font-size: 15px;
+  }
+
+  .toss-nav-detail-brand {
+    display: inline-block;
   }
 
   .toss-tag-blue {
@@ -5961,6 +5978,11 @@
 
   .toss-nav-left {
     gap: 4px;
+  }
+
+  .toss-nav-title,
+  .toss-nav-detail-brand {
+    font-size: 14px;
   }
 
   .toss-logo-badge {
