@@ -982,9 +982,6 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                       : (w?.step3HeroTitle || 'AI가 영상의 극적인 순간을 분석하고 있어요')}
                   </ShinyText>
                 </h3>
-                <p className="wizard-processing-desc">
-                  {latestAnalysisTask.text}
-                </p>
 
                 {progress.isQueued && (
                   <div className="wizard-analysis-queue">
