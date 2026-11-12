@@ -347,14 +347,15 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
           </button>
         </div>
 
-        {/* Tab Selector: Gateway vs BYOK */}
+        {/* Tab Selector: Gateway vs BYOK (토스 세그먼티드 컨트롤 스타일) */}
         <div
           style={{
+            margin: '12px 24px 0',
+            padding: '4px',
+            backgroundColor: '#f2f4f6',
+            borderRadius: '12px',
             display: 'flex',
-            padding: '8px 16px',
-            gap: '8px',
-            backgroundColor: 'rgba(15, 23, 42, 0.6)',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+            gap: '4px',
           }}
         >
           <button
@@ -365,19 +366,20 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '8px',
-              padding: '10px 14px',
-              borderRadius: '10px',
-              border: activeTab === 'gateway' ? '1px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.06)',
-              backgroundColor: activeTab === 'gateway' ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-              color: activeTab === 'gateway' ? '#38bdf8' : '#94a3b8',
+              gap: '7px',
+              padding: '9px 14px',
+              borderRadius: '9px',
+              border: 'none',
+              backgroundColor: activeTab === 'gateway' ? '#ffffff' : 'transparent',
+              color: activeTab === 'gateway' ? '#191f28' : '#8b95a1',
+              boxShadow: activeTab === 'gateway' ? '0 2px 6px rgba(0, 0, 0, 0.08)' : 'none',
               fontSize: '13px',
-              fontWeight: 700,
+              fontWeight: activeTab === 'gateway' ? 700 : 600,
               cursor: 'pointer',
-              transition: 'all 0.15s ease',
+              transition: 'all 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
           >
-            <Sparkles size={15} />
+            <Sparkles size={15} color={activeTab === 'gateway' ? '#3182f6' : '#8b95a1'} />
             <span>AI Gateway 무료 모델</span>
           </button>
           <button
@@ -388,29 +390,29 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '8px',
-              padding: '10px 14px',
-              borderRadius: '10px',
-              border: activeTab === 'byok' ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.06)',
-              backgroundColor: activeTab === 'byok' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-              color: activeTab === 'byok' ? '#34d399' : '#94a3b8',
+              gap: '7px',
+              padding: '9px 14px',
+              borderRadius: '9px',
+              border: 'none',
+              backgroundColor: activeTab === 'byok' ? '#ffffff' : 'transparent',
+              color: activeTab === 'byok' ? '#191f28' : '#8b95a1',
+              boxShadow: activeTab === 'byok' ? '0 2px 6px rgba(0, 0, 0, 0.08)' : 'none',
               fontSize: '13px',
-              fontWeight: 700,
+              fontWeight: activeTab === 'byok' ? 700 : 600,
               cursor: 'pointer',
-              transition: 'all 0.15s ease',
+              transition: 'all 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
           >
-            <Key size={15} />
+            <Key size={15} color={activeTab === 'byok' ? '#00a86b' : '#8b95a1'} />
             <span>내 API Key 연결 (BYOK)</span>
             {storedUserKey && (
               <span
                 style={{
                   display: 'inline-block',
-                  width: '7px',
-                  height: '7px',
+                  width: '6px',
+                  height: '6px',
                   borderRadius: '50%',
-                  backgroundColor: '#10b981',
-                  boxShadow: '0 0 6px #10b981',
+                  backgroundColor: '#00a86b',
                 }}
               />
             )}
@@ -418,45 +420,46 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
         </div>
 
         {activeTab === 'byok' ? (
-          /* === BYOK (내 API Key 설정 화면) === */
+          /* === BYOK (내 API Key 설정 화면 - 토스 스타일 라이트 테마) === */
           <div
             className="model-modal-list"
             data-modal-scrollable="true"
             style={{
-              padding: '16px',
+              padding: '16px 24px 24px',
               display: 'flex',
               flexDirection: 'column',
               gap: '16px',
               overflowY: 'auto',
               maxHeight: 'calc(85vh - 180px)',
+              backgroundColor: '#ffffff',
             }}
           >
             {/* 연결 상태 안내 카드 */}
             <div
               style={{
-                padding: '12px 14px',
-                borderRadius: '12px',
-                backgroundColor: storedUserKey ? 'rgba(16, 185, 129, 0.1)' : 'rgba(56, 189, 248, 0.08)',
-                border: storedUserKey ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(56, 189, 248, 0.2)',
+                padding: '14px 16px',
+                borderRadius: '14px',
+                backgroundColor: storedUserKey ? '#e6f9f0' : '#e8f3ff',
+                border: storedUserKey ? '1px solid #bbf2d8' : '1px solid #cfe5ff',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '12px',
               }}
             >
               {storedUserKey ? (
-                <CheckCircle2 size={20} color="#10b981" style={{ flexShrink: 0 }} />
+                <CheckCircle2 size={20} color="#00a86b" style={{ flexShrink: 0 }} />
               ) : (
-                <Server size={20} color="#38bdf8" style={{ flexShrink: 0 }} />
+                <Server size={20} color="#3182f6" style={{ flexShrink: 0 }} />
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: '#f8fafc' }}>
+                <div style={{ fontSize: '13.5px', fontWeight: 700, color: storedUserKey ? '#008252' : '#1b64da' }}>
                   {storedUserKey
                     ? `현재 ${getProviderPreset(storedUserKey.provider).name} (${storedUserKey.model}) 연결됨`
                     : '내 API Key를 등록하여 플래그십 AI로 하이라이트 분석'}
                 </div>
-                <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px', lineHeight: 1.4 }}>
+                <div style={{ fontSize: '12px', color: '#4e5968', marginTop: '3px', lineHeight: 1.45 }}>
                   {storedUserKey
-                    ? '브라우저에 안전하게 저장되어 있으며, 새로고침해도 유지됩니다. 하이라이트 분석 시 개인 키로 직접 처리됩니다.'
+                    ? '브라우저에 안전하게 저장되어 있으며 새로고침해도 유지됩니다. 하이라이트 분석 시 개인 키로 직접 처리됩니다.'
                     : 'OpenAI, Claude, Gemini 등의 개인 API Key를 넣으면 분당 제한 없이 고화질 멀티모달 분석을 이용할 수 있습니다.'}
                 </div>
               </div>
@@ -467,9 +470,9 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
               <label
                 style={{
                   display: 'block',
-                  fontSize: '12px',
+                  fontSize: '13px',
                   fontWeight: 700,
-                  color: '#cbd5e1',
+                  color: '#191f28',
                   marginBottom: '8px',
                 }}
               >
@@ -491,27 +494,29 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                       type="button"
                       onClick={() => handleSelectByokProvider(preset.id)}
                       style={{
-                        padding: '10px 12px',
-                        borderRadius: '10px',
-                        backgroundColor: isSelected ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.03)',
-                        border: isSelected ? `2px solid ${preset.color}` : '1px solid rgba(255, 255, 255, 0.08)',
-                        color: isSelected ? '#ffffff' : '#cbd5e1',
+                        padding: '11px 12px',
+                        borderRadius: '12px',
+                        backgroundColor: isSelected ? '#ffffff' : '#f8fafc',
+                        border: isSelected ? '2px solid #3182f6' : '1px solid #e5e8eb',
+                        boxShadow: isSelected ? '0 4px 12px rgba(49, 130, 246, 0.12)' : 'none',
                         cursor: 'pointer',
                         textAlign: 'left',
                         position: 'relative',
                         transition: 'all 0.15s ease',
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <span style={{ fontSize: '12px', fontWeight: 700 }}>{preset.shortName}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>
+                        <span style={{ fontSize: '12.5px', fontWeight: 700, color: isSelected ? '#1b64da' : '#191f28' }}>
+                          {preset.shortName}
+                        </span>
                         {isSavedProvider && (
                           <span
                             style={{
                               fontSize: '10px',
                               padding: '1px 5px',
-                              borderRadius: '4px',
-                              backgroundColor: 'rgba(16, 185, 129, 0.2)',
-                              color: '#34d399',
+                              borderRadius: '5px',
+                              backgroundColor: '#e6f9f0',
+                              color: '#00a86b',
                               fontWeight: 700,
                             }}
                           >
@@ -521,7 +526,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                       </div>
                       <div
                         style={{
-                          fontSize: '10px',
+                          fontSize: '10.5px',
                           color: preset.color,
                           fontWeight: 600,
                           overflow: 'hidden',
@@ -540,17 +545,17 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
             {/* 2. API Key 입력 폼 */}
             <div
               style={{
-                backgroundColor: 'rgba(15, 23, 42, 0.4)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                borderRadius: '12px',
-                padding: '14px',
+                backgroundColor: '#f8fafc',
+                border: '1px solid #e5e8eb',
+                borderRadius: '16px',
+                padding: '16px 18px',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '12px',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <label style={{ fontSize: '12px', fontWeight: 700, color: '#f1f5f9' }}>
+                <label style={{ fontSize: '13px', fontWeight: 700, color: '#191f28' }}>
                   2. {currentPreset.name} API Key 입력
                 </label>
                 {currentPreset.helpUrl && (
@@ -562,8 +567,8 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '4px',
-                      fontSize: '11px',
-                      color: '#38bdf8',
+                      fontSize: '12px',
+                      color: '#3182f6',
                       textDecoration: 'none',
                       fontWeight: 600,
                     }}
@@ -583,14 +588,15 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                   placeholder={currentPreset.placeholder}
                   style={{
                     width: '100%',
-                    padding: '10px 75px 10px 12px',
-                    borderRadius: '8px',
-                    backgroundColor: 'rgba(0, 0, 0, 0.35)',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    color: '#ffffff',
-                    fontSize: '13px',
+                    padding: '11px 85px 11px 14px',
+                    borderRadius: '10px',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #d1d6db',
+                    color: '#191f28',
+                    fontSize: '13.5px',
                     fontFamily: 'monospace',
                     outline: 'none',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
                   }}
                 />
                 <div
@@ -606,11 +612,11 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                     type="button"
                     onClick={() => setShowKeyText(!showKeyText)}
                     style={{
-                      padding: '4px 6px',
+                      padding: '5px',
                       borderRadius: '6px',
                       backgroundColor: 'transparent',
                       border: 'none',
-                      color: '#94a3b8',
+                      color: '#8b95a1',
                       cursor: 'pointer',
                     }}
                     title={showKeyText ? '숨기기' : '표시'}
@@ -626,12 +632,12 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                       } catch {}
                     }}
                     style={{
-                      padding: '4px 8px',
-                      borderRadius: '6px',
-                      backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                      border: '1px solid rgba(255, 255, 255, 0.12)',
-                      color: '#cbd5e1',
-                      fontSize: '11px',
+                      padding: '5px 9px',
+                      borderRadius: '7px',
+                      backgroundColor: '#f2f4f6',
+                      border: '1px solid #e5e8eb',
+                      color: '#4e5968',
+                      fontSize: '11.5px',
                       fontWeight: 600,
                       cursor: 'pointer',
                     }}
@@ -643,7 +649,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
 
               {/* 3. 모델 선택 */}
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#cbd5e1', marginBottom: '6px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#191f28', marginBottom: '6px' }}>
                   3. 모델 지정 (영상 하이라이트 분석용)
                 </label>
                 {currentPreset.recommendedModels.length > 0 && (
@@ -654,14 +660,15 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                         type="button"
                         onClick={() => setModelInput(m.id)}
                         style={{
-                          padding: '5px 10px',
-                          borderRadius: '6px',
-                          fontSize: '11px',
+                          padding: '6px 11px',
+                          borderRadius: '8px',
+                          fontSize: '11.5px',
                           fontWeight: 600,
-                          backgroundColor: modelInput === m.id ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                          border: modelInput === m.id ? '1px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.1)',
-                          color: modelInput === m.id ? '#38bdf8' : '#94a3b8',
+                          backgroundColor: modelInput === m.id ? '#e8f3ff' : '#ffffff',
+                          border: modelInput === m.id ? '1.5px solid #3182f6' : '1px solid #e5e8eb',
+                          color: modelInput === m.id ? '#1b64da' : '#4e5968',
                           cursor: 'pointer',
+                          transition: 'all 0.15s ease',
                         }}
                         title={m.desc}
                       >
@@ -677,12 +684,12 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                   placeholder="직접 모델 ID 입력 (예: gpt-4o, claude-3-5-sonnet-20241022)"
                   style={{
                     width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    color: '#ffffff',
-                    fontSize: '12px',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #d1d6db',
+                    color: '#191f28',
+                    fontSize: '13px',
                     fontFamily: 'monospace',
                     outline: 'none',
                   }}
@@ -692,7 +699,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
               {/* 4. 커스텀 Base URL (필요시) */}
               {(currentPreset.supportsCustomBaseUrl || selectedByokProvider === 'custom') && (
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#cbd5e1', marginBottom: '4px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#191f28', marginBottom: '4px' }}>
                     커스텀 엔드포인트 URL (선택)
                   </label>
                   <input
@@ -702,12 +709,12 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                     placeholder="https://api.example.com/v1/chat/completions"
                     style={{
                       width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      backgroundColor: 'rgba(0, 0, 0, 0.25)',
-                      border: '1px solid rgba(255, 255, 255, 0.12)',
-                      color: '#ffffff',
-                      fontSize: '12px',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #d1d6db',
+                      color: '#191f28',
+                      fontSize: '13px',
                       fontFamily: 'monospace',
                       outline: 'none',
                     }}
@@ -726,17 +733,19 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '6px',
-                    padding: '10px 16px',
-                    borderRadius: '8px',
-                    backgroundColor: '#10b981',
+                    padding: '12px 20px',
+                    borderRadius: '12px',
+                    backgroundColor: '#00a86b',
                     border: 'none',
                     color: '#ffffff',
-                    fontSize: '13px',
+                    fontSize: '13.5px',
                     fontWeight: 700,
+                    boxShadow: '0 4px 12px rgba(0, 168, 107, 0.22)',
                     cursor: 'pointer',
+                    transition: 'all 0.15s ease',
                   }}
                 >
-                  <Key size={14} />
+                  <Key size={15} />
                   <span>브라우저에 저장하고 연결하기</span>
                 </button>
                 {storedUserKey && (
@@ -748,18 +757,19 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: '6px',
-                      padding: '10px 14px',
-                      borderRadius: '8px',
-                      backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                      border: '1px solid rgba(239, 68, 68, 0.3)',
-                      color: '#f87171',
-                      fontSize: '13px',
+                      padding: '12px 18px',
+                      borderRadius: '12px',
+                      backgroundColor: '#fef2f2',
+                      border: '1px solid #fecaca',
+                      color: '#e11d48',
+                      fontSize: '13.5px',
                       fontWeight: 700,
                       cursor: 'pointer',
+                      transition: 'all 0.15s ease',
                     }}
                     title="키 삭제"
                   >
-                    <Trash2 size={14} />
+                    <Trash2 size={15} />
                     <span>삭제</span>
                   </button>
                 )}
@@ -769,27 +779,27 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
             {/* 보안 및 CORS 원천 차단 안내 카드 */}
             <div
               style={{
-                padding: '12px 14px',
-                borderRadius: '10px',
-                backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                border: '1px solid rgba(255, 255, 255, 0.06)',
+                padding: '14px 16px',
+                borderRadius: '14px',
+                backgroundColor: '#f8fafc',
+                border: '1px solid #e5e8eb',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '8px',
-                fontSize: '11px',
-                color: '#94a3b8',
-                lineHeight: 1.5,
+                fontSize: '12px',
+                color: '#6b7684',
+                lineHeight: 1.55,
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#38bdf8', fontWeight: 700 }}>
-                <ShieldCheck size={14} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#3182f6', fontWeight: 700, fontSize: '12.5px' }}>
+                <ShieldCheck size={15} />
                 <span>안심 보안 & CORS(Origin) 오류 원천 방지 안내</span>
               </div>
               <div>
-                • <strong>CORS 에러 제로</strong>: 브라우저에서 직접 AI 제공자로 요청하지 않고, AI Gateway의 보안 패스스루 터널을 거치므로 Origin 차단 오류 없이 안정적으로 호출됩니다.
+                • <strong>CORS 에러 제로</strong>: 브라우저에서 직접 AI 제공자로 요청하지 않고 AI Gateway의 보안 패스스루 터널을 거치므로 Origin 차단 오류 없이 안정적으로 호출됩니다.
               </div>
               <div>
-                • <strong>로컬 보관 (Zero DB Storage)</strong>: 입력하신 API Key는 사용자 브라우저의 <code>localStorage</code>에만 보관되며, 서버 데이터베이스나 로그에 영구 저장되지 않습니다.
+                • <strong>로컬 보관 (Zero DB Storage)</strong>: 입력하신 API Key는 사용자 브라우저의 <code style={{ backgroundColor: '#e5e8eb', color: '#191f28', padding: '1px 5px', borderRadius: '4px', fontSize: '11px' }}>localStorage</code>에만 보관되며 서버 데이터베이스나 로그에 영구 저장되지 않습니다.
               </div>
             </div>
           </div>
