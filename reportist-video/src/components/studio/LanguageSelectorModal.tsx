@@ -4,6 +4,7 @@ import { Globe, Search, X, Check, Sparkles } from 'lucide-react';
 import { useI18n } from '../../i18n/index.tsx';
 import type { Locale } from '../../i18n/types.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
+import { notify } from '../../services/toastService.ts';
 
 export interface LanguageSelectorModalProps {
   isOpen: boolean;
@@ -46,8 +47,14 @@ export const LanguageSelectorModal: React.FC<LanguageSelectorModalProps> = ({
   if (!isOpen) return null;
 
   const handleSelectLanguage = (code: Locale) => {
+    const selected = locales.find((l) => l.code === code);
     setLocale(code);
     onClose();
+    const flag = selected?.flag || '🌐';
+    const name = selected ? `${selected.nativeName} (${selected.name})` : code;
+    notify.success(`${flag} ${selected?.nativeName || code}`, {
+      description: `${name} 언어로 변경했어요.`,
+    });
   };
 
   return (

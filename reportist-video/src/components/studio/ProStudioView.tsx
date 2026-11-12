@@ -406,6 +406,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     setCurrentSubtitleTone(tone);
     setStoredSubtitleTone(tone);
     setIsToneSelectorOpen(false);
+    const opt = toneOptions.find((t) => t.id === tone);
+    notify.success(`${opt?.icon || '✨'} ${opt?.label || tone}`, {
+      description: '기본 자막 톤앤매너를 설정했어요.',
+    });
   };
 
   const handleRefineSubtitles = async (toneToUse?: SubtitleTone) => {
@@ -1086,6 +1090,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       ...prev,
       subtitleDateText: formatDateWithAge(baseDate, targetDate, enabled, birthDate),
     }));
+
+    if (enabled) {
+      notify.success('아이 나이 표시 켜짐', {
+        description: '촬영 날짜 옆에 만 나이(개월수)를 함께 표시해요.',
+      });
+    } else {
+      notify.info('아이 나이 표시 꺼짐', {
+        description: '나이 표기를 숨겼어요.',
+      });
+    }
   };
 
   // 촬영 날짜 표시 on/off 토글 핸들러
@@ -1093,24 +1107,43 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     setShowDate(enabled);
     setStoredShowDate(enabled);
     setOverlayOptions((prev) => ({ ...prev, showDate: enabled }));
+    if (enabled) {
+      notify.success('촬영 날짜 표시 켜짐', {
+        description: '영상 화면에 촬영 날짜를 함께 표시해요.',
+      });
+    } else {
+      notify.info('촬영 날짜 표시 꺼짐', {
+        description: '촬영 날짜 없이 장소만 표시해요.',
+      });
+    }
   };
 
   // 촬영일시 순 기본 정렬 on/off 토글 핸들러
   const handleToggleAutoSortByRecordedDate = (enabled: boolean) => {
     setAutoSortByRecordedDate(enabled);
     setStoredAutoSortByRecordedTime(enabled);
-    if (enabled && segments.length > 1) {
-      const prevSegments = [...segments];
-      const sorted = sortSegmentsByRecordedTime(segments, videoMap);
-      setSegments(sorted);
-      notify.action(
-        dict.dramaticClips.sortByRecordedDateToast || '촬영일시 순으로 정렬했어요.',
-        dict.common?.undo || '되돌리기',
-        () => {
-          setSegments(prevSegments);
-          return { title: '원래 순서로 되돌렸어요.', action: null };
-        }
-      );
+    if (enabled) {
+      if (segments.length > 1) {
+        const prevSegments = [...segments];
+        const sorted = sortSegmentsByRecordedTime(segments, videoMap);
+        setSegments(sorted);
+        notify.action(
+          dict.dramaticClips.sortByRecordedDateToast || '촬영일시 순으로 정렬했어요.',
+          dict.common?.undo || '되돌리기',
+          () => {
+            setSegments(prevSegments);
+            return { title: '원래 순서로 되돌렸어요.', action: null };
+          }
+        );
+      } else {
+        notify.success('촬영일시 자동 정렬 켜짐', {
+          description: '클립 추가 시 촬영일시 순서대로 자동 정렬돼요.',
+        });
+      }
+    } else {
+      notify.info('촬영일시 자동 정렬 꺼짐', {
+        description: '클립 순서를 수동으로 자유롭게 배치할 수 있어요.',
+      });
     }
   };
 
@@ -1165,6 +1198,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       setCustomAudioName(file.name);
       setSelectedBgmId('custom');
       setSelectedLibraryTrackId(null);
+      notify.success(file.name, {
+        description: '사용자 BGM 오디오 파일로 적용했어요.',
+      });
     }
   };
 
@@ -1175,6 +1211,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       setCustomAudioName('');
       setSelectedBgmId('none');
       setSelectedLibraryTrackId(null);
+      notify.info('배경음악 없음', {
+        description: '배경음악을 껐어요.',
+      });
       return;
     }
 
@@ -1183,12 +1222,18 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     setCustomAudioName(track.name);
     setSelectedBgmId('custom');
     setSelectedLibraryTrackId(track.id);
+    notify.success(track.name, {
+      description: '배경음악 음원을 적용했어요.',
+    });
   };
 
   const handleIntroVideoSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setOverlayOptions((prev) => ({ ...prev, introVideoFile: file, showIntro: true }));
+      notify.success(file.name, {
+        description: '시작 인트로 비디오 파일로 지정했어요.',
+      });
     }
   };
 
@@ -1196,6 +1241,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setOverlayOptions((prev) => ({ ...prev, outroVideoFile: file, showOutro: true }));
+      notify.success(file.name, {
+        description: '종료 아웃트로 비디오 파일로 지정했어요.',
+      });
     }
   };
 

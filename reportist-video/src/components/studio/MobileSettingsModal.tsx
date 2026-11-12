@@ -226,6 +226,10 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
     setActiveTone(tone);
     setStoredSubtitleTone(tone);
     onSelectSubtitleTone?.(tone);
+    const opt = toneOptions.find((t) => t.id === tone);
+    notify.success(`${opt?.icon || '✨'} ${opt?.label || tone}`, {
+      description: '기본 자막 톤앤매너를 설정했어요.',
+    });
   };
 
   const toneOptions: Array<{ id: SubtitleTone; label: string; desc: string; icon: string }> = [
@@ -244,7 +248,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
     {
       id: 'natural',
       label: dict.dramaticClips?.toneNatural || '자연스러운 구어체',
-      desc: dict.dramaticClips?.toneNaturalDesc || '대화하듯 편안한 ~해요/~했어 어조',
+      desc: dict.dramaticClips?.toneNaturalDesc || '대화하듯 편안한 ~해요/~했어요 어조',
       icon: '💬',
     },
     {
@@ -273,6 +277,15 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
       setIsPersisted(ok);
       const updated = await getStorageEstimate();
       setStorageEstimate(updated);
+      if (ok) {
+        notify.success('영구 저장소 권한 획득', {
+          description: '브라우저 캐시 자동 삭제로부터 안전하게 보호돼요.',
+        });
+      } else {
+        notify.info('영구 저장소 요청 완료', {
+          description: '현재 브라우저 상태를 유지해요.',
+        });
+      }
     } finally {
       setIsRequestingPersist(false);
     }
@@ -300,6 +313,28 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   const handleSelectStorageMode = (mode: StorageMode) => {
     setStorageMode(mode);
     setStoredStorageMode(mode);
+    const modeLabel =
+      mode === 'full'
+        ? (dict.settingsModal?.storageModeFull || '전체 보관')
+        : mode === 'lightweight'
+          ? (dict.settingsModal?.storageModeLight || '초경량 모드')
+          : (dict.settingsModal?.storageModeAuto || '자동 (권장)');
+    const modeDesc =
+      mode === 'full'
+        ? (dict.settingsModal?.storageModeFullDesc || '원본 비디오를 보관해요.')
+        : mode === 'lightweight'
+          ? (dict.settingsModal?.storageModeLightDesc || '용량을 99% 절약해요.')
+          : (dict.settingsModal?.storageModeAutoDesc || '남은 용량에 맞게 최적화해요.');
+    notify.success(`${modeLabel} 모드 선택`, {
+      description: modeDesc,
+    });
+  };
+
+  const handleSelectResolution = (res: ExportResolution) => {
+    onSelectResolution?.(res);
+    notify.success(`${res} 해상도 선택`, {
+      description: '영상 렌더링 및 내보내기 기본 해상도를 바꿨어요.',
+    });
   };
 
   const optimalCodec = detectOptimalCodec();
@@ -635,7 +670,15 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                     <input
                       type="date"
                       value={birthDate}
-                      onChange={(e) => onChangeBirthDate?.(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        onChangeBirthDate?.(val);
+                        if (val) {
+                          notify.success('생년월일 설정 완료', {
+                            description: `${val} 기준으로 개월수/만 나이를 계산해요.`,
+                          });
+                        }
+                      }}
                       className="settings-age-date-input"
                       max={new Date().toISOString().split('T')[0]}
                       placeholder={dict.settingsModal?.birthDatePlaceholder || 'YYYY-MM-DD'}
@@ -686,7 +729,19 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                       <input
                         type="checkbox"
                         checked={showChapterBridge}
-                        onChange={(e) => onToggleShowChapterBridge(e.target.checked)}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          onToggleShowChapterBridge?.(checked);
+                          if (checked) {
+                            notify.success('스토리 챕터 브릿지 켜짐', {
+                              description: '날짜나 장소가 바뀔 때 모션 브릿지를 삽입해요.',
+                            });
+                          } else {
+                            notify.info('스토리 챕터 브릿지 꺼짐', {
+                              description: '챕터 브릿지 없이 클립을 바로 이어붙여요.',
+                            });
+                          }
+                        }}
                       />
                       <span className="toss-toggle-slider" />
                     </label>
@@ -797,7 +852,19 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                       <input
                         type="checkbox"
                         checked={showSubtitle}
-                        onChange={(e) => onToggleShowSubtitle(e.target.checked)}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          onToggleShowSubtitle?.(checked);
+                          if (checked) {
+                            notify.success('영상 자막 표시 켜짐', {
+                              description: '영상 화면에 씬 제목 자막을 표시해요.',
+                            });
+                          } else {
+                            notify.info('영상 자막 표시 꺼짐', {
+                              description: '화면 자막을 숨겼어요. (다운로드는 가능해요)',
+                            });
+                          }
+                        }}
                       />
                       <span className="toss-toggle-slider" />
                     </label>
@@ -889,7 +956,19 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                       <input
                         type="checkbox"
                         checked={showIntro}
-                        onChange={(e) => onToggleShowIntro(e.target.checked)}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          onToggleShowIntro?.(checked);
+                          if (checked) {
+                            notify.success('시작 인트로 켜짐', {
+                              description: '영상 시작 시 인트로 타이포 모션을 삽입해요.',
+                            });
+                          } else {
+                            notify.info('시작 인트로 꺼짐', {
+                              description: '인트로 없이 본 영상부터 바로 시작해요.',
+                            });
+                          }
+                        }}
                       />
                       <span className="toss-toggle-slider" />
                     </label>
@@ -983,7 +1062,19 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                       <input
                         type="checkbox"
                         checked={showOutro}
-                        onChange={(e) => onToggleShowOutro(e.target.checked)}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          onToggleShowOutro?.(checked);
+                          if (checked) {
+                            notify.success('종료 아웃트로 켜짐', {
+                              description: '영상 끝에 엔드카드 모션을 삽입해요.',
+                            });
+                          } else {
+                            notify.info('종료 아웃트로 꺼짐', {
+                              description: '아웃트로 없이 영상을 종료해요.',
+                            });
+                          }
+                        }}
                       />
                       <span className="toss-toggle-slider" />
                     </label>
@@ -1065,7 +1156,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                   type="button"
                   role="radio"
                   aria-checked={selectedResolution === '720p'}
-                  onClick={() => onSelectResolution?.('720p')}
+                  onClick={() => handleSelectResolution('720p')}
                   className={`toss-modal-res-item ${selectedResolution === '720p' ? 'active' : ''}`}
                 >
                   <div className="toss-modal-res-item-left">
@@ -1090,7 +1181,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                   type="button"
                   role="radio"
                   aria-checked={selectedResolution === '1080p'}
-                  onClick={() => onSelectResolution?.('1080p')}
+                  onClick={() => handleSelectResolution('1080p')}
                   className={`toss-modal-res-item ${selectedResolution === '1080p' ? 'active' : ''}`}
                 >
                   <div className="toss-modal-res-item-left">

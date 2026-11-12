@@ -30,6 +30,7 @@ import type {
   VideoOverlayOptions,
 } from '../../types/video.ts';
 import { useI18n } from '../../i18n/index.tsx';
+import { notify } from '../../services/toastService.ts';
 
 export interface IntroOutroPreviewModalProps {
   isOpen: boolean;
@@ -318,6 +319,11 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
       });
     }
     onClose();
+    const introOpt = INTRO_TEMPLATE_OPTIONS.find((i) => i.id === introTemplate);
+    const outroOpt = OUTRO_TEMPLATE_OPTIONS.find((o) => o.id === outroTemplate);
+    notify.success('인트로/아웃트로 모션 적용 완료', {
+      description: `시작: ${introOpt?.name || introTemplate}(${introDuration.toFixed(1)}초) · 종료: ${outroOpt?.name || outroTemplate}(${outroDuration.toFixed(1)}초)`,
+    });
   };
 
   return (

@@ -6,6 +6,7 @@ import {
   type DateFormatOption,
 } from '../../services/videoMetadata.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
+import { notify } from '../../services/toastService.ts';
 
 export interface DateFormatSelectorModalProps {
   isOpen: boolean;
@@ -46,8 +47,12 @@ export const DateFormatSelectorModal: React.FC<DateFormatSelectorModalProps> = (
   if (!isOpen) return null;
 
   const handleSelect = (formatId: DateFormatOption) => {
+    const fmt = formats.find((f) => f.id === formatId);
     onSelectFormat(formatId);
     onClose();
+    notify.success(fmt?.example || formatId, {
+      description: `${fmt?.formatName || formatId} 형식으로 날짜 표기를 바꿨어요.`,
+    });
   };
 
   const modalTitle = dict.dateFormatModal?.title || dict.settingsModal?.dateFormat || '촬영 날짜 표기 형식';

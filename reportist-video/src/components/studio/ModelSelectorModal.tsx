@@ -174,7 +174,15 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
     setApiKeyInput('');
     const defaultModel = models[0]?.id || 'nvidia/nemotron-3.5-super-vl:free';
     onSelectModel(defaultModel);
-    notify.info(dict.modelModal.byokToastDeleted || 'API Key가 삭제되었습니다. 펭귄컷 무료 모델로 전환됩니다.');
+    notify.info(dict.modelModal.byokToastDeleted || 'API Key가 삭제되었어요. 펭귄컷 무료 모델로 전환돼요.');
+  };
+
+  const handleSelectGatewayModel = (model: FreeModelMeta) => {
+    onSelectModel(model.id);
+    onClose();
+    notify.success(cleanModelName(model.name), {
+      description: `${getProviderName(model)} 모델을 선택했어요.`,
+    });
   };
 
   useModalScrollLock(isOpen, {
@@ -973,15 +981,11 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                   className={`model-modal-model-card ${isSelected ? 'selected' : ''}`}
                   role="button"
                   tabIndex={0}
-                  onClick={() => {
-                    onSelectModel(model.id);
-                    onClose();
-                  }}
+                  onClick={() => handleSelectGatewayModel(model)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault();
-                      onSelectModel(model.id);
-                      onClose();
+                      handleSelectGatewayModel(model);
                     }
                   }}
                 >

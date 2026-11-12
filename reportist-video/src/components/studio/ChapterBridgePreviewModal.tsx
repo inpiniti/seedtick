@@ -23,6 +23,7 @@ import {
 } from '../../services/hyperframesBridgeRenderer.ts';
 import type { BridgeDateTemplateId, BridgeLocationTemplateId } from '../../types/video.ts';
 import { useI18n } from '../../i18n/index.tsx';
+import { notify } from '../../services/toastService.ts';
 
 interface ChapterBridgePreviewModalProps {
   isOpen: boolean;
@@ -250,6 +251,11 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
       onApply(dateTemplate, locationTemplate);
     }
     onClose();
+    const dateObj = dateOptions.find((d) => d.id === dateTemplate);
+    const locObj = locationOptions.find((l) => l.id === locationTemplate);
+    notify.success('챕터 브릿지 스타일 적용 완료', {
+      description: `${dateObj?.name || dateTemplate} + ${locObj?.name || locationTemplate} 조합으로 설정했어요.`,
+    });
   };
 
   return (
