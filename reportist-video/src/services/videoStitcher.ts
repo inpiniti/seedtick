@@ -11,6 +11,12 @@ import {
   evaluateChapterBridge,
   type ChapterBridgeTransitionInfo,
 } from './hyperframesBridgeRenderer.ts';
+import {
+  renderHyperframesIntroFrame,
+  renderHyperframesOutroFrame,
+  DEFAULT_INTRO_DURATION,
+  DEFAULT_OUTRO_DURATION,
+} from './hyperframesIntroOutroRenderer.ts';
 import { isWebCodecsSupported, stitchVideosWebCodecs } from './videoStitcherWebCodecs.ts';
 
 export interface StitchVideosParams {
@@ -530,8 +536,12 @@ export async function stitchHighlightedSegments({
         if (decodedResult.status === 'ok') {
           customSourceNode = audioCtx.createBufferSource();
           customSourceNode.buffer = decodedResult.value;
-          const expectedIntroSec = overlayOptions?.showIntro ? 1.6 : 0;
-          const expectedOutroSec = overlayOptions?.showOutro ? 1.8 : 0;
+          const expectedIntroSec = overlayOptions?.showIntro
+            ? (overlayOptions.introDurationSec || DEFAULT_INTRO_DURATION)
+            : 0;
+          const expectedOutroSec = overlayOptions?.showOutro
+            ? (overlayOptions.outroDurationSec || DEFAULT_OUTRO_DURATION)
+            : 0;
           const plannedTotalVideoSec = totalSegmentsDuration + expectedIntroSec + expectedOutroSec;
 
           const fitToVideo = Boolean(overlayOptions?.bgmFitToVideo);
@@ -1184,15 +1194,15 @@ export async function stitchHighlightedSegments({
     }
   };
 
-  // 인트로 시퀀스 렌더링 (약 1.6초 - 드리프트 보정 Wall-Clock 페이싱 적용)
+  // 인트로 시퀀스 렌더링 (HyperFrames 모션 엔진)
   const renderIntroSequence = async (): Promise<number> => {
     if (!overlayOptions?.showIntro) return 0;
     if (workerAudioGain && audioCtx) {
       workerAudioGain.gain.setValueAtTime(0, audioCtx.currentTime);
     }
-    onProgress?.(1, '시작 인트로 타이틀 시퀀스 생성 중...');
+    const introDurationSec = overlayOptions.introDurationSec || DEFAULT_INTRO_DURATION;
+    onProgress?.(1, `HyperFrames 인트로 모션 생성 중 (${overlayOptions.introTemplate || 'kinetic-slide'})...`);
 
-    const introDurationSec = 1.6;
     const introFrames = Math.round(introDurationSec * targetFps);
     const frameInterval = 1000 / targetFps;
     await startOrResumeRecorder();
@@ -1202,46 +1212,7 @@ export async function stitchHighlightedSegments({
       if (signal?.aborted) throw new Error('작업 취소');
 
       const progress = f / introFrames;
-      const alpha = progress < 0.25 ? progress / 0.25 : progress > 0.8 ? (1 - progress) / 0.2 : 1.0;
-
-      ctx.fillStyle = '#080c14';
-      ctx.fillRect(0, 0, targetWidth, targetHeight);
-
-      const grad = ctx.createRadialGradient(
-        targetWidth / 2, targetHeight / 2, Math.round(30 * scale),
-        targetWidth / 2, targetHeight / 2, Math.round(450 * scale)
-      );
-      grad.addColorStop(0, `rgba(49, 130, 246, ${0.28 * alpha})`);
-      grad.addColorStop(1, 'rgba(8, 12, 20, 0)');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, targetWidth, targetHeight);
-
-      ctx.save();
-      ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
-
-      const title = overlayOptions.titleText || 'Highlights';
-      const introTitleFont = Math.round(36 * scale);
-      ctx.font = `bold ${introTitleFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-      ctx.shadowBlur = Math.round(12 * scale);
-      ctx.fillText(title, targetWidth / 2, targetHeight / 2 - Math.round(20 * scale));
-
-      const sub = [
-        overlayOptions.showDate === false ? '' : overlayOptions.subtitleDateText,
-        overlayOptions.subtitleLocationText,
-        overlayOptions.channelText,
-      ].filter(Boolean).join(' • ');
-      if (sub) {
-        const introSubFont = Math.round(19 * scale);
-        ctx.font = `600 ${introSubFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-        ctx.fillStyle = '#93c5fd';
-        ctx.fillText(sub, targetWidth / 2, targetHeight / 2 + Math.round(30 * scale));
-      }
-
-      ctx.restore();
+      renderHyperframesIntroFrame(ctx, progress, overlayOptions, targetWidth, targetHeight);
       commitCanvasFrame();
 
       // 드로우 소요 시간을 차감하여 정확한 프레임 간격 유지 (드리프트 0%)
@@ -1254,15 +1225,15 @@ export async function stitchHighlightedSegments({
     return introDurationSec;
   };
 
-  // 아웃트로 시퀀스 렌더링 (약 1.8초 - 드리프트 보정 Wall-Clock 페이싱 적용)
+  // 아웃트로 시퀀스 렌더링 (HyperFrames 모션 엔진)
   const renderOutroSequence = async (): Promise<number> => {
     if (!overlayOptions?.showOutro) return 0;
     if (workerAudioGain && audioCtx) {
       workerAudioGain.gain.setValueAtTime(0, audioCtx.currentTime);
     }
-    onProgress?.(98, '종료 아웃트로 엔드 카드 생성 중...');
+    const outroDurationSec = overlayOptions.outroDurationSec || DEFAULT_OUTRO_DURATION;
+    onProgress?.(98, `HyperFrames 아웃트로 모션 생성 중 (${overlayOptions.outroTemplate || 'modern-endcard'})...`);
 
-    const outroDurationSec = 1.8;
     const outroFrames = Math.round(outroDurationSec * targetFps);
     const frameInterval = 1000 / targetFps;
     await startOrResumeRecorder();
@@ -1272,30 +1243,7 @@ export async function stitchHighlightedSegments({
       if (signal?.aborted) throw new Error('Cancelled');
 
       const progress = f / outroFrames;
-      const alpha = progress < 0.2 ? progress / 0.2 : progress > 0.85 ? (1 - progress) / 0.15 : 1.0;
-
-      ctx.fillStyle = '#080c14';
-      ctx.fillRect(0, 0, targetWidth, targetHeight);
-
-      ctx.save();
-      ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
-
-      const outroTitleFont = Math.round(32 * scale);
-      ctx.font = `bold ${outroTitleFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      const outroMessage = overlayOptions.outroText || 'Thank you for watching';
-      ctx.fillText(outroMessage, targetWidth / 2, targetHeight / 2 - Math.round(16 * scale));
-
-      if (overlayOptions.channelText) {
-        const outroChFont = Math.round(20 * scale);
-        ctx.font = `bold ${outroChFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-        ctx.fillStyle = '#3182f6';
-        ctx.fillText(overlayOptions.channelText, targetWidth / 2, targetHeight / 2 + Math.round(28 * scale));
-      }
-
-      ctx.restore();
+      renderHyperframesOutroFrame(ctx, progress, overlayOptions, targetWidth, targetHeight);
       commitCanvasFrame();
 
       const targetNextWall = seqStartWall + (f + 1) * frameInterval;

@@ -9,6 +9,12 @@ import {
   createHyperframesBridgeController,
   evaluateChapterBridge,
 } from './hyperframesBridgeRenderer.ts';
+import {
+  renderHyperframesIntroFrame,
+  renderHyperframesOutroFrame,
+  DEFAULT_INTRO_DURATION,
+  DEFAULT_OUTRO_DURATION,
+} from './hyperframesIntroOutroRenderer.ts';
 import { scheduleBgmSynthTrack } from './audioSynth.ts';
 
 export interface StitchVideosWebCodecsParams {
@@ -1028,54 +1034,15 @@ export async function stitchVideosWebCodecs({
       if (overlayOptions.introVideoFile) {
         actualIntroDuration = await renderCustomVideoClip(overlayOptions.introVideoFile, '시작 인트로', true);
       } else {
-        reportProgress(2, '시작 인트로 시퀀스 생성 중...', true);
-        const introSec = 1.6;
+        const introSec = overlayOptions.introDurationSec || DEFAULT_INTRO_DURATION;
         const introFrames = Math.round(introSec * targetFps);
         actualIntroDuration = introSec;
+        reportProgress(2, `HyperFrames 인트로 모션 생성 중 (${overlayOptions.introTemplate || 'kinetic-slide'})...`, true);
 
         for (let f = 0; f < introFrames; f++) {
           if (signal?.aborted) throw new Error('작업 취소');
           const progress = f / introFrames;
-          const alpha = progress < 0.25 ? progress / 0.25 : progress > 0.8 ? (1 - progress) / 0.2 : 1.0;
-
-          ctx.fillStyle = '#080c14';
-          ctx.fillRect(0, 0, targetWidth, targetHeight);
-
-          const grad = ctx.createRadialGradient(
-            targetWidth / 2, targetHeight / 2, Math.round(30 * scale),
-            targetWidth / 2, targetHeight / 2, Math.round(450 * scale)
-          );
-          grad.addColorStop(0, `rgba(49, 130, 246, ${0.32 * alpha})`);
-          grad.addColorStop(1, 'rgba(8, 12, 20, 0)');
-          ctx.fillStyle = grad;
-          ctx.fillRect(0, 0, targetWidth, targetHeight);
-
-          ctx.save();
-          ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
-
-          const title = overlayOptions.titleText || 'Highlights';
-          const introTitleFont = Math.round(38 * scale);
-          ctx.font = `bold ${introTitleFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-          ctx.fillStyle = '#ffffff';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-          ctx.shadowBlur = Math.round(14 * scale);
-          ctx.fillText(title, targetWidth / 2, targetHeight / 2 - Math.round(20 * scale));
-
-          const sub = [
-            overlayOptions.showDate === false ? '' : overlayOptions.subtitleDateText,
-            overlayOptions.subtitleLocationText,
-            overlayOptions.channelText,
-          ].filter(Boolean).join(' • ');
-          if (sub) {
-            const introSubFont = Math.round(20 * scale);
-            ctx.font = `600 ${introSubFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-            ctx.fillStyle = '#93c5fd';
-            ctx.fillText(sub, targetWidth / 2, targetHeight / 2 + Math.round(32 * scale));
-          }
-          ctx.restore();
-
+          renderHyperframesIntroFrame(ctx, progress, overlayOptions, targetWidth, targetHeight);
           await pushCanvasFrame(f === 0);
         }
       }
@@ -1203,38 +1170,15 @@ export async function stitchVideosWebCodecs({
       if (overlayOptions.outroVideoFile) {
         actualOutroDuration = await renderCustomVideoClip(overlayOptions.outroVideoFile, '종료 아웃트로', false);
       } else {
-        reportProgress(96, '종료 아웃트로 엔드 카드 생성 중...', true);
-        const outroSec = 1.8;
+        const outroSec = overlayOptions.outroDurationSec || DEFAULT_OUTRO_DURATION;
         const outroFrames = Math.round(outroSec * targetFps);
         actualOutroDuration = outroSec;
+        reportProgress(96, `HyperFrames 아웃트로 모션 생성 중 (${overlayOptions.outroTemplate || 'modern-endcard'})...`, true);
 
         for (let f = 0; f < outroFrames; f++) {
           if (signal?.aborted) throw new Error('작업 취소');
           const progress = f / outroFrames;
-          const alpha = progress < 0.2 ? progress / 0.2 : progress > 0.85 ? (1 - progress) / 0.15 : 1.0;
-
-          ctx.fillStyle = '#080c14';
-          ctx.fillRect(0, 0, targetWidth, targetHeight);
-
-          ctx.save();
-          ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
-
-          const outroTitleFont = Math.round(34 * scale);
-          ctx.font = `bold ${outroTitleFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-          ctx.fillStyle = '#ffffff';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          const outroMessage = overlayOptions.outroText || 'Thank you for watching';
-          ctx.fillText(outroMessage, targetWidth / 2, targetHeight / 2 - Math.round(16 * scale));
-
-          if (overlayOptions.channelText) {
-            const outroChFont = Math.round(22 * scale);
-            ctx.font = `bold ${outroChFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-            ctx.fillStyle = '#3182f6';
-            ctx.fillText(overlayOptions.channelText, targetWidth / 2, targetHeight / 2 + Math.round(30 * scale));
-          }
-          ctx.restore();
-
+          renderHyperframesOutroFrame(ctx, progress, overlayOptions, targetWidth, targetHeight);
           await pushCanvasFrame(f === 0);
         }
       }

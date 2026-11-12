@@ -2,6 +2,10 @@
 // Shares the exact pixel-level rendering math with videoStitcher.ts & videoStitcherWebCodecs.ts
 
 import type { HighlightSegment, VideoItem, VideoOverlayOptions } from '../types/video.ts';
+import {
+  renderHyperframesIntroFrame,
+  renderHyperframesOutroFrame,
+} from './hyperframesIntroOutroRenderer.ts';
 
 export const COMPOSITOR_WIDTH = 1280;
 export const COMPOSITOR_HEIGHT = 720;
@@ -220,7 +224,7 @@ export function drawCompositorSegmentOverlay(
 }
 
 /**
- * 시작 인트로 타이틀 시퀀스 프레임 렌더링 (약 1.6초)
+ * 시작 인트로 타이틀 시퀀스 프레임 렌더링 (HyperFrames 모션 엔진)
  */
 export function drawCompositorIntroFrame(
   ctx: CanvasRenderingContext2D,
@@ -229,61 +233,11 @@ export function drawCompositorIntroFrame(
   targetWidth = COMPOSITOR_WIDTH,
   targetHeight = COMPOSITOR_HEIGHT
 ): void {
-  const clamped = Math.max(0, Math.min(1, progress));
-  const alpha =
-    clamped < 0.25
-      ? clamped / 0.25
-      : clamped > 0.8
-      ? (1 - clamped) / 0.2
-      : 1.0;
-
-  ctx.fillStyle = '#080c14';
-  ctx.fillRect(0, 0, targetWidth, targetHeight);
-
-  const grad = ctx.createRadialGradient(
-    targetWidth / 2,
-    targetHeight / 2,
-    30,
-    targetWidth / 2,
-    targetHeight / 2,
-    450
-  );
-  grad.addColorStop(0, `rgba(49, 130, 246, ${(0.28 * Math.max(0, Math.min(1, alpha))).toFixed(3)})`);
-  grad.addColorStop(1, 'rgba(8, 12, 20, 0)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, targetWidth, targetHeight);
-
-  ctx.save();
-  ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
-
-  const title = overlayOptions?.titleText || 'Highlights';
-  ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
-  ctx.fillStyle = '#ffffff';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-  ctx.shadowBlur = 12;
-  ctx.fillText(title, targetWidth / 2, targetHeight / 2 - 20);
-
-  const sub = [
-    overlayOptions?.showDate === false ? '' : overlayOptions?.subtitleDateText,
-    overlayOptions?.subtitleLocationText,
-    overlayOptions?.channelText,
-  ]
-    .filter(Boolean)
-    .join(' • ');
-
-  if (sub) {
-    ctx.font = '600 19px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
-    ctx.fillStyle = '#93c5fd';
-    ctx.fillText(sub, targetWidth / 2, targetHeight / 2 + 30);
-  }
-
-  ctx.restore();
+  renderHyperframesIntroFrame(ctx, progress, overlayOptions, targetWidth, targetHeight);
 }
 
 /**
- * 종료 아웃트로 엔딩 카드 프레임 렌더링 (약 1.8초)
+ * 종료 아웃트로 엔딩 카드 프레임 렌더링 (HyperFrames 모션 엔진)
  */
 export function drawCompositorOutroFrame(
   ctx: CanvasRenderingContext2D,
@@ -292,32 +246,5 @@ export function drawCompositorOutroFrame(
   targetWidth = COMPOSITOR_WIDTH,
   targetHeight = COMPOSITOR_HEIGHT
 ): void {
-  const clamped = Math.max(0, Math.min(1, progress));
-  const alpha =
-    clamped < 0.2
-      ? clamped / 0.2
-      : clamped > 0.85
-      ? (1 - clamped) / 0.15
-      : 1.0;
-
-  ctx.fillStyle = '#080c14';
-  ctx.fillRect(0, 0, targetWidth, targetHeight);
-
-  ctx.save();
-  ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
-
-  ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
-  ctx.fillStyle = '#ffffff';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  const outroMessage = overlayOptions?.outroText || 'Thank you for watching';
-  ctx.fillText(outroMessage, targetWidth / 2, targetHeight / 2 - 16);
-
-  if (overlayOptions?.channelText) {
-    ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
-    ctx.fillStyle = '#3182f6';
-    ctx.fillText(overlayOptions.channelText, targetWidth / 2, targetHeight / 2 + 28);
-  }
-
-  ctx.restore();
+  renderHyperframesOutroFrame(ctx, progress, overlayOptions, targetWidth, targetHeight);
 }

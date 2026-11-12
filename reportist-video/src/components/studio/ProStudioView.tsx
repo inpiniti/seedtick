@@ -62,6 +62,8 @@ import type {
   ProcessingProgress,
   VideoOverlayOptions,
   ExportResolution,
+  IntroTemplateId,
+  OutroTemplateId,
 } from '../../types/video.ts';
 import type { FreeModelMeta, ReasoningEffortOption } from '../../types/gateway.ts';
 import {
@@ -160,10 +162,14 @@ function computeStitchSnapshot(
     subtitleDateText: (overlay.subtitleDateText ?? '').trim(),
     subtitleLocationText: (overlay.subtitleLocationText ?? '').trim(),
     showIntro: Boolean(overlay.showIntro),
+    introTemplate: overlay.introTemplate || 'kinetic-slide',
+    introDurationSec: overlay.introDurationSec || 2.0,
     introFile: overlay.introVideoFile
       ? `${overlay.introVideoFile.name}_${overlay.introVideoFile.size}_${overlay.introVideoFile.lastModified}`
       : '',
     showOutro: Boolean(overlay.showOutro),
+    outroTemplate: overlay.outroTemplate || 'modern-endcard',
+    outroDurationSec: overlay.outroDurationSec || 2.2,
     outroFile: overlay.outroVideoFile
       ? `${overlay.outroVideoFile.name}_${overlay.outroVideoFile.size}_${overlay.outroVideoFile.lastModified}`
       : '',
@@ -1631,10 +1637,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
   // 인트로, 아웃트로 및 챕터 브릿지 실제 적용 시간 (실시간 즉시 반영)
   const introDuration = overlayOptions.showIntro
-    ? (overlayOptions.introVideoFile ? introCustomDuration : 1.6)
+    ? (overlayOptions.introVideoFile ? introCustomDuration : (overlayOptions.introDurationSec || 2.0))
     : 0;
   const outroDuration = overlayOptions.showOutro
-    ? (overlayOptions.outroVideoFile ? outroCustomDuration : 1.8)
+    ? (overlayOptions.outroVideoFile ? outroCustomDuration : (overlayOptions.outroDurationSec || 2.2))
     : 0;
   const effectiveBridgeDurationMap = useMemo(() => {
     return computeBridgeDurationMap(segments, overlayOptions);
@@ -5250,46 +5256,126 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             </div>
 
             {overlayOptions.showIntro && (
-              <div className="toss-intro-content mt-2">
-                <input
-                  ref={introVideoInputRef}
-                  type="file"
-                  accept="video/*"
-                  style={{ display: 'none' }}
-                  onChange={handleIntroVideoSelected}
-                />
-                {overlayOptions.introVideoFile ? (
-                  <div className="toss-clip-file-chip">
-                    <Film size={14} className="text-slate-700 flex-shrink-0" />
-                    <span className="truncate text-xs font-semibold text-slate-800">
-                      {overlayOptions.introVideoFile.name}
+              <div className="toss-intro-content mt-3 space-y-3">
+                {/* 1. HyperFrames 인트로 모션 템플릿 선택 그리드 */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                      <Sparkles size={12} className="text-blue-500" />
+                      <span>모션 템플릿 선택</span>
                     </span>
+                    <span className="text-[11px] text-slate-400">HyperFrames 모션 엔진</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { id: 'kinetic-slide' as IntroTemplateId, label: '키네틱 슬라이드', badge: '추천', desc: '볼드 타이포 & 탄성 바운스' },
+                      { id: 'split-flap' as IntroTemplateId, label: '레트로 플립보드', badge: '아날로그', desc: '전광판 3D 플립 모션' },
+                      { id: 'cinematic-letterbox' as IntroTemplateId, label: '시네마틱 줌', badge: '영화관', desc: '레터박스 & 렌즈 플레어' },
+                      { id: 'film-countdown' as IntroTemplateId, label: '카운트다운 3-2-1', badge: '빈티지', desc: '필름 링 & 십자선 모션' },
+                    ].map((tpl) => {
+                      const isSelected = (overlayOptions.introTemplate || 'kinetic-slide') === tpl.id;
+                      return (
+                        <button
+                          key={tpl.id}
+                          type="button"
+                          onClick={() => setOverlayOptions((prev) => ({ ...prev, introTemplate: tpl.id }))}
+                          className={`p-2.5 rounded-xl border text-left transition-all relative ${
+                            isSelected
+                              ? 'border-blue-500 bg-blue-50/70 shadow-sm'
+                              : 'border-slate-200 bg-white hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className={`text-xs font-bold ${isSelected ? 'text-blue-700' : 'text-slate-800'}`}>
+                              {tpl.label}
+                            </span>
+                            <span
+                              className={`text-[10px] px-1.5 py-0.5 rounded-md font-semibold ${
+                                isSelected ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
+                              }`}
+                            >
+                              {tpl.badge}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 line-clamp-1 leading-relaxed">{tpl.desc}</p>
+                          {isSelected && (
+                            <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] shadow">
+                              ✓
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. 재생 시간(초) 설정 */}
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-xs font-semibold text-slate-600 flex items-center gap-1">
+                    <Clock size={12} className="text-slate-400" />
+                    <span>재생 시간</span>
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {[1.5, 2.0, 2.5, 3.0].map((sec) => {
+                      const isCurrent = (overlayOptions.introDurationSec || 2.0) === sec;
+                      return (
+                        <button
+                          key={sec}
+                          type="button"
+                          onClick={() => setOverlayOptions((prev) => ({ ...prev, introDurationSec: sec }))}
+                          className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-colors ${
+                            isCurrent
+                              ? 'bg-slate-900 text-white font-semibold shadow-xs'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          {sec.toFixed(1)}초
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 3. 직접 업로드한 영상 (우선 적용) */}
+                <div className="pt-2 border-t border-slate-100">
+                  <input
+                    ref={introVideoInputRef}
+                    type="file"
+                    accept="video/*"
+                    style={{ display: 'none' }}
+                    onChange={handleIntroVideoSelected}
+                  />
+                  {overlayOptions.introVideoFile ? (
+                    <div className="toss-clip-file-chip">
+                      <Film size={14} className="text-blue-600 flex-shrink-0" />
+                      <div className="flex flex-col truncate min-w-0">
+                        <span className="truncate text-xs font-semibold text-slate-800">
+                          {overlayOptions.introVideoFile.name}
+                        </span>
+                        <span className="text-[10px] text-blue-600 font-medium">사용자 영상 우선 재생</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="toss-btn-delete-sm ml-auto"
+                        onClick={() =>
+                          setOverlayOptions((prev) => ({ ...prev, introVideoFile: null }))
+                        }
+                        title={dict.introOutro.removeVideo}
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ) : (
                     <button
                       type="button"
-                      className="toss-btn-delete-sm ml-auto"
-                      onClick={() =>
-                        setOverlayOptions((prev) => ({ ...prev, introVideoFile: null }))
-                      }
-                      title={dict.introOutro.removeVideo}
+                      className="toss-btn-custom-audio w-full py-1.5 text-xs text-slate-600"
+                      onClick={() => introVideoInputRef.current?.click()}
                     >
-                      <X size={13} />
+                      <Plus size={13} />
+                      <span>내 인트로 영상 파일 직접 올리기 (선택)</span>
                     </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className="toss-btn-custom-audio w-full"
-                    onClick={() => introVideoInputRef.current?.click()}
-                  >
-                    <Plus size={14} />
-                    <span>{dict.introOutro.uploadIntro}</span>
-                  </button>
-                )}
-                <span className="text-[11px] text-slate-400 block mt-1.5">
-                  {overlayOptions.introVideoFile
-                    ? dict.introOutro.introApplied
-                    : dict.introOutro.introDefault}
-                </span>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -5891,46 +5977,141 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             </div>
 
             {overlayOptions.showOutro && (
-              <div className="toss-outro-content mt-2">
-                <input
-                  ref={outroVideoInputRef}
-                  type="file"
-                  accept="video/*"
-                  style={{ display: 'none' }}
-                  onChange={handleOutroVideoSelected}
-                />
-                {overlayOptions.outroVideoFile ? (
-                  <div className="toss-clip-file-chip">
-                    <Film size={14} className="text-slate-700 flex-shrink-0" />
-                    <span className="truncate text-xs font-semibold text-slate-800">
-                      {overlayOptions.outroVideoFile.name}
+              <div className="toss-outro-content mt-3 space-y-3">
+                {/* 1. HyperFrames 아웃트로 모션 템플릿 선택 그리드 */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                      <Sparkles size={12} className="text-blue-500" />
+                      <span>모션 템플릿 선택</span>
                     </span>
+                    <span className="text-[11px] text-slate-400">HyperFrames 모션 엔진</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: 'modern-endcard' as OutroTemplateId, label: '유튜브 엔드카드', badge: '추천', desc: '추천 영상 & 펄스 링' },
+                      { id: 'minimal-fade' as OutroTemplateId, label: '미니멀 페이드', badge: '감성', desc: '다크 비네트 & 암전' },
+                      { id: 'curtain-split' as OutroTemplateId, label: '루버 블라인드', badge: '시그니처', desc: '사선 셔터 클로징' },
+                    ].map((tpl) => {
+                      const isSelected = (overlayOptions.outroTemplate || 'modern-endcard') === tpl.id;
+                      return (
+                        <button
+                          key={tpl.id}
+                          type="button"
+                          onClick={() => setOverlayOptions((prev) => ({ ...prev, outroTemplate: tpl.id }))}
+                          className={`p-2.5 rounded-xl border text-left transition-all relative ${
+                            isSelected
+                              ? 'border-blue-500 bg-blue-50/70 shadow-sm'
+                              : 'border-slate-200 bg-white hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className={`text-xs font-bold ${isSelected ? 'text-blue-700' : 'text-slate-800'}`}>
+                              {tpl.label}
+                            </span>
+                          </div>
+                          <span
+                            className={`text-[10px] px-1.5 py-0.5 rounded-md font-semibold inline-block mb-1 ${
+                              isSelected ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
+                            }`}
+                          >
+                            {tpl.badge}
+                          </span>
+                          <p className="text-[11px] text-slate-500 line-clamp-1 leading-relaxed">{tpl.desc}</p>
+                          {isSelected && (
+                            <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] shadow">
+                              ✓
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. 감사 메시지 문구 설정 */}
+                <div className="pt-1">
+                  <label className="text-xs font-semibold text-slate-600 block mb-1">
+                    감사 문구
+                  </label>
+                  <input
+                    type="text"
+                    value={overlayOptions.outroText ?? ''}
+                    placeholder={dict.introOutro?.outroDefaultText || '시청해 주셔서 감사합니다'}
+                    onChange={(e) =>
+                      setOverlayOptions((prev) => ({ ...prev, outroText: e.target.value }))
+                    }
+                    className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 bg-white text-slate-800 placeholder-slate-400 transition-colors"
+                  />
+                </div>
+
+                {/* 3. 재생 시간(초) 설정 */}
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-xs font-semibold text-slate-600 flex items-center gap-1">
+                    <Clock size={12} className="text-slate-400" />
+                    <span>재생 시간</span>
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {[1.8, 2.2, 2.8].map((sec) => {
+                      const isCurrent = (overlayOptions.outroDurationSec || 2.2) === sec;
+                      return (
+                        <button
+                          key={sec}
+                          type="button"
+                          onClick={() => setOverlayOptions((prev) => ({ ...prev, outroDurationSec: sec }))}
+                          className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-colors ${
+                            isCurrent
+                              ? 'bg-slate-900 text-white font-semibold shadow-xs'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          {sec.toFixed(1)}초
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 4. 직접 업로드한 영상 (우선 적용) */}
+                <div className="pt-2 border-t border-slate-100">
+                  <input
+                    ref={outroVideoInputRef}
+                    type="file"
+                    accept="video/*"
+                    style={{ display: 'none' }}
+                    onChange={handleOutroVideoSelected}
+                  />
+                  {overlayOptions.outroVideoFile ? (
+                    <div className="toss-clip-file-chip">
+                      <Film size={14} className="text-blue-600 flex-shrink-0" />
+                      <div className="flex flex-col truncate min-w-0">
+                        <span className="truncate text-xs font-semibold text-slate-800">
+                          {overlayOptions.outroVideoFile.name}
+                        </span>
+                        <span className="text-[10px] text-blue-600 font-medium">사용자 영상 우선 재생</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="toss-btn-delete-sm ml-auto"
+                        onClick={() =>
+                          setOverlayOptions((prev) => ({ ...prev, outroVideoFile: null }))
+                        }
+                        title={dict.introOutro.removeVideo}
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ) : (
                     <button
                       type="button"
-                      className="toss-btn-delete-sm ml-auto"
-                      onClick={() =>
-                        setOverlayOptions((prev) => ({ ...prev, outroVideoFile: null }))
-                      }
-                      title={dict.introOutro.removeVideo}
+                      className="toss-btn-custom-audio w-full py-1.5 text-xs text-slate-600"
+                      onClick={() => outroVideoInputRef.current?.click()}
                     >
-                      <X size={13} />
+                      <Plus size={13} />
+                      <span>내 아웃트로 영상 파일 직접 올리기 (선택)</span>
                     </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className="toss-btn-custom-audio w-full"
-                    onClick={() => outroVideoInputRef.current?.click()}
-                  >
-                    <Plus size={14} />
-                    <span>{dict.introOutro.uploadOutro}</span>
-                  </button>
-                )}
-                <span className="text-[11px] text-slate-400 block mt-1.5">
-                  {overlayOptions.outroVideoFile
-                    ? dict.introOutro.outroApplied
-                    : dict.introOutro.outroDefault}
-                </span>
+                  )}
+                </div>
               </div>
             )}
           </div>

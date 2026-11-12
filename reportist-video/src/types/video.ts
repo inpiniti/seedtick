@@ -21,6 +21,9 @@ export interface HighlightSegment {
   longitude?: number;       // GPS 경도
   recordedTimestamp?: number; // 씬 실제 촬영 시각 타임스탬프 (ms, 시분초 포함)
   rotation?: number;        // 씬 영상 회전 각도 (0, 90, 180, 270도)
+  skipChapterBridge?: boolean; // 이 세그먼트 앞의 챕터 브릿지 건너뛰기
+  bridgeDateTemplateOverride?: BridgeDateTemplateId; // 개별 날짜 브릿지 템플릿 오버라이드
+  bridgeLocationTemplateOverride?: BridgeLocationTemplateId; // 개별 장소 브릿지 템플릿 오버라이드
 }
 
 export interface BgmPreset {
@@ -143,8 +146,24 @@ export interface VideoOverlayOptions {
   introDurationSec?: number; // 인트로 모션 재생 길이(초) (기본: 2.0초)
   outroDurationSec?: number; // 아웃트로 모션 재생 길이(초) (기본: 2.2초)
   showChapterBridge?: boolean; // 날짜·장소·원본 영상 전환 시 HyperFrames 챕터 브릿지 효과 표시 (기본 true)
+  chapterBridgeDateTemplate?: BridgeDateTemplateId; // 챕터 브릿지 날짜 전환 템플릿 (1~5번, 기본: 'flip-clock')
+  chapterBridgeLocationTemplate?: BridgeLocationTemplateId; // 챕터 브릿지 장소 전환 템플릿 (1~5번, 기본: 'winding-route')
   bgmFitToVideo?: boolean;     // 영상 길이에 맞춰 BGM 배속 자동 조절 여부 (기본 false)
 }
+
+export type BridgeDateTemplateId =
+  | 'flip-clock'        // 1번: 레트로 플립 시계 (Split-Flap Clock)
+  | 'watch-spin'        // 2번: 럭셔리 워치 회전 (Luxury Watch Hand Spin)
+  | 'calendar-page'     // 3번: 일력 달력 넘기기 (Tear-off Calendar)
+  | 'minimal-editorial' // 4번: 미니멀 매거진 에디토리얼 (Editorial Date)
+  | 'neon-digital';     // 5번: 네온 카운트다운 HUD (Neon Digital)
+
+export type BridgeLocationTemplateId =
+  | 'winding-route'     // 1번: 로드트립 패스파인더 (Winding Route)
+  | 'globe-spin'        // 2번: 3D 와이어프레임 지구본 (Globe Arc)
+  | 'boarding-pass'     // 3번: 보딩패스 티켓 & 스탬프 (Boarding Pass)
+  | 'minimal-editorial' // 4번: 미니멀 에디토리얼 (Editorial Location)
+  | 'gps-cyber';        // 5번: GPS 내비게이션 & 네온 HUD (GPS Cyber)
 
 export type IntroTemplateId =
   | 'kinetic-slide'
