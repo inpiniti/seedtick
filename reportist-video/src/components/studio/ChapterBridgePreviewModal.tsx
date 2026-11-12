@@ -1,8 +1,8 @@
 // src/components/studio/ChapterBridgePreviewModal.tsx
-// 챕터 브릿지 날짜(1~5번) x 장소(1~5번) 실시간 조합 미리보기 모달
+// 챕터 브릿지 날짜(1~5번) x 장소(1~5번) 실시간 조합 미리보기 모달 (토스 스타일 라이트 테마)
 
 import React, { useEffect, useRef, useState } from 'react';
-import { X, Play, Pause, RotateCcw, Sparkles, Clock, Navigation } from 'lucide-react';
+import { X, Play, Pause, RotateCcw, Sparkles, Clock, Navigation, Check } from 'lucide-react';
 import {
   CHAPTER_BRIDGE_DURATION,
   createHyperframesBridgeController,
@@ -60,15 +60,22 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
   const animFrameIdRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(performance.now());
   const pausedTimeRef = useRef<number>(0);
+  const isPlayingRef = useRef<boolean>(true);
 
+  // 모달 열릴 때마다 초기값 동기화
   useEffect(() => {
-    setDateTemplate(initialDateTemplate);
-    setLocationTemplate(initialLocationTemplate);
-    setCurrentTime(0);
-    setIsPlaying(true);
-    startTimeRef.current = performance.now();
-  }, [initialDateTemplate, initialLocationTemplate, isOpen]);
+    if (isOpen) {
+      setDateTemplate(initialDateTemplate);
+      setLocationTemplate(initialLocationTemplate);
+      setCurrentTime(0);
+      setIsPlaying(true);
+      isPlayingRef.current = true;
+      startTimeRef.current = performance.now();
+      pausedTimeRef.current = 0;
+    }
+  }, [isOpen, initialDateTemplate, initialLocationTemplate]);
 
+  // 애니메이션 캔버스 렌더 루프
   useEffect(() => {
     if (!isOpen) {
       if (animFrameIdRef.current) {
@@ -101,11 +108,9 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
       locationTemplate,
     };
 
-    let localIsPlaying = isPlaying;
-
     const renderLoop = (now: number) => {
       let t = 0;
-      if (localIsPlaying) {
+      if (isPlayingRef.current) {
         const elapsed = (now - startTimeRef.current) / 1000;
         t = elapsed % CHAPTER_BRIDGE_DURATION;
         setCurrentTime(t);
@@ -127,34 +132,53 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
       }
       controller.dispose();
     };
-  }, [isOpen, dateTemplate, locationTemplate, isPlaying]);
+  }, [isOpen, dateTemplate, locationTemplate]);
 
   if (!isOpen) return null;
 
-  const togglePlay = () => {
+  const togglePlay = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (isPlaying) {
       pausedTimeRef.current = currentTime;
+      isPlayingRef.current = false;
       setIsPlaying(false);
     } else {
       startTimeRef.current = performance.now() - pausedTimeRef.current * 1000;
+      isPlayingRef.current = true;
       setIsPlaying(true);
     }
   };
 
-  const handleRestart = () => {
+  const handleRestart = (e: React.MouseEvent) => {
+    e.stopPropagation();
     startTimeRef.current = performance.now();
     pausedTimeRef.current = 0;
     setCurrentTime(0);
+    isPlayingRef.current = true;
     setIsPlaying(true);
   };
 
   const handleSeek = (time: number) => {
     pausedTimeRef.current = time;
     setCurrentTime(time);
+    isPlayingRef.current = false;
     setIsPlaying(false);
   };
 
-  const handleSave = () => {
+  const handleSelectDate = (e: React.MouseEvent, id: BridgeDateTemplateId) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setDateTemplate(id);
+  };
+
+  const handleSelectLocation = (e: React.MouseEvent, id: BridgeLocationTemplateId) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setLocationTemplate(id);
+  };
+
+  const handleSave = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (onApply) {
       onApply(dateTemplate, locationTemplate);
     }
@@ -163,32 +187,42 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
 
   return (
     <div
+      className="model-modal-backdrop"
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 9999,
-        backgroundColor: 'rgba(3, 7, 18, 0.85)',
-        backdropFilter: 'blur(8px)',
+        zIndex: 10000,
+        backgroundColor: 'rgba(15, 23, 42, 0.65)',
+        backdropFilter: 'blur(6px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         padding: '16px',
       }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClose();
+      }}
     >
+      {/* 모달 카드 (토스 스타일 라이트 테마: 화이트 배경, 깔끔한 섀도우) */}
       <div
+        className="model-modal-card"
         style={{
           width: '100%',
-          maxWidth: '880px',
-          maxHeight: '92vh',
-          backgroundColor: '#0f172a',
-          borderRadius: '20px',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
+          maxWidth: '860px',
+          maxHeight: '90vh',
+          backgroundColor: '#ffffff',
+          borderRadius: '24px',
+          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.25)',
+          border: '1px solid #e2e8f0',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
-          color: '#f8fafc',
+          color: '#0f172a',
         }}
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
       >
         {/* 헤더 */}
         <div
@@ -196,62 +230,80 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '18px 24px',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+            padding: '20px 24px',
+            borderBottom: '1px solid #f1f5f9',
+            backgroundColor: '#ffffff',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div
               style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                background: 'linear-gradient(135deg, #f5d07d, #eab308)',
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                backgroundColor: '#fef3c7',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#0f172a',
+                color: '#d97706',
               }}
             >
-              <Sparkles size={18} />
+              <Sparkles size={20} />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: '#ffffff' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#0f172a' }}>
                 챕터 브릿지 모션 템플릿 & 실시간 미리보기
               </h3>
-              <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8' }}>
+              <p style={{ margin: '2px 0 0 0', fontSize: '13px', color: '#64748b' }}>
                 날짜 스타일과 장소 스타일을 원하는 조합으로 믹스앤매치할 수 있습니다.
               </p>
             </div>
           </div>
           <button
-            onClick={onClose}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
             style={{
-              background: 'transparent',
+              background: '#f1f5f9',
               border: 'none',
-              color: '#94a3b8',
+              color: '#475569',
               cursor: 'pointer',
-              padding: '6px',
-              borderRadius: '8px',
+              padding: '8px',
+              borderRadius: '50%',
               display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'background-color 0.15s ease',
             }}
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
-        {/* 바디 (캔버스 + 컨트롤러 + 선택 탭) */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* 캔버스 프리뷰 뷰어 */}
+        {/* 바디 (캔버스 + 컨트롤 바 + 템플릿 선택 그리드) */}
+        <div
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            padding: '20px 24px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '18px',
+            backgroundColor: '#f8fafc',
+          }}
+        >
+          {/* 캔버스 비디오 프리뷰 (화면 비율 16:9, 다크 스크린) */}
           <div
             style={{
               position: 'relative',
               width: '100%',
-              borderRadius: '14px',
+              borderRadius: '16px',
               overflow: 'hidden',
               backgroundColor: '#07090e',
-              border: '1px solid rgba(245, 208, 125, 0.25)',
-              boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+              border: '1px solid #0f172a',
+              boxShadow: '0 8px 24px rgba(15, 23, 42, 0.15)',
               aspectRatio: '16 / 9',
               display: 'flex',
               alignItems: 'center',
@@ -264,7 +316,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
               height={540}
               style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
             />
-            {/* 좌상단 템플릿 정보 배지 */}
+            {/* 좌상단 템플릿 배지 */}
             <div
               style={{
                 position: 'absolute',
@@ -313,19 +365,21 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
               alignItems: 'center',
               gap: '12px',
               padding: '10px 16px',
-              backgroundColor: 'rgba(30, 41, 59, 0.6)',
+              backgroundColor: '#ffffff',
               borderRadius: '12px',
-              border: '1px solid rgba(255, 255, 255, 0.05)',
+              border: '1px solid #e2e8f0',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
             }}
           >
             <button
+              type="button"
               onClick={togglePlay}
               style={{
-                background: '#f5d07d',
-                color: '#0f172a',
+                background: '#0f172a',
+                color: '#ffffff',
                 border: 'none',
                 borderRadius: '8px',
-                padding: '6px 12px',
+                padding: '7px 14px',
                 fontWeight: 700,
                 display: 'flex',
                 alignItems: 'center',
@@ -338,13 +392,14 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
               {isPlaying ? '일시정지' : '재생'}
             </button>
             <button
+              type="button"
               onClick={handleRestart}
               style={{
-                background: 'rgba(255, 255, 255, 0.08)',
-                color: '#e2e8f0',
-                border: 'none',
+                background: '#f1f5f9',
+                color: '#334155',
+                border: '1px solid #e2e8f0',
                 borderRadius: '8px',
-                padding: '6px 10px',
+                padding: '7px 10px',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -360,34 +415,45 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
               step={0.03}
               value={currentTime}
               onChange={(e) => handleSeek(parseFloat(e.target.value))}
-              style={{ flex: 1, accentColor: '#f5d07d', cursor: 'pointer' }}
+              style={{ flex: 1, accentColor: '#0f172a', cursor: 'pointer' }}
             />
-            <span style={{ fontSize: '12px', fontFamily: 'monospace', color: '#94a3b8', minWidth: '70px', textAlign: 'right' }}>
+            <span style={{ fontSize: '12.5px', fontFamily: 'monospace', color: '#64748b', minWidth: '70px', textAlign: 'right' }}>
               {currentTime.toFixed(2)}s / {CHAPTER_BRIDGE_DURATION.toFixed(1)}s
             </span>
           </div>
 
-          {/* 템플릿 선택 그리드 2열 (좌: 날짜 5종, 우: 장소 5종) */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+          {/* 템플릿 선택 그리드 (토스 스타일 화이트 카드) */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             {/* [날짜 템플릿 5종] */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#f5d07d', fontWeight: 700, fontSize: '14px' }}>
+            <div
+              style={{
+                backgroundColor: '#ffffff',
+                borderRadius: '16px',
+                padding: '16px',
+                border: '1px solid #e2e8f0',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#b45309', fontWeight: 700, fontSize: '14px' }}>
                 <Clock size={16} />
                 <span>날짜(시간) 변경 스타일 (1~5번)</span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {DATE_TEMPLATE_OPTIONS.map((opt) => {
                   const selected = dateTemplate === opt.id;
                   return (
                     <button
                       key={opt.id}
-                      onClick={() => setDateTemplate(opt.id)}
+                      type="button"
+                      onClick={(e) => handleSelectDate(e, opt.id)}
                       style={{
                         padding: '10px 14px',
                         borderRadius: '10px',
-                        border: selected ? '2px solid #f5d07d' : '1px solid rgba(255, 255, 255, 0.08)',
-                        backgroundColor: selected ? 'rgba(245, 208, 125, 0.12)' : 'rgba(30, 41, 59, 0.5)',
-                        color: selected ? '#ffffff' : '#94a3b8',
+                        border: selected ? '2px solid #f59e0b' : '1px solid #f1f5f9',
+                        backgroundColor: selected ? '#fef3c7' : '#ffffff',
+                        color: '#0f172a',
                         cursor: 'pointer',
                         textAlign: 'left',
                         display: 'flex',
@@ -397,24 +463,26 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                       }}
                     >
                       <div>
-                        <div style={{ fontSize: '13px', fontWeight: 700, color: selected ? '#f5d07d' : '#f1f5f9' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: selected ? '#b45309' : '#1e293b' }}>
                           {opt.num}번. {opt.name}
                         </div>
-                        <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>{opt.desc}</div>
+                        <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>{opt.desc}</div>
                       </div>
                       {selected && (
-                        <span
+                        <div
                           style={{
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            color: '#0f172a',
-                            backgroundColor: '#f5d07d',
-                            padding: '2px 8px',
-                            borderRadius: '12px',
+                            width: '22px',
+                            height: '22px',
+                            borderRadius: '50%',
+                            backgroundColor: '#f59e0b',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#ffffff',
                           }}
                         >
-                          선택됨
-                        </span>
+                          <Check size={14} strokeWidth={3} />
+                        </div>
                       )}
                     </button>
                   );
@@ -423,24 +491,35 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
             </div>
 
             {/* [장소 템플릿 5종] */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#38bdf8', fontWeight: 700, fontSize: '14px' }}>
+            <div
+              style={{
+                backgroundColor: '#ffffff',
+                borderRadius: '16px',
+                padding: '16px',
+                border: '1px solid #e2e8f0',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0369a1', fontWeight: 700, fontSize: '14px' }}>
                 <Navigation size={16} />
                 <span>장소(위치) 이동 스타일 (1~5번)</span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {LOCATION_TEMPLATE_OPTIONS.map((opt) => {
                   const selected = locationTemplate === opt.id;
                   return (
                     <button
                       key={opt.id}
-                      onClick={() => setLocationTemplate(opt.id)}
+                      type="button"
+                      onClick={(e) => handleSelectLocation(e, opt.id)}
                       style={{
                         padding: '10px 14px',
                         borderRadius: '10px',
-                        border: selected ? '2px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.08)',
-                        backgroundColor: selected ? 'rgba(56, 189, 248, 0.12)' : 'rgba(30, 41, 59, 0.5)',
-                        color: selected ? '#ffffff' : '#94a3b8',
+                        border: selected ? '2px solid #0284c7' : '1px solid #f1f5f9',
+                        backgroundColor: selected ? '#e0f2fe' : '#ffffff',
+                        color: '#0f172a',
                         cursor: 'pointer',
                         textAlign: 'left',
                         display: 'flex',
@@ -450,24 +529,26 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                       }}
                     >
                       <div>
-                        <div style={{ fontSize: '13px', fontWeight: 700, color: selected ? '#38bdf8' : '#f1f5f9' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: selected ? '#0369a1' : '#1e293b' }}>
                           {opt.num}번. {opt.name}
                         </div>
-                        <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>{opt.desc}</div>
+                        <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>{opt.desc}</div>
                       </div>
                       {selected && (
-                        <span
+                        <div
                           style={{
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            color: '#0f172a',
-                            backgroundColor: '#38bdf8',
-                            padding: '2px 8px',
-                            borderRadius: '12px',
+                            width: '22px',
+                            height: '22px',
+                            borderRadius: '50%',
+                            backgroundColor: '#0284c7',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#ffffff',
                           }}
                         >
-                          선택됨
-                        </span>
+                          <Check size={14} strokeWidth={3} />
+                        </div>
                       )}
                     </button>
                   );
@@ -481,40 +562,45 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
         <div
           style={{
             padding: '16px 24px',
-            borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+            borderTop: '1px solid #f1f5f9',
             display: 'flex',
             justifyContent: 'flex-end',
-            gap: '12px',
-            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+            gap: '10px',
+            backgroundColor: '#ffffff',
           }}
         >
           <button
-            onClick={onClose}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
             style={{
-              padding: '9px 18px',
-              borderRadius: '8px',
-              backgroundColor: 'rgba(255, 255, 255, 0.08)',
+              padding: '10px 18px',
+              borderRadius: '10px',
+              backgroundColor: '#f1f5f9',
               border: 'none',
-              color: '#e2e8f0',
+              color: '#475569',
               fontWeight: 600,
-              fontSize: '13px',
+              fontSize: '13.5px',
               cursor: 'pointer',
             }}
           >
             닫기
           </button>
           <button
+            type="button"
             onClick={handleSave}
             style={{
-              padding: '9px 22px',
-              borderRadius: '8px',
-              backgroundColor: '#f5d07d',
+              padding: '10px 22px',
+              borderRadius: '10px',
+              backgroundColor: '#0f172a',
               border: 'none',
-              color: '#0f172a',
-              fontWeight: 800,
-              fontSize: '13px',
+              color: '#ffffff',
+              fontWeight: 700,
+              fontSize: '13.5px',
               cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(245, 208, 125, 0.3)',
+              boxShadow: '0 4px 12px rgba(15, 23, 42, 0.2)',
             }}
           >
             이 조합으로 기본값 적용

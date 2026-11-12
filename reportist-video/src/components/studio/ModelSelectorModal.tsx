@@ -1,22 +1,27 @@
-// components/studio/ModelSelectorModal.tsx - AI Vision Model Selector Modal with i18n
-
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Brain,
   Calendar,
   Check,
+  CheckCircle2,
   Cpu,
+  ExternalLink,
+  Eye,
+  EyeOff,
   Gauge,
+  Key,
   Layers,
   Search,
+  Server,
   ShieldAlert,
   ShieldCheck,
   Sparkles,
   Timer,
+  Trash2,
   X,
   Zap,
 } from 'lucide-react';
-import type { FreeModelMeta } from '../../types/gateway.ts';
+import type { FreeModelMeta, UserAiProvider, UserApiKeyConfig } from '../../types/gateway.ts';
 import { getModelInputModalities } from '../../types/gateway.ts';
 import {
   cleanModelName,
@@ -24,6 +29,14 @@ import {
   getSpeedTier,
   pickDefaultModel,
 } from '../../services/modelMetrics.ts';
+import {
+  clearStoredUserApiKeyConfig,
+  getProviderPreset,
+  getStoredUserApiKeyConfig,
+  PROVIDER_PRESETS,
+  setStoredUserApiKeyConfig,
+} from '../../services/userApiKeyService.ts';
+import { notify } from '../../services/toastService.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import {
   localizeIntelligenceTier,
@@ -81,6 +94,84 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
   const [selectedProvider, setSelectedProvider] = useState<string>('all');
   const [selectedModality, setSelectedModality] = useState<ModalityFilter>('all');
   const [sortKey, setSortKey] = useState<SortKey>('intelligence');
+
+  // BYOK (사용자 API Key 설정) 상태
+  const [activeTab, setActiveTab] = useState<'gateway' | 'byok'>('gateway');
+  const [storedUserKey, setStoredUserKey] = useState<UserApiKeyConfig | null>(null);
+  const [selectedByokProvider, setSelectedByokProvider] = useState<UserAiProvider>('openai');
+  const [apiKeyInput, setApiKeyInput] = useState<string>('');
+  const [modelInput, setModelInput] = useState<string>('');
+  const [baseUrlInput, setBaseUrlInput] = useState<string>('');
+  const [showKeyText, setShowKeyText] = useState<boolean>(false);
+
+  // 모달이 열릴 때마다 로컬 스토리지에서 최신 설정 동기화
+  useEffect(() => {
+    if (!isOpen) return;
+    const current = getStoredUserApiKeyConfig();
+    setStoredUserKey(current);
+    if (current) {
+      setSelectedByokProvider(current.provider);
+      setApiKeyInput(current.apiKey);
+      setModelInput(current.model || '');
+      setBaseUrlInput(current.baseUrl || '');
+      setActiveTab('byok');
+    } else {
+      setActiveTab('gateway');
+      const defaultPreset = getProviderPreset('openai');
+      setSelectedByokProvider('openai');
+      setApiKeyInput('');
+      setModelInput(defaultPreset.defaultModel);
+      setBaseUrlInput('');
+    }
+  }, [isOpen]);
+
+  const currentPreset = useMemo(
+    () => getProviderPreset(selectedByokProvider),
+    [selectedByokProvider]
+  );
+
+  const handleSelectByokProvider = (providerId: UserAiProvider) => {
+    setSelectedByokProvider(providerId);
+    const preset = getProviderPreset(providerId);
+    if (storedUserKey && storedUserKey.provider === providerId) {
+      setApiKeyInput(storedUserKey.apiKey);
+      setModelInput(storedUserKey.model || preset.defaultModel);
+      setBaseUrlInput(storedUserKey.baseUrl || '');
+    } else {
+      setModelInput(preset.defaultModel);
+      if (!preset.supportsCustomBaseUrl) {
+        setBaseUrlInput('');
+      }
+    }
+  };
+
+  const handleSaveByok = () => {
+    if (!apiKeyInput.trim()) {
+      notify.warning('API Key를 입력해 주세요.');
+      return;
+    }
+
+    const payload: UserApiKeyConfig = {
+      provider: selectedByokProvider,
+      apiKey: apiKeyInput.trim(),
+      model: modelInput.trim() || currentPreset.defaultModel,
+      baseUrl: currentPreset.supportsCustomBaseUrl && baseUrlInput.trim() ? baseUrlInput.trim() : undefined,
+    };
+
+    setStoredUserApiKeyConfig(payload);
+    setStoredUserKey(payload);
+    onSelectModel(payload.model);
+    notify.success(`${currentPreset.name} API Key가 브라우저에 안전하게 저장되었습니다!`);
+  };
+
+  const handleClearByok = () => {
+    clearStoredUserApiKeyConfig();
+    setStoredUserKey(null);
+    setApiKeyInput('');
+    const defaultModel = models[0]?.id || 'nvidia/nemotron-3.5-super-vl:free';
+    onSelectModel(defaultModel);
+    notify.info('API Key가 삭제되었습니다. 기본 무료 게이트웨이 모델로 전환됩니다.');
+  };
 
   useModalScrollLock(isOpen, {
     overlayRef,
@@ -256,11 +347,460 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
           </button>
         </div>
 
-        {/* Search & Filter */}
-        <div className="model-modal-search-section">
-          <div className="model-modal-search-wrapper">
-            <Search size={18} className="model-modal-search-icon" />
-            <input
+        {/* Tab Selector: Gateway vs BYOK */}
+        <div
+          style={{
+            display: 'flex',
+            padding: '8px 16px',
+            gap: '8px',
+            backgroundColor: 'rgba(15, 23, 42, 0.6)',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setActiveTab('gateway')}
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              padding: '10px 14px',
+              borderRadius: '10px',
+              border: activeTab === 'gateway' ? '1px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.06)',
+              backgroundColor: activeTab === 'gateway' ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+              color: activeTab === 'gateway' ? '#38bdf8' : '#94a3b8',
+              fontSize: '13px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Sparkles size={15} />
+            <span>AI Gateway 무료 모델</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('byok')}
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              padding: '10px 14px',
+              borderRadius: '10px',
+              border: activeTab === 'byok' ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.06)',
+              backgroundColor: activeTab === 'byok' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+              color: activeTab === 'byok' ? '#34d399' : '#94a3b8',
+              fontSize: '13px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Key size={15} />
+            <span>내 API Key 연결 (BYOK)</span>
+            {storedUserKey && (
+              <span
+                style={{
+                  display: 'inline-block',
+                  width: '7px',
+                  height: '7px',
+                  borderRadius: '50%',
+                  backgroundColor: '#10b981',
+                  boxShadow: '0 0 6px #10b981',
+                }}
+              />
+            )}
+          </button>
+        </div>
+
+        {activeTab === 'byok' ? (
+          /* === BYOK (내 API Key 설정 화면) === */
+          <div
+            className="model-modal-list"
+            data-modal-scrollable="true"
+            style={{
+              padding: '16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              overflowY: 'auto',
+              maxHeight: 'calc(85vh - 180px)',
+            }}
+          >
+            {/* 연결 상태 안내 카드 */}
+            <div
+              style={{
+                padding: '12px 14px',
+                borderRadius: '12px',
+                backgroundColor: storedUserKey ? 'rgba(16, 185, 129, 0.1)' : 'rgba(56, 189, 248, 0.08)',
+                border: storedUserKey ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(56, 189, 248, 0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+              }}
+            >
+              {storedUserKey ? (
+                <CheckCircle2 size={20} color="#10b981" style={{ flexShrink: 0 }} />
+              ) : (
+                <Server size={20} color="#38bdf8" style={{ flexShrink: 0 }} />
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#f8fafc' }}>
+                  {storedUserKey
+                    ? `현재 ${getProviderPreset(storedUserKey.provider).name} (${storedUserKey.model}) 연결됨`
+                    : '내 API Key를 등록하여 플래그십 AI로 하이라이트 분석'}
+                </div>
+                <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px', lineHeight: 1.4 }}>
+                  {storedUserKey
+                    ? '브라우저에 안전하게 저장되어 있으며, 새로고침해도 유지됩니다. 하이라이트 분석 시 개인 키로 직접 처리됩니다.'
+                    : 'OpenAI, Claude, Gemini 등의 개인 API Key를 넣으면 분당 제한 없이 고화질 멀티모달 분석을 이용할 수 있습니다.'}
+                </div>
+              </div>
+            </div>
+
+            {/* 1. 제공사 선택 그리드 */}
+            <div>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  color: '#cbd5e1',
+                  marginBottom: '8px',
+                }}
+              >
+                1. AI 제공사 선택
+              </label>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+                  gap: '8px',
+                }}
+              >
+                {PROVIDER_PRESETS.map((preset) => {
+                  const isSelected = selectedByokProvider === preset.id;
+                  const isSavedProvider = storedUserKey?.provider === preset.id;
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => handleSelectByokProvider(preset.id)}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: '10px',
+                        backgroundColor: isSelected ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.03)',
+                        border: isSelected ? `2px solid ${preset.color}` : '1px solid rgba(255, 255, 255, 0.08)',
+                        color: isSelected ? '#ffffff' : '#cbd5e1',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        position: 'relative',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 700 }}>{preset.shortName}</span>
+                        {isSavedProvider && (
+                          <span
+                            style={{
+                              fontSize: '10px',
+                              padding: '1px 5px',
+                              borderRadius: '4px',
+                              backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                              color: '#34d399',
+                              fontWeight: 700,
+                            }}
+                          >
+                            저장됨
+                          </span>
+                        )}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '10px',
+                          color: preset.color,
+                          fontWeight: 600,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {preset.badge}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 2. API Key 입력 폼 */}
+            <div
+              style={{
+                backgroundColor: 'rgba(15, 23, 42, 0.4)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '12px',
+                padding: '14px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: '#f1f5f9' }}>
+                  2. {currentPreset.name} API Key 입력
+                </label>
+                {currentPreset.helpUrl && (
+                  <a
+                    href={currentPreset.helpUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontSize: '11px',
+                      color: '#38bdf8',
+                      textDecoration: 'none',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <span>키 발급받기</span>
+                    <ExternalLink size={11} />
+                  </a>
+                )}
+              </div>
+
+              {/* Input row */}
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <input
+                  type={showKeyText ? 'text' : 'password'}
+                  value={apiKeyInput}
+                  onChange={(e) => setApiKeyInput(e.target.value)}
+                  placeholder={currentPreset.placeholder}
+                  style={{
+                    width: '100%',
+                    padding: '10px 75px 10px 12px',
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    color: '#ffffff',
+                    fontSize: '13px',
+                    fontFamily: 'monospace',
+                    outline: 'none',
+                  }}
+                />
+                <div
+                  style={{
+                    position: 'absolute',
+                    right: '6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setShowKeyText(!showKeyText)}
+                    style={{
+                      padding: '4px 6px',
+                      borderRadius: '6px',
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      color: '#94a3b8',
+                      cursor: 'pointer',
+                    }}
+                    title={showKeyText ? '숨기기' : '표시'}
+                  >
+                    {showKeyText ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const clip = await navigator.clipboard.readText();
+                        if (clip) setApiKeyInput(clip.trim());
+                      } catch {}
+                    }}
+                    style={{
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      color: '#cbd5e1',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    붙여넣기
+                  </button>
+                </div>
+              </div>
+
+              {/* 3. 모델 선택 */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#cbd5e1', marginBottom: '6px' }}>
+                  3. 모델 지정 (영상 하이라이트 분석용)
+                </label>
+                {currentPreset.recommendedModels.length > 0 && (
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                    {currentPreset.recommendedModels.map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => setModelInput(m.id)}
+                        style={{
+                          padding: '5px 10px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          backgroundColor: modelInput === m.id ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                          border: modelInput === m.id ? '1px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.1)',
+                          color: modelInput === m.id ? '#38bdf8' : '#94a3b8',
+                          cursor: 'pointer',
+                        }}
+                        title={m.desc}
+                      >
+                        {m.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <input
+                  type="text"
+                  value={modelInput}
+                  onChange={(e) => setModelInput(e.target.value)}
+                  placeholder="직접 모델 ID 입력 (예: gpt-4o, claude-3-5-sonnet-20241022)"
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    color: '#ffffff',
+                    fontSize: '12px',
+                    fontFamily: 'monospace',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+
+              {/* 4. 커스텀 Base URL (필요시) */}
+              {(currentPreset.supportsCustomBaseUrl || selectedByokProvider === 'custom') && (
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#cbd5e1', marginBottom: '4px' }}>
+                    커스텀 엔드포인트 URL (선택)
+                  </label>
+                  <input
+                    type="text"
+                    value={baseUrlInput}
+                    onChange={(e) => setBaseUrlInput(e.target.value)}
+                    placeholder="https://api.example.com/v1/chat/completions"
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      backgroundColor: 'rgba(0, 0, 0, 0.25)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      color: '#ffffff',
+                      fontSize: '12px',
+                      fontFamily: 'monospace',
+                      outline: 'none',
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* 저장 및 삭제 버튼 */}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                <button
+                  type="button"
+                  onClick={handleSaveByok}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    padding: '10px 16px',
+                    borderRadius: '8px',
+                    backgroundColor: '#10b981',
+                    border: 'none',
+                    color: '#ffffff',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Key size={14} />
+                  <span>브라우저에 저장하고 연결하기</span>
+                </button>
+                {storedUserKey && (
+                  <button
+                    type="button"
+                    onClick={handleClearByok}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      color: '#f87171',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                    title="키 삭제"
+                  >
+                    <Trash2 size={14} />
+                    <span>삭제</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* 보안 및 CORS 원천 차단 안내 카드 */}
+            <div
+              style={{
+                padding: '12px 14px',
+                borderRadius: '10px',
+                backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                border: '1px solid rgba(255, 255, 255, 0.06)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                fontSize: '11px',
+                color: '#94a3b8',
+                lineHeight: 1.5,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#38bdf8', fontWeight: 700 }}>
+                <ShieldCheck size={14} />
+                <span>안심 보안 & CORS(Origin) 오류 원천 방지 안내</span>
+              </div>
+              <div>
+                • <strong>CORS 에러 제로</strong>: 브라우저에서 직접 AI 제공자로 요청하지 않고, AI Gateway의 보안 패스스루 터널을 거치므로 Origin 차단 오류 없이 안정적으로 호출됩니다.
+              </div>
+              <div>
+                • <strong>로컬 보관 (Zero DB Storage)</strong>: 입력하신 API Key는 사용자 브라우저의 <code>localStorage</code>에만 보관되며, 서버 데이터베이스나 로그에 영구 저장되지 않습니다.
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* === 기본 무료 게이트웨이 모델 목록 (기존 뷰) === */
+          <>
+            {/* Search & Filter */}
+            <div className="model-modal-search-section">
+              <div className="model-modal-search-wrapper">
+                <Search size={18} className="model-modal-search-icon" />
+                <input
               type="text"
               placeholder={dict.modelModal.searchPlaceholder}
               value={searchQuery}
@@ -664,6 +1204,8 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
             })
           )}
         </div>
+        </>
+        )}
 
         {/* Modal Footer */}
         <div className="model-modal-footer">

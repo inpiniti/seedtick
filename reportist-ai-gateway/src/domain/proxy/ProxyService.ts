@@ -15,8 +15,10 @@ import type {
   KeySlot,
   LLMProvider,
   ModelConfig,
+  UserPassThroughConfig,
 } from '../types.ts';
 import { FALLBACK_CHAIN } from '../types.ts';
+import { AnthropicAdapter } from './adapters/AnthropicAdapter.ts';
 import { GeminiAdapter } from './adapters/GeminiAdapter.ts';
 import type { ILLMAdapter } from './adapters/ILLMAdapter.ts';
 import { OpenAICompatAdapter } from './adapters/OpenAICompatAdapter.ts';
@@ -597,6 +599,202 @@ export class ProxyService {
 
   getSlots(): KeySlot[] {
     return [...this.slots];
+  }
+
+  // === 사용자 직접 입력 API 키(BYOK) 패스스루 처리 ===
+  private resolvePassThroughAdapter(config: UserPassThroughConfig): {
+    adapter: ILLMAdapter;
+    model: string;
+    provider: string;
+  } {
+    const rawProvider = (config.provider || 'openai').toLowerCase().trim();
+    let baseUrl = config.baseUrl?.trim();
+    let resolvedModel = config.model?.trim();
+
+    if (rawProvider === 'claude' || rawProvider === 'anthropic') {
+      return {
+        adapter: new AnthropicAdapter({
+          baseUrl: baseUrl || 'https://api.anthropic.com/v1/messages',
+        }),
+        model: resolvedModel || 'claude-3-5-sonnet-20241022',
+        provider: 'anthropic',
+      };
+    }
+
+    let defaultHeaders: Record<string, string> | undefined;
+
+    switch (rawProvider) {
+      case 'openai':
+        baseUrl = baseUrl || 'https://api.openai.com/v1/chat/completions';
+        resolvedModel = resolvedModel || 'gpt-4o-mini';
+        break;
+      case 'gemini':
+      case 'google':
+        baseUrl = baseUrl || 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
+        resolvedModel = resolvedModel || 'gemini-2.0-flash';
+        break;
+      case 'openrouter':
+        baseUrl = baseUrl || 'https://openrouter.ai/api/v1/chat/completions';
+        resolvedModel = resolvedModel || 'openai/gpt-4o-mini';
+        defaultHeaders = {
+          'HTTP-Referer': 'https://reportist.kr',
+          'X-Title': 'Reportist',
+        };
+        break;
+      case 'deepseek':
+        baseUrl = baseUrl || 'https://api.deepseek.com/chat/completions';
+        resolvedModel = resolvedModel || 'deepseek-chat';
+        break;
+      case 'grok':
+      case 'xai':
+        baseUrl = baseUrl || 'https://api.x.ai/v1/chat/completions';
+        resolvedModel = resolvedModel || 'grok-2-vision-1212';
+        break;
+      case 'qwen':
+      case 'dashscope':
+        baseUrl = baseUrl || 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions';
+        resolvedModel = resolvedModel || 'qwen-vl-max';
+        break;
+      case 'glm':
+      case 'zhipu':
+        baseUrl = baseUrl || 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
+        resolvedModel = resolvedModel || 'glm-4v';
+        break;
+      case 'kimi':
+      case 'moonshot':
+        baseUrl = baseUrl || 'https://api.moonshot.cn/v1/chat/completions';
+        resolvedModel = resolvedModel || 'moonshot-v1-auto';
+        break;
+      case 'minimax':
+      case 'mimo':
+        baseUrl = baseUrl || 'https://api.minimax.chat/v1/text/chatcompletion_v2';
+        resolvedModel = resolvedModel || 'MiniMax-VL-01';
+        break;
+      case 'muse':
+        baseUrl = baseUrl || 'https://api.muse.ai/v1/chat/completions';
+        resolvedModel = resolvedModel || 'muse-v1';
+        break;
+      default:
+        baseUrl = baseUrl || 'https://api.openai.com/v1/chat/completions';
+        resolvedModel = resolvedModel || 'gpt-4o-mini';
+        break;
+    }
+
+    return {
+      adapter: new OpenAICompatAdapter({
+        baseUrl,
+        apiKeys: [config.apiKey],
+        defaultHeaders,
+      }),
+      model: resolvedModel,
+      provider: rawProvider,
+    };
+  }
+
+  async chatPassThrough(
+    request: ChatRequest,
+    config: UserPassThroughConfig
+  ): Promise<ChatResponse | GatewayError> {
+    const { adapter, model, provider } = this.resolvePassThroughAdapter(config);
+    const targetModel = request.model || model;
+    const keyMasked = config.apiKey.length > 8 ? `${config.apiKey.slice(0, 4)}...${config.apiKey.slice(-4)}` : '***';
+
+    console.info(`[Gateway PassThrough] 호출 시작: provider=${provider}, model=${targetModel}, key=${keyMasked}`);
+
+    try {
+      const result = await adapter.call(request, targetModel, config.apiKey, 120_000);
+      if (result.ok && result.response) {
+        console.info(`[Gateway PassThrough] 성공: provider=${provider}, model=${targetModel}`);
+        return result.response;
+      }
+
+      console.warn(`[Gateway PassThrough] 실패 (${result.status}): ${result.errorBody.slice(0, 200)}`);
+      return {
+        error: {
+          code: 'GATEWAY_MODEL_NOT_SUPPORTED',
+          message: `사용자 지정 공급자(${provider}) 호출 실패 (${result.status}): ${result.errorBody.slice(0, 300)}`,
+          type: 'gateway_error',
+          attempts: [
+            {
+              provider: provider as any,
+              modelId: targetModel,
+              apiKeyHash: config.apiKey.slice(-6),
+              httpStatus: result.status,
+              errorCategory: 'unknown',
+              errorSnippet: result.errorBody.slice(0, 200),
+              attemptedAt: new Date().toISOString(),
+            },
+          ],
+        },
+      } as GatewayError;
+    } catch (err: any) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return {
+        error: {
+          code: 'GATEWAY_MODEL_NOT_SUPPORTED',
+          message: `사용자 지정 공급자 통신 오류: ${msg}`,
+          type: 'gateway_error',
+        },
+      } as GatewayError;
+    }
+  }
+
+  async chatStreamPassThrough(
+    request: ChatRequest,
+    config: UserPassThroughConfig
+  ): Promise<{ ok: true; stream: ReadableStream<Uint8Array> } | GatewayError> {
+    const { adapter, model, provider } = this.resolvePassThroughAdapter(config);
+    const targetModel = request.model || model;
+    const keyMasked = config.apiKey.length > 8 ? `${config.apiKey.slice(0, 4)}...${config.apiKey.slice(-4)}` : '***';
+
+    console.info(`[Gateway PassThrough Stream] 호출 시작: provider=${provider}, model=${targetModel}, key=${keyMasked}`);
+
+    if (!adapter.callStream) {
+      return {
+        error: {
+          code: 'GATEWAY_MODEL_NOT_SUPPORTED',
+          message: `해당 어댑터(${provider})는 스트리밍을 지원하지 않습니다.`,
+          type: 'gateway_error',
+        },
+      } as GatewayError;
+    }
+
+    try {
+      const result = await adapter.callStream(request, targetModel, config.apiKey, 120_000);
+      if (result.ok && result.stream) {
+        console.info(`[Gateway PassThrough Stream] 성공: provider=${provider}, model=${targetModel}`);
+        return { ok: true, stream: result.stream };
+      }
+
+      console.warn(`[Gateway PassThrough Stream] 실패 (${result.status}): ${result.errorBody.slice(0, 200)}`);
+      return {
+        error: {
+          code: 'GATEWAY_MODEL_NOT_SUPPORTED',
+          message: `사용자 지정 공급자(${provider}) 스트리밍 실패 (${result.status}): ${result.errorBody.slice(0, 300)}`,
+          type: 'gateway_error',
+          attempts: [
+            {
+              provider: provider as any,
+              modelId: targetModel,
+              apiKeyHash: config.apiKey.slice(-6),
+              httpStatus: result.status,
+              errorCategory: 'unknown',
+              errorSnippet: result.errorBody.slice(0, 200),
+              attemptedAt: new Date().toISOString(),
+            },
+          ],
+        },
+      } as GatewayError;
+    } catch (err: any) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return {
+        error: {
+          code: 'GATEWAY_MODEL_NOT_SUPPORTED',
+          message: `사용자 지정 공급자 스트리밍 통신 오류: ${msg}`,
+          type: 'gateway_error',
+        },
+      } as GatewayError;
+    }
   }
 }
 

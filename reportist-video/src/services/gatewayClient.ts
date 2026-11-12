@@ -1,6 +1,4 @@
-// services/gatewayClient.ts - AI Gateway 통신 및 다중 프레임 시각 분석 서비스
-
-import type { FreeModelMeta, GatewayConfig, ReasoningEffortOption } from '../types/gateway.ts';
+import type { FreeModelMeta, GatewayConfig, ReasoningEffortOption, UserApiKeyConfig } from '../types/gateway.ts';
 import type { ExtractedFrame, HighlightSegment } from '../types/video.ts';
 import {
   canonicalModelId,
@@ -8,6 +6,7 @@ import {
   isGuardrailModel,
   type ModelPerfMetric,
 } from './modelMetrics.ts';
+import { getStoredUserApiKeyConfig } from './userApiKeyService.ts';
 
 export const DEFAULT_GATEWAY_URL = 'https://seedtick-ai-gateway.vercel.app';
 export const DEFAULT_GATEWAY_SECRET = '377d4fa71b90fdbbd6eab6765f3050598de8c259ed86e615c9b18ae4ed63e8bd';
@@ -261,6 +260,7 @@ export interface AnalyzeVideoParams extends VideoAnalysisStreamCallbacks {
   longitude?: number;
   locationName?: string;
   locale?: string;
+  userApiKeyConfig?: UserApiKeyConfig | null;
 }
 
 // === 스트리밍 SSE 파싱 헬퍼 =================================================
@@ -332,7 +332,8 @@ async function requestAnalysisStream(
   config: GatewayConfig,
   requestBody: Record<string, unknown>,
   signal: AbortSignal | undefined,
-  callbacks: VideoAnalysisStreamCallbacks
+  callbacks: VideoAnalysisStreamCallbacks,
+  customHeaders: Record<string, string> = {}
 ): Promise<{ content: string; reasoning: string }> {
   // 백그라운드 탭 전환 시 소켓이 끊기거나 응답이 영구 정체(Stall)되는 것을 방지하기 위한 워치독 타임아웃
   const CHUNK_INACTIVITY_TIMEOUT_MS = 25000; // 청크 미수신 최대 허용 시간 (25초)
@@ -358,6 +359,7 @@ async function requestAnalysisStream(
         'Content-Type': 'application/json',
         Accept: 'text/event-stream',
         Authorization: `Bearer ${config.gatewaySecret}`,
+        ...customHeaders,
       },
       body: JSON.stringify({ ...requestBody, stream: true }),
       signal: streamAbortController.signal,
@@ -505,7 +507,8 @@ async function requestAnalysisNonStreaming(
   url: string,
   config: GatewayConfig,
   requestBody: Record<string, unknown>,
-  signal: AbortSignal | undefined
+  signal: AbortSignal | undefined,
+  customHeaders: Record<string, string> = {}
 ): Promise<string> {
   const NON_STREAM_TIMEOUT_MS = 45000;
   const timeoutController = new AbortController();
@@ -525,6 +528,7 @@ async function requestAnalysisNonStreaming(
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${config.gatewaySecret}`,
+        ...customHeaders,
       },
       body: JSON.stringify({ ...requestBody, stream: false }),
       signal: timeoutController.signal,
@@ -558,6 +562,7 @@ export async function analyzeVideoHighlights({
   longitude,
   locationName,
   locale = 'en',
+  userApiKeyConfig,
   onStreamOpen,
   onReasoningDelta,
   onContentDelta,
@@ -650,10 +655,29 @@ Format:
     });
   }
 
+  // 사용자 직접 입력 API 키(BYOK) 확인
+  const activeUserKeyConfig = userApiKeyConfig !== undefined ? userApiKeyConfig : getStoredUserApiKeyConfig();
+  const customHeaders: Record<string, string> = {};
+  const hasUserKey = Boolean(activeUserKeyConfig?.apiKey?.trim());
+
+  if (hasUserKey && activeUserKeyConfig) {
+    customHeaders['X-User-Api-Key'] = activeUserKeyConfig.apiKey.trim();
+    customHeaders['X-User-Provider'] = activeUserKeyConfig.provider;
+    if (activeUserKeyConfig.model?.trim()) {
+      customHeaders['X-User-Model'] = activeUserKeyConfig.model.trim();
+    }
+    if (activeUserKeyConfig.baseUrl?.trim()) {
+      customHeaders['X-User-Base-Url'] = activeUserKeyConfig.baseUrl.trim();
+    }
+  }
+
   const defaultModelId = FALLBACK_VIDEO_MODELS[0]?.id || 'thinkingmachines/inkling-small:free';
+  const effectiveModel = hasUserKey
+    ? (activeUserKeyConfig?.model?.trim() || model || 'gpt-4o-mini')
+    : (model || defaultModelId);
 
   const requestBody: Record<string, unknown> = {
-    model: model || defaultModelId,
+    model: effectiveModel,
     messages: [
       {
         role: 'user',
@@ -677,10 +701,11 @@ Format:
     onActivity,
   };
 
-  // 모델 후보군 구성: 요청 모델 우선 -> FALLBACK_VIDEO_MODELS의 비전 모델 순 (최대 3개 모델 시도)
-  const requestedModel = model || defaultModelId;
+  // 모델 후보군 구성: 사용자 키인 경우 해당 모델 1개만 시도, 게이트웨이 무료인 경우 폴백 모델 순환
   const fallbackModelIds = FALLBACK_VIDEO_MODELS.map((m) => m.id);
-  const candidateModels = Array.from(new Set([requestedModel, ...fallbackModelIds])).slice(0, 3);
+  const candidateModels = hasUserKey
+    ? [effectiveModel]
+    : Array.from(new Set([effectiveModel, ...fallbackModelIds])).slice(0, 3);
 
   let rawContent = '';
   let streamedReasoning = '';
@@ -721,7 +746,7 @@ Format:
 
     // 1) 실시간 스트리밍 시도
     try {
-      const streamed = await requestAnalysisStream(url, config, requestBody, signal, callbacks);
+      const streamed = await requestAnalysisStream(url, config, requestBody, signal, callbacks, customHeaders);
       rawContent = streamed.content;
       streamedReasoning = streamed.reasoning;
 
@@ -766,7 +791,7 @@ Format:
     if (!isServerUnavailable && streamFailure && !signal?.aborted) {
       try {
         onFallback?.(streamFailure);
-        rawContent = await requestAnalysisNonStreaming(url, config, requestBody, signal);
+        rawContent = await requestAnalysisNonStreaming(url, config, requestBody, signal, customHeaders);
         if (extractSegmentArray(rawContent)) {
           // 비스트리밍으로 성공!
           break;

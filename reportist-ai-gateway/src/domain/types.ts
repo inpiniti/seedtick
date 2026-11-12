@@ -6,6 +6,31 @@
 
 export type LLMProvider = 'cline' | 'kilo' | 'openrouter' | 'gemini';
 
+export type UserPassThroughProvider =
+  | 'openai'
+  | 'claude'
+  | 'anthropic'
+  | 'gemini'
+  | 'openrouter'
+  | 'deepseek'
+  | 'grok'
+  | 'xai'
+  | 'qwen'
+  | 'glm'
+  | 'kimi'
+  | 'moonshot'
+  | 'minimax'
+  | 'mimo'
+  | 'muse'
+  | 'custom';
+
+export interface UserPassThroughConfig {
+  provider: UserPassThroughProvider | string;
+  apiKey: string;
+  model?: string;
+  baseUrl?: string;
+}
+
 export interface ModelConfig {
   provider: LLMProvider;
   modelId: string;

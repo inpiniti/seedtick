@@ -63,3 +63,39 @@ export interface GatewayConfig {
   baseUrl: string;
   gatewaySecret: string;
 }
+
+export type UserAiProvider =
+  | 'openai'
+  | 'claude'
+  | 'gemini'
+  | 'openrouter'
+  | 'deepseek'
+  | 'grok'
+  | 'qwen'
+  | 'glm'
+  | 'kimi'
+  | 'minimax'
+  | 'muse'
+  | 'custom';
+
+export interface UserApiKeyConfig {
+  provider: UserAiProvider;
+  apiKey: string;
+  model: string;
+  baseUrl?: string;
+  savedAt?: string;
+}
+
+export interface ProviderPreset {
+  id: UserAiProvider;
+  name: string;
+  shortName: string;
+  badge: string;
+  color: string;
+  defaultModel: string;
+  recommendedModels: Array<{ id: string; name: string; desc: string }>;
+  placeholder: string;
+  helpUrl: string;
+  supportsCustomBaseUrl?: boolean;
+}
+

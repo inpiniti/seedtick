@@ -22,8 +22,10 @@ import {
   Trash2,
   ArrowUpDown,
   Eye,
+  Key,
 } from 'lucide-react';
 import type { FreeModelMeta } from '../../types/gateway.ts';
+import { getStoredUserApiKeyConfig, getProviderPreset } from '../../services/userApiKeyService.ts';
 import type {
   BridgeDateTemplateId,
   BridgeLocationTemplateId,
@@ -342,40 +344,63 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
             <span className="settings-modal-group-title">
               {dict.settingsModal?.aiEngine || 'AI Engine'}
             </span>
-            <button
-              type="button"
-              className="settings-modal-item"
-              onClick={() => {
-                onClose();
-                onOpenModelModal();
-              }}
-            >
-              <div className="settings-modal-item-left">
-                <div className="settings-modal-icon-badge" style={{ backgroundColor: '#f1f5f9', color: '#0f172a' }}>
-                  <Sparkles size={18} />
-                </div>
-                <div className="settings-modal-item-text">
-                  <div className="settings-modal-item-title">{dict.header.aiModel}</div>
-                  <div className="settings-modal-item-desc">
-                    <span style={{ fontWeight: 600, color: '#1e293b' }}>
-                      {isLoadingModels
-                        ? dict.header.loadingModels
-                        : cleanModelName(currentModel?.name) || dict.header.selectModel}
-                    </span>
-                    {currentModel?.speedTokensPerSecond != null && currentSpeedTier && (
-                      <span className={`toss-model-trigger-speed ${currentSpeedTier.key}`} style={{ fontSize: '10px' }}>
-                        <Zap size={9} />
-                        {Math.round(currentModel.speedTokensPerSecond)} tok/s
-                      </span>
-                    )}
+            {(() => {
+              const userKey = getStoredUserApiKeyConfig();
+              const hasKey = Boolean(userKey?.apiKey?.trim());
+              const preset = userKey ? getProviderPreset(userKey.provider) : null;
+              return (
+                <button
+                  type="button"
+                  className="settings-modal-item"
+                  onClick={() => {
+                    onClose();
+                    onOpenModelModal();
+                  }}
+                >
+                  <div className="settings-modal-item-left">
+                    <div
+                      className="settings-modal-icon-badge"
+                      style={{
+                        backgroundColor: hasKey ? 'rgba(16, 185, 129, 0.15)' : '#f1f5f9',
+                        color: hasKey ? '#10b981' : '#0f172a',
+                      }}
+                    >
+                      {hasKey ? <Key size={18} /> : <Sparkles size={18} />}
+                    </div>
+                    <div className="settings-modal-item-text">
+                      <div className="settings-modal-item-title">
+                        {hasKey ? 'AI 모델 & API Key' : dict.header.aiModel}
+                      </div>
+                      <div className="settings-modal-item-desc">
+                        {hasKey ? (
+                          <span style={{ fontWeight: 700, color: '#059669' }}>
+                            {preset?.name} ({userKey?.model}) 연결됨
+                          </span>
+                        ) : (
+                          <>
+                            <span style={{ fontWeight: 600, color: '#1e293b' }}>
+                              {isLoadingModels
+                                ? dict.header.loadingModels
+                                : cleanModelName(currentModel?.name) || dict.header.selectModel}
+                            </span>
+                            {currentModel?.speedTokensPerSecond != null && currentSpeedTier && (
+                              <span className={`toss-model-trigger-speed ${currentSpeedTier.key}`} style={{ fontSize: '10px' }}>
+                                <Zap size={9} />
+                                {Math.round(currentModel.speedTokensPerSecond)} tok/s
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-              <div className="settings-modal-item-action">
-                <span>{dict.common.edit || '변경'}</span>
-                <ChevronRight size={15} color="#94a3b8" />
-              </div>
-            </button>
+                  <div className="settings-modal-item-action">
+                    <span>{hasKey ? '설정' : (dict.common.edit || '변경')}</span>
+                    <ChevronRight size={15} color="#94a3b8" />
+                  </div>
+                </button>
+              );
+            })()}
           </div>
 
           {/* Group 2: Language */}

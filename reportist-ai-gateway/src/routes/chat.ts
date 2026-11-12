@@ -6,10 +6,47 @@ import type { ChatRequest } from '../domain/types.ts';
 
 export const chatRoute = new Elysia().post(
   '/v1/chat/completions',
-  async ({ body, set }) => {
+  async ({ body, headers, set }) => {
     const chatReq = body as unknown as ChatRequest;
 
-    // 1. 스트리밍 요청
+    // 사용자 직접 입력 API 키(BYOK) 패스스루 확인
+    const userApiKey = headers['x-user-api-key'];
+    const userProvider = headers['x-user-provider'];
+    const userModel = headers['x-user-model'];
+    const userBaseUrl = headers['x-user-base-url'];
+
+    if (userApiKey && typeof userApiKey === 'string' && userApiKey.trim()) {
+      const passConfig = {
+        apiKey: userApiKey.trim(),
+        provider: typeof userProvider === 'string' ? userProvider : 'openai',
+        model: typeof userModel === 'string' && userModel.trim() ? userModel.trim() : chatReq.model,
+        baseUrl: typeof userBaseUrl === 'string' && userBaseUrl.trim() ? userBaseUrl.trim() : undefined,
+      };
+
+      if (chatReq.stream) {
+        const streamResult = await proxyService.chatStreamPassThrough(chatReq, passConfig);
+        if ('error' in streamResult) {
+          set.status = 503;
+          return streamResult as unknown as Response;
+        }
+        return new Response(streamResult.stream, {
+          headers: {
+            'Content-Type': 'text/event-stream; charset=utf-8',
+            'Cache-Control': 'no-cache, no-transform',
+            Connection: 'keep-alive',
+            'X-Accel-Buffering': 'no',
+          },
+        });
+      }
+
+      const result = await proxyService.chatPassThrough(chatReq, passConfig);
+      if ('error' in result) {
+        set.status = 503;
+      }
+      return result as unknown as Response;
+    }
+
+    // 1. 스트리밍 요청 (기본 게이트웨이 로테이션)
     if (chatReq.stream) {
       const streamResult = await proxyService.chatStream(chatReq);
       if ('error' in streamResult) {
@@ -26,7 +63,7 @@ export const chatRoute = new Elysia().post(
       });
     }
 
-    // 2. 논스트리밍 요청
+    // 2. 논스트리밍 요청 (기본 게이트웨이 로테이션)
     const result = await proxyService.chat(chatReq);
 
     // GatewayError인 경우 503 반환
