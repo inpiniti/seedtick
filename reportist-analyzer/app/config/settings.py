@@ -100,5 +100,10 @@ class Settings(BaseSettings):
     TWITTER_CLIENT_ID: str = ""
     TWITTER_CLIENT_SECRET: str = ""
 
+    # 자체 큐 / 워커 설정
+    QUEUE_CONCURRENCY: int = 2
+    QUEUE_MAX_JOBS: int = 500
+    QUEUE_JOB_TTL_SEC: int = 3600
+
 
 settings = Settings()

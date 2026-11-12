@@ -12,10 +12,12 @@ from app.api.routes.scheduler import router as scheduler_router
 from app.api.routes.screener import router as screener_router
 from app.api.routes.debug_ai import router as debug_ai_router
 from app.api.routes.debug_yahoo import router as debug_yahoo_router
+from app.api.routes.queue import router as queue_router
 from app.config.settings import settings
 from app.domains.error_log.handlers import SupabaseLogHandler
 from app.domains.screener.logo_warmup_service import logo_warmup_service
 from app.domains.scheduler.service import scheduler_service
+from app.domains.queue.worker import queue_worker
 
 # 로깅 설정
 logging.basicConfig(
@@ -39,21 +41,23 @@ logging.getLogger().addHandler(supabase_log_handler)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """애플리케이션 수명 주기 관리 (스케줄러 시작 및 종료)"""
+    """애플리케이션 수명 주기 관리 (스케줄러, 워커 시작 및 종료)"""
     logger.info("🚀 Reportist Analyzer 시작 중...")
     scheduler_service.start()
     await logo_warmup_service.start()
+    await queue_worker.start()
     yield
     logger.info("🛑 Reportist Analyzer 종료 중...")
     scheduler_service.shutdown()
     await logo_warmup_service.stop()
+    await queue_worker.stop()
     supabase_log_handler.close()
 
 
 app = FastAPI(
     title="Reportist Analyzer",
-    description="미국 주식 13인 거장 심층 분석 · 일일 배치 스케줄러 서버",
-    version="0.1.0",
+    description="미국 주식 13인 거장 심층 분석 · 일일 배치 스케줄러 · 자체 큐/워커 서버",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -73,6 +77,7 @@ app.include_router(report_router)
 app.include_router(scheduler_router)
 app.include_router(debug_ai_router)
 app.include_router(debug_yahoo_router)
+app.include_router(queue_router)
 
 
 

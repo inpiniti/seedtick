@@ -27,6 +27,12 @@ pinned: false
    - 자동 실행: 00:01 AI 모델 초기화, 00:05 커뮤니티·뉴스 큐레이터, 08:00 만료 로그 정리
    - 보고서 생성(미장 09:00 / 국장 16:00)과 성과 추적(08:30)은 자동 스케줄에서 제외되며, 수동 트리거 API로만 실행
    - 토/일 주말 및 미국 증시(NYSE/NASDAQ) 공식 공휴일(신정, MLK, 성금요일, 메모리얼데이, 독립기념일, 노동절, 추수감사절, 크리스마스 등) 자동 판별 및 스킵
+4. **[Queue & Worker] 자체 인메모리 대기열 및 비동기 워커 (Zero External Redis / Free)**:
+   - 외부 Redis 인프라나 유료 서비스 없이 완전히 자체 인메모리 FIFO/우선순위 대기열 및 백그라운드 워커 구동
+   - `reportist-video` 비디오 분석 대기열, 실시간 순번(내 앞 대기자 수), 예상 대기 시간, 작업 취소 지원
+   - 작업 동시성 제어(`QUEUE_CONCURRENCY`)로 AI API Rate Limit 보호
+   - 완료 작업 자동 TTL 및 메모리 누수 방지 가비지 컬렉터(GC) 내장
+   - 경량 RESTful Redis 에뮬레이터(`GET`, `SET`, `DEL`, `EXPIRE`, `LPUSH`, `RPOP`, `LLEN`, `ZADD`, `ZRANK`, `ZREM`) 내장
 
 ---
 
@@ -53,3 +59,9 @@ pytest -v
 - `POST /api/report/generate?ticker={ticker}` : 13인 거장 4단계 리포트 생성 및 DB 저장
 - `POST /api/scheduler/trigger` : 일일 파이프라인 수동 즉시 트리거 (백그라운드 실행 후 즉시 응답, dry_run·force 플래그 지원)
 - `GET /api/scheduler/progress` : 13인 거장 파이프라인 실시간 진행 상태 (단계, n/총, n/13, 경과 시간, 단계별 소요 시간)
+- `POST /api/queue/jobs` : 범용 작업 대기열 등록 (job_id, queue_position 즉시 반환)
+- `POST /api/queue/video/analyze` : 비디오 AI 분석 작업 대기열 등록 (reportist-video 전용)
+- `GET /api/queue/jobs/{job_id}` : 작업 상태, 진행률(%), 내 앞 대기자 수, 예상 대기 시간 조회
+- `POST /api/queue/jobs/{job_id}/cancel` : 대기 중/처리 중 작업 취소
+- `GET /api/queue/stats` : 대기열 및 워커 현황 통계
+- `POST /api/queue/redis/exec` : 자체 HTTP Redis 명령 실행 (get, set, zadd, zrank 등)
