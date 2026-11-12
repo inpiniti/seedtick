@@ -1,7 +1,7 @@
 // src/components/studio/SegmentBridgeModal.tsx
-// 영상 편집 중 특정 클립 직전의 브릿지 효과를 개별 변경/건너뛰기 할 수 있는 모달 (토스 라이트 테마)
+// 영상 편집 중 특정 클립 직전의 브릿지 효과를 개별 변경/건너뛰기 할 수 있는 모달 (토스 라이트 테마 + 다국어 지원)
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { X, Sparkles, Eye, Check } from 'lucide-react';
 import type { BridgeDateTemplateId, BridgeLocationTemplateId, HighlightSegment } from '../../types/video.ts';
 import {
@@ -9,6 +9,7 @@ import {
   LOCATION_TEMPLATE_OPTIONS,
   ChapterBridgePreviewModal,
 } from './ChapterBridgePreviewModal.tsx';
+import { useI18n } from '../../i18n/index.tsx';
 
 interface SegmentBridgeModalProps {
   isOpen: boolean;
@@ -29,6 +30,10 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
   defaultLocationTemplate = 'winding-route',
   onSave,
 }) => {
+  const { dict, interpolate } = useI18n();
+  const sDict = dict.segmentBridgeModal;
+  const cDict = dict.chapterBridgeModal;
+
   const [skipBridge, setSkipBridge] = useState<boolean>(segment.skipChapterBridge ?? false);
   const [dateTemplate, setDateTemplate] = useState<BridgeDateTemplateId | undefined>(
     segment.bridgeDateTemplateOverride
@@ -37,6 +42,34 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
     segment.bridgeLocationTemplateOverride
   );
   const [isPreviewOpen, setIsPreviewOpen] = useState<boolean>(false);
+
+  // 번역된 템플릿 옵션
+  const dateOptions = useMemo(() => {
+    return DATE_TEMPLATE_OPTIONS.map((opt) => {
+      const trans = cDict?.templates?.date?.[opt.id];
+      return {
+        id: opt.id,
+        num: opt.num,
+        name: trans?.name || opt.name,
+        desc: trans?.desc || opt.desc,
+      };
+    });
+  }, [cDict]);
+
+  const locationOptions = useMemo(() => {
+    return LOCATION_TEMPLATE_OPTIONS.map((opt) => {
+      const trans = cDict?.templates?.location?.[opt.id];
+      return {
+        id: opt.id,
+        num: opt.num,
+        name: trans?.name || opt.name,
+        desc: trans?.desc || opt.desc,
+      };
+    });
+  }, [cDict]);
+
+  const defaultDateName = dateOptions.find((o) => o.id === defaultDateTemplate)?.name || '';
+  const defaultLocationName = locationOptions.find((o) => o.id === defaultLocationTemplate)?.name || '';
 
   if (!isOpen) return null;
 
@@ -116,7 +149,9 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
                 <Sparkles size={18} />
               </div>
               <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: '#0f172a' }}>
-                클립 #{segmentIndex + 1} 챕터 브릿지 개별 설정
+                {interpolate(sDict?.title || '클립 #{num} 챕터 브릿지 개별 설정', {
+                  num: segmentIndex + 1,
+                })}
               </h3>
             </div>
             <button
@@ -136,6 +171,7 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
+              aria-label={sDict?.cancel || '닫기'}
             >
               <X size={18} />
             </button>
@@ -158,12 +194,12 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
               }}
             >
               <div>
-                <strong style={{ color: '#0f172a' }}>구간 날짜:</strong>{' '}
-                {segment.subtitleDate || '(이전 클립과 동일/미지정)'}
+                <strong style={{ color: '#0f172a' }}>{sDict?.sectionDate || '구간 날짜:'}</strong>{' '}
+                {segment.subtitleDate || (sDict?.sameOrUnspecified || '(이전 클립과 동일/미지정)')}
               </div>
               <div>
-                <strong style={{ color: '#0f172a' }}>구간 장소:</strong>{' '}
-                {segment.locationName || '(이전 클립과 동일/미지정)'}
+                <strong style={{ color: '#0f172a' }}>{sDict?.sectionLocation || '구간 장소:'}</strong>{' '}
+                {segment.locationName || (sDict?.sameOrUnspecified || '(이전 클립과 동일/미지정)')}
               </div>
             </div>
 
@@ -181,10 +217,11 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
             >
               <div>
                 <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
-                  이 구간 챕터 브릿지 건너뛰기
+                  {sDict?.skipToggleTitle || '이 구간 챕터 브릿지 건너뛰기'}
                 </div>
                 <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-                  날짜나 장소가 바뀌어도 전환 효과 없이 바로 다음 클립으로 넘어갑니다.
+                  {sDict?.skipToggleDesc ||
+                    '날짜나 장소가 바뀌어도 전환 효과 없이 바로 다음 클립으로 넘어갑니다.'}
                 </div>
               </div>
               <input
@@ -208,7 +245,7 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
                       marginBottom: '6px',
                     }}
                   >
-                    날짜(시간) 변경 스타일
+                    {sDict?.dateSelectLabel || '날짜(시간) 변경 스타일'}
                   </label>
                   <select
                     value={dateTemplate || ''}
@@ -228,11 +265,13 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
                     }}
                   >
                     <option value="">
-                      [프로젝트 기본값] ({DATE_TEMPLATE_OPTIONS.find((o) => o.id === defaultDateTemplate)?.name})
+                      {interpolate(sDict?.projectDefault || '[프로젝트 기본값] ({name})', {
+                        name: defaultDateName,
+                      })}
                     </option>
-                    {DATE_TEMPLATE_OPTIONS.map((opt) => (
+                    {dateOptions.map((opt) => (
                       <option key={opt.id} value={opt.id}>
-                        {opt.num}번. {opt.name} - {opt.desc}
+                        {opt.num}. {opt.name} - {opt.desc}
                       </option>
                     ))}
                   </select>
@@ -249,7 +288,7 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
                       marginBottom: '6px',
                     }}
                   >
-                    장소(위치) 이동 스타일
+                    {sDict?.locationSelectLabel || '장소(위치) 이동 스타일'}
                   </label>
                   <select
                     value={locationTemplate || ''}
@@ -269,11 +308,13 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
                     }}
                   >
                     <option value="">
-                      [프로젝트 기본값] ({LOCATION_TEMPLATE_OPTIONS.find((o) => o.id === defaultLocationTemplate)?.name})
+                      {interpolate(sDict?.projectDefault || '[프로젝트 기본값] ({name})', {
+                        name: defaultLocationName,
+                      })}
                     </option>
-                    {LOCATION_TEMPLATE_OPTIONS.map((opt) => (
+                    {locationOptions.map((opt) => (
                       <option key={opt.id} value={opt.id}>
-                        {opt.num}번. {opt.name} - {opt.desc}
+                        {opt.num}. {opt.name} - {opt.desc}
                       </option>
                     ))}
                   </select>
@@ -302,7 +343,8 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
                     transition: 'all 0.15s ease',
                   }}
                 >
-                  <Eye size={15} />이 조합 모션 실시간 미리보기
+                  <Eye size={15} />
+                  {sDict?.previewMotionBtn || '이 조합 모션 실시간 미리보기'}
                 </button>
               </>
             )}
@@ -336,7 +378,7 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
                 cursor: 'pointer',
               }}
             >
-              취소
+              {sDict?.cancel || '취소'}
             </button>
             <button
               type="button"
@@ -357,7 +399,7 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
               }}
             >
               <Check size={15} />
-              적용하기
+              {sDict?.apply || '적용하기'}
             </button>
           </div>
         </div>
@@ -369,9 +411,9 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
         onClose={() => setIsPreviewOpen(false)}
         initialDateTemplate={effectiveDate}
         initialLocationTemplate={effectiveLocation}
-        onApply={(d, l) => {
-          setDateTemplate(d);
-          setLocationTemplate(l);
+        onApply={(dt, lt) => {
+          setDateTemplate(dt);
+          setLocationTemplate(lt);
         }}
       />
     </>

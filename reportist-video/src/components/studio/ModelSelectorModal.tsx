@@ -690,7 +690,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                   type="text"
                   value={modelInput}
                   onChange={(e) => setModelInput(e.target.value)}
-                  placeholder={dict.modelModal.byokModelPlaceholder || "직접 모델 ID 입력 (예: gpt-4o, claude-3-5-sonnet-20241022)"}
+                  placeholder={dict.modelModal.byokModelPlaceholder || "직접 모델 ID 입력 (예: gpt-6.1-sol, claude-sonnet-5-5, gemini-4-carbon)"}
                   style={{
                     width: '100%',
                     padding: '10px 14px',

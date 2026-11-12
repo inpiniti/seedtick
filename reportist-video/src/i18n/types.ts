@@ -613,6 +613,9 @@ export interface Dictionary {
     subtitleToneDesc?: string;
     chapterBridgeOption?: string;
     chapterBridgeOptionDesc?: string;
+    chapterBridgePreviewBtn?: string;
+    chapterBridgeDateBadge?: string;
+    chapterBridgeLocationBadge?: string;
     subtitleOption?: string;
     subtitleOptionDesc?: string;
     resolutionSection?: string;
@@ -856,6 +859,76 @@ export interface Dictionary {
     naverMap: string;
     googleMap: string;
   };
+  chapterBridgeModal?: ChapterBridgeModalDictionary;
+  segmentBridgeModal?: SegmentBridgeModalDictionary;
+}
+
+export interface ChapterBridgeModalDictionary {
+  title: string;
+  subtitle: string;
+  dateSectionTitle: string;
+  locationSectionTitle: string;
+  play: string;
+  pause: string;
+  restart: string;
+  dateBadgePrefix: string;
+  locationBadgePrefix: string;
+  close: string;
+  applyDefault: string;
+  fullscreen: string;
+  exitFullscreen: string;
+  tabDate: string;
+  tabLocation: string;
+  allView: string;
+  tipDescription: string;
+  templates: {
+    date: {
+      'flip-clock'?: { name: string; desc: string };
+      'watch-spin'?: { name: string; desc: string };
+      'calendar-page'?: { name: string; desc: string };
+      'minimal-editorial'?: { name: string; desc: string };
+      'neon-digital'?: { name: string; desc: string };
+      flipClock?: { name: string; desc: string };
+      watchSpin?: { name: string; desc: string };
+      calendarPage?: { name: string; desc: string };
+      minimalEditorial?: { name: string; desc: string };
+      neonDigital?: { name: string; desc: string };
+      [key: string]: { name: string; desc: string } | undefined;
+    };
+    location: {
+      'winding-route'?: { name: string; desc: string };
+      'globe-spin'?: { name: string; desc: string };
+      'boarding-pass'?: { name: string; desc: string };
+      'minimal-editorial'?: { name: string; desc: string };
+      'gps-cyber'?: { name: string; desc: string };
+      windingRoute?: { name: string; desc: string };
+      globeSpin?: { name: string; desc: string };
+      boardingPass?: { name: string; desc: string };
+      minimalEditorial?: { name: string; desc: string };
+      gpsCyber?: { name: string; desc: string };
+      [key: string]: { name: string; desc: string } | undefined;
+    };
+  };
+  mockData: {
+    sceneTitle: string;
+    fromLocation: string;
+    toLocation: string;
+  };
+}
+
+export interface SegmentBridgeModalDictionary {
+  title: string;
+  sectionDate: string;
+  sectionLocation: string;
+  sameOrUnspecified: string;
+  skipToggleTitle: string;
+  skipToggleDesc: string;
+  dateSelectLabel: string;
+  locationSelectLabel: string;
+  projectDefault: string;
+  previewMotionBtn: string;
+  cancel: string;
+  apply: string;
 }
 
 export const LOCALES: LocaleInfo[] = [

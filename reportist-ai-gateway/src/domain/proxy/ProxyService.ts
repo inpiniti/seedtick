@@ -616,7 +616,7 @@ export class ProxyService {
         adapter: new AnthropicAdapter({
           baseUrl: baseUrl || 'https://api.anthropic.com/v1/messages',
         }),
-        model: resolvedModel || 'claude-3-5-sonnet-20241022',
+        model: resolvedModel || 'claude-sonnet-5-5',
         provider: 'anthropic',
       };
     }
@@ -626,16 +626,16 @@ export class ProxyService {
     switch (rawProvider) {
       case 'openai':
         baseUrl = baseUrl || 'https://api.openai.com/v1/chat/completions';
-        resolvedModel = resolvedModel || 'gpt-4o-mini';
+        resolvedModel = resolvedModel || 'gpt-6.1-sol';
         break;
       case 'gemini':
       case 'google':
         baseUrl = baseUrl || 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
-        resolvedModel = resolvedModel || 'gemini-2.0-flash';
+        resolvedModel = resolvedModel || 'gemini-4-carbon';
         break;
       case 'openrouter':
         baseUrl = baseUrl || 'https://openrouter.ai/api/v1/chat/completions';
-        resolvedModel = resolvedModel || 'openai/gpt-4o-mini';
+        resolvedModel = resolvedModel || 'anthropic/claude-sonnet-5.5';
         defaultHeaders = {
           'HTTP-Referer': 'https://reportist.kr',
           'X-Title': 'Reportist',
@@ -643,40 +643,40 @@ export class ProxyService {
         break;
       case 'deepseek':
         baseUrl = baseUrl || 'https://api.deepseek.com/chat/completions';
-        resolvedModel = resolvedModel || 'deepseek-chat';
+        resolvedModel = resolvedModel || 'deepseek-v4.1-flash';
         break;
       case 'grok':
       case 'xai':
         baseUrl = baseUrl || 'https://api.x.ai/v1/chat/completions';
-        resolvedModel = resolvedModel || 'grok-2-vision-1212';
+        resolvedModel = resolvedModel || 'grok-4.7';
         break;
       case 'qwen':
       case 'dashscope':
         baseUrl = baseUrl || 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions';
-        resolvedModel = resolvedModel || 'qwen-vl-max';
+        resolvedModel = resolvedModel || 'qwen-3.8-max';
         break;
       case 'glm':
       case 'zhipu':
         baseUrl = baseUrl || 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
-        resolvedModel = resolvedModel || 'glm-4v';
+        resolvedModel = resolvedModel || 'glm-5.3';
         break;
       case 'kimi':
       case 'moonshot':
         baseUrl = baseUrl || 'https://api.moonshot.cn/v1/chat/completions';
-        resolvedModel = resolvedModel || 'moonshot-v1-auto';
+        resolvedModel = resolvedModel || 'kimi-k3.1-pro';
         break;
       case 'minimax':
       case 'mimo':
         baseUrl = baseUrl || 'https://api.minimax.chat/v1/text/chatcompletion_v2';
-        resolvedModel = resolvedModel || 'MiniMax-VL-01';
+        resolvedModel = resolvedModel || 'mimo-v2.6-pro';
         break;
       case 'muse':
         baseUrl = baseUrl || 'https://api.muse.ai/v1/chat/completions';
-        resolvedModel = resolvedModel || 'muse-v1';
+        resolvedModel = resolvedModel || 'muse-wonder-full';
         break;
       default:
         baseUrl = baseUrl || 'https://api.openai.com/v1/chat/completions';
-        resolvedModel = resolvedModel || 'gpt-4o-mini';
+        resolvedModel = resolvedModel || 'gpt-6.1-sol';
         break;
     }
 

@@ -1,14 +1,29 @@
 // src/components/studio/ChapterBridgePreviewModal.tsx
-// 챕터 브릿지 날짜(1~5번) x 장소(1~5번) 실시간 조합 미리보기 모달 (토스 스타일 라이트 테마)
+// 챕터 브릿지 날짜(1~5번) x 장소(1~5번) 실시간 조합 미리보기 모달
+// 대화면 2열 분할(좌측 대형 프리뷰 + 우측 템플릿 패널) 및 전체화면 시네마 모드 + 다국어(i18n) 지원
 
-import React, { useEffect, useRef, useState } from 'react';
-import { X, Play, Pause, RotateCcw, Sparkles, Clock, Navigation, Check } from 'lucide-react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
+import {
+  X,
+  Play,
+  Pause,
+  RotateCcw,
+  Sparkles,
+  Clock,
+  Navigation,
+  Check,
+  Maximize2,
+  Minimize2,
+  Layers,
+  HelpCircle,
+} from 'lucide-react';
 import {
   CHAPTER_BRIDGE_DURATION,
   createHyperframesBridgeController,
   type ChapterBridgeTransitionInfo,
 } from '../../services/hyperframesBridgeRenderer.ts';
 import type { BridgeDateTemplateId, BridgeLocationTemplateId } from '../../types/video.ts';
+import { useI18n } from '../../i18n/index.tsx';
 
 interface ChapterBridgePreviewModalProps {
   isOpen: boolean;
@@ -18,6 +33,7 @@ interface ChapterBridgePreviewModalProps {
   onApply?: (dateTemplate: BridgeDateTemplateId, locationTemplate: BridgeLocationTemplateId) => void;
 }
 
+// 하위 호환 및 기본 참조용
 export const DATE_TEMPLATE_OPTIONS: Array<{
   id: BridgeDateTemplateId;
   num: number;
@@ -44,6 +60,8 @@ export const LOCATION_TEMPLATE_OPTIONS: Array<{
   { id: 'gps-cyber', num: 5, name: 'GPS 내비게이션 HUD', desc: '첨단 차량 내비와 3D 도로 경로선' },
 ];
 
+type ActiveTab = 'all' | 'date' | 'location';
+
 export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps> = ({
   isOpen,
   onClose,
@@ -51,16 +69,49 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
   initialLocationTemplate = 'winding-route',
   onApply,
 }) => {
+  const { dict, interpolate } = useI18n();
+  const cDict = dict.chapterBridgeModal;
+
   const [dateTemplate, setDateTemplate] = useState<BridgeDateTemplateId>(initialDateTemplate);
   const [locationTemplate, setLocationTemplate] = useState<BridgeLocationTemplateId>(initialLocationTemplate);
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [currentTime, setCurrentTime] = useState<number>(0);
+  const [activeTab, setActiveTab] = useState<ActiveTab>('all');
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animFrameIdRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(performance.now());
   const pausedTimeRef = useRef<number>(0);
   const isPlayingRef = useRef<boolean>(true);
+
+  // 다국어 템플릿 옵션 목록 구성
+  const dateOptions = useMemo(() => {
+    return DATE_TEMPLATE_OPTIONS.map((opt) => {
+      const trans = cDict?.templates?.date?.[opt.id];
+      return {
+        id: opt.id,
+        num: opt.num,
+        name: trans?.name || opt.name,
+        desc: trans?.desc || opt.desc,
+      };
+    });
+  }, [cDict]);
+
+  const locationOptions = useMemo(() => {
+    return LOCATION_TEMPLATE_OPTIONS.map((opt) => {
+      const trans = cDict?.templates?.location?.[opt.id];
+      return {
+        id: opt.id,
+        num: opt.num,
+        name: trans?.name || opt.name,
+        desc: trans?.desc || opt.desc,
+      };
+    });
+  }, [cDict]);
+
+  const selectedDateName = dateOptions.find((o) => o.id === dateTemplate)?.name || '';
+  const selectedLocationName = locationOptions.find((o) => o.id === locationTemplate)?.name || '';
 
   // 모달 열릴 때마다 초기값 동기화
   useEffect(() => {
@@ -72,10 +123,27 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
       isPlayingRef.current = true;
       startTimeRef.current = performance.now();
       pausedTimeRef.current = 0;
+      setIsFullscreen(false);
     }
   }, [isOpen, initialDateTemplate, initialLocationTemplate]);
 
-  // 애니메이션 캔버스 렌더 루프
+  // 키보드 ESC 단축키 지원
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isFullscreen) {
+          setIsFullscreen(false);
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isFullscreen, onClose]);
+
+  // 애니메이션 캔버스 렌더 루프 (1280x720 고화질)
   useEffect(() => {
     if (!isOpen) {
       if (animFrameIdRef.current) {
@@ -95,9 +163,9 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
       shouldBridge: true,
       fromDate: '2024.08.15',
       toDate: '2024.08.18',
-      fromLocation: '서울 (김포공항)',
-      toLocation: '도쿄 (하네다)',
-      sceneTitle: '도쿄 여행 출발',
+      fromLocation: cDict?.mockData?.fromLocation || '서울 (김포공항)',
+      toLocation: cDict?.mockData?.toLocation || '도쿄 (하네다)',
+      sceneTitle: cDict?.mockData?.sceneTitle || '도쿄 여행 출발',
       chapterIndex: 2,
       totalChapters: 5,
       isDateChanged: true,
@@ -132,7 +200,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
       }
       controller.dispose();
     };
-  }, [isOpen, dateTemplate, locationTemplate]);
+  }, [isOpen, dateTemplate, locationTemplate, cDict]);
 
   if (!isOpen) return null;
 
@@ -192,45 +260,90 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
         position: 'fixed',
         inset: 0,
         zIndex: 10000,
-        backgroundColor: 'rgba(15, 23, 42, 0.65)',
-        backdropFilter: 'blur(6px)',
+        backgroundColor: 'rgba(15, 23, 42, 0.72)',
+        backdropFilter: 'blur(8px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '16px',
+        padding: isFullscreen ? '0px' : '16px',
+        transition: 'all 0.2s ease',
       }}
       onClick={(e) => {
         e.stopPropagation();
         onClose();
       }}
     >
-      {/* 모달 카드 (토스 스타일 라이트 테마: 화이트 배경, 깔끔한 섀도우) */}
+      {/* 반응형 스타일 주입 */}
+      <style>{`
+        .bridge-preview-body {
+          display: flex;
+          flex-direction: row;
+          gap: 20px;
+          flex: 1;
+          min-height: 0;
+          overflow: hidden;
+          padding: 20px 24px;
+          background-color: #f8fafc;
+        }
+        .bridge-preview-stage {
+          flex: 1.35;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .bridge-preview-panel {
+          flex: 1;
+          min-width: 320px;
+          max-width: 440px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          overflow-y: auto;
+          padding-right: 4px;
+        }
+        @media (max-width: 900px) {
+          .bridge-preview-body {
+            flex-direction: column;
+            overflow-y: auto;
+          }
+          .bridge-preview-panel {
+            max-width: 100%;
+            min-width: 100%;
+            overflow-y: visible;
+          }
+        }
+      `}</style>
+
+      {/* 모달 카드 */}
       <div
         className="model-modal-card"
         style={{
           width: '100%',
-          maxWidth: '860px',
-          maxHeight: '90vh',
+          maxWidth: isFullscreen ? '100vw' : '1180px',
+          height: isFullscreen ? '100vh' : '92vh',
+          maxHeight: isFullscreen ? '100vh' : '880px',
           backgroundColor: '#ffffff',
-          borderRadius: '24px',
-          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.25)',
-          border: '1px solid #e2e8f0',
+          borderRadius: isFullscreen ? '0px' : '24px',
+          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.3)',
+          border: isFullscreen ? 'none' : '1px solid #e2e8f0',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
           color: '#0f172a',
+          transition: 'all 0.2s ease',
         }}
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
         onTouchStart={(e) => e.stopPropagation()}
       >
-        {/* 헤더 */}
+        {/* 모달 헤더 */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '20px 24px',
+            padding: '16px 24px',
             borderBottom: '1px solid #f1f5f9',
             backgroundColor: '#ffffff',
           }}
@@ -238,327 +351,535 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div
               style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '10px',
+                width: '38px',
+                height: '38px',
+                borderRadius: '12px',
                 backgroundColor: '#fef3c7',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: '#d97706',
+                boxShadow: '0 2px 6px rgba(217, 119, 6, 0.15)',
               }}
             >
               <Sparkles size={20} />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#0f172a' }}>
-                챕터 브릿지 모션 템플릿 & 실시간 미리보기
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.3px' }}>
+                {cDict?.title || '챕터 브릿지 모션 템플릿 & 실시간 미리보기'}
               </h3>
               <p style={{ margin: '2px 0 0 0', fontSize: '13px', color: '#64748b' }}>
-                날짜 스타일과 장소 스타일을 원하는 조합으로 믹스앤매치할 수 있습니다.
+                {cDict?.subtitle || '날짜 스타일과 장소 스타일을 원하는 조합으로 믹스앤매치할 수 있습니다.'}
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onClose();
-            }}
-            style={{
-              background: '#f1f5f9',
-              border: 'none',
-              color: '#475569',
-              cursor: 'pointer',
-              padding: '8px',
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'background-color 0.15s ease',
-            }}
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* 바디 (캔버스 + 컨트롤 바 + 템플릿 선택 그리드) */}
-        <div
-          style={{
-            flex: 1,
-            overflowY: 'auto',
-            padding: '20px 24px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '18px',
-            backgroundColor: '#f8fafc',
-          }}
-        >
-          {/* 캔버스 비디오 프리뷰 (화면 비율 16:9, 다크 스크린) */}
-          <div
-            style={{
-              position: 'relative',
-              width: '100%',
-              borderRadius: '16px',
-              overflow: 'hidden',
-              backgroundColor: '#07090e',
-              border: '1px solid #0f172a',
-              boxShadow: '0 8px 24px rgba(15, 23, 42, 0.15)',
-              aspectRatio: '16 / 9',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <canvas
-              ref={canvasRef}
-              width={960}
-              height={540}
-              style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
-            />
-            {/* 좌상단 템플릿 배지 */}
-            <div
-              style={{
-                position: 'absolute',
-                top: '12px',
-                left: '12px',
-                display: 'flex',
-                gap: '8px',
-                pointerEvents: 'none',
-              }}
-            >
-              <span
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  padding: '4px 10px',
-                  borderRadius: '6px',
-                  backgroundColor: 'rgba(15, 23, 42, 0.85)',
-                  border: '1px solid rgba(245, 208, 125, 0.5)',
-                  color: '#f5d07d',
-                  backdropFilter: 'blur(4px)',
-                }}
-              >
-                날짜: {DATE_TEMPLATE_OPTIONS.find((o) => o.id === dateTemplate)?.name}
-              </span>
-              <span
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  padding: '4px 10px',
-                  borderRadius: '6px',
-                  backgroundColor: 'rgba(15, 23, 42, 0.85)',
-                  border: '1px solid rgba(56, 189, 248, 0.5)',
-                  color: '#38bdf8',
-                  backdropFilter: 'blur(4px)',
-                }}
-              >
-                장소: {LOCATION_TEMPLATE_OPTIONS.find((o) => o.id === locationTemplate)?.name}
-              </span>
-            </div>
-          </div>
-
-          {/* 재생 컨트롤 바 */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              padding: '10px 16px',
-              backgroundColor: '#ffffff',
-              borderRadius: '12px',
-              border: '1px solid #e2e8f0',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
-            }}
-          >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button
               type="button"
-              onClick={togglePlay}
+              onClick={() => setIsFullscreen(!isFullscreen)}
               style={{
-                background: '#0f172a',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '7px 14px',
-                fontWeight: 700,
+                background: '#f1f5f9',
+                border: '1px solid #e2e8f0',
+                color: '#334155',
+                cursor: 'pointer',
+                padding: '8px 12px',
+                borderRadius: '10px',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                cursor: 'pointer',
-                fontSize: '13px',
+                fontSize: '12.5px',
+                fontWeight: 600,
+                transition: 'background-color 0.15s ease',
               }}
+              title={isFullscreen ? (cDict?.exitFullscreen || '원래 크기로 복귀') : (cDict?.fullscreen || '전체화면 확대')}
             >
-              {isPlaying ? <Pause size={14} /> : <Play size={14} />}
-              {isPlaying ? '일시정지' : '재생'}
+              {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+              <span>{isFullscreen ? (cDict?.exitFullscreen || '축소') : (cDict?.fullscreen || '화면 확대')}</span>
             </button>
             <button
               type="button"
-              onClick={handleRestart}
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+              }}
               style={{
                 background: '#f1f5f9',
-                color: '#334155',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                padding: '7px 10px',
+                border: 'none',
+                color: '#475569',
                 cursor: 'pointer',
+                padding: '8px',
+                borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'background-color 0.15s ease',
               }}
-              title="처음부터 다시 보기"
+              aria-label={cDict?.close || '닫기'}
             >
-              <RotateCcw size={14} />
+              <X size={18} />
             </button>
-            <input
-              type="range"
-              min={0}
-              max={CHAPTER_BRIDGE_DURATION}
-              step={0.03}
-              value={currentTime}
-              onChange={(e) => handleSeek(parseFloat(e.target.value))}
-              style={{ flex: 1, accentColor: '#0f172a', cursor: 'pointer' }}
-            />
-            <span style={{ fontSize: '12.5px', fontFamily: 'monospace', color: '#64748b', minWidth: '70px', textAlign: 'right' }}>
-              {currentTime.toFixed(2)}s / {CHAPTER_BRIDGE_DURATION.toFixed(1)}s
-            </span>
-          </div>
-
-          {/* 템플릿 선택 그리드 (토스 스타일 화이트 카드) */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            {/* [날짜 템플릿 5종] */}
-            <div
-              style={{
-                backgroundColor: '#ffffff',
-                borderRadius: '16px',
-                padding: '16px',
-                border: '1px solid #e2e8f0',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '10px',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#b45309', fontWeight: 700, fontSize: '14px' }}>
-                <Clock size={16} />
-                <span>날짜(시간) 변경 스타일 (1~5번)</span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {DATE_TEMPLATE_OPTIONS.map((opt) => {
-                  const selected = dateTemplate === opt.id;
-                  return (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={(e) => handleSelectDate(e, opt.id)}
-                      style={{
-                        padding: '10px 14px',
-                        borderRadius: '10px',
-                        border: selected ? '2px solid #f59e0b' : '1px solid #f1f5f9',
-                        backgroundColor: selected ? '#fef3c7' : '#ffffff',
-                        color: '#0f172a',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontSize: '13px', fontWeight: 700, color: selected ? '#b45309' : '#1e293b' }}>
-                          {opt.num}번. {opt.name}
-                        </div>
-                        <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>{opt.desc}</div>
-                      </div>
-                      {selected && (
-                        <div
-                          style={{
-                            width: '22px',
-                            height: '22px',
-                            borderRadius: '50%',
-                            backgroundColor: '#f59e0b',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: '#ffffff',
-                          }}
-                        >
-                          <Check size={14} strokeWidth={3} />
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* [장소 템플릿 5종] */}
-            <div
-              style={{
-                backgroundColor: '#ffffff',
-                borderRadius: '16px',
-                padding: '16px',
-                border: '1px solid #e2e8f0',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '10px',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0369a1', fontWeight: 700, fontSize: '14px' }}>
-                <Navigation size={16} />
-                <span>장소(위치) 이동 스타일 (1~5번)</span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {LOCATION_TEMPLATE_OPTIONS.map((opt) => {
-                  const selected = locationTemplate === opt.id;
-                  return (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={(e) => handleSelectLocation(e, opt.id)}
-                      style={{
-                        padding: '10px 14px',
-                        borderRadius: '10px',
-                        border: selected ? '2px solid #0284c7' : '1px solid #f1f5f9',
-                        backgroundColor: selected ? '#e0f2fe' : '#ffffff',
-                        color: '#0f172a',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontSize: '13px', fontWeight: 700, color: selected ? '#0369a1' : '#1e293b' }}>
-                          {opt.num}번. {opt.name}
-                        </div>
-                        <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px' }}>{opt.desc}</div>
-                      </div>
-                      {selected && (
-                        <div
-                          style={{
-                            width: '22px',
-                            height: '22px',
-                            borderRadius: '50%',
-                            backgroundColor: '#0284c7',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: '#ffffff',
-                          }}
-                        >
-                          <Check size={14} strokeWidth={3} />
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
           </div>
         </div>
 
-        {/* 풋터 */}
+        {/* 모달 바디: 좌측(대형 프리뷰) + 우측(템플릿 선택 패널) */}
+        <div className="bridge-preview-body">
+          {/* [좌측 대형 프리뷰 스테이지] */}
+          <div className="bridge-preview-stage">
+            {/* 캔버스 뷰포트 (대형 16:9 뷰) */}
+            <div
+              style={{
+                position: 'relative',
+                width: '100%',
+                flex: isFullscreen ? 1 : undefined,
+                minHeight: isFullscreen ? '0' : '360px',
+                borderRadius: '18px',
+                overflow: 'hidden',
+                backgroundColor: '#07090e',
+                border: '1px solid #0f172a',
+                boxShadow: '0 12px 36px rgba(15, 23, 42, 0.25)',
+                aspectRatio: isFullscreen ? undefined : '16 / 9',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <canvas
+                ref={canvasRef}
+                width={1280}
+                height={720}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain',
+                  display: 'block',
+                }}
+              />
+
+              {/* 좌상단 실시간 선택 템플릿 배지 */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '14px',
+                  left: '14px',
+                  display: 'flex',
+                  gap: '8px',
+                  pointerEvents: 'none',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    padding: '5px 12px',
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+                    border: '1px solid rgba(245, 158, 11, 0.6)',
+                    color: '#fbbf24',
+                    backdropFilter: 'blur(6px)',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                  }}
+                >
+                  {interpolate(cDict?.dateBadgePrefix || '날짜: {name}', { name: selectedDateName })}
+                </span>
+                <span
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    padding: '5px 12px',
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+                    border: '1px solid rgba(56, 189, 248, 0.6)',
+                    color: '#38bdf8',
+                    backdropFilter: 'blur(6px)',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                  }}
+                >
+                  {interpolate(cDict?.locationBadgePrefix || '장소: {name}', { name: selectedLocationName })}
+                </span>
+              </div>
+            </div>
+
+            {/* 재생 컨트롤 바 */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '10px 16px',
+                backgroundColor: '#ffffff',
+                borderRadius: '14px',
+                border: '1px solid #e2e8f0',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+              }}
+            >
+              <button
+                type="button"
+                onClick={togglePlay}
+                style={{
+                  background: '#0f172a',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '10px',
+                  padding: '8px 16px',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '7px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  transition: 'opacity 0.15s ease',
+                }}
+              >
+                {isPlaying ? <Pause size={15} /> : <Play size={15} />}
+                {isPlaying ? (cDict?.pause || '일시정지') : (cDict?.play || '재생')}
+              </button>
+              <button
+                type="button"
+                onClick={handleRestart}
+                style={{
+                  background: '#f1f5f9',
+                  color: '#334155',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '10px',
+                  padding: '8px 12px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  transition: 'background-color 0.15s ease',
+                }}
+                title={cDict?.restart || '처음부터 다시 보기'}
+              >
+                <RotateCcw size={15} />
+              </button>
+              <input
+                type="range"
+                min={0}
+                max={CHAPTER_BRIDGE_DURATION}
+                step={0.03}
+                value={currentTime}
+                onChange={(e) => handleSeek(parseFloat(e.target.value))}
+                style={{ flex: 1, accentColor: '#0f172a', cursor: 'pointer', height: '6px' }}
+                aria-label="Timeline seek"
+              />
+              <span
+                style={{
+                  fontSize: '13px',
+                  fontFamily: 'monospace',
+                  color: '#475569',
+                  minWidth: '80px',
+                  textAlign: 'right',
+                  fontWeight: 600,
+                }}
+              >
+                {currentTime.toFixed(2)}s / {CHAPTER_BRIDGE_DURATION.toFixed(1)}s
+              </span>
+            </div>
+
+            {/* 하단 팁 / 상태 알림 카드 */}
+            <div
+              style={{
+                backgroundColor: '#ffffff',
+                borderRadius: '12px',
+                padding: '12px 16px',
+                border: '1px solid #e2e8f0',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                fontSize: '12.5px',
+                color: '#475569',
+              }}
+            >
+              <HelpCircle size={16} color="#0284c7" style={{ flexShrink: 0 }} />
+              <span>
+                {cDict?.tipDescription ||
+                  '💡 템플릿 카드를 클릭하면 왼쪽 대형 화면에서 즉시 실시간 전환 모션이 시뮬레이션됩니다.'}
+              </span>
+            </div>
+          </div>
+
+          {/* [우측 템플릿 선택 패널] */}
+          <div className="bridge-preview-panel">
+            {/* 탭 헤더 */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px',
+                backgroundColor: '#e2e8f0',
+                borderRadius: '12px',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setActiveTab('all')}
+                style={{
+                  flex: 1,
+                  padding: '7px 10px',
+                  borderRadius: '9px',
+                  border: 'none',
+                  fontSize: '12.5px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  backgroundColor: activeTab === 'all' ? '#ffffff' : 'transparent',
+                  color: activeTab === 'all' ? '#0f172a' : '#64748b',
+                  boxShadow: activeTab === 'all' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                  transition: 'all 0.15s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px',
+                }}
+              >
+                <Layers size={13} />
+                {cDict?.allView || '한눈에 보기'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('date')}
+                style={{
+                  flex: 1,
+                  padding: '7px 10px',
+                  borderRadius: '9px',
+                  border: 'none',
+                  fontSize: '12.5px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  backgroundColor: activeTab === 'date' ? '#ffffff' : 'transparent',
+                  color: activeTab === 'date' ? '#b45309' : '#64748b',
+                  boxShadow: activeTab === 'date' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                  transition: 'all 0.15s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px',
+                }}
+              >
+                <Clock size={13} />
+                {cDict?.tabDate || '날짜 (5)'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('location')}
+                style={{
+                  flex: 1,
+                  padding: '7px 10px',
+                  borderRadius: '9px',
+                  border: 'none',
+                  fontSize: '12.5px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  backgroundColor: activeTab === 'location' ? '#ffffff' : 'transparent',
+                  color: activeTab === 'location' ? '#0369a1' : '#64748b',
+                  boxShadow: activeTab === 'location' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                  transition: 'all 0.15s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px',
+                }}
+              >
+                <Navigation size={13} />
+                {cDict?.tabLocation || '장소 (5)'}
+              </button>
+            </div>
+
+            {/* 날짜 템플릿 목록 */}
+            {(activeTab === 'all' || activeTab === 'date') && (
+              <div
+                style={{
+                  backgroundColor: '#ffffff',
+                  borderRadius: '16px',
+                  padding: '14px',
+                  border: '1px solid #e2e8f0',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    color: '#b45309',
+                    fontWeight: 700,
+                    fontSize: '13.5px',
+                    paddingBottom: '4px',
+                    borderBottom: '1px solid #f8fafc',
+                  }}
+                >
+                  <Clock size={16} />
+                  <span>{cDict?.dateSectionTitle || '날짜(시간) 변경 스타일 (1~5번)'}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {dateOptions.map((opt) => {
+                    const selected = dateTemplate === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={(e) => handleSelectDate(e, opt.id)}
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: '10px',
+                          border: selected ? '2px solid #f59e0b' : '1px solid #f1f5f9',
+                          backgroundColor: selected ? '#fef3c7' : '#ffffff',
+                          color: '#0f172a',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '8px',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div
+                            style={{
+                              fontSize: '13px',
+                              fontWeight: 700,
+                              color: selected ? '#92400e' : '#1e293b',
+                            }}
+                          >
+                            {opt.num}. {opt.name}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '11.5px',
+                              color: '#64748b',
+                              marginTop: '2px',
+                              lineHeight: 1.35,
+                            }}
+                          >
+                            {opt.desc}
+                          </div>
+                        </div>
+                        {selected && (
+                          <div
+                            style={{
+                              width: '22px',
+                              height: '22px',
+                              borderRadius: '50%',
+                              backgroundColor: '#f59e0b',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#ffffff',
+                              flexShrink: 0,
+                            }}
+                          >
+                            <Check size={14} strokeWidth={3} />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* 장소 템플릿 목록 */}
+            {(activeTab === 'all' || activeTab === 'location') && (
+              <div
+                style={{
+                  backgroundColor: '#ffffff',
+                  borderRadius: '16px',
+                  padding: '14px',
+                  border: '1px solid #e2e8f0',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    color: '#0369a1',
+                    fontWeight: 700,
+                    fontSize: '13.5px',
+                    paddingBottom: '4px',
+                    borderBottom: '1px solid #f8fafc',
+                  }}
+                >
+                  <Navigation size={16} />
+                  <span>{cDict?.locationSectionTitle || '장소(위치) 이동 스타일 (1~5번)'}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {locationOptions.map((opt) => {
+                    const selected = locationTemplate === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={(e) => handleSelectLocation(e, opt.id)}
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: '10px',
+                          border: selected ? '2px solid #0284c7' : '1px solid #f1f5f9',
+                          backgroundColor: selected ? '#e0f2fe' : '#ffffff',
+                          color: '#0f172a',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '8px',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div
+                            style={{
+                              fontSize: '13px',
+                              fontWeight: 700,
+                              color: selected ? '#075985' : '#1e293b',
+                            }}
+                          >
+                            {opt.num}. {opt.name}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '11.5px',
+                              color: '#64748b',
+                              marginTop: '2px',
+                              lineHeight: 1.35,
+                            }}
+                          >
+                            {opt.desc}
+                          </div>
+                        </div>
+                        {selected && (
+                          <div
+                            style={{
+                              width: '22px',
+                              height: '22px',
+                              borderRadius: '50%',
+                              backgroundColor: '#0284c7',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#ffffff',
+                              flexShrink: 0,
+                            }}
+                          >
+                            <Check size={14} strokeWidth={3} />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 모달 푸터 */}
         <div
           style={{
             padding: '16px 24px',
@@ -584,9 +905,10 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
               fontWeight: 600,
               fontSize: '13.5px',
               cursor: 'pointer',
+              transition: 'background-color 0.15s ease',
             }}
           >
-            닫기
+            {cDict?.close || '닫기'}
           </button>
           <button
             type="button"
@@ -601,9 +923,10 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
               fontSize: '13.5px',
               cursor: 'pointer',
               boxShadow: '0 4px 12px rgba(15, 23, 42, 0.2)',
+              transition: 'opacity 0.15s ease',
             }}
           >
-            이 조합으로 기본값 적용
+            {cDict?.applyDefault || '이 조합으로 기본값 적용'}
           </button>
         </div>
       </div>

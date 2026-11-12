@@ -150,7 +150,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   isReStitching,
   reStitchProgress,
 }) => {
-  const { dict } = useI18n();
+  const { dict, interpolate } = useI18n();
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useModalScrollLock(isOpen, {
