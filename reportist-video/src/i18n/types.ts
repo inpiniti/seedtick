@@ -616,6 +616,14 @@ export interface Dictionary {
     chapterBridgePreviewBtn?: string;
     chapterBridgeDateBadge?: string;
     chapterBridgeLocationBadge?: string;
+    introOutroSection?: string;
+    introOption?: string;
+    introOptionDesc?: string;
+    introBadge?: string;
+    outroOption?: string;
+    outroOptionDesc?: string;
+    outroBadge?: string;
+    introOutroPreviewBtn?: string;
     subtitleOption?: string;
     subtitleOptionDesc?: string;
     resolutionSection?: string;
@@ -861,6 +869,22 @@ export interface Dictionary {
   };
   chapterBridgeModal?: ChapterBridgeModalDictionary;
   segmentBridgeModal?: SegmentBridgeModalDictionary;
+  introOutroModal?: IntroOutroModalDictionary;
+}
+
+export interface IntroOutroModalDictionary {
+  title: string;
+  subtitle: string;
+  tabIntro: string;
+  tabOutro: string;
+  templateSelectLabel: string;
+  durationLabel: string;
+  outroTextLabel: string;
+  tipDescription: string;
+  cancel: string;
+  applyDefault: string;
+  mockTitle?: string;
+  mockOutroText?: string;
 }
 
 export interface ChapterBridgeModalDictionary {

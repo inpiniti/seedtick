@@ -25,6 +25,7 @@ import {
   FileAudio,
   MapPin,
   ExternalLink,
+  Eye,
   ChevronDown,
   ChevronLeft,
   Globe,
@@ -97,6 +98,7 @@ import { SubtitleDownloadModal } from './SubtitleDownloadModal.tsx';
 import { VideoExportModal } from './VideoExportModal.tsx';
 import { SegmentTrimModal } from './SegmentTrimModal.tsx';
 import { SegmentBridgeModal } from './SegmentBridgeModal.tsx';
+import { IntroOutroPreviewModal } from './IntroOutroPreviewModal.tsx';
 import { notify } from '../../services/toastService.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 import {
@@ -583,6 +585,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [isDateFormatModalOpen, setIsDateFormatModalOpen] = useState<boolean>(false);
   const [isSubtitleModalOpen, setIsSubtitleModalOpen] = useState<boolean>(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
+  const [isIntroOutroModalOpen, setIsIntroOutroModalOpen] = useState<boolean>(false);
+  const [introOutroModalTab, setIntroOutroModalTab] = useState<'intro' | 'outro'>('intro');
   const [currentDateFormat, setCurrentDateFormat] = useState<DateFormatOption>(getStoredDateFormat);
   const [showAge, setShowAge] = useState<boolean>(getStoredShowAge);
   const [showDate, setShowDate] = useState<boolean>(getStoredShowDate);
@@ -684,6 +688,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     if (isDateFormatModalOpen) { setIsDateFormatModalOpen(false); hadOpenModal = true; }
     if (isSubtitleModalOpen) { setIsSubtitleModalOpen(false); hadOpenModal = true; }
     if (isExportModalOpen) { setIsExportModalOpen(false); hadOpenModal = true; }
+    if (isIntroOutroModalOpen) { setIsIntroOutroModalOpen(false); hadOpenModal = true; }
     if (trimModalTarget) { setTrimModalTarget(null); hadOpenModal = true; }
     if (mapModalTarget) { setMapModalTarget(null); hadOpenModal = true; }
     if (editingBridgeIndex !== null) { setEditingBridgeIndex(null); hadOpenModal = true; }
@@ -699,6 +704,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     isDateFormatModalOpen,
     isSubtitleModalOpen,
     isExportModalOpen,
+    isIntroOutroModalOpen,
     trimModalTarget,
     mapModalTarget,
     editingBridgeIndex,
@@ -5269,7 +5275,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       <Sparkles size={12} className="text-blue-500" />
                       <span>모션 템플릿 선택</span>
                     </span>
-                    <span className="text-[11px] text-slate-400">HyperFrames 모션 엔진</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIntroOutroModalTab('intro');
+                        setIsIntroOutroModalOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 text-[11px] font-bold transition-colors cursor-pointer"
+                    >
+                      <Eye size={12} />
+                      <span>실시간 미리보기</span>
+                    </button>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     {[
@@ -6010,10 +6026,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                      <Sparkles size={12} className="text-blue-500" />
+                      <Sparkles size={12} className="text-pink-500" />
                       <span>모션 템플릿 선택</span>
                     </span>
-                    <span className="text-[11px] text-slate-400">HyperFrames 모션 엔진</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIntroOutroModalTab('outro');
+                        setIsIntroOutroModalOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-pink-50 text-pink-600 hover:bg-pink-100 text-[11px] font-bold transition-colors cursor-pointer"
+                    >
+                      <Eye size={12} />
+                      <span>실시간 미리보기</span>
+                    </button>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     {[
@@ -6451,6 +6477,25 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             chapterBridgeLocationTemplate: locTpl,
           }));
         }}
+        showIntro={overlayOptions.showIntro}
+        onToggleShowIntro={(val) =>
+          setOverlayOptions((prev) => ({ ...prev, showIntro: val }))
+        }
+        introTemplate={overlayOptions.introTemplate || 'kinetic-slide'}
+        introDurationSec={overlayOptions.introDurationSec || 2.0}
+        showOutro={overlayOptions.showOutro}
+        onToggleShowOutro={(val) =>
+          setOverlayOptions((prev) => ({ ...prev, showOutro: val }))
+        }
+        outroTemplate={overlayOptions.outroTemplate || 'modern-endcard'}
+        outroDurationSec={overlayOptions.outroDurationSec || 2.2}
+        outroText={overlayOptions.outroText}
+        onChangeIntroOutroSettings={(settings) => {
+          setOverlayOptions((prev) => ({
+            ...prev,
+            ...settings,
+          }));
+        }}
         currentSubtitleTone={currentSubtitleTone}
         onSelectSubtitleTone={handleSelectSubtitleTone}
         currentModel={currentModel || undefined}
@@ -6547,6 +6592,28 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       <PatchNotesModal
         isOpen={isPatchNotesModalOpen}
         onClose={() => setIsPatchNotesModalOpen(false)}
+      />
+
+      {/* 12-5. HyperFrames 인트로 & 아웃트로 실시간 미리보기 모달 */}
+      <IntroOutroPreviewModal
+        isOpen={isIntroOutroModalOpen}
+        onClose={() => setIsIntroOutroModalOpen(false)}
+        initialTab={introOutroModalTab}
+        initialIntroTemplate={overlayOptions.introTemplate || 'kinetic-slide'}
+        initialIntroDuration={overlayOptions.introDurationSec || 2.0}
+        initialOutroTemplate={overlayOptions.outroTemplate || 'modern-endcard'}
+        initialOutroDuration={overlayOptions.outroDurationSec || 2.2}
+        initialOutroText={overlayOptions.outroText}
+        mockTitle={overlayOptions.titleText || result?.suggestedTitle}
+        mockDate={overlayOptions.subtitleDateText}
+        mockLocation={overlayOptions.subtitleLocationText}
+        onApply={(settings) => {
+          setOverlayOptions((prev) => ({
+            ...prev,
+            ...settings,
+          }));
+          notify.success('인트로 & 아웃트로 모션 설정이 기본값으로 적용되었습니다.');
+        }}
       />
 
       {/* 13. 화면 하단 고정 슬림 상태바 (자동 저장 상태 + 시간 절약률 요약) */}

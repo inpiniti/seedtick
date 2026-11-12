@@ -23,6 +23,8 @@ import {
   ArrowUpDown,
   Eye,
   Key,
+  Clapperboard,
+  Film,
 } from 'lucide-react';
 import type { FreeModelMeta } from '../../types/gateway.ts';
 import { getStoredUserApiKeyConfig, getProviderPreset } from '../../services/userApiKeyService.ts';
@@ -30,6 +32,8 @@ import type {
   BridgeDateTemplateId,
   BridgeLocationTemplateId,
   ExportResolution,
+  IntroTemplateId,
+  OutroTemplateId,
   SubtitleTone,
 } from '../../types/video.ts';
 import {
@@ -37,6 +41,11 @@ import {
   DATE_TEMPLATE_OPTIONS,
   LOCATION_TEMPLATE_OPTIONS,
 } from './ChapterBridgePreviewModal.tsx';
+import {
+  IntroOutroPreviewModal,
+  INTRO_TEMPLATE_OPTIONS,
+  OUTRO_TEMPLATE_OPTIONS,
+} from './IntroOutroPreviewModal.tsx';
 import {
   getStoredSubtitleTone,
   setStoredSubtitleTone,
@@ -89,6 +98,22 @@ export interface MobileSettingsModalProps {
   chapterBridgeDateTemplate?: BridgeDateTemplateId;
   chapterBridgeLocationTemplate?: BridgeLocationTemplateId;
   onChangeChapterBridgeTemplates?: (dateTpl: BridgeDateTemplateId, locTpl: BridgeLocationTemplateId) => void;
+  showIntro?: boolean;
+  onToggleShowIntro?: (enabled: boolean) => void;
+  introTemplate?: IntroTemplateId;
+  introDurationSec?: number;
+  showOutro?: boolean;
+  onToggleShowOutro?: (enabled: boolean) => void;
+  outroTemplate?: OutroTemplateId;
+  outroDurationSec?: number;
+  outroText?: string;
+  onChangeIntroOutroSettings?: (settings: {
+    introTemplate: IntroTemplateId;
+    introDurationSec: number;
+    outroTemplate: OutroTemplateId;
+    outroDurationSec: number;
+    outroText?: string;
+  }) => void;
   currentSubtitleTone?: SubtitleTone;
   onSelectSubtitleTone?: (tone: SubtitleTone) => void;
   selectedResolution?: ExportResolution;
@@ -134,6 +159,16 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   chapterBridgeDateTemplate = 'flip-clock',
   chapterBridgeLocationTemplate = 'winding-route',
   onChangeChapterBridgeTemplates,
+  showIntro = true,
+  onToggleShowIntro,
+  introTemplate = 'kinetic-slide',
+  introDurationSec = 2.0,
+  showOutro = true,
+  onToggleShowOutro,
+  outroTemplate = 'modern-endcard',
+  outroDurationSec = 2.2,
+  outroText = '시청해 주셔서 감사합니다',
+  onChangeIntroOutroSettings,
   currentSubtitleTone,
   onSelectSubtitleTone,
   selectedResolution = '1080p',
@@ -165,10 +200,13 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   const [isClearingStorage, setIsClearingStorage] = useState<boolean>(false);
   const [storageClearMessage, setStorageClearMessage] = useState<string | null>(null);
   const [isBridgePreviewOpen, setIsBridgePreviewOpen] = useState<boolean>(false);
+  const [isIntroOutroPreviewOpen, setIsIntroOutroPreviewOpen] = useState<boolean>(false);
+  const [introOutroPreviewTab, setIntroOutroPreviewTab] = useState<'intro' | 'outro'>('intro');
 
   useEffect(() => {
     if (!isOpen) {
       setIsBridgePreviewOpen(false);
+      setIsIntroOutroPreviewOpen(false);
     }
   }, [isOpen]);
 
@@ -819,6 +857,203 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
             </div>
           )}
 
+          {/* Group: Intro & Outro Motion Settings (시작 인트로 및 종료 아웃트로 설정) */}
+          {(onToggleShowIntro || onToggleShowOutro) && (
+            <div className="settings-modal-group">
+              <span className="settings-modal-group-title">
+                {dict.settingsModal?.introOutroSection || '시작 인트로 & 종료 아웃트로 설정'}
+              </span>
+
+              {/* 1. 시작 인트로 모션 */}
+              {onToggleShowIntro && (
+                <div className="settings-modal-card-box mb-2">
+                  <div className="settings-modal-toggle-row">
+                    <div className="settings-modal-item-left">
+                      <div
+                        className="settings-modal-icon-badge"
+                        style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}
+                      >
+                        <Clapperboard size={18} />
+                      </div>
+                      <div className="settings-modal-item-text">
+                        <div className="settings-modal-item-title">
+                          {dict.settingsModal?.introOption || '시작 인트로 모션 표시'}
+                        </div>
+                        <div className="settings-modal-item-desc">
+                          {dict.settingsModal?.introOptionDesc ||
+                            '영상 시작 시 감각적인 볼드 타이포 및 카운트다운 모션을 삽입해요'}
+                        </div>
+                      </div>
+                    </div>
+                    <label className="toss-toggle-switch" style={{ margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={showIntro}
+                        onChange={(e) => onToggleShowIntro(e.target.checked)}
+                      />
+                      <span className="toss-toggle-slider" />
+                    </label>
+                  </div>
+
+                  {showIntro && (
+                    <div
+                      style={{
+                        marginTop: '12px',
+                        paddingTop: '12px',
+                        borderTop: '1px solid #f1f5f9',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '10px',
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        <span
+                          style={{
+                            fontSize: '11.5px',
+                            fontWeight: 700,
+                            padding: '4px 9px',
+                            borderRadius: '6px',
+                            backgroundColor: '#eff6ff',
+                            color: '#1d4ed8',
+                            border: '1px solid #bfdbfe',
+                          }}
+                        >
+                          {interpolate(dict.settingsModal?.introBadge || '인트로: {name} ({sec}초)', {
+                            name:
+                              INTRO_TEMPLATE_OPTIONS.find((o) => o.id === (introTemplate || 'kinetic-slide'))
+                                ?.name || '키네틱 슬라이드',
+                            sec: (introDurationSec || 2.0).toFixed(1),
+                          })}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIntroOutroPreviewTab('intro');
+                          setIsIntroOutroPreviewOpen(true);
+                        }}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '8px 14px',
+                          borderRadius: '10px',
+                          backgroundColor: '#0f172a',
+                          border: 'none',
+                          color: '#ffffff',
+                          fontSize: '12.5px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          boxShadow: '0 2px 6px rgba(15, 23, 42, 0.15)',
+                        }}
+                      >
+                        <Eye size={14} />
+                        {dict.settingsModal?.introOutroPreviewBtn || '모션 템플릿 & 실시간 미리보기'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 2. 종료 아웃트로 모션 */}
+              {onToggleShowOutro && (
+                <div className="settings-modal-card-box">
+                  <div className="settings-modal-toggle-row">
+                    <div className="settings-modal-item-left">
+                      <div
+                        className="settings-modal-icon-badge"
+                        style={{ backgroundColor: '#fdf2f8', color: '#db2777' }}
+                      >
+                        <Film size={18} />
+                      </div>
+                      <div className="settings-modal-item-text">
+                        <div className="settings-modal-item-title">
+                          {dict.settingsModal?.outroOption || '종료 아웃트로 모션 표시'}
+                        </div>
+                        <div className="settings-modal-item-desc">
+                          {dict.settingsModal?.outroOptionDesc ||
+                            '영상 마지막에 추천 영상 카드 및 엔드 크레딧 클로징을 삽입해요'}
+                        </div>
+                      </div>
+                    </div>
+                    <label className="toss-toggle-switch" style={{ margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={showOutro}
+                        onChange={(e) => onToggleShowOutro(e.target.checked)}
+                      />
+                      <span className="toss-toggle-slider" />
+                    </label>
+                  </div>
+
+                  {showOutro && (
+                    <div
+                      style={{
+                        marginTop: '12px',
+                        paddingTop: '12px',
+                        borderTop: '1px solid #f1f5f9',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '10px',
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        <span
+                          style={{
+                            fontSize: '11.5px',
+                            fontWeight: 700,
+                            padding: '4px 9px',
+                            borderRadius: '6px',
+                            backgroundColor: '#fdf2f8',
+                            color: '#be185d',
+                            border: '1px solid #fbcfe8',
+                          }}
+                        >
+                          {interpolate(dict.settingsModal?.outroBadge || '아웃트로: {name} ({sec}초)', {
+                            name:
+                              OUTRO_TEMPLATE_OPTIONS.find((o) => o.id === (outroTemplate || 'modern-endcard'))
+                                ?.name || '유튜브 엔드카드',
+                            sec: (outroDurationSec || 2.2).toFixed(1),
+                          })}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIntroOutroPreviewTab('outro');
+                          setIsIntroOutroPreviewOpen(true);
+                        }}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '8px 14px',
+                          borderRadius: '10px',
+                          backgroundColor: '#0f172a',
+                          border: 'none',
+                          color: '#ffffff',
+                          fontSize: '12.5px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          boxShadow: '0 2px 6px rgba(15, 23, 42, 0.15)',
+                        }}
+                      >
+                        <Eye size={14} />
+                        {dict.settingsModal?.introOutroPreviewBtn || '모션 템플릿 & 실시간 미리보기'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Group: 내보내기 화질 설정 (해상도) */}
           <div className="settings-modal-group">
             <span className="settings-modal-group-title">
@@ -1333,6 +1568,23 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
       onApply={(dateTpl, locTpl) => {
         if (onChangeChapterBridgeTemplates) {
           onChangeChapterBridgeTemplates(dateTpl, locTpl);
+        }
+      }}
+    />
+
+    {/* 인트로 & 아웃트로 모션 템플릿 실시간 미리보기 모달 (완전 독립 오버레이) */}
+    <IntroOutroPreviewModal
+      isOpen={isIntroOutroPreviewOpen}
+      onClose={() => setIsIntroOutroPreviewOpen(false)}
+      initialTab={introOutroPreviewTab}
+      initialIntroTemplate={introTemplate}
+      initialIntroDuration={introDurationSec}
+      initialOutroTemplate={outroTemplate}
+      initialOutroDuration={outroDurationSec}
+      initialOutroText={outroText}
+      onApply={(settings) => {
+        if (onChangeIntroOutroSettings) {
+          onChangeIntroOutroSettings(settings);
         }
       }}
     />
