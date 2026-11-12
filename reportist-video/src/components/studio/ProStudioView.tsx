@@ -3832,7 +3832,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             ) : (
               <button
                 type="button"
-                className={`toss-nav-cta-btn ${isReStitching ? 'loading' : ''}`}
+                className={`toss-nav-cta-btn toss-nav-cta-download ${isReStitching ? 'loading' : ''}`}
                 onClick={() => {
                   if (isReStitching) return;
                   setIsExportModalOpen(true);

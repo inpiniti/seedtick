@@ -4064,6 +4064,11 @@
   .toss-download-video-meta {
     display: none;
   }
+
+  /* 상단 네비게이션 다운로드 버튼은 모바일에서 숨기고 타임라인 하단 버튼만 사용 */
+  .toss-nav-cta-download {
+    display: none !important;
+  }
 }
 
 .toss-btn-restitch-timeline {
