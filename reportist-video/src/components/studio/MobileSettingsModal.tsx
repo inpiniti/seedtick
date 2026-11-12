@@ -679,7 +679,13 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                             border: '1px solid #fde68a',
                           }}
                         >
-                          날짜: {DATE_TEMPLATE_OPTIONS.find((o) => o.id === chapterBridgeDateTemplate)?.name || '플립 시계'}
+                          {interpolate(dict.settingsModal?.chapterBridgeDateBadge || '날짜: {name}', {
+                            name:
+                              dict.chapterBridgeModal?.templates?.date?.[chapterBridgeDateTemplate || 'flip-clock']
+                                ?.name ||
+                              DATE_TEMPLATE_OPTIONS.find((o) => o.id === chapterBridgeDateTemplate)?.name ||
+                              '플립 시계',
+                          })}
                         </span>
                         <span
                           style={{
@@ -692,7 +698,14 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                             border: '1px solid #bae6fd',
                           }}
                         >
-                          장소: {LOCATION_TEMPLATE_OPTIONS.find((o) => o.id === chapterBridgeLocationTemplate)?.name || '로드트립 S경로'}
+                          {interpolate(dict.settingsModal?.chapterBridgeLocationBadge || '장소: {name}', {
+                            name:
+                              dict.chapterBridgeModal?.templates?.location?.[
+                                chapterBridgeLocationTemplate || 'winding-route'
+                              ]?.name ||
+                              LOCATION_TEMPLATE_OPTIONS.find((o) => o.id === chapterBridgeLocationTemplate)?.name ||
+                              '로드트립 S경로',
+                          })}
                         </span>
                       </div>
                       <button
@@ -717,7 +730,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                         }}
                       >
                         <Eye size={14} />
-                        모션 템플릿 & 실시간 미리보기
+                        {dict.settingsModal?.chapterBridgePreviewBtn || '모션 템플릿 & 실시간 미리보기'}
                       </button>
                     </div>
                   )}
