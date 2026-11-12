@@ -551,7 +551,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                   <div className="wizard-video-list">
                     {videos.map((vid, idx) => (
                       <div key={vid.id} className="wizard-video-card">
-                        <div className="wizard-video-card-left">
+                        <div className="wizard-video-card-main">
                           <div className="wizard-video-thumb-wrap">
                             {vid.thumbnailUrl ? (
                               <img
@@ -572,41 +572,18 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                               {vid.name}
                             </span>
                             <div className="wizard-video-meta">
-                              <span>{vid.duration > 0 ? `${vid.duration.toFixed(1)}${dict.common.timeSec}` : (w?.checkingDuration || '길이 확인 중')}</span>
-                              <span className="wizard-video-meta-dot">•</span>
-                              <span>
+                              <span className="wizard-meta-chip">
+                                {vid.duration > 0 ? `${vid.duration.toFixed(1)}${dict.common.timeSec}` : (w?.checkingDuration || '길이 확인 중')}
+                              </span>
+                              <span className="wizard-meta-chip">
                                 {vid.width > 0 ? `${vid.width}×${vid.height}` : (w?.checkingResolution || '해상도 확인 중')}
                               </span>
                               {vid.metadataDate && (
-                                <>
-                                  <span className="wizard-video-meta-dot">•</span>
-                                  <span className="wizard-meta-date">
-                                    <Calendar size={11} className="inline mr-0.5" />
-                                    {vid.metadataDate}
-                                  </span>
-                                </>
+                                <span className="wizard-meta-date">
+                                  <Calendar size={11} />
+                                  {vid.metadataDate}
+                                </span>
                               )}
-                            </div>
-
-                            {/* 위치명 수정 인풋 및 지도 보기 버튼 */}
-                            <div className="wizard-location-input-row">
-                              <MapPin size={13} className="wizard-location-pin" />
-                              <input
-                                type="text"
-                                className="wizard-location-input"
-                                placeholder={w?.editLocationPlaceholder || '촬영 위치 수정 (예: 해운대 해수욕장, 제주 성산일출봉)'}
-                                value={vid.locationName || ''}
-                                onChange={(e) => onUpdateVideoLocation(vid.id, e.target.value)}
-                              />
-                              <button
-                                type="button"
-                                className={`wizard-btn-map ${vid.latitude && vid.longitude ? 'has-gps' : ''}`}
-                                onClick={() => setMapModalVideo(vid)}
-                                title={w?.viewMapTitle || '지도에서 위치 확인하기'}
-                              >
-                                <ExternalLink size={12} />
-                                <span>{vid.latitude && vid.longitude ? (w?.gpsMapBtn || 'GPS 지도') : (w?.viewMapBtn || '지도 보기')}</span>
-                              </button>
                             </div>
                           </div>
                         </div>
@@ -619,6 +596,27 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                         >
                           <Trash2 size={15} />
                         </button>
+
+                        {/* 위치명 수정 인풋 및 지도 보기 버튼 */}
+                        <div className="wizard-location-input-row">
+                          <MapPin size={13} className="wizard-location-pin" />
+                          <input
+                            type="text"
+                            className="wizard-location-input"
+                            placeholder={w?.editLocationPlaceholder || '촬영 위치 수정 (예: 해운대 해수욕장, 제주 성산일출봉)'}
+                            value={vid.locationName || ''}
+                            onChange={(e) => onUpdateVideoLocation(vid.id, e.target.value)}
+                          />
+                          <button
+                            type="button"
+                            className={`wizard-btn-map ${vid.latitude && vid.longitude ? 'has-gps' : ''}`}
+                            onClick={() => setMapModalVideo(vid)}
+                            title={w?.viewMapTitle || '지도에서 위치 확인하기'}
+                          >
+                            <ExternalLink size={12} />
+                            <span>{vid.latitude && vid.longitude ? (w?.gpsMapBtn || 'GPS 지도') : (w?.viewMapBtn || '지도 보기')}</span>
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
