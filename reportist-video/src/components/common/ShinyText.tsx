@@ -39,10 +39,12 @@ export const ShinyText: React.FC<ShinyTextProps> = ({
       className={`shiny-text-root ${disabled ? 'disabled' : 'animate-shine'} ${className}`}
       style={{
         color: effectiveColor,
-        backgroundImage: `linear-gradient(120deg, rgba(255, 255, 255, 0) 40%, ${effectiveShine} 50%, rgba(255, 255, 255, 0) 60%)`,
-        backgroundSize: '200% 100%',
+        // 베이스 컬러 위에 하이라이트 빔을 겹쳐 실제로 반짝이는 질감이 보이도록 2중 그라디언트 사용
+        backgroundImage: `linear-gradient(120deg, rgba(255, 255, 255, 0) 40%, ${effectiveShine} 50%, rgba(255, 255, 255, 0) 60%), linear-gradient(${effectiveColor}, ${effectiveColor})`,
+        backgroundSize: '200% 100%, 100% 100%',
         WebkitBackgroundClip: 'text',
         backgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
         animationDuration,
         ...style,
       }}

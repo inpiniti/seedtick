@@ -4,7 +4,7 @@
 // Step 2: 스타일 & 연출 설정 (BGM 음원, 오프닝 인트로 영상/타이틀, 엔딩 아웃트로 영상/문구)
 // Step 3: AI 하이라이트 분석 및 생성 -> 완료 시 스튜디오로 자동 전환
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Upload,
   Check,
@@ -25,8 +25,6 @@ import {
   X,
   FileVideo,
   Plus,
-  Terminal,
-  Activity,
   Calendar,
   ExternalLink,
 } from 'lucide-react';
@@ -118,7 +116,6 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
-  const terminalEndRef = useRef<HTMLDivElement>(null);
 
   // 음원 미리듣기용 오디오 객체
   const [previewTrackId, setPreviewTrackId] = useState<string | null>(null);
@@ -213,12 +210,61 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
     };
   }, []);
 
-  // 로그 스크롤
-  useEffect(() => {
-    if (currentStep === 3) {
-      terminalEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  // 현재 AI 분석 중인 원본 영상 (썸네일 표시용)
+  const currentProcessingVideo = videos[progress.currentVideoIndex] || videos[0];
+  const currentVideoThumbnail = currentProcessingVideo?.thumbnailUrl;
+
+  // 기존 스튜디오 분석 모달과 동일하게, 가장 최근 로그 1~2줄만 노출
+  const latestAnalysisTask = useMemo(() => {
+    const reasoningText = (progress.liveReasoning || '').trim();
+    const contentText = (progress.liveContent || '').trim();
+    const liveText = reasoningText || contentText;
+
+    // 1. AI가 실시간으로 사고/응답을 스트리밍 중인 경우
+    if (liveText) {
+      const lines = liveText
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean);
+      const textPart = lines.slice(-2).join('\n');
+      return {
+        isStreaming: true,
+        text: textPart
+          ? textPart
+          : reasoningText
+          ? dict.processingModal.reasoningProcess
+          : dict.processingModal.responseGeneration,
+      };
     }
-  }, [currentStep, progress.reasoningLogs, progress.liveReasoning, progress.liveContent]);
+
+    // 2. 현재 처리 단계의 기본 상태 문구
+    if (progress.statusMessage) {
+      return {
+        isStreaming: false,
+        text: progress.statusMessage,
+      };
+    }
+
+    // 3. 누적 로그 중 가장 마지막 1~2줄
+    if (progress.reasoningLogs && progress.reasoningLogs.length > 0) {
+      return {
+        isStreaming: false,
+        text: progress.reasoningLogs.slice(-2).join('\n'),
+      };
+    }
+
+    // 4. 아직 분석 준비 중
+    return {
+      isStreaming: false,
+      text: dict.processingModal.waitingModel,
+    };
+  }, [
+    progress.liveReasoning,
+    progress.liveContent,
+    progress.statusMessage,
+    progress.reasoningLogs,
+    dict,
+  ]);
 
   if (!isOpen) return null;
 
@@ -910,16 +956,30 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
           {/* ==================== STEP 3: AI 하이라이트 생성 (진행 상황) ==================== */}
           {currentStep === 3 && (
             <div className="wizard-step-pane wizard-processing-pane">
-              <div className="wizard-processing-hero">
-                <BorderBeam
-                  duration={5}
-                  borderWidth={2}
-                />
-                <div className="wizard-processing-pulse">
-                  <Sparkles size={36} className="text-blue-500 animate-spin-slow" />
+              <div className="wizard-analysis-card">
+                <BorderBeam duration={4.5} borderWidth={2} />
+
+                {/* 현재 작업 중인 원본 영상 썸네일 */}
+                <div className="wizard-analysis-thumb">
+                  {currentVideoThumbnail ? (
+                    <img
+                      src={currentVideoThumbnail}
+                      alt={currentProcessingVideo?.name || (w?.step3Title || 'AI 하이라이트 생성')}
+                    />
+                  ) : (
+                    <div className="wizard-analysis-thumb-placeholder">
+                      <Film size={30} />
+                    </div>
+                  )}
+                  <span className="wizard-analysis-thumb-scan" aria-hidden="true" />
+                  <span className="wizard-analysis-live-pill">
+                    <span className="wizard-analysis-live-dot" />
+                    LIVE
+                  </span>
                 </div>
+
                 <h3 className="wizard-processing-title">
-                  <ShinyText theme="light" speed={2.5}>
+                  <ShinyText theme="light" speed={2.5} style={{ display: 'inline' }}>
                     {progress.isQueued
                       ? queueCopy.waitingTitle
                       : (w?.step3HeroTitle || 'AI가 영상의 극적인 순간을 분석하고 있어요')}
@@ -928,8 +988,9 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                 <p className="wizard-processing-desc">
                   {progress.statusMessage || (w?.step3DefaultStatus || '영상의 주요 프레임을 분석하여 하이라이트를 탐색 중입니다...')}
                 </p>
+
                 {progress.isQueued && (
-                  <div className="mt-3 w-full">
+                  <div className="wizard-analysis-queue">
                     <QueueStatusCard
                       locale={locale}
                       position={progress.queuePosition}
@@ -937,62 +998,62 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                     />
                   </div>
                 )}
-              </div>
 
-              {/* 프로그레스 바 */}
-              <div className="wizard-progress-card">
-                <div className="wizard-progress-header">
-                  <span className="wizard-progress-stage">
-                    {progress.currentPhase === 'extract'
-                      ? (w?.stageExtract || '1단계: 영상 프레임 고속 추출')
-                      : (w?.stageAnalyze || '2단계: 비전 AI 극적 장면 분석 & 컷팅')}
-                  </span>
-                  <span className="wizard-progress-pct">{progress.progressPercent}%</span>
+                {/* 프로그레스 바 */}
+                <div className="wizard-analysis-progress">
+                  <div className="wizard-progress-header">
+                    <span className="wizard-progress-stage">
+                      {progress.currentPhase === 'extract'
+                        ? (w?.stageExtract || '1단계: 영상 프레임 고속 추출')
+                        : (w?.stageAnalyze || '2단계: 비전 AI 극적 장면 분석 & 컷팅')}
+                    </span>
+                    <span className="wizard-progress-pct">{progress.progressPercent}%</span>
+                  </div>
+                  <div className="wizard-progressbar-track">
+                    <div
+                      className="wizard-progressbar-fill"
+                      style={{ width: `${Math.max(4, progress.progressPercent)}%` }}
+                    />
+                  </div>
+                  <div className="wizard-analysis-meta">
+                    <span className="wizard-analysis-meta-index">
+                      #{Math.min(progress.currentVideoIndex + 1, Math.max(videos.length, 1))}
+                    </span>
+                    <span
+                      className="wizard-analysis-meta-name"
+                      title={currentProcessingVideo?.name || ''}
+                    >
+                      {currentProcessingVideo?.name || ''}
+                    </span>
+                    <span className="wizard-analysis-meta-count">
+                      {Math.min(
+                        progress.currentVideoIndex + 1,
+                        Math.max(progress.totalVideos, videos.length)
+                      )}
+                      {' / '}
+                      {Math.max(progress.totalVideos, videos.length)}
+                    </span>
+                  </div>
                 </div>
-                <div className="wizard-progressbar-track">
-                  <div
-                    className="wizard-progressbar-fill"
-                    style={{ width: `${Math.max(4, progress.progressPercent)}%` }}
+
+                {/* 가장 최근 로그 1~2줄 (넘치면 말줄임표) */}
+                <div className="wizard-analysis-log">
+                  <span
+                    className={`wizard-analysis-log-dot ${latestAnalysisTask.isStreaming ? 'is-live' : ''}`}
+                    aria-hidden="true"
                   />
+                  <p className="wizard-analysis-log-text">{latestAnalysisTask.text}</p>
+                  {latestAnalysisTask.isStreaming && (
+                    <span className="wizard-analysis-caret" aria-hidden="true" />
+                  )}
                 </div>
 
-                <div className="wizard-stage-steps">
-                  <div className={`wizard-stage-chip ${progress.progressPercent >= 15 ? 'done' : 'active'}`}>
-                    {progress.progressPercent >= 15 ? <Check size={12} /> : '1'} {w?.stepFrameExtract || '프레임 추출'}
-                  </div>
-                  <div className={`wizard-stage-chip ${progress.progressPercent >= 85 ? 'done' : progress.progressPercent >= 15 ? 'active' : ''}`}>
-                    {progress.progressPercent >= 85 ? <Check size={12} /> : '2'} {w?.stepAiExplore || 'AI 하이라이트 탐색'}
-                  </div>
-                  <div className={`wizard-stage-chip ${progress.progressPercent >= 100 ? 'done' : progress.progressPercent >= 85 ? 'active' : ''}`}>
-                    {progress.progressPercent >= 100 ? <Check size={12} /> : '3'} {w?.stepTimelineCompose || '타임라인 & 자막 구성'}
-                  </div>
-                </div>
-              </div>
-
-              {/* 실시간 AI 추론 터미널 콘솔 */}
-              <div className="wizard-terminal-card">
-                <div className="wizard-terminal-header">
-                  <Terminal size={14} className="text-slate-400" />
-                  <span>{w?.liveLogHeader || '실시간 분석 로그'}</span>
-                  <Activity size={13} className="text-emerald-400 ml-auto animate-pulse" />
-                </div>
-                <div className="wizard-terminal-content">
-                  {progress.liveReasoning && (
-                    <div className="wizard-live-stream-box">
-                      <div className="wizard-stream-badge">AI Thinking</div>
-                      <p className="wizard-stream-text">{progress.liveReasoning}</p>
-                    </div>
-                  )}
-                  {progress.reasoningLogs && progress.reasoningLogs.length > 0 ? (
-                    progress.reasoningLogs.map((log, idx) => (
-                      <div key={idx} className="wizard-terminal-log">
-                        {log}
-                      </div>
-                    ))
-                  ) : (
-                    <div className="wizard-terminal-empty">{w?.pipelinePreparing || 'AI 분석 파이프라인 준비 중...'}</div>
-                  )}
-                  <div ref={terminalEndRef} />
+                <div className="wizard-analysis-guard">
+                  <span aria-hidden="true">🛡️</span>
+                  <p>
+                    {dict.processingModal.backgroundGuardNotice ||
+                      '다른 탭으로 이동하거나 앱을 전환하셔도 작업이 안전하게 이어져요.'}
+                  </p>
                 </div>
               </div>
 
