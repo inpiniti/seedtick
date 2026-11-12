@@ -96,6 +96,7 @@ import { DateFormatSelectorModal } from './DateFormatSelectorModal.tsx';
 import { SubtitleDownloadModal } from './SubtitleDownloadModal.tsx';
 import { VideoExportModal } from './VideoExportModal.tsx';
 import { SegmentTrimModal } from './SegmentTrimModal.tsx';
+import { SegmentBridgeModal } from './SegmentBridgeModal.tsx';
 import { notify } from '../../services/toastService.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 import {
@@ -569,6 +570,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const outroVideoInputRef = useRef<HTMLInputElement>(null);
   const [mapModalTarget, setMapModalTarget] = useState<HighlightSegment | null>(null);
   const [trimModalTarget, setTrimModalTarget] = useState<HighlightSegment | null>(null);
+  const [editingBridgeIndex, setEditingBridgeIndex] = useState<number | null>(null);
   const consoleScrollRef = useRef<HTMLDivElement>(null);
 
   // 4-1. 다국어, AI 모델 및 원본 영상 목록 모달 상태
@@ -684,6 +686,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     if (isExportModalOpen) { setIsExportModalOpen(false); hadOpenModal = true; }
     if (trimModalTarget) { setTrimModalTarget(null); hadOpenModal = true; }
     if (mapModalTarget) { setMapModalTarget(null); hadOpenModal = true; }
+    if (editingBridgeIndex !== null) { setEditingBridgeIndex(null); hadOpenModal = true; }
     return hadOpenModal;
   }, [
     isLanguageModalOpen,
@@ -698,6 +701,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     isExportModalOpen,
     trimModalTarget,
     mapModalTarget,
+    editingBridgeIndex,
   ]);
 
   // 브라우저 History API 연동 탭 네비게이션
@@ -799,7 +803,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     isSubtitleModalOpen ||
     isExportModalOpen ||
     trimModalTarget ||
-    mapModalTarget
+    mapModalTarget ||
+    editingBridgeIndex !== null
   );
   const modalHistoryPushedRef = useRef<boolean>(false);
 
@@ -5597,8 +5602,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     : null;
                   return (
                     <React.Fragment key={seg.id}>
-                      {bridgeEval?.shouldBridge && (
-                        <div className="toss-segment-bridge-item">
+                      {bridgeEval?.shouldBridge ? (
+                        <div
+                          className="toss-segment-bridge-item"
+                          onClick={() => setEditingBridgeIndex(idx)}
+                          title="클릭하여 이 구간 브릿지 템플릿 개별 변경 또는 건너뛰기"
+                          style={{ cursor: 'pointer' }}
+                        >
                           <span className="toss-segment-bridge-badge">
                             {bridgeEval.isDateChanged && bridgeEval.isLocationChanged
                               ? 'DATE & ROUTE'
@@ -5621,7 +5631,25 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             )}
                           </span>
                         </div>
-                      )}
+                      ) : (seg.skipChapterBridge) ? (
+                        <div
+                          className="toss-segment-bridge-item"
+                          onClick={() => setEditingBridgeIndex(idx)}
+                          title="클릭하여 건너뛴 브릿지 다시 켜기"
+                          style={{
+                            cursor: 'pointer',
+                            opacity: 0.6,
+                            borderStyle: 'dashed',
+                          }}
+                        >
+                          <span className="toss-segment-bridge-badge" style={{ backgroundColor: '#64748b' }}>
+                            브릿지 건너뜀
+                          </span>
+                          <span className="toss-segment-bridge-desc" style={{ color: '#94a3b8' }}>
+                            클릭하여 챕터 브릿지 다시 켜기
+                          </span>
+                        </div>
+                      ) : null}
                       <div
                         className={`toss-segment-item ${isSelected ? 'active' : ''} ${isCurrentPlaying ? 'playing' : ''} ${isSegExceedingMusic ? 'exceeds-music' : ''}`}
                       >
@@ -6414,6 +6442,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         onToggleShowChapterBridge={(val) =>
           setOverlayOptions((prev) => ({ ...prev, showChapterBridge: val }))
         }
+        chapterBridgeDateTemplate={overlayOptions.chapterBridgeDateTemplate || 'flip-clock'}
+        chapterBridgeLocationTemplate={overlayOptions.chapterBridgeLocationTemplate || 'winding-route'}
+        onChangeChapterBridgeTemplates={(dateTpl, locTpl) => {
+          setOverlayOptions((prev) => ({
+            ...prev,
+            chapterBridgeDateTemplate: dateTpl,
+            chapterBridgeLocationTemplate: locTpl,
+          }));
+        }}
         currentSubtitleTone={currentSubtitleTone}
         onSelectSubtitleTone={handleSelectSubtitleTone}
         currentModel={currentModel || undefined}
@@ -6481,6 +6518,24 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         sourceVideo={trimModalTarget ? videoMap.get(trimModalTarget.sourceVideoId) : undefined}
         onSave={handleSaveTrimRange}
       />
+
+      {/* 12-2B. 클립 챕터 브릿지 개별 변경 모달 */}
+      {editingBridgeIndex !== null && segments[editingBridgeIndex] && (
+        <SegmentBridgeModal
+          isOpen={true}
+          onClose={() => setEditingBridgeIndex(null)}
+          segment={segments[editingBridgeIndex]}
+          segmentIndex={editingBridgeIndex}
+          defaultDateTemplate={overlayOptions.chapterBridgeDateTemplate || 'flip-clock'}
+          defaultLocationTemplate={overlayOptions.chapterBridgeLocationTemplate || 'winding-route'}
+          onSave={(updatedSegment) => {
+            setSegments((prev) =>
+              prev.map((s, idx) => (idx === editingBridgeIndex ? updatedSegment : s))
+            );
+            notify.success('이 구간의 챕터 브릿지 설정이 변경되었습니다.');
+          }}
+        />
+      )}
 
       {/* 12-3. 피드백 & 개선 요청 모달 (설정 메뉴에서 진입) */}
       <FeedbackModal

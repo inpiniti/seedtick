@@ -21,9 +21,20 @@ import {
   MessageSquare,
   Trash2,
   ArrowUpDown,
+  Eye,
 } from 'lucide-react';
 import type { FreeModelMeta } from '../../types/gateway.ts';
-import type { ExportResolution, SubtitleTone } from '../../types/video.ts';
+import type {
+  BridgeDateTemplateId,
+  BridgeLocationTemplateId,
+  ExportResolution,
+  SubtitleTone,
+} from '../../types/video.ts';
+import {
+  ChapterBridgePreviewModal,
+  DATE_TEMPLATE_OPTIONS,
+  LOCATION_TEMPLATE_OPTIONS,
+} from './ChapterBridgePreviewModal.tsx';
 import {
   getStoredSubtitleTone,
   setStoredSubtitleTone,
@@ -73,6 +84,9 @@ export interface MobileSettingsModalProps {
   onToggleShowSubtitle?: (enabled: boolean) => void;
   showChapterBridge?: boolean;
   onToggleShowChapterBridge?: (enabled: boolean) => void;
+  chapterBridgeDateTemplate?: BridgeDateTemplateId;
+  chapterBridgeLocationTemplate?: BridgeLocationTemplateId;
+  onChangeChapterBridgeTemplates?: (dateTpl: BridgeDateTemplateId, locTpl: BridgeLocationTemplateId) => void;
   currentSubtitleTone?: SubtitleTone;
   onSelectSubtitleTone?: (tone: SubtitleTone) => void;
   selectedResolution?: ExportResolution;
@@ -115,6 +129,9 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   onToggleShowSubtitle,
   showChapterBridge = true,
   onToggleShowChapterBridge,
+  chapterBridgeDateTemplate = 'flip-clock',
+  chapterBridgeLocationTemplate = 'winding-route',
+  onChangeChapterBridgeTemplates,
   currentSubtitleTone,
   onSelectSubtitleTone,
   selectedResolution = '1080p',
@@ -145,6 +162,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   const [isRequestingPersist, setIsRequestingPersist] = useState<boolean>(false);
   const [isClearingStorage, setIsClearingStorage] = useState<boolean>(false);
   const [storageClearMessage, setStorageClearMessage] = useState<string | null>(null);
+  const [isBridgePreviewOpen, setIsBridgePreviewOpen] = useState<boolean>(false);
 
   const [activeTone, setActiveTone] = useState<SubtitleTone>(
     currentSubtitleTone || getStoredSubtitleTone()
@@ -603,6 +621,70 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                       <span className="toss-toggle-slider" />
                     </label>
                   </div>
+
+                  {showChapterBridge && (
+                    <div
+                      style={{
+                        marginTop: '12px',
+                        paddingTop: '12px',
+                        borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '10px',
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        <span
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            backgroundColor: 'rgba(245, 208, 125, 0.15)',
+                            color: '#f5d07d',
+                            border: '1px solid rgba(245, 208, 125, 0.3)',
+                          }}
+                        >
+                          날짜: {DATE_TEMPLATE_OPTIONS.find((o) => o.id === chapterBridgeDateTemplate)?.name || '플립 시계'}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                            color: '#38bdf8',
+                            border: '1px solid rgba(56, 189, 248, 0.3)',
+                          }}
+                        >
+                          장소: {LOCATION_TEMPLATE_OPTIONS.find((o) => o.id === chapterBridgeLocationTemplate)?.name || '로드트립 S경로'}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsBridgePreviewOpen(true)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                          border: '1px solid rgba(255, 255, 255, 0.12)',
+                          color: '#f8fafc',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <Eye size={13} />
+                        모션 템플릿 & 실시간 미리보기
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
               {onToggleShowSubtitle && (
@@ -1191,6 +1273,19 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
           </button>
         </div>
       </div>
+
+      {/* 챕터 브릿지 모션 템플릿 실시간 미리보기 모달 */}
+      <ChapterBridgePreviewModal
+        isOpen={isBridgePreviewOpen}
+        onClose={() => setIsBridgePreviewOpen(false)}
+        initialDateTemplate={chapterBridgeDateTemplate}
+        initialLocationTemplate={chapterBridgeLocationTemplate}
+        onApply={(dateTpl, locTpl) => {
+          if (onChangeChapterBridgeTemplates) {
+            onChangeChapterBridgeTemplates(dateTpl, locTpl);
+          }
+        }}
+      />
     </div>
   );
 };

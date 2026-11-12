@@ -297,6 +297,8 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
       introDurationSec: overlayOptions?.introDurationSec || 2.0,
       outroDurationSec: overlayOptions?.outroDurationSec || 2.2,
       showChapterBridge,
+      chapterBridgeDateTemplate: overlayOptions?.chapterBridgeDateTemplate || 'flip-clock',
+      chapterBridgeLocationTemplate: overlayOptions?.chapterBridgeLocationTemplate || 'winding-route',
       bgmFitToVideo: overlayOptions?.bgmFitToVideo ?? true,
       introVideoFile: introVideoFile || null,
       outroVideoFile: outroVideoFile || null,
