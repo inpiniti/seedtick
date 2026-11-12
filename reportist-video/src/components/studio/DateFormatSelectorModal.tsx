@@ -23,7 +23,7 @@ export const DateFormatSelectorModal: React.FC<DateFormatSelectorModalProps> = (
   onSelectFormat,
   referenceDate,
 }) => {
-  const { dict } = useI18n();
+  const { dict, interpolate } = useI18n();
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useModalScrollLock(isOpen, {
@@ -50,8 +50,11 @@ export const DateFormatSelectorModal: React.FC<DateFormatSelectorModalProps> = (
     const fmt = formats.find((f) => f.id === formatId);
     onSelectFormat(formatId);
     onClose();
+    const formatLabel = fmt ? getFormatLabel(fmt) : formatId;
     notify.success(fmt?.example || formatId, {
-      description: `${fmt?.formatName || formatId} 형식으로 날짜 표기를 바꿨어요.`,
+      description: interpolate(dict.toasts.dateFormatChangedDesc, {
+        format: formatLabel,
+      }),
     });
   };
 

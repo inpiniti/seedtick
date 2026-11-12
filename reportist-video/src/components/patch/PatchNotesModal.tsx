@@ -70,15 +70,15 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClos
 
       const isDev = localStorage.getItem('reportist_feedback_admin_mode') === 'true';
       const confirmMessage = isDev
-        ? '현재 개발자 모드가 활성화되어 있습니다. 개발자 모드를 해제하시겠습니까?'
-        : '개발자 모드로 전환하시겠습니까?';
+        ? dict.toasts.devModeConfirmOff
+        : dict.toasts.devModeConfirmOn;
 
       if (window.confirm(confirmMessage)) {
         const nextState = !isDev;
         localStorage.setItem('reportist_feedback_admin_mode', String(nextState));
         window.dispatchEvent(new Event('reportist_admin_mode_change'));
         window.dispatchEvent(new Event('storage'));
-        notify.info(nextState ? '개발자 모드로 전환되었습니다.' : '개발자 모드가 해제되었습니다.');
+        notify.info(nextState ? dict.toasts.devModeOn : dict.toasts.devModeOff);
       }
     }
   };

@@ -253,8 +253,11 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
     onClose();
     const dateObj = dateOptions.find((d) => d.id === dateTemplate);
     const locObj = locationOptions.find((l) => l.id === locationTemplate);
-    notify.success('챕터 브릿지 스타일 적용 완료', {
-      description: `${dateObj?.name || dateTemplate} + ${locObj?.name || locationTemplate} 조합으로 설정했어요.`,
+    notify.success(dict.toasts.chapterBridgeApplied, {
+      description: interpolate(dict.toasts.chapterBridgeAppliedDesc, {
+        date: dateObj?.name || dateTemplate,
+        location: locObj?.name || locationTemplate,
+      }),
     });
   };
 

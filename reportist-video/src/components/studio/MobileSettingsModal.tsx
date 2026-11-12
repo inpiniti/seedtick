@@ -228,7 +228,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
     onSelectSubtitleTone?.(tone);
     const opt = toneOptions.find((t) => t.id === tone);
     notify.success(`${opt?.icon || '✨'} ${opt?.label || tone}`, {
-      description: '기본 자막 톤앤매너를 설정했어요.',
+      description: dict.toasts.toneChangedDesc,
     });
   };
 
@@ -278,12 +278,12 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
       const updated = await getStorageEstimate();
       setStorageEstimate(updated);
       if (ok) {
-        notify.success('영구 저장소 권한 획득', {
-          description: '브라우저 캐시 자동 삭제로부터 안전하게 보호돼요.',
+        notify.success(dict.toasts.persistGranted, {
+          description: dict.toasts.persistGrantedDesc,
         });
       } else {
-        notify.info('영구 저장소 요청 완료', {
-          description: '현재 브라우저 상태를 유지해요.',
+        notify.info(dict.toasts.persistRequested, {
+          description: dict.toasts.persistRequestedDesc,
         });
       }
     } finally {
@@ -325,15 +325,15 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
         : mode === 'lightweight'
           ? (dict.settingsModal?.storageModeLightDesc || '용량을 99% 절약해요.')
           : (dict.settingsModal?.storageModeAutoDesc || '남은 용량에 맞게 최적화해요.');
-    notify.success(`${modeLabel} 모드 선택`, {
+    notify.success(interpolate(dict.toasts.storageModeSelected, { mode: modeLabel }), {
       description: modeDesc,
     });
   };
 
   const handleSelectResolution = (res: ExportResolution) => {
     onSelectResolution?.(res);
-    notify.success(`${res} 해상도 선택`, {
-      description: '영상 렌더링 및 내보내기 기본 해상도를 바꿨어요.',
+    notify.success(interpolate(dict.toasts.resolutionSelected, { resolution: res }), {
+      description: dict.toasts.resolutionSelectedDesc,
     });
   };
 
@@ -674,8 +674,8 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                         const val = e.target.value;
                         onChangeBirthDate?.(val);
                         if (val) {
-                          notify.success('생년월일 설정 완료', {
-                            description: `${val} 기준으로 개월수/만 나이를 계산해요.`,
+                          notify.success(dict.toasts.birthDateSet, {
+                            description: interpolate(dict.toasts.birthDateSetDesc, { date: val }),
                           });
                         }
                       }}
@@ -733,12 +733,12 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                           const checked = e.target.checked;
                           onToggleShowChapterBridge?.(checked);
                           if (checked) {
-                            notify.success('스토리 챕터 브릿지 켜짐', {
-                              description: '날짜나 장소가 바뀔 때 모션 브릿지를 삽입해요.',
+                            notify.success(dict.toasts.chapterBridgeOn, {
+                              description: dict.toasts.chapterBridgeOnDesc,
                             });
                           } else {
-                            notify.info('스토리 챕터 브릿지 꺼짐', {
-                              description: '챕터 브릿지 없이 클립을 바로 이어붙여요.',
+                            notify.info(dict.toasts.chapterBridgeOff, {
+                              description: dict.toasts.chapterBridgeOffDesc,
                             });
                           }
                         }}
@@ -856,12 +856,12 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                           const checked = e.target.checked;
                           onToggleShowSubtitle?.(checked);
                           if (checked) {
-                            notify.success('영상 자막 표시 켜짐', {
-                              description: '영상 화면에 씬 제목 자막을 표시해요.',
+                            notify.success(dict.toasts.subtitleOn, {
+                              description: dict.toasts.subtitleOnDesc,
                             });
                           } else {
-                            notify.info('영상 자막 표시 꺼짐', {
-                              description: '화면 자막을 숨겼어요. (다운로드는 가능해요)',
+                            notify.info(dict.toasts.subtitleOff, {
+                              description: dict.toasts.subtitleOffDesc,
                             });
                           }
                         }}
@@ -960,12 +960,12 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                           const checked = e.target.checked;
                           onToggleShowIntro?.(checked);
                           if (checked) {
-                            notify.success('시작 인트로 켜짐', {
-                              description: '영상 시작 시 인트로 타이포 모션을 삽입해요.',
+                            notify.success(dict.toasts.introOn, {
+                              description: dict.toasts.introOnDesc,
                             });
                           } else {
-                            notify.info('시작 인트로 꺼짐', {
-                              description: '인트로 없이 본 영상부터 바로 시작해요.',
+                            notify.info(dict.toasts.introOff, {
+                              description: dict.toasts.introOffDesc,
                             });
                           }
                         }}
@@ -1067,12 +1067,12 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                           const checked = e.target.checked;
                           onToggleShowOutro?.(checked);
                           if (checked) {
-                            notify.success('종료 아웃트로 켜짐', {
-                              description: '영상 끝에 엔드카드 모션을 삽입해요.',
+                            notify.success(dict.toasts.outroOn, {
+                              description: dict.toasts.outroOnDesc,
                             });
                           } else {
-                            notify.info('종료 아웃트로 꺼짐', {
-                              description: '아웃트로 없이 영상을 종료해요.',
+                            notify.info(dict.toasts.outroOff, {
+                              description: dict.toasts.outroOffDesc,
                             });
                           }
                         }}

@@ -181,7 +181,9 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
     onSelectModel(model.id);
     onClose();
     notify.success(cleanModelName(model.name), {
-      description: `${getProviderName(model)} 모델을 선택했어요.`,
+      description: interpolate(dict.toasts.modelSelectedDesc, {
+        provider: getProviderName(model),
+      }),
     });
   };
 

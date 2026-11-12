@@ -101,7 +101,7 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
       await navigator.clipboard.writeText(url);
       notify.success(cDict?.copiedToast || '영상 링크를 복사했어요.');
     } catch {
-      notify.error('링크 복사에 실패했습니다.');
+      notify.error(dict.toasts.linkCopyFailed);
     }
   };
 

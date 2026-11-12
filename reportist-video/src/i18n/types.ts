@@ -51,6 +51,105 @@ export interface Dictionary {
     visitPenguinCutHome?: string;
     undo?: string;
   };
+  toasts: {
+    // Projects
+    projectDuplicated: string;
+    projectDuplicateFailed: string;
+    projectDeleted: string;
+    projectDeleteFailed: string;
+
+    // Clipboard
+    linkCopyFailed: string;
+    clipboardCopyFailed: string;
+
+    // Developer mode
+    devModeOn: string;
+    devModeOff: string;
+    devModeConfirmOn: string;
+    devModeConfirmOff: string;
+
+    // Settings - subtitle tone
+    toneChangedDesc: string;
+
+    // Settings - storage
+    persistGranted: string;
+    persistGrantedDesc: string;
+    persistRequested: string;
+    persistRequestedDesc: string;
+    storageModeSelected: string;
+    resolutionSelected: string;
+    resolutionSelectedDesc: string;
+
+    // Settings - birth date
+    birthDateSet: string;
+    birthDateSetDesc: string;
+
+    // Settings - toggles (mobile)
+    chapterBridgeOn: string;
+    chapterBridgeOnDesc: string;
+    chapterBridgeOff: string;
+    chapterBridgeOffDesc: string;
+    subtitleOn: string;
+    subtitleOnDesc: string;
+    subtitleOff: string;
+    subtitleOffDesc: string;
+    introOn: string;
+    introOnDesc: string;
+    introOff: string;
+    introOffDesc: string;
+    outroOn: string;
+    outroOnDesc: string;
+    outroOff: string;
+    outroOffDesc: string;
+
+    // Settings - toggles (desktop studio)
+    ageOn: string;
+    ageOnDesc: string;
+    ageOff: string;
+    ageOffDesc: string;
+    showDateOn: string;
+    showDateOnDesc: string;
+    showDateOff: string;
+    showDateOffDesc: string;
+    autoSortOn: string;
+    autoSortOnDesc: string;
+    autoSortOff: string;
+    autoSortOffDesc: string;
+
+    // Undo results
+    subtitleRestored: string;
+    orderRestored: string;
+    clipsRestored: string;
+
+    // BGM
+    customAudioAppliedDesc: string;
+    bgmNone: string;
+    bgmNoneDesc: string;
+    bgmAppliedDesc: string;
+
+    // Intro / outro video files
+    introVideoAppliedDesc: string;
+    outroVideoAppliedDesc: string;
+
+    // Downloads
+    videoDownloadStarted: string;
+    thumbnailDownloaded: string;
+
+    // Modal apply feedback
+    chapterBridgeApplied: string;
+    chapterBridgeAppliedDesc: string;
+    dateFormatChangedDesc: string;
+    languageChangedDesc: string;
+    modelSelectedDesc: string;
+    segmentBridgeUpdated: string;
+    introOutroDefaultsApplied: string;
+
+    // Subtitle download
+    subtitleCopied: string;
+    subtitleDownloaded: string;
+    subtitleAllDownloaded: string;
+    subtitleDownloadFailed: string;
+  };
   header: {
     aiModel: string;
     loadingModels: string;

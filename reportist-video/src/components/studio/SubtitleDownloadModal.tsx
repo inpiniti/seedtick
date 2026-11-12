@@ -132,11 +132,11 @@ export const SubtitleDownloadModal: React.FC<SubtitleDownloadModalProps> = ({
     try {
       await navigator.clipboard.writeText(currentSrtContent);
       setCopiedToast(true);
-      notify.success(dict.community?.copiedToast || '자막이 클립보드에 복사되었어요.');
+      notify.success(dict.toasts.subtitleCopied);
       setTimeout(() => setCopiedToast(false), 2000);
     } catch (err) {
       console.warn('Clipboard copy failed:', err);
-      notify.error('클립보드 복사에 실패했습니다.');
+      notify.error(dict.toasts.clipboardCopyFailed);
     }
   };
 
@@ -144,7 +144,7 @@ export const SubtitleDownloadModal: React.FC<SubtitleDownloadModalProps> = ({
   const handleDownloadSelected = () => {
     const fileName = getSubtitleFileName(videoTitle, selectedLocale);
     downloadSrtFile(currentSrtContent, fileName);
-    notify.success('자막 파일을 다운로드했어요.');
+    notify.success(dict.toasts.subtitleDownloaded);
   };
 
   // Download all 7 languages
@@ -170,10 +170,10 @@ export const SubtitleDownloadModal: React.FC<SubtitleDownloadModalProps> = ({
         // Small delay between browser downloads
         await new Promise((r) => setTimeout(r, 250));
       }
-      notify.success('7개 국어 자막 다운로드가 완료되었어요!');
+      notify.success(dict.toasts.subtitleAllDownloaded);
     } catch (err) {
       console.error('Download all failed:', err);
-      notify.error('자막 일괄 다운로드 중 오류가 발생했습니다.');
+      notify.error(dict.toasts.subtitleDownloadFailed);
     } finally {
       setIsDownloadingAll(false);
     }

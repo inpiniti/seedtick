@@ -15,7 +15,7 @@ export const LanguageSelectorModal: React.FC<LanguageSelectorModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  const { locale, setLocale, locales, dict } = useI18n();
+  const { locale, setLocale, locales, dict, interpolate } = useI18n();
   const [searchQuery, setSearchQuery] = useState('');
   const overlayRef = useRef<HTMLDivElement>(null);
 
@@ -53,7 +53,7 @@ export const LanguageSelectorModal: React.FC<LanguageSelectorModalProps> = ({
     const flag = selected?.flag || '🌐';
     const name = selected ? `${selected.nativeName} (${selected.name})` : code;
     notify.success(`${flag} ${selected?.nativeName || code}`, {
-      description: `${name} 언어로 변경했어요.`,
+      description: interpolate(dict.toasts.languageChangedDesc, { language: name }),
     });
   };
 

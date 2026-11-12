@@ -449,10 +449,10 @@ export function App() {
     try {
       await duplicateProject(id);
       await refreshProjectSummaries();
-      notify.success('프로젝트가 복제되었어요.');
+      notify.success(dict.toasts.projectDuplicated);
     } catch (err) {
       console.error('Failed to duplicate project:', err);
-      notify.error('프로젝트 복제에 실패했습니다.');
+      notify.error(dict.toasts.projectDuplicateFailed);
     }
   };
 
@@ -464,10 +464,10 @@ export function App() {
         handleStartNewProject();
       }
       await refreshProjectSummaries();
-      notify.success('프로젝트가 삭제되었어요.');
+      notify.success(dict.toasts.projectDeleted);
     } catch (err) {
       console.error('Failed to delete project:', err);
-      notify.error('프로젝트 삭제에 실패했습니다.');
+      notify.error(dict.toasts.projectDeleteFailed);
     }
   };
 

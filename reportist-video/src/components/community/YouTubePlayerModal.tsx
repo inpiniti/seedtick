@@ -27,7 +27,7 @@ export const YouTubePlayerModal: React.FC<YouTubePlayerModalProps> = ({ item, on
       notify.success(dict.community?.copiedToast || '유튜브 링크를 복사했어요.');
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      notify.error('링크 복사에 실패했습니다.');
+      notify.error(dict.toasts.linkCopyFailed);
     }
   };
 

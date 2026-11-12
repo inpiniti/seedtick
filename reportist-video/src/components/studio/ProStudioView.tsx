@@ -453,7 +453,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     setIsToneSelectorOpen(false);
     const opt = toneOptions.find((t) => t.id === tone);
     notify.success(`${opt?.icon || '✨'} ${opt?.label || tone}`, {
-      description: '기본 자막 톤앤매너를 설정했어요.',
+      description: dict.toasts.toneChangedDesc,
     });
   };
 
@@ -503,7 +503,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               prevSubtitles.has(s.id) ? { ...s, subtitleTitle: prevSubtitles.get(s.id) } : s
             );
           });
-          return { title: '자막을 원래대로 되돌렸어요.', action: null };
+          return { title: dict.toasts.subtitleRestored, action: null };
         }
       );
     } catch (err) {
@@ -1155,12 +1155,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }));
 
     if (enabled) {
-      notify.success('아이 나이 표시 켜짐', {
-        description: '촬영 날짜 옆에 만 나이(개월수)를 함께 표시해요.',
+      notify.success(dict.toasts.ageOn, {
+        description: dict.toasts.ageOnDesc,
       });
     } else {
-      notify.info('아이 나이 표시 꺼짐', {
-        description: '나이 표기를 숨겼어요.',
+      notify.info(dict.toasts.ageOff, {
+        description: dict.toasts.ageOffDesc,
       });
     }
   };
@@ -1171,12 +1171,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     setStoredShowDate(enabled);
     setOverlayOptions((prev) => ({ ...prev, showDate: enabled }));
     if (enabled) {
-      notify.success('촬영 날짜 표시 켜짐', {
-        description: '영상 화면에 촬영 날짜를 함께 표시해요.',
+      notify.success(dict.toasts.showDateOn, {
+        description: dict.toasts.showDateOnDesc,
       });
     } else {
-      notify.info('촬영 날짜 표시 꺼짐', {
-        description: '촬영 날짜 없이 장소만 표시해요.',
+      notify.info(dict.toasts.showDateOff, {
+        description: dict.toasts.showDateOffDesc,
       });
     }
   };
@@ -1195,17 +1195,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           dict.common?.undo || '되돌리기',
           () => {
             setSegments(prevSegments);
-            return { title: '원래 순서로 되돌렸어요.', action: null };
+            return { title: dict.toasts.orderRestored, action: null };
           }
         );
       } else {
-        notify.success('촬영일시 자동 정렬 켜짐', {
-          description: '클립 추가 시 촬영일시 순서대로 자동 정렬돼요.',
+        notify.success(dict.toasts.autoSortOn, {
+          description: dict.toasts.autoSortOnDesc,
         });
       }
     } else {
-      notify.info('촬영일시 자동 정렬 꺼짐', {
-        description: '클립 순서를 수동으로 자유롭게 배치할 수 있어요.',
+      notify.info(dict.toasts.autoSortOff, {
+        description: dict.toasts.autoSortOffDesc,
       });
     }
   };
@@ -1262,7 +1262,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       setSelectedBgmId('custom');
       setSelectedLibraryTrackId(null);
       notify.success(file.name, {
-        description: '사용자 BGM 오디오 파일로 적용했어요.',
+        description: dict.toasts.customAudioAppliedDesc,
       });
     }
   };
@@ -1274,8 +1274,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       setCustomAudioName('');
       setSelectedBgmId('none');
       setSelectedLibraryTrackId(null);
-      notify.info('배경음악 없음', {
-        description: '배경음악을 껐어요.',
+      notify.info(dict.toasts.bgmNone, {
+        description: dict.toasts.bgmNoneDesc,
       });
       return;
     }
@@ -1286,7 +1286,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     setSelectedBgmId('custom');
     setSelectedLibraryTrackId(track.id);
     notify.success(track.name, {
-      description: '배경음악 음원을 적용했어요.',
+      description: dict.toasts.bgmAppliedDesc,
     });
   };
 
@@ -1295,7 +1295,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       const file = e.target.files[0];
       setOverlayOptions((prev) => ({ ...prev, introVideoFile: file, showIntro: true }));
       notify.success(file.name, {
-        description: '시작 인트로 비디오 파일로 지정했어요.',
+        description: dict.toasts.introVideoAppliedDesc,
       });
     }
   };
@@ -1305,7 +1305,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       const file = e.target.files[0];
       setOverlayOptions((prev) => ({ ...prev, outroVideoFile: file, showOutro: true }));
       notify.success(file.name, {
-        description: '종료 아웃트로 비디오 파일로 지정했어요.',
+        description: dict.toasts.outroVideoAppliedDesc,
       });
     }
   };
@@ -1931,7 +1931,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         () => {
           setSegments(prevSegments);
           setSelectedSegmentId(prevSelectedId);
-          return { title: '클립을 원래대로 복구했어요.', action: null };
+          return { title: dict.toasts.clipsRestored, action: null };
         }
       );
     }
@@ -3275,7 +3275,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       dict.common?.undo || '되돌리기',
       () => {
         setSegments(prevSegments);
-        return { title: '원래 순서로 되돌렸어요.', action: null };
+        return { title: dict.toasts.orderRestored, action: null };
       }
     );
   };
@@ -3355,7 +3355,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    notify.success('비디오 다운로드가 시작되었어요!');
+    notify.success(dict.toasts.videoDownloadStarted);
   };
 
   const handleDownload = async (targetRes?: ExportResolution) => {
@@ -3412,7 +3412,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       } else if (thumbnailUrl) {
         await downloadThumbnailFile(thumbnailUrl, overlayOptions.titleText || 'highlight');
       }
-      notify.success('16:9 고화질 썸네일을 다운로드했어요!');
+      notify.success(dict.toasts.thumbnailDownloaded);
     } catch (err) {
       console.error('Thumbnail download failed:', err);
     }
@@ -6711,7 +6711,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             setSegments((prev) =>
               prev.map((s, idx) => (idx === editingBridgeIndex ? updatedSegment : s))
             );
-            notify.success('이 구간의 챕터 브릿지 설정이 변경되었습니다.');
+            notify.success(dict.toasts.segmentBridgeUpdated);
           }}
         />
       )}
@@ -6747,7 +6747,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             ...prev,
             ...settings,
           }));
-          notify.success('인트로 & 아웃트로 모션 설정이 기본값으로 적용되었습니다.');
+          notify.success(dict.toasts.introOutroDefaultsApplied);
         }}
       />
 
