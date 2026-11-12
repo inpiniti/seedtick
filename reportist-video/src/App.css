@@ -4059,6 +4059,13 @@
   background-color: #334155;
 }
 
+/* 모바일에서는 다운로드 버튼의 해상도·길이 정보를 숨기고 '다운로드'만 노출 */
+@media (max-width: 768px) {
+  .toss-download-video-meta {
+    display: none;
+  }
+}
+
 .toss-btn-restitch-timeline {
   animation: tossButtonPop 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }

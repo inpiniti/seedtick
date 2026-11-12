@@ -4965,7 +4965,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   <span>
                     {isReStitching
                       ? `${dict.header.stitching} (${reStitchProgress?.progressPercent ?? 0}%)`
-                      : `${dict.header.download} (${exportResolution} · ${formatSec(totalDuration)})`}
+                      : dict.header.download}
+                    {!isReStitching && (
+                      <span className="toss-download-video-meta">
+                        {` (${exportResolution} · ${formatSec(totalDuration)})`}
+                      </span>
+                    )}
                   </span>
                 </button>
 
