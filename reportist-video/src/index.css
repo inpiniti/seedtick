@@ -84,6 +84,17 @@ body {
   overflow: hidden;
 }
 
+/* iOS Safari는 포커스한 form control의 font-size가 16px 미만이면
+   화면을 자동 확대하고, 확대된 뷰포트 때문에 레이아웃이 화면 밖으로 밀려난다.
+   모바일/터치 환경에서는 16px 이상으로 강제해 확대와 가로 잘림을 막는다. */
+@media (max-width: 1024px), (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
 @media (max-width: 1024px) {
   html,
   body {
