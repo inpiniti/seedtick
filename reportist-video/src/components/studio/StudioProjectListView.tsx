@@ -16,6 +16,7 @@ import {
 import type { StudioProjectSummary } from '../../types/project.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { isOpfsAvailable } from '../../services/opfsStorage.ts';
+import { formatBytes } from '../../services/storageQuotaService.ts';
 import { PenguinLogo } from '../common/PenguinLogo.tsx';
 
 interface StudioProjectListViewProps {
@@ -250,6 +251,12 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
                     <span className="toss-project-clips-count">
                       {interpolate(pDict.clipsCount, { count: proj.videoCount })}
                     </span>
+                    {typeof proj.mediaBytes === 'number' && proj.mediaBytes > 0 && (
+                      <span className="toss-project-clips-count" title="기기에 저장된 미디어 용량">
+                        <HardDrive size={11} className="inline mr-0.5 align-[-1px]" />
+                        {formatBytes(proj.mediaBytes)}
+                      </span>
+                    )}
                     <span className="toss-project-time">
                       <Calendar size={11} />
                       {formatRelativeTime(proj.updatedAt)}

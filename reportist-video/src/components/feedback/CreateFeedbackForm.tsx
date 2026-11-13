@@ -281,7 +281,10 @@ export const CreateFeedbackForm: React.FC<CreateFeedbackFormProps> = ({
               accept="image/*"
               multiple
               style={{ display: 'none' }}
-              onChange={(e) => handleFileUpload(e.target.files)}
+              onChange={(e) => {
+                handleFileUpload(e.target.files);
+                e.target.value = '';
+              }}
             />
           </div>
 

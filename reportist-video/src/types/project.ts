@@ -78,6 +78,8 @@ export interface StudioProject {
   exportResolution?: ExportResolution;
   storageMode?: 'auto' | 'full' | 'lightweight';
   hasOpfsFiles?: boolean;
+  /** 프로젝트가 기기에 저장된 미디어 총 바이트 (표시용) */
+  mediaBytes?: number;
 }
 
 export interface StudioProjectSummary {
@@ -92,4 +94,6 @@ export interface StudioProjectSummary {
   step: 'upload' | 'processing' | 'result';
   storageMode?: 'auto' | 'full' | 'lightweight';
   hasOpfsFiles?: boolean;
+  /** 프로젝트가 기기에 저장된 미디어 총 바이트 (표시용) */
+  mediaBytes?: number;
 }

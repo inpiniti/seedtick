@@ -173,6 +173,7 @@ import {
   loadLibraryAudioFile,
   type AudioLibraryTrack,
 } from '../../data/audioLibrary.ts';
+import { getStoredStorageMode } from '../../services/storageQuotaService.ts';
 import { PenguinLogo } from '../common/PenguinLogo.tsx';
 import { ShinyText } from '../common/ShinyText.tsx';
 import { SpecularButton } from '../common/SpecularButton.tsx';
@@ -1303,8 +1304,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   }, [progress.reasoningLogs, progress.liveReasoning, progress.liveContent]);
 
   const handleCustomAudioSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
+    const selectedAudioFile = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (selectedAudioFile) {
+      const file = selectedAudioFile;
       setCustomAudioFile(file);
       setCustomAudioName(file.name);
       setSelectedBgmId('custom');
@@ -1339,8 +1342,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   };
 
   const handleIntroVideoSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
+    const selectedIntroFile = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (selectedIntroFile) {
+      const file = selectedIntroFile;
       setOverlayOptions((prev) => ({ ...prev, introVideoFile: file, showIntro: true }));
       notify.success(file.name, {
         description: dict.toasts.introVideoAppliedDesc,
@@ -1349,8 +1354,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   };
 
   const handleOutroVideoSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
+    const selectedOutroFile = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (selectedOutroFile) {
+      const file = selectedOutroFile;
       setOverlayOptions((prev) => ({ ...prev, outroVideoFile: file, showOutro: true }));
       notify.success(file.name, {
         description: dict.toasts.outroVideoAppliedDesc,
@@ -4018,7 +4025,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   원본 영상 {videos.filter((v) => !v.url || (v.file && v.file.size === 0) || v.error || v.isMissingFile).length}개의 연결이 필요해요
                 </div>
                 <div className="toss-relink-desc">
-                  기기 스토리지 정리로 파일이 분리되었습니다. 영상 파일을 다시 지정하면 이전 편집점과 분석 결과를 그대로 이어서 작업할 수 있어요.
+                  기기에 원본이 없어 다시 연결해야 해요. 영상 파일을 지참하셔야 이전 편집점과 분석 결과를 그대로 이어서 작업할 수 있어요.
                 </div>
               </div>
             </div>
@@ -6928,9 +6935,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   </span>
                 ) : (
                   <span className="text-slate-700 font-medium">
-                    {result?.url && !hasPlayableSourceVideos
-                      ? (dict.projects?.finalResultSaved || '최종 완성 영상이 기기에 보관됨')
-                      : dict.projects?.bottomSaved || dict.projects?.autoSaved || '기기(IndexedDB)에 안전하게 보관됨'}
+                    {getStoredStorageMode() === 'lightweight'
+                      ? '편집 정보만 기기에 저장됨 (초경량 모드)'
+                      : result?.url && !hasPlayableSourceVideos
+                        ? (dict.projects?.finalResultSaved || '최종 완성 영상이 기기에 보관됨')
+                        : dict.projects?.bottomSaved || dict.projects?.autoSaved || '기기에 안전하게 보관됨'}
                   </span>
                 )}
               </span>

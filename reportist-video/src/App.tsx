@@ -58,7 +58,8 @@ import {
   getAllProjectSummaries,
   deleteProject,
   duplicateProject,
-  applyMobileStoragePolicy,
+  runMediaSplitMigration,
+  deleteProjectMediaItem,
 } from './services/projectStorage.ts';
 import { AUDIO_LIBRARY, loadLibraryAudioFile } from './data/audioLibrary.ts';
 import { saveVideoToOPFS } from './services/opfsStorage.ts';
@@ -281,6 +282,11 @@ export function App() {
   const activeMetadataBatchCountRef = useRef<number>(0);
   const isSavingProjectRef = useRef<boolean>(false);
   const pendingSaveAfterLockRef = useRef<boolean>(false);
+  // 클로저(performSave)가 최신 단계 값을 보게 하기 위한 ref ('processing' 중 불필요한 저장 차단)
+  const currentStepRef = useRef<OverallStep>(currentStep);
+  useEffect(() => {
+    currentStepRef.current = currentStep;
+  }, [currentStep]);
 
   // 프로젝트 요약 목록 새로고침
   // - 최초 1회만 스켈레톤을 노출하고, 이후 갱신(열기/저장/삭제/복제)은 기존 목록을 유지한 채 조용히 교체한다.
@@ -564,10 +570,11 @@ export function App() {
   };
 
   // 자동 저장 수행 (중복 실행 잠금 및 초기 메타데이터 추출 중 실행 보류)
-  const performSave = async (overrideFinalResult?: FinalVideoResult) => {
+  // opts.checkpoint: AI 분석 루프 중에도 허용할 '중간 체크포인트' 저장 (명시적으로 호출한 경우에만)
+  const performSave = async (overrideFinalResult?: FinalVideoResult, opts?: { checkpoint?: boolean }) => {
     if (
       videos.length === 0 ||
-      currentStep === 'processing' ||
+      (!opts?.checkpoint && currentStepRef.current === 'processing') ||
       isRestoringProjectRef.current ||
       activeMetadataBatchCountRef.current > 0
     ) {
@@ -588,11 +595,6 @@ export function App() {
 
     setSaveStatus('saving');
 
-    const isMobileStorage = isMobileStorageEnvironment();
-    // 모바일은 원본/인트로/아웃트로/오디오 Blob을 IndexedDB에 직렬화하지 않는다.
-    // (자동 저장 반복 시 Safari 앱 용량이 수 GB로 늘어나는 문제 방지)
-    const stripRawOnSave = isMobileStorage;
-
     const targetFinalResult = overrideFinalResult || finalResult;
 
     try {
@@ -611,7 +613,7 @@ export function App() {
         longitude: v.longitude,
         locationName: v.locationName,
         thumbnailUrl: v.thumbnailUrl && !v.thumbnailUrl.startsWith('blob:') ? v.thumbnailUrl : undefined,
-        fileBlob: stripRawOnSave ? undefined : v.file,
+        fileBlob: v.file,
       }));
 
       const projectTitle =
@@ -744,9 +746,9 @@ export function App() {
   useEffect(() => {
     let isMounted = true;
     async function initProjects() {
-      // 모바일은 이전 버전이 남긴 대용량 원본/완성본 Blob을 1회 정리한 뒤 목록을 읽는다.
-      await applyMobileStoragePolicy().catch((err) => {
-        console.warn('[App] Failed to apply mobile storage policy:', err);
+      // 예전 버전이 projects 레코드에 인라인으로 저장한 미디어를 project_media로 1회 분리 이전
+      await runMediaSplitMigration().catch((err) => {
+        console.warn('[App] Failed to run media split migration:', err);
       });
       await refreshProjectSummaries();
       const lastId = getLastActiveProjectId();
@@ -959,6 +961,12 @@ export function App() {
   };
 
   const handleRemove = (id: string) => {
+    // 기기에 저장된 원본 미디어도 함께 지워 용량을 즉시 회수한다.
+    if (currentProjectId) {
+      void deleteProjectMediaItem(currentProjectId, 'raw', id).catch((err) => {
+        console.warn('[App] Failed to delete raw media for removed video:', err);
+      });
+    }
     setVideos((prev) => {
       const item = prev.find((v) => v.id === id);
       if (item) {
@@ -990,8 +998,11 @@ export function App() {
         };
       })
     );
-    if (currentProjectId && !isMobileStorageEnvironment()) {
-      void saveVideoToOPFS(currentProjectId, videoId, newFile);
+    if (currentProjectId) {
+      void deleteProjectMediaItem(currentProjectId, 'raw', videoId).catch(() => {});
+      if (!isMobileStorageEnvironment()) {
+        void saveVideoToOPFS(currentProjectId, videoId, newFile, true);
+      }
     }
   };
 
@@ -1016,8 +1027,12 @@ export function App() {
             } catch {}
           }
           const newUrl = URL.createObjectURL(match);
-          if (currentProjectId && !isMobileStorageEnvironment()) {
-            void saveVideoToOPFS(currentProjectId, v.id, match);
+          if (currentProjectId) {
+            // 이전 원본 미디어를 지우고 강제로 다시 기록 (동일 크기 파일 교체 포함)
+            void deleteProjectMediaItem(currentProjectId, 'raw', v.id).catch(() => {});
+            if (!isMobileStorageEnvironment()) {
+              void saveVideoToOPFS(currentProjectId, v.id, match, true);
+            }
           }
           return {
             ...v,
@@ -1635,7 +1650,7 @@ export function App() {
         setVideos([...updatedVideos]);
 
         // 개별 영상 분석 완료 시 중간 체크포인트 자동 저장 (브라우저 종료/새로고침 시에도 이미 분석된 영상 100% 보존)
-        void performSave();
+        void performSave(undefined, { checkpoint: true });
 
         // AI 추천 타이틀 및 베스트 썸네일 정보 수집
         const segSuggestedTitle = (segments as any)?.suggestedTitle;
@@ -1747,7 +1762,7 @@ export function App() {
           }
         }
         setVideos([...updatedVideos]);
-        void performSave();
+        void performSave(undefined, { checkpoint: true });
         addLog('✨ 전체 맥락에 어울리는 자연스러운 브이로그 자막으로 다듬었습니다.');
       } catch (refineErr) {
         console.warn('[Subtitle] Contextual refine error:', refineErr);

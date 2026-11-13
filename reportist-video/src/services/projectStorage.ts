@@ -1,9 +1,7 @@
 import type { StudioProject, StudioProjectSummary } from '../types/project.ts';
-import { getStorageEstimate, getStoredStorageMode } from './storageQuotaService.ts';
+import { getStoredStorageMode } from './storageQuotaService.ts';
 import {
   isMobileStorageEnvironment,
-  MOBILE_FINAL_RESULT_KEEP_COUNT,
-  MOBILE_FINAL_RESULT_MAX_BYTES,
 } from './deviceStoragePolicy.ts';
 import {
   saveVideoToOPFS,
@@ -13,7 +11,8 @@ import {
   deleteProjectOPFS,
   copyProjectOPFS,
   isOpfsAvailable,
-  purgeAllProjectOPFS,
+  purgeAllOPFSStorage,
+  pruneOrphanProjectOPFS,
 } from './opfsStorage.ts';
 
 const DB_NAME = 'reportist_video_studio_db';
@@ -21,20 +20,35 @@ const DB_VERSION = 2;
 const STORE_NAME = 'projects';
 const MEDIA_STORE_NAME = 'project_media';
 const LAST_ACTIVE_KEY = 'reportist_video_last_active_project_id';
-const MOBILE_POLICY_MIGRATION_KEY = 'reportist_video_mobile_storage_policy_v2';
+const MEDIA_SPLIT_MIGRATION_KEY = 'reportist_video_media_split_v1';
+
+// 대용량 바이너리는 전부 `project_media` 스토어에만 저장하고,
+// `projects` 레코드에는 가벼운 JSON 메타데이터만 남긴다.
+// - raw:<projectId>:<videoId>   원본 영상
+// - final:<projectId>           최종 완성본 (레거시 키와 동일)
+// - asset:<projectId>:<assetId> 인트로/아웃트로/커스텀 오디오 (assetId: 'intro' | 'outro' | 'audio')
+export type ProjectMediaKind = 'raw' | 'final' | 'asset';
+export type ProjectMediaAssetId = 'intro' | 'outro' | 'audio';
 
 interface StoredMediaRecord {
   key: string;
   projectId: string;
-  kind: 'final';
+  kind: ProjectMediaKind;
+  itemId?: string;
   blob: Blob;
   size: number;
   updatedAt: number;
 }
 
-// 현재 세션에서 이미 기기에 기록한 완성본 Blob을 추적해, 자동 저장 때마다
-// 동일한 수백 MB Blob을 다시 직렬화하는 낭비를 막는다.
-const persistedFinalBlobs = new WeakMap<Blob, string>();
+// 이 세션에서 이미 IndexedDB에 기록했거나(저장 시) 읽은(복원 시) 미디어를 추적해
+// 자동 저장이 반복될 때마다 수백MB Blob을 다시 직렬화하는 것을 막는다.
+const persistedMediaBlobs = new WeakMap<Blob, string>();
+const persistedMediaKeys = new Map<string, number>();
+
+function mediaKeyFor(kind: ProjectMediaKind, projectId: string, itemId?: string): string {
+  if (kind === 'final') return `final:${projectId}`;
+  return `${kind}:${projectId}:${itemId}`;
+}
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -90,6 +104,47 @@ function getDB(): Promise<IDBDatabase> {
   });
 
   return dbPromise;
+}
+
+/** 열린 DB 커넥션을 명시적으로 닫는다. (deleteDatabase 전제 조건) */
+export async function closeDatabaseConnection(): Promise<void> {
+  if (!dbPromise) return;
+  try {
+    const db = await dbPromise;
+    db.close();
+  } catch {
+    // 이미 닫혔거나 열리지 않은 경우 무시
+  } finally {
+    dbPromise = null;
+  }
+}
+
+function deleteDatabaseAsync(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined' || !window.indexedDB) {
+      resolve();
+      return;
+    }
+    const req = window.indexedDB.deleteDatabase(DB_NAME);
+    req.onsuccess = () => resolve();
+    req.onerror = () =>
+      reject(req.error || new Error('Failed to delete IndexedDB database.'));
+    req.onblocked = () => {
+      console.warn('[projectStorage] IndexedDB delete is blocked by another open tab.');
+      // 다른 탭이 닫힐 때까지 기다리지 않고 성공 처리한다.
+      resolve();
+    };
+  });
+}
+
+async function deleteAllCacheStorage(): Promise<void> {
+  if (typeof window === 'undefined' || !('caches' in window)) return;
+  try {
+    const keys = await window.caches.keys();
+    await Promise.all(keys.map((k) => window.caches.delete(k)));
+  } catch (err) {
+    console.warn('[projectStorage] CacheStorage clear failed:', err);
+  }
 }
 
 export function generateProjectId(): string {
@@ -155,18 +210,50 @@ export function setStoredSelectedEffort(effort: string | null): void {
   } catch {}
 }
 
+// 썸네일 등 base64 데이터 URL이 메타데이터 레코드를 비대하게 만드는 것을 막기 위한 상한.
+// (320px JPEG 기준 약 30~50KB → 400,000자면 약 300KB로 충분하다)
+const MAX_THUMBNAIL_DATA_URL_CHARS = 400_000;
+const MAX_AI_THUMBNAIL_RECOMMENDATIONS = 24;
+
+function clampDataUrl(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  if (url.startsWith('data:') && url.length > MAX_THUMBNAIL_DATA_URL_CHARS) {
+    return undefined;
+  }
+  return url;
+}
+
+/** 프로젝트 메타데이터(썸네일 등) 경량화 */
+function clampProjectThumbnails(project: StudioProject): void {
+  project.thumbnailUrl = clampDataUrl(project.thumbnailUrl);
+
+  for (const video of project.videos || []) {
+    video.thumbnailUrl = clampDataUrl(video.thumbnailUrl);
+  }
+
+  if (project.finalResult) {
+    project.finalResult.thumbnailUrl = clampDataUrl(project.finalResult.thumbnailUrl);
+    project.finalResult.cleanThumbnailUrl = clampDataUrl(project.finalResult.cleanThumbnailUrl);
+    project.finalResult.bestThumbnailCleanDataUrl = clampDataUrl(
+      project.finalResult.bestThumbnailCleanDataUrl
+    );
+    if (project.finalResult.aiThumbnailRecommendations) {
+      project.finalResult.aiThumbnailRecommendations = project.finalResult.aiThumbnailRecommendations
+        .slice(0, MAX_AI_THUMBNAIL_RECOMMENDATIONS)
+        .map((rec) => ({
+          ...rec,
+          cleanDataUrl: clampDataUrl(rec.cleanDataUrl) || '',
+        }));
+    }
+  }
+}
+
 /**
- * 프로젝트 저장 데이터 정제 (직렬화 불가능한 필드 제거)
- * @param stripRawVideos 원본 다중 비디오 파일(수백MB~수GB) 제외 여부 (모바일 OOM 방지)
- * @param stripFinalResult 최종 완성본 비디오 1개 제외 여부
- * @param stripUserMediaAssets 인트로·아웃트로·커스텀 오디오 Blob 제외 여부 (모바일 용량 보호)
+ * 프로젝트 저장 데이터 정제.
+ * `projects` 레코드에는 절대 대용량 Blob을 남기지 않는다.
+ * (미디어 바이너리는 별도 `project_media` 스토어에 분리 저장)
  */
-function sanitizeProjectForStorage(
-  project: StudioProject,
-  stripRawVideos = false,
-  stripFinalResult = false,
-  stripUserMediaAssets = false
-): StudioProject {
+function sanitizeProjectForStorage(project: StudioProject): StudioProject {
   const sanitizedOverlay = project.overlayOptions
     ? {
         ...project.overlayOptions,
@@ -175,7 +262,7 @@ function sanitizeProjectForStorage(
       }
     : undefined;
 
-  const sanitizeThumbnail = (url?: string) => (url && !url.startsWith('blob:') ? url : undefined);
+  const sanitizeThumbnail = (url?: string) => clampDataUrl(url && !url.startsWith('blob:') ? url : undefined);
 
   const sanitizedVideos = (project.videos || []).map((v) => ({
     id: v.id,
@@ -192,42 +279,21 @@ function sanitizeProjectForStorage(
     longitude: v.longitude,
     locationName: v.locationName,
     thumbnailUrl: sanitizeThumbnail(v.thumbnailUrl),
-    fileBlob: stripRawVideos ? undefined : v.fileBlob,
-    hasOpfsFile: stripRawVideos ? false : v.hasOpfsFile,
+    fileBlob: undefined,
+    hasOpfsFile: v.hasOpfsFile,
   }));
-
-  const finalBlob = project.finalResult?.videoBlob;
-  // 단일 최종 완성본 Blob이 비정상적으로 거대하지 않은지 체크 (최대 200MB까지 안전 보관)
-  const isFinalBlobTooLarge = Boolean(
-    finalBlob && finalBlob.size > 200 * 1024 * 1024
-  );
 
   const sanitizedFinalResult = project.finalResult
     ? {
         ...project.finalResult,
         thumbnailUrl: sanitizeThumbnail(project.finalResult.thumbnailUrl),
         cleanThumbnailUrl: sanitizeThumbnail(project.finalResult.cleanThumbnailUrl),
-        videoBlob: stripFinalResult || isFinalBlobTooLarge ? undefined : finalBlob,
+        bestThumbnailCleanDataUrl: sanitizeThumbnail(project.finalResult.bestThumbnailCleanDataUrl),
+        videoBlob: undefined,
       }
     : null;
 
-  // 오디오 및 인트로/아웃트로 클립은 수십MB 이하의 가벼운 에셋이므로 stripRawVideos(수GB 원본 비디오 스트립)와 무관하게 안전 보존
-  const safeAudioBlob =
-    project.customAudioBlob && project.customAudioBlob.size < 50 * 1024 * 1024
-      ? project.customAudioBlob
-      : undefined;
-
-  const safeIntroBlob =
-    project.introVideoBlob && project.introVideoBlob.size < 100 * 1024 * 1024
-      ? project.introVideoBlob
-      : undefined;
-
-  const safeOutroBlob =
-    project.outroVideoBlob && project.outroVideoBlob.size < 100 * 1024 * 1024
-      ? project.outroVideoBlob
-      : undefined;
-
-  return {
+  const sanitized: StudioProject = {
     ...project,
     updatedAt: Date.now(),
     thumbnailUrl: sanitizeThumbnail(project.thumbnailUrl),
@@ -235,13 +301,29 @@ function sanitizeProjectForStorage(
     finalResult: sanitizedFinalResult,
     overlayOptions: sanitizedOverlay,
     selectedLibraryTrackId: project.selectedLibraryTrackId,
-    customAudioBlob: stripUserMediaAssets ? undefined : safeAudioBlob,
-    customAudioName: !stripUserMediaAssets && safeAudioBlob ? project.customAudioName : undefined,
-    introVideoBlob: stripUserMediaAssets ? undefined : safeIntroBlob,
-    introVideoName: !stripUserMediaAssets && safeIntroBlob ? project.introVideoName : undefined,
-    outroVideoBlob: stripUserMediaAssets ? undefined : safeOutroBlob,
-    outroVideoName: !stripUserMediaAssets && safeOutroBlob ? project.outroVideoName : undefined,
+    customAudioBlob: undefined,
+    customAudioName: project.customAudioBlob ? project.customAudioName : undefined,
+    introVideoBlob: undefined,
+    introVideoName: project.introVideoBlob ? project.introVideoName : undefined,
+    outroVideoBlob: undefined,
+    outroVideoName: project.outroVideoBlob ? project.outroVideoName : undefined,
   };
+
+  clampProjectThumbnails(sanitized);
+  return sanitized;
+}
+
+/** 프로젝트가 차지하는 미디어(프로젝트당) 총 바이트 계산 — 화면 표시/統計용 */
+function computeMediaBytes(project: StudioProject): number {
+  let total = 0;
+  for (const v of project.videos || []) {
+    total += v.fileBlob?.size || v.sizeBytes || 0;
+  }
+  total += project.finalResult?.videoBlob?.size || 0;
+  total += project.customAudioBlob?.size || 0;
+  total += project.introVideoBlob?.size || 0;
+  total += project.outroVideoBlob?.size || 0;
+  return total;
 }
 
 /**
@@ -296,302 +378,194 @@ async function executePut(db: IDBDatabase, data: StudioProject): Promise<void> {
   });
 }
 
-// IndexedDB 단일 레코드에 원본 비디오 Blob을 직접 직렬화할 수 있는 최대 안전 한도 (35MB, 최대 2개 이하)
-const MAX_IDB_INLINE_BLOB_BYTES = 35 * 1024 * 1024;
-const MAX_IDB_INLINE_VIDEO_COUNT = 2;
-
-function getFinalMediaKey(projectId: string): string {
-  return `final:${projectId}`;
-}
-
 function executeMediaPut(db: IDBDatabase, record: StoredMediaRecord): Promise<void> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(MEDIA_STORE_NAME, 'readwrite');
     tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error || new Error('Failed to save final video media.'));
-    tx.onabort = () => reject(tx.error || new Error('Final video media transaction aborted.'));
+    tx.onerror = () => reject(tx.error || new Error('Failed to save project media.'));
+    tx.onabort = () => reject(tx.error || new Error('Project media transaction aborted.'));
     tx.objectStore(MEDIA_STORE_NAME).put(record);
   });
 }
 
 function executeMediaDelete(db: IDBDatabase, key: string): Promise<void> {
+  persistedMediaKeys.delete(key);
   return new Promise((resolve, reject) => {
     const tx = db.transaction(MEDIA_STORE_NAME, 'readwrite');
     tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error || new Error('Failed to delete final video media.'));
-    tx.onabort = () => reject(tx.error || new Error('Final video media delete aborted.'));
+    tx.onerror = () => reject(tx.error || new Error('Failed to delete project media.'));
+    tx.onabort = () => reject(tx.error || new Error('Project media delete aborted.'));
     tx.objectStore(MEDIA_STORE_NAME).delete(key);
   });
 }
 
-function getFinalMediaRecord(db: IDBDatabase, projectId: string): Promise<StoredMediaRecord | null> {
+function getMediaRecord(db: IDBDatabase, key: string): Promise<StoredMediaRecord | null> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(MEDIA_STORE_NAME, 'readonly');
-    const req = tx.objectStore(MEDIA_STORE_NAME).get(getFinalMediaKey(projectId));
+    const req = tx.objectStore(MEDIA_STORE_NAME).get(key);
     req.onsuccess = () => resolve((req.result as StoredMediaRecord | undefined) || null);
-    req.onerror = () => reject(req.error || new Error('Failed to read final video media.'));
+    req.onerror = () => reject(req.error || new Error('Failed to read project media.'));
   });
 }
 
-function clearFinalMediaStore(db: IDBDatabase): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(MEDIA_STORE_NAME, 'readwrite');
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error || new Error('Failed to clear final video media.'));
-    tx.onabort = () => reject(tx.error || new Error('Final video media clear aborted.'));
-    tx.objectStore(MEDIA_STORE_NAME).clear();
-  });
+function markMediaPersisted(blob: Blob, key: string, size: number): void {
+  persistedMediaBlobs.set(blob, key);
+  persistedMediaKeys.set(key, size);
 }
 
-async function saveFinalMediaForProject(
+/**
+ * 미디어 Blob을 project_media 스토어에 기록한다.
+ * 이미 기록했음이 확인된 Blob/키는 다시 쓰지 않는다.
+ * (final은 새 내보내기 시 항상 덮어쓴다.)
+ */
+async function saveProjectMedia(
   db: IDBDatabase,
+  kind: ProjectMediaKind,
   projectId: string,
+  itemId: string | undefined,
   blob: Blob
 ): Promise<void> {
-  if (persistedFinalBlobs.get(blob) === projectId) return;
+  const key = mediaKeyFor(kind, projectId, itemId);
+
+  // 이 세션에서 같은 Blob을 이미 기록했으면 스킵 (WeakMap identity 비교)
+  if (persistedMediaBlobs.get(blob) === key) return;
+
+  // raw/asset은 동일 크기 기존 레코드가 있으면 같은 내용으로 간주하고 스킵.
+  // (다른 내용으로 교체되는 경로는 모두 media 키를 먼저 삭제하므로 안전)
+  if (kind !== 'final' && persistedMediaKeys.get(key) === blob.size) return;
+
   await executeMediaPut(db, {
-    key: getFinalMediaKey(projectId),
+    key,
     projectId,
-    kind: 'final',
+    kind,
+    itemId,
     blob,
     size: blob.size,
     updatedAt: Date.now(),
   });
-  persistedFinalBlobs.set(blob, projectId);
+  markMediaPersisted(blob, key, blob.size);
 }
 
-/**
- * 모바일에서 최근 완성본만 남기고 오래된 프로젝트의 완성본 Blob을 정리한다.
- * (메타데이터·썸네일·편집점은 그대로 유지)
- * key cursor만 사용해 Blob 본문을 메모리로 읽지 않는다.
- */
-function pruneFinalMedia(db: IDBDatabase, activeProjectId?: string): Promise<void> {
+/** 특정 프로젝트의 모든 미디어 레코드를 키만 읽어 일괄 삭제한다. (Blob 본문은 읽지 않음) */
+function deleteProjectMediaByProjectId(db: IDBDatabase, projectId: string): Promise<number> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(MEDIA_STORE_NAME, 'readwrite');
     const store = tx.objectStore(MEDIA_STORE_NAME);
-    const index = store.index('by_updatedAt');
-    const req = index.openKeyCursor(null, 'prev');
-    const keepProjectIds = new Set<string>();
-    if (activeProjectId) keepProjectIds.add(activeProjectId);
+    const index = store.index('by_projectId');
+    const req = index.openKeyCursor(IDBKeyRange.only(projectId));
+    let deleted = 0;
 
     req.onsuccess = () => {
       const cursor = req.result;
       if (!cursor) return;
-
-      const key = String(cursor.primaryKey);
-      const projectId = key.startsWith('final:') ? key.slice('final:'.length) : key;
-
-      if (keepProjectIds.has(projectId) || keepProjectIds.size < MOBILE_FINAL_RESULT_KEEP_COUNT) {
-        keepProjectIds.add(projectId);
-      } else {
-        store.delete(cursor.primaryKey);
-      }
-
+      persistedMediaKeys.delete(String(cursor.primaryKey));
+      store.delete(cursor.primaryKey);
+      deleted += 1;
       cursor.continue();
     };
 
-    req.onerror = () => reject(req.error || new Error('Failed to prune final video media.'));
-    tx.onerror = () => reject(tx.error || new Error('Final video media prune transaction failed.'));
-    tx.onabort = () => reject(tx.error || new Error('Final video media prune transaction aborted.'));
-    tx.oncomplete = () => resolve();
+    req.onerror = () => reject(req.error || new Error('Failed to iterate project media.'));
+    tx.onerror = () => reject(tx.error || new Error('Project media cleanup transaction failed.'));
+    tx.onabort = () => reject(tx.error || new Error('Project media cleanup transaction aborted.'));
+    tx.oncomplete = () => resolve(deleted);
   });
 }
 
 /**
- * 프로젝트 저장 또는 업데이트 (OPFS 분리 저장 + IndexedDB 하이브리드, 모바일 OOM 원천 차단)
+ * 프로젝트 저장 또는 업데이트.
+ * 프로젝트 `projects` 레코드에는 메타데이터만 남기고,
+ * 원본 영상/완성본/에셋 Blob은 `project_media`에 쓰기-once 원칙으로 저장한다.
  */
 export async function saveProject(project: StudioProject): Promise<void> {
   const db = await getDB();
   const currentMode = project.storageMode || getStoredStorageMode();
-  let hasOpfs = false;
+  const isLightweight = currentMode === 'lightweight';
+  const projectId = project.id;
 
   const videoList = project.videos || [];
-  const totalVideoBlobBytes =
-    videoList.reduce((sum, v) => sum + (v.fileBlob?.size || v.sizeBytes || 0), 0) +
-    (project.finalResult?.videoBlob?.size || 0);
+  // 데스크톱 + OPFS 지원 환경은 OPFS에 바이너리를 쓰고,
+  // 그 외(모바일 포함)에는 IndexedDB project_media에 저장한다.
+  const useOpfs = !isLightweight && isOpfsAvailable() && !isMobileStorageEnvironment();
 
-  // 1. 모바일(iOS/Android) 환경: 원본·인트로·아웃트로·커스텀 오디오 Blob은
-  // IndexedDB/OPFS에 절대 기록하지 않는다. 자동 저장이 반복될 때마다 수백 MB를
-  // 다시 직렬화하며 Safari 앱 용량이 수 GB로 불어나는 문제를 원천 차단한다.
-  // 편집점/분석 결과는 메타데이터로 유지하고, 완성본만 별도 media store에
-  // 최근 MOBILE_FINAL_RESULT_KEEP_COUNT개(각 60MB 이하)까지 보관한다.
-  if (isMobileStorageEnvironment()) {
-    const finalBlob = project.finalResult?.videoBlob;
-    if (finalBlob && finalBlob.size > 0) {
-      if (finalBlob.size <= MOBILE_FINAL_RESULT_MAX_BYTES) {
-        try {
-          await saveFinalMediaForProject(db, project.id, finalBlob);
-        } catch (mediaErr) {
-          console.warn('[projectStorage] Failed to persist mobile final video:', mediaErr);
-        }
-      } else {
-        // 새 완성본이 보관 한도를 넘으면 이전 완성본도 함께 정리한다.
-        await executeMediaDelete(db, getFinalMediaKey(project.id)).catch(() => {});
-      }
-    }
+  let hasOpfs = false;
 
-    const metadataOnly = sanitizeProjectForStorage(
-      {
-        ...project,
-        storageMode: currentMode,
-        hasOpfsFiles: false,
-      },
-      true, // stripRawVideos = true (원본 비디오 제외)
-      true, // stripFinalResult = true (완성본은 별도 media store에 보관)
-      true  // stripUserMediaAssets = true (인트로/아웃트로/커스텀 오디오 제외)
-    );
-    await executePut(db, metadataOnly);
-    await pruneFinalMedia(db, project.id).catch((pruneErr) => {
-      console.warn('[projectStorage] Failed to prune mobile final media:', pruneErr);
-    });
-    return;
-  }
-
-  // 2. 경량 모드(lightweight): 데스크톱에서도 원본 없이 메타데이터만 보관
-  if (currentMode === 'lightweight') {
-    const metadataOnly = sanitizeProjectForStorage(
-      {
-        ...project,
-        storageMode: 'lightweight',
-        hasOpfsFiles: false,
-      },
-      true,
-      false
-    );
-    await executePut(db, metadataOnly);
-    return;
-  }
-
-  // 3. 데스크톱 OPFS 지원 환경: Promise.all 병렬 쓰기 대신 1개씩 순차 기록 (메모리 스파이크 방지)
-  if (isOpfsAvailable()) {
+  if (!isLightweight) {
     try {
-      let anySaved = false;
-
-      for (const v of videoList) {
-        if (v.hasOpfsFile) {
-          anySaved = true;
-          continue;
-        }
-        if (v.fileBlob && v.fileBlob.size > 0) {
-          const ok = await saveVideoToOPFS(project.id, v.id, v.fileBlob);
-          if (ok) {
-            v.hasOpfsFile = true;
+      // 1. 원본 영상
+      if (useOpfs) {
+        let anySaved = false;
+        for (const v of videoList) {
+          if (v.hasOpfsFile) {
             anySaved = true;
-          } else {
-            // 첫 파일에서 OPFS 쓰기(createWritable 미지원 등)가 실패하면 즉시 루프 중단
-            break;
+            continue;
+          }
+          if (v.fileBlob && v.fileBlob.size > 0) {
+            const ok = await saveVideoToOPFS(projectId, v.id, v.fileBlob);
+            if (ok) {
+              v.hasOpfsFile = true;
+              anySaved = true;
+            } else {
+              break;
+            }
+          }
+        }
+        hasOpfs = anySaved;
+      } else {
+        for (const v of videoList) {
+          if (v.fileBlob && v.fileBlob.size > 0) {
+            await saveProjectMedia(db, 'raw', projectId, v.id, v.fileBlob);
           }
         }
       }
 
+      // 2. 최종 완성본
       const finalBlob = project.finalResult?.videoBlob;
-      if (
-        finalBlob &&
-        finalBlob.size > 0 &&
-        persistedFinalBlobs.get(finalBlob) !== project.id
-      ) {
-        const finalSaved = await saveFinalResultToOPFS(project.id, finalBlob);
-        if (finalSaved) {
-          anySaved = true;
-          persistedFinalBlobs.set(finalBlob, project.id);
+      if (finalBlob && finalBlob.size > 0) {
+        if (useOpfs) {
+          const finalKey = mediaKeyFor('final', projectId);
+          if (persistedMediaBlobs.get(finalBlob) !== finalKey) {
+            const finalSaved = await saveFinalResultToOPFS(projectId, finalBlob);
+            if (finalSaved) {
+              hasOpfs = true;
+              persistedMediaBlobs.set(finalBlob, finalKey);
+            }
+          } else {
+            hasOpfs = true;
+          }
+        } else {
+          await saveProjectMedia(db, 'final', projectId, undefined, finalBlob);
         }
       }
 
-      hasOpfs = anySaved;
-    } catch (opfsErr) {
-      console.warn('[projectStorage] OPFS storage partial error, falling back:', opfsErr);
+      // 3. 인트로/아웃트로/커스텀 오디오 (수십MB 이하 에셋)
+      const audio = project.customAudioBlob;
+      if (audio && audio.size > 0 && audio.size < 50 * 1024 * 1024) {
+        if (!useOpfs) await saveProjectMedia(db, 'asset', projectId, 'audio', audio);
+      }
+      const intro = project.introVideoBlob;
+      if (intro && intro.size > 0 && intro.size < 100 * 1024 * 1024) {
+        if (!useOpfs) await saveProjectMedia(db, 'asset', projectId, 'intro', intro);
+      }
+      const outro = project.outroVideoBlob;
+      if (outro && outro.size > 0 && outro.size < 100 * 1024 * 1024) {
+        if (!useOpfs) await saveProjectMedia(db, 'asset', projectId, 'outro', outro);
+      }
+    } catch (mediaErr) {
+      // 미디어 저장(쿼터 초과 등)에 실패해도 편집 메타데이터는 보존한다.
+      console.warn('[projectStorage] Media persistence failed, saving metadata only:', mediaErr);
     }
   }
 
-  // 4. OPFS에 저장된 경우: IndexedDB에는 가벼운 메타데이터만 기록 (직렬화 오버헤드 0, OOM 방지)
-  if (hasOpfs) {
-    const opfsMetadataOnly = sanitizeProjectForStorage(
-      {
-        ...project,
-        storageMode: currentMode,
-        hasOpfsFiles: true,
-      },
-      true,
-      true
-    );
-    await executePut(db, opfsMetadataOnly);
-    return;
-  }
+  const mediaBytes = isLightweight ? 0 : computeMediaBytes(project);
 
-  // 5. OPFS 미지원/실패 환경: 다중 영상이거나 용량이 큰 경우 원본 영상 직렬화 제외하되 완성본은 보존
-  const exceedsInlineLimit =
-    videoList.length > MAX_IDB_INLINE_VIDEO_COUNT ||
-    totalVideoBlobBytes > MAX_IDB_INLINE_BLOB_BYTES;
+  const metadataOnly = sanitizeProjectForStorage({
+    ...project,
+    storageMode: isLightweight ? 'lightweight' : currentMode,
+    hasOpfsFiles: hasOpfs,
+    mediaBytes,
+  });
 
-  if (exceedsInlineLimit) {
-    try {
-      const safeData = sanitizeProjectForStorage(
-        {
-          ...project,
-          storageMode: 'lightweight',
-          hasOpfsFiles: false,
-        },
-        true,
-        false
-      );
-      await executePut(db, safeData);
-      return;
-    } catch {
-      const metadataOnly = sanitizeProjectForStorage(
-        {
-          ...project,
-          storageMode: 'lightweight',
-          hasOpfsFiles: false,
-        },
-        true,
-        true
-      );
-      await executePut(db, metadataOnly);
-      return;
-    }
-  }
-
-  // 6. 소용량(2개 이하 & 35MB 이하) 데스크톱 프로젝트만 쿼터 확인 후 IndexedDB 폴백 저장
-  const estimate = await getStorageEstimate();
-  if (estimate.isLowStorage) {
-    console.warn('[projectStorage] Storage quota critically low, saving metadata-only to prevent crash.');
-    const safeData = sanitizeProjectForStorage(
-      {
-        ...project,
-        storageMode: 'lightweight',
-        hasOpfsFiles: false,
-      },
-      true,
-      false
-    );
-    await executePut(db, safeData);
-    return;
-  }
-
-  try {
-    const fullData = sanitizeProjectForStorage(
-      {
-        ...project,
-        storageMode: currentMode,
-        hasOpfsFiles: false,
-      },
-      false,
-      false
-    );
-    await executePut(db, fullData);
-  } catch (firstErr) {
-    console.warn('[projectStorage] Full save with Blobs failed, falling back to metadata-only:', firstErr);
-    const safeData = sanitizeProjectForStorage(
-      {
-        ...project,
-        storageMode: 'lightweight',
-        hasOpfsFiles: false,
-      },
-      true,
-      false
-    );
-    await executePut(db, safeData);
-  }
+  await executePut(db, metadataOnly);
 }
 
 /**
@@ -615,54 +589,98 @@ export async function getProject(id: string): Promise<StudioProject | null> {
 
   if (!project) return null;
 
-  // 모바일: 원본은 기기에 저장하지 않으므로, 별도 media store에 보관된
-  // 최근 완성본 Blob만 복원한다. (편집점·분석 결과는 메타데이터로 유지)
-  if (isMobileStorageEnvironment()) {
-    try {
-      const media = await getFinalMediaRecord(db, project.id);
-      if (media?.blob && media.blob.size > 0 && project.finalResult) {
-        if (!project.finalResult.videoBlob || project.finalResult.videoBlob.size === 0) {
-          project.finalResult.videoBlob = media.blob;
+  // 1. 원본 영상 Blob 복원 — OPFS 우선, 없으면 IndexedDB project_media
+  if (project.videos && project.videos.length > 0) {
+    await Promise.all(
+      project.videos.map(async (v) => {
+        if (v.fileBlob && v.fileBlob.size > 0) {
+          // 레거시 레코드에 인라인 Blob이 남아 있는 경우: 복원 상태로 간주
+          markMediaPersisted(v.fileBlob, mediaKeyFor('raw', project.id, v.id), v.fileBlob.size);
+          return;
         }
-        persistedFinalBlobs.set(media.blob, project.id);
-      }
-    } catch (err) {
-      console.warn('[projectStorage] Error loading mobile final media:', err);
-    }
-    return project;
-  }
-
-  // OPFS가 지원되고 바이너리 복원이 필요한 경우 (데스크톱)
-  if (isOpfsAvailable()) {
-    try {
-      // 1. 각 비디오 Blob 복원
-      if (project.videos && project.videos.length > 0) {
-        await Promise.all(
-          project.videos.map(async (v) => {
-            if (!v.fileBlob || v.fileBlob.size === 0) {
-              const opfsBlob = await getVideoFromOPFS(project.id, v.id);
-              if (opfsBlob) {
-                v.fileBlob = opfsBlob;
-                v.hasOpfsFile = true;
-              }
+        if (isOpfsAvailable()) {
+          try {
+            const opfsBlob = await getVideoFromOPFS(project.id, v.id);
+            if (opfsBlob) {
+              v.fileBlob = opfsBlob;
+              v.hasOpfsFile = true;
+              return;
             }
-          })
-        );
-      }
-
-      // 2. 최종 결과물 비디오 Blob 복원
-      if (project.finalResult && (!project.finalResult.videoBlob || project.finalResult.videoBlob.size === 0)) {
-        const opfsFinalBlob = await getFinalResultFromOPFS(project.id);
-        if (opfsFinalBlob) {
-          project.finalResult.videoBlob = opfsFinalBlob;
-          persistedFinalBlobs.set(opfsFinalBlob, project.id);
+          } catch (err) {
+            console.warn('[projectStorage] Error restoring video from OPFS:', err);
+          }
         }
+        try {
+          const media = await getMediaRecord(db, mediaKeyFor('raw', project.id, v.id));
+          if (media?.blob && media.blob.size > 0) {
+            v.fileBlob = media.blob;
+            markMediaPersisted(media.blob, media.key, media.size);
+          }
+        } catch (err) {
+          console.warn('[projectStorage] Error restoring video from project_media:', err);
+        }
+      })
+    );
+  }
+
+  // 2. 최종 완성본 Blob 복원 — OPFS 우선, 없으면 IndexedDB project_media
+  if (project.finalResult && (!project.finalResult.videoBlob || project.finalResult.videoBlob.size === 0)) {
+    let finalBlob: Blob | null = null;
+    if (isOpfsAvailable()) {
+      try {
+        finalBlob = await getFinalResultFromOPFS(project.id);
+      } catch (err) {
+        console.warn('[projectStorage] Error restoring final video from OPFS:', err);
+      }
+    }
+    if (!finalBlob) {
+      try {
+        const media = await getMediaRecord(db, mediaKeyFor('final', project.id));
+        if (media?.blob && media.blob.size > 0) {
+          finalBlob = media.blob;
+          markMediaPersisted(media.blob, media.key, media.size);
+        }
+      } catch (err) {
+        console.warn('[projectStorage] Error restoring final video from project_media:', err);
+      }
+    } else {
+      markMediaPersisted(finalBlob, mediaKeyFor('final', project.id), finalBlob.size);
+    }
+    if (finalBlob) {
+      project.finalResult.videoBlob = finalBlob;
+    }
+  } else if (project.finalResult?.videoBlob) {
+    markMediaPersisted(
+      project.finalResult.videoBlob,
+      mediaKeyFor('final', project.id),
+      project.finalResult.videoBlob.size
+    );
+  }
+
+  // 3. 인트로/아웃트로/커스텀 오디오 복원
+  const assetRestores: Array<{ field: 'customAudioBlob' | 'introVideoBlob' | 'outroVideoBlob'; assetId: ProjectMediaAssetId }> = [
+    { field: 'customAudioBlob', assetId: 'audio' },
+    { field: 'introVideoBlob', assetId: 'intro' },
+    { field: 'outroVideoBlob', assetId: 'outro' },
+  ];
+  for (const { field, assetId } of assetRestores) {
+    const existing = project[field];
+    if (existing && existing.size > 0) {
+      markMediaPersisted(existing, mediaKeyFor('asset', project.id, assetId), existing.size);
+      continue;
+    }
+    try {
+      const media = await getMediaRecord(db, mediaKeyFor('asset', project.id, assetId));
+      if (media?.blob && media.blob.size > 0) {
+        (project[field] as Blob) = media.blob;
+        markMediaPersisted(media.blob, media.key, media.size);
       }
     } catch (err) {
-      console.warn('[projectStorage] Error loading blobs from OPFS:', err);
+      console.warn('[projectStorage] Error restoring asset from project_media:', err);
     }
   }
 
+  // 레거시 레코드에 인라인으로 남아 있는 에셋 Blob 정리 등록
   return project;
 }
 
@@ -681,10 +699,17 @@ export async function getAllProjectSummaries(): Promise<StudioProjectSummary[]> 
 
     req.onsuccess = () => {
       const cursor = req.result;
-      if (cursor && summaries.length < 20) {
+      if (cursor) {
         const item = cursor.value as StudioProject;
         const rawThumb = item.thumbnailUrl || (item.videos && item.videos[0]?.thumbnailUrl);
         const safeThumb = rawThumb && !rawThumb.startsWith('blob:') ? rawThumb : undefined;
+        // mediaBytes가 없는 레거시 레코드는 인라인 Blob 크기로 추정한다.
+        const legacyMediaBytes =
+          (item.videos || []).reduce((sum, v) => sum + (v.fileBlob?.size || 0), 0) +
+          (item.finalResult?.videoBlob?.size || 0) +
+          (item.customAudioBlob?.size || 0) +
+          (item.introVideoBlob?.size || 0) +
+          (item.outroVideoBlob?.size || 0);
         summaries.push({
           id: item.id,
           title: item.title || '이름 없는 작업',
@@ -697,6 +722,7 @@ export async function getAllProjectSummaries(): Promise<StudioProjectSummary[]> 
           step: item.step || 'upload',
           storageMode: item.storageMode,
           hasOpfsFiles: item.hasOpfsFiles,
+          mediaBytes: item.mediaBytes ?? legacyMediaBytes,
         });
         cursor.continue();
       } else {
@@ -710,11 +736,44 @@ export async function getAllProjectSummaries(): Promise<StudioProjectSummary[]> 
   });
 }
 
+/** projects 스토어의 남은 레코드 수 */
+function countProjects(db: IDBDatabase): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const req = tx.objectStore(STORE_NAME).count();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error || new Error('Failed to count projects.'));
+  });
+}
+
+/** OPFS + CacheStorage + IndexedDB를 모두 비우는 최종 정리 (데이터 전부 삭제) */
+export async function wipeAllAppData(): Promise<void> {
+  await closeDatabaseConnection();
+  await deleteDatabaseAsync();
+  await purgeAllOPFSStorage().catch((err) => {
+    console.warn('[projectStorage] OPFS purge failed:', err);
+  });
+  await deleteAllCacheStorage();
+  try {
+    localStorage.removeItem(LAST_ACTIVE_KEY);
+  } catch {}
+}
+
 /**
- * 프로젝트 삭제 (IndexedDB 및 OPFS 동시 정리)
+ * 프로젝트 삭제 (IndexedDB 메타데이터 + project_media 연쇄 삭제 + OPFS 정리)
+ * 마지막 프로젝트가 삭제되면 DB 자체를 지워 SQLite/고아 Blob 잔여 용량까지 회수한다.
  */
 export async function deleteProject(id: string): Promise<void> {
   const db = await getDB();
+
+  // 1. project_media 연쇄 삭제 (키만 순회, Blob 본문은 읽지 않음)
+  try {
+    await deleteProjectMediaByProjectId(db, id);
+  } catch (err) {
+    console.warn('[projectStorage] Failed to delete project media:', err);
+  }
+
+  // 2. projects 레코드 삭제
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readwrite');
     const store = tx.objectStore(STORE_NAME);
@@ -732,15 +791,36 @@ export async function deleteProject(id: string): Promise<void> {
     };
   });
 
-  // OPFS 파일 및 별도 완성본 media 정리
-  await Promise.all([
-    deleteProjectOPFS(id),
-    executeMediaDelete(db, getFinalMediaKey(id)).catch(() => {}),
-  ]);
+  // 3. OPFS 파일 정리
+  await deleteProjectOPFS(id).catch((err) => {
+    console.warn('[projectStorage] Failed to delete project OPFS files:', err);
+  });
+
+  // 4. 남은 프로젝트가 0개면 DB/OPFS/캐시를 완전히 초기화해 디스크 잔여 용량을 회수
+  try {
+    const remaining = await countProjects(db);
+    if (remaining === 0) {
+      await wipeAllAppData();
+    }
+  } catch (err) {
+    console.warn('[projectStorage] Failed to reset empty database:', err);
+  }
 }
 
 /**
- * 프로젝트 복제 (IndexedDB 메타데이터 및 OPFS 파일 복제)
+ * 프로젝트 미디어 항목 1개 삭제 (편집 중 개별 영상 제거, 재연결 시 갱신용)
+ */
+export async function deleteProjectMediaItem(
+  projectId: string,
+  kind: ProjectMediaKind,
+  itemId?: string
+): Promise<void> {
+  const db = await getDB();
+  await executeMediaDelete(db, mediaKeyFor(kind, projectId, itemId));
+}
+
+/**
+ * 프로젝트 복제 (IndexedDB 메타데이터 및 미디어 복제)
  */
 export async function duplicateProject(id: string): Promise<StudioProject> {
   const original = await getProject(id);
@@ -757,153 +837,238 @@ export async function duplicateProject(id: string): Promise<StudioProject> {
     updatedAt: Date.now(),
   };
 
-  if (!isMobileStorageEnvironment()) {
-    await copyProjectOPFS(id, newId);
-  }
+  // OPFS 파일 복제 (OPFS 미사용 환경에서는 즉시 no-op)
+  await copyProjectOPFS(id, newId);
   await saveProject(duplicated);
   return duplicated;
 }
 
-interface MobileMigrationScanResult {
-  freedBytes: number;
-  newestFinalBlob: Blob | null;
-  newestFinalProjectId: string | null;
+/**
+ * 앱 내부 저장소 통계 (프로젝트 수 + project_media 합산 바이트)
+ */
+export async function getAppStorageStats(): Promise<{
+  projectCount: number;
+  mediaCount: number;
+  mediaBytes: number;
+}> {
+  const db = await getDB();
+
+  const projectCount = await countProjects(db);
+
+  const { mediaCount, mediaBytes } = await new Promise<{ mediaCount: number; mediaBytes: number }>(
+    (resolve, reject) => {
+      const tx = db.transaction(MEDIA_STORE_NAME, 'readonly');
+      const index = tx.objectStore(MEDIA_STORE_NAME).index('by_projectId');
+      const req = index.openCursor();
+      let count = 0;
+      let bytes = 0;
+
+      req.onsuccess = () => {
+        const cursor = req.result;
+        if (!cursor) return;
+        const value = cursor.value as StoredMediaRecord;
+        count += 1;
+        bytes += value?.size || 0;
+        cursor.continue();
+      };
+      req.onerror = () => reject(req.error || new Error('Failed to iterate project media.'));
+      tx.oncomplete = () => resolve({ mediaCount: count, mediaBytes: bytes });
+      tx.onerror = () => reject(tx.error || new Error('Failed to read project media stats.'));
+    }
+  );
+
+  return { projectCount, mediaCount, mediaBytes };
 }
 
-/**
- * 모바일 저장소 정책 마이그레이션 1단계:
- * 기존 프로젝트 레코드에 남아 있는 원본/완성본 Blob 용량을 집계하고,
- * 가장 최근 프로젝트의 완성본 1개만 보존 대상으로 선택한다.
- */
-function scanLegacyMobileProjectMedia(db: IDBDatabase): Promise<MobileMigrationScanResult> {
+/** 모든 projects 레코드를 메모리로 읽는다. (메타데이터 전용, Blob 제외) */
+function readAllProjectRecords(db: IDBDatabase): Promise<StudioProject[]> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readonly');
-    const req = tx.objectStore(STORE_NAME).openCursor();
-    let freedBytes = 0;
-    let newestUpdatedAt = -1;
-    let newestFinalBlob: Blob | null = null;
-    let newestFinalProjectId: string | null = null;
-
-    req.onsuccess = () => {
-      const cursor = req.result;
-      if (!cursor) return;
-      const project = cursor.value as StudioProject;
-
-      for (const video of project.videos || []) {
-        freedBytes += video.fileBlob?.size || 0;
-      }
-      freedBytes += project.finalResult?.videoBlob?.size || 0;
-      freedBytes += project.customAudioBlob?.size || 0;
-      freedBytes += project.introVideoBlob?.size || 0;
-      freedBytes += project.outroVideoBlob?.size || 0;
-
-      const finalBlob = project.finalResult?.videoBlob;
-      if (
-        finalBlob &&
-        finalBlob.size > 0 &&
-        finalBlob.size <= MOBILE_FINAL_RESULT_MAX_BYTES &&
-        (project.updatedAt || 0) > newestUpdatedAt
-      ) {
-        newestUpdatedAt = project.updatedAt || 0;
-        newestFinalBlob = finalBlob;
-        newestFinalProjectId = project.id;
-      }
-
-      cursor.continue();
-    };
-
-    req.onerror = () => reject(req.error || new Error('Failed to scan legacy mobile project media.'));
-    tx.onerror = () => reject(tx.error || new Error('Legacy mobile media scan transaction failed.'));
-    tx.onabort = () => reject(tx.error || new Error('Legacy mobile media scan transaction aborted.'));
-    tx.oncomplete = () =>
-      resolve({ freedBytes, newestFinalBlob, newestFinalProjectId });
+    const req = tx.objectStore(STORE_NAME).getAll();
+    req.onsuccess = () => resolve((req.result as StudioProject[]) || []);
+    req.onerror = () => reject(req.error || new Error('Failed to read project records.'));
   });
 }
 
-/**
- * 모든 프로젝트 레코드를 메타데이터 전용으로 다시 기록한다.
- * (편집점·분석 결과·썸네일은 유지, 원본/완성본/인트로/아웃트로/오디오 Blob만 제거)
- */
-function rewriteProjectsAsMetadataOnly(db: IDBDatabase): Promise<void> {
+/** project_media 전체 레코드를 읽는다. (Blob 참조만 메모리에 유지) */
+function readAllMediaRecords(db: IDBDatabase): Promise<StoredMediaRecord[]> {
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    const req = tx.objectStore(STORE_NAME).openCursor();
-
-    req.onsuccess = () => {
-      const cursor = req.result;
-      if (!cursor) return;
-      const project = cursor.value as StudioProject;
-      const metadataOnly = sanitizeProjectForStorage(
-        {
-          ...project,
-          storageMode: 'lightweight',
-          hasOpfsFiles: false,
-        },
-        true,
-        true,
-        true
-      );
-      // 정렬 기준이 바뀌지 않도록 기존 수정 시각을 보존한다.
-      metadataOnly.updatedAt = project.updatedAt || metadataOnly.updatedAt;
-      cursor.update(metadataOnly);
-      cursor.continue();
-    };
-
-    req.onerror = () => reject(req.error || new Error('Failed to rewrite project metadata.'));
-    tx.onerror = () => reject(tx.error || new Error('Project metadata rewrite transaction failed.'));
-    tx.onabort = () => reject(tx.error || new Error('Project metadata rewrite transaction aborted.'));
-    tx.oncomplete = () => resolve();
+    const tx = db.transaction(MEDIA_STORE_NAME, 'readonly');
+    const req = tx.objectStore(MEDIA_STORE_NAME).getAll();
+    req.onsuccess = () => resolve((req.result as StoredMediaRecord[]) || []);
+    req.onerror = () => reject(req.error || new Error('Failed to read project media records.'));
   });
 }
 
-/**
- * 모바일 기기의 기존 프로젝트에서 대용량 미디어 Blob을 1회 정리한다.
- * - IndexedDB: 원본/완성본/인트로/아웃트로/오디오 Blob 제거 (메타데이터 유지)
- * - OPFS: 이전 버전이 남긴 프로젝트 파일 디렉터리 제거
- * - 최근 프로젝트의 완성본 1개(60MB 이하)만 media store에 보존
- */
-export async function applyMobileStoragePolicy(): Promise<void> {
-  if (!isMobileStorageEnvironment()) return;
+/** DB 재구축 시 인라인 Blob을 media 레코드로 옮긴다. (레거시 호환) 옮긴 바이트 수를 반환한다. */
+function relocateInlineMedia(
+  project: StudioProject,
+  media: StoredMediaRecord[]
+): number {
+  const stamp = Date.now();
+  const projectId = project.id;
+  let relocatedBytes = 0;
 
+  for (const video of project.videos || []) {
+    if (video.fileBlob && video.fileBlob.size > 0) {
+      media.push({
+        key: mediaKeyFor('raw', projectId, video.id),
+        projectId,
+        kind: 'raw',
+        itemId: video.id,
+        blob: video.fileBlob,
+        size: video.fileBlob.size,
+        updatedAt: stamp,
+      });
+      relocatedBytes += video.fileBlob.size;
+      video.fileBlob = undefined;
+    }
+  }
+
+  const finalBlob = project.finalResult?.videoBlob;
+  if (project.finalResult && finalBlob && finalBlob.size > 0) {
+    media.push({
+      key: mediaKeyFor('final', projectId),
+      projectId,
+      kind: 'final',
+      itemId: undefined,
+      blob: finalBlob,
+      size: finalBlob.size,
+      updatedAt: stamp,
+    });
+    relocatedBytes += finalBlob.size;
+    project.finalResult.videoBlob = undefined;
+  }
+
+  const assetPairs: Array<['customAudioBlob' | 'introVideoBlob' | 'outroVideoBlob', ProjectMediaAssetId]> = [
+    ['customAudioBlob', 'audio'],
+    ['introVideoBlob', 'intro'],
+    ['outroVideoBlob', 'outro'],
+  ];
+  for (const [field, assetId] of assetPairs) {
+    const blob = project[field];
+    if (blob && blob.size > 0) {
+      media.push({
+        key: mediaKeyFor('asset', projectId, assetId),
+        projectId,
+        kind: 'asset',
+        itemId: assetId,
+        blob,
+        size: blob.size,
+        updatedAt: stamp,
+      });
+      relocatedBytes += blob.size;
+      (project[field] as Blob | null | undefined) = undefined;
+    }
+  }
+
+  return relocatedBytes;
+}
+
+/**
+ * 저장소 최적화(DB 압축): 남은 프로젝트 데이터를 보존한 채
+ * IndexedDB를 삭제하고 새로 만들어 고아 Blob/SQLite freelist를 회수한다.
+ */
+export async function compactDatabase(): Promise<{
+  projectCount: number;
+  mediaCount: number;
+  mediaBytes: number;
+}> {
+  const db = await getDB();
+
+  // 1. 스냅샷: 프로젝트 메타데이터 + 미디어 레코드 (Blob 참조만 보존)
+  const projects = await readAllProjectRecords(db);
+  const media = await readAllMediaRecords(db);
+
+  for (const project of projects) {
+    // 레거시 레코드에 인라인으로 남아 있는 Blob을 미디어 레코드로 변환
+    relocateInlineMedia(project, media);
+    clampProjectThumbnails(project);
+  }
+
+  const mediaBytes = media.reduce((sum, m) => sum + (m.size || 0), 0);
+
+  // 2. DB 커넥션을 닫고 삭제 → 디스크 잔여 용량 즉시 회수
+  //    OPFS는 존재하지 않는 프로젝트의 고아 파일만 골라 지우고 실제 프로젝트 파일은 유지한다.
+  const validProjectIds = new Set(projects.map((p) => p.id));
+  await closeDatabaseConnection();
+  await deleteDatabaseAsync();
+  await pruneOrphanProjectOPFS(validProjectIds).catch(() => {});
+
+  // 3. 깨끗한 DB에 재기록
+  const fresh = await getDB();
+  for (const project of projects) {
+    const metadataOnly = sanitizeProjectForStorage({ ...project });
+    // 정렬 기준이 바뀌지 않도록 기존 수정 시각을 보존한다.
+    metadataOnly.updatedAt = project.updatedAt || metadataOnly.updatedAt;
+    await executePut(fresh, metadataOnly);
+  }
+  for (const record of media) {
+    await executeMediaPut(fresh, record);
+    markMediaPersisted(record.blob, record.key, record.size);
+  }
+
+  return { projectCount: projects.length, mediaCount: media.length, mediaBytes };
+}
+
+/**
+ * 미디어 분리 마이그레이션 1회 실행.
+ * 인라인으로 저장된 Blob을 project_media로 옮기고
+ * projects 레코드를 메타데이터 전용으로 다시 기록한다.
+ */
+export async function runMediaSplitMigration(): Promise<void> {
   try {
-    if (localStorage.getItem(MOBILE_POLICY_MIGRATION_KEY) === '1') return;
+    if (localStorage.getItem(MEDIA_SPLIT_MIGRATION_KEY) === '1') return;
   } catch {}
 
   try {
     const db = await getDB();
-    const scan = await scanLegacyMobileProjectMedia(db);
-    await rewriteProjectsAsMetadataOnly(db);
-    await clearFinalMediaStore(db);
 
-    if (scan.newestFinalBlob && scan.newestFinalProjectId) {
-      await saveFinalMediaForProject(db, scan.newestFinalProjectId, scan.newestFinalBlob);
-    }
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction([STORE_NAME, MEDIA_STORE_NAME], 'readwrite');
+      const projectsStore = tx.objectStore(STORE_NAME);
+      const mediaStore = tx.objectStore(MEDIA_STORE_NAME);
+      const req = projectsStore.openCursor();
+      let relocatedBytes = 0;
 
-    await purgeAllProjectOPFS();
+      req.onsuccess = () => {
+        const cursor = req.result;
+        if (!cursor) return;
+        const project = cursor.value as StudioProject;
+        const preBytes = project.mediaBytes ?? computeMediaBytes(project);
+        const mediaRecords: StoredMediaRecord[] = [];
+        relocateInlineMedia(project, mediaRecords);
+
+        for (const record of mediaRecords) {
+          mediaStore.put(record);
+          relocatedBytes += record.size;
+        }
+
+        const metadataOnly = sanitizeProjectForStorage({ ...project });
+        metadataOnly.updatedAt = project.updatedAt || metadataOnly.updatedAt;
+        metadataOnly.mediaBytes = preBytes;
+        cursor.update(metadataOnly);
+        cursor.continue();
+      };
+
+      req.onerror = () => reject(req.error || new Error('Media split migration scan failed.'));
+      tx.onerror = () => reject(tx.error || new Error('Media split migration transaction failed.'));
+      tx.onabort = () => reject(tx.error || new Error('Media split migration transaction aborted.'));
+      tx.oncomplete = () => {
+        console.info(
+          `[projectStorage] Media split migration complete. Relocated ${Math.round(
+            relocatedBytes / (1024 * 1024)
+          )}MB of inline media.`
+        );
+        resolve();
+      };
+    });
 
     try {
-      localStorage.setItem(MOBILE_POLICY_MIGRATION_KEY, '1');
+      localStorage.setItem(MEDIA_SPLIT_MIGRATION_KEY, '1');
     } catch {}
-
-    console.info(
-      `[projectStorage] Mobile storage policy applied. Freed ${Math.round(
-        scan.freedBytes / (1024 * 1024)
-      )}MB of project media.`
-    );
   } catch (err) {
-    console.warn('[projectStorage] Failed to apply mobile storage policy:', err);
+    console.warn('[projectStorage] Media split migration failed:', err);
   }
 }
 
-/**
- * 사용자가 '저장 공간 정리'를 눌렀을 때 모바일 프로젝트의 미디어 Blob을 즉시 제거한다.
- * (프로젝트 목록·편집점·분석 결과는 그대로 유지)
- */
-export async function clearMobileProjectMedia(): Promise<void> {
-  if (!isMobileStorageEnvironment()) return;
-
-  const db = await getDB();
-  await rewriteProjectsAsMetadataOnly(db);
-  await clearFinalMediaStore(db);
-  await purgeAllProjectOPFS();
-}

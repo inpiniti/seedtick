@@ -72,7 +72,11 @@ import {
   type StorageMode,
 } from '../../services/storageQuotaService.ts';
 import { isOpfsAvailable } from '../../services/opfsStorage.ts';
-import { clearMobileProjectMedia } from '../../services/projectStorage.ts';
+import {
+  compactDatabase,
+  wipeAllAppData,
+  getAppStorageStats,
+} from '../../services/projectStorage.ts';
 import { isMobileStorageEnvironment } from '../../services/deviceStoragePolicy.ts';
 import { detectOptimalCodec } from '../../services/videoCompressor.ts';
 import { CURRENT_APP_VERSION } from '../../data/appVersion.ts';
@@ -209,11 +213,18 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   });
 
   const [storageEstimate, setStorageEstimate] = useState<StorageEstimateInfo | null>(null);
+  const [appStorageStats, setAppStorageStats] = useState<{
+    projectCount: number;
+    mediaCount: number;
+    mediaBytes: number;
+  } | null>(null);
   const [storageMode, setStorageMode] = useState<StorageMode>(getStoredStorageMode());
   const isMobileDevice = isMobileStorageEnvironment();
   const [isPersisted, setIsPersisted] = useState<boolean>(false);
   const [isRequestingPersist, setIsRequestingPersist] = useState<boolean>(false);
   const [isClearingStorage, setIsClearingStorage] = useState<boolean>(false);
+  const [isCompactingStorage, setIsCompactingStorage] = useState<boolean>(false);
+  const [isWipingStorage, setIsWipingStorage] = useState<boolean>(false);
   const [storageClearMessage, setStorageClearMessage] = useState<string | null>(null);
   const [isBridgePreviewOpen, setIsBridgePreviewOpen] = useState<boolean>(false);
   const [isIntroOutroPreviewOpen, setIsIntroOutroPreviewOpen] = useState<boolean>(false);
@@ -283,6 +294,9 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
         setStorageEstimate(info);
         setIsPersisted(info.isPersisted);
       });
+      void getAppStorageStats()
+        .then(setAppStorageStats)
+        .catch(() => setAppStorageStats(null));
       setStorageMode(getStoredStorageMode());
       setStorageClearMessage(null);
     }
@@ -309,19 +323,15 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
     }
   };
 
+  // 1. 캐시 정리: OPFS 잔여 파일 + CacheStorage만 비운다. (프로젝트 데이터는 유지)
   const handleClearStorage = async () => {
     setIsClearingStorage(true);
     setStorageClearMessage(null);
     try {
       await clearAllAppStorage();
-      // 모바일은 IndexedDB/OPFS에 남아 있는 원본·완성본 Blob도 함께 제거해
-      // Safari 앱 용량을 실제로 회수한다. (편집점·분석 결과는 유지)
-      await clearMobileProjectMedia().catch((err) => {
-        console.warn('Failed to clear mobile project media:', err);
-      });
       const updated = await getStorageEstimate();
       setStorageEstimate(updated);
-      const successMsg = dict.settingsModal?.storageClearSuccess || 'OPFS 임시 파일 및 캐시가 모두 정리되었습니다.';
+      const successMsg = '브라우저 캐시와 OPFS 임시 파일을 정리했습니다. 프로젝트는 그대로 유지돼요.';
       setStorageClearMessage(successMsg);
       notify.success(successMsg);
       setTimeout(() => {
@@ -331,6 +341,55 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
       notify.error(dict.settingsModal?.storageClearError || '저장공간 정리에 실패했습니다.');
     } finally {
       setIsClearingStorage(false);
+    }
+  };
+
+  // 2. 저장공간 최적화(DB 압축): 프로젝트 데이터를 유지한 채 DB를 재구성해 고아 Blob/잔여 용량을 회수
+  const handleCompactStorage = async () => {
+    setIsCompactingStorage(true);
+    setStorageClearMessage(null);
+    try {
+      const result = await compactDatabase();
+      const updated = await getStorageEstimate();
+      setStorageEstimate(updated);
+      const stats = await getAppStorageStats().catch(() => null);
+      setAppStorageStats(stats);
+      const successMsg = `프로젝트 ${result.projectCount}개를 유지한 채 저장소를 최적화했습니다.`;
+      setStorageClearMessage(successMsg);
+      notify.success(successMsg);
+      setTimeout(() => {
+        setStorageClearMessage(null);
+      }, 4000);
+    } catch (err) {
+      console.warn('[Settings] Storage compact failed:', err);
+      notify.error('저장공간 최적화에 실패했습니다. 프로젝트를 개별 삭제해 보세요.');
+    } finally {
+      setIsCompactingStorage(false);
+    }
+  };
+
+  // 3. 저장소 완전 비우기: 모든 프로젝트·미디어·캐시를 영구 삭제 (되돌릴 수 없음)
+  const handleWipeAllStorage = async () => {
+    const confirmed = window.confirm(
+      '모든 프로젝트와 원본 영상, 편집 데이터가 기기에서 완전히 삭제됩니다.\n이 작업은 되돌릴 수 없습니다. 계속할까요?'
+    );
+    if (!confirmed) return;
+    setIsWipingStorage(true);
+    setStorageClearMessage(null);
+    try {
+      await wipeAllAppData();
+      const updated = await getStorageEstimate();
+      setStorageEstimate(updated);
+      setAppStorageStats({ projectCount: 0, mediaCount: 0, mediaBytes: 0 });
+      notify.success('저장소를 완전히 비웠습니다.');
+      setStorageClearMessage('저장소를 완전히 비웠습니다.');
+      // 메모리에 남은 작업 상태도 초기화해야 삭제된 데이터가 다시 저장되지 않는다.
+      onReset?.();
+    } catch (err) {
+      console.warn('[Settings] Storage wipe failed:', err);
+      notify.error('저장소를 비우는 데 실패했습니다.');
+    } finally {
+      setIsWipingStorage(false);
     }
   };
 
@@ -345,10 +404,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
           : (dict.settingsModal?.storageModeAuto || '자동 (권장)');
     const modeDesc =
       mode === 'full'
-        ? isMobileDevice
-          ? (dict.settingsModal?.storageMobileNotice ||
-              '모바일에서는 원본 영상을 기기에 저장하지 않고, 편집 정보와 최근 완성본 최대 2개(각 60MB 이하)만 보관해요.')
-          : (dict.settingsModal?.storageModeFullDesc || '원본 비디오를 보관해요.')
+        ? (dict.settingsModal?.storageModeFullDesc || '원본 비디오를 기기에 안전하게 보관해요. (삭제 시 함께 지워져요)')
         : mode === 'lightweight'
           ? (dict.settingsModal?.storageModeLightDesc || '용량을 99% 절약해요.')
           : (dict.settingsModal?.storageModeAutoDesc || '남은 용량에 맞게 최적화해요.');
@@ -1365,6 +1421,11 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                                 .replace('{available}', formatBytes(storageEstimate.availableBytes))
                             : `사용 중: ${formatBytes(storageEstimate.usageBytes)} · 남은 공간: ${formatBytes(storageEstimate.availableBytes)}`)
                         : dict.settingsModal?.storageMeasuring || '스토리지 사용량 측정 중...'}
+                      {appStorageStats && (
+                        <span style={{ display: 'block', marginTop: '2px', color: '#475569' }}>
+                          앱 내부: {appStorageStats.projectCount}개 프로젝트 · {formatBytes(appStorageStats.mediaBytes)}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1496,11 +1557,11 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                   }}
                 >
                   {dict.settingsModal?.storageMobileNotice ||
-                    '모바일에서는 원본 영상을 기기에 저장하지 않고, 편집 정보와 최근 완성본 최대 2개(각 60MB 이하)만 보관해요.'}
+                    '모바일에서도 원본 영상이 기기에 안전하게 보관돼요. 프로젝트를 삭제하면 용량도 함께 회수돼요. Safari 임시 파일은 앱을 완전히 종료 후 다시 열어야 완전히 비워질 수 있어요.'}
                 </div>
               )}
 
-              {/* 4. 저장 공간 정리 (캐시 및 OPFS 잔여 파일 완전 비우기) */}
+              {/* 4. 저장 공간 관리 — 캐시 정리 / 저장공간 최적화(DB 압축) / 저장소 완전 비우기 */}
               <div
                 className="toss-storage-clear-row"
                 style={{
@@ -1509,16 +1570,17 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                   borderTop: '1px solid #f1f5f9',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '6px',
+                  gap: '10px',
                 }}
               >
+                {/* 4-1. 캐시 정리 (비파괴) */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                     <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#1e293b' }}>
-                      {dict.settingsModal?.storageClearTitle || dict.settingsModal?.storageClearBtn || '저장 공간 정리 (캐시 비우기)'}
+                      캐시 정리
                     </span>
                     <span style={{ fontSize: '11px', color: '#64748b', lineHeight: 1.35 }}>
-                      {dict.settingsModal?.storageClearHint || '보관함을 비워도 브라우저 리소스 캐시가 남아있을 수 있어요. 필요할 때 즉시 정리할 수 있어요.'}
+                      브라우저 임시 파일과 OPFS 캐시만 비워요. 프로젝트는 그대로 유지돼요.
                     </span>
                   </div>
                   <button
@@ -1531,27 +1593,92 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                       padding: '6px 12px',
                       flexShrink: 0,
                       borderRadius: '8px',
-                      border: '1px solid #ffe4e6',
+                      border: '1px solid #e2e8f0',
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '4px',
-                      color: isClearingStorage ? '#94a3b8' : '#e11d48',
-                      backgroundColor: '#fff1f2',
+                      color: isClearingStorage ? '#94a3b8' : '#334155',
+                      backgroundColor: '#f8fafc',
                       cursor: isClearingStorage ? 'not-allowed' : 'pointer',
                     }}
                   >
                     <Trash2 size={13} />
-                    <span>
-                      {isClearingStorage
-                        ? dict.settingsModal?.storageClearing || '정리 중...'
-                        : dict.settingsModal?.storageClearAction || '정리하기'}
-                    </span>
+                    <span>{isClearingStorage ? '정리 중...' : '캐시 정리'}</span>
                   </button>
                 </div>
+
+                {/* 4-2. 저장공간 최적화 (DB 압축 — 프로젝트 유지) */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#1e293b' }}>
+                      저장공간 최적화 (DB 압축)
+                    </span>
+                    <span style={{ fontSize: '11px', color: '#64748b', lineHeight: 1.35 }}>
+                      프로젝트를 유지한 채 DB를 재구성해, 삭제 후 남은 고아 파일과 잔여 용량을 회수해요.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCompactStorage}
+                    disabled={isCompactingStorage}
+                    style={{
+                      fontSize: '11.5px',
+                      fontWeight: 600,
+                      padding: '6px 12px',
+                      flexShrink: 0,
+                      borderRadius: '8px',
+                      border: '1px solid #dbeafe',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      color: isCompactingStorage ? '#94a3b8' : '#1d4ed8',
+                      backgroundColor: '#eff6ff',
+                      cursor: isCompactingStorage ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    <HardDrive size={13} />
+                    <span>{isCompactingStorage ? '최적화 중...' : '최적화'}</span>
+                  </button>
+                </div>
+
+                {/* 4-3. 저장소 완전 비우기 (전체 삭제 — 위험) */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#1e293b' }}>
+                      저장소 완전 비우기
+                    </span>
+                    <span style={{ fontSize: '11px', color: '#64748b', lineHeight: 1.35 }}>
+                      모든 프로젝트와 원본 영상을 기기에서 영구 삭제해요. 되돌릴 수 없어요.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleWipeAllStorage}
+                    disabled={isWipingStorage}
+                    style={{
+                      fontSize: '11.5px',
+                      fontWeight: 600,
+                      padding: '6px 12px',
+                      flexShrink: 0,
+                      borderRadius: '8px',
+                      border: '1px solid #ffe4e6',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      color: isWipingStorage ? '#94a3b8' : '#e11d48',
+                      backgroundColor: '#fff1f2',
+                      cursor: isWipingStorage ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    <Trash2 size={13} />
+                    <span>{isWipingStorage ? '삭제 중...' : '완전 삭제'}</span>
+                  </button>
+                </div>
+
                 {storageClearMessage && (
                   <div
                     style={{
-                      marginTop: '4px',
+                      marginTop: '2px',
                       fontSize: '11.5px',
                       color: '#059669',
                       display: 'flex',
