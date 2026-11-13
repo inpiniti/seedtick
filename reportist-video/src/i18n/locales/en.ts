@@ -731,6 +731,7 @@ export const en: Dictionary = {
     storageModeFullDesc: 'Keep original video clips',
     storageModeLight: 'Lightweight Mode',
     storageModeLightDesc: 'Save 99% device space',
+    storageMobileNotice: 'On mobile, original videos are not saved to your device. We keep edit metadata and up to 2 recent final videos (60 MB each).',
         storageClearTitle: 'Clear Storage (Purge Cache)',
     storageClearAction: 'Clean Up',
     storageClearing: 'Clearing...',

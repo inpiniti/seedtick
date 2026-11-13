@@ -548,6 +548,7 @@ defaultDesc: 'Analyse des séquences visuelles clés en cours. Veuillez patiente
     storageModeFullDesc: 'Conserver les clips vidéo originaux',
     storageModeLight: 'Mode ultra-léger',
     storageModeLightDesc: 'Économise 99% d\'espace sur l\'appareil',
+    storageMobileNotice: 'Sur mobile, les vidéos originales ne sont pas enregistrées sur l’appareil. Seuls les informations de montage et jusqu’à 2 vidéos finales récentes (60 Mo chacune) sont conservées.',
     storageClearTitle: 'Nettoyer le stockage (vider le cache)',
     storageClearAction: 'Nettoyer',
     storageClearBtn: 'Nettoyer le stockage (vider le cache)',

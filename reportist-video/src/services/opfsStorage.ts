@@ -1,4 +1,5 @@
 // src/services/opfsStorage.ts - OPFS (Origin Private File System) 대용량 비디오 파일 독립 보관 서비스
+import { isMobileStorageEnvironment } from './deviceStoragePolicy.ts';
 
 const OPFS_ROOT_DIR = 'reportist_projects';
 
@@ -100,6 +101,7 @@ export async function hasVideoInOPFS(
  * 개별 비디오 Blob을 OPFS에 저장 (이미 동일 크기로 저장된 경우 재기록 생략)
  */
 export async function saveVideoToOPFS(projectId: string, videoId: string, blob: Blob): Promise<boolean> {
+  if (isMobileStorageEnvironment()) return false;
   if (!isOpfsAvailable() || !blob || blob.size === 0) return false;
   if (await hasVideoInOPFS(projectId, videoId, blob.size)) {
     return true;
@@ -123,6 +125,7 @@ export async function getVideoFromOPFS(projectId: string, videoId: string): Prom
  * 최종 완성 비디오 Blob을 OPFS에 저장
  */
 export async function saveFinalResultToOPFS(projectId: string, blob: Blob): Promise<boolean> {
+  if (isMobileStorageEnvironment()) return false;
   if (!isOpfsAvailable() || !blob || blob.size === 0) return false;
   const dir = await getProjectDir(projectId, true);
   if (!dir) return false;
@@ -174,6 +177,26 @@ export async function copyProjectOPFS(sourceProjectId: string, targetProjectId: 
     }
   } catch (err) {
     console.warn('[opfsStorage] Failed to copy OPFS project files:', err);
+  }
+}
+
+/**
+ * Reportist 프로젝트 디렉터리만 정리 (다른 앱의 OPFS 데이터는 건드리지 않음)
+ */
+export async function purgeAllProjectOPFS(): Promise<boolean> {
+  if (!isOpfsAvailable()) return false;
+  try {
+    const root = await navigator.storage.getDirectory();
+    try {
+      await root.removeEntry(OPFS_ROOT_DIR, { recursive: true });
+    } catch {
+      // 이미 없거나 삭제 실패 시 무시
+    }
+    await root.getDirectoryHandle(OPFS_ROOT_DIR, { create: true });
+    return true;
+  } catch (err) {
+    console.warn('[opfsStorage] Failed to purge project OPFS:', err);
+    return false;
   }
 }
 

@@ -771,6 +771,7 @@ export interface Dictionary {
     storageClearSuccess?: string;
     storageClearError?: string;
     storageClearHint?: string;
+    storageMobileNotice?: string;
     downloadSubtitles?: string;
     downloadSubtitlesDesc?: string;
     projectActions: string;

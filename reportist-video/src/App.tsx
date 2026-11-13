@@ -58,9 +58,11 @@ import {
   getAllProjectSummaries,
   deleteProject,
   duplicateProject,
+  applyMobileStoragePolicy,
 } from './services/projectStorage.ts';
 import { AUDIO_LIBRARY, loadLibraryAudioFile } from './data/audioLibrary.ts';
 import { saveVideoToOPFS } from './services/opfsStorage.ts';
+import { isMobileStorageEnvironment } from './services/deviceStoragePolicy.ts';
 import { AlertCircle } from 'lucide-react';
 import { useI18n } from './i18n/index.tsx';
 import { NewProjectWizard } from './components/wizard/NewProjectWizard.tsx';
@@ -533,15 +535,10 @@ export function App() {
 
     setSaveStatus('saving');
 
-    const isMobileStorage =
-      typeof navigator !== 'undefined' &&
-      (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
-
-    const totalVideoBytes = videos.reduce((sum, v) => sum + (v.file?.size || v.sizeBytes || 0), 0);
-    // 모바일 환경이라도 3개 이하 & 80MB 이하 소용량 영상은 IndexedDB에 원본 Blob 저장을 허용 (재접속 시 완벽 보존)
-    const isSafeSmallMobile = isMobileStorage && videos.length <= 3 && totalVideoBytes <= 80 * 1024 * 1024;
-    const stripRawOnSave = isMobileStorage && !isSafeSmallMobile;
+    const isMobileStorage = isMobileStorageEnvironment();
+    // 모바일은 원본/인트로/아웃트로/오디오 Blob을 IndexedDB에 직렬화하지 않는다.
+    // (자동 저장 반복 시 Safari 앱 용량이 수 GB로 늘어나는 문제 방지)
+    const stripRawOnSave = isMobileStorage;
 
     const targetFinalResult = overrideFinalResult || finalResult;
 
@@ -694,6 +691,10 @@ export function App() {
   useEffect(() => {
     let isMounted = true;
     async function initProjects() {
+      // 모바일은 이전 버전이 남긴 대용량 원본/완성본 Blob을 1회 정리한 뒤 목록을 읽는다.
+      await applyMobileStoragePolicy().catch((err) => {
+        console.warn('[App] Failed to apply mobile storage policy:', err);
+      });
       await refreshProjectSummaries();
       const lastId = getLastActiveProjectId();
       if (lastId && isMounted) {
@@ -757,10 +758,7 @@ export function App() {
     if (newFiles.length === 0) return;
     setErrorMessage(null);
 
-    const isMobileEnv =
-      typeof navigator !== 'undefined' &&
-      (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+    const isMobileEnv = isMobileStorageEnvironment();
 
     const createdItems: Array<{ videoId: string; file: File; item: VideoItem }> = newFiles.map(
       (file, idx) => {
@@ -939,7 +937,7 @@ export function App() {
         };
       })
     );
-    if (currentProjectId) {
+    if (currentProjectId && !isMobileStorageEnvironment()) {
       void saveVideoToOPFS(currentProjectId, videoId, newFile);
     }
   };
@@ -965,7 +963,7 @@ export function App() {
             } catch {}
           }
           const newUrl = URL.createObjectURL(match);
-          if (currentProjectId) {
+          if (currentProjectId && !isMobileStorageEnvironment()) {
             void saveVideoToOPFS(currentProjectId, v.id, match);
           }
           return {

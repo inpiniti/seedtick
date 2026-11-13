@@ -731,6 +731,7 @@ export const ko: Dictionary = {
     storageModeFullDesc: '원본 비디오 보관',
     storageModeLight: '초경량 모드',
     storageModeLightDesc: '용량 99% 절약',
+    storageMobileNotice: '모바일에서는 원본 영상을 기기에 저장하지 않고, 편집 정보와 최근 완성본 최대 2개(각 60MB 이하)만 보관해요.',
         storageClearTitle: '저장 공간 정리 (캐시 비우기)',
     storageClearAction: '정리하기',
     storageClearing: '정리 중...',

@@ -547,6 +547,7 @@ defaultDesc: '動画の主要シーンを分析しています。少々お待ち
     storageModeFullDesc: '元動画を保管',
     storageModeLight: '超軽量モード',
     storageModeLightDesc: '容量99%節約',
+    storageMobileNotice: 'モバイルでは元動画を端末に保存せず、編集情報と最新の完成動画を最大2本（各60MB以下）だけ保持します。',
         storageClearTitle: 'ストレージ整理 (キャッシュ削除)',
     storageClearAction: '整理する',
     storageClearing: '整理中...',

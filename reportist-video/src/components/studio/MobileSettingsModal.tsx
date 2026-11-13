@@ -70,6 +70,8 @@ import {
   type StorageMode,
 } from '../../services/storageQuotaService.ts';
 import { isOpfsAvailable } from '../../services/opfsStorage.ts';
+import { clearMobileProjectMedia } from '../../services/projectStorage.ts';
+import { isMobileStorageEnvironment } from '../../services/deviceStoragePolicy.ts';
 import { detectOptimalCodec } from '../../services/videoCompressor.ts';
 import { CURRENT_APP_VERSION } from '../../data/patchNotes.ts';
 
@@ -206,6 +208,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
 
   const [storageEstimate, setStorageEstimate] = useState<StorageEstimateInfo | null>(null);
   const [storageMode, setStorageMode] = useState<StorageMode>(getStoredStorageMode());
+  const isMobileDevice = isMobileStorageEnvironment();
   const [isPersisted, setIsPersisted] = useState<boolean>(false);
   const [isRequestingPersist, setIsRequestingPersist] = useState<boolean>(false);
   const [isClearingStorage, setIsClearingStorage] = useState<boolean>(false);
@@ -308,7 +311,13 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
     setIsClearingStorage(true);
     setStorageClearMessage(null);
     try {
-      const updated = await clearAllAppStorage();
+      await clearAllAppStorage();
+      // 모바일은 IndexedDB/OPFS에 남아 있는 원본·완성본 Blob도 함께 제거해
+      // Safari 앱 용량을 실제로 회수한다. (편집점·분석 결과는 유지)
+      await clearMobileProjectMedia().catch((err) => {
+        console.warn('Failed to clear mobile project media:', err);
+      });
+      const updated = await getStorageEstimate();
       setStorageEstimate(updated);
       const successMsg = dict.settingsModal?.storageClearSuccess || 'OPFS 임시 파일 및 캐시가 모두 정리되었습니다.';
       setStorageClearMessage(successMsg);
@@ -334,7 +343,10 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
           : (dict.settingsModal?.storageModeAuto || '자동 (권장)');
     const modeDesc =
       mode === 'full'
-        ? (dict.settingsModal?.storageModeFullDesc || '원본 비디오를 보관해요.')
+        ? isMobileDevice
+          ? (dict.settingsModal?.storageMobileNotice ||
+              '모바일에서는 원본 영상을 기기에 저장하지 않고, 편집 정보와 최근 완성본 최대 2개(각 60MB 이하)만 보관해요.')
+          : (dict.settingsModal?.storageModeFullDesc || '원본 비디오를 보관해요.')
         : mode === 'lightweight'
           ? (dict.settingsModal?.storageModeLightDesc || '용량을 99% 절약해요.')
           : (dict.settingsModal?.storageModeAutoDesc || '남은 용량에 맞게 최적화해요.');
@@ -1467,6 +1479,24 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                   </button>
                 </div>
               </div>
+
+              {isMobileDevice && (
+                <div
+                  style={{
+                    marginTop: '10px',
+                    padding: '9px 11px',
+                    borderRadius: '9px',
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    fontSize: '11px',
+                    lineHeight: 1.5,
+                    color: '#64748b',
+                  }}
+                >
+                  {dict.settingsModal?.storageMobileNotice ||
+                    '모바일에서는 원본 영상을 기기에 저장하지 않고, 편집 정보와 최근 완성본 최대 2개(각 60MB 이하)만 보관해요.'}
+                </div>
+              )}
 
               {/* 4. 저장 공간 정리 (캐시 및 OPFS 잔여 파일 완전 비우기) */}
               <div
