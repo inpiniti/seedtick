@@ -14,10 +14,10 @@
   --border-strong: #cbd5e1;
   --ink: #0f172a;
   --ink-hover: #1e293b;
-  --accent: #059669;
-  --accent-strong: #047857;
-  --accent-soft: #ecfdf5;
-  --accent-line: #a7f3d0;
+  --accent: #0f172a;
+  --accent-strong: #0f172a;
+  --accent-soft: #f1f5f9;
+  --accent-line: #cbd5e1;
   --radius: 16px;
   --radius-button: 10px;
   --container: 1180px;
@@ -141,7 +141,8 @@ button {
 }
 
 .accent {
-  color: var(--accent);
+  color: var(--ink);
+  background-image: linear-gradient(transparent 62%, var(--accent-line) 62%, var(--accent-line) 94%, transparent 94%);
 }
 
 .section {
@@ -517,7 +518,7 @@ button {
   right: 0;
   width: 260px;
   height: 260px;
-  background: rgba(5, 150, 105, 0.1);
+  background: rgba(15, 23, 42, 0.08);
   animation: orbFloat 9s ease-in-out infinite;
 }
 
@@ -642,7 +643,7 @@ button {
   border-radius: 11px;
   border: 1px solid rgba(15, 23, 42, 0.35);
   background:
-    radial-gradient(120% 100% at 18% 0%, rgba(5, 150, 105, 0.28), transparent 54%),
+    radial-gradient(120% 100% at 18% 0%, rgba(226, 232, 240, 0.22), transparent 54%),
     radial-gradient(90% 90% at 82% 100%, rgba(49, 130, 246, 0.22), transparent 56%),
     linear-gradient(140deg, #1c2530 0%, #0d1320 58%, #17202b 100%);
 }
@@ -673,7 +674,7 @@ button {
   width: 68%;
   height: 80%;
   border-radius: 50%;
-  background: rgba(5, 150, 105, 0.28);
+  background: rgba(226, 232, 240, 0.14);
   filter: blur(30px);
 }
 
@@ -722,7 +723,7 @@ button {
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 6px;
   background: rgba(13, 19, 32, 0.62);
-  color: #6ee7b7;
+  color: #e2e8f0;
   font-family: var(--mono);
   font-size: 0.52rem;
   letter-spacing: 0.02em;
@@ -773,7 +774,7 @@ button {
   width: 68%;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--accent), #34d399);
+  background: linear-gradient(90deg, #0f172a, #475569);
 }
 
 .side-block-accent {
@@ -865,8 +866,8 @@ button {
 .tl-clip-hot {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(180deg, #10b981, #059669);
-  box-shadow: 0 0 18px rgba(5, 150, 105, 0.35);
+  background: linear-gradient(180deg, #1e293b, #0f172a);
+  box-shadow: 0 0 18px rgba(15, 23, 42, 0.4);
 }
 
 .tl-clip-hot i {
@@ -958,9 +959,9 @@ button {
   height: 16px;
 }
 
-.float-icon-green {
-  background: var(--accent-soft);
-  color: var(--accent);
+.float-icon-accent {
+  background: var(--ink);
+  color: #ffffff;
 }
 
 /* ---------- Trust strip ---------- */
@@ -1336,12 +1337,12 @@ button {
 
 .cta-panel .eyebrow {
   position: relative;
-  color: #34d399;
+  color: #ffffff;
 }
 
 .cta-panel .eyebrow-dot {
-  background: #34d399;
-  box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.15);
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.18);
 }
 
 .cta-panel h2 {

@@ -269,7 +269,7 @@ function renderHero(locale) {
           </div>
 
           <div class="float-card float-card-b">
-            <span class="float-icon float-icon-green">${ICONS.check}</span>
+            <span class="float-icon float-icon-accent">${ICONS.check}</span>
             <span><strong>${esc(hero.visual.cardTitle)}</strong><small>${esc(
               hero.visual.cardMeta
             )}</small></span>
