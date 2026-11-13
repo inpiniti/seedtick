@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: 'Deploy target (all or specific project: video, seedtick, gateway, chat, game)'
+        description: 'Deploy target (all or specific project: video, gateway, chat, game)'
         required: true
         default: 'all'
   push:
@@ -12,7 +12,7 @@ on:
       - main
     paths:
       - 'reportist-video/**'
-      - 'seedtick-ai-gateway/**'
+      - 'reportist-ai-gateway/**'
       - 'reportist-chat/**'
       - 'reportist-game/**'
       - 'docs/**'
@@ -43,7 +43,7 @@ jobs:
             else
               echo "changed=false" >> $GITHUB_OUTPUT
             fi
-          elif git diff --name-only HEAD^ HEAD | grep -q "^reportist-video/"; then
+          elif git -c core.quotepath=false diff --name-only HEAD^ HEAD | grep -q "^reportist-video/"; then
             echo "changed=true" >> $GITHUB_OUTPUT
           else
             echo "changed=false" >> $GITHUB_OUTPUT
@@ -58,42 +58,7 @@ jobs:
         run: |
           npx --yes vercel@latest --prod --yes --token=$VERCEL_TOKEN
 
-  # 2. seedtick (메인 웹) 배포
-  deploy-seedtick:
-    name: Deploy seedtick
-    runs-on: ubuntu-latest
-    if: "!cancelled()"
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-
-      - name: Check if seedtick root changed
-        id: filter
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            if [ "${{ github.event.inputs.target }}" = "all" ] || [ "${{ github.event.inputs.target }}" = "seedtick" ]; then
-              echo "changed=true" >> $GITHUB_OUTPUT
-            else
-              echo "changed=false" >> $GITHUB_OUTPUT
-            fi
-          elif git diff --name-only HEAD^ HEAD | grep -E -v "^(reportist-|seedtick-ai-gateway/|\.github/)" | grep -q .; then
-            echo "changed=true" >> $GITHUB_OUTPUT
-          else
-            echo "changed=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Deploy to Vercel
-        if: steps.filter.outputs.changed == 'true'
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_SEEDTICK }}
-        run: |
-          npx --yes vercel@latest --prod --yes --token=$VERCEL_TOKEN
-        working-directory: ./
-
-  # 3. seedtick-ai-gateway 배포
+  # 2. seedtick-ai-gateway 배포
   deploy-gateway:
     name: Deploy seedtick-ai-gateway
     runs-on: ubuntu-latest
@@ -112,7 +77,7 @@ jobs:
             else
               echo "changed=false" >> $GITHUB_OUTPUT
             fi
-          elif git diff --name-only HEAD^ HEAD | grep -q "^reportist-ai-gateway/"; then
+          elif git -c core.quotepath=false diff --name-only HEAD^ HEAD | grep -q "^reportist-ai-gateway/"; then
             echo "changed=true" >> $GITHUB_OUTPUT
           else
             echo "changed=false" >> $GITHUB_OUTPUT
@@ -127,7 +92,7 @@ jobs:
         run: |
           npx --yes vercel@latest --prod --yes --token=$VERCEL_TOKEN
 
-  # 4. reportist-chat 배포
+  # 3. reportist-chat 배포
   deploy-chat:
     name: Deploy reportist-chat
     runs-on: ubuntu-latest
@@ -146,7 +111,7 @@ jobs:
             else
               echo "changed=false" >> $GITHUB_OUTPUT
             fi
-          elif git diff --name-only HEAD^ HEAD | grep -q "^reportist-chat/"; then
+          elif git -c core.quotepath=false diff --name-only HEAD^ HEAD | grep -q "^reportist-chat/"; then
             echo "changed=true" >> $GITHUB_OUTPUT
           else
             echo "changed=false" >> $GITHUB_OUTPUT
@@ -161,7 +126,7 @@ jobs:
         run: |
           npx --yes vercel@latest --prod --yes --token=$VERCEL_TOKEN
 
-  # 5. reportist-game 배포
+  # 4. reportist-game 배포
   deploy-game:
     name: Deploy reportist-game
     runs-on: ubuntu-latest
@@ -180,7 +145,7 @@ jobs:
             else
               echo "changed=false" >> $GITHUB_OUTPUT
             fi
-          elif git diff --name-only HEAD^ HEAD | grep -q "^reportist-game/"; then
+          elif git -c core.quotepath=false diff --name-only HEAD^ HEAD | grep -q "^reportist-game/"; then
             echo "changed=true" >> $GITHUB_OUTPUT
           else
             echo "changed=false" >> $GITHUB_OUTPUT
