@@ -701,7 +701,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const latestTask = useMemo(() => {
     const reasoningText = (progress.liveReasoning || '').trim();
     const contentText = (progress.liveContent || '').trim();
-    const liveText = reasoningText || contentText;
+    const liveText = contentText || reasoningText;
 
     // 1. 실시간 추론 또는 응답 스트리밍 중 -> 최근 1~2줄 추출
     if (liveText) {
@@ -711,14 +711,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         .filter(Boolean);
       const recentLines = lines.slice(-2);
       const textPart = recentLines.join('\n');
-      const prefix = reasoningText ? '💭 ' : '⌨️ ';
+      const prefix = contentText ? '⌨️ ' : '💭 ';
       return {
         isStreaming: true,
         text: textPart
           ? `${prefix}${textPart}`
-          : reasoningText
-          ? dict.processingModal.reasoningProcess
-          : dict.processingModal.responseGeneration,
+          : contentText
+          ? dict.processingModal.responseGeneration
+          : dict.processingModal.reasoningProcess,
       };
     }
 

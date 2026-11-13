@@ -218,7 +218,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
   const latestAnalysisTask = useMemo(() => {
     const reasoningText = (progress.liveReasoning || '').trim();
     const contentText = (progress.liveContent || '').trim();
-    const liveText = reasoningText || contentText;
+    const liveText = contentText || reasoningText;
 
     // 1. AI가 실시간으로 사고/응답을 스트리밍 중인 경우
     if (liveText) {
@@ -231,9 +231,9 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
         isStreaming: true,
         text: textPart
           ? textPart
-          : reasoningText
-          ? dict.processingModal.reasoningProcess
-          : dict.processingModal.responseGeneration,
+          : contentText
+          ? dict.processingModal.responseGeneration
+          : dict.processingModal.reasoningProcess,
       };
     }
 

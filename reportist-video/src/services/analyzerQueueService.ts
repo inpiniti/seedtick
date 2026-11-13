@@ -73,6 +73,8 @@ export interface PollQueueOptions {
   baseUrl?: string;
   pollIntervalMs?: number;
   signal?: AbortSignal;
+  /** 대기열을 빠져나와 처리(processing)가 시작된 뒤 허용하는 최대 시간(ms). 초과 시 작업을 취소하고 예외를 던진다. */
+  maxProcessingMs?: number;
   onQueueUpdate?: (info: QueueJobUpdate) => void;
   onActivity?: () => void;
 }
@@ -84,6 +86,8 @@ export interface QueueAnalysisResult {
 
 const ENQUEUE_TIMEOUT_MS = 12_000;
 const STATUS_TIMEOUT_MS = 15_000;
+// 워커가 AI 슬롯 재시도 루프에 빠져도 클라이언트가 무한 대기(99% 정지)하지 않도록 처리 시간 상한을 둔다.
+const MAX_PROCESSING_MS = 240_000;
 
 /**
  * 환경 변수로 대기열 사용 여부를 제어합니다. 기본값은 사용입니다.
@@ -199,15 +203,25 @@ export async function pollVideoAnalysisFromQueue({
   baseUrl = DEFAULT_ANALYZER_QUEUE_URL,
   pollIntervalMs = 2000,
   signal,
+  maxProcessingMs = MAX_PROCESSING_MS,
   onQueueUpdate,
   onActivity,
 }: PollQueueOptions): Promise<QueueAnalysisResult> {
   const statusUrl = `${baseUrl}/api/queue/jobs/${encodeURIComponent(jobId)}`;
+  // 대기(queued) 시간은 제외하고, 실제 처리가 시작된 시점부터 상한을 잰다.
+  let processingStartedAt: number | null = null;
 
   while (true) {
     if (signal?.aborted) {
       void cancelVideoAnalysisJob(jobId, baseUrl);
       throw createAbortError();
+    }
+
+    if (processingStartedAt !== null && Date.now() - processingStartedAt > maxProcessingMs) {
+      void cancelVideoAnalysisJob(jobId, baseUrl);
+      throw new Error(
+        `[QueueService] 워커 처리 시간이 ${Math.round(maxProcessingMs / 1000)}초를 넘어 작업을 중단합니다.`
+      );
     }
 
     let job: QueueJobStatusResponse;
@@ -226,6 +240,9 @@ export async function pollVideoAnalysisFromQueue({
     }
 
     onActivity?.();
+    if (processingStartedAt === null && job.status !== 'queued') {
+      processingStartedAt = Date.now();
+    }
     onQueueUpdate?.({
       jobId,
       status: job.status,

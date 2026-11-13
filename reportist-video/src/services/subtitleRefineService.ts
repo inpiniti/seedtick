@@ -6,6 +6,10 @@ import { DEFAULT_CONFIG, FALLBACK_VIDEO_MODELS } from './gatewayClient.ts';
 export const SUBTITLE_TONE_STORAGE_KEY = 'reportist_video_subtitle_tone';
 export const DEFAULT_SUBTITLE_TONE: SubtitleTone = 'vlog';
 
+// 자막 다듬기 시간 상한: 요청당 20초, 전체(후보 모델 순회 포함) 30초
+const REFINE_REQUEST_TIMEOUT_MS = 20_000;
+const REFINE_TOTAL_BUDGET_MS = 30_000;
+
 /**
  * 브라우저 localStorage에 저장된 자막 톤앤매너 설정 불러오기
  */
@@ -232,9 +236,21 @@ ${JSON.stringify(segmentsContext, null, 2)}
 
   const uniqueModels = Array.from(new Set(candidateModels));
   const url = `${config.baseUrl.replace(/\/+$/, '')}/v1/chat/completions`;
+  // 자막 다듬기는 선택적 후처리이므로, 모델이 느리거나 응답이 멈춰도 분석 완료(99%→100%)를 막지 않도록 시간 상한을 둔다.
+  const deadline = Date.now() + REFINE_TOTAL_BUDGET_MS;
 
   for (const candModel of uniqueModels) {
     if (signal?.aborted) break;
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) break;
+
+    const requestController = new AbortController();
+    const onParentAbort = () => requestController.abort(signal?.reason);
+    signal?.addEventListener('abort', onParentAbort, { once: true });
+    const timer = setTimeout(
+      () => requestController.abort(new DOMException('Subtitle refine timed out', 'TimeoutError')),
+      Math.min(REFINE_REQUEST_TIMEOUT_MS, remainingMs)
+    );
 
     try {
       const response = await fetch(url, {
@@ -244,7 +260,7 @@ ${JSON.stringify(segmentsContext, null, 2)}
           Authorization: `Bearer ${config.gatewaySecret}`,
         },
         body: JSON.stringify({ ...requestBody, model: candModel }),
-        signal,
+        signal: requestController.signal,
       });
 
       if (!response.ok) continue;
@@ -283,7 +299,10 @@ ${JSON.stringify(segmentsContext, null, 2)}
         return resultMap;
       }
     } catch {
-      // 다음 후보 모델 시도
+      // 다음 후보 모델 시도 (타임아웃 포함)
+    } finally {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onParentAbort);
     }
   }
 

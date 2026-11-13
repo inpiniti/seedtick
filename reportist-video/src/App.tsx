@@ -1444,8 +1444,16 @@ export function App() {
           for (let attempt = 0; attempt < maxVideoAttempts && !videoSuccess; attempt++) {
             if (signal.aborted) break;
 
-            // 재시도 시 이전 시도의 대기열 순번/작업 ID가 남지 않도록 초기화
+            // 재시도 시 이전 시도의 대기열 순번/작업 ID 및 잔여 추론 텍스트가 남지 않도록 초기화
             resetQueueState();
+            if (attempt > 0) {
+              resetLiveStream();
+              setProgress((prev) => ({
+                ...prev,
+                liveReasoning: '',
+                liveContent: '',
+              }));
+            }
 
             currentVideoAbortController = new AbortController();
             const videoSignal = currentVideoAbortController.signal;
@@ -1693,6 +1701,17 @@ export function App() {
       }
 
       // 2. 실시간 타임라인 시퀀스 구성 (초기 인코딩 없이 즉시 실시간 프리뷰 진입)
+      // 영상별 AI 추론 미리보기가 남아 있으면 후처리 단계 안내 문구를 가려 99%에서 멈춘 것처럼 보이므로 비운다.
+      resetLiveStream();
+      setProgress((prev) => ({
+        ...prev,
+        liveReasoning: '',
+        liveContent: '',
+        statusMessage: locale === 'ko'
+          ? '전체 흐름에 맞춰 자막을 다듬고 있어요...'
+          : 'Polishing subtitles for the whole story...',
+      }));
+
       const rawSegments = updatedVideos.flatMap((v) => v.segments);
       if (rawSegments.length === 0) {
         throw new Error(dict.logs.noClimaxFound);

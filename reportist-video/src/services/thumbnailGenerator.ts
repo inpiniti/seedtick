@@ -186,6 +186,7 @@ export async function captureVideoFrameAtTime(
       targetTimeRef = targetTime;
 
       // 타임아웃 안전장치: 7초 후 readyState가 있으면 즉시 그리고, 없으면 현재 프레임 시도
+      if (timeoutId) clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
         if (isFinished) return;
         if (video.readyState >= 2 || video.videoWidth > 0) {
@@ -214,6 +215,15 @@ export async function captureVideoFrameAtTime(
 
     video.addEventListener('loadedmetadata', startSeeking);
     video.addEventListener('error', onError);
+
+    // 메타데이터 로드 자체가 끝나지 않는 경우(iOS Safari에서 화면 밖 비디오 로딩 지연 등)에도
+    // Promise가 영원히 대기하지 않도록 로드 단계부터 감시 타이머를 건다. (seek 단계 진입 시 7초 타이머로 교체)
+    timeoutId = setTimeout(() => {
+      if (isFinished) return;
+      isFinished = true;
+      cleanup();
+      reject(new Error('비디오 메타데이터 로드 타임아웃'));
+    }, 10000);
 
     video.src = videoUrl;
 
