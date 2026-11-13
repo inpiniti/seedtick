@@ -666,6 +666,17 @@ export function renderPage(locale) {
 `;
 }
 
+export function renderSitemapIndex() {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap>
+    <loc>${esc(abs("/sitemap-pages.xml"))}</loc>
+    <lastmod>${esc(SITE.contentUpdated)}</lastmod>
+  </sitemap>
+</sitemapindex>
+`;
+}
+
 export function renderSitemap() {
   const urls = LOCALES.map((locale) => {
     const alternates = [];

@@ -6,7 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { LOCALES } from "../seo/content.mjs";
-import { renderPage, renderSitemap } from "../seo/template.mjs";
+import { renderPage, renderSitemap, renderSitemapIndex } from "../seo/template.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -24,10 +24,17 @@ for (const locale of LOCALES) {
   generated.push({ path: target, bytes: Buffer.byteLength(html) });
 }
 
+// The public sitemap is an index that points at the URL-level sitemap,
+// matching how large sites ship /sitemap.xml (e.g. google.com/sitemap.xml).
 const sitemap = renderSitemap();
+const pagesPath = join(root, "public", "sitemap-pages.xml");
+writeFileSync(pagesPath, sitemap, "utf8");
+generated.push({ path: pagesPath, bytes: Buffer.byteLength(sitemap) });
+
+const sitemapIndex = renderSitemapIndex();
 const sitemapPath = join(root, "public", "sitemap.xml");
-writeFileSync(sitemapPath, sitemap, "utf8");
-generated.push({ path: sitemapPath, bytes: Buffer.byteLength(sitemap) });
+writeFileSync(sitemapPath, sitemapIndex, "utf8");
+generated.push({ path: sitemapPath, bytes: Buffer.byteLength(sitemapIndex) });
 
 console.log("Generated SEO pages:");
 for (const item of generated) {

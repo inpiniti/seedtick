@@ -18,7 +18,7 @@
 | 앱 페이지 noindex 처리 | 완료 | `/studio` → `<meta name="robots" content="noindex, follow">` |
 | 언어별 canonical | 완료 | 각 페이지 `<link rel="canonical">` |
 | hreflang (7개 언어 + x-default) | 완료 | 각 페이지 `<head>` |
-| 다국어 sitemap | 완료 | `https://penguincut.com/sitemap.xml` |
+| 다국어 sitemap | 완료 | `https://penguincut.com/sitemap.xml` (index → `/sitemap-pages.xml`) |
 | robots.txt | 완료 | `/robots.txt` (API 경로 차단, sitemap 명시) |
 | 구조화 데이터 | 완료 | Organization, WebSite, WebPage, SoftwareApplication, FAQPage |
 | Open Graph / Twitter Card | 완료 | `og-penguincut.png` (1200×630) |
@@ -178,8 +178,9 @@ curl -s https://penguincut.com/robots.txt
 # 3) noindex 확인
 curl -s https://penguincut.com/studio | findstr /I "noindex"
 
-# 4) sitemap URL 개수
-curl -s https://penguincut.com/sitemap.xml | findstr /C "<loc>"
+# 4) sitemap index와 실제 URL 개수 (index → sitemap-pages.xml)
+curl -s https://penguincut.com/sitemap.xml
+curl -s https://penguincut.com/sitemap-pages.xml | findstr /C "<loc>"
 ```
 
 브라우저에서 추가 확인:
@@ -242,7 +243,7 @@ curl -s https://penguincut.com/sitemap.xml | findstr /C "<loc>"
 
 ```bash
 cd reportist-video
-npm run seo      # index.html, public/{locale}/index.html, sitemap.xml 재생성
+npm run seo      # index.html, public/{locale}/index.html, sitemap.xml, sitemap-pages.xml generated
 npm run build    # dist/ 생성
 ```
 
