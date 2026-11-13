@@ -74,6 +74,31 @@ const NewProjectWizard = React.lazy(() =>
 const INITIAL_VIDEO_MODELS = enrichModelMetrics(FALLBACK_VIDEO_MODELS);
 const INITIAL_DEFAULT_MODEL = pickDefaultModel(INITIAL_VIDEO_MODELS);
 
+// 프로젝트 목록이 실제로 달라졌는지 얕게 비교한다.
+// (같은 내용으로 배열만 새로 만들면 카드가 다시 그려지며 썸네일이 깜빡일 수 있다.)
+function isSameProjectSummaryList(
+  prev: StudioProjectSummary[],
+  next: StudioProjectSummary[]
+): boolean {
+  if (prev.length !== next.length) return false;
+  return prev.every((p, i) => {
+    const n = next[i];
+    return (
+      p.id === n.id &&
+      p.title === n.title &&
+      p.createdAt === n.createdAt &&
+      p.updatedAt === n.updatedAt &&
+      p.thumbnailUrl === n.thumbnailUrl &&
+      p.duration === n.duration &&
+      p.videoCount === n.videoCount &&
+      p.hasResult === n.hasResult &&
+      p.step === n.step &&
+      p.storageMode === n.storageMode &&
+      p.hasOpfsFiles === n.hasOpfsFiles
+    );
+  });
+}
+
 export function App() {
   const { dict, locale, interpolate } = useI18n();
 
@@ -261,6 +286,7 @@ export function App() {
   // - 최초 1회만 스켈레톤을 노출하고, 이후 갱신(열기/저장/삭제/복제)은 기존 목록을 유지한 채 조용히 교체한다.
   //   (매번 `isLoadingProjects`를 true로 되돌리면 새로고침할 때마다 카드가 스켈레톤으로 깜빡인다.)
   // - 응답 순서가 뒤바뀌어도 마지막 요청의 결과만 반영한다.
+  // - 내용이 이전과 같으면 이전 배열 참조를 그대로 써서 불필요한 리렌더링(썸네일 재페인트)을 막는다.
   const refreshProjectSummaries = useCallback(async () => {
     const seq = ++projectRefreshSeqRef.current;
     if (!hasLoadedProjectsRef.current) {
@@ -269,7 +295,7 @@ export function App() {
     try {
       const list = await getAllProjectSummaries();
       if (seq !== projectRefreshSeqRef.current) return;
-      setProjectSummaries(list);
+      setProjectSummaries((prev) => (isSameProjectSummaryList(prev, list) ? prev : list));
     } catch (err) {
       console.warn('Failed to list projects:', err);
     } finally {
