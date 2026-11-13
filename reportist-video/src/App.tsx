@@ -30,9 +30,9 @@ import {
   refineSubtitlesWithContext,
   getStoredSubtitleTone,
 } from './services/subtitleRefineService.ts';
-import { primeAudioContext, stitchHighlightedSegments } from './services/videoStitcher.ts';
+import { primeAudioContext } from './services/audioPrimer.ts';
 import { backgroundGuard } from './services/backgroundKeepAlive.ts';
-import { computeBridgeDurationMap } from './services/hyperframesBridgeRenderer.ts';
+import { computeBridgeDurationMap } from './services/chapterBridgeModel.ts';
 import { captureVideoFrameAtTime, createCanvasFromImageDataUrl, renderThumbnailArtwork } from './services/thumbnailGenerator.ts';
 import type { FreeModelMeta, ReasoningEffortOption } from './types/gateway.ts';
 import type {
@@ -65,7 +65,11 @@ import { saveVideoToOPFS } from './services/opfsStorage.ts';
 import { isMobileStorageEnvironment } from './services/deviceStoragePolicy.ts';
 import { AlertCircle } from 'lucide-react';
 import { useI18n } from './i18n/index.tsx';
-import { NewProjectWizard } from './components/wizard/NewProjectWizard.tsx';
+
+// 온보딩 마법사는 "새 프로젝트"를 열 때만 필요하므로 지연 로딩한다. (초기 번들 절감)
+const NewProjectWizard = React.lazy(() =>
+  import('./components/wizard/NewProjectWizard.tsx').then((m) => ({ default: m.NewProjectWizard }))
+);
 
 const INITIAL_VIDEO_MODELS = enrichModelMetrics(FALLBACK_VIDEO_MODELS);
 const INITIAL_DEFAULT_MODEL = pickDefaultModel(INITIAL_VIDEO_MODELS);
@@ -97,6 +101,8 @@ export function App() {
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [currentStep, setCurrentStep] = useState<OverallStep>('upload');
   const [isWizardOpen, setIsWizardOpen] = useState<boolean>(false);
+  // 한 번이라도 열린 뒤에는 상태(단계)를 유지하기 위해 마운트를 유지한다.
+  const [hasOpenedWizard, setHasOpenedWizard] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // 개별 영상 위치/장소명 수정 핸들러
@@ -149,6 +155,12 @@ export function App() {
   });
   const [finalResult, setFinalResult] = useState<FinalVideoResult | null>(null);
 
+  // 마법사 열기 핸들러 (지연 로딩 청크를 최초 1회 마운트한 뒤 상태 유지)
+  const handleOpenWizard = useCallback(() => {
+    setHasOpenedWizard(true);
+    setIsWizardOpen(true);
+  }, []);
+
   // 마법사 닫기 / 취소 핸들러 (목록 화면으로 안전하게 복귀)
   const handleCloseWizard = useCallback(() => {
     setIsWizardOpen(false);
@@ -177,6 +189,10 @@ export function App() {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'idle'>('idle');
   const [projectSummaries, setProjectSummaries] = useState<StudioProjectSummary[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState<boolean>(true);
+  // 목록을 한 번이라도 읽었는지 여부. 최초 1회만 스켈레톤을 보여주고 이후 갱신은 조용히 반영한다.
+  const hasLoadedProjectsRef = useRef<boolean>(false);
+  // 동시에 여러 번 새로고침이 요청될 때 늦게 도착한 이전 결과가 최신 목록을 덮어쓰지 않도록 순번을 기록한다.
+  const projectRefreshSeqRef = useRef<number>(0);
 
   // 편집 설정 상태
   const [currentOverlayOptions, setCurrentOverlayOptions] = useState<VideoOverlayOptions | null>(null);
@@ -242,17 +258,27 @@ export function App() {
   const pendingSaveAfterLockRef = useRef<boolean>(false);
 
   // 프로젝트 요약 목록 새로고침
-  const refreshProjectSummaries = async () => {
-    try {
+  // - 최초 1회만 스켈레톤을 노출하고, 이후 갱신(열기/저장/삭제/복제)은 기존 목록을 유지한 채 조용히 교체한다.
+  //   (매번 `isLoadingProjects`를 true로 되돌리면 새로고침할 때마다 카드가 스켈레톤으로 깜빡인다.)
+  // - 응답 순서가 뒤바뀌어도 마지막 요청의 결과만 반영한다.
+  const refreshProjectSummaries = useCallback(async () => {
+    const seq = ++projectRefreshSeqRef.current;
+    if (!hasLoadedProjectsRef.current) {
       setIsLoadingProjects(true);
+    }
+    try {
       const list = await getAllProjectSummaries();
+      if (seq !== projectRefreshSeqRef.current) return;
       setProjectSummaries(list);
     } catch (err) {
       console.warn('Failed to list projects:', err);
     } finally {
-      setIsLoadingProjects(false);
+      if (seq === projectRefreshSeqRef.current) {
+        hasLoadedProjectsRef.current = true;
+        setIsLoadingProjects(false);
+      }
     }
-  };
+  }, []);
 
   // 특정 프로젝트 로드
   const handleOpenProject = async (projectId: string) => {
@@ -469,7 +495,7 @@ export function App() {
     setCurrentBgmVolume(0.3);
     setCurrentCustomAudio(null);
     setCurrentLibraryTrackId(null);
-    setIsWizardOpen(true);
+    handleOpenWizard();
 
     if (urlsToRevoke.length > 0) {
       setTimeout(() => {
@@ -1923,6 +1949,8 @@ export function App() {
     setErrorMessage(null);
 
     try {
+      // 병합 엔진(WebCodecs + mp4-muxer)은 내보내기 시점에만 필요하므로 지연 로딩한다.
+      const { stitchHighlightedSegments } = await import('./services/videoStitcher.ts');
       const result = await stitchHighlightedSegments({
         videos: readyVideos,
         allSegments: updatedSegments,
@@ -2086,7 +2114,7 @@ export function App() {
         onDuplicateProject={handleDuplicateProject}
         onDeleteProject={handleDeleteProject}
         onStartNewProject={handleStartNewProject}
-        onOpenNewProjectWizard={() => setIsWizardOpen(true)}
+        onOpenNewProjectWizard={handleOpenWizard}
         onViewProjects={handleViewProjects}
         initialOverlayOptions={currentOverlayOptions}
         initialBgmPresetId={currentBgmPresetId}
@@ -2101,31 +2129,41 @@ export function App() {
       />
 
       {/* 새 작업 시작 시 진행되는 3단계 온보딩 마법사 (스텝퍼) */}
-      <NewProjectWizard
-        isOpen={isWizardOpen}
-        onClose={handleCloseWizard}
-        videos={videos}
-        onFilesSelected={handleFilesSelected}
-        onRemoveVideo={handleRemove}
-        onUpdateVideoLocation={handleUpdateVideoLocation}
-        selectedLibraryTrackId={currentLibraryTrackId}
-        bgmVolume={currentBgmVolume}
-        onBgmChange={handleBgmChange}
-        customAudioFile={currentCustomAudio}
-        onCustomAudioChange={handleCustomAudioChange}
-        overlayOptions={currentOverlayOptions}
-        onOverlayOptionsChange={handleOverlayOptionsChange}
-        selectedModel={selectedModel}
-        selectedEffort={selectedEffort}
-        models={models}
-        isLoadingModels={isLoadingModels}
-        onSelectModel={setSelectedModel}
-        onSelectEffort={setSelectedEffort}
-        onStartAiAnalysis={handleStartProcessing}
-        isProcessing={currentStep === 'processing'}
-        progress={progress}
-        onCancelProcessing={handleCancel}
-      />
+      {hasOpenedWizard && (
+        <React.Suspense
+          fallback={
+            <div className="app-lazy-overlay">
+              <div className="app-lazy-spinner" />
+            </div>
+          }
+        >
+          <NewProjectWizard
+            isOpen={isWizardOpen}
+            onClose={handleCloseWizard}
+            videos={videos}
+            onFilesSelected={handleFilesSelected}
+            onRemoveVideo={handleRemove}
+            onUpdateVideoLocation={handleUpdateVideoLocation}
+            selectedLibraryTrackId={currentLibraryTrackId}
+            bgmVolume={currentBgmVolume}
+            onBgmChange={handleBgmChange}
+            customAudioFile={currentCustomAudio}
+            onCustomAudioChange={handleCustomAudioChange}
+            overlayOptions={currentOverlayOptions}
+            onOverlayOptionsChange={handleOverlayOptionsChange}
+            selectedModel={selectedModel}
+            selectedEffort={selectedEffort}
+            models={models}
+            isLoadingModels={isLoadingModels}
+            onSelectModel={setSelectedModel}
+            onSelectEffort={setSelectedEffort}
+            onStartAiAnalysis={handleStartProcessing}
+            isProcessing={currentStep === 'processing'}
+            progress={progress}
+            onCancelProcessing={handleCancel}
+          />
+        </React.Suspense>
+      )}
     </div>
   );
 }

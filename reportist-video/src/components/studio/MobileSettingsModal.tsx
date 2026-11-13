@@ -43,9 +43,11 @@ import {
 } from './ChapterBridgePreviewModal.tsx';
 import {
   IntroOutroPreviewModal,
+} from './IntroOutroPreviewModal.tsx';
+import {
   INTRO_TEMPLATE_OPTIONS,
   OUTRO_TEMPLATE_OPTIONS,
-} from './IntroOutroPreviewModal.tsx';
+} from './introOutroOptions.ts';
 import {
   getStoredSubtitleTone,
   setStoredSubtitleTone,
@@ -73,7 +75,7 @@ import { isOpfsAvailable } from '../../services/opfsStorage.ts';
 import { clearMobileProjectMedia } from '../../services/projectStorage.ts';
 import { isMobileStorageEnvironment } from '../../services/deviceStoragePolicy.ts';
 import { detectOptimalCodec } from '../../services/videoCompressor.ts';
-import { CURRENT_APP_VERSION } from '../../data/patchNotes.ts';
+import { CURRENT_APP_VERSION } from '../../data/appVersion.ts';
 
 export type SettingsSectionId =
   | 'general'

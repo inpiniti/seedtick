@@ -12,6 +12,9 @@ interface AudioLibraryModalProps {
   onApply: (track: AudioLibraryTrack | null) => Promise<void>;
 }
 
+// 모달을 닫았다 다시 열어도 같은 음원을 재프로브하지 않도록 길이를 모듈 수준에서 캐시한다.
+const trackDurationCache: Record<string, number> = {};
+
 export const AudioLibraryModal: React.FC<AudioLibraryModalProps> = ({
   isOpen,
   onClose,
@@ -24,7 +27,9 @@ export const AudioLibraryModal: React.FC<AudioLibraryModalProps> = ({
   const [previewTrackId, setPreviewTrackId] = useState<string | null>(null);
   const [isApplying, setIsApplying] = useState<boolean>(false);
   const [applyError, setApplyError] = useState<string | null>(null);
-  const [trackDurations, setTrackDurations] = useState<Record<string, number>>({});
+  const [trackDurations, setTrackDurations] = useState<Record<string, number>>(() => ({
+    ...trackDurationCache,
+  }));
   const audioRef = useRef<HTMLAudioElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
 
@@ -40,7 +45,7 @@ export const AudioLibraryModal: React.FC<AudioLibraryModalProps> = ({
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
-  // 보관함 음원 길이 메타데이터 로드
+  // 보관함 음원 길이 메타데이터 로드 (모달이 열릴 때 1회만 프로브)
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
@@ -52,6 +57,7 @@ export const AudioLibraryModal: React.FC<AudioLibraryModalProps> = ({
       a.preload = 'metadata';
       a.onloadedmetadata = () => {
         if (!cancelled && Number.isFinite(a.duration) && a.duration > 0) {
+          trackDurationCache[track.id] = a.duration;
           setTrackDurations((prev) => ({ ...prev, [track.id]: a.duration }));
         }
       };
@@ -65,7 +71,7 @@ export const AudioLibraryModal: React.FC<AudioLibraryModalProps> = ({
         a.src = '';
       });
     };
-  }, [isOpen, trackDurations]);
+  }, [isOpen]);
 
   // 팝업이 열릴 때 현재 적용된 음원 상태로 선택값 초기화
   useEffect(() => {

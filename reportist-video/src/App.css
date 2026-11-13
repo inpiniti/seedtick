@@ -13343,3 +13343,20 @@
   flex-wrap: wrap;
   justify-content: center;
 }
+
+/* 모바일 GPU에서 비용이 큰 전면/고정 영역 블러는 끄고 반투명 배경만 사용한다. */
+@media (max-width: 768px) {
+  .toss-modal-overlay,
+  .toss-modal-backdrop,
+  .model-modal-backdrop,
+  .segment-trim-modal-backdrop,
+  .toss-bottom-bar,
+  .toss-bottom-status-bar,
+  .toss-toast-float,
+  .toss-project-card,
+  .toss-project-duration-badge,
+  .toss-player-stage:fullscreen .toss-transport-bar {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}

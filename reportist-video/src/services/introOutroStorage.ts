@@ -5,7 +5,7 @@ import type { IntroTemplateId, OutroTemplateId } from '../types/video.ts';
 import {
   DEFAULT_INTRO_DURATION,
   DEFAULT_OUTRO_DURATION,
-} from './hyperframesIntroOutroRenderer.ts';
+} from './introOutroDefaults.ts';
 
 const STORAGE_KEYS = {
   SHOW_INTRO: 'reportist_show_intro_default',

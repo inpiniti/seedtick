@@ -14,10 +14,10 @@ import {
 } from 'lucide-react';
 import {
   PATCH_RELEASES,
-  CURRENT_APP_VERSION,
   type PatchRelease,
   type PatchCommit,
 } from '../../data/patchNotes.ts';
+import { CURRENT_APP_VERSION } from '../../data/appVersion.ts';
 import { getLocalizedPatchReleases } from '../../data/patchNotesLocalization.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 import { useI18n } from '../../i18n/index.tsx';
@@ -34,7 +34,22 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClos
   const [filterType, setFilterType] = useState<'all' | 'major'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  const localizedReleases = useMemo(() => getLocalizedPatchReleases(locale), [locale]);
+  // 패치노트 번역은 로케일별 JSON 청크로 분리되어 있어, 모달이 열릴 때 현재 언어만 로드한다.
+  const [localizedReleases, setLocalizedReleases] = useState<PatchRelease[]>(PATCH_RELEASES);
+
+  useEffect(() => {
+    if (locale === 'ko') {
+      setLocalizedReleases(PATCH_RELEASES);
+      return;
+    }
+    let cancelled = false;
+    void getLocalizedPatchReleases(locale).then((releases) => {
+      if (!cancelled) setLocalizedReleases(releases);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [locale]);
 
   // 10회 클릭 시 개발자 모드 전환 기능
   const versionClickCountRef = useRef<number>(0);

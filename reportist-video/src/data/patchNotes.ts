@@ -18,8 +18,6 @@ export interface PatchRelease {
   commits: PatchCommit[];
 }
 
-export const CURRENT_APP_VERSION = '0.9.11';
-
 export const PATCH_RELEASES: PatchRelease[] = [
   {
     "version": "0.9.11",

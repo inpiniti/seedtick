@@ -145,7 +145,8 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
       </div>
 
       {/* 2. 메인 컨텐츠 영역 */}
-      {isLoading ? (
+      {/* 이미 읽어온 목록이 있으면 갱신 중에도 스켈레톤으로 되돌리지 않는다. (새로고침 시 카드 깜빡임 방지) */}
+      {isLoading && projects.length === 0 ? (
         <div className="toss-projects-loading-grid">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="toss-project-skeleton-card">

@@ -1,7 +1,8 @@
 // services/videoStitcherWebCodecs.ts - GPU 하드웨어 가속(WebCodecs) 기반 고화질 60fps 무결점 비디오 병합 엔진
 // VideoEncoder + mp4-muxer + OfflineAudioContext를 활용하여 실시간 녹화의 프레임 누락(Stuttering)을 완전 제거합니다.
 
-import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
+import { Muxer } from 'mp4-muxer';
+import { createExportMuxerTarget } from './exportMuxerTarget.ts';
 import type { ExportResolution, FinalVideoResult, HighlightSegment, VideoItem, VideoOverlayOptions } from '../types/video.ts';
 import {
   CHAPTER_BRIDGE_DURATION,
@@ -631,10 +632,10 @@ export async function stitchVideosWebCodecs({
   const audioSampleRate = 48000;
   const audioChannels = 2;
 
-  // 7. Muxer 인스턴스 생성
-  const muxerTarget = new ArrayBufferTarget();
+  // 7. Muxer 인스턴스 생성 (지원 시 OPFS 디스크 스트리밍, 미지원 시 메모리 버퍼)
+  const exportTarget = await createExportMuxerTarget();
   const muxer = new Muxer({
-    target: muxerTarget,
+    target: exportTarget.target,
     video: {
       codec: 'avc',
       width: targetWidth,
@@ -645,7 +646,7 @@ export async function stitchVideosWebCodecs({
       numberOfChannels: audioChannels,
       sampleRate: audioSampleRate,
     } : undefined,
-    fastStart: 'in-memory',
+    fastStart: exportTarget.fastStart,
     firstTimestampBehavior: 'offset',
   });
 
@@ -1203,22 +1204,30 @@ export async function stitchVideosWebCodecs({
         const offlineAudioCtx = new OfflineAudioContext(audioChannels, totalSampleCount, audioSampleRate);
 
         // 원본 비디오 오디오 디코딩 헬퍼 (표준 AudioContext 우선 시도 후 2차 fallback)
-        const decodeVideoAudio = async (vItem: VideoItem): Promise<AudioBuffer | null> => {
+        const readVideoArrayBuffer = async (vItem: VideoItem): Promise<ArrayBuffer | null> => {
           try {
-            let ab: ArrayBuffer | null = null;
             if (vItem.file && vItem.file.size > 0) {
-              ab = await vItem.file.slice(0).arrayBuffer();
-            } else if (vItem.url) {
+              return await vItem.file.arrayBuffer();
+            }
+            if (vItem.url) {
               try {
                 const resp = await fetch(vItem.url);
-                if (resp.ok) {
-                  ab = await resp.arrayBuffer();
-                }
+                if (resp.ok) return await resp.arrayBuffer();
               } catch (fetchErr) {
                 console.warn(`[WebCodecs] 비디오 ${vItem.name || vItem.id} URL 읽기 실패:`, fetchErr);
               }
             }
+          } catch (err) {
+            console.warn(`[WebCodecs] 비디오 ${vItem.name || vItem.id} 파일 읽기 실패:`, err);
+          }
+          return null;
+        };
 
+        const decodeVideoAudio = async (vItem: VideoItem): Promise<AudioBuffer | null> => {
+          try {
+            // decodeAudioData는 전달된 ArrayBuffer를 detach하므로, fallback 시에는 파일을 다시 읽는다.
+            // (성공 경로에서 전체 파일을 한 번 더 복사하지 않아 피크 메모리를 줄인다.)
+            let ab = await readVideoArrayBuffer(vItem);
             if (!ab || ab.byteLength === 0) return null;
 
             const AudioCtxCtor =
@@ -1230,7 +1239,7 @@ export async function stitchVideosWebCodecs({
               try {
                 const stdCtx = new AudioCtxCtor({ sampleRate: audioSampleRate });
                 const decoded = await Promise.race([
-                  stdCtx.decodeAudioData(ab.slice(0)),
+                  stdCtx.decodeAudioData(ab),
                   new Promise<null>((resolve) => setTimeout(() => resolve(null), 12000)),
                 ]);
                 void stdCtx.close().catch(() => {});
@@ -1238,11 +1247,13 @@ export async function stitchVideosWebCodecs({
               } catch (e1) {
                 console.warn(`[WebCodecs] 표준 AudioContext 디코딩 경고 (${vItem.name || vItem.id}):`, e1);
               }
+              ab = await readVideoArrayBuffer(vItem);
+              if (!ab || ab.byteLength === 0) return null;
             }
 
             // 2차: offlineAudioCtx로 시도
             try {
-              const decoded = await offlineAudioCtx.decodeAudioData(ab.slice(0));
+              const decoded = await offlineAudioCtx.decodeAudioData(ab);
               if (decoded && decoded.duration > 0) return decoded;
             } catch (e2) {
               console.warn(`[WebCodecs] OfflineAudioContext 디코딩 경고 (${vItem.name || vItem.id}):`, e2);
@@ -1326,17 +1337,19 @@ export async function stitchVideosWebCodecs({
         // 2) 배경음악 믹싱: 사용자 지정 오디오 파일 또는 BGM 프리셋
         if (customAudioFile) {
           try {
-            const ab = await customAudioFile.arrayBuffer();
+            let ab = await customAudioFile.arrayBuffer();
             let decoded: AudioBuffer | null = null;
             try {
-              decoded = await offlineAudioCtx.decodeAudioData(ab.slice(0));
+              decoded = await offlineAudioCtx.decodeAudioData(ab);
             } catch {
               const AudioCtxCtor =
                 window.AudioContext ||
                 (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
               if (AudioCtxCtor) {
+                // offline 디코딩 실패 시 버퍼가 detach되므로 파일에서 다시 읽는다.
+                ab = await customAudioFile.arrayBuffer();
                 const stdCtx = new AudioCtxCtor({ sampleRate: audioSampleRate });
-                decoded = await stdCtx.decodeAudioData(ab.slice(0));
+                decoded = await stdCtx.decodeAudioData(ab);
                 void stdCtx.close().catch(() => {});
               }
             }
@@ -1432,9 +1445,7 @@ export async function stitchVideosWebCodecs({
     videoEncoder.close();
 
     muxer.finalize();
-    const finalBuffer = muxerTarget.buffer;
-    const finalBlob = new Blob([finalBuffer], { type: 'video/mp4' });
-
+    const finalBlob = await exportTarget.finalize();
     if (finalBlob.size === 0) {
       throw new Error('WebCodecs로 생성된 비디오 파일의 크기가 0바이트입니다.');
     }

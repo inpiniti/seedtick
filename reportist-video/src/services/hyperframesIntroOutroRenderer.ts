@@ -3,10 +3,13 @@
 
 import gsap from 'gsap';
 import type { IntroTemplateId, OutroTemplateId, VideoOverlayOptions } from '../types/video.ts';
+import {
+  DEFAULT_INTRO_DURATION,
+  DEFAULT_OUTRO_DURATION,
+  HYPERFRAMES_FPS,
+} from './introOutroDefaults.ts';
 
-export const DEFAULT_INTRO_DURATION = 2.0;
-export const DEFAULT_OUTRO_DURATION = 2.2;
-export const HYPERFRAMES_FPS = 30;
+export { DEFAULT_INTRO_DURATION, DEFAULT_OUTRO_DURATION, HYPERFRAMES_FPS } from './introOutroDefaults.ts';
 
 export interface IntroGsapState {
   progress: number;

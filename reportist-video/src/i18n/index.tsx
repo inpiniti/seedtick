@@ -4,29 +4,20 @@ import type { Locale, Dictionary, LocaleInfo } from './types.ts';
 import { LOCALES } from './types.ts';
 import {
   LOCALE_STORAGE_KEY,
+  SUPPORTED_LOCALES,
   getRuntimeLocale,
   setRuntimeLocale,
 } from './localeState.ts';
 import { en } from './locales/en.ts';
-import { ko } from './locales/ko.ts';
-import { ja } from './locales/ja.ts';
-import { zh } from './locales/zh.ts';
-import { es } from './locales/es.ts';
-import { fr } from './locales/fr.ts';
-import { de } from './locales/de.ts';
+import {
+  getDictionaryWithFallback,
+  getLoadedDictionary,
+  loadLocaleDictionary,
+} from './dictionaries.ts';
 
 export * from './types.ts';
 export { DEFAULT_LOCALE } from './localeState.ts';
-
-export const DICTIONARIES: Record<Locale, Dictionary> = {
-  en,
-  ko,
-  ja,
-  zh,
-  es,
-  fr,
-  de,
-};
+export { loadLocaleDictionary } from './dictionaries.ts';
 
 /**
  * Helper to interpolate template string like "Total {count} videos" with { count: 5 }
@@ -56,8 +47,26 @@ function getInitialLocale(): Locale {
 
 export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [locale, setLocaleState] = useState<Locale>(getInitialLocale);
+  const [dict, setDict] = useState<Dictionary>(() => getDictionaryWithFallback(getInitialLocale()));
 
-  const dict = useMemo(() => DICTIONARIES[locale] || DICTIONARIES.en, [locale]);
+  // 로케일이 바뀌면 해당 사전 청크를 지연 로드한다. (en/ko는 즉시 사용 가능)
+  useEffect(() => {
+    if (getLoadedDictionary(locale)) {
+      setDict(getDictionaryWithFallback(locale));
+      return;
+    }
+    let cancelled = false;
+    loadLocaleDictionary(locale)
+      .then((dictionary) => {
+        if (!cancelled) setDict(dictionary);
+      })
+      .catch(() => {
+        if (!cancelled) setDict(getDictionaryWithFallback('en'));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [locale]);
 
   const currentLocaleInfo = useMemo(
     () => LOCALES.find((l) => l.code === locale) || LOCALES[0],
@@ -65,7 +74,7 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   const setLocale = useCallback((nextLocale: Locale) => {
-    if (nextLocale in DICTIONARIES) {
+    if ((SUPPORTED_LOCALES as readonly string[]).includes(nextLocale)) {
       setRuntimeLocale(nextLocale);
       setLocaleState(nextLocale);
       try {
@@ -103,7 +112,7 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
           current = current[part];
         } else {
           // Fallback to English if key missing
-          let fallback: any = DICTIONARIES.en;
+          let fallback: any = en;
           for (const fPart of parts) {
             if (fallback && typeof fallback === 'object' && fPart in fallback) {
               fallback = fallback[fPart];

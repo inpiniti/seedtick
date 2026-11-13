@@ -51,9 +51,6 @@ import {
   getStoredSubtitleTone,
   setStoredSubtitleTone,
 } from '../../services/subtitleRefineService.ts';
-import { VideoCommunityView } from '../community/VideoCommunityView.tsx';
-import { FeedbackModal } from '../feedback/FeedbackModal.tsx';
-import { PatchNotesModal } from '../patch/PatchNotesModal.tsx';
 import { QueueStatusCard, getQueueCopy } from '../queue/QueueStatusCard.tsx';
 import { StudioProjectListView } from './StudioProjectListView.tsx';
 import type { StudioProjectSummary } from '../../types/project.ts';
@@ -78,34 +75,66 @@ import {
 import {
   computeBridgeDurationMap,
   evaluateChapterBridge,
-  createHyperframesBridgeController,
-} from '../../services/hyperframesBridgeRenderer.ts';
+} from '../../services/chapterBridgeModel.ts';
+import type { createHyperframesBridgeController } from '../../services/hyperframesBridgeRenderer.ts';
 import {
   COMPOSITOR_WIDTH,
   COMPOSITOR_HEIGHT,
   drawCompositorCoverFrame,
   drawCompositorSegmentOverlay,
-  drawCompositorIntroFrame,
-  drawCompositorOutroFrame,
-} from '../../services/previewCompositor.ts';
+} from '../../services/previewCompositorBase.ts';
 import { playBgmSynthLoop } from '../../services/audioSynth.ts';
-import { ModelSelectorModal } from './ModelSelectorModal.tsx';
-import { VideoListModal } from './VideoListModal.tsx';
-import { LanguageSelectorModal } from './LanguageSelectorModal.tsx';
-import { AudioLibraryModal } from './AudioLibraryModal.tsx';
-import { MobileSettingsModal } from './MobileSettingsModal.tsx';
-import { DateFormatSelectorModal } from './DateFormatSelectorModal.tsx';
-import { SubtitleDownloadModal } from './SubtitleDownloadModal.tsx';
-import { VideoExportModal } from './VideoExportModal.tsx';
-import { SegmentTrimModal } from './SegmentTrimModal.tsx';
-import { SegmentBridgeModal } from './SegmentBridgeModal.tsx';
+
+// 모달은 사용자가 열 때만 청크를 내려받도록 지연 로딩한다. (초기 번들 절감)
+const ModelSelectorModal = React.lazy(() =>
+  import('./ModelSelectorModal.tsx').then((m) => ({ default: m.ModelSelectorModal }))
+);
+const VideoListModal = React.lazy(() =>
+  import('./VideoListModal.tsx').then((m) => ({ default: m.VideoListModal }))
+);
+const LanguageSelectorModal = React.lazy(() =>
+  import('./LanguageSelectorModal.tsx').then((m) => ({ default: m.LanguageSelectorModal }))
+);
+const AudioLibraryModal = React.lazy(() =>
+  import('./AudioLibraryModal.tsx').then((m) => ({ default: m.AudioLibraryModal }))
+);
+const MobileSettingsModal = React.lazy(() =>
+  import('./MobileSettingsModal.tsx').then((m) => ({ default: m.MobileSettingsModal }))
+);
+const DateFormatSelectorModal = React.lazy(() =>
+  import('./DateFormatSelectorModal.tsx').then((m) => ({ default: m.DateFormatSelectorModal }))
+);
+const SubtitleDownloadModal = React.lazy(() =>
+  import('./SubtitleDownloadModal.tsx').then((m) => ({ default: m.SubtitleDownloadModal }))
+);
+const VideoExportModal = React.lazy(() =>
+  import('./VideoExportModal.tsx').then((m) => ({ default: m.VideoExportModal }))
+);
+const SegmentTrimModal = React.lazy(() =>
+  import('./SegmentTrimModal.tsx').then((m) => ({ default: m.SegmentTrimModal }))
+);
+const SegmentBridgeModal = React.lazy(() =>
+  import('./SegmentBridgeModal.tsx').then((m) => ({ default: m.SegmentBridgeModal }))
+);
+const FeedbackModal = React.lazy(() =>
+  import('../feedback/FeedbackModal.tsx').then((m) => ({ default: m.FeedbackModal }))
+);
+const PatchNotesModal = React.lazy(() =>
+  import('../patch/PatchNotesModal.tsx').then((m) => ({ default: m.PatchNotesModal }))
+);
+const IntroOutroPreviewModal = React.lazy(() =>
+  import('./IntroOutroPreviewModal.tsx').then((m) => ({ default: m.IntroOutroPreviewModal }))
+);
+// 커뮤니티 탭은 기본 탭이 아니므로 열 때만 청크를 내려받는다.
+const VideoCommunityView = React.lazy(() =>
+  import('../community/VideoCommunityView.tsx').then((m) => ({ default: m.VideoCommunityView }))
+);
 import {
-  IntroOutroPreviewModal,
   INTRO_TEMPLATE_OPTIONS,
   OUTRO_TEMPLATE_OPTIONS,
   INTRO_DURATIONS,
   OUTRO_DURATIONS,
-} from './IntroOutroPreviewModal.tsx';
+} from './introOutroOptions.ts';
 import {
   getStoredIntroOutroDefaults,
   setStoredShowIntro,
@@ -1633,6 +1662,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     key: string;
     ctrl: ReturnType<typeof createHyperframesBridgeController>;
   } | null>(null);
+  // GSAP 기반 프리뷰 렌더러(인트로/아웃트로, 챕터 브리지)는 해당 구간에 진입할 때만 지연 로딩한다.
+  const previewIntroOutroRef = useRef<typeof import('../../services/previewCompositorIntroOutro.ts') | null>(null);
+  const previewIntroOutroLoadingRef = useRef(false);
+  const bridgeRendererRef = useRef<typeof import('../../services/hyperframesBridgeRenderer.ts') | null>(null);
+  const bridgeRendererLoadingRef = useRef(false);
+  const [previewRendererReady, setPreviewRendererReady] = useState(false);
 
   // 실시간 배경음악(BGM) 오디오 엘리먼트 / Web Audio GainNode / 프리셋 신스 루프
   const bgmAudioElRef = useRef<HTMLAudioElement | null>(null);
@@ -2256,6 +2291,39 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   };
 
+  // GSAP 기반 렌더러는 프리뷰에서 실제로 필요한 순간에만 로드한다.
+  const ensurePreviewIntroOutroRenderer = () => {
+    if (previewIntroOutroRef.current || previewIntroOutroLoadingRef.current) return;
+    previewIntroOutroLoadingRef.current = true;
+    void import('../../services/previewCompositorIntroOutro.ts')
+      .then((mod) => {
+        previewIntroOutroRef.current = mod;
+        setPreviewRendererReady((v) => !v);
+      })
+      .catch((err) => {
+        console.warn('[ProStudioView] 인트로/아웃트로 프리뷰 렌더러 로드 실패:', err);
+      })
+      .finally(() => {
+        previewIntroOutroLoadingRef.current = false;
+      });
+  };
+
+  const ensureBridgeRenderer = () => {
+    if (bridgeRendererRef.current || bridgeRendererLoadingRef.current) return;
+    bridgeRendererLoadingRef.current = true;
+    void import('../../services/hyperframesBridgeRenderer.ts')
+      .then((mod) => {
+        bridgeRendererRef.current = mod;
+        setPreviewRendererReady((v) => !v);
+      })
+      .catch((err) => {
+        console.warn('[ProStudioView] 챕터 브리지 렌더러 로드 실패:', err);
+      })
+      .finally(() => {
+        bridgeRendererLoadingRef.current = false;
+      });
+  };
+
   // 1280x720 WYSIWYG 캔버스 컴포지터 렌더링 (Export 결과물과 100% 동일한 프리뷰)
   const renderCompositorAt = (timelineTime: number) => {
     const canvas = previewCanvasRef.current;
@@ -2289,7 +2357,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       }
 
       const prog = res.duration > 0 ? res.elapsed / res.duration : 0;
-      drawCompositorIntroFrame(
+      const introOutro = previewIntroOutroRef.current;
+      if (!introOutro) {
+        ensurePreviewIntroOutroRenderer();
+        ctx.fillStyle = '#0a0a0a';
+        ctx.fillRect(0, 0, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
+        return;
+      }
+      introOutro.drawCompositorIntroFrame(
         ctx,
         prog,
         effectiveOverlayOptions,
@@ -2322,7 +2397,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       }
 
       const prog = res.duration > 0 ? res.elapsed / res.duration : 0;
-      drawCompositorOutroFrame(
+      const introOutro = previewIntroOutroRef.current;
+      if (!introOutro) {
+        ensurePreviewIntroOutroRenderer();
+        ctx.fillStyle = '#0a0a0a';
+        ctx.fillRect(0, 0, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
+        return;
+      }
+      introOutro.drawCompositorOutroFrame(
         ctx,
         prog,
         effectiveOverlayOptions,
@@ -2343,15 +2425,26 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         effectiveOverlayOptions
       );
       const cacheKey = `${seg.id}|${bridgeInfo.fromDate}|${bridgeInfo.toDate}|${bridgeInfo.fromLocation}|${bridgeInfo.toLocation}|${res.duration}`;
+      const vItem = videoMap.get(seg.sourceVideoId) || videos[0];
+
+      const bridgeRenderer = bridgeRendererRef.current;
+      if (!bridgeRenderer) {
+        ensureBridgeRenderer();
+        const drawFallbackFrame =
+          v && v.readyState >= 2
+            ? () => drawCompositorCoverFrame(ctx, v, vItem, seg, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT)
+            : undefined;
+        drawFallbackFrame?.();
+        return;
+      }
 
       if (!bridgePreviewCacheRef.current || bridgePreviewCacheRef.current.key !== cacheKey) {
         bridgePreviewCacheRef.current?.ctrl.dispose();
         bridgePreviewCacheRef.current = {
           key: cacheKey,
-          ctrl: createHyperframesBridgeController(res.duration),
+          ctrl: bridgeRenderer.createHyperframesBridgeController(res.duration),
         };
       }
-      const vItem = videoMap.get(seg.sourceVideoId) || videos[0];
       const drawNextFrame =
         v && v.readyState >= 2
           ? () => drawCompositorCoverFrame(ctx, v, vItem, seg, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT)
@@ -2406,6 +2499,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     outroDuration,
     effectiveBridgeDurationMap,
     previewVideoId,
+    previewRendererReady,
   ]);
 
   // 씬별 자막/날짜/위치 수정 핸들러
@@ -3873,15 +3967,23 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
       {/* 2. 본문: 영상 공유 커뮤니티 또는 스튜디오 프로젝트 목록 또는 스튜디오 상세 2열 레이아웃 */}
       {activeTab === 'community' ? (
-        <VideoCommunityView
-          onOpenStudio={() => {
-            if (videos.length > 0 || result) {
-              navigateToTab('studio');
-            } else {
-              navigateToTab('projects');
-            }
-          }}
-        />
+        <React.Suspense
+          fallback={
+            <div className="app-lazy-section">
+              <div className="app-lazy-spinner" />
+            </div>
+          }
+        >
+          <VideoCommunityView
+            onOpenStudio={() => {
+              if (videos.length > 0 || result) {
+                navigateToTab('studio');
+              } else {
+                navigateToTab('projects');
+              }
+            }}
+          />
+        </React.Suspense>
       ) : activeTab === 'projects' ? (
         <StudioProjectListView
           projects={projectSummaries}
@@ -6532,45 +6634,63 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       )}
 
       {/* 6. AI 모델 선택 모달 */}
-      <ModelSelectorModal
-        isOpen={isModelModalOpen}
-        onClose={() => setIsModelModalOpen(false)}
-        models={models}
-        selectedModelId={selectedModel}
-        onSelectModel={onSelectModel}
-      />
+      {isModelModalOpen && (
+        <React.Suspense fallback={null}>
+          <ModelSelectorModal
+            isOpen={isModelModalOpen}
+            onClose={() => setIsModelModalOpen(false)}
+            models={models}
+            selectedModelId={selectedModel}
+            onSelectModel={onSelectModel}
+          />
+        </React.Suspense>
+      )}
 
       {/* 7. 올린 원본 영상 목록 모달 */}
-      <VideoListModal
-        isOpen={isVideoListModalOpen}
-        onClose={() => setIsVideoListModalOpen(false)}
-        videos={videos}
-        onRemoveVideo={onRemoveVideo}
-        onAddFilesClick={() => {
-          setIsVideoListModalOpen(false);
-          fileInputRef.current?.click();
-        }}
-        onFilesSelected={onFilesSelected}
-        onRelinkVideo={onRelinkVideo}
-        onRelinkBatch={onRelinkBatch}
-      />
+      {isVideoListModalOpen && (
+        <React.Suspense fallback={null}>
+          <VideoListModal
+            isOpen={isVideoListModalOpen}
+            onClose={() => setIsVideoListModalOpen(false)}
+            videos={videos}
+            onRemoveVideo={onRemoveVideo}
+            onAddFilesClick={() => {
+              setIsVideoListModalOpen(false);
+              fileInputRef.current?.click();
+            }}
+            onFilesSelected={onFilesSelected}
+            onRelinkVideo={onRelinkVideo}
+            onRelinkBatch={onRelinkBatch}
+          />
+        </React.Suspense>
+      )}
 
       {/* 8. 다국어 언어 선택 모달 (ModelSelectorModal과 동일한 팝업 UI) */}
-      <LanguageSelectorModal
-        isOpen={isLanguageModalOpen}
-        onClose={() => setIsLanguageModalOpen(false)}
-      />
+      {isLanguageModalOpen && (
+        <React.Suspense fallback={null}>
+          <LanguageSelectorModal
+            isOpen={isLanguageModalOpen}
+            onClose={() => setIsLanguageModalOpen(false)}
+          />
+        </React.Suspense>
+      )}
 
       {/* 9. 오디오 보관함 모달 */}
-      <AudioLibraryModal
-        isOpen={isAudioLibraryOpen}
-        onClose={() => setIsAudioLibraryOpen(false)}
-        selectedTrackId={selectedLibraryTrackId}
-        hasAppliedAudio={Boolean(customAudioFile)}
-        onApply={handleApplyLibraryAudio}
-      />
+      {isAudioLibraryOpen && (
+        <React.Suspense fallback={null}>
+          <AudioLibraryModal
+            isOpen={isAudioLibraryOpen}
+            onClose={() => setIsAudioLibraryOpen(false)}
+            selectedTrackId={selectedLibraryTrackId}
+            hasAppliedAudio={Boolean(customAudioFile)}
+            onApply={handleApplyLibraryAudio}
+          />
+        </React.Suspense>
+      )}
 
       {/* 10. 스튜디오 설정 모달 (AI 모델, 언어, 날짜 표기, 아이 나이, 초기화 등) */}
+      {isSettingsModalOpen && (
+      <React.Suspense fallback={null}>
       <MobileSettingsModal
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
@@ -6653,101 +6773,133 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         selectedResolution={exportResolution}
         onSelectResolution={setExportResolution}
       />
+      </React.Suspense>
+      )}
 
       {/* 11. 촬영 날짜 포맷 선택 모달 */}
-      <DateFormatSelectorModal
-        isOpen={isDateFormatModalOpen}
-        onClose={() => setIsDateFormatModalOpen(false)}
-        currentFormat={currentDateFormat}
-        onSelectFormat={handleSelectDateFormat}
-        referenceDate={videos[0]?.recordedTimestamp ? new Date(videos[0].recordedTimestamp) : undefined}
-      />
+      {isDateFormatModalOpen && (
+        <React.Suspense fallback={null}>
+          <DateFormatSelectorModal
+            isOpen={isDateFormatModalOpen}
+            onClose={() => setIsDateFormatModalOpen(false)}
+            currentFormat={currentDateFormat}
+            onSelectFormat={handleSelectDateFormat}
+            referenceDate={videos[0]?.recordedTimestamp ? new Date(videos[0].recordedTimestamp) : undefined}
+          />
+        </React.Suspense>
+      )}
 
       {/* 12. 유튜브 호환 다국어 자막 다운로드 모달 */}
-      <SubtitleDownloadModal
-        isOpen={isSubtitleModalOpen}
-        onClose={() => setIsSubtitleModalOpen(false)}
-        segments={segments}
-        introDuration={introDuration}
-        bridgeDurationMap={effectiveBridgeDurationMap}
-        videoTitle={overlayOptions.titleText || result?.suggestedTitle || 'highlight'}
-      />
+      {isSubtitleModalOpen && (
+        <React.Suspense fallback={null}>
+          <SubtitleDownloadModal
+            isOpen={isSubtitleModalOpen}
+            onClose={() => setIsSubtitleModalOpen(false)}
+            segments={segments}
+            introDuration={introDuration}
+            bridgeDurationMap={effectiveBridgeDurationMap}
+            videoTitle={overlayOptions.titleText || result?.suggestedTitle || 'highlight'}
+          />
+        </React.Suspense>
+      )}
 
       {/* 12-1. 완성 영상 해상도 선택 및 내보내기 모달 */}
-      <VideoExportModal
-        isOpen={isExportModalOpen}
-        onClose={() => setIsExportModalOpen(false)}
-        currentResolution={exportResolution}
-        onConfirmDownload={(res) => {
-          setExportResolution(res);
-          void handleDownload(res);
-        }}
-        totalDurationText={formatSec(totalDuration)}
-        segmentCount={segments.length}
-        isMobileDevice={isMobileDevice}
-      />
+      {isExportModalOpen && (
+        <React.Suspense fallback={null}>
+          <VideoExportModal
+            isOpen={isExportModalOpen}
+            onClose={() => setIsExportModalOpen(false)}
+            currentResolution={exportResolution}
+            onConfirmDownload={(res) => {
+              setExportResolution(res);
+              void handleDownload(res);
+            }}
+            totalDurationText={formatSec(totalDuration)}
+            segmentCount={segments.length}
+            isMobileDevice={isMobileDevice}
+          />
+        </React.Suspense>
+      )}
 
       {/* 12-2. 클립 구간 세밀 편집 모달 (원본 비디오 확인 & 조절) */}
-      <SegmentTrimModal
-        isOpen={Boolean(trimModalTarget)}
-        onClose={() => setTrimModalTarget(null)}
-        segment={trimModalTarget}
-        sourceVideo={trimModalTarget ? videoMap.get(trimModalTarget.sourceVideoId) : undefined}
-        onSave={handleSaveTrimRange}
-      />
+      {Boolean(trimModalTarget) && (
+        <React.Suspense fallback={null}>
+          <SegmentTrimModal
+            isOpen={Boolean(trimModalTarget)}
+            onClose={() => setTrimModalTarget(null)}
+            segment={trimModalTarget}
+            sourceVideo={trimModalTarget ? videoMap.get(trimModalTarget.sourceVideoId) : undefined}
+            onSave={handleSaveTrimRange}
+          />
+        </React.Suspense>
+      )}
 
       {/* 12-2B. 클립 챕터 브릿지 개별 변경 모달 */}
       {editingBridgeIndex !== null && segments[editingBridgeIndex] && (
-        <SegmentBridgeModal
-          isOpen={true}
-          onClose={() => setEditingBridgeIndex(null)}
-          segment={segments[editingBridgeIndex]}
-          segmentIndex={editingBridgeIndex}
-          defaultDateTemplate={overlayOptions.chapterBridgeDateTemplate || 'flip-clock'}
-          defaultLocationTemplate={overlayOptions.chapterBridgeLocationTemplate || 'winding-route'}
-          onSave={(updatedSegment) => {
-            setSegments((prev) =>
-              prev.map((s, idx) => (idx === editingBridgeIndex ? updatedSegment : s))
-            );
-            notify.success(dict.toasts.segmentBridgeUpdated);
-          }}
-        />
+        <React.Suspense fallback={null}>
+          <SegmentBridgeModal
+            isOpen={true}
+            onClose={() => setEditingBridgeIndex(null)}
+            segment={segments[editingBridgeIndex]}
+            segmentIndex={editingBridgeIndex}
+            defaultDateTemplate={overlayOptions.chapterBridgeDateTemplate || 'flip-clock'}
+            defaultLocationTemplate={overlayOptions.chapterBridgeLocationTemplate || 'winding-route'}
+            onSave={(updatedSegment) => {
+              setSegments((prev) =>
+                prev.map((s, idx) => (idx === editingBridgeIndex ? updatedSegment : s))
+              );
+              notify.success(dict.toasts.segmentBridgeUpdated);
+            }}
+          />
+        </React.Suspense>
       )}
 
       {/* 12-3. 피드백 & 개선 요청 모달 (설정 메뉴에서 진입) */}
-      <FeedbackModal
-        isOpen={isFeedbackModalOpen}
-        onClose={() => setIsFeedbackModalOpen(false)}
-      />
+      {isFeedbackModalOpen && (
+        <React.Suspense fallback={null}>
+          <FeedbackModal
+            isOpen={isFeedbackModalOpen}
+            onClose={() => setIsFeedbackModalOpen(false)}
+          />
+        </React.Suspense>
+      )}
 
       {/* 12-4. 패치 노트 모달 (설정 메뉴에서 진입) */}
-      <PatchNotesModal
-        isOpen={isPatchNotesModalOpen}
-        onClose={() => setIsPatchNotesModalOpen(false)}
-      />
+      {isPatchNotesModalOpen && (
+        <React.Suspense fallback={null}>
+          <PatchNotesModal
+            isOpen={isPatchNotesModalOpen}
+            onClose={() => setIsPatchNotesModalOpen(false)}
+          />
+        </React.Suspense>
+      )}
 
       {/* 12-5. HyperFrames 인트로 & 아웃트로 실시간 미리보기 모달 */}
-      <IntroOutroPreviewModal
-        isOpen={isIntroOutroModalOpen}
-        onClose={() => setIsIntroOutroModalOpen(false)}
-        initialTab={introOutroModalTab}
-        initialIntroTemplate={overlayOptions.introTemplate || 'kinetic-slide'}
-        initialIntroDuration={overlayOptions.introDurationSec || 2.0}
-        initialOutroTemplate={overlayOptions.outroTemplate || 'modern-endcard'}
-        initialOutroDuration={overlayOptions.outroDurationSec || 2.2}
-        initialOutroText={overlayOptions.outroText}
-        mockTitle={overlayOptions.titleText || result?.suggestedTitle}
-        mockDate={overlayOptions.subtitleDateText}
-        mockLocation={overlayOptions.subtitleLocationText}
-        onApply={(settings) => {
-          setStoredIntroOutroDefaults(settings);
-          setOverlayOptions((prev) => ({
-            ...prev,
-            ...settings,
-          }));
-          notify.success(dict.toasts.introOutroDefaultsApplied);
-        }}
-      />
+      {isIntroOutroModalOpen && (
+        <React.Suspense fallback={null}>
+          <IntroOutroPreviewModal
+            isOpen={isIntroOutroModalOpen}
+            onClose={() => setIsIntroOutroModalOpen(false)}
+            initialTab={introOutroModalTab}
+            initialIntroTemplate={overlayOptions.introTemplate || 'kinetic-slide'}
+            initialIntroDuration={overlayOptions.introDurationSec || 2.0}
+            initialOutroTemplate={overlayOptions.outroTemplate || 'modern-endcard'}
+            initialOutroDuration={overlayOptions.outroDurationSec || 2.2}
+            initialOutroText={overlayOptions.outroText}
+            mockTitle={overlayOptions.titleText || result?.suggestedTitle}
+            mockDate={overlayOptions.subtitleDateText}
+            mockLocation={overlayOptions.subtitleLocationText}
+            onApply={(settings) => {
+              setStoredIntroOutroDefaults(settings);
+              setOverlayOptions((prev) => ({
+                ...prev,
+                ...settings,
+              }));
+              notify.success(dict.toasts.introOutroDefaultsApplied);
+            }}
+          />
+        </React.Suspense>
+      )}
 
       {/* 13. 화면 하단 고정 슬림 상태바 (자동 저장 상태 + 시간 절약률 요약) */}
       {activeTab === 'studio' && (
