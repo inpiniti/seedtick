@@ -61,7 +61,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     name: 'Google Gemini',
     shortName: 'Gemini',
     badge: 'Gemini 4 / 3.8',
-    color: '#2563eb',
+    color: '#0f172a',
     defaultModel: 'gemini-4-carbon',
     recommendedModels: [
       { id: 'gemini-4-carbon', name: 'Gemini 4 Carbon (high)', desc: '구글 최상위 비전 플래그십 (Score 60, 기본값)' },
@@ -83,7 +83,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     name: 'Muse (Meta)',
     shortName: 'Muse',
     badge: 'Muse Wonder',
-    color: '#0284c7',
+    color: '#1e293b',
     defaultModel: 'muse-wonder-full',
     recommendedModels: [
       { id: 'muse-wonder-full', name: 'Muse Wonder Full (max)', desc: 'Meta 차세대 플래그십 (Score 50, 기본값)' },
@@ -104,7 +104,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     name: 'Kimi (Moonshot AI)',
     shortName: 'Kimi',
     badge: 'Kimi K3.1',
-    color: '#7c3aed',
+    color: '#0f172a',
     defaultModel: 'kimi-k3.1-pro',
     recommendedModels: [
       { id: 'kimi-k3.1-pro', name: 'Kimi K3.1 Pro', desc: '초장문 컨텍스트 & 시퀀스 분석 (Score 46, 기본값)' },
@@ -136,7 +136,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     name: 'DeepSeek',
     shortName: 'DeepSeek',
     badge: 'DeepSeek V4.1',
-    color: '#0284c7',
+    color: '#1e293b',
     defaultModel: 'deepseek-v4.1-flash',
     recommendedModels: [
       { id: 'deepseek-v4.1-flash', name: 'DeepSeek V4.1 Flash 1017 (max)', desc: '차세대 초고속 플래그십 (Score 33, 기본값)' },
@@ -198,7 +198,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     name: 'OpenRouter (올인원)',
     shortName: 'OpenRouter',
     badge: 'All-in-One',
-    color: '#6366f1',
+    color: '#1e293b',
     defaultModel: 'anthropic/claude-sonnet-5.5',
     recommendedModels: [
       { id: 'anthropic/claude-fable-5.2', name: 'Anthropic: Claude Fable 5.2', desc: '벤치마크 1위 (Score 65)' },

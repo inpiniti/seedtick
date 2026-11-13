@@ -179,7 +179,7 @@ export const VideoListModal: React.FC<VideoListModalProps> = ({
           {videos.length === 0 ? (
             <div className="toss-video-modal-empty" onClick={onAddFilesClick}>
               <div className="toss-empty-circle-icon">
-                <Upload size={24} className="text-blue-500" />
+                <Upload size={24} className="text-slate-900" />
               </div>
               <h4 className="text-sm font-bold text-slate-800 mb-1">
                 {dict.videoListModal.emptyTitle}

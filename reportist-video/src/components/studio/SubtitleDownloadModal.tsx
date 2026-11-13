@@ -255,7 +255,7 @@ export const SubtitleDownloadModal: React.FC<SubtitleDownloadModalProps> = ({
           <div className="subtitle-lang-section">
             <div className="subtitle-section-header">
               <span className="subtitle-section-title">
-                <Globe size={15} className="text-blue-600" />
+                <Globe size={15} className="text-slate-900" />
                 <span>{dict.subtitleDownload?.selectLanguage || '다운로드할 언어 선택'}</span>
               </span>
               <span className="subtitle-youtube-badge">
@@ -301,7 +301,7 @@ export const SubtitleDownloadModal: React.FC<SubtitleDownloadModalProps> = ({
               <div className="flex items-center gap-2">
                 {isTranslating && (
                   <span className="subtitle-translating-badge">
-                    <Loader2 size={12} className="animate-spin text-blue-600" />
+                    <Loader2 size={12} className="animate-spin text-slate-900" />
                     <span>{dict.subtitleDownload?.translating || '번역 중...'}</span>
                   </span>
                 )}
@@ -370,7 +370,7 @@ export const SubtitleDownloadModal: React.FC<SubtitleDownloadModalProps> = ({
 
             {/* YouTube Guide Tip */}
             <div className="subtitle-guide-tip">
-              <Sparkles size={14} className="text-blue-500 shrink-0 mt-0.5" />
+              <Sparkles size={14} className="text-slate-900 shrink-0 mt-0.5" />
               <div className="text-xs text-slate-600 leading-relaxed">
                 {dict.subtitleDownload?.youtubeNotice || (
                   <>

@@ -355,16 +355,16 @@ function drawKineticSlideIntro(
   const cx = w / 2;
   const cy = h / 2;
   const grad = ctx.createRadialGradient(cx, cy, 40 * scale, cx, cy, 540 * scale);
-  grad.addColorStop(0, `rgba(37, 99, 235, ${(0.32 * state.glowIntensity).toFixed(3)})`);
+  grad.addColorStop(0, `rgba(203, 213, 225, ${(0.22 * state.glowIntensity).toFixed(3)})`);
   grad.addColorStop(0.55, `rgba(15, 23, 42, 0.85)`);
-  grad.addColorStop(1, '#050811');
+  grad.addColorStop(1, '#050505');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, h);
 
   // 미세한 모던 테크 도트 그리드
   ctx.save();
   ctx.globalAlpha = 0.12 * state.glowIntensity;
-  ctx.fillStyle = '#93c5fd';
+  ctx.fillStyle = '#cbd5e1';
   const dotStep = Math.round(48 * scale);
   for (let x = dotStep / 2; x < w; x += dotStep) {
     for (let y = dotStep / 2; y < h; y += dotStep) {
@@ -383,7 +383,7 @@ function drawKineticSlideIntro(
   ctx.scale(state.titleScale, state.titleScale);
 
   // 글로우 그림자
-  ctx.shadowColor = 'rgba(59, 130, 246, 0.75)';
+  ctx.shadowColor = 'rgba(203, 213, 225, 0.55)';
   ctx.shadowBlur = Math.round(28 * scale * state.glowIntensity);
 
   ctx.fillStyle = '#ffffff';
@@ -396,7 +396,7 @@ function drawKineticSlideIntro(
   const titleMetrics = ctx.measureText(title);
   const barW = Math.min(w * 0.6, titleMetrics.width * 0.85);
   ctx.shadowBlur = 0;
-  ctx.fillStyle = '#38bdf8';
+  ctx.fillStyle = '#cbd5e1';
   ctx.fillRect(-barW / 2, -Math.round(36 * scale), barW, Math.max(2, 3 * scale));
   ctx.restore();
 
@@ -435,7 +435,7 @@ function drawKineticSlideIntro(
     ctx.fill();
     ctx.stroke();
 
-    ctx.fillStyle = '#bae6fd';
+    ctx.fillStyle = '#e2e8f0';
     ctx.fillText(metaStr, cx, metaY);
     ctx.restore();
   }
@@ -453,7 +453,7 @@ function drawSplitFlapIntro(
   scale: number
 ) {
   // 다크 보드 배경
-  ctx.fillStyle = '#090b10';
+  ctx.fillStyle = '#090909';
   ctx.fillRect(0, 0, w, h);
 
   const cx = w / 2;
@@ -485,8 +485,8 @@ function drawSplitFlapIntro(
     const tileTop = y - tileH / 2;
     const halfH = tileH / 2;
 
-    ctx.fillStyle = '#141722';
-    ctx.strokeStyle = '#2d3748';
+    ctx.fillStyle = '#141414';
+    ctx.strokeStyle = '#2d2d2d';
     ctx.lineWidth = 1;
     ctx.beginPath();
     if (typeof ctx.roundRect === 'function') {
@@ -498,7 +498,7 @@ function drawSplitFlapIntro(
     ctx.stroke();
 
     // 중간 분할선
-    ctx.fillStyle = '#05070a';
+    ctx.fillStyle = '#050505';
     ctx.fillRect(tileLeft, y - 1, tileW, 2);
 
     // 표시 글자 (플립 중에는 랜덤 아스키 거치다가 완성)
@@ -558,8 +558,8 @@ function drawCinematicLetterboxIntro(
   const cx = w / 2;
   const cy = h / 2;
 
-  // 배경 딥 시네마틱 블루
-  ctx.fillStyle = '#030712';
+  // 배경 딥 시네마틱 블랙
+  ctx.fillStyle = '#030303';
   ctx.fillRect(0, 0, w, h);
 
   // 아나모픽 수평 렌즈 플레어 라인
@@ -568,9 +568,9 @@ function drawCinematicLetterboxIntro(
     ctx.globalAlpha = state.flareAlpha;
     const flareY = cy;
     const flareGrad = ctx.createLinearGradient(0, flareY, w, flareY);
-    flareGrad.addColorStop(0, 'rgba(56, 189, 248, 0)');
-    flareGrad.addColorStop(0.5, 'rgba(56, 189, 248, 0.85)');
-    flareGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+    flareGrad.addColorStop(0, 'rgba(203, 213, 225, 0)');
+    flareGrad.addColorStop(0.5, 'rgba(203, 213, 225, 0.85)');
+    flareGrad.addColorStop(1, 'rgba(203, 213, 225, 0)');
 
     ctx.fillStyle = flareGrad;
     ctx.fillRect(0, flareY - 1.5 * scale, w, 3 * scale);
@@ -579,8 +579,8 @@ function drawCinematicLetterboxIntro(
     const spotX = w * state.flareXRatio;
     const spotGrad = ctx.createRadialGradient(spotX, flareY, 0, spotX, flareY, 120 * scale);
     spotGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
-    spotGrad.addColorStop(0.4, 'rgba(56, 189, 248, 0.5)');
-    spotGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+    spotGrad.addColorStop(0.4, 'rgba(203, 213, 225, 0.5)');
+    spotGrad.addColorStop(1, 'rgba(203, 213, 225, 0)');
     ctx.fillStyle = spotGrad;
     ctx.beginPath();
     ctx.arc(spotX, flareY, 120 * scale, 0, Math.PI * 2);
@@ -611,7 +611,7 @@ function drawCinematicLetterboxIntro(
   // 하단 얇은 디바이더 및 채널명
   if (state.metaAlpha > 0.01) {
     ctx.globalAlpha = state.metaAlpha;
-    ctx.fillStyle = '#38bdf8';
+    ctx.fillStyle = '#cbd5e1';
     ctx.font = `bold ${Math.round(14 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
     const ch = (options?.channelText || 'REPORTIST CINEMA').toUpperCase();
     ctx.fillText(ch, 0, 48 * scale);
@@ -634,7 +634,7 @@ function drawFilmCountdownIntro(
   const cy = h / 2;
 
   // 필름 베이스 그레이
-  ctx.fillStyle = '#111318';
+  ctx.fillStyle = '#111111';
   ctx.fillRect(0, 0, w, h);
 
   if (state.shutterProgress < 0.95) {
@@ -717,7 +717,7 @@ function drawModernEndcardOutro(
   scale: number
 ) {
   // 비네트 다크 배경
-  ctx.fillStyle = '#070a12';
+  ctx.fillStyle = '#070707';
   ctx.fillRect(0, 0, w, h);
 
   const cx = w / 2;
@@ -730,7 +730,7 @@ function drawModernEndcardOutro(
   // 채널 펄스 링
   if (state.pulseRadius > 0) {
     const pulseR = (46 + state.pulseRadius * 24) * scale;
-    ctx.strokeStyle = `rgba(59, 130, 246, ${(0.45 * (1 - state.pulseRadius)).toFixed(3)})`;
+    ctx.strokeStyle = `rgba(203, 213, 225, ${(0.45 * (1 - state.pulseRadius)).toFixed(3)})`;
     ctx.lineWidth = 2 * scale;
     ctx.beginPath();
     ctx.arc(leftX, cy - 36 * scale, pulseR, 0, Math.PI * 2);
@@ -740,7 +740,7 @@ function drawModernEndcardOutro(
   // 채널 원형 배지
   ctx.globalAlpha = state.channelAlpha;
   ctx.fillStyle = '#1e293b';
-  ctx.strokeStyle = '#3b82f6';
+  ctx.strokeStyle = '#cbd5e1';
   ctx.lineWidth = 3 * scale;
   ctx.beginPath();
   ctx.arc(leftX, cy - 36 * scale, 42 * scale, 0, Math.PI * 2);
@@ -764,7 +764,7 @@ function drawModernEndcardOutro(
   ctx.fillText(outroMsg, leftX, cy + 38 * scale);
 
   // 채널명 서브
-  ctx.fillStyle = '#60a5fa';
+  ctx.fillStyle = '#94a3b8';
   ctx.font = `600 ${Math.round(18 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
   ctx.fillText(ch, leftX, cy + 72 * scale);
   ctx.restore();
@@ -813,7 +813,7 @@ function drawMinimalFadeOutro(
   h: number,
   scale: number
 ) {
-  ctx.fillStyle = '#030509';
+  ctx.fillStyle = '#030303';
   ctx.fillRect(0, 0, w, h);
 
   const cx = w / 2;
@@ -832,7 +832,7 @@ function drawMinimalFadeOutro(
 
   if (options?.channelText && state.channelAlpha > 0.01) {
     ctx.globalAlpha = state.channelAlpha;
-    ctx.fillStyle = '#38bdf8';
+    ctx.fillStyle = '#cbd5e1';
     ctx.font = `bold ${Math.round(20 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
     ctx.fillText(options.channelText, cx, cy + 30 * scale);
   }
@@ -850,14 +850,14 @@ function drawCurtainSplitOutro(
   h: number,
   scale: number
 ) {
-  ctx.fillStyle = '#05070f';
+  ctx.fillStyle = '#050505';
   ctx.fillRect(0, 0, w, h);
 
   // 5단 사선 루버 블라인드가 닫히는 비주얼
   const sliceCount = 5;
   const sliceH = h / sliceCount;
   ctx.save();
-  ctx.fillStyle = '#0d1322';
+  ctx.fillStyle = '#0d0d0d';
   for (let i = 0; i < sliceCount; i++) {
     const y = i * sliceH;
     const offset = Math.min(1, state.louverClose * 1.3 - i * 0.06);
@@ -882,7 +882,7 @@ function drawCurtainSplitOutro(
     ctx.fillText(outroMsg, cx, cy - 16 * scale);
 
     if (options?.channelText) {
-      ctx.fillStyle = '#60a5fa';
+      ctx.fillStyle = '#94a3b8';
       ctx.font = `bold ${Math.round(20 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
       ctx.fillText(options.channelText, cx, cy + 28 * scale);
     }

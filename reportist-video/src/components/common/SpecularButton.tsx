@@ -260,7 +260,7 @@ export const SpecularButton: React.FC<SpecularButtonProps> = ({
 
   const isBrand = theme === 'brand' || variant === 'primary' || variant === 'brand';
   const effectiveLineColor = specularColor || (isBrand ? '#ffffff' : lineColor);
-  const effectiveBaseColor = glowColor || (isBrand ? '#3182f6' : baseColor);
+  const effectiveBaseColor = glowColor || (isBrand ? '#0f172a' : baseColor);
 
   const settings: Settings = {
     radius: Math.max(0, radius),

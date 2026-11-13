@@ -886,9 +886,9 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                             fontWeight: 700,
                             padding: '4px 9px',
                             borderRadius: '6px',
-                            backgroundColor: '#e0f2fe',
-                            color: '#0369a1',
-                            border: '1px solid #bae6fd',
+                            backgroundColor: '#f1f5f9',
+                            color: '#334155',
+                            border: '1px solid #e2e8f0',
                           }}
                         >
                           {interpolate(dict.settingsModal?.chapterBridgeLocationBadge || '장소: {name}', {
@@ -1038,7 +1038,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                     <div className="settings-modal-item-left">
                       <div
                         className="settings-modal-icon-badge"
-                        style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}
+                        style={{ backgroundColor: '#f1f5f9', color: '#0f172a' }}
                       >
                         <Clapperboard size={18} />
                       </div>
@@ -1094,9 +1094,9 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                             fontWeight: 700,
                             padding: '4px 9px',
                             borderRadius: '6px',
-                            backgroundColor: '#eff6ff',
-                            color: '#1d4ed8',
-                            border: '1px solid #bfdbfe',
+                            backgroundColor: '#f1f5f9',
+                            color: '#0f172a',
+                            border: '1px solid #cbd5e1',
                           }}
                         >
                           {interpolate(dict.settingsModal?.introBadge || '인트로: {name} ({sec}초)', {

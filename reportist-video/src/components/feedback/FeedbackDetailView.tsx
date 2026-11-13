@@ -67,14 +67,14 @@ export const FeedbackDetailView: React.FC<FeedbackDetailViewProps> = ({
         );
       case 'improvement':
         return (
-          <span className="toss-badge bg-blue-50 text-blue-600 border border-blue-200">
+          <span className="toss-badge bg-slate-100 text-slate-900 border border-slate-200">
             <Sparkles size={11} />
             <span>{dict.feedback?.catImprovement || '사용성 개선'}</span>
           </span>
         );
       default:
         return (
-          <span className="toss-badge bg-purple-50 text-purple-600 border border-purple-200">
+          <span className="toss-badge bg-slate-100 text-slate-900 border border-slate-200">
             <HelpCircle size={11} />
             <span>{dict.feedback?.catOther || '기타 의견'}</span>
           </span>
@@ -93,8 +93,8 @@ export const FeedbackDetailView: React.FC<FeedbackDetailViewProps> = ({
         );
       case 'in_progress':
         return (
-          <span className="toss-badge bg-blue-50 text-blue-700 border border-blue-200 font-bold">
-            <Clock size={12} className="text-blue-600" />
+          <span className="toss-badge bg-slate-100 text-slate-900 border border-slate-200 font-bold">
+            <Clock size={12} className="text-slate-900" />
             <span>{dict.feedback?.statusReviewing || dict.feedback?.statusInProgress || '진행중'}</span>
           </span>
         );
@@ -262,9 +262,9 @@ export const FeedbackDetailView: React.FC<FeedbackDetailViewProps> = ({
 
         {/* Developer Response Section */}
         <div className="toss-admin-response-card">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(191, 219, 254, 0.6)', paddingBottom: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#1d4ed8', fontWeight: 700, fontSize: '12.5px' }}>
-              <ShieldCheck size={16} color="#2563eb" />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(203, 213, 225, 0.6)', paddingBottom: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontWeight: 700, fontSize: '12.5px' }}>
+              <ShieldCheck size={16} color="#0f172a" />
               <span>{dict.feedback?.adminResponseTitle || '개발자 처리 내용'}</span>
               {feedback.status === 'completed' && (
                 <span style={{ marginLeft: '4px', fontSize: '11px', backgroundColor: '#d1fae5', color: '#065f46', padding: '2px 7px', borderRadius: '6px', fontWeight: 700 }}>
@@ -298,7 +298,7 @@ export const FeedbackDetailView: React.FC<FeedbackDetailViewProps> = ({
         {isAdminMode && (
           <div className="toss-dev-admin-panel">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 700, color: '#6b21a8' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 700, color: '#0f172a' }}>
                 <ShieldCheck size={14} />
                 <span>{dict.feedback?.adminControlsTitle || '개발자 관리자 모드 (Admin Controls)'}</span>
               </div>
@@ -342,7 +342,7 @@ export const FeedbackDetailView: React.FC<FeedbackDetailViewProps> = ({
               </label>
               <textarea
                 className="toss-feedback-textarea"
-                style={{ backgroundColor: '#ffffff', borderColor: '#e9d5ff', minHeight: '90px' }}
+                style={{ backgroundColor: '#ffffff', borderColor: '#e2e8f0', minHeight: '90px' }}
                 rows={4}
                 placeholder={
                   dict.feedback?.adminReplyPlaceholder ||

@@ -86,7 +86,7 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFilesSelected, disabled = 
         }}
         disabled={disabled}
       >
-        <Plus className="w-4 h-4 text-[#2563eb]" />
+        <Plus className="w-4 h-4 text-[#0f172a]" />
         {dict.upload?.dropZoneBtn || '내 컴퓨터에서 영상 선택하기'}
       </button>
     </div>

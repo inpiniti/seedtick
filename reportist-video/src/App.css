@@ -198,15 +198,15 @@
 .dropzone-container:hover,
 .dropzone-container.is-dragover {
   border-color: var(--brand-blue);
-  background-color: #f8faff;
-  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.08);
+  background-color: #f8fafc;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
 }
 
 .dropzone-icon-box {
   width: 56px;
   height: 56px;
   border-radius: 14px;
-  background-color: #eff6ff;
+  background-color: #f1f5f9;
   color: var(--brand-blue);
   display: flex;
   align-items: center;
@@ -411,12 +411,12 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.25);
 }
 
 .btn-primary:hover:not(:disabled) {
   background-color: var(--brand-blue-hover);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.35);
 }
 
 .btn-primary:disabled {
@@ -484,7 +484,7 @@
 
 .progress-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, #2563eb, #3b82f6);
+  background: linear-gradient(90deg, #334155, #0f172a);
   border-radius: 9999px;
   transition: width 0.3s ease;
 }
@@ -536,7 +536,7 @@
 }
 
 .pipeline-step-item.active .pipeline-step-dot {
-  background-color: #eff6ff;
+  background-color: #f1f5f9;
   border-color: var(--brand-blue);
   color: var(--brand-blue);
 }
@@ -632,8 +632,8 @@
 }
 
 .segment-item:hover {
-  background-color: #eff6ff;
-  border-color: #bfdbfe;
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
 }
 
 .segment-left {
@@ -742,7 +742,7 @@
   left: 4px;
   background: rgba(15, 23, 42, 0.85);
   backdrop-filter: blur(4px);
-  color: #93c5fd;
+  color: #cbd5e1;
   font-size: 10px;
   font-weight: 700;
   padding: 2px 6px;
@@ -750,7 +750,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  border: 1px solid rgba(15, 23, 42, 0.3);
 }
 
 .current-video-info {
@@ -762,9 +762,9 @@
   display: inline-block;
   font-size: 11px;
   font-weight: 600;
-  color: #2563eb;
-  background-color: #eff6ff;
-  border: 1px solid #dbeafe;
+  color: #0f172a;
+  background-color: #f1f5f9;
+  border: 1px solid #e2e8f0;
   padding: 4px 10px;
   border-radius: 6px;
 }
@@ -911,7 +911,7 @@
 }
 
 .reasoning-prompt-sym {
-  color: #38bdf8;
+  color: #cbd5e1;
   font-weight: 700;
   margin-right: 8px;
   user-select: none;
@@ -919,7 +919,7 @@
 }
 
 .reasoning-time-tag {
-  color: #93c5fd;
+  color: #cbd5e1;
   font-weight: 600;
   margin-right: 8px;
   flex-shrink: 0;
@@ -1043,15 +1043,15 @@
 }
 
 .text-slate-900 {
-  color: #11151c;
+  color: #111111;
 }
 
-.text-blue-500 {
-  color: #3182f6;
+.text-slate-900 {
+  color: #0f172a;
 }
 
-.text-blue-600 {
-  color: #3182f6;
+.text-slate-900 {
+  color: #0f172a;
 }
 
 .text-emerald-600 {
@@ -1453,7 +1453,7 @@
 }
 
 .toss-nav-cta-btn.loading {
-  background: #2b70d3;
+  background: #1e293b;
 }
 
 .toss-nav-restitch-btn {
@@ -1794,8 +1794,8 @@
 
 .toss-header-input:focus {
   background: #ffffff;
-  border-color: #3182f6;
-  box-shadow: 0 0 0 3px rgba(49, 130, 246, 0.12);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.12);
 }
 
 .toss-input-right {
@@ -1857,8 +1857,8 @@
 .video-list-footer-add-btn {
   flex: 1;
   background-color: #f8fafc;
-  color: #3182f6;
-  border: 1px solid #dbeafe;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1866,9 +1866,9 @@
 }
 
 .video-list-footer-add-btn:hover {
-  background-color: #eff6ff;
-  border-color: #bfdbfe;
-  color: #1d4ed8;
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
 }
 
 .video-list-footer-close-btn {
@@ -1903,7 +1903,7 @@
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  background-color: #e8f3ff;
+  background-color: #f1f5f9;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2001,8 +2001,8 @@
 }
 
 .toss-video-modal-empty:hover {
-  background-color: #f0f6ff;
-  border-color: #3182f6;
+  background-color: #f8fafc;
+  border-color: #0f172a;
 }
 
 .toss-video-modal-list {
@@ -2080,8 +2080,8 @@
 .toss-video-modal-badge {
   font-size: 10px;
   font-weight: 700;
-  color: #3182f6;
-  background: #e8f3ff;
+  color: #0f172a;
+  background: #f1f5f9;
   padding: 1px 5px;
   border-radius: 4px;
   flex-shrink: 0;
@@ -2131,8 +2131,8 @@
 }
 
 .toss-video-modal-meta-badge.date {
-  color: #2563eb;
-  background-color: #eff6ff;
+  color: #0f172a;
+  background-color: #f1f5f9;
 }
 
 .toss-video-modal-meta-badge.location {
@@ -2275,10 +2275,10 @@
   text-align: center;
   gap: 5px;
   padding: 6px 11px;
-  border: 1px solid #d7e6fb;
+  border: 1px solid #e2e8f0;
   border-radius: 9px;
-  background-color: #f2f8ff;
-  color: #1b64da;
+  background-color: #f8fafc;
+  color: #1e293b;
   font-size: 11.5px;
   font-weight: 700;
   line-height: 1;
@@ -2288,8 +2288,8 @@
 }
 
 .toss-btn-audio-library:hover {
-  background-color: #e6f1ff;
-  border-color: #b9d7fb;
+  background-color: #f1f5f9;
+  border-color: #e2e8f0;
 }
 
 .toss-btn-audio-library svg {
@@ -2300,8 +2300,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #f1f6fe;
-  border: 1.5px solid #bfdbfe;
+  background: #f8fafc;
+  border: 1.5px solid #cbd5e1;
   border-radius: 14px;
   padding: 12px 16px;
   gap: 12px;
@@ -2311,7 +2311,7 @@
   width: 38px;
   height: 38px;
   border-radius: 10px;
-  background: #dbeafe;
+  background: #e2e8f0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2334,8 +2334,8 @@
 }
 
 .toss-audio-upload-box:hover {
-  border-color: #3182f6;
-  background: #eff6ff;
+  border-color: #0f172a;
+  background: #f1f5f9;
 }
 
 /* 모바일: BGM 카드 헤더/적용 박스가 가로로 넘치지 않도록 세로 배치 */
@@ -2515,7 +2515,7 @@
 }
 
 .toss-io-accent-intro {
-  color: #3182f6;
+  color: #0f172a;
 }
 
 .toss-io-accent-outro {
@@ -2530,8 +2530,8 @@
   padding: 4px 8px;
   border: none;
   border-radius: 8px;
-  background-color: #eff6ff;
-  color: #3182f6;
+  background-color: #f1f5f9;
+  color: #0f172a;
   font-family: inherit;
   font-size: 10.5px;
   font-weight: 700;
@@ -2542,7 +2542,7 @@
 }
 
 .toss-io-preview-btn:hover {
-  background-color: #dbeafe;
+  background-color: #e2e8f0;
 }
 
 .toss-io-preview-btn-outro {
@@ -2585,9 +2585,9 @@
 }
 
 .toss-io-template-card.selected {
-  border-color: #3182f6;
-  background-color: #f4f8ff;
-  box-shadow: 0 0 0 1px rgba(49, 130, 246, 0.35);
+  border-color: #0f172a;
+  background-color: #f8fafc;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.35);
 }
 
 .toss-io-template-top {
@@ -2611,7 +2611,7 @@
 }
 
 .toss-io-template-card.selected .toss-io-template-name {
-  color: #1b64da;
+  color: #1e293b;
 }
 
 .toss-io-template-badge {
@@ -2627,7 +2627,7 @@
 }
 
 .toss-io-template-card.selected .toss-io-template-badge {
-  background-color: #3182f6;
+  background-color: #0f172a;
   color: #ffffff;
 }
 
@@ -2652,9 +2652,9 @@
   height: 18px;
   border: 2px solid #ffffff;
   border-radius: 50%;
-  background-color: #3182f6;
+  background-color: #0f172a;
   color: #ffffff;
-  box-shadow: 0 1px 4px rgba(49, 130, 246, 0.45);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.45);
 }
 
 /* 아웃트로는 3종 → 2열 배치 후 마지막 카드는 한 줄 전체 사용 */
@@ -2748,8 +2748,8 @@
 
 .toss-io-text-input:focus {
   outline: none;
-  border-color: #3182f6;
-  box-shadow: 0 0 0 3px rgba(49, 130, 246, 0.12);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.12);
 }
 
 /* 직접 업로드 영역 */
@@ -2764,7 +2764,7 @@
 
 .toss-io-file-icon {
   flex-shrink: 0;
-  color: #3182f6;
+  color: #0f172a;
 }
 
 .toss-io-file-text {
@@ -2786,7 +2786,7 @@
 .toss-io-file-meta {
   font-size: 10px;
   font-weight: 600;
-  color: #3182f6;
+  color: #0f172a;
 }
 
 .toss-io-file-remove {
@@ -2969,8 +2969,8 @@
 }
 
 .toss-player-wrapper.is-empty:hover {
-  border-color: #3182f6;
-  background-color: #f0f7ff;
+  border-color: #0f172a;
+  background-color: #f8fafc;
 }
 
 .toss-video-element,
@@ -3031,7 +3031,7 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background-color: #e8f3ff;
+  background-color: #f1f5f9;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3363,8 +3363,8 @@
 }
 
 .toss-draft-preview-item.active {
-  border-color: #3182f6;
-  background-color: #e8f3ff;
+  border-color: #0f172a;
+  background-color: #f1f5f9;
 }
 
 .toss-draft-preview-thumb {
@@ -3703,18 +3703,18 @@
   border-top-right-radius: 6px;
   border-bottom-right-radius: 6px;
   border-right-width: 2.5px;
-  border-right-color: #3b82f6;
+  border-right-color: #0f172a;
 }
 
 .toss-sequencer-intro-block.is-video-end-clip,
 .toss-sequencer-outro-block.is-video-end-clip {
-  border-right-color: #818cf8;
+  border-right-color: #94a3b8;
 }
 
 .toss-sequencer-intro-block,
 .toss-sequencer-outro-block {
-  background: linear-gradient(135deg, #1e3a8a 0%, #312e81 100%);
-  border-color: #6366f1;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  border-color: #1e293b;
 }
 
 .toss-sequencer-block-thumb {
@@ -3796,7 +3796,7 @@
   font-size: 8.5px;
   font-family: var(--font-mono, monospace);
   font-weight: 700;
-  color: #93c5fd;
+  color: #cbd5e1;
   margin-left: auto;
   line-height: 1.1;
 }
@@ -3931,9 +3931,9 @@
 }
 
 .toss-sequencer-audio-empty:hover {
-  background-color: #f0f7ff;
-  border-color: #3182f6;
-  color: #1d4ed8;
+  background-color: #f8fafc;
+  border-color: #0f172a;
+  color: #0f172a;
 }
 
 .toss-sequencer-audio-empty-left {
@@ -3950,9 +3950,9 @@
   align-items: center;
   padding: 2px 7px;
   border-radius: 5px;
-  background-color: #eff6ff;
-  border: 1px solid #bfdbfe;
-  color: #2563eb;
+  background-color: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
   font-size: 10px;
   font-weight: 700;
   white-space: nowrap;
@@ -4012,8 +4012,8 @@
   align-items: center;
   font-size: 10px;
   font-weight: 600;
-  color: #2563eb;
-  background-color: #eff6ff;
+  color: #0f172a;
+  background-color: #f1f5f9;
   padding: 1px 5px;
   border-radius: 4px;
   font-family: var(--font-mono, monospace);
@@ -4121,14 +4121,14 @@
 }
 
 .toss-segment-item:hover {
-  border-color: #b9d7fb;
-  background-color: #f9fbff;
+  border-color: #e2e8f0;
+  background-color: #f8fafc;
 }
 
 .toss-segment-item.active {
-  border-color: #3182f6;
-  background-color: #f4f8ff;
-  box-shadow: 0 0 0 1px #3182f6;
+  border-color: #0f172a;
+  background-color: #f8fafc;
+  box-shadow: 0 0 0 1px #0f172a;
 }
 
 /* 재생 중인 세그먼트: 사방 균일한 테두리(1.5px) 유지 */
@@ -4167,10 +4167,10 @@
   animation: toss-pulse 1.2s ease-in-out infinite;
 }
 
-/* 선택된 씬이 재생 중일 때는 파란 선택 테두리를 유지해 색이 튀지 않게 한다 */
+/* 선택된 씬이 재생 중일 때는 선택 테두리를 유지해 색이 튀지 않게 한다 */
 .toss-segment-item.active.playing {
-  border-color: #3182f6;
-  background-color: #f4f8ff;
+  border-color: #0f172a;
+  background-color: #f8fafc;
 }
 
 .toss-segment-left {
@@ -4233,8 +4233,8 @@
 .toss-segment-number {
   font-size: 11px;
   font-weight: 700;
-  color: #3182f6;
-  background-color: #e8f3ff;
+  color: #0f172a;
+  background-color: #f1f5f9;
   padding: 2px 6px;
   border-radius: 4px;
   flex-shrink: 0;
@@ -4295,7 +4295,7 @@
   padding: 5px 10px;
   margin: 2px 0;
   background-color: #f8fafc;
-  border: 1px dashed #bfdbfe;
+  border: 1px dashed #cbd5e1;
   border-radius: 8px;
   font-size: 11px;
   color: #475569;
@@ -4303,15 +4303,15 @@
 }
 
 .toss-segment-bridge-item:hover {
-  background-color: #eff6ff;
-  border-color: #93c5fd;
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
 }
 
 .toss-segment-bridge-badge {
   display: inline-flex;
   align-items: center;
   padding: 2px 5px;
-  background-color: #2563eb;
+  background-color: #0f172a;
   color: #ffffff;
   font-size: 9px;
   font-weight: 700;
@@ -4337,7 +4337,7 @@
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
   font-size: 10px;
   font-weight: 600;
-  color: #2563eb;
+  color: #0f172a;
   flex-shrink: 0;
 }
 
@@ -4355,7 +4355,7 @@
   gap: 8px;
   margin-top: 10px;
   padding-top: 10px;
-  border-top: 1px dashed #cfe0f5;
+  border-top: 1px dashed #e2e8f0;
   cursor: default;
 }
 
@@ -4370,7 +4370,7 @@
 .toss-segment-editor-title {
   font-size: 12px;
   font-weight: 800;
-  color: #1b64da;
+  color: #1e293b;
 }
 
 .toss-segment-editor-hint {
@@ -4380,7 +4380,7 @@
 
 .toss-segment-editor .toss-branding-row {
   background-color: #ffffff;
-  border-color: #e5edf7;
+  border-color: #f1f5f9;
 }
 
 .toss-trim-controls {
@@ -4494,7 +4494,7 @@
 
 .toss-btn-micro-rotate:hover {
   background-color: #ffffff;
-  color: #3182f6;
+  color: #0f172a;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
@@ -4509,9 +4509,9 @@
   font-size: 10px;
   font-weight: 700;
   font-family: var(--font-mono, monospace);
-  color: #3182f6;
-  background-color: #e8f3ff;
-  border: 1px solid #cfe0f5;
+  color: #0f172a;
+  background-color: #f1f5f9;
+  border: 1px solid #e2e8f0;
   border-radius: 4px;
   padding: 1px 4px;
   cursor: pointer;
@@ -4519,8 +4519,8 @@
 }
 
 .toss-segment-rot-indicator:hover {
-  background-color: #dbeafe;
-  color: #1d4ed8;
+  background-color: #e2e8f0;
+  color: #0f172a;
 }
 
 /* 모바일: 씬 아이템에서 썸네일/텍스트와 트리밍·회전·삭제 컨트롤이 한 줄에 겹치지 않도록 2단 배치 */
@@ -4573,7 +4573,7 @@
   border: none;
   font-size: 12px;
   font-weight: 700;
-  color: #3182f6;
+  color: #0f172a;
   cursor: pointer;
   padding: 4px 8px;
   border-radius: 6px;
@@ -4581,7 +4581,7 @@
 }
 
 .toss-btn-sm-text:hover {
-  background-color: #e8f3ff;
+  background-color: #f1f5f9;
 }
 
 .toss-upload-box {
@@ -4599,8 +4599,8 @@
 }
 
 .toss-upload-box:hover {
-  border-color: #3182f6;
-  background-color: #f0f7ff;
+  border-color: #0f172a;
+  background-color: #f8fafc;
 }
 
 .toss-source-list {
@@ -4665,7 +4665,7 @@
 
 .toss-slider {
   width: 100px;
-  accent-color: #3182f6;
+  accent-color: #0f172a;
   cursor: pointer;
 }
 
@@ -4688,14 +4688,14 @@
 }
 
 .toss-bgm-chip:hover {
-  border-color: #b9d7fb;
-  background-color: #f9fbff;
+  border-color: #e2e8f0;
+  background-color: #f8fafc;
 }
 
 .toss-bgm-chip.active {
-  border-color: #3182f6;
-  background-color: #f4f8ff;
-  box-shadow: 0 0 0 1px #3182f6;
+  border-color: #0f172a;
+  background-color: #f8fafc;
+  box-shadow: 0 0 0 1px #0f172a;
 }
 
 .toss-bgm-preview-btn {
@@ -4714,14 +4714,14 @@
 }
 
 .toss-bgm-preview-btn:hover {
-  background-color: #3182f6;
+  background-color: #0f172a;
   color: #ffffff;
 }
 
 .toss-bgm-preview-btn.playing {
-  background-color: #3182f6;
+  background-color: #0f172a;
   color: #ffffff;
-  box-shadow: 0 0 8px rgba(49, 130, 246, 0.4);
+  box-shadow: 0 0 8px rgba(15, 23, 42, 0.4);
 }
 
 /* Crop Segment Control */
@@ -4749,7 +4749,7 @@
 
 .toss-segment-btn.active {
   background-color: #ffffff;
-  color: #3182f6;
+  color: #0f172a;
   font-weight: 700;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
@@ -4897,7 +4897,7 @@
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  background-color: #e8f3ff;
+  background-color: #f1f5f9;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4977,7 +4977,7 @@
 
 .toss-modal-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #3182f6 0%, #60a5fa 50%, #3182f6 100%);
+  background: linear-gradient(90deg, #0f172a 0%, #94a3b8 50%, #0f172a 100%);
   background-size: 200% 100%;
   border-radius: 9999px;
   transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
@@ -5121,8 +5121,8 @@
 }
 
 .toss-input-sm:focus {
-  border-color: #3182f6;
-  box-shadow: 0 0 0 2px rgba(49, 130, 246, 0.15);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.15);
 }
 
 /* 토스 스타일 부드러운 스위치 토글 */
@@ -5179,10 +5179,10 @@
   gap: 6px;
   width: 100%;
   padding: 9px 12px;
-  background-color: #f0f7ff;
-  border: 1px dashed #93c5fd;
+  background-color: #f8fafc;
+  border: 1px dashed #cbd5e1;
   border-radius: 10px;
-  color: #2563eb;
+  color: #0f172a;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
@@ -5191,20 +5191,20 @@
 }
 
 .toss-btn-custom-audio:hover {
-  background-color: #e0f0fe;
-  border-color: #3b82f6;
+  background-color: #f1f5f9;
+  border-color: #0f172a;
 }
 
 .custom-audio-chip {
-  background-color: #f0f7ff !important;
-  border-color: #93c5fd !important;
+  background-color: #f8fafc !important;
+  border-color: #cbd5e1 !important;
   margin-bottom: 8px;
 }
 
 .custom-audio-chip.active {
-  background-color: #e0f0fe !important;
-  border-color: #3182f6 !important;
-  box-shadow: 0 0 0 2px rgba(49, 130, 246, 0.2);
+  background-color: #f1f5f9 !important;
+  border-color: #0f172a !important;
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.2);
 }
 
 /* ========================================================
@@ -5214,8 +5214,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background-color: #eff6ff;
-  border: 1px solid #bfdbfe;
+  background-color: #f1f5f9;
+  border: 1px solid #cbd5e1;
   border-radius: 8px;
   padding: 6px 10px;
 }
@@ -5325,9 +5325,9 @@
   margin-top: 6px;
   padding: 8px 10px;
   border-radius: 10px;
-  border: 1px solid #1e3a8a;
-  background: linear-gradient(180deg, rgba(30, 58, 138, 0.35) 0%, rgba(15, 23, 42, 0.55) 100%);
-  box-shadow: inset 0 1px 0 rgba(96, 165, 250, 0.12);
+  border: 1px solid #0f172a;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.35) 0%, rgba(15, 23, 42, 0.55) 100%);
+  box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.12);
 }
 
 .toss-live-reasoning-block.is-content {
@@ -5342,8 +5342,8 @@
   gap: 8px;
   margin-bottom: 5px;
   padding-bottom: 4px;
-  border-bottom: 1px dashed rgba(96, 165, 250, 0.25);
-  color: #93c5fd;
+  border-bottom: 1px dashed rgba(148, 163, 184, 0.25);
+  color: #cbd5e1;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -5380,7 +5380,7 @@
   width: 4px;
   height: 11px;
   margin-left: 2px;
-  background-color: #3182f6;
+  background-color: #0f172a;
   vertical-align: -1px;
   animation: live-caret-blink 1s steps(2, start) infinite;
 }
@@ -5445,8 +5445,8 @@
   height: 27px;
   flex-shrink: 0;
   border-radius: 9px;
-  background-color: #e8f3ff;
-  color: #3182f6;
+  background-color: #f1f5f9;
+  color: #0f172a;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -5498,9 +5498,9 @@
 }
 
 .toss-model-trigger-speed.fast {
-  background-color: #eff6ff;
-  color: #1d4ed8;
-  border: 1px solid #bfdbfe;
+  background-color: #f1f5f9;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
 }
 
 .toss-model-trigger-speed.balanced {
@@ -5632,7 +5632,7 @@
     display: inline-block !important;
     font-weight: 700;
     font-size: 12px;
-    color: #3182f6;
+    color: #0f172a;
   }
 
   .toss-video-list-trigger .toss-model-trigger-name {
@@ -5900,8 +5900,8 @@
     width: 22px;
     height: 22px;
     border-radius: 7px;
-    background-color: #e8f3ff;
-    color: #3182f6;
+    background-color: #f1f5f9;
+    color: #0f172a;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -5932,7 +5932,7 @@
     display: inline-block !important;
     font-weight: 700;
     font-size: 12px;
-    color: #3182f6;
+    color: #0f172a;
     line-height: 1;
   }
 
@@ -6114,7 +6114,7 @@
   height: 42px;
   flex-shrink: 0;
   border-radius: 13px;
-  background-color: #e8f3ff;
+  background-color: #f1f5f9;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6316,21 +6316,21 @@
 }
 
 .model-modal-model-card:hover {
-  border-color: #bfdbfe;
-  background-color: #fcfdff;
+  border-color: #cbd5e1;
+  background-color: #ffffff;
   box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
   transform: translateY(-1px);
 }
 
 .model-modal-model-card:focus-visible {
-  border-color: #3182f6;
-  box-shadow: 0 0 0 3px rgba(49, 130, 246, 0.15);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.15);
 }
 
 .model-modal-model-card.selected {
-  border-color: #3182f6;
-  background-color: #f7fbff;
-  box-shadow: 0 4px 16px rgba(49, 130, 246, 0.14);
+  border-color: #0f172a;
+  background-color: #f8fafc;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.14);
 }
 
 .model-modal-card-top {
@@ -6430,8 +6430,8 @@
 }
 
 .model-modal-metric.intelligence {
-  border-color: #e0e7ff;
-  background: linear-gradient(135deg, #eef2ff, #f5f7ff);
+  border-color: #e2e8f0;
+  background: linear-gradient(135deg, #f1f5f9, #f8fafc);
 }
 
 .model-modal-metric.speed {
@@ -6454,7 +6454,7 @@
 }
 
 .model-modal-metric.intelligence .model-modal-metric-label {
-  color: #4f46e5;
+  color: #0f172a;
 }
 
 .model-modal-metric.speed .model-modal-metric-label {
@@ -6479,7 +6479,7 @@
 }
 
 .model-modal-metric.intelligence .model-modal-metric-value strong {
-  color: #3730a3;
+  color: #0f172a;
 }
 
 .model-modal-metric.speed .model-modal-metric-value strong {
@@ -6521,7 +6521,7 @@
 }
 
 .model-modal-speed-fill.fast {
-  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+  background: linear-gradient(90deg, #0f172a, #94a3b8);
 }
 
 .model-modal-speed-fill.balanced {
@@ -6543,7 +6543,7 @@
 }
 
 .model-modal-speed-tier.fast {
-  color: #1d4ed8;
+  color: #0f172a;
 }
 
 .model-modal-speed-tier.balanced {
@@ -6588,8 +6588,8 @@
 }
 
 .model-modal-tag.coding {
-  background-color: #ecfeff;
-  color: #0e7490;
+  background-color: #f1f5f9;
+  color: #0f172a;
 }
 
 .model-modal-tag.effort {
@@ -6603,8 +6603,8 @@
 }
 
 .model-modal-tag.modality.video {
-  background-color: #faf5ff;
-  color: #7e22ce;
+  background-color: #f8fafc;
+  color: #0f172a;
 }
 
 .model-modal-tag.modality.audio {
@@ -6623,13 +6623,13 @@
 }
 
 .model-modal-tag.tier {
-  background-color: #eff6ff;
-  color: #1d4ed8;
+  background-color: #f1f5f9;
+  color: #0f172a;
 }
 
 .model-modal-tag.param {
-  background-color: #f5f3ff;
-  color: #6d28d9;
+  background-color: #f8fafc;
+  color: #0f172a;
 }
 
 .model-modal-tag.context {
@@ -7376,16 +7376,16 @@
 }
 
 .audio-library-item:hover {
-  border-color: #b9d7fb;
-  background-color: #f9fbff;
+  border-color: #e2e8f0;
+  background-color: #f8fafc;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
 }
 
 .audio-library-item.selected {
-  border-color: #3182f6;
-  background-color: #f0f7ff;
-  box-shadow: 0 4px 16px rgba(49, 130, 246, 0.12);
+  border-color: #0f172a;
+  background-color: #f8fafc;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
 }
 
 .audio-library-play {
@@ -7397,20 +7397,20 @@
   justify-content: center;
   border: none;
   border-radius: 50%;
-  background-color: #e8f3ff;
-  color: #3182f6;
+  background-color: #f1f5f9;
+  color: #0f172a;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .audio-library-play:hover {
-  background-color: #d6e9ff;
+  background-color: #e2e8f0;
 }
 
 .audio-library-play.playing {
-  background-color: #3182f6;
+  background-color: #0f172a;
   color: #ffffff;
-  box-shadow: 0 2px 8px rgba(49, 130, 246, 0.35);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.35);
 }
 
 .audio-library-play.muted {
@@ -7442,7 +7442,7 @@
 }
 
 .audio-library-item.selected .audio-library-item-title {
-  color: #1b64da;
+  color: #1e293b;
 }
 
 .audio-library-item-meta {
@@ -7456,8 +7456,8 @@
   font-weight: 700;
   padding: 2px 6px;
   border-radius: 5px;
-  background-color: #e8f3ff;
-  color: #1b64da;
+  background-color: #f1f5f9;
+  color: #1e293b;
 }
 
 .audio-library-check {
@@ -7473,9 +7473,9 @@
 }
 
 .audio-library-check.selected {
-  background-color: #3182f6;
-  border-color: #3182f6;
-  box-shadow: 0 2px 6px rgba(49, 130, 246, 0.3);
+  background-color: #0f172a;
+  border-color: #0f172a;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.3);
 }
 
 .audio-library-equalizer {
@@ -7490,7 +7490,7 @@
   width: 2.5px;
   height: 14px;
   border-radius: 2px;
-  background-color: #3182f6;
+  background-color: #0f172a;
   transform-origin: bottom;
   animation: audio-library-eq 0.9s ease-in-out infinite;
 }
@@ -7539,7 +7539,7 @@
 }
 
 .audio-library-apply-btn:disabled {
-  background-color: #c7cfe0;
+  background-color: #cbd5e1;
   cursor: not-allowed;
 }
 
@@ -7567,8 +7567,8 @@
    ★ AI 맞춤 썸네일 (16:9) 카드 및 컨트롤러 (Toss Design)
    ======================================================== */
 .toss-thumbnail-card {
-  border: 1.5px solid #bfdbfe;
-  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+  border: 1.5px solid #cbd5e1;
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
   border-radius: 18px;
   position: relative;
   overflow: hidden;
@@ -7577,7 +7577,7 @@
 }
 
 .toss-thumbnail-card:hover {
-  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.08);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
 }
 
 .toss-thumbnail-preview-wrap {
@@ -7628,7 +7628,7 @@
   position: absolute;
   top: 10px;
   right: 10px;
-  background: rgba(37, 99, 235, 0.88);
+  background: rgba(15, 23, 42, 0.88);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   color: #ffffff;
@@ -7637,7 +7637,7 @@
   padding: 3px 8px;
   border-radius: 6px;
   letter-spacing: 0.3px;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.4);
 }
 
 .toss-thumbnail-controls {
@@ -7853,10 +7853,10 @@
 }
 
 .toss-thumb-style-btn.active {
-  background-color: #3182f6;
-  border-color: #3182f6;
+  background-color: #0f172a;
+  border-color: #0f172a;
   color: #ffffff;
-  box-shadow: 0 2px 6px rgba(49, 130, 246, 0.25);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
 }
 
 .toss-thumbnail-actions {
@@ -7876,7 +7876,7 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  background-color: #3182f6;
+  background-color: #0f172a;
   color: #ffffff;
   border: none;
   border-radius: 12px;
@@ -7885,15 +7885,15 @@
   font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
-  box-shadow: 0 3px 10px rgba(49, 130, 246, 0.3);
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.3);
   white-space: nowrap;
   box-sizing: border-box;
 }
 
 .toss-btn-download-thumb:hover {
-  background-color: #1b64da;
+  background-color: #1e293b;
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(49, 130, 246, 0.4);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.4);
 }
 
 .toss-btn-frame-capture {
@@ -8047,9 +8047,9 @@
   gap: 3px;
   padding: 2px 6px;
   border-radius: 4px;
-  border: 1px solid #bfdbfe;
-  background-color: #eff6ff;
-  color: #2563eb;
+  border: 1px solid #cbd5e1;
+  background-color: #f1f5f9;
+  color: #0f172a;
   font-size: 10px;
   font-weight: 700;
   cursor: pointer;
@@ -8800,8 +8800,8 @@
 
 .toss-form-input:focus {
   background-color: #ffffff;
-  border-color: #3182f6;
-  box-shadow: 0 0 0 3px rgba(49, 130, 246, 0.12);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.12);
 }
 
 .toss-form-textarea {
@@ -8822,13 +8822,13 @@
 
 .toss-form-textarea:focus {
   background-color: #ffffff;
-  border-color: #3182f6;
-  box-shadow: 0 0 0 3px rgba(49, 130, 246, 0.12);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.12);
 }
 
 .toss-preview-card-box {
-  border: 1.5px solid #bfdbfe;
-  background-color: #f8fbff;
+  border: 1.5px solid #cbd5e1;
+  background-color: #f8fafc;
   border-radius: 14px;
   padding: 12px;
   display: flex;
@@ -8875,7 +8875,7 @@
 .toss-preview-channel {
   font-size: 12px;
   font-weight: 600;
-  color: #3182f6;
+  color: #0f172a;
 }
 
 .toss-form-alert {
@@ -9065,8 +9065,8 @@
 
 
 .toss-clip-thumb-btn:hover {
-  background-color: #3182f6;
-  border-color: #3182f6;
+  background-color: #0f172a;
+  border-color: #0f172a;
   color: #ffffff;
 }
 
@@ -9177,7 +9177,7 @@
 }
 
 .toss-btn-sort-time:hover svg {
-  color: #3182f6;
+  color: #0f172a;
 }
 
 .toss-sort-toast {
@@ -9268,7 +9268,7 @@
 }
 
 .toss-tone-dropdown-item.active {
-  background-color: #eff6ff;
+  background-color: #f1f5f9;
 }
 
 /* Refine Subtitles Button */
@@ -9284,9 +9284,9 @@
   justify-content: center;
   gap: 4.5px;
   height: 28px;
-  background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);
-  border: 1px solid #bfdbfe;
-  color: #1d4ed8;
+  background: linear-gradient(135deg, #f1f5f9 0%, #f8fafc 100%);
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
   font-size: 11.5px;
   font-weight: 700;
   padding: 0 10px;
@@ -9299,10 +9299,10 @@
 }
 
 .toss-btn-refine-subtitles:hover:not(:disabled) {
-  background: linear-gradient(135deg, #dbeafe 0%, #dcfce7 100%);
-  border-color: #93c5fd;
+  background: linear-gradient(135deg, #e2e8f0 0%, #f1f5f9 100%);
+  border-color: #cbd5e1;
   transform: translateY(-0.5px);
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.12);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
 }
 
 .toss-btn-refine-subtitles:active:not(:disabled) {
@@ -9411,9 +9411,9 @@
 }
 
 .subtitle-lang-chip.active {
-  border-color: #3182f6;
-  background-color: #eff6ff;
-  box-shadow: 0 0 0 1.5px rgba(49, 130, 246, 0.3);
+  border-color: #0f172a;
+  background-color: #f1f5f9;
+  box-shadow: 0 0 0 1.5px rgba(15, 23, 42, 0.3);
 }
 
 .subtitle-lang-flag {
@@ -9428,7 +9428,7 @@
 }
 
 .subtitle-lang-chip.active .subtitle-lang-name {
-  color: #1d4ed8;
+  color: #0f172a;
 }
 
 .subtitle-lang-code {
@@ -9461,8 +9461,8 @@
   gap: 5px;
   font-size: 11.5px;
   font-weight: 600;
-  color: #2563eb;
-  background-color: #eff6ff;
+  color: #0f172a;
+  background-color: #f1f5f9;
   padding: 3px 8px;
   border-radius: 6px;
 }
@@ -9496,8 +9496,8 @@
 .subtitle-cue-index {
   font-size: 11px;
   font-weight: 800;
-  color: #3182f6;
-  background-color: #eff6ff;
+  color: #0f172a;
+  background-color: #f1f5f9;
   padding: 1px 6px;
   border-radius: 4px;
 }
@@ -9548,8 +9548,8 @@
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  background-color: #eff6ff;
-  border: 1px solid #dbeafe;
+  background-color: #f1f5f9;
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 10px 12px;
   margin-top: 4px;
@@ -10129,9 +10129,9 @@
 }
 
 .toss-autosave-badge.saving {
-  color: #3182f6;
-  background-color: #eff6ff;
-  border-color: #bfdbfe;
+  color: #0f172a;
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
 }
 
 .toss-autosave-badge.saved {
@@ -10146,7 +10146,7 @@
 }
 
 .toss-autosave-badge.saving .toss-autosave-dot {
-  background-color: #3182f6;
+  background-color: #0f172a;
   animation: toss-pulse 1s infinite;
 }
 
@@ -10339,7 +10339,7 @@
 }
 
 .toss-bottom-status-dot.saving {
-  background-color: #3182f6;
+  background-color: #0f172a;
   animation: toss-pulse 1s infinite;
 }
 
@@ -10486,7 +10486,7 @@
 }
 
 .segment-trim-icon-badge {
-  background-color: #e8f3ff !important;
+  background-color: #f1f5f9 !important;
 }
 
 .segment-trim-modal-body {
@@ -10501,7 +10501,7 @@
 
 /* Video Container */
 .segment-trim-player-container {
-  background-color: #0b0f19;
+  background-color: #0b0b0b;
   border-radius: 14px;
   overflow: hidden;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
@@ -10514,7 +10514,7 @@
   width: 100%;
   height: 320px;
   max-height: 400px;
-  background-color: #0b0f19;
+  background-color: #0b0b0b;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -10569,7 +10569,7 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  background-color: rgba(49, 130, 246, 0.85);
+  background-color: rgba(15, 23, 42, 0.85);
   color: #ffffff;
   font-family: var(--font-mono, monospace);
   font-size: 10px;
@@ -10584,7 +10584,7 @@
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  background-color: #131b2e;
+  background-color: #121212;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -10611,25 +10611,25 @@
 }
 
 .segment-trim-ctrl-btn.active {
-  background-color: #3182f6;
-  border-color: #3182f6;
+  background-color: #0f172a;
+  border-color: #0f172a;
   color: #ffffff;
 }
 
 .segment-trim-preview-btn {
-  background-color: #2e1065;
-  border-color: #4c1d95;
-  color: #e9d5ff;
+  background-color: #1e293b;
+  border-color: #1e293b;
+  color: #e2e8f0;
 }
 
 .segment-trim-preview-btn:hover {
-  background-color: #3b0764;
+  background-color: #0f172a;
   color: #ffffff;
 }
 
 .segment-trim-preview-btn.active {
-  background-color: #7c3aed;
-  border-color: #8b5cf6;
+  background-color: #0f172a;
+  border-color: #1e293b;
   color: #ffffff;
 }
 
@@ -10706,9 +10706,9 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  background: linear-gradient(180deg, rgba(49, 130, 246, 0.35) 0%, rgba(37, 99, 235, 0.5) 100%);
-  border-left: 3px solid #3182f6;
-  border-right: 3px solid #3182f6;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.35) 0%, rgba(15, 23, 42, 0.5) 100%);
+  border-left: 3px solid #0f172a;
+  border-right: 3px solid #0f172a;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -10718,7 +10718,7 @@
 
 .segment-trim-range-badge {
   background-color: #ffffff;
-  color: #1d4ed8;
+  color: #0f172a;
   font-family: var(--font-mono, monospace);
   font-size: 11px;
   font-weight: 800;
@@ -10851,8 +10851,8 @@
 }
 
 .segment-trim-delta-btn:hover {
-  background-color: #3182f6;
-  border-color: #3182f6;
+  background-color: #0f172a;
+  border-color: #0f172a;
   color: #ffffff;
 }
 
@@ -10864,9 +10864,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: #eff6ff;
-  border: 1px solid #bfdbfe;
-  color: #1d4ed8;
+  background-color: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
   font-size: 11.5px;
   font-weight: 700;
   padding: 7px 10px;
@@ -10876,8 +10876,8 @@
 }
 
 .segment-trim-set-current-btn:hover {
-  background-color: #dbeafe;
-  border-color: #93c5fd;
+  background-color: #e2e8f0;
+  border-color: #cbd5e1;
 }
 
 .segment-trim-set-current-btn:active {
@@ -10887,7 +10887,7 @@
 .segment-trim-btn-subtime {
   font-family: var(--font-mono, monospace);
   font-size: 10.5px;
-  color: #3b82f6;
+  color: #0f172a;
 }
 
 .segment-trim-btn-label-long {
@@ -10935,8 +10935,8 @@
   font-size: 14px;
   font-weight: 800;
   font-family: var(--font-mono, monospace);
-  color: #3182f6;
-  background-color: #e8f3ff;
+  color: #0f172a;
+  background-color: #f1f5f9;
   padding: 2px 8px;
   border-radius: 6px;
 }
@@ -10974,7 +10974,7 @@
   justify-content: center;
   text-align: center;
   gap: 6px;
-  background-color: #3182f6;
+  background-color: #0f172a;
   border: none;
   color: #ffffff;
   font-size: 13px;
@@ -10983,11 +10983,11 @@
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.15s;
-  box-shadow: 0 2px 8px rgba(49, 130, 246, 0.35);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.35);
 }
 
 .segment-trim-apply-btn:hover:not(:disabled) {
-  background-color: #1b64da;
+  background-color: #1e293b;
 }
 
 .segment-trim-apply-btn:disabled {
@@ -11260,7 +11260,7 @@
 
 .toss-storage-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, #3182f6, #2563eb);
+  background: linear-gradient(90deg, #334155, #0f172a);
   border-radius: 9999px;
   transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -11353,17 +11353,17 @@
   font-weight: 700;
   border-radius: 8px;
   border: none;
-  background-color: #3182f6;
+  background-color: #0f172a;
   color: #ffffff;
   cursor: pointer;
   flex-shrink: 0;
   transition: all 0.15s ease;
-  box-shadow: 0 1px 3px rgba(49, 130, 246, 0.25);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
   white-space: nowrap;
 }
 
 .toss-storage-persist-btn:hover:not(:disabled) {
-  background-color: #1b64da;
+  background-color: #1e293b;
   transform: translateY(-0.5px);
 }
 
@@ -11431,9 +11431,9 @@
 }
 
 .toss-storage-mode-btn.active {
-  background-color: #eff6ff;
-  border-color: #3182f6;
-  box-shadow: 0 0 0 1px rgba(49, 130, 246, 0.25);
+  background-color: #f1f5f9;
+  border-color: #0f172a;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.25);
 }
 
 .toss-storage-mode-name {
@@ -11444,7 +11444,7 @@
 }
 
 .toss-storage-mode-btn.active .toss-storage-mode-name {
-  color: #1d4ed8;
+  color: #0f172a;
 }
 
 .toss-storage-mode-sub {
@@ -11456,7 +11456,7 @@
 }
 
 .toss-storage-mode-btn.active .toss-storage-mode-sub {
-  color: #2563eb;
+  color: #0f172a;
   font-weight: 600;
 }
 
@@ -11585,17 +11585,17 @@
   font-weight: 700;
   padding: 4px 8px;
   border-radius: 6px;
-  background-color: #eff6ff;
-  color: #2563eb;
-  border: 1px solid #bfdbfe;
+  background-color: #f1f5f9;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
 }
 
 .toss-btn-relink-inline:hover {
-  background-color: #dbeafe;
-  border-color: #93c5fd;
+  background-color: #e2e8f0;
+  border-color: #cbd5e1;
 }
 
 .toss-relink-badge {
@@ -11617,9 +11617,9 @@
   gap: 4px;
   font-size: 11.5px;
   font-weight: 700;
-  color: #1d4ed8;
-  background-color: #eff6ff;
-  border: 1px solid #bfdbfe;
+  color: #0f172a;
+  background-color: #f1f5f9;
+  border: 1px solid #cbd5e1;
   padding: 5px 10px;
   border-radius: 8px;
   cursor: pointer;
@@ -11628,8 +11628,8 @@
 }
 
 .toss-btn-relink-card:hover {
-  background-color: #dbeafe;
-  border-color: #93c5fd;
+  background-color: #e2e8f0;
+  border-color: #cbd5e1;
 }
 
 .hidden {
@@ -11678,7 +11678,7 @@
 
 .toss-res-compact-btn.active {
   background-color: #ffffff;
-  color: #3182f6;
+  color: #0f172a;
   font-weight: 700;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
@@ -11732,9 +11732,9 @@
 }
 
 .toss-modal-res-item.active {
-  background-color: #f0f7ff;
-  border-color: #3182f6;
-  box-shadow: 0 2px 8px rgba(49, 130, 246, 0.1);
+  background-color: #f8fafc;
+  border-color: #0f172a;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.1);
 }
 
 .toss-modal-res-item-left {
@@ -11759,14 +11759,14 @@
 }
 
 .toss-modal-res-item.active .toss-modal-res-radio {
-  border-color: #3182f6;
+  border-color: #0f172a;
 }
 
 .toss-modal-res-radio-dot {
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background-color: #3182f6;
+  background-color: #0f172a;
 }
 
 .toss-modal-res-content {
@@ -11790,7 +11790,7 @@
 }
 
 .toss-modal-res-item.active .toss-modal-res-title {
-  color: #1d4ed8;
+  color: #0f172a;
 }
 
 .toss-modal-res-subbadge {
@@ -11802,9 +11802,9 @@
 }
 
 .toss-modal-res-subbadge.desktop {
-  background-color: #eff6ff;
-  color: #2563eb;
-  border: 1px solid #dbeafe;
+  background-color: #f1f5f9;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
 }
 
 .toss-modal-res-subbadge.standard {
@@ -11850,7 +11850,7 @@
 }
 
 .toss-card-title-icon {
-  color: #3182f6;
+  color: #0f172a;
   flex-shrink: 0;
 }
 
@@ -11887,9 +11887,9 @@
 }
 
 .toss-studio-res-btn.active {
-  background-color: #f0f7ff;
-  border-color: #3182f6;
-  box-shadow: 0 2px 6px rgba(49, 130, 246, 0.1);
+  background-color: #f8fafc;
+  border-color: #0f172a;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.1);
 }
 
 .toss-studio-res-btn-top {
@@ -11913,7 +11913,7 @@
 }
 
 .toss-studio-res-btn.active .toss-studio-res-btn-title {
-  color: #1d4ed8;
+  color: #0f172a;
 }
 
 .toss-studio-res-radio {
@@ -11930,14 +11930,14 @@
 }
 
 .toss-studio-res-radio.active {
-  border-color: #3182f6;
+  border-color: #0f172a;
 }
 
 .toss-studio-res-radio-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: #3182f6;
+  background-color: #0f172a;
 }
 
 .toss-studio-res-btn-desc {
@@ -12048,7 +12048,7 @@
   padding: 9px 18px;
   border: none;
   border-radius: 10px;
-  background-color: #3182f6;
+  background-color: #0f172a;
   color: #ffffff;
   font-size: 13px;
   font-weight: 700;
@@ -12060,7 +12060,7 @@
 }
 
 .export-modal-confirm-btn:hover {
-  background-color: #1b64da;
+  background-color: #1e293b;
 }
 
 
@@ -12164,7 +12164,7 @@
 
 .toss-status-tab-btn.active {
   background-color: #ffffff;
-  color: #3182f6;
+  color: #0f172a;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
@@ -12187,8 +12187,8 @@
 
 .toss-search-input:focus {
   background-color: #ffffff;
-  border-color: #3182f6;
-  box-shadow: 0 0 0 3px rgba(49, 130, 246, 0.12);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.12);
 }
 
 /* Feedback Cards */
@@ -12232,12 +12232,12 @@
 }
 
 .toss-feedback-admin-snippet {
-  background-color: #eff6ff;
-  border-left: 3px solid #3182f6;
+  background-color: #f1f5f9;
+  border-left: 3px solid #0f172a;
   border-radius: 6px;
   padding: 6px 10px;
   font-size: 12px;
-  color: #1e3a8a;
+  color: #0f172a;
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -12295,9 +12295,9 @@
 }
 
 .toss-category-select-btn.active {
-  border-color: #3182f6;
-  background-color: #eff6ff;
-  color: #1d4ed8;
+  border-color: #0f172a;
+  background-color: #f1f5f9;
+  color: #0f172a;
   font-weight: 700;
 }
 
@@ -12317,9 +12317,9 @@
 }
 
 .toss-status-select-btn.active {
-  border-color: #7c3aed;
-  background-color: #f5f3ff;
-  color: #6d28d9;
+  border-color: #0f172a;
+  background-color: #f8fafc;
+  color: #0f172a;
   font-weight: 700;
 }
 
@@ -12328,24 +12328,24 @@
   align-items: flex-start;
   gap: 6px;
   padding: 8px 12px;
-  background-color: #f0f7ff;
-  border: 1px solid #dbeafe;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
   font-size: 11.5px;
-  color: #1e40af;
+  color: #0f172a;
   line-height: 1.45;
 }
 
 .toss-admin-response-card {
-  background: linear-gradient(180deg, #f0f7ff 0%, #ffffff 100%);
-  border: 1.5px solid #bfdbfe;
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+  border: 1.5px solid #cbd5e1;
   border-radius: 14px;
   padding: 14px 16px;
 }
 
 .toss-dev-admin-panel {
-  background-color: #faf5ff;
-  border: 1.5px solid #e9d5ff;
+  background-color: #f8fafc;
+  border: 1.5px solid #e2e8f0;
   border-radius: 14px;
   padding: 14px 16px;
 }
@@ -12432,15 +12432,15 @@
 
 .toss-category-dropdown-trigger.open,
 .toss-category-dropdown-trigger:focus-visible {
-  border-color: #3182f6;
-  box-shadow: 0 0 0 3px rgba(49, 130, 246, 0.12);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.12);
   outline: none;
 }
 
 .toss-category-dropdown-trigger.active {
-  background-color: #eff6ff;
-  border-color: #bfdbfe;
-  color: #1d4ed8;
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
 }
 
 .toss-category-dropdown-menu {
@@ -12495,8 +12495,8 @@
 }
 
 .toss-category-dropdown-item.selected {
-  background-color: #eff6ff;
-  color: #1d4ed8;
+  background-color: #f1f5f9;
+  color: #0f172a;
   font-weight: 700;
 }
 
@@ -12608,8 +12608,8 @@
 
 .toss-feedback-input:focus {
   background-color: #ffffff;
-  border-color: #3182f6;
-  box-shadow: 0 0 0 3px rgba(49, 130, 246, 0.12);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.12);
 }
 
 .toss-feedback-input::placeholder {
@@ -12635,8 +12635,8 @@
 
 .toss-feedback-textarea:focus {
   background-color: #ffffff;
-  border-color: #3182f6;
-  box-shadow: 0 0 0 3px rgba(49, 130, 246, 0.12);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.12);
 }
 
 .toss-feedback-textarea::placeholder {
@@ -12648,10 +12648,10 @@
   align-items: center;
   gap: 5px;
   padding: 5px 12px;
-  background-color: #eff6ff;
-  border: 1px solid #bfdbfe;
+  background-color: #f1f5f9;
+  border: 1px solid #cbd5e1;
   border-radius: 8px;
-  color: #2563eb;
+  color: #0f172a;
   font-size: 11.5px;
   font-weight: 600;
   cursor: pointer;
@@ -12659,7 +12659,7 @@
 }
 
 .toss-feedback-upload-btn:hover {
-  background-color: #dbeafe;
+  background-color: #e2e8f0;
 }
 
 .toss-feedback-upload-btn:disabled {
@@ -12856,9 +12856,9 @@
   padding: 3px 9px;
   font-size: 11px;
   font-weight: 700;
-  color: #2563eb;
-  background-color: #eff6ff;
-  border: 1px solid #bfdbfe;
+  color: #0f172a;
+  background-color: #f1f5f9;
+  border: 1px solid #cbd5e1;
   border-radius: 9999px;
   letter-spacing: -0.01em;
   user-select: none;
@@ -12897,10 +12897,10 @@
 }
 
 .toss-patch-tab-btn.active {
-  background-color: #3182f6;
-  border-color: #3182f6;
+  background-color: #0f172a;
+  border-color: #0f172a;
   color: #ffffff;
-  box-shadow: 0 2px 6px rgba(49, 130, 246, 0.25);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
 }
 
 .toss-patch-actions-row {
@@ -12924,8 +12924,8 @@
 }
 
 .toss-patch-search-box:focus-within {
-  border-color: #3182f6;
-  box-shadow: 0 0 0 3px rgba(49, 130, 246, 0.1);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.1);
 }
 
 .toss-patch-search-input {
@@ -12966,8 +12966,8 @@
 }
 
 .toss-patch-text-btn:hover {
-  color: #3182f6;
-  background-color: #eff6ff;
+  color: #0f172a;
+  background-color: #f1f5f9;
 }
 
 .toss-patch-divider {
@@ -13002,12 +13002,12 @@
 }
 
 .toss-patch-card.major-card {
-  border-left: 4px solid #3182f6;
+  border-left: 4px solid #0f172a;
 }
 
 .toss-patch-card.latest-card {
-  border-color: #bfdbfe;
-  box-shadow: 0 4px 14px rgba(49, 130, 246, 0.08);
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
 }
 
 .toss-patch-card-header {
@@ -13045,7 +13045,7 @@
 }
 
 .toss-patch-ver-tag.major {
-  background-color: #3182f6;
+  background-color: #0f172a;
   color: #ffffff;
 }
 
@@ -13072,8 +13072,8 @@
   padding: 3px 8px;
   font-size: 11px;
   font-weight: 600;
-  color: #2563eb;
-  background-color: #eff6ff;
+  color: #0f172a;
+  background-color: #f1f5f9;
   border-radius: 6px;
 }
 
@@ -13310,11 +13310,11 @@
   gap: 5px;
   padding: 3px 10px;
   border-radius: 9999px;
-  background: rgba(49, 130, 246, 0.2);
-  border: 1px solid rgba(49, 130, 246, 0.4);
+  background: rgba(15, 23, 42, 0.2);
+  border: 1px solid rgba(15, 23, 42, 0.4);
   font-size: 11px;
   font-weight: 600;
-  color: #60a5fa;
+  color: #94a3b8;
   margin-bottom: 6px;
 }
 

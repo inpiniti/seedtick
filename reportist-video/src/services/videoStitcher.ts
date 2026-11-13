@@ -350,7 +350,7 @@ export async function stitchHighlightedSegments({
   }
 
   // 초기 캔버스 배경 설정
-  ctx.fillStyle = '#080c14';
+  ctx.fillStyle = '#080808';
   ctx.fillRect(0, 0, targetWidth, targetHeight);
 
   // 워커 비디오 엘리먼트 준비 (iOS Safari 단일 하드웨어 디코더 충돌 방지를 위해 단일 워커 사용)
@@ -496,7 +496,7 @@ export async function stitchHighlightedSegments({
     if (performance.now() - lastCanvasDrawAt < 48) return;
     if (ctx) {
       // 캔버스 모서리에 육안으로 구분 불가능한 극미세 픽셀 갱신(alpha 0.005)을 주어 WebKit 렌더러가 새 프레임 방출을 트리거
-      ctx.fillStyle = 'rgba(8, 12, 20, 0.005)';
+      ctx.fillStyle = 'rgba(8, 8, 8, 0.005)';
       ctx.fillRect(0, 0, 1, 1);
       commitCanvasFrame();
     }
@@ -1298,7 +1298,7 @@ export async function stitchHighlightedSegments({
         drawCoverFrame(workerA, nextVideoItem, nextSeg);
         nextFrameBufferCtx.drawImage(canvas, 0, 0);
       } else {
-        nextFrameBufferCtx.fillStyle = '#07090e';
+        nextFrameBufferCtx.fillStyle = '#070707';
         nextFrameBufferCtx.fillRect(0, 0, targetWidth, targetHeight);
       }
       // 캔버스를 이전 장면 스냅샷으로 복원한 상태에서 브릿지 시작

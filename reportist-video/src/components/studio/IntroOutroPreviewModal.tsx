@@ -462,8 +462,8 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                 width: '36px',
                 height: '36px',
                 borderRadius: '10px',
-                backgroundColor: '#eff6ff',
-                color: '#2563eb',
+                backgroundColor: '#f1f5f9',
+                color: '#0f172a',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -539,7 +539,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                 position: 'relative',
                 width: '100%',
                 aspectRatio: '16 / 9',
-                backgroundColor: '#0a0f1d',
+                backgroundColor: '#0a0a0a',
                 borderRadius: '14px',
                 overflow: 'hidden',
                 boxShadow: '0 12px 24px -6px rgba(0, 0, 0, 0.3)',
@@ -610,7 +610,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                   width: '36px',
                   height: '36px',
                   borderRadius: '50%',
-                  backgroundColor: isPlaying ? '#0f172a' : '#2563eb',
+                  backgroundColor: '#0f172a',
                   border: 'none',
                   color: '#ffffff',
                   display: 'flex',
@@ -656,7 +656,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                   onChange={(e) => handleSeek(parseFloat(e.target.value))}
                   style={{
                     flex: 1,
-                    accentColor: '#2563eb',
+                    accentColor: '#0f172a',
                     cursor: 'pointer',
                   }}
                 />
@@ -679,15 +679,15 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
             {/* 안내 팁 배너 */}
             <div
               style={{
-                backgroundColor: '#eff6ff',
+                backgroundColor: '#f1f5f9',
                 borderRadius: '10px',
                 padding: '9px 12px',
-                border: '1px solid #dbeafe',
+                border: '1px solid #e2e8f0',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
                 fontSize: '11.5px',
-                color: '#1e40af',
+                color: '#0f172a',
               }}
             >
               <HelpCircle size={14} className="shrink-0" />
@@ -731,7 +731,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                   transition: 'all 0.15s ease',
                 }}
               >
-                <Clapperboard size={14} className={activeTab === 'intro' ? 'text-blue-600' : ''} />
+                <Clapperboard size={14} className={activeTab === 'intro' ? 'text-slate-900' : ''} />
                 <span>{ioDict?.tabIntro || '🎬 시작 인트로 (4종)'}</span>
               </button>
 
@@ -756,7 +756,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                   transition: 'all 0.15s ease',
                 }}
               >
-                <Film size={14} className={activeTab === 'outro' ? 'text-blue-600' : ''} />
+                <Film size={14} className={activeTab === 'outro' ? 'text-slate-900' : ''} />
                 <span>{ioDict?.tabOutro || '🏁 종료 아웃트로 (3종)'}</span>
               </button>
             </div>
@@ -784,8 +784,8 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                           gap: '10px',
                           padding: '11px 13px',
                           borderRadius: '12px',
-                          border: isSelected ? '2px solid #2563eb' : '1px solid #e2e8f0',
-                          backgroundColor: isSelected ? '#eff6ff' : '#ffffff',
+                          border: isSelected ? '2px solid #0f172a' : '1px solid #e2e8f0',
+                          backgroundColor: isSelected ? '#f1f5f9' : '#ffffff',
                           cursor: 'pointer',
                           textAlign: 'left',
                           transition: 'all 0.15s ease',
@@ -805,7 +805,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                               style={{
                                 fontSize: '13px',
                                 fontWeight: 700,
-                                color: isSelected ? '#1d4ed8' : '#0f172a',
+                                color: '#0f172a',
                               }}
                             >
                               {tpl.name}
@@ -816,7 +816,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                                 fontWeight: 700,
                                 padding: '2px 6px',
                                 borderRadius: '5px',
-                                backgroundColor: isSelected ? '#2563eb' : '#f1f5f9',
+                                backgroundColor: isSelected ? '#0f172a' : '#f1f5f9',
                                 color: isSelected ? '#ffffff' : '#64748b',
                               }}
                             >
@@ -840,7 +840,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                               width: '18px',
                               height: '18px',
                               borderRadius: '50%',
-                              backgroundColor: '#2563eb',
+                              backgroundColor: '#0f172a',
                               color: '#ffffff',
                               display: 'flex',
                               alignItems: 'center',
@@ -888,7 +888,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                       <Clock size={13} className="text-slate-400" />
                       <span>{ioDict?.durationLabel || '재생 시간'}</span>
                     </span>
-                    <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#2563eb' }}>
+                    <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#0f172a' }}>
                       {introDuration.toFixed(1)}{secUnit}
                     </span>
                   </div>
@@ -944,8 +944,8 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                           gap: '10px',
                           padding: '11px 13px',
                           borderRadius: '12px',
-                          border: isSelected ? '2px solid #2563eb' : '1px solid #e2e8f0',
-                          backgroundColor: isSelected ? '#eff6ff' : '#ffffff',
+                          border: isSelected ? '2px solid #0f172a' : '1px solid #e2e8f0',
+                          backgroundColor: isSelected ? '#f1f5f9' : '#ffffff',
                           cursor: 'pointer',
                           textAlign: 'left',
                           transition: 'all 0.15s ease',
@@ -965,7 +965,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                               style={{
                                 fontSize: '13px',
                                 fontWeight: 700,
-                                color: isSelected ? '#1d4ed8' : '#0f172a',
+                                color: '#0f172a',
                               }}
                             >
                               {tpl.name}
@@ -976,7 +976,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                                 fontWeight: 700,
                                 padding: '2px 6px',
                                 borderRadius: '5px',
-                                backgroundColor: isSelected ? '#2563eb' : '#f1f5f9',
+                                backgroundColor: isSelected ? '#0f172a' : '#f1f5f9',
                                 color: isSelected ? '#ffffff' : '#64748b',
                               }}
                             >
@@ -1000,7 +1000,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                               width: '18px',
                               height: '18px',
                               borderRadius: '50%',
-                              backgroundColor: '#2563eb',
+                              backgroundColor: '#0f172a',
                               color: '#ffffff',
                               display: 'flex',
                               alignItems: 'center',
@@ -1048,7 +1048,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                       <Clock size={13} className="text-slate-400" />
                       <span>{ioDict?.durationLabel || '재생 시간'}</span>
                     </span>
-                    <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#2563eb' }}>
+                    <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#0f172a' }}>
                       {outroDuration.toFixed(1)}{secUnit}
                     </span>
                   </div>
@@ -1159,7 +1159,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
               padding: '9px 20px',
               borderRadius: '10px',
               border: 'none',
-              backgroundColor: '#2563eb',
+              backgroundColor: '#0f172a',
               color: '#ffffff',
               fontSize: '13px',
               fontWeight: 700,
@@ -1167,7 +1167,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              boxShadow: '0 2px 6px rgba(37, 99, 235, 0.3)',
+              boxShadow: '0 2px 6px rgba(15, 23, 42, 0.3)',
             }}
           >
             <Check size={14} strokeWidth={2.5} />

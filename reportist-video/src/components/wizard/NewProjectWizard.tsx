@@ -511,7 +511,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                   onChange={handleFileInputChange}
                 />
                 <div className="wizard-dropzone-icon">
-                  <Upload size={28} className="text-blue-500" />
+                  <Upload size={28} className="text-slate-900" />
                 </div>
                 <div className="wizard-dropzone-text">
                   <strong>{w?.dropzoneTitle || '동영상 파일을 끌어다 놓거나 클릭하여 선택하세요'}</strong>
@@ -640,7 +640,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
               {/* 1. 배경음악(BGM) 설정 카드 */}
               <div className="wizard-config-card">
                 <div className="wizard-config-card-header">
-                  <div className="wizard-config-icon-badge bg-blue-50 text-blue-600">
+                  <div className="wizard-config-icon-badge bg-slate-100 text-slate-900">
                     <Music size={18} />
                   </div>
                   <div>
@@ -667,7 +667,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                       </div>
                     </div>
                     {!selectedLibraryTrackId && !customAudioFile && (
-                      <Check size={16} className="text-blue-500" strokeWidth={3} />
+                      <Check size={16} className="text-slate-900" strokeWidth={3} />
                     )}
                   </div>
 
@@ -705,7 +705,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                           </div>
                         </div>
                         {isSelected && (
-                          <Check size={16} className="text-blue-500" strokeWidth={3} />
+                          <Check size={16} className="text-slate-900" strokeWidth={3} />
                         )}
                       </div>
                     );
@@ -742,7 +742,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
               {/* 2. 인트로 및 오프닝 타이틀 설정 */}
               <div className="wizard-config-card">
                 <div className="wizard-config-card-header">
-                  <div className="wizard-config-icon-badge bg-indigo-50 text-indigo-600">
+                  <div className="wizard-config-icon-badge bg-slate-100 text-slate-900">
                     <Type size={18} />
                   </div>
                   <div>
@@ -791,7 +791,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
 
                   {introVideoFile ? (
                     <div className="wizard-clip-file-chip">
-                      <Film size={14} className="text-blue-600 flex-shrink-0" />
+                      <Film size={14} className="text-slate-900 flex-shrink-0" />
                       <span className="wizard-clip-file-name" title={introVideoFile.name}>
                         {introVideoFile.name} ({(introVideoFile.size / (1024 * 1024)).toFixed(1)}MB)
                       </span>

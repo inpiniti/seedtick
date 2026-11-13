@@ -178,7 +178,7 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClos
         {/* Header */}
         <div className="model-modal-header" style={{ borderBottom: '1px solid #eef2f6', paddingBottom: '16px' }}>
           <div className="model-modal-title-row">
-            <div className="model-modal-icon-badge" style={{ backgroundColor: '#eff6ff', color: '#3182f6' }}>
+            <div className="model-modal-icon-badge" style={{ backgroundColor: '#f1f5f9', color: '#0f172a' }}>
               <Sparkles size={20} />
             </div>
             <div>
@@ -429,11 +429,11 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClos
 function getCommitBadgeStyle(type: string): { bg: string; text: string } {
   switch (type.toLowerCase()) {
     case 'feat':
-      return { bg: '#eff6ff', text: '#2563eb' };
+      return { bg: '#f1f5f9', text: '#0f172a' };
     case 'fix':
       return { bg: '#fef2f2', text: '#dc2626' };
     case 'perf':
-      return { bg: '#faf5ff', text: '#9333ea' };
+      return { bg: '#f8fafc', text: '#0f172a' };
     case 'style':
       return { bg: '#f0fdf4', text: '#16a34a' };
     case 'refactor':

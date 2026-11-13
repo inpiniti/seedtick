@@ -442,7 +442,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                 minHeight: isFullscreen ? '0' : '360px',
                 borderRadius: '18px',
                 overflow: 'hidden',
-                backgroundColor: '#07090e',
+                backgroundColor: '#070707',
                 border: '1px solid #0f172a',
                 boxShadow: '0 12px 36px rgba(15, 23, 42, 0.25)',
                 aspectRatio: isFullscreen ? undefined : '16 / 9',
@@ -497,8 +497,8 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                     padding: '5px 12px',
                     borderRadius: '8px',
                     backgroundColor: 'rgba(15, 23, 42, 0.88)',
-                    border: '1px solid rgba(56, 189, 248, 0.6)',
-                    color: '#38bdf8',
+                    border: '1px solid rgba(203, 213, 225, 0.6)',
+                    color: '#cbd5e1',
                     backdropFilter: 'blur(6px)',
                     boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
                   }}
@@ -598,7 +598,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                 color: '#475569',
               }}
             >
-              <HelpCircle size={16} color="#0284c7" style={{ flexShrink: 0 }} />
+              <HelpCircle size={16} color="#1e293b" style={{ flexShrink: 0 }} />
               <span>
                 {cDict?.tipDescription ||
                   '💡 템플릿 카드를 클릭하면 왼쪽 대형 화면에서 즉시 실시간 전환 모션이 시뮬레이션됩니다.'}
@@ -656,7 +656,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                   fontWeight: 700,
                   cursor: 'pointer',
                   backgroundColor: activeTab === 'location' ? '#ffffff' : 'transparent',
-                  color: activeTab === 'location' ? '#0369a1' : '#64748b',
+                  color: activeTab === 'location' ? '#334155' : '#64748b',
                   boxShadow: activeTab === 'location' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
                   transition: 'all 0.15s ease',
                   display: 'flex',
@@ -785,7 +785,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px',
-                    color: '#0369a1',
+                    color: '#334155',
                     fontWeight: 700,
                     fontSize: '13.5px',
                     paddingBottom: '4px',
@@ -806,8 +806,8 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                         style={{
                           padding: '12px 14px',
                           borderRadius: '10px',
-                          border: selected ? '2px solid #0284c7' : '1px solid #f1f5f9',
-                          backgroundColor: selected ? '#e0f2fe' : '#ffffff',
+                          border: selected ? '2px solid #1e293b' : '1px solid #f1f5f9',
+                          backgroundColor: selected ? '#f1f5f9' : '#ffffff',
                           color: '#0f172a',
                           cursor: 'pointer',
                           textAlign: 'left',
@@ -823,7 +823,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                             style={{
                               fontSize: '13.5px',
                               fontWeight: 700,
-                              color: selected ? '#075985' : '#1e293b',
+                              color: selected ? '#334155' : '#1e293b',
                             }}
                           >
                             {opt.name}
@@ -845,7 +845,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                               width: '22px',
                               height: '22px',
                               borderRadius: '50%',
-                              backgroundColor: '#0284c7',
+                              backgroundColor: '#1e293b',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',

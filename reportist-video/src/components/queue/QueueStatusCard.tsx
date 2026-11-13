@@ -68,22 +68,22 @@ export function QueueStatusCard({
   const safeEta = Math.max(0, Math.round(estimatedWaitSec));
 
   return (
-    <div className="w-full rounded-2xl border border-blue-100 bg-blue-50/80 px-4 py-3 text-left">
+    <div className="w-full rounded-2xl border border-slate-200 bg-slate-100/$1 px-4 py-3 text-left">
       <div className="flex items-center gap-2">
         <span className="relative flex h-2.5 w-2.5">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-70" />
-          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-blue-500" />
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-slate-500 opacity-70" />
+          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-slate-700" />
         </span>
-        <span className="text-[11px] font-bold uppercase tracking-wide text-blue-700">
+        <span className="text-[11px] font-bold uppercase tracking-wide text-slate-900">
           {copy.badge}
         </span>
-        <span className="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600">
+        <span className="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-slate-900">
           <Clock size={12} />
           {copy.eta(safeEta)}
         </span>
       </div>
       <div className="mt-2 flex items-center gap-2">
-        <Users size={16} className="text-blue-500" />
+        <Users size={16} className="text-slate-900" />
         <span className="text-sm font-bold text-slate-800">{copy.ahead(safePosition)}</span>
       </div>
       <p className="mt-1 text-[11px] leading-snug text-slate-500">{copy.hint}</p>

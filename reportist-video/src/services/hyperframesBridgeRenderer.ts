@@ -281,12 +281,12 @@ function drawSplitFlapTile(
 
     const bgGrad = ctx.createLinearGradient(x, y, x, y + tileH);
     if (half === 'top') {
-      bgGrad.addColorStop(0, '#1e2638');
-      bgGrad.addColorStop(0.5, '#151b28');
-      bgGrad.addColorStop(1, '#111622');
+      bgGrad.addColorStop(0, '#1e1e1e');
+      bgGrad.addColorStop(0.5, '#151515');
+      bgGrad.addColorStop(1, '#111111');
     } else {
-      bgGrad.addColorStop(0, '#141a26');
-      bgGrad.addColorStop(1, '#1c2436');
+      bgGrad.addColorStop(0, '#141414');
+      bgGrad.addColorStop(1, '#1c1c1c');
     }
     ctx.fillStyle = bgGrad;
     ctx.beginPath();
@@ -336,7 +336,7 @@ function drawSplitFlapTile(
   }
 
   ctx.save();
-  ctx.fillStyle = '#07090e';
+  ctx.fillStyle = '#070707';
   ctx.fillRect(x, centerY - 1.2, tileW, 2.4);
   ctx.fillStyle = 'rgba(245, 208, 125, 0.55)';
   ctx.fillRect(x + 1, centerY - 3, 2.5, 6);
@@ -385,7 +385,7 @@ function renderDate1_FlipClock(
   const framePadX = Math.round(22 * scale);
   const framePadY = Math.round(14 * scale);
   ctx.save();
-  ctx.fillStyle = 'rgba(7, 10, 16, 0.85)';
+  ctx.fillStyle = 'rgba(7, 7, 7, 0.85)';
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
   ctx.lineWidth = Math.max(1, 1.5 * scale);
   ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
@@ -485,7 +485,7 @@ function renderDate2_WatchSpin(
   ctx.stroke();
 
   // 시계 내부 다이얼
-  ctx.fillStyle = '#090d16';
+  ctx.fillStyle = '#090909';
   ctx.beginPath();
   ctx.arc(centerX, watchCenterY, radius - Math.round(3 * scale), 0, Math.PI * 2);
   ctx.fill();
@@ -714,10 +714,10 @@ function renderDate5_NeonDigital(
 
   ctx.save();
   // 네온 사이버 프레임
-  ctx.fillStyle = 'rgba(6, 12, 24, 0.9)';
-  ctx.strokeStyle = progress > 0.8 ? '#10b981' : '#06b6d4';
+  ctx.fillStyle = 'rgba(8, 8, 8, 0.9)';
+  ctx.strokeStyle = progress > 0.8 ? '#10b981' : '#94a3b8';
   ctx.lineWidth = 2;
-  ctx.shadowColor = progress > 0.8 ? 'rgba(16, 185, 129, 0.8)' : 'rgba(6, 182, 212, 0.8)';
+  ctx.shadowColor = progress > 0.8 ? 'rgba(16, 185, 129, 0.8)' : 'rgba(148, 163, 184, 0.8)';
   ctx.shadowBlur = Math.round(16 * scale);
 
   if (typeof ctx.roundRect === 'function') {
@@ -731,7 +731,7 @@ function renderDate5_NeonDigital(
 
   // HUD 라벨
   ctx.font = `700 ${Math.round(11 * scale)}px monospace`;
-  ctx.fillStyle = '#06b6d4';
+  ctx.fillStyle = '#94a3b8';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   ctx.fillText('>> CHRONO SYNC // DIGITAL COUNTER', centerX - boxW / 2 + 14, neonCenterY - boxH / 2 + 10);
@@ -746,7 +746,7 @@ function renderDate5_NeonDigital(
   }
 
   ctx.font = `900 ${Math.round((bothActive ? 30 : 38) * scale)}px monospace`;
-  ctx.fillStyle = progress > 0.8 ? '#34d399' : '#38bdf8';
+  ctx.fillStyle = progress > 0.8 ? '#34d399' : '#cbd5e1';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(displayText, centerX, neonCenterY + Math.round(12 * scale));
@@ -813,8 +813,8 @@ function drawTravelVehicleIcon(
 
   const glow = ctx.createRadialGradient(0, 0, 2, 0, 0, 28);
   glow.addColorStop(0, 'rgba(245, 208, 125, 0.95)');
-  glow.addColorStop(0.5, 'rgba(56, 189, 248, 0.35)');
-  glow.addColorStop(1, 'rgba(56, 189, 248, 0)');
+  glow.addColorStop(0.5, 'rgba(203, 213, 225, 0.35)');
+  glow.addColorStop(1, 'rgba(203, 213, 225, 0)');
   ctx.fillStyle = glow;
   ctx.beginPath();
   ctx.arc(0, 0, 28, 0, Math.PI * 2);
@@ -906,7 +906,7 @@ function renderLocation1_WindingRoute(
   if (!bothActive) {
     ctx.save();
     ctx.font = `700 ${Math.round(13 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-    ctx.fillStyle = '#38bdf8';
+    ctx.fillStyle = '#cbd5e1';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     if ('letterSpacing' in ctx) {
@@ -984,14 +984,14 @@ function renderLocation1_WindingRoute(
   if (destPulse > 0.01) {
     const pulseRadius = 12 + destPulse * 34;
     const pulseAlpha = Math.max(0, (1 - destPulse) * 0.75);
-    ctx.strokeStyle = `rgba(56, 189, 248, ${pulseAlpha.toFixed(3)})`;
+    ctx.strokeStyle = `rgba(203, 213, 225, ${pulseAlpha.toFixed(3)})`;
     ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.arc(endX, endY, pulseRadius, 0, Math.PI * 2);
     ctx.stroke();
   }
 
-  const pinColor = arrived ? '#38bdf8' : '#64748b';
+  const pinColor = arrived ? '#cbd5e1' : '#64748b';
   ctx.fillStyle = '#0f172a';
   ctx.strokeStyle = pinColor;
   ctx.lineWidth = 3.5;
@@ -1009,7 +1009,7 @@ function renderLocation1_WindingRoute(
   ctx.font = `800 ${bothActive ? 22 : 28}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
   ctx.fillStyle = arrived ? '#ffffff' : 'rgba(226, 232, 240, 0.65)';
   if (arrived) {
-    ctx.shadowColor = 'rgba(56, 189, 248, 0.5)';
+    ctx.shadowColor = 'rgba(203, 213, 225, 0.5)';
     ctx.shadowBlur = 14;
   }
   ctx.textAlign = 'center';
@@ -1018,7 +1018,7 @@ function renderLocation1_WindingRoute(
   ctx.shadowColor = 'transparent';
 
   ctx.font = '700 11px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif';
-  ctx.fillStyle = arrived ? '#38bdf8' : 'rgba(148, 163, 184, 0.7)';
+  ctx.fillStyle = arrived ? '#cbd5e1' : 'rgba(148, 163, 184, 0.7)';
   ctx.fillText('TO', endX, endY - 28);
   ctx.restore();
 
@@ -1045,7 +1045,7 @@ function renderLocation2_GlobeSpin(
 
   ctx.save();
   // 1) 지구본 와이어프레임 구체
-  ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
+  ctx.strokeStyle = 'rgba(203, 213, 225, 0.35)';
   ctx.lineWidth = 1.2;
   ctx.beginPath();
   ctx.arc(centerX, globeCenterY, globeR, 0, Math.PI * 2);
@@ -1096,7 +1096,7 @@ function renderLocation2_GlobeSpin(
   ctx.textAlign = 'right';
   ctx.fillText(info.fromLocation || '출발지', startX - 16, globeCenterY);
 
-  ctx.fillStyle = routeProgress >= 0.95 ? '#38bdf8' : '#94a3b8';
+  ctx.fillStyle = routeProgress >= 0.95 ? '#cbd5e1' : '#94a3b8';
   ctx.textAlign = 'left';
   ctx.fillText(info.toLocation || '도착지', endX + 16, globeCenterY);
 
@@ -1135,7 +1135,7 @@ function renderLocation3_BoardingPass(
   ctx.stroke();
 
   // 좌우 절취 홈
-  ctx.fillStyle = '#07090e';
+  ctx.fillStyle = '#070707';
   ctx.beginPath();
   ctx.arc(x, passCenterY, 12 * scale, -Math.PI / 2, Math.PI / 2);
   ctx.fill();
@@ -1163,7 +1163,7 @@ function renderLocation3_BoardingPass(
 
   // 중앙 화살표/비행기
   ctx.font = `700 ${Math.round(16 * scale)}px sans-serif`;
-  ctx.fillStyle = '#38bdf8';
+  ctx.fillStyle = '#cbd5e1';
   ctx.textAlign = 'center';
   ctx.fillText('✈ ───→', centerX, passCenterY + 4 * scale);
 
@@ -1213,7 +1213,7 @@ function renderLocation4_MinimalEditorial(
 
   ctx.save();
   ctx.font = `600 ${Math.round(12 * scale)}px "Times New Roman", Georgia, serif`;
-  ctx.fillStyle = '#38bdf8';
+  ctx.fillStyle = '#cbd5e1';
   ctx.textAlign = 'center';
   if ('letterSpacing' in ctx) {
     (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = `${Math.round(5 * scale)}px`;
@@ -1262,10 +1262,10 @@ function renderLocation5_GpsCyber(
 
   ctx.save();
   // 1) HUD 반투명 하우징 & 사이안 보더
-  ctx.fillStyle = 'rgba(7, 14, 28, 0.88)';
-  ctx.strokeStyle = '#06b6d4';
+  ctx.fillStyle = 'rgba(8, 8, 8, 0.88)';
+  ctx.strokeStyle = '#94a3b8';
   ctx.lineWidth = 1.8;
-  ctx.shadowColor = 'rgba(6, 182, 212, 0.45)';
+  ctx.shadowColor = 'rgba(148, 163, 184, 0.45)';
   ctx.shadowBlur = Math.round(14 * scale);
 
   if (typeof ctx.roundRect === 'function') {
@@ -1280,7 +1280,7 @@ function renderLocation5_GpsCyber(
   // 2) 3D 투시 원근 도로 그리드 (소실점으로 모이는 도로선)
   const vanishX = centerX;
   const vanishY = y + Math.round(18 * scale);
-  ctx.strokeStyle = 'rgba(6, 182, 212, 0.25)';
+  ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
   ctx.lineWidth = 1;
   const gridL = x + Math.round(40 * scale);
   const gridR = x + hudW - Math.round(40 * scale);
@@ -1301,7 +1301,7 @@ function renderLocation5_GpsCyber(
     const cT = ((routeProgress * 2 + c / chevronCount) % 1);
     const cY = vanishY + (roadBotY - vanishY) * cT;
     const cSpan = Math.round((20 + cT * 40) * scale);
-    ctx.strokeStyle = arrived ? '#10b981' : '#38bdf8';
+    ctx.strokeStyle = arrived ? '#10b981' : '#cbd5e1';
     ctx.lineWidth = Math.max(1.5, 2.5 * scale * cT);
     ctx.beginPath();
     ctx.moveTo(vanishX - cSpan, cY - 4);
@@ -1312,7 +1312,7 @@ function renderLocation5_GpsCyber(
 
   // 4) 상단 내비 상태 안내 문구
   ctx.font = `700 ${Math.round(11 * scale)}px monospace`;
-  ctx.fillStyle = arrived ? '#34d399' : '#38bdf8';
+  ctx.fillStyle = arrived ? '#34d399' : '#cbd5e1';
   ctx.textAlign = 'left';
   ctx.fillText(
     arrived ? '>> DESTINATION ARRIVED // ROUTE COMPLETE' : '>> GPS ROUTE RE-CALCULATING...',
@@ -1330,7 +1330,7 @@ function renderLocation5_GpsCyber(
   ctx.fillText(`FROM: ${fromLoc}`, x + 24 * scale, y + hudH - Math.round(18 * scale));
 
   ctx.font = `900 ${Math.round((bothActive ? 20 : 24) * scale)}px -apple-system, sans-serif`;
-  ctx.fillStyle = arrived ? '#ffffff' : '#38bdf8';
+  ctx.fillStyle = arrived ? '#ffffff' : '#cbd5e1';
   ctx.textAlign = 'right';
   ctx.fillText(`TO: ${toLoc}`, x + hudW - 24 * scale, y + hudH - Math.round(18 * scale));
 
@@ -1511,7 +1511,7 @@ export function createHyperframesBridgeController(durationSec = CHAPTER_BRIDGE_D
         drawNextVideoFrame();
         ctx.restore();
       } else {
-        ctx.fillStyle = '#07090e';
+        ctx.fillStyle = '#070707';
         ctx.fillRect(0, 0, targetWidth, targetHeight);
       }
 
@@ -1546,13 +1546,13 @@ export function createHyperframesBridgeController(durationSec = CHAPTER_BRIDGE_D
 
         const bladeGrad = ctx.createLinearGradient(0, yTop, targetWidth, yBot);
         if (i % 2 === 0) {
-          bladeGrad.addColorStop(0, '#090c12');
-          bladeGrad.addColorStop(0.5, '#0f1420');
-          bladeGrad.addColorStop(1, '#080b11');
+          bladeGrad.addColorStop(0, '#0a0a0a');
+          bladeGrad.addColorStop(0.5, '#0f0f0f');
+          bladeGrad.addColorStop(1, '#080808');
         } else {
-          bladeGrad.addColorStop(0, '#0b0f17');
-          bladeGrad.addColorStop(0.5, '#121826');
-          bladeGrad.addColorStop(1, '#090c12');
+          bladeGrad.addColorStop(0, '#0b0b0b');
+          bladeGrad.addColorStop(0.5, '#121212');
+          bladeGrad.addColorStop(1, '#0a0a0a');
         }
         ctx.fillStyle = bladeGrad;
         ctx.fill();
@@ -1603,7 +1603,7 @@ export function createHyperframesBridgeController(durationSec = CHAPTER_BRIDGE_D
           targetWidth * 0.45
         );
         ambGrad.addColorStop(0, 'rgba(245, 208, 125, 0.09)');
-        ambGrad.addColorStop(0.5, 'rgba(56, 189, 248, 0.05)');
+        ambGrad.addColorStop(0.5, 'rgba(203, 213, 225, 0.05)');
         ambGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = ambGrad;
         ctx.fillRect(0, 0, targetWidth, targetHeight);

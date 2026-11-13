@@ -176,7 +176,7 @@ export const CreateFeedbackForm: React.FC<CreateFeedbackFormProps> = ({
               className={`toss-category-select-btn ${category === 'improvement' ? 'active' : ''}`}
               onClick={() => setCategory('improvement')}
             >
-              <Sparkles size={14} className="text-blue-500" />
+              <Sparkles size={14} className="text-slate-900" />
               <span>{dict.feedback?.catImprovement || '사용성 개선'}</span>
             </button>
             <button
@@ -200,7 +200,7 @@ export const CreateFeedbackForm: React.FC<CreateFeedbackFormProps> = ({
               className={`toss-category-select-btn ${category === 'other' ? 'active' : ''}`}
               onClick={() => setCategory('other')}
             >
-              <HelpCircle size={14} className="text-purple-500" />
+              <HelpCircle size={14} className="text-slate-900" />
               <span>{dict.feedback?.catOther || '기타 의견'}</span>
             </button>
           </div>
@@ -260,7 +260,7 @@ export const CreateFeedbackForm: React.FC<CreateFeedbackFormProps> = ({
         <div className="toss-feedback-form-group">
           <div className="toss-feedback-images-header">
             <label className="toss-feedback-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <ImageIcon size={14} color="#3182f6" />
+              <ImageIcon size={14} color="#0f172a" />
               <span>
                 {dict.feedback?.attachImagesLabel || '이미지 / 스크린샷 첨부'} ({images.length}
                 {dict.feedback?.attachedImagesTitle ? '' : '장'})
@@ -287,7 +287,7 @@ export const CreateFeedbackForm: React.FC<CreateFeedbackFormProps> = ({
 
           {/* Paste Guide Banner */}
           <div className="toss-paste-tip-box">
-            <Info size={13} color="#2563eb" style={{ flexShrink: 0, marginTop: '2px' }} />
+            <Info size={13} color="#0f172a" style={{ flexShrink: 0, marginTop: '2px' }} />
             <span>
               <strong>{dict.feedback?.pasteTipStrong || 'Tip:'}</strong>{' '}
               {dict.feedback?.pasteTipText ||
@@ -319,7 +319,7 @@ export const CreateFeedbackForm: React.FC<CreateFeedbackFormProps> = ({
 
           {isUploading && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#64748b', padding: '4px 0' }}>
-              <Loader2 size={14} className="animate-spin" color="#3182f6" />
+              <Loader2 size={14} className="animate-spin" color="#0f172a" />
               <span>{dict.feedback?.uploadingImages || '이미지를 업로드하고 있어요...'}</span>
             </div>
           )}
@@ -331,7 +331,7 @@ export const CreateFeedbackForm: React.FC<CreateFeedbackFormProps> = ({
             type="checkbox"
             checked={includeDeviceInfo}
             onChange={(e) => setIncludeDeviceInfo(e.target.checked)}
-            style={{ width: '15px', height: '15px', accentColor: '#3182f6', cursor: 'pointer' }}
+            style={{ width: '15px', height: '15px', accentColor: '#0f172a', cursor: 'pointer' }}
           />
           <span>
             {dict.feedback?.deviceInfoNotice ||

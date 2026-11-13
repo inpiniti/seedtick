@@ -58,7 +58,7 @@ export const Header: React.FC<HeaderProps> = ({
           className="model-widget"
           title={dict.common.modelWidgetTitle || '다중 프레임 시각 분석 지원 모델만 선별되어 제공됩니다'}
         >
-          <Cpu className="w-3.5 h-3.5 text-[#2563eb] shrink-0" />
+          <Cpu className="w-3.5 h-3.5 text-[#0f172a] shrink-0" />
           <span className="text-[#64748b] text-[11px] font-mono">{dict.common.modelLabel || '모델:'}</span>
           <select
             className="model-select"

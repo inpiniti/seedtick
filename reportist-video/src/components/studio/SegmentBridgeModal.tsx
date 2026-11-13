@@ -284,7 +284,7 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
                       display: 'block',
                       fontSize: '13px',
                       fontWeight: 700,
-                      color: '#0369a1',
+                      color: '#334155',
                       marginBottom: '6px',
                     }}
                   >

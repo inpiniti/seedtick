@@ -122,13 +122,13 @@ export const VideoExportModal: React.FC<VideoExportModalProps> = ({
           {/* Summary Meta Bar */}
           <div className="export-modal-meta-box">
             <div className="export-modal-meta-item">
-              <Clock size={14} className="text-blue-500" />
+              <Clock size={14} className="text-slate-900" />
               <span className="export-modal-meta-label">{dict.exportSettings?.totalDurationLabel || '총 길이:'}</span>
               <strong className="export-modal-meta-val">{totalDurationText}</strong>
             </div>
             <span className="export-modal-meta-dot">·</span>
             <div className="export-modal-meta-item">
-              <Film size={14} className="text-blue-500" />
+              <Film size={14} className="text-slate-900" />
               <span className="export-modal-meta-label">{dict.exportSettings?.highlightsLabel || '하이라이트:'}</span>
               <strong className="export-modal-meta-val">
                 {interpolate(dict.exportSettings?.segmentCount || '{count}개 클립', { count: segmentCount })}

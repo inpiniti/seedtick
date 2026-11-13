@@ -2278,11 +2278,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           if (customIntroV.readyState >= 1) {
             drawCompositorCoverFrame(ctx, customIntroV, undefined, undefined, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
           } else {
-            ctx.fillStyle = '#0a0f1d';
+            ctx.fillStyle = '#0a0a0a';
             ctx.fillRect(0, 0, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
           }
         } else {
-          ctx.fillStyle = '#0a0f1d';
+          ctx.fillStyle = '#0a0a0a';
           ctx.fillRect(0, 0, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
         }
         return;
@@ -2311,11 +2311,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           if (customOutroV.readyState >= 1) {
             drawCompositorCoverFrame(ctx, customOutroV, undefined, undefined, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
           } else {
-            ctx.fillStyle = '#0a0f1d';
+            ctx.fillStyle = '#0a0a0a';
             ctx.fillRect(0, 0, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
           }
         } else {
-          ctx.fillStyle = '#0a0f1d';
+          ctx.fillStyle = '#0a0a0a';
           ctx.fillRect(0, 0, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
         }
         return;
@@ -3825,7 +3825,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 disabled={isProcessing}
                 loading={isProcessing}
                 specularColor="#ffffff"
-                glowColor="rgba(147, 197, 253, 0.95)"
+                glowColor="rgba(203, 213, 225, 0.95)"
               >
                 <Sparkles size={14} className={isProcessing ? 'animate-spin' : ''} />
                 <ShinyText
@@ -4251,7 +4251,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     }}
                   >
                     <div className="toss-empty-circle-icon">
-                      <Sparkles size={28} className="text-blue-500" />
+                      <Sparkles size={28} className="text-slate-900" />
                     </div>
                     <h3 className="toss-empty-title">새 AI 영상 작업 시작하기</h3>
                     <p className="toss-empty-desc">
@@ -4399,7 +4399,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               <div className="toss-timeline-sequencer-box toss-draft-preview-box">
                 <div className="toss-sequencer-header">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <Film size={14} className="text-blue-600 shrink-0" />
+                    <Film size={14} className="text-slate-900 shrink-0" />
                     <span className="toss-sequencer-title">
                       {dict.draftPreview?.title || '원본 영상 미리보기'}
                     </span>
@@ -4464,7 +4464,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               <div className="toss-timeline-sequencer-box">
                 <div className="toss-sequencer-header">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <Film size={14} className="text-blue-600 shrink-0" />
+                    <Film size={14} className="text-slate-900 shrink-0" />
                     <span className="toss-sequencer-title">{dict.sequencer.title}</span>
                     <span className="toss-sequencer-badge">
                       {interpolate(dict.sequencer.clipsCount, { count: segments.length })} · {formatSec(totalDuration)}
@@ -5608,7 +5608,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                       <span>{opt.icon}</span>
                                       <span>{opt.label}</span>
                                     </span>
-                                    {isSelected && <Check size={12} className="text-blue-600 shrink-0" />}
+                                    {isSelected && <Check size={12} className="text-slate-900 shrink-0" />}
                                   </div>
                                   <span className="text-[11px] text-slate-500 block mt-0.5 line-clamp-1">
                                     {opt.desc}
@@ -5632,9 +5632,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       title={dict.dramaticClips?.refineSubtitlesBtnTitle || '전체 맥락을 이해하여 브이로그 스타일의 자연스러운 자막으로 교정합니다'}
                     >
                       {isRefiningSubtitles ? (
-                        <Loader2 size={12} className="animate-spin text-blue-600" />
+                        <Loader2 size={12} className="animate-spin text-slate-900" />
                       ) : (
-                        <Wand2 size={12} className="text-blue-600" />
+                        <Wand2 size={12} className="text-slate-900" />
                       )}
                       <ShinyText
                         theme="light"

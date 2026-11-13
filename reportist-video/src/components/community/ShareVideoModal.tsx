@@ -188,7 +188,7 @@ export const ShareVideoModal: React.FC<ShareVideoModalProps> = ({
                   autoFocus
                 />
                 {isLoadingMeta && (
-                  <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#3182f6' }}>
+                  <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#0f172a' }}>
                     <Loader2 size={16} className="animate-spin" />
                   </div>
                 )}

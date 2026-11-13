@@ -21,7 +21,7 @@ export const DEFAULT_THUMBNAIL_OPTIONS: ThumbnailRenderOptions = {
   showChannel: false,
   stylePreset: 'youtube-bold',
   textColor: '#ffffff',
-  accentColor: '#3182f6',
+  accentColor: '#0f172a',
 };
 
 /**
@@ -580,7 +580,7 @@ export function renderThumbnailArtwork(
         const boxY = lineY - fontSize * 0.9;
         const boxW = lineMetrics.width + padX * 2;
 
-        ctx.fillStyle = index === 0 ? 'rgba(0, 0, 0, 0.85)' : 'rgba(37, 99, 235, 0.95)';
+        ctx.fillStyle = index === 0 ? 'rgba(0, 0, 0, 0.85)' : 'rgba(15, 23, 42, 0.95)';
         ctx.beginPath();
         if (typeof ctx.roundRect === 'function') {
           ctx.roundRect(boxX, boxY, boxW, boxH, 8);

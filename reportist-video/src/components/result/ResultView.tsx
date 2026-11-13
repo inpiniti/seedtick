@@ -171,7 +171,7 @@ export const ResultView: React.FC<ResultViewProps> = ({
             <Zap className="w-3.5 h-3.5 text-amber-500" />
             하이라이트 길이
           </div>
-          <div className="kpi-value text-blue-600">
+          <div className="kpi-value text-slate-900">
             {formatDuration(result.duration)}
           </div>
         </div>
@@ -216,7 +216,7 @@ export const ResultView: React.FC<ResultViewProps> = ({
               마음에 들지 않는 구간은 우측 휴지통 버튼으로 직접 삭제하고 다시 병합할 수 있어요.
             </p>
           </div>
-          <span className="text-xs font-mono text-blue-600 font-semibold bg-blue-50 px-2.5 py-1 rounded border border-blue-200">
+          <span className="text-xs font-mono text-slate-900 font-semibold bg-slate-100 px-2.5 py-1 rounded border border-slate-200">
             {segments.length}개 구간 ({formatDuration(currentTotalDuration)})
           </span>
         </div>
@@ -246,7 +246,7 @@ export const ResultView: React.FC<ResultViewProps> = ({
               </button>
               <button
                 type="button"
-                className="btn-primary py-1.5 px-3.5 text-xs shadow-sm bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                className="btn-primary py-1.5 px-3.5 text-xs shadow-sm bg-gradient-to-r from-slate-900 to-slate-900 hover:from-black hover:to-black"
                 onClick={() => onReStitch?.(segments)}
                 disabled={isReStitching || segments.length === 0}
               >

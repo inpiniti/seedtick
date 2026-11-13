@@ -77,7 +77,7 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
     <div className="progress-card">
       {/* 헤더 및 진행 상태 */}
       <div className="progress-header">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-600 text-xs font-semibold mb-3">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-900 text-xs font-semibold mb-3">
           <Sparkles className="w-3.5 h-3.5 animate-spin" />
           AI 극적 장면 탐색 & 16:9 시네마틱 렌더링
         </div>
@@ -138,14 +138,14 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
               </div>
             )}
             <div className="current-video-badge">
-              <Activity className="w-3 h-3 text-blue-400 animate-pulse" />
+              <Activity className="w-3 h-3 text-slate-500 animate-pulse" />
               <span>현재 분석 중</span>
             </div>
           </div>
 
           <div className="current-video-info">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+              <span className="text-xs font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
                 #{progress.currentVideoIndex + 1}
               </span>
               <h4 className="text-sm font-bold text-slate-800 truncate" title={currentVideo.name}>
@@ -161,7 +161,7 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
               <span>•</span>
               <span>{currentVideo.width}x{currentVideo.height}</span>
               <span>•</span>
-              <span className="text-blue-600 font-semibold flex items-center gap-1">
+              <span className="text-slate-900 font-semibold flex items-center gap-1">
                 <YoutubeIcon size={14} />
                 16:9 커버 크롭 예정
               </span>
@@ -209,14 +209,14 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
                     </div>
                     <div className="text-[11px] font-mono text-slate-500 flex items-center gap-1 my-0.5">
                       <Clock className="w-3 h-3 text-slate-400" />
-                      <span>{vid.duration.toFixed(1)}s → <b className="text-blue-600">{segTotal.toFixed(1)}s</b></span>
+                      <span>{vid.duration.toFixed(1)}s → <b className="text-slate-900">{segTotal.toFixed(1)}s</b></span>
                       <span className="text-emerald-600 font-semibold">({vid.segments.length}개 구간)</span>
                     </div>
 
                     <div className="analyzed-reasons">
                       {vid.segments.map((s, sIdx) => (
                         <div key={s.id} className="analyzed-reason-item">
-                          <span className="text-blue-600 font-mono font-bold mr-1">
+                          <span className="text-slate-900 font-mono font-bold mr-1">
                             [{s.start.toFixed(1)}s~{s.end.toFixed(1)}s]
                           </span>
                           <span className="truncate">{s.reason}</span>
@@ -235,7 +235,7 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
       <div className="reasoning-terminal">
         <div className="reasoning-header">
           <div className="flex items-center gap-2">
-            <Terminal className="w-3.5 h-3.5 text-blue-400" />
+            <Terminal className="w-3.5 h-3.5 text-slate-500" />
             <span className="text-xs font-mono font-bold text-slate-300">AI REASONING LOG (실시간 추론 콘솔)</span>
           </div>
           <div className="flex items-center gap-1.5 text-[11px] font-mono text-emerald-400">

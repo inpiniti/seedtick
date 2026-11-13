@@ -469,7 +469,7 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
                 onClick={handleResetToAi}
                 title="AI가 추천했던 원래 구간으로 복원"
               >
-                <Sparkles size={13} className="text-blue-500" />
+                <Sparkles size={13} className="text-slate-900" />
                 <span>AI 원본 복원</span>
               </button>
             </div>
@@ -479,7 +479,7 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
           <div className="segment-trim-timeline-section">
             <div className="segment-trim-timeline-head">
               <span className="segment-trim-timeline-label">
-                <Film size={13} className="text-blue-600" />
+                <Film size={13} className="text-slate-900" />
                 <span>타임라인 구간 선택</span>
               </span>
               <span className="segment-trim-timeline-hint">
@@ -520,7 +520,7 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
 
             <div className="segment-trim-timeline-footer-times">
               <span>00:00.0</span>
-              <span className="font-semibold text-blue-600">
+              <span className="font-semibold text-slate-900">
                 선택 구간: {formatTime(start)} ~ {formatTime(end)} ({clipDuration.toFixed(1)}초)
               </span>
               <span>{formatTime(maxDuration)}</span>
@@ -533,7 +533,7 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
             <div className="segment-trim-card">
               <div className="segment-trim-card-header">
                 <span className="segment-trim-card-title">
-                  <Clock size={13} className="text-blue-600" />
+                  <Clock size={13} className="text-slate-900" />
                   {t.startTime}
                 </span>
                 <span className="segment-trim-card-value">{formatTime(start)}</span>
@@ -589,7 +589,7 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
             <div className="segment-trim-card">
               <div className="segment-trim-card-header">
                 <span className="segment-trim-card-title">
-                  <Clock size={13} className="text-blue-600" />
+                  <Clock size={13} className="text-slate-900" />
                   {t.endTime}
                 </span>
                 <span className="segment-trim-card-value">{formatTime(end)}</span>
@@ -644,7 +644,7 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
 
           {/* Notice Bar */}
           <div className="segment-trim-notice">
-            <Info size={14} className="shrink-0 text-blue-600 mt-0.5" />
+            <Info size={14} className="shrink-0 text-slate-900 mt-0.5" />
             <p className="text-[12px] text-slate-600 leading-snug">
               구간을 수정한 후 <strong>{t.apply}</strong>을 누르면 타임라인에 즉시 반영되며, 상단의 <strong>다시 병합</strong> 버튼을 통해 최종 영상에 적용돼요.
             </p>

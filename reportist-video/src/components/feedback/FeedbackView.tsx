@@ -195,14 +195,14 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
         );
       case 'improvement':
         return (
-          <span className="toss-badge bg-blue-50 text-blue-600 border border-blue-200">
+          <span className="toss-badge bg-slate-100 text-slate-900 border border-slate-200">
             <Sparkles size={10} />
             <span>{dict.feedback?.catImprovement || '사용성 개선'}</span>
           </span>
         );
       default:
         return (
-          <span className="toss-badge bg-purple-50 text-purple-600 border border-purple-200">
+          <span className="toss-badge bg-slate-100 text-slate-900 border border-slate-200">
             <HelpCircle size={10} />
             <span>{dict.feedback?.catOther || '기타'}</span>
           </span>
@@ -221,8 +221,8 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
         );
       case 'in_progress':
         return (
-          <span className="toss-badge bg-blue-50 text-blue-700 border border-blue-200 font-bold">
-            <Clock size={11} className="text-blue-600" />
+          <span className="toss-badge bg-slate-100 text-slate-900 border border-slate-200 font-bold">
+            <Clock size={11} className="text-slate-900" />
             <span>{dict.feedback?.statusReviewing || dict.feedback?.statusInProgress || '진행중'}</span>
           </span>
         );
@@ -253,7 +253,7 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
       {
         value: 'improvement' as FeedbackCategoryFilter,
         label: dict.feedback?.catImprovement || '사용성 개선',
-        icon: <Sparkles size={13} className="text-blue-500" />,
+        icon: <Sparkles size={13} className="text-slate-900" />,
       },
       {
         value: 'feature' as FeedbackCategoryFilter,
@@ -268,7 +268,7 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
       {
         value: 'other' as FeedbackCategoryFilter,
         label: dict.feedback?.catOther || '기타',
-        icon: <HelpCircle size={13} className="text-purple-500" />,
+        icon: <HelpCircle size={13} className="text-slate-900" />,
       },
     ],
     [dict]
@@ -329,7 +329,7 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
                       {dict.feedback?.badge || 'FEEDBACK & ROADMAP'}
                     </span>
                     {isAdminMode && (
-                      <span className="toss-badge bg-purple-100 text-purple-800 border border-purple-200 font-bold flex items-center gap-1">
+                      <span className="toss-badge bg-slate-200 text-slate-900 border border-slate-200 font-bold flex items-center gap-1">
                         <ShieldCheck size={11} />
                         <span>{dict.feedback?.adminModeOn || '개발자 관리자 모드 ON'}</span>
                       </span>
@@ -350,11 +350,11 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
                   {isAdminMode && (
                     <button
                       type="button"
-                      className="toss-btn-secondary text-xs flex items-center gap-1.5 border-purple-300 text-purple-700 bg-purple-50"
+                      className="toss-btn-secondary text-xs flex items-center gap-1.5 border-slate-300 text-slate-900 bg-slate-100"
                       onClick={handleToggleAdminMode}
                       title={dict.feedback?.adminModeExit || '관리자 모드 해제'}
                     >
-                      <ShieldCheck size={14} className="text-purple-600" />
+                      <ShieldCheck size={14} className="text-slate-900" />
                       <span>{dict.feedback?.adminModeExit || '관리자 모드 해제'}</span>
                     </button>
                   )}
@@ -425,7 +425,7 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
                     <ChevronDown
                       size={14}
                       className={`text-slate-400 transition-transform duration-200 shrink-0 ${
-                        isCategoryDropdownOpen ? 'rotate-180 text-blue-600' : ''
+                        isCategoryDropdownOpen ? 'rotate-180 text-slate-900' : ''
                       }`}
                     />
                   </button>
@@ -450,7 +450,7 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
                               {opt.icon}
                               <span>{opt.label}</span>
                             </span>
-                            {isSelected && <Check size={14} className="text-blue-600 shrink-0" />}
+                            {isSelected && <Check size={14} className="text-slate-900 shrink-0" />}
                           </button>
                         );
                       })}
@@ -484,7 +484,7 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
             {/* 3. Feedback Cards Grid */}
             {isLoading ? (
               <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-3">
-                <RefreshCw size={24} className="animate-spin text-blue-500" />
+                <RefreshCw size={24} className="animate-spin text-slate-900" />
                 <span className="text-sm">
                   {dict.feedback?.loadingText || '피드백 목록을 불러오는 중입니다...'}
                 </span>
@@ -526,8 +526,8 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
                         {getStatusBadge(item.status)}
                       </div>
                       {item.adminResponse && (
-                        <span className="toss-badge bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold flex items-center gap-1">
-                          <ShieldCheck size={11} className="text-blue-600" />
+                        <span className="toss-badge bg-slate-100 text-slate-900 border border-slate-200 text-[10px] font-bold flex items-center gap-1">
+                          <ShieldCheck size={11} className="text-slate-900" />
                           <span>{dict.feedback?.adminReplied || '답변 완료'}</span>
                         </span>
                       )}
@@ -542,7 +542,7 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
                     {/* Admin Response Snippet Preview if present */}
                     {item.adminResponse && (
                       <div className="toss-feedback-admin-snippet">
-                        <span className="font-bold text-blue-700">
+                        <span className="font-bold text-slate-900">
                           {dict.feedback?.adminResponsePrefix || '개발자 답변: '}
                         </span>
                         <span>{item.adminResponse}</span>
@@ -554,7 +554,7 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
                       <div className="flex items-center gap-2 text-slate-400 text-xs">
                         <span className="text-slate-600 font-medium">{item.authorName}</span>
                         {item.imageUrls && item.imageUrls.length > 0 && (
-                          <span className="flex items-center gap-0.5 text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded text-[11px]">
+                          <span className="flex items-center gap-0.5 text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded text-[11px]">
                             <ImageIcon size={11} />
                             <span>{item.imageUrls.length}</span>
                           </span>

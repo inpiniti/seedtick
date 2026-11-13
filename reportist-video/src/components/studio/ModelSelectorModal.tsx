@@ -393,7 +393,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
               transition: 'all 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
           >
-            <Sparkles size={15} color={activeTab === 'gateway' ? '#3182f6' : '#8b95a1'} />
+            <Sparkles size={15} color={activeTab === 'gateway' ? '#0f172a' : '#8b95a1'} />
             <span>{dict.modelModal.tabPenguinCutFree || '펭귄컷 무료 모델'}</span>
           </button>
           <button
@@ -453,8 +453,8 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
               style={{
                 padding: '14px 16px',
                 borderRadius: '14px',
-                backgroundColor: storedUserKey ? '#e6f9f0' : '#e8f3ff',
-                border: storedUserKey ? '1px solid #bbf2d8' : '1px solid #cfe5ff',
+                backgroundColor: storedUserKey ? '#e6f9f0' : '#f1f5f9',
+                border: storedUserKey ? '1px solid #bbf2d8' : '1px solid #e2e8f0',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '12px',
@@ -463,10 +463,10 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
               {storedUserKey ? (
                 <CheckCircle2 size={20} color="#00a86b" style={{ flexShrink: 0 }} />
               ) : (
-                <Server size={20} color="#3182f6" style={{ flexShrink: 0 }} />
+                <Server size={20} color="#0f172a" style={{ flexShrink: 0 }} />
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '13.5px', fontWeight: 700, color: storedUserKey ? '#008252' : '#1b64da' }}>
+                <div style={{ fontSize: '13.5px', fontWeight: 700, color: storedUserKey ? '#008252' : '#1e293b' }}>
                   {storedUserKey
                     ? interpolate(dict.modelModal.byokConnectedBannerTitle || '현재 {provider} ({model}) 연결됨', {
                         provider: getProviderPreset(storedUserKey.provider).name,
@@ -514,8 +514,8 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                         padding: '11px 12px',
                         borderRadius: '12px',
                         backgroundColor: isSelected ? '#ffffff' : '#f8fafc',
-                        border: isSelected ? '2px solid #3182f6' : '1px solid #e5e8eb',
-                        boxShadow: isSelected ? '0 4px 12px rgba(49, 130, 246, 0.12)' : 'none',
+                        border: isSelected ? '2px solid #0f172a' : '1px solid #e5e8eb',
+                        boxShadow: isSelected ? '0 4px 12px rgba(15, 23, 42, 0.12)' : 'none',
                         cursor: 'pointer',
                         textAlign: 'left',
                         position: 'relative',
@@ -523,7 +523,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>
-                        <span style={{ fontSize: '12.5px', fontWeight: 700, color: isSelected ? '#1b64da' : '#191f28' }}>
+                        <span style={{ fontSize: '12.5px', fontWeight: 700, color: isSelected ? '#1e293b' : '#191f28' }}>
                           {preset.shortName}
                         </span>
                         {isSavedProvider && (
@@ -587,7 +587,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                       alignItems: 'center',
                       gap: '4px',
                       fontSize: '12px',
-                      color: '#3182f6',
+                      color: '#0f172a',
                       textDecoration: 'none',
                       fontWeight: 600,
                     }}
@@ -683,9 +683,9 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                           borderRadius: '8px',
                           fontSize: '11.5px',
                           fontWeight: 600,
-                          backgroundColor: modelInput === m.id ? '#e8f3ff' : '#ffffff',
-                          border: modelInput === m.id ? '1.5px solid #3182f6' : '1px solid #e5e8eb',
-                          color: modelInput === m.id ? '#1b64da' : '#4e5968',
+                          backgroundColor: modelInput === m.id ? '#f1f5f9' : '#ffffff',
+                          border: modelInput === m.id ? '1.5px solid #0f172a' : '1px solid #e5e8eb',
+                          color: modelInput === m.id ? '#1e293b' : '#4e5968',
                           cursor: 'pointer',
                           transition: 'all 0.15s ease',
                         }}
@@ -810,7 +810,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                 lineHeight: 1.55,
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#3182f6', fontWeight: 700, fontSize: '12.5px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontWeight: 700, fontSize: '12.5px' }}>
                 <ShieldCheck size={15} />
                 <span>{dict.modelModal.byokSecurityTitle || '안심 보안 & CORS(Origin) 오류 원천 방지 안내'}</span>
               </div>

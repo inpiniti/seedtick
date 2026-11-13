@@ -31,8 +31,8 @@ export const ShinyText: React.FC<ShinyTextProps> = ({
   const content = text ?? children;
   const animationDuration = `${speed}s`;
 
-  const effectiveColor = color || (theme === 'light' ? '#1d4ed8' : '#b5b5b5a4');
-  const effectiveShine = shineColor || (theme === 'light' ? '#38bdf8' : 'rgba(255, 255, 255, 0.95)');
+  const effectiveColor = color || (theme === 'light' ? '#0f172a' : '#b5b5b5a4');
+  const effectiveShine = shineColor || (theme === 'light' ? '#cbd5e1' : 'rgba(255, 255, 255, 0.95)');
 
   return (
     <span
