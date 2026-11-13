@@ -373,6 +373,8 @@ defaultDesc: 'Analyse des séquences visuelles clés en cours. Veuillez patiente
     searchPlaceholder: 'Rechercher par nom de modèle ou fournisseur...',
     sortLabel: 'Trier',
     filterModality: 'Modalité',
+    filterToggle: 'Filtres',
+    filterReset: 'Réinitialiser',
     filterAll: 'Tous ({count})',
     filterImage: 'Image ({count})',
     filterVideo: 'Vidéo ({count})',

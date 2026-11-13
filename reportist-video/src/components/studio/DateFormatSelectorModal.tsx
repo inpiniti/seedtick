@@ -137,7 +137,6 @@ export const DateFormatSelectorModal: React.FC<DateFormatSelectorModalProps> = (
         <div
           className="model-modal-list language-modal-list"
           data-modal-scrollable="true"
-          style={{ maxHeight: '380px' }}
           onTouchMove={(e) => e.stopPropagation()}
           onWheel={(e) => e.stopPropagation()}
         >

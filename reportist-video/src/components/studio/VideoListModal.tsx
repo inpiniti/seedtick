@@ -109,6 +109,13 @@ export const VideoListModal: React.FC<VideoListModalProps> = ({
           </button>
         </div>
 
+        {/* Video List Body (요약 바·재연결 배너도 함께 스크롤) */}
+        <div
+          className="video-list-modal-body"
+          data-modal-scrollable="true"
+          onTouchMove={(e) => e.stopPropagation()}
+          onWheel={(e) => e.stopPropagation()}
+        >
         {/* Top Summary Bar */}
         {videos.length > 0 && (
           <div className="video-list-summary-bar">
@@ -169,13 +176,6 @@ export const VideoListModal: React.FC<VideoListModalProps> = ({
           </div>
         )}
 
-        {/* Video List Body */}
-        <div
-          className="video-list-modal-body"
-          data-modal-scrollable="true"
-          onTouchMove={(e) => e.stopPropagation()}
-          onWheel={(e) => e.stopPropagation()}
-        >
           {videos.length === 0 ? (
             <div className="toss-video-modal-empty" onClick={onAddFilesClick}>
               <div className="toss-empty-circle-icon">

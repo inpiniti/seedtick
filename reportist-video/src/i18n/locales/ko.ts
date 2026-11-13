@@ -553,6 +553,8 @@ export const ko: Dictionary = {
     searchPlaceholder: '모델명 또는 제조사 검색...',
     sortLabel: '정렬',
     filterModality: '입력 형식',
+    filterToggle: '필터',
+    filterReset: '초기화',
     filterAll: '전체 ({count})',
     filterImage: '이미지 ({count})',
     filterVideo: '비디오 ({count})',

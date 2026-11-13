@@ -1497,15 +1497,30 @@
 
 /* 반응형 모바일 */
 @media (max-width: 640px) {
+  .wizard-modal-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
   .wizard-modal-card {
-    border-radius: 20px;
-    max-height: 95vh;
+    border-radius: 22px 22px 0 0;
+    height: 94vh;
+    height: 94dvh;
+    max-height: 94vh;
+    max-height: 94dvh;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   .wizard-modal-header,
   .wizard-body,
   .wizard-modal-footer {
     padding-left: 16px;
     padding-right: 16px;
+  }
+
+  .wizard-modal-header {
+    padding-top: 14px;
+    padding-bottom: 12px;
+    gap: 12px;
   }
   .wizard-stepper {
     padding: 8px 10px;

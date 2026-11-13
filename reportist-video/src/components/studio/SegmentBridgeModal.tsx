@@ -95,12 +95,6 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
           position: 'fixed',
           inset: 0,
           zIndex: 9998,
-          backgroundColor: 'rgba(15, 23, 42, 0.65)',
-          backdropFilter: 'blur(6px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '16px',
         }}
         onClick={(e) => {
           e.stopPropagation();
@@ -113,7 +107,6 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
             width: '100%',
             maxWidth: '520px',
             backgroundColor: '#ffffff',
-            borderRadius: '20px',
             border: '1px solid #e2e8f0',
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
             overflow: 'hidden',

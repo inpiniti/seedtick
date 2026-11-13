@@ -15,6 +15,7 @@ import {
   Server,
   ShieldAlert,
   ShieldCheck,
+  SlidersHorizontal,
   Sparkles,
   Timer,
   Trash2,
@@ -44,6 +45,7 @@ import {
   localizeContextLength,
 } from '../../i18n/modelLocalization.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
+import { useIsMobileViewport } from '../../hooks/useIsMobileViewport.ts';
 
 interface ModelSelectorModalProps {
   isOpen: boolean;
@@ -90,10 +92,15 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
 }) => {
   const { dict, interpolate, locale } = useI18n();
   const overlayRef = useRef<HTMLDivElement>(null);
+  const isMobileViewport = useIsMobileViewport();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProvider, setSelectedProvider] = useState<string>('all');
   const [selectedModality, setSelectedModality] = useState<ModalityFilter>('all');
   const [sortKey, setSortKey] = useState<SortKey>('intelligence');
+  // 모바일에서는 필터 패널을 기본 접힘 상태로 (접었다 폈다)
+  const [filtersOpen, setFiltersOpen] = useState<boolean>(
+    () => typeof window !== 'undefined' && !window.matchMedia('(max-width: 640px)').matches
+  );
 
   // BYOK (사용자 API Key 설정) 상태
   const [activeTab, setActiveTab] = useState<'gateway' | 'byok'>('gateway');
@@ -249,6 +256,31 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
     return max;
   }, [models]);
 
+  // 적용된 필터 수 (기본값: intelligence/all/all)
+  const activeFilterCount =
+    (sortKey !== 'intelligence' ? 1 : 0) +
+    (selectedModality !== 'all' ? 1 : 0) +
+    (selectedProvider !== 'all' ? 1 : 0);
+
+  const resetFilters = () => {
+    setSortKey('intelligence');
+    setSelectedModality('all');
+    setSelectedProvider('all');
+  };
+
+  const sortSummaryItems: Record<SortKey, { icon: string; label: string }> = {
+    intelligence: { icon: '🧠', label: dict.modelModal.sortIntelligence },
+    speed: { icon: '⚡', label: dict.modelModal.sortSpeed },
+    newest: { icon: '🕒', label: dict.modelModal.sortNewest },
+    context: { icon: '📚', label: dict.modelModal.sortContext },
+  };
+
+  const modalitySummaryItems: Record<Exclude<ModalityFilter, 'all'>, { icon: string; label: string }> = {
+    image: { icon: '🖼️', label: dict.modelModal.modalityImage },
+    video: { icon: '🎬', label: dict.modelModal.modalityVideo },
+    audio: { icon: '🎙️', label: dict.modelModal.modalityAudio },
+  };
+
   // Filtered and sorted models
   const displayedModels = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -362,60 +394,23 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
         </div>
 
         {/* Tab Selector: Gateway vs BYOK (토스 세그먼티드 컨트롤 스타일) */}
-        <div
-          style={{
-            margin: '12px 24px 0',
-            padding: '4px',
-            backgroundColor: '#f2f4f6',
-            borderRadius: '12px',
-            display: 'flex',
-            gap: '4px',
-          }}
-        >
+        <div className="model-modal-tabs" role="tablist">
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === 'gateway'}
             onClick={() => setActiveTab('gateway')}
-            style={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '7px',
-              padding: '9px 14px',
-              borderRadius: '9px',
-              border: 'none',
-              backgroundColor: activeTab === 'gateway' ? '#ffffff' : 'transparent',
-              color: activeTab === 'gateway' ? '#191f28' : '#8b95a1',
-              boxShadow: activeTab === 'gateway' ? '0 2px 6px rgba(0, 0, 0, 0.08)' : 'none',
-              fontSize: '13px',
-              fontWeight: activeTab === 'gateway' ? 700 : 600,
-              cursor: 'pointer',
-              transition: 'all 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
-            }}
+            className={`model-modal-tab-btn${activeTab === 'gateway' ? ' active' : ''}`}
           >
             <Sparkles size={15} color={activeTab === 'gateway' ? '#0f172a' : '#8b95a1'} />
             <span>{dict.modelModal.tabPenguinCutFree || '펭귄컷 무료 모델'}</span>
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === 'byok'}
             onClick={() => setActiveTab('byok')}
-            style={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '7px',
-              padding: '9px 14px',
-              borderRadius: '9px',
-              border: 'none',
-              backgroundColor: activeTab === 'byok' ? '#ffffff' : 'transparent',
-              color: activeTab === 'byok' ? '#191f28' : '#8b95a1',
-              boxShadow: activeTab === 'byok' ? '0 2px 6px rgba(0, 0, 0, 0.08)' : 'none',
-              fontSize: '13px',
-              fontWeight: activeTab === 'byok' ? 700 : 600,
-              cursor: 'pointer',
-              transition: 'all 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
-            }}
+            className={`model-modal-tab-btn${activeTab === 'byok' ? ' active' : ''}`}
           >
             <Key size={15} color={activeTab === 'byok' ? '#00a86b' : '#8b95a1'} />
             <span>{dict.modelModal.tabByok || '내 API Key 연결 (BYOK)'}</span>
@@ -444,7 +439,6 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
               flexDirection: 'column',
               gap: '16px',
               overflowY: 'auto',
-              maxHeight: 'calc(85vh - 180px)',
               backgroundColor: '#ffffff',
             }}
           >
@@ -827,28 +821,89 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
           <>
             {/* Search & Filter */}
             <div className="model-modal-search-section">
-              <div className="model-modal-search-wrapper">
-                <Search size={18} className="model-modal-search-icon" />
-                <input
-              type="text"
-              placeholder={dict.modelModal.searchPlaceholder}
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              className="model-modal-search-input"
-              autoFocus
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                className="model-modal-clear-search-btn"
-                onClick={() => setSearchQuery('')}
-                aria-label={dict.common.delete}
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
+              <div className="model-modal-search-row">
+                <div className="model-modal-search-wrapper">
+                  <Search size={18} className="model-modal-search-icon" />
+                  <input
+                type="text"
+                placeholder={dict.modelModal.searchPlaceholder}
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                className="model-modal-search-input"
+                autoFocus={!isMobileViewport}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  className="model-modal-clear-search-btn"
+                  onClick={() => setSearchQuery('')}
+                  aria-label={dict.common.delete}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+                <button
+                  type="button"
+                  className={`model-modal-filter-toggle${filtersOpen ? ' active' : ''}${activeFilterCount > 0 ? ' has-active' : ''}`}
+                  onClick={() => setFiltersOpen((open) => !open)}
+                  aria-expanded={filtersOpen}
+                >
+                  <SlidersHorizontal size={16} />
+                  <span>{dict.modelModal.filterToggle}</span>
+                  {activeFilterCount > 0 && (
+                    <span className="model-modal-filter-count">{activeFilterCount}</span>
+                  )}
+                </button>
+              </div>
 
+              {/* 적용된 필터 요약 칩 (기본값이 아닐 때만 1줄 노출) */}
+              {activeFilterCount > 0 && (
+                <div className="model-modal-active-filters">
+                  {sortKey !== 'intelligence' && (
+                    <button
+                      type="button"
+                      className="model-modal-active-filter"
+                      onClick={() => setSortKey('intelligence')}
+                    >
+                      <span>
+                        {sortSummaryItems[sortKey].icon} {sortSummaryItems[sortKey].label}
+                      </span>
+                      <X size={12} />
+                    </button>
+                  )}
+                  {selectedModality !== 'all' && (
+                    <button
+                      type="button"
+                      className="model-modal-active-filter"
+                      onClick={() => setSelectedModality('all')}
+                    >
+                      <span>
+                        {modalitySummaryItems[selectedModality as Exclude<ModalityFilter, 'all'>].icon}{' '}
+                        {modalitySummaryItems[selectedModality as Exclude<ModalityFilter, 'all'>].label}
+                      </span>
+                      <X size={12} />
+                    </button>
+                  )}
+                  {selectedProvider !== 'all' && (
+                    <button
+                      type="button"
+                      className="model-modal-active-filter"
+                      onClick={() => setSelectedProvider('all')}
+                    >
+                      <span>{selectedProvider}</span>
+                      <X size={12} />
+                    </button>
+                  )}
+                  <button type="button" className="model-modal-filter-reset" onClick={resetFilters}>
+                    <X size={12} />
+                    <span>{dict.modelModal.filterReset}</span>
+                  </button>
+                </div>
+              )}
+
+            {filtersOpen && (
+            <div className="model-modal-filter-panel">
           {/* Sort bar */}
           <div className="model-modal-filter-row">
             <span className="model-modal-filter-label">{dict.modelModal.sortLabel}:</span>
@@ -942,6 +997,8 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
               );
             })}
           </div>
+            </div>
+            )}
         </div>
 
         {/* Model Card List */}

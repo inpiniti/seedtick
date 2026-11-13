@@ -29,7 +29,7 @@ export interface UseModalScrollLockOptions {
 }
 
 const DEFAULT_SCROLLABLE_SELECTOR =
-  '.toss-video-modal-body, .model-modal-list, .settings-modal-body, .audio-library-body, .subtitle-modal-list, [data-modal-scrollable="true"]';
+  '.toss-video-modal-body, .model-modal-list, .model-modal-chips, .model-modal-provider-chips, .settings-modal-body, .settings-modal-nav, .audio-library-body, .subtitle-modal-body, .subtitle-cues-list, .subtitle-lang-grid, .language-modal-list, .video-list-modal-body, .toss-patch-modal-body, .toss-feedback-modal-body, .export-modal-body, [data-modal-scrollable="true"]';
 
 /**
  * Robust scroll & gesture lock for modals.

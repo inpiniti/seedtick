@@ -373,6 +373,8 @@ defaultDesc: 'Analizando las escenas clave de tus videos. Por favor espera un mo
     searchPlaceholder: 'Buscar por nombre o proveedor...',
     sortLabel: 'Ordenar',
     filterModality: 'Modalidad',
+    filterToggle: 'Filtros',
+    filterReset: 'Restablecer',
     filterAll: 'Todos ({count})',
     filterImage: 'Imagen ({count})',
     filterVideo: 'Video ({count})',

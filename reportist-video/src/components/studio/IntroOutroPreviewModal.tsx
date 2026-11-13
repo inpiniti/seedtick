@@ -315,10 +315,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
         zIndex: 10000,
         backgroundColor: 'rgba(15, 23, 42, 0.75)',
         backdropFilter: 'blur(8px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: isFullscreen ? '0px' : '16px',
+        padding: isFullscreen ? '0px' : undefined,
         transition: 'all 0.2s ease',
       }}
       onClick={(e) => {
@@ -331,8 +328,8 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
           position: relative;
           width: 100%;
           max-width: ${isFullscreen ? '100vw' : '1100px'};
-          height: ${isFullscreen ? '100vh' : '90vh'};
-          max-height: ${isFullscreen ? '100vh' : '780px'};
+          height: ${isFullscreen ? '100dvh' : '90dvh'};
+          max-height: ${isFullscreen ? '100dvh' : '780px'};
           background-color: #ffffff;
           border-radius: ${isFullscreen ? '0px' : '20px'};
           box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
@@ -370,8 +367,8 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
         }
         @media (max-width: 860px) {
           .intro-outro-modal-container {
-            height: 94vh;
-            max-height: 94vh;
+            height: 94dvh;
+            max-height: 94dvh;
           }
           .io-body-layout {
             flex-direction: column;

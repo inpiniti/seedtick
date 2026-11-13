@@ -278,7 +278,7 @@ export const AudioLibraryModal: React.FC<AudioLibraryModalProps> = ({
 
         {applyError && <p className="audio-library-error">{applyError}</p>}
 
-        <div className="model-modal-footer">
+        <div className="model-modal-footer audio-library-footer">
           <div className="model-modal-footer-tip">
             <Headphones size={14} color="#0f172a" />
             <span>{dict.audioLibrary.footerTip}</span>

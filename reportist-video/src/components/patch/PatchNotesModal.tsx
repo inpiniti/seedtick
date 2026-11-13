@@ -223,6 +223,13 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClos
           </button>
         </div>
 
+        {/* Body (탭·검색도 본문과 함께 스크롤) */}
+        <div
+          className="toss-patch-modal-body"
+          data-modal-scrollable="true"
+          onTouchMove={(e) => e.stopPropagation()}
+          onWheel={(e) => e.stopPropagation()}
+        >
         {/* Filter and Search Bar */}
         <div className="toss-patch-control-bar">
           <div className="toss-patch-tabs">
@@ -285,13 +292,6 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClos
           </div>
         </div>
 
-        {/* Body */}
-        <div
-          className="toss-patch-modal-body"
-          data-modal-scrollable="true"
-          onTouchMove={(e) => e.stopPropagation()}
-          onWheel={(e) => e.stopPropagation()}
-        >
           {filteredReleases.length === 0 ? (
             <div className="toss-patch-empty-state">
               <Search size={32} color="#cbd5e1" />

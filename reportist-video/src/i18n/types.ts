@@ -592,6 +592,8 @@ export interface Dictionary {
     searchPlaceholder: string;
     sortLabel: string;
     filterModality: string;
+    filterToggle: string;
+    filterReset: string;
     filterAll: string;
     filterImage: string;
     filterVideo: string;

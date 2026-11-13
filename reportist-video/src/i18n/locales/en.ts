@@ -553,6 +553,8 @@ export const en: Dictionary = {
     searchPlaceholder: 'Search by model name or provider...',
     sortLabel: 'Sort',
     filterModality: 'Modality',
+    filterToggle: 'Filters',
+    filterReset: 'Reset',
     filterAll: 'All ({count})',
     filterImage: 'Image ({count})',
     filterVideo: 'Video ({count})',

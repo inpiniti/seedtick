@@ -373,6 +373,8 @@ defaultDesc: 'Analysiere Schlüsselszenen in Ihren Videos. Bitte einen Moment Ge
     searchPlaceholder: 'Modellname oder Anbieter suchen...',
     sortLabel: 'Sortieren',
     filterModality: 'Modalität',
+    filterToggle: 'Filter',
+    filterReset: 'Zurücksetzen',
     filterAll: 'Alle ({count})',
     filterImage: 'Bild ({count})',
     filterVideo: 'Video ({count})',

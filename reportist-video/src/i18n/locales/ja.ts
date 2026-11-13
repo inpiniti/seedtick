@@ -373,6 +373,8 @@ defaultDesc: '動画の主要シーンを分析しています。少々お待ち
     searchPlaceholder: 'モデル名またはプロバイダーを検索...',
     sortLabel: '並び替え',
     filterModality: 'モダリティ',
+    filterToggle: 'フィルター',
+    filterReset: 'リセット',
     filterAll: 'すべて ({count})',
     filterImage: '画像 ({count})',
     filterVideo: '動画 ({count})',

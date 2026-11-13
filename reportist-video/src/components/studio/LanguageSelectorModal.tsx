@@ -4,6 +4,7 @@ import { Globe, Search, X, Check, Sparkles } from 'lucide-react';
 import { loadLocaleDictionary, useI18n } from '../../i18n/index.tsx';
 import type { Locale } from '../../i18n/types.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
+import { useIsMobileViewport } from '../../hooks/useIsMobileViewport.ts';
 import { notify } from '../../services/toastService.ts';
 
 export interface LanguageSelectorModalProps {
@@ -18,6 +19,7 @@ export const LanguageSelectorModal: React.FC<LanguageSelectorModalProps> = ({
   const { locale, setLocale, locales, dict, interpolate } = useI18n();
   const [searchQuery, setSearchQuery] = useState('');
   const overlayRef = useRef<HTMLDivElement>(null);
+  const isMobileViewport = useIsMobileViewport();
 
   useModalScrollLock(isOpen, {
     overlayRef,
@@ -121,7 +123,7 @@ export const LanguageSelectorModal: React.FC<LanguageSelectorModalProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="model-modal-search-input"
-              autoFocus
+              autoFocus={!isMobileViewport}
             />
             {searchQuery && (
               <button

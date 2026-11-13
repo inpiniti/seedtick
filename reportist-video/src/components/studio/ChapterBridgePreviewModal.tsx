@@ -270,10 +270,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
         zIndex: 10000,
         backgroundColor: 'rgba(15, 23, 42, 0.72)',
         backdropFilter: 'blur(8px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: isFullscreen ? '0px' : '16px',
+        padding: isFullscreen ? '0px' : undefined,
         transition: 'all 0.2s ease',
       }}
       onClick={(e) => {
@@ -329,8 +326,8 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
         style={{
           width: '100%',
           maxWidth: isFullscreen ? '100vw' : '1180px',
-          height: isFullscreen ? '100vh' : '92vh',
-          maxHeight: isFullscreen ? '100vh' : '880px',
+          height: isFullscreen ? '100dvh' : '92dvh',
+          maxHeight: isFullscreen ? '100dvh' : '880px',
           backgroundColor: '#ffffff',
           borderRadius: isFullscreen ? '0px' : '24px',
           boxShadow: '0 25px 60px rgba(0, 0, 0, 0.3)',
