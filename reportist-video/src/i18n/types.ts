@@ -261,6 +261,7 @@ export interface Dictionary {
     outroDesc: string;
     uploadIntro: string;
     uploadOutro: string;
+    userVideoFirst: string;
     removeVideo: string;
     introApplied: string;
     introDefault: string;

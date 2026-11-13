@@ -5499,7 +5499,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         <span className="toss-io-file-name">
                           {overlayOptions.introVideoFile.name}
                         </span>
-                        <span className="toss-io-file-meta">사용자 영상 우선 재생</span>
+                        <span className="toss-io-file-meta">{dict.introOutro.userVideoFirst}</span>
                       </div>
                       <button
                         type="button"
@@ -5519,7 +5519,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       onClick={() => introVideoInputRef.current?.click()}
                     >
                       <Plus size={13} />
-                      <span>내 인트로 영상 파일 직접 올리기 (선택)</span>
+                      <span>{dict.introOutro.uploadIntro}</span>
                     </button>
                   )}
                 </div>
@@ -6260,7 +6260,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         <span className="toss-io-file-name">
                           {overlayOptions.outroVideoFile.name}
                         </span>
-                        <span className="toss-io-file-meta">사용자 영상 우선 재생</span>
+                        <span className="toss-io-file-meta">{dict.introOutro.userVideoFirst}</span>
                       </div>
                       <button
                         type="button"
@@ -6280,7 +6280,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       onClick={() => outroVideoInputRef.current?.click()}
                     >
                       <Plus size={13} />
-                      <span>내 아웃트로 영상 파일 직접 올리기 (선택)</span>
+                      <span>{dict.introOutro.uploadOutro}</span>
                     </button>
                   )}
                 </div>
