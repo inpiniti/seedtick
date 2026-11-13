@@ -1,4 +1,5 @@
 // components/studio/ProStudioView.tsx - Toss-style 16:9 AI Video Studio with i18n
+import './ProStudioView.css';
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {

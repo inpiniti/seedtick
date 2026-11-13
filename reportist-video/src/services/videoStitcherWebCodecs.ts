@@ -654,6 +654,11 @@ export async function stitchVideosWebCodecs({
   let videoEncoderError: Error | null = null;
   const videoEncoder = new VideoEncoder({
     output: (chunk, meta) => {
+      // mp4-muxer v5.2.2+: decoderConfig.colorSpace가 null이면 colr() 박스 생성 시 크래시 발생.
+      // null → undefined로 정규화해 muxer 내부 `colorSpace ? colr(track) : null` 조건이 올바르게 동작하도록 한다.
+      if (meta?.decoderConfig && meta.decoderConfig.colorSpace === null) {
+        (meta.decoderConfig as { colorSpace: undefined }).colorSpace = undefined;
+      }
       muxer.addVideoChunk(chunk, meta);
     },
     error: (e) => {
