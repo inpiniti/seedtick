@@ -124,7 +124,7 @@ function renderHeader(locale) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="${esc(locale.path)}" aria-label="PenguinCut">
-        <img src="/penguin-logo-light.svg" alt="" width="36" height="36">
+        <img src="/penguin-logo.svg" alt="" width="36" height="36">
         <span>PenguinCut</span>
       </a>
 
@@ -457,7 +457,7 @@ function renderFooter(locale) {
     <div class="container footer-grid">
       <div class="footer-brand">
         <a class="brand" href="${esc(locale.path)}" aria-label="PenguinCut">
-          <img src="/penguin-logo-light.svg" alt="" width="36" height="36">
+          <img src="/penguin-logo.svg" alt="" width="36" height="36">
           <span>PenguinCut</span>
         </a>
         <p>${esc(locale.footer.tagline)}</p>
@@ -612,7 +612,7 @@ function renderHead(locale) {
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192x192.png?v=4">
   <link rel="apple-touch-icon" href="/icon-192x192.png?v=4">
   <link rel="manifest" href="/manifest.webmanifest">
-  <meta name="theme-color" content="#06080c">
+  <meta name="theme-color" content="#f8f9fa">
   <meta name="application-name" content="PenguinCut">
   <meta name="apple-mobile-web-app-title" content="PenguinCut">
   <meta name="format-detection" content="telephone=no">

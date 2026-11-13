@@ -10,28 +10,25 @@ $logoPath = Join-Path $root "public\icon-512x512.png"
 $width = 1200
 $height = 630
 
+$script:navy = [System.Drawing.Color]::FromArgb(15, 23, 42)
+$script:slate = [System.Drawing.Color]::FromArgb(100, 116, 139)
+$script:faint = [System.Drawing.Color]::FromArgb(148, 163, 184)
+$script:border = [System.Drawing.Color]::FromArgb(226, 232, 240)
+$script:mutedBg = [System.Drawing.Color]::FromArgb(241, 245, 249)
+$script:emerald = [System.Drawing.Color]::FromArgb(5, 150, 105)
+$script:emeraldDark = [System.Drawing.Color]::FromArgb(4, 120, 87)
+$script:emeraldSoft = [System.Drawing.Color]::FromArgb(236, 253, 245)
+$script:emeraldLine = [System.Drawing.Color]::FromArgb(167, 243, 208)
+
 $bmp = New-Object System.Drawing.Bitmap($width, $height)
 $g = [System.Drawing.Graphics]::FromImage($bmp)
 $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
 $g.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::AntiAliasGridFit
 $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
 
-# Background
-$bg = [System.Drawing.Color]::FromArgb(6, 8, 12)
-$g.Clear($bg)
-
-# Amber glow (radial gradient)
-$glowPath = New-Object System.Drawing.Drawing2D.GraphicsPath
-$glowPath.AddEllipse(760, -230, 720, 620)
-$glowBrush = New-Object System.Drawing.Drawing2D.PathGradientBrush($glowPath)
-$glowBrush.CenterColor = [System.Drawing.Color]::FromArgb(46, 246, 196, 83)
-$glowBrush.SurroundColors = @([System.Drawing.Color]::FromArgb(0, 6, 8, 12))
-$g.FillPath($glowBrush, $glowPath)
-$glowBrush.Dispose()
-$glowPath.Dispose()
-
-# Subtle grid
-$gridPen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(13, 255, 255, 255), 1)
+# Background: app page background with a faint grid.
+$g.Clear([System.Drawing.Color]::FromArgb(248, 249, 250))
+$gridPen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(10, 15, 23, 42), 1)
 for ($x = 0; $x -le $width; $x += 60) {
     $g.DrawLine($gridPen, $x, 0, $x, $height)
 }
@@ -40,7 +37,6 @@ for ($y = 0; $y -le $height; $y += 60) {
 }
 $gridPen.Dispose()
 
-# Logo on a light app-icon tile so the dark penguin stays readable.
 function New-RoundedRectPath($x, $y, $w, $h, $r) {
     $path = New-Object System.Drawing.Drawing2D.GraphicsPath
     $path.AddArc($x, $y, $r * 2, $r * 2, 180, 90)
@@ -51,10 +47,11 @@ function New-RoundedRectPath($x, $y, $w, $h, $r) {
     return $path
 }
 
+# Logo tile: white with a hairline border, like the app's cards.
 $logoTile = New-RoundedRectPath 88 76 88 88 22
-$logoTileBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(244, 247, 251))
+$logoTileBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::White)
 $g.FillPath($logoTileBrush, $logoTile)
-$logoTilePen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(70, 246, 196, 83), 1)
+$logoTilePen = New-Object System.Drawing.Pen($script:border, 1.5)
 $g.DrawPath($logoTilePen, $logoTile)
 
 if (Test-Path $logoPath) {
@@ -69,36 +66,37 @@ $logoTile.Dispose()
 
 # Brand
 $brandFont = New-Object System.Drawing.Font("Segoe UI", 38, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
-$brandBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(244, 247, 251))
+$brandBrush = New-Object System.Drawing.SolidBrush($script:navy)
 $g.DrawString("PenguinCut", $brandFont, $brandBrush, 198, 86)
 
 $kickerFont = New-Object System.Drawing.Font("Segoe UI", 15, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
-$accentBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(246, 196, 83))
-$g.DrawString("AI VIDEO HIGHLIGHT EDITOR", $kickerFont, $accentBrush, 201, 143)
+$kickerBrush = New-Object System.Drawing.SolidBrush($script:emerald)
+$g.DrawString("AI VIDEO HIGHLIGHT EDITOR", $kickerFont, $kickerBrush, 201, 143)
 
-# Amber rule
-$ruleBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(246, 196, 83))
+# Navy rule
+$ruleBrush = New-Object System.Drawing.SolidBrush($script:navy)
 $g.FillRectangle($ruleBrush, 88, 278, 4, 154)
 
 # Headline
 $headlineFont = New-Object System.Drawing.Font("Segoe UI", 60, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
-$headlineBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(244, 247, 251))
+$headlineBrush = New-Object System.Drawing.SolidBrush($script:navy)
 $g.DrawString("Turn hours of footage", $headlineFont, $headlineBrush, 124, 266)
 $g.DrawString("into one cinematic highlight.", $headlineFont, $headlineBrush, 124, 336)
 
 # Subhead
 $subFont = New-Object System.Drawing.Font("Segoe UI", 23, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
-$subBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(154, 166, 182))
+$subBrush = New-Object System.Drawing.SolidBrush($script:slate)
 $g.DrawString("AI finds the climax. You get the finished 16:9 film.", $subFont, $subBrush, 124, 424)
 
-# Timeline card
-$timelineBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(13, 18, 24))
-$timelinePen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(32, 255, 255, 255), 1)
+# Timeline card: white card with border, like the app.
 $timelineRect = New-Object System.Drawing.Rectangle(124, 486, 440, 62)
-$g.FillRectangle($timelineBrush, $timelineRect)
-$g.DrawRectangle($timelinePen, $timelineRect)
+$timelinePath = New-RoundedRectPath 124 486 440 62 10
+$timelineBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::White)
+$g.FillPath($timelineBrush, $timelinePath)
+$timelinePen = New-Object System.Drawing.Pen($script:border, 1.5)
+$g.DrawPath($timelinePen, $timelinePath)
 
-$clipBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(36, 255, 255, 255))
+$clipBrush = New-Object System.Drawing.SolidBrush($script:mutedBg)
 $clips = @(
     @{ X = 142; W = 62 },
     @{ X = 210; W = 84 },
@@ -107,37 +105,42 @@ $clips = @(
     @{ X = 474; W = 72 }
 )
 foreach ($clip in $clips) {
-    $rect = New-Object System.Drawing.Rectangle($clip.X, 505, $clip.W, 24)
-    $g.FillRectangle($clipBrush, $rect)
+    $g.FillRectangle($clipBrush, $clip.X, 505, $clip.W, 24)
 }
 $clipBrush.Dispose()
 
-$hotBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(246, 196, 83))
-$hotRect = New-Object System.Drawing.Rectangle(300, 505, 102, 24)
-$g.FillRectangle($hotBrush, $hotRect)
+$hotBrush = New-Object System.Drawing.SolidBrush($script:emerald)
+$g.FillRectangle($hotBrush, 300, 505, 102, 24)
 $hotBrush.Dispose()
 
-$playPen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(244, 247, 251), 2)
+$playPen = New-Object System.Drawing.Pen($script:navy, 2)
 $g.DrawLine($playPen, 356, 496, 356, 536)
 $playPen.Dispose()
 
 # URL
 $urlFont = New-Object System.Drawing.Font("Consolas", 18, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
-$urlBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(116, 128, 145))
+$urlBrush = New-Object System.Drawing.SolidBrush($script:faint)
 $g.DrawString("penguincut.com", $urlFont, $urlBrush, 124, 562)
 
-# 16:9 badge
+# 16:9 badge: emerald soft, like the app's accent chips.
 $badgeFont = New-Object System.Drawing.Font("Consolas", 15, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
-$badgeRect = New-Object System.Drawing.Rectangle(1004, 520, 108, 34)
-$g.FillRectangle((New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(18, 246, 196, 83))), $badgeRect)
-$g.DrawRectangle((New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(70, 246, 196, 83), 1)), $badgeRect)
-$g.DrawString("16:9", $badgeFont, $accentBrush, 1031, 528)
+$badgePath = New-RoundedRectPath 1004 520 108 34 8
+$badgeBrush = New-Object System.Drawing.SolidBrush($script:emeraldSoft)
+$g.FillPath($badgeBrush, $badgePath)
+$badgePen = New-Object System.Drawing.Pen($script:emeraldLine, 1.5)
+$g.DrawPath($badgePen, $badgePath)
+$badgeTextBrush = New-Object System.Drawing.SolidBrush($script:emeraldDark)
+$g.DrawString("16:9", $badgeFont, $badgeTextBrush, 1031, 528)
+$badgeBrush.Dispose()
+$badgePen.Dispose()
+$badgeTextBrush.Dispose()
+$badgePath.Dispose()
 
 # Cleanup
 $brandFont.Dispose()
 $brandBrush.Dispose()
 $kickerFont.Dispose()
-$accentBrush.Dispose()
+$kickerBrush.Dispose()
 $ruleBrush.Dispose()
 $headlineFont.Dispose()
 $headlineBrush.Dispose()
@@ -145,6 +148,7 @@ $subFont.Dispose()
 $subBrush.Dispose()
 $timelineBrush.Dispose()
 $timelinePen.Dispose()
+$timelinePath.Dispose()
 $urlFont.Dispose()
 $urlBrush.Dispose()
 $badgeFont.Dispose()
