@@ -23,8 +23,11 @@
     width: 100%;
     height: auto !important;
     min-height: 100% !important;
+    /* 모바일에서는 body가 스크롤 컨테이너가 되지 않도록 overflow-y를 visible로 명시한다.
+       viewport가 스크롤하고 sticky 헤더가 정상 동작한다. 가로만 clip으로 막는다 */
     overflow-x: hidden !important;
-    overflow-y: auto !important;
+    overflow-x: clip !important;
+    overflow-y: visible !important;
     -webkit-overflow-scrolling: touch;
   }
 

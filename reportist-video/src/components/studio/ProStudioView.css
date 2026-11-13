@@ -5608,12 +5608,14 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
+  flex-shrink: 0;
   padding: 3px 7px;
   border-radius: 6px;
   background-color: #f1f5f9;
   color: #475569;
   font-size: 11px;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .model-modal-tag strong {
@@ -5816,6 +5818,20 @@
     padding: 3px;
   }
 
+  /* 세그먼티드 탭 라벨이 좁아도 절대 두 줄이 되지 않게 (넘치면 말줄임) */
+  .model-modal-tab-btn {
+    font-size: 12px;
+    padding: 8px 6px;
+    gap: 5px;
+    min-width: 0;
+  }
+
+  .model-modal-tab-btn span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .model-modal-list {
     padding: 12px 16px;
     min-height: 0;
@@ -5895,11 +5911,20 @@
     font-size: 13px;
   }
 
+  /* 태그가 잘리지 않고 스와이프로 보이도록 가로 스크롤 + 스크롤바 숨김 */
   .model-modal-tags {
     flex-wrap: nowrap;
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
     max-height: 24px;
     gap: 4px;
+  }
+
+  .model-modal-tags::-webkit-scrollbar {
+    display: none;
   }
 
   .model-modal-tag {
@@ -12628,5 +12653,163 @@
   .toss-player-stage:fullscreen .toss-transport-bar {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+  }
+}
+
+/* ============================================
+   초소형 화면(≤380px): 탭 아이콘을 숨겨 라벨 공간 확보
+   '내 API Key 연결 (BYOK)' 같은 긴 라벨도 한 줄 유지
+   ============================================ */
+@media (max-width: 380px) {
+  .model-modal-tab-btn svg {
+    display: none;
+  }
+
+  .model-modal-tab-btn {
+    font-size: 11.5px;
+    padding: 8px 4px;
+  }
+}
+
+/* ==========================================================================
+   모바일 상단 탭 스트립 (KNOCKIT 스타일, 860px 이하)
+   - 1줄차: 로고 + 앱명 + 우측 액션 (높이 50px)
+   - 2줄차: 텍스트 탭 스트립 (스튜디오 / 영상 공유, 라벨 항상 노출 + 활성 탭 언더라인)
+   - 아래로 드래그(스크롤 다운)하면 스트립이 접히고, 위로 드래그(스크롤 업)하면 다시 펼쳐짐
+   ========================================================================== */
+.toss-nav-top-row {
+  display: contents; /* 데스크탑: 래퍼 박스 없이 기존 좌/우 flex 배치 유지 */
+}
+
+.toss-nav-tab-strip {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  .toss-nav-header {
+    height: auto !important;
+    min-height: 50px !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    flex-wrap: wrap !important;
+    align-content: flex-start !important;
+  }
+
+  .toss-nav-top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    width: 100%;
+    height: 50px;
+    padding: 0 10px;
+    box-sizing: border-box;
+    min-width: 0;
+  }
+
+  /* 기존 세그먼트 필 탭은 숨기고 탭 스트립으로 대체 (라벨이 보이지 않던 문제 해소) */
+  .toss-nav-tabs-group {
+    display: none !important;
+  }
+
+  .toss-nav-tab-strip {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    background-color: #ffffff;
+    border-top: 1px solid #f2f4f6;
+    max-height: 64px;
+    opacity: 1;
+    transition:
+      max-height 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+      opacity 0.22s ease,
+      border-color 0.32s ease;
+    will-change: max-height;
+  }
+
+  .toss-nav-tab-strip::-webkit-scrollbar {
+    display: none;
+  }
+
+  .toss-nav-tab-strip.is-hidden {
+    max-height: 0;
+    opacity: 0;
+    border-top-color: transparent;
+    pointer-events: none;
+  }
+
+  .toss-strip-tab-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 46px;
+    padding: 0 14px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #8b95a1;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: color 0.2s ease;
+  }
+
+  .toss-strip-tab-btn.active {
+    color: #191f28;
+  }
+
+  /* 활성 탭 언더라인 인디케이터 */
+  .toss-strip-tab-btn::after {
+    content: '';
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: -1px;
+    height: 2.5px;
+    border-radius: 2px 2px 0 0;
+    background-color: transparent;
+    transform: scaleX(0.4);
+    transform-origin: center;
+    transition:
+      transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+      background-color 0.25s ease;
+  }
+
+  .toss-strip-tab-btn.active::after {
+    background-color: #191f28;
+    transform: scaleX(1);
+  }
+
+  .toss-strip-tab-btn:active {
+    color: #333d4b;
+  }
+}
+
+@media (max-width: 420px) {
+  .toss-nav-top-row {
+    height: 48px;
+    padding: 0 6px;
+  }
+
+  .toss-strip-tab-btn {
+    height: 44px;
+    padding: 0 12px;
+    font-size: 12.5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toss-nav-tab-strip,
+  .toss-strip-tab-btn::after {
+    transition: none;
   }
 }

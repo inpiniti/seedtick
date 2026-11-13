@@ -694,6 +694,43 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   }, [isProcessing]);
 
+  // 모바일 상단 탭 스트립(2번째 줄) 자동 숨김/표시: 아래로 드래그(스크롤 다운)하면 접고, 위로 드래그(스크롤 업)하면 펼친다.
+  // 기준점(anchorY) 대비 누적 이동량으로 방향을 판정해 미세 떨림/느린 드래그에서도 안정적으로 동작한다.
+  const [isTabStripHidden, setIsTabStripHidden] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const TOP_SHOW = 12; // 상단 근처에서는 항상 표시
+    const HIDE_AFTER = 64; // 이 스크롤 지점 이후부터 숨김 허용
+    const TRIGGER = 24; // 방향 판정에 필요한 누적 스크롤량
+    let anchorY = Math.max(0, window.scrollY || document.documentElement.scrollTop || 0);
+    let rafId: number | null = null;
+    const update = () => {
+      rafId = null;
+      const y = Math.max(0, window.scrollY || document.documentElement.scrollTop || 0);
+      const net = y - anchorY;
+      if (y <= TOP_SHOW) {
+        setIsTabStripHidden(false);
+        anchorY = y;
+        return;
+      }
+      if (Math.abs(net) < TRIGGER) return; // 방향 미확정: 누적 이동량이 쌓일 때까지 유지
+      if (net > 0) {
+        if (y > HIDE_AFTER) setIsTabStripHidden(true);
+      } else {
+        setIsTabStripHidden(false);
+      }
+      anchorY = y;
+    };
+    const onScroll = () => {
+      if (rafId === null) rafId = window.requestAnimationFrame(update);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
+    };
+  }, []);
+
   // 현재 AI 분석/처리 중인 비디오 및 썸네일
   const currentProcessingVideo = videos[progress.currentVideoIndex] || videos[0];
   const currentVideoThumbnail = currentProcessingVideo?.thumbnailUrl;
@@ -3809,6 +3846,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
       {/* 1. 상단 글로벌 내비게이션 바 */}
       <header className="toss-nav-header">
+        {/* 모바일에서는 1줄(로고+앱명+액션)과 2줄(탭 스트립) 구조로 나뉘고, 데스크탑에서는 contents로 원래 flex 배치를 유지 */}
+        <div className="toss-nav-top-row">
         <div className="toss-nav-left">
           {activeTab === 'studio' ? (
             /* 스튜디오 상세(편집 화면): 로고 대신 뒤로가기 버튼 표시 및 다른 탭 메뉴 숨김 */
@@ -3971,6 +4010,41 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <span className="toss-settings-trigger-text">{dict.common.settings || '설정'}</span>
           </button>
         </div>
+        </div>
+
+        {/* 모바일 전용 2번째 줄: 앱 메뉴 텍스트 탭 스트립 (KNOCKIT 스타일). 스크롤 다운 시 자동으로 접혀 화면 공간을 확보하고, 스크롤 업 시 다시 펼쳐진다 */}
+        {activeTab !== 'studio' && (
+          <div
+            className={`toss-nav-tab-strip ${isTabStripHidden ? 'is-hidden' : ''}`}
+            role="navigation"
+            aria-label="주요 메뉴"
+          >
+            <button
+              type="button"
+              className={`toss-strip-tab-btn ${activeTab === 'projects' ? 'active' : ''}`}
+              aria-current={activeTab === 'projects' ? 'page' : undefined}
+              onClick={() => {
+                if (activeTab === 'projects') {
+                  onViewProjects?.();
+                } else {
+                  navigateToTab('projects');
+                }
+              }}
+            >
+              <Film size={15} />
+              <span>{dict.community?.studioTab || dict.projects?.tabTitle || '스튜디오'}</span>
+            </button>
+            <button
+              type="button"
+              className={`toss-strip-tab-btn ${activeTab === 'community' ? 'active' : ''}`}
+              aria-current={activeTab === 'community' ? 'page' : undefined}
+              onClick={() => navigateToTab('community')}
+            >
+              <Share2 size={15} />
+              <span>{dict.community?.communityTab || '영상 공유'}</span>
+            </button>
+          </div>
+        )}
       </header>
 
       {/* 2. 본문: 영상 공유 커뮤니티 또는 스튜디오 프로젝트 목록 또는 스튜디오 상세 2열 레이아웃 */}
