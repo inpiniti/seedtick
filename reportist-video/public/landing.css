@@ -296,14 +296,14 @@ button {
   gap: 22px;
 }
 
-.site-nav > a {
+.site-nav > a:not(.button) {
   color: var(--muted);
   font-size: 0.86rem;
   font-weight: 600;
   transition: color 150ms ease;
 }
 
-.site-nav > a:hover {
+.site-nav > a:not(.button):hover {
   color: var(--foreground);
 }
 
@@ -1563,13 +1563,13 @@ button {
     display: flex;
   }
 
-  .site-nav > a {
+  .site-nav > a:not(.button) {
     padding: 11px 10px;
     border-radius: 10px;
     font-size: 0.94rem;
   }
 
-  .site-nav > a:hover {
+  .site-nav > a:not(.button):hover {
     background: var(--muted-bg);
   }
 
