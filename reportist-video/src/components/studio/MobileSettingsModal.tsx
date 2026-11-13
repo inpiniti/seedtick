@@ -73,6 +73,15 @@ import { isOpfsAvailable } from '../../services/opfsStorage.ts';
 import { detectOptimalCodec } from '../../services/videoCompressor.ts';
 import { CURRENT_APP_VERSION } from '../../data/patchNotes.ts';
 
+export type SettingsSectionId =
+  | 'general'
+  | 'capture'
+  | 'subtitles'
+  | 'motion'
+  | 'export'
+  | 'support'
+  | 'project';
+
 export interface MobileSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -187,6 +196,8 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
 }) => {
   const { dict, interpolate } = useI18n();
   const overlayRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [activeSection, setActiveSection] = useState<SettingsSectionId>('general');
 
   useModalScrollLock(isOpen, {
     overlayRef,
@@ -207,6 +218,8 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
     if (!isOpen) {
       setIsBridgePreviewOpen(false);
       setIsIntroOutroPreviewOpen(false);
+    } else {
+      setActiveSection('general');
     }
   }, [isOpen]);
 
@@ -349,7 +362,72 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    bodyRef.current?.scrollTo({ top: 0 });
+  }, [activeSection, isOpen]);
+
   if (!isOpen) return null;
+
+  const settingsSections: Array<{ id: SettingsSectionId; label: string; icon: React.ReactNode }> = [
+    {
+      id: 'general',
+      label: dict.settingsModal?.navGeneral || 'AI · 언어',
+      icon: <Sparkles size={16} />,
+    },
+    {
+      id: 'capture',
+      label: dict.settingsModal?.navCapture || '촬영 날짜 · 나이',
+      icon: <Calendar size={16} />,
+    },
+    {
+      id: 'subtitles',
+      label: dict.settingsModal?.navSubtitles || '자막 · 브릿지',
+      icon: <Subtitles size={16} />,
+    },
+    {
+      id: 'motion',
+      label: dict.settingsModal?.navMotion || '인트로 · 아웃트로',
+      icon: <Clapperboard size={16} />,
+    },
+    {
+      id: 'export',
+      label: dict.settingsModal?.navExport || '화질 · 저장소',
+      icon: <HardDrive size={16} />,
+    },
+    {
+      id: 'support',
+      label: dict.settingsModal?.navSupport || '지원 · 업데이트',
+      icon: <MessageSquare size={16} />,
+    },
+    {
+      id: 'project',
+      label: dict.settingsModal?.navProject || '프로젝트',
+      icon: <Layers size={16} />,
+    },
+  ];
+
+  const visibleSettingsSections = settingsSections.filter((section) => {
+    switch (section.id) {
+      case 'subtitles':
+        return Boolean(onToggleShowSubtitle || onToggleShowChapterBridge);
+      case 'motion':
+        return Boolean(onToggleShowIntro || onToggleShowOutro);
+      case 'support':
+        return Boolean(onOpenFeedbackModal || onOpenPatchNotesModal);
+      case 'project':
+        return Boolean(hasStitchedResult || hasVideos);
+      default:
+        return true;
+    }
+  });
+
+  const resolvedSection = visibleSettingsSections.some((section) => section.id === activeSection)
+    ? activeSection
+    : visibleSettingsSections[0]?.id || 'general';
+
+  const groupClassName = (section: SettingsSectionId) =>
+    `settings-modal-group${resolvedSection === section ? '' : ' settings-modal-group--desktop-hidden'}`;
 
   const currentSpeedTier = currentModel ? getSpeedTier(currentModel.speedTokensPerSecond) : null;
   const sampleDate = referenceDate || new Date();
@@ -413,14 +491,36 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div
-          className="settings-modal-body"
-          data-modal-scrollable="true"
-          onTouchMove={(e) => e.stopPropagation()}
-          onWheel={(e) => e.stopPropagation()}
-        >
+        <div className="settings-modal-layout">
+          <nav
+            className="settings-modal-nav"
+            aria-label={dict.settingsModal?.navAriaLabel || '설정 섹션'}
+          >
+            {visibleSettingsSections.map((section) => {
+              const isActive = resolvedSection === section.id;
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  className={`settings-modal-nav-item${isActive ? ' active' : ''}`}
+                  onClick={() => setActiveSection(section.id)}
+                  aria-current={isActive ? 'page' : undefined}
+                >
+                  <span className="settings-modal-nav-icon">{section.icon}</span>
+                  <span className="settings-modal-nav-text">{section.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+          <div
+            ref={bodyRef}
+            className="settings-modal-body"
+            data-modal-scrollable="true"
+            onTouchMove={(e) => e.stopPropagation()}
+            onWheel={(e) => e.stopPropagation()}
+          >
           {/* Group 1: AI Model */}
-          <div className="settings-modal-group">
+          <div className={groupClassName('general')}>
             <span className="settings-modal-group-title">
               {dict.settingsModal?.aiEngine || 'AI Engine'}
             </span>
@@ -484,7 +584,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
           </div>
 
           {/* Group 2: Language */}
-          <div className="settings-modal-group">
+          <div className={groupClassName('general')}>
             <span className="settings-modal-group-title">
               {dict.settingsModal?.language || dict.common.language || 'Language'}
             </span>
@@ -517,7 +617,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
 
           {/* Group 3: Date & Order Settings */}
           {(onOpenDateFormatModal || onToggleShowDate || onToggleAutoSortByRecordedDate) && (
-            <div className="settings-modal-group">
+            <div className={groupClassName('capture')}>
               <span className="settings-modal-group-title">
                 {dict.settingsModal?.dateSection || '촬영 날짜 및 정렬'}
               </span>
@@ -627,7 +727,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
           )}
 
           {/* Group 4: Child Age Display (아이 나이 표시) */}
-          <div className="settings-modal-group">
+          <div className={groupClassName('capture')}>
             <span className="settings-modal-group-title">
               {dict.settingsModal?.ageOption || '아이 나이 표시'}
             </span>
@@ -701,7 +801,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
 
           {/* Group 5: Subtitle & Chapter Bridge Display (영상 자막 및 챕터 브릿지 표시) */}
           {(onToggleShowSubtitle || onToggleShowChapterBridge) && (
-            <div className="settings-modal-group">
+            <div className={groupClassName('subtitles')}>
               <span className="settings-modal-group-title">
                 {dict.settingsModal?.subtitleSection || dict.settingsModal?.subtitleOption || '영상 자막 및 스토리 브릿지 설정'}
               </span>
@@ -926,7 +1026,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
 
           {/* Group: Intro & Outro Motion Settings (시작 인트로 및 종료 아웃트로 설정) */}
           {(onToggleShowIntro || onToggleShowOutro) && (
-            <div className="settings-modal-group">
+            <div className={groupClassName('motion')}>
               <span className="settings-modal-group-title">
                 {dict.settingsModal?.introOutroSection || '시작 인트로 & 종료 아웃트로 설정'}
               </span>
@@ -1148,7 +1248,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
           )}
 
           {/* Group: 내보내기 화질 설정 (해상도) */}
-          <div className="settings-modal-group">
+          <div className={groupClassName('export')}>
             <span className="settings-modal-group-title">
               {dict.settingsModal?.resolutionSection || '내보내기 영상 화질 (해상도)'}
             </span>
@@ -1219,7 +1319,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
           </div>
 
           {/* Group: Storage & Persistence Settings (스토리지 엔진 및 보관 설정) */}
-          <div className="settings-modal-group">
+          <div className={groupClassName('export')}>
             <span className="settings-modal-group-title">
               {dict.settingsModal?.storageSection || '저장소 및 보관 설정'}
             </span>
@@ -1438,7 +1538,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
 
           {/* Group: Feedback & Customer Support / Updates */}
           {(onOpenFeedbackModal || onOpenPatchNotesModal) && (
-            <div className="settings-modal-group">
+            <div className={groupClassName('support')}>
               <span className="settings-modal-group-title">
                 {dict.settingsModal?.supportSection || '고객 지원 및 업데이트'}
               </span>
@@ -1510,7 +1610,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
 
           {/* Group 6: Project Actions */}
           {(hasStitchedResult || hasVideos) && (
-            <div className="settings-modal-group">
+            <div className={groupClassName('project')}>
               <span className="settings-modal-group-title">
                 {dict.settingsModal?.projectActions || 'Project Actions'}
               </span>
@@ -1636,14 +1736,14 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
               )}
             </div>
           )}
+          </div>
         </div>
 
         {/* Modal Footer */}
-        <div className="model-modal-footer">
+        <div className="model-modal-footer settings-modal-footer">
           <button
             type="button"
             className="toss-modal-btn-close"
-            style={{ width: '100%' }}
             onClick={onClose}
           >
             {dict.common.close}

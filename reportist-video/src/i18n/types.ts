@@ -695,6 +695,14 @@ export interface Dictionary {
     subtitle: string;
     aiEngine: string;
     language: string;
+    navGeneral?: string;
+    navCapture?: string;
+    navSubtitles?: string;
+    navMotion?: string;
+    navExport?: string;
+    navSupport?: string;
+    navProject?: string;
+    navAriaLabel?: string;
     dateFormat?: string;
     dateFormatDesc?: string;
     dateSection?: string;
