@@ -46,6 +46,14 @@ function getDB(): Promise<IDBDatabase> {
       return reject(new Error('IndexedDB is not supported in this environment.'));
     }
 
+    let settled = false;
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      dbPromise = null;
+      reject(new Error('IndexedDB open timed out.'));
+    }, 15000);
+
     const request = window.indexedDB.open(DB_NAME, DB_VERSION);
 
     request.onupgradeneeded = (event) => {
@@ -62,10 +70,16 @@ function getDB(): Promise<IDBDatabase> {
     };
 
     request.onsuccess = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
       resolve(request.result);
     };
 
     request.onerror = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
       dbPromise = null;
       reject(request.error || new Error('Failed to open IndexedDB.'));
     };
