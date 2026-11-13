@@ -196,7 +196,8 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
 
   useModalScrollLock(isOpen, {
     overlayRef,
-    scrollableSelector: '.model-modal-list, [data-modal-scrollable="true"]',
+    scrollableSelector:
+      '.model-modal-list, .model-modal-chips, .model-modal-provider-chips, .model-modal-active-filters, [data-modal-scrollable="true"]',
   });
 
   useEffect(() => {

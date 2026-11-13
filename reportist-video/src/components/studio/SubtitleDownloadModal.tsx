@@ -47,7 +47,8 @@ export const SubtitleDownloadModal: React.FC<SubtitleDownloadModalProps> = ({
 
   useModalScrollLock(isOpen, {
     overlayRef,
-    scrollableSelector: '.subtitle-modal-body, .subtitle-cues-list, [data-modal-scrollable="true"]',
+    scrollableSelector:
+      '.subtitle-modal-body, .subtitle-cues-list, .subtitle-lang-grid, [data-modal-scrollable="true"]',
   });
 
   const [selectedLocale, setSelectedLocale] = useState<Locale>(currentAppLocale);

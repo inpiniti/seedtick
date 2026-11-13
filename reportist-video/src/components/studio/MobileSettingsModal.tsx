@@ -209,7 +209,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
 
   useModalScrollLock(isOpen, {
     overlayRef,
-    scrollableSelector: '.settings-modal-body, [data-modal-scrollable="true"]',
+    scrollableSelector: '.settings-modal-body, .settings-modal-nav, [data-modal-scrollable="true"]',
   });
 
   const [storageEstimate, setStorageEstimate] = useState<StorageEstimateInfo | null>(null);
@@ -565,6 +565,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
           <nav
             className="settings-modal-nav"
             aria-label={dict.settingsModal?.navAriaLabel || '설정 섹션'}
+            data-modal-scrollable="true"
           >
             {visibleSettingsSections.map((section) => {
               const isActive = resolvedSection === section.id;

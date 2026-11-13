@@ -5078,6 +5078,14 @@
   color: #6b7684;
 }
 
+.model-modal-chips,
+.model-modal-provider-chips,
+.model-modal-active-filters,
+.settings-modal-nav,
+.subtitle-lang-grid {
+  touch-action: pan-x;
+}
+
 .model-modal-chips {
   display: flex;
   align-items: center;
