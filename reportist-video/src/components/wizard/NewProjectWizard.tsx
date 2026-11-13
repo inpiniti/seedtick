@@ -129,7 +129,9 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
   const [showOutro, setShowOutro] = useState(
     overlayOptions?.showOutro !== undefined ? overlayOptions.showOutro : getStoredShowOutro()
   );
-  const [channelText, setChannelText] = useState(overlayOptions?.channelText || '');
+  const [channelText, setChannelText] = useState(
+    overlayOptions?.channelText || dict.player.defaultChannelText || ''
+  );
   const [showChapterBridge, setShowChapterBridge] = useState(overlayOptions?.showChapterBridge ?? true);
 
   // 인트로 & 아웃트로 커스텀 비디오 파일
@@ -347,12 +349,18 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
     return {
       showTitle: Boolean(titleText.trim()) || (overlayOptions?.showTitle ?? true),
       titleText: titleText.trim(),
-      showChannel: Boolean(channelText.trim()) || (overlayOptions?.showChannel ?? false),
+      showChannel: Boolean(channelText.trim()) || (overlayOptions?.showChannel ?? true),
       channelText: channelText.trim(),
       showSubtitle: overlayOptions?.showSubtitle ?? true,
-      showDate: overlayOptions?.showDate ?? false,
-      subtitleDateText: overlayOptions?.subtitleDateText || '',
-      subtitleLocationText: overlayOptions?.subtitleLocationText || '',
+      showDate: overlayOptions?.showDate ?? true,
+      subtitleDateText:
+        overlayOptions?.subtitleDateText ||
+        videos.find((v) => v.metadataDate)?.metadataDate ||
+        '',
+      subtitleLocationText:
+        overlayOptions?.subtitleLocationText ||
+        videos.find((v) => v.locationName?.trim())?.locationName ||
+        '',
       showIntro: showIntro || Boolean(introVideoFile),
       showOutro: showOutro || Boolean(outroVideoFile),
       introTemplate: overlayOptions?.introTemplate || getStoredIntroTemplate(),

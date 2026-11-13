@@ -517,10 +517,11 @@ export function App() {
     setCurrentProjectId(newProjId);
     setLastActiveProjectId(null);
     setCurrentOverlayOptions(null);
-    setCurrentBgmPresetId('none');
+    setCurrentBgmPresetId('preset');
     setCurrentBgmVolume(0.3);
     setCurrentCustomAudio(null);
-    setCurrentLibraryTrackId(null);
+    // 새 프로젝트는 잔잔한 무드의 BGM(Dreaming)을 기본 선택해 바로 편집된 느낌이 나도록 한다
+    setCurrentLibraryTrackId('dreaming');
     handleOpenWizard();
 
     if (urlsToRevoke.length > 0) {
@@ -1766,11 +1767,11 @@ export function App() {
             showChannel: true,
             channelText: dict.player.defaultChannelText,
             showSubtitle: true,
-            showDate: false,
+            showDate: true,
             subtitleDateText: '',
             subtitleLocationText: '',
-            showIntro: false,
-            showOutro: false,
+            showIntro: true,
+            showOutro: true,
             showChapterBridge: true,
             introVideoFile: null,
             outroVideoFile: null,
