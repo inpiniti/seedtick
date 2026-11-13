@@ -341,9 +341,58 @@ async function extractVideoMetadataInternal(file: File, skipThumbnail = false): 
       } catch {}
     };
 
-    // 메타데이터/시크가 지연될 경우 디코더 슬롯이 영구 잠기지 않도록 8초 타임아웃 방어
+    // 현재 디코딩된 프레임을 캡처하여 썸네일로 확정 (onseeked / 타임아웃 양쪽에서 공유)
+    const captureFrame = () => {
+      if (settled) return;
+      settled = true;
+      let canvas: HTMLCanvasElement | null = null;
+      try {
+        const rawW = video.videoWidth || 640;
+        const rawH = video.videoHeight || 360;
+        canvas = document.createElement('canvas');
+        const maxThumbWidth = 320;
+        const scale = Math.min(1, maxThumbWidth / rawW);
+        canvas.width = Math.round(rawW * scale);
+        canvas.height = Math.round(rawH * scale);
+
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const thumbnailUrl = canvas.toDataURL('image/jpeg', 0.7);
+          const dur = video.duration || 1;
+          cleanup(canvas);
+          resolve({
+            duration: dur,
+            width: rawW,
+            height: rawH,
+            thumbnailUrl,
+          });
+          return;
+        }
+      } catch (err) {
+        console.warn('[VideoCompressor] 썸네일 생성 실패:', err);
+      }
+
+      const dur = video.duration || 1;
+      const w = video.videoWidth || 640;
+      const h = video.videoHeight || 360;
+      cleanup(canvas);
+      resolve({
+        duration: dur,
+        width: w,
+        height: h,
+        thumbnailUrl: '',
+      });
+    };
+
+    // 메타데이터/시크가 지연될 경우 디코더 슬롯이 영구 잠기지 않도록 8초 타임아웃 방어.
+    // 이때라도 이미 디코딩된 프레임이 있으면 캡처를 시도하고, 아니면 썸네일만 비워서 반환.
     safetyTimer = setTimeout(() => {
       if (settled) return;
+      if (video.videoWidth > 0 && video.readyState >= 2) {
+        captureFrame();
+        return;
+      }
       settled = true;
       const fallbackDur = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 1;
       const fallbackW = video.videoWidth || 640;
@@ -375,59 +424,17 @@ async function extractVideoMetadataInternal(file: File, skipThumbnail = false): 
         return;
       }
 
-      // 썸네일을 위해 0.5초 또는 10% 지점으로 이동
-      const seekTime = Math.min(1.0, rawDur * 0.1);
-      if (Number.isFinite(seekTime)) {
-        try {
-          video.currentTime = seekTime;
-        } catch {
-          // ignore
-        }
-      }
-    };
-
-    video.onseeked = () => {
-      if (settled) return;
-      settled = true;
-      let canvas: HTMLCanvasElement | null = null;
+      // 썸네일을 위해 0.1초(또는 10% 지점)으로 이동 — 0초로 시크하면 onseeked가 발화하지 않아 반드시 양수 시간 사용
+      const seekTime = Math.min(1.0, Math.max(0.1, rawDur * 0.1));
       try {
-        canvas = document.createElement('canvas');
-        const maxThumbWidth = 320;
-        const scale = Math.min(1, maxThumbWidth / (video.videoWidth || 640));
-        canvas.width = Math.round((video.videoWidth || 640) * scale);
-        canvas.height = Math.round((video.videoHeight || 360) * scale);
-
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const thumbnailUrl = canvas.toDataURL('image/jpeg', 0.7);
-          const dur = video.duration || 1;
-          const w = video.videoWidth || 640;
-          const h = video.videoHeight || 360;
-          cleanup(canvas);
-          resolve({
-            duration: dur,
-            width: w,
-            height: h,
-            thumbnailUrl,
-          });
-          return;
-        }
-      } catch (err) {
-        console.warn('[VideoCompressor] 썸네일 생성 실패:', err);
+        video.currentTime = seekTime;
+      } catch {
+        // 시크 실패 시 현재 프레임에서 바로 캡처
+        captureFrame();
       }
-
-      const dur = video.duration || 1;
-      const w = video.videoWidth || 640;
-      const h = video.videoHeight || 360;
-      cleanup(canvas);
-      resolve({
-        duration: dur,
-        width: w,
-        height: h,
-        thumbnailUrl: '',
-      });
     };
+
+    video.onseeked = captureFrame;
 
     video.onerror = () => {
       if (settled) return;

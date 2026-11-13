@@ -894,27 +894,18 @@ export function App() {
           let duration = mediaMeta.duration || 0;
           let width = mediaMeta.width || 0;
           let height = mediaMeta.height || 0;
-          let thumbnailUrl = '';
 
-          // 모바일(아이폰 XR 등)은 하드웨어 디코더 고갈 및 WebProcess 크래시를 방지하기 위해:
-          // - 바이너리에서 duration과 width를 이미 확보했으면 <video> 엘리먼트 생성을 전면 생략!
-          // - 첫 번째 영상(currentIndex === 0)에만 대표 썸네일을 1회 가볍게 추출
-          // - 데스크톱은 모든 영상 썸네일 정상 추출
-          const needVisualFallback = !duration || !width || !height;
-          const shouldExtractThumbnail = !isMobileEnv || currentIndex === 0;
-
-          if (needVisualFallback || shouldExtractThumbnail) {
-            const visualMeta = await extractVideoVisualDimensions(file, !shouldExtractThumbnail).catch(() => ({
-              duration: 0,
-              width: 0,
-              height: 0,
-              thumbnailUrl: '',
-            }));
-            if (!duration) duration = visualMeta.duration;
-            if (!width) width = visualMeta.width;
-            if (!height) height = visualMeta.height;
-            thumbnailUrl = visualMeta.thumbnailUrl;
-          }
+          // 썸네일은 모든 영상에 대해 추출 (모바일도 워커 직렬 처리 + videoCompressor의 디코더 슬롯 1개 제한으로 보호)
+          const visualMeta = await extractVideoVisualDimensions(file, false).catch(() => ({
+            duration: 0,
+            width: 0,
+            height: 0,
+            thumbnailUrl: '',
+          }));
+          if (!duration) duration = visualMeta.duration;
+          if (!width) width = visualMeta.width;
+          if (!height) height = visualMeta.height;
+          const thumbnailUrl = visualMeta.thumbnailUrl;
 
           pendingUpdates.set(videoId, {
             duration,
