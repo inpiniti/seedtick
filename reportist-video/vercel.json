@@ -1,4 +1,53 @@
 {
+  "redirects": [
+    {
+      "source": "/studio.html",
+      "destination": "/studio",
+      "permanent": true
+    },
+    {
+      "source": "/studio/",
+      "destination": "/studio",
+      "permanent": true
+    },
+    {
+      "source": "/index.html",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/en",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/en/",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.penguincut.com"
+        }
+      ],
+      "destination": "https://penguincut.com/$1",
+      "permanent": true
+    },
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "video.reportist.kr"
+        }
+      ],
+      "destination": "https://penguincut.com/studio",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/v1/:path*",
@@ -9,11 +58,24 @@
       "destination": "https://seedtick-ai-gateway.vercel.app/health"
     },
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "source": "/studio",
+      "destination": "/studio.html"
     }
   ],
   "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
+      ]
+    },
     {
       "source": "/assets/(.*)",
       "headers": [
@@ -29,6 +91,24 @@
         {
           "key": "Cache-Control",
           "value": "public, max-age=2592000"
+        }
+      ]
+    },
+    {
+      "source": "/landing.css",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
+        }
+      ]
+    },
+    {
+      "source": "/landing.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
         }
       ]
     }

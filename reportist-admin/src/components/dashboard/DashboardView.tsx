@@ -1644,13 +1644,13 @@ export function DashboardView({
                 </a>
                 <span>·</span>
                 <a
-                  href="https://video.reportist.kr"
+                  href="https://penguincut.com"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-[#0f172a] transition-colors"
-                  title="Reportist AI Video"
+                  title="PenguinCut AI Video"
                 >
-                  AI Video
+                  PenguinCut
                 </a>
                 <span>·</span>
                 <a

@@ -1,7 +1,10 @@
-# Reportist Video (video.reportist.kr)
+# PenguinCut (penguincut.com)
 
-> **AI 기반 극적 영상 하이라이트 생성기**  
+> **AI 기반 극적 영상 하이라이트 생성기**
 > 여러 개의 영상에서 AI가 가장 극적이고 결정적인 순간만 정확하게 탐색하여, 브라우저에서 직접 이어붙여 하나의 완성된 하이라이트 영상으로 만들어주는 웹 애플리케이션입니다.
+
+- 마케팅 랜딩: `https://penguincut.com/` (+ `/ko/`, `/ja/`, `/zh/`, `/es/`, `/fr/`, `/de/`)
+- 앱(스튜디오): `https://penguincut.com/studio`
 
 ---
 
@@ -37,20 +40,41 @@ bun run dev
 bun run build
 ```
 
+개발/빌드 전에 `npm run seo`가 자동 실행되어 랜딩 페이지와 sitemap을 재생성합니다.
+
 ---
 
-## 🌐 video.reportist.kr 도메인 연결 가이드
+## 🌐 penguincut.com 도메인 연결 가이드
 
 ### 1단계: Vercel 프로젝트 생성
 1. [Vercel 대시보드](https://vercel.com)에서 **Add New...** → **Project** 클릭
 2. 본 레포지토리의 `reportist-video` 디렉토리를 루트로 지정하여 배포합니다.
 3. 프로젝트 **Settings** → **Domains** 메뉴로 이동합니다.
-4. 도메인 입력란에 **`video.reportist.kr`** 입력 후 **Add**를 누릅니다.
-5. Vercel이 표시해 주는 CNAME Value를 확인합니다 (예: `cname.vercel-dns.com` 또는 `xxxx.vercel-dns-xxx.com`).
+4. 도메인 입력란에 **`penguincut.com`** 입력 후 **Add**를 누릅니다.
+5. **`www.penguincut.com`** 도 추가한 뒤, `penguincut.com`으로 **Redirect** 되도록 설정합니다.
+6. Vercel이 표시해 주는 DNS 레코드 값을 확인합니다.
 
-### 2단계: 닷네임코리아 DNS 설정에 CNAME 추가
-1. 닷네임코리아 **DNS 설정** 화면으로 이동합니다.
-2. **CNAME 레코드 설정** 섹션에서 **[추가]** 버튼을 클릭합니다.
-   - **서브도메인(2차)**: `video`
-   - **연결할 도메인 주소**: 1단계에서 Vercel이 제공한 주소 (예: `cname.vercel-dns.com`)
-3. **저장**을 누르면 몇 분 내로 `https://video.reportist.kr`에 연결됩니다!
+### 2단계: 도메인 등록업체 DNS 설정
+1. 도메인 등록업체의 **DNS 설정** 화면으로 이동합니다.
+2. 루트 도메인 레코드를 추가합니다.
+   - **타입**: `A`
+   - **호스트**: `@`
+   - **값**: Vercel이 안내한 IP (예: `76.76.21.21`)
+3. `www` 레코드를 추가합니다.
+   - **타입**: `CNAME`
+   - **호스트**: `www`
+   - **값**: `cname.vercel-dns.com`
+4. 저장 후 DNS 전파(보통 10분~48시간)를 기다립니다.
+5. `https://penguincut.com/` 접속과 HTTPS 인증서 발급을 확인합니다.
+
+> Vercel 네임서버를 사용하는 방식이 더 간단할 수 있습니다. 등록업체에서 네임서버를 `ns1.vercel-dns.com`, `ns2.vercel-dns.com`으로 변경하면 DNS 레코드를 Vercel에서 관리할 수 있습니다.
+
+---
+
+## 🔍 SEO / Search Console
+
+- 전체 운영 가이드: [`docs/seo/README.md`](docs/seo/README.md)
+- 랜딩 콘텐츠/메타데이터: `seo/content.mjs`
+- HTML/JSON-LD 템플릿: `seo/template.mjs`
+- sitemap: `https://penguincut.com/sitemap.xml`
+- 검증 토큰은 `seo/content.mjs`의 `SITE.verification`에 넣고 `npm run seo`를 실행하세요.

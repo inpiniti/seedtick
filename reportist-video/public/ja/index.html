@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="ja" dir="ltr">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+  <title>PenguinCut — AI動画ハイライトエディター</title>
+  <meta name="description" content="長い動画をひとつのシネマティックなハイライトに。PenguinCutはAIで最高の瞬間を見つけ、字幕と音楽を加えて、ブラウザで16:9動画に仕上げます。">
+  <meta name="keywords" content="AI動画ハイライト, ハイライト編集, 動画ハイライト作成, AI動画編集, YouTube ハイライト, PenguinCut">
+  <meta name="author" content="PenguinCut">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <link rel="canonical" href="https://penguincut.com/ja/">
+
+  <link rel="alternate" hreflang="en" href="https://penguincut.com/">
+    <link rel="alternate" hreflang="en-US" href="https://penguincut.com/">
+    <link rel="alternate" hreflang="ko" href="https://penguincut.com/ko/">
+    <link rel="alternate" hreflang="ja" href="https://penguincut.com/ja/">
+    <link rel="alternate" hreflang="zh-Hans" href="https://penguincut.com/zh/">
+    <link rel="alternate" hreflang="zh-CN" href="https://penguincut.com/zh/">
+    <link rel="alternate" hreflang="es" href="https://penguincut.com/es/">
+    <link rel="alternate" hreflang="fr" href="https://penguincut.com/fr/">
+    <link rel="alternate" hreflang="de" href="https://penguincut.com/de/">
+    <link rel="alternate" hreflang="x-default" href="https://penguincut.com/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="PenguinCut">
+  <meta property="og:url" content="https://penguincut.com/ja/">
+  <meta property="og:title" content="PenguinCut — AI動画ハイライトエディター">
+  <meta property="og:description" content="長い動画をひとつのシネマティックなハイライトに。PenguinCutはAIで最高の瞬間を見つけ、字幕と音楽を加えて、ブラウザで16:9動画に仕上げます。">
+  <meta property="og:image" content="https://penguincut.com/og-penguincut.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="PenguinCut — AI video highlight editor. Turn hours of footage into one cinematic highlight.">
+  <meta property="og:locale" content="ja_JP">
+  <meta property="og:locale:alternate" content="en_US">
+    <meta property="og:locale:alternate" content="ko_KR">
+    <meta property="og:locale:alternate" content="zh_CN">
+    <meta property="og:locale:alternate" content="es_ES">
+    <meta property="og:locale:alternate" content="fr_FR">
+    <meta property="og:locale:alternate" content="de_DE">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="PenguinCut — AI動画ハイライトエディター">
+  <meta name="twitter:description" content="長い動画をひとつのシネマティックなハイライトに。PenguinCutはAIで最高の瞬間を見つけ、字幕と音楽を加えて、ブラウザで16:9動画に仕上げます。">
+  <meta name="twitter:image" content="https://penguincut.com/og-penguincut.png">
+  <meta name="twitter:image:alt" content="PenguinCut — AI video highlight editor. Turn hours of footage into one cinematic highlight.">
+
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=4">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico?v=4">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48x48.png?v=4">
+  <link rel="icon" type="image/png" sizes="96x96" href="/icon-96x96.png?v=4">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192x192.png?v=4">
+  <link rel="apple-touch-icon" href="/icon-192x192.png?v=4">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#06080c">
+  <meta name="application-name" content="PenguinCut">
+  <meta name="apple-mobile-web-app-title" content="PenguinCut">
+  <meta name="format-detection" content="telephone=no">
+
+  
+  
+
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preload" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"></noscript>
+  <link rel="stylesheet" href="/landing.css">
+
+  <script>
+    // Preserve old app links such as /#projects when the marketing page takes over /.
+    (function () {
+      var hash = location.hash.toLowerCase();
+      if (hash === "#projects" || hash === "#studio" || hash === "#community") {
+        location.replace("/studio?lang=ja" + hash);
+      }
+    })();
+  </script>
+
+  <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://penguincut.com/#organization","name":"PenguinCut","url":"https://penguincut.com/","logo":{"@type":"ImageObject","url":"https://penguincut.com/icon-512x512.png","width":512,"height":512},"description":"長い動画をひとつのシネマティックなハイライトに。PenguinCutはAIで最高の瞬間を見つけ、字幕と音楽を加えて、ブラウザで16:9動画に仕上げます。"},{"@type":"WebSite","@id":"https://penguincut.com/#website","url":"https://penguincut.com/","name":"PenguinCut","inLanguage":["en","ko","ja","zh-Hans","es","fr","de"],"publisher":{"@id":"https://penguincut.com/#organization"}},{"@type":"WebPage","@id":"https://penguincut.com/ja/#webpage","url":"https://penguincut.com/ja/","name":"PenguinCut — AI動画ハイライトエディター","description":"長い動画をひとつのシネマティックなハイライトに。PenguinCutはAIで最高の瞬間を見つけ、字幕と音楽を加えて、ブラウザで16:9動画に仕上げます。","inLanguage":"ja","isPartOf":{"@id":"https://penguincut.com/#website"},"about":{"@id":"https://penguincut.com/#app"},"dateModified":"2026-11-13","primaryImageOfPage":{"@type":"ImageObject","url":"https://penguincut.com/og-penguincut.png","width":1200,"height":630}},{"@type":"SoftwareApplication","@id":"https://penguincut.com/#app","name":"PenguinCut","url":"https://penguincut.com/studio","applicationCategory":"MultimediaApplication","applicationSubCategory":"Video Editor","operatingSystem":"Web","browserRequirements":"Requires JavaScript. Requires HTML5.","description":"長い動画をひとつのシネマティックなハイライトに。PenguinCutはAIで最高の瞬間を見つけ、字幕と音楽を加えて、ブラウザで16:9動画に仕上げます。","inLanguage":["en","ko","ja","zh-Hans","es","fr","de"],"featureList":["AIクライマックス検出","自動字幕","シネマティックオーバーレイ","イントロ・アウトロ・チャプターブリッジ","映像に合う音楽","プライバシー重視の設計"],"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"publisher":{"@id":"https://penguincut.com/#organization"},"image":"https://penguincut.com/og-penguincut.png"},{"@type":"FAQPage","@id":"https://penguincut.com/ja/#faq","mainEntity":[{"@type":"Question","name":"PenguinCutとは？","acceptedAnswer":{"@type":"Answer","text":"PenguinCutはブラウザで動くAI動画ハイライトエディターです。映像の中から最も強い瞬間を見つけ、ひとつのシネマティックな16:9動画に仕上げます。"}},{"@type":"Question","name":"動画はアップロードされますか？","acceptedAnswer":{"@type":"Answer","text":"元の動画ファイルはデバイスに残ります。PenguinCutはブラウザで少量のフレームを抽出し、AIモデルによる分析にのみ送信します。最終レンダリングもブラウザで行われます。"}},{"@type":"Question","name":"無料ですか？","acceptedAnswer":{"@type":"Answer","text":"PenguinCutにはすぐに使える無料のAIモデルが含まれています。別のモデルを使いたい場合は、自分のAPIキーを接続できます。"}},{"@type":"Question","name":"対応している動画形式は？","acceptedAnswer":{"@type":"Answer","text":"MP4、MOV、WebMなど、ブラウザが再生できる形式に対応しています。最も安定した結果にはMP4（H.264）をおすすめします。"}},{"@type":"Question","name":"ハイライト作成にはどのくらいかかりますか？","acceptedAnswer":{"@type":"Answer","text":"短いハイライトは通常数分で完成します。映像の長さ、デバイスの性能、選択したAIモデルによって変わります。"}},{"@type":"Question","name":"モバイルでも使えますか？","acceptedAnswer":{"@type":"Answer","text":"はい。最新のモバイルブラウザでも動作し、大きなファイルは保存容量を考慮して処理します。長いプロジェクトにはデスクトップをおすすめします。"}},{"@type":"Question","name":"対応言語は？","acceptedAnswer":{"@type":"Answer","text":"英語、韓国語、日本語、中国語、スペイン語、フランス語、ドイツ語に対応しています。"}}]}]}</script>
+  </head>
+  <body>
+    
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/ja/" aria-label="PenguinCut">
+        <img src="/penguin-logo-light.svg" alt="" width="36" height="36">
+        <span>PenguinCut</span>
+      </a>
+
+      <button class="nav-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="site-nav" data-nav-toggle>
+        <span></span><span></span><span></span>
+      </button>
+
+      <nav class="site-nav" id="site-nav" aria-label="Main navigation" data-nav>
+        <a href="#features">機能</a>
+        <a href="#how-it-works">使い方</a>
+        <a href="#use-cases">活用例</a>
+        <a href="#languages">言語</a>
+        <a href="#faq">FAQ</a>
+
+        <details class="lang-switcher">
+          <summary>
+            
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="12" r="9"/>
+      <path d="M3 12h18M12 3c2.4 2.5 3.6 5.5 3.6 9S14.4 18.5 12 21c-2.4-2.5-3.6-5.5-3.6-9S9.6 5.5 12 3Z"/>
+    </svg>
+            <span>日本語</span>
+            
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="m6 9 6 6 6-6"/>
+    </svg>
+          </summary>
+          <div class="lang-panel">
+            <a class="" href="/" hreflang="en" lang="en">English</a>
+            <a class="" href="/ko/" hreflang="ko" lang="ko">한국어</a>
+            <a class="" href="/ja/" hreflang="ja" lang="ja" aria-current="page">日本語</a>
+            <a class="" href="/zh/" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+            <a class="" href="/es/" hreflang="es" lang="es">Español</a>
+            <a class="" href="/fr/" hreflang="fr" lang="fr">Français</a>
+            <a class="" href="/de/" hreflang="de" lang="de">Deutsch</a>
+          </div>
+        </details>
+
+        <a class="button button-small" href="/studio?lang=ja">スタジオを開く</a>
+      </nav>
+    </div>
+  </header>
+    <main id="main">
+      
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="eyebrow-dot"></span>AI動画ハイライトエディター</p>
+          <h1 id="hero-title">何時間もの映像を、<span class="accent">ひとつのシネマティックなハイライトへ。</span></h1>
+          <p class="hero-lead">PenguinCutはAIで映像のクライマックスを見つけ、不要な部分を削り、最高の瞬間だけを16:9のハイライトにまとめます。字幕、音楽、イントロ、アウトロも一度に。</p>
+
+          <div class="hero-actions">
+            <a class="button" href="/studio?lang=ja">
+              スタジオを開く
+              
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg>
+            </a>
+            <a class="button button-ghost" href="#how-it-works">使い方を見る</a>
+          </div>
+
+          <ul class="trust-list">
+            <li>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="m5 12 4.2 4.2L19 6.8"/>
+    </svg><span>元の動画はデバイスに保存</span></li>
+            <li>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="m5 12 4.2 4.2L19 6.8"/>
+    </svg><span>ブラウザで動作</span></li>
+            <li>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="m5 12 4.2 4.2L19 6.8"/>
+    </svg><span>インストール不要</span></li>
+          </ul>
+        </div>
+
+        <div class="hero-stage" aria-hidden="true">
+          <div class="orb orb-a"></div>
+          <div class="orb orb-b"></div>
+
+          <div class="studio-mock">
+            <div class="studio-chrome">
+              <span class="chrome-dot"></span>
+              <span class="chrome-dot"></span>
+              <span class="chrome-dot"></span>
+              <span class="chrome-title">PenguinCut スタジオ</span>
+              <span class="chrome-status"><i class="status-dot"></i>AI分析完了</span>
+            </div>
+
+            <div class="studio-body">
+              <div class="studio-topline">
+                <span class="studio-pill">16:9</span>
+                <span class="studio-pill">1080p</span>
+                <span class="studio-pill studio-pill-accent">クライマックスを6か所検出</span>
+              </div>
+
+              <div class="studio-main">
+                <div class="preview">
+                  <div class="preview-glow"></div>
+                  <div class="preview-caption">「この瞬間だ。」</div>
+                  <div class="preview-play">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+      <path d="M8.5 5.8c0-.9 1-1.4 1.7-.9l8.4 6.2c.6.4.6 1.4 0 1.8l-8.4 6.2c-.7.5-1.7 0-1.7-.9V5.8Z"/>
+    </svg></div>
+                  <div class="preview-badge">00:42 — 01:18 · 16:9</div>
+                </div>
+
+                <div class="studio-side">
+                  <div class="side-block">
+                    <span class="side-label">ハイライト準備完了</span>
+                    <span class="side-value">00:42 — 01:18 · 16:9</span>
+                    <span class="side-meter"><i></i></span>
+                  </div>
+                  <div class="side-block side-block-accent">
+                    <span class="side-label">16:9で書き出す</span>
+                    <span class="side-arrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg></span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="timeline">
+                <div class="timeline-head">
+                  <span>AIハイライトタイムライン</span>
+                  <span>00:42 / 01:18</span>
+                </div>
+                <div class="timeline-track">
+                  <span class="tl-clip tl-clip-1"></span>
+                  <span class="tl-clip tl-clip-2"></span>
+                  <span class="tl-clip tl-clip-3 tl-clip-hot"><i></i></span>
+                  <span class="tl-clip tl-clip-4"></span>
+                  <span class="tl-clip tl-clip-5"></span>
+                  <span class="tl-playhead"></span>
+                </div>
+                <div class="timeline-ruler">
+                  <span>00:00</span><span>00:30</span><span>01:00</span><span>01:30</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="float-card float-card-a">
+            <span class="float-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M12 3.5l1.6 4.6 4.6 1.6-4.6 1.6L12 16l-1.6-4.7L5.8 9.7l4.6-1.6L12 3.5Z"/>
+      <path d="M18.5 15.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2Z"/>
+      <path d="M5 15l.5 1.4L7 17l-1.5.5L5 19l-.5-1.5L3 17l1.5-.6L5 15Z"/>
+    </svg></span>
+            <span><strong>クライマックスを6か所検出</strong><small>AI分析完了</small></span>
+          </div>
+
+          <div class="float-card float-card-b">
+            <span class="float-icon float-icon-green">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="m5 12 4.2 4.2L19 6.8"/>
+    </svg></span>
+            <span><strong>ハイライト準備完了</strong><small>00:42 — 01:18 · 16:9</small></span>
+          </div>
+        </div>
+      </div>
+    </section>
+      
+    <section class="trust-strip" aria-label="AI動画ハイライトエディター">
+      <div class="container trust-strip-inner">
+        <span>旅行動画</span>
+        <span>家族と記念日</span>
+        <span>スポーツとアクション</span>
+        <span>YouTubeクリエイター</span>
+        <span>ウェディングとイベント</span>
+      </div>
+    </section>
+      
+    <section class="section" id="features" aria-labelledby="features-title">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">エディター</p>
+          <h2 id="features-title">ハイライトを完成させるために必要なすべて。</h2>
+          <p class="section-lead">瞬間を見つけることから最終カットの書き出しまで、時間のかかる作業はPenguinCutが担当します。</p>
+        </div>
+
+        <div class="feature-grid">
+          
+          <article class="feature-card">
+            <div class="feature-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M12 3.5l1.6 4.6 4.6 1.6-4.6 1.6L12 16l-1.6-4.7L5.8 9.7l4.6-1.6L12 3.5Z"/>
+      <path d="M18.5 15.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2Z"/>
+      <path d="M5 15l.5 1.4L7 17l-1.5.5L5 19l-.5-1.5L3 17l1.5-.6L5 15Z"/>
+    </svg></div>
+            <h3>AIクライマックス検出</h3>
+            <p>すべてのクリップを解析し、感情と映像のインパクトが最も強い瞬間を選び出します。</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <rect x="3" y="5" width="18" height="14" rx="3"/>
+      <path d="M7 10h4M7 14h7M15 10h2"/>
+    </svg></div>
+            <h3>自動字幕</h3>
+            <p>字幕を生成し、文脈に合わせて整えるので、すべてのセリフが自然に読めます。</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M12 3 3.5 7.5 12 12l8.5-4.5L12 3Z"/>
+      <path d="m3.5 12 8.5 4.5 8.5-4.5"/>
+      <path d="m3.5 16.5 8.5 4.5 8.5-4.5"/>
+    </svg></div>
+            <h3>シネマティックオーバーレイ</h3>
+            <p>タイトル、チャンネル名、日付、場所を、放送風のすっきりしたタイポグラフィで追加します。</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <rect x="3" y="4" width="18" height="16" rx="2.5"/>
+      <path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>
+    </svg></div>
+            <h3>イントロ・アウトロ・チャプターブリッジ</h3>
+            <p>映像の始まりと終わりを演出し、数日にわたる旅行やイベントもわかりやすくつなぎます。</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M9 18V6l10-2v12"/>
+      <circle cx="6.5" cy="18" r="2.5"/>
+      <circle cx="16.5" cy="16" r="2.5"/>
+    </svg></div>
+            <h3>映像に合う音楽</h3>
+            <p>ロイヤリティフリーのトラックを選び、音量を調整して、最終カットに合うサウンドに仕上げます。</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M12 3 5 6v5.5c0 4.4 2.9 7.7 7 9.5 4.1-1.8 7-5.1 7-9.5V6l-7-3Z"/>
+      <path d="m9 12 2 2 4-4"/>
+    </svg></div>
+            <h3>プライバシー重視の設計</h3>
+            <p>元の動画はアップロードされません。AI分析には少量のフレームだけが送信されます。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+      
+    <section class="section section-alt" id="how-it-works" aria-labelledby="how-title">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">使い方</p>
+          <h2 id="how-title">3ステップで、完成した映像を。</h2>
+          <p class="section-lead">タイムラインと格闘する必要はありません。映像を追加して、AIにストーリーを見つけさせましょう。</p>
+        </div>
+
+        <div class="step-grid">
+          
+          <article class="step-card">
+            <span class="step-number">01</span>
+            <h3>クリップを追加</h3>
+            <p>旅行、イベント、撮影の動画を追加します。PenguinCutがブラウザ上で読み込みます。</p>
+          </article>
+          <article class="step-card">
+            <span class="step-number">02</span>
+            <h3>AIにストーリーを見つけさせる</h3>
+            <p>モデルと推論レベルを選ぶと、PenguinCutが映像を評価し、最も強い瞬間を提案します。</p>
+          </article>
+          <article class="step-card">
+            <span class="step-number">03</span>
+            <h3>仕上げて書き出す</h3>
+            <p>カットを調整し、字幕と音楽を加えて、YouTube向けの16:9ハイライトを書き出します。</p>
+          </article>
+        </div>
+
+        <p class="section-note">提案されたカットは、書き出す前にすべて確認・トリミング・差し替えできます。</p>
+      </div>
+    </section>
+      
+    <section class="section" id="use-cases" aria-labelledby="use-cases-title">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">活用例</p>
+          <h2 id="use-cases-title">残す価値のある映像のために。</h2>
+          <p class="section-lead">何時間もの映像から1分だけ共有したいなら、PenguinCutが答えです。</p>
+        </div>
+
+        <div class="use-case-grid">
+          
+          <article class="use-case-card">
+            <span class="use-case-index">01</span>
+            <h3>旅行動画</h3>
+            <p>1週間分のクリップを、共有しやすい旅のハイライトに。</p>
+          </article>
+          <article class="use-case-card">
+            <span class="use-case-index">02</span>
+            <h3>家族と記念日</h3>
+            <p>結婚式、誕生日、同窓会を、大切な瞬間だけに凝縮。</p>
+          </article>
+          <article class="use-case-card">
+            <span class="use-case-index">03</span>
+            <h3>スポーツとアクション</h3>
+            <p>長い試合映像から、決定的なプレーとフィニッシュだけを抽出。</p>
+          </article>
+          <article class="use-case-card">
+            <span class="use-case-index">04</span>
+            <h3>クリエイターとチャンネル</h3>
+            <p>YouTube、Shorts、SNS向けの一貫したハイライト形式を作成。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+      
+    <section class="section section-alt" id="languages" aria-labelledby="languages-title">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">言語</p>
+          <h2 id="languages-title">あなたの言語で始めましょう。</h2>
+          <p class="section-lead">スタジオとこのページは7言語に対応しています。言語を選んで編集を始めてください。</p>
+        </div>
+
+        <div class="language-grid">
+          
+          <a class="language-card" href="/" hreflang="en" lang="en">
+            <span class="language-native">English</span>
+            <span class="language-label">English</span>
+            <span class="language-arrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg></span>
+          </a>
+          <a class="language-card" href="/ko/" hreflang="ko" lang="ko">
+            <span class="language-native">한국어</span>
+            <span class="language-label">Korean</span>
+            <span class="language-arrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg></span>
+          </a>
+          <a class="language-card" href="/ja/" hreflang="ja" lang="ja" aria-current="page">
+            <span class="language-native">日本語</span>
+            <span class="language-label">Japanese</span>
+            <span class="language-arrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg></span>
+          </a>
+          <a class="language-card" href="/zh/" hreflang="zh-Hans" lang="zh-Hans">
+            <span class="language-native">简体中文</span>
+            <span class="language-label">Chinese (Simplified)</span>
+            <span class="language-arrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg></span>
+          </a>
+          <a class="language-card" href="/es/" hreflang="es" lang="es">
+            <span class="language-native">Español</span>
+            <span class="language-label">Spanish</span>
+            <span class="language-arrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg></span>
+          </a>
+          <a class="language-card" href="/fr/" hreflang="fr" lang="fr">
+            <span class="language-native">Français</span>
+            <span class="language-label">French</span>
+            <span class="language-arrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg></span>
+          </a>
+          <a class="language-card" href="/de/" hreflang="de" lang="de">
+            <span class="language-native">Deutsch</span>
+            <span class="language-label">German</span>
+            <span class="language-arrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg></span>
+          </a>
+        </div>
+      </div>
+    </section>
+      
+    <section class="section" id="faq" aria-labelledby="faq-title">
+      <div class="container faq-layout">
+        <div class="section-head faq-head">
+          <p class="eyebrow">FAQ</p>
+          <h2 id="faq-title">よくある質問</h2>
+          <p class="section-lead">最初のハイライトを作る前に知っておきたいこと。</p>
+        </div>
+
+        <div class="faq-list">
+          
+          <details class="faq-item" open>
+            <summary>
+              <span>PenguinCutとは？</span>
+              <span class="faq-icon" aria-hidden="true"></span>
+            </summary>
+            <p>PenguinCutはブラウザで動くAI動画ハイライトエディターです。映像の中から最も強い瞬間を見つけ、ひとつのシネマティックな16:9動画に仕上げます。</p>
+          </details>
+          <details class="faq-item">
+            <summary>
+              <span>動画はアップロードされますか？</span>
+              <span class="faq-icon" aria-hidden="true"></span>
+            </summary>
+            <p>元の動画ファイルはデバイスに残ります。PenguinCutはブラウザで少量のフレームを抽出し、AIモデルによる分析にのみ送信します。最終レンダリングもブラウザで行われます。</p>
+          </details>
+          <details class="faq-item">
+            <summary>
+              <span>無料ですか？</span>
+              <span class="faq-icon" aria-hidden="true"></span>
+            </summary>
+            <p>PenguinCutにはすぐに使える無料のAIモデルが含まれています。別のモデルを使いたい場合は、自分のAPIキーを接続できます。</p>
+          </details>
+          <details class="faq-item">
+            <summary>
+              <span>対応している動画形式は？</span>
+              <span class="faq-icon" aria-hidden="true"></span>
+            </summary>
+            <p>MP4、MOV、WebMなど、ブラウザが再生できる形式に対応しています。最も安定した結果にはMP4（H.264）をおすすめします。</p>
+          </details>
+          <details class="faq-item">
+            <summary>
+              <span>ハイライト作成にはどのくらいかかりますか？</span>
+              <span class="faq-icon" aria-hidden="true"></span>
+            </summary>
+            <p>短いハイライトは通常数分で完成します。映像の長さ、デバイスの性能、選択したAIモデルによって変わります。</p>
+          </details>
+          <details class="faq-item">
+            <summary>
+              <span>モバイルでも使えますか？</span>
+              <span class="faq-icon" aria-hidden="true"></span>
+            </summary>
+            <p>はい。最新のモバイルブラウザでも動作し、大きなファイルは保存容量を考慮して処理します。長いプロジェクトにはデスクトップをおすすめします。</p>
+          </details>
+          <details class="faq-item">
+            <summary>
+              <span>対応言語は？</span>
+              <span class="faq-icon" aria-hidden="true"></span>
+            </summary>
+            <p>英語、韓国語、日本語、中国語、スペイン語、フランス語、ドイツ語に対応しています。</p>
+          </details>
+        </div>
+      </div>
+    </section>
+      
+    <section class="cta-section" aria-labelledby="cta-title">
+      <div class="container">
+        <div class="cta-panel">
+          <div class="cta-glow"></div>
+          <p class="eyebrow">AI動画ハイライトエディター</p>
+          <h2 id="cta-title">次のハイライトは、すでに映像の中にあります。</h2>
+          <p class="cta-lead">PenguinCutを開いて、AIに見つけさせましょう。</p>
+          <a class="button button-large" href="/studio?lang=ja">
+            スタジオを開く
+            
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg>
+          </a>
+          <p class="cta-note">インストール不要。元のファイルのアップロードも不要。ブラウザだけで完結します。</p>
+        </div>
+      </div>
+    </section>
+    </main>
+    
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div class="footer-brand">
+        <a class="brand" href="/ja/" aria-label="PenguinCut">
+          <img src="/penguin-logo-light.svg" alt="" width="36" height="36">
+          <span>PenguinCut</span>
+        </a>
+        <p>AI動画ハイライトエディター。残す価値のある瞬間のために。</p>
+      </div>
+
+      <nav class="footer-col" aria-labelledby="footer-product">
+        <h2 id="footer-product">製品</h2>
+        <a href="/studio?lang=ja">スタジオを開く</a>
+        <a href="#features">機能</a>
+        <a href="#how-it-works">使い方</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+
+      <nav class="footer-col" aria-labelledby="footer-languages">
+        <h2 id="footer-languages">言語</h2>
+        <a class="" href="/" hreflang="en" lang="en">English</a>
+            <a class="" href="/ko/" hreflang="ko" lang="ko">한국어</a>
+            <a class="" href="/ja/" hreflang="ja" lang="ja" aria-current="page">日本語</a>
+            <a class="" href="/zh/" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+            <a class="" href="/es/" hreflang="es" lang="es">Español</a>
+            <a class="" href="/fr/" hreflang="fr" lang="fr">Français</a>
+            <a class="" href="/de/" hreflang="de" lang="de">Deutsch</a>
+      </nav>
+    </div>
+
+    <div class="container footer-bottom">
+      <span>© 2026 PenguinCut. All rights reserved.</span>
+      <a href="/sitemap.xml">Sitemap</a>
+    </div>
+  </footer>
+    <script src="/landing.js" defer></script>
+  </body>
+</html>

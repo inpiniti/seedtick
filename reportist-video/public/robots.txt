@@ -1,4 +1,8 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://video.reportist.kr/sitemap.xml
+# Internal API proxy — not a page.
+Disallow: /v1/
+Disallow: /health
+
+Sitemap: https://penguincut.com/sitemap.xml

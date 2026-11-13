@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="zh-Hans" dir="ltr">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+  <title>PenguinCut — AI 视频精彩片段编辑器</title>
+  <meta name="description" content="把数小时的素材变成一支电影感精彩片段。PenguinCut 用 AI 找到最精彩的瞬间，自动添加字幕和音乐，在浏览器中导出 16:9 视频。">
+  <meta name="keywords" content="AI视频精彩片段, 视频高光剪辑, AI视频剪辑, 精彩片段生成器, YouTube 高光, PenguinCut">
+  <meta name="author" content="PenguinCut">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <link rel="canonical" href="https://penguincut.com/zh/">
+
+  <link rel="alternate" hreflang="en" href="https://penguincut.com/">
+    <link rel="alternate" hreflang="en-US" href="https://penguincut.com/">
+    <link rel="alternate" hreflang="ko" href="https://penguincut.com/ko/">
+    <link rel="alternate" hreflang="ja" href="https://penguincut.com/ja/">
+    <link rel="alternate" hreflang="zh-Hans" href="https://penguincut.com/zh/">
+    <link rel="alternate" hreflang="zh-CN" href="https://penguincut.com/zh/">
+    <link rel="alternate" hreflang="es" href="https://penguincut.com/es/">
+    <link rel="alternate" hreflang="fr" href="https://penguincut.com/fr/">
+    <link rel="alternate" hreflang="de" href="https://penguincut.com/de/">
+    <link rel="alternate" hreflang="x-default" href="https://penguincut.com/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="PenguinCut">
+  <meta property="og:url" content="https://penguincut.com/zh/">
+  <meta property="og:title" content="PenguinCut — AI 视频精彩片段编辑器">
+  <meta property="og:description" content="把数小时的素材变成一支电影感精彩片段。PenguinCut 用 AI 找到最精彩的瞬间，自动添加字幕和音乐，在浏览器中导出 16:9 视频。">
+  <meta property="og:image" content="https://penguincut.com/og-penguincut.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="PenguinCut — AI video highlight editor. Turn hours of footage into one cinematic highlight.">
+  <meta property="og:locale" content="zh_CN">
+  <meta property="og:locale:alternate" content="en_US">
+    <meta property="og:locale:alternate" content="ko_KR">
+    <meta property="og:locale:alternate" content="ja_JP">
+    <meta property="og:locale:alternate" content="es_ES">
+    <meta property="og:locale:alternate" content="fr_FR">
+    <meta property="og:locale:alternate" content="de_DE">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="PenguinCut — AI 视频精彩片段编辑器">
+  <meta name="twitter:description" content="把数小时的素材变成一支电影感精彩片段。PenguinCut 用 AI 找到最精彩的瞬间，自动添加字幕和音乐，在浏览器中导出 16:9 视频。">
+  <meta name="twitter:image" content="https://penguincut.com/og-penguincut.png">
+  <meta name="twitter:image:alt" content="PenguinCut — AI video highlight editor. Turn hours of footage into one cinematic highlight.">
+
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=4">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico?v=4">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48x48.png?v=4">
+  <link rel="icon" type="image/png" sizes="96x96" href="/icon-96x96.png?v=4">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192x192.png?v=4">
+  <link rel="apple-touch-icon" href="/icon-192x192.png?v=4">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#06080c">
+  <meta name="application-name" content="PenguinCut">
+  <meta name="apple-mobile-web-app-title" content="PenguinCut">
+  <meta name="format-detection" content="telephone=no">
+
+  
+  
+
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preload" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"></noscript>
+  <link rel="stylesheet" href="/landing.css">
+
+  <script>
+    // Preserve old app links such as /#projects when the marketing page takes over /.
+    (function () {
+      var hash = location.hash.toLowerCase();
+      if (hash === "#projects" || hash === "#studio" || hash === "#community") {
+        location.replace("/studio?lang=zh" + hash);
+      }
+    })();
+  </script>
+
+  <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://penguincut.com/#organization","name":"PenguinCut","url":"https://penguincut.com/","logo":{"@type":"ImageObject","url":"https://penguincut.com/icon-512x512.png","width":512,"height":512},"description":"把数小时的素材变成一支电影感精彩片段。PenguinCut 用 AI 找到最精彩的瞬间，自动添加字幕和音乐，在浏览器中导出 16:9 视频。"},{"@type":"WebSite","@id":"https://penguincut.com/#website","url":"https://penguincut.com/","name":"PenguinCut","inLanguage":["en","ko","ja","zh-Hans","es","fr","de"],"publisher":{"@id":"https://penguincut.com/#organization"}},{"@type":"WebPage","@id":"https://penguincut.com/zh/#webpage","url":"https://penguincut.com/zh/","name":"PenguinCut — AI 视频精彩片段编辑器","description":"把数小时的素材变成一支电影感精彩片段。PenguinCut 用 AI 找到最精彩的瞬间，自动添加字幕和音乐，在浏览器中导出 16:9 视频。","inLanguage":"zh-Hans","isPartOf":{"@id":"https://penguincut.com/#website"},"about":{"@id":"https://penguincut.com/#app"},"dateModified":"2026-11-13","primaryImageOfPage":{"@type":"ImageObject","url":"https://penguincut.com/og-penguincut.png","width":1200,"height":630}},{"@type":"SoftwareApplication","@id":"https://penguincut.com/#app","name":"PenguinCut","url":"https://penguincut.com/studio","applicationCategory":"MultimediaApplication","applicationSubCategory":"Video Editor","operatingSystem":"Web","browserRequirements":"Requires JavaScript. Requires HTML5.","description":"把数小时的素材变成一支电影感精彩片段。PenguinCut 用 AI 找到最精彩的瞬间，自动添加字幕和音乐，在浏览器中导出 16:9 视频。","inLanguage":["en","ko","ja","zh-Hans","es","fr","de"],"featureList":["AI 高潮检测","自动字幕","电影感叠加层","片头、片尾与章节过渡","贴合氛围的音乐","隐私优先设计"],"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"publisher":{"@id":"https://penguincut.com/#organization"},"image":"https://penguincut.com/og-penguincut.png"},{"@type":"FAQPage","@id":"https://penguincut.com/zh/#faq","mainEntity":[{"@type":"Question","name":"PenguinCut 是什么？","acceptedAnswer":{"@type":"Answer","text":"PenguinCut 是一款在浏览器中运行的 AI 视频精彩片段编辑器。它会找到素材中最精彩的瞬间，并制作成一支电影感的 16:9 视频。"}},{"@type":"Question","name":"视频会被上传吗？","acceptedAnswer":{"@type":"Answer","text":"原始视频文件保留在你的设备上。PenguinCut 会在浏览器中提取少量画面帧，仅将这些帧发送给 AI 模型分析，最终渲染也在浏览器中完成。"}},{"@type":"Question","name":"PenguinCut 免费吗？","acceptedAnswer":{"@type":"Answer","text":"PenguinCut 内置可直接使用的免费 AI 模型。你也可以连接自己的 API 密钥来使用其他模型。"}},{"@type":"Question","name":"支持哪些视频格式？","acceptedAnswer":{"@type":"Answer","text":"支持 MP4、MOV、WebM 等浏览器可解码的格式。建议使用 MP4（H.264）以获得最稳定的结果。"}},{"@type":"Question","name":"制作精彩片段需要多久？","acceptedAnswer":{"@type":"Answer","text":"较短的精彩片段通常几分钟即可完成。具体时间取决于素材长度、设备性能和所选 AI 模型。"}},{"@type":"Question","name":"手机上能用吗？","acceptedAnswer":{"@type":"Answer","text":"可以。工作室可在现代手机浏览器中运行，并会针对大文件采用存储优化处理。长时间项目建议使用桌面端。"}},{"@type":"Question","name":"支持哪些语言？","acceptedAnswer":{"@type":"Answer","text":"英语、韩语、日语、中文、西班牙语、法语和德语。"}}]}]}</script>
+  </head>
+  <body>
+    
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/zh/" aria-label="PenguinCut">
+        <img src="/penguin-logo-light.svg" alt="" width="36" height="36">
+        <span>PenguinCut</span>
+      </a>
+
+      <button class="nav-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="site-nav" data-nav-toggle>
+        <span></span><span></span><span></span>
+      </button>
+
+      <nav class="site-nav" id="site-nav" aria-label="Main navigation" data-nav>
+        <a href="#features">功能</a>
+        <a href="#how-it-works">使用方法</a>
+        <a href="#use-cases">使用场景</a>
+        <a href="#languages">语言</a>
+        <a href="#faq">常见问题</a>
+
+        <details class="lang-switcher">
+          <summary>
+            
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="12" r="9"/>
+      <path d="M3 12h18M12 3c2.4 2.5 3.6 5.5 3.6 9S14.4 18.5 12 21c-2.4-2.5-3.6-5.5-3.6-9S9.6 5.5 12 3Z"/>
+    </svg>
+            <span>简体中文</span>
+            
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="m6 9 6 6 6-6"/>
+    </svg>
+          </summary>
+          <div class="lang-panel">
+            <a class="" href="/" hreflang="en" lang="en">English</a>
+            <a class="" href="/ko/" hreflang="ko" lang="ko">한국어</a>
+            <a class="" href="/ja/" hreflang="ja" lang="ja">日本語</a>
+            <a class="" href="/zh/" hreflang="zh-Hans" lang="zh-Hans" aria-current="page">简体中文</a>
+            <a class="" href="/es/" hreflang="es" lang="es">Español</a>
+            <a class="" href="/fr/" hreflang="fr" lang="fr">Français</a>
+            <a class="" href="/de/" hreflang="de" lang="de">Deutsch</a>
+          </div>
+        </details>
+
+        <a class="button button-small" href="/studio?lang=zh">打开工作室</a>
+      </nav>
+    </div>
+  </header>
+    <main id="main">
+      
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="eyebrow-dot"></span>AI 视频精彩片段编辑器</p>
+          <h1 id="hero-title">把数小时的素材，<span class="accent">变成一支电影感精彩片段。</span></h1>
+          <p class="hero-lead">PenguinCut 用 AI 找到视频中的高潮，去掉多余部分，只把最精彩的瞬间拼接成 16:9 的精彩片段，并自动加入字幕、音乐、片头和片尾。</p>
+
+          <div class="hero-actions">
+            <a class="button" href="/studio?lang=zh">
+              打开工作室
+              
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg>
+            </a>
+            <a class="button button-ghost" href="#how-it-works">查看使用方法</a>
+          </div>
+
+          <ul class="trust-list">
+            <li>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="m5 12 4.2 4.2L19 6.8"/>
+    </svg><span>原始视频保留在你的设备上</span></li>
+            <li>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="m5 12 4.2 4.2L19 6.8"/>
+    </svg><span>在浏览器中运行</span></li>
+            <li>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="m5 12 4.2 4.2L19 6.8"/>
+    </svg><span>无需安装</span></li>
+          </ul>
+        </div>
+
+        <div class="hero-stage" aria-hidden="true">
+          <div class="orb orb-a"></div>
+          <div class="orb orb-b"></div>
+
+          <div class="studio-mock">
+            <div class="studio-chrome">
+              <span class="chrome-dot"></span>
+              <span class="chrome-dot"></span>
+              <span class="chrome-dot"></span>
+              <span class="chrome-title">PenguinCut 工作室</span>
+              <span class="chrome-status"><i class="status-dot"></i>AI 分析完成</span>
+            </div>
+
+            <div class="studio-body">
+              <div class="studio-topline">
+                <span class="studio-pill">16:9</span>
+                <span class="studio-pill">1080p</span>
+                <span class="studio-pill studio-pill-accent">发现 6 个高潮瞬间</span>
+              </div>
+
+              <div class="studio-main">
+                <div class="preview">
+                  <div class="preview-glow"></div>
+                  <div class="preview-caption">“就是这一刻。”</div>
+                  <div class="preview-play">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+      <path d="M8.5 5.8c0-.9 1-1.4 1.7-.9l8.4 6.2c.6.4.6 1.4 0 1.8l-8.4 6.2c-.7.5-1.7 0-1.7-.9V5.8Z"/>
+    </svg></div>
+                  <div class="preview-badge">00:42 — 01:18 · 16:9</div>
+                </div>
+
+                <div class="studio-side">
+                  <div class="side-block">
+                    <span class="side-label">精彩片段已就绪</span>
+                    <span class="side-value">00:42 — 01:18 · 16:9</span>
+                    <span class="side-meter"><i></i></span>
+                  </div>
+                  <div class="side-block side-block-accent">
+                    <span class="side-label">导出 16:9</span>
+                    <span class="side-arrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg></span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="timeline">
+                <div class="timeline-head">
+                  <span>AI 精彩片段时间线</span>
+                  <span>00:42 / 01:18</span>
+                </div>
+                <div class="timeline-track">
+                  <span class="tl-clip tl-clip-1"></span>
+                  <span class="tl-clip tl-clip-2"></span>
+                  <span class="tl-clip tl-clip-3 tl-clip-hot"><i></i></span>
+                  <span class="tl-clip tl-clip-4"></span>
+                  <span class="tl-clip tl-clip-5"></span>
+                  <span class="tl-playhead"></span>
+                </div>
+                <div class="timeline-ruler">
+                  <span>00:00</span><span>00:30</span><span>01:00</span><span>01:30</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="float-card float-card-a">
+            <span class="float-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M12 3.5l1.6 4.6 4.6 1.6-4.6 1.6L12 16l-1.6-4.7L5.8 9.7l4.6-1.6L12 3.5Z"/>
+      <path d="M18.5 15.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2Z"/>
+      <path d="M5 15l.5 1.4L7 17l-1.5.5L5 19l-.5-1.5L3 17l1.5-.6L5 15Z"/>
+    </svg></span>
+            <span><strong>发现 6 个高潮瞬间</strong><small>AI 分析完成</small></span>
+          </div>
+
+          <div class="float-card float-card-b">
+            <span class="float-icon float-icon-green">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="m5 12 4.2 4.2L19 6.8"/>
+    </svg></span>
+            <span><strong>精彩片段已就绪</strong><small>00:42 — 01:18 · 16:9</small></span>
+          </div>
+        </div>
+      </div>
+    </section>
+      
+    <section class="trust-strip" aria-label="AI 视频精彩片段编辑器">
+      <div class="container trust-strip-inner">
+        <span>旅行影片</span>
+        <span>家庭与纪念日</span>
+        <span>运动与动作</span>
+        <span>YouTube 创作者</span>
+        <span>婚礼与活动</span>
+      </div>
+    </section>
+      
+    <section class="section" id="features" aria-labelledby="features-title">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">编辑器</p>
+          <h2 id="features-title">完成精彩片段所需的一切。</h2>
+          <p class="section-lead">从寻找瞬间到导出最终成片，PenguinCut 帮你处理最耗时的部分。</p>
+        </div>
+
+        <div class="feature-grid">
+          
+          <article class="feature-card">
+            <div class="feature-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M12 3.5l1.6 4.6 4.6 1.6-4.6 1.6L12 16l-1.6-4.7L5.8 9.7l4.6-1.6L12 3.5Z"/>
+      <path d="M18.5 15.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2Z"/>
+      <path d="M5 15l.5 1.4L7 17l-1.5.5L5 19l-.5-1.5L3 17l1.5-.6L5 15Z"/>
+    </svg></div>
+            <h3>AI 高潮检测</h3>
+            <p>分析每个片段，挑选情感和画面冲击力最强的瞬间。</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <rect x="3" y="5" width="18" height="14" rx="3"/>
+      <path d="M7 10h4M7 14h7M15 10h2"/>
+    </svg></div>
+            <h3>自动字幕</h3>
+            <p>生成字幕并结合上下文润色，让每一句都清晰易读。</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M12 3 3.5 7.5 12 12l8.5-4.5L12 3Z"/>
+      <path d="m3.5 12 8.5 4.5 8.5-4.5"/>
+      <path d="m3.5 16.5 8.5 4.5 8.5-4.5"/>
+    </svg></div>
+            <h3>电影感叠加层</h3>
+            <p>用干净的广播级排版添加标题、频道名、日期和地点。</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <rect x="3" y="4" width="18" height="16" rx="2.5"/>
+      <path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>
+    </svg></div>
+            <h3>片头、片尾与章节过渡</h3>
+            <p>为影片开场和收尾，让多天旅行或活动更容易理解。</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M9 18V6l10-2v12"/>
+      <circle cx="6.5" cy="18" r="2.5"/>
+      <circle cx="16.5" cy="16" r="2.5"/>
+    </svg></div>
+            <h3>贴合氛围的音乐</h3>
+            <p>选择免版税曲目，调整音量，让配乐与最终剪辑融为一体。</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M12 3 5 6v5.5c0 4.4 2.9 7.7 7 9.5 4.1-1.8 7-5.1 7-9.5V6l-7-3Z"/>
+      <path d="m9 12 2 2 4-4"/>
+    </svg></div>
+            <h3>隐私优先设计</h3>
+            <p>原始视频不会上传，只有少量画面帧会发送用于 AI 分析。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+      
+    <section class="section section-alt" id="how-it-works" aria-labelledby="how-title">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">使用方法</p>
+          <h2 id="how-title">三个步骤，一支成片。</h2>
+          <p class="section-lead">不用在时间线上反复拖拽。导入素材，让 AI 找到故事。</p>
+        </div>
+
+        <div class="step-grid">
+          
+          <article class="step-card">
+            <span class="step-number">01</span>
+            <h3>添加素材</h3>
+            <p>导入旅行、活动或拍摄的视频，PenguinCut 会在浏览器中读取。</p>
+          </article>
+          <article class="step-card">
+            <span class="step-number">02</span>
+            <h3>让 AI 找到故事</h3>
+            <p>选择模型和推理强度，PenguinCut 会评估素材并推荐最精彩的瞬间。</p>
+          </article>
+          <article class="step-card">
+            <span class="step-number">03</span>
+            <h3>精修并导出</h3>
+            <p>调整剪辑，添加字幕和音乐，然后渲染适合 YouTube 的 16:9 精彩片段。</p>
+          </article>
+        </div>
+
+        <p class="section-note">你始终掌握控制权：每个建议片段都可以在导出前查看、裁剪或替换。</p>
+      </div>
+    </section>
+      
+    <section class="section" id="use-cases" aria-labelledby="use-cases-title">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">使用场景</p>
+          <h2 id="use-cases-title">为值得留存的影像而做。</h2>
+          <p class="section-lead">如果你有数小时的视频，却只想分享一分钟，PenguinCut 就是答案。</p>
+        </div>
+
+        <div class="use-case-grid">
+          
+          <article class="use-case-card">
+            <span class="use-case-index">01</span>
+            <h3>旅行影片</h3>
+            <p>把一周的片段变成易于分享的旅行精彩片段。</p>
+          </article>
+          <article class="use-case-card">
+            <span class="use-case-index">02</span>
+            <h3>家庭与纪念日</h3>
+            <p>婚礼、生日和聚会，只留下最重要的瞬间。</p>
+          </article>
+          <article class="use-case-card">
+            <span class="use-case-index">03</span>
+            <h3>运动与动作</h3>
+            <p>从长时间的比赛中提取关键回合和终结瞬间。</p>
+          </article>
+          <article class="use-case-card">
+            <span class="use-case-index">04</span>
+            <h3>创作者与频道</h3>
+            <p>为 YouTube、Shorts 和社交媒体制作统一格式的精彩片段。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+      
+    <section class="section section-alt" id="languages" aria-labelledby="languages-title">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">语言</p>
+          <h2 id="languages-title">用你的语言开始。</h2>
+          <p class="section-lead">工作室和本页面支持七种语言。选择你的语言，开始剪辑。</p>
+        </div>
+
+        <div class="language-grid">
+          
+          <a class="language-card" href="/" hreflang="en" lang="en">
+            <span class="language-native">English</span>
+            <span class="language-label">English</span>
+            <span class="language-arrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg></span>
+          </a>
+          <a class="language-card" href="/ko/" hreflang="ko" lang="ko">
+            <span class="language-native">한국어</span>
+            <span class="language-label">Korean</span>
+            <span class="language-arrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg></span>
+          </a>
+          <a class="language-card" href="/ja/" hreflang="ja" lang="ja">
+            <span class="language-native">日本語</span>
+            <span class="language-label">Japanese</span>
+            <span class="language-arrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg></span>
+          </a>
+          <a class="language-card" href="/zh/" hreflang="zh-Hans" lang="zh-Hans" aria-current="page">
+            <span class="language-native">简体中文</span>
+            <span class="language-label">Chinese (Simplified)</span>
+            <span class="language-arrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg></span>
+          </a>
+          <a class="language-card" href="/es/" hreflang="es" lang="es">
+            <span class="language-native">Español</span>
+            <span class="language-label">Spanish</span>
+            <span class="language-arrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg></span>
+          </a>
+          <a class="language-card" href="/fr/" hreflang="fr" lang="fr">
+            <span class="language-native">Français</span>
+            <span class="language-label">French</span>
+            <span class="language-arrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg></span>
+          </a>
+          <a class="language-card" href="/de/" hreflang="de" lang="de">
+            <span class="language-native">Deutsch</span>
+            <span class="language-label">German</span>
+            <span class="language-arrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg></span>
+          </a>
+        </div>
+      </div>
+    </section>
+      
+    <section class="section" id="faq" aria-labelledby="faq-title">
+      <div class="container faq-layout">
+        <div class="section-head faq-head">
+          <p class="eyebrow">常见问题</p>
+          <h2 id="faq-title">常见问题解答</h2>
+          <p class="section-lead">制作第一支精彩片段前需要了解的事。</p>
+        </div>
+
+        <div class="faq-list">
+          
+          <details class="faq-item" open>
+            <summary>
+              <span>PenguinCut 是什么？</span>
+              <span class="faq-icon" aria-hidden="true"></span>
+            </summary>
+            <p>PenguinCut 是一款在浏览器中运行的 AI 视频精彩片段编辑器。它会找到素材中最精彩的瞬间，并制作成一支电影感的 16:9 视频。</p>
+          </details>
+          <details class="faq-item">
+            <summary>
+              <span>视频会被上传吗？</span>
+              <span class="faq-icon" aria-hidden="true"></span>
+            </summary>
+            <p>原始视频文件保留在你的设备上。PenguinCut 会在浏览器中提取少量画面帧，仅将这些帧发送给 AI 模型分析，最终渲染也在浏览器中完成。</p>
+          </details>
+          <details class="faq-item">
+            <summary>
+              <span>PenguinCut 免费吗？</span>
+              <span class="faq-icon" aria-hidden="true"></span>
+            </summary>
+            <p>PenguinCut 内置可直接使用的免费 AI 模型。你也可以连接自己的 API 密钥来使用其他模型。</p>
+          </details>
+          <details class="faq-item">
+            <summary>
+              <span>支持哪些视频格式？</span>
+              <span class="faq-icon" aria-hidden="true"></span>
+            </summary>
+            <p>支持 MP4、MOV、WebM 等浏览器可解码的格式。建议使用 MP4（H.264）以获得最稳定的结果。</p>
+          </details>
+          <details class="faq-item">
+            <summary>
+              <span>制作精彩片段需要多久？</span>
+              <span class="faq-icon" aria-hidden="true"></span>
+            </summary>
+            <p>较短的精彩片段通常几分钟即可完成。具体时间取决于素材长度、设备性能和所选 AI 模型。</p>
+          </details>
+          <details class="faq-item">
+            <summary>
+              <span>手机上能用吗？</span>
+              <span class="faq-icon" aria-hidden="true"></span>
+            </summary>
+            <p>可以。工作室可在现代手机浏览器中运行，并会针对大文件采用存储优化处理。长时间项目建议使用桌面端。</p>
+          </details>
+          <details class="faq-item">
+            <summary>
+              <span>支持哪些语言？</span>
+              <span class="faq-icon" aria-hidden="true"></span>
+            </summary>
+            <p>英语、韩语、日语、中文、西班牙语、法语和德语。</p>
+          </details>
+        </div>
+      </div>
+    </section>
+      
+    <section class="cta-section" aria-labelledby="cta-title">
+      <div class="container">
+        <div class="cta-panel">
+          <div class="cta-glow"></div>
+          <p class="eyebrow">AI 视频精彩片段编辑器</p>
+          <h2 id="cta-title">下一支精彩片段，已经在素材里。</h2>
+          <p class="cta-lead">打开 PenguinCut，让 AI 找到它。</p>
+          <a class="button button-large" href="/studio?lang=zh">
+            打开工作室
+            
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg>
+          </a>
+          <p class="cta-note">无需安装，无需上传原始文件，只需浏览器。</p>
+        </div>
+      </div>
+    </section>
+    </main>
+    
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div class="footer-brand">
+        <a class="brand" href="/zh/" aria-label="PenguinCut">
+          <img src="/penguin-logo-light.svg" alt="" width="36" height="36">
+          <span>PenguinCut</span>
+        </a>
+        <p>AI 视频精彩片段编辑器。为值得留存的瞬间而做。</p>
+      </div>
+
+      <nav class="footer-col" aria-labelledby="footer-product">
+        <h2 id="footer-product">产品</h2>
+        <a href="/studio?lang=zh">打开工作室</a>
+        <a href="#features">功能</a>
+        <a href="#how-it-works">使用方法</a>
+        <a href="#faq">常见问题</a>
+      </nav>
+
+      <nav class="footer-col" aria-labelledby="footer-languages">
+        <h2 id="footer-languages">语言</h2>
+        <a class="" href="/" hreflang="en" lang="en">English</a>
+            <a class="" href="/ko/" hreflang="ko" lang="ko">한국어</a>
+            <a class="" href="/ja/" hreflang="ja" lang="ja">日本語</a>
+            <a class="" href="/zh/" hreflang="zh-Hans" lang="zh-Hans" aria-current="page">简体中文</a>
+            <a class="" href="/es/" hreflang="es" lang="es">Español</a>
+            <a class="" href="/fr/" hreflang="fr" lang="fr">Français</a>
+            <a class="" href="/de/" hreflang="de" lang="de">Deutsch</a>
+      </nav>
+    </div>
+
+    <div class="container footer-bottom">
+      <span>© 2026 PenguinCut. 保留所有权利。</span>
+      <a href="/sitemap.xml">Sitemap</a>
+    </div>
+  </footer>
+    <script src="/landing.js" defer></script>
+  </body>
+</html>

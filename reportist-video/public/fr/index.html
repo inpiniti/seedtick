@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="fr" dir="ltr">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+  <title>PenguinCut — Éditeur de highlights vidéo par IA</title>
+  <meta name="description" content="Transformez des heures de rushes en un seul highlight cinématographique. PenguinCut utilise l&#39;IA pour trouver les meilleurs moments, ajouter sous-titres et musique, et exporter une vidéo 16:9 dans votre navigateur.">
+  <meta name="keywords" content="éditeur de highlights IA, générateur de highlights, highlight vidéo, montage vidéo IA, highlights YouTube, PenguinCut">
+  <meta name="author" content="PenguinCut">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <link rel="canonical" href="https://penguincut.com/fr/">
+
+  <link rel="alternate" hreflang="en" href="https://penguincut.com/">
+    <link rel="alternate" hreflang="en-US" href="https://penguincut.com/">
+    <link rel="alternate" hreflang="ko" href="https://penguincut.com/ko/">
+    <link rel="alternate" hreflang="ja" href="https://penguincut.com/ja/">
+    <link rel="alternate" hreflang="zh-Hans" href="https://penguincut.com/zh/">
+    <link rel="alternate" hreflang="zh-CN" href="https://penguincut.com/zh/">
+    <link rel="alternate" hreflang="es" href="https://penguincut.com/es/">
+    <link rel="alternate" hreflang="fr" href="https://penguincut.com/fr/">
+    <link rel="alternate" hreflang="de" href="https://penguincut.com/de/">
+    <link rel="alternate" hreflang="x-default" href="https://penguincut.com/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="PenguinCut">
+  <meta property="og:url" content="https://penguincut.com/fr/">
+  <meta property="og:title" content="PenguinCut — Éditeur de highlights vidéo par IA">
+  <meta property="og:description" content="Transformez des heures de rushes en un seul highlight cinématographique. PenguinCut utilise l&#39;IA pour trouver les meilleurs moments, ajouter sous-titres et musique, et exporter une vidéo 16:9 dans votre navigateur.">
+  <meta property="og:image" content="https://penguincut.com/og-penguincut.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="PenguinCut — AI video highlight editor. Turn hours of footage into one cinematic highlight.">
+  <meta property="og:locale" content="fr_FR">
+  <meta property="og:locale:alternate" content="en_US">
+    <meta property="og:locale:alternate" content="ko_KR">
+    <meta property="og:locale:alternate" content="ja_JP">
+    <meta property="og:locale:alternate" content="zh_CN">
+    <meta property="og:locale:alternate" content="es_ES">
+    <meta property="og:locale:alternate" content="de_DE">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="PenguinCut — Éditeur de highlights vidéo par IA">
+  <meta name="twitter:description" content="Transformez des heures de rushes en un seul highlight cinématographique. PenguinCut utilise l&#39;IA pour trouver les meilleurs moments, ajouter sous-titres et musique, et exporter une vidéo 16:9 dans votre navigateur.">
+  <meta name="twitter:image" content="https://penguincut.com/og-penguincut.png">
+  <meta name="twitter:image:alt" content="PenguinCut — AI video highlight editor. Turn hours of footage into one cinematic highlight.">
+
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=4">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico?v=4">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48x48.png?v=4">
+  <link rel="icon" type="image/png" sizes="96x96" href="/icon-96x96.png?v=4">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192x192.png?v=4">
+  <link rel="apple-touch-icon" href="/icon-192x192.png?v=4">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#06080c">
+  <meta name="application-name" content="PenguinCut">
+  <meta name="apple-mobile-web-app-title" content="PenguinCut">
+  <meta name="format-detection" content="telephone=no">
+
+  
+  
+
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preload" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"></noscript>
+  <link rel="stylesheet" href="/landing.css">
+
+  <script>
+    // Preserve old app links such as /#projects when the marketing page takes over /.
+    (function () {
+      var hash = location.hash.toLowerCase();
+      if (hash === "#projects" || hash === "#studio" || hash === "#community") {
+        location.replace("/studio?lang=fr" + hash);
+      }
+    })();
+  </script>
+
+  <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://penguincut.com/#organization","name":"PenguinCut","url":"https://penguincut.com/","logo":{"@type":"ImageObject","url":"https://penguincut.com/icon-512x512.png","width":512,"height":512},"description":"Transformez des heures de rushes en un seul highlight cinématographique. PenguinCut utilise l'IA pour trouver les meilleurs moments, ajouter sous-titres et musique, et exporter une vidéo 16:9 dans votre navigateur."},{"@type":"WebSite","@id":"https://penguincut.com/#website","url":"https://penguincut.com/","name":"PenguinCut","inLanguage":["en","ko","ja","zh-Hans","es","fr","de"],"publisher":{"@id":"https://penguincut.com/#organization"}},{"@type":"WebPage","@id":"https://penguincut.com/fr/#webpage","url":"https://penguincut.com/fr/","name":"PenguinCut — Éditeur de highlights vidéo par IA","description":"Transformez des heures de rushes en un seul highlight cinématographique. PenguinCut utilise l'IA pour trouver les meilleurs moments, ajouter sous-titres et musique, et exporter une vidéo 16:9 dans votre navigateur.","inLanguage":"fr","isPartOf":{"@id":"https://penguincut.com/#website"},"about":{"@id":"https://penguincut.com/#app"},"dateModified":"2026-11-13","primaryImageOfPage":{"@type":"ImageObject","url":"https://penguincut.com/og-penguincut.png","width":1200,"height":630}},{"@type":"SoftwareApplication","@id":"https://penguincut.com/#app","name":"PenguinCut","url":"https://penguincut.com/studio","applicationCategory":"MultimediaApplication","applicationSubCategory":"Video Editor","operatingSystem":"Web","browserRequirements":"Requires JavaScript. Requires HTML5.","description":"Transformez des heures de rushes en un seul highlight cinématographique. PenguinCut utilise l'IA pour trouver les meilleurs moments, ajouter sous-titres et musique, et exporter une vidéo 16:9 dans votre navigateur.","inLanguage":["en","ko","ja","zh-Hans","es","fr","de"],"featureList":["Détection des climax par IA","Sous-titres automatiques","Habillage cinématographique","Intro, outro et transitions de chapitre","Une musique qui colle","Confidentialité dès la conception"],"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"publisher":{"@id":"https://penguincut.com/#organization"},"image":"https://penguincut.com/og-penguincut.png"},{"@type":"FAQPage","@id":"https://penguincut.com/fr/#faq","mainEntity":[{"@type":"Question","name":"Qu'est-ce que PenguinCut ?","acceptedAnswer":{"@type":"Answer","text":"PenguinCut est un éditeur de highlights vidéo par IA qui fonctionne dans le navigateur. Il trouve les moments les plus forts de vos rushes et les transforme en une vidéo cinématographique 16:9."}},{"@type":"Question","name":"Mes vidéos sont-elles envoyées ?","acceptedAnswer":{"@type":"Answer","text":"Les fichiers originaux restent sur votre appareil. PenguinCut extrait quelques images dans le navigateur et ne les envoie qu'au modèle d'IA pour l'analyse. Le rendu final se fait aussi dans le navigateur."}},{"@type":"Question","name":"PenguinCut est-il gratuit ?","acceptedAnswer":{"@type":"Answer","text":"PenguinCut inclut des modèles d'IA gratuits utilisables immédiatement. Vous pouvez aussi connecter votre propre clé API pour utiliser d'autres modèles."}},{"@type":"Question","name":"Quels formats vidéo sont pris en charge ?","acceptedAnswer":{"@type":"Answer","text":"MP4, MOV, WebM et les autres formats que votre navigateur peut décoder. Pour des résultats plus prévisibles, utilisez MP4 (H.264)."}},{"@type":"Question","name":"Combien de temps faut-il pour un highlight ?","acceptedAnswer":{"@type":"Answer","text":"Un highlight court prend généralement quelques minutes. Le temps dépend de la durée des rushes, de votre appareil et du modèle d'IA choisi."}},{"@type":"Question","name":"Est-ce que ça marche sur mobile ?","acceptedAnswer":{"@type":"Answer","text":"Oui. Le studio fonctionne dans les navigateurs mobiles modernes et gère les gros fichiers avec des réglages adaptés au stockage. Un ordinateur est recommandé pour les projets longs."}},{"@type":"Question","name":"Quelles langues sont prises en charge ?","acceptedAnswer":{"@type":"Answer","text":"Anglais, coréen, japonais, chinois, espagnol, français et allemand."}}]}]}</script>
+  </head>
+  <body>
+    
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/fr/" aria-label="PenguinCut">
+        <img src="/penguin-logo-light.svg" alt="" width="36" height="36">
+        <span>PenguinCut</span>
+      </a>
+
+      <button class="nav-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="site-nav" data-nav-toggle>
+        <span></span><span></span><span></span>
+      </button>
+
+      <nav class="site-nav" id="site-nav" aria-label="Main navigation" data-nav>
+        <a href="#features">Fonctionnalités</a>
+        <a href="#how-it-works">Comment ça marche</a>
+        <a href="#use-cases">Cas d&#39;usage</a>
+        <a href="#languages">Langues</a>
+        <a href="#faq">FAQ</a>
+
+        <details class="lang-switcher">
+          <summary>
+            
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="12" r="9"/>
+      <path d="M3 12h18M12 3c2.4 2.5 3.6 5.5 3.6 9S14.4 18.5 12 21c-2.4-2.5-3.6-5.5-3.6-9S9.6 5.5 12 3Z"/>
+    </svg>
+            <span>Français</span>
+            
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="m6 9 6 6 6-6"/>
+    </svg>
+          </summary>
+          <div class="lang-panel">
+            <a class="" href="/" hreflang="en" lang="en">English</a>
+            <a class="" href="/ko/" hreflang="ko" lang="ko">한국어</a>
+            <a class="" href="/ja/" hreflang="ja" lang="ja">日本語</a>
+            <a class="" href="/zh/" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+            <a class="" href="/es/" hreflang="es" lang="es">Español</a>
+            <a class="" href="/fr/" hreflang="fr" lang="fr" aria-current="page">Français</a>
+            <a class="" href="/de/" hreflang="de" lang="de">Deutsch</a>
+          </div>
+        </details>
+
+        <a class="button button-small" href="/studio?lang=fr">Ouvrir le studio</a>
+      </nav>
+    </div>
+  </header>
+    <main id="main">
+      
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="eyebrow-dot"></span>Éditeur de highlights vidéo par IA</p>
+          <h1 id="hero-title">Transformez des heures de rushes en <span class="accent">un seul highlight cinématographique.</span></h1>
+          <p class="hero-lead">PenguinCut utilise l&#39;IA pour trouver le climax de vos vidéos, couper le superflu et assembler les meilleurs moments en un highlight 16:9 soigné, avec sous-titres, musique, intro et outro.</p>
+
+          <div class="hero-actions">
+            <a class="button" href="/studio?lang=fr">
+              Ouvrir le studio
+              
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg>
+            </a>
+            <a class="button button-ghost" href="#how-it-works">Voir comment ça marche</a>
+          </div>
+
+          <ul class="trust-list">
+            <li>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="m5 12 4.2 4.2L19 6.8"/>
+    </svg><span>Vos vidéos originales restent sur votre appareil</span></li>
+            <li>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="m5 12 4.2 4.2L19 6.8"/>
+    </svg><span>Fonctionne dans votre navigateur</span></li>
+            <li>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="m5 12 4.2 4.2L19 6.8"/>
+    </svg><span>Aucune installation</span></li>
+          </ul>
+        </div>
+
+        <div class="hero-stage" aria-hidden="true">
+          <div class="orb orb-a"></div>
+          <div class="orb orb-b"></div>
+
+          <div class="studio-mock">
+            <div class="studio-chrome">
+              <span class="chrome-dot"></span>
+              <span class="chrome-dot"></span>
+              <span class="chrome-dot"></span>
+              <span class="chrome-title">Studio PenguinCut</span>
+              <span class="chrome-status"><i class="status-dot"></i>Analyse IA terminée</span>
+            </div>
+
+            <div class="studio-body">
+              <div class="studio-topline">
+                <span class="studio-pill">16:9</span>
+                <span class="studio-pill">1080p</span>
+                <span class="studio-pill studio-pill-accent">6 moments forts détectés</span>
+              </div>
+
+              <div class="studio-main">
+                <div class="preview">
+                  <div class="preview-glow"></div>
+                  <div class="preview-caption">« C&#39;est ce moment. »</div>
+                  <div class="preview-play">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+      <path d="M8.5 5.8c0-.9 1-1.4 1.7-.9l8.4 6.2c.6.4.6 1.4 0 1.8l-8.4 6.2c-.7.5-1.7 0-1.7-.9V5.8Z"/>
+    </svg></div>
+                  <div class="preview-badge">00:42 — 01:18 · 16:9</div>
+                </div>
+
+                <div class="studio-side">
+                  <div class="side-block">
+                    <span class="side-label">Highlight prêt</span>
+                    <span class="side-value">00:42 — 01:18 · 16:9</span>
+                    <span class="side-meter"><i></i></span>
+                  </div>
+                  <div class="side-block side-block-accent">
+                    <span class="side-label">Exporter en 16:9</span>
+                    <span class="side-arrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg></span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="timeline">
+                <div class="timeline-head">
+                  <span>Timeline du highlight par IA</span>
+                  <span>00:42 / 01:18</span>
+                </div>
+                <div class="timeline-track">
+                  <span class="tl-clip tl-clip-1"></span>
+                  <span class="tl-clip tl-clip-2"></span>
+                  <span class="tl-clip tl-clip-3 tl-clip-hot"><i></i></span>
+                  <span class="tl-clip tl-clip-4"></span>
+                  <span class="tl-clip tl-clip-5"></span>
+                  <span class="tl-playhead"></span>
+                </div>
+                <div class="timeline-ruler">
+                  <span>00:00</span><span>00:30</span><span>01:00</span><span>01:30</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="float-card float-card-a">
+            <span class="float-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M12 3.5l1.6 4.6 4.6 1.6-4.6 1.6L12 16l-1.6-4.7L5.8 9.7l4.6-1.6L12 3.5Z"/>
+      <path d="M18.5 15.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2Z"/>
+      <path d="M5 15l.5 1.4L7 17l-1.5.5L5 19l-.5-1.5L3 17l1.5-.6L5 15Z"/>
+    </svg></span>
+            <span><strong>6 moments forts détectés</strong><small>Analyse IA terminée</small></span>
+          </div>
+
+          <div class="float-card float-card-b">
+            <span class="float-icon float-icon-green">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="m5 12 4.2 4.2L19 6.8"/>
+    </svg></span>
+            <span><strong>Highlight prêt</strong><small>00:42 — 01:18 · 16:9</small></span>
+          </div>
+        </div>
+      </div>
+    </section>
+      
+    <section class="trust-strip" aria-label="Éditeur de highlights vidéo par IA">
+      <div class="container trust-strip-inner">
+        <span>Films de voyage</span>
+        <span>Famille et célébrations</span>
+        <span>Sport et action</span>
+        <span>Créateurs YouTube</span>
+        <span>Mariages et événements</span>
+      </div>
+    </section>
+      
+    <section class="section" id="features" aria-labelledby="features-title">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">L&#39;éditeur</p>
+          <h2 id="features-title">Tout ce qu&#39;il faut pour terminer le highlight.</h2>
+          <p class="section-lead">De la recherche du moment à l&#39;export du montage final, PenguinCut s&#39;occupe de ce qui prend des heures.</p>
+        </div>
+
+        <div class="feature-grid">
+          
+          <article class="feature-card">
+            <div class="feature-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M12 3.5l1.6 4.6 4.6 1.6-4.6 1.6L12 16l-1.6-4.7L5.8 9.7l4.6-1.6L12 3.5Z"/>
+      <path d="M18.5 15.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2Z"/>
+      <path d="M5 15l.5 1.4L7 17l-1.5.5L5 19l-.5-1.5L3 17l1.5-.6L5 15Z"/>
+    </svg></div>
+            <h3>Détection des climax par IA</h3>
+            <p>Analyse chaque clip et sélectionne les moments à l&#39;impact émotionnel et visuel le plus fort.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <rect x="3" y="5" width="18" height="14" rx="3"/>
+      <path d="M7 10h4M7 14h7M15 10h2"/>
+    </svg></div>
+            <h3>Sous-titres automatiques</h3>
+            <p>Génère des sous-titres et les affine selon le contexte pour que chaque réplique se lise clairement.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M12 3 3.5 7.5 12 12l8.5-4.5L12 3Z"/>
+      <path d="m3.5 12 8.5 4.5 8.5-4.5"/>
+      <path d="m3.5 16.5 8.5 4.5 8.5-4.5"/>
+    </svg></div>
+            <h3>Habillage cinématographique</h3>
+            <p>Ajoutez titre, nom de chaîne, date et lieu avec une typographie propre, façon broadcast.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <rect x="3" y="4" width="18" height="16" rx="2.5"/>
+      <path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>
+    </svg></div>
+            <h3>Intro, outro et transitions de chapitre</h3>
+            <p>Ouvrez et fermez le film, et gardez les voyages ou événements sur plusieurs jours faciles à suivre.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M9 18V6l10-2v12"/>
+      <circle cx="6.5" cy="18" r="2.5"/>
+      <circle cx="16.5" cy="16" r="2.5"/>
+    </svg></div>
+            <h3>Une musique qui colle</h3>
+            <p>Choisissez des titres libres de droits, réglez le volume et adaptez la musique au montage final.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M12 3 5 6v5.5c0 4.4 2.9 7.7 7 9.5 4.1-1.8 7-5.1 7-9.5V6l-7-3Z"/>
+      <path d="m9 12 2 2 4-4"/>
+    </svg></div>
+            <h3>Confidentialité dès la conception</h3>
+            <p>Vos vidéos originales ne sont jamais envoyées. Seules quelques images sont transmises pour l&#39;analyse IA.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+      
+    <section class="section section-alt" id="how-it-works" aria-labelledby="how-title">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">Comment ça marche</p>
+          <h2 id="how-title">Trois étapes. Un film terminé.</h2>
+          <p class="section-lead">Pas de bataille avec la timeline. Ajoutez vos rushes et laissez l&#39;IA trouver l&#39;histoire.</p>
+        </div>
+
+        <div class="step-grid">
+          
+          <article class="step-card">
+            <span class="step-number">01</span>
+            <h3>Ajoutez vos clips</h3>
+            <p>Importez les vidéos de votre voyage, événement ou tournage. PenguinCut les lit dans votre navigateur.</p>
+          </article>
+          <article class="step-card">
+            <span class="step-number">02</span>
+            <h3>Laissez l&#39;IA trouver l&#39;histoire</h3>
+            <p>Choisissez un modèle et un niveau de raisonnement. PenguinCut évalue les rushes et propose les moments les plus forts.</p>
+          </article>
+          <article class="step-card">
+            <span class="step-number">03</span>
+            <h3>Affinez et exportez</h3>
+            <p>Ajustez les coupes, ajoutez sous-titres et musique, puis rendez un highlight 16:9 prêt pour YouTube.</p>
+          </article>
+        </div>
+
+        <p class="section-note">Vous gardez le contrôle : chaque coupe proposée peut être revue, raccourcie ou remplacée avant l&#39;export.</p>
+      </div>
+    </section>
+      
+    <section class="section" id="use-cases" aria-labelledby="use-cases-title">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">Cas d&#39;usage</p>
+          <h2 id="use-cases-title">Pensé pour les images qui méritent d&#39;être gardées.</h2>
+          <p class="section-lead">Si vous avez des heures de vidéo et une minute à partager, PenguinCut est fait pour vous.</p>
+        </div>
+
+        <div class="use-case-grid">
+          
+          <article class="use-case-card">
+            <span class="use-case-index">01</span>
+            <h3>Films de voyage</h3>
+            <p>Transformez une semaine de clips en un highlight de voyage facile à partager.</p>
+          </article>
+          <article class="use-case-card">
+            <span class="use-case-index">02</span>
+            <h3>Famille et célébrations</h3>
+            <p>Mariages, anniversaires et retrouvailles, condensés aux moments qui comptent.</p>
+          </article>
+          <article class="use-case-card">
+            <span class="use-case-index">03</span>
+            <h3>Sport et action</h3>
+            <p>Extrayez les actions décisives, les courses et les finish de longues rencontres.</p>
+          </article>
+          <article class="use-case-card">
+            <span class="use-case-index">04</span>
+            <h3>Créateurs et chaînes</h3>
+            <p>Produisez un format de highlight cohérent pour YouTube, Shorts et les réseaux sociaux.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+      
+    <section class="section section-alt" id="languages" aria-labelledby="languages-title">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">Langues</p>
+          <h2 id="languages-title">Parlez votre langue.</h2>
+          <p class="section-lead">Le studio et cette page sont disponibles en sept langues. Choisissez la vôtre et commencez à monter.</p>
+        </div>
+
+        <div class="language-grid">
+          
+          <a class="language-card" href="/" hreflang="en" lang="en">
+            <span class="language-native">English</span>
+            <span class="language-label">English</span>
+            <span class="language-arrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg></span>
+          </a>
+          <a class="language-card" href="/ko/" hreflang="ko" lang="ko">
+            <span class="language-native">한국어</span>
+            <span class="language-label">Korean</span>
+            <span class="language-arrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg></span>
+          </a>
+          <a class="language-card" href="/ja/" hreflang="ja" lang="ja">
+            <span class="language-native">日本語</span>
+            <span class="language-label">Japanese</span>
+            <span class="language-arrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg></span>
+          </a>
+          <a class="language-card" href="/zh/" hreflang="zh-Hans" lang="zh-Hans">
+            <span class="language-native">简体中文</span>
+            <span class="language-label">Chinese (Simplified)</span>
+            <span class="language-arrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg></span>
+          </a>
+          <a class="language-card" href="/es/" hreflang="es" lang="es">
+            <span class="language-native">Español</span>
+            <span class="language-label">Spanish</span>
+            <span class="language-arrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg></span>
+          </a>
+          <a class="language-card" href="/fr/" hreflang="fr" lang="fr" aria-current="page">
+            <span class="language-native">Français</span>
+            <span class="language-label">French</span>
+            <span class="language-arrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg></span>
+          </a>
+          <a class="language-card" href="/de/" hreflang="de" lang="de">
+            <span class="language-native">Deutsch</span>
+            <span class="language-label">German</span>
+            <span class="language-arrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg></span>
+          </a>
+        </div>
+      </div>
+    </section>
+      
+    <section class="section" id="faq" aria-labelledby="faq-title">
+      <div class="container faq-layout">
+        <div class="section-head faq-head">
+          <p class="eyebrow">FAQ</p>
+          <h2 id="faq-title">Questions fréquentes</h2>
+          <p class="section-lead">Tout ce qu&#39;il faut savoir avant votre premier highlight.</p>
+        </div>
+
+        <div class="faq-list">
+          
+          <details class="faq-item" open>
+            <summary>
+              <span>Qu&#39;est-ce que PenguinCut ?</span>
+              <span class="faq-icon" aria-hidden="true"></span>
+            </summary>
+            <p>PenguinCut est un éditeur de highlights vidéo par IA qui fonctionne dans le navigateur. Il trouve les moments les plus forts de vos rushes et les transforme en une vidéo cinématographique 16:9.</p>
+          </details>
+          <details class="faq-item">
+            <summary>
+              <span>Mes vidéos sont-elles envoyées ?</span>
+              <span class="faq-icon" aria-hidden="true"></span>
+            </summary>
+            <p>Les fichiers originaux restent sur votre appareil. PenguinCut extrait quelques images dans le navigateur et ne les envoie qu&#39;au modèle d&#39;IA pour l&#39;analyse. Le rendu final se fait aussi dans le navigateur.</p>
+          </details>
+          <details class="faq-item">
+            <summary>
+              <span>PenguinCut est-il gratuit ?</span>
+              <span class="faq-icon" aria-hidden="true"></span>
+            </summary>
+            <p>PenguinCut inclut des modèles d&#39;IA gratuits utilisables immédiatement. Vous pouvez aussi connecter votre propre clé API pour utiliser d&#39;autres modèles.</p>
+          </details>
+          <details class="faq-item">
+            <summary>
+              <span>Quels formats vidéo sont pris en charge ?</span>
+              <span class="faq-icon" aria-hidden="true"></span>
+            </summary>
+            <p>MP4, MOV, WebM et les autres formats que votre navigateur peut décoder. Pour des résultats plus prévisibles, utilisez MP4 (H.264).</p>
+          </details>
+          <details class="faq-item">
+            <summary>
+              <span>Combien de temps faut-il pour un highlight ?</span>
+              <span class="faq-icon" aria-hidden="true"></span>
+            </summary>
+            <p>Un highlight court prend généralement quelques minutes. Le temps dépend de la durée des rushes, de votre appareil et du modèle d&#39;IA choisi.</p>
+          </details>
+          <details class="faq-item">
+            <summary>
+              <span>Est-ce que ça marche sur mobile ?</span>
+              <span class="faq-icon" aria-hidden="true"></span>
+            </summary>
+            <p>Oui. Le studio fonctionne dans les navigateurs mobiles modernes et gère les gros fichiers avec des réglages adaptés au stockage. Un ordinateur est recommandé pour les projets longs.</p>
+          </details>
+          <details class="faq-item">
+            <summary>
+              <span>Quelles langues sont prises en charge ?</span>
+              <span class="faq-icon" aria-hidden="true"></span>
+            </summary>
+            <p>Anglais, coréen, japonais, chinois, espagnol, français et allemand.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+      
+    <section class="cta-section" aria-labelledby="cta-title">
+      <div class="container">
+        <div class="cta-panel">
+          <div class="cta-glow"></div>
+          <p class="eyebrow">Éditeur de highlights vidéo par IA</p>
+          <h2 id="cta-title">Votre prochain highlight est déjà dans les rushes.</h2>
+          <p class="cta-lead">Ouvrez PenguinCut et laissez l&#39;IA le trouver.</p>
+          <a class="button button-large" href="/studio?lang=fr">
+            Ouvrir le studio
+            
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg>
+          </a>
+          <p class="cta-note">Aucune installation. Aucun envoi de vos fichiers originaux. Juste votre navigateur.</p>
+        </div>
+      </div>
+    </section>
+    </main>
+    
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div class="footer-brand">
+        <a class="brand" href="/fr/" aria-label="PenguinCut">
+          <img src="/penguin-logo-light.svg" alt="" width="36" height="36">
+          <span>PenguinCut</span>
+        </a>
+        <p>Éditeur de highlights vidéo par IA. Pensé pour les moments qui méritent d&#39;être gardés.</p>
+      </div>
+
+      <nav class="footer-col" aria-labelledby="footer-product">
+        <h2 id="footer-product">Produit</h2>
+        <a href="/studio?lang=fr">Ouvrir le studio</a>
+        <a href="#features">Fonctionnalités</a>
+        <a href="#how-it-works">Comment ça marche</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+
+      <nav class="footer-col" aria-labelledby="footer-languages">
+        <h2 id="footer-languages">Langues</h2>
+        <a class="" href="/" hreflang="en" lang="en">English</a>
+            <a class="" href="/ko/" hreflang="ko" lang="ko">한국어</a>
+            <a class="" href="/ja/" hreflang="ja" lang="ja">日本語</a>
+            <a class="" href="/zh/" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+            <a class="" href="/es/" hreflang="es" lang="es">Español</a>
+            <a class="" href="/fr/" hreflang="fr" lang="fr" aria-current="page">Français</a>
+            <a class="" href="/de/" hreflang="de" lang="de">Deutsch</a>
+      </nav>
+    </div>
+
+    <div class="container footer-bottom">
+      <span>© 2026 PenguinCut. Tous droits réservés.</span>
+      <a href="/sitemap.xml">Sitemap</a>
+    </div>
+  </footer>
+    <script src="/landing.js" defer></script>
+  </body>
+</html>

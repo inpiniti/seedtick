@@ -200,8 +200,8 @@ export function App() {
             Reportist Chat
           </a>
           <span>·</span>
-          <a href="https://video.reportist.kr" target="_blank" rel="noopener noreferrer">
-            Reportist Video
+          <a href="https://penguincut.com" target="_blank" rel="noopener noreferrer">
+            PenguinCut
           </a>
           <span>·</span>
           <span className="text-slate-400">Powered by OpenRouter Inception Mercury Decide</span>
