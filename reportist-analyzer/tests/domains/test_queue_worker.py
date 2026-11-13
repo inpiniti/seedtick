@@ -140,3 +140,69 @@ async def test_redis_emulator():
     # 제거
     assert await redis.zrem("waiting_queue", "user_a") == 1
     assert await redis.zrank("waiting_queue", "user_a") is None
+
+
+@pytest.mark.asyncio
+async def test_consume_stream_emits_content_after_reasoning():
+    from app.domains.report.ai_client import _consume_stream
+
+    class FakeStreamResponse:
+        _is_stream = True
+
+        async def aiter_lines(self):
+            lines = [
+                'data: {"choices":[{"delta":{"reasoning":"Let us write down the JSON."}}]}',
+                'data: {"choices":[{"delta":{"content":"{\\"segments\\": []}"}}]}',
+                "data: [DONE]",
+            ]
+            for line in lines:
+                yield line
+
+    events: list[tuple[str, str]] = []
+    content, finish_reason, err = await _consume_stream(
+        FakeStreamResponse(), on_delta=lambda k, t: events.append((k, t))
+    )
+
+    assert err is None
+    assert content == '{"segments": []}'
+    assert ("reasoning", "Let us write down the JSON.") in events
+    assert ("content", '{"segments": []}') in events
+    assert events[-1][0] == "content"
+
+
+@pytest.mark.asyncio
+async def test_video_analysis_worker_timeout_falls_back(monkeypatch):
+    import app.domains.report.ai_client as ai_client_mod
+
+    svc = InMemoryQueueService()
+    worker = QueueWorkerManager(service=svc, concurrency=1)
+
+    captured_max_tokens: list[int | None] = []
+
+    class HangingAiClient:
+        async def chat_messages(self, *, max_tokens=None, **kwargs):
+            captured_max_tokens.append(max_tokens)
+            await asyncio.sleep(5)
+            return "{}"
+
+    monkeypatch.setattr(ai_client_mod, "AiGatewayClient", HangingAiClient)
+
+    orig_wait_for = asyncio.wait_for
+
+    async def fast_wait_for(aw, timeout):
+        return await orig_wait_for(aw, timeout=0.05)
+
+    monkeypatch.setattr(asyncio, "wait_for", fast_wait_for)
+
+    job = await svc.enqueue(
+        "video_analysis",
+        {"videoName": "sample.mov", "videoDuration": 12.0, "frames": [], "locale": "ko"},
+    )
+    popped = await svc.pop_next_job()
+    assert popped is not None
+
+    result = await worker._handle_video_analysis(popped)
+    assert captured_max_tokens == [8192]
+    assert result["videoName"] == "sample.mov"
+    assert len(result["analysis"]["segments"]) >= 1
+

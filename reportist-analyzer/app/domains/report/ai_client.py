@@ -285,10 +285,10 @@ async def _consume_stream(
             # 실시간 추론/응답 스트림 전달 (첫 토큰부터 UI에서 바로 표시)
             if on_delta is not None:
                 try:
-                    if reasoning_parts:
-                        on_delta("reasoning", "".join(reasoning_parts))
-                    elif content_parts:
+                    if content_parts:
                         on_delta("content", "".join(content_parts))
+                    elif reasoning_parts:
+                        on_delta("reasoning", "".join(reasoning_parts))
                 except Exception:  # 콜백 오류가 스트림 소비를 막지 않도록 무시
                     pass
 

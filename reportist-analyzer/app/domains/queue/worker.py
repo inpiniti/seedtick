@@ -217,7 +217,7 @@ class QueueWorkerManager:
         reasoning_state: dict[str, str] = {"text": ""}
 
         def _on_ai_delta(kind: str, full_text: str) -> None:
-            if kind == "reasoning":
+            if kind in ("reasoning", "content"):
                 reasoning_state["text"] = full_text
 
         async def _pump_reasoning_preview() -> None:
@@ -243,12 +243,15 @@ class QueueWorkerManager:
         reasoning_task = asyncio.create_task(_pump_reasoning_preview())
 
         try:
-            ai_response = await ai_client.chat_messages(
-                messages=[{"role": "user", "content": message_content}],
-                model_override=model or None,
-                temperature_override=0.2,
-                max_tokens=min(getattr(settings, "AI_GATEWAY_MAX_TOKENS", 4096), 4096),
-                on_delta=_on_ai_delta,
+            ai_response = await asyncio.wait_for(
+                ai_client.chat_messages(
+                    messages=[{"role": "user", "content": message_content}],
+                    model_override=model or None,
+                    temperature_override=0.2,
+                    max_tokens=min(getattr(settings, "AI_GATEWAY_MAX_TOKENS", 8192), 8192),
+                    on_delta=_on_ai_delta,
+                ),
+                timeout=180.0,
             )
             parsed = self._parse_analysis_json(ai_response)
             if parsed is not None:
