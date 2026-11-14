@@ -1313,7 +1313,7 @@ export function App() {
         }));
 
         const frames = await extractVideoFramesForAnalysis(
-          currentVideo.url,
+          { url: currentVideo.url, file: currentVideo.file },
           currentVideo.duration,
           (pct) => {
             if (signal.aborted) return;

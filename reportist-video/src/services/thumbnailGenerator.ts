@@ -1,5 +1,10 @@
 // services/thumbnailGenerator.ts - 16:9 YouTube 고화질 썸네일 생성 및 커스텀 스타일 엔진
 
+import {
+  decodeKeyframesNearTimes,
+  isWebCodecsKeyframeDecodeAvailable,
+} from './mp4KeyframeDecoder.ts';
+
 export interface ThumbnailRenderOptions {
   titleText: string;
   channelText?: string;
@@ -26,6 +31,8 @@ export const DEFAULT_THUMBNAIL_OPTIONS: ThumbnailRenderOptions = {
 
 /**
  * 비디오 URL과 특정 타임스탬프에서 16:9 (1280x720) 해상도로 배경 프레임을 캡처합니다.
+ * blob: URL인 경우 WebCodecs 키프레임 디코딩을 먼저 시도하여 iOS MediaCache 디스크 기록을 방지하고,
+ * 실패하거나 HTTP URL이면 <video preload='metadata'> 기반으로 캡처합니다.
  */
 export async function captureVideoFrameAtTime(
   videoUrl: string,
@@ -35,11 +42,48 @@ export async function captureVideoFrameAtTime(
   targetHeight = 720,
   rotation = 0
 ): Promise<HTMLCanvasElement> {
+  // 1순위: WebCodecs 키프레임 디코딩 (<video> 미사용)
+  if (videoUrl.startsWith('blob:') && isWebCodecsKeyframeDecodeAvailable()) {
+    try {
+      const blob = await (await fetch(videoUrl)).blob();
+      const decoded = await decodeKeyframesNearTimes(blob, [timestamp], {
+        targetWidth: Math.max(targetWidth, 640),
+        jpegQuality: 0.92,
+        timeoutMs: 12_000,
+      });
+      if (decoded && decoded.length > 0) {
+        // decodeKeyframesNearTimes는 tkhd 회전을 이미 반영하므로,
+        // 호출자가 지정한 추가 회전(rotation)만 크롭 단계에 전달한다.
+        return await createCanvasFromImageDataUrl(
+          decoded[0].dataUrl,
+          targetWidth,
+          targetHeight,
+          cropOffsetYRatio,
+          rotation
+        );
+      }
+    } catch (err) {
+      console.warn('[thumbnailGenerator] WebCodecs 캡처 실패, <video> 폴백으로 전환:', err);
+    }
+  }
+
+  // 2순위(폴백): <video preload='metadata'> 기반
+  return captureFrameWithVideoElement(videoUrl, timestamp, cropOffsetYRatio, targetWidth, targetHeight, rotation);
+}
+
+async function captureFrameWithVideoElement(
+  videoUrl: string,
+  timestamp: number,
+  cropOffsetYRatio: number,
+  targetWidth: number,
+  targetHeight: number,
+  rotation: number
+): Promise<HTMLCanvasElement> {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
     video.muted = true;
     video.playsInline = true;
-    video.preload = 'auto';
+    video.preload = 'metadata';
     video.style.position = 'fixed';
     video.style.top = '-9999px';
     video.style.left = '-9999px';

@@ -267,7 +267,7 @@ function loadVideoSource(video: HTMLVideoElement, url: string, timeoutMs = 12000
   video.defaultMuted = true;
   video.volume = 0;
   video.playsInline = true;
-  video.preload = 'auto';
+  video.preload = 'metadata';
   video.setAttribute('playsinline', '');
   video.setAttribute('webkit-playsinline', '');
   video.setAttribute('muted', '');
@@ -403,7 +403,8 @@ export async function stitchVideosWebCodecs({
   workerVideo.defaultMuted = true;
   workerVideo.volume = 0;
   workerVideo.playsInline = true;
-  workerVideo.preload = 'auto';
+  // seek 시점에만 데이터를 읽으므로 metadata만 선로드 (iOS MediaCache 전체 파일 스필 방지)
+  workerVideo.preload = 'metadata';
   workerVideo.setAttribute('playsinline', '');
   workerVideo.setAttribute('webkit-playsinline', '');
   workerVideo.setAttribute('muted', '');

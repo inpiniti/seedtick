@@ -421,7 +421,9 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   };
 
   const optimalCodec = detectOptimalCodec();
-  const opfsSupported = isOpfsAvailable();
+  // 모바일(및 초경량 모드)은 OPFS가 아니라 IndexedDB project_media에 저장되므로
+  // 실제 동작과 일치하게 라벨을 표시한다.
+  const usesOpfs = isOpfsAvailable() && !isMobileDevice && storageMode !== 'lightweight';
 
   useEffect(() => {
     if (!isOpen) return;
@@ -1404,7 +1406,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                   <div className="toss-storage-title-wrap">
                     <div className="toss-storage-title-row">
                       <span className="toss-storage-engine-title">
-                        {opfsSupported
+                        {usesOpfs
                           ? dict.settingsModal?.storageEngineOpfs || 'OPFS 가상 파일시스템'
                           : dict.settingsModal?.storageEngineIdb || 'IndexedDB 로컬 스토리지'}
                       </span>

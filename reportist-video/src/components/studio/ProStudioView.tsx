@@ -1751,7 +1751,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     v.src = url;
     v.muted = true;
     v.playsInline = true;
-    v.preload = 'auto';
+    v.preload = 'metadata';
     v.onloadedmetadata = () => {
       const dur = Number.isFinite(v.duration) && v.duration > 0 ? Math.min(v.duration, 6.0) : 2.0;
       setIntroCustomDuration(Math.round(dur * 10) / 10);
@@ -1786,7 +1786,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     v.src = url;
     v.muted = true;
     v.playsInline = true;
-    v.preload = 'auto';
+    v.preload = 'metadata';
     v.onloadedmetadata = () => {
       const dur = Number.isFinite(v.duration) && v.duration > 0 ? Math.min(v.duration, 6.0) : 2.2;
       setOutroCustomDuration(Math.round(dur * 10) / 10);
@@ -4190,7 +4190,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     <video
                       ref={videoRef}
                       src={activeVideoUrl}
-                      preload={isSequenceMode ? 'auto' : 'metadata'}
+                      preload="metadata"
                       playsInline
                       muted={isMuted}
                       onPlay={() => {

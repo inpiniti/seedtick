@@ -549,7 +549,7 @@ defaultDesc: 'Analizando las escenas clave de tus videos. Por favor espera un mo
     storageModeFullDesc: 'Conservar clips de video originales',
     storageModeLight: 'Modo ultraligero',
     storageModeLightDesc: 'Ahorra el 99% del espacio en el dispositivo',
-    storageMobileNotice: 'En móvil no guardamos los vídeos originales en el dispositivo. Solo conservamos la información de edición y hasta 2 vídeos finales recientes (60 MB cada uno).',
+    storageMobileNotice: 'En móvil, los vídeos originales se guardan de forma segura en tu dispositivo. Al eliminar un proyecto, ese espacio también se libera. Los archivos temporales de Safari pueden tardar en borrarse hasta que cierres y vuelvas a abrir la app por completo.',
     storageClearTitle: 'Limpiar almacenamiento (vaciar caché)',
     storageClearAction: 'Limpiar',
     storageClearBtn: 'Limpiar almacenamiento (vaciar caché)',

@@ -733,7 +733,7 @@ export const en: Dictionary = {
     storageModeFullDesc: 'Keep original video clips',
     storageModeLight: 'Lightweight Mode',
     storageModeLightDesc: 'Save 99% device space',
-    storageMobileNotice: 'On mobile, original videos are not saved to your device. We keep edit metadata and up to 2 recent final videos (60 MB each).',
+    storageMobileNotice: 'On mobile, original videos are kept safely on your device. Deleting a project also reclaims that space. Safari temporary files may only be fully cleared after you fully close and reopen the app.',
         storageClearTitle: 'Clear Storage (Purge Cache)',
     storageClearAction: 'Clean Up',
     storageClearing: 'Clearing...',

@@ -188,7 +188,9 @@ function createWorkerVideo(): HTMLVideoElement {
   videoElem.defaultMuted = true;
   videoElem.volume = 0;
   videoElem.playsInline = true;
-  videoElem.preload = 'auto';
+  // blob: 소스는 seek 시점에만 데이터를 읽으므로 metadata만 선로드하여
+  // iOS MediaCache에 전체 파일이 스필되는 것을 방지합니다.
+  videoElem.preload = 'metadata';
   // blob: URL에 crossorigin="anonymous"가 지정되면 iOS Safari/WebKit에서
   // 리소스 보안 검증 오류(CORS 실패 / MEDIA_ERR_SRC_NOT_SUPPORTED)가 발생하므로
   // 기본 속성에서는 제거하고 원격 URL 로드 시에만 동적으로 부여합니다.

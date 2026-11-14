@@ -549,7 +549,7 @@ defaultDesc: 'Analysiere Schlüsselszenen in Ihren Videos. Bitte einen Moment Ge
     storageModeFullDesc: 'Original-Videoclips aufbewahren',
     storageModeLight: 'Ultraleichter Modus',
     storageModeLightDesc: 'Spart 99% Gerätespeicher',
-    storageMobileNotice: 'Auf Mobilgeräten werden Originalvideos nicht gespeichert. Bearbeitungsdaten und bis zu 2 aktuelle Fertigvideos (je max. 60 MB) bleiben erhalten.',
+    storageMobileNotice: 'Auf dem Handy werden Originalvideos sicher auf Ihrem Gerät gespeichert. Beim Löschen eines Projekts wird der Speicher ebenfalls wieder freigegeben. Safari-Temporärdateien werden erst nach dem vollständigen Schließen und erneuten Öffnen der App endgültig entfernt.',
     storageClearTitle: 'Speicher bereinigen (Cache leeren)',
     storageClearAction: 'Bereinigen',
     storageClearBtn: 'Speicher bereinigen (Cache leeren)',

@@ -40,7 +40,6 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
   const { dict } = useI18n();
   const overlayRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const ambientVideoRef = useRef<HTMLVideoElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
 
   const [start, setStart] = useState<number>(0);
@@ -80,9 +79,6 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
     if (videoRef.current) {
       videoRef.current.currentTime = initialStart;
     }
-    if (ambientVideoRef.current) {
-      ambientVideoRef.current.currentTime = initialStart;
-    }
   }, [isOpen, segment, sourceVideo]);
 
   // Close on ESC
@@ -109,9 +105,6 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
       }
       videoRef.current.currentTime = start;
     }
-    if (ambientVideoRef.current && videoRef.current) {
-      ambientVideoRef.current.currentTime = videoRef.current.currentTime;
-    }
   };
 
   // Video time update
@@ -122,22 +115,10 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
       setCurrentTime(cur);
     }
 
-    // Sync ambient video when playing
-    if (ambientVideoRef.current) {
-      const diff = Math.abs(ambientVideoRef.current.currentTime - cur);
-      if (diff > 0.35) {
-        ambientVideoRef.current.currentTime = cur;
-      }
-    }
-
     // Range preview auto-stop
     if (isPreviewing && cur >= end) {
       videoRef.current.pause();
       videoRef.current.currentTime = start;
-      if (ambientVideoRef.current) {
-        ambientVideoRef.current.pause();
-        ambientVideoRef.current.currentTime = start;
-      }
       setIsPlaying(false);
       setIsPreviewing(false);
     }
@@ -146,16 +127,13 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
   // Play / Pause Toggle
   const togglePlay = () => {
     const v = videoRef.current;
-    const amb = ambientVideoRef.current;
     if (!v) return;
     if (isPlaying) {
       v.pause();
-      amb?.pause();
       setIsPlaying(false);
       setIsPreviewing(false);
     } else {
       v.play().catch(() => {});
-      amb?.play().catch(() => {});
       setIsPlaying(true);
     }
   };
@@ -163,19 +141,15 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
   // Range preview
   const handleTogglePreviewRange = () => {
     const v = videoRef.current;
-    const amb = ambientVideoRef.current;
     if (!v) return;
 
     if (isPreviewing) {
       v.pause();
-      amb?.pause();
       setIsPlaying(false);
       setIsPreviewing(false);
     } else {
       v.currentTime = start;
-      if (amb) amb.currentTime = start;
       v.play().catch(() => {});
-      amb?.play().catch(() => {});
       setIsPlaying(true);
       setIsPreviewing(true);
     }
@@ -194,9 +168,6 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
     const targetTime = Math.max(0, Math.min(maxDuration, Math.round(ratio * maxDuration * 10) / 10));
 
     v.currentTime = targetTime;
-    if (ambientVideoRef.current) {
-      ambientVideoRef.current.currentTime = targetTime;
-    }
     setCurrentTime(targetTime);
   }, [maxDuration]);
 
@@ -214,7 +185,6 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
     if (v && !v.paused) {
       wasPlayingBeforeDragRef.current = true;
       v.pause();
-      ambientVideoRef.current?.pause();
       setIsPlaying(false);
     } else {
       wasPlayingBeforeDragRef.current = false;
@@ -243,7 +213,6 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
 
     if (wasPlayingBeforeDragRef.current && videoRef.current) {
       videoRef.current.play().catch(() => {});
-      ambientVideoRef.current?.play().catch(() => {});
       setIsPlaying(true);
     }
   };
@@ -264,7 +233,6 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
     setStart(newStart);
     if (videoRef.current) {
       videoRef.current.currentTime = newStart;
-      if (ambientVideoRef.current) ambientVideoRef.current.currentTime = newStart;
       setCurrentTime(newStart);
     }
   };
@@ -275,7 +243,6 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
     setEnd(newEnd);
     if (videoRef.current) {
       videoRef.current.currentTime = newEnd;
-      if (ambientVideoRef.current) ambientVideoRef.current.currentTime = newEnd;
       setCurrentTime(newEnd);
     }
   };
@@ -301,7 +268,6 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
     setEnd(e);
     if (videoRef.current) {
       videoRef.current.currentTime = s;
-      if (ambientVideoRef.current) ambientVideoRef.current.currentTime = s;
       setCurrentTime(s);
     }
   };
@@ -390,18 +356,8 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
           {/* Video Player Box */}
           <div className="segment-trim-player-container">
             <div className="segment-trim-video-wrapper">
-              {/* Ambient blurred backdrop to eliminate black empty side bars */}
-              <video
-                ref={ambientVideoRef}
-                src={sourceVideo.url}
-                className="segment-trim-video-ambient-bg"
-                aria-hidden="true"
-                tabIndex={-1}
-                playsInline
-                muted
-                preload="metadata"
-                style={rotationStyle}
-              />
+              {/* Ambient backdrop를 <video> 대신 CSS 그라데이션으로 대체 (중복 디코더 제거) */}
+              <div className="segment-trim-video-ambient-bg" aria-hidden="true" style={rotationStyle} />
 
               {/* Main crisp video */}
               <video
@@ -412,16 +368,13 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
                 onTimeUpdate={handleTimeUpdate}
                 onPlay={() => {
                   setIsPlaying(true);
-                  ambientVideoRef.current?.play().catch(() => {});
                 }}
                 onPause={() => {
                   setIsPlaying(false);
-                  ambientVideoRef.current?.pause();
                 }}
                 onEnded={() => {
                   setIsPlaying(false);
                   setIsPreviewing(false);
-                  ambientVideoRef.current?.pause();
                 }}
                 playsInline
                 preload="metadata"

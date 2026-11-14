@@ -1,4 +1,9 @@
 import type { ExtractedFrame } from '../types/video.ts';
+import {
+  decodeKeyframesNearTimes,
+  getMp4TrackInfo,
+  isWebCodecsKeyframeDecodeAvailable,
+} from './mp4KeyframeDecoder.ts';
 
 export interface VideoMetadata {
   duration: number;
@@ -128,8 +133,51 @@ function getSharedAnalysisCanvas(width: number, height: number): {
   return { canvas, ctx };
 }
 
-// 브라우저 캔버스를 이용해 비디오에서 주요 타임스탬프별 프레임 이미지를 초고속 추출 (추출 직후 디코더 즉시 반환)
+export interface MediaFrameSource {
+  url: string;
+  file?: File | Blob | null;
+}
+
+// 분석용 주요 프레임 다중 이미지 추출
+// 1순위: WebCodecs 키프레임 디코딩 (iOS MediaCache 디스크 기록 없음, <video> 미사용)
+// 2순위(폴백): <video preload='metadata'> + seek (최소 한도 MediaCache만 사용)
 export async function extractVideoFramesForAnalysis(
+  source: MediaFrameSource | string,
+  totalDuration: number,
+  onProgress?: (progressPercent: number) => void
+): Promise<ExtractedFrame[]> {
+  const { url, file } =
+    typeof source === 'string' ? { url: source, file: null } : source;
+
+  const maxFrameCount = IS_MOBILE_DEVICE ? 10 : 14;
+  const safeDuration =
+    Number.isFinite(totalDuration) && totalDuration > 0 ? Math.max(0.5, totalDuration) : 3.0;
+  const timestamps = calculateSampleTimestamps(safeDuration, maxFrameCount);
+
+  // 1순위: WebCodecs 키프레임 디코딩
+  if (file && isWebCodecsKeyframeDecodeAvailable()) {
+    try {
+      const decoded = await decodeKeyframesNearTimes(file, timestamps, {
+        targetWidth: 420,
+        jpegQuality: 0.65,
+        timeoutMs: 15_000,
+        onFrameDecoded: (done, total) => {
+          if (onProgress) onProgress(Math.round((done / total) * 100));
+        },
+      });
+      if (decoded && decoded.length > 0) {
+        return decoded.map((f) => ({ timestamp: f.timeSec, dataUrl: f.dataUrl }));
+      }
+    } catch (err) {
+      console.warn('[videoCompressor] WebCodecs 프레임 추출 실패, <video> 폴백으로 전환:', err);
+    }
+  }
+
+  // 2순위(폴백): <video preload='metadata'> 기반
+  return extractFramesWithVideoElement(url, safeDuration, onProgress);
+}
+
+async function extractFramesWithVideoElement(
   videoUrl: string,
   totalDuration: number,
   onProgress?: (progressPercent: number) => void
@@ -145,7 +193,7 @@ export async function extractVideoFramesForAnalysis(
     if (!videoUrl.startsWith('blob:')) {
       video.crossOrigin = 'anonymous';
     }
-    video.preload = 'auto';
+    video.preload = 'metadata';
 
     let settled = false;
     const finishSuccess = (frames: ExtractedFrame[]) => {
@@ -314,6 +362,47 @@ async function extractVideoMetadataInternal(file: File, skipThumbnail = false): 
       };
       img.src = objectUrl;
     });
+  }
+
+  // 1순위: WebCodecs 키프레임 디코딩 (<video> 미사용, iOS MediaCache 0)
+  if (isWebCodecsKeyframeDecodeAvailable()) {
+    try {
+      const info = await getMp4TrackInfo(file);
+      if (info) {
+        const rawDur = Number.isFinite(info.durationSec) && info.durationSec > 0 ? info.durationSec : 1;
+        const width = info.width > 0 ? info.width : 640;
+        const height = info.height > 0 ? info.height : 360;
+
+        if (skipThumbnail) {
+          return {
+            duration: rawDur,
+            width,
+            height,
+            thumbnailUrl: '',
+          };
+        }
+
+        // 10% 지점(또는 최대 1.0초)의 키프레임 1개만 디코딩
+        const seekTime = Math.min(1.0, Math.max(0.1, rawDur * 0.1));
+        const decoded = await decodeKeyframesNearTimes(file, [seekTime], {
+          targetWidth: 320,
+          jpegQuality: 0.7,
+          timeoutMs: 10_000,
+        });
+
+        if (decoded && decoded.length > 0) {
+          return {
+            duration: rawDur,
+            width,
+            height,
+            thumbnailUrl: decoded[0].dataUrl,
+          };
+        }
+        // 디코딩 불가 시 아래 <video> 폴백으로 계속 진행
+      }
+    } catch (err) {
+      console.warn('[videoCompressor] WebCodecs 썸네일 추출 실패, <video> 폴백으로 전환:', err);
+    }
   }
 
   return new Promise((resolve, reject) => {

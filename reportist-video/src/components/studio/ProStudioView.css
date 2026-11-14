@@ -9804,12 +9804,12 @@
 
 .segment-trim-video-ambient-bg {
   position: absolute;
-  inset: -30px;
-  width: calc(100% + 60px);
-  height: calc(100% + 60px);
-  object-fit: cover;
-  filter: blur(28px) brightness(0.5);
-  opacity: 0.85;
+  inset: 0;
+  /* <video> 없이도 검은 여백이 어색하지 않도록 은은한 그라데이션 배경 */
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(59, 130, 246, 0.28), transparent 55%),
+    radial-gradient(ellipse at 70% 80%, rgba(16, 185, 129, 0.22), transparent 55%),
+    linear-gradient(160deg, #1b2430 0%, #0f172a 50%, #0b1220 100%);
   pointer-events: none;
   z-index: 1;
 }
