@@ -38,7 +38,7 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
   onDeleteProject,
   onStartNewProject,
 }) => {
-  const { dict, interpolate } = useI18n();
+  const { dict, interpolate, ui } = useI18n();
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [failedThumbIds, setFailedThumbIds] = useState<Set<string>>(() => new Set());
 
@@ -239,8 +239,7 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
                     )}
                     {proj.storageMode === 'lightweight' && (
                       <span className="toss-project-status-pill" style={{ background: '#f8fafc', color: '#64748b', borderColor: '#e2e8f0' }}>
-                        경량
-                      </span>
+                        {ui('경량 ')}</span>
                     )}
                   </div>
                 </div>
@@ -252,7 +251,7 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
                       {interpolate(pDict.clipsCount, { count: proj.videoCount })}
                     </span>
                     {typeof proj.mediaBytes === 'number' && proj.mediaBytes > 0 && (
-                      <span className="toss-project-clips-count" title="기기에 저장된 미디어 용량">
+                      <span className="toss-project-clips-count" title={ui('기기에 저장된 미디어 용량')}>
                         <HardDrive size={11} className="inline mr-0.5 align-[-1px]" />
                         {formatBytes(proj.mediaBytes)}
                       </span>

@@ -46,6 +46,30 @@ const QUEUE_COPY: Record<string, QueueCopy> = {
     eta: (seconds) => `About ${seconds}s left`,
     hint: 'Analysis starts automatically when it is your turn. You can safely leave this window open.',
   },
+  es: {
+    badge: 'En cola',
+    waitingTitle: 'Espera un momento',
+    cancel: 'Cancelar espera',
+    ahead: (position) => `${position} personas delante de ti`,
+    eta: (seconds) => `Quedan unos ${seconds}s`,
+    hint: 'El análisis empieza automáticamente cuando llegue tu turno. Puedes dejar esta ventana abierta.',
+  },
+  fr: {
+    badge: 'En file',
+    waitingTitle: 'Patientez un instant',
+    cancel: "Annuler l'attente",
+    ahead: (position) => `${position} personnes devant vous`,
+    eta: (seconds) => `Environ ${seconds}s restantes`,
+    hint: 'L’analyse démarre automatiquement à votre tour. Vous pouvez laisser cette fenêtre ouverte.',
+  },
+  de: {
+    badge: 'In Warteschlange',
+    waitingTitle: 'Bitte einen Moment warten',
+    cancel: 'Warten abbrechen',
+    ahead: (position) => `${position} Personen vor dir`,
+    eta: (seconds) => `Noch ca. ${seconds}s`,
+    hint: 'Die Analyse startet automatisch, wenn du an der Reihe bist. Du kannst dieses Fenster offen lassen.',
+  },
 };
 
 export function getQueueCopy(locale: string): QueueCopy {

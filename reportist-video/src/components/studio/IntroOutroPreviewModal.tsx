@@ -75,40 +75,40 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
   mockLocation,
   onApply,
 }) => {
-  const { dict } = useI18n();
+  const { dict, ui } = useI18n();
   const ioDict = dict.introOutroModal;
-  const secUnit = ioDict?.secUnit || '초';
+  const secUnit = ioDict?.secUnit || ui('초');
 
   const introOptions = useMemo(() => {
     return INTRO_TEMPLATE_OPTIONS.map((opt) => {
       const trans = ioDict?.templates?.intro?.[opt.id];
       return {
         id: opt.id,
-        name: trans?.name || opt.name,
-        badge: trans?.badge || opt.badge,
-        desc: trans?.desc || opt.desc,
+        name: trans?.name || ui(opt.name),
+        badge: trans?.badge || ui(opt.badge),
+        desc: trans?.desc || ui(opt.desc),
       };
     });
-  }, [ioDict]);
+  }, [ioDict, ui]);
 
   const outroOptions = useMemo(() => {
     return OUTRO_TEMPLATE_OPTIONS.map((opt) => {
       const trans = ioDict?.templates?.outro?.[opt.id];
       return {
         id: opt.id,
-        name: trans?.name || opt.name,
-        badge: trans?.badge || opt.badge,
-        desc: trans?.desc || opt.desc,
+        name: trans?.name || ui(opt.name),
+        badge: trans?.badge || ui(opt.badge),
+        desc: trans?.desc || ui(opt.desc),
       };
     });
-  }, [ioDict]);
+  }, [ioDict, ui]);
 
   const [activeTab, setActiveTab] = useState<'intro' | 'outro'>(initialTab);
   const [introTemplate, setIntroTemplate] = useState<IntroTemplateId>(initialIntroTemplate);
   const [introDuration, setIntroDuration] = useState<number>(initialIntroDuration);
   const [outroTemplate, setOutroTemplate] = useState<OutroTemplateId>(initialOutroTemplate);
   const [outroDuration, setOutroDuration] = useState<number>(initialOutroDuration);
-  const [outroText, setOutroText] = useState<string>(initialOutroText);
+  const [outroText, setOutroText] = useState<string>(ui(initialOutroText));
 
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [currentTime, setCurrentTime] = useState<number>(0);
@@ -128,7 +128,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
       setIntroDuration(initialIntroDuration);
       setOutroTemplate(initialOutroTemplate);
       setOutroDuration(initialOutroDuration);
-      setOutroText(initialOutroText);
+      setOutroText(ui(initialOutroText));
       setCurrentTime(0);
       setIsPlaying(true);
       isPlayingRef.current = true;
@@ -192,14 +192,14 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
       showDate: true,
       showIntro: true,
       showOutro: true,
-      titleText: mockTitle || ioDict?.mockTitle || '도쿄 여름 여행 브이로그',
+      titleText: mockTitle || ioDict?.mockTitle || ui('도쿄 여름 여행 브이로그'),
       subtitleDateText: mockDate || '2024.08.15',
-      subtitleLocationText: mockLocation || '도쿄 시부야 & 신주쿠',
+      subtitleLocationText: mockLocation || ui('도쿄 시부야 & 신주쿠'),
       introTemplate,
       introDurationSec: introDuration,
       outroTemplate,
       outroDurationSec: outroDuration,
-      outroText: outroText || ioDict?.mockOutroText || '시청해 주셔서 감사합니다',
+      outroText: outroText || ioDict?.mockOutroText || ui('시청해 주셔서 감사합니다'),
       channelText: '@seedtick.travel',
     };
 
@@ -301,7 +301,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
       ioDict?.templates?.outro?.[outroTemplate]?.name ||
       OUTRO_TEMPLATE_OPTIONS.find((o) => o.id === outroTemplate)?.name ||
       outroTemplate;
-    notify.success(ioDict?.applyDefault || '인트로/아웃트로 모션 적용 완료', {
+    notify.success(ioDict?.applyDefault || ui('인트로/아웃트로 모션 적용 완료'), {
       description: `${introOptName} (${introDuration.toFixed(1)}${secUnit}) · ${outroOptName} (${outroDuration.toFixed(1)}${secUnit})`,
     });
   };
@@ -424,10 +424,10 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                   letterSpacing: '-0.3px',
                 }}
               >
-                {ioDict?.title || 'HyperFrames 인트로 & 아웃트로 실시간 미리보기'}
+                {ioDict?.title || ui('HyperFrames 인트로 & 아웃트로 실시간 미리보기')}
               </h3>
               <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0' }}>
-                {ioDict?.subtitle || '원하는 템플릿을 선택하고 캔버스 모션을 실시간으로 확인해보세요.'}
+                {ioDict?.subtitle || ui('원하는 템플릿을 선택하고 캔버스 모션을 실시간으로 확인해보세요.')}
               </p>
             </div>
           </div>
@@ -448,7 +448,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                 justifyContent: 'center',
                 cursor: 'pointer',
               }}
-              title={isFullscreen ? '창 모드로 축소' : '대화면 전체화면'}
+              title={isFullscreen ? ui('창 모드로 축소') : ui('대화면 전체화면')}
             >
               {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
             </button>
@@ -583,7 +583,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                   cursor: 'pointer',
                   flexShrink: 0,
                 }}
-                title="처음부터 다시 보기"
+                title={ui('처음부터 다시 보기')}
               >
                 <RotateCcw size={14} />
               </button>
@@ -636,7 +636,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
               <HelpCircle size={14} className="shrink-0" />
               <span>
                 {ioDict?.tipDescription ||
-                  '💡 템플릿 카드를 클릭하면 왼쪽 대화면에서 GSAP 결정론적 캔버스 모션이 즉시 실시간 렌더링됩니다.'}
+                  ui('💡 템플릿 카드를 클릭하면 왼쪽 대화면에서 GSAP 결정론적 캔버스 모션이 즉시 실시간 렌더링됩니다.')}
               </span>
             </div>
           </div>
@@ -675,7 +675,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                 }}
               >
                 <Clapperboard size={14} className={activeTab === 'intro' ? 'text-slate-900' : ''} />
-                <span>{ioDict?.tabIntro || '🎬 시작 인트로 (4종)'}</span>
+                <span>{ioDict?.tabIntro || ui('🎬 시작 인트로 (4종)')}</span>
               </button>
 
               <button
@@ -700,7 +700,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                 }}
               >
                 <Film size={14} className={activeTab === 'outro' ? 'text-slate-900' : ''} />
-                <span>{ioDict?.tabOutro || '🏁 종료 아웃트로 (3종)'}</span>
+                <span>{ioDict?.tabOutro || ui('🏁 종료 아웃트로 (3종)')}</span>
               </button>
             </div>
 
@@ -709,7 +709,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'between' }}>
                   <span style={{ fontSize: '12px', fontWeight: 700, color: '#334155' }}>
-                    {ioDict?.templateSelectLabel || '인트로 모션 템플릿'}
+                    {ioDict?.templateSelectLabel || ui('인트로 모션 템플릿')}
                   </span>
                 </div>
 
@@ -829,7 +829,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                       }}
                     >
                       <Clock size={13} className="text-slate-400" />
-                      <span>{ioDict?.durationLabel || '재생 시간'}</span>
+                      <span>{ioDict?.durationLabel || ui('재생 시간')}</span>
                     </span>
                     <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#0f172a' }}>
                       {introDuration.toFixed(1)}{secUnit}
@@ -869,7 +869,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'between' }}>
                   <span style={{ fontSize: '12px', fontWeight: 700, color: '#334155' }}>
-                    {ioDict?.templateSelectLabel || '아웃트로 모션 템플릿'}
+                    {ioDict?.templateSelectLabel || ui('아웃트로 모션 템플릿')}
                   </span>
                 </div>
 
@@ -989,7 +989,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                       }}
                     >
                       <Clock size={13} className="text-slate-400" />
-                      <span>{ioDict?.durationLabel || '재생 시간'}</span>
+                      <span>{ioDict?.durationLabel || ui('재생 시간')}</span>
                     </span>
                     <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#0f172a' }}>
                       {outroDuration.toFixed(1)}{secUnit}
@@ -1043,13 +1043,13 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                     }}
                   >
                     <Type size={13} className="text-slate-400" />
-                    <span>{ioDict?.outroTextLabel || '클로징 문구'}</span>
+                    <span>{ioDict?.outroTextLabel || ui('클로징 문구')}</span>
                   </label>
                   <input
                     type="text"
                     value={outroText}
                     onChange={(e) => setOutroText(e.target.value)}
-                    placeholder={ioDict?.outroTextPlaceholder || '시청해 주셔서 감사합니다'}
+                    placeholder={ioDict?.outroTextPlaceholder || ui('시청해 주셔서 감사합니다')}
                     maxLength={40}
                     style={{
                       width: '100%',
@@ -1093,7 +1093,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
               cursor: 'pointer',
             }}
           >
-            {ioDict?.cancel || '취소'}
+            {ioDict?.cancel || ui('취소')}
           </button>
           <button
             type="button"
@@ -1114,7 +1114,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
             }}
           >
             <Check size={14} strokeWidth={2.5} />
-            <span>{ioDict?.applyDefault || '이 설정으로 기본값 적용'}</span>
+            <span>{ioDict?.applyDefault || ui('이 설정으로 기본값 적용')}</span>
           </button>
         </div>
       </div>

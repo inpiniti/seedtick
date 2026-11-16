@@ -27,7 +27,7 @@ interface VideoCommunityViewProps {
 }
 
 export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenStudio }) => {
-  const { dict, locale } = useI18n();
+  const { dict, locale, ui } = useI18n();
   const cDict = dict.community;
 
   const [videos, setVideos] = useState<VideoShareItem[]>([]);
@@ -90,7 +90,7 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
   // 영상 공유 완료 후 핸들러
   const handleShareSuccess = (newItem: VideoShareItem) => {
     setVideos((prev) => [newItem, ...prev]);
-    notify.success(cDict?.successToast || '영상이 성공적으로 공유되었어요!');
+    notify.success(cDict?.successToast || ui('영상이 성공적으로 공유되었어요!'));
   };
 
   // 링크 복사
@@ -99,7 +99,7 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
     try {
       const url = `https://www.youtube.com/watch?v=${videoId}`;
       await navigator.clipboard.writeText(url);
-      notify.success(cDict?.copiedToast || '영상 링크를 복사했어요.');
+      notify.success(cDict?.copiedToast || ui('영상 링크를 복사했어요.'));
     } catch {
       notify.error(dict.toasts.linkCopyFailed);
     }
@@ -120,11 +120,11 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
                 <span className="toss-community-badge">COMMUNITY</span>
               </div>
               <h1 className="toss-community-title">
-                {cDict?.headerTitle || '공유된 영상 둘러보기'}
+                {cDict?.headerTitle || ui('공유된 영상 둘러보기')}
               </h1>
               <p className="toss-community-desc">
                 {cDict?.headerDesc ||
-                  'Reportist Video로 제작하여 유튜브에 공유된 하이라이트 영상들을 만나보세요.'}
+                  ui('Reportist Video로 제작하여 유튜브에 공유된 하이라이트 영상들을 만나보세요.')}
               </p>
             </div>
 
@@ -136,7 +136,7 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
                   className="toss-btn-studio-switch"
                 >
                   <Film size={14} />
-                  <span>{cDict?.studioTab || '스튜디오로 이동'}</span>
+                  <span>{cDict?.studioTab || ui('스튜디오로 이동')}</span>
                 </button>
               )}
 
@@ -146,7 +146,7 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
                 className="toss-btn-share-primary"
               >
                 <Plus size={16} />
-                <span>{cDict?.shareMyVideo || '영상 공유하기'}</span>
+                <span>{cDict?.shareMyVideo || ui('영상 공유하기')}</span>
               </button>
             </div>
           </div>
@@ -160,7 +160,7 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={cDict?.searchPlaceholder || '영상 제목 또는 작성자 검색...'}
+                placeholder={cDict?.searchPlaceholder || ui('영상 제목 또는 작성자 검색...')}
                 className="toss-community-search-input"
               />
               {searchQuery && (
@@ -168,7 +168,7 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
                   type="button"
                   onClick={() => setSearchQuery('')}
                   className="toss-community-search-clear"
-                  title="검색어 지우기"
+                  title={ui('검색어 지우기')}
                 >
                   ✕
                 </button>
@@ -184,7 +184,7 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
                   className={`toss-community-sort-btn ${sortOrder === 'latest' ? 'active' : ''}`}
                 >
                   <Clock size={13} />
-                  <span>{cDict?.sortLatest || '최신순'}</span>
+                  <span>{cDict?.sortLatest || ui('최신순')}</span>
                 </button>
                 <button
                   type="button"
@@ -192,7 +192,7 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
                   className={`toss-community-sort-btn ${sortOrder === 'views' ? 'active' : ''}`}
                 >
                   <Flame size={13} color={sortOrder === 'views' ? '#f59e0b' : undefined} />
-                  <span>{cDict?.sortViews || '조회수순'}</span>
+                  <span>{cDict?.sortViews || ui('조회수순')}</span>
                 </button>
               </div>
 
@@ -213,10 +213,8 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
           <div className="toss-preview-card-box" style={{ borderColor: '#fed7aa', backgroundColor: '#fffbeb' }}>
             <Database size={18} color="#ea580c" style={{ flexShrink: 0 }} />
             <div style={{ fontSize: '12.5px', color: '#9a3412', lineHeight: '1.45' }}>
-              <strong>Supabase DB 안내: </strong>
-              현재 Supabase 테이블(<code>video_shares</code>) 생성 전이어서 임시 저장소로 표시 중입니다.
-              SQL 마이그레이션(<code>migration_video_shares.sql</code>)을 실행하시면 모든 사용자와 실시간 공유됩니다.
-            </div>
+              <strong>{ui('Supabase DB 안내: ')}</strong>
+              {ui('현재 Supabase 테이블(')}<code>video_shares</code>{ui(') 생성 전이어서 임시 저장소로 표시 중입니다. SQL 마이그레이션(')}<code>migration_video_shares.sql</code>{ui(')을 실행하시면 모든 사용자와 실시간 공유됩니다. ')}</div>
           </div>
         )}
 
@@ -228,14 +226,14 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
             </div>
             <h3 className="toss-community-empty-title">
               {searchQuery
-                ? (cDict?.emptySearch || '검색 결과와 일치하는 영상이 없어요')
-                : (cDict?.emptyTitle || '공유된 영상이 아직 없어요')}
+                ? (cDict?.emptySearch || ui('검색 결과와 일치하는 영상이 없어요'))
+                : (cDict?.emptyTitle || ui('공유된 영상이 아직 없어요'))}
             </h3>
             <p className="toss-community-empty-desc">
               {searchQuery
-                ? (cDict?.emptySearchDesc || (locale === 'ko' ? '다른 검색어를 입력하시거나 검색창을 지워보세요.' : 'Try another search term or clear the search field.'))
+                ? (cDict?.emptySearchDesc || (locale === 'ko' ? ui('다른 검색어를 입력하시거나 검색창을 지워보세요.') : 'Try another search term or clear the search field.'))
                 : (cDict?.emptyDesc ||
-                  '직접 만든 하이라이트 영상을 유튜브에 올리고 첫 번째로 공유해 보세요!')}
+                  ui('직접 만든 하이라이트 영상을 유튜브에 올리고 첫 번째로 공유해 보세요!'))}
             </p>
             {searchQuery ? (
               <button
@@ -243,7 +241,7 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
                 onClick={() => setSearchQuery('')}
                 className="toss-btn-studio-switch"
               >
-                {cDict?.viewAll || (locale === 'ko' ? '전체 목록 보기' : 'View All')}
+                {cDict?.viewAll || (locale === 'ko' ? ui('전체 목록 보기') : 'View All')}
               </button>
             ) : (
               <button
@@ -252,7 +250,7 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
                 className="toss-btn-share-primary"
               >
                 <Plus size={15} />
-                <span>{cDict?.shareMyVideo || '영상 공유하기'}</span>
+                <span>{cDict?.shareMyVideo || ui('영상 공유하기')}</span>
               </button>
             )}
           </div>
@@ -307,7 +305,7 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
                         type="button"
                         onClick={(e) => handleCopyLink(e, video.youtubeVideoId)}
                         className="toss-video-quick-share"
-                        title={cDict?.copyLink || '링크 복사'}
+                        title={cDict?.copyLink || ui('링크 복사')}
                       >
                         <Share2 size={13} />
                       </button>

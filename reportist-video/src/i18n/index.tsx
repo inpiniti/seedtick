@@ -14,6 +14,7 @@ import {
   getLoadedDictionary,
   loadLocaleDictionary,
 } from './dictionaries.ts';
+import { translateUi } from './uiText.ts';
 
 export * from './types.ts';
 export { DEFAULT_LOCALE } from './localeState.ts';
@@ -34,6 +35,7 @@ interface I18nContextType {
   setLocale: (next: Locale) => void;
   dict: Dictionary;
   t: (keyPath: string, params?: Record<string, string | number>) => string;
+  ui: (source: string, params?: Record<string, string | number>) => string;
   locales: LocaleInfo[];
   currentLocaleInfo: LocaleInfo;
   interpolate: (template: string, params?: Record<string, string | number>) => string;
@@ -132,6 +134,14 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [dict]
   );
 
+  // 하드코딩된 한국어 UI 문구를 현재 언어로 변환한다.
+  // 기존 dict 번역을 우선 재사용하고, 새 문구만 uiText 오버라이드에서 찾는다.
+  const ui = useCallback(
+    (source: string, params?: Record<string, string | number>): string =>
+      translateUi(locale, dict, source, params),
+    [locale, dict]
+  );
+
   return (
     <I18nContext.Provider
       value={{
@@ -139,6 +149,7 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setLocale,
         dict,
         t,
+        ui,
         locales: LOCALES,
         currentLocaleInfo,
         interpolate,

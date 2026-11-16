@@ -37,7 +37,7 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
   sourceVideo,
   onSave,
 }) => {
-  const { dict } = useI18n();
+  const { dict, ui } = useI18n();
   const overlayRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -420,10 +420,10 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
                 type="button"
                 className="segment-trim-ctrl-btn-text"
                 onClick={handleResetToAi}
-                title="AI가 추천했던 원래 구간으로 복원"
+                title={ui('AI가 추천했던 원래 구간으로 복원')}
               >
                 <Sparkles size={13} className="text-slate-900" />
-                <span>AI 원본 복원</span>
+                <span>{ui('AI 원본 복원')}</span>
               </button>
             </div>
           </div>
@@ -433,7 +433,7 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
             <div className="segment-trim-timeline-head">
               <span className="segment-trim-timeline-label">
                 <Film size={13} className="text-slate-900" />
-                <span>타임라인 구간 선택</span>
+                <span>{ui('타임라인 구간 선택')}</span>
               </span>
               <span className="segment-trim-timeline-hint">
                 {t.seekHint}
@@ -447,7 +447,7 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
               onPointerCancel={handlePointerCancel}
-              title="타임라인을 누르거나 빨간색 선을 드래그하여 재생 위치를 탐색하세요"
+              title={ui('타임라인을 누르거나 빨간색 선을 드래그하여 재생 위치를 탐색하세요')}
             >
               {/* Selected highlight range */}
               <div
@@ -474,8 +474,7 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
             <div className="segment-trim-timeline-footer-times">
               <span>00:00.0</span>
               <span className="font-semibold text-slate-900">
-                선택 구간: {formatTime(start)} ~ {formatTime(end)} ({clipDuration.toFixed(1)}초)
-              </span>
+                {ui('선택 구간: ')}{formatTime(start)} ~ {formatTime(end)} ({clipDuration.toFixed(1)}{ui('초) ')}</span>
               <span>{formatTime(maxDuration)}</span>
             </div>
           </div>
@@ -497,7 +496,7 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
                   type="button"
                   className="segment-trim-delta-btn"
                   onClick={() => handleStartDelta(-1.0)}
-                  title="-1.0초"
+                  title={ui('-1.0초')}
                 >
                   -1s
                 </button>
@@ -505,7 +504,7 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
                   type="button"
                   className="segment-trim-delta-btn"
                   onClick={() => handleStartDelta(-0.1)}
-                  title="-0.1초"
+                  title={ui('-0.1초')}
                 >
                   -0.1s
                 </button>
@@ -513,7 +512,7 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
                   type="button"
                   className="segment-trim-delta-btn"
                   onClick={() => handleStartDelta(0.1)}
-                  title="+0.1초"
+                  title={ui('+0.1초')}
                 >
                   +0.1s
                 </button>
@@ -521,7 +520,7 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
                   type="button"
                   className="segment-trim-delta-btn"
                   onClick={() => handleStartDelta(1.0)}
-                  title="+1.0초"
+                  title={ui('+1.0초')}
                 >
                   +1s
                 </button>
@@ -533,7 +532,7 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
                 onClick={handleSetCurrentAsStart}
               >
                 <span className="segment-trim-btn-label-long">📍 {t.setCurrentAsStart}</span>
-                <span className="segment-trim-btn-label-short">📍 시작점으로</span>
+                <span className="segment-trim-btn-label-short">{ui('📍 시작점으로')}</span>
                 <span className="segment-trim-btn-subtime">({formatTime(currentTime)})</span>
               </button>
             </div>
@@ -553,7 +552,7 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
                   type="button"
                   className="segment-trim-delta-btn"
                   onClick={() => handleEndDelta(-1.0)}
-                  title="-1.0초"
+                  title={ui('-1.0초')}
                 >
                   -1s
                 </button>
@@ -561,7 +560,7 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
                   type="button"
                   className="segment-trim-delta-btn"
                   onClick={() => handleEndDelta(-0.1)}
-                  title="-0.1초"
+                  title={ui('-0.1초')}
                 >
                   -0.1s
                 </button>
@@ -569,7 +568,7 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
                   type="button"
                   className="segment-trim-delta-btn"
                   onClick={() => handleEndDelta(0.1)}
-                  title="+0.1초"
+                  title={ui('+0.1초')}
                 >
                   +0.1s
                 </button>
@@ -577,7 +576,7 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
                   type="button"
                   className="segment-trim-delta-btn"
                   onClick={() => handleEndDelta(1.0)}
-                  title="+1.0초"
+                  title={ui('+1.0초')}
                 >
                   +1s
                 </button>
@@ -589,7 +588,7 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
                 onClick={handleSetCurrentAsEnd}
               >
                 <span className="segment-trim-btn-label-long">📍 {t.setCurrentAsEnd}</span>
-                <span className="segment-trim-btn-label-short">📍 끝점으로</span>
+                <span className="segment-trim-btn-label-short">{ui('📍 끝점으로')}</span>
                 <span className="segment-trim-btn-subtime">({formatTime(currentTime)})</span>
               </button>
             </div>
@@ -599,8 +598,7 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
           <div className="segment-trim-notice">
             <Info size={14} className="shrink-0 text-slate-900 mt-0.5" />
             <p className="text-[12px] text-slate-600 leading-snug">
-              구간을 수정한 후 <strong>{t.apply}</strong>을 누르면 타임라인에 즉시 반영되며, 상단의 <strong>다시 병합</strong> 버튼을 통해 최종 영상에 적용돼요.
-            </p>
+              {ui('구간을 수정한 후 ')}<strong>{t.apply}</strong>{ui('을 누르면 타임라인에 즉시 반영되며, 상단의 ')}<strong>{ui('다시 병합')}</strong> {ui(' 버튼을 통해 최종 영상에 적용돼요. ')}</p>
           </div>
         </div>
 
@@ -608,7 +606,7 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
         <div className="segment-trim-modal-footer">
           <div className="segment-trim-footer-info">
             <span className="segment-trim-footer-label">{t.duration}:</span>
-            <span className="segment-trim-footer-duration">{clipDuration.toFixed(1)}초</span>
+            <span className="segment-trim-footer-duration">{clipDuration.toFixed(1)}{ui('초')}</span>
           </div>
 
           <div className="segment-trim-footer-btns">

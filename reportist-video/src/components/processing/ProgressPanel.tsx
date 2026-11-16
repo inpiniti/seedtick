@@ -13,6 +13,7 @@ import {
   Activity,
 } from 'lucide-react';
 import type { ProcessingProgress, VideoItem } from '../../types/video.ts';
+import { useI18n } from '../../i18n/index.tsx';
 
 const YoutubeIcon: React.FC<{ size?: number; className?: string }> = ({
   size = 15,
@@ -51,6 +52,7 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
   videos,
   onCancel,
 }) => {
+  const { ui } = useI18n();
   const terminalEndRef = useRef<HTMLDivElement>(null);
 
   // 새 로그 추가 시 자동 스크롤
@@ -79,33 +81,31 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
       <div className="progress-header">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-900 text-xs font-semibold mb-3">
           <Sparkles className="w-3.5 h-3.5 animate-spin" />
-          AI 극적 장면 탐색 & 16:9 시네마틱 렌더링
-        </div>
+          {ui('AI 극적 장면 탐색 & 16:9 시네마틱 렌더링 ')}</div>
         <h2 className="progress-title">
           {progress.totalVideos > 0
-            ? `영상 분석 및 하이라이트 병합 중 (${Math.min(progress.currentVideoIndex + 1, progress.totalVideos)}/${progress.totalVideos})`
-            : '하이라이트 생성 준비 중...'}
+            ? ui('영상 분석 및 하이라이트 병합 중 ({p1}/{p2})', { p1: Math.min(progress.currentVideoIndex + 1, progress.totalVideos), p2: progress.totalVideos })
+            : ui('하이라이트 생성 준비 중...')}
         </h2>
         <p className="progress-desc">
-          지루한 빌드업을 덜어내고, 인물에 맞춘 16:9 유튜브 규격으로 가장 결정적인 순간만 엮고 있어요.
-        </p>
+          {ui('지루한 빌드업을 덜어내고, 인물에 맞춘 16:9 유튜브 규격으로 가장 결정적인 순간만 엮고 있어요. ')}</p>
       </div>
 
       {/* 3단계 파이프라인 인디케이터 */}
       <div className="pipeline-steps">
         <div className={`pipeline-step-item ${getPhaseStepClass('compress')}`}>
           <div className="pipeline-step-dot">1</div>
-          <span>주요 프레임 추출</span>
+          <span>{ui('주요 프레임 추출')}</span>
         </div>
         <div className="text-slate-300">→</div>
         <div className={`pipeline-step-item ${getPhaseStepClass('analyze')}`}>
           <div className="pipeline-step-dot">2</div>
-          <span>AI 극적 구간 분석</span>
+          <span>{ui('AI 극적 구간 분석')}</span>
         </div>
         <div className="text-slate-300">→</div>
         <div className={`pipeline-step-item ${getPhaseStepClass('stitch')}`}>
           <div className="pipeline-step-dot">3</div>
-          <span>16:9 무결점 병합</span>
+          <span>{ui('16:9 무결점 병합')}</span>
         </div>
       </div>
 
@@ -119,7 +119,7 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
 
       {/* 상태 메시지 */}
       <div className="progress-status-text">
-        {progress.statusMessage || '잠시만 기다려주세요...'}
+        {progress.statusMessage || ui('잠시만 기다려주세요...')}
       </div>
 
       {/* 1. 지금 작업 중인 영상 쇼케이스 카드 */}
@@ -139,7 +139,7 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
             )}
             <div className="current-video-badge">
               <Activity className="w-3 h-3 text-slate-500 animate-pulse" />
-              <span>현재 분석 중</span>
+              <span>{ui('현재 분석 중')}</span>
             </div>
           </div>
 
@@ -156,22 +156,20 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
             <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 font-mono mb-2">
               <span className="flex items-center gap-1">
                 <Clock className="w-3 h-3" />
-                원본 {currentVideo.duration.toFixed(1)}초
-              </span>
+                {ui('원본 ')}{currentVideo.duration.toFixed(1)}{ui('초 ')}</span>
               <span>•</span>
               <span>{currentVideo.width}x{currentVideo.height}</span>
               <span>•</span>
               <span className="text-slate-900 font-semibold flex items-center gap-1">
                 <YoutubeIcon size={14} />
-                16:9 커버 크롭 예정
-              </span>
+                {ui('16:9 커버 크롭 예정 ')}</span>
             </div>
 
             <div className="current-video-stage-pill">
-              {progress.currentPhase === 'extract' && '📸 캔버스 기반 14개 핵심 프레임 추출 중...'}
-              {progress.currentPhase === 'analyze' && '🧠 AI 멀티모달 긴장도(Tension) 추론 중...'}
-              {progress.currentPhase === 'stitch' && '✂️ 16:9 유튜브 시네마틱 캔버스(1280x720) 무결점 병합 중...'}
-              {progress.currentPhase === 'compress' && '⚡ 프레임 리샘플링 중...'}
+              {progress.currentPhase === 'extract' && ui('📸 캔버스 기반 14개 핵심 프레임 추출 중...')}
+              {progress.currentPhase === 'analyze' && ui('🧠 AI 멀티모달 긴장도(Tension) 추론 중...')}
+              {progress.currentPhase === 'stitch' && ui('✂️ 16:9 유튜브 시네마틱 캔버스(1280x720) 무결점 병합 중...')}
+              {progress.currentPhase === 'compress' && ui('⚡ 프레임 리샘플링 중...')}
             </div>
           </div>
         </div>
@@ -182,7 +180,7 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
         <div className="analyzed-section">
           <div className="analyzed-header">
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-            <span className="text-xs font-bold text-slate-700">AI 극적 구간 감지 완료 ({analyzedVideos.length}개)</span>
+            <span className="text-xs font-bold text-slate-700">{ui('AI 극적 구간 감지 완료 (')}{analyzedVideos.length}{ui('개)')}</span>
           </div>
 
           <div className="analyzed-grid">
@@ -210,7 +208,7 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
                     <div className="text-[11px] font-mono text-slate-500 flex items-center gap-1 my-0.5">
                       <Clock className="w-3 h-3 text-slate-400" />
                       <span>{vid.duration.toFixed(1)}s → <b className="text-slate-900">{segTotal.toFixed(1)}s</b></span>
-                      <span className="text-emerald-600 font-semibold">({vid.segments.length}개 구간)</span>
+                      <span className="text-emerald-600 font-semibold">({vid.segments.length}{ui('개 구간)')}</span>
                     </div>
 
                     <div className="analyzed-reasons">
@@ -236,7 +234,7 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
         <div className="reasoning-header">
           <div className="flex items-center gap-2">
             <Terminal className="w-3.5 h-3.5 text-slate-500" />
-            <span className="text-xs font-mono font-bold text-slate-300">AI REASONING LOG (실시간 추론 콘솔)</span>
+            <span className="text-xs font-mono font-bold text-slate-300">{ui('AI REASONING LOG (실시간 추론 콘솔)')}</span>
           </div>
           <div className="flex items-center gap-1.5 text-[11px] font-mono text-emerald-400">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -247,8 +245,7 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
         <div className="reasoning-body">
           {(!progress.reasoningLogs || progress.reasoningLogs.length === 0) ? (
             <div className="text-xs font-mono text-slate-400 italic py-2">
-              AI 비전 모델 초기화 및 프레임 시퀀스 수신 대기 중...
-            </div>
+              {ui('AI 비전 모델 초기화 및 프레임 시퀀스 수신 대기 중... ')}</div>
           ) : (
             progress.reasoningLogs.map((log, idx) => {
               const timeMatch = log.match(/^(\[\d{2}:\d{2}:\d{2}\])\s*(.*)$/);
@@ -278,7 +275,7 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
               return progress.currentPhase === 'analyze' ? (
                 <div className="toss-reasoning-waiting">
                   <span className="toss-live-caret" />
-                  <span>모델이 첫 토큰을 생성할 때까지 대기 중...</span>
+                  <span>{ui('모델이 첫 토큰을 생성할 때까지 대기 중...')}</span>
                 </div>
               ) : null;
             }
@@ -286,8 +283,8 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
             return (
               <div className={`toss-live-reasoning-block ${isReasoning ? 'is-reasoning' : 'is-content'}`}>
                 <div className="toss-live-reasoning-label">
-                  <span>{isReasoning ? '💭 모델 사고 과정 (실시간)' : '⌨️ 모델 응답 생성 중 (실시간)'}</span>
-                  <span className="toss-live-reasoning-count">{liveText.length.toLocaleString()}자</span>
+                  <span>{isReasoning ? ui('💭 모델 사고 과정 (실시간)') : ui('⌨️ 모델 응답 생성 중 (실시간)')}</span>
+                  <span className="toss-live-reasoning-count">{liveText.length.toLocaleString()}{ui('자')}</span>
                 </div>
                 <div className="toss-live-reasoning-text">
                   {liveText}
@@ -305,8 +302,7 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
       <div className="mt-6">
         <button type="button" className="btn-secondary" onClick={onCancel}>
           <XCircle className="w-4 h-4 text-slate-500" />
-          작업 중단하기
-        </button>
+          {ui('작업 중단하기 ')}</button>
       </div>
     </div>
   );

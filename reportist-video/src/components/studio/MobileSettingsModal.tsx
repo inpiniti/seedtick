@@ -202,7 +202,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   isReStitching,
   reStitchProgress,
 }) => {
-  const { dict, interpolate } = useI18n();
+  const { dict, interpolate, ui } = useI18n();
   const overlayRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const [activeSection, setActiveSection] = useState<SettingsSectionId>('general');
@@ -331,7 +331,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
       await clearAllAppStorage();
       const updated = await getStorageEstimate();
       setStorageEstimate(updated);
-      const successMsg = '브라우저 캐시와 OPFS 임시 파일을 정리했습니다. 프로젝트는 그대로 유지돼요.';
+      const successMsg = ui('브라우저 캐시와 OPFS 임시 파일을 정리했습니다. 프로젝트는 그대로 유지돼요.');
       setStorageClearMessage(successMsg);
       notify.success(successMsg);
       setTimeout(() => {
@@ -354,7 +354,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
       setStorageEstimate(updated);
       const stats = await getAppStorageStats().catch(() => null);
       setAppStorageStats(stats);
-      const successMsg = `프로젝트 ${result.projectCount}개를 유지한 채 저장소를 최적화했습니다.`;
+      const successMsg = ui('프로젝트 {p1}개를 유지한 채 저장소를 최적화했습니다.', { p1: result.projectCount });
       setStorageClearMessage(successMsg);
       notify.success(successMsg);
       setTimeout(() => {
@@ -362,7 +362,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
       }, 4000);
     } catch (err) {
       console.warn('[Settings] Storage compact failed:', err);
-      notify.error('저장공간 최적화에 실패했습니다. 프로젝트를 개별 삭제해 보세요.');
+      notify.error(ui('저장공간 최적화에 실패했습니다. 프로젝트를 개별 삭제해 보세요.'));
     } finally {
       setIsCompactingStorage(false);
     }
@@ -371,7 +371,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   // 3. 저장소 완전 비우기: 모든 프로젝트·미디어·캐시를 영구 삭제 (되돌릴 수 없음)
   const handleWipeAllStorage = async () => {
     const confirmed = window.confirm(
-      '모든 프로젝트와 원본 영상, 편집 데이터가 기기에서 완전히 삭제됩니다.\n이 작업은 되돌릴 수 없습니다. 계속할까요?'
+      ui("모든 프로젝트와 원본 영상, 편집 데이터가 기기에서 완전히 삭제됩니다.\n이 작업은 되돌릴 수 없습니다. 계속할까요?")
     );
     if (!confirmed) return;
     setIsWipingStorage(true);
@@ -381,13 +381,13 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
       const updated = await getStorageEstimate();
       setStorageEstimate(updated);
       setAppStorageStats({ projectCount: 0, mediaCount: 0, mediaBytes: 0 });
-      notify.success('저장소를 완전히 비웠습니다.');
-      setStorageClearMessage('저장소를 완전히 비웠습니다.');
+      notify.success(ui('저장소를 완전히 비웠습니다.'));
+      setStorageClearMessage(ui('저장소를 완전히 비웠습니다.'));
       // 메모리에 남은 작업 상태도 초기화해야 삭제된 데이터가 다시 저장되지 않는다.
       onReset?.();
     } catch (err) {
       console.warn('[Settings] Storage wipe failed:', err);
-      notify.error('저장소를 비우는 데 실패했습니다.');
+      notify.error(ui('저장소를 비우는 데 실패했습니다.'));
     } finally {
       setIsWipingStorage(false);
     }
@@ -622,13 +622,12 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                     </div>
                     <div className="settings-modal-item-text">
                       <div className="settings-modal-item-title">
-                        {hasKey ? 'AI 모델 & API Key' : dict.header.aiModel}
+                        {hasKey ? ui('AI 모델 & API Key') : dict.header.aiModel}
                       </div>
                       <div className="settings-modal-item-desc">
                         {hasKey ? (
                           <span style={{ fontWeight: 700, color: '#059669' }}>
-                            {preset?.name} ({userKey?.model}) 연결됨
-                          </span>
+                            {preset?.name} ({userKey?.model}{ui(') 연결됨 ')}</span>
                         ) : (
                           <>
                             <span style={{ fontWeight: 600, color: '#1e293b' }}>
@@ -648,7 +647,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                     </div>
                   </div>
                   <div className="settings-modal-item-action">
-                    <span>{hasKey ? '설정' : (dict.common.edit || '변경')}</span>
+                    <span>{hasKey ? ui('설정') : (dict.common.edit || '변경')}</span>
                     <ChevronRight size={15} color="#94a3b8" />
                   </div>
                 </button>
@@ -1422,11 +1421,11 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                             ? dict.settingsModal.storageUsageInfo
                                 .replace('{used}', formatBytes(storageEstimate.usageBytes))
                                 .replace('{available}', formatBytes(storageEstimate.availableBytes))
-                            : `사용 중: ${formatBytes(storageEstimate.usageBytes)} · 남은 공간: ${formatBytes(storageEstimate.availableBytes)}`)
+                            : ui('사용 중: {p1} · 남은 공간: {p2}', { p1: formatBytes(storageEstimate.usageBytes), p2: formatBytes(storageEstimate.availableBytes) }))
                         : dict.settingsModal?.storageMeasuring || '스토리지 사용량 측정 중...'}
                       {appStorageStats && (
                         <span style={{ display: 'block', marginTop: '2px', color: '#475569' }}>
-                          앱 내부: {appStorageStats.projectCount}개 프로젝트 · {formatBytes(appStorageStats.mediaBytes)}
+                          {ui('앱 내부: ')}{appStorageStats.projectCount}{ui('개 프로젝트 · ')}{formatBytes(appStorageStats.mediaBytes)}
                         </span>
                       )}
                     </div>
@@ -1449,7 +1448,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                         ? dict.settingsModal.storageBarLabel
                             .replace('{quota}', formatBytes(storageEstimate.quotaBytes))
                             .replace('{percent}', String(storageEstimate.percentUsed))
-                        : `전체 ${formatBytes(storageEstimate.quotaBytes)} 중 ${storageEstimate.percentUsed}% 사용 중`}
+                        : ui('전체 {p11} 중 {p22}% 사용 중', { p11: formatBytes(storageEstimate.quotaBytes), p22: storageEstimate.percentUsed })}
                     </span>
                     {storageEstimate.isLowStorage && (
                       <span className="toss-storage-low-warning">
@@ -1580,11 +1579,9 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                     <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#1e293b' }}>
-                      캐시 정리
-                    </span>
+                      {ui('캐시 정리 ')}</span>
                     <span style={{ fontSize: '11px', color: '#64748b', lineHeight: 1.35 }}>
-                      브라우저 임시 파일과 OPFS 캐시만 비워요. 프로젝트는 그대로 유지돼요.
-                    </span>
+                      {ui('브라우저 임시 파일과 OPFS 캐시만 비워요. 프로젝트는 그대로 유지돼요. ')}</span>
                   </div>
                   <button
                     type="button"
@@ -1606,7 +1603,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                     }}
                   >
                     <Trash2 size={13} />
-                    <span>{isClearingStorage ? '정리 중...' : '캐시 정리'}</span>
+                    <span>{isClearingStorage ? ui('정리 중...') : ui('캐시 정리')}</span>
                   </button>
                 </div>
 
@@ -1614,11 +1611,9 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                     <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#1e293b' }}>
-                      저장공간 최적화 (DB 압축)
-                    </span>
+                      {ui('저장공간 최적화 (DB 압축) ')}</span>
                     <span style={{ fontSize: '11px', color: '#64748b', lineHeight: 1.35 }}>
-                      프로젝트를 유지한 채 DB를 재구성해, 삭제 후 남은 고아 파일과 잔여 용량을 회수해요.
-                    </span>
+                      {ui('프로젝트를 유지한 채 DB를 재구성해, 삭제 후 남은 고아 파일과 잔여 용량을 회수해요. ')}</span>
                   </div>
                   <button
                     type="button"
@@ -1640,7 +1635,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                     }}
                   >
                     <HardDrive size={13} />
-                    <span>{isCompactingStorage ? '최적화 중...' : '최적화'}</span>
+                    <span>{isCompactingStorage ? ui('최적화 중...') : ui('최적화')}</span>
                   </button>
                 </div>
 
@@ -1648,11 +1643,9 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                     <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#1e293b' }}>
-                      저장소 완전 비우기
-                    </span>
+                      {ui('저장소 완전 비우기 ')}</span>
                     <span style={{ fontSize: '11px', color: '#64748b', lineHeight: 1.35 }}>
-                      모든 프로젝트와 원본 영상을 기기에서 영구 삭제해요. 되돌릴 수 없어요.
-                    </span>
+                      {ui('모든 프로젝트와 원본 영상을 기기에서 영구 삭제해요. 되돌릴 수 없어요. ')}</span>
                   </div>
                   <button
                     type="button"
@@ -1674,7 +1667,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                     }}
                   >
                     <Trash2 size={13} />
-                    <span>{isWipingStorage ? '삭제 중...' : '완전 삭제'}</span>
+                    <span>{isWipingStorage ? ui('삭제 중...') : ui('완전 삭제')}</span>
                   </button>
                 </div>
 
@@ -1936,7 +1929,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
       initialIntroDuration={introDurationSec}
       initialOutroTemplate={outroTemplate}
       initialOutroDuration={outroDurationSec}
-      initialOutroText={outroText}
+      initialOutroText={ui(outroText)}
       onApply={(settings) => {
         if (onChangeIntroOutroSettings) {
           onChangeIntroOutroSettings(settings);

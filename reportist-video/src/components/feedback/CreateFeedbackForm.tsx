@@ -28,7 +28,7 @@ export const CreateFeedbackForm: React.FC<CreateFeedbackFormProps> = ({
   onSubmit,
   showBackHeader = true,
 }) => {
-  const { dict } = useI18n();
+  const { dict, ui } = useI18n();
   const [category, setCategory] = useState<FeedbackCategory>('improvement');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -263,7 +263,7 @@ export const CreateFeedbackForm: React.FC<CreateFeedbackFormProps> = ({
               <ImageIcon size={14} color="#0f172a" />
               <span>
                 {dict.feedback?.attachImagesLabel || '이미지 / 스크린샷 첨부'} ({images.length}
-                {dict.feedback?.attachedImagesTitle ? '' : '장'})
+                {dict.feedback?.attachedImagesTitle ? '' : ui('장')})
               </span>
             </label>
             <button

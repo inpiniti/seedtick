@@ -23,7 +23,7 @@ export const DateFormatSelectorModal: React.FC<DateFormatSelectorModalProps> = (
   onSelectFormat,
   referenceDate,
 }) => {
-  const { dict, interpolate, locale } = useI18n();
+  const { dict, interpolate, locale, ui } = useI18n();
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useModalScrollLock(isOpen, {

@@ -3,6 +3,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Download, RefreshCw, Film, Clock, Scissors, Zap, Trash2, RotateCcw } from 'lucide-react';
 import type { FinalVideoResult, HighlightSegment } from '../../types/video.ts';
+import { useI18n } from '../../i18n/index.tsx';
 
 const YoutubeIcon: React.FC<{ size?: number; className?: string }> = ({
   size = 15,
@@ -43,6 +44,7 @@ export const ResultView: React.FC<ResultViewProps> = ({
   onReStitch,
   isReStitching = false,
 }) => {
+  const { ui } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [segments, setSegments] = useState<HighlightSegment[]>(result.segments);
 
@@ -145,21 +147,19 @@ export const ResultView: React.FC<ResultViewProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-white border border-[#e2e8f0] rounded-xl shadow-sm">
         <div>
           <h3 className="text-base font-bold text-[#0f172a] flex items-center gap-2">
-            <span>🎉 16:9 유튜브 맞춤 하이라이트 영상 완성!</span>
+            <span>{ui('🎉 16:9 유튜브 맞춤 하이라이트 영상 완성!')}</span>
           </h3>
           <p className="text-xs text-[#64748b]">
-            가로/세로 비율에 맞춰 인물 중심으로 16:9 규격화되고 멈춤 구간 없이 매끄럽게 병합되었어요.
-          </p>
+            {ui('가로/세로 비율에 맞춰 인물 중심으로 16:9 규격화되고 멈춤 구간 없이 매끄럽게 병합되었어요. ')}</p>
         </div>
 
         <div className="flex items-center gap-3">
           <button type="button" className="btn-secondary" onClick={onReset}>
             <RefreshCw className="w-4 h-4 text-slate-500" />
-            새로 만들기
-          </button>
+            {ui('새로 만들기 ')}</button>
           <button type="button" className="btn-primary" onClick={handleDownload}>
             <Download className="w-4 h-4" />
-            영상 다운로드 ({formatSize(result.fileSize)})
+            {ui('영상 다운로드 (')}{formatSize(result.fileSize)})
           </button>
         </div>
       </div>
@@ -169,8 +169,7 @@ export const ResultView: React.FC<ResultViewProps> = ({
         <div className="kpi-card">
           <div className="kpi-label flex items-center gap-1.5">
             <Zap className="w-3.5 h-3.5 text-amber-500" />
-            하이라이트 길이
-          </div>
+            {ui('하이라이트 길이 ')}</div>
           <div className="kpi-value text-slate-900">
             {formatDuration(result.duration)}
           </div>
@@ -179,8 +178,7 @@ export const ResultView: React.FC<ResultViewProps> = ({
         <div className="kpi-card">
           <div className="kpi-label flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 text-slate-500" />
-            원본 영상 총합
-          </div>
+            {ui('원본 영상 총합 ')}</div>
           <div className="kpi-value text-slate-700">
             {formatDuration(result.originalTotalDuration)}
           </div>
@@ -189,18 +187,15 @@ export const ResultView: React.FC<ResultViewProps> = ({
         <div className="kpi-card">
           <div className="kpi-label flex items-center gap-1.5">
             <Scissors className="w-3.5 h-3.5 text-emerald-500" />
-            시간 절약률
-          </div>
+            {ui('시간 절약률 ')}</div>
           <div className="kpi-value text-emerald-600">
-            {compressionRatio}% 단축
-          </div>
+            {compressionRatio}{ui('% 단축 ')}</div>
         </div>
 
         <div className="kpi-card">
           <div className="kpi-label flex items-center gap-1.5">
             <YoutubeIcon size={14} />
-            유튜브 화면 비율
-          </div>
+            {ui('유튜브 화면 비율 ')}</div>
           <div className="kpi-value text-slate-800 text-lg">
             16:9 (1280x720)
           </div>
@@ -211,13 +206,12 @@ export const ResultView: React.FC<ResultViewProps> = ({
       <div className="segments-list-card">
         <div className="segments-header">
           <div>
-            <span className="text-base font-bold text-slate-900">AI가 포착한 극적 순간 타임라인</span>
+            <span className="text-base font-bold text-slate-900">{ui('AI가 포착한 극적 순간 타임라인')}</span>
             <p className="text-xs font-normal text-slate-500 mt-0.5">
-              마음에 들지 않는 구간은 우측 휴지통 버튼으로 직접 삭제하고 다시 병합할 수 있어요.
-            </p>
+              {ui('마음에 들지 않는 구간은 우측 휴지통 버튼으로 직접 삭제하고 다시 병합할 수 있어요. ')}</p>
           </div>
           <span className="text-xs font-mono text-slate-900 font-semibold bg-slate-100 px-2.5 py-1 rounded border border-slate-200">
-            {segments.length}개 구간 ({formatDuration(currentTotalDuration)})
+            {segments.length}{ui('개 구간 (')}{formatDuration(currentTotalDuration)})
           </span>
         </div>
 
@@ -228,11 +222,9 @@ export const ResultView: React.FC<ResultViewProps> = ({
               <Scissors className="w-4 h-4 text-amber-600 animate-pulse" />
               <div>
                 <span className="font-bold text-amber-900 text-sm">
-                  {result.segments.length - segments.length}개 구간이 제외되었습니다.
-                </span>
+                  {result.segments.length - segments.length}{ui('개 구간이 제외되었습니다. ')}</span>
                 <span className="text-xs text-amber-700 ml-2">
-                  (남은 {segments.length}개 구간: 약 {currentTotalDuration.toFixed(1)}초)
-                </span>
+                  {ui('(남은 ')}{segments.length}{ui('개 구간: 약 ')}{currentTotalDuration.toFixed(1)}{ui('초) ')}</span>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -242,15 +234,14 @@ export const ResultView: React.FC<ResultViewProps> = ({
                 onClick={handleResetSegments}
               >
                 <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-                원래대로 복구
-              </button>
+                {ui('원래대로 복구 ')}</button>
               <button
                 type="button"
                 className="btn-primary py-1.5 px-3.5 text-xs shadow-sm bg-gradient-to-r from-slate-900 to-slate-900 hover:from-black hover:to-black"
                 onClick={() => onReStitch?.(segments)}
                 disabled={isReStitching || segments.length === 0}
               >
-                {isReStitching ? '새로 병합 중...' : '✂️ 수정된 구간으로 즉시 다시 병합하기'}
+                {isReStitching ? ui('새로 병합 중...') : ui('✂️ 수정된 구간으로 즉시 다시 병합하기')}
               </button>
             </div>
           </div>
@@ -260,20 +251,18 @@ export const ResultView: React.FC<ResultViewProps> = ({
         <div className="segments-list-scroll">
           {segments.length === 0 ? (
             <div className="p-8 text-center text-sm text-slate-500 border border-dashed border-slate-200 rounded-lg">
-              모든 구간이 제외되었습니다. '원래대로 복구' 버튼을 눌러 구간을 되돌려보세요.
-            </div>
+              {ui("모든 구간이 제외되었습니다. '원래대로 복구' 버튼을 눌러 구간을 되돌려보세요. ")}</div>
           ) : (
             segments.map((segment, idx) => (
               <div
                 key={segment.id}
                 className="segment-item group"
                 onClick={() => handleSeekToSegment(segment.id)}
-                title="클릭하여 이 장면으로 이동"
+                title={ui('클릭하여 이 장면으로 이동')}
               >
                 <div className="segment-left">
                   <span className="segment-badge">
-                    #{idx + 1} ({segment.duration.toFixed(1)}초)
-                  </span>
+                    #{idx + 1} ({segment.duration.toFixed(1)}{ui('초) ')}</span>
                   <span className="segment-reason">
                     {segment.reason}
                   </span>
@@ -286,7 +275,7 @@ export const ResultView: React.FC<ResultViewProps> = ({
                   <button
                     type="button"
                     className="segment-delete-btn"
-                    title="이 하이라이트 구간 제외하기"
+                    title={ui('이 하이라이트 구간 제외하기')}
                     onClick={(e) => handleDeleteSegment(segment.id, e)}
                   >
                     <Trash2 className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-500 hover:!text-red-600" />

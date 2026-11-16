@@ -42,7 +42,7 @@ export const SubtitleDownloadModal: React.FC<SubtitleDownloadModalProps> = ({
   bridgeDurationMap,
   videoTitle = 'highlight',
 }) => {
-  const { dict, locale: currentAppLocale, interpolate } = useI18n();
+  const { dict, locale: currentAppLocale, interpolate, ui } = useI18n();
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useModalScrollLock(isOpen, {

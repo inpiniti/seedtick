@@ -104,7 +104,7 @@ export function PenguinLogoBadge({
         flexShrink: 0,
         ...variantStyles,
       }}
-      aria-label="PenguinCut 로고"
+      aria-label="PenguinCut"
     >
       <PenguinLogo size={sizeConfig.icon} inverted={variant === "dark"} />
     </span>

@@ -90,7 +90,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
   selectedModelId,
   onSelectModel,
 }) => {
-  const { dict, interpolate, locale } = useI18n();
+  const { dict, interpolate, locale, ui } = useI18n();
   const overlayRef = useRef<HTMLDivElement>(null);
   const isMobileViewport = useIsMobileViewport();
   const [searchQuery, setSearchQuery] = useState('');
@@ -1081,7 +1081,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                           title={dict.modelModal.privacyNoTrainingTip || '이 모델은 입력 데이터를 학습에 사용하지 않습니다.'}
                         >
                           <ShieldCheck size={11} />
-                          {dict.modelModal.privacyNoTraining ?? '학습 미사용'}
+                          {dict.modelModal.privacyNoTraining ?? ui('학습 미사용')}
                         </span>
                       )}
                       {model.dataPolicy?.training === true && (
@@ -1095,7 +1095,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                           title={dict.modelModal.privacyTrainingTip || '주의: 이 엔드포인트는 데이터가 모델 학습에 사용될 수 있습니다.'}
                         >
                           <ShieldAlert size={11} />
-                          {dict.modelModal.privacyTraining ?? '학습에 사용됨'}
+                          {dict.modelModal.privacyTraining ?? ui('학습에 사용됨')}
                         </span>
                       )}
                     </div>
@@ -1233,7 +1233,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                           >
                             <ShieldCheck size={12} color="#10b981" />
                             <span style={{ color: '#059669', fontWeight: 600 }}>
-                              {dict.modelModal.privacyNoTraining ?? '학습 미사용'}
+                              {dict.modelModal.privacyNoTraining ?? ui('학습 미사용')}
                             </span>
                           </div>
                         ) : model.dataPolicy.training === true ? (
@@ -1243,7 +1243,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                           >
                             <ShieldAlert size={12} color="#f59e0b" />
                             <span style={{ color: '#d97706', fontWeight: 600 }}>
-                              {dict.modelModal.privacyTraining ?? '학습에 사용됨'}
+                              {dict.modelModal.privacyTraining ?? ui('학습에 사용됨')}
                             </span>
                           </div>
                         ) : null}
@@ -1254,7 +1254,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                             title={dict.modelModal.privacyZdrTip || '요청 완료 후 데이터가 서버에 일체 보관되지 않고 즉시 삭제됩니다 (Zero Data Retention).'}
                           >
                             <span style={{ color: '#059669', fontWeight: 600 }}>
-                              🛡️ {dict.modelModal.privacyZdr ?? '즉시 삭제 (ZDR)'}
+                              🛡️ {dict.modelModal.privacyZdr ?? ui('즉시 삭제 (ZDR)')}
                             </span>
                           </div>
                         ) : model.dataPolicy.retainsPrompts === true ? (
@@ -1268,10 +1268,10 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                           >
                             <span style={{ color: '#4b5563' }}>
                               ⏱️ {typeof model.dataPolicy.retentionDays === 'number' && model.dataPolicy.retentionDays > 0
-                                ? interpolate(dict.modelModal.privacyRetention ?? '보관 {days}일', {
+                                ? interpolate(dict.modelModal.privacyRetention ?? ui('보관 {days}일'), {
                                     days: model.dataPolicy.retentionDays,
                                   })
-                                : (dict.modelModal.privacyRetained30d ?? '보관 30일')}
+                                : (dict.modelModal.privacyRetained30d ?? ui('보관 30일'))}
                             </span>
                           </div>
                         ) : null}

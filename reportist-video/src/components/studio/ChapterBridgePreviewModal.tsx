@@ -69,7 +69,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
   initialLocationTemplate = 'winding-route',
   onApply,
 }) => {
-  const { dict, interpolate } = useI18n();
+  const { dict, interpolate, ui } = useI18n();
   const cDict = dict.chapterBridgeModal;
 
   const [dateTemplate, setDateTemplate] = useState<BridgeDateTemplateId>(initialDateTemplate);
@@ -92,11 +92,11 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
       return {
         id: opt.id,
         num: opt.num,
-        name: trans?.name || opt.name,
-        desc: trans?.desc || opt.desc,
+        name: trans?.name || ui(opt.name),
+        desc: trans?.desc || ui(opt.desc),
       };
     });
-  }, [cDict]);
+  }, [cDict, ui]);
 
   const locationOptions = useMemo(() => {
     return LOCATION_TEMPLATE_OPTIONS.map((opt) => {
@@ -104,11 +104,11 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
       return {
         id: opt.id,
         num: opt.num,
-        name: trans?.name || opt.name,
-        desc: trans?.desc || opt.desc,
+        name: trans?.name || ui(opt.name),
+        desc: trans?.desc || ui(opt.desc),
       };
     });
-  }, [cDict]);
+  }, [cDict, ui]);
 
   const selectedDateName = dateOptions.find((o) => o.id === dateTemplate)?.name || '';
   const selectedLocationName = locationOptions.find((o) => o.id === locationTemplate)?.name || '';
@@ -163,9 +163,9 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
       shouldBridge: true,
       fromDate: '2024.08.15',
       toDate: '2024.08.18',
-      fromLocation: cDict?.mockData?.fromLocation || '서울 (김포공항)',
-      toLocation: cDict?.mockData?.toLocation || '도쿄 (하네다)',
-      sceneTitle: cDict?.mockData?.sceneTitle || '도쿄 여행 출발',
+      fromLocation: cDict?.mockData?.fromLocation || ui('서울 (김포공항)'),
+      toLocation: cDict?.mockData?.toLocation || ui('도쿄 (하네다)'),
+      sceneTitle: cDict?.mockData?.sceneTitle || ui('도쿄 여행 출발'),
       chapterIndex: 2,
       totalChapters: 5,
       isDateChanged: true,
@@ -371,10 +371,10 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
             </div>
             <div>
               <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.3px' }}>
-                {cDict?.title || '챕터 브릿지 모션 템플릿 & 실시간 미리보기'}
+                {cDict?.title || ui('챕터 브릿지 모션 템플릿 & 실시간 미리보기')}
               </h3>
               <p style={{ margin: '2px 0 0 0', fontSize: '13px', color: '#64748b' }}>
-                {cDict?.subtitle || '날짜 스타일과 장소 스타일을 원하는 조합으로 믹스앤매치할 수 있습니다.'}
+                {cDict?.subtitle || ui('날짜 스타일과 장소 스타일을 원하는 조합으로 믹스앤매치할 수 있습니다.')}
               </p>
             </div>
           </div>
@@ -396,10 +396,10 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                 fontWeight: 600,
                 transition: 'background-color 0.15s ease',
               }}
-              title={isFullscreen ? (cDict?.exitFullscreen || '원래 크기로 복귀') : (cDict?.fullscreen || '전체화면 확대')}
+              title={isFullscreen ? (cDict?.exitFullscreen || ui('원래 크기로 복귀')) : (cDict?.fullscreen || ui('전체화면 확대'))}
             >
               {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
-              <span>{isFullscreen ? (cDict?.exitFullscreen || '축소') : (cDict?.fullscreen || '화면 확대')}</span>
+              <span>{isFullscreen ? (cDict?.exitFullscreen || ui('축소')) : (cDict?.fullscreen || ui('화면 확대'))}</span>
             </button>
             <button
               type="button"
@@ -419,7 +419,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                 justifyContent: 'center',
                 transition: 'background-color 0.15s ease',
               }}
-              aria-label={cDict?.close || '닫기'}
+              aria-label={cDict?.close || ui('닫기')}
             >
               <X size={18} />
             </button>
@@ -485,7 +485,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                     boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
                   }}
                 >
-                  {interpolate(cDict?.dateBadgePrefix || '날짜: {name}', { name: selectedDateName })}
+                  {interpolate(cDict?.dateBadgePrefix || ui('날짜: {name}'), { name: selectedDateName })}
                 </span>
                 <span
                   style={{
@@ -500,7 +500,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                     boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
                   }}
                 >
-                  {interpolate(cDict?.locationBadgePrefix || '장소: {name}', { name: selectedLocationName })}
+                  {interpolate(cDict?.locationBadgePrefix || ui('장소: {name}'), { name: selectedLocationName })}
                 </span>
               </div>
             </div>
@@ -537,7 +537,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                 }}
               >
                 {isPlaying ? <Pause size={15} /> : <Play size={15} />}
-                {isPlaying ? (cDict?.pause || '일시정지') : (cDict?.play || '재생')}
+                {isPlaying ? (cDict?.pause || ui('일시정지')) : (cDict?.play || ui('재생'))}
               </button>
               <button
                 type="button"
@@ -553,7 +553,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                   alignItems: 'center',
                   transition: 'background-color 0.15s ease',
                 }}
-                title={cDict?.restart || '처음부터 다시 보기'}
+                title={cDict?.restart || ui('처음부터 다시 보기')}
               >
                 <RotateCcw size={15} />
               </button>
@@ -598,7 +598,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
               <HelpCircle size={16} color="#1e293b" style={{ flexShrink: 0 }} />
               <span>
                 {cDict?.tipDescription ||
-                  '💡 템플릿 카드를 클릭하면 왼쪽 대형 화면에서 즉시 실시간 전환 모션이 시뮬레이션됩니다.'}
+                  ui('💡 템플릿 카드를 클릭하면 왼쪽 대형 화면에서 즉시 실시간 전환 모션이 시뮬레이션됩니다.')}
               </span>
             </div>
           </div>
@@ -639,7 +639,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                 }}
               >
                 <Clock size={15} />
-                <span>{cDict?.tabDate || '날짜 스타일'}</span>
+                <span>{cDict?.tabDate || ui('날짜 스타일')}</span>
               </button>
               <button
                 type="button"
@@ -664,7 +664,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                 }}
               >
                 <Navigation size={15} />
-                <span>{cDict?.tabLocation || '장소 스타일'}</span>
+                <span>{cDict?.tabLocation || ui('장소 스타일')}</span>
               </button>
             </div>
 
@@ -694,7 +694,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                   }}
                 >
                   <Clock size={16} />
-                  <span>{cDict?.dateSectionTitle || '날짜 스타일'}</span>
+                  <span>{cDict?.dateSectionTitle || ui('날짜 스타일')}</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {dateOptions.map((opt) => {
@@ -790,7 +790,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                   }}
                 >
                   <Navigation size={16} />
-                  <span>{cDict?.locationSectionTitle || '장소 스타일'}</span>
+                  <span>{cDict?.locationSectionTitle || ui('장소 스타일')}</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {locationOptions.map((opt) => {
@@ -891,7 +891,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
               transition: 'background-color 0.15s ease',
             }}
           >
-            {cDict?.close || '닫기'}
+            {cDict?.close || ui('닫기')}
           </button>
           <button
             type="button"
@@ -909,7 +909,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
               transition: 'opacity 0.15s ease',
             }}
           >
-            {cDict?.applyDefault || '이 조합으로 기본값 적용'}
+            {cDict?.applyDefault || ui('이 조합으로 기본값 적용')}
           </button>
         </div>
       </div>
