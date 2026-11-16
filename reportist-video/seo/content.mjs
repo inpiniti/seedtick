@@ -21,7 +21,11 @@ export const SITE = {
   // Public profiles that belong to the same brand entity. Paste the URLs once the
   // accounts exist, then run `npm run seo`. Empty entries are skipped, so the
   // Organization schema never advertises a profile that does not exist yet.
-  sameAs: [],
+  sameAs: [
+    "https://www.youtube.com/channel/UC9p7WHmzj2x79s55wN22xQQ",
+    "https://github.com/inpiniti/penguincut",
+    "https://x.com/penguincut_ai",
+  ],
 };
 
 export const HREFLANG_ALIASES = {
