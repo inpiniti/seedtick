@@ -796,6 +796,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [activeSection, setActiveSection] = useState<StudioSection>('intro');
   const [selectedBridgeIndex, setSelectedBridgeIndex] = useState<number>(1);
   const musicPanelPinnedRef = useRef<boolean>(false);
+  // 단계 이동 등 프로그래밍적으로 시크할 때는 플레이헤드 기반 패널 동기화를 잠시 멈춘다.
+  // (꺼져 있는 아웃트로/브릿지로 이동하면 시크 위치가 'segment'로 해석돼 패널이 컷으로 튕기던 문제)
+  const sectionSyncSuppressRef = useRef<boolean>(false);
   const previewRangeEndRef = useRef<number | null>(null);
   const rightColumnRef = useRef<HTMLElement>(null);
   const consoleScrollRef = useRef<HTMLDivElement>(null);
@@ -2413,7 +2416,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // - 재생 중에는 눈이 피로하지 않도록 전환하지 않고, 스크럽/클릭/시크 시에만 동기화한다.
   // - 5번 노래 패널을 직접 연 상태에서는 사용자가 타임라인 블록을 누르기 전까지 유지한다.
   const syncSectionForTime = (timelineTime: number) => {
-    if (segments.length === 0 || isSequencePlayingRef.current || musicPanelPinnedRef.current) return;
+    if (segments.length === 0 || isSequencePlayingRef.current || musicPanelPinnedRef.current || sectionSyncSuppressRef.current) return;
     const res = resolveTimelineAt(timelineTime);
     if (res.phase === 'intro') {
       setActiveSection('intro');
@@ -3448,6 +3451,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 클립 선택 및 이동
   const handleSelectSegment = (segId: string) => {
     musicPanelPinnedRef.current = false;
+    // 단계 이동으로 시크할 때 패널이 플레이헤드 기준으로 되튕기지 않도록 동기화를 잠시 멈춘다.
+    sectionSyncSuppressRef.current = true;
+    try {
     // 타임라인 블록을 누르면 오른쪽 편집 패널도 같은 단계로 즉시 전환한다.
     // (인트로/아웃트로/컷 각각의 블록과 편집 화면이 서로 어긋나지 않도록)
     setActiveSection(segId === 'intro' ? 'intro' : segId === 'outro' ? 'outro' : 'cut');
@@ -3483,6 +3489,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       activeSequencePhaseRef.current = '';
       applyVideoSeek(targetT);
     }
+    } finally {
+      sectionSyncSuppressRef.current = false;
+    }
   };
 
   // 구간(start~end)만 재생하고 자동으로 멈추는 미리보기
@@ -3491,9 +3500,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     const start = Math.max(0, Math.min(totalDuration, startTime));
     const end = Math.max(start + 0.15, Math.min(totalDuration, endTime));
     previewRangeEndRef.current = end;
-    currentTimeRef.current = start;
-    setCurrentTime(start);
-    applyVideoSeek(start);
+    sectionSyncSuppressRef.current = true;
+    try {
+      currentTimeRef.current = start;
+      setCurrentTime(start);
+      applyVideoSeek(start);
+    } finally {
+      sectionSyncSuppressRef.current = false;
+    }
     startSequencePlayback(start);
   };
 
@@ -3538,7 +3552,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         currentTimeRef.current = target;
         setCurrentTime(target);
         activeSequencePhaseRef.current = '';
-        applyVideoSeek(target);
+        sectionSyncSuppressRef.current = true;
+        try {
+          applyVideoSeek(target);
+        } finally {
+          sectionSyncSuppressRef.current = false;
+        }
       }
       return;
     }
@@ -3561,6 +3580,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     const seg = segments[idx];
     if (!seg) return;
     musicPanelPinnedRef.current = false;
+    sectionSyncSuppressRef.current = true;
+    try {
     setActiveSection('bridge');
     setSelectedBridgeIndex(idx);
     setSelectedSegmentId(seg.id);
@@ -3571,6 +3592,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       setCurrentTime(target);
       activeSequencePhaseRef.current = '';
       applyVideoSeek(target);
+    }
+    } finally {
+      sectionSyncSuppressRef.current = false;
     }
     if (autoPreview) {
       window.setTimeout(() => previewSectionPlay('bridge', idx), 80);
