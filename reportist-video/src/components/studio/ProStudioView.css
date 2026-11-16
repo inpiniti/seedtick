@@ -13386,6 +13386,22 @@
   background: #d6e8ff;
 }
 
+/* 브릿지 칩도 컷 블록과 동일하게 선택/재생 상태를 구분해서 보여준다. */
+.toss-sequencer-bridge-chip.selected {
+  border-style: solid;
+  border-color: #0f172a;
+  box-shadow: 0 0 0 1.5px #0f172a;
+  color: #0f172a;
+  z-index: 6;
+}
+
+.toss-sequencer-bridge-chip.playing {
+  border-style: solid;
+  border-color: #04b069;
+  box-shadow: 0 0 0 1.5px #04b069;
+  z-index: 7;
+}
+
 .toss-bridge-chip-label {
   font-size: 9.5px;
   font-weight: 800;

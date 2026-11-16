@@ -2411,6 +2411,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     return selectedSegmentId;
   }, [currentTime, segments, isSequenceMode, effectiveBridgeDurationMap, introDuration, outroDuration, totalDuration, selectedSegmentId]);
 
+  // 플레이헤드가 브릿지 구간 안에 있을 때 해당 브릿지의 "다음 컷" 인덱스를 돌려준다.
+  // 브릿지 재생 중에는 다음 컷 블록에 초록 테두리가 켜지지 않도록 컷 하이라이트와 분리한다.
+  const activePlayingBridgeIndex = useMemo(() => {
+    if (!isSequenceMode) return null;
+    for (let i = 0; i < segments.length; i++) {
+      const offset = segmentTimelineOffsets[segments[i].id];
+      if (!offset || offset.bridgeDuration <= 0) continue;
+      if (currentTime >= offset.bridgeStartOffset && currentTime < offset.startOffset) {
+        return i;
+      }
+    }
+    return null;
+  }, [currentTime, segments, segmentTimelineOffsets, isSequenceMode]);
+
   // 현재 활성 재생 중인 세그먼트 객체
   const activePlayingSegment = useMemo(() => {
     return (
@@ -3378,6 +3392,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 클립 선택 및 이동
   const handleSelectSegment = (segId: string) => {
     musicPanelPinnedRef.current = false;
+    // 타임라인 블록을 누르면 오른쪽 편집 패널도 같은 단계로 즉시 전환한다.
+    // (인트로/아웃트로/컷 각각의 블록과 편집 화면이 서로 어긋나지 않도록)
+    setActiveSection(segId === 'intro' ? 'intro' : segId === 'outro' ? 'outro' : 'cut');
     setSelectedSegmentId(segId);
     if (!isSequenceMode) {
       const seg = segments.find((s) => s.id === segId);
@@ -3453,12 +3470,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       const offset = seg ? segmentTimelineOffsets[seg.id] : undefined;
       if (!offset) return;
       if (offset.bridgeDuration > 0) {
-        previewSectionRange(
-          offset.bridgeStartOffset + 0.01,
-          offset.startOffset + Math.min(1.2, seg.duration)
-        );
+        // 브릿지 구간 안에서만 재생하고, 다음 컷으로 넘어가기 직전에 멈춘다.
+        // (기존: 다음 컷을 1.2초 더 재생 → 플레이헤드가 다음 컷 중간에서 멈추던 문제)
+        previewSectionRange(offset.bridgeStartOffset + 0.01, offset.startOffset - 0.02);
       } else {
-        previewSectionRange(offset.startOffset, offset.endOffset);
+        // 아직 꺼져 있는 브릿지는 재생할 구간이 없으므로 다음 컷으로 넘어가지 않고
+        // 해당 전환이 시작되는 위치(다음 컷 첫 프레임)로만 이동한다.
+        const target = offset.startOffset;
+        currentTimeRef.current = target;
+        setCurrentTime(target);
+        activeSequencePhaseRef.current = '';
+        applyVideoSeek(target);
       }
       return;
     }
@@ -5598,7 +5620,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       {/* 시작 인트로 블록 (인터로가 포함된 경우) */}
                       {introDuration > 0 && (
                         <div
-                          className={`toss-sequencer-block toss-sequencer-intro-block ${activePlayingSegmentId === 'intro' ? 'playing' : ''} ${selectedSegmentId === 'intro' ? 'selected' : ''}`}
+                          className={`toss-sequencer-block toss-sequencer-intro-block ${activePlayingSegmentId === 'intro' ? 'playing' : ''} ${activeSection === 'intro' ? 'selected' : ''}`}
                           style={{
                             flex: `${Math.max(0.01, introDuration)} 1 0%`,
                             minWidth: 0,
@@ -5620,8 +5642,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       )}
 
                       {segments.map((seg, idx) => {
-                        const isCurrent = seg.id === activePlayingSegmentId;
-                        const isSelected = seg.id === selectedSegmentId;
+                        const isCurrent = seg.id === activePlayingSegmentId && activePlayingBridgeIndex !== idx;
+                        const isSelected = activeSection === 'cut' && seg.id === selectedSegmentId;
                         const bridgeDur = effectiveBridgeDurationMap[seg.id] ?? 0;
                         const widthPct = ((seg.duration + bridgeDur) / (totalDuration || 1)) * 100;
                         const vItem = videoMap.get(seg.sourceVideoId);
@@ -5642,6 +5664,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         const isLastClip = idx === segments.length - 1 && outroDuration === 0;
                         const isBridgeCandidate = idx > 0 && bridgeCandidateIndexes.includes(idx);
                         const isBridgeEnabled = bridgeDur > 0;
+                        const isBridgeSelected = activeSection === 'bridge' && effectiveBridgeIndex === idx;
+                        const isBridgePlaying = activePlayingBridgeIndex === idx;
                         const bridgePrev = isBridgeCandidate ? segments[idx - 1] : undefined;
 
                         return (
@@ -5649,7 +5673,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             {isBridgeCandidate && (
                               <button
                                 type="button"
-                                className={`toss-sequencer-bridge-chip ${isBridgeEnabled ? 'is-active' : 'is-potential'}`}
+                                className={`toss-sequencer-bridge-chip ${isBridgeEnabled ? 'is-active' : 'is-potential'} ${isBridgeSelected ? 'selected' : ''} ${isBridgePlaying ? 'playing' : ''}`}
                                 style={{
                                   flex: isBridgeEnabled ? `${Math.max(0.01, bridgeDur)} 1 0%` : '0 0 auto',
                                 }}
@@ -5759,7 +5783,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       {/* 종료 아웃트로 블록 (아웃트로가 포함된 경우) */}
                       {outroDuration > 0 && (
                         <div
-                          className={`toss-sequencer-block toss-sequencer-outro-block is-video-end-clip ${activePlayingSegmentId === 'outro' ? 'playing' : ''} ${selectedSegmentId === 'outro' ? 'selected' : ''}`}
+                          className={`toss-sequencer-block toss-sequencer-outro-block is-video-end-clip ${activePlayingSegmentId === 'outro' ? 'playing' : ''} ${activeSection === 'outro' ? 'selected' : ''}`}
                           style={{
                             flex: `${Math.max(0.01, outroDuration)} 1 0%`,
                             minWidth: 0,
