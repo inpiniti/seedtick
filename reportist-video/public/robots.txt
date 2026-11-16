@@ -1,7 +1,7 @@
 User-agent: *
 Allow: /
 
-# Internal API proxy — not a page.
+# Internal API proxy - not a page.
 Disallow: /v1/
 Disallow: /health
 

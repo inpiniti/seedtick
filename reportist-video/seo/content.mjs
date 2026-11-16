@@ -16,6 +16,7 @@ export const SITE = {
   verification: {
     google: "",
     naver: "",
+    bing: "",
   },
 };
 
@@ -40,7 +41,7 @@ export const LOCALES = [
     nativeLabel: "English",
     title: "PenguinCut — AI Video Highlight Editor",
     description:
-      "Turn long videos into one cinematic highlight. PenguinCut uses AI to find the best moments, add captions and music, and export a polished 16:9 video in your browser.",
+      "PenguinCut turns long videos into one cinematic AI highlight in your browser.",
     keywords:
       "AI video highlight editor, AI highlight generator, video highlight maker, turn long videos into highlights, AI video editor, YouTube highlight, PenguinCut",
     nav: {
@@ -266,7 +267,7 @@ export const LOCALES = [
     nativeLabel: "한국어",
     title: "펭귄컷(PenguinCut) — AI 영상 하이라이트 에디터",
     description:
-      "펭귄컷(PenguinCut)은 긴 영상을 하나의 시네마틱 하이라이트로 바꿉니다. AI가 가장 좋은 순간을 찾고, 자막과 음악을 더해 브라우저에서 16:9 영상으로 완성합니다.",
+      "펭귄컷(PenguinCut)은 AI로 영상 속 최고의 순간을 찾아 16:9 하이라이트로 완성합니다.",
     keywords:
       "AI 영상 하이라이트, 하이라이트 편집, 영상 하이라이트 만들기, AI 영상 편집, 유튜브 하이라이트, 펭귄컷, 팽귄컷, PenguinCut",
     nav: {

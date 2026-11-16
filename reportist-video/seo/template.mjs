@@ -704,6 +704,17 @@ function renderHead(locale) {
   const isEnglish = locale.code === "en";
   const redirectHash = isEnglish ? "" : `?lang=${locale.code}`;
 
+  // Only the tokens that are filled in get rendered, so the generated pages
+  // never ship empty verification tags or leftover blank lines.
+  const verification = [
+    SITE.verification?.google &&
+      `<meta name="google-site-verification" content="${esc(SITE.verification.google)}">`,
+    SITE.verification?.naver &&
+      `<meta name="naver-site-verification" content="${esc(SITE.verification.naver)}">`,
+    SITE.verification?.bing &&
+      `<meta name="msvalidate.01" content="${esc(SITE.verification.bing)}">`,
+  ].filter(Boolean);
+
   return `
   <title>${esc(locale.title)}</title>
   <meta name="description" content="${esc(locale.description)}">
@@ -743,10 +754,7 @@ function renderHead(locale) {
   <meta name="application-name" content="PenguinCut">
   <meta name="apple-mobile-web-app-title" content="PenguinCut">
   <meta name="format-detection" content="telephone=no">
-
-  ${SITE.verification?.google ? `<meta name="google-site-verification" content="${esc(SITE.verification.google)}">` : ""}
-  ${SITE.verification?.naver ? `<meta name="naver-site-verification" content="${esc(SITE.verification.naver)}">` : ""}
-
+${verification.length ? `${verification.map((tag) => `  ${tag}\n`).join("")}\n` : ""}
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="preload" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
   <link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" media="print" onload="this.media='all'">

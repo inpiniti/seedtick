@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "seo": "node scripts/generate-seo-pages.mjs",
+    "indexnow": "node scripts/indexnow.mjs",
     "predev": "npm run seo",
     "dev": "vite",
     "prebuild": "npm run seo",
