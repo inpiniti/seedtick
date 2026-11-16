@@ -13046,6 +13046,13 @@
   line-height: 1.4;
 }
 
+/* 폰·태블릿(1024px 이하 단일 컬럼)에서는 상단 편집 순서와 중복되는 단계 안내를 숨긴다. 데스크탑에서는 유지. */
+@media (max-width: 1024px) {
+  .toss-inspector-head {
+    display: none;
+  }
+}
+
 /* ---------- 한 번에 한 단계만 보이는 인스펙터 카드 ---------- */
 .toss-inspector-card {
   display: none;
