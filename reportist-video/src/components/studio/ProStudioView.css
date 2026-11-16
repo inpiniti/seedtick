@@ -8565,8 +8565,8 @@
   justify-content: center;
   gap: 4.5px;
   height: 28px;
-  background: linear-gradient(135deg, #f1f5f9 0%, #f8fafc 100%);
-  border: 1px solid #cbd5e1;
+  background: linear-gradient(135deg, #ffffff 0%, #eef2f7 100%);
+  border: 1px solid #94a3b8;
   color: #0f172a;
   font-size: 11.5px;
   font-weight: 700;
@@ -8575,15 +8575,16 @@
   cursor: pointer;
   box-sizing: border-box;
   line-height: 1;
-  transition: all 0.15s ease;
   white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  transition: all 0.15s ease;
 }
 
 .toss-btn-refine-subtitles:hover:not(:disabled) {
-  background: linear-gradient(135deg, #e2e8f0 0%, #f1f5f9 100%);
-  border-color: #cbd5e1;
+  background: linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%);
+  border-color: #64748b;
   transform: translateY(-0.5px);
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 2px 7px rgba(15, 23, 42, 0.16);
 }
 
 .toss-btn-refine-subtitles:active:not(:disabled) {
@@ -8593,6 +8594,10 @@
 .toss-btn-refine-subtitles:disabled {
   opacity: 0.65;
   cursor: not-allowed;
+}
+
+.toss-btn-refine-subtitles svg {
+  color: #0f172a;
 }
 
 .toss-refine-toast {
@@ -13874,10 +13879,40 @@
 }
 
 /* ---------- 3번 AI 하이라이트 카드 ---------- */
-.toss-ai-cta {
+.specular-button.toss-ai-cta {
   width: 100%;
   justify-content: center;
   margin-top: 12px;
+  min-height: 46px;
+  padding: 13px 20px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  color: #ffffff;
+  font-size: 13.5px;
+  font-weight: 700;
+  box-shadow: 0 10px 24px -14px rgba(15, 23, 42, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.specular-button.toss-ai-cta:hover:not(:disabled) {
+  background: linear-gradient(135deg, #273449 0%, #162033 100%);
+  border-color: rgba(203, 213, 225, 0.6);
+  box-shadow: 0 14px 28px -12px rgba(15, 23, 42, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+}
+
+.specular-button.toss-ai-cta .specular-button__label {
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.specular-button.toss-ai-cta .shiny-text-root {
+  font-weight: 700;
+}
+
+.specular-button.toss-ai-cta:disabled {
+  background: #cbd5e1;
+  border-color: #cbd5e1;
+  color: #64748b;
 }
 
 .toss-ai-progress {

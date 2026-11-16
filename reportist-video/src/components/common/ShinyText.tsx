@@ -31,8 +31,9 @@ export const ShinyText: React.FC<ShinyTextProps> = ({
   const content = text ?? children;
   const animationDuration = `${speed}s`;
 
-  const effectiveColor = color || (theme === 'light' ? '#0f172a' : '#b5b5b5a4');
-  const effectiveShine = shineColor || (theme === 'light' ? '#cbd5e1' : 'rgba(255, 255, 255, 0.95)');
+  // 어두운 배경에서도 글자가 흐려지지 않도록 기본 색상을 불투명한 흰색 계열로 둔다.
+  const effectiveColor = color || (theme === 'light' ? '#0f172a' : '#f8fafc');
+  const effectiveShine = shineColor || (theme === 'light' ? '#cbd5e1' : '#ffffff');
 
   return (
     <span

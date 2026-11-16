@@ -6742,11 +6742,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   }
                   disabled={isProcessing}
                   loading={isProcessing}
+                  radius={12}
                   specularColor="#ffffff"
                   glowColor="rgba(203, 213, 225, 0.95)"
                 >
                   <Sparkles size={14} />
-                  <ShinyText text={ui('AI 하이라이트 만들기')} speed={2.6} />
+                  <ShinyText
+                    text={ui('AI 하이라이트 만들기')}
+                    speed={2.6}
+                    color="#f8fafc"
+                    shineColor="#ffffff"
+                  />
                 </SpecularButton>
               )}
             </div>
@@ -7141,13 +7147,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     </div>
                   )}
                   {segments.length > 0 && (
-                    <SpecularButton
+                    <button
                       type="button"
-                      variant="subtle"
                       className="toss-btn-refine-subtitles"
                       onClick={() => handleRefineSubtitles()}
                       disabled={isRefiningSubtitles}
-                      loading={isRefiningSubtitles}
                       title={dict.dramaticClips?.refineSubtitlesBtnTitle || '전체 맥락을 이해하여 브이로그 스타일의 자연스러운 자막으로 교정합니다'}
                     >
                       {isRefiningSubtitles ? (
@@ -7157,6 +7161,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       )}
                       <ShinyText
                         theme="light"
+                        color="#0f172a"
+                        shineColor="#94a3b8"
                         speed={3}
                         text={
                           isRefiningSubtitles
@@ -7164,7 +7170,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             : (dict.dramaticClips?.refineSubtitlesBtn || 'AI 자막 다듬기')
                         }
                       />
-                    </SpecularButton>
+                    </button>
                   )}
                 </div>
                 <div className="flex items-center gap-3 shrink-0 ml-auto sm:ml-0">
