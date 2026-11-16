@@ -7065,8 +7065,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 </p>
               </div>
 
-              <div className="toss-dramatic-header-actions flex items-center justify-between sm:justify-end gap-2 shrink-0 flex-wrap">
-                <div className="flex items-center gap-2 flex-wrap">
+              <div className="toss-dramatic-header-actions flex items-center justify-between sm:justify-end gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap min-w-0">
                   {segments.length > 0 && (
                     <span className="toss-tag-gray">
                       {interpolate(dict.dramaticClips.totalIntervals, {

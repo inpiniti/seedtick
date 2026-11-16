@@ -544,7 +544,25 @@
 }
 
 .toss-dramatic-header-actions {
-  flex-shrink: 0;
+  flex: 1 1 420px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* 필터 칩과 토글 그룹이 카드 폭을 넘으면 다음 줄로 흘러가고,
+   넘치는 버튼이 카드 밖으로 잘리지 않도록 각 그룹도 폭을 제한한다. */
+.toss-dramatic-header-actions>div:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.toss-dramatic-header-actions>div:last-child {
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .toss-card-title {
