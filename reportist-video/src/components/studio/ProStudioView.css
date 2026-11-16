@@ -2909,24 +2909,27 @@
   flex-shrink: 0;
 }
 
+/* 세로 flex(.toss-download-actions) 안에서 flex: 1은 flex-basis를 0으로 만들어
+   버튼 높이를 글자 높이까지 눌러버린다. 고정 flex-basis와 min-height로
+   위아래 여백이 있는 48px 버튼을 유지한다. */
 .toss-btn-download-video {
-  flex: 1;
+  flex: 0 0 auto;
   width: 100%;
-  height: 44px;
+  min-height: 48px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
+  gap: 8px;
   background-color: #0f172a;
   color: #ffffff;
   border: none;
   border-radius: 12px;
-  padding: 0 16px;
-  font-size: 13.5px;
+  padding: 14px 18px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
   box-sizing: border-box;
-  line-height: 1;
+  line-height: 1.2;
   transition: all 0.15s ease;
   box-shadow: 0 3px 10px rgba(15, 23, 42, 0.25);
 }
@@ -13660,6 +13663,12 @@
 @media (max-width: 480px) {
   .toss-download-thumb {
     width: 84px;
+  }
+
+  /* 좁은 화면에서 긴 해상도·길이 문구가 버튼 밖으로 넘치지 않도록 여백만 줄인다. */
+  .toss-btn-download-video {
+    padding: 13px 12px;
+    font-size: 13px;
   }
 }
 
