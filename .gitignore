@@ -47,3 +47,7 @@ __pycache__/
 
 # Community posts (local only, auto-generated txt)
 post/
+
+# other
+promo-penguincut/
+.playwright-cli

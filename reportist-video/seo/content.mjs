@@ -75,6 +75,11 @@ export const LOCALES = [
         timeline: "AI highlight timeline",
       },
     },
+    video: {
+      label: "Watch the 36-second PenguinCut film",
+      title: "The 36-second film",
+      close: "Close",
+    },
     strip: [
       "Built for travel films",
       "Family & celebrations",
@@ -284,6 +289,11 @@ export const LOCALES = [
         export: "16:9로 내보내기",
         timeline: "AI 하이라이트 타임라인",
       },
+    },
+    video: {
+      label: "36초 펭귄컷 영상 재생",
+      title: "36초로 보는 펭귄컷",
+      close: "닫기",
     },
     strip: [
       "여행 영상",
@@ -495,6 +505,11 @@ export const LOCALES = [
         timeline: "AIハイライトタイムライン",
       },
     },
+    video: {
+      label: "36秒のPenguinCutフィルムを再生",
+      title: "36秒のフィルム",
+      close: "閉じる",
+    },
     strip: [
       "旅行動画",
       "家族と記念日",
@@ -705,6 +720,11 @@ export const LOCALES = [
         timeline: "AI 精彩片段时间线",
       },
     },
+    video: {
+      label: "播放 36 秒 PenguinCut 影片",
+      title: "36 秒影片",
+      close: "关闭",
+    },
     strip: [
       "旅行影片",
       "家庭与纪念日",
@@ -914,6 +934,11 @@ export const LOCALES = [
         export: "Exportar 16:9",
         timeline: "Línea de tiempo del highlight con IA",
       },
+    },
+    video: {
+      label: "Ver el vídeo de PenguinCut de 36 segundos",
+      title: "El vídeo de 36 segundos",
+      close: "Cerrar",
     },
     strip: [
       "Vídeos de viaje",
@@ -1127,6 +1152,11 @@ export const LOCALES = [
         timeline: "Timeline du highlight par IA",
       },
     },
+    video: {
+      label: "Lire le film PenguinCut de 36 secondes",
+      title: "Le film de 36 secondes",
+      close: "Fermer",
+    },
     strip: [
       "Films de voyage",
       "Famille et célébrations",
@@ -1338,6 +1368,11 @@ export const LOCALES = [
         export: "16:9 exportieren",
         timeline: "KI-Highlight-Timeline",
       },
+    },
+    video: {
+      label: "Den 36-sekündigen PenguinCut-Film ansehen",
+      title: "Der 36-Sekunden-Film",
+      close: "Schließen",
     },
     strip: [
       "Reisefilme",

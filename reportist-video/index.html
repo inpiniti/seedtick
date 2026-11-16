@@ -162,12 +162,12 @@
           </ul>
         </div>
 
-        <div class="hero-stage" aria-hidden="true">
+        <div class="hero-stage">
           <div class="orb orb-a"></div>
           <div class="orb orb-b"></div>
 
           <div class="studio-mock">
-            <div class="studio-chrome">
+            <div class="studio-chrome" aria-hidden="true">
               <span class="chrome-dot"></span>
               <span class="chrome-dot"></span>
               <span class="chrome-dot"></span>
@@ -176,24 +176,27 @@
             </div>
 
             <div class="studio-body">
-              <div class="studio-topline">
+              <div class="studio-topline" aria-hidden="true">
                 <span class="studio-pill">16:9</span>
                 <span class="studio-pill">1080p</span>
                 <span class="studio-pill studio-pill-accent">6 climax moments found</span>
               </div>
 
               <div class="studio-main">
-                <div class="preview">
-                  <div class="preview-glow"></div>
-                  <div class="preview-caption">“This is the moment.”</div>
-                  <div class="preview-play">
+                <button class="preview" type="button" data-video-open aria-label="Watch the 36-second PenguinCut film">
+                  <video class="preview-video" data-hero-loop muted loop playsinline preload="none" poster="/media/hero-poster.webp" aria-hidden="true" tabindex="-1">
+                    <source src="/media/hero-loop.mp4" type="video/mp4">
+                  </video>
+                  <span class="preview-shade" aria-hidden="true"></span>
+                  <span class="preview-caption" aria-hidden="true">“This is the moment.”</span>
+                  <span class="preview-play" aria-hidden="true">
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
       <path d="M8.5 5.8c0-.9 1-1.4 1.7-.9l8.4 6.2c.6.4.6 1.4 0 1.8l-8.4 6.2c-.7.5-1.7 0-1.7-.9V5.8Z"/>
-    </svg></div>
-                  <div class="preview-badge">00:42 — 01:18 · 16:9</div>
-                </div>
+    </svg></span>
+                  <span class="preview-badge" aria-hidden="true">00:36 · 16:9</span>
+                </button>
 
-                <div class="studio-side">
+                <div class="studio-side" aria-hidden="true">
                   <div class="side-block">
                     <span class="side-label">Highlight ready</span>
                     <span class="side-value">00:42 — 01:18 · 16:9</span>
@@ -209,7 +212,7 @@
                 </div>
               </div>
 
-              <div class="timeline">
+              <div class="timeline" aria-hidden="true">
                 <div class="timeline-head">
                   <span>AI highlight timeline</span>
                   <span>00:42 / 01:18</span>
@@ -229,7 +232,7 @@
             </div>
           </div>
 
-          <div class="float-card float-card-a">
+          <div class="float-card float-card-a" aria-hidden="true">
             <span class="float-icon">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
       <path d="M12 3.5l1.6 4.6 4.6 1.6-4.6 1.6L12 16l-1.6-4.7L5.8 9.7l4.6-1.6L12 3.5Z"/>
@@ -239,7 +242,7 @@
             <span><strong>6 climax moments found</strong><small>AI analysis complete</small></span>
           </div>
 
-          <div class="float-card float-card-b">
+          <div class="float-card float-card-b" aria-hidden="true">
             <span class="float-icon float-icon-accent">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
       <path d="m5 12 4.2 4.2L19 6.8"/>
@@ -532,6 +535,10 @@
     <section class="cta-section" aria-labelledby="cta-title">
       <div class="container">
         <div class="cta-panel">
+          <video class="cta-video" muted loop playsinline preload="none" poster="/media/cta-poster.webp" data-cta-loop aria-hidden="true" tabindex="-1">
+            <source src="/media/cta-reel.mp4" type="video/mp4">
+          </video>
+          <div class="cta-scrim" aria-hidden="true"></div>
           <div class="cta-glow"></div>
           <p class="eyebrow">AI video highlight editor</p>
           <h2 id="cta-title">Your next highlight is already in the footage.</h2>
@@ -584,6 +591,22 @@
       <a href="/sitemap.xml">Sitemap</a>
     </div>
   </footer>
+    
+  <dialog class="film-modal" data-video-modal aria-labelledby="film-title">
+    <div class="film-card">
+      <div class="film-head">
+        <p class="film-eyebrow">PenguinCut · 00:36</p>
+        <h2 id="film-title">The 36-second film</h2>
+        <button class="film-close" type="button" data-video-close aria-label="Close">
+          
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M6 6l12 12M18 6 6 18"/>
+    </svg>
+        </button>
+      </div>
+      <video class="film-video" data-video-player data-video-src="/media/promo-en.mp4" controls playsinline preload="none" poster="/media/hero-poster.webp" width="1280" height="720"></video>
+    </div>
+  </dialog>
     <script src="/landing.js" defer></script>
   </body>
 </html>

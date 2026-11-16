@@ -62,6 +62,10 @@ const ICONS = {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
       <path d="m6 9 6 6 6-6"/>
     </svg>`,
+  close: `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M6 6l12 12M18 6 6 18"/>
+    </svg>`,
 };
 
 function esc(value) {
@@ -190,12 +194,12 @@ function renderHero(locale) {
           </ul>
         </div>
 
-        <div class="hero-stage" aria-hidden="true">
+        <div class="hero-stage">
           <div class="orb orb-a"></div>
           <div class="orb orb-b"></div>
 
           <div class="studio-mock">
-            <div class="studio-chrome">
+            <div class="studio-chrome" aria-hidden="true">
               <span class="chrome-dot"></span>
               <span class="chrome-dot"></span>
               <span class="chrome-dot"></span>
@@ -206,7 +210,7 @@ function renderHero(locale) {
             </div>
 
             <div class="studio-body">
-              <div class="studio-topline">
+              <div class="studio-topline" aria-hidden="true">
                 <span class="studio-pill">16:9</span>
                 <span class="studio-pill">1080p</span>
                 <span class="studio-pill studio-pill-accent">${esc(
@@ -215,16 +219,21 @@ function renderHero(locale) {
               </div>
 
               <div class="studio-main">
-                <div class="preview">
-                  <div class="preview-glow"></div>
-                  <div class="preview-caption">${esc(
+                <button class="preview" type="button" data-video-open aria-label="${esc(
+                  locale.video.label
+                )}">
+                  <video class="preview-video" data-hero-loop muted loop playsinline preload="none" poster="/media/hero-poster.webp" aria-hidden="true" tabindex="-1">
+                    <source src="/media/hero-loop.mp4" type="video/mp4">
+                  </video>
+                  <span class="preview-shade" aria-hidden="true"></span>
+                  <span class="preview-caption" aria-hidden="true">${esc(
                     hero.visual.caption
-                  )}</div>
-                  <div class="preview-play">${ICONS.play}</div>
-                  <div class="preview-badge">${esc(hero.visual.cardMeta)}</div>
-                </div>
+                  )}</span>
+                  <span class="preview-play" aria-hidden="true">${ICONS.play}</span>
+                  <span class="preview-badge" aria-hidden="true">00:36 · 16:9</span>
+                </button>
 
-                <div class="studio-side">
+                <div class="studio-side" aria-hidden="true">
                   <div class="side-block">
                     <span class="side-label">${esc(
                       hero.visual.cardTitle
@@ -241,7 +250,7 @@ function renderHero(locale) {
                 </div>
               </div>
 
-              <div class="timeline">
+              <div class="timeline" aria-hidden="true">
                 <div class="timeline-head">
                   <span>${esc(hero.visual.timeline)}</span>
                   <span>00:42 / 01:18</span>
@@ -261,14 +270,14 @@ function renderHero(locale) {
             </div>
           </div>
 
-          <div class="float-card float-card-a">
+          <div class="float-card float-card-a" aria-hidden="true">
             <span class="float-icon">${ICONS.sparkles}</span>
             <span><strong>${esc(hero.visual.badge)}</strong><small>${esc(
               hero.visual.status
             )}</small></span>
           </div>
 
-          <div class="float-card float-card-b">
+          <div class="float-card float-card-b" aria-hidden="true">
             <span class="float-icon float-icon-accent">${ICONS.check}</span>
             <span><strong>${esc(hero.visual.cardTitle)}</strong><small>${esc(
               hero.visual.cardMeta
@@ -277,6 +286,26 @@ function renderHero(locale) {
         </div>
       </div>
     </section>`;
+}
+
+function renderFilmModal(locale) {
+  return `
+  <dialog class="film-modal" data-video-modal aria-labelledby="film-title">
+    <div class="film-card">
+      <div class="film-head">
+        <p class="film-eyebrow">PenguinCut · 00:36</p>
+        <h2 id="film-title">${esc(locale.video.title)}</h2>
+        <button class="film-close" type="button" data-video-close aria-label="${esc(
+          locale.video.close
+        )}">
+          ${ICONS.close}
+        </button>
+      </div>
+      <video class="film-video" data-video-player data-video-src="/media/promo-${esc(
+        locale.code
+      )}.mp4" controls playsinline preload="none" poster="/media/hero-poster.webp" width="1280" height="720"></video>
+    </div>
+  </dialog>`;
 }
 
 function renderStrip(locale) {
@@ -436,6 +465,10 @@ function renderCta(locale) {
     <section class="cta-section" aria-labelledby="cta-title">
       <div class="container">
         <div class="cta-panel">
+          <video class="cta-video" muted loop playsinline preload="none" poster="/media/cta-poster.webp" data-cta-loop aria-hidden="true" tabindex="-1">
+            <source src="/media/cta-reel.mp4" type="video/mp4">
+          </video>
+          <div class="cta-scrim" aria-hidden="true"></div>
           <div class="cta-glow"></div>
           <p class="eyebrow">${esc(locale.hero.badge)}</p>
           <h2 id="cta-title">${esc(cta.title)}</h2>
@@ -660,6 +693,7 @@ export function renderPage(locale) {
       ${renderCta(locale)}
     </main>
     ${renderFooter(locale)}
+    ${renderFilmModal(locale)}
     <script src="/landing.js" defer></script>
   </body>
 </html>
