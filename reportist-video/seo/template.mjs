@@ -631,6 +631,7 @@ function buildSchema(locale) {
           height: 512,
         },
         description: locale.description,
+        ...(SITE.sameAs?.length ? { sameAs: SITE.sameAs } : {}),
       },
       {
         "@type": "WebSite",

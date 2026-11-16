@@ -18,6 +18,10 @@ export const SITE = {
     naver: "",
     bing: "",
   },
+  // Public profiles that belong to the same brand entity. Paste the URLs once the
+  // accounts exist, then run `npm run seo`. Empty entries are skipped, so the
+  // Organization schema never advertises a profile that does not exist yet.
+  sameAs: [],
 };
 
 export const HREFLANG_ALIASES = {
