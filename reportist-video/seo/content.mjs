@@ -79,6 +79,17 @@ export const LOCALES = [
       label: "Watch the 36-second PenguinCut film",
       title: "The 36-second film",
       close: "Close",
+      play: "Play the film",
+      soundOn: "Turn sound on",
+      soundOff: "Turn sound off",
+      soundCue: "Watch with sound",
+    },
+    theater: {
+      eyebrow: "See it in motion",
+      title: "Watch the penguin pick the six best moments.",
+      lead:
+        "The full 36-second film starts on its own, muted. Turn the sound on whenever you want — no click required to watch.",
+      chapters: ["Read the footage", "Pick the six cuts", "Finished film"],
     },
     strip: [
       "Built for travel films",
@@ -253,9 +264,9 @@ export const LOCALES = [
     path: "/ko/",
     label: "Korean",
     nativeLabel: "한국어",
-    title: "PenguinCut — AI 영상 하이라이트 에디터",
+    title: "펭귄컷(PenguinCut) — AI 영상 하이라이트 에디터",
     description:
-      "긴 영상을 하나의 시네마틱 하이라이트로. 펭귄컷(PenguinCut)은 AI로 가장 좋은 순간을 찾고, 자막과 음악을 더해 브라우저에서 16:9 영상으로 완성합니다.",
+      "펭귄컷(PenguinCut)은 긴 영상을 하나의 시네마틱 하이라이트로 바꿉니다. AI가 가장 좋은 순간을 찾고, 자막과 음악을 더해 브라우저에서 16:9 영상으로 완성합니다.",
     keywords:
       "AI 영상 하이라이트, 하이라이트 편집, 영상 하이라이트 만들기, AI 영상 편집, 유튜브 하이라이트, 펭귄컷, 팽귄컷, PenguinCut",
     nav: {
@@ -267,7 +278,7 @@ export const LOCALES = [
       open: "스튜디오 열기",
     },
     hero: {
-      badge: "AI 영상 하이라이트 에디터",
+      badge: "펭귄컷 · AI 영상 하이라이트 에디터",
       title: "수시간의 영상을 ",
       accent: "하나의 시네마틱 하이라이트로.",
       lead:
@@ -294,6 +305,17 @@ export const LOCALES = [
       label: "36초 펭귄컷 영상 재생",
       title: "36초로 보는 펭귄컷",
       close: "닫기",
+      play: "영상 재생",
+      soundOn: "소리 켜기",
+      soundOff: "소리 끄기",
+      soundCue: "소리로 크게 보기",
+    },
+    theater: {
+      eyebrow: "영상으로 보기",
+      title: "펭귄이 여섯 컷을 고르는 과정을 지켜보세요.",
+      lead:
+        "36초 소개 영화가 클릭 없이 무음으로 바로 시작됩니다. 소리는 언제든 켤 수 있어요.",
+      chapters: ["영상 읽기", "6컷 고르기", "완성된 필름"],
     },
     strip: [
       "여행 영상",
@@ -509,6 +531,17 @@ export const LOCALES = [
       label: "36秒のPenguinCutフィルムを再生",
       title: "36秒のフィルム",
       close: "閉じる",
+      play: "フィルムを再生",
+      soundOn: "音声をオン",
+      soundOff: "音声をオフ",
+      soundCue: "音声付きで大きく見る",
+    },
+    theater: {
+      eyebrow: "映像で見る",
+      title: "ペンギンが6つのカットを選ぶまで。",
+      lead:
+        "36秒の紹介フィルムが、クリックなしでミュートのまま自動再生されます。音声はいつでもオンにできます。",
+      chapters: ["映像を読み取る", "6カットを選ぶ", "完成したフィルム"],
     },
     strip: [
       "旅行動画",
@@ -724,6 +757,17 @@ export const LOCALES = [
       label: "播放 36 秒 PenguinCut 影片",
       title: "36 秒影片",
       close: "关闭",
+      play: "播放影片",
+      soundOn: "打开声音",
+      soundOff: "关闭声音",
+      soundCue: "带声音大屏观看",
+    },
+    theater: {
+      eyebrow: "观看影片",
+      title: "看企鹅如何挑出六个最佳镜头。",
+      lead:
+        "36 秒的完整影片会自动静音播放，无需点击。随时都可以打开声音。",
+      chapters: ["读取素材", "挑选六个镜头", "完成影片"],
     },
     strip: [
       "旅行影片",
@@ -939,6 +983,17 @@ export const LOCALES = [
       label: "Ver el vídeo de PenguinCut de 36 segundos",
       title: "El vídeo de 36 segundos",
       close: "Cerrar",
+      play: "Reproducir el vídeo",
+      soundOn: "Activar sonido",
+      soundOff: "Desactivar sonido",
+      soundCue: "Ver con sonido",
+    },
+    theater: {
+      eyebrow: "Verlo en movimiento",
+      title: "Mira cómo el pingüino elige los seis mejores momentos.",
+      lead:
+        "El vídeo completo de 36 segundos empieza solo y sin sonido. Actívalo cuando quieras.",
+      chapters: ["Leer el material", "Elegir los seis cortes", "Película terminada"],
     },
     strip: [
       "Vídeos de viaje",
@@ -1156,6 +1211,17 @@ export const LOCALES = [
       label: "Lire le film PenguinCut de 36 secondes",
       title: "Le film de 36 secondes",
       close: "Fermer",
+      play: "Lire le film",
+      soundOn: "Activer le son",
+      soundOff: "Couper le son",
+      soundCue: "Voir avec le son",
+    },
+    theater: {
+      eyebrow: "Voir en mouvement",
+      title: "Regardez le pingouin choisir les six meilleurs moments.",
+      lead:
+        "Le film complet de 36 secondes démarre tout seul, en sourdine. Activez le son quand vous voulez.",
+      chapters: ["Lire les rushes", "Choisir les six plans", "Film terminé"],
     },
     strip: [
       "Films de voyage",
@@ -1373,6 +1439,17 @@ export const LOCALES = [
       label: "Den 36-sekündigen PenguinCut-Film ansehen",
       title: "Der 36-Sekunden-Film",
       close: "Schließen",
+      play: "Film abspielen",
+      soundOn: "Ton einschalten",
+      soundOff: "Ton ausschalten",
+      soundCue: "Mit Ton ansehen",
+    },
+    theater: {
+      eyebrow: "In Bewegung sehen",
+      title: "Sieh zu, wie der Pinguin die sechs besten Momente auswählt.",
+      lead:
+        "Der komplette 36-Sekunden-Film startet von selbst – stumm. Du kannst den Ton jederzeit einschalten.",
+      chapters: ["Material lesen", "Sechs Cuts wählen", "Fertiger Film"],
     },
     strip: [
       "Reisefilme",

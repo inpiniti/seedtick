@@ -7,6 +7,10 @@ import {
   SITE,
 } from "./content.mjs";
 
+// Korean users spell the brand both ways; listing the aliases in schema.org
+// tells search engines that 펭귄컷/팽귄컷 and PenguinCut are the same entity.
+const BRAND_ALIASES = ["펭귄컷", "팽귄컷", "Penguin Cut"];
+
 const ICONS = {
   sparkles: `
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
@@ -57,6 +61,17 @@ const ICONS = {
   play: `
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
       <path d="M8.5 5.8c0-.9 1-1.4 1.7-.9l8.4 6.2c.6.4.6 1.4 0 1.8l-8.4 6.2c-.7.5-1.7 0-1.7-.9V5.8Z"/>
+    </svg>`,
+  sound: `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M11 5 6.5 9H3v6h3.5L11 19V5Z"/>
+      <path d="M15 9.4a4 4 0 0 1 0 5.2"/>
+      <path d="M17.8 6.8a8 8 0 0 1 0 10.4"/>
+    </svg>`,
+  muted: `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M11 5 6.5 9H3v6h3.5L11 19V5Z"/>
+      <path d="m16 9.5 4 5M20 9.5l-4 5"/>
     </svg>`,
   chevron: `
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
@@ -219,19 +234,23 @@ function renderHero(locale) {
               </div>
 
               <div class="studio-main">
-                <button class="preview" type="button" data-video-open aria-label="${esc(
-                  locale.video.label
-                )}">
-                  <video class="preview-video" data-hero-loop muted loop playsinline preload="none" poster="/media/hero-poster.webp" aria-hidden="true" tabindex="-1">
-                    <source src="/media/hero-loop.mp4" type="video/mp4">
+                <div class="preview">
+                  <video class="preview-video" data-hero-loop muted loop playsinline preload="none" poster="/media/hero-pick-${esc(
+                    locale.code
+                  )}.webp" aria-hidden="true" tabindex="-1">
+                    <source src="/media/hero-pick-${esc(
+                      locale.code
+                    )}.mp4" type="video/mp4">
                   </video>
-                  <span class="preview-shade" aria-hidden="true"></span>
-                  <span class="preview-caption" aria-hidden="true">${esc(
-                    hero.visual.caption
-                  )}</span>
-                  <span class="preview-play" aria-hidden="true">${ICONS.play}</span>
+                  <span class="preview-scrim" aria-hidden="true"></span>
                   <span class="preview-badge" aria-hidden="true">00:36 · 16:9</span>
-                </button>
+                  <button class="preview-sound" type="button" data-video-open aria-label="${esc(
+                    locale.video.label
+                  )}">
+                    <span class="preview-sound-icon" aria-hidden="true">${ICONS.sound}</span>
+                    <span>${esc(locale.video.soundCue)}</span>
+                  </button>
+                </div>
 
                 <div class="studio-side" aria-hidden="true">
                   <div class="side-block">
@@ -315,6 +334,78 @@ function renderStrip(locale) {
         ${locale.strip
           .map((item) => `<span>${esc(item)}</span>`)
           .join("\n        ")}
+      </div>
+    </section>`;
+}
+
+function renderTheater(locale) {
+  const { theater } = locale;
+  const chapterTimes = [0, 4.8, 20.6];
+
+  return `
+    <section class="theater" id="film" aria-labelledby="theater-title">
+      <div class="container">
+        <div class="theater-head">
+          <p class="eyebrow"><span class="eyebrow-dot"></span>${esc(
+            theater.eyebrow
+          )}</p>
+          <h2 id="theater-title">${esc(theater.title)}</h2>
+          <p class="section-lead">${esc(theater.lead)}</p>
+        </div>
+
+        <div class="theater-frame" data-theater>
+          <div class="theater-stage">
+            <video class="theater-video" data-theater-video data-ambient muted loop playsinline preload="none" poster="/media/hero-pick-${esc(
+              locale.code
+            )}.webp" aria-label="${esc(
+    locale.video.label
+  )}" width="1280" height="720">
+              <source src="/media/promo-${esc(
+                locale.code
+              )}.mp4" type="video/mp4">
+            </video>
+
+            <button class="theater-play" type="button" data-theater-play aria-label="${esc(
+              locale.video.play
+            )}" hidden>
+              ${ICONS.play}
+            </button>
+          </div>
+
+          <div class="theater-bar">
+            <div class="theater-chapters" role="group" aria-label="${esc(
+              locale.video.title
+            )}">
+              ${theater.chapters
+                .map(
+                  (label, index) => `
+              <button class="theater-chapter" type="button" data-theater-chapter data-time="${chapterTimes[index]}">
+                <span class="theater-chapter-index">0${index + 1}</span>
+                <span class="theater-chapter-label">${esc(label)}</span>
+              </button>`
+                )
+                .join("")}
+            </div>
+
+            <div class="theater-meta">
+              <span class="theater-runtime" aria-hidden="true">00:36 · 16:9</span>
+              <button class="theater-sound" type="button" data-theater-sound aria-pressed="false">
+                <span class="sound-icon" aria-hidden="true">
+                  <span class="icon-muted">${ICONS.muted}</span>
+                  <span class="icon-sound">${ICONS.sound}</span>
+                </span>
+                <span data-theater-sound-label>${esc(
+                  locale.video.soundOn
+                )}</span>
+                <span class="theater-sound-label-on">${esc(
+                  locale.video.soundOff
+                )}</span>
+              </button>
+            </div>
+
+            <div class="theater-progress" aria-hidden="true"><i data-theater-progress></i></div>
+          </div>
+        </div>
       </div>
     </section>`;
 }
@@ -531,6 +622,7 @@ function buildSchema(locale) {
         "@type": "Organization",
         "@id": organizationId,
         name: SITE.brand,
+        alternateName: BRAND_ALIASES,
         url: `${SITE.origin}/`,
         logo: {
           "@type": "ImageObject",
@@ -545,6 +637,7 @@ function buildSchema(locale) {
         "@id": websiteId,
         url: `${SITE.origin}/`,
         name: SITE.brand,
+        alternateName: BRAND_ALIASES,
         inLanguage: allLanguages,
         publisher: { "@id": organizationId },
       },
@@ -569,6 +662,7 @@ function buildSchema(locale) {
         "@type": "SoftwareApplication",
         "@id": appId,
         name: SITE.brand,
+        alternateName: BRAND_ALIASES,
         url: abs(SITE.appPath),
         applicationCategory: "MultimediaApplication",
         applicationSubCategory: "Video Editor",
@@ -685,6 +779,7 @@ export function renderPage(locale) {
     <main id="main">
       ${renderHero(locale)}
       ${renderStrip(locale)}
+      ${renderTheater(locale)}
       ${renderFeatures(locale)}
       ${renderHow(locale)}
       ${renderUseCases(locale)}

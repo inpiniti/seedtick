@@ -70,7 +70,9 @@
   const openers = Array.from(document.querySelectorAll("[data-video-open]"));
   const closeButton = modal?.querySelector("[data-video-close]");
   const ambients = Array.from(
-    document.querySelectorAll("[data-hero-loop], [data-cta-loop]")
+    document.querySelectorAll(
+      "[data-hero-loop], [data-cta-loop], [data-theater-video]"
+    )
   ).filter((node) => node instanceof HTMLVideoElement);
   const active = new WeakSet();
   let lastFocus = null;
@@ -83,7 +85,11 @@
 
   const play = (video) => {
     const attempt = video.play();
-    if (attempt && typeof attempt.catch === "function") attempt.catch(() => {});
+    if (attempt && typeof attempt.catch === "function") {
+      attempt.catch(() => {
+        video.dispatchEvent(new Event("ambient-blocked"));
+      });
+    }
   };
 
   const setAmbient = (video, on) => {
@@ -122,6 +128,96 @@
         else if (active.has(video)) setAmbient(video, true);
       }
     });
+  }
+
+  /* ---------- Inline theater: sound toggle, chapters, progress ---------- */
+
+  const theater = document.querySelector("[data-theater]");
+  const theaterVideo = theater
+    ? theater.querySelector("[data-theater-video]")
+    : null;
+
+  if (theater && theaterVideo instanceof HTMLVideoElement) {
+    const soundButton = theater.querySelector("[data-theater-sound]");
+    const playButton = theater.querySelector("[data-theater-play]");
+    const progressBar = theater.querySelector("[data-theater-progress]");
+    const chapters = Array.from(
+      theater.querySelectorAll("[data-theater-chapter]")
+    );
+
+    const sync = () => {
+      const duration = theaterVideo.duration;
+      const time = theaterVideo.currentTime;
+
+      if (progressBar && Number.isFinite(duration) && duration > 0) {
+        progressBar.style.width = `${Math.min(
+          100,
+          (time / duration) * 100
+        )}%`;
+      }
+
+      let activeIndex = 0;
+      for (let index = 0; index < chapters.length; index += 1) {
+        const start = Number(chapters[index].dataset.time);
+        if (Number.isFinite(start) && time + 0.25 >= start) activeIndex = index;
+      }
+
+      chapters.forEach((chapter, index) => {
+        const isActive = index === activeIndex;
+        chapter.classList.toggle("is-active", isActive);
+        if (isActive) chapter.setAttribute("aria-current", "step");
+        else chapter.removeAttribute("aria-current");
+      });
+    };
+
+    const setSound = (on) => {
+      theaterVideo.muted = !on;
+      if (soundButton) {
+        soundButton.classList.toggle("is-on", on);
+        soundButton.setAttribute("aria-pressed", String(on));
+      }
+      if (on && theaterVideo.paused) play(theaterVideo);
+    };
+
+    soundButton?.addEventListener("click", () => {
+      setSound(theaterVideo.muted);
+    });
+
+    for (const chapter of chapters) {
+      chapter.addEventListener("click", () => {
+        const time = Number(chapter.dataset.time);
+        if (Number.isFinite(time)) theaterVideo.currentTime = time;
+        play(theaterVideo);
+        sync();
+      });
+    }
+
+    playButton?.addEventListener("click", () => {
+      play(theaterVideo);
+    });
+
+    theaterVideo.addEventListener("play", () => {
+      if (playButton) playButton.hidden = true;
+    });
+
+    theaterVideo.addEventListener("pause", () => {
+      if (playButton) playButton.hidden = false;
+    });
+
+    theaterVideo.addEventListener("ambient-blocked", () => {
+      if (playButton) playButton.hidden = false;
+    });
+
+    if (reduceMotion.matches && playButton) playButton.hidden = false;
+
+    reduceMotion.addEventListener?.("change", () => {
+      if (reduceMotion.matches && playButton) playButton.hidden = false;
+    });
+
+    theaterVideo.addEventListener("timeupdate", sync);
+    theaterVideo.addEventListener("seeked", sync);
+    theaterVideo.addEventListener("loadedmetadata", sync);
+    sync();
   }
 
   if (!modal || !player) return;
