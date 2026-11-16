@@ -660,7 +660,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       };
       notify.action(
         interpolate(dict.dramaticClips?.refinedToast || '{tone} 스타일로 자막을 다듬었어요.', {
-          tone: toneNameMap[tone] || '선택한',
+          tone: toneNameMap[tone] || ui('선택한'),
         }),
         dict.common?.undo || '되돌리기',
         () => {
@@ -6076,13 +6076,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   <ImageIcon size={30} className="text-slate-300" />
                   <p className="toss-thumbnail-empty-title">
                     {isCreationFlow
-                      ? 'AI 하이라이트를 만들면 썸네일을 함께 준비할 수 있어요'
-                      : '아직 완성된 썸네일이 없어요'}
+                      ? ui('AI 하이라이트를 만들면 썸네일을 함께 준비할 수 있어요')
+                      : ui('아직 완성된 썸네일이 없어요')}
                   </p>
                   <p className="toss-thumbnail-empty-desc">
                     {isCreationFlow
-                      ? '3번 AI 하이라이트에서 영상을 분석하면 AI가 가장 잘 나온 장면으로 16:9 썸네일을 만들어줘요.'
-                      : '현재 영상 화면을 그대로 캡처하거나, AI 하이라이트를 다시 뽑아 추천 프레임을 받아보세요.'}
+                      ? ui('3번 AI 하이라이트에서 영상을 분석하면 AI가 가장 잘 나온 장면으로 16:9 썸네일을 만들어줘요.')
+                      : ui('현재 영상 화면을 그대로 캡처하거나, AI 하이라이트를 다시 뽑아 추천 프레임을 받아보세요.')}
                   </p>
                   <div className="toss-thumbnail-empty-actions">
                     <button
@@ -6091,7 +6091,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       onClick={() => goToSection(isCreationFlow ? 'ai' : 'cut')}
                     >
                       <Sparkles size={13} />
-                      <span>{isCreationFlow ? '3번 AI 하이라이트로 가기' : '2번 컷으로 가기'}</span>
+                      <span>{isCreationFlow ? ui('3번 AI 하이라이트로 가기') : ui('2번 컷으로 가기')}</span>
                     </button>
                     {activeVideoUrl && (
                       <button
@@ -6101,7 +6101,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         disabled={isUpdatingThumbnail}
                       >
                         <ImageIcon size={13} />
-                        <span>{isUpdatingThumbnail ? '캡처 중...' : '현재 화면으로 만들기'}</span>
+                        <span>{isUpdatingThumbnail ? ui('캡처 중...') : ui('현재 화면으로 만들기')}</span>
                       </button>
                     )}
                   </div>
@@ -6332,14 +6332,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               <div>
                 <h4 className="toss-card-title">
                   <Download size={15} className="text-slate-800 shrink-0" />
-                  <span>영상 저장 · 다운로드</span>
+                  <span>{ui('영상 저장 · 다운로드')}</span>
                 </h4>
                 <p className="toss-card-desc">
-                  편집을 모두 마쳤어요. 완성된 영상과 자막, 썸네일을 여기서 한 번에 내려받을 수 있어요.
+                  {ui('편집을 모두 마쳤어요. 완성된 영상과 자막, 썸네일을 여기서 한 번에 내려받을 수 있어요.')}
                 </p>
               </div>
               <span className="toss-tag-blue">
-                {isSequenceMode && segments.length > 0 ? '저장 가능' : '대기'}
+                {isSequenceMode && segments.length > 0 ? ui('저장 가능') : ui('대기')}
               </span>
             </div>
 
@@ -6357,22 +6357,22 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   </div>
                   <div className="toss-download-meta">
                     <strong className="toss-download-title">
-                      {overlayOptions.titleText?.trim() || '완성된 영상'}
+                      {overlayOptions.titleText?.trim() || ui('완성된 영상')}
                     </strong>
                     <span className="toss-download-sub">
-                      {segments.length}개 컷 · {formatSec(totalDuration)}
-                      {savedPercent > 0 ? ` · 원본보다 ${savedPercent}% 짧아요` : ''}
+                      {ui('{count}개 컷', { count: segments.length })} · {formatSec(totalDuration)}
+                      {savedPercent > 0 ? ui(' · 원본보다 {percent}% 짧아요', { percent: savedPercent }) : ''}
                     </span>
                     <div className="toss-download-badges">
-                      {introDuration > 0 && <span className="toss-download-badge">인트로</span>}
+                      {introDuration > 0 && <span className="toss-download-badge">{ui('인트로')}</span>}
                       {activeBridgeIndexes.length > 0 && (
                         <span className="toss-download-badge">
-                          브릿지 {activeBridgeIndexes.length}
+                          {ui('브릿지')} {activeBridgeIndexes.length}
                         </span>
                       )}
-                      {outroDuration > 0 && <span className="toss-download-badge">아웃트로</span>}
+                      {outroDuration > 0 && <span className="toss-download-badge">{ui('아웃트로')}</span>}
                       {customAudioFile && (
-                        <span className="toss-download-badge">{customAudioName || '배경음악'}</span>
+                        <span className="toss-download-badge">{customAudioName || ui('배경음악')}</span>
                       )}
                     </div>
                   </div>
@@ -6414,21 +6414,21 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       title={dict.thumbnail?.downloadHd || '썸네일 다운로드 (1280x720 HD)'}
                     >
                       <ImageIcon size={13} />
-                      <span>썸네일 다시 저장</span>
+                      <span>{ui('썸네일 다시 저장')}</span>
                     </button>
                   </div>
                 </div>
 
                 <p className="toss-download-hint">
-                  저장 버튼을 누르면 해상도를 고르고 최종 영상을 만들 수 있어요. 저장이 끝나면 이 화면에서 언제든 다시 받을 수 있어요.
+                  {ui('저장 버튼을 누르면 해상도를 고르고 최종 영상을 만들 수 있어요. 저장이 끝나면 이 화면에서 언제든 다시 받을 수 있어요.')}
                 </p>
               </div>
             ) : (
               <div className="toss-empty-state toss-download-empty">
                 <p className="text-slate-500 text-sm">
                   {isCreationFlow
-                    ? '3번 AI 하이라이트를 만들면 완성된 영상을 저장할 수 있어요.'
-                    : 'AI 하이라이트 컷을 먼저 만든 뒤 저장할 수 있어요.'}
+                    ? ui('3번 AI 하이라이트를 만들면 완성된 영상을 저장할 수 있어요.')
+                    : ui('AI 하이라이트 컷을 먼저 만든 뒤 저장할 수 있어요.')}
                 </p>
                 <button
                   type="button"
@@ -6436,7 +6436,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   onClick={() => goToSection(isCreationFlow ? 'ai' : 'cut')}
                 >
                   <Sparkles size={13} />
-                  <span>{isCreationFlow ? '3번 AI 하이라이트로 가기' : '2번 컷으로 가기'}</span>
+                  <span>{isCreationFlow ? ui('3번 AI 하이라이트로 가기') : ui('2번 컷으로 가기')}</span>
                 </button>
               </div>
             )}
