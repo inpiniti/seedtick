@@ -40,10 +40,17 @@ export const uiDe: Record<string, string> = {
   '주요 메뉴': 'Hauptmenü',
   '편집 순서': 'Bearbeitungsreihenfolge',
   '처음 만드는 순서': 'Erstellungsreihenfolge',
-  '1번부터 6번까지, 순서대로만 눌러주세요': 'Schritt 1 bis 6 – bitte nur der Reihe nach.',
-  '1번부터 5번까지, 순서대로만 눌러주세요': 'Schritt 1 bis 5 – bitte nur der Reihe nach.',
+  '1번부터 8번까지, 순서대로만 눌러주세요': 'Schritt 1 bis 8 – bitte nur der Reihe nach.',
+  '1번부터 7번까지, 순서대로만 눌러주세요': 'Schritt 1 bis 7 – bitte nur der Reihe nach.',
   '영상 올리기와 AI 하이라이트까지 이 화면에서 한 번에 끝나요.':
     'Upload und KI-Highlights erledigst du alles auf diesem Bildschirm.',
+  '썸네일': 'Vorschaubild',
+  '대표 이미지': 'Titelbild',
+  '유튜브에 올릴 16:9 대표 이미지를 만들어요. AI 추천 프레임과 타이틀을 그대로 쓸 수 있어요.':
+    'Erstelle das 16:9-Titelbild für YouTube. Verwende einfach das von der KI empfohlene Bild und den Titel.',
+  '편집한 영상과 자막 파일을 내려받아요. 모든 편집이 끝난 뒤 마지막으로 눌러주세요.':
+    'Lade das fertige Video und die Untertiteldatei herunter. Klicke zuletzt, wenn alle Bearbeitungen abgeschlossen sind.',
+  '저장 가능': 'Speicherbereit',
   '타임라인을 움직이면 지금 위치에 맞는 설정만 오른쪽에 보여요.':
     'Bewege die Timeline, und rechts erscheinen nur die Einstellungen für diese Position.',
   '{count}개 준비됨': '{count} bereit',
@@ -454,4 +461,7 @@ export const uiDe: Record<string, string> = {
   '선택한':
     'Ausgewählt',
   '시청해 주셔서 감사합니다': 'Vielen Dank fürs Zuschauen',
+  'AI 하이라이트를 먼저 만들면 저장할 수 있어요': 'Erstelle zuerst die KI-Highlights, um speichern zu können',
+  '저장 준비 중...': 'Speichern wird vorbereitet...',
+  '다운로드로 가기': 'Zum Download',
 };

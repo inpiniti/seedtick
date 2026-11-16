@@ -41,10 +41,17 @@ export const uiEn: Record<string, string> = {
   '주요 메뉴': 'Main menu',
   '편집 순서': 'Edit order',
   '처음 만드는 순서': 'Create order',
-  '1번부터 6번까지, 순서대로만 눌러주세요': 'Steps 1 to 6 — just follow the order.',
-  '1번부터 5번까지, 순서대로만 눌러주세요': 'Steps 1 to 5 — just follow the order.',
+  '1번부터 8번까지, 순서대로만 눌러주세요': 'Steps 1 to 8 — just follow the order.',
+  '1번부터 7번까지, 순서대로만 눌러주세요': 'Steps 1 to 7 — just follow the order.',
   '영상 올리기와 AI 하이라이트까지 이 화면에서 한 번에 끝나요.':
     'Upload and AI highlights are all done on this screen.',
+  '썸네일': 'Thumbnail',
+  '대표 이미지': 'Cover image',
+  '유튜브에 올릴 16:9 대표 이미지를 만들어요. AI 추천 프레임과 타이틀을 그대로 쓸 수 있어요.':
+    'Create the 16:9 cover image for YouTube. Use the AI-recommended frame and title as-is.',
+  '편집한 영상과 자막 파일을 내려받아요. 모든 편집이 끝난 뒤 마지막으로 눌러주세요.':
+    'Download the finished video and subtitle file. Press this last, after all editing is done.',
+  '저장 가능': 'Ready to save',
   '타임라인을 움직이면 지금 위치에 맞는 설정만 오른쪽에 보여요.':
     'Move the timeline and the inspector shows only the settings for that spot.',
   '{count}개 준비됨': '{count} ready',
@@ -448,4 +455,7 @@ export const uiEn: Record<string, string> = {
   '선택한':
     'Selected',
   '시청해 주셔서 감사합니다': 'Thank you for watching',
+  'AI 하이라이트를 먼저 만들면 저장할 수 있어요': 'Create AI highlights first, then you can save.',
+  '저장 준비 중...': 'Preparing to save...',
+  '다운로드로 가기': 'Go to download',
 };

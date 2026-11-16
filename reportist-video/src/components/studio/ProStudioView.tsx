@@ -187,10 +187,19 @@ const PLAYBACK_ERROR_MESSAGE =
 
 // ============================================================
 // 통합 스튜디오 편집 가이드 (프로젝트 상태에 따라 두 흐름으로 나뉜다)
-// - 처음 만드는 중: 인트로 → 영상 올리기 → AI 하이라이트 → 브릿지 → 아웃트로 → 노래 (6단계)
-// - 컷이 만들어진 뒤: 인트로 → 컷 → 브릿지 → 아웃트로 → 노래 (5단계)
+// - 처음 만드는 중: 인트로 → 영상 올리기 → AI 하이라이트 → 브릿지 → 아웃트로 → 노래 → 썸네일 → 다운로드 (8단계)
+// - 컷이 만들어진 뒤: 인트로 → 컷 → 브릿지 → 아웃트로 → 노래 → 썸네일 → 다운로드 (7단계)
 // ============================================================
-type StudioSection = 'intro' | 'upload' | 'ai' | 'cut' | 'bridge' | 'outro' | 'music';
+type StudioSection =
+  | 'intro'
+  | 'upload'
+  | 'ai'
+  | 'cut'
+  | 'bridge'
+  | 'outro'
+  | 'music'
+  | 'thumbnail'
+  | 'download';
 
 interface StudioStep {
   id: StudioSection;
@@ -236,6 +245,18 @@ const CREATE_STUDIO_STEPS: StudioStep[] = [
     shortDesc: '배경음악',
     description: '영상 전체에 깔리는 노래를 골라요. 어떤 단계를 편집하든 언제든 바꿀 수 있어요.',
   },
+  {
+    id: 'thumbnail',
+    label: '썸네일',
+    shortDesc: '대표 이미지',
+    description: '유튜브에 올릴 16:9 대표 이미지를 만들어요. AI 추천 프레임과 타이틀을 그대로 쓸 수 있어요.',
+  },
+  {
+    id: 'download',
+    label: '다운로드',
+    shortDesc: '저장',
+    description: '편집한 영상과 자막 파일을 내려받아요. 모든 편집이 끝난 뒤 마지막으로 눌러주세요.',
+  },
 ];
 
 const EDIT_STUDIO_STEPS: StudioStep[] = [
@@ -268,6 +289,18 @@ const EDIT_STUDIO_STEPS: StudioStep[] = [
     label: '노래',
     shortDesc: '배경음악',
     description: '영상 전체에 깔리는 노래를 골라요. 어떤 단계를 편집하든 언제든 바꿀 수 있어요.',
+  },
+  {
+    id: 'thumbnail',
+    label: '썸네일',
+    shortDesc: '대표 이미지',
+    description: '유튜브에 올릴 16:9 대표 이미지를 만들어요. AI 추천 프레임과 타이틀을 그대로 쓸 수 있어요.',
+  },
+  {
+    id: 'download',
+    label: '다운로드',
+    shortDesc: '저장',
+    description: '편집한 영상과 자막 파일을 내려받아요. 모든 편집이 끝난 뒤 마지막으로 눌러주세요.',
   },
 ];
 
@@ -766,6 +799,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const previewRangeEndRef = useRef<number | null>(null);
   const rightColumnRef = useRef<HTMLElement>(null);
   const consoleScrollRef = useRef<HTMLDivElement>(null);
+  // 모바일에서 단계가 늘어나도 현재 단계가 항상 보이도록 스텝바를 가로 스크롤한다.
+  const stepbarListRef = useRef<HTMLOListElement | null>(null);
+  const activeStepButtonRef = useRef<HTMLButtonElement | null>(null);
 
   // 4-1. 다국어, AI 모델 및 원본 영상 목록 모달 상태
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState<boolean>(false);
@@ -1774,7 +1810,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 시퀀스 하이라이트 모드 여부 (캡컷 방식 실시간 시퀀스 프리뷰: 원본 소스가 있거나 완성본이 아직 없는 경우)
   // 원본 소스가 기기 메모리 정리로 분리되었더라도 완성본 비디오(result.url)가 있다면 캔버스 합성이 아닌 완성본 직접 재생 모드로 전환
   const isSequenceMode = segments.length > 0 && (hasPlayableSourceVideos || !result?.url);
-  // 아직 AI 컷이 없는 "처음 만드는" 흐름인지 여부 (6단계 vs 5단계 스텝바 분기)
+  // 아직 AI 컷이 없는 "처음 만드는" 흐름인지 여부 (8단계 vs 7단계 스텝바 분기)
   const isCreationFlow = segments.length === 0;
   const studioSteps = isCreationFlow ? CREATE_STUDIO_STEPS : EDIT_STUDIO_STEPS;
   const activeStudioStepIndex = Math.max(
@@ -1789,7 +1825,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       ? activeSection
       : null;
 
-  // AI 분석이 끝나 컷이 처음 생기면 6단계 생성 흐름에서 5단계 편집 흐름의 '컷'으로 자연스럽게 이동한다.
+  // AI 분석이 끝나 컷이 처음 생기면 8단계 생성 흐름에서 7단계 편집 흐름의 '컷'으로 자연스럽게 이동한다.
   const hadSegmentsRef = useRef<boolean>(initialSegments.length > 0);
   useEffect(() => {
     if (segments.length > 0 && !hadSegmentsRef.current) {
@@ -2373,7 +2409,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     };
   };
 
-  // 타임라인 위치(플레이헤드)에 따라 오른쪽 편집 패널을 1~5번 구간으로 자동 전환한다.
+  // 타임라인 위치(플레이헤드)에 따라 오른쪽 편집 패널을 인트로/컷/브릿지/아웃트로로 자동 전환한다.
   // - 재생 중에는 눈이 피로하지 않도록 전환하지 않고, 스크럽/클릭/시크 시에만 동기화한다.
   // - 5번 노래 패널을 직접 연 상태에서는 사용자가 타임라인 블록을 누르기 전까지 유지한다.
   const syncSectionForTime = (timelineTime: number) => {
@@ -3036,6 +3072,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     rightColumnRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   }, [activeSection]);
 
+  // 7~8단계로 늘어난 스텝바에서 현재 단계가 가로 스크롤 중앙에 오도록 맞춘다.
+  useEffect(() => {
+    const list = stepbarListRef.current;
+    const button = activeStepButtonRef.current;
+    if (!list || !button || list.scrollWidth <= list.clientWidth) return;
+    const listRect = list.getBoundingClientRect();
+    const buttonRect = button.getBoundingClientRect();
+    const target =
+      list.scrollLeft +
+      (buttonRect.left - listRect.left) -
+      (listRect.width - buttonRect.width) / 2;
+    list.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
+  }, [activeSection]);
+
   // 씬별 자막/날짜/위치 수정 핸들러
   const handleUpdateSegmentSubtitle = (
     segId: string,
@@ -3447,8 +3497,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     startSequencePlayback(start);
   };
 
-  // 1~5번 구간별 "이 부분만 다시 보기"
+  // 인트로·컷·브릿지·아웃트로 구간별 "이 부분만 다시 보기"
   const previewSectionPlay = (section: StudioSection, bridgeIndex?: number) => {
+    // 썸네일/다운로드 단계는 영상 구간 미리보기가 없는 마무리 화면이다.
+    if (section === 'thumbnail' || section === 'download') return;
     if (!isSequenceMode) {
       // AI 컷이 없어도 인트로/브릿지/아웃트로는 캔버스 단독으로 재생한다.
       if (section === 'intro' || section === 'outro' || section === 'bridge') {
@@ -3594,7 +3646,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   };
 
   const goToSection = (section: StudioSection) => {
-    musicPanelPinnedRef.current = section === 'music';
+    // 노래·썸네일·다운로드는 타임라인 위치와 무관한 마무리 패널이라
+    // 사용자가 타임라인을 직접 만지기 전까지 해당 카드를 유지한다.
+    musicPanelPinnedRef.current =
+      section === 'music' || section === 'thumbnail' || section === 'download';
     setActiveSection(section);
     if (section === 'intro') {
       handleSelectSegment('intro');
@@ -3616,7 +3671,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     // upload / ai / music: 재생 위치를 건드리지 않고 해당 패널만 연다.
   };
 
-  // 다음/이전 단계는 현재 흐름(생성 6단계 / 편집 5단계)의 순서를 그대로 따른다.
+  // 다음/이전 단계는 현재 흐름(생성 8단계 / 편집 7단계)의 순서를 그대로 따른다.
   // AI 컷이나 브릿지 후보가 없어도 단계를 건너뛰지 않는다.
   const goToAdjacentSection = (delta: 1 | -1) => {
     const nextIndex = activeStudioStepIndex + delta;
@@ -4659,27 +4714,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <ChevronDown size={14} className="toss-model-trigger-chevron" />
           </button>
 
-          {/* 메인 액션 버튼: AI 하이라이트는 3번 단계 카드에서만 실행한다.
-              완성된 컷이 있을 때만 상단에서 영상 저장을 바로 열 수 있다. */}
-          {isSequenceMode && segments.length > 0 && (
-            <button
-              type="button"
-              className={`toss-nav-cta-btn toss-nav-cta-download ${isReStitching ? 'loading' : ''}`}
-              onClick={() => {
-                if (isReStitching) return;
-                setIsExportModalOpen(true);
-              }}
-              disabled={isReStitching}
-              title={dict.header.downloadTitle}
-            >
-              <Download size={14} className={isReStitching ? 'animate-bounce' : ''} />
-              <span>
-                {isReStitching
-                  ? `${dict.header.stitching} (${reStitchProgress?.progressPercent ?? 0}%)`
-                  : `${dict.header.download} (${exportResolution} · ${formatSec(totalDuration)})`}
-              </span>
-            </button>
-          )}
+          {/* 상단 헤더는 편집 중인 단계에 집중할 수 있도록 저장/다운로드 CTA를 두지 않는다.
+              영상 저장은 7~8번(썸네일·다운로드) 단계 카드에서만 실행한다. */}
 
             </>
           )}
@@ -4774,7 +4810,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         />
       ) : (
         <main className="toss-main-content">
-        {/* 통합 스튜디오 단계 안내: 처음 만들 때 6단계, 컷이 생기면 5단계 */}
+        {/* 통합 스튜디오 단계 안내: 처음 만들 때 8단계, 컷이 생기면 7단계 */}
         <nav className="toss-studio-stepbar" aria-label={ui('편집 순서')}>
           <div className="toss-studio-stepbar-head">
             <span className="toss-studio-stepbar-eyebrow">
@@ -4782,8 +4818,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             </span>
             <strong className="toss-studio-stepbar-title">
               {isCreationFlow
-                ? ui('1번부터 6번까지, 순서대로만 눌러주세요')
-                : ui('1번부터 5번까지, 순서대로만 눌러주세요')}
+                ? ui('1번부터 8번까지, 순서대로만 눌러주세요')
+                : ui('1번부터 7번까지, 순서대로만 눌러주세요')}
             </strong>
             <span className="toss-studio-stepbar-sub">
               {isCreationFlow
@@ -4791,7 +4827,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 : ui('타임라인을 움직이면 지금 위치에 맞는 설정만 오른쪽에 보여요.')}
             </span>
           </div>
-          <ol className="toss-studio-steps">
+          <ol className="toss-studio-steps" ref={stepbarListRef}>
             {studioSteps.map((step, index) => {
               const isActive = activeSection === step.id;
               const status =
@@ -4825,13 +4861,22 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             ? overlayOptions.showOutro
                               ? ui('켜짐')
                               : ui('꺼짐')
-                            : customAudioFile
-                              ? ui('선택됨')
-                              : ui('없음');
+                            : step.id === 'music'
+                              ? customAudioFile
+                                ? ui('선택됨')
+                                : ui('없음')
+                              : step.id === 'thumbnail'
+                                ? thumbnailUrl
+                                  ? ui('준비됨')
+                                  : ui('대기')
+                                : isSequenceMode && segments.length > 0
+                                  ? ui('저장 가능')
+                                  : ui('대기');
               return (
                 <li key={step.id} className="toss-studio-step-item">
                   <button
                     type="button"
+                    ref={isActive ? activeStepButtonRef : undefined}
                     className={`toss-studio-step ${isActive ? 'active' : ''}`}
                     onClick={() => goToSection(step.id)}
                     aria-current={isActive ? 'step' : undefined}
@@ -4849,8 +4894,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         <ArrowRight size={14} />
                       ) : step.id === 'outro' ? (
                         <Check size={14} />
-                      ) : (
+                      ) : step.id === 'music' ? (
                         <Music size={14} />
+                      ) : step.id === 'thumbnail' ? (
+                        <ImageIcon size={14} />
+                      ) : (
+                        <Download size={14} />
                       )}
                     </span>
                     <span className="toss-studio-step-text">
@@ -5971,48 +6020,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               </div>
             )}
 
-            {/* 완성 영상 다운로드 및 유튜브 호환 자막 다운로드 */}
-            {isSequenceMode && (
-              <div className="toss-timeline-actions">
-                <button
-                  type="button"
-                  className={`toss-btn-download-video ${isReStitching ? 'loading' : ''}`}
-                  onClick={() => {
-                    if (isReStitching) return;
-                    setIsExportModalOpen(true);
-                  }}
-                  disabled={isReStitching || segments.length === 0}
-                  title={dict.header.downloadTitle}
-                >
-                  <Download size={15} className={isReStitching ? 'animate-bounce' : ''} />
-                  <span>
-                    {isReStitching
-                      ? `${dict.header.stitching} (${reStitchProgress?.progressPercent ?? 0}%)`
-                      : dict.header.download}
-                    {!isReStitching && (
-                      <span className="toss-download-video-meta">
-                        {` (${exportResolution} · ${formatSec(totalDuration)})`}
-                      </span>
-                    )}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  className="toss-btn-download-subtitle"
-                  onClick={() => setIsSubtitleModalOpen(true)}
-                  title={dict.subtitleDownload?.buttonTitle || '유튜브 호환 자막 (.srt) 다운로드'}
-                >
-                  <Subtitles size={15} />
-                  <span>{dict.subtitleDownload?.buttonText || '자막 다운로드 (.srt)'}</span>
-                </button>
-              </div>
-            )}
+            {/* 완성 영상 다운로드 및 자막은 8번(다운로드) 단계 카드에서만 제공한다. */}
           </div>
 
         </section>
 
-        {/* 2-B. 오른쪽 열: [썸네일(완성시)] -> [인트로] -> [AI 극적 순간] -> [아웃트로] -> [요약] */}
+        {/* 2-B. 오른쪽 열: [썸네일] -> [다운로드] -> [인트로] -> [AI 극적 순간] -> [아웃트로] -> [요약] */}
         <section className="toss-column-right" ref={rightColumnRef}>
           {/* 현재 편집 단계 안내 (한 번에 한 구간만 보여주기) */}
           <div className="toss-inspector-head">
@@ -6027,16 +6040,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             </p>
           </div>
 
-          {/* AI 맞춤 16:9 썸네일 카드 (편집 중에는 접어두는 고급 설정) */}
-          {(result || thumbnailUrl) && (
-            <details className="toss-thumbnail-details">
-              <summary className="toss-thumbnail-summary">
-                <span className="toss-thumbnail-summary-title">
-                  <ImageIcon size={14} />
-                  {ui('AI 썸네일 · 저장 준비')}
-                </span>
-                <span className="toss-thumbnail-summary-hint">{ui('필요할 때만 펼치기')}</span>
-              </summary>
+          {/* 썸네일 단계: 완성된 영상의 16:9 대표 이미지 */}
+          <div
+            className={`toss-thumbnail-section toss-inspector-card ${activeSection === 'thumbnail' ? 'is-active-section' : ''}`}
+          >
               <div className="toss-card toss-thumbnail-card">
               <BorderBeam
                 duration={8}
@@ -6064,6 +6071,43 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 </span>
               </div>
 
+              {!result && !thumbnailUrl ? (
+                <div className="toss-empty-state toss-thumbnail-empty">
+                  <ImageIcon size={30} className="text-slate-300" />
+                  <p className="toss-thumbnail-empty-title">
+                    {isCreationFlow
+                      ? 'AI 하이라이트를 만들면 썸네일을 함께 준비할 수 있어요'
+                      : '아직 완성된 썸네일이 없어요'}
+                  </p>
+                  <p className="toss-thumbnail-empty-desc">
+                    {isCreationFlow
+                      ? '3번 AI 하이라이트에서 영상을 분석하면 AI가 가장 잘 나온 장면으로 16:9 썸네일을 만들어줘요.'
+                      : '현재 영상 화면을 그대로 캡처하거나, AI 하이라이트를 다시 뽑아 추천 프레임을 받아보세요.'}
+                  </p>
+                  <div className="toss-thumbnail-empty-actions">
+                    <button
+                      type="button"
+                      className="toss-btn-primary toss-btn-sm"
+                      onClick={() => goToSection(isCreationFlow ? 'ai' : 'cut')}
+                    >
+                      <Sparkles size={13} />
+                      <span>{isCreationFlow ? '3번 AI 하이라이트로 가기' : '2번 컷으로 가기'}</span>
+                    </button>
+                    {activeVideoUrl && (
+                      <button
+                        type="button"
+                        className="toss-btn-secondary toss-btn-sm"
+                        onClick={handleCaptureCurrentFrame}
+                        disabled={isUpdatingThumbnail}
+                      >
+                        <ImageIcon size={13} />
+                        <span>{isUpdatingThumbnail ? '캡처 중...' : '현재 화면으로 만들기'}</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <>
               {/* 썸네일 16:9 프리뷰 */}
               <div className="toss-thumbnail-preview-wrap">
                 {thumbnailUrl ? (
@@ -6275,9 +6319,128 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     '아래 하이라이트 장면의 [썸네일] 버튼을 눌러 배경 이미지를 바꿀 수도 있어요.'}
                 </p>
               </div>
+              </>
+              )}
             </div>
-            </details>
-          )}
+          </div>
+
+          {/* 다운로드 단계: 최종 저장 */}
+          <div
+            className={`toss-card toss-download-card toss-inspector-card ${activeSection === 'download' ? 'is-active-section' : ''}`}
+          >
+            <div className="toss-card-header">
+              <div>
+                <h4 className="toss-card-title">
+                  <Download size={15} className="text-slate-800 shrink-0" />
+                  <span>영상 저장 · 다운로드</span>
+                </h4>
+                <p className="toss-card-desc">
+                  편집을 모두 마쳤어요. 완성된 영상과 자막, 썸네일을 여기서 한 번에 내려받을 수 있어요.
+                </p>
+              </div>
+              <span className="toss-tag-blue">
+                {isSequenceMode && segments.length > 0 ? '저장 가능' : '대기'}
+              </span>
+            </div>
+
+            {isSequenceMode && segments.length > 0 ? (
+              <div className="toss-download-body">
+                <div className="toss-download-summary">
+                  <div className="toss-download-thumb">
+                    {thumbnailUrl ? (
+                      <img src={thumbnailUrl} alt="" className="toss-download-thumb-img" />
+                    ) : (
+                      <span className="toss-download-thumb-empty">
+                        <ImageIcon size={20} />
+                      </span>
+                    )}
+                  </div>
+                  <div className="toss-download-meta">
+                    <strong className="toss-download-title">
+                      {overlayOptions.titleText?.trim() || '완성된 영상'}
+                    </strong>
+                    <span className="toss-download-sub">
+                      {segments.length}개 컷 · {formatSec(totalDuration)}
+                      {savedPercent > 0 ? ` · 원본보다 ${savedPercent}% 짧아요` : ''}
+                    </span>
+                    <div className="toss-download-badges">
+                      {introDuration > 0 && <span className="toss-download-badge">인트로</span>}
+                      {activeBridgeIndexes.length > 0 && (
+                        <span className="toss-download-badge">
+                          브릿지 {activeBridgeIndexes.length}
+                        </span>
+                      )}
+                      {outroDuration > 0 && <span className="toss-download-badge">아웃트로</span>}
+                      {customAudioFile && (
+                        <span className="toss-download-badge">{customAudioName || '배경음악'}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="toss-download-actions">
+                  <button
+                    type="button"
+                    className={`toss-btn-download-video ${isReStitching ? 'loading' : ''}`}
+                    onClick={() => {
+                      if (isReStitching) return;
+                      setIsExportModalOpen(true);
+                    }}
+                    disabled={isReStitching}
+                    title={dict.header.downloadTitle}
+                  >
+                    <Download size={15} className={isReStitching ? 'animate-bounce' : ''} />
+                    <span>
+                      {isReStitching
+                        ? `${dict.header.stitching} (${reStitchProgress?.progressPercent ?? 0}%)`
+                        : `${dict.header.download || '영상 저장하기'} (${exportResolution} · ${formatSec(totalDuration)})`}
+                    </span>
+                  </button>
+                  <div className="toss-download-secondary">
+                    <button
+                      type="button"
+                      className="toss-btn-secondary toss-btn-sm"
+                      onClick={() => setIsSubtitleModalOpen(true)}
+                      title={dict.subtitleDownload?.buttonTitle || '유튜브 호환 자막 (.srt) 다운로드'}
+                    >
+                      <Subtitles size={13} />
+                      <span>{dict.subtitleDownload?.buttonText || '자막 다운로드 (.srt)'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="toss-btn-secondary toss-btn-sm"
+                      onClick={handleDownloadThumbnail}
+                      disabled={!thumbnailUrl && !thumbnailBgCanvasRef.current}
+                      title={dict.thumbnail?.downloadHd || '썸네일 다운로드 (1280x720 HD)'}
+                    >
+                      <ImageIcon size={13} />
+                      <span>썸네일 다시 저장</span>
+                    </button>
+                  </div>
+                </div>
+
+                <p className="toss-download-hint">
+                  저장 버튼을 누르면 해상도를 고르고 최종 영상을 만들 수 있어요. 저장이 끝나면 이 화면에서 언제든 다시 받을 수 있어요.
+                </p>
+              </div>
+            ) : (
+              <div className="toss-empty-state toss-download-empty">
+                <p className="text-slate-500 text-sm">
+                  {isCreationFlow
+                    ? '3번 AI 하이라이트를 만들면 완성된 영상을 저장할 수 있어요.'
+                    : 'AI 하이라이트 컷을 먼저 만든 뒤 저장할 수 있어요.'}
+                </p>
+                <button
+                  type="button"
+                  className="toss-btn-primary toss-btn-sm mt-2"
+                  onClick={() => goToSection(isCreationFlow ? 'ai' : 'cut')}
+                >
+                  <Sparkles size={13} />
+                  <span>{isCreationFlow ? '3번 AI 하이라이트로 가기' : '2번 컷으로 가기'}</span>
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* 시작 인트로 카드 */}
           <div
@@ -6589,7 +6752,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             </div>
           )}
 
-          {/* 3번 구간: 브릿지 (날짜/장소가 바뀌는 컷 사이 장면 전환) */}
+          {/* 브릿지 단계: 날짜/장소가 바뀌는 컷 사이 장면 전환 */}
           <div
             className={`toss-card toss-bridge-card toss-inspector-card ${activeSection === 'bridge' ? 'is-active-section' : ''}`}
           >
@@ -7723,7 +7886,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             )}
           </div>
 
-          {/* 5번 구간: 노래 (항상 설정 가능) */}
+          {/* 노래 단계: 항상 설정 가능 */}
           <div
             className={`toss-card toss-music-card toss-inspector-card ${activeSection === 'music' ? 'is-active-section' : ''}`}
           >
@@ -7883,7 +8046,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             )}
           </div>
 
-          {/* 단계 이동: 생성 흐름 6단계 / 편집 흐름 5단계 순서를 그대로 따른다 */}
+          {/* 단계 이동: 생성 흐름 8단계 / 편집 흐름 7단계 순서를 그대로 따른다 */}
           <nav className="toss-inspector-nav" aria-label={ui('편집 단계 이동')}>
             <button
               type="button"
@@ -7894,20 +8057,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               <ChevronLeft size={14} />
               <span>{ui('이전 단계')}</span>
             </button>
-            {activeSection === 'music' ? (
+            {activeSection === 'download' ? (
               <button
                 type="button"
                 className="toss-btn-primary toss-inspector-nav-btn"
                 onClick={() => setIsExportModalOpen(true)}
-                disabled={!isSequenceMode || segments.length === 0}
+                disabled={!isSequenceMode || segments.length === 0 || isReStitching}
                 title={
-                  isSequenceMode
+                  isSequenceMode && segments.length > 0
                     ? ui('편집한 영상을 저장해요')
-                    : ui('3번 AI 하이라이트를 먼저 만들면 저장할 수 있어요')
+                    : ui('AI 하이라이트를 먼저 만들면 저장할 수 있어요')
                 }
               >
-                <Download size={14} />
-                <span>{ui('영상 저장하기')}</span>
+                <Download size={14} className={isReStitching ? 'animate-bounce' : ''} />
+                <span>{isReStitching ? ui('저장 준비 중...') : ui('영상 저장하기')}</span>
               </button>
             ) : (
               <button
@@ -7915,7 +8078,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 className="toss-btn-primary toss-inspector-nav-btn"
                 onClick={() => goToAdjacentSection(1)}
               >
-                <span>{ui('다음 단계')}</span>
+                <span>{activeSection === 'thumbnail' ? ui('다운로드로 가기') : ui('다음 단계')}</span>
                 <ArrowRight size={14} />
               </button>
             )}

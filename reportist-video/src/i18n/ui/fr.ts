@@ -40,10 +40,17 @@ export const uiFr: Record<string, string> = {
   '주요 메뉴': 'Menu principal',
   '편집 순서': 'Ordre de montage',
   '처음 만드는 순서': 'Ordre de création',
-  '1번부터 6번까지, 순서대로만 눌러주세요': 'Des étapes 1 à 6, dans cet ordre uniquement.',
-  '1번부터 5번까지, 순서대로만 눌러주세요': 'Des étapes 1 à 5, dans cet ordre uniquement.',
+  '1번부터 8번까지, 순서대로만 눌러주세요': 'Des étapes 1 à 8, dans cet ordre uniquement.',
+  '1번부터 7번까지, 순서대로만 눌러주세요': 'Des étapes 1 à 7, dans cet ordre uniquement.',
   '영상 올리기와 AI 하이라이트까지 이 화면에서 한 번에 끝나요.':
     "L'import et les moments IA se font tous sur cet écran.",
+  '썸네일': 'Miniature',
+  '대표 이미지': 'Image de couverture',
+  '유튜브에 올릴 16:9 대표 이미지를 만들어요. AI 추천 프레임과 타이틀을 그대로 쓸 수 있어요.':
+    'Créez l’image de couverture 16:9 pour YouTube. Vous pouvez utiliser tels quels l’image et le titre recommandés par l’IA.',
+  '편집한 영상과 자막 파일을 내려받아요. 모든 편집이 끝난 뒤 마지막으로 눌러주세요.':
+    'Téléchargez la vidéo terminée et le fichier de sous-titres. Cliquez ici en dernier, une fois le montage terminé.',
+  '저장 가능': 'Prêt à enregistrer',
   '타임라인을 움직이면 지금 위치에 맞는 설정만 오른쪽에 보여요.':
     'Déplacez la timeline : le panneau de droite n’affiche que les réglages de cette position.',
   '{count}개 준비됨': '{count} prêts',
@@ -454,4 +461,7 @@ export const uiFr: Record<string, string> = {
   '선택한':
     'Sélectionné',
   '시청해 주셔서 감사합니다': 'Merci d’avoir regardé cette vidéo',
+  'AI 하이라이트를 먼저 만들면 저장할 수 있어요': "Créez d'abord les moments IA pour pouvoir enregistrer",
+  '저장 준비 중...': "Préparation de l'enregistrement...",
+  '다운로드로 가기': 'Aller au téléchargement',
 };
