@@ -13948,4 +13948,16 @@
     flex: 1 1 100%;
     justify-content: center;
   }
+
+  /* 모바일에서는 16:9 고정 높이 때문에 빈 업로드 카드의 내용이 위아래로 잘리므로
+     높이를 내용에 맞춰 늘리고 상하 여백을 확보한다. */
+  .toss-player-wrapper.is-empty {
+    aspect-ratio: auto;
+    min-height: 300px;
+  }
+
+  .toss-player-wrapper.is-empty .toss-player-empty {
+    height: auto;
+    box-sizing: border-box;
+  }
 }
