@@ -2116,6 +2116,7 @@ export function App() {
         isLoadingModels={isLoadingModels}
         onFilesSelected={handleFilesSelected}
         onRemoveVideo={handleRemove}
+        onUpdateVideoLocation={handleUpdateVideoLocation}
         onStartAiAnalysis={handleStartProcessing}
         isProcessing={currentStep === 'processing'}
         progress={progress}
