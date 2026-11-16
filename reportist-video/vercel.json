@@ -30,17 +30,6 @@
       "has": [
         {
           "type": "host",
-          "value": "www.penguincut.com"
-        }
-      ],
-      "destination": "https://penguincut.com/$1",
-      "permanent": true
-    },
-    {
-      "source": "/(.*)",
-      "has": [
-        {
-          "type": "host",
           "value": "video.reportist.kr"
         }
       ],
