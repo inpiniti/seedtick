@@ -21,7 +21,8 @@ import {
   createHyperframesBridgeController,
   type ChapterBridgeTransitionInfo,
 } from '../../services/hyperframesBridgeRenderer.ts';
-import type { BridgeDateTemplateId, BridgeLocationTemplateId } from '../../types/video.ts';
+import type { BridgeDateTemplateId, BridgeLocationTemplateId, VideoOrientation, PortraitPlatform } from '../../types/video.ts';
+import { previewFrame } from '../../services/frameSpec.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { notify } from '../../services/toastService.ts';
 
@@ -31,6 +32,8 @@ interface ChapterBridgePreviewModalProps {
   initialDateTemplate?: BridgeDateTemplateId;
   initialLocationTemplate?: BridgeLocationTemplateId;
   onApply?: (dateTemplate: BridgeDateTemplateId, locationTemplate: BridgeLocationTemplateId) => void;
+  orientation?: VideoOrientation;
+  portraitPlatform?: PortraitPlatform;
 }
 
 // 하위 호환 및 기본 참조용
@@ -68,7 +71,10 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
   initialDateTemplate = 'flip-clock',
   initialLocationTemplate = 'winding-route',
   onApply,
+  orientation,
+  portraitPlatform,
 }) => {
+  const frame = useMemo(() => previewFrame(orientation ?? 'landscape', portraitPlatform), [orientation, portraitPlatform]);
   const { dict, interpolate, ui } = useI18n();
   const cDict = dict.chapterBridgeModal;
 
@@ -430,11 +436,13 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
         <div className="bridge-preview-body">
           {/* [좌측 대형 프리뷰 스테이지] */}
           <div className="bridge-preview-stage">
-            {/* 캔버스 뷰포트 (대형 16:9 뷰) */}
+            {/* 캔버스 뷰포트 (출력 방향 비율 뷰) */}
             <div
               style={{
                 position: 'relative',
-                width: '100%',
+                ...(frame.orientation === 'portrait' && !isFullscreen
+                  ? { width: 'auto', height: 'min(58vh, 520px)', aspectRatio: '9 / 16' as const }
+                  : { width: '100%', aspectRatio: isFullscreen ? undefined : ('16 / 9' as const) }),
                 flex: isFullscreen ? 1 : undefined,
                 minHeight: isFullscreen ? '0' : '360px',
                 borderRadius: '18px',
@@ -442,7 +450,6 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                 backgroundColor: '#070707',
                 border: '1px solid #0f172a',
                 boxShadow: '0 12px 36px rgba(15, 23, 42, 0.25)',
-                aspectRatio: isFullscreen ? undefined : '16 / 9',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -450,8 +457,8 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
             >
               <canvas
                 ref={canvasRef}
-                width={1280}
-                height={720}
+                width={frame.width}
+                height={frame.height}
                 style={{
                   width: '100%',
                   height: '100%',

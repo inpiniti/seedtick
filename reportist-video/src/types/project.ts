@@ -1,4 +1,4 @@
-import type { ExportResolution, HighlightSegment, VideoOverlayOptions, VideoProcessingStatus } from './video.ts';
+import type { ExportResolution, HighlightSegment, PortraitPlatform, VideoOrientation, VideoOverlayOptions, VideoProcessingStatus } from './video.ts';
 import type { ReasoningEffortOption } from './gateway.ts';
 
 export interface StoredVideoItem {
@@ -27,6 +27,8 @@ export interface StoredFinalResult {
   width: number;
   height: number;
   resolution?: ExportResolution;
+  orientation?: VideoOrientation;
+  portraitPlatform?: PortraitPlatform;
   segments: HighlightSegment[];
   suggestedTitle?: string;
   thumbnailUrl?: string;
@@ -76,6 +78,10 @@ export interface StudioProject {
   selectedModel?: string;
   selectedEffort?: ReasoningEffortOption;
   exportResolution?: ExportResolution;
+  /** 출력 방향 (없으면 'landscape' - 기존 프로젝트 호환) */
+  orientation?: VideoOrientation;
+  /** 세로 프로젝트 플랫폼 프리셋 (없으면 'instagram') */
+  portraitPlatform?: PortraitPlatform;
   storageMode?: 'auto' | 'full' | 'lightweight';
   hasOpfsFiles?: boolean;
   /** 프로젝트가 기기에 저장된 미디어 총 바이트 (표시용) */

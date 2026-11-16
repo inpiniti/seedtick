@@ -240,18 +240,17 @@ export const uiFr: Record<string, string> = {
     '-0,1 s',
   '-1.0초':
     '-1,0 s',
-  '16:9 무결점 병합':
-    'Fusion 16:9 sans coupure',
-  '16:9 커버 크롭 예정':
-    'Recadrage 16:9 prévu',
+  '무결점 병합': 'Assemblage fluide',
+  '커버 크롭 예정':
+    'Recadrage en couverture prévu',
   'AI REASONING LOG (실시간 추론 콘솔)':
     'AI REASONING LOG (console de raisonnement en direct)',
   'AI 극적 구간 감지 완료 (':
     'Détection des scènes IA terminée (',
   'AI 극적 구간 분석':
     'Analyse des scènes IA',
-  'AI 극적 장면 탐색 & 16:9 시네마틱 렌더링':
-    'Recherche de scènes IA et rendu cinéma 16:9',
+  'AI 극적 장면 탐색 & 시네마틱 렌더링':
+    'Recherche IA de scènes et rendu cinématique',
   'AI 모델 & API Key':
     'Modèle d’IA et API Key',
   'AI 비전 모델 초기화 및 프레임 시퀀스 수신 대기 중...':
@@ -270,8 +269,8 @@ export const uiFr: Record<string, string> = {
     '⌨️ Génération de la réponse du modèle (en direct)',
   '⚡ 프레임 리샘플링 중...':
     '⚡ Rééchantillonnage des images...',
-  '✂️ 16:9 유튜브 시네마틱 캔버스(1280x720) 무결점 병합 중...':
-    '✂️ Fusion sans coupure sur un canvas cinéma 16:9 (1280x720)...',
+  '✂️ 시네마틱 캔버스 무결점 병합 중...':
+    '✂️ Assemblage fluide sur un canvas cinématique…',
   '✂️ 수정된 구간으로 즉시 다시 병합하기':
     '✂️ Refusionner avec les passages modifiés',
   '가로/세로 비율에 맞춰 인물 중심으로 16:9 규격화되고 멈춤 구간 없이 매끄럽게 병합되었어요.':
@@ -400,8 +399,8 @@ export const uiFr: Record<string, string> = {
     'Extraction des images clés',
   '준비됨':
     'Prêt',
-  '지루한 빌드업을 덜어내고, 인물에 맞춘 16:9 유튜브 규격으로 가장 결정적인 순간만 엮고 있어요.':
-    'On retire les longueurs et on ne garde que les moments décisifs dans un cadre YouTube 16:9.',
+  '지루한 빌드업을 덜어내고, 인물에 맞춘 화면 비율로 가장 결정적인 순간만 엮고 있어요.':
+    'On retire les longueurs et on ne garde que les moments décisifs dans un format adapté au sujet.',
   '창 모드로 축소':
     'Réduire en fenêtre',
   '최적화':
@@ -478,4 +477,18 @@ export const uiFr: Record<string, string> = {
   "저장 버튼을 누르면 해상도를 고르고 최종 영상을 만들 수 있어요. 저장이 끝나면 이 화면에서 언제든 다시 받을 수 있어요.": "Appuyez sur enregistrer pour choisir la résolution et générer la vidéo finale. Une fois terminé, vous pouvez la retélécharger depuis cet écran à tout moment.",
   "3번 AI 하이라이트를 만들면 완성된 영상을 저장할 수 있어요.": "Créez les moments IA de l'étape 3 pour pouvoir enregistrer la vidéo finale.",
   "AI 하이라이트 컷을 먼저 만든 뒤 저장할 수 있어요.": "Créez d'abord les clips de moments IA, puis vous pourrez enregistrer.",
+  "새 영상 포맷 고르기": "Choisir le format vidéo",
+  "만들기 전에 화면 비율을 골라주세요.": "Choisissez le format d'image avant de commencer.",
+  "가로 16:9": "Paysage 16:9",
+  "세로 9:16": "Vertical 9:16",
+  "유튜브·동영상 사이트": "YouTube et sites de vidéos",
+  "릴스·쇼츠·틱톡": "Reels · Shorts · TikTok",
+  "인스타그램 릴스": "Instagram Reels",
+  "유튜브 쇼츠": "YouTube Shorts",
+  "틱톡": "TikTok",
+  "이 포맷으로 시작하기": "Commencer dans ce format",
+  "인물 가로 위치": "Position horizontale du sujet",
+  "왼쪽": "Gauche",
+  "가운데": "Centre",
+  "오른쪽": "Droite",
 };

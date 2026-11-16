@@ -393,7 +393,7 @@ function drawKineticSlideIntro(
   ctx.font = `bold ${Math.round(44 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(title, 0, 0);
+  ctx.fillText(title, 0, 0, w * 0.86);
 
   // 상단 하이라이트 액센트 바
   const titleMetrics = ctx.measureText(title);
@@ -421,9 +421,10 @@ function drawKineticSlideIntro(
 
     // 캡슐 배지 그리기
     const metaStr = metaParts.join('  •  ');
+    ctx.font = `600 ${Math.round(18 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
     const metaM = ctx.measureText(metaStr);
     const padX = 20 * scale;
-    const badgeW = metaM.width + padX * 2;
+    const badgeW = Math.min(w * 0.9, metaM.width + padX * 2);
     const badgeH = 34 * scale;
 
     ctx.fillStyle = 'rgba(15, 23, 42, 0.68)';
@@ -439,7 +440,7 @@ function drawKineticSlideIntro(
     ctx.stroke();
 
     ctx.fillStyle = '#e2e8f0';
-    ctx.fillText(metaStr, cx, metaY);
+    ctx.fillText(metaStr, cx, metaY, badgeW - 16 * scale);
     ctx.restore();
   }
 }
@@ -465,9 +466,14 @@ function drawSplitFlapIntro(
   const chars = Array.from(title.slice(0, 22)); // 가로 최대 22자
   if (chars.length === 0) return;
 
-  const tileW = Math.round(38 * scale);
-  const tileH = Math.round(58 * scale);
-  const gap = Math.round(4 * scale);
+  // 세로 프레임에서도 보드가 넘치지 않도록 전체 타일 폭을 프레임 폭의 90%로 맞춘다.
+  const rawTileW = 38 * scale;
+  const rawGap = 4 * scale;
+  const rawTotalW = chars.length * rawTileW + (chars.length - 1) * rawGap;
+  const fit = Math.min(1, (w * 0.9) / Math.max(1, rawTotalW));
+  const tileW = Math.round(rawTileW * fit);
+  const tileH = Math.round(58 * scale * fit);
+  const gap = Math.round(rawGap * fit);
   const totalW = chars.length * tileW + (chars.length - 1) * gap;
   let startX = cx - totalW / 2 + tileW / 2;
 
@@ -514,7 +520,7 @@ function drawSplitFlapIntro(
 
     if (displayChar !== ' ') {
       ctx.fillStyle = '#f8fafc';
-      ctx.font = `bold ${Math.round(30 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", monospace`;
+      ctx.font = `bold ${Math.round(30 * scale * fit)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", monospace`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(displayChar, x, y);
@@ -528,7 +534,7 @@ function drawSplitFlapIntro(
   ctx.font = `bold ${Math.round(13 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", monospace`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('BOARDING NOW  •  JOURNEY ARCHIVE', cx, cy - 72 * scale);
+  ctx.fillText('BOARDING NOW  •  JOURNEY ARCHIVE', cx, cy - 72 * scale, w * 0.9);
 
   // 하단 메타정보
   if (state.metaAlpha > 0.01) {
@@ -541,7 +547,7 @@ function drawSplitFlapIntro(
     if (subParts.length > 0) {
       ctx.fillStyle = '#94a3b8';
       ctx.font = `600 ${Math.round(17 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-      ctx.fillText(subParts.join('  |  '), cx, cy + 54 * scale);
+      ctx.fillText(subParts.join('  |  '), cx, cy + 54 * scale, w * 0.9);
     }
   }
   ctx.restore();
@@ -609,7 +615,7 @@ function drawCinematicLetterboxIntro(
   ctx.textBaseline = 'middle';
   ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
   ctx.shadowBlur = Math.round(18 * scale);
-  ctx.fillText(title, 0, 0);
+  ctx.fillText(title, 0, 0, w * 0.88);
 
   // 하단 얇은 디바이더 및 채널명
   if (state.metaAlpha > 0.01) {
@@ -617,7 +623,7 @@ function drawCinematicLetterboxIntro(
     ctx.fillStyle = '#cbd5e1';
     ctx.font = `bold ${Math.round(14 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
     const ch = (options?.channelText || 'REPORTIST CINEMA').toUpperCase();
-    ctx.fillText(ch, 0, 48 * scale);
+    ctx.fillText(ch, 0, 48 * scale, w * 0.9);
   }
   ctx.restore();
 }
@@ -687,7 +693,7 @@ function drawFilmCountdownIntro(
     ctx.shadowColor = 'rgba(0,0,0,0.8)';
     ctx.shadowBlur = 16;
     const title = options?.titleText || 'Highlights';
-    ctx.fillText(title, cx, cy - 16 * scale);
+    ctx.fillText(title, cx, cy - 16 * scale, w * 0.88);
 
     if (state.metaAlpha > 0.01) {
       ctx.globalAlpha = state.metaAlpha;
@@ -698,7 +704,7 @@ function drawFilmCountdownIntro(
         options?.subtitleLocationText,
         options?.channelText,
       ].filter(Boolean).join('  •  ');
-      if (meta) ctx.fillText(meta, cx, cy + 36 * scale);
+      if (meta) ctx.fillText(meta, cx, cy + 36 * scale, w * 0.9);
     }
     ctx.restore();
   }
@@ -725,18 +731,21 @@ function drawModernEndcardOutro(
 
   const cx = w / 2;
   const cy = h / 2;
+  const isPortrait = h > w;
 
-  // 좌측: 감사 메시지 및 채널 프로필 링
+  // 좌측(가로) / 상단 중앙(세로): 감사 메시지 및 채널 프로필 링
   ctx.save();
-  const leftX = w * 0.32;
+  const leftX = isPortrait ? cx : w * 0.32;
+  const badgeY = isPortrait ? cy - 150 * scale : cy - 36 * scale;
+  const badgeR = (isPortrait ? 48 : 42) * scale;
 
   // 채널 펄스 링
   if (state.pulseRadius > 0) {
-    const pulseR = (46 + state.pulseRadius * 24) * scale;
+    const pulseR = ((isPortrait ? 52 : 46) + state.pulseRadius * 24) * scale;
     ctx.strokeStyle = `rgba(203, 213, 225, ${(0.45 * (1 - state.pulseRadius)).toFixed(3)})`;
     ctx.lineWidth = 2 * scale;
     ctx.beginPath();
-    ctx.arc(leftX, cy - 36 * scale, pulseR, 0, Math.PI * 2);
+    ctx.arc(leftX, badgeY, pulseR, 0, Math.PI * 2);
     ctx.stroke();
   }
 
@@ -746,7 +755,7 @@ function drawModernEndcardOutro(
   ctx.strokeStyle = '#cbd5e1';
   ctx.lineWidth = 3 * scale;
   ctx.beginPath();
-  ctx.arc(leftX, cy - 36 * scale, 42 * scale, 0, Math.PI * 2);
+  ctx.arc(leftX, badgeY, badgeR, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
 
@@ -757,29 +766,30 @@ function drawModernEndcardOutro(
   ctx.font = `bold ${Math.round(32 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(initial, leftX, cy - 36 * scale);
+  ctx.fillText(initial, leftX, badgeY);
 
   // 감사 타이틀
   ctx.globalAlpha = state.titleAlpha;
   const outroMsg = options?.outroText || 'Thank you for watching!';
+  const outroMsgY = isPortrait ? cy - 36 * scale : cy + 38 * scale;
   ctx.fillStyle = '#ffffff';
-  ctx.font = `bold ${Math.round(28 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-  ctx.fillText(outroMsg, leftX, cy + 38 * scale);
+  ctx.font = `bold ${Math.round((isPortrait ? 30 : 28) * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
+  ctx.fillText(outroMsg, leftX, outroMsgY, w * 0.86);
 
   // 채널명 서브
   ctx.fillStyle = '#94a3b8';
   ctx.font = `600 ${Math.round(18 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-  ctx.fillText(ch, leftX, cy + 72 * scale);
+  ctx.fillText(ch, leftX, isPortrait ? cy + 8 * scale : cy + 72 * scale, w * 0.8);
   ctx.restore();
 
-  // 우측: 유튜브 추천 영상 플레이스홀더 카드 (16:9 규격 가이드)
+  // 우측(가로) / 하단 중앙(세로): 추천 영상 플레이스홀더 카드
   if (state.cardAlpha > 0.01) {
     ctx.save();
     ctx.globalAlpha = state.cardAlpha;
-    const cardW = Math.round(380 * scale);
-    const cardH = Math.round(214 * scale);
-    const cardX = w * 0.72 - cardW / 2;
-    const cardY = cy - cardH / 2;
+    const cardW = isPortrait ? Math.min(w * 0.82, 420 * scale) : Math.round(380 * scale);
+    const cardH = Math.round(cardW * (9 / 16));
+    const cardX = isPortrait ? cx - cardW / 2 : w * 0.72 - cardW / 2;
+    const cardY = isPortrait ? cy + 64 * scale : cy - cardH / 2;
 
     ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
     ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
@@ -831,13 +841,13 @@ function drawMinimalFadeOutro(
   ctx.textBaseline = 'middle';
   ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
   ctx.shadowBlur = 14;
-  ctx.fillText(outroMsg, cx, cy - 14 * scale);
+  ctx.fillText(outroMsg, cx, cy - 14 * scale, w * 0.88);
 
   if (options?.channelText && state.channelAlpha > 0.01) {
     ctx.globalAlpha = state.channelAlpha;
     ctx.fillStyle = '#cbd5e1';
     ctx.font = `bold ${Math.round(20 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-    ctx.fillText(options.channelText, cx, cy + 30 * scale);
+    ctx.fillText(options.channelText, cx, cy + 30 * scale, w * 0.9);
   }
   ctx.restore();
 }
@@ -882,12 +892,12 @@ function drawCurtainSplitOutro(
     ctx.font = `bold ${Math.round(36 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(outroMsg, cx, cy - 16 * scale);
+    ctx.fillText(outroMsg, cx, cy - 16 * scale, w * 0.88);
 
     if (options?.channelText) {
       ctx.fillStyle = '#94a3b8';
       ctx.font = `bold ${Math.round(20 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-      ctx.fillText(options.channelText, cx, cy + 28 * scale);
+      ctx.fillText(options.channelText, cx, cy + 28 * scale, w * 0.9);
     }
     ctx.restore();
   }
@@ -908,7 +918,7 @@ export function renderHyperframesIntroFrame(
   const duration = options?.introDurationSec || DEFAULT_INTRO_DURATION;
   const controller = createHyperframesIntroController(template, duration);
   const state = controller.seek(progress);
-  const scale = w / 1280;
+  const scale = Math.min(w, h) / 720;
 
   switch (template) {
     case 'kinetic-slide':
@@ -941,7 +951,7 @@ export function renderHyperframesOutroFrame(
   const duration = options?.outroDurationSec || DEFAULT_OUTRO_DURATION;
   const controller = createHyperframesOutroController(template, duration);
   const state = controller.seek(progress);
-  const scale = w / 1280;
+  const scale = Math.min(w, h) / 720;
 
   switch (template) {
     case 'modern-endcard':

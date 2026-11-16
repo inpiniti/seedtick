@@ -35,6 +35,8 @@ import type {
   IntroTemplateId,
   OutroTemplateId,
   SubtitleTone,
+  VideoOrientation,
+  PortraitPlatform,
 } from '../../types/video.ts';
 import {
   ChapterBridgePreviewModal,
@@ -135,6 +137,9 @@ export interface MobileSettingsModalProps {
   onSelectSubtitleTone?: (tone: SubtitleTone) => void;
   selectedResolution?: ExportResolution;
   onSelectResolution?: (res: ExportResolution) => void;
+  /** 출력 방향 — 세로일 때 인트로/아웃트로·브릿지 미리보기 캔버스도 9:16으로 렌더링한다. */
+  orientation?: VideoOrientation;
+  portraitPlatform?: PortraitPlatform;
   currentModel?: FreeModelMeta;
   isLoadingModels?: boolean;
   currentLocaleInfo: { flag: string; nativeName: string; name: string };
@@ -190,6 +195,8 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   onSelectSubtitleTone,
   selectedResolution = '1080p',
   onSelectResolution,
+  orientation,
+  portraitPlatform,
   currentModel,
   isLoadingModels,
   currentLocaleInfo,
@@ -1913,6 +1920,8 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
       onClose={() => setIsBridgePreviewOpen(false)}
       initialDateTemplate={chapterBridgeDateTemplate}
       initialLocationTemplate={chapterBridgeLocationTemplate}
+      orientation={orientation}
+      portraitPlatform={portraitPlatform}
       onApply={(dateTpl, locTpl) => {
         if (onChangeChapterBridgeTemplates) {
           onChangeChapterBridgeTemplates(dateTpl, locTpl);
@@ -1930,6 +1939,8 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
       initialOutroTemplate={outroTemplate}
       initialOutroDuration={outroDurationSec}
       initialOutroText={ui(outroText)}
+      orientation={orientation}
+      portraitPlatform={portraitPlatform}
       onApply={(settings) => {
         if (onChangeIntroOutroSettings) {
           onChangeIntroOutroSettings(settings);

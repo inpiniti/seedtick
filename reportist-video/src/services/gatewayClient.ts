@@ -637,10 +637,14 @@ STRICT DURATION & SELECTION RULES:
 4. INDIVIDUAL INTERVAL LENGTH: Each interval MUST be between 1.5 seconds and 4.5 seconds. NEVER return an interval longer than 5.0 seconds.
 5. NO OVERLAPPING: Intervals MUST NOT overlap.
 ${getLanguageRule(locale)}
-8. Analyze human faces and main subject position in these keyframes to choose 'cropPosition':
+8. Analyze human faces and main subject position in these keyframes to choose 'cropPosition' (for vertical source videos that get cropped into a wide 16:9 frame):
    - "top": Person's face or eyes are located in the upper area (protects face from getting cropped in 16:9)
    - "center": Subject is centered or panoramic landscape
    - "bottom": Action or main subject is lower in the frame
+   And choose 'horizontalPosition' (for horizontal source videos that get cropped into a tall 9:16 frame):
+   - "left": Person's face or main subject is on the LEFT side of the frame
+   - "center": Subject is centered or the scene is symmetric/panoramic
+   - "right": Person's face or main subject is on the RIGHT side of the frame
 9. THUMBNAIL DIRECT RECOMMENDATION:
    Carefully inspect all keyframes and choose the single absolute best, clearest, most emotional, and photogenic keyframe moment for the YouTube thumbnail.
    - 'bestThumbnailTimestamp': exact timestamp (seconds) of that single best keyframe.
@@ -653,7 +657,7 @@ Format:
   "bestThumbnailTimestamp": 3.8,
   "bestThumbnailReason": "가장 생동감 넘치고 환하게 웃는 표정",
   "segments": [
-    {"start": 3.2, "end": 6.5, "reason": "Joyful smiling climax", "cropPosition": "top"}
+    {"start": 3.2, "end": 6.5, "reason": "Joyful smiling climax", "cropPosition": "top", "horizontalPosition": "center"}
   ]
 }`;
 
@@ -925,6 +929,7 @@ type RawSegmentItem = {
   end: number;
   reason?: string;
   cropPosition?: 'top' | 'center' | 'bottom' | string;
+  horizontalPosition?: 'left' | 'center' | 'right' | string;
 };
 
 export interface ParsedAnalysisPayload {
@@ -1043,6 +1048,14 @@ export function parseAndValidateSegments(
         cropOffsetYRatio = 0.85;
       }
 
+      // AI가 분석한 주요 인물의 가로 위치 (가로 원본 → 세로 9:16 크롭에 사용)
+      let cropOffsetXRatio = 0.5; // 기본값 중앙
+      if (item.horizontalPosition === 'left') {
+        cropOffsetXRatio = 0.15;
+      } else if (item.horizontalPosition === 'right') {
+        cropOffsetXRatio = 0.85;
+      }
+
       const sceneReason = item.reason || 'AI가 감지한 극적 순간';
 
       // 최소 1.2초 이상이어야 함
@@ -1056,6 +1069,7 @@ export function parseAndValidateSegments(
           duration: Math.round((end - start) * 10) / 10,
           reason: sceneReason,
           cropOffsetYRatio,
+          cropOffsetXRatio,
           subtitleDate: metadataDate || '',
           subtitleTitle: sceneReason,
           locationName,
@@ -1111,6 +1125,7 @@ export function parseAndValidateSegments(
       duration: Math.round((fallbackEnd - fallbackStart) * 10) / 10,
       reason: 'AI 핵심 클라이맥스 구간 (자동 선정)',
       cropOffsetYRatio: 0.2,
+      cropOffsetXRatio: 0.5,
       subtitleDate: metadataDate || '',
       subtitleTitle: 'AI 핵심 클라이맥스 구간',
       latitude,

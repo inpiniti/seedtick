@@ -40,7 +40,8 @@ export async function captureVideoFrameAtTime(
   cropOffsetYRatio = 0.2,
   targetWidth = 1280,
   targetHeight = 720,
-  rotation = 0
+  rotation = 0,
+  cropOffsetXRatio = 0.5
 ): Promise<HTMLCanvasElement> {
   // 1순위: WebCodecs 키프레임 디코딩 (<video> 미사용)
   if (videoUrl.startsWith('blob:') && isWebCodecsKeyframeDecodeAvailable()) {
@@ -59,7 +60,8 @@ export async function captureVideoFrameAtTime(
           targetWidth,
           targetHeight,
           cropOffsetYRatio,
-          rotation
+          rotation,
+          cropOffsetXRatio
         );
       }
     } catch (err) {
@@ -68,7 +70,7 @@ export async function captureVideoFrameAtTime(
   }
 
   // 2순위(폴백): <video preload='metadata'> 기반
-  return captureFrameWithVideoElement(videoUrl, timestamp, cropOffsetYRatio, targetWidth, targetHeight, rotation);
+  return captureFrameWithVideoElement(videoUrl, timestamp, cropOffsetYRatio, targetWidth, targetHeight, rotation, cropOffsetXRatio);
 }
 
 async function captureFrameWithVideoElement(
@@ -77,7 +79,8 @@ async function captureFrameWithVideoElement(
   cropOffsetYRatio: number,
   targetWidth: number,
   targetHeight: number,
-  rotation: number
+  rotation: number,
+  cropOffsetXRatio: number = 0.5
 ): Promise<HTMLCanvasElement> {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
@@ -150,7 +153,10 @@ async function captureFrameWithVideoElement(
         const renderW = vW * scale;
         const renderH = vH * scale;
 
-        const offsetX = (targetWidth - renderW) / 2;
+        const excessWidth = Math.max(0, renderW - targetWidth);
+        const cropXRatioClamped = Math.max(0, Math.min(1, cropOffsetXRatio));
+        const offsetX =
+          excessWidth > 0 ? -excessWidth * cropXRatioClamped : (targetWidth - renderW) / 2;
         let offsetY: number;
         if (vH > vW) {
           const excessHeight = renderH - targetHeight;
@@ -168,7 +174,7 @@ async function captureFrameWithVideoElement(
 
           if (videoAspect > targetAspect) {
             sWidth = Math.round(vH * targetAspect);
-            sx = Math.round((vW - sWidth) / 2);
+            sx = Math.round((vW - sWidth) * Math.max(0, Math.min(1, cropOffsetXRatio)));
           } else if (videoAspect < targetAspect) {
             sHeight = Math.round(vW / targetAspect);
             if (videoAspect < 1.0) {
@@ -287,7 +293,8 @@ export async function createCanvasFromImageDataUrl(
   targetWidth = 1280,
   targetHeight = 720,
   cropOffsetYRatio = 0.2,
-  rotation = 0
+  rotation = 0,
+  cropOffsetXRatio = 0.5
 ): Promise<HTMLCanvasElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -315,7 +322,10 @@ export async function createCanvasFromImageDataUrl(
         const renderW = vW * scale;
         const renderH = vH * scale;
 
-        const offsetX = (targetWidth - renderW) / 2;
+        const excessWidth = Math.max(0, renderW - targetWidth);
+        const cropXRatioClamped = Math.max(0, Math.min(1, cropOffsetXRatio));
+        const offsetX =
+          excessWidth > 0 ? -excessWidth * cropXRatioClamped : (targetWidth - renderW) / 2;
         let offsetY: number;
         if (vH > vW) {
           const excessHeight = renderH - targetHeight;
@@ -333,7 +343,7 @@ export async function createCanvasFromImageDataUrl(
 
           if (aspect > targetAspect) {
             sWidth = Math.round(vH * targetAspect);
-            sx = Math.round((vW - sWidth) / 2);
+            sx = Math.round((vW - sWidth) * Math.max(0, Math.min(1, cropOffsetXRatio)));
           } else if (aspect < targetAspect) {
             sHeight = Math.round(vW / targetAspect);
             if (aspect < 1.0) {
@@ -388,7 +398,8 @@ export function captureVideoFrameFromElement(
   cropOffsetYRatio = 0.2,
   targetWidth = 1280,
   targetHeight = 720,
-  rotation = 0
+  rotation = 0,
+  cropOffsetXRatio = 0.5
 ): HTMLCanvasElement | null {
   try {
     if (!videoElement || videoElement.readyState < 2) return null;
@@ -412,7 +423,10 @@ export function captureVideoFrameFromElement(
     const renderW = vW * scale;
     const renderH = vH * scale;
 
-    const offsetX = (targetWidth - renderW) / 2;
+    const excessWidth = Math.max(0, renderW - targetWidth);
+    const cropXRatioClamped = Math.max(0, Math.min(1, cropOffsetXRatio));
+    const offsetX =
+      excessWidth > 0 ? -excessWidth * cropXRatioClamped : (targetWidth - renderW) / 2;
     let offsetY: number;
     if (vH > vW) {
       const excessHeight = renderH - targetHeight;
@@ -430,7 +444,7 @@ export function captureVideoFrameFromElement(
 
       if (videoAspect > targetAspect) {
         sWidth = Math.round(vH * targetAspect);
-        sx = Math.round((vW - sWidth) / 2);
+        sx = Math.round((vW - sWidth) * Math.max(0, Math.min(1, cropOffsetXRatio)));
       } else if (videoAspect < targetAspect) {
         sHeight = Math.round(vW / targetAspect);
         if (videoAspect < 1.0) {
@@ -568,19 +582,22 @@ export function renderThumbnailArtwork(
   // 1. 순수 배경 프레임 그리기
   ctx.drawImage(bgCanvas, 0, 0, targetWidth, targetHeight);
 
+  // 짧은 변 기준 단위 (가로/세로 모두 720p=1, 1080p=1.5). 세로 9:16에서도 타이포가 깨지지 않게 한다.
+  const u = Math.max(1, Math.min(targetWidth, targetHeight) / 720);
+
   // 상단 왼쪽 문구, 오른쪽 문구, 날짜 등의 문구는 썸네일 이미지에 일체 표시되지 않아야 하므로 렌더링하지 않습니다.
   const shouldRenderTitle = Boolean(options.showTitle && options.titleText && options.titleText.trim());
 
   // 2. 타이틀 텍스트 준비 및 줄바꿈 (줄 수에 맞춰 하단 그라데이션 높이 동적 조절)
   let lines: string[] = [];
-  const fontSize = 52; // 글씨 양에 따른 폰트 축소 없이 일관된 크기(52px) 유지
+  const fontSize = Math.round(52 * u); // 글씨 양에 따른 폰트 축소 없이 일관된 크기 유지
   const lineHeight = Math.round(fontSize * 1.25);
 
   if (shouldRenderTitle) {
     const rawTitle = options.titleText.trim();
     ctx.save();
     ctx.font = `900 ${fontSize}px -apple-system, BlinkMacSystemFont, "Pretendard", "Noto Sans KR", sans-serif`;
-    const maxTextWidth = targetWidth - 110;
+    const maxTextWidth = targetWidth - Math.round(110 * u);
     // 글씨가 길어지면 크기 축소 없이 2줄, 3줄로 자연스럽게 늘어남 (최대 3줄)
     lines = wrapText(ctx, rawTitle, maxTextWidth, 3);
     ctx.restore();
@@ -589,7 +606,7 @@ export function renderThumbnailArtwork(
   // 타이틀이 활성화된 경우에만 하단 가독성 그라데이션 및 비네팅 적용
   if (shouldRenderTitle && lines.length > 0) {
     // 텍스트 줄 수(1줄~3줄)에 맞춰 하단 그라데이션 높이를 동적으로 최적화
-    const gradHeight = Math.max(380, 220 + lines.length * 75);
+    const gradHeight = Math.max(Math.round(380 * u), Math.round((220 + lines.length * 75) * u));
     const bottomGrad = ctx.createLinearGradient(0, targetHeight - gradHeight, 0, targetHeight);
     bottomGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
     bottomGrad.addColorStop(0.3, 'rgba(0, 0, 0, 0.45)');
@@ -619,7 +636,7 @@ export function renderThumbnailArtwork(
     ctx.font = `900 ${fontSize}px -apple-system, BlinkMacSystemFont, "Pretendard", "Noto Sans KR", sans-serif`;
 
     const totalTextHeight = lines.length * lineHeight;
-    const startY = targetHeight - 56 - totalTextHeight + fontSize;
+    const startY = targetHeight - Math.round(56 * u) - totalTextHeight + fontSize;
 
     lines.forEach((line, index) => {
       const lineY = startY + index * lineHeight;
@@ -628,9 +645,9 @@ export function renderThumbnailArtwork(
       if (options.stylePreset === 'banner-box') {
         // 배경 박스 스타일 (유튜브 트렌드)
         const lineMetrics = ctx.measureText(line);
-        const padX = 18;
+        const padX = Math.round(18 * u);
         const boxH = fontSize * 1.25;
-        const boxX = 48;
+        const boxX = Math.round(48 * u);
         const boxY = lineY - fontSize * 0.9;
         const boxW = lineMetrics.width + padX * 2;
 
@@ -648,7 +665,7 @@ export function renderThumbnailArtwork(
         ctx.fillText(line, boxX + padX, lineY);
       } else {
         // 기본 'youtube-bold' 또는 'cinematic-clean': 볼드 텍스트 + 깊은 외곽선 & 섀도우
-        const textX = 48;
+        const textX = Math.round(48 * u);
 
         // 두꺼운 블랙 스트로크 외곽선
         ctx.strokeStyle = '#000000';

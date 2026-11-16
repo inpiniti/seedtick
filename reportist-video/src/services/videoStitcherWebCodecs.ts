@@ -3,7 +3,17 @@
 
 import { Muxer } from 'mp4-muxer';
 import { createExportMuxerTarget } from './exportMuxerTarget.ts';
-import type { ExportResolution, FinalVideoResult, HighlightSegment, VideoItem, VideoOverlayOptions } from '../types/video.ts';
+import type {
+  ExportResolution,
+  FinalVideoResult,
+  HighlightSegment,
+  PortraitPlatform,
+  VideoItem,
+  VideoOrientation,
+  VideoOverlayOptions,
+} from '../types/video.ts';
+import { drawCompositorCoverFrame, drawCompositorSegmentOverlay } from './previewCompositorBase.ts';
+import { resolveFrameSpec } from './frameSpec.ts';
 import {
   CHAPTER_BRIDGE_DURATION,
   computeBridgeDurationMap,
@@ -29,6 +39,8 @@ export interface StitchVideosWebCodecsParams {
   customAudioFile?: File | null;
   overlayOptions?: VideoOverlayOptions;
   resolution?: ExportResolution;
+  orientation?: VideoOrientation;
+  portraitPlatform?: PortraitPlatform;
 }
 
 /**
@@ -315,6 +327,8 @@ export async function stitchVideosWebCodecs({
   customAudioFile,
   overlayOptions,
   resolution,
+  orientation,
+  portraitPlatform,
 }: StitchVideosWebCodecsParams): Promise<FinalVideoResult> {
   if (allSegments.length === 0) {
     throw new Error('이어붙일 하이라이트 구간이 없습니다.');
@@ -350,11 +364,12 @@ export async function stitchVideosWebCodecs({
   }
 
   // 해상도 결정: 전달된 옵션이 있거나, 없으면 데스크톱은 1080p, 모바일은 720p 권장 기본값
-  const is1080p = resolution === '1080p' || (!resolution && !IS_MOBILE);
-  const targetResolution: ExportResolution = is1080p ? '1080p' : '720p';
-  const targetWidth = is1080p ? 1920 : 1280;
-  const targetHeight = is1080p ? 1080 : 720;
-  const scale = targetWidth / 1280; // 1.0 (720p) vs 1.5 (1080p)
+  const requestedResolution: ExportResolution = resolution ?? (IS_MOBILE ? '720p' : '1080p');
+  const frame = resolveFrameSpec(orientation, requestedResolution, portraitPlatform);
+  const targetResolution: ExportResolution = requestedResolution;
+  const targetWidth = frame.width;
+  const targetHeight = frame.height;
+  const is1080p = requestedResolution === '1080p';
 
   // 모바일/아이폰은 배터리 및 하드웨어 디코더 부하를 줄이고 인코딩 속도를 2배 단축하기 위해 30fps 적용, 데스크톱은 60fps 고주사율 유지
   const targetFps = IS_MOBILE ? 30 : 60;
@@ -422,200 +437,13 @@ export async function stitchVideosWebCodecs({
     if (!overlayOptions || !sharedOverlayCtx) return null;
     const oCtx = sharedOverlayCtx;
     oCtx.clearRect(0, 0, targetWidth, targetHeight);
-
-    let hasAnyOverlay = false;
-    let titleBottomY = Math.round(28 * scale);
-    const hasTitle = Boolean(overlayOptions.showTitle && overlayOptions.titleText?.trim());
-
-    if (hasTitle) {
-      hasAnyOverlay = true;
-      oCtx.save();
-      const titleFont = Math.round(22 * scale);
-      oCtx.font = `bold ${titleFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-      const text = overlayOptions.titleText || '';
-      const metrics = oCtx.measureText(text);
-      const padX = Math.round(14 * scale);
-      const boxW = metrics.width + padX * 2;
-      const boxH = Math.round(38 * scale);
-      const x = Math.round(32 * scale);
-      const y = Math.round(28 * scale);
-      const roundR = Math.round(6 * scale);
-
-      oCtx.fillStyle = 'rgba(0, 0, 0, 0.72)';
-      oCtx.beginPath();
-      if (typeof oCtx.roundRect === 'function') {
-        oCtx.roundRect(x, y, boxW, boxH, roundR);
-      } else {
-        oCtx.rect(x, y, boxW, boxH);
-      }
-      oCtx.fill();
-
-      oCtx.fillStyle = '#ffffff';
-      oCtx.textAlign = 'left';
-      oCtx.textBaseline = 'middle';
-      oCtx.fillText(text, x + padX, y + boxH / 2);
-      oCtx.restore();
-
-      titleBottomY = y + boxH;
-    }
-
-    const datePart =
-      overlayOptions.showDate === false
-        ? ''
-        : currentSegment?.subtitleDate || overlayOptions.subtitleDateText || '';
-    const locPart = currentSegment?.locationName || overlayOptions.subtitleLocationText || '';
-    const metaParts = [datePart, locPart].filter(Boolean);
-    const metaText = metaParts.join(' • ');
-
-    if (metaText) {
-      hasAnyOverlay = true;
-      oCtx.save();
-      const metaFont = Math.round(16 * scale);
-      oCtx.font = `600 ${metaFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-      oCtx.fillStyle = '#ffffff';
-      oCtx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-      oCtx.shadowBlur = Math.round(4 * scale);
-      oCtx.shadowOffsetX = 0;
-      oCtx.shadowOffsetY = Math.round(1.5 * scale);
-      oCtx.textAlign = 'left';
-      oCtx.textBaseline = 'top';
-
-      const metaX = hasTitle ? Math.round(34 * scale) : Math.round(32 * scale);
-      const metaY = hasTitle ? titleBottomY + Math.round(7 * scale) : Math.round(28 * scale);
-      oCtx.fillText(metaText, metaX, metaY);
-      oCtx.restore();
-    }
-
-    if (overlayOptions.showChannel && overlayOptions.channelText) {
-      hasAnyOverlay = true;
-      oCtx.save();
-      const chFont = Math.round(22 * scale);
-      oCtx.font = `bold ${chFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-      oCtx.fillStyle = '#ffffff';
-      oCtx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-      oCtx.shadowBlur = Math.round(4 * scale);
-      oCtx.shadowOffsetX = 0;
-      oCtx.shadowOffsetY = Math.round(2 * scale);
-      oCtx.textAlign = 'right';
-      oCtx.textBaseline = 'middle';
-      oCtx.fillText(overlayOptions.channelText, targetWidth - Math.round(32 * scale), Math.round(47 * scale));
-      oCtx.restore();
-    }
-
-    if (overlayOptions.showSubtitle) {
-      const titlePart = currentSegment?.subtitleTitle || currentSegment?.reason || '';
-      const subText = titlePart.trim();
-
-      if (subText) {
-        hasAnyOverlay = true;
-        oCtx.save();
-        const subFont = Math.round(24 * scale);
-        oCtx.font = `bold ${subFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-        const metrics = oCtx.measureText(subText);
-        const padX = Math.round(20 * scale);
-        const boxW = metrics.width + padX * 2;
-        const boxH = Math.round(46 * scale);
-        const x = (targetWidth - boxW) / 2;
-        const y = targetHeight - Math.round(76 * scale);
-        const roundR = Math.round(8 * scale);
-
-        oCtx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-        oCtx.beginPath();
-        if (typeof oCtx.roundRect === 'function') {
-          oCtx.roundRect(x, y, boxW, boxH, roundR);
-        } else {
-          oCtx.rect(x, y, boxW, boxH);
-        }
-        oCtx.fill();
-
-        oCtx.fillStyle = '#ffffff';
-        oCtx.textAlign = 'center';
-        oCtx.textBaseline = 'middle';
-        oCtx.fillText(subText, targetWidth / 2, y + boxH / 2);
-        oCtx.restore();
-      }
-    }
-
+    const hasAnyOverlay = drawCompositorSegmentOverlay(oCtx, overlayOptions, currentSegment, frame);
     return hasAnyOverlay ? sharedOverlayCanvas : null;
   };
 
-  // 비디오 프레임 16:9 맞춤 스마트 크롭 드로잉
+  // 프레임(가로 16:9 / 세로 9:16) 맞춤 스마트 크롭 드로잉
   const drawCoverFrame = (video: HTMLVideoElement, vItem?: VideoItem, segment?: HighlightSegment) => {
-    const rawVW = video.videoWidth || vItem?.width || targetWidth;
-    const rawVH = video.videoHeight || vItem?.height || targetHeight;
-    const rotation = ((segment?.rotation ?? 0) % 360 + 360) % 360;
-
-    const isSideways = rotation === 90 || rotation === 270;
-    const vW = isSideways ? rawVH : rawVW;
-    const vH = isSideways ? rawVW : rawVH;
-
-    const targetAspect = targetWidth / targetHeight; // 16:9
-    const srcAspect = vW / vH;
-
-    const scale = Math.max(targetWidth / vW, targetHeight / vH);
-    const renderW = vW * scale;
-    const renderH = vH * scale;
-
-    const offsetX = (targetWidth - renderW) / 2;
-    let offsetY: number;
-
-    if (vH > vW) {
-      const excessHeight = renderH - targetHeight;
-      const ratio = segment?.cropOffsetYRatio ?? 0.25;
-      offsetY = -excessHeight * ratio;
-    } else {
-      offsetY = (targetHeight - renderH) / 2;
-    }
-
-    if (rotation === 0) {
-      let sx = 0;
-      let sy = 0;
-      let sWidth = rawVW;
-      let sHeight = rawVH;
-
-      if (srcAspect > targetAspect) {
-        sHeight = rawVH;
-        sWidth = Math.round(rawVH * targetAspect);
-        sx = Math.round((rawVW - sWidth) / 2);
-        sy = 0;
-      } else if (srcAspect < targetAspect) {
-        sWidth = rawVW;
-        sHeight = Math.round(rawVW / targetAspect);
-        sx = 0;
-        if (rawVH > rawVW) {
-          const excessHeight = rawVH - sHeight;
-          const ratio = segment?.cropOffsetYRatio ?? 0.25;
-          sy = Math.round(excessHeight * ratio);
-        } else {
-          sy = Math.round((rawVH - sHeight) / 2);
-        }
-      }
-
-      sx = Math.max(0, Math.min(sx, Math.max(0, rawVW - sWidth)));
-      sy = Math.max(0, Math.min(sy, Math.max(0, rawVH - sHeight)));
-
-      ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
-    } else {
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(0, 0, targetWidth, targetHeight);
-      ctx.clip();
-
-      const centerX = offsetX + renderW / 2;
-      const centerY = offsetY + renderH / 2;
-
-      ctx.translate(centerX, centerY);
-      ctx.rotate((rotation * Math.PI) / 180);
-
-      ctx.drawImage(
-        video,
-        (-rawVW * scale) / 2,
-        (-rawVH * scale) / 2,
-        rawVW * scale,
-        rawVH * scale
-      );
-      ctx.restore();
-    }
+    drawCompositorCoverFrame(ctx, video, vItem, segment, frame);
   };
 
   // 5. 총 예상 시간 및 브릿지 계산
@@ -1471,6 +1299,7 @@ export async function stitchVideosWebCodecs({
       width: targetWidth,
       height: targetHeight,
       resolution: targetResolution,
+      orientation: frame.orientation,
       introDuration: Math.round(actualIntroDuration * 10) / 10,
       outroDuration: Math.round(actualOutroDuration * 10) / 10,
       bridgeDurationMap: actualBridgeDurationMap,

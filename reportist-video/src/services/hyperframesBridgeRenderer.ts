@@ -1347,7 +1347,7 @@ export function createHyperframesBridgeController(durationSec = CHAPTER_BRIDGE_D
         ctx.fillRect(0, 0, targetWidth, targetHeight);
       }
 
-      const scale = targetWidth / 1280;
+      const scale = Math.min(targetWidth, targetHeight) / 720;
 
       // 5단 사선 루버 블라인드
       const closes = [state.s0Close, state.s1Close, state.s2Close, state.s3Close, state.s4Close];

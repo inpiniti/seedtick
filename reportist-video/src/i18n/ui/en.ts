@@ -234,18 +234,17 @@ export const uiEn: Record<string, string> = {
     '-0.1s',
   '-1.0초':
     '-1.0s',
-  '16:9 무결점 병합':
-    '16:9 seamless merge',
-  '16:9 커버 크롭 예정':
-    'Will crop to 16:9 cover',
+  '무결점 병합': 'Seamless merge',
+  '커버 크롭 예정':
+    'Will crop to cover',
   'AI REASONING LOG (실시간 추론 콘솔)':
     'AI REASONING LOG (live reasoning console)',
   'AI 극적 구간 감지 완료 (':
     'AI scene detection complete (',
   'AI 극적 구간 분석':
     'AI scene analysis',
-  'AI 극적 장면 탐색 & 16:9 시네마틱 렌더링':
-    'AI scene search & 16:9 cinematic render',
+  'AI 극적 장면 탐색 & 시네마틱 렌더링':
+    'AI scene search & cinematic render',
   'AI 모델 & API Key':
     'AI Model & API Key',
   'AI 비전 모델 초기화 및 프레임 시퀀스 수신 대기 중...':
@@ -264,8 +263,8 @@ export const uiEn: Record<string, string> = {
     '⌨️ Generating model response (live)',
   '⚡ 프레임 리샘플링 중...':
     '⚡ Resampling frames...',
-  '✂️ 16:9 유튜브 시네마틱 캔버스(1280x720) 무결점 병합 중...':
-    '✂️ Merging seamlessly on a 16:9 YouTube cinematic canvas (1280x720)...',
+  '✂️ 시네마틱 캔버스 무결점 병합 중...':
+    '✂️ Merging seamlessly on a cinematic canvas...',
   '✂️ 수정된 구간으로 즉시 다시 병합하기':
     '✂️ Re-merge with the edited clips now',
   '가로/세로 비율에 맞춰 인물 중심으로 16:9 규격화되고 멈춤 구간 없이 매끄럽게 병합되었어요.':
@@ -394,8 +393,8 @@ export const uiEn: Record<string, string> = {
     'Key frame extraction',
   '준비됨':
     'Ready',
-  '지루한 빌드업을 덜어내고, 인물에 맞춘 16:9 유튜브 규격으로 가장 결정적인 순간만 엮고 있어요.':
-    'Cutting the slow build-up and stitching only the most decisive moments into a 16:9 YouTube frame.',
+  '지루한 빌드업을 덜어내고, 인물에 맞춘 화면 비율로 가장 결정적인 순간만 엮고 있어요.':
+    'Cutting the slow build-up and stitching only the most decisive moments into a ratio-matched frame.',
   '창 모드로 축소':
     'Shrink to window',
   '최적화':
@@ -472,4 +471,18 @@ export const uiEn: Record<string, string> = {
   "저장 버튼을 누르면 해상도를 고르고 최종 영상을 만들 수 있어요. 저장이 끝나면 이 화면에서 언제든 다시 받을 수 있어요.": "Press save to choose a resolution and render the final video. Once saved, you can download it again from this screen anytime.",
   "3번 AI 하이라이트를 만들면 완성된 영상을 저장할 수 있어요.": "Create the step 3 AI highlights to save the finished video.",
   "AI 하이라이트 컷을 먼저 만든 뒤 저장할 수 있어요.": "Create the AI highlight clips first, then you can save.",
+  "새 영상 포맷 고르기": "Choose a video format",
+  "만들기 전에 화면 비율을 골라주세요.": "Pick the aspect ratio first.",
+  "가로 16:9": "Landscape 16:9",
+  "세로 9:16": "Vertical 9:16",
+  "유튜브·동영상 사이트": "YouTube & video sites",
+  "릴스·쇼츠·틱톡": "Reels · Shorts · TikTok",
+  "인스타그램 릴스": "Instagram Reels",
+  "유튜브 쇼츠": "YouTube Shorts",
+  "틱톡": "TikTok",
+  "이 포맷으로 시작하기": "Start with this format",
+  "인물 가로 위치": "Subject horizontal position",
+  "왼쪽": "Left",
+  "가운데": "Center",
+  "오른쪽": "Right",
 };

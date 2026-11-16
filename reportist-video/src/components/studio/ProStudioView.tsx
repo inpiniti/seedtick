@@ -45,6 +45,8 @@ import {
   MessageSquare,
   Wand2,
   Loader2,
+  Monitor,
+  Smartphone,
 } from 'lucide-react';
 import type { SubtitleTone } from '../../types/video.ts';
 import {
@@ -66,6 +68,8 @@ import type {
   OutroTemplateId,
   BridgeDateTemplateId,
   BridgeLocationTemplateId,
+  VideoOrientation,
+  PortraitPlatform,
 } from '../../types/video.ts';
 import type { FreeModelMeta, ReasoningEffortOption } from '../../types/gateway.ts';
 import {
@@ -81,11 +85,10 @@ import {
 } from '../../services/chapterBridgeModel.ts';
 import type { createHyperframesBridgeController } from '../../services/hyperframesBridgeRenderer.ts';
 import {
-  COMPOSITOR_WIDTH,
-  COMPOSITOR_HEIGHT,
   drawCompositorCoverFrame,
   drawCompositorSegmentOverlay,
 } from '../../services/previewCompositorBase.ts';
+import { previewFrame, resolvePortraitPlatform } from '../../services/frameSpec.ts';
 import { playBgmSynthLoop } from '../../services/audioSynth.ts';
 
 // 모달은 사용자가 열 때만 청크를 내려받도록 지연 로딩한다. (초기 번들 절감)
@@ -400,7 +403,8 @@ interface ProStudioViewProps {
   isProcessing: boolean;
   progress: ProcessingProgress;
   onCancelProcessing: () => void;
-  onReset: () => void;
+  /** 새로 시작(리셋). 포맷 선택 모달에서 고른 방향을 인자로 받는다. */
+  onReset: (orientation?: VideoOrientation, platform?: PortraitPlatform) => void;
   onReStitch: (
     updatedSegments: HighlightSegment[],
     bgmPresetId: string,
@@ -422,7 +426,7 @@ interface ProStudioViewProps {
   onOpenProject?: (id: string) => void | Promise<void>;
   onDuplicateProject?: (id: string) => void;
   onDeleteProject?: (id: string) => void;
-  onStartNewProject?: () => void;
+  onStartNewProject?: (orientation?: VideoOrientation, platform?: PortraitPlatform) => void;
   initialOverlayOptions?: VideoOverlayOptions | null;
   initialBgmPresetId?: string;
   initialBgmVolume?: number;
@@ -433,6 +437,10 @@ interface ProStudioViewProps {
   onCustomAudioChange?: (file: File | null) => void;
   onUpdateFinalResult?: (updated: FinalVideoResult) => void;
   onViewProjects?: () => void;
+  /** 출력 방향(프로젝트 생성 시점에 정함). 없으면 가로 16:9로 동작한다 (기존 프로젝트 호환). */
+  orientation?: VideoOrientation;
+  /** 세로일 때 플랫폼 프리셋 ('instagram' | 'youtube' | 'tiktok') */
+  portraitPlatform?: PortraitPlatform;
   onRelinkVideo?: (id: string, file: File) => void;
   onRelinkBatch?: (files: File[]) => void;
 }
@@ -474,10 +482,22 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   onCustomAudioChange,
   onUpdateFinalResult,
   onViewProjects,
+  orientation,
+  portraitPlatform,
   onRelinkVideo,
   onRelinkBatch,
 }) => {
   const { dict, interpolate, currentLocaleInfo, locale, ui } = useI18n();
+  // 출력 프레임(가로 16:9 / 세로 9:16) — 프리뷰 렌더러·캔버스 크기·썸네일이 이 스펙을 공유한다.
+  const frame = useMemo(
+    () => previewFrame(orientation ?? 'landscape', portraitPlatform),
+    [orientation, portraitPlatform]
+  );
+  const isPortraitOutput = frame.orientation === 'portrait';
+  const thumbWidth = isPortraitOutput ? 720 : 1280;
+  const thumbHeight = isPortraitOutput ? 1280 : 720;
+  const thumbSpecLabel = isPortraitOutput ? '(720x1280)' : '(1280x720 HD)';
+  const thumbDownloadTitle = `${dict.thumbnail?.downloadBtn || '썸네일 다운로드'} ${thumbSpecLabel}`;
   const queueCopy = useMemo(() => getQueueCopy(locale), [locale]);
   const ioDict = dict.introOutroModal;
   const secUnit = ioDict?.secUnit || 's';
@@ -807,6 +827,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const activeStepButtonRef = useRef<HTMLButtonElement | null>(null);
 
   // 4-1. 다국어, AI 모델 및 원본 영상 목록 모달 상태
+  // 새 프로젝트 포맷 선택 모달 (프로젝트 만들 때 방향을 정한다)
+  const [isFormatModalOpen, setIsFormatModalOpen] = useState<boolean>(false);
+  const [pendingOrientation, setPendingOrientation] = useState<VideoOrientation>('landscape');
+  const [pendingPlatform, setPendingPlatform] = useState<PortraitPlatform>('instagram');
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState<boolean>(false);
   const [isModelModalOpen, setIsModelModalOpen] = useState<boolean>(false);
   const [isVideoListModalOpen, setIsVideoListModalOpen] = useState<boolean>(false);
@@ -1592,6 +1616,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     setSelectedBridgeIndex(1);
   }, [dict.player.defaultTitleText, dict.player.defaultChannelText, showDate]);
 
+  // 새 프로젝트/새 영상 만들기 → 포맷 선택 모달을 먼저 연다. (만들 때 방향을 정한다)
+  const requestNewProject = useCallback(() => {
+    setPendingOrientation(orientation === 'portrait' ? 'portrait' : 'landscape');
+    setPendingPlatform(resolvePortraitPlatform(portraitPlatform));
+    setIsFormatModalOpen(true);
+  }, [orientation, portraitPlatform]);
+
+  const confirmStartNewProject = useCallback(() => {
+    setIsFormatModalOpen(false);
+    resetStudioState();
+    onStartNewProject?.(pendingOrientation, pendingPlatform);
+    navigateToTab('studio');
+  }, [pendingOrientation, pendingPlatform, onStartNewProject, resetStudioState, navigateToTab]);
+
   // 상위 결과 갱신 동기화 및 썸네일/타이틀 준비
   const appliedSuggestedTitleRef = useRef<string | null>(null);
   const lastStitchedResultUrlRef = useRef<string | null>(null);
@@ -1692,15 +1730,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
           const rot = result?.bestThumbnailRotation ?? result?.segments?.[0]?.rotation ?? 0;
           const crop = result?.bestThumbnailCropOffsetYRatio ?? result?.segments?.[0]?.cropOffsetYRatio ?? 0.2;
+          const cropX = result?.segments?.[0]?.cropOffsetXRatio ?? 0.5;
 
           try {
             bg = await captureVideoFrameAtTime(
               targetVideo.url,
               targetTime,
               crop,
-              1280,
-              720,
-              rot
+              thumbWidth,
+              thumbHeight,
+              rot,
+              cropX
             );
           } catch (e) {
             console.warn('prepareThumbnailBg: Source capture failed, falling back to clean dataUrl:', e);
@@ -1710,11 +1750,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         // 2. 소스 비디오 캡처 실패 시, 저장된 클린 이미지(dataUrl) 활용
         if (!bg && result?.cleanThumbnailUrl) {
           try {
-            bg = await createCanvasFromImageDataUrl(result.cleanThumbnailUrl, 1280, 720);
+            bg = await createCanvasFromImageDataUrl(result.cleanThumbnailUrl, thumbWidth, thumbHeight);
           } catch {}
         } else if (!bg && result?.bestThumbnailCleanDataUrl) {
           try {
-            bg = await createCanvasFromImageDataUrl(result.bestThumbnailCleanDataUrl, 1280, 720);
+            bg = await createCanvasFromImageDataUrl(result.bestThumbnailCleanDataUrl, thumbWidth, thumbHeight);
           } catch {}
         }
 
@@ -1788,7 +1828,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     if (thumbnailBgCanvasRef.current) {
       renderWithBg(thumbnailBgCanvasRef.current);
     } else if (result?.cleanThumbnailUrl) {
-      createCanvasFromImageDataUrl(result.cleanThumbnailUrl, 1280, 720)
+      createCanvasFromImageDataUrl(result.cleanThumbnailUrl, thumbWidth, thumbHeight)
         .then((bg) => {
           thumbnailBgCanvasRef.current = bg;
           renderWithBg(bg);
@@ -1880,7 +1920,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [previewNativeDuration, setPreviewNativeDuration] = useState<number>(0);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
 
-  // 실시간 1280x720 WYSIWYG 캔버스 프리뷰 및 커스텀 인트로/아웃트로/BGM 오디오 레퍼런스
+  // 실시간 WYSIWYG 캔버스 프리뷰 (가로 1280x720 / 세로 720x1280) 및 커스텀 인트로/아웃트로/BGM 오디오 레퍼런스
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const introCustomVideoRef = useRef<HTMLVideoElement | null>(null);
   const outroCustomVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -2691,7 +2731,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       });
   };
 
-  // 1280x720 WYSIWYG 캔버스 컴포지터 렌더링 (Export 결과물과 100% 동일한 프리뷰)
+  // WYSIWYG 캔버스 컴포지터 렌더링 (Export 결과물과 100% 동일한 프리뷰, 가로 16:9 / 세로 9:16)
   const renderCompositorAt = (timelineTime: number) => {
     const canvas = previewCanvasRef.current;
     if (!canvas || !isSequenceMode) return;
@@ -2711,14 +2751,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             } catch {}
           }
           if (customIntroV.readyState >= 1) {
-            drawCompositorCoverFrame(ctx, customIntroV, undefined, undefined, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
+            drawCompositorCoverFrame(ctx, customIntroV, undefined, undefined, frame);
           } else {
             ctx.fillStyle = '#0a0a0a';
-            ctx.fillRect(0, 0, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
+            ctx.fillRect(0, 0, frame.width, frame.height);
           }
         } else {
           ctx.fillStyle = '#0a0a0a';
-          ctx.fillRect(0, 0, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
+          ctx.fillRect(0, 0, frame.width, frame.height);
         }
         return;
       }
@@ -2728,15 +2768,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       if (!introOutro) {
         ensurePreviewIntroOutroRenderer();
         ctx.fillStyle = '#0a0a0a';
-        ctx.fillRect(0, 0, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
+        ctx.fillRect(0, 0, frame.width, frame.height);
         return;
       }
       introOutro.drawCompositorIntroFrame(
         ctx,
         prog,
         effectiveOverlayOptions,
-        COMPOSITOR_WIDTH,
-        COMPOSITOR_HEIGHT
+        frame
       );
       return;
     }
@@ -2751,14 +2790,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             } catch {}
           }
           if (customOutroV.readyState >= 1) {
-            drawCompositorCoverFrame(ctx, customOutroV, undefined, undefined, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
+            drawCompositorCoverFrame(ctx, customOutroV, undefined, undefined, frame);
           } else {
             ctx.fillStyle = '#0a0a0a';
-            ctx.fillRect(0, 0, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
+            ctx.fillRect(0, 0, frame.width, frame.height);
           }
         } else {
           ctx.fillStyle = '#0a0a0a';
-          ctx.fillRect(0, 0, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
+          ctx.fillRect(0, 0, frame.width, frame.height);
         }
         return;
       }
@@ -2768,15 +2807,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       if (!introOutro) {
         ensurePreviewIntroOutroRenderer();
         ctx.fillStyle = '#0a0a0a';
-        ctx.fillRect(0, 0, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
+        ctx.fillRect(0, 0, frame.width, frame.height);
         return;
       }
       introOutro.drawCompositorOutroFrame(
         ctx,
         prog,
         effectiveOverlayOptions,
-        COMPOSITOR_WIDTH,
-        COMPOSITOR_HEIGHT
+        frame
       );
       return;
     }
@@ -2799,7 +2837,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         ensureBridgeRenderer();
         const drawFallbackFrame =
           v && v.readyState >= 2
-            ? () => drawCompositorCoverFrame(ctx, v, vItem, seg, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT)
+            ? () => drawCompositorCoverFrame(ctx, v, vItem, seg, frame)
             : undefined;
         drawFallbackFrame?.();
         return;
@@ -2814,14 +2852,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       }
       const drawNextFrame =
         v && v.readyState >= 2
-          ? () => drawCompositorCoverFrame(ctx, v, vItem, seg, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT)
+          ? () => drawCompositorCoverFrame(ctx, v, vItem, seg, frame)
           : undefined;
 
       bridgePreviewCacheRef.current.ctrl.seekAndRender(
         ctx,
         res.elapsed,
-        COMPOSITOR_WIDTH,
-        COMPOSITOR_HEIGHT,
+        frame.width,
+        frame.height,
         bridgeInfo,
         drawNextFrame,
         drawNextFrame
@@ -2838,8 +2876,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           v,
           vItem,
           seg,
-          COMPOSITOR_WIDTH,
-          COMPOSITOR_HEIGHT
+          frame
         );
       }
 
@@ -2847,8 +2884,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         ctx,
         effectiveOverlayOptions,
         seg,
-        COMPOSITOR_WIDTH,
-        COMPOSITOR_HEIGHT
+        frame
       );
     }
   };
@@ -2886,7 +2922,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       if (!introOutro) {
         ensurePreviewIntroOutroRenderer();
         ctx.fillStyle = '#0a0a0a';
-        ctx.fillRect(0, 0, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
+        ctx.fillRect(0, 0, frame.width, frame.height);
         return;
       }
       const customFile =
@@ -2899,8 +2935,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           customVideo,
           undefined,
           undefined,
-          COMPOSITOR_WIDTH,
-          COMPOSITOR_HEIGHT
+          frame
         );
         return;
       }
@@ -2909,16 +2944,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           ctx,
           progress,
           effectiveOverlayOptions,
-          COMPOSITOR_WIDTH,
-          COMPOSITOR_HEIGHT
+          frame
         );
       } else {
         introOutro.drawCompositorOutroFrame(
           ctx,
           progress,
           effectiveOverlayOptions,
-          COMPOSITOR_WIDTH,
-          COMPOSITOR_HEIGHT
+          frame
         );
       }
       return;
@@ -2928,11 +2961,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     ensureBridgeRenderer();
     const bridgeRenderer = bridgeRendererRef.current;
     if (!bridgeRenderer) {
-      const grad = ctx.createLinearGradient(0, 0, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
+      const grad = ctx.createLinearGradient(0, 0, frame.width, frame.height);
       grad.addColorStop(0, '#0f172a');
       grad.addColorStop(1, '#1e293b');
       ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, COMPOSITOR_WIDTH, COMPOSITOR_HEIGHT);
+      ctx.fillRect(0, 0, frame.width, frame.height);
       return;
     }
     if (!bridgePreviewCacheRef.current || bridgePreviewCacheRef.current.key !== 'standalone-bridge') {
@@ -2945,8 +2978,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     bridgePreviewCacheRef.current.ctrl.seekAndRender(
       ctx,
       elapsed,
-      COMPOSITOR_WIDTH,
-      COMPOSITOR_HEIGHT,
+      frame.width,
+      frame.height,
       creationBridgePreviewInfo
     );
   };
@@ -4228,6 +4261,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     );
   };
 
+  // 크롭 좌우 위치 조정 (가로 원본 → 세로 9:16 프레임 좌우 기준)
+  const handleCropXAnchorChange = (segId: string, ratio: number) => {
+    setSegments((prev) =>
+      prev.map((s) => (s.id === segId ? { ...s, cropOffsetXRatio: ratio } : s))
+    );
+  };
+
   // 씬 영상 회전 각도 조정 (90도씩 좌/우 회전: delta = -90 | 90)
   const handleRotateSegment = (segId: string, delta: number, e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -4370,9 +4410,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         bg = captureVideoFrameFromElement(
           videoRef.current,
           activePlayingSegment?.cropOffsetYRatio ?? 0.2,
-          1280,
-          720,
-          activePlayingSegment?.rotation ?? 0
+          thumbWidth,
+          thumbHeight,
+          activePlayingSegment?.rotation ?? 0,
+          activePlayingSegment?.cropOffsetXRatio ?? 0.5
         );
       }
 
@@ -4393,9 +4434,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               targetVideo.url,
               sourceTime,
               activePlayingSegment.cropOffsetYRatio ?? 0.2,
-              1280,
-              720,
-              activePlayingSegment.rotation ?? 0
+              thumbWidth,
+              thumbHeight,
+              activePlayingSegment.rotation ?? 0,
+              activePlayingSegment.cropOffsetXRatio ?? 0.5
             );
           } catch (sourceErr) {
             console.warn('handleCaptureCurrentFrame source capture failed:', sourceErr);
@@ -4412,9 +4454,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               targetVideo.url,
               activePlayingSegment.start + 0.5,
               activePlayingSegment.cropOffsetYRatio ?? 0.2,
-              1280,
-              720,
-              activePlayingSegment.rotation ?? 0
+              thumbWidth,
+              thumbHeight,
+              activePlayingSegment.rotation ?? 0,
+              activePlayingSegment.cropOffsetXRatio ?? 0.5
             );
           } catch {}
         }
@@ -4458,20 +4501,21 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             targetVideo.url,
             result.bestThumbnailTime,
             crop,
-            1280,
-            720,
-            rot
+            thumbWidth,
+            thumbHeight,
+            rot,
+            result.segments?.[0]?.cropOffsetXRatio ?? 0.5
           );
         } catch {}
       }
 
       if (!bg && result?.cleanThumbnailUrl) {
         try {
-          bg = await createCanvasFromImageDataUrl(result.cleanThumbnailUrl, 1280, 720);
+          bg = await createCanvasFromImageDataUrl(result.cleanThumbnailUrl, thumbWidth, thumbHeight);
         } catch {}
       } else if (!bg && result?.bestThumbnailCleanDataUrl) {
         try {
-          bg = await createCanvasFromImageDataUrl(result.bestThumbnailCleanDataUrl, 1280, 720);
+          bg = await createCanvasFromImageDataUrl(result.bestThumbnailCleanDataUrl, thumbWidth, thumbHeight);
         } catch {}
       }
 
@@ -4507,15 +4551,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             v.url,
             cand.timestamp,
             cand.cropOffsetYRatio ?? 0.2,
-            1280,
-            720,
-            cand.rotation ?? 0
+            thumbWidth,
+            thumbHeight,
+            cand.rotation ?? 0,
+            cand.cropOffsetXRatio ?? 0.5
           );
         } catch {}
       }
       if (!bg && cand.cleanDataUrl) {
         try {
-          bg = await createCanvasFromImageDataUrl(cand.cleanDataUrl, 1280, 720, cand.cropOffsetYRatio ?? 0.2, cand.rotation ?? 0);
+          bg = await createCanvasFromImageDataUrl(cand.cleanDataUrl, thumbWidth, thumbHeight, cand.cropOffsetYRatio ?? 0.2, cand.rotation ?? 0, cand.cropOffsetXRatio ?? 0.5);
         } catch {}
       }
       if (bg) {
@@ -4568,9 +4613,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         targetVideo.url,
         targetTime,
         seg.cropOffsetYRatio ?? 0.2,
-        1280,
-        720,
-        seg.rotation ?? 0
+        thumbWidth,
+        thumbHeight,
+        seg.rotation ?? 0,
+        seg.cropOffsetXRatio ?? 0.5
       );
       thumbnailBgCanvasRef.current = bg;
 
@@ -4826,11 +4872,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           }}
           onDuplicateProject={(id) => onDuplicateProject?.(id)}
           onDeleteProject={(id) => onDeleteProject?.(id)}
-          onStartNewProject={() => {
-            resetStudioState();
-            onStartNewProject?.();
-            navigateToTab('studio');
-          }}
+          onStartNewProject={requestNewProject}
         />
       ) : (
         <main className="toss-main-content">
@@ -5044,7 +5086,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               <div
                 className={`toss-player-wrapper ${
                   activeVideoUrl || standalonePreviewSection ? 'has-video' : 'is-empty'
-                }`}
+                } ${isPortraitOutput ? 'is-portrait-frame' : ''}`}
               >
                 {activeVideoUrl ? (
                   <>
@@ -5107,9 +5149,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           const bg = captureVideoFrameFromElement(
                             videoRef.current,
                             activePlayingSegment?.cropOffsetYRatio ?? 0.2,
-                            1280,
-                            720,
-                            activePlayingSegment?.rotation ?? 0
+                            thumbWidth,
+                            thumbHeight,
+                            activePlayingSegment?.rotation ?? 0,
+                            activePlayingSegment?.cropOffsetXRatio ?? 0.5
                           );
                           if (bg) {
                             thumbnailBgCanvasRef.current = bg;
@@ -5259,10 +5302,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           <button
                             type="button"
                             className="toss-btn-secondary"
-                            onClick={() => {
-                              resetStudioState();
-                              onStartNewProject();
-                            }}
+                            onClick={requestNewProject}
                           >
                             <Plus size={13} />
                             <span>{ui('새 영상 만들기')}</span>
@@ -5298,7 +5338,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         <button
                           type="button"
                           className="toss-btn-secondary"
-                          onClick={() => onStartNewProject()}
+                          onClick={requestNewProject}
                         >
                           <Plus size={14} />
                           <span>{ui('새 프로젝트로 시작')}</span>
@@ -5312,8 +5352,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 {(isSequenceMode || standalonePreviewSection) && (
                   <canvas
                     ref={previewCanvasRef}
-                    width={COMPOSITOR_WIDTH}
-                    height={COMPOSITOR_HEIGHT}
+                    width={frame.width}
+                    height={frame.height}
                     onClick={togglePlay}
                     onDoubleClick={toggleFullscreen}
                     className={`toss-video-canvas ${standalonePreviewSection ? 'toss-video-canvas-standalone' : ''}`}
@@ -6277,7 +6317,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     type="button"
                     className="toss-btn-download-thumb"
                     onClick={handleDownloadThumbnail}
-                    title={dict.thumbnail?.downloadHd || '썸네일 다운로드 (1280x720 HD)'}
+                    title={thumbDownloadTitle}
                   >
                     <Download size={14} className="shrink-0" />
                     <span className="toss-btn-text-content">
@@ -6287,7 +6327,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       <span className="toss-btn-download-label-short">
                         {dict.header?.downloadThumbnail || '다운로드'}
                       </span>
-                      <span className="toss-btn-hd-spec"> (1280x720 HD)</span>
+                      <span className="toss-btn-hd-spec"> {thumbSpecLabel}</span>
                     </span>
                   </button>
 
@@ -6435,7 +6475,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       className="toss-btn-secondary toss-btn-sm"
                       onClick={handleDownloadThumbnail}
                       disabled={!thumbnailUrl && !thumbnailBgCanvasRef.current}
-                      title={dict.thumbnail?.downloadHd || '썸네일 다운로드 (1280x720 HD)'}
+                      title={thumbDownloadTitle}
                     >
                       <ImageIcon size={13} />
                       <span>{ui('썸네일 다시 저장')}</span>
@@ -7739,7 +7779,40 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             </div>
                           )}
 
-
+                          {/* 가로 원본 → 세로 9:16 크롭: 인물 가로 위치 선택 (세로 출력 프로젝트에서만 노출) */}
+                          {isPortraitOutput && !isPortraitSource && (
+                            <div className="toss-branding-row">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="toss-branding-label">{ui('인물 가로 위치')}</span>
+                                <span className="text-[11px] text-slate-800 font-semibold bg-slate-100 px-2 py-0.5 rounded">
+                                  {dict.dramaticClips.aiRecommended}
+                                </span>
+                              </div>
+                              <div className="toss-segment-control">
+                                <button
+                                  type="button"
+                                  className={`toss-segment-btn ${(seg.cropOffsetXRatio ?? 0.5) <= 0.25 ? 'active' : ''}`}
+                                  onClick={() => handleCropXAnchorChange(seg.id, 0.15)}
+                                >
+                                  {ui('왼쪽')}
+                                </button>
+                                <button
+                                  type="button"
+                                  className={`toss-segment-btn ${(seg.cropOffsetXRatio ?? 0.5) > 0.25 && (seg.cropOffsetXRatio ?? 0.5) < 0.75 ? 'active' : ''}`}
+                                  onClick={() => handleCropXAnchorChange(seg.id, 0.5)}
+                                >
+                                  {ui('가운데')}
+                                </button>
+                                <button
+                                  type="button"
+                                  className={`toss-segment-btn ${(seg.cropOffsetXRatio ?? 0.5) >= 0.75 ? 'active' : ''}`}
+                                  onClick={() => handleCropXAnchorChange(seg.id, 0.85)}
+                                >
+                                  {ui('오른쪽')}
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
                       </div>
@@ -8479,10 +8552,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         isLoadingModels={isLoadingModels}
         currentLocaleInfo={currentLocaleInfo}
         hasVideos={videos.length > 0}
-        onReset={() => {
-          resetStudioState();
-          onReset();
-        }}
+        onReset={requestNewProject}
         hasStitchedResult={isSequenceMode}
         onDownloadThumbnail={handleDownloadThumbnail}
         onDownloadSubtitles={() => {
@@ -8497,6 +8567,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         reStitchProgress={reStitchProgress}
         selectedResolution={exportResolution}
         onSelectResolution={setExportResolution}
+        orientation={orientation}
+        portraitPlatform={portraitPlatform}
       />
       </React.Suspense>
       )}
@@ -8542,6 +8614,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             totalDurationText={formatSec(totalDuration)}
             segmentCount={segments.length}
             isMobileDevice={isMobileDevice}
+            orientation={orientation}
           />
         </React.Suspense>
       )}
@@ -8569,6 +8642,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             segmentIndex={editingBridgeIndex}
             defaultDateTemplate={overlayOptions.chapterBridgeDateTemplate || 'flip-clock'}
             defaultLocationTemplate={overlayOptions.chapterBridgeLocationTemplate || 'winding-route'}
+            orientation={orientation}
+            portraitPlatform={portraitPlatform}
             onSave={(updatedSegment) => {
               setSegments((prev) =>
                 prev.map((s, idx) => (idx === editingBridgeIndex ? updatedSegment : s))
@@ -8614,6 +8689,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             mockTitle={overlayOptions.titleText || result?.suggestedTitle}
             mockDate={overlayOptions.subtitleDateText}
             mockLocation={overlayOptions.subtitleLocationText}
+            orientation={orientation}
+            portraitPlatform={portraitPlatform}
             onApply={(settings) => {
               setStoredIntroOutroDefaults(settings);
               setOverlayOptions((prev) => ({
@@ -8627,6 +8704,83 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       )}
 
       {/* 13. 화면 하단 고정 슬림 상태바 (자동 저장 상태 + 시간 절약률 요약) */}
+      {/* 새 프로젝트 포맷 선택 모달 — 만들 때 가로/세로를 정한다 */}
+      {isFormatModalOpen && (
+        <div
+          className="toss-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label={ui('새 영상 포맷 고르기')}
+          onClick={() => setIsFormatModalOpen(false)}
+        >
+          <div className="toss-modal-card format-picker-card" onClick={(e) => e.stopPropagation()}>
+            <h2 className="toss-modal-title">{ui('새 영상 포맷 고르기')}</h2>
+            <p className="toss-modal-desc">{ui('만들기 전에 화면 비율을 골라주세요.')}</p>
+
+            <div className="format-picker-grid">
+              <button
+                type="button"
+                className={`format-picker-option ${pendingOrientation === 'landscape' ? 'is-selected' : ''}`}
+                onClick={() => setPendingOrientation('landscape')}
+                aria-pressed={pendingOrientation === 'landscape'}
+              >
+                <span className="format-picker-frame format-picker-frame-landscape">
+                  <Monitor size={20} strokeWidth={1.8} />
+                </span>
+                <span className="format-picker-name">{ui('가로 16:9')}</span>
+                <span className="format-picker-sub">{ui('유튜브·동영상 사이트')}</span>
+                {pendingOrientation === 'landscape' && (
+                  <span className="format-picker-check"><Check size={12} strokeWidth={3} /></span>
+                )}
+              </button>
+              <button
+                type="button"
+                className={`format-picker-option ${pendingOrientation === 'portrait' ? 'is-selected' : ''}`}
+                onClick={() => setPendingOrientation('portrait')}
+                aria-pressed={pendingOrientation === 'portrait'}
+              >
+                <span className="format-picker-frame format-picker-frame-portrait">
+                  <Smartphone size={20} strokeWidth={1.8} />
+                </span>
+                <span className="format-picker-name">{ui('세로 9:16')}</span>
+                <span className="format-picker-sub">{ui('릴스·쇼츠·틱톡')}</span>
+                {pendingOrientation === 'portrait' && (
+                  <span className="format-picker-check"><Check size={12} strokeWidth={3} /></span>
+                )}
+              </button>
+            </div>
+
+            {pendingOrientation === 'portrait' && (
+              <div className="format-picker-platforms" role="radiogroup" aria-label={ui('세로 9:16')}>
+                {([
+                  { id: 'instagram', label: '인스타그램 릴스' },
+                  { id: 'youtube', label: '유튜브 쇼츠' },
+                  { id: 'tiktok', label: '틱톡' },
+                ] as Array<{ id: PortraitPlatform; label: string }>).map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={pendingPlatform === opt.id}
+                    className={`format-picker-platform ${pendingPlatform === opt.id ? 'is-selected' : ''}`}
+                    onClick={() => setPendingPlatform(opt.id)}
+                  >
+                    {ui(opt.label)}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <button type="button" className="toss-modal-btn-submit format-picker-start" onClick={confirmStartNewProject}>
+              {ui('이 포맷으로 시작하기')}
+            </button>
+            <button type="button" className="toss-modal-cancel-btn" onClick={() => setIsFormatModalOpen(false)}>
+              {dict.common?.cancel || '취소'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {activeTab === 'studio' && (
         <aside className="toss-bottom-status-bar" aria-label={dict.projects?.tabTitle || '작업 상태바'}>
           <div className="toss-bottom-status-inner">

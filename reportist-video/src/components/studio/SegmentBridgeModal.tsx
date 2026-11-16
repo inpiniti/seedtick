@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { X, Sparkles, Eye, Check } from 'lucide-react';
-import type { BridgeDateTemplateId, BridgeLocationTemplateId, HighlightSegment } from '../../types/video.ts';
+import type { BridgeDateTemplateId, BridgeLocationTemplateId, HighlightSegment, VideoOrientation, PortraitPlatform } from '../../types/video.ts';
 import {
   DATE_TEMPLATE_OPTIONS,
   LOCATION_TEMPLATE_OPTIONS,
@@ -19,6 +19,8 @@ interface SegmentBridgeModalProps {
   defaultDateTemplate?: BridgeDateTemplateId;
   defaultLocationTemplate?: BridgeLocationTemplateId;
   onSave: (updatedSegment: HighlightSegment) => void;
+  orientation?: VideoOrientation;
+  portraitPlatform?: PortraitPlatform;
 }
 
 export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
@@ -29,6 +31,8 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
   defaultDateTemplate = 'flip-clock',
   defaultLocationTemplate = 'winding-route',
   onSave,
+  orientation,
+  portraitPlatform,
 }) => {
   const { dict, interpolate } = useI18n();
   const sDict = dict.segmentBridgeModal;
@@ -404,6 +408,8 @@ export const SegmentBridgeModal: React.FC<SegmentBridgeModalProps> = ({
         onClose={() => setIsPreviewOpen(false)}
         initialDateTemplate={effectiveDate}
         initialLocationTemplate={effectiveLocation}
+        orientation={orientation}
+        portraitPlatform={portraitPlatform}
         onApply={(dt, lt) => {
           setDateTemplate(dt);
           setLocationTemplate(lt);

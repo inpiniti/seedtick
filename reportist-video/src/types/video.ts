@@ -2,6 +2,12 @@
 
 export type SubtitleTone = 'vlog' | 'shorts' | 'natural' | 'minimal';
 
+/** 출력 화면 방향 - 프로젝트 생성 시 선택하며 가로는 기존 16:9 동작을 그대로 유지한다. */
+export type VideoOrientation = 'landscape' | 'portrait';
+
+/** 세로(9:16) 프로젝트의 플랫폼 프리셋 - 세이프 영역과 UI 문구가 달라진다. */
+export type PortraitPlatform = 'instagram' | 'youtube' | 'tiktok';
+
 export interface HighlightSegment {
   id: string;
   sourceVideoId: string;
@@ -13,6 +19,7 @@ export interface HighlightSegment {
   label?: string; // 챕터/자막 라벨 (커스텀 명칭)
   volume?: number; // 볼륨 배율 (0.0 ~ 1.5, 기본값 1.0)
   cropOffsetYRatio?: number; // 세로 영상 크롭 상단 편향 (0.0 ~ 1.0, 기본값 0.25)
+  cropOffsetXRatio?: number; // 가로 영상 → 세로 프레임 크롭 좌우 편향 (0.0 ~ 1.0, 기본값 0.5 = 중앙)
   // 씬별 자막 및 위치 속성
   subtitleDate?: string;    // 씬 촬영 날짜 (예: '9월 10일')
   subtitleTitle?: string;   // 씬 제목/자막 문구 (AI 추천 또는 사용자 입력)
@@ -103,9 +110,10 @@ export interface FinalVideoResult {
   blob: Blob;
   url: string;
   duration: number;
-  width?: number; // 1280 or 1920
-  height?: number; // 720 or 1080
-  resolution?: ExportResolution; // '720p' | '1080p'
+  width?: number; // 1280/1920 (가로) 또는 720/1080 (세로)
+  height?: number; // 720/1080 (가로) 또는 1280/1920 (세로)
+  resolution?: ExportResolution; // 짧은 변 기준 '720p' | '1080p'
+  orientation?: VideoOrientation; // 출력 방향 (기본 'landscape')
   introDuration?: number; // 시작 인트로 실제 재생 시간 (초)
   outroDuration?: number; // 마무리 아웃트로 실제 재생 시간 (초)
   bridgeDurationMap?: Record<string, number>; // 각 세그먼트(id) 직전에 삽입된 챕터 브릿지 길이 (초)
@@ -128,6 +136,7 @@ export interface FinalVideoResult {
     reason?: string;
     cleanDataUrl?: string;
     cropOffsetYRatio?: number;
+    cropOffsetXRatio?: number;
     rotation?: number;
   }>;
 }

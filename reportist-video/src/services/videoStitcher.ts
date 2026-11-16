@@ -1,7 +1,17 @@
 // services/videoStitcher.ts - 16:9 유튜브 시네마틱 비디오 병합기, 자막/브랜딩 오버레이, 인트로/아웃트로 & 커스텀 BGM 지원
 
-import type { ExportResolution, FinalVideoResult, HighlightSegment, VideoItem, VideoOverlayOptions } from '../types/video.ts';
+import type {
+  ExportResolution,
+  FinalVideoResult,
+  HighlightSegment,
+  PortraitPlatform,
+  VideoItem,
+  VideoOrientation,
+  VideoOverlayOptions,
+} from '../types/video.ts';
 import { playBgmSynthLoop } from './audioSynth.ts';
+import { drawCompositorCoverFrame, drawCompositorSegmentOverlay } from './previewCompositorBase.ts';
+import { resolveFrameSpec } from './frameSpec.ts';
 import {
   CHAPTER_BRIDGE_DURATION,
   CHAPTER_BRIDGE_FPS,
@@ -31,6 +41,8 @@ export interface StitchVideosParams {
   customAudioFile?: File | null;
   overlayOptions?: VideoOverlayOptions;
   resolution?: ExportResolution;
+  orientation?: VideoOrientation;
+  portraitPlatform?: PortraitPlatform;
 }
 
 // ---------------------------------------------------------------------------
@@ -165,8 +177,8 @@ function mountHiddenStage(canvas: HTMLCanvasElement, ...videos: HTMLVideoElement
     'position:fixed',
     'left:0',
     'bottom:0',
-    'width:120px',
-    'height:68px',
+    `width:${canvas.width >= canvas.height ? 120 : Math.max(1, Math.round((120 * canvas.width) / canvas.height))}px`,
+    `height:${canvas.width >= canvas.height ? 68 : 120}px`,
     'opacity:0.12',
     'pointer-events:none',
     'overflow:hidden',
@@ -212,6 +224,8 @@ export async function stitchHighlightedSegments({
   customAudioFile,
   overlayOptions,
   resolution,
+  orientation,
+  portraitPlatform,
 }: StitchVideosParams): Promise<FinalVideoResult> {
   if (allSegments.length === 0) {
     throw new Error('이어붙일 하이라이트 구간이 없습니다.');
@@ -231,6 +245,8 @@ export async function stitchHighlightedSegments({
         customAudioFile,
         overlayOptions,
         resolution,
+        orientation,
+        portraitPlatform,
       });
     } catch (webCodecsErr) {
       if (signal?.aborted) throw webCodecsErr;
@@ -274,13 +290,13 @@ export async function stitchHighlightedSegments({
     videoMap.set(v.id, v);
   }
 
-  // 1. 해상도 결정 (1080p FHD vs 720p HD)
-  const is1080p = resolution === '1080p' || (!resolution && !IS_IOS);
-  const targetResolution: ExportResolution = is1080p ? '1080p' : '720p';
-  const targetWidth = is1080p ? 1920 : 1280;
-  const targetHeight = is1080p ? 1080 : 720;
-  const scale = targetWidth / 1280;
-  const recorderBitrate = is1080p ? (IS_IOS ? 6_500_000 : 14_000_000) : (IS_IOS ? 3_200_000 : 6_500_000);
+  // 1. 해상도 결정 (짧은 변 기준 1080p FHD vs 720p HD, 방향에 따라 가로/세로)
+  const requestedResolution: ExportResolution = resolution ?? (IS_IOS ? '720p' : '1080p');
+  const frame = resolveFrameSpec(orientation, requestedResolution, portraitPlatform);
+  const targetResolution: ExportResolution = requestedResolution;
+  const targetWidth = frame.width;
+  const targetHeight = frame.height;
+  const recorderBitrate = targetResolution === '1080p' ? (IS_IOS ? 6_500_000 : 14_000_000) : (IS_IOS ? 3_200_000 : 6_500_000);
 
   // iOS는 하드웨어 인코더/메모리 안정성을 위해 30fps 유지, 데스크탑은 60fps 고주사율로 부드러움 극대화
   const targetFps = IS_IOS ? 30 : 60;
@@ -598,92 +614,9 @@ export async function stitchHighlightedSegments({
     }
   };
 
-  // 16:9 캔버스(1280x720)에 원본 영상을 소스 영역 스마트 크롭으로 100% 꽉 채워 그림 (개별 90도 회전 지원)
+  // 프레임(가로 16:9 / 세로 9:16)에 원본 영상을 소스 영역 스마트 크롭으로 100% 꽉 채워 그림
   const drawCoverFrame = (video: HTMLVideoElement, vItem?: VideoItem, segment?: HighlightSegment) => {
-    const rawVW = video.videoWidth || vItem?.width || targetWidth;
-    const rawVH = video.videoHeight || vItem?.height || targetHeight;
-    const rotation = ((segment?.rotation ?? 0) % 360 + 360) % 360;
-
-    const isSideways = rotation === 90 || rotation === 270;
-    const vW = isSideways ? rawVH : rawVW;
-    const vH = isSideways ? rawVW : rawVH;
-
-    const targetAspect = targetWidth / targetHeight; // 1280 / 720 = 16:9 (~1.777778)
-    const srcAspect = vW / vH;
-
-    const scale = Math.max(targetWidth / vW, targetHeight / vH);
-    const renderW = vW * scale;
-    const renderH = vH * scale;
-
-    const offsetX = (targetWidth - renderW) / 2;
-    let offsetY: number;
-
-    if (vH > vW) {
-      // 세로 영상(9:16)은 인물의 얼굴과 상체가 주로 위쪽에 위치하므로
-      // 사용자가 지정한 크롭 상단 편향 반영 (기본값: 0.25)
-      const excessHeight = renderH - targetHeight;
-      const ratio = segment?.cropOffsetYRatio ?? 0.25;
-      offsetY = -excessHeight * ratio;
-    } else {
-      // 4:3 등 일반 가로 영상은 상하 중앙 정렬
-      offsetY = (targetHeight - renderH) / 2;
-    }
-
-    if (rotation === 0) {
-      let sx = 0;
-      let sy = 0;
-      let sWidth = rawVW;
-      let sHeight = rawVH;
-
-      if (srcAspect > targetAspect) {
-        // 1) 16:9보다 좌우로 더 넓은 영상 (예: 21:9 시네마틱 뷰, 1920x800)
-        sHeight = rawVH;
-        sWidth = Math.round(rawVH * targetAspect);
-        sx = Math.round((rawVW - sWidth) / 2);
-        sy = 0;
-      } else if (srcAspect < targetAspect) {
-        // 2) 16:9보다 세로로 길쭉한 영상 (예: 9:16 쇼츠/릴스, 4:3)
-        sWidth = rawVW;
-        sHeight = Math.round(rawVW / targetAspect);
-        sx = 0;
-
-        if (rawVH > rawVW) {
-          const excessHeight = rawVH - sHeight;
-          const ratio = segment?.cropOffsetYRatio ?? 0.25;
-          sy = Math.round(excessHeight * ratio);
-        } else {
-          sy = Math.round((rawVH - sHeight) / 2);
-        }
-      }
-
-      // 소스 좌표 범위 안전 클램핑
-      sx = Math.max(0, Math.min(sx, Math.max(0, rawVW - sWidth)));
-      sy = Math.max(0, Math.min(sy, Math.max(0, rawVH - sHeight)));
-
-      // 대상 캔버스는 항상 (0, 0, 1280, 720) 전체를 정확하게 채움
-      ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
-    } else {
-      // 90°, 180°, 270° 회전 변환 렌더링
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(0, 0, targetWidth, targetHeight);
-      ctx.clip();
-
-      const centerX = offsetX + renderW / 2;
-      const centerY = offsetY + renderH / 2;
-
-      ctx.translate(centerX, centerY);
-      ctx.rotate((rotation * Math.PI) / 180);
-
-      ctx.drawImage(
-        video,
-        (-rawVW * scale) / 2,
-        (-rawVH * scale) / 2,
-        rawVW * scale,
-        rawVH * scale
-      );
-      ctx.restore();
-    }
+    drawCompositorCoverFrame(ctx, video, vItem, segment, frame);
   };
 
   // 세그먼트별 오버레이 오프스크린 캔버스 단일 재사용 (세그먼트 전환 시마다 덮어쓰기하여 N개 캔버스 메모리 누적 원천 차단)
@@ -702,123 +635,7 @@ export async function stitchHighlightedSegments({
 
     const oCtx = sharedOverlayCtx;
     oCtx.clearRect(0, 0, targetWidth, targetHeight);
-
-    let hasAnyOverlay = false;
-    let titleBottomY = Math.round(28 * scale);
-    const hasTitle = Boolean(overlayOptions.showTitle && overlayOptions.titleText?.trim());
-
-    // 1. 좌측 상단 영상 제목
-    if (hasTitle) {
-      hasAnyOverlay = true;
-      oCtx.save();
-      const titleFont = Math.round(22 * scale);
-      oCtx.font = `bold ${titleFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-      const text = overlayOptions.titleText;
-      const metrics = oCtx.measureText(text);
-      const padX = Math.round(14 * scale);
-      const boxW = metrics.width + padX * 2;
-      const boxH = Math.round(38 * scale);
-      const x = Math.round(32 * scale);
-      const y = Math.round(28 * scale);
-      const roundR = Math.round(6 * scale);
-
-      oCtx.fillStyle = 'rgba(0, 0, 0, 0.72)';
-      oCtx.beginPath();
-      if (typeof oCtx.roundRect === 'function') {
-        oCtx.roundRect(x, y, boxW, boxH, roundR);
-      } else {
-        oCtx.rect(x, y, boxW, boxH);
-      }
-      oCtx.fill();
-
-      oCtx.fillStyle = '#ffffff';
-      oCtx.textAlign = 'left';
-      oCtx.textBaseline = 'middle';
-      oCtx.fillText(text, x + padX, y + boxH / 2);
-      oCtx.restore();
-
-      titleBottomY = y + boxH;
-    }
-
-    // 1-1. 좌측 상단 문구 아래: 흰색 글씨로 날짜 및 위치 표시
-    const datePart =
-      overlayOptions.showDate === false
-        ? ''
-        : currentSegment?.subtitleDate || overlayOptions.subtitleDateText || '';
-    const locPart = currentSegment?.locationName || overlayOptions.subtitleLocationText || '';
-    const metaParts = [datePart, locPart].filter(Boolean);
-    const metaText = metaParts.join(' • ');
-
-    if (metaText) {
-      hasAnyOverlay = true;
-      oCtx.save();
-      const metaFont = Math.round(16 * scale);
-      oCtx.font = `600 ${metaFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-      oCtx.fillStyle = '#ffffff';
-      oCtx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-      oCtx.shadowBlur = Math.round(4 * scale);
-      oCtx.shadowOffsetX = 0;
-      oCtx.shadowOffsetY = Math.round(1.5 * scale);
-      oCtx.textAlign = 'left';
-      oCtx.textBaseline = 'top';
-
-      const metaX = hasTitle ? Math.round(34 * scale) : Math.round(32 * scale);
-      const metaY = hasTitle ? titleBottomY + Math.round(7 * scale) : Math.round(28 * scale);
-      oCtx.fillText(metaText, metaX, metaY);
-      oCtx.restore();
-    }
-
-    // 2. 우측 상단 채널 이름
-    if (overlayOptions.showChannel && overlayOptions.channelText) {
-      hasAnyOverlay = true;
-      oCtx.save();
-      const chFont = Math.round(22 * scale);
-      oCtx.font = `bold ${chFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-      oCtx.fillStyle = '#ffffff';
-      oCtx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-      oCtx.shadowBlur = Math.round(4 * scale);
-      oCtx.shadowOffsetX = 0;
-      oCtx.shadowOffsetY = Math.round(2 * scale);
-      oCtx.textAlign = 'right';
-      oCtx.textBaseline = 'middle';
-      oCtx.fillText(overlayOptions.channelText, targetWidth - Math.round(32 * scale), Math.round(47 * scale));
-      oCtx.restore();
-    }
-
-    // 3. 하단 중앙 씬 제목 자막
-    if (overlayOptions.showSubtitle) {
-      const titlePart = currentSegment?.subtitleTitle || currentSegment?.reason || '';
-      const subText = titlePart.trim();
-
-      if (subText) {
-        hasAnyOverlay = true;
-        oCtx.save();
-        const subFont = Math.round(24 * scale);
-        oCtx.font = `bold ${subFont}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-        const metrics = oCtx.measureText(subText);
-        const padX = Math.round(20 * scale);
-        const boxW = metrics.width + padX * 2;
-        const boxH = Math.round(46 * scale);
-        const x = (targetWidth - boxW) / 2;
-        const y = targetHeight - Math.round(76 * scale);
-        const roundR = Math.round(8 * scale);
-
-        oCtx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-        oCtx.beginPath();
-        if (typeof oCtx.roundRect === 'function') {
-          oCtx.roundRect(x, y, boxW, boxH, roundR);
-        } else {
-          oCtx.rect(x, y, boxW, boxH);
-        }
-        oCtx.fill();
-
-        oCtx.fillStyle = '#ffffff';
-        oCtx.textAlign = 'center';
-        oCtx.textBaseline = 'middle';
-        oCtx.fillText(subText, targetWidth / 2, y + boxH / 2);
-        oCtx.restore();
-      }
-    }
+    const hasAnyOverlay = drawCompositorSegmentOverlay(oCtx, overlayOptions, currentSegment, frame);
 
     cachedOverlaySegmentId = currentSegment?.id ?? null;
     cachedOverlayResult = hasAnyOverlay ? sharedOverlayCanvas : null;
@@ -1778,6 +1595,7 @@ export async function stitchHighlightedSegments({
       width: targetWidth,
       height: targetHeight,
       resolution: targetResolution,
+      orientation: frame.orientation,
       introDuration: Math.round(actualIntroDuration * 10) / 10,
       outroDuration: Math.round(actualOutroDuration * 10) / 10,
       bridgeDurationMap: actualBridgeDurationMap,

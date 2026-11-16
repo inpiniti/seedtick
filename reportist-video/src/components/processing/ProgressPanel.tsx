@@ -81,14 +81,14 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
       <div className="progress-header">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-900 text-xs font-semibold mb-3">
           <Sparkles className="w-3.5 h-3.5 animate-spin" />
-          {ui('AI 극적 장면 탐색 & 16:9 시네마틱 렌더링 ')}</div>
+          {ui('AI 극적 장면 탐색 & 시네마틱 렌더링 ')}</div>
         <h2 className="progress-title">
           {progress.totalVideos > 0
             ? ui('영상 분석 및 하이라이트 병합 중 ({p1}/{p2})', { p1: Math.min(progress.currentVideoIndex + 1, progress.totalVideos), p2: progress.totalVideos })
             : ui('하이라이트 생성 준비 중...')}
         </h2>
         <p className="progress-desc">
-          {ui('지루한 빌드업을 덜어내고, 인물에 맞춘 16:9 유튜브 규격으로 가장 결정적인 순간만 엮고 있어요. ')}</p>
+          {ui('지루한 빌드업을 덜어내고, 인물에 맞춘 화면 비율로 가장 결정적인 순간만 엮고 있어요. ')}</p>
       </div>
 
       {/* 3단계 파이프라인 인디케이터 */}
@@ -105,7 +105,7 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
         <div className="text-slate-300">→</div>
         <div className={`pipeline-step-item ${getPhaseStepClass('stitch')}`}>
           <div className="pipeline-step-dot">3</div>
-          <span>{ui('16:9 무결점 병합')}</span>
+          <span>{ui('무결점 병합')}</span>
         </div>
       </div>
 
@@ -162,13 +162,13 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
               <span>•</span>
               <span className="text-slate-900 font-semibold flex items-center gap-1">
                 <YoutubeIcon size={14} />
-                {ui('16:9 커버 크롭 예정 ')}</span>
+                {ui('커버 크롭 예정 ')}</span>
             </div>
 
             <div className="current-video-stage-pill">
               {progress.currentPhase === 'extract' && ui('📸 캔버스 기반 14개 핵심 프레임 추출 중...')}
               {progress.currentPhase === 'analyze' && ui('🧠 AI 멀티모달 긴장도(Tension) 추론 중...')}
-              {progress.currentPhase === 'stitch' && ui('✂️ 16:9 유튜브 시네마틱 캔버스(1280x720) 무결점 병합 중...')}
+              {progress.currentPhase === 'stitch' && ui('✂️ 시네마틱 캔버스 무결점 병합 중...')}
               {progress.currentPhase === 'compress' && ui('⚡ 프레임 리샘플링 중...')}
             </div>
           </div>

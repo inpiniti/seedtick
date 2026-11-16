@@ -43,8 +43,11 @@ import type {
   HighlightSegment,
   VideoOverlayOptions,
   ExportResolution,
+  VideoOrientation,
+  PortraitPlatform,
 } from './types/video.ts';
 import type { StudioProject, StudioProjectSummary } from './types/project.ts';
+import { resolveFrameSpec, normalizeOrientation, resolvePortraitPlatform } from './services/frameSpec.ts';
 import {
   generateProjectId,
   getLastActiveProjectId,
@@ -179,6 +182,9 @@ export function App() {
   const activeQueueJobIdRef = useRef<string | null>(null);
 
   // 4. 프로젝트 보관함 & IndexedDB 상태
+  // 출력 방향(가로 16:9 / 세로 9:16)과 세로 플랫폼 프리셋 — 프로젝트 생성 시점에 정한다.
+  const [currentOrientation, setCurrentOrientation] = useState<VideoOrientation>('landscape');
+  const [currentPortraitPlatform, setCurrentPortraitPlatform] = useState<PortraitPlatform>('instagram');
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'idle'>('idle');
   const [projectSummaries, setProjectSummaries] = useState<StudioProjectSummary[]>([]);
@@ -343,6 +349,8 @@ export function App() {
       });
 
       // 최종 결과 복원 (실시간 타임라인 편집 모드: 세그먼트가 있거나 유효한 Blob인 경우 복원)
+      const restoredOrientation = normalizeOrientation(project.orientation);
+      const restoredPlatform = resolvePortraitPlatform(project.portraitPlatform);
       let restoredResult: FinalVideoResult | null = null;
       const finalBlob = project.finalResult?.videoBlob;
       const hasValidFinalBlob = Boolean(finalBlob instanceof Blob && finalBlob.size > 0);
@@ -359,13 +367,16 @@ export function App() {
           project.finalResult.cleanThumbnailUrl && !project.finalResult.cleanThumbnailUrl.startsWith('blob:')
             ? project.finalResult.cleanThumbnailUrl
             : undefined;
+        const fallbackResolution = project.finalResult.resolution || project.exportResolution;
+        const fallbackFrame = resolveFrameSpec(restoredOrientation, fallbackResolution, restoredPlatform);
         restoredResult = {
           blob: hasValidFinalBlob && finalBlob ? finalBlob : new Blob([]),
           url,
           duration: project.finalResult.duration,
-          width: project.finalResult.width || (project.finalResult.resolution === '1080p' ? 1920 : 1280),
-          height: project.finalResult.height || (project.finalResult.resolution === '1080p' ? 1080 : 720),
-          resolution: project.finalResult.resolution || project.exportResolution,
+          width: project.finalResult.width || fallbackFrame.width,
+          height: project.finalResult.height || fallbackFrame.height,
+          resolution: fallbackResolution,
+          orientation: project.finalResult.orientation ?? restoredOrientation,
           segments: project.finalResult.segments || [],
           originalTotalDuration: project.duration || 0,
           fileSize: project.finalResult.fileSize || 0,
@@ -419,6 +430,8 @@ export function App() {
         );
       }
 
+      setCurrentOrientation(restoredOrientation);
+      setCurrentPortraitPlatform(restoredPlatform);
       setVideos(restoredVideos);
       setFinalResult(restoredResult);
       setCurrentStep(restoredResult ? 'result' : 'upload');
@@ -475,7 +488,8 @@ export function App() {
   };
 
   // 새 작업 시작 (통합 스튜디오에서 영상 업로드부터 바로 시작)
-  const handleStartNewProject = () => {
+  // orientation/platform은 프로젝트 생성 시점의 포맷 선택 모달에서 전달된다 (없으면 가로 16:9).
+  const handleStartNewProject = (orientation?: VideoOrientation, platform?: PortraitPlatform) => {
     const urlsToRevoke: string[] = [];
     videos.forEach((v: VideoItem) => {
       if (v.url && v.url.startsWith('blob:')) urlsToRevoke.push(v.url);
@@ -487,6 +501,8 @@ export function App() {
     setVideos([]);
     setFinalResult(null);
     setCurrentStep('upload');
+    setCurrentOrientation(orientation === 'portrait' ? 'portrait' : 'landscape');
+    setCurrentPortraitPlatform(resolvePortraitPlatform(platform));
     const newProjId = generateProjectId();
     setCurrentProjectId(newProjId);
     setLastActiveProjectId(null);
@@ -563,6 +579,11 @@ export function App() {
     setSaveStatus('saving');
 
     const targetFinalResult = overrideFinalResult || finalResult;
+    const saveOrientation = currentOrientation;
+    const savePlatform = currentPortraitPlatform;
+    const finalOrientation = normalizeOrientation(targetFinalResult?.orientation ?? saveOrientation);
+    // resolution이 없으면 resolveFrameSpec의 기본값(720p)으로 폴백된다.
+    const finalFrameFallback = resolveFrameSpec(finalOrientation, targetFinalResult?.resolution, savePlatform);
 
     try {
       const storedVideos = videos.map((v) => ({
@@ -614,9 +635,11 @@ export function App() {
               videoBlob: targetFinalResult.blob,
               duration: targetFinalResult.duration,
               fileSize: targetFinalResult.fileSize,
-              width: targetFinalResult.width || (targetFinalResult.resolution === '1080p' ? 1920 : 1280),
-              height: targetFinalResult.height || (targetFinalResult.resolution === '1080p' ? 1080 : 720),
+              width: targetFinalResult.width || finalFrameFallback.width,
+              height: targetFinalResult.height || finalFrameFallback.height,
               resolution: targetFinalResult.resolution,
+              orientation: finalOrientation,
+              portraitPlatform: savePlatform,
               segments: targetFinalResult.segments,
               suggestedTitle: targetFinalResult.suggestedTitle,
               thumbnailUrl: targetFinalResult.thumbnailUrl,
@@ -643,6 +666,8 @@ export function App() {
         selectedModel,
         selectedEffort,
         exportResolution: finalResult?.resolution,
+        orientation: saveOrientation,
+        portraitPlatform: savePlatform,
       };
 
       await saveProject(projectData);
@@ -707,6 +732,8 @@ export function App() {
     currentStep,
     selectedModel,
     selectedEffort,
+    currentOrientation,
+    currentPortraitPlatform,
   ]);
 
   // 최초 마운트 시 저장소 초기화 및 마지막 활성 프로젝트 복원
@@ -1205,6 +1232,7 @@ export function App() {
       reason?: string;
       cleanDataUrl?: string;
       cropOffsetYRatio?: number;
+      cropOffsetXRatio?: number;
       rotation?: number;
     }> = [];
 
@@ -1357,19 +1385,19 @@ export function App() {
             if (elapsedSec < 8) dynamicStageText = '핵심 프레임 시각적 요소 분석 중';
             else if (elapsedSec < 18) dynamicStageText = '가장 극적인 클라이맥스 순간 탐색 중';
             else if (elapsedSec < 32) dynamicStageText = '인물 표정 및 하이라이트 감정선 분석 중';
-            else if (elapsedSec < 48) dynamicStageText = '16:9 시네마틱 구도 및 최적 커팅 계산 중';
+            else if (elapsedSec < 48) dynamicStageText = '시네마틱 구도 및 최적 커팅 계산 중';
             else dynamicStageText = '베스트 하이라이트 구간 최종 정리 중';
           } else if (locale === 'ja') {
             if (elapsedSec < 8) dynamicStageText = '重要フレームの視覚要素を分析中';
             else if (elapsedSec < 18) dynamicStageText = '最も劇的なクライマックス瞬間を探索中';
             else if (elapsedSec < 32) dynamicStageText = '表情とハイライトの感情線を分析中';
-            else if (elapsedSec < 48) dynamicStageText = '16:9シネマティック構図と最適カットを計算中';
+            else if (elapsedSec < 48) dynamicStageText = 'シネマティックな構図と最適カットを計算中';
             else dynamicStageText = 'ベストハイライト区間を最終整理中';
           } else {
             if (elapsedSec < 8) dynamicStageText = 'Analyzing key visual elements';
             else if (elapsedSec < 18) dynamicStageText = 'Detecting dramatic climax moments';
             else if (elapsedSec < 32) dynamicStageText = 'Evaluating facial cues & dynamics';
-            else if (elapsedSec < 48) dynamicStageText = 'Calculating 16:9 cinematic framing';
+            else if (elapsedSec < 48) dynamicStageText = 'Calculating cinematic framing';
             else dynamicStageText = 'Finalizing best highlight segments';
           }
 
@@ -1628,6 +1656,7 @@ export function App() {
         const candidateThumbTime = typeof segThumbTime === 'number' ? segThumbTime : (closestFrame?.timestamp ?? 0.5);
         const candidateReason = segThumbReason || segments[0]?.reason || 'AI가 선정한 하이라이트 순간';
         const candidateCrop = segments[0]?.cropOffsetYRatio ?? 0.2;
+        const candidateCropX = segments[0]?.cropOffsetXRatio ?? 0.5;
         const candidateRotation = segments[0]?.rotation ?? 0;
         const candidateCleanDataUrl = closestFrame?.dataUrl || '';
 
@@ -1639,6 +1668,7 @@ export function App() {
           reason: candidateReason,
           cleanDataUrl: aiThumbnailRecommendations.length < 24 ? candidateCleanDataUrl : '',
           cropOffsetYRatio: candidateCrop,
+          cropOffsetXRatio: candidateCropX,
           rotation: candidateRotation,
         });
 
@@ -1764,7 +1794,7 @@ export function App() {
         currentVideoIndex: totalVideos - 1,
         totalVideos,
         progressPercent: Math.floor(globalRunningPct),
-        statusMessage: 'AI 추천 16:9 썸네일 및 실시간 타임라인 준비 중...',
+        statusMessage: 'AI 추천 썸네일 및 실시간 타임라인 준비 중...',
         reasoningLogs: [...logs],
       }));
 
@@ -1779,6 +1809,8 @@ export function App() {
           allSegments.find((s) => s.sourceVideoId === bestThumbVideoId) || allSegments[0];
         const effectiveRotation = bestThumbRotation || bestSeg?.rotation || 0;
         const effectiveCrop = bestThumbCropOffsetYRatio ?? bestSeg?.cropOffsetYRatio ?? 0.2;
+        const effectiveCropX = bestSeg?.cropOffsetXRatio ?? 0.5;
+        const thumbFrame = resolveFrameSpec(currentOrientation, '720p', currentPortraitPlatform);
         const targetTime =
           bestThumbTimestamp > 0.05
             ? bestThumbTimestamp
@@ -1793,9 +1825,10 @@ export function App() {
               thumbVideo.url,
               targetTime,
               effectiveCrop,
-              1280,
-              720,
-              effectiveRotation
+              thumbFrame.width,
+              thumbFrame.height,
+              effectiveRotation,
+              effectiveCropX
             );
           } catch (sourceErr) {
             console.warn('Source video high-res frame capture failed, falling back to AI clean keyframe dataUrl:', sourceErr);
@@ -1807,10 +1840,11 @@ export function App() {
           try {
             bgCanvas = await createCanvasFromImageDataUrl(
               bestThumbCleanDataUrl,
-              1280,
-              720,
+              thumbFrame.width,
+              thumbFrame.height,
               effectiveCrop,
-              effectiveRotation
+              effectiveRotation,
+              effectiveCropX
             );
           } catch (cleanDataErr) {
             console.warn('Failed to render from AI keyframe dataUrl:', cleanDataErr);
@@ -1824,9 +1858,10 @@ export function App() {
               updatedVideos[0].url,
               0.1,
               0.2,
-              1280,
-              720,
-              0
+              thumbFrame.width,
+              thumbFrame.height,
+              0,
+              0.5
             );
           } catch {}
         }
@@ -1848,7 +1883,7 @@ export function App() {
             showBadge: false,
             showChannel: false,
             stylePreset: 'youtube-bold',
-          });
+          }, thumbFrame.width, thumbFrame.height);
 
           generatedThumbnailUrl = thumbCanvas.toDataURL('image/jpeg', 0.95);
           addLog(`🎉 AI 추천 썸네일 완성: ${bestThumbReason || '베스트 순간'}`);
@@ -1977,6 +2012,8 @@ export function App() {
         customAudioFile,
         overlayOptions,
         resolution,
+        orientation: currentOrientation,
+        portraitPlatform: currentPortraitPlatform,
         onLog: (msg) => console.info(`[Export] ${msg}`),
         onProgress: (pct, msg) => {
           setReStitchProgress({
@@ -2045,9 +2082,9 @@ export function App() {
     setCurrentStep(finalResult ? 'result' : 'upload');
   };
 
-  // 새로 만들기 리셋
-  const handleReset = () => {
-    handleStartNewProject();
+  // 새로 만들기 리셋 — 포맷 선택 모달에서 고른 방향을 그대로 새 프로젝트에 적용한다.
+  const handleReset = (orientation?: VideoOrientation, platform?: PortraitPlatform) => {
+    handleStartNewProject(orientation, platform);
   };
 
   const handleViewProjects = useCallback(async () => {
@@ -2068,6 +2105,8 @@ export function App() {
     currentLibraryTrackId,
     selectedModel,
     selectedEffort,
+    currentOrientation,
+    currentPortraitPlatform,
   ]);
 
   return (

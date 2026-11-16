@@ -28,7 +28,10 @@ import type {
   IntroTemplateId,
   OutroTemplateId,
   VideoOverlayOptions,
+  VideoOrientation,
+  PortraitPlatform,
 } from '../../types/video.ts';
+import { previewFrame } from '../../services/frameSpec.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { notify } from '../../services/toastService.ts';
 import { setStoredIntroOutroDefaults } from '../../services/introOutroStorage.ts';
@@ -45,6 +48,9 @@ export interface IntroOutroPreviewModalProps {
   mockTitle?: string;
   mockDate?: string;
   mockLocation?: string;
+  /** 출력 방향(가로/세로)과 세로 플랫폼 — 미리보기 캔버스 비율에 반영된다. */
+  orientation?: VideoOrientation;
+  portraitPlatform?: PortraitPlatform;
   onApply?: (settings: {
     introTemplate: IntroTemplateId;
     introDurationSec: number;
@@ -73,8 +79,11 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
   mockTitle,
   mockDate,
   mockLocation,
+  orientation,
+  portraitPlatform,
   onApply,
 }) => {
+  const frame = useMemo(() => previewFrame(orientation ?? 'landscape', portraitPlatform), [orientation, portraitPlatform]);
   const { dict, ui } = useI18n();
   const ioDict = dict.introOutroModal;
   const secUnit = ioDict?.secUnit || ui('초');
@@ -475,13 +484,16 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
 
         {/* 바디 레이아웃 (2열 분할) */}
         <div className="io-body-layout">
-          {/* 좌측: 실시간 16:9 대형 캔버스 스테이지 */}
+          {/* 좌측: 실시간 출력 방향 대형 캔버스 스테이지 */}
           <div className="io-stage-col">
             <div
               style={{
                 position: 'relative',
-                width: '100%',
-                aspectRatio: '16 / 9',
+                ...(frame.orientation === 'portrait'
+                  ? { width: 'auto', height: 'min(62vh, 560px)', aspectRatio: '9 / 16' as const }
+                  : { width: '100%', aspectRatio: '16 / 9' as const }),
+                maxWidth: '100%',
+                margin: '0 auto',
                 backgroundColor: '#0a0a0a',
                 borderRadius: '14px',
                 overflow: 'hidden',
@@ -493,8 +505,8 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
             >
               <canvas
                 ref={canvasRef}
-                width={1280}
-                height={720}
+                width={frame.width}
+                height={frame.height}
                 style={{
                   width: '100%',
                   height: '100%',

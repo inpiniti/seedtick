@@ -7,7 +7,7 @@ import {
   AlertTriangle,
   Sparkles,
 } from 'lucide-react';
-import type { ExportResolution } from '../../types/video.ts';
+import type { ExportResolution, VideoOrientation } from '../../types/video.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 
@@ -19,6 +19,7 @@ export interface VideoExportModalProps {
   totalDurationText: string;
   segmentCount: number;
   isMobileDevice: boolean;
+  orientation?: VideoOrientation;
 }
 
 export const VideoExportModal: React.FC<VideoExportModalProps> = ({
@@ -29,10 +30,16 @@ export const VideoExportModal: React.FC<VideoExportModalProps> = ({
   totalDurationText,
   segmentCount,
   isMobileDevice,
+  orientation,
 }) => {
   const { dict, interpolate } = useI18n();
   const overlayRef = useRef<HTMLDivElement>(null);
   const [selectedRes, setSelectedRes] = useState<ExportResolution>(currentResolution);
+  // 출력 방향에 맞는 픽셀 치수 안내 (가로 1280×720·1920×1080 / 세로 720×1280·1080×1920)
+  const resolutionDims: Record<ExportResolution, string> =
+    orientation === 'portrait'
+      ? { '720p': '720 × 1280 · 9:16', '1080p': '1080 × 1920 · 9:16' }
+      : { '720p': '1280 × 720 · 16:9', '1080p': '1920 × 1080 · 16:9' };
 
   // Sync with currentResolution whenever modal opens
   useEffect(() => {
@@ -162,7 +169,7 @@ export const VideoExportModal: React.FC<VideoExportModalProps> = ({
                       </span>
                     </div>
                     <div className="toss-modal-res-desc">
-                      {dict.settingsModal?.resolution720pDesc || '인코딩이 빠르고 모든 기기에서 안정적이에요'}
+                      {dict.settingsModal?.resolution720pDesc || '인코딩이 빠르고 모든 기기에서 안정적이에요'} · {resolutionDims['720p']}
                     </div>
                   </div>
                 </div>
@@ -188,7 +195,7 @@ export const VideoExportModal: React.FC<VideoExportModalProps> = ({
                       </span>
                     </div>
                     <div className="toss-modal-res-desc">
-                      {dict.settingsModal?.resolution1080pDesc || '더 선명하고 또렷한 고해상도로 내보내요'}
+                      {dict.settingsModal?.resolution1080pDesc || '더 선명하고 또렷한 고해상도로 내보내요'} · {resolutionDims['1080p']}
                     </div>
                   </div>
                 </div>
