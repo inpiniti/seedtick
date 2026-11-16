@@ -391,12 +391,22 @@
   margin: 0;
   /* 좌우 여백만 두고, 상·하단 여백은 각 컬럼(스크롤 영역) 내부에서 확보 */
   padding: 0 7px;
-  display: grid;
-  grid-template-columns: minmax(420px, 44fr) minmax(500px, 56fr);
+  display: flex;
+  flex-direction: column;
   gap: 8px;
   align-items: stretch;
   box-sizing: border-box;
   overflow: hidden;
+}
+
+/* 상단 5단계 가이드 아래에 좌/우 편집 컬럼을 나란히 배치한다. */
+.toss-studio-columns {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(420px, 44fr) minmax(500px, 56fr);
+  gap: 8px;
+  align-items: stretch;
 }
 
 @media (max-width: 1024px) {
@@ -438,6 +448,13 @@
     overflow: visible !important;
     padding: 10px 12px;
     gap: 8px;
+  }
+
+  .toss-studio-columns {
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: auto !important;
+    gap: 12px;
   }
 
   .toss-column-left,
@@ -1386,6 +1403,19 @@
 
 .toss-io-preview-btn-outro:hover {
   background-color: #fce7f3;
+}
+
+.toss-io-preview-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.toss-io-preview-btn:disabled:hover {
+  background-color: #f1f5f9;
+}
+
+.toss-io-preview-btn-outro:disabled:hover {
+  background-color: #fdf2f8;
 }
 
 /* 템플릿 카드 그리드 */
@@ -2645,6 +2675,12 @@
   gap: 2px;
   background-color: #f2f4f6;
   box-sizing: border-box;
+  cursor: pointer;
+}
+
+.toss-sequencer-audio-strip:focus-visible {
+  outline: 2px solid #3182f6;
+  outline-offset: 2px;
 }
 
 .toss-sequencer-audio-block {
@@ -10747,7 +10783,8 @@
    ★ Missing Media Reconnection Banners (Toss Style)
    ======================================================== */
 .toss-relink-banner {
-  margin-bottom: 14px;
+  flex: 0 0 auto;
+  margin-bottom: 0;
   padding: 12px 16px;
   border-radius: 16px;
   background-color: #fffbeb;
@@ -12812,5 +12849,774 @@
   .toss-nav-tab-strip,
   .toss-strip-tab-btn::after {
     transition: none;
+  }
+}
+
+/* ============================================================
+   통합 스튜디오 5단계 편집 가이드 (인트로 → 컷 → 브릿지 → 아웃트로 → 노래)
+   - 초보자용: 한 번에 한 단계만 보여주고, 순서대로만 누르면 완성된다.
+   ============================================================ */
+
+/* 스텝바는 좌/우 편집 컬럼 위에 한 줄로 놓인다. */
+.toss-main-content {
+  gap: 8px;
+}
+
+.toss-studio-stepbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 10px;
+  padding: 9px 12px;
+  background: #ffffff;
+  border: 1px solid #e5e8eb;
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.toss-studio-stepbar-head {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 0 1 210px;
+  min-width: 0;
+}
+
+.toss-studio-stepbar-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #3182f6;
+}
+
+.toss-studio-stepbar-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #191f28;
+  letter-spacing: -0.2px;
+  line-height: 1.3;
+}
+
+.toss-studio-stepbar-sub {
+  font-size: 10.5px;
+  color: #8b95a1;
+  line-height: 1.3;
+}
+
+.toss-studio-steps {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.toss-studio-step-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.toss-studio-step {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 6px 8px;
+  background: #f9fafb;
+  border: 1px solid #e5e8eb;
+  border-radius: 10px;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.12s ease;
+  text-align: left;
+}
+
+.toss-studio-step:hover:not(:disabled) {
+  background: #f2f4f6;
+  border-color: #d1d6db;
+}
+
+.toss-studio-step:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.toss-studio-step.active {
+  background: #e8f3ff;
+  border-color: #b3d4ff;
+  box-shadow: inset 0 0 0 1px #d6e8ff;
+}
+
+.toss-studio-step:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.toss-studio-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #e5e8eb;
+  color: #4e5968;
+}
+
+.toss-studio-step.active .toss-studio-step-num {
+  background: #3182f6;
+  border-color: #3182f6;
+  color: #ffffff;
+}
+
+.toss-studio-step-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.toss-studio-step-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #191f28;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+}
+
+.toss-studio-step-index {
+  font-size: 9.5px;
+  font-weight: 800;
+  color: #b0b8c1;
+}
+
+.toss-studio-step.active .toss-studio-step-index {
+  color: #3182f6;
+}
+
+.toss-studio-step-status {
+  font-size: 10px;
+  font-weight: 600;
+  color: #8b95a1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toss-studio-step-connector {
+  flex: 0 0 6px;
+  height: 1.5px;
+  border-radius: 2px;
+  background: #e5e8eb;
+}
+
+/* ---------- 오른쪽 인스펙터 헤더 ---------- */
+.toss-inspector-head {
+  position: relative;
+  padding: 11px 13px;
+  background: linear-gradient(180deg, #ffffff 0%, #f9fafb 100%);
+  border: 1px solid #e5e8eb;
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  box-sizing: border-box;
+}
+
+.toss-inspector-kicker {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #3182f6;
+  background: #e8f3ff;
+  border-radius: 6px;
+  padding: 2px 6px;
+  margin-bottom: 5px;
+}
+
+.toss-inspector-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  color: #191f28;
+  letter-spacing: -0.3px;
+  line-height: 1.3;
+}
+
+.toss-inspector-desc {
+  margin: 4px 0 0 0;
+  font-size: 11px;
+  color: #8b95a1;
+  line-height: 1.4;
+}
+
+/* ---------- 한 번에 한 단계만 보이는 인스펙터 카드 ---------- */
+.toss-inspector-card {
+  display: none;
+  animation: tossInspectorIn 0.18s ease;
+}
+
+.toss-inspector-card.is-active-section {
+  display: block;
+}
+
+@keyframes tossInspectorIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------- 접어둔 썸네일 카드 ---------- */
+.toss-thumbnail-details {
+  border: 1px solid #e5e8eb;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  overflow: hidden;
+}
+
+.toss-thumbnail-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 13px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.toss-thumbnail-summary::-webkit-details-marker {
+  display: none;
+}
+
+.toss-thumbnail-summary-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #333d4b;
+}
+
+.toss-thumbnail-summary-hint {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #8b95a1;
+}
+
+.toss-thumbnail-details[open] .toss-thumbnail-summary {
+  border-bottom: 1px solid #f2f4f6;
+}
+
+.toss-thumbnail-details .toss-thumbnail-card {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* ---------- 컷 이동 네비게이터 ---------- */
+.toss-cut-navigator {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 8px;
+  margin: 0 0 8px 0;
+  background: #f9fafb;
+  border: 1px solid #eef1f4;
+  border-radius: 10px;
+}
+
+.toss-cut-navigator-center {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  min-width: 0;
+}
+
+.toss-cut-navigator-count {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #191f28;
+  white-space: nowrap;
+}
+
+.toss-cut-navigator-sub {
+  font-size: 10px;
+  color: #8b95a1;
+  white-space: nowrap;
+}
+
+.toss-cut-preview-btn {
+  flex: 1 1 100%;
+  justify-content: center;
+}
+
+/* ---------- 브릿지 인스펙터 ---------- */
+.toss-bridge-route {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  background: #f9fafb;
+  border: 1px solid #eef1f4;
+  border-radius: 12px;
+  margin-top: 8px;
+}
+
+.toss-bridge-route-side {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.toss-bridge-route-side.next {
+  text-align: right;
+  align-items: flex-end;
+}
+
+.toss-bridge-route-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #8b95a1;
+}
+
+.toss-bridge-route-side strong {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #191f28;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.toss-bridge-route-side small {
+  font-size: 10.5px;
+  color: #8b95a1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.toss-bridge-route-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1px solid #e5e8eb;
+  color: #4e5968;
+}
+
+.toss-bridge-navigator {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.toss-bridge-navigator-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: #6b7684;
+  white-space: nowrap;
+}
+
+.toss-bridge-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 9px 10px;
+  background: #ffffff;
+  border: 1px solid #e5e8eb;
+  border-radius: 11px;
+  cursor: pointer;
+}
+
+.toss-bridge-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.toss-bridge-toggle-text strong {
+  font-size: 12px;
+  font-weight: 700;
+  color: #191f28;
+}
+
+.toss-bridge-toggle-text span {
+  font-size: 10.5px;
+  color: #8b95a1;
+  line-height: 1.35;
+}
+
+.toss-bridge-template-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.toss-bridge-template-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #4e5968;
+}
+
+.toss-bridge-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.toss-bridge-chip {
+  padding: 5px 9px;
+  background: #f9fafb;
+  border: 1px solid #e5e8eb;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #4e5968;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+  white-space: nowrap;
+}
+
+.toss-bridge-chip:hover {
+  background: #f2f4f6;
+}
+
+.toss-bridge-chip.active {
+  background: #e8f3ff;
+  border-color: #b3d4ff;
+  color: #1b64da;
+  font-weight: 700;
+}
+
+.toss-bridge-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.toss-bridge-enable-btn {
+  width: 100%;
+  margin-top: 10px;
+}
+
+/* ---------- 타임라인 브릿지 칩 ---------- */
+.toss-sequencer-bridge-chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  height: 100%;
+  min-width: 0;
+  padding: 0 3px;
+  border-radius: 6px;
+  border: 1.5px dashed #c3cad1;
+  background: #ffffff;
+  color: #8b95a1;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.toss-sequencer-bridge-chip:hover {
+  border-color: #3182f6;
+  color: #3182f6;
+  background: #f4f9ff;
+}
+
+.toss-sequencer-bridge-chip.is-active {
+  border-style: solid;
+  border-color: #b3d4ff;
+  background: linear-gradient(180deg, #e8f3ff 0%, #d6e8ff 100%);
+  color: #1b64da;
+}
+
+.toss-sequencer-bridge-chip.is-active:hover {
+  border-color: #3182f6;
+  background: #d6e8ff;
+}
+
+.toss-bridge-chip-label {
+  font-size: 9.5px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.2px;
+}
+
+/* ---------- 노래(배경음악) 인스펙터 ---------- */
+.toss-music-body {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 9px;
+  padding-top: 9px;
+  border-top: 1px solid #f2f4f6;
+}
+
+.toss-music-current {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  background: #f9fafb;
+  border: 1px solid #eef1f4;
+  border-radius: 11px;
+}
+
+.toss-music-current-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: #ffffff;
+  border: 1px solid #e5e8eb;
+  color: #333d4b;
+}
+
+.toss-music-current-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.toss-music-current-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #191f28;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toss-music-current-meta {
+  font-size: 10.5px;
+  color: #8b95a1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toss-music-volume {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 2px;
+}
+
+.toss-music-volume-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 700;
+  color: #4e5968;
+}
+
+.toss-music-slider {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.toss-music-volume-value {
+  flex: 0 0 34px;
+  text-align: right;
+  font-size: 11px;
+  font-weight: 700;
+  color: #191f28;
+  font-variant-numeric: tabular-nums;
+}
+
+.toss-music-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  background: #ffffff;
+  border: 1px solid #e5e8eb;
+  border-radius: 11px;
+  cursor: pointer;
+}
+
+.toss-music-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.toss-music-toggle-text strong {
+  font-size: 12px;
+  font-weight: 700;
+  color: #191f28;
+}
+
+.toss-music-toggle-text span {
+  font-size: 10.5px;
+  color: #8b95a1;
+  line-height: 1.35;
+}
+
+.toss-music-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.toss-music-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 9px;
+  padding: 11px;
+  background: #f9fafb;
+  border: 1px dashed #d1d6db;
+  border-radius: 12px;
+}
+
+.toss-music-empty-text {
+  margin: 0;
+  font-size: 11px;
+  color: #8b95a1;
+  line-height: 1.4;
+}
+
+.toss-music-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ---------- 이전/다음 단계 이동 ---------- */
+.toss-inspector-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0 4px;
+}
+
+.toss-inspector-nav-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: center;
+}
+
+/* ---------- 반응형 ---------- */
+@media (max-width: 1200px) {
+  .toss-studio-stepbar-head {
+    flex: 0 0 150px;
+  }
+
+  .toss-studio-stepbar-sub {
+    display: none;
+  }
+}
+
+@media (max-width: 1024px) {
+  .toss-studio-stepbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .toss-studio-stepbar-head {
+    flex: 0 0 auto;
+  }
+
+  .toss-studio-stepbar-sub {
+    display: block;
+  }
+
+  .toss-studio-steps {
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+
+  .toss-studio-steps::-webkit-scrollbar {
+    display: none;
+  }
+
+  .toss-studio-step-item {
+    flex: 0 0 auto;
+  }
+
+  .toss-studio-step {
+    min-width: 92px;
+  }
+}
+
+@media (max-width: 640px) {
+  .toss-studio-step {
+    min-width: 78px;
+    padding: 5px 7px;
+  }
+
+  .toss-studio-step-num {
+    width: 22px;
+    height: 22px;
+  }
+
+  .toss-music-empty-actions .toss-btn-primary,
+  .toss-music-empty-actions .toss-btn-secondary {
+    flex: 1 1 100%;
+    justify-content: center;
   }
 }

@@ -61,6 +61,28 @@ button {
   justify-content: center;
 }
 
+/* ============================================
+   전역: 탭·버튼 라벨의 줄바꿈 방지
+   모바일처럼 좁은 화면에서 한글/혼합 라벨이 좁은 폭 때문에
+   두 줄로 줄바꿈되어 버튼 높이가 세로로 튀는 것을 막는다.
+   (버튼 라벨은 짧아야 한다는 원칙을 전역으로 강제한다)
+
+   주의: 리치 콘텐츠를 담는 [role="button"] 컨테이너는
+   의도적으로 제외한다 (설명 텍스트 줄바꿈 필요).
+   ============================================ */
+button,
+[role='tab'],
+input[type='button'],
+input[type='submit'],
+input[type='reset'] {
+  white-space: nowrap;
+}
+
+/* 버튼 안에 장문(설명 문단)을 담은 블록 요소는 줄바꿈 다시 허용 */
+button :is(p, h1, h2, h3, h4, h5, h6, ul, ol, li, blockquote, .allow-wrap, .audio-library-item-title, .audio-library-item-meta) {
+  white-space: normal;
+}
+
 html,
 body {
   margin: 0 !important;

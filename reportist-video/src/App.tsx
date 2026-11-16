@@ -67,11 +67,6 @@ import { isMobileStorageEnvironment } from './services/deviceStoragePolicy.ts';
 import { AlertCircle } from 'lucide-react';
 import { useI18n } from './i18n/index.tsx';
 
-// 온보딩 마법사는 "새 프로젝트"를 열 때만 필요하므로 지연 로딩한다. (초기 번들 절감)
-const NewProjectWizard = React.lazy(() =>
-  import('./components/wizard/NewProjectWizard.tsx').then((m) => ({ default: m.NewProjectWizard }))
-);
-
 const INITIAL_VIDEO_MODELS = enrichModelMetrics(FALLBACK_VIDEO_MODELS);
 const INITIAL_DEFAULT_MODEL = pickDefaultModel(INITIAL_VIDEO_MODELS);
 
@@ -126,9 +121,6 @@ export function App() {
   // 2. 비디오 목록 및 처리 상태
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [currentStep, setCurrentStep] = useState<OverallStep>('upload');
-  const [isWizardOpen, setIsWizardOpen] = useState<boolean>(false);
-  // 한 번이라도 열린 뒤에는 상태(단계)를 유지하기 위해 마운트를 유지한다.
-  const [hasOpenedWizard, setHasOpenedWizard] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // 개별 영상 위치/장소명 수정 핸들러
@@ -180,30 +172,6 @@ export function App() {
     statusMessage: '',
   });
   const [finalResult, setFinalResult] = useState<FinalVideoResult | null>(null);
-
-  // 마법사 열기 핸들러 (지연 로딩 청크를 최초 1회 마운트한 뒤 상태 유지)
-  const handleOpenWizard = useCallback(() => {
-    setHasOpenedWizard(true);
-    setIsWizardOpen(true);
-  }, []);
-
-  // 마법사 닫기 / 취소 핸들러 (목록 화면으로 안전하게 복귀)
-  const handleCloseWizard = useCallback(() => {
-    setIsWizardOpen(false);
-    if (!finalResult) {
-      videos.forEach((v) => {
-        if (v.url && v.url.startsWith('blob:')) {
-          try {
-            URL.revokeObjectURL(v.url);
-          } catch {}
-        }
-      });
-      setVideos([]);
-      setCurrentStep('upload');
-      setLastActiveProjectId(null);
-    }
-    window.location.hash = '#projects';
-  }, [finalResult, videos]);
 
   // 취소용 AbortController
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -506,7 +474,7 @@ export function App() {
     }
   };
 
-  // 새 작업 시작 (온보딩 마법사 열기)
+  // 새 작업 시작 (통합 스튜디오에서 영상 업로드부터 바로 시작)
   const handleStartNewProject = () => {
     const urlsToRevoke: string[] = [];
     videos.forEach((v: VideoItem) => {
@@ -528,7 +496,6 @@ export function App() {
     setCurrentCustomAudio(null);
     // 새 프로젝트는 잔잔한 무드의 BGM(Dreaming)을 기본 선택해 바로 편집된 느낌이 나도록 한다
     setCurrentLibraryTrackId('dreaming');
-    handleOpenWizard();
 
     if (urlsToRevoke.length > 0) {
       setTimeout(() => {
@@ -1930,7 +1897,6 @@ export function App() {
         progressPercent: 100,
       }));
       setCurrentStep('result');
-      setIsWizardOpen(false);
       window.location.hash = '#studio';
     } catch (err: unknown) {
       if (liveFlushTimer !== null) {
@@ -2166,7 +2132,6 @@ export function App() {
         onDuplicateProject={handleDuplicateProject}
         onDeleteProject={handleDeleteProject}
         onStartNewProject={handleStartNewProject}
-        onOpenNewProjectWizard={handleOpenWizard}
         onViewProjects={handleViewProjects}
         initialOverlayOptions={currentOverlayOptions}
         initialBgmPresetId={currentBgmPresetId}
@@ -2180,42 +2145,6 @@ export function App() {
         onRelinkBatch={handleRelinkBatch}
       />
 
-      {/* 새 작업 시작 시 진행되는 3단계 온보딩 마법사 (스텝퍼) */}
-      {hasOpenedWizard && (
-        <React.Suspense
-          fallback={
-            <div className="app-lazy-overlay">
-              <div className="app-lazy-spinner" />
-            </div>
-          }
-        >
-          <NewProjectWizard
-            isOpen={isWizardOpen}
-            onClose={handleCloseWizard}
-            videos={videos}
-            onFilesSelected={handleFilesSelected}
-            onRemoveVideo={handleRemove}
-            onUpdateVideoLocation={handleUpdateVideoLocation}
-            selectedLibraryTrackId={currentLibraryTrackId}
-            bgmVolume={currentBgmVolume}
-            onBgmChange={handleBgmChange}
-            customAudioFile={currentCustomAudio}
-            onCustomAudioChange={handleCustomAudioChange}
-            overlayOptions={currentOverlayOptions}
-            onOverlayOptionsChange={handleOverlayOptionsChange}
-            selectedModel={selectedModel}
-            selectedEffort={selectedEffort}
-            models={models}
-            isLoadingModels={isLoadingModels}
-            onSelectModel={setSelectedModel}
-            onSelectEffort={setSelectedEffort}
-            onStartAiAnalysis={handleStartProcessing}
-            isProcessing={currentStep === 'processing'}
-            progress={progress}
-            onCancelProcessing={handleCancel}
-          />
-        </React.Suspense>
-      )}
     </div>
   );
 }

@@ -64,6 +64,8 @@ import type {
   ExportResolution,
   IntroTemplateId,
   OutroTemplateId,
+  BridgeDateTemplateId,
+  BridgeLocationTemplateId,
 } from '../../types/video.ts';
 import type { FreeModelMeta, ReasoningEffortOption } from '../../types/gateway.ts';
 import {
@@ -183,6 +185,75 @@ import { useI18n } from '../../i18n/index.tsx';
 const PLAYBACK_ERROR_MESSAGE =
   '이 영상은 미리보기를 재생할 수 없어요. 영상을 다시 올리거나 다른 형식(MP4)으로 시도해 주세요.';
 
+// ============================================================
+// 통합 스튜디오 5단계 편집 가이드
+// 인트로 → 컷 → 브릿지 → 아웃트로 → 노래 순서로만 따라가면 완성되는 초보자용 흐름
+// ============================================================
+type StudioSection = 'intro' | 'cut' | 'bridge' | 'outro' | 'music';
+
+const STUDIO_STEPS: Array<{
+  id: StudioSection;
+  num: number;
+  label: string;
+  shortDesc: string;
+  description: string;
+}> = [
+  {
+    id: 'intro',
+    num: 1,
+    label: '인트로',
+    shortDesc: '시작 화면',
+    description: '영상 맨 앞에 나올 오프닝을 골라요. 스타일을 누르면 왼쪽 미리보기에서 바로 재생돼요.',
+  },
+  {
+    id: 'cut',
+    num: 2,
+    label: '컷',
+    shortDesc: '장면 다듬기',
+    description: 'AI가 고른 장면 중 지금 선택한 컷 하나만 다듬어요. 타임라인에서 컷을 누르면 그 컷으로 바뀌어요.',
+  },
+  {
+    id: 'bridge',
+    num: 3,
+    label: '브릿지',
+    shortDesc: '장면 전환',
+    description: '날짜나 장소가 바뀌는 컷 사이에 들어가는 장면 전환이에요. 켜 둔 곳만 타임라인에 표시돼요.',
+  },
+  {
+    id: 'outro',
+    num: 4,
+    label: '아웃트로',
+    shortDesc: '마무리',
+    description: '영상 마지막 인사를 골라요. 스타일을 누르면 왼쪽 미리보기에서 바로 재생돼요.',
+  },
+  {
+    id: 'music',
+    num: 5,
+    label: '노래',
+    shortDesc: '배경음악',
+    description: '영상 전체에 깔리는 노래를 골라요. 어떤 단계를 편집하든 언제든 바꿀 수 있어요.',
+  },
+];
+
+const STUDIO_SECTION_ORDER: StudioSection[] = STUDIO_STEPS.map((step) => step.id);
+
+const BRIDGE_DATE_CHOICES: Array<{ id: BridgeDateTemplateId; label: string }> = [
+  { id: 'flip-clock', label: '플립 시계' },
+  { id: 'watch-spin', label: '손목시계 회전' },
+  { id: 'calendar-page', label: '달력 넘기기' },
+  { id: 'minimal-editorial', label: '미니멀 에디토리얼' },
+  { id: 'neon-digital', label: '네온 디지털' },
+];
+
+const BRIDGE_LOCATION_CHOICES: Array<{ id: BridgeLocationTemplateId; label: string }> = [
+  { id: 'winding-route', label: '구불구불 경로' },
+  { id: 'globe-spin', label: '3D 지구본' },
+  { id: 'boarding-pass', label: '탑승권 티켓' },
+  { id: 'minimal-editorial', label: '미니멀 에디토리얼' },
+  { id: 'gps-cyber', label: 'GPS HUD' },
+];
+
+
 // 영상 병합(스티치)에 반영되는 모든 편집 상태의 정규화 스냅샷 생성
 function computeStitchSnapshot(
   segs: HighlightSegment[],
@@ -284,7 +355,6 @@ interface ProStudioViewProps {
   onDuplicateProject?: (id: string) => void;
   onDeleteProject?: (id: string) => void;
   onStartNewProject?: () => void;
-  onOpenNewProjectWizard?: () => void;
   initialOverlayOptions?: VideoOverlayOptions | null;
   initialBgmPresetId?: string;
   initialBgmVolume?: number;
@@ -325,7 +395,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   onDuplicateProject,
   onDeleteProject,
   onStartNewProject,
-  onOpenNewProjectWizard,
   initialOverlayOptions,
   initialBgmPresetId,
   initialBgmVolume,
@@ -653,6 +722,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [mapModalTarget, setMapModalTarget] = useState<HighlightSegment | null>(null);
   const [trimModalTarget, setTrimModalTarget] = useState<HighlightSegment | null>(null);
   const [editingBridgeIndex, setEditingBridgeIndex] = useState<number | null>(null);
+  // 통합 스튜디오: 현재 편집 중인 5단계 구간과 브릿지 선택 상태
+  const [activeSection, setActiveSection] = useState<StudioSection>(() =>
+    initialSegments.length > 0 ? 'cut' : 'intro'
+  );
+  const [selectedBridgeIndex, setSelectedBridgeIndex] = useState<number>(1);
+  const musicPanelPinnedRef = useRef<boolean>(false);
+  const previewRangeEndRef = useRef<number | null>(null);
+  const rightColumnRef = useRef<HTMLElement>(null);
   const consoleScrollRef = useRef<HTMLDivElement>(null);
 
   // 4-1. 다국어, AI 모델 및 원본 영상 목록 모달 상태
@@ -1925,6 +2002,61 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     return offsets;
   }, [segments, introDuration, effectiveBridgeDurationMap]);
 
+  // 현재 선택된 컷의 실제 인덱스 (인트로/아웃트로 선택 시 마지막 유효 컷 기준)
+  const selectedSegmentIndex = useMemo(() => {
+    const idx = segments.findIndex((s) => s.id === selectedSegmentId);
+    return idx >= 0 ? idx : 0;
+  }, [segments, selectedSegmentId]);
+
+  // 날짜/장소가 바뀌어 브릿지가 "들어갈 수 있는" 경계 목록 (꺼진 곳 포함)
+  const bridgeCandidateIndexes = useMemo(() => {
+    const list: number[] = [];
+    for (let i = 1; i < segments.length; i++) {
+      const info = evaluateChapterBridge(
+        segments[i - 1],
+        { ...segments[i], skipChapterBridge: false },
+        i,
+        segments.length,
+        { ...overlayOptions, showChapterBridge: true }
+      );
+      if (info.shouldBridge) list.push(i);
+    }
+    return list;
+  }, [segments, overlayOptions]);
+
+  // 실제로 타임라인에 렌더링 중인 브릿지 경계 목록
+  const activeBridgeIndexes = useMemo(
+    () => bridgeCandidateIndexes.filter((i) => (effectiveBridgeDurationMap[segments[i]?.id] ?? 0) > 0),
+    [bridgeCandidateIndexes, effectiveBridgeDurationMap, segments]
+  );
+
+  // 3번 브릿지 단계에서 보여줄 경계 (선택된 컷과 가장 가까운 후보)
+  const effectiveBridgeIndex = useMemo(() => {
+    if (bridgeCandidateIndexes.includes(selectedBridgeIndex)) return selectedBridgeIndex;
+    const nearest =
+      bridgeCandidateIndexes.find((i) => i >= selectedSegmentIndex) ??
+      bridgeCandidateIndexes[bridgeCandidateIndexes.length - 1];
+    return nearest ?? 1;
+  }, [bridgeCandidateIndexes, selectedBridgeIndex, selectedSegmentIndex]);
+
+  // 현재 브릿지 경계의 상세 정보 (skip 여부와 무관하게 날짜/장소를 보여주기 위해 skip을 무시하고 계산)
+  const selectedBridgeDetail = useMemo(() => {
+    const idx = effectiveBridgeIndex;
+    const prev = segments[idx - 1];
+    const seg = segments[idx];
+    if (!prev || !seg) return null;
+    return {
+      idx,
+      prev,
+      seg,
+      info: evaluateChapterBridge(prev, { ...seg, skipChapterBridge: false }, idx, segments.length, {
+        ...overlayOptions,
+        showChapterBridge: true,
+      }),
+      isEnabled: (effectiveBridgeDurationMap[seg.id] ?? 0) > 0,
+    };
+  }, [segments, effectiveBridgeIndex, overlayOptions, effectiveBridgeDurationMap]);
+
   const calculatedBgmSpeed = useMemo(() => {
     if (!customAudioDuration || customAudioDuration <= 0 || !totalDuration || totalDuration <= 0) return null;
     const rate = customAudioDuration / totalDuration;
@@ -2122,6 +2254,26 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       mediaTime: fallbackSeg.end,
       videoId: fallbackSeg.sourceVideoId,
     };
+  };
+
+  // 타임라인 위치(플레이헤드)에 따라 오른쪽 편집 패널을 1~5번 구간으로 자동 전환한다.
+  // - 재생 중에는 눈이 피로하지 않도록 전환하지 않고, 스크럽/클릭/시크 시에만 동기화한다.
+  // - 5번 노래 패널을 직접 연 상태에서는 사용자가 타임라인 블록을 누르기 전까지 유지한다.
+  const syncSectionForTime = (timelineTime: number) => {
+    if (segments.length === 0 || isSequencePlayingRef.current || musicPanelPinnedRef.current) return;
+    const res = resolveTimelineAt(timelineTime);
+    if (res.phase === 'intro') {
+      setActiveSection('intro');
+    } else if (res.phase === 'bridge') {
+      setActiveSection('bridge');
+      setSelectedBridgeIndex(res.segIndex);
+      setSelectedSegmentId(res.seg.id);
+    } else if (res.phase === 'segment') {
+      setActiveSection('cut');
+      setSelectedSegmentId(res.seg.id);
+    } else if (res.phase === 'outro') {
+      setActiveSection('outro');
+    }
   };
 
   // 현재 재생 중인 시간대에 위치한 세그먼트 자동 감지 (재병합 없이 실시간 동작)
@@ -2547,6 +2699,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     previewRendererReady,
   ]);
 
+  // 단계가 바뀌면 오른쪽 편집 패널을 맨 위로 부드럽게 되돌린다.
+  useEffect(() => {
+    rightColumnRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeSection]);
+
   // 씬별 자막/날짜/위치 수정 핸들러
   const handleUpdateSegmentSubtitle = (
     segId: string,
@@ -2561,6 +2718,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 타임라인 시점(0 ~ totalDuration)으로 원본 비디오 및 컴포지터 즉시 시크
   const applyVideoSeek = (timelineTime: number) => {
     const clampedTimeline = Math.max(0, Math.min(totalDuration, timelineTime));
+    // 재생 중이 아닐 때만 플레이헤드 위치에 맞춰 오른쪽 패널을 바꾼다.
+    syncSectionForTime(clampedTimeline);
     const v = videoRef.current;
 
     if (!isSequenceMode) {
@@ -2644,6 +2803,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const stopSequencePlayback = () => {
     isSequencePlayingRef.current = false;
     activeSequencePhaseRef.current = '';
+    previewRangeEndRef.current = null;
     if (seqPlayRafRef.current) {
       cancelAnimationFrame(seqPlayRafRef.current);
       seqPlayRafRef.current = null;
@@ -2872,6 +3032,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         }
       }
 
+      if (previewRangeEndRef.current !== null && nextT >= previewRangeEndRef.current - 0.01) {
+        const previewEnd = previewRangeEndRef.current;
+        currentTimeRef.current = previewEnd;
+        setCurrentTime(previewEnd);
+        renderCompositorAt(previewEnd);
+        stopSequencePlayback();
+        return;
+      }
+
       if (nextT >= totalDuration) {
         currentTimeRef.current = totalDuration;
         setCurrentTime(totalDuration);
@@ -2896,6 +3065,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
   // 클립 선택 및 이동
   const handleSelectSegment = (segId: string) => {
+    musicPanelPinnedRef.current = false;
     setSelectedSegmentId(segId);
     if (!isSequenceMode) {
       const seg = segments.find((s) => s.id === segId);
@@ -2928,6 +3098,176 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       activeSequencePhaseRef.current = '';
       applyVideoSeek(targetT);
     }
+  };
+
+  // 구간(start~end)만 재생하고 자동으로 멈추는 미리보기
+  const previewSectionRange = (startTime: number, endTime: number) => {
+    if (!isSequenceMode || totalDuration <= 0) return;
+    const start = Math.max(0, Math.min(totalDuration, startTime));
+    const end = Math.max(start + 0.15, Math.min(totalDuration, endTime));
+    previewRangeEndRef.current = end;
+    currentTimeRef.current = start;
+    setCurrentTime(start);
+    applyVideoSeek(start);
+    startSequencePlayback(start);
+  };
+
+  // 1~5번 구간별 "이 부분만 다시 보기"
+  const previewSectionPlay = (section: StudioSection, bridgeIndex?: number) => {
+    if (!isSequenceMode) return;
+    if (section === 'intro') {
+      if (introDuration <= 0) return;
+      previewSectionRange(0, introDuration);
+      return;
+    }
+    if (section === 'outro') {
+      if (outroDuration <= 0) return;
+      previewSectionRange(totalDuration - outroDuration, totalDuration);
+      return;
+    }
+    if (section === 'music') {
+      previewSectionRange(0, Math.min(totalDuration, 12));
+      return;
+    }
+    if (section === 'bridge') {
+      const idx = bridgeIndex ?? effectiveBridgeIndex;
+      const seg = segments[idx];
+      const offset = seg ? segmentTimelineOffsets[seg.id] : undefined;
+      if (!offset) return;
+      if (offset.bridgeDuration > 0) {
+        previewSectionRange(
+          offset.bridgeStartOffset + 0.01,
+          offset.startOffset + Math.min(1.2, seg.duration)
+        );
+      } else {
+        previewSectionRange(offset.startOffset, offset.endOffset);
+      }
+      return;
+    }
+    const seg = segments[selectedSegmentIndex];
+    const offset = seg ? segmentTimelineOffsets[seg.id] : undefined;
+    if (offset) previewSectionRange(offset.startOffset, offset.endOffset);
+  };
+
+  const selectCutByOffset = (delta: number) => {
+    if (segments.length === 0) return;
+    const nextIndex = Math.max(0, Math.min(segments.length - 1, selectedSegmentIndex + delta));
+    const seg = segments[nextIndex];
+    if (!seg) return;
+    musicPanelPinnedRef.current = false;
+    setActiveSection('cut');
+    handleSelectSegment(seg.id);
+  };
+
+  const handleSelectBridge = (idx: number, autoPreview = false) => {
+    const seg = segments[idx];
+    if (!seg) return;
+    musicPanelPinnedRef.current = false;
+    setActiveSection('bridge');
+    setSelectedBridgeIndex(idx);
+    setSelectedSegmentId(seg.id);
+    const offset = segmentTimelineOffsets[seg.id];
+    if (offset) {
+      const target = offset.bridgeDuration > 0 ? offset.bridgeStartOffset + 0.01 : offset.startOffset;
+      currentTimeRef.current = target;
+      setCurrentTime(target);
+      activeSequencePhaseRef.current = '';
+      applyVideoSeek(target);
+    }
+    if (autoPreview) {
+      window.setTimeout(() => previewSectionPlay('bridge', idx), 80);
+    }
+  };
+
+  const setBridgeEnabled = (idx: number, enabled: boolean) => {
+    const seg = segments[idx];
+    if (!seg) return;
+    musicPanelPinnedRef.current = false;
+    setOverlayOptions((prev) => ({ ...prev, showChapterBridge: true }));
+    setSegments((prev) =>
+      prev.map((s, i) => (i === idx ? { ...s, skipChapterBridge: !enabled } : s))
+    );
+    setSelectedBridgeIndex(idx);
+    setSelectedSegmentId(seg.id);
+    if (enabled) {
+      window.setTimeout(() => previewSectionPlay('bridge', idx), 100);
+    }
+  };
+
+  const applyBridgeTemplateToCurrent = (kind: 'date' | 'location', templateId: string) => {
+    const idx = effectiveBridgeIndex;
+    setSegments((prev) =>
+      prev.map((s, i) =>
+        i === idx
+          ? {
+              ...s,
+              ...(kind === 'date'
+                ? { bridgeDateTemplateOverride: templateId as BridgeDateTemplateId }
+                : { bridgeLocationTemplateOverride: templateId as BridgeLocationTemplateId }),
+            }
+          : s
+      )
+    );
+    window.setTimeout(() => previewSectionPlay('bridge', idx), 100);
+  };
+
+  const applyBridgeTemplateToAll = () => {
+    if (!selectedBridgeDetail) return;
+    const { info } = selectedBridgeDetail;
+    setOverlayOptions((prev) => ({
+      ...prev,
+      chapterBridgeDateTemplate: info.dateTemplate,
+      chapterBridgeLocationTemplate: info.locationTemplate,
+    }));
+    setSegments((prev) =>
+      prev.map((s) => ({
+        ...s,
+        bridgeDateTemplateOverride: undefined,
+        bridgeLocationTemplateOverride: undefined,
+      }))
+    );
+    notify.success('모든 브릿지에 같은 스타일을 적용했어요.');
+  };
+
+  const goToSection = (section: StudioSection) => {
+    musicPanelPinnedRef.current = section === 'music';
+    setActiveSection(section);
+    if (section === 'intro') {
+      handleSelectSegment('intro');
+      return;
+    }
+    if (section === 'outro') {
+      handleSelectSegment('outro');
+      return;
+    }
+    if (section === 'cut') {
+      const seg = segments[selectedSegmentIndex] || segments[0];
+      if (seg) handleSelectSegment(seg.id);
+      return;
+    }
+    if (section === 'bridge') {
+      handleSelectBridge(effectiveBridgeIndex);
+      return;
+    }
+    // music: 재생 위치를 건드리지 않고 노래 패널만 연다.
+  };
+
+  const goToAdjacentSection = (delta: 1 | -1) => {
+    let currentIndex = STUDIO_SECTION_ORDER.indexOf(activeSection);
+    if (currentIndex < 0) currentIndex = 0;
+    let nextIndex = currentIndex + delta;
+    // 컷이 없거나 브릿지 후보가 없으면 건너뛴다.
+    while (
+      nextIndex > 0 &&
+      nextIndex < STUDIO_SECTION_ORDER.length &&
+      ((STUDIO_SECTION_ORDER[nextIndex] === 'cut' && segments.length === 0) ||
+        (STUDIO_SECTION_ORDER[nextIndex] === 'bridge' &&
+          (segments.length < 2 || bridgeCandidateIndexes.length === 0)))
+    ) {
+      nextIndex += delta;
+    }
+    if (nextIndex < 0 || nextIndex >= STUDIO_SECTION_ORDER.length) return;
+    goToSection(STUDIO_SECTION_ORDER[nextIndex]);
   };
 
   // 상대 시간 이동 (-5s, +5s)
@@ -2966,6 +3306,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const startScrubbing = (targetTime: number) => {
     if (!totalDuration || totalDuration <= 0) return;
     const clampedTime = Math.max(0, Math.min(totalDuration, targetTime));
+    // 타임라인을 직접 만지면 5번 노래 패널 고정을 풀고, 지금 위치의 단계로 돌아간다.
+    musicPanelPinnedRef.current = false;
     isScrubbingRef.current = true;
     setIsScrubbing(true);
 
@@ -3191,6 +3533,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     const clickX = e.clientX - rect.left;
     const ratio = Math.max(0, Math.min(1, clickX / rect.width));
     const targetTime = ratio * totalDuration;
+    musicPanelPinnedRef.current = false;
     currentTimeRef.current = targetTime;
     activeSequencePhaseRef.current = '';
     applyVideoSeek(targetTime);
@@ -4083,10 +4426,92 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           onStartNewProject={() => {
             resetStudioState();
             onStartNewProject?.();
+            navigateToTab('studio');
           }}
         />
       ) : (
         <main className="toss-main-content">
+        {/* 통합 스튜디오 5단계 편집 가이드 (인트로 → 컷 → 브릿지 → 아웃트로 → 노래) */}
+        <nav className="toss-studio-stepbar" aria-label="편집 순서">
+          <div className="toss-studio-stepbar-head">
+            <span className="toss-studio-stepbar-eyebrow">편집 순서</span>
+            <strong className="toss-studio-stepbar-title">
+              1번부터 5번까지, 순서대로만 눌러주세요
+            </strong>
+            <span className="toss-studio-stepbar-sub">
+              타임라인을 움직이면 지금 위치에 맞는 설정만 오른쪽에 보여요.
+            </span>
+          </div>
+          <ol className="toss-studio-steps">
+            {STUDIO_STEPS.map((step, index) => {
+              const isActive = activeSection === step.id;
+              const isDisabled =
+                (step.id === 'cut' && segments.length === 0) ||
+                (step.id === 'bridge' && (segments.length < 2 || bridgeCandidateIndexes.length === 0));
+              const status =
+                step.id === 'intro'
+                  ? overlayOptions.showIntro
+                    ? '켜짐'
+                    : '꺼짐'
+                  : step.id === 'cut'
+                    ? segments.length > 0
+                      ? `${segments.length}개 컷`
+                      : 'AI 컷 필요'
+                    : step.id === 'bridge'
+                      ? activeBridgeIndexes.length > 0
+                        ? `${activeBridgeIndexes.length}곳 켜짐`
+                        : bridgeCandidateIndexes.length > 0
+                          ? `${bridgeCandidateIndexes.length}곳 가능`
+                          : '자동 감지 없음'
+                      : step.id === 'outro'
+                        ? overlayOptions.showOutro
+                          ? '켜짐'
+                          : '꺼짐'
+                        : customAudioFile
+                          ? '선택됨'
+                          : '없음';
+              return (
+                <li key={step.id} className="toss-studio-step-item">
+                  <button
+                    type="button"
+                    className={`toss-studio-step ${isActive ? 'active' : ''} ${isDisabled ? 'disabled' : ''}`}
+                    onClick={() => {
+                      if (isDisabled) return;
+                      goToSection(step.id);
+                    }}
+                    disabled={isDisabled}
+                    aria-current={isActive ? 'step' : undefined}
+                  >
+                    <span className="toss-studio-step-num">
+                      {step.id === 'intro' ? (
+                        <Film size={14} />
+                      ) : step.id === 'cut' ? (
+                        <Scissors size={14} />
+                      ) : step.id === 'bridge' ? (
+                        <ArrowRight size={14} />
+                      ) : step.id === 'outro' ? (
+                        <Check size={14} />
+                      ) : (
+                        <Music size={14} />
+                      )}
+                    </span>
+                    <span className="toss-studio-step-text">
+                      <span className="toss-studio-step-label">
+                        <span className="toss-studio-step-index">{step.num}</span>
+                        {step.label}
+                      </span>
+                      <span className="toss-studio-step-status">{status}</span>
+                    </span>
+                  </button>
+                  {index < STUDIO_STEPS.length - 1 && (
+                    <span className="toss-studio-step-connector" aria-hidden="true" />
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </nav>
+
         {/* 누락 파일 일괄 재연결 알림 배너: 아직 하이라이트 분석 전(초기 업로드 단계)에만 표시 */}
         {isDraftPreview && !result?.url && videos.some((v) => !v.url || (v.file && v.file.size === 0) || v.error || v.isMissingFile) && (
           <div className="toss-relink-banner">
@@ -4134,6 +4559,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         )}
 
         {/* 2-A. 왼쪽 열: 16:9 모니터 & 배경음악 업로드 */}
+        <div className="toss-studio-columns">
         <section className="toss-column-left">
           <div className="toss-card toss-player-card">
             {/* 영상 상단 왼쪽, 오른쪽 문구 직관 입력창 */}
@@ -4424,47 +4850,36 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 ) : (
                   <div
                     className="toss-player-empty"
-                    onClick={() => {
-                      if (onOpenNewProjectWizard) {
-                        onOpenNewProjectWizard();
-                      } else if (onStartNewProject) {
-                        onStartNewProject();
-                      } else {
-                        fileInputRef.current?.click();
-                      }
-                    }}
+                    onClick={() => fileInputRef.current?.click()}
                   >
                     <div className="toss-empty-circle-icon">
-                      <Sparkles size={28} className="text-slate-900" />
+                      <Upload size={26} className="text-slate-900" />
                     </div>
-                    <h3 className="toss-empty-title">새 AI 영상 작업 시작하기</h3>
+                    <h3 className="toss-empty-title">영상 하나만 올리면 시작돼요</h3>
                     <p className="toss-empty-desc">
-                      마법사를 통해 영상 업로드, 개별 위치명 확인, BGM 설정을 거쳐<br />
-                      AI 하이라이트를 간편하게 완성해보세요.
+                      올린 영상에서 AI가 하이라이트를 뽑아줘요.<br />
+                      그다음은 <strong>1번 인트로 → 2번 컷 → 3번 브릿지 → 4번 아웃트로 → 5번 노래</strong> 순서로만
+                      따라가면 끝나요.
                     </p>
                     <div className="flex items-center gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
                         className="toss-btn-primary"
-                        onClick={() => {
-                          if (onOpenNewProjectWizard) {
-                            onOpenNewProjectWizard();
-                          } else if (onStartNewProject) {
-                            onStartNewProject();
-                          }
-                        }}
-                      >
-                        <Sparkles size={14} />
-                        <span>새 프로젝트 마법사</span>
-                      </button>
-                      <button
-                        type="button"
-                        className="toss-btn-secondary"
                         onClick={() => fileInputRef.current?.click()}
                       >
                         <Upload size={14} />
-                        <span>영상 파일 직접 선택</span>
+                        <span>영상 올리기</span>
                       </button>
+                      {onStartNewProject && (
+                        <button
+                          type="button"
+                          className="toss-btn-secondary"
+                          onClick={() => onStartNewProject()}
+                        >
+                          <Plus size={14} />
+                          <span>새 프로젝트로 시작</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -4877,89 +5292,121 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           segOffset &&
                           segOffset.startOffset >= customAudioDuration - 0.05
                         );
-                        const segDur = seg.duration + bridgeDur;
+                        const segDur = seg.duration;
                         const isLastClip = idx === segments.length - 1 && outroDuration === 0;
+                        const isBridgeCandidate = idx > 0 && bridgeCandidateIndexes.includes(idx);
+                        const isBridgeEnabled = bridgeDur > 0;
+                        const bridgePrev = isBridgeCandidate ? segments[idx - 1] : undefined;
 
                         return (
-                          <div
-                            key={seg.id}
-                            className={`toss-sequencer-block ${isSelected ? 'selected' : ''} ${isCurrent ? 'playing' : ''} ${isExceedingMusic ? 'exceeds-music' : ''} ${isFullyBeyondMusic ? 'beyond-music' : ''} ${isLastClip ? 'is-video-end-clip' : ''}`}
-                            style={{
-                              flex: `${Math.max(0.01, segDur)} 1 0%`,
-                              minWidth: 0,
-                            }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (suppressSegmentClickRef.current) {
-                                return;
-                              }
-                              handleSelectSegment(seg.id);
-                            }}
-                            title={
-                              isExceedingMusic && customAudioDuration
-                                ? `${interpolate(dict.sequencer.clipTitle, {
-                                    idx: idx + 1,
-                                    duration: seg.duration.toFixed(1),
-                                    reason: seg.reason,
-                                  })} • 음악 길이(${formatSec(customAudioDuration)}) 초과 구간`
-                                : interpolate(dict.sequencer.clipTitle, {
-                                    idx: idx + 1,
-                                    duration: seg.duration.toFixed(1),
-                                    reason: seg.reason,
-                                  })
-                            }
-                          >
-                            {vItem?.thumbnailUrl && (
-                              <img
-                                src={vItem.thumbnailUrl}
-                                alt=""
-                                className="toss-sequencer-block-thumb"
-                                style={
-                                  seg.rotation
-                                    ? {
-                                        transform: `rotate(${seg.rotation}deg)${
-                                          seg.rotation === 90 || seg.rotation === 270 ? ' scale(0.6)' : ''
-                                        }`,
-                                      }
-                                    : undefined
+                          <React.Fragment key={seg.id}>
+                            {isBridgeCandidate && (
+                              <button
+                                type="button"
+                                className={`toss-sequencer-bridge-chip ${isBridgeEnabled ? 'is-active' : 'is-potential'}`}
+                                style={{
+                                  flex: isBridgeEnabled ? `${Math.max(0.01, bridgeDur)} 1 0%` : '0 0 auto',
+                                }}
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSelectBridge(idx);
+                                }}
+                                title={
+                                  isBridgeEnabled
+                                    ? `장면 전환 ${bridgePrev?.locationName || '이전 장소'} → ${seg.locationName || '다음 장소'} (${bridgeDur.toFixed(1)}s) · 눌러서 수정`
+                                    : '여기를 누르면 날짜·장소가 바뀌는 장면 전환을 넣을 수 있어요'
                                 }
-                              />
+                              >
+                                {isBridgeEnabled ? (
+                                  <>
+                                    <ArrowRight size={9} />
+                                    <span className="toss-bridge-chip-label">브</span>
+                                  </>
+                                ) : (
+                                  <Plus size={9} />
+                                )}
+                              </button>
                             )}
-                            <div className="toss-sequencer-block-overlay">
-                              <div className="toss-block-top-row">
-                                <span className="toss-block-idx">#{idx + 1}</span>
-                                {segments.length > 1 && (
-                                  <button
-                                    type="button"
-                                    className="toss-sequencer-block-delete"
-                                    onClick={(e) => handleDeleteSegment(seg.id, e)}
-                                    title={interpolate(
-                                      dict.sequencer.deleteClipTip || '#{idx} 구간 제외하기',
-                                      { idx: idx + 1 }
-                                    )}
-                                    aria-label={interpolate(
-                                      dict.sequencer.deleteClipTip || '#{idx} 구간 제외하기',
-                                      { idx: idx + 1 }
-                                    )}
-                                  >
-                                    <X size={10} />
-                                  </button>
-                                )}
-                              </div>
-                              <div className="toss-block-bottom-row">
-                                {isExceedingMusic && (
-                                  <span
-                                    className="toss-block-overflow-dot"
-                                    title={
-                                      dict.dramaticClips.musicOverflowSegmentTip ||
-                                      '음악 길이 초과 구간'
-                                    }
-                                  />
-                                )}
-                                <span className="toss-block-dur">{seg.duration.toFixed(1)}s</span>
+                            <div
+                              className={`toss-sequencer-block ${isSelected ? 'selected' : ''} ${isCurrent ? 'playing' : ''} ${isExceedingMusic ? 'exceeds-music' : ''} ${isFullyBeyondMusic ? 'beyond-music' : ''} ${isLastClip ? 'is-video-end-clip' : ''}`}
+                              style={{
+                                flex: `${Math.max(0.01, segDur)} 1 0%`,
+                                minWidth: 0,
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (suppressSegmentClickRef.current) {
+                                  return;
+                                }
+                                handleSelectSegment(seg.id);
+                              }}
+                              title={
+                                isExceedingMusic && customAudioDuration
+                                  ? `${interpolate(dict.sequencer.clipTitle, {
+                                      idx: idx + 1,
+                                      duration: seg.duration.toFixed(1),
+                                      reason: seg.reason,
+                                    })} • 음악 길이(${formatSec(customAudioDuration)}) 초과 구간`
+                                  : interpolate(dict.sequencer.clipTitle, {
+                                      idx: idx + 1,
+                                      duration: seg.duration.toFixed(1),
+                                      reason: seg.reason,
+                                    })
+                              }
+                            >
+                              {vItem?.thumbnailUrl && (
+                                <img
+                                  src={vItem.thumbnailUrl}
+                                  alt=""
+                                  className="toss-sequencer-block-thumb"
+                                  style={
+                                    seg.rotation
+                                      ? {
+                                          transform: `rotate(${seg.rotation}deg)${
+                                            seg.rotation === 90 || seg.rotation === 270 ? ' scale(0.6)' : ''
+                                          }`,
+                                        }
+                                      : undefined
+                                  }
+                                />
+                              )}
+                              <div className="toss-sequencer-block-overlay">
+                                <div className="toss-block-top-row">
+                                  <span className="toss-block-idx">#{idx + 1}</span>
+                                  {segments.length > 1 && (
+                                    <button
+                                      type="button"
+                                      className="toss-sequencer-block-delete"
+                                      onClick={(e) => handleDeleteSegment(seg.id, e)}
+                                      title={interpolate(
+                                        dict.sequencer.deleteClipTip || '#{idx} 구간 제외하기',
+                                        { idx: idx + 1 }
+                                      )}
+                                      aria-label={interpolate(
+                                        dict.sequencer.deleteClipTip || '#{idx} 구간 제외하기',
+                                        { idx: idx + 1 }
+                                      )}
+                                    >
+                                      <X size={10} />
+                                    </button>
+                                  )}
+                                </div>
+                                <div className="toss-block-bottom-row">
+                                  {isExceedingMusic && (
+                                    <span
+                                      className="toss-block-overflow-dot"
+                                      title={
+                                        dict.dramaticClips.musicOverflowSegmentTip ||
+                                        '음악 길이 초과 구간'
+                                      }
+                                    />
+                                  )}
+                                  <span className="toss-block-dur">{seg.duration.toFixed(1)}s</span>
+                                </div>
                               </div>
                             </div>
-                          </div>
+                          </React.Fragment>
                         );
                       })}
 
@@ -4989,7 +5436,19 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     </div>
 
                     {/* A1: 배경음악 구간 트랙 (1회차 원곡 재생 구간 & 초과 시 반복 구간 표시) */}
-                    <div className="toss-sequencer-audio-strip">
+                    <div
+                      className="toss-sequencer-audio-strip"
+                      onClick={() => goToSection('music')}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          goToSection('music');
+                        }
+                      }}
+                      title="노래 설정 열기"
+                    >
                       {customAudioFile ? (
                         audioTimelineBlocks.length > 0 ? (
                           audioTimelineBlocks.map((block) => {
@@ -5175,157 +5634,34 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             )}
           </div>
 
-          {/* 배경음악 카드 */}
-          <div className="toss-card toss-bgm-card">
-            <div className="toss-card-header">
-              <div>
-                <h4 className="toss-card-title">
-                  <Music size={15} className="text-slate-800 shrink-0" />
-                  <span>{dict.bgm.title}</span>
-                </h4>
-                <p className="toss-card-desc">
-                  {dict.bgm.desc}
-                </p>
-              </div>
-
-              <div className="toss-bgm-header-actions">
-                {customAudioFile && (
-                  <div className="toss-bgm-volume-control">
-                    <span className="text-xs font-semibold text-slate-500">{dict.bgm.volume}</span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.05"
-                      value={bgmVolume}
-                      onChange={(e) => setBgmVolume(parseFloat(e.target.value))}
-                      className="toss-slider"
-                    />
-                    <span className="text-xs font-mono font-bold text-slate-800 w-8 text-right">
-                      {Math.round(bgmVolume * 100)}%
-                    </span>
-                  </div>
-                )}
-                <button
-                  type="button"
-                  className="toss-btn-audio-library"
-                  onClick={() => setIsAudioLibraryOpen(true)}
-                >
-                  <ListMusic size={13} />
-                  <span>{dict.audioLibrary.openButton}</span>
-                </button>
-              </div>
-            </div>
-
-            <input
-              ref={customAudioInputRef}
-              type="file"
-              accept="audio/*"
-              style={{ display: 'none' }}
-              onChange={handleCustomAudioSelected}
-            />
-
-            {customAudioFile ? (
-              <>
-                <div className="toss-bgm-uploaded-box">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="toss-audio-icon-box">
-                      <FileAudio size={18} className="text-slate-800" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-bold text-slate-800 truncate">
-                        {customAudioName}
-                      </div>
-                      <div className="text-[11px] text-slate-400 mt-0.5">
-                        {selectedLibraryTrackId ? dict.audioLibrary.fromLibrary : dict.bgm.myAudioFile}
-                        {customAudioDuration ? ` · ${formatSec(customAudioDuration)}` : ''} ({((customAudioFile.size || 0) / (1024 * 1024)).toFixed(1)}MB) • {dict.bgm.applied}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      className="toss-btn-secondary toss-btn-xs"
-                      onClick={() => customAudioInputRef.current?.click()}
-                    >
-                      {dict.bgm.changeFile}
-                    </button>
-                    <button
-                      type="button"
-                      className="toss-btn-delete-sm"
-                      onClick={() => {
-                        setCustomAudioFile(null);
-                        setCustomAudioName('');
-                        setSelectedBgmId('none');
-                        setSelectedLibraryTrackId(null);
-                      }}
-                      title={dict.bgm.deleteBgm}
-                    >
-                      <X size={15} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* BGM 상세 옵션 (영상 길이에 배속 맞춤) */}
-                <div className="toss-bgm-options-panel mt-3 pt-3 border-t border-slate-100 flex flex-col gap-2">
-                  <div className="flex items-center justify-between gap-3 p-2.5 bg-slate-50/70 rounded-xl hover:bg-slate-50 transition-colors">
-                    <div className="flex flex-col min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-xs font-bold text-slate-800">
-                          {dict.bgm.fitToVideo}
-                        </span>
-                        {overlayOptions.bgmFitToVideo && calculatedBgmSpeed && (
-                          <span className="text-[10px] font-bold text-slate-800 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-md">
-                            ⚡ {calculatedBgmSpeed}x
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-[11px] text-slate-400 mt-0.5">
-                        {overlayOptions.bgmFitToVideo && calculatedBgmSpeed
-                          ? interpolate(dict.bgm.speedRateNotice, { rate: calculatedBgmSpeed })
-                          : dict.bgm.fitToVideoDesc}
-                      </span>
-                    </div>
-                    <label className="toss-toggle-switch shrink-0" style={{ margin: 0 }}>
-                      <input
-                        type="checkbox"
-                        checked={Boolean(overlayOptions.bgmFitToVideo)}
-                        onChange={(e) =>
-                          setOverlayOptions((prev) => ({
-                            ...prev,
-                            bgmFitToVideo: e.target.checked,
-                          }))
-                        }
-                      />
-                      <span className="toss-toggle-slider" />
-                    </label>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <button
-                type="button"
-                className="toss-upload-box toss-audio-upload-box"
-                onClick={() => customAudioInputRef.current?.click()}
-              >
-                <FileAudio size={22} className="text-slate-700 mb-1" />
-                <span className="text-xs font-bold text-slate-800">
-                  {dict.bgm.uploadButton}
-                </span>
-                <span className="text-[11px] text-slate-400 mt-0.5">
-                  {dict.bgm.uploadHint}
-                </span>
-              </button>
-            )}
-          </div>
         </section>
 
         {/* 2-B. 오른쪽 열: [썸네일(완성시)] -> [인트로] -> [AI 극적 순간] -> [아웃트로] -> [요약] */}
-        <section className="toss-column-right">
-          {/* AI 맞춤 16:9 썸네일 카드 */}
+        <section className="toss-column-right" ref={rightColumnRef}>
+          {/* 현재 편집 단계 안내 (한 번에 한 구간만 보여주기) */}
+          <div className="toss-inspector-head">
+            <span className="toss-inspector-kicker">
+              {STUDIO_STEPS.find((step) => step.id === activeSection)?.num}단계
+            </span>
+            <h3 className="toss-inspector-title">
+              {STUDIO_STEPS.find((step) => step.id === activeSection)?.label} 설정
+            </h3>
+            <p className="toss-inspector-desc">
+              {STUDIO_STEPS.find((step) => step.id === activeSection)?.description}
+            </p>
+          </div>
+
+          {/* AI 맞춤 16:9 썸네일 카드 (편집 중에는 접어두는 고급 설정) */}
           {(result || thumbnailUrl) && (
-            <div className="toss-card toss-thumbnail-card">
+            <details className="toss-thumbnail-details">
+              <summary className="toss-thumbnail-summary">
+                <span className="toss-thumbnail-summary-title">
+                  <ImageIcon size={14} />
+                  AI 썸네일 · 저장 준비
+                </span>
+                <span className="toss-thumbnail-summary-hint">필요할 때만 펼치기</span>
+              </summary>
+              <div className="toss-card toss-thumbnail-card">
               <BorderBeam
                 duration={8}
                 borderWidth={1.5}
@@ -5564,10 +5900,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 </p>
               </div>
             </div>
+            </details>
           )}
 
           {/* 시작 인트로 카드 */}
-          <div className="toss-card toss-intro-card">
+          <div
+            className={`toss-card toss-intro-card toss-inspector-card ${activeSection === 'intro' ? 'is-active-section' : ''}`}
+          >
             <div className="toss-card-header">
               <div>
                 <h4 className="toss-card-title">
@@ -5601,14 +5940,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     </span>
                     <button
                       type="button"
-                      onClick={() => {
-                        setIntroOutroModalTab('intro');
-                        setIsIntroOutroModalOpen(true);
-                      }}
+                      onClick={() => previewSectionPlay('intro')}
                       className="toss-io-preview-btn"
+                      disabled={!isSequenceMode}
+                      title={isSequenceMode ? '인트로 구간만 재생' : '2번 컷을 먼저 만들면 미리 볼 수 있어요'}
                     >
                       <Eye size={12} />
-                      <span>{dict.settingsModal?.introOutroPreviewBtn || '모션 템플릿 & 실시간 미리보기'}</span>
+                      <span>미리보기 재생</span>
                     </button>
                   </div>
                   <div className="toss-io-template-grid">
@@ -5622,6 +5960,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           onClick={() => {
                             setStoredIntroTemplate(tpl.id);
                             setOverlayOptions((prev) => ({ ...prev, introTemplate: tpl.id }));
+                            // 선택 즉시 왼쪽 미리보기에서 해당 인트로 모션을 재생한다.
+                            window.setTimeout(() => previewSectionPlay('intro'), 80);
                           }}
                           className={`toss-io-template-card ${isSelected ? 'selected' : ''}`}
                         >
@@ -5657,6 +5997,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           onClick={() => {
                             setStoredIntroDuration(sec);
                             setOverlayOptions((prev) => ({ ...prev, introDurationSec: sec }));
+                            window.setTimeout(() => previewSectionPlay('intro'), 80);
                           }}
                           className={`toss-io-chip ${isCurrent ? 'active' : ''}`}
                         >
@@ -5711,8 +6052,193 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             )}
           </div>
 
+          {/* 3번 구간: 브릿지 (날짜/장소가 바뀌는 컷 사이 장면 전환) */}
+          <div
+            className={`toss-card toss-bridge-card toss-inspector-card ${activeSection === 'bridge' ? 'is-active-section' : ''}`}
+          >
+            <div className="toss-card-header">
+              <div>
+                <h4 className="toss-card-title">
+                  <ArrowRight size={15} className="text-slate-800 shrink-0" />
+                  <span>장면 전환 (브릿지)</span>
+                </h4>
+                <p className="toss-card-desc">
+                  날짜나 장소가 바뀌는 컷 사이에만 들어가요. 켜 둔 곳만 타임라인에 표시돼요.
+                </p>
+              </div>
+              <span className="toss-tag-gray">
+                {activeBridgeIndexes.length} / {bridgeCandidateIndexes.length}곳 켜짐
+              </span>
+            </div>
+
+            {segments.length < 2 || !selectedBridgeDetail ? (
+              <div className="toss-empty-state">
+                <p className="text-slate-400 text-sm">
+                  컷이 2개 이상이고, 컷마다 날짜나 장소가 달라야 브릿지가 자동으로 생겨요. 2번 컷에서
+                  날짜·장소를 먼저 적어보세요.
+                </p>
+                <button
+                  type="button"
+                  className="toss-btn-secondary mt-2"
+                  onClick={() => goToSection('cut')}
+                >
+                  <Scissors size={12} />
+                  <span>컷 설정으로 가기</span>
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="toss-bridge-route">
+                  <div className="toss-bridge-route-side">
+                    <span className="toss-bridge-route-label">컷 #{selectedBridgeDetail.idx}</span>
+                    <strong>{selectedBridgeDetail.prev.locationName || '장소 없음'}</strong>
+                    <small>{selectedBridgeDetail.prev.subtitleDate || '날짜 없음'}</small>
+                  </div>
+                  <span className="toss-bridge-route-arrow">
+                    <ArrowRight size={16} />
+                  </span>
+                  <div className="toss-bridge-route-side next">
+                    <span className="toss-bridge-route-label">컷 #{selectedBridgeDetail.idx + 1}</span>
+                    <strong>{selectedBridgeDetail.seg.locationName || '장소 없음'}</strong>
+                    <small>{selectedBridgeDetail.seg.subtitleDate || '날짜 없음'}</small>
+                  </div>
+                </div>
+
+                <div className="toss-bridge-navigator">
+                  <button
+                    type="button"
+                    className="toss-btn-secondary toss-btn-xs"
+                    disabled={bridgeCandidateIndexes.indexOf(effectiveBridgeIndex) <= 0}
+                    onClick={() => {
+                      const pos = bridgeCandidateIndexes.indexOf(effectiveBridgeIndex);
+                      const prevIdx = bridgeCandidateIndexes[pos - 1];
+                      if (typeof prevIdx === 'number') handleSelectBridge(prevIdx);
+                    }}
+                  >
+                    ‹ 이전 전환
+                  </button>
+                  <span className="toss-bridge-navigator-count">
+                    브릿지 {bridgeCandidateIndexes.indexOf(effectiveBridgeIndex) + 1} /{' '}
+                    {bridgeCandidateIndexes.length}
+                  </span>
+                  <button
+                    type="button"
+                    className="toss-btn-secondary toss-btn-xs"
+                    disabled={
+                      bridgeCandidateIndexes.indexOf(effectiveBridgeIndex) >=
+                      bridgeCandidateIndexes.length - 1
+                    }
+                    onClick={() => {
+                      const pos = bridgeCandidateIndexes.indexOf(effectiveBridgeIndex);
+                      const nextIdx = bridgeCandidateIndexes[pos + 1];
+                      if (typeof nextIdx === 'number') handleSelectBridge(nextIdx);
+                    }}
+                  >
+                    다음 전환 ›
+                  </button>
+                </div>
+
+                <label className="toss-bridge-toggle-row">
+                  <div className="toss-bridge-toggle-text">
+                    <strong>이 장면 전환 넣기</strong>
+                    <span>
+                      {selectedBridgeDetail.info.isDateChanged &&
+                        `${selectedBridgeDetail.info.fromDate} → ${selectedBridgeDetail.info.toDate}`}
+                      {selectedBridgeDetail.info.isDateChanged &&
+                        selectedBridgeDetail.info.isLocationChanged &&
+                        ' · '}
+                      {selectedBridgeDetail.info.isLocationChanged &&
+                        `${selectedBridgeDetail.info.fromLocation} → ${selectedBridgeDetail.info.toLocation}`}
+                    </span>
+                  </div>
+                  <span className="toss-toggle-switch">
+                    <input
+                      type="checkbox"
+                      checked={selectedBridgeDetail.isEnabled}
+                      onChange={(e) => setBridgeEnabled(selectedBridgeDetail.idx, e.target.checked)}
+                    />
+                    <span className="toss-toggle-slider" />
+                  </span>
+                </label>
+
+                {selectedBridgeDetail.isEnabled ? (
+                  <>
+                    <div className="toss-bridge-template-group">
+                      <span className="toss-bridge-template-label">
+                        <Clock size={12} />
+                        <span>날짜 넘어가는 효과</span>
+                      </span>
+                      <div className="toss-bridge-chip-row">
+                        {BRIDGE_DATE_CHOICES.map((choice) => (
+                          <button
+                            key={choice.id}
+                            type="button"
+                            className={`toss-bridge-chip ${selectedBridgeDetail.info.dateTemplate === choice.id ? 'active' : ''}`}
+                            onClick={() => applyBridgeTemplateToCurrent('date', choice.id)}
+                          >
+                            {choice.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="toss-bridge-template-group">
+                      <span className="toss-bridge-template-label">
+                        <MapPin size={12} />
+                        <span>장소 이동 효과</span>
+                      </span>
+                      <div className="toss-bridge-chip-row">
+                        {BRIDGE_LOCATION_CHOICES.map((choice) => (
+                          <button
+                            key={choice.id}
+                            type="button"
+                            className={`toss-bridge-chip ${selectedBridgeDetail.info.locationTemplate === choice.id ? 'active' : ''}`}
+                            onClick={() => applyBridgeTemplateToCurrent('location', choice.id)}
+                          >
+                            {choice.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="toss-bridge-actions">
+                      <button
+                        type="button"
+                        className="toss-btn-secondary toss-btn-xs"
+                        onClick={() => previewSectionPlay('bridge', selectedBridgeDetail.idx)}
+                        disabled={!isSequenceMode}
+                      >
+                        <Eye size={12} />
+                        <span>미리보기</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="toss-btn-secondary toss-btn-xs"
+                        onClick={applyBridgeTemplateToAll}
+                      >
+                        <Check size={12} />
+                        <span>모든 브릿지에 같은 스타일</span>
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="toss-btn-primary toss-bridge-enable-btn"
+                    onClick={() => setBridgeEnabled(selectedBridgeDetail.idx, true)}
+                  >
+                    <Sparkles size={13} />
+                    <span>이 장면 전환 켜기</span>
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+
           {/* AI가 포착한 극적 순간 카드 */}
-          <div className="toss-card toss-dramatic-card">
+          <div
+            className={`toss-card toss-dramatic-card toss-inspector-card ${activeSection === 'cut' ? 'is-active-section' : ''}`}
+          >
             {segments.length > 0 && (
               <BorderBeam
                 duration={7}
@@ -5886,6 +6412,42 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               </div>
             </div>
 
+            {segments.length > 0 && (
+              <div className="toss-cut-navigator">
+                <button
+                  type="button"
+                  className="toss-btn-secondary toss-btn-xs"
+                  onClick={() => selectCutByOffset(-1)}
+                  disabled={selectedSegmentIndex <= 0}
+                >
+                  ‹ 이전 컷
+                </button>
+                <div className="toss-cut-navigator-center">
+                  <strong className="toss-cut-navigator-count">
+                    컷 #{selectedSegmentIndex + 1}
+                  </strong>
+                  <span className="toss-cut-navigator-sub">/ {segments.length}</span>
+                </div>
+                <button
+                  type="button"
+                  className="toss-btn-secondary toss-btn-xs"
+                  onClick={() => selectCutByOffset(1)}
+                  disabled={selectedSegmentIndex >= segments.length - 1}
+                >
+                  다음 컷 ›
+                </button>
+                <button
+                  type="button"
+                  className="toss-btn-secondary toss-btn-xs toss-cut-preview-btn"
+                  onClick={() => previewSectionPlay('cut')}
+                  disabled={!isSequenceMode}
+                >
+                  <Eye size={12} />
+                  <span>{isSequenceMode ? '이 컷만 보기' : '미리보기는 2번 컷부터'}</span>
+                </button>
+              </div>
+            )}
+
             {segments.length === 0 ? (
               <div className="toss-empty-state">
                 <p className="text-slate-400 text-sm">
@@ -5895,6 +6457,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             ) : (
               <div className="toss-segment-list">
                 {segments.map((seg, idx) => {
+                  // 한 번에 선택한 컷 1개만 보여준다. (일반인이 전체 컷 목록에 압도되지 않도록)
+                  if (seg.id !== selectedSegmentId) return null;
                   const isSelected = seg.id === selectedSegmentId;
                   const isCurrentPlaying = seg.id === activePlayingSegmentId;
                   const vItem = videoMap.get(seg.sourceVideoId);
@@ -5931,8 +6495,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       {bridgeEval?.shouldBridge ? (
                         <div
                           className="toss-segment-bridge-item"
-                          onClick={() => setEditingBridgeIndex(idx)}
-                          title="클릭하여 이 구간 브릿지 템플릿 개별 변경 또는 건너뛰기"
+                          onClick={() => handleSelectBridge(idx)}
+                          title="브릿지 단계에서 이 장면 전환을 설정해요"
                           style={{ cursor: 'pointer' }}
                         >
                           <span className="toss-segment-bridge-badge">
@@ -5960,8 +6524,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       ) : (seg.skipChapterBridge) ? (
                         <div
                           className="toss-segment-bridge-item"
-                          onClick={() => setEditingBridgeIndex(idx)}
-                          title="클릭하여 건너뛴 브릿지 다시 켜기"
+                          onClick={() => handleSelectBridge(idx)}
+                          title="브릿지 단계에서 이 장면 전환을 다시 켜요"
                           style={{
                             cursor: 'pointer',
                             opacity: 0.6,
@@ -6309,7 +6873,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           </div>
 
           {/* 종료 아웃트로 카드 */}
-          <div className="toss-card toss-outro-card">
+          <div
+            className={`toss-card toss-outro-card toss-inspector-card ${activeSection === 'outro' ? 'is-active-section' : ''}`}
+          >
             <div className="toss-card-header">
               <div>
                 <h4 className="toss-card-title">
@@ -6343,14 +6909,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     </span>
                     <button
                       type="button"
-                      onClick={() => {
-                        setIntroOutroModalTab('outro');
-                        setIsIntroOutroModalOpen(true);
-                      }}
+                      onClick={() => previewSectionPlay('outro')}
                       className="toss-io-preview-btn toss-io-preview-btn-outro"
+                      disabled={!isSequenceMode}
+                      title={isSequenceMode ? '아웃트로 구간만 재생' : '2번 컷을 먼저 만들면 미리 볼 수 있어요'}
                     >
                       <Eye size={12} />
-                      <span>{dict.settingsModal?.introOutroPreviewBtn || '모션 템플릿 & 실시간 미리보기'}</span>
+                      <span>미리보기 재생</span>
                     </button>
                   </div>
                   <div className="toss-io-template-grid">
@@ -6364,6 +6929,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           onClick={() => {
                             setStoredOutroTemplate(tpl.id);
                             setOverlayOptions((prev) => ({ ...prev, outroTemplate: tpl.id }));
+                            window.setTimeout(() => previewSectionPlay('outro'), 80);
                           }}
                           className={`toss-io-template-card ${isSelected ? 'selected' : ''}`}
                         >
@@ -6418,6 +6984,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           onClick={() => {
                             setStoredOutroDuration(sec);
                             setOverlayOptions((prev) => ({ ...prev, outroDurationSec: sec }));
+                            window.setTimeout(() => previewSectionPlay('outro'), 80);
                           }}
                           className={`toss-io-chip ${isCurrent ? 'active' : ''}`}
                         >
@@ -6471,7 +7038,186 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               </div>
             )}
           </div>
+
+          {/* 5번 구간: 노래 (항상 설정 가능) */}
+          <div
+            className={`toss-card toss-music-card toss-inspector-card ${activeSection === 'music' ? 'is-active-section' : ''}`}
+          >
+            <div className="toss-card-header">
+              <div>
+                <h4 className="toss-card-title">
+                  <Music size={15} className="text-slate-800 shrink-0" />
+                  <span>배경 음악</span>
+                </h4>
+                <p className="toss-card-desc">
+                  영상 전체에 깔리는 노래예요. 영상보다 짧으면 자동으로 반복되고, 길면 영상 끝에서 잘려요.
+                </p>
+              </div>
+            </div>
+
+            <input
+              ref={customAudioInputRef}
+              type="file"
+              accept="audio/*"
+              style={{ display: 'none' }}
+              onChange={handleCustomAudioSelected}
+            />
+
+            {customAudioFile ? (
+              <div className="toss-music-body">
+                <div className="toss-music-current">
+                  <span className="toss-music-current-icon">
+                    <FileAudio size={18} />
+                  </span>
+                  <div className="toss-music-current-text">
+                    <strong className="toss-music-current-name">{customAudioName}</strong>
+                    <span className="toss-music-current-meta">
+                      {selectedLibraryTrackId ? '오디오 보관함' : '내 파일'}
+                      {customAudioDuration ? ` · ${formatSec(customAudioDuration)}` : ''}
+                      {!overlayOptions.bgmFitToVideo && audioTimelineBlocks.length > 1
+                        ? ` · ${audioTimelineBlocks.length}회 반복`
+                        : ''}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="toss-btn-delete-sm"
+                    onClick={() => {
+                      setCustomAudioFile(null);
+                      setCustomAudioName('');
+                      setSelectedBgmId('none');
+                      setSelectedLibraryTrackId(null);
+                    }}
+                    title="음악 빼기"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+
+                <div className="toss-music-volume">
+                  <span className="toss-music-volume-label">
+                    <Volume2 size={13} />
+                    <span>볼륨</span>
+                  </span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={bgmVolume}
+                    onChange={(e) => setBgmVolume(parseFloat(e.target.value))}
+                    className="toss-slider toss-music-slider"
+                  />
+                  <strong className="toss-music-volume-value">{Math.round(bgmVolume * 100)}%</strong>
+                </div>
+
+                <label className="toss-music-toggle-row">
+                  <div className="toss-music-toggle-text">
+                    <strong>영상 길이에 음악 맞추기</strong>
+                    <span>
+                      {overlayOptions.bgmFitToVideo && calculatedBgmSpeed
+                        ? `영상 길이에 맞춰 ${calculatedBgmSpeed}x 속도로 재생돼요.`
+                        : '끄면 원래 속도로 재생하고, 모자라면 처음부터 반복해요.'}
+                    </span>
+                  </div>
+                  <span className="toss-toggle-switch">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(overlayOptions.bgmFitToVideo)}
+                      onChange={(e) =>
+                        setOverlayOptions((prev) => ({
+                          ...prev,
+                          bgmFitToVideo: e.target.checked,
+                        }))
+                      }
+                    />
+                    <span className="toss-toggle-slider" />
+                  </span>
+                </label>
+
+                <div className="toss-music-actions">
+                  <button
+                    type="button"
+                    className="toss-btn-secondary toss-btn-xs"
+                    onClick={() => setIsAudioLibraryOpen(true)}
+                  >
+                    <ListMusic size={12} />
+                    <span>다른 노래 고르기</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="toss-btn-secondary toss-btn-xs"
+                    onClick={() => previewSectionPlay('music')}
+                    disabled={!isSequenceMode}
+                    title={isSequenceMode ? '영상 앞부분에서 음악을 미리 들어요' : '2번 컷을 먼저 만들면 들어볼 수 있어요'}
+                  >
+                    <Play size={12} />
+                    <span>미리 듣기</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="toss-music-empty">
+                <p className="toss-music-empty-text">
+                  아직 노래가 없어요. 보관함에서 고르거나 내 음악을 올려보세요.
+                </p>
+                <div className="toss-music-empty-actions">
+                  <button
+                    type="button"
+                    className="toss-btn-primary toss-btn-sm"
+                    onClick={() => setIsAudioLibraryOpen(true)}
+                  >
+                    <ListMusic size={13} />
+                    <span>보관함에서 고르기</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="toss-btn-secondary toss-btn-sm"
+                    onClick={() => customAudioInputRef.current?.click()}
+                  >
+                    <Upload size={13} />
+                    <span>내 음악 올리기</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 1~5번 단계 이동 */}
+          <nav className="toss-inspector-nav" aria-label="편집 단계 이동">
+            <button
+              type="button"
+              className="toss-btn-secondary toss-inspector-nav-btn"
+              onClick={() => goToAdjacentSection(-1)}
+              disabled={STUDIO_SECTION_ORDER.indexOf(activeSection) <= 0}
+            >
+              <ChevronLeft size={14} />
+              <span>이전 단계</span>
+            </button>
+            {activeSection === 'music' ? (
+              <button
+                type="button"
+                className="toss-btn-primary toss-inspector-nav-btn"
+                onClick={() => setIsExportModalOpen(true)}
+                disabled={!isSequenceMode || segments.length === 0}
+                title={isSequenceMode ? '편집한 영상을 저장해요' : '2번 컷을 먼저 만들면 저장할 수 있어요'}
+              >
+                <Download size={14} />
+                <span>영상 저장하기</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="toss-btn-primary toss-inspector-nav-btn"
+                onClick={() => goToAdjacentSection(1)}
+              >
+                <span>다음 단계</span>
+                <ArrowRight size={14} />
+              </button>
+            )}
+          </nav>
         </section>
+        </div>
       </main>
       )}
 
