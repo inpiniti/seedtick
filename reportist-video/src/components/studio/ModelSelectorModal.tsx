@@ -944,7 +944,8 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
           ) : (
             displayedModels.map((model) => {
               const isSelected = model.id === selectedModelId;
-              const isRecommended = recommendedModel?.id === model.id;
+              const isRecommended =
+                recommendedModel?.id === model.id && model.dataPolicy?.training !== true;
               const isFastest = fastestModel?.id === model.id && !isRecommended;
               const isNew = (model.daysAgo ?? 9999) <= 14;
               const inputModalities = getModelInputModalities(model);

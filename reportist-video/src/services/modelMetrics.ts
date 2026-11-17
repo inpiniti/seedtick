@@ -152,8 +152,32 @@ export function sortModelsBySpeed(models: FreeModelMeta[]): FreeModelMeta[] {
   });
 }
 
+/**
+ * 학습 정책 리스크 랭크. 낮을수록 우선 배치한다.
+ * 0: 학습 미사용이 명시된 모델, 1: 정책 정보 없음, 2: 학습에 사용됨이 명시된 모델
+ */
+export function trainingRiskRank(model: FreeModelMeta): number {
+  if (model.dataPolicy?.training === false) return 0;
+  if (model.dataPolicy?.training === true) return 2;
+  return 1;
+}
+
 export function compareModelsByIntelligence(a: FreeModelMeta, b: FreeModelMeta): number {
-  // 1. 인공지능 지능 지수(Artificial Analysis Intelligence Index) 내림차순 (높은 순서)
+  // 1. 비학습 우선 (학습 미사용 명시 > 정책 미공개 > 학습 사용 명시)
+  const riskA = trainingRiskRank(a);
+  const riskB = trainingRiskRank(b);
+  if (riskA !== riskB) {
+    return riskA - riskB;
+  }
+
+  // 2. 최신 출시순 (비학습/정책 등급 내에서 출시일이 최신인 순서 우선)
+  const daysA = a.daysAgo ?? 9999;
+  const daysB = b.daysAgo ?? 9999;
+  if (daysA !== daysB) {
+    return daysA - daysB;
+  }
+
+  // 3. 인공지능 지능 지수(Artificial Analysis Intelligence Index) 내림차순 (높은 순서)
   const intelA = a.intelligenceIndex ?? null;
   const intelB = b.intelligenceIndex ?? null;
   if (intelA != null && intelB != null && intelB !== intelA) {
@@ -162,17 +186,7 @@ export function compareModelsByIntelligence(a: FreeModelMeta, b: FreeModelMeta):
   if (intelA != null && intelB == null) return -1;
   if (intelA == null && intelB != null) return 1;
 
-  // 2. 지능 지수가 없는 모델들은 최신 출시순으로 정렬 (지능 지수 미집계 모델이 다수)
-  //    지능 지수가 없는 모델끼리는 출시일이 최신인 순서를 우선한다.
-  if (intelA == null && intelB == null) {
-    const daysA = a.daysAgo ?? null;
-    const daysB = b.daysAgo ?? null;
-    if (daysA != null && daysB != null && daysB !== daysA) return daysA - daysB;
-    if (daysA != null && daysB == null) return -1;
-    if (daysA == null && daysB != null) return 1;
-  }
-
-  // 3. 코딩 및 추론 지수 내림차순 (높은 순서)
+  // 4. 코딩 및 추론 지수 내림차순 (높은 순서)
   const codingA = a.codingIndex ?? null;
   const codingB = b.codingIndex ?? null;
   if (codingA != null && codingB != null && codingB !== codingA) {
@@ -181,7 +195,7 @@ export function compareModelsByIntelligence(a: FreeModelMeta, b: FreeModelMeta):
   if (codingA != null && codingB == null) return -1;
   if (codingA == null && codingB != null) return 1;
 
-  // 4. 에이전틱 지수 내림차순
+  // 5. 에이전틱 지수 내림차순
   const agenticA = a.agenticIndex ?? null;
   const agenticB = b.agenticIndex ?? null;
   if (agenticA != null && agenticB != null && agenticB !== agenticA) {
@@ -190,21 +204,21 @@ export function compareModelsByIntelligence(a: FreeModelMeta, b: FreeModelMeta):
   if (agenticA != null && agenticB == null) return -1;
   if (agenticA == null && agenticB != null) return 1;
 
-  // 5. 컨텍스트 길이 내림차순
+  // 6. 컨텍스트 길이 내림차순
   const contextA = a.contextLength ?? 0;
   const contextB = b.contextLength ?? 0;
   if (contextB !== contextA) {
     return contextB - contextA;
   }
 
-  // 6. 속도 내림차순 (토큰/초)
+  // 7. 속도 내림차순 (토큰/초)
   const speedA = a.speedTokensPerSecond ?? 0;
   const speedB = b.speedTokensPerSecond ?? 0;
   if (speedB !== speedA) {
     return speedB - speedA;
   }
 
-  // 7. 최신 출시순
+  // 8. 최신 출시순 (상위 단계에서 이미 비교되므로 사실상 동률 해소용)
   return (a.daysAgo ?? 9999) - (b.daysAgo ?? 9999);
 }
 
@@ -224,13 +238,15 @@ export function cleanModelName(name?: string | null): string {
 
 /**
  * 영상 하이라이트 분석에 쓸 기본 모델을 고른다.
- * 안전성 가드레일 모델 및 Google Gemma 모델은 제외하고, 지능이 가장 높은 모델을 기본값으로 사용한다.
- * 지능 지수가 없는 모델만 남는 경우에는 가장 최신 출시 모델을 사용한다.
+ * 안전성 가드레일 모델, Google Gemma 모델, 학습에 데이터가 사용됨(training === true)으로
+ * 명시된 모델은 제외하고, 비학습 > 최신순 > 지능순 순서로 가장 앞선 모델을 기본값으로 사용한다.
+ * 후보가 없는 경우에만 학습 사용이 명시된 모델까지 포함한 전체 풀에서 고른다.
  */
 export function pickDefaultModel(models: FreeModelMeta[]): FreeModelMeta | null {
   const usable = models.filter(
     (model) =>
       !isGuardrailModel(model) &&
+      model.dataPolicy?.training !== true &&
       !model.id.toLowerCase().includes('gemma') &&
       !model.name.toLowerCase().includes('gemma')
   );
