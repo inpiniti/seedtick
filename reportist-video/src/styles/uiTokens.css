@@ -47,8 +47,8 @@
   /* Color */
   --ui-ink: #0f172a;
   --ui-ink-hover: #1e293b;
-  --ui-accent: #3182f6;
-  --ui-accent-hover: #1b6fe0;
+  --ui-accent: #0f172a;
+  --ui-accent-hover: #1e293b;
   --ui-text: #191f28;
   --ui-text-muted: #4e5968;
   --ui-text-subtle: #8b95a1;
@@ -60,7 +60,7 @@
   --ui-danger: #ef4444;
   --ui-danger-surface: #fef2f2;
   --ui-focus-ring: 0 0 0 3px rgba(15, 23, 42, 0.12);
-  --ui-focus-ring-accent: 0 0 0 3px rgba(49, 130, 246, 0.18);
+  --ui-focus-ring-accent: 0 0 0 3px rgba(15, 23, 42, 0.18);
   --ui-transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease,
     box-shadow 0.15s ease, transform 0.12s ease;
 }

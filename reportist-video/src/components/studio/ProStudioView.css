@@ -2684,7 +2684,7 @@
 }
 
 .toss-sequencer-audio-strip:focus-visible {
-  outline: 2px solid #3182f6;
+  outline: 2px solid #0f172a;
   outline-offset: 2px;
 }
 
@@ -5104,7 +5104,7 @@
   height: 18px;
   padding: 0 5px;
   border-radius: 999px;
-  background-color: #3182f6;
+  background-color: #0f172a;
   color: #ffffff;
   font-size: 10.5px;
   font-weight: 800;
@@ -9902,7 +9902,7 @@
   inset: 0;
   /* <video> 없이도 검은 여백이 어색하지 않도록 은은한 그라데이션 배경 */
   background:
-    radial-gradient(ellipse at 30% 20%, rgba(59, 130, 246, 0.28), transparent 55%),
+    radial-gradient(ellipse at 30% 20%, rgba(203, 213, 225, 0.22), transparent 55%),
     radial-gradient(ellipse at 70% 80%, rgba(16, 185, 129, 0.22), transparent 55%),
     linear-gradient(160deg, #1b2430 0%, #0f172a 50%, #0b1220 100%);
   pointer-events: none;
@@ -12961,7 +12961,7 @@
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.06em;
-  color: #3182f6;
+  color: #0f172a;
 }
 
 .toss-studio-stepbar-title {
@@ -13025,9 +13025,9 @@
 }
 
 .toss-studio-step.active {
-  background: #e8f3ff;
-  border-color: #b3d4ff;
-  box-shadow: inset 0 0 0 1px #d6e8ff;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  box-shadow: inset 0 0 0 1px #e2e8f0;
 }
 
 .toss-studio-step:disabled {
@@ -13049,8 +13049,8 @@
 }
 
 .toss-studio-step.active .toss-studio-step-num {
-  background: #3182f6;
-  border-color: #3182f6;
+  background: #0f172a;
+  border-color: #0f172a;
   color: #ffffff;
 }
 
@@ -13080,7 +13080,7 @@
 }
 
 .toss-studio-step.active .toss-studio-step-index {
-  color: #3182f6;
+  color: #0f172a;
 }
 
 .toss-studio-step-status {
@@ -13115,8 +13115,8 @@
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.04em;
-  color: #3182f6;
-  background: #e8f3ff;
+  color: #0f172a;
+  background: #f1f5f9;
   border-radius: 6px;
   padding: 2px 6px;
   margin-bottom: 5px;
@@ -13358,9 +13358,9 @@
 }
 
 .toss-bridge-chip.active {
-  background: #e8f3ff;
-  border-color: #b3d4ff;
-  color: #1b64da;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
   font-weight: 700;
 }
 
@@ -13400,21 +13400,21 @@
 }
 
 .toss-sequencer-bridge-chip:hover {
-  border-color: #3182f6;
-  color: #3182f6;
-  background: #f4f9ff;
+  border-color: #0f172a;
+  color: #0f172a;
+  background: #f8fafc;
 }
 
 .toss-sequencer-bridge-chip.is-active {
   border-style: solid;
-  border-color: #b3d4ff;
-  background: linear-gradient(180deg, #e8f3ff 0%, #d6e8ff 100%);
-  color: #1b64da;
+  border-color: #cbd5e1;
+  background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%);
+  color: #0f172a;
 }
 
 .toss-sequencer-bridge-chip.is-active:hover {
-  border-color: #3182f6;
-  background: #d6e8ff;
+  border-color: #0f172a;
+  background: #e2e8f0;
 }
 
 /* 브릿지 칩도 컷 블록과 동일하게 선택/재생 상태를 구분해서 보여준다. */
@@ -13870,8 +13870,8 @@
 }
 
 .toss-upload-dropzone:hover {
-  background: #f2f6fb;
-  border-color: #3182f6;
+  background: #f8fafc;
+  border-color: #0f172a;
 }
 
 .toss-upload-dropzone-icon {
@@ -13970,7 +13970,7 @@
 
 .toss-upload-location-input:focus {
   background: #ffffff;
-  border-color: #3182f6;
+  border-color: #0f172a;
 }
 
 .toss-upload-location-input::placeholder {
@@ -14023,7 +14023,7 @@
 
 .toss-ai-progress-fill {
   height: 100%;
-  background: #3182f6;
+  background: #0f172a;
   border-radius: 999px;
   transition: width 0.3s ease;
 }
@@ -14134,19 +14134,19 @@
   width: 100%;
   margin-top: 10px;
   padding: 9px 11px;
-  background: #e8f3ff;
-  border: 1px solid #b3d4ff;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
   border-radius: 10px;
   font-size: 11.5px;
   font-weight: 700;
-  color: #1b64da;
+  color: #0f172a;
   text-align: left;
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
 
 .toss-music-next-cta:hover {
-  background: #d6e8ff;
+  background: #e2e8f0;
 }
 
 .toss-music-next-cta span {
@@ -14313,7 +14313,7 @@
   height: 24px;
   padding: 0 7px;
   border-radius: 7px;
-  background: #3182f6;
+  background: #0f172a;
   color: #ffffff;
   font-size: 11px;
   font-weight: 800;
@@ -14357,7 +14357,7 @@
   padding: 0 2px 0 8px;
   font-size: 11px;
   font-weight: 700;
-  color: #3182f6;
+  color: #0f172a;
   white-space: nowrap;
 }
 
@@ -14368,7 +14368,7 @@
 
 .toss-mobile-step-progress-fill {
   height: 100%;
-  background: #3182f6;
+  background: #0f172a;
   transition: width 0.25s ease;
 }
 
@@ -14501,7 +14501,7 @@
 }
 
 .toss-step-sheet-row.active {
-  background: #e8f3ff;
+  background: #f1f5f9;
 }
 
 .toss-step-sheet-index {
@@ -14520,7 +14520,7 @@
 }
 
 .toss-step-sheet-row.active .toss-step-sheet-index {
-  background: #3182f6;
+  background: #0f172a;
   color: #ffffff;
 }
 
@@ -14549,13 +14549,13 @@
 }
 
 .toss-step-sheet-row.active .toss-step-sheet-status {
-  color: #3182f6;
+  color: #0f172a;
   font-weight: 600;
 }
 
 .toss-step-sheet-check {
   flex: 0 0 auto;
-  color: #3182f6;
+  color: #0f172a;
 }
 
 /* ---------- 3. 하단 고정 CTA 바 (엄지 영역) ---------- */
@@ -14743,8 +14743,8 @@
   }
 
   .toss-mobile-save-status.is-saving {
-    color: #3182f6;
-    background: #e8f3ff;
+    color: #0f172a;
+    background: #f1f5f9;
   }
 }
 

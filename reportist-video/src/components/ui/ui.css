@@ -113,12 +113,12 @@
 .ui-btn--accent {
   background-color: var(--ui-accent);
   color: #ffffff;
-  box-shadow: 0 2px 8px rgba(49, 130, 246, 0.3);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.3);
 }
 
 .ui-btn--accent:hover:not(:disabled) {
   background-color: var(--ui-accent-hover);
-  box-shadow: 0 3px 10px rgba(49, 130, 246, 0.36);
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.36);
 }
 
 .ui-btn--secondary {

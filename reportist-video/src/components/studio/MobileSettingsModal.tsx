@@ -1707,12 +1707,12 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                       padding: '6px 12px',
                       flexShrink: 0,
                       borderRadius: '8px',
-                      border: '1px solid #dbeafe',
+                      border: '1px solid #e2e8f0',
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '4px',
-                      color: isCompactingStorage ? '#94a3b8' : '#1d4ed8',
-                      backgroundColor: '#eff6ff',
+                      color: isCompactingStorage ? '#94a3b8' : '#0f172a',
+                      backgroundColor: '#f1f5f9',
                       cursor: isCompactingStorage ? 'not-allowed' : 'pointer',
                     }}
                   >
