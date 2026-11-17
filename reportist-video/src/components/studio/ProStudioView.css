@@ -1874,23 +1874,6 @@
   transform: translate(-50%, -50%) scale(1.1);
 }
 
-/* 인트로/아웃트로 독립 미리보기에서는 타이틀 문구를 가리지 않도록
-   재생 버튼을 중앙 대신 오른쪽 아래에 작게 둔다. */
-.toss-canvas-play-overlay-corner {
-  top: auto;
-  right: 10px;
-  bottom: 10px;
-  left: auto;
-  width: 40px;
-  height: 40px;
-  transform: none;
-  background: rgba(15, 23, 42, 0.78);
-}
-
-.toss-canvas-play-overlay-corner:hover {
-  transform: scale(1.06);
-}
-
 .toss-player-empty {
   width: 100%;
   height: 100%;

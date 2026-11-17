@@ -5537,12 +5537,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 {standalonePreviewSection && !activeVideoUrl && !isPlaying && (
                   <button
                     type="button"
-                    className="toss-canvas-play-overlay toss-canvas-play-overlay-corner"
+                    className="toss-canvas-play-overlay"
                     onClick={togglePlay}
                     title={ui('미리보기 재생')}
-                    aria-label={ui('미리보기 재생')}
                   >
-                    <Play size={18} className="ml-0.5 text-white" />
+                    <Play size={28} className="ml-1 text-white" />
                   </button>
                 )}
               </div>
