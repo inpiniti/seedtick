@@ -182,17 +182,8 @@ function renderHero(locale) {
   return `
     <section class="hero" aria-labelledby="hero-title">
       <div class="hero-bg" aria-hidden="true">
-        <video class="hero-bg-video" data-hero-bg data-locale="${esc(
-          locale.code
-        )}" muted loop playsinline autoplay preload="metadata" poster="/media/result-${esc(
-          locale.code
-        )}.webp" width="1280" height="720" tabindex="-1">
-          <source src="/media/promo-v-${esc(
-            locale.code
-          )}.mp4" type="video/mp4" media="(max-width: 680px)">
-          <source src="/media/promo-${esc(
-            locale.code
-          )}.mp4" type="video/mp4">
+        <video class="hero-bg-video" data-hero-bg muted loop playsinline autoplay preload="metadata" poster="/media/hero-poster.webp" width="1280" height="532" tabindex="-1">
+          <source src="/media/hero-nature.mp4" type="video/mp4">
         </video>
         <div class="hero-bg-scrim"></div>
       </div>

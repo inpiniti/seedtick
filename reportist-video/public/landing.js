@@ -321,7 +321,6 @@
   // Small viewports get the 9:16 cut of the story film so it fills a phone
   // instead of letterboxing. Desktop keeps the 16:9 master.
   const media = window.matchMedia("(max-width: 680px)");
-  const heroBg = document.querySelector("[data-hero-bg]");
   const theaterVideo = document.querySelector("[data-theater-video]");
   const theaterSource =
     theaterVideo instanceof HTMLVideoElement
@@ -332,38 +331,6 @@
   const swap = (url) => url.replace("/media/promo-", "/media/promo-v-");
   const unswap = (url) => url.replace("/media/promo-v-", "/media/promo-");
   const localeOf = (url) => (String(url).match(/promo-(?:v-)?([a-z]{2})\.mp4/) || [])[1];
-
-  const applyHeroBg = (portrait) => {
-    if (!(heroBg instanceof HTMLVideoElement)) return;
-    const code = heroBg.dataset.locale || localeOf(heroBg.currentSrc || "") || "en";
-    const nextSrc = portrait
-      ? `/media/promo-v-${code}.mp4`
-      : `/media/promo-${code}.mp4`;
-    const nextPoster = portrait
-      ? `/media/poster-v-${code}.webp`
-      : `/media/result-${code}.webp`;
-    const current =
-      heroBg.currentSrc ||
-      heroBg.querySelector("source")?.getAttribute("src") ||
-      "";
-    const wasPlaying = !heroBg.paused;
-
-    heroBg.poster = nextPoster;
-    heroBg.setAttribute("width", portrait ? "720" : "1280");
-    heroBg.setAttribute("height", portrait ? "1280" : "720");
-
-    if (current.endsWith(nextSrc)) return;
-
-    heroBg.src = nextSrc;
-    heroBg.load();
-    // Only resume playback when it was already playing before the swap.
-    // First play is handled by the ambient observer (which respects
-    // reduced-motion and hidden tabs) and the autoplay attribute.
-    if (wasPlaying) {
-      const attempt = heroBg.play();
-      if (attempt && typeof attempt.catch === "function") attempt.catch(() => {});
-    }
-  };
 
   const applyTheater = (portrait) => {
     if (!theaterVideo || !theaterSource) return;
@@ -419,7 +386,6 @@
   };
 
   const applyAll = () => {
-    applyHeroBg(media.matches);
     applyTheater(media.matches);
     applyModal(media.matches);
   };
