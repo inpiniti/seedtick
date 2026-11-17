@@ -3978,16 +3978,27 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
     const pointerId = e.pointerId;
     const canvasEl = e.currentTarget;
-    try {
-      canvasEl.setPointerCapture(pointerId);
-    } catch {}
 
-    const isBlock = Boolean(target.closest('.toss-sequencer-block'));
+    // 클립 블록/A1 음악 행은 자체 클릭(단계 이동·노래 설정 열기)을 처리하므로
+    // 둘 다 '.toss-sequencer-block'과 동일하게 다뤄 클릭과 드래그 스크러빙을 모두 지원한다.
+    const isBlock = Boolean(
+      target.closest('.toss-sequencer-block') ||
+        target.closest('.toss-sequencer-audio-strip')
+    );
     const isPlayhead = Boolean(
       target.closest('.toss-sequencer-playhead') ||
       target.closest('.toss-playhead-cap') ||
       target.closest('.toss-playhead-line')
     );
+
+    // 블록 위에서 캔버스가 포인터를 캡처하면 mousedown/click이 캔버스로 리타깃되어
+    // 블록의 onClick이 동작하지 않는다. 캡처는 배경(룰러/빈 영역)과 플레이헤드 드래그에만 건다.
+    // (블록 드래그 추적은 window 포인터 리스너가 그대로 처리한다)
+    if (!isBlock || isPlayhead) {
+      try {
+        canvasEl.setPointerCapture(pointerId);
+      } catch {}
+    }
 
     const startX = e.clientX;
     let hasMoved = false;
@@ -6012,7 +6023,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     {/* A1: 배경음악 구간 트랙 (1회차 원곡 재생 구간 & 초과 시 반복 구간 표시) */}
                     <div
                       className="toss-sequencer-audio-strip"
-                      onClick={() => goToSection('music')}
+                      onClick={() => {
+                        if (suppressSegmentClickRef.current) return;
+                        goToSection('music');
+                      }}
                       role="button"
                       tabIndex={0}
                       onKeyDown={(e) => {
