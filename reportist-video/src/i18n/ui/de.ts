@@ -5,6 +5,7 @@ export const uiDe: Record<string, string> = {
   '영상 맨 앞에 나올 오프닝을 골라요. 스타일을 누르면 왼쪽 미리보기에서 바로 재생돼요.':
     'Wähle das Intro, das ganz am Anfang läuft. Tippe einen Stil an, um ihn direkt links in der Vorschau abzuspielen.',
   '인트로 문구': 'Intro-Text',
+  '영상 상단 문구': 'Text oben',
   '인트로 스타일': 'Intro-Stil',
   '문구 설정됨': 'Text gesetzt',
   '문구 없음': 'Kein Text',
@@ -73,6 +74,8 @@ export const uiDe: Record<string, string> = {
   '영상 하나만 올리면 시작돼요': 'Lade ein Video hoch, um zu starten',
   '1번 인트로 문구 → 2번 인트로 스타일 → 3번 영상 올리기 → 4번 AI 하이라이트 → 5번 브릿지 → 6번 아웃트로 → 7번 노래':
     '1 Intro-Text → 2 Intro-Stil → 3 Upload → 4 KI-Highlights → 5 Brücke → 6 Outro → 7 Musik',
+  '1번 영상 상단 문구 → 2번 인트로 스타일 → 3번 영상 올리기 → 4번 AI 하이라이트 → 5번 브릿지 → 6번 아웃트로 → 7번 노래':
+    '1 Text oben → 2 Intro-Stil → 3 Upload → 4 KI-Highlights → 5 Brücke → 6 Outro → 7 Musik',
   '새 프로젝트로 시작': 'Neues Projekt starten',
   '미리보기 재생': 'Vorschau abspielen',
   '재선택 필요': 'Neuauswahl nötig',

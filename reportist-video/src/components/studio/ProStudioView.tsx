@@ -222,9 +222,9 @@ interface StudioStep {
 const CREATE_STUDIO_STEPS: StudioStep[] = [
   {
     id: 'intro',
-    label: '인트로 문구',
+    label: '영상 상단 문구',
     shortDesc: '좌·우 문구',
-    description: '영상 위에 나올 왼쪽·오른쪽 문구를 정해요. 입력한 문구는 미리보기에서 바로 확인할 수 있어요.',
+    description: '영상 좌측 상단·우측 상단에 나올 문구를 정해요. 입력한 문구는 미리보기에서 바로 확인할 수 있어요.',
   },
   {
     id: 'introStyle',
@@ -279,9 +279,9 @@ const CREATE_STUDIO_STEPS: StudioStep[] = [
 const EDIT_STUDIO_STEPS: StudioStep[] = [
   {
     id: 'intro',
-    label: '인트로 문구',
+    label: '영상 상단 문구',
     shortDesc: '좌·우 문구',
-    description: '영상 위에 나올 왼쪽·오른쪽 문구를 정해요. 입력한 문구는 미리보기에서 바로 확인할 수 있어요.',
+    description: '영상 좌측 상단·우측 상단에 나올 문구를 정해요. 입력한 문구는 미리보기에서 바로 확인할 수 있어요.',
   },
   {
     id: 'introStyle',
@@ -2121,6 +2121,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     isMobileViewport &&
     ((isCreationFlow && !activeVideoUrl && !standalonePreviewSection) ||
       activeSection === 'download');
+  // 썸네일 단계에서는 완성된 썸네일을 영상 프리뷰 자리에 그대로 띄운다.
+  // 모바일에서 플레이어가 상단에 sticky로 고정되므로, 아래 카드의 같은 이미지를 숨겨
+  // 세로 공간을 아끼고 "위에서 보고 → 아래에서 문구·스타일을 고치는" 한 흐름으로 만든다.
+  const showThumbnailInPlayer = activeSection === 'thumbnail' && Boolean(thumbnailUrl);
   // 플레이어 카드와 타임라인 카드를 분리해, 모바일에서 플레이어만 상단에 고정한다.
   const showDraftPreviewBox =
     isDraftPreview &&
@@ -5315,9 +5319,38 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               <div
                 className={`toss-player-wrapper ${
                   activeVideoUrl || standalonePreviewSection ? 'has-video' : 'is-empty'
-                } ${isPortraitOutput ? 'is-portrait-frame' : ''}`}
+                } ${isPortraitOutput && !showThumbnailInPlayer ? 'is-portrait-frame' : ''} ${
+                  showThumbnailInPlayer ? 'is-thumbnail-preview' : ''
+                }`}
               >
-                {activeVideoUrl ? (
+                {showThumbnailInPlayer ? (
+                  <>
+                    <img
+                      src={thumbnailUrl || ''}
+                      alt="AI YouTube Thumbnail"
+                      className="toss-player-thumbnail-img"
+                    />
+                    <span className="toss-player-thumbnail-badge" aria-hidden="true">
+                      <ImageIcon size={12} />
+                      <span>16:9</span>
+                    </span>
+                    <button
+                      type="button"
+                      className="toss-video-fullscreen-overlay-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFullscreen();
+                      }}
+                      title={
+                        isFullscreen
+                          ? (dict.player?.exitFullscreen || '전체화면 축소')
+                          : (dict.player?.fullscreen || '전체화면 확대')
+                      }
+                    >
+                      {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
+                    </button>
+                  </>
+                ) : activeVideoUrl ? (
                   <>
                     <video
                       ref={videoRef}
@@ -5446,7 +5479,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
                     </button>
 
-                    {!isPlaying && (
+                    {!isPlaying && activeSection !== 'intro' && (
                       <button
                         type="button"
                         className="toss-canvas-play-overlay"
@@ -5551,7 +5584,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     <h3 className="toss-empty-title">{ui('영상 하나만 올리면 시작돼요')}</h3>
                     <p className="toss-empty-desc">
                       {ui('올린 영상에서 AI가 하이라이트를 뽑아줘요.')}<br />
-                      {ui('그다음은')} <strong>{ui('1번 인트로 문구 → 2번 인트로 스타일 → 3번 영상 올리기 → 4번 AI 하이라이트 → 5번 브릿지 → 6번 아웃트로 → 7번 노래')}</strong>{' '}
+                      {ui('그다음은')} <strong>{ui('1번 영상 상단 문구 → 2번 인트로 스타일 → 3번 영상 올리기 → 4번 AI 하이라이트 → 5번 브릿지 → 6번 아웃트로 → 7번 노래')}</strong>{' '}
                       {ui('순서로만 따라가면 끝나요.')}
                     </p>
                     <div className="flex items-center gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
@@ -5577,8 +5610,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   </div>
                 )}
 
-                {/* AI 컷이 없어도 인트로/브릿지/아웃트로를 그려주는 독립 캔버스 */}
-                {(isSequenceMode || standalonePreviewSection) && (
+                {/* AI 컷이 없어도 인트로/브릿지/아웃트로를 그려주는 독립 캔버스
+                    썸네일 단계에서는 합성 캔버스 대신 완성된 썸네일 이미지를 보여준다 */}
+                {(isSequenceMode || standalonePreviewSection) && !showThumbnailInPlayer && (
                   <canvas
                     ref={previewCanvasRef}
                     width={frame.width}
@@ -5589,7 +5623,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   />
                 )}
 
-                {standalonePreviewSection && !activeVideoUrl && !isPlaying && (
+                {standalonePreviewSection && activeSection !== 'intro' && !activeVideoUrl && !isPlaying && (
                   <button
                     type="button"
                     className="toss-canvas-play-overlay"
@@ -5599,10 +5633,24 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     <Play size={28} className="ml-1 text-white" />
                   </button>
                 )}
+
+                {/* 1번 영상 상단 문구 단계: 인트로 모션 대신 샘플 화면에 좌·우 문구 배치만 미리 보여준다. */}
+                {activeSection === 'intro' && (
+                  <div className="toss-intro-text-preview">
+                    <div className="toss-live-overlay-top-left">
+                      {overlayOptions.titleText && (
+                        <div className="toss-live-overlay-title">{overlayOptions.titleText}</div>
+                      )}
+                    </div>
+                    {overlayOptions.channelText && (
+                      <div className="toss-live-overlay-channel">{overlayOptions.channelText}</div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {/* 비디오 재생 트랜스포트 바 (인트로/브릿지/아웃트로 모션 미리보기 중에는 숨김) */}
-              {activeVideoUrl && !standalonePreviewSection && (
+              {/* 비디오 재생 트랜스포트 바 (인트로/브릿지/아웃트로 모션 미리보기·썸네일 미리보기 중에는 숨김) */}
+              {activeVideoUrl && !standalonePreviewSection && !showThumbnailInPlayer && (
                 <div className="toss-transport-bar">
                   <div className="toss-transport-left">
                     <button
@@ -6340,7 +6388,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
           {/* 썸네일 단계: 완성된 영상의 16:9 대표 이미지 */}
           <div
-            className={`toss-thumbnail-section toss-inspector-card ${activeSection === 'thumbnail' ? 'is-active-section' : ''}`}
+            className={`toss-thumbnail-section toss-inspector-card ${
+              activeSection === 'thumbnail' ? 'is-active-section' : ''
+            } ${showThumbnailInPlayer ? 'is-thumbnail-in-player' : ''}`}
           >
               <div className="toss-card toss-thumbnail-card">
               <BorderBeam
@@ -6724,7 +6774,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             )}
           </div>
 
-          {/* 1번: 인트로 문구 카드 — 영상 위 왼쪽·오른쪽 문구 */}
+          {/* 1번: 영상 상단 문구 카드 — 영상 좌측 상단·우측 상단 문구 */}
           <div
             className={`toss-card toss-intro-card toss-inspector-card ${activeSection === 'intro' ? 'is-active-section' : ''}`}
           >
@@ -6732,7 +6782,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               <div>
                 <h4 className="toss-card-title">
                   <Type size={15} className="text-slate-800 shrink-0" />
-                  <span>{ui('인트로 문구')}</span>
+                  <span>{ui('영상 상단 문구')}</span>
                 </h4>
               </div>
             </div>

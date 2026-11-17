@@ -7077,6 +7077,55 @@
   user-select: none;
 }
 
+/* 썸네일 단계: 완성된 16:9 썸네일을 영상 프리뷰 자리에 크게 띄운다.
+   모바일에서는 이 영역이 상단에 sticky로 고정되므로 아래 카드의 중복 이미지를 숨길 수 있다. */
+.toss-player-wrapper.is-thumbnail-preview {
+  background-color: #0f172a;
+}
+
+.toss-player-thumbnail-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  user-select: none;
+}
+
+.toss-player-thumbnail-badge {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 9px;
+  border-radius: 8px;
+  background-color: rgba(15, 23, 42, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+
+.toss-player-stage.is-fullscreen .toss-player-thumbnail-img,
+.toss-player-stage:fullscreen .toss-player-thumbnail-img {
+  object-fit: contain;
+}
+
+/* 플레이어에 썸네일이 떠 있는 동안 카드 안의 같은 이미지는 숨겨 세로 공간을 아낀다.
+   미리보기 → AI 추천 문구 → 제목·스타일 → 다운로드가 한 흐름으로 이어진다. */
+.toss-thumbnail-section.is-thumbnail-in-player .toss-thumbnail-preview-wrap {
+  display: none;
+}
+
+.toss-thumbnail-section.is-thumbnail-in-player .toss-thumbnail-controls {
+  margin-top: 6px;
+}
+
 .toss-thumb-badge-top-left {
   position: absolute;
   top: 10px;
@@ -13923,6 +13972,20 @@
   z-index: 5;
   width: 100%;
   height: 100%;
+}
+
+/* ---------- 1번 영상 상단 문구 단계: 인트로 대신 샘플 화면으로 문구 배치 미리보기 ---------- */
+.toss-intro-text-preview {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background: linear-gradient(155deg, #b7bec8 0%, #8b95a1 48%, #6b7280 100%);
+  pointer-events: none;
+}
+
+/* 샘플 화면에는 전체화면 버튼이 없으므로 우측 문구도 좌측과 동일한 여백으로 정렬 */
+.toss-intro-text-preview .toss-live-overlay-channel {
+  right: 16px;
 }
 
 /* ---------- 3번 영상 올리기 카드 ---------- */

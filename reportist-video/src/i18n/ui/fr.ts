@@ -5,6 +5,7 @@ export const uiFr: Record<string, string> = {
   '영상 맨 앞에 나올 오프닝을 골라요. 스타일을 누르면 왼쪽 미리보기에서 바로 재생돼요.':
     "Choisissez l'ouverture diffusée au tout début de la vidéo. Touchez un style pour le lire aussitôt dans l'aperçu à gauche.",
   '인트로 문구': "Texte d'intro",
+  '영상 상단 문구': 'Texte en haut',
   '인트로 스타일': "Style d'intro",
   '문구 설정됨': 'Texte défini',
   '문구 없음': 'Aucun texte',
@@ -73,6 +74,8 @@ export const uiFr: Record<string, string> = {
   '영상 하나만 올리면 시작돼요': 'Importez une vidéo pour commencer',
   '1번 인트로 문구 → 2번 인트로 스타일 → 3번 영상 올리기 → 4번 AI 하이라이트 → 5번 브릿지 → 6번 아웃트로 → 7번 노래':
     "1 Texte d'intro → 2 Style d'intro → 3 Import → 4 Moments IA → 5 Pont → 6 Outro → 7 Musique",
+  '1번 영상 상단 문구 → 2번 인트로 스타일 → 3번 영상 올리기 → 4번 AI 하이라이트 → 5번 브릿지 → 6번 아웃트로 → 7번 노래':
+    "1 Texte en haut → 2 Style d'intro → 3 Import → 4 Moments IA → 5 Pont → 6 Outro → 7 Musique",
   '새 프로젝트로 시작': 'Démarrer un nouveau projet',
   '미리보기 재생': "Lire l'aperçu",
   '재선택 필요': 'Nouvelle sélection requise',

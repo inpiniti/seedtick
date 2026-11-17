@@ -6,6 +6,7 @@ export const uiEn: Record<string, string> = {
   '영상 맨 앞에 나올 오프닝을 골라요. 스타일을 누르면 왼쪽 미리보기에서 바로 재생돼요.':
     'Choose the opening that plays at the very start. Tap a style to preview it instantly on the left.',
   '인트로 문구': 'Intro text',
+  '영상 상단 문구': 'Top text',
   '인트로 스타일': 'Intro style',
   '문구 설정됨': 'Text set',
   '문구 없음': 'No text',
@@ -74,6 +75,8 @@ export const uiEn: Record<string, string> = {
   '영상 하나만 올리면 시작돼요': 'Upload one video to start',
   '1번 인트로 문구 → 2번 인트로 스타일 → 3번 영상 올리기 → 4번 AI 하이라이트 → 5번 브릿지 → 6번 아웃트로 → 7번 노래':
     '1 Intro text → 2 Intro style → 3 Upload → 4 AI highlights → 5 Bridge → 6 Outro → 7 Music',
+  '1번 영상 상단 문구 → 2번 인트로 스타일 → 3번 영상 올리기 → 4번 AI 하이라이트 → 5번 브릿지 → 6번 아웃트로 → 7번 노래':
+    '1 Top text → 2 Intro style → 3 Upload → 4 AI highlights → 5 Bridge → 6 Outro → 7 Music',
   '새 프로젝트로 시작': 'Start a new project',
   '미리보기 재생': 'Play preview',
   '재선택 필요': 'Reselect needed',
