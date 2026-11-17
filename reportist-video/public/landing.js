@@ -409,19 +409,24 @@
   const root = document.documentElement;
 
   const hero = document.querySelector(".hero");
-  const reelViewport = document.querySelector("[data-reel]");
-  const reelTrack = reelViewport
-    ? reelViewport.querySelector("[data-reel-track]")
+
+  // The WebGL scroll universe replaces the old flat 3D cards.
+  const universe = document.querySelector("[data-universe]");
+  const canvasHost = universe
+    ? universe.querySelector("[data-universe-canvas]")
     : null;
-  const reelFrames = reelViewport
-    ? Array.from(reelViewport.querySelectorAll("[data-reel-frame]"))
+  const beats = universe ? Array.from(universe.querySelectorAll("[data-beat]")) : [];
+  const beatLayers = universe
+    ? Array.from(universe.querySelectorAll("[data-beat-layer]"))
     : [];
-  const reelCount = reelViewport
-    ? reelViewport.querySelector("[data-reel-count]")
-    : null;
-  const climaxFrame = reelViewport
-    ? reelViewport.querySelector("[data-climax]")
-    : null;
+  const beatSteps = universe
+    ? Array.from(universe.querySelectorAll("[data-beat-step]"))
+    : [];
+  const uAct = universe ? universe.querySelector("[data-u-act]") : null;
+  const uBar = universe ? universe.querySelector("[data-u-bar]") : null;
+  const uTc = universe ? universe.querySelector("[data-u-tc]") : null;
+  const uCue = universe ? universe.querySelector("[data-u-cue]") : null;
+
   const tcHud = document.querySelector("[data-tc-hud]");
   const tcTime = tcHud ? tcHud.querySelector("[data-tc-time]") : null;
   const tcState = tcHud ? tcHud.querySelector("[data-tc-state]") : null;
@@ -432,63 +437,38 @@
     : [];
   const header = document.querySelector(".site-header");
 
-  // Living Film Stack — 3D sticky stages (features) and re-assembly (how).
-  const featSection = document.querySelector("[data-stack-features]");
-  const featStage = featSection
-    ? featSection.querySelector("[data-stack-stage]")
-    : null;
-  const featSticky = featStage
-    ? featStage.querySelector("[data-stack-sticky]")
-    : null;
-  const featStack = featStage ? featStage.querySelector("[data-film-stack]") : null;
-  const featLayers = featStack
-    ? Array.from(featStack.querySelectorAll(".film-layer"))
-    : [];
-  const featPanels = featStage
-    ? Array.from(featStage.querySelectorAll("[data-stack-panel]"))
-    : [];
-  const featTicks = featStage
-    ? Array.from(featStage.querySelectorAll("[data-stack-tick]"))
-    : [];
-  let featActive = -1;
-
-  const howSection = document.querySelector("[data-how-section]");
-  const howStage = howSection ? howSection.querySelector("[data-how-stage]") : null;
-  const howSticky = howStage ? howStage.querySelector("[data-how-sticky]") : null;
-  const howViewport = howStage ? howStage.querySelector("[data-how-viewport]") : null;
-  const howStack = howStage ? howStage.querySelector("[data-film-stack]") : null;
-  const howLayers = howStack
-    ? Array.from(howStack.querySelectorAll(".film-layer"))
-    : [];
-  const howPanels = howStage
-    ? Array.from(howStage.querySelectorAll("[data-how-panel]"))
-    : [];
-  const howTicks = howStage
-    ? Array.from(howStage.querySelectorAll("[data-how-tick]"))
-    : [];
-  let howActive = -1;
-  const HOW_LAYER_START = [0.0, 0.02, 0.3, 0.37, 0.44, 0.51];
-  const HOW_LAYER_END = [0.3, 0.32, 0.52, 0.58, 0.64, 0.7];
-  const HOW_STEP_LAYERS = [[0, 1], [2, 3, 4], [5]];
-
   const theaterSection = document.querySelector(".theater");
   const useCaseCards = Array.from(document.querySelectorAll(".use-case-card"));
 
-  // The stages only engage when the visitor can appreciate motion and the
-  // viewport is tall enough for a sticky stage. Otherwise the classic grids
-  // stay visible and the stages stay display: none.
+  // The universe only engages when the visitor can appreciate motion and the
+  // viewport is tall enough for a sticky stage. Otherwise the semantic grids
+  // stay visible and the WebGL stage is never mounted.
   const lowHeight = window.matchMedia("(max-height: 540px)");
-  const stagesOn =
-    !reduceMotion.matches && !lowHeight.matches && Boolean(featStage || howStage);
-  if (stagesOn) root.classList.add("has-3d-stages");
+  const stagesOn = !reduceMotion.matches && !lowHeight.matches;
+
+  let mounted3D = false;
+  let activeBeat = -1;
+  const mountUniverse = () => {
+    if (!universe || !canvasHost || !stagesOn || !window.Landing3D) return;
+    try {
+      mounted3D = window.Landing3D.mount({
+        host: canvasHost,
+        imageBase: "/media/reel",
+      });
+      if (mounted3D) root.classList.add("has-webgl-stage");
+    } catch {
+      mounted3D = false;
+    }
+  };
+  // Let the hero video paint first so LCP is never held up by the WebGL init.
+  if ("requestIdleCallback" in window) {
+    window.requestIdleCallback(mountUniverse, { timeout: 1500 });
+  } else {
+    window.setTimeout(mountUniverse, 220);
+  }
 
   const clamp01 = (value) => Math.min(1, Math.max(0, value));
   const pad = (value) => String(value).padStart(2, "0");
-  const lerp = (a, b, t) => a + (b - a) * t;
-  const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
-  const easeInOutCubic = (t) =>
-    t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-  const smoothstep = (t) => t * t * (3 - 2 * t);
 
   // Lenis: inertial wheel scrolling on desktop; touch stays native (syncTouch).
   let lenis = null;
@@ -538,52 +518,43 @@
     const progress = clamp01(y / maxScroll);
     if (tcTime) tcTime.textContent = formatClock(progress * RAW_RUNTIME_SECONDS);
 
-    // Moment Capture Reel: scroll drives the filmstrip, focus snaps each frame
+    // The scroll universe: one continuous WebGL timeline driven by progress.
     let climaxLocked = false;
-    if (reelViewport && reelTrack) {
-      const rect = reelViewport.getBoundingClientRect();
-      const p = clamp01((vh * 0.95 - rect.top) / (rect.height + vh * 0.7));
-      const maxTranslate = Math.max(
-        0,
-        reelTrack.scrollWidth - reelViewport.clientWidth
+    if (universe) {
+      const rect = universe.getBoundingClientRect();
+      const total = Math.max(1, universe.offsetHeight - vh);
+      const p = clamp01(-rect.top / total);
+
+      if (mounted3D) {
+        window.Landing3D.update(p, velocity);
+      }
+
+      // Which of the four chapters is on screen.
+      const beatIndex = p < 0.25 ? 0 : p < 0.55 ? 1 : p < 0.8 ? 2 : 3;
+      if (beatIndex !== activeBeat) {
+        activeBeat = beatIndex;
+        beats.forEach((beat, i) =>
+          beat.classList.toggle("is-active", i === beatIndex)
+        );
+        if (uAct) uAct.textContent = `0${beatIndex + 1} / 04`;
+      }
+
+      // Light up the feature / step rows as their sub-beat passes.
+      const sub2 = clamp01((p - 0.25) / 0.3);
+      const sub3 = clamp01((p - 0.55) / 0.25);
+      const idx2 = Math.min(5, Math.floor(sub2 * 6));
+      const idx3 = Math.min(2, Math.floor(sub3 * 3));
+      beatLayers.forEach((row, i) =>
+        row.classList.toggle("is-current", i === idx2)
       );
-      reelTrack.style.transform = `translate3d(${(-p * maxTranslate).toFixed(
-        1
-      )}px, 0, 0) skewX(${skew.toFixed(2)}deg)`;
+      beatSteps.forEach((row, i) =>
+        row.classList.toggle("is-current", i === idx3)
+      );
 
-      const viewportCenter = window.innerWidth / 2;
-      let focusedIndex = -1;
-      let focusedDistance = Infinity;
-
-      reelFrames.forEach((frame, index) => {
-        const frameRect = frame.getBoundingClientRect();
-        const distance = Math.abs(
-          frameRect.left + frameRect.width / 2 - viewportCenter
-        );
-        const isFocus =
-          distance < Math.min(frameRect.width * 0.72, window.innerWidth * 0.42);
-        frame.classList.toggle("is-focus", isFocus);
-        if (isFocus && distance < focusedDistance) {
-          focusedDistance = distance;
-          focusedIndex = index;
-        }
-      });
-
-      if (reelCount && focusedIndex >= 0) {
-        reelCount.textContent = pad(focusedIndex + 1);
-      }
-
-      if (climaxFrame) {
-        const climaxRect = climaxFrame.getBoundingClientRect();
-        const distance = Math.abs(
-          climaxRect.left + climaxRect.width / 2 - viewportCenter
-        );
-        climaxLocked =
-          distance <
-            Math.min(climaxRect.width * 0.78, window.innerWidth * 0.46) ||
-          p > 0.82;
-        climaxFrame.classList.toggle("is-locked", climaxLocked);
-      }
+      if (uBar) uBar.style.transform = `scaleX(${p.toFixed(4)})`;
+      if (uTc) uTc.textContent = formatClock(p * RAW_RUNTIME_SECONDS);
+      if (uCue) uCue.style.opacity = p > 0.04 ? "0" : "1";
+      climaxLocked = p >= 0.18;
     }
 
     if (tcHud) {
@@ -608,85 +579,6 @@
           p > (index + 0.55) / stepCards.length
         );
       });
-    }
-
-    // Act 3 — Features: the flat master slab tilts into an isometry and
-    // the six layers bloom apart; the panel/tick focus follows the active layer.
-    if (stagesOn && featStage && featStack) {
-      const rect = featStage.getBoundingClientRect();
-      const stickyH = featSticky ? featSticky.offsetHeight : vh;
-      const total = Math.max(1, featStage.offsetHeight - stickyH);
-      const p = clamp01(-rect.top / total);
-
-      const rotT = easeOutCubic(clamp01(p / 0.16));
-      const settleT = smoothstep(clamp01((p - 0.88) / 0.12));
-      const rx = lerp(8, 56, rotT) - settleT * 15;
-      const rz = lerp(-8, -30, rotT) + settleT * 9;
-      const explode = smoothstep(clamp01((p - 0.13) / 0.72));
-
-      featStack.style.setProperty("--stack-rx", `${rx.toFixed(3)}deg`);
-      featStack.style.setProperty("--stack-rz", `${rz.toFixed(3)}deg`);
-      featStack.style.setProperty("--explode", explode.toFixed(4));
-      featStack.classList.toggle("has-depth", explode > 0.42);
-
-      const idx = Math.min(5, Math.max(0, Math.floor(((p - 0.14) / 0.74) * 6)));
-      if (idx !== featActive) {
-        featActive = idx;
-        featLayers.forEach((layer, i) =>
-          layer.classList.toggle("is-active", i === idx)
-        );
-        featPanels.forEach((panel, i) =>
-          panel.classList.toggle("is-active", i === idx)
-        );
-        featTicks.forEach((tick, i) =>
-          tick.classList.toggle("is-active", i === idx)
-        );
-      }
-    }
-
-    // Act 4 — How it works: layers settle in three waves (clips → story →
-    // polish), the block turns to face you, then splits into 16:9 & 9:16.
-    if (stagesOn && howStage && howStack && howViewport && howLayers.length === 6) {
-      const rect = howStage.getBoundingClientRect();
-      const stickyH = howSticky ? howSticky.offsetHeight : vh;
-      const total = Math.max(1, howStage.offsetHeight - stickyH);
-      const p = clamp01(-rect.top / total);
-
-      for (let i = 0; i < 6; i += 1) {
-        const t = easeInOutCubic(
-          clamp01((p - HOW_LAYER_START[i]) / (HOW_LAYER_END[i] - HOW_LAYER_START[i]))
-        );
-        howLayers[i].style.setProperty("--ez", (1 - t).toFixed(4));
-      }
-
-      const faceT = easeInOutCubic(clamp01((p - 0.52) / 0.3));
-      howStack.style.setProperty("--stack-rx", `${(56 * (1 - faceT)).toFixed(3)}deg`);
-      howStack.style.setProperty("--stack-rz", `${(-30 * (1 - faceT)).toFixed(3)}deg`);
-      howStack.style.setProperty("--explode", "1");
-      howStack.classList.toggle("has-depth", faceT < 0.85);
-
-      const splitT = easeOutCubic(clamp01((p - 0.74) / 0.24));
-      howViewport.style.setProperty("--split", splitT.toFixed(4));
-
-      const scanT = clamp01(p / 0.3);
-      const scanO = p < 0.3 ? 1 : clamp01(1 - (p - 0.3) / 0.06);
-      howViewport.style.setProperty("--scan", scanT.toFixed(4));
-      howViewport.style.setProperty("--scan-o", scanO.toFixed(3));
-
-      const idx = p < 0.33 ? 0 : p < 0.66 ? 1 : 2;
-      if (idx !== howActive) {
-        howActive = idx;
-        const lit = HOW_STEP_LAYERS[idx];
-        howLayers.forEach((layer, i) =>
-          layer.classList.toggle("is-active", lit.includes(i))
-        );
-        howPanels.forEach((panel, i) =>
-          panel.classList.toggle("is-active", i === idx)
-        );
-        howTicks.forEach((tick, i) =>
-          tick.classList.toggle("is-active", i === idx)
-        );
-      }
     }
 
     // Act 5 — Theater tilts flat as the finished film arrives.
@@ -728,37 +620,6 @@
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll);
     update();
-  }
-
-  // Layer/step ticks scroll the pinned stage to that exact beat.
-  if (stagesOn) {
-    const scrollStageTo = (stageEl, stickyEl, fraction) => {
-      const stickyH = stickyEl ? stickyEl.offsetHeight : 0;
-      const total = Math.max(1, stageEl.offsetHeight - stickyH);
-      const docTop = stageEl.getBoundingClientRect().top + window.scrollY;
-      const target = docTop + fraction * total;
-      if (lenis) {
-        lenis.scrollTo(target, { offset: -12, duration: 1.05 });
-      } else {
-        window.scrollTo({ top: Math.max(0, target - 12), behavior: "smooth" });
-      }
-    };
-
-    for (const tick of featTicks) {
-      tick.addEventListener("click", () => {
-        const i = Number(tick.dataset.stackTick);
-        if (!Number.isFinite(i) || !featStage) return;
-        scrollStageTo(featStage, featSticky, 0.14 + ((i + 0.5) / 6) * 0.74);
-      });
-    }
-
-    for (const tick of howTicks) {
-      tick.addEventListener("click", () => {
-        const i = Number(tick.dataset.howTick);
-        if (!Number.isFinite(i) || !howStage) return;
-        scrollStageTo(howStage, howSticky, 0.03 + ((i + 0.5) / 3) * 0.94);
-      });
-    }
   }
 
   // Reveal cards as they enter the viewport (focus-in, staggered per grid)
@@ -815,6 +676,24 @@
       if (!(target instanceof HTMLElement)) return;
 
       event.preventDefault();
+
+      // When the 3D universe is live, chapter links jump to the matching
+      // scroll beat instead of the clipped semantic fallback block.
+      if (mounted3D && universe && target.closest("[data-universe]")) {
+        const chapterFractions = {
+          "#reel": 0.06,
+          "#features": 0.38,
+          "#how-it-works": 0.66,
+        };
+        const fraction = chapterFractions[hash];
+        if (fraction !== undefined) {
+          const total = Math.max(1, universe.offsetHeight - window.innerHeight);
+          const docTop = universe.getBoundingClientRect().top + window.scrollY;
+          lenis.scrollTo(docTop + fraction * total, { duration: 1.15 });
+          return;
+        }
+      }
+
       const headerHeight = header ? header.offsetHeight : 0;
       lenis.scrollTo(target, { offset: -(headerHeight + 12), duration: 1.15 });
     });

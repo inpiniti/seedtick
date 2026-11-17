@@ -153,7 +153,7 @@
       <path d="M5 12h13M13 6l6 6-6 6"/>
     </svg>
           </a>
-          <a class="button button-hero-ghost" href="#how-it-works">使い方を見る</a>
+          <a class="button button-hero-ghost" href="#universe">使い方を見る</a>
         </div>
 
         <ul class="trust-list hero-trust">
@@ -182,7 +182,7 @@
     </svg></span>
           <span class="hero-sound-label">音声付きで大きく見る</span>
         </button>
-        <a class="hero-scroll" href="#how-it-works" aria-label="使い方を見る">
+        <a class="hero-scroll" href="#universe" aria-label="使い方を見る">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
       <path d="m6 9 6 6 6-6"/>
     </svg></a>
@@ -200,58 +200,186 @@
       </div>
     </section>
       
-    <section class="reel" id="reel" aria-labelledby="reel-title">
-      <div class="container">
-        <div class="section-head reel-head">
-          <p class="eyebrow"><span class="eyebrow-dot"></span>モーメント・キャプチャー</p>
-          <h2 id="reel-title">何時間もの映像の中から、最高の一瞬を。</h2>
-          <p class="section-lead">ゆっくりスクロールしてみてください。AIが全フレームを読み取り、クライマックスを見つけた瞬間にロックします。</p>
+  <section class="universe" id="universe" data-universe aria-labelledby="universe-title">
+    <!-- Semantic, always-crawlable content (also the no-WebGL fallback) -->
+    <div class="universe-content" data-universe-content>
+      <div class="universe-chapter" id="reel" data-chapter="0">
+        <div class="container">
+          <div class="section-head">
+            <p class="eyebrow"><span class="eyebrow-dot"></span>モーメント・キャプチャー</p>
+            <h2 id="universe-title">何時間もの映像の中から、最高の一瞬を。</h2>
+            <p class="section-lead">ゆっくりスクロールしてみてください。AIが全フレームを読み取り、クライマックスを見つけた瞬間にロックします。</p>
+          </div>
         </div>
       </div>
 
-      <div class="reel-viewport" data-reel>
-        <div class="reel-track" data-reel-track>
-          
-          <figure class="reel-frame" data-reel-frame>
-            <img src="/media/reel/reel-01.webp" alt="" width="720" height="299" loading="lazy" decoding="async">
-            <figcaption class="reel-meta"><span class="reel-tc">00:42</span><span class="reel-cut">CUT 01</span></figcaption>
+      <div class="universe-chapter" id="features" data-chapter="1">
+        <div class="container">
+          <div class="section-head">
+            <p class="eyebrow"><span class="eyebrow-dot"></span>エディター</p>
+            <h2>ハイライトを完成させるために必要なすべて。</h2>
+            <p class="section-lead">瞬間を見つけることから最終カットの書き出しまで、時間のかかる作業はPenguinCutが担当します。</p>
+          </div>
+          <div class="feature-grid">
             
-          </figure>
-          <figure class="reel-frame" data-reel-frame>
-            <img src="/media/reel/reel-02.webp" alt="" width="720" height="299" loading="lazy" decoding="async">
-            <figcaption class="reel-meta"><span class="reel-tc">01:17</span><span class="reel-cut">CUT 02</span></figcaption>
-            
-          </figure>
-          <figure class="reel-frame" data-reel-frame>
-            <img src="/media/reel/reel-03.webp" alt="" width="720" height="299" loading="lazy" decoding="async">
-            <figcaption class="reel-meta"><span class="reel-tc">03:08</span><span class="reel-cut">CUT 03</span></figcaption>
-            
-          </figure>
-          <figure class="reel-frame" data-reel-frame>
-            <img src="/media/reel/reel-04.webp" alt="" width="720" height="299" loading="lazy" decoding="async">
-            <figcaption class="reel-meta"><span class="reel-tc">04:51</span><span class="reel-cut">CUT 04</span></figcaption>
-            
-          </figure>
-          <figure class="reel-frame" data-reel-frame>
-            <img src="/media/reel/reel-05.webp" alt="" width="720" height="299" loading="lazy" decoding="async">
-            <figcaption class="reel-meta"><span class="reel-tc">06:33</span><span class="reel-cut">CUT 05</span></figcaption>
-            
-          </figure>
-          <figure class="reel-frame reel-frame--climax" data-reel-frame data-climax>
-            <img src="/media/reel/reel-06.webp" alt="" width="720" height="299" loading="lazy" decoding="async">
-            <figcaption class="reel-meta"><span class="reel-tc">08:24</span><span class="reel-cut">CUT 06</span></figcaption>
-            <span class="reel-ring" aria-hidden="true"></span>
-            <span class="reel-badge">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-      <path d="m5 12 4.2 4.2L19 6.8"/>
-    </svg><span>クライマックス検出</span><b>98</b></span>
-          </figure>
+            <article class="feature-card">
+              <div class="feature-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M12 3.5l1.6 4.6 4.6 1.6-4.6 1.6L12 16l-1.6-4.7L5.8 9.7l4.6-1.6L12 3.5Z"/>
+      <path d="M18.5 15.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2Z"/>
+      <path d="M5 15l.5 1.4L7 17l-1.5.5L5 19l-.5-1.5L3 17l1.5-.6L5 15Z"/>
+    </svg></div>
+              <h3>AIクライマックス検出</h3>
+              <p>すべてのクリップを解析し、感情と映像のインパクトが最も強い瞬間を選び出します。</p>
+            </article>
+            <article class="feature-card">
+              <div class="feature-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <rect x="3" y="5" width="18" height="14" rx="3"/>
+      <path d="M7 10h4M7 14h7M15 10h2"/>
+    </svg></div>
+              <h3>自動字幕</h3>
+              <p>字幕を生成し、文脈に合わせて整えるので、すべてのセリフが自然に読めます。</p>
+            </article>
+            <article class="feature-card">
+              <div class="feature-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M12 3 3.5 7.5 12 12l8.5-4.5L12 3Z"/>
+      <path d="m3.5 12 8.5 4.5 8.5-4.5"/>
+      <path d="m3.5 16.5 8.5 4.5 8.5-4.5"/>
+    </svg></div>
+              <h3>シネマティックオーバーレイ</h3>
+              <p>タイトル、チャンネル名、日付、場所を、放送風のすっきりしたタイポグラフィで追加します。</p>
+            </article>
+            <article class="feature-card">
+              <div class="feature-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <rect x="3" y="4" width="18" height="16" rx="2.5"/>
+      <path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>
+    </svg></div>
+              <h3>イントロ・アウトロ・チャプターブリッジ</h3>
+              <p>映像の始まりと終わりを演出し、数日にわたる旅行やイベントもわかりやすくつなぎます。</p>
+            </article>
+            <article class="feature-card">
+              <div class="feature-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M9 18V6l10-2v12"/>
+      <circle cx="6.5" cy="18" r="2.5"/>
+      <circle cx="16.5" cy="16" r="2.5"/>
+    </svg></div>
+              <h3>映像に合う音楽</h3>
+              <p>ロイヤリティフリーのトラックを選び、音量を調整して、最終カットに合うサウンドに仕上げます。</p>
+            </article>
+            <article class="feature-card">
+              <div class="feature-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M12 3 5 6v5.5c0 4.4 2.9 7.7 7 9.5 4.1-1.8 7-5.1 7-9.5V6l-7-3Z"/>
+      <path d="m9 12 2 2 4-4"/>
+    </svg></div>
+              <h3>プライバシー重視の設計</h3>
+              <p>元の動画はアップロードされません。AI分析には少量のフレームだけが送信されます。</p>
+            </article>
+          </div>
         </div>
-        <div class="reel-fade reel-fade-left" aria-hidden="true"></div>
-        <div class="reel-fade reel-fade-right" aria-hidden="true"></div>
-        <div class="reel-counter" aria-hidden="true"><span data-reel-count>01</span><i>/</i>06</div>
       </div>
-    </section>
+
+      <div class="universe-chapter" id="how-it-works" data-chapter="2">
+        <div class="container">
+          <div class="section-head">
+            <p class="eyebrow"><span class="eyebrow-dot"></span>使い方</p>
+            <h2>3ステップで、完成した映像を。</h2>
+            <p class="section-lead">タイムラインと格闘する必要はありません。映像を追加して、AIにストーリーを見つけさせましょう。</p>
+          </div>
+          <div class="step-grid" data-step-grid>
+            
+            <article class="step-card" data-step-index="0">
+              <span class="step-number">01</span>
+              <h3>クリップを追加</h3>
+              <p>旅行、イベント、撮影の動画を追加します。PenguinCutがブラウザ上で読み込みます。</p>
+            </article>
+            <article class="step-card" data-step-index="1">
+              <span class="step-number">02</span>
+              <h3>AIにストーリーを見つけさせる</h3>
+              <p>モデルと推論レベルを選ぶと、PenguinCutが映像を評価し、最も強い瞬間を提案します。</p>
+            </article>
+            <article class="step-card" data-step-index="2">
+              <span class="step-number">03</span>
+              <h3>仕上げて書き出す</h3>
+              <p>カットを調整し、字幕と音楽を加えて、YouTube向けの16:9 &amp; 9:16ハイライトを書き出します。</p>
+            </article>
+          </div>
+          <p class="section-note">提案されたカットは、書き出す前にすべて確認・トリミング・差し替えできます。</p>
+        </div>
+      </div>
+
+      <div class="universe-chapter universe-chapter--exit" data-chapter="3">
+        <div class="container">
+          <div class="section-head">
+            <p class="eyebrow"><span class="eyebrow-dot"></span>映像で見る</p>
+            <h2>ペンギンが6つのカットを選ぶまで。</h2>
+            <p class="section-lead">36秒の紹介フィルムが、クリックなしでミュートのまま自動再生されます。音声はいつでもオンにできます。</p>
+          </div>
+          <a class="button" href="#film">フィルムを再生 
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg></a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Presentational WebGL stage -->
+    <div class="universe-stage" data-universe-stage aria-hidden="true">
+      <div class="universe-sticky">
+        <div class="universe-canvas-host" data-universe-canvas></div>
+        <div class="universe-vignette"></div>
+
+        <div class="universe-beats">
+          <div class="beat beat--capture is-active" data-beat="0">
+            <p class="beat-eyebrow">モーメント・キャプチャー</p>
+            <h2>何時間もの映像の中から、最高の一瞬を。</h2>
+            <p class="beat-lead">ゆっくりスクロールしてみてください。AIが全フレームを読み取り、クライマックスを見つけた瞬間にロックします。</p>
+            <div class="beat-captures"><span class="capture-chip"><i>01</i><b>ソース</b></span><span class="capture-chip"><i>02</i><b>AIスコア</b></span><span class="capture-chip"><i>03</i><b>ブリッジ</b></span><span class="capture-chip"><i>04</i><b>音楽</b></span><span class="capture-chip"><i>05</i><b>字幕</b></span><span class="capture-chip"><i>06</i><b>オーバーレイ</b></span></div>
+          </div>
+
+          <div class="beat beat--explode" data-beat="1">
+            <p class="beat-eyebrow">エディター</p>
+            <h2>ハイライトを完成させるために必要なすべて。</h2>
+            <ol class="beat-list"><li data-beat-layer="0"><span class="br-num">01</span><b>プライバシー重視の設計</b><small>ソース</small></li><li data-beat-layer="1"><span class="br-num">02</span><b>AIクライマックス検出</b><small>AIスコア</small></li><li data-beat-layer="2"><span class="br-num">03</span><b>イントロ・アウトロ・チャプターブリッジ</b><small>ブリッジ</small></li><li data-beat-layer="3"><span class="br-num">04</span><b>映像に合う音楽</b><small>音楽</small></li><li data-beat-layer="4"><span class="br-num">05</span><b>自動字幕</b><small>字幕</small></li><li data-beat-layer="5"><span class="br-num">06</span><b>シネマティックオーバーレイ</b><small>オーバーレイ</small></li></ol>
+          </div>
+
+          <div class="beat beat--assemble" data-beat="2">
+            <p class="beat-eyebrow">使い方</p>
+            <h2>3ステップで、完成した映像を。</h2>
+            <ol class="beat-list beat-list--steps"><li data-beat-step="0"><span class="br-num">01</span><b>クリップを追加</b></li><li data-beat-step="1"><span class="br-num">02</span><b>AIにストーリーを見つけさせる</b></li><li data-beat-step="2"><span class="br-num">03</span><b>仕上げて書き出す</b></li></ol>
+          </div>
+
+          <div class="beat beat--morph" data-beat="3">
+            <p class="beat-eyebrow">FINAL FORMAT</p>
+            <h2>ペンギンが6つのカットを選ぶまで。</h2>
+            <div class="beat-formats">
+              <span><b>16:9</b><i>YOUTUBE</i></span>
+              <span><b>9:16</b><i>SHORTS</i></span>
+            </div>
+            <a class="button beat-button" href="#film" tabindex="-1">フィルムを再生 
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+      <path d="M5 12h13M13 6l6 6-6 6"/>
+    </svg></a>
+          </div>
+        </div>
+
+        <div class="universe-hud">
+          <span class="u-hud-act" data-u-act>01 / 04</span>
+          <span class="u-hud-bar"><i data-u-bar></i></span>
+          <span class="u-hud-tc" data-u-tc>00:00:00</span>
+        </div>
+        <span class="universe-corner universe-corner--tl"></span>
+        <span class="universe-corner universe-corner--tr"></span>
+        <span class="universe-corner universe-corner--bl"></span>
+        <span class="universe-corner universe-corner--br"></span>
+        <span class="universe-scrollcue" data-u-cue>SCROLL</span>
+      </div>
+    </div>
+  </section>
       
     <section class="theater" id="film" aria-labelledby="theater-title">
       <div class="container">
@@ -316,393 +444,6 @@
             <div class="theater-progress" aria-hidden="true"><i data-theater-progress></i></div>
           </div>
         </div>
-      </div>
-    </section>
-      
-    <section class="section" id="features" aria-labelledby="features-title" data-stack-features>
-      <div class="container">
-        <div class="section-head">
-          <p class="eyebrow">エディター</p>
-          <h2 id="features-title">ハイライトを完成させるために必要なすべて。</h2>
-          <p class="section-lead">瞬間を見つけることから最終カットの書き出しまで、時間のかかる作業はPenguinCutが担当します。</p>
-        </div>
-
-        <div class="feature-grid">
-          
-          <article class="feature-card">
-            <div class="feature-icon">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-      <path d="M12 3.5l1.6 4.6 4.6 1.6-4.6 1.6L12 16l-1.6-4.7L5.8 9.7l4.6-1.6L12 3.5Z"/>
-      <path d="M18.5 15.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2Z"/>
-      <path d="M5 15l.5 1.4L7 17l-1.5.5L5 19l-.5-1.5L3 17l1.5-.6L5 15Z"/>
-    </svg></div>
-            <h3>AIクライマックス検出</h3>
-            <p>すべてのクリップを解析し、感情と映像のインパクトが最も強い瞬間を選び出します。</p>
-          </article>
-          <article class="feature-card">
-            <div class="feature-icon">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-      <rect x="3" y="5" width="18" height="14" rx="3"/>
-      <path d="M7 10h4M7 14h7M15 10h2"/>
-    </svg></div>
-            <h3>自動字幕</h3>
-            <p>字幕を生成し、文脈に合わせて整えるので、すべてのセリフが自然に読めます。</p>
-          </article>
-          <article class="feature-card">
-            <div class="feature-icon">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-      <path d="M12 3 3.5 7.5 12 12l8.5-4.5L12 3Z"/>
-      <path d="m3.5 12 8.5 4.5 8.5-4.5"/>
-      <path d="m3.5 16.5 8.5 4.5 8.5-4.5"/>
-    </svg></div>
-            <h3>シネマティックオーバーレイ</h3>
-            <p>タイトル、チャンネル名、日付、場所を、放送風のすっきりしたタイポグラフィで追加します。</p>
-          </article>
-          <article class="feature-card">
-            <div class="feature-icon">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-      <rect x="3" y="4" width="18" height="16" rx="2.5"/>
-      <path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>
-    </svg></div>
-            <h3>イントロ・アウトロ・チャプターブリッジ</h3>
-            <p>映像の始まりと終わりを演出し、数日にわたる旅行やイベントもわかりやすくつなぎます。</p>
-          </article>
-          <article class="feature-card">
-            <div class="feature-icon">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-      <path d="M9 18V6l10-2v12"/>
-      <circle cx="6.5" cy="18" r="2.5"/>
-      <circle cx="16.5" cy="16" r="2.5"/>
-    </svg></div>
-            <h3>映像に合う音楽</h3>
-            <p>ロイヤリティフリーのトラックを選び、音量を調整して、最終カットに合うサウンドに仕上げます。</p>
-          </article>
-          <article class="feature-card">
-            <div class="feature-icon">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-      <path d="M12 3 5 6v5.5c0 4.4 2.9 7.7 7 9.5 4.1-1.8 7-5.1 7-9.5V6l-7-3Z"/>
-      <path d="m9 12 2 2 4-4"/>
-    </svg></div>
-            <h3>プライバシー重視の設計</h3>
-            <p>元の動画はアップロードされません。AI分析には少量のフレームだけが送信されます。</p>
-          </article>
-        </div>
-
-        <div class="stack-stage" data-stack-stage>
-          <div class="stack-sticky" data-stack-sticky>
-            <div class="stack-viewport">
-              <div class="stage-console">
-                
-      <div class="film-stack film-stack--features" data-film-stack aria-hidden="true">
-        <div class="film-layer film-layer--source" style="--i:0">
-          <img class="film-layer-photo" src="/media/reel/reel-06.webp" alt="" width="720" height="299" loading="lazy" decoding="async">
-          <span class="film-layer-shade"></span>
-          <span class="film-layer-label"><b>01</b>ソース</span>
-          <span class="film-layer-chip">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-      <path d="M12 3 5 6v5.5c0 4.4 2.9 7.7 7 9.5 4.1-1.8 7-5.1 7-9.5V6l-7-3Z"/>
-      <path d="m9 12 2 2 4-4"/>
-    </svg><i>ON-DEVICE</i></span>
-        </div>
-        <div class="film-layer film-layer--score" style="--i:1">
-          <svg class="film-layer-art" viewBox="0 0 320 108" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">
-            <line class="fl-base" x1="8" y1="95" x2="312" y2="95"/>
-            <path class="fl-curve" d="M8 88 C 46 84 56 26 84 30 C 112 34 118 74 148 70 C 178 66 184 16 212 22 C 240 28 248 78 312 54"/>
-            <circle class="fl-peak" cx="84" cy="30" r="4.4"/>
-            <circle class="fl-peak" cx="212" cy="22" r="4.4"/>
-            <circle class="fl-peak fl-peak--minor" cx="148" cy="70" r="3.2"/>
-            <circle class="fl-peak fl-peak--minor" cx="312" cy="54" r="3.2"/>
-          </svg>
-          <span class="film-layer-label"><b>02</b>AIスコア</span>
-        </div>
-        <div class="film-layer film-layer--bridges" style="--i:2">
-          <span class="bridge-edge bridge-edge--top"></span>
-          <span class="bridge-edge bridge-edge--bottom"></span>
-          <div class="bridge-row">
-            <span class="bridge-slate">CH.01</span>
-            <i class="bridge-line"></i>
-            <span class="bridge-slate">CH.02</span>
-            <i class="bridge-line"></i>
-            <span class="bridge-slate">CH.03</span>
-          </div>
-          <span class="film-layer-label"><b>03</b>ブリッジ</span>
-        </div>
-        <div class="film-layer film-layer--audio" style="--i:3">
-          <div class="wave"><i style="--h:26%"></i><i style="--h:44%"></i><i style="--h:62%"></i><i style="--h:38%"></i><i style="--h:55%"></i><i style="--h:74%"></i><i style="--h:48%"></i><i style="--h:30%"></i><i style="--h:58%"></i><i style="--h:82%" class="is-hot"></i><i style="--h:96%" class="is-hot"></i><i style="--h:64%"></i><i style="--h:36%"></i><i style="--h:52%"></i><i style="--h:70%"></i><i style="--h:42%"></i><i style="--h:28%"></i><i style="--h:60%"></i><i style="--h:88%" class="is-hot"></i><i style="--h:100%" class="is-hot"></i><i style="--h:72%"></i><i style="--h:40%"></i><i style="--h:24%"></i><i style="--h:46%"></i><i style="--h:66%"></i><i style="--h:92%" class="is-hot"></i><i style="--h:54%"></i><i style="--h:34%"></i><i style="--h:50%"></i><i style="--h:78%" class="is-hot"></i><i style="--h:44%"></i><i style="--h:22%"></i><i style="--h:58%"></i><i style="--h:36%"></i><i style="--h:68%"></i><i style="--h:30%"></i></div>
-          <span class="film-layer-label"><b>04</b>音楽</span>
-        </div>
-        <div class="film-layer film-layer--captions" style="--i:4">
-          <div class="caption-mock">
-            <i class="caption-bar caption-bar--wide"></i>
-            <i class="caption-bar caption-bar--hot"></i>
-            <i class="caption-bar caption-bar--mid"></i>
-          </div>
-          <span class="film-layer-label"><b>05</b>字幕</span>
-        </div>
-        <div class="film-layer film-layer--overlay" style="--i:5">
-          <span class="crop crop-tl"></span>
-          <span class="crop crop-tr"></span>
-          <span class="crop crop-bl"></span>
-          <span class="crop crop-br"></span>
-          <div class="hud-lines">
-            <i class="hud-line hud-line--lg"></i>
-            <i class="hud-line hud-line--sm"></i>
-          </div>
-          <span class="film-layer-label"><b>06</b>オーバーレイ</span>
-        </div>
-      </div>
-                <span class="console-tag" aria-hidden="true">TIMELINE</span>
-              </div>
-            </div>
-            <div class="stack-panels" data-stack-panels>
-              <div class="stack-meter" data-stack-meter role="group" aria-label="ハイライトを完成させるために必要なすべて。">
-                <button class="stack-tick is-active" type="button" data-stack-tick="0" aria-label="プライバシー重視の設計"><span class="stack-tick-index">01</span></button><button class="stack-tick" type="button" data-stack-tick="1" aria-label="AIクライマックス検出"><span class="stack-tick-index">02</span></button><button class="stack-tick" type="button" data-stack-tick="2" aria-label="イントロ・アウトロ・チャプターブリッジ"><span class="stack-tick-index">03</span></button><button class="stack-tick" type="button" data-stack-tick="3" aria-label="映像に合う音楽"><span class="stack-tick-index">04</span></button><button class="stack-tick" type="button" data-stack-tick="4" aria-label="自動字幕"><span class="stack-tick-index">05</span></button><button class="stack-tick" type="button" data-stack-tick="5" aria-label="シネマティックオーバーレイ"><span class="stack-tick-index">06</span></button>
-              </div>
-              
-              <article class="stack-panel is-active" data-stack-panel="0">
-                <div class="stack-kicker">
-                  <span class="stack-kicker-index">LAYER 01</span>
-                  <span class="stack-kicker-line" aria-hidden="true"></span>
-                  <span class="stack-kicker-label">ソース</span>
-                </div>
-                <div class="feature-icon stack-panel-icon">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-      <path d="M12 3 5 6v5.5c0 4.4 2.9 7.7 7 9.5 4.1-1.8 7-5.1 7-9.5V6l-7-3Z"/>
-      <path d="m9 12 2 2 4-4"/>
-    </svg></div>
-                <h3>プライバシー重視の設計</h3>
-                <p>元の動画はアップロードされません。AI分析には少量のフレームだけが送信されます。</p>
-              </article>
-              <article class="stack-panel" data-stack-panel="1">
-                <div class="stack-kicker">
-                  <span class="stack-kicker-index">LAYER 02</span>
-                  <span class="stack-kicker-line" aria-hidden="true"></span>
-                  <span class="stack-kicker-label">AIスコア</span>
-                </div>
-                <div class="feature-icon stack-panel-icon">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-      <path d="M12 3.5l1.6 4.6 4.6 1.6-4.6 1.6L12 16l-1.6-4.7L5.8 9.7l4.6-1.6L12 3.5Z"/>
-      <path d="M18.5 15.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2Z"/>
-      <path d="M5 15l.5 1.4L7 17l-1.5.5L5 19l-.5-1.5L3 17l1.5-.6L5 15Z"/>
-    </svg></div>
-                <h3>AIクライマックス検出</h3>
-                <p>すべてのクリップを解析し、感情と映像のインパクトが最も強い瞬間を選び出します。</p>
-              </article>
-              <article class="stack-panel" data-stack-panel="2">
-                <div class="stack-kicker">
-                  <span class="stack-kicker-index">LAYER 03</span>
-                  <span class="stack-kicker-line" aria-hidden="true"></span>
-                  <span class="stack-kicker-label">ブリッジ</span>
-                </div>
-                <div class="feature-icon stack-panel-icon">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-      <rect x="3" y="4" width="18" height="16" rx="2.5"/>
-      <path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>
-    </svg></div>
-                <h3>イントロ・アウトロ・チャプターブリッジ</h3>
-                <p>映像の始まりと終わりを演出し、数日にわたる旅行やイベントもわかりやすくつなぎます。</p>
-              </article>
-              <article class="stack-panel" data-stack-panel="3">
-                <div class="stack-kicker">
-                  <span class="stack-kicker-index">LAYER 04</span>
-                  <span class="stack-kicker-line" aria-hidden="true"></span>
-                  <span class="stack-kicker-label">音楽</span>
-                </div>
-                <div class="feature-icon stack-panel-icon">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-      <path d="M9 18V6l10-2v12"/>
-      <circle cx="6.5" cy="18" r="2.5"/>
-      <circle cx="16.5" cy="16" r="2.5"/>
-    </svg></div>
-                <h3>映像に合う音楽</h3>
-                <p>ロイヤリティフリーのトラックを選び、音量を調整して、最終カットに合うサウンドに仕上げます。</p>
-              </article>
-              <article class="stack-panel" data-stack-panel="4">
-                <div class="stack-kicker">
-                  <span class="stack-kicker-index">LAYER 05</span>
-                  <span class="stack-kicker-line" aria-hidden="true"></span>
-                  <span class="stack-kicker-label">字幕</span>
-                </div>
-                <div class="feature-icon stack-panel-icon">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-      <rect x="3" y="5" width="18" height="14" rx="3"/>
-      <path d="M7 10h4M7 14h7M15 10h2"/>
-    </svg></div>
-                <h3>自動字幕</h3>
-                <p>字幕を生成し、文脈に合わせて整えるので、すべてのセリフが自然に読めます。</p>
-              </article>
-              <article class="stack-panel" data-stack-panel="5">
-                <div class="stack-kicker">
-                  <span class="stack-kicker-index">LAYER 06</span>
-                  <span class="stack-kicker-line" aria-hidden="true"></span>
-                  <span class="stack-kicker-label">オーバーレイ</span>
-                </div>
-                <div class="feature-icon stack-panel-icon">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-      <path d="M12 3 3.5 7.5 12 12l8.5-4.5L12 3Z"/>
-      <path d="m3.5 12 8.5 4.5 8.5-4.5"/>
-      <path d="m3.5 16.5 8.5 4.5 8.5-4.5"/>
-    </svg></div>
-                <h3>シネマティックオーバーレイ</h3>
-                <p>タイトル、チャンネル名、日付、場所を、放送風のすっきりしたタイポグラフィで追加します。</p>
-              </article>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-      
-    <section class="section section-alt" id="how-it-works" aria-labelledby="how-title" data-how-section>
-      <div class="container">
-        <div class="section-head">
-          <p class="eyebrow">使い方</p>
-          <h2 id="how-title">3ステップで、完成した映像を。</h2>
-          <p class="section-lead">タイムラインと格闘する必要はありません。映像を追加して、AIにストーリーを見つけさせましょう。</p>
-        </div>
-
-        <div class="step-rail" aria-hidden="true"><i data-step-fill></i></div>
-        <div class="step-grid" data-step-grid>
-          
-          <article class="step-card" data-step-index="0">
-            <span class="step-number">01</span>
-            <h3>クリップを追加</h3>
-            <p>旅行、イベント、撮影の動画を追加します。PenguinCutがブラウザ上で読み込みます。</p>
-          </article>
-          <article class="step-card" data-step-index="1">
-            <span class="step-number">02</span>
-            <h3>AIにストーリーを見つけさせる</h3>
-            <p>モデルと推論レベルを選ぶと、PenguinCutが映像を評価し、最も強い瞬間を提案します。</p>
-          </article>
-          <article class="step-card" data-step-index="2">
-            <span class="step-number">03</span>
-            <h3>仕上げて書き出す</h3>
-            <p>カットを調整し、字幕と音楽を加えて、YouTube向けの16:9 &amp; 9:16ハイライトを書き出します。</p>
-          </article>
-        </div>
-
-        <div class="how-stage" data-how-stage>
-          <div class="stack-sticky stack-sticky--how" data-how-sticky>
-            <div class="stack-viewport">
-              <div class="stage-console stage-console--how" data-how-viewport>
-                <span class="scan-line" data-scan-line aria-hidden="true"></span>
-                
-      <div class="film-stack film-stack--how" data-film-stack aria-hidden="true">
-        <div class="film-layer film-layer--source" style="--i:0">
-          <img class="film-layer-photo" src="/media/reel/reel-06.webp" alt="" width="720" height="299" loading="lazy" decoding="async">
-          <span class="film-layer-shade"></span>
-          <span class="film-layer-label"><b>01</b>ソース</span>
-          <span class="film-layer-chip">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-      <path d="M12 3 5 6v5.5c0 4.4 2.9 7.7 7 9.5 4.1-1.8 7-5.1 7-9.5V6l-7-3Z"/>
-      <path d="m9 12 2 2 4-4"/>
-    </svg><i>ON-DEVICE</i></span>
-        </div>
-        <div class="film-layer film-layer--score" style="--i:1">
-          <svg class="film-layer-art" viewBox="0 0 320 108" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">
-            <line class="fl-base" x1="8" y1="95" x2="312" y2="95"/>
-            <path class="fl-curve" d="M8 88 C 46 84 56 26 84 30 C 112 34 118 74 148 70 C 178 66 184 16 212 22 C 240 28 248 78 312 54"/>
-            <circle class="fl-peak" cx="84" cy="30" r="4.4"/>
-            <circle class="fl-peak" cx="212" cy="22" r="4.4"/>
-            <circle class="fl-peak fl-peak--minor" cx="148" cy="70" r="3.2"/>
-            <circle class="fl-peak fl-peak--minor" cx="312" cy="54" r="3.2"/>
-          </svg>
-          <span class="film-layer-label"><b>02</b>AIスコア</span>
-        </div>
-        <div class="film-layer film-layer--bridges" style="--i:2">
-          <span class="bridge-edge bridge-edge--top"></span>
-          <span class="bridge-edge bridge-edge--bottom"></span>
-          <div class="bridge-row">
-            <span class="bridge-slate">CH.01</span>
-            <i class="bridge-line"></i>
-            <span class="bridge-slate">CH.02</span>
-            <i class="bridge-line"></i>
-            <span class="bridge-slate">CH.03</span>
-          </div>
-          <span class="film-layer-label"><b>03</b>ブリッジ</span>
-        </div>
-        <div class="film-layer film-layer--audio" style="--i:3">
-          <div class="wave"><i style="--h:26%"></i><i style="--h:44%"></i><i style="--h:62%"></i><i style="--h:38%"></i><i style="--h:55%"></i><i style="--h:74%"></i><i style="--h:48%"></i><i style="--h:30%"></i><i style="--h:58%"></i><i style="--h:82%" class="is-hot"></i><i style="--h:96%" class="is-hot"></i><i style="--h:64%"></i><i style="--h:36%"></i><i style="--h:52%"></i><i style="--h:70%"></i><i style="--h:42%"></i><i style="--h:28%"></i><i style="--h:60%"></i><i style="--h:88%" class="is-hot"></i><i style="--h:100%" class="is-hot"></i><i style="--h:72%"></i><i style="--h:40%"></i><i style="--h:24%"></i><i style="--h:46%"></i><i style="--h:66%"></i><i style="--h:92%" class="is-hot"></i><i style="--h:54%"></i><i style="--h:34%"></i><i style="--h:50%"></i><i style="--h:78%" class="is-hot"></i><i style="--h:44%"></i><i style="--h:22%"></i><i style="--h:58%"></i><i style="--h:36%"></i><i style="--h:68%"></i><i style="--h:30%"></i></div>
-          <span class="film-layer-label"><b>04</b>音楽</span>
-        </div>
-        <div class="film-layer film-layer--captions" style="--i:4">
-          <div class="caption-mock">
-            <i class="caption-bar caption-bar--wide"></i>
-            <i class="caption-bar caption-bar--hot"></i>
-            <i class="caption-bar caption-bar--mid"></i>
-          </div>
-          <span class="film-layer-label"><b>05</b>字幕</span>
-        </div>
-        <div class="film-layer film-layer--overlay" style="--i:5">
-          <span class="crop crop-tl"></span>
-          <span class="crop crop-tr"></span>
-          <span class="crop crop-bl"></span>
-          <span class="crop crop-br"></span>
-          <div class="hud-lines">
-            <i class="hud-line hud-line--lg"></i>
-            <i class="hud-line hud-line--sm"></i>
-          </div>
-          <span class="film-layer-label"><b>06</b>オーバーレイ</span>
-        </div>
-      </div>
-                <div class="dual-slab dual-slab--wide" data-slab-wide aria-hidden="true">
-                  <svg class="dual-slab-art" viewBox="0 0 200 113" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
-                    <circle cx="100" cy="46" r="15" fill="#fbbf24"/>
-                    <path d="M0 82 L56 34 L92 68 L128 26 L200 84 L200 113 L0 113 Z" fill="#1e293b" opacity="0.82"/>
-                    <path d="M0 96 L72 52 L118 88 L158 60 L200 98 L200 113 L0 113 Z" fill="#0b111c"/>
-                  </svg>
-                  <span class="dual-slab-meta"><b>16:9</b><i>YOUTUBE</i></span>
-                </div>
-                <div class="dual-slab dual-slab--tall" data-slab-tall aria-hidden="true">
-                  <svg class="dual-slab-art" viewBox="0 0 113 200" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
-                    <circle cx="56" cy="62" r="20" fill="#fbbf24"/>
-                    <path d="M0 132 L36 78 L64 116 L92 60 L113 128 L113 200 L0 200 Z" fill="#1e293b" opacity="0.85"/>
-                    <path d="M0 158 L44 118 L80 152 L113 136 L113 200 L0 200 Z" fill="#0b111c"/>
-                  </svg>
-                  <span class="dual-slab-meta"><b>9:16</b><i>SHORTS</i></span>
-                </div>
-                <span class="console-tag" aria-hidden="true">EXPORT</span>
-              </div>
-            </div>
-            <div class="stack-panels how-panels" data-how-panels>
-              <div class="stack-meter" data-how-meter role="group" aria-label="3ステップで、完成した映像を。">
-                <button class="stack-tick is-active" type="button" data-how-tick="0" aria-label="クリップを追加"><span class="stack-tick-index">01</span></button><button class="stack-tick" type="button" data-how-tick="1" aria-label="AIにストーリーを見つけさせる"><span class="stack-tick-index">02</span></button><button class="stack-tick" type="button" data-how-tick="2" aria-label="仕上げて書き出す"><span class="stack-tick-index">03</span></button>
-              </div>
-              
-              <article class="stack-panel stack-panel--step is-active" data-how-panel="0">
-                <div class="stack-kicker">
-                  <span class="stack-kicker-index">STEP 01</span>
-                  <span class="stack-kicker-line" aria-hidden="true"></span>
-                  <span class="stack-kicker-label">01 / 03</span>
-                </div>
-                <span class="step-number stack-panel-number">01</span>
-                <h3>クリップを追加</h3>
-                <p>旅行、イベント、撮影の動画を追加します。PenguinCutがブラウザ上で読み込みます。</p>
-              </article>
-              <article class="stack-panel stack-panel--step" data-how-panel="1">
-                <div class="stack-kicker">
-                  <span class="stack-kicker-index">STEP 02</span>
-                  <span class="stack-kicker-line" aria-hidden="true"></span>
-                  <span class="stack-kicker-label">02 / 03</span>
-                </div>
-                <span class="step-number stack-panel-number">02</span>
-                <h3>AIにストーリーを見つけさせる</h3>
-                <p>モデルと推論レベルを選ぶと、PenguinCutが映像を評価し、最も強い瞬間を提案します。</p>
-              </article>
-              <article class="stack-panel stack-panel--step" data-how-panel="2">
-                <div class="stack-kicker">
-                  <span class="stack-kicker-index">STEP 03</span>
-                  <span class="stack-kicker-line" aria-hidden="true"></span>
-                  <span class="stack-kicker-label">03 / 03</span>
-                </div>
-                <span class="step-number stack-panel-number">03</span>
-                <h3>仕上げて書き出す</h3>
-                <p>カットを調整し、字幕と音楽を加えて、YouTube向けの16:9 &amp; 9:16ハイライトを書き出します。</p>
-              </article>
-            </div>
-          </div>
-        </div>
-
-        <p class="section-note">提案されたカットは、書き出す前にすべて確認・トリミング・差し替えできます。</p>
       </div>
     </section>
       
@@ -955,6 +696,7 @@
       <span class="tc-hud-state" data-tc-state>スキャン中</span>
     </div>
     <script src="/vendor/lenis.min.js" defer></script>
+    <script src="/vendor/landing-3d.js" defer></script>
     <script src="/landing.js" defer></script>
   </body>
 </html>

@@ -207,7 +207,7 @@ function renderHero(locale) {
             ${esc(hero.primary)}
             ${ICONS.arrow}
           </a>
-          <a class="button button-hero-ghost" href="#how-it-works">${esc(
+          <a class="button button-hero-ghost" href="#universe">${esc(
             hero.secondary
           )}</a>
         </div>
@@ -229,7 +229,7 @@ function renderHero(locale) {
           <span class="hero-sound-icon" aria-hidden="true">${ICONS.sound}</span>
           <span class="hero-sound-label">${esc(locale.video.soundCue)}</span>
         </button>
-        <a class="hero-scroll" href="#how-it-works" aria-label="${esc(
+        <a class="hero-scroll" href="#universe" aria-label="${esc(
           hero.secondary
         )}">${ICONS.chevron}</a>
         <span class="hero-foot-note">00:36 · 16:9 &amp; 9:16</span>
@@ -255,56 +255,6 @@ function renderFilmModal(locale) {
       )}.mp4" controls playsinline preload="none" poster="/media/hero-poster.webp" width="1280" height="720"></video>
     </div>
   </dialog>`;
-}
-
-function renderReel(locale) {
-  const { reel } = locale;
-  // Frames lifted from the FINAL FILM cutdown (see public/media/reel/).
-  // Every frame is text-free; timecodes below are the source-footage metaphor.
-  const frames = [
-    { src: "/media/reel/reel-01.webp", tc: "00:42", cut: "CUT 01" },
-    { src: "/media/reel/reel-02.webp", tc: "01:17", cut: "CUT 02" },
-    { src: "/media/reel/reel-03.webp", tc: "03:08", cut: "CUT 03" },
-    { src: "/media/reel/reel-04.webp", tc: "04:51", cut: "CUT 04" },
-    { src: "/media/reel/reel-05.webp", tc: "06:33", cut: "CUT 05" },
-    { src: "/media/reel/reel-06.webp", tc: "08:24", cut: "CUT 06", climax: true },
-  ];
-
-  return `
-    <section class="reel" id="reel" aria-labelledby="reel-title">
-      <div class="container">
-        <div class="section-head reel-head">
-          <p class="eyebrow"><span class="eyebrow-dot"></span>${esc(
-    reel.eyebrow
-  )}</p>
-          <h2 id="reel-title">${esc(reel.title)}</h2>
-          <p class="section-lead">${esc(reel.lead)}</p>
-        </div>
-      </div>
-
-      <div class="reel-viewport" data-reel>
-        <div class="reel-track" data-reel-track>
-          ${frames
-            .map(
-              (frame) => `
-          <figure class="reel-frame${frame.climax ? " reel-frame--climax" : ""}" data-reel-frame${frame.climax ? " data-climax" : ""}>
-            <img src="${frame.src}" alt="" width="720" height="299" loading="lazy" decoding="async">
-            <figcaption class="reel-meta"><span class="reel-tc">${frame.tc}</span><span class="reel-cut">${frame.cut}</span></figcaption>
-            ${
-              frame.climax
-                ? `<span class="reel-ring" aria-hidden="true"></span>
-            <span class="reel-badge">${ICONS.check}<span>${esc(reel.captured)}</span><b>98</b></span>`
-                : ""
-            }
-          </figure>`
-            )
-            .join("")}
-        </div>
-        <div class="reel-fade reel-fade-left" aria-hidden="true"></div>
-        <div class="reel-fade reel-fade-right" aria-hidden="true"></div>
-        <div class="reel-counter" aria-hidden="true"><span data-reel-count>01</span><i>/</i>06</div>
-      </div>
-    </section>`;
 }
 
 function renderStrip(locale) {
@@ -390,242 +340,165 @@ function renderTheater(locale) {
     </section>`;
 }
 
-// Living Film Stack — the 6 glass layers match the six features 1:1, bottom to top.
-// features.items order is AI climax, captions, overlays, bridges, music, privacy.
+// The scroll universe — one dark, fixed 3D stage that the visitor scrolls
+// through. All copy stays in the DOM (semantic chapters) for crawlers; the
+// WebGL stage mirrors it as presentational, aria-hidden overlays.
 const LAYER_FEATURE_INDEX = [5, 0, 3, 4, 1, 2];
 
-const WAVE_BARS = [26, 44, 62, 38, 55, 74, 48, 30, 58, 82, 96, 64, 36, 52, 70, 42, 28, 60, 88, 100, 72, 40, 24, 46, 66, 92, 54, 34, 50, 78, 44, 22, 58, 36, 68, 30];
-const WAVE_HOT = new Set([9, 10, 18, 19, 25, 29]);
-
-function renderFilmStack(locale, extraClass) {
-  const labels = locale.stack.layers;
-  const bars = WAVE_BARS.map(
-    (height, index) =>
-      `<i style="--h:${height}%"${WAVE_HOT.has(index) ? ' class="is-hot"' : ""}></i>`
-  ).join("");
-
-  return `
-      <div class="film-stack${extraClass ? ` ${extraClass}` : ""}" data-film-stack aria-hidden="true">
-        <div class="film-layer film-layer--source" style="--i:0">
-          <img class="film-layer-photo" src="/media/reel/reel-06.webp" alt="" width="720" height="299" loading="lazy" decoding="async">
-          <span class="film-layer-shade"></span>
-          <span class="film-layer-label"><b>01</b>${esc(labels[0])}</span>
-          <span class="film-layer-chip">${ICONS.shield}<i>ON-DEVICE</i></span>
-        </div>
-        <div class="film-layer film-layer--score" style="--i:1">
-          <svg class="film-layer-art" viewBox="0 0 320 108" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">
-            <line class="fl-base" x1="8" y1="95" x2="312" y2="95"/>
-            <path class="fl-curve" d="M8 88 C 46 84 56 26 84 30 C 112 34 118 74 148 70 C 178 66 184 16 212 22 C 240 28 248 78 312 54"/>
-            <circle class="fl-peak" cx="84" cy="30" r="4.4"/>
-            <circle class="fl-peak" cx="212" cy="22" r="4.4"/>
-            <circle class="fl-peak fl-peak--minor" cx="148" cy="70" r="3.2"/>
-            <circle class="fl-peak fl-peak--minor" cx="312" cy="54" r="3.2"/>
-          </svg>
-          <span class="film-layer-label"><b>02</b>${esc(labels[1])}</span>
-        </div>
-        <div class="film-layer film-layer--bridges" style="--i:2">
-          <span class="bridge-edge bridge-edge--top"></span>
-          <span class="bridge-edge bridge-edge--bottom"></span>
-          <div class="bridge-row">
-            <span class="bridge-slate">CH.01</span>
-            <i class="bridge-line"></i>
-            <span class="bridge-slate">CH.02</span>
-            <i class="bridge-line"></i>
-            <span class="bridge-slate">CH.03</span>
-          </div>
-          <span class="film-layer-label"><b>03</b>${esc(labels[2])}</span>
-        </div>
-        <div class="film-layer film-layer--audio" style="--i:3">
-          <div class="wave">${bars}</div>
-          <span class="film-layer-label"><b>04</b>${esc(labels[3])}</span>
-        </div>
-        <div class="film-layer film-layer--captions" style="--i:4">
-          <div class="caption-mock">
-            <i class="caption-bar caption-bar--wide"></i>
-            <i class="caption-bar caption-bar--hot"></i>
-            <i class="caption-bar caption-bar--mid"></i>
-          </div>
-          <span class="film-layer-label"><b>05</b>${esc(labels[4])}</span>
-        </div>
-        <div class="film-layer film-layer--overlay" style="--i:5">
-          <span class="crop crop-tl"></span>
-          <span class="crop crop-tr"></span>
-          <span class="crop crop-bl"></span>
-          <span class="crop crop-br"></span>
-          <div class="hud-lines">
-            <i class="hud-line hud-line--lg"></i>
-            <i class="hud-line hud-line--sm"></i>
-          </div>
-          <span class="film-layer-label"><b>06</b>${esc(labels[5])}</span>
-        </div>
-      </div>`;
-}
-
-function renderStackTick({ index, ariaLabel, active, attr }) {
-  return `<button class="stack-tick${active ? " is-active" : ""}" type="button" ${attr}="${index}" aria-label="${esc(
-    ariaLabel
-  )}"><span class="stack-tick-index">0${index + 1}</span></button>`;
-}
-
-function renderFeatures(locale) {
-  const { features } = locale;
+function renderUniverse(locale) {
+  const { reel, features, how, theater, video, stack } = locale;
   const layerItems = LAYER_FEATURE_INDEX.map((itemIndex) => features.items[itemIndex]);
+  const labels = stack.layers;
+  const two = (n) => String(n).padStart(2, "0");
+
+  const captureChips = labels
+    .map(
+      (label, i) =>
+        `<span class="capture-chip"><i>${two(i + 1)}</i><b>${esc(label)}</b></span>`
+    )
+    .join("");
+
+  const featureRows = layerItems
+    .map(
+      (item, index) =>
+        `<li data-beat-layer="${index}"><span class="br-num">0${index + 1}</span><b>${esc(
+          item.title
+        )}</b><small>${esc(labels[index])}</small></li>`
+    )
+    .join("");
+
+  const stepRows = how.steps
+    .map(
+      (step, index) =>
+        `<li data-beat-step="${index}"><span class="br-num">0${index + 1}</span><b>${esc(
+          step.title
+        )}</b></li>`
+    )
+    .join("");
 
   return `
-    <section class="section" id="features" aria-labelledby="features-title" data-stack-features>
-      <div class="container">
-        <div class="section-head">
-          <p class="eyebrow">${esc(features.eyebrow)}</p>
-          <h2 id="features-title">${esc(features.title)}</h2>
-          <p class="section-lead">${esc(features.lead)}</p>
-        </div>
-
-        <div class="feature-grid">
-          ${features.items
-            .map(
-              (item) => `
-          <article class="feature-card">
-            <div class="feature-icon">${ICONS[item.icon] || ICONS.sparkles}</div>
-            <h3>${esc(item.title)}</h3>
-            <p>${esc(item.desc)}</p>
-          </article>`
-            )
-            .join("")}
-        </div>
-
-        <div class="stack-stage" data-stack-stage>
-          <div class="stack-sticky" data-stack-sticky>
-            <div class="stack-viewport">
-              <div class="stage-console">
-                ${renderFilmStack(locale, "film-stack--features")}
-                <span class="console-tag" aria-hidden="true">TIMELINE</span>
-              </div>
-            </div>
-            <div class="stack-panels" data-stack-panels>
-              <div class="stack-meter" data-stack-meter role="group" aria-label="${esc(
-                features.title
-              )}">
-                ${layerItems
-                  .map((item, index) =>
-                    renderStackTick({
-                      index,
-                      ariaLabel: item.title,
-                      active: index === 0,
-                      attr: "data-stack-tick",
-                    })
-                  )
-                  .join("")}
-              </div>
-              ${layerItems
-                .map((item, index) => {
-                  const layerLabel = locale.stack.layers[index];
-                  return `
-              <article class="stack-panel${index === 0 ? " is-active" : ""}" data-stack-panel="${index}">
-                <div class="stack-kicker">
-                  <span class="stack-kicker-index">LAYER 0${index + 1}</span>
-                  <span class="stack-kicker-line" aria-hidden="true"></span>
-                  <span class="stack-kicker-label">${esc(layerLabel)}</span>
-                </div>
-                <div class="feature-icon stack-panel-icon">${ICONS[item.icon] || ICONS.sparkles}</div>
-                <h3>${esc(item.title)}</h3>
-                <p>${esc(item.desc)}</p>
-              </article>`;
-                })
-                .join("")}
-            </div>
+  <section class="universe" id="universe" data-universe aria-labelledby="universe-title">
+    <!-- Semantic, always-crawlable content (also the no-WebGL fallback) -->
+    <div class="universe-content" data-universe-content>
+      <div class="universe-chapter" id="reel" data-chapter="0">
+        <div class="container">
+          <div class="section-head">
+            <p class="eyebrow"><span class="eyebrow-dot"></span>${esc(reel.eyebrow)}</p>
+            <h2 id="universe-title">${esc(reel.title)}</h2>
+            <p class="section-lead">${esc(reel.lead)}</p>
           </div>
         </div>
       </div>
-    </section>`;
-}
 
-function renderHow(locale) {
-  const { how } = locale;
-  return `
-    <section class="section section-alt" id="how-it-works" aria-labelledby="how-title" data-how-section>
-      <div class="container">
-        <div class="section-head">
-          <p class="eyebrow">${esc(how.eyebrow)}</p>
-          <h2 id="how-title">${esc(how.title)}</h2>
-          <p class="section-lead">${esc(how.lead)}</p>
+      <div class="universe-chapter" id="features" data-chapter="1">
+        <div class="container">
+          <div class="section-head">
+            <p class="eyebrow"><span class="eyebrow-dot"></span>${esc(features.eyebrow)}</p>
+            <h2>${esc(features.title)}</h2>
+            <p class="section-lead">${esc(features.lead)}</p>
+          </div>
+          <div class="feature-grid">
+            ${features.items
+              .map(
+                (item) => `
+            <article class="feature-card">
+              <div class="feature-icon">${ICONS[item.icon] || ICONS.sparkles}</div>
+              <h3>${esc(item.title)}</h3>
+              <p>${esc(item.desc)}</p>
+            </article>`
+              )
+              .join("")}
+          </div>
         </div>
+      </div>
 
-        <div class="step-rail" aria-hidden="true"><i data-step-fill></i></div>
-        <div class="step-grid" data-step-grid>
-          ${how.steps
-            .map(
-              (step, index) => `
-          <article class="step-card" data-step-index="${index}">
-            <span class="step-number">0${index + 1}</span>
-            <h3>${esc(step.title)}</h3>
-            <p>${esc(step.desc)}</p>
-          </article>`
-            )
-            .join("")}
+      <div class="universe-chapter" id="how-it-works" data-chapter="2">
+        <div class="container">
+          <div class="section-head">
+            <p class="eyebrow"><span class="eyebrow-dot"></span>${esc(how.eyebrow)}</p>
+            <h2>${esc(how.title)}</h2>
+            <p class="section-lead">${esc(how.lead)}</p>
+          </div>
+          <div class="step-grid" data-step-grid>
+            ${how.steps
+              .map(
+                (step, index) => `
+            <article class="step-card" data-step-index="${index}">
+              <span class="step-number">0${index + 1}</span>
+              <h3>${esc(step.title)}</h3>
+              <p>${esc(step.desc)}</p>
+            </article>`
+              )
+              .join("")}
+          </div>
+          <p class="section-note">${esc(how.note)}</p>
         </div>
+      </div>
 
-        <div class="how-stage" data-how-stage>
-          <div class="stack-sticky stack-sticky--how" data-how-sticky>
-            <div class="stack-viewport">
-              <div class="stage-console stage-console--how" data-how-viewport>
-                <span class="scan-line" data-scan-line aria-hidden="true"></span>
-                ${renderFilmStack(locale, "film-stack--how")}
-                <div class="dual-slab dual-slab--wide" data-slab-wide aria-hidden="true">
-                  <svg class="dual-slab-art" viewBox="0 0 200 113" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
-                    <circle cx="100" cy="46" r="15" fill="#fbbf24"/>
-                    <path d="M0 82 L56 34 L92 68 L128 26 L200 84 L200 113 L0 113 Z" fill="#1e293b" opacity="0.82"/>
-                    <path d="M0 96 L72 52 L118 88 L158 60 L200 98 L200 113 L0 113 Z" fill="#0b111c"/>
-                  </svg>
-                  <span class="dual-slab-meta"><b>16:9</b><i>YOUTUBE</i></span>
-                </div>
-                <div class="dual-slab dual-slab--tall" data-slab-tall aria-hidden="true">
-                  <svg class="dual-slab-art" viewBox="0 0 113 200" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
-                    <circle cx="56" cy="62" r="20" fill="#fbbf24"/>
-                    <path d="M0 132 L36 78 L64 116 L92 60 L113 128 L113 200 L0 200 Z" fill="#1e293b" opacity="0.85"/>
-                    <path d="M0 158 L44 118 L80 152 L113 136 L113 200 L0 200 Z" fill="#0b111c"/>
-                  </svg>
-                  <span class="dual-slab-meta"><b>9:16</b><i>SHORTS</i></span>
-                </div>
-                <span class="console-tag" aria-hidden="true">EXPORT</span>
-              </div>
+      <div class="universe-chapter universe-chapter--exit" data-chapter="3">
+        <div class="container">
+          <div class="section-head">
+            <p class="eyebrow"><span class="eyebrow-dot"></span>${esc(theater.eyebrow)}</p>
+            <h2>${esc(theater.title)}</h2>
+            <p class="section-lead">${esc(theater.lead)}</p>
+          </div>
+          <a class="button" href="#film">${esc(video.play)} ${ICONS.arrow}</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Presentational WebGL stage -->
+    <div class="universe-stage" data-universe-stage aria-hidden="true">
+      <div class="universe-sticky">
+        <div class="universe-canvas-host" data-universe-canvas></div>
+        <div class="universe-vignette"></div>
+
+        <div class="universe-beats">
+          <div class="beat beat--capture is-active" data-beat="0">
+            <p class="beat-eyebrow">${esc(reel.eyebrow)}</p>
+            <h2>${esc(reel.title)}</h2>
+            <p class="beat-lead">${esc(reel.lead)}</p>
+            <div class="beat-captures">${captureChips}</div>
+          </div>
+
+          <div class="beat beat--explode" data-beat="1">
+            <p class="beat-eyebrow">${esc(features.eyebrow)}</p>
+            <h2>${esc(features.title)}</h2>
+            <ol class="beat-list">${featureRows}</ol>
+          </div>
+
+          <div class="beat beat--assemble" data-beat="2">
+            <p class="beat-eyebrow">${esc(how.eyebrow)}</p>
+            <h2>${esc(how.title)}</h2>
+            <ol class="beat-list beat-list--steps">${stepRows}</ol>
+          </div>
+
+          <div class="beat beat--morph" data-beat="3">
+            <p class="beat-eyebrow">FINAL FORMAT</p>
+            <h2>${esc(theater.title)}</h2>
+            <div class="beat-formats">
+              <span><b>16:9</b><i>YOUTUBE</i></span>
+              <span><b>9:16</b><i>SHORTS</i></span>
             </div>
-            <div class="stack-panels how-panels" data-how-panels>
-              <div class="stack-meter" data-how-meter role="group" aria-label="${esc(
-                how.title
-              )}">
-                ${how.steps
-                  .map((step, index) =>
-                    renderStackTick({
-                      index,
-                      ariaLabel: step.title,
-                      active: index === 0,
-                      attr: "data-how-tick",
-                    })
-                  )
-                  .join("")}
-              </div>
-              ${how.steps
-                .map(
-                  (step, index) => `
-              <article class="stack-panel stack-panel--step${index === 0 ? " is-active" : ""}" data-how-panel="${index}">
-                <div class="stack-kicker">
-                  <span class="stack-kicker-index">STEP 0${index + 1}</span>
-                  <span class="stack-kicker-line" aria-hidden="true"></span>
-                  <span class="stack-kicker-label">0${index + 1} / 03</span>
-                </div>
-                <span class="step-number stack-panel-number">0${index + 1}</span>
-                <h3>${esc(step.title)}</h3>
-                <p>${esc(step.desc)}</p>
-              </article>`
-                )
-                .join("")}
-            </div>
+            <a class="button beat-button" href="#film" tabindex="-1">${esc(
+              video.play
+            )} ${ICONS.arrow}</a>
           </div>
         </div>
 
-        <p class="section-note">${esc(how.note)}</p>
+        <div class="universe-hud">
+          <span class="u-hud-act" data-u-act>01 / 04</span>
+          <span class="u-hud-bar"><i data-u-bar></i></span>
+          <span class="u-hud-tc" data-u-tc>00:00:00</span>
+        </div>
+        <span class="universe-corner universe-corner--tl"></span>
+        <span class="universe-corner universe-corner--tr"></span>
+        <span class="universe-corner universe-corner--bl"></span>
+        <span class="universe-corner universe-corner--br"></span>
+        <span class="universe-scrollcue" data-u-cue>SCROLL</span>
       </div>
-    </section>`;
+    </div>
+  </section>`;
 }
 
 function renderUseCases(locale) {
@@ -950,10 +823,8 @@ export function renderPage(locale) {
     <main id="main">
       ${renderHero(locale)}
       ${renderStrip(locale)}
-      ${renderReel(locale)}
+      ${renderUniverse(locale)}
       ${renderTheater(locale)}
-      ${renderFeatures(locale)}
-      ${renderHow(locale)}
       ${renderUseCases(locale)}
       ${renderLanguages(locale)}
       ${renderFaq(locale)}
@@ -968,6 +839,7 @@ export function renderPage(locale) {
       <span class="tc-hud-state" data-tc-state>${esc(locale.reel.scanning)}</span>
     </div>
     <script src="/vendor/lenis.min.js" defer></script>
+    <script src="/vendor/landing-3d.js" defer></script>
     <script src="/landing.js" defer></script>
   </body>
 </html>
