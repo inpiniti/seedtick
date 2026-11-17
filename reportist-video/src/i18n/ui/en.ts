@@ -482,4 +482,22 @@ export const uiEn: Record<string, string> = {
   "왼쪽": "Left",
   "가운데": "Center",
   "오른쪽": "Right",
+  // 모바일 전용 IA (컴팩트 스텝 헤더 · 전체 단계 바텀시트 · 하단 CTA)
+  "전체 보기": "View all",
+  "전체 단계": "All steps",
+  "전체 단계 보기": "View all steps",
+  "기본 설정이 이미 적용됐어요. 바꿀 단계만 눌러 수정하세요.":
+    "Smart defaults are already applied. Tap only the steps you want to change.",
+  "이전": "Back",
+  "다음: {label}": "Next: {label}",
+  "사용 중": "On",
+  "사용 안 함": "Off",
+  "{count}곳 넣었어요": "Added to {count} spots",
+  "{count}곳에 넣었어요": "Added to {count} spots",
+  "자동으로 만들었어요": "Made for you",
+  "저장할 수 있어요": "Ready to save",
+  "저장 중": "Saving",
+  "영상을 저장했어요!": "Your video is saved!",
+  "직접 편집하는 것보다 시간을 {percent}% 아꼈어요":
+    "You saved {percent}% of the time it takes to edit by hand",
 };

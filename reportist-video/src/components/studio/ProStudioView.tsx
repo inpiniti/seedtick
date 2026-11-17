@@ -2,6 +2,9 @@
 import './ProStudioView.css';
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { MobileStudioStepHeader } from './mobile/MobileStudioStepHeader.tsx';
+import { MobileStepListSheet } from './mobile/MobileStepListSheet.tsx';
+import { MobileBottomCtaBar } from './mobile/MobileBottomCtaBar.tsx';
 import {
   Play,
   Pause,
@@ -154,6 +157,7 @@ import {
 } from '../../services/introOutroStorage.ts';
 import { notify } from '../../services/toastService.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
+import { useIsMobileViewport } from '../../hooks/useIsMobileViewport.ts';
 import {
   type DateFormatOption,
   formatDateByPattern,
@@ -732,6 +736,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     );
   }, []);
 
+  // 모바일 뷰포트(1024px 이하)에서는 데스크탑 스텝바/하단 상태바 대신 전용 IA(스텝 헤더 + 바텀시트 + 하단 고정 CTA)를 쓴다.
+  const isMobileViewport = useIsMobileViewport(1024);
+  const [isStepSheetOpen, setIsStepSheetOpen] = useState(false);
+
   const [exportResolution, setExportResolutionState] = useState<ExportResolution>(() => {
     if (result?.resolution) return result.resolution;
     try {
@@ -826,10 +834,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const stepbarListRef = useRef<HTMLOListElement | null>(null);
   const activeStepButtonRef = useRef<HTMLButtonElement | null>(null);
 
-  // 4-1. 다국어, AI 모델 및 원본 영상 목록 모달 상태
   // 새 프로젝트 포맷 선택 모달 (프로젝트 만들 때 방향을 정한다)
   const [isFormatModalOpen, setIsFormatModalOpen] = useState<boolean>(false);
   const [pendingOrientation, setPendingOrientation] = useState<VideoOrientation>('landscape');
+  // 4-1. 다국어, AI 모델 및 원본 영상 목록 모달 상태
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState<boolean>(false);
   const [isModelModalOpen, setIsModelModalOpen] = useState<boolean>(false);
   const [isVideoListModalOpen, setIsVideoListModalOpen] = useState<boolean>(false);
@@ -3734,6 +3742,67 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     goToSection(studioSteps[nextIndex].id);
   };
 
+  // 단계별 상태 요약 문구 (데스크탑 스텝바 · 모바일 스텝 헤더/바텀시트에서 공용으로 사용)
+  const getStudioStepStatus = (stepId: StudioSection): string => {
+    switch (stepId) {
+      case 'intro':
+        return overlayOptions.showIntro ? ui('사용 중') : ui('사용 안 함');
+      case 'upload':
+        return videos.length > 0
+          ? ui('{count}개 준비됨', { count: videos.length })
+          : ui('올리기 필요');
+      case 'ai':
+        if (isProcessing) {
+          return ui('분석 중 {percent}%', { percent: progress.progressPercent });
+        }
+        return segments.length > 0
+          ? ui('{count}개 컷 완성', { count: segments.length })
+          : ui('대기');
+      case 'cut':
+        return ui('{count}개 컷', { count: segments.length });
+      case 'bridge':
+        if (isCreationFlow) {
+          return overlayOptions.showChapterBridge !== false
+            ? ui('미리 고르기')
+            : ui('사용 안 함');
+        }
+        if (activeBridgeIndexes.length > 0) {
+          return ui('{count}곳 넣었어요', { count: activeBridgeIndexes.length });
+        }
+        return bridgeCandidateIndexes.length > 0
+          ? ui('{count}곳 가능', { count: bridgeCandidateIndexes.length })
+          : ui('자동 감지 없음');
+      case 'outro':
+        return overlayOptions.showOutro ? ui('사용 중') : ui('사용 안 함');
+      case 'music':
+        return customAudioFile ? ui('선택됨') : ui('없음');
+      case 'thumbnail':
+        return thumbnailUrl ? ui('자동으로 만들었어요') : ui('대기');
+      case 'download':
+        return isSequenceMode && segments.length > 0
+          ? ui('저장할 수 있어요')
+          : ui('대기');
+      default:
+        return '';
+    }
+  };
+
+  // 모바일 스텝 헤더/바텀시트용 단계 목록 (현재 단계 강조 포함)
+  const mobileStepItems = studioSteps.map((step, index) => ({
+    id: step.id,
+    index,
+    label: ui(step.label),
+    status: getStudioStepStatus(step.id),
+    isActive: activeSection === step.id,
+  }));
+  const activeMobileStepItem = mobileStepItems[activeStudioStepIndex] || mobileStepItems[0];
+  const nextStudioStep = studioSteps[activeStudioStepIndex + 1] || null;
+  const nextStepCtaLabel = nextStudioStep
+    ? nextStudioStep.id === 'download'
+      ? ui('다운로드로 가기')
+      : ui('다음: {label}', { label: ui(nextStudioStep.label) })
+    : ui('다음 단계');
+
   // 상대 시간 이동 (-5s, +5s)
   const seekRelative = (delta: number) => {
     const baseTime = isSequenceMode
@@ -4305,6 +4374,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   };
 
+  // 다운로드 완료 피크엔드(Peak-End): 직접 편집 대비 아낀 시간과 함께 기분 좋은 마무리를 보여준다
+  const notifyVideoSaved = () => {
+    if (savedPercent > 0) {
+      notify.success(ui('영상을 저장했어요!'), {
+        description: ui('직접 편집하는 것보다 시간을 {percent}% 아꼈어요', {
+          percent: savedPercent,
+        }),
+        duration: 6000,
+      });
+      return;
+    }
+    notify.success(dict.toasts.videoDownloadStarted);
+  };
+
   // 완성 영상 내보내기 및 다운로드 (캐시 히트 시 0초 즉시 다운로드, 미합성/편집 변경 시 단 1회 내보내기 후 자동 다운로드)
   const triggerVideoFileDownload = async (targetResult: FinalVideoResult) => {
     if (!targetResult.url) return;
@@ -4321,6 +4404,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             files: [file],
             title: overlayOptions.titleText || 'Reportist Highlight',
           });
+          notifyVideoSaved();
           return;
         }
       } catch (err) {
@@ -4334,7 +4418,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    notify.success(dict.toasts.videoDownloadStarted);
+    notifyVideoSaved();
   };
 
   const handleDownload = async (targetRes?: ExportResolution) => {
@@ -4661,6 +4745,51 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
+  // 왼쪽/오른쪽 문구 입력 필드 (데스크탑 상단 바 · 모바일 인트로 카드에서 공용으로 사용)
+  const overlayTextInputFields = (
+    <>
+      <div className="toss-header-input-wrap">
+        <label className="toss-header-input-label">
+          <Type size={12} className="text-slate-700" />
+          <span>{dict.player.leftTitleLabel}</span>
+        </label>
+        <input
+          type="text"
+          value={overlayOptions.titleText}
+          onChange={(e) =>
+            setOverlayOptions((prev) => ({
+              ...prev,
+              titleText: e.target.value,
+              showTitle: e.target.value.trim().length > 0,
+            }))
+          }
+          placeholder={dict.player.leftTitlePlaceholder}
+          className="toss-header-input"
+        />
+      </div>
+
+      <div className="toss-header-input-wrap toss-header-input-wrap-right">
+        <label className="toss-header-input-label toss-label-right">
+          <span>{dict.player.rightTitleLabel}</span>
+          <Type size={12} className="text-slate-700" />
+        </label>
+        <input
+          type="text"
+          value={overlayOptions.channelText}
+          onChange={(e) =>
+            setOverlayOptions((prev) => ({
+              ...prev,
+              channelText: e.target.value,
+              showChannel: e.target.value.trim().length > 0,
+            }))
+          }
+          placeholder={dict.player.rightTitlePlaceholder}
+          className="toss-header-input toss-input-right"
+        />
+      </div>
+    </>
+  );
+
   return (
     <div className="toss-page-container" onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
       <input
@@ -4736,6 +4865,29 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         </div>
 
         <div className="toss-nav-right">
+          {/* 모바일 전용 저장 상태 (하단 플로팅 상태바를 걷어내고 헤더의 작은 체크로 흡수) */}
+          {activeTab === 'studio' && videos.length > 0 && (
+            <span
+              className={`toss-mobile-save-status ${saveStatus === 'saving' ? 'is-saving' : 'is-saved'}`}
+              role="status"
+              aria-label={
+                saveStatus === 'saving'
+                  ? dict.projects?.saving || ui('저장 중')
+                  : dict.projects?.bottomSaved || dict.projects?.autoSaved || ui('기기에 안전하게 보관됨')
+              }
+              title={
+                saveStatus === 'saving'
+                  ? dict.projects?.saving || ui('저장 중')
+                  : dict.projects?.bottomSaved || dict.projects?.autoSaved || ui('기기에 안전하게 보관됨')
+              }
+            >
+              {saveStatus === 'saving' ? (
+                <Loader2 size={13} className="animate-spin" aria-hidden="true" />
+              ) : (
+                <Check size={13} strokeWidth={3} aria-hidden="true" />
+              )}
+            </span>
+          )}
           {/* 다국어 언어 선택 트리거 */}
           <button
             type="button"
@@ -4874,7 +5026,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         />
       ) : (
         <main className="toss-main-content">
-        {/* 통합 스튜디오 단계 안내: 처음 만들 때 8단계, 컷이 생기면 7단계 */}
+        {/* 통합 스튜디오 단계 안내: 처음 만들 때 8단계, 컷이 생기면 7단계
+            모바일(1024px 이하)에서는 잘리던 가로 스텝 스트립 대신 컴팩트 스텝 헤더 + 전체 단계 바텀시트를 쓴다 */}
+        {isMobileViewport ? (
+          <MobileStudioStepHeader
+            stepIndex={activeStudioStepIndex}
+            totalSteps={studioSteps.length}
+            stepLabel={activeMobileStepItem?.label ?? ui(activeStudioStep.label)}
+            stepStatus={activeMobileStepItem?.status ?? getStudioStepStatus(activeSection)}
+            stepPositionLabel={`${activeStudioStepIndex + 1} / ${studioSteps.length}`}
+            viewAllLabel={ui('전체 보기')}
+            openAllAriaLabel={ui('전체 단계 보기')}
+            onOpenAll={() => setIsStepSheetOpen(true)}
+          />
+        ) : (
         <nav className="toss-studio-stepbar" aria-label={ui('편집 순서')}>
           <div className="toss-studio-stepbar-head">
             <span className="toss-studio-stepbar-eyebrow">
@@ -4894,48 +5059,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           <ol className="toss-studio-steps" ref={stepbarListRef}>
             {studioSteps.map((step, index) => {
               const isActive = activeSection === step.id;
-              const status =
-                step.id === 'intro'
-                  ? overlayOptions.showIntro
-                    ? ui('켜짐')
-                    : ui('꺼짐')
-                  : step.id === 'upload'
-                    ? videos.length > 0
-                      ? ui('{count}개 준비됨', { count: videos.length })
-                      : ui('올리기 필요')
-                    : step.id === 'ai'
-                      ? isProcessing
-                        ? ui('분석 중 {percent}%', { percent: progress.progressPercent })
-                        : segments.length > 0
-                          ? ui('{count}개 컷 완성', { count: segments.length })
-                          : ui('대기')
-                      : step.id === 'cut'
-                        ? ui('{count}개 컷', { count: segments.length })
-                        : step.id === 'bridge'
-                          ? isCreationFlow
-                            ? overlayOptions.showChapterBridge !== false
-                              ? ui('미리 고르기')
-                              : ui('꺼짐')
-                            : activeBridgeIndexes.length > 0
-                              ? ui('{count}곳 켜짐', { count: activeBridgeIndexes.length })
-                              : bridgeCandidateIndexes.length > 0
-                                ? ui('{count}곳 가능', { count: bridgeCandidateIndexes.length })
-                                : ui('자동 감지 없음')
-                          : step.id === 'outro'
-                            ? overlayOptions.showOutro
-                              ? ui('켜짐')
-                              : ui('꺼짐')
-                            : step.id === 'music'
-                              ? customAudioFile
-                                ? ui('선택됨')
-                                : ui('없음')
-                              : step.id === 'thumbnail'
-                                ? thumbnailUrl
-                                  ? ui('준비됨')
-                                  : ui('대기')
-                                : isSequenceMode && segments.length > 0
-                                  ? ui('저장 가능')
-                                  : ui('대기');
+              const status = getStudioStepStatus(step.id);
               return (
                 <li key={step.id} className="toss-studio-step-item">
                   <button
@@ -4982,6 +5106,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             })}
           </ol>
         </nav>
+        )}
 
         {/* 누락 파일 일괄 재연결 알림 배너: 아직 하이라이트 분석 전(초기 업로드 단계)에만 표시 */}
         {isDraftPreview && !result?.url && videos.some((v) => !v.url || (v.file && v.file.size === 0) || v.error || v.isMissingFile) && (
@@ -5033,48 +5158,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         <div className="toss-studio-columns">
         <section className="toss-column-left">
           <div className="toss-card toss-player-card">
-            {/* 영상 상단 왼쪽, 오른쪽 문구 직관 입력창 */}
-            <div className="toss-video-header-bar">
-              <div className="toss-header-input-wrap">
-                <label className="toss-header-input-label">
-                  <Type size={12} className="text-slate-700" />
-                  <span>{dict.player.leftTitleLabel}</span>
-                </label>
-                <input
-                  type="text"
-                  value={overlayOptions.titleText}
-                  onChange={(e) =>
-                    setOverlayOptions((prev) => ({
-                      ...prev,
-                      titleText: e.target.value,
-                      showTitle: e.target.value.trim().length > 0,
-                    }))
-                  }
-                  placeholder={dict.player.leftTitlePlaceholder}
-                  className="toss-header-input"
-                />
-              </div>
-
-              <div className="toss-header-input-wrap toss-header-input-wrap-right">
-                <label className="toss-header-input-label toss-label-right">
-                  <span>{dict.player.rightTitleLabel}</span>
-                  <Type size={12} className="text-slate-700" />
-                </label>
-                <input
-                  type="text"
-                  value={overlayOptions.channelText}
-                  onChange={(e) =>
-                    setOverlayOptions((prev) => ({
-                      ...prev,
-                      channelText: e.target.value,
-                      showChannel: e.target.value.trim().length > 0,
-                    }))
-                  }
-                  placeholder={dict.player.rightTitlePlaceholder}
-                  className="toss-header-input toss-input-right"
-                />
-              </div>
-            </div>
+            {/* 영상 상단 왼쪽, 오른쪽 문구 직관 입력창 (모바일에서는 숨기고 인트로 단계 카드 안에서만 보여준다) */}
+            <div className="toss-video-header-bar">{overlayTextInputFields}</div>
 
             {/* 플레이어 스테이지 (전체화면 지원) */}
             <div
@@ -5478,8 +5563,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               </div>
             )}
 
-            {/* 하이라이트 전: 가짜 시퀀스 대신 원본 영상 미리보기 선택 */}
-            {isDraftPreview && videos.length > 0 && (
+            {/* 하이라이트 전: 가짜 시퀀스 대신 원본 영상 미리보기 선택
+                모바일에서는 관련 단계(영상 올리기/AI)에서만 보여준다 */}
+            {isDraftPreview && videos.length > 0 && (!isMobileViewport || activeSection === 'upload' || activeSection === 'ai') && (
               <div className="toss-timeline-sequencer-box toss-draft-preview-box">
                 <div className="toss-sequencer-header">
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -5543,8 +5629,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               </div>
             )}
 
-            {/* 시퀀스 타임라인 스트립 (V1 영상 + A1 배경음악 멀티트랙) */}
-            {segments.length > 0 && (
+            {/* 시퀀스 타임라인 스트립 (V1 영상 + A1 배경음악 멀티트랙)
+                모바일에서는 컷/브릿지 단계에서만 노출해 첫 화면을 가볍게 유지한다 (컷 편집은 toss-cut-navigator로도 가능) */}
+            {segments.length > 0 && (!isMobileViewport || activeSection === 'cut' || activeSection === 'bridge') && (
               <div className="toss-timeline-sequencer-box">
                 <div className="toss-sequencer-header">
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -6401,7 +6488,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 </p>
               </div>
               <span className="toss-tag-blue">
-                {isSequenceMode && segments.length > 0 ? ui('저장 가능') : ui('대기')}
+                {isSequenceMode && segments.length > 0 ? ui('저장할 수 있어요') : ui('대기')}
               </span>
             </div>
 
@@ -6529,6 +6616,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 <span className="toss-toggle-slider" />
               </label>
             </div>
+
+            {/* 모바일: 프리뷰 위를 가리지 않도록 왼쪽/오른쪽 문구 입력은 인트로 단계에서만 보여준다 */}
+            {isMobileViewport && (
+              <div className="toss-header-inputs-inline">{overlayTextInputFields}</div>
+            )}
 
             {overlayOptions.showIntro && (
               <div className="toss-intro-content">
@@ -6835,7 +6927,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 </p>
               </div>
               <span className="toss-tag-gray">
-                {activeBridgeIndexes.length} / {ui('{count}곳 켜짐', { count: bridgeCandidateIndexes.length })}
+                {activeBridgeIndexes.length} / {ui('{count}곳에 넣었어요', { count: bridgeCandidateIndexes.length })}
               </span>
             </div>
 
@@ -8184,7 +8276,50 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               </button>
             )}
           </nav>
+          {/* 모바일 전체 단계 바텀시트 */}
+          {isMobileViewport && (
+            <MobileStepListSheet
+              isOpen={isStepSheetOpen}
+              onClose={() => setIsStepSheetOpen(false)}
+              steps={mobileStepItems}
+              title={ui('전체 단계')}
+              guidance={ui('기본 설정이 이미 적용됐어요. 바꿀 단계만 눌러 수정하세요.')}
+              closeLabel={dict.common?.close || ui('닫기')}
+              onSelect={(id) => goToSection(id as StudioSection)}
+            />
+          )}
         </section>
+
+        {/* 모바일 하단 고정 CTA 바 (엄지 영역) */}
+        {isMobileViewport && (
+          <MobileBottomCtaBar
+            ariaLabel={ui('편집 단계 이동')}
+            prevLabel={ui('이전')}
+            onPrev={() => goToAdjacentSection(-1)}
+            prevDisabled={activeStudioStepIndex <= 0}
+            primaryLabel={
+              activeSection === 'download'
+                ? isReStitching
+                  ? `${dict.header.stitching} (${reStitchProgress?.progressPercent ?? 0}%)`
+                  : `${dict.header.download || '영상 저장하기'} (${exportResolution} · ${formatSec(totalDuration)})`
+                : nextStepCtaLabel
+            }
+            onPrimary={() => {
+              if (activeSection === 'download') {
+                if (!isReStitching) setIsExportModalOpen(true);
+                return;
+              }
+              goToAdjacentSection(1);
+            }}
+            primaryDisabled={
+              activeSection === 'download'
+                ? !isSequenceMode || segments.length === 0 || isReStitching
+                : activeStudioStepIndex >= studioSteps.length - 1
+            }
+            primaryBusy={activeSection === 'download' && isReStitching}
+            isDownloadStep={activeSection === 'download'}
+          />
+        )}
         </div>
       </main>
       )}

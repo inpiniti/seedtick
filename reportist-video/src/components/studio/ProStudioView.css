@@ -14210,3 +14210,487 @@
   font-size: 14.5px;
   margin-bottom: 10px;
 }
+
+/* ==========================================================================
+   모바일 전용 IA (1024px 이하): 컴팩트 스텝 헤더 · 전체 단계 바텀시트 · 하단 고정 CTA
+   - 데스크탑(1025px 이상)에서는 어느 것도 렌더링되지 않고, 기존 2단 작업실을 그대로 쓴다.
+   ========================================================================== */
+
+/* ---------- 1. 컴팩트 스텝 헤더 (n/N · 현재 단계 · 얇은 진행률 바) ---------- */
+.toss-mobile-step-header {
+  flex: 0 0 auto;
+  margin-top: 8px;
+  background: #ffffff;
+  border: 1px solid #e5e8eb;
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  overflow: hidden;
+}
+
+.toss-mobile-step-header-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  box-sizing: border-box;
+}
+
+.toss-mobile-step-header-btn:active {
+  background: #f7f9fc;
+}
+
+.toss-mobile-step-count {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: #3182f6;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.toss-mobile-step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.toss-mobile-step-label {
+  font-size: 15px;
+  font-weight: 800;
+  color: #191f28;
+  letter-spacing: -0.3px;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.toss-mobile-step-status {
+  font-size: 11px;
+  font-weight: 600;
+  color: #8b95a1;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toss-mobile-step-viewall {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  min-height: 44px;
+  padding: 0 2px 0 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #3182f6;
+  white-space: nowrap;
+}
+
+.toss-mobile-step-progress {
+  height: 3px;
+  background: #eef1f4;
+}
+
+.toss-mobile-step-progress-fill {
+  height: 100%;
+  background: #3182f6;
+  transition: width 0.25s ease;
+}
+
+/* ---------- 2. 전체 단계 바텀시트 ---------- */
+.toss-step-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.45);
+  animation: tossStepSheetBackdropIn 0.18s ease;
+}
+
+@keyframes tossStepSheetBackdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.toss-step-sheet {
+  width: 100%;
+  max-width: 520px;
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  background: #ffffff;
+  border-radius: 20px 20px 0 0;
+  padding: 8px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -10px 34px rgba(0, 0, 0, 0.2);
+  animation: tossStepSheetIn 0.22s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+@keyframes tossStepSheetIn {
+  from { transform: translateY(40%); opacity: 0.6; }
+  to { transform: none; opacity: 1; }
+}
+
+.toss-step-sheet-grabber {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 4px;
+  border-radius: 9999px;
+  background: #e5e8eb;
+  margin: 2px auto 8px;
+}
+
+.toss-step-sheet-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 4px 10px;
+  border-bottom: 1px solid #f2f4f6;
+}
+
+.toss-step-sheet-head-text {
+  min-width: 0;
+}
+
+.toss-step-sheet-title {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  color: #191f28;
+}
+
+.toss-step-sheet-guidance {
+  margin: 3px 0 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: #8b95a1;
+}
+
+.toss-step-sheet-close {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: #f2f4f6;
+  color: #4e5968;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.toss-step-sheet-close:hover {
+  background: #e5e8eb;
+}
+
+.toss-step-sheet-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+
+.toss-step-sheet-item {
+  border-bottom: 1px solid #f7f8fa;
+}
+
+.toss-step-sheet-item:last-child {
+  border-bottom: none;
+}
+
+.toss-step-sheet-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 6px;
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+  box-sizing: border-box;
+}
+
+.toss-step-sheet-row:hover {
+  background: #f7f9fc;
+}
+
+.toss-step-sheet-row.active {
+  background: #e8f3ff;
+}
+
+.toss-step-sheet-index {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: #f2f4f6;
+  color: #4e5968;
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.toss-step-sheet-row.active .toss-step-sheet-index {
+  background: #3182f6;
+  color: #ffffff;
+}
+
+.toss-step-sheet-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.toss-step-sheet-label {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #191f28;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+}
+
+.toss-step-sheet-status {
+  font-size: 11px;
+  color: #8b95a1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toss-step-sheet-row.active .toss-step-sheet-status {
+  color: #3182f6;
+  font-weight: 600;
+}
+
+.toss-step-sheet-check {
+  flex: 0 0 auto;
+  color: #3182f6;
+}
+
+/* ---------- 3. 하단 고정 CTA 바 (엄지 영역) ---------- */
+.toss-bottom-cta-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 46;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid #e2e8f0;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.05);
+}
+
+.toss-bottom-cta-prev {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 74px;
+  min-height: 48px;
+  padding: 0 12px;
+  background: #f2f4f6;
+  border: 1px solid #e5e8eb;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #4e5968;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.toss-bottom-cta-prev:hover:not(:disabled) {
+  background: #e5e8eb;
+}
+
+.toss-bottom-cta-prev:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.toss-bottom-cta-primary {
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 12px;
+  background: #3182f6;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(49, 130, 246, 0.35);
+  transition: filter 0.15s ease, transform 0.12s ease, background-color 0.15s ease;
+}
+
+.toss-bottom-cta-primary:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.toss-bottom-cta-primary:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.toss-bottom-cta-primary:disabled {
+  background: #b3d4ff;
+  box-shadow: none;
+  cursor: default;
+}
+
+.toss-bottom-cta-primary-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- 4. 모바일: 인트로 카드 안 인라인 문구 입력 ---------- */
+.toss-header-inputs-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #f2f4f6;
+}
+
+.toss-header-inputs-inline .toss-header-input-wrap-right {
+  align-items: stretch;
+}
+
+.toss-header-inputs-inline .toss-label-right {
+  justify-content: flex-start;
+}
+
+.toss-header-inputs-inline .toss-input-right {
+  text-align: left;
+  padding-right: 10px;
+}
+
+/* ---------- 5. 모바일 헤더 저장 상태 점 (기본은 숨김, 768px 이하에서만 노출) ---------- */
+.toss-mobile-save-status {
+  display: none;
+}
+
+/* ---------- 6. 음악 배지 톤다운 (초록 → 중립 회색, warning만 유지) ---------- */
+.toss-sequencer-music-badge,
+.toss-sequencer-music-badge.ok,
+.toss-sequencer-music-badge.trimmed {
+  color: #4e5968;
+  background-color: #f2f4f6;
+  border-color: #e5e8eb;
+}
+
+.toss-sequencer-music-badge.warning,
+.toss-sequencer-music-badge.exceeded {
+  color: #d9381e;
+  background-color: #fff0ed;
+  border-color: #ffc5ba;
+}
+
+/* ==========================================================================
+   반응형 분기: 1024px 이하(모바일 IA)에서는 데스크탑 잔재를 모두 숨긴다
+   ========================================================================== */
+@media (max-width: 1024px) {
+  /* 하단 고정 CTA 바 높이만큼 본문 하단 여백 확보 */
+  .toss-page-container {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  /* 하단 플로팅 상태바 → 헤더의 저장 상태 점 + 다운로드 완료 토스트로 흡수 */
+  .toss-bottom-status-bar {
+    display: none !important;
+  }
+
+  /* 페이지 맨 밑의 단계 이동 → 하단 고정 CTA 바로 승격 */
+  .toss-inspector-nav {
+    display: none !important;
+  }
+
+  /* 프리뷰 위 왼쪽/오른쪽 문구 → 인트로 카드 안 인라인 입력으로 이동 */
+  .toss-video-header-bar {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .toss-mobile-save-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+  }
+
+  .toss-mobile-save-status.is-saved {
+    color: #10b981;
+    background: #ecfdf5;
+  }
+
+  .toss-mobile-save-status.is-saving {
+    color: #3182f6;
+    background: #e8f3ff;
+  }
+}
+
+@media (max-width: 640px) {
+  /* -5s/+5s 보조 버튼은 프로그레스 바·컷 이동으로 대체하고 숨긴다 */
+  .toss-transport-bar .toss-btn-step {
+    display: none;
+  }
+
+  /* 피츠의 법칙: 재생 · 음소거 · 전체화면 터치 타겟 44px 이상 */
+  .toss-btn-icon {
+    width: 44px;
+    height: 44px;
+  }
+
+  .toss-play-btn {
+    width: 48px;
+    height: 48px;
+  }
+}
