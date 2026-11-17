@@ -5268,6 +5268,82 @@
   box-shadow: 0 4px 16px rgba(15, 23, 42, 0.14);
 }
 
+/* 모바일 전용: 정렬 칩 한 줄 (필터 토글 대신 노출) */
+.model-modal-sort-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  touch-action: pan-x;
+}
+
+.model-modal-sort-row::-webkit-scrollbar {
+  display: none;
+}
+
+/* 모바일 전용: 컴팩트 모델 카드 */
+.model-modal-model-card--compact {
+  gap: 6px;
+  padding: 11px 13px;
+  border-radius: 14px;
+}
+
+.model-modal-compact-top {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.model-modal-compact-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #191f28;
+  letter-spacing: -0.2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-modal-compact-badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border: 1px solid #fcd34d;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  color: #92400e;
+  font-size: 9.5px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.model-modal-compact-warning {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  color: #d97706;
+}
+
+.model-modal-compact-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  white-space: nowrap;
+}
+
 .model-modal-card-top {
   display: flex;
   align-items: center;

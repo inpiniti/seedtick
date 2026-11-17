@@ -197,7 +197,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
   useModalScrollLock(isOpen, {
     overlayRef,
     scrollableSelector:
-      '.model-modal-list, .model-modal-chips, .model-modal-provider-chips, .model-modal-active-filters, [data-modal-scrollable="true"]',
+      '.model-modal-list, .model-modal-chips, .model-modal-sort-row, .model-modal-provider-chips, .model-modal-active-filters, [data-modal-scrollable="true"]',
   });
 
   useEffect(() => {
@@ -732,6 +732,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                 </button>
               )}
             </div>
+                {!isMobileViewport && (
                 <button
                   type="button"
                   className={`model-modal-filter-toggle${filtersOpen ? ' active' : ''}${activeFilterCount > 0 ? ' has-active' : ''}`}
@@ -744,10 +745,45 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                     <span className="model-modal-filter-count">{activeFilterCount}</span>
                   )}
                 </button>
+                )}
               </div>
 
-              {/* 적용된 필터 요약 칩 (기본값이 아닐 때만 1줄 노출) */}
-              {activeFilterCount > 0 && (
+              {/* 모바일: 정렬 칩 한 줄만 (필터 토글/모달리티/제공사 필터 숨김) */}
+              {isMobileViewport && (
+                <div className="model-modal-sort-row" role="group" aria-label={dict.modelModal.sortLabel}>
+                  <button
+                    type="button"
+                    className={`model-modal-chip ${sortKey === 'intelligence' ? 'active' : ''}`}
+                    onClick={() => setSortKey('intelligence')}
+                  >
+                    🧠 {dict.modelModal.sortIntelligence}
+                  </button>
+                  <button
+                    type="button"
+                    className={`model-modal-chip ${sortKey === 'speed' ? 'active' : ''}`}
+                    onClick={() => setSortKey('speed')}
+                  >
+                    ⚡ {dict.modelModal.sortSpeed}
+                  </button>
+                  <button
+                    type="button"
+                    className={`model-modal-chip ${sortKey === 'newest' ? 'active' : ''}`}
+                    onClick={() => setSortKey('newest')}
+                  >
+                    🕒 {dict.modelModal.sortNewest}
+                  </button>
+                  <button
+                    type="button"
+                    className={`model-modal-chip ${sortKey === 'context' ? 'active' : ''}`}
+                    onClick={() => setSortKey('context')}
+                  >
+                    📚 {dict.modelModal.sortContext}
+                  </button>
+                </div>
+              )}
+
+              {/* 적용된 필터 요약 칩 (기본값이 아닐 때만 1줄 노출, 데스크톱 전용) */}
+              {!isMobileViewport && activeFilterCount > 0 && (
                 <div className="model-modal-active-filters">
                   {sortKey !== 'intelligence' && (
                     <button
@@ -791,7 +827,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                 </div>
               )}
 
-            {filtersOpen && (
+            {!isMobileViewport && filtersOpen && (
             <div className="model-modal-filter-panel">
           {/* Sort bar */}
           <div className="model-modal-filter-row">
@@ -922,6 +958,75 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                     )
                   )
                 : 0;
+
+              // 모바일: 영상 편집하러 온 사용자에게 필요한 최소 정보만 (이름·추천 여부·핵심 수치 한 줄)
+              if (isMobileViewport) {
+                const trainsOnData = model.dataPolicy?.training === true;
+                return (
+                  <div
+                    key={model.id}
+                    className={`model-modal-model-card model-modal-model-card--compact ${isSelected ? 'selected' : ''}`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleSelectGatewayModel(model)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        handleSelectGatewayModel(model);
+                      }
+                    }}
+                  >
+                    <div className="model-modal-compact-top">
+                      <span className="model-modal-provider-badge">
+                        {getProviderName(model)}
+                      </span>
+                      <h3 className="model-modal-compact-name">
+                        {cleanModelName(model.name)}
+                      </h3>
+                      {isRecommended && (
+                        <span className="model-modal-compact-badge">
+                          <Sparkles size={11} />
+                          {dict.modelModal.badgeRecommended}
+                        </span>
+                      )}
+                      {isFastest && (
+                        <span className="model-modal-compact-badge">
+                          <Zap size={11} />
+                          {dict.modelModal.badgeFastest}
+                        </span>
+                      )}
+                      {trainsOnData && (
+                        <span
+                          className="model-modal-compact-warning"
+                          title={dict.modelModal.privacyTrainingTip || '주의: 이 엔드포인트는 데이터가 모델 학습에 사용될 수 있습니다.'}
+                        >
+                          <ShieldAlert size={13} />
+                        </span>
+                      )}
+                      <div className="model-modal-select-indicator">
+                        {isSelected ? (
+                          <div className="model-modal-check-badge selected">
+                            <Check size={16} color="#ffffff" />
+                          </div>
+                        ) : (
+                          <div className="model-modal-check-badge unselected" />
+                        )}
+                      </div>
+                    </div>
+                    <div className="model-modal-compact-meta">
+                      {model.intelligenceIndex != null && (
+                        <span>🧠 {formatIntelligence(model.intelligenceIndex)}</span>
+                      )}
+                      {model.speedTokensPerSecond != null && model.speedTokensPerSecond > 0 && (
+                        <span>⚡ {formatSpeed(model.speedTokensPerSecond)} {dict.modelModal.speedUnit}</span>
+                      )}
+                      {model.latencyMs != null && model.latencyMs > 0 && (
+                        <span>⏱️ {formatLatency(model.latencyMs)}{dict.modelModal.ttftUnit}</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
 
               return (
                 <div
