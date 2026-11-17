@@ -103,7 +103,7 @@ export const LOCALES = [
       layers: ["RAW SOURCE", "AI SCORE", "BRIDGES", "AUDIO", "CAPTIONS", "OVERLAY"],
     },
     strip: [
-      "Built for travel films",
+      "Built for family memories",
       "Family & celebrations",
       "Sports & action",
       "YouTube creators",
@@ -185,7 +185,7 @@ export const LOCALES = [
         "If you have hours of video and only a minute to share, PenguinCut was built for you.",
       items: [
         {
-          title: "Travel films",
+          title: "Family films",
           desc: "Turn a week of clips into a shareable trip highlight.",
         },
         {
@@ -331,7 +331,7 @@ export const LOCALES = [
       layers: ["원본 영상", "AI 점수", "브릿지", "음악", "자막", "오버레이"],
     },
     strip: [
-      "여행 영상",
+      "가족과 추억을 담은 영상",
       "가족과 기념일",
       "스포츠와 액션",
       "유튜브 크리에이터",
@@ -413,7 +413,7 @@ export const LOCALES = [
         "수시간의 영상에서 1분만 공유하고 싶다면, PenguinCut이 답입니다.",
       items: [
         {
-          title: "여행 영상",
+          title: "가족 영상",
           desc: "일주일치 클립을 공유하기 좋은 여행 하이라이트로.",
         },
         {
@@ -559,7 +559,7 @@ export const LOCALES = [
       layers: ["ソース", "AIスコア", "ブリッジ", "音楽", "字幕", "オーバーレイ"],
     },
     strip: [
-      "旅行動画",
+      "家族との思い出の動画",
       "家族と記念日",
       "スポーツとアクション",
       "YouTubeクリエイター",
@@ -641,7 +641,7 @@ export const LOCALES = [
         "何時間もの映像から1分だけ共有したいなら、PenguinCutが答えです。",
       items: [
         {
-          title: "旅行動画",
+          title: "家族動画",
           desc: "1週間分のクリップを、共有しやすい旅のハイライトに。",
         },
         {
@@ -787,7 +787,7 @@ export const LOCALES = [
       layers: ["原始素材", "AI 评分", "桥段", "音乐", "字幕", "叠加层"],
     },
     strip: [
-      "旅行影片",
+      "家庭与回忆的影片",
       "家庭与纪念日",
       "运动与动作",
       "YouTube 创作者",
@@ -869,7 +869,7 @@ export const LOCALES = [
         "如果你有数小时的视频，却只想分享一分钟，PenguinCut 就是答案。",
       items: [
         {
-          title: "旅行影片",
+          title: "家庭影片",
           desc: "把一周的片段变成易于分享的旅行精彩片段。",
         },
         {
@@ -1015,7 +1015,7 @@ export const LOCALES = [
       layers: ["ORIGEN", "AI SCORE", "PUENTES", "MÚSICA", "SUBTÍTULOS", "OVERLAY"],
     },
     strip: [
-      "Vídeos de viaje",
+      "Vídeos de familia y recuerdos",
       "Familia y celebraciones",
       "Deporte y acción",
       "Creadores de YouTube",
@@ -1097,7 +1097,7 @@ export const LOCALES = [
         "Si tienes horas de vídeo y solo un minuto para compartir, PenguinCut es para ti.",
       items: [
         {
-          title: "Vídeos de viaje",
+          title: "Vídeos familiares",
           desc:
             "Convierte una semana de clips en un highlight de viaje fácil de compartir.",
         },
@@ -1245,7 +1245,7 @@ export const LOCALES = [
       layers: ["SOURCE", "SCORE IA", "PONTS", "AUDIO", "SOUS-TITRES", "OVERLAY"],
     },
     strip: [
-      "Films de voyage",
+      "Films de famille et de souvenirs",
       "Famille et célébrations",
       "Sport et action",
       "Créateurs YouTube",
@@ -1327,7 +1327,7 @@ export const LOCALES = [
         "Si vous avez des heures de vidéo et une minute à partager, PenguinCut est fait pour vous.",
       items: [
         {
-          title: "Films de voyage",
+          title: "Films de famille",
           desc:
             "Transformez une semaine de clips en un highlight de voyage facile à partager.",
         },
@@ -1475,7 +1475,7 @@ export const LOCALES = [
       layers: ["QUELLE", "AI-SCORE", "BRIDGES", "AUDIO", "UNTERTITEL", "OVERLAY"],
     },
     strip: [
-      "Reisefilme",
+      "Familien- und Erinnerungsvideos",
       "Familie & Feiern",
       "Sport & Action",
       "YouTube-Creator",
@@ -1557,7 +1557,7 @@ export const LOCALES = [
         "Wenn du Stunden an Video und nur eine Minute zum Teilen hast, ist PenguinCut für dich gemacht.",
       items: [
         {
-          title: "Reisefilme",
+          title: "Familienvideos",
           desc: "Mach aus einer Woche Clips ein teilbares Reise-Highlight.",
         },
         {

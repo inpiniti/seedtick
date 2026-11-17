@@ -43,13 +43,14 @@ run([
 ]);
 
 // Real product UI, resized for the sticky showcase panel.
+// Family-themed Studio captures (footage composited from the family source clips).
 const sources = [
-  "ph-01-editor.png",
-  "ph-02-ai-analysis.png",
-  "ph-03-bridges.png",
-  "ph-04-music.png",
-  "ph-05-export.png",
-  "ph-06-date-bridge.png",
+  "ph-01-editor-family.png",
+  "ph-02-ai-analysis-family.png",
+  "ph-03-bridges-family.png",
+  "ph-04-music-family.png",
+  "ph-05-export-family.png",
+  "ph-06-date-bridge-family.png",
 ];
 
 sources.forEach((name, index) => {
