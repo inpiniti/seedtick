@@ -149,6 +149,7 @@ import {
   getStoredIntroOutroDefaults,
   setStoredShowIntro,
   setStoredShowOutro,
+  setStoredShowChapterBridge,
   setStoredIntroOutroDefaults,
   setStoredIntroTemplate,
   setStoredIntroDuration,
@@ -1154,6 +1155,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     if (initialOverlayOptions) {
       return {
         ...initialOverlayOptions,
+        showIntro: initialOverlayOptions.showIntro ?? introOutroDefaults.showIntro,
+        showOutro: initialOverlayOptions.showOutro ?? introOutroDefaults.showOutro,
+        showChapterBridge: initialOverlayOptions.showChapterBridge ?? introOutroDefaults.showChapterBridge,
         introTemplate: initialOverlayOptions.introTemplate || introOutroDefaults.introTemplate,
         introDurationSec: initialOverlayOptions.introDurationSec || introOutroDefaults.introDurationSec,
         outroTemplate: initialOverlayOptions.outroTemplate || introOutroDefaults.outroTemplate,
@@ -1180,7 +1184,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       outroTemplate: introOutroDefaults.outroTemplate,
       outroDurationSec: introOutroDefaults.outroDurationSec,
       outroText: introOutroDefaults.outroText,
-      showChapterBridge: true,
+      showChapterBridge: introOutroDefaults.showChapterBridge,
       bgmFitToVideo: false,
       introVideoFile: null,
       outroVideoFile: null,
@@ -1610,6 +1614,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     setCustomAudioDuration(0);
     setSelectedLibraryTrackId(null);
     lastPreparedThumbKeyRef.current = '';
+    const freshDefaults = getStoredIntroOutroDefaults();
     setOverlayOptions({
       showTitle: true,
       titleText: dict.player.defaultTitleText,
@@ -1619,9 +1624,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       showDate,
       subtitleDateText: '',
       subtitleLocationText: '',
-      showIntro: false,
-      showOutro: false,
-      showChapterBridge: true,
+      showIntro: freshDefaults.showIntro,
+      introTemplate: freshDefaults.introTemplate,
+      introDurationSec: freshDefaults.introDurationSec,
+      showOutro: freshDefaults.showOutro,
+      outroTemplate: freshDefaults.outroTemplate,
+      outroDurationSec: freshDefaults.outroDurationSec,
+      outroText: freshDefaults.outroText,
+      showChapterBridge: freshDefaults.showChapterBridge,
+      bgmFitToVideo: false,
       introVideoFile: null,
       outroVideoFile: null,
     });
@@ -3702,6 +3713,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     const seg = segments[idx];
     if (!seg) return;
     musicPanelPinnedRef.current = false;
+    setStoredShowChapterBridge(true);
     setOverlayOptions((prev) => ({ ...prev, showChapterBridge: true }));
     setSegments((prev) =>
       prev.map((s, i) => (i === idx ? { ...s, skipChapterBridge: !enabled } : s))
@@ -3715,6 +3727,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
   // 브릿지 단계의 전체 켜기/끄기. 끄면 날짜·장소가 바뀌어도 타임라인에 브릿지가 들어가지 않는다.
   const setChapterBridgeEnabled = (enabled: boolean) => {
+    setStoredShowChapterBridge(enabled);
     setOverlayOptions((prev) => ({ ...prev, showChapterBridge: enabled }));
     if (enabled) {
       scheduleSectionPreview('bridge');
@@ -7389,9 +7402,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         <input
                           type="checkbox"
                           checked={overlayOptions.showChapterBridge !== false}
-                          onChange={(e) =>
-                            setOverlayOptions((prev) => ({ ...prev, showChapterBridge: e.target.checked }))
-                          }
+                          onChange={(e) => {
+                            setStoredShowChapterBridge(e.target.checked);
+                            setOverlayOptions((prev) => ({ ...prev, showChapterBridge: e.target.checked }));
+                          }}
                         />
                         <span className="toss-toggle-slider" />
                       </span>
@@ -8701,9 +8715,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           setOverlayOptions((prev) => ({ ...prev, showSubtitle: val }))
         }
         showChapterBridge={overlayOptions.showChapterBridge !== false}
-        onToggleShowChapterBridge={(val) =>
-          setOverlayOptions((prev) => ({ ...prev, showChapterBridge: val }))
-        }
+        onToggleShowChapterBridge={(val) => {
+          setStoredShowChapterBridge(val);
+          setOverlayOptions((prev) => ({ ...prev, showChapterBridge: val }));
+        }}
         chapterBridgeDateTemplate={overlayOptions.chapterBridgeDateTemplate || 'flip-clock'}
         chapterBridgeLocationTemplate={overlayOptions.chapterBridgeLocationTemplate || 'winding-route'}
         onChangeChapterBridgeTemplates={(dateTpl, locTpl) => {

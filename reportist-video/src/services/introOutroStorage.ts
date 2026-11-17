@@ -15,6 +15,7 @@ const STORAGE_KEYS = {
   OUTRO_TEMPLATE: 'reportist_outro_template_default',
   OUTRO_DURATION: 'reportist_outro_duration_default',
   OUTRO_TEXT: 'reportist_outro_text_default',
+  SHOW_CHAPTER_BRIDGE: 'reportist_show_chapter_bridge_default',
 } as const;
 
 export interface StoredIntroOutroDefaults {
@@ -25,6 +26,7 @@ export interface StoredIntroOutroDefaults {
   outroTemplate: OutroTemplateId;
   outroDurationSec: number;
   outroText: string;
+  showChapterBridge: boolean;
 }
 
 /**
@@ -170,6 +172,25 @@ export function setStoredOutroText(text: string): void {
 }
 
 /**
+ * 챕터 브릿지(장면 전환) 활성화 여부 기본값 불러오기 (기본: true)
+ */
+export function getStoredShowChapterBridge(): boolean {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEYS.SHOW_CHAPTER_BRIDGE);
+    if (saved === null) return true;
+    return saved === 'true';
+  } catch {
+    return true;
+  }
+}
+
+export function setStoredShowChapterBridge(show: boolean): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.SHOW_CHAPTER_BRIDGE, String(show));
+  } catch {}
+}
+
+/**
  * 모든 인트로 & 아웃트로 기본 설정 객체 일괄 로드
  */
 export function getStoredIntroOutroDefaults(): StoredIntroOutroDefaults {
@@ -181,6 +202,7 @@ export function getStoredIntroOutroDefaults(): StoredIntroOutroDefaults {
     outroTemplate: getStoredOutroTemplate(),
     outroDurationSec: getStoredOutroDuration(),
     outroText: getStoredOutroText(),
+    showChapterBridge: getStoredShowChapterBridge(),
   };
 }
 
@@ -195,4 +217,5 @@ export function setStoredIntroOutroDefaults(settings: Partial<StoredIntroOutroDe
   if (settings.outroTemplate !== undefined) setStoredOutroTemplate(settings.outroTemplate);
   if (settings.outroDurationSec !== undefined) setStoredOutroDuration(settings.outroDurationSec);
   if (settings.outroText !== undefined) setStoredOutroText(settings.outroText);
+  if (settings.showChapterBridge !== undefined) setStoredShowChapterBridge(settings.showChapterBridge);
 }

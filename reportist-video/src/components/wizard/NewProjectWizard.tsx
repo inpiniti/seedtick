@@ -43,6 +43,8 @@ import {
   setStoredShowIntro,
   getStoredShowOutro,
   setStoredShowOutro,
+  getStoredShowChapterBridge,
+  setStoredShowChapterBridge,
   getStoredIntroTemplate,
   getStoredIntroDuration,
   getStoredOutroTemplate,
@@ -133,7 +135,11 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
   const [channelText, setChannelText] = useState(
     overlayOptions?.channelText || dict.player.defaultChannelText || ''
   );
-  const [showChapterBridge, setShowChapterBridge] = useState(overlayOptions?.showChapterBridge ?? true);
+  const [showChapterBridge, setShowChapterBridge] = useState(
+    overlayOptions?.showChapterBridge !== undefined
+      ? overlayOptions.showChapterBridge
+      : getStoredShowChapterBridge()
+  );
 
   // 인트로 & 아웃트로 커스텀 비디오 파일
   const [introVideoFile, setIntroVideoFile] = useState<File | null>(
@@ -840,7 +846,11 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                     <input
                       type="checkbox"
                       checked={showChapterBridge}
-                      onChange={(e) => setShowChapterBridge(e.target.checked)}
+                      onChange={(e) => {
+                        const val = e.target.checked;
+                        setStoredShowChapterBridge(val);
+                        setShowChapterBridge(val);
+                      }}
                       className="wizard-checkbox"
                     />
                     <div>
