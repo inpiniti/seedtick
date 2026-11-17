@@ -312,17 +312,43 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
           overflow-y: auto;
           padding-right: 4px;
         }
+        ${isFullscreen ? '' : `
         @media (max-width: 900px) {
           .bridge-preview-body {
             flex-direction: column;
             overflow-y: auto;
+            padding: 0 14px 14px;
+            gap: 12px;
+          }
+          /* 템플릿을 내려보는 동안에도 캔버스가 화면에 남도록 스테이지만 상단에 고정한다. */
+          .bridge-preview-stage {
+            position: sticky;
+            top: 0;
+            z-index: 6;
+            flex: 0 0 auto;
+            padding: 12px 0 10px;
+            background-color: #f8fafc;
+            box-shadow: 0 10px 14px -12px rgba(15, 23, 42, 0.45);
+          }
+          .bridge-canvas-frame {
+            min-height: 0 !important;
+          }
+          .bridge-canvas-frame.is-portrait {
+            height: clamp(170px, 28vh, 240px) !important;
+            width: auto !important;
+          }
+          .bridge-canvas-frame.is-landscape {
+            height: min(28vh, 56.25vw) !important;
+            width: auto !important;
+            max-width: 100% !important;
           }
           .bridge-preview-panel {
             max-width: 100%;
-            min-width: 100%;
+            min-width: 0;
             overflow-y: visible;
+            padding-right: 0;
           }
-        }
+        }`}
       `}</style>
 
       {/* 모달 카드 */}
@@ -437,6 +463,7 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
           <div className="bridge-preview-stage">
             {/* 캔버스 뷰포트 (출력 방향 비율 뷰) */}
             <div
+              className={`bridge-canvas-frame ${frame.orientation === 'portrait' ? 'is-portrait' : 'is-landscape'}`}
               style={{
                 position: 'relative',
                 ...(frame.orientation === 'portrait' && !isFullscreen

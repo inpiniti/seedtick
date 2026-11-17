@@ -1407,50 +1407,6 @@
   color: #ec4899;
 }
 
-.toss-io-preview-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: auto;
-  padding: 4px 8px;
-  border: none;
-  border-radius: 8px;
-  background-color: #f1f5f9;
-  color: #0f172a;
-  font-family: inherit;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: -0.2px;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
-}
-
-.toss-io-preview-btn:hover {
-  background-color: #e2e8f0;
-}
-
-.toss-io-preview-btn-outro {
-  background-color: #fdf2f8;
-  color: #db2777;
-}
-
-.toss-io-preview-btn-outro:hover {
-  background-color: #fce7f3;
-}
-
-.toss-io-preview-btn:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-.toss-io-preview-btn:disabled:hover {
-  background-color: #f1f5f9;
-}
-
-.toss-io-preview-btn-outro:disabled:hover {
-  background-color: #fdf2f8;
-}
 
 /* 템플릿 카드 그리드 */
 .toss-io-template-grid {

@@ -373,6 +373,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
           overflow-y: auto;
           padding-right: 4px;
         }
+        ${isFullscreen ? '' : `
         @media (max-width: 860px) {
           .intro-outro-modal-container {
             height: 94dvh;
@@ -381,15 +382,35 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
           .io-body-layout {
             flex-direction: column;
             overflow-y: auto;
-            padding: 14px;
-            gap: 14px;
+            padding: 0 14px 14px;
+            gap: 12px;
+          }
+          /* 템플릿을 내려보는 동안에도 캔버스가 화면에 남도록 스테이지만 상단에 고정한다. */
+          .io-stage-col {
+            position: sticky;
+            top: 0;
+            z-index: 6;
+            flex: 0 0 auto;
+            padding: 12px 0 10px;
+            background-color: #f8fafc;
+            box-shadow: 0 10px 14px -12px rgba(15, 23, 42, 0.45);
+          }
+          .io-canvas-frame.is-portrait {
+            height: clamp(170px, 28vh, 240px) !important;
+            width: auto !important;
+          }
+          .io-canvas-frame.is-landscape {
+            height: min(28vh, 56.25vw) !important;
+            width: auto !important;
+            max-width: 100% !important;
           }
           .io-panel-col {
             max-width: 100%;
             min-width: 0;
             overflow-y: visible;
+            padding-right: 0;
           }
-        }
+        }`}
       `}</style>
 
       <div
@@ -486,6 +507,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
           {/* 좌측: 실시간 출력 방향 대형 캔버스 스테이지 */}
           <div className="io-stage-col">
             <div
+              className={`io-canvas-frame ${frame.orientation === 'portrait' ? 'is-portrait' : 'is-landscape'}`}
               style={{
                 position: 'relative',
                 ...(frame.orientation === 'portrait'

@@ -2083,12 +2083,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     return null;
   }, [hasPlayableSourceVideos, previewVideo?.url, videos, result?.url]);
 
-  // 모바일 생성 흐름에서 미리보기할 영상이 하나도 없으면(플레이어가 빈 상태로만 렌더링될 때)
-  // 왼쪽 플레이어 열 자체를 숨긴다. 이 상태의 플레이어 빈 상태는 '영상 올리기' CTA를 그대로
-  // 보여주는데, 업로드/AI 단계 카드가 같은 CTA를 이미 제공하므로 모바일에서는 중복 노출된다.
-  // (데스크탑은 좌측 모니터를 채우는 온보딩 히어로로 남긴다)
-  const hideEmptyPlayerColumnForMobile =
-    isMobileViewport && isCreationFlow && !activeVideoUrl && !standalonePreviewSection;
+  // 모바일에서 왼쪽 플레이어 열이 불필요한 경우를 숨긴다.
+  // 1) 생성 흐름에서 미리보기할 영상이 하나도 없을 때(빈 플레이어) — 업로드/AI 카드가 같은 CTA를 제공한다.
+  // 2) 다운로드 단계 — 저장 카드가 썸네일·길이·구성을 요약해 보여주므로 플레이어가 화면을 차지할 필요가 없다.
+  // (데스크탑은 좌측 모니터를 채우는 온보딩 히어로/최종 확인용으로 남긴다)
+  const hidePlayerColumnForMobile =
+    isMobileViewport &&
+    ((isCreationFlow && !activeVideoUrl && !standalonePreviewSection) ||
+      activeSection === 'download');
   // 플레이어 카드와 타임라인 카드를 분리해, 모바일에서 플레이어만 상단에 고정한다.
   const showDraftPreviewBox =
     isDraftPreview &&
@@ -5197,9 +5199,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
         <div className="toss-studio-columns">
         {/* 2-A. 왼쪽 열: 16:9 모니터 & 배경음악 업로드
-            모바일에서 미리보기할 영상이 없으면(빈 플레이어 상태) 생략하고
-            활성 단계 카드(영상 올리기 등) 하나만 보여준다. */}
-        {!hideEmptyPlayerColumnForMobile && (
+            모바일에서 빈 플레이어이거나 다운로드 단계면 생략하고
+            활성 단계 카드(영상 올리기·저장 등) 하나만 보여준다. */}
+        {!hidePlayerColumnForMobile && (
         <section className="toss-column-left">
           <div className="toss-card toss-player-card">
             {/* 영상 상단 왼쪽, 오른쪽 문구 직관 입력창 (모바일에서는 숨기고 인트로 단계 카드 안에서만 보여준다) */}
@@ -6661,15 +6663,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       <Sparkles size={12} className="toss-io-accent-intro" />
                       <span>{ioDict?.templateSelectLabel || ui('모션 템플릿 선택')}</span>
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => previewSectionPlay('intro')}
-                      className="toss-io-preview-btn"
-                      title={ui('인트로 모션을 미리 재생해요')}
-                    >
-                      <Eye size={12} />
-                      <span>{ui('미리보기 재생')}</span>
-                    </button>
                   </div>
                   <div className="toss-io-template-grid">
                     {introTemplateOptions.map((tpl) => {
@@ -7173,14 +7166,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     </div>
 
                     <div className="toss-bridge-actions">
-                      <button
-                        type="button"
-                        className="toss-btn-secondary toss-btn-xs"
-                        onClick={() => previewSectionPlay('bridge', selectedBridgeDetail.idx)}
-                      >
-                        <Eye size={12} />
-                        <span>{ui('미리보기')}</span>
-                      </button>
                       <button
                         type="button"
                         className="toss-btn-secondary toss-btn-xs"
@@ -7976,15 +7961,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       <Sparkles size={12} className="toss-io-accent-outro" />
                       <span>{ioDict?.templateSelectLabel || ui('모션 템플릿 선택')}</span>
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => previewSectionPlay('outro')}
-                      className="toss-io-preview-btn toss-io-preview-btn-outro"
-                      title={ui('아웃트로 모션을 미리 재생해요')}
-                    >
-                      <Eye size={12} />
-                      <span>{ui('미리보기 재생')}</span>
-                    </button>
                   </div>
                   <div className="toss-io-template-grid">
                     {outroTemplateOptions.map((tpl) => {
