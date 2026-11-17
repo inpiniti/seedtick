@@ -195,10 +195,11 @@ const PLAYBACK_ERROR_MESSAGE =
 // ============================================================
 // 통합 스튜디오 편집 가이드 (프로젝트 상태에 따라 두 흐름으로 나뉜다)
 // - 처음 만드는 중: 인트로 → 영상 올리기 → AI 하이라이트 → 브릿지 → 아웃트로 → 노래 → 썸네일 → 다운로드 (8단계)
-// - 컷이 만들어진 뒤: 인트로 → 컷 → 브릿지 → 아웃트로 → 노래 → 썸네일 → 다운로드 (7단계)
+// - 컷이 만들어진 뒤: 인트로 → 자막 → 컷 → 브릿지 → 아웃트로 → 노래 → 썸네일 → 다운로드 (8단계)
 // ============================================================
 type StudioSection =
   | 'intro'
+  | 'caption'
   | 'upload'
   | 'ai'
   | 'cut'
@@ -272,6 +273,13 @@ const EDIT_STUDIO_STEPS: StudioStep[] = [
     label: '인트로',
     shortDesc: '시작 화면',
     description: '영상 맨 앞에 나올 오프닝을 골라요. 스타일을 누르면 왼쪽 미리보기에서 바로 재생돼요.',
+  },
+  {
+    id: 'caption',
+    label: '자막',
+    shortDesc: '자막·톤',
+    description:
+      'AI가 만든 자막을 확인하고 씬별로 제목·날짜·장소를 다듬어요. 자막 톤과 하단 자막·촬영 날짜 표시도 여기서 정해요.',
   },
   {
     id: 'cut',
@@ -822,6 +830,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 통합 스튜디오: 현재 편집 중인 단계와 브릿지 선택 상태
   // 처음 진입할 때는 컷이 이미 있어도 항상 1번 인트로부터 시작한다.
   const [activeSection, setActiveSection] = useState<StudioSection>('intro');
+  const isCaptionSection = activeSection === 'caption';
   const [selectedBridgeIndex, setSelectedBridgeIndex] = useState<number>(1);
   const musicPanelPinnedRef = useRef<boolean>(false);
   // 단계 이동 등 프로그래밍적으로 시크할 때는 플레이헤드 기반 패널 동기화를 잠시 멈춘다.
@@ -1859,7 +1868,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 시퀀스 하이라이트 모드 여부 (캡컷 방식 실시간 시퀀스 프리뷰: 원본 소스가 있거나 완성본이 아직 없는 경우)
   // 원본 소스가 기기 메모리 정리로 분리되었더라도 완성본 비디오(result.url)가 있다면 캔버스 합성이 아닌 완성본 직접 재생 모드로 전환
   const isSequenceMode = segments.length > 0 && (hasPlayableSourceVideos || !result?.url);
-  // 아직 AI 컷이 없는 "처음 만드는" 흐름인지 여부 (8단계 vs 7단계 스텝바 분기)
+  // 아직 AI 컷이 없는 "처음 만드는" 흐름인지 여부 (8단계 vs 8단계 스텝바 분기)
   const isCreationFlow = segments.length === 0;
   const studioSteps = isCreationFlow ? CREATE_STUDIO_STEPS : EDIT_STUDIO_STEPS;
   const activeStudioStepIndex = Math.max(
@@ -1874,7 +1883,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       ? activeSection
       : null;
 
-  // AI 분석이 끝나 컷이 처음 생기면 8단계 생성 흐름에서 7단계 편집 흐름의 '컷'으로 자연스럽게 이동한다.
+  // AI 분석이 끝나 컷이 처음 생기면 8단계 생성 흐름에서 편집 흐름의 '컷'으로 자연스럽게 이동한다.
   const hadSegmentsRef = useRef<boolean>(initialSegments.length > 0);
   useEffect(() => {
     if (segments.length > 0 && !hadSegmentsRef.current) {
@@ -2471,7 +2480,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       setSelectedBridgeIndex(res.segIndex);
       setSelectedSegmentId(res.seg.id);
     } else if (res.phase === 'segment') {
-      setActiveSection('cut');
+      // 자막 단계에서 씬을 훑는 중이면 자막 패널을 유지하고, 아니면 컷 패널로 전환한다.
+      setActiveSection((prev) => (prev === 'caption' ? 'caption' : 'cut'));
       setSelectedSegmentId(res.seg.id);
     } else if (res.phase === 'outro') {
       setActiveSection('outro');
@@ -3488,14 +3498,21 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   };
 
   // 클립 선택 및 이동
-  const handleSelectSegment = (segId: string) => {
+  const handleSelectSegment = (segId: string, targetSection?: 'cut' | 'caption') => {
     musicPanelPinnedRef.current = false;
     // 단계 이동으로 시크할 때 패널이 플레이헤드 기준으로 되튕기지 않도록 동기화를 잠시 멈춘다.
     sectionSyncSuppressRef.current = true;
     try {
     // 타임라인 블록을 누르면 오른쪽 편집 패널도 같은 단계로 즉시 전환한다.
     // (인트로/아웃트로/컷 각각의 블록과 편집 화면이 서로 어긋나지 않도록)
-    setActiveSection(segId === 'intro' ? 'intro' : segId === 'outro' ? 'outro' : 'cut');
+    // 자막 단계에서 씬을 훑는 중이면 자막 패널을 유지한다.
+    setActiveSection((prev) =>
+      segId === 'intro'
+        ? 'intro'
+        : segId === 'outro'
+          ? 'outro'
+          : targetSection ?? (prev === 'caption' ? 'caption' : 'cut')
+    );
     setSelectedSegmentId(segId);
     if (!isSequenceMode) {
       const seg = segments.find((s) => s.id === segId);
@@ -3611,7 +3628,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     const seg = segments[nextIndex];
     if (!seg) return;
     musicPanelPinnedRef.current = false;
-    setActiveSection('cut');
+    // 자막 단계에서 씬을 넘기다가 온 경우 자막 패널을 유지하고, 아니면 컷 패널로 전환한다.
     handleSelectSegment(seg.id);
   };
 
@@ -3722,9 +3739,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       handleSelectSegment('outro');
       return;
     }
-    if (section === 'cut') {
+    if (section === 'cut' || section === 'caption') {
       const seg = segments[selectedSegmentIndex] || segments[0];
-      if (seg) handleSelectSegment(seg.id);
+      if (seg) handleSelectSegment(seg.id, section);
       return;
     }
     if (section === 'bridge') {
@@ -3734,7 +3751,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     // upload / ai / music: 재생 위치를 건드리지 않고 해당 패널만 연다.
   };
 
-  // 다음/이전 단계는 현재 흐름(생성 8단계 / 편집 7단계)의 순서를 그대로 따른다.
+  // 다음/이전 단계는 현재 흐름(생성 8단계 / 편집 8단계)의 순서를 그대로 따른다.
   // AI 컷이나 브릿지 후보가 없어도 단계를 건너뛰지 않는다.
   const goToAdjacentSection = (delta: 1 | -1) => {
     const nextIndex = activeStudioStepIndex + delta;
@@ -3758,6 +3775,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         return segments.length > 0
           ? ui('{count}개 컷 완성', { count: segments.length })
           : ui('대기');
+      case 'caption':
+        return ui('{count}개 씬 자막', { count: segments.length });
       case 'cut':
         return ui('{count}개 컷', { count: segments.length });
       case 'bridge':
@@ -5642,7 +5661,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
             {/* 시퀀스 타임라인 스트립 (V1 영상 + A1 배경음악 멀티트랙)
                 모바일에서는 컷/브릿지 단계에서만 노출해 첫 화면을 가볍게 유지한다 (컷 편집은 toss-cut-navigator로도 가능) */}
-            {segments.length > 0 && (!isMobileViewport || activeSection === 'cut' || activeSection === 'bridge') && (
+            {segments.length > 0 && (!isMobileViewport || activeSection === 'cut' || activeSection === 'caption' || activeSection === 'bridge') && (
               <div className="toss-timeline-sequencer-box">
                 <div className="toss-sequencer-header">
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -5858,7 +5877,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
                       {segments.map((seg, idx) => {
                         const isCurrent = seg.id === activePlayingSegmentId && activePlayingBridgeIndex !== idx;
-                        const isSelected = activeSection === 'cut' && seg.id === selectedSegmentId;
+                        const isSelected = (activeSection === 'cut' || activeSection === 'caption') && seg.id === selectedSegmentId;
                         const bridgeDur = effectiveBridgeDurationMap[seg.id] ?? 0;
                         const widthPct = ((seg.duration + bridgeDur) / (totalDuration || 1)) * 100;
                         const vItem = videoMap.get(seg.sourceVideoId);
@@ -6254,7 +6273,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       onClick={() => goToSection(isCreationFlow ? 'ai' : 'cut')}
                     >
                       <Sparkles size={13} />
-                      <span>{isCreationFlow ? ui('3번 AI 하이라이트로 가기') : ui('2번 컷으로 가기')}</span>
+                      <span>{isCreationFlow ? ui('3번 AI 하이라이트로 가기') : ui('3번 컷으로 가기')}</span>
                     </button>
                     {activeVideoUrl && (
                       <button
@@ -6599,7 +6618,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   onClick={() => goToSection(isCreationFlow ? 'ai' : 'cut')}
                 >
                   <Sparkles size={13} />
-                  <span>{isCreationFlow ? ui('3번 AI 하이라이트로 가기') : ui('2번 컷으로 가기')}</span>
+                  <span>{isCreationFlow ? ui('3번 AI 하이라이트로 가기') : ui('3번 컷으로 가기')}</span>
                 </button>
               </div>
             )}
@@ -6893,7 +6912,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     onClick={() => goToSection('cut')}
                   >
                     <Scissors size={12} />
-                    <span>{ui('2번 컷 다듬기')}</span>
+                    <span>{ui('3번 컷 다듬기')}</span>
                   </button>
                 </div>
               ) : (
@@ -7015,7 +7034,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     onClick={() => goToSection('cut')}
                   >
                     <Scissors size={12} />
-                    <span>{ui('2번 컷으로 가기')}</span>
+                    <span>{ui('3번 컷으로 가기')}</span>
                   </button>
                 </div>
 
@@ -7060,7 +7079,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             ) : segments.length < 2 || !selectedBridgeDetail ? (
               <div className="toss-empty-state">
                 <p className="text-slate-400 text-sm">
-                  {ui('컷이 2개 이상이고, 컷마다 날짜나 장소가 달라야 브릿지가 자동으로 생겨요. 2번 컷에서 날짜·장소를 먼저 적어보세요.')}
+                  {ui('컷이 2개 이상이고, 컷마다 날짜나 장소가 달라야 브릿지가 자동으로 생겨요. 3번 컷에서 날짜·장소를 먼저 적어보세요.')}
                 </p>
                 <button
                   type="button"
@@ -7218,9 +7237,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             )}
           </div>
 
-          {/* AI가 포착한 극적 순간 카드 */}
+          {/* AI가 포착한 극적 순간 카드 (자막/컷 단계를 함께 감싼다) */}
           <div
-            className={`toss-card toss-dramatic-card toss-inspector-card ${activeSection === 'cut' ? 'is-active-section' : ''}`}
+            className={`toss-card toss-dramatic-card toss-inspector-card ${isCaptionSection || activeSection === 'cut' ? 'is-active-section' : ''}`}
           >
             {segments.length > 0 && (
               <BorderBeam
@@ -7231,17 +7250,28 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <div className="toss-card-header toss-dramatic-header">
               <div className="toss-dramatic-header-title">
                 <h4 className="toss-card-title">
-                  <Scissors size={15} className="text-slate-800 shrink-0" />
-                  <span>{dict.dramaticClips.title}</span>
+                  {isCaptionSection ? (
+                    <>
+                      <Subtitles size={15} className="text-slate-800 shrink-0" />
+                      <span>{ui('자막')}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Scissors size={15} className="text-slate-800 shrink-0" />
+                      <span>{dict.dramaticClips.title}</span>
+                    </>
+                  )}
                 </h4>
                 <p className="toss-card-desc">
-                  {dict.dramaticClips.desc}
+                  {isCaptionSection
+                    ? ui('AI가 만든 자막을 확인하고 씬별로 제목·날짜·장소를 다듬어요. 자막 톤과 하단 자막·촬영 날짜 표시도 여기서 정해요.')
+                    : dict.dramaticClips.desc}
                 </p>
               </div>
 
               <div className="toss-dramatic-header-actions flex items-center justify-between sm:justify-end gap-2 flex-wrap">
                 <div className="flex items-center gap-2 flex-wrap min-w-0">
-                  {segments.length > 0 && (
+                  {!isCaptionSection && segments.length > 0 && (
                     <span className="toss-tag-gray">
                       {interpolate(dict.dramaticClips.totalIntervals, {
                         count: segments.length,
@@ -7249,7 +7279,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       })}
                     </span>
                   )}
-                  {segments.length > 0 && (
+                  {isCaptionSection && segments.length > 0 && (
                     <button
                       type="button"
                       className="toss-btn-subtitle-header"
@@ -7260,7 +7290,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       <span>{dict.subtitleDownload?.buttonText || '자막 다운로드'}</span>
                     </button>
                   )}
-                  {segments.length > 0 && (
+                  {!isCaptionSection && segments.length > 0 && (
                     <button
                       type="button"
                       className="toss-btn-sort-time"
@@ -7271,7 +7301,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       <span>{dict.dramaticClips.sortByRecordedDate}</span>
                     </button>
                   )}
-                  {segments.length > 0 && (
+                  {isCaptionSection && segments.length > 0 && (
                     <div className="relative inline-flex items-center" ref={toneSelectorRef}>
                       <button
                         type="button"
@@ -7314,7 +7344,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       )}
                     </div>
                   )}
-                  {segments.length > 0 && (
+                  {isCaptionSection && segments.length > 0 && (
                     <button
                       type="button"
                       className="toss-btn-refine-subtitles"
@@ -7342,55 +7372,61 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   )}
                 </div>
                 <div className="flex items-center gap-3 shrink-0 ml-auto sm:ml-0">
-                  <label
-                    className="toss-toggle-label flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-600"
-                    title={
-                      dict.dramaticClips.chapterBridgeTitle ||
-                      '날짜 또는 장소가 바뀌는 구간 사이에 플립 시계 / 이동 경로 브릿지를 삽입합니다'
-                    }
-                  >
-                    <span>{dict.dramaticClips.chapterBridgeToggle || '챕터 브릿지'}</span>
-                    <span className="toss-toggle-switch">
-                      <input
-                        type="checkbox"
-                        checked={overlayOptions.showChapterBridge !== false}
-                        onChange={(e) =>
-                          setOverlayOptions((prev) => ({ ...prev, showChapterBridge: e.target.checked }))
-                        }
-                      />
-                      <span className="toss-toggle-slider" />
-                    </span>
-                  </label>
-                  <label
-                    className="toss-toggle-label flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-600"
-                    title={dict.settingsModal?.showDateOptionDesc || '영상 화면에 촬영 날짜를 표시해요 (끄면 날짜 없이 장소만 표시)'}
-                  >
-                    <span>{dict.settingsModal?.showDateOption || '촬영 날짜'}</span>
-                    <span className="toss-toggle-switch">
-                      <input
-                        type="checkbox"
-                        checked={showDate}
-                        onChange={(e) => handleToggleShowDate(e.target.checked)}
-                      />
-                      <span className="toss-toggle-slider" />
-                    </span>
-                  </label>
-                  <label
-                    className="toss-toggle-label flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-600"
-                    title={dict.dramaticClips.bottomSubtitleTitle}
-                  >
-                    <span>{dict.dramaticClips.bottomSubtitleToggle}</span>
-                    <span className="toss-toggle-switch">
-                      <input
-                        type="checkbox"
-                        checked={overlayOptions.showSubtitle}
-                        onChange={(e) =>
-                          setOverlayOptions((prev) => ({ ...prev, showSubtitle: e.target.checked }))
-                        }
-                      />
-                      <span className="toss-toggle-slider" />
-                    </span>
-                  </label>
+                  {!isCaptionSection && (
+                    <label
+                      className="toss-toggle-label flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-600"
+                      title={
+                        dict.dramaticClips.chapterBridgeTitle ||
+                        '날짜 또는 장소가 바뀌는 구간 사이에 플립 시계 / 이동 경로 브릿지를 삽입합니다'
+                      }
+                    >
+                      <span>{dict.dramaticClips.chapterBridgeToggle || '챕터 브릿지'}</span>
+                      <span className="toss-toggle-switch">
+                        <input
+                          type="checkbox"
+                          checked={overlayOptions.showChapterBridge !== false}
+                          onChange={(e) =>
+                            setOverlayOptions((prev) => ({ ...prev, showChapterBridge: e.target.checked }))
+                          }
+                        />
+                        <span className="toss-toggle-slider" />
+                      </span>
+                    </label>
+                  )}
+                  {isCaptionSection && (
+                    <label
+                      className="toss-toggle-label flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-600"
+                      title={dict.settingsModal?.showDateOptionDesc || '영상 화면에 촬영 날짜를 표시해요 (끄면 날짜 없이 장소만 표시)'}
+                    >
+                      <span>{dict.settingsModal?.showDateOption || '촬영 날짜'}</span>
+                      <span className="toss-toggle-switch">
+                        <input
+                          type="checkbox"
+                          checked={showDate}
+                          onChange={(e) => handleToggleShowDate(e.target.checked)}
+                        />
+                        <span className="toss-toggle-slider" />
+                      </span>
+                    </label>
+                  )}
+                  {isCaptionSection && (
+                    <label
+                      className="toss-toggle-label flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-600"
+                      title={dict.dramaticClips.bottomSubtitleTitle}
+                    >
+                      <span>{dict.dramaticClips.bottomSubtitleToggle}</span>
+                      <span className="toss-toggle-switch">
+                        <input
+                          type="checkbox"
+                          checked={overlayOptions.showSubtitle}
+                          onChange={(e) =>
+                            setOverlayOptions((prev) => ({ ...prev, showSubtitle: e.target.checked }))
+                          }
+                        />
+                        <span className="toss-toggle-slider" />
+                      </span>
+                    </label>
+                  )}
                 </div>
               </div>
             </div>
@@ -7403,11 +7439,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   onClick={() => selectCutByOffset(-1)}
                   disabled={selectedSegmentIndex <= 0}
                 >
-                  {ui('‹ 이전 컷')}
+                  {isCaptionSection ? ui('‹ 이전 씬') : ui('‹ 이전 컷')}
                 </button>
                 <div className="toss-cut-navigator-center">
                   <strong className="toss-cut-navigator-count">
-                    {ui('컷 #{index}', { index: selectedSegmentIndex + 1 })}
+                    {isCaptionSection
+                      ? ui('씬 #{index}', { index: selectedSegmentIndex + 1 })
+                      : ui('컷 #{index}', { index: selectedSegmentIndex + 1 })}
                   </strong>
                   <span className="toss-cut-navigator-sub">/ {segments.length}</span>
                 </div>
@@ -7417,7 +7455,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   onClick={() => selectCutByOffset(1)}
                   disabled={selectedSegmentIndex >= segments.length - 1}
                 >
-                  {ui('다음 컷 ›')}
+                  {isCaptionSection ? ui('다음 씬 ›') : ui('다음 컷 ›')}
                 </button>
                 <button
                   type="button"
@@ -7425,13 +7463,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   onClick={() => previewSectionPlay('cut')}
                 >
                   <Eye size={12} />
-                  <span>{ui('이 컷만 보기')}</span>
+                  <span>{isCaptionSection ? ui('이 씬만 보기') : ui('이 컷만 보기')}</span>
                 </button>
               </div>
             )}
 
             {/* 컷을 다듬는 중에도 원본 추가/재분석이 필요할 때만 여는 보조 메뉴 */}
-            {segments.length > 0 && (
+            {!isCaptionSection && segments.length > 0 && (
               <details className="toss-cut-more">
                 <summary className="toss-cut-more-summary">
                   <Plus size={12} />
@@ -7514,7 +7552,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     : null;
                   return (
                     <React.Fragment key={seg.id}>
-                      {bridgeEval?.shouldBridge ? (
+                      {!isCaptionSection && (bridgeEval?.shouldBridge ? (
                         <div
                           className="toss-segment-bridge-item"
                           onClick={() => handleSelectBridge(idx)}
@@ -7561,7 +7599,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             {ui('클릭하여 챕터 브릿지 다시 켜기')}
                           </span>
                         </div>
-                      ) : null}
+                      ) : null)}
                       <div
                         className={`toss-segment-item ${isSelected ? 'active' : ''} ${isCurrentPlaying ? 'playing' : ''} ${isSegExceedingMusic ? 'exceeds-music' : ''}`}
                       >
@@ -7677,6 +7715,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
                         {/* 트리밍 버튼 및 회전, 길이 */}
                         <div className="toss-segment-right">
+                          {!isCaptionSection && (
                           <div className="toss-trim-controls">
                             <span className="toss-segment-duration">
                               {seg.duration.toFixed(1)}s
@@ -7694,8 +7733,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                               <span>{dict.dramaticClips.trimEdit || '구간 편집'}</span>
                             </button>
                           </div>
+                          )}
 
                           {/* 90도 회전 컨트롤 (반시계/시계 방향) */}
+                          {!isCaptionSection && (
                           <div className="toss-segment-rotate-controls" onClick={(e) => e.stopPropagation()}>
                             <button
                               type="button"
@@ -7726,8 +7767,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                               <RotateCw size={12} />
                             </button>
                           </div>
+                          )}
 
 
+                          {!isCaptionSection && (
                           <button
                             type="button"
                             className="toss-btn-delete"
@@ -7736,17 +7779,29 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           >
                             <Trash2 size={15} />
                           </button>
+                          )}
                         </div>
                       </div>
 
                       {/* 선택한 씬의 자막/날짜/위치/구도 수정 */}
-                      {isSelected && (
+                      {isSelected && (isCaptionSection || isPortraitSource || (isPortraitOutput && !isPortraitSource)) && (
                         <div className="toss-segment-editor" onClick={(e) => e.stopPropagation()}>
                           <div className="toss-segment-editor-head">
-                            <span className="toss-segment-editor-title">{dict.dramaticClips.editorTitle}</span>
-                            <span className="toss-segment-editor-hint">{dict.dramaticClips.editorHint}</span>
+                            {isCaptionSection ? (
+                              <>
+                                <span className="toss-segment-editor-title">{dict.dramaticClips.editorTitle}</span>
+                                <span className="toss-segment-editor-hint">{dict.dramaticClips.editorHint}</span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="toss-segment-editor-title">{ui('이 씬의 구도 (크롭)')}</span>
+                                <span className="toss-segment-editor-hint">{ui('세로 화면의 위/중앙/아래 크롭을 조절해요.')}</span>
+                              </>
+                            )}
                           </div>
 
+                          {isCaptionSection && (
+                            <>
                           {/* 1. 씬 자막 제목 */}
                           <div className="toss-branding-row">
                             <span className="toss-branding-label">{dict.dramaticClips.subtitleLabel}</span>
@@ -7847,7 +7902,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                               </a>
                             </div>
                           </div>
+                            </>
+                          )}
 
+                          {!isCaptionSection && (
+                            <>
                           {/* 3. 16:9 세로 영상 인물 크롭 기준 (세로 원본 영상에서만 노출) */}
                           {isPortraitSource && (
                             <div className="toss-branding-row">
@@ -7916,6 +7975,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                 </button>
                               </div>
                             </div>
+                          )}
+                            </>
                           )}
                         </div>
                       )}

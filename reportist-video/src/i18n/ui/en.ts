@@ -105,12 +105,12 @@ export const uiEn: Record<string, string> = {
   '{name} 빼기': 'Remove {name}',
   '영상 올리러 가기': 'Go to upload',
   'AI가 하이라이트를 찾고 있어요': 'AI is finding highlights',
-  '2번 컷 다듬기': 'Trim clip in step 2',
+  '3번 컷 다듬기': 'Trim clip in step 3',
   '장면 전환 (브릿지)': 'Transition (bridge)',
   '브릿지 미리보기': 'Bridge preview',
   '날짜 넘어가는 효과': 'Date transition',
   '장소 이동 효과': 'Location transition',
-  '2번 컷으로 가기': 'Go to clip step',
+  '3번 컷으로 가기': 'Go to clip step',
   '컷 설정으로 가기': 'Go to clip settings',
   '장소 없음': 'No location',
   '날짜 없음': 'No date',
@@ -212,8 +212,8 @@ export const uiEn: Record<string, string> = {
   '자동 감지된 전환 지점이 없어요. 그래도 브릿지 스타일은 미리 골라둘 수 있어요. 타임라인의':
     'No transition points were detected automatically. You can still preselect a bridge style. On the timeline,',
   '컷 #{index}': 'Clip #{index}',
-  '컷이 2개 이상이고, 컷마다 날짜나 장소가 달라야 브릿지가 자동으로 생겨요. 2번 컷에서 날짜·장소를 먼저 적어보세요.':
-    'You need at least 2 clips with different dates or places for bridges to appear automatically. Add date and place in step 2 first.',
+  '컷이 2개 이상이고, 컷마다 날짜나 장소가 달라야 브릿지가 자동으로 생겨요. 3번 컷에서 날짜·장소를 먼저 적어보세요.':
+    'You need at least 2 clips with different dates or places for bridges to appear automatically. Add date and place in step 3 first.',
   '클릭하여 챕터 브릿지 다시 켜기': 'Click to re-enable the chapter bridge',
   '하이라이트 {count}개 완성': '{count} highlights ready',
   '% 단축':
@@ -500,4 +500,17 @@ export const uiEn: Record<string, string> = {
   "영상을 저장했어요!": "Your video is saved!",
   "직접 편집하는 것보다 시간을 {percent}% 아꼈어요":
     "You saved {percent}% of the time it takes to edit by hand",
+  // 자막 단계 (2번) — 컷에서 자막 설정을 분리
+  '자막': 'Captions',
+  '자막·톤': 'Captions & tone',
+  'AI가 만든 자막을 확인하고 씬별로 제목·날짜·장소를 다듬어요. 자막 톤과 하단 자막·촬영 날짜 표시도 여기서 정해요.':
+    'Check the AI captions and refine the title, date and place for each scene. Caption tone, the bottom caption and the date stamp are set here too.',
+  '‹ 이전 씬': '‹ Previous scene',
+  '다음 씬 ›': 'Next scene ›',
+  '씬 #{index}': 'Scene #{index}',
+  '이 씬만 보기': 'View this scene only',
+  '이 씬의 구도 (크롭)': 'Scene framing (crop)',
+  '세로 화면의 위/중앙/아래 크롭을 조절해요.':
+    'Adjust the top / center / bottom crop for vertical frames.',
+  '{count}개 씬 자막': '{count} scene captions',
 };

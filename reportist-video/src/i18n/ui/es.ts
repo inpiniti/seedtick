@@ -104,12 +104,12 @@ export const uiEs: Record<string, string> = {
   '{name} 빼기': 'Quitar {name}',
   '영상 올리러 가기': 'Ir a subir',
   'AI가 하이라이트를 찾고 있어요': 'La IA está buscando momentos',
-  '2번 컷 다듬기': 'Ajustar clip del paso 2',
+  '3번 컷 다듬기': 'Ajustar clip del paso 3',
   '장면 전환 (브릿지)': 'Transición (puente)',
   '브릿지 미리보기': 'Vista previa del puente',
   '날짜 넘어가는 효과': 'Efecto de cambio de fecha',
   '장소 이동 효과': 'Efecto de cambio de lugar',
-  '2번 컷으로 가기': 'Ir al paso del clip',
+  '3번 컷으로 가기': 'Ir al paso del clip',
   '컷 설정으로 가기': 'Ir a los ajustes del clip',
   '장소 없음': 'Sin lugar',
   '날짜 없음': 'Sin fecha',
@@ -217,8 +217,8 @@ export const uiEs: Record<string, string> = {
   '자동 감지된 전환 지점이 없어요. 그래도 브릿지 스타일은 미리 골라둘 수 있어요. 타임라인의':
     'No se detectaron puntos de transición automáticamente. Aun así puedes preseleccionar un estilo de puente. En la línea de tiempo,',
   '컷 #{index}': 'Clip #{index}',
-  '컷이 2개 이상이고, 컷마다 날짜나 장소가 달라야 브릿지가 자동으로 생겨요. 2번 컷에서 날짜·장소를 먼저 적어보세요.':
-    'Necesitas al menos 2 clips con fechas o lugares distintos para que los puentes aparezcan automáticamente. Añade primero la fecha y el lugar en el paso 2.',
+  '컷이 2개 이상이고, 컷마다 날짜나 장소가 달라야 브릿지가 자동으로 생겨요. 3번 컷에서 날짜·장소를 먼저 적어보세요.':
+    'Necesitas al menos 2 clips con fechas o lugares distintos para que los puentes aparezcan automáticamente. Añade primero la fecha y el lugar en el paso 3.',
   '클릭하여 챕터 브릿지 다시 켜기': 'Haz clic para volver a activar el puente de capítulo',
   '하이라이트 {count}개 완성': '{count} momentos listos',
   '% 단축':
@@ -487,4 +487,17 @@ export const uiEs: Record<string, string> = {
   "왼쪽": "Izquierda",
   "가운데": "Centro",
   "오른쪽": "Derecha",
+  // Paso de subtítulos (paso 2) — separado de los clips
+  '자막': 'Subtítulos',
+  '자막·톤': 'Subtítulos y tono',
+  'AI가 만든 자막을 확인하고 씬별로 제목·날짜·장소를 다듬어요. 자막 톤과 하단 자막·촬영 날짜 표시도 여기서 정해요.':
+    'Revisa los subtítulos creados por la IA y ajusta el título, la fecha y el lugar de cada escena. El tono, el subtítulo inferior y la marca de fecha también se configuran aquí.',
+  '‹ 이전 씬': '‹ Escena anterior',
+  '다음 씬 ›': 'Escena siguiente ›',
+  '씬 #{index}': 'Escena n.º {index}',
+  '이 씬만 보기': 'Ver solo esta escena',
+  '이 씬의 구도 (크롭)': 'Encuadre de la escena (recorte)',
+  '세로 화면의 위/중앙/아래 크롭을 조절해요.':
+    'Ajusta el recorte superior / central / inferior del encuadre vertical.',
+  '{count}개 씬 자막': 'Subtítulos de {count} escenas',
 };

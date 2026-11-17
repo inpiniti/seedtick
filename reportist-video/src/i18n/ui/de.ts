@@ -104,12 +104,12 @@ export const uiDe: Record<string, string> = {
   '{name} 빼기': '{name} entfernen',
   '영상 올리러 가기': 'Zum Upload',
   'AI가 하이라이트를 찾고 있어요': 'Die KI sucht Highlights',
-  '2번 컷 다듬기': 'Clip aus Schritt 2 anpassen',
+  '3번 컷 다듬기': 'Clip aus Schritt 3 anpassen',
   '장면 전환 (브릿지)': 'Übergang (Brücke)',
   '브릿지 미리보기': 'Brückenvorschau',
   '날짜 넘어가는 효과': 'Datumswechsel-Effekt',
   '장소 이동 효과': 'Ortswechsel-Effekt',
-  '2번 컷으로 가기': 'Zum Clip-Schritt',
+  '3번 컷으로 가기': 'Zum Clip-Schritt',
   '컷 설정으로 가기': 'Zu den Clip-Einstellungen',
   '장소 없음': 'Kein Ort',
   '날짜 없음': 'Kein Datum',
@@ -218,8 +218,8 @@ export const uiDe: Record<string, string> = {
   '자동 감지된 전환 지점이 없어요. 그래도 브릿지 스타일은 미리 골라둘 수 있어요. 타임라인의':
     'Es wurden keine Übergangspunkte automatisch erkannt. Du kannst trotzdem einen Brückenstil vorauswählen. In der Timeline',
   '컷 #{index}': 'Clip #{index}',
-  '컷이 2개 이상이고, 컷마다 날짜나 장소가 달라야 브릿지가 자동으로 생겨요. 2번 컷에서 날짜·장소를 먼저 적어보세요.':
-    'Du brauchst mindestens 2 Clips mit unterschiedlichen Daten oder Orten, damit Brücken automatisch erscheinen. Trage zuerst in Schritt 2 Datum und Ort ein.',
+  '컷이 2개 이상이고, 컷마다 날짜나 장소가 달라야 브릿지가 자동으로 생겨요. 3번 컷에서 날짜·장소를 먼저 적어보세요.':
+    'Du brauchst mindestens 2 Clips mit unterschiedlichen Daten oder Orten, damit Brücken automatisch erscheinen. Trage zuerst in Schritt 3 Datum und Ort ein.',
   '클릭하여 챕터 브릿지 다시 켜기': 'Klicken, um die Kapitelbrücke wieder zu aktivieren',
   '하이라이트 {count}개 완성': '{count} Highlights fertig',
   '% 단축':
@@ -488,4 +488,17 @@ export const uiDe: Record<string, string> = {
   "왼쪽": "Links",
   "가운데": "Mitte",
   "오른쪽": "Rechts",
+  // Untertitel-Schritt (Schritt 2) — von den Clips getrennt
+  '자막': 'Untertitel',
+  '자막·톤': 'Untertitel & Ton',
+  'AI가 만든 자막을 확인하고 씬별로 제목·날짜·장소를 다듬어요. 자막 톤과 하단 자막·촬영 날짜 표시도 여기서 정해요.':
+    'Prüfe die KI-Untertitel und passe Titel, Datum und Ort für jede Szene an. Ton, untere Untertitel und das Datums-Badge stellst du auch hier ein.',
+  '‹ 이전 씬': '‹ Vorherige Szene',
+  '다음 씬 ›': 'Nächste Szene ›',
+  '씬 #{index}': 'Szene #{index}',
+  '이 씬만 보기': 'Nur diese Szene ansehen',
+  '이 씬의 구도 (크롭)': 'Ausschnitt der Szene (Zuschnitt)',
+  '세로 화면의 위/중앙/아래 크롭을 조절해요.':
+    'Oben/Mitte/Unten-Zuschnitt für das Hochformat anpassen.',
+  '{count}개 씬 자막': '{count} Szenen-Untertitel',
 };

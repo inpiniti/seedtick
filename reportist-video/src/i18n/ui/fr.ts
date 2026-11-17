@@ -104,12 +104,12 @@ export const uiFr: Record<string, string> = {
   '{name} 빼기': 'Retirer {name}',
   '영상 올리러 가기': "Aller à l'import",
   'AI가 하이라이트를 찾고 있어요': "L'IA recherche les moments forts",
-  '2번 컷 다듬기': "Ajuster le clip de l'étape 2",
+  '3번 컷 다듬기': "Ajuster le clip de l'étape 3",
   '장면 전환 (브릿지)': 'Transition (pont)',
   '브릿지 미리보기': 'Aperçu du pont',
   '날짜 넘어가는 효과': 'Effet de changement de date',
   '장소 이동 효과': 'Effet de changement de lieu',
-  '2번 컷으로 가기': "Aller à l'étape du clip",
+  '3번 컷으로 가기': "Aller à l'étape du clip",
   '컷 설정으로 가기': 'Aller aux réglages du clip',
   '장소 없음': 'Aucun lieu',
   '날짜 없음': 'Aucune date',
@@ -218,8 +218,8 @@ export const uiFr: Record<string, string> = {
   '자동 감지된 전환 지점이 없어요. 그래도 브릿지 스타일은 미리 골라둘 수 있어요. 타임라인의':
     "Aucun point de transition détecté automatiquement. Vous pouvez tout de même présélectionner un style de pont. Dans la timeline,",
   '컷 #{index}': 'Clip #{index}',
-  '컷이 2개 이상이고, 컷마다 날짜나 장소가 달라야 브릿지가 자동으로 생겨요. 2번 컷에서 날짜·장소를 먼저 적어보세요.':
-    "Il faut au moins 2 clips avec des dates ou des lieux différents pour que les ponts apparaissent automatiquement. Renseignez d'abord la date et le lieu à l'étape 2.",
+  '컷이 2개 이상이고, 컷마다 날짜나 장소가 달라야 브릿지가 자동으로 생겨요. 3번 컷에서 날짜·장소를 먼저 적어보세요.':
+    "Il faut au moins 2 clips avec des dates ou des lieux différents pour que les ponts apparaissent automatiquement. Renseignez d'abord la date et le lieu à l'étape 3.",
   '클릭하여 챕터 브릿지 다시 켜기': 'Cliquez pour réactiver le pont de chapitre',
   '하이라이트 {count}개 완성': '{count} moments forts prêts',
   '% 단축':
@@ -488,4 +488,17 @@ export const uiFr: Record<string, string> = {
   "왼쪽": "Gauche",
   "가운데": "Centre",
   "오른쪽": "Droite",
+  // Étape des sous-titres (étape 2) — séparée des clips
+  '자막': 'Sous-titres',
+  '자막·톤': 'Sous-titres et ton',
+  'AI가 만든 자막을 확인하고 씬별로 제목·날짜·장소를 다듬어요. 자막 톤과 하단 자막·촬영 날짜 표시도 여기서 정해요.':
+    "Vérifiez les sous-titres générés par l'IA et ajustez le titre, la date et le lieu de chaque scène. Le ton, le sous-titre bas et le tampon de date se règlent aussi ici.",
+  '‹ 이전 씬': '‹ Scène précédente',
+  '다음 씬 ›': 'Scène suivante ›',
+  '씬 #{index}': 'Scène n° {index}',
+  '이 씬만 보기': 'Voir uniquement cette scène',
+  '이 씬의 구도 (크롭)': 'Cadrage de la scène (recadrage)',
+  '세로 화면의 위/중앙/아래 크롭을 조절해요.':
+    'Ajustez le recadrage haut / centre / bas du cadre vertical.',
+  '{count}개 씬 자막': 'Sous-titres de {count} scènes',
 };
