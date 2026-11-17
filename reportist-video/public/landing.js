@@ -402,75 +402,19 @@
   }
 })();
 
-/* ---------- Scroll Director: Lenis inertia + moment-capture motion ---------- */
-
+// Replaces the old Scroll Director: Lenis stays the single rAF authority,
+// the story engine receives one progress number per frame, and the legacy
+// step rail / theater tilt / reveal effects are removed with the 3D stage.
 (() => {
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const root = document.documentElement;
-
-  const hero = document.querySelector(".hero");
-
-  // The WebGL scroll universe replaces the old flat 3D cards.
-  const universe = document.querySelector("[data-universe]");
-  const canvasHost = universe
-    ? universe.querySelector("[data-universe-canvas]")
-    : null;
-  const beats = universe ? Array.from(universe.querySelectorAll("[data-beat]")) : [];
-  const beatLayers = universe
-    ? Array.from(universe.querySelectorAll("[data-beat-layer]"))
-    : [];
-  const beatSteps = universe
-    ? Array.from(universe.querySelectorAll("[data-beat-step]"))
-    : [];
-  const uAct = universe ? universe.querySelector("[data-u-act]") : null;
-  const uBar = universe ? universe.querySelector("[data-u-bar]") : null;
-  const uTc = universe ? universe.querySelector("[data-u-tc]") : null;
-  const uCue = universe ? universe.querySelector("[data-u-cue]") : null;
-
-  const tcHud = document.querySelector("[data-tc-hud]");
-  const tcTime = tcHud ? tcHud.querySelector("[data-tc-time]") : null;
-  const tcState = tcHud ? tcHud.querySelector("[data-tc-state]") : null;
-  const stepFill = document.querySelector("[data-step-fill]");
-  const stepSection = stepFill ? stepFill.closest("section") : null;
-  const stepCards = stepSection
-    ? Array.from(stepSection.querySelectorAll(".step-card"))
-    : [];
   const header = document.querySelector(".site-header");
 
-  const theaterSection = document.querySelector(".theater");
-  const useCaseCards = Array.from(document.querySelectorAll(".use-case-card"));
+  const story = document.querySelector("[data-story]");
+  const hero = document.querySelector(".hero");
+  const stagesOn = !reduceMotion.matches && window.innerHeight > 540;
 
-  // The universe only engages when the visitor can appreciate motion and the
-  // viewport is tall enough for a sticky stage. Otherwise the semantic grids
-  // stay visible and the WebGL stage is never mounted.
-  const lowHeight = window.matchMedia("(max-height: 540px)");
-  const stagesOn = !reduceMotion.matches && !lowHeight.matches;
-
-  let mounted3D = false;
-  let activeBeat = -1;
-  const mountUniverse = () => {
-    if (!universe || !canvasHost || !stagesOn || !window.Landing3D) return;
-    try {
-      mounted3D = window.Landing3D.mount({
-        host: canvasHost,
-        imageBase: "/media/reel",
-      });
-      if (mounted3D) root.classList.add("has-webgl-stage");
-    } catch {
-      mounted3D = false;
-    }
-  };
-  // Let the hero video paint first so LCP is never held up by the WebGL init.
-  if ("requestIdleCallback" in window) {
-    window.requestIdleCallback(mountUniverse, { timeout: 1500 });
-  } else {
-    window.setTimeout(mountUniverse, 220);
-  }
-
-  const clamp01 = (value) => Math.min(1, Math.max(0, value));
-  const pad = (value) => String(value).padStart(2, "0");
-
-  // Lenis: inertial wheel scrolling on desktop; touch stays native (syncTouch).
+  // Lenis: inertial wheel scrolling on desktop; touch stays native.
   let lenis = null;
   if (window.Lenis && !reduceMotion.matches) {
     lenis = new window.Lenis({
@@ -482,121 +426,26 @@
     globalThis.__penguinLenis = lenis;
   }
 
-  let lastY = window.scrollY || 0;
-  let smoothVelocity = 0;
-  const RAW_RUNTIME_SECONDS = 2 * 3600 + 18 * 60 + 40; // "02:18:40" of raw footage
-
-  const formatClock = (seconds) => {
-    const total = Math.floor(seconds);
-    return `${pad(Math.floor(total / 3600))}:${pad(
-      Math.floor((total % 3600) / 60)
-    )}:${pad(total % 60)}`;
-  };
+  const clamp01 = (value) => Math.min(1, Math.max(0, value));
 
   const update = () => {
     const y = window.scrollY || root.scrollTop || 0;
-    const vh = window.innerHeight;
 
-    // Velocity (px per frame), lightly smoothed for the filmstrip lean
-    const instant = y - lastY;
-    lastY = y;
-    smoothVelocity = smoothVelocity * 0.82 + instant * 0.18;
-    const velocity =
-      lenis && Number.isFinite(lenis.velocity)
-        ? lenis.velocity
-        : smoothVelocity * 3;
-    const skew = Math.max(-4.5, Math.min(4.5, velocity * 0.06));
-
-    // Hero scrub: background pushes in, copy lifts away
     if (hero) {
-      const heroDistance = Math.max(1, hero.offsetHeight * 0.9);
-      hero.style.setProperty("--hero-p", clamp01(y / heroDistance).toFixed(4));
+      const distance = Math.max(1, hero.offsetHeight * 0.9);
+      hero.style.setProperty("--hero-p", clamp01(y / distance).toFixed(4));
     }
 
-    // Raw-footage timecode HUD
-    const maxScroll = Math.max(1, root.scrollHeight - vh);
-    const progress = clamp01(y / maxScroll);
-    if (tcTime) tcTime.textContent = formatClock(progress * RAW_RUNTIME_SECONDS);
-
-    // The scroll universe: one continuous WebGL timeline driven by progress.
-    let climaxLocked = false;
-    if (universe) {
-      const rect = universe.getBoundingClientRect();
-      const total = Math.max(1, universe.offsetHeight - vh);
-      const p = clamp01(-rect.top / total);
-
-      if (mounted3D) {
-        window.Landing3D.update(p, velocity);
+    if (story) {
+      const rect = story.getBoundingClientRect();
+      const total = Math.max(1, story.offsetHeight - window.innerHeight);
+      const progress = clamp01(-rect.top / total);
+      if (stagesOn && typeof globalThis.__penguinStory === "function") {
+        globalThis.__penguinStory(progress);
       }
-
-      // Which of the four chapters is on screen.
-      const beatIndex = p < 0.25 ? 0 : p < 0.55 ? 1 : p < 0.8 ? 2 : 3;
-      if (beatIndex !== activeBeat) {
-        activeBeat = beatIndex;
-        beats.forEach((beat, i) =>
-          beat.classList.toggle("is-active", i === beatIndex)
-        );
-        if (uAct) uAct.textContent = `0${beatIndex + 1} / 04`;
-      }
-
-      // Light up the feature / step rows as their sub-beat passes.
-      const sub2 = clamp01((p - 0.25) / 0.3);
-      const sub3 = clamp01((p - 0.55) / 0.25);
-      const idx2 = Math.min(5, Math.floor(sub2 * 6));
-      const idx3 = Math.min(2, Math.floor(sub3 * 3));
-      beatLayers.forEach((row, i) =>
-        row.classList.toggle("is-current", i === idx2)
-      );
-      beatSteps.forEach((row, i) =>
-        row.classList.toggle("is-current", i === idx3)
-      );
-
-      if (uBar) uBar.style.transform = `scaleX(${p.toFixed(4)})`;
-      if (uTc) uTc.textContent = formatClock(p * RAW_RUNTIME_SECONDS);
-      if (uCue) uCue.style.opacity = p > 0.04 ? "0" : "1";
-      climaxLocked = p >= 0.18;
-    }
-
-    if (tcHud) {
-      tcHud.dataset.locked = String(climaxLocked);
-      if (tcState) {
-        tcState.textContent = climaxLocked
-          ? tcHud.dataset.lockedText || ""
-          : tcHud.dataset.scanningText || "";
-      }
-    }
-
-    // How-it-works: progress rail fills, steps activate in order
-    if (stepFill && stepSection) {
-      const rect = stepSection.getBoundingClientRect();
-      const p = clamp01(
-        (vh * 0.82 - rect.top) / (rect.height + vh * 0.3)
-      );
-      stepFill.style.width = `${(p * 100).toFixed(2)}%`;
-      stepCards.forEach((card, index) => {
-        card.classList.toggle(
-          "is-active",
-          p > (index + 0.55) / stepCards.length
-        );
-      });
-    }
-
-    // Act 5 — Theater tilts flat as the finished film arrives.
-    if (stagesOn && theaterSection) {
-      const rect = theaterSection.getBoundingClientRect();
-      const p = clamp01((vh * 0.92 - rect.top) / (vh * 0.7));
-      theaterSection.style.setProperty("--theater-p", p.toFixed(4));
-    }
-
-    // Act 5 — Use cases drift against the scroll for a gentle parallax.
-    if (stagesOn && useCaseCards.length) {
-      const mid = vh / 2;
-      for (const card of useCaseCards) {
-        const rect = card.getBoundingClientRect();
-        const center = rect.top + rect.height / 2;
-        const offset = Math.max(-1, Math.min(1, (center - mid) / mid));
-        card.style.setProperty("--up", `${(-offset * 16).toFixed(2)}px`);
-      }
+      // Keep the fixed timecode HUD in sync with the whole page even when the
+      // stage is off (reduced motion / short viewports).
+      story.dataset.progress = progress.toFixed(4);
     }
   };
 
@@ -622,48 +471,14 @@
     update();
   }
 
-  // Reveal cards as they enter the viewport (focus-in, staggered per grid)
-  const revealTargets = Array.from(
-    document.querySelectorAll(
-      ".feature-card, .step-card, .use-case-card, .language-card"
-    )
-  );
-
-  if (reduceMotion.matches || !("IntersectionObserver" in window)) {
-    for (const el of revealTargets) el.classList.add("is-in");
-  } else {
-    const groupCount = new Map();
-    for (const el of revealTargets) {
-      const parent = el.parentElement || root;
-      const index = groupCount.get(parent) || 0;
-      groupCount.set(parent, index + 1);
-      el.style.setProperty("--d", `${Math.min(index, 6) * 80}ms`);
-      el.classList.add("reveal");
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("is-in");
-            observer.unobserve(entry.target);
-          }
-        }
-      },
-      { threshold: 0.16, rootMargin: "0px 0px -8% 0px" }
-    );
-
-    for (const el of revealTargets) observer.observe(el);
-  }
-
-  // Anchor navigation eased by Lenis (offset clears the sticky header)
+  // Anchor navigation eased by Lenis; offsets clear the sticky header.
   if (lenis) {
     document.addEventListener("click", (event) => {
       const anchor =
         event.target instanceof Element
           ? event.target.closest('a[href^="#"]')
           : null;
-      if (!anchor) return;
+      if (!anchor || anchor.hasAttribute("data-ui-jump")) return;
       const hash = anchor.getAttribute("href");
       if (!hash || hash === "#") return;
 
@@ -676,24 +491,15 @@
       if (!(target instanceof HTMLElement)) return;
 
       event.preventDefault();
-
-      // When the 3D universe is live, chapter links jump to the matching
-      // scroll beat instead of the clipped semantic fallback block.
-      if (mounted3D && universe && target.closest("[data-universe]")) {
-        const chapterFractions = {
-          "#reel": 0.06,
-          "#features": 0.38,
-          "#how-it-works": 0.66,
-        };
-        const fraction = chapterFractions[hash];
-        if (fraction !== undefined) {
-          const total = Math.max(1, universe.offsetHeight - window.innerHeight);
-          const docTop = universe.getBoundingClientRect().top + window.scrollY;
-          lenis.scrollTo(docTop + fraction * total, { duration: 1.15 });
-          return;
-        }
+      // Chapter links point at clipped semantic anchors; send them to the
+      // matching beat of the sticky stage instead.
+      const chapterFractions = { "#reel": 0.05, "#features": 0.4, "#how-it-works": 0.72 };
+      if (story && stagesOn && chapterFractions[hash] !== undefined) {
+        const docTop = story.getBoundingClientRect().top + window.scrollY;
+        const height = Math.max(1, story.offsetHeight - window.innerHeight);
+        lenis.scrollTo(docTop + chapterFractions[hash] * height, { duration: 1.15 });
+        return;
       }
-
       const headerHeight = header ? header.offsetHeight : 0;
       lenis.scrollTo(target, { offset: -(headerHeight + 12), duration: 1.15 });
     });

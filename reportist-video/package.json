@@ -4,8 +4,7 @@
   "version": "0.9.11",
   "type": "module",
   "scripts": {
-    "build:landing3d": "vite build --config vite.config.landing3d.ts",
-    "preseo": "npm run build:landing3d",
+    "media:landing": "node scripts/prepare-landing-media.mjs",
     "seo": "node scripts/generate-seo-pages.mjs",
     "indexnow": "node scripts/indexnow.mjs",
     "predev": "npm run seo",
@@ -22,14 +21,12 @@
     "lucide-react": "^1.61.0",
     "mp4-muxer": "^5.2.2",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1",
-    "three": "^0.180.0"
+    "react-dom": "^19.3.1"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@types/three": "^0.180.0",
     "@vitejs/plugin-react": "^6.1.2",
     "typescript": "~6.0.3",
     "vite": "^8.3.4"

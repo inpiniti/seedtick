@@ -28,7 +28,7 @@ function assetVersion(file) {
 const ASSET_VERSIONS = {
   css: assetVersion("landing.css"),
   js: assetVersion("landing.js"),
-  three: assetVersion("vendor/landing-3d.js"),
+  story: assetVersion("landing-story.js"),
 };
 
 // Korean users spell the brand both ways; listing the aliases in schema.org
@@ -231,7 +231,7 @@ function renderHero(locale) {
             ${esc(hero.primary)}
             ${ICONS.arrow}
           </a>
-          <a class="button button-hero-ghost" href="#universe">${esc(
+          <a class="button button-hero-ghost" href="#story">${esc(
             hero.secondary
           )}</a>
         </div>
@@ -253,7 +253,7 @@ function renderHero(locale) {
           <span class="hero-sound-icon" aria-hidden="true">${ICONS.sound}</span>
           <span class="hero-sound-label">${esc(locale.video.soundCue)}</span>
         </button>
-        <a class="hero-scroll" href="#universe" aria-label="${esc(
+        <a class="hero-scroll" href="#story" aria-label="${esc(
           hero.secondary
         )}">${ICONS.chevron}</a>
         <span class="hero-foot-note">00:36 · 16:9 &amp; 9:16</span>
@@ -364,57 +364,65 @@ function renderTheater(locale) {
     </section>`;
 }
 
-// The scroll universe — one dark, fixed 3D stage that the visitor scrolls
-// through. All copy stays in the DOM (semantic chapters) for crawlers; the
-// WebGL stage mirrors it as presentational, aria-hidden overlays.
-const LAYER_FEATURE_INDEX = [5, 0, 3, 4, 1, 2];
-
-function renderUniverse(locale) {
+// The scroll story — one sticky, presentational stage driven by scroll, with
+// a fully crawlable semantic copy of every chapter for SEO and motion-off users.
+function renderStory(locale) {
   const { reel, features, how, theater, video, stack } = locale;
-  const layerItems = LAYER_FEATURE_INDEX.map((itemIndex) => features.items[itemIndex]);
-  const labels = stack.layers;
   const two = (n) => String(n).padStart(2, "0");
 
-  const captureChips = labels
+  const captureChips = stack.layers
     .map(
       (label, i) =>
-        `<span class="capture-chip"><i>${two(i + 1)}</i><b>${esc(label)}</b></span>`
+        `<span class="story-chip" data-chip="${i}"><i>${two(i + 1)}</i><b>${esc(
+          label
+        )}</b></span>`
     )
     .join("");
 
-  const featureRows = layerItems
+  const thumbnails = stack.layers
     .map(
-      (item, index) =>
-        `<li data-beat-layer="${index}"><span class="br-num">0${index + 1}</span><b>${esc(
-          item.title
-        )}</b><small>${esc(labels[index])}</small></li>`
+      (label, i) =>
+        `<span class="story-thumb" data-thumb="${i}"><img src="/media/reel/reel-0${i + 1}.webp" alt="" loading="lazy" width="160" height="90"><i>${two(i + 1)}</i></span>`
+    )
+    .join("");
+
+  const featureRows = features.items
+    .map(
+      (item, index) => `
+        <li><button class="story-ui-row" type="button" tabindex="-1" data-ui-jump="${index}" data-ui-row="${index}">
+          <span class="br-num">0${index + 1}</span>
+          <b>${esc(item.title)}</b>
+          <small>${esc(stack.layers[index] || "")}</small>
+        </button></li>`
     )
     .join("");
 
   const stepRows = how.steps
     .map(
-      (step, index) =>
-        `<li data-beat-step="${index}"><span class="br-num">0${index + 1}</span><b>${esc(
-          step.title
-        )}</b></li>`
+      (step, index) => `
+        <li class="story-step-row" data-story-step="${index}">
+          <span class="br-num">0${index + 1}</span>
+          <b>${esc(step.title)}</b>
+          <p>${esc(step.desc)}</p>
+        </li>`
     )
     .join("");
 
   return `
-  <section class="universe" id="universe" data-universe aria-labelledby="universe-title">
-    <!-- Semantic, always-crawlable content (also the no-WebGL fallback) -->
-    <div class="universe-content" data-universe-content>
-      <div class="universe-chapter" id="reel" data-chapter="0">
+  <section class="story" id="story" data-story aria-labelledby="story-title">
+    <!-- Semantic content: crawled by search engines, shown when motion is off -->
+    <div class="story-content">
+      <div class="story-chapter" id="reel">
         <div class="container">
           <div class="section-head">
             <p class="eyebrow"><span class="eyebrow-dot"></span>${esc(reel.eyebrow)}</p>
-            <h2 id="universe-title">${esc(reel.title)}</h2>
+            <h2 id="story-title">${esc(reel.title)}</h2>
             <p class="section-lead">${esc(reel.lead)}</p>
           </div>
         </div>
       </div>
 
-      <div class="universe-chapter" id="features" data-chapter="1">
+      <div class="story-chapter" id="features">
         <div class="container">
           <div class="section-head">
             <p class="eyebrow"><span class="eyebrow-dot"></span>${esc(features.eyebrow)}</p>
@@ -436,18 +444,18 @@ function renderUniverse(locale) {
         </div>
       </div>
 
-      <div class="universe-chapter" id="how-it-works" data-chapter="2">
+      <div class="story-chapter" id="how-it-works">
         <div class="container">
           <div class="section-head">
             <p class="eyebrow"><span class="eyebrow-dot"></span>${esc(how.eyebrow)}</p>
             <h2>${esc(how.title)}</h2>
             <p class="section-lead">${esc(how.lead)}</p>
           </div>
-          <div class="step-grid" data-step-grid>
+          <div class="step-grid">
             ${how.steps
               .map(
                 (step, index) => `
-            <article class="step-card" data-step-index="${index}">
+            <article class="step-card">
               <span class="step-number">0${index + 1}</span>
               <h3>${esc(step.title)}</h3>
               <p>${esc(step.desc)}</p>
@@ -459,7 +467,7 @@ function renderUniverse(locale) {
         </div>
       </div>
 
-      <div class="universe-chapter universe-chapter--exit" data-chapter="3">
+      <div class="story-chapter story-chapter--exit">
         <div class="container">
           <div class="section-head">
             <p class="eyebrow"><span class="eyebrow-dot"></span>${esc(theater.eyebrow)}</p>
@@ -471,60 +479,84 @@ function renderUniverse(locale) {
       </div>
     </div>
 
-    <!-- Presentational WebGL stage -->
-    <div class="universe-stage" data-universe-stage aria-hidden="true">
-      <div class="universe-sticky">
-        <div class="universe-canvas-host" data-universe-canvas></div>
-        <div class="universe-vignette"></div>
+    <!-- Presentational stage: canvas frame scrubbing + real product UI -->
+    <div class="story-stage" aria-hidden="true">
+      <div class="story-sticky">
+        <canvas class="story-canvas" data-story-canvas></canvas>
+        <div class="story-stage-scrim"></div>
 
-        <div class="universe-beats">
-          <div class="beat beat--capture is-active" data-beat="0">
-            <p class="beat-eyebrow">${esc(reel.eyebrow)}</p>
+        <div class="story-thumbs">${thumbnails}</div>
+
+        <div class="story-act story-act--capture is-active" data-story-act="0">
+          <div class="story-copy">
+            <p class="story-eyebrow">${esc(reel.eyebrow)}</p>
             <h2>${esc(reel.title)}</h2>
-            <p class="beat-lead">${esc(reel.lead)}</p>
-            <div class="beat-captures">${captureChips}</div>
+            <p class="story-lead">${esc(reel.lead)}</p>
+            <div class="story-captures">${captureChips}</div>
+            <p class="story-lock" data-story-lock>${esc(reel.captured)}</p>
           </div>
+          <p class="story-counter"><span data-story-counter>01</span> / 06</p>
+        </div>
 
-          <div class="beat beat--explode" data-beat="1">
-            <p class="beat-eyebrow">${esc(features.eyebrow)}</p>
-            <h2>${esc(features.title)}</h2>
-            <ol class="beat-list">${featureRows}</ol>
-          </div>
-
-          <div class="beat beat--assemble" data-beat="2">
-            <p class="beat-eyebrow">${esc(how.eyebrow)}</p>
-            <h2>${esc(how.title)}</h2>
-            <ol class="beat-list beat-list--steps">${stepRows}</ol>
-          </div>
-
-          <div class="beat beat--morph" data-beat="3">
-            <p class="beat-eyebrow">FINAL FORMAT</p>
-            <h2>${esc(theater.title)}</h2>
-            <div class="beat-formats">
-              <span><b>16:9</b><i>YOUTUBE</i></span>
-              <span><b>9:16</b><i>SHORTS</i></span>
+        <div class="story-act story-act--ui" data-story-act="1">
+          <div class="story-ui-frame">
+            <div class="story-ui-bar"><i></i><i></i><i></i><span> PenguinCut Studio</span></div>
+            <div class="story-ui-screen">
+              <img class="story-ui-img is-front" data-ui-front src="/media/ui/ui-01.webp" alt="" width="960" height="600">
+              <img class="story-ui-img" data-ui-back alt="" width="960" height="600">
             </div>
-            <a class="button beat-button" href="#film" tabindex="-1">${esc(
+          </div>
+          <div class="story-ui-copy">
+            <p class="story-eyebrow">${esc(features.eyebrow)}</p>
+            <h2>${esc(features.title)}</h2>
+            <ol class="story-ui-list">${featureRows}</ol>
+          </div>
+        </div>
+
+        <div class="story-act story-act--steps" data-story-act="2">
+          <div class="story-steps-copy">
+            <p class="story-eyebrow">${esc(how.eyebrow)}</p>
+            <h2>${esc(how.title)}</h2>
+            <p class="story-lead">${esc(how.lead)}</p>
+            <div class="story-playhead"><i data-story-playhead></i></div>
+          </div>
+          <ol class="story-steps">${stepRows}</ol>
+        </div>
+
+        <div class="story-act story-act--format" data-story-act="3">
+          <div class="story-format-copy">
+            <p class="story-eyebrow">FINAL FORMAT</p>
+            <h2>${esc(theater.title)}</h2>
+            <a class="button story-format-button" href="#film" tabindex="-1">${esc(
               video.play
             )} ${ICONS.arrow}</a>
           </div>
+          <div class="story-formats">
+            <figure class="story-format story-format--wide">
+              <img src="/media/result-${esc(locale.code)}.webp" alt="" width="960" height="540">
+              <figcaption><b>16:9</b><span>YOUTUBE</span></figcaption>
+            </figure>
+            <figure class="story-format story-format--tall">
+              <img src="/media/poster-v-${esc(locale.code)}.webp" alt="" width="720" height="1280">
+              <figcaption><b>9:16</b><span>SHORTS</span></figcaption>
+            </figure>
+          </div>
         </div>
 
-        <div class="universe-hud">
-          <span class="u-hud-act" data-u-act>01 / 04</span>
-          <span class="u-hud-bar"><i data-u-bar></i></span>
-          <span class="u-hud-tc" data-u-tc>00:00:00</span>
+        <div class="story-hud">
+          <span data-story-act-label>01 / 04</span>
+          <span class="story-hud-bar"><i data-story-bar></i></span>
+          <span data-story-tc>00:00:00</span>
         </div>
-        <span class="universe-corner universe-corner--tl"></span>
-        <span class="universe-corner universe-corner--tr"></span>
-        <span class="universe-corner universe-corner--bl"></span>
-        <span class="universe-corner universe-corner--br"></span>
-        <span class="universe-scrollcue" data-u-cue>SCROLL</span>
+        <span class="story-cue" data-story-cue>SCROLL</span>
+        <span class="story-corner story-corner--tl"></span>
+        <span class="story-corner story-corner--tr"></span>
+        <span class="story-corner story-corner--bl"></span>
+        <span class="story-corner story-corner--br"></span>
       </div>
     </div>
   </section>`;
 }
-
 function renderUseCases(locale) {
   const { useCases } = locale;
   return `
@@ -822,6 +854,13 @@ ${verification.length ? `${verification.map((tag) => `  ${tag}\n`).join("")}\n` 
   <link rel="stylesheet" href="/landing.css?v=${ASSET_VERSIONS.css}">
 
   <script>
+    // Opt into the scroll story before first paint so the semantic fallback
+    // and the sticky stage never swap after layout (zero layout shift).
+    try {
+      if (!matchMedia("(prefers-reduced-motion: reduce)").matches && innerHeight > 540) {
+        document.documentElement.classList.add("has-motion-stage");
+      }
+    } catch (_) {}
     // Preserve old app links such as /#projects when the marketing page takes over /.
     (function () {
       var hash = location.hash.toLowerCase();
@@ -847,7 +886,7 @@ export function renderPage(locale) {
     <main id="main">
       ${renderHero(locale)}
       ${renderStrip(locale)}
-      ${renderUniverse(locale)}
+      ${renderStory(locale)}
       ${renderTheater(locale)}
       ${renderUseCases(locale)}
       ${renderLanguages(locale)}
@@ -856,14 +895,8 @@ export function renderPage(locale) {
     </main>
     ${renderFooter(locale)}
     ${renderFilmModal(locale)}
-    <div class="tc-hud" data-tc-hud data-scanning-text="${esc(locale.reel.scanning)}" data-locked-text="${esc(locale.reel.locked)}" aria-hidden="true">
-      <span class="tc-hud-dot"></span>
-      <span class="tc-hud-label">RAW</span>
-      <span class="tc-hud-time" data-tc-time>00:00:00</span>
-      <span class="tc-hud-state" data-tc-state>${esc(locale.reel.scanning)}</span>
-    </div>
     <script src="/vendor/lenis.min.js" defer></script>
-    <script src="/vendor/landing-3d.js?v=${ASSET_VERSIONS.three}" defer></script>
+    <script src="/landing-story.js?v=${ASSET_VERSIONS.story}" defer></script>
     <script src="/landing.js?v=${ASSET_VERSIONS.js}" defer></script>
   </body>
 </html>

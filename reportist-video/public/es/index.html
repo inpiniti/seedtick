@@ -61,9 +61,16 @@
   <link rel="preload" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
   <link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"></noscript>
-  <link rel="stylesheet" href="/landing.css?v=6c3f9d5e2c">
+  <link rel="stylesheet" href="/landing.css?v=08d3634cba">
 
   <script>
+    // Opt into the scroll story before first paint so the semantic fallback
+    // and the sticky stage never swap after layout (zero layout shift).
+    try {
+      if (!matchMedia("(prefers-reduced-motion: reduce)").matches && innerHeight > 540) {
+        document.documentElement.classList.add("has-motion-stage");
+      }
+    } catch (_) {}
     // Preserve old app links such as /#projects when the marketing page takes over /.
     (function () {
       var hash = location.hash.toLowerCase();
@@ -153,7 +160,7 @@
       <path d="M5 12h13M13 6l6 6-6 6"/>
     </svg>
           </a>
-          <a class="button button-hero-ghost" href="#universe">Ver cómo funciona</a>
+          <a class="button button-hero-ghost" href="#story">Ver cómo funciona</a>
         </div>
 
         <ul class="trust-list hero-trust">
@@ -182,7 +189,7 @@
     </svg></span>
           <span class="hero-sound-label">Ver con sonido</span>
         </button>
-        <a class="hero-scroll" href="#universe" aria-label="Ver cómo funciona">
+        <a class="hero-scroll" href="#story" aria-label="Ver cómo funciona">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
       <path d="m6 9 6 6 6-6"/>
     </svg></a>
@@ -200,20 +207,20 @@
       </div>
     </section>
       
-  <section class="universe" id="universe" data-universe aria-labelledby="universe-title">
-    <!-- Semantic, always-crawlable content (also the no-WebGL fallback) -->
-    <div class="universe-content" data-universe-content>
-      <div class="universe-chapter" id="reel" data-chapter="0">
+  <section class="story" id="story" data-story aria-labelledby="story-title">
+    <!-- Semantic content: crawled by search engines, shown when motion is off -->
+    <div class="story-content">
+      <div class="story-chapter" id="reel">
         <div class="container">
           <div class="section-head">
             <p class="eyebrow"><span class="eyebrow-dot"></span>Captura de momentos</p>
-            <h2 id="universe-title">Horas de material. Un solo fotograma que importa.</h2>
+            <h2 id="story-title">Horas de material. Un solo fotograma que importa.</h2>
             <p class="section-lead">Desplázate despacio y observa cómo la IA escanea cada frame, hasta anclarse en el clímax.</p>
           </div>
         </div>
       </div>
 
-      <div class="universe-chapter" id="features" data-chapter="1">
+      <div class="story-chapter" id="features">
         <div class="container">
           <div class="section-head">
             <p class="eyebrow"><span class="eyebrow-dot"></span>El editor</p>
@@ -283,26 +290,26 @@
         </div>
       </div>
 
-      <div class="universe-chapter" id="how-it-works" data-chapter="2">
+      <div class="story-chapter" id="how-it-works">
         <div class="container">
           <div class="section-head">
             <p class="eyebrow"><span class="eyebrow-dot"></span>Cómo funciona</p>
             <h2>Tres pasos. Una película terminada.</h2>
             <p class="section-lead">Sin pelear con la línea de tiempo. Añade tu material y deja que la IA encuentre la historia.</p>
           </div>
-          <div class="step-grid" data-step-grid>
+          <div class="step-grid">
             
-            <article class="step-card" data-step-index="0">
+            <article class="step-card">
               <span class="step-number">01</span>
               <h3>Añade tus clips</h3>
               <p>Incluye los vídeos de tu viaje, evento o rodaje. PenguinCut los lee en tu navegador.</p>
             </article>
-            <article class="step-card" data-step-index="1">
+            <article class="step-card">
               <span class="step-number">02</span>
               <h3>Deja que la IA encuentre la historia</h3>
               <p>Elige un modelo y un nivel de razonamiento. PenguinCut puntúa el material y propone los momentos más fuertes.</p>
             </article>
-            <article class="step-card" data-step-index="2">
+            <article class="step-card">
               <span class="step-number">03</span>
               <h3>Pule y exporta</h3>
               <p>Ajusta los cortes, añade subtítulos y música, y renderiza un highlight 16:9 &amp; 9:16 listo para YouTube.</p>
@@ -312,7 +319,7 @@
         </div>
       </div>
 
-      <div class="universe-chapter universe-chapter--exit" data-chapter="3">
+      <div class="story-chapter story-chapter--exit">
         <div class="container">
           <div class="section-head">
             <p class="eyebrow"><span class="eyebrow-dot"></span>Verlo en movimiento</p>
@@ -327,56 +334,126 @@
       </div>
     </div>
 
-    <!-- Presentational WebGL stage -->
-    <div class="universe-stage" data-universe-stage aria-hidden="true">
-      <div class="universe-sticky">
-        <div class="universe-canvas-host" data-universe-canvas></div>
-        <div class="universe-vignette"></div>
+    <!-- Presentational stage: canvas frame scrubbing + real product UI -->
+    <div class="story-stage" aria-hidden="true">
+      <div class="story-sticky">
+        <canvas class="story-canvas" data-story-canvas></canvas>
+        <div class="story-stage-scrim"></div>
 
-        <div class="universe-beats">
-          <div class="beat beat--capture is-active" data-beat="0">
-            <p class="beat-eyebrow">Captura de momentos</p>
+        <div class="story-thumbs"><span class="story-thumb" data-thumb="0"><img src="/media/reel/reel-01.webp" alt="" loading="lazy" width="160" height="90"><i>01</i></span><span class="story-thumb" data-thumb="1"><img src="/media/reel/reel-02.webp" alt="" loading="lazy" width="160" height="90"><i>02</i></span><span class="story-thumb" data-thumb="2"><img src="/media/reel/reel-03.webp" alt="" loading="lazy" width="160" height="90"><i>03</i></span><span class="story-thumb" data-thumb="3"><img src="/media/reel/reel-04.webp" alt="" loading="lazy" width="160" height="90"><i>04</i></span><span class="story-thumb" data-thumb="4"><img src="/media/reel/reel-05.webp" alt="" loading="lazy" width="160" height="90"><i>05</i></span><span class="story-thumb" data-thumb="5"><img src="/media/reel/reel-06.webp" alt="" loading="lazy" width="160" height="90"><i>06</i></span></div>
+
+        <div class="story-act story-act--capture is-active" data-story-act="0">
+          <div class="story-copy">
+            <p class="story-eyebrow">Captura de momentos</p>
             <h2>Horas de material. Un solo fotograma que importa.</h2>
-            <p class="beat-lead">Desplázate despacio y observa cómo la IA escanea cada frame, hasta anclarse en el clímax.</p>
-            <div class="beat-captures"><span class="capture-chip"><i>01</i><b>ORIGEN</b></span><span class="capture-chip"><i>02</i><b>AI SCORE</b></span><span class="capture-chip"><i>03</i><b>PUENTES</b></span><span class="capture-chip"><i>04</i><b>MÚSICA</b></span><span class="capture-chip"><i>05</i><b>SUBTÍTULOS</b></span><span class="capture-chip"><i>06</i><b>OVERLAY</b></span></div>
+            <p class="story-lead">Desplázate despacio y observa cómo la IA escanea cada frame, hasta anclarse en el clímax.</p>
+            <div class="story-captures"><span class="story-chip" data-chip="0"><i>01</i><b>ORIGEN</b></span><span class="story-chip" data-chip="1"><i>02</i><b>AI SCORE</b></span><span class="story-chip" data-chip="2"><i>03</i><b>PUENTES</b></span><span class="story-chip" data-chip="3"><i>04</i><b>MÚSICA</b></span><span class="story-chip" data-chip="4"><i>05</i><b>SUBTÍTULOS</b></span><span class="story-chip" data-chip="5"><i>06</i><b>OVERLAY</b></span></div>
+            <p class="story-lock" data-story-lock>CLÍMAX CAPTURADO</p>
           </div>
+          <p class="story-counter"><span data-story-counter>01</span> / 06</p>
+        </div>
 
-          <div class="beat beat--explode" data-beat="1">
-            <p class="beat-eyebrow">El editor</p>
-            <h2>Todo lo que necesitas para terminar el highlight.</h2>
-            <ol class="beat-list"><li data-beat-layer="0"><span class="br-num">01</span><b>Privacidad desde el diseño</b><small>ORIGEN</small></li><li data-beat-layer="1"><span class="br-num">02</span><b>Detección de clímax con IA</b><small>AI SCORE</small></li><li data-beat-layer="2"><span class="br-num">03</span><b>Intro, outro y puentes de capítulo</b><small>PUENTES</small></li><li data-beat-layer="3"><span class="br-num">04</span><b>Música que encaja</b><small>MÚSICA</small></li><li data-beat-layer="4"><span class="br-num">05</span><b>Subtítulos automáticos</b><small>SUBTÍTULOS</small></li><li data-beat-layer="5"><span class="br-num">06</span><b>Capas cinematográficas</b><small>OVERLAY</small></li></ol>
-          </div>
-
-          <div class="beat beat--assemble" data-beat="2">
-            <p class="beat-eyebrow">Cómo funciona</p>
-            <h2>Tres pasos. Una película terminada.</h2>
-            <ol class="beat-list beat-list--steps"><li data-beat-step="0"><span class="br-num">01</span><b>Añade tus clips</b></li><li data-beat-step="1"><span class="br-num">02</span><b>Deja que la IA encuentre la historia</b></li><li data-beat-step="2"><span class="br-num">03</span><b>Pule y exporta</b></li></ol>
-          </div>
-
-          <div class="beat beat--morph" data-beat="3">
-            <p class="beat-eyebrow">FINAL FORMAT</p>
-            <h2>Mira cómo el pingüino elige los seis mejores momentos.</h2>
-            <div class="beat-formats">
-              <span><b>16:9</b><i>YOUTUBE</i></span>
-              <span><b>9:16</b><i>SHORTS</i></span>
+        <div class="story-act story-act--ui" data-story-act="1">
+          <div class="story-ui-frame">
+            <div class="story-ui-bar"><i></i><i></i><i></i><span> PenguinCut Studio</span></div>
+            <div class="story-ui-screen">
+              <img class="story-ui-img is-front" data-ui-front src="/media/ui/ui-01.webp" alt="" width="960" height="600">
+              <img class="story-ui-img" data-ui-back alt="" width="960" height="600">
             </div>
-            <a class="button beat-button" href="#film" tabindex="-1">Reproducir el vídeo 
+          </div>
+          <div class="story-ui-copy">
+            <p class="story-eyebrow">El editor</p>
+            <h2>Todo lo que necesitas para terminar el highlight.</h2>
+            <ol class="story-ui-list">
+        <li><button class="story-ui-row" type="button" tabindex="-1" data-ui-jump="0" data-ui-row="0">
+          <span class="br-num">01</span>
+          <b>Detección de clímax con IA</b>
+          <small>ORIGEN</small>
+        </button></li>
+        <li><button class="story-ui-row" type="button" tabindex="-1" data-ui-jump="1" data-ui-row="1">
+          <span class="br-num">02</span>
+          <b>Subtítulos automáticos</b>
+          <small>AI SCORE</small>
+        </button></li>
+        <li><button class="story-ui-row" type="button" tabindex="-1" data-ui-jump="2" data-ui-row="2">
+          <span class="br-num">03</span>
+          <b>Capas cinematográficas</b>
+          <small>PUENTES</small>
+        </button></li>
+        <li><button class="story-ui-row" type="button" tabindex="-1" data-ui-jump="3" data-ui-row="3">
+          <span class="br-num">04</span>
+          <b>Intro, outro y puentes de capítulo</b>
+          <small>MÚSICA</small>
+        </button></li>
+        <li><button class="story-ui-row" type="button" tabindex="-1" data-ui-jump="4" data-ui-row="4">
+          <span class="br-num">05</span>
+          <b>Música que encaja</b>
+          <small>SUBTÍTULOS</small>
+        </button></li>
+        <li><button class="story-ui-row" type="button" tabindex="-1" data-ui-jump="5" data-ui-row="5">
+          <span class="br-num">06</span>
+          <b>Privacidad desde el diseño</b>
+          <small>OVERLAY</small>
+        </button></li></ol>
+          </div>
+        </div>
+
+        <div class="story-act story-act--steps" data-story-act="2">
+          <div class="story-steps-copy">
+            <p class="story-eyebrow">Cómo funciona</p>
+            <h2>Tres pasos. Una película terminada.</h2>
+            <p class="story-lead">Sin pelear con la línea de tiempo. Añade tu material y deja que la IA encuentre la historia.</p>
+            <div class="story-playhead"><i data-story-playhead></i></div>
+          </div>
+          <ol class="story-steps">
+        <li class="story-step-row" data-story-step="0">
+          <span class="br-num">01</span>
+          <b>Añade tus clips</b>
+          <p>Incluye los vídeos de tu viaje, evento o rodaje. PenguinCut los lee en tu navegador.</p>
+        </li>
+        <li class="story-step-row" data-story-step="1">
+          <span class="br-num">02</span>
+          <b>Deja que la IA encuentre la historia</b>
+          <p>Elige un modelo y un nivel de razonamiento. PenguinCut puntúa el material y propone los momentos más fuertes.</p>
+        </li>
+        <li class="story-step-row" data-story-step="2">
+          <span class="br-num">03</span>
+          <b>Pule y exporta</b>
+          <p>Ajusta los cortes, añade subtítulos y música, y renderiza un highlight 16:9 &amp; 9:16 listo para YouTube.</p>
+        </li></ol>
+        </div>
+
+        <div class="story-act story-act--format" data-story-act="3">
+          <div class="story-format-copy">
+            <p class="story-eyebrow">FINAL FORMAT</p>
+            <h2>Mira cómo el pingüino elige los seis mejores momentos.</h2>
+            <a class="button story-format-button" href="#film" tabindex="-1">Reproducir el vídeo 
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
       <path d="M5 12h13M13 6l6 6-6 6"/>
     </svg></a>
           </div>
+          <div class="story-formats">
+            <figure class="story-format story-format--wide">
+              <img src="/media/result-es.webp" alt="" width="960" height="540">
+              <figcaption><b>16:9</b><span>YOUTUBE</span></figcaption>
+            </figure>
+            <figure class="story-format story-format--tall">
+              <img src="/media/poster-v-es.webp" alt="" width="720" height="1280">
+              <figcaption><b>9:16</b><span>SHORTS</span></figcaption>
+            </figure>
+          </div>
         </div>
 
-        <div class="universe-hud">
-          <span class="u-hud-act" data-u-act>01 / 04</span>
-          <span class="u-hud-bar"><i data-u-bar></i></span>
-          <span class="u-hud-tc" data-u-tc>00:00:00</span>
+        <div class="story-hud">
+          <span data-story-act-label>01 / 04</span>
+          <span class="story-hud-bar"><i data-story-bar></i></span>
+          <span data-story-tc>00:00:00</span>
         </div>
-        <span class="universe-corner universe-corner--tl"></span>
-        <span class="universe-corner universe-corner--tr"></span>
-        <span class="universe-corner universe-corner--bl"></span>
-        <span class="universe-corner universe-corner--br"></span>
-        <span class="universe-scrollcue" data-u-cue>SCROLL</span>
+        <span class="story-cue" data-story-cue>SCROLL</span>
+        <span class="story-corner story-corner--tl"></span>
+        <span class="story-corner story-corner--tr"></span>
+        <span class="story-corner story-corner--bl"></span>
+        <span class="story-corner story-corner--br"></span>
       </div>
     </div>
   </section>
@@ -689,14 +766,8 @@
       <video class="film-video" data-video-player data-video-src="/media/promo-es.mp4" controls playsinline preload="none" poster="/media/hero-poster.webp" width="1280" height="720"></video>
     </div>
   </dialog>
-    <div class="tc-hud" data-tc-hud data-scanning-text="ESCANEANDO" data-locked-text="CLÍMAX FIJADO" aria-hidden="true">
-      <span class="tc-hud-dot"></span>
-      <span class="tc-hud-label">RAW</span>
-      <span class="tc-hud-time" data-tc-time>00:00:00</span>
-      <span class="tc-hud-state" data-tc-state>ESCANEANDO</span>
-    </div>
     <script src="/vendor/lenis.min.js" defer></script>
-    <script src="/vendor/landing-3d.js?v=f141b0814e" defer></script>
-    <script src="/landing.js?v=17e7bb5477" defer></script>
+    <script src="/landing-story.js?v=08fb3d9898" defer></script>
+    <script src="/landing.js?v=2a530e9929" defer></script>
   </body>
 </html>
