@@ -235,10 +235,10 @@ function renderHero(locale) {
 
               <div class="studio-main">
                 <div class="preview">
-                  <video class="preview-video" data-hero-loop muted loop playsinline preload="none" poster="/media/hero-pick-${esc(
+                  <video class="preview-video" data-hero-loop muted loop playsinline preload="none" poster="/media/result-${esc(
                     locale.code
                   )}.webp" aria-hidden="true" tabindex="-1">
-                    <source src="/media/hero-pick-${esc(
+                    <source src="/media/result-${esc(
                       locale.code
                     )}.mp4" type="video/mp4">
                   </video>
@@ -355,7 +355,7 @@ function renderTheater(locale) {
 
         <div class="theater-frame" data-theater>
           <div class="theater-stage">
-            <video class="theater-video" data-theater-video data-ambient muted loop playsinline preload="none" poster="/media/hero-pick-${esc(
+            <video class="theater-video" data-theater-video data-ambient muted loop playsinline preload="none" poster="/media/result-${esc(
               locale.code
             )}.webp" aria-label="${esc(
     locale.video.label
