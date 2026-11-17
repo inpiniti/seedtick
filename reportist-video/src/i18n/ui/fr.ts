@@ -116,6 +116,10 @@ export const uiFr: Record<string, string> = {
   '이 장면 전환 넣기': 'Ajouter cette transition',
   '모든 브릿지에 같은 스타일': 'Même style pour tous les ponts',
   '이 장면 전환 켜기': 'Activer cette transition',
+  '장면 전환 사용 중 · 눌러서 끄기': 'Transitions activées · appuyez pour désactiver',
+  '장면 전환 꺼짐 · 눌러서 켜기': 'Transitions désactivées · appuyez pour activer',
+  '장면 전환을 꺼 두면 날짜나 장소가 바뀌어도 브릿지가 들어가지 않아요.':
+    'Lorsque les transitions sont désactivées, aucun pont n’est ajouté même si la date ou le lieu change.',
   '자막 다운로드': 'Télécharger les sous-titres',
   '다듬는 중...': 'Ajustement...',
   '이 컷만 보기': 'Voir ce clip uniquement',

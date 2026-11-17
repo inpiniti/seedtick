@@ -117,6 +117,10 @@ export const uiEn: Record<string, string> = {
   '이 장면 전환 넣기': 'Add this transition',
   '모든 브릿지에 같은 스타일': 'Same style for all bridges',
   '이 장면 전환 켜기': 'Enable this transition',
+  '장면 전환 사용 중 · 눌러서 끄기': 'Transitions on · tap to turn off',
+  '장면 전환 꺼짐 · 눌러서 켜기': 'Transitions off · tap to turn on',
+  '장면 전환을 꺼 두면 날짜나 장소가 바뀌어도 브릿지가 들어가지 않아요.':
+    'With transitions off, no bridge is added even when the date or place changes.',
   '자막 다운로드': 'Download subtitles',
   '다듬는 중...': 'Refining...',
   '이 컷만 보기': 'View this clip only',

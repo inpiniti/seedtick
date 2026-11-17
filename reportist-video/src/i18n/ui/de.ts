@@ -116,6 +116,10 @@ export const uiDe: Record<string, string> = {
   '이 장면 전환 넣기': 'Diesen Übergang hinzufügen',
   '모든 브릿지에 같은 스타일': 'Gleicher Stil für alle Brücken',
   '이 장면 전환 켜기': 'Diesen Übergang aktivieren',
+  '장면 전환 사용 중 · 눌러서 끄기': 'Übergänge an · zum Ausschalten tippen',
+  '장면 전환 꺼짐 · 눌러서 켜기': 'Übergänge aus · zum Einschalten tippen',
+  '장면 전환을 꺼 두면 날짜나 장소가 바뀌어도 브릿지가 들어가지 않아요.':
+    'Bei ausgeschalteten Übergängen wird auch bei Datums- oder Ortswechsel keine Brücke eingefügt.',
   '자막 다운로드': 'Untertitel herunterladen',
   '다듬는 중...': 'Wird angepasst...',
   '이 컷만 보기': 'Nur diesen Clip ansehen',

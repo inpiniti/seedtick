@@ -1878,9 +1878,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   );
   const activeStudioStep = studioSteps[activeStudioStepIndex] || studioSteps[0];
   // 인트로/브릿지/아웃트로는 AI 컷이 없어도 캔버스 단독으로 미리볼 수 있다.
+  // 단, 해당 기능을 끈 상태에서는 검은 템플릿 카드 대신 실제 영상이 보이도록 한다.
   const standalonePreviewSection: 'intro' | 'bridge' | 'outro' | null =
     !isSequenceMode &&
-    (activeSection === 'intro' || activeSection === 'bridge' || activeSection === 'outro')
+    ((activeSection === 'intro' && overlayOptions.showIntro) ||
+      (activeSection === 'bridge' && overlayOptions.showChapterBridge !== false) ||
+      (activeSection === 'outro' && overlayOptions.showOutro))
       ? activeSection
       : null;
 
@@ -3710,6 +3713,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   };
 
+  // 브릿지 단계의 전체 켜기/끄기. 끄면 날짜·장소가 바뀌어도 타임라인에 브릿지가 들어가지 않는다.
+  const setChapterBridgeEnabled = (enabled: boolean) => {
+    setOverlayOptions((prev) => ({ ...prev, showChapterBridge: enabled }));
+    if (enabled) {
+      scheduleSectionPreview('bridge');
+    }
+  };
+
   const applyBridgeTemplateToCurrent = (kind: 'date' | 'location', templateId: string) => {
     const idx = effectiveBridgeIndex;
     setSegments((prev) =>
@@ -3818,10 +3829,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       case 'cut':
         return ui('{count}개 컷', { count: segments.length });
       case 'bridge':
+        if (overlayOptions.showChapterBridge === false) {
+          return ui('사용 안 함');
+        }
         if (isCreationFlow) {
-          return overlayOptions.showChapterBridge !== false
-            ? ui('미리 고르기')
-            : ui('사용 안 함');
+          return ui('미리 고르기');
         }
         if (activeBridgeIndexes.length > 0) {
           return ui('{count}곳 넣었어요', { count: activeBridgeIndexes.length });
@@ -6960,53 +6972,76 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   <span>{ui('장면 전환 (브릿지)')}</span>
                 </h4>
               </div>
-              {bridgeCandidateIndexes.length > 0 && (
-                <span className="toss-tag-gray">
-                  {activeBridgeIndexes.length} / {ui('{count}곳에 넣었어요', { count: bridgeCandidateIndexes.length })}
-                </span>
-              )}
+              <div className="flex items-center gap-2 shrink-0">
+                {bridgeCandidateIndexes.length > 0 && (
+                  <span className="toss-tag-gray">
+                    {activeBridgeIndexes.length} / {ui('{count}곳에 넣었어요', { count: bridgeCandidateIndexes.length })}
+                  </span>
+                )}
+                <label
+                  className="toss-toggle-switch"
+                  title={
+                    overlayOptions.showChapterBridge !== false
+                      ? ui('장면 전환 사용 중 · 눌러서 끄기')
+                      : ui('장면 전환 꺼짐 · 눌러서 켜기')
+                  }
+                >
+                  <input
+                    type="checkbox"
+                    checked={overlayOptions.showChapterBridge !== false}
+                    onChange={(e) => setChapterBridgeEnabled(e.target.checked)}
+                  />
+                  <span className="toss-toggle-slider" />
+                </label>
+              </div>
             </div>
 
             {isCreationFlow ? (
-              <div className="toss-bridge-standalone">
-                <div className="toss-bridge-template-group">
-                  <span className="toss-bridge-template-label">
-                    <Clock size={12} />
-                    <span>{ui('날짜 넘어가는 효과')}</span>
-                  </span>
-                  <div className="toss-bridge-chip-row">
-                    {BRIDGE_DATE_CHOICES.map((choice) => (
-                      <button
-                        key={choice.id}
-                        type="button"
-                        className={`toss-bridge-chip ${(overlayOptions.chapterBridgeDateTemplate || 'flip-clock') === choice.id ? 'active' : ''}`}
-                        onClick={() => setDefaultBridgeTemplate('date', choice.id)}
-                      >
-                        {ui(choice.label)}
-                      </button>
-                    ))}
+              overlayOptions.showChapterBridge === false ? (
+                <p className="toss-bridge-footnote">
+                  {ui('장면 전환을 꺼 두면 날짜나 장소가 바뀌어도 브릿지가 들어가지 않아요.')}
+                </p>
+              ) : (
+                <div className="toss-bridge-standalone">
+                  <div className="toss-bridge-template-group">
+                    <span className="toss-bridge-template-label">
+                      <Clock size={12} />
+                      <span>{ui('날짜 넘어가는 효과')}</span>
+                    </span>
+                    <div className="toss-bridge-chip-row">
+                      {BRIDGE_DATE_CHOICES.map((choice) => (
+                        <button
+                          key={choice.id}
+                          type="button"
+                          className={`toss-bridge-chip ${(overlayOptions.chapterBridgeDateTemplate || 'flip-clock') === choice.id ? 'active' : ''}`}
+                          onClick={() => setDefaultBridgeTemplate('date', choice.id)}
+                        >
+                          {ui(choice.label)}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
 
-                <div className="toss-bridge-template-group">
-                  <span className="toss-bridge-template-label">
-                    <MapPin size={12} />
-                    <span>{ui('장소 이동 효과')}</span>
-                  </span>
-                  <div className="toss-bridge-chip-row">
-                    {BRIDGE_LOCATION_CHOICES.map((choice) => (
-                      <button
-                        key={choice.id}
-                        type="button"
-                        className={`toss-bridge-chip ${(overlayOptions.chapterBridgeLocationTemplate || 'winding-route') === choice.id ? 'active' : ''}`}
-                        onClick={() => setDefaultBridgeTemplate('location', choice.id)}
-                      >
-                        {ui(choice.label)}
-                      </button>
-                    ))}
+                  <div className="toss-bridge-template-group">
+                    <span className="toss-bridge-template-label">
+                      <MapPin size={12} />
+                      <span>{ui('장소 이동 효과')}</span>
+                    </span>
+                    <div className="toss-bridge-chip-row">
+                      {BRIDGE_LOCATION_CHOICES.map((choice) => (
+                        <button
+                          key={choice.id}
+                          type="button"
+                          className={`toss-bridge-chip ${(overlayOptions.chapterBridgeLocationTemplate || 'winding-route') === choice.id ? 'active' : ''}`}
+                          onClick={() => setDefaultBridgeTemplate('location', choice.id)}
+                        >
+                          {ui(choice.label)}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )
             ) : bridgeCandidateIndexes.length === 0 && segments.length >= 2 ? (
               <div className="toss-bridge-standalone">
                 <div className="toss-bridge-actions">
