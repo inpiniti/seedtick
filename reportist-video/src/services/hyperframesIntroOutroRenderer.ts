@@ -604,26 +604,27 @@ function drawCinematicLetterboxIntro(
   ctx.fillRect(0, h - barH, w, barH);
 
   // 골드/화이트 시네마틱 타이틀
+  // 플레어 라인이 글자 가운데를 가로지르지 않도록 타이틀을 라인 위쪽에 배치한다.
   const title = (options?.titleText || 'CINEMATIC MOMENTS').trim();
   ctx.save();
   ctx.globalAlpha = Math.max(0, Math.min(1, state.titleAlpha));
-  ctx.translate(cx, cy - 14 * scale);
+  ctx.translate(cx, cy - 46 * scale);
 
   ctx.fillStyle = '#f8fafc';
-  ctx.font = `600 ${Math.round(40 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", serif, sans-serif`;
+  ctx.font = `600 ${Math.round(52 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", serif, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
   ctx.shadowBlur = Math.round(18 * scale);
   ctx.fillText(title, 0, 0, w * 0.88);
 
-  // 하단 얇은 디바이더 및 채널명
+  // 라인 아래 얇은 채널명
   if (state.metaAlpha > 0.01) {
     ctx.globalAlpha = state.metaAlpha;
     ctx.fillStyle = '#cbd5e1';
-    ctx.font = `bold ${Math.round(14 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
+    ctx.font = `bold ${Math.round(18 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
     const ch = (options?.channelText || 'REPORTIST CINEMA').toUpperCase();
-    ctx.fillText(ch, 0, 48 * scale, w * 0.9);
+    ctx.fillText(ch, 0, 44 * scale, w * 0.9);
   }
   ctx.restore();
 }
