@@ -2183,6 +2183,8 @@ export function App() {
         onCustomAudioChange={handleCustomAudioChange}
         onRelinkVideo={handleRelinkSingleVideo}
         onRelinkBatch={handleRelinkBatch}
+        orientation={currentOrientation}
+        portraitPlatform={currentPortraitPlatform}
       />
 
     </div>

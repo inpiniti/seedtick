@@ -88,7 +88,7 @@ import {
   drawCompositorCoverFrame,
   drawCompositorSegmentOverlay,
 } from '../../services/previewCompositorBase.ts';
-import { previewFrame, resolvePortraitPlatform } from '../../services/frameSpec.ts';
+import { previewFrame } from '../../services/frameSpec.ts';
 import { playBgmSynthLoop } from '../../services/audioSynth.ts';
 
 // 모달은 사용자가 열 때만 청크를 내려받도록 지연 로딩한다. (초기 번들 절감)
@@ -830,7 +830,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 새 프로젝트 포맷 선택 모달 (프로젝트 만들 때 방향을 정한다)
   const [isFormatModalOpen, setIsFormatModalOpen] = useState<boolean>(false);
   const [pendingOrientation, setPendingOrientation] = useState<VideoOrientation>('landscape');
-  const [pendingPlatform, setPendingPlatform] = useState<PortraitPlatform>('instagram');
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState<boolean>(false);
   const [isModelModalOpen, setIsModelModalOpen] = useState<boolean>(false);
   const [isVideoListModalOpen, setIsVideoListModalOpen] = useState<boolean>(false);
@@ -1619,16 +1618,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 새 프로젝트/새 영상 만들기 → 포맷 선택 모달을 먼저 연다. (만들 때 방향을 정한다)
   const requestNewProject = useCallback(() => {
     setPendingOrientation(orientation === 'portrait' ? 'portrait' : 'landscape');
-    setPendingPlatform(resolvePortraitPlatform(portraitPlatform));
     setIsFormatModalOpen(true);
-  }, [orientation, portraitPlatform]);
+  }, [orientation]);
 
   const confirmStartNewProject = useCallback(() => {
     setIsFormatModalOpen(false);
     resetStudioState();
-    onStartNewProject?.(pendingOrientation, pendingPlatform);
+    onStartNewProject?.(pendingOrientation);
     navigateToTab('studio');
-  }, [pendingOrientation, pendingPlatform, onStartNewProject, resetStudioState, navigateToTab]);
+  }, [pendingOrientation, onStartNewProject, resetStudioState, navigateToTab]);
 
   // 상위 결과 갱신 동기화 및 썸네일/타이틀 준비
   const appliedSuggestedTitleRef = useRef<string | null>(null);
@@ -8749,27 +8747,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 )}
               </button>
             </div>
-
-            {pendingOrientation === 'portrait' && (
-              <div className="format-picker-platforms" role="radiogroup" aria-label={ui('세로 9:16')}>
-                {([
-                  { id: 'instagram', label: '인스타그램 릴스' },
-                  { id: 'youtube', label: '유튜브 쇼츠' },
-                  { id: 'tiktok', label: '틱톡' },
-                ] as Array<{ id: PortraitPlatform; label: string }>).map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={pendingPlatform === opt.id}
-                    className={`format-picker-platform ${pendingPlatform === opt.id ? 'is-selected' : ''}`}
-                    onClick={() => setPendingPlatform(opt.id)}
-                  >
-                    {ui(opt.label)}
-                  </button>
-                ))}
-              </div>
-            )}
 
             <button type="button" className="toss-modal-btn-submit format-picker-start" onClick={confirmStartNewProject}>
               {ui('이 포맷으로 시작하기')}
