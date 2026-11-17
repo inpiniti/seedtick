@@ -31,6 +31,7 @@
   const uiDesc = story.querySelector("[data-ui-desc]");
   const uiDots = Array.from(story.querySelectorAll("[data-ui-dot]"));
   const timeline = story.querySelector("[data-timeline]");
+  const timelineLabel = story.querySelector("[data-timeline-label]");
   const peaks = Array.from(story.querySelectorAll("[data-peak]"));
 
   const FRAME_COUNT = 72;
@@ -188,6 +189,12 @@
             state !== "raw" && i < Math.ceil(clamp01((sub - 1 / 3) * 3) * 6)
           )
         );
+        // once the six cuts are stitched, relabel the head so the compression
+        // reads as finished rather than still showing the raw runtime
+        if (timelineLabel) {
+          timelineLabel.textContent =
+            state === "final" ? "6 CUTS · 00:36" : "3 CLIPS · 02:18:40";
+        }
       }
     }
 

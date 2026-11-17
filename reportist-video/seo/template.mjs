@@ -618,7 +618,7 @@ function renderStory(locale) {
               <figcaption><b>16:9</b><span>YOUTUBE</span></figcaption>
             </figure>
             <figure class="story-format story-format--tall">
-              <img src="${media(`poster-v-${esc(locale.code)}.webp`)}" alt="" width="720" height="1280">
+              <img src="${media(`result-v-${esc(locale.code)}.webp`)}" alt="" width="720" height="1280">
               <figcaption><b>9:16</b><span>SHORTS</span></figcaption>
             </figure>
           </div>

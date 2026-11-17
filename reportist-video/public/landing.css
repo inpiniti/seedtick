@@ -2525,17 +2525,19 @@ html.has-motion-stage .story-stage {
   position: relative;
   display: flex;
   gap: 6px;
-  height: 64px;
+  /* taller track so clip labels live up top and the waveform peaks get their
+     own lane at the bottom — the two never overlap even on small phones */
+  height: 92px;
   transition: height 420ms ease;
 }
 
 .story-clip {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 3px;
   overflow: hidden;
-  padding: 0 10px;
+  padding: 10px 10px 0;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   background: linear-gradient(180deg, rgba(148, 163, 184, 0.18), rgba(148, 163, 184, 0.05));
@@ -2547,12 +2549,16 @@ html.has-motion-stage .story-stage {
 .story-clip--3 { width: 30%; }
 
 .story-clip b {
+  position: relative;
+  z-index: 2;
   font-family: var(--mono);
   font-size: 0.62rem;
   white-space: nowrap;
 }
 
 .story-clip small {
+  position: relative;
+  z-index: 2;
   color: rgba(255, 255, 255, 0.5);
   font-family: var(--mono);
   font-size: 0.56rem;
@@ -2572,13 +2578,12 @@ html.has-motion-stage .story-stage {
 
 .story-peak {
   position: absolute;
-  top: 50%;
+  bottom: 12px;
   width: 4px;
   height: 26px;
   border-radius: 2px;
   background: rgba(255, 255, 255, 0.14);
-  transform: translateY(-50%);
-  transition: background 280ms ease, box-shadow 280ms ease;
+  transition: background 280ms ease, box-shadow 280ms ease, opacity 280ms ease;
 }
 
 .story-peak[data-peak="0"] { left: 8%; }
@@ -2606,7 +2611,8 @@ html.has-motion-stage .story-stage {
 }
 
 .story-timeline[data-state="final"] .story-clip,
-.story-timeline[data-state="final"] .story-scanline {
+.story-timeline[data-state="final"] .story-scanline,
+.story-timeline[data-state="final"] .story-peak {
   opacity: 0;
   width: 0;
   padding: 0;
@@ -2615,8 +2621,9 @@ html.has-motion-stage .story-stage {
 
 .story-timeline-final {
   display: none;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
 }
 
 .story-timeline[data-state="final"] .story-timeline-final {
@@ -2625,7 +2632,7 @@ html.has-motion-stage .story-stage {
 
 .story-final-strips {
   display: flex;
-  flex: 1;
+  width: 100%;
   gap: 3px;
 }
 
@@ -2638,11 +2645,12 @@ html.has-motion-stage .story-stage {
 .story-final-strip img {
   display: block;
   width: 100%;
-  height: 40px;
+  height: 72px;
   object-fit: cover;
 }
 
 .story-timeline-final > span {
+  align-self: flex-start;
   color: rgba(255, 217, 122, 0.8);
   font-family: var(--mono);
   font-size: 0.62rem;
@@ -2870,6 +2878,7 @@ html.has-motion-stage .story-stage {
   }
 
   .story-act--capture {
+    grid-template-columns: minmax(0, 1fr);
     align-content: end;
   }
 
@@ -2900,6 +2909,7 @@ html.has-motion-stage .story-stage {
 
   /* Act 2: full-size UI screenshot on top, compact current-feature copy below */
   .story-act--ui {
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1.25fr) minmax(0, 1fr);
     gap: 10px;
   }
@@ -3000,12 +3010,20 @@ html.has-motion-stage .story-stage {
     padding: 8px 10px;
   }
 
+  /* full-width phone cards must stay flush-left; only the amber border/bg
+     marks the active step, never a 6px sideways nudge */
+  .story-step-row.is-current {
+    transform: none;
+    background: rgba(240, 180, 41, 0.08);
+  }
+
   .story-step-row p {
     display: none;
   }
 
   /* Act 4: result pair on top, copy + CTA below */
   .story-act--format {
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) auto;
     gap: 10px;
   }
@@ -3013,6 +3031,7 @@ html.has-motion-stage .story-stage {
   .story-formats {
     grid-row: 1;
     min-height: 0;
+    align-items: flex-end;
     gap: 14px;
   }
 
@@ -3024,11 +3043,33 @@ html.has-motion-stage .story-stage {
     font-size: 1.3rem;
   }
 
-  .story-format--wide { width: 56%; }
-  .story-format--tall { width: 32%; }
+  .story-format--wide {
+    width: 56%;
+    max-width: 220px;
+  }
+
+  .story-format--tall {
+    width: 36%;
+    max-width: 145px;
+  }
 
   .story-format--tall img {
     max-height: none;
+  }
+
+  /* keep both format labels on one line even at 375px */
+  .story-format figcaption {
+    gap: 4px;
+    padding: 6px 8px;
+  }
+
+  .story-format figcaption b {
+    font-size: 0.66rem;
+  }
+
+  .story-format figcaption span {
+    font-size: 0.5rem;
+    letter-spacing: 0.06em;
   }
 
   .story-format-button {
