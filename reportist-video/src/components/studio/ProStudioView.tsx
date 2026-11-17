@@ -2082,6 +2082,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     return null;
   }, [hasPlayableSourceVideos, previewVideo?.url, videos, result?.url]);
 
+  // 모바일 생성 흐름에서 미리보기할 영상이 하나도 없으면(플레이어가 빈 상태로만 렌더링될 때)
+  // 왼쪽 플레이어 열 자체를 숨긴다. 이 상태의 플레이어 빈 상태는 '영상 올리기' CTA를 그대로
+  // 보여주는데, 업로드/AI 단계 카드가 같은 CTA를 이미 제공하므로 모바일에서는 중복 노출된다.
+  // (데스크탑은 좌측 모니터를 채우는 온보딩 히어로로 남긴다)
+  const hideEmptyPlayerColumnForMobile =
+    isMobileViewport && isCreationFlow && !activeVideoUrl && !standalonePreviewSection;
+
   // 드래프트 모드에서만 비디오 변경 시 재생 초기화
   useEffect(() => {
     if (isSequenceMode) return;
@@ -5184,8 +5191,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           </div>
         )}
 
-        {/* 2-A. 왼쪽 열: 16:9 모니터 & 배경음악 업로드 */}
         <div className="toss-studio-columns">
+        {/* 2-A. 왼쪽 열: 16:9 모니터 & 배경음악 업로드
+            모바일에서 미리보기할 영상이 없으면(빈 플레이어 상태) 생략하고
+            활성 단계 카드(영상 올리기 등) 하나만 보여준다. */}
+        {!hideEmptyPlayerColumnForMobile && (
         <section className="toss-column-left">
           <div className="toss-card toss-player-card">
             {/* 영상 상단 왼쪽, 오른쪽 문구 직관 입력창 (모바일에서는 숨기고 인트로 단계 카드 안에서만 보여준다) */}
@@ -6206,6 +6216,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           </div>
 
         </section>
+        )}
 
         {/* 2-B. 오른쪽 열: [썸네일] -> [다운로드] -> [인트로] -> [AI 극적 순간] -> [아웃트로] -> [요약] */}
         <section className="toss-column-right" ref={rightColumnRef}>
