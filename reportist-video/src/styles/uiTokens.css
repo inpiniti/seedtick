@@ -1,7 +1,8 @@
 /* uiTokens.css - 앱 공통 UI 스케일
    버튼/인풋의 높이와 폰트 크기를 패딩에 맡기면 화면마다 밀도가 달라진다.
    모든 공통 컨트롤은 아래 4단계 스케일만 사용한다.
-   xs 28 / sm 34 / md 38 / lg 40 (인풋은 iOS 확대 방지 16px 폰트에 맞춰 모바일에서 한 단계 키운다) */
+   데스크탑: xs 28 / sm 34 / md 38 / lg 40
+   모바일(1024px 이하·터치): xs 28 / sm 32 / md 36 / lg 36 (lg는 md와 같은 상한) */
 :root {
   /* Height */
   --ui-h-xs: 28px;
@@ -64,12 +65,21 @@
     box-shadow 0.15s ease, transform 0.12s ease;
 }
 
-/* iOS Safari는 폼 컨트롤 폰트가 16px 미만이면 화면을 확대한다.
-   index.css가 모바일에서 16px을 강제하므로, 컨트롤 높이도 그에 맞춰 올려 비율을 유지한다. */
+/* 모바일은 세로 공간을 아끼기 위해 컨트롤을 한 단계 낮춘다.
+   lg를 써도 36px을 넘지 않도록 md와 같은 상한을 둬서 굵은 버튼이 다시 생기지 않게 한다. */
 @media (max-width: 1024px), (pointer: coarse) {
   :root {
-    --ui-input-h-sm: 36px;
-    --ui-input-h-md: 40px;
-    --ui-input-h-lg: 44px;
+    --ui-h-sm: 32px;
+    --ui-h-md: 36px;
+    --ui-h-lg: 36px;
+    --ui-fs-md: 13px;
+    --ui-fs-lg: 13.5px;
+
+    /* iOS Safari는 폼 컨트롤 폰트가 16px 미만이면 화면을 확대한다.
+       index.css가 모바일에서 16px을 강제하므로 입력 높이도 34/36/38로 맞춰
+       데스크탑(34/38/40)보다 오히려 조밀하게 유지한다. */
+    --ui-input-h-sm: 34px;
+    --ui-input-h-md: 36px;
+    --ui-input-h-lg: 38px;
   }
 }

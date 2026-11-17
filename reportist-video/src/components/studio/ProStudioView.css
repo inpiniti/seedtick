@@ -247,7 +247,7 @@
   color: #ffffff;
   font-size: var(--ui-fs-sm);
   font-weight: 700;
-  height: var(--ui-h-md);
+  height: var(--ui-h-sm);
   padding: 0 14px;
   border-radius: var(--ui-r-sm);
   border: none;
@@ -306,7 +306,7 @@
   color: #333d4b;
   font-size: var(--ui-fs-sm);
   font-weight: 600;
-  height: var(--ui-h-md);
+  height: var(--ui-h-sm);
   padding: 0 11px;
   border-radius: var(--ui-r-sm);
   border: 1px solid var(--ui-border);
@@ -356,13 +356,13 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 38px;
-  padding: 0 12px;
-  border-radius: 10px;
+  height: var(--ui-h-sm);
+  padding: 0 var(--ui-px-sm);
+  border-radius: var(--ui-r-sm);
   border: 1px solid #e5e8eb;
   background-color: #ffffff;
   color: #4e5968;
-  font-size: 13px;
+  font-size: var(--ui-fs-sm);
   font-weight: 600;
   cursor: pointer;
   flex-shrink: 0;
@@ -2914,11 +2914,11 @@
 }
 
 /* 세로 flex(.toss-download-actions) 안에서 flex: 1은 flex-basis를 0으로 만들어
-   버튼 높이를 글자 높이까지 눌러버린다. 공통 lg 스케일(40px)을 고정한다. */
+   버튼 높이를 글자 높이까지 눌러버린다. 공통 md 스케일(38px/모바일 36px)을 고정한다. */
 .toss-btn-download-video {
   flex: 0 0 auto;
   width: 100%;
-  height: var(--ui-h-lg);
+  height: var(--ui-h-md);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3636,101 +3636,6 @@
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
-/* 3. Floating Bottom Action Bar */
-.toss-bottom-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 80px;
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-top: 1px solid #e5e8eb;
-  z-index: 60;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.04);
-}
-
-.toss-bottom-inner {
-  max-width: 720px;
-  width: 100%;
-  padding: 0 20px;
-}
-
-.toss-cta-button {
-  width: 100%;
-  height: 54px;
-  background-color: #0f172a;
-  color: #ffffff;
-  border: none;
-  border-radius: 16px;
-  font-size: 16px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.25);
-}
-
-.toss-cta-button:hover:not(:disabled) {
-  background-color: #1e293b;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.35);
-}
-
-.toss-cta-button:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
-}
-
-.toss-cta-button.loading {
-  background-color: #334155;
-}
-
-.toss-bottom-dual-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-}
-
-.toss-btn-re-render {
-  flex: 1;
-  height: 54px;
-  background-color: #f2f4f6;
-  border: 1px solid #e5e8eb;
-  color: #333d4b;
-  border-radius: 16px;
-  font-size: 14.5px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.toss-btn-re-render:hover:not(:disabled) {
-  background-color: #e5e8eb;
-  color: #191f28;
-}
-
-.toss-btn-re-render:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.toss-bottom-dual-actions .toss-cta-button {
-  flex: 2;
-}
-
 /* 4. Toss Friendly Progress Modal */
 .toss-modal-overlay {
   position: fixed;
@@ -3823,7 +3728,7 @@
   text-align: center;
   width: 100%;
   box-sizing: border-box;
-  height: var(--ui-h-lg);
+  height: var(--ui-h-md);
   margin-top: 20px;
   border-radius: var(--ui-r-md);
   border: 1px solid var(--ui-border);
@@ -4303,9 +4208,9 @@
   align-items: center;
   gap: 9px;
   max-width: 400px;
-  height: 38px;
+  height: var(--ui-h-sm);
   padding: 0 10px 0 7px;
-  border-radius: 9px;
+  border-radius: var(--ui-r-sm);
   border: 1px solid #e5e8eb;
   background-color: #f2f4f6;
   cursor: pointer;
@@ -4427,9 +4332,9 @@
   }
 
   .toss-settings-trigger {
-    width: 38px;
-    height: 38px;
-    min-width: 38px;
+    width: var(--ui-h-sm);
+    height: var(--ui-h-sm);
+    min-width: var(--ui-h-sm);
     padding: 0 !important;
   }
 
@@ -4480,7 +4385,6 @@
   .toss-lang-trigger {
     padding: 0 8px 0 6px;
     gap: 4px;
-    height: 36px;
   }
 
   .toss-lang-trigger .toss-model-trigger-icon {
@@ -4493,8 +4397,7 @@
   }
 
   .toss-video-list-trigger {
-    height: 36px;
-    min-width: 36px;
+    min-width: var(--ui-h-sm);
     padding: 0 8px 0 6px;
     gap: 4px;
   }
@@ -4528,15 +4431,8 @@
 
   .toss-nav-cta-btn,
   .toss-nav-btn-secondary {
-    height: 36px;
     padding: 0 12px;
     font-size: 12px;
-  }
-
-  .toss-settings-trigger {
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
   }
 }
 
@@ -4575,7 +4471,6 @@
 
   .toss-nav-back-btn,
   .toss-nav-back-to-list-btn {
-    height: 34px;
     padding: 0 10px 0 6px;
     font-size: 12px;
   }
@@ -4592,15 +4487,8 @@
 
   .toss-nav-cta-btn,
   .toss-nav-btn-secondary {
-    height: 34px;
     padding: 0 10px;
     font-size: 11.5px;
-  }
-
-  .toss-settings-trigger {
-    width: 34px;
-    height: 34px;
-    min-width: 34px;
   }
 }
 
@@ -4644,9 +4532,9 @@
   /* 모바일 스튜디오 상세: 로고 자리에 뒤로가기 아이콘 버튼 배치 */
   .toss-nav-back-btn,
   .toss-nav-back-to-list-btn {
-    width: 32px;
-    height: 32px;
-    min-width: 32px;
+    width: var(--ui-h-sm);
+    height: var(--ui-h-sm);
+    min-width: var(--ui-h-sm);
     padding: 0;
     gap: 0;
     border-radius: 8px;
@@ -4731,9 +4619,6 @@
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
-    min-width: 32px;
     border-radius: 9px;
     border: 1px solid #e5e8eb;
     background-color: #ffffff;
@@ -4756,13 +4641,12 @@
     border-color: #d1d5db;
   }
 
-  /* 영상 목록 트리거: 32px 높이 통일, 아이콘 + 숫자 배지만 노출하여 깔끔한 캡슐 버튼화 */
+  /* 영상 목록 트리거: 아이콘 + 숫자 배지만 노출하여 깔끔한 캡슐 버튼화 */
   .toss-video-list-trigger {
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
-    height: 32px;
-    min-width: 32px;
+    min-width: var(--ui-h-sm);
     padding: 0 8px 0 5px;
     gap: 4px;
     max-width: none;
@@ -4827,10 +4711,9 @@
     max-width: none;
   }
 
-  /* 헤더 내 액션 버튼 모바일 최적화 (높이 32px 통일) */
+  /* 헤더 내 액션 버튼 모바일 최적화 (공통 sm 토큰 높이) */
   .toss-nav-cta-btn,
   .toss-nav-btn-secondary {
-    height: 32px;
     padding: 0 11px;
     font-size: 12px;
     font-weight: 700;
@@ -4887,21 +4770,11 @@
     border-radius: 5px;
   }
 
-  .toss-nav-back-btn,
-  .toss-nav-back-to-list-btn {
-    width: 32px;
-    height: 32px;
-    min-width: 32px;
-    border-radius: 8px;
-  }
-
   .toss-nav-right {
     gap: 4px;
   }
 
   .toss-video-list-trigger {
-    height: 32px;
-    min-width: 32px;
     padding: 0 6px 0 4px;
     gap: 3px;
     border-radius: 8px;
@@ -4918,7 +4791,6 @@
 
   .toss-nav-cta-btn,
   .toss-nav-btn-secondary {
-    height: 32px;
     padding: 0 10px;
     font-size: 12px;
     gap: 3px;
@@ -4926,9 +4798,6 @@
   }
 
   .toss-settings-trigger {
-    width: 32px;
-    height: 32px;
-    min-width: 32px;
     border-radius: 8px;
   }
 }
@@ -5215,7 +5084,7 @@
   align-items: center;
   gap: 6px;
   padding: 0 var(--ui-px-sm);
-  height: var(--ui-h-lg);
+  height: var(--ui-h-md);
   border: 1px solid var(--ui-border);
   border-radius: var(--ui-r-md);
   background-color: #f8fafc;
@@ -5887,7 +5756,7 @@
   justify-content: center;
   gap: 6px;
   box-sizing: border-box;
-  height: var(--ui-h-lg);
+  height: var(--ui-h-md);
   padding: 0 var(--ui-px-lg);
   border-radius: var(--ui-r-md);
   background-color: #00a86b;
@@ -5906,7 +5775,7 @@
   justify-content: center;
   gap: 6px;
   box-sizing: border-box;
-  height: var(--ui-h-lg);
+  height: var(--ui-h-md);
   padding: 0 18px;
   border-radius: var(--ui-r-md);
   background-color: #fef2f2;
@@ -7418,7 +7287,7 @@
   flex: 1.25 1 0;
   min-width: 0;
   box-sizing: border-box;
-  height: var(--ui-h-lg);
+  height: var(--ui-h-md);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -7446,7 +7315,7 @@
   flex: 1 1 0;
   min-width: 0;
   box-sizing: border-box;
-  height: var(--ui-h-lg);
+  height: var(--ui-h-md);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -7785,7 +7654,7 @@
 
 .toss-community-search-input {
   width: 100%;
-  height: var(--ui-input-h-lg);
+  height: var(--ui-input-h-md);
   padding: 0 36px 0 38px;
   background-color: #f8fafc;
   border: 1.5px solid var(--ui-border);
@@ -9201,7 +9070,7 @@
   text-align: center;
   gap: 6px;
   box-sizing: border-box;
-  height: var(--ui-h-lg);
+  height: var(--ui-h-md);
   padding: 0 18px;
   border-radius: var(--ui-r-md);
   font-size: var(--ui-fs-md);
@@ -9501,7 +9370,7 @@
   text-align: center;
   gap: 6px;
   box-sizing: border-box;
-  height: var(--ui-h-lg);
+  height: var(--ui-h-md);
   padding: 0 24px;
   border-radius: var(--ui-r-lg);
   font-size: var(--ui-fs-md);
@@ -12136,7 +12005,7 @@
 
 .toss-feedback-input {
   width: 100%;
-  height: var(--ui-input-h-lg);
+  height: var(--ui-input-h-md);
   padding: 0 14px;
   background-color: #f8fafc;
   border: 1px solid var(--ui-border);
@@ -12904,7 +12773,6 @@
   .toss-modal-backdrop,
   .model-modal-backdrop,
   .segment-trim-modal-backdrop,
-  .toss-bottom-bar,
   .toss-bottom-status-bar,
   .toss-toast-float,
   .toss-project-card,
@@ -14127,42 +13995,6 @@
 }
 
 /* ---------- 3번 AI 하이라이트 카드 ---------- */
-.specular-button.toss-ai-cta {
-  width: 100%;
-  justify-content: center;
-  margin-top: 12px;
-  min-height: 46px;
-  padding: 13px 20px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-  border: 1px solid rgba(148, 163, 184, 0.4);
-  color: #ffffff;
-  font-size: 13.5px;
-  font-weight: 700;
-  box-shadow: 0 10px 24px -14px rgba(15, 23, 42, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.16);
-}
-
-.specular-button.toss-ai-cta:hover:not(:disabled) {
-  background: linear-gradient(135deg, #273449 0%, #162033 100%);
-  border-color: rgba(203, 213, 225, 0.6);
-  box-shadow: 0 14px 28px -12px rgba(15, 23, 42, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.24);
-}
-
-.specular-button.toss-ai-cta .specular-button__label {
-  font-weight: 700;
-  color: #f8fafc;
-}
-
-.specular-button.toss-ai-cta .shiny-text-root {
-  font-weight: 700;
-}
-
-.specular-button.toss-ai-cta:disabled {
-  background: #cbd5e1;
-  border-color: #cbd5e1;
-  color: #64748b;
-}
-
 .toss-ai-progress {
   display: flex;
   flex-direction: column;
@@ -14438,8 +14270,8 @@
 }
 .format-picker-start {
   width: 100%;
-  height: 48px;
-  font-size: 14.5px;
+  height: var(--ui-h-md);
+  font-size: var(--ui-fs-md);
   margin-bottom: 10px;
 }
 
@@ -14826,9 +14658,9 @@
    반응형 분기: 1024px 이하(모바일 IA)에서는 데스크탑 잔재를 모두 숨긴다
    ========================================================================== */
 @media (max-width: 1024px) {
-  /* 하단 고정 CTA 바(52px) 높이만큼 본문 하단 여백 확보 */
+  /* 하단 고정 CTA 바(36px 버튼 + 6px 상하 패딩 = 48px)만큼 본문 하단 여백 확보 */
   .toss-page-container {
-    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
   /* 모바일에서는 플레이어 카드만 상단에 고정해, 아래 옵션을 조작하는 동안에도

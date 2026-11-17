@@ -1052,7 +1052,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
               <div className="wizard-processing-actions">
                 <Button
                   variant="subtle"
-                  size="lg"
+                  size="md"
                   fullWidth
                   onClick={onCancelProcessing}
                 >
@@ -1079,7 +1079,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
 
               <Button
                 variant="primary"
-                size="lg"
+                size="md"
                 disabled={videos.length === 0}
                 onClick={() => setCurrentStep(2)}
                 rightIcon={<ArrowRight size={16} />}
@@ -1093,7 +1093,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
             <>
               <Button
                 variant="secondary"
-                size="lg"
+                size="md"
                 onClick={() => setCurrentStep(1)}
                 leftIcon={<ArrowLeft size={16} />}
               >

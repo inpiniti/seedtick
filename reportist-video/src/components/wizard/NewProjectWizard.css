@@ -1140,7 +1140,7 @@
   justify-content: center;
   gap: 6px;
   box-sizing: border-box;
-  height: var(--ui-h-lg);
+  height: var(--ui-h-md);
   background: #0f172a;
   color: #ffffff;
   font-size: var(--ui-fs-md);

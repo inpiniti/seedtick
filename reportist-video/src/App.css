@@ -408,7 +408,7 @@
   text-align: center;
   gap: 8px;
   box-sizing: border-box;
-  height: var(--ui-h-lg);
+  height: var(--ui-h-md);
   background-color: var(--brand-blue);
   color: #ffffff;
   border: none;
