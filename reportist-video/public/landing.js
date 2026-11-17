@@ -335,6 +335,8 @@
   const swap = (url) => url.replace("/media/promo-", "/media/promo-v-");
   const unswap = (url) => url.replace("/media/promo-v-", "/media/promo-");
   const localeOf = (url) => (String(url).match(/promo-(?:v-)?([a-z]{2})\.mp4/) || [])[1];
+  const mediaV = window.__PENGUIN_MEDIA_V ? `?v=${window.__PENGUIN_MEDIA_V}` : "";
+  const posterUrl = (name) => `/media/${name}${mediaV}`;
 
   const applyTheater = (portrait) => {
     if (!theaterVideo || !theaterSource) return;
@@ -350,8 +352,8 @@
     const code = localeOf(next);
     if (code) {
       theaterVideo.poster = portrait
-        ? `/media/poster-v-${code}.webp`
-        : `/media/result-${code}.webp`;
+        ? posterUrl(`poster-v-${code}.webp`)
+        : posterUrl(`result-${code}.webp`);
     }
 
     const onMetadata = () => {
@@ -380,8 +382,8 @@
     modalVideo.dataset.videoSrc = next;
     const code = localeOf(next);
     modalVideo.poster = code && portrait
-      ? `/media/poster-v-${code}.webp`
-      : "/media/hero-poster.webp";
+      ? posterUrl(`poster-v-${code}.webp`)
+      : posterUrl("hero-poster.webp");
     modalVideo.setAttribute("width", portrait ? "720" : "1280");
     modalVideo.setAttribute("height", portrait ? "1280" : "720");
     // If the 16:9 file was already loaded, swap it too so the modal

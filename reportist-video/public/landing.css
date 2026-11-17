@@ -2160,7 +2160,12 @@ html.has-motion-stage .story-stage {
   position: absolute;
   inset: 0 0 40px;
   width: 100%;
+  /* A <canvas> is a replaced element: without an explicit height it falls
+     back to its intrinsic 2:1 ratio (390x195 on phones), leaving a big empty
+     gap above the copy. Fill the stage so the footage reads as full-bleed. */
+  height: calc(100% - 40px);
   display: block;
+  object-fit: cover;
   opacity: 0;
   transition: opacity 350ms ease;
 }
@@ -2842,6 +2847,10 @@ html.has-motion-stage .story-stage {
 
   .story-canvas {
     inset: 0 0 40px;
+    /* Fill a taller slice of the stage on phones so the family footage reads
+       clearly and the gap above the copy shrinks — but stop short of full
+       height, which would crop the subjects too tightly in portrait. */
+    height: 42svh;
   }
 
   .story-thumbs {

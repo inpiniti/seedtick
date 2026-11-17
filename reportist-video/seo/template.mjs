@@ -2,7 +2,7 @@
 // All visible copy comes from seo/content.mjs.
 
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync, readdirSync } from "node:fs";
 
 import {
   HREFLANG_ALIASES,
@@ -25,11 +25,40 @@ function assetVersion(file) {
   }
 }
 
+// The generated media (frames, reel, result loops, promos, posters) is
+// overwritten in place by build scripts but served with a 1-hour CDN cache.
+// Fingerprint the whole media tree (names + sizes + mtimes) so any regenerated
+// asset changes the URL and browsers can never show stale footage.
+function mediaVersion() {
+  try {
+    const root = new URL("../public/media/", import.meta.url);
+    const hash = createHash("sha256");
+    const walk = (dir) => {
+      const entries = readdirSync(dir, { withFileTypes: true })
+        .filter((e) => !e.name.startsWith("."))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      for (const e of entries) {
+        const url = new URL(e.name + (e.isDirectory() ? "/" : ""), dir);
+        if (e.isDirectory()) walk(url);
+        else hash.update(`${e.name}:${statSync(url).size}:${Math.round(statSync(url).mtimeMs)};`);
+      }
+    };
+    walk(root);
+    return hash.digest("hex").slice(0, 10);
+  } catch {
+    return "1";
+  }
+}
+
 const ASSET_VERSIONS = {
   css: assetVersion("landing.css"),
   js: assetVersion("landing.js"),
   story: assetVersion("landing-story.js"),
+  media: mediaVersion(),
 };
+
+// Cache-bust a generated media URL.
+const media = (url) => `/media/${url}?v=${ASSET_VERSIONS.media}`;
 
 // Korean users spell the brand both ways; listing the aliases in schema.org
 // tells search engines that 펭귄컷/팽귄컷 and PenguinCut are the same entity.
@@ -206,8 +235,8 @@ function renderHero(locale) {
   return `
     <section class="hero" aria-labelledby="hero-title">
       <div class="hero-bg" aria-hidden="true">
-        <video class="hero-bg-video" data-hero-bg muted loop playsinline autoplay preload="metadata" poster="/media/hero-poster.webp" width="1280" height="532" tabindex="-1">
-          <source src="/media/hero-nature.mp4" type="video/mp4">
+        <video class="hero-bg-video" data-hero-bg muted loop playsinline autoplay preload="metadata" poster="${media("hero-poster.webp")}" width="1280" height="532" tabindex="-1">
+          <source src="${media("hero-nature.mp4")}" type="video/mp4">
         </video>
         <div class="hero-bg-scrim"></div>
       </div>
@@ -274,9 +303,9 @@ function renderFilmModal(locale) {
           ${ICONS.close}
         </button>
       </div>
-      <video class="film-video" data-video-player data-video-src="/media/promo-${esc(
+      <video class="film-video" data-video-player data-video-src="${media(`promo-${esc(
         locale.code
-      )}.mp4" controls playsinline preload="none" poster="/media/hero-poster.webp" width="1280" height="720"></video>
+      )}.mp4`)}" controls playsinline preload="none" poster="${media("hero-poster.webp")}" width="1280" height="720"></video>
     </div>
   </dialog>`;
 }
@@ -309,14 +338,14 @@ function renderTheater(locale) {
 
         <div class="theater-frame" data-theater>
           <div class="theater-stage">
-            <video class="theater-video" data-theater-video data-ambient muted loop playsinline preload="none" poster="/media/result-${esc(
+            <video class="theater-video" data-theater-video data-ambient muted loop playsinline preload="none" poster="${media(`result-${esc(
               locale.code
-            )}.webp" aria-label="${esc(
+            )}.webp`)}" aria-label="${esc(
     locale.video.label
   )}" width="1280" height="720">
-              <source src="/media/promo-${esc(
+              <source src="${media(`promo-${esc(
                 locale.code
-              )}.mp4" type="video/mp4">
+              )}.mp4`)}" type="video/mp4">
             </video>
 
             <button class="theater-play" type="button" data-theater-play aria-label="${esc(
@@ -382,7 +411,7 @@ function renderStory(locale) {
   const thumbnails = stack.layers
     .map(
       (label, i) =>
-        `<span class="story-thumb" data-thumb="${i}"><img src="/media/reel/reel-0${i + 1}.webp" alt="" loading="lazy" width="160" height="90"><i>${two(i + 1)}</i></span>`
+        `<span class="story-thumb" data-thumb="${i}"><img src="${media(`reel/reel-0${i + 1}.webp`)}" alt="" loading="lazy" width="160" height="90"><i>${two(i + 1)}</i></span>`
     )
     .join("");
 
@@ -424,7 +453,7 @@ function renderStory(locale) {
   const finalStrips = stack.layers
     .map(
       (_, index) =>
-        `<span class="story-final-strip"><img src="/media/reel/reel-0${index + 1}.webp" alt="" loading="lazy" width="80" height="45"></span>`
+        `<span class="story-final-strip"><img src="${media(`reel/reel-0${index + 1}.webp`)}" alt="" loading="lazy" width="80" height="45"></span>`
     )
     .join("");
 
@@ -533,7 +562,7 @@ function renderStory(locale) {
           <div class="story-ui-frame">
             <div class="story-ui-bar"><i></i><i></i><i></i><span> PenguinCut Studio</span></div>
             <div class="story-ui-screen">
-              <img class="story-ui-img is-front" data-ui-front src="/media/ui/ui-01.webp" alt="" width="960" height="600">
+              <img class="story-ui-img is-front" data-ui-front src="${media("ui/ui-01.webp")}" alt="" width="960" height="600">
               <img class="story-ui-img" data-ui-back alt="" width="960" height="600">
             </div>
           </div>
@@ -585,11 +614,11 @@ function renderStory(locale) {
           </div>
           <div class="story-formats">
             <figure class="story-format story-format--wide">
-              <img src="/media/result-${esc(locale.code)}.webp" alt="" width="960" height="540">
+              <img src="${media(`result-${esc(locale.code)}.webp`)}" alt="" width="960" height="540">
               <figcaption><b>16:9</b><span>YOUTUBE</span></figcaption>
             </figure>
             <figure class="story-format story-format--tall">
-              <img src="/media/poster-v-${esc(locale.code)}.webp" alt="" width="720" height="1280">
+              <img src="${media(`poster-v-${esc(locale.code)}.webp`)}" alt="" width="720" height="1280">
               <figcaption><b>9:16</b><span>SHORTS</span></figcaption>
             </figure>
           </div>
@@ -699,8 +728,8 @@ function renderCta(locale) {
     <section class="cta-section" aria-labelledby="cta-title">
       <div class="container">
         <div class="cta-panel">
-          <video class="cta-video" muted loop playsinline preload="none" poster="/media/cta-poster.webp" data-cta-loop aria-hidden="true" tabindex="-1">
-            <source src="/media/cta-reel.mp4" type="video/mp4">
+          <video class="cta-video" muted loop playsinline preload="none" poster="${media("cta-poster.webp")}" data-cta-loop aria-hidden="true" tabindex="-1">
+            <source src="${media("cta-reel.mp4")}" type="video/mp4">
           </video>
           <div class="cta-scrim" aria-hidden="true"></div>
           <div class="cta-glow"></div>
@@ -906,6 +935,10 @@ ${verification.length ? `${verification.map((tag) => `  ${tag}\n`).join("")}\n` 
   <link rel="stylesheet" href="/landing.css?v=${ASSET_VERSIONS.css}">
 
   <script>
+    // Expose the generated-media fingerprint so JS-built media URLs
+    // (scrub frames, studio stills, orientation-swapped posters) can carry
+    // the same cache-buster as the static markup.
+    window.__PENGUIN_MEDIA_V = "${ASSET_VERSIONS.media}";
     // Opt into the scroll story before first paint so the semantic fallback
     // and the sticky stage never swap after layout (zero layout shift).
     try {

@@ -35,8 +35,9 @@
 
   const FRAME_COUNT = 72;
   const frames = new Array(FRAME_COUNT);
-  const frameUrl = (i) => `/media/frames/f-${String(i + 1).padStart(3, "0")}.webp`;
-  const uiUrl = (i) => `/media/ui/ui-${String(i + 1).padStart(2, "0")}.webp`;
+  const mediaV = window.__PENGUIN_MEDIA_V ? `?v=${window.__PENGUIN_MEDIA_V}` : "";
+  const frameUrl = (i) => `/media/frames/f-${String(i + 1).padStart(3, "0")}.webp${mediaV}`;
+  const uiUrl = (i) => `/media/ui/ui-${String(i + 1).padStart(2, "0")}.webp${mediaV}`;
   let painted = -1;
 
   const preloadFrame = (index) => {
