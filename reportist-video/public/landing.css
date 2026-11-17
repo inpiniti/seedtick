@@ -2106,7 +2106,7 @@ html.lenis {
   color: rgba(255, 255, 255, 0.72);
 }
 
-/* ---------- Scroll story stage (progress-driven, fully presentational) ---------- */
+/* ---------- Scroll story stage (header-safe 3-slot layout) ---------- */
 
 .story {
   position: relative;
@@ -2142,10 +2142,14 @@ html.has-motion-stage .story-stage {
   inset: 0;
 }
 
+/* Row 1 = visual + copy, Row 2 = the HUD. Nothing is an overlay any more,
+   so the header cannot clip the top and text can never cover the progress bar. */
 .story-sticky {
   position: sticky;
-  top: 0;
-  height: 100svh;
+  top: var(--header-height);
+  height: calc(100svh - var(--header-height));
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 40px;
   overflow: hidden;
   color: #ffffff;
   background:
@@ -2154,9 +2158,8 @@ html.has-motion-stage .story-stage {
 
 .story-canvas {
   position: absolute;
-  inset: 0;
+  inset: 0 0 40px;
   width: 100%;
-  height: 100%;
   display: block;
   opacity: 0;
   transition: opacity 350ms ease;
@@ -2168,7 +2171,7 @@ html.has-motion-stage .story-stage {
 
 .story-stage-scrim {
   position: absolute;
-  inset: 0;
+  inset: 0 0 40px;
   background:
     linear-gradient(90deg, rgba(4, 7, 13, 0.82) 0%, rgba(4, 7, 13, 0.42) 46%, rgba(4, 7, 13, 0.12) 100%),
     linear-gradient(180deg, rgba(4, 7, 13, 0.5) 0%, transparent 30%, transparent 70%, rgba(4, 7, 13, 0.6) 100%);
@@ -2177,7 +2180,7 @@ html.has-motion-stage .story-stage {
 
 .story-thumbs {
   position: absolute;
-  top: 96px;
+  top: 14px;
   left: 50%;
   z-index: 2;
   display: flex;
@@ -2187,7 +2190,7 @@ html.has-motion-stage .story-stage {
   transition: opacity 250ms ease;
 }
 
-.story-stage[data-act="0"] .story-thumbs {
+.story[data-act="0"] .story-thumbs {
   opacity: 1;
 }
 
@@ -2226,13 +2229,13 @@ html.has-motion-stage .story-stage {
 }
 
 .story-act {
-  position: absolute;
-  inset: 0;
+  position: relative;
+  grid-area: 1 / 1;
   z-index: 3;
   display: grid;
   align-content: center;
   gap: 26px;
-  padding: 96px clamp(24px, 6vw, 88px) 88px;
+  padding: 72px clamp(24px, 6vw, 88px) 18px;
   opacity: 0;
   visibility: hidden;
   transform: translateY(22px);
@@ -2348,6 +2351,7 @@ html.has-motion-stage .story-stage {
 }
 
 .story-ui-frame {
+  flex-shrink: 0;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
@@ -2457,11 +2461,187 @@ html.has-motion-stage .story-stage {
   color: rgba(255, 217, 122, 0.7);
 }
 
-/* Act 3 — 3-step playhead */
+.story-ui-mobile-copy {
+  display: none;
+}
+
+/* Act 3 — timeline compression visual */
 .story-act--steps {
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  grid-template-rows: auto auto;
   align-items: center;
-  gap: clamp(28px, 5vw, 72px);
+  align-content: center;
+  gap: 18px clamp(28px, 5vw, 72px);
+}
+
+.story-timeline {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+
+.story-steps-copy {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.story-steps {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.story-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  background: rgba(10, 15, 25, 0.72);
+}
+
+.story-timeline-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+}
+
+.story-timeline-head b {
+  color: rgba(255, 217, 122, 0.75);
+  font-weight: 600;
+}
+
+.story-clips {
+  position: relative;
+  display: flex;
+  gap: 6px;
+  height: 64px;
+  transition: height 420ms ease;
+}
+
+.story-clip {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  overflow: hidden;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(148, 163, 184, 0.18), rgba(148, 163, 184, 0.05));
+  transition: width 500ms ease, opacity 400ms ease, padding 400ms ease, border-color 400ms ease;
+}
+
+.story-clip--1 { width: 30%; }
+.story-clip--2 { width: 40%; }
+.story-clip--3 { width: 30%; }
+
+.story-clip b {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  white-space: nowrap;
+}
+
+.story-clip small {
+  color: rgba(255, 255, 255, 0.5);
+  font-family: var(--mono);
+  font-size: 0.56rem;
+}
+
+.story-scanline {
+  position: absolute;
+  top: -6px;
+  bottom: -6px;
+  left: calc(var(--scan-p, 0) * 100%);
+  width: 2px;
+  background: #f0b429;
+  box-shadow: 0 0 14px 3px rgba(240, 180, 41, 0.45);
+  opacity: 0;
+  transition: opacity 240ms ease, left 100ms linear;
+}
+
+.story-peak {
+  position: absolute;
+  top: 50%;
+  width: 4px;
+  height: 26px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.14);
+  transform: translateY(-50%);
+  transition: background 280ms ease, box-shadow 280ms ease;
+}
+
+.story-peak[data-peak="0"] { left: 8%; }
+.story-peak[data-peak="1"] { left: 21%; }
+.story-peak[data-peak="2"] { left: 35%; }
+.story-peak[data-peak="3"] { left: 52%; }
+.story-peak[data-peak="4"] { left: 69%; }
+.story-peak[data-peak="5"] { left: 86%; }
+
+.story-peak.is-lit {
+  background: #f0b429;
+  box-shadow: 0 0 12px 2px rgba(240, 180, 41, 0.45);
+}
+
+.story-timeline[data-state="scan"] .story-scanline {
+  opacity: 1;
+}
+
+.story-timeline[data-state="scan"] .story-clip {
+  border-color: rgba(240, 180, 41, 0.32);
+}
+
+.story-timeline[data-state="final"] .story-clips {
+  height: 0;
+}
+
+.story-timeline[data-state="final"] .story-clip,
+.story-timeline[data-state="final"] .story-scanline {
+  opacity: 0;
+  width: 0;
+  padding: 0;
+  border-width: 0;
+}
+
+.story-timeline-final {
+  display: none;
+  align-items: center;
+  gap: 12px;
+}
+
+.story-timeline[data-state="final"] .story-timeline-final {
+  display: flex;
+}
+
+.story-final-strips {
+  display: flex;
+  flex: 1;
+  gap: 3px;
+}
+
+.story-final-strip {
+  flex: 1;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.story-final-strip img {
+  display: block;
+  width: 100%;
+  height: 40px;
+  object-fit: cover;
+}
+
+.story-timeline-final > span {
+  color: rgba(255, 217, 122, 0.8);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  white-space: nowrap;
 }
 
 .story-playhead {
@@ -2595,16 +2775,16 @@ html.has-motion-stage .story-stage {
   letter-spacing: 0.1em;
 }
 
-/* HUD, corners and scroll cue */
+/* HUD is a real grid row — never an overlay on top of the content */
 .story-hud {
-  position: absolute;
-  right: clamp(24px, 6vw, 88px);
-  bottom: 30px;
-  left: clamp(24px, 6vw, 88px);
-  z-index: 4;
+  grid-area: 2 / 1;
+  position: relative;
   display: flex;
   align-items: center;
   gap: 16px;
+  padding: 0 clamp(24px, 6vw, 88px);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(4, 7, 13, 0.72);
   color: rgba(255, 255, 255, 0.6);
   font-family: var(--mono);
   font-size: 0.62rem;
@@ -2630,7 +2810,7 @@ html.has-motion-stage .story-stage {
 
 .story-cue {
   position: absolute;
-  bottom: 62px;
+  bottom: 54px;
   left: 50%;
   z-index: 4;
   color: rgba(255, 255, 255, 0.5);
@@ -2650,32 +2830,22 @@ html.has-motion-stage .story-stage {
   border-style: solid;
 }
 
-.story-corner--tl { top: 22px; left: 22px; border-width: 1px 0 0 1px; }
-.story-corner--tr { top: 22px; right: 22px; border-width: 1px 1px 0 0; }
-.story-corner--bl { bottom: 22px; left: 22px; border-width: 0 0 1px 1px; }
-.story-corner--br { bottom: 22px; right: 22px; border-width: 0 1px 1px 0; }
+.story-corner--tl { top: 14px; left: 16px; border-width: 1px 0 0 1px; }
+.story-corner--tr { top: 14px; right: 16px; border-width: 1px 1px 0 0; }
+.story-corner--bl { bottom: 52px; left: 16px; border-width: 0 0 1px 1px; }
+.story-corner--br { bottom: 52px; right: 16px; border-width: 0 1px 1px 0; }
 
 @media (max-width: 840px) {
   html.has-motion-stage .story {
     height: 380svh;
   }
 
-  .story-sticky {
-    display: grid;
-    grid-template-rows: 42svh 58svh;
-  }
-
   .story-canvas {
-    height: 42svh;
-  }
-
-  .story-stage-scrim {
-    background: linear-gradient(180deg, rgba(4, 7, 13, 0.2) 0%, rgba(4, 7, 13, 0.55) 42%, #05080f 100%);
+    inset: 0 0 40px;
   }
 
   .story-thumbs {
-    top: auto;
-    bottom: calc(58svh + 12px);
+    top: 12px;
     gap: 6px;
   }
 
@@ -2685,27 +2855,27 @@ html.has-motion-stage .story-stage {
   }
 
   .story-act {
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    gap: 14px;
-    padding: 22px 20px 64px;
-    position: absolute;
-    inset: 42svh 0 0;
+    align-content: start;
+    gap: 10px;
+    padding: 16px 18px 10px;
+  }
+
+  .story-act--capture {
+    align-content: end;
   }
 
   .story-act h2 {
-    margin: 6px 0 8px;
-    font-size: clamp(1.55rem, 6.4vw, 2.3rem);
+    margin: 6px 0;
+    font-size: clamp(1.4rem, 6vw, 2rem);
   }
 
   .story-lead {
-    font-size: 0.86rem;
+    font-size: 0.82rem;
   }
 
   .story-captures {
     gap: 6px;
-    margin-top: 10px;
+    margin-top: 8px;
   }
 
   .story-chip {
@@ -2715,59 +2885,154 @@ html.has-motion-stage .story-stage {
 
   .story-counter {
     position: absolute;
-    top: 18px;
-    right: 20px;
+    top: 14px;
+    right: 18px;
+  }
+
+  /* Act 2: full-size UI screenshot on top, compact current-feature copy below */
+  .story-act--ui {
+    grid-template-rows: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: 10px;
   }
 
   .story-ui-frame {
+    grid-row: 1;
     width: 100%;
   }
 
-  .story-ui-copy h2 {
-    font-size: 1.4rem;
-  }
-
-  .story-ui-row {
-    grid-template-columns: 26px 1fr;
-    padding: 7px 9px;
-  }
-
-  .story-ui-row small {
+  .story-ui-copy {
     display: none;
   }
 
-  .story-steps-copy h2,
-  .story-format-copy h2 {
-    font-size: 1.5rem;
+  .story-ui-mobile-copy {
+    display: flex;
+    grid-row: 2;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+  }
+
+  .story-ui-mobile-copy h3 {
+    margin: 0;
+    font-size: 1.05rem;
+  }
+
+  .story-ui-mobile-copy p[data-ui-desc] {
+    margin: 0;
+    overflow: auto;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.8rem;
+    line-height: 1.5;
+  }
+
+  .story-ui-dots {
+    display: flex;
+    gap: 6px;
+    margin-top: auto;
+  }
+
+  .story-ui-dot {
+    flex: 1;
+    min-height: 34px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.55);
+    font-family: var(--mono);
+    font-size: 0.65rem;
+  }
+
+  .story-ui-dot.is-current {
+    border-color: #f0b429;
+    background: rgba(240, 180, 41, 0.14);
+    color: #ffd97a;
+  }
+
+  /* Act 3: timeline visual on top, three compact steps below */
+  .story-act--steps {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto auto;
+    align-content: start;
+    gap: 10px;
+  }
+
+  .story-timeline {
+    grid-column: 1;
+    grid-row: 1;
+    min-height: 0;
+    padding: 12px 14px;
+  }
+
+  .story-steps-copy {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .story-steps-copy h2 {
+    font-size: 1.3rem;
+    margin: 0 0 6px;
+  }
+
+  .story-steps-copy .story-lead {
+    display: none;
+  }
+
+  .story-playhead {
+    margin-top: 8px;
+  }
+
+  .story-steps {
+    grid-column: 1;
+    grid-row: 3;
+    gap: 6px;
   }
 
   .story-step-row {
-    padding: 10px 12px;
+    padding: 8px 10px;
   }
 
   .story-step-row p {
     display: none;
   }
 
+  /* Act 4: result pair on top, copy + CTA below */
+  .story-act--format {
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+
   .story-formats {
+    grid-row: 1;
+    min-height: 0;
     gap: 14px;
   }
 
-  .story-format--wide { width: 60%; }
-  .story-format--tall { width: 34%; }
+  .story-format-copy {
+    grid-row: 2;
+  }
+
+  .story-format-copy h2 {
+    font-size: 1.3rem;
+  }
+
+  .story-format--wide { width: 56%; }
+  .story-format--tall { width: 32%; }
 
   .story-format--tall img {
-    max-height: 26svh;
+    max-height: none;
+  }
+
+  .story-format-button {
+    min-height: 40px;
+    margin-top: 10px;
   }
 
   .story-hud {
-    right: 20px;
-    bottom: 20px;
-    left: 20px;
+    padding: 0 18px;
   }
 
   .story-cue {
-    bottom: 46px;
+    display: none;
   }
 
   .story-corner {

@@ -27,6 +27,11 @@
   const uiBack = story.querySelector("[data-ui-back]");
   const uiRows = Array.from(story.querySelectorAll("[data-ui-row]"));
   const uiJumps = Array.from(story.querySelectorAll("[data-ui-jump]"));
+  const uiTitle = story.querySelector("[data-ui-title]");
+  const uiDesc = story.querySelector("[data-ui-desc]");
+  const uiDots = Array.from(story.querySelectorAll("[data-ui-dot]"));
+  const timeline = story.querySelector("[data-timeline]");
+  const peaks = Array.from(story.querySelectorAll("[data-peak]"));
 
   const FRAME_COUNT = 72;
   const frames = new Array(FRAME_COUNT);
@@ -158,15 +163,31 @@
         activeUi = index;
         showUi(uiUrl(index));
         uiRows.forEach((row, i) => row.classList.toggle("is-current", i === index));
+        uiDots.forEach((dot, i) => dot.classList.toggle("is-current", i === index));
+        const dot = uiDots[index];
+        if (dot) {
+          if (uiTitle) uiTitle.textContent = dot.dataset.title || "";
+          if (uiDesc) uiDesc.textContent = dot.dataset.desc || "";
+        }
       }
     }
 
     if (act === 2) {
       const sub = clamp01((progress - 0.66) / 0.18);
       if (playhead) playhead.style.width = `${(sub * 100).toFixed(2)}%`;
-      stepRows.forEach((row, i) =>
-        row.classList.toggle("is-current", i === Math.min(2, Math.floor(sub * 3)))
-      );
+      const step = Math.min(2, Math.floor(sub * 3));
+      stepRows.forEach((row, i) => row.classList.toggle("is-current", i === step));
+      if (timeline) {
+        const state = step === 0 ? "raw" : step === 1 ? "scan" : "final";
+        if (timeline.dataset.state !== state) timeline.dataset.state = state;
+        timeline.style.setProperty("--scan-p", clamp01((sub - 1 / 3) * 3).toFixed(4));
+        peaks.forEach((peak, i) =>
+          peak.classList.toggle(
+            "is-lit",
+            state !== "raw" && i < Math.ceil(clamp01((sub - 1 / 3) * 3) * 6)
+          )
+        );
+      }
     }
 
     if (bar) bar.style.transform = `scaleX(${progress.toFixed(4)})`;

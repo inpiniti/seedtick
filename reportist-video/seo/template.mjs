@@ -397,6 +397,37 @@ function renderStory(locale) {
     )
     .join("");
 
+  // Mobile Act 2: compact "current feature" copy + six tappable dot tabs.
+  const uiDots = features.items
+    .map(
+      (item, index) =>
+        `<button class="story-ui-dot" type="button" tabindex="-1" data-ui-jump="${index}" data-ui-dot="${index}" data-title="${esc(item.title)}" data-desc="${esc(item.desc)}" aria-label="${esc(item.title)}">${two(index + 1)}</button>`
+    )
+    .join("");
+
+  // Act 3 visual: raw clips → AI scan → one condensed 00:36 timeline.
+  const timelineClips = [
+    ["CLIP 01", "42m"],
+    ["CLIP 02", "58m"],
+    ["CLIP 03", "38m"],
+  ]
+    .map(
+      ([label, length], index) =>
+        `<div class="story-clip story-clip--${index + 1}"><b>${label}</b><small>${length}</small></div>`
+    )
+    .join("");
+
+  const timelinePeaks = stack.layers
+    .map((_, index) => `<i class="story-peak" data-peak="${index}"></i>`)
+    .join("");
+
+  const finalStrips = stack.layers
+    .map(
+      (_, index) =>
+        `<span class="story-final-strip"><img src="/media/reel/reel-0${index + 1}.webp" alt="" loading="lazy" width="80" height="45"></span>`
+    )
+    .join("");
+
   const stepRows = how.steps
     .map(
       (step, index) => `
@@ -511,9 +542,30 @@ function renderStory(locale) {
             <h2>${esc(features.title)}</h2>
             <ol class="story-ui-list">${featureRows}</ol>
           </div>
+          <div class="story-ui-mobile-copy">
+            <p class="story-eyebrow">${esc(features.eyebrow)}</p>
+            <h3 data-ui-title>${esc(features.items[0].title)}</h3>
+            <p data-ui-desc>${esc(features.items[0].desc)}</p>
+            <div class="story-ui-dots">${uiDots}</div>
+          </div>
         </div>
 
         <div class="story-act story-act--steps" data-story-act="2">
+          <div class="story-timeline" data-timeline data-state="raw">
+            <div class="story-timeline-head">
+              <span>RAW FOOTAGE</span>
+              <b data-timeline-label>3 CLIPS · 02:18:40</b>
+            </div>
+            <div class="story-clips">
+              ${timelineClips}
+              <i class="story-scanline"></i>
+              ${timelinePeaks}
+            </div>
+            <div class="story-timeline-final">
+              <div class="story-final-strips">${finalStrips}</div>
+              <span>00:36 · 16:9 &amp; 9:16</span>
+            </div>
+          </div>
           <div class="story-steps-copy">
             <p class="story-eyebrow">${esc(how.eyebrow)}</p>
             <h2>${esc(how.title)}</h2>
