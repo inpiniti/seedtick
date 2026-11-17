@@ -4,6 +4,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Download, RefreshCw, Film, Clock, Scissors, Zap, Trash2, RotateCcw } from 'lucide-react';
 import type { FinalVideoResult, HighlightSegment } from '../../types/video.ts';
 import { useI18n } from '../../i18n/index.tsx';
+import { Button } from '../ui/Button.tsx';
 
 const YoutubeIcon: React.FC<{ size?: number; className?: string }> = ({
   size = 15,
@@ -154,13 +155,22 @@ export const ResultView: React.FC<ResultViewProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
-          <button type="button" className="btn-secondary" onClick={onReset}>
-            <RefreshCw className="w-4 h-4 text-slate-500" />
-            {ui('새로 만들기 ')}</button>
-          <button type="button" className="btn-primary" onClick={handleDownload}>
-            <Download className="w-4 h-4" />
+          <Button
+            variant="secondary"
+            size="md"
+            onClick={onReset}
+            leftIcon={<RefreshCw className="w-4 h-4 text-slate-500" />}
+          >
+            {ui('새로 만들기')}
+          </Button>
+          <Button
+            variant="primary"
+            size="md"
+            onClick={handleDownload}
+            leftIcon={<Download className="w-4 h-4" />}
+          >
             {ui('영상 다운로드 (')}{formatSize(result.fileSize)})
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -228,21 +238,22 @@ export const ResultView: React.FC<ResultViewProps> = ({
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="btn-secondary py-1.5 px-3 text-xs"
+              <Button
+                variant="secondary"
+                size="xs"
                 onClick={handleResetSegments}
+                leftIcon={<RotateCcw className="w-3.5 h-3.5 text-slate-500" />}
               >
-                <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-                {ui('원래대로 복구 ')}</button>
-              <button
-                type="button"
-                className="btn-primary py-1.5 px-3.5 text-xs shadow-sm bg-gradient-to-r from-slate-900 to-slate-900 hover:from-black hover:to-black"
+                {ui('원래대로 복구')}
+              </Button>
+              <Button
+                variant="primary"
+                size="xs"
                 onClick={() => onReStitch?.(segments)}
                 disabled={isReStitching || segments.length === 0}
               >
                 {isReStitching ? ui('새로 병합 중...') : ui('✂️ 수정된 구간으로 즉시 다시 병합하기')}
-              </button>
+              </Button>
             </div>
           </div>
         )}

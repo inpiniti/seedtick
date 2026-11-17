@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { UploadCloud, Plus } from 'lucide-react';
 import { useI18n } from '../../i18n/index.tsx';
+import { Button } from '../ui/Button.tsx';
 
 interface DropZoneProps {
   onFilesSelected: (files: File[]) => void;
@@ -77,18 +78,18 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFilesSelected, disabled = 
         {dict.upload?.dropZoneSubtext || 'MP4, WebM, MOV 등 모든 일반 동영상 형식을 지원해요 · 영상은 서버로 전송되지 않고 브라우저에서 안전하게 처리돼요'}
       </div>
 
-      <button
-        type="button"
-        className="dropzone-btn"
+      <Button
+        variant="secondary"
+        size="md"
+        leftIcon={<Plus className="w-4 h-4 text-[#0f172a]" />}
         onClick={(e) => {
           e.stopPropagation();
           fileInputRef.current?.click();
         }}
         disabled={disabled}
       >
-        <Plus className="w-4 h-4 text-[#0f172a]" />
         {dict.upload?.dropZoneBtn || '내 컴퓨터에서 영상 선택하기'}
-      </button>
+      </Button>
     </div>
   );
 };

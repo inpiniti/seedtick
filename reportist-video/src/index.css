@@ -1,4 +1,6 @@
 /* index.css - Reportist Admin / Toss Style Design Tokens */
+@import './styles/uiTokens.css';
+@import './components/ui/ui.css';
 
 /* JetBrains Mono는 Google Fonts CSS 요청 없이 로컬 서브셋으로 제공한다. (render-blocking 제거) */
 @font-face {

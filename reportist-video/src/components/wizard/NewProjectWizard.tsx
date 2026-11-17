@@ -35,6 +35,7 @@ import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { ShinyText } from '../common/ShinyText.tsx';
 import { SpecularButton } from '../common/SpecularButton.tsx';
+import { Button } from '../ui/Button.tsx';
 import { BorderBeam } from '../common/BorderBeam.tsx';
 import { QueueStatusCard, getQueueCopy } from '../queue/QueueStatusCard.tsx';
 import {
@@ -546,14 +547,14 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                       </span>
                     </div>
 
-                    <button
-                      type="button"
-                      className="wizard-btn-add-more"
+                    <Button
+                      variant="secondary"
+                      size="xs"
+                      leftIcon={<Plus size={13} />}
                       onClick={() => fileInputRef.current?.click()}
                     >
-                      <Plus size={13} />
-                      <span>{w?.addMoreVideos || '영상 추가'}</span>
-                    </button>
+                      {w?.addMoreVideos || '영상 추가'}
+                    </Button>
                   </div>
 
                   <div className="wizard-video-list">
@@ -1061,15 +1062,16 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
 
               {/* 취소 버튼 */}
               <div className="wizard-processing-actions">
-                <button
-                  type="button"
-                  className="wizard-btn-cancel"
+                <Button
+                  variant="subtle"
+                  size="lg"
+                  fullWidth
                   onClick={onCancelProcessing}
                 >
                   {progress.isQueued
                     ? queueCopy.cancel
                     : (w?.cancelAnalysis || '분석 중단하기')}
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -1079,43 +1081,43 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
         <div className="wizard-modal-footer">
           {currentStep === 1 && (
             <>
-              <button
-                type="button"
-                className="wizard-btn-ghost"
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={onClose}
               >
                 {w?.cancelToList || '취소 (목록으로)'}
-              </button>
+              </Button>
 
-              <button
-                type="button"
-                className="wizard-btn-primary"
+              <Button
+                variant="primary"
+                size="lg"
                 disabled={videos.length === 0}
                 onClick={() => setCurrentStep(2)}
+                rightIcon={<ArrowRight size={16} />}
               >
-                <span>{w?.nextStyle || '다음: 스타일 & 연출'}</span>
-                <ArrowRight size={16} />
-              </button>
+                {w?.nextStyle || '다음: 스타일 & 연출'}
+              </Button>
             </>
           )}
 
           {currentStep === 2 && (
             <>
-              <button
-                type="button"
-                className="wizard-btn-secondary"
+              <Button
+                variant="secondary"
+                size="lg"
                 onClick={() => setCurrentStep(1)}
+                leftIcon={<ArrowLeft size={16} />}
               >
-                <ArrowLeft size={16} />
-                <span>{w?.prevStep || '이전'}</span>
-              </button>
+                {w?.prevStep || '이전'}
+              </Button>
 
               <div className="wizard-footer-right">
                 <SpecularButton
                   type="button"
                   className="wizard-btn-primary"
                   onClick={handleStartAnalysis}
-                  radius={12}
+                  radius={10}
                   disabled={videos.length === 0}
                 >
                   <Sparkles size={16} />

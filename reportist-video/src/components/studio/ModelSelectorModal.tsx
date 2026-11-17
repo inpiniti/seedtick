@@ -505,46 +505,21 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                       key={preset.id}
                       type="button"
                       onClick={() => handleSelectByokProvider(preset.id)}
-                      style={{
-                        padding: '11px 12px',
-                        borderRadius: '12px',
-                        backgroundColor: isSelected ? '#ffffff' : '#f8fafc',
-                        border: isSelected ? '2px solid #0f172a' : '1px solid #e5e8eb',
-                        boxShadow: isSelected ? '0 4px 12px rgba(15, 23, 42, 0.12)' : 'none',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        position: 'relative',
-                        transition: 'all 0.15s ease',
-                      }}
+                      className={`model-modal-provider ${isSelected ? 'is-active' : ''}`}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>
-                        <span style={{ fontSize: '12.5px', fontWeight: 700, color: isSelected ? '#1e293b' : '#191f28' }}>
+                      <div className="model-modal-provider-head">
+                        <span className="model-modal-provider-name">
                           {preset.shortName}
                         </span>
                         {isSavedProvider && (
-                          <span
-                            style={{
-                              fontSize: '10px',
-                              padding: '1px 5px',
-                              borderRadius: '5px',
-                              backgroundColor: '#e6f9f0',
-                              color: '#00a86b',
-                              fontWeight: 700,
-                            }}
-                          >
+                          <span className="model-modal-provider-saved">
                             {dict.modelModal.byokSavedBadge || '저장됨'}
                           </span>
                         )}
                       </div>
                       <div
-                        style={{
-                          fontSize: '10.5px',
-                          color: preset.color,
-                          fontWeight: 600,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
+                        className="model-modal-provider-desc"
+                        style={{ color: preset.color }}
                       >
                         {preset.badge}
                       </div>
@@ -600,18 +575,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                   value={apiKeyInput}
                   onChange={(e) => setApiKeyInput(e.target.value)}
                   placeholder={currentPreset.placeholder}
-                  style={{
-                    width: '100%',
-                    padding: '11px 85px 11px 14px',
-                    borderRadius: '10px',
-                    backgroundColor: '#ffffff',
-                    border: '1px solid #d1d6db',
-                    color: '#191f28',
-                    fontSize: '13.5px',
-                    fontFamily: 'monospace',
-                    outline: 'none',
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-                  }}
+                  className="model-modal-field model-modal-field--key"
                 />
                 <div
                   style={{
@@ -625,14 +589,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowKeyText(!showKeyText)}
-                    style={{
-                      padding: '5px',
-                      borderRadius: '6px',
-                      backgroundColor: 'transparent',
-                      border: 'none',
-                      color: '#8b95a1',
-                      cursor: 'pointer',
-                    }}
+                    className="model-modal-icon-btn"
                     title={showKeyText ? (dict.modelModal.byokHideBtn || '숨기기') : (dict.modelModal.byokShowBtn || '표시')}
                   >
                     {showKeyText ? <EyeOff size={15} /> : <Eye size={15} />}
@@ -645,16 +602,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                         if (clip) setApiKeyInput(clip.trim());
                       } catch {}
                     }}
-                    style={{
-                      padding: '5px 9px',
-                      borderRadius: '7px',
-                      backgroundColor: '#f2f4f6',
-                      border: '1px solid #e5e8eb',
-                      color: '#4e5968',
-                      fontSize: '11.5px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
+                    className="model-modal-paste-btn"
                   >
                     {dict.modelModal.byokPasteBtn || '붙여넣기'}
                   </button>
@@ -673,17 +621,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                         key={m.id}
                         type="button"
                         onClick={() => setModelInput(m.id)}
-                        style={{
-                          padding: '6px 11px',
-                          borderRadius: '8px',
-                          fontSize: '11.5px',
-                          fontWeight: 600,
-                          backgroundColor: modelInput === m.id ? '#f1f5f9' : '#ffffff',
-                          border: modelInput === m.id ? '1.5px solid #0f172a' : '1px solid #e5e8eb',
-                          color: modelInput === m.id ? '#1e293b' : '#4e5968',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease',
-                        }}
+                        className={`model-modal-option-chip ${modelInput === m.id ? 'is-active' : ''}`}
                         title={m.desc}
                       >
                         {m.name}
@@ -696,17 +634,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                   value={modelInput}
                   onChange={(e) => setModelInput(e.target.value)}
                   placeholder={dict.modelModal.byokModelPlaceholder || "직접 모델 ID 입력 (예: gpt-6.1-sol, claude-sonnet-5-5, gemini-4-carbon)"}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '10px',
-                    backgroundColor: '#ffffff',
-                    border: '1px solid #d1d6db',
-                    color: '#191f28',
-                    fontSize: '13px',
-                    fontFamily: 'monospace',
-                    outline: 'none',
-                  }}
+                  className="model-modal-field"
                 />
               </div>
 
@@ -721,17 +649,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                     value={baseUrlInput}
                     onChange={(e) => setBaseUrlInput(e.target.value)}
                     placeholder="https://api.example.com/v1/chat/completions"
-                    style={{
-                      width: '100%',
-                      padding: '10px 14px',
-                      borderRadius: '10px',
-                      backgroundColor: '#ffffff',
-                      border: '1px solid #d1d6db',
-                      color: '#191f28',
-                      fontSize: '13px',
-                      fontFamily: 'monospace',
-                      outline: 'none',
-                    }}
+                    className="model-modal-field"
                   />
                 </div>
               )}
@@ -741,23 +659,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                 <button
                   type="button"
                   onClick={handleSaveByok}
-                  style={{
-                    flex: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    padding: '12px 20px',
-                    borderRadius: '12px',
-                    backgroundColor: '#00a86b',
-                    border: 'none',
-                    color: '#ffffff',
-                    fontSize: '13.5px',
-                    fontWeight: 700,
-                    boxShadow: '0 4px 12px rgba(0, 168, 107, 0.22)',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
+                  className="model-modal-save-btn"
                 >
                   <Key size={15} />
                   <span>{dict.modelModal.byokSaveBtn || '브라우저에 저장하고 연결하기'}</span>
@@ -766,21 +668,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                   <button
                     type="button"
                     onClick={handleClearByok}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px',
-                      padding: '12px 18px',
-                      borderRadius: '12px',
-                      backgroundColor: '#fef2f2',
-                      border: '1px solid #fecaca',
-                      color: '#e11d48',
-                      fontSize: '13.5px',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                    }}
+                    className="model-modal-delete-btn"
                     title={dict.modelModal.byokDeleteBtn || '삭제'}
                   >
                     <Trash2 size={15} />

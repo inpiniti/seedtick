@@ -337,26 +337,6 @@
   color: #cbd5e1;
 }
 
-.wizard-btn-add-more {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
-  padding: 5px 10px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #334155;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.wizard-btn-add-more:hover {
-  background: #f1f5f9;
-  border-color: #94a3b8;
-}
-
 .wizard-video-list {
   display: flex;
   flex-direction: column;
@@ -495,10 +475,12 @@
   flex: 1 1 0;
   min-width: 0;
   max-width: 380px;
-  padding: 6px 10px;
-  font-size: 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  box-sizing: border-box;
+  height: var(--ui-input-h-sm);
+  padding: 0 10px;
+  font-size: var(--ui-fs-sm);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-r-sm);
   background: #f8fafc;
   color: #1e293b;
   outline: none;
@@ -514,12 +496,15 @@
 .wizard-btn-map {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
-  padding: 6px 10px;
-  font-size: 11.5px;
+  box-sizing: border-box;
+  height: var(--ui-h-sm);
+  padding: 0 10px;
+  font-size: var(--ui-fs-sm);
   font-weight: 600;
-  border-radius: 8px;
-  border: 1px solid #cbd5e1;
+  border-radius: var(--ui-r-sm);
+  border: 1px solid var(--ui-border-strong);
   background: #ffffff;
   color: #475569;
   cursor: pointer;
@@ -643,8 +628,8 @@
 }
 
 .wizard-bgm-preview-btn {
-  width: 28px;
-  height: 28px;
+  width: var(--ui-icon-btn-xs);
+  height: var(--ui-icon-btn-xs);
   border-radius: 50%;
   background: #ffffff;
   border: 1px solid #cbd5e1;
@@ -724,10 +709,12 @@
 }
 
 .wizard-input-text {
-  padding: 10px 14px;
-  font-size: 13.5px;
-  border: 1px solid #cbd5e1;
-  border-radius: 10px;
+  box-sizing: border-box;
+  height: var(--ui-input-h-md);
+  padding: 0 14px;
+  font-size: var(--ui-fs-md);
+  border: 1px solid var(--ui-border-strong);
+  border-radius: var(--ui-r-md);
   outline: none;
   color: #1e293b;
   background: #ffffff;
@@ -1121,34 +1108,6 @@
   margin: 0 auto;
 }
 
-.wizard-btn-cancel {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 46px;
-  background: #f2f4f6;
-  border: 1px solid #e5e8eb;
-  color: #4e5968;
-  font-size: 14px;
-  font-weight: 700;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease,
-    transform 0.1s ease;
-}
-
-.wizard-btn-cancel:hover {
-  background: #e5e8eb;
-  border-color: #d1d5db;
-  color: #191f28;
-}
-
-.wizard-btn-cancel:active {
-  background: #dde1e6;
-  transform: scale(0.99);
-}
-
 /* Modal Footer */
 .wizard-modal-footer {
   padding: 16px 28px;
@@ -1173,69 +1132,38 @@
   text-align: center;
 }
 
-/* 공통 버튼 */
-.wizard-btn-primary {
-  display: flex;
+/* 공통 버튼: WebGL SpecularButton만 wizard-btn-primary 클래스를 함께 쓴다.
+   일반 버튼은 src/components/ui/Button.tsx(ui-btn)로 이전했다. */
+.specular-button.wizard-btn-primary {
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  box-sizing: border-box;
+  height: var(--ui-h-lg);
   background: #0f172a;
   color: #ffffff;
-  font-size: 14px;
+  font-size: var(--ui-fs-md);
   font-weight: 700;
-  padding: 11px 22px;
-  border-radius: 12px;
+  padding: 0 22px;
+  border-radius: var(--ui-r-md);
+  --sb-radius: var(--ui-r-md);
   border: none;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25);
   transition: all 0.15s ease;
 }
 
-.wizard-btn-primary:hover:not(:disabled) {
+.specular-button.wizard-btn-primary:hover:not(:disabled) {
   background: #1e293b;
   transform: translateY(-1px);
 }
 
-.wizard-btn-primary:disabled {
+.specular-button.wizard-btn-primary:disabled {
   background: #cbd5e1;
   color: #94a3b8;
   cursor: not-allowed;
   box-shadow: none;
-}
-
-.wizard-btn-secondary {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: #f1f5f9;
-  color: #334155;
-  font-size: 14px;
-  font-weight: 600;
-  padding: 11px 18px;
-  border-radius: 12px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.wizard-btn-secondary:hover {
-  background: #e2e8f0;
-}
-
-.wizard-btn-ghost {
-  background: transparent;
-  color: #64748b;
-  font-size: 13.5px;
-  font-weight: 600;
-  padding: 10px 14px;
-  border-radius: 10px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.wizard-btn-ghost:hover {
-  background: #f1f5f9;
-  color: #0f172a;
 }
 
 /* ==================== 커스텀 인트로/아웃트로 영상 첨부 ==================== */
@@ -1298,11 +1226,13 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
+  box-sizing: border-box;
+  height: var(--ui-h-sm);
   background: #ffffff;
-  border: 1px dashed #cbd5e1;
-  padding: 9px 14px;
-  border-radius: 8px;
-  font-size: 12.5px;
+  border: 1px dashed var(--ui-border-strong);
+  padding: 0 14px;
+  border-radius: var(--ui-r-sm);
+  font-size: var(--ui-fs-sm);
   font-weight: 600;
   color: #334155;
   cursor: pointer;
@@ -1461,14 +1391,17 @@
 .wizard-btn-external-map {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
-  padding: 7px 12px;
-  font-size: 12px;
+  box-sizing: border-box;
+  height: var(--ui-h-sm);
+  padding: 0 12px;
+  font-size: var(--ui-fs-sm);
   font-weight: 600;
   color: #334155;
   background: #ffffff;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: var(--ui-r-sm);
   text-decoration: none;
   transition: all 0.15s ease;
 }
@@ -1480,13 +1413,15 @@
 }
 
 .wizard-btn-map-close {
-  padding: 7px 14px;
-  font-size: 12px;
+  box-sizing: border-box;
+  height: var(--ui-h-sm);
+  padding: 0 14px;
+  font-size: var(--ui-fs-sm);
   font-weight: 600;
   color: #64748b;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--ui-r-sm);
   cursor: pointer;
 }
 

@@ -1,4 +1,4 @@
-﻿/* ProStudioView.css - Toss Studio 전용 스타일 (ProStudioView lazy chunk과 함께 로드) */
+/* ProStudioView.css - Toss Studio 전용 스타일 (ProStudioView lazy chunk과 함께 로드) */
 
 /* Toss Studio Root Layout - Fullscreen IDE / NLE Studio Workspace (세로 스크롤 제거) */
 .toss-app-root {
@@ -182,16 +182,16 @@
   align-items: center;
   justify-content: center;
   gap: 5px;
-  height: 36px;
-  padding: 0 12px 0 8px;
-  border-radius: 9px;
-  font-size: 13px;
-  font-weight: 600;
+  height: var(--ui-h-sm);
+  padding: 0 var(--ui-px-sm) 0 8px;
+  border-radius: var(--ui-r-sm);
+  font-size: var(--ui-fs-sm);
+  font-weight: var(--ui-fw);
   color: #333d4b;
   background-color: #f2f4f6;
-  border: 1px solid #e5e8eb;
+  border: 1px solid var(--ui-border);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: var(--ui-transition);
   white-space: nowrap;
   flex-shrink: 0;
   text-decoration: none;
@@ -245,11 +245,11 @@
   gap: 6px;
   background: #0f172a;
   color: #ffffff;
-  font-size: 12.5px;
+  font-size: var(--ui-fs-sm);
   font-weight: 700;
-  height: 38px;
+  height: var(--ui-h-md);
   padding: 0 14px;
-  border-radius: 9px;
+  border-radius: var(--ui-r-sm);
   border: none;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.25);
@@ -304,12 +304,12 @@
   gap: 5px;
   background: #f2f4f6;
   color: #333d4b;
-  font-size: 12px;
+  font-size: var(--ui-fs-sm);
   font-weight: 600;
-  height: 38px;
+  height: var(--ui-h-md);
   padding: 0 11px;
-  border-radius: 9px;
-  border: 1px solid #e5e8eb;
+  border-radius: var(--ui-r-sm);
+  border: 1px solid var(--ui-border);
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
@@ -334,12 +334,13 @@
   text-align: center;
   background: transparent;
   border: none;
-  font-size: 12.5px;
+  font-size: var(--ui-fs-sm);
   font-weight: 600;
   color: #6b7684;
   cursor: pointer;
-  padding: 6px 9px;
-  border-radius: 7px;
+  height: var(--ui-h-xs);
+  padding: 0 9px;
+  border-radius: var(--ui-r-xs);
   transition: all 0.15s ease;
   white-space: nowrap;
 }
@@ -636,11 +637,12 @@
 .toss-header-input {
   width: 100%;
   box-sizing: border-box;
+  height: var(--ui-input-h-sm);
   background: #f9fafb;
-  border: 1px solid #e5e8eb;
-  border-radius: 8px;
-  padding: 6px 10px;
-  font-size: 12.5px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-r-sm);
+  padding: 0 10px;
+  font-size: var(--ui-fs-sm);
   font-weight: 600;
   color: #191f28;
   outline: none;
@@ -1292,11 +1294,15 @@
   }
 }
 
-.toss-btn-xs {
-  padding: 5px 10px;
-  font-size: 11.5px;
-  border-radius: 8px;
-  white-space: nowrap;
+/* 공통 버튼 사이즈: xs 28 / sm 34 / md 38(기본) / lg 40
+   화면별 padding으로 높이를 만들지 않고 아래 토큰만 쓴다. */
+.toss-btn-primary.toss-btn-xs,
+.toss-btn-secondary.toss-btn-xs {
+  height: var(--ui-h-xs);
+  padding: 0 var(--ui-px-xs);
+  gap: 4px;
+  font-size: var(--ui-fs-xs);
+  border-radius: var(--ui-r-xs);
 }
 
 /* Primary Button (Toss design system) */
@@ -1305,13 +1311,17 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
+  box-sizing: border-box;
+  height: var(--ui-h-md);
   background-color: #0f172a;
   color: #ffffff;
-  border: none;
-  padding: 9px 16px;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 600;
+  border: 1px solid transparent;
+  padding: 0 var(--ui-px-md);
+  border-radius: var(--ui-r-md);
+  font-size: var(--ui-fs-md);
+  font-weight: var(--ui-fw-strong);
+  line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
   transition: all 0.15s ease;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
@@ -1330,14 +1340,20 @@
 }
 
 .toss-btn-sm {
-  padding: 6px 12px;
-  font-size: 12px;
-  border-radius: 8px;
+  height: var(--ui-h-sm);
+  padding: 0 var(--ui-px-sm);
+  font-size: var(--ui-fs-sm);
+  border-radius: var(--ui-r-sm);
+  white-space: nowrap;
 }
 
-.toss-btn-primary.toss-btn-sm {
-  padding: 6px 12px;
-  font-size: 12px;
+.toss-btn-primary.toss-btn-sm,
+.toss-btn-secondary.toss-btn-sm {
+  height: var(--ui-h-sm);
+  padding: 0 var(--ui-px-sm);
+  gap: 5px;
+  font-size: var(--ui-fs-sm);
+  border-radius: var(--ui-r-sm);
 }
 
 /* Intro / Outro Cards */
@@ -1614,13 +1630,15 @@
 
 .toss-io-text-input {
   width: 100%;
-  padding: 9px 12px;
-  border: 1px solid #e5e8eb;
-  border-radius: 10px;
+  box-sizing: border-box;
+  height: var(--ui-input-h-md);
+  padding: 0 var(--ui-px-sm);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-r-md);
   background-color: #ffffff;
   color: #191f28;
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: var(--ui-fs-md);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -1799,8 +1817,8 @@
   position: absolute;
   top: 12px;
   right: 12px;
-  width: 34px;
-  height: 34px;
+  width: var(--ui-icon-btn-sm);
+  height: var(--ui-icon-btn-sm);
   border-radius: 8px;
   background-color: rgba(15, 23, 42, 0.65);
   backdrop-filter: blur(8px);
@@ -1949,13 +1967,17 @@
   justify-content: center;
   text-align: center;
   gap: 6px;
+  box-sizing: border-box;
+  height: var(--ui-h-md);
   background-color: #ffffff;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--ui-border-strong);
   color: #191f28;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 8px 16px;
-  border-radius: 10px;
+  font-size: var(--ui-fs-md);
+  font-weight: var(--ui-fw-strong);
+  padding: 0 var(--ui-px-md);
+  border-radius: var(--ui-r-md);
+  line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
   transition: all 0.15s ease;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
@@ -2117,8 +2139,8 @@
 }
 
 .toss-btn-icon {
-  width: 32px;
-  height: 32px;
+  width: var(--ui-icon-btn-sm);
+  height: var(--ui-icon-btn-sm);
   border-radius: 8px;
   background: transparent;
   border: none;
@@ -2919,12 +2941,11 @@
 }
 
 /* 세로 flex(.toss-download-actions) 안에서 flex: 1은 flex-basis를 0으로 만들어
-   버튼 높이를 글자 높이까지 눌러버린다. 고정 flex-basis와 min-height로
-   위아래 여백이 있는 48px 버튼을 유지한다. */
+   버튼 높이를 글자 높이까지 눌러버린다. 공통 lg 스케일(40px)을 고정한다. */
 .toss-btn-download-video {
   flex: 0 0 auto;
   width: 100%;
-  min-height: 48px;
+  height: var(--ui-h-lg);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2932,13 +2953,13 @@
   background-color: #0f172a;
   color: #ffffff;
   border: none;
-  border-radius: 12px;
-  padding: 14px 18px;
-  font-size: 14px;
+  border-radius: var(--ui-r-md);
+  padding: 0 var(--ui-px-md);
+  font-size: var(--ui-fs-md);
   font-weight: 700;
   cursor: pointer;
   box-sizing: border-box;
-  line-height: 1.2;
+  line-height: 1;
   transition: all 0.15s ease;
   box-shadow: 0 3px 10px rgba(15, 23, 42, 0.25);
 }
@@ -3337,8 +3358,8 @@
 
 
 .toss-btn-delete {
-  width: 28px;
-  height: 28px;
+  width: var(--ui-icon-btn-xs);
+  height: var(--ui-icon-btn-xs);
   border-radius: 6px;
   background: transparent;
   border: none;
@@ -3828,20 +3849,20 @@
   justify-content: center;
   text-align: center;
   width: 100%;
-  height: 46px;
+  box-sizing: border-box;
+  height: var(--ui-h-lg);
   margin-top: 20px;
-  border-radius: 12px;
-  border: 1px solid #e5e8eb;
+  border-radius: var(--ui-r-md);
+  border: 1px solid var(--ui-border);
   background-color: #f2f4f6;
   color: #4e5968;
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--ui-fs-md);
   font-weight: 700;
   letter-spacing: -0.2px;
   cursor: pointer;
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease,
     transform 0.1s ease;
-  box-sizing: border-box;
 }
 
 .toss-modal-cancel-btn:hover {
@@ -3998,11 +4019,13 @@
 
 .toss-input-sm {
   width: 100%;
+  box-sizing: border-box;
+  height: var(--ui-input-h-sm);
   background-color: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 7px 10px;
-  font-size: 12.5px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-r-sm);
+  padding: 0 10px;
+  font-size: var(--ui-fs-sm);
   color: #191f28;
   outline: none;
   transition: all 0.15s ease;
@@ -4893,10 +4916,10 @@
 
   .toss-nav-back-btn,
   .toss-nav-back-to-list-btn {
-    width: 28px;
-    height: 28px;
-    min-width: 28px;
-    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    border-radius: 8px;
   }
 
   .toss-nav-right {
@@ -4904,9 +4927,9 @@
   }
 
   .toss-video-list-trigger {
-    height: 29px;
-    min-width: 29px;
-    padding: 0 5px 0 4px;
+    height: 32px;
+    min-width: 32px;
+    padding: 0 6px 0 4px;
     gap: 3px;
     border-radius: 8px;
   }
@@ -4922,17 +4945,17 @@
 
   .toss-nav-cta-btn,
   .toss-nav-btn-secondary {
-    height: 29px;
-    padding: 0 8px;
-    font-size: 11px;
+    height: 32px;
+    padding: 0 10px;
+    font-size: 12px;
     gap: 3px;
     border-radius: 8px;
   }
 
   .toss-settings-trigger {
-    width: 29px;
-    height: 29px;
-    min-width: 29px;
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
     border-radius: 8px;
   }
 }
@@ -5218,14 +5241,14 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 0 12px;
-  height: 42px;
-  border: 1px solid #e5e8eb;
-  border-radius: 12px;
+  padding: 0 var(--ui-px-sm);
+  height: var(--ui-h-lg);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-r-md);
   background-color: #f8fafc;
   color: #4e5968;
-  font-size: 12.5px;
-  font-weight: 700;
+  font-size: var(--ui-fs-sm);
+  font-weight: var(--ui-fw-strong);
   font-family: inherit;
   cursor: pointer;
   white-space: nowrap;
@@ -5783,12 +5806,14 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 8px 16px;
+  box-sizing: border-box;
+  height: var(--ui-h-sm);
+  padding: 0 16px;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--ui-r-sm);
   background-color: #0f172a;
   color: #ffffff;
-  font-size: 12.5px;
+  font-size: var(--ui-fs-sm);
   font-weight: 700;
   cursor: pointer;
   transition: background-color 0.15s ease;
@@ -5796,6 +5821,176 @@
 
 .model-modal-confirm-btn:hover {
   background-color: #1e293b;
+}
+
+/* BYOK 입력/버튼: 인라인 스타일 대신 공통 스케일을 쓰는 모달 전용 클래스 */
+.model-modal-field {
+  width: 100%;
+  box-sizing: border-box;
+  height: var(--ui-input-h-md);
+  padding: 0 14px;
+  border-radius: var(--ui-r-md);
+  background-color: #ffffff;
+  border: 1px solid var(--ui-border-strong);
+  color: #191f28;
+  font-size: var(--ui-fs-md);
+  font-family: var(--font-mono, monospace);
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.model-modal-field:focus {
+  border-color: var(--ui-ink);
+  box-shadow: var(--ui-focus-ring);
+}
+
+.model-modal-field--key {
+  padding-right: 96px;
+}
+
+.model-modal-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--ui-icon-btn-xs);
+  height: var(--ui-icon-btn-xs);
+  padding: 0;
+  border: none;
+  border-radius: var(--ui-r-xs);
+  background-color: transparent;
+  color: var(--ui-text-subtle);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.model-modal-icon-btn:hover {
+  background-color: var(--ui-surface-muted);
+  color: var(--ui-text);
+}
+
+.model-modal-paste-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: var(--ui-h-xs);
+  padding: 0 var(--ui-px-xs);
+  border-radius: var(--ui-r-xs);
+  background-color: var(--ui-surface-muted);
+  border: 1px solid var(--ui-border);
+  color: var(--ui-text-muted);
+  font-size: var(--ui-fs-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.model-modal-option-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: var(--ui-h-xs);
+  padding: 0 11px;
+  border-radius: var(--ui-r-xs);
+  font-size: var(--ui-fs-xs);
+  font-weight: 600;
+  background-color: #ffffff;
+  border: 1px solid var(--ui-border);
+  color: var(--ui-text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.model-modal-option-chip.is-active {
+  background-color: #f1f5f9;
+  border: 1.5px solid var(--ui-ink);
+  color: var(--ui-text);
+}
+
+.model-modal-save-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-sizing: border-box;
+  height: var(--ui-h-lg);
+  padding: 0 var(--ui-px-lg);
+  border-radius: var(--ui-r-md);
+  background-color: #00a86b;
+  border: none;
+  color: #ffffff;
+  font-size: var(--ui-fs-md);
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(0, 168, 107, 0.22);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.model-modal-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-sizing: border-box;
+  height: var(--ui-h-lg);
+  padding: 0 18px;
+  border-radius: var(--ui-r-md);
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #e11d48;
+  font-size: var(--ui-fs-md);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+/* AI 제공자 선택 타일 (카드형 버튼: 높이는 콘텐츠에 맞춘다) */
+.model-modal-provider {
+  position: relative;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: var(--ui-r-lg);
+  background-color: var(--ui-surface-sunken);
+  border: 1px solid var(--ui-border);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.model-modal-provider.is-active {
+  background-color: #ffffff;
+  border: 2px solid var(--ui-ink);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+}
+
+.model-modal-provider-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 3px;
+}
+
+.model-modal-provider-name {
+  font-size: var(--ui-fs-sm);
+  font-weight: 700;
+  color: #191f28;
+}
+
+.model-modal-provider-saved {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background-color: #e6f9f0;
+  color: #00a86b;
+  font-weight: 700;
+}
+
+.model-modal-provider-desc {
+  font-size: 10.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (max-width: 640px) {
@@ -6545,13 +6740,13 @@
 }
 
 .settings-age-date-input {
-  height: 34px;
+  height: var(--ui-input-h-sm);
   padding: 0 10px;
-  border-radius: 8px;
-  border: 1px solid #cbd5e1;
+  border-radius: var(--ui-r-sm);
+  border: 1px solid var(--ui-border-strong);
   background-color: #f8fafc;
   color: #1e293b;
-  font-size: 13px;
+  font-size: var(--ui-fs-sm);
   font-weight: 600;
   font-family: inherit;
   outline: none;
@@ -7188,11 +7383,13 @@
 
 .toss-thumbnail-input {
   width: 100%;
+  box-sizing: border-box;
+  height: var(--ui-input-h-md);
   background-color: #ffffff;
-  border: 1.5px solid #cbd5e1;
-  border-radius: 10px;
-  padding: 9px 12px;
-  font-size: 13px;
+  border: 1.5px solid var(--ui-border-strong);
+  border-radius: var(--ui-r-md);
+  padding: 0 var(--ui-px-sm);
+  font-size: var(--ui-fs-md);
   font-weight: 600;
   color: #0f172a;
   outline: none;
@@ -7247,7 +7444,8 @@
 .toss-btn-download-thumb {
   flex: 1.25 1 0;
   min-width: 0;
-  height: 42px;
+  box-sizing: border-box;
+  height: var(--ui-h-lg);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -7255,15 +7453,14 @@
   background-color: #0f172a;
   color: #ffffff;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--ui-r-md);
   padding: 0 14px;
-  font-size: 13.5px;
+  font-size: var(--ui-fs-md);
   font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
   box-shadow: 0 3px 10px rgba(15, 23, 42, 0.3);
   white-space: nowrap;
-  box-sizing: border-box;
 }
 
 .toss-btn-download-thumb:hover {
@@ -7275,22 +7472,22 @@
 .toss-btn-frame-capture {
   flex: 1 1 0;
   min-width: 0;
-  height: 42px;
+  box-sizing: border-box;
+  height: var(--ui-h-lg);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 5px;
   background-color: #f1f5f9;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--ui-border);
   color: #334155;
-  border-radius: 12px;
+  border-radius: var(--ui-r-md);
   padding: 0 10px;
-  font-size: 12px;
+  font-size: var(--ui-fs-sm);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
-  box-sizing: border-box;
 }
 
 .toss-btn-frame-capture:hover:not(:disabled) {
@@ -7343,10 +7540,8 @@
   }
 
   .toss-btn-download-thumb {
-    height: 40px;
     padding: 0 8px;
     font-size: 12px;
-    border-radius: 10px;
     gap: 4px;
     flex: 1.2 1 0;
   }
@@ -7356,10 +7551,8 @@
   }
 
   .toss-btn-frame-capture {
-    height: 40px;
     padding: 0 6px;
     font-size: 11.5px;
-    border-radius: 10px;
     gap: 4px;
     flex: 1 1 0;
   }
@@ -7550,12 +7743,14 @@
   align-items: center;
   justify-content: center;
   gap: 7px;
+  box-sizing: border-box;
+  height: var(--ui-h-md);
   background-color: #0f172a;
   color: #ffffff;
   border: none;
-  border-radius: 12px;
-  padding: 10px 18px;
-  font-size: 13.5px;
+  border-radius: var(--ui-r-md);
+  padding: 0 18px;
+  font-size: var(--ui-fs-md);
   font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -7578,12 +7773,14 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
+  box-sizing: border-box;
+  height: var(--ui-h-md);
   background-color: #f2f4f6;
   color: #4e5968;
-  border: 1px solid #e5e8eb;
-  border-radius: 12px;
-  padding: 10px 16px;
-  font-size: 13px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-r-md);
+  padding: 0 16px;
+  font-size: var(--ui-fs-md);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -7615,12 +7812,12 @@
 
 .toss-community-search-input {
   width: 100%;
-  height: 42px;
+  height: var(--ui-input-h-lg);
   padding: 0 36px 0 38px;
   background-color: #f8fafc;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 12px;
-  font-size: 13.5px;
+  border: 1.5px solid var(--ui-border);
+  border-radius: var(--ui-r-lg);
+  font-size: var(--ui-fs-md);
   color: #191f28;
   outline: none;
   box-sizing: border-box;
@@ -7714,10 +7911,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border: 1px solid #e5e8eb;
-  border-radius: 10px;
+  width: var(--ui-icon-btn-sm);
+  height: var(--ui-icon-btn-sm);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-r-md);
   background: #ffffff;
   color: #8b95a1;
   cursor: pointer;
@@ -8120,25 +8317,6 @@
   margin: 0;
 }
 
-.toss-modal-close-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  border: none;
-  background: transparent;
-  color: #8b95a1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.toss-modal-close-btn:hover {
-  background-color: #f1f5f9;
-  color: #191f28;
-}
-
 .toss-modal-body {
   padding: 22px 24px;
   display: flex;
@@ -8164,13 +8342,14 @@
 
 .toss-form-input {
   width: 100%;
-  padding: 11px 14px;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 12px;
-  font-size: 13.5px;
+  box-sizing: border-box;
+  height: var(--ui-input-h-md);
+  padding: 0 14px;
+  border: 1.5px solid var(--ui-border);
+  border-radius: var(--ui-r-lg);
+  font-size: var(--ui-fs-md);
   color: #191f28;
   outline: none;
-  box-sizing: border-box;
   transition: all 0.15s ease;
   background-color: #f8fafc;
 }
@@ -8302,12 +8481,14 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 10px 20px;
-  border-radius: 12px;
+  box-sizing: border-box;
+  height: var(--ui-h-md);
+  padding: 0 20px;
+  border-radius: var(--ui-r-md);
   border: none;
   background-color: #0f172a;
   color: #ffffff;
-  font-size: 13.5px;
+  font-size: var(--ui-fs-md);
   font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -8455,14 +8636,14 @@
   align-items: center;
   justify-content: center;
   gap: 4px;
-  height: 28px;
+  height: var(--ui-h-xs);
   background-color: #f8fafc;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--ui-border-strong);
   color: #0f172a;
-  font-size: 11.5px;
+  font-size: var(--ui-fs-xs);
   font-weight: 700;
-  padding: 0 9px;
-  border-radius: 8px;
+  padding: 0 var(--ui-px-xs);
+  border-radius: var(--ui-r-xs);
   cursor: pointer;
   box-sizing: border-box;
   line-height: 1;
@@ -8487,14 +8668,14 @@
   align-items: center;
   justify-content: center;
   gap: 4px;
-  height: 28px;
+  height: var(--ui-h-xs);
   background-color: #f2f4f6;
-  border: 1px solid #e5e8eb;
+  border: 1px solid var(--ui-border);
   color: #4e5968;
-  font-size: 11.5px;
+  font-size: var(--ui-fs-xs);
   font-weight: 600;
-  padding: 0 9px;
-  border-radius: 8px;
+  padding: 0 var(--ui-px-xs);
+  border-radius: var(--ui-r-xs);
   cursor: pointer;
   box-sizing: border-box;
   line-height: 1;
@@ -8561,14 +8742,14 @@
   align-items: center;
   justify-content: center;
   gap: 5px;
-  height: 28px;
+  height: var(--ui-h-xs);
   background-color: #f8fafc;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--ui-border);
   color: #334155;
-  font-size: 11.5px;
+  font-size: var(--ui-fs-xs);
   font-weight: 600;
-  padding: 0 9px;
-  border-radius: 8px;
+  padding: 0 var(--ui-px-xs);
+  border-radius: var(--ui-r-xs);
   cursor: pointer;
   box-sizing: border-box;
   line-height: 1;
@@ -8626,14 +8807,14 @@
   align-items: center;
   justify-content: center;
   gap: 4.5px;
-  height: 28px;
+  height: var(--ui-h-xs);
   background: linear-gradient(135deg, #ffffff 0%, #eef2f7 100%);
   border: 1px solid #94a3b8;
   color: #0f172a;
-  font-size: 11.5px;
+  font-size: var(--ui-fs-xs);
   font-weight: 700;
-  padding: 0 10px;
-  border-radius: 8px;
+  padding: 0 var(--ui-px-xs);
+  border-radius: var(--ui-r-xs);
   cursor: pointer;
   box-sizing: border-box;
   line-height: 1;
@@ -9046,9 +9227,11 @@
   justify-content: center;
   text-align: center;
   gap: 6px;
-  padding: 10px 18px;
-  border-radius: 12px;
-  font-size: 14px;
+  box-sizing: border-box;
+  height: var(--ui-h-lg);
+  padding: 0 18px;
+  border-radius: var(--ui-r-md);
+  font-size: var(--ui-fs-md);
   font-weight: 700;
   box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
 }
@@ -9270,9 +9453,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
+  width: var(--ui-icon-btn-sm);
+  height: var(--ui-icon-btn-sm);
+  border-radius: var(--ui-r-sm);
   border: 1px solid #e2e8f0;
   background-color: #ffffff;
   color: #64748b;
@@ -9344,9 +9527,11 @@
   justify-content: center;
   text-align: center;
   gap: 6px;
-  padding: 12px 24px;
-  border-radius: 14px;
-  font-size: 15px;
+  box-sizing: border-box;
+  height: var(--ui-h-lg);
+  padding: 0 24px;
+  border-radius: var(--ui-r-lg);
+  font-size: var(--ui-fs-md);
   font-weight: 700;
 }
 
@@ -9460,9 +9645,15 @@
   align-items: center;
   justify-content: center;
   text-align: center;
+  box-sizing: border-box;
+  height: var(--ui-h-md);
+  padding: 0 var(--ui-px-md);
+  border-radius: var(--ui-r-md);
   background-color: #f04452;
   color: #ffffff;
   border: none;
+  font-size: var(--ui-fs-md);
+  font-weight: 700;
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
@@ -10312,13 +10503,15 @@
   align-items: center;
   justify-content: center;
   text-align: center;
+  box-sizing: border-box;
+  height: var(--ui-h-md);
   background-color: #f1f5f9;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--ui-border);
   color: #475569;
-  font-size: 13px;
+  font-size: var(--ui-fs-md);
   font-weight: 600;
-  padding: 8px 14px;
-  border-radius: 10px;
+  padding: 0 14px;
+  border-radius: var(--ui-r-md);
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -10334,13 +10527,15 @@
   justify-content: center;
   text-align: center;
   gap: 6px;
+  box-sizing: border-box;
+  height: var(--ui-h-md);
   background-color: #0f172a;
   border: none;
   color: #ffffff;
-  font-size: 13px;
+  font-size: var(--ui-fs-md);
   font-weight: 700;
-  padding: 8px 18px;
-  border-radius: 10px;
+  padding: 0 18px;
+  border-radius: var(--ui-r-md);
   cursor: pointer;
   transition: all 0.15s;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.35);
@@ -10709,10 +10904,12 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 7px 13px;
-  font-size: 12px;
+  box-sizing: border-box;
+  height: var(--ui-h-xs);
+  padding: 0 13px;
+  font-size: var(--ui-fs-xs);
   font-weight: 700;
-  border-radius: 8px;
+  border-radius: var(--ui-r-xs);
   border: none;
   background-color: #0f172a;
   color: #ffffff;
@@ -11392,12 +11589,14 @@
 }
 
 .export-modal-cancel-btn {
-  padding: 9px 16px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  box-sizing: border-box;
+  height: var(--ui-h-md);
+  padding: 0 16px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-r-md);
   background-color: #ffffff;
   color: #4e5968;
-  font-size: 13px;
+  font-size: var(--ui-fs-md);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -11411,17 +11610,20 @@
 }
 
 .export-modal-confirm-btn {
-  padding: 9px 18px;
+  box-sizing: border-box;
+  height: var(--ui-h-md);
+  padding: 0 18px;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--ui-r-md);
   background-color: #0f172a;
   color: #ffffff;
-  font-size: 13px;
+  font-size: var(--ui-fs-md);
   font-weight: 700;
   cursor: pointer;
   transition: background-color 0.15s ease;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   font-family: inherit;
 }
 
@@ -11541,11 +11743,12 @@
 
 .toss-search-input {
   width: 100%;
-  height: 38px;
+  height: var(--ui-input-h-md);
   padding: 0 32px 0 34px;
   background-color: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-r-md);
+  font-size: var(--ui-fs-md);
   color: #0f172a;
   outline: none;
   transition: all 0.15s ease;
@@ -11960,13 +12163,13 @@
 
 .toss-feedback-input {
   width: 100%;
-  height: 42px;
+  height: var(--ui-input-h-lg);
   padding: 0 14px;
   background-color: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-r-lg);
   color: #0f172a;
-  font-size: 13px;
+  font-size: var(--ui-fs-md);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   outline: none;
   transition: all 0.15s ease;
@@ -12013,13 +12216,16 @@
 .toss-feedback-upload-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
   gap: 5px;
-  padding: 5px 12px;
+  height: var(--ui-h-xs);
+  padding: 0 12px;
   background-color: #f1f5f9;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: var(--ui-r-xs);
   color: #0f172a;
-  font-size: 11.5px;
+  font-size: var(--ui-fs-xs);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -13741,7 +13947,7 @@
 
   /* 좁은 화면에서 긴 해상도·길이 문구가 버튼 밖으로 넘치지 않도록 여백만 줄인다. */
   .toss-btn-download-video {
-    padding: 13px 12px;
+    padding: 0 12px;
     font-size: 13px;
   }
 }
@@ -14565,6 +14771,8 @@
 }
 
 /* ---------- 3. 하단 고정 CTA 바 (엄지 영역) ---------- */
+/* 버튼 자체의 높이·폰트·색은 공통 Button(ui-btn)이 담당한다.
+   여기서는 바 레이아웃과 좌우 폭 배분만 정의한다. */
 .toss-bottom-cta-bar {
   position: fixed;
   left: 0;
@@ -14575,7 +14783,7 @@
   align-items: center;
   gap: 8px;
   box-sizing: border-box;
-  padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
+  padding: 6px 12px calc(6px + env(safe-area-inset-bottom, 0px));
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -14583,72 +14791,18 @@
   box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.05);
 }
 
+.toss-bottom-cta-bar .ui-btn {
+  font-size: var(--ui-fs-md);
+  letter-spacing: -0.2px;
+}
+
 .toss-bottom-cta-prev {
   flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
   min-width: 68px;
-  min-height: 42px;
-  padding: 0 12px;
-  background: #f2f4f6;
-  border: 1px solid #e5e8eb;
-  border-radius: 11px;
-  font-size: 13px;
-  font-weight: 700;
-  color: #4e5968;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-}
-
-.toss-bottom-cta-prev:hover:not(:disabled) {
-  background: #e5e8eb;
-}
-
-.toss-bottom-cta-prev:disabled {
-  opacity: 0.4;
-  cursor: default;
 }
 
 .toss-bottom-cta-primary {
   flex: 1 1 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 46px;
-  padding: 0 14px;
-  border: none;
-  border-radius: 11px;
-  background: #3182f6;
-  color: #ffffff;
-  font-size: 14.5px;
-  font-weight: 800;
-  letter-spacing: -0.2px;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(49, 130, 246, 0.35);
-  transition: filter 0.15s ease, transform 0.12s ease, background-color 0.15s ease;
-}
-
-.toss-bottom-cta-primary:hover:not(:disabled) {
-  filter: brightness(1.05);
-}
-
-.toss-bottom-cta-primary:active:not(:disabled) {
-  transform: scale(0.985);
-}
-
-.toss-bottom-cta-primary:disabled {
-  background: #b3d4ff;
-  box-shadow: none;
-  cursor: default;
-}
-
-.toss-bottom-cta-primary-label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* ---------- 4. 모바일: 인트로 카드 안 인라인 문구 입력 ---------- */
@@ -14699,9 +14853,9 @@
    반응형 분기: 1024px 이하(모바일 IA)에서는 데스크탑 잔재를 모두 숨긴다
    ========================================================================== */
 @media (max-width: 1024px) {
-  /* 하단 고정 CTA 바 높이만큼 본문 하단 여백 확보 */
+  /* 하단 고정 CTA 바(52px) 높이만큼 본문 하단 여백 확보 */
   .toss-page-container {
-    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
   /* 하단 플로팅 상태바 → 헤더의 저장 상태 점 + 다운로드 완료 토스트로 흡수 */

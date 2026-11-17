@@ -12,6 +12,7 @@ import {
   getYouTubeThumbnailUrl,
   fetchYouTubeMeta,
 } from '../../services/youtubeService.ts';
+import { IconButton } from '../ui/IconButton.tsx';
 import { createVideoShare } from '../../services/videoShareService.ts';
 import type { VideoShareItem } from '../../types/share.ts';
 import { useI18n } from '../../i18n/index.tsx';
@@ -152,14 +153,14 @@ export const ShareVideoModal: React.FC<ShareVideoModalProps> = ({
               </p>
             </div>
           </div>
-          <button
-            type="button"
+          <IconButton
+            label={dict.common.close}
+            variant="ghost"
             onClick={onClose}
-            className="toss-modal-close-btn"
             title={dict.common.close}
           >
             <X size={18} />
-          </button>
+          </IconButton>
         </div>
 
         {/* Form Body */}

@@ -5,6 +5,7 @@ import type { VideoShareItem } from '../../types/share.ts';
 import { formatViewCount, formatTimeAgo } from '../../services/youtubeService.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { notify } from '../../services/toastService.ts';
+import { IconButton } from '../ui/IconButton.tsx';
 
 interface YouTubePlayerModalProps {
   item: VideoShareItem | null;
@@ -45,14 +46,14 @@ export const YouTubePlayerModal: React.FC<YouTubePlayerModalProps> = ({ item, on
               {item.title}
             </h3>
           </div>
-          <button
-            type="button"
+          <IconButton
+            label={dict.common.close}
+            variant="ghost"
             onClick={onClose}
-            className="toss-modal-close-btn"
             title={dict.common.close}
           >
             <X size={18} />
-          </button>
+          </IconButton>
         </div>
 
         {/* 16:9 Video Player Container */}

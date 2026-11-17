@@ -1,0 +1,75 @@
+/* uiTokens.css - 앱 공통 UI 스케일
+   버튼/인풋의 높이와 폰트 크기를 패딩에 맡기면 화면마다 밀도가 달라진다.
+   모든 공통 컨트롤은 아래 4단계 스케일만 사용한다.
+   xs 28 / sm 34 / md 38 / lg 40 (인풋은 iOS 확대 방지 16px 폰트에 맞춰 모바일에서 한 단계 키운다) */
+:root {
+  /* Height */
+  --ui-h-xs: 28px;
+  --ui-h-sm: 34px;
+  --ui-h-md: 38px;
+  --ui-h-lg: 40px;
+  --ui-input-h-sm: 34px;
+  --ui-input-h-md: 38px;
+  --ui-input-h-lg: 40px;
+  /* 아이콘 전용 버튼은 정사각(28/32/38/40)으로 별도 스케일을 쓴다. */
+  --ui-icon-btn-xs: 28px;
+  --ui-icon-btn-sm: 32px;
+  --ui-icon-btn-md: 38px;
+  --ui-icon-btn-lg: 40px;
+
+  /* Font */
+  --ui-fs-xs: 11.5px;
+  --ui-fs-sm: 12.5px;
+  --ui-fs-md: 13.5px;
+  --ui-fs-lg: 14px;
+  --ui-fw: 600;
+  --ui-fw-strong: 700;
+
+  /* Radius */
+  --ui-r-xs: 7px;
+  --ui-r-sm: 9px;
+  --ui-r-md: 10px;
+  --ui-r-lg: 12px;
+
+  /* Horizontal padding */
+  --ui-px-xs: 10px;
+  --ui-px-sm: 12px;
+  --ui-px-md: 16px;
+  --ui-px-lg: 20px;
+
+  /* Icon */
+  --ui-icon-xs: 13px;
+  --ui-icon-sm: 14px;
+  --ui-icon-md: 15px;
+  --ui-icon-lg: 17px;
+
+  /* Color */
+  --ui-ink: #0f172a;
+  --ui-ink-hover: #1e293b;
+  --ui-accent: #3182f6;
+  --ui-accent-hover: #1b6fe0;
+  --ui-text: #191f28;
+  --ui-text-muted: #4e5968;
+  --ui-text-subtle: #8b95a1;
+  --ui-border: #e5e8eb;
+  --ui-border-strong: #d1d5db;
+  --ui-surface: #ffffff;
+  --ui-surface-muted: #f2f4f6;
+  --ui-surface-sunken: #f8fafc;
+  --ui-danger: #ef4444;
+  --ui-danger-surface: #fef2f2;
+  --ui-focus-ring: 0 0 0 3px rgba(15, 23, 42, 0.12);
+  --ui-focus-ring-accent: 0 0 0 3px rgba(49, 130, 246, 0.18);
+  --ui-transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease,
+    box-shadow 0.15s ease, transform 0.12s ease;
+}
+
+/* iOS Safari는 폼 컨트롤 폰트가 16px 미만이면 화면을 확대한다.
+   index.css가 모바일에서 16px을 강제하므로, 컨트롤 높이도 그에 맞춰 올려 비율을 유지한다. */
+@media (max-width: 1024px), (pointer: coarse) {
+  :root {
+    --ui-input-h-sm: 36px;
+    --ui-input-h-md: 40px;
+    --ui-input-h-lg: 44px;
+  }
+}

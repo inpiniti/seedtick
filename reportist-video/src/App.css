@@ -236,12 +236,14 @@
   justify-content: center;
   text-align: center;
   gap: 8px;
-  padding: 8px 18px;
+  box-sizing: border-box;
+  height: var(--ui-h-md);
+  padding: 0 18px;
   background-color: #ffffff;
   color: var(--foreground);
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  font-size: 13px;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: var(--ui-r-md);
+  font-size: var(--ui-fs-md);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -359,9 +361,9 @@
 }
 
 .action-icon-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
+  width: var(--ui-icon-btn-sm);
+  height: var(--ui-icon-btn-sm);
+  border-radius: var(--ui-r-sm);
   border: 1px solid transparent;
   background: transparent;
   color: var(--muted-foreground);
@@ -405,13 +407,15 @@
   justify-content: center;
   text-align: center;
   gap: 8px;
+  box-sizing: border-box;
+  height: var(--ui-h-lg);
   background-color: var(--brand-blue);
   color: #ffffff;
   border: none;
-  padding: 12px 24px;
-  border-radius: 10px;
-  font-size: 15px;
-  font-weight: 600;
+  padding: 0 24px;
+  border-radius: var(--ui-r-md);
+  font-size: var(--ui-fs-md);
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.25);
@@ -434,12 +438,14 @@
   justify-content: center;
   text-align: center;
   gap: 8px;
+  box-sizing: border-box;
+  height: var(--ui-h-md);
   background-color: #ffffff;
   color: var(--foreground);
-  border: 1px solid var(--border);
-  padding: 12px 20px;
-  border-radius: 10px;
-  font-size: 14px;
+  border: 1px solid var(--ui-border);
+  padding: 0 20px;
+  border-radius: var(--ui-r-md);
+  font-size: var(--ui-fs-md);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;

@@ -5,6 +5,7 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { MobileStudioStepHeader } from './mobile/MobileStudioStepHeader.tsx';
 import { MobileStepListSheet } from './mobile/MobileStepListSheet.tsx';
 import { MobileBottomCtaBar } from './mobile/MobileBottomCtaBar.tsx';
+import { Button } from '../ui/Button.tsx';
 import {
   Play,
   Pause,
@@ -5413,23 +5414,23 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         {ui('{count}개 클립 · {duration} 편집 구간이 안전하게 보관되어 있어요.', { count: segments.length, duration: formatSec(totalDuration) })}
                       </p>
                       <div className="toss-player-preserved-actions">
-                        <button
-                          type="button"
-                          className="toss-btn-primary"
+                        <Button
+                          variant="primary"
+                          size="md"
                           onClick={() => handleDownload()}
+                          leftIcon={<Download size={13} />}
                         >
-                          <Download size={13} />
-                          <span>{ui('영상 내보내기 & 다운로드')}</span>
-                        </button>
+                          {ui('영상 내보내기 & 다운로드')}
+                        </Button>
                         {onStartNewProject && (
-                          <button
-                            type="button"
-                            className="toss-btn-secondary"
+                          <Button
+                            variant="secondary"
+                            size="md"
                             onClick={requestNewProject}
+                            leftIcon={<Plus size={13} />}
                           >
-                            <Plus size={13} />
-                            <span>{ui('새 영상 만들기')}</span>
-                          </button>
+                            {ui('새 영상 만들기')}
+                          </Button>
                         )}
                       </div>
                     </div>
@@ -5449,23 +5450,23 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       {ui('순서로만 따라가면 끝나요.')}
                     </p>
                     <div className="flex items-center gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        className="toss-btn-primary"
+                      <Button
+                        variant="primary"
+                        size="md"
                         onClick={() => fileInputRef.current?.click()}
+                        leftIcon={<Upload size={14} />}
                       >
-                        <Upload size={14} />
-                        <span>{ui('영상 올리기')}</span>
-                      </button>
+                        {ui('영상 올리기')}
+                      </Button>
                       {onStartNewProject && (
-                        <button
-                          type="button"
-                          className="toss-btn-secondary"
+                        <Button
+                          variant="secondary"
+                          size="md"
                           onClick={requestNewProject}
+                          leftIcon={<Plus size={14} />}
                         >
-                          <Plus size={14} />
-                          <span>{ui('새 프로젝트로 시작')}</span>
-                        </button>
+                          {ui('새 프로젝트로 시작')}
+                        </Button>
                       )}
                     </div>
                   </div>
