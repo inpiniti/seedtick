@@ -1,11 +1,35 @@
 // Renders the static, crawlable landing pages and the XML sitemap.
 // All visible copy comes from seo/content.mjs.
 
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+
 import {
   HREFLANG_ALIASES,
   LOCALES,
   SITE,
 } from "./content.mjs";
+
+// Static assets are served with a 1-hour cache by the CDN. Fingerprint their
+// contents into the URL so a deploy always invalidates the browser cache —
+// otherwise a fresh HTML page can pick up a stale landing.css and render
+// unstyled (as happened on mobile after the 3D universe shipped).
+function assetVersion(file) {
+  try {
+    return createHash("sha256")
+      .update(readFileSync(new URL(`../public/${file}`, import.meta.url)))
+      .digest("hex")
+      .slice(0, 10);
+  } catch {
+    return "1";
+  }
+}
+
+const ASSET_VERSIONS = {
+  css: assetVersion("landing.css"),
+  js: assetVersion("landing.js"),
+  three: assetVersion("vendor/landing-3d.js"),
+};
 
 // Korean users spell the brand both ways; listing the aliases in schema.org
 // tells search engines that 펭귄컷/팽귄컷 and PenguinCut are the same entity.
@@ -795,7 +819,7 @@ ${verification.length ? `${verification.map((tag) => `  ${tag}\n`).join("")}\n` 
   <link rel="preload" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
   <link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"></noscript>
-  <link rel="stylesheet" href="/landing.css">
+  <link rel="stylesheet" href="/landing.css?v=${ASSET_VERSIONS.css}">
 
   <script>
     // Preserve old app links such as /#projects when the marketing page takes over /.
@@ -839,8 +863,8 @@ export function renderPage(locale) {
       <span class="tc-hud-state" data-tc-state>${esc(locale.reel.scanning)}</span>
     </div>
     <script src="/vendor/lenis.min.js" defer></script>
-    <script src="/vendor/landing-3d.js" defer></script>
-    <script src="/landing.js" defer></script>
+    <script src="/vendor/landing-3d.js?v=${ASSET_VERSIONS.three}" defer></script>
+    <script src="/landing.js?v=${ASSET_VERSIONS.js}" defer></script>
   </body>
 </html>
 `;
