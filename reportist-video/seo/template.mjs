@@ -188,6 +188,13 @@ function renderHero(locale) {
         <div class="hero-bg-scrim"></div>
       </div>
 
+      <div class="hero-viewfinder" aria-hidden="true">
+        <span class="vf vf-tl"></span>
+        <span class="vf vf-tr"></span>
+        <span class="vf vf-bl"></span>
+        <span class="vf vf-br"></span>
+      </div>
+
       <div class="container hero-inner">
         <p class="eyebrow hero-eyebrow"><span class="eyebrow-dot"></span>${esc(
           hero.badge
@@ -248,6 +255,56 @@ function renderFilmModal(locale) {
       )}.mp4" controls playsinline preload="none" poster="/media/hero-poster.webp" width="1280" height="720"></video>
     </div>
   </dialog>`;
+}
+
+function renderReel(locale) {
+  const { reel } = locale;
+  // Frames lifted from the FINAL FILM cutdown (see public/media/reel/).
+  // Every frame is text-free; timecodes below are the source-footage metaphor.
+  const frames = [
+    { src: "/media/reel/reel-01.webp", tc: "00:42", cut: "CUT 01" },
+    { src: "/media/reel/reel-02.webp", tc: "01:17", cut: "CUT 02" },
+    { src: "/media/reel/reel-03.webp", tc: "03:08", cut: "CUT 03" },
+    { src: "/media/reel/reel-04.webp", tc: "04:51", cut: "CUT 04" },
+    { src: "/media/reel/reel-05.webp", tc: "06:33", cut: "CUT 05" },
+    { src: "/media/reel/reel-06.webp", tc: "08:24", cut: "CUT 06", climax: true },
+  ];
+
+  return `
+    <section class="reel" id="reel" aria-labelledby="reel-title">
+      <div class="container">
+        <div class="section-head reel-head">
+          <p class="eyebrow"><span class="eyebrow-dot"></span>${esc(
+    reel.eyebrow
+  )}</p>
+          <h2 id="reel-title">${esc(reel.title)}</h2>
+          <p class="section-lead">${esc(reel.lead)}</p>
+        </div>
+      </div>
+
+      <div class="reel-viewport" data-reel>
+        <div class="reel-track" data-reel-track>
+          ${frames
+            .map(
+              (frame) => `
+          <figure class="reel-frame${frame.climax ? " reel-frame--climax" : ""}" data-reel-frame${frame.climax ? " data-climax" : ""}>
+            <img src="${frame.src}" alt="" width="720" height="299" loading="lazy" decoding="async">
+            <figcaption class="reel-meta"><span class="reel-tc">${frame.tc}</span><span class="reel-cut">${frame.cut}</span></figcaption>
+            ${
+              frame.climax
+                ? `<span class="reel-ring" aria-hidden="true"></span>
+            <span class="reel-badge">${ICONS.check}<span>${esc(reel.captured)}</span><b>98</b></span>`
+                : ""
+            }
+          </figure>`
+            )
+            .join("")}
+        </div>
+        <div class="reel-fade reel-fade-left" aria-hidden="true"></div>
+        <div class="reel-fade reel-fade-right" aria-hidden="true"></div>
+        <div class="reel-counter" aria-hidden="true"><span data-reel-count>01</span><i>/</i>06</div>
+      </div>
+    </section>`;
 }
 
 function renderStrip(locale) {
@@ -371,11 +428,12 @@ function renderHow(locale) {
           <p class="section-lead">${esc(how.lead)}</p>
         </div>
 
-        <div class="step-grid">
+        <div class="step-rail" aria-hidden="true"><i data-step-fill></i></div>
+        <div class="step-grid" data-step-grid>
           ${how.steps
             .map(
               (step, index) => `
-          <article class="step-card">
+          <article class="step-card" data-step-index="${index}">
             <span class="step-number">0${index + 1}</span>
             <h3>${esc(step.title)}</h3>
             <p>${esc(step.desc)}</p>
@@ -711,6 +769,7 @@ export function renderPage(locale) {
     <main id="main">
       ${renderHero(locale)}
       ${renderStrip(locale)}
+      ${renderReel(locale)}
       ${renderTheater(locale)}
       ${renderFeatures(locale)}
       ${renderHow(locale)}
@@ -721,6 +780,13 @@ export function renderPage(locale) {
     </main>
     ${renderFooter(locale)}
     ${renderFilmModal(locale)}
+    <div class="tc-hud" data-tc-hud data-scanning-text="${esc(locale.reel.scanning)}" data-locked-text="${esc(locale.reel.locked)}" aria-hidden="true">
+      <span class="tc-hud-dot"></span>
+      <span class="tc-hud-label">RAW</span>
+      <span class="tc-hud-time" data-tc-time>00:00:00</span>
+      <span class="tc-hud-state" data-tc-state>${esc(locale.reel.scanning)}</span>
+    </div>
+    <script src="/vendor/lenis.min.js" defer></script>
     <script src="/landing.js" defer></script>
   </body>
 </html>

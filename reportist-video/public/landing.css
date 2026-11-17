@@ -499,6 +499,8 @@ html.is-hero-top .nav-toggle span {
   height: 100%;
   object-fit: cover;
   object-position: center;
+  transform: scale(calc(1 + var(--hero-p, 0) * 0.08));
+  will-change: transform;
 }
 
 .hero-bg-scrim {
@@ -523,6 +525,9 @@ html.is-hero-top .nav-toggle span {
   align-items: center;
   padding: calc(var(--header-height) + 48px) 0 112px;
   text-align: center;
+  transform: translateY(calc(var(--hero-p, 0) * -72px));
+  opacity: calc(1 - var(--hero-p, 0) * 0.92);
+  will-change: transform, opacity;
 }
 
 .hero-eyebrow {
@@ -633,6 +638,7 @@ html.is-hero-top .nav-toggle span {
   justify-content: space-between;
   gap: 16px;
   padding: 0 clamp(16px, 4vw, 44px) 26px;
+  opacity: calc(1 - var(--hero-p, 0) * 1.5);
 }
 
 .hero-sound {
@@ -1965,3 +1971,492 @@ html.is-film-open {
     object-fit: contain;
   }
 }
+
+
+/* ================================================================
+   Scroll Director — Lenis smooth scroll + moment-capture motion
+   ================================================================ */
+
+/* Lenis essentials (bundle trimmed from lenis.css) */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+html.lenis {
+  scroll-behavior: auto;
+}
+
+.lenis:not(.lenis-autoToggle).lenis-stopped {
+  overflow: clip;
+}
+
+/* ---------- Hero viewfinder (camera-frame corners) ---------- */
+
+.hero-viewfinder {
+  position: absolute;
+  z-index: 1;
+  inset: clamp(88px, 15vh, 150px) clamp(18px, 6vw, 76px) clamp(96px, 16vh, 156px);
+  pointer-events: none;
+}
+
+.vf {
+  position: absolute;
+  width: clamp(34px, 4.6vw, 54px);
+  height: clamp(34px, 4.6vw, 54px);
+  opacity: calc(0.95 - var(--hero-p, 0) * 0.6);
+}
+
+.vf-tl {
+  top: 0;
+  left: 0;
+  border-top: 2px solid rgba(255, 255, 255, 0.92);
+  border-left: 2px solid rgba(255, 255, 255, 0.92);
+  border-top-left-radius: 12px;
+  transform: translate(calc(var(--hero-p, 0) * 64px), calc(var(--hero-p, 0) * 44px));
+}
+
+.vf-tr {
+  top: 0;
+  right: 0;
+  border-top: 2px solid rgba(255, 255, 255, 0.92);
+  border-right: 2px solid rgba(255, 255, 255, 0.92);
+  border-top-right-radius: 12px;
+  transform: translate(calc(var(--hero-p, 0) * -64px), calc(var(--hero-p, 0) * 44px));
+}
+
+.vf-bl {
+  bottom: 0;
+  left: 0;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.92);
+  border-left: 2px solid rgba(255, 255, 255, 0.92);
+  border-bottom-left-radius: 12px;
+  transform: translate(calc(var(--hero-p, 0) * 64px), calc(var(--hero-p, 0) * -44px));
+}
+
+.vf-br {
+  bottom: 0;
+  right: 0;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.92);
+  border-right: 2px solid rgba(255, 255, 255, 0.92);
+  border-bottom-right-radius: 12px;
+  transform: translate(calc(var(--hero-p, 0) * -64px), calc(var(--hero-p, 0) * -44px));
+}
+
+/* ---------- Reveal (focus-in) for cards ---------- */
+
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  filter: blur(6px);
+  transition:
+    opacity 640ms ease var(--d, 0ms),
+    transform 640ms cubic-bezier(0.22, 1, 0.36, 1) var(--d, 0ms),
+    filter 640ms ease var(--d, 0ms);
+}
+
+.reveal.is-in {
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+
+/* ---------- Moment Capture Reel (dark editing-bay section) ---------- */
+
+.reel {
+  position: relative;
+  padding: 84px 0 78px;
+  overflow: hidden;
+  background: #0b111c;
+  color: #e2e8f0;
+  border-block: 1px solid rgba(255, 255, 255, 0.06);
+  scroll-margin-top: calc(var(--header-height) + 12px);
+}
+
+.reel .eyebrow {
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.reel .eyebrow-dot {
+  background: #fbbf24;
+  box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.16);
+}
+
+.reel h2 {
+  color: #ffffff;
+}
+
+.reel h2#reel-title {
+  margin: 12px 0 14px;
+  font-size: clamp(1.8rem, 3.6vw, 2.8rem);
+  font-weight: 800;
+  line-height: 1.14;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+.reel .section-lead {
+  color: rgba(226, 232, 240, 0.62);
+}
+
+.reel-head {
+  margin-bottom: 34px;
+}
+
+.reel-viewport {
+  position: relative;
+  overflow: hidden;
+}
+
+.reel-track {
+  display: flex;
+  gap: 16px;
+  width: max-content;
+  padding: 10px clamp(16px, 4vw, 44px) 26px;
+  padding-right: clamp(150px, 38vw, 560px);
+  will-change: transform;
+}
+
+.reel-frame {
+  position: relative;
+  flex: 0 0 auto;
+  width: clamp(228px, 32vw, 392px);
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  background: #05080f;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45);
+  aspect-ratio: 16 / 10;
+}
+
+.reel-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  filter: blur(3px) saturate(0.62) brightness(0.62);
+  transform: scale(1.04);
+  transition:
+    filter 380ms ease,
+    transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.reel-frame.is-focus img {
+  filter: none;
+  transform: scale(1);
+}
+
+.reel-meta {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 22px 12px 9px;
+  background: linear-gradient(180deg, transparent, rgba(3, 6, 12, 0.78));
+  color: rgba(255, 255, 255, 0.82);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+}
+
+.reel-frame--climax {
+  width: clamp(260px, 36vw, 440px);
+  border-color: rgba(251, 191, 36, 0.4);
+}
+
+/* Focus ring that snaps in when the climax frame is captured */
+.reel-ring {
+  position: absolute;
+  z-index: 2;
+  inset: 9px;
+  border: 2px solid #fbbf24;
+  border-radius: 10px;
+  opacity: 0;
+  transform: scale(1.06);
+  box-shadow:
+    0 0 0 3px rgba(251, 191, 36, 0.18),
+    inset 0 0 22px rgba(251, 191, 36, 0.12);
+  transition:
+    opacity 220ms ease,
+    transform 340ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+
+.reel-badge {
+  position: absolute;
+  z-index: 3;
+  top: 10px;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px 6px 9px;
+  border: 1px solid rgba(251, 191, 36, 0.55);
+  border-radius: 999px;
+  background: rgba(12, 10, 4, 0.78);
+  color: #fde68a;
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translate(-50%, -8px);
+  transition:
+    opacity 220ms ease 90ms,
+    transform 340ms cubic-bezier(0.22, 1, 0.36, 1) 90ms;
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+
+.reel-badge svg {
+  width: 13px;
+  height: 13px;
+  color: #fbbf24;
+}
+
+.reel-badge b {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: #fbbf24;
+  color: #191002;
+  font-size: 0.6rem;
+}
+
+.reel-frame--climax.is-locked .reel-ring {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.reel-frame--climax.is-locked .reel-badge {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.reel-frame--climax.is-locked {
+  border-color: rgba(251, 191, 36, 0.75);
+  box-shadow:
+    0 18px 48px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(251, 191, 36, 0.35),
+    0 0 44px rgba(251, 191, 36, 0.14);
+}
+
+.reel-fade {
+  position: absolute;
+  z-index: 4;
+  top: 0;
+  bottom: 0;
+  width: clamp(28px, 6vw, 84px);
+  pointer-events: none;
+}
+
+.reel-fade-left {
+  left: 0;
+  background: linear-gradient(90deg, #0b111c, transparent);
+}
+
+.reel-fade-right {
+  right: 0;
+  background: linear-gradient(270deg, #0b111c, transparent);
+}
+
+.reel-counter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  padding: 0 clamp(16px, 4vw, 44px) 2px;
+  margin-top: -12px;
+  color: rgba(255, 255, 255, 0.55);
+  font-family: var(--mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.14em;
+}
+
+.reel-counter span {
+  color: #fbbf24;
+}
+
+.reel-counter i {
+  font-style: normal;
+  margin: 0 3px;
+  opacity: 0.6;
+}
+
+/* ---------- Timecode HUD (fixed, raw-footage metaphor) ---------- */
+
+.tc-hud {
+  position: fixed;
+  z-index: 45;
+  right: 14px;
+  bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 999px;
+  background: rgba(6, 9, 15, 0.74);
+  color: #e2e8f0;
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.09em;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 8px 26px rgba(2, 6, 16, 0.4);
+  pointer-events: none;
+}
+
+.tc-hud-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f87171;
+  animation: tcBlink 1.5s ease-in-out infinite;
+}
+
+.tc-hud-label {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.56rem;
+  font-weight: 700;
+}
+
+.tc-hud-time {
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+.tc-hud-state {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.54rem;
+  font-weight: 700;
+}
+
+.tc-hud[data-locked="true"] .tc-hud-dot {
+  background: #34d399;
+  animation: none;
+}
+
+.tc-hud[data-locked="true"] .tc-hud-state {
+  color: #34d399;
+}
+
+/* ---------- How-it-works step rail ---------- */
+
+.step-rail {
+  position: relative;
+  height: 3px;
+  margin: 2px 0 22px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.step-rail i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 0%;
+  border-radius: inherit;
+  background: var(--ink);
+}
+
+.step-card {
+  transition:
+    transform 380ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 380ms ease,
+    box-shadow 380ms ease;
+}
+
+.step-card .step-number {
+  transition: color 380ms ease;
+}
+
+.step-card.is-active {
+  transform: translateY(-5px);
+  border-color: var(--ink);
+  box-shadow: var(--shadow-raised);
+}
+
+.step-card.is-active .step-number {
+  color: var(--ink);
+}
+
+/* ---------- Motion keyframes ---------- */
+
+@keyframes tcBlink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 680px) {
+  .hero-viewfinder {
+    inset: calc(var(--header-height) + 26px) 14px 120px;
+  }
+
+  .vf {
+    opacity: calc(0.85 - var(--hero-p, 0) * 0.55);
+  }
+
+  .reel {
+    padding: 60px 0 56px;
+  }
+
+  .reel-frame {
+    width: 64vw;
+  }
+
+  .reel-frame--climax {
+    width: 74vw;
+  }
+
+  .reel-counter {
+    margin-top: -16px;
+    padding-inline: 14px;
+  }
+
+  .tc-hud {
+    right: 10px;
+    bottom: 10px;
+    gap: 7px;
+    padding: 6px 10px;
+    font-size: 0.58rem;
+  }
+
+  .tc-hud-state {
+    display: none;
+  }
+}
+
+/* ---------- Reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+
+  .reel-frame img {
+    filter: none;
+    transform: none;
+  }
+
+  .tc-hud-dot {
+    animation: none;
+  }
+}
+

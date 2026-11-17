@@ -9,7 +9,7 @@ export const SITE = {
   ogImage: "/og-penguincut.png",
   ogImageAlt:
     "PenguinCut — AI video highlight editor. Turn hours of footage into one cinematic highlight.",
-  contentUpdated: "2026-11-16",
+  contentUpdated: "2026-11-17",
   // Search-engine verification tokens. Paste the exact values from Search Console
   // (Google) and Search Advisor (Naver), then run `npm run seo`. Empty values are
   // omitted so the generated pages never ship a stale or invalid meta tag.
@@ -89,6 +89,15 @@ export const LOCALES = [
       lead:
         "The full 36-second film starts on its own, muted. Turn the sound on whenever you want — no click required to watch.",
       chapters: ["Read the footage", "Pick the six cuts", "Finished film"],
+    },
+    reel: {
+      eyebrow: "Moment capture",
+      title: "Hours of footage. One frame that matters.",
+      lead:
+        "Scroll slowly and watch the AI scan every frame — until it locks onto the climax.",
+      captured: "CLIMAX CAPTURED",
+      scanning: "SCANNING",
+      locked: "CLIMAX LOCKED",
     },
     strip: [
       "Built for travel films",
@@ -306,6 +315,15 @@ export const LOCALES = [
         "36초 소개 영화가 클릭 없이 무음으로 바로 시작됩니다. 소리는 언제든 켤 수 있어요.",
       chapters: ["영상 읽기", "6컷 고르기", "완성된 필름"],
     },
+    reel: {
+      eyebrow: "순간 포착",
+      title: "수시간의 영상 속, 단 하나의 결정적 순간.",
+      lead:
+        "천천히 스크롤하면 AI가 모든 프레임을 훑다가 — 클라이맥스에 딱 멈춰요.",
+      captured: "클라이맥스 포착",
+      scanning: "스캔 중",
+      locked: "순간 고정",
+    },
     strip: [
       "여행 영상",
       "가족과 기념일",
@@ -521,6 +539,15 @@ export const LOCALES = [
       lead:
         "36秒の紹介フィルムが、クリックなしでミュートのまま自動再生されます。音声はいつでもオンにできます。",
       chapters: ["映像を読み取る", "6カットを選ぶ", "完成したフィルム"],
+    },
+    reel: {
+      eyebrow: "モーメント・キャプチャー",
+      title: "何時間もの映像の中から、最高の一瞬を。",
+      lead:
+        "ゆっくりスクロールしてみてください。AIが全フレームを読み取り、クライマックスを見つけた瞬間にロックします。",
+      captured: "クライマックス検出",
+      scanning: "スキャン中",
+      locked: "瞬間をロック",
     },
     strip: [
       "旅行動画",
@@ -738,6 +765,15 @@ export const LOCALES = [
         "36 秒的完整影片会自动静音播放，无需点击。随时都可以打开声音。",
       chapters: ["读取素材", "挑选六个镜头", "完成影片"],
     },
+    reel: {
+      eyebrow: "瞬间捕捉",
+      title: "数小时的素材，只有一帧真正重要。",
+      lead:
+        "慢慢滚动，看 AI 逐帧扫描——直到锁定高潮的那一刻。",
+      captured: "已捕捉高潮",
+      scanning: "扫描中",
+      locked: "瞬间已锁定",
+    },
     strip: [
       "旅行影片",
       "家庭与纪念日",
@@ -953,6 +989,15 @@ export const LOCALES = [
       lead:
         "El vídeo completo de 36 segundos empieza solo y sin sonido. Actívalo cuando quieras.",
       chapters: ["Leer el material", "Elegir los seis cortes", "Película terminada"],
+    },
+    reel: {
+      eyebrow: "Captura de momentos",
+      title: "Horas de material. Un solo fotograma que importa.",
+      lead:
+        "Desplázate despacio y observa cómo la IA escanea cada frame, hasta anclarse en el clímax.",
+      captured: "CLÍMAX CAPTURADO",
+      scanning: "ESCANEANDO",
+      locked: "CLÍMAX FIJADO",
     },
     strip: [
       "Vídeos de viaje",
@@ -1172,6 +1217,15 @@ export const LOCALES = [
         "Le film complet de 36 secondes démarre tout seul, en sourdine. Activez le son quand vous voulez.",
       chapters: ["Lire les rushes", "Choisir les six plans", "Film terminé"],
     },
+    reel: {
+      eyebrow: "Capture de l'instant",
+      title: "Des heures de rushes. Une seule frame compte.",
+      lead:
+        "Faites défiler lentement et regardez l'IA scanner chaque image, jusqu'à verrouiller le climax.",
+      captured: "CLIMAX CAPTURÉ",
+      scanning: "SCAN EN COURS",
+      locked: "INSTANT VERROUILLÉ",
+    },
     strip: [
       "Films de voyage",
       "Famille et célébrations",
@@ -1389,6 +1443,15 @@ export const LOCALES = [
       lead:
         "Der komplette 36-Sekunden-Film startet von selbst – stumm. Du kannst den Ton jederzeit einschalten.",
       chapters: ["Material lesen", "Sechs Cuts wählen", "Fertiger Film"],
+    },
+    reel: {
+      eyebrow: "Moment-Capture",
+      title: "Stunden Bildmaterial. Ein einziger Frame zählt.",
+      lead:
+        "Scrolle langsam und sieh zu, wie die KI jeden Frame scannt — bis sie den Höhepunkt findet und ihn fixiert.",
+      captured: "HÖHEPUNKT ERFASST",
+      scanning: "SCANNEN",
+      locked: "MOMENT FIXIERT",
     },
     strip: [
       "Reisefilme",

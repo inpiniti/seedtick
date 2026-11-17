@@ -7,6 +7,8 @@
     const setOpen = (open) => {
       nav.classList.toggle("is-open", open);
       toggle.setAttribute("aria-expanded", String(open));
+      if (open) globalThis.__penguinLenis?.stop?.();
+      else globalThis.__penguinLenis?.start?.();
     };
 
     toggle.addEventListener("click", () => {
@@ -254,6 +256,7 @@
   const teardown = () => {
     player.pause();
     document.documentElement.classList.remove("is-film-open");
+    globalThis.__penguinLenis?.start?.();
     const focusTarget = lastFocus;
     lastFocus = null;
     if (focusTarget instanceof HTMLElement && document.contains(focusTarget)) {
@@ -283,6 +286,7 @@
     }
 
     document.documentElement.classList.add("is-film-open");
+    globalThis.__penguinLenis?.stop?.();
     player.currentTime = 0;
     play(player);
   };
@@ -397,3 +401,240 @@
     media.addListener(applyAll);
   }
 })();
+
+/* ---------- Scroll Director: Lenis inertia + moment-capture motion ---------- */
+
+(() => {
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const root = document.documentElement;
+
+  const hero = document.querySelector(".hero");
+  const reelViewport = document.querySelector("[data-reel]");
+  const reelTrack = reelViewport
+    ? reelViewport.querySelector("[data-reel-track]")
+    : null;
+  const reelFrames = reelViewport
+    ? Array.from(reelViewport.querySelectorAll("[data-reel-frame]"))
+    : [];
+  const reelCount = reelViewport
+    ? reelViewport.querySelector("[data-reel-count]")
+    : null;
+  const climaxFrame = reelViewport
+    ? reelViewport.querySelector("[data-climax]")
+    : null;
+  const tcHud = document.querySelector("[data-tc-hud]");
+  const tcTime = tcHud ? tcHud.querySelector("[data-tc-time]") : null;
+  const tcState = tcHud ? tcHud.querySelector("[data-tc-state]") : null;
+  const stepFill = document.querySelector("[data-step-fill]");
+  const stepSection = stepFill ? stepFill.closest("section") : null;
+  const stepCards = stepSection
+    ? Array.from(stepSection.querySelectorAll(".step-card"))
+    : [];
+  const header = document.querySelector(".site-header");
+
+  const clamp01 = (value) => Math.min(1, Math.max(0, value));
+  const pad = (value) => String(value).padStart(2, "0");
+
+  // Lenis: inertial wheel scrolling on desktop; touch stays native (syncTouch).
+  let lenis = null;
+  if (window.Lenis && !reduceMotion.matches) {
+    lenis = new window.Lenis({
+      lerp: 0.1,
+      smoothWheel: true,
+      syncTouch: false,
+      wheelMultiplier: 1,
+    });
+    globalThis.__penguinLenis = lenis;
+  }
+
+  let lastY = window.scrollY || 0;
+  let smoothVelocity = 0;
+  const RAW_RUNTIME_SECONDS = 2 * 3600 + 18 * 60 + 40; // "02:18:40" of raw footage
+
+  const formatClock = (seconds) => {
+    const total = Math.floor(seconds);
+    return `${pad(Math.floor(total / 3600))}:${pad(
+      Math.floor((total % 3600) / 60)
+    )}:${pad(total % 60)}`;
+  };
+
+  const update = () => {
+    const y = window.scrollY || root.scrollTop || 0;
+    const vh = window.innerHeight;
+
+    // Velocity (px per frame), lightly smoothed for the filmstrip lean
+    const instant = y - lastY;
+    lastY = y;
+    smoothVelocity = smoothVelocity * 0.82 + instant * 0.18;
+    const velocity =
+      lenis && Number.isFinite(lenis.velocity)
+        ? lenis.velocity
+        : smoothVelocity * 3;
+    const skew = Math.max(-4.5, Math.min(4.5, velocity * 0.06));
+
+    // Hero scrub: background pushes in, copy lifts away
+    if (hero) {
+      const heroDistance = Math.max(1, hero.offsetHeight * 0.9);
+      hero.style.setProperty("--hero-p", clamp01(y / heroDistance).toFixed(4));
+    }
+
+    // Raw-footage timecode HUD
+    const maxScroll = Math.max(1, root.scrollHeight - vh);
+    const progress = clamp01(y / maxScroll);
+    if (tcTime) tcTime.textContent = formatClock(progress * RAW_RUNTIME_SECONDS);
+
+    // Moment Capture Reel: scroll drives the filmstrip, focus snaps each frame
+    let climaxLocked = false;
+    if (reelViewport && reelTrack) {
+      const rect = reelViewport.getBoundingClientRect();
+      const p = clamp01((vh * 0.95 - rect.top) / (rect.height + vh * 0.7));
+      const maxTranslate = Math.max(
+        0,
+        reelTrack.scrollWidth - reelViewport.clientWidth
+      );
+      reelTrack.style.transform = `translate3d(${(-p * maxTranslate).toFixed(
+        1
+      )}px, 0, 0) skewX(${skew.toFixed(2)}deg)`;
+
+      const viewportCenter = window.innerWidth / 2;
+      let focusedIndex = -1;
+      let focusedDistance = Infinity;
+
+      reelFrames.forEach((frame, index) => {
+        const frameRect = frame.getBoundingClientRect();
+        const distance = Math.abs(
+          frameRect.left + frameRect.width / 2 - viewportCenter
+        );
+        const isFocus =
+          distance < Math.min(frameRect.width * 0.72, window.innerWidth * 0.42);
+        frame.classList.toggle("is-focus", isFocus);
+        if (isFocus && distance < focusedDistance) {
+          focusedDistance = distance;
+          focusedIndex = index;
+        }
+      });
+
+      if (reelCount && focusedIndex >= 0) {
+        reelCount.textContent = pad(focusedIndex + 1);
+      }
+
+      if (climaxFrame) {
+        const climaxRect = climaxFrame.getBoundingClientRect();
+        const distance = Math.abs(
+          climaxRect.left + climaxRect.width / 2 - viewportCenter
+        );
+        climaxLocked =
+          distance <
+            Math.min(climaxRect.width * 0.78, window.innerWidth * 0.46) ||
+          p > 0.82;
+        climaxFrame.classList.toggle("is-locked", climaxLocked);
+      }
+    }
+
+    if (tcHud) {
+      tcHud.dataset.locked = String(climaxLocked);
+      if (tcState) {
+        tcState.textContent = climaxLocked
+          ? tcHud.dataset.lockedText || ""
+          : tcHud.dataset.scanningText || "";
+      }
+    }
+
+    // How-it-works: progress rail fills, steps activate in order
+    if (stepFill && stepSection) {
+      const rect = stepSection.getBoundingClientRect();
+      const p = clamp01(
+        (vh * 0.82 - rect.top) / (rect.height + vh * 0.3)
+      );
+      stepFill.style.width = `${(p * 100).toFixed(2)}%`;
+      stepCards.forEach((card, index) => {
+        card.classList.toggle(
+          "is-active",
+          p > (index + 0.55) / stepCards.length
+        );
+      });
+    }
+  };
+
+  if (lenis) {
+    const raf = (time) => {
+      lenis.raf(time);
+      update();
+      requestAnimationFrame(raf);
+    };
+    requestAnimationFrame(raf);
+  } else {
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        update();
+        ticking = false;
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    update();
+  }
+
+  // Reveal cards as they enter the viewport (focus-in, staggered per grid)
+  const revealTargets = Array.from(
+    document.querySelectorAll(
+      ".feature-card, .step-card, .use-case-card, .language-card"
+    )
+  );
+
+  if (reduceMotion.matches || !("IntersectionObserver" in window)) {
+    for (const el of revealTargets) el.classList.add("is-in");
+  } else {
+    const groupCount = new Map();
+    for (const el of revealTargets) {
+      const parent = el.parentElement || root;
+      const index = groupCount.get(parent) || 0;
+      groupCount.set(parent, index + 1);
+      el.style.setProperty("--d", `${Math.min(index, 6) * 80}ms`);
+      el.classList.add("reveal");
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("is-in");
+            observer.unobserve(entry.target);
+          }
+        }
+      },
+      { threshold: 0.16, rootMargin: "0px 0px -8% 0px" }
+    );
+
+    for (const el of revealTargets) observer.observe(el);
+  }
+
+  // Anchor navigation eased by Lenis (offset clears the sticky header)
+  if (lenis) {
+    document.addEventListener("click", (event) => {
+      const anchor =
+        event.target instanceof Element
+          ? event.target.closest('a[href^="#"]')
+          : null;
+      if (!anchor) return;
+      const hash = anchor.getAttribute("href");
+      if (!hash || hash === "#") return;
+
+      let target = null;
+      try {
+        target = document.querySelector(hash);
+      } catch {
+        return;
+      }
+      if (!(target instanceof HTMLElement)) return;
+
+      event.preventDefault();
+      const headerHeight = header ? header.offsetHeight : 0;
+      lenis.scrollTo(target, { offset: -(headerHeight + 12), duration: 1.15 });
+    });
+  }
+})();
+
