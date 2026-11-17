@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PenguinCut — Product Hunt gallery</title>
+<style>
+  :root {
+    --ink: #0b1220;
+    --muted: #667085;
+    --line: #e3e8ef;
+    --bg: #f4f6f9;
+    --card: #ffffff;
+    --blue: #2563eb;
+    --blue-soft: #eff4ff;
+    --green: #067647;
+    --green-soft: #ecfdf3;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 40px 28px 72px; }
+  header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--blue); margin-bottom: 10px;
+  }
+  .eyebrow::before { content: ""; width: 18px; height: 2px; background: var(--blue); border-radius: 2px; }
+  h1 { margin: 0 0 8px; font-size: 30px; line-height: 1.2; letter-spacing: -.02em; }
+  .sub { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
+  .meta { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 11px; border: 1px solid var(--line); border-radius: 999px;
+    background: var(--card); font-size: 12px; font-weight: 600; color: #344054;
+    white-space: nowrap;
+  }
+  .pill.green { border-color: #a6f4c5; background: var(--green-soft); color: var(--green); }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 24px; align-items: start; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+  .viewer { padding: 12px; }
+  .stage {
+    position: relative; width: 100%; aspect-ratio: 1270 / 760;
+    background: #0b1220; border-radius: 10px; overflow: hidden;
+  }
+  .stage img { width: 100%; height: 100%; display: block; object-fit: cover; }
+  .counter {
+    position: absolute; right: 12px; bottom: 12px;
+    padding: 5px 9px; border-radius: 6px;
+    background: rgba(11, 18, 32, .78); color: #fff;
+    font-size: 11px; font-weight: 700; letter-spacing: .04em;
+    font-variant-numeric: tabular-nums;
+  }
+  .captionbar { padding: 16px 18px 18px; display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+  .caption { min-width: 0; }
+  .caption .label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .caption h2 { margin: 0 0 6px; font-size: 20px; letter-spacing: -.01em; }
+  .caption p { margin: 0; font-size: 13.5px; line-height: 1.55; color: #475467; }
+  .caption .alt { margin-top: 8px; font-size: 12px; color: var(--muted); }
+  .fileinfo {
+    flex: none; text-align: right; font-size: 12px; color: var(--muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; line-height: 1.7;
+  }
+  .thumbs { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; padding: 0 12px 12px; }
+  .thumbs button {
+    padding: 0; border: 2px solid transparent; border-radius: 8px; overflow: hidden;
+    background: #0b1220; cursor: pointer; aspect-ratio: 1270 / 760; position: relative;
+  }
+  .thumbs button img { width: 100%; height: 100%; display: block; object-fit: cover; opacity: .75; transition: opacity .15s ease; }
+  .thumbs button:hover img { opacity: 1; }
+  .thumbs button[aria-current="true"] { border-color: var(--blue); }
+  .thumbs button[aria-current="true"] img { opacity: 1; }
+  .thumbs button span {
+    position: absolute; left: 5px; bottom: 5px;
+    padding: 1px 5px; border-radius: 4px; background: rgba(11,18,32,.8);
+    color: #fff; font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums;
+  }
+
+  aside { display: grid; gap: 16px; }
+  aside .card { padding: 18px; }
+  aside h3 { margin: 0 0 4px; font-size: 14px; letter-spacing: -.01em; }
+  aside .hint { margin: 0 0 14px; color: var(--muted); font-size: 12px; line-height: 1.55; }
+  ol.plan { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+  ol.plan li { display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; }
+  .num {
+    width: 24px; height: 24px; border-radius: 7px; background: var(--blue-soft); color: var(--blue);
+    display: grid; place-items: center; font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums;
+  }
+  ol.plan strong { display: block; font-size: 12.5px; line-height: 1.45; }
+  ol.plan small { display: block; margin-top: 2px; color: var(--muted); font-size: 11.5px; line-height: 1.5; }
+  ol.plan li.current .num { background: var(--blue); color: #fff; }
+
+  .rules { display: grid; gap: 9px; }
+  .rule { display: grid; grid-template-columns: 16px 1fr; gap: 8px; font-size: 12px; line-height: 1.5; color: #475467; }
+  .rule b { color: var(--ink); }
+  .check { color: var(--green); font-weight: 800; }
+  .copybox {
+    border: 1px dashed #c7d2e1; background: #fbfcfe; border-radius: 9px;
+    padding: 10px 11px; font-size: 12px; line-height: 1.55; color: #344054;
+  }
+  .copybox code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; color: #1d4ed8; }
+  .foot { margin-top: 28px; display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; color: var(--muted); font-size: 12px; }
+  .foot a { color: var(--blue); text-decoration: none; }
+  kbd {
+    border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px;
+    padding: 1px 5px; background: #fff; font-size: 10.5px; font-family: inherit;
+  }
+  @media (max-width: 1040px) {
+    .layout { grid-template-columns: 1fr; }
+    aside { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 720px) {
+    .wrap { padding: 24px 16px 48px; }
+    header { flex-direction: column; align-items: flex-start; }
+    .meta { justify-content: flex-start; }
+    .thumbs { grid-template-columns: repeat(3, 1fr); }
+    aside { grid-template-columns: 1fr; }
+    .captionbar { flex-direction: column; }
+    .fileinfo { text-align: left; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">Product Hunt gallery</div>
+      <h1>PenguinCut — 실제 화면 캡처 6장</h1>
+      <p class="sub">1270×760 PNG. 디자인 합성 없이 <strong>penguincut.com/studio</strong> 화면을 그대로 캡처했습니다.<br />PH 갤러리는 최대 10장, 앞 3장이 첫인상을 결정합니다.</p>
+    </div>
+    <div class="meta">
+      <span class="pill">1270 × 760</span>
+      <span class="pill">PNG · 6장</span>
+      <span class="pill green">실제 제품 캡처</span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="card">
+      <div class="viewer">
+        <div class="stage">
+          <img id="main" src="assets/ph-01-editor.png" alt="PenguinCut studio with a 16:9 highlight preview, three AI-selected clips on the timeline, and background music attached." />
+          <span class="counter" id="counter">01 / 06</span>
+        </div>
+      </div>
+      <div class="captionbar">
+        <div class="caption">
+          <div class="label" id="step">01 · Editor</div>
+          <h2 id="title">AI picks the moments. You keep control.</h2>
+          <p id="desc">55.8 seconds of source footage became three 4-second cuts, a 16:9 preview, and a 16.4-second highlight with music — all in the browser.</p>
+          <div class="alt" id="alt">Alt: PenguinCut studio with a 16:9 beach preview, three AI cut blocks on the timeline, and Dreaming.mp3 attached.</div>
+        </div>
+        <div class="fileinfo" id="fileinfo">ph-01-editor.png<br />1270 × 760 · 539 KB</div>
+      </div>
+      <div class="thumbs" id="thumbs"></div>
+    </section>
+
+    <aside>
+      <div class="card">
+        <h3>업로드 순서</h3>
+        <p class="hint">1~3번을 먼저 올리고, 4~6번은 여유가 있을 때. 캡션은 PH 이미지 설명에 그대로 붙여넣습니다.</p>
+        <ol class="plan" id="plan"></ol>
+      </div>
+
+      <div class="card">
+        <h3>PH 규격 체크</h3>
+        <div class="rules">
+          <div class="rule"><span class="check">✓</span><span><b>1270×760</b> — PH 권장 가로 비율</span></div>
+          <div class="rule"><span class="check">✓</span><span>6장 모두 동일한 스튜디오 프로젝트에서 캡처</span></div>
+          <div class="rule"><span class="check">✓</span><span>얼굴·개인정보 없음, 실제 여행 클립만 사용</span></div>
+          <div class="rule"><span class="check">✓</span><span>썸네일 240×240은 <code>public/icon-512x512.png</code> 리사이즈</span></div>
+          <div class="rule"><span class="check">✓</span><span>“업로드 없음” 대신 “원본은 기기에 남음”으로 표기</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>1번 캡션 (가장 중요)</h3>
+        <div class="copybox">
+          Turn long footage into one cinematic highlight.<br />
+          AI finds the cuts, you keep the final say.
+        </div>
+        <p class="hint" style="margin-top:10px;margin-bottom:0;">PH 설명란에는 “분석·렌더링은 브라우저에서, 원본은 기기에 남습니다”를 유지합니다.</p>
+      </div>
+    </aside>
+  </main>
+
+  <div class="foot">
+    <span>캡처: 2026-11-16 · Chrome 1440×861 @2x → 1270×760 · <a href="https://penguincut.com/studio">penguincut.com/studio</a></span>
+    <span>← → 키로 이미지 이동 · <kbd>1</kbd>–<kbd>6</kbd> 바로 보기</span>
+  </div>
+</div>
+
+<script>
+  const slides = [
+    {
+      file: "ph-01-editor.png",
+      step: "01 · Editor",
+      title: "AI picks the moments. You keep control.",
+      desc: "55.8 seconds of source footage became three 4-second cuts, a 16:9 preview, and a 16.4-second highlight with music — all in the browser.",
+      alt: "PenguinCut studio with a 16:9 beach preview, three AI cut blocks on the timeline, and Dreaming.mp3 attached.",
+      kb: "539 KB",
+    },
+    {
+      file: "ph-02-ai-analysis.png",
+      step: "02 · AI analysis",
+      title: "It watches the footage, then proposes the cuts.",
+      desc: "Frames are sampled on-device and scored by a vision model. Progress stays visible, and the tab can be left safely while it runs.",
+      alt: "AI analysis dialog showing 56% progress on the second of three uploaded clips.",
+      kb: "388 KB",
+    },
+    {
+      file: "ph-03-bridges.png",
+      step: "03 · Date & place bridges",
+      title: "Transitions only where the scene changes.",
+      desc: "Two clips with different recording dates get a bridge. Pick a date style and a location style — the timeline shows exactly where each one lands.",
+      alt: "Bridge settings with date and location style chips, and a Venice canal clip in the 16:9 preview.",
+      kb: "556 KB",
+    },
+    {
+      file: "ph-04-music.png",
+      step: "04 · Music",
+      title: "Built-in music, or bring your own track.",
+      desc: "A bundled library track is already attached at 30% volume, looped to the highlight length. The audio lane sits under the cuts.",
+      alt: "Music settings with Dreaming.mp3 selected, a 30% volume slider, and an audio lane in the timeline.",
+      kb: "532 KB",
+    },
+    {
+      file: "ph-05-export.png",
+      step: "05 · Export",
+      title: "55.8s in. 16.4s out. Rendered on your device.",
+      desc: "The export card reports 3 clips, 16 seconds, 71% shorter than the source, two bridges, and the attached track. 1080p and .srt are one tap away.",
+      alt: "Download panel for the Golden Hour highlight with a 1080p download button, .srt download, and a 71% shorter stat.",
+      kb: "563 KB",
+    },
+    {
+      file: "ph-06-date-bridge.png",
+      step: "06 · Bridge detail",
+      title: "The date bridge itself.",
+      desc: "A flip-clock transition between the two clips’ real recording dates: 2022.11.08 → 2020.05.06. Optional sixth image for a closer look.",
+      alt: "Full-screen date bridge animation showing 2020.05.06 in a flip-clock style with the date change label.",
+      kb: "311 KB",
+    },
+  ];
+
+  const main = document.getElementById("main");
+  const counter = document.getElementById("counter");
+  const step = document.getElementById("step");
+  const title = document.getElementById("title");
+  const desc = document.getElementById("desc");
+  const alt = document.getElementById("alt");
+  const fileinfo = document.getElementById("fileinfo");
+  const thumbs = document.getElementById("thumbs");
+  const plan = document.getElementById("plan");
+  let current = 0;
+
+  slides.forEach((s, i) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.setAttribute("aria-label", `${i + 1}. ${s.title}`);
+    b.innerHTML = `<img src="assets/${s.file}" alt="" loading="lazy" /><span>${String(i + 1).padStart(2, "0")}</span>`;
+    b.addEventListener("click", () => show(i));
+    thumbs.appendChild(b);
+
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="num">${i + 1}</span><div><strong>${s.title}</strong><small>${s.file} · ${s.step.replace(/^\d+ · /, "")}</small></div>`;
+    li.addEventListener("click", () => show(i));
+    li.style.cursor = "pointer";
+    plan.appendChild(li);
+  });
+
+  function show(i) {
+    current = (i + slides.length) % slides.length;
+    const s = slides[current];
+    main.src = `assets/${s.file}`;
+    main.alt = s.alt;
+    counter.textContent = `${String(current + 1).padStart(2, "0")} / ${String(slides.length).padStart(2, "0")}`;
+    step.textContent = s.step;
+    title.textContent = s.title;
+    desc.textContent = s.desc;
+    alt.textContent = `Alt: ${s.alt}`;
+    fileinfo.innerHTML = `${s.file}<br />1270 × 760 · ${s.kb}`;
+    [...thumbs.children].forEach((b, n) => b.setAttribute("aria-current", n === current ? "true" : "false"));
+    [...plan.children].forEach((li, n) => li.classList.toggle("current", n === current));
+    history.replaceState(null, "", `#${current + 1}`);
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowRight") show(current + 1);
+    if (e.key === "ArrowLeft") show(current - 1);
+    if (/^[1-6]$/.test(e.key)) show(Number(e.key) - 1);
+  });
+
+  const hash = Number(location.hash.replace("#", ""));
+  show(Number.isFinite(hash) && hash >= 1 && hash <= slides.length ? hash - 1 : 0);
+</script>
+</body>
+</html>

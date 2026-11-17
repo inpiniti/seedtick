@@ -22,12 +22,14 @@ Product Hunt는 하루에 트래픽이 몰리므로 **모든 링크와 서버가
 | 용도 | 파일 | 규격 |
 | --- | --- | --- |
 | 로고 (디렉토리 제출) | `public/icon-512x512.png` | 512×512 PNG |
+| PH 갤러리 | `docs/launch/assets/ph-01-editor.png` ~ `ph-06-date-bridge.png` | 1270×760 PNG 6장 |
+| PH 썸네일 | `docs/launch/assets/ph-thumbnail-240.png` | 240×240 PNG |
 | OG 이미지 (SNS 카드) | `public/og-penguincut.png` | 1200×630 PNG |
 | 프로필 아바타 | `brand-assets/avatar-dark-800.png` | 800×800 PNG |
 | 데모 영상 (영어) | `public/media/promo-en.mp4` | 36초, 1280×720 |
 | 데모 영상 (한국어) | `public/media/promo-ko.mp4` | 36초, 1280×720 |
 
-**부족한 것:** Product Hunt 갤러리(1270×760)와 디렉토리 스크린샷에 쓸 **제품 화면 캡처**가 아직 없습니다. 스튜디오 화면 3~4장(업로드, AI 컷 선택, 타임라인, 완성 하이라이트)을 캡처해 `docs/launch/assets/`에 두면 됩니다.
+**갤러리 캡처 완료:** 스튜디오에서 실제 클립 3개를 업로드하고 AI 분석을 끝낸 한 세션을 1270×760으로 캡처했습니다. 검토는 [`gallery.html`](./gallery.html)에서 할 수 있습니다.
 
 ## 공통 원칙
 

@@ -73,20 +73,25 @@ I'd love to know: what would you actually use this for — travel, weddings, spo
 Thanks for looking 🙏
 ```
 
-## 갤러리 이미지 계획
+## 갤러리 이미지 (준비 완료)
 
-Product Hunt는 이미지가 사실상 첫인상을 결정합니다. 1270×760(가로) 기준으로 4장을 권장합니다.
+`docs/launch/assets/`에 1270×760 PNG 6장이 있습니다. 모두 `https://penguincut.com/studio`에서 실제 클립 3개(55.8초)를 올리고 AI 분석을 돌린 **한 세션**을 캡처했습니다. 합성·리터치 없이 화면 그대로입니다.
 
-| 순서 | 내용 | 캡션 |
-| --- | --- | --- |
-| 1 | 완성된 하이라이트 재생 화면 (16:9 필름) | "One cinematic highlight, rendered in your browser" |
-| 2 | AI가 고른 컷 목록 + 타임라인 | "AI picks the moments. You keep control." |
-| 3 | 인트로·브릿지·아웃트로 편집 화면 | "Intro, date bridges, outro — included" |
-| 4 | 원본 대비 절약률이 표시된 다운로드 화면 | "2h 14m → 58s" |
+| 순서 | 파일 | 캡션 | 보여주는 것 |
+| --- | --- | --- | --- |
+| 1 | `ph-01-editor.png` | `AI picks the moments. You keep control.` | 16:9 미리보기 + AI 컷 3개 + 타임라인 + 음악 |
+| 2 | `ph-02-ai-analysis.png` | `It watches the footage, then proposes the cuts.` | 3개 클립 분석 진행 56% |
+| 3 | `ph-03-bridges.png` | `Transitions only where the scene changes.` | 날짜·장소 브릿지 프리셋 |
+| 4 | `ph-04-music.png` | `Built-in music, or bring your own track.` | Dreaming.mp3 30%, 오디오 레인 |
+| 5 | `ph-05-export.png` | `55.8s in. 16.4s out. Rendered on your device.` | 71% shorter, 1080p·SRT 저장 |
+| 6 | `ph-06-date-bridge.png` | `The date bridge itself.` | 2022.11.08 → 2020.05.06 플립 클락 |
 
-썸네일(240×240)은 `public/icon-512x512.png`를 리사이즈해 사용합니다.
+- **1~3번이 승부처입니다.** 4~6번은 여유가 있을 때 올려도 됩니다.
+- 6번은 선택 사항입니다. 5장만 써도 구성이 완결됩니다.
+- 썸네일(240×240): `ph-thumbnail-240.png`
+- 검토용 갤러리: [`gallery.html`](./gallery.html) — ←/→ 키로 이미지 이동, 1~6번 바로 보기
 
-**현재 상태: 제품 스크린샷 없음.** 스튜디오 화면 캡처가 선행되어야 합니다.
+캡션은 PH 이미지 설명란에 그대로 붙여넣습니다. 이미지 자체에는 문구를 합성하지 않았습니다.
 
 ## 런치 당일 체크리스트
 
