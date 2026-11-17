@@ -4796,7 +4796,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       }
       if (!bg && cand.cleanDataUrl) {
         try {
-          bg = await createCanvasFromImageDataUrl(cand.cleanDataUrl, thumbWidth, thumbHeight, cand.cropOffsetYRatio ?? 0.2, cand.rotation ?? 0, cand.cropOffsetXRatio ?? 0.5);
+          // AI 분석 키프레임은 WebCodecs 디코딩 때 tkhd 회전이 이미 반영돼 있어
+          // rotation을 다시 넘기면 썸네일이 90/270도로 눕는다. 크롭만 적용한다.
+          bg = await createCanvasFromImageDataUrl(cand.cleanDataUrl, thumbWidth, thumbHeight, cand.cropOffsetYRatio ?? 0.2, 0, cand.cropOffsetXRatio ?? 0.5);
         } catch {}
       }
       if (bg) {

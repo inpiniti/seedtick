@@ -1842,12 +1842,14 @@ export function App() {
         // 2단계: 소스 비디오 직접 캡처 실패 시, AI 분석 단계에서 이미 추출해 둔 100% 클린 키프레임 사용 (오버레이 절대 미포함)
         if (!bgCanvas && bestThumbCleanDataUrl) {
           try {
+            // bestThumbCleanDataUrl(AI 분석 키프레임)은 WebCodecs 디코딩 시
+            // tkhd 회전이 이미 적용돼 있으므로 여기서 rotation을 다시 주면 이중 회전이 된다.
             bgCanvas = await createCanvasFromImageDataUrl(
               bestThumbCleanDataUrl,
               thumbFrame.width,
               thumbFrame.height,
               effectiveCrop,
-              effectiveRotation,
+              0,
               effectiveCropX
             );
           } catch (cleanDataErr) {

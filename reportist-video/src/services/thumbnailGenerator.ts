@@ -53,14 +53,16 @@ export async function captureVideoFrameAtTime(
         timeoutMs: 12_000,
       });
       if (decoded && decoded.length > 0) {
-        // decodeKeyframesNearTimes는 tkhd 회전을 이미 반영하므로,
-        // 호출자가 지정한 추가 회전(rotation)만 크롭 단계에 전달한다.
+        // decodeKeyframesNearTimes가 tkhd 회전을 이미 반영한 JPEG를 반환한다.
+        // 여기서 caller의 rotation(세션에 저장된 tkhd 각도)을 다시 넘기면
+        // 90/270도 영상의 썸네일이 한 번 더 회전해 눕는다(이중 회전).
+        // 크롭 오프셋만 적용하고 추가 회전은 0으로 둔다.
         return await createCanvasFromImageDataUrl(
           decoded[0].dataUrl,
           targetWidth,
           targetHeight,
           cropOffsetYRatio,
-          rotation,
+          0,
           cropOffsetXRatio
         );
       }
