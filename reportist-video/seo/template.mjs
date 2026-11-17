@@ -390,10 +390,89 @@ function renderTheater(locale) {
     </section>`;
 }
 
+// Living Film Stack — the 6 glass layers match the six features 1:1, bottom to top.
+// features.items order is AI climax, captions, overlays, bridges, music, privacy.
+const LAYER_FEATURE_INDEX = [5, 0, 3, 4, 1, 2];
+
+const WAVE_BARS = [26, 44, 62, 38, 55, 74, 48, 30, 58, 82, 96, 64, 36, 52, 70, 42, 28, 60, 88, 100, 72, 40, 24, 46, 66, 92, 54, 34, 50, 78, 44, 22, 58, 36, 68, 30];
+const WAVE_HOT = new Set([9, 10, 18, 19, 25, 29]);
+
+function renderFilmStack(locale, extraClass) {
+  const labels = locale.stack.layers;
+  const bars = WAVE_BARS.map(
+    (height, index) =>
+      `<i style="--h:${height}%"${WAVE_HOT.has(index) ? ' class="is-hot"' : ""}></i>`
+  ).join("");
+
+  return `
+      <div class="film-stack${extraClass ? ` ${extraClass}` : ""}" data-film-stack aria-hidden="true">
+        <div class="film-layer film-layer--source" style="--i:0">
+          <img class="film-layer-photo" src="/media/reel/reel-06.webp" alt="" width="720" height="299" loading="lazy" decoding="async">
+          <span class="film-layer-shade"></span>
+          <span class="film-layer-label"><b>01</b>${esc(labels[0])}</span>
+          <span class="film-layer-chip">${ICONS.shield}<i>ON-DEVICE</i></span>
+        </div>
+        <div class="film-layer film-layer--score" style="--i:1">
+          <svg class="film-layer-art" viewBox="0 0 320 108" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">
+            <line class="fl-base" x1="8" y1="95" x2="312" y2="95"/>
+            <path class="fl-curve" d="M8 88 C 46 84 56 26 84 30 C 112 34 118 74 148 70 C 178 66 184 16 212 22 C 240 28 248 78 312 54"/>
+            <circle class="fl-peak" cx="84" cy="30" r="4.4"/>
+            <circle class="fl-peak" cx="212" cy="22" r="4.4"/>
+            <circle class="fl-peak fl-peak--minor" cx="148" cy="70" r="3.2"/>
+            <circle class="fl-peak fl-peak--minor" cx="312" cy="54" r="3.2"/>
+          </svg>
+          <span class="film-layer-label"><b>02</b>${esc(labels[1])}</span>
+        </div>
+        <div class="film-layer film-layer--bridges" style="--i:2">
+          <span class="bridge-edge bridge-edge--top"></span>
+          <span class="bridge-edge bridge-edge--bottom"></span>
+          <div class="bridge-row">
+            <span class="bridge-slate">CH.01</span>
+            <i class="bridge-line"></i>
+            <span class="bridge-slate">CH.02</span>
+            <i class="bridge-line"></i>
+            <span class="bridge-slate">CH.03</span>
+          </div>
+          <span class="film-layer-label"><b>03</b>${esc(labels[2])}</span>
+        </div>
+        <div class="film-layer film-layer--audio" style="--i:3">
+          <div class="wave">${bars}</div>
+          <span class="film-layer-label"><b>04</b>${esc(labels[3])}</span>
+        </div>
+        <div class="film-layer film-layer--captions" style="--i:4">
+          <div class="caption-mock">
+            <i class="caption-bar caption-bar--wide"></i>
+            <i class="caption-bar caption-bar--hot"></i>
+            <i class="caption-bar caption-bar--mid"></i>
+          </div>
+          <span class="film-layer-label"><b>05</b>${esc(labels[4])}</span>
+        </div>
+        <div class="film-layer film-layer--overlay" style="--i:5">
+          <span class="crop crop-tl"></span>
+          <span class="crop crop-tr"></span>
+          <span class="crop crop-bl"></span>
+          <span class="crop crop-br"></span>
+          <div class="hud-lines">
+            <i class="hud-line hud-line--lg"></i>
+            <i class="hud-line hud-line--sm"></i>
+          </div>
+          <span class="film-layer-label"><b>06</b>${esc(labels[5])}</span>
+        </div>
+      </div>`;
+}
+
+function renderStackTick({ index, ariaLabel, active, attr }) {
+  return `<button class="stack-tick${active ? " is-active" : ""}" type="button" ${attr}="${index}" aria-label="${esc(
+    ariaLabel
+  )}"><span class="stack-tick-index">0${index + 1}</span></button>`;
+}
+
 function renderFeatures(locale) {
   const { features } = locale;
+  const layerItems = LAYER_FEATURE_INDEX.map((itemIndex) => features.items[itemIndex]);
+
   return `
-    <section class="section" id="features" aria-labelledby="features-title">
+    <section class="section" id="features" aria-labelledby="features-title" data-stack-features>
       <div class="container">
         <div class="section-head">
           <p class="eyebrow">${esc(features.eyebrow)}</p>
@@ -413,6 +492,49 @@ function renderFeatures(locale) {
             )
             .join("")}
         </div>
+
+        <div class="stack-stage" data-stack-stage>
+          <div class="stack-sticky" data-stack-sticky>
+            <div class="stack-viewport">
+              <div class="stage-console">
+                ${renderFilmStack(locale, "film-stack--features")}
+                <span class="console-tag" aria-hidden="true">TIMELINE</span>
+              </div>
+            </div>
+            <div class="stack-panels" data-stack-panels>
+              <div class="stack-meter" data-stack-meter role="group" aria-label="${esc(
+                features.title
+              )}">
+                ${layerItems
+                  .map((item, index) =>
+                    renderStackTick({
+                      index,
+                      ariaLabel: item.title,
+                      active: index === 0,
+                      attr: "data-stack-tick",
+                    })
+                  )
+                  .join("")}
+              </div>
+              ${layerItems
+                .map((item, index) => {
+                  const layerLabel = locale.stack.layers[index];
+                  return `
+              <article class="stack-panel${index === 0 ? " is-active" : ""}" data-stack-panel="${index}">
+                <div class="stack-kicker">
+                  <span class="stack-kicker-index">LAYER 0${index + 1}</span>
+                  <span class="stack-kicker-line" aria-hidden="true"></span>
+                  <span class="stack-kicker-label">${esc(layerLabel)}</span>
+                </div>
+                <div class="feature-icon stack-panel-icon">${ICONS[item.icon] || ICONS.sparkles}</div>
+                <h3>${esc(item.title)}</h3>
+                <p>${esc(item.desc)}</p>
+              </article>`;
+                })
+                .join("")}
+            </div>
+          </div>
+        </div>
       </div>
     </section>`;
 }
@@ -420,7 +542,7 @@ function renderFeatures(locale) {
 function renderHow(locale) {
   const { how } = locale;
   return `
-    <section class="section section-alt" id="how-it-works" aria-labelledby="how-title">
+    <section class="section section-alt" id="how-it-works" aria-labelledby="how-title" data-how-section>
       <div class="container">
         <div class="section-head">
           <p class="eyebrow">${esc(how.eyebrow)}</p>
@@ -440,6 +562,65 @@ function renderHow(locale) {
           </article>`
             )
             .join("")}
+        </div>
+
+        <div class="how-stage" data-how-stage>
+          <div class="stack-sticky stack-sticky--how" data-how-sticky>
+            <div class="stack-viewport">
+              <div class="stage-console stage-console--how" data-how-viewport>
+                <span class="scan-line" data-scan-line aria-hidden="true"></span>
+                ${renderFilmStack(locale, "film-stack--how")}
+                <div class="dual-slab dual-slab--wide" data-slab-wide aria-hidden="true">
+                  <svg class="dual-slab-art" viewBox="0 0 200 113" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
+                    <circle cx="100" cy="46" r="15" fill="#fbbf24"/>
+                    <path d="M0 82 L56 34 L92 68 L128 26 L200 84 L200 113 L0 113 Z" fill="#1e293b" opacity="0.82"/>
+                    <path d="M0 96 L72 52 L118 88 L158 60 L200 98 L200 113 L0 113 Z" fill="#0b111c"/>
+                  </svg>
+                  <span class="dual-slab-meta"><b>16:9</b><i>YOUTUBE</i></span>
+                </div>
+                <div class="dual-slab dual-slab--tall" data-slab-tall aria-hidden="true">
+                  <svg class="dual-slab-art" viewBox="0 0 113 200" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
+                    <circle cx="56" cy="62" r="20" fill="#fbbf24"/>
+                    <path d="M0 132 L36 78 L64 116 L92 60 L113 128 L113 200 L0 200 Z" fill="#1e293b" opacity="0.85"/>
+                    <path d="M0 158 L44 118 L80 152 L113 136 L113 200 L0 200 Z" fill="#0b111c"/>
+                  </svg>
+                  <span class="dual-slab-meta"><b>9:16</b><i>SHORTS</i></span>
+                </div>
+                <span class="console-tag" aria-hidden="true">EXPORT</span>
+              </div>
+            </div>
+            <div class="stack-panels how-panels" data-how-panels>
+              <div class="stack-meter" data-how-meter role="group" aria-label="${esc(
+                how.title
+              )}">
+                ${how.steps
+                  .map((step, index) =>
+                    renderStackTick({
+                      index,
+                      ariaLabel: step.title,
+                      active: index === 0,
+                      attr: "data-how-tick",
+                    })
+                  )
+                  .join("")}
+              </div>
+              ${how.steps
+                .map(
+                  (step, index) => `
+              <article class="stack-panel stack-panel--step${index === 0 ? " is-active" : ""}" data-how-panel="${index}">
+                <div class="stack-kicker">
+                  <span class="stack-kicker-index">STEP 0${index + 1}</span>
+                  <span class="stack-kicker-line" aria-hidden="true"></span>
+                  <span class="stack-kicker-label">0${index + 1} / 03</span>
+                </div>
+                <span class="step-number stack-panel-number">0${index + 1}</span>
+                <h3>${esc(step.title)}</h3>
+                <p>${esc(step.desc)}</p>
+              </article>`
+                )
+                .join("")}
+            </div>
+          </div>
         </div>
 
         <p class="section-note">${esc(how.note)}</p>

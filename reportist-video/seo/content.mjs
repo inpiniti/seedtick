@@ -99,6 +99,9 @@ export const LOCALES = [
       scanning: "SCANNING",
       locked: "CLIMAX LOCKED",
     },
+    stack: {
+      layers: ["RAW SOURCE", "AI SCORE", "BRIDGES", "AUDIO", "CAPTIONS", "OVERLAY"],
+    },
     strip: [
       "Built for travel films",
       "Family & celebrations",
@@ -323,6 +326,9 @@ export const LOCALES = [
       captured: "클라이맥스 포착",
       scanning: "스캔 중",
       locked: "순간 고정",
+    },
+    stack: {
+      layers: ["원본 영상", "AI 점수", "브릿지", "음악", "자막", "오버레이"],
     },
     strip: [
       "여행 영상",
@@ -549,6 +555,9 @@ export const LOCALES = [
       scanning: "スキャン中",
       locked: "瞬間をロック",
     },
+    stack: {
+      layers: ["ソース", "AIスコア", "ブリッジ", "音楽", "字幕", "オーバーレイ"],
+    },
     strip: [
       "旅行動画",
       "家族と記念日",
@@ -774,6 +783,9 @@ export const LOCALES = [
       scanning: "扫描中",
       locked: "瞬间已锁定",
     },
+    stack: {
+      layers: ["原始素材", "AI 评分", "桥段", "音乐", "字幕", "叠加层"],
+    },
     strip: [
       "旅行影片",
       "家庭与纪念日",
@@ -998,6 +1010,9 @@ export const LOCALES = [
       captured: "CLÍMAX CAPTURADO",
       scanning: "ESCANEANDO",
       locked: "CLÍMAX FIJADO",
+    },
+    stack: {
+      layers: ["ORIGEN", "AI SCORE", "PUENTES", "MÚSICA", "SUBTÍTULOS", "OVERLAY"],
     },
     strip: [
       "Vídeos de viaje",
@@ -1226,6 +1241,9 @@ export const LOCALES = [
       scanning: "SCAN EN COURS",
       locked: "INSTANT VERROUILLÉ",
     },
+    stack: {
+      layers: ["SOURCE", "SCORE IA", "PONTS", "AUDIO", "SOUS-TITRES", "OVERLAY"],
+    },
     strip: [
       "Films de voyage",
       "Famille et célébrations",
@@ -1452,6 +1470,9 @@ export const LOCALES = [
       captured: "HÖHEPUNKT ERFASST",
       scanning: "SCANNEN",
       locked: "MOMENT FIXIERT",
+    },
+    stack: {
+      layers: ["QUELLE", "AI-SCORE", "BRIDGES", "AUDIO", "UNTERTITEL", "OVERLAY"],
     },
     strip: [
       "Reisefilme",
