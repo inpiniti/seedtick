@@ -285,3 +285,86 @@
     }
   });
 })();
+
+/* ---------- 9:16 portrait switch (Shorts · Reels · TikTok · phones) ---------- */
+
+(() => {
+  // Small viewports get the 9:16 cut of the story film so it fills a phone
+  // instead of letterboxing. Desktop keeps the 16:9 master.
+  const media = window.matchMedia("(max-width: 680px)");
+  const theaterVideo = document.querySelector("[data-theater-video]");
+  const theaterSource =
+    theaterVideo instanceof HTMLVideoElement
+      ? theaterVideo.querySelector("source")
+      : null;
+  const modalVideo = document.querySelector("[data-video-player]");
+
+  const swap = (url) => url.replace("/media/promo-", "/media/promo-v-");
+  const unswap = (url) => url.replace("/media/promo-v-", "/media/promo-");
+  const localeOf = (url) => (String(url).match(/promo-(?:v-)?([a-z]{2})\.mp4/) || [])[1];
+
+  const applyTheater = (portrait) => {
+    if (!theaterVideo || !theaterSource) return;
+    const current = theaterSource.getAttribute("src") || "";
+    const next = portrait ? swap(current) : unswap(current);
+    if (next === current) return;
+
+    const wasPlaying = !theaterVideo.paused;
+    const resumeAt = theaterVideo.currentTime;
+    theaterSource.setAttribute("src", next);
+    theaterVideo.setAttribute("width", portrait ? "720" : "1280");
+    theaterVideo.setAttribute("height", portrait ? "1280" : "720");
+    const code = localeOf(next);
+    if (code) {
+      theaterVideo.poster = portrait
+        ? `/media/poster-v-${code}.webp`
+        : `/media/result-${code}.webp`;
+    }
+
+    const onMetadata = () => {
+      theaterVideo.removeEventListener("loadedmetadata", onMetadata);
+      if (Number.isFinite(resumeAt)) {
+        try {
+          theaterVideo.currentTime = Math.min(resumeAt, Math.max(0, theaterVideo.duration - 0.1));
+        } catch {
+          /* the seek may land before the film is ready; start from the top */
+        }
+      }
+      if (wasPlaying) {
+        const attempt = theaterVideo.play();
+        if (attempt && typeof attempt.catch === "function") attempt.catch(() => {});
+      }
+    };
+    theaterVideo.addEventListener("loadedmetadata", onMetadata);
+    theaterVideo.load();
+  };
+
+  const applyModal = (portrait) => {
+    if (!(modalVideo instanceof HTMLVideoElement)) return;
+    const src = modalVideo.dataset.videoSrc;
+    if (!src) return;
+    const next = portrait ? swap(src) : unswap(src);
+    modalVideo.dataset.videoSrc = next;
+    const code = localeOf(next);
+    modalVideo.poster = code && portrait
+      ? `/media/poster-v-${code}.webp`
+      : "/media/hero-poster.webp";
+    modalVideo.setAttribute("width", portrait ? "720" : "1280");
+    modalVideo.setAttribute("height", portrait ? "1280" : "720");
+    // If the 16:9 file was already loaded, swap it too so the modal
+    // matches the new orientation without a reload.
+    if (modalVideo.getAttribute("src")) modalVideo.src = next;
+  };
+
+  const applyAll = () => {
+    applyTheater(media.matches);
+    applyModal(media.matches);
+  };
+  applyAll();
+
+  if (typeof media.addEventListener === "function") {
+    media.addEventListener("change", applyAll);
+  } else if (typeof media.addListener === "function") {
+    media.addListener(applyAll);
+  }
+})();

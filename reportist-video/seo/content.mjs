@@ -65,7 +65,7 @@ export const LOCALES = [
       title: "Turn hours of footage into ",
       accent: "one cinematic highlight.",
       lead:
-        "PenguinCut uses AI to find the climax in your videos, cut the noise, and stitch the best moments into a polished 16:9 highlight — with captions, music, and a cinematic intro and outro.",
+        "PenguinCut uses AI to find the climax in your videos, cut the noise, and stitch the best moments into a polished 16:9 & 9:16 highlight — with captions, music, and a cinematic intro and outro.",
       primary: "Open the Studio",
       secondary: "See how it works",
       trust: [
@@ -78,9 +78,9 @@ export const LOCALES = [
         status: "AI analysis complete",
         badge: "6 climax moments found",
         cardTitle: "Highlight ready",
-        cardMeta: "00:42 — 01:18 · 16:9",
+        cardMeta: "00:42 — 01:18 · 16:9 & 9:16",
         caption: "“This is the moment.”",
-        export: "Export 16:9",
+        export: "Export 16:9 & 9:16",
         timeline: "AI highlight timeline",
       },
     },
@@ -170,7 +170,7 @@ export const LOCALES = [
         {
           title: "Polish and export",
           desc:
-            "Adjust the cuts, add captions and music, then render a 16:9 highlight ready for YouTube.",
+            "Adjust the cuts, add captions and music, then render a 16:9 & 9:16 highlight ready for YouTube.",
         },
       ],
       note:
@@ -217,7 +217,7 @@ export const LOCALES = [
         {
           q: "What is PenguinCut?",
           a:
-            "PenguinCut is a browser-based AI video highlight editor. It finds the strongest moments in your footage and turns them into one cinematic 16:9 video.",
+            "PenguinCut is a browser-based AI video highlight editor. It finds the strongest moments in your footage and turns them into one cinematic 16:9 & 9:16 video.",
         },
         {
           q: "Do my videos get uploaded?",
@@ -275,7 +275,7 @@ export const LOCALES = [
     nativeLabel: "한국어",
     title: "펭귄컷(PenguinCut) — AI 영상 하이라이트 에디터",
     description:
-      "펭귄컷(PenguinCut)은 AI로 영상 속 최고의 순간을 찾아 16:9 하이라이트로 완성합니다.",
+      "펭귄컷(PenguinCut)은 AI로 영상 속 최고의 순간을 찾아 16:9 & 9:16 하이라이트로 완성합니다.",
     keywords:
       "AI 영상 하이라이트, 하이라이트 편집, 영상 하이라이트 만들기, AI 영상 편집, 유튜브 하이라이트, 펭귄컷, 팽귄컷, PenguinCut",
     nav: {
@@ -291,7 +291,7 @@ export const LOCALES = [
       title: "수시간의 영상을 ",
       accent: "하나의 시네마틱 하이라이트로.",
       lead:
-        "펭귄컷(PenguinCut)은 AI로 영상 속 클라이맥스를 찾아내고, 불필요한 부분은 덜어내어 최고의 순간만 16:9 하이라이트로 이어 붙입니다. 자막, 음악, 인트로와 아웃트로까지 한 번에.",
+        "펭귄컷(PenguinCut)은 AI로 영상 속 클라이맥스를 찾아내고, 불필요한 부분은 덜어내어 최고의 순간만 16:9 & 9:16 하이라이트로 이어 붙입니다. 자막, 음악, 인트로와 아웃트로까지 한 번에.",
       primary: "스튜디오 열기",
       secondary: "사용 방법 보기",
       trust: [
@@ -304,9 +304,9 @@ export const LOCALES = [
         status: "AI 분석 완료",
         badge: "클라이맥스 6곳 발견",
         cardTitle: "하이라이트 준비 완료",
-        cardMeta: "00:42 — 01:18 · 16:9",
+        cardMeta: "00:42 — 01:18 · 16:9 & 9:16",
         caption: "“바로 이 순간.”",
-        export: "16:9로 내보내기",
+        export: "16:9 & 9:16로 내보내기",
         timeline: "AI 하이라이트 타임라인",
       },
     },
@@ -396,7 +396,7 @@ export const LOCALES = [
         {
           title: "다듬고 내보내기",
           desc:
-            "컷을 조정하고 자막과 음악을 더한 뒤 유튜브에 바로 쓸 수 있는 16:9 하이라이트로 렌더링하세요.",
+            "컷을 조정하고 자막과 음악을 더한 뒤 유튜브에 바로 쓸 수 있는 16:9 & 9:16 하이라이트로 렌더링하세요.",
         },
       ],
       note:
@@ -443,7 +443,7 @@ export const LOCALES = [
         {
           q: "펭귄컷(PenguinCut)은 무엇인가요?",
           a:
-            "펭귄컷(PenguinCut)은 브라우저에서 동작하는 AI 영상 하이라이트 에디터입니다. 영상 속 가장 강한 순간을 찾아 하나의 시네마틱 16:9 영상으로 만들어 줍니다.",
+            "펭귄컷(PenguinCut)은 브라우저에서 동작하는 AI 영상 하이라이트 에디터입니다. 영상 속 가장 강한 순간을 찾아 하나의 시네마틱 16:9 & 9:16 영상으로 만들어 줍니다.",
         },
         {
           q: "영상이 업로드되나요?",
@@ -501,7 +501,7 @@ export const LOCALES = [
     nativeLabel: "日本語",
     title: "PenguinCut — AI動画ハイライトエディター",
     description:
-      "長い動画をひとつのシネマティックなハイライトに。PenguinCutはAIで最高の瞬間を見つけ、字幕と音楽を加えて、ブラウザで16:9動画に仕上げます。",
+      "長い動画をひとつのシネマティックなハイライトに。PenguinCutはAIで最高の瞬間を見つけ、字幕と音楽を加えて、ブラウザで16:9 & 9:16動画に仕上げます。",
     keywords:
       "AI動画ハイライト, ハイライト編集, 動画ハイライト作成, AI動画編集, YouTube ハイライト, PenguinCut",
     nav: {
@@ -517,7 +517,7 @@ export const LOCALES = [
       title: "何時間もの映像を、",
       accent: "ひとつのシネマティックなハイライトへ。",
       lead:
-        "PenguinCutはAIで映像のクライマックスを見つけ、不要な部分を削り、最高の瞬間だけを16:9のハイライトにまとめます。字幕、音楽、イントロ、アウトロも一度に。",
+        "PenguinCutはAIで映像のクライマックスを見つけ、不要な部分を削り、最高の瞬間だけを16:9 & 9:16のハイライトにまとめます。字幕、音楽、イントロ、アウトロも一度に。",
       primary: "スタジオを開く",
       secondary: "使い方を見る",
       trust: [
@@ -530,9 +530,9 @@ export const LOCALES = [
         status: "AI分析完了",
         badge: "クライマックスを6か所検出",
         cardTitle: "ハイライト準備完了",
-        cardMeta: "00:42 — 01:18 · 16:9",
+        cardMeta: "00:42 — 01:18 · 16:9 & 9:16",
         caption: "「この瞬間だ。」",
-        export: "16:9で書き出す",
+        export: "16:9 & 9:16で書き出す",
         timeline: "AIハイライトタイムライン",
       },
     },
@@ -622,7 +622,7 @@ export const LOCALES = [
         {
           title: "仕上げて書き出す",
           desc:
-            "カットを調整し、字幕と音楽を加えて、YouTube向けの16:9ハイライトを書き出します。",
+            "カットを調整し、字幕と音楽を加えて、YouTube向けの16:9 & 9:16ハイライトを書き出します。",
         },
       ],
       note:
@@ -668,7 +668,7 @@ export const LOCALES = [
         {
           q: "PenguinCutとは？",
           a:
-            "PenguinCutはブラウザで動くAI動画ハイライトエディターです。映像の中から最も強い瞬間を見つけ、ひとつのシネマティックな16:9動画に仕上げます。",
+            "PenguinCutはブラウザで動くAI動画ハイライトエディターです。映像の中から最も強い瞬間を見つけ、ひとつのシネマティックな16:9 & 9:16動画に仕上げます。",
         },
         {
           q: "動画はアップロードされますか？",
@@ -727,7 +727,7 @@ export const LOCALES = [
     nativeLabel: "简体中文",
     title: "PenguinCut — AI 视频精彩片段编辑器",
     description:
-      "把数小时的素材变成一支电影感精彩片段。PenguinCut 用 AI 找到最精彩的瞬间，自动添加字幕和音乐，在浏览器中导出 16:9 视频。",
+      "把数小时的素材变成一支电影感精彩片段。PenguinCut 用 AI 找到最精彩的瞬间，自动添加字幕和音乐，在浏览器中导出 16:9 & 9:16 视频。",
     keywords:
       "AI视频精彩片段, 视频高光剪辑, AI视频剪辑, 精彩片段生成器, YouTube 高光, PenguinCut",
     nav: {
@@ -743,7 +743,7 @@ export const LOCALES = [
       title: "把数小时的素材，",
       accent: "变成一支电影感精彩片段。",
       lead:
-        "PenguinCut 用 AI 找到视频中的高潮，去掉多余部分，只把最精彩的瞬间拼接成 16:9 的精彩片段，并自动加入字幕、音乐、片头和片尾。",
+        "PenguinCut 用 AI 找到视频中的高潮，去掉多余部分，只把最精彩的瞬间拼接成 16:9 & 9:16 的精彩片段，并自动加入字幕、音乐、片头和片尾。",
       primary: "打开工作室",
       secondary: "查看使用方法",
       trust: [
@@ -756,9 +756,9 @@ export const LOCALES = [
         status: "AI 分析完成",
         badge: "发现 6 个高潮瞬间",
         cardTitle: "精彩片段已就绪",
-        cardMeta: "00:42 — 01:18 · 16:9",
+        cardMeta: "00:42 — 01:18 · 16:9 & 9:16",
         caption: "“就是这一刻。”",
-        export: "导出 16:9",
+        export: "导出 16:9 & 9:16",
         timeline: "AI 精彩片段时间线",
       },
     },
@@ -848,7 +848,7 @@ export const LOCALES = [
         {
           title: "精修并导出",
           desc:
-            "调整剪辑，添加字幕和音乐，然后渲染适合 YouTube 的 16:9 精彩片段。",
+            "调整剪辑，添加字幕和音乐，然后渲染适合 YouTube 的 16:9 & 9:16 精彩片段。",
         },
       ],
       note:
@@ -894,7 +894,7 @@ export const LOCALES = [
         {
           q: "PenguinCut 是什么？",
           a:
-            "PenguinCut 是一款在浏览器中运行的 AI 视频精彩片段编辑器。它会找到素材中最精彩的瞬间，并制作成一支电影感的 16:9 视频。",
+            "PenguinCut 是一款在浏览器中运行的 AI 视频精彩片段编辑器。它会找到素材中最精彩的瞬间，并制作成一支电影感的 16:9 & 9:16 视频。",
         },
         {
           q: "视频会被上传吗？",
@@ -953,7 +953,7 @@ export const LOCALES = [
     nativeLabel: "Español",
     title: "PenguinCut — Editor de highlights de vídeo con IA",
     description:
-      "Convierte horas de material en un solo highlight cinematográfico. PenguinCut usa IA para encontrar los mejores momentos, añadir subtítulos y música, y exportar un vídeo 16:9 en tu navegador.",
+      "Convierte horas de material en un solo highlight cinematográfico. PenguinCut usa IA para encontrar los mejores momentos, añadir subtítulos y música, y exportar un vídeo 16:9 & 9:16 en tu navegador.",
     keywords:
       "editor de highlights con IA, generador de highlights, highlight de vídeo, editor de vídeo con IA, highlights para YouTube, PenguinCut",
     nav: {
@@ -969,7 +969,7 @@ export const LOCALES = [
       title: "Convierte horas de material en ",
       accent: "un solo highlight cinematográfico.",
       lead:
-        "PenguinCut usa IA para encontrar el clímax de tus vídeos, eliminar el ruido y unir los mejores momentos en un highlight 16:9 cuidado, con subtítulos, música, intro y outro.",
+        "PenguinCut usa IA para encontrar el clímax de tus vídeos, eliminar el ruido y unir los mejores momentos en un highlight 16:9 & 9:16 cuidado, con subtítulos, música, intro y outro.",
       primary: "Abrir el estudio",
       secondary: "Ver cómo funciona",
       trust: [
@@ -982,9 +982,9 @@ export const LOCALES = [
         status: "Análisis de IA completado",
         badge: "6 momentos clímax encontrados",
         cardTitle: "Highlight listo",
-        cardMeta: "00:42 — 01:18 · 16:9",
+        cardMeta: "00:42 — 01:18 · 16:9 & 9:16",
         caption: "“Este es el momento.”",
-        export: "Exportar 16:9",
+        export: "Exportar 16:9 & 9:16",
         timeline: "Línea de tiempo del highlight con IA",
       },
     },
@@ -1074,7 +1074,7 @@ export const LOCALES = [
         {
           title: "Pule y exporta",
           desc:
-            "Ajusta los cortes, añade subtítulos y música, y renderiza un highlight 16:9 listo para YouTube.",
+            "Ajusta los cortes, añade subtítulos y música, y renderiza un highlight 16:9 & 9:16 listo para YouTube.",
         },
       ],
       note:
@@ -1122,7 +1122,7 @@ export const LOCALES = [
         {
           q: "¿Qué es PenguinCut?",
           a:
-            "PenguinCut es un editor de highlights de vídeo con IA que funciona en el navegador. Encuentra los momentos más fuertes de tu material y los convierte en un vídeo cinematográfico 16:9.",
+            "PenguinCut es un editor de highlights de vídeo con IA que funciona en el navegador. Encuentra los momentos más fuertes de tu material y los convierte en un vídeo cinematográfico 16:9 & 9:16.",
         },
         {
           q: "¿Se suben mis vídeos?",
@@ -1181,7 +1181,7 @@ export const LOCALES = [
     nativeLabel: "Français",
     title: "PenguinCut — Éditeur de highlights vidéo par IA",
     description:
-      "Transformez des heures de rushes en un seul highlight cinématographique. PenguinCut utilise l'IA pour trouver les meilleurs moments, ajouter sous-titres et musique, et exporter une vidéo 16:9 dans votre navigateur.",
+      "Transformez des heures de rushes en un seul highlight cinématographique. PenguinCut utilise l'IA pour trouver les meilleurs moments, ajouter sous-titres et musique, et exporter une vidéo 16:9 & 9:16 dans votre navigateur.",
     keywords:
       "éditeur de highlights IA, générateur de highlights, highlight vidéo, montage vidéo IA, highlights YouTube, PenguinCut",
     nav: {
@@ -1197,7 +1197,7 @@ export const LOCALES = [
       title: "Transformez des heures de rushes en ",
       accent: "un seul highlight cinématographique.",
       lead:
-        "PenguinCut utilise l'IA pour trouver le climax de vos vidéos, couper le superflu et assembler les meilleurs moments en un highlight 16:9 soigné, avec sous-titres, musique, intro et outro.",
+        "PenguinCut utilise l'IA pour trouver le climax de vos vidéos, couper le superflu et assembler les meilleurs moments en un highlight 16:9 & 9:16 soigné, avec sous-titres, musique, intro et outro.",
       primary: "Ouvrir le studio",
       secondary: "Voir comment ça marche",
       trust: [
@@ -1210,9 +1210,9 @@ export const LOCALES = [
         status: "Analyse IA terminée",
         badge: "6 moments forts détectés",
         cardTitle: "Highlight prêt",
-        cardMeta: "00:42 — 01:18 · 16:9",
+        cardMeta: "00:42 — 01:18 · 16:9 & 9:16",
         caption: "« C'est ce moment. »",
-        export: "Exporter en 16:9",
+        export: "Exporter en 16:9 & 9:16",
         timeline: "Timeline du highlight par IA",
       },
     },
@@ -1302,7 +1302,7 @@ export const LOCALES = [
         {
           title: "Affinez et exportez",
           desc:
-            "Ajustez les coupes, ajoutez sous-titres et musique, puis rendez un highlight 16:9 prêt pour YouTube.",
+            "Ajustez les coupes, ajoutez sous-titres et musique, puis rendez un highlight 16:9 & 9:16 prêt pour YouTube.",
         },
       ],
       note:
@@ -1350,7 +1350,7 @@ export const LOCALES = [
         {
           q: "Qu'est-ce que PenguinCut ?",
           a:
-            "PenguinCut est un éditeur de highlights vidéo par IA qui fonctionne dans le navigateur. Il trouve les moments les plus forts de vos rushes et les transforme en une vidéo cinématographique 16:9.",
+            "PenguinCut est un éditeur de highlights vidéo par IA qui fonctionne dans le navigateur. Il trouve les moments les plus forts de vos rushes et les transforme en une vidéo cinématographique 16:9 & 9:16.",
         },
         {
           q: "Mes vidéos sont-elles envoyées ?",
@@ -1409,7 +1409,7 @@ export const LOCALES = [
     nativeLabel: "Deutsch",
     title: "PenguinCut — KI-Highlight-Editor für Videos",
     description:
-      "Mach aus stundenlangem Filmmaterial ein einziges cineastisches Highlight. PenguinCut findet mit KI die besten Momente, fügt Untertitel und Musik hinzu und exportiert ein 16:9-Video im Browser.",
+      "Mach aus stundenlangem Filmmaterial ein einziges cineastisches Highlight. PenguinCut findet mit KI die besten Momente, fügt Untertitel und Musik hinzu und exportiert ein 16:9 & 9:16-Video im Browser.",
     keywords:
       "KI-Highlight-Editor, Highlight-Generator, Video-Highlights, KI-Videoschnitt, YouTube-Highlights, PenguinCut",
     nav: {
@@ -1425,7 +1425,7 @@ export const LOCALES = [
       title: "Mach aus stundenlangem Material ",
       accent: "ein einziges cineastisches Highlight.",
       lead:
-        "PenguinCut findet mit KI den Höhepunkt in deinen Videos, schneidet das Unnötige weg und fügt die besten Momente zu einem sauberen 16:9-Highlight zusammen – mit Untertiteln, Musik, Intro und Outro.",
+        "PenguinCut findet mit KI den Höhepunkt in deinen Videos, schneidet das Unnötige weg und fügt die besten Momente zu einem sauberen 16:9 & 9:16-Highlight zusammen – mit Untertiteln, Musik, Intro und Outro.",
       primary: "Studio öffnen",
       secondary: "So funktioniert's",
       trust: [
@@ -1438,9 +1438,9 @@ export const LOCALES = [
         status: "KI-Analyse abgeschlossen",
         badge: "6 Höhepunkte gefunden",
         cardTitle: "Highlight bereit",
-        cardMeta: "00:42 — 01:18 · 16:9",
+        cardMeta: "00:42 — 01:18 · 16:9 & 9:16",
         caption: "„Das ist der Moment.“",
-        export: "16:9 exportieren",
+        export: "16:9 & 9:16 exportieren",
         timeline: "KI-Highlight-Timeline",
       },
     },
@@ -1530,7 +1530,7 @@ export const LOCALES = [
         {
           title: "Feinschliff und Export",
           desc:
-            "Passe die Schnitte an, füge Untertitel und Musik hinzu und rendere ein 16:9-Highlight für YouTube.",
+            "Passe die Schnitte an, füge Untertitel und Musik hinzu und rendere ein 16:9 & 9:16-Highlight für YouTube.",
         },
       ],
       note:
@@ -1577,7 +1577,7 @@ export const LOCALES = [
         {
           q: "Was ist PenguinCut?",
           a:
-            "PenguinCut ist ein browserbasierter KI-Highlight-Editor für Videos. Er findet die stärksten Momente in deinem Material und macht daraus ein cineastisches 16:9-Video.",
+            "PenguinCut ist ein browserbasierter KI-Highlight-Editor für Videos. Er findet die stärksten Momente in deinem Material und macht daraus ein cineastisches 16:9 & 9:16-Video.",
         },
         {
           q: "Werden meine Videos hochgeladen?",

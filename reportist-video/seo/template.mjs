@@ -227,6 +227,7 @@ function renderHero(locale) {
             <div class="studio-body">
               <div class="studio-topline" aria-hidden="true">
                 <span class="studio-pill">16:9</span>
+                <span class="studio-pill">9:16</span>
                 <span class="studio-pill">1080p</span>
                 <span class="studio-pill studio-pill-accent">${esc(
                   hero.visual.badge
@@ -243,7 +244,7 @@ function renderHero(locale) {
                     )}.mp4" type="video/mp4">
                   </video>
                   <span class="preview-scrim" aria-hidden="true"></span>
-                  <span class="preview-badge" aria-hidden="true">00:36 · 16:9</span>
+                  <span class="preview-badge" aria-hidden="true">00:36 · 16:9 &amp; 9:16</span>
                   <button class="preview-sound" type="button" data-video-open aria-label="${esc(
                     locale.video.label
                   )}">
@@ -388,7 +389,7 @@ function renderTheater(locale) {
             </div>
 
             <div class="theater-meta">
-              <span class="theater-runtime" aria-hidden="true">00:36 · 16:9</span>
+              <span class="theater-runtime" aria-hidden="true">00:36 · 16:9 &amp; 9:16</span>
               <button class="theater-sound" type="button" data-theater-sound aria-pressed="false">
                 <span class="sound-icon" aria-hidden="true">
                   <span class="icon-muted">${ICONS.muted}</span>
