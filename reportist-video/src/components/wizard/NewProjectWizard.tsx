@@ -498,9 +498,6 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                 <p className="wizard-pane-lead">
                   {w?.step1Lead || '하이라이트를 생성할 동영상들을 업로드해주세요.'}
                 </p>
-                <p className="wizard-pane-sub">
-                  {w?.step1Desc || '여러 개의 영상을 한 번에 올릴 수 있으며, 촬영 장소명을 직접 수정하거나 지도로 확인할 수 있어요.'}
-                </p>
               </div>
 
               {/* 드래그 앤 드롭 존 */}
@@ -524,7 +521,6 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                 </div>
                 <div className="wizard-dropzone-text">
                   <strong>{w?.dropzoneTitle || '동영상 파일을 끌어다 놓거나 클릭하여 선택하세요'}</strong>
-                  <span>{w?.dropzoneSub || 'MP4, MOV, WebM, MKV 등 고화질 영상 지원 (브라우저 메모리 100% 비공개 처리)'}</span>
                 </div>
               </div>
 
@@ -640,9 +636,6 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
               <div className="wizard-pane-desc">
                 <p className="wizard-pane-lead">
                   {w?.step2Lead || '영상의 분위기에 어울리는 배경음악과 연출을 설정해보세요.'}
-                </p>
-                <p className="wizard-pane-sub">
-                  {w?.step2Desc || '오프닝 인트로 영상이나 엔딩 아웃트로 영상을 직접 첨부하여 더욱 완성도 높은 영상을 만들 수 있어요.'}
                 </p>
               </div>
 
@@ -823,11 +816,6 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                       <span>{w?.attachIntroClip || '인트로 영상 파일 첨부하기 (MP4, MOV 등)'}</span>
                     </button>
                   )}
-                  <span className="wizard-clip-help-text">
-                    {introVideoFile
-                      ? (w?.introHelpAttached || '✓ 첨부된 인트로 영상이 본편 시작 전에 매끄럽게 연결되어 재생됩니다.')
-                      : (w?.introHelpDefault || '별도의 인트로 영상이 있으면 첨부해보세요. 미첨부 시 타이틀 애니메이션이 적용됩니다.')}
-                  </span>
                 </div>
 
                 <div className="wizard-toggle-grid">
@@ -1125,12 +1113,6 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                 </SpecularButton>
               </div>
             </>
-          )}
-
-          {currentStep === 3 && (
-            <div className="wizard-footer-processing-note">
-              <span>{w?.footerAutoTransition || '💡 분석이 완료되면 스튜디오로 자동 전환되어 자막과 구간을 바로 편집할 수 있어요.'}</span>
-            </div>
           )}
         </div>
       </div>

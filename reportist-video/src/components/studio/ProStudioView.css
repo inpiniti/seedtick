@@ -14858,6 +14858,58 @@
     padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
+  /* 모바일에서는 플레이어 카드만 상단에 고정해, 아래 옵션을 조작하는 동안에도
+     영상이 항상 보이게 한다. .toss-column-left를 display:contents로 풀어
+     sticky의 컨테이너를 .toss-studio-columns 전체로 올린다. */
+  .toss-column-left {
+    display: contents !important;
+  }
+
+  .toss-player-card {
+    position: sticky;
+    top: 101px; /* 내비 54px + 컴팩트 스텝 헤더 47px */
+    z-index: 35;
+    margin: 0 -12px;
+    padding: 8px 12px 10px;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    background: #ffffff;
+    box-shadow: 0 6px 16px -10px rgba(15, 23, 42, 0.25);
+  }
+
+  /* 문구 입력에 포커스하면 가상 키보드 공간을 확보하기 위해 고정을 잠시 해제한다. */
+  .toss-studio-columns:has(input[type="text"]:focus, textarea:focus) .toss-player-card {
+    position: static;
+  }
+
+  /* 상단 고정 스테이지가 화면을 절반 이상 차지하지 않도록 높이를 제한한다.
+     가로형은 16:9 비율을 유지한 채 뷰포트 폭과 높이 중 작은 값에 맞춘다. */
+  .toss-player-wrapper:not(.is-portrait-frame) {
+    width: 100%;
+    height: min(28vh, 56.25vw);
+  }
+
+  .toss-player-wrapper.is-portrait-frame {
+    height: min(29vh, 250px);
+  }
+
+  /* 타임라인은 플레이어 카드 밖의 별도 카드로 분리해 고정 영역을 가볍게 유지한다. */
+  .toss-timeline-card {
+    padding: 10px 14px;
+  }
+
+  .toss-timeline-card .toss-timeline-sequencer-box {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+  }
+
+  /* 모바일에서는 템플릿 카드의 3줄 설명을 숨겨 선택지가 한 화면에 더 많이 보이게 한다. */
+  .toss-io-template-desc {
+    display: none;
+  }
+
   /* 하단 플로팅 상태바 → 헤더의 저장 상태 점 + 다운로드 완료 토스트로 흡수 */
   .toss-bottom-status-bar {
     display: none !important;
@@ -14875,6 +14927,10 @@
 }
 
 @media (max-width: 768px) {
+  .toss-player-card {
+    top: 97px; /* 내비 50px + 컴팩트 스텝 헤더 47px */
+  }
+
   .toss-mobile-save-status {
     display: inline-flex;
     align-items: center;

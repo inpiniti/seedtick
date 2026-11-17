@@ -74,7 +74,7 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
   const pDict = dict.projects || {
     tabTitle: '스튜디오',
     pageTitle: '스튜디오 프로젝트',
-    pageDesc: '기기(IndexedDB)에 안전하게 저장된 스튜디오 작업물이에요. 새로고침해도 사라지지 않아요.',
+    pageDesc: '이 기기에 자동으로 저장돼요. 새로고침해도 작업물이 그대로 남아 있어요.',
     newProjectBtn: '새 작업 시작',
     emptyTitle: '아직 저장된 작업이 없어요',
     emptyDesc: '스튜디오에서 영상을 올리거나 새 작업을 시작하면 자동으로 안전하게 보관돼요.',
@@ -98,10 +98,10 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
     newProjectConfirmTitle: '새 작업을 시작할까요?',
     newProjectConfirmDesc: '현재 진행 중인 작업은 스튜디오에 안전하게 보관돼요.',
     startNew: '시작하기',
-    localStorageBadge: '기기 내 저장 (100% 로컬)',
-    localStorageTip: '브라우저 로컬 IndexedDB에 안전 저장',
-    opfsStorageBadge: '기기 내 저장 (OPFS 파일시스템)',
-    opfsStorageTip: '고성능 OPFS(가상 파일시스템)로 대용량 비디오가 안전하게 보관돼요',
+    localStorageBadge: '기기 내 저장',
+    localStorageTip: '이 기기에 자동으로 저장돼요',
+    opfsStorageBadge: '기기 내 저장',
+    opfsStorageTip: '이 기기에 자동으로 저장돼요',
   };
 
   const targetProjectToDelete = projects.find((p) => p.id === deleteTargetId);
@@ -123,15 +123,15 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
             className="toss-projects-storage-pill"
             title={
               isOpfsAvailable()
-                ? pDict.opfsStorageTip || '고성능 OPFS(가상 파일시스템)로 대용량 비디오가 안전하게 보관돼요'
-                : pDict.localStorageTip || '브라우저 로컬 IndexedDB에 안전 저장'
+                ? pDict.opfsStorageTip || '이 기기에 자동으로 저장돼요'
+                : pDict.localStorageTip || '이 기기에 자동으로 저장돼요'
             }
           >
             <HardDrive size={13} className="text-slate-800" />
             <span>
               {isOpfsAvailable()
-                ? pDict.opfsStorageBadge || '기기 내 저장 (OPFS 파일시스템)'
-                : pDict.localStorageBadge || '기기 내 저장 (100% 로컬)'}
+                ? pDict.opfsStorageBadge || '기기 내 저장'
+                : pDict.localStorageBadge || '기기 내 저장'}
             </span>
           </div>
           <button
@@ -231,15 +231,6 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
                         <Film size={11} />
                         {pDict.editingBadge}
                       </span>
-                    )}
-                    {proj.hasOpfsFiles && (
-                      <span className="toss-project-status-pill" style={{ background: '#f0fdf4', color: '#16a34a', borderColor: '#bbf7d0' }}>
-                        OPFS
-                      </span>
-                    )}
-                    {proj.storageMode === 'lightweight' && (
-                      <span className="toss-project-status-pill" style={{ background: '#f8fafc', color: '#64748b', borderColor: '#e2e8f0' }}>
-                        {ui('경량 ')}</span>
                     )}
                   </div>
                 </div>

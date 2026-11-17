@@ -16,7 +16,6 @@ import {
   Clapperboard,
   Film,
   Type,
-  HelpCircle,
 } from 'lucide-react';
 import {
   DEFAULT_INTRO_DURATION,
@@ -433,7 +432,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                   letterSpacing: '-0.3px',
                 }}
               >
-                {ioDict?.title || ui('HyperFrames 인트로 & 아웃트로 실시간 미리보기')}
+                {ioDict?.title || ui('인트로 · 아웃트로 미리보기')}
               </h3>
               <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0' }}>
                 {ioDict?.subtitle || ui('원하는 템플릿을 선택하고 캔버스 모션을 실시간으로 확인해보세요.')}
@@ -629,27 +628,6 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
               >
                 {currentTime.toFixed(1)}s / {currentDuration.toFixed(1)}s
               </div>
-            </div>
-
-            {/* 안내 팁 배너 */}
-            <div
-              style={{
-                backgroundColor: '#f1f5f9',
-                borderRadius: '10px',
-                padding: '9px 12px',
-                border: '1px solid #e2e8f0',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                fontSize: '11.5px',
-                color: '#0f172a',
-              }}
-            >
-              <HelpCircle size={14} className="shrink-0" />
-              <span>
-                {ioDict?.tipDescription ||
-                  ui('💡 템플릿 카드를 클릭하면 왼쪽 대화면에서 GSAP 결정론적 캔버스 모션이 즉시 실시간 렌더링됩니다.')}
-              </span>
             </div>
           </div>
 

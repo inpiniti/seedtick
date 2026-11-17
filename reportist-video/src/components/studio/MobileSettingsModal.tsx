@@ -74,14 +74,12 @@ import {
   type StorageEstimateInfo,
   type StorageMode,
 } from '../../services/storageQuotaService.ts';
-import { isOpfsAvailable } from '../../services/opfsStorage.ts';
 import {
   compactDatabase,
   wipeAllAppData,
   getAppStorageStats,
 } from '../../services/projectStorage.ts';
 import { isMobileStorageEnvironment } from '../../services/deviceStoragePolicy.ts';
-import { detectOptimalCodec } from '../../services/videoCompressor.ts';
 import { CURRENT_APP_VERSION } from '../../data/appVersion.ts';
 
 export type SettingsSectionId =
@@ -415,7 +413,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
       await clearAllAppStorage();
       const updated = await getStorageEstimate();
       setStorageEstimate(updated);
-      const successMsg = ui('브라우저 캐시와 OPFS 임시 파일을 정리했습니다. 프로젝트는 그대로 유지돼요.');
+      const successMsg = ui('브라우저 임시 파일을 정리했어요. 프로젝트는 그대로 유지돼요.');
       setStorageClearMessage(successMsg);
       notify.success(successMsg);
       setTimeout(() => {
@@ -503,11 +501,6 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
       description: dict.toasts.resolutionSelectedDesc,
     });
   };
-
-  const optimalCodec = detectOptimalCodec();
-  // 모바일(및 초경량 모드)은 OPFS가 아니라 IndexedDB project_media에 저장되므로
-  // 실제 동작과 일치하게 라벨을 표시한다.
-  const usesOpfs = isOpfsAvailable() && !isMobileDevice && storageMode !== 'lightweight';
 
   useEffect(() => {
     if (!isOpen) return;
@@ -1501,15 +1494,8 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                   <div className="toss-storage-title-wrap">
                     <div className="toss-storage-title-row">
                       <span className="toss-storage-engine-title">
-                        {usesOpfs
-                          ? dict.settingsModal?.storageEngineOpfs || 'OPFS 가상 파일시스템'
-                          : dict.settingsModal?.storageEngineIdb || 'IndexedDB 로컬 스토리지'}
+                        {ui('기기 내 저장소')}
                       </span>
-                      {optimalCodec && (
-                        <span className="toss-storage-badge-codec">
-                          {optimalCodec.name.toUpperCase()} {dict.settingsModal?.storageCodecSupport || '지원'}
-                        </span>
-                      )}
                     </div>
                     <div className="toss-storage-quota-desc">
                       {storageEstimate
@@ -1677,7 +1663,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                     <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#1e293b' }}>
                       {ui('캐시 정리 ')}</span>
                     <span style={{ fontSize: '11px', color: '#64748b', lineHeight: 1.35 }}>
-                      {ui('브라우저 임시 파일과 OPFS 캐시만 비워요. 프로젝트는 그대로 유지돼요. ')}</span>
+                      {ui('브라우저 임시 파일만 비워요. 프로젝트는 그대로 유지돼요. ')}</span>
                   </div>
                   <button
                     type="button"

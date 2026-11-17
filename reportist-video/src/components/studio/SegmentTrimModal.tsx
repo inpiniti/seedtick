@@ -598,7 +598,7 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
           <div className="segment-trim-notice">
             <Info size={14} className="shrink-0 text-slate-900 mt-0.5" />
             <p className="text-[12px] text-slate-600 leading-snug">
-              {ui('구간을 수정한 후 ')}<strong>{t.apply}</strong>{ui('을 누르면 타임라인에 즉시 반영되며, 상단의 ')}<strong>{ui('다시 병합')}</strong> {ui(' 버튼을 통해 최종 영상에 적용돼요. ')}</p>
+              {ui('구간을 수정한 뒤 ')}<strong>{t.apply}</strong>{ui('을 누르면 미리보기에 바로 반영돼요.')}</p>
           </div>
         </div>
 

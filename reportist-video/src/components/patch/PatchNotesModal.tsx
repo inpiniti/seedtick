@@ -209,7 +209,7 @@ export const PatchNotesModal: React.FC<PatchNotesModalProps> = ({ isOpen, onClos
                 </span>
               </div>
               <p className="model-modal-subtitle">
-                {dict.patchNotes?.subtitle || 'Reportist Video의 모든 업데이트와 새로운 기능들을 모아봤어요.'}
+                {dict.patchNotes?.subtitle || 'PenguinCut의 모든 업데이트와 새로운 기능들을 모아봤어요.'}
               </p>
             </div>
           </div>

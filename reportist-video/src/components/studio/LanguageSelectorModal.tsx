@@ -1,6 +1,6 @@
 // src/components/studio/LanguageSelectorModal.tsx - Modal for selecting language (Toss modal style)
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Globe, Search, X, Check, Sparkles } from 'lucide-react';
+import { Globe, Search, X, Check } from 'lucide-react';
 import { loadLocaleDictionary, useI18n } from '../../i18n/index.tsx';
 import type { Locale } from '../../i18n/types.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
@@ -98,9 +98,6 @@ export const LanguageSelectorModal: React.FC<LanguageSelectorModalProps> = ({
               <h2 className="model-modal-title" id="language-modal-title">
                 {dict.languageModal.title}
               </h2>
-              <p className="model-modal-subtitle">
-                {dict.languageModal.subtitle}
-              </p>
             </div>
           </div>
           <button
@@ -207,10 +204,6 @@ export const LanguageSelectorModal: React.FC<LanguageSelectorModalProps> = ({
 
         {/* Footer */}
         <div className="model-modal-footer">
-          <div className="model-modal-footer-tip">
-            <Sparkles size={14} color="#0f172a" />
-            <span>{dict.languageModal.tip}</span>
-          </div>
           <button
             type="button"
             className="model-modal-confirm-btn"

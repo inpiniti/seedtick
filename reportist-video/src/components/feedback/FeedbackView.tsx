@@ -324,17 +324,14 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
             <section className={`toss-feedback-header-card ${isEmbedded ? 'embedded' : ''}`}>
               <div className="toss-feedback-header-top">
                 <div className="toss-feedback-header-left">
-                  <div className="toss-community-badge-row">
-                    <span className="toss-community-badge">
-                      {dict.feedback?.badge || 'FEEDBACK & ROADMAP'}
-                    </span>
-                    {isAdminMode && (
+                  {isAdminMode && (
+                    <div className="toss-community-badge-row">
                       <span className="toss-badge bg-slate-200 text-slate-900 border border-slate-200 font-bold flex items-center gap-1">
                         <ShieldCheck size={11} />
                         <span>{dict.feedback?.adminModeOn || '개발자 관리자 모드 ON'}</span>
                       </span>
-                    )}
-                  </div>
+                    </div>
+                  )}
                   {!isEmbedded && (
                     <h1 className="toss-community-title">
                       {dict.feedback?.headerTitle || '피드백 & 개선 요청'}

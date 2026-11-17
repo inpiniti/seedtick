@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Check, Headphones, ListMusic, Loader2, Pause, Play, VolumeX, X } from 'lucide-react';
+import { Check, ListMusic, Loader2, Pause, Play, VolumeX, X } from 'lucide-react';
 import { AUDIO_LIBRARY, type AudioLibraryTrack } from '../../data/audioLibrary.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
@@ -279,10 +279,6 @@ export const AudioLibraryModal: React.FC<AudioLibraryModalProps> = ({
         {applyError && <p className="audio-library-error">{applyError}</p>}
 
         <div className="model-modal-footer audio-library-footer">
-          <div className="model-modal-footer-tip">
-            <Headphones size={14} color="#0f172a" />
-            <span>{dict.audioLibrary.footerTip}</span>
-          </div>
           <button
             type="button"
             className="model-modal-confirm-btn audio-library-apply-btn"

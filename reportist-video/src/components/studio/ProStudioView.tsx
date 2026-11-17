@@ -2089,6 +2089,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // (데스크탑은 좌측 모니터를 채우는 온보딩 히어로로 남긴다)
   const hideEmptyPlayerColumnForMobile =
     isMobileViewport && isCreationFlow && !activeVideoUrl && !standalonePreviewSection;
+  // 플레이어 카드와 타임라인 카드를 분리해, 모바일에서 플레이어만 상단에 고정한다.
+  const showDraftPreviewBox =
+    isDraftPreview &&
+    videos.length > 0 &&
+    (!isMobileViewport || activeSection === 'upload' || activeSection === 'ai');
+  const showTimelineSequencer =
+    segments.length > 0 &&
+    (!isMobileViewport || activeSection === 'cut' || activeSection === 'caption' || activeSection === 'bridge');
 
   // 드래프트 모드에서만 비디오 변경 시 재생 초기화
   useEffect(() => {
@@ -3701,7 +3709,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const setDefaultBridgeTemplate = (
     kind: 'date' | 'location',
     templateId: string,
-    autoPreview = isCreationFlow
+    autoPreview = true
   ) => {
     setOverlayOptions((prev) => ({
       ...prev,
@@ -5088,11 +5096,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 ? ui('1번부터 8번까지, 순서대로만 눌러주세요')
                 : ui('1번부터 7번까지, 순서대로만 눌러주세요')}
             </strong>
-            <span className="toss-studio-stepbar-sub">
-              {isCreationFlow
-                ? ui('영상 올리기와 AI 하이라이트까지 이 화면에서 한 번에 끝나요.')
-                : ui('타임라인을 움직이면 지금 위치에 맞는 설정만 오른쪽에 보여요.')}
-            </span>
           </div>
           <ol className="toss-studio-steps" ref={stepbarListRef}>
             {studioSteps.map((step, index) => {
@@ -5603,10 +5606,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 <span>{playbackError}</span>
               </div>
             )}
+          </div>
 
+          {(showDraftPreviewBox || showTimelineSequencer) && (
+          <div className="toss-card toss-timeline-card">
             {/* 하이라이트 전: 가짜 시퀀스 대신 원본 영상 미리보기 선택
                 모바일에서는 관련 단계(영상 올리기/AI)에서만 보여준다 */}
-            {isDraftPreview && videos.length > 0 && (!isMobileViewport || activeSection === 'upload' || activeSection === 'ai') && (
+            {showDraftPreviewBox && (
               <div className="toss-timeline-sequencer-box toss-draft-preview-box">
                 <div className="toss-sequencer-header">
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -5672,7 +5678,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
             {/* 시퀀스 타임라인 스트립 (V1 영상 + A1 배경음악 멀티트랙)
                 모바일에서는 컷/브릿지 단계에서만 노출해 첫 화면을 가볍게 유지한다 (컷 편집은 toss-cut-navigator로도 가능) */}
-            {segments.length > 0 && (!isMobileViewport || activeSection === 'cut' || activeSection === 'caption' || activeSection === 'bridge') && (
+            {showTimelineSequencer && (
               <div className="toss-timeline-sequencer-box">
                 <div className="toss-sequencer-header">
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -6212,9 +6218,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 )}
               </div>
             )}
-
-            {/* 완성 영상 다운로드 및 자막은 8번(다운로드) 단계 카드에서만 제공한다. */}
           </div>
+          )}
 
         </section>
         )}
@@ -6229,9 +6234,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <h3 className="toss-inspector-title">
               {ui('{label} 설정', { label: ui(activeStudioStep.label) })}
             </h3>
-            <p className="toss-inspector-desc">
-              {ui(activeStudioStep.description)}
-            </p>
           </div>
 
           {/* 썸네일 단계: 완성된 영상의 16:9 대표 이미지 */}
@@ -6249,10 +6251,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     <ImageIcon size={16} className="text-slate-800 shrink-0" />
                     <span>{dict.thumbnail?.cardTitle || 'AI 맞춤 썸네일 (16:9)'}</span>
                   </h4>
-                  <p className="toss-card-desc">
-                    {dict.thumbnail?.cardDesc ||
-                      'AI가 직접 추천한 베스트 프레임과 타이틀로 완성된 16:9 맞춤 썸네일이에요.'}
-                  </p>
                   {result?.bestThumbnailReason && (
                     <div className="flex items-center gap-1.5 mt-2 px-2.5 py-1 bg-slate-100 border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-800">
                       <Sparkles size={12} className="text-slate-700 shrink-0" />
@@ -6507,11 +6505,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     </button>
                   )}
                 </div>
-
-                <p className="text-[11px] text-slate-400 text-center">
-                  {dict.thumbnail?.selectFrameHint ||
-                    '아래 하이라이트 장면의 [썸네일] 버튼을 눌러 배경 이미지를 바꿀 수도 있어요.'}
-                </p>
               </div>
               </>
               )}
@@ -6528,9 +6521,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   <Download size={15} className="text-slate-800 shrink-0" />
                   <span>{ui('영상 저장 · 다운로드')}</span>
                 </h4>
-                <p className="toss-card-desc">
-                  {ui('편집을 모두 마쳤어요. 완성된 영상과 자막, 썸네일을 여기서 한 번에 내려받을 수 있어요.')}
-                </p>
               </div>
               <span className="toss-tag-blue">
                 {isSequenceMode && segments.length > 0 ? ui('저장할 수 있어요') : ui('대기')}
@@ -6612,10 +6602,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     </button>
                   </div>
                 </div>
-
-                <p className="toss-download-hint">
-                  {ui('저장 버튼을 누르면 해상도를 고르고 최종 영상을 만들 수 있어요. 저장이 끝나면 이 화면에서 언제든 다시 받을 수 있어요.')}
-                </p>
               </div>
             ) : (
               <div className="toss-empty-state toss-download-empty">
@@ -6646,7 +6632,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   <Film size={15} className="text-slate-800 shrink-0" />
                   <span>{dict.introOutro.introTitle}</span>
                 </h4>
-                <p className="toss-card-desc">{dict.introOutro.introDesc}</p>
               </div>
               <label className="toss-toggle-switch">
                 <input
@@ -6800,9 +6785,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     <Upload size={15} className="text-slate-800 shrink-0" />
                     <span>{ui('영상 올리기')}</span>
                   </h4>
-                  <p className="toss-card-desc">
-                    {ui('올린 순서대로 영상이 이어져요. 촬영 장소를 적어두면 브릿지가 더 자연스러워져요.')}
-                  </p>
                 </div>
                 <span className="toss-tag-gray">{ui('{count}개', { count: videos.length })}</span>
               </div>
@@ -6816,7 +6798,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   <Upload size={18} />
                 </span>
                 <strong>{ui('영상 끌어다 놓기')}</strong>
-                <span>{ui('또는 눌러서 휴대폰 영상을 골라요. 여러 개를 한 번에 올려도 돼요.')}</span>
               </button>
 
               {videos.length > 0 && (
@@ -6871,9 +6852,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     <Sparkles size={15} className="text-slate-800 shrink-0" />
                     <span>{ui('AI 하이라이트')}</span>
                   </h4>
-                  <p className="toss-card-desc">
-                    {ui('AI가 영상에서 가장 볼만한 장면만 골라 짧게 잘라줘요. 분석이 끝나면 바로 컷을 다듬을 수 있어요.')}
-                  </p>
                 </div>
               </div>
 
@@ -6967,31 +6945,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   <ArrowRight size={15} className="text-slate-800 shrink-0" />
                   <span>{ui('장면 전환 (브릿지)')}</span>
                 </h4>
-                <p className="toss-card-desc">
-                  {ui('날짜나 장소가 바뀌는 컷 사이에만 들어가요. 켜 둔 곳만 타임라인에 표시돼요.')}
-                </p>
               </div>
-              <span className="toss-tag-gray">
-                {activeBridgeIndexes.length} / {ui('{count}곳에 넣었어요', { count: bridgeCandidateIndexes.length })}
-              </span>
+              {bridgeCandidateIndexes.length > 0 && (
+                <span className="toss-tag-gray">
+                  {activeBridgeIndexes.length} / {ui('{count}곳에 넣었어요', { count: bridgeCandidateIndexes.length })}
+                </span>
+              )}
             </div>
 
             {isCreationFlow ? (
               <div className="toss-bridge-standalone">
-                <div className="toss-empty-state toss-bridge-help">
-                  <p className="text-slate-400 text-sm">
-                    {ui('AI 컷이 아직 없어도 괜찮아요. 지금 스타일을 골라두면 AI 하이라이트가 끝난 뒤 날짜나 장소가 바뀌는 장면 사이에 자동으로 들어가요.')}
-                  </p>
-                  <button
-                    type="button"
-                    className="toss-btn-secondary mt-2"
-                    onClick={() => previewSectionPlay('bridge')}
-                  >
-                    <Eye size={12} />
-                    <span>{ui('브릿지 미리보기')}</span>
-                  </button>
-                </div>
-
                 <div className="toss-bridge-template-group">
                   <span className="toss-bridge-template-label">
                     <Clock size={12} />
@@ -7029,20 +6992,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     ))}
                   </div>
                 </div>
-
-                <p className="toss-bridge-footnote">
-                  {ui('실제 브릿지는 날짜나 장소가 바뀌는 컷 사이에만 자동으로 들어가요.')}
-                </p>
               </div>
             ) : bridgeCandidateIndexes.length === 0 && segments.length >= 2 ? (
               <div className="toss-bridge-standalone">
-                <div className="toss-empty-state toss-bridge-help">
-                  <p className="text-slate-400 text-sm">
-                    {ui('자동 감지된 전환 지점이 없어요. 그래도 브릿지 스타일은 미리 골라둘 수 있어요. 타임라인의')} <strong>+</strong> {ui('버튼을 누르면 원하는 컷 사이에 브릿지를 직접 켤 수 있어요.')}
-                  </p>
+                <div className="toss-bridge-actions">
                   <button
                     type="button"
-                    className="toss-btn-secondary mt-2"
+                    className="toss-btn-secondary toss-btn-xs"
                     onClick={() => goToSection('cut')}
                   >
                     <Scissors size={12} />
@@ -7274,11 +7230,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     </>
                   )}
                 </h4>
-                <p className="toss-card-desc">
-                  {isCaptionSection
-                    ? ui('AI가 만든 자막을 확인하고 씬별로 제목·날짜·장소를 다듬어요. 자막 톤과 하단 자막·촬영 날짜 표시도 여기서 정해요.')
-                    : dict.dramaticClips.desc}
-                </p>
               </div>
 
               <div className="toss-dramatic-header-actions flex items-center justify-between sm:justify-end gap-2 flex-wrap">
@@ -7514,9 +7465,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     <span>{ui('AI 하이라이트 다시 뽑기')}</span>
                   </button>
                 </div>
-                <p className="toss-cut-more-hint">
-                  {ui('영상을 더 올리거나, 마음에 안 들면 AI에게 다시 골라달라고 할 수 있어요.')}
-                </p>
               </details>
             )}
 
@@ -7800,15 +7748,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         <div className="toss-segment-editor" onClick={(e) => e.stopPropagation()}>
                           <div className="toss-segment-editor-head">
                             {isCaptionSection ? (
-                              <>
-                                <span className="toss-segment-editor-title">{dict.dramaticClips.editorTitle}</span>
-                                <span className="toss-segment-editor-hint">{dict.dramaticClips.editorHint}</span>
-                              </>
+                              <span className="toss-segment-editor-title">{dict.dramaticClips.editorTitle}</span>
                             ) : (
-                              <>
-                                <span className="toss-segment-editor-title">{ui('이 씬의 구도 (크롭)')}</span>
-                                <span className="toss-segment-editor-hint">{ui('세로 화면의 위/중앙/아래 크롭을 조절해요.')}</span>
-                              </>
+                              <span className="toss-segment-editor-title">{ui('이 씬의 구도 (크롭)')}</span>
                             )}
                           </div>
 
@@ -8010,7 +7952,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   <Film size={15} className="text-slate-800 shrink-0" />
                   <span>{dict.introOutro.outroTitle}</span>
                 </h4>
-                <p className="toss-card-desc">{dict.introOutro.outroDesc}</p>
               </div>
               <label className="toss-toggle-switch">
                 <input
@@ -8176,9 +8117,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   <Music size={15} className="text-slate-800 shrink-0" />
                   <span>{ui('배경 음악')}</span>
                 </h4>
-                <p className="toss-card-desc">
-                  {ui('영상 전체에 깔리는 노래예요. 영상보다 짧으면 자동으로 반복되고, 길면 영상 끝에서 잘려요.')}
-                </p>
               </div>
             </div>
 
@@ -8241,11 +8179,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 <label className="toss-music-toggle-row">
                   <div className="toss-music-toggle-text">
                     <strong>{ui('영상 길이에 음악 맞추기')}</strong>
-                    <span>
-                      {overlayOptions.bgmFitToVideo && calculatedBgmSpeed
-                        ? ui('영상 길이에 맞춰 {speed}x 속도로 재생돼요.', { speed: calculatedBgmSpeed })
-                        : ui('끄면 원래 속도로 재생하고, 모자라면 처음부터 반복해요.')}
-                    </span>
+                    {overlayOptions.bgmFitToVideo && calculatedBgmSpeed && (
+                      <span>
+                        {ui('영상 길이에 맞춰 {speed}x 속도로 재생돼요.', { speed: calculatedBgmSpeed })}
+                      </span>
+                    )}
                   </div>
                   <span className="toss-toggle-switch">
                     <input
@@ -8370,7 +8308,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               onClose={() => setIsStepSheetOpen(false)}
               steps={mobileStepItems}
               title={ui('전체 단계')}
-              guidance={ui('기본 설정이 이미 적용됐어요. 바꿀 단계만 눌러 수정하세요.')}
               closeLabel={dict.common?.close || ui('닫기')}
               onSelect={(id) => goToSection(id as StudioSection)}
             />

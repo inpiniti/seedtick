@@ -17,7 +17,6 @@ interface MobileStepListSheetProps {
   onClose: () => void;
   steps: MobileStepListItem[];
   title: string;
-  guidance: string;
   closeLabel: string;
   onSelect: (id: string) => void;
 }
@@ -27,7 +26,6 @@ export const MobileStepListSheet: React.FC<MobileStepListSheetProps> = ({
   onClose,
   steps,
   title,
-  guidance,
   closeLabel,
   onSelect,
 }) => {
@@ -61,7 +59,6 @@ export const MobileStepListSheet: React.FC<MobileStepListSheetProps> = ({
         <div className="toss-step-sheet-head">
           <div className="toss-step-sheet-head-text">
             <strong className="toss-step-sheet-title">{title}</strong>
-            <p className="toss-step-sheet-guidance">{guidance}</p>
           </div>
           <button
             type="button"

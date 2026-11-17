@@ -59,12 +59,7 @@ export const DateFormatSelectorModal: React.FC<DateFormatSelectorModalProps> = (
   };
 
   const modalTitle = dict.dateFormatModal?.title || dict.settingsModal?.dateFormat || '촬영 날짜 표기 형식';
-  const modalSubtitle =
-    dict.dateFormatModal?.subtitle || '영상 자막과 클립 정보에 표시될 날짜 형태를 선택하세요.';
   const defaultBadgeText = dict.dateFormatModal?.defaultBadge || '권장 기본값';
-  const tipText =
-    dict.dateFormatModal?.tip ||
-    '선택하신 날짜 포맷은 브라우저에 저장되며, 모든 영상 자막 및 편집 타임라인에 실시간 적용됩니다.';
 
   const getFormatLabel = (fmt: { id: DateFormatOption; label: string }) => {
     switch (fmt.id) {
@@ -120,7 +115,6 @@ export const DateFormatSelectorModal: React.FC<DateFormatSelectorModalProps> = (
               <h2 className="model-modal-title" id="date-format-modal-title">
                 {modalTitle}
               </h2>
-              <p className="model-modal-subtitle">{modalSubtitle}</p>
             </div>
           </div>
           <button
@@ -205,14 +199,6 @@ export const DateFormatSelectorModal: React.FC<DateFormatSelectorModalProps> = (
               </div>
             );
           })}
-        </div>
-
-        {/* Modal Footer / Tip */}
-        <div className="model-modal-footer">
-          <p className="model-modal-footer-tip" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span>💡</span>
-            <span>{tipText}</span>
-          </p>
         </div>
       </div>
     </div>

@@ -9,7 +9,6 @@ import {
   Flame,
   Clock,
   Sparkles,
-  Database,
   Film,
   RefreshCw,
 } from 'lucide-react';
@@ -32,7 +31,6 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
 
   const [videos, setVideos] = useState<VideoShareItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isUsingFallback, setIsUsingFallback] = useState<boolean>(false);
   const [sortOrder, setSortOrder] = useState<VideoSortOrder>('latest');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -64,7 +62,12 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
     try {
       const res = await fetchSharedVideos(sortOrder, searchQuery);
       setVideos(res.items);
-      setIsUsingFallback(res.isUsingFallback);
+      if (res.isUsingFallback) {
+        // 테이블 미생성 시에는 개발자 콘솔에서만 알린다. (프로덕션 UI에는 노출하지 않음)
+        console.warn(
+          '[VideoCommunity] Supabase video_shares table is not ready. Showing local fallback data.'
+        );
+      }
     } catch (err) {
       console.warn('Failed to load shared videos:', err);
     } finally {
@@ -112,19 +115,12 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
         <section className="toss-community-header-card">
           <div className="toss-community-header-top">
             <div className="toss-community-header-left">
-              <div className="toss-community-badge-row">
-                <span className="toss-community-badge youtube">
-                  <Play size={10} fill="currentColor" />
-                  YouTube
-                </span>
-                <span className="toss-community-badge">COMMUNITY</span>
-              </div>
               <h1 className="toss-community-title">
                 {cDict?.headerTitle || ui('공유된 영상 둘러보기')}
               </h1>
               <p className="toss-community-desc">
                 {cDict?.headerDesc ||
-                  ui('Reportist Video로 제작하여 유튜브에 공유된 하이라이트 영상들을 만나보세요.')}
+                  ui('PenguinCut으로 제작해 유튜브에 공유된 하이라이트 영상들이에요.')}
               </p>
             </div>
 
@@ -208,17 +204,7 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
           </div>
         </section>
 
-        {/* 2. Supabase DB 연동 안내 (테이블 미생성 시) */}
-        {isUsingFallback && (
-          <div className="toss-preview-card-box" style={{ borderColor: '#fed7aa', backgroundColor: '#fffbeb' }}>
-            <Database size={18} color="#ea580c" style={{ flexShrink: 0 }} />
-            <div style={{ fontSize: '12.5px', color: '#9a3412', lineHeight: '1.45' }}>
-              <strong>{ui('Supabase DB 안내: ')}</strong>
-              {ui('현재 Supabase 테이블(')}<code>video_shares</code>{ui(') 생성 전이어서 임시 저장소로 표시 중입니다. SQL 마이그레이션(')}<code>migration_video_shares.sql</code>{ui(')을 실행하시면 모든 사용자와 실시간 공유됩니다. ')}</div>
-          </div>
-        )}
-
-        {/* 3. 영상 갤러리 그리드 또는 빈 화면 */}
+        {/* 2. 영상 갤러리 그리드 또는 빈 화면 */}
         {videos.length === 0 ? (
           <div className="toss-community-empty">
             <div className="toss-community-empty-icon">

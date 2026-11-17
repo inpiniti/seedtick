@@ -1180,12 +1180,6 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
 
         {/* Modal Footer */}
         <div className="model-modal-footer">
-          <div className="model-modal-footer-tip">
-            <Sparkles size={14} color="#0f172a" />
-            <span>
-              {dict.modelModal.benchmarkTip}
-            </span>
-          </div>
           <button type="button" className="model-modal-confirm-btn" onClick={onClose}>
             {dict.common.close}
           </button>

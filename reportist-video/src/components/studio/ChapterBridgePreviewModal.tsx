@@ -14,7 +14,6 @@ import {
   Check,
   Maximize2,
   Minimize2,
-  HelpCircle,
 } from 'lucide-react';
 import {
   CHAPTER_BRIDGE_DURATION,
@@ -585,27 +584,6 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                 }}
               >
                 {currentTime.toFixed(2)}s / {CHAPTER_BRIDGE_DURATION.toFixed(1)}s
-              </span>
-            </div>
-
-            {/* 하단 팁 / 상태 알림 카드 */}
-            <div
-              style={{
-                backgroundColor: '#ffffff',
-                borderRadius: '12px',
-                padding: '12px 16px',
-                border: '1px solid #e2e8f0',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                fontSize: '12.5px',
-                color: '#475569',
-              }}
-            >
-              <HelpCircle size={16} color="#1e293b" style={{ flexShrink: 0 }} />
-              <span>
-                {cDict?.tipDescription ||
-                  ui('💡 템플릿 카드를 클릭하면 왼쪽 대형 화면에서 즉시 실시간 전환 모션이 시뮬레이션됩니다.')}
               </span>
             </div>
           </div>
