@@ -2082,7 +2082,6 @@ export function App() {
     setCurrentStep(finalResult ? 'result' : 'upload');
   };
 
-  // 새로 만들기 리셋 — 포맷 선택 모달에서 고른 방향을 그대로 새 프로젝트에 적용한다.
   const handleReset = (orientation?: VideoOrientation, platform?: PortraitPlatform) => {
     handleStartNewProject(orientation, platform);
   };
