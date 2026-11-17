@@ -1,7 +1,7 @@
 // components/studio/ProStudioView.tsx - Toss-style 16:9 AI Video Studio with i18n
 import './ProStudioView.css';
 
-import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
 import { MobileStudioStepHeader } from './mobile/MobileStudioStepHeader.tsx';
 import { MobileStepListSheet } from './mobile/MobileStepListSheet.tsx';
 import { MobileBottomCtaBar } from './mobile/MobileBottomCtaBar.tsx';
@@ -3640,6 +3640,26 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     if (offset) previewSectionRange(offset.startOffset, offset.endOffset);
   };
 
+  // 상태를 바꾼 직후 setTimeout으로 미리보기를 예약하면, 콜백이 이전 렌더의
+  // previewSectionPlay(옛 overlayOptions/segments)를 그대로 붙잡아 방금 고른
+  // 템플릿이 아니라 직전에 고른 템플릿이 재생된다.
+  // 예약 실행 시점의 최신 렌더 함수를 ref로 참조해 항상 방금 바뀐 상태로 재생한다.
+  const previewSectionPlayRef = useRef<(section: StudioSection, bridgeIndex?: number) => void>(
+    () => {}
+  );
+  // 타이머 콜백이 커밋 이후에 실행되도록, ref 동기화는 paint 전(layout effect)에 끝낸다.
+  useLayoutEffect(() => {
+    previewSectionPlayRef.current = previewSectionPlay;
+  });
+
+  const scheduleSectionPreview = (
+    section: StudioSection,
+    bridgeIndex?: number,
+    delayMs = 80
+  ) => {
+    window.setTimeout(() => previewSectionPlayRef.current(section, bridgeIndex), delayMs);
+  };
+
   const selectCutByOffset = (delta: number) => {
     if (segments.length === 0) return;
     const nextIndex = Math.max(0, Math.min(segments.length - 1, selectedSegmentIndex + delta));
@@ -3671,7 +3691,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       sectionSyncSuppressRef.current = false;
     }
     if (autoPreview) {
-      window.setTimeout(() => previewSectionPlay('bridge', idx), 80);
+      scheduleSectionPreview('bridge', idx);
     }
   };
 
@@ -3686,7 +3706,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     setSelectedBridgeIndex(idx);
     setSelectedSegmentId(seg.id);
     if (enabled) {
-      window.setTimeout(() => previewSectionPlay('bridge', idx), 100);
+      scheduleSectionPreview('bridge', idx, 100);
     }
   };
 
@@ -3704,7 +3724,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           : s
       )
     );
-    window.setTimeout(() => previewSectionPlay('bridge', idx), 100);
+    scheduleSectionPreview('bridge', idx, 100);
   };
 
   // AI 컷이 없거나 자동 감지된 전환이 없을 때 기본 브릿지 스타일을 미리 골라둔다.
@@ -3721,7 +3741,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         : { chapterBridgeLocationTemplate: templateId as BridgeLocationTemplateId }),
     }));
     if (autoPreview) {
-      window.setTimeout(() => previewSectionPlay('bridge'), 80);
+      scheduleSectionPreview('bridge');
     }
   };
 
@@ -6677,7 +6697,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             setStoredIntroTemplate(tpl.id);
                             setOverlayOptions((prev) => ({ ...prev, introTemplate: tpl.id }));
                             // 선택 즉시 왼쪽 미리보기에서 해당 인트로 모션을 재생한다.
-                            window.setTimeout(() => previewSectionPlay('intro'), 80);
+                            scheduleSectionPreview('intro');
                           }}
                           className={`toss-io-template-card ${isSelected ? 'selected' : ''}`}
                         >
@@ -6713,7 +6733,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           onClick={() => {
                             setStoredIntroDuration(sec);
                             setOverlayOptions((prev) => ({ ...prev, introDurationSec: sec }));
-                            window.setTimeout(() => previewSectionPlay('intro'), 80);
+                            scheduleSectionPreview('intro');
                           }}
                           className={`toss-io-chip ${isCurrent ? 'active' : ''}`}
                         >
@@ -7974,7 +7994,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           onClick={() => {
                             setStoredOutroTemplate(tpl.id);
                             setOverlayOptions((prev) => ({ ...prev, outroTemplate: tpl.id }));
-                            window.setTimeout(() => previewSectionPlay('outro'), 80);
+                            scheduleSectionPreview('outro');
                           }}
                           className={`toss-io-template-card ${isSelected ? 'selected' : ''}`}
                         >
@@ -8029,7 +8049,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           onClick={() => {
                             setStoredOutroDuration(sec);
                             setOverlayOptions((prev) => ({ ...prev, outroDurationSec: sec }));
-                            window.setTimeout(() => previewSectionPlay('outro'), 80);
+                            scheduleSectionPreview('outro');
                           }}
                           className={`toss-io-chip ${isCurrent ? 'active' : ''}`}
                         >
