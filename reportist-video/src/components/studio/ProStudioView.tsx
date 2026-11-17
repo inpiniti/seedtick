@@ -196,11 +196,12 @@ const PLAYBACK_ERROR_MESSAGE =
 
 // ============================================================
 // 통합 스튜디오 편집 가이드 (프로젝트 상태에 따라 두 흐름으로 나뉜다)
-// - 처음 만드는 중: 인트로 → 영상 올리기 → AI 하이라이트 → 브릿지 → 아웃트로 → 노래 → 썸네일 → 다운로드 (8단계)
-// - 컷이 만들어진 뒤: 인트로 → 자막 → 컷 → 브릿지 → 아웃트로 → 노래 → 썸네일 → 다운로드 (8단계)
+// - 처음 만드는 중: 인트로 문구 → 인트로 스타일 → 영상 올리기 → AI 하이라이트 → 브릿지 → 아웃트로 → 노래 → 썸네일 → 다운로드 (9단계)
+// - 컷이 만들어진 뒤: 인트로 문구 → 인트로 스타일 → 자막 → 컷 → 브릿지 → 아웃트로 → 노래 → 썸네일 → 다운로드 (9단계)
 // ============================================================
 type StudioSection =
   | 'intro'
+  | 'introStyle'
   | 'caption'
   | 'upload'
   | 'ai'
@@ -221,9 +222,15 @@ interface StudioStep {
 const CREATE_STUDIO_STEPS: StudioStep[] = [
   {
     id: 'intro',
-    label: '인트로',
-    shortDesc: '시작 화면',
-    description: '영상 맨 앞에 나올 오프닝을 골라요. 스타일을 누르면 왼쪽 미리보기에서 바로 재생돼요.',
+    label: '인트로 문구',
+    shortDesc: '좌·우 문구',
+    description: '영상 위에 나올 왼쪽·오른쪽 문구를 정해요. 입력한 문구는 미리보기에서 바로 확인할 수 있어요.',
+  },
+  {
+    id: 'introStyle',
+    label: '인트로 스타일',
+    shortDesc: '4가지 스타일',
+    description: '인트로 모션 스타일과 재생 시간을 골라요. 직접 만든 인트로 영상을 올릴 수도 있어요.',
   },
   {
     id: 'upload',
@@ -272,9 +279,15 @@ const CREATE_STUDIO_STEPS: StudioStep[] = [
 const EDIT_STUDIO_STEPS: StudioStep[] = [
   {
     id: 'intro',
-    label: '인트로',
-    shortDesc: '시작 화면',
-    description: '영상 맨 앞에 나올 오프닝을 골라요. 스타일을 누르면 왼쪽 미리보기에서 바로 재생돼요.',
+    label: '인트로 문구',
+    shortDesc: '좌·우 문구',
+    description: '영상 위에 나올 왼쪽·오른쪽 문구를 정해요. 입력한 문구는 미리보기에서 바로 확인할 수 있어요.',
+  },
+  {
+    id: 'introStyle',
+    label: '인트로 스타일',
+    shortDesc: '4가지 스타일',
+    description: '인트로 모션 스타일과 재생 시간을 골라요. 직접 만든 인트로 영상을 올릴 수도 있어요.',
   },
   {
     id: 'caption',
@@ -1880,7 +1893,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 시퀀스 하이라이트 모드 여부 (캡컷 방식 실시간 시퀀스 프리뷰: 원본 소스가 있거나 완성본이 아직 없는 경우)
   // 원본 소스가 기기 메모리 정리로 분리되었더라도 완성본 비디오(result.url)가 있다면 캔버스 합성이 아닌 완성본 직접 재생 모드로 전환
   const isSequenceMode = segments.length > 0 && (hasPlayableSourceVideos || !result?.url);
-  // 아직 AI 컷이 없는 "처음 만드는" 흐름인지 여부 (8단계 vs 8단계 스텝바 분기)
+  // 아직 AI 컷이 없는 "처음 만드는" 흐름인지 여부 (9단계 vs 9단계 스텝바 분기)
   const isCreationFlow = segments.length === 0;
   const studioSteps = isCreationFlow ? CREATE_STUDIO_STEPS : EDIT_STUDIO_STEPS;
   const activeStudioStepIndex = Math.max(
@@ -1889,16 +1902,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   );
   const activeStudioStep = studioSteps[activeStudioStepIndex] || studioSteps[0];
   // 인트로/브릿지/아웃트로는 AI 컷이 없어도 캔버스 단독으로 미리볼 수 있다.
-  // 단, 해당 기능을 끈 상태에서는 검은 템플릿 카드 대신 실제 영상이 보이도록 한다.
-  const standalonePreviewSection: 'intro' | 'bridge' | 'outro' | null =
-    !isSequenceMode &&
-    ((activeSection === 'intro' && overlayOptions.showIntro) ||
-      (activeSection === 'bridge' && overlayOptions.showChapterBridge !== false) ||
-      (activeSection === 'outro' && overlayOptions.showOutro))
-      ? activeSection
-      : null;
+  // 인트로 스타일 단계도 같은 인트로 캔버스를 보여주고, 토글을 꺼도 타이틀 카드는 그대로 미리보여 준다.
+  const standalonePreviewSection: 'intro' | 'bridge' | 'outro' | null = !isSequenceMode
+    ? activeSection === 'introStyle'
+      ? 'intro'
+      : activeSection === 'intro' || activeSection === 'bridge' || activeSection === 'outro'
+        ? activeSection
+        : null
+    : null;
 
-  // AI 분석이 끝나 컷이 처음 생기면 8단계 생성 흐름에서 편집 흐름의 '컷'으로 자연스럽게 이동한다.
+  // AI 분석이 끝나 컷이 처음 생기면 생성 흐름에서 편집 흐름의 '컷'으로 자연스럽게 이동한다.
   const hadSegmentsRef = useRef<boolean>(initialSegments.length > 0);
   useEffect(() => {
     if (segments.length > 0 && !hadSegmentsRef.current) {
@@ -2226,7 +2239,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     [bridgeCandidateIndexes, effectiveBridgeDurationMap, segments]
   );
 
-  // 3번 브릿지 단계에서 보여줄 경계 (선택된 컷과 가장 가까운 후보)
+  // 5번 브릿지 단계에서 보여줄 경계 (선택된 컷과 가장 가까운 후보)
   const effectiveBridgeIndex = useMemo(() => {
     if (bridgeCandidateIndexes.includes(selectedBridgeIndex)) return selectedBridgeIndex;
     const nearest =
@@ -2501,7 +2514,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
   // 타임라인 위치(플레이헤드)에 따라 오른쪽 편집 패널을 인트로/컷/브릿지/아웃트로로 자동 전환한다.
   // - 재생 중에는 눈이 피로하지 않도록 전환하지 않고, 스크럽/클릭/시크 시에만 동기화한다.
-  // - 5번 노래 패널을 직접 연 상태에서는 사용자가 타임라인 블록을 누르기 전까지 유지한다.
+  // - 7번 노래 패널을 직접 연 상태에서는 사용자가 타임라인 블록을 누르기 전까지 유지한다.
   const syncSectionForTime = (timelineTime: number) => {
     if (segments.length === 0 || isSequencePlayingRef.current || musicPanelPinnedRef.current || sectionSyncSuppressRef.current) return;
     const res = resolveTimelineAt(timelineTime);
@@ -3156,7 +3169,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     rightColumnRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   }, [activeSection]);
 
-  // 7~8단계로 늘어난 스텝바에서 현재 단계가 가로 스크롤 중앙에 오도록 맞춘다.
+  // 9단계 스텝바에서 현재 단계가 가로 스크롤 중앙에 오도록 맞춘다.
   useEffect(() => {
     const list = stepbarListRef.current;
     const button = activeStepButtonRef.current;
@@ -3530,7 +3543,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   };
 
   // 클립 선택 및 이동
-  const handleSelectSegment = (segId: string, targetSection?: 'cut' | 'caption') => {
+  const handleSelectSegment = (segId: string, targetSection?: StudioSection) => {
     musicPanelPinnedRef.current = false;
     // 단계 이동으로 시크할 때 패널이 플레이헤드 기준으로 되튕기지 않도록 동기화를 잠시 멈춘다.
     sectionSyncSuppressRef.current = true;
@@ -3539,11 +3552,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     // (인트로/아웃트로/컷 각각의 블록과 편집 화면이 서로 어긋나지 않도록)
     // 자막 단계에서 씬을 훑는 중이면 자막 패널을 유지한다.
     setActiveSection((prev) =>
-      segId === 'intro'
+      targetSection ??
+      (segId === 'intro'
         ? 'intro'
         : segId === 'outro'
           ? 'outro'
-          : targetSection ?? (prev === 'caption' ? 'caption' : 'cut')
+          : prev === 'caption'
+            ? 'caption'
+            : 'cut')
     );
     setSelectedSegmentId(segId);
     if (!isSequenceMode) {
@@ -3793,8 +3809,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     musicPanelPinnedRef.current =
       section === 'music' || section === 'thumbnail' || section === 'download';
     setActiveSection(section);
-    if (section === 'intro') {
-      handleSelectSegment('intro');
+    if (section === 'intro' || section === 'introStyle') {
+      handleSelectSegment('intro', section);
       return;
     }
     if (section === 'outro') {
@@ -3813,7 +3829,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     // upload / ai / music: 재생 위치를 건드리지 않고 해당 패널만 연다.
   };
 
-  // 다음/이전 단계는 현재 흐름(생성 8단계 / 편집 8단계)의 순서를 그대로 따른다.
+  // 다음/이전 단계는 현재 흐름(생성 9단계 / 편집 9단계)의 순서를 그대로 따른다.
   // AI 컷이나 브릿지 후보가 없어도 단계를 건너뛰지 않는다.
   const goToAdjacentSection = (delta: 1 | -1) => {
     const nextIndex = activeStudioStepIndex + delta;
@@ -3825,6 +3841,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const getStudioStepStatus = (stepId: StudioSection): string => {
     switch (stepId) {
       case 'intro':
+        return overlayOptions.titleText.trim().length > 0 ||
+          overlayOptions.channelText.trim().length > 0
+          ? ui('문구 설정됨')
+          : ui('문구 없음');
+      case 'introStyle':
         return overlayOptions.showIntro ? ui('사용 중') : ui('사용 안 함');
       case 'upload':
         return videos.length > 0
@@ -5119,7 +5140,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         />
       ) : (
         <main className="toss-main-content">
-        {/* 통합 스튜디오 단계 안내: 처음 만들 때 8단계, 컷이 생기면 7단계
+        {/* 통합 스튜디오 단계 안내: 처음 만드는 흐름과 컷이 생긴 흐름 모두 9단계
             모바일(1024px 이하)에서는 잘리던 가로 스텝 스트립 대신 컴팩트 스텝 헤더 + 전체 단계 바텀시트를 쓴다 */}
         {isMobileViewport ? (
           <MobileStudioStepHeader
@@ -5139,9 +5160,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               {isCreationFlow ? ui('처음 만드는 순서') : ui('편집 순서')}
             </span>
             <strong className="toss-studio-stepbar-title">
-              {isCreationFlow
-                ? ui('1번부터 8번까지, 순서대로만 눌러주세요')
-                : ui('1번부터 7번까지, 순서대로만 눌러주세요')}
+              {ui('1번부터 9번까지, 순서대로만 눌러주세요')}
             </strong>
           </div>
           <ol className="toss-studio-steps" ref={stepbarListRef}>
@@ -5159,6 +5178,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   >
                     <span className="toss-studio-step-num">
                       {step.id === 'intro' ? (
+                        <Type size={14} />
+                      ) : step.id === 'introStyle' ? (
                         <Film size={14} />
                       ) : step.id === 'upload' ? (
                         <Upload size={14} />
@@ -5496,7 +5517,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     <h3 className="toss-empty-title">{ui('영상 하나만 올리면 시작돼요')}</h3>
                     <p className="toss-empty-desc">
                       {ui('올린 영상에서 AI가 하이라이트를 뽑아줘요.')}<br />
-                      {ui('그다음은')} <strong>{ui('1번 인트로 → 2번 영상 올리기 → 3번 AI 하이라이트 → 4번 브릿지 → 5번 아웃트로 → 6번 노래')}</strong>{' '}
+                      {ui('그다음은')} <strong>{ui('1번 인트로 문구 → 2번 인트로 스타일 → 3번 영상 올리기 → 4번 AI 하이라이트 → 5번 브릿지 → 6번 아웃트로 → 7번 노래')}</strong>{' '}
                       {ui('순서로만 따라가면 끝나요.')}
                     </p>
                     <div className="flex items-center gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
@@ -5918,7 +5939,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       {/* 시작 인트로 블록 (인터로가 포함된 경우) */}
                       {introDuration > 0 && (
                         <div
-                          className={`toss-sequencer-block toss-sequencer-intro-block ${activePlayingSegmentId === 'intro' ? 'playing' : ''} ${activeSection === 'intro' ? 'selected' : ''}`}
+                          className={`toss-sequencer-block toss-sequencer-intro-block ${activePlayingSegmentId === 'intro' ? 'playing' : ''} ${activeSection === 'intro' || activeSection === 'introStyle' ? 'selected' : ''}`}
                           style={{
                             flex: `${Math.max(0.01, introDuration)} 1 0%`,
                             minWidth: 0,
@@ -6320,7 +6341,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   </p>
                   <p className="toss-thumbnail-empty-desc">
                     {isCreationFlow
-                      ? ui('3번 AI 하이라이트에서 영상을 분석하면 AI가 가장 잘 나온 장면으로 16:9 썸네일을 만들어줘요.')
+                      ? ui('4번 AI 하이라이트에서 영상을 분석하면 AI가 가장 잘 나온 장면으로 16:9 썸네일을 만들어줘요.')
                       : ui('현재 영상 화면을 그대로 캡처하거나, AI 하이라이트를 다시 뽑아 추천 프레임을 받아보세요.')}
                   </p>
                   <div className="toss-thumbnail-empty-actions">
@@ -6330,7 +6351,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       onClick={() => goToSection(isCreationFlow ? 'ai' : 'cut')}
                     >
                       <Sparkles size={13} />
-                      <span>{isCreationFlow ? ui('3번 AI 하이라이트로 가기') : ui('3번 컷으로 가기')}</span>
+                      <span>{isCreationFlow ? ui('4번 AI 하이라이트로 가기') : ui('4번 컷으로 가기')}</span>
                     </button>
                     {activeVideoUrl && (
                       <button
@@ -6654,7 +6675,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               <div className="toss-empty-state toss-download-empty">
                 <p className="text-slate-500 text-sm">
                   {isCreationFlow
-                    ? ui('3번 AI 하이라이트를 만들면 완성된 영상을 저장할 수 있어요.')
+                    ? ui('4번 AI 하이라이트를 만들면 완성된 영상을 저장할 수 있어요.')
                     : ui('AI 하이라이트 컷을 먼저 만든 뒤 저장할 수 있어요.')}
                 </p>
                 <button
@@ -6663,15 +6684,30 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   onClick={() => goToSection(isCreationFlow ? 'ai' : 'cut')}
                 >
                   <Sparkles size={13} />
-                  <span>{isCreationFlow ? ui('3번 AI 하이라이트로 가기') : ui('3번 컷으로 가기')}</span>
+                  <span>{isCreationFlow ? ui('4번 AI 하이라이트로 가기') : ui('4번 컷으로 가기')}</span>
                 </button>
               </div>
             )}
           </div>
 
-          {/* 시작 인트로 카드 */}
+          {/* 1번: 인트로 문구 카드 — 영상 위 왼쪽·오른쪽 문구 */}
           <div
             className={`toss-card toss-intro-card toss-inspector-card ${activeSection === 'intro' ? 'is-active-section' : ''}`}
+          >
+            <div className="toss-card-header">
+              <div>
+                <h4 className="toss-card-title">
+                  <Type size={15} className="text-slate-800 shrink-0" />
+                  <span>{ui('인트로 문구')}</span>
+                </h4>
+              </div>
+            </div>
+            <div className="toss-header-inputs-inline">{overlayTextInputFields}</div>
+          </div>
+
+          {/* 2번: 인트로 스타일 카드 — 모션 템플릿·재생 시간·직접 업로드 */}
+          <div
+            className={`toss-card toss-intro-card toss-inspector-card ${activeSection === 'introStyle' ? 'is-active-section' : ''}`}
           >
             <div className="toss-card-header">
               <div>
@@ -6693,11 +6729,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 <span className="toss-toggle-slider" />
               </label>
             </div>
-
-            {/* 모바일: 프리뷰 위를 가리지 않도록 왼쪽/오른쪽 문구 입력은 인트로 단계에서만 보여준다 */}
-            {isMobileViewport && (
-              <div className="toss-header-inputs-inline">{overlayTextInputFields}</div>
-            )}
 
             {overlayOptions.showIntro && (
               <div className="toss-intro-content">
@@ -6896,7 +6927,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               {videos.length === 0 ? (
                 <div className="toss-empty-state">
                   <p className="text-slate-400 text-sm">
-                    {ui('먼저 2번 영상 올리기에서 영상을 하나 이상 올려주세요.')}
+                    {ui('먼저 3번 영상 올리기에서 영상을 하나 이상 올려주세요.')}
                   </p>
                   <button
                     type="button"
@@ -6940,7 +6971,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     onClick={() => goToSection('cut')}
                   >
                     <Scissors size={12} />
-                    <span>{ui('3번 컷 다듬기')}</span>
+                    <span>{ui('4번 컷 다듬기')}</span>
                   </button>
                 </div>
               ) : (
@@ -7063,7 +7094,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     onClick={() => goToSection('cut')}
                   >
                     <Scissors size={12} />
-                    <span>{ui('3번 컷으로 가기')}</span>
+                    <span>{ui('4번 컷으로 가기')}</span>
                   </button>
                 </div>
 
@@ -7108,7 +7139,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             ) : segments.length < 2 || !selectedBridgeDetail ? (
               <div className="toss-empty-state">
                 <p className="text-slate-400 text-sm">
-                  {ui('컷이 2개 이상이고, 컷마다 날짜나 장소가 달라야 브릿지가 자동으로 생겨요. 3번 컷에서 날짜·장소를 먼저 적어보세요.')}
+                  {ui('컷이 2개 이상이고, 컷마다 날짜나 장소가 달라야 브릿지가 자동으로 생겨요. 4번 컷에서 날짜·장소를 먼저 적어보세요.')}
                 </p>
                 <button
                   type="button"
@@ -8262,7 +8293,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     title={
                       isSequenceMode
                         ? ui('영상 앞부분에서 음악을 미리 들어요')
-                        : ui('3번 AI 하이라이트를 먼저 만들면 영상과 함께 들을 수 있어요')
+                        : ui('4번 AI 하이라이트를 먼저 만들면 영상과 함께 들을 수 있어요')
                     }
                   >
                     <Play size={12} />
@@ -8303,13 +8334,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 onClick={() => goToSection('ai')}
               >
                 <Sparkles size={13} />
-                <span>{ui('3번 AI 하이라이트를 먼저 만들면 영상과 함께 들을 수 있어요')}</span>
+                <span>{ui('4번 AI 하이라이트를 먼저 만들면 영상과 함께 들을 수 있어요')}</span>
                 <ArrowRight size={13} />
               </button>
             )}
           </div>
 
-          {/* 단계 이동: 생성 흐름 8단계 / 편집 흐름 7단계 순서를 그대로 따른다 */}
+          {/* 단계 이동: 생성 흐름 9단계 / 편집 흐름 9단계 순서를 그대로 따른다 */}
           <nav className="toss-inspector-nav" aria-label={ui('편집 단계 이동')}>
             <button
               type="button"

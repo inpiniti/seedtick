@@ -4,6 +4,10 @@ export const uiFr: Record<string, string> = {
   '시작 화면': "Écran d'ouverture",
   '영상 맨 앞에 나올 오프닝을 골라요. 스타일을 누르면 왼쪽 미리보기에서 바로 재생돼요.':
     "Choisissez l'ouverture diffusée au tout début de la vidéo. Touchez un style pour le lire aussitôt dans l'aperçu à gauche.",
+  '인트로 문구': "Texte d'intro",
+  '인트로 스타일': "Style d'intro",
+  '문구 설정됨': 'Texte défini',
+  '문구 없음': 'Aucun texte',
   '영상 올리기': 'Importer des vidéos',
   '원본 준비': 'Clips sources',
   '영상을 올리고 순서와 촬영 장소를 확인해요. 여러 개를 한 번에 올려도 돼요.':
@@ -40,8 +44,7 @@ export const uiFr: Record<string, string> = {
   '주요 메뉴': 'Menu principal',
   '편집 순서': 'Ordre de montage',
   '처음 만드는 순서': 'Ordre de création',
-  '1번부터 8번까지, 순서대로만 눌러주세요': 'Des étapes 1 à 8, dans cet ordre uniquement.',
-  '1번부터 7번까지, 순서대로만 눌러주세요': 'Des étapes 1 à 7, dans cet ordre uniquement.',
+  '1번부터 9번까지, 순서대로만 눌러주세요': 'Des étapes 1 à 9, dans cet ordre uniquement.',
   '영상 올리기와 AI 하이라이트까지 이 화면에서 한 번에 끝나요.':
     "L'import et les moments IA se font tous sur cet écran.",
   '썸네일': 'Miniature',
@@ -68,8 +71,8 @@ export const uiFr: Record<string, string> = {
   '영상 내보내기 & 다운로드': 'Exporter et télécharger',
   '새 영상 만들기': 'Créer une vidéo',
   '영상 하나만 올리면 시작돼요': 'Importez une vidéo pour commencer',
-  '1번 인트로 → 2번 영상 올리기 → 3번 AI 하이라이트 → 4번 브릿지 → 5번 아웃트로 → 6번 노래':
-    '1 Intro → 2 Import → 3 Moments IA → 4 Pont → 5 Outro → 6 Musique',
+  '1번 인트로 문구 → 2번 인트로 스타일 → 3번 영상 올리기 → 4번 AI 하이라이트 → 5번 브릿지 → 6번 아웃트로 → 7번 노래':
+    "1 Texte d'intro → 2 Style d'intro → 3 Import → 4 Moments IA → 5 Pont → 6 Outro → 7 Musique",
   '새 프로젝트로 시작': 'Démarrer un nouveau projet',
   '미리보기 재생': "Lire l'aperçu",
   '재선택 필요': 'Nouvelle sélection requise',
@@ -104,12 +107,12 @@ export const uiFr: Record<string, string> = {
   '{name} 빼기': 'Retirer {name}',
   '영상 올리러 가기': "Aller à l'import",
   'AI가 하이라이트를 찾고 있어요': "L'IA recherche les moments forts",
-  '3번 컷 다듬기': "Ajuster le clip de l'étape 3",
+  '4번 컷 다듬기': "Ajuster le clip de l'étape 4",
   '장면 전환 (브릿지)': 'Transition (pont)',
   '브릿지 미리보기': 'Aperçu du pont',
   '날짜 넘어가는 효과': 'Effet de changement de date',
   '장소 이동 효과': 'Effet de changement de lieu',
-  '3번 컷으로 가기': "Aller à l'étape du clip",
+  '4번 컷으로 가기': "Aller à l'étape du clip",
   '컷 설정으로 가기': 'Aller aux réglages du clip',
   '장소 없음': 'Aucun lieu',
   '날짜 없음': 'Aucune date',
@@ -144,15 +147,15 @@ export const uiFr: Record<string, string> = {
     'Désactivé, la musique joue à vitesse normale et boucle depuis le début si elle est trop courte.',
   '다른 노래 고르기': 'Choisir un autre morceau',
   '영상 앞부분에서 음악을 미리 들어요': 'Écouter la musique depuis le début de la vidéo',
-  '3번 AI 하이라이트를 먼저 만들면 영상과 함께 들을 수 있어요':
-    "Créez les moments IA à l'étape 3 pour les écouter avec la vidéo",
+  '4번 AI 하이라이트를 먼저 만들면 영상과 함께 들을 수 있어요':
+    "Créez les moments IA à l'étape 4 pour les écouter avec la vidéo",
   '보관함에서 고르기': 'Choisir dans la bibliothèque',
   '내 음악 올리기': 'Importer ma musique',
   '편집 단계 이동': 'Navigation entre les étapes',
   '이전 단계': 'Étape précédente',
   '편집한 영상을 저장해요': 'Enregistrer la vidéo montée',
-  '3번 AI 하이라이트를 먼저 만들면 저장할 수 있어요':
-    "Créez les moments IA à l'étape 3 pour pouvoir enregistrer",
+  '4번 AI 하이라이트를 먼저 만들면 저장할 수 있어요':
+    "Créez les moments IA à l'étape 4 pour pouvoir enregistrer",
   '영상 저장하기': 'Enregistrer la vidéo',
   '다음 단계': 'Étape suivante',
   '영상 썸네일': 'Miniature de la vidéo',
@@ -197,8 +200,8 @@ export const uiFr: Record<string, string> = {
     "Ils n'apparaissent qu'entre les clips où la date ou le lieu change. Seuls les points activés s'affichent dans la timeline.",
   '다음 전환 ›': 'Transition suivante ›',
   '다음 컷 ›': 'Clip suivant ›',
-  '먼저 2번 영상 올리기에서 영상을 하나 이상 올려주세요.':
-    "Importez d'abord au moins une vidéo à l'étape 2.",
+  '먼저 3번 영상 올리기에서 영상을 하나 이상 올려주세요.':
+    "Importez d'abord au moins une vidéo à l'étape 3.",
   '목록 확인': 'Voir la liste',
   '버튼을 누르면 원하는 컷 사이에 브릿지를 직접 켤 수 있어요.':
     'Touchez le bouton pour activer un pont entre les clips de votre choix.',
@@ -222,8 +225,8 @@ export const uiFr: Record<string, string> = {
   '자동 감지된 전환 지점이 없어요. 그래도 브릿지 스타일은 미리 골라둘 수 있어요. 타임라인의':
     "Aucun point de transition détecté automatiquement. Vous pouvez tout de même présélectionner un style de pont. Dans la timeline,",
   '컷 #{index}': 'Clip #{index}',
-  '컷이 2개 이상이고, 컷마다 날짜나 장소가 달라야 브릿지가 자동으로 생겨요. 3번 컷에서 날짜·장소를 먼저 적어보세요.':
-    "Il faut au moins 2 clips avec des dates ou des lieux différents pour que les ponts apparaissent automatiquement. Renseignez d'abord la date et le lieu à l'étape 3.",
+  '컷이 2개 이상이고, 컷마다 날짜나 장소가 달라야 브릿지가 자동으로 생겨요. 4번 컷에서 날짜·장소를 먼저 적어보세요.':
+    "Il faut au moins 2 clips avec des dates ou des lieux différents pour que les ponts apparaissent automatiquement. Renseignez d'abord la date et le lieu à l'étape 4.",
   '클릭하여 챕터 브릿지 다시 켜기': 'Cliquez pour réactiver le pont de chapitre',
   '하이라이트 {count}개 완성': '{count} moments forts prêts',
   '% 단축':
@@ -469,9 +472,9 @@ export const uiFr: Record<string, string> = {
   '다운로드로 가기': 'Aller au téléchargement',
   "AI 하이라이트를 만들면 썸네일을 함께 준비할 수 있어요": "Créez les moments IA et la miniature sera préparée en même temps",
   "아직 완성된 썸네일이 없어요": "Pas encore de miniature terminée",
-  "3번 AI 하이라이트에서 영상을 분석하면 AI가 가장 잘 나온 장면으로 16:9 썸네일을 만들어줘요.": "Analysez la vidéo à l'étape 3 (moments IA) : l'IA crée une miniature 16:9 à partir de la meilleure image.",
+  "4번 AI 하이라이트에서 영상을 분석하면 AI가 가장 잘 나온 장면으로 16:9 썸네일을 만들어줘요.": "Analysez la vidéo à l'étape 4 (moments IA) : l'IA crée une miniature 16:9 à partir de la meilleure image.",
   "현재 영상 화면을 그대로 캡처하거나, AI 하이라이트를 다시 뽑아 추천 프레임을 받아보세요.": "Capturez l'image actuelle de la vidéo, ou relancez les moments IA pour obtenir une image recommandée.",
-  "3번 AI 하이라이트로 가기": "Aller à l'étape 3 (moments IA)",
+  "4번 AI 하이라이트로 가기": "Aller à l'étape 4 (moments IA)",
   "현재 화면으로 만들기": "Utiliser l'image actuelle",
   "영상 저장 · 다운로드": "Enregistrer · Télécharger",
   "편집을 모두 마쳤어요. 완성된 영상과 자막, 썸네일을 여기서 한 번에 내려받을 수 있어요.": "L'édition est terminée. Téléchargez ici la vidéo finale, les sous-titres et la miniature en une fois.",
@@ -479,7 +482,7 @@ export const uiFr: Record<string, string> = {
   " · 원본보다 {percent}% 짧아요": " · {percent}% plus court que l'original",
   "썸네일 다시 저장": "Réenregistrer la miniature",
   "저장 버튼을 누르면 해상도를 고르고 최종 영상을 만들 수 있어요. 저장이 끝나면 이 화면에서 언제든 다시 받을 수 있어요.": "Appuyez sur enregistrer pour choisir la résolution et générer la vidéo finale. Une fois terminé, vous pouvez la retélécharger depuis cet écran à tout moment.",
-  "3번 AI 하이라이트를 만들면 완성된 영상을 저장할 수 있어요.": "Créez les moments IA de l'étape 3 pour pouvoir enregistrer la vidéo finale.",
+  "4번 AI 하이라이트를 만들면 완성된 영상을 저장할 수 있어요.": "Créez les moments IA de l'étape 4 pour pouvoir enregistrer la vidéo finale.",
   "AI 하이라이트 컷을 먼저 만든 뒤 저장할 수 있어요.": "Créez d'abord les clips de moments IA, puis vous pourrez enregistrer.",
   "새 영상 포맷 고르기": "Choisir le format vidéo",
   "만들기 전에 화면 비율을 골라주세요.": "Choisissez le format d'image avant de commencer.",
@@ -492,7 +495,7 @@ export const uiFr: Record<string, string> = {
   "왼쪽": "Gauche",
   "가운데": "Centre",
   "오른쪽": "Droite",
-  // Étape des sous-titres (étape 2) — séparée des clips
+  // Étape des sous-titres (étape 3) — séparée des clips
   '자막': 'Sous-titres',
   '자막·톤': 'Sous-titres et ton',
   'AI가 만든 자막을 확인하고 씬별로 제목·날짜·장소를 다듬어요. 자막 톤과 하단 자막·촬영 날짜 표시도 여기서 정해요.':

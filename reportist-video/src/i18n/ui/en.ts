@@ -5,6 +5,10 @@ export const uiEn: Record<string, string> = {
   '시작 화면': 'Opening',
   '영상 맨 앞에 나올 오프닝을 골라요. 스타일을 누르면 왼쪽 미리보기에서 바로 재생돼요.':
     'Choose the opening that plays at the very start. Tap a style to preview it instantly on the left.',
+  '인트로 문구': 'Intro text',
+  '인트로 스타일': 'Intro style',
+  '문구 설정됨': 'Text set',
+  '문구 없음': 'No text',
   '영상 올리기': 'Upload videos',
   '원본 준비': 'Source clips',
   '영상을 올리고 순서와 촬영 장소를 확인해요. 여러 개를 한 번에 올려도 돼요.':
@@ -41,8 +45,7 @@ export const uiEn: Record<string, string> = {
   '주요 메뉴': 'Main menu',
   '편집 순서': 'Edit order',
   '처음 만드는 순서': 'Create order',
-  '1번부터 8번까지, 순서대로만 눌러주세요': 'Steps 1 to 8 — just follow the order.',
-  '1번부터 7번까지, 순서대로만 눌러주세요': 'Steps 1 to 7 — just follow the order.',
+  '1번부터 9번까지, 순서대로만 눌러주세요': 'Steps 1 to 9 — just follow the order.',
   '영상 올리기와 AI 하이라이트까지 이 화면에서 한 번에 끝나요.':
     'Upload and AI highlights are all done on this screen.',
   '썸네일': 'Thumbnail',
@@ -69,8 +72,8 @@ export const uiEn: Record<string, string> = {
   '영상 내보내기 & 다운로드': 'Export & download',
   '새 영상 만들기': 'New video',
   '영상 하나만 올리면 시작돼요': 'Upload one video to start',
-  '1번 인트로 → 2번 영상 올리기 → 3번 AI 하이라이트 → 4번 브릿지 → 5번 아웃트로 → 6번 노래':
-    '1 Intro → 2 Upload → 3 AI highlights → 4 Bridge → 5 Outro → 6 Music',
+  '1번 인트로 문구 → 2번 인트로 스타일 → 3번 영상 올리기 → 4번 AI 하이라이트 → 5번 브릿지 → 6번 아웃트로 → 7번 노래':
+    '1 Intro text → 2 Intro style → 3 Upload → 4 AI highlights → 5 Bridge → 6 Outro → 7 Music',
   '새 프로젝트로 시작': 'Start a new project',
   '미리보기 재생': 'Play preview',
   '재선택 필요': 'Reselect needed',
@@ -105,12 +108,12 @@ export const uiEn: Record<string, string> = {
   '{name} 빼기': 'Remove {name}',
   '영상 올리러 가기': 'Go to upload',
   'AI가 하이라이트를 찾고 있어요': 'AI is finding highlights',
-  '3번 컷 다듬기': 'Trim clip in step 3',
+  '4번 컷 다듬기': 'Trim clip in step 4',
   '장면 전환 (브릿지)': 'Transition (bridge)',
   '브릿지 미리보기': 'Bridge preview',
   '날짜 넘어가는 효과': 'Date transition',
   '장소 이동 효과': 'Location transition',
-  '3번 컷으로 가기': 'Go to clip step',
+  '4번 컷으로 가기': 'Go to clip step',
   '컷 설정으로 가기': 'Go to clip settings',
   '장소 없음': 'No location',
   '날짜 없음': 'No date',
@@ -143,14 +146,14 @@ export const uiEn: Record<string, string> = {
     'When off, it plays at normal speed and loops from the start if too short.',
   '다른 노래 고르기': 'Choose another track',
   '영상 앞부분에서 음악을 미리 들어요': 'Preview the music from the start of the video',
-  '3번 AI 하이라이트를 먼저 만들면 영상과 함께 들을 수 있어요':
-    'Create AI highlights in step 3 to preview with the video',
+  '4번 AI 하이라이트를 먼저 만들면 영상과 함께 들을 수 있어요':
+    'Create AI highlights in step 4 to preview with the video',
   '보관함에서 고르기': 'Choose from library',
   '내 음악 올리기': 'Upload my music',
   '편집 단계 이동': 'Edit step navigation',
   '이전 단계': 'Previous step',
   '편집한 영상을 저장해요': 'Save the edited video',
-  '3번 AI 하이라이트를 먼저 만들면 저장할 수 있어요': 'Create AI highlights in step 3 to save',
+  '4번 AI 하이라이트를 먼저 만들면 저장할 수 있어요': 'Create AI highlights in step 4 to save',
   '영상 저장하기': 'Save video',
   '다음 단계': 'Next step',
   '영상 썸네일': 'Video thumbnail',
@@ -193,8 +196,8 @@ export const uiEn: Record<string, string> = {
     'They only appear between clips where the date or place changes. Only enabled spots show on the timeline.',
   '다음 전환 ›': 'Next transition ›',
   '다음 컷 ›': 'Next clip ›',
-  '먼저 2번 영상 올리기에서 영상을 하나 이상 올려주세요.':
-    'Upload at least one video in step 2 first.',
+  '먼저 3번 영상 올리기에서 영상을 하나 이상 올려주세요.':
+    'Upload at least one video in step 3 first.',
   '목록 확인': 'View list',
   '버튼을 누르면 원하는 컷 사이에 브릿지를 직접 켤 수 있어요.':
     'Tap the button to turn on a bridge between any clips you want.',
@@ -216,8 +219,8 @@ export const uiEn: Record<string, string> = {
   '자동 감지된 전환 지점이 없어요. 그래도 브릿지 스타일은 미리 골라둘 수 있어요. 타임라인의':
     'No transition points were detected automatically. You can still preselect a bridge style. On the timeline,',
   '컷 #{index}': 'Clip #{index}',
-  '컷이 2개 이상이고, 컷마다 날짜나 장소가 달라야 브릿지가 자동으로 생겨요. 3번 컷에서 날짜·장소를 먼저 적어보세요.':
-    'You need at least 2 clips with different dates or places for bridges to appear automatically. Add date and place in step 3 first.',
+  '컷이 2개 이상이고, 컷마다 날짜나 장소가 달라야 브릿지가 자동으로 생겨요. 4번 컷에서 날짜·장소를 먼저 적어보세요.':
+    'You need at least 2 clips with different dates or places for bridges to appear automatically. Add date and place in step 4 first.',
   '클릭하여 챕터 브릿지 다시 켜기': 'Click to re-enable the chapter bridge',
   '하이라이트 {count}개 완성': '{count} highlights ready',
   '% 단축':
@@ -463,9 +466,9 @@ export const uiEn: Record<string, string> = {
   '다운로드로 가기': 'Go to download',
   "AI 하이라이트를 만들면 썸네일을 함께 준비할 수 있어요": "Create AI highlights and a thumbnail gets prepared too",
   "아직 완성된 썸네일이 없어요": "No finished thumbnail yet",
-  "3번 AI 하이라이트에서 영상을 분석하면 AI가 가장 잘 나온 장면으로 16:9 썸네일을 만들어줘요.": "Analyze the video in step 3 AI highlights and AI builds a 16:9 thumbnail from the best-looking frame.",
+  "4번 AI 하이라이트에서 영상을 분석하면 AI가 가장 잘 나온 장면으로 16:9 썸네일을 만들어줘요.": "Analyze the video in step 4 AI highlights and AI builds a 16:9 thumbnail from the best-looking frame.",
   "현재 영상 화면을 그대로 캡처하거나, AI 하이라이트를 다시 뽑아 추천 프레임을 받아보세요.": "Capture the current video frame as-is, or re-run AI highlights to get a recommended frame.",
-  "3번 AI 하이라이트로 가기": "Go to step 3 AI highlights",
+  "4번 AI 하이라이트로 가기": "Go to step 4 AI highlights",
   "현재 화면으로 만들기": "Use current frame",
   "영상 저장 · 다운로드": "Save · Download",
   "편집을 모두 마쳤어요. 완성된 영상과 자막, 썸네일을 여기서 한 번에 내려받을 수 있어요.": "All editing is done. Download the finished video, subtitles and thumbnail here in one go.",
@@ -473,7 +476,7 @@ export const uiEn: Record<string, string> = {
   " · 원본보다 {percent}% 짧아요": " · {percent}% shorter than the source",
   "썸네일 다시 저장": "Save thumbnail again",
   "저장 버튼을 누르면 해상도를 고르고 최종 영상을 만들 수 있어요. 저장이 끝나면 이 화면에서 언제든 다시 받을 수 있어요.": "Press save to choose a resolution and render the final video. Once saved, you can download it again from this screen anytime.",
-  "3번 AI 하이라이트를 만들면 완성된 영상을 저장할 수 있어요.": "Create the step 3 AI highlights to save the finished video.",
+  "4번 AI 하이라이트를 만들면 완성된 영상을 저장할 수 있어요.": "Create the step 4 AI highlights to save the finished video.",
   "AI 하이라이트 컷을 먼저 만든 뒤 저장할 수 있어요.": "Create the AI highlight clips first, then you can save.",
   "새 영상 포맷 고르기": "Choose a video format",
   "만들기 전에 화면 비율을 골라주세요.": "Pick the aspect ratio first.",

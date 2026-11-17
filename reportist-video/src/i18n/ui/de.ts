@@ -4,6 +4,10 @@ export const uiDe: Record<string, string> = {
   '시작 화면': 'Startbildschirm',
   '영상 맨 앞에 나올 오프닝을 골라요. 스타일을 누르면 왼쪽 미리보기에서 바로 재생돼요.':
     'Wähle das Intro, das ganz am Anfang läuft. Tippe einen Stil an, um ihn direkt links in der Vorschau abzuspielen.',
+  '인트로 문구': 'Intro-Text',
+  '인트로 스타일': 'Intro-Stil',
+  '문구 설정됨': 'Text gesetzt',
+  '문구 없음': 'Kein Text',
   '영상 올리기': 'Videos hochladen',
   '원본 준비': 'Quellclips',
   '영상을 올리고 순서와 촬영 장소를 확인해요. 여러 개를 한 번에 올려도 돼요.':
@@ -40,8 +44,7 @@ export const uiDe: Record<string, string> = {
   '주요 메뉴': 'Hauptmenü',
   '편집 순서': 'Bearbeitungsreihenfolge',
   '처음 만드는 순서': 'Erstellungsreihenfolge',
-  '1번부터 8번까지, 순서대로만 눌러주세요': 'Schritt 1 bis 8 – bitte nur der Reihe nach.',
-  '1번부터 7번까지, 순서대로만 눌러주세요': 'Schritt 1 bis 7 – bitte nur der Reihe nach.',
+  '1번부터 9번까지, 순서대로만 눌러주세요': 'Schritt 1 bis 9 – bitte nur der Reihe nach.',
   '영상 올리기와 AI 하이라이트까지 이 화면에서 한 번에 끝나요.':
     'Upload und KI-Highlights erledigst du alles auf diesem Bildschirm.',
   '썸네일': 'Vorschaubild',
@@ -68,8 +71,8 @@ export const uiDe: Record<string, string> = {
   '영상 내보내기 & 다운로드': 'Exportieren & herunterladen',
   '새 영상 만들기': 'Neues Video',
   '영상 하나만 올리면 시작돼요': 'Lade ein Video hoch, um zu starten',
-  '1번 인트로 → 2번 영상 올리기 → 3번 AI 하이라이트 → 4번 브릿지 → 5번 아웃트로 → 6번 노래':
-    '1 Intro → 2 Upload → 3 KI-Highlights → 4 Brücke → 5 Outro → 6 Musik',
+  '1번 인트로 문구 → 2번 인트로 스타일 → 3번 영상 올리기 → 4번 AI 하이라이트 → 5번 브릿지 → 6번 아웃트로 → 7번 노래':
+    '1 Intro-Text → 2 Intro-Stil → 3 Upload → 4 KI-Highlights → 5 Brücke → 6 Outro → 7 Musik',
   '새 프로젝트로 시작': 'Neues Projekt starten',
   '미리보기 재생': 'Vorschau abspielen',
   '재선택 필요': 'Neuauswahl nötig',
@@ -104,12 +107,12 @@ export const uiDe: Record<string, string> = {
   '{name} 빼기': '{name} entfernen',
   '영상 올리러 가기': 'Zum Upload',
   'AI가 하이라이트를 찾고 있어요': 'Die KI sucht Highlights',
-  '3번 컷 다듬기': 'Clip aus Schritt 3 anpassen',
+  '4번 컷 다듬기': 'Clip aus Schritt 4 anpassen',
   '장면 전환 (브릿지)': 'Übergang (Brücke)',
   '브릿지 미리보기': 'Brückenvorschau',
   '날짜 넘어가는 효과': 'Datumswechsel-Effekt',
   '장소 이동 효과': 'Ortswechsel-Effekt',
-  '3번 컷으로 가기': 'Zum Clip-Schritt',
+  '4번 컷으로 가기': 'Zum Clip-Schritt',
   '컷 설정으로 가기': 'Zu den Clip-Einstellungen',
   '장소 없음': 'Kein Ort',
   '날짜 없음': 'Kein Datum',
@@ -144,15 +147,15 @@ export const uiDe: Record<string, string> = {
     'Ausgeschaltet läuft es in normaler Geschwindigkeit und wiederholt sich von vorn, wenn es zu kurz ist.',
   '다른 노래 고르기': 'Anderen Titel wählen',
   '영상 앞부분에서 음악을 미리 들어요': 'Musik ab dem Videostart anhören',
-  '3번 AI 하이라이트를 먼저 만들면 영상과 함께 들을 수 있어요':
-    'Erstelle zuerst in Schritt 3 die KI-Highlights, um sie mit dem Video zu hören',
+  '4번 AI 하이라이트를 먼저 만들면 영상과 함께 들을 수 있어요':
+    'Erstelle zuerst in Schritt 4 die KI-Highlights, um sie mit dem Video zu hören',
   '보관함에서 고르기': 'Aus der Bibliothek wählen',
   '내 음악 올리기': 'Eigene Musik hochladen',
   '편집 단계 이동': 'Navigation zwischen den Schritten',
   '이전 단계': 'Vorheriger Schritt',
   '편집한 영상을 저장해요': 'Bearbeitetes Video speichern',
-  '3번 AI 하이라이트를 먼저 만들면 저장할 수 있어요':
-    'Erstelle zuerst in Schritt 3 die KI-Highlights, um speichern zu können',
+  '4번 AI 하이라이트를 먼저 만들면 저장할 수 있어요':
+    'Erstelle zuerst in Schritt 4 die KI-Highlights, um speichern zu können',
   '영상 저장하기': 'Video speichern',
   '다음 단계': 'Nächster Schritt',
   '영상 썸네일': 'Video-Thumbnail',
@@ -198,8 +201,8 @@ export const uiDe: Record<string, string> = {
     'Sie erscheinen nur zwischen Clips, bei denen sich Datum oder Ort ändern. In der Timeline werden nur aktivierte Stellen angezeigt.',
   '다음 전환 ›': 'Nächster Übergang ›',
   '다음 컷 ›': 'Nächster Clip ›',
-  '먼저 2번 영상 올리기에서 영상을 하나 이상 올려주세요.':
-    'Lade zuerst in Schritt 2 mindestens ein Video hoch.',
+  '먼저 3번 영상 올리기에서 영상을 하나 이상 올려주세요.':
+    'Lade zuerst in Schritt 3 mindestens ein Video hoch.',
   '목록 확인': 'Liste ansehen',
   '버튼을 누르면 원하는 컷 사이에 브릿지를 직접 켤 수 있어요.':
     'Tippe auf die Schaltfläche, um eine Brücke zwischen beliebigen Clips zu aktivieren.',
@@ -222,8 +225,8 @@ export const uiDe: Record<string, string> = {
   '자동 감지된 전환 지점이 없어요. 그래도 브릿지 스타일은 미리 골라둘 수 있어요. 타임라인의':
     'Es wurden keine Übergangspunkte automatisch erkannt. Du kannst trotzdem einen Brückenstil vorauswählen. In der Timeline',
   '컷 #{index}': 'Clip #{index}',
-  '컷이 2개 이상이고, 컷마다 날짜나 장소가 달라야 브릿지가 자동으로 생겨요. 3번 컷에서 날짜·장소를 먼저 적어보세요.':
-    'Du brauchst mindestens 2 Clips mit unterschiedlichen Daten oder Orten, damit Brücken automatisch erscheinen. Trage zuerst in Schritt 3 Datum und Ort ein.',
+  '컷이 2개 이상이고, 컷마다 날짜나 장소가 달라야 브릿지가 자동으로 생겨요. 4번 컷에서 날짜·장소를 먼저 적어보세요.':
+    'Du brauchst mindestens 2 Clips mit unterschiedlichen Daten oder Orten, damit Brücken automatisch erscheinen. Trage zuerst in Schritt 4 Datum und Ort ein.',
   '클릭하여 챕터 브릿지 다시 켜기': 'Klicken, um die Kapitelbrücke wieder zu aktivieren',
   '하이라이트 {count}개 완성': '{count} Highlights fertig',
   '% 단축':
@@ -469,9 +472,9 @@ export const uiDe: Record<string, string> = {
   '다운로드로 가기': 'Zum Download',
   "AI 하이라이트를 만들면 썸네일을 함께 준비할 수 있어요": "Erstelle die KI-Highlights, dann wird auch ein Thumbnail vorbereitet",
   "아직 완성된 썸네일이 없어요": "Noch kein fertiges Thumbnail",
-  "3번 AI 하이라이트에서 영상을 분석하면 AI가 가장 잘 나온 장면으로 16:9 썸네일을 만들어줘요.": "Analysiere das Video in Schritt 3 (KI-Highlights), dann erstellt die KI aus der besten Szene ein 16:9-Thumbnail.",
+  "4번 AI 하이라이트에서 영상을 분석하면 AI가 가장 잘 나온 장면으로 16:9 썸네일을 만들어줘요.": "Analysiere das Video in Schritt 4 (KI-Highlights), dann erstellt die KI aus der besten Szene ein 16:9-Thumbnail.",
   "현재 영상 화면을 그대로 캡처하거나, AI 하이라이트를 다시 뽑아 추천 프레임을 받아보세요.": "Nimm das aktuelle Videobild auf oder lasse die KI-Highlights neu erstellen, um ein empfohlenes Bild zu bekommen.",
-  "3번 AI 하이라이트로 가기": "Zu Schritt 3 (KI-Highlights)",
+  "4번 AI 하이라이트로 가기": "Zu Schritt 4 (KI-Highlights)",
   "현재 화면으로 만들기": "Aktuelles Bild verwenden",
   "영상 저장 · 다운로드": "Speichern · Herunterladen",
   "편집을 모두 마쳤어요. 완성된 영상과 자막, 썸네일을 여기서 한 번에 내려받을 수 있어요.": "Die Bearbeitung ist fertig. Lade hier das fertige Video, die Untertitel und das Thumbnail auf einmal herunter.",
@@ -479,7 +482,7 @@ export const uiDe: Record<string, string> = {
   " · 원본보다 {percent}% 짧아요": " · {percent}% kürzer als das Original",
   "썸네일 다시 저장": "Thumbnail erneut speichern",
   "저장 버튼을 누르면 해상도를 고르고 최종 영상을 만들 수 있어요. 저장이 끝나면 이 화면에서 언제든 다시 받을 수 있어요.": "Klicke auf Speichern, um die Auflösung zu wählen und das finale Video zu rendern. Danach kannst du es jederzeit hier erneut herunterladen.",
-  "3번 AI 하이라이트를 만들면 완성된 영상을 저장할 수 있어요.": "Erstelle die KI-Highlights in Schritt 3, dann kannst du das fertige Video speichern.",
+  "4번 AI 하이라이트를 만들면 완성된 영상을 저장할 수 있어요.": "Erstelle die KI-Highlights in Schritt 4, dann kannst du das fertige Video speichern.",
   "AI 하이라이트 컷을 먼저 만든 뒤 저장할 수 있어요.": "Erstelle zuerst die KI-Highlight-Clips, dann kannst du speichern.",
   "새 영상 포맷 고르기": "Videoformat wählen",
   "만들기 전에 화면 비율을 골라주세요.": "Wähle das Seitenverhältnis, bevor es losgeht.",
@@ -492,7 +495,7 @@ export const uiDe: Record<string, string> = {
   "왼쪽": "Links",
   "가운데": "Mitte",
   "오른쪽": "Rechts",
-  // Untertitel-Schritt (Schritt 2) — von den Clips getrennt
+  // Untertitel-Schritt (Schritt 3) — von den Clips getrennt
   '자막': 'Untertitel',
   '자막·톤': 'Untertitel & Ton',
   'AI가 만든 자막을 확인하고 씬별로 제목·날짜·장소를 다듬어요. 자막 톤과 하단 자막·촬영 날짜 표시도 여기서 정해요.':

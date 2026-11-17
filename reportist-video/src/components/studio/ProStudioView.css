@@ -13849,7 +13849,7 @@
   height: 100%;
 }
 
-/* ---------- 2번 영상 올리기 카드 ---------- */
+/* ---------- 3번 영상 올리기 카드 ---------- */
 .toss-upload-dropzone {
   display: flex;
   flex-direction: column;
@@ -13977,7 +13977,7 @@
   color: #b0b8c1;
 }
 
-/* ---------- 3번 AI 하이라이트 카드 ---------- */
+/* ---------- 4번 AI 하이라이트 카드 ---------- */
 .toss-ai-progress {
   display: flex;
   flex-direction: column;
