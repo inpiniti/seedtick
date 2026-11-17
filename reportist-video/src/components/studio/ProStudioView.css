@@ -14219,12 +14219,26 @@
 /* ---------- 1. 컴팩트 스텝 헤더 (n/N · 현재 단계 · 얇은 진행률 바) ---------- */
 .toss-mobile-step-header {
   flex: 0 0 auto;
-  margin-top: 8px;
-  background: #ffffff;
-  border: 1px solid #e5e8eb;
-  border-radius: 14px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  /* 모바일(≤1024px)에서는 페이지 스크롤이므로, 상단 내비게이션 바(.toss-nav-header) 바로 아래에
+     고정되는 풀블리드 스텝 바로 동작하게 한다. 레이어는 시트(120)보다 낮고 내비(50) 바로 아래. */
+  position: sticky;
+  top: 54px; /* .toss-nav-header 기본 높이. ≤768px에서는 50px로 오버라이드 */
+  z-index: 40;
+  margin: 0 -12px; /* .toss-main-content의 좌우 12px 패딩을 상쇄해 풀블리드 */
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  border: none;
+  border-bottom: 1px solid #e5e8eb;
+  border-radius: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
   overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .toss-mobile-step-header {
+    top: 50px; /* ≤768px에서는 내비게이션 바 높이가 50px */
+  }
 }
 
 .toss-mobile-step-header-btn {
