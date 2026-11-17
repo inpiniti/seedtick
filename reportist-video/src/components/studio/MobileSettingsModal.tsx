@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   Settings,
   Sparkles,
@@ -55,6 +55,7 @@ import {
   setStoredSubtitleTone,
 } from '../../services/subtitleRefineService.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
+import { useIsMobileViewport } from '../../hooks/useIsMobileViewport.ts';
 import {
   formatDateByPattern,
   formatDateWithAge,
@@ -212,7 +213,83 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   const { dict, interpolate, ui } = useI18n();
   const overlayRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+  const isCompactViewport = useIsMobileViewport(1024);
   const [activeSection, setActiveSection] = useState<SettingsSectionId>('general');
+  const [bodyHeight, setBodyHeight] = useState<number | null>(null);
+  const [isHeightTransitionReady, setIsHeightTransitionReady] = useState(false);
+
+  // 모바일/태블릿(<= 1024px)에서만 활성 탭 콘텐츠 높이에 맞춰 모달 본문 높이를 보간한다.
+  // 데스크탑(>= 1025px)은 카드 높이가 고정이라 기존 레이아웃을 그대로 둔다.
+  const syncBodyHeight = useCallback(() => {
+    const body = bodyRef.current;
+    const panel = panelRef.current;
+    if (!body || !panel) return;
+
+    const card = body.closest('.settings-modal-card') as HTMLElement | null;
+    const chromeHeight = card
+      ? ['.model-modal-header', '.settings-modal-nav', '.model-modal-footer'].reduce(
+          (sum, selector) =>
+            sum + (card.querySelector<HTMLElement>(selector)?.getBoundingClientRect().height ?? 0),
+          0
+        )
+      : 0;
+    const computedMaxHeight = card ? parseFloat(window.getComputedStyle(card).maxHeight) : NaN;
+    const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+    const maxCardHeight = Number.isFinite(computedMaxHeight) ? computedMaxHeight : viewportHeight * 0.92;
+    // 카드 최대 높이를 넘는 콘텐츠는 높이를 더 키우지 않고 본문 내부 스크롤로 넘긴다.
+    const maxBodyHeight = Math.max(160, maxCardHeight - chromeHeight);
+
+    const bodyStyle = window.getComputedStyle(body);
+    const verticalPadding =
+      (parseFloat(bodyStyle.paddingTop) || 0) + (parseFloat(bodyStyle.paddingBottom) || 0);
+    const contentHeight = panel.getBoundingClientRect().height + verticalPadding;
+
+    setBodyHeight(Math.round(Math.min(contentHeight, maxBodyHeight) * 100) / 100);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!isOpen || !isCompactViewport) {
+      setBodyHeight(null);
+      return;
+    }
+
+    // 첫 프레임은 트랜지션 없이 즉시 높이를 잡아 시트가 올라오는 모션과 겹치지 않게 한다.
+    syncBodyHeight();
+
+    const card = bodyRef.current?.closest('.settings-modal-card');
+    const observer = new ResizeObserver(() => syncBodyHeight());
+    const observedElements = [
+      panelRef.current,
+      card?.querySelector('.model-modal-header'),
+      card?.querySelector('.settings-modal-nav'),
+      card?.querySelector('.model-modal-footer'),
+    ];
+    observedElements.forEach((element) => {
+      if (element) observer.observe(element);
+    });
+
+    const handleViewportResize = () => syncBodyHeight();
+    window.addEventListener('resize', handleViewportResize);
+    window.visualViewport?.addEventListener('resize', handleViewportResize);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', handleViewportResize);
+      window.visualViewport?.removeEventListener('resize', handleViewportResize);
+    };
+    // activeSection: 탭마다 패널 노드가 새로 마운트되므로 다시 관찰한다.
+  }, [activeSection, isCompactViewport, isOpen, syncBodyHeight]);
+
+  useLayoutEffect(() => {
+    if (!isOpen || !isCompactViewport) {
+      setIsHeightTransitionReady(false);
+      return;
+    }
+    const frame = requestAnimationFrame(() => setIsHeightTransitionReady(true));
+    return () => cancelAnimationFrame(frame);
+  }, [isCompactViewport, isOpen]);
 
   useModalScrollLock(isOpen, {
     overlayRef,
@@ -446,6 +523,14 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
     bodyRef.current?.scrollTo({ top: 0 });
   }, [activeSection, isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    // 가로 스크롤 탭 내비에서 활성 칩이 반쯤 잘리지 않도록 중앙으로 맞춘다.
+    navRef.current
+      ?.querySelector<HTMLElement>('.settings-modal-nav-item.active')
+      ?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  }, [activeSection, isOpen]);
+
   if (!isOpen) return null;
 
   const settingsSections: Array<{ id: SettingsSectionId; label: string; icon: React.ReactNode }> = [
@@ -572,6 +657,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
         {/* Modal Body */}
         <div className="settings-modal-layout">
           <nav
+            ref={navRef}
             className="settings-modal-nav"
             aria-label={dict.settingsModal?.navAriaLabel || '설정 섹션'}
             data-modal-scrollable="true"
@@ -594,11 +680,14 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
           </nav>
           <div
             ref={bodyRef}
-            className="settings-modal-body"
+            className={`settings-modal-body${isCompactViewport && isHeightTransitionReady ? ' settings-modal-body--animated' : ''}`}
+            style={isCompactViewport && bodyHeight != null ? { height: `${bodyHeight}px` } : undefined}
             data-modal-scrollable="true"
             onTouchMove={(e) => e.stopPropagation()}
             onWheel={(e) => e.stopPropagation()}
           >
+          {/* key: 탭 전환마다 패널 진입 모션을 다시 재생하고, 높이 측정 노드도 새로 마운트한다. */}
+          <div ref={panelRef} key={activeSection} className="settings-modal-panel">
           {/* Group 1: AI Model */}
           <div className={groupClassName('general')}>
             <span className="settings-modal-group-title">
@@ -1898,6 +1987,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
               )}
             </div>
           )}
+          </div>
           </div>
         </div>
 

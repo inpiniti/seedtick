@@ -6336,6 +6336,59 @@
   min-height: 0;
 }
 
+/* 활성 탭 콘텐츠를 감싸는 패널 — 탭 전환 진입 모션과 높이 측정 기준점 역할을 한다.
+   flex-shrink: 0 이어야 본문 높이를 줄여도 실제 콘텐츠 높이를 그대로 잴 수 있다. */
+.settings-modal-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 0 0 auto;
+  min-height: 0;
+  animation: settings-panel-enter 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes settings-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 모바일/태블릿: 본문 인라인 높이가 flex-grow에 덮어쓰이지 않도록 auto 베이스로 두고,
+   탭/토글 전환 시 높이를 부드럽게 보간한다. */
+@media (max-width: 1024px) {
+  .settings-modal-body {
+    flex: 0 1 auto;
+    overflow-x: hidden;
+  }
+
+  .settings-modal-body--animated {
+    transition: height 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-modal-body--animated {
+    transition: none;
+  }
+
+  .settings-modal-panel {
+    animation: none;
+  }
+}
+
+/* 데스크탑은 기존 그룹 간 18px 간격을 유지한다. */
+@media (min-width: 1025px) {
+  .settings-modal-panel {
+    gap: 18px;
+  }
+}
+
 .settings-modal-group {
   display: flex;
   flex-direction: column;
