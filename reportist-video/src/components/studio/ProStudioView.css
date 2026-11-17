@@ -1292,6 +1292,22 @@
   .toss-dramatic-header-actions .toss-toggle-label {
     margin-left: auto;
   }
+
+  /* 모바일: 자막 톤 드롭다운을 절대 위치 대신 버튼 아래 인라인으로 펼친다.
+     카드·고정 플레이어에 가리거나 잘려 "눌러도 반응 없다"던 문제를 원천 제거. */
+  .toss-tone-select-wrap:has(.toss-tone-dropdown-menu) {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+
+  .toss-tone-select-wrap .toss-tone-dropdown-menu {
+    position: static;
+    width: 100%;
+    max-width: 100%;
+    margin-top: 2px;
+    box-shadow: 0 6px 16px -8px rgba(0, 0, 0, 0.18);
+  }
 }
 
 /* 공통 버튼 사이즈: xs 28 / sm 34 / md 38(기본) / lg 40
@@ -2092,6 +2108,20 @@
 
 .toss-progress-track.is-scrubbing .toss-progress-thumb {
   transform: translate(-50%, -50%) scale(1.15);
+}
+
+/* 컷 경계 눈금 — 모바일에서 프로그레스 바가 타임라인을 겸한다 */
+.toss-progress-segment-tick {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 2px;
+  transform: translateX(-50%);
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.12);
+  pointer-events: none;
+  z-index: 2;
 }
 
 .toss-btn-icon {
@@ -8687,12 +8717,20 @@
 }
 
 /* Subtitle Tone Selector Button & Dropdown */
+.toss-tone-select-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+}
+
 .toss-btn-tone-selector {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 5px;
   height: var(--ui-h-xs);
+  min-height: 34px;
   background-color: #f8fafc;
   border: 1px solid var(--ui-border);
   color: #334155;
@@ -8705,6 +8743,8 @@
   line-height: 1;
   transition: all 0.15s ease;
   white-space: nowrap;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .toss-btn-tone-selector:hover {
@@ -8717,13 +8757,15 @@
   position: absolute;
   top: calc(100% + 5px);
   left: 0;
-  z-index: 60;
+  z-index: 90;
   width: 220px;
+  max-width: min(220px, calc(100vw - 40px));
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
   animation: tossFadeInUp 0.15s ease-out;
+  pointer-events: auto;
 }
 
 .toss-tone-dropdown-item {
@@ -14829,15 +14871,31 @@
     height: min(29vh, 250px);
   }
 
-  /* 타임라인은 플레이어 카드 밖의 별도 카드로 분리해 고정 영역을 가볍게 유지한다. */
+  /* 모바일: 멀티트랙 타임라인 카드를 숨기고 재생 플레이어의 스크럽 바가 타임라인을 겸한다.
+     컷 경계는 프로그레스 바의 눈금(.toss-progress-segment-tick)으로 표시되고,
+     컷 이동은 자막/컷 카드의 이전·다음 네비게이터로 이뤄져 세로 공간을 크게 아낀다. */
   .toss-timeline-card {
-    padding: 10px 14px;
+    display: none !important;
   }
 
-  .toss-timeline-card .toss-timeline-sequencer-box {
-    margin-top: 0;
-    padding-top: 0;
-    border-top: none;
+  /* 플레이어 카드의 트랜스포트 바를 한 줄로 압축한다. */
+  .toss-transport-bar {
+    gap: 6px;
+    margin-top: 6px;
+    padding: 0;
+  }
+
+  .toss-transport-bar .toss-btn-step {
+    display: none;
+  }
+
+  .toss-transport-bar .toss-progress-track {
+    margin: 0 4px;
+  }
+
+  .toss-transport-bar .toss-play-btn {
+    width: 32px;
+    height: 32px;
   }
 
   /* 모바일에서는 템플릿 카드의 3줄 설명을 숨겨 선택지가 한 화면에 더 많이 보이게 한다. */

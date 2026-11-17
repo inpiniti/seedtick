@@ -623,13 +623,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
   useEffect(() => {
     if (!isToneSelectorOpen) return;
-    const handleOutsideClick = (e: MouseEvent) => {
+    // pointerdown 은 마우스·터치·펜을 모두 커버해 모바일에서 드롭다운이
+    // 열리자마자 바깥 클릭으로 닫히거나, 반대로 안 닫히던 문제를 막는다.
+    const handleOutsideClick = (e: PointerEvent) => {
       if (toneSelectorRef.current && !toneSelectorRef.current.contains(e.target as Node)) {
         setIsToneSelectorOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('pointerdown', handleOutsideClick);
+    return () => document.removeEventListener('pointerdown', handleOutsideClick);
   }, [isToneSelectorOpen]);
 
   const toneOptions = useMemo<Array<{ id: SubtitleTone; label: string; desc: string; icon: string }>>(
@@ -5701,13 +5703,27 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     </div>
                   </div>
 
-                  {/* 프로그레스 스크럽 바 */}
+                  {/* 프로그레스 스크럽 바 — 모바일에서는 이 바가 타임라인을 겸한다.
+                      컷 경계를 눈금으로 표시해 별도 타임라인 카드 없이도 어디를 보고 있는지 알 수 있게 한다. */}
                   <div
                     ref={progressTrackRef}
                     className={`toss-progress-track ${isScrubbing ? 'is-scrubbing' : ''}`}
                     onPointerDown={handleProgressPointerDown}
                     title={dict.player.seekTooltip}
                   >
+                    {segments.map((seg, idx) => {
+                      const offset = segmentTimelineOffsets[seg.id];
+                      if (!offset || idx === 0) return null;
+                      const pct = Math.min(100, Math.max(0, (offset.startOffset / (totalDuration || 1)) * 100));
+                      return (
+                        <span
+                          key={`tick-${seg.id}`}
+                          className="toss-progress-segment-tick"
+                          style={{ left: `${pct}%` }}
+                          aria-hidden="true"
+                        />
+                      );
+                    })}
                     <div
                       className="toss-progress-fill"
                       style={{
@@ -7410,17 +7426,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       })}
                     </span>
                   )}
-                  {isCaptionSection && segments.length > 0 && (
-                    <button
-                      type="button"
-                      className="toss-btn-subtitle-header"
-                      onClick={() => setIsSubtitleModalOpen(true)}
-                      title={dict.subtitleDownload?.buttonTitle || '유튜브 호환 자막 (.srt) 다운로드'}
-                    >
-                      <Subtitles size={13} />
-                      <span>{dict.subtitleDownload?.buttonText || '자막 다운로드'}</span>
-                    </button>
-                  )}
                   {!isCaptionSection && segments.length > 0 && (
                     <button
                       type="button"
@@ -7433,11 +7438,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     </button>
                   )}
                   {isCaptionSection && segments.length > 0 && (
-                    <div className="relative inline-flex items-center" ref={toneSelectorRef}>
+                    <div className="toss-tone-select-wrap" ref={toneSelectorRef}>
                       <button
                         type="button"
                         className="toss-btn-tone-selector"
-                        onClick={() => setIsToneSelectorOpen((prev) => !prev)}
+                        aria-haspopup="listbox"
+                        aria-expanded={isToneSelectorOpen}
+                        onClick={(e) => {
+                          // 부모 헤더의 클릭 핸들러가 있어도 드롭다운 토글이 먹히도록 전파를 막는다.
+                          e.stopPropagation();
+                          setIsToneSelectorOpen((prev) => !prev);
+                        }}
                         title={dict.dramaticClips?.subtitleToneLabel || '자막 톤앤매너'}
                       >
                         <span className="text-xs">{currentToneMeta.icon}</span>
@@ -7446,7 +7457,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       </button>
 
                       {isToneSelectorOpen && (
-                        <div className="toss-tone-dropdown-menu">
+                        <div
+                          className="toss-tone-dropdown-menu"
+                          role="listbox"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <div className="p-1.5 space-y-1">
                             {toneOptions.map((opt) => {
                               const isSelected = currentSubtitleTone === opt.id;
@@ -7454,6 +7470,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                 <button
                                   key={opt.id}
                                   type="button"
+                                  role="option"
+                                  aria-selected={isSelected}
                                   className={`toss-tone-dropdown-item ${isSelected ? 'active' : ''}`}
                                   onClick={() => handleSelectSubtitleTone(opt.id)}
                                 >
@@ -7589,14 +7607,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 >
                   {isCaptionSection ? ui('다음 씬 ›') : ui('다음 컷 ›')}
                 </button>
-                <button
-                  type="button"
-                  className="toss-btn-secondary toss-btn-xs toss-cut-preview-btn"
-                  onClick={() => previewSectionPlay('cut')}
-                >
-                  <Eye size={12} />
-                  <span>{isCaptionSection ? ui('이 씬만 보기') : ui('이 컷만 보기')}</span>
-                </button>
+                {/* 자막 단계에서는 씬 미리보기 버튼을 숨긴다 (상단 플레이어에서 바로 확인). */}
+                {!isCaptionSection && (
+                  <button
+                    type="button"
+                    className="toss-btn-secondary toss-btn-xs toss-cut-preview-btn"
+                    onClick={() => previewSectionPlay('cut')}
+                  >
+                    <Eye size={12} />
+                    <span>{ui('이 컷만 보기')}</span>
+                  </button>
+                )}
               </div>
             )}
 
