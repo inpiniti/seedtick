@@ -126,25 +126,32 @@
     <main id="main">
       
     <section class="hero" aria-labelledby="hero-title">
-      <div class="container hero-grid">
-        <div class="hero-copy">
-          <p class="eyebrow"><span class="eyebrow-dot"></span>펭귄컷 · AI 영상 하이라이트 에디터</p>
-          <h1 id="hero-title">수시간의 영상을 <span class="accent">하나의 시네마틱 하이라이트로.</span></h1>
-          <p class="hero-lead">펭귄컷(PenguinCut)은 AI로 영상 속 클라이맥스를 찾아내고, 불필요한 부분은 덜어내어 최고의 순간만 16:9 &amp; 9:16 하이라이트로 이어 붙입니다. 자막, 음악, 인트로와 아웃트로까지 한 번에.</p>
+      <div class="hero-bg" aria-hidden="true">
+        <video class="hero-bg-video" data-hero-bg data-locale="ko" muted loop playsinline autoplay preload="metadata" poster="/media/result-ko.webp" width="1280" height="720" tabindex="-1">
+          <source src="/media/promo-v-ko.mp4" type="video/mp4" media="(max-width: 680px)">
+          <source src="/media/promo-ko.mp4" type="video/mp4">
+        </video>
+        <div class="hero-bg-scrim"></div>
+      </div>
 
-          <div class="hero-actions">
-            <a class="button" href="/studio?lang=ko">
-              스튜디오 열기
-              
+      <div class="container hero-inner">
+        <p class="eyebrow hero-eyebrow"><span class="eyebrow-dot"></span>펭귄컷 · AI 영상 하이라이트 에디터</p>
+        <h1 id="hero-title">수시간의 영상을 <span class="accent">하나의 시네마틱 하이라이트로.</span></h1>
+        <p class="hero-lead">펭귄컷(PenguinCut)은 AI로 영상 속 클라이맥스를 찾아내고, 불필요한 부분은 덜어내어 최고의 순간만 16:9 &amp; 9:16 하이라이트로 이어 붙입니다. 자막, 음악, 인트로와 아웃트로까지 한 번에.</p>
+
+        <div class="hero-actions">
+          <a class="button button-hero-primary" href="/studio?lang=ko">
+            스튜디오 열기
+            
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
       <path d="M5 12h13M13 6l6 6-6 6"/>
     </svg>
-            </a>
-            <a class="button button-ghost" href="#how-it-works">사용 방법 보기</a>
-          </div>
+          </a>
+          <a class="button button-hero-ghost" href="#how-it-works">사용 방법 보기</a>
+        </div>
 
-          <ul class="trust-list">
-            <li>
+        <ul class="trust-list hero-trust">
+          <li>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
       <path d="m5 12 4.2 4.2L19 6.8"/>
     </svg><span>원본 영상은 기기에 그대로</span></li>
@@ -156,102 +163,24 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
       <path d="m5 12 4.2 4.2L19 6.8"/>
     </svg><span>설치 없음</span></li>
-          </ul>
-        </div>
+        </ul>
+      </div>
 
-        <div class="hero-stage">
-          <div class="orb orb-a"></div>
-          <div class="orb orb-b"></div>
-
-          <div class="studio-mock">
-            <div class="studio-chrome" aria-hidden="true">
-              <span class="chrome-dot"></span>
-              <span class="chrome-dot"></span>
-              <span class="chrome-dot"></span>
-              <span class="chrome-title">PenguinCut 스튜디오</span>
-              <span class="chrome-status"><i class="status-dot"></i>AI 분석 완료</span>
-            </div>
-
-            <div class="studio-body">
-              <div class="studio-topline" aria-hidden="true">
-                <span class="studio-pill">16:9</span>
-                <span class="studio-pill">9:16</span>
-                <span class="studio-pill">1080p</span>
-                <span class="studio-pill studio-pill-accent">클라이맥스 6곳 발견</span>
-              </div>
-
-              <div class="studio-main">
-                <div class="preview">
-                  <video class="preview-video" data-hero-loop muted loop playsinline preload="none" poster="/media/result-ko.webp" aria-hidden="true" tabindex="-1">
-                    <source src="/media/result-ko.mp4" type="video/mp4">
-                  </video>
-                  <span class="preview-scrim" aria-hidden="true"></span>
-                  <span class="preview-badge" aria-hidden="true">00:36 · 16:9 &amp; 9:16</span>
-                  <button class="preview-sound" type="button" data-video-open aria-label="36초 펭귄컷 영상 재생">
-                    <span class="preview-sound-icon" aria-hidden="true">
+      <div class="hero-foot">
+        <button class="hero-sound" type="button" data-video-open aria-label="36초 펭귄컷 영상 재생">
+          <span class="hero-sound-icon" aria-hidden="true">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
       <path d="M11 5 6.5 9H3v6h3.5L11 19V5Z"/>
       <path d="M15 9.4a4 4 0 0 1 0 5.2"/>
       <path d="M17.8 6.8a8 8 0 0 1 0 10.4"/>
     </svg></span>
-                    <span>소리로 크게 보기</span>
-                  </button>
-                </div>
-
-                <div class="studio-side" aria-hidden="true">
-                  <div class="side-block">
-                    <span class="side-label">하이라이트 준비 완료</span>
-                    <span class="side-value">00:42 — 01:18 · 16:9 &amp; 9:16</span>
-                    <span class="side-meter"><i></i></span>
-                  </div>
-                  <div class="side-block side-block-accent">
-                    <span class="side-label">16:9 &amp; 9:16로 내보내기</span>
-                    <span class="side-arrow">
+          <span class="hero-sound-label">소리로 크게 보기</span>
+        </button>
+        <a class="hero-scroll" href="#how-it-works" aria-label="사용 방법 보기">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-      <path d="M5 12h13M13 6l6 6-6 6"/>
-    </svg></span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="timeline" aria-hidden="true">
-                <div class="timeline-head">
-                  <span>AI 하이라이트 타임라인</span>
-                  <span>00:42 / 01:18</span>
-                </div>
-                <div class="timeline-track">
-                  <span class="tl-clip tl-clip-1"></span>
-                  <span class="tl-clip tl-clip-2"></span>
-                  <span class="tl-clip tl-clip-3 tl-clip-hot"><i></i></span>
-                  <span class="tl-clip tl-clip-4"></span>
-                  <span class="tl-clip tl-clip-5"></span>
-                  <span class="tl-playhead"></span>
-                </div>
-                <div class="timeline-ruler">
-                  <span>00:00</span><span>00:30</span><span>01:00</span><span>01:30</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="float-card float-card-a" aria-hidden="true">
-            <span class="float-icon">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-      <path d="M12 3.5l1.6 4.6 4.6 1.6-4.6 1.6L12 16l-1.6-4.7L5.8 9.7l4.6-1.6L12 3.5Z"/>
-      <path d="M18.5 15.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2Z"/>
-      <path d="M5 15l.5 1.4L7 17l-1.5.5L5 19l-.5-1.5L3 17l1.5-.6L5 15Z"/>
-    </svg></span>
-            <span><strong>클라이맥스 6곳 발견</strong><small>AI 분석 완료</small></span>
-          </div>
-
-          <div class="float-card float-card-b" aria-hidden="true">
-            <span class="float-icon float-icon-accent">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-      <path d="m5 12 4.2 4.2L19 6.8"/>
-    </svg></span>
-            <span><strong>하이라이트 준비 완료</strong><small>00:42 — 01:18 · 16:9 &amp; 9:16</small></span>
-          </div>
-        </div>
+      <path d="m6 9 6 6 6-6"/>
+    </svg></a>
+        <span class="hero-foot-note">00:36 · 16:9 &amp; 9:16</span>
       </div>
     </section>
       

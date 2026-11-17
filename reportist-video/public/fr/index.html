@@ -126,25 +126,32 @@
     <main id="main">
       
     <section class="hero" aria-labelledby="hero-title">
-      <div class="container hero-grid">
-        <div class="hero-copy">
-          <p class="eyebrow"><span class="eyebrow-dot"></span>Éditeur de highlights vidéo par IA</p>
-          <h1 id="hero-title">Transformez des heures de rushes en <span class="accent">un seul highlight cinématographique.</span></h1>
-          <p class="hero-lead">PenguinCut utilise l&#39;IA pour trouver le climax de vos vidéos, couper le superflu et assembler les meilleurs moments en un highlight 16:9 &amp; 9:16 soigné, avec sous-titres, musique, intro et outro.</p>
+      <div class="hero-bg" aria-hidden="true">
+        <video class="hero-bg-video" data-hero-bg data-locale="fr" muted loop playsinline autoplay preload="metadata" poster="/media/result-fr.webp" width="1280" height="720" tabindex="-1">
+          <source src="/media/promo-v-fr.mp4" type="video/mp4" media="(max-width: 680px)">
+          <source src="/media/promo-fr.mp4" type="video/mp4">
+        </video>
+        <div class="hero-bg-scrim"></div>
+      </div>
 
-          <div class="hero-actions">
-            <a class="button" href="/studio?lang=fr">
-              Ouvrir le studio
-              
+      <div class="container hero-inner">
+        <p class="eyebrow hero-eyebrow"><span class="eyebrow-dot"></span>Éditeur de highlights vidéo par IA</p>
+        <h1 id="hero-title">Transformez des heures de rushes en <span class="accent">un seul highlight cinématographique.</span></h1>
+        <p class="hero-lead">PenguinCut utilise l&#39;IA pour trouver le climax de vos vidéos, couper le superflu et assembler les meilleurs moments en un highlight 16:9 &amp; 9:16 soigné, avec sous-titres, musique, intro et outro.</p>
+
+        <div class="hero-actions">
+          <a class="button button-hero-primary" href="/studio?lang=fr">
+            Ouvrir le studio
+            
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
       <path d="M5 12h13M13 6l6 6-6 6"/>
     </svg>
-            </a>
-            <a class="button button-ghost" href="#how-it-works">Voir comment ça marche</a>
-          </div>
+          </a>
+          <a class="button button-hero-ghost" href="#how-it-works">Voir comment ça marche</a>
+        </div>
 
-          <ul class="trust-list">
-            <li>
+        <ul class="trust-list hero-trust">
+          <li>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
       <path d="m5 12 4.2 4.2L19 6.8"/>
     </svg><span>Vos vidéos originales restent sur votre appareil</span></li>
@@ -156,102 +163,24 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
       <path d="m5 12 4.2 4.2L19 6.8"/>
     </svg><span>Aucune installation</span></li>
-          </ul>
-        </div>
+        </ul>
+      </div>
 
-        <div class="hero-stage">
-          <div class="orb orb-a"></div>
-          <div class="orb orb-b"></div>
-
-          <div class="studio-mock">
-            <div class="studio-chrome" aria-hidden="true">
-              <span class="chrome-dot"></span>
-              <span class="chrome-dot"></span>
-              <span class="chrome-dot"></span>
-              <span class="chrome-title">Studio PenguinCut</span>
-              <span class="chrome-status"><i class="status-dot"></i>Analyse IA terminée</span>
-            </div>
-
-            <div class="studio-body">
-              <div class="studio-topline" aria-hidden="true">
-                <span class="studio-pill">16:9</span>
-                <span class="studio-pill">9:16</span>
-                <span class="studio-pill">1080p</span>
-                <span class="studio-pill studio-pill-accent">6 moments forts détectés</span>
-              </div>
-
-              <div class="studio-main">
-                <div class="preview">
-                  <video class="preview-video" data-hero-loop muted loop playsinline preload="none" poster="/media/result-fr.webp" aria-hidden="true" tabindex="-1">
-                    <source src="/media/result-fr.mp4" type="video/mp4">
-                  </video>
-                  <span class="preview-scrim" aria-hidden="true"></span>
-                  <span class="preview-badge" aria-hidden="true">00:36 · 16:9 &amp; 9:16</span>
-                  <button class="preview-sound" type="button" data-video-open aria-label="Lire le film PenguinCut de 36 secondes">
-                    <span class="preview-sound-icon" aria-hidden="true">
+      <div class="hero-foot">
+        <button class="hero-sound" type="button" data-video-open aria-label="Lire le film PenguinCut de 36 secondes">
+          <span class="hero-sound-icon" aria-hidden="true">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
       <path d="M11 5 6.5 9H3v6h3.5L11 19V5Z"/>
       <path d="M15 9.4a4 4 0 0 1 0 5.2"/>
       <path d="M17.8 6.8a8 8 0 0 1 0 10.4"/>
     </svg></span>
-                    <span>Voir avec le son</span>
-                  </button>
-                </div>
-
-                <div class="studio-side" aria-hidden="true">
-                  <div class="side-block">
-                    <span class="side-label">Highlight prêt</span>
-                    <span class="side-value">00:42 — 01:18 · 16:9 &amp; 9:16</span>
-                    <span class="side-meter"><i></i></span>
-                  </div>
-                  <div class="side-block side-block-accent">
-                    <span class="side-label">Exporter en 16:9 &amp; 9:16</span>
-                    <span class="side-arrow">
+          <span class="hero-sound-label">Voir avec le son</span>
+        </button>
+        <a class="hero-scroll" href="#how-it-works" aria-label="Voir comment ça marche">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-      <path d="M5 12h13M13 6l6 6-6 6"/>
-    </svg></span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="timeline" aria-hidden="true">
-                <div class="timeline-head">
-                  <span>Timeline du highlight par IA</span>
-                  <span>00:42 / 01:18</span>
-                </div>
-                <div class="timeline-track">
-                  <span class="tl-clip tl-clip-1"></span>
-                  <span class="tl-clip tl-clip-2"></span>
-                  <span class="tl-clip tl-clip-3 tl-clip-hot"><i></i></span>
-                  <span class="tl-clip tl-clip-4"></span>
-                  <span class="tl-clip tl-clip-5"></span>
-                  <span class="tl-playhead"></span>
-                </div>
-                <div class="timeline-ruler">
-                  <span>00:00</span><span>00:30</span><span>01:00</span><span>01:30</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="float-card float-card-a" aria-hidden="true">
-            <span class="float-icon">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-      <path d="M12 3.5l1.6 4.6 4.6 1.6-4.6 1.6L12 16l-1.6-4.7L5.8 9.7l4.6-1.6L12 3.5Z"/>
-      <path d="M18.5 15.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2Z"/>
-      <path d="M5 15l.5 1.4L7 17l-1.5.5L5 19l-.5-1.5L3 17l1.5-.6L5 15Z"/>
-    </svg></span>
-            <span><strong>6 moments forts détectés</strong><small>Analyse IA terminée</small></span>
-          </div>
-
-          <div class="float-card float-card-b" aria-hidden="true">
-            <span class="float-icon float-icon-accent">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-      <path d="m5 12 4.2 4.2L19 6.8"/>
-    </svg></span>
-            <span><strong>Highlight prêt</strong><small>00:42 — 01:18 · 16:9 &amp; 9:16</small></span>
-          </div>
-        </div>
+      <path d="m6 9 6 6 6-6"/>
+    </svg></a>
+        <span class="hero-foot-note">00:36 · 16:9 &amp; 9:16</span>
       </div>
     </section>
       

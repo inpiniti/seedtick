@@ -181,129 +181,60 @@ function renderHero(locale) {
   const { hero } = locale;
   return `
     <section class="hero" aria-labelledby="hero-title">
-      <div class="container hero-grid">
-        <div class="hero-copy">
-          <p class="eyebrow"><span class="eyebrow-dot"></span>${esc(
-            hero.badge
-          )}</p>
-          <h1 id="hero-title">${hero.title}<span class="accent">${hero.accent}</span></h1>
-          <p class="hero-lead">${esc(hero.lead)}</p>
+      <div class="hero-bg" aria-hidden="true">
+        <video class="hero-bg-video" data-hero-bg data-locale="${esc(
+          locale.code
+        )}" muted loop playsinline autoplay preload="metadata" poster="/media/result-${esc(
+          locale.code
+        )}.webp" width="1280" height="720" tabindex="-1">
+          <source src="/media/promo-v-${esc(
+            locale.code
+          )}.mp4" type="video/mp4" media="(max-width: 680px)">
+          <source src="/media/promo-${esc(
+            locale.code
+          )}.mp4" type="video/mp4">
+        </video>
+        <div class="hero-bg-scrim"></div>
+      </div>
 
-          <div class="hero-actions">
-            <a class="button" href="${esc(appHref(locale))}">
-              ${esc(hero.primary)}
-              ${ICONS.arrow}
-            </a>
-            <a class="button button-ghost" href="#how-it-works">${esc(
-              hero.secondary
-            )}</a>
-          </div>
+      <div class="container hero-inner">
+        <p class="eyebrow hero-eyebrow"><span class="eyebrow-dot"></span>${esc(
+          hero.badge
+        )}</p>
+        <h1 id="hero-title">${hero.title}<span class="accent">${hero.accent}</span></h1>
+        <p class="hero-lead">${esc(hero.lead)}</p>
 
-          <ul class="trust-list">
-            ${hero.trust
-              .map(
-                (item) =>
-                  `<li>${ICONS.check}<span>${esc(item)}</span></li>`
-              )
-              .join("\n            ")}
-          </ul>
+        <div class="hero-actions">
+          <a class="button button-hero-primary" href="${esc(appHref(locale))}">
+            ${esc(hero.primary)}
+            ${ICONS.arrow}
+          </a>
+          <a class="button button-hero-ghost" href="#how-it-works">${esc(
+            hero.secondary
+          )}</a>
         </div>
 
-        <div class="hero-stage">
-          <div class="orb orb-a"></div>
-          <div class="orb orb-b"></div>
+        <ul class="trust-list hero-trust">
+          ${hero.trust
+            .map(
+              (item) =>
+                `<li>${ICONS.check}<span>${esc(item)}</span></li>`
+            )
+            .join("\n            ")}
+        </ul>
+      </div>
 
-          <div class="studio-mock">
-            <div class="studio-chrome" aria-hidden="true">
-              <span class="chrome-dot"></span>
-              <span class="chrome-dot"></span>
-              <span class="chrome-dot"></span>
-              <span class="chrome-title">${esc(hero.visual.windowTitle)}</span>
-              <span class="chrome-status"><i class="status-dot"></i>${esc(
-                hero.visual.status
-              )}</span>
-            </div>
-
-            <div class="studio-body">
-              <div class="studio-topline" aria-hidden="true">
-                <span class="studio-pill">16:9</span>
-                <span class="studio-pill">9:16</span>
-                <span class="studio-pill">1080p</span>
-                <span class="studio-pill studio-pill-accent">${esc(
-                  hero.visual.badge
-                )}</span>
-              </div>
-
-              <div class="studio-main">
-                <div class="preview">
-                  <video class="preview-video" data-hero-loop muted loop playsinline preload="none" poster="/media/result-${esc(
-                    locale.code
-                  )}.webp" aria-hidden="true" tabindex="-1">
-                    <source src="/media/result-${esc(
-                      locale.code
-                    )}.mp4" type="video/mp4">
-                  </video>
-                  <span class="preview-scrim" aria-hidden="true"></span>
-                  <span class="preview-badge" aria-hidden="true">00:36 · 16:9 &amp; 9:16</span>
-                  <button class="preview-sound" type="button" data-video-open aria-label="${esc(
-                    locale.video.label
-                  )}">
-                    <span class="preview-sound-icon" aria-hidden="true">${ICONS.sound}</span>
-                    <span>${esc(locale.video.soundCue)}</span>
-                  </button>
-                </div>
-
-                <div class="studio-side" aria-hidden="true">
-                  <div class="side-block">
-                    <span class="side-label">${esc(
-                      hero.visual.cardTitle
-                    )}</span>
-                    <span class="side-value">${esc(
-                      hero.visual.cardMeta
-                    )}</span>
-                    <span class="side-meter"><i></i></span>
-                  </div>
-                  <div class="side-block side-block-accent">
-                    <span class="side-label">${esc(hero.visual.export)}</span>
-                    <span class="side-arrow">${ICONS.arrow}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="timeline" aria-hidden="true">
-                <div class="timeline-head">
-                  <span>${esc(hero.visual.timeline)}</span>
-                  <span>00:42 / 01:18</span>
-                </div>
-                <div class="timeline-track">
-                  <span class="tl-clip tl-clip-1"></span>
-                  <span class="tl-clip tl-clip-2"></span>
-                  <span class="tl-clip tl-clip-3 tl-clip-hot"><i></i></span>
-                  <span class="tl-clip tl-clip-4"></span>
-                  <span class="tl-clip tl-clip-5"></span>
-                  <span class="tl-playhead"></span>
-                </div>
-                <div class="timeline-ruler">
-                  <span>00:00</span><span>00:30</span><span>01:00</span><span>01:30</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="float-card float-card-a" aria-hidden="true">
-            <span class="float-icon">${ICONS.sparkles}</span>
-            <span><strong>${esc(hero.visual.badge)}</strong><small>${esc(
-              hero.visual.status
-            )}</small></span>
-          </div>
-
-          <div class="float-card float-card-b" aria-hidden="true">
-            <span class="float-icon float-icon-accent">${ICONS.check}</span>
-            <span><strong>${esc(hero.visual.cardTitle)}</strong><small>${esc(
-              hero.visual.cardMeta
-            )}</small></span>
-          </div>
-        </div>
+      <div class="hero-foot">
+        <button class="hero-sound" type="button" data-video-open aria-label="${esc(
+          locale.video.label
+        )}">
+          <span class="hero-sound-icon" aria-hidden="true">${ICONS.sound}</span>
+          <span class="hero-sound-label">${esc(locale.video.soundCue)}</span>
+        </button>
+        <a class="hero-scroll" href="#how-it-works" aria-label="${esc(
+          hero.secondary
+        )}">${ICONS.chevron}</a>
+        <span class="hero-foot-note">00:36 · 16:9 &amp; 9:16</span>
       </div>
     </section>`;
 }
