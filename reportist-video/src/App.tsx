@@ -254,6 +254,8 @@ export function App() {
   const isRestoringProjectRef = useRef<boolean>(false);
   const autoSaveTimerRef = useRef<number | null>(null);
   const activeMetadataBatchCountRef = useRef<number>(0);
+  // 메타데이터/썸네일 추출 배치가 진행 중인지 UI에 알리기 위한 상태 (다음 단계 차단에 사용)
+  const [activeVideoMetaBatches, setActiveVideoMetaBatches] = useState(0);
   const isSavingProjectRef = useRef<boolean>(false);
   const pendingSaveAfterLockRef = useRef<boolean>(false);
   // 클로저(performSave)가 최신 단계 값을 보게 하기 위한 ref ('processing' 중 불필요한 저장 차단)
@@ -831,6 +833,7 @@ export function App() {
 
     // 메타데이터 추출이 진행되는 동안 자동 저장(performSave)이 중첩 실행되지 않도록 잠금
     activeMetadataBatchCountRef.current += 1;
+    setActiveVideoMetaBatches((count) => count + 1);
 
     // 1회 배치 상태 업데이트로 N번 연속 리렌더링 방지
     setVideos((prev) => [...prev, ...createdItems.map((c) => c.item)]);
@@ -933,6 +936,7 @@ export function App() {
       flushPendingVideoUpdates();
     } finally {
       activeMetadataBatchCountRef.current = Math.max(0, activeMetadataBatchCountRef.current - 1);
+      setActiveVideoMetaBatches((count) => Math.max(0, count - 1));
       if (activeMetadataBatchCountRef.current === 0) {
         if (autoSaveTimerRef.current !== null) {
           window.clearTimeout(autoSaveTimerRef.current);
@@ -2157,6 +2161,7 @@ export function App() {
         onUpdateVideoLocation={handleUpdateVideoLocation}
         onStartAiAnalysis={handleStartProcessing}
         isProcessing={currentStep === 'processing'}
+        isPreparingVideos={activeVideoMetaBatches > 0}
         progress={progress}
         onCancelProcessing={handleCancel}
         onReset={handleReset}

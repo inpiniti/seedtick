@@ -508,4 +508,10 @@ export const uiFr: Record<string, string> = {
   '세로 화면의 위/중앙/아래 크롭을 조절해요.':
     'Ajustez le recadrage haut / centre / bas du cadre vertical.',
   '{count}개 씬 자막': 'Sous-titres de {count} scènes',
+  // 다음 단계 차단 (영상 올리기·AI 하이라이트 완료 전 진행 불가)
+  '영상을 하나 이상 올리면 다음으로 넘어갈 수 있어요': 'Ajoutez au moins une vidéo pour continuer',
+  '영상을 준비하고 있어요. 잠시만 기다려 주세요': 'Préparation des vidéos. Patientez un instant',
+  'AI 하이라이트 분석이 끝난 뒤 다음으로 넘어갈 수 있어요': 'Vous pourrez continuer une fois l’analyse des moments forts terminée',
+  'AI 하이라이트를 먼저 만들면 다음으로 넘어갈 수 있어요': 'Créez d’abord les moments forts IA pour continuer',
+  '영상 준비 중...': 'Préparation des vidéos...',
 };

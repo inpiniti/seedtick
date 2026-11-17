@@ -507,4 +507,10 @@ export const uiEs: Record<string, string> = {
   '세로 화면의 위/중앙/아래 크롭을 조절해요.':
     'Ajusta el recorte superior / central / inferior del encuadre vertical.',
   '{count}개 씬 자막': 'Subtítulos de {count} escenas',
+  // 다음 단계 차단 (영상 올리기·AI 하이라이트 완료 전 진행 불가)
+  '영상을 하나 이상 올리면 다음으로 넘어갈 수 있어요': 'Sube al menos un video para poder avanzar',
+  '영상을 준비하고 있어요. 잠시만 기다려 주세요': 'Preparando tus videos. Espera un momento',
+  'AI 하이라이트 분석이 끝난 뒤 다음으로 넘어갈 수 있어요': 'Podrás avanzar cuando termine el análisis de los momentos destacados',
+  'AI 하이라이트를 먼저 만들면 다음으로 넘어갈 수 있어요': 'Crea los momentos destacados con IA primero para poder avanzar',
+  '영상 준비 중...': 'Preparando videos...',
 };

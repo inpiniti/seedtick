@@ -508,4 +508,10 @@ export const uiDe: Record<string, string> = {
   '세로 화면의 위/중앙/아래 크롭을 조절해요.':
     'Oben/Mitte/Unten-Zuschnitt für das Hochformat anpassen.',
   '{count}개 씬 자막': '{count} Szenen-Untertitel',
+  // 다음 단계 차단 (영상 올리기·AI 하이라이트 완료 전 진행 불가)
+  '영상을 하나 이상 올리면 다음으로 넘어갈 수 있어요': 'Lade mindestens ein Video hoch, um fortzufahren',
+  '영상을 준비하고 있어요. 잠시만 기다려 주세요': 'Videos werden vorbereitet. Einen Moment bitte',
+  'AI 하이라이트 분석이 끝난 뒤 다음으로 넘어갈 수 있어요': 'Du kannst fortfahren, sobald die KI-Highlight-Analyse abgeschlossen ist',
+  'AI 하이라이트를 먼저 만들면 다음으로 넘어갈 수 있어요': 'Erstelle zuerst KI-Highlights, um fortzufahren',
+  '영상 준비 중...': 'Videos werden vorbereitet...',
 };

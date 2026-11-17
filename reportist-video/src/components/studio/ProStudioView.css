@@ -14593,6 +14593,14 @@
   flex: 1 1 auto;
 }
 
+/* 차단된 다음 단계 CTA — 회색으로 보이게 하되 클릭은 살려 두어 누르면 차단 사유 토스트가 뜬다 */
+.toss-bottom-cta-primary.is-blocked,
+.toss-inspector-nav-btn.is-blocked {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 /* ---------- 4. 모바일: 인트로 카드 안 인라인 문구 입력 ---------- */
 .toss-header-inputs-inline {
   display: flex;

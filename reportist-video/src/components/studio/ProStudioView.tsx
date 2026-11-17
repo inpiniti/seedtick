@@ -428,6 +428,8 @@ interface ProStudioViewProps {
     bgmVolume?: number
   ) => void;
   isProcessing: boolean;
+  /** 영상 메타데이터/썸네일 추출 배치가 진행 중이면 true (영상 올리기 단계의 다음 버튼 차단에 사용) */
+  isPreparingVideos?: boolean;
   progress: ProcessingProgress;
   onCancelProcessing: () => void;
   /** 새로 시작(리셋). 포맷 선택 모달에서 고른 방향을 인자로 받는다. */
@@ -484,6 +486,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   onUpdateVideoLocation,
   onStartAiAnalysis,
   isProcessing,
+  isPreparingVideos = false,
   progress,
   onCancelProcessing,
   onReset,
@@ -3829,11 +3832,39 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     // upload / ai / music: 재생 위치를 건드리지 않고 해당 패널만 연다.
   };
 
+  // 다음 단계로 넘어갈 수 없는 이유 (영상 올리기·AI 하이라이트는 완료 전까지 차단)
+  // 차단 상태면 다음 버튼이 회색으로 표시되고, 누르면 사유 토스트를 보여준다.
+  const nextStepBlockedReason = ((): string | null => {
+    if (activeSection === 'upload') {
+      if (videos.length === 0) {
+        return ui('영상을 하나 이상 올리면 다음으로 넘어갈 수 있어요');
+      }
+      if (isPreparingVideos) {
+        return ui('영상을 준비하고 있어요. 잠시만 기다려 주세요');
+      }
+      return null;
+    }
+    if (activeSection === 'ai') {
+      if (isProcessing) {
+        return ui('AI 하이라이트 분석이 끝난 뒤 다음으로 넘어갈 수 있어요');
+      }
+      if (segments.length === 0) {
+        return ui('AI 하이라이트를 먼저 만들면 다음으로 넘어갈 수 있어요');
+      }
+      return null;
+    }
+    return null;
+  })();
+
   // 다음/이전 단계는 현재 흐름(생성 9단계 / 편집 9단계)의 순서를 그대로 따른다.
   // AI 컷이나 브릿지 후보가 없어도 단계를 건너뛰지 않는다.
   const goToAdjacentSection = (delta: 1 | -1) => {
     const nextIndex = activeStudioStepIndex + delta;
     if (nextIndex < 0 || nextIndex >= studioSteps.length) return;
+    if (delta === 1 && nextStepBlockedReason) {
+      notify.info(nextStepBlockedReason);
+      return;
+    }
     goToSection(studioSteps[nextIndex].id);
   };
 
@@ -3848,6 +3879,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       case 'introStyle':
         return overlayOptions.showIntro ? ui('사용 중') : ui('사용 안 함');
       case 'upload':
+        if (isPreparingVideos) {
+          return ui('영상 준비 중...');
+        }
         return videos.length > 0
           ? ui('{count}개 준비됨', { count: videos.length })
           : ui('올리기 필요');
@@ -8369,8 +8403,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             ) : (
               <button
                 type="button"
-                className="toss-btn-primary toss-inspector-nav-btn"
+                className={`toss-btn-primary toss-inspector-nav-btn${nextStepBlockedReason ? ' is-blocked' : ''}`}
                 onClick={() => goToAdjacentSection(1)}
+                aria-disabled={nextStepBlockedReason ? true : undefined}
+                title={nextStepBlockedReason ?? undefined}
               >
                 <span>{activeSection === 'thumbnail' ? ui('다운로드로 가기') : ui('다음 단계')}</span>
                 <ArrowRight size={14} />
@@ -8416,6 +8452,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 ? !isSequenceMode || segments.length === 0 || isReStitching
                 : activeStudioStepIndex >= studioSteps.length - 1
             }
+            primaryBlocked={activeSection !== 'download' && nextStepBlockedReason !== null}
+            primaryTitle={activeSection !== 'download' ? nextStepBlockedReason ?? undefined : undefined}
             primaryBusy={activeSection === 'download' && isReStitching}
             isDownloadStep={activeSection === 'download'}
           />

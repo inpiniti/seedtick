@@ -16,6 +16,9 @@ interface MobileBottomCtaBarProps {
   primaryDisabled?: boolean;
   primaryBusy?: boolean;
   isDownloadStep: boolean;
+  /** 회색으로 표시하되 클릭은 허용한다 — 누르면 차단 사유 토스트를 띄우는 패턴 */
+  primaryBlocked?: boolean;
+  primaryTitle?: string;
 }
 
 export const MobileBottomCtaBar: React.FC<MobileBottomCtaBarProps> = ({
@@ -28,6 +31,8 @@ export const MobileBottomCtaBar: React.FC<MobileBottomCtaBarProps> = ({
   primaryDisabled = false,
   primaryBusy = false,
   isDownloadStep,
+  primaryBlocked = false,
+  primaryTitle,
 }) => {
   return (
     <nav className="toss-bottom-cta-bar" aria-label={ariaLabel}>
@@ -43,11 +48,13 @@ export const MobileBottomCtaBar: React.FC<MobileBottomCtaBarProps> = ({
       </Button>
 
       <Button
-        className="toss-bottom-cta-primary"
+        className={`toss-bottom-cta-primary${primaryBlocked ? ' is-blocked' : ''}`}
         variant="accent"
         size="md"
         onClick={onPrimary}
         disabled={primaryDisabled}
+        aria-disabled={primaryBlocked || undefined}
+        title={primaryTitle}
         loading={primaryBusy}
         rightIcon={
           isDownloadStep ? (
