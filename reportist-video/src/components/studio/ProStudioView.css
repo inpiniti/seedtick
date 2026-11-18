@@ -5839,7 +5839,8 @@
 }
 
 .model-modal-save-btn {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -5858,7 +5859,22 @@
   transition: all 0.15s ease;
 }
 
+/* 전역 button{white-space:nowrap} 때문에 라벨이 줄바꿈되지 않아 flex 아이템의
+   min-content 폭이 고정되면, 좁은 모달에서 저장 버튼이 삭제 버튼을 밖으로
+   밀어낸다. 라벨만 말줄임되도록 폭을 풀어 삭제 버튼이 항상 카드 안에 남게 한다. */
+.model-modal-save-btn span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.model-modal-save-btn svg,
+.model-modal-delete-btn svg {
+  flex: 0 0 auto;
+}
+
 .model-modal-delete-btn {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -5872,6 +5888,7 @@
   color: #e11d48;
   font-size: var(--ui-fs-md);
   font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -15052,8 +15069,9 @@
     padding: 10px 12px;
   }
 
+  /* 스텝 헤더에 같은 단계명이 이미 고정 노출되므로 카드 제목 행 자체를 생략한다. */
   .toss-card:has(.toss-header-inputs-inline) .toss-card-header {
-    margin-bottom: 6px;
+    display: none;
   }
 
   .toss-card:has(.toss-header-inputs-inline) .toss-card-title {
