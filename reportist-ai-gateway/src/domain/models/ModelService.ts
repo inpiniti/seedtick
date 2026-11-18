@@ -340,6 +340,31 @@ const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
   },
 ];
 
+// OpenRouter의 /api/v1/models(텍스트 모델)에는 노출되지 않지만 무료로 쓸 수 있는 이미지 생성 모델.
+// 이미지 생성 모델은 /api/v1/images 엔드포인트로 호출해야 하므로 별도로 관리한다.
+const IMAGE_GENERATION_FREE_MODELS: FreeModelMeta[] = [
+  {
+    id: 'recraft/recraft-v4.1-flash-v2:free',
+    name: 'Recraft: Recraft V4.1 Flash V2 (free)',
+    providerName: 'Recraft',
+    created: 1794608385,
+    createdDate: '2026-11-13',
+    daysAgo: 5,
+    contextLength: 65536,
+    contextLengthFormatted: '텍스트 → 이미지',
+    description:
+      'Recraft V4.1 Flash V2 is a fast text-to-image model from Recraft, updated from Recraft V4.1 Flash in the speed tier of the V4.1 family. Suited for rapid iteration, prototyping and high-volume generation with improved generation speed and text rendering inside images.',
+    modality: 'text->image',
+    inputModalities: ['text'],
+    outputModalities: ['image'],
+    isImageGenerationModel: true,
+    intelligenceIndex: null,
+    intelligenceTier: '무료 텍스트→이미지 생성 (V4.1 Flash V2)',
+    parametersSummary: 'V4.1 Flash V2',
+    supportedParameters: ['n', 'aspect_ratio'],
+  },
+];
+
 export class ModelService {
   private cache: FreeModelMeta[] | null = null;
   private lastFetchTime = 0;
@@ -348,7 +373,7 @@ export class ModelService {
   async getFreeModels(): Promise<FreeModelMeta[]> {
     const now = Date.now();
     if (this.cache && now - this.lastFetchTime < this.CACHE_TTL_MS) {
-      return this.cache;
+      return this.withImageModels(this.cache);
     }
 
     try {
@@ -361,12 +386,12 @@ export class ModelService {
 
       if (!response.ok) {
         console.warn(`[ModelService] Failed to fetch OpenRouter models: HTTP ${response.status}`);
-        return this.cache ?? FALLBACK_FREE_MODELS;
+        return this.withImageModels(this.cache ?? FALLBACK_FREE_MODELS);
       }
 
       const json = (await response.json()) as { data?: unknown[] };
       if (!Array.isArray(json?.data)) {
-        return this.cache ?? FALLBACK_FREE_MODELS;
+        return this.withImageModels(this.cache ?? FALLBACK_FREE_MODELS);
       }
 
       const rawModels = json.data as Array<Record<string, unknown>>;
@@ -381,6 +406,8 @@ export class ModelService {
           : [];
         const outputsText = outputModalities.includes('text');
 
+        // 텍스트 출력 모델만 기존 /v1/models 목록에 포함한다.
+        // 이미지 생성 모델은 아래 mergeImageModels()에서 별도로 추가한다.
         if (!isFree || !outputsText) continue;
 
         const createdSec = typeof m.created === 'number' ? m.created : Math.floor(now / 1000);
@@ -442,6 +469,7 @@ export class ModelService {
           description,
           modality,
           inputModalities,
+          outputModalities: outputModalities.length > 0 ? outputModalities : ['text'],
           intelligenceIndex,
           codingIndex,
           agenticIndex,
@@ -457,16 +485,26 @@ export class ModelService {
       if (freeModels.length > 0) {
         // 최신 생성순 정렬
         freeModels.sort((a, b) => b.created - a.created);
-        this.cache = freeModels;
+        this.cache = this.withImageModels(freeModels);
         this.lastFetchTime = now;
-        return freeModels;
+        return this.cache;
       }
 
-      return this.cache ?? FALLBACK_FREE_MODELS;
+      return this.withImageModels(this.cache ?? FALLBACK_FREE_MODELS);
     } catch (err) {
       console.error('[ModelService] Error fetching openrouter models:', err);
-      return this.cache ?? FALLBACK_FREE_MODELS;
+      return this.withImageModels(this.cache ?? FALLBACK_FREE_MODELS);
     }
+  }
+
+  /** 이미지 생성 모델을 모델 목록에 합친다 (중복 제거 + 최신순 정렬) */
+  private withImageModels(models: FreeModelMeta[]): FreeModelMeta[] {
+    const byId = new Map<string, FreeModelMeta>();
+    for (const model of models) byId.set(model.id, model);
+    for (const model of IMAGE_GENERATION_FREE_MODELS) {
+      if (!byId.has(model.id)) byId.set(model.id, model);
+    }
+    return Array.from(byId.values()).sort((a, b) => b.created - a.created);
   }
 
   private deriveModelIntelligence(

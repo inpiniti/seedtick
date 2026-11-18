@@ -527,6 +527,62 @@
   border-radius: var(--radius-full);
 }
 
+/* 이미지 생성 모델이 만든 이미지 */
+.generated-images-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.generated-image-card {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background-color: var(--color-surface-subtle);
+  cursor: zoom-in;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.generated-image-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.generated-image-card img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+}
+
+.generated-image-zoom {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 4px 8px;
+  border-radius: var(--radius-full);
+  background-color: rgba(0, 0, 0, 0.65);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.generated-image-card:hover .generated-image-zoom {
+  opacity: 1;
+}
+
+.image-generating-status {
+  color: var(--color-text-tertiary);
+  font-size: 14px;
+}
+
 /* 추론 / 사고 과정 (Reasoning Accordion) */
 .reasoning-accordion {
   background-color: var(--color-reasoning-bg);

@@ -12,6 +12,9 @@ import type {
   ErrorCategory,
   GatewayAttempt,
   GatewayError,
+  GeneratedImageData,
+  ImageGenerationRequest,
+  ImageGenerationResponse,
   KeySlot,
   LLMProvider,
   ModelConfig,
@@ -428,6 +431,190 @@ export class ProxyService {
         attempts,
       },
     } as GatewayError;
+  }
+
+  /**
+   * 이미지 생성 (OpenRouter Image API).
+   * 텍스트 채팅과 달리 /api/v1/images 엔드포인트를 사용하며 스트리밍을 지원하지 않는다.
+   * 무료 이미지 모델은 계정 가드레일(ZDR/학습 데이터 거부)에 걸릴 수 있으므로
+   * 요청마다 zdr=false, data_collection=allow 를 명시하고 사용 가능한 키로 로테이션한다.
+   */
+  async generateImage(
+    request: ImageGenerationRequest
+  ): Promise<ImageGenerationResponse | GatewayError> {
+    const model = request.model?.trim() || 'recraft/recraft-v4.1-flash-v2:free';
+    const keys = env.openrouterKeys;
+    const attempts: GatewayAttempt[] = [];
+
+    if (keys.length === 0) {
+      return {
+        error: {
+          code: 'GATEWAY_MODEL_NOT_SUPPORTED',
+          message: '이미지 생성을 위한 OpenRouter API 키가 설정되지 않았어요.',
+          type: 'gateway_error',
+          attempts,
+        },
+      } as GatewayError;
+    }
+
+    // 모든 키를 한 번씩 시도 (가드레일/할당량에 걸린 키는 건너뛴다)
+    for (let attempt = 1; attempt <= keys.length; attempt++) {
+      const apiKey = keys[(attempt - 1) % keys.length];
+      const keyMasked = apiKey.length > 12 ? `${apiKey.slice(0, 8)}...${apiKey.slice(-4)}` : '***';
+
+      if (this.cooldown.isCoolingDown('openrouter', model, apiKey)) continue;
+
+      try {
+        const result = await this.callImageApi(request, model, apiKey, 120_000);
+        if (result.ok && result.response) {
+          console.info(`[Gateway] Image success: [openrouter] ${model} (키: ${keyMasked})`);
+          return result.response;
+        }
+
+        const category = this.classifier.classify(result.status, result.errorBody);
+        attempts.push({
+          provider: 'openrouter',
+          modelId: model,
+          apiKeyHash: apiKey.slice(-8),
+          httpStatus: result.status,
+          errorCategory: category,
+          errorSnippet: result.errorBody.slice(0, 200),
+          attemptedAt: new Date().toISOString(),
+        });
+
+        if (result.status === 404) {
+          // 가드레일/모델 미지원 — 해당 키는 하루 동안 이미지 생성에 사용하지 않는다
+          this.cooldown.setCooldown('openrouter', model, apiKey, 86_400_000, 'model_not_found');
+        } else if (result.status === 429) {
+          this.cooldown.setCooldown('openrouter', model, apiKey, 60_000, 'rpm_exceeded');
+        } else if (result.status === 401 || result.status === 402 || result.status === 403) {
+          this.cooldown.setCooldown('openrouter', model, apiKey, 3_600_000, 'unauthorized');
+        } else {
+          this.cooldown.setCooldown('openrouter', model, apiKey, 30_000, 'server_overloaded');
+        }
+
+        console.warn(
+          `[Gateway] 이미지 생성 실패 ([openrouter], 키: ${keyMasked}) HTTP ${result.status}: ${result.errorBody.slice(0, 180)} (시도 ${attempt}/${keys.length})`
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        attempts.push({
+          provider: 'openrouter',
+          modelId: model,
+          apiKeyHash: apiKey.slice(-8),
+          httpStatus: 0,
+          errorCategory: 'network_error',
+          errorSnippet: msg.slice(0, 200),
+          attemptedAt: new Date().toISOString(),
+        });
+      }
+    }
+
+    return {
+      error: {
+        code: 'GATEWAY_ALL_EXHAUSTED',
+        message: '사용 가능한 이미지 생성 키가 없어요. 잠시 후 다시 시도해 주세요.',
+        type: 'gateway_error',
+        attempts,
+      },
+    } as GatewayError;
+  }
+
+  private async callImageApi(
+    request: ImageGenerationRequest,
+    model: string,
+    apiKey: string,
+    timeoutMs: number
+  ): Promise<{
+    ok: boolean;
+    status: number;
+    response?: ImageGenerationResponse;
+    errorBody: string;
+  }> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/images', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://reportist.kr',
+          'X-Title': 'Reportist',
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model,
+          prompt: request.prompt,
+          n: request.n ?? 1,
+          aspect_ratio: request.aspect_ratio ?? '1:1',
+          zdr: false,
+          data_collection: 'allow',
+        }),
+      });
+
+      const text = await response.text();
+      if (!response.ok) {
+        return { ok: false, status: response.status, errorBody: text };
+      }
+
+      let raw: Record<string, unknown> = {};
+      try {
+        raw = JSON.parse(text) as Record<string, unknown>;
+      } catch {
+        return { ok: false, status: 502, errorBody: `Invalid JSON: ${text.slice(0, 200)}` };
+      }
+
+      const err = raw.error as Record<string, unknown> | undefined;
+      if (err && typeof err === 'object') {
+        const code = typeof err.code === 'number' ? err.code : 503;
+        const message = typeof err.message === 'string' ? err.message : text;
+        return { ok: false, status: code, errorBody: message };
+      }
+
+      const dataRaw = Array.isArray(raw.data) ? raw.data : [];
+      const images: GeneratedImageData[] = [];
+      for (const item of dataRaw) {
+        if (!item || typeof item !== 'object') continue;
+        const entry = item as Record<string, unknown>;
+        const mediaType =
+          typeof entry.media_type === 'string' && entry.media_type.startsWith('image/')
+            ? entry.media_type
+            : 'image/png';
+        let url = '';
+        if (typeof entry.b64_json === 'string' && entry.b64_json.trim()) {
+          url = `data:${mediaType};base64,${entry.b64_json}`;
+        } else if (typeof entry.url === 'string' && entry.url.trim()) {
+          url = entry.url;
+        }
+        if (url) images.push({ url, mediaType });
+      }
+
+      if (images.length === 0) {
+        return { ok: false, status: 502, errorBody: `No image data in response: ${text.slice(0, 200)}` };
+      }
+
+      return {
+        ok: true,
+        status: response.status,
+        response: {
+          created: typeof raw.created === 'number' ? raw.created : Math.floor(Date.now() / 1000),
+          data: images,
+          usage: (raw.usage as Record<string, unknown>) ?? undefined,
+        },
+        errorBody: '',
+      };
+    } catch (error) {
+      const isTimeout = error instanceof Error && error.name === 'AbortError';
+      return {
+        ok: false,
+        status: isTimeout ? 408 : 0,
+        errorBody: isTimeout ? `Timeout after ${timeoutMs}ms` : error instanceof Error ? error.message : 'Network error',
+      };
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 
   // 콜드 스타트 재시도 로직 (첫 요청 타임아웃 시 한 번만 재시도)

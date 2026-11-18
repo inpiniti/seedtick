@@ -30,6 +30,7 @@ import {
   FALLBACK_FREE_MODELS,
   checkGatewayHealth,
   fetchFreeModels,
+  generateImage,
   loadGatewayConfig,
   saveGatewayConfig,
   streamChatCompletions,
@@ -42,6 +43,7 @@ import {
   type GatewayConfig,
   getModelInputModalities,
   getModelSupportedEfforts,
+  isImageGenerationModel,
   REASONING_EFFORT_OPTIONS,
   type ReasoningEffortOption,
 } from './types/chat.ts';
@@ -61,6 +63,22 @@ const WELCOME_PROMPTS = [
   {
     title: '복잡한 논리 추론 문제 풀이',
     prompt: '3개의 문이 있는 몬티홀 문제의 수학적 확률과 직관적 오류에 대해 단계별로 자세히 설명해줘.',
+  },
+];
+
+// 이미지 생성 모델 선택 시 보여줄 추천 프롬프트
+const IMAGE_WELCOME_PROMPTS = [
+  {
+    title: '겨울밤 서점 풍경',
+    prompt: 'Editorial architectural photograph of a cozy neighborhood bookstore on a snowy winter evening at blue hour, warm light glowing through the windows, fresh snow on the awning and sidewalk, realistic materials, no people.',
+  },
+  {
+    title: '미니멀 제품 일러스트',
+    prompt: 'Minimal flat vector illustration of a modern coffee mug on a clean background, soft pastel color palette, subtle shadows, centered composition, no text.',
+  },
+  {
+    title: '판타지 풍경화',
+    prompt: 'Epic fantasy landscape painting of a floating island above a sea of clouds at sunrise, dramatic lighting, highly detailed, cinematic composition.',
   },
 ];
 
@@ -132,6 +150,7 @@ export function App() {
     FALLBACK_FREE_MODELS[0];
 
   const currentInputModalities = useMemo(() => getModelInputModalities(currentModel), [currentModel]);
+  const isImageModel = useMemo(() => isImageGenerationModel(currentModel), [currentModel]);
   const canAttachImage = currentInputModalities.includes('image');
   const canAttachAudio = currentInputModalities.includes('audio');
   const canAttachVideo = currentInputModalities.includes('video');
@@ -382,6 +401,12 @@ export function App() {
     // 텍스트도 없고 첨부파일도 없으면 전송 불가
     if ((!messageContent && !hasAttachments) || isStreaming) return;
 
+    // 이미지 생성 모델은 텍스트 프롬프트만 지원한다
+    if (isImageModel && !messageContent) {
+      alert('이미지 생성 모델은 텍스트 설명(프롬프트)을 입력해 주세요.');
+      return;
+    }
+
     const currentAttachments = [...pendingAttachments];
     setPendingAttachments([]);
     setInputText('');
@@ -440,6 +465,45 @@ export function App() {
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
+
+    // 이미지 생성 모델: 스트리밍 대신 /v1/images API 호출
+    if (isImageModel) {
+      const result = await generateImage({
+        prompt: messageContent,
+        model: selectedModelId,
+        config: gatewayConfig,
+        signal: controller.signal,
+      });
+
+      setIsStreaming(false);
+      abortControllerRef.current = null;
+      setSessions((prev) =>
+        prev.map((s) => {
+          if (s.id !== currentSession.id) return s;
+          return {
+            ...s,
+            messages: s.messages.map((m) => {
+              if (m.id !== assistantMessageId) return m;
+              if (result.ok) {
+                return {
+                  ...m,
+                  isStreaming: false,
+                  content: '',
+                  generatedImages: result.images,
+                };
+              }
+              return {
+                ...m,
+                isStreaming: false,
+                isError: true,
+                errorMsg: result.error,
+              };
+            }),
+          };
+        })
+      );
+      return;
+    }
 
     // 게이트웨이에 보낼 메시지 히스토리 구성 (첨부파일 포함)
     const apiMessages = [...currentSession.messages, userMessage].map((m) => ({
@@ -715,6 +779,7 @@ export function App() {
               )}
 
               <div className="trigger-modality-tags">
+                {isImageModel && <span className="trigger-mod-tag" title="이미지 생성 모델">🎨</span>}
                 {canAttachImage && <span className="trigger-mod-tag" title="이미지 지원">🖼️</span>}
                 {canAttachAudio && <span className="trigger-mod-tag" title="오디오 지원">🎙️</span>}
                 {canAttachVideo && <span className="trigger-mod-tag" title="비디오 지원">🎬</span>}
@@ -724,7 +789,8 @@ export function App() {
           </div>
 
           <div className="top-right-actions">
-            {/* 노력 선택 세그먼트: 현재 모델이 지원하는 단계만 동적 표시 */}
+            {/* 노력 선택 세그먼트: 현재 모델이 지원하는 단계만 동적 표시 (이미지 생성 모델은 숨김) */}
+            {!isImageModel && (
             <div className="effort-selector-wrapper" title="추론 노력(Reasoning Effort) 설정">
               <Brain size={14} color="#3182f6" style={{ marginLeft: 6 }} />
               <span className="effort-title-label">노력:</span>
@@ -749,6 +815,7 @@ export function App() {
                 ))
               )}
             </div>
+            )}
 
             {/* 게이트웨이 온라인 상태 뱃지 */}
             <div className="gateway-status-pill" title="AI Gateway 상태">
@@ -798,25 +865,39 @@ export function App() {
               <div className="welcome-logo-badge">
                 <Sparkles size={32} />
               </div>
-              <h1 className="welcome-title">어떤 이야기를 나눠볼까요?</h1>
+              <h1 className="welcome-title">
+                {isImageModel ? '어떤 이미지를 만들어볼까요?' : '어떤 이야기를 나눠볼까요?'}
+              </h1>
               <p className="welcome-subtitle">
-                {currentModel.name} 모델과 {reasoningEffort} 추론 노력으로 준비되었어요.
-                {canAttachAny && (
-                  <span className="welcome-modality-tip">
-                    <br />
-                    이 모델은 {[
-                      canAttachImage ? '사진' : '',
-                      canAttachAudio ? '오디오' : '',
-                      canAttachVideo ? '비디오' : '',
-                    ].filter(Boolean).join(', ')} 입력을 지원해요. 클립(📎) 버튼이나 드래그 앤 드롭으로 첨부해 보세요.
-                  </span>
+                {isImageModel ? (
+                  <>
+                    {currentModel.name} 모델로 텍스트 설명을 이미지로 생성해요.
+                    <span className="welcome-modality-tip">
+                      <br />
+                      원하는 장면을 자세히 묘사할수록 결과가 좋아요. 생성된 이미지는 클릭해서 원본 크기로 볼 수 있어요.
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    {currentModel.name} 모델과 {reasoningEffort} 추론 노력으로 준비되었어요.
+                    {canAttachAny && (
+                      <span className="welcome-modality-tip">
+                        <br />
+                        이 모델은 {[
+                          canAttachImage ? '사진' : '',
+                          canAttachAudio ? '오디오' : '',
+                          canAttachVideo ? '비디오' : '',
+                        ].filter(Boolean).join(', ')} 입력을 지원해요. 클립(📎) 버튼이나 드래그 앤 드롭으로 첨부해 보세요.
+                      </span>
+                    )}
+                  </>
                 )}
                 <br />
                 궁금한 질문을 입력하거나 아래 추천 질문을 눌러보세요.
               </p>
 
               <div className="welcome-prompt-chips">
-                {WELCOME_PROMPTS.map((p, idx) => (
+                {(isImageModel ? IMAGE_WELCOME_PROMPTS : WELCOME_PROMPTS).map((p, idx) => (
                   <button
                     key={idx}
                     type="button"
@@ -891,6 +972,12 @@ export function App() {
               // 어시스턴트 메시지
               const hasReasoning = Boolean(message.reasoning?.trim());
               const isReasoningExpanded = expandedReasoningIds.has(message.id);
+              const messageIsImageModel = isImageGenerationModel(
+                models.find((m) => m.id === message.modelId)
+              );
+              const hasGeneratedImages = Boolean(
+                message.generatedImages && message.generatedImages.length > 0
+              );
 
               return (
                 <div key={message.id} className="message-row assistant">
@@ -907,7 +994,7 @@ export function App() {
                             🧠 {message.intelligenceIndex ?? currentModel.intelligenceIndex}
                           </span>
                         )}
-                        {(message.reasoningEffort || reasoningEffort) && (
+                        {!messageIsImageModel && (message.reasoningEffort || reasoningEffort) && (
                           <span className="effort-badge">노력: {message.reasoningEffort || reasoningEffort}</span>
                         )}
                       </div>
@@ -942,6 +1029,30 @@ export function App() {
                       </div>
                     )}
 
+                    {/* 생성된 이미지 (클릭하면 원본 크기로 미리보기) */}
+                    {hasGeneratedImages && (
+                      <div className="generated-images-grid">
+                        {message.generatedImages!.map((img, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            className="generated-image-card"
+                            onClick={() =>
+                              setPreviewMedia({
+                                type: 'image',
+                                url: img.url,
+                                name: `${message.modelName || 'AI'} 이미지 ${idx + 1}`,
+                              })
+                            }
+                            title="클릭하여 원본 크기로 보기"
+                          >
+                            <img src={img.url} alt={`생성된 이미지 ${idx + 1}`} />
+                            <span className="generated-image-zoom">🔍 원본 보기</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
                     {/* 본문 텍스트 또는 에러/빈 응답 안내 */}
                     {message.isError ? (
                       <div className="assistant-error-box">
@@ -970,12 +1081,12 @@ export function App() {
                       </div>
                     ) : message.content ? (
                       <MarkdownRenderer content={message.content} />
-                    ) : message.isStreaming && !hasReasoning ? (
-                      <div style={{ color: 'var(--color-text-tertiary)', fontSize: 14 }}>
-                        답변을 준비하고 있어요...
+                    ) : message.isStreaming && !hasReasoning && !hasGeneratedImages ? (
+                      <div className="image-generating-status">
+                        {messageIsImageModel ? '이미지를 생성하고 있어요...' : '답변을 준비하고 있어요...'}
                         <span className="streaming-cursor" />
                       </div>
-                    ) : !message.isStreaming && !message.content && !hasReasoning ? (
+                    ) : !message.isStreaming && !message.content && !hasReasoning && !hasGeneratedImages ? (
                       <div className="assistant-error-box">
                         <div className="error-message-row">
                           <AlertCircle size={16} className="error-icon" />
@@ -1049,7 +1160,9 @@ export function App() {
               ref={textareaRef}
               className="chat-textarea"
               placeholder={
-                canAttachAny
+                isImageModel
+                  ? '어떤 이미지를 만들지 설명해 주세요 (Enter: 생성, Shift+Enter: 줄바꿈)'
+                  : canAttachAny
                   ? `메시지를 입력하거나 ${[
                       canAttachImage ? '사진' : '',
                       canAttachAudio ? '오디오' : '',
@@ -1091,6 +1204,8 @@ export function App() {
                           canAttachAudio ? '오디오' : '',
                           canAttachVideo ? '비디오' : '',
                         ].filter(Boolean).join('·')})`
+                      : isImageModel
+                      ? '이미지 생성 모델은 텍스트 프롬프트만 사용해요'
                       : '선택한 모델은 텍스트 전용이에요 (상단에서 멀티모달 모델 선택)'
                   }
                 >
@@ -1128,7 +1243,7 @@ export function App() {
                     className="send-action-btn send"
                     onClick={() => handleSendMessage()}
                     disabled={!inputText.trim() && pendingAttachments.length === 0}
-                    title="전송하기"
+                    title={isImageModel ? '이미지 생성' : '전송하기'}
                   >
                     <CornerDownLeft size={16} />
                   </button>

@@ -1,6 +1,12 @@
 // services/api.ts - Gateway API 호출 및 모델 캐시 서비스
 
-import type { ChatAttachment, FreeModelMeta, GatewayConfig, ReasoningEffortOption } from '../types/chat.ts';
+import type {
+  ChatAttachment,
+  FreeModelMeta,
+  GatewayConfig,
+  GeneratedImageData,
+  ReasoningEffortOption,
+} from '../types/chat.ts';
 
 export const DEFAULT_GATEWAY_URL = 'https://seedtick-ai-gateway.vercel.app';
 
@@ -68,6 +74,25 @@ export function saveGatewayConfig(config: GatewayConfig): void {
 
 // 오프라인/게이트웨이 미실행 시에도 100% 즉시 표시되는 17개 무료 모델 폴백 데이터
 export const FALLBACK_FREE_MODELS: FreeModelMeta[] = [
+  {
+    id: 'recraft/recraft-v4.1-flash-v2:free',
+    name: 'Recraft: Recraft V4.1 Flash V2 (free)',
+    providerName: 'Recraft',
+    created: 1794608385,
+    createdDate: '2026-11-13',
+    daysAgo: 5,
+    contextLength: 65536,
+    contextLengthFormatted: '텍스트 → 이미지',
+    description:
+      'Recraft V4.1 Flash V2 is a fast text-to-image model from Recraft, updated from Recraft V4.1 Flash in the speed tier of the V4.1 family. Suited for rapid iteration, prototyping and high-volume generation with improved generation speed and text rendering inside images.',
+    modality: 'text->image',
+    inputModalities: ['text'],
+    outputModalities: ['image'],
+    isImageGenerationModel: true,
+    intelligenceTier: '무료 텍스트→이미지 생성 (V4.1 Flash V2)',
+    parametersSummary: 'V4.1 Flash V2',
+    supportedParameters: ['n', 'aspect_ratio'],
+  },
   {
     id: 'recursive/flint-v1.0:free',
     name: 'Recursive: Flint',
@@ -542,5 +567,89 @@ export async function streamChatCompletions({
     }
     const message = error instanceof Error ? error.message : '네트워크 연결이 원활하지 않아요.';
     onError(message);
+  }
+}
+
+export interface GenerateImageParams {
+  prompt: string;
+  model: string;
+  config: GatewayConfig;
+  signal?: AbortSignal;
+  n?: number;
+  aspectRatio?: string;
+}
+
+export type GenerateImageResult =
+  | { ok: true; images: GeneratedImageData[] }
+  | { ok: false; error: string };
+
+/** 이미지 생성 모델 호출 (게이트웨이 /v1/images → OpenRouter Image API) */
+export async function generateImage({
+  prompt,
+  model,
+  config,
+  signal,
+  n = 1,
+  aspectRatio,
+}: GenerateImageParams): Promise<GenerateImageResult> {
+  const baseUrl = normalizeBaseUrl(config.baseUrl);
+
+  try {
+    const response = await fetch(`${baseUrl}/v1/images`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${config.gatewaySecret}`,
+      },
+      body: JSON.stringify({
+        model,
+        prompt,
+        n,
+        ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
+      }),
+      signal,
+    });
+
+    const text = await response.text();
+    let json: any;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      return { ok: false, error: text.slice(0, 300) || `이미지 생성 서버 응답을 해석할 수 없어요 (HTTP ${response.status})` };
+    }
+
+    if (!response.ok || json?.error) {
+      const msg =
+        (typeof json?.error === 'string' && json.error) ||
+        json?.error?.message ||
+        `이미지 생성에 실패했어요 (HTTP ${response.status})`;
+      return { ok: false, error: msg };
+    }
+
+    const rawImages: any[] = Array.isArray(json?.data) ? json.data : [];
+    const images: GeneratedImageData[] = [];
+    for (const item of rawImages) {
+      const mediaType =
+        typeof item?.media_type === 'string' && item.media_type.startsWith('image/')
+          ? item.media_type
+          : 'image/png';
+      if (typeof item?.url === 'string' && item.url.trim()) {
+        images.push({ url: item.url, mediaType });
+      } else if (typeof item?.b64_json === 'string' && item.b64_json.trim()) {
+        images.push({ url: `data:${mediaType};base64,${item.b64_json}`, mediaType });
+      }
+    }
+
+    if (images.length === 0) {
+      return { ok: false, error: '생성된 이미지가 응답에 포함되지 않았어요.' };
+    }
+
+    return { ok: true, images };
+  } catch (error) {
+    if (signal?.aborted) {
+      return { ok: false, error: '이미지 생성이 중단되었어요.' };
+    }
+    const message = error instanceof Error ? error.message : '이미지 생성 서버에 연결할 수 없어요.';
+    return { ok: false, error: message };
   }
 }

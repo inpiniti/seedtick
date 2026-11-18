@@ -142,6 +142,31 @@ export interface ChatRequest {
   zdr?: boolean;
 }
 
+// ─────────────────────────────────────────────
+// 이미지 생성 (OpenRouter /api/v1/images)
+// ─────────────────────────────────────────────
+
+export interface ImageGenerationRequest {
+  model?: string;
+  prompt: string;
+  n?: number;
+  aspect_ratio?: string;
+  data_collection?: 'allow' | 'deny';
+  zdr?: boolean;
+}
+
+export interface GeneratedImageData {
+  /** 화면에 바로 표시할 수 있는 data URL (data:image/...;base64,...) */
+  url: string;
+  mediaType: string;
+}
+
+export interface ImageGenerationResponse {
+  created: number;
+  data: GeneratedImageData[];
+  usage?: Record<string, unknown>;
+}
+
 export interface FreeModelMeta {
   id: string;
   name: string;
@@ -154,6 +179,10 @@ export interface FreeModelMeta {
   description: string;
   modality: string;
   inputModalities?: string[];
+  /** 모델이 생성하는 출력 모달리티 (예: ['image'], ['text']) */
+  outputModalities?: string[];
+  /** 텍스트 프롬프트로 이미지를 생성하는 모델 여부 */
+  isImageGenerationModel?: boolean;
   intelligenceIndex?: number | null;
   codingIndex?: number | null;
   agenticIndex?: number | null;

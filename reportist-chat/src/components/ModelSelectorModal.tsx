@@ -315,6 +315,11 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                       </div>
                     )}
 
+                    {/* 이미지 생성 모델 뱃지 */}
+                    {model.isImageGenerationModel && (
+                      <span className="meta-pill modality-badge image">🎨 이미지 생성</span>
+                    )}
+
                     {/* 모달리티 뱃지 */}
                     {inputMods.includes('image') && (
                       <span className="meta-pill modality-badge image">🖼️ 이미지</span>
@@ -325,9 +330,12 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                     {inputMods.includes('video') && (
                       <span className="meta-pill modality-badge video">🎬 비디오</span>
                     )}
-                    {!inputMods.includes('image') && !inputMods.includes('audio') && !inputMods.includes('video') && (
-                      <span className="meta-pill modality-badge text">📝 텍스트 전용</span>
-                    )}
+                    {!model.isImageGenerationModel &&
+                      !inputMods.includes('image') &&
+                      !inputMods.includes('audio') &&
+                      !inputMods.includes('video') && (
+                        <span className="meta-pill modality-badge text">📝 텍스트 전용</span>
+                      )}
 
                     {/* 출시일 정보 */}
                     <div className="meta-pill date-pill" title={`출시일: ${model.createdDate}`}>

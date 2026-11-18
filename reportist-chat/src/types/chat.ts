@@ -14,12 +14,19 @@ export interface ChatAttachment {
   dataUrl: string; // Base64 data URL
 }
 
+/** 이미지 생성 모델이 반환한 생성 이미지 */
+export interface GeneratedImageData {
+  url: string; // data URL 또는 원격 URL
+  mediaType: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: MessageRole;
   content: string;
   reasoning?: string;
   attachments?: ChatAttachment[];
+  generatedImages?: GeneratedImageData[];
   isStreaming?: boolean;
   isError?: boolean;
   errorMsg?: string;
@@ -101,6 +108,10 @@ export interface FreeModelMeta {
   description: string;
   modality: string;
   inputModalities?: string[];
+  /** 모델 출력 모달리티 (image 생성 모델은 ['image']) */
+  outputModalities?: string[];
+  /** 텍스트->이미지 생성 모델 여부 */
+  isImageGenerationModel?: boolean;
   intelligenceIndex?: number | null;
   codingIndex?: number | null;
   agenticIndex?: number | null;
@@ -122,6 +133,19 @@ export function getModelInputModalities(model?: FreeModelMeta | null): string[] 
     return inputs.length > 0 ? inputs : ['text'];
   }
   return ['text'];
+}
+
+/** 텍스트 프롬프트로 이미지를 생성하는 모델인지 여부 */
+export function isImageGenerationModel(model?: FreeModelMeta | null): boolean {
+  if (!model) return false;
+  if (model.isImageGenerationModel) return true;
+  const outputs = model.outputModalities;
+  return Boolean(
+    outputs &&
+      outputs.includes('image') &&
+      !outputs.includes('text') &&
+      model.modality?.includes('->image')
+  );
 }
 
 /**
