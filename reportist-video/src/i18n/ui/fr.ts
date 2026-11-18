@@ -518,7 +518,6 @@ export const uiFr: Record<string, string> = {
   'AI 하이라이트를 먼저 만들면 다음으로 넘어갈 수 있어요': 'Créez d’abord les moments forts IA pour continuer',
   '영상 준비 중...': 'Préparation des vidéos...',
   // 컷을 모두 열어보면 다음 단계 활성화 (별도 확인 버튼 없음)
-  '확인 {count}/{total}': 'Vus {count}/{total}',
   '아직 확인하지 않은 컷이 {count}개 있어요. 모든 컷을 열어보면 다음으로 넘어갈 수 있어요':
     'Il reste {count} extraits à voir. Consultez tous les extraits pour continuer',
   '아직 확인하지 않은 씬이 {count}개 있어요. 모든 씬을 열어보면 다음으로 넘어갈 수 있어요':

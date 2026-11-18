@@ -7981,12 +7981,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     </strong>
                     <span className="toss-cut-navigator-sub">/ {segments.length}</span>
                   </div>
-                  <span className="toss-cut-view-progress">
-                    {ui('확인 {count}/{total}', {
-                      count: viewedSegmentCount,
-                      total: segments.length,
-                    })}
-                  </span>
                 </div>
                 <button
                   type="button"

@@ -530,7 +530,6 @@ export const uiEn: Record<string, string> = {
   'AI 하이라이트를 먼저 만들면 다음으로 넘어갈 수 있어요': 'Create AI highlights first to proceed',
   '영상 준비 중...': 'Preparing videos...',
   // 컷을 모두 열어보면 다음 단계 활성화 (별도 확인 버튼 없음)
-  '확인 {count}/{total}': 'Viewed {count}/{total}',
   '아직 확인하지 않은 컷이 {count}개 있어요. 모든 컷을 열어보면 다음으로 넘어갈 수 있어요':
     'You still have {count} cut(s) to view. View every cut to continue',
   '아직 확인하지 않은 씬이 {count}개 있어요. 모든 씬을 열어보면 다음으로 넘어갈 수 있어요':

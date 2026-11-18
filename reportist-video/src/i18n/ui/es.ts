@@ -517,7 +517,6 @@ export const uiEs: Record<string, string> = {
   'AI 하이라이트를 먼저 만들면 다음으로 넘어갈 수 있어요': 'Crea los momentos destacados con IA primero para poder avanzar',
   '영상 준비 중...': 'Preparando videos...',
   // 컷을 모두 열어보면 다음 단계 활성화 (별도 확인 버튼 없음)
-  '확인 {count}/{total}': 'Vistos {count}/{total}',
   '아직 확인하지 않은 컷이 {count}개 있어요. 모든 컷을 열어보면 다음으로 넘어갈 수 있어요':
     'Te quedan {count} cortes por ver. Revisa todos los cortes para continuar',
   '아직 확인하지 않은 씬이 {count}개 있어요. 모든 씬을 열어보면 다음으로 넘어갈 수 있어요':

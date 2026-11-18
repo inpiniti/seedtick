@@ -518,7 +518,6 @@ export const uiDe: Record<string, string> = {
   'AI 하이라이트를 먼저 만들면 다음으로 넘어갈 수 있어요': 'Erstelle zuerst KI-Highlights, um fortzufahren',
   '영상 준비 중...': 'Videos werden vorbereitet...',
   // 컷을 모두 열어보면 다음 단계 활성화 (별도 확인 버튼 없음)
-  '확인 {count}/{total}': 'Angesehen {count}/{total}',
   '아직 확인하지 않은 컷이 {count}개 있어요. 모든 컷을 열어보면 다음으로 넘어갈 수 있어요':
     '{count} Clip(s) noch nicht angesehen. Sieh dir alle Clips an, um fortzufahren',
   '아직 확인하지 않은 씬이 {count}개 있어요. 모든 씬을 열어보면 다음으로 넘어갈 수 있어요':
