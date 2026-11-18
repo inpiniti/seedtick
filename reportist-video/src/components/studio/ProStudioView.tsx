@@ -30,7 +30,6 @@ import {
   Type,
   FileAudio,
   MapPin,
-  ExternalLink,
   Eye,
   ChevronDown,
   ChevronLeft,
@@ -8187,98 +8186,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             />
                           </div>
 
-                          {/* 2. 씬 촬영 날짜 & 위치 */}
-                          <div className="toss-branding-row">
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <span className="text-[11px] font-bold text-slate-600 mb-1 block">{dict.dramaticClips.dateLabel}</span>
-                                <input
-                                  type="text"
-                                  value={seg.subtitleDate ?? ''}
-                                  onChange={(e) =>
-                                    handleUpdateSegmentSubtitle(seg.id, 'subtitleDate', e.target.value)
-                                  }
-                                  placeholder={dict.dramaticClips.datePlaceholder}
-                                  className="toss-input-sm"
-                                />
-                                {segTimeInfo.full && (
-                                  <span
-                                    className="toss-original-recorded-tip"
-                                    title={interpolate(dict.dramaticClips.originalRecordedTime, {
-                                      time: segTimeInfo.full,
-                                    })}
-                                  >
-                                    <Clock size={10} className="shrink-0 text-slate-400" />
-                                    <span className="truncate">
-                                      {interpolate(dict.dramaticClips.originalRecordedTime, {
-                                        time: segTimeInfo.full,
-                                      })}
-                                    </span>
-                                  </span>
-                                )}
-                              </div>
-                              <div>
-                                <span className="text-[11px] font-bold text-slate-600 mb-1 block">{dict.dramaticClips.locationLabel}</span>
-                                <input
-                                  type="text"
-                                  value={seg.locationName ?? ''}
-                                  onChange={(e) =>
-                                    handleUpdateSegmentSubtitle(seg.id, 'locationName', e.target.value)
-                                  }
-                                  placeholder={dict.dramaticClips.locationPlaceholder}
-                                  className="toss-input-sm"
-                                />
-                              </div>
-                            </div>
-
-                            {/* 지도 확인 버튼들 */}
-                            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                              <button
-                                type="button"
-                                className="toss-btn-micro-action"
-                                onClick={() => setMapModalTarget(seg)}
-                              >
-                                <MapPin size={12} className="text-red-500" />
-                                <span>{dict.dramaticClips.checkMapMarker}</span>
-                              </button>
-
-                              <a
-                                href={
-                                  seg.locationName
-                                    ? `https://map.naver.com/v5/search/${encodeURIComponent(seg.locationName)}`
-                                    : seg.latitude && seg.longitude
-                                    ? `https://map.naver.com/v5/search/${seg.latitude},${seg.longitude}`
-                                    : `https://map.naver.com/v5/search/${encodeURIComponent(seg.subtitleTitle || seg.reason)}`
-                                }
-                                target="_blank"
-                                rel="noreferrer"
-                                className="toss-btn-micro-action"
-                              >
-                                <ExternalLink size={11} />
-                                <span>{dict.dramaticClips.naverMap}</span>
-                              </a>
-
-                              <a
-                                href={
-                                  seg.latitude && seg.longitude
-                                    ? `https://www.google.com/maps/search/?api=1&query=${seg.latitude},${seg.longitude}`
-                                    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(seg.locationName || seg.subtitleTitle || seg.reason)}`
-                                }
-                                target="_blank"
-                                rel="noreferrer"
-                                className="toss-btn-micro-action"
-                              >
-                                <ExternalLink size={11} />
-                                <span>{dict.dramaticClips.googleMap}</span>
-                              </a>
-                            </div>
-                          </div>
                             </>
                           )}
 
                           {!isCaptionSection && (
                             <>
-                          {/* 3. 16:9 세로 영상 인물 크롭 기준 (세로 원본 영상에서만 노출) */}
+                          {/* 2. 16:9 세로 영상 인물 크롭 기준 (세로 원본 영상에서만 노출) */}
                           {isPortraitSource && (
                             <div className="toss-branding-row">
                               <div className="flex items-center justify-between mb-1">
