@@ -825,18 +825,11 @@ html.is-hero-top .site-header {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  border: 1px solid rgba(15, 23, 42, 0.22);
-  border-radius: 22px;
   background: #05080f;
-  box-shadow:
-    0 34px 80px rgba(15, 23, 42, 0.2),
-    0 6px 18px rgba(15, 23, 42, 0.1);
-  /* Tilts flat as the film scrolls into view (--theater-p is fed by
-     landing.js, defaulting to fully open so no-JS stays flat). */
-  transform: perspective(1150px) rotateX(calc((1 - var(--theater-p, 1)) * 6.5deg))
-    scale(calc(0.93 + var(--theater-p, 1) * 0.07));
-  transform-origin: 50% 62%;
-  will-change: transform;
+  /* Edge-to-edge: break out of the centred .container so the film owns the
+     full viewport width. No border, no radius — pure full-bleed media. */
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
 }
 
 .theater-video {
@@ -1775,10 +1768,6 @@ html.is-hero-top .site-header {
     font-size: clamp(1.65rem, 7.4vw, 2.3rem);
   }
 
-  .theater-frame {
-    border-radius: 16px;
-  }
-
   .theater-bar {
     gap: 8px 14px;
     padding: 12px 12px 13px;
@@ -2414,11 +2403,11 @@ html.has-motion-stage .story-stage {
 .story-ui-frame {
   flex-shrink: 0;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  /* Square corners so the full screenshot is shown edge to edge. */
-  border-radius: 0;
+  /* Edge-to-edge: break out of the .story-act padding so the studio capture
+     fills the full stage width. No border, radius or shadow. */
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
   background: #0b111c;
-  box-shadow: 0 38px 90px rgba(0, 0, 0, 0.55);
 }
 
 .story-ui-bar {
@@ -2974,7 +2963,7 @@ html.has-motion-stage .story-stage {
 
   .story-ui-frame {
     grid-row: 1;
-    width: 100%;
+    /* Keep the edge-to-edge width from the base rule (100vw + breakout). */
   }
 
   .story-ui-copy {
