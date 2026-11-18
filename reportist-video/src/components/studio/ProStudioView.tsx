@@ -196,7 +196,7 @@ import { PenguinLogo } from '../common/PenguinLogo.tsx';
 import { ShinyText } from '../common/ShinyText.tsx';
 import { SpecularButton } from '../common/SpecularButton.tsx';
 import { BorderBeam } from '../common/BorderBeam.tsx';
-import { getLandingPath, useI18n } from '../../i18n/index.tsx';
+import { useI18n } from '../../i18n/index.tsx';
 
 const PLAYBACK_ERROR_MESSAGE =
   '이 영상은 미리보기를 재생할 수 없어요. 영상을 다시 올리거나 다른 형식(MP4)으로 시도해 주세요.';
@@ -1969,20 +1969,47 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         : null;
 
   // AI 분석이 끝나 컷이 처음 생기면 생성 흐름에서 편집 흐름의 '컷'으로 자연스럽게 이동한다.
+  // 단, 기존 프로젝트를 열면 저장된 세그먼트가 뒤늦게 채워지는 것이므로 분석 완료로 오인하지 않는다.
+  // 프로젝트 전환 여부와 새 분석 결과 여부를 함께 봐서 저장된 프로젝트는 항상 1번(인트로)에서 시작한다.
   const hadSegmentsRef = useRef<boolean>(initialSegments.length > 0);
+  const lastResultRef = useRef<FinalVideoResult | null>(result);
+  const lastProjectIdRef = useRef<string | null | undefined>(currentProjectId);
+  const pendingAutoCutRef = useRef<boolean>(false);
   useEffect(() => {
-    if (segments.length > 0 && !hadSegmentsRef.current) {
-      hadSegmentsRef.current = true;
-      musicPanelPinnedRef.current = false;
-      setActiveSection('cut');
-      if (segments[0]) setSelectedSegmentId(segments[0].id);
+    const isProjectSwitch = currentProjectId !== lastProjectIdRef.current;
+    const isNewResult = result !== lastResultRef.current;
+    lastProjectIdRef.current = currentProjectId;
+    lastResultRef.current = result;
+
+    if (isProjectSwitch) {
+      // 새로 열거나 새로 만든 프로젝트는 저장된 컷이 있어도 1번부터 시작한다.
+      pendingAutoCutRef.current = false;
+      hadSegmentsRef.current = segments.length > 0;
+      setActiveSection('intro');
       return;
     }
-    if (segments.length === 0 && hadSegmentsRef.current) {
+    if (isNewResult && !hadSegmentsRef.current) {
+      // 같은 프로젝트에서 AI 분석이 새 결과를 만든 경우에만 컷 이동을 예약한다.
+      pendingAutoCutRef.current = true;
+    }
+    if (segments.length > 0) {
+      if (pendingAutoCutRef.current && !hadSegmentsRef.current) {
+        pendingAutoCutRef.current = false;
+        hadSegmentsRef.current = true;
+        musicPanelPinnedRef.current = false;
+        setActiveSection('cut');
+        if (segments[0]) setSelectedSegmentId(segments[0].id);
+      } else {
+        // 프로젝트 복원으로 세그먼트가 채워진 경우: 기준값만 맞추고 단계는 유지한다.
+        hadSegmentsRef.current = true;
+      }
+      return;
+    }
+    if (hadSegmentsRef.current) {
       hadSegmentsRef.current = false;
       setActiveSection('intro');
     }
-  }, [segments]);
+  }, [segments, currentProjectId, result]);
   // 실제 하이라이트 결과가 있을 때만 시간 절약률을 계산/노출한다
   const hasHighlight = segments.length > 0;
 
@@ -4950,7 +4977,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             /* 목록 및 커뮤니티 화면: 로고, 브랜드명, 상단 탭 노출 */
             <>
               <a
-                href={getLandingPath(locale)}
+                href="/"
                 className="toss-nav-brand-link"
                 title={dict.common.visitPenguinCutHome || 'PenguinCut 홈으로 이동'}
                 aria-label={dict.common.visitPenguinCutHome || 'PenguinCut 홈으로 이동'}
