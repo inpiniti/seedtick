@@ -3748,6 +3748,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       }
       return;
     }
+    // 스타일 변경으로 예약된 재생이 단계 이동 뒤에 늦게 실행되면 다른 단계의 구간이
+    // 재생될 수 있으므로 현재 활성 단계의 구간일 때만 재생한다.
+    if (section === 'intro' && activeSection !== 'intro' && activeSection !== 'introStyle') return;
+    if (section === 'outro' && activeSection !== 'outro') return;
+    if (section === 'bridge' && activeSection !== 'bridge') return;
+
     if (section === 'intro') {
       if (introDuration <= 0) return;
       previewSectionRange(0, introDuration);
@@ -3811,6 +3817,18 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   ) => {
     window.setTimeout(() => previewSectionPlayRef.current(section, bridgeIndex), delayMs);
   };
+
+  // 시퀀스 모드(AI 컷 있음)에서는 인트로/아웃트로가 독립 캔버스가 아니라 타임라인
+  // 구간 재생으로 미리보기되므로, 해당 단계로 들어오면 그 구간을 자동 재생한다.
+  // (독립 캔버스를 쓰는 브릿지·AI 컷 없는 생성 흐름은 앞선 이펙트에서 처리한다.)
+  const lastAutoPlaySectionRef = useRef<StudioSection | null>(activeSection);
+  useEffect(() => {
+    if (lastAutoPlaySectionRef.current === activeSection) return;
+    lastAutoPlaySectionRef.current = activeSection;
+    if (!isSequenceMode || standalonePreviewSection) return;
+    if (activeSection !== 'intro' && activeSection !== 'outro') return;
+    previewSectionPlayRef.current(activeSection);
+  }, [activeSection, isSequenceMode, standalonePreviewSection]);
 
   const selectCutByOffset = (delta: number) => {
     if (segments.length === 0) return;
