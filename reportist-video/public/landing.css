@@ -2402,10 +2402,12 @@ html.has-motion-stage .story-stage {
 .story-ui-frame {
   flex-shrink: 0;
   overflow: hidden;
-  /* Edge-to-edge: break out of the .story-act padding so the studio capture
-     fills the full stage width. No border, radius or shadow. */
-  width: 100vw;
-  margin-left: calc(50% - 50vw);
+  /* Stay inside the left grid column on desktop. A full-bleed 100vw here
+     would be measured against the sticky stage and push the mockup off the
+     left edge, overshoot its height and cover the copy/capture chips. The
+     edge-to-edge breakout is applied only in the mobile media query below. */
+  width: 100%;
+  margin: 0;
   background: #0b111c;
 }
 
@@ -2962,7 +2964,11 @@ html.has-motion-stage .story-stage {
 
   .story-ui-frame {
     grid-row: 1;
-    /* Keep the edge-to-edge width from the base rule (100vw + breakout). */
+    /* Single-column act: break out of the 18px padding so the capture is
+       truly edge-to-edge on phones. Here 50% resolves against the full-width
+       column, so the frame lands exactly at x=0 with viewport width. */
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
   }
 
   .story-ui-copy {
