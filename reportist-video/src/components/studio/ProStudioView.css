@@ -15365,8 +15365,19 @@
     padding: 8px 0;
   }
 
+  /* 업로드 목록의 현재 미리보기 영상: 아래 구분선 하나만으로 선택 상태를 표시하면
+     다른 행의 구분선과 구별이 안 돼 어색하므로, 테두리 전체를 두른 카드로 감싼다.
+     비선택 행과 동일한 패딩·투명 테두리를 줘 선택 시 레이아웃이 흔들리지 않게 한다. */
+  .toss-upload-item {
+    padding: 8px 10px;
+    border: 1px solid transparent;
+    border-bottom-color: #f2f4f6;
+    border-radius: 10px;
+  }
+
   .toss-upload-item.active {
     background: #f8fafc;
+    border-color: #0f172a;
   }
 
   /* 7) 전체 자막 목록: 외곽 박스 제거 + 행 구분선 */
