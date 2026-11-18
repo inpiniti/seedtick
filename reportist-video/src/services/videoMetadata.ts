@@ -343,14 +343,16 @@ export function setStoredBirthDate(dateStr: string): void {
 }
 
 /**
- * 촬영일시 순 기본 정렬 활성화 여부 불러오기 (기본값: false)
+ * 촬영일시 순 기본 정렬 활성화 여부 불러오기 (기본값: true)
+ * 저장된 값이 없으면 기본 활성화, 사용자가 명시적으로 끈 경우('false')만 비활성화
  */
 export function getStoredAutoSortByRecordedTime(): boolean {
   try {
     const saved = localStorage.getItem(AUTO_SORT_BY_RECORDED_TIME_STORAGE_KEY);
+    if (saved === null) return true;
     return saved === 'true';
   } catch {}
-  return false;
+  return true;
 }
 
 /**
