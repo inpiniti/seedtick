@@ -186,6 +186,7 @@ export const zh: Dictionary = {
     title: '原始视频预览',
     videosCount: '{count}个视频',
     desc: '制作AI高光时，剪辑将填充在此处。目前可直接预览已上传的视频。',
+    scrollHint: '多个视频可用鼠标滚轮或拖动左右查看。',
     listAriaLabel: '要预览的原始视频',
     playbackError: '无法播放此视频的预览。请重新上传视频或尝试其他格式（MP4）。',
   },

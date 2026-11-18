@@ -186,6 +186,7 @@ export const de: Dictionary = {
     title: 'Originalvideo-Vorschau',
     videosCount: '{count} Videos',
     desc: 'Sobald Sie KI-Highlights erstellen, erscheinen die Clips hier. Vorerst können Sie die hochgeladenen Videos direkt ansehen.',
+    scrollHint: 'Mit dem Mausrad oder durch Ziehen können Sie weitere Videos ansehen.',
     listAriaLabel: 'Originalvideos zur Vorschau',
     playbackError: 'Die Vorschau für dieses Video kann nicht abgespielt werden. Bitte laden Sie das Video erneut hoch oder verwenden Sie ein anderes Format (MP4).',
   },

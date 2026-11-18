@@ -186,6 +186,7 @@ export const es: Dictionary = {
     title: 'Vista previa del video original',
     videosCount: '{count} videos',
     desc: 'Cuando crees momentos destacados con IA, los clips aparecerán aquí. Por ahora, puedes previsualizar los videos subidos directamente.',
+    scrollHint: 'Usa la rueda del ratón o arrastra para ver más vídeos.',
     listAriaLabel: 'Videos originales para previsualizar',
     playbackError: 'No se puede reproducir la vista previa de este video. Vuelve a subirlo o prueba con otro formato (MP4).',
   },

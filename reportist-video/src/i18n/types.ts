@@ -222,6 +222,7 @@ export interface Dictionary {
     title: string;
     videosCount: string;
     desc: string;
+    scrollHint: string;
     listAriaLabel: string;
     playbackError: string;
   };

@@ -186,6 +186,7 @@ export const en: Dictionary = {
     title: 'Original Video Preview',
     videosCount: '{count} Videos',
     desc: 'When you create AI highlights, clips will appear here. For now, you can preview the uploaded videos directly.',
+    scrollHint: 'Scroll with your mouse wheel or drag to see more videos.',
     listAriaLabel: 'Original videos to preview',
     playbackError: 'Cannot play preview for this video. Please re-upload or try a different format (MP4).',
   },

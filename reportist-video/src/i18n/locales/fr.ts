@@ -186,6 +186,7 @@ export const fr: Dictionary = {
     title: 'Aperçu de la vidéo originale',
     videosCount: '{count} vidéos',
     desc: 'Lorsque vous créez des moments forts avec l’IA, les clips apparaîtront ici. Pour l’instant, vous pouvez prévisualiser directement les vidéos importées.',
+    scrollHint: 'Utilisez la molette ou faites glisser pour voir les autres vidéos.',
     listAriaLabel: 'Vidéos originales à prévisualiser',
     playbackError: 'Impossible de lire l’aperçu de cette vidéo. Veuillez la réimporter ou essayer un autre format (MP4).',
   },

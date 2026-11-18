@@ -2326,12 +2326,26 @@
   color: #4e5968;
 }
 
+.toss-draft-preview-hint {
+  margin: -2px 0 8px;
+  font-size: 11px;
+  color: #8b95a1;
+}
+
 .toss-draft-preview-list {
   display: flex;
   gap: 8px;
   overflow-x: auto;
   padding-bottom: 2px;
   scrollbar-width: none;
+  cursor: grab;
+  touch-action: pan-x;
+  user-select: none;
+}
+
+.toss-draft-preview-list.is-dragging,
+.toss-draft-preview-list.is-dragging * {
+  cursor: grabbing !important;
 }
 
 .toss-draft-preview-list::-webkit-scrollbar {

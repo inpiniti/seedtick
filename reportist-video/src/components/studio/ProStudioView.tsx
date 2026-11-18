@@ -181,6 +181,7 @@ import {
 import { notify } from '../../services/toastService.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 import { useIsMobileViewport } from '../../hooks/useIsMobileViewport.ts';
+import { useHorizontalScroll } from '../../hooks/useHorizontalScroll.ts';
 import {
   type DateFormatOption,
   formatDateByPattern,
@@ -522,6 +523,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   onRelinkBatch,
 }) => {
   const { dict, interpolate, currentLocaleInfo, locale, ui } = useI18n();
+  // 업로드 직후 영상 아래에 나오는 원본 미리보기 리스트: 스크롤바가 숨겨져 있어
+  // 쉬프트+휠만 알고 있는 사용자가 많다. 일반 휠·마우스 드래그로도 넘기게 한다.
+  const draftPreviewScroll = useHorizontalScroll<HTMLDivElement>();
   // 출력 프레임(가로 16:9 / 세로 9:16) — 프리뷰 렌더러·캔버스 크기·썸네일이 이 스펙을 공유한다.
   const frame = useMemo(
     () => previewFrame(orientation ?? 'landscape', portraitPlatform),
@@ -6651,8 +6655,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   {dict.draftPreview?.desc ||
                     'AI 하이라이트를 만들면 여기에 클립이 채워져요. 지금은 올린 영상을 그대로 볼 수 있어요.'}
                 </p>
+                {videos.length > 1 && (
+                  <p className="toss-draft-preview-hint">
+                    {dict.draftPreview?.scrollHint ||
+                      '여러 영상은 마우스 휠이나 드래그로 좌우로 넘겨볼 수 있어요.'}
+                  </p>
+                )}
                 <div
-                  className="toss-draft-preview-list"
+                  ref={draftPreviewScroll.ref}
+                  className={`toss-draft-preview-list ${draftPreviewScroll.isDragging ? 'is-dragging' : ''}`}
                   role="listbox"
                   aria-label={dict.draftPreview?.listAriaLabel || '미리볼 원본 영상'}
                 >

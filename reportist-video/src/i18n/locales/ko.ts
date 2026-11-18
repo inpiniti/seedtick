@@ -186,6 +186,7 @@ export const ko: Dictionary = {
     title: '원본 영상 미리보기',
     videosCount: '{count}개 영상',
     desc: 'AI 하이라이트를 만들면 여기에 클립이 채워져요. 지금은 올린 영상을 그대로 볼 수 있어요.',
+    scrollHint: '여러 영상은 마우스 휠이나 드래그로 좌우로 넘겨볼 수 있어요.',
     listAriaLabel: '미리볼 원본 영상',
     playbackError: '이 영상은 미리보기를 재생할 수 없어요. 영상을 다시 올리거나 다른 형식(MP4)으로 시도해 주세요.',
   },
