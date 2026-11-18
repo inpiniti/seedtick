@@ -582,6 +582,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [selectedSegmentId, setSelectedSegmentId] = useState<string>(
     initialSegments[0]?.id || ''
   );
+
+  // 컷 다듬기에서 사용자가 직접 확인(수정 완료)한 컷 ID.
+  // 모든 컷을 확인해야 다음 단계(자막 수정) CTA가 활성화된다.
+  const [reviewedCutIds, setReviewedCutIds] = useState<Set<string>>(() => new Set());
+  const reviewedCutCount = segments.reduce(
+    (count, seg) => count + (reviewedCutIds.has(seg.id) ? 1 : 0),
+    0
+  );
+
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
@@ -3883,6 +3892,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       }
       return null;
     }
+    if (activeSection === 'cut') {
+      if (segments.length === 0) {
+        return ui('AI 하이라이트를 먼저 만들면 다음으로 넘어갈 수 있어요');
+      }
+      const unreviewedCount = segments.length - reviewedCutCount;
+      if (unreviewedCount > 0) {
+        return ui('수정하지 않은 컷이 {count}개 있어요. 모든 컷에서 수정 완료를 눌러주세요', {
+          count: unreviewedCount,
+        });
+      }
+    }
     return null;
   })();
 
@@ -4430,6 +4450,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       videoRef.current.muted = nextMuted;
     }
     setIsMuted(nextMuted);
+  };
+
+  // 개별 컷 '수정 완료' 토글 — 누른 컷만 다음 단계 이동 조건에 반영한다.
+  const handleToggleCutReviewed = (segId: string) => {
+    setReviewedCutIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(segId)) next.delete(segId);
+      else next.add(segId);
+      return next;
+    });
   };
 
   // 클립 시작/끝 미세 조절 (-0.5s / +0.5s)
@@ -7505,7 +7535,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
           {/* AI가 포착한 극적 순간 카드 (자막/컷 단계를 함께 감싼다) */}
           <div
-            className={`toss-card toss-dramatic-card toss-inspector-card ${isCaptionSection || activeSection === 'cut' ? 'is-active-section' : ''}`}
+            className={`toss-card toss-dramatic-card toss-inspector-card ${isCaptionSection || activeSection === 'cut' ? 'is-active-section' : ''} ${activeSection === 'cut' ? 'is-cut-step' : ''}`}
           >
             {segments.length > 0 && (
               <BorderBeam
@@ -7706,12 +7736,22 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   {isCaptionSection ? ui('‹ 이전 씬') : ui('‹ 이전 컷')}
                 </button>
                 <div className="toss-cut-navigator-center">
-                  <strong className="toss-cut-navigator-count">
-                    {isCaptionSection
-                      ? ui('씬 #{index}', { index: selectedSegmentIndex + 1 })
-                      : ui('컷 #{index}', { index: selectedSegmentIndex + 1 })}
-                  </strong>
-                  <span className="toss-cut-navigator-sub">/ {segments.length}</span>
+                  <div className="toss-cut-navigator-countline">
+                    <strong className="toss-cut-navigator-count">
+                      {isCaptionSection
+                        ? ui('씬 #{index}', { index: selectedSegmentIndex + 1 })
+                        : ui('컷 #{index}', { index: selectedSegmentIndex + 1 })}
+                    </strong>
+                    <span className="toss-cut-navigator-sub">/ {segments.length}</span>
+                  </div>
+                  {!isCaptionSection && (
+                    <span className="toss-cut-review-progress">
+                      {ui('수정 완료 {count}/{total}', {
+                        count: reviewedCutCount,
+                        total: segments.length,
+                      })}
+                    </span>
+                  )}
                 </div>
                 <button
                   type="button"
@@ -8144,6 +8184,29 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           )}
                         </div>
                       </div>
+
+                        {/* 컷별 수정 완료 — 모든 컷을 확인해야 다음 단계(자막 수정)로 넘어갈 수 있다 */}
+                        {!isCaptionSection && (
+                          <button
+                            type="button"
+                            className={`toss-cut-review-btn${reviewedCutIds.has(seg.id) ? ' is-reviewed' : ''}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleCutReviewed(seg.id);
+                            }}
+                            aria-pressed={reviewedCutIds.has(seg.id)}
+                            title={ui('수정 완료하기')}
+                          >
+                            <span className="toss-cut-review-check">
+                              {reviewedCutIds.has(seg.id) ? <Check size={11} /> : null}
+                            </span>
+                            <span>
+                              {reviewedCutIds.has(seg.id)
+                                ? ui('수정 완료')
+                                : ui('수정 완료하기')}
+                            </span>
+                          </button>
+                        )}
 
                       {/* 선택한 씬의 자막/날짜/위치/구도 수정 */}
                       {isSelected && (isCaptionSection || isPortraitSource || (isPortraitOutput && !isPortraitSource)) && (

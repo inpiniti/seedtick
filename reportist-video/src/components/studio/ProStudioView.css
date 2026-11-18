@@ -13424,9 +13424,23 @@
 
 .toss-cut-navigator-center {
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 0;
+}
+
+.toss-cut-navigator-countline {
+  display: flex;
   align-items: baseline;
   gap: 3px;
-  min-width: 0;
+}
+
+.toss-cut-review-progress {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #8b95a1;
+  white-space: nowrap;
 }
 
 .toss-cut-navigator-count {
@@ -13445,6 +13459,66 @@
 .toss-cut-preview-btn {
   flex: 1 1 100%;
   justify-content: center;
+}
+
+/* 컷별 수정 완료 확인 — 다음 단계(자막 수정) CTA의 활성화 조건 */
+.toss-cut-review-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #4e5968;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.toss-cut-review-btn:hover {
+  background: #f8fafc;
+  border-color: #0f172a;
+}
+
+.toss-cut-review-btn.is-reviewed {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+}
+
+.toss-cut-review-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  border: 1.5px solid currentColor;
+  border-radius: 4px;
+  opacity: 0.7;
+}
+
+.toss-cut-review-btn.is-reviewed .toss-cut-review-check {
+  opacity: 1;
+}
+
+/* 모바일 컷 다듬기: 정밀 편집 모달에 조절 기능을 위임하고 상단 정보 밀도를 낮춘다. */
+@media (max-width: 1024px) {
+  .toss-dramatic-card.is-cut-step .toss-tag-gray,
+  .toss-dramatic-card.is-cut-step .toss-cut-preview-btn,
+  .toss-dramatic-card.is-cut-step .toss-cut-timecodes,
+  .toss-dramatic-card.is-cut-step .toss-segment-time-badge {
+    display: none;
+  }
+
+  /* 정렬은 아이콘만 남겨 기능은 유지하되 라벨이 자리를 차지하지 않게 한다. */
+  .toss-dramatic-card.is-cut-step .toss-btn-sort-time span {
+    display: none;
+  }
 }
 
 /* ---------- 브릿지 인스펙터 ---------- */
