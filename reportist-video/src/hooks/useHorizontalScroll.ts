@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 type DragState = {
   pointerId: number;
@@ -14,15 +14,20 @@ type DragState = {
  *   가로채지 않아 페이지 스크롤이 자연스럽게 이어진다.
  * - 마우스로 누른 뒤 좌우로 끌면 스크롤한다(터치는 기존 기동 스크롤 유지).
  *   드래그가 시작되면 같은 제스처의 클릭은 무시해 항목 선택이 함께 일어나지 않게 한다.
+ *
+ * 리스트가 조건부 렌더링되는 경우(예: 영상 업로드 전에는 없는 목록)를 위해
+ * ref가 실제 노드에 붙을 때마다 이벤트를 다시 등록한다.
  */
 export function useHorizontalScroll<T extends HTMLElement>() {
-  const ref = useRef<T | null>(null);
+  const [node, setNode] = useState<T | null>(null);
+  // 콜백 ref를 사용해 노드가 나중에 마운트/교체돼도 effect가 다시 실행되게 한다.
+  const ref = useCallback((el: T | null) => setNode(el), []);
   const dragRef = useRef<DragState | null>(null);
   const suppressClickRef = useRef(false);
   const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
-    const el = ref.current;
+    const el = node;
     if (!el) return;
 
     const onWheel = (e: WheelEvent) => {
@@ -91,7 +96,7 @@ export function useHorizontalScroll<T extends HTMLElement>() {
       setIsDragging(false);
     };
 
-    // 드래그 직후 발생하는 click으로 항목이 선택되지 않게capture 단계에서 막는다.
+    // 드래그 직후 발생하는 click으로 항목이 선택되지 않게 capture 단계에서 막는다.
     const onClickCapture = (e: MouseEvent) => {
       if (!suppressClickRef.current) return;
       suppressClickRef.current = false;
@@ -113,8 +118,11 @@ export function useHorizontalScroll<T extends HTMLElement>() {
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', endDrag);
       window.removeEventListener('pointercancel', endDrag);
+      dragRef.current = null;
+      suppressClickRef.current = false;
+      setIsDragging(false);
     };
-  }, []);
+  }, [node]);
 
   return { ref, isDragging };
 }
