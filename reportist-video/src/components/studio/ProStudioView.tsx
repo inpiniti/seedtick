@@ -4548,7 +4548,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         side: 'left',
       },
       {
-        element: '[data-tour="studio-next-cta"]',
+        // 모바일에서는 데스크톱 인스펙터의 다음 버튼이 display:none임에도 DOM에 남아 있어
+        // 같은 셀렉터를 쓰면 숨은 버튼이 먼저 잡힌다. 하단 고정 CTA 전용 앵커를 쓴다.
+        element: isMobileViewport
+          ? '[data-tour="studio-next-cta-mobile"]'
+          : '[data-tour="studio-next-cta"]',
         title: ui('준비되면 다음 단계로 넘어가세요'),
         description: ui('다음 버튼을 누르면 바로 이동해요. 막히는 단계에서는 왜 막혔는지 알려드려요.'),
         side: 'top',
@@ -9556,7 +9560,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             isDownloadStep={activeSection === 'download'}
             isFirstStep={activeStudioStepIndex <= 0}
             isLastStep={activeStudioStepIndex >= studioSteps.length - 1}
-            primaryDataTour="studio-next-cta"
+            primaryDataTour="studio-next-cta-mobile"
           />
         )}
         </div>
