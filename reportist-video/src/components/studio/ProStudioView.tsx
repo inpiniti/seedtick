@@ -95,6 +95,7 @@ import {
   createCanvasFromImageDataUrl,
   renderThumbnailArtwork,
   downloadThumbnailFile,
+  isBlankThumbnailCanvas,
 } from '../../services/thumbnailGenerator.ts';
 import {
   computeBridgeDurationMap,
@@ -1928,52 +1929,55 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       try {
         let bg: HTMLCanvasElement | null = null;
 
-        // 1순위: 저장된 AI 클린 프레임(dataUrl)을 그대로 사용한다.
-        // 저장 프로젝트를 다시 열었을 때 원본 영상에서 재캡처하면 디코드 타이밍에 따라
-        // 검은 프레임이 만들어져 AI가 추천한 썸네일이 덮어써지는 문제가 있었다.
-        // WebCodecs 디코딩 시 tkhd 회전이 이미 반영돼 있으므로 rotation은 0으로 둔다(이중 회전 방지).
-        if (result?.cleanThumbnailUrl) {
+        // 1순위: 원본 영상에서 다시 캡처한다.
+        // 오래전에 저장된 프로젝트의 clean dataUrl은 90도 회전 수정 이전에 만들어져
+        // tkhd 회전이 두 번 적용된 채 저장돼 있을 수 있다(썸네일이 눕는 원인).
+        // 원본에서 캡처하면 WebCodecs가 회전을 한 번만 적용해 항상 바로 선 이미지가 나온다.
+        // 검은 프레임(디코드 전 drawImage)은 빈 캔버스 검사로 걸러낸다.
+        const targetVideo =
+          videos.find((v) => v.id === result?.bestSourceVideoId) || videos[0];
+
+        if (targetVideo?.url && targetVideo.file && targetVideo.file.size > 0) {
+          const targetTime =
+            result?.bestThumbnailTime && result.bestThumbnailTime > 0.05
+              ? result.bestThumbnailTime
+              : (result?.segments && result.segments[0]
+                  ? result.segments[0].start + Math.max(0.5, result.segments[0].duration * 0.4)
+                  : 0.5);
+
+          const rot = result?.bestThumbnailRotation ?? result?.segments?.[0]?.rotation ?? 0;
+          const crop = result?.bestThumbnailCropOffsetYRatio ?? result?.segments?.[0]?.cropOffsetYRatio ?? 0.2;
+          const cropX = result?.segments?.[0]?.cropOffsetXRatio ?? 0.5;
+
           try {
-            bg = await createCanvasFromImageDataUrl(result.cleanThumbnailUrl, thumbWidth, thumbHeight);
+            const captured = await captureVideoFrameAtTime(
+              targetVideo.url,
+              targetTime,
+              crop,
+              thumbWidth,
+              thumbHeight,
+              rot,
+              cropX
+            );
+            if (!isBlankThumbnailCanvas(captured)) bg = captured;
+          } catch (e) {
+            console.warn('prepareThumbnailBg: Source capture failed:', e);
+          }
+        }
+
+        // 2순위: 저장된 클린 프레임(dataUrl) 사용.
+        // WebCodecs 디코딩 시 tkhd 회전이 이미 반영돼 있으므로 rotation은 0으로 둔다(이중 회전 방지).
+        if (!bg && result?.cleanThumbnailUrl) {
+          try {
+            const fromData = await createCanvasFromImageDataUrl(result.cleanThumbnailUrl, thumbWidth, thumbHeight);
+            if (!isBlankThumbnailCanvas(fromData)) bg = fromData;
           } catch {}
         }
         if (!bg && result?.bestThumbnailCleanDataUrl) {
           try {
-            bg = await createCanvasFromImageDataUrl(result.bestThumbnailCleanDataUrl, thumbWidth, thumbHeight);
+            const fromData = await createCanvasFromImageDataUrl(result.bestThumbnailCleanDataUrl, thumbWidth, thumbHeight);
+            if (!isBlankThumbnailCanvas(fromData)) bg = fromData;
           } catch {}
-        }
-
-        // 2순위: 저장된 클린 프레임이 없을 때만 원본 영상에서 직접 캡처
-        if (!bg) {
-          const targetVideo =
-            videos.find((v) => v.id === result?.bestSourceVideoId) || videos[0];
-
-          if (targetVideo?.url && targetVideo.file && targetVideo.file.size > 0) {
-            const targetTime =
-              result?.bestThumbnailTime && result.bestThumbnailTime > 0.05
-                ? result.bestThumbnailTime
-                : (result?.segments && result.segments[0]
-                    ? result.segments[0].start + Math.max(0.5, result.segments[0].duration * 0.4)
-                    : 0.5);
-
-            const rot = result?.bestThumbnailRotation ?? result?.segments?.[0]?.rotation ?? 0;
-            const crop = result?.bestThumbnailCropOffsetYRatio ?? result?.segments?.[0]?.cropOffsetYRatio ?? 0.2;
-            const cropX = result?.segments?.[0]?.cropOffsetXRatio ?? 0.5;
-
-            try {
-              bg = await captureVideoFrameAtTime(
-                targetVideo.url,
-                targetTime,
-                crop,
-                thumbWidth,
-                thumbHeight,
-                rot,
-                cropX
-              );
-            } catch (e) {
-              console.warn('prepareThumbnailBg: Source capture failed:', e);
-            }
-          }
         }
 
         if (bg) {
@@ -1996,6 +2000,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             onUpdateFinalResult?.({
               ...result,
               thumbnailUrl: newThumbUrl,
+              // 원본에서 다시 캡처한 바로 선 프레임으로 저장된 클린 이미지도 갱신해
+              // 다음에 열 때 이중 회전된 옛 데이터로 되돌아가지 않게 한다.
+              cleanThumbnailUrl: bg.toDataURL('image/jpeg', 0.95),
             });
           }
         }
@@ -2043,21 +2050,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       }
     };
 
+    // 배경 캔버스는 prepareThumbnailBg에서만 준비한다. 여기서 저장된 dataUrl을
+    // 따로 불러오면(특히 이중 회전된 옛 데이터) 준비 완료 후 덮어써 썸네일이 눕는다.
     if (thumbnailBgCanvasRef.current) {
       renderWithBg(thumbnailBgCanvasRef.current);
-    } else if (result?.cleanThumbnailUrl) {
-      createCanvasFromImageDataUrl(result.cleanThumbnailUrl, thumbWidth, thumbHeight)
-        .then((bg) => {
-          thumbnailBgCanvasRef.current = bg;
-          renderWithBg(bg);
-        })
-        .catch(() => {});
     }
   }, [
     overlayOptions.titleText,
     thumbnailStyle,
     showThumbnailTitle,
-    result?.cleanThumbnailUrl,
   ]);
 
   // 재생 가능한 로컬 원본 비디오 소스 유무 판별

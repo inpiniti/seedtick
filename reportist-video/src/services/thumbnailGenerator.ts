@@ -30,6 +30,37 @@ export const DEFAULT_THUMBNAIL_OPTIONS: ThumbnailRenderOptions = {
 };
 
 /**
+ * 캔버스가 프레임 없이 비어 있는지(전부 투명) 확인한다.
+ * 디코드 전 영상을 drawImage 하면 알파 0 캔버스가 만들어지므로, 이를 걸러내어
+ * 저장된 썸네일을 검은 화면으로 덮어쓰는 것을 막는다.
+ * JPEG로 저장된 실제 프레임은 알파가 255이므로 오탐 없이 구분된다.
+ */
+export function isBlankThumbnailCanvas(canvas: HTMLCanvasElement): boolean {
+  try {
+    const ctx = canvas.getContext('2d');
+    if (!ctx || canvas.width === 0 || canvas.height === 0) return true;
+    const points: Array<[number, number]> = [
+      [0.2, 0.2], [0.5, 0.2], [0.8, 0.2],
+      [0.2, 0.5], [0.5, 0.5], [0.8, 0.5],
+      [0.2, 0.8], [0.5, 0.8], [0.8, 0.8],
+    ];
+    for (const [rx, ry] of points) {
+      const px = ctx.getImageData(
+        Math.min(canvas.width - 1, Math.floor(canvas.width * rx)),
+        Math.min(canvas.height - 1, Math.floor(canvas.height * ry)),
+        1,
+        1
+      ).data;
+      if (px[3] > 0) return false;
+    }
+    return true;
+  } catch {
+    // getImageData가 막힌 환경(false positive 방지)에서는 빈 캔버스로 취급하지 않는다.
+    return false;
+  }
+}
+
+/**
  * 비디오 URL과 특정 타임스탬프에서 16:9 (1280x720) 해상도로 배경 프레임을 캡처합니다.
  * blob: URL인 경우 WebCodecs 키프레임 디코딩을 먼저 시도하여 iOS MediaCache 디스크 기록을 방지하고,
  * 실패하거나 HTTP URL이면 <video preload='metadata'> 기반으로 캡처합니다.
@@ -131,6 +162,9 @@ async function captureFrameWithVideoElement(
 
     const drawFrame = () => {
       if (isFinished) return;
+      // readyState 1(metadata only)에서 drawImage 하면 디코드된 프레임이 없어
+      // 검은 캔버스가 만들어진다. 프레임이 실제로 준비됐을 때만 그린다.
+      if (video.readyState < 2) return;
       isFinished = true;
       cleanup();
       try {
@@ -220,7 +254,8 @@ async function captureFrameWithVideoElement(
     };
 
     const onSeeked = () => {
-      drawFrame();
+      // 시크 직후 readyState가 아직 1일 수 있다 — 그 경우 loadeddata에서 다시 시도한다.
+      if (video.readyState >= 2) drawFrame();
     };
 
     const onDataLoaded = () => {
@@ -237,11 +272,12 @@ async function captureFrameWithVideoElement(
       const targetTime = Math.max(0.05, Math.min(dur - 0.05, safeTs));
       targetTimeRef = targetTime;
 
-      // 타임아웃 안전장치: 7초 후 readyState가 있으면 즉시 그리고, 없으면 현재 프레임 시도
+      // 타임아웃 안전장치: 7초 뒤에도 디코드된 프레임(readyState>=2)이 없으면 실패 처리한다.
+      // videoWidth만 있는 상태(metadata only)에서 그리면 검은 프레임이 저장되므로 반드시 readyState를 확인한다.
       if (timeoutId) clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
         if (isFinished) return;
-        if (video.readyState >= 2 || video.videoWidth > 0) {
+        if (video.readyState >= 2) {
           drawFrame();
         } else {
           cleanup();
@@ -260,8 +296,7 @@ async function captureFrameWithVideoElement(
       try {
         video.currentTime = targetTime;
       } catch {
-        // currentTime 세팅 실패 시 즉시 그리기 시도
-        drawFrame();
+        if (video.readyState >= 2) drawFrame();
       }
     };
 
