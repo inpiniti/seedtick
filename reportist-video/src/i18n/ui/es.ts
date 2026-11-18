@@ -536,8 +536,6 @@ export const uiEs: Record<string, string> = {
   "AI가 만든 자막을 확인하고 씬별로 제목·날짜·장소를 다듬어요. 전체 자막을 한눈에 수정할 수도 있어요.": "Revisa los subtítulos de IA y ajusta título, fecha y lugar de cada escena. También puedes editar todos de una vez.",
   "촬영 장소 (예: 김포공항)": "Ubicación de rodaje (p. ej. Aeropuerto de Gimpo)",
   "지도에서 확인": "Ver en el mapa",
-  "먼저 첫 번째 영상에 장소를 입력해주세요": "Introduce primero la ubicación del primer video",
-  "첫 영상 장소를 나머지에 일괄 적용": "Aplicar la ubicación del primero a los demás",
   "시작": "Inicio",
   "종료": "Fin",
   "길이": "Duración",

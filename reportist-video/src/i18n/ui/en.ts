@@ -549,8 +549,6 @@ export const uiEn: Record<string, string> = {
   "AI가 만든 자막을 확인하고 씬별로 제목·날짜·장소를 다듬어요. 전체 자막을 한눈에 수정할 수도 있어요.": "Review AI captions and refine each scene's title, date and place. You can also edit all captions on one screen.",
   "촬영 장소 (예: 김포공항)": "Filming location (e.g. Gimpo Airport)",
   "지도에서 확인": "View on map",
-  "먼저 첫 번째 영상에 장소를 입력해주세요": "Enter a location for the first video first",
-  "첫 영상 장소를 나머지에 일괄 적용": "Apply first video's location to all others",
   "시작": "Start",
   "종료": "End",
   "길이": "Duration",

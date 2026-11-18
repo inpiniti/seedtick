@@ -15178,11 +15178,6 @@
   text-decoration: underline;
 }
 
-.toss-location-bulk-btn {
-  margin-top: 10px;
-  width: 100%;
-}
-
 /* ---------- 6단계: 선택한 컷 시작·종료 시점 미세조절 ---------- */
 .toss-cut-timecodes {
   display: flex;

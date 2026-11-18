@@ -7026,23 +7026,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     </div>
                   ))}
                 </div>
-                {videos.length > 1 && onUpdateVideoLocation && (
-                  <button
-                    type="button"
-                    className="toss-btn-secondary toss-btn-sm toss-location-bulk-btn"
-                    onClick={() => {
-                      const first = (videos[0].locationName ?? '').trim();
-                      if (!first) {
-                        notify.info(ui('먼저 첫 번째 영상에 장소를 입력해주세요'));
-                        return;
-                      }
-                      videos.slice(1).forEach((v) => updateVideoLocation(v.id, first));
-                    }}
-                  >
-                    <MapPin size={12} />
-                    <span>{ui('첫 영상 장소를 나머지에 일괄 적용')}</span>
-                  </button>
-                )}
               </>
             )}
           </div>

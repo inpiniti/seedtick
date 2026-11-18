@@ -537,8 +537,6 @@ export const uiDe: Record<string, string> = {
   "AI가 만든 자막을 확인하고 씬별로 제목·날짜·장소를 다듬어요. 전체 자막을 한눈에 수정할 수도 있어요.": "Prüfe die KI-Untertitel und bearbeite Titel, Datum und Ort pro Szene. Alle Untertitel lassen sich auch auf einen Blick ändern.",
   "촬영 장소 (예: 김포공항)": "Drehort (z. B. Flughafen Gimpo)",
   "지도에서 확인": "Auf der Karte ansehen",
-  "먼저 첫 번째 영상에 장소를 입력해주세요": "Gib zuerst den Ort für das erste Video ein",
-  "첫 영상 장소를 나머지에 일괄 적용": "Ort des ersten Videos auf alle anwenden",
   "시작": "Start",
   "종료": "Ende",
   "길이": "Länge",
