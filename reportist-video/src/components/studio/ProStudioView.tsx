@@ -1988,18 +1988,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const showCompositeCanvas =
     isSequenceMode && !standalonePreviewSection && !isRawSourcePreviewStep && !isMusicPreviewStep;
 
-  // AI 분석이 끝나 컷이 처음 생기면 생성 흐름에서 편집 흐름의 '컷'으로 자연스럽게 이동한다.
-  // 단, 기존 프로젝트를 열면 저장된 세그먼트가 뒤늦게 채워지는 것이므로 분석 완료로 오인하지 않는다.
-  // 프로젝트 전환 여부와 새 분석 결과 여부를 함께 봐서 저장된 프로젝트는 항상 1번(인트로)에서 시작한다.
+  // 진입/프로젝트 열기 시에는 항상 1번(영상 상단 문구)에서 시작한다.
+  // AI 분석이 실제로 끝났을 때만(cut으로 자동 이동) 예외로 둔다.
+  // 주의: result 객체는 프로젝트를 열 때 썸네일 재생성이 새로 만들어내므로
+  // result IDENTITY를 '새 분석 결과' 신호로 쓰면 저장된 프로젝트도 컷으로 튀어버린다.
+  // 따라서 isProcessing이 true→false로 바뀐 경우에만 분석 완료로 판단한다.
   const hadSegmentsRef = useRef<boolean>(initialSegments.length > 0);
-  const lastResultRef = useRef<FinalVideoResult | null>(result);
   const lastProjectIdRef = useRef<string | null | undefined>(currentProjectId);
+  const wasProcessingRef = useRef<boolean>(isProcessing);
   const pendingAutoCutRef = useRef<boolean>(false);
   useEffect(() => {
     const isProjectSwitch = currentProjectId !== lastProjectIdRef.current;
-    const isNewResult = result !== lastResultRef.current;
+    const justFinishedProcessing = wasProcessingRef.current && !isProcessing;
     lastProjectIdRef.current = currentProjectId;
-    lastResultRef.current = result;
+    wasProcessingRef.current = isProcessing;
 
     if (isProjectSwitch) {
       // 새로 열거나 새로 만든 프로젝트는 저장된 컷이 있어도 1번부터 시작한다.
@@ -2008,8 +2010,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       setActiveSection('intro');
       return;
     }
-    if (isNewResult && !hadSegmentsRef.current) {
-      // 같은 프로젝트에서 AI 분석이 새 결과를 만든 경우에만 컷 이동을 예약한다.
+    if (justFinishedProcessing && !hadSegmentsRef.current) {
+      // AI 분석이 끝나면 컷 이동을 예약한다. (세그먼트가 다음 렌더에서 채워질 수 있음)
       pendingAutoCutRef.current = true;
     }
     if (segments.length > 0) {
@@ -2029,7 +2031,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       hadSegmentsRef.current = false;
       setActiveSection('intro');
     }
-  }, [segments, currentProjectId, result]);
+  }, [segments, currentProjectId, isProcessing]);
   // 실제 하이라이트 결과가 있을 때만 시간 절약률을 계산/노출한다
   const hasHighlight = segments.length > 0;
 
