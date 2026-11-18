@@ -2359,7 +2359,8 @@ html.has-motion-stage .story-stage {
   flex-shrink: 0;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 16px;
+  /* Square corners so the full screenshot is shown edge to edge. */
+  border-radius: 0;
   background: #0b111c;
   box-shadow: 0 38px 90px rgba(0, 0, 0, 0.55);
 }
