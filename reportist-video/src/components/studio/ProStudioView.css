@@ -14845,6 +14845,14 @@
     padding-bottom: 0 !important;
   }
 
+  /* 컴팩트 스텝 헤더와 고정 플레이어 카드를 화면 위아래로 완전히 붙인다.
+     데스크탑 스텝바용으로 뒤에 선언된 `.toss-main-content { gap: 8px; }`가
+     모바일의 gap:0을 덮어써, 스텝 헤더와 영상 사이에 배경색 띠가 보이던 문제를
+     이 모바일 전용 블록에서 다시 0으로 되돌린다. */
+  .toss-main-content {
+    gap: 0;
+  }
+
   /* 모바일에서는 플레이어 카드만 상단에 고정해, 아래 옵션을 조작하는 동안에도
      영상이 항상 보이게 한다. .toss-column-left를 display:contents로 풀어
      sticky의 컨테이너를 .toss-studio-columns 전체로 올린다. */
