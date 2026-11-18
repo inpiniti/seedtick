@@ -84,6 +84,16 @@ export function setRuntimeLocale(locale: Locale): void {
 }
 
 /**
+ * 현재 UI 언어에 대응하는 마케팅 랜딩 경로.
+ * 영어는 루트(/), 나머지 로케일은 /<code>/ (seo/content.mjs의 locale.path와 동일).
+ * URL의 ?lang=가 localStorage보다 우선하므로, 스튜디오에서 언어를 바꿔 URL이
+ * 이전 언어로 남아 있어도 로고 클릭 시 실제 보고 있는 언어의 랜딩으로 이동한다.
+ */
+export function getLandingPath(locale: Locale = getRuntimeLocale()): string {
+  return locale === 'en' ? '/' : `/${locale}/`;
+}
+
+/**
  * Intl.DateTimeFormat 등에 사용할 BCP 47 로케일 태그
  */
 export function getIntlLocale(locale: Locale = getRuntimeLocale()): string {

@@ -5,7 +5,7 @@ import { Cpu, Sparkles } from 'lucide-react';
 import { PenguinLogo } from '../common/PenguinLogo.tsx';
 import type { FreeModelMeta, ReasoningEffortOption } from '../../types/gateway.ts';
 import { cleanModelName } from '../../services/modelMetrics.ts';
-import { useI18n } from '../../i18n/index.tsx';
+import { getLandingPath, useI18n } from '../../i18n/index.tsx';
 
 interface HeaderProps {
   models: FreeModelMeta[];
@@ -24,7 +24,7 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectEffort,
   isLoadingModels,
 }) => {
-  const { dict } = useI18n();
+  const { dict, locale } = useI18n();
   const currentModelMeta = models.find((m) => m.id === selectedModel) || models[0];
   const supportedEfforts = currentModelMeta?.supportedEfforts || ['high', 'medium', 'low', 'none'];
 
@@ -32,7 +32,7 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="top-header">
       {/* Brand Section */}
       <a
-        href="/"
+        href={getLandingPath(locale)}
         className="brand-section"
         title={dict.common.brandName || 'PenguinCut'}
       >

@@ -17,7 +17,7 @@ import {
 import { translateUi } from './uiText.ts';
 
 export * from './types.ts';
-export { DEFAULT_LOCALE } from './localeState.ts';
+export { DEFAULT_LOCALE, getLandingPath } from './localeState.ts';
 export { loadLocaleDictionary } from './dictionaries.ts';
 
 /**
