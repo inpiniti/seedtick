@@ -1988,50 +1988,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const showCompositeCanvas =
     isSequenceMode && !standalonePreviewSection && !isRawSourcePreviewStep && !isMusicPreviewStep;
 
-  // 진입/프로젝트 열기 시에는 항상 1번(영상 상단 문구)에서 시작한다.
-  // AI 분석이 실제로 끝났을 때만(cut으로 자동 이동) 예외로 둔다.
-  // 주의: result 객체는 프로젝트를 열 때 썸네일 재생성이 새로 만들어내므로
-  // result IDENTITY를 '새 분석 결과' 신호로 쓰면 저장된 프로젝트도 컷으로 튀어버린다.
-  // 따라서 isProcessing이 true→false로 바뀐 경우에만 분석 완료로 판단한다.
-  const hadSegmentsRef = useRef<boolean>(initialSegments.length > 0);
+  // 진입/프로젝트 열기/AI 분석 완료 여부와 무관하게 항상 1번(영상 상단 문구)에서 시작한다.
+  // 세그먼트가 뒤늦게 채워질 때 자동으로 6번(컷 다듬기)으로 튀던 자동 이동을 완전히 제거했다.
+  // 컷 단계로 가는 것은 사용자가 스텝바/다음 버튼/타임라인을 직접 누를 때만 일어난다.
   const lastProjectIdRef = useRef<string | null | undefined>(currentProjectId);
-  const wasProcessingRef = useRef<boolean>(isProcessing);
-  const pendingAutoCutRef = useRef<boolean>(false);
   useEffect(() => {
-    const isProjectSwitch = currentProjectId !== lastProjectIdRef.current;
-    const justFinishedProcessing = wasProcessingRef.current && !isProcessing;
-    lastProjectIdRef.current = currentProjectId;
-    wasProcessingRef.current = isProcessing;
-
-    if (isProjectSwitch) {
-      // 새로 열거나 새로 만든 프로젝트는 저장된 컷이 있어도 1번부터 시작한다.
-      pendingAutoCutRef.current = false;
-      hadSegmentsRef.current = segments.length > 0;
-      setActiveSection('intro');
-      return;
-    }
-    if (justFinishedProcessing && !hadSegmentsRef.current) {
-      // AI 분석이 끝나면 컷 이동을 예약한다. (세그먼트가 다음 렌더에서 채워질 수 있음)
-      pendingAutoCutRef.current = true;
-    }
-    if (segments.length > 0) {
-      if (pendingAutoCutRef.current && !hadSegmentsRef.current) {
-        pendingAutoCutRef.current = false;
-        hadSegmentsRef.current = true;
-        musicPanelPinnedRef.current = false;
-        setActiveSection('cut');
-        if (segments[0]) setSelectedSegmentId(segments[0].id);
-      } else {
-        // 프로젝트 복원으로 세그먼트가 채워진 경우: 기준값만 맞추고 단계는 유지한다.
-        hadSegmentsRef.current = true;
-      }
-      return;
-    }
-    if (hadSegmentsRef.current) {
-      hadSegmentsRef.current = false;
+    if (currentProjectId !== lastProjectIdRef.current) {
+      lastProjectIdRef.current = currentProjectId;
       setActiveSection('intro');
     }
-  }, [segments, currentProjectId, isProcessing]);
+  }, [currentProjectId]);
   // 실제 하이라이트 결과가 있을 때만 시간 절약률을 계산/노출한다
   const hasHighlight = segments.length > 0;
 
