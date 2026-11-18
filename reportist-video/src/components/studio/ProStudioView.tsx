@@ -880,11 +880,22 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     const TOP_SHOW = 12; // 상단 근처에서는 항상 표시
     const HIDE_AFTER = 64; // 이 스크롤 지점 이후부터 숨김 허용
     const TRIGGER = 24; // 방향 판정에 필요한 누적 스크롤량
+    // 스트립이 접히면 헤더 높이(≈64px)가 줄어 문서 높이가 작아지고, 최하단에서는
+    // 브라우저(스크롤 클램프/스크롤 앵커링)가 scrollY를 되밀어 올린다. 이 되먹임
+    // 스크롤을 사용자의 스크롤 업으로 오인해 다시 펼치면 하단에서 탭이 무한히
+    // 오르내리므로, 상태 전환 직후 레이아웃이 안정될 때까지 방향 판정을 유예한다.
+    const LAYOUT_SETTLE_MS = 450; // CSS max-height 전환(0.32s) + 여유
     let anchorY = Math.max(0, window.scrollY || document.documentElement.scrollTop || 0);
+    let suppressUntil = 0;
     let rafId: number | null = null;
     const update = () => {
       rafId = null;
       const y = Math.max(0, window.scrollY || document.documentElement.scrollTop || 0);
+      if (performance.now() < suppressUntil) {
+        // 우리가 스트립을 접고/펼치며 생긴 되먹임 스크롤은 방향 판정에서 제외
+        anchorY = y;
+        return;
+      }
       const net = y - anchorY;
       if (y <= TOP_SHOW) {
         setIsTabStripHidden(false);
@@ -893,9 +904,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       }
       if (Math.abs(net) < TRIGGER) return; // 방향 미확정: 누적 이동량이 쌓일 때까지 유지
       if (net > 0) {
-        if (y > HIDE_AFTER) setIsTabStripHidden(true);
+        if (y > HIDE_AFTER) {
+          setIsTabStripHidden(true);
+          suppressUntil = performance.now() + LAYOUT_SETTLE_MS;
+        }
       } else {
         setIsTabStripHidden(false);
+        suppressUntil = performance.now() + LAYOUT_SETTLE_MS;
       }
       anchorY = y;
     };
