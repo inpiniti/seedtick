@@ -16,6 +16,10 @@ interface MobileBottomCtaBarProps {
   primaryDisabled?: boolean;
   primaryBusy?: boolean;
   isDownloadStep: boolean;
+  /** 첫 단계에서는 이전 버튼을 비활성화가 아니라 아예 렌더하지 않는다 */
+  isFirstStep: boolean;
+  /** 마지막(다운로드) 단계에서는 다음/저장 버튼을 아예 렌더하지 않는다 */
+  isLastStep: boolean;
   /** 회색으로 표시하되 클릭은 허용한다 — 누르면 차단 사유 토스트를 띄우는 패턴 */
   primaryBlocked?: boolean;
   primaryTitle?: string;
@@ -31,41 +35,47 @@ export const MobileBottomCtaBar: React.FC<MobileBottomCtaBarProps> = ({
   primaryDisabled = false,
   primaryBusy = false,
   isDownloadStep,
+  isFirstStep,
+  isLastStep,
   primaryBlocked = false,
   primaryTitle,
 }) => {
   return (
     <nav className="toss-bottom-cta-bar" aria-label={ariaLabel}>
-      <Button
-        className="toss-bottom-cta-prev"
-        variant="subtle"
-        size="md"
-        onClick={onPrev}
-        disabled={prevDisabled}
-        leftIcon={<ChevronLeft size={16} aria-hidden="true" />}
-      >
-        {prevLabel}
-      </Button>
+      {!isFirstStep && (
+        <Button
+          className="toss-bottom-cta-prev"
+          variant="subtle"
+          size="md"
+          onClick={onPrev}
+          disabled={prevDisabled}
+          leftIcon={<ChevronLeft size={16} aria-hidden="true" />}
+        >
+          {prevLabel}
+        </Button>
+      )}
 
-      <Button
-        className={`toss-bottom-cta-primary${primaryBlocked ? ' is-blocked' : ''}`}
-        variant="accent"
-        size="md"
-        onClick={onPrimary}
-        disabled={primaryDisabled}
-        aria-disabled={primaryBlocked || undefined}
-        title={primaryTitle}
-        loading={primaryBusy}
-        rightIcon={
-          isDownloadStep ? (
-            <Download size={16} aria-hidden="true" />
-          ) : (
-            <ArrowRight size={16} aria-hidden="true" />
-          )
-        }
-      >
-        {primaryLabel}
-      </Button>
+      {!isLastStep && (
+        <Button
+          className={`toss-bottom-cta-primary${primaryBlocked ? ' is-blocked' : ''}`}
+          variant="accent"
+          size="md"
+          onClick={onPrimary}
+          disabled={primaryDisabled}
+          aria-disabled={primaryBlocked || undefined}
+          title={primaryTitle}
+          loading={primaryBusy}
+          rightIcon={
+            isDownloadStep ? (
+              <Download size={16} aria-hidden="true" />
+            ) : (
+              <ArrowRight size={16} aria-hidden="true" />
+            )
+          }
+        >
+          {primaryLabel}
+        </Button>
+      )}
     </nav>
   );
 };

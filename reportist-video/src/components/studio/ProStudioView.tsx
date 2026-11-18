@@ -8437,31 +8437,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
           {/* 단계 이동: 생성 흐름 9단계 / 편집 흐름 9단계 순서를 그대로 따른다 */}
           <nav className="toss-inspector-nav" aria-label={ui('편집 단계 이동')}>
-            <button
-              type="button"
-              className="toss-btn-secondary toss-inspector-nav-btn"
-              onClick={() => goToAdjacentSection(-1)}
-              disabled={activeStudioStepIndex <= 0}
-            >
-              <ChevronLeft size={14} />
-              <span>{ui('이전 단계')}</span>
-            </button>
-            {activeSection === 'download' ? (
+            {activeStudioStepIndex > 0 && (
               <button
                 type="button"
-                className="toss-btn-primary toss-inspector-nav-btn"
-                onClick={() => setIsExportModalOpen(true)}
-                disabled={!isSequenceMode || segments.length === 0 || isReStitching}
-                title={
-                  isSequenceMode && segments.length > 0
-                    ? ui('편집한 영상을 저장해요')
-                    : ui('AI 하이라이트를 먼저 만들면 저장할 수 있어요')
-                }
+                className="toss-btn-secondary toss-inspector-nav-btn"
+                onClick={() => goToAdjacentSection(-1)}
               >
-                <Download size={14} className={isReStitching ? 'animate-bounce' : ''} />
-                <span>{isReStitching ? ui('저장 준비 중...') : ui('영상 저장하기')}</span>
+                <ChevronLeft size={14} />
+                <span>{ui('이전 단계')}</span>
               </button>
-            ) : (
+            )}
+            {activeStudioStepIndex < studioSteps.length - 1 && (
               <button
                 type="button"
                 className={`toss-btn-primary toss-inspector-nav-btn${nextStepBlockedReason ? ' is-blocked' : ''}`}
@@ -8521,6 +8507,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             primaryTitle={activeSection !== 'download' ? nextStepBlockedReason ?? undefined : undefined}
             primaryBusy={activeSection === 'download' && isReStitching}
             isDownloadStep={activeSection === 'download'}
+            isFirstStep={activeStudioStepIndex <= 0}
+            isLastStep={activeStudioStepIndex >= studioSteps.length - 1}
           />
         )}
         </div>
