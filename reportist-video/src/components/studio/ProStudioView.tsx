@@ -583,11 +583,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     initialSegments[0]?.id || ''
   );
 
-  // 컷 다듬기에서 사용자가 직접 확인(수정 완료)한 컷 ID.
-  // 모든 컷을 확인해야 다음 단계(자막 수정) CTA가 활성화된다.
-  const [reviewedCutIds, setReviewedCutIds] = useState<Set<string>>(() => new Set());
-  const reviewedCutCount = segments.reduce(
-    (count, seg) => count + (reviewedCutIds.has(seg.id) ? 1 : 0),
+  // 컷 다듬기에서 사용자가 열어본 컷 ID.
+  // 모든 컷을 열어봐야 다음 단계(자막 수정) CTA가 활성화된다.
+  const [viewedCutIds, setViewedCutIds] = useState<Set<string>>(() => new Set());
+  const markCutViewed = useCallback((segId: string) => {
+    setViewedCutIds((prev) => (prev.has(segId) ? prev : new Set(prev).add(segId)));
+  }, []);
+  const viewedCutCount = segments.reduce(
+    (count, seg) => count + (viewedCutIds.has(seg.id) ? 1 : 0),
     0
   );
 
@@ -837,6 +840,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 처음 진입할 때는 컷이 이미 있어도 항상 1번 인트로부터 시작한다.
   const [activeSection, setActiveSection] = useState<StudioSection>('intro');
   const isCaptionSection = activeSection === 'caption';
+
+  // 컷 단계에서 화면에 열린 컷은 별도 확인 버튼 없이 자동으로 확인 처리한다.
+  useEffect(() => {
+    if (activeSection === 'cut' && selectedSegmentId) {
+      markCutViewed(selectedSegmentId);
+    }
+  }, [activeSection, selectedSegmentId, markCutViewed]);
+
   const [selectedBridgeIndex, setSelectedBridgeIndex] = useState<number>(1);
   const musicPanelPinnedRef = useRef<boolean>(false);
   // 단계 이동 등 프로그래밍적으로 시크할 때는 플레이헤드 기반 패널 동기화를 잠시 멈춘다.
@@ -3896,10 +3907,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       if (segments.length === 0) {
         return ui('AI 하이라이트를 먼저 만들면 다음으로 넘어갈 수 있어요');
       }
-      const unreviewedCount = segments.length - reviewedCutCount;
-      if (unreviewedCount > 0) {
-        return ui('수정하지 않은 컷이 {count}개 있어요. 모든 컷에서 수정 완료를 눌러주세요', {
-          count: unreviewedCount,
+      const unviewedCount = segments.length - viewedCutCount;
+      if (unviewedCount > 0) {
+        return ui('아직 확인하지 않은 컷이 {count}개 있어요. 모든 컷을 열어보면 다음으로 넘어갈 수 있어요', {
+          count: unviewedCount,
         });
       }
     }
@@ -4450,16 +4461,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       videoRef.current.muted = nextMuted;
     }
     setIsMuted(nextMuted);
-  };
-
-  // 개별 컷 '수정 완료' 토글 — 누른 컷만 다음 단계 이동 조건에 반영한다.
-  const handleToggleCutReviewed = (segId: string) => {
-    setReviewedCutIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(segId)) next.delete(segId);
-      else next.add(segId);
-      return next;
-    });
   };
 
   // 클립 시작/끝 미세 조절 (-0.5s / +0.5s)
@@ -7210,14 +7211,33 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   <Check size={12} />
                   {ui('하이라이트 {count}개 완성', { count: segments.length })}
                 </span>
-                <button
-                  type="button"
-                  className="toss-btn-primary toss-btn-sm"
-                  onClick={() => goToSection('cut')}
-                >
-                  <Scissors size={12} />
-                  <span>{ui('6번 컷 다듬기')}</span>
-                </button>
+                <div className="toss-ai-done-actions">
+                  {/* 원본 영상 수정·재분석은 컷 단계가 아니라 AI 하이라이트 단계에서 처리한다. */}
+                  <button
+                    type="button"
+                    className="toss-btn-secondary toss-btn-sm"
+                    onClick={() =>
+                      onStartAiAnalysis(
+                        effectiveOverlayOptions,
+                        customAudioFile,
+                        selectedBgmId,
+                        bgmVolume
+                      )
+                    }
+                    disabled={isProcessing || videos.length === 0}
+                  >
+                    <Sparkles size={12} />
+                    <span>{ui('AI 하이라이트 다시 뽑기')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="toss-btn-primary toss-btn-sm"
+                    onClick={() => goToSection('cut')}
+                  >
+                    <Scissors size={12} />
+                    <span>{ui('6번 컷 다듬기')}</span>
+                  </button>
+                </div>
               </div>
             ) : (
               <SpecularButton
@@ -7745,9 +7765,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     <span className="toss-cut-navigator-sub">/ {segments.length}</span>
                   </div>
                   {!isCaptionSection && (
-                    <span className="toss-cut-review-progress">
-                      {ui('수정 완료 {count}/{total}', {
-                        count: reviewedCutCount,
+                    <span className="toss-cut-view-progress">
+                      {ui('확인 {count}/{total}', {
+                        count: viewedCutCount,
                         total: segments.length,
                       })}
                     </span>
@@ -7821,43 +7841,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   ))}
                 </div>
               </div>
-            )}
-
-            {/* 컷을 다듬는 중에도 원본 추가/재분석이 필요할 때만 여는 보조 메뉴 */}
-            {!isCaptionSection && segments.length > 0 && (
-              <details className="toss-cut-more">
-                <summary className="toss-cut-more-summary">
-                  <Plus size={12} />
-                  <span>{ui('원본 영상 추가 · AI 다시 뽑기')}</span>
-                  <ChevronDown size={12} className="toss-cut-more-chevron" />
-                </summary>
-                <div className="toss-cut-more-body">
-                  <button
-                    type="button"
-                    className="toss-btn-secondary toss-btn-sm"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <Plus size={13} />
-                    <span>{ui('원본 영상 추가')}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="toss-btn-secondary toss-btn-sm"
-                    onClick={() =>
-                      onStartAiAnalysis(
-                        effectiveOverlayOptions,
-                        customAudioFile,
-                        selectedBgmId,
-                        bgmVolume
-                      )
-                    }
-                    disabled={isProcessing || videos.length === 0}
-                  >
-                    <Sparkles size={13} />
-                    <span>{ui('AI 하이라이트 다시 뽑기')}</span>
-                  </button>
-                </div>
-              </details>
             )}
 
             {segments.length === 0 ? (
@@ -8184,29 +8167,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           )}
                         </div>
                       </div>
-
-                        {/* 컷별 수정 완료 — 모든 컷을 확인해야 다음 단계(자막 수정)로 넘어갈 수 있다 */}
-                        {!isCaptionSection && (
-                          <button
-                            type="button"
-                            className={`toss-cut-review-btn${reviewedCutIds.has(seg.id) ? ' is-reviewed' : ''}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleToggleCutReviewed(seg.id);
-                            }}
-                            aria-pressed={reviewedCutIds.has(seg.id)}
-                            title={ui('수정 완료하기')}
-                          >
-                            <span className="toss-cut-review-check">
-                              {reviewedCutIds.has(seg.id) ? <Check size={11} /> : null}
-                            </span>
-                            <span>
-                              {reviewedCutIds.has(seg.id)
-                                ? ui('수정 완료')
-                                : ui('수정 완료하기')}
-                            </span>
-                          </button>
-                        )}
 
                       {/* 선택한 씬의 자막/날짜/위치/구도 수정 */}
                       {isSelected && (isCaptionSection || isPortraitSource || (isPortraitOutput && !isPortraitSource)) && (
