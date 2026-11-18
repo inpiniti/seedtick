@@ -11,6 +11,8 @@ import {
 
 export { DEFAULT_INTRO_DURATION, DEFAULT_OUTRO_DURATION, HYPERFRAMES_FPS } from './introOutroDefaults.ts';
 
+const clamp01 = (v: number): number => Math.max(0, Math.min(1, v));
+
 export interface IntroGsapState {
   progress: number;
   titleAlpha: number;
@@ -39,6 +41,10 @@ export interface OutroGsapState {
   louverClose: number;
   pulseRadius: number;
   vignetteAlpha: number;
+  panelClose: number;
+  typeProgress: number;
+  burstProgress: number;
+  flashAlpha: number;
 }
 
 // ============================================================================
@@ -225,6 +231,10 @@ export function createHyperframesOutroController(
     louverClose: 0,
     pulseRadius: 0,
     vignetteAlpha: 0,
+    panelClose: 0,
+    typeProgress: 0,
+    burstProgress: 0,
+    flashAlpha: 0,
   };
 
   const tl = gsap.timeline({ paused: true });
@@ -325,6 +335,106 @@ export function createHyperframesOutroController(
           ease: 'back.out(1.5)',
         },
         durationSec * 0.28
+      );
+  } else if (template === 'slide-panel') {
+    // 좌우 패널이 중앙으로 슬라이드해 만나며 로고/문구 등장
+    tl.to(
+      state,
+      {
+        panelClose: 1,
+        duration: durationSec * 0.52,
+        ease: 'power3.inOut',
+      },
+      0
+    )
+      .to(
+        state,
+        {
+          titleAlpha: 1,
+          titleY: 0,
+          duration: durationSec * 0.4,
+          ease: 'power2.out',
+        },
+        durationSec * 0.4
+      )
+      .to(
+        state,
+        {
+          channelAlpha: 1,
+          channelScale: 1,
+          duration: durationSec * 0.35,
+          ease: 'sine.out',
+        },
+        durationSec * 0.55
+      );
+  } else if (template === 'typewriter-credits') {
+    // 모노스페이스 타이핑 & 깜빡이는 커서
+    tl.to(
+      state,
+      {
+        typeProgress: 1,
+        duration: durationSec * 0.66,
+        ease: 'none',
+      },
+      durationSec * 0.04
+    ).to(
+      state,
+      {
+        channelAlpha: 1,
+        channelScale: 1,
+        duration: durationSec * 0.3,
+        ease: 'power2.out',
+      },
+      durationSec * 0.62
+    );
+  } else if (template === 'light-burst') {
+    // 방사형 광선 확장 + 오프닝 플래시
+    tl.to(
+      state,
+      {
+        flashAlpha: 1,
+        duration: durationSec * 0.12,
+        ease: 'power2.out',
+      },
+      0
+    )
+      .to(
+        state,
+        {
+          flashAlpha: 0,
+          duration: durationSec * 0.45,
+          ease: 'power2.in',
+        },
+        durationSec * 0.12
+      )
+      .to(
+        state,
+        {
+          burstProgress: 1,
+          duration: durationSec * 0.72,
+          ease: 'power2.out',
+        },
+        0
+      )
+      .to(
+        state,
+        {
+          titleAlpha: 1,
+          titleY: 0,
+          duration: durationSec * 0.4,
+          ease: 'back.out(1.4)',
+        },
+        durationSec * 0.3
+      )
+      .to(
+        state,
+        {
+          channelAlpha: 1,
+          channelScale: 1,
+          duration: durationSec * 0.35,
+          ease: 'power2.out',
+        },
+        durationSec * 0.45
       );
   }
 
@@ -817,6 +927,8 @@ function drawModernEndcardOutro(
 
 /**
  * 아웃트로 템플릿 2: 미니멀 잔상 페이드 (Minimal Fade)
+ * 부드러운 레디얼 글로우 + 얇은 액센트 라인 + 느린 타이포 암전.
+ * (루버 블라인드의 기계적 셔터와 대비되는 '빛이 꺼지는' 연출)
  */
 function drawMinimalFadeOutro(
   ctx: CanvasRenderingContext2D,
@@ -826,34 +938,68 @@ function drawMinimalFadeOutro(
   h: number,
   scale: number
 ) {
-  ctx.fillStyle = '#030303';
+  ctx.fillStyle = '#04050a';
   ctx.fillRect(0, 0, w, h);
 
   const cx = w / 2;
   const cy = h / 2;
+  const v = clamp01(state.vignetteAlpha);
+  const t = clamp01(state.titleAlpha);
 
-  ctx.save();
-  ctx.globalAlpha = state.titleAlpha;
-  const outroMsg = options?.outroText || 'Thank you for watching';
-  ctx.fillStyle = '#ffffff';
-  ctx.font = `bold ${Math.round(34 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-  ctx.shadowBlur = 14;
-  ctx.fillText(outroMsg, cx, cy - 14 * scale, w * 0.88);
+  // 중앙에서 퍼지는 은은한 글로우 + 가장자리 비네트
+  const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w, h) * 0.62);
+  glow.addColorStop(0, `rgba(99, 102, 241, ${(0.2 * v).toFixed(3)})`);
+  glow.addColorStop(0.4, `rgba(30, 41, 59, ${(0.72 * v).toFixed(3)})`);
+  glow.addColorStop(1, `rgba(0, 0, 0, ${Math.min(1, 0.5 + v * 0.5).toFixed(3)})`);
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, w, h);
+
+  // 타이틀과 함께 자라나는 가는 가로 액센트 라인
+  if (t > 0.01) {
+    ctx.save();
+    ctx.globalAlpha = t;
+    const lineHalf = Math.min(w * 0.34, 380 * scale) * t;
+    const lineY = cy - 66 * scale + state.titleY * scale * 0.25;
+    const accent = ctx.createLinearGradient(cx - lineHalf, 0, cx + lineHalf, 0);
+    accent.addColorStop(0, 'rgba(165, 180, 252, 0)');
+    accent.addColorStop(0.5, 'rgba(199, 210, 254, 0.9)');
+    accent.addColorStop(1, 'rgba(165, 180, 252, 0)');
+    ctx.fillStyle = accent;
+    ctx.fillRect(cx - lineHalf, lineY, lineHalf * 2, Math.max(1, 1.5 * scale));
+    ctx.restore();
+  }
+
+  // 얇고 우아한 타이포가 위로 떠오르며 암전
+  if (t > 0.01) {
+    ctx.save();
+    ctx.globalAlpha = t;
+    const outroMsg = options?.outroText || 'Thank you for watching';
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = `300 ${Math.round(38 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+    ctx.shadowBlur = 24 * scale;
+    ctx.fillText(outroMsg, cx, cy - 10 * scale + state.titleY * scale, w * 0.86);
+    ctx.restore();
+  }
 
   if (options?.channelText && state.channelAlpha > 0.01) {
-    ctx.globalAlpha = state.channelAlpha;
-    ctx.fillStyle = '#cbd5e1';
-    ctx.font = `bold ${Math.round(20 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-    ctx.fillText(options.channelText, cx, cy + 30 * scale, w * 0.9);
+    ctx.save();
+    ctx.globalAlpha = clamp01(state.channelAlpha);
+    ctx.fillStyle = '#a5b4fc';
+    ctx.font = `600 ${Math.round(18 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(options.channelText, cx, cy + 44 * scale, w * 0.9);
+    ctx.restore();
   }
-  ctx.restore();
 }
 
 /**
  * 아웃트로 템플릿 3: 루버 블라인드 클로징 (Curtain Split)
+ * 메탈 사선 셔터가 위에서 아래로 연달아 닫히며 크레딧을 가린 뒤,
+ * 셔터 틈으로 클로징 문구가 드러나는 기계적 연출.
  */
 function drawCurtainSplitOutro(
   ctx: CanvasRenderingContext2D,
@@ -863,42 +1009,303 @@ function drawCurtainSplitOutro(
   h: number,
   scale: number
 ) {
-  ctx.fillStyle = '#050505';
+  ctx.fillStyle = '#080a0f';
   ctx.fillRect(0, 0, w, h);
 
-  // 5단 사선 루버 블라인드가 닫히는 비주얼
-  const sliceCount = 5;
+  // 7단 메탈 사선 루버가 순차적으로 닫힘
+  const sliceCount = 7;
   const sliceH = h / sliceCount;
+  const close = clamp01(state.louverClose);
+  const stagger = 0.05;
+  const span = 1 - (sliceCount - 1) * stagger;
+  const skew = Math.min(sliceH * 0.5, 26 * scale);
+
   ctx.save();
-  ctx.fillStyle = '#0d0d0d';
+  ctx.beginPath();
+  ctx.rect(0, 0, w, h);
+  ctx.clip();
   for (let i = 0; i < sliceCount; i++) {
     const y = i * sliceH;
-    const offset = Math.min(1, state.louverClose * 1.3 - i * 0.06);
-    if (offset > 0) {
-      const curW = w * Math.max(0, offset);
-      ctx.fillRect(0, y, curW, sliceH + 1);
+    const local = clamp01((close - i * stagger) / span);
+    if (local <= 0) continue;
+    const curW = w * local;
+
+    // 밝은 상단 → 어두운 하단 메탈 그라데이션
+    const metal = ctx.createLinearGradient(0, y, 0, y + sliceH);
+    metal.addColorStop(0, '#2b3546');
+    metal.addColorStop(0.45, '#151d29');
+    metal.addColorStop(1, '#0a0e15');
+    ctx.fillStyle = metal;
+    ctx.beginPath();
+    ctx.moveTo(0, y + skew);
+    ctx.lineTo(curW, y);
+    ctx.lineTo(curW, y + sliceH);
+    ctx.lineTo(0, y + sliceH + skew);
+    ctx.closePath();
+    ctx.fill();
+
+    // 닫히는 중인 셔터의 밝은-leading 엣지
+    if (local < 1) {
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.75)';
+      ctx.lineWidth = Math.max(1, 2 * scale);
+      ctx.beginPath();
+      ctx.moveTo(curW, y);
+      ctx.lineTo(curW, y + sliceH);
+      ctx.stroke();
     }
+    // 셔터 사이 가는 틈(그림자) 라인
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.55)';
+    ctx.lineWidth = Math.max(1, 1.5 * scale);
+    ctx.beginPath();
+    ctx.moveTo(0, y + sliceH + skew);
+    ctx.lineTo(curW, y + sliceH);
+    ctx.stroke();
   }
   ctx.restore();
 
-  // 텍스트 등장
+  // 텍스트 등장 (셔터가 거의 닫힌 뒤)
   const cx = w / 2;
   const cy = h / 2;
   if (state.titleAlpha > 0.01) {
     ctx.save();
-    ctx.globalAlpha = state.titleAlpha;
+    ctx.globalAlpha = clamp01(state.titleAlpha);
     const outroMsg = options?.outroText || 'The End';
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = '#f1f5f9';
     ctx.font = `bold ${Math.round(36 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+    ctx.shadowBlur = 18 * scale;
     ctx.fillText(outroMsg, cx, cy - 16 * scale, w * 0.88);
 
     if (options?.channelText) {
+      ctx.shadowBlur = 0;
       ctx.fillStyle = '#94a3b8';
-      ctx.font = `bold ${Math.round(20 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
-      ctx.fillText(options.channelText, cx, cy + 28 * scale, w * 0.9);
+      ctx.font = `600 ${Math.round(19 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
+      ctx.fillText(options.channelText, cx, cy + 30 * scale, w * 0.9);
     }
+    ctx.restore();
+  }
+}
+
+/**
+ * 아웃트로 템플릿 4: 슬라이드 패널 (Slide Panel)
+ * 좌우 두 패널이 중앙으로 미끄러져 만나며 가는 시안 라인이 번쩍인다.
+ */
+function drawSlidePanelOutro(
+  ctx: CanvasRenderingContext2D,
+  state: OutroGsapState,
+  options: VideoOverlayOptions | undefined,
+  w: number,
+  h: number,
+  scale: number
+) {
+  ctx.fillStyle = '#070a10';
+  ctx.fillRect(0, 0, w, h);
+
+  const cx = w / 2;
+  const cy = h / 2;
+  const p = clamp01(state.panelClose);
+  const panelW = w / 2 + 2;
+
+  // 좌측 패널
+  const left = ctx.createLinearGradient(0, 0, panelW, 0);
+  left.addColorStop(0, '#0f172a');
+  left.addColorStop(1, '#1e293b');
+  ctx.fillStyle = left;
+  ctx.fillRect(-panelW + panelW * p, 0, panelW, h);
+
+  // 우측 패널
+  const right = ctx.createLinearGradient(w, 0, w - panelW, 0);
+  right.addColorStop(0, '#0f172a');
+  right.addColorStop(1, '#1e293b');
+  ctx.fillStyle = right;
+  ctx.fillRect(w - panelW * p, 0, panelW, h);
+
+  // 패널이 만날 때 중앙 시안 심 라인 번쩍
+  if (p > 0.85) {
+    ctx.save();
+    ctx.globalAlpha = clamp01((p - 0.85) / 0.15);
+    const seam = ctx.createLinearGradient(cx - 70 * scale, 0, cx + 70 * scale, 0);
+    seam.addColorStop(0, 'rgba(56, 189, 248, 0)');
+    seam.addColorStop(0.5, 'rgba(56, 189, 248, 0.95)');
+    seam.addColorStop(1, 'rgba(56, 189, 248, 0)');
+    ctx.fillStyle = seam;
+    const seamH = Math.max(1, 2 * scale);
+    ctx.fillRect(cx - 70 * scale, cy - 96 * scale, 140 * scale, seamH);
+    ctx.fillRect(cx - 70 * scale, cy + 96 * scale, 140 * scale, seamH);
+    ctx.restore();
+  }
+
+  if (state.titleAlpha > 0.01) {
+    ctx.save();
+    ctx.globalAlpha = clamp01(state.titleAlpha);
+    const outroMsg = options?.outroText || 'Thank you for watching';
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = `bold ${Math.round(40 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(56, 189, 248, 0.45)';
+    ctx.shadowBlur = 24 * scale;
+    ctx.fillText(outroMsg, cx, cy - 14 * scale + state.titleY * scale, w * 0.82);
+    ctx.restore();
+  }
+  if (options?.channelText && state.channelAlpha > 0.01) {
+    ctx.save();
+    ctx.globalAlpha = clamp01(state.channelAlpha);
+    ctx.fillStyle = '#7dd3fc';
+    ctx.font = `600 ${Math.round(19 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(options.channelText, cx, cy + 40 * scale, w * 0.9);
+    ctx.restore();
+  }
+}
+
+/**
+ * 아웃트로 템플릿 5: 타이프라이터 크레딧 (Typewriter Credits)
+ * 모노스페이스 글자가 한 글자씩 찍히고 블록 커서가 깜빡이는 레트로 터미널 연출.
+ */
+function drawTypewriterCreditsOutro(
+  ctx: CanvasRenderingContext2D,
+  state: OutroGsapState,
+  options: VideoOverlayOptions | undefined,
+  w: number,
+  h: number,
+  scale: number
+) {
+  ctx.fillStyle = '#050805';
+  ctx.fillRect(0, 0, w, h);
+
+  // CRT 스캔라인
+  ctx.save();
+  ctx.globalAlpha = 0.05;
+  ctx.fillStyle = '#86efac';
+  const scanStep = Math.max(3, Math.round(5 * scale));
+  for (let y = 0; y < h; y += scanStep) {
+    ctx.fillRect(0, y, w, Math.max(1, scale));
+  }
+  ctx.restore();
+
+  const cx = w / 2;
+  const cy = h / 2;
+  const full = options?.outroText || 'Thank you for watching';
+  const chars = Array.from(full);
+  const typed = chars.slice(0, Math.floor(clamp01(state.typeProgress) * chars.length)).join('');
+
+  ctx.save();
+  const monoFont = (px: number) =>
+    `${Math.round(px * scale)}px "SFMono-Regular", Consolas, "Liberation Mono", monospace`;
+  ctx.font = monoFont(34);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#86efac';
+  ctx.shadowColor = 'rgba(134, 239, 172, 0.55)';
+  ctx.shadowBlur = 16 * scale;
+  ctx.fillText(typed, cx, cy - 14 * scale, w * 0.84);
+
+  // 타이핑된 텍스트 바로 뒤에 깜빡이는 블록 커서
+  const typedWidth = ctx.measureText(typed).width;
+  const cursorX = cx + typedWidth / 2 + 6 * scale;
+  if (cursorX < w * 0.95 && Math.sin(state.progress * Math.PI * 30) > 0) {
+    ctx.globalAlpha = 1;
+    ctx.fillRect(cursorX, cy - 14 * scale - 17 * scale, Math.max(2, 9 * scale), 34 * scale);
+  }
+  ctx.restore();
+
+  if (options?.channelText && state.channelAlpha > 0.01) {
+    ctx.save();
+    ctx.globalAlpha = clamp01(state.channelAlpha);
+    ctx.fillStyle = '#4ade80';
+    ctx.font = monoFont(18);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`> ${options.channelText}`, cx, cy + 44 * scale, w * 0.9);
+    ctx.restore();
+  }
+}
+
+/**
+ * 아웃트로 템플릿 6: 라이트 버스트 (Light Burst)
+ * 중심에서 방사형 광선이 터져 나오며 오프닝 플래시가 번쩍이고 골드 타이포가 등장.
+ */
+function drawLightBurstOutro(
+  ctx: CanvasRenderingContext2D,
+  state: OutroGsapState,
+  options: VideoOverlayOptions | undefined,
+  w: number,
+  h: number,
+  scale: number
+) {
+  ctx.fillStyle = '#05060a';
+  ctx.fillRect(0, 0, w, h);
+
+  const cx = w / 2;
+  const cy = h / 2;
+  const burst = clamp01(state.burstProgress);
+
+  // 회전하는 방사형 광선
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(state.progress * Math.PI * 0.35);
+  const rayCount = 24;
+  for (let i = 0; i < rayCount; i++) {
+    const angle = (i / rayCount) * Math.PI * 2;
+    const inner = 40 * scale;
+    const outer = (130 + burst * 700) * scale;
+    const spread = 0.018 + (i % 2) * 0.012;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(angle - spread) * inner, Math.sin(angle - spread) * inner);
+    ctx.lineTo(Math.cos(angle) * outer, Math.sin(angle) * outer);
+    ctx.lineTo(Math.cos(angle + spread) * inner, Math.sin(angle + spread) * inner);
+    ctx.closePath();
+    ctx.fillStyle =
+      i % 2 === 0
+        ? `rgba(250, 204, 21, ${(0.18 * (1 - burst * 0.45)).toFixed(3)})`
+        : `rgba(251, 146, 60, ${(0.12 * (1 - burst * 0.4)).toFixed(3)})`;
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // 중심 코어 글로우
+  const coreR = (70 + burst * 340) * scale;
+  const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR);
+  core.addColorStop(0, `rgba(255, 247, 214, ${(0.85 * (1 - burst * 0.5)).toFixed(3)})`);
+  core.addColorStop(0.32, `rgba(251, 191, 36, ${(0.32 * (1 - burst * 0.4)).toFixed(3)})`);
+  core.addColorStop(1, 'rgba(251, 146, 60, 0)');
+  ctx.fillStyle = core;
+  ctx.fillRect(0, 0, w, h);
+
+  // 오프닝 화이트 플래시
+  if (state.flashAlpha > 0.01) {
+    ctx.save();
+    ctx.globalAlpha = clamp01(state.flashAlpha) * 0.9;
+    ctx.fillStyle = '#fff8e1';
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+  }
+
+  if (state.titleAlpha > 0.01) {
+    ctx.save();
+    ctx.globalAlpha = clamp01(state.titleAlpha);
+    const outroMsg = options?.outroText || 'Thank you for watching';
+    ctx.fillStyle = '#fffbeb';
+    ctx.font = `bold ${Math.round(42 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(251, 191, 36, 0.75)';
+    ctx.shadowBlur = 30 * scale;
+    ctx.fillText(outroMsg, cx, cy - 16 * scale + state.titleY * scale, w * 0.86);
+    ctx.restore();
+  }
+  if (options?.channelText && state.channelAlpha > 0.01) {
+    ctx.save();
+    ctx.globalAlpha = clamp01(state.channelAlpha);
+    ctx.fillStyle = '#fcd34d';
+    ctx.font = `600 ${Math.round(19 * scale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(options.channelText, cx, cy + 42 * scale, w * 0.9);
     ctx.restore();
   }
 }
@@ -962,6 +1369,15 @@ export function renderHyperframesOutroFrame(
       break;
     case 'curtain-split':
       drawCurtainSplitOutro(ctx, state, options, w, h, scale);
+      break;
+    case 'slide-panel':
+      drawSlidePanelOutro(ctx, state, options, w, h, scale);
+      break;
+    case 'typewriter-credits':
+      drawTypewriterCreditsOutro(ctx, state, options, w, h, scale);
+      break;
+    case 'light-burst':
+      drawLightBurstOutro(ctx, state, options, w, h, scale);
       break;
     default:
       drawModernEndcardOutro(ctx, state, options, w, h, scale);

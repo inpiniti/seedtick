@@ -50,13 +50,31 @@ export const OUTRO_TEMPLATE_OPTIONS: Array<{
     id: 'minimal-fade',
     name: '미니멀 페이드',
     badge: '감성',
-    desc: '딥 다크 비네트 & 우아한 타이포 암전',
+    desc: '부드러운 레디얼 글로우 & 타이포가 천천히 암전',
   },
   {
     id: 'curtain-split',
     name: '루버 블라인드',
     badge: '시그니처',
-    desc: '5단 사선 루버 셔터 클로징 크레딧',
+    desc: '메탈 사선 셔터가 연달아 닫힌 뒤 크레딧 등장',
+  },
+  {
+    id: 'slide-panel',
+    name: '슬라이드 패널',
+    badge: '모던',
+    desc: '좌우 패널이 슬라이드해 중앙에서 만남',
+  },
+  {
+    id: 'typewriter-credits',
+    name: '타이프라이터 크레딧',
+    badge: '레트로',
+    desc: '모노스페이스 타이핑 & 깜빡이는 커서',
+  },
+  {
+    id: 'light-burst',
+    name: '라이트 버스트',
+    badge: '시네마',
+    desc: '방사형 광선 & 환한 오프닝 플래시',
   },
 ];
 

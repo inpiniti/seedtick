@@ -1010,6 +1010,9 @@ export interface IntroOutroModalDictionary {
       'modern-endcard'?: { name: string; badge: string; desc: string };
       'minimal-fade'?: { name: string; badge: string; desc: string };
       'curtain-split'?: { name: string; badge: string; desc: string };
+      'slide-panel'?: { name: string; badge: string; desc: string };
+      'typewriter-credits'?: { name: string; badge: string; desc: string };
+      'light-burst'?: { name: string; badge: string; desc: string };
       [key: string]: { name: string; badge: string; desc: string } | undefined;
     };
   };

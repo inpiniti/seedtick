@@ -188,7 +188,10 @@ export type IntroTemplateId =
 export type OutroTemplateId =
   | 'modern-endcard'
   | 'minimal-fade'
-  | 'curtain-split';
+  | 'curtain-split'
+  | 'slide-panel'
+  | 'typewriter-credits'
+  | 'light-burst';
 
 export interface CustomAudioTrack {
   file: File;

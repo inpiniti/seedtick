@@ -1545,10 +1545,7 @@
   box-shadow: 0 1px 4px rgba(15, 23, 42, 0.45);
 }
 
-/* 아웃트로는 3종 → 2열 배치 후 마지막 카드는 한 줄 전체 사용 */
-.toss-outro-content .toss-io-template-grid>.toss-io-template-card:last-child {
-  grid-column: 1 / -1;
-}
+/* 아웃트로는 6종 → 2열 3행 균일 그리드 (모바일에서도 카드 폭 유지) */
 
 /* 재생 시간 / 옵션 행 */
 .toss-io-row {

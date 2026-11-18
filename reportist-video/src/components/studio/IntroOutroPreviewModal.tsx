@@ -712,7 +712,7 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                 }}
               >
                 <Film size={14} className={activeTab === 'outro' ? 'text-slate-900' : ''} />
-                <span>{ioDict?.tabOutro || ui('🏁 종료 아웃트로 (3종)')}</span>
+                <span>{ioDict?.tabOutro || ui('🏁 종료 아웃트로 (6종)')}</span>
               </button>
             </div>
 

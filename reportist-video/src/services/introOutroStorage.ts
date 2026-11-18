@@ -120,7 +120,10 @@ export function getStoredOutroTemplate(): OutroTemplateId {
     if (
       saved === 'modern-endcard' ||
       saved === 'minimal-fade' ||
-      saved === 'curtain-split'
+      saved === 'curtain-split' ||
+      saved === 'slide-panel' ||
+      saved === 'typewriter-credits' ||
+      saved === 'light-burst'
     ) {
       return saved as OutroTemplateId;
     }
