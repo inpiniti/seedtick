@@ -1834,6 +1834,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     navigateToTab('studio');
   }, [pendingOrientation, onStartNewProject, resetStudioState, navigateToTab]);
 
+  // 저장소 완전 비우기 후: 포맷 선택 모달을 열지 않고 메모리 상태만 조용히 초기화한다.
+  const handleStorageWiped = useCallback(() => {
+    setIsFormatModalOpen(false);
+    resetStudioState();
+    onReset?.();
+  }, [resetStudioState, onReset]);
+
   // 상위 결과 갱신 동기화 및 썸네일/타이틀 준비
   const appliedSuggestedTitleRef = useRef<string | null>(null);
   const lastStitchedResultUrlRef = useRef<string | null>(null);
@@ -9693,6 +9700,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         currentLocaleInfo={currentLocaleInfo}
         hasVideos={videos.length > 0}
         onReset={requestNewProject}
+        onStorageWiped={handleStorageWiped}
         hasStitchedResult={isSequenceMode}
         onDownloadThumbnail={handleDownloadThumbnail}
         onDownloadSubtitles={() => {

@@ -146,6 +146,8 @@ export interface MobileSettingsModalProps {
   currentLocaleInfo: { flag: string; nativeName: string; name: string };
   hasVideos: boolean;
   onReset?: () => void;
+  /** 저장소 완전 비우기 후 호출 — 포맷 선택 모달 없이 메모리 상태만 초기화한다. */
+  onStorageWiped?: () => void;
   hasStitchedResult: boolean;
   onDownloadThumbnail?: () => void;
   onDownloadSubtitles?: () => void;
@@ -204,6 +206,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   currentLocaleInfo,
   hasVideos,
   onReset,
+  onStorageWiped,
   hasStitchedResult,
   onDownloadThumbnail,
   onDownloadSubtitles,
@@ -469,7 +472,8 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
       notify.success(ui('저장소를 완전히 비웠습니다.'));
       setStorageClearMessage(ui('저장소를 완전히 비웠습니다.'));
       // 메모리에 남은 작업 상태도 초기화해야 삭제된 데이터가 다시 저장되지 않는다.
-      onReset?.();
+      // 단, 새 프로젝트 포맷 선택 모달(onReset)은 열지 않는다.
+      onStorageWiped?.();
     } catch (err) {
       console.warn('[Settings] Storage wipe failed:', err);
       notify.error(ui('저장소를 비우는 데 실패했습니다.'));
