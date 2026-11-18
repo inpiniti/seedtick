@@ -162,8 +162,12 @@ function abs(path) {
   return new URL(path, SITE.origin).href;
 }
 
+// Land on the studio in the same language as the landing page the user was
+// reading. The studio's `?lang=` param outranks localStorage/browser locale,
+// so even English must be passed explicitly — otherwise a Korean browser
+// arriving from the English landing page gets a Korean studio (and vice versa).
 function appHref(locale) {
-  return SITE.appPath + (locale.code === "en" ? "" : `?lang=${locale.code}`);
+  return `${SITE.appPath}?lang=${locale.code}`;
 }
 
 function renderAlternates() {
@@ -887,8 +891,9 @@ function renderHead(locale) {
     "<",
     "\\u003c"
   );
-  const isEnglish = locale.code === "en";
-  const redirectHash = isEnglish ? "" : `?lang=${locale.code}`;
+  // Keep the same landing→studio language handoff on legacy hash redirects
+  // (e.g. /#projects) as on the CTA buttons above.
+  const redirectHash = `?lang=${locale.code}`;
 
   // Only the tokens that are filled in get rendered, so the generated pages
   // never ship empty verification tags or leftover blank lines.
