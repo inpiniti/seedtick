@@ -19,19 +19,25 @@ export interface ModelPerfMetric {
 /**
  * OpenRouter 공식 벤치마크 기준 모델 속도(Throughput, tok/s) 및 첫 응답 지연시간(Latency TTFT, ms)
  * 네트워크 지연이나 실시간 엔드포인트 미제공 시 안전한 벤치마크 기준값으로 활용된다.
+ * dataPolicy(training)는 OpenRouter가 공개한 제공사 데이터 정책의 확인된 값으로, 실시간 메트릭이
+ * 도착하기 전(또는 조회 실패 시)에도 학습 사용 모델을 기본값에서 제외할 수 있도록 하는 폴백이다.
+ * 실시간 값이 수신되면 항상 실시간 값이 우선 적용된다(enrichModelMetrics 참조).
  */
 export const KNOWN_MODEL_PERF: Record<string, ModelPerfMetric> = {
   'nvidia/nemotron-3.5-super-vl': {
     speedTokensPerSecond: 82,
     latencyMs: 1500,
+    dataPolicy: { training: true },
   },
   'dots-studio/dots-3-note-preview': {
     speedTokensPerSecond: 30,
     latencyMs: 6500,
+    dataPolicy: { training: false },
   },
   'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning': {
     speedTokensPerSecond: 90,
     latencyMs: 605,
+    dataPolicy: { training: true },
   },
   'thinkingmachines/inkling-small': {
     speedTokensPerSecond: 208,
@@ -44,14 +50,17 @@ export const KNOWN_MODEL_PERF: Record<string, ModelPerfMetric> = {
   'google/gemma-4-26b-a4b-it': {
     speedTokensPerSecond: 42,
     latencyMs: 912,
+    dataPolicy: { training: false },
   },
   'google/gemma-4-31b-it': {
     speedTokensPerSecond: 32,
     latencyMs: 1200,
+    dataPolicy: { training: false },
   },
   'liquid/lfm-3-1.7b': {
     speedTokensPerSecond: 66,
     latencyMs: 346,
+    dataPolicy: { training: true },
   },
   'liquid/lfm-2.5-2.6b': {
     speedTokensPerSecond: 236,
@@ -60,14 +69,17 @@ export const KNOWN_MODEL_PERF: Record<string, ModelPerfMetric> = {
   'nvidia/nemotron-3.5-lightning': {
     speedTokensPerSecond: 62,
     latencyMs: 533,
+    dataPolicy: { training: true },
   },
   'cohere/north-mini-code': {
     speedTokensPerSecond: 130,
     latencyMs: 565,
+    dataPolicy: { training: false },
   },
   'nvidia/nemotron-3-ultra-550b-a55b': {
     speedTokensPerSecond: 36,
     latencyMs: 1714,
+    dataPolicy: { training: true },
   },
   'xingchen-agi/xing4.0-29b-a4b': {
     speedTokensPerSecond: 44,
@@ -76,6 +88,7 @@ export const KNOWN_MODEL_PERF: Record<string, ModelPerfMetric> = {
   'recursive/flint-v1.0': {
     speedTokensPerSecond: 104,
     latencyMs: 1075,
+    dataPolicy: { training: false },
   },
 };
 

@@ -771,9 +771,14 @@ export function App() {
           const enriched = enrichModelMetrics(fetched);
           setModels(enriched);
 
-          // 사용자가 이전에 저장/선택한 모델이 존재하는지 확인하고 유지
-          const targetModelId = getStoredSelectedModel() || selectedModel;
-          const foundStoredModel = enriched.find((m) => m.id === targetModelId);
+          // 사용자가 명시적으로 저장/선택한 모델만 복원한다.
+          // 초기 렌더링 시 폴백 목록으로 자동 정해진 selectedModel을 저장된 설정으로 오인해 그대로
+          // 유지하면, 실시간 데이터에서 학습 사용(training === true)으로 확인된 모델이 기본값으로
+          // 남는다. 저장된 설정이 없으면 항상 최신 목록에서 기본 모델을 다시 고른다.
+          const storedModelId = getStoredSelectedModel();
+          const foundStoredModel = storedModelId
+            ? enriched.find((m) => m.id === storedModelId)
+            : null;
 
           if (foundStoredModel) {
             setSelectedModelState(foundStoredModel.id);
