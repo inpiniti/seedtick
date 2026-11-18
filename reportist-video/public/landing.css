@@ -2003,13 +2003,12 @@ html.is-film-open {
 /* Small viewports swap the story film to its 9:16 master (landing.js). */
 @media (max-width: 680px) {
   .theater-stage {
-    display: flex;
-    justify-content: center;
     background: #05080f;
   }
 
   .theater-video {
-    width: min(100%, 360px);
+    /* Full-bleed: fill the entire stage width, no 360px cap / side gutters. */
+    width: 100%;
     height: auto;
     aspect-ratio: 9 / 16;
     object-fit: cover;
