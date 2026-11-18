@@ -7,9 +7,11 @@ import {
   Download,
   Film,
   Image as ImageIcon,
+  MapPin,
   Music,
   Scissors,
   Sparkles,
+  Subtitles,
   Type,
   Upload,
 } from 'lucide-react';
@@ -27,10 +29,14 @@ export const StudioStepIcon: React.FC<StudioStepIconProps> = ({ stepId, size = 1
       return <Film size={size} />;
     case 'upload':
       return <Upload size={size} />;
+    case 'location':
+      return <MapPin size={size} />;
     case 'ai':
       return <Sparkles size={size} />;
     case 'cut':
       return <Scissors size={size} />;
+    case 'caption':
+      return <Subtitles size={size} />;
     case 'bridge':
       return <ArrowRight size={size} />;
     case 'outro':
@@ -40,7 +46,7 @@ export const StudioStepIcon: React.FC<StudioStepIconProps> = ({ stepId, size = 1
     case 'thumbnail':
       return <ImageIcon size={size} />;
     default:
-      // caption · download
+      // download
       return <Download size={size} />;
   }
 };

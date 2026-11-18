@@ -11,6 +11,7 @@ export interface MobileStepListItem {
   label: string;
   status: string;
   isActive: boolean;
+  disabled?: boolean;
 }
 
 interface MobileStepListSheetProps {
@@ -20,6 +21,7 @@ interface MobileStepListSheetProps {
   title: string;
   closeLabel: string;
   onSelect: (id: string) => void;
+  onLockedSelect?: (id: string) => void;
 }
 
 export const MobileStepListSheet: React.FC<MobileStepListSheetProps> = ({
@@ -29,6 +31,7 @@ export const MobileStepListSheet: React.FC<MobileStepListSheetProps> = ({
   title,
   closeLabel,
   onSelect,
+  onLockedSelect,
 }) => {
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -76,9 +79,14 @@ export const MobileStepListSheet: React.FC<MobileStepListSheetProps> = ({
             <li key={step.id} className="toss-step-sheet-item">
               <button
                 type="button"
-                className={`toss-step-sheet-row ${step.isActive ? 'active' : ''}`}
+                className={`toss-step-sheet-row ${step.isActive ? 'active' : ''} ${step.disabled ? 'is-locked' : ''}`}
                 aria-current={step.isActive ? 'step' : undefined}
+                aria-disabled={step.disabled ? true : undefined}
                 onClick={() => {
+                  if (step.disabled) {
+                    onLockedSelect?.(step.id);
+                    return;
+                  }
                   onSelect(step.id);
                   onClose();
                 }}

@@ -7642,16 +7642,18 @@
   box-sizing: border-box;
 }
 
-/* 1. Header Card */
+/* 1. Header Card
+   검색·정렬·공유 버튼은 '컨텐츠를 돕는 도구'일 뿐 화면의 주인공이 아니다.
+   여백을 최소화해 영상 그리드가 첫 화면에서 바로 보이도록 한다. */
 .toss-community-header-card {
   background-color: #ffffff;
   border: 1px solid #eef2f6;
   border-radius: 18px;
-  padding: 18px 20px;
+  padding: 14px 18px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
 }
 
 .toss-community-header-top {
@@ -7777,9 +7779,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: 12px;
   flex-wrap: wrap;
-  padding-top: 14px;
+  padding-top: 10px;
   border-top: 1px solid #f2f4f6;
 }
 
@@ -8563,36 +8565,87 @@
 
 @media (max-width: 640px) {
   .toss-community-inner {
-    padding: 10px 12px 48px;
-    gap: 12px;
+    padding: 8px 12px 48px;
+    gap: 10px;
   }
 
+  /* 헤더 카드를 한 줄로 압축해 필터 영역이 영상 컨텐츠를 밀어내지 않게 한다. */
   .toss-community-header-card {
-    padding: 16px;
+    padding: 12px 14px;
     border-radius: 14px;
+    gap: 10px;
+  }
+
+  .toss-community-header-top {
+    flex-wrap: nowrap;
+    gap: 10px;
+  }
+
+  .toss-community-header-left {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* 상단 탭에 이미 '스튜디오'가 있으므로 카드 안의 이동 버튼은 모바일에서 생략한다. */
+  .toss-community-header-actions .toss-btn-studio-switch {
+    display: none;
   }
 
   .toss-community-header-actions {
-    width: 100%;
+    width: auto;
   }
 
-  .toss-btn-share-primary {
-    flex: 1;
-  }
-
-  .toss-community-search-box {
-    max-width: 100%;
-    width: 100%;
-  }
-
-  .toss-community-filter-row {
-    gap: 10px;
-    margin-top: 10px;
-    padding-top: 12px;
+  /* 긴 소개 문구는 모바일에서 숨겨 영상 목록이 먼저 보이게 한다. */
+  .toss-community-desc {
+    display: none;
   }
 
   .toss-community-title {
-    font-size: 19px;
+    font-size: 17px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .toss-btn-share-primary {
+    flex: none;
+    height: var(--ui-h-sm);
+    padding: 0 12px;
+    font-size: var(--ui-fs-sm);
+  }
+
+  /* 검색은 한 줄 전체를 쓰고, 정렬·새로고침은 아래 줄로 분리해 필터가 영상을 가리지 않게 한다. */
+  .toss-community-search-box {
+    max-width: 100%;
+    width: 100%;
+    min-width: 180px;
+  }
+
+  .toss-community-search-input {
+    height: var(--ui-input-h-sm);
+  }
+
+  .toss-community-filter-row {
+    gap: 8px;
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+  }
+
+  .toss-community-filter-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .toss-community-filter-pills {
+    padding: 2px;
+    gap: 2px;
+  }
+
+  .toss-community-sort-btn {
+    padding: 5px 10px;
+    gap: 4px;
+    font-size: var(--ui-fs-sm);
   }
 
   .toss-community-grid {
@@ -14987,4 +15040,329 @@
     width: 48px;
     height: 48px;
   }
+}
+
+/* ---------- 7. 모바일: 영상 상단 문구 인풋 카드 다운사이즈 ----------
+   스텝 헤더에 이미 'Top text'가 보이는데 카드 헤더가 같은 제목을 반복하고,
+   라벨·인풋·여백이 겹쳐 세로로 비대해 보인다. 데스크탑은 그대로 두고
+   모바일(1024px 이하)에서 높이·간격만 단계적으로 줄인다.
+   인풋 폰트는 iOS 확대 방지용 16px(index.css)를 유지한다. */
+@media (max-width: 1024px) {
+  .toss-card:has(.toss-header-inputs-inline) {
+    padding: 10px 12px;
+  }
+
+  .toss-card:has(.toss-header-inputs-inline) .toss-card-header {
+    margin-bottom: 6px;
+  }
+
+  .toss-card:has(.toss-header-inputs-inline) .toss-card-title {
+    font-size: 12.5px;
+  }
+
+  .toss-header-inputs-inline {
+    gap: 6px;
+    padding: 2px 0 6px;
+    margin-bottom: 6px;
+  }
+
+  .toss-header-inputs-inline .toss-header-input-wrap {
+    gap: 3px;
+  }
+
+  .toss-header-inputs-inline .toss-header-input-label {
+    font-size: 10.5px;
+  }
+
+  .toss-header-inputs-inline .toss-header-input {
+    height: 32px;
+    padding: 0 9px;
+  }
+}
+
+/* ---------- 통합 12단계 스텝바: 잠금 상태와 좁은 화면 가로 스크롤 ---------- */
+@media (min-width: 1025px) {
+  .toss-studio-steps {
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+  .toss-studio-steps::-webkit-scrollbar {
+    display: none;
+  }
+  .toss-studio-step-item {
+    flex: 0 0 auto;
+  }
+  .toss-studio-step {
+    min-width: 88px;
+  }
+}
+
+.toss-studio-step.is-locked {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---------- 4단계: 촬영 위치 카드 ---------- */
+.toss-card-subtitle {
+  margin: 3px 0 0;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: #8b95a1;
+}
+
+.toss-upload-location-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 100%;
+  margin-top: 3px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #4e5968;
+  font-size: 10px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toss-location-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toss-location-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 10px;
+  background: #f9fafb;
+  border: 1px solid #e5e8eb;
+  border-radius: 10px;
+  box-sizing: border-box;
+}
+
+.toss-location-item-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: #ffffff;
+  border: 1px solid #e5e8eb;
+  color: #4e5968;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.toss-location-item-body {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.toss-location-item-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: #191f28;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toss-location-input {
+  width: 100%;
+  height: 30px;
+  padding: 0 9px;
+  box-sizing: border-box;
+  border: 1px solid #d1d6db;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #191f28;
+  font-size: 12px;
+  outline: none;
+}
+
+.toss-location-input:focus {
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.06);
+}
+
+.toss-location-input::placeholder {
+  color: #b0b8c1;
+}
+
+.toss-location-map-link {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 3px;
+  color: #2872d8;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.toss-location-map-link:hover {
+  text-decoration: underline;
+}
+
+.toss-location-bulk-btn {
+  margin-top: 10px;
+  width: 100%;
+}
+
+/* ---------- 6단계: 선택한 컷 시작·종료 시점 미세조절 ---------- */
+.toss-cut-timecodes {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 8px;
+  padding: 7px 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.toss-cut-timecode-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  color: #4e5968;
+}
+
+.toss-cut-timecode-row strong {
+  min-width: 46px;
+  color: #191f28;
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.toss-cut-timecode-label {
+  min-width: 24px;
+  color: #8b95a1;
+  font-weight: 600;
+}
+
+.toss-cut-trim-btn {
+  min-width: 34px;
+  height: 22px;
+  padding: 0 4px;
+  border: 1px solid #d1d6db;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #4e5968;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.toss-cut-trim-btn:hover {
+  background: #f1f5f9;
+  border-color: #0f172a;
+}
+
+/* ---------- 7단계: 전체 자막 한눈에 수정 ---------- */
+.toss-caption-list-toggle {
+  white-space: nowrap;
+}
+
+.toss-caption-list {
+  margin: 10px 0;
+  padding: 10px;
+  background: #ffffff;
+  border: 1px solid #e5e8eb;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.toss-caption-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.toss-caption-list-head strong {
+  font-size: 12px;
+  font-weight: 800;
+  color: #191f28;
+}
+
+.toss-caption-list-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.toss-caption-list-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 6px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+
+.toss-caption-list-row.active {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.toss-caption-list-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  min-width: 74px;
+  padding: 4px 6px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #4e5968;
+  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.toss-caption-list-jump:hover {
+  background: #e9eef5;
+}
+
+.toss-caption-list-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: #ffffff;
+  border: 1px solid #e5e8eb;
+  color: #4e5968;
+}
+
+.toss-caption-list-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ---------- 모바일 전체 단계 시트: 잠금 행 ---------- */
+.toss-step-sheet-row.is-locked {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

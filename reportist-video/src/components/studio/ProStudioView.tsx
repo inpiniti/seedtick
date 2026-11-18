@@ -196,17 +196,19 @@ const PLAYBACK_ERROR_MESSAGE =
   '이 영상은 미리보기를 재생할 수 없어요. 영상을 다시 올리거나 다른 형식(MP4)으로 시도해 주세요.';
 
 // ============================================================
-// 통합 스튜디오 편집 가이드 (프로젝트 상태에 따라 두 흐름으로 나뉜다)
-// - 처음 만드는 중: 영상 상단 문구 → 인트로 스타일 → 영상 올리기 → AI 하이라이트 → 브릿지 → 아웃트로 → 노래 → 썸네일 → 다운로드 (9단계)
-// - 컷이 만들어진 뒤: 영상 상단 문구 → 인트로 스타일 → 자막 → 컷 → 브릿지 → 아웃트로 → 노래 → 썸네일 → 다운로드 (9단계)
+// 통합 스튜디오 편집 가이드 (생성/편집 흐름 구분 없이 처음부터 끝까지 같은 순서)
+// 영상 상단 문구 → 인트로 스타일 → 영상 올리기 → 촬영 위치 → AI 하이라이트
+// → 컷 다듬기 → 자막 수정 → 브릿지 → 아웃트로 → 노래 → 썸네일 → 다운로드
+// (AI 분석 전에는 '촬영 위치'는 영상 업로드 후, '컷 다듬기'·'자막 수정'은 분석 후에만 열린다)
 // ============================================================
 type StudioSection =
   | 'intro'
   | 'introStyle'
-  | 'caption'
   | 'upload'
+  | 'location'
   | 'ai'
   | 'cut'
+  | 'caption'
   | 'bridge'
   | 'outro'
   | 'music'
@@ -220,7 +222,8 @@ interface StudioStep {
   description: string;
 }
 
-const CREATE_STUDIO_STEPS: StudioStep[] = [
+// 단일 통합 스텝바: 두 흐름으로 나뉘던 배열을 하나로 합쳐 단계가 사라지거나 순서가 뒤바뀌지 않게 한다.
+const STUDIO_STEPS: StudioStep[] = [
   {
     id: 'intro',
     label: '영상 상단 문구',
@@ -240,10 +243,28 @@ const CREATE_STUDIO_STEPS: StudioStep[] = [
     description: '영상을 올리고 순서와 촬영 장소를 확인해요. 여러 개를 한 번에 올려도 돼요.',
   },
   {
+    id: 'location',
+    label: '촬영 위치',
+    shortDesc: '장소 확인',
+    description: '영상별 촬영 장소를 확인하고 정확한 지명으로 고쳐요. 여기서 고친 장소는 AI 자막과 장면 전환에 바로 반영돼요.',
+  },
+  {
     id: 'ai',
     label: 'AI 하이라이트',
     shortDesc: '장면 추출',
     description: 'AI가 영상에서 가장 볼만한 장면만 골라 짧게 잘라줘요. 이 단계에서 한 번만 누르면 돼요.',
+  },
+  {
+    id: 'cut',
+    label: '컷 다듬기',
+    shortDesc: '시작·끝 조절',
+    description: 'AI가 고른 장면의 시작점과 종료점을 조절해요. 선택한 컷의 시간을 바로 미세 조정할 수 있어요.',
+  },
+  {
+    id: 'caption',
+    label: '자막 수정',
+    shortDesc: '자막·톤',
+    description: 'AI가 만든 자막을 확인하고 씬별로 제목·날짜·장소를 다듬어요. 전체 자막을 한눈에 수정할 수도 있어요.',
   },
   {
     id: 'bridge',
@@ -277,63 +298,6 @@ const CREATE_STUDIO_STEPS: StudioStep[] = [
   },
 ];
 
-const EDIT_STUDIO_STEPS: StudioStep[] = [
-  {
-    id: 'intro',
-    label: '영상 상단 문구',
-    shortDesc: '좌·우 문구',
-    description: '영상 좌측 상단·우측 상단에 나올 문구를 정해요. 입력한 문구는 미리보기에서 바로 확인할 수 있어요.',
-  },
-  {
-    id: 'introStyle',
-    label: '인트로 스타일',
-    shortDesc: '4가지 스타일',
-    description: '인트로 모션 스타일과 재생 시간을 골라요. 직접 만든 인트로 영상을 올릴 수도 있어요.',
-  },
-  {
-    id: 'caption',
-    label: '자막',
-    shortDesc: '자막·톤',
-    description:
-      'AI가 만든 자막을 확인하고 씬별로 제목·날짜·장소를 다듬어요. 자막 톤과 하단 자막·촬영 날짜 표시도 여기서 정해요.',
-  },
-  {
-    id: 'cut',
-    label: '컷',
-    shortDesc: '장면 다듬기',
-    description: 'AI가 고른 장면 중 지금 선택한 컷 하나만 다듬어요. 타임라인에서 컷을 누르면 그 컷으로 바뀌어요.',
-  },
-  {
-    id: 'bridge',
-    label: '브릿지',
-    shortDesc: '장면 전환',
-    description: '날짜나 장소가 바뀌는 컷 사이에 들어가는 장면 전환이에요. 켜 둔 곳만 타임라인에 표시돼요.',
-  },
-  {
-    id: 'outro',
-    label: '아웃트로',
-    shortDesc: '마무리',
-    description: '영상 마지막 인사를 골라요. 스타일을 누르면 왼쪽 미리보기에서 바로 재생돼요.',
-  },
-  {
-    id: 'music',
-    label: '노래',
-    shortDesc: '배경음악',
-    description: '영상 전체에 깔리는 노래를 골라요. 어떤 단계를 편집하든 언제든 바꿀 수 있어요.',
-  },
-  {
-    id: 'thumbnail',
-    label: '썸네일',
-    shortDesc: '대표 이미지',
-    description: '유튜브에 올릴 16:9 대표 이미지를 만들어요. AI 추천 프레임과 타이틀을 그대로 쓸 수 있어요.',
-  },
-  {
-    id: 'download',
-    label: '다운로드',
-    shortDesc: '저장',
-    description: '편집한 영상과 자막 파일을 내려받아요. 모든 편집이 끝난 뒤 마지막으로 눌러주세요.',
-  },
-];
 
 const BRIDGE_DATE_CHOICES: Array<{ id: BridgeDateTemplateId; label: string }> = [
   { id: 'flip-clock', label: '플립 시계' },
@@ -847,6 +811,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const outroVideoInputRef = useRef<HTMLInputElement>(null);
   const [mapModalTarget, setMapModalTarget] = useState<HighlightSegment | null>(null);
   const [trimModalTarget, setTrimModalTarget] = useState<HighlightSegment | null>(null);
+  // 자막 단계에서 전체 씬 자막을 한 화면에서 편집하는 리스트 보기 열림 여부
+  const [isCaptionListOpen, setIsCaptionListOpen] = useState(false);
   const [editingBridgeIndex, setEditingBridgeIndex] = useState<number | null>(null);
   // 통합 스튜디오: 현재 편집 중인 단계와 브릿지 선택 상태
   // 처음 진입할 때는 컷이 이미 있어도 항상 1번 인트로부터 시작한다.
@@ -1899,14 +1865,37 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 시퀀스 하이라이트 모드 여부 (캡컷 방식 실시간 시퀀스 프리뷰: 원본 소스가 있거나 완성본이 아직 없는 경우)
   // 원본 소스가 기기 메모리 정리로 분리되었더라도 완성본 비디오(result.url)가 있다면 캔버스 합성이 아닌 완성본 직접 재생 모드로 전환
   const isSequenceMode = segments.length > 0 && (hasPlayableSourceVideos || !result?.url);
-  // 아직 AI 컷이 없는 "처음 만드는" 흐름인지 여부 (9단계 vs 9단계 스텝바 분기)
+  // 통합 스텝바: 생성/편집 흐름과 무관하게 처음부터 끝까지 같은 단계를 보여준다.
+  // isCreationFlow는 카드 안내 문구에서만 쓰이며 스텝바 구성에는 영향을 주지 않는다.
   const isCreationFlow = segments.length === 0;
-  const studioSteps = isCreationFlow ? CREATE_STUDIO_STEPS : EDIT_STUDIO_STEPS;
+  const studioSteps = STUDIO_STEPS;
   const activeStudioStepIndex = Math.max(
     0,
     studioSteps.findIndex((step) => step.id === activeSection)
   );
   const activeStudioStep = studioSteps[activeStudioStepIndex] || studioSteps[0];
+
+  // 단계 잠금: 촬영 위치는 영상 업로드 후, 컷 다듬기·자막 수정은 AI 분석 후에만 연다.
+  // 스텝바·모바일 시트·이동 버튼이 모두 이 기준을 공유한다.
+  const getStudioStepLockedReason = (stepId: StudioSection): string | null => {
+    if (stepId === 'location' && videos.length === 0) return ui('영상 올리기 후 열림');
+    if ((stepId === 'cut' || stepId === 'caption') && segments.length === 0) {
+      return ui('AI 분석 후 열림');
+    }
+    return null;
+  };
+
+  // 촬영 위치 단계에서 장소를 고치면 아직 직접 수정하지 않은 세그먼트에도 반영한다.
+  const updateVideoLocation = (id: string, locationName: string) => {
+    onUpdateVideoLocation?.(id, locationName);
+    setSegments((prev) =>
+      prev.map((seg) =>
+        seg.sourceVideoId === id && !(seg.locationName ?? '').trim()
+          ? { ...seg, locationName }
+          : seg
+      )
+    );
+  };
   // 인트로/브릿지/아웃트로는 AI 컷이 없어도 캔버스 단독으로 미리볼 수 있다.
   // 인트로 스타일 단계도 같은 인트로 캔버스를 보여주고, 토글을 꺼도 타이틀 카드는 그대로 미리보여 준다.
   const standalonePreviewSection: 'intro' | 'bridge' | 'outro' | null = !isSequenceMode
@@ -2132,7 +2121,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const showDraftPreviewBox =
     isDraftPreview &&
     videos.length > 0 &&
-    (!isMobileViewport || activeSection === 'upload' || activeSection === 'ai');
+    (!isMobileViewport ||
+      activeSection === 'upload' ||
+      activeSection === 'location' ||
+      activeSection === 'ai');
   const showTimelineSequencer =
     segments.length > 0 &&
     (!isMobileViewport || activeSection === 'cut' || activeSection === 'caption' || activeSection === 'bridge');
@@ -3814,6 +3806,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   };
 
   const goToSection = (section: StudioSection) => {
+    // 잠긴 단계(위치/컷/자막)를 직접 눌러도 사유를 알려주고 이동하지 않는다.
+    const lockedReason = getStudioStepLockedReason(section);
+    if (lockedReason) {
+      notify.info(lockedReason);
+      return;
+    }
     // 노래·썸네일·다운로드는 타임라인 위치와 무관한 마무리 패널이라
     // 사용자가 타임라인을 직접 만지기 전까지 해당 카드를 유지한다.
     musicPanelPinnedRef.current =
@@ -3892,6 +3890,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         return videos.length > 0
           ? ui('{count}개 준비됨', { count: videos.length })
           : ui('올리기 필요');
+      case 'location': {
+        if (videos.length === 0) return ui('영상 올리기 후 열림');
+        const named = videos.filter((v) => (v.locationName ?? '').trim().length > 0).length;
+        return named > 0 ? ui('{count}개 입력됨', { count: named }) : ui('미지정');
+      }
       case 'ai':
         if (isProcessing) {
           return ui('분석 중 {percent}%', { percent: progress.progressPercent });
@@ -3931,14 +3934,18 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   };
 
-  // 모바일 스텝 헤더/바텀시트용 단계 목록 (현재 단계 강조 포함)
-  const mobileStepItems = studioSteps.map((step, index) => ({
-    id: step.id,
-    index,
-    label: ui(step.label),
-    status: getStudioStepStatus(step.id),
-    isActive: activeSection === step.id,
-  }));
+  // 모바일 스텝 헤더/바텀시트용 단계 목록 (현재 단계 강조 + 잠금 상태 포함)
+  const mobileStepItems = studioSteps.map((step, index) => {
+    const lockedReason = getStudioStepLockedReason(step.id);
+    return {
+      id: step.id,
+      index,
+      label: ui(step.label),
+      status: lockedReason || getStudioStepStatus(step.id),
+      isActive: activeSection === step.id,
+      disabled: Boolean(lockedReason),
+    };
+  });
   const activeMobileStepItem = mobileStepItems[activeStudioStepIndex] || mobileStepItems[0];
   const nextStudioStep = studioSteps[activeStudioStepIndex + 1] || null;
   const nextStepCtaLabel = nextStudioStep
@@ -5201,24 +5208,27 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         <nav className="toss-studio-stepbar" aria-label={ui('편집 순서')}>
           <div className="toss-studio-stepbar-head">
             <span className="toss-studio-stepbar-eyebrow">
-              {isCreationFlow ? ui('처음 만드는 순서') : ui('편집 순서')}
+              {ui('영상 만드는 순서')}
             </span>
             <strong className="toss-studio-stepbar-title">
-              {ui('1번부터 9번까지, 순서대로만 눌러주세요')}
+              {ui('1번부터 12번까지, 순서대로만 눌러주세요')}
             </strong>
           </div>
           <ol className="toss-studio-steps" ref={stepbarListRef}>
             {studioSteps.map((step, index) => {
               const isActive = activeSection === step.id;
-              const status = getStudioStepStatus(step.id);
+              const lockedReason = getStudioStepLockedReason(step.id);
+              const status = lockedReason || getStudioStepStatus(step.id);
               return (
                 <li key={step.id} className="toss-studio-step-item">
                   <button
                     type="button"
                     ref={isActive ? activeStepButtonRef : undefined}
-                    className={`toss-studio-step ${isActive ? 'active' : ''}`}
+                    className={`toss-studio-step ${isActive ? 'active' : ''} ${lockedReason ? 'is-locked' : ''}`}
                     onClick={() => goToSection(step.id)}
                     aria-current={isActive ? 'step' : undefined}
+                    aria-disabled={lockedReason ? true : undefined}
+                    title={lockedReason ?? ui(step.description)}
                   >
                     <span className="toss-studio-step-num">
                       <StudioStepIcon stepId={step.id} size={14} />
@@ -5570,7 +5580,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     <h3 className="toss-empty-title">{ui('영상 하나만 올리면 시작돼요')}</h3>
                     <p className="toss-empty-desc">
                       {ui('올린 영상에서 AI가 하이라이트를 뽑아줘요.')}<br />
-                      {ui('그다음은')} <strong>{ui('1번 영상 상단 문구 → 2번 인트로 스타일 → 3번 영상 올리기 → 4번 AI 하이라이트 → 5번 브릿지 → 6번 아웃트로 → 7번 노래')}</strong>{' '}
+                      {ui('그다음은')} <strong>{ui('1번 영상 상단 문구 → 2번 인트로 스타일 → 3번 영상 올리기 → 4번 촬영 위치 → 5번 AI 하이라이트 → 6번 컷 다듬기 → 7번 자막 수정 → 8번 브릿지 → 9번 아웃트로 → 10번 노래')}</strong>{' '}
                       {ui('순서로만 따라가면 끝나요.')}
                     </p>
                     <div className="flex items-center gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
@@ -6425,7 +6435,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   </p>
                   <p className="toss-thumbnail-empty-desc">
                     {isCreationFlow
-                      ? ui('4번 AI 하이라이트에서 영상을 분석하면 AI가 가장 잘 나온 장면으로 16:9 썸네일을 만들어줘요.')
+                      ? ui('5번 AI 하이라이트에서 영상을 분석하면 AI가 가장 잘 나온 장면으로 16:9 썸네일을 만들어줘요.')
                       : ui('현재 영상 화면을 그대로 캡처하거나, AI 하이라이트를 다시 뽑아 추천 프레임을 받아보세요.')}
                   </p>
                   <div className="toss-thumbnail-empty-actions">
@@ -6435,7 +6445,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       onClick={() => goToSection(isCreationFlow ? 'ai' : 'cut')}
                     >
                       <Sparkles size={13} />
-                      <span>{isCreationFlow ? ui('4번 AI 하이라이트로 가기') : ui('4번 컷으로 가기')}</span>
+                      <span>{isCreationFlow ? ui('5번 AI 하이라이트로 가기') : ui('6번 컷으로 가기')}</span>
                     </button>
                     {activeVideoUrl && (
                       <button
@@ -6759,7 +6769,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               <div className="toss-empty-state toss-download-empty">
                 <p className="text-slate-500 text-sm">
                   {isCreationFlow
-                    ? ui('4번 AI 하이라이트를 만들면 완성된 영상을 저장할 수 있어요.')
+                    ? ui('5번 AI 하이라이트를 만들면 완성된 영상을 저장할 수 있어요.')
                     : ui('AI 하이라이트 컷을 먼저 만든 뒤 저장할 수 있어요.')}
                 </p>
                 <button
@@ -6768,7 +6778,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   onClick={() => goToSection(isCreationFlow ? 'ai' : 'cut')}
                 >
                   <Sparkles size={13} />
-                  <span>{isCreationFlow ? ui('4번 AI 하이라이트로 가기') : ui('4번 컷으로 가기')}</span>
+                  <span>{isCreationFlow ? ui('5번 AI 하이라이트로 가기') : ui('6번 컷으로 가기')}</span>
                 </button>
               </div>
             )}
@@ -6927,166 +6937,245 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             )}
           </div>
 
-          {/* [생성 흐름] 2번: 영상 올리기 */}
-          {isCreationFlow && (
-            <div
-              className={`toss-card toss-upload-card toss-inspector-card ${activeSection === 'upload' ? 'is-active-section' : ''}`}
-            >
-              <div className="toss-card-header">
-                <div>
-                  <h4 className="toss-card-title">
-                    <Upload size={15} className="text-slate-800 shrink-0" />
-                    <span>{ui('영상 올리기')}</span>
-                  </h4>
-                </div>
-                <span className="toss-tag-gray">{ui('{count}개', { count: videos.length })}</span>
+          {/* 3번: 영상 올리기 */}
+          <div
+            className={`toss-card toss-upload-card toss-inspector-card ${activeSection === 'upload' ? 'is-active-section' : ''}`}
+          >
+            <div className="toss-card-header">
+              <div>
+                <h4 className="toss-card-title">
+                  <Upload size={15} className="text-slate-800 shrink-0" />
+                  <span>{ui('영상 올리기')}</span>
+                </h4>
               </div>
+              <span className="toss-tag-gray">{ui('{count}개', { count: videos.length })}</span>
+            </div>
 
-              <button
-                type="button"
-                className="toss-upload-dropzone"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <span className="toss-upload-dropzone-icon">
-                  <Upload size={18} />
-                </span>
-                <strong>{ui('영상 끌어다 놓기')}</strong>
-              </button>
+            <button
+              type="button"
+              className="toss-upload-dropzone"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <span className="toss-upload-dropzone-icon">
+                <Upload size={18} />
+              </span>
+              <strong>{ui('영상 끌어다 놓기')}</strong>
+            </button>
 
-              {videos.length > 0 && (
-                <div className="toss-upload-list">
-                  {videos.map((v, idx) => (
-                    <div key={v.id} className="toss-upload-item">
-                      <span className="toss-upload-item-index">{idx + 1}</span>
-                      <div className="toss-upload-item-body">
-                        <span className="toss-upload-item-name" title={v.name}>
-                          {v.name}
+            {videos.length > 0 && (
+              <div className="toss-upload-list">
+                {videos.map((v, idx) => (
+                  <div key={v.id} className="toss-upload-item">
+                    <span className="toss-upload-item-index">{idx + 1}</span>
+                    <div className="toss-upload-item-body">
+                      <span className="toss-upload-item-name" title={v.name}>
+                        {v.name}
+                      </span>
+                      <span className="toss-upload-item-meta">
+                        {v.duration > 0 ? formatSec(v.duration) : '--:--'}
+                        {' · '}
+                        {!v.url || v.isMissingFile ? ui('원본 연결 필요') : ui('준비됨')}
+                      </span>
+                      {(v.locationName ?? '').trim() && (
+                        <span className="toss-upload-location-badge" title={v.locationName}>
+                          <MapPin size={10} />
+                          {v.locationName}
                         </span>
-                        <span className="toss-upload-item-meta">
-                          {v.duration > 0 ? formatSec(v.duration) : '--:--'}
-                          {' · '}
-                          {!v.url || v.isMissingFile ? ui('원본 연결 필요') : ui('준비됨')}
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="toss-btn-delete-sm"
+                      onClick={() => onRemoveVideo(v.id)}
+                      title={ui('영상 빼기')}
+                      aria-label={ui('{name} 빼기', { name: v.name })}
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 4번: 촬영 위치 — 업로드 직후 장소를 바로잡으면 AI 자막·브릿지에 반영된다 */}
+          <div
+            className={`toss-card toss-location-card toss-inspector-card ${activeSection === 'location' ? 'is-active-section' : ''}`}
+          >
+            <div className="toss-card-header">
+              <div>
+                <h4 className="toss-card-title">
+                  <MapPin size={15} className="text-slate-800 shrink-0" />
+                  <span>{ui('촬영 위치')}</span>
+                </h4>
+                <p className="toss-card-subtitle">
+                  {ui('영상별 촬영 장소를 확인하고 정확한 지명으로 고쳐주세요. AI 자막과 장면 전환에 그대로 반영돼요.')}
+                </p>
+              </div>
+              <span className="toss-tag-gray">
+                {ui('{count}개 입력됨', {
+                  count: videos.filter((v) => (v.locationName ?? '').trim().length > 0).length,
+                })}
+              </span>
+            </div>
+
+            {videos.length === 0 ? (
+              <div className="toss-empty-state">
+                <p className="text-slate-400 text-sm">
+                  {ui('먼저 3번 영상 올리기에서 영상을 하나 이상 올려주세요.')}
+                </p>
+                <button type="button" className="toss-btn-secondary mt-2" onClick={() => goToSection('upload')}>
+                  <Upload size={12} />
+                  <span>{ui('영상 올리러 가기')}</span>
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="toss-location-list">
+                  {videos.map((v, idx) => (
+                    <div key={v.id} className="toss-location-item">
+                      <span className="toss-location-item-index">{idx + 1}</span>
+                      <div className="toss-location-item-body">
+                        <span className="toss-location-item-name" title={v.name}>
+                          {v.name}
                         </span>
                         {onUpdateVideoLocation && (
                           <input
                             type="text"
-                            className="toss-upload-location-input"
+                            className="toss-location-input"
                             value={v.locationName ?? ''}
-                            placeholder={ui('촬영 장소 (예: 해운대 해수욕장)')}
-                            onChange={(e) => onUpdateVideoLocation(v.id, e.target.value)}
+                            placeholder={ui('촬영 장소 (예: 김포공항)')}
+                            onChange={(e) => updateVideoLocation(v.id, e.target.value)}
                             aria-label={ui('{name} 촬영 장소', { name: v.name })}
                           />
                         )}
+                        {v.latitude != null && v.longitude != null && (
+                          <a
+                            className="toss-location-map-link"
+                            href={`https://www.google.com/maps/search/?api=1&query=${v.latitude},${v.longitude}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <MapPin size={11} />
+                            <span>{ui('지도에서 확인')}</span>
+                          </a>
+                        )}
                       </div>
-                      <button
-                        type="button"
-                        className="toss-btn-delete-sm"
-                        onClick={() => onRemoveVideo(v.id)}
-                        title={ui('영상 빼기')}
-                        aria-label={ui('{name} 빼기', { name: v.name })}
-                      >
-                        <X size={13} />
-                      </button>
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-          )}
+                {videos.length > 1 && onUpdateVideoLocation && (
+                  <button
+                    type="button"
+                    className="toss-btn-secondary toss-btn-sm toss-location-bulk-btn"
+                    onClick={() => {
+                      const first = (videos[0].locationName ?? '').trim();
+                      if (!first) {
+                        notify.info(ui('먼저 첫 번째 영상에 장소를 입력해주세요'));
+                        return;
+                      }
+                      videos.slice(1).forEach((v) => updateVideoLocation(v.id, first));
+                    }}
+                  >
+                    <MapPin size={12} />
+                    <span>{ui('첫 영상 장소를 나머지에 일괄 적용')}</span>
+                  </button>
+                )}
+              </>
+            )}
+          </div>
 
-          {/* [생성 흐름] 3번: AI 하이라이트 만들기 */}
-          {isCreationFlow && (
-            <div
-              className={`toss-card toss-ai-card toss-inspector-card ${activeSection === 'ai' ? 'is-active-section' : ''}`}
-            >
-              <div className="toss-card-header">
-                <div>
-                  <h4 className="toss-card-title">
-                    <Sparkles size={15} className="text-slate-800 shrink-0" />
-                    <span>{ui('AI 하이라이트')}</span>
-                  </h4>
-                </div>
+          {/* 5번: AI 하이라이트 만들기 */}
+          <div
+            className={`toss-card toss-ai-card toss-inspector-card ${activeSection === 'ai' ? 'is-active-section' : ''}`}
+          >
+            <div className="toss-card-header">
+              <div>
+                <h4 className="toss-card-title">
+                  <Sparkles size={15} className="text-slate-800 shrink-0" />
+                  <span>{ui('AI 하이라이트')}</span>
+                </h4>
               </div>
-
-              {videos.length === 0 ? (
-                <div className="toss-empty-state">
-                  <p className="text-slate-400 text-sm">
-                    {ui('먼저 3번 영상 올리기에서 영상을 하나 이상 올려주세요.')}
-                  </p>
-                  <button
-                    type="button"
-                    className="toss-btn-secondary mt-2"
-                    onClick={() => goToSection('upload')}
-                  >
-                    <Upload size={12} />
-                    <span>{ui('영상 올리러 가기')}</span>
-                  </button>
-                </div>
-              ) : isProcessing ? (
-                <div className="toss-ai-progress">
-                  <div className="toss-ai-progress-head">
-                    <Loader2 size={14} className="animate-spin text-slate-700 shrink-0" />
-                    <span>{progress.statusMessage || ui('AI가 하이라이트를 찾고 있어요')}</span>
-                    <strong>{progress.progressPercent}%</strong>
-                  </div>
-                  <div className="toss-ai-progress-bar">
-                    <div
-                      className="toss-ai-progress-fill"
-                      style={{ width: `${Math.max(4, progress.progressPercent)}%` }}
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    className="toss-btn-secondary toss-btn-sm toss-ai-cancel-btn"
-                    onClick={onCancelProcessing}
-                  >
-                    {ui('분석 취소')}
-                  </button>
-                </div>
-              ) : segments.length > 0 ? (
-                <div className="toss-ai-done">
-                  <span className="toss-ai-done-badge">
-                    <Check size={12} />
-                    {ui('하이라이트 {count}개 완성', { count: segments.length })}
-                  </span>
-                  <button
-                    type="button"
-                    className="toss-btn-primary toss-btn-sm"
-                    onClick={() => goToSection('cut')}
-                  >
-                    <Scissors size={12} />
-                    <span>{ui('4번 컷 다듬기')}</span>
-                  </button>
-                </div>
-              ) : (
-                <SpecularButton
-                  type="button"
-                  className="toss-nav-cta-btn toss-ai-cta"
-                  onClick={() =>
-                    onStartAiAnalysis(
-                      effectiveOverlayOptions,
-                      customAudioFile,
-                      selectedBgmId,
-                      bgmVolume
-                    )
-                  }
-                  disabled={isProcessing}
-                  loading={isProcessing}
-                  radius={12}
-                  specularColor="#ffffff"
-                  glowColor="rgba(203, 213, 225, 0.95)"
-                >
-                  <Sparkles size={14} />
-                  <ShinyText
-                    text={ui('AI 하이라이트 만들기')}
-                    speed={2.6}
-                    color="#f8fafc"
-                    shineColor="#ffffff"
-                  />
-                </SpecularButton>
-              )}
             </div>
-          )}
+
+            {videos.length === 0 ? (
+              <div className="toss-empty-state">
+                <p className="text-slate-400 text-sm">
+                  {ui('먼저 3번 영상 올리기에서 영상을 하나 이상 올려주세요.')}
+                </p>
+                <button
+                  type="button"
+                  className="toss-btn-secondary mt-2"
+                  onClick={() => goToSection('upload')}
+                >
+                  <Upload size={12} />
+                  <span>{ui('영상 올리러 가기')}</span>
+                </button>
+              </div>
+            ) : isProcessing ? (
+              <div className="toss-ai-progress">
+                <div className="toss-ai-progress-head">
+                  <Loader2 size={14} className="animate-spin text-slate-700 shrink-0" />
+                  <span>{progress.statusMessage || ui('AI가 하이라이트를 찾고 있어요')}</span>
+                  <strong>{progress.progressPercent}%</strong>
+                </div>
+                <div className="toss-ai-progress-bar">
+                  <div
+                    className="toss-ai-progress-fill"
+                    style={{ width: `${Math.max(4, progress.progressPercent)}%` }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="toss-btn-secondary toss-btn-sm toss-ai-cancel-btn"
+                  onClick={onCancelProcessing}
+                >
+                  {ui('분석 취소')}
+                </button>
+              </div>
+            ) : segments.length > 0 ? (
+              <div className="toss-ai-done">
+                <span className="toss-ai-done-badge">
+                  <Check size={12} />
+                  {ui('하이라이트 {count}개 완성', { count: segments.length })}
+                </span>
+                <button
+                  type="button"
+                  className="toss-btn-primary toss-btn-sm"
+                  onClick={() => goToSection('cut')}
+                >
+                  <Scissors size={12} />
+                  <span>{ui('6번 컷 다듬기')}</span>
+                </button>
+              </div>
+            ) : (
+              <SpecularButton
+                type="button"
+                className="toss-nav-cta-btn toss-ai-cta"
+                onClick={() =>
+                  onStartAiAnalysis(
+                    effectiveOverlayOptions,
+                    customAudioFile,
+                    selectedBgmId,
+                    bgmVolume
+                  )
+                }
+                disabled={isProcessing}
+                loading={isProcessing}
+                radius={12}
+                specularColor="#ffffff"
+                glowColor="rgba(203, 213, 225, 0.95)"
+              >
+                <Sparkles size={14} />
+                <ShinyText
+                  text={ui('AI 하이라이트 만들기')}
+                  speed={2.6}
+                  color="#f8fafc"
+                  shineColor="#ffffff"
+                />
+              </SpecularButton>
+            )}
+          </div>
 
           {/* 브릿지 단계: 날짜/장소가 바뀌는 컷 사이 장면 전환 */}
           <div
@@ -7178,7 +7267,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     onClick={() => goToSection('cut')}
                   >
                     <Scissors size={12} />
-                    <span>{ui('4번 컷으로 가기')}</span>
+                    <span>{ui('6번 컷으로 가기')}</span>
                   </button>
                 </div>
 
@@ -7591,6 +7680,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 >
                   {isCaptionSection ? ui('다음 씬 ›') : ui('다음 컷 ›')}
                 </button>
+                {isCaptionSection && (
+                  <button
+                    type="button"
+                    className="toss-btn-secondary toss-btn-xs toss-caption-list-toggle"
+                    onClick={() => setIsCaptionListOpen((v) => !v)}
+                    aria-expanded={isCaptionListOpen}
+                  >
+                    {isCaptionListOpen ? ui('씬별로 보기') : ui('전체 자막 보기')}
+                  </button>
+                )}
                 {/* 자막 단계에서는 씬 미리보기 버튼을 숨긴다 (상단 플레이어에서 바로 확인). */}
                 {!isCaptionSection && (
                   <button
@@ -7602,6 +7701,44 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     <span>{ui('이 컷만 보기')}</span>
                   </button>
                 )}
+              </div>
+            )}
+
+            {/* 자막 단계: 모든 씬의 자막을 한 화면에서 바로 수정하고, 행을 누르면 해당 시점으로 시크한다 */}
+            {isCaptionSection && isCaptionListOpen && segments.length > 0 && (
+              <div className="toss-caption-list">
+                <div className="toss-caption-list-head">
+                  <strong>{ui('전체 자막 한눈에 수정')}</strong>
+                  <span className="toss-tag-gray">{ui('{count}개 씬', { count: segments.length })}</span>
+                </div>
+                <div className="toss-caption-list-items">
+                  {segments.map((seg, idx) => (
+                    <div
+                      key={seg.id}
+                      className={`toss-caption-list-row ${idx === selectedSegmentIndex ? 'active' : ''}`}
+                    >
+                      <button
+                        type="button"
+                        className="toss-caption-list-jump"
+                        title={ui('이 씬 미리보기')}
+                        onClick={() => handleSelectSegment(seg.id, 'caption')}
+                      >
+                        <span className="toss-caption-list-num">{idx + 1}</span>
+                        <span className="toss-caption-list-time">{formatSec(seg.start)}</span>
+                      </button>
+                      <input
+                        type="text"
+                        className="toss-input-sm toss-caption-list-input"
+                        value={seg.subtitleTitle ?? seg.reason}
+                        onChange={(e) =>
+                          handleUpdateSegmentSubtitle(seg.id, 'subtitleTitle', e.target.value)
+                        }
+                        placeholder={ui('자막 문구')}
+                        aria-label={ui('씬 {index} 자막', { index: idx + 1 })}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -7847,6 +7984,56 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           </div>
                         </div>
 
+                        {/* 선택한 컷의 시작·종료 시점과 빠른 미세조절 */}
+                        {isSelected && !isCaptionSection && (
+                          <div className="toss-cut-timecodes" onClick={(e) => e.stopPropagation()}>
+                            <div className="toss-cut-timecode-row">
+                              <span className="toss-cut-timecode-label">{ui('시작')}</span>
+                              <strong>{seg.start.toFixed(1)}s</strong>
+                              <button
+                                type="button"
+                                className="toss-cut-trim-btn"
+                                title="-0.5s"
+                                onClick={() => handleTrimChange(seg.id, 'start', -0.5)}
+                              >
+                                -0.5
+                              </button>
+                              <button
+                                type="button"
+                                className="toss-cut-trim-btn"
+                                title="+0.5s"
+                                onClick={() => handleTrimChange(seg.id, 'start', 0.5)}
+                              >
+                                +0.5
+                              </button>
+                            </div>
+                            <div className="toss-cut-timecode-row">
+                              <span className="toss-cut-timecode-label">{ui('종료')}</span>
+                              <strong>{seg.end.toFixed(1)}s</strong>
+                              <button
+                                type="button"
+                                className="toss-cut-trim-btn"
+                                title="-0.5s"
+                                onClick={() => handleTrimChange(seg.id, 'end', -0.5)}
+                              >
+                                -0.5
+                              </button>
+                              <button
+                                type="button"
+                                className="toss-cut-trim-btn"
+                                title="+0.5s"
+                                onClick={() => handleTrimChange(seg.id, 'end', 0.5)}
+                              >
+                                +0.5
+                              </button>
+                            </div>
+                            <div className="toss-cut-timecode-row">
+                              <span className="toss-cut-timecode-label">{ui('길이')}</span>
+                              <strong>{seg.duration.toFixed(1)}s</strong>
+                            </div>
+                          </div>
+                        )}
+
                         {/* 트리밍 버튼 및 회전, 길이 */}
                         <div className="toss-segment-right">
                           {!isCaptionSection && (
@@ -7861,10 +8048,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                 e.stopPropagation();
                                 setTrimModalTarget(seg);
                               }}
-                              title={dict.dramaticClips.trimEdit || '구간 편집'}
+                              title={ui('시작·끝 구간 정밀 편집')}
                             >
                               <Scissors size={11} />
-                              <span>{dict.dramaticClips.trimEdit || '구간 편집'}</span>
+                              <span>{ui('시작·끝 구간 정밀 편집')}</span>
                             </button>
                           </div>
                           )}
@@ -8382,7 +8569,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     title={
                       isSequenceMode
                         ? ui('영상 앞부분에서 음악을 미리 들어요')
-                        : ui('4번 AI 하이라이트를 먼저 만들면 영상과 함께 들을 수 있어요')
+                        : ui('5번 AI 하이라이트를 먼저 만들면 영상과 함께 들을 수 있어요')
                     }
                   >
                     <Play size={12} />
@@ -8423,7 +8610,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 onClick={() => goToSection('ai')}
               >
                 <Sparkles size={13} />
-                <span>{ui('4번 AI 하이라이트를 먼저 만들면 영상과 함께 들을 수 있어요')}</span>
+                <span>{ui('5번 AI 하이라이트를 먼저 만들면 영상과 함께 들을 수 있어요')}</span>
                 <ArrowRight size={13} />
               </button>
             )}
@@ -8477,6 +8664,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               title={ui('전체 단계')}
               closeLabel={dict.common?.close || ui('닫기')}
               onSelect={(id) => goToSection(id as StudioSection)}
+              onLockedSelect={(id) => {
+                const reason = getStudioStepLockedReason(id as StudioSection);
+                if (reason) notify.info(reason);
+              }}
             />
           )}
         </section>
