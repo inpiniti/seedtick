@@ -1954,19 +1954,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       )
     );
   };
-  // 인트로/브릿지/아웃트로는 AI 컷이 없어도 캔버스 단독으로 미리볼 수 있다.
+  // 인트로/브릿지/아웃트로는 AI 컷 유무와 무관하게 캔버스 단독으로 미리본다.
   // 인트로 스타일 단계도 같은 인트로 캔버스를 보여주고, 토글을 꺼도 타이틀 카드는 그대로 미리보여 준다.
-  // 브릿지 단계는 시퀀스(컷)가 있어도 컷 영상 대신 브릿지 모션만 보여준다.
+  // 브릿지와 동일하게 컷 영상 전체가 아니라 해당 모션만 자동 재생해 보여준다.
   const standalonePreviewSection: 'intro' | 'bridge' | 'outro' | null =
     activeSection === 'bridge'
       ? 'bridge'
-      : !isSequenceMode
-        ? activeSection === 'introStyle'
-          ? 'intro'
-          : activeSection === 'intro' || activeSection === 'outro'
-            ? activeSection
-            : null
-        : null;
+      : activeSection === 'introStyle'
+        ? 'intro'
+        : activeSection === 'intro' || activeSection === 'outro'
+          ? activeSection
+          : null;
 
   // AI 분석이 끝나 컷이 처음 생기면 생성 흐름에서 편집 흐름의 '컷'으로 자연스럽게 이동한다.
   // 단, 기존 프로젝트를 열면 저장된 세그먼트가 뒤늦게 채워지는 것이므로 분석 완료로 오인하지 않는다.
@@ -3817,18 +3815,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   ) => {
     window.setTimeout(() => previewSectionPlayRef.current(section, bridgeIndex), delayMs);
   };
-
-  // 시퀀스 모드(AI 컷 있음)에서는 인트로/아웃트로가 독립 캔버스가 아니라 타임라인
-  // 구간 재생으로 미리보기되므로, 해당 단계로 들어오면 그 구간을 자동 재생한다.
-  // (독립 캔버스를 쓰는 브릿지·AI 컷 없는 생성 흐름은 앞선 이펙트에서 처리한다.)
-  const lastAutoPlaySectionRef = useRef<StudioSection | null>(activeSection);
-  useEffect(() => {
-    if (lastAutoPlaySectionRef.current === activeSection) return;
-    lastAutoPlaySectionRef.current = activeSection;
-    if (!isSequenceMode || standalonePreviewSection) return;
-    if (activeSection !== 'intro' && activeSection !== 'outro') return;
-    previewSectionPlayRef.current(activeSection);
-  }, [activeSection, isSequenceMode, standalonePreviewSection]);
 
   const selectCutByOffset = (delta: number) => {
     if (segments.length === 0) return;
