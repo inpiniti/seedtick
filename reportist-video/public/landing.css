@@ -845,29 +845,6 @@ html.is-hero-top .site-header {
   position: relative;
 }
 
-/* Scroll-pinned film: the footage holds in the viewport while the page
-   scrubs through the story, then releases — the same model as the story
-   stage above. Reduced-motion / short viewports never get the tall pin. */
-.theater-pin {
-  position: relative;
-}
-
-.theater-pin-sticky {
-  position: relative;
-}
-
-html.has-motion-stage .theater-pin {
-  height: 230svh;
-}
-
-html.has-motion-stage .theater-pin-sticky {
-  position: sticky;
-  top: var(--header-height);
-  height: calc(100svh - var(--header-height));
-  display: flex;
-  align-items: center;
-}
-
 .theater-bar {
   position: relative;
   display: flex;

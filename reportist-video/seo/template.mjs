@@ -353,8 +353,6 @@ function renderTheater(locale) {
           <p class="section-lead">${esc(theater.lead)}</p>
         </div>
 
-        <div class="theater-pin" data-theater-pin>
-          <div class="theater-pin-sticky">
         <div class="theater-frame" data-theater>
           <div class="theater-stage">
             <video class="theater-video" data-theater-video data-ambient muted loop playsinline preload="none" poster="${media(`result-${esc(
@@ -406,8 +404,6 @@ function renderTheater(locale) {
             </div>
 
             <div class="theater-progress" aria-hidden="true"><i data-theater-progress></i></div>
-          </div>
-        </div>
           </div>
         </div>
       </div>

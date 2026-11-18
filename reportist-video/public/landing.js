@@ -443,14 +443,6 @@
   const hero = document.querySelector(".hero");
   const stagesOn = !reduceMotion.matches && window.innerHeight > 540;
 
-  // The inline film is a scroll-pinned stage: while it is stuck, its progress
-  // drives the video's currentTime so the footage "holds" with the scroll.
-  const theaterPin = document.querySelector("[data-theater-pin]");
-  const theaterVideo = theaterPin
-    ? theaterPin.querySelector("[data-theater-video]")
-    : null;
-  let scrubbingTheater = false;
-
   // Lenis: inertial wheel scrolling on desktop; touch stays native.
   let lenis = null;
   if (window.Lenis && !reduceMotion.matches) {
@@ -483,41 +475,6 @@
       // Keep the fixed timecode HUD in sync with the whole page even when the
       // stage is off (reduced motion / short viewports).
       story.dataset.progress = progress.toFixed(4);
-    }
-
-    if (theaterPin && theaterVideo instanceof HTMLVideoElement && stagesOn) {
-      const rect = theaterPin.getBoundingClientRect();
-      const total = Math.max(1, theaterPin.offsetHeight - window.innerHeight);
-      const progress = clamp01(-rect.top / total);
-      // Only take over while the frame is actually pinned in the viewport.
-      const pinned = rect.top <= 1 && rect.top > -total + 1;
-      if (pinned && Number.isFinite(theaterVideo.duration)) {
-        scrubbingTheater = true;
-        // Keep playback from fighting the per-frame currentTime writes; the
-        // ambient IntersectionObserver resumes it when the frame scrolls away.
-        if (!theaterVideo.paused) theaterVideo.pause();
-        const time = progress * theaterVideo.duration;
-        if (Math.abs(theaterVideo.currentTime - time) > 0.08) {
-          try {
-            theaterVideo.currentTime = time;
-          } catch (_) {
-            /* metadata not ready yet — the next frame will retry */
-          }
-        }
-      } else if (scrubbingTheater) {
-        scrubbingTheater = false;
-        // Pin released: hand playback back to the ambient observer so the film
-        // keeps looping instead of freezing on the last scrubbed frame.
-        const vr = theaterVideo.getBoundingClientRect();
-        const modalOpen = Boolean(
-          document.querySelector("[data-video-modal][open]")
-        );
-        const inView = vr.bottom > 0 && vr.top < window.innerHeight;
-        if (inView && !modalOpen && !document.hidden) {
-          const attempt = theaterVideo.play();
-          if (attempt && typeof attempt.catch === "function") attempt.catch(() => {});
-        }
-      }
     }
   };
 
