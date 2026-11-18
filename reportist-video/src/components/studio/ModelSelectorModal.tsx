@@ -662,7 +662,9 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                   className="model-modal-save-btn"
                 >
                   <Key size={15} />
-                  <span>{dict.modelModal.byokSaveBtn || '브라우저에 저장하고 연결하기'}</span>
+                  <span title={dict.modelModal.byokSaveBtn || '브라우저에 저장하고 연결하기'}>
+                    {dict.modelModal.byokSaveBtn || '브라우저에 저장하고 연결하기'}
+                  </span>
                 </button>
                 {storedUserKey && (
                   <button
