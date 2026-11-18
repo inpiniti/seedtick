@@ -491,7 +491,8 @@
     min-height: auto !important;
     max-height: none !important;
     overflow: visible !important;
-    padding: 10px 12px;
+    /* 풀블리드: 좌우 여백 없이 영상과 편집 카드를 화면 끝까지 붙인다. */
+    padding: 0;
     gap: 8px;
   }
 
@@ -1854,6 +1855,35 @@
   transform: scale(1.08);
 }
 
+/* 모바일: 외부 트랜스포트 바가 숨겨질 때 영상 우상단에서 음소거를 토글한다.
+   데스크탑은 외부 바에 이미 음소거 버튼이 있으므로 숨긴다. */
+.toss-video-mute-overlay-btn {
+  display: none;
+  position: absolute;
+  top: 12px;
+  right: 54px;
+  width: var(--ui-icon-btn-sm);
+  height: var(--ui-icon-btn-sm);
+  border-radius: 8px;
+  background-color: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 30;
+  transition: all 0.18s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.toss-video-mute-overlay-btn:hover {
+  background-color: rgba(15, 23, 42, 0.9);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: scale(1.08);
+}
+
 .toss-player-wrapper {
   aspect-ratio: 16 / 9;
   width: 100%;
@@ -2171,6 +2201,23 @@
   box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.12);
   pointer-events: none;
   z-index: 2;
+}
+
+/* 모바일 인라인 플레이어 컨트롤 — 외부 트랜스포트 바가 숨겨진 동안 영상 안에서 재생 위치를 제어한다.
+   표시 여부는 1024px 이하 미디어쿼리에서 결정한다(데스크탑·전체화면에서는 숨김). */
+.toss-mobile-inline-controls {
+  display: none;
+}
+
+.toss-mobile-timecode {
+  color: #ffffff;
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .toss-btn-icon {
@@ -14341,7 +14388,7 @@
   position: sticky;
   top: 54px; /* .toss-nav-header 기본 높이. ≤768px에서는 50px로 오버라이드 */
   z-index: 40;
-  margin: -10px -12px 0; /* .toss-main-content의 상단 10px·좌우 12px 패딩을 상쇄해 내비 바에 딱 붙임 */
+  margin: 0; /* .toss-main-content가 풀블리드(패딩 0)라 별도 상쇄 마진이 필요 없다 */
   background: #ffffff;
   border: none;
   border-bottom: 1px solid #e5e8eb;
@@ -14766,13 +14813,12 @@
     position: sticky;
     top: 101px; /* 내비 54px + 컴팩트 스텝 헤더 47px */
     z-index: 35;
-    margin: 0 -12px;
-    padding: 8px 12px 10px;
+    margin: 0;
+    padding: 0;
+    border: none;
     border-radius: 0;
-    border-left: none;
-    border-right: none;
     background: #ffffff;
-    box-shadow: 0 6px 16px -10px rgba(15, 23, 42, 0.25);
+    box-shadow: none;
   }
 
   /* 문구 입력에 포커스하면 가상 키보드 공간을 확보하기 위해 고정을 잠시 해제한다. */
@@ -14841,6 +14887,87 @@
   /* 프리뷰 위 왼쪽/오른쪽 문구 → 인트로 카드 안 인라인 입력으로 이동 */
   .toss-video-header-bar {
     display: none !important;
+  }
+
+  /* ---------- 풀블리드: 영상·편집 카드의 좌우 여백과 외곽 테두리 제거 ---------- */
+  .toss-player-wrapper:not(.is-empty) {
+    border: none;
+    outline: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  /* 편집 카드도 화면 좌우 끝까지 붙인다. 카드 내부 패딩(12px 14px)은 유지해
+     텍스트·버튼이 화면 끝에 닿지 않게 한다. */
+  .toss-main-content .toss-card:not(.toss-player-card),
+  .toss-relink-banner {
+    border-left: none;
+    border-right: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  /* ---------- 모바일 영상 컨트롤: 영상 내부로 통합 ---------- */
+  /* 일반 모바일 뷰에서는 외부 트랜스포트 바를 숨긴다. 전체화면에서는 정밀 탐색을 위해 유지. */
+  .toss-player-stage:not(.is-fullscreen):not(:fullscreen) .toss-transport-bar {
+    display: none !important;
+  }
+
+  .toss-player-stage:not(.is-fullscreen):not(:fullscreen) .toss-mobile-inline-controls {
+    display: block;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    padding: 18px 12px 10px;
+    box-sizing: border-box;
+    pointer-events: none;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.62) 0%, rgba(0, 0, 0, 0) 100%);
+  }
+
+  .toss-mobile-inline-controls .toss-mobile-scrub-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    pointer-events: auto;
+  }
+
+  .toss-mobile-inline-controls .toss-progress-track {
+    flex: 1;
+    height: 4px;
+    margin: 0;
+    background-color: rgba(255, 255, 255, 0.45);
+  }
+
+  .toss-mobile-inline-controls .toss-progress-track:hover,
+  .toss-mobile-inline-controls .toss-progress-track.is-scrubbing {
+    height: 6px;
+  }
+
+  .toss-mobile-inline-controls .toss-progress-fill {
+    background-color: #ffffff;
+  }
+
+  .toss-mobile-inline-controls .toss-progress-thumb {
+    width: 11px;
+    height: 11px;
+    background-color: #0f172a;
+    border-color: #ffffff;
+  }
+
+  /* 영상 안 음소거 버튼 노출 + 채널명 오버레이와 겹치지 않게 오른쪽 여백 확보 */
+  .toss-video-mute-overlay-btn {
+    display: flex;
+  }
+
+  .toss-player-wrapper:has(.toss-video-mute-overlay-btn) .toss-live-overlay-channel {
+    right: 100px;
+  }
+
+  /* 하단 스크럽 바와 자막이 겹치지 않게 자막을 살짝 올린다. */
+  .toss-live-overlay-subtitle {
+    bottom: 42px;
   }
 }
 

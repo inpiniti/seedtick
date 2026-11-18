@@ -4101,15 +4101,36 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     setCurrentTime(newT);
   };
 
-  // 프로그레스 바 드래그 시 좌표 -> 시간 변환
-  const calculateTimeFromProgressEvent = (clientX: number): number => {
-    const track = progressTrackRef.current;
+  // 프로그레스 바 드래그 시 좌표 -> 시간 변환.
+  // 단일 progressTrackRef 대신 이벤트가 발생한 트랙 엘리먼트를 직접 받아,
+  // 데스크탑/전체화면 트랜스포트 바와 모바일 인라인 스크럽 바가 서로 간섭하지 않게 한다.
+  const calculateTimeFromProgressEvent = (
+    clientX: number,
+    trackEl?: HTMLDivElement | null
+  ): number => {
+    const track = trackEl ?? progressTrackRef.current;
     if (!track || !totalDuration || totalDuration <= 0) return 0;
     const rect = track.getBoundingClientRect();
     if (rect.width <= 0) return 0;
     const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
     return ratio * totalDuration;
   };
+
+  // 컷 경계 눈금 — 데스크탑 트랜스포트 바와 모바일 인라인 스크럽 바가 같은 목록을 공유한다.
+  const renderProgressSegmentTicks = () =>
+    segments.map((seg, idx) => {
+      const offset = segmentTimelineOffsets[seg.id];
+      if (!offset || idx === 0) return null;
+      const pct = Math.min(100, Math.max(0, (offset.startOffset / (totalDuration || 1)) * 100));
+      return (
+        <span
+          key={`tick-${seg.id}`}
+          className="toss-progress-segment-tick"
+          style={{ left: `${pct}%` }}
+          aria-hidden="true"
+        />
+      );
+    });
 
   // 시퀀서 타임라인 드래그 시 좌표 -> 시간 변환
   const calculateTimeFromSequencerEvent = (clientX: number): number => {
@@ -4216,12 +4237,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       trackEl.setPointerCapture(pointerId);
     } catch {}
 
-    const initialTime = calculateTimeFromProgressEvent(e.clientX);
+    const initialTime = calculateTimeFromProgressEvent(e.clientX, trackEl);
     startScrubbing(initialTime);
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
       moveEvent.preventDefault();
-      const moveTime = calculateTimeFromProgressEvent(moveEvent.clientX);
+      const moveTime = calculateTimeFromProgressEvent(moveEvent.clientX, trackEl);
       updateScrubTime(moveTime);
     };
 
@@ -4239,7 +4260,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
     const handlePointerUp = (upEvent: PointerEvent) => {
       cleanup();
-      const finalTime = calculateTimeFromProgressEvent(upEvent.clientX);
+      const finalTime = calculateTimeFromProgressEvent(upEvent.clientX, trackEl);
       stopScrubbing(finalTime);
     };
 
@@ -5492,6 +5513,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       }
                     />
 
+                    {/* 모바일: 외부 트랜스포트 바를 숨기므로 영상 안에 음소거 버튼을 둔다 (데스크탑은 CSS로 숨김) */}
+                    <button
+                      type="button"
+                      className="toss-video-mute-overlay-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleMute();
+                      }}
+                      title={isMuted ? dict.player.unmute : dict.player.mute}
+                      aria-label={isMuted ? dict.player.unmute : dict.player.mute}
+                    >
+                      {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                    </button>
+
                     {/* 영상 우측 상단 퀵 확대/축소 버튼 */}
                     <button
                       type="button"
@@ -5555,6 +5590,40 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     {!isSequenceMode && !standalonePreviewSection && !result?.url && overlayOptions.showSubtitle && activePlayingSubtitleText && (
                       <div className="toss-live-overlay-subtitle">
                         {activePlayingSubtitleText}
+                      </div>
+                    )}
+
+                    {/* 모바일: 멀티트랙 타임라인·외부 트랜스포트 바 대신 영상 하단에 얇은 스크럽 바 + 타임코드를 오버레이한다.
+                        데스크탑·전체화면에서는 CSS로 숨기고 기존 플로팅 바를 유지한다. */}
+                    {activeVideoUrl && !standalonePreviewSection && !showThumbnailInPlayer && (
+                      <div className="toss-mobile-inline-controls">
+                        <div className="toss-mobile-scrub-row">
+                          <div
+                            className={`toss-progress-track toss-mobile-progress-track ${
+                              isScrubbing ? 'is-scrubbing' : ''
+                            }`}
+                            onPointerDown={handleProgressPointerDown}
+                            title={dict.player.seekTooltip}
+                          >
+                            {renderProgressSegmentTicks()}
+                            <div
+                              className="toss-progress-fill"
+                              style={{
+                                width: `${Math.min(100, Math.max(0, (currentTime / (totalDuration || 1)) * 100))}%`,
+                                transition: isScrubbing ? 'none' : undefined,
+                              }}
+                            />
+                            <div
+                              className="toss-progress-thumb"
+                              style={{
+                                left: `${Math.min(100, Math.max(0, (currentTime / (totalDuration || 1)) * 100))}%`,
+                              }}
+                            />
+                          </div>
+                          <span className="toss-mobile-timecode">
+                            {formatSec(currentTime)} / {formatSec(totalDuration)}
+                          </span>
+                        </div>
                       </div>
                     )}
                   </>
@@ -5739,19 +5808,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     onPointerDown={handleProgressPointerDown}
                     title={dict.player.seekTooltip}
                   >
-                    {segments.map((seg, idx) => {
-                      const offset = segmentTimelineOffsets[seg.id];
-                      if (!offset || idx === 0) return null;
-                      const pct = Math.min(100, Math.max(0, (offset.startOffset / (totalDuration || 1)) * 100));
-                      return (
-                        <span
-                          key={`tick-${seg.id}`}
-                          className="toss-progress-segment-tick"
-                          style={{ left: `${pct}%` }}
-                          aria-hidden="true"
-                        />
-                      );
-                    })}
+                    {renderProgressSegmentTicks()}
                     <div
                       className="toss-progress-fill"
                       style={{
