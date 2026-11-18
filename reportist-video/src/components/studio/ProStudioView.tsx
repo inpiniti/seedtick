@@ -3805,10 +3805,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   };
 
   // 3·4·5번 원본 영상 자동재생. 브라우저 자동재생 정책으로 소리 재생이 막히면 음소거로 다시 시도한다.
-  // 소스가 바뀐 직후 play()를 호출하면 로드 취소(AbortError)로 실패할 수 있어 준비될 때까지 기다린다.
+  // <video preload="metadata">는 readyState가 1(HAVE_METADATA)에서 멈추고 loadeddata는
+  // 재생을 시작하기 전엔 오지 않는다. 메타데이터만 로드돼도 play()는 가능하므로 바로 호출한다.
   const rawPlayTokenRef = useRef(0);
   const playRawSourceVideo = (v: HTMLVideoElement) => {
     const token = ++rawPlayTokenRef.current;
+    let retried = false;
     const start = () => {
       if (token !== rawPlayTokenRef.current) return;
       setPlaybackError(null);
@@ -3818,7 +3820,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         return;
       }
       p.then(() => setIsPlaying(true)).catch((err) => {
-        if (token !== rawPlayTokenRef.current || err?.name === 'AbortError') return;
+        if (token !== rawPlayTokenRef.current) return;
+        if (err?.name === 'AbortError') {
+          // 소스 전환 직후 로드가 취소된 경우 메타데이터가 다시 준비되면 한 번만 재시도한다.
+          if (!retried) {
+            retried = true;
+            v.addEventListener('loadedmetadata', start, { once: true });
+          }
+          return;
+        }
         if (err?.name === 'NotAllowedError') {
           v.muted = true;
           isMutedRef.current = true;
@@ -3832,10 +3842,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         setIsPlaying(false);
       });
     };
-    if (v.readyState >= 2) {
+    if (v.readyState >= 1 || Number.isFinite(v.duration)) {
       start();
     } else {
-      v.addEventListener('loadeddata', start, { once: true });
+      v.addEventListener('loadedmetadata', start, { once: true });
     }
   };
 
