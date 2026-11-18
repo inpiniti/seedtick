@@ -128,7 +128,7 @@ export const uiDe: Record<string, string> = {
     'Bei ausgeschalteten Übergängen wird auch bei Datums- oder Ortswechsel keine Brücke eingefügt.',
   '자막 다운로드': 'Untertitel herunterladen',
   '다듬는 중...': 'Wird angepasst...',
-  '이 컷만 보기': 'Nur diesen Clip ansehen',
+  '모두 확인': 'Alle bestätigen',
   '원본 영상 추가 · AI 다시 뽑기': 'Quellvideo hinzufügen · KI neu laufen lassen',
   '원본 영상 추가': 'Quellvideo hinzufügen',
   'AI 하이라이트 다시 뽑기': 'KI-Highlights neu erstellen',

@@ -129,7 +129,7 @@ export const uiEn: Record<string, string> = {
     'With transitions off, no bridge is added even when the date or place changes.',
   '자막 다운로드': 'Download subtitles',
   '다듬는 중...': 'Refining...',
-  '이 컷만 보기': 'View this clip only',
+  '모두 확인': 'Confirm all',
   '원본 영상 추가 · AI 다시 뽑기': 'Add source video · Re-run AI',
   '원본 영상 추가': 'Add source video',
   'AI 하이라이트 다시 뽑기': 'Re-run AI highlights',

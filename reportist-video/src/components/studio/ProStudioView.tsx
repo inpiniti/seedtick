@@ -622,6 +622,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const markSegmentViewed = useCallback((segId: string) => {
     setViewedSegmentIds((prev) => (prev.has(segId) ? prev : new Set(prev).add(segId)));
   }, []);
+  // 컷이 수십~수백 개여도 하나씩 넘기지 않고 한 번에 모두 확인 처리한다.
+  const markAllSegmentsViewed = useCallback(() => {
+    setViewedSegmentIds(new Set(segments.map((seg) => seg.id)));
+  }, [segments]);
   const viewedSegmentCount = segments.reduce(
     (count, seg) => count + (viewedSegmentIds.has(seg.id) ? 1 : 0),
     0
@@ -8557,17 +8561,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     {isCaptionListOpen ? ui('씬별로 보기') : ui('전체 자막 보기')}
                   </button>
                 )}
-                {/* 자막 단계에서는 씬 미리보기 버튼을 숨긴다 (상단 플레이어에서 바로 확인). */}
-                {!isCaptionSection && (
-                  <button
-                    type="button"
-                    className="toss-btn-secondary toss-btn-xs toss-cut-preview-btn"
-                    onClick={() => previewSectionPlay('cut')}
-                  >
-                    <Eye size={12} />
-                    <span>{ui('이 컷만 보기')}</span>
-                  </button>
-                )}
+                {/* 컷/씬이 많을 때 하나씩 넘기지 않고 한 번에 확인 처리 */}
+                <button
+                  type="button"
+                  className="toss-btn-secondary toss-btn-xs"
+                  onClick={markAllSegmentsViewed}
+                  disabled={segments.length === 0 || viewedSegmentCount >= segments.length}
+                >
+                  <Check size={12} />
+                  <span>{ui('모두 확인')}</span>
+                </button>
               </div>
             )}
 

@@ -128,7 +128,7 @@ export const uiEs: Record<string, string> = {
     'Con las transiciones desactivadas, no se añade ningún puente aunque cambie la fecha o el lugar.',
   '자막 다운로드': 'Descargar subtítulos',
   '다듬는 중...': 'Ajustando...',
-  '이 컷만 보기': 'Ver solo este clip',
+  '모두 확인': 'Confirmar todo',
   '원본 영상 추가 · AI 다시 뽑기': 'Añadir video original · Reanalizar IA',
   '원본 영상 추가': 'Añadir video original',
   'AI 하이라이트 다시 뽑기': 'Volver a analizar con IA',

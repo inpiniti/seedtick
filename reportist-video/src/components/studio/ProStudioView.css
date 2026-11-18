@@ -13376,15 +13376,9 @@
   white-space: nowrap;
 }
 
-.toss-cut-preview-btn {
-  flex: 1 1 100%;
-  justify-content: center;
-}
-
 /* 모바일 컷 다듬기: 정밀 편집 모달에 조절 기능을 위임하고 상단 정보 밀도를 낮춘다. */
 @media (max-width: 1024px) {
   .toss-dramatic-card.is-cut-step .toss-tag-gray,
-  .toss-dramatic-card.is-cut-step .toss-cut-preview-btn,
   .toss-dramatic-card.is-cut-step .toss-cut-timecodes,
   .toss-dramatic-card.is-cut-step .toss-segment-time-badge {
     display: none;

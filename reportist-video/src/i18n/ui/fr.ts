@@ -128,7 +128,7 @@ export const uiFr: Record<string, string> = {
     'Lorsque les transitions sont désactivées, aucun pont n’est ajouté même si la date ou le lieu change.',
   '자막 다운로드': 'Télécharger les sous-titres',
   '다듬는 중...': 'Ajustement...',
-  '이 컷만 보기': 'Voir ce clip uniquement',
+  '모두 확인': 'Tout confirmer',
   '원본 영상 추가 · AI 다시 뽑기': 'Ajouter la vidéo source · Relancer l’IA',
   '원본 영상 추가': 'Ajouter la vidéo source',
   'AI 하이라이트 다시 뽑기': 'Relancer les moments IA',
