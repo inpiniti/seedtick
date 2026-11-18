@@ -9184,12 +9184,6 @@
   backdrop-filter: blur(6px);
 }
 
-.toss-project-status-pill.active {
-  background-color: rgba(15, 23, 42, 0.92);
-  color: #ffffff;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
-}
-
 .toss-project-status-pill.completed {
   background-color: rgba(16, 185, 129, 0.92);
   color: #ffffff;
@@ -9573,10 +9567,9 @@
     border-color: #e5e8eb;
   }
 
-  /* 활성 카드는 좌측 인디케이터로만 강조 (좌우 테두리 잘림 방지) */
+  /* 선택 상태는 강조하지 않는다 — 데스크탑의 사방 테두리도 모바일에서는 중화 */
   .toss-project-card.current-active {
     border-color: #e5e8eb;
-    box-shadow: inset 3px 0 0 #0f172a;
   }
 
   .toss-project-card-body {

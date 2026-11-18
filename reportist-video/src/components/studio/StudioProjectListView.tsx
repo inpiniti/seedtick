@@ -7,7 +7,6 @@ import {
   Clock,
   Film,
   CheckCircle2,
-  Sparkles,
   AlertTriangle,
   HardDrive,
   Calendar,
@@ -212,14 +211,8 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
                     </div>
                   )}
 
-                  {/* 활성/완료 상태 뱃지 */}
+                  {/* 완료/편집 상태 뱃지 (선택 여부는 별도로 표시하지 않는다) */}
                   <div className="toss-project-card-badges">
-                    {isCurrent && (
-                      <span className="toss-project-status-pill active">
-                        <Sparkles size={11} />
-                        {pDict.currentBadge}
-                      </span>
-                    )}
                     {proj.hasResult ? (
                       <span className="toss-project-status-pill completed">
                         <CheckCircle2 size={11} />
