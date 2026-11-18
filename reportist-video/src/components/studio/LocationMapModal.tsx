@@ -42,10 +42,10 @@ export const LocationMapModal = ({
       scrollWheelZoom: false,
     });
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      subdomains: 'abcd',
-      maxZoom: 20,
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
+    // CARTO 타일은 API 키가 필요해 "API KEY REQUIRED" 워터마크가 뜨므로 키 없는 OSM 표준 타일 사용
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors',
     }).addTo(map);
 
     L.marker([lat, lng], {
