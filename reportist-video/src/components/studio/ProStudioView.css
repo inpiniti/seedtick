@@ -491,16 +491,17 @@
     min-height: auto !important;
     max-height: none !important;
     overflow: visible !important;
-    /* 풀블리드: 좌우 여백 없이 영상과 편집 카드를 화면 끝까지 붙인다. */
+    /* 풀블리드: 좌우·상하 여백 없이 영상과 편집 카드를 화면 끝까지 붙인다. */
     padding: 0;
-    gap: 8px;
+    gap: 0;
   }
 
   .toss-studio-columns {
     display: flex !important;
     flex-direction: column !important;
     min-height: auto !important;
-    gap: 12px;
+    /* 영상 바로 아래 편집 카드까지 붙인다. 카드 사이 간격은 .toss-column-right의 gap(12px)이 유지한다. */
+    gap: 0;
   }
 
   .toss-column-left,
@@ -14920,7 +14921,8 @@
     right: 0;
     bottom: 0;
     z-index: 20;
-    padding: 18px 12px 10px;
+    /* 스크럽 바·타임코드를 영상 하단 끝에 붙인다(상하 여백 제거). */
+    padding: 12px 10px 4px;
     box-sizing: border-box;
     pointer-events: none;
     background: linear-gradient(to top, rgba(0, 0, 0, 0.62) 0%, rgba(0, 0, 0, 0) 100%);
