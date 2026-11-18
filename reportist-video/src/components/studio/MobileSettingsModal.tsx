@@ -98,6 +98,8 @@ export interface MobileSettingsModalProps {
   onOpenLanguageModal: () => void;
   onOpenFeedbackModal?: () => void;
   onOpenPatchNotesModal?: () => void;
+  /** 사용 가이드를 처음부터 다시 보기 (본 가이드 이력 초기화 후 빠른 시작 투어 재시작) */
+  onReplayGuide?: () => void;
   onOpenDateFormatModal?: () => void;
   currentDateFormat?: DateFormatOption;
   showDate?: boolean;
@@ -162,6 +164,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   onOpenLanguageModal,
   onOpenFeedbackModal,
   onOpenPatchNotesModal,
+  onReplayGuide,
   onOpenDateFormatModal,
   currentDateFormat,
   showDate = true,
@@ -571,7 +574,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
       case 'motion':
         return Boolean(onToggleShowIntro || onToggleShowOutro);
       case 'support':
-        return Boolean(onOpenFeedbackModal || onOpenPatchNotesModal);
+        return Boolean(onOpenFeedbackModal || onOpenPatchNotesModal || onReplayGuide);
       case 'project':
         return Boolean(hasStitchedResult || hasVideos);
       default:
@@ -1776,7 +1779,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
           </div>
 
           {/* Group: Feedback & Customer Support / Updates */}
-          {(onOpenFeedbackModal || onOpenPatchNotesModal) && (
+          {(onOpenFeedbackModal || onOpenPatchNotesModal || onReplayGuide) && (
             <div className={groupClassName('support')}>
               <span className="settings-modal-group-title">
                 {dict.settingsModal?.supportSection || '고객 지원 및 업데이트'}
@@ -1841,6 +1844,37 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                       {dict.patchNotes?.viewHistory || '내역 보기'}
                     </span>
                     <ChevronRight size={15} color="#16a34a" />
+                  </div>
+                </button>
+              )}
+
+              {onReplayGuide && (
+                <button
+                  type="button"
+                  className="settings-modal-item"
+                  onClick={() => {
+                    onClose();
+                    onReplayGuide();
+                  }}
+                >
+                  <div className="settings-modal-item-left">
+                    <div className="settings-modal-icon-badge" style={{ backgroundColor: '#eef2ff', color: '#4f46e5' }}>
+                      <Sparkles size={18} />
+                    </div>
+                    <div className="settings-modal-item-text">
+                      <div className="settings-modal-item-title">
+                        {ui('사용 가이드 다시 보기')}
+                      </div>
+                      <div className="settings-modal-item-desc">
+                        {ui('가이드를 처음부터 다시 살펴봐요.')}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="settings-modal-item-action">
+                    <span style={{ color: '#4f46e5', fontWeight: 600 }}>
+                      {ui('다시 보기')}
+                    </span>
+                    <ChevronRight size={15} color="#4f46e5" />
                   </div>
                 </button>
               )}

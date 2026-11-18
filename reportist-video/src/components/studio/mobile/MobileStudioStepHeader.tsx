@@ -2,7 +2,7 @@
 // 가로로 잘리던 7~8단계 카드 스트립 대신 "지금 단계(n/N) + 한 줄 상태 + 얇은 진행률 바"만 보여주고,
 // 탭하면 MobileStepListSheet가 전체 단계 목록을 띄운다.
 import React from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, CircleHelp } from 'lucide-react';
 import { StudioStepIcon } from '../StudioStepIcon.tsx';
 
 interface MobileStudioStepHeaderProps {
@@ -15,6 +15,9 @@ interface MobileStudioStepHeaderProps {
   viewAllLabel: string;
   openAllAriaLabel: string;
   onOpenAll: () => void;
+  /** 사용 가이드(투어) 열기 — 전달하지 않으면 버튼을 렌더하지 않는다. */
+  onOpenGuide?: () => void;
+  guideAriaLabel?: string;
 }
 
 export const MobileStudioStepHeader: React.FC<MobileStudioStepHeaderProps> = ({
@@ -27,11 +30,14 @@ export const MobileStudioStepHeader: React.FC<MobileStudioStepHeaderProps> = ({
   viewAllLabel,
   openAllAriaLabel,
   onOpenAll,
+  onOpenGuide,
+  guideAriaLabel,
 }) => {
   const progressPercent = Math.min(100, Math.max(0, ((stepIndex + 1) / totalSteps) * 100));
 
   return (
-    <div className="toss-mobile-step-header">
+    <div className="toss-mobile-step-header" data-tour="studio-step-header">
+      <div className="toss-mobile-step-header-row">
       <button
         type="button"
         className="toss-mobile-step-header-btn"
@@ -56,6 +62,19 @@ export const MobileStudioStepHeader: React.FC<MobileStudioStepHeaderProps> = ({
           <ChevronDown size={15} aria-hidden="true" />
         </span>
       </button>
+      {onOpenGuide && (
+        <button
+          type="button"
+          className="toss-mobile-step-guide-btn"
+          data-tour="studio-guide-trigger"
+          onClick={onOpenGuide}
+          aria-label={guideAriaLabel}
+          title={guideAriaLabel}
+        >
+          <CircleHelp size={18} aria-hidden="true" />
+        </button>
+      )}
+      </div>
       <div
         className="toss-mobile-step-progress"
         role="progressbar"

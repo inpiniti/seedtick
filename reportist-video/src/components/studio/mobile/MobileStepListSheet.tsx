@@ -79,6 +79,7 @@ export const MobileStepListSheet: React.FC<MobileStepListSheetProps> = ({
             <li key={step.id} className="toss-step-sheet-item">
               <button
                 type="button"
+                data-tour={`studio-sheet-step-${step.id}`}
                 className={`toss-step-sheet-row ${step.isActive ? 'active' : ''} ${step.disabled ? 'is-locked' : ''}`}
                 aria-current={step.isActive ? 'step' : undefined}
                 aria-disabled={step.disabled ? true : undefined}

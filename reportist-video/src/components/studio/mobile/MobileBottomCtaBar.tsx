@@ -23,6 +23,8 @@ interface MobileBottomCtaBarProps {
   /** 회색으로 표시하되 클릭은 허용한다 — 누르면 차단 사유 토스트를 띄우는 패턴 */
   primaryBlocked?: boolean;
   primaryTitle?: string;
+  /** 사용 가이드가 다음 단계 CTA를 짚을 때 쓰는 data-tour 셀렉터 값 */
+  primaryDataTour?: string;
 }
 
 export const MobileBottomCtaBar: React.FC<MobileBottomCtaBarProps> = ({
@@ -39,6 +41,7 @@ export const MobileBottomCtaBar: React.FC<MobileBottomCtaBarProps> = ({
   isLastStep,
   primaryBlocked = false,
   primaryTitle,
+  primaryDataTour,
 }) => {
   return (
     <nav className="toss-bottom-cta-bar" aria-label={ariaLabel}>
@@ -57,6 +60,7 @@ export const MobileBottomCtaBar: React.FC<MobileBottomCtaBarProps> = ({
 
       {!isLastStep && (
         <Button
+          data-tour={primaryDataTour}
           className={`toss-bottom-cta-primary${primaryBlocked ? ' is-blocked' : ''}`}
           variant="accent"
           size="md"

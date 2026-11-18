@@ -1,7 +1,19 @@
 // components/studio/ProStudioView.tsx - Toss-style 16:9 AI Video Studio with i18n
+import 'driver.js/dist/driver.css';
 import './ProStudioView.css';
 
 import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
+import type { Driver } from 'driver.js';
+import {
+  hasSeenStudioGuide,
+  markStudioGuideSeen,
+  resetStudioGuides,
+  startStudioTour,
+  highlightStudioElement,
+  scrollTargetIntoSafeViewport,
+  type StudioGuideId,
+  type StudioTourStep,
+} from '../../services/studioTour.ts';
 import { StudioStepIcon } from './StudioStepIcon.tsx';
 import { MobileStudioStepHeader } from './mobile/MobileStudioStepHeader.tsx';
 import { MobileStepListSheet } from './mobile/MobileStepListSheet.tsx';
@@ -51,6 +63,7 @@ import {
   Loader2,
   Monitor,
   Smartphone,
+  CircleHelp,
 } from 'lucide-react';
 import type { SubtitleTone } from '../../types/video.ts';
 import {
@@ -860,6 +873,96 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   }, [activeSection, selectedSegmentId, markSegmentViewed]);
 
+  // 스튜디오 안내(driver.js) 공통 인스턴스 — 빠른 시작·단계 코치마크·차단/씬 가이드가 모두 이 하나를 쓴다.
+  // "본 가이드" 이력은 studioTour 서비스가 localStorage에서 관리한다.
+  const activeTourDriverRef = useRef<Driver | null>(null);
+  const pendingLockedPrereqRef = useRef<{
+    prereqId: StudioSection;
+    title: string;
+    description: string;
+    reason: string;
+  } | null>(null);
+  const coachmarkShownRef = useRef<Set<StudioGuideId>>(new Set());
+  const coachmarkTimerRef = useRef<number | null>(null);
+  const activeSectionRef = useRef(activeSection);
+  activeSectionRef.current = activeSection;
+
+  const dismissActiveTour = useCallback(() => {
+    if (activeTourDriverRef.current) {
+      activeTourDriverRef.current.destroy();
+      activeTourDriverRef.current = null;
+    }
+  }, []);
+
+  // 단일 요소 스포트라이트(차단 사유·잠금 단계·씬 미확인) 공통 진입점
+  const launchSpotlight = useCallback(
+    (
+      element: string,
+      title: string,
+      description: string,
+      side: 'top' | 'bottom' | 'left' | 'right' = 'bottom',
+      align: 'start' | 'center' | 'end' = 'center'
+    ) => {
+      dismissActiveTour();
+      const driverObj = highlightStudioElement({
+        element,
+        title,
+        description,
+        side,
+        align,
+        isMobile: isMobileViewport,
+        labels: { close: dict.common?.close || ui('닫기') },
+        showButtons: ['close'],
+        onDestroyed: () => {
+          if (activeTourDriverRef.current === driverObj) {
+            activeTourDriverRef.current = null;
+          }
+        },
+      });
+      activeTourDriverRef.current = driverObj;
+    },
+    [dismissActiveTour, isMobileViewport, dict, ui]
+  );
+
+  // 여러 단계로 이루어진 투어(빠른 시작·단계 코치마크) 공통 진입점
+  const launchStudioTour = useCallback(
+    (steps: StudioTourStep[]) => {
+      dismissActiveTour();
+      const driverObj = startStudioTour({
+        steps,
+        isMobile: isMobileViewport,
+        labels: {
+          close: dict.common?.close || ui('닫기'),
+          next: ui('다음'),
+          prev: ui('이전'),
+          done: dict.common?.confirm || ui('확인'),
+        },
+        onDestroyed: () => {
+          if (activeTourDriverRef.current === driverObj) {
+            activeTourDriverRef.current = null;
+          }
+        },
+      });
+      activeTourDriverRef.current = driverObj;
+    },
+    [dismissActiveTour, isMobileViewport, dict, ui]
+  );
+
+  // 씬을 이동하거나 다른 단계로 벗어나면 안내 오버레이를 즉시 닫는다.
+  useEffect(() => {
+    dismissActiveTour();
+  }, [activeSection, selectedSegmentId, dismissActiveTour]);
+
+  useEffect(
+    () => () => {
+      dismissActiveTour();
+      if (coachmarkTimerRef.current !== null) {
+        window.clearTimeout(coachmarkTimerRef.current);
+      }
+    },
+    [dismissActiveTour]
+  );
+
   const [selectedBridgeIndex, setSelectedBridgeIndex] = useState<number>(1);
   const musicPanelPinnedRef = useRef<boolean>(false);
   // 단계 이동 등 프로그래밍적으로 시크할 때는 플레이헤드 기반 패널 동기화를 잠시 멈춘다.
@@ -915,6 +1018,34 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       setIsExportModalOpen(false);
     }
   }, [isProcessing]);
+
+  // 모달/오버레이가 열리면 진행 중인 투어를 정리한다 (팝오버가 모달 위에 뜨지 않게).
+  useEffect(() => {
+    if (
+      isProcessing ||
+      isReStitching ||
+      isSettingsModalOpen ||
+      isExportModalOpen ||
+      isBridgePreviewModalOpen ||
+      isVideoListModalOpen ||
+      Boolean(mapModalTarget) ||
+      Boolean(trimModalTarget) ||
+      editingBridgeIndex !== null
+    ) {
+      dismissActiveTour();
+    }
+  }, [
+    isProcessing,
+    isReStitching,
+    isSettingsModalOpen,
+    isExportModalOpen,
+    isBridgePreviewModalOpen,
+    isVideoListModalOpen,
+    mapModalTarget,
+    trimModalTarget,
+    editingBridgeIndex,
+    dismissActiveTour,
+  ]);
 
   // 모바일 상단 탭 스트립(2번째 줄) 자동 숨김/표시: 아래로 드래그(스크롤 다운)하면 접고, 위로 드래그(스크롤 업)하면 펼친다.
   // 기준점(anchorY) 대비 누적 이동량으로 방향을 판정해 미세 떨림/느린 드래그에서도 안정적으로 동작한다.
@@ -4145,7 +4276,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     // 잠긴 단계(위치/컷/자막)를 직접 눌러도 사유를 알려주고 이동하지 않는다.
     const lockedReason = getStudioStepLockedReason(section);
     if (lockedReason) {
-      notify.info(lockedReason);
+      showLockedStepGuide(section, lockedReason);
       return;
     }
     // 노래·썸네일·다운로드는 타임라인 위치와 무관한 마무리 패널이라
@@ -4223,13 +4354,281 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     return null;
   })();
 
+  // ── Tier 3. 막힘 해소 가이드 ──────────────────────────────────────────────
+  // 컷·자막 단계에서 모든 씬을 보지 않고 다음 단계를 눌렀을 때 다음 컷/씬 버튼을 바로 짚어준다.
+  const showUnviewedSceneGuide = (unviewedCount: number) => {
+    const hasUnviewedAfter = segments
+      .slice(selectedSegmentIndex + 1)
+      .some((s) => !viewedSegmentIds.has(s.id));
+    const hasUnviewedBefore = segments
+      .slice(0, selectedSegmentIndex)
+      .some((s) => !viewedSegmentIds.has(s.id));
+    const targetIsPrev =
+      (!hasUnviewedAfter && hasUnviewedBefore && selectedSegmentIndex > 0) ||
+      (selectedSegmentIndex >= segments.length - 1 && selectedSegmentIndex > 0);
+
+    const selector = targetIsPrev
+      ? '[data-tour="studio-prev-scene"]'
+      : '[data-tour="studio-next-scene"]';
+    const targetEl = document.querySelector(selector);
+    if (!(targetEl instanceof HTMLElement)) {
+      if (nextStepBlockedReason) notify.info(nextStepBlockedReason);
+      return;
+    }
+
+    scrollTargetIntoSafeViewport(targetEl, { isMobile: isMobileViewport });
+
+    const isCutStep = activeSection === 'cut';
+    const title = targetIsPrev
+      ? isCutStep
+        ? ui('앞쪽에 안 본 컷이 {count}개 있어요', { count: unviewedCount })
+        : ui('앞쪽에 안 본 씬이 {count}개 있어요', { count: unviewedCount })
+      : isCutStep
+        ? ui('아직 안 본 컷이 {count}개 있어요', { count: unviewedCount })
+        : ui('아직 안 본 씬이 {count}개 있어요', { count: unviewedCount });
+    const description = targetIsPrev
+      ? isCutStep
+        ? ui('이전 컷 버튼으로 돌아가 남은 컷을 확인해 주세요.')
+        : ui('이전 씬 버튼으로 돌아가 남은 씬을 확인해 주세요.')
+      : isCutStep
+        ? ui('여기를 눌러 다음 컷으로 넘기며 모든 컷을 확인해 주세요.')
+        : ui('여기를 눌러 다음 씬으로 넘기며 자막을 확인해 주세요.');
+
+    launchSpotlight(selector, title, description, 'bottom', targetIsPrev ? 'start' : 'end');
+  };
+
+  // 영상 올리기/AI 단계의 차단 사유도 같은 패턴으로 실제 버튼을 짚어준다.
+  const showBlockedGuide = () => {
+    if (activeSection === 'upload' && videos.length === 0) {
+      const selector = '[data-tour="studio-upload-dropzone"]';
+      const targetEl = document.querySelector(selector);
+      if (!(targetEl instanceof HTMLElement)) {
+        notify.info(nextStepBlockedReason || ui('영상을 하나 이상 올리면 다음으로 넘어갈 수 있어요'));
+        return;
+      }
+      scrollTargetIntoSafeViewport(targetEl, { isMobile: isMobileViewport });
+      launchSpotlight(
+        selector,
+        ui('먼저 영상을 올려주세요'),
+        ui('여기를 누르거나 영상을 끌어다 놓으면 다음 단계가 열려요.')
+      );
+      return;
+    }
+    if (activeSection === 'ai' && !isProcessing && segments.length === 0) {
+      const selector = '[data-tour="studio-ai-start"]';
+      const targetEl = document.querySelector(selector);
+      if (!(targetEl instanceof HTMLElement)) {
+        notify.info(nextStepBlockedReason || ui('AI 하이라이트를 먼저 만들면 다음으로 넘어갈 수 있어요'));
+        return;
+      }
+      scrollTargetIntoSafeViewport(targetEl, { isMobile: isMobileViewport });
+      launchSpotlight(
+        selector,
+        ui('AI 하이라이트를 먼저 만들어주세요'),
+        ui('여기를 누르면 AI가 가장 잘 나온 장면을 골라줘요. 분석이 끝나면 다음 단계가 열려요.')
+      );
+      return;
+    }
+    if (nextStepBlockedReason) notify.info(nextStepBlockedReason);
+  };
+
+  // 잠긴 단계를 직접 누르면 선행 단계 버튼을 짚어준다.
+  // 모바일에서는 전체 단계 시트를 먼저 열고 그 안의 선행 단계 행을 하이라이트한다.
+  const showLockedStepGuide = (section: StudioSection, reason: string) => {
+    const prereqId: StudioSection = section === 'location' ? 'upload' : 'ai';
+    const prereqStep = studioSteps.find((step) => step.id === prereqId);
+    const prereqLabel = prereqStep
+      ? ui(prereqStep.label)
+      : prereqId === 'upload'
+        ? ui('영상 올리기')
+        : ui('AI 하이라이트');
+    const title = ui('먼저 {label} 단계를 끝내주세요', { label: prereqLabel });
+    const description = ui('{label} 단계를 완료하면 이 단계가 열려요.', { label: prereqLabel });
+
+    if (isMobileViewport) {
+      if (isStepSheetOpen) {
+        const selector = `[data-tour="studio-sheet-step-${prereqId}"]`;
+        window.setTimeout(() => {
+          if (!document.querySelector(selector)) {
+            notify.info(reason);
+            return;
+          }
+          launchSpotlight(selector, title, description);
+        }, 320);
+      } else {
+        pendingLockedPrereqRef.current = { prereqId, title, description, reason };
+        setIsStepSheetOpen(true);
+      }
+      return;
+    }
+
+    const selector = `[data-tour="studio-step-${prereqId}"]`;
+    if (!document.querySelector(selector)) {
+      notify.info(reason);
+      return;
+    }
+    launchSpotlight(selector, title, description);
+  };
+
+  // 전체 단계 시트가 열린 뒤 모바일 잠금 가이드를 띄운다.
+  useEffect(() => {
+    const pending = pendingLockedPrereqRef.current;
+    if (!pending || !isStepSheetOpen || !isMobileViewport) return;
+    pendingLockedPrereqRef.current = null;
+    const selector = `[data-tour="studio-sheet-step-${pending.prereqId}"]`;
+    const timer = window.setTimeout(() => {
+      if (!document.querySelector(selector)) {
+        notify.info(pending.reason);
+        return;
+      }
+      launchSpotlight(selector, pending.title, pending.description);
+    }, 360);
+    return () => window.clearTimeout(timer);
+  }, [isStepSheetOpen, isMobileViewport, launchSpotlight]);
+
+  // ── Tier 1. 선택형 "30초 빠른 시작" 미니 투어 ─────────────────────────────
+  const startQuickTour = () => {
+    if (isProcessing || isReStitching) return;
+    markStudioGuideSeen('quickStart');
+    launchStudioTour([
+      {
+        element: '[data-tour="studio-step-header"]',
+        title: ui('영상 만드는 순서를 먼저 볼게요'),
+        description: ui('{count}개 단계를 순서대로 따라가면 영상이 완성돼요. 지금은 {step}번이에요.', {
+          count: studioSteps.length,
+          step: activeStudioStepIndex + 1,
+        }),
+        side: 'bottom',
+      },
+      {
+        element: '[data-tour="studio-player"]',
+        title: ui('입력한 내용은 여기에서 바로 확인돼요'),
+        description: ui('문구·스타일·자막이 미리보기에 실시간으로 반영돼요.'),
+        side: 'bottom',
+      },
+      {
+        element: '[data-tour="studio-inspector"]',
+        title: ui('지금 단계의 설정만 모아두었어요'),
+        description: ui('필요한 항목만 한 번에 보여주니까 하나씩 편하게 눌러보세요.'),
+        side: 'left',
+      },
+      {
+        element: '[data-tour="studio-next-cta"]',
+        title: ui('준비되면 다음 단계로 넘어가세요'),
+        description: ui('다음 버튼을 누르면 바로 이동해요. 막히는 단계에서는 왜 막혔는지 알려드려요.'),
+        side: 'top',
+      },
+    ]);
+  };
+
+  // ── Tier 2. 주요 편집 단계 첫 진입 코치마크 (단계당 1~2스텝, 최초 1회) ────
+  useEffect(() => {
+    const modalOpen =
+      isProcessing ||
+      isReStitching ||
+      isSettingsModalOpen ||
+      isExportModalOpen ||
+      isBridgePreviewModalOpen ||
+      Boolean(mapModalTarget) ||
+      Boolean(trimModalTarget) ||
+      editingBridgeIndex !== null;
+    if (modalOpen) return;
+
+    let guideId: StudioGuideId | null = null;
+    let steps: StudioTourStep[] = [];
+    if (activeSection === 'cut' && segments.length > 0) {
+      guideId = 'step:cut';
+      steps = [
+        {
+          element: '[data-tour="studio-next-scene"]',
+          title: ui('컷을 하나씩 열어보세요'),
+          description: ui('다음 컷 버튼으로 모든 컷을 확인해야 다음 단계로 넘어갈 수 있어요.'),
+        },
+        {
+          element: '[data-tour="studio-timeline"]',
+          title: ui('타임라인에서 바로 수정할 수 있어요'),
+          description: ui('원하는 구간을 눌러 시작·끝을 다시 다듬을 수 있어요.'),
+          side: 'top',
+        },
+      ];
+    } else if (activeSection === 'caption' && segments.length > 0) {
+      guideId = 'step:caption';
+      steps = [
+        {
+          element: '[data-tour="studio-caption-list-toggle"]',
+          title: ui('자막을 한눈에 확인하세요'),
+          description: ui('전체 자막 보기를 누르면 씬별 자막을 한 화면에서 볼 수 있어요.'),
+        },
+        {
+          element: '[data-tour="studio-refine-subtitles"]',
+          title: ui('자막 톤도 바꿀 수 있어요'),
+          description: ui('AI 자막 다듬기를 누르면 브이로그 스타일로 자연스럽게 고쳐줘요.'),
+        },
+      ];
+    } else if (activeSection === 'bridge' && bridgeCandidateIndexes.length > 0) {
+      guideId = 'step:bridge';
+      steps = [
+        {
+          element: '[data-tour="studio-bridge-toggle"]',
+          title: ui('장면이 바뀌는 곳에 브릿지를 넣어요'),
+          description: ui('날짜·장소가 달라지는 구간에 토글을 켜면 자연스럽게 이어져요.'),
+        },
+      ];
+    } else if (activeSection === 'fullPreview' && segments.length > 0) {
+      guideId = 'step:fullPreview';
+      steps = [
+        {
+          element: '[data-tour="studio-timeline"]',
+          title: ui('최종 결과를 먼저 확인해요'),
+          description: ui('타임라인의 원하는 지점을 눌러 바로 수정으로 돌아갈 수 있어요.'),
+          side: 'top',
+        },
+      ];
+    }
+
+    if (!guideId || steps.length === 0) return;
+    if (coachmarkShownRef.current.has(guideId) || hasSeenStudioGuide(guideId)) return;
+    coachmarkShownRef.current.add(guideId);
+    const expectedSection = activeSection;
+    coachmarkTimerRef.current = window.setTimeout(() => {
+      coachmarkTimerRef.current = null;
+      markStudioGuideSeen(guideId);
+      // 사용자가 그 사이 다른 단계로 이동했다면 띄우지 않는다.
+      if (activeSectionRef.current !== expectedSection) return;
+      if (!document.querySelector(steps[0].element)) return;
+      launchStudioTour(steps);
+    }, 420);
+  }, [
+    activeSection,
+    segments.length,
+    bridgeCandidateIndexes.length,
+    isProcessing,
+    isReStitching,
+    isSettingsModalOpen,
+    isExportModalOpen,
+    isBridgePreviewModalOpen,
+    mapModalTarget,
+    trimModalTarget,
+    editingBridgeIndex,
+    launchStudioTour,
+    ui,
+  ]);
+
   // 다음/이전 단계는 현재 흐름(생성 9단계 / 편집 9단계)의 순서를 그대로 따른다.
   // AI 컷이나 브릿지 후보가 없어도 단계를 건너뛰지 않는다.
   const goToAdjacentSection = (delta: 1 | -1) => {
     const nextIndex = activeStudioStepIndex + delta;
     if (nextIndex < 0 || nextIndex >= studioSteps.length) return;
     if (delta === 1 && nextStepBlockedReason) {
-      notify.info(nextStepBlockedReason);
+      if (
+        (activeSection === 'cut' || activeSection === 'caption') &&
+        segments.length > 0 &&
+        segments.length - viewedSegmentCount > 0
+      ) {
+        showUnviewedSceneGuide(segments.length - viewedSegmentCount);
+        return;
+      }
+      showBlockedGuide();
       return;
     }
     goToSection(studioSteps[nextIndex].id);
@@ -5524,16 +5923,29 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             viewAllLabel={ui('전체 보기')}
             openAllAriaLabel={ui('전체 단계 보기')}
             onOpenAll={() => setIsStepSheetOpen(true)}
+            onOpenGuide={startQuickTour}
+            guideAriaLabel={ui('사용 가이드 보기')}
           />
         ) : (
         <nav className="toss-studio-stepbar" aria-label={ui('편집 순서')}>
-          <div className="toss-studio-stepbar-head">
+          <div className="toss-studio-stepbar-head" data-tour="studio-step-header">
             <span className="toss-studio-stepbar-eyebrow">
               {ui('영상 만드는 순서')}
             </span>
             <strong className="toss-studio-stepbar-title">
               {ui('1번부터 {count}번까지, 순서대로만 눌러주세요', { count: studioSteps.length })}
             </strong>
+            <button
+              type="button"
+              className="toss-studio-guide-btn"
+              data-tour="studio-guide-trigger"
+              onClick={startQuickTour}
+              aria-label={ui('사용 가이드 보기')}
+              title={ui('사용 가이드 보기')}
+            >
+              <CircleHelp size={15} aria-hidden="true" />
+              <span>{ui('가이드')}</span>
+            </button>
           </div>
           <ol className="toss-studio-steps" ref={stepbarListRef}>
             {studioSteps.map((step, index) => {
@@ -5544,6 +5956,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 <li key={step.id} className="toss-studio-step-item">
                   <button
                     type="button"
+                    data-tour={`studio-step-${step.id}`}
                     ref={isActive ? activeStepButtonRef : undefined}
                     className={`toss-studio-step ${isActive ? 'active' : ''} ${lockedReason ? 'is-locked' : ''}`}
                     onClick={() => goToSection(step.id)}
@@ -5624,7 +6037,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             활성 단계 카드(영상 올리기·저장 등) 하나만 보여준다. */}
         {!hidePlayerColumnForMobile && (
         <section className="toss-column-left">
-          <div className="toss-card toss-player-card">
+          <div className="toss-card toss-player-card" data-tour="studio-player">
             {/* 영상 상단 왼쪽, 오른쪽 문구 직관 입력창 — 1번(영상 상단 문구) 단계에서만 보여준다. */}
             {activeSection === 'intro' && (
               <div className="toss-video-header-bar">{overlayTextInputFields}</div>
@@ -6323,7 +6736,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   </div>
                 </div>
 
-                <div className="toss-sequencer-multitrack">
+                <div className="toss-sequencer-multitrack" data-tour="studio-timeline">
                   {/* 좌측 트랙 헤더 (Ruler / V1 영상 / A1 음악) */}
                   <div className="toss-sequencer-track-labels" aria-hidden="true">
                     <div className="toss-track-label-ruler">TIME</div>
@@ -6772,7 +7185,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         )}
 
         {/* 2-B. 오른쪽 열: [썸네일] -> [다운로드] -> [인트로] -> [AI 극적 순간] -> [아웃트로] -> [요약] */}
-        <section className="toss-column-right" ref={rightColumnRef}>
+        <section className="toss-column-right" ref={rightColumnRef} data-tour="studio-inspector">
           {/* 현재 편집 단계 안내 (한 번에 한 구간만 보여주기) */}
           <div className="toss-inspector-head">
             <span className="toss-inspector-kicker">
@@ -7195,6 +7608,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
             <button
               type="button"
+              data-tour="studio-upload-dropzone"
               className="toss-upload-dropzone"
               onClick={() => fileInputRef.current?.click()}
             >
@@ -7403,6 +7817,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             ) : (
               <SpecularButton
                 type="button"
+                data-tour="studio-ai-start"
                 className="toss-nav-cta-btn toss-ai-cta"
                 onClick={() =>
                   onStartAiAnalysis(
@@ -7447,6 +7862,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   </span>
                 )}
                 <label
+                  data-tour="studio-bridge-toggle"
                   className="toss-toggle-switch"
                   title={
                     overlayOptions.showChapterBridge !== false
@@ -7877,6 +8293,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   {isCaptionSection && segments.length > 0 && (
                     <button
                       type="button"
+                      data-tour="studio-refine-subtitles"
                       className="toss-btn-refine-subtitles"
                       onClick={() => handleRefineSubtitles()}
                       disabled={isRefiningSubtitles}
@@ -7966,6 +8383,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               <div className="toss-cut-navigator">
                 <button
                   type="button"
+                  data-tour="studio-prev-scene"
                   className="toss-btn-secondary toss-btn-xs"
                   onClick={() => selectCutByOffset(-1)}
                   disabled={selectedSegmentIndex <= 0}
@@ -7984,6 +8402,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 </div>
                 <button
                   type="button"
+                  data-tour="studio-next-scene"
                   className="toss-btn-secondary toss-btn-xs"
                   onClick={() => selectCutByOffset(1)}
                   disabled={selectedSegmentIndex >= segments.length - 1}
@@ -7993,6 +8412,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 {isCaptionSection && (
                   <button
                     type="button"
+                    data-tour="studio-caption-list-toggle"
                     className="toss-btn-secondary toss-btn-xs toss-caption-list-toggle"
                     onClick={() => setIsCaptionListOpen((v) => !v)}
                     aria-expanded={isCaptionListOpen}
@@ -8935,6 +9355,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             {activeStudioStepIndex < studioSteps.length - 1 && (
               <button
                 type="button"
+                data-tour="studio-next-cta"
                 className={`toss-btn-primary toss-inspector-nav-btn${nextStepBlockedReason ? ' is-blocked' : ''}`}
                 onClick={() => goToAdjacentSection(1)}
                 aria-disabled={nextStepBlockedReason ? true : undefined}
@@ -8955,8 +9376,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               closeLabel={dict.common?.close || ui('닫기')}
               onSelect={(id) => goToSection(id as StudioSection)}
               onLockedSelect={(id) => {
-                const reason = getStudioStepLockedReason(id as StudioSection);
-                if (reason) notify.info(reason);
+                const section = id as StudioSection;
+                const reason = getStudioStepLockedReason(section);
+                if (reason) showLockedStepGuide(section, reason);
               }}
             />
           )}
@@ -8994,6 +9416,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             isDownloadStep={activeSection === 'download'}
             isFirstStep={activeStudioStepIndex <= 0}
             isLastStep={activeStudioStepIndex >= studioSteps.length - 1}
+            primaryDataTour="studio-next-cta"
           />
         )}
         </div>
@@ -9206,6 +9629,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         onOpenLanguageModal={() => setIsLanguageModalOpen(true)}
         onOpenFeedbackModal={() => setIsFeedbackModalOpen(true)}
         onOpenPatchNotesModal={() => setIsPatchNotesModalOpen(true)}
+        onReplayGuide={() => {
+          setIsSettingsModalOpen(false);
+          resetStudioGuides();
+          coachmarkShownRef.current.clear();
+          window.setTimeout(() => startQuickTour(), 140);
+        }}
         onOpenDateFormatModal={() => setIsDateFormatModalOpen(true)}
         currentDateFormat={currentDateFormat}
         showDate={showDate}
