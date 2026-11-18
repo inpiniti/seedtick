@@ -9038,7 +9038,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             {/* 백그라운드 보호 및 화면 꺼짐 방지 안심 배너 */}
             <div className="flex items-center gap-2 px-3 py-2 mt-1 mb-2 bg-slate-100 border border-slate-200 rounded-xl text-left">
               <span className="text-xs shrink-0">🛡️</span>
-              <p className="text-[10px] leading-tight text-slate-400 font-medium">
+              <p className="toss-modal-guard-notice">
                 {dict.processingModal.backgroundGuardNotice || '다른 탭이나 다른 앱을 다녀오셔도 작업이 안전하게 이어져요.'}
               </p>
             </div>
