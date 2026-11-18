@@ -1772,46 +1772,53 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
       try {
         let bg: HTMLCanvasElement | null = null;
-        const targetVideo =
-          videos.find((v) => v.id === result?.bestSourceVideoId) || videos[0];
 
-        // 1. 소스 비디오에서 직접 캡처 시도 (오버레이 및 문구 일체 없는 순수 원본 영상)
-        if (targetVideo?.url && targetVideo.file && targetVideo.file.size > 0) {
-          const targetTime =
-            result?.bestThumbnailTime && result.bestThumbnailTime > 0.05
-              ? result.bestThumbnailTime
-              : (result?.segments && result.segments[0]
-                  ? result.segments[0].start + Math.max(0.5, result.segments[0].duration * 0.4)
-                  : 0.5);
-
-          const rot = result?.bestThumbnailRotation ?? result?.segments?.[0]?.rotation ?? 0;
-          const crop = result?.bestThumbnailCropOffsetYRatio ?? result?.segments?.[0]?.cropOffsetYRatio ?? 0.2;
-          const cropX = result?.segments?.[0]?.cropOffsetXRatio ?? 0.5;
-
-          try {
-            bg = await captureVideoFrameAtTime(
-              targetVideo.url,
-              targetTime,
-              crop,
-              thumbWidth,
-              thumbHeight,
-              rot,
-              cropX
-            );
-          } catch (e) {
-            console.warn('prepareThumbnailBg: Source capture failed, falling back to clean dataUrl:', e);
-          }
-        }
-
-        // 2. 소스 비디오 캡처 실패 시, 저장된 클린 이미지(dataUrl) 활용
-        if (!bg && result?.cleanThumbnailUrl) {
+        // 1순위: 저장된 AI 클린 프레임(dataUrl)을 그대로 사용한다.
+        // 저장 프로젝트를 다시 열었을 때 원본 영상에서 재캡처하면 디코드 타이밍에 따라
+        // 검은 프레임이 만들어져 AI가 추천한 썸네일이 덮어써지는 문제가 있었다.
+        // WebCodecs 디코딩 시 tkhd 회전이 이미 반영돼 있으므로 rotation은 0으로 둔다(이중 회전 방지).
+        if (result?.cleanThumbnailUrl) {
           try {
             bg = await createCanvasFromImageDataUrl(result.cleanThumbnailUrl, thumbWidth, thumbHeight);
           } catch {}
-        } else if (!bg && result?.bestThumbnailCleanDataUrl) {
+        }
+        if (!bg && result?.bestThumbnailCleanDataUrl) {
           try {
             bg = await createCanvasFromImageDataUrl(result.bestThumbnailCleanDataUrl, thumbWidth, thumbHeight);
           } catch {}
+        }
+
+        // 2순위: 저장된 클린 프레임이 없을 때만 원본 영상에서 직접 캡처
+        if (!bg) {
+          const targetVideo =
+            videos.find((v) => v.id === result?.bestSourceVideoId) || videos[0];
+
+          if (targetVideo?.url && targetVideo.file && targetVideo.file.size > 0) {
+            const targetTime =
+              result?.bestThumbnailTime && result.bestThumbnailTime > 0.05
+                ? result.bestThumbnailTime
+                : (result?.segments && result.segments[0]
+                    ? result.segments[0].start + Math.max(0.5, result.segments[0].duration * 0.4)
+                    : 0.5);
+
+            const rot = result?.bestThumbnailRotation ?? result?.segments?.[0]?.rotation ?? 0;
+            const crop = result?.bestThumbnailCropOffsetYRatio ?? result?.segments?.[0]?.cropOffsetYRatio ?? 0.2;
+            const cropX = result?.segments?.[0]?.cropOffsetXRatio ?? 0.5;
+
+            try {
+              bg = await captureVideoFrameAtTime(
+                targetVideo.url,
+                targetTime,
+                crop,
+                thumbWidth,
+                thumbHeight,
+                rot,
+                cropX
+              );
+            } catch (e) {
+              console.warn('prepareThumbnailBg: Source capture failed:', e);
+            }
+          }
         }
 
         if (bg) {
@@ -4784,124 +4791,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   };
 
-  // AI 추천 썸네일 프레임 복원
-  const handleRestoreAiThumbnail = async () => {
-    setIsUpdatingThumbnail(true);
-    try {
-      let bg: HTMLCanvasElement | null = null;
-      const targetVideo =
-        videos.find((v) => v.id === result?.bestSourceVideoId) || videos[0];
-
-      if (targetVideo?.url && typeof result?.bestThumbnailTime === 'number') {
-        const rot = result.bestThumbnailRotation ?? result.segments?.[0]?.rotation ?? 0;
-        const crop = result.bestThumbnailCropOffsetYRatio ?? result.segments?.[0]?.cropOffsetYRatio ?? 0.2;
-        try {
-          bg = await captureVideoFrameAtTime(
-            targetVideo.url,
-            result.bestThumbnailTime,
-            crop,
-            thumbWidth,
-            thumbHeight,
-            rot,
-            result.segments?.[0]?.cropOffsetXRatio ?? 0.5
-          );
-        } catch {}
-      }
-
-      if (!bg && result?.cleanThumbnailUrl) {
-        try {
-          bg = await createCanvasFromImageDataUrl(result.cleanThumbnailUrl, thumbWidth, thumbHeight);
-        } catch {}
-      } else if (!bg && result?.bestThumbnailCleanDataUrl) {
-        try {
-          bg = await createCanvasFromImageDataUrl(result.bestThumbnailCleanDataUrl, thumbWidth, thumbHeight);
-        } catch {}
-      }
-
-      if (bg) {
-        thumbnailBgCanvasRef.current = bg;
-        const artCanvas = renderThumbnailArtwork(bg, {
-          titleText: overlayOptions.titleText,
-          channelText: '',
-          badgeText: '',
-          showTitle: showThumbnailTitle && Boolean(overlayOptions.titleText?.trim()),
-          showBadge: false,
-          showChannel: false,
-          stylePreset: thumbnailStyle,
-        });
-        setThumbnailUrl(artCanvas.toDataURL('image/jpeg', 0.95));
-      }
-    } catch (err) {
-      console.warn('Failed to restore AI thumbnail:', err);
-    } finally {
-      setIsUpdatingThumbnail(false);
-    }
-  };
-
-  // AI 추천 후보 프레임 선택
-  const handleSelectThumbnailCandidate = async (cand: NonNullable<FinalVideoResult['aiThumbnailRecommendations']>[number]) => {
-    setIsUpdatingThumbnail(true);
-    try {
-      let bg: HTMLCanvasElement | null = null;
-      const v = videos.find((item) => item.id === cand.videoId);
-      if (v?.url) {
-        try {
-          bg = await captureVideoFrameAtTime(
-            v.url,
-            cand.timestamp,
-            cand.cropOffsetYRatio ?? 0.2,
-            thumbWidth,
-            thumbHeight,
-            cand.rotation ?? 0,
-            cand.cropOffsetXRatio ?? 0.5
-          );
-        } catch {}
-      }
-      if (!bg && cand.cleanDataUrl) {
-        try {
-          // AI 분석 키프레임은 WebCodecs 디코딩 때 tkhd 회전이 이미 반영돼 있어
-          // rotation을 다시 넘기면 썸네일이 90/270도로 눕는다. 크롭만 적용한다.
-          bg = await createCanvasFromImageDataUrl(cand.cleanDataUrl, thumbWidth, thumbHeight, cand.cropOffsetYRatio ?? 0.2, 0, cand.cropOffsetXRatio ?? 0.5);
-        } catch {}
-      }
-      if (bg) {
-        thumbnailBgCanvasRef.current = bg;
-        const artCanvas = renderThumbnailArtwork(bg, {
-          titleText: overlayOptions.titleText,
-          channelText: '',
-          badgeText: '',
-          showTitle: showThumbnailTitle && Boolean(overlayOptions.titleText?.trim()),
-          showBadge: false,
-          showChannel: false,
-          stylePreset: thumbnailStyle,
-        });
-        const newThumbUrl = artCanvas.toDataURL('image/jpeg', 0.95);
-        const newCleanUrl = bg.toDataURL('image/jpeg', 0.95);
-        setThumbnailUrl(newThumbUrl);
-
-        lastPreparedThumbKeyRef.current = `${cand.videoId}_${cand.timestamp}_${cand.rotation ?? 0}_${cand.cropOffsetYRatio ?? 0.2}`;
-
-        if (result) {
-          onUpdateFinalResult?.({
-            ...result,
-            thumbnailUrl: newThumbUrl,
-            cleanThumbnailUrl: newCleanUrl,
-            bestSourceVideoId: cand.videoId,
-            bestThumbnailTime: cand.timestamp,
-            bestThumbnailReason: cand.reason,
-            bestThumbnailCropOffsetYRatio: cand.cropOffsetYRatio,
-            bestThumbnailRotation: cand.rotation,
-            bestThumbnailCleanDataUrl: cand.cleanDataUrl || newCleanUrl,
-          });
-        }
-      }
-    } catch (err) {
-      console.warn('Failed to select thumbnail candidate:', err);
-    } finally {
-      setIsUpdatingThumbnail(false);
-    }
-  };
-
   // 특정 하이라이트 구간의 프레임으로 썸네일 변경
   const handleSetSegmentAsThumbnail = async (seg: HighlightSegment, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -6475,10 +6364,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     <ImageIcon size={16} className="text-slate-800 shrink-0" />
                     <span>{dict.thumbnail?.cardTitle || 'AI 맞춤 썸네일 (16:9)'}</span>
                   </h4>
-                  {result?.bestThumbnailReason && (
+                  {result && (
                     <div className="flex items-center gap-1.5 mt-2 px-2.5 py-1 bg-slate-100 border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-800">
                       <Sparkles size={12} className="text-slate-700 shrink-0" />
-                      <span>{(dict.thumbnail?.aiRecommendedPrefix || 'AI 추천')}: {result.bestThumbnailReason}</span>
+                      <span>
+                        {(dict.thumbnail?.aiRecommendedPrefix || 'AI 추천')}:{' '}
+                        {result.bestThumbnailReason || dict.thumbnail?.aiHighlightMoment || 'AI가 선정한 하이라이트 순간'}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -6554,113 +6446,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
               {/* 썸네일 타이틀 및 스타일 컨트롤 */}
               <div className="toss-thumbnail-controls">
-                {result?.aiThumbnailRecommendations && result.aiThumbnailRecommendations.length > 1 && (
-                  <div className="toss-thumbnail-frames">
-                    <span className="toss-thumbnail-frames-label">
-                      {dict.thumbnail?.selectAiFrame || 'AI 추천 프레임 선택'}
-                    </span>
-                    <div className="toss-thumbnail-frame-list">
-                      {result.aiThumbnailRecommendations.map((cand, idx) => {
-                        const isCandSelected =
-                          result?.bestSourceVideoId === cand.videoId &&
-                          Math.abs((result?.bestThumbnailTime ?? -999) - cand.timestamp) < 0.1;
-                        return (
-                          <button
-                            key={`${cand.videoId}-${cand.timestamp}-${idx}`}
-                            type="button"
-                            onClick={() => handleSelectThumbnailCandidate(cand)}
-                            disabled={isUpdatingThumbnail}
-                            className={`toss-thumbnail-frame-btn ${isCandSelected ? 'active' : ''}`}
-                            title={cand.reason || cand.videoName}
-                          >
-                            <Sparkles size={11} className="toss-thumbnail-frame-icon" />
-                            <span className="toss-thumbnail-frame-index">#{idx + 1}</span>
-                            <span className="toss-thumbnail-frame-name">{cand.videoName}</span>
-                            <span className="toss-thumbnail-frame-time">
-                              {cand.timestamp.toFixed(1)}s
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                <div className="toss-thumbnail-input-group">
-                  <div className="toss-thumbnail-label-row">
-                    <label className="toss-thumbnail-label">
-                      <Type size={13} className="text-slate-800" />
-                      <span>{dict.thumbnail?.titleInputLabel || '썸네일 & 영상 타이틀'}</span>
-                    </label>
-                    <div className="toss-thumbnail-label-actions">
-                      {result?.suggestedTitle && overlayOptions.titleText === result.suggestedTitle && (
-                        <span className="toss-thumbnail-ai-tag">
-                          {dict.thumbnail?.aiTitleBadge || 'AI 추천 타이틀'}
-                        </span>
-                      )}
-                      <label
-                        className="toss-thumbnail-title-toggle"
-                        title={dict.thumbnail?.overlayToggleTip || '썸네일 내 타이틀 문구 표시 여부'}
-                      >
-                        <span>{dict.thumbnail?.overlayToggle || '타이틀 텍스트 오버레이'}</span>
-                        <span className="toss-toggle-switch">
-                          <input
-                            type="checkbox"
-                            checked={showThumbnailTitle}
-                            onChange={(e) => setShowThumbnailTitle(e.target.checked)}
-                          />
-                          <span className="toss-toggle-slider" />
-                        </span>
-                      </label>
-                    </div>
-                  </div>
-                  <input
-                    type="text"
-                    value={overlayOptions.titleText}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setOverlayOptions((prev) => ({
-                        ...prev,
-                        titleText: val,
-                        showTitle: val.trim().length > 0,
-                      }));
-                    }}
-                    placeholder={
-                      dict.thumbnail?.titleInputPlaceholder ||
-                      '유튜브 클릭률을 높일 매력적인 제목을 입력하세요'
-                    }
-                    className="toss-thumbnail-input"
-                  />
-                </div>
-
-                {showThumbnailTitle && (
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-xs font-semibold text-slate-500">
-                      {dict.thumbnail?.stylePreset || '스타일 프리셋'}
-                    </span>
-                    <div className="toss-thumbnail-style-group">
-                      <button
-                        type="button"
-                        className={`toss-thumb-style-btn ${thumbnailStyle === 'youtube-bold' ? 'active' : ''}`}
-                        onClick={() => setThumbnailStyle('youtube-bold')}
-                      >
-                        {dict.thumbnail?.styleBold || '유튜브 볼드'}
-                      </button>
-                      <button
-                        type="button"
-                        className={`toss-thumb-style-btn ${thumbnailStyle === 'banner-box' ? 'active' : ''}`}
-                        onClick={() => setThumbnailStyle('banner-box')}
-                      >
-                        {dict.thumbnail?.styleBanner || '하이라이트 박스'}
-                      </button>
-                      <button
-                        type="button"
-                        className={`toss-thumb-style-btn ${thumbnailStyle === 'cinematic-clean' ? 'active' : ''}`}
-                        onClick={() => setThumbnailStyle('cinematic-clean')}
-                      >
-                        {dict.thumbnail?.styleClean || '시네마틱'}
-                      </button>
-                    </div>
+                {/* AI가 추천한 타이틀만 읽기 전용으로 표시 (편집 옵션 없음) */}
+                {result?.suggestedTitle && (
+                  <div className="toss-thumbnail-picked">
+                    <Type size={13} className="text-slate-800 shrink-0" />
+                    <span className="toss-thumbnail-picked-value">{result.suggestedTitle}</span>
                   </div>
                 )}
 
@@ -6682,52 +6472,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       <span className="toss-btn-hd-spec"> {thumbSpecLabel}</span>
                     </span>
                   </button>
-
-                  <button
-                    type="button"
-                    className="toss-btn-frame-capture"
-                    onClick={handleRestoreAiThumbnail}
-                    disabled={isUpdatingThumbnail}
-                    title={
-                      dict.thumbnail?.restoreAiFrameTip ||
-                      'AI가 직접 추천한 베스트 프레임으로 복원'
-                    }
-                  >
-                    <Sparkles size={13} className="text-slate-700 shrink-0" />
-                    <span className="toss-btn-text-content">
-                      <span className="toss-btn-label-long">
-                        <ShinyText theme="light" text={dict.thumbnail?.restoreAiFrame || 'AI 추천 복원'} />
-                      </span>
-                      <span className="toss-btn-label-mid">{dict.thumbnail?.restoreAiFrameShort || 'AI 복원'}</span>
-                      <span className="toss-btn-label-short">AI</span>
-                    </span>
-                  </button>
-
-                  {activeVideoUrl && (
-                    <button
-                      type="button"
-                      className="toss-btn-frame-capture"
-                      onClick={handleCaptureCurrentFrame}
-                      disabled={isUpdatingThumbnail}
-                      title={
-                        dict.thumbnail?.captureCurrentFrameTip ||
-                        '현재 영상 재생 위치의 프레임으로 썸네일 배경 변경 (오버레이 미포함)'
-                      }
-                    >
-                      <ImageIcon size={13} className="text-slate-700 shrink-0" />
-                      <span className="toss-btn-text-content">
-                        {isUpdatingThumbnail ? (
-                          (dict.thumbnail?.capturing || '캡처 중...')
-                        ) : (
-                          <>
-                            <span className="toss-btn-label-long">{dict.thumbnail?.applyCurrentFrame || '현재 프레임 적용'}</span>
-                            <span className="toss-btn-label-mid">{dict.thumbnail?.applyCurrentFrameShort || '현재 프레임'}</span>
-                            <span className="toss-btn-label-short">{dict.thumbnail?.applyCurrentFrameTiny || '프레임'}</span>
-                          </>
-                        )}
-                      </span>
-                    </button>
-                  )}
                 </div>
               </div>
               </>
