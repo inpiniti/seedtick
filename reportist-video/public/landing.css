@@ -254,13 +254,34 @@ button {
 /* ---------- Header ---------- */
 
 .site-header {
+  /* Tone tokens are swapped by html.is-header-dark / html.is-hero-top so the
+     whole bar — including the mobile menu and language panel — flips together. */
+  --hdr-bg: rgba(255, 255, 255, 0.85);
+  --hdr-border: var(--border);
+  --hdr-ink: var(--ink);
+  --hdr-muted: var(--muted);
+  --hdr-control-bg: var(--surface);
+  --hdr-control-border: var(--border);
+  --hdr-control-hover-border: var(--border-strong);
+  --hdr-panel-bg: var(--surface);
+  --hdr-panel-alt-bg: var(--muted-bg);
+  --hdr-panel-hover-bg: var(--muted-bg);
+  --hdr-panel-current-bg: var(--accent-soft);
+  --hdr-panel-current-ink: var(--accent-strong);
+  --hdr-cta-bg: var(--ink);
+  --hdr-cta-hover-bg: var(--ink-hover);
+  --hdr-cta-ink: #ffffff;
+
   position: sticky;
   top: 0;
   z-index: 50;
-  border-bottom: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.85);
+  border-bottom: 1px solid var(--hdr-border);
+  background-color: var(--hdr-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+  transition:
+    background-color 220ms ease,
+    border-color 220ms ease;
 }
 
 .header-inner {
@@ -276,14 +297,17 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  color: var(--ink);
+  color: var(--hdr-ink, var(--ink));
   font-size: 1.05rem;
   font-weight: 800;
   letter-spacing: -0.03em;
   white-space: nowrap;
+  transition: color 220ms ease;
 }
 
-.brand img {
+/* Inline SVG (not <img>) so the mark inherits `color` and cross-fades with
+   the label instead of snapping through grey via a CSS filter. */
+.brand svg {
   width: 34px;
   height: 34px;
 }
@@ -295,14 +319,14 @@ button {
 }
 
 .site-nav > a:not(.button) {
-  color: var(--muted);
+  color: var(--hdr-muted);
   font-size: 0.86rem;
   font-weight: 600;
-  transition: color 150ms ease;
+  transition: color 220ms ease;
 }
 
 .site-nav > a:not(.button):hover {
-  color: var(--foreground);
+  color: var(--hdr-ink);
 }
 
 .nav-toggle {
@@ -310,10 +334,13 @@ button {
   width: 42px;
   height: 42px;
   padding: 0;
-  border: 1px solid var(--border);
+  border: 1px solid var(--hdr-control-border);
   border-radius: var(--radius-button);
-  background: var(--surface);
+  background: var(--hdr-control-bg);
   cursor: pointer;
+  transition:
+    background-color 220ms ease,
+    border-color 220ms ease;
 }
 
 .nav-toggle span {
@@ -321,8 +348,11 @@ button {
   width: 17px;
   height: 1.5px;
   margin: 4px auto;
-  background: var(--foreground);
-  transition: transform 180ms ease, opacity 180ms ease;
+  background: var(--hdr-ink);
+  transition:
+    transform 180ms ease,
+    opacity 180ms ease,
+    background-color 220ms ease;
 }
 
 .nav-toggle[aria-expanded="true"] span:nth-child(1) {
@@ -349,16 +379,19 @@ button {
   gap: 7px;
   min-height: 38px;
   padding: 0 11px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--hdr-control-border);
   border-radius: var(--radius-button);
-  background: var(--surface);
-  color: var(--muted);
+  background: var(--hdr-control-bg);
+  color: var(--hdr-muted);
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
   list-style: none;
   user-select: none;
-  transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
+  transition:
+    color 220ms ease,
+    border-color 220ms ease,
+    background-color 220ms ease;
 }
 
 .lang-switcher summary::-webkit-details-marker {
@@ -366,8 +399,8 @@ button {
 }
 
 .lang-switcher summary:hover {
-  color: var(--foreground);
-  border-color: var(--border-strong);
+  color: var(--hdr-ink);
+  border-color: var(--hdr-control-hover-border);
 }
 
 .lang-switcher summary svg {
@@ -382,8 +415,8 @@ button {
 }
 
 .lang-switcher[open] summary {
-  color: var(--foreground);
-  border-color: var(--border-strong);
+  color: var(--hdr-ink);
+  border-color: var(--hdr-control-hover-border);
 }
 
 .lang-switcher[open] summary svg:last-child {
@@ -397,82 +430,102 @@ button {
   z-index: 60;
   width: 190px;
   padding: 6px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--hdr-control-border);
   border-radius: 12px;
-  background: var(--surface);
+  background: var(--hdr-panel-bg);
   box-shadow: var(--shadow-raised);
+  transition:
+    background-color 220ms ease,
+    border-color 220ms ease;
 }
 
 .lang-panel a {
   display: block;
   padding: 9px 11px;
   border-radius: 8px;
-  color: var(--muted);
+  color: var(--hdr-muted);
   font-size: 0.86rem;
-  transition: background-color 120ms ease, color 120ms ease;
+  transition: background-color 120ms ease, color 220ms ease;
 }
 
 .lang-panel a:hover {
-  background: var(--muted-bg);
-  color: var(--foreground);
+  background: var(--hdr-panel-hover-bg);
+  color: var(--hdr-ink);
 }
 
 .lang-panel a[aria-current="page"] {
-  color: var(--accent-strong);
-  background: var(--accent-soft);
+  color: var(--hdr-panel-current-ink);
+  background: var(--hdr-panel-current-bg);
 }
 
-/* ---------- Header over the video hero (transparent at the very top only) ---------- */
+.site-header .site-nav .button-small {
+  border-color: var(--hdr-cta-bg);
+  background: var(--hdr-cta-bg);
+  color: var(--hdr-cta-ink);
+  transition:
+    background-color 220ms ease,
+    border-color 220ms ease,
+    color 220ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
 
+.site-header .site-nav .button-small:hover {
+  background: var(--hdr-cta-hover-bg);
+  border-color: var(--hdr-cta-hover-bg);
+  color: var(--hdr-cta-ink);
+}
+
+/* ---------- Header tones ---------- */
+
+/* State 2 — the whole dark cinematic run (hero → trust strip → story →
+   theater). Frosted dark glass keeps scrolling thumbnails from eating the
+   labels; the hairline border ties the bar to the stage below. */
+html.is-header-dark .site-header {
+  --hdr-bg: rgba(5, 8, 15, 0.78);
+  --hdr-border: rgba(255, 255, 255, 0.08);
+  --hdr-ink: #ffffff;
+  --hdr-muted: rgba(255, 255, 255, 0.78);
+  --hdr-control-bg: rgba(255, 255, 255, 0.06);
+  --hdr-control-border: rgba(255, 255, 255, 0.16);
+  --hdr-control-hover-border: rgba(255, 255, 255, 0.32);
+  --hdr-panel-bg: #0b111c;
+  --hdr-panel-alt-bg: rgba(255, 255, 255, 0.08);
+  --hdr-panel-hover-bg: rgba(255, 255, 255, 0.1);
+  --hdr-panel-current-bg: rgba(255, 255, 255, 0.14);
+  --hdr-panel-current-ink: #ffffff;
+  --hdr-cta-bg: #ffffff;
+  --hdr-cta-hover-bg: #e7edf7;
+  --hdr-cta-ink: #0f172a;
+}
+
+/* State 1 — only the very first frame of the hero is a transparent overlay.
+   Declared last so it wins while both classes are present at the top (and so
+   opening the mobile nav there falls back to the readable dark glass above). */
 html.is-hero-top .site-header {
+  --hdr-ink: #ffffff;
+  --hdr-muted: rgba(255, 255, 255, 0.8);
+  --hdr-control-bg: rgba(6, 9, 15, 0.35);
+  --hdr-control-border: rgba(255, 255, 255, 0.22);
+  --hdr-control-hover-border: rgba(255, 255, 255, 0.4);
+  --hdr-panel-bg: #0b111c;
+  --hdr-panel-alt-bg: rgba(255, 255, 255, 0.08);
+  --hdr-panel-hover-bg: rgba(255, 255, 255, 0.1);
+  --hdr-panel-current-bg: rgba(255, 255, 255, 0.14);
+  --hdr-panel-current-ink: #ffffff;
+  --hdr-cta-bg: #ffffff;
+  --hdr-cta-hover-bg: #e7edf7;
+  --hdr-cta-ink: #0f172a;
+
   border-bottom-color: transparent;
-  background: linear-gradient(180deg, rgba(4, 7, 13, 0.55) 0%, rgba(4, 7, 13, 0) 100%);
+  background-image: linear-gradient(
+    180deg,
+    rgba(4, 7, 13, 0.55) 0%,
+    rgba(4, 7, 13, 0) 100%
+  );
+  background-color: transparent;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-}
-
-html.is-hero-top .brand {
-  color: #ffffff;
-}
-
-html.is-hero-top .brand img {
-  filter: brightness(0) invert(1);
-}
-
-html.is-hero-top .site-nav > a:not(.button) {
-  color: rgba(255, 255, 255, 0.8);
-}
-
-html.is-hero-top .site-nav > a:not(.button):hover {
-  color: #ffffff;
-}
-
-html.is-hero-top .lang-switcher summary {
-  border-color: rgba(255, 255, 255, 0.22);
-  background: rgba(6, 9, 15, 0.35);
-  color: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-
-html.is-hero-top .lang-switcher summary:hover {
-  border-color: rgba(255, 255, 255, 0.4);
-  color: #ffffff;
-}
-
-html.is-hero-top .site-nav .button-small {
-  border-color: #ffffff;
-  background: #ffffff;
-  color: #0f172a;
-}
-
-html.is-hero-top .nav-toggle {
-  border-color: rgba(255, 255, 255, 0.28);
-  background: rgba(6, 9, 15, 0.35);
-}
-
-html.is-hero-top .nav-toggle span {
-  background: #ffffff;
 }
 
 /* ---------- Hero (full-bleed video backdrop) ---------- */
@@ -1569,10 +1622,13 @@ html.is-hero-top .nav-toggle span {
     align-items: stretch;
     gap: 2px;
     padding: 12px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--hdr-control-border);
     border-radius: 16px;
-    background: var(--surface);
+    background: var(--hdr-panel-bg);
     box-shadow: var(--shadow-raised);
+    transition:
+      background-color 220ms ease,
+      border-color 220ms ease;
   }
 
   .site-nav.is-open {
@@ -1586,7 +1642,7 @@ html.is-hero-top .nav-toggle span {
   }
 
   .site-nav > a:not(.button):hover {
-    background: var(--muted-bg);
+    background: var(--hdr-panel-hover-bg);
   }
 
   .lang-switcher {
@@ -1603,13 +1659,13 @@ html.is-hero-top .nav-toggle span {
     position: static;
     width: 100%;
     margin-top: 6px;
-    border-color: var(--border);
-    background: var(--muted-bg);
+    border-color: var(--hdr-control-border);
+    background: var(--hdr-panel-alt-bg);
     box-shadow: none;
   }
 
   .lang-panel a:hover {
-    background: var(--surface);
+    background: var(--hdr-panel-bg);
   }
 
   .site-nav .button-small {

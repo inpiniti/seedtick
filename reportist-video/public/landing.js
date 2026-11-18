@@ -63,23 +63,50 @@
   });
 })();
 
-/* ---------- Overlay header: transparent only at the very top ---------- */
+/* ---------- Overlay header: tone follows the dark cinematic sections ---------- */
 
 (() => {
-  // The landing hero runs full-bleed under a transparent header; the solid
-  // sticky header returns as soon as the page scrolls past the fold. The
-  // overlay drops while the mobile nav is open so the menu stays readable.
-  const hero = document.querySelector(".hero");
-  if (!hero) return;
+  const header = document.querySelector(".site-header");
+  if (!header) return;
 
-  const toggle = document.querySelector("[data-nav-toggle]");
   const root = document.documentElement;
+  const toggle = document.querySelector("[data-nav-toggle]");
+  const themeColor = document.querySelector('meta[name="theme-color"]');
+  const darkSections = Array.from(
+    document.querySelectorAll('[data-header-tone="dark"]')
+  );
+  const DARK = "#05080f";
+  const LIGHT = "#f8f9fa";
+
+  // This runs on every scroll frame while Lenis drives the long scroll story,
+  // so only touch the DOM when a state actually flips.
+  let lastTop = null;
+  let lastDark = null;
 
   const sync = () => {
     const navOpen = toggle
       ? toggle.getAttribute("aria-expanded") === "true"
       : false;
-    root.classList.toggle("is-hero-top", window.scrollY < 24 && !navOpen);
+    const isHeroTop = window.scrollY < 24 && !navOpen;
+
+    // Probe the header's midpoint against the cached dark sections. Bounding
+    // rects stay accurate across resizes and mobile address-bar height changes,
+    // unlike a 1px-slice IntersectionObserver rootMargin that drifts on reflow.
+    const probeY = header.offsetHeight * 0.5;
+    const isDark = darkSections.some((section) => {
+      const rect = section.getBoundingClientRect();
+      return rect.top <= probeY && rect.bottom >= probeY;
+    });
+
+    if (isHeroTop !== lastTop) {
+      root.classList.toggle("is-hero-top", isHeroTop);
+      lastTop = isHeroTop;
+    }
+    if (isDark !== lastDark) {
+      root.classList.toggle("is-header-dark", isDark);
+      themeColor?.setAttribute("content", isDark ? DARK : LIGHT);
+      lastDark = isDark;
+    }
   };
 
   const scheduleSync = () => requestAnimationFrame(sync);

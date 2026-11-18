@@ -64,6 +64,19 @@ const media = (url) => `/media/${url}?v=${ASSET_VERSIONS.media}`;
 // tells search engines that 펭귄컷/팽귄컷 and PenguinCut are the same entity.
 const BRAND_ALIASES = ["펭귄컷", "팽귄컷", "Penguin Cut"];
 
+// Inline the penguin mark so the header can cross-fade its `color` between
+// light and dark tones. As an <img> the SVG can't inherit the parent color and
+// the old `filter: invert()` trick snapped through grey mid-transition.
+const BRAND_MARK = readFileSync(
+  new URL("../public/penguin-logo.svg", import.meta.url),
+  "utf8"
+)
+  .trim()
+  .replace(
+    "<svg ",
+    '<svg class="brand-mark" aria-hidden="true" focusable="false" '
+  );
+
 const ICONS = {
   sparkles: `
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
@@ -196,7 +209,7 @@ function renderHeader(locale) {
   <header class="site-header">
     <div class="container header-inner">
       <a class="brand" href="${esc(locale.path)}" aria-label="PenguinCut">
-        <img src="/penguin-logo.svg" alt="" width="36" height="36">
+        ${BRAND_MARK}
         <span>PenguinCut</span>
       </a>
 
@@ -233,7 +246,7 @@ function renderHeader(locale) {
 function renderHero(locale) {
   const { hero } = locale;
   return `
-    <section class="hero" aria-labelledby="hero-title">
+    <section class="hero" data-header-tone="dark" aria-labelledby="hero-title">
       <div class="hero-bg" aria-hidden="true">
         <video class="hero-bg-video" data-hero-bg muted loop playsinline autoplay preload="metadata" poster="${media("hero-poster.webp")}" width="1280" height="532" tabindex="-1">
           <source src="${media("hero-nature.mp4")}" type="video/mp4">
@@ -312,7 +325,7 @@ function renderFilmModal(locale) {
 
 function renderStrip(locale) {
   return `
-    <section class="trust-strip" aria-label="${esc(locale.hero.badge)}">
+    <section class="trust-strip" data-header-tone="dark" aria-label="${esc(locale.hero.badge)}">
       <div class="container trust-strip-inner">
         ${locale.strip
           .map((item) => `<span>${esc(item)}</span>`)
@@ -326,7 +339,7 @@ function renderTheater(locale) {
   const chapterTimes = [0, 4.8, 20.6];
 
   return `
-    <section class="theater" id="film" aria-labelledby="theater-title">
+    <section class="theater" id="film" data-header-tone="dark" aria-labelledby="theater-title">
       <div class="container">
         <div class="theater-head">
           <p class="eyebrow"><span class="eyebrow-dot"></span>${esc(
@@ -469,7 +482,7 @@ function renderStory(locale) {
     .join("");
 
   return `
-  <section class="story" id="story" data-story aria-labelledby="story-title">
+  <section class="story" id="story" data-story data-header-tone="dark" aria-labelledby="story-title">
     <!-- Semantic content: crawled by search engines, shown when motion is off -->
     <div class="story-content">
       <div class="story-chapter" id="reel">
@@ -753,7 +766,7 @@ function renderFooter(locale) {
     <div class="container footer-grid">
       <div class="footer-brand">
         <a class="brand" href="${esc(locale.path)}" aria-label="PenguinCut">
-          <img src="/penguin-logo.svg" alt="" width="36" height="36">
+          ${BRAND_MARK}
           <span>PenguinCut</span>
         </a>
         <p>${esc(locale.footer.tagline)}</p>
@@ -944,6 +957,15 @@ ${verification.length ? `${verification.map((tag) => `  ${tag}\n`).join("")}\n` 
     try {
       if (!matchMedia("(prefers-reduced-motion: reduce)").matches && innerHeight > 540) {
         document.documentElement.classList.add("has-motion-stage");
+      }
+    } catch (_) {}
+    // Paint the dark hero bar before first paint so a reload at the top never
+    // flashes a white strip over the video. landing.js takes over on load,
+    // including tone detection for reloads further down the page.
+    try {
+      if (scrollY < 24) {
+        document.documentElement.classList.add("is-hero-top");
+        document.querySelector('meta[name="theme-color"]')?.setAttribute("content", "#05080f");
       }
     } catch (_) {}
     // Preserve old app links such as /#projects when the marketing page takes over /.
