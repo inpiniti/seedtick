@@ -50,6 +50,24 @@
   flex-shrink: 0;
 }
 
+/* 로고·앱명을 누르면 랜딩 페이지(/)로 이동 (App.css의 .brand-section과 동일한 패턴) */
+.toss-nav-brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: inherit; /* .toss-nav-left 의 반응형 간격(10/8/6/4px)을 그대로 유지 */
+  min-width: 0;
+  flex-shrink: 0;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.toss-nav-brand-link:focus-visible {
+  outline: 2px solid #3182f6;
+  outline-offset: 2px;
+}
+
 .toss-logo-badge {
   display: inline-flex;
   align-items: center;

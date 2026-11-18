@@ -5044,13 +5044,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           ) : (
             /* 목록 및 커뮤니티 화면: 로고, 브랜드명, 상단 탭 노출 */
             <>
-              <div className="toss-logo-badge">
-                <PenguinLogo size={28} color="#191f28" />
-              </div>
-              <div className="toss-nav-brand-block">
-                <span className="toss-nav-title">{dict.common.brandName}</span>
-                <span className="toss-nav-tagline">{dict.common.taglineBadge}</span>
-              </div>
+              <a
+                href="/"
+                className="toss-nav-brand-link"
+                title={dict.common.visitPenguinCutHome || 'PenguinCut 홈으로 이동'}
+                aria-label={dict.common.visitPenguinCutHome || 'PenguinCut 홈으로 이동'}
+              >
+                <div className="toss-logo-badge">
+                  <PenguinLogo size={28} color="#191f28" />
+                </div>
+                <div className="toss-nav-brand-block">
+                  <span className="toss-nav-title">{dict.common.brandName}</span>
+                  <span className="toss-nav-tagline">{dict.common.taglineBadge}</span>
+                </div>
+              </a>
 
               {/* 상단 네비게이션 탭 (스튜디오 목록 & 영상 공유 커뮤니티) */}
               <div className="toss-nav-tabs-group">
