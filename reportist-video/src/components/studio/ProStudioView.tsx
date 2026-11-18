@@ -4942,7 +4942,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   );
 
   return (
-    <div className="toss-page-container" onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
+    <div
+      className={`toss-page-container ${activeTab !== 'studio' ? 'toss-page-container-no-bottom-cta' : ''}`}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={handleDrop}
+    >
       <input
         ref={fileInputRef}
         type="file"
@@ -5007,6 +5011,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 >
                   <Film size={14} />
                   <span>{dict.community?.studioTab || dict.projects?.tabTitle || '스튜디오'}</span>
+                  {projectSummaries.length > 0 && (
+                    <em className="toss-nav-tab-count">{projectSummaries.length}</em>
+                  )}
                 </button>
                 <button
                   type="button"
@@ -5133,6 +5140,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             >
               <Film size={15} />
               <span>{dict.community?.studioTab || dict.projects?.tabTitle || '스튜디오'}</span>
+              {projectSummaries.length > 0 && (
+                <em className="toss-nav-tab-count">{projectSummaries.length}</em>
+              )}
             </button>
             <button
               type="button"

@@ -193,6 +193,32 @@
   white-space: nowrap;
 }
 
+/* 탭에 붙는 프로젝트 개수 배지 (알림용 badge와 별개, 모노톤) */
+.toss-nav-tab-count {
+  font-style: normal;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: 9999px;
+  background-color: #f1f5f9;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.toss-nav-tab-btn.active .toss-nav-tab-count,
+.toss-strip-tab-btn.active .toss-nav-tab-count {
+  background-color: #0f172a;
+  color: #ffffff;
+}
+
 /* Studio Hierarchy: Back to Project List Button (replaces logo & tabs in detail view) */
 .toss-nav-back-btn,
 .toss-nav-back-to-list-btn {
@@ -9228,18 +9254,6 @@
   border-top: 1px solid #f1f5f9;
 }
 
-.toss-project-open-btn {
-  flex: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 700;
-  padding: 8px 14px;
-  border-radius: 10px;
-}
-
 .toss-btn-icon-subtle {
   display: inline-flex;
   align-items: center;
@@ -9506,19 +9520,104 @@
 }
 
 @media (max-width: 640px) {
+  /* 상단 타이틀·설명은 숨기고 저장 배지 + 새 작업 버튼만 한 줄로 유지 */
   .toss-projects-view-container {
-    padding: 16px 12px 40px;
-    gap: 12px;
+    padding: 0 0 24px;
+    gap: 0;
   }
 
-  .toss-projects-title {
-    font-size: 20px;
+  .toss-projects-header {
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 8px;
+    padding: 8px 12px 10px;
   }
 
+  .toss-projects-title-col {
+    display: none;
+  }
+
+  .toss-projects-header-actions {
+    flex: 1;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .toss-projects-new-btn {
+    padding: 0 12px;
+  }
+
+  /* 풀블리드 피드: 카드 박스를 걷어내고 화면 좌우 끝까지 붙인다 */
   .toss-projects-grid,
   .toss-projects-loading-grid {
     grid-template-columns: 1fr;
-    gap: 12px;
+    gap: 0;
+  }
+
+  .toss-project-card,
+  .toss-project-skeleton-card {
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+    border-top: 0;
+    border-bottom: 1px solid #e5e8eb;
+    box-shadow: none;
+    background-color: #ffffff;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .toss-project-card:hover {
+    transform: none;
+    box-shadow: none;
+    border-color: #e5e8eb;
+  }
+
+  /* 활성 카드는 좌측 인디케이터로만 강조 (좌우 테두리 잘림 방지) */
+  .toss-project-card.current-active {
+    border-color: #e5e8eb;
+    box-shadow: inset 3px 0 0 #0f172a;
+  }
+
+  .toss-project-card-body {
+    padding: 10px 12px 12px;
+    gap: 6px;
+  }
+
+  /* 한 줄 제목일 때 2줄 높이를 예약하지 않는다 */
+  .toss-project-card-title {
+    min-height: 0;
+  }
+
+  /* 카드 전체가 열기 동작이므로 액션은 썸네일 우측 상단으로 옮겨 본문을 2줄로 유지 */
+  .toss-project-card-actions {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 2;
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+
+  .toss-project-card-actions .toss-btn-icon-subtle {
+    background-color: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
+  }
+
+  .toss-project-skeleton-body {
+    padding: 10px 12px 12px;
+    gap: 6px;
+  }
+
+  .toss-projects-empty-card {
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+    border-top: 0;
+    margin-top: 0;
   }
 }
 
@@ -14656,6 +14755,11 @@
   /* 하단 고정 CTA 바(36px 버튼 + 6px 상하 패딩 = 48px)만큼 본문 하단 여백 확보 */
   .toss-page-container {
     padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  /* 목록/커뮤니티 탭에는 하단 CTA 바가 없으므로 여백을 되돌린다 */
+  .toss-page-container.toss-page-container-no-bottom-cta {
+    padding-bottom: 0 !important;
   }
 
   /* 모바일에서는 플레이어 카드만 상단에 고정해, 아래 옵션을 조작하는 동안에도

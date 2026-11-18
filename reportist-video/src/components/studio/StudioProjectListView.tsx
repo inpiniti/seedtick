@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   FolderOpen,
   Plus,
-  Play,
   Copy,
   Trash2,
   Clock,
@@ -257,25 +256,17 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
                     {proj.title}
                   </h3>
 
-                  {/* 카드 하단 액션 버튼 그룹 */}
+                  {/* 카드 하단 액션: 카드 전체가 열기 동작을 하므로 복제/삭제만 남긴다 */}
                   <div
                     className="toss-project-card-actions"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <button
                       type="button"
-                      className="toss-btn-primary toss-btn-sm toss-project-open-btn"
-                      onClick={() => onOpenProject(proj.id)}
-                    >
-                      <Play size={13} fill="currentColor" />
-                      <span>{pDict.openBtn}</span>
-                    </button>
-
-                    <button
-                      type="button"
                       className="toss-btn-icon-subtle"
                       onClick={() => onDuplicateProject(proj.id)}
                       title={pDict.duplicateBtn}
+                      aria-label={pDict.duplicateBtn}
                     >
                       <Copy size={15} />
                     </button>
@@ -285,6 +276,7 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
                       className="toss-btn-icon-subtle danger"
                       onClick={() => setDeleteTargetId(proj.id)}
                       title={pDict.deleteBtn}
+                      aria-label={pDict.deleteBtn}
                     >
                       <Trash2 size={15} />
                     </button>
