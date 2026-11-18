@@ -11,7 +11,6 @@
   --ui-h-lg: 40px;
   --ui-input-h-sm: 34px;
   --ui-input-h-md: 38px;
-  --ui-input-h-lg: 40px;
   /* 아이콘 전용 버튼은 정사각(28/32/38/40)으로 별도 스케일을 쓴다. */
   --ui-icon-btn-xs: 28px;
   --ui-icon-btn-sm: 32px;
@@ -76,10 +75,9 @@
     --ui-fs-lg: 13.5px;
 
     /* iOS Safari는 폼 컨트롤 폰트가 16px 미만이면 화면을 확대한다.
-       index.css가 모바일에서 16px을 강제하므로 입력 높이도 34/36/38로 맞춰
-       데스크탑(34/38/40)보다 오히려 조밀하게 유지한다. */
+       index.css가 모바일에서 16px을 강제하므로 입력 높이도 34/36으로 맞춰
+       데스크탑(34/38)보다 오히려 조밀하게 유지한다. */
     --ui-input-h-sm: 34px;
     --ui-input-h-md: 36px;
-    --ui-input-h-lg: 38px;
   }
 }
