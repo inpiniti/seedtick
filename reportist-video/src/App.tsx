@@ -492,6 +492,11 @@ export function App() {
   // 새 작업 시작 (통합 스튜디오에서 영상 업로드부터 바로 시작)
   // orientation/platform은 프로젝트 생성 시점의 포맷 선택 모달에서 전달된다 (없으면 가로 16:9).
   const handleStartNewProject = (orientation?: VideoOrientation, platform?: PortraitPlatform) => {
+    // 이전 작업의 대기 중인 자동 저장을 취소해야 삭제/리셋 직후 옛 데이터가 다시 저장되지 않는다.
+    if (autoSaveTimerRef.current !== null) {
+      window.clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
     const urlsToRevoke: string[] = [];
     videos.forEach((v: VideoItem) => {
       if (v.url && v.url.startsWith('blob:')) urlsToRevoke.push(v.url);
@@ -2179,6 +2184,9 @@ export function App() {
         saveStatus={saveStatus}
         projectSummaries={projectSummaries}
         isLoadingProjects={isLoadingProjects}
+        onProjectsRefresh={() => {
+          void refreshProjectSummaries();
+        }}
         onOpenProject={handleOpenProject}
         onDuplicateProject={handleDuplicateProject}
         onDeleteProject={handleDeleteProject}

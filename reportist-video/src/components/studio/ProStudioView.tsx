@@ -451,6 +451,8 @@ interface ProStudioViewProps {
   saveStatus?: 'saved' | 'saving' | 'idle';
   projectSummaries?: StudioProjectSummary[];
   isLoadingProjects?: boolean;
+  /** 저장소 완전 비우기 후 프로젝트 목록 상태를 즉시 다시 읽는다. */
+  onProjectsRefresh?: () => void;
   onOpenProject?: (id: string) => void | Promise<void>;
   onDuplicateProject?: (id: string) => void;
   onDeleteProject?: (id: string) => void;
@@ -497,6 +499,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   saveStatus = 'saved',
   projectSummaries = [],
   isLoadingProjects = false,
+  onProjectsRefresh,
   onOpenProject,
   onDuplicateProject,
   onDeleteProject,
@@ -1836,11 +1839,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   }, [pendingOrientation, onStartNewProject, resetStudioState, navigateToTab]);
 
   // 저장소 완전 비우기 후: 포맷 선택 모달을 열지 않고 메모리 상태만 조용히 초기화한다.
+  // 프로젝트 목록(App 상태)도 즉시 다시 읽어 삭제된 항목이 새로고침 없이 사라지게 한다.
   const handleStorageWiped = useCallback(() => {
     setIsFormatModalOpen(false);
     resetStudioState();
     onReset?.();
-  }, [resetStudioState, onReset]);
+    onProjectsRefresh?.();
+  }, [resetStudioState, onReset, onProjectsRefresh]);
 
   // 상위 결과 갱신 동기화 및 썸네일/타이틀 준비
   const appliedSuggestedTitleRef = useRef<string | null>(null);
