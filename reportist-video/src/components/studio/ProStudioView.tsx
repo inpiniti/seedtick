@@ -4155,6 +4155,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     goToSection(studioSteps[nextIndex].id);
   };
 
+  // 시간 포맷 (00:04)
+  // 주의: getStudioStepStatus의 'fullPreview' 상태 문구에서도 사용하므로
+  // 해당 함수가 정의되기 전에 초기화해 둔다. (const TDZ로 인한 렌더 크래시 방지)
+  const formatSec = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
+
   // 단계별 상태 요약 문구 (데스크탑 스텝바 · 모바일 스텝 헤더/바텀시트에서 공용으로 사용)
   const getStudioStepStatus = (stepId: StudioSection): string => {
     switch (stepId) {
@@ -5121,13 +5130,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     } finally {
       setIsUpdatingThumbnail(false);
     }
-  };
-
-  // 시간 포맷 (00:04)
-  const formatSec = (sec: number) => {
-    const m = Math.floor(sec / 60);
-    const s = Math.floor(sec % 60);
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
   // 왼쪽/오른쪽 문구 입력 필드 (데스크탑 상단 바 · 모바일 인트로 카드에서 공용으로 사용)
