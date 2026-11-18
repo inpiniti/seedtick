@@ -8914,17 +8914,21 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               </button>
             </div>
 
-            {/* Modal Body */}
-            <div style={{ padding: '20px 24px', overflowY: 'auto' }}>
+            {/* Modal Body — 지도는 여백 없이 모달 너비 전체를 채운다 */}
+            <div style={{ padding: 0, overflowY: 'auto' }}>
               <div className="toss-map-frame-box">
                 {mapModalTarget.latitude && mapModalTarget.longitude ? (
                   <iframe
                     title={dict.mapModal.title}
-                    className="w-full h-64 rounded-xl border border-slate-200"
+                    className="block w-full border-0"
+                    style={{ height: 'min(52vh, 420px)' }}
                     src={`https://www.openstreetmap.org/export/embed.html?bbox=${mapModalTarget.longitude - 0.008}%2C${mapModalTarget.latitude - 0.008}%2C${mapModalTarget.longitude + 0.008}%2C${mapModalTarget.latitude + 0.008}&layer=mapnik&marker=${mapModalTarget.latitude}%2C${mapModalTarget.longitude}`}
                   />
                 ) : (
-                  <div className="w-full h-48 rounded-xl bg-slate-50 border border-slate-200 flex flex-col items-center justify-center p-4 text-center">
+                  <div
+                    className="w-full bg-slate-50 flex flex-col items-center justify-center p-6 text-center"
+                    style={{ height: 'min(52vh, 420px)' }}
+                  >
                     <MapPin size={28} className="text-slate-300 mb-2" />
                     <p className="text-xs text-slate-700 font-bold mb-1">
                       {interpolate(dict.mapModal.noGpsTitle, {
