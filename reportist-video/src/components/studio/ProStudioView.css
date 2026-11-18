@@ -15574,6 +15574,19 @@
     padding: 6px 0;
   }
 
+  /* 구분선 리스트는 항목이 2개 이상일 때만 아래 선을 그린다.
+     항목이 1개면 구분할 대상이 없으므로 선을 숨긴다. */
+  .toss-location-item:only-child,
+  .toss-caption-list-row:only-child {
+    border-bottom: none;
+  }
+
+  /* 선택된 업로드 행은 테두리 전체를 두른 카드이므로, 아래 선만 투명하게 처리해
+     카드 모양은 유지하면서 구분선만 숨긴다. */
+  .toss-upload-item:only-child {
+    border-bottom-color: transparent;
+  }
+
   /* 8) 요약 블록: 얇은 테두리만 제거해 연회색 Surface 1겹 유지 */
   .toss-bridge-route,
   .toss-music-current,
