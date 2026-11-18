@@ -210,8 +210,9 @@ type MapModalTarget = Partial<
 // ============================================================
 // 통합 스튜디오 편집 가이드 (생성/편집 흐름 구분 없이 처음부터 끝까지 같은 순서)
 // 영상 상단 문구 → 인트로 스타일 → 영상 올리기 → 촬영 위치 → AI 하이라이트
-// → 컷 다듬기 → 자막 수정 → 브릿지 → 아웃트로 → 노래 → 썸네일 → 다운로드
-// (AI 분석 전에는 '촬영 위치'는 영상 업로드 후, '컷 다듬기'·'자막 수정'은 분석 후에만 열린다)
+// → 컷 다듬기 → 자막 수정 → 브릿지 → 아웃트로 → 노래 → 전체 보기 → 썸네일 → 다운로드
+// (AI 분석 전에는 '촬영 위치'는 영상 업로드 후, '컷 다듬기'·'자막 수정'·'전체 보기'는 분석 후에만 열린다)
+// 각 단계는 자신의 편집 대상만 미리보기에 보여주고, 전체 합성 결과는 '전체 보기' 단계에서만 확인한다.
 // ============================================================
 type StudioSection =
   | 'intro'
@@ -224,6 +225,7 @@ type StudioSection =
   | 'bridge'
   | 'outro'
   | 'music'
+  | 'fullPreview'
   | 'thumbnail'
   | 'download';
 
@@ -294,7 +296,13 @@ const STUDIO_STEPS: StudioStep[] = [
     id: 'music',
     label: '노래',
     shortDesc: '배경음악',
-    description: '영상 전체에 깔리는 노래를 골라요. 어떤 단계를 편집하든 언제든 바꿀 수 있어요.',
+    description: '영상 전체에 깔리는 노래를 골라요. 어떤 단계를 편집하든 언제든 바꿀 수 있어요. 영상과 함께 듣는 것은 다음 전체 보기 단계에서 할 수 있어요.',
+  },
+  {
+    id: 'fullPreview',
+    label: '전체 보기',
+    shortDesc: '최종 확인',
+    description: '지금까지 편집한 인트로·컷·자막·브릿지·아웃트로·노래를 처음부터 끝까지 합쳐서 확인해요. 타임라인에서 원하는 지점으로 바로 이동할 수도 있어요.',
   },
   {
     id: 'thumbnail',
@@ -837,6 +845,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [trimModalTarget, setTrimModalTarget] = useState<HighlightSegment | null>(null);
   // 자막 단계에서 전체 씬 자막을 한 화면에서 편집하는 리스트 보기 열림 여부
   const [isCaptionListOpen, setIsCaptionListOpen] = useState(false);
+  // 노래 단계의 BGM 단독 미리보기 재생 여부
+  const [isBgmPreviewPlaying, setIsBgmPreviewPlaying] = useState(false);
   const [editingBridgeIndex, setEditingBridgeIndex] = useState<number | null>(null);
   // 통합 스튜디오: 현재 편집 중인 단계와 브릿지 선택 상태
   // 처음 진입할 때는 컷이 이미 있어도 항상 1번 인트로부터 시작한다.
@@ -1937,7 +1947,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 스텝바·모바일 시트·이동 버튼이 모두 이 기준을 공유한다.
   const getStudioStepLockedReason = (stepId: StudioSection): string | null => {
     if (stepId === 'location' && videos.length === 0) return ui('영상 올리기 후 열림');
-    if ((stepId === 'cut' || stepId === 'caption') && segments.length === 0) {
+    if ((stepId === 'cut' || stepId === 'caption' || stepId === 'fullPreview') && segments.length === 0) {
       return ui('AI 분석 후 열림');
     }
     return null;
@@ -1965,6 +1975,18 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         : activeSection === 'intro' || activeSection === 'outro'
           ? activeSection
           : null;
+
+  // 스텝별 프리뷰 격리 — 단계 값만으로 결정되는 플래그 (아래 시간축 계산보다 먼저 필요하다).
+  const isRawSourcePreviewStep =
+    isSequenceMode &&
+    (activeSection === 'upload' || activeSection === 'location' || activeSection === 'ai');
+  const isMusicPreviewStep = isSequenceMode && activeSection === 'music';
+  const isFullPreviewStep = isSequenceMode && activeSection === 'fullPreview';
+  const isSingleSegmentPreviewStep =
+    isSequenceMode && (activeSection === 'cut' || activeSection === 'caption');
+  // 합성 캔버스를 그려야 하는 단계인지 (원본/음악 단독 미리보기에서는 캔버스를 숨긴다)
+  const showCompositeCanvas =
+    isSequenceMode && !standalonePreviewSection && !isRawSourcePreviewStep && !isMusicPreviewStep;
 
   // AI 분석이 끝나 컷이 처음 생기면 생성 흐름에서 편집 흐름의 '컷'으로 자연스럽게 이동한다.
   // 단, 기존 프로젝트를 열면 저장된 세그먼트가 뒤늦게 채워지는 것이므로 분석 완료로 오인하지 않는다.
@@ -2206,15 +2228,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const showThumbnailInPlayer = activeSection === 'thumbnail' && Boolean(thumbnailUrl);
   // 플레이어 카드와 타임라인 카드를 분리해, 모바일에서 플레이어만 상단에 고정한다.
   const showDraftPreviewBox =
-    isDraftPreview &&
+    (isDraftPreview || isRawSourcePreviewStep) &&
     videos.length > 0 &&
     (!isMobileViewport ||
       activeSection === 'upload' ||
       activeSection === 'location' ||
       activeSection === 'ai');
-  const showTimelineSequencer =
-    segments.length > 0 &&
-    (!isMobileViewport || activeSection === 'cut' || activeSection === 'caption' || activeSection === 'bridge');
+  // 멀티트랙 시퀀서는 '전체 보기' 단계에서만 노출한다.
+  // 컷/자막/브릿지 단계는 각 단계의 전용 미리보기와 네비게이터만 보여준다.
+  const showTimelineSequencer = Boolean(isFullPreviewStep);
 
   // 드래프트 모드에서만 비디오 변경 시 재생 초기화
   useEffect(() => {
@@ -2305,6 +2327,41 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     const idx = segments.findIndex((s) => s.id === selectedSegmentId);
     return idx >= 0 ? idx : 0;
   }, [segments, selectedSegmentId]);
+  const selectedSegment = segments[selectedSegmentIndex] ?? segments[0] ?? null;
+
+  // ============================================================
+  // 스텝별 프리뷰 격리
+  // - upload/location/ai: AI 컷이 있어도 선택한 원본 영상만 보여준다.
+  // - cut/caption: 선택한 컷 1개만, 그 컷의 시간축(0~duration)으로 보여준다.
+  // - music: 배경음악 단독 미리보기(영상 시퀀스는 숨김).
+  // - fullPreview: 전체 합성 시퀀스 + 멀티트랙 타임라인을 보여준다.
+  // 나머지(intro/introStyle/bridge/outro)는 standalonePreviewSection 경로를 그대로 쓴다.
+  // ============================================================
+  const isSingleSegmentPreview = isSingleSegmentPreviewStep && Boolean(selectedSegment);
+  const singleSegmentStartOffset =
+    isSingleSegmentPreview && selectedSegment
+      ? (segmentTimelineOffsets[selectedSegment.id]?.startOffset ?? 0)
+      : 0;
+
+  // 플레이어가 사용하는 시간축 (컷/자막 단계는 컷 로컬 시간, 원본 단계는 원본 길이)
+  const playerDuration = isSingleSegmentPreview
+    ? (selectedSegment?.duration ?? 0)
+    : isRawSourcePreviewStep
+    ? (previewNativeDuration || previewVideo?.duration || 0)
+    : isMusicPreviewStep
+    ? (customAudioDuration || 0)
+    : totalDuration;
+  const playerTime = isSingleSegmentPreview
+    ? Math.max(0, Math.min(playerDuration, currentTime - singleSegmentStartOffset))
+    : isRawSourcePreviewStep || isMusicPreviewStep
+    ? Math.max(0, Math.min(playerDuration || 0, currentTime))
+    : currentTime;
+  // 플레이어 로컬 시간을 시퀀스 타임라인 시간으로 변환 (컷/자막 단계만 오프셋이 있다)
+  const timelineFromPlayer = (localTime: number) =>
+    isSingleSegmentPreview ? singleSegmentStartOffset + localTime : localTime;
+  // 스텝 격리 모드에서는 스크럽이 편집 패널을 바꾸지 않는다 (전체 보기 포함).
+  const isIsolatedPlayerStep =
+    isRawSourcePreviewStep || isSingleSegmentPreview || isMusicPreviewStep || isFullPreviewStep;
 
   // 날짜/장소가 바뀌어 브릿지가 "들어갈 수 있는" 경계 목록 (꺼진 곳 포함)
   const bridgeCandidateIndexes = useMemo(() => {
@@ -2605,6 +2662,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // - 재생 중에는 눈이 피로하지 않도록 전환하지 않고, 스크럽/클릭/시크 시에만 동기화한다.
   // - 7번 노래 패널을 직접 연 상태에서는 사용자가 타임라인 블록을 누르기 전까지 유지한다.
   const syncSectionForTime = (timelineTime: number) => {
+    // 스텝별 격리 프리뷰(컷/자막/원본/음악/전체 보기)에서는 스크럽 때문에 단계가 튀지 않게 한다.
+    if (isIsolatedPlayerStep) return;
     if (segments.length === 0 || isSequencePlayingRef.current || musicPanelPinnedRef.current || sectionSyncSuppressRef.current) return;
     const res = resolveTimelineAt(timelineTime);
     if (res.phase === 'intro') {
@@ -2885,11 +2944,32 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const renderCompositorAt = (timelineTime: number) => {
     const canvas = previewCanvasRef.current;
     // 브릿지 단계에서는 독립 브릿지 미리보기 캔버스를 시퀀스 프레임으로 덮어쓰지 않는다.
-    if (!canvas || !isSequenceMode || standalonePreviewSection) return;
+    // 원본/음악 단독 미리보기 단계에서도 합성 캔버스를 그리지 않는다.
+    if (!canvas || !showCompositeCanvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const res = resolveTimelineAt(timelineTime);
+    const resolved = resolveTimelineAt(timelineTime);
+    // 컷/자막 단계에서는 타임라인 위치와 무관하게 선택된 컷 1개만 그린다.
+    const res =
+      isSingleSegmentPreview && selectedSegment && resolved.phase === 'segment'
+        ? {
+            ...resolved,
+            seg: selectedSegment,
+            segIndex: selectedSegmentIndex,
+            elapsed: Math.max(
+              0,
+              Math.min(selectedSegment.duration, timelineTime - singleSegmentStartOffset)
+            ),
+            duration: selectedSegment.duration,
+            mediaTime: Math.min(
+              selectedSegment.end,
+              selectedSegment.start +
+                Math.max(0, timelineTime - singleSegmentStartOffset)
+            ),
+            videoId: selectedSegment.sourceVideoId,
+          }
+        : resolved;
     const v = videoRef.current;
 
     if (res.phase === 'intro') {
@@ -3031,12 +3111,18 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         );
       }
 
-      drawCompositorSegmentOverlay(
-        ctx,
-        effectiveOverlayOptions,
-        seg,
-        frame
-      );
+      // 컷 다듬기: 자막·제목·채널 없는 순수 컷 프레임만 보여준다.
+      // 자막 수정: 해당 씬의 자막 + 날짜·장소만 보여준다.
+      // 전체 보기(그 외): 모든 오버레이를 정상 표시한다.
+      if (activeSection !== 'cut') {
+        drawCompositorSegmentOverlay(
+          ctx,
+          effectiveOverlayOptions,
+          seg,
+          frame,
+          { captionOnly: activeSection === 'caption' }
+        );
+      }
     }
   };
 
@@ -3310,10 +3396,25 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
   // 타임라인 시점(0 ~ totalDuration)으로 원본 비디오 및 컴포지터 즉시 시크
   const applyVideoSeek = (timelineTime: number) => {
+    const v = videoRef.current;
+
+    // 원본 영상만 보는 단계: 합성 타임라인 매핑 없이 원본 비디오를 직접 시크한다.
+    if (isRawSourcePreviewStep) {
+      const rawDuration = previewNativeDuration || previewVideo?.duration || Number.POSITIVE_INFINITY;
+      const clamped = Math.max(0, Math.min(rawDuration, timelineTime));
+      if (v) {
+        try {
+          if (Math.abs(v.currentTime - clamped) > 0.03) v.currentTime = clamped;
+        } catch {}
+      }
+      return;
+    }
+    // 음악 단계는 영상 시퀀스를 보여주지 않으므로 비디오 시크가 필요 없다.
+    if (isMusicPreviewStep) return;
+
     const clampedTimeline = Math.max(0, Math.min(totalDuration, timelineTime));
     // 재생 중이 아닐 때만 플레이헤드 위치에 맞춰 오른쪽 패널을 바꾼다.
     syncSectionForTime(clampedTimeline);
-    const v = videoRef.current;
 
     if (!isSequenceMode) {
       if (v) {
@@ -3729,6 +3830,74 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     startSequencePlayback(start);
   };
 
+  // 스텝 진입/컷 변경 시 해당 단계의 미리보기만 자동 재생하고 이전 미리보기를 정리한다.
+  // - 컷/자막: 선택한 컷 1개를 0초부터 컷 길이까지만 자동 재생
+  // - 전체 보기: 0초부터 전체 시퀀스 자동 재생
+  // - 원본/음악: 영상 시퀀스를 멈추고 각 단계 전용 화면만 유지
+  const previewModeKey = isFullPreviewStep
+    ? 'full'
+    : isSingleSegmentPreview && selectedSegment
+    ? `single:${activeSection}:${selectedSegment.id}:${selectedSegment.duration.toFixed(2)}`
+    : isRawSourcePreviewStep
+    ? 'raw'
+    : isMusicPreviewStep
+    ? 'music'
+    : 'none';
+  const lastPreviewModeRef = useRef<string>('none');
+  useEffect(() => {
+    const changed = lastPreviewModeRef.current !== previewModeKey;
+    lastPreviewModeRef.current = previewModeKey;
+    if (!changed) return;
+
+    // 이전 단계의 재생 루프를 모두 멈춰 잔상 프레임이 남지 않게 한다.
+    if (standalonePreviewRafRef.current) {
+      cancelAnimationFrame(standalonePreviewRafRef.current);
+      standalonePreviewRafRef.current = null;
+    }
+    standalonePreviewPlayingRef.current = false;
+    if (isSequencePlayingRef.current) {
+      stopSequencePlayback();
+    } else {
+      syncBgmPlayback(false);
+      setIsPlaying(false);
+    }
+    if (videoRef.current && !videoRef.current.paused) {
+      try {
+        videoRef.current.pause();
+      } catch {}
+    }
+    introCustomVideoRef.current?.pause();
+    outroCustomVideoRef.current?.pause();
+    setIsBgmPreviewPlaying(false);
+
+    if (previewModeKey.startsWith('single:')) {
+      if (!selectedSegment) return;
+      const offset = segmentTimelineOffsets[selectedSegment.id];
+      if (!offset) return;
+      previewSectionRange(offset.startOffset, offset.startOffset + selectedSegment.duration);
+    } else if (previewModeKey === 'full') {
+      sectionSyncSuppressRef.current = true;
+      try {
+        currentTimeRef.current = 0;
+        setCurrentTime(0);
+        applyVideoSeek(0);
+      } finally {
+        sectionSyncSuppressRef.current = false;
+      }
+      previewRangeEndRef.current = null;
+      startSequencePlayback(0);
+    } else if (previewModeKey === 'raw') {
+      currentTimeRef.current = 0;
+      setCurrentTime(0);
+      if (videoRef.current) {
+        try {
+          videoRef.current.currentTime = 0;
+        } catch {}
+      }
+    }
+    // music 단계에서는 영상 없이 BGM만 사용자가 재생할 수 있게 둔다.
+  }, [previewModeKey]);
+
   // 인트로·컷·브릿지·아웃트로 구간별 "이 부분만 다시 보기"
   const previewSectionPlay = (section: StudioSection, bridgeIndex?: number) => {
     // 썸네일/다운로드 단계는 영상 구간 미리보기가 없는 마무리 화면이다.
@@ -3763,7 +3932,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       return;
     }
     if (section === 'music') {
-      previewSectionRange(0, Math.min(totalDuration, 12));
+      // 노래 단계는 영상 시퀀스 대신 배경음악만 미리 듣는다.
+      setIsBgmPreviewPlaying(true);
+      syncBgmPlayback(true, 0);
+      return;
+    }
+    if (section === 'fullPreview') {
+      previewRangeEndRef.current = null;
+      startSequencePlayback(0);
       return;
     }
     if (section === 'bridge') {
@@ -3939,7 +4115,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     // 노래·썸네일·다운로드는 타임라인 위치와 무관한 마무리 패널이라
     // 사용자가 타임라인을 직접 만지기 전까지 해당 카드를 유지한다.
     musicPanelPinnedRef.current =
-      section === 'music' || section === 'thumbnail' || section === 'download';
+      section === 'music' ||
+      section === 'fullPreview' ||
+      section === 'thumbnail' ||
+      section === 'download';
     setActiveSection(section);
     if (section === 'intro' || section === 'introStyle') {
       handleSelectSegment('intro', section);
@@ -4058,6 +4237,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         return overlayOptions.showOutro ? ui('사용 중') : ui('사용 안 함');
       case 'music':
         return customAudioFile ? ui('선택됨') : ui('없음');
+      case 'fullPreview':
+        return segments.length > 0
+          ? ui('{count}개 컷 · {duration}', {
+              count: segments.length,
+              duration: formatSec(totalDuration),
+            })
+          : ui('대기');
       case 'thumbnail':
         return thumbnailUrl ? ui('자동으로 만들었어요') : ui('대기');
       case 'download':
@@ -4089,12 +4275,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       : ui('다음: {label}', { label: ui(nextStudioStep.label) })
     : ui('다음 단계');
 
-  // 상대 시간 이동 (-5s, +5s)
+  // 상대 시간 이동 (-5s, +5s) — 컷/자막 단계에서는 컷 로컬 시간축으로 이동한다.
   const seekRelative = (delta: number) => {
-    const baseTime = isSequenceMode
+    const baseTime = isSingleSegmentPreview || isRawSourcePreviewStep
+      ? playerTime
+      : isSequenceMode
       ? currentTimeRef.current
       : videoRef.current?.currentTime || currentTime;
-    const newT = Math.max(0, Math.min(totalDuration, baseTime + delta));
+    const maxT = playerDuration || totalDuration;
+    const newPlayerT = Math.max(0, Math.min(maxT, baseTime + delta));
+    const newT = timelineFromPlayer(newPlayerT);
     currentTimeRef.current = newT;
     activeSequencePhaseRef.current = '';
     applyVideoSeek(newT);
@@ -4109,16 +4299,18 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     trackEl?: HTMLDivElement | null
   ): number => {
     const track = trackEl ?? progressTrackRef.current;
-    if (!track || !totalDuration || totalDuration <= 0) return 0;
+    if (!track || !playerDuration || playerDuration <= 0) return 0;
     const rect = track.getBoundingClientRect();
     if (rect.width <= 0) return 0;
     const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    return ratio * totalDuration;
+    // 컷/자막 단계에서는 로컬 시간을 시퀀스 타임라인 시간으로 바꿔 반환한다.
+    return timelineFromPlayer(ratio * playerDuration);
   };
 
   // 컷 경계 눈금 — 데스크탑 트랜스포트 바와 모바일 인라인 스크럽 바가 같은 목록을 공유한다.
+  // 단일 컷·원본 미리보기에서는 전체 컷 경계를 보여주지 않는다.
   const renderProgressSegmentTicks = () =>
-    segments.map((seg, idx) => {
+    (isSingleSegmentPreview || isRawSourcePreviewStep) ? null : segments.map((seg, idx) => {
       const offset = segmentTimelineOffsets[seg.id];
       if (!offset || idx === 0) return null;
       const pct = Math.min(100, Math.max(0, (offset.startOffset / (totalDuration || 1)) * 100));
@@ -4216,7 +4408,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     applyVideoSeek(clampedFinal);
 
     if (wasPlayingBeforeScrubRef.current && clampedFinal < totalDuration - 0.1) {
-      if (isSequenceMode) {
+      // 컷/자막 단계에서는 스크럽 후에도 해당 컷 끝에서만 재생이 멈추게 한다.
+      if (isSingleSegmentPreview && selectedSegment) {
+        const offset = segmentTimelineOffsets[selectedSegment.id];
+        if (offset) previewRangeEndRef.current = offset.startOffset + selectedSegment.duration;
+      }
+      if (isSequenceMode && !isRawSourcePreviewStep) {
         startSequencePlayback(clampedFinal);
       } else {
         videoRef.current?.play().catch(() => {});
@@ -4391,10 +4588,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     setCurrentTime(targetTime);
   };
 
-  // 영상 종료 시점 여부
+  // 영상 종료 시점 여부 ( Single 컷 프리뷰에서는 그 컷의 길이를 기준으로 판단 )
   const isAtEnd = Boolean(
     (!isSequenceMode && (videoRef.current?.ended ?? false)) ||
-    (totalDuration > 0 && currentTime >= totalDuration - 0.25)
+    (playerDuration > 0 && playerTime >= playerDuration - 0.25)
   );
 
   // 전체화면 변경 이벤트 동기화
@@ -4494,7 +4691,25 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       }
       return;
     }
-    if (isSequenceMode) {
+    if (isMusicPreviewStep) {
+      const next = !isBgmPreviewPlaying;
+      setIsBgmPreviewPlaying(next);
+      syncBgmPlayback(next, 0);
+      return;
+    }
+    if (isSingleSegmentPreview && selectedSegment) {
+      const seg = selectedSegment;
+      const offset = segmentTimelineOffsets[seg.id];
+      if (!offset) return;
+      if (isSequencePlayingRef.current || isPlaying) {
+        stopSequencePlayback();
+      } else {
+        previewSectionRange(offset.startOffset, offset.startOffset + seg.duration);
+      }
+      return;
+    }
+    // 원본 영상만 보는 단계는 합성 시퀀스가 아닌 <video>를 직접 재생한다.
+    if (isSequenceMode && !isRawSourcePreviewStep) {
       if (isSequencePlayingRef.current || isPlaying) {
         stopSequencePlayback();
       } else {
@@ -5266,7 +5481,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               {ui('영상 만드는 순서')}
             </span>
             <strong className="toss-studio-stepbar-title">
-              {ui('1번부터 12번까지, 순서대로만 눌러주세요')}
+              {ui('1번부터 {count}번까지, 순서대로만 눌러주세요', { count: studioSteps.length })}
             </strong>
           </div>
           <ol className="toss-studio-steps" ref={stepbarListRef}>
@@ -5359,8 +5574,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         {!hidePlayerColumnForMobile && (
         <section className="toss-column-left">
           <div className="toss-card toss-player-card">
-            {/* 영상 상단 왼쪽, 오른쪽 문구 직관 입력창 (모바일에서는 숨기고 인트로 단계 카드 안에서만 보여준다) */}
-            <div className="toss-video-header-bar">{overlayTextInputFields}</div>
+            {/* 영상 상단 왼쪽, 오른쪽 문구 직관 입력창 — 1번(영상 상단 문구) 단계에서만 보여준다. */}
+            {activeSection === 'intro' && (
+              <div className="toss-video-header-bar">{overlayTextInputFields}</div>
+            )}
 
             {/* 플레이어 스테이지 (전체화면 지원) */}
             <div
@@ -5401,6 +5618,34 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
                     </button>
                   </>
+                ) : isMusicPreviewStep ? (
+                  /* 노래 단계: 영상 시퀀스 대신 배경음악 단독 미리보기만 보여준다.
+                     영상+음악 합본은 다음 단계인 '전체 보기'에서 자동 재생으로 확인한다. */
+                  <div className="toss-bgm-preview">
+                    <div className="toss-bgm-preview-disc">
+                      <Music size={28} />
+                    </div>
+                    <strong className="toss-bgm-preview-name">
+                      {customAudioName ||
+                        (selectedBgmId !== 'none' ? selectedBgmId : ui('선택된 노래가 없어요'))}
+                    </strong>
+                    <span className="toss-bgm-preview-meta">
+                      {customAudioDuration ? formatSec(customAudioDuration) : ui('길이 정보 없음')}
+                      {' · '}
+                      {ui('배경음악 미리듣기')}
+                    </span>
+                    <button
+                      type="button"
+                      className="toss-play-btn"
+                      onClick={togglePlay}
+                      title={isBgmPreviewPlaying ? dict.player.pause : dict.player.play}
+                    >
+                      {isBgmPreviewPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
+                    </button>
+                    <p className="toss-bgm-preview-hint">
+                      {ui('영상과 함께 보기는 다음 전체 보기 단계에서 자동 재생돼요')}
+                    </p>
+                  </div>
                 ) : activeVideoUrl ? (
                   <>
                     <video
@@ -5493,7 +5738,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       onDoubleClick={toggleFullscreen}
                       className="toss-video-element"
                       style={
-                        isSequenceMode
+                        isSequenceMode && showCompositeCanvas
                           ? {
                               opacity: 0,
                               pointerEvents: 'none',
@@ -5609,19 +5854,19 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             <div
                               className="toss-progress-fill"
                               style={{
-                                width: `${Math.min(100, Math.max(0, (currentTime / (totalDuration || 1)) * 100))}%`,
+                                width: `${Math.min(100, Math.max(0, (playerTime / (playerDuration || 1)) * 100))}%`,
                                 transition: isScrubbing ? 'none' : undefined,
                               }}
                             />
                             <div
                               className="toss-progress-thumb"
                               style={{
-                                left: `${Math.min(100, Math.max(0, (currentTime / (totalDuration || 1)) * 100))}%`,
+                                left: `${Math.min(100, Math.max(0, (playerTime / (playerDuration || 1)) * 100))}%`,
                               }}
                             />
                           </div>
                           <span className="toss-mobile-timecode">
-                            {formatSec(currentTime)} / {formatSec(totalDuration)}
+                            {formatSec(playerTime)} / {formatSec(playerDuration)}
                           </span>
                         </div>
                       </div>
@@ -5683,7 +5928,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     <h3 className="toss-empty-title">{ui('영상 하나만 올리면 시작돼요')}</h3>
                     <p className="toss-empty-desc">
                       {ui('올린 영상에서 AI가 하이라이트를 뽑아줘요.')}<br />
-                      {ui('그다음은')} <strong>{ui('1번 영상 상단 문구 → 2번 인트로 스타일 → 3번 영상 올리기 → 4번 촬영 위치 → 5번 AI 하이라이트 → 6번 컷 다듬기 → 7번 자막 수정 → 8번 브릿지 → 9번 아웃트로 → 10번 노래')}</strong>{' '}
+                      {ui('그다음은')} <strong>{ui('1번 영상 상단 문구 → 2번 인트로 스타일 → 3번 영상 올리기 → 4번 촬영 위치 → 5번 AI 하이라이트 → 6번 컷 다듬기 → 7번 자막 수정 → 8번 브릿지 → 9번 아웃트로 → 10번 노래 → 11번 전체 보기')}</strong>{' '}
                       {ui('순서로만 따라가면 끝나요.')}
                     </p>
                     <div className="flex items-center gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
@@ -5711,7 +5956,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
                 {/* AI 컷이 없어도 인트로/브릿지/아웃트로를 그려주는 독립 캔버스
                     썸네일 단계에서는 합성 캔버스 대신 완성된 썸네일 이미지를 보여준다 */}
-                {(isSequenceMode || standalonePreviewSection) && !showThumbnailInPlayer && (
+                {(showCompositeCanvas || standalonePreviewSection) && !showThumbnailInPlayer && (
                   <canvas
                     ref={previewCanvasRef}
                     width={frame.width}
@@ -5748,8 +5993,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 )}
               </div>
 
-              {/* 비디오 재생 트랜스포트 바 (인트로/브릿지/아웃트로 모션 미리보기·썸네일 미리보기 중에는 숨김) */}
-              {activeVideoUrl && !standalonePreviewSection && !showThumbnailInPlayer && (
+              {/* 비디오 재생 트랜스포트 바 (인트로/브릿지/아웃트로 모션·음악 단독 미리보기·썸네일 중에는 숨김) */}
+              {activeVideoUrl && !standalonePreviewSection && !isMusicPreviewStep && !showThumbnailInPlayer && (
                 <div className="toss-transport-bar">
                   <div className="toss-transport-left">
                     <button
@@ -5794,9 +6039,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     </button>
 
                     <div className="toss-timecode-text">
-                      <span className="font-bold text-slate-900">{formatSec(currentTime)}</span>
+                      <span className="font-bold text-slate-900">{formatSec(playerTime)}</span>
                       <span className="text-slate-400">/</span>
-                      <span className="text-slate-500">{formatSec(totalDuration)}</span>
+                      <span className="text-slate-500">{formatSec(playerDuration)}</span>
                     </div>
                   </div>
 
@@ -5812,14 +6057,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     <div
                       className="toss-progress-fill"
                       style={{
-                        width: `${Math.min(100, Math.max(0, (currentTime / (totalDuration || 1)) * 100))}%`,
+                        width: `${Math.min(100, Math.max(0, (playerTime / (playerDuration || 1)) * 100))}%`,
                         transition: isScrubbing ? 'none' : undefined,
                       }}
                     />
                     <div
                       className="toss-progress-thumb"
                       style={{
-                        left: `${Math.min(100, Math.max(0, (currentTime / (totalDuration || 1)) * 100))}%`,
+                        left: `${Math.min(100, Math.max(0, (playerTime / (playerDuration || 1)) * 100))}%`,
                       }}
                     />
                   </div>
@@ -5860,7 +6105,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           </div>
 
           {(showDraftPreviewBox || showTimelineSequencer) && (
-          <div className="toss-card toss-timeline-card">
+          <div className={`toss-card toss-timeline-card ${isFullPreviewStep ? 'is-full-preview' : ''}`}>
             {/* 하이라이트 전: 가짜 시퀀스 대신 원본 영상 미리보기 선택
                 모바일에서는 관련 단계(영상 올리기/AI)에서만 보여준다 */}
             {showDraftPreviewBox && (
@@ -6087,7 +6332,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     <div
                       className="toss-sequencer-playhead"
                       style={{
-                        left: `${Math.min(100, Math.max(0, (currentTime / (totalDuration || 1)) * 100))}%`,
+                        left: `${Math.min(100, Math.max(0, (playerTime / (playerDuration || 1)) * 100))}%`,
                       }}
                     >
                       <div className="toss-playhead-cap" />
@@ -8463,16 +8708,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   <button
                     type="button"
                     className="toss-btn-secondary toss-btn-xs"
-                    onClick={() => previewSectionPlay('music')}
+                    onClick={() => {
+                      const next = !isBgmPreviewPlaying;
+                      setIsBgmPreviewPlaying(next);
+                      syncBgmPlayback(next, 0);
+                    }}
                     disabled={!isSequenceMode}
                     title={
                       isSequenceMode
-                        ? ui('영상 앞부분에서 음악을 미리 들어요')
+                        ? ui('배경음악만 미리 들어요. 영상과 함께 보기는 전체 보기 단계에서 해요')
                         : ui('5번 AI 하이라이트를 먼저 만들면 영상과 함께 들을 수 있어요')
                     }
                   >
-                    <Play size={12} />
-                    <span>{ui('미리 듣기')}</span>
+                    {isBgmPreviewPlaying ? <Pause size={12} /> : <Play size={12} />}
+                    <span>{isBgmPreviewPlaying ? dict.player.pause : ui('미리 듣기')}</span>
                   </button>
                 </div>
               </div>
@@ -8512,6 +8761,119 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 <span>{ui('5번 AI 하이라이트를 먼저 만들면 영상과 함께 들을 수 있어요')}</span>
                 <ArrowRight size={13} />
               </button>
+            )}
+          </div>
+
+          {/* 전체 보기 단계: 지금까지의 편집을 합친 최종 결과를 한눈에 확인한다. */}
+          <div
+            className={`toss-card toss-full-preview-card toss-inspector-card ${
+              activeSection === 'fullPreview' ? 'is-active-section' : ''
+            }`}
+          >
+            <div className="toss-card-header">
+              <div>
+                <h4 className="toss-card-title">
+                  <Eye size={15} className="text-slate-800 shrink-0" />
+                  <span>{ui('전체 결과 미리보기')}</span>
+                </h4>
+              </div>
+              <span className="toss-tag-blue">{ui('최종 확인')}</span>
+            </div>
+
+            {segments.length === 0 ? (
+              <div className="toss-empty-state toss-full-preview-empty">
+                <Eye size={28} className="text-slate-300" />
+                <p>{ui('AI 하이라이트를 만들면 전체 영상을 미리 볼 수 있어요')}</p>
+              </div>
+            ) : (
+              <div className="toss-full-preview-body">
+                <div className="toss-full-preview-stats">
+                  <span>{ui('{count}개 컷', { count: segments.length })}</span>
+                  <span>·</span>
+                  <span>{formatSec(totalDuration)}</span>
+                  {originalTotalDuration > 0 && (
+                    <span className="toss-tag-gray">
+                      {ui('원본 대비 {percent}% 단축', { percent: savedPercent })}
+                    </span>
+                  )}
+                </div>
+
+                <div className="toss-full-preview-badges">
+                  {overlayOptions.showIntro && <span className="toss-tag-gray">{ui('인트로')}</span>}
+                  {overlayOptions.showChapterBridge !== false && bridgeCandidateIndexes.length > 0 && (
+                    <span className="toss-tag-gray">{ui('브릿지')}</span>
+                  )}
+                  {overlayOptions.showOutro && <span className="toss-tag-gray">{ui('아웃트로')}</span>}
+                  {(customAudioFile || selectedBgmId !== 'none') && (
+                    <span className="toss-tag-gray">{ui('노래')}</span>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  className="toss-btn-primary toss-btn-sm toss-full-preview-play"
+                  onClick={() => previewSectionPlay('fullPreview')}
+                >
+                  <Play size={13} />
+                  <span>{ui('처음부터 전체 재생')}</span>
+                </button>
+
+                {isMusicExceeded && customAudioDuration && (
+                  <div className="toss-full-preview-overflow">
+                    <span>
+                      {interpolate(
+                        dict.sequencer.musicOverflowNotice ||
+                          '영상이 음악 길이({duration})보다 +{overflow}초 길어요.',
+                        {
+                          duration: formatSec(customAudioDuration),
+                          overflow: musicOverflowSec.toFixed(1),
+                        }
+                      )}
+                    </span>
+                    {segments.length > 1 && (
+                      <button
+                        type="button"
+                        className="toss-btn-secondary toss-btn-xs"
+                        onClick={handleFitSegmentsToMusic}
+                      >
+                        {dict.sequencer.fitMusicBtn || '음악 길이에 맞춰 초과 클립 제외'}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                <div className="toss-full-preview-quick">
+                  <span className="toss-full-preview-quick-label">{ui('바로 수정')}</span>
+                  <button
+                    type="button"
+                    className="toss-btn-secondary toss-btn-xs"
+                    onClick={() => goToSection('cut')}
+                  >
+                    {ui('컷')}
+                  </button>
+                  <button
+                    type="button"
+                    className="toss-btn-secondary toss-btn-xs"
+                    onClick={() => goToSection('caption')}
+                  >
+                    {ui('자막')}
+                  </button>
+                  <button
+                    type="button"
+                    className="toss-btn-secondary toss-btn-xs"
+                    onClick={() => goToSection('bridge')}
+                  >
+                    {ui('브릿지')}
+                  </button>
+                  <button
+                    type="button"
+                    className="toss-btn-secondary toss-btn-xs"
+                    onClick={() => goToSection('music')}
+                  >
+                    {ui('노래')}
+                  </button>
+                </div>
+              </div>
             )}
           </div>
 

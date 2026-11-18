@@ -149,14 +149,17 @@ function drawLandscapeOverlay(
   oCtx: CanvasRenderingContext2D,
   overlayOptions: VideoOverlayOptions,
   currentSegment: HighlightSegment | undefined,
-  frame: FrameSpec
+  frame: FrameSpec,
+  options?: SegmentOverlayDrawOptions
 ): boolean {
   const u = frame.unit;
   const targetWidth = frame.width;
   const targetHeight = frame.height;
   let hasAnyOverlay = false;
   let titleBottomY = Math.round(28 * u);
-  const hasTitle = Boolean(overlayOptions.showTitle && overlayOptions.titleText?.trim());
+  // 자막 수정 단계에서는 상단 제목·채널을 숨기고 씬 자막과 날짜·장소만 그린다.
+  const showHeader = !options?.captionOnly;
+  const hasTitle = showHeader && Boolean(overlayOptions.showTitle && overlayOptions.titleText?.trim());
 
   // 1. 좌측 상단 영상 제목
   if (hasTitle) {
@@ -212,7 +215,7 @@ function drawLandscapeOverlay(
   }
 
   // 2. 우측 상단 채널 이름
-  if (overlayOptions.showChannel && overlayOptions.channelText) {
+  if (showHeader && overlayOptions.showChannel && overlayOptions.channelText) {
     hasAnyOverlay = true;
     oCtx.save();
     oCtx.font = overlayFont('bold', 22 * u);
@@ -262,7 +265,8 @@ function drawPortraitOverlay(
   oCtx: CanvasRenderingContext2D,
   overlayOptions: VideoOverlayOptions,
   currentSegment: HighlightSegment | undefined,
-  frame: FrameSpec
+  frame: FrameSpec,
+  options?: SegmentOverlayDrawOptions
 ): boolean {
   const u = frame.unit;
   const { safeArea } = frame;
@@ -272,10 +276,11 @@ function drawPortraitOverlay(
 
   let hasAnyOverlay = false;
   let cursorY = safeArea.top;
+  const showHeader = !options?.captionOnly;
 
   // 1. 좌측 상단 영상 제목 (최대 2줄, 폭에 맞춰 자동 축소)
   const titleText = overlayOptions.titleText?.trim() ?? '';
-  const hasTitle = Boolean(overlayOptions.showTitle && titleText);
+  const hasTitle = showHeader && Boolean(overlayOptions.showTitle && titleText);
 
   if (hasTitle) {
     hasAnyOverlay = true;
@@ -317,7 +322,7 @@ function drawPortraitOverlay(
 
   // 2. 세로에서는 채널명을 우상단 대신 제목 바로 아래에 배치
   const channelText = overlayOptions.channelText?.trim() ?? '';
-  if (overlayOptions.showChannel && channelText) {
+  if (showHeader && overlayOptions.showChannel && channelText) {
     hasAnyOverlay = true;
     const gap = hasTitle ? Math.round(10 * u) : 0;
     const preferred = Math.round(18 * u);
@@ -427,6 +432,12 @@ function drawPortraitOverlay(
   return hasAnyOverlay;
 }
 
+/** 스텝별 프리뷰에서 오버레이 표시 범위를 제한할 때 쓰는 옵션 */
+export interface SegmentOverlayDrawOptions {
+  /** true면 상단 제목·채널을 숨기고 날짜/장소 + 씬 자막만 그린다 (자막 수정 단계용) */
+  captionOnly?: boolean;
+}
+
 /**
  * 프레임 위에 좌측 상단 타이틀, 날짜/위치, 채널명, 하단 중앙(세로는 2/3 높이) 자막을 합성한다.
  * 가로 레이아웃 좌표·폰트·그림자는 기존 스티처와 100% 동일하다.
@@ -436,11 +447,12 @@ export function drawCompositorSegmentOverlay(
   oCtx: CanvasRenderingContext2D,
   overlayOptions?: VideoOverlayOptions,
   currentSegment?: HighlightSegment,
-  frame: FrameSpec = LANDSCAPE_PREVIEW_FRAME
+  frame: FrameSpec = LANDSCAPE_PREVIEW_FRAME,
+  options?: SegmentOverlayDrawOptions
 ): boolean {
   if (!overlayOptions) return false;
 
   return frame.orientation === 'portrait'
-    ? drawPortraitOverlay(oCtx, overlayOptions, currentSegment, frame)
-    : drawLandscapeOverlay(oCtx, overlayOptions, currentSegment, frame);
+    ? drawPortraitOverlay(oCtx, overlayOptions, currentSegment, frame, options)
+    : drawLandscapeOverlay(oCtx, overlayOptions, currentSegment, frame, options);
 }

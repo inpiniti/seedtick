@@ -5,6 +5,7 @@ import {
   ArrowRight,
   Check,
   Download,
+  Eye,
   Film,
   Image as ImageIcon,
   MapPin,
@@ -43,6 +44,8 @@ export const StudioStepIcon: React.FC<StudioStepIconProps> = ({ stepId, size = 1
       return <Check size={size} />;
     case 'music':
       return <Music size={size} />;
+    case 'fullPreview':
+      return <Eye size={size} />;
     case 'thumbnail':
       return <ImageIcon size={size} />;
     default:

@@ -9589,11 +9589,11 @@
     padding: 0 12px;
   }
 
-  /* 풀블리드 피드: 카드 박스를 걷어내고 화면 좌우 끝까지 붙인다 */
+  /* 풀블리드 피드: 좌우는 화면 끝까지 붙이고, 아이템 사이에만 얇은 간격을 둔다 */
   .toss-projects-grid,
   .toss-projects-loading-grid {
     grid-template-columns: 1fr;
-    gap: 0;
+    gap: 8px;
   }
 
   .toss-project-card,
@@ -9620,14 +9620,54 @@
     border-color: #e5e8eb;
   }
 
+  /* 카드 본문을 썸네일 하단 오버레이로 통합 — 아이템 높이를 16:9 한 장으로 압축 */
   .toss-project-card-body {
-    padding: 10px 12px 12px;
-    gap: 6px;
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 12px;
+    gap: 5px;
+    background: linear-gradient(
+      to top,
+      rgba(15, 23, 42, 0.92) 0%,
+      rgba(15, 23, 42, 0.62) 40%,
+      rgba(15, 23, 42, 0) 76%
+    );
   }
 
-  /* 한 줄 제목일 때 2줄 높이를 예약하지 않는다 */
+  /* 제목을 위, 메타를 아래로 — 밝은 썸네일 위에서도 읽히도록 흰색 + 그림자 */
   .toss-project-card-title {
+    order: -1;
     min-height: 0;
+    color: #ffffff;
+    font-size: 14px;
+    line-height: 1.35;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  }
+
+  .toss-project-card-meta-top {
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    gap: 10px;
+    padding-right: 68px; /* 재생시간 뱃지와 겹치지 않도록 우측 공간 확보 */
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.88);
+  }
+
+  .toss-project-card-meta-top .toss-project-clips-count {
+    color: #ffffff;
+  }
+
+  .toss-project-card-meta-top .toss-project-time {
+    color: rgba(255, 255, 255, 0.72);
+  }
+
+  /* 본문 오버레이 위에서 재생시간 뱃지가 가려지지 않도록 */
+  .toss-project-duration-badge {
+    z-index: 3;
   }
 
   /* 카드 전체가 열기 동작이므로 액션은 썸네일 우측 상단으로 옮겨 본문을 2줄로 유지 */
@@ -9648,9 +9688,9 @@
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
   }
 
+  /* 실제 카드와 높이를 1:1로 맞춰 로딩 시 레이아웃 흔들림(CLS) 방지 */
   .toss-project-skeleton-body {
-    padding: 10px 12px 12px;
-    gap: 6px;
+    display: none;
   }
 
   .toss-projects-empty-card {
@@ -15541,5 +15581,125 @@
   .toss-ai-progress {
     background: #f8fafc;
     border: none;
+  }
+}
+
+/* ==========================================================================
+   스텝별 프리뷰 격리 — 노래(BGM 단독) · 전체 보기
+   ========================================================================== */
+.toss-bgm-preview {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  background: linear-gradient(145deg, #0f172a 0%, #1e293b 100%);
+  color: #fff;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.toss-bgm-preview-disc {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.toss-bgm-preview-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.toss-bgm-preview-meta {
+  font-size: 12px;
+  color: #cbd5e1;
+}
+
+.toss-bgm-preview .toss-play-btn {
+  margin-top: 4px;
+  background: #fff;
+  color: #0f172a;
+}
+
+.toss-bgm-preview-hint {
+  max-width: 320px;
+  margin: 2px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #94a3b8;
+}
+
+.toss-full-preview-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.toss-full-preview-stats {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #191f28;
+}
+
+.toss-full-preview-badges,
+.toss-full-preview-quick {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.toss-full-preview-play {
+  width: 100%;
+  margin-top: 2px;
+}
+
+.toss-full-preview-overflow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.toss-full-preview-overflow .toss-btn-secondary {
+  align-self: flex-start;
+}
+
+.toss-full-preview-quick-label {
+  margin-right: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #8b95a1;
+}
+
+.toss-full-preview-empty {
+  padding: 20px 8px;
+}
+
+/* 전체 보기 단계에서는 모바일에서도 멀티트랙 시퀀서를 보여준다. */
+@media (max-width: 1024px) {
+  .toss-timeline-card.is-full-preview {
+    display: block !important;
   }
 }
