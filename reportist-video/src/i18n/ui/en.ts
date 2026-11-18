@@ -153,7 +153,6 @@ export const uiEn: Record<string, string> = {
     'Create AI highlights in step 4 to preview with the video',
   '보관함에서 고르기': 'Choose from library',
   '내 음악 올리기': 'Upload my music',
-  '보관함 대신 내 음악 파일을 직접 첨부해요': 'Attach my own music file instead of the library',
   '편집 단계 이동': 'Edit step navigation',
   '이전 단계': 'Previous step',
   '편집한 영상을 저장해요': 'Save the edited video',

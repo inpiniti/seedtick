@@ -9311,15 +9311,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   <button
                     type="button"
                     className="toss-btn-secondary toss-btn-xs"
-                    onClick={() => customAudioInputRef.current?.click()}
-                    title={ui('보관함 대신 내 음악 파일을 직접 첨부해요')}
-                  >
-                    <Upload size={12} />
-                    <span>{ui('내 음악 올리기')}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="toss-btn-secondary toss-btn-xs"
                     onClick={() => {
                       const next = !isBgmPreviewPlaying;
                       setIsBgmPreviewPlaying(next);

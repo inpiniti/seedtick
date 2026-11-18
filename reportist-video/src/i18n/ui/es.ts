@@ -154,7 +154,6 @@ export const uiEs: Record<string, string> = {
     'Crea los momentos IA en el paso 4 para escucharlos con el video',
   '보관함에서 고르기': 'Elegir de la biblioteca',
   '내 음악 올리기': 'Subir mi música',
-  '보관함 대신 내 음악 파일을 직접 첨부해요': 'Adjuntar mi propio archivo de música en lugar de la biblioteca',
   '편집 단계 이동': 'Navegación por pasos de edición',
   '이전 단계': 'Paso anterior',
   '편집한 영상을 저장해요': 'Guardar el video editado',

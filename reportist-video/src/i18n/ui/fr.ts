@@ -154,7 +154,6 @@ export const uiFr: Record<string, string> = {
     "Créez les moments IA à l'étape 4 pour les écouter avec la vidéo",
   '보관함에서 고르기': 'Choisir dans la bibliothèque',
   '내 음악 올리기': 'Importer ma musique',
-  '보관함 대신 내 음악 파일을 직접 첨부해요': 'Joindre mon propre fichier musical au lieu de la bibliothèque',
   '편집 단계 이동': 'Navigation entre les étapes',
   '이전 단계': 'Étape précédente',
   '편집한 영상을 저장해요': 'Enregistrer la vidéo montée',

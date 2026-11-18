@@ -154,7 +154,6 @@ export const uiDe: Record<string, string> = {
     'Erstelle zuerst in Schritt 4 die KI-Highlights, um sie mit dem Video zu hören',
   '보관함에서 고르기': 'Aus der Bibliothek wählen',
   '내 음악 올리기': 'Eigene Musik hochladen',
-  '보관함 대신 내 음악 파일을 직접 첨부해요': 'Eigene Musikdatei statt der Bibliothek anhängen',
   '편집 단계 이동': 'Navigation zwischen den Schritten',
   '이전 단계': 'Vorheriger Schritt',
   '편집한 영상을 저장해요': 'Bearbeitetes Video speichern',
