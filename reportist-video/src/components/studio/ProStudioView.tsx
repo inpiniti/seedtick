@@ -195,6 +195,12 @@ import { useI18n } from '../../i18n/index.tsx';
 const PLAYBACK_ERROR_MESSAGE =
   '이 영상은 미리보기를 재생할 수 없어요. 영상을 다시 올리거나 다른 형식(MP4)으로 시도해 주세요.';
 
+// 지도 미리보기 모달: 업로드 영상(VideoItem)과 AI 하이라이트 씬(HighlightSegment)을 함께 수용
+type MapModalTarget = Pick<
+  HighlightSegment,
+  'latitude' | 'longitude' | 'locationName' | 'subtitleTitle' | 'reason'
+>;
+
 // ============================================================
 // 통합 스튜디오 편집 가이드 (생성/편집 흐름 구분 없이 처음부터 끝까지 같은 순서)
 // 영상 상단 문구 → 인트로 스타일 → 영상 올리기 → 촬영 위치 → AI 하이라이트
@@ -809,7 +815,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 4. 인트로 / 아웃트로 비디오 파일 업로드 참조 및 지도 모달 상태
   const introVideoInputRef = useRef<HTMLInputElement>(null);
   const outroVideoInputRef = useRef<HTMLInputElement>(null);
-  const [mapModalTarget, setMapModalTarget] = useState<HighlightSegment | null>(null);
+  const [mapModalTarget, setMapModalTarget] = useState<MapModalTarget | null>(null);
   const [trimModalTarget, setTrimModalTarget] = useState<HighlightSegment | null>(null);
   // 자막 단계에서 전체 씬 자막을 한 화면에서 편집하는 리스트 보기 열림 여부
   const [isCaptionListOpen, setIsCaptionListOpen] = useState(false);
@@ -7075,15 +7081,21 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           />
                         )}
                         {v.latitude != null && v.longitude != null && (
-                          <a
+                          <button
+                            type="button"
                             className="toss-location-map-link"
-                            href={`https://www.google.com/maps/search/?api=1&query=${v.latitude},${v.longitude}`}
-                            target="_blank"
-                            rel="noreferrer"
+                            onClick={() =>
+                              setMapModalTarget({
+                                latitude: v.latitude,
+                                longitude: v.longitude,
+                                locationName: v.locationName,
+                                subtitleTitle: v.name,
+                              })
+                            }
                           >
                             <MapPin size={11} />
                             <span>{ui('지도에서 확인')}</span>
-                          </a>
+                          </button>
                         )}
                       </div>
                     </div>
