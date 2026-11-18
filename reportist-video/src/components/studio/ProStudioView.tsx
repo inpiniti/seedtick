@@ -3270,10 +3270,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // - 단계가 바뀌면 이전 섹션의 재생 루프를 먼저 정리하고 새 섹션을 처음부터 자동 재생한다.
   //   (재생 중 이동하면 이전 섹션의 rAF가 캔버스를 계속 덮어써서 이전 미리보기가 남던 문제)
   // - 스타일만 바뀌면 멈춘 상태에서 대표 프레임만 다시 그린다.
-  const lastStandaloneSectionRef = useRef<'intro' | 'bridge' | 'outro' | null>(null);
+  // intro와 introStyle은 같은 인트로 캔버스를 쓰지만 서로 다른 단계이므로
+  // activeSection 기준으로 비교해야 단계 이동마다 자동 재생이 다시 시작된다.
+  // (standalonePreviewSection만 보면 1번→2번 이동 시 값이 'intro'로 동일해 재생이 안 됨)
+  const lastStandaloneSectionRef = useRef<StudioSection | null>(null);
   useEffect(() => {
-    const sectionChanged = lastStandaloneSectionRef.current !== standalonePreviewSection;
-    lastStandaloneSectionRef.current = standalonePreviewSection;
+    const currentPreviewStep = standalonePreviewSection ? activeSection : null;
+    const sectionChanged = lastStandaloneSectionRef.current !== currentPreviewStep;
+    lastStandaloneSectionRef.current = currentPreviewStep;
 
     if (sectionChanged) {
       // 이전 섹션의 애니메이션 타이머·사용자 영상을 멈춰 잔상 프레임이 남지 않게 한다.
@@ -3297,6 +3301,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     const duration = getStandalonePreviewDuration(standalonePreviewSection);
     renderStandalonePreviewAt(standalonePreviewSection, duration * 0.62, duration);
   }, [
+    activeSection,
     standalonePreviewSection,
     overlayOptions,
     effectiveOverlayOptions,
@@ -3817,18 +3822,32 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     lastPreviewModeRef.current = previewModeKey;
     if (!changed) return;
 
-    // 이전 단계의 재생 루프를 모두 멈춰 잔상 프레임이 남지 않게 한다.
+    // 시퀀스 재생은 어떤 단계로 이동하든 항상 정리한다.
+    // 단, isPlaying은 건드리지 않는다 — 아래 standalone 이펙트가 새 모션을 시작했을 수 있다.
+    if (isSequencePlayingRef.current) {
+      isSequencePlayingRef.current = false;
+      activeSequencePhaseRef.current = '';
+      previewRangeEndRef.current = null;
+      if (seqPlayRafRef.current) {
+        cancelAnimationFrame(seqPlayRafRef.current);
+        seqPlayRafRef.current = null;
+      }
+    }
+    // 시퀀스 재생 중이든 음악 단계의 단독 미리듣기 중이든 단계 이동 시 음악은 멈춘다.
+    syncBgmPlayback(false);
+    setIsBgmPreviewPlaying(false);
+
+    // 인트로·인트로 스타일·브릿지·아웃트로는 위 standalone 이펙트가
+    // 이전 루프 정리 + 진입 단계 모션의 자동 재생을 전담한다.
+    // 여기서 rAF를 취소하면 막 시작한 재생이 즉시 멈춰 검은 화면이 남는다.
+    if (standalonePreviewSection) return;
+
     if (standalonePreviewRafRef.current) {
       cancelAnimationFrame(standalonePreviewRafRef.current);
       standalonePreviewRafRef.current = null;
     }
     standalonePreviewPlayingRef.current = false;
-    if (isSequencePlayingRef.current) {
-      stopSequencePlayback();
-    } else {
-      syncBgmPlayback(false);
-      setIsPlaying(false);
-    }
+    setIsPlaying(false);
     if (videoRef.current && !videoRef.current.paused) {
       try {
         videoRef.current.pause();
@@ -3836,7 +3855,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
     introCustomVideoRef.current?.pause();
     outroCustomVideoRef.current?.pause();
-    setIsBgmPreviewPlaying(false);
 
     if (previewModeKey.startsWith('single:')) {
       if (!selectedSegment) return;
