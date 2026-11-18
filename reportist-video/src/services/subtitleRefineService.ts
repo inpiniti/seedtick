@@ -1,6 +1,6 @@
 // src/services/subtitleRefineService.ts - 전체 맥락 기반 자막 브이로그화 및 톤앤매너 정제 서비스
 import type { GatewayConfig } from '../types/gateway.ts';
-import type { HighlightSegment, SubtitleTone } from '../types/video.ts';
+import type { HighlightMode, HighlightSegment, SubtitleTone } from '../types/video.ts';
 import { DEFAULT_CONFIG, FALLBACK_VIDEO_MODELS } from './gatewayClient.ts';
 
 export const SUBTITLE_TONE_STORAGE_KEY = 'reportist_video_subtitle_tone';
@@ -109,6 +109,8 @@ export interface RefineSubtitlesParams {
   model?: string;
   config?: GatewayConfig;
   signal?: AbortSignal;
+  /** 하이라이트 방식 (quick-cut이면 1초 안에 읽히는 초단문 자막으로 정제) */
+  highlightMode?: HighlightMode;
 }
 
 /**
@@ -122,10 +124,13 @@ export async function refineSubtitlesWithContext({
   model,
   config = DEFAULT_CONFIG,
   signal,
+  highlightMode = 'story',
 }: RefineSubtitlesParams): Promise<Record<string, string>> {
   if (!segments || segments.length === 0) {
     return {};
   }
+
+  const isQuickCut = highlightMode === 'quick-cut';
 
   // 1. 세그먼트 메타데이터 요약 목록 작성
   const segmentsContext = segments.map((seg, idx) => ({
@@ -209,7 +214,11 @@ ${JSON.stringify(segmentsContext, null, 2)}
 [INSTRUCTIONS]
 1. Understand the whole storyline flow from clip #1 to #${segments.length}.
 2. Rewrite EACH clip's subtitle so they feel like one cohesive, naturally flowing vlog story.
-3. Keep each subtitle concise (12~35 characters recommended for video subtitles).
+${
+  isQuickCut
+    ? '3. Keep each subtitle ULTRA-SHORT: 2 to 4 words (about 6~16 Korean characters, 12~30 Latin characters). Each cut lasts only about 1 second, so the caption must be readable instantly.'
+    : '3. Keep each subtitle concise (12~35 characters recommended for video subtitles).'
+}
 4. Do NOT leave out any segment ID.
 5. Output MUST be strictly valid JSON without markdown wrapping:
 {

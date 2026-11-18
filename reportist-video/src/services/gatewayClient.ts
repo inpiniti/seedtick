@@ -1,5 +1,5 @@
 import type { FreeModelMeta, GatewayConfig, ReasoningEffortOption, UserApiKeyConfig } from '../types/gateway.ts';
-import type { ExtractedFrame, HighlightSegment } from '../types/video.ts';
+import type { ExtractedFrame, HighlightMode, HighlightSegment } from '../types/video.ts';
 import {
   canonicalModelId,
   enrichModelMetrics,
@@ -280,6 +280,8 @@ export interface AnalyzeVideoParams extends VideoAnalysisStreamCallbacks {
    * 기본값 true. 대기열이 응답하지 않으면 자동으로 기존 게이트웨이 직접 호출로 폴백한다.
    */
   useQueue?: boolean;
+  /** 하이라이트 생성 방식 (기본: story - 기존 감성 하이라이트) */
+  highlightMode?: HighlightMode;
 }
 
 // === 스트리밍 SSE 파싱 헬퍼 =================================================
@@ -566,6 +568,16 @@ async function requestAnalysisNonStreaming(
   }
 }
 
+// 1초 컷 편집 모드에서 영상 길이에 맞춰 권장하는 컷 개수 범위
+export function getQuickCutTargetCountRange(totalDuration: number): { min: number; max: number } {
+  const safe = Number.isFinite(totalDuration) && totalDuration > 0 ? totalDuration : 0;
+  if (safe < 8) return { min: 1, max: 2 };
+  if (safe < 20) return { min: 2, max: 4 };
+  if (safe < 45) return { min: 4, max: 7 };
+  if (safe < 90) return { min: 6, max: 10 };
+  return { min: 8, max: 12 };
+}
+
 // 추출된 프레임 시퀀스를 AI Gateway로 전송하여 극적인 구간 추출
 export async function analyzeVideoHighlights({
   frames,
@@ -590,11 +602,21 @@ export async function analyzeVideoHighlights({
   onQueueUpdate,
   onQueueFallback,
   useQueue = true,
+  highlightMode = 'story',
 }: AnalyzeVideoParams): Promise<HighlightSegment[]> {
   const roundedDuration = Math.round(videoDuration * 10) / 10;
-  // 하이라이트 목표 예산: 영상 전체 길이의 20%~35% (최소 2초, 최대 10초)
-  const maxBudget = Math.max(3.0, Math.min(10.0, Math.round(roundedDuration * 0.35 * 10) / 10));
-  const minBudget = Math.max(1.8, Math.min(maxBudget - 0.5, Math.round(roundedDuration * 0.15 * 10) / 10));
+  const isQuickCut = highlightMode === 'quick-cut';
+  const quickCutRange = getQuickCutTargetCountRange(roundedDuration);
+
+  // 하이라이트 목표 예산
+  // - story: 영상 전체 길이의 20%~35% (최소 2초, 최대 10초)
+  // - quick-cut: 권장 컷 수(≈1초)에 맞춘 0.9~1.15배 (최대 15초)
+  const maxBudget = isQuickCut
+    ? Math.max(1.2, Math.min(15.0, Math.round(quickCutRange.max * 1.15 * 10) / 10))
+    : Math.max(3.0, Math.min(10.0, Math.round(roundedDuration * 0.35 * 10) / 10));
+  const minBudget = isQuickCut
+    ? Math.max(0.8, Math.min(maxBudget - 0.4, Math.round(quickCutRange.min * 0.9 * 10) / 10))
+    : Math.max(1.8, Math.min(maxBudget - 0.5, Math.round(roundedDuration * 0.15 * 10) / 10));
 
   const getLanguageRule = (loc?: string) => {
     switch (loc) {
@@ -622,7 +644,7 @@ export async function analyzeVideoHighlights({
     }
   };
 
-  const prompt = `You are an elite cinematic video director and highlight editor.
+  const storyPrompt = `You are an elite cinematic video director and highlight editor.
 We have extracted ${frames.length} sequential keyframes from the video "${videoName}" (Total Duration: ${roundedDuration} seconds).
 Each keyframe is labeled with its exact timestamp in seconds.
 
@@ -660,6 +682,51 @@ Format:
     {"start": 3.2, "end": 6.5, "reason": "Joyful smiling climax", "cropPosition": "top", "horizontalPosition": "center"}
   ]
 }`;
+
+  const quickCutPrompt = `You are an elite quick-cut montage editor.
+We have extracted ${frames.length} sequential keyframes from the video "${videoName}" (Total Duration: ${roundedDuration} seconds).
+Each keyframe is labeled with its exact timestamp in seconds.
+
+YOUR OBJECTIVE:
+Build a fast, rhythmic 1-second-cut highlight montage from the most distinct, expressive, and visually interesting moments.
+A short video may only produce 1-2 cuts, but a longer video MUST produce more cuts (up to 12) instead of one long scene.
+
+STRICT DURATION & SELECTION RULES:
+1. INTERVAL COUNT: Return between ${quickCutRange.min} and ${quickCutRange.max} intervals for this ${roundedDuration}-second video. Quality over quantity: never invent cuts from boring frames, but never collapse a long video into only 1-2 cuts either.
+2. INDIVIDUAL INTERVAL LENGTH: Each interval MUST be between 0.8 seconds and 1.3 seconds. Aim for exactly 1.0 second. NEVER return an interval longer than 1.5 seconds.
+3. SPACING: Each interval MUST start at least 1.5 seconds after the previous interval ends. Never pick near-identical consecutive frames from the same action.
+4. TARGET BUDGET: Total combined duration MUST be roughly ${minBudget}s to ${maxBudget}s. Selecting more than 50% of the video duration is an absolute FAILURE.
+5. VARIETY: Choose visibly different moments — a change in expression, an action transition, a shift in gaze or composition, a new subject, or a punchy reaction.
+6. NO OVERLAPPING: Intervals MUST NOT overlap.
+CAPTION STYLE FOR 1-SECOND CUTS:
+- 'reason' is shown directly as the on-screen subtitle. Keep it to 2-4 words (short enough to read within one second).
+${getLanguageRule(locale)}
+8. Analyze human faces and main subject position in these keyframes to choose 'cropPosition' (for vertical source videos that get cropped into a wide 16:9 frame):
+   - "top": Person's face or eyes are located in the upper area (protects face from getting cropped in 16:9)
+   - "center": Subject is centered or panoramic landscape
+   - "bottom": Action or main subject is lower in the frame
+   And choose 'horizontalPosition' (for horizontal source videos that get cropped into a tall 9:16 frame):
+   - "left": Person's face or main subject is on the LEFT side of the frame
+   - "center": Subject is centered or the scene is symmetric/panoramic
+   - "right": Person's face or main subject is on the RIGHT side of the frame
+9. THUMBNAIL DIRECT RECOMMENDATION:
+   Carefully inspect all keyframes and choose the single absolute best, clearest, most emotional, and photogenic keyframe moment for the YouTube thumbnail.
+   - 'bestThumbnailTimestamp': exact timestamp (seconds) of that single best keyframe.
+   - 'bestThumbnailReason': a concise phrase in the requested language explaining why this frame was chosen as the thumbnail (e.g. '가장 생동감 넘치고 환하게 웃는 표정', '압도적인 액션의 결정적 순간').
+10. Output MUST BE strictly valid JSON with NO commentary or markdown formatting.
+
+Format:
+{
+  "videoTitle": "Catchy YouTube Video Title",
+  "bestThumbnailTimestamp": 3.8,
+  "bestThumbnailReason": "가장 생동감 넘치고 환하게 웃는 표정",
+  "segments": [
+    {"start": 3.2, "end": 4.2, "reason": "Joyful smile", "cropPosition": "top", "horizontalPosition": "center"},
+    {"start": 7.8, "end": 8.8, "reason": "Tiny happy steps", "cropPosition": "center", "horizontalPosition": "center"}
+  ]
+}`;
+
+  const prompt = isQuickCut ? quickCutPrompt : storyPrompt;
 
   const baseUrl = config.baseUrl.replace(/\/+$/, '');
   const url = `${baseUrl}/v1/chat/completions`;
@@ -748,7 +815,8 @@ Format:
         metadataDate,
         latitude,
         longitude,
-        locationName
+        locationName,
+        highlightMode
       );
     } catch (queueErr: unknown) {
       if (signal?.aborted) throw queueErr;
@@ -924,7 +992,8 @@ Format:
     metadataDate,
     latitude,
     longitude,
-    locationName
+    locationName,
+    highlightMode
   );
 }
 
@@ -1016,10 +1085,12 @@ export function parseAndValidateSegments(
   metadataDate?: string,
   latitude?: number,
   longitude?: number,
-  locationName?: string
+  locationName?: string,
+  highlightMode: HighlightMode = 'story'
 ): HighlightSegment[] {
   const analysisData = extractAnalysisData(rawText);
   const parsed: RawSegmentItem[] = analysisData?.segments ?? [];
+  const isQuickCut = highlightMode === 'quick-cut';
 
   const validSegments: HighlightSegment[] = [];
 
@@ -1035,8 +1106,15 @@ export function parseAndValidateSegments(
 
       if (start >= end) continue;
 
-      // 단일 구간이 5.5초를 초과하면 클라이맥스 중심 4.0초로 트리밍
-      if (end - start > 5.5) {
+      if (isQuickCut) {
+        // 1초 컷 모드: AI가 1.5초 넘게 길게 반환하면 중앙 기준 1.0초로 자동 트리밍
+        if (end - start > 1.6) {
+          const mid = (start + end) / 2;
+          start = Math.max(0, Math.min(totalDuration - 0.1, Math.round((mid - 0.5) * 10) / 10));
+          end = Math.min(totalDuration, Math.round((start + 1.0) * 10) / 10);
+        }
+      } else if (end - start > 5.5) {
+        // 감성 하이라이트: 단일 구간이 5.5초를 초과하면 클라이맥스 중심 4.0초로 트리밍
         const mid = (start + end) / 2;
         start = Math.max(0, Math.round((mid - 2.0) * 10) / 10);
         end = Math.min(totalDuration, Math.round((mid + 2.0) * 10) / 10);
@@ -1062,8 +1140,9 @@ export function parseAndValidateSegments(
 
       const sceneReason = item.reason || 'AI가 감지한 극적 순간';
 
-      // 최소 1.2초 이상이어야 함
-      if (end - start >= 1.2) {
+      // story는 최소 1.2초, 1초 컷 모드는 0.6초까지 허용한다.
+      const minSegmentDuration = isQuickCut ? 0.6 : 1.2;
+      if (end - start >= minSegmentDuration) {
         validSegments.push({
           id: `${videoId}-${start.toFixed(1)}-${end.toFixed(1)}`,
           sourceVideoId: videoId,
@@ -1087,26 +1166,40 @@ export function parseAndValidateSegments(
   // 시간순 정렬
   validSegments.sort((a, b) => a.start - b.start);
 
-  // 직접 겹치는 구간만 병합 (인접하다고 무조건 합치지 않음)
   const mergedSegments: HighlightSegment[] = [];
-  for (const seg of validSegments) {
-    if (mergedSegments.length === 0) {
+  if (isQuickCut) {
+    // 1초 컷 모드: 겹치거나 너무 가까운(0.6초 미만 간격) 컷은 중복 장면으로 보고 버린다.
+    const MIN_QUICK_CUT_GAP = 0.6;
+    for (const seg of validSegments) {
+      const prev = mergedSegments[mergedSegments.length - 1];
+      if (prev && seg.start < prev.end + MIN_QUICK_CUT_GAP) continue;
       mergedSegments.push(seg);
-      continue;
     }
-    const prev = mergedSegments[mergedSegments.length - 1];
-    if (seg.start < prev.end) {
-      // 겹치는 경우만 병합
-      prev.end = Math.max(prev.end, seg.end);
-      prev.duration = Math.round((prev.end - prev.start) * 10) / 10;
-      prev.reason = `${prev.reason} + ${seg.reason}`;
-    } else {
-      mergedSegments.push(seg);
+  } else {
+    // 직접 겹치는 구간만 병합 (인접하다고 무조건 합치지 않음)
+    for (const seg of validSegments) {
+      if (mergedSegments.length === 0) {
+        mergedSegments.push(seg);
+        continue;
+      }
+      const prev = mergedSegments[mergedSegments.length - 1];
+      if (seg.start < prev.end) {
+        // 겹치는 경우만 병합
+        prev.end = Math.max(prev.end, seg.end);
+        prev.duration = Math.round((prev.end - prev.start) * 10) / 10;
+        prev.reason = `${prev.reason} + ${seg.reason}`;
+      } else {
+        mergedSegments.push(seg);
+      }
     }
   }
 
-  // 총 하이라이트 길이가 영상의 45% 또는 12초를 초과하는 경우 압축 정제
-  const maxAllowedTotal = Math.max(3.5, Math.min(12.0, totalDuration * 0.45));
+  // 총 하이라이트 길이 상한
+  // - story: 영상의 45% 또는 12초
+  // - quick-cut: 1초 컷을 여러 개 유지할 수 있도록 영상의 50% 또는 15초
+  const maxAllowedTotal = isQuickCut
+    ? Math.max(2.0, Math.min(15.0, totalDuration * 0.5))
+    : Math.max(3.5, Math.min(12.0, totalDuration * 0.45));
   while (
     mergedSegments.length > 1 &&
     mergedSegments.reduce((sum, s) => sum + s.duration, 0) > maxAllowedTotal
@@ -1115,26 +1208,71 @@ export function parseAndValidateSegments(
     mergedSegments.pop();
   }
 
-  // 만약 AI가 구간을 추출하지 못했거나 너무 짧은 경우 스마트 폴백 (중앙 25% 지점의 3~4.5초 구간)
+  // 만약 AI가 구간을 추출하지 못했거나 너무 짧은 경우 스마트 폴백
   if (mergedSegments.length === 0) {
-    const fallbackDuration = Math.min(4.5, Math.max(2.0, Math.round(totalDuration * 0.25 * 10) / 10));
-    const fallbackStart = Math.round(Math.max(0, (totalDuration - fallbackDuration) * 0.4) * 10) / 10;
-    const fallbackEnd = Math.round((fallbackStart + fallbackDuration) * 10) / 10;
-    mergedSegments.push({
-      id: `${videoId}-fallback`,
-      sourceVideoId: videoId,
-      sourceVideoName: videoName,
-      start: fallbackStart,
-      end: fallbackEnd,
-      duration: Math.round((fallbackEnd - fallbackStart) * 10) / 10,
-      reason: 'AI 핵심 클라이맥스 구간 (자동 선정)',
-      cropOffsetYRatio: 0.2,
-      cropOffsetXRatio: 0.5,
-      subtitleDate: metadataDate || '',
-      subtitleTitle: 'AI 핵심 클라이맥스 구간',
-      latitude,
-      longitude,
-    });
+    if (isQuickCut) {
+      // 1초 컷 폴백: 영상 길이에 비례해 균등 간격의 1초 컷을 자동 생성한다.
+      const range = getQuickCutTargetCountRange(totalDuration);
+      const estimatedCount = Math.max(1, Math.ceil(totalDuration / 6));
+      const fallbackCount = Math.max(range.min, Math.min(range.max, estimatedCount));
+      const fallbackClipDuration = Math.max(
+        0.5,
+        Math.min(1.0, Math.round(totalDuration * 0.6 * 10) / 10)
+      );
+      const step = totalDuration / fallbackCount;
+
+      for (let i = 0; i < fallbackCount; i++) {
+        const rawStart = i * step + step / 2 - fallbackClipDuration / 2;
+        const fallbackStart = Math.max(
+          0,
+          Math.min(
+            Math.max(0, totalDuration - fallbackClipDuration),
+            Math.round(rawStart * 10) / 10
+          )
+        );
+        const fallbackEnd = Math.min(
+          totalDuration,
+          Math.round((fallbackStart + fallbackClipDuration) * 10) / 10
+        );
+        if (fallbackEnd - fallbackStart < 0.5) continue;
+
+        mergedSegments.push({
+          id: `${videoId}-quick-${i + 1}`,
+          sourceVideoId: videoId,
+          sourceVideoName: videoName,
+          start: fallbackStart,
+          end: fallbackEnd,
+          duration: Math.round((fallbackEnd - fallbackStart) * 10) / 10,
+          reason: 'AI 1초 컷 (자동 선정)',
+          cropOffsetYRatio: 0.2,
+          cropOffsetXRatio: 0.5,
+          subtitleDate: metadataDate || '',
+          subtitleTitle: 'AI 1초 컷 (자동 선정)',
+          locationName,
+          latitude,
+          longitude,
+        });
+      }
+    } else {
+      const fallbackDuration = Math.min(4.5, Math.max(2.0, Math.round(totalDuration * 0.25 * 10) / 10));
+      const fallbackStart = Math.round(Math.max(0, (totalDuration - fallbackDuration) * 0.4) * 10) / 10;
+      const fallbackEnd = Math.round((fallbackStart + fallbackDuration) * 10) / 10;
+      mergedSegments.push({
+        id: `${videoId}-fallback`,
+        sourceVideoId: videoId,
+        sourceVideoName: videoName,
+        start: fallbackStart,
+        end: fallbackEnd,
+        duration: Math.round((fallbackEnd - fallbackStart) * 10) / 10,
+        reason: 'AI 핵심 클라이맥스 구간 (자동 선정)',
+        cropOffsetYRatio: 0.2,
+        cropOffsetXRatio: 0.5,
+        subtitleDate: metadataDate || '',
+        subtitleTitle: 'AI 핵심 클라이맥스 구간',
+        latitude,
+        longitude,
+      });
+    }
   }
 
   // AI 추천 타이틀 및 썸네일 타임스탬프 메타데이터 첨부

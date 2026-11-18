@@ -1,4 +1,4 @@
-import type { ExportResolution, HighlightSegment, PortraitPlatform, VideoOrientation, VideoOverlayOptions, VideoProcessingStatus } from './video.ts';
+import type { ExportResolution, HighlightMode, HighlightSegment, PortraitPlatform, VideoOrientation, VideoOverlayOptions, VideoProcessingStatus } from './video.ts';
 import type { ReasoningEffortOption } from './gateway.ts';
 
 export interface StoredVideoItem {
@@ -10,6 +10,8 @@ export interface StoredVideoItem {
   height: number;
   status: VideoProcessingStatus;
   segments: HighlightSegment[];
+  /** 이 영상의 segments를 마지막으로 생성한 하이라이트 방식 (없으면 'story' 호환) */
+  analysisMode?: HighlightMode;
   metadataDate?: string;
   recordedTimestamp?: number;
   latitude?: number;
@@ -79,6 +81,8 @@ export interface StudioProject {
   selectedModel?: string;
   selectedEffort?: ReasoningEffortOption;
   exportResolution?: ExportResolution;
+  /** 선택한 하이라이트 방식 (없으면 'story' - 기존 프로젝트 호환) */
+  highlightMode?: HighlightMode;
   /** 출력 방향 (없으면 'landscape' - 기존 프로젝트 호환) */
   orientation?: VideoOrientation;
   /** 세로 프로젝트 플랫폼 프리셋 (없으면 'instagram') */

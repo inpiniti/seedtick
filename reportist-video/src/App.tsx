@@ -13,7 +13,7 @@ import {
 } from './services/gatewayClient.ts';
 import { enrichModelMetrics, pickDefaultModel } from './services/modelMetrics.ts';
 import { cancelVideoAnalysisJob } from './services/analyzerQueueService.ts';
-import { extractVideoMetadata as extractVideoVisualDimensions, extractVideoFramesForAnalysis } from './services/videoCompressor.ts';
+import { extractVideoMetadata as extractVideoVisualDimensions, extractVideoFramesForAnalysis, getAnalysisFrameBudget } from './services/videoCompressor.ts';
 import {
   extractVideoMetadata as extractMediaMetadata,
   formatVideoDate,
@@ -41,6 +41,7 @@ import type {
   ProcessingProgress,
   FinalVideoResult,
   HighlightSegment,
+  HighlightMode,
   VideoOverlayOptions,
   ExportResolution,
   VideoOrientation,
@@ -67,6 +68,11 @@ import {
 import { AUDIO_LIBRARY, loadLibraryAudioFile } from './data/audioLibrary.ts';
 import { saveVideoToOPFS } from './services/opfsStorage.ts';
 import { isMobileStorageEnvironment } from './services/deviceStoragePolicy.ts';
+import {
+  getStoredHighlightMode,
+  normalizeHighlightMode,
+  setStoredHighlightMode,
+} from './services/highlightModeStorage.ts';
 import { AlertCircle } from 'lucide-react';
 import { useI18n } from './i18n/index.tsx';
 
@@ -217,6 +223,8 @@ export function App() {
   const [currentBgmVolume, setCurrentBgmVolume] = useState<number>(0.3);
   const [currentCustomAudio, setCurrentCustomAudio] = useState<File | null>(null);
   const [currentLibraryTrackId, setCurrentLibraryTrackId] = useState<string | null>(null);
+  // 하이라이트 방식 (감성 하이라이트 / 1초 컷 편집) — 프로젝트에 저장되고 기기에도 마지막 선택을 기억한다.
+  const [currentHighlightMode, setCurrentHighlightMode] = useState<HighlightMode>(getStoredHighlightMode);
 
   // 편집 오버레이 옵션 변경 핸들러 (실제 값이 같으면 참조 유지하여 무한 리렌더링 및 저장 루프 방지)
   const handleOverlayOptionsChange = useCallback((newOpts: VideoOverlayOptions) => {
@@ -249,6 +257,11 @@ export function App() {
       }
       return newOpts;
     });
+  }, []);
+
+  const handleHighlightModeChange = useCallback((mode: HighlightMode) => {
+    setStoredHighlightMode(mode);
+    setCurrentHighlightMode((prev) => (prev !== mode ? mode : prev));
   }, []);
 
   // 배경음악 변경 핸들러 (실제 값이 같으면 상태 유지하여 무한 리렌더링 방지)
@@ -358,6 +371,7 @@ export function App() {
           error: hasValidBlob ? undefined : '로컬 원본 영상 재연결이 필요합니다.',
           isMissingFile: !hasValidBlob,
           segments: v.segments || [],
+          analysisMode: normalizeHighlightMode(v.analysisMode),
           metadataDate: v.metadataDate,
           recordedTimestamp: v.recordedTimestamp,
           latitude: v.latitude,
@@ -452,6 +466,7 @@ export function App() {
 
       setCurrentOrientation(restoredOrientation);
       setCurrentPortraitPlatform(restoredPlatform);
+      setCurrentHighlightMode(normalizeHighlightMode(project.highlightMode));
       setVideos(restoredVideos);
       setFinalResult(restoredResult);
       setCurrentStep(restoredResult ? 'result' : 'upload');
@@ -535,6 +550,7 @@ export function App() {
     setCurrentBgmPresetId('preset');
     setCurrentBgmVolume(0.3);
     setCurrentCustomAudio(null);
+    setCurrentHighlightMode(getStoredHighlightMode());
     // 새 프로젝트는 잔잔한 무드의 BGM(Dreaming)을 기본 선택해 바로 편집된 느낌이 나도록 한다
     setCurrentLibraryTrackId('dreaming');
 
@@ -620,6 +636,7 @@ export function App() {
         height: v.height,
         status: v.status,
         segments: v.segments || [],
+        analysisMode: v.analysisMode,
         metadataDate: v.metadataDate,
         recordedTimestamp: v.recordedTimestamp,
         latitude: v.latitude,
@@ -694,6 +711,7 @@ export function App() {
         exportResolution: finalResult?.resolution,
         orientation: saveOrientation,
         portraitPlatform: savePlatform,
+        highlightMode: currentHighlightMode,
       };
 
       await saveProject(projectData);
@@ -760,6 +778,7 @@ export function App() {
     selectedEffort,
     currentOrientation,
     currentPortraitPlatform,
+    currentHighlightMode,
   ]);
 
   // 최초 마운트 시 저장소 초기화 및 마지막 활성 프로젝트 복원
@@ -1129,9 +1148,14 @@ export function App() {
     overlayOpts?: VideoOverlayOptions,
     customAudio?: File | null,
     bgmPresetId = 'none',
-    bgmVol = 0.35
+    bgmVol = 0.35,
+    highlightMode: HighlightMode = currentHighlightMode
   ) => {
     if (videos.length === 0) return;
+
+    // 선택한 방식을 즉시 기기에도 기억해 둔다.
+    setStoredHighlightMode(highlightMode);
+    setCurrentHighlightMode((prev) => (prev !== highlightMode ? highlightMode : prev));
 
     // 1. 영상 URL 갱신 및 파일 유효성 사전 검사
     const readyVideos = refreshVideoBlobUrls(videos);
@@ -1305,7 +1329,14 @@ export function App() {
         const videoRange = Math.max(1, videoEndPct - videoStartPct);
         const extractSlice = Math.max(1, videoRange * 0.15); // 프레임 추출에 해당 영상 지분의 15% 배정
 
-        if (currentVideo.status === 'analyzed' && currentVideo.segments && currentVideo.segments.length > 0) {
+        const isSameAnalysisMode =
+          normalizeHighlightMode(currentVideo.analysisMode) === highlightMode;
+        if (
+          currentVideo.status === 'analyzed' &&
+          currentVideo.segments &&
+          currentVideo.segments.length > 0 &&
+          isSameAnalysisMode
+        ) {
           addLog(interpolate(dict.logs.reusingSegments, { name: currentVideo.name, count: currentVideo.segments.length }));
           globalRunningPct = Math.max(globalRunningPct, isLastVideo ? 99 : videoEndPct);
           setProgress((prev) => ({
@@ -1337,7 +1368,7 @@ export function App() {
         addLog(interpolate(dict.logs.extractingFrames, {
           name: currentVideo.name,
           duration: currentVideo.duration.toFixed(1),
-          frames: 14,
+          frames: getAnalysisFrameBudget(currentVideo.duration, highlightMode),
         }));
 
         const frames = await extractVideoFramesForAnalysis(
@@ -1353,7 +1384,8 @@ export function App() {
               progressPercent: Math.floor(globalRunningPct),
             }));
           },
-          currentVideo.rotation
+          currentVideo.rotation,
+          highlightMode
         );
 
         globalRunningPct = Math.max(globalRunningPct, videoStartPct + extractSlice);
@@ -1514,6 +1546,7 @@ export function App() {
                 longitude: currentVideo.longitude,
                 locationName: currentVideo.locationName,
                 locale,
+                highlightMode,
                 onStreamOpen: () => {
                   lastActivityTimestamp = Date.now();
                   addLog(interpolate(dict.logs.streamConnected, { name: currentVideo.name }));
@@ -1629,6 +1662,7 @@ export function App() {
                   config: DEFAULT_CONFIG,
                   signal: undefined,
                   locale,
+                  highlightMode,
                   useQueue: false,
                 });
                 videoSuccess = true;
@@ -1666,6 +1700,7 @@ export function App() {
         }
 
         currentVideo.segments = segments;
+        currentVideo.analysisMode = highlightMode;
         currentVideo.status = 'analyzed';
         setVideos([...updatedVideos]);
 
@@ -1769,6 +1804,7 @@ export function App() {
           locale,
           model: selectedModel,
           signal,
+          highlightMode,
         });
 
         for (const seg of allSegments) {
@@ -2214,6 +2250,8 @@ export function App() {
         onStartNewProject={handleStartNewProject}
         onViewProjects={handleViewProjects}
         initialOverlayOptions={currentOverlayOptions}
+        initialHighlightMode={currentHighlightMode}
+        onHighlightModeChange={handleHighlightModeChange}
         initialBgmPresetId={currentBgmPresetId}
         initialBgmVolume={currentBgmVolume}
         initialCustomAudioFile={currentCustomAudio}

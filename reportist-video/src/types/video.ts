@@ -2,6 +2,13 @@
 
 export type SubtitleTone = 'vlog' | 'shorts' | 'natural' | 'minimal';
 
+/**
+ * 하이라이트 생성 방식.
+ * - story: 기존 감성 하이라이트 (1.5~4.5초, 영상당 1~3컷)
+ * - quick-cut: 1초 컷 편집 (0.8~1.3초 컷을 영상 길이에 비례해 여러 개)
+ */
+export type HighlightMode = 'story' | 'quick-cut';
+
 /** 출력 화면 방향 - 프로젝트 생성 시 선택하며 가로는 기존 16:9 동작을 그대로 유지한다. */
 export type VideoOrientation = 'landscape' | 'portrait';
 
@@ -63,6 +70,8 @@ export interface VideoItem {
   status: VideoProcessingStatus;
   statusMessage?: string;
   segments: HighlightSegment[];
+  /** 이 영상의 segments를 마지막으로 생성한 하이라이트 방식 (없으면 'story' 호환) */
+  analysisMode?: HighlightMode;
   error?: string;
   metadataDate?: string; // e.g. "2026.11.03"
   recordedTimestamp?: number; // e.g. 1793710800000 (ms)

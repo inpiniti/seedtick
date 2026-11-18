@@ -1,4 +1,4 @@
-import type { ExtractedFrame } from '../types/video.ts';
+import type { ExtractedFrame, HighlightMode } from '../types/video.ts';
 import {
   decodeKeyframesNearTimes,
   getMp4TrackInfo,
@@ -80,15 +80,42 @@ function releaseMetadataSlot(): void {
   }
 }
 
-// 영상 길이에 따라 최적의 프레임 샘플링 타임스탬프 계산 (최대 10~14개 프레임, 모바일은 메모리 보호를 위해 최대 10개)
+// 영상 길이에 따라 최적의 프레임 샘플링 타임스탬프 계산
+// - story: 최대 10~14개 프레임
+// - quick-cut: 1초 컷을 놓치지 않도록 최대 18~24개 프레임을 촘촘히 배치
 export function calculateSampleTimestamps(
   totalDuration: number,
-  maxFrames = IS_MOBILE_DEVICE ? 10 : 14
+  maxFrames = IS_MOBILE_DEVICE ? 10 : 14,
+  highlightMode: HighlightMode = 'story'
 ): number[] {
   const safeDuration = Number.isFinite(totalDuration) && totalDuration > 0 ? totalDuration : 3.0;
 
   if (safeDuration <= 1.0) {
-    return [Math.max(0.1, safeDuration * 0.5)];
+    return highlightMode === 'quick-cut'
+      ? [Math.max(0.1, safeDuration * 0.2), Math.max(0.2, safeDuration * 0.75)]
+      : [Math.max(0.1, safeDuration * 0.5)];
+  }
+
+  // 1초 컷 편집: 짧은 영상일수록 촘촘하게(0.4~2.5초 간격) 샘플링한다.
+  if (highlightMode === 'quick-cut') {
+    const targetGap =
+      safeDuration <= 6
+        ? 0.4
+        : safeDuration <= 15
+        ? 0.6
+        : safeDuration <= 30
+        ? 1.0
+        : safeDuration <= 60
+        ? 1.6
+        : 2.5;
+    const count = Math.min(
+      maxFrames,
+      Math.max(3, Math.ceil((safeDuration - 0.2) / targetGap) + 1)
+    );
+    const startOffset = Math.max(0.1, Math.min(0.3, safeDuration * 0.02));
+    const endOffset = Math.max(startOffset, Math.min(safeDuration - 0.1, safeDuration * 0.99));
+    const step = count > 1 ? (endOffset - startOffset) / (count - 1) : 0;
+    return Array.from({ length: count }, (_, i) => Math.round((startOffset + i * step) * 10) / 10);
   }
 
   // 5초 이하 짧은 영상
@@ -111,6 +138,22 @@ export function calculateSampleTimestamps(
   const endOffset = Math.min(safeDuration - 0.3, safeDuration * 0.98);
   const step = (endOffset - startOffset) / Math.max(1, count - 1);
   return Array.from({ length: count }, (_, i) => Math.round((startOffset + i * step) * 10) / 10);
+}
+
+/** 분석에 실제로 사용할 프레임 장수 (로그/진행 안내용) */
+export function getAnalysisFrameBudget(
+  totalDuration: number,
+  highlightMode: HighlightMode = 'story'
+): number {
+  const maxFrames =
+    highlightMode === 'quick-cut'
+      ? IS_MOBILE_DEVICE
+        ? 18
+        : 24
+      : IS_MOBILE_DEVICE
+      ? 10
+      : 14;
+  return calculateSampleTimestamps(totalDuration, maxFrames, highlightMode).length;
 }
 
 // 분석용 단일 캔버스 재사용 (매 영상마다 캔버스 인스턴스를 누적 생성하지 않도록 관리)
@@ -145,22 +188,31 @@ export async function extractVideoFramesForAnalysis(
   source: MediaFrameSource | string,
   totalDuration: number,
   onProgress?: (progressPercent: number) => void,
-  rotation = 0
+  rotation = 0,
+  highlightMode: HighlightMode = 'story'
 ): Promise<ExtractedFrame[]> {
   const { url, file } =
     typeof source === 'string' ? { url: source, file: null } : source;
 
-  const maxFrameCount = IS_MOBILE_DEVICE ? 10 : 14;
+  const maxFrameCount =
+    highlightMode === 'quick-cut'
+      ? IS_MOBILE_DEVICE
+        ? 18
+        : 24
+      : IS_MOBILE_DEVICE
+      ? 10
+      : 14;
   const safeDuration =
     Number.isFinite(totalDuration) && totalDuration > 0 ? Math.max(0.5, totalDuration) : 3.0;
-  const timestamps = calculateSampleTimestamps(safeDuration, maxFrameCount);
+  const timestamps = calculateSampleTimestamps(safeDuration, maxFrameCount, highlightMode);
 
   // 1순위: WebCodecs 키프레임 디코딩
   if (file && isWebCodecsKeyframeDecodeAvailable()) {
     try {
       const decoded = await decodeKeyframesNearTimes(file, timestamps, {
-        targetWidth: 420,
-        jpegQuality: 0.65,
+        // 1초 컷 모드는 프레임이 많아지는 대신 해상도/화질을 낮춰 요청 본문을 안전하게 유지한다.
+        targetWidth: highlightMode === 'quick-cut' ? 340 : 420,
+        jpegQuality: highlightMode === 'quick-cut' ? 0.55 : 0.65,
         timeoutMs: 15_000,
         rotationOffset: rotation,
         onFrameDecoded: (done, total) => {
@@ -176,14 +228,15 @@ export async function extractVideoFramesForAnalysis(
   }
 
   // 2순위(폴백): <video preload='metadata'> 기반
-  return extractFramesWithVideoElement(url, safeDuration, onProgress, rotation);
+  return extractFramesWithVideoElement(url, safeDuration, onProgress, rotation, highlightMode);
 }
 
 async function extractFramesWithVideoElement(
   videoUrl: string,
   totalDuration: number,
   onProgress?: (progressPercent: number) => void,
-  rotation = 0
+  rotation = 0,
+  highlightMode: HighlightMode = 'story'
 ): Promise<ExtractedFrame[]> {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
@@ -222,15 +275,23 @@ async function extractFramesWithVideoElement(
             : 3.0;
         const duration = Math.max(0.5, rawDur);
 
-        // 시각 분석에 최적화된 저해상도 설정 (너비 420px, 종횡비 유지)
-        const targetWidth = 420;
+        // 시각 분석에 최적화된 저해상도 설정 (1초 컷 모드는 프레임 수가 많아 조금 더 압축)
+        const isQuickCutMode = highlightMode === 'quick-cut';
+        const targetWidth = isQuickCutMode ? 340 : 420;
+        const jpegQuality = isQuickCutMode ? 0.55 : 0.65;
         const aspectRatio = (video.videoHeight || 360) / (video.videoWidth || 640);
         const targetHeight = Math.max(2, Math.round((targetWidth * aspectRatio) / 2) * 2);
 
         const { canvas, ctx } = getSharedAnalysisCanvas(targetWidth, targetHeight);
 
-        const maxFrameCount = IS_MOBILE_DEVICE ? 10 : 14;
-        const timestamps = calculateSampleTimestamps(duration, maxFrameCount);
+        const maxFrameCount = isQuickCutMode
+          ? IS_MOBILE_DEVICE
+            ? 18
+            : 24
+          : IS_MOBILE_DEVICE
+          ? 10
+          : 14;
+        const timestamps = calculateSampleTimestamps(duration, maxFrameCount, highlightMode);
         const frames: ExtractedFrame[] = [];
 
         for (let i = 0; i < timestamps.length; i++) {
@@ -283,8 +344,8 @@ async function extractFramesWithVideoElement(
             ctx.restore();
           }
 
-          // 화질 0.65의 경량 JPEG dataUrl 생성 (프레임당 약 15~20KB)
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.65);
+          // 경량 JPEG dataUrl 생성 (1초 컷 모드는 프레임 수를 늘리는 대신 화질을 낮춘다)
+          const dataUrl = canvas.toDataURL('image/jpeg', jpegQuality);
           frames.push({
             timestamp: ts,
             dataUrl,

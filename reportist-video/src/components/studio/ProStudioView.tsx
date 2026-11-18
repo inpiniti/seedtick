@@ -71,11 +71,17 @@ import {
   getStoredSubtitleTone,
   setStoredSubtitleTone,
 } from '../../services/subtitleRefineService.ts';
+import {
+  getStoredHighlightMode,
+  normalizeHighlightMode,
+  setStoredHighlightMode,
+} from '../../services/highlightModeStorage.ts';
 import { QueueStatusCard, getQueueCopy } from '../queue/QueueStatusCard.tsx';
 import { StudioProjectListView } from './StudioProjectListView.tsx';
 import type { StudioProjectSummary } from '../../types/project.ts';
 import type {
   FinalVideoResult,
+  HighlightMode,
   HighlightSegment,
   VideoItem,
   ProcessingProgress,
@@ -426,7 +432,8 @@ interface ProStudioViewProps {
     overlayOpts?: VideoOverlayOptions,
     customAudio?: File | null,
     bgmPresetId?: string,
-    bgmVolume?: number
+    bgmVolume?: number,
+    highlightMode?: HighlightMode
   ) => void;
   isProcessing: boolean;
   /** 영상 메타데이터/썸네일 추출 배치가 진행 중이면 true (영상 올리기 단계의 다음 버튼 차단에 사용) */
@@ -460,6 +467,8 @@ interface ProStudioViewProps {
   onDeleteProject?: (id: string) => void;
   onStartNewProject?: (orientation?: VideoOrientation, platform?: PortraitPlatform) => void;
   initialOverlayOptions?: VideoOverlayOptions | null;
+  initialHighlightMode?: HighlightMode;
+  onHighlightModeChange?: (mode: HighlightMode) => void;
   initialBgmPresetId?: string;
   initialBgmVolume?: number;
   initialCustomAudioFile?: File | null;
@@ -508,6 +517,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   onDeleteProject,
   onStartNewProject,
   initialOverlayOptions,
+  initialHighlightMode,
+  onHighlightModeChange,
   initialBgmPresetId,
   initialBgmVolume,
   initialCustomAudioFile,
@@ -639,6 +650,31 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     isMutedRef.current = isMuted;
   }, [isMuted]);
 
+  // 1-0. 하이라이트 방식 (감성 하이라이트 / 1초 컷 편집)
+  const [highlightMode, setHighlightMode] = useState<HighlightMode>(
+    initialHighlightMode ?? getStoredHighlightMode()
+  );
+
+  // 외부(프로젝트 로드/새 프로젝트)에서 모드가 전달되면 로컬 상태 동기화
+  useEffect(() => {
+    if (initialHighlightMode === undefined) return;
+    const normalized = normalizeHighlightMode(initialHighlightMode);
+    setHighlightMode((prev) => (prev !== normalized ? normalized : prev));
+  }, [initialHighlightMode]);
+
+  const handleSelectHighlightMode = (mode: HighlightMode) => {
+    if (mode === highlightMode) return;
+    setHighlightMode(mode);
+    setStoredHighlightMode(mode);
+    onHighlightModeChange?.(mode);
+  };
+
+  // 현재 영상들에 실제로 적용된 하이라이트 방식 (없으면 null)
+  const analyzedHighlightMode = useMemo<HighlightMode | null>(() => {
+    const analyzed = videos.find((v) => v.segments && v.segments.length > 0);
+    return analyzed ? normalizeHighlightMode(analyzed.analysisMode) : null;
+  }, [videos]);
+
   // 1-1. 자막 톤앤매너 및 다듬기 상태
   const [currentSubtitleTone, setCurrentSubtitleTone] = useState<SubtitleTone>(getStoredSubtitleTone);
   const [isRefiningSubtitles, setIsRefiningSubtitles] = useState<boolean>(false);
@@ -714,6 +750,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         videoTitle: effectiveOverlayOptions?.titleText || '',
         locale,
         model: selectedModel,
+        highlightMode,
       });
 
       const prevSubtitles = new Map(segments.map((s) => [s.id, s.subtitleTitle]));
@@ -1833,6 +1870,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     setLastStitchedSnapshot(null);
     setActiveSection('intro');
     setSelectedBridgeIndex(1);
+    // 새 프로젝트/영상 리셋 시 하이라이트 방식도 기기에 기억된 마지막 선택으로 되돌린다.
+    setHighlightMode(getStoredHighlightMode());
   }, [dict.player.defaultTitleText, dict.player.defaultChannelText, showDate]);
 
   // 새 프로젝트/새 영상 만들기 → 포맷 선택 모달을 먼저 연다. (만들 때 방향을 정한다)
@@ -7868,6 +7907,55 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               </div>
             </div>
 
+            {videos.length > 0 && (
+              <div className="toss-ai-mode">
+                <span className="toss-ai-mode-label">{ui('하이라이트 방식')}</span>
+                <div
+                  className="toss-ai-mode-cards"
+                  role="radiogroup"
+                  aria-label={ui('하이라이트 방식')}
+                >
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={highlightMode === 'story'}
+                    className={`toss-ai-mode-card ${highlightMode === 'story' ? 'active' : ''}`}
+                    onClick={() => handleSelectHighlightMode('story')}
+                    disabled={isProcessing}
+                  >
+                    <span className="toss-ai-mode-card-head">
+                      <span className="toss-ai-mode-card-title">{ui('감성 하이라이트')}</span>
+                      <span className="toss-ai-mode-card-badge">{ui('3~4초')}</span>
+                    </span>
+                    <span className="toss-ai-mode-card-desc">
+                      {ui('핵심 장면 1~2컷을 길게 담아요')}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={highlightMode === 'quick-cut'}
+                    className={`toss-ai-mode-card ${highlightMode === 'quick-cut' ? 'active' : ''}`}
+                    onClick={() => handleSelectHighlightMode('quick-cut')}
+                    disabled={isProcessing}
+                  >
+                    <span className="toss-ai-mode-card-head">
+                      <span className="toss-ai-mode-card-title">{ui('1초 컷 편집')}</span>
+                      <span className="toss-ai-mode-card-badge">{ui('≈1초')}</span>
+                    </span>
+                    <span className="toss-ai-mode-card-desc">
+                      {ui('영상 길이에 맞춰 여러 컷을 빠르게 담아요')}
+                    </span>
+                  </button>
+                </div>
+                {analyzedHighlightMode && analyzedHighlightMode !== highlightMode && (
+                  <p className="toss-ai-mode-hint">
+                    {ui('방식을 바꾼 뒤 다시 뽑으면 새 방식으로 컷을 만들어요.')}
+                  </p>
+                )}
+              </div>
+            )}
+
             {videos.length === 0 ? (
               <div className="toss-empty-state">
                 <p className="text-slate-400 text-sm">
@@ -7908,6 +7996,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 <span className="toss-ai-done-badge">
                   <Check size={12} />
                   {ui('하이라이트 {count}개 완성', { count: segments.length })}
+                  {analyzedHighlightMode && (
+                    <span className="toss-ai-done-mode">
+                      {analyzedHighlightMode === 'quick-cut'
+                        ? ui('1초 컷 편집')
+                        : ui('감성 하이라이트')}
+                    </span>
+                  )}
                 </span>
                 <div className="toss-ai-done-actions">
                   {/* 원본 영상 수정·재분석은 컷 단계가 아니라 AI 하이라이트 단계에서 처리한다. */}
@@ -7919,13 +8014,18 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         effectiveOverlayOptions,
                         customAudioFile,
                         selectedBgmId,
-                        bgmVolume
+                        bgmVolume,
+                        highlightMode
                       )
                     }
                     disabled={isProcessing || videos.length === 0}
                   >
                     <Sparkles size={12} />
-                    <span>{ui('AI 하이라이트 다시 뽑기')}</span>
+                    <span>
+                      {analyzedHighlightMode && analyzedHighlightMode !== highlightMode
+                        ? ui('선택한 방식으로 다시 뽑기')
+                        : ui('AI 하이라이트 다시 뽑기')}
+                    </span>
                   </button>
                 </div>
               </div>
@@ -7939,7 +8039,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     effectiveOverlayOptions,
                     customAudioFile,
                     selectedBgmId,
-                    bgmVolume
+                    bgmVolume,
+                    highlightMode
                   )
                 }
                 disabled={isProcessing}
@@ -7950,7 +8051,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               >
                 <Sparkles size={14} />
                 <ShinyText
-                  text={ui('AI 하이라이트 만들기')}
+                  text={
+                    highlightMode === 'quick-cut'
+                      ? ui('1초 컷 하이라이트 만들기')
+                      : ui('AI 하이라이트 만들기')
+                  }
                   speed={2.6}
                   color="#f8fafc"
                   shineColor="#ffffff"
