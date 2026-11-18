@@ -3214,13 +3214,34 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   }, [standalonePreviewSection]);
 
-  // 단계 이동/스타일 변경 시 멈춘 상태에서도 대표 프레임을 보여준다.
+  // 단계 이동/스타일 변경 시 미리보기를 처리한다.
+  // - 단계가 바뀌면 이전 섹션의 재생 루프를 먼저 정리하고 새 섹션을 처음부터 자동 재생한다.
+  //   (재생 중 이동하면 이전 섹션의 rAF가 캔버스를 계속 덮어써서 이전 미리보기가 남던 문제)
+  // - 스타일만 바뀌면 멈춘 상태에서 대표 프레임만 다시 그린다.
+  const lastStandaloneSectionRef = useRef<'intro' | 'bridge' | 'outro' | null>(null);
   useEffect(() => {
-    if (!standalonePreviewSection) {
-      if (standalonePreviewPlayingRef.current) stopStandalonePreview();
+    const sectionChanged = lastStandaloneSectionRef.current !== standalonePreviewSection;
+    lastStandaloneSectionRef.current = standalonePreviewSection;
+
+    if (sectionChanged) {
+      // 이전 섹션의 애니메이션 타이머·사용자 영상을 멈춰 잔상 프레임이 남지 않게 한다.
+      if (standalonePreviewRafRef.current) {
+        cancelAnimationFrame(standalonePreviewRafRef.current);
+        standalonePreviewRafRef.current = null;
+      }
+      standalonePreviewPlayingRef.current = false;
+      introCustomVideoRef.current?.pause();
+      outroCustomVideoRef.current?.pause();
+      if (standalonePreviewSection) {
+        // 진입한 단계의 모션을 자동으로 재생한다.
+        startStandalonePreview(standalonePreviewSection);
+      } else {
+        setIsPlaying(false);
+      }
       return;
     }
-    if (standalonePreviewPlayingRef.current) return;
+
+    if (!standalonePreviewSection || standalonePreviewPlayingRef.current) return;
     const duration = getStandalonePreviewDuration(standalonePreviewSection);
     renderStandalonePreviewAt(standalonePreviewSection, duration * 0.62, duration);
   }, [
@@ -3717,7 +3738,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     if (standalonePreviewSection || !isSequenceMode) {
       // AI 컷이 없거나, 브릿지 단계처럼 독립 캔버스를 보여주는 상태에서는
       // 타임라인 시크 대신 해당 모션만 캔버스에서 재생한다.
-      if (section === 'intro' || section === 'outro' || section === 'bridge') {
+      // 스타일 변경으로 예약된 재생이 단계 이동 뒤에 뒤늦게 실행되면 이전 단계의
+      // 미리보기가 새 단계 캔버스를 덮어쓸 수 있으므로 지금 활성 섹션일 때만 재생한다.
+      if (
+        (section === 'intro' || section === 'outro' || section === 'bridge') &&
+        standalonePreviewSection === section
+      ) {
         startStandalonePreview(section);
       }
       return;
