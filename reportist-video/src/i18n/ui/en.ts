@@ -533,6 +533,8 @@ export const uiEn: Record<string, string> = {
   '확인 {count}/{total}': 'Viewed {count}/{total}',
   '아직 확인하지 않은 컷이 {count}개 있어요. 모든 컷을 열어보면 다음으로 넘어갈 수 있어요':
     'You still have {count} cut(s) to view. View every cut to continue',
+  '아직 확인하지 않은 씬이 {count}개 있어요. 모든 씬을 열어보면 다음으로 넘어갈 수 있어요':
+    'You still have {count} scene(s) to view. View every scene to continue',
   // 통합 12단계 스텝바 · 촬영 위치 · 컷/자막 편집
   "영상 올리기 후 열림": "Opens after uploading",
   "AI 분석 후 열림": "Opens after AI analysis",

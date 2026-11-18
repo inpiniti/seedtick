@@ -593,14 +593,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     initialSegments[0]?.id || ''
   );
 
-  // 컷 다듬기에서 사용자가 열어본 컷 ID.
-  // 모든 컷을 열어봐야 다음 단계(자막 수정) CTA가 활성화된다.
-  const [viewedCutIds, setViewedCutIds] = useState<Set<string>>(() => new Set());
-  const markCutViewed = useCallback((segId: string) => {
-    setViewedCutIds((prev) => (prev.has(segId) ? prev : new Set(prev).add(segId)));
+  // 컷 다듬기·자막 수정 단계에서 사용자가 열어본 세그먼트 ID.
+  // 단계에 진입하면 1/n부터 다시 시작하고, 모든 컷(씬)을 열어봐야 다음 단계 CTA가 활성화된다.
+  const [viewedSegmentIds, setViewedSegmentIds] = useState<Set<string>>(() => new Set());
+  const markSegmentViewed = useCallback((segId: string) => {
+    setViewedSegmentIds((prev) => (prev.has(segId) ? prev : new Set(prev).add(segId)));
   }, []);
-  const viewedCutCount = segments.reduce(
-    (count, seg) => count + (viewedCutIds.has(seg.id) ? 1 : 0),
+  const viewedSegmentCount = segments.reduce(
+    (count, seg) => count + (viewedSegmentIds.has(seg.id) ? 1 : 0),
     0
   );
 
@@ -853,12 +853,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [activeSection, setActiveSection] = useState<StudioSection>('intro');
   const isCaptionSection = activeSection === 'caption';
 
-  // 컷 단계에서 화면에 열린 컷은 별도 확인 버튼 없이 자동으로 확인 처리한다.
+  // 컷·자막 단계에서 화면에 열린 컷(씬)은 별도 확인 버튼 없이 자동으로 확인 처리한다.
   useEffect(() => {
-    if (activeSection === 'cut' && selectedSegmentId) {
-      markCutViewed(selectedSegmentId);
+    if ((activeSection === 'cut' || activeSection === 'caption') && selectedSegmentId) {
+      markSegmentViewed(selectedSegmentId);
     }
-  }, [activeSection, selectedSegmentId, markCutViewed]);
+  }, [activeSection, selectedSegmentId, markSegmentViewed]);
 
   const [selectedBridgeIndex, setSelectedBridgeIndex] = useState<number>(1);
   const musicPanelPinnedRef = useRef<boolean>(false);
@@ -4115,6 +4115,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       return;
     }
     if (section === 'cut' || section === 'caption') {
+      // 다른 단계에서 진입하면 확인 진행도를 1/n부터 다시 시작하고 첫 컷(씬)을 연다.
+      // (이전 단계에서 5/5까지 봤더라도 새 단계에서는 1/5부터 다시 보여줘야 한다.)
+      if (activeSection !== section) {
+        setViewedSegmentIds(new Set());
+        const first = segments[0];
+        if (first) handleSelectSegment(first.id, section);
+        return;
+      }
       const seg = segments[selectedSegmentIndex] || segments[0];
       if (seg) handleSelectSegment(seg.id, section);
       return;
@@ -4147,15 +4155,19 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       }
       return null;
     }
-    if (activeSection === 'cut') {
+    if (activeSection === 'cut' || activeSection === 'caption') {
       if (segments.length === 0) {
         return ui('AI 하이라이트를 먼저 만들면 다음으로 넘어갈 수 있어요');
       }
-      const unviewedCount = segments.length - viewedCutCount;
+      const unviewedCount = segments.length - viewedSegmentCount;
       if (unviewedCount > 0) {
-        return ui('아직 확인하지 않은 컷이 {count}개 있어요. 모든 컷을 열어보면 다음으로 넘어갈 수 있어요', {
-          count: unviewedCount,
-        });
+        return activeSection === 'cut'
+          ? ui('아직 확인하지 않은 컷이 {count}개 있어요. 모든 컷을 열어보면 다음으로 넘어갈 수 있어요', {
+              count: unviewedCount,
+            })
+          : ui('아직 확인하지 않은 씬이 {count}개 있어요. 모든 씬을 열어보면 다음으로 넘어갈 수 있어요', {
+              count: unviewedCount,
+            });
       }
     }
     return null;
@@ -7918,14 +7930,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     </strong>
                     <span className="toss-cut-navigator-sub">/ {segments.length}</span>
                   </div>
-                  {!isCaptionSection && (
-                    <span className="toss-cut-view-progress">
-                      {ui('확인 {count}/{total}', {
-                        count: viewedCutCount,
-                        total: segments.length,
-                      })}
-                    </span>
-                  )}
+                  <span className="toss-cut-view-progress">
+                    {ui('확인 {count}/{total}', {
+                      count: viewedSegmentCount,
+                      total: segments.length,
+                    })}
+                  </span>
                 </div>
                 <button
                   type="button"
