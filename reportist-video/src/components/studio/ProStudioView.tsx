@@ -1956,13 +1956,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   };
   // 인트로/브릿지/아웃트로는 AI 컷이 없어도 캔버스 단독으로 미리볼 수 있다.
   // 인트로 스타일 단계도 같은 인트로 캔버스를 보여주고, 토글을 꺼도 타이틀 카드는 그대로 미리보여 준다.
-  const standalonePreviewSection: 'intro' | 'bridge' | 'outro' | null = !isSequenceMode
-    ? activeSection === 'introStyle'
-      ? 'intro'
-      : activeSection === 'intro' || activeSection === 'bridge' || activeSection === 'outro'
-        ? activeSection
-        : null
-    : null;
+  // 브릿지 단계는 시퀀스(컷)가 있어도 컷 영상 대신 브릿지 모션만 보여준다.
+  const standalonePreviewSection: 'intro' | 'bridge' | 'outro' | null =
+    activeSection === 'bridge'
+      ? 'bridge'
+      : !isSequenceMode
+        ? activeSection === 'introStyle'
+          ? 'intro'
+          : activeSection === 'intro' || activeSection === 'outro'
+            ? activeSection
+            : null
+        : null;
 
   // AI 분석이 끝나 컷이 처음 생기면 생성 흐름에서 편집 흐름의 '컷'으로 자연스럽게 이동한다.
   const hadSegmentsRef = useRef<boolean>(initialSegments.length > 0);
@@ -2855,7 +2859,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // WYSIWYG 캔버스 컴포지터 렌더링 (Export 결과물과 100% 동일한 프리뷰, 가로 16:9 / 세로 9:16)
   const renderCompositorAt = (timelineTime: number) => {
     const canvas = previewCanvasRef.current;
-    if (!canvas || !isSequenceMode) return;
+    // 브릿지 단계에서는 독립 브릿지 미리보기 캔버스를 시퀀스 프레임으로 덮어쓰지 않는다.
+    if (!canvas || !isSequenceMode || standalonePreviewSection) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -3096,12 +3101,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         ctrl: bridgeRenderer.createHyperframesBridgeController(duration),
       };
     }
+    // 선택된 전환이 있으면 실제 날짜·장소를, 없으면 샘플 전환을 보여준다.
     bridgePreviewCacheRef.current.ctrl.seekAndRender(
       ctx,
       elapsed,
       frame.width,
       frame.height,
-      creationBridgePreviewInfo
+      selectedBridgeDetail?.info ?? creationBridgePreviewInfo
     );
   };
 
@@ -3195,6 +3201,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     overlayOptions,
     effectiveOverlayOptions,
     creationBridgePreviewInfo,
+    selectedBridgeDetail,
     previewRendererReady,
   ]);
 
@@ -3210,10 +3217,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
   // 편집 상태(자막, 제목, 날짜, 회전, 크롭, 인트로/아웃트로 등) 변경 시 즉시 캔버스 다시 그리기 (0초 반응)
   useEffect(() => {
-    if (!isSequenceMode) return;
+    if (!isSequenceMode || standalonePreviewSection) return;
     renderCompositorAt(currentTimeRef.current);
   }, [
     isSequenceMode,
+    standalonePreviewSection,
     currentTime,
     segments,
     effectiveOverlayOptions,
@@ -3679,8 +3687,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const previewSectionPlay = (section: StudioSection, bridgeIndex?: number) => {
     // 썸네일/다운로드 단계는 영상 구간 미리보기가 없는 마무리 화면이다.
     if (section === 'thumbnail' || section === 'download') return;
-    if (!isSequenceMode) {
-      // AI 컷이 없어도 인트로/브릿지/아웃트로는 캔버스 단독으로 재생한다.
+    if (standalonePreviewSection || !isSequenceMode) {
+      // AI 컷이 없거나, 브릿지 단계처럼 독립 캔버스를 보여주는 상태에서는
+      // 타임라인 시크 대신 해당 모션만 캔버스에서 재생한다.
       if (section === 'intro' || section === 'outro' || section === 'bridge') {
         startStandalonePreview(section);
       }
