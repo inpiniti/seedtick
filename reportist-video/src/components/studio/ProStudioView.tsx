@@ -196,9 +196,9 @@ const PLAYBACK_ERROR_MESSAGE =
   '이 영상은 미리보기를 재생할 수 없어요. 영상을 다시 올리거나 다른 형식(MP4)으로 시도해 주세요.';
 
 // 지도 미리보기 모달: 업로드 영상(VideoItem)과 AI 하이라이트 씬(HighlightSegment)을 함께 수용
-type MapModalTarget = Pick<
-  HighlightSegment,
-  'latitude' | 'longitude' | 'locationName' | 'subtitleTitle' | 'reason'
+// 두 타입 모두 좌표·장소가 옵셔널이므로 모달이 읽는 필드도 전부 옵셔널로 둔다.
+type MapModalTarget = Partial<
+  Pick<HighlightSegment, 'latitude' | 'longitude' | 'locationName' | 'subtitleTitle' | 'reason'>
 >;
 
 // ============================================================
@@ -8948,7 +8948,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       ? `https://map.naver.com/v5/search/${encodeURIComponent(mapModalTarget.locationName)}`
                       : mapModalTarget.latitude && mapModalTarget.longitude
                       ? `https://map.naver.com/v5/search/${mapModalTarget.latitude},${mapModalTarget.longitude}`
-                      : `https://map.naver.com/v5/search/${encodeURIComponent(mapModalTarget.subtitleTitle || mapModalTarget.reason)}`
+                      : `https://map.naver.com/v5/search/${encodeURIComponent(mapModalTarget.subtitleTitle || mapModalTarget.reason || dict.common.videos)}`
                   }
                   target="_blank"
                   rel="noreferrer"
@@ -8962,7 +8962,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   href={
                     mapModalTarget.latitude && mapModalTarget.longitude
                       ? `https://www.google.com/maps/search/?api=1&query=${mapModalTarget.latitude},${mapModalTarget.longitude}`
-                      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapModalTarget.locationName || mapModalTarget.subtitleTitle || mapModalTarget.reason)}`
+                      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapModalTarget.locationName || mapModalTarget.subtitleTitle || mapModalTarget.reason || dict.common.videos)}`
                   }
                   target="_blank"
                   rel="noreferrer"
