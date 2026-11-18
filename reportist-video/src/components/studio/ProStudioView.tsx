@@ -2,6 +2,7 @@
 import './ProStudioView.css';
 
 import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
+import { StudioStepIcon } from './StudioStepIcon.tsx';
 import { MobileStudioStepHeader } from './mobile/MobileStudioStepHeader.tsx';
 import { MobileStepListSheet } from './mobile/MobileStepListSheet.tsx';
 import { MobileBottomCtaBar } from './mobile/MobileBottomCtaBar.tsx';
@@ -5188,6 +5189,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           <MobileStudioStepHeader
             stepIndex={activeStudioStepIndex}
             totalSteps={studioSteps.length}
+            stepId={activeMobileStepItem?.id ?? activeStudioStep.id}
             stepLabel={activeMobileStepItem?.label ?? ui(activeStudioStep.label)}
             stepStatus={activeMobileStepItem?.status ?? getStudioStepStatus(activeSection)}
             stepPositionLabel={`${activeStudioStepIndex + 1} / ${studioSteps.length}`}
@@ -5219,27 +5221,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     aria-current={isActive ? 'step' : undefined}
                   >
                     <span className="toss-studio-step-num">
-                      {step.id === 'intro' ? (
-                        <Type size={14} />
-                      ) : step.id === 'introStyle' ? (
-                        <Film size={14} />
-                      ) : step.id === 'upload' ? (
-                        <Upload size={14} />
-                      ) : step.id === 'ai' ? (
-                        <Sparkles size={14} />
-                      ) : step.id === 'cut' ? (
-                        <Scissors size={14} />
-                      ) : step.id === 'bridge' ? (
-                        <ArrowRight size={14} />
-                      ) : step.id === 'outro' ? (
-                        <Check size={14} />
-                      ) : step.id === 'music' ? (
-                        <Music size={14} />
-                      ) : step.id === 'thumbnail' ? (
-                        <ImageIcon size={14} />
-                      ) : (
-                        <Download size={14} />
-                      )}
+                      <StudioStepIcon stepId={step.id} size={14} />
                     </span>
                     <span className="toss-studio-step-text">
                       <span className="toss-studio-step-label">

@@ -3,6 +3,7 @@
 // 1~8(7)번 모든 단계의 상태를 세로 리스트로 한 번에 보여준다.
 import React, { useEffect } from 'react';
 import { Check, X } from 'lucide-react';
+import { StudioStepIcon } from '../StudioStepIcon.tsx';
 
 export interface MobileStepListItem {
   id: string;
@@ -86,7 +87,12 @@ export const MobileStepListSheet: React.FC<MobileStepListSheetProps> = ({
                   {step.index + 1}
                 </span>
                 <span className="toss-step-sheet-text">
-                  <span className="toss-step-sheet-label">{step.label}</span>
+                  <span className="toss-step-sheet-label">
+                    <span className="toss-step-sheet-label-icon" aria-hidden="true">
+                      <StudioStepIcon stepId={step.id} size={14} />
+                    </span>
+                    {step.label}
+                  </span>
                   <span className="toss-step-sheet-status">{step.status}</span>
                 </span>
                 {step.isActive && (

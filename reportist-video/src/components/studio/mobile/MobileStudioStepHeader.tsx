@@ -3,10 +3,12 @@
 // 탭하면 MobileStepListSheet가 전체 단계 목록을 띄운다.
 import React from 'react';
 import { ChevronDown } from 'lucide-react';
+import { StudioStepIcon } from '../StudioStepIcon.tsx';
 
 interface MobileStudioStepHeaderProps {
   stepIndex: number;
   totalSteps: number;
+  stepId: string;
   stepLabel: string;
   stepStatus: string;
   stepPositionLabel: string;
@@ -18,6 +20,7 @@ interface MobileStudioStepHeaderProps {
 export const MobileStudioStepHeader: React.FC<MobileStudioStepHeaderProps> = ({
   stepIndex,
   totalSteps,
+  stepId,
   stepLabel,
   stepStatus,
   stepPositionLabel,
@@ -40,7 +43,12 @@ export const MobileStudioStepHeader: React.FC<MobileStudioStepHeaderProps> = ({
           {stepPositionLabel}
         </span>
         <span className="toss-mobile-step-body">
-          <span className="toss-mobile-step-label">{stepLabel}</span>
+          <span className="toss-mobile-step-label">
+            <span className="toss-mobile-step-label-icon" aria-hidden="true">
+              <StudioStepIcon stepId={stepId} size={14} />
+            </span>
+            {stepLabel}
+          </span>
           <span className="toss-mobile-step-status">{stepStatus}</span>
         </span>
         <span className="toss-mobile-step-viewall">
