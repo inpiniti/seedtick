@@ -196,7 +196,7 @@ import { PenguinLogo } from '../common/PenguinLogo.tsx';
 import { ShinyText } from '../common/ShinyText.tsx';
 import { SpecularButton } from '../common/SpecularButton.tsx';
 import { BorderBeam } from '../common/BorderBeam.tsx';
-import { useI18n } from '../../i18n/index.tsx';
+import { getLandingPath, useI18n } from '../../i18n/index.tsx';
 
 const PLAYBACK_ERROR_MESSAGE =
   '이 영상은 미리보기를 재생할 수 없어요. 영상을 다시 올리거나 다른 형식(MP4)으로 시도해 주세요.';
@@ -4950,7 +4950,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             /* 목록 및 커뮤니티 화면: 로고, 브랜드명, 상단 탭 노출 */
             <>
               <a
-                href="/"
+                href={getLandingPath(locale)}
                 className="toss-nav-brand-link"
                 title={dict.common.visitPenguinCutHome || 'PenguinCut 홈으로 이동'}
                 aria-label={dict.common.visitPenguinCutHome || 'PenguinCut 홈으로 이동'}
