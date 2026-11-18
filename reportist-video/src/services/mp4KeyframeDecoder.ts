@@ -33,6 +33,8 @@ export interface DecodeKeyframesOptions {
   timeoutMs?: number;
   /** 프레임 하나가 디코딩될 때마다 호출 */
   onFrameDecoded?: (done: number, total: number) => void;
+  /** tkhd 회전에 추가로 합산할 사용자 회전 각도 (스탭 3) */
+  rotationOffset?: number;
 }
 
 interface ParsedVideoSample {
@@ -641,6 +643,7 @@ export async function decodeKeyframesNearTimes(
     jpegQuality = 0.65,
     timeoutMs = 15_000,
     onFrameDecoded,
+    rotationOffset = 0,
   } = options;
 
   let track: ParsedVideoTrack | null = null;
@@ -653,6 +656,9 @@ export async function decodeKeyframesNearTimes(
   if (!track || track.samples.length === 0) {
     return null;
   }
+
+  // tkhd에 기록된 회전 + 사용자가 스탭 3에서 지정한 회전을 합산해 한 번만 회전시킨다.
+  const effectiveRotation = track.rotation + rotationOffset;
 
   // keyframe 배열은 samples로부터 재구성 (cts 정렬)
   const keySamples = track.samples.filter((s) => s.isKey);
@@ -787,7 +793,7 @@ export async function decodeKeyframesNearTimes(
     const frame = framesByTimestamp.get(tsMicros);
     if (!frame) continue;
 
-    const drawn = drawFrameToDataUrl(frame, track.rotation, targetWidth, jpegQuality);
+    const drawn = drawFrameToDataUrl(frame, effectiveRotation, targetWidth, jpegQuality);
     if (drawn) {
       results.push({
         timeSec: Number.isFinite(timesSec[i]) ? timesSec[i] : sample.ctsSec,

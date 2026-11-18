@@ -278,6 +278,7 @@ function sanitizeProjectForStorage(project: StudioProject): StudioProject {
     latitude: v.latitude,
     longitude: v.longitude,
     locationName: v.locationName,
+    rotation: v.rotation,
     thumbnailUrl: sanitizeThumbnail(v.thumbnailUrl),
     fileBlob: undefined,
     hasOpfsFile: v.hasOpfsFile,

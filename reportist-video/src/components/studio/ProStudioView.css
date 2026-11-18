@@ -14150,6 +14150,14 @@
   object-fit: cover;
 }
 
+/* 스탭 3 업로드 항목의 회전 컨트롤 — 파일명·삭제 버튼과 한 줄에 안정적으로 정렬 */
+.toss-upload-rotate-controls {
+  flex: 0 0 auto;
+  gap: 0;
+  padding: 0;
+  background-color: transparent;
+}
+
 .toss-upload-item-index {
   position: absolute;
   top: 2px;
@@ -15152,6 +15160,17 @@
   border: 1px solid #e5e8eb;
   border-radius: 10px;
   box-sizing: border-box;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+/* 스탭 4에서 클릭·편집 중인 영상임을 표시 (왼쪽 미리보기와 같은 항상 강조) */
+.toss-location-item.active {
+  border-color: #0f172a;
+  background-color: #f8fafc;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.06);
 }
 
 .toss-location-item-index {
@@ -15599,6 +15618,18 @@
     border: none;
     border-radius: 0;
     padding: 8px 0;
+  }
+
+  /* 모바일 구분선 리스트에서도 선택된 촬영 위치 행을 왼쪽 바 + 배경으로 강조 */
+  .toss-location-item.active {
+    background: #f8fafc;
+    border: none;
+    border-bottom-color: #f2f4f6;
+    box-shadow: inset 3px 0 0 #0f172a;
+  }
+
+  .toss-location-item.active:only-child {
+    border-bottom: none;
   }
 
   /* 8) 요약 블록: 얇은 테두리만 제거해 연회색 Surface 1겹 유지 */

@@ -420,6 +420,7 @@ interface ProStudioViewProps {
   onFilesSelected: (files: File[]) => void;
   onRemoveVideo: (id: string) => void;
   onUpdateVideoLocation?: (id: string, locationName: string) => void;
+  onUpdateVideoRotation?: (id: string, rotation: number) => void;
   onStartAiAnalysis: (
     overlayOpts?: VideoOverlayOptions,
     customAudio?: File | null,
@@ -485,6 +486,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   onFilesSelected,
   onRemoveVideo,
   onUpdateVideoLocation,
+  onUpdateVideoRotation,
   onStartAiAnalysis,
   isProcessing,
   isPreparingVideos = false,
@@ -2098,14 +2100,18 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   };
 
   // 촬영 위치 단계에서 장소를 고치면 아직 직접 수정하지 않은 세그먼트에도 반영한다.
+  // GPS로 자동 추출된 지명이 이미 들어 있는 세그먼트도, 이전 원본 지명과 같다면 함께 갱신해
+  // 스탭 4의 수정이 컷·자막·브릿지·전체 보기까지 일관되게 반영되도록 한다.
   const updateVideoLocation = (id: string, locationName: string) => {
     onUpdateVideoLocation?.(id, locationName);
+    const previousName = videos.find((v) => v.id === id)?.locationName ?? '';
     setSegments((prev) =>
-      prev.map((seg) =>
-        seg.sourceVideoId === id && !(seg.locationName ?? '').trim()
-          ? { ...seg, locationName }
-          : seg
-      )
+      prev.map((seg) => {
+        if (seg.sourceVideoId !== id) return seg;
+        const segName = (seg.locationName ?? '').trim();
+        const isUntouched = !segName || (Boolean(previousName) && segName === previousName.trim());
+        return isUntouched ? { ...seg, locationName } : seg;
+      })
     );
   };
   // 인트로/브릿지/아웃트로는 AI 컷 유무와 무관하게 캔버스 단독으로 미리본다.
@@ -2849,17 +2855,25 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   }, [activePlayingSegment]);
 
   // 실시간 미리보기 영상 좌측 상단 문구 아래 표시할 날짜 및 위치 (흰색 글씨)
+  // 원본 단계(3·4·5번)에서는 세그먼트가 없어도 선택 중인 원본 영상의 날짜·장소를 보여주고,
+  // 스탭 4에서 장소를 입력하는 즉시 오버레이에 반영되도록 previewVideo를 기준으로 계산한다.
   const activePlayingMetaText = useMemo(() => {
+    const dateEnabled = overlayOptions.showDate !== false;
+    const rawDate = dateEnabled ? (previewVideo?.metadataDate || overlayOptions.subtitleDateText || '') : '';
+    const rawLocation = previewVideo?.locationName?.trim() || overlayOptions.subtitleLocationText || '';
+    if (isRawSourcePreviewStep) {
+      return [rawDate, rawLocation].filter(Boolean).join(' • ').trim();
+    }
     if (!activePlayingSegment) return '';
-    const datePart =
-      overlayOptions.showDate === false
-        ? ''
-        : activePlayingSegment.subtitleDate || overlayOptions.subtitleDateText || '';
-    const locPart = activePlayingSegment.locationName || overlayOptions.subtitleLocationText || '';
-    const parts = [datePart, locPart].filter(Boolean);
-    return parts.join(' • ').trim();
+    const datePart = dateEnabled
+      ? activePlayingSegment.subtitleDate || rawDate
+      : '';
+    const locPart = activePlayingSegment.locationName || rawLocation;
+    return [datePart, locPart].filter(Boolean).join(' • ').trim();
   }, [
     activePlayingSegment,
+    isRawSourcePreviewStep,
+    previewVideo,
     overlayOptions.showDate,
     overlayOptions.subtitleDateText,
     overlayOptions.subtitleLocationText,
@@ -5362,6 +5376,42 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     );
   };
 
+  // 원본 회전 각도를 미리보기 <video>/썸네일 <img>에 적용하는 공통 스타일
+  const getSourceRotationStyle = (rotation: number | undefined): React.CSSProperties | undefined => {
+    if (!rotation) return undefined;
+    const rot = ((rotation % 360) + 360) % 360;
+    if (rot === 0) return undefined;
+    const isSideways = rot === 90 || rot === 270;
+    return {
+      transform: `rotate(${rot}deg)${isSideways ? ' scale(0.5625)' : ''}`,
+      transition: 'transform 0.25s ease',
+    };
+  };
+
+  // 스탭 3: 업로드한 원본 영상 회전 (좌/우 90도). 클릭한 영상이 왼쪽 플레이어에 즉시 보이도록 연동하고,
+  // 이미 분석된 세그먼트도 같은 각도로 맞춰 컷·전체 보기·내보내기 결과가 어긋나지 않게 한다.
+  const handleRotateVideo = (id: string, delta: number, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const target = videos.find((v) => v.id === id);
+    if (!target) return;
+    const nextRotation = (((target.rotation ?? 0) + delta) % 360 + 360) % 360;
+    onUpdateVideoRotation?.(id, nextRotation);
+    setPreviewVideoId(id);
+    setSegments((prev) =>
+      prev.map((s) => (s.sourceVideoId === id ? { ...s, rotation: nextRotation } : s))
+    );
+  };
+
+  // 스탭 3: 원본 회전 0도 초기화
+  const handleResetVideoRotation = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    onUpdateVideoRotation?.(id, 0);
+    setPreviewVideoId(id);
+    setSegments((prev) =>
+      prev.map((s) => (s.sourceVideoId === id ? { ...s, rotation: 0 } : s))
+    );
+  };
+
   // 파일 업로드
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -6222,16 +6272,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                               position: 'absolute',
                               inset: 0,
                             }
-                          : activePlayingSegment?.rotation
-                          ? {
-                              transform: `rotate(${activePlayingSegment.rotation}deg)${
-                                activePlayingSegment.rotation === 90 || activePlayingSegment.rotation === 270
-                                  ? ' scale(0.5625)'
-                                  : ''
-                              }`,
-                              transition: 'transform 0.25s ease',
-                            }
-                          : undefined
+                          : getSourceRotationStyle(
+                              // 원본 단계에서는 편집 중인 원본 영상의 회전을, 그 외에는 재생 중인 씬의 회전을 사용한다.
+                              isRawSourcePreviewStep
+                                ? previewVideo?.rotation
+                                : activePlayingSegment?.rotation
+                            )
                       }
                     />
 
@@ -6285,9 +6331,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       </button>
                     )}
 
-                    {!isSequenceMode &&
+                    {(!isSequenceMode || isRawSourcePreviewStep) &&
                       !standalonePreviewSection &&
-                      !result?.url &&
+                      (!result?.url || isRawSourcePreviewStep) &&
                       ((overlayOptions.showTitle && overlayOptions.titleText) || activePlayingMetaText) && (
                         <div className="toss-live-overlay-top-left">
                           {overlayOptions.showTitle && overlayOptions.titleText && (
@@ -6303,13 +6349,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         </div>
                       )}
 
-                    {!isSequenceMode && !standalonePreviewSection && !result?.url && overlayOptions.showChannel && overlayOptions.channelText && (
+                    {(!isSequenceMode || isRawSourcePreviewStep) && !standalonePreviewSection && (!result?.url || isRawSourcePreviewStep) && overlayOptions.showChannel && overlayOptions.channelText && (
                       <div className="toss-live-overlay-channel">
                         {overlayOptions.channelText}
                       </div>
                     )}
 
-                    {!isSequenceMode && !standalonePreviewSection && !result?.url && overlayOptions.showSubtitle && activePlayingSubtitleText && (
+                    {(!isSequenceMode || isRawSourcePreviewStep) && !standalonePreviewSection && (!result?.url || isRawSourcePreviewStep) && overlayOptions.showSubtitle && activePlayingSubtitleText && (
                       <div className="toss-live-overlay-subtitle">
                         {activePlayingSubtitleText}
                       </div>
@@ -6624,7 +6670,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       >
                         <span className="toss-draft-preview-thumb">
                           {v.thumbnailUrl ? (
-                            <img src={v.thumbnailUrl} alt="" />
+                            <img src={v.thumbnailUrl} alt="" style={getSourceRotationStyle(v.rotation)} />
                           ) : (
                             <Film size={14} className="text-slate-400" />
                           )}
@@ -7647,7 +7693,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     >
                       <span className="toss-upload-item-thumb">
                         {v.thumbnailUrl ? (
-                          <img src={v.thumbnailUrl} alt="" />
+                          <img src={v.thumbnailUrl} alt="" style={getSourceRotationStyle(v.rotation)} />
                         ) : (
                           <Film size={16} className="text-slate-400" />
                         )}
@@ -7662,6 +7708,41 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         </span>
                       </span>
                     </button>
+                    {onUpdateVideoRotation && (
+                      <div
+                        className="toss-segment-rotate-controls toss-upload-rotate-controls"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          type="button"
+                          className="toss-btn-micro-rotate"
+                          onClick={(e) => handleRotateVideo(v.id, -90, e)}
+                          title={ui('반시계 90도 회전')}
+                          aria-label={ui('{name} 반시계 90도 회전', { name: v.name })}
+                        >
+                          <RotateCcw size={12} />
+                        </button>
+                        {Boolean(v.rotation) && (
+                          <button
+                            type="button"
+                            className="toss-segment-rot-indicator"
+                            onClick={(e) => handleResetVideoRotation(v.id, e)}
+                            title={ui('0°로 초기화')}
+                          >
+                            {v.rotation}°
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="toss-btn-micro-rotate"
+                          onClick={(e) => handleRotateVideo(v.id, 90, e)}
+                          title={ui('시계 90도 회전')}
+                          aria-label={ui('{name} 시계 90도 회전', { name: v.name })}
+                        >
+                          <RotateCw size={12} />
+                        </button>
+                      </div>
+                    )}
                     <button
                       type="button"
                       className="toss-btn-delete-sm"
@@ -7712,7 +7793,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               <>
                 <div className="toss-location-list">
                   {videos.map((v, idx) => (
-                    <div key={v.id} className="toss-location-item">
+                    <div
+                      key={v.id}
+                      className={`toss-location-item ${v.id === previewVideo?.id ? 'active' : ''}`}
+                      onClick={() => setPreviewVideoId(v.id)}
+                    >
                       <span className="toss-location-item-index">{idx + 1}</span>
                       <div className="toss-location-item-body">
                         <span className="toss-location-item-name" title={v.name}>
@@ -7724,6 +7809,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             className="toss-location-input"
                             value={v.locationName ?? ''}
                             placeholder={ui('촬영 장소 (예: 김포공항)')}
+                            onFocus={() => setPreviewVideoId(v.id)}
                             onChange={(e) => updateVideoLocation(v.id, e.target.value)}
                             aria-label={ui('{name} 촬영 장소', { name: v.name })}
                           />
@@ -7732,14 +7818,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           <button
                             type="button"
                             className="toss-location-map-link"
-                            onClick={() =>
+                            onClick={() => {
+                              setPreviewVideoId(v.id);
                               setMapModalTarget({
                                 latitude: v.latitude,
                                 longitude: v.longitude,
                                 locationName: v.locationName,
                                 subtitleTitle: v.name,
-                              })
-                            }
+                              });
+                            }}
                           >
                             <MapPin size={11} />
                             <span>{ui('지도에서 확인')}</span>

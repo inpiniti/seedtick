@@ -57,7 +57,8 @@ export function drawCompositorCoverFrame(
   const targetHeight = frame.height;
   const rawVW = video.videoWidth || vItem?.width || targetWidth;
   const rawVH = video.videoHeight || vItem?.height || targetHeight;
-  const rotation = ((segment?.rotation ?? 0) % 360 + 360) % 360;
+  // 세그먼트에 회전 값이 없으면(AI 분석 전/레거시 프로젝트) 원본 영상의 회전을 사용한다.
+  const rotation = ((segment?.rotation ?? vItem?.rotation ?? 0) % 360 + 360) % 360;
 
   const isSideways = rotation === 90 || rotation === 270;
   const vW = isSideways ? rawVH : rawVW;

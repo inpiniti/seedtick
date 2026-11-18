@@ -15,6 +15,7 @@ export interface StoredVideoItem {
   latitude?: number;
   longitude?: number;
   locationName?: string;
+  rotation?: number; // 사용자가 지정한 원본 회전 각도 (0, 90, 180, 270도)
   thumbnailUrl?: string;
   fileBlob?: Blob;
   hasOpfsFile?: boolean;

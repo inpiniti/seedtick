@@ -144,7 +144,8 @@ export interface MediaFrameSource {
 export async function extractVideoFramesForAnalysis(
   source: MediaFrameSource | string,
   totalDuration: number,
-  onProgress?: (progressPercent: number) => void
+  onProgress?: (progressPercent: number) => void,
+  rotation = 0
 ): Promise<ExtractedFrame[]> {
   const { url, file } =
     typeof source === 'string' ? { url: source, file: null } : source;
@@ -161,6 +162,7 @@ export async function extractVideoFramesForAnalysis(
         targetWidth: 420,
         jpegQuality: 0.65,
         timeoutMs: 15_000,
+        rotationOffset: rotation,
         onFrameDecoded: (done, total) => {
           if (onProgress) onProgress(Math.round((done / total) * 100));
         },
@@ -174,13 +176,14 @@ export async function extractVideoFramesForAnalysis(
   }
 
   // 2순위(폴백): <video preload='metadata'> 기반
-  return extractFramesWithVideoElement(url, safeDuration, onProgress);
+  return extractFramesWithVideoElement(url, safeDuration, onProgress, rotation);
 }
 
 async function extractFramesWithVideoElement(
   videoUrl: string,
   totalDuration: number,
-  onProgress?: (progressPercent: number) => void
+  onProgress?: (progressPercent: number) => void,
+  rotation = 0
 ): Promise<ExtractedFrame[]> {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
@@ -265,8 +268,20 @@ async function extractFramesWithVideoElement(
             }
           });
 
-          // 캔버스에 프레임 그리기
-          ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+          // 캔버스에 프레임 그리기 (스탭 3에서 지정한 사용자 회전 반영)
+          const normRot = ((rotation % 360) + 360) % 360;
+          if (normRot === 0) {
+            ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+          } else {
+            ctx.save();
+            ctx.translate(targetWidth / 2, targetHeight / 2);
+            ctx.rotate((normRot * Math.PI) / 180);
+            const isSideways = normRot === 90 || normRot === 270;
+            const drawW = isSideways ? targetHeight : targetWidth;
+            const drawH = isSideways ? targetWidth : targetHeight;
+            ctx.drawImage(video, -drawW / 2, -drawH / 2, drawW, drawH);
+            ctx.restore();
+          }
 
           // 화질 0.65의 경량 JPEG dataUrl 생성 (프레임당 약 15~20KB)
           const dataUrl = canvas.toDataURL('image/jpeg', 0.65);

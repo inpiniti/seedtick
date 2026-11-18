@@ -133,6 +133,23 @@ export function App() {
     );
   }, []);
 
+  // 개별 영상 회전 각도 변경 (스탭 3). 원본 회전 값을 저장하고, 이미 분석된 세그먼트가 있으면
+  // 같은 각도로 함께 갱신해 컷·전체 보기·내보내기 결과가 원본 미리보기와 어긋나지 않게 한다.
+  const handleUpdateVideoRotation = useCallback((id: string, rotation: number) => {
+    const safeRotation = ((rotation % 360) + 360) % 360;
+    setVideos((prev) =>
+      prev.map((v) =>
+        v.id === id
+          ? {
+              ...v,
+              rotation: safeRotation,
+              segments: v.segments.map((s) => ({ ...s, rotation: safeRotation })),
+            }
+          : v
+      )
+    );
+  }, []);
+
   // UI 언어 변경/프로젝트 복원 시 영상 목록의 촬영일 표기(월 이름·나이 단위)를 현재 언어로 갱신
   const metadataDateLocaleKey = useMemo(
     () =>
@@ -346,6 +363,7 @@ export function App() {
           latitude: v.latitude,
           longitude: v.longitude,
           locationName: v.locationName,
+          rotation: v.rotation,
           thumbnailUrl: safeThumb,
         };
       });
@@ -607,6 +625,7 @@ export function App() {
         latitude: v.latitude,
         longitude: v.longitude,
         locationName: v.locationName,
+        rotation: v.rotation,
         thumbnailUrl: v.thumbnailUrl && !v.thumbnailUrl.startsWith('blob:') ? v.thumbnailUrl : undefined,
         fileBlob: v.file,
       }));
@@ -1333,7 +1352,8 @@ export function App() {
               ...prev,
               progressPercent: Math.floor(globalRunningPct),
             }));
-          }
+          },
+          currentVideo.rotation
         );
 
         globalRunningPct = Math.max(globalRunningPct, videoStartPct + extractSlice);
@@ -2171,6 +2191,7 @@ export function App() {
         onFilesSelected={handleFilesSelected}
         onRemoveVideo={handleRemove}
         onUpdateVideoLocation={handleUpdateVideoLocation}
+        onUpdateVideoRotation={handleUpdateVideoRotation}
         onStartAiAnalysis={handleStartProcessing}
         isProcessing={currentStep === 'processing'}
         isPreparingVideos={activeVideoMetaBatches > 0}

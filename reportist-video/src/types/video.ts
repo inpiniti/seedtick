@@ -70,6 +70,7 @@ export interface VideoItem {
   longitude?: number;
   locationName?: string; // e.g. "어린이대공원"
   isMissingFile?: boolean; // 로컬 원본 비디오 파일 재연결 필요 여부
+  rotation?: number; // 사용자가 지정한 원본 회전 각도 (0, 90, 180, 270도)
   compressionInfo?: {
     codec: string;
     sizeRatio: number;
