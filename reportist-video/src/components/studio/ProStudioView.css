@@ -14973,10 +14973,15 @@
   }
 
   /* 상단 고정 스테이지가 화면을 절반 이상 차지하지 않도록 높이를 제한한다.
-     가로형은 16:9 비율을 유지한 채 뷰포트 폭과 높이 중 작은 값에 맞춘다. */
+     가로형은 16:9 비율을 유지한 채 뷰포트 폭과 높이 중 작은 값에 맞춘다.
+     height를 직접 min(28vh, 56.25vw)로 제한하면 width:100%와 조합돼 실제
+     프레임이 16:9보다 가로로 길어지고, 1280x720 합성 캔버스·원본 영상이
+     object-fit:contain으로 좌우에 검은 여백(pillarbox)을 남기던 문제가 있다.
+     높이 캡(50vh)에서 너비를 유도해 항상 정확한 16:9로 유지한다. */
   .toss-player-wrapper:not(.is-portrait-frame) {
-    width: 100%;
-    height: min(28vh, 56.25vw);
+    width: min(100%, calc(50vh * 16 / 9));
+    height: auto;
+    margin-inline: auto;
   }
 
   .toss-player-wrapper.is-portrait-frame {
