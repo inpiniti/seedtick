@@ -4207,10 +4207,6 @@
   max-width: 520px !important;
 }
 
-.toss-map-frame-box {
-  overflow: hidden;
-}
-
 /* ========================================================
    AI 모델 선택 트리거
    ======================================================== */
@@ -6035,6 +6031,16 @@
 
   /* 중복 닫기 푸터는 모바일에서 숨기고, 액션이 필요한 모달만 유지한다 */
   .model-modal-footer {
+    display: none;
+  }
+
+  /* 지도 모달은 모바일에서도 네이버/구글 지도 이동 버튼을 유지한다(중복 닫기만 숨김). */
+  .toss-map-modal-card .model-modal-footer {
+    display: flex;
+    padding: 12px 16px;
+  }
+
+  .toss-map-modal-card .model-modal-footer > .toss-modal-btn-close {
     display: none;
   }
 
