@@ -6965,24 +6965,34 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             {videos.length > 0 && (
               <div className="toss-upload-list">
                 {videos.map((v, idx) => (
-                  <div key={v.id} className="toss-upload-item">
-                    <span className="toss-upload-item-index">{idx + 1}</span>
-                    <div className="toss-upload-item-body">
-                      <span className="toss-upload-item-name" title={v.name}>
-                        {v.name}
+                  <div
+                    key={v.id}
+                    className={`toss-upload-item ${v.id === previewVideo?.id ? 'active' : ''}`}
+                  >
+                    <button
+                      type="button"
+                      className="toss-upload-item-main"
+                      onClick={() => setPreviewVideoId(v.id)}
+                      title={v.name}
+                      aria-label={`${v.name} ${ui('미리보기')}`}
+                    >
+                      <span className="toss-upload-item-thumb">
+                        {v.thumbnailUrl ? (
+                          <img src={v.thumbnailUrl} alt="" />
+                        ) : (
+                          <Film size={16} className="text-slate-400" />
+                        )}
+                        <span className="toss-upload-item-index">{idx + 1}</span>
                       </span>
-                      <span className="toss-upload-item-meta">
-                        {v.duration > 0 ? formatSec(v.duration) : '--:--'}
-                        {' · '}
-                        {!v.url || v.isMissingFile ? ui('원본 연결 필요') : ui('준비됨')}
-                      </span>
-                      {(v.locationName ?? '').trim() && (
-                        <span className="toss-upload-location-badge" title={v.locationName}>
-                          <MapPin size={10} />
-                          {v.locationName}
+                      <span className="toss-upload-item-body">
+                        <span className="toss-upload-item-name">{v.name}</span>
+                        <span className="toss-upload-item-meta">
+                          {v.duration > 0 ? formatSec(v.duration) : '--:--'}
+                          {' · '}
+                          {!v.url || v.isMissingFile ? ui('원본 연결 필요') : ui('준비됨')}
                         </span>
-                      )}
-                    </div>
+                      </span>
+                    </button>
                     <button
                       type="button"
                       className="toss-btn-delete-sm"
