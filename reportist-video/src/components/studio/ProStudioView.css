@@ -101,18 +101,6 @@
   white-space: nowrap;
 }
 
-/* 스튜디오 상세 헤더의 앱명: 모바일에서 뒤로가기 옆 공간을 채움 */
-.toss-nav-detail-brand {
-  display: none;
-  min-width: 0;
-  font-size: 15px;
-  font-weight: 800;
-  color: #191f28;
-  letter-spacing: -0.3px;
-  line-height: 1.1;
-  white-space: nowrap;
-}
-
 /* 브랜드명 아래 서브 타이틀 (배경색·음영 없이 담백한 텍스트) */
 .toss-nav-tagline {
   font-size: 10.5px;
@@ -219,52 +207,45 @@
   color: #ffffff;
 }
 
-/* Studio Hierarchy: Back to Project List Button (replaces logo & tabs in detail view) */
-.toss-nav-back-btn,
-.toss-nav-back-to-list-btn {
+/* Studio Detail: 버튼 크롬 없이 '< 뒤로' 텍스트만 노출 (replaces logo & tabs) */
+.toss-nav-back-link {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   gap: 5px;
-  height: var(--ui-h-sm);
-  padding: 0 var(--ui-px-sm) 0 8px;
-  border-radius: var(--ui-r-sm);
-  font-size: var(--ui-fs-sm);
-  font-weight: var(--ui-fw);
+  margin: 0;
+  padding: 4px 6px 4px 2px;
+  border: none;
+  border-radius: 6px;
+  background: none;
   color: #333d4b;
-  background-color: #f2f4f6;
-  border: 1px solid var(--ui-border);
-  cursor: pointer;
-  transition: var(--ui-transition);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  line-height: 1;
   white-space: nowrap;
   flex-shrink: 0;
-  text-decoration: none;
-  box-sizing: border-box;
+  cursor: pointer;
+  transition: color 0.15s ease, opacity 0.15s ease;
 }
 
-.toss-nav-back-btn:hover,
-.toss-nav-back-to-list-btn:hover {
-  background-color: #e5e8eb;
+.toss-nav-back-link:hover {
   color: #191f28;
-  border-color: #d1d5db;
 }
 
-.toss-nav-back-btn:active,
-.toss-nav-back-to-list-btn:active {
-  transform: scale(0.97);
-  background-color: #dbe0e5;
+.toss-nav-back-link:active {
+  opacity: 0.6;
 }
 
-.toss-nav-back-icon {
-  flex-shrink: 0;
-  color: #4e5968;
-  transition: transform 0.15s ease;
+.toss-nav-back-link:focus-visible {
+  outline: 2px solid #3182f6;
+  outline-offset: 2px;
 }
 
-.toss-nav-back-btn:hover .toss-nav-back-icon,
-.toss-nav-back-to-list-btn:hover .toss-nav-back-icon {
-  transform: translateX(-2px);
-  color: #191f28;
+.toss-nav-back-arrow {
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1;
+  transform: translateY(-0.5px);
 }
 
 .toss-nav-back-text {
@@ -4539,10 +4520,8 @@
     display: none !important;
   }
 
-  .toss-nav-back-btn,
-  .toss-nav-back-to-list-btn {
-    padding: 0 10px 0 6px;
-    font-size: 12px;
+  .toss-nav-back-link {
+    font-size: 14px;
   }
 
   .toss-lang-name {
@@ -4573,14 +4552,10 @@
     flex-shrink: 0;
   }
 
-  /* 모바일에서도 앱명은 로고·뒤로가기 옆에 유지하고, 서브 타이틀과 배지만 숨김 */
+  /* 모바일에서도 앱명은 로고 옆에 유지하고, 서브 타이틀과 배지만 숨김 */
   .toss-nav-title {
     display: inline-block;
     font-size: 15px;
-  }
-
-  .toss-nav-detail-brand {
-    display: inline-block;
   }
 
   .toss-tag-blue {
@@ -4597,35 +4572,14 @@
     border-radius: 0;
   }
 
-  /* 모바일 스튜디오 상세: 로고 자리에 뒤로가기 아이콘 버튼 배치 */
-  .toss-nav-back-btn,
-  .toss-nav-back-to-list-btn {
-    width: var(--ui-h-sm);
-    height: var(--ui-h-sm);
-    min-width: var(--ui-h-sm);
-    padding: 0;
-    gap: 0;
-    border-radius: 8px;
-    background-color: #f2f4f6;
-    border: 1px solid #e5e8eb;
-    color: #333d4b;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+  .toss-nav-back-link {
+    gap: 4px;
+    padding: 4px 4px 4px 0;
+    font-size: 14px;
   }
 
-  .toss-nav-back-btn:hover,
-  .toss-nav-back-btn:active,
-  .toss-nav-back-to-list-btn:hover,
-  .toss-nav-back-to-list-btn:active {
-    background-color: #e5e8eb;
-    color: #191f28;
-    border-color: #d1d5db;
-  }
-
-  .toss-nav-back-btn .toss-nav-back-text,
-  .toss-nav-back-to-list-btn span {
-    display: none !important;
+  .toss-nav-back-arrow {
+    font-size: 15px;
   }
 
   /* 모바일 상단 네비게이션 탭: 텍스트 숨기고 아이콘만 노출하여 우측 버튼 공간 확보 */
@@ -4813,9 +4767,12 @@
     gap: 4px;
   }
 
-  .toss-nav-title,
-  .toss-nav-detail-brand {
+  .toss-nav-title {
     font-size: 14px;
+  }
+
+  .toss-nav-back-link {
+    font-size: 13.5px;
   }
 
   .toss-logo-badge {

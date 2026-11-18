@@ -40,6 +40,7 @@ export const ja: Dictionary = {
     effortLabel: '推論努力:',
     modelWidgetTitle: '複数フレーム視覚分析対応モデルのみ厳選して提供されます',
     undo: '元に戻す',
+    back: '戻る',
     visitPenguinCutHome: 'PenguinCut ホームへ移動',
   },
   toasts: {

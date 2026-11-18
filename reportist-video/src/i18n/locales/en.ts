@@ -40,6 +40,7 @@ export const en: Dictionary = {
     effortLabel: 'Effort:',
     modelWidgetTitle: 'Only models supporting multi-frame sequential visual analysis are provided',
     undo: 'Undo',
+    back: 'Back',
     visitPenguinCutHome: 'Go to PenguinCut Home',
   },
   toasts: {

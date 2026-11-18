@@ -40,6 +40,7 @@ export const de: Dictionary = {
     effortLabel: 'Aufwand:',
     modelWidgetTitle: 'Nur für Multi-Frame-Sichtanalyse geeignete Modelle werden bereitgestellt',
     undo: 'Rückgängig',
+    back: 'Zurück',
     visitPenguinCutHome: 'Zur PenguinCut-Startseite',
   },
   toasts: {

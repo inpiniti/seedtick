@@ -40,6 +40,7 @@ export const zh: Dictionary = {
     effortLabel: '推理投入:',
     modelWidgetTitle: '仅提供经过筛选支持多帧视觉分析的高性能模型',
     undo: '撤销',
+    back: '返回',
     visitPenguinCutHome: '前往 PenguinCut 首页',
   },
   toasts: {

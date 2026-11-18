@@ -40,6 +40,7 @@ export const ko: Dictionary = {
     effortLabel: '노력:',
     modelWidgetTitle: '다중 프레임 시각 분석 지원 모델만 선별되어 제공됩니다',
     undo: '되돌리기',
+    back: '뒤로',
     visitPenguinCutHome: 'PenguinCut 홈으로 이동',
   },
   toasts: {

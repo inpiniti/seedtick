@@ -40,6 +40,7 @@ export const es: Dictionary = {
     effortLabel: 'Esfuerzo:',
     modelWidgetTitle: 'Solo se seleccionan y proporcionan modelos con soporte de análisis visual multifotograma',
     undo: 'Deshacer',
+    back: 'Atrás',
     visitPenguinCutHome: 'Ir a la página de PenguinCut',
   },
   toasts: {

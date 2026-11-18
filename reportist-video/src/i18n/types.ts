@@ -50,6 +50,7 @@ export interface Dictionary {
     visitReportistHome?: string;
     visitPenguinCutHome?: string;
     undo?: string;
+    back?: string;
   };
   toasts: {
     // Projects
