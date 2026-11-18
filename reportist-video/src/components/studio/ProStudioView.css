@@ -15319,6 +15319,12 @@
     border-top: 1px solid #f2f4f6;
   }
 
+  /* 자막 단계에는 컷 전용 액션(트리밍·회전·삭제)이 없어 이 행이 비어 있는데도
+     윗선이 그려져 편집기 윗선과 겹쳐 구분선이 2개로 보인다. 빈 행은 아예 숨긴다. */
+  .toss-dramatic-card .toss-segment-right:empty {
+    display: none;
+  }
+
   .toss-trim-controls,
   .toss-btn-trim-edit,
   .toss-btn-micro-rotate,
