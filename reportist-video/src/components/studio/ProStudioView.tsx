@@ -5875,6 +5875,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             className="toss-model-trigger toss-lang-trigger"
             onClick={() => setIsLanguageModalOpen(true)}
             title={dict.languageModal.title}
+            aria-label={`${dict.common.language || 'Language'}: ${currentLocaleInfo.nativeName}`}
           >
             <span className="toss-model-trigger-icon">
               <Globe size={13} />
@@ -5882,44 +5883,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <span className="toss-model-trigger-text">
               <span className="toss-model-trigger-label">{dict.common.language || 'Language'}</span>
               <span className="toss-model-trigger-name flex items-center gap-1.5">
-                <span className="text-xs leading-none">{currentLocaleInfo.flag}</span>
+                <span className="toss-lang-flag text-xs leading-none">{currentLocaleInfo.flag}</span>
                 <span className="toss-lang-name">{currentLocaleInfo.nativeName}</span>
+                <span className="toss-lang-code">{locale.toUpperCase()}</span>
               </span>
             </span>
             <ChevronDown size={14} className="toss-model-trigger-chevron" />
           </button>
-
-          {activeTab === 'studio' && (
-            <>
-              {/* 올린 원본 영상 리스트 트리거 */}
-          <button
-            type="button"
-            className="toss-model-trigger toss-video-list-trigger"
-            onClick={() => setIsVideoListModalOpen(true)}
-            title={dict.header.manageVideosTitle}
-          >
-            <span className="toss-model-trigger-icon">
-              <Film size={13} />
-            </span>
-            <span className="toss-model-trigger-text">
-              <span className="toss-model-trigger-label">{dict.header.uploadedVideos}</span>
-              <span className="toss-model-trigger-name">
-                <span className="toss-video-count-full">
-                  {videos.length === 0 ? dict.common.noVideos : `${videos.length} ${dict.common.videos}`}
-                </span>
-                <span className="toss-video-count-short">
-                  {videos.length}
-                </span>
-              </span>
-            </span>
-            <ChevronDown size={14} className="toss-model-trigger-chevron" />
-          </button>
-
-          {/* 상단 헤더는 편집 중인 단계에 집중할 수 있도록 저장/다운로드 CTA를 두지 않는다.
-              영상 저장은 7~8번(썸네일·다운로드) 단계 카드에서만 실행한다. */}
-
-            </>
-          )}
 
           {/* 스튜디오 설정 트리거 버튼 (데스크탑 & 모바일) */}
           <button
