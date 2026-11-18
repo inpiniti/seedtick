@@ -3,6 +3,10 @@
 import type { ProviderPreset, UserAiProvider, UserApiKeyConfig } from '../types/gateway.ts';
 
 const STORAGE_KEY = 'reportist_user_ai_key_config_v1';
+/** 현재 활성 공급 모드 (무료 게이트웨이 vs 사용자 API Key). 키는 보관한 채로 모드만 전환한다. */
+const AI_MODE_STORAGE_KEY = 'reportist_ai_provider_mode_v1';
+
+export type AiProviderMode = 'gateway' | 'byok';
 
 export const PROVIDER_PRESETS: ProviderPreset[] = [
   {
@@ -266,6 +270,36 @@ export function clearStoredUserApiKeyConfig(): void {
   } catch (err) {
     console.warn('[userApiKeyService] Failed to clear API key from localStorage:', err);
   }
+}
+
+/**
+ * 현재 활성 AI 공급 모드.
+ * API Key가 저장되어 있어도 사용자가 무료 게이트웨이 모델을 선택하면 'gateway'를 유지해
+ * 실제 분석(gatewayClient)과 설정 화면 모두 선택한 무료 모델을 사용하도록 한다.
+ * 저장된 키 자체는 삭제하지 않으므로 언제든 BYOK 탭에서 다시 활성화할 수 있다.
+ */
+export function getStoredAiProviderMode(): AiProviderMode {
+  try {
+    const raw = localStorage.getItem(AI_MODE_STORAGE_KEY);
+    if (raw === 'byok' || raw === 'gateway') return raw;
+  } catch {
+    // ignore
+  }
+  // 구버전 호환: 저장된 키가 있으면 BYOK, 없으면 무료 게이트웨이
+  return getStoredUserApiKeyConfig() ? 'byok' : 'gateway';
+}
+
+export function setStoredAiProviderMode(mode: AiProviderMode): void {
+  try {
+    localStorage.setItem(AI_MODE_STORAGE_KEY, mode);
+  } catch (err) {
+    console.warn('[userApiKeyService] Failed to save AI provider mode to localStorage:', err);
+  }
+}
+
+/** 저장된 키가 실제 분석에 사용되는 활성 상태인지 여부 */
+export function isByokActive(): boolean {
+  return getStoredAiProviderMode() === 'byok' && Boolean(getStoredUserApiKeyConfig()?.apiKey?.trim());
 }
 
 export function getProviderPreset(providerId?: UserAiProvider | string): ProviderPreset {

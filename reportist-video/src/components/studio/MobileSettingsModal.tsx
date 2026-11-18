@@ -27,7 +27,7 @@ import {
   Film,
 } from 'lucide-react';
 import type { FreeModelMeta } from '../../types/gateway.ts';
-import { getStoredUserApiKeyConfig, getProviderPreset } from '../../services/userApiKeyService.ts';
+import { getStoredUserApiKeyConfig, getProviderPreset, isByokActive } from '../../services/userApiKeyService.ts';
 import type {
   BridgeDateTemplateId,
   BridgeLocationTemplateId,
@@ -687,7 +687,9 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
               {dict.settingsModal?.aiEngine || 'AI Engine'}
             </span>
             {(() => {
-              const userKey = getStoredUserApiKeyConfig();
+              // BYOK 모드가 활성일 때만 저장된 키 정보를 표시하고, 무료 모델 선택 상태에서는
+              // 현재 선택된 무료 모델을 보여준다. (저장된 키는 그대로 유지됨)
+              const userKey = isByokActive() ? getStoredUserApiKeyConfig() : null;
               const hasKey = Boolean(userKey?.apiKey?.trim());
               const preset = userKey ? getProviderPreset(userKey.provider) : null;
               return (

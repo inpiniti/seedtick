@@ -6,7 +6,7 @@ import {
   isGuardrailModel,
   type ModelPerfMetric,
 } from './modelMetrics.ts';
-import { getStoredUserApiKeyConfig } from './userApiKeyService.ts';
+import { getStoredUserApiKeyConfig, isByokActive } from './userApiKeyService.ts';
 import {
   enqueueVideoToAnalyzerQueue,
   isAnalyzerQueueEnabled,
@@ -682,7 +682,11 @@ Format:
   }
 
   // 사용자 직접 입력 API 키(BYOK) 확인
-  const activeUserKeyConfig = userApiKeyConfig !== undefined ? userApiKeyConfig : getStoredUserApiKeyConfig();
+  // 명시적으로 전달된 설정은 항상 사용하고, 로컬 스토리지 설정은 BYOK 모드가 활성일 때만 사용한다.
+  // 무료 게이트웨이 모델을 선택한 뒤에는 저장된 키가 있어도 선택한 모델로 분석한다.
+  const activeUserKeyConfig = userApiKeyConfig !== undefined
+    ? userApiKeyConfig
+    : (isByokActive() ? getStoredUserApiKeyConfig() : null);
   const customHeaders: Record<string, string> = {};
   const hasUserKey = Boolean(activeUserKeyConfig?.apiKey?.trim());
 

@@ -33,8 +33,11 @@ import {
 import {
   clearStoredUserApiKeyConfig,
   getProviderPreset,
+  getStoredAiProviderMode,
   getStoredUserApiKeyConfig,
+  isByokActive,
   PROVIDER_PRESETS,
+  setStoredAiProviderMode,
   setStoredUserApiKeyConfig,
 } from '../../services/userApiKeyService.ts';
 import { notify } from '../../services/toastService.ts';
@@ -116,7 +119,8 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
     if (!isOpen) return;
     const current = getStoredUserApiKeyConfig();
     setStoredUserKey(current);
-    if (current) {
+    // 키가 저장되어 있어도 무료 모델을 선택한 상태라면 무료 탭을 기본으로 연다.
+    if (getStoredAiProviderMode() === 'byok' && current) {
       setSelectedByokProvider(current.provider);
       setApiKeyInput(current.apiKey);
       setModelInput(current.model || '');
@@ -136,6 +140,9 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
     () => getProviderPreset(selectedByokProvider),
     [selectedByokProvider]
   );
+
+  // 저장된 키가 실제 분석에 사용되는 활성 상태인지 (무료 모델 선택 시에는 저장돼 있어도 비활성)
+  const isByokConnected = isByokActive() && Boolean(storedUserKey);
 
   const handleSelectByokProvider = (providerId: UserAiProvider) => {
     setSelectedByokProvider(providerId);
@@ -166,6 +173,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
     };
 
     setStoredUserApiKeyConfig(payload);
+    setStoredAiProviderMode('byok');
     setStoredUserKey(payload);
     onSelectModel(payload.model);
     notify.success(
@@ -177,6 +185,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
 
   const handleClearByok = () => {
     clearStoredUserApiKeyConfig();
+    setStoredAiProviderMode('gateway');
     setStoredUserKey(null);
     setApiKeyInput('');
     const defaultModel = models[0]?.id || 'nvidia/nemotron-3.5-super-vl:free';
@@ -185,6 +194,9 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
   };
 
   const handleSelectGatewayModel = (model: FreeModelMeta) => {
+    // 저장된 키가 있어도 무료 모델을 선택하면 분석 모드를 게이트웨이로 전환한다.
+    // 키 자체는 삭제하지 않아 BYOK 탭에서 다시 활성화할 수 있다.
+    setStoredAiProviderMode('gateway');
     onSelectModel(model.id);
     onClose();
     notify.success(cleanModelName(model.name), {
@@ -415,7 +427,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
           >
             <Key size={15} color={activeTab === 'byok' ? '#00a86b' : '#8b95a1'} />
             <span>{dict.modelModal.tabByok || '내 API Key 연결 (BYOK)'}</span>
-            {storedUserKey && (
+            {isByokConnected && (
               <span
                 style={{
                   display: 'inline-block',
@@ -448,29 +460,29 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
               style={{
                 padding: '14px 16px',
                 borderRadius: '14px',
-                backgroundColor: storedUserKey ? '#e6f9f0' : '#f1f5f9',
-                border: storedUserKey ? '1px solid #bbf2d8' : '1px solid #e2e8f0',
+                backgroundColor: isByokConnected ? '#e6f9f0' : '#f1f5f9',
+                border: isByokConnected ? '1px solid #bbf2d8' : '1px solid #e2e8f0',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '12px',
               }}
             >
-              {storedUserKey ? (
+              {isByokConnected ? (
                 <CheckCircle2 size={20} color="#00a86b" style={{ flexShrink: 0 }} />
               ) : (
                 <Server size={20} color="#0f172a" style={{ flexShrink: 0 }} />
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '13.5px', fontWeight: 700, color: storedUserKey ? '#008252' : '#1e293b' }}>
-                  {storedUserKey
+                <div style={{ fontSize: '13.5px', fontWeight: 700, color: isByokConnected ? '#008252' : '#1e293b' }}>
+                  {isByokConnected
                     ? interpolate(dict.modelModal.byokConnectedBannerTitle || '현재 {provider} ({model}) 연결됨', {
-                        provider: getProviderPreset(storedUserKey.provider).name,
-                        model: storedUserKey.model,
+                        provider: getProviderPreset(storedUserKey!.provider).name,
+                        model: storedUserKey!.model,
                       })
                     : (dict.modelModal.byokUnconnectedBannerTitle || '내 API Key를 등록하여 플래그십 AI로 하이라이트 분석')}
                 </div>
                 <div style={{ fontSize: '12px', color: '#4e5968', marginTop: '3px', lineHeight: 1.45 }}>
-                  {storedUserKey
+                  {isByokConnected
                     ? (dict.modelModal.byokConnectedBannerDesc || '브라우저에 안전하게 저장되어 있으며 새로고침해도 유지됩니다. 하이라이트 분석 시 개인 키로 직접 처리됩니다.')
                     : (dict.modelModal.byokUnconnectedBannerDesc || 'OpenAI, Claude, Gemini 등의 개인 API Key를 넣으면 분당 제한 없이 고화질 멀티모달 분석을 이용할 수 있습니다.')}
                 </div>
