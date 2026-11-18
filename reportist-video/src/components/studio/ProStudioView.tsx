@@ -1977,8 +1977,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           : null;
 
   // 스텝별 프리뷰 격리 — 단계 값만으로 결정되는 플래그 (아래 시간축 계산보다 먼저 필요하다).
+  // AI 분석 전(드래프트)과 후(시퀀스) 모두 3·4·5번에서는 선택한 원본 영상만 보여주고 자동 재생한다.
   const isRawSourcePreviewStep =
-    isSequenceMode &&
+    !standalonePreviewSection &&
     (activeSection === 'upload' || activeSection === 'location' || activeSection === 'ai');
   const isMusicPreviewStep = isSequenceMode && activeSection === 'music';
   const isFullPreviewStep = isSequenceMode && activeSection === 'fullPreview';
@@ -3803,6 +3804,41 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     startSequencePlayback(start);
   };
 
+  // 3·4·5번 원본 영상 자동재생. 브라우저 자동재생 정책으로 소리 재생이 막히면 음소거로 다시 시도한다.
+  // 소스가 바뀐 직후 play()를 호출하면 로드 취소(AbortError)로 실패할 수 있어 준비될 때까지 기다린다.
+  const rawPlayTokenRef = useRef(0);
+  const playRawSourceVideo = (v: HTMLVideoElement) => {
+    const token = ++rawPlayTokenRef.current;
+    const start = () => {
+      if (token !== rawPlayTokenRef.current) return;
+      setPlaybackError(null);
+      const p = v.play();
+      if (p === undefined) {
+        setIsPlaying(true);
+        return;
+      }
+      p.then(() => setIsPlaying(true)).catch((err) => {
+        if (token !== rawPlayTokenRef.current || err?.name === 'AbortError') return;
+        if (err?.name === 'NotAllowedError') {
+          v.muted = true;
+          isMutedRef.current = true;
+          setIsMuted(true);
+          v.play()
+            .then(() => setIsPlaying(true))
+            .catch(() => setIsPlaying(false));
+          return;
+        }
+        console.warn('[VideoPlayer] 원본 영상 자동재생 실패:', err);
+        setIsPlaying(false);
+      });
+    };
+    if (v.readyState >= 2) {
+      start();
+    } else {
+      v.addEventListener('loadeddata', start, { once: true });
+    }
+  };
+
   // 스텝 진입/컷 변경 시 해당 단계의 미리보기만 자동 재생하고 이전 미리보기를 정리한다.
   // - 컷/자막: 선택한 컷 1개를 0초부터 컷 길이까지만 자동 재생
   // - 전체 보기: 0초부터 전체 시퀀스 자동 재생
@@ -3812,7 +3848,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     : isSingleSegmentPreview && selectedSegment
     ? `single:${activeSection}:${selectedSegment.id}:${selectedSegment.duration.toFixed(2)}`
     : isRawSourcePreviewStep
-    ? 'raw'
+    ? `raw:${activeSection}:${previewVideoId}`
     : isMusicPreviewStep
     ? 'music'
     : 'none';
@@ -3821,6 +3857,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     const changed = lastPreviewModeRef.current !== previewModeKey;
     lastPreviewModeRef.current = previewModeKey;
     if (!changed) return;
+
+    // 이전 단계에서 예약해 둔 원본 자동재생이 늦게 실행되지 않도록 무효화한다.
+    rawPlayTokenRef.current += 1;
 
     // 시퀀스 재생은 어떤 단계로 이동하든 항상 정리한다.
     // 단, isPlaying은 건드리지 않는다 — 아래 standalone 이펙트가 새 모션을 시작했을 수 있다.
@@ -3872,14 +3911,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       }
       previewRangeEndRef.current = null;
       startSequencePlayback(0);
-    } else if (previewModeKey === 'raw') {
+    } else if (previewModeKey.startsWith('raw:')) {
+      const v = videoRef.current;
       currentTimeRef.current = 0;
       setCurrentTime(0);
-      if (videoRef.current) {
-        try {
-          videoRef.current.currentTime = 0;
-        } catch {}
-      }
+      if (!v) return;
+      try {
+        v.currentTime = 0;
+      } catch {}
+      playRawSourceVideo(v);
     }
     // music 단계에서는 영상 없이 BGM만 사용자가 재생할 수 있게 둔다.
   }, [previewModeKey]);
@@ -4726,6 +4766,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       return;
     }
 
+    rawPlayTokenRef.current += 1; // 예약된 자동재생이 수동 조작을 덮어쓰지 않게 한다.
     const v = videoRef.current;
     if (!v) return;
     if (v.paused || v.ended) {
@@ -5655,12 +5696,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       playsInline
                       muted={isMuted}
                       onPlay={() => {
-                        if (!isSequenceMode) {
+                        if (!isSequenceMode || isRawSourcePreviewStep) {
                           setIsPlaying(true);
                         }
                       }}
                       onPause={() => {
-                        if (!isSequenceMode) {
+                        if (!isSequenceMode || isRawSourcePreviewStep) {
                           setIsPlaying(false);
                         }
                       }}
@@ -5685,21 +5726,21 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           code: err?.code,
                           message: err?.message,
                         });
-                        if (!isSequenceMode) {
+                        if (!isSequenceMode || isRawSourcePreviewStep) {
                           setIsPlaying(false);
                           setPlaybackError(dict.draftPreview?.playbackError || ui(PLAYBACK_ERROR_MESSAGE));
                         }
                       }}
                       onTimeUpdate={(e) => {
-                        if (isSequenceMode || isScrubbingRef.current) return;
+                        if ((isSequenceMode && !isRawSourcePreviewStep) || isScrubbingRef.current) return;
                         const cur = e.currentTarget.currentTime;
-                        setCurrentTime(Math.min(cur, totalDuration));
+                        setCurrentTime(Math.min(cur, playerDuration || totalDuration));
                       }}
                       onEnded={() => {
-                        if (isSequenceMode) return;
+                        if (isSequenceMode && !isRawSourcePreviewStep) return;
                         setIsPlaying(false);
-                        if (totalDuration > 0) {
-                          setCurrentTime(totalDuration);
+                        if (playerDuration > 0) {
+                          setCurrentTime(playerDuration);
                         }
                       }}
                       onLoadedData={() => {
