@@ -2008,7 +2008,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             showBadge: false,
             showChannel: false,
             stylePreset: thumbnailStyle,
-          });
+          }, thumbWidth, thumbHeight);
           const newThumbUrl = artCanvas.toDataURL('image/jpeg', 0.95);
           setThumbnailUrl(newThumbUrl);
           if (result && result.thumbnailUrl !== newThumbUrl) {
@@ -2037,6 +2037,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     dict.player.defaultTitleText,
     autoSortByRecordedDate,
     videoMap,
+    thumbWidth,
+    thumbHeight,
   ]);
 
   // 타이틀/스타일 변경 시 실시간 썸네일 재렌더링
@@ -2051,7 +2053,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           showBadge: false,
           showChannel: false,
           stylePreset: thumbnailStyle,
-        });
+        }, thumbWidth, thumbHeight);
         const newThumb = artCanvas.toDataURL('image/jpeg', 0.95);
         setThumbnailUrl(newThumb);
         if (result && result.thumbnailUrl !== newThumb) {
@@ -2074,6 +2076,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     overlayOptions.titleText,
     thumbnailStyle,
     showThumbnailTitle,
+    thumbWidth,
+    thumbHeight,
   ]);
 
   // 재생 가능한 로컬 원본 비디오 소스 유무 판별
@@ -5547,7 +5551,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   };
 
-  // 16:9 고화질 썸네일 다운로드
+  // 출력 비율(16:9/9:16)에 맞는 고화질 썸네일 다운로드
   const handleDownloadThumbnail = async () => {
     if (!thumbnailUrl && !thumbnailBgCanvasRef.current) return;
     try {
@@ -5560,7 +5564,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           showBadge: false,
           showChannel: false,
           stylePreset: thumbnailStyle,
-        });
+        }, thumbWidth, thumbHeight);
         await downloadThumbnailFile(artCanvas, overlayOptions.titleText || 'highlight');
       } else if (thumbnailUrl) {
         await downloadThumbnailFile(thumbnailUrl, overlayOptions.titleText || 'highlight');
@@ -5646,7 +5650,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           showBadge: false,
           showChannel: false,
           stylePreset: thumbnailStyle,
-        });
+        }, thumbWidth, thumbHeight);
 
         setThumbnailUrl(artCanvas.toDataURL('image/jpeg', 0.95));
       }
@@ -5684,7 +5688,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         showBadge: false,
         showChannel: false,
         stylePreset: thumbnailStyle,
-      });
+      }, thumbWidth, thumbHeight);
 
       const newThumbUrl = artCanvas.toDataURL('image/jpeg', 0.95);
       const newCleanUrl = bg.toDataURL('image/jpeg', 0.95);
@@ -6117,7 +6121,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               <div
                 className={`toss-player-wrapper ${
                   activeVideoUrl || standalonePreviewSection ? 'has-video' : 'is-empty'
-                } ${isPortraitOutput && !showThumbnailInPlayer ? 'is-portrait-frame' : ''} ${
+                } ${isPortraitOutput ? 'is-portrait-frame' : ''} ${
                   showThumbnailInPlayer ? 'is-thumbnail-preview' : ''
                 }`}
               >
@@ -6130,7 +6134,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     />
                     <span className="toss-player-thumbnail-badge" aria-hidden="true">
                       <ImageIcon size={12} />
-                      <span>16:9</span>
+                      <span>{isPortraitOutput ? '9:16' : '16:9'}</span>
                     </span>
                     <button
                       type="button"
@@ -6253,7 +6257,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                 showBadge: false,
                                 showChannel: false,
                                 stylePreset: thumbnailStyle,
-                              });
+                              }, thumbWidth, thumbHeight);
                               setThumbnailUrl(artCanvas.toDataURL('image/jpeg', 0.95));
                               artCanvas.width = 0;
                               artCanvas.height = 0;
@@ -7335,8 +7339,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 </div>
               ) : (
                 <>
-              {/* 썸네일 16:9 프리뷰 */}
-              <div className="toss-thumbnail-preview-wrap">
+              {/* 썸네일 출력 비율 프리뷰 */}
+              <div className={`toss-thumbnail-preview-wrap ${isPortraitOutput ? 'is-portrait' : ''}`}>
                 {thumbnailUrl ? (
                   <img
                     src={thumbnailUrl}
@@ -7417,7 +7421,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             {isSequenceMode && segments.length > 0 ? (
               <div className="toss-download-body">
                 <div className="toss-download-summary">
-                  <div className="toss-download-thumb">
+                  <div className={`toss-download-thumb ${isPortraitOutput ? 'is-portrait' : ''}`}>
                     {thumbnailUrl ? (
                       <img src={thumbnailUrl} alt="" className="toss-download-thumb-img" />
                     ) : (

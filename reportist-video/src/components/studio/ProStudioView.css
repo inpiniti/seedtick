@@ -7137,6 +7137,14 @@
   flex-shrink: 0;
 }
 
+.toss-thumbnail-preview-wrap.is-portrait {
+  aspect-ratio: 9 / 16;
+  width: auto;
+  height: min(52vh, 420px);
+  max-width: 100%;
+  margin-inline: auto;
+}
+
 .toss-thumbnail-img {
   width: 100%;
   height: 100%;
@@ -13786,6 +13794,11 @@
   background: #e5e8eb;
 }
 
+.toss-download-thumb.is-portrait {
+  width: 66px;
+  aspect-ratio: 9 / 16;
+}
+
 .toss-download-thumb-img {
   display: block;
   width: 100%;
@@ -14836,6 +14849,11 @@
 
   .toss-player-wrapper.is-portrait-frame {
     height: min(29vh, 250px);
+  }
+
+  /* 썸네일 단계: 세로(9:16) 썸네일은 영상 재생 프레임보다 조금 더 크게 보여준다. */
+  .toss-player-wrapper.is-portrait-frame.is-thumbnail-preview {
+    height: min(44vh, 380px);
   }
 
   /* 모바일: 멀티트랙 타임라인 카드를 숨기고 재생 플레이어의 스크럽 바가 타임라인을 겸한다.
