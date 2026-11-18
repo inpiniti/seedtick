@@ -135,6 +135,9 @@ const PatchNotesModal = React.lazy(() =>
 const IntroOutroPreviewModal = React.lazy(() =>
   import('./IntroOutroPreviewModal.tsx').then((m) => ({ default: m.IntroOutroPreviewModal }))
 );
+const ChapterBridgePreviewModal = React.lazy(() =>
+  import('./ChapterBridgePreviewModal.tsx').then((m) => ({ default: m.ChapterBridgePreviewModal }))
+);
 // 커뮤니티 탭은 기본 탭이 아니므로 열 때만 청크를 내려받는다.
 const VideoCommunityView = React.lazy(() =>
   import('../community/VideoCommunityView.tsx').then((m) => ({ default: m.VideoCommunityView }))
@@ -874,6 +877,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
   const [isIntroOutroModalOpen, setIsIntroOutroModalOpen] = useState<boolean>(false);
   const [introOutroModalTab, setIntroOutroModalTab] = useState<'intro' | 'outro'>('intro');
+  // 브릿지 스타일만 따로 골라 보고 적용할 수 있는 전용 미리보기 모달
+  const [isBridgePreviewModalOpen, setIsBridgePreviewModalOpen] = useState<boolean>(false);
   const [currentDateFormat, setCurrentDateFormat] = useState<DateFormatOption>(getStoredDateFormat);
   const [showAge, setShowAge] = useState<boolean>(getStoredShowAge);
   const [showDate, setShowDate] = useState<boolean>(getStoredShowDate);
@@ -1028,6 +1033,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     if (isSubtitleModalOpen) { setIsSubtitleModalOpen(false); hadOpenModal = true; }
     if (isExportModalOpen) { setIsExportModalOpen(false); hadOpenModal = true; }
     if (isIntroOutroModalOpen) { setIsIntroOutroModalOpen(false); hadOpenModal = true; }
+    if (isBridgePreviewModalOpen) { setIsBridgePreviewModalOpen(false); hadOpenModal = true; }
     if (trimModalTarget) { setTrimModalTarget(null); hadOpenModal = true; }
     if (mapModalTarget) { setMapModalTarget(null); hadOpenModal = true; }
     if (editingBridgeIndex !== null) { setEditingBridgeIndex(null); hadOpenModal = true; }
@@ -1044,6 +1050,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     isSubtitleModalOpen,
     isExportModalOpen,
     isIntroOutroModalOpen,
+    isBridgePreviewModalOpen,
     trimModalTarget,
     mapModalTarget,
     editingBridgeIndex,
@@ -7045,6 +7052,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               </div>
             </div>
 
+            {/* 자동 감지 여부와 무관하게 브릿지 모션만 따로 미리 볼 수 있게 한다 (인트로 미리보기와 동일한 전용 모달) */}
+            {overlayOptions.showChapterBridge !== false && (
+              <div className="toss-bridge-actions">
+                <button
+                  type="button"
+                  className="toss-btn-secondary toss-btn-xs"
+                  onClick={() => setIsBridgePreviewModalOpen(true)}
+                >
+                  <Play size={12} />
+                  <span>{ui('브릿지 미리보기')}</span>
+                </button>
+              </div>
+            )}
+
             {isCreationFlow ? (
               overlayOptions.showChapterBridge === false ? (
                 <p className="toss-bridge-footnote">
@@ -7143,18 +7164,60 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 </div>
               </div>
             ) : segments.length < 2 || !selectedBridgeDetail ? (
-              <div className="toss-empty-state">
-                <p className="text-slate-400 text-sm">
+              /* 자동 감지된 전환이 없어도 날짜·장소 브릿지 스타일은 미리 골라둘 수 있어야 한다. */
+              <div className="toss-bridge-standalone">
+                <p className="toss-bridge-footnote">
                   {ui('컷이 2개 이상이고, 컷마다 날짜나 장소가 달라야 브릿지가 자동으로 생겨요. 4번 컷에서 날짜·장소를 먼저 적어보세요.')}
                 </p>
-                <button
-                  type="button"
-                  className="toss-btn-secondary mt-2"
-                  onClick={() => goToSection('cut')}
-                >
-                  <Scissors size={12} />
-                  <span>{ui('컷 설정으로 가기')}</span>
-                </button>
+
+                <div className="toss-bridge-template-group">
+                  <span className="toss-bridge-template-label">
+                    <Clock size={12} />
+                    <span>{ui('날짜 넘어가는 효과')}</span>
+                  </span>
+                  <div className="toss-bridge-chip-row">
+                    {BRIDGE_DATE_CHOICES.map((choice) => (
+                      <button
+                        key={choice.id}
+                        type="button"
+                        className={`toss-bridge-chip ${(overlayOptions.chapterBridgeDateTemplate || 'flip-clock') === choice.id ? 'active' : ''}`}
+                        onClick={() => setDefaultBridgeTemplate('date', choice.id)}
+                      >
+                        {ui(choice.label)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="toss-bridge-template-group">
+                  <span className="toss-bridge-template-label">
+                    <MapPin size={12} />
+                    <span>{ui('장소 이동 효과')}</span>
+                  </span>
+                  <div className="toss-bridge-chip-row">
+                    {BRIDGE_LOCATION_CHOICES.map((choice) => (
+                      <button
+                        key={choice.id}
+                        type="button"
+                        className={`toss-bridge-chip ${(overlayOptions.chapterBridgeLocationTemplate || 'winding-route') === choice.id ? 'active' : ''}`}
+                        onClick={() => setDefaultBridgeTemplate('location', choice.id)}
+                      >
+                        {ui(choice.label)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="toss-bridge-actions">
+                  <button
+                    type="button"
+                    className="toss-btn-secondary toss-btn-xs"
+                    onClick={() => goToSection('cut')}
+                  >
+                    <Scissors size={12} />
+                    <span>{ui('컷 설정으로 가기')}</span>
+                  </button>
+                </div>
               </div>
             ) : (
               <>
@@ -8837,6 +8900,30 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 ...settings,
               }));
               notify.success(dict.toasts.introOutroDefaultsApplied);
+            }}
+          />
+        </React.Suspense>
+      )}
+
+      {/* 12-6. 챕터 브릿지 전용 실시간 미리보기 모달 — 날짜·장소 조합을 영상 타임라인과 무관하게 확인한다 */}
+      {isBridgePreviewModalOpen && (
+        <React.Suspense fallback={null}>
+          <ChapterBridgePreviewModal
+            isOpen={isBridgePreviewModalOpen}
+            onClose={() => setIsBridgePreviewModalOpen(false)}
+            initialDateTemplate={overlayOptions.chapterBridgeDateTemplate || 'flip-clock'}
+            initialLocationTemplate={overlayOptions.chapterBridgeLocationTemplate || 'winding-route'}
+            orientation={orientation}
+            portraitPlatform={portraitPlatform}
+            onApply={(dateTemplate, locationTemplate) => {
+              setStoredShowChapterBridge(true);
+              setOverlayOptions((prev) => ({
+                ...prev,
+                showChapterBridge: true,
+                chapterBridgeDateTemplate: dateTemplate,
+                chapterBridgeLocationTemplate: locationTemplate,
+              }));
+              scheduleSectionPreview('bridge');
             }}
           />
         </React.Suspense>
