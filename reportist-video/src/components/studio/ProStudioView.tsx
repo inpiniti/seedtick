@@ -7229,14 +7229,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     <Sparkles size={12} />
                     <span>{ui('AI 하이라이트 다시 뽑기')}</span>
                   </button>
-                  <button
-                    type="button"
-                    className="toss-btn-primary toss-btn-sm"
-                    onClick={() => goToSection('cut')}
-                  >
-                    <Scissors size={12} />
-                    <span>{ui('6번 컷 다듬기')}</span>
-                  </button>
                 </div>
               </div>
             ) : (
