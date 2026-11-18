@@ -5380,10 +5380,35 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     );
   };
 
-  // 원본 회전 각도를 미리보기 <video>/썸네일 <img>에 적용하는 공통 스타일
-  const getSourceRotationStyle = (rotation: number | undefined): React.CSSProperties | undefined => {
-    if (!rotation) return undefined;
-    const rot = ((rotation % 360) + 360) % 360;
+  // 메인 플레이어용 회전 스타일.
+  // 90/270도에서 예전처럼 고정 scale(0.5625)을 쓰면 object-fit:contain으로 이미 프레임에 맞춰진
+  // 세로 원본이 한 번 더 축소돼 아주 작게 보였다. 대신 요소의 가로/세로를 출력 프레임 기준으로
+  // 뒤집어 주면 contain이 회전 후 크기를 다시 계산해 회전한 영상이 프레임을 꽉 채운다.
+  // (가로 16:9 프레임: 가로 56.25% = 프레임 높이, 세로 177.78% = 프레임 너비)
+  const getPlayerRotationStyle = (
+    rotation: number | undefined,
+    outputOrientation: VideoOrientation | undefined
+  ): React.CSSProperties | undefined => {
+    const rot = ((rotation ?? 0) % 360 + 360) % 360;
+    if (rot === 0) return undefined;
+    if (rot === 180) {
+      return { transform: 'rotate(180deg)', transition: 'transform 0.25s ease' };
+    }
+    const isPortraitFrame = outputOrientation === 'portrait';
+    return {
+      position: 'absolute',
+      top: '50%',
+      left: '50%',
+      width: isPortraitFrame ? '177.78%' : '56.25%',
+      height: isPortraitFrame ? '56.25%' : '177.78%',
+      transform: `translate(-50%, -50%) rotate(${rot}deg)`,
+      transition: 'transform 0.25s ease',
+    };
+  };
+
+  // 목록 썸네일은 고정 크기 박스이므로 회전 전체가 보이도록 축소 회전을 유지한다.
+  const getThumbRotationStyle = (rotation: number | undefined): React.CSSProperties | undefined => {
+    const rot = ((rotation ?? 0) % 360 + 360) % 360;
     if (rot === 0) return undefined;
     const isSideways = rot === 90 || rot === 270;
     return {
@@ -6276,11 +6301,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                               position: 'absolute',
                               inset: 0,
                             }
-                          : getSourceRotationStyle(
+                          : getPlayerRotationStyle(
                               // 원본 단계에서는 편집 중인 원본 영상의 회전을, 그 외에는 재생 중인 씬의 회전을 사용한다.
                               isRawSourcePreviewStep
                                 ? previewVideo?.rotation
-                                : activePlayingSegment?.rotation
+                                : activePlayingSegment?.rotation,
+                              orientation
                             )
                       }
                     />
@@ -6681,7 +6707,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       >
                         <span className="toss-draft-preview-thumb">
                           {v.thumbnailUrl ? (
-                            <img src={v.thumbnailUrl} alt="" style={getSourceRotationStyle(v.rotation)} />
+                            <img src={v.thumbnailUrl} alt="" style={getThumbRotationStyle(v.rotation)} />
                           ) : (
                             <Film size={14} className="text-slate-400" />
                           )}
@@ -7704,7 +7730,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     >
                       <span className="toss-upload-item-thumb">
                         {v.thumbnailUrl ? (
-                          <img src={v.thumbnailUrl} alt="" style={getSourceRotationStyle(v.rotation)} />
+                          <img src={v.thumbnailUrl} alt="" style={getThumbRotationStyle(v.rotation)} />
                         ) : (
                           <Film size={16} className="text-slate-400" />
                         )}
