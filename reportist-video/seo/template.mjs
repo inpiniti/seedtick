@@ -562,8 +562,8 @@ function renderStory(locale) {
           <div class="story-ui-frame">
             <div class="story-ui-bar"><i></i><i></i><i></i><span> PenguinCut Studio</span></div>
             <div class="story-ui-screen">
-              <img class="story-ui-img is-front" data-ui-front src="${media("ui/ui-01.webp")}" alt="" width="960" height="600">
-              <img class="story-ui-img" data-ui-back alt="" width="960" height="600">
+              <img class="story-ui-img is-front" data-ui-front src="${media("ui/ui-01.webp")}" alt="" width="960" height="574">
+              <img class="story-ui-img" data-ui-back alt="" width="960" height="574">
             </div>
           </div>
           <div class="story-ui-copy">
