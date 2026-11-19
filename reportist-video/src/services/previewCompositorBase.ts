@@ -231,21 +231,35 @@ function drawLandscapeOverlay(
     oCtx.restore();
   }
 
-  // 3. 하단 중앙 씬 제목 자막
+  // 3. 하단 중앙 씬 제목 자막 — 프레임 폭에 맞춰 줄바꿈(최대 3줄)하고 하단 기준으로 위로 쌓는다.
+  // 긴 자막이 양옆으로 잘려 나가지 않도록 가로 여백을 두고, 한 줄일 때의 위치·크기는 기존과 동일하다.
   if (overlayOptions.showSubtitle) {
     const titlePart = currentSegment?.subtitleTitle || currentSegment?.reason || '';
     const subText = titlePart.trim();
 
     if (subText) {
       hasAnyOverlay = true;
-      oCtx.save();
-      oCtx.font = overlayFont('bold', 24 * u);
-      const metrics = oCtx.measureText(subText);
       const padX = Math.round(20 * u);
-      const boxW = metrics.width + padX * 2;
-      const boxH = Math.round(46 * u);
+      const padY = Math.round(8 * u);
+      const marginX = Math.round(32 * u);
+      const subMaxWidth = Math.max(1, targetWidth - marginX * 2 - padX * 2);
+      const block = fitTextBlock(
+        oCtx,
+        subText,
+        subMaxWidth,
+        Math.round(24 * u),
+        Math.round(16 * u),
+        3,
+        (size) => overlayFont('bold', size)
+      );
+      const lineHeight = Math.round(block.fontSize * 1.26);
+      oCtx.save();
+      oCtx.font = overlayFont('bold', block.fontSize);
+      const textWidth = Math.max(...block.lines.map((line) => oCtx.measureText(line).width), 0);
+      const boxW = Math.min(targetWidth - marginX * 2, textWidth + padX * 2);
+      const boxH = block.lines.length * lineHeight + padY * 2;
       const x = (targetWidth - boxW) / 2;
-      const y = targetHeight - Math.round(76 * u);
+      const y = targetHeight - Math.round(30 * u) - boxH;
 
       oCtx.fillStyle = 'rgba(0, 0, 0, 0.75)';
       paintRoundedRect(oCtx, x, y, boxW, boxH, Math.round(8 * u));
@@ -254,7 +268,9 @@ function drawLandscapeOverlay(
       oCtx.fillStyle = '#ffffff';
       oCtx.textAlign = 'center';
       oCtx.textBaseline = 'middle';
-      oCtx.fillText(subText, targetWidth / 2, y + boxH / 2);
+      block.lines.forEach((line, index) => {
+        oCtx.fillText(line, targetWidth / 2, y + padY + lineHeight * (index + 0.5));
+      });
       oCtx.restore();
     }
   }
