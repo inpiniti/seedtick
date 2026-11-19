@@ -9,6 +9,13 @@ import {
   LOCALES,
   SITE,
 } from "./content.mjs";
+import {
+  CONTENT_LOCALES,
+  CONTENT_PAGES,
+  contentLabel,
+  contentPath,
+  findContentPage,
+} from "./pages.mjs";
 
 // Static assets are served with a 1-hour cache by the CDN. Fingerprint their
 // contents into the URL so a deploy always invalidates the browser cache —
@@ -170,6 +177,18 @@ function appHref(locale) {
   return `${SITE.appPath}?lang=${locale.code}`;
 }
 
+// Content pages exist in English and Korean. Other locales link to the English
+// canonical instead of shipping a machine-translated legal document.
+function contentHref(locale, slug) {
+  return locale.code === "ko" ? `/ko/${slug}/` : `/${slug}/`;
+}
+
+// Prefix in-page anchors with the landing path so the same header/footer work
+// on content pages, where "#features" alone would point at the current page.
+function hashHref(basePath, hash) {
+  return `${basePath}${hash}`;
+}
+
 function renderAlternates() {
   const tags = [];
 
@@ -197,18 +216,18 @@ function renderOgAlternates(currentLocale) {
     .join("\n    ");
 }
 
-function renderLanguageLinks(currentLocale, className = "") {
+function renderLanguageLinks(currentLocale, className = "", withHreflang = true) {
   return LOCALES.map((locale) => {
     const current = locale.code === currentLocale.code;
-    return `<a class="${className}" href="${esc(locale.path)}" hreflang="${esc(
-      locale.hreflang
-    )}" lang="${esc(locale.htmlLang)}"${current ? ' aria-current="page"' : ""}>${esc(
+    return `<a class="${className}" href="${esc(locale.path)}"${
+      withHreflang ? ` hreflang="${esc(locale.hreflang)}"` : ""
+    } lang="${esc(locale.htmlLang)}"${current ? ' aria-current="page"' : ""}>${esc(
       locale.nativeLabel
     )}</a>`;
   }).join("\n            ");
 }
 
-function renderHeader(locale) {
+function renderHeader(locale, basePath = "", withHreflangOnSwitcher = true) {
   return `
   <header class="site-header">
     <div class="container header-inner">
@@ -222,11 +241,21 @@ function renderHeader(locale) {
       </button>
 
       <nav class="site-nav" id="site-nav" aria-label="Main navigation" data-nav>
-        <a href="#features">${esc(locale.nav.features)}</a>
-        <a href="#how-it-works">${esc(locale.nav.how)}</a>
-        <a href="#use-cases">${esc(locale.nav.useCases)}</a>
-        <a href="#languages">${esc(locale.nav.languages)}</a>
-        <a href="#faq">${esc(locale.nav.faq)}</a>
+        <a href="${esc(hashHref(basePath, "#features"))}">${esc(
+    locale.nav.features
+  )}</a>
+        <a href="${esc(hashHref(basePath, "#how-it-works"))}">${esc(
+    locale.nav.how
+  )}</a>
+        <a href="${esc(hashHref(basePath, "#use-cases"))}">${esc(
+    locale.nav.useCases
+  )}</a>
+        <a href="${esc(hashHref(basePath, "#languages"))}">${esc(
+    locale.nav.languages
+  )}</a>
+        <a href="${esc(hashHref(basePath, "#faq"))}">${esc(
+    locale.nav.faq
+  )}</a>
 
         <details class="lang-switcher">
           <summary>
@@ -235,7 +264,7 @@ function renderHeader(locale) {
             ${ICONS.chevron}
           </summary>
           <div class="lang-panel">
-            ${renderLanguageLinks(locale)}
+            ${renderLanguageLinks(locale, "", withHreflangOnSwitcher)}
           </div>
         </details>
 
@@ -277,7 +306,7 @@ function renderHero(locale) {
             ${esc(hero.primary)}
             ${ICONS.arrow}
           </a>
-          <a class="button button-hero-ghost" href="#story">${esc(
+          <a class="button button-hero-ghost" href="#how-it-works">${esc(
             hero.secondary
           )}</a>
         </div>
@@ -299,7 +328,7 @@ function renderHero(locale) {
           <span class="hero-sound-icon" aria-hidden="true">${ICONS.sound}</span>
           <span class="hero-sound-label">${esc(locale.video.soundCue)}</span>
         </button>
-        <a class="hero-scroll" href="#story" aria-label="${esc(
+        <a class="hero-scroll" href="#how-it-works" aria-label="${esc(
           hero.secondary
         )}">${ICONS.chevron}</a>
         <span class="hero-foot-note">00:36 · 16:9 &amp; 9:16</span>
@@ -410,10 +439,12 @@ function renderTheater(locale) {
     </section>`;
 }
 
-// The scroll story — one sticky, presentational stage driven by scroll, with
-// a fully crawlable semantic copy of every chapter for SEO and motion-off users.
+// The scroll story is decorative. It owns no document headings, every image
+// carries a localized alt, and all crawlable feature/how copy lives in the
+// visible light sections below the theater. `data-story` sits on the stage so
+// scroll progress maps to the 440svh scroll distance, not the whole page.
 function renderStory(locale) {
-  const { reel, features, how, theater, video, stack } = locale;
+  const { reel, features, how, theater, video, stack, alts } = locale;
   const two = (n) => String(n).padStart(2, "0");
 
   const captureChips = stack.layers
@@ -428,7 +459,11 @@ function renderStory(locale) {
   const thumbnails = stack.layers
     .map(
       (label, i) =>
-        `<span class="story-thumb" data-thumb="${i}"><img src="${media(`reel/reel-0${i + 1}.webp`)}" alt="" loading="lazy" width="160" height="90"><i>${two(i + 1)}</i></span>`
+        `<span class="story-thumb" data-thumb="${i}"><img src="${media(
+          `reel/reel-0${i + 1}.webp`
+        )}" alt="${esc(alts.reel)} ${two(i + 1)}" loading="lazy" width="160" height="90"><i>${two(
+          i + 1
+        )}</i></span>`
     )
     .join("");
 
@@ -470,7 +505,9 @@ function renderStory(locale) {
   const finalStrips = stack.layers
     .map(
       (_, index) =>
-        `<span class="story-final-strip"><img src="${media(`reel/reel-0${index + 1}.webp`)}" alt="" loading="lazy" width="80" height="45"></span>`
+        `<span class="story-final-strip"><img src="${media(
+          `reel/reel-0${index + 1}.webp`
+        )}" alt="${esc(alts.reel)} ${two(index + 1)}" loading="lazy" width="80" height="45"></span>`
     )
     .join("");
 
@@ -486,78 +523,11 @@ function renderStory(locale) {
     .join("");
 
   return `
-  <section class="story" id="story" data-story data-header-tone="dark" aria-labelledby="story-title">
-    <!-- Semantic content: crawled by search engines, shown when motion is off -->
-    <div class="story-content">
-      <div class="story-chapter" id="reel">
-        <div class="container">
-          <div class="section-head">
-            <p class="eyebrow"><span class="eyebrow-dot"></span>${esc(reel.eyebrow)}</p>
-            <h2 id="story-title">${esc(reel.title)}</h2>
-            <p class="section-lead">${esc(reel.lead)}</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="story-chapter" id="features">
-        <div class="container">
-          <div class="section-head">
-            <p class="eyebrow"><span class="eyebrow-dot"></span>${esc(features.eyebrow)}</p>
-            <h2>${esc(features.title)}</h2>
-            <p class="section-lead">${esc(features.lead)}</p>
-          </div>
-          <div class="feature-grid">
-            ${features.items
-              .map(
-                (item) => `
-            <article class="feature-card">
-              <div class="feature-icon">${ICONS[item.icon] || ICONS.sparkles}</div>
-              <h3>${esc(item.title)}</h3>
-              <p>${esc(item.desc)}</p>
-            </article>`
-              )
-              .join("")}
-          </div>
-        </div>
-      </div>
-
-      <div class="story-chapter" id="how-it-works">
-        <div class="container">
-          <div class="section-head">
-            <p class="eyebrow"><span class="eyebrow-dot"></span>${esc(how.eyebrow)}</p>
-            <h2>${esc(how.title)}</h2>
-            <p class="section-lead">${esc(how.lead)}</p>
-          </div>
-          <div class="step-grid">
-            ${how.steps
-              .map(
-                (step, index) => `
-            <article class="step-card">
-              <span class="step-number">0${index + 1}</span>
-              <h3>${esc(step.title)}</h3>
-              <p>${esc(step.desc)}</p>
-            </article>`
-              )
-              .join("")}
-          </div>
-          <p class="section-note">${esc(how.note)}</p>
-        </div>
-      </div>
-
-      <div class="story-chapter story-chapter--exit">
-        <div class="container">
-          <div class="section-head">
-            <p class="eyebrow"><span class="eyebrow-dot"></span>${esc(theater.eyebrow)}</p>
-            <h2>${esc(theater.title)}</h2>
-            <p class="section-lead">${esc(theater.lead)}</p>
-          </div>
-          <a class="button" href="#film">${esc(video.play)} ${ICONS.arrow}</a>
-        </div>
-      </div>
-    </div>
-
+  <section class="story" id="story" data-header-tone="dark" aria-label="${esc(
+    reel.title
+  )}">
     <!-- Presentational stage: canvas frame scrubbing + real product UI -->
-    <div class="story-stage" aria-hidden="true">
+    <div class="story-stage" data-story aria-hidden="true">
       <div class="story-sticky">
         <canvas class="story-canvas" data-story-canvas></canvas>
         <div class="story-stage-scrim"></div>
@@ -567,7 +537,7 @@ function renderStory(locale) {
         <div class="story-act story-act--capture is-active" data-story-act="0">
           <div class="story-copy">
             <p class="story-eyebrow">${esc(reel.eyebrow)}</p>
-            <h2>${esc(reel.title)}</h2>
+            <p class="story-stage-title">${esc(reel.title)}</p>
             <p class="story-lead">${esc(reel.lead)}</p>
             <div class="story-captures">${captureChips}</div>
             <p class="story-lock" data-story-lock>${esc(reel.captured)}</p>
@@ -579,18 +549,24 @@ function renderStory(locale) {
           <div class="story-ui-frame">
             <div class="story-ui-bar"><i></i><i></i><i></i><span> PenguinCut Studio</span></div>
             <div class="story-ui-screen">
-              <img class="story-ui-img is-front" data-ui-front src="${media("ui/ui-01.webp")}" alt="" width="960" height="574">
-              <img class="story-ui-img" data-ui-back alt="" width="960" height="574">
+              <img class="story-ui-img is-front" data-ui-front src="${media(
+                "ui/ui-01.webp"
+              )}" alt="${esc(alts.ui)}" width="960" height="574">
+              <img class="story-ui-img" data-ui-back alt="${esc(
+                alts.ui
+              )}" width="960" height="574">
             </div>
           </div>
           <div class="story-ui-copy">
             <p class="story-eyebrow">${esc(features.eyebrow)}</p>
-            <h2>${esc(features.title)}</h2>
+            <p class="story-stage-title">${esc(features.title)}</p>
             <ol class="story-ui-list">${featureRows}</ol>
           </div>
           <div class="story-ui-mobile-copy">
             <p class="story-eyebrow">${esc(features.eyebrow)}</p>
-            <h3 data-ui-title>${esc(features.items[0].title)}</h3>
+            <p class="story-ui-title" data-ui-title>${esc(
+              features.items[0].title
+            )}</p>
             <p data-ui-desc>${esc(features.items[0].desc)}</p>
             <div class="story-ui-dots">${uiDots}</div>
           </div>
@@ -614,7 +590,7 @@ function renderStory(locale) {
           </div>
           <div class="story-steps-copy">
             <p class="story-eyebrow">${esc(how.eyebrow)}</p>
-            <h2>${esc(how.title)}</h2>
+            <p class="story-stage-title">${esc(how.title)}</p>
             <p class="story-lead">${esc(how.lead)}</p>
             <div class="story-playhead"><i data-story-playhead></i></div>
           </div>
@@ -624,18 +600,22 @@ function renderStory(locale) {
         <div class="story-act story-act--format" data-story-act="3">
           <div class="story-format-copy">
             <p class="story-eyebrow">FINAL FORMAT</p>
-            <h2>${esc(theater.title)}</h2>
+            <p class="story-stage-title">${esc(theater.title)}</p>
             <a class="button story-format-button" href="#film" tabindex="-1">${esc(
               video.play
             )} ${ICONS.arrow}</a>
           </div>
           <div class="story-formats">
             <figure class="story-format story-format--wide">
-              <img src="${media(`result-${esc(locale.code)}.webp`)}" alt="" width="960" height="540">
+              <img src="${media(
+                `result-${esc(locale.code)}.webp`
+              )}" alt="${esc(alts.result)}" width="960" height="540">
               <figcaption><b>16:9</b><span>YOUTUBE</span></figcaption>
             </figure>
             <figure class="story-format story-format--tall">
-              <img src="${media(`result-v-${esc(locale.code)}.webp`)}" alt="" width="720" height="1280">
+              <img src="${media(
+                `result-v-${esc(locale.code)}.webp`
+              )}" alt="${esc(alts.resultVertical)}" width="720" height="1280">
               <figcaption><b>9:16</b><span>SHORTS</span></figcaption>
             </figure>
           </div>
@@ -654,6 +634,65 @@ function renderStory(locale) {
       </div>
     </div>
   </section>`;
+}
+
+// Crawlable feature copy: normal light section, always visible, no scroll
+// dependency and no clipped wrapper.
+function renderFeatures(locale) {
+  const { features } = locale;
+  return `
+    <section class="section" id="features" aria-labelledby="features-title">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow"><span class="eyebrow-dot"></span>${esc(
+            features.eyebrow
+          )}</p>
+          <h2 id="features-title">${esc(features.title)}</h2>
+          <p class="section-lead">${esc(features.lead)}</p>
+        </div>
+        <div class="feature-grid">
+          ${features.items
+            .map(
+              (item) => `
+          <article class="feature-card">
+            <div class="feature-icon">${ICONS[item.icon] || ICONS.sparkles}</div>
+            <h3>${esc(item.title)}</h3>
+            <p>${esc(item.desc)}</p>
+          </article>`
+            )
+            .join("")}
+        </div>
+      </div>
+    </section>`;
+}
+
+function renderHowItWorks(locale) {
+  const { how } = locale;
+  return `
+    <section class="section section-alt" id="how-it-works" aria-labelledby="how-title">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow"><span class="eyebrow-dot"></span>${esc(
+            how.eyebrow
+          )}</p>
+          <h2 id="how-title">${esc(how.title)}</h2>
+          <p class="section-lead">${esc(how.lead)}</p>
+        </div>
+        <div class="step-grid">
+          ${how.steps
+            .map(
+              (step, index) => `
+          <article class="step-card">
+            <span class="step-number">0${index + 1}</span>
+            <h3>${esc(step.title)}</h3>
+            <p>${esc(step.desc)}</p>
+          </article>`
+            )
+            .join("")}
+        </div>
+        <p class="section-note">${esc(how.note)}</p>
+      </div>
+    </section>`;
 }
 function renderUseCases(locale) {
   const { useCases } = locale;
@@ -763,8 +802,31 @@ function renderCta(locale) {
     </section>`;
 }
 
-function renderFooter(locale) {
+function renderFooter(
+  locale,
+  basePath = "",
+  withHreflangOnSwitcher = true
+) {
   const year = new Date().getFullYear();
+  const social = (SITE.social || [])
+    .map(
+      (item) =>
+        `<a href="${esc(item.href)}" rel="me noopener" target="_blank">${esc(
+          item.label
+        )}</a>`
+    )
+    .join("\n          ");
+  const guides = [
+    ["use-cases/youtube-highlights", locale.footer.guideYoutube],
+    ["use-cases/travel-vlog-highlights", locale.footer.guideTravel],
+    ["use-cases/sports-highlights", locale.footer.guideSports],
+  ]
+    .map(
+      ([slug, label]) =>
+        `<a href="${esc(contentHref(locale, slug))}">${esc(label)}</a>`
+    )
+    .join("\n        ");
+
   return `
   <footer class="site-footer">
     <div class="container footer-grid">
@@ -774,25 +836,53 @@ function renderFooter(locale) {
           <span>PenguinCut</span>
         </a>
         <p>${esc(locale.footer.tagline)}</p>
+        <div class="footer-social" aria-label="PenguinCut on social platforms">
+          ${social}
+        </div>
       </div>
 
       <nav class="footer-col" aria-labelledby="footer-product">
         <h2 id="footer-product">${esc(locale.footer.product)}</h2>
         <a href="${esc(appHref(locale))}">${esc(locale.nav.open)}</a>
-        <a href="#features">${esc(locale.nav.features)}</a>
-        <a href="#how-it-works">${esc(locale.nav.how)}</a>
-        <a href="#faq">${esc(locale.nav.faq)}</a>
+        <a href="${esc(hashHref(basePath, "#features"))}">${esc(
+    locale.nav.features
+  )}</a>
+        <a href="${esc(hashHref(basePath, "#how-it-works"))}">${esc(
+    locale.nav.how
+  )}</a>
+        <a href="${esc(hashHref(basePath, "#faq"))}">${esc(
+    locale.nav.faq
+  )}</a>
+      </nav>
+
+      <nav class="footer-col" aria-labelledby="footer-resources">
+        <h2 id="footer-resources">${esc(locale.footer.resources)}</h2>
+        <a href="${esc(contentHref(locale, "about"))}">${esc(
+    locale.footer.about
+  )}</a>
+        <a href="${esc(contentHref(locale, "blog/introducing-penguincut"))}">${esc(
+    locale.footer.blog
+  )}</a>
+        ${guides}
       </nav>
 
       <nav class="footer-col" aria-labelledby="footer-languages">
         <h2 id="footer-languages">${esc(locale.footer.language)}</h2>
-        ${renderLanguageLinks(locale)}
+        ${renderLanguageLinks(locale, "", withHreflangOnSwitcher)}
       </nav>
     </div>
 
     <div class="container footer-bottom">
       <span>${esc(locale.footer.legal.replace("{year}", String(year)))}</span>
-      <a href="/sitemap.xml">Sitemap</a>
+      <span class="footer-legal-links">
+        <a href="${esc(contentHref(locale, "privacy"))}">${esc(
+    locale.footer.privacy
+  )}</a>
+        <a href="${esc(contentHref(locale, "terms"))}">${esc(
+    locale.footer.terms
+  )}</a>
+        <a href="/sitemap.xml">Sitemap</a>
+      </span>
     </div>
   </footer>`;
 }
@@ -870,6 +960,19 @@ function buildSchema(locale) {
         image: abs(SITE.ogImage),
       },
       {
+        "@type": "VideoObject",
+        "@id": `${canonical}#video`,
+        name: locale.video.title,
+        description: locale.theater.lead,
+        thumbnailUrl: [abs("/media/hero-poster.webp")],
+        uploadDate: "2026-11-16",
+        duration: "PT36S",
+        contentUrl: abs(`/media/promo-${locale.code}.mp4`),
+        inLanguage: locale.hreflang,
+        isPartOf: { "@id": `${canonical}#webpage` },
+        publisher: { "@id": organizationId },
+      },
+      {
         "@type": "FAQPage",
         "@id": `${canonical}#faq`,
         mainEntity: locale.faq.items.map((item) => ({
@@ -924,7 +1027,9 @@ function renderHead(locale) {
   <meta property="og:image" content="${esc(abs(SITE.ogImage))}">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="${esc(SITE.ogImageAlt)}">
+  <meta property="og:image:alt" content="${esc(
+    locale.ogImageAlt || SITE.ogImageAlt
+  )}">
   <meta property="og:locale" content="${esc(locale.ogLocale)}">
   ${renderOgAlternates(locale)}
 
@@ -932,7 +1037,9 @@ function renderHead(locale) {
   <meta name="twitter:title" content="${esc(locale.title)}">
   <meta name="twitter:description" content="${esc(locale.description)}">
   <meta name="twitter:image" content="${esc(abs(SITE.ogImage))}">
-  <meta name="twitter:image:alt" content="${esc(SITE.ogImageAlt)}">
+  <meta name="twitter:image:alt" content="${esc(
+    locale.ogImageAlt || SITE.ogImageAlt
+  )}">
 
   <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=4">
   <link rel="icon" type="image/x-icon" href="/favicon.ico?v=4">
@@ -1000,6 +1107,8 @@ export function renderPage(locale) {
       ${renderStrip(locale)}
       ${renderStory(locale)}
       ${renderTheater(locale)}
+      ${renderFeatures(locale)}
+      ${renderHowItWorks(locale)}
       ${renderUseCases(locale)}
       ${renderLanguages(locale)}
       ${renderFaq(locale)}
@@ -1015,6 +1124,316 @@ export function renderPage(locale) {
 `;
 }
 
+export function renderContentPage(locale, page, doc) {
+  const canonical = abs(contentPath(page, locale.code));
+  const schema = JSON.stringify(buildContentSchema(locale, page, doc, canonical)).replaceAll(
+    "<",
+    "\\u003c"
+  );
+  const isArticle = page.kind === "article";
+  const ogType = isArticle ? "article" : "website";
+  const alternates = CONTENT_LOCALES.map(
+    (code) =>
+      `<link rel="alternate" hreflang="${esc(
+        code === "ko" ? "ko" : "en"
+      )}" href="${esc(abs(contentPath(page, code)))}">`
+  )
+    .concat(
+      `<link rel="alternate" hreflang="x-default" href="${esc(
+        abs(contentPath(page, "en"))
+      )}">`
+    )
+    .join("\n    ");
+  const updatedLabel = locale.code === "ko" ? "최종 업데이트" : "Last updated";
+
+  const sections = doc.sections
+    .map(
+      (section) => `
+        <section class="content-section">
+          <h2>${esc(section.heading)}</h2>
+          ${(section.paragraphs || [])
+            .map((paragraph) => `<p>${esc(paragraph)}</p>`)
+            .join("\n          ")}
+          ${
+            section.bullets?.length
+              ? `<ul>
+            ${section.bullets
+              .map((bullet) => `<li>${esc(bullet)}</li>`)
+              .join("\n            ")}
+          </ul>`
+              : ""
+          }
+          ${
+            section.note
+              ? `<p class="content-note">${esc(section.note)}</p>`
+              : ""
+          }
+        </section>`
+    )
+    .join("");
+
+  const related = (page.en.related || [])
+    .map((slug) => {
+      const target = findContentPage(slug);
+      if (!target) return "";
+      return `<a href="${esc(contentHref(locale, target.slug))}">${esc(
+        contentLabel(target, locale.code)
+      )}</a>`;
+    })
+    .filter(Boolean)
+    .join("\n          ");
+
+  return `<!doctype html>
+<html lang="${esc(locale.htmlLang)}" dir="ltr">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${esc(doc.title)}</title>
+    <meta name="description" content="${esc(doc.description)}">
+    <meta name="author" content="PenguinCut">
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+    <link rel="canonical" href="${esc(canonical)}">
+
+    ${alternates}
+
+    <meta property="og:type" content="${ogType}">
+    <meta property="og:site_name" content="PenguinCut">
+    <meta property="og:url" content="${esc(canonical)}">
+    <meta property="og:title" content="${esc(doc.title)}">
+    <meta property="og:description" content="${esc(doc.description)}">
+    <meta property="og:image" content="${esc(abs(SITE.ogImage))}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="${esc(
+      locale.ogImageAlt || SITE.ogImageAlt
+    )}">
+    <meta property="og:locale" content="${esc(locale.ogLocale)}">
+    ${CONTENT_LOCALES.filter((code) => code !== locale.code)
+      .map(
+        (code) =>
+          `<meta property="og:locale:alternate" content="${
+            code === "ko" ? "ko_KR" : "en_US"
+          }">`
+      )
+      .join("\n    ")}
+    ${articleMeta(locale, isArticle, doc)}
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="${esc(doc.title)}">
+    <meta name="twitter:description" content="${esc(doc.description)}">
+    <meta name="twitter:image" content="${esc(abs(SITE.ogImage))}">
+    <meta name="twitter:image:alt" content="${esc(
+      locale.ogImageAlt || SITE.ogImageAlt
+    )}">
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=4">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico?v=4">
+    <link rel="apple-touch-icon" href="/icon-192x192.png?v=4">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="#f8f9fa">
+    <meta name="application-name" content="PenguinCut">
+    <meta name="format-detection" content="telephone=no">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preload" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+    <link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"></noscript>
+    <link rel="stylesheet" href="/landing.css?v=${ASSET_VERSIONS.css}">
+
+    <script type="application/ld+json">${schema}</script>
+  </head>
+  <body>
+    ${renderHeader(locale, locale.path, false)}
+    <main id="main" class="content-page">
+      <article class="container content-article">
+        <header class="content-hero">
+          <nav class="content-breadcrumb" aria-label="Breadcrumb">
+            <a href="${esc(locale.path)}">PenguinCut</a>
+            <span aria-hidden="true">/</span>
+            <span>${esc(doc.eyebrow)}</span>
+          </nav>
+          <h1>${esc(doc.heading)}</h1>
+          <p class="content-lead">${esc(doc.lead)}</p>
+          <p class="content-meta">${updatedLabel} · <time datetime="${esc(
+            doc.updated
+          )}">${esc(doc.updated)}</time></p>
+        </header>
+
+        <div class="content-body">
+          ${sections}
+        </div>
+
+        ${
+          related
+            ? `<nav class="content-related" aria-label="${
+                locale.code === "ko" ? "관련 문서" : "Related reading"
+              }">
+          <h2>${locale.code === "ko" ? "함께 읽기" : "Continue reading"}</h2>
+          ${related}
+        </nav>`
+            : ""
+        }
+      </article>
+      ${renderCta(locale)}
+    </main>
+    ${renderFooter(locale, locale.path, false)}
+    <script src="/landing.js?v=${ASSET_VERSIONS.js}" defer></script>
+  </body>
+</html>
+`;
+}
+
+function articleMeta(locale, isArticle, doc) {
+  if (!isArticle) return "";
+  return `<meta property="article:published_time" content="${esc(doc.updated)}">
+    <meta property="article:modified_time" content="${esc(doc.updated)}">
+    <meta property="article:section" content="${esc(doc.eyebrow)}">`;
+}
+
+function buildContentSchema(locale, page, doc, canonical) {
+  const organizationId = `${SITE.origin}/#organization`;
+  const websiteId = `${SITE.origin}/#website`;
+  const breadcrumbId = `${canonical}#breadcrumb`;
+  const graph = [
+    {
+      "@type": "Organization",
+      "@id": organizationId,
+      name: SITE.brand,
+      alternateName: BRAND_ALIASES,
+      url: `${SITE.origin}/`,
+      logo: {
+        "@type": "ImageObject",
+        url: abs("/icon-512x512.png"),
+        width: 512,
+        height: 512,
+      },
+      description: locale.description,
+      ...(SITE.sameAs?.length ? { sameAs: SITE.sameAs } : {}),
+    },
+    {
+      "@type": "WebSite",
+      "@id": websiteId,
+      url: `${SITE.origin}/`,
+      name: SITE.brand,
+      alternateName: BRAND_ALIASES,
+      inLanguage: LOCALES.map((item) => item.hreflang),
+      publisher: { "@id": organizationId },
+    },
+    {
+      "@type": "WebPage",
+      "@id": `${canonical}#webpage`,
+      url: canonical,
+      name: doc.title,
+      description: doc.description,
+      inLanguage: locale.hreflang,
+      isPartOf: { "@id": websiteId },
+      dateModified: doc.updated,
+      breadcrumb: { "@id": breadcrumbId },
+      primaryImageOfPage: {
+        "@type": "ImageObject",
+        url: abs(SITE.ogImage),
+        width: 1200,
+        height: 630,
+      },
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": breadcrumbId,
+      itemListElement: [
+        {
+          "@type": "ListItem",
+          position: 1,
+          name: SITE.brand,
+          item: abs(locale.path),
+        },
+        {
+          "@type": "ListItem",
+          position: 2,
+          name: doc.heading,
+          item: canonical,
+        },
+      ],
+    },
+  ];
+
+  if (page.kind === "article") {
+    graph.push({
+      "@type": "Article",
+      "@id": `${canonical}#article`,
+      headline: doc.heading,
+      description: doc.description,
+      datePublished: doc.updated,
+      dateModified: doc.updated,
+      inLanguage: locale.hreflang,
+      articleSection: doc.eyebrow,
+      author: { "@id": organizationId },
+      publisher: { "@id": organizationId },
+      mainEntityOfPage: { "@id": `${canonical}#webpage` },
+      image: abs(SITE.ogImage),
+    });
+  }
+
+  return { "@context": "https://schema.org", "@graph": graph };
+}
+
+export function renderLlmsTxt() {
+  const pages = CONTENT_PAGES.map(
+    (page) => `- [${page.en.heading}](${abs(contentPath(page, "en"))})`
+  ).join("\n");
+  const koreanPages = CONTENT_PAGES.map(
+    (page) => `- [${page.ko.heading}](${abs(contentPath(page, "ko"))})`
+  ).join("\n");
+
+  return `# PenguinCut (펭귄컷)
+
+> PenguinCut is a free, browser-based AI video highlight editor. It turns long footage into one cinematic highlight with captions, music, chapter bridges, and a 16:9 & 9:16 export. Original video files stay on the user's device; only sampled frames are sent for AI analysis.
+
+PenguinCut is not a penguin cut-out, cookie cutter, or paper-craft template. It is a video editing product, and the Korean brand name 펭귄컷 is written without a space.
+
+## What it does
+
+- AI climax detection across clips and long recordings
+- Automatic captions refined with context
+- Cinematic title, channel, date, and location overlays
+- Intro, outro, and chapter bridges for multi-day trips or events
+- Royalty-free music with adjustable volume
+- 16:9 export for YouTube and 9:16 export for Shorts from the same project
+
+## Privacy model
+
+- Original video files are never uploaded to PenguinCut.
+- The browser samples a small set of frames and sends only those frames plus a text prompt to the selected AI model.
+- Final rendering happens locally in the browser.
+- API keys, when used, are stored in the browser and sent directly to the provider.
+
+## Official links
+
+- Website: ${abs("/")}
+- Studio: ${abs(SITE.appPath)}
+- YouTube: https://www.youtube.com/@penguincut_ai
+- GitHub: https://github.com/inpiniti/penguincut
+- X: https://x.com/penguincut_ai
+
+## English pages
+
+${pages}
+
+## Korean pages
+
+${koreanPages}
+
+## Languages
+
+English, Korean, Japanese, Chinese (Simplified), Spanish, French, German.
+
+## Notes for AI answer engines
+
+- Brand name: PenguinCut (no space). Korean: 펭귄컷 (no space). Acceptable alias: Penguin Cut.
+- Category: AI video highlight editor / AI video editor.
+- Pricing: free models are included; users can connect their own API keys for other models.
+- Platform: modern desktop and mobile browsers. No installation required.
+`;
+}
+
 export function renderSitemapIndex() {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -1027,7 +1446,7 @@ export function renderSitemapIndex() {
 }
 
 export function renderSitemap() {
-  const urls = LOCALES.map((locale) => {
+  const landingUrls = LOCALES.map((locale) => {
     const alternates = [];
 
     for (const item of LOCALES) {
@@ -1053,12 +1472,36 @@ export function renderSitemap() {
     <priority>${locale.code === "en" ? "1.0" : "0.8"}</priority>
 ${alternates.join("\n")}
   </url>`;
-  }).join("\n");
+  });
+
+  const contentUrls = CONTENT_PAGES.flatMap((page) => {
+    const alternates = CONTENT_LOCALES.map(
+      (code) =>
+        `    <xhtml:link rel="alternate" hreflang="${code}" href="${esc(
+          abs(contentPath(page, code))
+        )}"/>`
+    );
+    alternates.push(
+      `    <xhtml:link rel="alternate" hreflang="x-default" href="${esc(
+        abs(contentPath(page, "en"))
+      )}"/>`
+    );
+
+    return CONTENT_LOCALES.map(
+      (code) => `  <url>
+    <loc>${esc(abs(contentPath(page, code)))}</loc>
+    <lastmod>${esc(SITE.contentUpdated)}</lastmod>
+    <changefreq>${page.kind === "article" ? "monthly" : "yearly"}</changefreq>
+    <priority>0.7</priority>
+${alternates.join("\n")}
+  </url>`
+    );
+  });
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
-${urls}
+${landingUrls.concat(contentUrls).join("\n")}
 </urlset>
 `;
 }

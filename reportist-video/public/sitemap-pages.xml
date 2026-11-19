@@ -3,15 +3,13 @@
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://penguincut.com/</loc>
-    <lastmod>2026-11-17</lastmod>
+    <lastmod>2026-11-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://penguincut.com/"/>
-    <xhtml:link rel="alternate" hreflang="en-US" href="https://penguincut.com/"/>
     <xhtml:link rel="alternate" hreflang="ko" href="https://penguincut.com/ko/"/>
     <xhtml:link rel="alternate" hreflang="ja" href="https://penguincut.com/ja/"/>
     <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://penguincut.com/zh/"/>
-    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://penguincut.com/zh/"/>
     <xhtml:link rel="alternate" hreflang="es" href="https://penguincut.com/es/"/>
     <xhtml:link rel="alternate" hreflang="fr" href="https://penguincut.com/fr/"/>
     <xhtml:link rel="alternate" hreflang="de" href="https://penguincut.com/de/"/>
@@ -19,15 +17,13 @@
   </url>
   <url>
     <loc>https://penguincut.com/ko/</loc>
-    <lastmod>2026-11-17</lastmod>
+    <lastmod>2026-11-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://penguincut.com/"/>
-    <xhtml:link rel="alternate" hreflang="en-US" href="https://penguincut.com/"/>
     <xhtml:link rel="alternate" hreflang="ko" href="https://penguincut.com/ko/"/>
     <xhtml:link rel="alternate" hreflang="ja" href="https://penguincut.com/ja/"/>
     <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://penguincut.com/zh/"/>
-    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://penguincut.com/zh/"/>
     <xhtml:link rel="alternate" hreflang="es" href="https://penguincut.com/es/"/>
     <xhtml:link rel="alternate" hreflang="fr" href="https://penguincut.com/fr/"/>
     <xhtml:link rel="alternate" hreflang="de" href="https://penguincut.com/de/"/>
@@ -35,15 +31,13 @@
   </url>
   <url>
     <loc>https://penguincut.com/ja/</loc>
-    <lastmod>2026-11-17</lastmod>
+    <lastmod>2026-11-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://penguincut.com/"/>
-    <xhtml:link rel="alternate" hreflang="en-US" href="https://penguincut.com/"/>
     <xhtml:link rel="alternate" hreflang="ko" href="https://penguincut.com/ko/"/>
     <xhtml:link rel="alternate" hreflang="ja" href="https://penguincut.com/ja/"/>
     <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://penguincut.com/zh/"/>
-    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://penguincut.com/zh/"/>
     <xhtml:link rel="alternate" hreflang="es" href="https://penguincut.com/es/"/>
     <xhtml:link rel="alternate" hreflang="fr" href="https://penguincut.com/fr/"/>
     <xhtml:link rel="alternate" hreflang="de" href="https://penguincut.com/de/"/>
@@ -51,15 +45,13 @@
   </url>
   <url>
     <loc>https://penguincut.com/zh/</loc>
-    <lastmod>2026-11-17</lastmod>
+    <lastmod>2026-11-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://penguincut.com/"/>
-    <xhtml:link rel="alternate" hreflang="en-US" href="https://penguincut.com/"/>
     <xhtml:link rel="alternate" hreflang="ko" href="https://penguincut.com/ko/"/>
     <xhtml:link rel="alternate" hreflang="ja" href="https://penguincut.com/ja/"/>
     <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://penguincut.com/zh/"/>
-    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://penguincut.com/zh/"/>
     <xhtml:link rel="alternate" hreflang="es" href="https://penguincut.com/es/"/>
     <xhtml:link rel="alternate" hreflang="fr" href="https://penguincut.com/fr/"/>
     <xhtml:link rel="alternate" hreflang="de" href="https://penguincut.com/de/"/>
@@ -67,15 +59,13 @@
   </url>
   <url>
     <loc>https://penguincut.com/es/</loc>
-    <lastmod>2026-11-17</lastmod>
+    <lastmod>2026-11-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://penguincut.com/"/>
-    <xhtml:link rel="alternate" hreflang="en-US" href="https://penguincut.com/"/>
     <xhtml:link rel="alternate" hreflang="ko" href="https://penguincut.com/ko/"/>
     <xhtml:link rel="alternate" hreflang="ja" href="https://penguincut.com/ja/"/>
     <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://penguincut.com/zh/"/>
-    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://penguincut.com/zh/"/>
     <xhtml:link rel="alternate" hreflang="es" href="https://penguincut.com/es/"/>
     <xhtml:link rel="alternate" hreflang="fr" href="https://penguincut.com/fr/"/>
     <xhtml:link rel="alternate" hreflang="de" href="https://penguincut.com/de/"/>
@@ -83,15 +73,13 @@
   </url>
   <url>
     <loc>https://penguincut.com/fr/</loc>
-    <lastmod>2026-11-17</lastmod>
+    <lastmod>2026-11-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://penguincut.com/"/>
-    <xhtml:link rel="alternate" hreflang="en-US" href="https://penguincut.com/"/>
     <xhtml:link rel="alternate" hreflang="ko" href="https://penguincut.com/ko/"/>
     <xhtml:link rel="alternate" hreflang="ja" href="https://penguincut.com/ja/"/>
     <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://penguincut.com/zh/"/>
-    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://penguincut.com/zh/"/>
     <xhtml:link rel="alternate" hreflang="es" href="https://penguincut.com/es/"/>
     <xhtml:link rel="alternate" hreflang="fr" href="https://penguincut.com/fr/"/>
     <xhtml:link rel="alternate" hreflang="de" href="https://penguincut.com/de/"/>
@@ -99,18 +87,142 @@
   </url>
   <url>
     <loc>https://penguincut.com/de/</loc>
-    <lastmod>2026-11-17</lastmod>
+    <lastmod>2026-11-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://penguincut.com/"/>
-    <xhtml:link rel="alternate" hreflang="en-US" href="https://penguincut.com/"/>
     <xhtml:link rel="alternate" hreflang="ko" href="https://penguincut.com/ko/"/>
     <xhtml:link rel="alternate" hreflang="ja" href="https://penguincut.com/ja/"/>
     <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://penguincut.com/zh/"/>
-    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://penguincut.com/zh/"/>
     <xhtml:link rel="alternate" hreflang="es" href="https://penguincut.com/es/"/>
     <xhtml:link rel="alternate" hreflang="fr" href="https://penguincut.com/fr/"/>
     <xhtml:link rel="alternate" hreflang="de" href="https://penguincut.com/de/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://penguincut.com/"/>
+  </url>
+  <url>
+    <loc>https://penguincut.com/privacy/</loc>
+    <lastmod>2026-11-19</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://penguincut.com/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://penguincut.com/ko/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://penguincut.com/privacy/"/>
+  </url>
+  <url>
+    <loc>https://penguincut.com/ko/privacy/</loc>
+    <lastmod>2026-11-19</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://penguincut.com/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://penguincut.com/ko/privacy/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://penguincut.com/privacy/"/>
+  </url>
+  <url>
+    <loc>https://penguincut.com/terms/</loc>
+    <lastmod>2026-11-19</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://penguincut.com/terms/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://penguincut.com/ko/terms/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://penguincut.com/terms/"/>
+  </url>
+  <url>
+    <loc>https://penguincut.com/ko/terms/</loc>
+    <lastmod>2026-11-19</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://penguincut.com/terms/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://penguincut.com/ko/terms/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://penguincut.com/terms/"/>
+  </url>
+  <url>
+    <loc>https://penguincut.com/about/</loc>
+    <lastmod>2026-11-19</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://penguincut.com/about/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://penguincut.com/ko/about/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://penguincut.com/about/"/>
+  </url>
+  <url>
+    <loc>https://penguincut.com/ko/about/</loc>
+    <lastmod>2026-11-19</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://penguincut.com/about/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://penguincut.com/ko/about/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://penguincut.com/about/"/>
+  </url>
+  <url>
+    <loc>https://penguincut.com/blog/introducing-penguincut/</loc>
+    <lastmod>2026-11-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://penguincut.com/blog/introducing-penguincut/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://penguincut.com/ko/blog/introducing-penguincut/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://penguincut.com/blog/introducing-penguincut/"/>
+  </url>
+  <url>
+    <loc>https://penguincut.com/ko/blog/introducing-penguincut/</loc>
+    <lastmod>2026-11-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://penguincut.com/blog/introducing-penguincut/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://penguincut.com/ko/blog/introducing-penguincut/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://penguincut.com/blog/introducing-penguincut/"/>
+  </url>
+  <url>
+    <loc>https://penguincut.com/use-cases/youtube-highlights/</loc>
+    <lastmod>2026-11-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://penguincut.com/use-cases/youtube-highlights/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://penguincut.com/ko/use-cases/youtube-highlights/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://penguincut.com/use-cases/youtube-highlights/"/>
+  </url>
+  <url>
+    <loc>https://penguincut.com/ko/use-cases/youtube-highlights/</loc>
+    <lastmod>2026-11-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://penguincut.com/use-cases/youtube-highlights/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://penguincut.com/ko/use-cases/youtube-highlights/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://penguincut.com/use-cases/youtube-highlights/"/>
+  </url>
+  <url>
+    <loc>https://penguincut.com/use-cases/travel-vlog-highlights/</loc>
+    <lastmod>2026-11-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://penguincut.com/use-cases/travel-vlog-highlights/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://penguincut.com/ko/use-cases/travel-vlog-highlights/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://penguincut.com/use-cases/travel-vlog-highlights/"/>
+  </url>
+  <url>
+    <loc>https://penguincut.com/ko/use-cases/travel-vlog-highlights/</loc>
+    <lastmod>2026-11-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://penguincut.com/use-cases/travel-vlog-highlights/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://penguincut.com/ko/use-cases/travel-vlog-highlights/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://penguincut.com/use-cases/travel-vlog-highlights/"/>
+  </url>
+  <url>
+    <loc>https://penguincut.com/use-cases/sports-highlights/</loc>
+    <lastmod>2026-11-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://penguincut.com/use-cases/sports-highlights/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://penguincut.com/ko/use-cases/sports-highlights/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://penguincut.com/use-cases/sports-highlights/"/>
+  </url>
+  <url>
+    <loc>https://penguincut.com/ko/use-cases/sports-highlights/</loc>
+    <lastmod>2026-11-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://penguincut.com/use-cases/sports-highlights/"/>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://penguincut.com/ko/use-cases/sports-highlights/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://penguincut.com/use-cases/sports-highlights/"/>
   </url>
 </urlset>

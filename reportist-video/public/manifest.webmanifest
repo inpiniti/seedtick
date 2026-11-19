@@ -2,7 +2,7 @@
   "id": "/studio",
   "name": "PenguinCut — AI Video Highlight Editor",
   "short_name": "PenguinCut",
-  "description": "Turn long videos into one cinematic 16:9 highlight with AI.",
+  "description": "Turn long videos into one cinematic 16:9 & 9:16 highlight with AI.",
   "start_url": "/studio",
   "scope": "/",
   "display": "standalone",

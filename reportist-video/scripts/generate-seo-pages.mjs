@@ -5,8 +5,15 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { LOCALES } from "../seo/content.mjs";
-import { renderPage, renderSitemap, renderSitemapIndex } from "../seo/template.mjs";
+import { LOCALES, getLocale } from "../seo/content.mjs";
+import { CONTENT_LOCALES, CONTENT_PAGES } from "../seo/pages.mjs";
+import {
+  renderContentPage,
+  renderLlmsTxt,
+  renderPage,
+  renderSitemap,
+  renderSitemapIndex,
+} from "../seo/template.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -23,6 +30,31 @@ for (const locale of LOCALES) {
   writeFileSync(target, html, "utf8");
   generated.push({ path: target, bytes: Buffer.byteLength(html) });
 }
+
+// Long-form pages: English at the root, Korean under /ko/. Other locales link
+// to the English versions from the landing footer.
+for (const page of CONTENT_PAGES) {
+  for (const code of CONTENT_LOCALES) {
+    const locale = getLocale(code);
+    if (!locale) continue;
+    const html = renderContentPage(locale, page, page[code]);
+    const target =
+      code === "en"
+        ? join(root, "public", ...page.slug.split("/"), "index.html")
+        : join(root, "public", code, ...page.slug.split("/"), "index.html");
+
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, html, "utf8");
+    generated.push({ path: target, bytes: Buffer.byteLength(html) });
+  }
+}
+
+// /llms.txt summarises the product, privacy model, and canonical URLs for
+// AI answer engines and retrieval crawlers.
+const llms = renderLlmsTxt();
+const llmsPath = join(root, "public", "llms.txt");
+writeFileSync(llmsPath, llms, "utf8");
+generated.push({ path: llmsPath, bytes: Buffer.byteLength(llms) });
 
 // The public sitemap is an index that points at the URL-level sitemap,
 // matching how large sites ship /sitemap.xml (e.g. google.com/sitemap.xml).

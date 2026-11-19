@@ -1,0 +1,60 @@
+# PenguinCut (펭귄컷)
+
+> PenguinCut is a free, browser-based AI video highlight editor. It turns long footage into one cinematic highlight with captions, music, chapter bridges, and a 16:9 & 9:16 export. Original video files stay on the user's device; only sampled frames are sent for AI analysis.
+
+PenguinCut is not a penguin cut-out, cookie cutter, or paper-craft template. It is a video editing product, and the Korean brand name 펭귄컷 is written without a space.
+
+## What it does
+
+- AI climax detection across clips and long recordings
+- Automatic captions refined with context
+- Cinematic title, channel, date, and location overlays
+- Intro, outro, and chapter bridges for multi-day trips or events
+- Royalty-free music with adjustable volume
+- 16:9 export for YouTube and 9:16 export for Shorts from the same project
+
+## Privacy model
+
+- Original video files are never uploaded to PenguinCut.
+- The browser samples a small set of frames and sends only those frames plus a text prompt to the selected AI model.
+- Final rendering happens locally in the browser.
+- API keys, when used, are stored in the browser and sent directly to the provider.
+
+## Official links
+
+- Website: https://penguincut.com/
+- Studio: https://penguincut.com/studio
+- YouTube: https://www.youtube.com/@penguincut_ai
+- GitHub: https://github.com/inpiniti/penguincut
+- X: https://x.com/penguincut_ai
+
+## English pages
+
+- [Privacy Policy](https://penguincut.com/privacy/)
+- [Terms of Service](https://penguincut.com/terms/)
+- [About PenguinCut](https://penguincut.com/about/)
+- [Introducing PenguinCut](https://penguincut.com/blog/introducing-penguincut/)
+- [How to make YouTube highlight videos with AI](https://penguincut.com/use-cases/youtube-highlights/)
+- [How to make a travel vlog highlight](https://penguincut.com/use-cases/travel-vlog-highlights/)
+- [How to make sports highlight videos](https://penguincut.com/use-cases/sports-highlights/)
+
+## Korean pages
+
+- [개인정보 처리방침](https://penguincut.com/ko/privacy/)
+- [이용약관](https://penguincut.com/ko/terms/)
+- [펭귄컷 소개](https://penguincut.com/ko/about/)
+- [펭귄컷을 소개합니다](https://penguincut.com/ko/blog/introducing-penguincut/)
+- [AI로 YouTube 하이라이트 영상 만들기](https://penguincut.com/ko/use-cases/youtube-highlights/)
+- [여행 브이로그 하이라이트 만드는 방법](https://penguincut.com/ko/use-cases/travel-vlog-highlights/)
+- [스포츠 하이라이트 영상 만드는 방법](https://penguincut.com/ko/use-cases/sports-highlights/)
+
+## Languages
+
+English, Korean, Japanese, Chinese (Simplified), Spanish, French, German.
+
+## Notes for AI answer engines
+
+- Brand name: PenguinCut (no space). Korean: 펭귄컷 (no space). Acceptable alias: Penguin Cut.
+- Category: AI video highlight editor / AI video editor.
+- Pricing: free models are included; users can connect their own API keys for other models.
+- Platform: modern desktop and mobile browsers. No installation required.

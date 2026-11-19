@@ -1503,7 +1503,7 @@ html.is-hero-top .site-header {
 
 .footer-grid {
   display: grid;
-  grid-template-columns: 1.5fr 0.7fr 0.7fr;
+  grid-template-columns: 1.5fr 0.65fr 1fr 0.75fr;
   gap: 44px;
 }
 
@@ -1513,6 +1513,24 @@ html.is-hero-top .site-header {
   color: var(--muted);
   font-size: 0.86rem;
   line-height: 1.65;
+}
+
+.footer-social {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.footer-social a {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: color 140ms ease;
+}
+
+.footer-social a:hover {
+  color: var(--foreground);
 }
 
 .footer-col h2 {
@@ -1558,6 +1576,141 @@ html.is-hero-top .site-header {
 
 .footer-bottom a:hover {
   color: var(--foreground);
+}
+
+.footer-legal-links {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+/* ---------- Content pages (legal, blog, guides) ---------- */
+
+.content-article {
+  padding-top: 72px;
+}
+
+.content-hero {
+  max-width: 860px;
+  padding-bottom: 40px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.content-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  color: var(--faint);
+  font-size: 0.8rem;
+}
+
+.content-breadcrumb a:hover {
+  color: var(--foreground);
+}
+
+.content-hero h1 {
+  max-width: 20ch;
+  font-size: clamp(2rem, 4.6vw, 3.4rem);
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+}
+
+.content-lead {
+  max-width: 68ch;
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 1.06rem;
+  line-height: 1.75;
+}
+
+.content-meta {
+  margin-top: 18px;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 0.76rem;
+  letter-spacing: 0.02em;
+}
+
+.content-body {
+  max-width: 780px;
+  padding: 48px 0 16px;
+}
+
+.content-section {
+  margin-bottom: 42px;
+}
+
+.content-section h2 {
+  margin-bottom: 14px;
+  font-size: clamp(1.3rem, 2.2vw, 1.68rem);
+  font-weight: 750;
+  line-height: 1.25;
+  letter-spacing: -0.03em;
+}
+
+.content-section p {
+  margin-bottom: 12px;
+  color: var(--muted);
+  font-size: 0.98rem;
+  line-height: 1.78;
+}
+
+.content-section p:last-child {
+  margin-bottom: 0;
+}
+
+.content-section ul {
+  margin: 6px 0 14px;
+  padding-left: 20px;
+  color: var(--muted);
+  font-size: 0.96rem;
+  line-height: 1.75;
+}
+
+.content-section li {
+  margin-bottom: 7px;
+}
+
+.content-section li::marker {
+  color: var(--accent-strong);
+}
+
+.content-note {
+  padding-left: 16px;
+  border-left: 2px solid var(--border-strong);
+}
+
+.content-related {
+  max-width: 780px;
+  margin: 8px 0 72px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.content-related h2 {
+  margin-bottom: 8px;
+  color: var(--faint);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.content-related a {
+  display: block;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--foreground);
+  font-size: 0.94rem;
+  font-weight: 600;
+  transition: color 140ms ease;
+}
+
+.content-related a:hover {
+  color: var(--accent-strong);
 }
 
 /* ---------- Motion ---------- */
@@ -2152,38 +2305,23 @@ html.lenis {
 
 /* ---------- Scroll story stage (header-safe 3-slot layout) ---------- */
 
+/* The scroll story is decorative: crawlable feature/how copy lives in the
+   light sections after the theater. Without the motion stage the whole block
+   is removed so reduced-motion and short-viewport users never scroll through
+   an empty 440svh panel. */
 .story {
+  display: none;
   position: relative;
   background: #05080f;
 }
 
-.story-content {
-  position: relative;
-}
-
 html.has-motion-stage .story {
-  height: 440svh;
-}
-
-html.has-motion-stage .story-content {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-html.has-motion-stage .story-stage {
   display: block;
 }
 
 .story-stage {
-  display: none;
-  position: absolute;
-  inset: 0;
+  position: relative;
+  height: 440svh;
 }
 
 /* Row 1 = visual + copy, Row 2 = the HUD. Nothing is an overlay any more,
@@ -2317,7 +2455,7 @@ html.has-motion-stage .story-stage {
   text-transform: uppercase;
 }
 
-.story-act h2 {
+.story-act .story-stage-title {
   margin: 12px 0 14px;
   font-size: clamp(2.1rem, 4.4vw, 3.8rem);
   font-weight: 800;
@@ -2458,7 +2596,7 @@ html.has-motion-stage .story-stage {
   opacity: 1;
 }
 
-.story-ui-copy h2 {
+.story-ui-copy .story-stage-title {
   font-size: clamp(1.7rem, 3vw, 2.6rem);
 }
 
@@ -2897,7 +3035,7 @@ html.has-motion-stage .story-stage {
 .story-corner--br { bottom: 52px; right: 16px; border-width: 0 1px 1px 0; }
 
 @media (max-width: 840px) {
-  html.has-motion-stage .story {
+  .story-stage {
     height: 380svh;
   }
 
@@ -2930,7 +3068,7 @@ html.has-motion-stage .story-stage {
     align-content: end;
   }
 
-  .story-act h2 {
+  .story-act .story-stage-title {
     margin: 6px 0;
     font-size: clamp(1.4rem, 6vw, 2rem);
   }
@@ -2983,7 +3121,7 @@ html.has-motion-stage .story-stage {
     min-height: 0;
   }
 
-  .story-ui-mobile-copy h3 {
+  .story-ui-mobile-copy .story-ui-title {
     margin: 0;
     font-size: 1.05rem;
   }
@@ -3039,7 +3177,7 @@ html.has-motion-stage .story-stage {
     grid-row: 2;
   }
 
-  .story-steps-copy h2 {
+  .story-steps-copy .story-stage-title {
     font-size: 1.3rem;
     margin: 0 0 6px;
   }
@@ -3091,7 +3229,7 @@ html.has-motion-stage .story-stage {
     grid-row: 2;
   }
 
-  .story-format-copy h2 {
+  .story-format-copy .story-stage-title {
     font-size: 1.3rem;
   }
 
@@ -3139,5 +3277,35 @@ html.has-motion-stage .story-stage {
 
   .story-corner {
     display: none;
+  }
+}
+
+@media (max-width: 680px) {
+  .content-article {
+    padding-top: 48px;
+  }
+
+  .content-hero {
+    padding-bottom: 32px;
+  }
+
+  .content-hero h1 {
+    max-width: none;
+  }
+
+  .content-lead {
+    font-size: 0.98rem;
+  }
+
+  .content-body {
+    padding-top: 36px;
+  }
+
+  .content-section {
+    margin-bottom: 34px;
+  }
+
+  .content-related {
+    margin-bottom: 56px;
   }
 }

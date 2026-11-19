@@ -26,6 +26,106 @@
       "permanent": true
     },
     {
+      "source": "/ko",
+      "destination": "/ko/",
+      "permanent": true
+    },
+    {
+      "source": "/ja",
+      "destination": "/ja/",
+      "permanent": true
+    },
+    {
+      "source": "/zh",
+      "destination": "/zh/",
+      "permanent": true
+    },
+    {
+      "source": "/es",
+      "destination": "/es/",
+      "permanent": true
+    },
+    {
+      "source": "/fr",
+      "destination": "/fr/",
+      "permanent": true
+    },
+    {
+      "source": "/de",
+      "destination": "/de/",
+      "permanent": true
+    },
+    {
+      "source": "/privacy",
+      "destination": "/privacy/",
+      "permanent": true
+    },
+    {
+      "source": "/terms",
+      "destination": "/terms/",
+      "permanent": true
+    },
+    {
+      "source": "/about",
+      "destination": "/about/",
+      "permanent": true
+    },
+    {
+      "source": "/blog/introducing-penguincut",
+      "destination": "/blog/introducing-penguincut/",
+      "permanent": true
+    },
+    {
+      "source": "/use-cases/youtube-highlights",
+      "destination": "/use-cases/youtube-highlights/",
+      "permanent": true
+    },
+    {
+      "source": "/use-cases/travel-vlog-highlights",
+      "destination": "/use-cases/travel-vlog-highlights/",
+      "permanent": true
+    },
+    {
+      "source": "/use-cases/sports-highlights",
+      "destination": "/use-cases/sports-highlights/",
+      "permanent": true
+    },
+    {
+      "source": "/ko/privacy",
+      "destination": "/ko/privacy/",
+      "permanent": true
+    },
+    {
+      "source": "/ko/terms",
+      "destination": "/ko/terms/",
+      "permanent": true
+    },
+    {
+      "source": "/ko/about",
+      "destination": "/ko/about/",
+      "permanent": true
+    },
+    {
+      "source": "/ko/blog/introducing-penguincut",
+      "destination": "/ko/blog/introducing-penguincut/",
+      "permanent": true
+    },
+    {
+      "source": "/ko/use-cases/youtube-highlights",
+      "destination": "/ko/use-cases/youtube-highlights/",
+      "permanent": true
+    },
+    {
+      "source": "/ko/use-cases/travel-vlog-highlights",
+      "destination": "/ko/use-cases/travel-vlog-highlights/",
+      "permanent": true
+    },
+    {
+      "source": "/ko/use-cases/sports-highlights",
+      "destination": "/ko/use-cases/sports-highlights/",
+      "permanent": true
+    },
+    {
       "source": "/(.*)",
       "has": [
         {
@@ -123,7 +223,7 @@
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, max-age=3600"
+          "value": "public, max-age=31536000, immutable"
         }
       ]
     },
@@ -132,7 +232,25 @@
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, max-age=3600"
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/landing-story.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/llms.txt",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/plain; charset=utf-8"
         }
       ]
     }

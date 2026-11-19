@@ -72,6 +72,7 @@
   const root = document.documentElement;
   const toggle = document.querySelector("[data-nav-toggle]");
   const themeColor = document.querySelector('meta[name="theme-color"]');
+  const hasHero = Boolean(document.querySelector(".hero"));
   const darkSections = Array.from(
     document.querySelectorAll('[data-header-tone="dark"]')
   );
@@ -87,7 +88,7 @@
     const navOpen = toggle
       ? toggle.getAttribute("aria-expanded") === "true"
       : false;
-    const isHeroTop = window.scrollY < 24 && !navOpen;
+    const isHeroTop = hasHero && window.scrollY < 24 && !navOpen;
 
     // Probe the header's midpoint against the cached dark sections. Bounding
     // rects stay accurate across resizes and mobile address-bar height changes,
@@ -520,15 +521,6 @@
       if (!(target instanceof HTMLElement)) return;
 
       event.preventDefault();
-      // Chapter links point at clipped semantic anchors; send them to the
-      // matching beat of the sticky stage instead.
-      const chapterFractions = { "#reel": 0.05, "#features": 0.4, "#how-it-works": 0.72 };
-      if (story && stagesOn && chapterFractions[hash] !== undefined) {
-        const docTop = story.getBoundingClientRect().top + window.scrollY;
-        const height = Math.max(1, story.offsetHeight - window.innerHeight);
-        lenis.scrollTo(docTop + chapterFractions[hash] * height, { duration: 1.15 });
-        return;
-      }
       const headerHeight = header ? header.offsetHeight : 0;
       lenis.scrollTo(target, { offset: -(headerHeight + 12), duration: 1.15 });
     });

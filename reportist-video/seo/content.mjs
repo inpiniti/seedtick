@@ -9,7 +9,7 @@ export const SITE = {
   ogImage: "/og-penguincut.png",
   ogImageAlt:
     "PenguinCut — AI video highlight editor. Turn hours of footage into one cinematic highlight.",
-  contentUpdated: "2026-11-17",
+  contentUpdated: "2026-11-19",
   // Search-engine verification tokens. Paste the exact values from Search Console
   // (Google) and Search Advisor (Naver), then run `npm run seo`. Empty values are
   // omitted so the generated pages never ship a stale or invalid meta tag.
@@ -23,16 +23,36 @@ export const SITE = {
   // Organization schema never advertises a profile that does not exist yet.
   sameAs: [
     "https://www.youtube.com/channel/UC9p7WHmzj2x79s55wN22xQQ",
+    "https://www.youtube.com/@penguincut_ai",
     "https://github.com/inpiniti/penguincut",
     "https://x.com/penguincut_ai",
   ],
+  // Rendered in the footer with rel="me" so the profiles and the site verify
+  // each other as the same brand entity (Google's knowledge graph, Mastodon,
+  // and other rel=me consumers).
+  social: [
+    {
+      label: "YouTube",
+      href: "https://www.youtube.com/@penguincut_ai",
+    },
+    {
+      label: "GitHub",
+      href: "https://github.com/inpiniti/penguincut",
+    },
+    {
+      label: "X",
+      href: "https://x.com/penguincut_ai",
+    },
+  ],
 };
 
+// One hreflang per URL. The old aliases (en-US, zh-CN) pointed at the same
+// pages as en and zh-Hans, which made Google pick between duplicate signals.
 export const HREFLANG_ALIASES = {
-  en: ["en", "en-US"],
+  en: ["en"],
   ko: ["ko"],
   ja: ["ja"],
-  zh: ["zh-Hans", "zh-CN"],
+  zh: ["zh-Hans"],
   es: ["es"],
   fr: ["fr"],
   de: ["de"],
@@ -49,7 +69,15 @@ export const LOCALES = [
     nativeLabel: "English",
     title: "PenguinCut — AI Video Highlight Editor",
     description:
-      "PenguinCut turns long videos into one cinematic AI highlight in your browser.",
+      "PenguinCut is a free browser-based AI video highlight editor. Find the best moments, add captions and music, and export 16:9 & 9:16 highlights — no upload.",
+    ogImageAlt:
+      "PenguinCut AI video highlight editor turning long footage into a cinematic 16:9 & 9:16 highlight",
+    alts: {
+      reel: "PenguinCut AI highlight reel frame",
+      ui: "PenguinCut Studio with AI-selected highlight cuts",
+      result: "Finished PenguinCut highlight in 16:9 for YouTube",
+      resultVertical: "Finished PenguinCut highlight in 9:16 for Shorts",
+    },
     keywords:
       "AI video highlight editor, AI highlight generator, video highlight maker, turn long videos into highlights, AI video editor, YouTube highlight, PenguinCut",
     nav: {
@@ -264,6 +292,14 @@ export const LOCALES = [
         "AI video highlight editor. Made for the moments worth keeping.",
       product: "Product",
       language: "Languages",
+      resources: "Resources",
+      about: "About",
+      blog: "Blog",
+      guideYoutube: "YouTube highlights",
+      guideTravel: "Travel highlights",
+      guideSports: "Sports highlights",
+      privacy: "Privacy",
+      terms: "Terms",
       legal: "© {year} PenguinCut. All rights reserved.",
     },
   },
@@ -277,7 +313,15 @@ export const LOCALES = [
     nativeLabel: "한국어",
     title: "펭귄컷(PenguinCut) — AI 영상 하이라이트 에디터",
     description:
-      "펭귄컷(PenguinCut)은 AI로 영상 속 최고의 순간을 찾아 16:9 & 9:16 하이라이트로 완성합니다.",
+      "펭귄컷(PenguinCut)은 무료 AI 영상 하이라이트 에디터입니다. 설치 없이 브라우저에서 영상 속 최고의 순간을 찾아 자막·음악을 더하고, 원본 업로드 없이 16:9 & 9:16 하이라이트로 완성합니다.",
+    ogImageAlt:
+      "펭귄컷(PenguinCut) AI 영상 하이라이트 에디터 — 긴 영상을 16:9 & 9:16 시네마틱 하이라이트로",
+    alts: {
+      reel: "펭귄컷 AI 하이라이트 릴 프레임",
+      ui: "AI가 고른 하이라이트 컷이 보이는 펭귄컷 스튜디오",
+      result: "유튜브용 16:9로 완성된 펭귄컷 하이라이트",
+      resultVertical: "쇼츠용 9:16으로 완성된 펭귄컷 하이라이트",
+    },
     keywords:
       "AI 영상 하이라이트, 하이라이트 편집, 영상 하이라이트 만들기, AI 영상 편집, 유튜브 하이라이트, 펭귄컷, 팽귄컷, PenguinCut",
     nav: {
@@ -341,7 +385,7 @@ export const LOCALES = [
       eyebrow: "에디터",
       title: "하이라이트를 완성하는 데 필요한 모든 것.",
       lead:
-        "순간을 찾는 일부터 최종 컷을 내보내는 일까지, 시간이 오래 걸리는 작업은 PenguinCut이 처리합니다.",
+        "순간을 찾는 일부터 최종 컷을 내보내는 일까지, 시간이 오래 걸리는 작업은 펭귄컷(PenguinCut)이 처리합니다.",
       items: [
         {
           icon: "sparkles",
@@ -385,22 +429,22 @@ export const LOCALES = [
       eyebrow: "사용 방법",
       title: "세 단계, 완성된 영상 하나.",
       lead:
-        "타임라인을 붙잡고 씨름할 필요 없습니다. 영상을 넣고 AI가 이야기를 찾게 하세요.",
+        "타임라인을 붙잡고 씨름할 필요 없습니다. 영상을 넣고 펭귄컷(PenguinCut)의 AI가 이야기를 찾게 하세요.",
       steps: [
         {
           title: "클립 추가",
           desc:
-            "여행, 행사, 촬영에서 찍은 영상을 넣으세요. PenguinCut이 브라우저에서 영상을 읽습니다.",
+            "여행, 행사, 촬영에서 찍은 영상을 넣으세요. 펭귄컷이 브라우저에서 영상을 읽습니다.",
         },
         {
           title: "AI가 이야기를 찾게 하기",
           desc:
-            "모델과 추론 수준을 고르면 PenguinCut이 영상을 평가해 가장 강한 순간을 제안합니다.",
+            "모델과 추론 수준을 고르면 펭귄컷이 영상을 평가해 가장 강한 순간을 제안합니다.",
         },
         {
           title: "다듬고 내보내기",
           desc:
-            "컷을 조정하고 자막과 음악을 더한 뒤 유튜브에 바로 쓸 수 있는 16:9 & 9:16 하이라이트로 렌더링하세요.",
+            "펭귄컷에서 컷을 조정하고 자막과 음악을 더한 뒤 유튜브에 바로 쓸 수 있는 16:9 & 9:16 하이라이트로 렌더링하세요.",
         },
       ],
       note:
@@ -452,12 +496,12 @@ export const LOCALES = [
         {
           q: "영상이 업로드되나요?",
           a:
-            "원본 영상 파일은 기기에 남습니다. PenguinCut은 브라우저에서 소량의 프레임을 추출해 AI 모델 분석에만 전송하며, 최종 렌더링도 브라우저에서 이루어집니다.",
+            "원본 영상 파일은 기기에 남습니다. 펭귄컷은 브라우저에서 소량의 프레임을 추출해 AI 모델 분석에만 전송하며, 최종 렌더링도 브라우저에서 이루어집니다.",
         },
         {
           q: "무료인가요?",
           a:
-            "PenguinCut에는 바로 사용할 수 있는 무료 AI 모델이 포함되어 있습니다. 다른 모델을 쓰고 싶다면 자신의 API 키를 연결할 수도 있습니다.",
+            "펭귄컷에는 바로 사용할 수 있는 무료 AI 모델이 포함되어 있습니다. 다른 모델을 쓰고 싶다면 자신의 API 키를 연결할 수도 있습니다.",
         },
         {
           q: "어떤 영상 형식을 지원하나요?",
@@ -483,15 +527,24 @@ export const LOCALES = [
     },
     cta: {
       title: "다음 하이라이트는 이미 영상 속에 있습니다.",
-      lead: "PenguinCut을 열고 AI가 찾게 하세요.",
+      lead: "펭귄컷(PenguinCut)을 열고 AI가 찾게 하세요.",
       button: "스튜디오 열기",
       note:
         "설치 없음. 원본 파일 업로드 없음. 브라우저만 있으면 됩니다.",
     },
     footer: {
-      tagline: "AI 영상 하이라이트 에디터. 간직할 순간을 위해.",
+      tagline:
+        "펭귄컷(PenguinCut)은 AI 영상 하이라이트 에디터입니다. 간직할 순간을 위해.",
       product: "제품",
       language: "언어",
+      resources: "리소스",
+      about: "소개",
+      blog: "블로그",
+      guideYoutube: "유튜브 하이라이트",
+      guideTravel: "여행 하이라이트",
+      guideSports: "스포츠 하이라이트",
+      privacy: "개인정보 처리방침",
+      terms: "이용약관",
       legal: "© {year} PenguinCut. All rights reserved.",
     },
   },
@@ -506,6 +559,14 @@ export const LOCALES = [
     title: "PenguinCut — AI動画ハイライトエディター",
     description:
       "長い動画をひとつのシネマティックなハイライトに。PenguinCutはAIで最高の瞬間を見つけ、字幕と音楽を加えて、ブラウザで16:9 & 9:16動画に仕上げます。",
+    ogImageAlt:
+      "PenguinCut AI動画ハイライトエディター — 長い映像を16:9 & 9:16のシネマティックなハイライトに",
+    alts: {
+      reel: "PenguinCut AIハイライトのフレーム",
+      ui: "AIが選んだハイライトカットを表示するPenguinCutスタジオ",
+      result: "YouTube向け16:9で完成したPenguinCutハイライト",
+      resultVertical: "ショート向け9:16で完成したPenguinCutハイライト",
+    },
     keywords:
       "AI動画ハイライト, ハイライト編集, 動画ハイライト作成, AI動画編集, YouTube ハイライト, PenguinCut",
     nav: {
@@ -720,6 +781,14 @@ export const LOCALES = [
         "AI動画ハイライトエディター。残す価値のある瞬間のために。",
       product: "製品",
       language: "言語",
+      resources: "リソース",
+      about: "概要",
+      blog: "ブログ",
+      guideYoutube: "YouTubeハイライト",
+      guideTravel: "旅行ハイライト",
+      guideSports: "スポーツハイライト",
+      privacy: "プライバシー",
+      terms: "利用規約",
       legal: "© {year} PenguinCut. All rights reserved.",
     },
   },
@@ -734,6 +803,14 @@ export const LOCALES = [
     title: "PenguinCut — AI 视频精彩片段编辑器",
     description:
       "把数小时的素材变成一支电影感精彩片段。PenguinCut 用 AI 找到最精彩的瞬间，自动添加字幕和音乐，在浏览器中导出 16:9 & 9:16 视频。",
+    ogImageAlt:
+      "PenguinCut AI 视频精彩片段编辑器 — 把长视频变成 16:9 & 9:16 的电影感精彩片段",
+    alts: {
+      reel: "PenguinCut AI 精彩片段画面",
+      ui: "显示 AI 精选镜头的 PenguinCut 工作室",
+      result: "为 YouTube 导出的 16:9 PenguinCut 精彩片段",
+      resultVertical: "为 Shorts 导出的 9:16 PenguinCut 精彩片段",
+    },
     keywords:
       "AI视频精彩片段, 视频高光剪辑, AI视频剪辑, 精彩片段生成器, YouTube 高光, PenguinCut",
     nav: {
@@ -948,6 +1025,14 @@ export const LOCALES = [
         "AI 视频精彩片段编辑器。为值得留存的瞬间而做。",
       product: "产品",
       language: "语言",
+      resources: "资源",
+      about: "关于",
+      blog: "博客",
+      guideYoutube: "YouTube 精彩片段",
+      guideTravel: "旅行精彩片段",
+      guideSports: "体育精彩片段",
+      privacy: "隐私政策",
+      terms: "服务条款",
       legal: "© {year} PenguinCut. 保留所有权利。",
     },
   },
@@ -962,6 +1047,14 @@ export const LOCALES = [
     title: "PenguinCut — Editor de highlights de vídeo con IA",
     description:
       "Convierte horas de material en un solo highlight cinematográfico. PenguinCut usa IA para encontrar los mejores momentos, añadir subtítulos y música, y exportar un vídeo 16:9 & 9:16 en tu navegador.",
+    ogImageAlt:
+      "Editor de highlights de vídeo con IA PenguinCut — de horas de material a un highlight cinematográfico 16:9 & 9:16",
+    alts: {
+      reel: "Fotograma del reel de highlights de PenguinCut",
+      ui: "Estudio de PenguinCut con los cortes de highlight elegidos por la IA",
+      result: "Highlight de PenguinCut terminado en 16:9 para YouTube",
+      resultVertical: "Highlight de PenguinCut terminado en 9:16 para Shorts",
+    },
     keywords:
       "editor de highlights con IA, generador de highlights, highlight de vídeo, editor de vídeo con IA, highlights para YouTube, PenguinCut",
     nav: {
@@ -1178,6 +1271,14 @@ export const LOCALES = [
         "Editor de highlights de vídeo con IA. Hecho para los momentos que merecen quedarse.",
       product: "Producto",
       language: "Idiomas",
+      resources: "Recursos",
+      about: "Acerca de",
+      blog: "Blog",
+      guideYoutube: "Highlights de YouTube",
+      guideTravel: "Highlights de viajes",
+      guideSports: "Highlights deportivos",
+      privacy: "Privacidad",
+      terms: "Términos",
       legal: "© {year} PenguinCut. Todos los derechos reservados.",
     },
   },
@@ -1192,6 +1293,14 @@ export const LOCALES = [
     title: "PenguinCut — Éditeur de highlights vidéo par IA",
     description:
       "Transformez des heures de rushes en un seul highlight cinématographique. PenguinCut utilise l'IA pour trouver les meilleurs moments, ajouter sous-titres et musique, et exporter une vidéo 16:9 & 9:16 dans votre navigateur.",
+    ogImageAlt:
+      "Éditeur de highlights vidéo par IA PenguinCut — des heures de rushes à un highlight cinématographique 16:9 & 9:16",
+    alts: {
+      reel: "Image du reel de highlights PenguinCut",
+      ui: "Studio PenguinCut avec les plans de highlight choisis par l'IA",
+      result: "Highlight PenguinCut terminé en 16:9 pour YouTube",
+      resultVertical: "Highlight PenguinCut terminé en 9:16 pour Shorts",
+    },
     keywords:
       "éditeur de highlights IA, générateur de highlights, highlight vidéo, montage vidéo IA, highlights YouTube, PenguinCut",
     nav: {
@@ -1408,6 +1517,14 @@ export const LOCALES = [
         "Éditeur de highlights vidéo par IA. Pensé pour les moments qui méritent d'être gardés.",
       product: "Produit",
       language: "Langues",
+      resources: "Ressources",
+      about: "À propos",
+      blog: "Blog",
+      guideYoutube: "Highlights YouTube",
+      guideTravel: "Highlights de voyage",
+      guideSports: "Highlights sportifs",
+      privacy: "Confidentialité",
+      terms: "Conditions",
       legal: "© {year} PenguinCut. Tous droits réservés.",
     },
   },
@@ -1422,6 +1539,14 @@ export const LOCALES = [
     title: "PenguinCut — KI-Highlight-Editor für Videos",
     description:
       "Mach aus stundenlangem Filmmaterial ein einziges cineastisches Highlight. PenguinCut findet mit KI die besten Momente, fügt Untertitel und Musik hinzu und exportiert ein 16:9 & 9:16-Video im Browser.",
+    ogImageAlt:
+      "PenguinCut KI-Highlight-Editor für Videos — aus stundenlangem Material wird ein cineastisches 16:9 & 9:16-Highlight",
+    alts: {
+      reel: "PenguinCut KI-Highlight-Reel-Frame",
+      ui: "PenguinCut Studio mit von der KI gewählten Highlight-Cuts",
+      result: "Fertiges PenguinCut-Highlight in 16:9 für YouTube",
+      resultVertical: "Fertiges PenguinCut-Highlight in 9:16 für Shorts",
+    },
     keywords:
       "KI-Highlight-Editor, Highlight-Generator, Video-Highlights, KI-Videoschnitt, YouTube-Highlights, PenguinCut",
     nav: {
@@ -1637,6 +1762,14 @@ export const LOCALES = [
         "KI-Highlight-Editor für Videos. Gemacht für Momente, die es wert sind, behalten zu werden.",
       product: "Produkt",
       language: "Sprachen",
+      resources: "Ressourcen",
+      about: "Über uns",
+      blog: "Blog",
+      guideYoutube: "YouTube-Highlights",
+      guideTravel: "Reise-Highlights",
+      guideSports: "Sport-Highlights",
+      privacy: "Datenschutz",
+      terms: "Nutzungsbedingungen",
       legal: "© {year} PenguinCut. Alle Rechte vorbehalten.",
     },
   },
