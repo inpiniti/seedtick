@@ -86,7 +86,7 @@ $g.DrawString("into one cinematic highlight.", $headlineFont, $headlineBrush, 12
 # Subhead
 $subFont = New-Object System.Drawing.Font("Segoe UI", 23, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
 $subBrush = New-Object System.Drawing.SolidBrush($script:slate)
-$g.DrawString("AI finds the climax. You get the finished 16:9 film.", $subFont, $subBrush, 124, 424)
+$g.DrawString("AI finds the climax. You get the finished film.", $subFont, $subBrush, 124, 424)
 
 # Timeline card: white card with border, like the app.
 $timelineRect = New-Object System.Drawing.Rectangle(124, 486, 440, 62)
@@ -122,15 +122,15 @@ $urlFont = New-Object System.Drawing.Font("Consolas", 18, [System.Drawing.FontSt
 $urlBrush = New-Object System.Drawing.SolidBrush($script:faint)
 $g.DrawString("penguincut.com", $urlFont, $urlBrush, 124, 562)
 
-# 16:9 badge: emerald soft, like the app's accent chips.
+# Aspect badge: emerald soft, like the app's accent chips.
 $badgeFont = New-Object System.Drawing.Font("Consolas", 15, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
-$badgePath = New-RoundedRectPath 1004 520 108 34 8
+$badgePath = New-RoundedRectPath 962 520 150 34 8
 $badgeBrush = New-Object System.Drawing.SolidBrush($script:emeraldSoft)
 $g.FillPath($badgeBrush, $badgePath)
 $badgePen = New-Object System.Drawing.Pen($script:emeraldLine, 1.5)
 $g.DrawPath($badgePen, $badgePath)
 $badgeTextBrush = New-Object System.Drawing.SolidBrush($script:emeraldDark)
-$g.DrawString("16:9", $badgeFont, $badgeTextBrush, 1031, 528)
+$g.DrawString("16:9 & 9:16", $badgeFont, $badgeTextBrush, 980, 528)
 $badgeBrush.Dispose()
 $badgePen.Dispose()
 $badgeTextBrush.Dispose()

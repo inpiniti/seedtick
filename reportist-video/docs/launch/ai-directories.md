@@ -11,12 +11,12 @@
 | --- | --- |
 | Name | `PenguinCut` |
 | Website | `https://penguincut.com` |
-| Tagline (한 줄) | `Turn long videos into one cinematic 16:9 highlight` |
-| Short description | `AI video highlight editor that finds the strongest moments in long footage and renders one cinematic 16:9 highlight in your browser.` |
+| Tagline (한 줄) | `Turn long videos into one cinematic highlight — 16:9 or 9:16` |
+| Short description | `AI video highlight editor that finds the strongest moments in long footage and renders a cinematic 16:9 or 9:16 highlight in your browser.` |
 | Category | AI Video Editor / Video Editing |
 | Pricing | Free |
 | Logo | `public/icon-512x512.png` (512×512 PNG) |
-| Screenshots | 16:9 제품 캡처 3장 (아직 없음 — 캡처 필요) |
+| Screenshots | 제품 캡처 3장 — `docs/launch/assets/ph-01-editor.png` ~ `ph-03-bridges.png` |
 | Demo video | `public/media/promo-en.mp4` (36초, 1280×720) |
 | X | `https://x.com/penguincut_ai` |
 | YouTube | `https://www.youtube.com/channel/UC9p7WHmzj2x79s55wN22xQQ` |
@@ -25,11 +25,11 @@
 **Long description (디렉토리용, 600자 내외)**
 
 ```
-PenguinCut is a browser-based AI video highlight editor. Upload a long recording — travel footage, a wedding, a match — and it samples frames locally, scores them with a vision model, and returns 1–3 peak moments per video, each trimmed to 1.5–4.5 seconds. You review the cuts, trim or reorder them, then render a single 16:9 highlight with captions, background music, an intro, date/place bridges, and an outro.
+PenguinCut is a browser-based AI video highlight editor. Upload a long recording — travel footage, a wedding, a match — and it samples frames locally, scores them with a vision model, and returns 1–3 peak moments per video, each trimmed to 1.5–4.5 seconds. You review the cuts, trim or reorder them, then render a single cinematic highlight — 16:9 for YouTube or 9:16 for Shorts — with captions, background music, an intro, date/place bridges, and an outro.
 
 The original file never leaves your device: only sampled frames are sent for analysis, and the final render happens in the browser using Canvas, MediaRecorder, and Web Audio. That keeps server cost flat regardless of video length, which is why the bundled AI models are free. You can also connect your own API key for other models.
 
-Supported languages: English, Korean, Japanese, Chinese, Spanish, French, German. Output is 16:9; vertical source footage is cropped to 16:9 using subject position, but vertical output is not available yet.
+Supported languages: English, Korean, Japanese, Chinese, Spanish, French, German. Choose 16:9 or 9:16 when you start a project. In a 9:16 project, horizontal source footage is cropped into the vertical frame using subject position.
 ```
 
 ## There's An AI For That
@@ -74,4 +74,4 @@ Supported languages: English, Korean, Japanese, Chinese, Spanish, French, German
 - 세 사이트 모두 **자동 등록을 금지**합니다. 폼을 직접 채워야 하며, 스크립트로 대량 제출하면 차단됩니다.
 - 같은 설명을 그대로 복사해 3곳에 넣는 것은 문제 없습니다. 다만 각 사이트의 글자 수 제한에 맞게 잘라야 합니다.
 - 로고는 512×512 이상을 요구하는 곳이 많습니다. `icon-512x512.png`로 충분합니다.
-- 스크린샷이 없으면 심사에서 반려되거나 목록이 비어 보입니다. **캡처를 먼저 만드는 것을 권장**합니다.
+- 스크린샷은 `docs/launch/assets/ph-01-editor.png` ~ `ph-03-bridges.png`를 쓰면 됩니다. 기능이 바뀌면 최신 화면으로 교체하세요.

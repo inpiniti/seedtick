@@ -20,12 +20,12 @@ Turn hours of footage into one cinematic highlight
 
 대안:
 - `AI highlight editor that runs in your browser` (48)
-- `Long videos in. One cinematic 16:9 highlight out.` (51)
+- `Long videos in. One cinematic highlight out.` (44)
 
 **Description (260자 제한)**
 
 ```
-PenguinCut finds the strongest moments in long footage and cuts them into one cinematic 16:9 highlight, with captions, music, and intro/outro. Analysis and rendering run in your browser, so originals stay on your device. Free AI models included. 7 languages.
+PenguinCut finds the best moments in long footage and cuts them into one cinematic highlight — 16:9 or 9:16 — with captions, music, and intro/outro. Analysis and rendering run in your browser, so originals stay on-device. Free AI models included. 7 languages.
 ```
 
 **Topics** (3개 선택)
@@ -62,13 +62,13 @@ How it works:
 2. A vision model scores those frames and returns candidate moments as JSON.
 3. Candidates are filtered (min 1s, no overlaps) into a cut list.
 4. You review, trim, reorder.
-5. Canvas + MediaRecorder + Web Audio render the final 16:9 film in the browser — intro, date/place bridges, outro, music, captions.
+5. Canvas + MediaRecorder + Web Audio render the final film in the browser — 16:9 for YouTube or 9:16 for Shorts — with intro, date/place bridges, outro, music, captions.
 
-Two things I deliberately kept: rendering in the browser (server cost doesn't scale with video length, which is how the free tier survives) and 16:9 only for now (vertical needs a different crop and caption layout).
+Two things I deliberately kept: rendering in the browser (server cost doesn't scale with video length, which is how the free tier survives) and a frame you choose up front — 16:9 or 9:16 — so captions and crop are laid out for that format from the start.
 
 It supports 7 languages, and the bundled AI models are free — you can also plug in your own API key.
 
-I'd love to know: what would you actually use this for — travel, weddings, sports, or something else? And does a 16:9-only output block you?
+I'd love to know: what would you actually use this for — travel, weddings, sports, or something else? And do you mostly publish horizontal, vertical, or both?
 
 Thanks for looking 🙏
 ```

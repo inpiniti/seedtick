@@ -1396,7 +1396,7 @@ PenguinCut is not a penguin cut-out, cookie cutter, or paper-craft template. It 
 - Cinematic title, channel, date, and location overlays
 - Intro, outro, and chapter bridges for multi-day trips or events
 - Royalty-free music with adjustable volume
-- 16:9 export for YouTube and 9:16 export for Shorts from the same project
+- 16:9 export for YouTube or 9:16 export for Shorts, chosen when you start a project
 
 ## Privacy model
 

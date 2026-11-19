@@ -444,7 +444,7 @@ const BLOG_EN = {
         "Original video: stays on your device.",
         "AI analysis: sampled frames plus instructions only.",
         "Rendering: in your browser.",
-        "Export: 16:9 and 9:16 from the same project.",
+        "Export: 16:9 for YouTube or 9:16 for Shorts, chosen when you start the project.",
       ],
     },
     {
@@ -507,7 +507,7 @@ const BLOG_KO = {
         "원본 영상: 기기에 그대로.",
         "AI 분석: 샘플 프레임과 지시문만.",
         "렌더링: 브라우저에서.",
-        "내보내기: 같은 프로젝트에서 16:9와 9:16.",
+        "내보내기: 새 프로젝트를 시작할 때 고른 16:9 또는 9:16.",
       ],
     },
     {
@@ -569,7 +569,7 @@ const YOUTUBE_EN = {
       paragraphs: [
         "Add the full recording or a set of clips. PenguinCut reads them in your browser and samples frames for analysis.",
         "Choose a model and a reasoning level, then let the AI propose the strongest moments. Review the story plan: reorder cuts, trim the start and end, and replace anything that does not fit.",
-        "Add captions, a title overlay, chapter bridges, and music. Export 16:9 for the main video and 9:16 for Shorts from the same project.",
+        "Add captions, a title overlay, chapter bridges, and music. Choose 16:9 for the main video or 9:16 for Shorts when you start the project.",
       ],
     },
     {
@@ -592,7 +592,7 @@ const YOUTUBE_EN = {
       paragraphs: [
         "Do I need to upload the full video? No. PenguinCut analyzes sampled frames and renders locally; the original file stays on your device.",
         "Can I edit the AI's choices? Yes. Every proposed cut can be reviewed, trimmed, replaced, or reordered before export.",
-        "Can I make both formats? Yes. The same project exports 16:9 and 9:16 versions.",
+        "Can I make both formats? Yes, as two projects. Each project is created in 16:9 or 9:16, so start one of each.",
       ],
     },
   ],
@@ -633,7 +633,7 @@ const YOUTUBE_KO = {
       paragraphs: [
         "전체 녹화 영상이나 클립 묶음을 넣으세요. 펭귄컷이 브라우저에서 영상을 읽고 분석용 프레임을 샘플링합니다.",
         "모델과 추론 수준을 고른 뒤 AI가 가장 강한 순간을 제안하게 하세요. 스토리 계획을 검토하면서 컷 순서를 바꾸고, 시작과 끝을 자르고, 맞지 않는 컷은 교체합니다.",
-        "자막, 제목 오버레이, 챕터 브릿지, 음악을 더하세요. 같은 프로젝트에서 본편용 16:9와 Shorts용 9:16을 내보냅니다.",
+        "자막, 제목 오버레이, 챕터 브릿지, 음악을 더하세요. 새 프로젝트를 시작할 때 본편용 16:9 또는 Shorts용 9:16을 고릅니다.",
       ],
     },
     {
@@ -656,7 +656,7 @@ const YOUTUBE_KO = {
       paragraphs: [
         "전체 영상을 업로드해야 하나요? 아닙니다. 펭귄컷은 샘플 프레임을 분석하고 로컬에서 렌더링하며, 원본 파일은 기기에 남습니다.",
         "AI가 고른 컷을 수정할 수 있나요? 네. 모든 제안 컷은 내보내기 전에 검토, 자르기, 교체, 순서 변경이 가능합니다.",
-        "두 가지 포맷을 동시에 만들 수 있나요? 네. 같은 프로젝트에서 16:9와 9:16 버전을 내보낼 수 있습니다.",
+        "두 가지 포맷을 동시에 만들 수 있나요? 네, 프로젝트를 두 개 만들면 됩니다. 포맷은 새 프로젝트를 시작할 때 고르므로 하나는 16:9, 다른 하나는 9:16으로 시작하세요.",
       ],
     },
   ],
@@ -713,7 +713,7 @@ const TRAVEL_EN = {
       paragraphs: [
         "Can I mix footage from several cameras? Yes, as long as your browser can decode the files. MP4 (H.264) gives the most predictable results.",
         "Do I need to upload the trip footage? No. The originals stay on your device; only sampled frames are sent for AI analysis.",
-        "Can I make a vertical version for social? Yes. The same project exports a 9:16 cut for Shorts, Reels, and TikTok-style feeds.",
+        "Can I make a vertical version for social? Yes. Start the project in 9:16 for Shorts, Reels, and TikTok-style feeds.",
       ],
     },
   ],
@@ -770,7 +770,7 @@ const TRAVEL_KO = {
       paragraphs: [
         "여러 카메라의 영상을 섞을 수 있나요? 브라우저가 디코딩할 수 있다면 가능합니다. MP4(H.264)가 가장 안정적입니다.",
         "여행 영상을 업로드해야 하나요? 아닙니다. 원본은 기기에 남고, AI 분석에는 샘플 프레임만 전송됩니다.",
-        "소셜용 세로 영상도 만들 수 있나요? 네. 같은 프로젝트에서 Shorts, Reels, TikTok형 피드용 9:16 컷을 내보낼 수 있습니다.",
+        "소셜용 세로 영상도 만들 수 있나요? 네. 프로젝트를 9:16으로 시작하면 Shorts, Reels, TikTok형 피드용 세로 영상을 만들 수 있습니다.",
       ],
     },
   ],

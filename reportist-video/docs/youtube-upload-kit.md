@@ -2,7 +2,7 @@
 
 - 파일 위치: `reportist-video/public/media/`
 - 파일: `promo-ko.mp4`, `promo-en.mp4`, `promo-ja.mp4`, `promo-zh.mp4`, `promo-es.mp4`, `promo-fr.mp4`, `promo-de.mp4`
-- 사양: 1280×720, 36초, 음악만 (대사 없음), 약 4.3MB
+- 사양: 1280×720, 36초, 음악만 (대사 없음), 약 4.3MB — 세로 버전은 720×1280 (`promo-v-*.mp4`)
 - 채널: `@penguincut_ai`
 
 ## 공통 설정
@@ -41,7 +41,7 @@
 **설명**
 
 ```
-펭귄컷(PenguinCut)은 AI로 영상 속 최고의 순간을 찾아 16:9 하이라이트로 완성합니다.
+펭귄컷(PenguinCut)은 AI로 영상 속 최고의 순간을 찾아 16:9 또는 9:16 하이라이트로 완성합니다.
 36초 필름으로 보는 펭귄컷의 작동 방식.
 
 ▶ 펭귄컷 무료로 시작하기: https://penguincut.com/ko/
@@ -105,7 +105,7 @@ PenguinCut — 36秒でわかるAI動画ハイライトエディター
 **説明**
 
 ```
-長い動画をひとつのシネマティックなハイライトに。PenguinCutはAIで最高の瞬間を見つけ、字幕と音楽を加えて、ブラウザで16:9動画に仕上げます。
+長い動画をひとつのシネマティックなハイライトに。PenguinCutはAIで最高の瞬間を見つけ、字幕と音楽を加えて、ブラウザで16:9または9:16の動画に仕上げます。
 36秒のフィルムで見るPenguinCutの仕組み。
 
 ▶ PenguinCutを無料で試す: https://penguincut.com/ja/
@@ -137,7 +137,7 @@ PenguinCut — 36 秒看懂 AI 视频精彩片段编辑器
 **说明**
 
 ```
-把数小时的素材变成一支电影感精彩片段。PenguinCut 用 AI 找到最精彩的瞬间，自动添加字幕和音乐，在浏览器中导出 16:9 视频。
+把数小时的素材变成一支电影感精彩片段。PenguinCut 用 AI 找到最精彩的瞬间，自动添加字幕和音乐，在浏览器中导出 16:9 或 9:16 视频。
 36 秒影片，看懂 PenguinCut 的工作方式。
 
 ▶ 免费试用 PenguinCut: https://penguincut.com/zh/
@@ -169,7 +169,7 @@ PenguinCut — El editor de highlights con IA en 36 segundos
 **Descripción**
 
 ```
-Convierte horas de material en un solo highlight cinematográfico. PenguinCut usa IA para encontrar los mejores momentos, añadir subtítulos y música, y exportar un vídeo 16:9 en tu navegador.
+Convierte horas de material en un solo highlight cinematográfico. PenguinCut usa IA para encontrar los mejores momentos, añadir subtítulos y música, y exportar un vídeo 16:9 o 9:16 en tu navegador.
 Un vistazo de 36 segundos a cómo funciona PenguinCut.
 
 ▶ Prueba PenguinCut gratis: https://penguincut.com/es/
@@ -181,7 +181,7 @@ Un vistazo de 36 segundos a cómo funciona PenguinCut.
 **Etiquetas**
 
 ```
-PenguinCut, editor de highlights con IA, generador de highlights, highlight de vídeo, editor de vídeo con IA, highlights para YouTube, vídeo 16:9
+PenguinCut, editor de highlights con IA, generador de highlights, highlight de vídeo, editor de vídeo con IA, highlights para YouTube, vídeo 16:9 y 9:16
 ```
 
 **Comentario fijado**
@@ -201,7 +201,7 @@ PenguinCut — L'éditeur de highlights par IA en 36 secondes
 **Description**
 
 ```
-Transformez des heures de rushes en un seul highlight cinématographique. PenguinCut utilise l'IA pour trouver les meilleurs moments, ajouter sous-titres et musique, et exporter une vidéo 16:9 dans votre navigateur.
+Transformez des heures de rushes en un seul highlight cinématographique. PenguinCut utilise l'IA pour trouver les meilleurs moments, ajouter sous-titres et musique, et exporter une vidéo 16:9 ou 9:16 dans votre navigateur.
 Un aperçu de 36 secondes du fonctionnement de PenguinCut.
 
 ▶ Essayez PenguinCut gratuitement : https://penguincut.com/fr/
@@ -213,7 +213,7 @@ Un aperçu de 36 secondes du fonctionnement de PenguinCut.
 **Tags**
 
 ```
-PenguinCut, éditeur de highlights IA, générateur de highlights, highlight vidéo, montage vidéo IA, highlights YouTube, vidéo 16:9
+PenguinCut, éditeur de highlights IA, générateur de highlights, highlight vidéo, montage vidéo IA, highlights YouTube, vidéo 16:9 et 9:16
 ```
 
 **Commentaire épinglé**
@@ -233,7 +233,7 @@ PenguinCut — Der KI-Highlight-Editor in 36 Sekunden
 **Beschreibung**
 
 ```
-Mach aus stundenlangem Filmmaterial ein einziges cineastisches Highlight. PenguinCut findet mit KI die besten Momente, fügt Untertitel und Musik hinzu und exportiert ein 16:9-Video im Browser.
+Mach aus stundenlangem Filmmaterial ein einziges cineastisches Highlight. PenguinCut findet mit KI die besten Momente, fügt Untertitel und Musik hinzu und exportiert ein 16:9- oder 9:16-Video im Browser.
 Ein 36-Sekunden-Blick darauf, wie PenguinCut funktioniert.
 
 ▶ PenguinCut kostenlos testen: https://penguincut.com/de/
@@ -245,7 +245,7 @@ Ein 36-Sekunden-Blick darauf, wie PenguinCut funktioniert.
 **Tags**
 
 ```
-PenguinCut, KI-Highlight-Editor, Highlight-Generator, Video-Highlights, KI-Videoschnitt, YouTube-Highlights, 16:9
+PenguinCut, KI-Highlight-Editor, Highlight-Generator, Video-Highlights, KI-Videoschnitt, YouTube-Highlights, 16:9, 9:16
 ```
 
 **Angepinnter Kommentar**
@@ -253,6 +253,16 @@ PenguinCut, KI-Highlight-Editor, Highlight-Generator, Video-Highlights, KI-Video
 ```
 PenguinCut läuft direkt im Browser, ohne Installation. Hier starten → https://penguincut.com/de/
 ```
+
+## Shorts (세로) 버전
+
+같은 36초 필름의 세로 버전이 7개 언어로 있습니다.
+
+- 파일: `promo-v-ko.mp4`, `promo-v-en.mp4`, `promo-v-ja.mp4`, `promo-v-zh.mp4`, `promo-v-es.mp4`, `promo-v-fr.mp4`, `promo-v-de.mp4`
+- 사양: 720×1280, 36초 — Shorts 자격(3분 이하) 충족
+- 제목: 가로 버전 제목 뒤에 ` #Shorts`를 붙입니다. 예: `펭귄컷(PenguinCut) — 36초로 보는 AI 영상 하이라이트 #Shorts`
+- 설명: 해당 언어의 가로 버전 설명을 그대로 쓰고, 첫 줄만 세로 하이라이트 문구로 바꿔도 됩니다.
+- 공개: 가로 버전과 같은 날 올리면 노출이 분산되므로, 가로 영상 공개 다음 날 올리는 편이 좋습니다.
 
 ## 업로드 순서
 
