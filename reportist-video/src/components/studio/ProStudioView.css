@@ -3957,7 +3957,15 @@
   font-size: 14px;
   z-index: 15;
   pointer-events: none;
-  white-space: nowrap;
+  /* 긴 씬 자막도 플레이어 밖으로 잘리지 않도록 프레임 폭 안에서 줄바꿈한다.
+     (캔버스 합성 자막과 동일하게 좌우 여백을 두고 중앙 정렬) */
+  max-width: calc(100% - 32px);
+  width: max-content;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  text-align: center;
+  line-height: 1.35;
   letter-spacing: -0.2px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
