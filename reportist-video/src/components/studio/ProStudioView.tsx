@@ -5829,7 +5829,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               title={dict.projects?.backToList || '스튜디오 목록으로'}
               aria-label={dict.projects?.backToList || '스튜디오 목록으로'}
             >
-              <span className="toss-nav-back-arrow" aria-hidden="true">&lt;</span>
+              <ChevronLeft size={16} strokeWidth={2.5} className="toss-nav-back-arrow" aria-hidden="true" />
               <span className="toss-nav-back-text">{dict.common.back || '뒤로'}</span>
             </button>
           ) : (

@@ -242,10 +242,8 @@
 }
 
 .toss-nav-back-arrow {
-  font-size: 16px;
-  font-weight: 500;
-  line-height: 1;
-  transform: translateY(-0.5px);
+  flex-shrink: 0;
+  color: currentColor;
 }
 
 .toss-nav-back-text {
@@ -4576,10 +4574,6 @@
     gap: 4px;
     padding: 4px 4px 4px 0;
     font-size: 14px;
-  }
-
-  .toss-nav-back-arrow {
-    font-size: 15px;
   }
 
   /* 모바일 상단 네비게이션 탭: 텍스트 숨기고 아이콘만 노출하여 우측 버튼 공간 확보 */
