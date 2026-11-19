@@ -15654,6 +15654,13 @@
     padding: 8px 14px;
   }
 
+  /* 목록이 카드의 마지막 콘텐츠일 때는 카드 하단 패딩을 없애
+     마지막 행 아래에 흰 여백이 남지 않도록 한다. */
+  .toss-upload-card:has(.toss-upload-list),
+  .toss-location-card:has(.toss-location-list) {
+    padding-bottom: 0;
+  }
+
   /* 선택 상태는 목록 종류와 관계없이 회색 배경 하나로 통일한다.
      행마다 테두리나 왼쪽 인디케이터를 따로 그리지 않고 배경색만 바꾼다. */
   .toss-upload-item.active,
@@ -15695,11 +15702,11 @@
     border-bottom: 1px solid #f2f4f6;
   }
 
-  /* 구분선 리스트는 항목이 2개 이상일 때만 아래 선을 그린다.
-     항목이 1개면 구분할 대상이 없으므로 선을 숨긴다. */
-  .toss-upload-item:only-child,
-  .toss-location-item:only-child,
-  .toss-caption-list-row:only-child {
+  /* 마지막 행은 카드/목록의 끝이므로 하단 구분선을 그리지 않는다.
+     중간 행에만 1px 선이 남아 목록이 자연스럽게 끝난다. */
+  .toss-upload-item:last-child,
+  .toss-location-item:last-child,
+  .toss-caption-list-row:last-child {
     border-bottom: none;
   }
 
