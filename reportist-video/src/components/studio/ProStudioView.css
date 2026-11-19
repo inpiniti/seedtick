@@ -15622,10 +15622,20 @@
     padding: 0;
   }
 
-  /* 6) 업로드·촬영 위치·토글 행: 개별 박스 → 구분선 ListRow */
+  /* 6) 업로드·촬영 위치·토글 행: 개별 박스 → 구분선 ListRow
+     목록을 카드 좌우 패딩(14px) 밖으로 빼 구분선이 화면 끝까지 이어지게 하고,
+     행 안쪽 패딩으로 텍스트·썸네일 위치는 카드의 다른 콘텐츠 라인에 맞춘다. */
   .toss-upload-list,
   .toss-location-list {
     gap: 0;
+  }
+
+  .toss-upload-list {
+    margin: 10px -14px 0;
+  }
+
+  .toss-location-list {
+    margin: 0 -14px;
   }
 
   .toss-upload-item,
@@ -15637,6 +15647,11 @@
     border-bottom: 1px solid #f2f4f6;
     border-radius: 0;
     padding: 8px 0;
+  }
+
+  .toss-upload-item,
+  .toss-location-item {
+    padding: 8px 14px;
   }
 
   /* 선택 상태는 목록 종류와 관계없이 회색 배경 하나로 통일한다.
@@ -15662,6 +15677,8 @@
   .toss-caption-list-items {
     gap: 0;
     max-height: none;
+    margin: 0 -14px;
+    overflow-x: hidden;
   }
 
   .toss-caption-list-row {
@@ -15669,7 +15686,7 @@
     border: none;
     border-bottom: 1px solid #f2f4f6;
     border-radius: 0;
-    padding: 6px 0;
+    padding: 6px 14px;
   }
 
   /* 자막 행도 선택 시 테두리 없이 회색 배경만 쓴다. */
