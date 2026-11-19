@@ -37,7 +37,7 @@ export const DEFAULT_THUMBNAIL_OPTIONS: ThumbnailRenderOptions = {
  */
 export function isBlankThumbnailCanvas(canvas: HTMLCanvasElement): boolean {
   try {
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx || canvas.width === 0 || canvas.height === 0) return true;
     const points: Array<[number, number]> = [
       [0.2, 0.2], [0.5, 0.2], [0.8, 0.2],
@@ -171,7 +171,7 @@ async function captureFrameWithVideoElement(
         const canvas = document.createElement('canvas');
         canvas.width = targetWidth;
         canvas.height = targetHeight;
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) {
           reject(new Error('Canvas context 생성 실패'));
           return;
@@ -341,7 +341,7 @@ export async function createCanvasFromImageDataUrl(
         const canvas = document.createElement('canvas');
         canvas.width = targetWidth;
         canvas.height = targetHeight;
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) {
           reject(new Error('Canvas context 생성 실패'));
           return;
@@ -447,7 +447,7 @@ export function captureVideoFrameFromElement(
     const canvas = document.createElement('canvas');
     canvas.width = targetWidth;
     canvas.height = targetHeight;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return null;
 
     const normRot = ((rotation % 360) + 360) % 360;
@@ -613,7 +613,7 @@ export function renderThumbnailArtwork(
   const canvas = document.createElement('canvas');
   canvas.width = targetWidth;
   canvas.height = targetHeight;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return canvas;
 
   // 1. 순수 배경 프레임 그리기
