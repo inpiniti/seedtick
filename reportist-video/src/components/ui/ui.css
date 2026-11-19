@@ -113,12 +113,12 @@
 .ui-btn--accent {
   background-color: var(--ui-accent);
   color: #ffffff;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.3);
 }
 
+/* 하단 고정 CTA 바에 이미 상단 그림자가 있어 버튼 그림자는 중복이다.
+   '이전'(subtle)과 같은 납작한 면으로 맞춘다. */
 .ui-btn--accent:hover:not(:disabled) {
   background-color: var(--ui-accent-hover);
-  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.36);
 }
 
 .ui-btn--secondary {
