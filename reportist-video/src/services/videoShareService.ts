@@ -6,14 +6,22 @@ import { getYouTubeThumbnailUrl, fetchYouTubeViewCount } from './youtubeService.
 
 const LOCAL_STORAGE_KEY = 'reportist_shared_videos_v1';
 
+/**
+ * PostgREST의 `or(...)` 필터는 값 구분자로 `,`를, 그룹화로 `(`, `)`를 사용한다.
+ * 사용자가 이 문자들을 검색어에 넣으면 필터 구문이 깨지거나 의도치 않은 조건이 삽입될 수 있으므로 이스케이프한다.
+ */
+function escapePostgrestFilterValue(value: string): string {
+  return value.replace(/[\\,.()]/g, (ch) => `\\${ch}`);
+}
+
 // 초기 샘플 공유 영상 데이터 (테이블 생성 전에도 화면을 즉시 확인할 수 있도록 구성)
 const SEED_VIDEOS: VideoShareItem[] = [
   {
     id: 'seed-1',
     youtubeVideoId: 'LXb3EKWsInQ',
-    title: '4K 시네마틱 해변 드라이브 하이라이트 (Reportist AI)',
-    authorName: '리포티스트 크리에이터',
-    description: 'Reportist Video로 16:9 규격으로 자동 병합한 바다 드라이브 영상입니다.',
+    title: '4K 시네마틱 해변 드라이브 하이라이트 (PenguinCut AI)',
+    authorName: '펭귄컷 크리에이터',
+    description: 'PenguinCut으로 16:9 규격으로 자동 병합한 바다 드라이브 영상입니다.',
     thumbnailUrl: getYouTubeThumbnailUrl('LXb3EKWsInQ'),
     viewCount: 1420,
     likeCount: 48,
@@ -88,7 +96,7 @@ export async function fetchSharedVideos(
       }
 
       if (searchQuery.trim()) {
-        const q = searchQuery.trim();
+        const q = escapePostgrestFilterValue(searchQuery.trim());
         query = query.or(`title.ilike.%${q}%,author_name.ilike.%${q}%`);
       }
 

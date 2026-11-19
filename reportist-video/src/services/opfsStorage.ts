@@ -254,7 +254,9 @@ export async function purgeAllOPFSStorage(): Promise<boolean> {
       }
     } catch {}
 
-    // 깨끗??루트 ?�렉?�리 ?�구�?    await root.getDirectoryHandle(OPFS_ROOT_DIR, { create: true });
+    // P0: 위 주석이 인코딩 깨짐으로 개행을 삼켜 getDirectoryHandle 호출이 실행되지 않았다.
+    // 비운 뒤 루트 디렉터리를 즉시 재생성해 이후 저장이 바로 가능하도록 복구한다.
+    await root.getDirectoryHandle(OPFS_ROOT_DIR, { create: true });
     return true;
   } catch (err) {
     console.warn('[opfsStorage] Failed to purge OPFS storage:', err);

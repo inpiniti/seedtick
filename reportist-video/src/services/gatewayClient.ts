@@ -15,7 +15,19 @@ import {
 } from './analyzerQueueService.ts';
 
 export const DEFAULT_GATEWAY_URL = 'https://seedtick-ai-gateway.vercel.app';
-export const DEFAULT_GATEWAY_SECRET = '377d4fa71b90fdbbd6eab6765f3050598de8c259ed86e615c9b18ae4ed63e8bd';
+
+/**
+ * 공용 무료 게이트웨이 시크릿.
+ *
+ * 주의: 이 값은 클라이언트 번들에 포함되므로 브라우저에서 추출할 수 있다.
+ * 배포 시 VITE_GATEWAY_SECRET으로 자체 게이트웨이 시크릿을 주입해 교체할 수 있다.
+ * 근본적인 해결은 서버 프록시(/v1 리라이트에서 시크릿 주입) + 게이트웨이侧
+ * Origin/Turnstile·레이트 리밋 제한이며, 스트리밍 분석이 30초 이상 걸려
+ * 에지 함수_timeout 제한에 걸릴 수 있어 현재는 문서화된 후속 과제로 남긴다.
+ */
+export const DEFAULT_GATEWAY_SECRET =
+  (import.meta.env.VITE_GATEWAY_SECRET as string | undefined)?.trim() ||
+  '377d4fa71b90fdbbd6eab6765f3050598de8c259ed86e615c9b18ae4ed63e8bd';
 
 export const DEFAULT_CONFIG: GatewayConfig = {
   baseUrl: DEFAULT_GATEWAY_URL,
@@ -843,23 +855,6 @@ Format:
     }
   }
 
-  const requestBody: Record<string, unknown> = {
-    model: effectiveModel,
-    messages: [
-      {
-        role: 'user',
-        content: messageContent,
-      },
-    ],
-    temperature: 0.2, // 결정론적이고 정확한 타임스탬프 추출
-    data_collection: 'deny',
-    zdr: true,
-  };
-
-  if (reasoningEffort && reasoningEffort !== 'none') {
-    requestBody.reasoning_effort = reasoningEffort;
-  }
-
   const callbacks: VideoAnalysisStreamCallbacks = {
     onStreamOpen,
     onReasoningDelta,
@@ -902,6 +897,10 @@ Format:
         },
       ],
       temperature: 0.2,
+      // P0: 루프 밖 공통 requestBody와 동일하게 ZDR(데이터 미보관) 플래그를 유지해야 한다.
+      // 이전에는 루프 안 requestBody가 이를 덮어써 랜딩의 프라이버시 약속이 깨졌다.
+      data_collection: 'deny',
+      zdr: true,
     };
 
     if (reasoningEffort && reasoningEffort !== 'none') {

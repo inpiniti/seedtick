@@ -2,6 +2,7 @@
 import type { GatewayConfig } from '../types/gateway.ts';
 import type { HighlightMode, HighlightSegment, SubtitleTone } from '../types/video.ts';
 import { DEFAULT_CONFIG, FALLBACK_VIDEO_MODELS } from './gatewayClient.ts';
+import { getStoredUserApiKeyConfig, isByokActive } from './userApiKeyService.ts';
 
 export const SUBTITLE_TONE_STORAGE_KEY = 'reportist_video_subtitle_tone';
 export const DEFAULT_SUBTITLE_TONE: SubtitleTone = 'vlog';
@@ -40,9 +41,14 @@ export function setStoredSubtitleTone(tone: SubtitleTone): void {
  * 딱딱한 AI 보고서식 단어('클라이맥스', '박진감 넘치는 액션 순간' 등)를 제거하는 룰 기반 정제기
  * AI Gateway 연결 실패 시의 비상 폴백 및 AI 응답 후처리용
  */
-export function cleanSubtitleRuleBased(rawText: string, tone: SubtitleTone = 'vlog'): string {
+export function cleanSubtitleRuleBased(
+  rawText: string,
+  tone: SubtitleTone = 'vlog',
+  locale: string = 'ko'
+): string {
   if (!rawText || !rawText.trim()) return '';
 
+  const isKorean = locale.toLowerCase().startsWith('ko');
   let text = rawText.trim();
 
   // 흔한 AI 상투 문구 치환 / 제거
@@ -84,15 +90,15 @@ export function cleanSubtitleRuleBased(rawText: string, tone: SubtitleTone = 'vl
     .replace(/의\s*$/g, '')
     .trim();
 
-  // 톤에 따른 마무리 처리
+  // 톤에 따른 마무리 처리 (비한국어 로케일에는 한국어 폴백 문구를 쓰지 않는다)
   if (tone === 'vlog') {
     // 감성 브이로그: 따뜻하고 부드러운 종결
-    if (!text) return '소소하고 따뜻한 일상';
+    if (!text) return isKorean ? '소소하고 따뜻한 일상' : 'A little everyday moment';
   } else if (tone === 'shorts') {
-    if (!text.endsWith('!') && !text.endsWith('ㅋ') && !text.endsWith('?')) {
+    if (text && !text.endsWith('!') && !text.endsWith('?') && !text.endsWith('ㅋ')) {
       text = `${text}!`;
     }
-  } else if (tone === 'natural') {
+  } else if (tone === 'natural' && isKorean) {
     if (text.endsWith('기')) {
       text = text.replace(/기$/, '며 즐거워해요');
     }
@@ -131,6 +137,25 @@ export async function refineSubtitlesWithContext({
   }
 
   const isQuickCut = highlightMode === 'quick-cut';
+
+  // P0: 자막 다듬기도 본 분석과 동일하게 BYOK(내 API 키)와 ZDR 정책을 따라야 한다.
+  // 이전에는 공용 게이트웨이 시크릿으로만 호출해 사용자가 키를 설정해도 우회되었다.
+  const activeUserKeyConfig = isByokActive() ? getStoredUserApiKeyConfig() : null;
+  const hasUserKey = Boolean(activeUserKeyConfig?.apiKey?.trim());
+  const customHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${config.gatewaySecret}`,
+  };
+  if (hasUserKey && activeUserKeyConfig) {
+    customHeaders['X-User-Api-Key'] = activeUserKeyConfig.apiKey.trim();
+    customHeaders['X-User-Provider'] = activeUserKeyConfig.provider;
+    if (activeUserKeyConfig.model?.trim()) {
+      customHeaders['X-User-Model'] = activeUserKeyConfig.model.trim();
+    }
+    if (activeUserKeyConfig.baseUrl?.trim()) {
+      customHeaders['X-User-Base-Url'] = activeUserKeyConfig.baseUrl.trim();
+    }
+  }
 
   // 1. 세그먼트 메타데이터 요약 목록 작성
   const segmentsContext = segments.map((seg, idx) => ({
@@ -227,21 +252,30 @@ ${
   ]
 }`;
 
+  const configuredModel = hasUserKey
+    ? (activeUserKeyConfig?.model?.trim() || model || 'gpt-4o-mini')
+    : (model || FALLBACK_VIDEO_MODELS[0]?.id || 'thinkingmachines/inkling-small:free');
   const requestBody: Record<string, unknown> = {
-    model: model || FALLBACK_VIDEO_MODELS[0]?.id || 'thinkingmachines/inkling-small:free',
+    model: configuredModel,
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
     temperature: 0.4, // 자연스러운 표현력을 위해 적당한 창의성 부여
+    // P0:본 분석과 동일하게 데이터 미보관(ZDR) 플래그를 명시한다.
+    data_collection: 'deny',
+    zdr: true,
   };
 
-  const candidateModels = [
-    model,
-    'thinkingmachines/inkling-small:free',
-    'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
-    'nvidia/nemotron-3.5-super-vl:free',
-  ].filter(Boolean) as string[];
+  // BYOK 사용자는 본인 키로 지정한 모델 1개만 시도하고, 무료 게이트웨이는 폴백 모델을 순회한다.
+  const candidateModels = hasUserKey
+    ? [configuredModel]
+    : [
+        model,
+        'thinkingmachines/inkling-small:free',
+        'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+        'nvidia/nemotron-3.5-super-vl:free',
+      ].filter(Boolean) as string[];
 
   const uniqueModels = Array.from(new Set(candidateModels));
   const url = `${config.baseUrl.replace(/\/+$/, '')}/v1/chat/completions`;
@@ -264,10 +298,7 @@ ${
     try {
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${config.gatewaySecret}`,
-        },
+        headers: customHeaders,
         body: JSON.stringify({ ...requestBody, model: candModel }),
         signal: requestController.signal,
       });
@@ -294,14 +325,14 @@ ${
           const subText = item.subtitle || item.text;
           if (segId && typeof subText === 'string' && subText.trim()) {
             // 한 번 더 룰 기반 안전망 통과
-            resultMap[segId] = cleanSubtitleRuleBased(subText.trim(), tone);
+            resultMap[segId] = cleanSubtitleRuleBased(subText.trim(), tone, locale);
           }
         }
 
         // 전체 세그먼트 중 누락된 것이 있으면 룰 기반 폴백으로 채움
         for (const seg of segments) {
           if (!resultMap[seg.id]) {
-            resultMap[seg.id] = cleanSubtitleRuleBased(seg.subtitleTitle || seg.reason || '', tone);
+            resultMap[seg.id] = cleanSubtitleRuleBased(seg.subtitleTitle || seg.reason || '', tone, locale);
           }
         }
 
@@ -318,7 +349,7 @@ ${
   // 모든 AI 요청 실패 시 룰 기반 정제 결과로 즉시 반환 (100% 안전)
   const fallbackMap: Record<string, string> = {};
   for (const seg of segments) {
-    fallbackMap[seg.id] = cleanSubtitleRuleBased(seg.subtitleTitle || seg.reason || '', tone);
+    fallbackMap[seg.id] = cleanSubtitleRuleBased(seg.subtitleTitle || seg.reason || '', tone, locale);
   }
   return fallbackMap;
 }

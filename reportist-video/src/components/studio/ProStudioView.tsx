@@ -5525,7 +5525,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const triggerVideoFileDownload = async (targetResult: FinalVideoResult) => {
     if (!targetResult.url) return;
     const ext = targetResult.blob?.type?.includes('mp4') ? 'mp4' : 'webm';
-    const fileName = `reportist_highlight_16x9_${Date.now()}.${ext}`;
+    // 실제 출력 비율에 맞춰 파일명을 생성한다 (기존엔 세로 영상도 16x9로 잘못 표기됨).
+    const aspectLabel = isPortraitOutput ? '9x16' : '16x9';
+    const fileName = `penguincut_highlight_${aspectLabel}_${Date.now()}.${ext}`;
 
     if (targetResult.blob && targetResult.blob.size > 0) {
       try {
@@ -5535,7 +5537,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
           await navigator.share({
             files: [file],
-            title: overlayOptions.titleText || 'Reportist Highlight',
+            title: overlayOptions.titleText || 'PenguinCut Highlight',
           });
           notifyVideoSaved();
           return;
