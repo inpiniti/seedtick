@@ -14229,6 +14229,8 @@
   border-radius: 10px;
   text-align: left;
   cursor: pointer;
+  /* 전역 button{white-space:nowrap} 때문에 설명 문장이 카드 밖으로 삐져나가지 않도록 허용 */
+  white-space: normal;
   transition:
     background-color 0.15s ease,
     border-color 0.15s ease,
@@ -14294,7 +14296,9 @@
   font-size: 10.5px;
   line-height: 1.35;
   color: #6b7684;
+  white-space: normal;
   word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 .toss-ai-mode-hint {
