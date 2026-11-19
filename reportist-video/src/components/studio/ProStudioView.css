@@ -15639,19 +15639,14 @@
     padding: 8px 0;
   }
 
-  /* 업로드 목록의 현재 미리보기 영상: 아래 구분선 하나만으로 선택 상태를 표시하면
-     다른 행의 구분선과 구별이 안 돼 어색하므로, 테두리 전체를 두른 카드로 감싼다.
-     비선택 행과 동일한 패딩·투명 테두리를 줘 선택 시 레이아웃이 흔들리지 않게 한다. */
-  .toss-upload-item {
-    padding: 8px 10px;
-    border: 1px solid transparent;
-    border-bottom-color: #f2f4f6;
-    border-radius: 10px;
-  }
-
-  .toss-upload-item.active {
-    background: #f8fafc;
-    border-color: #0f172a;
+  /* 선택 상태는 목록 종류와 관계없이 회색 배경 하나로 통일한다.
+     행마다 테두리나 왼쪽 인디케이터를 따로 그리지 않고 배경색만 바꾼다. */
+  .toss-upload-item.active,
+  .toss-location-item.active {
+    background: #f2f4f6;
+    border: none;
+    border-bottom: 1px solid #f2f4f6;
+    box-shadow: none;
   }
 
   /* 7) 전체 자막 목록: 외곽 박스 제거 + 행 구분선 */
@@ -15669,8 +15664,7 @@
     max-height: none;
   }
 
-  .toss-caption-list-row,
-  .toss-caption-list-row.active {
+  .toss-caption-list-row {
     background: transparent;
     border: none;
     border-bottom: 1px solid #f2f4f6;
@@ -15678,32 +15672,17 @@
     padding: 6px 0;
   }
 
+  /* 자막 행도 선택 시 테두리 없이 회색 배경만 쓴다. */
+  .toss-caption-list-row.active {
+    background: #f2f4f6;
+    border-bottom: 1px solid #f2f4f6;
+  }
+
   /* 구분선 리스트는 항목이 2개 이상일 때만 아래 선을 그린다.
      항목이 1개면 구분할 대상이 없으므로 선을 숨긴다. */
+  .toss-upload-item:only-child,
   .toss-location-item:only-child,
   .toss-caption-list-row:only-child {
-    border-bottom: none;
-  }
-
-  /* 선택된 업로드 행은 사방 테두리를 두른 카드라 아래 선만 지우면 카드 하단이
-     1px 잘려 보인다. 항목이 1개일 때는 카드 테두리 자체를 없애고 플랫 행으로
-     만들어 선도, 어긋남도 남지 않게 한다. */
-  .toss-upload-item:only-child {
-    background: transparent;
-    border: none;
-    border-radius: 0;
-    padding: 8px 0;
-  }
-
-  /* 모바일 구분선 리스트에서도 선택된 촬영 위치 행을 왼쪽 바 + 배경으로 강조 */
-  .toss-location-item.active {
-    background: #f8fafc;
-    border: none;
-    border-bottom-color: #f2f4f6;
-    box-shadow: inset 3px 0 0 #0f172a;
-  }
-
-  .toss-location-item.active:only-child {
     border-bottom: none;
   }
 
