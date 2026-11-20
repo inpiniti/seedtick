@@ -816,6 +816,18 @@ function renderFooter(
         )}</a>`
     )
     .join("\n          ");
+  // Directories that require a link back to their site for a free listing.
+  // Kept dofollow (rel="noopener" only) so the backlink is discoverable.
+  const featured = [
+    ["https://www.toolpilot.ai", "ToolPilot"],
+    ["https://fazier.com", "Fazier"],
+    ["https://twelve.tools", "Twelve.tools"],
+  ]
+    .map(
+      ([href, label]) =>
+        `<a href="${href}" rel="noopener" target="_blank">${label}</a>`
+    )
+    .join(" · ");
   const guides = [
     ["use-cases/youtube-highlights", locale.footer.guideYoutube],
     ["use-cases/travel-vlog-highlights", locale.footer.guideTravel],
@@ -874,6 +886,7 @@ function renderFooter(
 
     <div class="container footer-bottom">
       <span>${esc(locale.footer.legal.replace("{year}", String(year)))}</span>
+      <span class="footer-featured">Featured on: ${featured}</span>
       <span class="footer-legal-links">
         <a href="${esc(contentHref(locale, "privacy"))}">${esc(
     locale.footer.privacy

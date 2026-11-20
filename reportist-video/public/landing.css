@@ -1584,6 +1584,16 @@ html.is-hero-top .site-header {
   gap: 16px;
 }
 
+.footer-featured {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.footer-featured a {
+  color: var(--muted);
+}
+
 /* ---------- Content pages (legal, blog, guides) ---------- */
 
 .content-article {
