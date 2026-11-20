@@ -884,6 +884,12 @@ function renderFooter(
       </nav>
     </div>
 
+    <div class="container footer-badges">
+      <a href="https://fazier.com/launches/penguincut.com" target="_blank" rel="noopener">
+        <img src="https://fazier.com/api/v1//public/badges/launch_badges.svg?badge_type=launched&theme=light" width="120" alt="Launched on Fazier" loading="lazy" />
+      </a>
+    </div>
+
     <div class="container footer-bottom">
       <span>${esc(locale.footer.legal.replace("{year}", String(year)))}</span>
       <span class="footer-featured">Featured on: ${featured}</span>

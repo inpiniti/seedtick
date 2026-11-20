@@ -1594,6 +1594,15 @@ html.is-hero-top .site-header {
   color: var(--muted);
 }
 
+.footer-badges {
+  margin-top: 28px;
+}
+
+.footer-badges img {
+  display: block;
+  height: auto;
+}
+
 /* ---------- Content pages (legal, blog, guides) ---------- */
 
 .content-article {
