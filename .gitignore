@@ -51,3 +51,6 @@ post/
 # other
 promo-penguincut/
 .playwright-cli
+
+# Local marketing log (contains credential notes — never commit)
+docs/marketing/activity-log.md
