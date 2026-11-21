@@ -212,6 +212,9 @@ export function App() {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'idle'>('idle');
   const [projectSummaries, setProjectSummaries] = useState<StudioProjectSummary[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState<boolean>(true);
+  // 복제가 진행 중인 프로젝트 id — 카드 버튼을 스피너로 바꾸고 중복 클릭을 막는다.
+  const [duplicatingProjectId, setDuplicatingProjectId] = useState<string | null>(null);
+  const duplicatingProjectIdRef = useRef<string | null>(null);
   // 목록을 한 번이라도 읽었는지 여부. 최초 1회만 스켈레톤을 보여주고 이후 갱신은 조용히 반영한다.
   const hasLoadedProjectsRef = useRef<boolean>(false);
   // 동시에 여러 번 새로고침이 요청될 때 늦게 도착한 이전 결과가 최신 목록을 덮어쓰지 않도록 순번을 기록한다.
@@ -568,6 +571,11 @@ export function App() {
 
   // 프로젝트 복제
   const handleDuplicateProject = async (id: string) => {
+    // 대용량 프로젝트 복제 중 중복 클릭으로 여러 복사본이 생기지 않게 막는다.
+    if (duplicatingProjectIdRef.current) return;
+    duplicatingProjectIdRef.current = id;
+    setDuplicatingProjectId(id);
+
     try {
       await duplicateProject(id);
       await refreshProjectSummaries();
@@ -575,6 +583,9 @@ export function App() {
     } catch (err) {
       console.error('Failed to duplicate project:', err);
       notify.error(dict.toasts.projectDuplicateFailed);
+    } finally {
+      duplicatingProjectIdRef.current = null;
+      setDuplicatingProjectId(null);
     }
   };
 
@@ -2241,6 +2252,7 @@ export function App() {
         saveStatus={saveStatus}
         projectSummaries={projectSummaries}
         isLoadingProjects={isLoadingProjects}
+        duplicatingProjectId={duplicatingProjectId}
         onProjectsRefresh={() => {
           void refreshProjectSummaries();
         }}

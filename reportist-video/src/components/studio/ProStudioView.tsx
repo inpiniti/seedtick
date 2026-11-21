@@ -460,6 +460,8 @@ interface ProStudioViewProps {
   saveStatus?: 'saved' | 'saving' | 'idle';
   projectSummaries?: StudioProjectSummary[];
   isLoadingProjects?: boolean;
+  /** 복제 진행 중인 프로젝트 id (해당 카드 버튼을 스피너로 표시) */
+  duplicatingProjectId?: string | null;
   /** 저장소 완전 비우기 후 프로젝트 목록 상태를 즉시 다시 읽는다. */
   onProjectsRefresh?: () => void;
   onOpenProject?: (id: string) => void | Promise<void>;
@@ -511,6 +513,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   saveStatus = 'saved',
   projectSummaries = [],
   isLoadingProjects = false,
+  duplicatingProjectId = null,
   onProjectsRefresh,
   onOpenProject,
   onDuplicateProject,
@@ -6008,6 +6011,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           projects={projectSummaries}
           currentProjectId={currentProjectId || null}
           isLoading={isLoadingProjects}
+          duplicatingProjectId={duplicatingProjectId}
           onOpenProject={async (id) => {
             try {
               await onOpenProject?.(id);

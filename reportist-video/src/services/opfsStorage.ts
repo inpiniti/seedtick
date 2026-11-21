@@ -158,25 +158,33 @@ export async function deleteProjectOPFS(projectId: string): Promise<void> {
 /**
  * ?�로?�트 OPFS ?�일 복제
  */
-export async function copyProjectOPFS(sourceProjectId: string, targetProjectId: string): Promise<void> {
-  if (!isOpfsAvailable()) return;
+export async function copyProjectOPFS(
+  sourceProjectId: string,
+  targetProjectId: string
+): Promise<string[]> {
+  if (!isOpfsAvailable()) return [];
   const sourceDir = await getProjectDir(sourceProjectId, false);
-  if (!sourceDir) return;
+  if (!sourceDir) return [];
 
   const targetDir = await getProjectDir(targetProjectId, true);
-  if (!targetDir) return;
+  if (!targetDir) return [];
+
+  const copiedNames: string[] = [];
 
   try {
     // @ts-ignore
     for await (const [name, handle] of (sourceDir as any).entries()) {
       if (handle.kind === 'file') {
         const file = await (handle as FileSystemFileHandle).getFile();
-        await writeBlobToFile(targetDir, name, file);
+        const copied = await writeBlobToFile(targetDir, name, file);
+        if (copied) copiedNames.push(name);
       }
     }
   } catch (err) {
     console.warn('[opfsStorage] Failed to copy OPFS project files:', err);
   }
+
+  return copiedNames;
 }
 
 /**

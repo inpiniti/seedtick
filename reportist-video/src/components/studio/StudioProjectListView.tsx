@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   HardDrive,
   Calendar,
+  Loader2,
 } from 'lucide-react';
 import type { StudioProjectSummary } from '../../types/project.ts';
 import { useI18n } from '../../i18n/index.tsx';
@@ -21,6 +22,8 @@ interface StudioProjectListViewProps {
   projects: StudioProjectSummary[];
   currentProjectId: string | null;
   isLoading: boolean;
+  /** 복제 진행 중인 프로젝트 id (해당 카드만 스피너 표시, 나머지 복제 버튼은 비활성화) */
+  duplicatingProjectId?: string | null;
   onOpenProject: (id: string) => void;
   onDuplicateProject: (id: string) => void;
   onDeleteProject: (id: string) => void;
@@ -31,6 +34,7 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
   projects,
   currentProjectId,
   isLoading,
+  duplicatingProjectId = null,
   onOpenProject,
   onDuplicateProject,
   onDeleteProject,
@@ -179,6 +183,8 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
         <div className="toss-projects-grid">
           {projects.map((proj) => {
             const isCurrent = proj.id === currentProjectId;
+            const isDuplicating = duplicatingProjectId === proj.id;
+            const isDuplicateBusy = Boolean(duplicatingProjectId);
             return (
               <div
                 key={proj.id}
@@ -258,10 +264,16 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
                       type="button"
                       className="toss-btn-icon-subtle"
                       onClick={() => onDuplicateProject(proj.id)}
+                      disabled={isDuplicateBusy}
+                      aria-busy={isDuplicating || undefined}
                       title={pDict.duplicateBtn}
                       aria-label={pDict.duplicateBtn}
                     >
-                      <Copy size={15} />
+                      {isDuplicating ? (
+                        <Loader2 size={15} className="animate-spin" />
+                      ) : (
+                        <Copy size={15} />
+                      )}
                     </button>
 
                     <button

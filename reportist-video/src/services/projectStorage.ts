@@ -473,6 +473,61 @@ function deleteProjectMediaByProjectId(db: IDBDatabase, projectId: string): Prom
 }
 
 /**
+ * 한 프로젝트의 project_media 레코드를 새 프로젝트 키로 복사한다.
+ * 커서로 한 건씩 처리하므로 대용량 Blob을 한꺼번에 메모리에 올리지 않는다.
+ */
+function copyProjectMediaByProjectId(
+  db: IDBDatabase,
+  sourceProjectId: string,
+  targetProjectId: string
+): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(MEDIA_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(MEDIA_STORE_NAME);
+    const index = store.index('by_projectId');
+    const req = index.openCursor(IDBKeyRange.only(sourceProjectId));
+    const stamp = Date.now();
+    let copied = 0;
+
+    req.onsuccess = () => {
+      const cursor = req.result;
+      if (!cursor) return;
+      const item = cursor.value as StoredMediaRecord;
+      const key = mediaKeyFor(item.kind, targetProjectId, item.itemId);
+      store.put({
+        ...item,
+        key,
+        projectId: targetProjectId,
+        updatedAt: stamp,
+      });
+      persistedMediaKeys.set(key, item.size);
+      copied += 1;
+      cursor.continue();
+    };
+
+    req.onerror = () => reject(req.error || new Error('Failed to iterate project media.'));
+    tx.onerror = () => reject(tx.error || new Error('Project media copy transaction failed.'));
+    tx.onabort = () => reject(tx.error || new Error('Project media copy transaction aborted.'));
+    tx.oncomplete = () => resolve(copied);
+  });
+}
+
+/** 레거시 레코드에 아직 분리되지 않은 인라인 Blob이 남아 있는지 확인한다. */
+function hasInlineProjectMedia(project: StudioProject): boolean {
+  if ((project.videos || []).some((v) => Boolean(v.fileBlob && v.fileBlob.size > 0))) {
+    return true;
+  }
+  if (project.finalResult?.videoBlob && project.finalResult.videoBlob.size > 0) {
+    return true;
+  }
+  return Boolean(
+    (project.customAudioBlob?.size || 0) > 0 ||
+      (project.introVideoBlob?.size || 0) > 0 ||
+      (project.outroVideoBlob?.size || 0) > 0
+  );
+}
+
+/**
  * 프로젝트 저장 또는 업데이트.
  * 프로젝트 `projects` 레코드에는 메타데이터만 남기고,
  * 원본 영상/완성본/에셋 Blob은 `project_media`에 쓰기-once 원칙으로 저장한다.
@@ -539,17 +594,19 @@ export async function saveProject(project: StudioProject): Promise<void> {
       }
 
       // 3. 인트로/아웃트로/커스텀 오디오 (수십MB 이하 에셋)
+      // OPFS에는 원본/완성본만 보관하므로 에셋은 저장 모드와 무관하게 project_media에 남긴다.
+      // (데스크톱 OPFS 환경에서 에셋이 유실되던 문제 방지 + 복제 시 함께 복사)
       const audio = project.customAudioBlob;
       if (audio && audio.size > 0 && audio.size < 50 * 1024 * 1024) {
-        if (!useOpfs) await saveProjectMedia(db, 'asset', projectId, 'audio', audio);
+        await saveProjectMedia(db, 'asset', projectId, 'audio', audio);
       }
       const intro = project.introVideoBlob;
       if (intro && intro.size > 0 && intro.size < 100 * 1024 * 1024) {
-        if (!useOpfs) await saveProjectMedia(db, 'asset', projectId, 'intro', intro);
+        await saveProjectMedia(db, 'asset', projectId, 'intro', intro);
       }
       const outro = project.outroVideoBlob;
       if (outro && outro.size > 0 && outro.size < 100 * 1024 * 1024) {
-        if (!useOpfs) await saveProjectMedia(db, 'asset', projectId, 'outro', outro);
+        await saveProjectMedia(db, 'asset', projectId, 'outro', outro);
       }
     } catch (mediaErr) {
       // 미디어 저장(쿼터 초과 등)에 실패해도 편집 메타데이터는 보존한다.
@@ -570,11 +627,12 @@ export async function saveProject(project: StudioProject): Promise<void> {
 }
 
 /**
- * 단일 프로젝트 상세 불러오기 (OPFS 및 IndexedDB 하이브리드 복원)
+ * 프로젝트 메타데이터 레코드만 읽는다. (project_media/OPFS Blob 복원 없음)
+ * 복제처럼 미디어 본문이 필요 없는 경로에서 대용량 Blob을 메모리에 올리지 않기 위해 사용한다.
  */
-export async function getProject(id: string): Promise<StudioProject | null> {
+async function readProjectRecord(id: string): Promise<StudioProject | null> {
   const db = await getDB();
-  const project: StudioProject | null = await new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readonly');
     const store = tx.objectStore(STORE_NAME);
     const req = store.get(id);
@@ -587,8 +645,17 @@ export async function getProject(id: string): Promise<StudioProject | null> {
       reject(req.error || new Error('Failed to get project.'));
     };
   });
+}
+
+/**
+ * 단일 프로젝트 상세 불러오기 (OPFS 및 IndexedDB 하이브리드 복원)
+ */
+export async function getProject(id: string): Promise<StudioProject | null> {
+  const project = await readProjectRecord(id);
 
   if (!project) return null;
+
+  const db = await getDB();
 
   // 1. 원본 영상 Blob 복원 — OPFS 우선, 없으면 IndexedDB project_media
   if (project.videos && project.videos.length > 0) {
@@ -822,25 +889,65 @@ export async function deleteProjectMediaItem(
 
 /**
  * 프로젝트 복제 (IndexedDB 메타데이터 및 미디어 복제)
+ *
+ * 대용량 프로젝트에서도 클릭 즉시 반응하도록 미디어를 메모리로 복원하지 않는다.
+ * - OPFS: 파일을 스트리밍 복사 (Blob 배열을 만들지 않음)
+ * - IndexedDB: project_media 레코드를 커서로 한 건씩 새 키에 복사
+ * - 예전 레코드에 인라인 Blob이 남아 있는 경우에만 기존 복원 경로로 폴백
  */
 export async function duplicateProject(id: string): Promise<StudioProject> {
-  const original = await getProject(id);
+  const original = await readProjectRecord(id);
   if (!original) {
     throw new Error('Project to duplicate was not found.');
   }
 
   const newId = generateProjectId();
-  const duplicated: StudioProject = {
+  const now = Date.now();
+  const title = `${original.title} (사본)`;
+
+  // 레거시 인라인 Blob은 실제 Blob 복사가 필요하므로 기존 경로를 사용한다.
+  if (hasInlineProjectMedia(original)) {
+    const hydrated = await getProject(id);
+    if (!hydrated) {
+      throw new Error('Project to duplicate was not found.');
+    }
+    const duplicated: StudioProject = {
+      ...hydrated,
+      id: newId,
+      title,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await copyProjectOPFS(id, newId);
+    await saveProject(duplicated);
+    return duplicated;
+  }
+
+  const copiedOpfsFiles = await copyProjectOPFS(id, newId);
+  const copiedOpfsSet = new Set(copiedOpfsFiles);
+  const db = await getDB();
+  await copyProjectMediaByProjectId(db, id, newId);
+
+  const duplicated = sanitizeProjectForStorage({
     ...original,
     id: newId,
-    title: `${original.title} (사본)`,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  };
+    title,
+    createdAt: now,
+    updatedAt: now,
+    videos: (original.videos || []).map((v) => ({
+      ...v,
+      fileBlob: undefined,
+      hasOpfsFile: copiedOpfsSet.has(`video_${v.id}.bin`) ? true : undefined,
+    })),
+    finalResult: original.finalResult ? { ...original.finalResult, videoBlob: undefined } : null,
+    customAudioBlob: undefined,
+    introVideoBlob: undefined,
+    outroVideoBlob: undefined,
+    hasOpfsFiles: copiedOpfsFiles.length > 0,
+    mediaBytes: original.mediaBytes ?? computeMediaBytes(original),
+  });
 
-  // OPFS 파일 복제 (OPFS 미사용 환경에서는 즉시 no-op)
-  await copyProjectOPFS(id, newId);
-  await saveProject(duplicated);
+  await executePut(db, duplicated);
   return duplicated;
 }
 

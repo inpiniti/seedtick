@@ -9273,10 +9273,15 @@
   flex-shrink: 0;
 }
 
-.toss-btn-icon-subtle:hover {
+.toss-btn-icon-subtle:hover:not(:disabled) {
   background-color: #f8fafc;
   border-color: #cbd5e1;
   color: #1e293b;
+}
+
+.toss-btn-icon-subtle:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 .toss-btn-icon-subtle.danger:hover {
