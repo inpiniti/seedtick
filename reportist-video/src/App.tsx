@@ -136,37 +136,35 @@ export function App() {
   const handleUpdateVideoLocation = useCallback(
     (id: string, locationName: string) => {
       const previousName = (videos.find((v) => v.id === id)?.locationName ?? '').trim();
-      // 컷에서 직접 장소를 고쳐 쓴 적이 없으면(비어 있거나 이전 원본 지명과 같으면) 새 지명을 따른다.
-      const shouldUpdate = (seg: { locationName?: string }) => {
-        const segName = (seg.locationName ?? '').trim();
-        return !segName || (Boolean(previousName) && segName === previousName);
-      };
+      // AI 분석이 저장해 둔 지명은 영상의 locationName과 다를 수 있다(GPS 자동 추출 등).
+      // 이름이 다르다고 건너뛰면 예전 지명이 컷·자막에 그대로 남으므로 해당 영상의
+      // 모든 세그먼트를 조건 없이 새 장소로 갱신한다.
+      const updateSeg = (seg: HighlightSegment): HighlightSegment =>
+        seg.sourceVideoId === id ? { ...seg, locationName } : seg;
 
       setVideos((prev) =>
         prev.map((v) =>
           v.id === id
-            ? {
-                ...v,
-                locationName,
-                segments: v.segments.map((seg) =>
-                  shouldUpdate(seg) ? { ...seg, locationName } : seg
-                ),
-              }
+            ? { ...v, locationName, segments: v.segments.map(updateSeg) }
             : v
         )
       );
 
-      // finalResult.segments까지 함께 갱신해야 한다. 여기를 놓치면 촬영 위치를 고친 직후
-      // ProStudioView의 상위 동기화가 예전 지명(태산패밀리파크 등)으로 되돌려 놓는다.
+      // finalResult.segments까지 함께 갱신해 상위 동기화·자동 저장에 옛 지명이 남지 않게 한다.
       setFinalResult((prev) => {
         if (!prev?.segments?.length) return prev;
-        let changed = false;
-        const nextSegments = prev.segments.map((seg) => {
-          if (seg.sourceVideoId !== id || !shouldUpdate(seg)) return seg;
-          changed = true;
-          return { ...seg, locationName };
-        });
-        return changed ? { ...prev, segments: nextSegments } : prev;
+        return { ...prev, segments: prev.segments.map(updateSeg) };
+      });
+
+      // 오버레이의 기본 장소 문구가 이전 지명이었으면 같이 바꾼다.
+      // (이 값은 컷에 장소가 없을 때의 폴백이라 여기 남으면 브릿지·내보내기에 그대로 나타난다.)
+      setCurrentOverlayOptions((prev) => {
+        if (!prev) return prev;
+        const cur = (prev.subtitleLocationText ?? '').trim();
+        if (!cur || cur === previousName) {
+          return { ...prev, subtitleLocationText: locationName };
+        }
+        return prev;
       });
     },
     [videos]

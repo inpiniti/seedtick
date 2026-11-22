@@ -2203,20 +2203,23 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     return null;
   };
 
-  // 촬영 위치 단계에서 장소를 고치면 아직 직접 수정하지 않은 세그먼트에도 반영한다.
-  // GPS로 자동 추출된 지명이 이미 들어 있는 세그먼트도, 이전 원본 지명과 같다면 함께 갱신해
-  // 스탭 4의 수정이 컷·자막·브릿지·전체 보기까지 일관되게 반영되도록 한다.
+  // 촬영 위치 단계에서 장소를 고치면 그 영상의 모든 컷을 즉시 새 장소로 갱신한다.
+  // 예전엔 "원본 지명과 같은 컷만 바꾼다"는 조건 때문에 AI가 GPS로 저장해 둔 지명이
+  // 남아 6번 이후의 미리보기에 계속 옛 장소가 떴다. 조건 없이 덮어쓴다.
   const updateVideoLocation = (id: string, locationName: string) => {
+    const previousName = (videos.find((v) => v.id === id)?.locationName ?? '').trim();
     onUpdateVideoLocation?.(id, locationName);
-    const previousName = videos.find((v) => v.id === id)?.locationName ?? '';
     setSegments((prev) =>
-      prev.map((seg) => {
-        if (seg.sourceVideoId !== id) return seg;
-        const segName = (seg.locationName ?? '').trim();
-        const isUntouched = !segName || (Boolean(previousName) && segName === previousName.trim());
-        return isUntouched ? { ...seg, locationName } : seg;
-      })
+      prev.map((seg) => (seg.sourceVideoId === id ? { ...seg, locationName } : seg))
     );
+    // 오버레이 폴백 장소도 이전 지명이면 즉시 바꾼다. (effect를 통해 상위에도 전달된다)
+    setOverlayOptions((prev) => {
+      const cur = (prev.subtitleLocationText ?? '').trim();
+      if (!cur || cur === previousName) {
+        return { ...prev, subtitleLocationText: locationName };
+      }
+      return prev;
+    });
   };
   // 인트로/브릿지/아웃트로는 AI 컷 유무와 무관하게 캔버스 단독으로 미리본다.
   // 인트로 스타일 단계도 같은 인트로 캔버스를 보여주고, 토글을 꺼도 타이틀 카드는 그대로 미리보여 준다.
@@ -3013,11 +3016,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     const datePart = dateEnabled
       ? activePlayingSegment.subtitleDate || rawDate
       : '';
-    const locPart = activePlayingSegment.locationName || rawLocation;
+    // 컷에 남아 있는 옛 지명보다 원본 영상에 방금 입력한 장소를 우선한다.
+    const segmentVideo = videos.find((v) => v.id === activePlayingSegment.sourceVideoId);
+    const locPart =
+      segmentVideo?.locationName?.trim() ||
+      activePlayingSegment.locationName ||
+      rawLocation;
     return [datePart, locPart].filter(Boolean).join(' • ').trim();
   }, [
     activePlayingSegment,
     isRawSourcePreviewStep,
+    videos,
     previewVideo,
     overlayOptions.showDate,
     overlayOptions.subtitleDateText,
