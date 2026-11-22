@@ -188,6 +188,7 @@ import { notify } from '../../services/toastService.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 import { useIsMobileViewport } from '../../hooks/useIsMobileViewport.ts';
 import { useHorizontalScroll } from '../../hooks/useHorizontalScroll.ts';
+import { useVirtualSegmentList } from '../../hooks/useVirtualSegmentList.ts';
 import {
   type DateFormatOption,
   formatDateByPattern,
@@ -2507,6 +2508,22 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     return idx >= 0 ? idx : 0;
   }, [segments, selectedSegmentId]);
   const selectedSegment = segments[selectedSegmentIndex] ?? segments[0] ?? null;
+
+  // 데스크톱 컷 단계에서는 한 번에 한 컷만 보여주지 않고 전체를 가상 스크롤 목록으로 보여준다.
+  // 모바일/자막 단계는 기존 단일 컷 UI를 유지한다.
+  const isVirtualSegmentList = !isMobileViewport && !isCaptionSection && segments.length > 0;
+  const segmentVirtualizer = useVirtualSegmentList({
+    count: segments.length,
+    estimateSize: (index) => (index === selectedSegmentIndex ? 328 : 88),
+  });
+
+  // 컷을 선택하면(클릭·이전/다음·삭제 후 자동 선택 포함) 그 행이 목록 최상단으로 오게 한다.
+  // scrollToIndex는 ref 기반 안정 콜백이라 선택 변경 때만 실행된다.
+  useEffect(() => {
+    if (!isVirtualSegmentList) return;
+    const idx = segments.findIndex((s) => s.id === selectedSegmentId);
+    if (idx >= 0) segmentVirtualizer.scrollToIndex(idx);
+  }, [selectedSegmentId, isVirtualSegmentList, segmentVirtualizer.scrollToIndex]);
 
   // ============================================================
   // 스텝별 프리뷰 격리
@@ -5380,10 +5397,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 클립 삭제
   const handleDeleteSegment = (segId: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    const idx = segments.findIndex((s) => s.id === segId);
     const updated = segments.filter((s) => s.id !== segId);
     setSegments(updated);
     if (selectedSegmentId === segId && updated.length > 0) {
-      setSelectedSegmentId(updated[0].id);
+      // 삭제한 자리를 대신할 '다음 씬'을 보여준다. 마지막 컷이면 바로 이전 씬을 유지한다.
+      // (예전엔 항상 updated[0]을 골라 1번으로 튀어 돌아가던 문제가 있었다.)
+      const nextIndex = idx >= 0 ? Math.min(idx, updated.length - 1) : 0;
+      setSelectedSegmentId(updated[nextIndex].id);
     }
   };
 
@@ -8719,10 +8740,23 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 </p>
               </div>
             ) : (
-              <div className="toss-segment-list">
-                {segments.map((seg, idx) => {
-                  // 한 번에 선택한 컷 1개만 보여준다. (일반인이 전체 컷 목록에 압도되지 않도록)
-                  if (seg.id !== selectedSegmentId) return null;
+              <div
+                className={`toss-segment-list ${isVirtualSegmentList ? 'is-virtual' : ''}`}
+                ref={isVirtualSegmentList ? segmentVirtualizer.containerRef : undefined}
+              >
+                <div
+                  className="toss-segment-list-inner"
+                  style={isVirtualSegmentList ? { height: segmentVirtualizer.totalSize } : undefined}
+                >
+                {(isVirtualSegmentList
+                  ? segmentVirtualizer.virtualItems.map((item) => segments[item.index])
+                  : segments
+                ).map((seg, mapIdx) => {
+                  const idx = isVirtualSegmentList
+                    ? segmentVirtualizer.virtualItems[mapIdx].index
+                    : mapIdx;
+                  // 모바일은 한 번에 선택한 컷 1개만, 데스크톱은 전체 컷을 가상 스크롤로 보여준다.
+                  if (!isVirtualSegmentList && seg.id !== selectedSegmentId) return null;
                   const isSelected = seg.id === selectedSegmentId;
                   const isCurrentPlaying = seg.id === activePlayingSegmentId;
                   const vItem = videoMap.get(seg.sourceVideoId);
@@ -8754,7 +8788,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   const bridgeEval = idx > 0
                     ? evaluateChapterBridge(segments[idx - 1], seg, idx, segments.length, overlayOptions)
                     : null;
-                  return (
+                  const rowNode = (
                     <React.Fragment key={seg.id}>
                       {!isCaptionSection && (bridgeEval?.shouldBridge ? (
                         <div
@@ -9145,7 +9179,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       </div>
                     </React.Fragment>
                   );
+                  return isVirtualSegmentList ? (
+                    <div
+                      key={seg.id}
+                      ref={segmentVirtualizer.setRowRef(idx)}
+                      className="toss-segment-virtual-row"
+                      style={{ top: segmentVirtualizer.virtualItems[mapIdx].start }}
+                    >
+                      {rowNode}
+                    </div>
+                  ) : (
+                    rowNode
+                  );
                 })}
+                </div>
               </div>
             )}
           </div>

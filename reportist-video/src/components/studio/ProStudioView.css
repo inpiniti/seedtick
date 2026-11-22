@@ -3104,6 +3104,38 @@
   padding-right: 0;
 }
 
+/* 데스크톱: 모든 컷을 가상 스크롤로 보여주는 컨테이너.
+   모바일은 아래 display:contents 규칙으로 기존 flex gap 레이아웃을 그대로 유지한다. */
+.toss-segment-list-inner {
+  display: contents;
+}
+
+.toss-segment-list.is-virtual {
+  position: relative;
+  max-height: min(62vh, 760px);
+  min-height: 240px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid #e5e8eb;
+  border-radius: 12px;
+  background-color: #f8fafc;
+}
+
+.toss-segment-list.is-virtual .toss-segment-list-inner {
+  display: block;
+  position: relative;
+  width: 100%;
+}
+
+.toss-segment-virtual-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  padding: 3px 4px 6px;
+  box-sizing: border-box;
+}
+
 .toss-segment-item {
   position: relative;
   display: flex;
