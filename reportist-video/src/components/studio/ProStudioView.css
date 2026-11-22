@@ -3104,14 +3104,10 @@
   padding-right: 0;
 }
 
-/* 데스크톱: 모든 컷을 가상 스크롤로 보여주는 컨테이너.
-   모바일은 아래 display:contents 규칙으로 기존 flex gap 레이아웃을 그대로 유지한다. */
-.toss-segment-list-inner {
-  display: contents;
-}
-
+/* 데스크톱: 전체 컷을 렌더하되 content-visibility로 화면 밖 행의 레이아웃·페인트를
+   브라우저가 건너뛰게 해 가상 스크롤과 같은 효과를 얻는다. (오프셋 직접 계산 방식은
+   행 높이가 펼침 상태에 따라 달라지면 선택 행 위치가 어긋나던 문제가 있었다.) */
 .toss-segment-list.is-virtual {
-  position: relative;
   max-height: min(62vh, 760px);
   min-height: 240px;
   overflow-y: auto;
@@ -3120,20 +3116,13 @@
   border: 1px solid #e5e8eb;
   border-radius: 12px;
   background-color: #f8fafc;
-}
-
-.toss-segment-list.is-virtual .toss-segment-list-inner {
-  display: block;
-  position: relative;
-  width: 100%;
+  padding: 4px;
 }
 
 .toss-segment-virtual-row {
-  position: absolute;
-  left: 0;
-  right: 0;
-  padding: 3px 4px 6px;
-  box-sizing: border-box;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 104px;
+  padding: 3px 0;
 }
 
 .toss-segment-item {

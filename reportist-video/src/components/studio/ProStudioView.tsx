@@ -188,7 +188,6 @@ import { notify } from '../../services/toastService.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 import { useIsMobileViewport } from '../../hooks/useIsMobileViewport.ts';
 import { useHorizontalScroll } from '../../hooks/useHorizontalScroll.ts';
-import { useVirtualSegmentList } from '../../hooks/useVirtualSegmentList.ts';
 import {
   type DateFormatOption,
   formatDateByPattern,
@@ -2509,21 +2508,37 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   }, [segments, selectedSegmentId]);
   const selectedSegment = segments[selectedSegmentIndex] ?? segments[0] ?? null;
 
-  // 데스크톱 컷 단계에서는 한 번에 한 컷만 보여주지 않고 전체를 가상 스크롤 목록으로 보여준다.
+  // 데스크톱 컷 단계에서는 한 번에 한 컷만 보여주지 않고 전체 목록을 스크롤해서 보여준다.
   // 모바일/자막 단계는 기존 단일 컷 UI를 유지한다.
   const isVirtualSegmentList = !isMobileViewport && !isCaptionSection && segments.length > 0;
-  const segmentVirtualizer = useVirtualSegmentList({
-    count: segments.length,
-    estimateSize: (index) => (index === selectedSegmentIndex ? 328 : 88),
-  });
+  const segmentListRef = useRef<HTMLDivElement | null>(null);
+  const segmentRowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const segmentRowRefCache = useRef<Map<string, (el: HTMLDivElement | null) => void>>(new Map());
+  const setSegmentRowRef = useCallback((id: string) => {
+    let fn = segmentRowRefCache.current.get(id);
+    if (!fn) {
+      fn = (el: HTMLDivElement | null) => {
+        if (el) segmentRowRefs.current.set(id, el);
+        else segmentRowRefs.current.delete(id);
+      };
+      segmentRowRefCache.current.set(id, fn);
+    }
+    return fn;
+  }, []);
 
   // 컷을 선택하면(클릭·이전/다음·삭제 후 자동 선택 포함) 그 행이 목록 최상단으로 오게 한다.
-  // scrollToIndex는 ref 기반 안정 콜백이라 선택 변경 때만 실행된다.
+  // 모든 행이 DOM에 있으므로 실제 위치를 계산해 정확히 맨 위로 맞춘다.
   useEffect(() => {
     if (!isVirtualSegmentList) return;
-    const idx = segments.findIndex((s) => s.id === selectedSegmentId);
-    if (idx >= 0) segmentVirtualizer.scrollToIndex(idx);
-  }, [selectedSegmentId, isVirtualSegmentList, segmentVirtualizer.scrollToIndex]);
+    const container = segmentListRef.current;
+    const row = segmentRowRefs.current.get(selectedSegmentId);
+    if (!container || !row) return;
+    const top =
+      row.getBoundingClientRect().top -
+      container.getBoundingClientRect().top +
+      container.scrollTop;
+    container.scrollTo({ top, behavior: 'smooth' });
+  }, [selectedSegmentId, isVirtualSegmentList]);
 
   // ============================================================
   // 스텝별 프리뷰 격리
@@ -8742,20 +8757,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             ) : (
               <div
                 className={`toss-segment-list ${isVirtualSegmentList ? 'is-virtual' : ''}`}
-                ref={isVirtualSegmentList ? segmentVirtualizer.containerRef : undefined}
+                ref={isVirtualSegmentList ? segmentListRef : undefined}
               >
-                <div
-                  className="toss-segment-list-inner"
-                  style={isVirtualSegmentList ? { height: segmentVirtualizer.totalSize } : undefined}
-                >
-                {(isVirtualSegmentList
-                  ? segmentVirtualizer.virtualItems.map((item) => segments[item.index])
-                  : segments
-                ).map((seg, mapIdx) => {
-                  const idx = isVirtualSegmentList
-                    ? segmentVirtualizer.virtualItems[mapIdx].index
-                    : mapIdx;
-                  // 모바일은 한 번에 선택한 컷 1개만, 데스크톱은 전체 컷을 가상 스크롤로 보여준다.
+                {segments.map((seg, idx) => {
+                  // 모바일은 한 번에 선택한 컷 1개만, 데스크톱은 전체 컷을 스크롤로 보여준다.
                   if (!isVirtualSegmentList && seg.id !== selectedSegmentId) return null;
                   const isSelected = seg.id === selectedSegmentId;
                   const isCurrentPlaying = seg.id === activePlayingSegmentId;
@@ -9182,9 +9187,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   return isVirtualSegmentList ? (
                     <div
                       key={seg.id}
-                      ref={segmentVirtualizer.setRowRef(idx)}
+                      ref={setSegmentRowRef(seg.id)}
                       className="toss-segment-virtual-row"
-                      style={{ top: segmentVirtualizer.virtualItems[mapIdx].start }}
                     >
                       {rowNode}
                     </div>
@@ -9192,7 +9196,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     rowNode
                   );
                 })}
-                </div>
               </div>
             )}
           </div>
