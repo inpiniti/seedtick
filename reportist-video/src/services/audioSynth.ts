@@ -2,6 +2,16 @@
 
 import type { BgmPreset } from '../types/video.ts';
 
+/**
+ * BGM 볼륨(0~1)을 실제 GainNode 이득으로 바꾸는 단일 공식.
+ * 미리보기와 내보내기가 같은 값을 써야 "미리보기엔 잘 들리는데 다운로드하니 거의 안 들린다"가 없다.
+ * (예전에는 미리보기만 1.4배를 곱하고 내보내기는 그대로 1배로 제한해 2.9dB 차이가 났다.)
+ */
+export function getBgmGain(volume: number): number {
+  if (!Number.isFinite(volume)) return 0;
+  return Math.min(2.5, Math.max(0, volume) * 1.4);
+}
+
 export const BGM_PRESETS: BgmPreset[] = [
   {
     id: 'none',

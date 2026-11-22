@@ -15861,6 +15861,11 @@
   margin-top: 2px;
 }
 
+/* 전체 보기에서 보이는 장면을 그대로 대표 이미지로 저장하는 버튼 */
+.toss-full-preview-thumb {
+  width: 100%;
+}
+
 .toss-full-preview-overflow {
   display: flex;
   flex-direction: column;

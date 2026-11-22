@@ -230,7 +230,9 @@ function parseRotationFromTkhd(box: BoxView): number {
   offset += 4; // track_ID
   offset += 4; // reserved
   offset += version === 1 ? 8 : 4; // duration
-  offset += 10; // reserved(2) + layer(2) + alternate_group(2) + volume(2) + reserved(2)
+  // ISO/IEC 14496-12: duration 뒤 reserved[2]는 uint32 2개(8바이트)다.
+  // 2바이트로 잘못 읽으면 matrix가 6바이트 앞에서 읽혀 정상 영상이 90°로 오인된다.
+  offset += 16; // reserved[2](8) + layer(2) + alternate_group(2) + volume(2) + reserved(2)
 
   // matrix = 9 × int32 (16.16 / 2.30 고정소수점)
   if (offset + 36 > payloadStart + payloadSize) return 0;

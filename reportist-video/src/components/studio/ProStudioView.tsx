@@ -114,7 +114,7 @@ import {
   drawCompositorSegmentOverlay,
 } from '../../services/previewCompositorBase.ts';
 import { previewFrame } from '../../services/frameSpec.ts';
-import { playBgmSynthLoop } from '../../services/audioSynth.ts';
+import { getBgmGain, playBgmSynthLoop } from '../../services/audioSynth.ts';
 
 // 모달은 사용자가 열 때만 청크를 내려받도록 지연 로딩한다. (초기 번들 절감)
 const ModelSelectorModal = React.lazy(() =>
@@ -232,7 +232,8 @@ type MapModalTarget = Partial<
 // ============================================================
 // 통합 스튜디오 편집 가이드 (생성/편집 흐름 구분 없이 처음부터 끝까지 같은 순서)
 // 영상 상단 문구 → 인트로 스타일 → 영상 올리기 → 촬영 위치 → AI 하이라이트
-// → 컷 다듬기 → 자막 수정 → 브릿지 → 아웃트로 → 노래 → 전체 보기 → 썸네일 → 다운로드
+// → 컷 다듬기 → 자막 수정 → 브릿지 → 아웃트로 → 노래 → 전체 보기 → 다운로드
+// (대표 이미지는 별도 단계 없이 '전체 보기'에서 현재 장면을 직접 캡처한다.)
 // (AI 분석 전에는 '촬영 위치'는 영상 업로드 후, '컷 다듬기'·'자막 수정'·'전체 보기'는 분석 후에만 열린다)
 // 각 단계는 자신의 편집 대상만 미리보기에 보여주고, 전체 합성 결과는 '전체 보기' 단계에서만 확인한다.
 // ============================================================
@@ -248,7 +249,6 @@ type StudioSection =
   | 'outro'
   | 'music'
   | 'fullPreview'
-  | 'thumbnail'
   | 'download';
 
 interface StudioStep {
@@ -325,12 +325,6 @@ const STUDIO_STEPS: StudioStep[] = [
     label: '전체 보기',
     shortDesc: '최종 확인',
     description: '지금까지 편집한 인트로·컷·자막·브릿지·아웃트로·노래를 처음부터 끝까지 합쳐서 확인해요. 타임라인에서 원하는 지점으로 바로 이동할 수도 있어요.',
-  },
-  {
-    id: 'thumbnail',
-    label: '썸네일',
-    shortDesc: '대표 이미지',
-    description: '유튜브에 올릴 16:9 대표 이미지를 만들어요. AI 추천 프레임과 타이틀을 그대로 쓸 수 있어요.',
   },
   {
     id: 'download',
@@ -1289,17 +1283,22 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   ]);
 
   // 브라우저 History API 연동 탭 네비게이션
+  // history 변경을 setState updater 안에서 하면 StrictMode 이중 호출로 엔트리가 중복되고
+  // 해시/state가 어긋나 목록으로 튕길 수 있어 ref로 현재 탭을 기억해 밖에서 처리한다.
+  const activeTabRef = useRef(activeTab);
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
   const navigateToTab = useCallback((nextTab: 'projects' | 'studio' | 'community', replace = false) => {
-    setActiveTab((prev) => {
-      if (prev === nextTab) return prev;
-      const targetHash = nextTab === 'projects' ? '#projects' : nextTab === 'studio' ? '#studio' : '#community';
-      if (replace) {
-        window.history.replaceState({ tab: nextTab, timestamp: Date.now() }, '', targetHash);
-      } else {
-        window.history.pushState({ tab: nextTab, timestamp: Date.now() }, '', targetHash);
-      }
-      return nextTab;
-    });
+    if (activeTabRef.current === nextTab) return;
+    activeTabRef.current = nextTab;
+    const targetHash = nextTab === 'projects' ? '#projects' : nextTab === 'studio' ? '#studio' : '#community';
+    if (replace) {
+      window.history.replaceState({ tab: nextTab, timestamp: Date.now() }, '', targetHash);
+    } else {
+      window.history.pushState({ tab: nextTab, timestamp: Date.now() }, '', targetHash);
+    }
+    setActiveTab(nextTab);
   }, []);
 
   // 화면 내 '스튜디오 목록으로' 뒤로가기 액션
@@ -1314,6 +1313,18 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   }, [onViewProjects, navigateToTab]);
 
   // 브라우저 뒤로가기(popstate), 해시 변경(hashchange) 및 초기 해시 동기화
+  // 볼륨 변경처럼 상위 상태가 바뀔 때마다 onViewProjects/closeAllModals 정체가 달라져
+  // 이 이펙트가 다시 실행되면 replaceState+pushState가 반복되고 해시가 흔들려 목록으로 튕긴다.
+  // → 리스너 등록은 마운트 시 한 번만 하고, 최신 콜백은 ref로 읽는다.
+  const onViewProjectsRef = useRef(onViewProjects);
+  useEffect(() => {
+    onViewProjectsRef.current = onViewProjects;
+  }, [onViewProjects]);
+  const closeAllModalsRef = useRef(closeAllModals);
+  useEffect(() => {
+    closeAllModalsRef.current = closeAllModals;
+  }, [closeAllModals]);
+
   useEffect(() => {
     const hash = window.location.hash.toLowerCase();
     let initialTab: 'projects' | 'studio' | 'community' = 'projects';
@@ -1321,9 +1332,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       initialTab = 'studio';
     } else if (hash === '#community') {
       initialTab = 'community';
-    } else {
-      initialTab = 'projects';
     }
+    activeTabRef.current = initialTab;
     setActiveTab(initialTab);
 
     // 초기 히스토리 스택 설정
@@ -1342,8 +1352,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     const syncLocationTab = (e?: PopStateEvent | HashChangeEvent) => {
       // 1. 모달이 열려있는 상태에서 뒤로가기를 누른 경우 모달을 먼저 닫음
       if (e && 'type' in e && e.type === 'popstate') {
-        const closedModal = closeAllModals();
-        if (closedModal) {
+        if (closeAllModalsRef.current()) {
           return;
         }
       }
@@ -1356,12 +1365,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         targetTab = 'studio';
       } else if (curHash === '#community' || stateTab === 'community') {
         targetTab = 'community';
-      } else {
-        targetTab = 'projects';
       }
 
+      activeTabRef.current = targetTab;
       if (targetTab === 'projects') {
-        onViewProjects?.();
+        onViewProjectsRef.current?.();
       }
       setActiveTab(targetTab);
     };
@@ -1372,7 +1380,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       window.removeEventListener('popstate', syncLocationTab);
       window.removeEventListener('hashchange', syncLocationTab);
     };
-  }, [closeAllModals, onViewProjects]);
+  }, []);
 
   // 모달 오픈 시 브라우저 히스토리 푸시 (모달에서 뒤로가기 시 웹페이지 밖으로 나가지 않고 모달만 닫히도록)
   const isAnyModalOpen = Boolean(
@@ -1505,18 +1513,23 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   }, [overlayOptions, onOverlayOptionsChange]);
 
-  // 외부에서 BGM 프리셋/볼륨/보관함 트랙 전달 시 동기화 (외부 prop 변경 시 로컬 상태 업데이트 및 중복 역전파 방지)
+  // 슬라이더 step(0.05) 때문에 0.45000000000000007 같은 부동소수점 값이 오간다.
+  // 소수 2자리로 정규화한 시그니처로 비교해야 45%↔50%가 무한 왕복하지 않는다.
+  const bgmSignature = (id: string, vol: number, trackId: string | null) =>
+    `${id}_${vol.toFixed(2)}_${trackId ?? 'null'}`;
+
+  // 마지막으로 상위에 전파한 값만 기억한다. prop 동기화 효과는 이 값을 절대 덮어쓰지 않는다.
+  // (예전에는 prop 동기화가 ref를 갱신해 두 효과가 서로를 '내부 변경'으로 오인하며 ping-pong했다.)
   const lastEmittedBgmRef = useRef<string>(
-    `${initialBgmPresetId ?? 'none'}_${initialBgmVolume ?? 0.3}_${initialSelectedLibraryTrackId ?? 'null'}`
+    bgmSignature(
+      initialBgmPresetId ?? 'none',
+      initialBgmVolume ?? 0.3,
+      initialSelectedLibraryTrackId ?? null
+    )
   );
 
+  // 상위(프로젝트 복원 등) → 로컬 동기화: 로컬 상태만 갱신하고 역전파 ref는 건드리지 않는다.
   useEffect(() => {
-    const nextBgmId = initialBgmPresetId !== undefined ? initialBgmPresetId : selectedBgmId;
-    const nextVolume = typeof initialBgmVolume === 'number' ? initialBgmVolume : bgmVolume;
-    const nextTrackId = initialSelectedLibraryTrackId !== undefined ? initialSelectedLibraryTrackId : selectedLibraryTrackId;
-
-    lastEmittedBgmRef.current = `${nextBgmId}_${nextVolume}_${nextTrackId ?? 'null'}`;
-
     if (initialBgmPresetId !== undefined) {
       setSelectedBgmId((prev) => (prev !== initialBgmPresetId ? initialBgmPresetId : prev));
     }
@@ -1528,9 +1541,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     }
   }, [initialBgmPresetId, initialBgmVolume, initialSelectedLibraryTrackId]);
 
-  // 외부로 BGM 변경 전파 (스튜디오 내부 사용자 액션으로 변경 시에만 전파)
+  // 로컬(사용자 액션) → 상위 전파
   useEffect(() => {
-    const currentKey = `${selectedBgmId}_${bgmVolume}_${selectedLibraryTrackId ?? 'null'}`;
+    const currentKey = bgmSignature(selectedBgmId, bgmVolume, selectedLibraryTrackId);
     if (currentKey !== lastEmittedBgmRef.current) {
       lastEmittedBgmRef.current = currentKey;
       onBgmChange?.(selectedBgmId, bgmVolume, selectedLibraryTrackId);
@@ -1574,7 +1587,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 6. AI 16:9 유튜브 썸네일 상태
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(result?.thumbnailUrl || null);
   const [thumbnailStyle, setThumbnailStyle] = useState<'youtube-bold' | 'banner-box' | 'cinematic-clean'>('youtube-bold');
-  const [showThumbnailTitle, setShowThumbnailTitle] = useState<boolean>(true);
+  // 대표 이미지는 제목 텍스트·그라데이션 없이 보이는 장면 그대로 저장한다(별도 썸네일 단계 제거).
   const thumbnailBgCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const lastPreparedThumbKeyRef = useRef<string>('');
   const [isUpdatingThumbnail, setIsUpdatingThumbnail] = useState<boolean>(false);
@@ -2096,7 +2109,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             titleText: titleToRender,
             channelText: '',
             badgeText: '',
-            showTitle: showThumbnailTitle && Boolean(titleToRender?.trim()),
+            showTitle: false,
             showBadge: false,
             showChannel: false,
             stylePreset: thumbnailStyle,
@@ -2141,7 +2154,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           titleText: overlayOptions.titleText,
           channelText: '',
           badgeText: '',
-          showTitle: showThumbnailTitle && Boolean(overlayOptions.titleText?.trim()),
+          showTitle: false,
           showBadge: false,
           showChannel: false,
           stylePreset: thumbnailStyle,
@@ -2167,7 +2180,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   }, [
     overlayOptions.titleText,
     thumbnailStyle,
-    showThumbnailTitle,
     thumbWidth,
     thumbHeight,
   ]);
@@ -2448,10 +2460,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     isMobileViewport &&
     ((isCreationFlow && !activeVideoUrl && !standalonePreviewSection) ||
       activeSection === 'download');
-  // 썸네일 단계에서는 완성된 썸네일을 영상 프리뷰 자리에 그대로 띄운다.
-  // 모바일에서 플레이어가 상단에 sticky로 고정되므로, 아래 카드의 같은 이미지를 숨겨
-  // 세로 공간을 아끼고 "위에서 보고 → 아래에서 문구·스타일을 고치는" 한 흐름으로 만든다.
-  const showThumbnailInPlayer = activeSection === 'thumbnail' && Boolean(thumbnailUrl);
   // 플레이어 카드와 타임라인 카드를 분리해, 모바일에서 플레이어만 상단에 고정한다.
   const showDraftPreviewBox =
     (isDraftPreview || isRawSourcePreviewStep) &&
@@ -3064,7 +3072,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         const ctx = bgmWebAudioCtxRef.current;
         const src = ctx.createMediaElementSource(audio);
         const gain = ctx.createGain();
-        gain.gain.value = isMuted ? 0 : Math.min(2.5, Math.max(0, bgmVolume) * 1.4);
+        gain.gain.value = isMuted ? 0 : getBgmGain(bgmVolume);
         src.connect(gain);
         gain.connect(ctx.destination);
         bgmGainNodeRef.current = gain;
@@ -3091,7 +3099,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   useEffect(() => {
     if (bgmGainNodeRef.current && bgmWebAudioCtxRef.current) {
       bgmGainNodeRef.current.gain.setValueAtTime(
-        isMuted ? 0 : Math.min(2.5, Math.max(0, bgmVolume) * 1.4),
+        isMuted ? 0 : getBgmGain(bgmVolume),
         bgmWebAudioCtxRef.current.currentTime
       );
     }
@@ -3112,9 +3120,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           const ctx = bgmWebAudioCtxRef.current;
           ctx.resume().catch(() => {});
           const gain = ctx.createGain();
-          gain.gain.value = Math.min(2.5, Math.max(0, bgmVolume) * 1.4);
+          gain.gain.value = getBgmGain(bgmVolume);
           gain.connect(ctx.destination);
-          bgmSynthStopRef.current = playBgmSynthLoop(ctx, gain, selectedBgmId, bgmVolume).stop;
+          bgmSynthStopRef.current = playBgmSynthLoop(ctx, gain, selectedBgmId, 1).stop;
         }
       }
     }
@@ -3180,9 +3188,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           const ctx = bgmWebAudioCtxRef.current;
           ctx.resume().catch(() => {});
           const gain = ctx.createGain();
-          gain.gain.value = Math.min(2.5, Math.max(0, bgmVolume) * 1.4);
+          gain.gain.value = getBgmGain(bgmVolume);
           gain.connect(ctx.destination);
-          bgmSynthStopRef.current = playBgmSynthLoop(ctx, gain, selectedBgmId, bgmVolume).stop;
+          bgmSynthStopRef.current = playBgmSynthLoop(ctx, gain, selectedBgmId, 1).stop;
         }
       }
     }
@@ -4246,8 +4254,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
   // 인트로·컷·브릿지·아웃트로 구간별 "이 부분만 다시 보기"
   const previewSectionPlay = (section: StudioSection, bridgeIndex?: number) => {
-    // 썸네일/다운로드 단계는 영상 구간 미리보기가 없는 마무리 화면이다.
-    if (section === 'thumbnail' || section === 'download') return;
+    // 다운로드 단계는 영상 구간 미리보기가 없는 마무리 화면이다.
+    if (section === 'download') return;
     if (standalonePreviewSection || !isSequenceMode) {
       // AI 컷이 없거나, 브릿지 단계처럼 독립 캔버스를 보여주는 상태에서는
       // 타임라인 시크 대신 해당 모션만 캔버스에서 재생한다.
@@ -4456,12 +4464,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       showLockedStepGuide(section, lockedReason);
       return;
     }
-    // 노래·썸네일·다운로드는 타임라인 위치와 무관한 마무리 패널이라
+    // 노래·전체 보기·다운로드는 타임라인 위치와 무관한 마무리 패널이라
     // 사용자가 타임라인을 직접 만지기 전까지 해당 카드를 유지한다.
     musicPanelPinnedRef.current =
       section === 'music' ||
       section === 'fullPreview' ||
-      section === 'thumbnail' ||
       section === 'download';
     setActiveSection(section);
     if (section === 'intro' || section === 'introStyle') {
@@ -4881,8 +4888,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               duration: formatSec(totalDuration),
             })
           : ui('대기');
-      case 'thumbnail':
-        return thumbnailUrl ? ui('자동으로 만들었어요') : ui('대기');
       case 'download':
         return isSequenceMode && segments.length > 0
           ? ui('저장할 수 있어요')
@@ -5696,7 +5701,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           titleText: overlayOptions.titleText,
           channelText: '',
           badgeText: '',
-          showTitle: showThumbnailTitle && Boolean(overlayOptions.titleText?.trim()),
+          showTitle: false,
           showBadge: false,
           showChannel: false,
           stylePreset: thumbnailStyle,
@@ -5782,7 +5787,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           titleText: overlayOptions.titleText,
           channelText: '',
           badgeText: '',
-          showTitle: showThumbnailTitle && Boolean(overlayOptions.titleText?.trim()),
+          showTitle: false,
           showBadge: false,
           showChannel: false,
           stylePreset: thumbnailStyle,
@@ -5792,6 +5797,74 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       }
     } catch (err) {
       console.warn('Frame capture failed:', err);
+    } finally {
+      setIsUpdatingThumbnail(false);
+    }
+  };
+
+  // 전체 보기에서 눈에 보이는 합성 화면을 그대로 대표 이미지로 저장한다.
+  // (AI 추천/썸네일 단계 제거 — 회전·크롭·자막이 이미 반영된 WYSIWYG 캡처)
+  const handleCaptureFullPreviewFrame = async () => {
+    const source = previewCanvasRef.current;
+    if (!source || !source.width || !source.height) return;
+    setIsUpdatingThumbnail(true);
+    try {
+      const bg = document.createElement('canvas');
+      bg.width = thumbWidth;
+      bg.height = thumbHeight;
+      const ctx = bg.getContext('2d', { willReadFrequently: true });
+      if (!ctx) return;
+
+      // 합성 캔버스는 출력 비율(16:9 / 9:16)과 같으므로 비율만 맞춰 cover로 그린다.
+      const targetAspect = thumbWidth / thumbHeight;
+      const sourceAspect = source.width / source.height;
+      let sx = 0;
+      let sy = 0;
+      let sWidth = source.width;
+      let sHeight = source.height;
+      if (sourceAspect > targetAspect) {
+        sWidth = Math.round(source.height * targetAspect);
+        sx = Math.round((source.width - sWidth) / 2);
+      } else {
+        sHeight = Math.round(source.width / targetAspect);
+        sy = Math.round((source.height - sHeight) / 2);
+      }
+      ctx.drawImage(source, sx, sy, sWidth, sHeight, 0, 0, thumbWidth, thumbHeight);
+
+      thumbnailBgCanvasRef.current = bg;
+      const cleanUrl = bg.toDataURL('image/jpeg', 0.95);
+      setThumbnailUrl(cleanUrl);
+
+      const timelineTime = currentTimeRef.current || currentTime || 0;
+      const seg = activePlayingSegment;
+      const segOffset = seg ? segmentTimelineOffsets[seg.id] : undefined;
+      const elapsedInSeg = segOffset ? Math.max(0, timelineTime - segOffset.startOffset) : 0;
+      const sourceTime = seg
+        ? Math.min(seg.end, Math.max(seg.start, seg.start + elapsedInSeg))
+        : timelineTime;
+      const sourceVideoId = seg?.sourceVideoId ?? result?.bestSourceVideoId;
+      const rotation = seg?.rotation ?? result?.bestThumbnailRotation ?? 0;
+      const crop = seg?.cropOffsetYRatio ?? result?.bestThumbnailCropOffsetYRatio ?? 0.2;
+
+      // prepareThumbnailBg가 방금 캡처한 장면을 원본에서 다시 뽑아 덮어쓰지 않도록 키를 맞춘다.
+      lastPreparedThumbKeyRef.current = `${sourceVideoId}_${sourceTime}_${rotation}_${crop}`;
+
+      if (result) {
+        onUpdateFinalResult?.({
+          ...result,
+          thumbnailUrl: cleanUrl,
+          cleanThumbnailUrl: cleanUrl,
+          bestThumbnailCleanDataUrl: cleanUrl,
+          bestSourceVideoId: sourceVideoId,
+          bestThumbnailTime: sourceTime,
+          bestThumbnailReason: ui('전체 보기에서 직접 캡처한 장면'),
+          bestThumbnailRotation: rotation,
+          bestThumbnailCropOffsetYRatio: crop,
+        });
+      }
+      notify.success(ui('현재 장면을 대표 이미지로 저장했어요'));
+    } catch (err) {
+      console.warn('Full preview thumbnail capture failed:', err);
     } finally {
       setIsUpdatingThumbnail(false);
     }
@@ -5820,7 +5893,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         titleText: overlayOptions.titleText,
         channelText: '',
         badgeText: '',
-        showTitle: showThumbnailTitle && Boolean(overlayOptions.titleText?.trim()),
+        showTitle: false,
         showBadge: false,
         showChannel: false,
         stylePreset: thumbnailStyle,
@@ -6258,38 +6331,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               <div
                 className={`toss-player-wrapper ${
                   activeVideoUrl || standalonePreviewSection ? 'has-video' : 'is-empty'
-                } ${isPortraitOutput ? 'is-portrait-frame' : ''} ${
-                  showThumbnailInPlayer ? 'is-thumbnail-preview' : ''
-                }`}
+                } ${isPortraitOutput ? 'is-portrait-frame' : ''}`}
               >
-                {showThumbnailInPlayer ? (
-                  <>
-                    <img
-                      src={thumbnailUrl || ''}
-                      alt="AI YouTube Thumbnail"
-                      className="toss-player-thumbnail-img"
-                    />
-                    <span className="toss-player-thumbnail-badge" aria-hidden="true">
-                      <ImageIcon size={12} />
-                      <span>{isPortraitOutput ? '9:16' : '16:9'}</span>
-                    </span>
-                    <button
-                      type="button"
-                      className="toss-video-fullscreen-overlay-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleFullscreen();
-                      }}
-                      title={
-                        isFullscreen
-                          ? (dict.player?.exitFullscreen || '전체화면 축소')
-                          : (dict.player?.fullscreen || '전체화면 확대')
-                      }
-                    >
-                      {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
-                    </button>
-                  </>
-                ) : isMusicPreviewStep ? (
+                {isMusicPreviewStep ? (
                   /* 노래 단계: 영상 시퀀스 대신 배경음악 단독 미리보기만 보여준다.
                      영상+음악 합본은 다음 단계인 '전체 보기'에서 자동 재생으로 확인한다. */
                   <div className="toss-bgm-preview">
@@ -6390,7 +6434,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                 titleText: overlayOptions.titleText,
                                 channelText: '',
                                 badgeText: '',
-                                showTitle: showThumbnailTitle && Boolean(overlayOptions.titleText?.trim()),
+                                showTitle: false,
                                 showBadge: false,
                                 showChannel: false,
                                 stylePreset: thumbnailStyle,
@@ -6508,7 +6552,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
                     {/* 모바일: 멀티트랙 타임라인·외부 트랜스포트 바 대신 영상 하단에 얇은 스크럽 바 + 타임코드를 오버레이한다.
                         데스크탑·전체화면에서는 CSS로 숨기고 기존 플로팅 바를 유지한다. */}
-                    {activeVideoUrl && !standalonePreviewSection && !showThumbnailInPlayer && (
+                    {activeVideoUrl && !standalonePreviewSection && (
                       <div className="toss-mobile-inline-controls">
                         <div className="toss-mobile-scrub-row">
                           <div
@@ -6622,9 +6666,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   </div>
                 )}
 
-                {/* AI 컷이 없어도 인트로/브릿지/아웃트로를 그려주는 독립 캔버스
-                    썸네일 단계에서는 합성 캔버스 대신 완성된 썸네일 이미지를 보여준다 */}
-                {(showCompositeCanvas || standalonePreviewSection) && !showThumbnailInPlayer && (
+                {/* AI 컷이 없어도 인트로/브릿지/아웃트로를 그려주는 독립 캔버스 */}
+                {(showCompositeCanvas || standalonePreviewSection) && (
                   <canvas
                     ref={previewCanvasRef}
                     width={frame.width}
@@ -6661,8 +6704,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 )}
               </div>
 
-              {/* 비디오 재생 트랜스포트 바 (인트로/브릿지/아웃트로 모션·음악 단독 미리보기·썸네일 중에는 숨김) */}
-              {activeVideoUrl && !standalonePreviewSection && !isMusicPreviewStep && !showThumbnailInPlayer && (
+              {/* 비디오 재생 트랜스포트 바 (인트로/브릿지/아웃트로 모션·음악 단독 미리보기 중에는 숨김) */}
+              {activeVideoUrl && !standalonePreviewSection && !isMusicPreviewStep && (
                 <div className="toss-transport-bar">
                   <div className="toss-transport-left">
                     <button
@@ -7401,7 +7444,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         </section>
         )}
 
-        {/* 2-B. 오른쪽 열: [썸네일] -> [다운로드] -> [인트로] -> [AI 극적 순간] -> [아웃트로] -> [요약] */}
+        {/* 2-B. 오른쪽 열: [다운로드] -> [인트로] -> [AI 극적 순간] -> [아웃트로] -> [요약] */}
         <section className="toss-column-right" ref={rightColumnRef} data-tour="studio-inspector">
           {/* 현재 편집 단계 안내 (한 번에 한 구간만 보여주기) */}
           <div className="toss-inspector-head">
@@ -7411,138 +7454,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <h3 className="toss-inspector-title">
               {ui('{label} 설정', { label: ui(activeStudioStep.label) })}
             </h3>
-          </div>
-
-          {/* 썸네일 단계: 완성된 영상의 16:9 대표 이미지 */}
-          <div
-            className={`toss-thumbnail-section toss-inspector-card ${
-              activeSection === 'thumbnail' ? 'is-active-section' : ''
-            } ${showThumbnailInPlayer ? 'is-thumbnail-in-player' : ''}`}
-          >
-              <div className="toss-card toss-thumbnail-card">
-              <BorderBeam
-                duration={8}
-                borderWidth={1.5}
-              />
-              <div className="toss-card-header">
-                <div>
-                  <h4 className="toss-card-title">
-                    <ImageIcon size={16} className="text-slate-800 shrink-0" />
-                    <span>{dict.thumbnail?.cardTitle || 'AI 맞춤 썸네일 (16:9)'}</span>
-                  </h4>
-                  {result && (
-                    <div className="flex items-center gap-1.5 mt-2 px-2.5 py-1 bg-slate-100 border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-800">
-                      <Sparkles size={12} className="text-slate-700 shrink-0" />
-                      <span>
-                        {(dict.thumbnail?.aiRecommendedPrefix || 'AI 추천')}:{' '}
-                        {result.bestThumbnailReason || dict.thumbnail?.aiHighlightMoment || 'AI가 선정한 하이라이트 순간'}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <span className="toss-tag-blue">
-                  {dict.thumbnail?.previewBadge || '16:9 유튜브 규격'}
-                </span>
-              </div>
-
-              {!result && !thumbnailUrl ? (
-                <div className="toss-empty-state toss-thumbnail-empty">
-                  <ImageIcon size={30} className="text-slate-300" />
-                  <p className="toss-thumbnail-empty-title">
-                    {isCreationFlow
-                      ? ui('AI 하이라이트를 만들면 썸네일을 함께 준비할 수 있어요')
-                      : ui('아직 완성된 썸네일이 없어요')}
-                  </p>
-                  <p className="toss-thumbnail-empty-desc">
-                    {isCreationFlow
-                      ? ui('5번 AI 하이라이트에서 영상을 분석하면 AI가 가장 잘 나온 장면으로 16:9 썸네일을 만들어줘요.')
-                      : ui('현재 영상 화면을 그대로 캡처하거나, AI 하이라이트를 다시 뽑아 추천 프레임을 받아보세요.')}
-                  </p>
-                  <div className="toss-thumbnail-empty-actions">
-                    <button
-                      type="button"
-                      className="toss-btn-primary toss-btn-sm"
-                      onClick={() => goToSection(isCreationFlow ? 'ai' : 'cut')}
-                    >
-                      <Sparkles size={13} />
-                      <span>{isCreationFlow ? ui('5번 AI 하이라이트로 가기') : ui('6번 컷으로 가기')}</span>
-                    </button>
-                    {activeVideoUrl && (
-                      <button
-                        type="button"
-                        className="toss-btn-secondary toss-btn-sm"
-                        onClick={handleCaptureCurrentFrame}
-                        disabled={isUpdatingThumbnail}
-                      >
-                        <ImageIcon size={13} />
-                        <span>{isUpdatingThumbnail ? ui('캡처 중...') : ui('현재 화면으로 만들기')}</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <>
-              {/* 썸네일 출력 비율 프리뷰 */}
-              <div className={`toss-thumbnail-preview-wrap ${isPortraitOutput ? 'is-portrait' : ''}`}>
-                {thumbnailUrl ? (
-                  <img
-                    src={thumbnailUrl}
-                    alt="AI YouTube Thumbnail"
-                    className="toss-thumbnail-img"
-                  />
-                ) : (
-                  <div className="flex flex-col items-center justify-center w-full h-full text-slate-400 py-10 px-4 text-center">
-                    <ImageIcon size={32} className="text-slate-600 mb-2 animate-pulse" />
-                    <span className="text-xs font-semibold text-slate-600 mb-2">
-                      {isUpdatingThumbnail
-                        ? (dict.thumbnail?.generatingThumbnail || '썸네일 생성 중...')
-                        : (dict.thumbnail?.loadingThumbnail || '썸네일 이미지를 불러오는 중이에요')}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleCaptureCurrentFrame}
-                      disabled={isUpdatingThumbnail}
-                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold shadow-sm transition-all"
-                    >
-                      {dict.thumbnail?.generateFromCurrentVideo || '현재 비디오 화면으로 썸네일 생성'}
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* 썸네일 타이틀 및 스타일 컨트롤 */}
-              <div className="toss-thumbnail-controls">
-                {/* AI가 추천한 타이틀만 읽기 전용으로 표시 (편집 옵션 없음) */}
-                {result?.suggestedTitle && (
-                  <div className="toss-thumbnail-picked">
-                    <Type size={13} className="text-slate-800 shrink-0" />
-                    <span className="toss-thumbnail-picked-value">{result.suggestedTitle}</span>
-                  </div>
-                )}
-
-                <div className="toss-thumbnail-actions">
-                  <button
-                    type="button"
-                    className="toss-btn-download-thumb"
-                    onClick={handleDownloadThumbnail}
-                    title={thumbDownloadTitle}
-                  >
-                    <Download size={14} className="shrink-0" />
-                    <span className="toss-btn-text-content">
-                      <span className="toss-btn-download-label-long">
-                        {dict.thumbnail?.downloadBtn || '썸네일 다운로드'}
-                      </span>
-                      <span className="toss-btn-download-label-short">
-                        {dict.header?.downloadThumbnail || '다운로드'}
-                      </span>
-                      <span className="toss-btn-hd-spec"> {thumbSpecLabel}</span>
-                    </span>
-                  </button>
-                </div>
-              </div>
-              </>
-              )}
-            </div>
           </div>
 
           {/* 다운로드 단계: 최종 저장 */}
@@ -9502,7 +9413,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     max="1"
                     step="0.05"
                     value={bgmVolume}
-                    onChange={(e) => setBgmVolume(parseFloat(e.target.value))}
+                    onChange={(e) => setBgmVolume(Number(parseFloat(e.target.value).toFixed(2)))}
                     className="toss-slider toss-music-slider"
                   />
                   <strong className="toss-music-volume-value">{Math.round(bgmVolume * 100)}%</strong>
@@ -9654,6 +9565,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   <span>{ui('처음부터 전체 재생')}</span>
                 </button>
 
+                <button
+                  type="button"
+                  className="toss-btn-secondary toss-btn-sm toss-full-preview-thumb"
+                  onClick={handleCaptureFullPreviewFrame}
+                  disabled={isUpdatingThumbnail}
+                  title={ui('지금 화면에 보이는 장면을 대표 이미지로 저장해요')}
+                >
+                  <ImageIcon size={13} />
+                  <span>{isUpdatingThumbnail ? ui('캡처 중...') : ui('이 장면을 대표 이미지로 저장')}</span>
+                </button>
+
                 {isMusicExceeded && customAudioDuration && (
                   <div className="toss-full-preview-overflow">
                     <span>
@@ -9734,7 +9656,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 aria-disabled={nextStepBlockedReason ? true : undefined}
                 title={nextStepBlockedReason ?? undefined}
               >
-                <span>{activeSection === 'thumbnail' ? ui('다운로드로 가기') : ui('다음 단계')}</span>
+                <span>{ui('다음 단계')}</span>
                 <ArrowRight size={14} />
               </button>
             )}

@@ -7,7 +7,6 @@ import {
   Download,
   Eye,
   Film,
-  Image as ImageIcon,
   MapPin,
   Music,
   Scissors,
@@ -46,8 +45,6 @@ export const StudioStepIcon: React.FC<StudioStepIconProps> = ({ stepId, size = 1
       return <Music size={size} />;
     case 'fullPreview':
       return <Eye size={size} />;
-    case 'thumbnail':
-      return <ImageIcon size={size} />;
     default:
       // download
       return <Download size={size} />;

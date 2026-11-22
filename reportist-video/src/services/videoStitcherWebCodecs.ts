@@ -26,7 +26,7 @@ import {
   DEFAULT_INTRO_DURATION,
   DEFAULT_OUTRO_DURATION,
 } from './hyperframesIntroOutroRenderer.ts';
-import { scheduleBgmSynthTrack } from './audioSynth.ts';
+import { getBgmGain, scheduleBgmSynthTrack } from './audioSynth.ts';
 
 export interface StitchVideosWebCodecsParams {
   videos: VideoItem[];
@@ -1204,7 +1204,8 @@ export async function stitchVideosWebCodecs({
               }
 
               const gain = offlineAudioCtx.createGain();
-              gain.gain.value = Math.max(0, Math.min(1, bgmVolume));
+              // 미리보기와 동일한 이득을 적용해 내보낸 영상에서 BGM이 거의 들리지 않던 문제를 막는다.
+              gain.gain.value = getBgmGain(bgmVolume);
 
               srcNode.connect(gain);
               gain.connect(offlineAudioCtx.destination);
@@ -1217,12 +1218,17 @@ export async function stitchVideosWebCodecs({
         } else if (bgmPresetId && bgmPresetId !== 'none') {
           // BGM 프리셋 신디사이저 사운드트랙 오프라인 렌더링 믹싱
           try {
+            // 볼륨은 바깥 GainNode에서 getBgmGain()으로 한 번만 적용한다.
+            // 여기서도 bgmVolume을 넘기면 내부 masterGain이 곱해져 소리가 제곱으로 들어간다.
+            const synthGain = offlineAudioCtx.createGain();
+            synthGain.gain.value = getBgmGain(bgmVolume);
+            synthGain.connect(offlineAudioCtx.destination);
             scheduleBgmSynthTrack(
               offlineAudioCtx,
-              offlineAudioCtx.destination,
+              synthGain,
               bgmPresetId,
               totalVideoDurationSec,
-              bgmVolume
+              1
             );
           } catch (synthErr) {
             console.warn('[WebCodecs] BGM 프리셋 신스 믹싱 경고:', synthErr);

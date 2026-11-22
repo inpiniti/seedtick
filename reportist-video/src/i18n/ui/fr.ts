@@ -50,6 +50,10 @@ export const uiFr: Record<string, string> = {
     "L'import et les moments IA se font tous sur cet écran.",
   '썸네일': 'Miniature',
   '대표 이미지': 'Image de couverture',
+  '전체 보기에서 직접 캡처한 장면': 'Scène capturée directement dans Aperçu complet',
+  '현재 장면을 대표 이미지로 저장했어요': 'La scène actuelle a été enregistrée comme image de couverture',
+  '이 장면을 대표 이미지로 저장': 'Enregistrer cette scène comme couverture',
+  '지금 화면에 보이는 장면을 대표 이미지로 저장해요': 'Enregistrez la scène affichée à l’écran comme image de couverture',
   '유튜브에 올릴 16:9 대표 이미지를 만들어요. AI 추천 프레임과 타이틀을 그대로 쓸 수 있어요.':
     'Créez l’image de couverture 16:9 pour YouTube. Vous pouvez utiliser tels quels l’image et le titre recommandés par l’IA.',
   '편집한 영상과 자막 파일을 내려받아요. 모든 편집이 끝난 뒤 마지막으로 눌러주세요.':

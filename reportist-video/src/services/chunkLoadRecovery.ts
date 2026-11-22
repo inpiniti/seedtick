@@ -4,7 +4,14 @@
 // 이때 새 배포의 HTML·청크를 다시 받도록 한 번만 새로고침해 흰 화면으로 남는 것을 막는다.
 
 const RELOAD_STORAGE_KEY = 'penguincut_chunk_reload_at';
+const ATTEMPT_STORAGE_KEY = 'penguincut_chunk_reload_count';
 const RELOAD_COOLDOWN_MS = 10_000;
+// 탭 하나당 자동 새로고침은 딱 한 번만. 계속 실패하면 ErrorBoundary의 수동 복구로 넘긴다.
+// (쿨다운만 두면 10초 간격으로 무한 새로고침이 돌아 Chrome의 "Throttling navigation" 경고가 뜬다.)
+const MAX_RELOAD_ATTEMPTS = 1;
+
+// 같은 틱에 vite:preloadError와 unhandledrejection이 모두 들어와도 한 번만 예약한다.
+let reloadScheduled = false;
 
 const CHUNK_LOAD_ERROR_PATTERN =
   /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Unable to preload CSS|ChunkLoadError/i;
@@ -17,17 +24,24 @@ export function isChunkLoadError(error: unknown): boolean {
 }
 
 function reloadOnceForFreshChunks(): void {
+  if (reloadScheduled) return;
   try {
+    const attempts = Number(window.sessionStorage.getItem(ATTEMPT_STORAGE_KEY) || 0);
+    if (!Number.isFinite(attempts) || attempts >= MAX_RELOAD_ATTEMPTS) {
+      return;
+    }
     const lastReloadAt = Number(window.sessionStorage.getItem(RELOAD_STORAGE_KEY) || 0);
     if (Number.isFinite(lastReloadAt) && Date.now() - lastReloadAt < RELOAD_COOLDOWN_MS) {
       return;
     }
     window.sessionStorage.setItem(RELOAD_STORAGE_KEY, String(Date.now()));
+    window.sessionStorage.setItem(ATTEMPT_STORAGE_KEY, String(attempts + 1));
   } catch {
     // sessionStorage를 쓸 수 없는 환경에서는 무한 새로고침을 막을 수 없으므로
     // 자동 복구를 건너뛰고 ErrorBoundary의 수동 새로고침 버튼으로 넘긴다.
     return;
   }
+  reloadScheduled = true;
   window.location.reload();
 }
 

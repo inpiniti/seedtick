@@ -9,7 +9,7 @@ import type {
   VideoOrientation,
   VideoOverlayOptions,
 } from '../types/video.ts';
-import { playBgmSynthLoop } from './audioSynth.ts';
+import { getBgmGain, playBgmSynthLoop } from './audioSynth.ts';
 import { drawCompositorCoverFrame, drawCompositorSegmentOverlay } from './previewCompositorBase.ts';
 import { resolveFrameSpec } from './frameSpec.ts';
 import {
@@ -530,7 +530,7 @@ export async function stitchHighlightedSegments({
           }
 
           const gainNode = audioCtx.createGain();
-          gainNode.gain.setValueAtTime(Math.max(0, Math.min(1, bgmVolume)), audioCtx.currentTime);
+          gainNode.gain.setValueAtTime(getBgmGain(bgmVolume), audioCtx.currentTime);
 
           customSourceNode.connect(gainNode);
           gainNode.connect(audioDest);
@@ -568,7 +568,11 @@ export async function stitchHighlightedSegments({
       }
     } else if (bgmPresetId && bgmPresetId !== 'none' && audioCtx && audioDest) {
       try {
-        bgmController = playBgmSynthLoop(audioCtx, audioDest, bgmPresetId, bgmVolume);
+        // 볼륨은 미리보기와 같은 공식으로 한 번만 적용한다(내부 masterGain 중복 곱셈 방지).
+        const synthGain = audioCtx.createGain();
+        synthGain.gain.setValueAtTime(getBgmGain(bgmVolume), audioCtx.currentTime);
+        synthGain.connect(audioDest);
+        bgmController = playBgmSynthLoop(audioCtx, synthGain, bgmPresetId, 1);
       } catch (e) {
         console.warn('[VideoStitcher] BGM 신스 연결 건너뜀:', e);
       }

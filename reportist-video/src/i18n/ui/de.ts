@@ -50,6 +50,10 @@ export const uiDe: Record<string, string> = {
     'Upload und KI-Highlights erledigst du alles auf diesem Bildschirm.',
   '썸네일': 'Vorschaubild',
   '대표 이미지': 'Titelbild',
+  '전체 보기에서 직접 캡처한 장면': 'Direkt in der Gesamtvorschau aufgenommene Szene',
+  '현재 장면을 대표 이미지로 저장했어요': 'Die aktuelle Szene wurde als Titelbild gespeichert',
+  '이 장면을 대표 이미지로 저장': 'Diese Szene als Titelbild speichern',
+  '지금 화면에 보이는 장면을 대표 이미지로 저장해요': 'Speichere die gerade sichtbare Szene als Titelbild',
   '유튜브에 올릴 16:9 대표 이미지를 만들어요. AI 추천 프레임과 타이틀을 그대로 쓸 수 있어요.':
     'Erstelle das 16:9-Titelbild für YouTube. Verwende einfach das von der KI empfohlene Bild und den Titel.',
   '편집한 영상과 자막 파일을 내려받아요. 모든 편집이 끝난 뒤 마지막으로 눌러주세요.':

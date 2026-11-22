@@ -51,6 +51,10 @@ export const uiEn: Record<string, string> = {
     'Upload and AI highlights are all done on this screen.',
   '썸네일': 'Thumbnail',
   '대표 이미지': 'Cover image',
+  '전체 보기에서 직접 캡처한 장면': 'Scene captured directly in Full preview',
+  '현재 장면을 대표 이미지로 저장했어요': 'Saved the current scene as the cover image',
+  '이 장면을 대표 이미지로 저장': 'Save this scene as cover',
+  '지금 화면에 보이는 장면을 대표 이미지로 저장해요': 'Save the scene currently on screen as the cover image',
   '유튜브에 올릴 16:9 대표 이미지를 만들어요. AI 추천 프레임과 타이틀을 그대로 쓸 수 있어요.':
     'Create the 16:9 cover image for YouTube. Use the AI-recommended frame and title as-is.',
   '편집한 영상과 자막 파일을 내려받아요. 모든 편집이 끝난 뒤 마지막으로 눌러주세요.':
