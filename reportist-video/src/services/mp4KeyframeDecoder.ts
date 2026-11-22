@@ -37,14 +37,15 @@ export interface DecodeKeyframesOptions {
   rotationOffset?: number;
 }
 
-interface ParsedVideoSample {
+export interface ParsedVideoSample {
   offset: number;
   size: number;
-  ctsSec: number;
+  ctsSec: number;   // presentation time (media timescale 기준)
+  dtsSec: number;   // decode time (샘플 배열은 decode order)
   isKey: boolean;
 }
 
-interface ParsedVideoTrack {
+export interface ParsedVideoTrack {
   codec: string;
   codedWidth: number;
   codedHeight: number;
@@ -52,6 +53,8 @@ interface ParsedVideoTrack {
   timescale: number;
   durationSec: number;
   rotation: number; // 0 | 90 | 180 | 270
+  /** edts/elst의 첫 media_time을 미디어 timescale로 나눈 값. movie 시간 = ctsSec - 이 값 */
+  presentationOffsetSec: number;
   samples: ParsedVideoSample[];
 }
 
@@ -245,6 +248,39 @@ function parseRotationFromTkhd(box: BoxView): number {
   // 90° 배수로 정규화
   const snapped = Math.round(degrees / 90) * 90;
   return ((snapped % 360) + 360) % 360;
+}
+
+/**
+ * edts/elst 첫 엔트리의 media_time을 읽어 movie 타임라인 기준 시작 오프셋(초)을 반환.
+ * <video>는 edit list를 자동 적용하지만 VideoDecoder의 원시 타임스탬프는 미디어 시간이라
+ * iPhone 손떨림 보정(.mov)처럼 media_time이 0이 아닌 파일은 프레임 선택이 어긋난다.
+ * media_time === -1(empty edit)은 초기 지연이므로 보정하지 않는다.
+ */
+function parsePresentationOffsetFromEdts(
+  buffer: ArrayBuffer,
+  trak: BoxView,
+  timescale: number
+): number {
+  const edts = findBox(buffer, trak.payloadStart, trak.payloadStart + trak.payloadSize, 'edts');
+  if (!edts) return 0;
+  const elst = findBox(buffer, edts.payloadStart, edts.payloadStart + edts.payloadSize, 'elst');
+  if (!elst || elst.payloadSize < 16) return 0;
+
+  const view = new DataView(buffer);
+  const version = view.getUint8(elst.payloadStart);
+  const entryCount = view.getUint32(elst.payloadStart + 4, false);
+  if (entryCount < 1) return 0;
+
+  const width = version === 1 ? 8 : 4;
+  const mediaTimeOffset = elst.payloadStart + 8 + width;
+  if (mediaTimeOffset + width > elst.payloadStart + elst.payloadSize) return 0;
+
+  const mediaTime =
+    version === 1
+      ? Number(view.getBigInt64(mediaTimeOffset, false))
+      : view.getInt32(mediaTimeOffset, false);
+  if (!Number.isFinite(mediaTime) || mediaTime <= 0) return 0;
+  return mediaTime / timescale;
 }
 
 interface SampleTables {
@@ -490,7 +526,7 @@ function parseStsdForCodec(buffer: ArrayBuffer, stbl: BoxView): {
 }
 
 /** MP4/MOV 파일의 비디오 트랙 샘플 테이블을 파싱 */
-async function parseMp4VideoTrack(file: Blob): Promise<ParsedVideoTrack | null> {
+export async function parseMp4VideoTrack(file: Blob): Promise<ParsedVideoTrack | null> {
   const moovBuffer = await readMoovBuffer(file);
   if (!moovBuffer) return null;
 
@@ -535,9 +571,11 @@ async function parseMp4VideoTrack(file: Blob): Promise<ParsedVideoTrack | null> 
     const tables = parseStbl(moovBuffer, stbl);
     if (!tables) continue;
 
-    const { offsets, sizes, ctsTicks, keyframeIndices } = tables;
+    const { offsets, sizes, ctsTicks, dtsTicks, keyframeIndices } = tables;
     const sampleCount = sizes.length;
     if (sampleCount === 0) continue;
+
+    const presentationOffsetSec = parsePresentationOffsetFromEdts(moovBuffer, trak, timescale);
 
     const keyframeSet = new Set(keyframeIndices);
     const samples: ParsedVideoSample[] = new Array(sampleCount);
@@ -547,6 +585,7 @@ async function parseMp4VideoTrack(file: Blob): Promise<ParsedVideoTrack | null> 
         offset: offsets[i],
         size: sizes[i],
         ctsSec: ctsTicks[i] / timescale,
+        dtsSec: dtsTicks[i] / timescale,
         isKey: keyframeSet.has(i),
       };
     }
@@ -571,6 +610,7 @@ async function parseMp4VideoTrack(file: Blob): Promise<ParsedVideoTrack | null> 
       timescale,
       durationSec,
       rotation,
+      presentationOffsetSec,
       samples,
     };
   }

@@ -15,6 +15,12 @@ import type {
 import { drawCompositorCoverFrame, drawCompositorSegmentOverlay } from './previewCompositorBase.ts';
 import { resolveFrameSpec } from './frameSpec.ts';
 import {
+  createOfflineFrameSource,
+  isOfflineFrameDecoderAvailable,
+  type OfflineDecodedFrame,
+  type OfflineFrameSource,
+} from './offlineFrameDecoder.ts';
+import {
   CHAPTER_BRIDGE_DURATION,
   computeBridgeDurationMap,
   createHyperframesBridgeController,
@@ -65,6 +71,10 @@ const IS_MOBILE =
   typeof navigator !== 'undefined' &&
   (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
+// 옵션 1: 데스크톱에서만 VideoDecoder 기반 오프라인 디코딩을 사용한다.
+// 모바일은 검증된 30fps <video> 실시간 경로를 그대로 유지한다.
+const OFFLINE_DECODE_ENABLED = !IS_MOBILE && isOfflineFrameDecoderAvailable();
 
 type VideoWithRvfc = HTMLVideoElement & {
   requestVideoFrameCallback?: (
@@ -386,7 +396,11 @@ export async function stitchVideosWebCodecs({
 
   onLog?.(
     `🚀 WebCodecs GPU 하드웨어 가속 비디오 렌더러 시작 (${targetResolution} ${targetWidth}x${targetHeight} · ${targetFps}fps · ${
-      IS_MOBILE ? '모바일 전력/메모리 최적화 모드' : '데스크톱 60fps 최고화질 모드'
+      IS_MOBILE
+        ? '모바일 전력/메모리 최적화 모드'
+        : OFFLINE_DECODE_ENABLED
+          ? '데스크톱 오프라인 디코딩 모드'
+          : '데스크톱 60fps 최고화질 모드'
     })`
   );
 
@@ -829,6 +843,102 @@ export async function stitchVideosWebCodecs({
     }
   };
 
+  // 데스크톱 오프라인 경로에서 디코더가 만든(tkhd 회전까지 적용된) 캔버스를
+  // 기존 컴포지터에 그대로 넘겨주기 위한 어댑터. <video>의 videoWidth/videoHeight를
+  // 흉내내어 drawCompositorCoverFrame의 크롭/사용자 회전 연산을 100% 재사용한다.
+  const drawOfflineFrame = (
+    targetCtx: CanvasRenderingContext2D,
+    decoded: OfflineDecodedFrame,
+    videoItem?: VideoItem,
+    segment?: HighlightSegment
+  ) => {
+    const pseudoVideo = decoded.canvas as HTMLCanvasElement & {
+      videoWidth: number;
+      videoHeight: number;
+    };
+    pseudoVideo.videoWidth = decoded.width;
+    pseudoVideo.videoHeight = decoded.height;
+    drawCompositorCoverFrame(
+      targetCtx,
+      pseudoVideo as unknown as HTMLVideoElement,
+      videoItem,
+      segment,
+      frame
+    );
+  };
+
+  /** 오프라인 디코더 생성 시도. 실패/미지원이면 null을 반환해 실시간 경로로 폴백한다. */
+  const tryCreateOfflineSource = async (
+    file: Blob | undefined | null,
+    rangeStart: number,
+    rangeEnd: number,
+    label: string
+  ): Promise<OfflineFrameSource | null> => {
+    if (!OFFLINE_DECODE_ENABLED || !file || file.size === 0) return null;
+    try {
+      const source = await createOfflineFrameSource(file, rangeStart, rangeEnd, { signal });
+      if (source) {
+        onLog?.(`⚡ 오프라인 디코더 활성화 (${label}) — 실시간 재생 없이 프레임 누락 없이 인코딩합니다.`);
+      }
+      return source;
+    } catch (err) {
+      console.warn(`[WebCodecs] ${label} 오프라인 디코더 초기화 실패, 실시간 경로로 폴백:`, err);
+      return null;
+    }
+  };
+
+  /**
+   * VideoDecoder가 내놓은 프레임을 CFR 타임라인에 확정적으로 배치해 인코더에 공급한다.
+   * 실시간 재생을 기다리지 않으므로 백그라운드 탭/창 가림, 인코더 백프레셔,
+   * GPU readback 지연과 무관하게 프레임 드랍 0% / 중복 0%가 보장된다.
+   */
+  const encodeVideoRangeOffline = async (params: {
+    source: OfflineFrameSource;
+    rangeStart: number;
+    rangeEnd: number;
+    videoItem?: VideoItem;
+    segment?: HighlightSegment;
+    overlayCanvas?: HTMLCanvasElement | null;
+    forceFirstKeyFrame?: boolean;
+    onFrameProgress?: (elapsedSec: number) => void;
+  }): Promise<void> => {
+    const {
+      source,
+      rangeStart,
+      rangeEnd,
+      videoItem,
+      segment,
+      overlayCanvas,
+      forceFirstKeyFrame = false,
+      onFrameProgress,
+    } = params;
+
+    const duration = Math.max(0.05, rangeEnd - rangeStart);
+    const segFrames = Math.max(2, Math.round(duration * targetFps));
+    const segTimeStep = duration / segFrames;
+
+    try {
+      for (let f = 0; f < segFrames; f++) {
+        if (signal?.aborted) throw new Error('작업 취소');
+        if (videoEncoderError) throw videoEncoderError;
+
+        const targetElapsedSec = f * segTimeStep;
+        const decoded = await source.next(rangeStart + targetElapsedSec);
+        if (decoded) {
+          drawOfflineFrame(ctx, decoded, videoItem, segment);
+        }
+        if (overlayCanvas) {
+          ctx.drawImage(overlayCanvas, 0, 0);
+        }
+
+        await pushCanvasFrame(f === 0 && forceFirstKeyFrame);
+        onFrameProgress?.(targetElapsedSec);
+      }
+    } finally {
+      source.close();
+    }
+  };
+
   // 사용자 지정 인트로/아웃트로 동영상 파일 렌더링 헬퍼
   const renderCustomVideoClip = async (clipFile: File, label: string, isFirstKeyFrame: boolean): Promise<number> => {
     reportProgress(label === '시작 인트로' ? 2 : 96, `${label} 영상 로드 및 합성 중...`, true);
@@ -841,12 +951,22 @@ export async function stitchVideosWebCodecs({
           : 0;
       if (clipDuration <= 0.05) return 0;
 
-      await encodeVideoRangeSequentially({
-        rangeStart: 0,
-        rangeEnd: clipDuration,
-        forceFirstKeyFrame: isFirstKeyFrame,
-        keepPlayingOnEnd: false,
-      });
+      const offlineSource = await tryCreateOfflineSource(clipFile, 0, clipDuration, label);
+      if (offlineSource) {
+        await encodeVideoRangeOffline({
+          source: offlineSource,
+          rangeStart: 0,
+          rangeEnd: clipDuration,
+          forceFirstKeyFrame: isFirstKeyFrame,
+        });
+      } else {
+        await encodeVideoRangeSequentially({
+          rangeStart: 0,
+          rangeEnd: clipDuration,
+          forceFirstKeyFrame: isFirstKeyFrame,
+          keepPlayingOnEnd: false,
+        });
+      }
       return clipDuration;
     } finally {
       URL.revokeObjectURL(blobUrl);
@@ -906,18 +1026,36 @@ export async function stitchVideosWebCodecs({
       const prevSeg = segIdx > 0 ? allSegments[segIdx - 1] : null;
       const isSourceSwitch = Boolean(prevSeg && prevSeg.sourceVideoId !== segment.sourceVideoId);
 
-      // 다른 원본 영상으로 전환할 때(예: 18개 영상 연속 병합) 이전 비디오 디코더 파이프라인을 명시적으로 비운 뒤 로드하여
-      // iOS WebKit VideoToolbox 하드웨어 디코더 재할당 지연 및 초반 프레임 드랍 방지
-      if (isSourceSwitch) {
+      // 데스크톱: 오프라인 디코더를 먼저 시도한다. 성공하면 <video>를 전혀 재생하지 않으므로
+      // 실시간 디코더 슬롯 경합·시크 스래싱·백그라운드 스로틀링이 모두 사라진다.
+      const offlineSource = await tryCreateOfflineSource(
+        videoItem.file,
+        segment.start,
+        segment.end,
+        `구간 ${segIdx + 1}/${allSegments.length}`
+      );
+
+      if (offlineSource) {
+        // 이전 구간이 실시간 경로였다면 하드웨어 디코더 버퍼를 반환한다.
         try {
           workerVideo.pause();
           workerVideo.removeAttribute('src');
           workerVideo.load();
         } catch {}
-      }
+      } else {
+        // 다른 원본 영상으로 전환할 때(예: 18개 영상 연속 병합) 이전 비디오 디코더 파이프라인을 명시적으로 비운 뒤 로드하여
+        // iOS WebKit VideoToolbox 하드웨어 디코더 재할당 지연 및 초반 프레임 드랍 방지
+        if (isSourceSwitch) {
+          try {
+            workerVideo.pause();
+            workerVideo.removeAttribute('src');
+            workerVideo.load();
+          } catch {}
+        }
 
-      // 비디오 소스 로드
-      await loadVideoSource(workerVideo, videoItem.url, 12000);
+        // 비디오 소스 로드
+        await loadVideoSource(workerVideo, videoItem.url, 12000);
+      }
 
       const bridgeInfo = prevSeg
         ? evaluateChapterBridge(prevSeg, segment, segIdx, allSegments.length, overlayOptions)
@@ -925,19 +1063,30 @@ export async function stitchVideosWebCodecs({
 
       // 챕터 전환 브릿지 트랜지션 (이전 세그먼트가 있고 날짜/장소가 변경된 경우)
       if (bridgeInfo?.shouldBridge) {
-        try {
-          workerVideo.pause();
-        } catch {}
-        await seekVideoElement(workerVideo, segment.start, 8000);
-        await waitForVideoReady(workerVideo, 6000);
+        if (offlineSource) {
+          // 오프라인 경로는 시크가 필요 없다. 디코더가 이미 첫 프레임을 들고 있다.
+        } else {
+          try {
+            workerVideo.pause();
+          } catch {}
+          await seekVideoElement(workerVideo, segment.start, 8000);
+          await waitForVideoReady(workerVideo, 6000);
+        }
 
         const bridgeFrames = Math.round(CHAPTER_BRIDGE_DURATION * targetFps);
         actualBridgeDurationMap[segment.id] = CHAPTER_BRIDGE_DURATION;
 
         // 다음 장면 첫 프레임 캐싱
         if (nextFrameBufferCtx) {
-          drawCoverFrame(workerVideo, videoItem, segment);
-          nextFrameBufferCtx.drawImage(canvas, 0, 0);
+          if (offlineSource) {
+            const firstFrame = await offlineSource.next(segment.start);
+            if (firstFrame) {
+              drawOfflineFrame(nextFrameBufferCtx, firstFrame, videoItem, segment);
+            }
+          } else {
+            drawCoverFrame(workerVideo, videoItem, segment);
+            nextFrameBufferCtx.drawImage(canvas, 0, 0);
+          }
         }
 
         for (let bf = 0; bf < bridgeFrames; bf++) {
@@ -978,22 +1127,37 @@ export async function stitchVideosWebCodecs({
           Math.abs(nextSeg.start - segment.end) < 0.08
       );
 
-      await encodeVideoRangeSequentially({
-        rangeStart: segment.start,
-        rangeEnd: segment.end,
-        videoItem,
-        segment,
-        overlayCanvas,
-        forceFirstKeyFrame: segIdx === 0 && actualIntroDuration === 0,
-        keepPlayingOnEnd: canKeepPlayingToNext,
-        onFrameProgress: (elapsedSec) => {
-          const currentSegProgressSec = totalSegmentTimeProcessed + elapsedSec;
-          reportProgress(
-            (currentSegProgressSec / (totalSegmentsDuration || 1)) * 95,
-            `구간 ${segIdx + 1}/${allSegments.length} GPU 인코딩 중: [${videoItem.name || ''}]`
-          );
-        },
-      });
+      const reportSegFrameProgress = (elapsedSec: number) => {
+        const currentSegProgressSec = totalSegmentTimeProcessed + elapsedSec;
+        reportProgress(
+          (currentSegProgressSec / (totalSegmentsDuration || 1)) * 95,
+          `구간 ${segIdx + 1}/${allSegments.length} GPU 인코딩 중: [${videoItem.name || ''}]`
+        );
+      };
+
+      if (offlineSource) {
+        await encodeVideoRangeOffline({
+          source: offlineSource,
+          rangeStart: segment.start,
+          rangeEnd: segment.end,
+          videoItem,
+          segment,
+          overlayCanvas,
+          forceFirstKeyFrame: segIdx === 0 && actualIntroDuration === 0,
+          onFrameProgress: reportSegFrameProgress,
+        });
+      } else {
+        await encodeVideoRangeSequentially({
+          rangeStart: segment.start,
+          rangeEnd: segment.end,
+          videoItem,
+          segment,
+          overlayCanvas,
+          forceFirstKeyFrame: segIdx === 0 && actualIntroDuration === 0,
+          keepPlayingOnEnd: canKeepPlayingToNext,
+          onFrameProgress: reportSegFrameProgress,
+        });
+      }
 
       totalSegmentTimeProcessed += segment.duration;
 
