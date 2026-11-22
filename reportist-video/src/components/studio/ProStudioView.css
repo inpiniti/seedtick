@@ -2643,53 +2643,68 @@
 
 /* V1 Video Strip */
 .toss-sequencer-strip {
-  display: flex;
-  align-items: stretch;
+  position: relative;
   width: 100%;
   height: 48px;
-  padding: 3px;
-  gap: 2px;
   background-color: #f2f4f6;
   border-bottom: 1px solid #e5e8eb;
   box-sizing: border-box;
 }
 
 .toss-sequencer-block {
-  height: 100%;
-  position: relative;
+  --seq-ring-color: transparent;
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  height: auto;
   overflow: hidden;
   border-radius: 6px;
   background-color: #1e293b;
-  border: 1.5px solid transparent;
+  /* 클립 사이 간격은 레이아웃(gap)이 아니라 오른쪽 테두리로 그린다.
+     flex gap은 클립 수만큼 고정 폭을 차지해 플레이헤드 시간축과 어긋난다. */
+  border: 0;
+  border-right: 1px solid #f2f4f6;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.15s ease;
   min-width: 0;
   box-sizing: border-box;
 }
 
+/* 선택/재생 테두리는 outline 대신 내부 링으로 그린다.
+   클립이 2~3px로 아주 좁아도 테두리 폭이 자동으로 줄어들어 항상 보인다. */
+.toss-sequencer-block::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border: 1.5px solid var(--seq-ring-color);
+  border-radius: inherit;
+  box-sizing: border-box;
+  pointer-events: none;
+  transition: border-color 0.15s ease;
+}
+
 .toss-sequencer-block:hover {
-  border-color: #0f172a;
+  --seq-ring-color: #0f172a;
   z-index: 5;
 }
 
 .toss-sequencer-block.selected {
-  border-color: #0f172a;
-  box-shadow: 0 0 0 1.5px #0f172a;
+  --seq-ring-color: #0f172a;
   z-index: 6;
 }
 
 .toss-sequencer-block.playing {
-  border-color: #04b069;
-  box-shadow: 0 0 0 1.5px #04b069;
+  --seq-ring-color: #04b069;
   z-index: 7;
 }
 
 .toss-sequencer-block.exceeds-music {
-  border-color: #f59e0b;
+  --seq-ring-color: #f59e0b;
 }
 
 .toss-sequencer-block.beyond-music {
-  border-color: #f04452;
+  --seq-ring-color: #f04452;
 }
 
 /* Last video clip clearly finished with distinct right border and radius */
@@ -2708,7 +2723,7 @@
 .toss-sequencer-intro-block,
 .toss-sequencer-outro-block {
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  border-color: #1e293b;
+  border-right-color: #f2f4f6;
 }
 
 .toss-sequencer-block-thumb {
@@ -2797,12 +2812,9 @@
 
 /* A1 Audio Track Strip */
 .toss-sequencer-audio-strip {
-  display: flex;
-  align-items: stretch;
+  position: relative;
   width: 100%;
   height: 34px;
-  padding: 3px;
-  gap: 2px;
   background-color: #f2f4f6;
   box-sizing: border-box;
   cursor: pointer;
@@ -2814,16 +2826,17 @@
 }
 
 .toss-sequencer-audio-block {
-  height: 100%;
-  position: relative;
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  height: auto;
   overflow: hidden;
   border-radius: 6px;
   display: flex;
   align-items: center;
   padding: 0 8px;
   box-sizing: border-box;
-  flex-shrink: 0;
-  min-width: 8px;
+  min-width: 0;
 }
 
 .toss-sequencer-audio-block.primary {
@@ -2912,8 +2925,13 @@
 
 /* Toss-styled Empty Audio Track Button (matches .toss-btn-library-trigger & .toss-upload-box) */
 .toss-sequencer-audio-empty {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  right: 3px;
+  width: auto;
+  height: auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -13507,12 +13525,15 @@
 
 /* ---------- 타임라인 브릿지 칩 ---------- */
 .toss-sequencer-bridge-chip {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  height: auto;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 0;
-  height: 100%;
   min-width: 0;
   padding: 0 3px;
   border-radius: 6px;
@@ -13526,6 +13547,14 @@
     color 0.15s ease;
   box-sizing: border-box;
   overflow: hidden;
+}
+
+/* 아직 브릿지가 꺼진 경계: 폭을 차지하지 않고 경계선 위에 겹쳐서 보여준다.
+   (레이아웃 폭을 먹으면 뒤쪽 클립이 시간축에서 밀린다) */
+.toss-sequencer-bridge-chip.is-potential {
+  width: 16px;
+  transform: translateX(-50%);
+  z-index: 8;
 }
 
 .toss-sequencer-bridge-chip:hover {

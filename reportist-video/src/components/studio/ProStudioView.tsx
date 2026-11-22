@@ -2473,6 +2473,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     return Math.max(0, Math.round((1 - totalDuration / originalTotalDuration) * 100));
   }, [hasHighlight, totalDuration, originalTotalDuration]);
 
+  // 타임라인 블록을 플레이헤드·눈금자와 동일한 시간축(%)에 놓기 위한 헬퍼.
+  // flex gap/패딩으로 간격을 주면 클립 수만큼 누적 오차가 생겨 재생 중인 클립이
+  // 빨간 플레이헤드와 어긋난다. 블록은 항상 start/total % 위치에 absolute로 배치한다.
+  const timelinePct = (seconds: number) =>
+    `${Math.min(100, Math.max(0, (seconds / (totalDuration || 1)) * 100))}%`;
+
   // 구간별 누적 시작 오프셋 (챕터 브릿지 구간 시간 반영)
   const segmentTimelineOffsets = useMemo(() => {
     let acc = introDuration;
@@ -2651,6 +2657,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           startSec: 0,
           endSec: Math.round(totalDuration * 10) / 10,
           durationSec: Math.round(totalDuration * 10) / 10,
+          leftPct: 0,
           widthPct: 100,
           isLoop: false,
         },
@@ -2661,6 +2668,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       startSec: number;
       endSec: number;
       durationSec: number;
+      leftPct: number;
       widthPct: number;
       isLoop: boolean;
     }> = [];
@@ -2674,6 +2682,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         startSec: Math.round(cursor * 10) / 10,
         endSec: Math.round((cursor + dur) * 10) / 10,
         durationSec: Math.round(dur * 10) / 10,
+        leftPct: (cursor / totalDuration) * 100,
         widthPct: (dur / totalDuration) * 100,
         isLoop: cycle > 0,
       });
@@ -6952,8 +6961,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         <div
                           className={`toss-sequencer-block toss-sequencer-intro-block ${activePlayingSegmentId === 'intro' ? 'playing' : ''} ${activeSection === 'intro' || activeSection === 'introStyle' ? 'selected' : ''}`}
                           style={{
-                            flex: `${Math.max(0.01, introDuration)} 1 0%`,
-                            minWidth: 0,
+                            left: '0%',
+                            width: timelinePct(introDuration),
                           }}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -6975,7 +6984,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         const isCurrent = seg.id === activePlayingSegmentId && activePlayingBridgeIndex !== idx;
                         const isSelected = (activeSection === 'cut' || activeSection === 'caption') && seg.id === selectedSegmentId;
                         const bridgeDur = effectiveBridgeDurationMap[seg.id] ?? 0;
-                        const widthPct = ((seg.duration + bridgeDur) / (totalDuration || 1)) * 100;
                         const vItem = videoMap.get(seg.sourceVideoId);
                         const segOffset = segmentTimelineOffsets[seg.id];
                         const isExceedingMusic = Boolean(
@@ -7004,9 +7012,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                               <button
                                 type="button"
                                 className={`toss-sequencer-bridge-chip ${isBridgeEnabled ? 'is-active' : 'is-potential'} ${isBridgeSelected ? 'selected' : ''} ${isBridgePlaying ? 'playing' : ''}`}
-                                style={{
-                                  flex: isBridgeEnabled ? `${Math.max(0.01, bridgeDur)} 1 0%` : '0 0 auto',
-                                }}
+                                style={
+                                  isBridgeEnabled
+                                    ? {
+                                        left: timelinePct(segOffset?.bridgeStartOffset ?? 0),
+                                        width: timelinePct(bridgeDur),
+                                      }
+                                    : {
+                                        left: timelinePct(segOffset?.bridgeStartOffset ?? 0),
+                                      }
+                                }
                                 onPointerDown={(e) => e.stopPropagation()}
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -7031,8 +7046,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             <div
                               className={`toss-sequencer-block ${isSelected ? 'selected' : ''} ${isCurrent ? 'playing' : ''} ${isExceedingMusic ? 'exceeds-music' : ''} ${isFullyBeyondMusic ? 'beyond-music' : ''} ${isLastClip ? 'is-video-end-clip' : ''}`}
                               style={{
-                                flex: `${Math.max(0.01, segDur)} 1 0%`,
-                                minWidth: 0,
+                                left: timelinePct(segOffset?.startOffset ?? 0),
+                                width: timelinePct(segDur),
                               }}
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -7115,8 +7130,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         <div
                           className={`toss-sequencer-block toss-sequencer-outro-block is-video-end-clip ${activePlayingSegmentId === 'outro' ? 'playing' : ''} ${activeSection === 'outro' ? 'selected' : ''}`}
                           style={{
-                            flex: `${Math.max(0.01, outroDuration)} 1 0%`,
-                            minWidth: 0,
+                            left: timelinePct(Math.max(0, totalDuration - outroDuration)),
+                            width: timelinePct(outroDuration),
                           }}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -7160,7 +7175,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                               <div
                                 key={`audio_cycle_${block.cycleIndex}`}
                                 className={`toss-sequencer-audio-block ${block.isLoop ? 'loop-overflow' : 'primary'} ${isTrailingTrimmed ? 'is-trimmed-trailing' : ''}`}
-                                style={{ width: `${block.widthPct}%` }}
+                                style={{ left: `${block.leftPct}%`, width: `${block.widthPct}%` }}
                                 title={
                                   block.isLoop
                                     ? ui('{name} — {cycle}회차 반복 재생 구간 ({start} ~ {end}, +{extra}s)', { name: customAudioName, cycle: block.cycleIndex + 1, start: formatSec(block.startSec), end: formatSec(block.endSec), extra: block.durationSec.toFixed(1) })
@@ -7225,7 +7240,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         ) : (
                           <div
                             className={`toss-sequencer-audio-block primary ${isMusicTrimmed ? 'is-trimmed-trailing' : ''}`}
-                            style={{ width: '100%' }}
+                            style={{ left: '0%', width: '100%' }}
                           >
                             <div className="toss-audio-block-content">
                               <div className="toss-audio-block-left">
