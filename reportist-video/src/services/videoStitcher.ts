@@ -10,6 +10,7 @@ import type {
   VideoOverlayOptions,
 } from '../types/video.ts';
 import { getBgmGain, playBgmSynthLoop } from './audioSynth.ts';
+import { createMasterLimiter, timeStretchAudioBuffer } from './audioMixUtils.ts';
 import { drawCompositorCoverFrame, drawCompositorSegmentOverlay } from './previewCompositorBase.ts';
 import { resolveFrameSpec } from './frameSpec.ts';
 import {
@@ -337,16 +338,19 @@ export async function stitchHighlightedSegments({
   const audioCtx = getSharedAudioContext() || (typeof AudioContext !== 'undefined' ? new AudioContext() : null);
   let audioDest: MediaStreamAudioDestinationNode | null = null;
   let workerAudioGain: GainNode | null = null;
+  // 현장음 + BGM 합산 시 클리핑으로 여린 소리가 뭉개지지 않도록 마스터 리미터를 둔다.
+  let masterAudioBus: GainNode | null = null;
 
   if (audioCtx) {
     try {
       audioDest = audioCtx.createMediaStreamDestination();
+      masterAudioBus = createMasterLimiter(audioCtx, audioDest);
 
       // workerA(원본 비디오)의 소리를 Web Audio 그래프로 라우팅 (스피커로 나가지 않고 녹음 목적지 audioDest로만 라우팅됨)
       try {
         workerAudioGain = audioCtx.createGain();
         workerAudioGain.gain.setValueAtTime(1.0, audioCtx.currentTime);
-        workerAudioGain.connect(audioDest);
+        workerAudioGain.connect(masterAudioBus ?? audioDest);
 
         const workerSource = audioCtx.createMediaElementSource(workerA);
         workerSource.connect(workerAudioGain);
@@ -364,7 +368,7 @@ export async function stitchHighlightedSegments({
       const osc = audioCtx.createOscillator();
       osc.frequency.setValueAtTime(10, audioCtx.currentTime);
       osc.connect(silenceGain);
-      silenceGain.connect(audioDest);
+      silenceGain.connect(masterAudioBus ?? audioDest);
       osc.start();
     } catch (err) {
       console.warn('[VideoStitcher] 오디오 목적지 생성 실패 (무음 처리):', err);
@@ -508,7 +512,6 @@ export async function stitchHighlightedSegments({
         const decodedResult = await raceWithTimeout(audioCtx.decodeAudioData(arrayBufferResult.value), 15000);
         if (decodedResult.status === 'ok') {
           customSourceNode = audioCtx.createBufferSource();
-          customSourceNode.buffer = decodedResult.value;
           const expectedIntroSec = overlayOptions?.showIntro
             ? (overlayOptions.introDurationSec || DEFAULT_INTRO_DURATION)
             : 0;
@@ -522,10 +525,16 @@ export async function stitchHighlightedSegments({
           const targetMusicDuration = Math.max(0.1, plannedTotalVideoSec);
 
           if (fitToVideo && decodedResult.value.duration > 0 && targetMusicDuration > 0) {
-            const calculatedRate = decodedResult.value.duration / targetMusicDuration;
-            customSourceNode.playbackRate.value = Math.max(0.1, Math.min(10.0, calculatedRate));
+            // 미리보기(<audio>.preservesPitch=true)와 같은 음높이 유지 타임스트레치.
+            // playbackRate만 바꾸면 고음이 가라앉아 음악에서 무언가 빠진 듯 들린다.
+            const calculatedRate = Math.max(
+              0.25,
+              Math.min(4.0, Number((decodedResult.value.duration / targetMusicDuration).toFixed(3)))
+            );
+            customSourceNode.buffer = timeStretchAudioBuffer(audioCtx, decodedResult.value, calculatedRate);
             customSourceNode.loop = false;
           } else {
+            customSourceNode.buffer = decodedResult.value;
             customSourceNode.loop = plannedTotalVideoSec > decodedResult.value.duration + 0.5;
           }
 
@@ -533,7 +542,7 @@ export async function stitchHighlightedSegments({
           gainNode.gain.setValueAtTime(getBgmGain(bgmVolume), audioCtx.currentTime);
 
           customSourceNode.connect(gainNode);
-          gainNode.connect(audioDest);
+          gainNode.connect(masterAudioBus ?? audioDest);
 
           bgmController = {
             stop: () => {
@@ -571,7 +580,7 @@ export async function stitchHighlightedSegments({
         // 볼륨은 미리보기와 같은 공식으로 한 번만 적용한다(내부 masterGain 중복 곱셈 방지).
         const synthGain = audioCtx.createGain();
         synthGain.gain.setValueAtTime(getBgmGain(bgmVolume), audioCtx.currentTime);
-        synthGain.connect(audioDest);
+        synthGain.connect(masterAudioBus ?? audioDest);
         bgmController = playBgmSynthLoop(audioCtx, synthGain, bgmPresetId, 1);
       } catch (e) {
         console.warn('[VideoStitcher] BGM 신스 연결 건너뜀:', e);

@@ -381,7 +381,9 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
       showChapterBridge,
       chapterBridgeDateTemplate: overlayOptions?.chapterBridgeDateTemplate || 'flip-clock',
       chapterBridgeLocationTemplate: overlayOptions?.chapterBridgeLocationTemplate || 'winding-route',
-      bgmFitToVideo: overlayOptions?.bgmFitToVideo ?? true,
+      // 스튜디오 기본값(false=반복 재생)과 맞춘다. true 기본이면 미리보기와
+      // 내보내기의 배속 방식 차이로 음악 음높이가 달라지는 문제가 생긴다.
+      bgmFitToVideo: overlayOptions?.bgmFitToVideo ?? false,
       introVideoFile: introVideoFile || null,
       outroVideoFile: outroVideoFile || null,
     };

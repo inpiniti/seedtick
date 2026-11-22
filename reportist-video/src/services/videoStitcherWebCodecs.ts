@@ -27,6 +27,11 @@ import {
   DEFAULT_OUTRO_DURATION,
 } from './hyperframesIntroOutroRenderer.ts';
 import { getBgmGain, scheduleBgmSynthTrack } from './audioSynth.ts';
+import {
+  createMasterLimiter,
+  softLimitAudioBuffer,
+  timeStretchAudioBuffer,
+} from './audioMixUtils.ts';
 
 export interface StitchVideosWebCodecsParams {
   videos: VideoItem[];
@@ -1036,6 +1041,9 @@ export async function stitchVideosWebCodecs({
         reportProgress(97, '오디오 트랙 고화질 믹싱 및 동기화 중...', true);
         const totalSampleCount = Math.max(1024, Math.ceil(totalVideoDurationSec * audioSampleRate));
         const offlineAudioCtx = new OfflineAudioContext(audioChannels, totalSampleCount, audioSampleRate);
+        // 원본 현장음 + BGM을 합산하면 쉽게 1.0을 넘는다. 리미터 없이 AAC로 넘기면
+        // 하드 클리핑·마스킹으로 하이햇·잔향·여린 멜로디가 사라진다.
+        const masterBus = createMasterLimiter(offlineAudioCtx, offlineAudioCtx.destination);
 
         // 원본 비디오 오디오 디코딩 헬퍼 (표준 AudioContext 우선 시도 후 2차 fallback)
         const readVideoArrayBuffer = async (vItem: VideoItem): Promise<ArrayBuffer | null> => {
@@ -1151,7 +1159,7 @@ export async function stitchVideosWebCodecs({
                 }
 
                 segSource.connect(segGain);
-                segGain.connect(offlineAudioCtx.destination);
+                segGain.connect(masterBus);
                 segSource.start(startT, safeOffset, safeDuration);
               } catch (segAudioErr) {
                 console.warn(`[WebCodecs] 세그먼트 ${seg.id} 오디오 배치 경고:`, segAudioErr);
@@ -1190,16 +1198,21 @@ export async function stitchVideosWebCodecs({
 
             if (decoded) {
               const srcNode = offlineAudioCtx.createBufferSource();
-              srcNode.buffer = decoded;
 
               const fitToVideo = Boolean(overlayOptions?.bgmFitToVideo);
               const targetMusicDuration = Math.max(0.1, totalVideoDurationSec);
 
               if (fitToVideo && decoded.duration > 0 && targetMusicDuration > 0) {
-                const calculatedRate = decoded.duration / targetMusicDuration;
-                srcNode.playbackRate.value = Math.max(0.1, Math.min(10.0, calculatedRate));
+                // 미리보기(<audio>.preservesPitch=true)와 같은 음높이 유지 타임스트레치.
+                // playbackRate만 바꾸면 음높이가 함께 내려가 고음 악기가 사라진 듯 들린다.
+                const calculatedRate = Math.max(
+                  0.25,
+                  Math.min(4.0, Number((decoded.duration / targetMusicDuration).toFixed(3)))
+                );
+                srcNode.buffer = timeStretchAudioBuffer(offlineAudioCtx, decoded, calculatedRate);
                 srcNode.loop = false;
               } else {
+                srcNode.buffer = decoded;
                 srcNode.loop = totalVideoDurationSec > decoded.duration;
               }
 
@@ -1208,7 +1221,7 @@ export async function stitchVideosWebCodecs({
               gain.gain.value = getBgmGain(bgmVolume);
 
               srcNode.connect(gain);
-              gain.connect(offlineAudioCtx.destination);
+              gain.connect(masterBus);
               // 배경음악(BGM)은 영상 시작(0초)부터 전체 영상에 맞춰 흐르도록 시작
               srcNode.start(0);
             }
@@ -1222,7 +1235,7 @@ export async function stitchVideosWebCodecs({
             // 여기서도 bgmVolume을 넘기면 내부 masterGain이 곱해져 소리가 제곱으로 들어간다.
             const synthGain = offlineAudioCtx.createGain();
             synthGain.gain.value = getBgmGain(bgmVolume);
-            synthGain.connect(offlineAudioCtx.destination);
+            synthGain.connect(masterBus);
             scheduleBgmSynthTrack(
               offlineAudioCtx,
               synthGain,
@@ -1236,6 +1249,8 @@ export async function stitchVideosWebCodecs({
         }
 
         const renderedBuffer = await offlineAudioCtx.startRendering();
+        // 리미터를 거쳐도 순간 피크가 남을 수 있으니 인코딩 전 소프트 클램핑으로 마무리한다.
+        softLimitAudioBuffer(renderedBuffer);
 
         // 1024 샘플 청크 단위로 AudioData 생성 후 AudioEncoder에 전달
         const chunkSize = 1024;
@@ -1266,6 +1281,12 @@ export async function stitchVideosWebCodecs({
             data: planarBuffer,
           });
 
+          // 인코더 큐가 차면 잠깐 기다린다. 무작정 밀어 넣으면 오디오 패킷이 드롭되거나
+          // 타임스탬프가 어긋나 재생 중 특정 구간의 소리가 비는 현상이 생긴다.
+          const waitStart = Date.now();
+          while (audioEncoder.encodeQueueSize > 8 && Date.now() - waitStart < 2000) {
+            await new Promise<void>((resolve) => setTimeout(resolve, 10));
+          }
           audioEncoder.encode(audioData);
           audioData.close();
         }
