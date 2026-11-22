@@ -133,11 +133,44 @@ export function App() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // 개별 영상 위치/장소명 수정 핸들러
-  const handleUpdateVideoLocation = useCallback((id: string, locationName: string) => {
-    setVideos((prev) =>
-      prev.map((v) => (v.id === id ? { ...v, locationName } : v))
-    );
-  }, []);
+  const handleUpdateVideoLocation = useCallback(
+    (id: string, locationName: string) => {
+      const previousName = (videos.find((v) => v.id === id)?.locationName ?? '').trim();
+      // 컷에서 직접 장소를 고쳐 쓴 적이 없으면(비어 있거나 이전 원본 지명과 같으면) 새 지명을 따른다.
+      const shouldUpdate = (seg: { locationName?: string }) => {
+        const segName = (seg.locationName ?? '').trim();
+        return !segName || (Boolean(previousName) && segName === previousName);
+      };
+
+      setVideos((prev) =>
+        prev.map((v) =>
+          v.id === id
+            ? {
+                ...v,
+                locationName,
+                segments: v.segments.map((seg) =>
+                  shouldUpdate(seg) ? { ...seg, locationName } : seg
+                ),
+              }
+            : v
+        )
+      );
+
+      // finalResult.segments까지 함께 갱신해야 한다. 여기를 놓치면 촬영 위치를 고친 직후
+      // ProStudioView의 상위 동기화가 예전 지명(태산패밀리파크 등)으로 되돌려 놓는다.
+      setFinalResult((prev) => {
+        if (!prev?.segments?.length) return prev;
+        let changed = false;
+        const nextSegments = prev.segments.map((seg) => {
+          if (seg.sourceVideoId !== id || !shouldUpdate(seg)) return seg;
+          changed = true;
+          return { ...seg, locationName };
+        });
+        return changed ? { ...prev, segments: nextSegments } : prev;
+      });
+    },
+    [videos]
+  );
 
   // 개별 영상 회전 각도 변경 (스탭 3). 원본 회전 값을 저장하고, 이미 분석된 세그먼트가 있으면
   // 같은 각도로 함께 갱신해 컷·전체 보기·내보내기 결과가 원본 미리보기와 어긋나지 않게 한다.
@@ -154,6 +187,17 @@ export function App() {
           : v
       )
     );
+    // 회전도 위치와 마찬가지로 finalResult.segments까지 갱신해 상위 동기화에 덮어써지지 않게 한다.
+    setFinalResult((prev) => {
+      if (!prev?.segments?.length) return prev;
+      let changed = false;
+      const nextSegments = prev.segments.map((seg) => {
+        if (seg.sourceVideoId !== id || seg.rotation === safeRotation) return seg;
+        changed = true;
+        return { ...seg, rotation: safeRotation };
+      });
+      return changed ? { ...prev, segments: nextSegments } : prev;
+    });
   }, []);
 
   // UI 언어 변경/프로젝트 복원 시 영상 목록의 촬영일 표기(월 이름·나이 단위)를 현재 언어로 갱신
@@ -1816,6 +1860,13 @@ export function App() {
           model: selectedModel,
           signal,
           highlightMode,
+          onProgress: (done, total) =>
+            setProgress((prev) => ({
+              ...prev,
+              statusMessage: locale === 'ko'
+                ? `자막을 다듬고 있어요... (${done}/${total})`
+                : `Polishing subtitles... (${done}/${total})`,
+            })),
         });
 
         for (const seg of allSegments) {

@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo, useCall
 import type { Locale, Dictionary, LocaleInfo } from './types.ts';
 import { LOCALES } from './types.ts';
 import {
+  DEFAULT_LOCALE,
   LOCALE_STORAGE_KEY,
   SUPPORTED_LOCALES,
   getRuntimeLocale,
@@ -81,6 +82,17 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLocaleState(nextLocale);
       try {
         localStorage.setItem(LOCALE_STORAGE_KEY, nextLocale);
+      } catch {}
+      // URL의 ?lang=도 함께 갱신한다. URL 값이 localStorage보다 우선하므로
+      // 여기를 손대지 않으면 언어를 바꾼 뒤 새로고침하면 이전 언어로 되돌아간다.
+      try {
+        const url = new URL(window.location.href);
+        if (nextLocale === DEFAULT_LOCALE) {
+          url.searchParams.delete('lang');
+        } else {
+          url.searchParams.set('lang', nextLocale);
+        }
+        window.history.replaceState(window.history.state, '', url.toString());
       } catch {}
     }
   }, []);

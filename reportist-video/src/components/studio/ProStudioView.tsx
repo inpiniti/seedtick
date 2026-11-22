@@ -68,6 +68,7 @@ import {
 import type { SubtitleTone } from '../../types/video.ts';
 import {
   refineSubtitlesWithContext,
+  detectSubtitleLanguageMismatch,
   getStoredSubtitleTone,
   setStoredSubtitleTone,
 } from '../../services/subtitleRefineService.ts';
@@ -630,6 +631,18 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     initialSegments[0]?.id || ''
   );
 
+  // 컷 삭제·트림·자막/브릿지 수정 등 사용자가 세그먼트를 직접 편집하면 상위 finalResult까지
+  // 반영한다. 그래야 촬영 위치/언어 변경으로 videoMap이 바뀌거나 새로고침해도 편집이 유지된다.
+  const commitSegments = useCallback(
+    (next: HighlightSegment[]) => {
+      setSegments(next);
+      if (result) {
+        onUpdateFinalResult?.({ ...result, segments: next });
+      }
+    },
+    [result, onUpdateFinalResult]
+  );
+
   // 컷 다듬기·자막 수정 단계에서 사용자가 열어본 세그먼트 ID.
   // 단계에 진입하면 1/n부터 다시 시작하고, 모든 컷(씬)을 열어봐야 다음 단계 CTA가 활성화된다.
   const [viewedSegmentIds, setViewedSegmentIds] = useState<Set<string>>(() => new Set());
@@ -681,6 +694,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 1-1. 자막 톤앤매너 및 다듬기 상태
   const [currentSubtitleTone, setCurrentSubtitleTone] = useState<SubtitleTone>(getStoredSubtitleTone);
   const [isRefiningSubtitles, setIsRefiningSubtitles] = useState<boolean>(false);
+  const [refineProgress, setRefineProgress] = useState<{ done: number; total: number } | null>(null);
   const [isToneSelectorOpen, setIsToneSelectorOpen] = useState<boolean>(false);
   const toneSelectorRef = useRef<HTMLDivElement>(null);
 
@@ -746,6 +760,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     if (isRefiningSubtitles || segments.length === 0) return;
     setIsRefiningSubtitles(true);
     setIsToneSelectorOpen(false);
+    setRefineProgress({ done: 0, total: segments.length });
+    // 콜백 안에서 값이 채워지므로 TS가 null로 좁히지 않도록 객체에 담아 둔다.
+    const fallbackHolder: { info: { failedBatches: number; totalBatches: number } | null } = {
+      info: null,
+    };
     try {
       const refinedMap = await refineSubtitlesWithContext({
         segments,
@@ -754,19 +773,18 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         locale,
         model: selectedModel,
         highlightMode,
+        onProgress: (done, total) => setRefineProgress({ done, total }),
+        onFallback: (info) => {
+          fallbackHolder.info = info;
+        },
       });
 
       const prevSubtitles = new Map(segments.map((s) => [s.id, s.subtitleTitle]));
-
-      setSegments((prev) =>
-        prev.map((s) => (refinedMap[s.id] ? { ...s, subtitleTitle: refinedMap[s.id] } : s))
+      const refinedSegments = segments.map((s) =>
+        refinedMap[s.id] ? { ...s, subtitleTitle: refinedMap[s.id] } : s
       );
-
-      videos.forEach((v) => {
-        v.segments = v.segments.map((s) =>
-          refinedMap[s.id] ? { ...s, subtitleTitle: refinedMap[s.id] } : s
-        );
-      });
+      // 다듬은 자막을 상위 finalResult에도 저장해 위치/언어 변경이나 새로고침에 날아가지 않게 한다.
+      commitSegments(refinedSegments);
 
       const toneNameMap: Record<SubtitleTone, string> = {
         vlog: dict.dramaticClips?.toneVlog || '감성 브이로그',
@@ -774,20 +792,29 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         natural: dict.dramaticClips?.toneNatural || '자연스러운 구어체',
         minimal: dict.dramaticClips?.toneMinimal || '담백한 일상',
       };
+
+      if (fallbackHolder.info && fallbackHolder.info.failedBatches > 0) {
+        // AI 응답이 잘려 원문(영어 등)이 남은 청크가 있다면 성공 토스트를 띄우지 않는다.
+        notify.warning(ui('일부 자막을 다듬지 못했어요'), {
+          description: ui('AI 응답이 늦어 {count}개 묶음을 건너뛰었어요. 다시 시도해 주세요.', {
+            count: fallbackHolder.info.failedBatches,
+          }),
+        });
+        return;
+      }
+
       notify.action(
         interpolate(dict.dramaticClips?.refinedToast || '{tone} 스타일로 자막을 다듬었어요.', {
           tone: toneNameMap[tone] || ui('선택한'),
         }),
         dict.common?.undo || '되돌리기',
         () => {
-          setSegments((prev) =>
-            prev.map((s) => (prevSubtitles.has(s.id) ? { ...s, subtitleTitle: prevSubtitles.get(s.id) } : s))
+          commitSegments(
+            refinedSegments.map((s) => ({
+              ...s,
+              subtitleTitle: prevSubtitles.has(s.id) ? prevSubtitles.get(s.id)! : s.subtitleTitle,
+            }))
           );
-          videos.forEach((v) => {
-            v.segments = v.segments.map((s) =>
-              prevSubtitles.has(s.id) ? { ...s, subtitleTitle: prevSubtitles.get(s.id) } : s
-            );
-          });
           return { title: dict.toasts.subtitleRestored, action: null };
         }
       );
@@ -795,6 +822,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       console.error('Failed to refine subtitles:', err);
     } finally {
       setIsRefiningSubtitles(false);
+      setRefineProgress(null);
     }
   };
 
@@ -919,6 +947,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 처음 진입할 때는 컷이 이미 있어도 항상 1번 인트로부터 시작한다.
   const [activeSection, setActiveSection] = useState<StudioSection>('intro');
   const isCaptionSection = activeSection === 'caption';
+
+  // UI 언어와 실제 자막 언어가 다르면(예: 한국어 UI + 영어 자막) 자막 단계에 안내 배너를 보여준다.
+  const subtitleLanguageMismatch = useMemo(
+    () =>
+      isCaptionSection && locale === 'ko' && segments.length > 0
+        ? detectSubtitleLanguageMismatch(segments.map((s) => s.subtitleTitle), locale)
+        : false,
+    [isCaptionSection, segments, locale]
+  );
 
   // 컷·자막 단계에서 화면에 열린 컷(씬)은 별도 확인 버튼 없이 자동으로 확인 처리한다.
   useEffect(() => {
@@ -1702,12 +1739,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       if (segments.length > 1) {
         const prevSegments = [...segments];
         const sorted = sortSegmentsByRecordedTime(segments, videoMap);
-        setSegments(sorted);
+        commitSegments(sorted);
         notify.action(
           dict.dramaticClips.sortByRecordedDateToast || '촬영일시 순으로 정렬했어요.',
           dict.common?.undo || '되돌리기',
           () => {
-            setSegments(prevSegments);
+            commitSegments(prevSegments);
             return { title: dict.toasts.orderRestored, action: null };
           }
         );
@@ -1902,25 +1939,38 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 상위 결과 갱신 동기화 및 썸네일/타이틀 준비
   const appliedSuggestedTitleRef = useRef<string | null>(null);
   const lastStitchedResultUrlRef = useRef<string | null>(null);
+  // 세그먼트 초기화는 '새 분석/새 프로젝트' 때만 한다. 위치·언어 변경으로 videoMap이
+  // 바뀌는 단순 재렌더에서 setSegments(result.segments)가 돌면 사용자가 지운 컷이
+  // 부활하고 방금 고친 지명이 예전 값으로 되돌아간다.
+  const segmentsSyncedResultUrlRef = useRef<string | null | undefined>(undefined);
   const [lastStitchedSnapshot, setLastStitchedSnapshot] = useState<string | null>(null);
 
   // 프로젝트 전환 시 스티치 결과 URL 캐시 초기화
   useEffect(() => {
     if (currentProjectId !== lastLoadedProjectIdRef.current) {
       lastStitchedResultUrlRef.current = null;
+      segmentsSyncedResultUrlRef.current = undefined;
     }
   }, [currentProjectId]);
 
   useEffect(() => {
     if (result?.segments && result.segments.length > 0) {
-      const segsToSet = autoSortByRecordedDate
-        ? sortSegmentsByRecordedTime(result.segments, videoMap)
-        : result.segments;
-      setSegments(segsToSet);
-      if (!selectedSegmentId || !segsToSet.some((s) => s.id === selectedSegmentId)) {
-        setSelectedSegmentId(segsToSet[0].id);
+      const resultUrl = result.url ?? null;
+      const isNewResult =
+        segmentsSyncedResultUrlRef.current === undefined ||
+        segmentsSyncedResultUrlRef.current !== resultUrl;
+      if (isNewResult) {
+        segmentsSyncedResultUrlRef.current = resultUrl;
+        const segsToSet = autoSortByRecordedDate
+          ? sortSegmentsByRecordedTime(result.segments, videoMap)
+          : result.segments;
+        setSegments(segsToSet);
+        if (!selectedSegmentId || !segsToSet.some((s) => s.id === selectedSegmentId)) {
+          setSelectedSegmentId(segsToSet[0].id);
+        }
       }
     } else if (!result) {
+      segmentsSyncedResultUrlRef.current = undefined;
       if (videos.length === 0) {
         resetStudioState();
       } else {
@@ -2764,7 +2814,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     if (removedCount > 0) {
       const prevSegments = [...segments];
       const prevSelectedId = selectedSegmentId;
-      setSegments(kept);
+      commitSegments(kept);
       if (!kept.some((s) => s.id === selectedSegmentId)) {
         setSelectedSegmentId(kept[0]?.id || '');
       }
@@ -2775,7 +2825,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         ),
         dict.common?.undo || '되돌리기',
         () => {
-          setSegments(prevSegments);
+          commitSegments(prevSegments);
           setSelectedSegmentId(prevSelectedId);
           return { title: dict.toasts.clipsRestored, action: null };
         }
@@ -3616,9 +3666,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     field: 'subtitleTitle' | 'subtitleDate' | 'locationName',
     value: string
   ) => {
-    setSegments((prev) =>
-      prev.map((s) => (s.id === segId ? { ...s, [field]: value } : s))
-    );
+    commitSegments(segments.map((s) => (s.id === segId ? { ...s, [field]: value } : s)));
   };
 
   // 타임라인 시점(0 ~ totalDuration)으로 원본 비디오 및 컴포지터 즉시 시크
@@ -4322,9 +4370,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     musicPanelPinnedRef.current = false;
     setStoredShowChapterBridge(true);
     setOverlayOptions((prev) => ({ ...prev, showChapterBridge: true }));
-    setSegments((prev) =>
-      prev.map((s, i) => (i === idx ? { ...s, skipChapterBridge: !enabled } : s))
-    );
+    commitSegments(segments.map((s, i) => (i === idx ? { ...s, skipChapterBridge: !enabled } : s)));
     setSelectedBridgeIndex(idx);
     setSelectedSegmentId(seg.id);
     if (enabled) {
@@ -4343,8 +4389,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
   const applyBridgeTemplateToCurrent = (kind: 'date' | 'location', templateId: string) => {
     const idx = effectiveBridgeIndex;
-    setSegments((prev) =>
-      prev.map((s, i) =>
+    commitSegments(
+      segments.map((s, i) =>
         i === idx
           ? {
               ...s,
@@ -4384,8 +4430,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       chapterBridgeDateTemplate: info.dateTemplate,
       chapterBridgeLocationTemplate: info.locationTemplate,
     }));
-    setSegments((prev) =>
-      prev.map((s) => ({
+    commitSegments(
+      segments.map((s) => ({
         ...s,
         bridgeDateTemplateOverride: undefined,
         bridgeLocationTemplateOverride: undefined,
@@ -5367,8 +5413,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     field: 'start' | 'end',
     delta: number
   ) => {
-    setSegments((prev) =>
-      prev.map((s) => {
+    commitSegments(
+      segments.map((s) => {
         if (s.id !== segId) return s;
         const vItem = videoMap.get(s.sourceVideoId);
         const maxDur = vItem?.duration || 100;
@@ -5395,8 +5441,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
   // 모달을 통한 클립 구간 세밀 조정 저장
   const handleSaveTrimRange = (segId: string, newStart: number, newEnd: number) => {
-    setSegments((prev) =>
-      prev.map((s) => {
+    commitSegments(
+      segments.map((s) => {
         if (s.id !== segId) return s;
         const newDuration = Math.round((newEnd - newStart) * 10) / 10;
         return {
@@ -5414,7 +5460,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     e.stopPropagation();
     const idx = segments.findIndex((s) => s.id === segId);
     const updated = segments.filter((s) => s.id !== segId);
-    setSegments(updated);
+    commitSegments(updated);
     if (selectedSegmentId === segId && updated.length > 0) {
       // 삭제한 자리를 대신할 '다음 씬'을 보여준다. 마지막 컷이면 바로 이전 씬을 유지한다.
       // (예전엔 항상 updated[0]을 골라 1번으로 튀어 돌아가던 문제가 있었다.)
@@ -5428,14 +5474,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     if (segments.length <= 1) return;
     const prevSegments = [...segments];
     const sorted = sortSegmentsByRecordedTime(segments, videoMap);
-    setSegments(sorted);
+    commitSegments(sorted);
 
     // Ding 다이나믹 토스트 알림 및 되돌리기 액션
     notify.action(
       dict.dramaticClips.sortByRecordedDateToast || '촬영일시 순으로 정렬했어요.',
       dict.common?.undo || '되돌리기',
       () => {
-        setSegments(prevSegments);
+        commitSegments(prevSegments);
         return { title: dict.toasts.orderRestored, action: null };
       }
     );
@@ -5443,23 +5489,19 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
   // 크롭 위치 조정
   const handleCropAnchorChange = (segId: string, ratio: number) => {
-    setSegments((prev) =>
-      prev.map((s) => (s.id === segId ? { ...s, cropOffsetYRatio: ratio } : s))
-    );
+    commitSegments(segments.map((s) => (s.id === segId ? { ...s, cropOffsetYRatio: ratio } : s)));
   };
 
   // 크롭 좌우 위치 조정 (가로 원본 → 세로 9:16 프레임 좌우 기준)
   const handleCropXAnchorChange = (segId: string, ratio: number) => {
-    setSegments((prev) =>
-      prev.map((s) => (s.id === segId ? { ...s, cropOffsetXRatio: ratio } : s))
-    );
+    commitSegments(segments.map((s) => (s.id === segId ? { ...s, cropOffsetXRatio: ratio } : s)));
   };
 
   // 씬 영상 회전 각도 조정 (90도씩 좌/우 회전: delta = -90 | 90)
   const handleRotateSegment = (segId: string, delta: number, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    setSegments((prev) =>
-      prev.map((s) => {
+    commitSegments(
+      segments.map((s) => {
         if (s.id !== segId) return s;
         const currentRot = s.rotation ?? 0;
         const newRot = (currentRot + delta + 360) % 360;
@@ -5474,9 +5516,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 씬 영상 회전 각도 0도로 초기화
   const handleResetSegmentRotation = (segId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    setSegments((prev) =>
-      prev.map((s) => (s.id === segId ? { ...s, rotation: 0 } : s))
-    );
+    commitSegments(segments.map((s) => (s.id === segId ? { ...s, rotation: 0 } : s)));
   };
 
   // 메인 플레이어용 회전 스타일.
@@ -5525,8 +5565,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     const nextRotation = (((target.rotation ?? 0) + delta) % 360 + 360) % 360;
     onUpdateVideoRotation?.(id, nextRotation);
     setPreviewVideoId(id);
-    setSegments((prev) =>
-      prev.map((s) => (s.sourceVideoId === id ? { ...s, rotation: nextRotation } : s))
+    commitSegments(
+      segments.map((s) => (s.sourceVideoId === id ? { ...s, rotation: nextRotation } : s))
     );
   };
 
@@ -5535,9 +5575,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     e?.stopPropagation();
     onUpdateVideoRotation?.(id, 0);
     setPreviewVideoId(id);
-    setSegments((prev) =>
-      prev.map((s) => (s.sourceVideoId === id ? { ...s, rotation: 0 } : s))
-    );
+    commitSegments(segments.map((s) => (s.sourceVideoId === id ? { ...s, rotation: 0 } : s)));
   };
 
   // 파일 업로드
@@ -8588,7 +8626,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         speed={3}
                         text={
                           isRefiningSubtitles
-                            ? (dict.dramaticClips?.refiningSubtitles || '다듬는 중...')
+                            ? refineProgress
+                              ? ui('다듬는 중 {done}/{total}', {
+                                  done: refineProgress.done,
+                                  total: refineProgress.total,
+                                })
+                              : (dict.dramaticClips?.refiningSubtitles || '다듬는 중...')
                             : (dict.dramaticClips?.refineSubtitlesBtn || 'AI 자막 다듬기')
                         }
                       />
@@ -8655,6 +8698,37 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 </div>
               </div>
             </div>
+
+            {isCaptionSection && subtitleLanguageMismatch && (
+              <div className="toss-subtitle-language-banner" role="status">
+                <div className="toss-subtitle-language-banner-left">
+                  <span className="toss-subtitle-language-banner-icon">
+                    <Globe size={16} />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="toss-subtitle-language-banner-title">
+                      {ui('자막이 영어로 만들어졌어요')}
+                    </div>
+                    <div className="toss-subtitle-language-banner-desc">
+                      {ui('한국어로 다듬으면 자막이 자연스러워져요.')}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="toss-subtitle-language-banner-action"
+                  onClick={() => handleRefineSubtitles()}
+                  disabled={isRefiningSubtitles}
+                >
+                  {isRefiningSubtitles && refineProgress
+                    ? ui('다듬는 중 {done}/{total}', {
+                        done: refineProgress.done,
+                        total: refineProgress.total,
+                      })
+                    : ui('한국어로 다듬기')}
+                </button>
+              </div>
+            )}
 
             {segments.length > 0 && (
               <div className="toss-cut-navigator">
@@ -10076,8 +10150,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             orientation={orientation}
             portraitPlatform={portraitPlatform}
             onSave={(updatedSegment) => {
-              setSegments((prev) =>
-                prev.map((s, idx) => (idx === editingBridgeIndex ? updatedSegment : s))
+              commitSegments(
+                segments.map((s, idx) => (idx === editingBridgeIndex ? updatedSegment : s))
               );
               notify.success(dict.toasts.segmentBridgeUpdated);
             }}

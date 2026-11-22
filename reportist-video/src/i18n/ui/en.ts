@@ -636,4 +636,11 @@ export const uiEn: Record<string, string> = {
   "방식을 바꾼 뒤 다시 뽑으면 새 방식으로 컷을 만들어요.": "Switch the style and run again to create cuts in the new style.",
   "선택한 방식으로 다시 뽑기": "Re-cut with the selected style",
   "1초 컷 하이라이트 만들기": "Create 1-second cuts",
+  '자막이 영어로 만들어졌어요': 'Subtitles were generated in English',
+  '한국어로 다듬으면 자막이 자연스러워져요.': 'Polish them into Korean for a more natural read.',
+  '한국어로 다듬기': 'Polish into Korean',
+  '다듬는 중 {done}/{total}': 'Polishing {done}/{total}',
+  '일부 자막을 다듬지 못했어요': 'Some subtitles could not be polished',
+  'AI 응답이 늦어 {count}개 묶음을 건너뛰었어요. 다시 시도해 주세요.':
+    'AI responses were slow, so {count} batch(es) were skipped. Please try again.',
 };

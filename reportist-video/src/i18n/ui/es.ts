@@ -624,4 +624,11 @@ export const uiEs: Record<string, string> = {
   "방식을 바꾼 뒤 다시 뽑으면 새 방식으로 컷을 만들어요.": "Cambia el estilo y vuelve a generar para crear cortes con el nuevo estilo.",
   "선택한 방식으로 다시 뽑기": "Volver a generar con el estilo elegido",
   "1초 컷 하이라이트 만들기": "Crear cortes de 1 segundo",
+  '자막이 영어로 만들어졌어요': 'Los subtítulos se generaron en inglés',
+  '한국어로 다듬으면 자막이 자연스러워져요.': 'Pulíselos al coreano para una lectura más natural.',
+  '한국어로 다듬기': 'Pulir al coreano',
+  '다듬는 중 {done}/{total}': 'Puliendo {done}/{total}',
+  '일부 자막을 다듬지 못했어요': 'No se pudieron pulir algunos subtítulos',
+  'AI 응답이 늦어 {count}개 묶음을 건너뛰었어요. 다시 시도해 주세요.':
+    'Las respuestas de IA fueron lentas y se omitieron {count} lotes. Inténtalo de nuevo.',
 };

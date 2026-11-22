@@ -625,4 +625,11 @@ export const uiFr: Record<string, string> = {
   "방식을 바꾼 뒤 다시 뽑으면 새 방식으로 컷을 만들어요.": "Changez de style puis relancez pour créer des coupes dans le nouveau style.",
   "선택한 방식으로 다시 뽑기": "Relancer avec le style choisi",
   "1초 컷 하이라이트 만들기": "Créer des coupes de 1 seconde",
+  '자막이 영어로 만들어졌어요': 'Les sous-titres ont été générés en anglais',
+  '한국어로 다듬으면 자막이 자연스러워져요.': 'Ajustez-les en coréen pour un rendu plus naturel.',
+  '한국어로 다듬기': 'Ajuster en coréen',
+  '다듬는 중 {done}/{total}': 'Ajustement {done}/{total}',
+  '일부 자막을 다듬지 못했어요': 'Certains sous-titres n’ont pas pu être ajustés',
+  'AI 응답이 늦어 {count}개 묶음을 건너뛰었어요. 다시 시도해 주세요.':
+    'Les réponses de l’IA ont été lentes : {count} lots ont été ignorés. Réessayez.',
 };

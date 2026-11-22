@@ -625,4 +625,11 @@ export const uiDe: Record<string, string> = {
   "방식을 바꾼 뒤 다시 뽑으면 새 방식으로 컷을 만들어요.": "Wechsle den Stil und starte erneut, um Schnitte im neuen Stil zu erstellen.",
   "선택한 방식으로 다시 뽑기": "Mit gewähltem Stil neu erstellen",
   "1초 컷 하이라이트 만들기": "1-Sekunden-Highlights erstellen",
+  '자막이 영어로 만들어졌어요': 'Die Untertitel wurden auf Englisch erstellt',
+  '한국어로 다듬으면 자막이 자연스러워져요.': 'In Koreanisch poliert lesen sie sich natürlicher.',
+  '한국어로 다듬기': 'Auf Koreanisch polieren',
+  '다듬는 중 {done}/{total}': 'Wird poliert {done}/{total}',
+  '일부 자막을 다듬지 못했어요': 'Einige Untertitel konnten nicht poliert werden',
+  'AI 응답이 늦어 {count}개 묶음을 건너뛰었어요. 다시 시도해 주세요.':
+    'Die KI-Antworten waren langsam, {count} Batches wurden übersprungen. Bitte erneut versuchen.',
 };
