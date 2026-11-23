@@ -17,6 +17,9 @@ import {
   findContentPage,
 } from "./pages.mjs";
 
+// 언어 전환 버튼에 표시할 짧은 코드 (한국어는 KO 대신 KR).
+const LANGUAGE_CODES = { en: "EN", ko: "KR", ja: "JA", zh: "ZH", es: "ES", fr: "FR", de: "DE" };
+
 // Static assets are served with a 1-hour cache by the CDN. Fingerprint their
 // contents into the URL so a deploy always invalidates the browser cache —
 // otherwise a fresh HTML page can pick up a stale landing.css and render
@@ -260,8 +263,7 @@ function renderHeader(locale, basePath = "", withHreflangOnSwitcher = true) {
         <details class="lang-switcher">
           <summary>
             ${ICONS.globe}
-            <span class="lang-code">${esc(locale.code.toUpperCase())}</span>
-            <span class="lang-native">${esc(locale.nativeLabel)}</span>
+            <span class="lang-code">${esc(LANGUAGE_CODES[locale.code] || locale.code.toUpperCase())}</span>
             ${ICONS.chevron}
           </summary>
           <div class="lang-panel">

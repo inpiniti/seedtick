@@ -9,7 +9,7 @@ import {
   Settings,
 } from 'lucide-react';
 import { PenguinLogo } from '../common/PenguinLogo.tsx';
-import { getLandingPath, useI18n } from '../../i18n/index.tsx';
+import { getLandingPath, getLanguageCode, useI18n } from '../../i18n/index.tsx';
 import type { VideoOrientation } from '../../types/video.ts';
 
 // components/studio-v2/StudioTopBar.tsx — 좌측 도크 토글/언어/설정/내보내기.
@@ -41,6 +41,7 @@ export const StudioTopBar = ({
   onOrientationChange,
 }: StudioTopBarProps) => {
   const { locale, currentLocaleInfo, ui, t } = useI18n();
+  const languageCode = getLanguageCode(locale);
 
   return (
     <header className="sv2-topbar">
@@ -94,14 +95,11 @@ export const StudioTopBar = ({
         type="button"
         className="sv2-model-trigger sv2-lang-trigger"
         onClick={onOpenLanguageModal}
-        title={`${locale.toUpperCase()} · ${currentLocaleInfo.nativeName}`}
-        aria-label={`${locale.toUpperCase()} · ${currentLocaleInfo.nativeName}`}
+        title={`${languageCode} · ${currentLocaleInfo.nativeName}`}
+        aria-label={`${languageCode} · ${currentLocaleInfo.nativeName}`}
       >
         <Globe size={14} />
-        <span className="sv2-model-label sv2-lang-label">
-          <span className="sv2-lang-code">{locale.toUpperCase()}</span>
-          <span className="sv2-lang-name">{currentLocaleInfo.nativeName}</span>
-        </span>
+        <span className="sv2-lang-code">{languageCode}</span>
         <ChevronDown size={13} className="sv2-model-chevron" />
       </button>
 

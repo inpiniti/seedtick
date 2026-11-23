@@ -210,7 +210,7 @@ import { PenguinLogo } from '../common/PenguinLogo.tsx';
 import { ShinyText } from '../common/ShinyText.tsx';
 import { SpecularButton } from '../common/SpecularButton.tsx';
 import { BorderBeam } from '../common/BorderBeam.tsx';
-import { getLandingPath, useI18n } from '../../i18n/index.tsx';
+import { getLandingPath, getLanguageCode, useI18n } from '../../i18n/index.tsx';
 
 const PLAYBACK_ERROR_MESSAGE =
   '이 영상은 미리보기를 재생할 수 없어요. 영상을 다시 올리거나 다른 형식(MP4)으로 시도해 주세요.';
@@ -503,6 +503,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   onRelinkBatch,
 }) => {
   const { dict, interpolate, currentLocaleInfo, locale, ui } = useI18n();
+  const languageCode = getLanguageCode(locale);
   // 업로드 직후 영상 아래에 나오는 원본 미리보기 리스트: 스크롤바가 숨겨져 있어
   // 쉬프트+휠만 알고 있는 사용자가 많다. 일반 휠·마우스 드래그로도 넘기게 한다.
   const draftPreviewScroll = useHorizontalScroll<HTMLDivElement>();
@@ -5925,14 +5926,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             className="toss-model-trigger toss-lang-trigger"
             onClick={() => setIsLanguageModalOpen(true)}
             title={dict.languageModal.title}
-            aria-label={`${dict.common.language || 'Language'}: ${locale.toUpperCase()} ${currentLocaleInfo.nativeName}`}
+            aria-label={`${dict.common.language || 'Language'}: ${languageCode} ${currentLocaleInfo.nativeName}`}
           >
             <span className="toss-model-trigger-icon">
               <Globe size={13} />
             </span>
             <span className="toss-model-trigger-text">
-              <span className="toss-lang-code">{locale.toUpperCase()}</span>
-              <span className="toss-lang-name">{currentLocaleInfo.nativeName}</span>
+              <span className="toss-lang-code">{languageCode}</span>
             </span>
             <ChevronDown size={14} className="toss-model-trigger-chevron" />
           </button>

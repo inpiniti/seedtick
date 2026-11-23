@@ -16,6 +16,21 @@ const INTL_LOCALE_MAP: Record<Locale, string> = {
   de: 'de-DE',
 };
 
+/** 언어 전환 버튼에 표시할 짧은 코드 (한국어는 KO 대신 KR 사용). */
+const LANGUAGE_CODE_MAP: Record<Locale, string> = {
+  en: 'EN',
+  ko: 'KR',
+  ja: 'JA',
+  zh: 'ZH',
+  es: 'ES',
+  fr: 'FR',
+  de: 'DE',
+};
+
+export function getLanguageCode(locale: Locale): string {
+  return LANGUAGE_CODE_MAP[locale] || locale.toUpperCase();
+}
+
 let runtimeLocale: Locale | null = null;
 
 function isSupportedLocale(value: unknown): value is Locale {
