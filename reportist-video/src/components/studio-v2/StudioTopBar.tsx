@@ -154,7 +154,7 @@ export const StudioTopBar = ({
 
       <button
         type="button"
-        className="sv2-btn sv2-btn-icon sv2-btn-ghost sv2-settings-trigger"
+        className="sv2-btn sv2-btn-icon sv2-settings-trigger"
         onClick={onOpenSettings}
         aria-haspopup="dialog"
         aria-label={t('common.settings')}

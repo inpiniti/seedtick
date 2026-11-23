@@ -1838,7 +1838,13 @@
 
 /* ---------- V2 슬림 설정 모달 ---------- */
 .sv2-settings-trigger {
-  padding: 0 10px;
+  padding: 0 9px;
+  border-color: var(--sv2-border);
+  background: var(--sv2-surface-3);
+}
+.sv2-settings-trigger:hover:not(:disabled) {
+  background: var(--sv2-surface-2);
+  border-color: var(--sv2-border-strong);
 }
 .sv2-mini-btn-fit[data-on='true'] {
   border-color: var(--sv2-accent);
