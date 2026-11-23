@@ -1173,6 +1173,7 @@
   color: var(--sv2-text-2);
   display: grid;
   place-items: center;
+  white-space: nowrap;
 }
 .sv2-mini-btn:hover {
   color: var(--sv2-accent);
@@ -1181,6 +1182,14 @@
 .sv2-mini-btn[data-danger='true']:hover {
   color: var(--sv2-danger);
   background: rgba(229, 72, 77, 0.1);
+}
+/* '영상 길이에 배속'은 텍스트 버튼이라 아이콘용 26px 폭을 그대로 쓰면
+   문구가 볼륨 슬라이더·퍼센트 위로 넘쳐 겹쳐 보인다. 내용 폭만큼 늘어나게 한다. */
+.sv2-mini-btn-fit {
+  width: auto;
+  flex: 0 0 auto;
+  padding: 0 8px;
+  white-space: nowrap;
 }
 .sv2-music-chip {
   display: flex;
