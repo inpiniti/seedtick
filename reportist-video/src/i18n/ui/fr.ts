@@ -667,6 +667,7 @@ export const uiFr: Record<string, string> = {
   "세로 영상 (9:16)": "Vidéo portrait (9:16)",
   "화면 비율": "Ratio d'affichage",
   "영상 추가": "Ajouter des vidéos",
+  "분석이 끝나면 영상을 추가할 수 있어요": "Vous pourrez ajouter des vidéos une fois l'analyse terminée",
   "영상 목록 닫기": "Masquer la liste des vidéos",
   "영상 목록 열기": "Afficher la liste des vidéos",
   "여기서 영상을 추가해 주세요": "ajoutez des vidéos ici",

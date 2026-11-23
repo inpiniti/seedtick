@@ -536,7 +536,7 @@
   line-height: 1.6;
   transition: background 0.15s ease, color 0.15s ease;
 }
-.sv2-dock-empty:hover {
+.sv2-dock-empty:hover:not(:disabled) {
   background: var(--sv2-surface-3);
   color: var(--sv2-text-2);
 }

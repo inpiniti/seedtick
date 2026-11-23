@@ -666,6 +666,7 @@ export const uiEs: Record<string, string> = {
   "세로 영상 (9:16)": "Vídeo vertical (9:16)",
   "화면 비율": "Relación de aspecto",
   "영상 추가": "Añadir vídeos",
+  "분석이 끝나면 영상을 추가할 수 있어요": "Puedes añadir vídeos cuando termine el análisis",
   "영상 목록 닫기": "Ocultar lista de vídeos",
   "영상 목록 열기": "Mostrar lista de vídeos",
   "여기서 영상을 추가해 주세요": "añade vídeos aquí",

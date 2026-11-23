@@ -957,11 +957,11 @@ export const CenterStudioView = (props: StudioV2Props) => {
         type="file"
         accept="video/*"
         multiple
-        disabled={removingVideoIds.size > 0}
+        disabled={isProcessing || removingVideoIds.size > 0}
         style={{ display: 'none' }}
         onChange={(e) => {
           const files = Array.from(e.target.files ?? []);
-          if (files.length && removingVideoIds.size === 0) onFilesSelected(files);
+          if (files.length && !isProcessing && removingVideoIds.size === 0) onFilesSelected(files);
           e.target.value = '';
         }}
       />
@@ -976,13 +976,14 @@ export const CenterStudioView = (props: StudioV2Props) => {
           videoTasks={progress?.videoTasks}
           removingVideoIds={removingVideoIds}
           onFilesSelected={(files) => {
-            if (removingVideoIds.size === 0) onFilesSelected(files);
+            if (!isProcessing && removingVideoIds.size === 0) onFilesSelected(files);
           }}
-          onAddVideos={() => fileInputRef.current?.click()}
+          onAddVideos={() => {
+            if (!isProcessing) fileInputRef.current?.click();
+          }}
           onRemoveVideo={handleRemoveVideoWithAnimation}
           onStartAnalysis={startAnalysis}
           onCancel={onCancelProcessing}
-          onToggleDock={toggleDock}
         />
 
         <div className="sv2-center" data-subtitle-refreshed={subtitleRefreshed}>

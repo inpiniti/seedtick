@@ -678,6 +678,7 @@ export const uiEn: Record<string, string> = {
   "세로 영상 (9:16)": "Portrait video (9:16)",
   "화면 비율": "Aspect ratio",
   "영상 추가": "Add videos",
+  "분석이 끝나면 영상을 추가할 수 있어요": "You can add videos once the analysis finishes",
   "영상 목록 닫기": "Hide video list",
   "영상 목록 열기": "Show video list",
   "여기서 영상을 추가해 주세요": "add videos here",

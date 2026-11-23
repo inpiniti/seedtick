@@ -1,4 +1,4 @@
-import { PanelLeftClose, Plus, Scissors, UploadCloud, X } from 'lucide-react';
+import { Plus, Scissors, UploadCloud, X } from 'lucide-react';
 import type { VideoItem, VideoTaskProgress } from '../../types/video.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { formatShootDate } from './types.ts';
@@ -23,7 +23,6 @@ interface UploadQueueDockProps {
   onRemoveVideo: (id: string) => void;
   onStartAnalysis: () => void;
   onCancel: () => void;
-  onToggleDock: () => void;
 }
 
 type UiFn = (source: string, params?: Record<string, string | number>) => string;
@@ -82,11 +81,17 @@ export const UploadQueueDock = ({
   onRemoveVideo,
   onStartAnalysis,
   onCancel,
-  onToggleDock,
 }: UploadQueueDockProps) => {
   const { ui } = useI18n();
+  // 분석 중에 새 영상을 넣으면 분석 시작 시점의 스냅샷이 다시 덮어써서 방금 넣은 영상이 사라진다.
+  // 자막 다듬기(분석)가 끝날 때까지 추가 경로를 전부 잠근다.
+  const addDisabled = isProcessing;
+  const addHint = addDisabled
+    ? ui('분석이 끝나면 영상을 추가할 수 있어요')
+    : ui('영상 추가');
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    if (addDisabled) return;
     const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('video/'));
     if (files.length) onFilesSelected(files);
   };
@@ -112,26 +117,18 @@ export const UploadQueueDock = ({
               type="button"
               className="sv2-btn sv2-btn-icon sv2-btn-ghost sv2-btn-sm"
               onClick={onAddVideos}
-              aria-label={ui('영상 추가')}
-              title={ui('영상 추가')}
+              disabled={addDisabled}
+              aria-label={addHint}
+              title={addHint}
             >
               <Plus size={16} />
-            </button>
-            <button
-              type="button"
-              className="sv2-btn sv2-btn-icon sv2-btn-ghost sv2-btn-sm"
-              onClick={onToggleDock}
-              aria-label={ui('영상 목록 닫기')}
-              title={ui('영상 목록 닫기')}
-            >
-              <PanelLeftClose size={16} />
             </button>
           </div>
         </div>
 
         <div className="sv2-dock-list">
           {videos.length === 0 && (
-            <button type="button" className="sv2-dock-empty" onClick={onAddVideos}>
+            <button type="button" className="sv2-dock-empty" onClick={onAddVideos} disabled={addDisabled}>
               <UploadCloud size={30} />
               <span>
                 {ui('영상을 끌어다 놓거나')}

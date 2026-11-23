@@ -667,6 +667,7 @@ export const uiDe: Record<string, string> = {
   "세로 영상 (9:16)": "Hochformat-Video (9:16)",
   "화면 비율": "Seitenverhältnis",
   "영상 추가": "Videos hinzufügen",
+  "분석이 끝나면 영상을 추가할 수 있어요": "Videos können nach Abschluss der Analyse hinzugefügt werden",
   "영상 목록 닫기": "Videoliste ausblenden",
   "영상 목록 열기": "Videoliste einblenden",
   "여기서 영상을 추가해 주세요": "hier Videos hinzufügen",
