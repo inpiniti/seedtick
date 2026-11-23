@@ -275,6 +275,108 @@ export function computeSubtitleOverlayBounds(
   return { x, y, width, height, fontSize: block.fontSize, lineHeight, padX, padY, lines: block.lines };
 }
 
+/** 캔버스가 실제로 그리는 좌상단 제목 박스의 픽셀 좌표·폰트 정보. DOM 편집창이 같은 값을 공유한다. */
+export interface TitleOverlayBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fontSize: number;
+  lineHeight: number;
+  padX: number;
+  padY: number;
+  lines: string[];
+}
+
+/**
+ * 제목 문구와 프레임으로 좌상단 제목 박스 좌표를 계산한다(캔버스에 그리지 않는 순수 계산).
+ * 미리보기 캔버스와 인라인 편집창이 같은 결과를 쓰므로 위치·크기·폰트가 픽셀 단위로 일치한다.
+ */
+export function computeTitleOverlayBounds(
+  text: string,
+  frame: FrameSpec,
+  measureCtx?: CanvasRenderingContext2D | null
+): TitleOverlayBounds | null {
+  if (!text.trim()) return null;
+
+  const ctx = measureCtx ?? getMeasureContext();
+  if (!ctx) return null;
+
+  const u = frame.unit;
+  if (frame.orientation === 'portrait') {
+    const { safeArea } = frame;
+    const maxWidth = frame.width - safeArea.left - safeArea.right;
+    if (maxWidth <= 0) return null;
+
+    const padX = Math.round(14 * u);
+    const padY = Math.round(10 * u);
+    const block = fitTextBlock(
+      ctx,
+      text.trim(),
+      maxWidth - padX * 2,
+      Math.round(26 * u),
+      Math.round(15 * u),
+      2,
+      (size) => overlayFont('bold', size)
+    );
+    const lineHeight = Math.round(block.fontSize * 1.24);
+    ctx.font = overlayFont('bold', block.fontSize);
+    const textWidth = Math.max(...block.lines.map((line) => ctx.measureText(line).width), 0);
+    return {
+      x: safeArea.left,
+      y: safeArea.top,
+      width: Math.min(maxWidth, textWidth + padX * 2),
+      height: block.lines.length * lineHeight + padY * 2,
+      fontSize: block.fontSize,
+      lineHeight,
+      padX,
+      padY,
+      lines: block.lines,
+    };
+  }
+
+  const padX = Math.round(14 * u);
+  const height = Math.round(38 * u);
+  const fontSize = Math.round(22 * u);
+  ctx.font = overlayFont('bold', fontSize);
+  return {
+    x: Math.round(32 * u),
+    y: Math.round(28 * u),
+    width: ctx.measureText(text).width + padX * 2,
+    height,
+    fontSize,
+    lineHeight: height,
+    padX,
+    padY: 0,
+    lines: [text],
+  };
+}
+
+/** 계산된 제목 박스를 캔버스에 그린다. 가로·세로 모두 같은 그리기 규칙을 쓴다. */
+function paintTitleBox(
+  oCtx: CanvasRenderingContext2D,
+  bounds: TitleOverlayBounds,
+  frame: FrameSpec
+): void {
+  oCtx.save();
+  oCtx.fillStyle = 'rgba(0, 0, 0, 0.72)';
+  paintRoundedRect(oCtx, bounds.x, bounds.y, bounds.width, bounds.height, Math.round(6 * frame.unit));
+  oCtx.fill();
+
+  oCtx.fillStyle = '#ffffff';
+  oCtx.textAlign = 'left';
+  oCtx.textBaseline = 'middle';
+  oCtx.font = overlayFont('bold', bounds.fontSize);
+  bounds.lines.forEach((line, index) => {
+    oCtx.fillText(
+      line,
+      bounds.x + bounds.padX,
+      bounds.y + bounds.padY + bounds.lineHeight * (index + 0.5)
+    );
+  });
+  oCtx.restore();
+}
+
 /** 계산된 자막 박스를 캔버스에 그린다. 가로·세로 모두 같은 그리기 규칙을 쓴다. */
 function paintSubtitleBox(
   oCtx: CanvasRenderingContext2D,
@@ -307,35 +409,17 @@ function drawLandscapeOverlay(
   const targetWidth = frame.width;
   const targetHeight = frame.height;
   let hasAnyOverlay = false;
-  let titleBottomY = Math.round(28 * u);
   // 자막 수정 단계에서는 상단 제목·채널을 숨기고 씬 자막과 날짜·장소만 그린다.
   const showHeader = !options?.captionOnly;
   const hasTitle = showHeader && Boolean(overlayOptions.showTitle && overlayOptions.titleText?.trim());
 
-  // 1. 좌측 상단 영상 제목
-  if (hasTitle) {
-    hasAnyOverlay = true;
-    oCtx.save();
-    oCtx.font = overlayFont('bold', 22 * u);
-    const text = overlayOptions.titleText;
-    const metrics = oCtx.measureText(text);
-    const padX = Math.round(14 * u);
-    const boxW = metrics.width + padX * 2;
-    const boxH = Math.round(38 * u);
-    const x = Math.round(32 * u);
-    const y = Math.round(28 * u);
-
-    oCtx.fillStyle = 'rgba(0, 0, 0, 0.72)';
-    paintRoundedRect(oCtx, x, y, boxW, boxH, Math.round(6 * u));
-    oCtx.fill();
-
-    oCtx.fillStyle = '#ffffff';
-    oCtx.textAlign = 'left';
-    oCtx.textBaseline = 'middle';
-    oCtx.fillText(text, x + padX, y + boxH / 2);
-    oCtx.restore();
-
-    titleBottomY = y + boxH;
+  // 1. 좌측 상단 영상 제목 — 인라인 편집 중에는 DOM 입력창이 같은 자리를 대체하므로 캔버스에서만 숨긴다.
+  if (hasTitle && !options?.hideTitle) {
+    const bounds = computeTitleOverlayBounds(overlayOptions.titleText, frame, oCtx);
+    if (bounds) {
+      hasAnyOverlay = true;
+      paintTitleBox(oCtx, bounds, frame);
+    }
   }
 
   // 1-1. 우측 상단: 1줄차 촬영일(저장된 표기 형식·나이 반영), 2줄차 위치 — 우측 정렬.
@@ -440,41 +524,15 @@ function drawPortraitOverlay(
   const hasTitle = showHeader && Boolean(overlayOptions.showTitle && titleText);
 
   if (hasTitle) {
-    hasAnyOverlay = true;
-    const padX = Math.round(14 * u);
-    const padY = Math.round(10 * u);
-    const titleMaxWidth = maxWidth - padX * 2;
-    const block = fitTextBlock(
-      oCtx,
-      titleText,
-      titleMaxWidth,
-      Math.round(26 * u),
-      Math.round(15 * u),
-      2,
-      (size) => overlayFont('bold', size)
-    );
-    const lineHeight = Math.round(block.fontSize * 1.24);
-    oCtx.font = overlayFont('bold', block.fontSize);
-    const textWidth = Math.max(...block.lines.map((line) => oCtx.measureText(line).width), 0);
-    const boxW = Math.min(maxWidth, textWidth + padX * 2);
-    const boxH = block.lines.length * lineHeight + padY * 2;
-    const x = left;
-    const y = cursorY;
-
-    oCtx.save();
-    oCtx.fillStyle = 'rgba(0, 0, 0, 0.72)';
-    paintRoundedRect(oCtx, x, y, boxW, boxH, Math.round(6 * u));
-    oCtx.fill();
-
-    oCtx.fillStyle = '#ffffff';
-    oCtx.textAlign = 'left';
-    oCtx.textBaseline = 'middle';
-    block.lines.forEach((line, index) => {
-      oCtx.fillText(line, x + padX, y + padY + lineHeight * (index + 0.5));
-    });
-    oCtx.restore();
-
-    cursorY = y + boxH;
+    const bounds = computeTitleOverlayBounds(titleText, frame, oCtx);
+    if (bounds) {
+      // 인라인 편집 중에는 캔버스 제목만 숨기고, 아래 채널명 배치를 위한 커서는 그대로 유지한다.
+      if (!options?.hideTitle) {
+        hasAnyOverlay = true;
+        paintTitleBox(oCtx, bounds, frame);
+      }
+      cursorY = bounds.y + bounds.height;
+    }
   }
 
   // 2. 세로에서는 채널명을 우상단 대신 제목 바로 아래에 배치
@@ -582,6 +640,8 @@ export interface SegmentOverlayDrawOptions {
   captionOnly?: boolean;
   /** true면 자막 박스만 숨긴다. DOM 인라인 편집창이 같은 자리를 대체할 때 사용한다. */
   hideSubtitle?: boolean;
+  /** true면 좌상단 제목 박스만 숨긴다. DOM 인라인 편집창이 같은 자리를 대체할 때 사용한다. */
+  hideTitle?: boolean;
 }
 
 /**

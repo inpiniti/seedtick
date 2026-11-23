@@ -36,6 +36,7 @@ interface CenterPreviewStageProps {
   onSeek: (time: number) => void;
   onOpenLocation: (segmentId: string) => void;
   onUpdateSegment: (id: string, patch: Partial<HighlightSegment>) => void;
+  onUpdateOverlay: (patch: Partial<VideoOverlayOptions>) => void;
 }
 
 export const CenterPreviewStage = ({
@@ -54,6 +55,7 @@ export const CenterPreviewStage = ({
   onSeek,
   onOpenLocation,
   onUpdateSegment,
+  onUpdateOverlay,
 }: CenterPreviewStageProps) => {
   const { dict, ui } = useI18n();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -62,6 +64,7 @@ export const CenterPreviewStage = ({
   const [rendererReady, setRendererReady] = useState(false);
   const [redrawTick, setRedrawTick] = useState(0);
   const [isEditingCaption, setIsEditingCaption] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
   const customIntroVideoRef = useRef<HTMLVideoElement>(null);
   const customOutroVideoRef = useRef<HTMLVideoElement>(null);
   const [customVideoUrls, setCustomVideoUrls] = useState<{ intro?: string; outro?: string }>({});
@@ -151,9 +154,10 @@ export const CenterPreviewStage = ({
         drawCompositorCoverFrame(ctx, video, source, seg, frame);
       }
       // 영상이 아직 준비 안 됐어도 날짜·위치·자막은 검은 화면에 표시.
-      // 인라인 편집 중에는 DOM 입력창이 자막 자리를 대체하므로 캔버스 자막만 숨긴다.
+      // 인라인 편집 중에는 DOM 입력창이 같은 자리를 대체하므로 해당 캔버스 텍스트만 숨긴다.
       drawCompositorSegmentOverlay(ctx, overlayOptions, seg, frame, {
         hideSubtitle: isEditingCaption,
+        hideTitle: isEditingTitle,
       });
       return;
     }
@@ -169,7 +173,7 @@ export const CenterPreviewStage = ({
     } else if (activeItem.kind === 'outro') {
       renderer.drawCompositorOutroFrame(ctx, progress, overlayOptions, frame);
     }
-  }, [playhead, activeItem, frame, overlayOptions, videos, rendererReady, redrawTick, isEditingCaption, revision]);
+  }, [playhead, activeItem, frame, overlayOptions, videos, rendererReady, redrawTick, isEditingCaption, isEditingTitle, revision]);
 
   const hasContent = model.items.length > 0;
   const locationLabel = activeSegment?.locationName || overlayOptions.subtitleLocationText || '';
@@ -190,7 +194,7 @@ export const CenterPreviewStage = ({
       <div className="sv2-stage-meta">
         <div className="sv2-stage-meta-sub">
           {hasContent
-            ? ui('{count}개 컷 · 날짜·위치나 자막을 눌러 바로 수정할 수 있어요', {
+            ? ui('{count}개 컷 · 제목·날짜·위치나 자막을 눌러 바로 수정할 수 있어요', {
                 count: model.items.filter((i) => i.kind === 'segment').length,
               })
             : ui('영상을 추가하면 여기에 미리보기가 나타나요')}
@@ -264,17 +268,21 @@ export const CenterPreviewStage = ({
             <PreviewInteractiveOverlay
               key={activeSegment.id}
               frame={frame}
+              title={overlayOptions.titleText || ''}
+              showTitle={overlayOptions.showTitle !== false}
               locationLabel={locationLabel}
               dateLabel={formatShootDate(activeSegment)}
               caption={captionLabel}
               onLocationClick={() => onOpenLocation(activeSegment.id)}
+              onTitleCommit={(text) => onUpdateOverlay({ titleText: text, showTitle: true })}
               onCaptionCommit={(text) =>
                 onUpdateSegment(activeSegment.id, { subtitleTitle: text })
               }
-              onEditingChange={(editing) => {
+              onEditingChange={(kind, editing) => {
                 // 편집 시작 시 재생을 멈춰 컷이 바뀌는 동안 드래프트가 날아가지 않게 한다.
                 if (editing) onPause();
-                setIsEditingCaption(editing);
+                if (kind === 'title') setIsEditingTitle(editing);
+                else setIsEditingCaption(editing);
               }}
               showSubtitle={overlayOptions.showSubtitle !== false}
             />

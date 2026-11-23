@@ -1018,6 +1018,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
               }}
               onOpenLocation={openLocation}
               onUpdateSegment={updateSegment}
+              onUpdateOverlay={updateOverlay}
               revision={settingsRevision}
             />
           </div>
