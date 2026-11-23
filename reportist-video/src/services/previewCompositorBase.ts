@@ -25,6 +25,37 @@ function clampRatio(value: number | undefined, fallback: number): number {
   return Math.min(1, Math.max(0, value));
 }
 
+/**
+ * 우상단에 표시할 촬영일을 'yyyy.mm.dd'로 정규화한다.
+ * - recordedTimestamp(ms)가 있으면 가장 우선 (로케일·나이 표기와 무관하게 고정 포맷)
+ * - 문자열은 yyyy.mm.dd / yyyy-mm-dd / yyyy/mm/dd 패턴을 먼저 인식하고,
+ *   그 외에는 Date 파싱을 시도한다. 실패하면 원문을 그대로 돌려준다.
+ * 미리보기와 내보내기가 같은 함수를 공유하므로 결과물과 화면이 항상 일치한다.
+ */
+function normalizeMetaDate(raw?: string, timestamp?: number): string {
+  if (typeof timestamp === 'number' && Number.isFinite(timestamp)) {
+    const d = new Date(timestamp);
+    if (!Number.isNaN(d.getTime())) {
+      return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(
+        d.getDate()
+      ).padStart(2, '0')}`;
+    }
+  }
+  const value = (raw || '').trim();
+  if (!value) return '';
+  const match = value.match(/(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/);
+  if (match) {
+    return `${match[1]}.${match[2].padStart(2, '0')}.${match[3].padStart(2, '0')}`;
+  }
+  const parsed = new Date(value);
+  if (!Number.isNaN(parsed.getTime())) {
+    return `${parsed.getFullYear()}.${String(parsed.getMonth() + 1).padStart(2, '0')}.${String(
+      parsed.getDate()
+    ).padStart(2, '0')}`;
+  }
+  return value;
+}
+
 function paintRoundedRect(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -188,34 +219,53 @@ function drawLandscapeOverlay(
     titleBottomY = y + boxH;
   }
 
-  // 1-1. 좌측 상단 문구 아래: 흰색 글씨로 날짜 및 위치 표시
-  const datePart =
+  // 1-1. 우측 상단: 1줄차 날짜(yyyy.mm.dd), 2줄차 위치 — 우측 정렬.
+  // Center-Stage 스튜디오의 핵심 차별화 요소이며 내보내기에도 픽셀 단위로 동일하게 반영된다.
+  const dateText =
     overlayOptions.showDate === false
       ? ''
-      : currentSegment?.subtitleDate || overlayOptions.subtitleDateText || '';
+      : normalizeMetaDate(
+          currentSegment?.subtitleDate || overlayOptions.subtitleDateText,
+          currentSegment?.recordedTimestamp
+        );
   const locPart = currentSegment?.locationName || overlayOptions.subtitleLocationText || '';
-  const metaParts = [datePart, locPart].filter(Boolean);
-  const metaText = metaParts.join(' • ');
+  const metaActive = Boolean(dateText || locPart);
 
-  if (metaText) {
+  if (metaActive) {
     hasAnyOverlay = true;
     oCtx.save();
-    oCtx.font = overlayFont('600', 16 * u);
-    oCtx.fillStyle = '#ffffff';
-    oCtx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-    oCtx.shadowBlur = Math.round(4 * u);
+    oCtx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+    oCtx.shadowBlur = Math.round(5 * u);
     oCtx.shadowOffsetX = 0;
     oCtx.shadowOffsetY = Math.round(1.5 * u);
-    oCtx.textAlign = 'left';
+    oCtx.textAlign = 'right';
     oCtx.textBaseline = 'top';
 
-    const metaX = hasTitle ? Math.round(34 * u) : Math.round(32 * u);
-    const metaY = hasTitle ? titleBottomY + Math.round(7 * u) : Math.round(28 * u);
-    oCtx.fillText(metaText, metaX, metaY);
+    const rightX = targetWidth - Math.round(32 * u);
+    let cursorY = Math.round(28 * u);
+    if (dateText) {
+      oCtx.font = overlayFont('600', 15 * u);
+      oCtx.fillStyle = 'rgba(255, 255, 255, 0.94)';
+      oCtx.fillText(dateText, rightX, cursorY);
+      cursorY += Math.round(19 * u);
+    }
+    if (locPart) {
+      const locSize = fitCanvasFontSize(
+        oCtx,
+        locPart,
+        Math.round(targetWidth * 0.45),
+        Math.round(19 * u),
+        (size) => overlayFont('bold', size),
+        Math.round(12 * u)
+      );
+      oCtx.font = overlayFont('bold', locSize);
+      oCtx.fillStyle = '#ffffff';
+      oCtx.fillText(locPart, rightX, cursorY);
+    }
     oCtx.restore();
   }
 
-  // 2. 우측 상단 채널 이름
+  // 2. 우측 상단 채널 이름 — 날짜·위치가 있으면 그 아래로 내려 겹치지 않게 한다.
   if (showHeader && overlayOptions.showChannel && overlayOptions.channelText) {
     hasAnyOverlay = true;
     oCtx.save();
@@ -227,7 +277,11 @@ function drawLandscapeOverlay(
     oCtx.shadowOffsetY = Math.round(2 * u);
     oCtx.textAlign = 'right';
     oCtx.textBaseline = 'middle';
-    oCtx.fillText(overlayOptions.channelText, targetWidth - Math.round(32 * u), Math.round(47 * u));
+    oCtx.fillText(
+      overlayOptions.channelText,
+      targetWidth - Math.round(32 * u),
+      Math.round((metaActive ? 92 : 47) * u)
+    );
     oCtx.restore();
   }
 
@@ -368,36 +422,57 @@ function drawPortraitOverlay(
     cursorY = cursorY + gap + Math.round(size * 1.3);
   }
 
-  // 3. 날짜 및 위치 (제목/채널 아래, 흰색 그림자 텍스트)
-  const datePart =
+  // 3. 우측 상단: 날짜(yyyy.mm.dd) + 위치 2줄 (세이프 영역 우측 정렬)
+  const dateText =
     overlayOptions.showDate === false
       ? ''
-      : currentSegment?.subtitleDate || overlayOptions.subtitleDateText || '';
+      : normalizeMetaDate(
+          currentSegment?.subtitleDate || overlayOptions.subtitleDateText,
+          currentSegment?.recordedTimestamp
+        );
   const locPart = currentSegment?.locationName || overlayOptions.subtitleLocationText || '';
-  const metaText = [datePart, locPart].filter(Boolean).join(' • ');
 
-  if (metaText) {
+  if (dateText || locPart) {
     hasAnyOverlay = true;
-    const gap = hasTitle || (overlayOptions.showChannel && channelText) ? Math.round(6 * u) : 0;
-    const size = fitCanvasFontSize(
-      oCtx,
-      metaText,
-      maxWidth - Math.round(4 * u),
-      Math.round(15 * u),
-      (fontSize) => overlayFont('600', fontSize),
-      Math.round(11 * u)
-    );
+    const rightX = frame.width - safeArea.right - Math.round(8 * u);
+    const halfWidth = Math.max(1, Math.round(maxWidth * 0.52));
+    let metaY = safeArea.top;
 
     oCtx.save();
-    oCtx.font = overlayFont('600', size);
-    oCtx.fillStyle = '#ffffff';
-    oCtx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+    oCtx.shadowColor = 'rgba(0, 0, 0, 0.9)';
     oCtx.shadowBlur = Math.round(4 * u);
     oCtx.shadowOffsetX = 0;
     oCtx.shadowOffsetY = Math.round(1.5 * u);
-    oCtx.textAlign = 'left';
+    oCtx.textAlign = 'right';
     oCtx.textBaseline = 'top';
-    oCtx.fillText(metaText, left + Math.round(2 * u), cursorY + gap);
+
+    if (dateText) {
+      const size = fitCanvasFontSize(
+        oCtx,
+        dateText,
+        halfWidth,
+        Math.round(14 * u),
+        (fontSize) => overlayFont('600', fontSize),
+        Math.round(10 * u)
+      );
+      oCtx.font = overlayFont('600', size);
+      oCtx.fillStyle = 'rgba(255, 255, 255, 0.94)';
+      oCtx.fillText(dateText, rightX, metaY);
+      metaY += Math.round(size * 1.4);
+    }
+    if (locPart) {
+      const size = fitCanvasFontSize(
+        oCtx,
+        locPart,
+        halfWidth,
+        Math.round(18 * u),
+        (fontSize) => overlayFont('bold', fontSize),
+        Math.round(11 * u)
+      );
+      oCtx.font = overlayFont('bold', size);
+      oCtx.fillStyle = '#ffffff';
+      oCtx.fillText(locPart, rightX, metaY);
+    }
     oCtx.restore();
   }
 

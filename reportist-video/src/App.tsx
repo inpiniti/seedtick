@@ -5,6 +5,7 @@ import './App.css';
 import { Toaster } from '@yusufceng1z/ding-react';
 import { notify } from './services/toastService.ts';
 import { ProStudioView } from './components/studio/ProStudioView.tsx';
+import { CenterStudioView } from './components/studio-v2/CenterStudioView.tsx';
 import {
   fetchVideoCapableModels,
   analyzeVideoHighlights,
@@ -81,6 +82,11 @@ import { useI18n } from './i18n/index.tsx';
 
 const INITIAL_VIDEO_MODELS = enrichModelMetrics(FALLBACK_VIDEO_MODELS);
 const INITIAL_DEFAULT_MODEL = pickDefaultModel(INITIAL_VIDEO_MODELS);
+
+// Center-Stage 스튜디오 V2가 기본 뷰다. 레거시 12단계 UI는 ?studio=v1 로 되돌아갈 수 있다.
+const STUDIO_V2_ENABLED =
+  typeof window === 'undefined' ||
+  new URLSearchParams(window.location.search).get('studio') !== 'v1';
 
 // 프로젝트 목록이 실제로 달라졌는지 얕게 비교한다.
 // (같은 내용으로 배열만 새로 만들면 카드가 다시 그려지며 썸네일이 깜빡일 수 있다.)
@@ -2367,6 +2373,61 @@ export function App() {
     currentPortraitPlatform,
   ]);
 
+  // V2 / 레거시가 동일한 상태·핸들러를 공유하도록 props를 한 곳에서 조립한다.
+  const sharedStudioProps = {
+    result: finalResult,
+    onUpdateFinalResult: setFinalResult,
+    videos,
+    models,
+    selectedModel,
+    onSelectModel: setSelectedModel,
+    selectedEffort,
+    onSelectEffort: setSelectedEffort,
+    isLoadingModels,
+    onFilesSelected: handleFilesSelected,
+    onRemoveVideo: handleRemove,
+    onUpdateVideoLocation: handleUpdateVideoLocation,
+    onUpdateVideoRotation: handleUpdateVideoRotation,
+    onStartAiAnalysis: handleStartProcessing,
+    isProcessing: currentStep === 'processing',
+    isPreparingVideos: activeVideoMetaBatches > 0,
+    progress,
+    onCancelProcessing: handleCancel,
+    onReset: handleReset,
+    onReStitch: handleReStitch,
+    isReStitching,
+    reStitchProgress,
+    currentProjectId,
+    saveStatus,
+    projectSummaries,
+    isLoadingProjects,
+    duplicatingProjectId,
+    onProjectsRefresh: () => {
+      void refreshProjectSummaries();
+    },
+    onOpenProject: handleOpenProject,
+    onDuplicateProject: handleDuplicateProject,
+    onDeleteProject: handleDeleteProject,
+    onStartNewProject: handleStartNewProject,
+    onTrySampleVideo: handleTrySampleVideo,
+    isLoadingSample,
+    onViewProjects: handleViewProjects,
+    initialOverlayOptions: currentOverlayOptions,
+    initialHighlightMode: currentHighlightMode,
+    onHighlightModeChange: handleHighlightModeChange,
+    initialBgmPresetId: currentBgmPresetId,
+    initialBgmVolume: currentBgmVolume,
+    initialCustomAudioFile: currentCustomAudio,
+    initialSelectedLibraryTrackId: currentLibraryTrackId,
+    onOverlayOptionsChange: handleOverlayOptionsChange,
+    onBgmChange: handleBgmChange,
+    onCustomAudioChange: handleCustomAudioChange,
+    onRelinkVideo: handleRelinkSingleVideo,
+    onRelinkBatch: handleRelinkBatch,
+    orientation: currentOrientation,
+    portraitPlatform: currentPortraitPlatform,
+  };
+
   return (
     <div className="toss-app-root">
       <Toaster position="top-center" theme="dark" />
@@ -2401,59 +2462,15 @@ export function App() {
         </div>
       )}
 
-      <ProStudioView
-        result={finalResult}
-        onUpdateFinalResult={setFinalResult}
-        videos={videos}
-        models={models}
-        selectedModel={selectedModel}
-        onSelectModel={setSelectedModel}
-        selectedEffort={selectedEffort}
-        onSelectEffort={setSelectedEffort}
-        isLoadingModels={isLoadingModels}
-        onFilesSelected={handleFilesSelected}
-        onRemoveVideo={handleRemove}
-        onUpdateVideoLocation={handleUpdateVideoLocation}
-        onUpdateVideoRotation={handleUpdateVideoRotation}
-        onStartAiAnalysis={handleStartProcessing}
-        isProcessing={currentStep === 'processing'}
-        isPreparingVideos={activeVideoMetaBatches > 0}
-        progress={progress}
-        onCancelProcessing={handleCancel}
-        onReset={handleReset}
-        onReStitch={handleReStitch}
-        isReStitching={isReStitching}
-        reStitchProgress={reStitchProgress}
-        currentProjectId={currentProjectId}
-        saveStatus={saveStatus}
-        projectSummaries={projectSummaries}
-        isLoadingProjects={isLoadingProjects}
-        duplicatingProjectId={duplicatingProjectId}
-        onProjectsRefresh={() => {
-          void refreshProjectSummaries();
-        }}
-        onOpenProject={handleOpenProject}
-        onDuplicateProject={handleDuplicateProject}
-        onDeleteProject={handleDeleteProject}
-        onStartNewProject={handleStartNewProject}
-        onTrySampleVideo={handleTrySampleVideo}
-        isLoadingSample={isLoadingSample}
-        onViewProjects={handleViewProjects}
-        initialOverlayOptions={currentOverlayOptions}
-        initialHighlightMode={currentHighlightMode}
-        onHighlightModeChange={handleHighlightModeChange}
-        initialBgmPresetId={currentBgmPresetId}
-        initialBgmVolume={currentBgmVolume}
-        initialCustomAudioFile={currentCustomAudio}
-        initialSelectedLibraryTrackId={currentLibraryTrackId}
-        onOverlayOptionsChange={handleOverlayOptionsChange}
-        onBgmChange={handleBgmChange}
-        onCustomAudioChange={handleCustomAudioChange}
-        onRelinkVideo={handleRelinkSingleVideo}
-        onRelinkBatch={handleRelinkBatch}
-        orientation={currentOrientation}
-        portraitPlatform={currentPortraitPlatform}
-      />
+      {STUDIO_V2_ENABLED ? (
+        <CenterStudioView
+          {...sharedStudioProps}
+          onOrientationChange={setCurrentOrientation}
+          onPortraitPlatformChange={setCurrentPortraitPlatform}
+        />
+      ) : (
+        <ProStudioView {...sharedStudioProps} />
+      )}
 
     </div>
   );
