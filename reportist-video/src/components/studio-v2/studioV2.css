@@ -905,9 +905,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  /* 기존 여백(6px)을 패딩+구분선으로 대체해 타임라인 높이는 그대로 유지한다. */
-  padding-bottom: 5px;
-  border-bottom: 1px solid var(--sv2-border);
+  margin-bottom: 6px;
 }
 .sv2-timeline-label {
   font-size: 11px;
@@ -949,8 +947,6 @@
   font-weight: 700;
   white-space: nowrap;
   color: var(--sv2-text-2);
-  /* 라벨과 레인 사이 구분선. box-sizing: border-box라 72px 폭·플레이헤드 오프셋은 그대로다. */
-  border-right: 1px solid var(--sv2-border);
   /* 가로 스크롤 시 라벨 고정. 플레이헤드 선은 라벨 아래로 가려진다. */
   position: sticky;
   left: 0;
