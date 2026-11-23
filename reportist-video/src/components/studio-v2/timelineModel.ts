@@ -97,38 +97,81 @@ export interface TimelineLayout {
   total: number;
 }
 
-export function buildTimelineLayout(model: TimelineModel): TimelineLayout {
-  const spans: TimelineSpan[] = [];
-  let cursor = 0;
+export interface TimelineLayoutOptions {
+  /** 트랙 레인의 가용 폭(px). 기본 스케일이 이보다 작으면 비율에 맞춰 확장한다. */
+  availableWidth?: number;
+  /** 확장 시 초당 최대 폭(px). 컷이 1~2개뿐일 때 지나치게 길어지지 않게 상한을 둔다. */
+  maxPxPerSec?: number;
+}
 
-  const push = (key: string, kind: TimelineSpan['kind'], start: number, end: number) => {
-    const width = Math.max(
-      TIMELINE_MIN_CHIP_WIDTH,
-      Math.round((end - start) * TIMELINE_PX_PER_SEC)
-    );
-    spans.push({
-      key,
-      kind,
-      start,
-      end,
-      left: cursor,
-      right: cursor + width,
-      width,
-      active: end > start,
-    });
-    cursor += width + TIMELINE_CHIP_GAP;
+/** 가용 폭에 맞춰 확장할 때 적용하는 초당 폭 상한. 기본 52px/s의 2.5배. */
+export const TIMELINE_MAX_FIT_PX_PER_SEC = 130;
+
+export function buildTimelineLayout(
+  model: TimelineModel,
+  options: TimelineLayoutOptions = {}
+): TimelineLayout {
+  const { availableWidth = 0, maxPxPerSec = TIMELINE_MAX_FIT_PX_PER_SEC } = options;
+
+  const buildSpans = (pxPerSec: number) => {
+    const spans: TimelineSpan[] = [];
+    let cursor = 0;
+
+    const push = (key: string, kind: TimelineSpan['kind'], start: number, end: number) => {
+      const width = Math.max(TIMELINE_MIN_CHIP_WIDTH, Math.round((end - start) * pxPerSec));
+      spans.push({
+        key,
+        kind,
+        start,
+        end,
+        left: cursor,
+        right: cursor + width,
+        width,
+        active: end > start,
+      });
+      cursor += width + TIMELINE_CHIP_GAP;
+    };
+
+    push('__intro__', 'intro', 0, model.introDuration);
+    for (const item of model.items) {
+      if (item.kind === 'segment') push(item.key, 'segment', item.start, item.end);
+    }
+    push('__outro__', 'outro', Math.max(0, model.total - model.outroDuration), model.total);
+
+    return { spans, totalWidth: Math.max(TIMELINE_MIN_CHIP_WIDTH, cursor - TIMELINE_CHIP_GAP) };
   };
 
-  push('__intro__', 'intro', 0, model.introDuration);
-  for (const item of model.items) {
-    if (item.kind === 'segment') push(item.key, 'segment', item.start, item.end);
+  const base = buildSpans(TIMELINE_PX_PER_SEC);
+  let spans = base.spans;
+  let totalWidth = base.totalWidth;
+
+  // 가용 폭이 기본 레이아웃보다 넓으면 컷 간격(5px)은 유지한 채 칩 폭만 비율 확장한다.
+  // 컷이 많아 이미 넘치면(기본 스케일 유지) 기존처럼 가로 스크롤에 맡긴다.
+  if (availableWidth > 0 && base.totalWidth < availableWidth) {
+    const gapTotal = (base.spans.length - 1) * TIMELINE_CHIP_GAP;
+    const sumWidths = base.spans.reduce((sum, span) => sum + span.width, 0);
+    if (sumWidths > 0) {
+      const scale = Math.min(
+        (availableWidth - gapTotal) / sumWidths,
+        maxPxPerSec / TIMELINE_PX_PER_SEC
+      );
+      if (scale > 1) {
+        let cursor = 0;
+        spans = base.spans.map((span) => {
+          const width = Math.round(span.width * scale);
+          const next = { ...span, left: cursor, right: cursor + width, width };
+          cursor += width + TIMELINE_CHIP_GAP;
+          return next;
+        });
+        totalWidth = Math.max(TIMELINE_MIN_CHIP_WIDTH, cursor - TIMELINE_CHIP_GAP);
+      }
+    }
   }
-  push('__outro__', 'outro', Math.max(0, model.total - model.outroDuration), model.total);
 
   return {
     spans,
     active: spans.filter((span) => span.active),
-    totalWidth: Math.max(TIMELINE_MIN_CHIP_WIDTH, cursor - TIMELINE_CHIP_GAP),
+    totalWidth,
     total: model.total,
   };
 }

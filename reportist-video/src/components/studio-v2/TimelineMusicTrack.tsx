@@ -1,5 +1,6 @@
 import { Music2, Plus, Trash2 } from 'lucide-react';
 import { AUDIO_LIBRARY } from '../../data/audioLibrary.ts';
+import type { TimelineLayout } from './timelineModel.ts';
 
 // components/studio-v2/TimelineMusicTrack.tsx — 단일 BGM 트랙 (1곡 고정).
 
@@ -12,6 +13,8 @@ interface TimelineMusicTrackProps {
   onVolumeChange: (volume: number) => void;
   onRemove: () => void;
   onPickFile: (file: File) => void;
+  /** 음악 바를 영상 트랙과 같은 시간축 폭으로 맞추기 위한 레이아웃. */
+  layout?: TimelineLayout;
 }
 
 export const TimelineMusicTrack = ({
@@ -23,20 +26,22 @@ export const TimelineMusicTrack = ({
   onVolumeChange,
   onRemove,
   onPickFile,
+  layout,
 }: TimelineMusicTrackProps) => {
   const libName = libraryTrackId
     ? AUDIO_LIBRARY.find((t) => t.id === libraryTrackId)?.name || null
     : null;
   const name = customAudioName || libName || (bgmPresetId !== 'none' ? bgmPresetId : null);
   const hasMusic = Boolean(name);
+  const filledWidth = hasMusic && layout ? layout.totalWidth : undefined;
 
   return (
     <div className="sv2-track-row">
       <div className="sv2-track-label">
         <Music2 size={13} /> 음악
       </div>
-      <div className="sv2-track-lane">
-        <div className="sv2-music-chip" data-filled={hasMusic}>
+      <div className="sv2-track-lane" style={filledWidth ? { width: filledWidth, paddingRight: 0 } : undefined}>
+        <div className="sv2-music-chip" data-filled={hasMusic} style={filledWidth ? { width: filledWidth } : undefined}>
           <button
             type="button"
             className="sv2-btn sv2-btn-sm sv2-btn-ghost"

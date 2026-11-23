@@ -482,11 +482,9 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
   position: relative;
-  padding: 18px 22px 8px;
-  transition: padding 0.4s ease;
+  padding: 0;
 }
 .sv2-stage-wrap {
   position: relative;
@@ -498,11 +496,14 @@
   justify-content: center;
   width: 100%;
   gap: 12px;
+  /* 기존 .sv2-center가 담당하던 스테이지 여백을 이관해 타임라인은 하단바 전체를 채운다. */
+  padding: 18px 22px 8px;
 }
 /* 분석 중 화면을 가리지 않는 상단 컴팩트 상태 필 */
 .sv2-status-pill {
   position: absolute;
-  top: 10px;
+  /* 스테이지 여백이 .sv2-stage-wrap으로 이동해도 기존과 같은 높이에 뜨도록 보정. */
+  top: 28px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 30;
@@ -782,13 +783,16 @@
 
 /* ---------- Timeline ---------- */
 .sv2-timeline {
+  width: 100%;
+  min-width: 0;
   height: var(--sv2-timeline-h);
   flex: 0 0 var(--sv2-timeline-h);
   background: var(--sv2-surface);
   border-top: 1px solid var(--sv2-border);
   display: flex;
   flex-direction: column;
-  padding: 8px 12px 10px;
+  /* 상단바(18px)와 좌우 정렬을 맞춘다. 좌우 여백만 남기고 하단바 자체는 풀블리드. */
+  padding: 10px 18px 10px;
   z-index: 10;
   box-shadow: 0 -2px 8px rgba(15, 23, 42, 0.04);
 }
@@ -842,7 +846,6 @@
   display: flex;
   align-items: stretch;
   gap: 5px;
-  min-width: 100%;
   padding-right: 12px;
 }
 
@@ -872,8 +875,9 @@
 }
 .sv2-ruler {
   position: relative;
-  flex: 0 0 auto;
-  min-width: 100%;
+  /* 인라인 폭(layout.totalWidth)을 최소로 한 뒤 남는 공간까지 자라 하단선을 끝까지 잇는다.
+     min-width:100%를 쓰면 트랙 라벨(56px)만큼 넘쳐 유령 가로 스크롤바가 생겼다. */
+  flex: 1 0 auto;
   height: 24px;
   border-bottom: 1px solid var(--sv2-border);
   cursor: pointer;

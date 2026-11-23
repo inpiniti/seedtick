@@ -64,11 +64,36 @@ interface TimelineDockProps {
 export const TimelineDock = (props: TimelineDockProps) => {
   const { segments, model, playhead, onSeek, onScrubStart } = props;
   const hasSegments = segments.length > 0;
-  const computedLayout = useMemo(() => buildTimelineLayout(model), [model]);
-  const layout = props.layout ?? computedLayout;
   const tracksRef = useRef<HTMLDivElement>(null);
   const rulerRef = useRef<HTMLDivElement>(null);
   const [isScrubbing, setIsScrubbing] = useState(false);
+  const [laneWidth, setLaneWidth] = useState(0);
+
+  // 트랙 뷰포트 폭을 관찰해 칩이 가용 너비를 채우도록 레이아웃 스케일을 다시 계산한다.
+  // 좌측 업로드 도크가 접히면 뷰포트가 커지고, ResizeObserver가 이를 따라 확장한다.
+  useEffect(() => {
+    const el = tracksRef.current;
+    if (!el) return;
+    const measure = () => {
+      // 트랙 라벨(56px) + 행 간격(8px), 가로 스크롤바 여유 2px를 뺀 레인 가용 폭.
+      const next = Math.max(0, Math.round(el.clientWidth - TRACK_LABEL_OFFSET - 2));
+      setLaneWidth((prev) => (Math.abs(prev - next) > 1 ? next : prev));
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', measure);
+      return () => window.removeEventListener('resize', measure);
+    }
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasSegments]);
+
+  const computedLayout = useMemo(
+    () => buildTimelineLayout(model, { availableWidth: laneWidth }),
+    [model, laneWidth]
+  );
+  const layout = props.layout ?? computedLayout;
 
   const playheadX = timeToTimelineX(layout, playhead);
 
@@ -170,6 +195,7 @@ export const TimelineDock = (props: TimelineDockProps) => {
               <TimelineVideoTrack {...props} layout={layout} playhead={playhead} onSeek={onSeek} />
               <TimelineMusicTrack
                 {...props}
+                layout={layout}
                 onRemove={props.onRemoveMusic}
                 onPickFile={props.onPickAudioFile}
               />
