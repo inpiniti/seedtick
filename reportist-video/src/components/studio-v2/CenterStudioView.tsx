@@ -1041,7 +1041,6 @@ export const CenterStudioView = (props: StudioV2Props) => {
             onReorder={reorderSegments}
             onVolumeChange={changeVolume}
             onRemoveMusic={removeMusic}
-            onPickAudioFile={pickAudioFile}
             onFitChange={(fit) => updateOverlay({ bgmFitToVideo: fit })}
           />
         </div>

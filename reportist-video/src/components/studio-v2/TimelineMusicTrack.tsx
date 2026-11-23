@@ -1,4 +1,3 @@
-import { useRef } from 'react';
 import { Music2, Plus, Trash2 } from 'lucide-react';
 import { AUDIO_LIBRARY } from '../../data/audioLibrary.ts';
 import { useI18n } from '../../i18n/index.tsx';
@@ -16,7 +15,6 @@ interface TimelineMusicTrackProps {
   onOpenMusic: () => void;
   onVolumeChange: (volume: number) => void;
   onRemove: () => void;
-  onPickFile: (file: File) => void;
   /** 음악 바를 영상 트랙과 같은 시간축 폭으로 맞추기 위한 레이아웃. */
   layout?: TimelineLayout;
   /** 영상 길이에 맞춰 음악 속도를 조절하는 옵션. */
@@ -32,13 +30,11 @@ export const TimelineMusicTrack = ({
   onOpenMusic,
   onVolumeChange,
   onRemove,
-  onPickFile,
   layout,
   bgmFitToVideo = false,
   onFitChange,
 }: TimelineMusicTrackProps) => {
   const { ui, t } = useI18n();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const libraryName = libraryTrackId
     ? AUDIO_LIBRARY.find((track) => track.id === libraryTrackId)?.name || null
     : null;
@@ -62,7 +58,7 @@ export const TimelineMusicTrack = ({
             {hasMusic ? <Music2 size={14} /> : <Plus size={14} />}
           </button>
           <span style={{ minWidth: 120, fontWeight: 700 }}>
-            {name || ui('음악 1곡 추가 (드롭 또는 선택)')}
+            {name || ui('음악 1곡 추가')}
           </span>
           {hasMusic && (
             <>
@@ -97,19 +93,6 @@ export const TimelineMusicTrack = ({
               </button>
             </>
           )}
-          <label className="sv2-btn sv2-btn-sm" style={{ cursor: 'pointer' }}>
-            {ui('파일')}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="audio/*"
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) onPickFile(file);
-              }}
-            />
-          </label>
         </div>
       </div>
     </div>

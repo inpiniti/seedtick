@@ -720,7 +720,7 @@ export const uiEs: Record<string, string> = {
   "컷 {index}": "Clip {index}",
   "음악": "Música",
   "음악 고르기": "Elegir música",
-  "음악 1곡 추가 (드롭 또는 선택)": "Añadir una pista (arrastra o elige)",
+  "음악 1곡 추가": "Añadir una pista",
   "볼륨": "Volumen",
   "교체": "Reemplazar",
   "파일": "Archivo",

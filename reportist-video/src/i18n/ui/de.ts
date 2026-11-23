@@ -721,7 +721,7 @@ export const uiDe: Record<string, string> = {
   "컷 {index}": "Clip {index}",
   "음악": "Musik",
   "음악 고르기": "Musik auswählen",
-  "음악 1곡 추가 (드롭 또는 선택)": "Ein Titel hinzufügen (ziehen oder auswählen)",
+  "음악 1곡 추가": "Ein Titel hinzufügen",
   "볼륨": "Lautstärke",
   "교체": "Ersetzen",
   "파일": "Datei",

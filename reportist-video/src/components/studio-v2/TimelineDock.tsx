@@ -63,7 +63,6 @@ interface TimelineDockProps {
   onReorder: (from: number, to: number) => void;
   onVolumeChange: (volume: number) => void;
   onRemoveMusic: () => void;
-  onPickAudioFile: (file: File) => void;
   onFitChange?: (fit: boolean) => void;
 }
 
@@ -211,7 +210,6 @@ export const TimelineDock = (props: TimelineDockProps) => {
                 layout={layout}
                 bgmFitToVideo={props.overlayOptions?.bgmFitToVideo ?? false}
                 onRemove={props.onRemoveMusic}
-                onPickFile={props.onPickAudioFile}
               />
             </div>
 
@@ -237,7 +235,6 @@ export const TimelineDock = (props: TimelineDockProps) => {
             {...props}
             bgmFitToVideo={props.overlayOptions?.bgmFitToVideo ?? false}
             onRemove={props.onRemoveMusic}
-            onPickFile={props.onPickAudioFile}
           />
           <div className="sv2-timeline-empty">
             {ui('AI 컷 분석이 끝나면 영상 트랙이 채워지고, 미리보기에서 자막을 바로 수정할 수 있어요. 음악은 미리 넣어둘 수 있어요.')}

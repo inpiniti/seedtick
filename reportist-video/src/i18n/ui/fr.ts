@@ -721,7 +721,7 @@ export const uiFr: Record<string, string> = {
   "컷 {index}": "Clip {index}",
   "음악": "Musique",
   "음악 고르기": "Choisir la musique",
-  "음악 1곡 추가 (드롭 또는 선택)": "Ajouter un morceau (glisser ou choisir)",
+  "음악 1곡 추가": "Ajouter un morceau",
   "볼륨": "Volume",
   "교체": "Remplacer",
   "파일": "Fichier",

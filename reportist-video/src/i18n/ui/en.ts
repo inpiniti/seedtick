@@ -732,7 +732,7 @@ export const uiEn: Record<string, string> = {
   "컷 {index}": "Clip {index}",
   "음악": "Music",
   "음악 고르기": "Choose music",
-  "음악 1곡 추가 (드롭 또는 선택)": "Add one track (drop or choose)",
+  "음악 1곡 추가": "Add one track",
   "볼륨": "Volume",
   "교체": "Replace",
   "파일": "File",
