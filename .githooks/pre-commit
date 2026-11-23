@@ -1,0 +1,134 @@
+#!/usr/bin/env sh
+set -eu
+
+# Seedtick pre-commit guardrails (model-agnostic: works across Gemini, HY4, DeepSeek, Claude, human)
+# Enable once per clone: git config core.hooksPath .githooks
+
+STAGED_FILES="$(git -c core.quotepath=false diff --cached --name-only --diff-filter=ACMR)"
+if [ -z "$STAGED_FILES" ]; then
+  exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# 1. Secret & .env Guard
+# ---------------------------------------------------------------------------
+FORBIDDEN_FILES="$(printf '%s\n' "$STAGED_FILES" | grep -E '(^|/)(\.env(\..+)?|.*\.(pem|key|p12|pfx))$' | grep -Ev '(^|/)\.env\.(example|sample|template)$' || true)"
+if [ -n "$FORBIDDEN_FILES" ]; then
+  echo "[pre-commit] BLOCKED: Secret or .env file staged for commit:" >&2
+  printf '  - %s\n' $FORBIDDEN_FILES >&2
+  echo "Unstage with: git reset HEAD <file>" >&2
+  exit 1
+fi
+
+SECRET_PATTERN='(-----BEGIN [A-Z ]*PRIVATE KEY-----|AIzaSy[0-9A-Za-z_-]{30,}|gh[pousr]_[0-9A-Za-z]{30,}|hf_[0-9A-Za-z]{25,}|sk-(proj-)?[0-9A-Za-z_-]{20,}|sk-ant-[0-9A-Za-z_-]{20,})'
+ADDED_LINES="$(git diff --cached --unified=0 -- . ':!.githooks/pre-commit' ':!*.lock' ':!package-lock.json' ':!bun.lock*' | grep -E '^\+[^+]' || true)"
+if printf '%s\n' "$ADDED_LINES" | grep -Eq "$SECRET_PATTERN"; then
+  echo "[pre-commit] BLOCKED: Potential secret/API key detected in staged diff." >&2
+  echo "Remove the secret and load it from environment variables instead." >&2
+  exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# 2. Per-service fast staged checks (ratchet lint + typecheck)
+# ---------------------------------------------------------------------------
+has_prefix() {
+  printf '%s\n' "$STAGED_FILES" | grep -q "^$1/"
+}
+
+# 2a. reportist-admin
+if has_prefix "reportist-admin"; then
+  echo "[pre-commit] Checking reportist-admin..."
+  ADMIN_LINT_FILES="$(printf '%s\n' "$STAGED_FILES" | grep -E '^reportist-admin/.*\.(ts|tsx|js|jsx|mjs)$' | sed 's|^reportist-admin/||' || true)"
+  if [ -n "$ADMIN_LINT_FILES" ]; then
+    (
+      cd reportist-admin
+      set --
+      while IFS= read -r f; do
+        [ -n "$f" ] && set -- "$@" "$f"
+      done <<EOF
+$ADMIN_LINT_FILES
+EOF
+      npx --no-install eslint -- "$@"
+    )
+  fi
+  (cd reportist-admin && npm run typecheck)
+fi
+
+# 2b. reportist-ai-gateway
+if has_prefix "reportist-ai-gateway"; then
+  echo "[pre-commit] Checking reportist-ai-gateway..."
+  GW_LINT_FILES="$(printf '%s\n' "$STAGED_FILES" | grep -E '^reportist-ai-gateway/(src|tests)/.*\.(ts|tsx|js|mjs|json)$' | sed 's|^reportist-ai-gateway/||' || true)"
+  if [ -n "$GW_LINT_FILES" ]; then
+    (
+      cd reportist-ai-gateway
+      set --
+      while IFS= read -r f; do
+        [ -n "$f" ] && set -- "$@" "$f"
+      done <<EOF
+$GW_LINT_FILES
+EOF
+      if [ -x ./node_modules/.bin/biome ]; then
+        ./node_modules/.bin/biome check "$@"
+      else
+        bunx biome check "$@"
+      fi
+    )
+  fi
+  (cd reportist-ai-gateway && bun run typecheck)
+fi
+
+# 2c. reportist-analyzer
+if has_prefix "reportist-analyzer"; then
+  echo "[pre-commit] Checking reportist-analyzer..."
+  PY_FILES="$(printf '%s\n' "$STAGED_FILES" | grep -E '^reportist-analyzer/.*\.py$' || true)"
+  if [ -n "$PY_FILES" ]; then
+    PYTHON_BIN=""
+    if command -v python >/dev/null 2>&1; then
+      PYTHON_BIN="python"
+    elif command -v python3 >/dev/null 2>&1; then
+      PYTHON_BIN="python3"
+    fi
+    if [ -n "$PYTHON_BIN" ]; then
+      while IFS= read -r f; do
+        [ -n "$f" ] && "$PYTHON_BIN" -m py_compile "$f"
+      done <<EOF
+$PY_FILES
+EOF
+    fi
+    if command -v ruff >/dev/null 2>&1; then
+      ANALYZER_REL_PY="$(printf '%s\n' "$PY_FILES" | sed 's|^reportist-analyzer/||')"
+      (
+        cd reportist-analyzer
+        set --
+        while IFS= read -r f; do
+          [ -n "$f" ] && set -- "$@" "$f"
+        done <<EOF
+$ANALYZER_REL_PY
+EOF
+        ruff check "$@"
+      )
+    else
+      echo "[pre-commit] Note: 'ruff' not installed locally (skipping local ruff; CI will run it)."
+    fi
+  fi
+fi
+
+# 2d. reportist-chat
+if has_prefix "reportist-chat"; then
+  echo "[pre-commit] Checking reportist-chat..."
+  (cd reportist-chat && npm run lint && npm run typecheck)
+fi
+
+# 2e. reportist-game
+if has_prefix "reportist-game"; then
+  echo "[pre-commit] Checking reportist-game..."
+  (cd reportist-game && npm run typecheck)
+fi
+
+# 2f. reportist-video
+if has_prefix "reportist-video"; then
+  echo "[pre-commit] Checking reportist-video..."
+  (cd reportist-video && npm run typecheck)
+fi
+
+echo "[pre-commit] All checks passed."

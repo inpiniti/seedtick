@@ -1,0 +1,3 @@
+# Keep shell scripts and git hooks in LF so they execute reliably on Windows (Git Bash) and Unix
+*.sh text eol=lf
+.githooks/* text eol=lf

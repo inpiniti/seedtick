@@ -1,15 +1,9 @@
-﻿# Git 컨벤션
+# Git 컨벤션
 
 ## 브랜치 전략
 
-```
-main          프로덕션 배포본 (자동 배포 트리거)
-develop       통합 개발 브랜치
-feat/{name}   새 기능
-fix/{name}    버그 수정
-docs/{name}   문서 수정
-chore/{name}  설정, 패키지 관리
-```
+- 기본 작업 방식: **`main`에서 직접 작업 후 푸시**(푸시 시 Vercel / Hugging Face Spaces 자동 배포 트리거).
+- 실험적·대규모 변경일 때만 선택적으로 `feat/{name}`, `fix/{name}` 브랜치를 분리한다.
 
 ---
 
@@ -35,8 +29,10 @@ chore/{name}  설정, 패키지 관리
 | `perf` | 성능 개선 |
 
 ### scope (프로젝트별)
-**ai-gateway**: `gateway`, `rotator`, `proxy`, `adapter`
-**analyzer**: `screener`, `report`, `scheduler`, `trading`, `bridge`, `error-log`
+**admin**: `admin`, `subscription`, `feedback`, `ui`
+**ai-gateway**: `gateway`, `rotator`, `proxy`, `adapter`, `models`
+**analyzer**: `screener`, `report`, `scheduler`, `error-log`
+**apps**: `chat`, `game`, `video`
 
 ### 예시
 ```
@@ -49,19 +45,19 @@ feat(rotator): Gemini 키 로테이션에 에러 즉시 전환 추가
 ```
 
 ```
-fix(trading): 당일 중복 주문 방지 조건 누락 수정
+fix(report): 데이터팩 수집 실패 시 기본값 폴백 보정
 
-is_already_ordered() 체크가 paper-trading 모드에서만
-동작하던 버그 수정. 실거래 모드에서도 항상 검사하도록.
+Yahoo Finance 응답 누락 시 예외로 중단되던 문제 수정.
+기본값 폴백 후 파이프라인 완주 보장.
 ```
 
 ---
 
-## PR 규칙
+## 커밋·배포 전 체크
 
-- 최소 셀프 리뷰 후 머지
-- main 직접 push 금지
-- 배포 전 PAPER_TRADING_MODE 환경변수 확인 필수
+- 수정한 서비스의 타입체크·테스트 통과 확인 (`.githooks/pre-commit` 자동 실행)
+- `.env*` 및 시크릿 키 미포함 확인 필수
+- `main` 푸시 시 프로덕션 자동 배포 + `.github/workflows/ci.yml` 검증 병렬 실행
 
 ---
 

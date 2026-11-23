@@ -11,6 +11,7 @@
     "dev": "vite",
     "prebuild": "npm run seo",
     "build": "tsc -b && vite build",
+    "typecheck": "tsc -b --noEmit",
     "preview": "vite preview"
   },
   "dependencies": {

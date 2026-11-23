@@ -9,8 +9,9 @@
     "start": "bun src/index.ts",
     "build": "bun build src/index.ts --target bun --outfile api/index.js --minify",
     "test": "bun test",
-    "lint": "biome check --apply .",
-    "format": "biome format --write .",
+    "lint": "biome check ./src ./tests",
+    "lint:fix": "biome check --write ./src ./tests",
+    "format": "biome format --write ./src ./tests",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

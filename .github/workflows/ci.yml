@@ -1,0 +1,260 @@
+name: CI — Verify Changed Services
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Service to verify (all, admin, gateway, analyzer, chat, game, video)'
+        required: true
+        default: 'all'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  detect-changes:
+    name: Detect changed services
+    runs-on: ubuntu-latest
+    outputs:
+      admin: ${{ steps.filter.outputs.admin }}
+      gateway: ${{ steps.filter.outputs.gateway }}
+      analyzer: ${{ steps.filter.outputs.analyzer }}
+      chat: ${{ steps.filter.outputs.chat }}
+      game: ${{ steps.filter.outputs.game }}
+      video: ${{ steps.filter.outputs.video }}
+      base_sha: ${{ steps.filter.outputs.base_sha }}
+      head_sha: ${{ steps.filter.outputs.head_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine changed services
+        id: filter
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TARGET="${{ github.event.inputs.target }}"
+            for svc in admin gateway analyzer chat game video; do
+              if [ "$TARGET" = "all" ] || [ "$TARGET" = "$svc" ]; then
+                echo "$svc=true" >> "$GITHUB_OUTPUT"
+              else
+                echo "$svc=false" >> "$GITHUB_OUTPUT"
+              fi
+            done
+            echo "base_sha=" >> "$GITHUB_OUTPUT"
+            echo "head_sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+            HEAD_SHA="${{ github.sha }}"
+            if [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+              BASE_SHA="$(git rev-parse HEAD~1 2>/dev/null || true)"
+            fi
+          fi
+
+          echo "base_sha=${BASE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "head_sha=${HEAD_SHA}" >> "$GITHUB_OUTPUT"
+
+          if [ -z "$BASE_SHA" ]; then
+            for svc in admin gateway analyzer chat game video; do
+              echo "$svc=true" >> "$GITHUB_OUTPUT"
+            done
+            exit 0
+          fi
+
+          CHANGED="$(git -c core.quotepath=false diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+          check_svc() {
+            local key="$1"
+            local dir="$2"
+            if printf '%s\n' "$CHANGED" | grep -q "^${dir}/"; then
+              echo "${key}=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "${key}=false" >> "$GITHUB_OUTPUT"
+            fi
+          }
+
+          check_svc admin reportist-admin
+          check_svc gateway reportist-ai-gateway
+          check_svc analyzer reportist-analyzer
+          check_svc chat reportist-chat
+          check_svc game reportist-game
+          check_svc video reportist-video
+
+  ci-admin:
+    name: Verify reportist-admin
+    needs: detect-changes
+    if: needs.detect-changes.outputs.admin == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: reportist-admin/package-lock.json
+      - name: Install dependencies
+        working-directory: reportist-admin
+        run: npm ci
+      - name: Typecheck
+        working-directory: reportist-admin
+        run: npm run typecheck
+      - name: Unit tests
+        working-directory: reportist-admin
+        run: npm test
+      - name: Lint changed files (ratchet)
+        env:
+          BASE_SHA: ${{ needs.detect-changes.outputs.base_sha }}
+          HEAD_SHA: ${{ needs.detect-changes.outputs.head_sha }}
+        run: |
+          if [ -z "$BASE_SHA" ]; then
+            echo "Manual dispatch — skipping changed-file eslint ratchet."
+            exit 0
+          fi
+          mapfile -t FILES < <(git -c core.quotepath=false diff --name-only --diff-filter=ACMR "$BASE_SHA" "$HEAD_SHA" -- 'reportist-admin/' | grep -E '\.(ts|tsx|js|jsx|mjs)$' | sed 's|^reportist-admin/||' || true)
+          if [ "${#FILES[@]}" -gt 0 ]; then
+            cd reportist-admin
+            npx eslint -- "${FILES[@]}"
+          else
+            echo "No lintable files changed in reportist-admin."
+          fi
+
+  ci-gateway:
+    name: Verify reportist-ai-gateway
+    needs: detect-changes
+    if: needs.detect-changes.outputs.gateway == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        working-directory: reportist-ai-gateway
+        run: bun install --frozen-lockfile
+      - name: Typecheck
+        working-directory: reportist-ai-gateway
+        run: bun run typecheck
+      - name: Unit tests
+        working-directory: reportist-ai-gateway
+        run: bun test
+      - name: Biome check changed files (ratchet)
+        env:
+          BASE_SHA: ${{ needs.detect-changes.outputs.base_sha }}
+          HEAD_SHA: ${{ needs.detect-changes.outputs.head_sha }}
+        run: |
+          if [ -z "$BASE_SHA" ]; then
+            echo "Manual dispatch — skipping changed-file biome ratchet."
+            exit 0
+          fi
+          mapfile -t FILES < <(git -c core.quotepath=false diff --name-only --diff-filter=ACMR "$BASE_SHA" "$HEAD_SHA" -- 'reportist-ai-gateway/src/' 'reportist-ai-gateway/tests/' | grep -E '\.(ts|tsx|js|mjs|json)$' | sed 's|^reportist-ai-gateway/||' || true)
+          if [ "${#FILES[@]}" -gt 0 ]; then
+            cd reportist-ai-gateway
+            bunx biome check "${FILES[@]}"
+          else
+            echo "No lintable files changed in reportist-ai-gateway."
+          fi
+
+  ci-analyzer:
+    name: Verify reportist-analyzer
+    needs: detect-changes
+    if: needs.detect-changes.outputs.analyzer == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: reportist-analyzer/requirements.txt
+      - name: Install dependencies
+        working-directory: reportist-analyzer
+        run: |
+          pip install -r requirements.txt
+          pip install ruff
+      - name: Ruff lint changed files (ratchet)
+        env:
+          BASE_SHA: ${{ needs.detect-changes.outputs.base_sha }}
+          HEAD_SHA: ${{ needs.detect-changes.outputs.head_sha }}
+        run: |
+          if [ -z "$BASE_SHA" ]; then
+            echo "Manual dispatch — skipping changed-file ruff ratchet."
+            exit 0
+          fi
+          mapfile -t FILES < <(git -c core.quotepath=false diff --name-only --diff-filter=ACMR "$BASE_SHA" "$HEAD_SHA" -- 'reportist-analyzer/' | grep -E '\.py$' | sed 's|^reportist-analyzer/||' || true)
+          if [ "${#FILES[@]}" -gt 0 ]; then
+            cd reportist-analyzer
+            ruff check "${FILES[@]}"
+          else
+            echo "No Python files changed in reportist-analyzer."
+          fi
+      - name: Unit tests
+        working-directory: reportist-analyzer
+        run: pytest -q
+
+  ci-chat:
+    name: Verify reportist-chat
+    needs: detect-changes
+    if: needs.detect-changes.outputs.chat == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        working-directory: reportist-chat
+        run: bun install --frozen-lockfile
+      - name: Lint
+        working-directory: reportist-chat
+        run: bun run lint
+      - name: Typecheck
+        working-directory: reportist-chat
+        run: bun run typecheck
+
+  ci-game:
+    name: Verify reportist-game
+    needs: detect-changes
+    if: needs.detect-changes.outputs.game == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        working-directory: reportist-game
+        run: bun install --frozen-lockfile
+      - name: Typecheck
+        working-directory: reportist-game
+        run: bun run typecheck
+
+  ci-video:
+    name: Verify reportist-video
+    needs: detect-changes
+    if: needs.detect-changes.outputs.video == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: reportist-video/package-lock.json
+      - name: Install dependencies
+        working-directory: reportist-video
+        run: npm ci
+      - name: Typecheck
+        working-directory: reportist-video
+        run: npm run typecheck

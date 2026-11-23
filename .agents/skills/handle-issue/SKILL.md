@@ -1,136 +1,101 @@
 ---
 name: handle-issue
-description: 버그, 이상 현상, 기능 개선 요청이 인입되었을 때 이슈 유형(단순 UI / 작은 버그 / 복합 이슈)을 에이전트가 자체 판단하여 최소한의 절차만 수행하는 차등 워크플로우
+description: 버그, 이상 현상, 기능 개선 요청이 인입되었을 때 이슈 유형(A 단순 UI / B 작은 버그 / C 복합 이슈)을 판단해 최소 절차로 구현·자가검증·커밋하는 차등 워크플로우
 ---
 
 # handle-issue 워크플로우
 
-운영 중 발견된 버그, 예외 상황, 기능 개선 요구사항을 **이슈 유형에 따라 차등 절차**로 해결합니다. 에이전트는 단계 1에서 유형을 판단하고, 필요한 절차만 수행합니다.
+운영 중 발견된 버그, 예외 상황, 기능 개선 요청을 **이슈 유형별 차등 절차**로 해결한다. 모든 유형에서 테스트·타입체크·린트 검증은 에이전트가 직접 실행하고 통과(Green)를 확인한다.
 
 ---
 
 ## 이슈 유형별 절차 요약
 
-| 유형 | 에이전트 판단 기준 | 수행 절차 |
+| 유형 | 판단 기준 | 수행 절차 |
 | :--- | :--- | :--- |
-| **A. 단순 UI 수정** | 레이아웃·스타일·텍스트 등 비즈니스 로직 무관 변경 | 직접 수정 → 커밋 |
-| **B. 작은 버그** | 단일 에러, 로직 버그, 컴포넌트/훅 단순 수정 | TDD → 커밋 |
-| **C. 복합 이슈** | 아키텍처·정책·기능·동시성·설계 변경 등 | 인터뷰 → 도메인 명세 → 모바일 점검(UI 포함 시) → TDD → 코드리뷰 → 커밋 |
+| **A. 단순 UI 수정** | 레이아웃·스타일·카피·여백 등 비즈니스 로직 무관 변경 | 구현 → 자가 검증 → 커밋 |
+| **B. 작은 버그** | 단일 에러, 조건 누락, 파싱/계산 오류, 훅·서비스 단순 수정 | TDD → 자가 검증 → 커밋 |
+| **C. 복합 이슈** | 아키텍처·정책·신규 기능·동시성·스키마·계약 변경 | 인터뷰 → 도메인 명세 → UI/웹 점검(해당 시) → TDD → 코드리뷰 → 커밋 |
 
-> **판단 원칙**: 유지보수성 우선. 경계가 모호하면 더 간단한 유형으로 판단합니다.
+> 경계가 모호하면 더 단순한 유형을 선택한다.
 
 ---
 
-## 참조 외부 스킬 (복합 이슈 시 해당 단계에서 로드)
+## 참조 스킬 (해당 단계에서만 로드)
 
-- **인터뷰**: [`grilling`](file:///C:/Users/user/.gemini/config/skills/grilling/SKILL.md)
-- **모바일 성능**: [`vercel-react-native-skills`](file:///C:/Users/user/.gemini/config/skills/vercel-react-native-skills/SKILL.md)
-- **TDD**: [`tdd`](file:///C:/Users/user/.gemini/config/skills/tdd/SKILL.md)
-- **코드 리뷰**: [`code-review`](file:///C:/Users/user/.gemini/config/skills/code-review/SKILL.md)
+- **인터뷰**: `grilling`
+- **웹/React UI 품질·카피**: `toss-design`, `vercel-react-best-practices`
+- **TDD**: `tdd`
+- **코드 리뷰**: `code-review`
 
 ---
 
 ## 단계 1: 이슈 분석 및 유형 판단
 
-이슈를 분해하고 유형(A/B/C)을 결정합니다:
+변경 전 아래 세 항목을 한 줄씩 정리하고 유형(A/B/C)을 확정한다.
 
-- **증상 (Symptom)**: 사용자가 보고한 현상
-- **근본 원인 후보 (Root Cause)**: 브로커 폴링 누락, 상태 불일치, 로직 오류 등
-- **비즈니스 위험도**: 슬롯 낭비, 이중 발주, 잔고 왜곡 여부
-
-판단 결과에 따라 아래 해당 유형의 절차를 수행합니다.
+- **증상**: 사용자가 보고한 현상 또는 요청
+- **근본 원인 후보 / 대상 서비스**: 예) `reportist-admin`, `reportist-ai-gateway`, `reportist-analyzer`, `reportist-chat` 등
+- **영향 범위**: API 계약, DB/RLS, 스케줄러 파이프라인, UI 상태 영향 여부
 
 ---
 
 ## 유형 A: 단순 UI 수정
 
-> 레이아웃, 스타일, 텍스트, 여백, 아이콘 등 비즈니스 로직과 무관한 변경.
-
-1. 수정 사항을 직접 구현합니다.
-2. **커밋** (한글 커밋 메시지 필수. 예: `fix(ui): 진입 버튼 여백 조정`)
+1. 한국어 UI/카피 변경 시 `toss-design` 기준에 맞춰 수정한다.
+2. 수정한 서비스의 타입체크 및 변경 파일 린트를 직접 실행해 통과를 확인한다(`AGENTS.md` 검증 표 참조).
+3. 한글 Conventional Commit으로 커밋한다(예: `fix(admin): 종목 상세 헤더 여백 조정`).
 
 ---
 
 ## 유형 B: 작은 버그
 
-> 단일 에러 로그, 조건 누락, 계산 차이, 단순 로직 버그. 컴포넌트/훅 변경이 단순할 때 포함.
-> 비-UI 영역(순수 비즈니스 로직, 유틸리티, 브로커 통신)의 단순 버그도 이 유형으로 판단 가능.
-
-1. **TDD** ([`tdd`](file:///C:/Users/user/.gemini/config/skills/tdd/SKILL.md) 지침 로드):
-   - **Red**: 버그를 재현하는 단위 테스트 먼저 작성
-   - **Green**: 최소 구현 코드 작성
-   - **개발자에게 실행 요청**: `npx vitest run <테스트파일>` 실행 후 결과를 알려달라고 요청
-   - 결과를 받아 실패 시 수정, 통과 시 다음 단계 진행
-   - `npx tsc --noEmit` 타입 점검도 동일하게 개발자에게 요청
-2. **커밋** (한글 커밋 메시지 필수. 예: `fix(order): 체결 조건 누락 보정`)
+1. `tdd` 스킬을 로드해 **Red → Green → Refactor** 순서로 수정한다.
+   - **Red**: 버그를 재현하는 단위 테스트를 먼저 작성하고 실패를 직접 확인한다.
+   - **Green**: 최소 수정으로 테스트 통과를 직접 확인한다.
+2. **자가 검증(직접 실행)**: 수정한 서비스의 테스트·타입체크·변경 파일 린트를 모두 실행하고 통과를 확인한다.
+   - `reportist-admin`: `npm run typecheck && npm test && npx eslint <변경파일>`
+   - `reportist-ai-gateway`: `bun run typecheck && bun test && npx biome check <변경파일>`
+   - `reportist-analyzer`: `pytest -q` (+ `ruff check <변경파일>`)
+   - `reportist-chat` / `game` / `video`: `npm run typecheck` (+ `npm run lint`)
+3. 한글 Conventional Commit으로 커밋한다(예: `fix(report): 데이터팩 누락 시 기본값 폴백 보정`).
 
 ---
 
 ## 유형 C: 복합 이슈
 
-> 아키텍처 변경, 정책 결정, 기능 추가, 동시성·경합 문제, 리팩토링 등.
+### C-1: 도메인 매핑 및 인터뷰 (`grilling`)
 
-### C-1: 도메인 매핑 및 인터뷰 (grilling)
-
-1. `docs/domain/` 하위에서 책임 도메인 식별
-   - 기존 도메인 없으면 `add-domain` 워크플로우로 먼저 등록
-   - 예) 주문 누락/체결 응답 → `docs/domain/주문/`
-   - 예) 보유 포지션 잔고 동기화 → `docs/domain/포지션/`
-2. [`grilling`](file:///C:/Users/user/.gemini/config/skills/grilling/SKILL.md) 지침 로드 후, 숨은 엣지 케이스·정책 결정을 번호 매김 질문 라운드로 사용자와 합의:
-   ```markdown
-   ❓ **Q1** - **<질문 제목>**: <상세 질문 및 옵션 설명>
-   ➡️ <에이전트 추천 방안 및 근거>
-   ```
+1. `docs/domain/` 또는 `docs/domains/`에서 책임 도메인을 식별한다(신규 도메인이면 `add-domain`으로 먼저 등록).
+2. `grilling` 지침에 따라 숨은 엣지 케이스·정책 결정을 사용자와 합의한다.
 
 ### C-2: 도메인 명세 업데이트
 
-합의된 요구사항을 도메인 문서에 기록합니다:
-- **`feature.md`**: 신규 유스케이스 및 예외 복구 흐름 추가
-- **`README.md`**: 도메인 불변식(Invariants) 명문화
-- **`architecture.md`** (필요 시): 이벤트 흐름 및 예외 복구 시퀀스 갱신
+합의된 요구사항과 불변식을 해당 도메인 문서(`README.md`, `feature.md`, 필요 시 `architecture.md`) 및 `docs/contract/`에 반영한다.
 
-### C-3: 모바일 성능 점검 (UI 포함 시만)
+### C-3: UI / React 점검 (프론트엔드 변경 시에만)
 
-수정 범위에 **React Native UI, 컴포넌트, 훅, 화면 상태 구독**이 포함되는 경우만 수행:
+수정 범위에 React 컴포넌트·상태·렌더링이 포함되면 `toss-design` 및 `vercel-react-best-practices` 기준으로 점검한다(로딩/빈/에러 상태, 불필요한 리렌더링, 워터폴 fetch, 접근성/카피). 비-UI 작업이면 사유를 한 줄 적고 건너뛴다.
 
-1. [`vercel-react-native-skills/SKILL.md`](file:///C:/Users/user/.gemini/config/skills/vercel-react-native-skills/SKILL.md) 로드 후 해당 카테고리 룰 확인
-2. 아래 체크리스트 출력:
+### C-4: TDD 구현 및 자가 검증
 
-| 카테고리 | 핵심 점검 항목 | 점검 및 적용 내용 |
-| :--- | :--- | :--- |
-| **List Performance** | `FlashList` 가상화, `React.memo`, 인라인 객체/익명 함수 지양 | *(해당/미해당 및 조치 내용)* |
-| **State Management** | 전역 스토어 구독 최소화, 안정적 콜백 참조 유지 | *(해당/미해당 및 조치 내용)* |
-| **Rendering** | Falsy `&&` 방지 (`count > 0 ? <View> : null`), `<Text>` 감싸기 | *(해당/미해당 및 조치 내용)* |
-| **Animation / UI** | GPU 가속 속성만 애니메이션, `expo-image`, `Pressable` 사용 | *(해당/미해당 및 조치 내용)* |
+`tdd` 지침에 따라 Red → Green → Refactor를 수행하고, 해당 서비스의 전체 테스트·타입체크·변경 파일 린트를 **에이전트가 직접 실행해 모두 통과**시킨다.
 
-> *(비-UI 영역만 수정 시 사유를 밝히고 스킵)*
+### C-5: 코드 리뷰 (`code-review`)
 
-### C-4: TDD 구현
-
-[`tdd`](file:///C:/Users/user/.gemini/config/skills/tdd/SKILL.md) 지침 로드:
-- **Red**: 버그/요구사항을 재현하는 테스트 먼저 작성
-- **Green**: 최소 구현 코드 작성
-- **개발자에게 실행 요청**: `npx vitest run <테스트파일>` 실행 후 결과를 알려달라고 요청
-- 결과를 받아 실패 시 수정, 통과 시 다음 단계 진행
-- `npx tsc --noEmit` 타입 점검도 동일하게 개발자에게 요청
-
-### C-5: 코드 리뷰 (code-review)
-
-[`code-review`](file:///C:/Users/user/.gemini/config/skills/code-review/SKILL.md) 지침 로드 후 2축 자체 점검:
-- **Standards 축**: 코딩 컨벤션, Fowler 코드 스멜(Mysterious Name, Duplicated Code 등) 준수 여부
-- **Spec 축**: 도메인 문서 및 이슈 요구사항과 실제 diff 일치 여부 (누락/과도한 범위 변경)
+`code-review` 지침에 따라 두 축을 자체 점검한다.
+- **Standards 축**: `docs/rules/coding-standards.md`, `docs/rules/safety-rules.md` 준수 여부
+- **Spec 축**: 도메인 문서·합의 요구사항과 실제 diff 일치 여부
 
 ### C-6: 커밋
 
-변경된 도메인 문서와 코드를 논리적 단위로 커밋합니다.
-- **한글 커밋 메시지 필수** (예: `feat(order): 실시간 잔고 동기화 방어 로직 추가`)
+문서와 코드를 논리적 단위로 한글 Conventional Commit한다(예: `feat(subscription): 체험 만료 안내 배너 및 정책 추가`).
 
 ---
 
 ## 완료 보고
 
-- 판단한 이슈 유형(A/B/C)과 수행한 절차 명시
-- (유형 C) 업데이트된 도메인 문서 및 추가된 불변식/규칙 요약
-- (유형 C, UI 포함) 모바일 성능 체크리스트 결과 요약
-- TDD 작성 테스트 파일 경로 및 개발자 확인 결과 요약, 커밋 해시 보고
-
+- 판단한 이슈 유형(A/B/C)과 수행 단계 요약
+- 직접 실행한 검증 명령어와 결과(테스트 수, 타입체크, 린트 결과)
+- (유형 C) 갱신된 도메인 문서 및 리뷰 발견 사항
+- 생성된 커밋 해시(커밋 수행 시)
