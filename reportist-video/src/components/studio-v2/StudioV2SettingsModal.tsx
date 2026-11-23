@@ -40,6 +40,9 @@ import type { StudioModelDisplay } from './types.ts';
 // components/studio-v2/StudioV2SettingsModal.tsx
 // V2 전용 슬림 설정 모달. 편집 맥락에 속한 옵션은 제자리(인스펙터/음악 트랙)에 두고,
 // 전역·표시·도구·지원 항목만 여기에 모은다.
+// 좌측 섹션 메뉴를 고르면 우측 영역에 해당 설정만 보여준다.
+
+type SettingsSection = 'ai' | 'subtitle' | 'display' | 'tools' | 'support';
 
 interface StudioV2SettingsModalProps {
   isOpen: boolean;
@@ -86,9 +89,10 @@ export const StudioV2SettingsModal = ({
 
   useModalScrollLock(isOpen, {
     overlayRef,
-    scrollableSelector: '.sv2-settings-body, [data-modal-scrollable="true"]',
+    scrollableSelector: '.sv2-settings-content, [data-modal-scrollable="true"]',
   });
 
+  const [activeSection, setActiveSection] = useState<SettingsSection>('ai');
   const [highlightMode, setHighlightMode] = useState<HighlightMode>(getStoredHighlightMode);
   const [subtitleTone, setSubtitleTone] = useState<SubtitleTone>(getStoredSubtitleTone);
   const [autoSort, setAutoSort] = useState<boolean>(getStoredAutoSortByRecordedTime);
@@ -166,6 +170,14 @@ export const StudioV2SettingsModal = ({
     onChange?.();
   };
 
+  const navSections = [
+    { id: 'ai' as const, label: ui('AI 분석'), icon: Sparkles },
+    { id: 'subtitle' as const, label: ui('자막'), icon: Captions },
+    { id: 'display' as const, label: ui('화면 표시'), icon: CalendarDays },
+    { id: 'tools' as const, label: ui('작업 & 도구'), icon: Download },
+    { id: 'support' as const, label: ui('지원 & 정보'), icon: MessageSquare },
+  ];
+
   return (
     <div
       ref={overlayRef}
@@ -204,8 +216,39 @@ export const StudioV2SettingsModal = ({
           </button>
         </header>
 
-        <div className="sv2-settings-body" data-modal-scrollable="true">
-          <section className="sv2-settings-section">
+        <div className="sv2-settings-body">
+          {/* 좌측: 섹션 탐색 */}
+          <nav className="sv2-settings-nav" aria-label={t('settingsModal.navAriaLabel')}>
+            <div className="sv2-settings-nav-heading">{t('common.settings')}</div>
+            {navSections.map((section) => {
+              const Icon = section.icon;
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  className="sv2-settings-nav-item"
+                  data-active={activeSection === section.id}
+                  aria-current={activeSection === section.id ? 'page' : undefined}
+                  onClick={() => setActiveSection(section.id)}
+                >
+                  <Icon size={15} />
+                  <span>{section.label}</span>
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              className="sv2-settings-nav-item sv2-settings-nav-feedback"
+              onClick={onOpenFeedback}
+            >
+              <MessageSquare size={15} />
+              <span>{t('feedback.headerTitle')}</span>
+            </button>
+          </nav>
+
+          {/* 우측: 선택한 섹션의 설정 값 */}
+          <div className="sv2-settings-content" data-modal-scrollable="true">
+          <section className="sv2-settings-section" hidden={activeSection !== 'ai'}>
             <h3>
               <Sparkles size={14} /> {ui('AI 분석')}
             </h3>
@@ -271,7 +314,7 @@ export const StudioV2SettingsModal = ({
             </div>
           </section>
 
-          <section className="sv2-settings-section">
+          <section className="sv2-settings-section" hidden={activeSection !== 'subtitle'}>
             <h3>
               <Captions size={14} /> {ui('자막')}
             </h3>
@@ -312,7 +355,7 @@ export const StudioV2SettingsModal = ({
             </div>
           </section>
 
-          <section className="sv2-settings-section">
+          <section className="sv2-settings-section" hidden={activeSection !== 'display'}>
             <h3>
               <CalendarDays size={14} /> {ui('화면 표시')}
             </h3>
@@ -376,7 +419,7 @@ export const StudioV2SettingsModal = ({
             )}
           </section>
 
-          <section className="sv2-settings-section">
+          <section className="sv2-settings-section" hidden={activeSection !== 'tools'}>
             <h3>
               <Download size={14} /> {ui('작업 & 도구')}
             </h3>
@@ -411,7 +454,7 @@ export const StudioV2SettingsModal = ({
             </div>
           </section>
 
-          <section className="sv2-settings-section">
+          <section className="sv2-settings-section" hidden={activeSection !== 'support'}>
             <h3>
               <MessageSquare size={14} /> {ui('지원 & 정보')}
             </h3>
@@ -434,7 +477,8 @@ export const StudioV2SettingsModal = ({
             </div>
           </section>
 
-          <p className="sv2-settings-hint">{ui('설정 변경은 미리보기에 바로 반영돼요')}</p>
+            <p className="sv2-settings-hint">{ui('설정 변경은 미리보기에 바로 반영돼요')}</p>
+          </div>
         </div>
 
         <footer className="sv2-settings-foot">

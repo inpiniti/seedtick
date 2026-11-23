@@ -1910,7 +1910,7 @@
   backdrop-filter: blur(3px);
 }
 .sv2-settings-card {
-  width: min(620px, 96vw);
+  width: min(920px, 96vw);
   max-height: min(760px, 92vh);
   display: flex;
   flex-direction: column;
@@ -1956,8 +1956,63 @@
 }
 .sv2-settings-body {
   flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+.sv2-settings-nav {
+  width: 196px;
+  flex: 0 0 196px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 10px;
+  overflow-y: auto;
+  border-right: 1px solid var(--sv2-border);
+  background: var(--sv2-surface-2);
+}
+.sv2-settings-nav-heading {
+  padding: 4px 10px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--sv2-text-3);
+}
+.sv2-settings-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sv2-text-2);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.sv2-settings-nav-item:hover {
+  background: var(--sv2-surface-3);
+  color: var(--sv2-text);
+}
+.sv2-settings-nav-item[data-active='true'] {
+  background: var(--sv2-accent);
+  color: var(--sv2-accent-text);
+}
+.sv2-settings-nav-feedback {
+  margin-top: auto;
+}
+.sv2-settings-content {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow-y: auto;
   padding: 6px 24px 16px;
+}
+.sv2-settings-section[hidden] {
+  display: none;
 }
 .sv2-settings-section {
   padding: 16px 0;
