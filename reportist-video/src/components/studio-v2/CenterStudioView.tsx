@@ -575,12 +575,21 @@ export const CenterStudioView = (props: StudioV2Props) => {
   // 룰러 드래그 시작 시 구간 미리보기를 해제한다.
   const onScrubStart = useCallback(() => clearPreview(), [clearPreview]);
 
-  // ---------- 좌측 리스트 소멸 조건 ----------
+  // ---------- 좌측 리스트 자동 접힘 + 사용자 토글 ----------
   const pendingVideos = videos.filter((v) => (v.segments?.length ?? 0) === 0);
-  // 분석이 끝나면 컷 비행 착지를 기다리지 않고 도크를 즉시 접는다.
+  // 분석이 끝나면 컷 비행 착지를 기다리지 않고 도크가 자동으로 접힌다.
   // 비행 출발 좌표는 발사 시점(분석 중)에 이미 고정되므로 착지를 기다릴 필요가 없다.
-  const dockCollapsed =
+  const autoDockCollapsed =
     !isProcessing && displaySegments.length > 0 && pendingVideos.length === 0;
+  // null이면 위 자동 규칙을 따르고, 한 번이라도 토글하면 사용자의 선택을 항상 우선한다.
+  const [dockPreference, setDockPreference] = useState<boolean | null>(null);
+  const isDockOpen = dockPreference ?? !autoDockCollapsed;
+  const toggleDock = useCallback(() => setDockPreference(!isDockOpen), [isDockOpen]);
+
+  // 새 프로젝트로 영상 목록이 비면 자동 규칙으로 되돌린다.
+  useEffect(() => {
+    if (videos.length === 0) setDockPreference(null);
+  }, [videos.length]);
 
   // ---------- 작업 이름 (파일명/표시용) ----------
   const projectName = useMemo(() => {
@@ -679,7 +688,8 @@ export const CenterStudioView = (props: StudioV2Props) => {
         isProcessing={isProcessing}
         onOpenModelModal={() => setIsModelModalOpen(true)}
         onOpenLanguageModal={() => setIsLanguageModalOpen(true)}
-        onAddVideos={() => fileInputRef.current?.click()}
+        isDockOpen={isDockOpen}
+        onToggleDock={toggleDock}
         onExport={() => setIsExportOpen(true)}
         canExport={displaySegments.length > 0 && !isProcessing}
         isExporting={isReStitching}
@@ -705,13 +715,15 @@ export const CenterStudioView = (props: StudioV2Props) => {
           videos={videos}
           isProcessing={isProcessing}
           isPreparingVideos={isPreparingVideos}
-          collapsed={dockCollapsed}
+          collapsed={!isDockOpen}
           landedVideos={landedVideos}
           videoTasks={progress?.videoTasks}
           onFilesSelected={onFilesSelected}
+          onAddVideos={() => fileInputRef.current?.click()}
           onRemoveVideo={onRemoveVideo}
           onStartAnalysis={startAnalysis}
           onCancel={onCancelProcessing}
+          onToggleDock={toggleDock}
         />
 
         <div className="sv2-center" data-subtitle-refreshed={subtitleRefreshed}>

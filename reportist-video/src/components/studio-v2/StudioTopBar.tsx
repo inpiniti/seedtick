@@ -3,7 +3,8 @@ import {
   Download,
   Globe,
   Key,
-  Plus,
+  PanelLeftClose,
+  PanelLeftOpen,
   RectangleHorizontal,
   RectangleVertical,
   ShieldAlert,
@@ -14,7 +15,7 @@ import { PenguinLogo } from '../common/PenguinLogo.tsx';
 import { getLandingPath, useI18n } from '../../i18n/index.tsx';
 import type { VideoOrientation } from '../../types/video.ts';
 
-// components/studio-v2/StudioTopBar.tsx — 새 작업/업로드/모델/언어/내보내기.
+// components/studio-v2/StudioTopBar.tsx — 좌측 도크 토글/모델/언어/내보내기.
 
 /** 상단 바에 표시할 현재 AI 모델 상태 (CenterStudioView가 계산해 내려준다). */
 export interface StudioModelDisplay {
@@ -33,7 +34,8 @@ interface StudioTopBarProps {
   isProcessing: boolean;
   onOpenModelModal: () => void;
   onOpenLanguageModal: () => void;
-  onAddVideos: () => void;
+  isDockOpen: boolean;
+  onToggleDock: () => void;
   onExport: () => void;
   canExport: boolean;
   isExporting: boolean;
@@ -48,7 +50,8 @@ export const StudioTopBar = ({
   isProcessing,
   onOpenModelModal,
   onOpenLanguageModal,
-  onAddVideos,
+  isDockOpen,
+  onToggleDock,
   onExport,
   canExport,
   isExporting,
@@ -60,6 +63,16 @@ export const StudioTopBar = ({
 
   return (
     <header className="sv2-topbar">
+      <button
+        type="button"
+        className="sv2-btn sv2-btn-icon sv2-btn-ghost"
+        onClick={onToggleDock}
+        aria-expanded={isDockOpen}
+        aria-label={isDockOpen ? ui('영상 목록 닫기') : ui('영상 목록 열기')}
+        title={isDockOpen ? ui('영상 목록 닫기') : ui('영상 목록 열기')}
+      >
+        {isDockOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
+      </button>
       <a
         className="sv2-brand"
         href={getLandingPath(locale)}
@@ -136,9 +149,6 @@ export const StudioTopBar = ({
         <ChevronDown size={13} className="sv2-model-chevron" />
       </button>
 
-      <button type="button" className="sv2-btn" onClick={onAddVideos}>
-        <Plus size={16} /> {ui('영상 추가')}
-      </button>
       <button
         type="button"
         className="sv2-btn sv2-btn-primary"

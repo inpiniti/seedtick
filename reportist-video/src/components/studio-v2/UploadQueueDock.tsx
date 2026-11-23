@@ -1,4 +1,4 @@
-import { Scissors, UploadCloud, X } from 'lucide-react';
+import { PanelLeftClose, Plus, Scissors, UploadCloud, X } from 'lucide-react';
 import type { VideoItem, VideoTaskProgress } from '../../types/video.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { formatShootDate } from './types.ts';
@@ -17,9 +17,11 @@ interface UploadQueueDockProps {
   landedVideos?: Set<string>;
   videoTasks?: VideoTaskProgress[];
   onFilesSelected: (files: File[]) => void;
+  onAddVideos: () => void;
   onRemoveVideo: (id: string) => void;
   onStartAnalysis: () => void;
   onCancel: () => void;
+  onToggleDock: () => void;
 }
 
 type UiFn = (source: string, params?: Record<string, string | number>) => string;
@@ -73,9 +75,11 @@ export const UploadQueueDock = ({
   landedVideos,
   videoTasks,
   onFilesSelected,
+  onAddVideos,
   onRemoveVideo,
   onStartAnalysis,
   onCancel,
+  onToggleDock,
 }: UploadQueueDockProps) => {
   const { ui } = useI18n();
   const handleDrop = (e: React.DragEvent) => {
@@ -95,23 +99,43 @@ export const UploadQueueDock = ({
       <div className="sv2-dock-inner">
         <div className="sv2-dock-head">
           <span className="sv2-dock-title">{ui('원본 영상')}</span>
-          <span className="sv2-dock-count">
-            {isProcessing && videoTasks
-              ? ui('완료 {done}/{total}', { done: doneCount, total: videos.length })
-              : ui('{count}개', { count: videos.length })}
-          </span>
+          <div className="sv2-dock-head-right">
+            <span className="sv2-dock-count">
+              {isProcessing && videoTasks
+                ? ui('완료 {done}/{total}', { done: doneCount, total: videos.length })
+                : ui('{count}개', { count: videos.length })}
+            </span>
+            <button
+              type="button"
+              className="sv2-btn sv2-btn-icon sv2-btn-ghost sv2-btn-sm"
+              onClick={onAddVideos}
+              aria-label={ui('영상 추가')}
+              title={ui('영상 추가')}
+            >
+              <Plus size={16} />
+            </button>
+            <button
+              type="button"
+              className="sv2-btn sv2-btn-icon sv2-btn-ghost sv2-btn-sm"
+              onClick={onToggleDock}
+              aria-label={ui('영상 목록 닫기')}
+              title={ui('영상 목록 닫기')}
+            >
+              <PanelLeftClose size={16} />
+            </button>
+          </div>
         </div>
 
         <div className="sv2-dock-list">
           {videos.length === 0 && (
-            <div className="sv2-dock-empty">
+            <button type="button" className="sv2-dock-empty" onClick={onAddVideos}>
               <UploadCloud size={30} />
               <span>
                 {ui('영상을 끌어다 놓거나')}
                 <br />
-                {ui('상단의 [영상 추가]를 눌러주세요')}
+                {ui('여기서 영상을 추가해 주세요')}
               </span>
-            </div>
+            </button>
           )}
 
           {videos.map((video) => {
