@@ -935,7 +935,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
   };
 
   return (
-    <div className="sv2-root">
+    <div className="sv2-root" data-subtitle-refreshed={subtitleRefreshed}>
       <StudioTopBar
         projectName={projectName}
         onOpenLanguageModal={() => setIsLanguageModalOpen(true)}
@@ -983,7 +983,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
           onCancel={onCancelProcessing}
         />
 
-        <div className="sv2-center" data-subtitle-refreshed={subtitleRefreshed}>
+        <div className="sv2-center">
           <div className="sv2-stage-wrap">
             {isProcessing && (
               <div className="sv2-status-pill" role="status" aria-live="polite">
@@ -1021,38 +1021,6 @@ export const CenterStudioView = (props: StudioV2Props) => {
               revision={settingsRevision}
             />
           </div>
-
-          <TimelineDock
-            segments={displaySegments}
-            videos={videos}
-            model={model}
-            overlayOptions={overlayOptions}
-            selectedSegmentId={selectedSegmentId}
-            landingIds={landingIds}
-            returningIds={returningIds}
-            playhead={playhead}
-            onSeek={seek}
-            onScrubStart={onScrubStart}
-            locked={isProcessing || removingVideoIds.size > 0}
-            bgmPresetId={bgmPresetId}
-            bgmVolume={bgmVolume}
-            libraryTrackId={libraryTrackId}
-            customAudioName={customAudioFile?.name ?? null}
-            onOpenMusic={openMusic}
-            onToggleMusic={toggleMusic}
-            musicInspectorOpen={activeInspector?.type === 'music'}
-            onSelect={selectSegment}
-            onUpdateSegment={updateSegment}
-            onDelete={deleteSegment}
-            onTrim={setTrimSegment}
-            onOpenLocation={openLocation}
-            onOpenIntro={openIntro}
-            onOpenOutro={openOutro}
-            onReorder={reorderSegments}
-            onVolumeChange={changeVolume}
-            onRemoveMusic={removeMusic}
-            onFitChange={(fit) => updateOverlay({ bgmFitToVideo: fit })}
-          />
         </div>
 
         <RightInspectorDrawer
@@ -1225,6 +1193,39 @@ export const CenterStudioView = (props: StudioV2Props) => {
           </div>
         )}
       </div>
+
+      {/* 타임라인은 좌·우 사이드 영역과 무관하게 창 전체 폭을 사용한다. */}
+      <TimelineDock
+        segments={displaySegments}
+        videos={videos}
+        model={model}
+        overlayOptions={overlayOptions}
+        selectedSegmentId={selectedSegmentId}
+        landingIds={landingIds}
+        returningIds={returningIds}
+        playhead={playhead}
+        onSeek={seek}
+        onScrubStart={onScrubStart}
+        locked={isProcessing || removingVideoIds.size > 0}
+        bgmPresetId={bgmPresetId}
+        bgmVolume={bgmVolume}
+        libraryTrackId={libraryTrackId}
+        customAudioName={customAudioFile?.name ?? null}
+        onOpenMusic={openMusic}
+        onToggleMusic={toggleMusic}
+        musicInspectorOpen={activeInspector?.type === 'music'}
+        onSelect={selectSegment}
+        onUpdateSegment={updateSegment}
+        onDelete={deleteSegment}
+        onTrim={setTrimSegment}
+        onOpenLocation={openLocation}
+        onOpenIntro={openIntro}
+        onOpenOutro={openOutro}
+        onReorder={reorderSegments}
+        onVolumeChange={changeVolume}
+        onRemoveMusic={removeMusic}
+        onFitChange={(fit) => updateOverlay({ bgmFitToVideo: fit })}
+      />
     </div>
   );
 };

@@ -626,7 +626,9 @@
 }
 .sv2-preview-frame {
   position: relative;
-  max-width: 100%;
+  /* 영상은 가운데 영역만 차지한다. 타임라인은 창 전체 폭을 쓰므로
+     프레임 폭을 제한해 좌우에 사이드 여백이 남도록 한다(빈 상태와 같은 760px). */
+  max-width: min(100%, 760px);
   max-height: 100%;
   border-radius: 14px;
   overflow: hidden;
@@ -1124,7 +1126,7 @@
 .sv2-chip[data-locked='true'] {
   cursor: default;
 }
-.sv2-center[data-subtitle-refreshed='true'] .sv2-chip-sub {
+.sv2-root[data-subtitle-refreshed='true'] .sv2-chip-sub {
   animation: sv2-subtitle-refresh 0.5s ease;
 }
 @keyframes sv2-subtitle-refresh {
