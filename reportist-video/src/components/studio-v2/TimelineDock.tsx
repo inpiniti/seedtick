@@ -51,8 +51,12 @@ interface TimelineDockProps {
   bgmVolume: number;
   libraryTrackId: string | null;
   customAudioName: string | null;
-  /** 음악 트랙 클릭 시 오른쪽 인스펙터를 연다. */
+  /** 음악 트랙의 '교체' 버튼 등에서 오른쪽 인스펙터를 연다. */
   onOpenMusic: () => void;
+  /** 음악 칩 클릭 시 오른쪽 인스펙터를 열거나, 이미 열려 있으면 닫는다. */
+  onToggleMusic: () => void;
+  /** 음악 인스펙터가 열려 있는지 (칩 활성 상태 표시). */
+  musicInspectorOpen: boolean;
   onSelect: (id: string) => void;
   onUpdateSegment: (id: string, patch: Partial<HighlightSegment>) => void;
   onDelete: (id: string) => void;

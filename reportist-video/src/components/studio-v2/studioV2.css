@@ -1187,7 +1187,7 @@
   align-items: center;
   gap: 8px;
   height: 38px;
-  padding: 0 10px;
+  padding: 0;
   border-radius: 8px;
   border: 1.5px dashed var(--sv2-border-strong);
   background: var(--sv2-surface-2);
@@ -1200,6 +1200,52 @@
   border-color: var(--sv2-accent);
   color: var(--sv2-text);
   background: var(--sv2-surface);
+}
+.sv2-music-chip[data-open='true'] {
+  border-style: solid;
+  border-color: var(--sv2-accent);
+  background: var(--sv2-accent-soft);
+}
+/* 칩 전체가 눌리는 영역: 안쪽 버튼이 회색 영역을 가득 채운다. */
+.sv2-music-chip-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+.sv2-music-chip-main:hover {
+  background: var(--sv2-accent-soft);
+  color: var(--sv2-text);
+}
+.sv2-music-chip-main:active {
+  background: var(--sv2-accent-soft);
+  filter: brightness(0.97);
+}
+.sv2-music-chip-main:focus-visible {
+  outline: 2px solid var(--sv2-accent);
+  outline-offset: -2px;
+}
+.sv2-music-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sv2-music-chip-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 10px;
 }
 .sv2-music-vol {
   width: 90px;

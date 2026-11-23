@@ -11,8 +11,12 @@ interface TimelineMusicTrackProps {
   /** 오디오 보관함에서 적용한 음원 id (타임라인 라벨에 이름을 표시). */
   libraryTrackId: string | null;
   customAudioName: string | null;
-  /** 음악 칩·교체 버튼 — 오른쪽 인스펙터를 연다. */
+  /** '교체' 버튼 — 오른쪽 인스펙터를 연다. */
   onOpenMusic: () => void;
+  /** 칩 전체를 누르면 인스펙터를 토글한다. */
+  onToggleMusic: () => void;
+  /** 음악 인스펙터가 열려 있으면 칩을 활성 상태로 표시한다. */
+  musicInspectorOpen: boolean;
   onVolumeChange: (volume: number) => void;
   onRemove: () => void;
   /** 음악 바를 영상 트랙과 같은 시간축 폭으로 맞추기 위한 레이아웃. */
@@ -28,6 +32,8 @@ export const TimelineMusicTrack = ({
   libraryTrackId,
   customAudioName,
   onOpenMusic,
+  onToggleMusic,
+  musicInspectorOpen,
   onVolumeChange,
   onRemove,
   layout,
@@ -61,20 +67,30 @@ export const TimelineMusicTrack = ({
         <Music2 size={13} /> {ui('음악')}
       </div>
       <div className="sv2-track-lane" style={laneStyle}>
-        <div className="sv2-music-chip" data-filled={hasMusic} style={filledWidth ? { width: filledWidth } : undefined}>
+        <div
+          className="sv2-music-chip"
+          data-filled={hasMusic}
+          data-open={musicInspectorOpen}
+          style={filledWidth ? { width: filledWidth } : undefined}
+        >
           <button
             type="button"
-            className="sv2-btn sv2-btn-sm sv2-btn-ghost"
-            onClick={onOpenMusic}
-            title={ui('음악 고르기')}
+            className="sv2-music-chip-main"
+            onClick={onToggleMusic}
+            aria-expanded={musicInspectorOpen}
+            title={
+              musicInspectorOpen
+                ? ui('닫기')
+                : hasMusic
+                ? ui('음악 고르기')
+                : ui('음악 1곡 추가')
+            }
           >
             {hasMusic ? <Music2 size={14} /> : <Plus size={14} />}
+            <span className="sv2-music-chip-name">{name || ui('음악 1곡 추가')}</span>
           </button>
-          <span style={{ minWidth: 120, fontWeight: 700 }}>
-            {name || ui('음악 1곡 추가')}
-          </span>
           {hasMusic && (
-            <>
+            <div className="sv2-music-chip-controls">
               <input
                 className="sv2-music-vol"
                 type="range"
@@ -104,7 +120,7 @@ export const TimelineMusicTrack = ({
               <button type="button" className="sv2-mini-btn" data-danger="true" onClick={onRemove} title={ui('삭제')}>
                 <Trash2 size={13} />
               </button>
-            </>
+            </div>
           )}
         </div>
       </div>

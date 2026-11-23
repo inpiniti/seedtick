@@ -650,6 +650,16 @@ export const CenterStudioView = (props: StudioV2Props) => {
     setActiveInspector({ type: 'music' });
   }, [clearPreview]);
 
+  // 같은 음악 트랙을 한 번 더 누르면 인스펙터를 닫아 토글처럼 동작하게 한다.
+  const toggleMusic = useCallback(() => {
+    if (activeInspector?.type === 'music') {
+      setActiveInspector(null);
+      clearPreview();
+      return;
+    }
+    openMusic();
+  }, [activeInspector, clearPreview, openMusic]);
+
   // 하단 전체 재생 버튼은 구간 미리보기를 해제하고 타임라인 전체를 재생한다.
   const togglePlay = useCallback(() => {
     if (isPlaying) {
@@ -1031,6 +1041,8 @@ export const CenterStudioView = (props: StudioV2Props) => {
             libraryTrackId={libraryTrackId}
             customAudioName={customAudioFile?.name ?? null}
             onOpenMusic={openMusic}
+            onToggleMusic={toggleMusic}
+            musicInspectorOpen={activeInspector?.type === 'music'}
             onSelect={selectSegment}
             onUpdateSegment={updateSegment}
             onDelete={deleteSegment}
