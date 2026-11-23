@@ -211,7 +211,12 @@ export const IntroOutroInspectorPanel = ({
               className="sv2-btn sv2-btn-sm"
               data-on={loop}
               aria-pressed={loop}
-              onClick={() => setLoop((v) => !v)}
+              onClick={() => {
+                const next = !loop;
+                setLoop(next);
+                // 토글 즉시 현재 구간을 다시 재생해 반복 여부를 바로 확인할 수 있게 한다.
+                onPreviewRequest({ kind, mode: 'replay', loop: next });
+              }}
               title="구간 반복 재생"
             >
               <Repeat2 size={13} /> 반복
