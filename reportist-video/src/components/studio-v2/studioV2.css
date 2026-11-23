@@ -1575,6 +1575,139 @@
   transform: translateX(17px);
 }
 
+/* ---------- Music inspector (오디오 보관함) ---------- */
+.sv2-music-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sv2-music-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1.5px solid var(--sv2-border-strong);
+  border-radius: 9px;
+  background: var(--sv2-surface-2);
+  color: var(--sv2-text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.sv2-music-item:hover {
+  background: var(--sv2-surface-3);
+}
+.sv2-music-item:focus-visible {
+  outline: none;
+  box-shadow: var(--sv2-focus-ring);
+}
+.sv2-music-item[data-active='true'] {
+  border-color: var(--sv2-accent);
+  background: var(--sv2-accent-soft);
+}
+.sv2-music-item-none {
+  border-style: dashed;
+}
+.sv2-music-play {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--sv2-border-strong);
+  border-radius: 50%;
+  background: var(--sv2-surface);
+  color: var(--sv2-text-2);
+}
+.sv2-music-play:hover:not(:disabled) {
+  color: var(--sv2-text);
+  border-color: var(--sv2-accent);
+}
+.sv2-music-play.playing {
+  background: var(--sv2-accent);
+  border-color: var(--sv2-accent);
+  color: var(--sv2-accent-text);
+}
+.sv2-music-play.muted {
+  color: var(--sv2-text-3);
+  background: transparent;
+}
+.sv2-music-play-icon {
+  margin-left: 1px;
+}
+.sv2-music-item-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.sv2-music-item-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.sv2-music-item-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 800;
+}
+.sv2-music-item-meta {
+  font-size: 10.5px;
+  color: var(--sv2-text-3);
+}
+.sv2-music-badge {
+  flex: 0 0 auto;
+  font-style: normal;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--sv2-accent-text);
+  background: var(--sv2-accent);
+  border-radius: 4px;
+  padding: 2px 5px;
+}
+.sv2-music-check {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--sv2-border-strong);
+  border-radius: 50%;
+  color: transparent;
+}
+.sv2-music-check.selected {
+  border-color: var(--sv2-accent);
+  background: var(--sv2-accent);
+  color: var(--sv2-accent-text);
+}
+.sv2-music-error {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--sv2-danger);
+}
+.sv2-music-apply {
+  width: 100%;
+  height: 38px;
+}
+.sv2-music-volume-value {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--sv2-text-2);
+}
+.sv2-inspector .sv2-music-vol {
+  width: 100%;
+}
+.sv2-music-remove {
+  align-self: flex-start;
+}
+
 /* ---------- Flight ghosts ---------- */
 .sv2-flight-layer {
   position: fixed;

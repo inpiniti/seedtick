@@ -15,6 +15,7 @@ import {
   type DateFormatOption,
 } from '../../services/videoMetadata.ts';
 import { getStoredHighlightMode } from '../../services/highlightModeStorage.ts';
+import { loadLibraryAudioFile, type AudioLibraryTrack } from '../../data/audioLibrary.ts';
 import type {
   ExportResolution,
   HighlightMode,
@@ -102,6 +103,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
     initialBgmPresetId,
     initialBgmVolume,
     initialCustomAudioFile,
+    initialSelectedLibraryTrackId,
     onOverlayOptionsChange,
     onBgmChange,
     onCustomAudioChange,
@@ -347,6 +349,9 @@ export const CenterStudioView = (props: StudioV2Props) => {
   // ---------- 음악 (단일 트랙) ----------
   const [bgmPresetId, setBgmPresetId] = useState(initialBgmPresetId || 'none');
   const [bgmVolume, setBgmVolume] = useState(initialBgmVolume ?? 0.3);
+  const [libraryTrackId, setLibraryTrackId] = useState<string | null>(
+    initialSelectedLibraryTrackId ?? null
+  );
   const [customAudioFile, setCustomAudioFile] = useState<File | null>(
     initialCustomAudioFile ?? null
   );
@@ -358,30 +363,60 @@ export const CenterStudioView = (props: StudioV2Props) => {
     if (typeof initialBgmVolume === 'number') setBgmVolume(initialBgmVolume);
   }, [initialBgmVolume]);
   useEffect(() => {
+    setLibraryTrackId(initialSelectedLibraryTrackId ?? null);
+  }, [initialSelectedLibraryTrackId]);
+  useEffect(() => {
     setCustomAudioFile(initialCustomAudioFile ?? null);
   }, [initialCustomAudioFile]);
 
   const changeVolume = useCallback(
     (volume: number) => {
       setBgmVolume(volume);
-      onBgmChange?.(bgmPresetId, volume);
+      onBgmChange?.(bgmPresetId, volume, libraryTrackId);
     },
-    [bgmPresetId, onBgmChange]
+    [bgmPresetId, libraryTrackId, onBgmChange]
+  );
+
+  const changeFit = useCallback(
+    (fit: boolean) => updateOverlay({ bgmFitToVideo: fit }),
+    [updateOverlay]
   );
 
   const removeMusic = useCallback(() => {
     setCustomAudioFile(null);
+    setLibraryTrackId(null);
     onCustomAudioChange?.(null);
-    onBgmChange?.('none', bgmVolume);
+    onBgmChange?.('none', bgmVolume, null);
   }, [bgmVolume, onBgmChange, onCustomAudioChange]);
 
   const pickAudioFile = useCallback(
     (file: File) => {
       setCustomAudioFile(file);
+      setLibraryTrackId(null);
       onCustomAudioChange?.(file);
-      onBgmChange?.('none', bgmVolume);
+      onBgmChange?.('none', bgmVolume, null);
     },
     [bgmVolume, onBgmChange, onCustomAudioChange]
+  );
+
+  // 보관함 음원을 선택하면 실제 병합에 쓰이는 File로 바꿔 커스텀 오디오로 적용한다.
+  const applyLibraryTrack = useCallback(
+    async (track: AudioLibraryTrack | null) => {
+      if (!track) {
+        removeMusic();
+        return;
+      }
+      try {
+        const file = await loadLibraryAudioFile(track);
+        setCustomAudioFile(file);
+        setLibraryTrackId(track.id);
+        onCustomAudioChange?.(file);
+        onBgmChange?.('none', bgmVolume, track.id);
+      } catch {
+        /* 네트워크 오류 시 기존 음악 유지 */
+      }
+    },
+    [bgmVolume, onBgmChange, onCustomAudioChange, removeMusic]
   );
 
   // ---------- 인스펙터 / 선택 ----------
@@ -607,6 +642,13 @@ export const CenterStudioView = (props: StudioV2Props) => {
 
   const openIntro = useCallback(() => openSection('intro'), [openSection]);
   const openOutro = useCallback(() => openSection('outro'), [openSection]);
+
+  // 음악 트랙을 누르면 인트로/아웃트로와 같은 오른쪽 인스펙터를 연다.
+  // 구간 미리보기는 음악과 무관하므로 정지한 뒤 패널만 전환한다.
+  const openMusic = useCallback(() => {
+    clearPreview();
+    setActiveInspector({ type: 'music' });
+  }, [clearPreview]);
 
   // 하단 전체 재생 버튼은 구간 미리보기를 해제하고 타임라인 전체를 재생한다.
   const togglePlay = useCallback(() => {
@@ -867,6 +909,20 @@ export const CenterStudioView = (props: StudioV2Props) => {
     ? videos.find((v) => v.id === trimSegment.sourceVideoId)
     : undefined;
 
+  // 타임라인 음악 칩과 오른쪽 인스펙터가 같은 상태·액션을 공유하도록 한 객체로 묶는다.
+  const musicPanelProps = {
+    bgmPresetId,
+    bgmVolume,
+    libraryTrackId,
+    customAudioName: customAudioFile?.name ?? null,
+    bgmFitToVideo: overlayOptions.bgmFitToVideo ?? false,
+    onApplyTrack: applyLibraryTrack,
+    onVolumeChange: changeVolume,
+    onFitChange: changeFit,
+    onPickFile: pickAudioFile,
+    onRemove: removeMusic,
+  };
+
   return (
     <div className="sv2-root">
       <StudioTopBar
@@ -972,7 +1028,9 @@ export const CenterStudioView = (props: StudioV2Props) => {
             locked={isProcessing || removingVideoIds.size > 0}
             bgmPresetId={bgmPresetId}
             bgmVolume={bgmVolume}
+            libraryTrackId={libraryTrackId}
             customAudioName={customAudioFile?.name ?? null}
+            onOpenMusic={openMusic}
             onSelect={selectSegment}
             onUpdateSegment={updateSegment}
             onDelete={deleteSegment}
@@ -998,6 +1056,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
           onApplyToVideo={applyToVideo}
           onOverlayChange={updateOverlay}
           onPreviewRequest={handlePreviewRequest}
+          music={musicPanelProps}
           onClose={() => {
             setActiveInspector(null);
             clearPreview();

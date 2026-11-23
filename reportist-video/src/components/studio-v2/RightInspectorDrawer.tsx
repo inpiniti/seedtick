@@ -9,6 +9,7 @@ import { useI18n } from '../../i18n/index.tsx';
 import type { InspectorTarget, PreviewRequest } from './types.ts';
 import { LocationInspectorPanel } from './LocationInspectorPanel.tsx';
 import { IntroOutroInspectorPanel } from './IntroOutroInspectorPanel.tsx';
+import { MusicInspectorPanel, type MusicInspectorProps } from './MusicInspectorPanel.tsx';
 
 // Leaflet 지도는 초기 번들에 포함되지 않도록 lazy 로드
 const ReferenceLocationMap = lazy(() =>
@@ -25,6 +26,8 @@ interface RightInspectorDrawerProps {
   onApplyToVideo: (sourceVideoId: string, locationName: string) => void;
   onOverlayChange: (patch: Partial<VideoOverlayOptions>) => void;
   onPreviewRequest: (request: PreviewRequest) => void;
+  /** 음악 패널 상태·액션 (타임라인 음악 트랙과 동일한 값을 공유). */
+  music: MusicInspectorProps;
   onClose: () => void;
 }
 
@@ -38,9 +41,10 @@ export const RightInspectorDrawer = ({
   onApplyToVideo,
   onOverlayChange,
   onPreviewRequest,
+  music,
   onClose,
 }: RightInspectorDrawerProps) => {
-  const { ui } = useI18n();
+  const { ui, t } = useI18n();
   const title =
     target?.type === 'location'
       ? ui('촬영 위치 수정')
@@ -48,6 +52,8 @@ export const RightInspectorDrawer = ({
       ? ui('인트로 설정')
       : target?.type === 'outro'
       ? ui('아웃트로 설정')
+      : target?.type === 'music'
+      ? t('audioLibrary.title')
       : '';
 
   return (
@@ -79,6 +85,7 @@ export const RightInspectorDrawer = ({
           onPreviewRequest={onPreviewRequest}
         />
       )}
+      {target?.type === 'music' && <MusicInspectorPanel {...music} />}
     </aside>
   );
 };

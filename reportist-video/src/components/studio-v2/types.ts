@@ -77,8 +77,9 @@ export interface StudioV2Props {
   initialBgmPresetId?: string;
   initialBgmVolume?: number;
   initialCustomAudioFile?: File | null;
+  initialSelectedLibraryTrackId?: string | null;
   onOverlayOptionsChange?: (options: VideoOverlayOptions) => void;
-  onBgmChange?: (bgmId: string, volume: number) => void;
+  onBgmChange?: (bgmId: string, volume: number, libraryTrackId?: string | null) => void;
   onCustomAudioChange?: (file: File | null) => void;
   onRelinkVideo?: (id: string, file: File) => void;
   orientation?: VideoOrientation;
@@ -94,6 +95,7 @@ export type InspectorTarget =
   | { type: 'location'; segmentId: string }
   | { type: 'intro' }
   | { type: 'outro' }
+  | { type: 'music' }
   | null;
 
 /** 인스펙터가 중앙 미리보기에 요청하는 인트로/아웃트로 구간 동작. */

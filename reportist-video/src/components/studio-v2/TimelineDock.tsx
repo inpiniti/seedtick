@@ -49,7 +49,10 @@ interface TimelineDockProps {
   onScrubStart?: () => void;
   bgmPresetId: string;
   bgmVolume: number;
+  libraryTrackId: string | null;
   customAudioName: string | null;
+  /** 음악 트랙 클릭 시 오른쪽 인스펙터를 연다. */
+  onOpenMusic: () => void;
   onSelect: (id: string) => void;
   onUpdateSegment: (id: string, patch: Partial<HighlightSegment>) => void;
   onDelete: (id: string) => void;

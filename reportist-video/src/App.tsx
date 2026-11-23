@@ -228,6 +228,7 @@ export function App() {
   const [currentBgmPresetId, setCurrentBgmPresetId] = useState<string>('none');
   const [currentBgmVolume, setCurrentBgmVolume] = useState<number>(0.3);
   const [currentCustomAudio, setCurrentCustomAudio] = useState<File | null>(null);
+  const [currentLibraryTrackId, setCurrentLibraryTrackId] = useState<string | null>(null);
   // 하이라이트 방식 (감성 하이라이트 / 1초 컷 편집) — 프로젝트에 저장되고 기기에도 마지막 선택을 기억한다.
   const [currentHighlightMode, setCurrentHighlightMode] = useState<HighlightMode>(getStoredHighlightMode);
 
@@ -271,10 +272,16 @@ export function App() {
   }, []);
 
   // 배경음악 변경 핸들러 (실제 값이 같으면 상태 유지하여 무한 리렌더링 방지)
-  const handleBgmChange = useCallback((bgmId: string, vol: number) => {
-    setCurrentBgmPresetId((prev) => (prev !== bgmId ? bgmId : prev));
-    setCurrentBgmVolume((prev) => (Math.abs(prev - vol) > 0.001 ? vol : prev));
-  }, []);
+  const handleBgmChange = useCallback(
+    (bgmId: string, vol: number, libraryTrackId?: string | null) => {
+      setCurrentBgmPresetId((prev) => (prev !== bgmId ? bgmId : prev));
+      setCurrentBgmVolume((prev) => (Math.abs(prev - vol) > 0.001 ? vol : prev));
+      if (libraryTrackId !== undefined) {
+        setCurrentLibraryTrackId((prev) => (prev !== libraryTrackId ? libraryTrackId : prev));
+      }
+    },
+    []
+  );
 
   // 커스텀 오디오 파일 변경 핸들러
   const handleCustomAudioChange = useCallback((file: File | null) => {
@@ -303,9 +310,10 @@ export function App() {
     setCurrentOrientation(orientation === 'portrait' ? 'portrait' : 'landscape');
     setCurrentPortraitPlatform(resolvePortraitPlatform(platform));
     setCurrentOverlayOptions(null);
-    setCurrentBgmPresetId('preset');
+    setCurrentBgmPresetId('none');
     setCurrentBgmVolume(0.3);
     setCurrentCustomAudio(null);
+    setCurrentLibraryTrackId(null);
     setCurrentHighlightMode(getStoredHighlightMode());
 
     if (urlsToRevoke.length > 0) {
@@ -1864,6 +1872,7 @@ export function App() {
     initialBgmPresetId: currentBgmPresetId,
     initialBgmVolume: currentBgmVolume,
     initialCustomAudioFile: currentCustomAudio,
+    initialSelectedLibraryTrackId: currentLibraryTrackId,
     onOverlayOptionsChange: handleOverlayOptionsChange,
     onBgmChange: handleBgmChange,
     onCustomAudioChange: handleCustomAudioChange,

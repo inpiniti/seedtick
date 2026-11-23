@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { Music2, Plus, Trash2 } from 'lucide-react';
+import { AUDIO_LIBRARY } from '../../data/audioLibrary.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import type { TimelineLayout } from './timelineModel.ts';
 
@@ -8,7 +9,11 @@ import type { TimelineLayout } from './timelineModel.ts';
 interface TimelineMusicTrackProps {
   bgmPresetId: string;
   bgmVolume: number;
+  /** 오디오 보관함에서 적용한 음원 id (타임라인 라벨에 이름을 표시). */
+  libraryTrackId: string | null;
   customAudioName: string | null;
+  /** 음악 칩·교체 버튼 — 오른쪽 인스펙터를 연다. */
+  onOpenMusic: () => void;
   onVolumeChange: (volume: number) => void;
   onRemove: () => void;
   onPickFile: (file: File) => void;
@@ -22,7 +27,9 @@ interface TimelineMusicTrackProps {
 export const TimelineMusicTrack = ({
   bgmPresetId,
   bgmVolume,
+  libraryTrackId,
   customAudioName,
+  onOpenMusic,
   onVolumeChange,
   onRemove,
   onPickFile,
@@ -32,7 +39,10 @@ export const TimelineMusicTrack = ({
 }: TimelineMusicTrackProps) => {
   const { ui, t } = useI18n();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const name = customAudioName || (bgmPresetId !== 'none' ? bgmPresetId : null);
+  const libraryName = libraryTrackId
+    ? AUDIO_LIBRARY.find((track) => track.id === libraryTrackId)?.name || null
+    : null;
+  const name = customAudioName || libraryName || (bgmPresetId !== 'none' ? bgmPresetId : null);
   const hasMusic = Boolean(name);
   const filledWidth = hasMusic && layout ? layout.totalWidth : undefined;
 
@@ -46,7 +56,7 @@ export const TimelineMusicTrack = ({
           <button
             type="button"
             className="sv2-btn sv2-btn-sm sv2-btn-ghost"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={onOpenMusic}
             title={ui('음악 고르기')}
           >
             {hasMusic ? <Music2 size={14} /> : <Plus size={14} />}
@@ -79,7 +89,7 @@ export const TimelineMusicTrack = ({
               >
                 {t('bgm.fitToVideo')}
               </button>
-              <button type="button" className="sv2-mini-btn" onClick={() => fileInputRef.current?.click()} title={ui('교체')}>
+              <button type="button" className="sv2-mini-btn" onClick={onOpenMusic} title={ui('교체')}>
                 {ui('교체')}
               </button>
               <button type="button" className="sv2-mini-btn" data-danger="true" onClick={onRemove} title={ui('삭제')}>
