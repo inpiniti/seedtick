@@ -156,9 +156,18 @@ export function buildTimelineLayout(
         maxPxPerSec / TIMELINE_PX_PER_SEC
       );
       if (scale > 1) {
+        // 반올림한 폭의 합이 가용 폭을 아슬아슬하게 넘으면 유령 가로 스크롤바가 생긴다.
+        // 뒤쪽 칩부터 남는 픽셀을 깎아 확장 후에도 레인 안에 정확히 들어오게 한다.
+        const widths = base.spans.map((span) => Math.round(span.width * scale));
+        let excess = widths.reduce((sum, w) => sum + w, 0) + gapTotal - availableWidth;
+        for (let i = widths.length - 1; i >= 0 && excess > 0; i--) {
+          const shave = Math.min(excess, Math.max(0, widths[i] - TIMELINE_MIN_CHIP_WIDTH));
+          widths[i] -= shave;
+          excess -= shave;
+        }
         let cursor = 0;
-        spans = base.spans.map((span) => {
-          const width = Math.round(span.width * scale);
+        spans = base.spans.map((span, index) => {
+          const width = widths[index];
           const next = { ...span, left: cursor, right: cursor + width, width };
           cursor += width + TIMELINE_CHIP_GAP;
           return next;

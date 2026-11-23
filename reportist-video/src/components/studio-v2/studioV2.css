@@ -867,6 +867,11 @@
   gap: 5px;
   padding-bottom: 4px;
 }
+/* 컷이 레인에 다 들어가면 장식 요소의 미세한 넘침으로 생기는 유령 스크롤바를 숨긴다.
+   실제로 넘치는 경우(auto)에는 평소처럼 가로 스크롤할 수 있다. */
+.sv2-tracks--fit {
+  overflow-x: hidden;
+}
 .sv2-track-row {
   display: flex;
   align-items: stretch;
@@ -951,6 +956,12 @@
   color: var(--sv2-text-3);
   white-space: nowrap;
 }
+/* 마지막 눈금의 라벨이 레인 오른쪽 끝을 넘어 유령 가로 스크롤바를 만든다.
+   끝 눈금의 라벨만 눈금 왼쪽에 붙여 항상 트랙 안에 머물게 한다. */
+.sv2-ruler-tick:last-child .sv2-ruler-tick-label {
+  left: auto;
+  right: 4px;
+}
 .sv2-playhead {
   position: absolute;
   top: 0;
@@ -1020,6 +1031,11 @@
 }
 .sv2-playhead[data-scrubbing='true'] .sv2-playhead-badge {
   opacity: 1;
+}
+/* 끝 구간에서는 시간 배지가 레인 밖으로 나가지 않도록 선 왼쪽에 붙인다. */
+.sv2-playhead[data-at-end='true'] .sv2-playhead-badge {
+  left: auto;
+  right: 9px;
 }
 .sv2-chip {
   position: relative;

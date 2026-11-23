@@ -96,7 +96,13 @@ export const TimelineDock = (props: TimelineDockProps) => {
   );
   const layout = props.layout ?? computedLayout;
 
+  // 칩이 레인 안에 다 들어가면 룰러 라벨·재생 배지 같은 장식 요소가 만드는
+  // 몇 픽셀 넘침 때문에 스크롤바가 뜨지 않도록 클립 모드로 전환한다.
+  // 컷이 많아 정말 넘치면(auto) 기존처럼 가로 스크롤을 허용한다.
+  const fitsLane = laneWidth > 0 && layout.totalWidth <= laneWidth;
+
   const playheadX = timeToTimelineX(layout, playhead);
+  const playheadAtEnd = layout.totalWidth > 0 && playheadX >= layout.totalWidth - 56;
 
   // 플레이헤드가 가로 스크롤 뷰포트 밖으로 나가면 따라 스크롤한다.
   useEffect(() => {
@@ -164,7 +170,7 @@ export const TimelineDock = (props: TimelineDockProps) => {
         </span>
       </div>
       {hasSegments ? (
-        <div className="sv2-tracks" ref={tracksRef}>
+        <div className={`sv2-tracks${fitsLane ? ' sv2-tracks--fit' : ''}`} ref={tracksRef}>
           <div className="sv2-tracks-inner">
             <div className="sv2-ruler-row">
               <div className="sv2-track-label sv2-ruler-label" aria-hidden="true" />
@@ -205,6 +211,7 @@ export const TimelineDock = (props: TimelineDockProps) => {
             <div
               className="sv2-playhead"
               data-scrubbing={isScrubbing}
+              data-at-end={playheadAtEnd}
               style={{ transform: `translate3d(${TRACK_LABEL_OFFSET + playheadX}px, 0, 0)` }}
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
@@ -218,7 +225,7 @@ export const TimelineDock = (props: TimelineDockProps) => {
           </div>
         </div>
       ) : (
-        <div className="sv2-tracks" ref={tracksRef}>
+        <div className={`sv2-tracks${fitsLane ? ' sv2-tracks--fit' : ''}`} ref={tracksRef}>
           <TimelineMusicTrack
             {...props}
             onRemove={props.onRemoveMusic}
