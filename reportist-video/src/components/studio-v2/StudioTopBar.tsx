@@ -1,25 +1,37 @@
 import {
+  ChevronDown,
   Download,
   FolderOpen,
-  Moon,
+  Key,
   Plus,
   RectangleHorizontal,
   RectangleVertical,
+  ShieldAlert,
   Sparkles,
-  Sun,
+  Zap,
 } from 'lucide-react';
-import type { FreeModelMeta } from '../../types/gateway.ts';
+import { PenguinLogo } from '../common/PenguinLogo.tsx';
 import type { VideoOrientation } from '../../types/video.ts';
 
-// components/studio-v2/StudioTopBar.tsx — 프로젝트/업로드/모델/내보내기/테마 전환.
+// components/studio-v2/StudioTopBar.tsx — 프로젝트/업로드/모델/내보내기.
+
+/** 상단 바에 표시할 현재 AI 모델 상태 (CenterStudioView가 계산해 내려준다). */
+export interface StudioModelDisplay {
+  isByok: boolean;
+  label: string;
+  tooltip: string;
+  speedText: string | null;
+  speedTier: 'ultra' | 'fast' | 'balanced' | 'slow' | null;
+  usesTrainingData: boolean;
+}
 
 interface StudioTopBarProps {
   projectName: string;
   saveStatus?: 'saved' | 'saving' | 'idle';
-  models: FreeModelMeta[];
-  selectedModel: string;
+  modelDisplay: StudioModelDisplay;
   isLoadingModels: boolean;
-  onSelectModel: (id: string) => void;
+  isProcessing: boolean;
+  onOpenModelModal: () => void;
   onAddVideos: () => void;
   onOpenProjects: () => void;
   onExport: () => void;
@@ -27,17 +39,15 @@ interface StudioTopBarProps {
   isExporting: boolean;
   orientation: VideoOrientation;
   onOrientationChange: (o: VideoOrientation) => void;
-  theme: 'light' | 'dark';
-  onThemeChange: (t: 'light' | 'dark') => void;
 }
 
 export const StudioTopBar = ({
   projectName,
   saveStatus,
-  models,
-  selectedModel,
+  modelDisplay,
   isLoadingModels,
-  onSelectModel,
+  isProcessing,
+  onOpenModelModal,
   onAddVideos,
   onOpenProjects,
   onExport,
@@ -45,12 +55,10 @@ export const StudioTopBar = ({
   isExporting,
   orientation,
   onOrientationChange,
-  theme,
-  onThemeChange,
 }: StudioTopBarProps) => (
   <header className="sv2-topbar">
     <div className="sv2-brand">
-      <span className="sv2-brand-badge"><Sparkles size={16} /></span>
+      <PenguinLogo size={26} color="#191f28" className="sv2-brand-logo" />
       PenguinCut
     </div>
     <button type="button" className="sv2-project-name" onClick={onOpenProjects} title="프로젝트 보관함 열기">
@@ -87,32 +95,32 @@ export const StudioTopBar = ({
       </button>
     </div>
 
-    <select
-      className="sv2-model-select"
-      value={selectedModel}
-      disabled={isLoadingModels}
-      onChange={(e) => onSelectModel(e.target.value)}
-      title="AI 모델"
+    <button
+      type="button"
+      className={`sv2-model-trigger${modelDisplay.isByok ? ' is-byok' : ''}`}
+      onClick={onOpenModelModal}
+      disabled={isLoadingModels || isProcessing}
+      aria-haspopup="dialog"
+      title={modelDisplay.tooltip || 'AI 모델 선택'}
     >
-      {isLoadingModels && <option>불러오는 중…</option>}
-      {!isLoadingModels && models.length === 0 && <option>기본 모델</option>}
-      {models.map((m) => (
-        <option key={m.id} value={m.id}>
-          {m.name || m.id}
-        </option>
-      ))}
-    </select>
+      {modelDisplay.isByok ? <Key size={14} /> : <Sparkles size={14} />}
+      {modelDisplay.isByok && <span className="sv2-model-badge">BYOK</span>}
+      <span className="sv2-model-label">
+        {isLoadingModels ? '불러오는 중…' : modelDisplay.label || 'AI 모델 선택'}
+      </span>
+      {!modelDisplay.isByok && modelDisplay.speedText && (
+        <span className={`sv2-model-speed sv2-speed-${modelDisplay.speedTier ?? 'balanced'}`}>
+          <Zap size={11} /> {modelDisplay.speedText}
+        </span>
+      )}
+      {!modelDisplay.isByok && modelDisplay.usesTrainingData && (
+        <ShieldAlert size={13} className="sv2-model-warn" aria-label="학습에 사용되는 모델" />
+      )}
+      <ChevronDown size={13} className="sv2-model-chevron" />
+    </button>
 
     <button type="button" className="sv2-btn sv2-btn-icon" onClick={onOpenProjects} title="프로젝트 보관함">
       <FolderOpen size={17} />
-    </button>
-    <button
-      type="button"
-      className="sv2-btn sv2-btn-icon"
-      onClick={() => onThemeChange(theme === 'light' ? 'dark' : 'light')}
-      title={theme === 'light' ? '다크 테마로 전환' : '라이트 테마로 전환'}
-    >
-      {theme === 'light' ? <Moon size={17} /> : <Sun size={17} />}
     </button>
     <button type="button" className="sv2-btn" onClick={onAddVideos}>
       <Plus size={16} /> 영상 추가

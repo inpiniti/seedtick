@@ -1,5 +1,11 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { cleanModelName, getSpeedTier } from '../../services/modelMetrics.ts';
+import {
+  getProviderPreset,
+  getStoredUserApiKeyConfig,
+  isByokActive,
+} from '../../services/userApiKeyService.ts';
 import { previewFrame } from '../../services/frameSpec.ts';
 import { getStoredAutoSortByRecordedTime, sortSegmentsByRecordedTime } from '../../services/videoMetadata.ts';
 import { loadLibraryAudioFile, type AudioLibraryTrack } from '../../data/audioLibrary.ts';
@@ -9,7 +15,7 @@ import type {
   VideoOverlayOptions,
 } from '../../types/video.ts';
 import { DesktopOnlyGate } from './DesktopOnlyGate.tsx';
-import { StudioTopBar } from './StudioTopBar.tsx';
+import { StudioTopBar, type StudioModelDisplay } from './StudioTopBar.tsx';
 import { UploadQueueDock } from './UploadQueueDock.tsx';
 import { CenterPreviewStage } from './CenterPreviewStage.tsx';
 import { TimelineDock } from './TimelineDock.tsx';
@@ -32,6 +38,9 @@ const AudioLibraryModal = lazy(() =>
 );
 const VideoExportModal = lazy(() =>
   import('../studio/VideoExportModal.tsx').then((m) => ({ default: m.VideoExportModal }))
+);
+const ModelSelectorModal = lazy(() =>
+  import('../studio/ModelSelectorModal.tsx').then((m) => ({ default: m.ModelSelectorModal }))
 );
 
 /**
@@ -92,6 +101,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
   );
   const [landedVideos, setLandedVideos] = useState<Set<string>>(new Set());
   const [landingIds, setLandingIds] = useState<Set<string>>(new Set());
+  const [subtitleRefreshed, setSubtitleRefreshed] = useState(false);
 
   // 비행 상태는 ref를 진실 원본으로 두어 거의 동시에 완료되는 여러 배치가 서로를 덮어쓰지 않게 한다.
   const videosRef = useRef(videos);
@@ -220,11 +230,23 @@ export const CenterStudioView = (props: StudioV2Props) => {
       }
       return;
     }
+    // 자막 정제처럼 같은 컷의 텍스트만 바뀐 경우 타임라인에 은은한 갱신 연출을 준다.
+    const subtitleChanged = incoming.some((seg) => {
+      const prev = prevSegmentsRef.current.find((p) => p.id === seg.id);
+      return prev && prev.subtitleTitle !== seg.subtitleTitle;
+    });
     prevSegmentsRef.current = incoming;
     setLocalSegments(incoming);
+    if (subtitleChanged) setSubtitleRefreshed(true);
     // 실시간 비행으로 이미 발사된 컷은 최종 result에서 다시 날아가지 않는다.
     launchFlights(incoming);
   }, [result?.segments, isProcessing, launchFlights]);
+
+  useEffect(() => {
+    if (!subtitleRefreshed) return;
+    const timer = window.setTimeout(() => setSubtitleRefreshed(false), 650);
+    return () => window.clearTimeout(timer);
+  }, [subtitleRefreshed]);
 
   const commitSegments = useCallback(
     (next: HighlightSegment[]) => {
@@ -361,6 +383,14 @@ export const CenterStudioView = (props: StudioV2Props) => {
   const [trimSegment, setTrimSegment] = useState<HighlightSegment | null>(null);
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isModelModalOpen, setIsModelModalOpen] = useState(false);
+  // BYOK 설정/모델 선택은 localStorage를 갱신하므로 revision을 올려 상단 배지를 즉시 재계산한다.
+  const [, setModelRevision] = useState(0);
+
+  // 분석이 시작되면 모델 변경을 막고 모달을 닫는다.
+  useEffect(() => {
+    if (isProcessing) setIsModelModalOpen(false);
+  }, [isProcessing]);
   const [exportResolution, setExportResolution] = useState<ExportResolution>('1080p');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -446,6 +476,40 @@ export const CenterStudioView = (props: StudioV2Props) => {
     return found?.title || '새 프로젝트';
   }, [projectSummaries, currentProjectId]);
 
+  // ---------- 상단 모델 배지 ----------
+  const byokActive = isByokActive();
+  const modelDisplay: StudioModelDisplay = useMemo(() => {
+    if (byokActive) {
+      const config = getStoredUserApiKeyConfig();
+      const preset = getProviderPreset(config?.provider);
+      const modelLabel = config?.model?.trim() || preset.defaultModel;
+      return {
+        isByok: true,
+        label: `${preset.shortName || preset.name} · ${modelLabel}`,
+        tooltip: `자체 AI 키 사용 중 · ${preset.name} · ${modelLabel}`,
+        speedText: null,
+        speedTier: null,
+        usesTrainingData: false,
+      };
+    }
+    const active = models.find((m) => m.id === selectedModel);
+    const label = cleanModelName(active?.name || selectedModel) || selectedModel || 'AI 모델';
+    const speed = active?.speedTokensPerSecond;
+    const hasSpeed = typeof speed === 'number' && Number.isFinite(speed) && speed > 0;
+    const speedText = hasSpeed ? `${Math.round(speed).toLocaleString()} tok/s` : null;
+    const policy = active?.dataPolicy?.training ? '학습에 사용됨' : '학습 미사용';
+    return {
+      isByok: false,
+      label,
+      tooltip: `${label}${active?.providerName ? ` · ${active.providerName}` : ''} · ${policy}${
+        speedText ? ` · ${speedText}` : ''
+      }`,
+      speedText,
+      speedTier: hasSpeed ? getSpeedTier(speed).key : null,
+      usesTrainingData: Boolean(active?.dataPolicy?.training),
+    };
+  }, [byokActive, models, selectedModel]);
+
   // ---------- 액션 ----------
   const startAnalysis = useCallback(() => {
     onStartAiAnalysis(overlayOptions, customAudioFile, bgmPresetId, bgmVolume);
@@ -486,10 +550,10 @@ export const CenterStudioView = (props: StudioV2Props) => {
       <StudioTopBar
         projectName={projectName}
         saveStatus={saveStatus}
-        models={models}
-        selectedModel={selectedModel}
+        modelDisplay={modelDisplay}
         isLoadingModels={isLoadingModels}
-        onSelectModel={onSelectModel}
+        isProcessing={isProcessing}
+        onOpenModelModal={() => setIsModelModalOpen(true)}
         onAddVideos={() => fileInputRef.current?.click()}
         onOpenProjects={() => onViewProjects?.() ?? onOpenProject?.(currentProjectId || '')}
         onExport={() => setIsExportOpen(true)}
@@ -526,13 +590,13 @@ export const CenterStudioView = (props: StudioV2Props) => {
           onCancel={onCancelProcessing}
         />
 
-        <div className="sv2-center">
+        <div className="sv2-center" data-subtitle-refreshed={subtitleRefreshed}>
           <div className="sv2-stage-wrap">
             {isProcessing && (
               <div className="sv2-status-pill" role="status" aria-live="polite">
                 <span className="sv2-spinner" />
                 <span className="sv2-status-pill-text">
-                  {progress?.statusMessage || '영상이 분석되면 컷이 하나씩 타임라인으로 들어옵니다.'}
+                  {progress?.statusMessage || '장면을 분석하고 있어요. 끝나면 타임라인에 바로 채워져요.'}
                 </span>
                 <div className="sv2-progress-bar sv2-status-pill-bar">
                   <div
@@ -566,6 +630,8 @@ export const CenterStudioView = (props: StudioV2Props) => {
             overlayOptions={overlayOptions}
             selectedSegmentId={selectedSegmentId}
             landingIds={landingIds}
+            playhead={playhead}
+            onSeek={seek}
             locked={isProcessing}
             bgmPresetId={bgmPresetId}
             bgmVolume={bgmVolume}
@@ -646,17 +712,32 @@ export const CenterStudioView = (props: StudioV2Props) => {
           </Suspense>
         )}
 
+        {isModelModalOpen && (
+          <Suspense fallback={null}>
+            <ModelSelectorModal
+              isOpen={isModelModalOpen}
+              onClose={() => setIsModelModalOpen(false)}
+              models={models}
+              selectedModelId={selectedModel}
+              onSelectModel={(id) => {
+                onSelectModel(id);
+                setModelRevision((v) => v + 1);
+              }}
+            />
+          </Suspense>
+        )}
+
         {isReStitching && (
-          <div className="sv2-processing" style={{ zIndex: 60 }}>
+          <div className="sv2-processing sv2-processing-elevated">
             <div className="sv2-processing-card">
               <div className="sv2-processing-title">
-                <Loader2 size={18} style={{ verticalAlign: -4, marginRight: 8 }} className="sv2-spin" />
-                MP4로 내보내는 중…
+                <Loader2 size={18} className="sv2-spin sv2-loader-inline" />
+                MP4로 내보내고 있어요
               </div>
               <div className="sv2-processing-sub">
                 {reStitchProgress?.statusMessage || '미리보기와 똑같은 화면으로 인코딩하고 있어요.'}
               </div>
-              <div className="sv2-progress-bar" style={{ height: 6 }}>
+              <div className="sv2-progress-bar sv2-progress-track">
                 <div
                   className="sv2-progress-fill"
                   style={{ width: `${reStitchProgress?.progressPercent ?? 0}%` }}

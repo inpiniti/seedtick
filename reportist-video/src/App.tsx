@@ -14,6 +14,7 @@ import {
   DEFAULT_CONFIG,
 } from './services/gatewayClient.ts';
 import { enrichModelMetrics, pickDefaultModel } from './services/modelMetrics.ts';
+import { isByokActive } from './services/userApiKeyService.ts';
 import { cancelVideoAnalysisJob } from './services/analyzerQueueService.ts';
 import { extractVideoMetadata as extractVideoVisualDimensions, extractVideoFramesForAnalysis, getAnalysisFrameBudget } from './services/videoCompressor.ts';
 import {
@@ -877,6 +878,10 @@ export function App() {
           const enriched = enrichModelMetrics(fetched);
           setModels(enriched);
 
+          // 자체 AI 키(BYOK)가 활성이면 저장된 BYOK 모델 ID는 무료 목록에 없으므로
+          // 아래 기본 모델 선택 로직이 이를 덮어쓰지 않도록 그대로 유지한다.
+          if (isByokActive()) return;
+
           // 사용자가 명시적으로 저장/선택한 모델만 복원한다.
           // 초기 렌더링 시 폴백 목록으로 자동 정해진 selectedModel을 저장된 설정으로 오인해 그대로
           // 유지하면, 실시간 데이터에서 학습 사용(training === true)으로 확인된 모델이 기본값으로
@@ -1430,7 +1435,6 @@ export function App() {
         if (signal.aborted) throw new Error(dict.logs.cancelledByUser);
 
         const currentVideo = updatedVideos[i];
-        const isLastVideo = i === totalVideos - 1;
         let videoLocalPct = 0;
 
         // 워커는 자기 슬롯만 갱신한다. 화면 반영은 아래 단일 집계 타이머가 담당한다.
@@ -1770,7 +1774,9 @@ export function App() {
         resetQueueState();
 
         // 해당 영상 분석 성공 완료 시: 자기 슬롯을 완료로 표시 (집계기가 완료 수를 계산한다)
-        videoLocalPct = isLastVideo ? 99 : 100;
+        // 전체 진행률 상한은 flushAggregateProgress의 Math.min(99, ...)가 담당하므로
+        // 병렬 완료 순서와 무관하게 모든 영상이 100%로 표시되어야 한다.
+        videoLocalPct = 100;
         publish({
           stage: 'done',
           queuePosition: undefined,
@@ -2145,7 +2151,11 @@ export function App() {
       }));
       if (signal.aborted) {
         console.info('Processing cancelled by user.');
-        setCurrentStep(finalResult ? 'result' : 'upload');
+        // handleCancel이 부분 결과를 저장했을 수 있으므로 완료된 영상이 있으면 결과 화면을 유지한다.
+        const anyCompleted = updatedVideos.some(
+          (v) => (v.segments?.length ?? 0) > 0
+        );
+        setCurrentStep(finalResult || anyCompleted ? 'result' : 'upload');
       } else {
         const msg = err instanceof Error ? err.message : dict.logs.genericError;
         console.error('Processing error:', err);
@@ -2344,7 +2354,39 @@ export function App() {
       estimatedWaitSec: undefined,
       jobId: undefined,
     }));
-    setCurrentStep(finalResult ? 'result' : 'upload');
+    // 분석 도중 중지하더라도 이미 완료되어 타임라인에 착지한 영상은 부분 결과로 보존한다.
+    const completedVideos = videos.filter((v) => (v.segments?.length ?? 0) > 0);
+    const partialSegments = completedVideos.flatMap((v) => v.segments);
+    let hasPartialResult = false;
+    if (!finalResult && partialSegments.length > 0) {
+      const sortedSegments = getStoredAutoSortByRecordedTime()
+        ? sortSegmentsByRecordedTime(
+            partialSegments,
+            new Map(completedVideos.map((v) => [v.id, v]))
+          )
+        : partialSegments;
+      const bridgeMap = computeBridgeDurationMap(sortedSegments, currentOverlayOptions ?? undefined);
+      const introDur = currentOverlayOptions?.showIntro ? 1.6 : 0;
+      const outroDur = currentOverlayOptions?.showOutro ? 1.8 : 0;
+      const segmentsDuration = sortedSegments.reduce(
+        (sum, s) => sum + s.duration + (bridgeMap[s.id] ?? 0),
+        0
+      );
+      setFinalResult({
+        blob: new Blob([]),
+        url: '',
+        duration: Math.round((introDur + segmentsDuration + outroDur) * 10) / 10,
+        introDuration: introDur,
+        outroDuration: outroDur,
+        bridgeDurationMap: bridgeMap,
+        segments: sortedSegments,
+        originalTotalDuration: completedVideos.reduce((sum, v) => sum + (v.duration || 0), 0),
+        fileSize: 0,
+      });
+      void performSave(undefined, { checkpoint: true });
+      hasPartialResult = true;
+    }
+    setCurrentStep(finalResult || hasPartialResult ? 'result' : 'upload');
   };
 
   const handleReset = (orientation?: VideoOrientation, platform?: PortraitPlatform) => {

@@ -25,7 +25,8 @@
   --sv2-radius: 10px;
   --sv2-radius-sm: 9px;
   --sv2-topbar-h: 54px;
-  --sv2-timeline-h: 176px;
+  /* 룰러(24px) + 여백(2px) 확보. 미리보기 max-height도 이 값을 참조한다. */
+  --sv2-timeline-h: 202px;
   --sv2-dock-w: 264px;
   --sv2-inspector-w: 360px;
 
@@ -192,6 +193,7 @@
 .sv2-btn:focus-visible,
 .sv2-segmented button:focus-visible,
 .sv2-model-select:focus-visible,
+.sv2-model-trigger:focus-visible,
 .sv2-input:focus-visible,
 .sv2-template-btn:focus-visible,
 .sv2-mini-btn:focus-visible,
@@ -236,6 +238,62 @@
   font-size: 12px;
   font-weight: 600;
 }
+.sv2-model-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  max-width: 250px;
+  padding: 0 9px;
+  border-radius: var(--sv2-radius-sm);
+  border: 1px solid var(--sv2-border);
+  background: var(--sv2-surface-3);
+  color: var(--sv2-text);
+  font-size: 12px;
+  font-weight: 600;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.sv2-model-trigger:hover:not(:disabled) {
+  background: var(--sv2-surface-2);
+  border-color: var(--sv2-border-strong);
+}
+.sv2-model-trigger.is-byok {
+  background: var(--sv2-accent-soft);
+  border-color: var(--sv2-border-strong);
+  color: var(--sv2-accent);
+}
+.sv2-model-badge {
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--sv2-accent);
+  color: var(--sv2-accent-text);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.sv2-model-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sv2-model-speed {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--sv2-text-2);
+}
+.sv2-speed-ultra { color: #0f766e; }
+.sv2-speed-fast { color: #15803d; }
+.sv2-speed-balanced { color: var(--sv2-text-2); }
+.sv2-speed-slow { color: #b45309; }
+.sv2-model-warn { flex: 0 0 auto; color: #b45309; }
+.sv2-model-chevron { flex: 0 0 auto; color: var(--sv2-text-3); }
 
 /* ---------- Body layout ---------- */
 .sv2-body {
@@ -451,6 +509,7 @@
   transition: padding 0.4s ease;
 }
 .sv2-stage-wrap {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -459,6 +518,43 @@
   justify-content: center;
   width: 100%;
   gap: 12px;
+}
+/* 분석 중 화면을 가리지 않는 상단 컴팩트 상태 필 */
+.sv2-status-pill {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  max-width: min(560px, 92%);
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--sv2-border);
+  background: color-mix(in srgb, var(--sv2-surface) 92%, transparent);
+  box-shadow: var(--sv2-shadow);
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+.sv2-status-pill .sv2-spinner {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+}
+.sv2-status-pill-text {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--sv2-text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sv2-status-pill-bar {
+  width: 56px;
+  margin-top: 0;
+  flex: 0 0 auto;
 }
 .sv2-stage-meta {
   text-align: center;
@@ -678,6 +774,11 @@
   font-size: 11px;
   font-weight: 700;
   color: var(--sv2-text-2);
+  /* 가로 스크롤 시 라벨 고정. 플레이헤드 선은 라벨 아래로 가려진다. */
+  position: sticky;
+  left: 0;
+  z-index: 7;
+  background: var(--sv2-surface);
 }
 .sv2-track-lane {
   display: flex;
@@ -685,6 +786,118 @@
   gap: 5px;
   min-width: 100%;
   padding-right: 12px;
+}
+
+/* 트랙/룰러/플레이헤드를 같은 좌표계에 묶는 래퍼.
+   라벨 56px + 행 간격 8px = 64px 만큼 플레이헤드 X에 더한다(TRACK_LABEL_OFFSET). */
+.sv2-tracks-inner {
+  position: relative;
+  width: max-content;
+  min-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.sv2-track-lanes {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.sv2-ruler-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  height: 24px;
+}
+.sv2-ruler-label {
+  height: 24px;
+}
+.sv2-ruler {
+  position: relative;
+  flex: 0 0 auto;
+  min-width: 100%;
+  height: 24px;
+  border-bottom: 1px solid var(--sv2-border);
+  cursor: pointer;
+  user-select: none;
+  touch-action: none;
+}
+.sv2-ruler:hover {
+  border-bottom-color: var(--sv2-accent);
+}
+.sv2-ruler-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--sv2-border-strong);
+  pointer-events: none;
+}
+.sv2-ruler-tick-label {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--sv2-text-3);
+  white-space: nowrap;
+}
+.sv2-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  z-index: 5;
+  pointer-events: none;
+  will-change: transform;
+}
+.sv2-playhead-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -1px;
+  width: 2px;
+  background: var(--sv2-accent);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.65);
+}
+.sv2-playhead-handle {
+  position: absolute;
+  top: 0;
+  left: -6px;
+  width: 12px;
+  height: 11px;
+  border-radius: 3px 3px 5px 5px;
+  background: var(--sv2-accent);
+}
+.sv2-playhead-handle::after {
+  content: '';
+  position: absolute;
+  top: 11px;
+  left: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 5px solid var(--sv2-accent);
+}
+.sv2-playhead-badge {
+  position: absolute;
+  top: 18px;
+  left: 9px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: var(--sv2-accent);
+  color: var(--sv2-accent-text);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 9px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.sv2-playhead[data-scrubbing='true'] .sv2-playhead-badge {
+  opacity: 1;
 }
 .sv2-chip {
   position: relative;
@@ -729,6 +942,17 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: color 0.35s ease, opacity 0.35s ease;
+}
+.sv2-chip[data-locked='true'] {
+  cursor: default;
+}
+.sv2-center[data-subtitle-refreshed='true'] .sv2-chip-sub {
+  animation: sv2-subtitle-refresh 0.5s ease;
+}
+@keyframes sv2-subtitle-refresh {
+  from { opacity: 0.35; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 .sv2-chip-thumb {
   position: absolute;
@@ -1103,6 +1327,9 @@
   to {
     transform: rotate(360deg);
   }
+}
+.sv2-spin {
+  animation: sv2-spin 0.8s linear infinite;
 }
 .sv2-spinner-inline {
   display: inline-block;

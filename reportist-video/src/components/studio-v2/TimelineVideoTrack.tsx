@@ -1,7 +1,7 @@
 import { Scissors, Trash2, RotateCw, MapPin, Clapperboard, Flag } from 'lucide-react';
 import type { HighlightSegment, VideoItem, VideoOverlayOptions } from '../../types/video.ts';
 import { formatShootDate } from './types.ts';
-import type { TimelineModel } from './timelineModel.ts';
+import type { TimelineLayout, TimelineModel } from './timelineModel.ts';
 
 // components/studio-v2/TimelineVideoTrack.tsx — [인트로] + 컷 블록 + [아웃트로]
 
@@ -12,6 +12,10 @@ interface TimelineVideoTrackProps {
   overlayOptions: VideoOverlayOptions;
   selectedSegmentId: string | null;
   landingIds: Set<string>;
+  locked?: boolean;
+  layout: TimelineLayout;
+  playhead: number;
+  onSeek: (time: number) => void;
   onSelect: (id: string) => void;
   onUpdateSegment: (id: string, patch: Partial<HighlightSegment>) => void;
   onDelete: (id: string) => void;
@@ -29,6 +33,10 @@ export const TimelineVideoTrack = ({
   overlayOptions,
   selectedSegmentId,
   landingIds,
+  locked = false,
+  layout,
+  playhead,
+  onSeek,
   onSelect,
   onUpdateSegment,
   onDelete,
@@ -41,17 +49,37 @@ export const TimelineVideoTrack = ({
   const thumbFor = (seg: HighlightSegment) =>
     videos.find((v) => v.id === seg.sourceVideoId)?.thumbnailUrl;
 
+  const spanFor = (key: string) => layout.spans.find((span) => span.key === key);
+  const chipStyle = (key: string) => {
+    const span = spanFor(key);
+    return span ? { width: span.width, minWidth: span.width, maxWidth: span.width } : undefined;
+  };
+  const isPlaying = (key: string) => {
+    const span = spanFor(key);
+    return Boolean(span && span.active && playhead >= span.start && playhead < span.end);
+  };
+  /** 컷을 클릭했을 때 현재 위치가 그 컷 밖이면 시작점으로 이동해 미리보기도 같이 바꾼다. */
+  const seekInto = (key: string) => {
+    const span = spanFor(key);
+    if (span?.active && (playhead < span.start || playhead >= span.end)) onSeek(span.start);
+  };
+
   return (
     <div className="sv2-track-row">
       <div className="sv2-track-label">
         <Clapperboard size={13} /> 영상
       </div>
-      <div className="sv2-track-lane">
+      <div className="sv2-track-lane" style={{ width: layout.totalWidth, paddingRight: 0 }}>
         <button
           type="button"
           className="sv2-chip sv2-chip-special"
           data-empty={!overlayOptions.showIntro}
-          onClick={onOpenIntro}
+          data-playing={isPlaying('__intro__')}
+          style={chipStyle('__intro__')}
+          onClick={() => {
+            onOpenIntro();
+            seekInto('__intro__');
+          }}
           title="인트로 설정"
         >
           <span className="sv2-chip-title">인트로</span>
@@ -64,26 +92,36 @@ export const TimelineVideoTrack = ({
             className="sv2-chip"
             data-selected={selectedSegmentId === seg.id}
             data-landing={landingIds.has(seg.id)}
+            data-playing={isPlaying(seg.id)}
+            style={chipStyle(seg.id)}
             data-cut-slot-id={seg.id}
-            draggable
+            data-locked={locked}
+            draggable={!locked}
             onDragStart={(e) => {
+              if (locked) return;
               e.dataTransfer.setData('text/sv2-index', String(index));
               e.dataTransfer.effectAllowed = 'move';
             }}
             onDragOver={(e) => {
+              if (locked) return;
               e.preventDefault();
               e.dataTransfer.dropEffect = 'move';
             }}
             onDrop={(e) => {
+              if (locked) return;
               e.preventDefault();
               const from = Number(e.dataTransfer.getData('text/sv2-index'));
               if (Number.isFinite(from) && from !== index) onReorder(from, index);
             }}
-            onClick={() => onSelect(seg.id)}
+            onClick={() => {
+              if (locked) return;
+              onSelect(seg.id);
+              seekInto(seg.id);
+            }}
             title={seg.reason || seg.subtitleTitle || '컷'}
           >
             {thumbFor(seg) && <img className="sv2-chip-thumb" src={thumbFor(seg)} alt="" />}
-            {selectedSegmentId === seg.id && (
+            {!locked && selectedSegmentId === seg.id && (
               <div className="sv2-chip-mini-toolbar" onClick={(e) => e.stopPropagation()}>
                 <button type="button" className="sv2-mini-btn" onClick={() => onTrim(seg)} title="트림">
                   <Scissors size={13} />
@@ -117,7 +155,12 @@ export const TimelineVideoTrack = ({
           type="button"
           className="sv2-chip sv2-chip-special"
           data-empty={!overlayOptions.showOutro}
-          onClick={onOpenOutro}
+          data-playing={isPlaying('__outro__')}
+          style={chipStyle('__outro__')}
+          onClick={() => {
+            onOpenOutro();
+            seekInto('__outro__');
+          }}
           title="아웃트로 설정"
         >
           <span className="sv2-chip-title"><Flag size={12} style={{ verticalAlign: -2 }} /> 아웃트로</span>

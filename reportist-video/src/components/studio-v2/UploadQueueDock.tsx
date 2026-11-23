@@ -1,4 +1,4 @@
-import { Sparkles, UploadCloud, X } from 'lucide-react';
+import { Scissors, UploadCloud, X } from 'lucide-react';
 import type { VideoItem, VideoTaskProgress } from '../../types/video.ts';
 import { formatShootDate } from './types.ts';
 
@@ -149,7 +149,7 @@ export const UploadQueueDock = ({
               onClick={onStartAnalysis}
               disabled={videos.length === 0 || !hasPending || isPreparingVideos}
             >
-              <Sparkles size={16} /> AI 컷 분석
+              <Scissors size={16} /> AI 컷 분석
             </button>
           )}
         </div>

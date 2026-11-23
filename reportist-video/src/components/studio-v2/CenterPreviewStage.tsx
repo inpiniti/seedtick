@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pause, Play, Sparkles } from 'lucide-react';
+import { Film, Pause, Play } from 'lucide-react';
 import {
   drawCompositorCoverFrame,
   drawCompositorSegmentOverlay,
@@ -129,11 +129,10 @@ export const CenterPreviewStage = ({
   return (
     <>
       <div className="sv2-stage-meta">
-        <div className="sv2-stage-meta-title">미리보기</div>
         <div className="sv2-stage-meta-sub">
           {hasContent
-            ? `${model.items.filter((i) => i.kind === 'segment').length}개 컷 · 가운데에서 바로 편집하세요`
-            : '영상을 넣고 AI 컷을 누르면 컷이 타임라인으로 들어옵니다'}
+            ? `${model.items.filter((i) => i.kind === 'segment').length}개 컷 · 날짜·위치나 자막을 눌러 바로 수정할 수 있어요`
+            : '영상을 추가하면 여기에 미리보기가 나타나요'}
         </div>
       </div>
 
@@ -188,9 +187,9 @@ export const CenterPreviewStage = ({
       ) : (
         <div className="sv2-preview-frame" data-orientation={orientation}>
           <div className="sv2-preview-empty">
-            <Sparkles size={34} />
-            <strong style={{ fontSize: 16 }}>가운데 미리보기가 무대입니다</strong>
-            <span>영상을 올리면 좌측에 파일 리스트가 뜨고, AI 컷을 누르면 컷이 여기 아래 타임라인으로 착지해요.</span>
+            <div className="sv2-empty-icon"><Film size={28} /></div>
+            <strong>영상을 추가하면 여기에 미리보기가 나타나요</strong>
+            <span>영상을 올리면 왼쪽에 파일이 나열되고, AI 컷을 누르면 타임라인에 채워져요.</span>
           </div>
         </div>
       )}
