@@ -29,6 +29,8 @@ interface CenterPreviewStageProps {
   orientation: VideoOrientation;
   totalDuration: number;
   previewRange?: PreviewRange | null;
+  /** 설정 모달에서 날짜 형식·나이 옵션을 바꾼 경우 캔버스를 다시 그리기 위한 신호. */
+  revision?: number;
   onTogglePlay: () => void;
   onPause: () => void;
   onSeek: (time: number) => void;
@@ -46,6 +48,7 @@ export const CenterPreviewStage = ({
   orientation,
   totalDuration,
   previewRange,
+  revision = 0,
   onTogglePlay,
   onPause,
   onSeek,
@@ -166,7 +169,7 @@ export const CenterPreviewStage = ({
     } else if (activeItem.kind === 'outro') {
       renderer.drawCompositorOutroFrame(ctx, progress, overlayOptions, frame);
     }
-  }, [playhead, activeItem, frame, overlayOptions, videos, rendererReady, redrawTick, isEditingCaption]);
+  }, [playhead, activeItem, frame, overlayOptions, videos, rendererReady, redrawTick, isEditingCaption, revision]);
 
   const hasContent = model.items.length > 0;
   const locationLabel = activeSegment?.locationName || overlayOptions.subtitleLocationText || '';
@@ -273,6 +276,7 @@ export const CenterPreviewStage = ({
                 if (editing) onPause();
                 setIsEditingCaption(editing);
               }}
+              showSubtitle={overlayOptions.showSubtitle !== false}
             />
           )}
         </div>

@@ -14,6 +14,25 @@ import type {
   VideoOverlayOptions,
 } from '../../types/video.ts';
 import type { FreeModelMeta, ReasoningEffortOption } from '../../types/gateway.ts';
+import {
+  getStoredShowDate,
+  getStoredShowSubtitle,
+  formatDateByPattern,
+  formatDateWithAge,
+  getStoredBirthDate,
+  getStoredDateFormat,
+  getStoredShowAge,
+  parseDateTimeFromString,
+} from '../../services/videoMetadata.ts';
+import {
+  getStoredIntroDuration,
+  getStoredIntroTemplate,
+  getStoredOutroDuration,
+  getStoredOutroTemplate,
+  getStoredShowIntro,
+  getStoredShowOutro,
+  getStoredShowCredit,
+} from '../../services/introOutroStorage.ts';
 
 export interface StudioV2Props {
   result: FinalVideoResult | null;
@@ -66,6 +85,9 @@ export interface StudioV2Props {
   portraitPlatform?: PortraitPlatform;
   onOrientationChange?: (orientation: VideoOrientation) => void;
   onPortraitPlatformChange?: (platform: PortraitPlatform) => void;
+  /** 설정 모달에서 바꾼 하이라이트 방식을 App 상태와 동기화하기 위한 선택 props. */
+  initialHighlightMode?: HighlightMode;
+  onHighlightModeChange?: (mode: HighlightMode) => void;
 }
 
 export type InspectorTarget =
@@ -106,6 +128,28 @@ export const DEFAULT_OVERLAY_OPTIONS: VideoOverlayOptions = {
   creditText: 'Cut with PenguinCut · penguincut.com',
 };
 
+/**
+ * V2 오버레이 기본값.
+ * 레거시 설정 모달에서 저장해 둔 값(날짜 표시, 자막 표시, 크레딧, 인트로/아웃트로 기본값)을
+ * 반영해 세션 시작 시에도 사용자의 선택이 유지되도록 한다.
+ * 챕터 브릿지는 V2 타임라인이 intro/segment/outro만 지원하므로 의도적으로 false로 고정한다.
+ */
+export function createDefaultOverlayOptions(): VideoOverlayOptions {
+  return {
+    ...DEFAULT_OVERLAY_OPTIONS,
+    showDate: getStoredShowDate(),
+    showSubtitle: getStoredShowSubtitle(),
+    showCredit: getStoredShowCredit(),
+    showIntro: getStoredShowIntro(),
+    introTemplate: getStoredIntroTemplate(),
+    introDurationSec: getStoredIntroDuration(),
+    showOutro: getStoredShowOutro(),
+    outroTemplate: getStoredOutroTemplate(),
+    outroDurationSec: getStoredOutroDuration(),
+    showChapterBridge: false,
+  };
+}
+
 export function formatClock(seconds: number): string {
   const safe = Math.max(0, Number.isFinite(seconds) ? seconds : 0);
   const m = Math.floor(safe / 60);
@@ -113,18 +157,25 @@ export function formatClock(seconds: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-/** 'yyyy.mm.dd' 포맷. timestamp 우선, 없으면 segment의 subtitleDate를 사용 */
+/**
+ * 촬영일 라벨. 저장된 날짜 표기 형식 · 아이 나이 옵션 · 현재 로케일을 반영한다.
+ * timestamp 우선, 없으면 segment의 subtitleDate를 파싱한다.
+ * 캔버스의 formatMetaDate와 같은 규칙을 사용해 화면과 힌트 문구가 항상 일치한다.
+ */
 export function formatShootDate(segment?: HighlightSegment | null): string {
   if (!segment) return '';
   const ts = segment.recordedTimestamp;
-  if (ts && Number.isFinite(ts)) {
-    const d = new Date(ts);
-    if (!Number.isNaN(d.getTime())) {
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${y}.${m}.${day}`;
-    }
+  let date: Date | null = null;
+  if (typeof ts === 'number' && Number.isFinite(ts)) {
+    const candidate = new Date(ts);
+    if (!Number.isNaN(candidate.getTime())) date = candidate;
+  }
+  if (!date && segment.subtitleDate?.trim()) {
+    date = parseDateTimeFromString(segment.subtitleDate)?.date ?? null;
+  }
+  if (date) {
+    const base = formatDateByPattern(date, getStoredDateFormat());
+    return formatDateWithAge(base, date, getStoredShowAge(), getStoredBirthDate());
   }
   return segment.subtitleDate || '';
 }

@@ -785,4 +785,12 @@ export const uiEs: Record<string, string> = {
   "AI 추천 썸네일 및 실시간 타임라인 준비 중...": "Preparando la miniatura de IA y la línea de tiempo en vivo...",
 
   "영상 미리보기": "Vista previa del vídeo",
+
+  "AI 분석 & 자막": "Análisis de IA y subtítulos",
+  "화면 표시": "Visualización en pantalla",
+  "작업 & 도구": "Proyecto y herramientas",
+  "지원 & 정보": "Soporte e información",
+  "설정 변경은 미리보기에 바로 반영돼요": "Los cambios se reflejan al instante en la vista previa",
+  "현재 올린 영상과 편집 내용이 모두 사라져요. 새 작업을 시작할까요?":
+    "Se eliminarán todos los vídeos y ediciones. ¿Iniciar un proyecto nuevo?",
 };

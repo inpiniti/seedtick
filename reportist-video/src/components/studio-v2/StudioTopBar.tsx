@@ -7,6 +7,7 @@ import {
   PanelLeftOpen,
   RectangleHorizontal,
   RectangleVertical,
+  Settings,
   ShieldAlert,
   Sparkles,
   Zap,
@@ -34,6 +35,7 @@ interface StudioTopBarProps {
   isProcessing: boolean;
   onOpenModelModal: () => void;
   onOpenLanguageModal: () => void;
+  onOpenSettings: () => void;
   isDockOpen: boolean;
   onToggleDock: () => void;
   onExport: () => void;
@@ -50,6 +52,7 @@ export const StudioTopBar = ({
   isProcessing,
   onOpenModelModal,
   onOpenLanguageModal,
+  onOpenSettings,
   isDockOpen,
   onToggleDock,
   onExport,
@@ -58,7 +61,7 @@ export const StudioTopBar = ({
   orientation,
   onOrientationChange,
 }: StudioTopBarProps) => {
-  const { locale, currentLocaleInfo, ui } = useI18n();
+  const { locale, currentLocaleInfo, ui, t } = useI18n();
   const selectModel = ui('AI 모델 선택');
 
   return (
@@ -147,6 +150,17 @@ export const StudioTopBar = ({
           <ShieldAlert size={13} className="sv2-model-warn" aria-label={ui('학습에 사용되는 모델')} />
         )}
         <ChevronDown size={13} className="sv2-model-chevron" />
+      </button>
+
+      <button
+        type="button"
+        className="sv2-btn sv2-btn-icon sv2-btn-ghost sv2-settings-trigger"
+        onClick={onOpenSettings}
+        aria-haspopup="dialog"
+        aria-label={t('common.settings')}
+        title={t('common.settings')}
+      >
+        <Settings size={18} />
       </button>
 
       <button

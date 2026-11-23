@@ -7,9 +7,17 @@ import {
   isByokActive,
 } from '../../services/userApiKeyService.ts';
 import { previewFrame } from '../../services/frameSpec.ts';
-import { getStoredAutoSortByRecordedTime, sortSegmentsByRecordedTime } from '../../services/videoMetadata.ts';
+import {
+  getStoredAutoSortByRecordedTime,
+  getStoredDateFormat,
+  setStoredDateFormat,
+  sortSegmentsByRecordedTime,
+  type DateFormatOption,
+} from '../../services/videoMetadata.ts';
+import { getStoredHighlightMode } from '../../services/highlightModeStorage.ts';
 import type {
   ExportResolution,
+  HighlightMode,
   HighlightSegment,
   VideoOverlayOptions,
 } from '../../types/video.ts';
@@ -28,7 +36,7 @@ import {
 } from './cutFlightAnimator.ts';
 import { buildTimeline } from './timelineModel.ts';
 import {
-  DEFAULT_OVERLAY_OPTIONS,
+  createDefaultOverlayOptions,
   type InspectorTarget,
   type PreviewRange,
   type PreviewRequest,
@@ -48,6 +56,21 @@ const ModelSelectorModal = lazy(() =>
 );
 const LanguageSelectorModal = lazy(() =>
   import('../studio/LanguageSelectorModal.tsx').then((m) => ({ default: m.LanguageSelectorModal }))
+);
+const StudioV2SettingsModal = lazy(() =>
+  import('./StudioV2SettingsModal.tsx').then((m) => ({ default: m.StudioV2SettingsModal }))
+);
+const DateFormatSelectorModal = lazy(() =>
+  import('../studio/DateFormatSelectorModal.tsx').then((m) => ({ default: m.DateFormatSelectorModal }))
+);
+const SubtitleDownloadModal = lazy(() =>
+  import('../studio/SubtitleDownloadModal.tsx').then((m) => ({ default: m.SubtitleDownloadModal }))
+);
+const FeedbackModal = lazy(() =>
+  import('../feedback/FeedbackModal.tsx').then((m) => ({ default: m.FeedbackModal }))
+);
+const PatchNotesModal = lazy(() =>
+  import('../patch/PatchNotesModal.tsx').then((m) => ({ default: m.PatchNotesModal }))
 );
 
 /**
@@ -85,6 +108,8 @@ export const CenterStudioView = (props: StudioV2Props) => {
     orientation = 'landscape',
     portraitPlatform,
     onOrientationChange,
+    onReset,
+    onHighlightModeChange,
   } = props;
 
   // ---------- 뷰포트 가드 ----------
@@ -301,12 +326,12 @@ export const CenterStudioView = (props: StudioV2Props) => {
 
   // ---------- 오버레이 옵션 ----------
   const [overlayOptions, setOverlayOptions] = useState<VideoOverlayOptions>(() => ({
-    ...DEFAULT_OVERLAY_OPTIONS,
+    ...createDefaultOverlayOptions(),
     ...(initialOverlayOptions ?? {}),
   }));
   const overlaySig = useMemo(() => JSON.stringify(initialOverlayOptions ?? {}), [initialOverlayOptions]);
   useEffect(() => {
-    setOverlayOptions({ ...DEFAULT_OVERLAY_OPTIONS, ...(initialOverlayOptions ?? {}) });
+    setOverlayOptions({ ...createDefaultOverlayOptions(), ...(initialOverlayOptions ?? {}) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [overlaySig]);
 
@@ -366,6 +391,15 @@ export const CenterStudioView = (props: StudioV2Props) => {
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isModelModalOpen, setIsModelModalOpen] = useState(false);
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isDateFormatOpen, setIsDateFormatOpen] = useState(false);
+  const [isSubtitleDownloadOpen, setIsSubtitleDownloadOpen] = useState(false);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [isPatchNotesOpen, setIsPatchNotesOpen] = useState(false);
+  const [dateFormat, setDateFormat] = useState<DateFormatOption>(getStoredDateFormat);
+  // 날짜 형식·나이 옵션은 오버레이 객체 밖의 저장값이라 변경 시 캔버스 재그리기를 명시적으로 트리거한다.
+  const [settingsRevision, setSettingsRevision] = useState(0);
+  const bumpSettings = useCallback(() => setSettingsRevision((v) => v + 1), []);
   // BYOK 설정/모델 선택은 localStorage를 갱신하므로 revision을 올려 상단 배지를 즉시 재계산한다.
   const [, setModelRevision] = useState(0);
 
@@ -649,7 +683,14 @@ export const CenterStudioView = (props: StudioV2Props) => {
   // ---------- 액션 ----------
   const startAnalysis = useCallback(() => {
     if (isProcessing || removingVideoIds.size > 0) return;
-    onStartAiAnalysis(overlayOptions, customAudioFile, bgmPresetId, bgmVolume);
+    // 설정 모달에서 바꾼 하이라이트 방식을 분석에도 그대로 반영한다.
+    onStartAiAnalysis(
+      overlayOptions,
+      customAudioFile,
+      bgmPresetId,
+      bgmVolume,
+      getStoredHighlightMode()
+    );
   }, [isProcessing, removingVideoIds, onStartAiAnalysis, overlayOptions, customAudioFile, bgmPresetId, bgmVolume]);
 
   /**
@@ -760,6 +801,31 @@ export const CenterStudioView = (props: StudioV2Props) => {
     ]
   );
 
+  const handleDateFormatChange = useCallback(
+    (format: DateFormatOption) => {
+      setStoredDateFormat(format);
+      setDateFormat(format);
+      bumpSettings();
+    },
+    [bumpSettings]
+  );
+
+  const handleHighlightModeChange = useCallback(
+    (mode: HighlightMode) => {
+      onHighlightModeChange?.(mode);
+    },
+    [onHighlightModeChange]
+  );
+
+  const handleResetProject = useCallback(() => {
+    const confirmed = window.confirm(
+      ui('현재 올린 영상과 편집 내용이 모두 사라져요. 새 작업을 시작할까요?')
+    );
+    if (!confirmed) return;
+    setIsSettingsOpen(false);
+    onReset?.();
+  }, [onReset, ui]);
+
   const confirmExport = useCallback(
     async (res: ExportResolution) => {
       if (isProcessing || removingVideoIds.size > 0) return;
@@ -810,6 +876,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
         isProcessing={isProcessing}
         onOpenModelModal={() => setIsModelModalOpen(true)}
         onOpenLanguageModal={() => setIsLanguageModalOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
         isDockOpen={isDockOpen}
         onToggleDock={toggleDock}
         onExport={() => setIsExportOpen(true)}
@@ -887,6 +954,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
               }}
               onOpenLocation={openLocation}
               onUpdateSegment={updateSegment}
+              revision={settingsRevision}
             />
           </div>
 
@@ -916,6 +984,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
             onVolumeChange={changeVolume}
             onRemoveMusic={removeMusic}
             onPickAudioFile={pickAudioFile}
+            onFitChange={(fit) => updateOverlay({ bgmFitToVideo: fit })}
           />
         </div>
 
@@ -993,6 +1062,71 @@ export const CenterStudioView = (props: StudioV2Props) => {
               isOpen={isLanguageModalOpen}
               onClose={() => setIsLanguageModalOpen(false)}
             />
+          </Suspense>
+        )}
+
+        {isSettingsOpen && (
+          <Suspense fallback={null}>
+            <StudioV2SettingsModal
+              isOpen={isSettingsOpen}
+              onClose={() => setIsSettingsOpen(false)}
+              isSubModalOpen={isDateFormatOpen}
+              onChange={bumpSettings}
+              dateFormat={dateFormat}
+              onOpenDateFormat={() => setIsDateFormatOpen(true)}
+              onDownloadSubtitles={() => {
+                setIsSettingsOpen(false);
+                setIsSubtitleDownloadOpen(true);
+              }}
+              canDownloadSubtitles={displaySegments.length > 0}
+              onOpenFeedback={() => {
+                setIsSettingsOpen(false);
+                setIsFeedbackOpen(true);
+              }}
+              onOpenPatchNotes={() => {
+                setIsSettingsOpen(false);
+                setIsPatchNotesOpen(true);
+              }}
+              onResetProject={handleResetProject}
+              onOverlayChange={updateOverlay}
+              onHighlightModeChange={handleHighlightModeChange}
+            />
+          </Suspense>
+        )}
+
+        {isDateFormatOpen && (
+          <Suspense fallback={null}>
+            <DateFormatSelectorModal
+              isOpen={isDateFormatOpen}
+              onClose={() => setIsDateFormatOpen(false)}
+              currentFormat={dateFormat}
+              onSelectFormat={handleDateFormatChange}
+            />
+          </Suspense>
+        )}
+
+        {isSubtitleDownloadOpen && (
+          <Suspense fallback={null}>
+            <SubtitleDownloadModal
+              isOpen={isSubtitleDownloadOpen}
+              onClose={() => setIsSubtitleDownloadOpen(false)}
+              segments={displaySegments}
+              introDuration={overlayOptions.showIntro ? overlayOptions.introDurationSec ?? 2 : 0}
+              bridgeDurationMap={result?.bridgeDurationMap}
+              videoTitle={projectName}
+            />
+          </Suspense>
+        )}
+
+        {isFeedbackOpen && (
+          <Suspense fallback={null}>
+            <FeedbackModal isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} />
+          </Suspense>
+        )}
+
+        {isPatchNotesOpen && (
+          <Suspense fallback={null}>
+            <PatchNotesModal isOpen={isPatchNotesOpen} onClose={() => setIsPatchNotesOpen(false)} />
           </Suspense>
         )}
 

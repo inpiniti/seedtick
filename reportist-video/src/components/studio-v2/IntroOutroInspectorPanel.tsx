@@ -15,6 +15,7 @@ import type {
   VideoOverlayOptions,
 } from '../../types/video.ts';
 import type { PreviewRequest } from './types.ts';
+import { setStoredShowCredit } from '../../services/introOutroStorage.ts';
 import { useI18n } from '../../i18n/index.tsx';
 
 // components/studio-v2/IntroOutroInspectorPanel.tsx
@@ -195,6 +196,28 @@ export const IntroOutroInspectorPanel = ({
           />
         </div>
       </div>
+
+      {!isIntro && (
+        <div className="sv2-inspector-section">
+          <div className="sv2-toggle-row">
+            <span>{ui('PenguinCut 크레딧 표시')}</span>
+            <button
+              type="button"
+              className="sv2-switch"
+              data-on={overlayOptions.showCredit !== false}
+              aria-label={ui('PenguinCut 크레딧 표시')}
+              onClick={() => {
+                const next = overlayOptions.showCredit === false;
+                onChange({ showCredit: next });
+                setStoredShowCredit(next);
+              }}
+            />
+          </div>
+          <div className="sv2-field-hint">
+            {ui('영상 끝에 제작 크레딧을 넣어요. 무료로 언제든 끌 수 있어요.')}
+          </div>
+        </div>
+      )}
 
       <div className="sv2-inspector-section">
         <div className="sv2-template-head">

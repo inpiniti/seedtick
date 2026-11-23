@@ -10,6 +10,14 @@ import {
   overlayFont,
   type FrameSpec,
 } from './frameSpec.ts';
+import {
+  formatDateByPattern,
+  formatDateWithAge,
+  getStoredBirthDate,
+  getStoredDateFormat,
+  getStoredShowAge,
+  parseDateTimeFromString,
+} from './videoMetadata.ts';
 
 export {
   COMPOSITOR_HEIGHT,
@@ -26,34 +34,27 @@ function clampRatio(value: number | undefined, fallback: number): number {
 }
 
 /**
- * 우상단에 표시할 촬영일을 'yyyy.mm.dd'로 정규화한다.
- * - recordedTimestamp(ms)가 있으면 가장 우선 (로케일·나이 표기와 무관하게 고정 포맷)
- * - 문자열은 yyyy.mm.dd / yyyy-mm-dd / yyyy/mm/dd 패턴을 먼저 인식하고,
- *   그 외에는 Date 파싱을 시도한다. 실패하면 원문을 그대로 돌려준다.
+ * 우상단에 표시할 촬영일을 포맷한다.
+ * - recordedTimestamp(ms)가 있으면 가장 우선한다.
+ * - 저장된 날짜 표기 형식(기본 YYYY.MM.DD)과 아이 나이 옵션, 현재 로케일을 함께 반영한다.
+ * - 파싱에 실패하면 사용자가 입력한 원문을 그대로 돌려준다.
  * 미리보기와 내보내기가 같은 함수를 공유하므로 결과물과 화면이 항상 일치한다.
  */
-function normalizeMetaDate(raw?: string, timestamp?: number): string {
-  if (typeof timestamp === 'number' && Number.isFinite(timestamp)) {
-    const d = new Date(timestamp);
-    if (!Number.isNaN(d.getTime())) {
-      return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(
-        d.getDate()
-      ).padStart(2, '0')}`;
-    }
-  }
+function formatMetaDate(raw?: string, timestamp?: number): string {
   const value = (raw || '').trim();
-  if (!value) return '';
-  const match = value.match(/(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/);
-  if (match) {
-    return `${match[1]}.${match[2].padStart(2, '0')}.${match[3].padStart(2, '0')}`;
+  let date: Date | null = null;
+
+  if (typeof timestamp === 'number' && Number.isFinite(timestamp)) {
+    const candidate = new Date(timestamp);
+    if (!Number.isNaN(candidate.getTime())) date = candidate;
   }
-  const parsed = new Date(value);
-  if (!Number.isNaN(parsed.getTime())) {
-    return `${parsed.getFullYear()}.${String(parsed.getMonth() + 1).padStart(2, '0')}.${String(
-      parsed.getDate()
-    ).padStart(2, '0')}`;
+  if (!date && value) {
+    date = parseDateTimeFromString(value)?.date ?? null;
   }
-  return value;
+  if (!date) return value;
+
+  const base = formatDateByPattern(date, getStoredDateFormat());
+  return formatDateWithAge(base, date, getStoredShowAge(), getStoredBirthDate());
 }
 
 function paintRoundedRect(
@@ -337,12 +338,12 @@ function drawLandscapeOverlay(
     titleBottomY = y + boxH;
   }
 
-  // 1-1. 우측 상단: 1줄차 날짜(yyyy.mm.dd), 2줄차 위치 — 우측 정렬.
+  // 1-1. 우측 상단: 1줄차 촬영일(저장된 표기 형식·나이 반영), 2줄차 위치 — 우측 정렬.
   // Center-Stage 스튜디오의 핵심 차별화 요소이며 내보내기에도 픽셀 단위로 동일하게 반영된다.
   const dateText =
     overlayOptions.showDate === false
       ? ''
-      : normalizeMetaDate(
+      : formatMetaDate(
           currentSegment?.subtitleDate || overlayOptions.subtitleDateText,
           currentSegment?.recordedTimestamp
         );
@@ -511,7 +512,7 @@ function drawPortraitOverlay(
   const dateText =
     overlayOptions.showDate === false
       ? ''
-      : normalizeMetaDate(
+      : formatMetaDate(
           currentSegment?.subtitleDate || overlayOptions.subtitleDateText,
           currentSegment?.recordedTimestamp
         );

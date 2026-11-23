@@ -255,6 +255,7 @@ export function App() {
         prev.chapterBridgeDateTemplate === newOpts.chapterBridgeDateTemplate &&
         prev.chapterBridgeLocationTemplate === newOpts.chapterBridgeLocationTemplate &&
         prev.bgmFitToVideo === newOpts.bgmFitToVideo &&
+        prev.showCredit === newOpts.showCredit &&
         prev.introVideoFile === newOpts.introVideoFile &&
         prev.outroVideoFile === newOpts.outroVideoFile
       ) {

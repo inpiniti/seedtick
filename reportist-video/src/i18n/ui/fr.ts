@@ -786,4 +786,12 @@ export const uiFr: Record<string, string> = {
   "AI 추천 썸네일 및 실시간 타임라인 준비 중...": "Préparation de la miniature IA et de la timeline en direct...",
 
   "영상 미리보기": "Aperçu de la vidéo",
+
+  "AI 분석 & 자막": "Analyse IA et sous-titres",
+  "화면 표시": "Affichage à l’écran",
+  "작업 & 도구": "Projet et outils",
+  "지원 & 정보": "Assistance et infos",
+  "설정 변경은 미리보기에 바로 반영돼요": "Les modifications s’appliquent immédiatement à l’aperçu",
+  "현재 올린 영상과 편집 내용이 모두 사라져요. 새 작업을 시작할까요?":
+    "Toutes les vidéos et modifications seront supprimées. Démarrer un nouveau projet ?",
 };

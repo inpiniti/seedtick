@@ -14,6 +14,9 @@ interface TimelineMusicTrackProps {
   onPickFile: (file: File) => void;
   /** 음악 바를 영상 트랙과 같은 시간축 폭으로 맞추기 위한 레이아웃. */
   layout?: TimelineLayout;
+  /** 영상 길이에 맞춰 음악 속도를 조절하는 옵션. */
+  bgmFitToVideo?: boolean;
+  onFitChange?: (fit: boolean) => void;
 }
 
 export const TimelineMusicTrack = ({
@@ -24,8 +27,10 @@ export const TimelineMusicTrack = ({
   onRemove,
   onPickFile,
   layout,
+  bgmFitToVideo = false,
+  onFitChange,
 }: TimelineMusicTrackProps) => {
-  const { ui } = useI18n();
+  const { ui, t } = useI18n();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const name = customAudioName || (bgmPresetId !== 'none' ? bgmPresetId : null);
   const hasMusic = Boolean(name);
@@ -64,6 +69,16 @@ export const TimelineMusicTrack = ({
               <span style={{ fontSize: 11, color: 'var(--sv2-text-3)', minWidth: 32 }}>
                 {Math.round(bgmVolume * 100)}%
               </span>
+              <button
+                type="button"
+                className="sv2-mini-btn sv2-mini-btn-fit"
+                data-on={bgmFitToVideo}
+                aria-pressed={bgmFitToVideo}
+                onClick={() => onFitChange?.(!bgmFitToVideo)}
+                title={t('bgm.fitToVideoDesc')}
+              >
+                {t('bgm.fitToVideo')}
+              </button>
               <button type="button" className="sv2-mini-btn" onClick={() => fileInputRef.current?.click()} title={ui('교체')}>
                 {ui('교체')}
               </button>

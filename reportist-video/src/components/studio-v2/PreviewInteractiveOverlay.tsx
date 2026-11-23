@@ -23,6 +23,8 @@ interface PreviewInteractiveOverlayProps {
   onCaptionCommit: (text: string) => void;
   /** 편집 시작/종료를 부모에 알려 캔버스 자막 숨김·일시정지에 사용한다. */
   onEditingChange: (editing: boolean) => void;
+  /** 영상 자막 표시가 꺼져 있으면 캔버스와 인터랙션을 일치시키기 위해 히트박스도 숨긴다. */
+  showSubtitle?: boolean;
 }
 
 export const PreviewInteractiveOverlay = ({
@@ -33,6 +35,7 @@ export const PreviewInteractiveOverlay = ({
   onLocationClick,
   onCaptionCommit,
   onEditingChange,
+  showSubtitle = true,
 }: PreviewInteractiveOverlayProps) => {
   const { ui } = useI18n();
   const [editing, setEditing] = useState(false);
@@ -114,6 +117,7 @@ export const PreviewInteractiveOverlay = ({
         </span>
       </button>
 
+      {showSubtitle && (
       <div
         className="sv2-hit sv2-hit-caption"
         data-editing={editing}
@@ -153,6 +157,7 @@ export const PreviewInteractiveOverlay = ({
           />
         )}
       </div>
+      )}
     </div>
   );
 };

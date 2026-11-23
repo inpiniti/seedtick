@@ -786,4 +786,12 @@ export const uiDe: Record<string, string> = {
   "AI 추천 썸네일 및 실시간 타임라인 준비 중...": "KI-Thumbnail und Live-Timeline werden vorbereitet...",
 
   "영상 미리보기": "Video-Vorschau",
+
+  "AI 분석 & 자막": "KI-Analyse & Untertitel",
+  "화면 표시": "Bildschirmanzeige",
+  "작업 & 도구": "Projekt & Werkzeuge",
+  "지원 & 정보": "Support & Infos",
+  "설정 변경은 미리보기에 바로 반영돼요": "Änderungen werden sofort in der Vorschau übernommen",
+  "현재 올린 영상과 편집 내용이 모두 사라져요. 새 작업을 시작할까요?":
+    "Alle hochgeladenen Videos und Bearbeitungen werden gelöscht. Neues Projekt starten?",
 };

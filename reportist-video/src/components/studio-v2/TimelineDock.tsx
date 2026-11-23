@@ -61,6 +61,7 @@ interface TimelineDockProps {
   onVolumeChange: (volume: number) => void;
   onRemoveMusic: () => void;
   onPickAudioFile: (file: File) => void;
+  onFitChange?: (fit: boolean) => void;
 }
 
 export const TimelineDock = (props: TimelineDockProps) => {
@@ -205,6 +206,7 @@ export const TimelineDock = (props: TimelineDockProps) => {
               <TimelineMusicTrack
                 {...props}
                 layout={layout}
+                bgmFitToVideo={props.overlayOptions?.bgmFitToVideo ?? false}
                 onRemove={props.onRemoveMusic}
                 onPickFile={props.onPickAudioFile}
               />
@@ -230,6 +232,7 @@ export const TimelineDock = (props: TimelineDockProps) => {
         <div className={`sv2-tracks${fitsLane ? ' sv2-tracks--fit' : ''}`} ref={tracksRef}>
           <TimelineMusicTrack
             {...props}
+            bgmFitToVideo={props.overlayOptions?.bgmFitToVideo ?? false}
             onRemove={props.onRemoveMusic}
             onPickFile={props.onPickAudioFile}
           />

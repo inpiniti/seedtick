@@ -797,4 +797,12 @@ export const uiEn: Record<string, string> = {
   "AI 추천 썸네일 및 실시간 타임라인 준비 중...": "Preparing the AI thumbnail and live timeline...",
 
   "영상 미리보기": "Video preview",
+
+  "AI 분석 & 자막": "AI analysis & subtitles",
+  "화면 표시": "On-screen display",
+  "작업 & 도구": "Project & tools",
+  "지원 & 정보": "Support & info",
+  "설정 변경은 미리보기에 바로 반영돼요": "Changes are reflected in the preview instantly",
+  "현재 올린 영상과 편집 내용이 모두 사라져요. 새 작업을 시작할까요?":
+    "All uploaded videos and edits will be removed. Start a new project?",
 };
