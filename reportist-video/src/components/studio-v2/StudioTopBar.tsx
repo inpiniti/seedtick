@@ -73,8 +73,7 @@ export const StudioTopBar = ({
         aria-label="가로 영상 (16:9)"
         onClick={() => onOrientationChange('landscape')}
       >
-        <RectangleHorizontal size={15} strokeWidth={2} />
-        <span>16:9</span>
+        <RectangleHorizontal size={17} strokeWidth={2} />
       </button>
       <button
         type="button"
@@ -84,8 +83,7 @@ export const StudioTopBar = ({
         aria-label="세로 영상 (9:16)"
         onClick={() => onOrientationChange('portrait')}
       >
-        <RectangleVertical size={15} strokeWidth={2} />
-        <span>9:16</span>
+        <RectangleVertical size={17} strokeWidth={2} />
       </button>
     </div>
 
