@@ -45,7 +45,6 @@ interface TimelineDockProps {
   onScrubStart?: () => void;
   bgmPresetId: string;
   bgmVolume: number;
-  libraryTrackId: string | null;
   customAudioName: string | null;
   onSelect: (id: string) => void;
   onUpdateSegment: (id: string, patch: Partial<HighlightSegment>) => void;
@@ -55,7 +54,6 @@ interface TimelineDockProps {
   onOpenIntro: () => void;
   onOpenOutro: () => void;
   onReorder: (from: number, to: number) => void;
-  onOpenLibrary: () => void;
   onVolumeChange: (volume: number) => void;
   onRemoveMusic: () => void;
   onPickAudioFile: (file: File) => void;

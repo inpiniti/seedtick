@@ -5,7 +5,6 @@ import {
   Plus,
   RectangleHorizontal,
   RectangleVertical,
-  RotateCcw,
   ShieldAlert,
   Sparkles,
   Zap,
@@ -26,10 +25,10 @@ export interface StudioModelDisplay {
 }
 
 interface StudioTopBarProps {
+  projectName: string;
   modelDisplay: StudioModelDisplay;
   isLoadingModels: boolean;
   isProcessing: boolean;
-  onNewProject: () => void;
   onOpenModelModal: () => void;
   onAddVideos: () => void;
   onExport: () => void;
@@ -40,10 +39,10 @@ interface StudioTopBarProps {
 }
 
 export const StudioTopBar = ({
+  projectName,
   modelDisplay,
   isLoadingModels,
   isProcessing,
-  onNewProject,
   onOpenModelModal,
   onAddVideos,
   onExport,
@@ -57,6 +56,7 @@ export const StudioTopBar = ({
       <PenguinLogo size={26} color="#191f28" className="sv2-brand-logo" />
       PenguinCut
     </div>
+    <span className="sv2-project-name">{projectName || '새 프로젝트'}</span>
 
     <div className="sv2-topbar-spacer" />
 
@@ -107,14 +107,7 @@ export const StudioTopBar = ({
       <ChevronDown size={13} className="sv2-model-chevron" />
     </button>
 
-    <button
-      type="button"
-      className="sv2-btn"
-      onClick={onNewProject}
-      title="현재 작업을 지우고 새로 시작"
-    >
-      <RotateCcw size={16} /> 새 작업
-    </button>
+
     <button type="button" className="sv2-btn" onClick={onAddVideos}>
       <Plus size={16} /> 영상 추가
     </button>

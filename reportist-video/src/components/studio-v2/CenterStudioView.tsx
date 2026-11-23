@@ -8,7 +8,6 @@ import {
 } from '../../services/userApiKeyService.ts';
 import { previewFrame } from '../../services/frameSpec.ts';
 import { getStoredAutoSortByRecordedTime, sortSegmentsByRecordedTime } from '../../services/videoMetadata.ts';
-import { loadLibraryAudioFile, type AudioLibraryTrack } from '../../data/audioLibrary.ts';
 import type {
   ExportResolution,
   HighlightSegment,
@@ -34,9 +33,6 @@ import './studioV2.css';
 // 무거운 모달은 지연 로드
 const SegmentTrimModal = lazy(() =>
   import('../studio/SegmentTrimModal.tsx').then((m) => ({ default: m.SegmentTrimModal }))
-);
-const AudioLibraryModal = lazy(() =>
-  import('../studio/AudioLibraryModal.tsx').then((m) => ({ default: m.AudioLibraryModal }))
 );
 const VideoExportModal = lazy(() =>
   import('../studio/VideoExportModal.tsx').then((m) => ({ default: m.VideoExportModal }))
@@ -68,12 +64,11 @@ export const CenterStudioView = (props: StudioV2Props) => {
     onReStitch,
     isReStitching,
     reStitchProgress,
-    onNewProject,
+
     initialOverlayOptions,
     initialBgmPresetId,
     initialBgmVolume,
     initialCustomAudioFile,
-    initialSelectedLibraryTrackId,
     onOverlayOptionsChange,
     onBgmChange,
     onCustomAudioChange,
@@ -310,9 +305,6 @@ export const CenterStudioView = (props: StudioV2Props) => {
   // ---------- 음악 (단일 트랙) ----------
   const [bgmPresetId, setBgmPresetId] = useState(initialBgmPresetId || 'none');
   const [bgmVolume, setBgmVolume] = useState(initialBgmVolume ?? 0.3);
-  const [libraryTrackId, setLibraryTrackId] = useState<string | null>(
-    initialSelectedLibraryTrackId ?? null
-  );
   const [customAudioFile, setCustomAudioFile] = useState<File | null>(
     initialCustomAudioFile ?? null
   );
@@ -324,61 +316,36 @@ export const CenterStudioView = (props: StudioV2Props) => {
     if (typeof initialBgmVolume === 'number') setBgmVolume(initialBgmVolume);
   }, [initialBgmVolume]);
   useEffect(() => {
-    setLibraryTrackId(initialSelectedLibraryTrackId ?? null);
-  }, [initialSelectedLibraryTrackId]);
-  useEffect(() => {
     setCustomAudioFile(initialCustomAudioFile ?? null);
   }, [initialCustomAudioFile]);
 
   const changeVolume = useCallback(
     (volume: number) => {
       setBgmVolume(volume);
-      onBgmChange?.(bgmPresetId, volume, libraryTrackId);
+      onBgmChange?.(bgmPresetId, volume);
     },
-    [bgmPresetId, libraryTrackId, onBgmChange]
+    [bgmPresetId, onBgmChange]
   );
 
   const removeMusic = useCallback(() => {
     setCustomAudioFile(null);
-    setLibraryTrackId(null);
     onCustomAudioChange?.(null);
-    onBgmChange?.('none', bgmVolume, null);
+    onBgmChange?.('none', bgmVolume);
   }, [bgmVolume, onBgmChange, onCustomAudioChange]);
 
   const pickAudioFile = useCallback(
     (file: File) => {
       setCustomAudioFile(file);
-      setLibraryTrackId(null);
       onCustomAudioChange?.(file);
-      onBgmChange?.('none', bgmVolume, null);
+      onBgmChange?.('none', bgmVolume);
     },
     [bgmVolume, onBgmChange, onCustomAudioChange]
-  );
-
-  const applyLibraryTrack = useCallback(
-    async (track: AudioLibraryTrack | null) => {
-      if (!track) {
-        removeMusic();
-        return;
-      }
-      try {
-        const file = await loadLibraryAudioFile(track);
-        setCustomAudioFile(file);
-        setLibraryTrackId(track.id);
-        onCustomAudioChange?.(file);
-        onBgmChange?.('none', bgmVolume, track.id);
-      } catch {
-        /* 네트워크 오류 시 기존 음악 유지 */
-      }
-    },
-    [bgmVolume, onBgmChange, onCustomAudioChange, removeMusic]
   );
 
   // ---------- 인스펙터 / 선택 ----------
   const [activeInspector, setActiveInspector] = useState<InspectorTarget>(null);
   const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
   const [trimSegment, setTrimSegment] = useState<HighlightSegment | null>(null);
-  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isModelModalOpen, setIsModelModalOpen] = useState(false);
   // BYOK 설정/모델 선택은 localStorage를 갱신하므로 revision을 올려 상단 배지를 즉시 재계산한다.
@@ -611,6 +578,12 @@ export const CenterStudioView = (props: StudioV2Props) => {
     pendingVideos.length === 0 &&
     landingIds.size === 0;
 
+  // ---------- 작업 이름 (파일명/표시용) ----------
+  const projectName = useMemo(() => {
+    const first = videos.find((v) => v.name);
+    return first?.name?.replace(/\.[^/.]+$/, '') || '새 프로젝트';
+  }, [videos]);
+
   // ---------- 상단 모델 배지 ----------
   const byokActive = isByokActive();
   const modelDisplay: StudioModelDisplay = useMemo(() => {
@@ -693,10 +666,10 @@ export const CenterStudioView = (props: StudioV2Props) => {
   return (
     <div className="sv2-root">
       <StudioTopBar
+        projectName={projectName}
         modelDisplay={modelDisplay}
         isLoadingModels={isLoadingModels}
         isProcessing={isProcessing}
-        onNewProject={() => void onNewProject?.()}
         onOpenModelModal={() => setIsModelModalOpen(true)}
         onAddVideos={() => fileInputRef.current?.click()}
         onExport={() => setIsExportOpen(true)}
@@ -783,7 +756,6 @@ export const CenterStudioView = (props: StudioV2Props) => {
             locked={isProcessing}
             bgmPresetId={bgmPresetId}
             bgmVolume={bgmVolume}
-            libraryTrackId={libraryTrackId}
             customAudioName={customAudioFile?.name ?? null}
             onSelect={selectSegment}
             onUpdateSegment={updateSegment}
@@ -793,7 +765,6 @@ export const CenterStudioView = (props: StudioV2Props) => {
             onOpenIntro={openIntro}
             onOpenOutro={openOutro}
             onReorder={reorderSegments}
-            onOpenLibrary={() => setIsLibraryOpen(true)}
             onVolumeChange={changeVolume}
             onRemoveMusic={removeMusic}
             onPickAudioFile={pickAudioFile}
@@ -831,18 +802,6 @@ export const CenterStudioView = (props: StudioV2Props) => {
                 });
                 setTrimSegment(null);
               }}
-            />
-          </Suspense>
-        )}
-
-        {isLibraryOpen && (
-          <Suspense fallback={null}>
-            <AudioLibraryModal
-              isOpen={isLibraryOpen}
-              onClose={() => setIsLibraryOpen(false)}
-              selectedTrackId={libraryTrackId}
-              hasAppliedAudio={Boolean(customAudioFile)}
-              onApply={applyLibraryTrack}
             />
           </Suspense>
         )}

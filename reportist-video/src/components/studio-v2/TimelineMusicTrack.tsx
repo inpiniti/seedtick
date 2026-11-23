@@ -1,5 +1,5 @@
+import { useRef } from 'react';
 import { Music2, Plus, Trash2 } from 'lucide-react';
-import { AUDIO_LIBRARY } from '../../data/audioLibrary.ts';
 import type { TimelineLayout } from './timelineModel.ts';
 
 // components/studio-v2/TimelineMusicTrack.tsx — 단일 BGM 트랙 (1곡 고정).
@@ -7,9 +7,7 @@ import type { TimelineLayout } from './timelineModel.ts';
 interface TimelineMusicTrackProps {
   bgmPresetId: string;
   bgmVolume: number;
-  libraryTrackId: string | null;
   customAudioName: string | null;
-  onOpenLibrary: () => void;
   onVolumeChange: (volume: number) => void;
   onRemove: () => void;
   onPickFile: (file: File) => void;
@@ -20,18 +18,14 @@ interface TimelineMusicTrackProps {
 export const TimelineMusicTrack = ({
   bgmPresetId,
   bgmVolume,
-  libraryTrackId,
   customAudioName,
-  onOpenLibrary,
   onVolumeChange,
   onRemove,
   onPickFile,
   layout,
 }: TimelineMusicTrackProps) => {
-  const libName = libraryTrackId
-    ? AUDIO_LIBRARY.find((t) => t.id === libraryTrackId)?.name || null
-    : null;
-  const name = customAudioName || libName || (bgmPresetId !== 'none' ? bgmPresetId : null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const name = customAudioName || (bgmPresetId !== 'none' ? bgmPresetId : null);
   const hasMusic = Boolean(name);
   const filledWidth = hasMusic && layout ? layout.totalWidth : undefined;
 
@@ -45,7 +39,7 @@ export const TimelineMusicTrack = ({
           <button
             type="button"
             className="sv2-btn sv2-btn-sm sv2-btn-ghost"
-            onClick={onOpenLibrary}
+            onClick={() => fileInputRef.current?.click()}
             title="음악 고르기"
           >
             {hasMusic ? <Music2 size={14} /> : <Plus size={14} />}
@@ -68,7 +62,7 @@ export const TimelineMusicTrack = ({
               <span style={{ fontSize: 11, color: 'var(--sv2-text-3)', minWidth: 32 }}>
                 {Math.round(bgmVolume * 100)}%
               </span>
-              <button type="button" className="sv2-mini-btn" onClick={onOpenLibrary} title="교체">
+              <button type="button" className="sv2-mini-btn" onClick={() => fileInputRef.current?.click()} title="교체">
                 교체
               </button>
               <button type="button" className="sv2-mini-btn" data-danger="true" onClick={onRemove} title="삭제">
@@ -79,6 +73,7 @@ export const TimelineMusicTrack = ({
           <label className="sv2-btn sv2-btn-sm" style={{ cursor: 'pointer' }}>
             파일
             <input
+              ref={fileInputRef}
               type="file"
               accept="audio/*"
               style={{ display: 'none' }}

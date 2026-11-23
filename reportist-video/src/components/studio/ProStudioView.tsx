@@ -78,8 +78,6 @@ import {
   setStoredHighlightMode,
 } from '../../services/highlightModeStorage.ts';
 import { QueueStatusCard, getQueueCopy } from '../queue/QueueStatusCard.tsx';
-import { StudioProjectListView } from './StudioProjectListView.tsx';
-import type { StudioProjectSummary } from '../../types/project.ts';
 import type {
   FinalVideoResult,
   HighlightMode,
@@ -125,9 +123,6 @@ const VideoListModal = React.lazy(() =>
 );
 const LanguageSelectorModal = React.lazy(() =>
   import('./LanguageSelectorModal.tsx').then((m) => ({ default: m.LanguageSelectorModal }))
-);
-const AudioLibraryModal = React.lazy(() =>
-  import('./AudioLibraryModal.tsx').then((m) => ({ default: m.AudioLibraryModal }))
 );
 const MobileSettingsModal = React.lazy(() =>
   import('./MobileSettingsModal.tsx').then((m) => ({ default: m.MobileSettingsModal }))
@@ -211,11 +206,6 @@ import {
   formatSegmentRecordedDateTime,
   calculateSegmentTimestamp,
 } from '../../services/videoMetadata.ts';
-import {
-  loadLibraryAudioFile,
-  type AudioLibraryTrack,
-} from '../../data/audioLibrary.ts';
-import { getStoredStorageMode } from '../../services/storageQuotaService.ts';
 import { PenguinLogo } from '../common/PenguinLogo.tsx';
 import { ShinyText } from '../common/ShinyText.tsx';
 import { SpecularButton } from '../common/SpecularButton.tsx';
@@ -453,18 +443,6 @@ interface ProStudioViewProps {
     statusMessage: string;
   };
   onUpdateVideosDateFormat?: (format: DateFormatOption) => void;
-  currentProjectId?: string | null;
-  saveStatus?: 'saved' | 'saving' | 'idle';
-  projectSummaries?: StudioProjectSummary[];
-  isLoadingProjects?: boolean;
-  /** 복제 진행 중인 프로젝트 id (해당 카드 버튼을 스피너로 표시) */
-  duplicatingProjectId?: string | null;
-  /** 저장소 완전 비우기 후 프로젝트 목록 상태를 즉시 다시 읽는다. */
-  onProjectsRefresh?: () => void;
-  onOpenProject?: (id: string) => void | Promise<void>;
-  onDuplicateProject?: (id: string) => void;
-  onDeleteProject?: (id: string) => void;
-  onStartNewProject?: (orientation?: VideoOrientation, platform?: PortraitPlatform) => void;
   /** 원클릭 샘플 영상 체험 (빈 프로젝트 화면에서 사용) */
   onTrySampleVideo?: () => void;
   isLoadingSample?: boolean;
@@ -474,12 +452,10 @@ interface ProStudioViewProps {
   initialBgmPresetId?: string;
   initialBgmVolume?: number;
   initialCustomAudioFile?: File | null;
-  initialSelectedLibraryTrackId?: string | null;
   onOverlayOptionsChange?: (options: VideoOverlayOptions) => void;
-  onBgmChange?: (bgmId: string, volume: number, libraryTrackId?: string | null) => void;
+  onBgmChange?: (bgmId: string, volume: number) => void;
   onCustomAudioChange?: (file: File | null) => void;
   onUpdateFinalResult?: (updated: FinalVideoResult) => void;
-  onViewProjects?: () => void;
   /** 출력 방향(프로젝트 생성 시점에 정함). 없으면 가로 16:9로 동작한다 (기존 프로젝트 호환). */
   orientation?: VideoOrientation;
   /** 세로일 때 플랫폼 프리셋 ('instagram' | 'youtube' | 'tiktok') */
@@ -509,16 +485,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   isReStitching,
   reStitchProgress,
   onUpdateVideosDateFormat,
-  currentProjectId,
-  saveStatus = 'saved',
-  projectSummaries = [],
-  isLoadingProjects = false,
-  duplicatingProjectId = null,
-  onProjectsRefresh,
-  onOpenProject,
-  onDuplicateProject,
-  onDeleteProject,
-  onStartNewProject,
   onTrySampleVideo,
   isLoadingSample,
   initialOverlayOptions,
@@ -527,12 +493,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   initialBgmPresetId,
   initialBgmVolume,
   initialCustomAudioFile,
-  initialSelectedLibraryTrackId,
   onOverlayOptionsChange,
   onBgmChange,
   onCustomAudioChange,
   onUpdateFinalResult,
-  onViewProjects,
   orientation,
   portraitPlatform,
   onRelinkVideo,
@@ -834,10 +798,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const [bgmVolume, setBgmVolume] = useState<number>(
     typeof initialBgmVolume === 'number' ? initialBgmVolume : 0.3
   );
-  const [selectedLibraryTrackId, setSelectedLibraryTrackId] = useState<string | null>(
-    initialSelectedLibraryTrackId || null
-  );
-
   // 3. 사용자 직접 업로드 음악 상태
   const [customAudioFile, setCustomAudioFile] = useState<File | null>(
     initialCustomAudioFile || null
@@ -930,9 +890,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       URL.revokeObjectURL(objectUrl);
     };
   }, [customAudioFile]);
-
-  // 3-1. 오디오 보관함 상태
-  const [isAudioLibraryOpen, setIsAudioLibraryOpen] = useState<boolean>(false);
 
   // 4. 인트로 / 아웃트로 비디오 파일 업로드 참조 및 지도 모달 상태
   const introVideoInputRef = useRef<HTMLInputElement>(null);
@@ -1103,7 +1060,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       setIsLanguageModalOpen(false);
       setIsModelModalOpen(false);
       setIsVideoListModalOpen(false);
-      setIsAudioLibraryOpen(false);
       setIsSettingsModalOpen(false);
       setIsDateFormatModalOpen(false);
       setIsSubtitleModalOpen(false);
@@ -1260,8 +1216,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     dict,
   ]);
 
-  // 4-2. 상단 탭 상태 (스튜디오 목록 vs 스튜디오 상세 vs 영상 공유 커뮤니티)
-  const [activeTab, setActiveTab] = useState<'projects' | 'studio' | 'community'>('projects');
+  // 4-2. 상단 탭 상태 (스튜디오 상세 vs 영상 공유 커뮤니티)
+  const [activeTab, setActiveTab] = useState<'studio' | 'community'>('studio');
 
   // 모든 모달 일괄 닫기 헬퍼 (브라우저 뒤로가기 시 활용)
   const closeAllModals = useCallback((): boolean => {
@@ -1269,7 +1225,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     if (isLanguageModalOpen) { setIsLanguageModalOpen(false); hadOpenModal = true; }
     if (isModelModalOpen) { setIsModelModalOpen(false); hadOpenModal = true; }
     if (isVideoListModalOpen) { setIsVideoListModalOpen(false); hadOpenModal = true; }
-    if (isAudioLibraryOpen) { setIsAudioLibraryOpen(false); hadOpenModal = true; }
     if (isSettingsModalOpen) { setIsSettingsModalOpen(false); hadOpenModal = true; }
     if (isFeedbackModalOpen) { setIsFeedbackModalOpen(false); hadOpenModal = true; }
     if (isPatchNotesModalOpen) { setIsPatchNotesModalOpen(false); hadOpenModal = true; }
@@ -1286,7 +1241,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     isLanguageModalOpen,
     isModelModalOpen,
     isVideoListModalOpen,
-    isAudioLibraryOpen,
     isSettingsModalOpen,
     isFeedbackModalOpen,
     isPatchNotesModalOpen,
@@ -1307,10 +1261,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
-  const navigateToTab = useCallback((nextTab: 'projects' | 'studio' | 'community', replace = false) => {
+  const navigateToTab = useCallback((nextTab: 'studio' | 'community', replace = false) => {
     if (activeTabRef.current === nextTab) return;
     activeTabRef.current = nextTab;
-    const targetHash = nextTab === 'projects' ? '#projects' : nextTab === 'studio' ? '#studio' : '#community';
+    const targetHash = nextTab === 'studio' ? '#studio' : '#community';
     if (replace) {
       window.history.replaceState({ tab: nextTab, timestamp: Date.now() }, '', targetHash);
     } else {
@@ -1319,25 +1273,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     setActiveTab(nextTab);
   }, []);
 
-  // 화면 내 '스튜디오 목록으로' 뒤로가기 액션
-  const handleBackToProjects = useCallback(() => {
-    onViewProjects?.();
-    const st = window.history.state;
-    if (st && st.tab === 'studio' && !st.root && window.history.length > 1) {
-      window.history.back();
-    } else {
-      navigateToTab('projects');
-    }
-  }, [onViewProjects, navigateToTab]);
-
   // 브라우저 뒤로가기(popstate), 해시 변경(hashchange) 및 초기 해시 동기화
-  // 볼륨 변경처럼 상위 상태가 바뀔 때마다 onViewProjects/closeAllModals 정체가 달라져
-  // 이 이펙트가 다시 실행되면 replaceState+pushState가 반복되고 해시가 흔들려 목록으로 튕긴다.
-  // → 리스너 등록은 마운트 시 한 번만 하고, 최신 콜백은 ref로 읽는다.
-  const onViewProjectsRef = useRef(onViewProjects);
-  useEffect(() => {
-    onViewProjectsRef.current = onViewProjects;
-  }, [onViewProjects]);
+  // 리스너 등록은 마운트 시 한 번만 하고, 최신 콜백은 ref로 읽는다.
   const closeAllModalsRef = useRef(closeAllModals);
   useEffect(() => {
     closeAllModalsRef.current = closeAllModals;
@@ -1345,50 +1282,26 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
   useEffect(() => {
     const hash = window.location.hash.toLowerCase();
-    let initialTab: 'projects' | 'studio' | 'community' = 'projects';
-    if (hash === '#studio') {
-      initialTab = 'studio';
-    } else if (hash === '#community') {
-      initialTab = 'community';
-    }
+    let initialTab: 'studio' | 'community' = hash === '#community' ? 'community' : 'studio';
     activeTabRef.current = initialTab;
     setActiveTab(initialTab);
-
-    // 초기 히스토리 스택 설정
-    if (initialTab === 'studio') {
-      // #studio로 직접 진입한 경우에도 뒤로가기 시 사이트 밖으로 나가지 않고 목록으로 갈 수 있도록 베이스 #projects를 먼저 기록
-      window.history.replaceState({ tab: 'projects', root: true, timestamp: Date.now() }, '', '#projects');
-      window.history.pushState({ tab: 'studio', timestamp: Date.now() }, '', '#studio');
-    } else {
-      window.history.replaceState(
-        { tab: initialTab, root: true, timestamp: Date.now() },
-        '',
-        initialTab === 'projects' ? '#projects' : window.location.hash
-      );
-    }
+    window.history.replaceState(
+      { tab: initialTab, root: true, timestamp: Date.now() },
+      '',
+      initialTab === 'community' ? '#community' : window.location.hash
+    );
 
     const syncLocationTab = (e?: PopStateEvent | HashChangeEvent) => {
-      // 1. 모달이 열려있는 상태에서 뒤로가기를 누른 경우 모달을 먼저 닫음
       if (e && 'type' in e && e.type === 'popstate') {
         if (closeAllModalsRef.current()) {
           return;
         }
       }
-
-      // 2. 화면 탭 전환 처리
       const stateTab = (window.history.state as { tab?: string } | null)?.tab;
       const curHash = window.location.hash.toLowerCase();
-      let targetTab: 'projects' | 'studio' | 'community' = 'projects';
-      if (curHash === '#studio' || stateTab === 'studio') {
-        targetTab = 'studio';
-      } else if (curHash === '#community' || stateTab === 'community') {
-        targetTab = 'community';
-      }
-
+      const targetTab: 'studio' | 'community' =
+        curHash === '#community' || stateTab === 'community' ? 'community' : 'studio';
       activeTabRef.current = targetTab;
-      if (targetTab === 'projects') {
-        onViewProjectsRef.current?.();
-      }
       setActiveTab(targetTab);
     };
 
@@ -1405,7 +1318,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     isLanguageModalOpen ||
     isModelModalOpen ||
     isVideoListModalOpen ||
-    isAudioLibraryOpen ||
     isSettingsModalOpen ||
     isFeedbackModalOpen ||
     isPatchNotesModalOpen ||
@@ -1487,10 +1399,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     };
   });
 
-  // 외부(보관함 로드 등)에서 initialOverlayOptions 전달 시 동기화
+  // 외부에서 initialOverlayOptions 전달 시 동기화
   // 자식 자신이 발생시킨 변경이 부모를 거쳐 다시 자식으로 되돌아오는 무한 루프(Echo) 방지
   const lastEmittedOverlayJsonRef = useRef<string>('');
-  const lastLoadedProjectIdRef = useRef<string | null>(currentProjectId || null);
 
   useEffect(() => {
     if (!initialOverlayOptions) return;
@@ -1505,15 +1416,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         : null,
     });
 
-    const isDifferentProject = currentProjectId !== lastLoadedProjectIdRef.current;
     const isExternalChange = incomingJson !== lastEmittedOverlayJsonRef.current;
-
-    if (isDifferentProject || isExternalChange) {
-      lastLoadedProjectIdRef.current = currentProjectId || null;
+    if (isExternalChange) {
       lastEmittedOverlayJsonRef.current = incomingJson;
       setOverlayOptions(initialOverlayOptions);
     }
-  }, [initialOverlayOptions, currentProjectId]);
+  }, [initialOverlayOptions]);
 
   // 외부로 overlayOptions 변경 전파 (실제 내용이 변경되었을 때만 전파)
   useEffect(() => {
@@ -1535,17 +1443,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
   // 슬라이더 step(0.05) 때문에 0.45000000000000007 같은 부동소수점 값이 오간다.
   // 소수 2자리로 정규화한 시그니처로 비교해야 45%↔50%가 무한 왕복하지 않는다.
-  const bgmSignature = (id: string, vol: number, trackId: string | null) =>
-    `${id}_${vol.toFixed(2)}_${trackId ?? 'null'}`;
+  const bgmSignature = (id: string, vol: number) => `${id}_${vol.toFixed(2)}`;
 
   // 마지막으로 상위에 전파한 값만 기억한다. prop 동기화 효과는 이 값을 절대 덮어쓰지 않는다.
   // (예전에는 prop 동기화가 ref를 갱신해 두 효과가 서로를 '내부 변경'으로 오인하며 ping-pong했다.)
   const lastEmittedBgmRef = useRef<string>(
-    bgmSignature(
-      initialBgmPresetId ?? 'none',
-      initialBgmVolume ?? 0.3,
-      initialSelectedLibraryTrackId ?? null
-    )
+    bgmSignature(initialBgmPresetId ?? 'none', initialBgmVolume ?? 0.3)
   );
 
   // 상위(프로젝트 복원 등) → 로컬 동기화: 로컬 상태만 갱신하고 역전파 ref는 건드리지 않는다.
@@ -1556,19 +1459,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     if (typeof initialBgmVolume === 'number') {
       setBgmVolume((prev) => (Math.abs(prev - initialBgmVolume) > 0.001 ? initialBgmVolume : prev));
     }
-    if (initialSelectedLibraryTrackId !== undefined) {
-      setSelectedLibraryTrackId((prev) => (prev !== initialSelectedLibraryTrackId ? initialSelectedLibraryTrackId : prev));
-    }
-  }, [initialBgmPresetId, initialBgmVolume, initialSelectedLibraryTrackId]);
+  }, [initialBgmPresetId, initialBgmVolume]);
 
   // 로컬(사용자 액션) → 상위 전파
   useEffect(() => {
-    const currentKey = bgmSignature(selectedBgmId, bgmVolume, selectedLibraryTrackId);
+    const currentKey = bgmSignature(selectedBgmId, bgmVolume);
     if (currentKey !== lastEmittedBgmRef.current) {
       lastEmittedBgmRef.current = currentKey;
-      onBgmChange?.(selectedBgmId, bgmVolume, selectedLibraryTrackId);
+      onBgmChange?.(selectedBgmId, bgmVolume);
     }
-  }, [selectedBgmId, bgmVolume, selectedLibraryTrackId, onBgmChange]);
+  }, [selectedBgmId, bgmVolume, onBgmChange]);
 
   // 외부에서 커스텀 오디오 파일 전달 시 동기화
   const lastEmittedCustomAudioRef = useRef<File | null | undefined>(initialCustomAudioFile);
@@ -1848,34 +1748,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       setCustomAudioFile(file);
       setCustomAudioName(file.name);
       setSelectedBgmId('custom');
-      setSelectedLibraryTrackId(null);
       notify.success(file.name, {
         description: dict.toasts.customAudioAppliedDesc,
       });
     }
-  };
-
-  // 오디오 보관함 음원 선택 (파일을 불러와 기존 커스텀 BGM 파이프라인에 연결)
-  const handleApplyLibraryAudio = async (track: AudioLibraryTrack | null) => {
-    if (!track) {
-      setCustomAudioFile(null);
-      setCustomAudioName('');
-      setSelectedBgmId('none');
-      setSelectedLibraryTrackId(null);
-      notify.info(dict.toasts.bgmNone, {
-        description: dict.toasts.bgmNoneDesc,
-      });
-      return;
-    }
-
-    const file = await loadLibraryAudioFile(track);
-    setCustomAudioFile(file);
-    setCustomAudioName(track.name);
-    setSelectedBgmId('custom');
-    setSelectedLibraryTrackId(track.id);
-    notify.success(track.name, {
-      description: dict.toasts.bgmAppliedDesc,
-    });
   };
 
   const handleIntroVideoSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1916,7 +1792,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     setCustomAudioFile(null);
     setCustomAudioName('');
     setCustomAudioDuration(0);
-    setSelectedLibraryTrackId(null);
     lastPreparedThumbKeyRef.current = '';
     const freshDefaults = getStoredIntroOutroDefaults();
     setOverlayOptions({
@@ -1941,7 +1816,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       outroVideoFile: null,
     });
     lastEmittedOverlayJsonRef.current = '';
-    lastLoadedProjectIdRef.current = null;
     lastStitchedResultUrlRef.current = null;
     setLastStitchedSnapshot(null);
     setActiveSection('intro');
@@ -1959,18 +1833,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const confirmStartNewProject = useCallback(() => {
     setIsFormatModalOpen(false);
     resetStudioState();
-    onStartNewProject?.(pendingOrientation);
+    onReset?.(pendingOrientation);
     navigateToTab('studio');
-  }, [pendingOrientation, onStartNewProject, resetStudioState, navigateToTab]);
-
-  // 저장소 완전 비우기 후: 포맷 선택 모달을 열지 않고 메모리 상태만 조용히 초기화한다.
-  // 프로젝트 목록(App 상태)도 즉시 다시 읽어 삭제된 항목이 새로고침 없이 사라지게 한다.
-  const handleStorageWiped = useCallback(() => {
-    setIsFormatModalOpen(false);
-    resetStudioState();
-    onReset?.();
-    onProjectsRefresh?.();
-  }, [resetStudioState, onReset, onProjectsRefresh]);
+  }, [pendingOrientation, onReset, resetStudioState, navigateToTab]);
 
   // 상위 결과 갱신 동기화 및 썸네일/타이틀 준비
   const appliedSuggestedTitleRef = useRef<string | null>(null);
@@ -1980,14 +1845,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 부활하고 방금 고친 지명이 예전 값으로 되돌아간다.
   const segmentsSyncedResultUrlRef = useRef<string | null | undefined>(undefined);
   const [lastStitchedSnapshot, setLastStitchedSnapshot] = useState<string | null>(null);
-
-  // 프로젝트 전환 시 스티치 결과 URL 캐시 초기화
-  useEffect(() => {
-    if (currentProjectId !== lastLoadedProjectIdRef.current) {
-      lastStitchedResultUrlRef.current = null;
-      segmentsSyncedResultUrlRef.current = undefined;
-    }
-  }, [currentProjectId]);
 
   useEffect(() => {
     if (result?.segments && result.segments.length > 0) {
@@ -2284,13 +2141,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 진입/프로젝트 열기/AI 분석 완료 여부와 무관하게 항상 1번(영상 상단 문구)에서 시작한다.
   // 세그먼트가 뒤늦게 채워질 때 자동으로 6번(컷 다듬기)으로 튀던 자동 이동을 완전히 제거했다.
   // 컷 단계로 가는 것은 사용자가 스텝바/다음 버튼/타임라인을 직접 누를 때만 일어난다.
-  const lastProjectIdRef = useRef<string | null | undefined>(currentProjectId);
-  useEffect(() => {
-    if (currentProjectId !== lastProjectIdRef.current) {
-      lastProjectIdRef.current = currentProjectId;
-      setActiveSection('intro');
-    }
-  }, [currentProjectId]);
   // 실제 하이라이트 결과가 있을 때만 시간 절약률을 계산/노출한다
   const hasHighlight = segments.length > 0;
 
@@ -6018,9 +5868,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <button
               type="button"
               className="toss-nav-back-link"
-              onClick={handleBackToProjects}
-              title={dict.projects?.backToList || '스튜디오 목록으로'}
-              aria-label={dict.projects?.backToList || '스튜디오 목록으로'}
+              onClick={() => navigateToTab('community')}
+              title={dict.community?.navTitle || '영상 공유'}
+              aria-label={dict.community?.navTitle || '영상 공유'}
             >
               <ChevronLeft size={16} strokeWidth={2.5} className="toss-nav-back-arrow" aria-hidden="true" />
               <span className="toss-nav-back-text">{dict.common.back || '뒤로'}</span>
@@ -6043,25 +5893,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 </div>
               </a>
 
-              {/* 상단 네비게이션 탭 (스튜디오 목록 & 영상 공유 커뮤니티) */}
+              {/* 상단 네비게이션 탭 (스튜디오 & 영상 공유 커뮤니티) */}
               <div className="toss-nav-tabs-group">
                 <button
                   type="button"
-                  className={`toss-nav-tab-btn ${activeTab === 'projects' ? 'active' : ''}`}
-                  onClick={() => {
-                    if (activeTab === 'projects') {
-                      onViewProjects?.();
-                    } else {
-                      navigateToTab('projects');
-                    }
-                  }}
-                  title={dict.community?.studioTab || dict.projects?.tabTitle || '스튜디오'}
+                  className="toss-nav-tab-btn"
+                  onClick={() => navigateToTab('studio')}
+                  title={dict.community?.studioTab || '스튜디오'}
                 >
                   <Film size={14} />
-                  <span>{dict.community?.studioTab || dict.projects?.tabTitle || '스튜디오'}</span>
-                  {projectSummaries.length > 0 && (
-                    <em className="toss-nav-tab-count">{projectSummaries.length}</em>
-                  )}
+                  <span>{dict.community?.studioTab || '스튜디오'}</span>
                 </button>
                 <button
                   type="button"
@@ -6078,29 +5919,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         </div>
 
         <div className="toss-nav-right">
-          {/* 모바일 전용 저장 상태 (하단 플로팅 상태바를 걷어내고 헤더의 작은 체크로 흡수) */}
-          {activeTab === 'studio' && videos.length > 0 && (
-            <span
-              className={`toss-mobile-save-status ${saveStatus === 'saving' ? 'is-saving' : 'is-saved'}`}
-              role="status"
-              aria-label={
-                saveStatus === 'saving'
-                  ? dict.projects?.saving || ui('저장 중')
-                  : dict.projects?.bottomSaved || dict.projects?.autoSaved || ui('기기에 안전하게 보관됨')
-              }
-              title={
-                saveStatus === 'saving'
-                  ? dict.projects?.saving || ui('저장 중')
-                  : dict.projects?.bottomSaved || dict.projects?.autoSaved || ui('기기에 안전하게 보관됨')
-              }
-            >
-              {saveStatus === 'saving' ? (
-                <Loader2 size={13} className="animate-spin" aria-hidden="true" />
-              ) : (
-                <Check size={13} strokeWidth={3} aria-hidden="true" />
-              )}
-            </span>
-          )}
           {/* 다국어 언어 선택 트리거 */}
           <button
             type="button"
@@ -6146,21 +5964,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           >
             <button
               type="button"
-              className={`toss-strip-tab-btn ${activeTab === 'projects' ? 'active' : ''}`}
-              aria-current={activeTab === 'projects' ? 'page' : undefined}
-              onClick={() => {
-                if (activeTab === 'projects') {
-                  onViewProjects?.();
-                } else {
-                  navigateToTab('projects');
-                }
-              }}
+              className="toss-strip-tab-btn"
+              onClick={() => navigateToTab('studio')}
             >
               <Film size={15} />
-              <span>{dict.community?.studioTab || dict.projects?.tabTitle || '스튜디오'}</span>
-              {projectSummaries.length > 0 && (
-                <em className="toss-nav-tab-count">{projectSummaries.length}</em>
-              )}
+              <span>{dict.community?.studioTab || '스튜디오'}</span>
             </button>
             <button
               type="button"
@@ -6184,42 +5992,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             </div>
           }
         >
-          <VideoCommunityView
-            onOpenStudio={() => {
-              if (videos.length > 0 || result) {
-                navigateToTab('studio');
-              } else {
-                navigateToTab('projects');
-              }
-            }}
-          />
+          <VideoCommunityView onOpenStudio={() => navigateToTab('studio')} />
         </React.Suspense>
-      ) : activeTab === 'projects' ? (
-        <StudioProjectListView
-          projects={projectSummaries}
-          currentProjectId={currentProjectId || null}
-          isLoading={isLoadingProjects}
-          duplicatingProjectId={duplicatingProjectId}
-          onOpenProject={async (id) => {
-            try {
-              await onOpenProject?.(id);
-            } finally {
-              navigateToTab('studio');
-            }
-          }}
-          onDuplicateProject={(id) => onDuplicateProject?.(id)}
-          onDeleteProject={(id) => onDeleteProject?.(id)}
-          onStartNewProject={requestNewProject}
-          onTrySampleVideo={
-            onTrySampleVideo
-              ? () => {
-                  navigateToTab('studio');
-                  onTrySampleVideo();
-                }
-              : undefined
-          }
-          isLoadingSample={isLoadingSample}
-        />
       ) : (
         <main className="toss-main-content">
         {/* 통합 스튜디오 단계 안내: 처음 만드는 흐름과 컷이 생긴 흐름 모두 9단계
@@ -6648,16 +6422,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         >
                           {ui('영상 내보내기 & 다운로드')}
                         </Button>
-                        {onStartNewProject && (
-                          <Button
-                            variant="secondary"
-                            size="md"
-                            onClick={requestNewProject}
-                            leftIcon={<Plus size={13} />}
-                          >
-                            {ui('새 영상 만들기')}
-                          </Button>
-                        )}
+                        <Button
+                          variant="secondary"
+                          size="md"
+                          onClick={requestNewProject}
+                          leftIcon={<Plus size={13} />}
+                        >
+                          {ui('새 영상 만들기')}
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -6684,16 +6456,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       >
                         {ui('영상 올리기')}
                       </Button>
-                      {onStartNewProject && (
-                        <Button
-                          variant="secondary"
-                          size="md"
-                          onClick={requestNewProject}
-                          leftIcon={<Plus size={14} />}
-                        >
-                          {ui('새 프로젝트로 시작')}
-                        </Button>
-                      )}
+                      <Button
+                        variant="secondary"
+                        size="md"
+                        onClick={requestNewProject}
+                        leftIcon={<Plus size={14} />}
+                      >
+                        {ui('새 프로젝트로 시작')}
+                      </Button>
                     </div>
                   </div>
                 )}
@@ -7430,12 +7200,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           className="toss-sequencer-audio-empty"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setIsAudioLibraryOpen(true);
+                            customAudioInputRef.current?.click();
                           }}
-                          title={
-                            dict.sequencer.musicEmptyNoticeTip ||
-                            '오디오 보관함에서 배경음악을 선택하면 영상 길이 대비 음악 구간이 표시돼요'
-                          }
+                          title={ui('음악 파일을 선택하면 영상 길이 대비 음악 구간이 표시돼요')}
                         >
                           <span className="toss-sequencer-audio-empty-left">
                             <Music size={11} className="shrink-0" />
@@ -7445,7 +7212,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             </span>
                           </span>
                           <span className="toss-sequencer-audio-empty-badge">
-                            {dict.sequencer.openAudioLibrary || '+ 오디오 보관함'}
+                            {ui('+ 내 음악 올리기')}
                           </span>
                         </button>
                       )}
@@ -9412,7 +9179,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   <div className="toss-music-current-text">
                     <strong className="toss-music-current-name">{customAudioName}</strong>
                     <span className="toss-music-current-meta">
-                      {selectedLibraryTrackId ? ui('오디오 보관함') : ui('내 파일')}
+                      {ui('내 파일')}
                       {customAudioDuration ? ` · ${formatSec(customAudioDuration)}` : ''}
                       {!overlayOptions.bgmFitToVideo && audioTimelineBlocks.length > 1
                         ? ` ${ui('· {count}회 반복', { count: audioTimelineBlocks.length })}`
@@ -9426,7 +9193,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       setCustomAudioFile(null);
                       setCustomAudioName('');
                       setSelectedBgmId('none');
-                      setSelectedLibraryTrackId(null);
                     }}
                     title={ui('음악 빼기')}
                   >
@@ -9479,7 +9245,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   <button
                     type="button"
                     className="toss-btn-secondary toss-btn-xs"
-                    onClick={() => setIsAudioLibraryOpen(true)}
+                    onClick={() => customAudioInputRef.current?.click()}
                   >
                     <ListMusic size={12} />
                     <span>{ui('다른 노래 고르기')}</span>
@@ -9507,17 +9273,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             ) : (
               <div className="toss-music-empty">
                 <p className="toss-music-empty-text">
-                  {ui('아직 노래가 없어요. 보관함에서 고르거나 내 음악을 올려보세요.')}
+                  {ui('아직 노래가 없어요. 내 음악을 올려보세요.')}
                 </p>
                 <div className="toss-music-empty-actions">
-                  <button
-                    type="button"
-                    className="toss-btn-primary toss-btn-sm"
-                    onClick={() => setIsAudioLibraryOpen(true)}
-                  >
-                    <ListMusic size={13} />
-                    <span>{ui('보관함에서 고르기')}</span>
-                  </button>
                   <button
                     type="button"
                     className="toss-btn-secondary toss-btn-sm"
@@ -9999,19 +9757,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         </React.Suspense>
       )}
 
-      {/* 9. 오디오 보관함 모달 */}
-      {isAudioLibraryOpen && (
-        <React.Suspense fallback={null}>
-          <AudioLibraryModal
-            isOpen={isAudioLibraryOpen}
-            onClose={() => setIsAudioLibraryOpen(false)}
-            selectedTrackId={selectedLibraryTrackId}
-            hasAppliedAudio={Boolean(customAudioFile)}
-            onApply={handleApplyLibraryAudio}
-          />
-        </React.Suspense>
-      )}
-
       {/* 10. 스튜디오 설정 모달 (AI 모델, 언어, 날짜 표기, 아이 나이, 초기화 등) */}
       {isSettingsModalOpen && (
       <React.Suspense fallback={null}>
@@ -10091,7 +9836,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         currentLocaleInfo={currentLocaleInfo}
         hasVideos={videos.length > 0}
         onReset={requestNewProject}
-        onStorageWiped={handleStorageWiped}
         hasStitchedResult={isSequenceMode}
         onDownloadThumbnail={handleDownloadThumbnail}
         onDownloadSubtitles={() => {
@@ -10326,48 +10070,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       {activeTab === 'studio' && (
         <aside className="toss-bottom-status-bar" aria-label={dict.projects?.tabTitle || '작업 상태바'}>
           <div className="toss-bottom-status-inner">
-            {/* 좌측: 자동 저장 상태 */}
+            {/* 좌측: 작업 상태 */}
             <div className="toss-bottom-status-left">
-              <span
-                className={`toss-bottom-status-dot ${
-                  videos.length === 0
-                    ? 'idle'
-                    : saveStatus === 'saving'
-                    ? 'saving'
-                    : 'saved'
-                }`}
-              />
+              <span className={`toss-bottom-status-dot ${videos.length === 0 ? 'idle' : 'saved'}`} />
               <span className="toss-bottom-status-text">
                 {videos.length === 0 ? (
                   <span className="text-slate-500 font-normal">
                     {dict.projects?.studioReady || '스튜디오 준비됨 · 영상을 올려보세요'}
                   </span>
-                ) : saveStatus === 'saving' ? (
-                  <span className="text-slate-800 font-medium">
-                    {dict.projects?.saving || '기기에 안전하게 보관 중...'}
-                  </span>
                 ) : (
                   <span className="text-slate-700 font-medium">
-                    {getStoredStorageMode() === 'lightweight'
-                      ? ui('편집 정보만 기기에 저장됨 (초경량 모드)')
-                      : result?.url && !hasPlayableSourceVideos
-                        ? (dict.projects?.finalResultSaved || '최종 완성 영상이 기기에 보관됨')
-                        : dict.projects?.bottomSaved || dict.projects?.autoSaved || '기기에 안전하게 보관됨'}
+                    {ui('원본 영상 {count}개', { count: videos.length })}
                   </span>
                 )}
               </span>
-
-              {videos.length > 0 && saveStatus === 'saved' && (
-                <button
-                  type="button"
-                  className="toss-bottom-status-link"
-                  onClick={handleBackToProjects}
-                  title={dict.projects?.goToProjects || '스튜디오 목록으로 이동'}
-                >
-                  <FolderOpen size={12} className="inline mr-1 text-slate-500" />
-                  <span>{dict.projects?.viewProjects || '스튜디오 목록'}</span>
-                </button>
-              )}
             </div>
 
             {/* 우측: 시간 절약률 / 영상 요약 */}

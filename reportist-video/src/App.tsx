@@ -1,4 +1,4 @@
-// App.tsx - Reportist Video 메인 애플리케이션 (i18n 다국어 지원)
+﻿// App.tsx - Reportist Video 메인 애플리케이션 (i18n 다국어 지원)
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import './App.css';
@@ -52,27 +52,13 @@ import type {
   VideoOrientation,
   PortraitPlatform,
 } from './types/video.ts';
-import type { StudioProject, StudioProjectSummary } from './types/project.ts';
 import { resolveFrameSpec, normalizeOrientation, resolvePortraitPlatform } from './services/frameSpec.ts';
 import {
-  generateProjectId,
-  getLastActiveProjectId,
-  setLastActiveProjectId,
   getStoredSelectedModel,
   setStoredSelectedModel,
   getStoredSelectedEffort,
   setStoredSelectedEffort,
-  saveProject,
-  getProject,
-  getAllProjectSummaries,
-  deleteProject,
-  duplicateProject,
-  runMediaSplitMigration,
-  deleteProjectMediaItem,
-  wipeAllAppData,
-} from './services/projectStorage.ts';
-import { AUDIO_LIBRARY, loadLibraryAudioFile } from './data/audioLibrary.ts';
-import { saveVideoToOPFS } from './services/opfsStorage.ts';
+} from './services/modelPreferenceStorage.ts';
 import { isMobileStorageEnvironment } from './services/deviceStoragePolicy.ts';
 import {
   getStoredHighlightMode,
@@ -89,31 +75,6 @@ const INITIAL_DEFAULT_MODEL = pickDefaultModel(INITIAL_VIDEO_MODELS);
 const STUDIO_V2_ENABLED =
   typeof window === 'undefined' ||
   new URLSearchParams(window.location.search).get('studio') !== 'v1';
-
-// 프로젝트 목록이 실제로 달라졌는지 얕게 비교한다.
-// (같은 내용으로 배열만 새로 만들면 카드가 다시 그려지며 썸네일이 깜빡일 수 있다.)
-function isSameProjectSummaryList(
-  prev: StudioProjectSummary[],
-  next: StudioProjectSummary[]
-): boolean {
-  if (prev.length !== next.length) return false;
-  return prev.every((p, i) => {
-    const n = next[i];
-    return (
-      p.id === n.id &&
-      p.title === n.title &&
-      p.createdAt === n.createdAt &&
-      p.updatedAt === n.updatedAt &&
-      p.thumbnailUrl === n.thumbnailUrl &&
-      p.duration === n.duration &&
-      p.videoCount === n.videoCount &&
-      p.hasResult === n.hasResult &&
-      p.step === n.step &&
-      p.storageMode === n.storageMode &&
-      p.hasOpfsFiles === n.hasOpfsFiles
-    );
-  });
-}
 
 export function App() {
   const { dict, locale, interpolate, ui } = useI18n();
@@ -258,28 +219,15 @@ export function App() {
   // 진행 중인 자체 분석 대기열(reportist-analyzer) 작업 ID 집합 (병렬 작업 전부 취소)
   const activeQueueJobIdsRef = useRef<Set<string>>(new Set());
 
-  // 4. 프로젝트 보관함 & IndexedDB 상태
-  // 출력 방향(가로 16:9 / 세로 9:16)과 세로 플랫폼 프리셋 — 프로젝트 생성 시점에 정한다.
+  // 4. 출력 방향(가로 16:9 / 세로 9:16)과 세로 플랫폼 프리셋
   const [currentOrientation, setCurrentOrientation] = useState<VideoOrientation>('landscape');
   const [currentPortraitPlatform, setCurrentPortraitPlatform] = useState<PortraitPlatform>('instagram');
-  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'idle'>('idle');
-  const [projectSummaries, setProjectSummaries] = useState<StudioProjectSummary[]>([]);
-  const [isLoadingProjects, setIsLoadingProjects] = useState<boolean>(true);
-  // 복제가 진행 중인 프로젝트 id — 카드 버튼을 스피너로 바꾸고 중복 클릭을 막는다.
-  const [duplicatingProjectId, setDuplicatingProjectId] = useState<string | null>(null);
-  const duplicatingProjectIdRef = useRef<string | null>(null);
-  // 목록을 한 번이라도 읽었는지 여부. 최초 1회만 스켈레톤을 보여주고 이후 갱신은 조용히 반영한다.
-  const hasLoadedProjectsRef = useRef<boolean>(false);
-  // 동시에 여러 번 새로고침이 요청될 때 늦게 도착한 이전 결과가 최신 목록을 덮어쓰지 않도록 순번을 기록한다.
-  const projectRefreshSeqRef = useRef<number>(0);
 
   // 편집 설정 상태
   const [currentOverlayOptions, setCurrentOverlayOptions] = useState<VideoOverlayOptions | null>(null);
   const [currentBgmPresetId, setCurrentBgmPresetId] = useState<string>('none');
   const [currentBgmVolume, setCurrentBgmVolume] = useState<number>(0.3);
   const [currentCustomAudio, setCurrentCustomAudio] = useState<File | null>(null);
-  const [currentLibraryTrackId, setCurrentLibraryTrackId] = useState<string | null>(null);
   // 하이라이트 방식 (감성 하이라이트 / 1초 컷 편집) — 프로젝트에 저장되고 기기에도 마지막 선택을 기억한다.
   const [currentHighlightMode, setCurrentHighlightMode] = useState<HighlightMode>(getStoredHighlightMode);
 
@@ -322,273 +270,24 @@ export function App() {
   }, []);
 
   // 배경음악 변경 핸들러 (실제 값이 같으면 상태 유지하여 무한 리렌더링 방지)
-  const handleBgmChange = useCallback(
-    (bgmId: string, vol: number, libTrackId?: string | null) => {
-      setCurrentBgmPresetId((prev) => (prev !== bgmId ? bgmId : prev));
-      setCurrentBgmVolume((prev) => (Math.abs(prev - vol) > 0.001 ? vol : prev));
-      if (libTrackId !== undefined) {
-        setCurrentLibraryTrackId((prev) => (prev !== libTrackId ? libTrackId : prev));
-      }
-    },
-    []
-  );
+  const handleBgmChange = useCallback((bgmId: string, vol: number) => {
+    setCurrentBgmPresetId((prev) => (prev !== bgmId ? bgmId : prev));
+    setCurrentBgmVolume((prev) => (Math.abs(prev - vol) > 0.001 ? vol : prev));
+  }, []);
 
   // 커스텀 오디오 파일 변경 핸들러
   const handleCustomAudioChange = useCallback((file: File | null) => {
     setCurrentCustomAudio((prev) => (prev !== file ? file : prev));
   }, []);
 
-  const isRestoringProjectRef = useRef<boolean>(false);
-  const autoSaveTimerRef = useRef<number | null>(null);
-  // 진행 중인 자동 저장 Promise — '새 작업'이 로컬 미디어를 비우기 전에 완료를 기다린다.
-  const saveInFlightRef = useRef<Promise<void> | null>(null);
+
   const activeMetadataBatchCountRef = useRef<number>(0);
   // 메타데이터/썸네일 추출 배치가 진행 중인지 UI에 알리기 위한 상태 (다음 단계 차단에 사용)
   const [activeVideoMetaBatches, setActiveVideoMetaBatches] = useState(0);
-  const isSavingProjectRef = useRef<boolean>(false);
-  const pendingSaveAfterLockRef = useRef<boolean>(false);
-  // 클로저(performSave)가 최신 단계 값을 보게 하기 위한 ref ('processing' 중 불필요한 저장 차단)
-  const currentStepRef = useRef<OverallStep>(currentStep);
-  useEffect(() => {
-    currentStepRef.current = currentStep;
-  }, [currentStep]);
-
-  // 프로젝트 요약 목록 새로고침
-  // - 최초 1회만 스켈레톤을 노출하고, 이후 갱신(열기/저장/삭제/복제)은 기존 목록을 유지한 채 조용히 교체한다.
-  //   (매번 `isLoadingProjects`를 true로 되돌리면 새로고침할 때마다 카드가 스켈레톤으로 깜빡인다.)
-  // - 응답 순서가 뒤바뀌어도 마지막 요청의 결과만 반영한다.
-  // - 내용이 이전과 같으면 이전 배열 참조를 그대로 써서 불필요한 리렌더링(썸네일 재페인트)을 막는다.
-  const refreshProjectSummaries = useCallback(async () => {
-    const seq = ++projectRefreshSeqRef.current;
-    if (!hasLoadedProjectsRef.current) {
-      setIsLoadingProjects(true);
-    }
-    try {
-      const list = await getAllProjectSummaries();
-      if (seq !== projectRefreshSeqRef.current) return;
-      setProjectSummaries((prev) => (isSameProjectSummaryList(prev, list) ? prev : list));
-    } catch (err) {
-      console.warn('Failed to list projects:', err);
-    } finally {
-      if (seq === projectRefreshSeqRef.current) {
-        hasLoadedProjectsRef.current = true;
-        setIsLoadingProjects(false);
-      }
-    }
-  }, []);
-
-  // 특정 프로젝트 로드
-  const handleOpenProject = async (projectId: string) => {
-    try {
-      if (projectId === currentProjectId && (videos.length > 0 || finalResult)) {
-        return;
-      }
-
-      const project = await getProject(projectId);
-      if (!project) return;
-
-      isRestoringProjectRef.current = true;
-
-      // 이전 ObjectURL 수집 (DOM 전환 후 비동기로 안전하게 해제하여 ERR_FILE_NOT_FOUND 방지)
-      const urlsToRevoke: string[] = [];
-      videos.forEach((v: VideoItem) => {
-        if (v.url && v.url.startsWith('blob:')) urlsToRevoke.push(v.url);
-      });
-      if (finalResult?.url && finalResult.url.startsWith('blob:')) {
-        urlsToRevoke.push(finalResult.url);
-      }
-
-      // 비디오 목록 복원 (유효한 Blob인 경우에만 ObjectURL 생성)
-      const restoredVideos: VideoItem[] = (project.videos || []).map((v) => {
-        const blob = v.fileBlob;
-        const hasValidBlob = Boolean(blob instanceof Blob && blob.size > 0);
-        const file =
-          blob instanceof File
-            ? blob
-            : blob instanceof Blob && blob.size > 0
-            ? new File([blob], v.name, {
-                type: blob.type || 'video/mp4',
-                lastModified: v.recordedTimestamp || Date.now(),
-              })
-            : new File([], v.name, { type: 'video/mp4' });
-        const url = hasValidBlob ? URL.createObjectURL(file) : '';
-        const safeThumb =
-          v.thumbnailUrl && !v.thumbnailUrl.startsWith('blob:')
-            ? v.thumbnailUrl
-            : '';
-        return {
-          id: v.id,
-          file,
-          url,
-          name: v.name,
-          sizeBytes: v.sizeBytes,
-          duration: v.duration,
-          width: v.width,
-          height: v.height,
-          // 파일 데이터가 소실된 경우 status를 idle로 리셋하고 재연결 플래그 설정
-          status: hasValidBlob ? v.status : 'idle',
-          error: hasValidBlob ? undefined : '로컬 원본 영상 재연결이 필요합니다.',
-          isMissingFile: !hasValidBlob,
-          segments: v.segments || [],
-          analysisMode: normalizeHighlightMode(v.analysisMode),
-          metadataDate: v.metadataDate,
-          recordedTimestamp: v.recordedTimestamp,
-          latitude: v.latitude,
-          longitude: v.longitude,
-          locationName: v.locationName,
-          rotation: v.rotation,
-          thumbnailUrl: safeThumb,
-        };
-      });
-
-      // 최종 결과 복원 (실시간 타임라인 편집 모드: 세그먼트가 있거나 유효한 Blob인 경우 복원)
-      const restoredOrientation = normalizeOrientation(project.orientation);
-      const restoredPlatform = resolvePortraitPlatform(project.portraitPlatform);
-      let restoredResult: FinalVideoResult | null = null;
-      const finalBlob = project.finalResult?.videoBlob;
-      const hasValidFinalBlob = Boolean(finalBlob instanceof Blob && finalBlob.size > 0);
-      const hasSegments = Boolean(
-        project.finalResult?.segments && project.finalResult.segments.length > 0
-      );
-      if (project.finalResult && (hasValidFinalBlob || hasSegments)) {
-        const url = hasValidFinalBlob && finalBlob ? URL.createObjectURL(finalBlob) : '';
-        const safeFinalThumb =
-          project.finalResult.thumbnailUrl && !project.finalResult.thumbnailUrl.startsWith('blob:')
-            ? project.finalResult.thumbnailUrl
-            : undefined;
-        const safeCleanThumb =
-          project.finalResult.cleanThumbnailUrl && !project.finalResult.cleanThumbnailUrl.startsWith('blob:')
-            ? project.finalResult.cleanThumbnailUrl
-            : undefined;
-        const fallbackResolution = project.finalResult.resolution || project.exportResolution;
-        const fallbackFrame = resolveFrameSpec(restoredOrientation, fallbackResolution, restoredPlatform);
-        restoredResult = {
-          blob: hasValidFinalBlob && finalBlob ? finalBlob : new Blob([]),
-          url,
-          duration: project.finalResult.duration,
-          width: project.finalResult.width || fallbackFrame.width,
-          height: project.finalResult.height || fallbackFrame.height,
-          resolution: fallbackResolution,
-          orientation: project.finalResult.orientation ?? restoredOrientation,
-          segments: project.finalResult.segments || [],
-          originalTotalDuration: project.duration || 0,
-          fileSize: project.finalResult.fileSize || 0,
-          thumbnailUrl: safeFinalThumb,
-          cleanThumbnailUrl: safeCleanThumb,
-          suggestedTitle: project.finalResult.suggestedTitle,
-          bestThumbnailTime: project.finalResult.bestThumbnailTime,
-          bestSourceVideoId: project.finalResult.bestSourceVideoId,
-          bestThumbnailReason: project.finalResult.bestThumbnailReason,
-          bestThumbnailCropOffsetYRatio: project.finalResult.bestThumbnailCropOffsetYRatio,
-          bestThumbnailRotation: project.finalResult.bestThumbnailRotation,
-          bestThumbnailCleanDataUrl: project.finalResult.bestThumbnailCleanDataUrl,
-          aiThumbnailRecommendations: project.finalResult.aiThumbnailRecommendations,
-        };
-      }
-
-      // 커스텀 오디오 복원 (사용자 업로드 파일 또는 내장 오디오 보관함 음원)
-      let restoredAudioFile: File | null = null;
-      if (project.customAudioBlob && project.customAudioBlob.size > 0) {
-        restoredAudioFile = new File(
-          [project.customAudioBlob],
-          project.customAudioName || 'audio.mp3',
-          { type: project.customAudioBlob.type || 'audio/mpeg' }
-        );
-      } else if (project.selectedLibraryTrackId) {
-        const track = AUDIO_LIBRARY.find((t) => t.id === project.selectedLibraryTrackId);
-        if (track) {
-          try {
-            restoredAudioFile = await loadLibraryAudioFile(track);
-          } catch (e) {
-            console.warn('Failed to restore library audio track:', e);
-          }
-        }
-      }
-
-      // 인트로 및 아웃트로 사용자 영상 파일 복원
-      let restoredIntroFile: File | null = null;
-      if (project.introVideoBlob && project.introVideoBlob.size > 0) {
-        restoredIntroFile = new File(
-          [project.introVideoBlob],
-          project.introVideoName || 'intro.mp4',
-          { type: project.introVideoBlob.type || 'video/mp4' }
-        );
-      }
-      let restoredOutroFile: File | null = null;
-      if (project.outroVideoBlob && project.outroVideoBlob.size > 0) {
-        restoredOutroFile = new File(
-          [project.outroVideoBlob],
-          project.outroVideoName || 'outro.mp4',
-          { type: project.outroVideoBlob.type || 'video/mp4' }
-        );
-      }
-
-      setCurrentOrientation(restoredOrientation);
-      setCurrentPortraitPlatform(restoredPlatform);
-      setCurrentHighlightMode(normalizeHighlightMode(project.highlightMode));
-      setVideos(restoredVideos);
-      setFinalResult(restoredResult);
-      setCurrentStep(restoredResult ? 'result' : 'upload');
-      setCurrentProjectId(project.id);
-      setLastActiveProjectId(project.id);
-
-      if (project.overlayOptions) {
-        setCurrentOverlayOptions({
-          ...project.overlayOptions,
-          introVideoFile: restoredIntroFile,
-          outroVideoFile: restoredOutroFile,
-        });
-      }
-      if (project.bgmPresetId) {
-        setCurrentBgmPresetId(project.bgmPresetId);
-      }
-      if (typeof project.bgmVolume === 'number') {
-        setCurrentBgmVolume(project.bgmVolume);
-      }
-      setCurrentCustomAudio(restoredAudioFile);
-      setCurrentLibraryTrackId(project.selectedLibraryTrackId || null);
-
-      if (project.selectedModel) {
-        const isExcluded =
-          project.selectedModel.toLowerCase().includes('gemma');
-        if (!isExcluded) {
-          setSelectedModel(project.selectedModel);
-        }
-      }
-      if (project.selectedEffort) {
-        setSelectedEffort(project.selectedEffort);
-      }
-
-      setSaveStatus('saved');
-      await refreshProjectSummaries();
-
-      // 브라우저 렌더러가 새 미디어 소스로 완전히 전환한 후 이전 ObjectURL 안전하게 해제
-      if (urlsToRevoke.length > 0) {
-        setTimeout(() => {
-          urlsToRevoke.forEach((u) => {
-            try {
-              URL.revokeObjectURL(u);
-            } catch {}
-          });
-        }, 1500);
-      }
-    } catch (err) {
-      console.error('Failed to open project:', err);
-    } finally {
-      setTimeout(() => {
-        isRestoringProjectRef.current = false;
-      }, 500);
-    }
-  };
 
   // 새 작업 시작 (통합 스튜디오에서 영상 업로드부터 바로 시작)
   // orientation/platform은 프로젝트 생성 시점의 포맷 선택 모달에서 전달된다 (없으면 가로 16:9).
   const handleStartNewProject = (orientation?: VideoOrientation, platform?: PortraitPlatform) => {
-    // 이전 작업의 대기 중인 자동 저장을 취소해야 삭제/리셋 직후 옛 데이터가 다시 저장되지 않는다.
-    if (autoSaveTimerRef.current !== null) {
-      window.clearTimeout(autoSaveTimerRef.current);
-      autoSaveTimerRef.current = null;
-    }
     const urlsToRevoke: string[] = [];
     videos.forEach((v: VideoItem) => {
       if (v.url && v.url.startsWith('blob:')) urlsToRevoke.push(v.url);
@@ -602,16 +301,11 @@ export function App() {
     setCurrentStep('upload');
     setCurrentOrientation(orientation === 'portrait' ? 'portrait' : 'landscape');
     setCurrentPortraitPlatform(resolvePortraitPlatform(platform));
-    const newProjId = generateProjectId();
-    setCurrentProjectId(newProjId);
-    setLastActiveProjectId(null);
     setCurrentOverlayOptions(null);
     setCurrentBgmPresetId('preset');
     setCurrentBgmVolume(0.3);
     setCurrentCustomAudio(null);
     setCurrentHighlightMode(getStoredHighlightMode());
-    // 새 프로젝트는 잔잔한 무드의 BGM(Dreaming)을 기본 선택해 바로 편집된 느낌이 나도록 한다
-    setCurrentLibraryTrackId('dreaming');
 
     if (urlsToRevoke.length > 0) {
       setTimeout(() => {
@@ -622,266 +316,7 @@ export function App() {
         });
       }, 1000);
     }
-    setSaveStatus('idle');
   };
-
-  // 프로젝트 복제
-  const handleDuplicateProject = async (id: string) => {
-    // 대용량 프로젝트 복제 중 중복 클릭으로 여러 복사본이 생기지 않게 막는다.
-    if (duplicatingProjectIdRef.current) return;
-    duplicatingProjectIdRef.current = id;
-    setDuplicatingProjectId(id);
-
-    try {
-      await duplicateProject(id);
-      await refreshProjectSummaries();
-      notify.success(dict.toasts.projectDuplicated);
-    } catch (err) {
-      console.error('Failed to duplicate project:', err);
-      notify.error(dict.toasts.projectDuplicateFailed);
-    } finally {
-      duplicatingProjectIdRef.current = null;
-      setDuplicatingProjectId(null);
-    }
-  };
-
-  // 프로젝트 삭제
-  const handleDeleteProject = async (id: string) => {
-    try {
-      await deleteProject(id);
-      if (currentProjectId === id) {
-        handleStartNewProject();
-      }
-      await refreshProjectSummaries();
-      notify.success(dict.toasts.projectDeleted);
-    } catch (err) {
-      console.error('Failed to delete project:', err);
-      notify.error(dict.toasts.projectDeleteFailed);
-    }
-  };
-
-  // 진행 중인 저장 Promise를 추적해 '새 작업'이 로컬 미디어를 비우기 전에 완료를 기다린다.
-  const performSave = (
-    overrideFinalResult?: FinalVideoResult,
-    opts?: { checkpoint?: boolean }
-  ): Promise<void> => {
-    const task = doPerformSave(overrideFinalResult, opts);
-    saveInFlightRef.current = task;
-    void task.finally(() => {
-      if (saveInFlightRef.current === task) saveInFlightRef.current = null;
-    });
-    return task;
-  };
-
-  // 자동 저장 수행 (중복 실행 잠금 및 초기 메타데이터 추출 중 실행 보류)
-  // opts.checkpoint: AI 분석 루프 중에도 허용할 '중간 체크포인트' 저장 (명시적으로 호출한 경우에만)
-  const doPerformSave = async (overrideFinalResult?: FinalVideoResult, opts?: { checkpoint?: boolean }) => {
-    if (
-      videos.length === 0 ||
-      (!opts?.checkpoint && currentStepRef.current === 'processing') ||
-      isRestoringProjectRef.current ||
-      activeMetadataBatchCountRef.current > 0
-    ) {
-      if (videos.length === 0) setSaveStatus('idle');
-      return;
-    }
-
-    if (isSavingProjectRef.current) {
-      pendingSaveAfterLockRef.current = true;
-      return;
-    }
-
-    isSavingProjectRef.current = true;
-    const projId = currentProjectId || generateProjectId();
-    if (!currentProjectId) {
-      setCurrentProjectId(projId);
-    }
-
-    setSaveStatus('saving');
-
-    const targetFinalResult = overrideFinalResult || finalResult;
-    const saveOrientation = currentOrientation;
-    const savePlatform = currentPortraitPlatform;
-    const finalOrientation = normalizeOrientation(targetFinalResult?.orientation ?? saveOrientation);
-    // resolution이 없으면 resolveFrameSpec의 기본값(720p)으로 폴백된다.
-    const finalFrameFallback = resolveFrameSpec(finalOrientation, targetFinalResult?.resolution, savePlatform);
-
-    try {
-      const storedVideos = videos.map((v) => ({
-        id: v.id,
-        name: v.name,
-        sizeBytes: v.sizeBytes,
-        duration: v.duration,
-        width: v.width,
-        height: v.height,
-        status: v.status,
-        segments: v.segments || [],
-        analysisMode: v.analysisMode,
-        metadataDate: v.metadataDate,
-        recordedTimestamp: v.recordedTimestamp,
-        latitude: v.latitude,
-        longitude: v.longitude,
-        locationName: v.locationName,
-        rotation: v.rotation,
-        thumbnailUrl: v.thumbnailUrl && !v.thumbnailUrl.startsWith('blob:') ? v.thumbnailUrl : undefined,
-        fileBlob: v.file,
-      }));
-
-      const projectTitle =
-        currentOverlayOptions?.titleText ||
-        targetFinalResult?.suggestedTitle ||
-        (videos[0]?.name
-          ? `${videos[0].name.replace(/\.[^/.]+$/, '')} ${dict.projects?.projectSuffix || '작업'}`
-          : dict.projects?.newProjectTitle || '새 스튜디오 작업');
-
-      const safeFinalThumb =
-        targetFinalResult?.thumbnailUrl && !targetFinalResult.thumbnailUrl.startsWith('blob:')
-          ? targetFinalResult.thumbnailUrl
-          : undefined;
-      const safeVideoThumb =
-        videos[0]?.thumbnailUrl && !videos[0].thumbnailUrl.startsWith('blob:')
-          ? videos[0].thumbnailUrl
-          : undefined;
-
-      const projectData: StudioProject = {
-        id: projId,
-        title: projectTitle,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        thumbnailUrl: safeFinalThumb || safeVideoThumb,
-        duration: targetFinalResult?.duration || videos.reduce((acc, v) => acc + (v.duration || 0), 0),
-        videoCount: videos.length,
-        step: targetFinalResult ? 'result' : 'upload',
-        videos: storedVideos,
-        finalResult: targetFinalResult
-          ? {
-              videoBlob: targetFinalResult.blob,
-              duration: targetFinalResult.duration,
-              fileSize: targetFinalResult.fileSize,
-              width: targetFinalResult.width || finalFrameFallback.width,
-              height: targetFinalResult.height || finalFrameFallback.height,
-              resolution: targetFinalResult.resolution,
-              orientation: finalOrientation,
-              portraitPlatform: savePlatform,
-              segments: targetFinalResult.segments,
-              suggestedTitle: targetFinalResult.suggestedTitle,
-              thumbnailUrl: targetFinalResult.thumbnailUrl,
-              cleanThumbnailUrl: targetFinalResult.cleanThumbnailUrl,
-              bestThumbnailTime: targetFinalResult.bestThumbnailTime,
-              bestSourceVideoId: targetFinalResult.bestSourceVideoId,
-              bestThumbnailReason: targetFinalResult.bestThumbnailReason,
-              bestThumbnailCropOffsetYRatio: targetFinalResult.bestThumbnailCropOffsetYRatio,
-              bestThumbnailRotation: targetFinalResult.bestThumbnailRotation,
-              bestThumbnailCleanDataUrl: targetFinalResult.bestThumbnailCleanDataUrl,
-              aiThumbnailRecommendations: targetFinalResult.aiThumbnailRecommendations,
-            }
-          : null,
-        overlayOptions: currentOverlayOptions || undefined,
-        bgmPresetId: currentBgmPresetId,
-        bgmVolume: currentBgmVolume,
-        selectedLibraryTrackId: currentLibraryTrackId,
-        customAudioBlob: currentCustomAudio,
-        customAudioName: currentCustomAudio?.name,
-        introVideoBlob: currentOverlayOptions?.introVideoFile || undefined,
-        introVideoName: currentOverlayOptions?.introVideoFile?.name,
-        outroVideoBlob: currentOverlayOptions?.outroVideoFile || undefined,
-        outroVideoName: currentOverlayOptions?.outroVideoFile?.name,
-        selectedModel,
-        selectedEffort,
-        exportResolution: finalResult?.resolution,
-        orientation: saveOrientation,
-        portraitPlatform: savePlatform,
-        highlightMode: currentHighlightMode,
-      };
-
-      await saveProject(projectData);
-      setLastActiveProjectId(projId);
-      setSaveStatus('saved');
-      await refreshProjectSummaries();
-    } catch (err) {
-      console.warn('Auto-save failed:', err);
-      setSaveStatus('saved');
-    } finally {
-      isSavingProjectRef.current = false;
-      if (pendingSaveAfterLockRef.current) {
-        pendingSaveAfterLockRef.current = false;
-        if (autoSaveTimerRef.current !== null) {
-          window.clearTimeout(autoSaveTimerRef.current);
-        }
-        autoSaveTimerRef.current = window.setTimeout(() => {
-          autoSaveTimerRef.current = null;
-          void performSave();
-        }, 600);
-      }
-    }
-  };
-
-  // 변경 감지 시 자동 저장 (Debounced, 업로드 메타데이터 추출 중에는 보류)
-  useEffect(() => {
-    if (
-      videos.length === 0 ||
-      currentStep === 'processing' ||
-      isRestoringProjectRef.current ||
-      activeMetadataBatchCountRef.current > 0
-    ) {
-      if (videos.length === 0) {
-        setSaveStatus('idle');
-      }
-      return;
-    }
-
-    if (autoSaveTimerRef.current !== null) {
-      window.clearTimeout(autoSaveTimerRef.current);
-    }
-
-    setSaveStatus('saving');
-    autoSaveTimerRef.current = window.setTimeout(() => {
-      autoSaveTimerRef.current = null;
-      void performSave();
-    }, 600);
-
-    return () => {
-      if (autoSaveTimerRef.current !== null) {
-        window.clearTimeout(autoSaveTimerRef.current);
-      }
-    };
-  }, [
-    videos,
-    finalResult,
-    currentOverlayOptions,
-    currentBgmPresetId,
-    currentBgmVolume,
-    currentCustomAudio,
-    currentLibraryTrackId,
-    currentStep,
-    selectedModel,
-    selectedEffort,
-    currentOrientation,
-    currentPortraitPlatform,
-    currentHighlightMode,
-  ]);
-
-  // 최초 마운트 시 저장소 초기화 및 마지막 활성 프로젝트 복원
-  useEffect(() => {
-    let isMounted = true;
-    async function initProjects() {
-      // 예전 버전이 projects 레코드에 인라인으로 저장한 미디어를 project_media로 1회 분리 이전
-      await runMediaSplitMigration().catch((err) => {
-        console.warn('[App] Failed to run media split migration:', err);
-      });
-      await refreshProjectSummaries();
-      const lastId = getLastActiveProjectId();
-      if (lastId && isMounted) {
-        await handleOpenProject(lastId);
-      } else if (isMounted && !currentProjectId) {
-        setCurrentProjectId(generateProjectId());
-      }
-    }
-    void initProjects();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
 
   // 초기 모델 목록 로드 (사용자가 이전에 선택한 모델 설정 기억 및 복원)
   useEffect(() => {
@@ -1069,25 +504,10 @@ export function App() {
     } finally {
       activeMetadataBatchCountRef.current = Math.max(0, activeMetadataBatchCountRef.current - 1);
       setActiveVideoMetaBatches((count) => Math.max(0, count - 1));
-      if (activeMetadataBatchCountRef.current === 0) {
-        if (autoSaveTimerRef.current !== null) {
-          window.clearTimeout(autoSaveTimerRef.current);
-        }
-        autoSaveTimerRef.current = window.setTimeout(() => {
-          autoSaveTimerRef.current = null;
-          void performSave();
-        }, 600);
-      }
     }
   };
 
   const handleRemove = (id: string) => {
-    // 기기에 저장된 원본 미디어도 함께 지워 용량을 즉시 회수한다.
-    if (currentProjectId) {
-      void deleteProjectMediaItem(currentProjectId, 'raw', id).catch((err) => {
-        console.warn('[App] Failed to delete raw media for removed video:', err);
-      });
-    }
     setVideos((prev) => {
       const item = prev.find((v) => v.id === id);
       if (item) {
@@ -1119,12 +539,6 @@ export function App() {
         };
       })
     );
-    if (currentProjectId) {
-      void deleteProjectMediaItem(currentProjectId, 'raw', videoId).catch(() => {});
-      if (!isMobileStorageEnvironment()) {
-        void saveVideoToOPFS(currentProjectId, videoId, newFile, true);
-      }
-    }
   };
 
   // 누락 영상 파일 일괄 자동 매칭 및 재연결
@@ -1148,13 +562,6 @@ export function App() {
             } catch {}
           }
           const newUrl = URL.createObjectURL(match);
-          if (currentProjectId) {
-            // 이전 원본 미디어를 지우고 강제로 다시 기록 (동일 크기 파일 교체 포함)
-            void deleteProjectMediaItem(currentProjectId, 'raw', v.id).catch(() => {});
-            if (!isMobileStorageEnvironment()) {
-              void saveVideoToOPFS(currentProjectId, v.id, match, true);
-            }
-          }
           return {
             ...v,
             file: match,
@@ -1435,16 +842,6 @@ export function App() {
       rotation: number;
       cleanDataUrl: string;
     } | null> = new Array(totalVideos).fill(null);
-
-    // 영상이 끝날 때마다 전체 프로젝트를 저장하면 병렬 구간에서 저장이 중복되므로 디바운스한다.
-    let checkpointSaveTimer: number | null = null;
-    const scheduleCheckpointSave = () => {
-      if (checkpointSaveTimer !== null) window.clearTimeout(checkpointSaveTimer);
-      checkpointSaveTimer = window.setTimeout(() => {
-        checkpointSaveTimer = null;
-        void performSave(undefined, { checkpoint: true });
-      }, 1200);
-    };
 
     try {
       const analyzeOneVideo = async (i: number) => {
@@ -1812,9 +1209,6 @@ export function App() {
         currentVideo.status = 'analyzed';
         setVideos([...updatedVideos]);
 
-        // 개별 영상 분석 완료 시 중간 체크포인트 자동 저장 (디바운스로 병렬 저장 중복 방지)
-        scheduleCheckpointSave();
-
         // AI 추천 타이틀 및 베스트 썸네일 정보 수집 (최종 반영은 영상 순서대로)
         const segSuggestedTitle = (segments as any)?.suggestedTitle;
         const segThumbTime = (segments as any)?.bestThumbnailTimestamp;
@@ -1971,7 +1365,6 @@ export function App() {
           }
         }
         setVideos([...updatedVideos]);
-        void performSave(undefined, { checkpoint: true });
         addLog('✨ 전체 맥락에 어울리는 자연스러운 브이로그 자막으로 다듬었습니다.');
       } catch (refineErr) {
         console.warn('[Subtitle] Contextual refine error:', refineErr);
@@ -2156,10 +1549,6 @@ export function App() {
       setCurrentStep('result');
       window.location.hash = '#studio';
     } catch (err: unknown) {
-      if (checkpointSaveTimer !== null) {
-        window.clearTimeout(checkpointSaveTimer);
-        checkpointSaveTimer = null;
-      }
       setProgress((prev) => ({
         ...prev,
         progressPercent: 0,
@@ -2328,8 +1717,6 @@ export function App() {
 
       const oldResultUrl = finalResult?.url;
       setFinalResult(result);
-      // 다운로드 직후 사용자가 브라우저를 닫아도 완성본 비디오(Blob)가 100% 보존되도록 즉시 강제 저장
-      void performSave(result);
       if (oldResultUrl && oldResultUrl.startsWith('blob:')) {
         setTimeout(() => {
           try {
@@ -2399,7 +1786,6 @@ export function App() {
         originalTotalDuration: completedVideos.reduce((sum, v) => sum + (v.duration || 0), 0),
         fileSize: 0,
       });
-      void performSave(undefined, { checkpoint: true });
       hasPartialResult = true;
     }
     setCurrentStep(finalResult || hasPartialResult ? 'result' : 'upload');
@@ -2409,55 +1795,6 @@ export function App() {
     handleStartNewProject(orientation, platform);
   };
 
-  // V2 상단 바의 '새 작업': 진행 중인 저장을 마친 뒤 로컬 미디어를 전부 비우고 초기화한다.
-  // 복구용 현재 작업 1개만 남기므로 이전 영상이 IndexedDB/OPFS에 쌓이지 않는다.
-  const handleNewProject = async () => {
-    if (
-      videos.length > 0 &&
-      !window.confirm('현재 작업을 지우고 새로 시작할까요?\n저장된 영상과 편집 내용이 모두 삭제됩니다.')
-    ) {
-      return;
-    }
-    if (autoSaveTimerRef.current !== null) {
-      window.clearTimeout(autoSaveTimerRef.current);
-      autoSaveTimerRef.current = null;
-    }
-    if (saveInFlightRef.current) {
-      try {
-        await saveInFlightRef.current;
-      } catch {
-        // 저장이 실패했어도 정리는 계속 진행한다.
-      }
-    }
-    try {
-      await wipeAllAppData();
-    } catch (err) {
-      console.warn('[App] Failed to clear local media:', err);
-    }
-    handleStartNewProject();
-  };
-
-  const handleViewProjects = useCallback(async () => {
-    if (autoSaveTimerRef.current !== null) {
-      window.clearTimeout(autoSaveTimerRef.current);
-      autoSaveTimerRef.current = null;
-      await performSave();
-    } else {
-      await refreshProjectSummaries();
-    }
-  }, [
-    videos,
-    finalResult,
-    currentOverlayOptions,
-    currentBgmPresetId,
-    currentBgmVolume,
-    currentCustomAudio,
-    currentLibraryTrackId,
-    selectedModel,
-    selectedEffort,
-    currentOrientation,
-    currentPortraitPlatform,
-  ]);
 
   // V2 / 레거시가 동일한 상태·핸들러를 공유하도록 props를 한 곳에서 조립한다.
   const sharedStudioProps = {
@@ -2483,29 +1820,15 @@ export function App() {
     onReStitch: handleReStitch,
     isReStitching,
     reStitchProgress,
-    currentProjectId,
-    saveStatus,
-    projectSummaries,
-    isLoadingProjects,
-    duplicatingProjectId,
-    onProjectsRefresh: () => {
-      void refreshProjectSummaries();
-    },
-    onOpenProject: handleOpenProject,
-    onDuplicateProject: handleDuplicateProject,
-    onDeleteProject: handleDeleteProject,
     onStartNewProject: handleStartNewProject,
-    onNewProject: handleNewProject,
     onTrySampleVideo: handleTrySampleVideo,
     isLoadingSample,
-    onViewProjects: handleViewProjects,
     initialOverlayOptions: currentOverlayOptions,
     initialHighlightMode: currentHighlightMode,
     onHighlightModeChange: handleHighlightModeChange,
     initialBgmPresetId: currentBgmPresetId,
     initialBgmVolume: currentBgmVolume,
     initialCustomAudioFile: currentCustomAudio,
-    initialSelectedLibraryTrackId: currentLibraryTrackId,
     onOverlayOptionsChange: handleOverlayOptionsChange,
     onBgmChange: handleBgmChange,
     onCustomAudioChange: handleCustomAudioChange,
