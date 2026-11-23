@@ -22,15 +22,19 @@ After modifying code in any service, run its verification commands yourself and 
 - Fix failures introduced by your changes until all checks pass. If a pre-existing failure is unrelated, report it verbatim with file and error details.
 - Local commits run `.githooks/pre-commit` (secret guard + staged lint/typecheck). Enable once per clone with `git config core.hooksPath .githooks`.
 
-## Worktree & Finish Workflow (Default)
+## Worktree & One-Shot Finish Workflow (Default)
 
-- New threads run in isolated git worktrees (T3 Code creates one automatically and links `node_modules` / `.env*` via `scripts/worktree-setup.ps1`). If `node_modules` is missing in a worktree, run `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/worktree-setup.ps1`.
-- After verifying and committing changes in a worktree, immediately merge to `main`, push, and delete the finished worktree:
-  ```powershell
-  powershell -NoProfile -ExecutionPolicy Bypass -File scripts/worktree-finish.ps1
-  ```
-- If `worktree-finish.ps1` reports a rebase conflict with `main`, run `git rebase main`, resolve conflicts, re-run verification checks, then re-run `worktree-finish.ps1`.
-- Keep the primary `main` checkout clean so parallel worktrees can fast-forward merge into `main` without blocking.
+When the user asks to implement, fix, or modify code (anything other than a read-only question, review, or plan-only request), complete the entire loop end-to-end automatically **without pausing to ask for commit/push confirmation**:
+
+1. **Work in the thread's worktree**: If `node_modules` is missing, run `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/worktree-setup.ps1`.
+2. **Self-verify**: Run the modified service's verification commands above and confirm they pass.
+3. **Commit**: Stage only your task's files and commit using the repo's Korean Conventional Commit format (`<type>(<scope>): <한글 제목>`, see `docs/rules/git-convention.md`).
+4. **Merge to `main`, push, and delete the finished worktree**:
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/worktree-finish.ps1
+   ```
+   If it exits with a rebase conflict (exit code 2), run `git rebase main`, resolve conflicts, re-run verification checks, and re-run `scripts/worktree-finish.ps1`.
+5. Keep the primary `main` checkout clean so parallel worktrees merge without blocking.
 
 ## Hard Guardrails
 
