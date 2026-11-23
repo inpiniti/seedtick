@@ -340,8 +340,9 @@
     flex-basis 0.42s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.34s ease;
 }
 .sv2-dock[data-collapsed='true'] {
-  /* 접힐 때는 애니메이션 없이 즉시 사라진다. 펼칠 때만 기본 transition이 적용된다. */
-  transition: none;
+  /* 열릴 때(기본 ease-out)와 달리 닫힐 때는 ease-in-out로 자연스럽게 안으로 접힌다. */
+  transition: width 0.36s cubic-bezier(0.4, 0, 0.2, 1),
+    flex-basis 0.36s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.26s ease;
   flex-basis: 0;
   width: 0;
   opacity: 0;
