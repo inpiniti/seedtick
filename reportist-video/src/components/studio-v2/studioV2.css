@@ -558,7 +558,9 @@
   overflow: hidden;
   background: #000;
   box-shadow: var(--sv2-shadow-lg);
-  border: 1px solid var(--sv2-border);
+  /* 얇은 border는 배경과 거의 같은 색이라 위·아래는 안 보이고 좌우만 남아
+     콘텐츠 박스 비율이 어긋나 캔버스 여백(검은 선)까지 생겼다.
+     라운드 코너와 그림자만으로 프레임을 명확히 마감한다. */
 }
 .sv2-preview-frame canvas {
   display: block;
