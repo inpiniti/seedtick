@@ -1967,13 +1967,6 @@
   border-right: 1px solid var(--sv2-border);
   background: var(--sv2-surface-2);
 }
-.sv2-settings-nav-heading {
-  padding: 4px 10px 10px;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  color: var(--sv2-text-3);
-}
 .sv2-settings-nav-item {
   display: flex;
   align-items: center;

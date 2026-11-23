@@ -219,7 +219,6 @@ export const StudioV2SettingsModal = ({
         <div className="sv2-settings-body">
           {/* 좌측: 섹션 탐색 */}
           <nav className="sv2-settings-nav" aria-label={t('settingsModal.navAriaLabel')}>
-            <div className="sv2-settings-nav-heading">{t('common.settings')}</div>
             {navSections.map((section) => {
               const Icon = section.icon;
               return (
