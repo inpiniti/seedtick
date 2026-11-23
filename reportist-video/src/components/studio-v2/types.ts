@@ -85,6 +85,17 @@ export type InspectorTarget =
   | { type: 'outro' }
   | null;
 
+/** 인스펙터가 중앙 미리보기에 요청하는 인트로/아웃트로 구간 동작. */
+export type PreviewRequest =
+  | { kind: 'intro' | 'outro'; mode: 'replay'; loop: boolean }
+  | { kind: 'intro' | 'outro'; mode: 'hold'; progress: number };
+
+/** 현재 구간 단독 미리보기 상태 (중앙 캔버스 배지·재생 루프가 공유). */
+export interface PreviewRange {
+  kind: 'intro' | 'outro';
+  loop: boolean;
+}
+
 export const DEFAULT_OVERLAY_OPTIONS: VideoOverlayOptions = {
   showTitle: false,
   titleText: '',

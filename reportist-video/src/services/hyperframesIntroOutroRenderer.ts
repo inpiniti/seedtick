@@ -450,6 +450,41 @@ export function createHyperframesOutroController(
 }
 
 // ============================================================================
+// Controller Cache — 프리뷰는 매 프레임 같은 (템플릿, 길이) 조합을 다시 그리므로
+// GSAP 타임라인을 매번 생성·파괴하지 않고 재사용해 60fps 반복 재생의 프레임 드랍을 막는다.
+// seek()는 paused 타임라인을 해당 시점으로 결정적으로 렌더하므로 재사용이 안전하다.
+// ============================================================================
+
+const introControllerCache = new Map<
+  string,
+  ReturnType<typeof createHyperframesIntroController>
+>();
+const outroControllerCache = new Map<
+  string,
+  ReturnType<typeof createHyperframesOutroController>
+>();
+
+function getIntroController(template: IntroTemplateId, durationSec: number) {
+  const key = `${template}|${durationSec.toFixed(2)}`;
+  let controller = introControllerCache.get(key);
+  if (!controller) {
+    controller = createHyperframesIntroController(template, durationSec);
+    introControllerCache.set(key, controller);
+  }
+  return controller;
+}
+
+function getOutroController(template: OutroTemplateId, durationSec: number) {
+  const key = `${template}|${durationSec.toFixed(2)}`;
+  let controller = outroControllerCache.get(key);
+  if (!controller) {
+    controller = createHyperframesOutroController(template, durationSec);
+    outroControllerCache.set(key, controller);
+  }
+  return controller;
+}
+
+// ============================================================================
 // Canvas 2D Rendering Primitives
 // ============================================================================
 
@@ -1323,7 +1358,7 @@ export function renderHyperframesIntroFrame(
 ): void {
   const template = options?.introTemplate || 'kinetic-slide';
   const duration = options?.introDurationSec || DEFAULT_INTRO_DURATION;
-  const controller = createHyperframesIntroController(template, duration);
+  const controller = getIntroController(template, duration);
   const state = controller.seek(progress);
   const scale = Math.min(w, h) / 720;
 
@@ -1344,7 +1379,6 @@ export function renderHyperframesIntroFrame(
       drawKineticSlideIntro(ctx, state, options, w, h, scale);
       break;
   }
-  controller.destroy();
 }
 
 export function renderHyperframesOutroFrame(
@@ -1356,7 +1390,7 @@ export function renderHyperframesOutroFrame(
 ): void {
   const template = options?.outroTemplate || 'modern-endcard';
   const duration = options?.outroDurationSec || DEFAULT_OUTRO_DURATION;
-  const controller = createHyperframesOutroController(template, duration);
+  const controller = getOutroController(template, duration);
   const state = controller.seek(progress);
   const scale = Math.min(w, h) / 720;
 
@@ -1406,6 +1440,4 @@ export function renderHyperframesOutroFrame(
     ctx.fillText(creditText, w / 2, boxY + padY);
     ctx.restore();
   }
-
-  controller.destroy();
 }

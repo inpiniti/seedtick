@@ -11,7 +11,8 @@ import type {
   VideoOrientation,
   VideoOverlayOptions,
 } from '../../types/video.ts';
-import { formatClock, formatShootDate } from './types.ts';
+import { formatClock, formatShootDate, type PreviewRange } from './types.ts';
+import { getTemplateName } from '../studio/introOutroOptions.ts';
 import { resolveTimelineItem, type TimelineModel } from './timelineModel.ts';
 import { PreviewInteractiveOverlay } from './PreviewInteractiveOverlay.tsx';
 
@@ -26,6 +27,7 @@ interface CenterPreviewStageProps {
   overlayOptions: VideoOverlayOptions;
   orientation: VideoOrientation;
   totalDuration: number;
+  previewRange?: PreviewRange | null;
   onTogglePlay: () => void;
   onPause: () => void;
   onSeek: (time: number) => void;
@@ -42,6 +44,7 @@ export const CenterPreviewStage = ({
   overlayOptions,
   orientation,
   totalDuration,
+  previewRange,
   onTogglePlay,
   onPause,
   onSeek,
@@ -54,6 +57,22 @@ export const CenterPreviewStage = ({
   const [rendererReady, setRendererReady] = useState(false);
   const [redrawTick, setRedrawTick] = useState(0);
   const [isEditingCaption, setIsEditingCaption] = useState(false);
+  const customIntroVideoRef = useRef<HTMLVideoElement>(null);
+  const customOutroVideoRef = useRef<HTMLVideoElement>(null);
+  const [customVideoUrls, setCustomVideoUrls] = useState<{ intro?: string; outro?: string }>({});
+
+  // 사용자가 직접 올린 인트로/아웃트로 영상은 blob URL로 프리뷰에도 그대로 표시한다.
+  const introVideoFile = overlayOptions.introVideoFile;
+  const outroVideoFile = overlayOptions.outroVideoFile;
+  useEffect(() => {
+    const introUrl = introVideoFile ? URL.createObjectURL(introVideoFile) : undefined;
+    const outroUrl = outroVideoFile ? URL.createObjectURL(outroVideoFile) : undefined;
+    setCustomVideoUrls({ intro: introUrl, outro: outroUrl });
+    return () => {
+      if (introUrl) URL.revokeObjectURL(introUrl);
+      if (outroUrl) URL.revokeObjectURL(outroUrl);
+    };
+  }, [introVideoFile, outroVideoFile]);
 
   // GSAP 인트로/아웃트로 렌더러는 별도 청크로 지연 로드
   useEffect(() => {
@@ -75,6 +94,28 @@ export const CenterPreviewStage = ({
   // 선택한 컷의 자막·위치가 겹치지 않도록 selectedSegmentId 폴백을 쓰지 않는다.
   const activeItem = resolveTimelineItem(model, playhead);
   const activeSegment = activeItem?.kind === 'segment' ? activeItem.segment ?? null : null;
+
+  // 구간 진행률에 맞춰 직접 업로드한 영상의 프레임을 동기화한다(모션 캔버스 대신 표시).
+  useEffect(() => {
+    if (!activeItem || (activeItem.kind !== 'intro' && activeItem.kind !== 'outro')) return;
+    const isIntro = activeItem.kind === 'intro';
+    const file = isIntro ? introVideoFile : outroVideoFile;
+    const video = isIntro ? customIntroVideoRef.current : customOutroVideoRef.current;
+    if (!file || !video || video.readyState < 1) return;
+    if (!Number.isFinite(video.duration) || video.duration <= 0) return;
+    const progress = Math.max(
+      0,
+      Math.min(1, (playhead - activeItem.start) / Math.max(0.01, activeItem.end - activeItem.start))
+    );
+    const target = progress * video.duration;
+    if (Math.abs(video.currentTime - target) > 0.08) {
+      try {
+        video.currentTime = target;
+      } catch {
+        /* 아직 seek 불가 */
+      }
+    }
+  }, [playhead, activeItem, introVideoFile, outroVideoFile, customVideoUrls, redrawTick]);
 
   // 프레임 렌더 — playhead가 바뀔 때마다 캔버스에 현재 합성 결과를 그린다.
   useEffect(() => {
@@ -129,6 +170,15 @@ export const CenterPreviewStage = ({
   const locationLabel = activeSegment?.locationName || overlayOptions.subtitleLocationText || '';
   // 캔버스와 같은 폴백을 사용한다. 빈 문자열로 지운 컷은 reason으로 되돌아가지 않고 '자막 추가'만 보인다.
   const captionLabel = activeSegment?.subtitleTitle ?? activeSegment?.reason ?? '';
+  const previewLabel = previewRange
+    ? previewRange.kind === 'intro'
+      ? introVideoFile
+        ? '직접 올린 영상'
+        : getTemplateName('intro', overlayOptions.introTemplate)
+      : outroVideoFile
+        ? '직접 올린 영상'
+        : getTemplateName('outro', overlayOptions.outroTemplate)
+    : '';
 
   return (
     <>
@@ -175,6 +225,34 @@ export const CenterPreviewStage = ({
               }}
             />
           ))}
+          {activeItem?.kind === 'intro' && introVideoFile && customVideoUrls.intro && (
+            <video
+              ref={customIntroVideoRef}
+              className="sv2-preview-custom-video"
+              src={customVideoUrls.intro}
+              muted
+              playsInline
+              preload="auto"
+              onLoadedMetadata={() => setRedrawTick((t) => t + 1)}
+            />
+          )}
+          {activeItem?.kind === 'outro' && outroVideoFile && customVideoUrls.outro && (
+            <video
+              ref={customOutroVideoRef}
+              className="sv2-preview-custom-video"
+              src={customVideoUrls.outro}
+              muted
+              playsInline
+              preload="auto"
+              onLoadedMetadata={() => setRedrawTick((t) => t + 1)}
+            />
+          )}
+          {previewRange && (
+            <div className="sv2-preview-badge" aria-live="polite">
+              <span className="sv2-preview-badge-dot" data-playing={isPlaying} />
+              {previewRange.kind === 'intro' ? '인트로' : '아웃트로'} 미리보기 · {previewLabel}
+            </div>
+          )}
           {activeSegment && (
             <PreviewInteractiveOverlay
               key={activeSegment.id}

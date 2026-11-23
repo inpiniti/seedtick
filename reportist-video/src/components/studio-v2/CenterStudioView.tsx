@@ -25,6 +25,8 @@ import { buildTimeline } from './timelineModel.ts';
 import {
   DEFAULT_OVERLAY_OPTIONS,
   type InspectorTarget,
+  type PreviewRange,
+  type PreviewRequest,
   type StudioV2Props,
 } from './types.ts';
 import './studioV2.css';
@@ -421,6 +423,15 @@ export const CenterStudioView = (props: StudioV2Props) => {
   const [playhead, setPlayhead] = useState(0);
   const playheadRef = useRef(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  // 인스펙터가 요청한 인트로/아웃트로 구간 단독 미리보기 상태.
+  const [previewRange, setPreviewRange] = useState<PreviewRange | null>(null);
+  const previewRef = useRef<PreviewRange | null>(null);
+  previewRef.current = previewRange;
+  // 같은 템플릿을 다시 눌러도 0%부터 재생하도록 재생 요청마다 증가하는 토큰.
+  const [previewSeq, setPreviewSeq] = useState(0);
+  const lastPreviewTokenRef = useRef<string | null>(null);
+  const modelRef = useRef(model);
+  modelRef.current = model;
 
   useEffect(() => {
     if (playheadRef.current > model.total) {
@@ -429,6 +440,12 @@ export const CenterStudioView = (props: StudioV2Props) => {
     }
   }, [model.total]);
 
+  const sectionBounds = useCallback((kind: 'intro' | 'outro') => {
+    const key = kind === 'intro' ? '__intro__' : '__outro__';
+    const item = modelRef.current.items.find((i) => i.key === key);
+    return item ? { start: item.start, end: item.end } : null;
+  }, []);
+
   useEffect(() => {
     if (!isPlaying || model.total <= 0) return;
     let raf = 0;
@@ -436,8 +453,27 @@ export const CenterStudioView = (props: StudioV2Props) => {
     const step = (now: number) => {
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
+      const range = previewRef.current;
+      const bounds = range ? sectionBounds(range.kind) : null;
+      // 구간이 꺼져 있으면(모델에서 사라지면) 전체 재생으로 자연스럽게 폴백한다.
+      const end = bounds?.end ?? modelRef.current.total;
       const next = playheadRef.current + dt;
-      if (next >= model.total) {
+
+      if (bounds && next >= end) {
+        if (range?.loop) {
+          playheadRef.current = bounds.start;
+          setPlayhead(bounds.start);
+          raf = requestAnimationFrame(step);
+          return;
+        }
+        // 완성 프레임에 정지 — 0초로 튕겨 검은 첫 프레임이 보이지 않게 한다.
+        const finalFrame = Math.max(bounds.start, end - 0.01);
+        playheadRef.current = finalFrame;
+        setPlayhead(finalFrame);
+        setIsPlaying(false);
+        return;
+      }
+      if (next >= modelRef.current.total) {
         playheadRef.current = 0;
         setPlayhead(0);
         setIsPlaying(false);
@@ -449,18 +485,88 @@ export const CenterStudioView = (props: StudioV2Props) => {
     };
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
-  }, [isPlaying, model.total]);
+  }, [isPlaying, model.total, sectionBounds]);
 
   const seek = useCallback((time: number) => {
     playheadRef.current = time;
     setPlayhead(time);
   }, []);
 
+  const clearPreview = useCallback(() => {
+    setPreviewRange(null);
+    setIsPlaying(false);
+  }, []);
+
+  /** 문구 입력처럼 재시작 없이 선명한 대표 프레임에 고정할 때 사용한다. */
+  const holdFrame = useCallback(
+    (kind: 'intro' | 'outro', progress: number) => {
+      const bounds = sectionBounds(kind);
+      if (!bounds) return;
+      const t = Math.min(
+        bounds.end - 0.001,
+        bounds.start + Math.max(0, Math.min(1, progress)) * (bounds.end - bounds.start)
+      );
+      setIsPlaying(false);
+      playheadRef.current = t;
+      setPlayhead(t);
+    },
+    [sectionBounds]
+  );
+
+  const playSection = useCallback(
+    (kind: 'intro' | 'outro', loop: boolean) => {
+      const prefersReduced =
+        typeof window !== 'undefined' &&
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      setPreviewRange({ kind, loop });
+      if (prefersReduced) {
+        // 대표 프레임 고정이 구간 시작 seek에 덮어써지지 않도록 토큰을 미리 소비한다.
+        lastPreviewTokenRef.current = `${kind}:${previewSeq}`;
+        holdFrame(kind, 0.8);
+        return;
+      }
+      setPreviewSeq((v) => v + 1);
+      setIsPlaying(true);
+    },
+    [holdFrame, previewSeq]
+  );
+
+  // 템플릿 클릭으로 인트로/아웃트로가 방금 켜진 경우에도 모델이 갱신된 뒤
+  // 같은 이펙트에서 구간 시작으로 이동해 0%→100% 재생을 시작한다.
+  useEffect(() => {
+    if (!previewRange) return;
+    const key = previewRange.kind === 'intro' ? '__intro__' : '__outro__';
+    const item = model.items.find((i) => i.key === key);
+    if (!item) {
+      setPreviewRange(null);
+      setIsPlaying(false);
+      return;
+    }
+    const token = `${previewRange.kind}:${previewSeq}`;
+    if (lastPreviewTokenRef.current === token) return;
+    lastPreviewTokenRef.current = token;
+    playheadRef.current = item.start;
+    setPlayhead(item.start);
+  }, [previewRange, previewSeq, model.items]);
+
+  const handlePreviewRequest = useCallback(
+    (request: PreviewRequest) => {
+      if (request.mode === 'hold') {
+        holdFrame(request.kind, request.progress);
+        return;
+      }
+      playSection(request.kind, request.loop);
+    },
+    [holdFrame, playSection]
+  );
+
   // 타임라인 컷을 클릭하면 재생을 멈추고 해당 컷의 시작 프레임으로 이동한다.
   // 미리보기 오버레이는 현재 프레임의 컷에만 바인딩되므로 이 seek가 선택과 화면을 일치시킨다.
   const selectSegment = useCallback(
     (id: string) => {
       setSelectedSegmentId(id);
+      setPreviewRange(null);
       setIsPlaying(false);
       const item = model.items.find((i) => i.kind === 'segment' && i.segment?.id === id);
       if (item) seek(item.start);
@@ -468,23 +574,33 @@ export const CenterStudioView = (props: StudioV2Props) => {
     [model.items, seek]
   );
 
-  // 인트로/아웃트로는 우측 인스펙터에서 계속 편집한다. 컷 선택을 해제하고
-  // 해당 구간의 중간 프레임으로 이동해 인스펙터 대상과 화면이 어긋나지 않게 한다.
-  const openIntro = useCallback(() => {
-    setSelectedSegmentId(null);
-    setIsPlaying(false);
-    const item = model.items.find((i) => i.kind === 'intro');
-    if (item) seek((item.start + item.end) / 2);
-    setActiveInspector({ type: 'intro' });
-  }, [model.items, seek]);
+  // 인트로/아웃트로 칩을 누르면 인스펙터를 열고 해당 구간을 바로 재생한다.
+  // 모션 감소 환경에서는 자동 재생 대신 문구가 선명한 대표 프레임에 정지한다.
+  const openSection = useCallback(
+    (kind: 'intro' | 'outro') => {
+      setSelectedSegmentId(null);
+      if (sectionBounds(kind)) playSection(kind, previewRef.current?.loop ?? false);
+      else clearPreview();
+      setActiveInspector({ type: kind });
+    },
+    [clearPreview, playSection, sectionBounds]
+  );
 
-  const openOutro = useCallback(() => {
-    setSelectedSegmentId(null);
-    setIsPlaying(false);
-    const item = model.items.find((i) => i.kind === 'outro');
-    if (item) seek((item.start + item.end) / 2);
-    setActiveInspector({ type: 'outro' });
-  }, [model.items, seek]);
+  const openIntro = useCallback(() => openSection('intro'), [openSection]);
+  const openOutro = useCallback(() => openSection('outro'), [openSection]);
+
+  // 하단 전체 재생 버튼은 구간 미리보기를 해제하고 타임라인 전체를 재생한다.
+  const togglePlay = useCallback(() => {
+    if (isPlaying) {
+      setIsPlaying(false);
+      return;
+    }
+    setPreviewRange(null);
+    setIsPlaying(true);
+  }, [isPlaying]);
+
+  // 룰러 드래그 시작 시 구간 미리보기를 해제한다.
+  const onScrubStart = useCallback(() => clearPreview(), [clearPreview]);
 
   // ---------- 좌측 리스트 소멸 조건 ----------
   const pendingVideos = videos.filter((v) => (v.segments?.length ?? 0) === 0);
@@ -642,9 +758,13 @@ export const CenterStudioView = (props: StudioV2Props) => {
               overlayOptions={overlayOptions}
               orientation={orientation}
               totalDuration={model.total}
-              onTogglePlay={() => setIsPlaying((p) => !p)}
+              previewRange={previewRange}
+              onTogglePlay={togglePlay}
               onPause={() => setIsPlaying(false)}
-              onSeek={seek}
+              onSeek={(time) => {
+                setPreviewRange(null);
+                seek(time);
+              }}
               onOpenLocation={openLocation}
               onUpdateSegment={updateSegment}
             />
@@ -659,7 +779,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
             landingIds={landingIds}
             playhead={playhead}
             onSeek={seek}
-            onScrubStart={() => setIsPlaying(false)}
+            onScrubStart={onScrubStart}
             locked={isProcessing}
             bgmPresetId={bgmPresetId}
             bgmVolume={bgmVolume}
@@ -685,10 +805,15 @@ export const CenterStudioView = (props: StudioV2Props) => {
           segment={activeSegment}
           thumbnailUrl={videos.find((v) => v.id === activeSegment?.sourceVideoId)?.thumbnailUrl}
           overlayOptions={overlayOptions}
+          orientation={orientation}
           onUpdateSegment={updateSegment}
           onApplyToVideo={applyToVideo}
           onOverlayChange={updateOverlay}
-          onClose={() => setActiveInspector(null)}
+          onPreviewRequest={handlePreviewRequest}
+          onClose={() => {
+            setActiveInspector(null);
+            clearPreview();
+          }}
         />
 
         {trimSegment && (

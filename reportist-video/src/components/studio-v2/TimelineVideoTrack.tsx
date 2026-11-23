@@ -76,10 +76,7 @@ export const TimelineVideoTrack = ({
           data-empty={!overlayOptions.showIntro}
           data-playing={isPlaying('__intro__')}
           style={chipStyle('__intro__')}
-          onClick={() => {
-            onOpenIntro();
-            seekInto('__intro__');
-          }}
+          onClick={() => onOpenIntro()}
           title="인트로 설정"
         >
           <span className="sv2-chip-title">인트로</span>
@@ -157,10 +154,7 @@ export const TimelineVideoTrack = ({
           data-empty={!overlayOptions.showOutro}
           data-playing={isPlaying('__outro__')}
           style={chipStyle('__outro__')}
-          onClick={() => {
-            onOpenOutro();
-            seekInto('__outro__');
-          }}
+          onClick={() => onOpenOutro()}
           title="아웃트로 설정"
         >
           <span className="sv2-chip-title"><Flag size={12} style={{ verticalAlign: -2 }} /> 아웃트로</span>

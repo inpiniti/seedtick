@@ -1,7 +1,11 @@
 import { lazy, Suspense } from 'react';
 import { X } from 'lucide-react';
-import type { HighlightSegment, VideoOverlayOptions } from '../../types/video.ts';
-import type { InspectorTarget } from './types.ts';
+import type {
+  HighlightSegment,
+  VideoOrientation,
+  VideoOverlayOptions,
+} from '../../types/video.ts';
+import type { InspectorTarget, PreviewRequest } from './types.ts';
 import { LocationInspectorPanel } from './LocationInspectorPanel.tsx';
 import { IntroOutroInspectorPanel } from './IntroOutroInspectorPanel.tsx';
 
@@ -15,9 +19,11 @@ interface RightInspectorDrawerProps {
   segment: HighlightSegment | null;
   thumbnailUrl?: string;
   overlayOptions: VideoOverlayOptions;
+  orientation: VideoOrientation;
   onUpdateSegment: (segmentId: string, patch: Partial<HighlightSegment>) => void;
   onApplyToVideo: (sourceVideoId: string, locationName: string) => void;
   onOverlayChange: (patch: Partial<VideoOverlayOptions>) => void;
+  onPreviewRequest: (request: PreviewRequest) => void;
   onClose: () => void;
 }
 
@@ -26,9 +32,11 @@ export const RightInspectorDrawer = ({
   segment,
   thumbnailUrl,
   overlayOptions,
+  orientation,
   onUpdateSegment,
   onApplyToVideo,
   onOverlayChange,
+  onPreviewRequest,
   onClose,
 }: RightInspectorDrawerProps) => {
   const title =
@@ -64,7 +72,9 @@ export const RightInspectorDrawer = ({
         <IntroOutroInspectorPanel
           kind={target.type}
           overlayOptions={overlayOptions}
+          orientation={orientation}
           onChange={onOverlayChange}
+          onPreviewRequest={onPreviewRequest}
         />
       )}
     </aside>
