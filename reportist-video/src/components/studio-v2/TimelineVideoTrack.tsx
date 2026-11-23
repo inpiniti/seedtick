@@ -13,6 +13,8 @@ interface TimelineVideoTrackProps {
   overlayOptions: VideoOverlayOptions;
   selectedSegmentId: string | null;
   landingIds: Set<string>;
+  /** 원본 삭제 연출 중 타임라인에서 숨길 컷 id */
+  returningIds?: Set<string>;
   locked?: boolean;
   layout: TimelineLayout;
   playhead: number;
@@ -34,6 +36,7 @@ export const TimelineVideoTrack = ({
   overlayOptions,
   selectedSegmentId,
   landingIds,
+  returningIds,
   locked = false,
   layout,
   playhead,
@@ -95,6 +98,7 @@ export const TimelineVideoTrack = ({
             className="sv2-chip"
             data-selected={selectedSegmentId === seg.id}
             data-landing={landingIds.has(seg.id)}
+            data-returning={returningIds?.has(seg.id) ?? false}
             data-playing={isPlaying(seg.id)}
             style={chipStyle(seg.id)}
             data-cut-slot-id={seg.id}

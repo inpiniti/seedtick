@@ -20,7 +20,12 @@ import { UploadQueueDock } from './UploadQueueDock.tsx';
 import { CenterPreviewStage } from './CenterPreviewStage.tsx';
 import { TimelineDock } from './TimelineDock.tsx';
 import { RightInspectorDrawer } from './RightInspectorDrawer.tsx';
-import { flyCutsIn, type FlightHandle } from './cutFlightAnimator.ts';
+import {
+  collapseFlightCard,
+  flyCutsIn,
+  flyCutsOut,
+  type FlightHandle,
+} from './cutFlightAnimator.ts';
 import { buildTimeline } from './timelineModel.ts';
 import {
   DEFAULT_OVERLAY_OPTIONS,
@@ -99,6 +104,9 @@ export const CenterStudioView = (props: StudioV2Props) => {
   const [landedVideos, setLandedVideos] = useState<Set<string>>(new Set());
   const [landingIds, setLandingIds] = useState<Set<string>>(new Set());
   const [subtitleRefreshed, setSubtitleRefreshed] = useState(false);
+  // 원본 삭제 연출 중인 컷/영상. 컷은 타임라인에서 숨기고, 편집·내보내기는 잠근다.
+  const [returningIds, setReturningIds] = useState<Set<string>>(new Set());
+  const [removingVideoIds, setRemovingVideoIds] = useState<Set<string>>(new Set());
 
   // 비행 상태는 ref를 진실 원본으로 두어 거의 동시에 완료되는 여러 배치가 서로를 덮어쓰지 않게 한다.
   const videosRef = useRef(videos);
@@ -109,6 +117,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
   );
   const idToSourceRef = useRef<Map<string, string>>(new Map());
   const activeFlightsRef = useRef<Set<FlightHandle>>(new Set());
+  const activeReturnFlightsRef = useRef<Set<FlightHandle>>(new Set());
   const prevSegmentsRef = useRef<HighlightSegment[]>(result?.segments ?? []);
 
   /** 새로 도착한 컷만 한 배치로 발사한다. 이미 발사한 id는 절대 중복 발사하지 않는다. */
@@ -173,12 +182,15 @@ export const CenterStudioView = (props: StudioV2Props) => {
     };
   }, []);
 
-  // 언마운트 시 남은 비행을 모두 정리한다.
+  // 언마운트 시 남은 비행(착지/역비행)을 모두 정리한다.
   useEffect(() => {
     const flights = activeFlightsRef.current;
+    const returns = activeReturnFlightsRef.current;
     return () => {
       flights.forEach((h) => h.cancel());
       flights.clear();
+      returns.forEach((h) => h.cancel());
+      returns.clear();
     };
   }, []);
 
@@ -252,31 +264,31 @@ export const CenterStudioView = (props: StudioV2Props) => {
     [result, isProcessing, props]
   );
 
-  // 분석 중에는 스트리밍 데이터와 편집 상태가 충돌하지 않도록 모든 세그먼트 편집을 막는다.
+  // 분석 중이거나 원본 삭제 연출 중에는 스트리밍/연출 상태와 충돌하지 않도록 편집을 막는다.
   const updateSegment = useCallback(
     (id: string, patch: Partial<HighlightSegment>) => {
-      if (isProcessing) return;
+      if (isProcessing || removingVideoIds.size > 0) return;
       const next = localSegments.map((s) => (s.id === id ? { ...s, ...patch } : s));
       setLocalSegments(next);
       commitSegments(next);
     },
-    [isProcessing, localSegments, commitSegments]
+    [isProcessing, removingVideoIds, localSegments, commitSegments]
   );
 
   const deleteSegment = useCallback(
     (id: string) => {
-      if (isProcessing) return;
+      if (isProcessing || removingVideoIds.size > 0) return;
       const next = localSegments.filter((s) => s.id !== id);
       setLocalSegments(next);
       commitSegments(next);
       setSelectedSegmentId((prev) => (prev === id ? null : prev));
     },
-    [isProcessing, localSegments, commitSegments]
+    [isProcessing, removingVideoIds, localSegments, commitSegments]
   );
 
   const reorderSegments = useCallback(
     (from: number, to: number) => {
-      if (isProcessing || from === to) return;
+      if (isProcessing || removingVideoIds.size > 0 || from === to) return;
       const next = [...localSegments];
       const [moved] = next.splice(from, 1);
       if (!moved) return;
@@ -284,7 +296,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
       setLocalSegments(next);
       commitSegments(next);
     },
-    [isProcessing, localSegments, commitSegments]
+    [isProcessing, removingVideoIds, localSegments, commitSegments]
   );
 
   // ---------- 오버레이 옵션 ----------
@@ -636,12 +648,121 @@ export const CenterStudioView = (props: StudioV2Props) => {
 
   // ---------- 액션 ----------
   const startAnalysis = useCallback(() => {
+    if (isProcessing || removingVideoIds.size > 0) return;
     onStartAiAnalysis(overlayOptions, customAudioFile, bgmPresetId, bgmVolume);
-  }, [onStartAiAnalysis, overlayOptions, customAudioFile, bgmPresetId, bgmVolume]);
+  }, [isProcessing, removingVideoIds, onStartAiAnalysis, overlayOptions, customAudioFile, bgmPresetId, bgmVolume]);
+
+  /**
+   * 원본 영상 삭제 오케스트레이션.
+   * 1) 해당 컷들을 타임라인에서 숨기고 재생/선택/인스펙터를 정리한다.
+   * 2) 컷을 원본 카드로 역비행시키고, 카드 소멸이 끝나면 실제 상태 삭제를 호출한다.
+   *    (blob URL 해제를 연출 뒤로 미뤄 고스트/썸네일이 도중에 깨지지 않게 한다.)
+   */
+  const handleRemoveVideoWithAnimation = useCallback(
+    (videoId: string) => {
+      if (isProcessing || removingVideoIds.has(videoId)) return;
+
+      const targetSegments = localSegments.filter((s) => s.sourceVideoId === videoId);
+      const sourceVideo = videos.find((v) => v.id === videoId);
+      const cardEl = document.querySelector(
+        `[data-cut-card-id="${videoId}"]`
+      ) as HTMLElement | null;
+
+      clearPreview();
+      setReturningIds((prev) => {
+        const next = new Set(prev);
+        targetSegments.forEach((s) => next.add(s.id));
+        return next;
+      });
+      setRemovingVideoIds((prev) => new Set(prev).add(videoId));
+
+      if (targetSegments.some((s) => s.id === selectedSegmentId)) {
+        setSelectedSegmentId(null);
+      }
+      if (
+        activeInspector?.type === 'location' &&
+        targetSegments.some((s) => s.id === activeInspector.segmentId)
+      ) {
+        setActiveInspector(null);
+      }
+      if (trimSegment && targetSegments.some((s) => s.id === trimSegment.id)) {
+        setTrimSegment(null);
+      }
+
+      const finalize = () => {
+        onRemoveVideo(videoId);
+        setReturningIds((prev) => {
+          const next = new Set(prev);
+          targetSegments.forEach((s) => next.delete(s.id));
+          return next;
+        });
+        setRemovingVideoIds((prev) => {
+          const next = new Set(prev);
+          next.delete(videoId);
+          return next;
+        });
+        setLandedVideos((prev) => {
+          if (!prev.has(videoId)) return prev;
+          const next = new Set(prev);
+          next.delete(videoId);
+          return next;
+        });
+        targetSegments.forEach((s) => dispatchedIdsRef.current.delete(s.id));
+      };
+
+      if (targetSegments.length === 0) {
+        // 아직 컷이 없는 영상은 역비행 없이 카드 소멸만 연출한다.
+        const handle = collapseFlightCard(cardEl, finalize);
+        activeReturnFlightsRef.current.add(handle);
+        return;
+      }
+
+      // 가로 스크롤 영역 밖의 칩은 트랙 뷰포트 경계로 clamp해 허공에서 출발하지 않게 한다.
+      const trackRect = (document.querySelector('.sv2-tracks') as HTMLElement | null)
+        ?.getBoundingClientRect();
+      const items = targetSegments.map((seg) => {
+        const chipRect = (
+          document.querySelector(`[data-cut-slot-id="${seg.id}"]`) as HTMLElement | null
+        )?.getBoundingClientRect();
+        let x = chipRect ? chipRect.left + chipRect.width / 2 : window.innerWidth * 0.65;
+        let y = chipRect ? chipRect.top + chipRect.height / 2 : window.innerHeight * 0.82;
+        if (trackRect) {
+          x = Math.max(trackRect.left + 46, Math.min(trackRect.right - 46, x));
+          y = Math.max(trackRect.top + 12, Math.min(trackRect.bottom - 12, y));
+        }
+        return { id: seg.id, thumbnailUrl: sourceVideo?.thumbnailUrl, from: { x, y } };
+      });
+
+      // 모션 축소 시 flyCutsOut이 onComplete를 동기 호출하므로 핸들을 미리 참조하지 않는다.
+      let finished = false;
+      const handleHolder: { current: FlightHandle | null } = { current: null };
+      const handle = flyCutsOut(items, {
+        toCardEl: cardEl,
+        onComplete: () => {
+          finished = true;
+          if (handleHolder.current) activeReturnFlightsRef.current.delete(handleHolder.current);
+          finalize();
+        },
+      });
+      handleHolder.current = handle;
+      if (!finished) activeReturnFlightsRef.current.add(handle);
+    },
+    [
+      isProcessing,
+      removingVideoIds,
+      localSegments,
+      videos,
+      clearPreview,
+      selectedSegmentId,
+      activeInspector,
+      trimSegment,
+      onRemoveVideo,
+    ]
+  );
 
   const confirmExport = useCallback(
     async (res: ExportResolution) => {
-      if (isProcessing) return;
+      if (isProcessing || removingVideoIds.size > 0) return;
       setExportResolution(res);
       const stitched = await onReStitch(
         displaySegments,
@@ -664,6 +785,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
     [
       onReStitch,
       isProcessing,
+      removingVideoIds,
       displaySegments,
       bgmPresetId,
       bgmVolume,
@@ -702,10 +824,11 @@ export const CenterStudioView = (props: StudioV2Props) => {
         type="file"
         accept="video/*"
         multiple
+        disabled={removingVideoIds.size > 0}
         style={{ display: 'none' }}
         onChange={(e) => {
           const files = Array.from(e.target.files ?? []);
-          if (files.length) onFilesSelected(files);
+          if (files.length && removingVideoIds.size === 0) onFilesSelected(files);
           e.target.value = '';
         }}
       />
@@ -718,9 +841,12 @@ export const CenterStudioView = (props: StudioV2Props) => {
           collapsed={!isDockOpen}
           landedVideos={landedVideos}
           videoTasks={progress?.videoTasks}
-          onFilesSelected={onFilesSelected}
+          removingVideoIds={removingVideoIds}
+          onFilesSelected={(files) => {
+            if (removingVideoIds.size === 0) onFilesSelected(files);
+          }}
           onAddVideos={() => fileInputRef.current?.click()}
-          onRemoveVideo={onRemoveVideo}
+          onRemoveVideo={handleRemoveVideoWithAnimation}
           onStartAnalysis={startAnalysis}
           onCancel={onCancelProcessing}
           onToggleDock={toggleDock}
@@ -771,10 +897,11 @@ export const CenterStudioView = (props: StudioV2Props) => {
             overlayOptions={overlayOptions}
             selectedSegmentId={selectedSegmentId}
             landingIds={landingIds}
+            returningIds={returningIds}
             playhead={playhead}
             onSeek={seek}
             onScrubStart={onScrubStart}
-            locked={isProcessing}
+            locked={isProcessing || removingVideoIds.size > 0}
             bgmPresetId={bgmPresetId}
             bgmVolume={bgmVolume}
             customAudioName={customAudioFile?.name ?? null}

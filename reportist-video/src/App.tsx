@@ -507,13 +507,49 @@ export function App() {
     }
   };
 
+  // 원본 영상 삭제: 영상뿐 아니라 해당 영상에서 파생된 컷과 결과 메타데이터까지 함께 정리한다.
+  // (스튜디오 V2에서는 역비행 연출이 끝난 뒤 이 핸들러를 호출한다.)
   const handleRemove = (id: string) => {
-    setVideos((prev) => {
-      const item = prev.find((v) => v.id === id);
-      if (item) {
-        URL.revokeObjectURL(item.url);
-      }
-      return prev.filter((v) => v.id !== id);
+    const item = videos.find((v) => v.id === id);
+    if (item?.url?.startsWith('blob:')) {
+      URL.revokeObjectURL(item.url);
+    }
+    const nextVideos = videos.filter((v) => v.id !== id);
+    setVideos(nextVideos);
+
+    if (!finalResult) return;
+
+    const removedSegments = finalResult.segments.filter((s) => s.sourceVideoId === id);
+    const remainingSegments = finalResult.segments.filter((s) => s.sourceVideoId !== id);
+    if (remainingSegments.length === 0) {
+      setFinalResult(null);
+      setCurrentStep('upload');
+      return;
+    }
+
+    const bridgeMap = finalResult.bridgeDurationMap;
+    const removedBridgeSeconds = bridgeMap
+      ? removedSegments.reduce((sum, s) => sum + (bridgeMap[s.id] ?? 0), 0)
+      : 0;
+    const removedClipSeconds = removedSegments.reduce((sum, s) => sum + (s.duration || 0), 0);
+    const remainingIds = new Set(remainingSegments.map((s) => s.id));
+    const nextBridgeMap = bridgeMap
+      ? Object.fromEntries(Object.entries(bridgeMap).filter(([segId]) => remainingIds.has(segId)))
+      : bridgeMap;
+
+    setFinalResult({
+      ...finalResult,
+      segments: remainingSegments,
+      bridgeDurationMap: nextBridgeMap,
+      duration: Math.max(
+        0,
+        Math.round((finalResult.duration - removedClipSeconds - removedBridgeSeconds) * 10) / 10
+      ),
+      originalTotalDuration: nextVideos.reduce((sum, v) => sum + (v.duration || 0), 0),
+      aiThumbnailRecommendations: finalResult.aiThumbnailRecommendations?.filter(
+        (r) => r.videoId !== id
+      ),
+      bestSourceVideoId: finalResult.bestSourceVideoId === id ? undefined : finalResult.bestSourceVideoId,
     });
   };
 

@@ -16,6 +16,8 @@ interface UploadQueueDockProps {
   collapsed: boolean;
   landedVideos?: Set<string>;
   videoTasks?: VideoTaskProgress[];
+  /** 원본 삭제 연출 중인 영상 id. 카드의 삭제 버튼을 잠근다. */
+  removingVideoIds?: Set<string>;
   onFilesSelected: (files: File[]) => void;
   onAddVideos: () => void;
   onRemoveVideo: (id: string) => void;
@@ -74,6 +76,7 @@ export const UploadQueueDock = ({
   collapsed,
   landedVideos,
   videoTasks,
+  removingVideoIds,
   onFilesSelected,
   onAddVideos,
   onRemoveVideo,
@@ -148,6 +151,7 @@ export const UploadQueueDock = ({
               ? ui('컷 {count}개 완료', { count: segmentCount })
               : badge.label;
             const shootDate = formatShootDate(segment) || video.metadataDate || '';
+            const isRemoving = removingVideoIds?.has(video.id) ?? false;
             return (
               <div
                 key={video.id}
@@ -155,7 +159,9 @@ export const UploadQueueDock = ({
                 data-cut-card-id={video.id}
                 data-active={badge.active}
                 data-done={done}
-                data-landed={landedVideos?.has(video.id) ?? false}
+                // 분석 중에만 착지한 카드를 접는다. 분석이 끝나면 삭제할 수 있도록 다시 노출한다.
+                data-landed={isProcessing && (landedVideos?.has(video.id) ?? false)}
+                data-removing={isRemoving}
               >
                 {video.thumbnailUrl ? (
                   <img className="sv2-upload-thumb" src={video.thumbnailUrl} alt="" />
@@ -179,6 +185,7 @@ export const UploadQueueDock = ({
                     type="button"
                     className="sv2-upload-card-remove"
                     onClick={() => onRemoveVideo(video.id)}
+                    disabled={isRemoving}
                     aria-label={ui('영상 삭제')}
                   >
                     <X size={13} />

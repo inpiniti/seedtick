@@ -420,6 +420,14 @@
   border-width: 0;
   pointer-events: none;
 }
+/* 삭제 연출 중에는 카드의 실제 소멸은 GSAP가 맡고, 중복 클릭만 막는다. */
+.sv2-upload-card[data-removing='true'] {
+  pointer-events: none;
+}
+.sv2-upload-card[data-removing='true'] .sv2-upload-card-remove {
+  opacity: 0;
+  pointer-events: none;
+}
 .sv2-upload-thumb {
   width: 66px;
   height: 46px;
@@ -1090,6 +1098,11 @@
 }
 .sv2-chip[data-landing='true'] {
   visibility: hidden;
+}
+/* 원본 삭제 연출 중: 컷이 고스트가 되어 날아가는 동안 자리만 유지한 채 숨긴다. */
+.sv2-chip[data-returning='true'] {
+  visibility: hidden;
+  pointer-events: none;
 }
 .sv2-chip-title {
   font-size: 11px;

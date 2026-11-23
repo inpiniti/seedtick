@@ -35,6 +35,8 @@ interface TimelineDockProps {
   overlayOptions: VideoOverlayOptions;
   selectedSegmentId: string | null;
   landingIds: Set<string>;
+  /** 원본 삭제 연출 중 타임라인에서 숨길 컷 id */
+  returningIds?: Set<string>;
   /** 분석 중에는 스트리밍 세그먼트와 충돌하지 않도록 편집을 잠근다. */
   locked?: boolean;
   /** 상위에서 미리 계산한 레이아웃을 넘기면 재계산 없이 그대로 사용한다. */
