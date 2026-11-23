@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { previewFrame } from '../../services/frameSpec.ts';
+import { getStoredAutoSortByRecordedTime, sortSegmentsByRecordedTime } from '../../services/videoMetadata.ts';
 import { loadLibraryAudioFile, type AudioLibraryTrack } from '../../data/audioLibrary.ts';
 import type {
   ExportResolution,
@@ -13,7 +14,7 @@ import { UploadQueueDock } from './UploadQueueDock.tsx';
 import { CenterPreviewStage } from './CenterPreviewStage.tsx';
 import { TimelineDock } from './TimelineDock.tsx';
 import { RightInspectorDrawer } from './RightInspectorDrawer.tsx';
-import { flyCutsIn } from './cutFlightAnimator.ts';
+import { flyCutsIn, type FlightHandle } from './cutFlightAnimator.ts';
 import { buildTimeline } from './timelineModel.ts';
 import {
   DEFAULT_OVERLAY_OPTIONS,
@@ -32,8 +33,6 @@ const AudioLibraryModal = lazy(() =>
 const VideoExportModal = lazy(() =>
   import('../studio/VideoExportModal.tsx').then((m) => ({ default: m.VideoExportModal }))
 );
-
-const THEME_KEY = 'sv2_theme';
 
 /**
  * CenterStudioView — PC 전용 "미리보기 중심" 스튜디오 V2 최상위 셸.
@@ -87,48 +86,43 @@ export const CenterStudioView = (props: StudioV2Props) => {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  // ---------- 테마 (라이트 기본, 전환 가능) ----------
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const stored = typeof localStorage !== 'undefined' ? localStorage.getItem(THEME_KEY) : null;
-    return stored === 'dark' ? 'dark' : 'light';
-  });
-  const changeTheme = useCallback((next: 'light' | 'dark') => {
-    setTheme(next);
-    try {
-      localStorage.setItem(THEME_KEY, next);
-    } catch {
-      /* storage 차단 환경 무시 */
-    }
-  }, []);
-
-  // ---------- 세그먼트 (App의 finalResult와 양방향 동기화) ----------
+  // ---------- 세그먼트 (App의 finalResult / 분석 중 videos와 양방향 동기화) ----------
   const [localSegments, setLocalSegments] = useState<HighlightSegment[]>(
     () => result?.segments ?? []
   );
   const [landedVideos, setLandedVideos] = useState<Set<string>>(new Set());
+  const [landingIds, setLandingIds] = useState<Set<string>>(new Set());
+
+  // 비행 상태는 ref를 진실 원본으로 두어 거의 동시에 완료되는 여러 배치가 서로를 덮어쓰지 않게 한다.
+  const videosRef = useRef(videos);
+  videosRef.current = videos;
+  const landingIdsRef = useRef<Set<string>>(new Set());
+  const dispatchedIdsRef = useRef<Set<string>>(
+    new Set((result?.segments ?? []).map((s) => s.id))
+  );
+  const idToSourceRef = useRef<Map<string, string>>(new Map());
+  const activeFlightsRef = useRef<Set<FlightHandle>>(new Set());
   const prevSegmentsRef = useRef<HighlightSegment[]>(result?.segments ?? []);
 
-  useEffect(() => {
-    const incoming = result?.segments ?? [];
-    const prevIds = new Set(prevSegmentsRef.current.map((s) => s.id));
-    const newOnes = incoming.filter((s) => !prevIds.has(s.id));
-    prevSegmentsRef.current = incoming;
+  /** 새로 도착한 컷만 한 배치로 발사한다. 이미 발사한 id는 절대 중복 발사하지 않는다. */
+  const launchFlights = useCallback((incoming: HighlightSegment[]) => {
+    const fresh = incoming.filter((s) => !dispatchedIdsRef.current.has(s.id));
+    if (fresh.length === 0) return;
 
-    if (incoming.length === 0) {
-      setLocalSegments([]);
-      setLandedVideos(new Set());
-      return;
-    }
-    setLocalSegments(incoming);
+    fresh.forEach((seg) => {
+      dispatchedIdsRef.current.add(seg.id);
+      landingIdsRef.current.add(seg.id);
+      idToSourceRef.current.set(seg.id, seg.sourceVideoId);
+    });
+    setLandingIds(new Set(landingIdsRef.current));
 
-    if (newOnes.length === 0) return;
-
-    // 칩이 DOM에 마운트된 뒤 출발/도착 좌표를 잡고 '탁탁탁' 비행을 시작한다.
     let cancelled = false;
+    // 칩이 DOM에 마운트된 뒤 출발/도착 좌표를 잡고 '탁탁탁' 비행을 시작한다.
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
         if (cancelled) return;
-        const items = newOnes.map((seg) => {
+        const currentVideos = videosRef.current;
+        const items = fresh.map((seg) => {
           const card = document.querySelector(`[data-cut-card-id="${seg.sourceVideoId}"]`);
           const rect = card?.getBoundingClientRect();
           const slot = document.querySelector(
@@ -136,65 +130,134 @@ export const CenterStudioView = (props: StudioV2Props) => {
           ) as HTMLElement | null;
           return {
             id: seg.id,
-            thumbnailUrl: videos.find((v) => v.id === seg.sourceVideoId)?.thumbnailUrl,
+            thumbnailUrl: currentVideos.find((v) => v.id === seg.sourceVideoId)?.thumbnailUrl,
             from: rect
               ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
               : { x: 140, y: window.innerHeight / 2 },
             toEl: slot,
           };
         });
-        setLandingIds(new Set(newOnes.map((s) => s.id)));
-        flyCutsIn(items, {
+
+        let handle: FlightHandle | null = null;
+        handle = flyCutsIn(items, {
           onLand: (id) => {
-            setLandingIds((prev) => {
-              const next = new Set(prev);
-              next.delete(id);
-              return next;
-            });
-            const landed = newOnes.find((s) => s.id === id);
-            if (landed) {
+            landingIdsRef.current.delete(id);
+            idToSourceRef.current.delete(id);
+            setLandingIds(new Set(landingIdsRef.current));
+            const landed = fresh.find((s) => s.id === id);
+            if (!landed) return;
+            // 같은 영상의 남은 컷이 아직 날아가는 중이면 카드를 유지한다(출발점 소실 방지).
+            const stillFlying = Array.from(landingIdsRef.current).some(
+              (flyingId) => idToSourceRef.current.get(flyingId) === landed.sourceVideoId
+            );
+            if (!stillFlying) {
               setLandedVideos((prev) => new Set(prev).add(landed.sourceVideoId));
             }
           },
+          onComplete: () => {
+            if (handle) activeFlightsRef.current.delete(handle);
+          },
         });
+        if (handle) activeFlightsRef.current.add(handle);
       })
     );
     return () => {
       cancelled = true;
     };
-    // videos는 비행 출발 좌표 계산에만 쓰이므로 의존성에서 제외해 재分析的 loop를 막는다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [result?.segments]);
+  }, []);
+
+  // 언마운트 시 남은 비행을 모두 정리한다.
+  useEffect(() => {
+    const flights = activeFlightsRef.current;
+    return () => {
+      flights.forEach((h) => h.cancel());
+      flights.clear();
+    };
+  }, []);
+
+  // 분석 중: 각 영상에 즉시 채워지는 segments를 실시간으로 합쳐 타임라인/프리뷰에 흘려보낸다.
+  // 최종 result가 도착하면 동일한 id의 세그먼트라 다시 날아가지 않고 자막만 갱신된다.
+  const streamingSegments = useMemo(() => {
+    if (!isProcessing) return null;
+    const base = result?.segments ?? [];
+    const known = new Set(base.map((s) => s.id));
+    const added: HighlightSegment[] = [];
+    for (const video of videos) {
+      for (const seg of video.segments ?? []) {
+        if (!known.has(seg.id)) {
+          known.add(seg.id);
+          added.push(seg);
+        }
+      }
+    }
+    if (added.length === 0) return base;
+    const raw = [...base, ...added];
+    return getStoredAutoSortByRecordedTime()
+      ? sortSegmentsByRecordedTime(raw, new Map(videos.map((v) => [v.id, v])))
+      : raw;
+  }, [isProcessing, result?.segments, videos]);
+
+  const displaySegments = streamingSegments ?? localSegments;
+
+  useEffect(() => {
+    if (!isProcessing || !streamingSegments) return;
+    launchFlights(streamingSegments);
+  }, [isProcessing, streamingSegments, launchFlights]);
+
+  useEffect(() => {
+    const incoming = result?.segments ?? [];
+    if (incoming.length === 0) {
+      if (!isProcessing) {
+        activeFlightsRef.current.forEach((h) => h.cancel());
+        activeFlightsRef.current.clear();
+        dispatchedIdsRef.current.clear();
+        idToSourceRef.current.clear();
+        landingIdsRef.current.clear();
+        setLandingIds(new Set());
+        setLandedVideos(new Set());
+        prevSegmentsRef.current = [];
+        setLocalSegments([]);
+      }
+      return;
+    }
+    prevSegmentsRef.current = incoming;
+    setLocalSegments(incoming);
+    // 실시간 비행으로 이미 발사된 컷은 최종 result에서 다시 날아가지 않는다.
+    launchFlights(incoming);
+  }, [result?.segments, isProcessing, launchFlights]);
 
   const commitSegments = useCallback(
     (next: HighlightSegment[]) => {
-      if (result) props.onUpdateFinalResult({ ...result, segments: next });
+      if (result && !isProcessing) props.onUpdateFinalResult({ ...result, segments: next });
     },
-    [result, props]
+    [result, isProcessing, props]
   );
 
+  // 분석 중에는 스트리밍 데이터와 편집 상태가 충돌하지 않도록 모든 세그먼트 편집을 막는다.
   const updateSegment = useCallback(
     (id: string, patch: Partial<HighlightSegment>) => {
+      if (isProcessing) return;
       const next = localSegments.map((s) => (s.id === id ? { ...s, ...patch } : s));
       setLocalSegments(next);
       commitSegments(next);
     },
-    [localSegments, commitSegments]
+    [isProcessing, localSegments, commitSegments]
   );
 
   const deleteSegment = useCallback(
     (id: string) => {
+      if (isProcessing) return;
       const next = localSegments.filter((s) => s.id !== id);
       setLocalSegments(next);
       commitSegments(next);
       setSelectedSegmentId((prev) => (prev === id ? null : prev));
     },
-    [localSegments, commitSegments]
+    [isProcessing, localSegments, commitSegments]
   );
 
   const reorderSegments = useCallback(
     (from: number, to: number) => {
-      if (from === to) return;
+      if (isProcessing || from === to) return;
       const next = [...localSegments];
       const [moved] = next.splice(from, 1);
       if (!moved) return;
@@ -202,7 +265,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
       setLocalSegments(next);
       commitSegments(next);
     },
-    [localSegments, commitSegments]
+    [isProcessing, localSegments, commitSegments]
   );
 
   // ---------- 오버레이 옵션 ----------
@@ -295,7 +358,6 @@ export const CenterStudioView = (props: StudioV2Props) => {
   // ---------- 인스펙터 / 선택 ----------
   const [activeInspector, setActiveInspector] = useState<InspectorTarget>(null);
   const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
-  const [landingIds, setLandingIds] = useState<Set<string>>(new Set());
   const [trimSegment, setTrimSegment] = useState<HighlightSegment | null>(null);
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
@@ -303,8 +365,8 @@ export const CenterStudioView = (props: StudioV2Props) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const activeSegment = useMemo(
-    () => localSegments.find((s) => s.id === selectedSegmentId) ?? localSegments[0] ?? null,
-    [localSegments, selectedSegmentId]
+    () => displaySegments.find((s) => s.id === selectedSegmentId) ?? displaySegments[0] ?? null,
+    [displaySegments, selectedSegmentId]
   );
 
   const openLocation = useCallback((id: string) => {
@@ -327,7 +389,10 @@ export const CenterStudioView = (props: StudioV2Props) => {
     () => previewFrame(orientation, portraitPlatform),
     [orientation, portraitPlatform]
   );
-  const model = useMemo(() => buildTimeline(localSegments, overlayOptions), [localSegments, overlayOptions]);
+  const model = useMemo(
+    () => buildTimeline(displaySegments, overlayOptions),
+    [displaySegments, overlayOptions]
+  );
   const [playhead, setPlayhead] = useState(0);
   const playheadRef = useRef(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -368,7 +433,12 @@ export const CenterStudioView = (props: StudioV2Props) => {
 
   // ---------- 좌측 리스트 소멸 조건 ----------
   const pendingVideos = videos.filter((v) => (v.segments?.length ?? 0) === 0);
-  const dockCollapsed = !isProcessing && localSegments.length > 0 && pendingVideos.length === 0;
+  // 마지막 컷이 완전히 착지한 뒤에만 도크가 접힌다(비행 중 출발점이 사라지지 않게).
+  const dockCollapsed =
+    !isProcessing &&
+    displaySegments.length > 0 &&
+    pendingVideos.length === 0 &&
+    landingIds.size === 0;
 
   // ---------- 프로젝트명 ----------
   const projectName = useMemo(() => {
@@ -383,9 +453,10 @@ export const CenterStudioView = (props: StudioV2Props) => {
 
   const confirmExport = useCallback(
     async (res: ExportResolution) => {
+      if (isProcessing) return;
       setExportResolution(res);
       const stitched = await onReStitch(
-        localSegments,
+        displaySegments,
         bgmPresetId,
         bgmVolume,
         customAudioFile,
@@ -401,7 +472,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
         a.remove();
       }
     },
-    [onReStitch, localSegments, bgmPresetId, bgmVolume, customAudioFile, overlayOptions, projectName]
+    [onReStitch, isProcessing, displaySegments, bgmPresetId, bgmVolume, customAudioFile, overlayOptions, projectName]
   );
 
   if (!isWide) return <DesktopOnlyGate />;
@@ -411,7 +482,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
     : undefined;
 
   return (
-    <div className="sv2-root" data-studio-theme={theme}>
+    <div className="sv2-root">
       <StudioTopBar
         projectName={projectName}
         saveStatus={saveStatus}
@@ -422,12 +493,10 @@ export const CenterStudioView = (props: StudioV2Props) => {
         onAddVideos={() => fileInputRef.current?.click()}
         onOpenProjects={() => onViewProjects?.() ?? onOpenProject?.(currentProjectId || '')}
         onExport={() => setIsExportOpen(true)}
-        canExport={localSegments.length > 0}
+        canExport={displaySegments.length > 0 && !isProcessing}
         isExporting={isReStitching}
         orientation={orientation}
         onOrientationChange={(o) => onOrientationChange?.(o)}
-        theme={theme}
-        onThemeChange={changeTheme}
       />
 
       <input
@@ -450,6 +519,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
           isPreparingVideos={isPreparingVideos}
           collapsed={dockCollapsed}
           landedVideos={landedVideos}
+          videoTasks={progress?.videoTasks}
           onFilesSelected={onFilesSelected}
           onRemoveVideo={onRemoveVideo}
           onStartAnalysis={startAnalysis}
@@ -458,6 +528,20 @@ export const CenterStudioView = (props: StudioV2Props) => {
 
         <div className="sv2-center">
           <div className="sv2-stage-wrap">
+            {isProcessing && (
+              <div className="sv2-status-pill" role="status" aria-live="polite">
+                <span className="sv2-spinner" />
+                <span className="sv2-status-pill-text">
+                  {progress?.statusMessage || '영상이 분석되면 컷이 하나씩 타임라인으로 들어옵니다.'}
+                </span>
+                <div className="sv2-progress-bar sv2-status-pill-bar">
+                  <div
+                    className="sv2-progress-fill"
+                    style={{ width: `${progress?.progressPercent ?? 0}%` }}
+                  />
+                </div>
+              </div>
+            )}
             <CenterPreviewStage
               frame={frame}
               model={model}
@@ -476,12 +560,13 @@ export const CenterStudioView = (props: StudioV2Props) => {
           </div>
 
           <TimelineDock
-            segments={localSegments}
+            segments={displaySegments}
             videos={videos}
             model={model}
             overlayOptions={overlayOptions}
             selectedSegmentId={selectedSegmentId}
             landingIds={landingIds}
+            locked={isProcessing}
             bgmPresetId={bgmPresetId}
             bgmVolume={bgmVolume}
             libraryTrackId={libraryTrackId}
@@ -511,23 +596,6 @@ export const CenterStudioView = (props: StudioV2Props) => {
           onOverlayChange={updateOverlay}
           onClose={() => setActiveInspector(null)}
         />
-
-        {isProcessing && (
-          <div className="sv2-processing">
-            <div className="sv2-processing-card">
-              <div className="sv2-processing-title">
-                <span className="sv2-spinner" style={{ display: 'inline-block', marginRight: 10, verticalAlign: -3 }} />
-                AI가 컷을 고르는 중…
-              </div>
-              <div className="sv2-processing-sub">
-                {progress?.statusMessage || '영상이 분석되면 컷이 하나씩 타임라인으로 "탁탁탁" 들어옵니다.'}
-              </div>
-              <div className="sv2-progress-bar" style={{ height: 6 }}>
-                <div className="sv2-progress-fill" style={{ width: `${progress?.progressPercent ?? 0}%` }} />
-              </div>
-            </div>
-          </div>
-        )}
 
         {trimSegment && (
           <Suspense fallback={null}>

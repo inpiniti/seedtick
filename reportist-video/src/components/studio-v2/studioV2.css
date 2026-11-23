@@ -1,26 +1,30 @@
 /* components/studio-v2/studioV2.css — PC 전용 Center-Stage 스튜디오 V2 스타일
-   라이트 테마가 기본이며 data-studio-theme="dark"로 전환된다. */
+   Reportist/Toss 모노톤 디자인 시스템(uiTokens.css)에 맞춘 라이트 전용 테마. */
 
 .sv2-root {
-  --sv2-bg: #f4f6fa;
-  --sv2-surface: #ffffff;
-  --sv2-surface-2: #f8fafc;
-  --sv2-surface-3: #eef1f6;
-  --sv2-border: #e3e8ef;
-  --sv2-border-strong: #cfd6e0;
-  --sv2-text: #161b22;
-  --sv2-text-2: #59636f;
-  --sv2-text-3: #8b95a3;
-  --sv2-accent: #4f46e5;
-  --sv2-accent-soft: #eef2ff;
+  /* 앱 공통 토큰과 같은 팔레트. 인디고·보라·네온은 쓰지 않는다. */
+  --sv2-bg: #f8f9fa;            /* --page-background */
+  --sv2-surface: #ffffff;       /* --ui-surface */
+  --sv2-surface-2: #f2f4f6;     /* --ui-surface-muted */
+  --sv2-surface-3: #f8fafc;     /* --ui-surface-sunken */
+  --sv2-seg-track: #f1f5f9;     /* 세그먼트 트랙 */
+  --sv2-border: #e5e8eb;        /* --ui-border */
+  --sv2-border-strong: #d1d5db; /* --ui-border-strong */
+  --sv2-text: #191f28;          /* --ui-text */
+  --sv2-text-2: #4e5968;        /* --ui-text-muted */
+  --sv2-text-3: #8b95a1;        /* --ui-text-subtle */
+  --sv2-accent: #0f172a;        /* --ui-ink */
+  --sv2-accent-hover: #1e293b;  /* --ui-ink-hover */
+  --sv2-accent-soft: #f1f5f9;   /* 연한 선택 배경 */
   --sv2-accent-text: #ffffff;
-  --sv2-danger: #e5484d;
-  --sv2-success: #16a34a;
-  --sv2-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px rgba(16, 24, 40, 0.06);
-  --sv2-shadow-lg: 0 12px 40px rgba(16, 24, 40, 0.14);
-  --sv2-radius: 12px;
-  --sv2-radius-sm: 8px;
-  --sv2-topbar-h: 60px;
+  --sv2-danger: #ef4444;        /* --ui-danger */
+  --sv2-success: #0f172a;       /* 완료 상태도 모노톤 잉크 */
+  --sv2-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --sv2-shadow-lg: 0 4px 16px rgba(15, 23, 42, 0.08);
+  --sv2-focus-ring: 0 0 0 3px rgba(15, 23, 42, 0.12);
+  --sv2-radius: 10px;
+  --sv2-radius-sm: 9px;
+  --sv2-topbar-h: 54px;
   --sv2-timeline-h: 176px;
   --sv2-dock-w: 264px;
   --sv2-inspector-w: 360px;
@@ -32,26 +36,9 @@
   overflow: hidden;
   background: var(--sv2-bg);
   color: var(--sv2-text);
-  font-family: -apple-system, BlinkMacSystemFont, 'Pretendard Variable', 'Segoe UI', sans-serif;
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Pretendard Variable', 'Segoe UI', sans-serif);
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
-}
-
-.sv2-root[data-studio-theme='dark'] {
-  --sv2-bg: #0e1116;
-  --sv2-surface: #171b22;
-  --sv2-surface-2: #1d222b;
-  --sv2-surface-3: #252b36;
-  --sv2-border: #2a313c;
-  --sv2-border-strong: #3a4351;
-  --sv2-text: #f2f4f7;
-  --sv2-text-2: #aab3c0;
-  --sv2-text-3: #77808e;
-  --sv2-accent: #7c74ff;
-  --sv2-accent-soft: #23214a;
-  --sv2-accent-text: #ffffff;
-  --sv2-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.32);
-  --sv2-shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.5);
 }
 
 .sv2-root * {
@@ -122,21 +109,15 @@
 .sv2-brand {
   display: flex;
   align-items: center;
-  gap: 9px;
-  font-weight: 800;
-  font-size: 16px;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 15px;
   letter-spacing: -0.02em;
   white-space: nowrap;
+  color: var(--sv2-text);
 }
-.sv2-brand-badge {
-  width: 28px;
-  height: 28px;
-  border-radius: 9px;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  color: #fff;
-  display: grid;
-  place-items: center;
-  font-size: 15px;
+.sv2-brand-logo {
+  flex: 0 0 auto;
 }
 .sv2-project-name {
   color: var(--sv2-text-2);
@@ -165,8 +146,8 @@
   display: inline-flex;
   padding: 3px;
   gap: 2px;
-  background: var(--sv2-surface-3);
-  border-radius: 10px;
+  background: var(--sv2-seg-track);
+  border-radius: var(--sv2-radius-sm);
 }
 .sv2-segmented button {
   border: 0;
@@ -183,29 +164,41 @@
 .sv2-segmented button[data-active='true'] {
   background: var(--sv2-surface);
   color: var(--sv2-text);
-  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.12);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
 }
 .sv2-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
-  height: 36px;
-  padding: 0 14px;
-  border-radius: 9px;
+  height: 34px; /* --ui-h-sm */
+  padding: 0 12px;
+  border-radius: var(--sv2-radius-sm);
   border: 1px solid var(--sv2-border-strong);
   background: var(--sv2-surface);
   color: var(--sv2-text);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   white-space: nowrap;
-  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease,
+    box-shadow 0.15s ease, transform 0.12s ease;
 }
 .sv2-btn:hover:not(:disabled) {
   background: var(--sv2-surface-3);
 }
 .sv2-btn:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: scale(0.98);
+}
+.sv2-btn:focus-visible,
+.sv2-segmented button:focus-visible,
+.sv2-model-select:focus-visible,
+.sv2-input:focus-visible,
+.sv2-template-btn:focus-visible,
+.sv2-mini-btn:focus-visible,
+.sv2-play-btn:focus-visible,
+.sv2-chip:focus-visible {
+  outline: none;
+  box-shadow: var(--sv2-focus-ring);
 }
 .sv2-btn-primary {
   background: var(--sv2-accent);
@@ -213,7 +206,8 @@
   color: var(--sv2-accent-text);
 }
 .sv2-btn-primary:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--sv2-accent) 88%, #000);
+  background: var(--sv2-accent-hover);
+  border-color: var(--sv2-accent-hover);
 }
 .sv2-btn-ghost {
   background: transparent;
@@ -223,7 +217,7 @@
   background: var(--sv2-surface-3);
 }
 .sv2-btn-icon {
-  width: 36px;
+  width: 34px;
   padding: 0;
 }
 .sv2-btn-sm {
@@ -232,12 +226,12 @@
   font-size: 12px;
 }
 .sv2-model-select {
-  height: 36px;
+  height: 34px;
   max-width: 190px;
   padding: 0 10px;
-  border-radius: 9px;
-  border: 1px solid var(--sv2-border-strong);
-  background: var(--sv2-surface);
+  border-radius: var(--sv2-radius-sm);
+  border: 1px solid var(--sv2-border);
+  background: var(--sv2-surface-3);
   color: var(--sv2-text);
   font-size: 12px;
   font-weight: 600;
@@ -299,7 +293,7 @@
   padding: 4px 12px 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0;
 }
 .sv2-upload-card {
   position: relative;
@@ -307,25 +301,35 @@
   gap: 10px;
   align-items: center;
   padding: 8px;
+  margin-bottom: 8px;
+  max-height: 112px;
+  overflow: hidden;
   border-radius: var(--sv2-radius-sm);
   border: 1px solid var(--sv2-border);
-  background: var(--sv2-surface-2);
-  transition: border-color 0.18s, background 0.18s;
+  background: var(--sv2-surface);
+  transition: border-color 0.18s, background 0.18s, opacity 0.32s ease,
+    max-height 0.38s cubic-bezier(0.22, 1, 0.36, 1), padding 0.32s ease,
+    margin 0.32s ease, border-width 0.32s ease;
+}
+.sv2-upload-card:hover {
+  background: var(--sv2-surface-3);
 }
 .sv2-upload-card[data-active='true'] {
   border-color: var(--sv2-accent);
   background: var(--sv2-accent-soft);
 }
-/* 컷이 타임라인에 착지하면 해당 원본 카드가 '탁' 하고 빠져나간다. */
+.sv2-upload-card[data-done='true']:not([data-landed='true']) {
+  border-color: color-mix(in srgb, var(--sv2-success) 45%, var(--sv2-border));
+}
+/* 해당 영상의 모든 컷이 타임라인에 착지하면 원본 카드가 매끄럽게 접힌다. */
 .sv2-upload-card[data-landed='true'] {
   opacity: 0;
-  height: 0;
+  max-height: 0;
   min-height: 0;
   padding-top: 0;
   padding-bottom: 0;
-  margin-bottom: -8px;
+  margin-bottom: 0;
   border-width: 0;
-  overflow: hidden;
   pointer-events: none;
 }
 .sv2-upload-thumb {
@@ -363,8 +367,12 @@
   color: var(--sv2-accent);
 }
 .sv2-upload-badge[data-done='true'] {
-  background: rgba(22, 163, 74, 0.12);
+  background: color-mix(in srgb, var(--sv2-success) 12%, transparent);
   color: var(--sv2-success);
+}
+.sv2-upload-badge[data-queued='true'] {
+  background: var(--sv2-surface-3);
+  color: var(--sv2-text-2);
 }
 .sv2-progress-bar {
   height: 3px;
@@ -378,6 +386,15 @@
   background: var(--sv2-accent);
   border-radius: 4px;
   transition: width 0.2s;
+}
+.sv2-progress-bar[data-queued='true'] .sv2-progress-fill {
+  width: 34% !important;
+  opacity: 0.7;
+  animation: sv2-queued-pulse 1.4s ease-in-out infinite;
+}
+@keyframes sv2-queued-pulse {
+  0%, 100% { transform: translateX(-80%); }
+  50% { transform: translateX(220%); }
 }
 .sv2-upload-card-remove {
   position: absolute;
@@ -494,6 +511,19 @@
   aspect-ratio: 9 / 16;
   width: min(360px, 100%);
 }
+.sv2-empty-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: var(--sv2-accent-soft);
+  color: var(--sv2-accent);
+}
+.sv2-preview-empty strong {
+  font-size: 16px;
+  color: var(--sv2-text);
+}
 
 /* Interactive overlay */
 .sv2-overlay-layer {
@@ -568,10 +598,11 @@
   flex: 0 0 46px;
 }
 .sv2-transport-time {
+  font-family: var(--font-mono, ui-monospace, monospace);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   color: var(--sv2-text-2);
-  font-weight: 700;
+  font-weight: 600;
   min-width: 86px;
   text-align: center;
 }
@@ -590,10 +621,9 @@
   color: #fff;
   display: grid;
   place-items: center;
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--sv2-accent) 40%, transparent);
 }
 .sv2-play-btn:hover:not(:disabled) {
-  filter: brightness(1.08);
+  background: var(--sv2-accent-hover);
 }
 
 /* ---------- Timeline ---------- */
@@ -606,7 +636,7 @@
   flex-direction: column;
   padding: 8px 12px 10px;
   z-index: 10;
-  box-shadow: 0 -6px 20px rgba(16, 24, 40, 0.04);
+  box-shadow: 0 -2px 8px rgba(15, 23, 42, 0.04);
 }
 .sv2-timeline-head {
   display: flex;
@@ -679,6 +709,7 @@
 }
 .sv2-chip[data-selected='true'] {
   border-color: var(--sv2-accent);
+  background: var(--sv2-surface-3);
   box-shadow: 0 0 0 2px var(--sv2-accent-soft);
 }
 .sv2-chip[data-landing='true'] {
@@ -710,20 +741,21 @@
 }
 .sv2-chip-special {
   border-style: dashed;
-  background: var(--sv2-accent-soft);
-  color: var(--sv2-accent);
+  border-color: var(--sv2-border-strong);
+  background: var(--sv2-surface-3);
+  color: var(--sv2-text);
   align-items: center;
 }
 .sv2-chip-special[data-empty='true'] {
   color: var(--sv2-text-3);
-  background: var(--sv2-surface-2);
+  background: var(--sv2-surface-3);
 }
 .sv2-chip-subtitle {
-  background: rgba(22, 163, 74, 0.07);
-  border-color: rgba(22, 163, 74, 0.35);
+  background: var(--sv2-surface-3);
+  border-color: var(--sv2-border);
 }
 .sv2-chip-subtitle .sv2-chip-title {
-  color: var(--sv2-success);
+  color: var(--sv2-text);
 }
 .sv2-chip-mini-toolbar {
   position: absolute;
@@ -785,7 +817,7 @@
   border-style: solid;
   border-color: var(--sv2-accent);
   color: var(--sv2-text);
-  background: var(--sv2-accent-soft);
+  background: var(--sv2-surface);
 }
 .sv2-music-vol {
   width: 90px;
@@ -869,18 +901,20 @@
   color: var(--sv2-text-2);
 }
 .sv2-input {
-  height: 40px;
+  height: 38px; /* --ui-input-h-md */
   width: 100%;
-  border-radius: 9px;
+  border-radius: var(--sv2-radius-sm);
   border: 1px solid var(--sv2-border-strong);
-  background: var(--sv2-surface-2);
+  background: var(--sv2-surface);
   color: var(--sv2-text);
   padding: 0 12px;
   font-size: 13px;
   outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .sv2-input:focus {
   border-color: var(--sv2-accent);
+  box-shadow: var(--sv2-focus-ring);
 }
 .sv2-textarea {
   min-height: 72px;
@@ -905,6 +939,34 @@
   width: 100%;
   height: 100%;
   min-height: 220px;
+}
+/* Leaflet 커스텀 핀 — LocationMapModal.css와 동일한 토스 톤을 V2 지도에서도 보장 */
+.sv2-map-canvas .toss-map-pin {
+  background: transparent;
+  border: 0;
+}
+.sv2-map-canvas .toss-map-pin-dot {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 20px;
+  height: 20px;
+  transform: translateX(-50%) rotate(-45deg);
+  background: #ef4444;
+  border: 3px solid #fff;
+  border-radius: 50% 50% 50% 0;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
+}
+.sv2-map-canvas .toss-map-pin-dot::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  border-radius: 50%;
 }
 .sv2-map-empty {
   height: 100%;
@@ -1041,6 +1103,21 @@
   to {
     transform: rotate(360deg);
   }
+}
+.sv2-spinner-inline {
+  display: inline-block;
+  margin-right: 10px;
+  vertical-align: -3px;
+}
+.sv2-loader-inline {
+  vertical-align: -4px;
+  margin-right: 8px;
+}
+.sv2-progress-track {
+  height: 6px;
+}
+.sv2-processing-elevated {
+  z-index: 60;
 }
 
 @media (prefers-reduced-motion: reduce) {

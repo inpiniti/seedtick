@@ -40,9 +40,18 @@ function quadBezier(
   };
 }
 
+function prefersReducedMotion(): boolean {
+  if (typeof window === 'undefined' || !window.matchMedia) return false;
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
 /**
  * 컷 고스트 카드들을 출발지 → 타임라인 슬롯으로 순차 비행시킨다.
  * 각 카드가 착지하는 순간 onLand가 호출되어 실제 칩이 보이게 된다.
+ *
+ * - 동시에 여러 배치가 발사되어도 서로의 핸들을 취소하지 않는다(호출자가 핸들 Set으로 관리).
+ * - onUpdate에서 목적 슬롯의 최신 rect를 읽어, 정렬로 슬롯이 밀려도 정확히 자기 자리에 착지한다.
+ * - 모션 축소 환경에서는 고스트 없이 즉시 착지 처리한다.
  */
 export function flyCutsIn(items: FlightItem[], opts: FlightOptions = {}): FlightHandle {
   const { onLand, onComplete, duration = 0.44, stagger = 0.09 } = opts;
@@ -51,9 +60,29 @@ export function flyCutsIn(items: FlightItem[], opts: FlightOptions = {}): Flight
     return { cancel: () => {} };
   }
 
+  // 모션 축소: 비행 연출 없이 바로 착지 + 카드 완료 처리
+  if (prefersReducedMotion()) {
+    let cancelled = false;
+    items.forEach((item) => {
+      if (!cancelled) onLand?.(item.id);
+    });
+    onComplete?.();
+    return { cancel: () => { cancelled = true; } };
+  }
+
   const layer = document.createElement('div');
   layer.className = 'sv2-flight-layer';
   document.body.appendChild(layer);
+
+  // 착지 슬롯이 가로 스크롤 영역 밖이면 한 번만 부드럽게 노출한다.
+  const firstVisibleTo = items.find((item) => item.toEl?.isConnected)?.toEl;
+  if (firstVisibleTo) {
+    try {
+      firstVisibleTo.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+    } catch {
+      /* 구형 브라우저에서는 무시 */
+    }
+  }
 
   const ghosts = items.map((item) => {
     const ghost = document.createElement('img');
@@ -81,15 +110,14 @@ export function flyCutsIn(items: FlightItem[], opts: FlightOptions = {}): Flight
   items.forEach((item, index) => {
     const ghost = ghosts[index];
     const toRect = item.toEl?.getBoundingClientRect();
-    const target = toRect
+    const fallbackTarget = toRect
       ? { x: toRect.left + toRect.width / 2, y: toRect.top + toRect.height / 2 }
       : { x: item.from.x + 260, y: item.from.y + 120 };
 
     const start = { x: item.from.x, y: item.from.y };
-    const apex = {
-      x: (start.x + target.x) / 2,
-      y: Math.min(start.y, target.y) - 130 - index * 6,
-    };
+    // 포물선 꼭대기 높이는 발사 시점의 목표를 기준으로 고정하고,
+    // 끝점만 매 프레임 최신 슬롯 위치로 추종한다.
+    const apexY = Math.min(start.y, fallbackTarget.y) - 130 - index * 6;
     const proxy = { t: 0 };
 
     const tween = gsap.to(proxy, {
@@ -99,6 +127,12 @@ export function flyCutsIn(items: FlightItem[], opts: FlightOptions = {}): Flight
       delay: index * stagger,
       onUpdate: () => {
         if (cancelled) return;
+        let target = fallbackTarget;
+        if (item.toEl?.isConnected) {
+          const rect = item.toEl.getBoundingClientRect();
+          target = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        }
+        const apex = { x: (start.x + target.x) / 2, y: apexY };
         const p = quadBezier(start, apex, target, proxy.t);
         const scale = 1 - 0.45 * Math.sin(proxy.t * Math.PI);
         const rotate = Math.sin(proxy.t * Math.PI) * (index % 2 === 0 ? 14 : -14);
@@ -108,7 +142,7 @@ export function flyCutsIn(items: FlightItem[], opts: FlightOptions = {}): Flight
       onComplete: () => {
         if (cancelled) return;
         ghost.remove();
-        if (item.toEl) {
+        if (item.toEl?.isConnected) {
           gsap.fromTo(
             item.toEl,
             { scale: 1.16, filter: 'brightness(1.5)' },

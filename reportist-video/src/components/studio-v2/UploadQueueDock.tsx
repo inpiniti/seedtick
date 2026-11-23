@@ -1,10 +1,12 @@
 import { Sparkles, UploadCloud, X } from 'lucide-react';
-import type { VideoItem } from '../../types/video.ts';
+import type { VideoItem, VideoTaskProgress } from '../../types/video.ts';
 import { formatShootDate } from './types.ts';
 
 // components/studio-v2/UploadQueueDock.tsx
 // 분석 전/중 좌측 원본 리스트. 썸네일 + 촬영일만 최소 표시하고,
 // 분석이 끝나면 카드가 빠지고 전체 도크가 부드럽게 사라진다.
+// 분석 중에는 progress.videoTasks(영상별 독립 슬롯)를 읽어 카드마다
+// 다른 단계/진행률을 보여준다.
 
 interface UploadQueueDockProps {
   videos: VideoItem[];
@@ -12,10 +14,34 @@ interface UploadQueueDockProps {
   isPreparingVideos?: boolean;
   collapsed: boolean;
   landedVideos?: Set<string>;
+  videoTasks?: VideoTaskProgress[];
   onFilesSelected: (files: File[]) => void;
   onRemoveVideo: (id: string) => void;
   onStartAnalysis: () => void;
   onCancel: () => void;
+}
+
+function taskBadge(task: VideoTaskProgress | undefined, hasSegments: boolean) {
+  if (!task) {
+    if (hasSegments) return { label: '컷 완료', done: true, active: false, pct: 100, queued: false };
+    return { label: '대기 중', done: false, active: false, pct: 0, queued: false };
+  }
+  const pct = Math.max(0, Math.min(100, Math.floor(task.progressPercent)));
+  switch (task.stage) {
+    case 'extracting':
+      return { label: `프레임 추출 ${pct}%`, done: false, active: true, pct, queued: false };
+    case 'queued': {
+      const pos = Math.max(0, task.queuePosition ?? 0);
+      return { label: `대기열 ${pos}번`, done: false, active: true, pct, queued: true };
+    }
+    case 'analyzing':
+      return { label: `AI 분석 중 ${pct}%`, done: false, active: true, pct, queued: false };
+    case 'done':
+    case 'reused':
+      return { label: '컷 완료', done: true, active: false, pct: 100, queued: false };
+    default:
+      return { label: '대기 중', done: false, active: false, pct: 0, queued: false };
+  }
 }
 
 export const UploadQueueDock = ({
@@ -24,6 +50,7 @@ export const UploadQueueDock = ({
   isPreparingVideos,
   collapsed,
   landedVideos,
+  videoTasks,
   onFilesSelected,
   onRemoveVideo,
   onStartAnalysis,
@@ -36,13 +63,19 @@ export const UploadQueueDock = ({
   };
 
   const hasPending = videos.some((v) => (v.segments?.length ?? 0) === 0);
+  const taskByVideoId = buildTaskMap(videoTasks);
+  const doneCount = videoTasks
+    ? videoTasks.filter((t) => t.stage === 'done' || t.stage === 'reused').length
+    : videos.filter((v) => (v.segments?.length ?? 0) > 0).length;
 
   return (
     <div className="sv2-dock" data-collapsed={collapsed} onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
       <div className="sv2-dock-inner">
         <div className="sv2-dock-head">
           <span className="sv2-dock-title">원본 영상</span>
-          <span className="sv2-dock-count">{videos.length}개</span>
+          <span className="sv2-dock-count">
+            {isProcessing && videoTasks ? `완료 ${doneCount}/${videos.length}` : `${videos.length}개`}
+          </span>
         </div>
 
         <div className="sv2-dock-list">
@@ -55,13 +88,21 @@ export const UploadQueueDock = ({
 
           {videos.map((video) => {
             const segment = video.segments?.[0];
-            const done = (video.segments?.length ?? 0) > 0;
+            const segmentCount = video.segments?.length ?? 0;
+            const task = taskByVideoId.get(video.id);
+            const badge = taskBadge(task, segmentCount > 0);
+            const done = segmentCount > 0 || badge.done;
+            const label = done && segmentCount > 0 && (task?.stage === 'done' || task?.stage === 'reused' || !task)
+              ? `컷 ${segmentCount}개 완료`
+              : badge.label;
             const shootDate = formatShootDate(segment) || video.metadataDate || '';
             return (
               <div
                 key={video.id}
                 className="sv2-upload-card"
                 data-cut-card-id={video.id}
+                data-active={badge.active}
+                data-done={done}
                 data-landed={landedVideos?.has(video.id) ?? false}
               >
                 {video.thumbnailUrl ? (
@@ -72,23 +113,25 @@ export const UploadQueueDock = ({
                 <div className="sv2-upload-meta">
                   <div className="sv2-upload-name" title={video.name}>{video.name}</div>
                   <div className="sv2-upload-date">{shootDate}</div>
-                  <span className="sv2-upload-badge" data-done={done}>
-                    {done ? `컷 ${video.segments.length}개 완료` : isProcessing ? '분석 중…' : '대기 중'}
+                  <span className="sv2-upload-badge" data-done={done} data-queued={badge.queued}>
+                    {label}
                   </span>
-                  {!done && isProcessing && (
-                    <div className="sv2-progress-bar">
-                      <div className="sv2-progress-fill" style={{ width: '38%' }} />
+                  {isProcessing && !done && (
+                    <div className="sv2-progress-bar" data-queued={badge.queued}>
+                      <div className="sv2-progress-fill" style={{ width: `${badge.pct}%` }} />
                     </div>
                   )}
                 </div>
-                <button
-                  type="button"
-                  className="sv2-upload-card-remove"
-                  onClick={() => onRemoveVideo(video.id)}
-                  aria-label="영상 삭제"
-                >
-                  <X size={13} />
-                </button>
+                {!isProcessing && (
+                  <button
+                    type="button"
+                    className="sv2-upload-card-remove"
+                    onClick={() => onRemoveVideo(video.id)}
+                    aria-label="영상 삭제"
+                  >
+                    <X size={13} />
+                  </button>
+                )}
               </div>
             );
           })}
@@ -114,3 +157,10 @@ export const UploadQueueDock = ({
     </div>
   );
 };
+
+function buildTaskMap(tasks?: VideoTaskProgress[]): Map<string, VideoTaskProgress> {
+  const map = new Map<string, VideoTaskProgress>();
+  if (!tasks) return map;
+  for (const task of tasks) map.set(task.videoId, task);
+  return map;
+}
