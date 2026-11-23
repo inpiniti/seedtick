@@ -869,6 +869,18 @@
   width: 2px;
   background: var(--sv2-accent);
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.65);
+  /* 부모는 pointer-events:none이지만 선과 손잡이는 다시 받아 드래그가 가능해야 한다. */
+  pointer-events: auto;
+  cursor: ew-resize;
+}
+/* 2px 선만으로는 잡기 어려우므로 좌우로 넓힌 투명 히트 영역을 둔다. */
+.sv2-playhead-line::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -7px;
+  right: -7px;
 }
 .sv2-playhead-handle {
   position: absolute;
@@ -878,6 +890,8 @@
   height: 11px;
   border-radius: 3px 3px 5px 5px;
   background: var(--sv2-accent);
+  pointer-events: auto;
+  cursor: ew-resize;
 }
 .sv2-playhead-handle::after {
   content: '';

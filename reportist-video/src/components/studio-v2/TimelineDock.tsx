@@ -179,6 +179,10 @@ export const TimelineDock = (props: TimelineDockProps) => {
               className="sv2-playhead"
               data-scrubbing={isScrubbing}
               style={{ transform: `translate3d(${TRACK_LABEL_OFFSET + playheadX}px, 0, 0)` }}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerUp}
             >
               <div className="sv2-playhead-handle" />
               <div className="sv2-playhead-badge">{formatClock(playhead)}</div>
