@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { MapPin } from 'lucide-react';
 import {
   OVERLAY_FONT_STACK,
+  computeMetaLayoutFromTexts,
   computeSubtitleOverlayBounds,
   computeTitleOverlayBounds,
+  type MetaOverlayLayout,
   type SubtitleOverlayBounds,
   type TitleOverlayBounds,
 } from '../../services/previewCompositorBase.ts';
@@ -12,7 +14,7 @@ import { useI18n } from '../../i18n/index.tsx';
 
 // components/studio-v2/PreviewInteractiveOverlay.tsx
 // 캔버스 위에 포개지는 투명 히트 레이어.
-// 제목·자막 히트 영역은 캔버스가 그린 실제 박스와 같은 좌표·폰트를 공유한다.
+// 제목·자막·위치 히트 영역은 캔버스가 그린 실제 텍스트 박스와 같은 좌표·폰트를 공유한다.
 // 호버 시 글자를 다시 그리지 않고 얇은 테두리 + 안내 배지만 보여 주어
 // 텍스트가 겹쳐 뭉개지거나 큰 반투명 박스가 영상을 가리지 않는다.
 // 부모가 activeSegment 기준으로 key를 고정하므로 다른 컷으로 넘어가면 드래프트가 초기화된다.
@@ -129,7 +131,7 @@ const EditableTextOverlay = ({
       title={text ? editLabel : addLabel}
     >
       {!editing && (
-        <span className={`sv2-${kind}-affordance`}>
+        <span className="sv2-hit-affordance">
           {text ? affordanceLabel : addAffordanceLabel}
         </span>
       )}
@@ -168,6 +170,8 @@ interface PreviewInteractiveOverlayProps {
   showTitle: boolean;
   locationLabel: string;
   dateLabel: string;
+  /** 캔버스가 그린 날짜·위치 텍스트의 실제 좌표(부모가 공유 헬퍼로 계산). */
+  metaLayout: MetaOverlayLayout;
   caption: string;
   onLocationClick: () => void;
   onTitleCommit: (text: string) => void;
@@ -184,6 +188,7 @@ export const PreviewInteractiveOverlay = ({
   showTitle,
   locationLabel,
   dateLabel,
+  metaLayout,
   caption,
   onLocationClick,
   onTitleCommit,
@@ -194,6 +199,34 @@ export const PreviewInteractiveOverlay = ({
   const { ui } = useI18n();
   const addCaptionText = ui('자막 추가');
   const addTitleText = ui('제목 추가');
+
+  // 위치 텍스트가 없으면 캔버스에 그릴 글은 없지만, 클릭해서 추가할 수 있는 자리는 남긴다.
+  const addLocationText = ui('위치 추가');
+  const locationLine = useMemo(
+    () =>
+      metaLayout.location ??
+      computeMetaLayoutFromTexts(metaLayout.date?.text ?? '', addLocationText, frame).location,
+    [metaLayout, frame, addLocationText]
+  );
+
+  // 제목·자막과 같은 규칙으로 실제 텍스트 박스에만 여유를 두고 히트 영역을 만든다.
+  const locationBoxStyle: CSSProperties | undefined = locationLine
+    ? (() => {
+        const padX = Math.round(9 * frame.unit);
+        const padY = Math.round(5 * frame.unit);
+        const x = Math.max(0, Math.min(frame.width, locationLine.x - locationLine.width - padX));
+        const y = Math.max(0, Math.min(frame.height, locationLine.y - padY));
+        const width = Math.min(frame.width - x, locationLine.width + padX * 2);
+        const height = Math.min(frame.height - y, locationLine.height + padY * 2);
+        return {
+          left: `${(x / frame.width) * 100}%`,
+          top: `${(y / frame.height) * 100}%`,
+          width: `${(width / frame.width) * 100}%`,
+          height: `${(height / frame.height) * 100}%`,
+          borderRadius: `${((8 * frame.unit) / frame.width) * 100}cqw`,
+        };
+      })()
+    : undefined;
 
   return (
     <div className="sv2-overlay-layer">
@@ -216,12 +249,13 @@ export const PreviewInteractiveOverlay = ({
       <button
         type="button"
         className="sv2-hit sv2-hit-location"
+        style={locationBoxStyle}
         onClick={onLocationClick}
-        title={ui('위치 수정')}
+        title={locationLabel ? ui('위치 수정') : ui('{date} · 위치 추가', { date: dateLabel })}
       >
-        <span className="sv2-hit-hint">
+        <span className="sv2-hit-affordance">
           <MapPin size={12} style={{ verticalAlign: -2, marginRight: 4 }} />
-          {locationLabel || ui('{date} · 위치 추가', { date: dateLabel })}
+          {locationLabel ? ui('클릭해서 수정') : ui('위치 추가')}
         </span>
       </button>
       <EditableTextOverlay

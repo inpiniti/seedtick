@@ -57,6 +57,162 @@ function formatMetaDate(raw?: string, timestamp?: number): string {
   return formatDateWithAge(base, date, getStoredShowAge(), getStoredBirthDate());
 }
 
+/** 캔버스가 그리는 날짜·위치 텍스트 한 줄의 좌표·폰트·측정 정보. */
+export interface MetaOverlayLine {
+  text: string;
+  font: string;
+  color: string;
+  /** 텍스트 오른쪽 끝 x (textAlign: 'right' 기준) */
+  x: number;
+  /** 텍스트 상단 y (textBaseline: 'top' 기준) */
+  y: number;
+  fontSize: number;
+  width: number;
+  height: number;
+}
+
+export interface MetaOverlayLayout {
+  date: MetaOverlayLine | null;
+  location: MetaOverlayLine | null;
+}
+
+/**
+ * 날짜·위치 문구의 캔버스 배치를 순수 계산한다(그리지 않음).
+ * drawLandscapeOverlay/drawPortraitOverlay와 미리보기 히트 영역이 같은 값을 쓰도록 해
+ * 실제 자막 위치와 클릭/호버 영역이 픽셀 단위로 일치한다.
+ */
+export function computeMetaLayoutFromTexts(
+  dateText: string,
+  locationText: string,
+  frame: FrameSpec,
+  measureCtx?: CanvasRenderingContext2D | null
+): MetaOverlayLayout {
+  const empty: MetaOverlayLayout = { date: null, location: null };
+  const ctx = measureCtx ?? getMeasureContext();
+  if (!ctx || (!dateText && !locationText)) return empty;
+
+  const u = frame.unit;
+  const lineHeight = (fontSize: number) => Math.round(fontSize * 1.26);
+
+  if (frame.orientation === 'portrait') {
+    const { safeArea } = frame;
+    const maxWidth = frame.width - safeArea.left - safeArea.right;
+    if (maxWidth <= 0) return empty;
+    const rightX = frame.width - safeArea.right - Math.round(8 * u);
+    const halfWidth = Math.max(1, Math.round(maxWidth * 0.52));
+    let metaY = safeArea.top;
+
+    let date: MetaOverlayLine | null = null;
+    if (dateText) {
+      const fontSize = fitCanvasFontSize(
+        ctx,
+        dateText,
+        halfWidth,
+        Math.round(14 * u),
+        (size) => overlayFont('600', size),
+        Math.round(10 * u)
+      );
+      ctx.font = overlayFont('600', fontSize);
+      date = {
+        text: dateText,
+        font: overlayFont('600', fontSize),
+        color: 'rgba(255, 255, 255, 0.94)',
+        x: rightX,
+        y: metaY,
+        fontSize,
+        width: ctx.measureText(dateText).width,
+        height: lineHeight(fontSize),
+      };
+      metaY += Math.round(fontSize * 1.4);
+    }
+
+    let location: MetaOverlayLine | null = null;
+    if (locationText) {
+      const fontSize = fitCanvasFontSize(
+        ctx,
+        locationText,
+        halfWidth,
+        Math.round(18 * u),
+        (size) => overlayFont('bold', size),
+        Math.round(11 * u)
+      );
+      ctx.font = overlayFont('bold', fontSize);
+      location = {
+        text: locationText,
+        font: overlayFont('bold', fontSize),
+        color: '#ffffff',
+        x: rightX,
+        y: metaY,
+        fontSize,
+        width: ctx.measureText(locationText).width,
+        height: lineHeight(fontSize),
+      };
+    }
+    return { date, location };
+  }
+
+  const rightX = frame.width - Math.round(32 * u);
+  let cursorY = Math.round(28 * u);
+  let date: MetaOverlayLine | null = null;
+  if (dateText) {
+    const fontSize = Math.round(15 * u);
+    ctx.font = overlayFont('600', fontSize);
+    date = {
+      text: dateText,
+      font: overlayFont('600', fontSize),
+      color: 'rgba(255, 255, 255, 0.94)',
+      x: rightX,
+      y: cursorY,
+      fontSize,
+      width: ctx.measureText(dateText).width,
+      height: lineHeight(fontSize),
+    };
+    cursorY += Math.round(19 * u);
+  }
+
+  let location: MetaOverlayLine | null = null;
+  if (locationText) {
+    const fontSize = fitCanvasFontSize(
+      ctx,
+      locationText,
+      Math.round(frame.width * 0.45),
+      Math.round(19 * u),
+      (size) => overlayFont('bold', size),
+      Math.round(12 * u)
+    );
+    ctx.font = overlayFont('bold', fontSize);
+    location = {
+      text: locationText,
+      font: overlayFont('bold', fontSize),
+      color: '#ffffff',
+      x: rightX,
+      y: cursorY,
+      fontSize,
+      width: ctx.measureText(locationText).width,
+      height: lineHeight(fontSize),
+    };
+  }
+  return { date, location };
+}
+
+/** 캔버스와 미리보기가 동일한 날짜·위치 문구를 쓰도록 텍스트만 추출한다. */
+export function resolveMetaTexts(
+  overlayOptions: VideoOverlayOptions | undefined,
+  currentSegment?: HighlightSegment
+): { dateText: string; locationText: string } {
+  if (!overlayOptions) return { dateText: '', locationText: '' };
+  return {
+    dateText:
+      overlayOptions.showDate === false
+        ? ''
+        : formatMetaDate(
+            currentSegment?.subtitleDate || overlayOptions.subtitleDateText,
+            currentSegment?.recordedTimestamp
+          ),
+    locationText: currentSegment?.locationName || overlayOptions.subtitleLocationText || '',
+  };
+}
+
 function paintRoundedRect(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -424,15 +580,10 @@ function drawLandscapeOverlay(
 
   // 1-1. 우측 상단: 1줄차 촬영일(저장된 표기 형식·나이 반영), 2줄차 위치 — 우측 정렬.
   // Center-Stage 스튜디오의 핵심 차별화 요소이며 내보내기에도 픽셀 단위로 동일하게 반영된다.
-  const dateText =
-    overlayOptions.showDate === false
-      ? ''
-      : formatMetaDate(
-          currentSegment?.subtitleDate || overlayOptions.subtitleDateText,
-          currentSegment?.recordedTimestamp
-        );
-  const locPart = currentSegment?.locationName || overlayOptions.subtitleLocationText || '';
-  const metaActive = Boolean(dateText || locPart);
+  // 배치 계산은 computeMetaLayoutFromTexts 한 곳에 두고 미리보기 히트 영역과 공유한다.
+  const { dateText, locationText } = resolveMetaTexts(overlayOptions, currentSegment);
+  const metaLayout = computeMetaLayoutFromTexts(dateText, locationText, frame, oCtx);
+  const metaActive = Boolean(metaLayout.date || metaLayout.location);
 
   if (metaActive) {
     hasAnyOverlay = true;
@@ -444,27 +595,12 @@ function drawLandscapeOverlay(
     oCtx.textAlign = 'right';
     oCtx.textBaseline = 'top';
 
-    const rightX = targetWidth - Math.round(32 * u);
-    let cursorY = Math.round(28 * u);
-    if (dateText) {
-      oCtx.font = overlayFont('600', 15 * u);
-      oCtx.fillStyle = 'rgba(255, 255, 255, 0.94)';
-      oCtx.fillText(dateText, rightX, cursorY);
-      cursorY += Math.round(19 * u);
-    }
-    if (locPart) {
-      const locSize = fitCanvasFontSize(
-        oCtx,
-        locPart,
-        Math.round(targetWidth * 0.45),
-        Math.round(19 * u),
-        (size) => overlayFont('bold', size),
-        Math.round(12 * u)
-      );
-      oCtx.font = overlayFont('bold', locSize);
-      oCtx.fillStyle = '#ffffff';
-      oCtx.fillText(locPart, rightX, cursorY);
-    }
+    ([metaLayout.date, metaLayout.location] as const).forEach((line) => {
+      if (!line) return;
+      oCtx.font = line.font;
+      oCtx.fillStyle = line.color;
+      oCtx.fillText(line.text, line.x, line.y);
+    });
     oCtx.restore();
   }
 
@@ -567,21 +703,12 @@ function drawPortraitOverlay(
   }
 
   // 3. 우측 상단: 날짜(yyyy.mm.dd) + 위치 2줄 (세이프 영역 우측 정렬)
-  const dateText =
-    overlayOptions.showDate === false
-      ? ''
-      : formatMetaDate(
-          currentSegment?.subtitleDate || overlayOptions.subtitleDateText,
-          currentSegment?.recordedTimestamp
-        );
-  const locPart = currentSegment?.locationName || overlayOptions.subtitleLocationText || '';
+  // 배치 계산은 computeMetaLayoutFromTexts 한 곳에 두고 미리보기 히트 영역과 공유한다.
+  const { dateText, locationText } = resolveMetaTexts(overlayOptions, currentSegment);
+  const metaLayout = computeMetaLayoutFromTexts(dateText, locationText, frame, oCtx);
 
-  if (dateText || locPart) {
+  if (metaLayout.date || metaLayout.location) {
     hasAnyOverlay = true;
-    const rightX = frame.width - safeArea.right - Math.round(8 * u);
-    const halfWidth = Math.max(1, Math.round(maxWidth * 0.52));
-    let metaY = safeArea.top;
-
     oCtx.save();
     oCtx.shadowColor = 'rgba(0, 0, 0, 0.9)';
     oCtx.shadowBlur = Math.round(4 * u);
@@ -590,33 +717,12 @@ function drawPortraitOverlay(
     oCtx.textAlign = 'right';
     oCtx.textBaseline = 'top';
 
-    if (dateText) {
-      const size = fitCanvasFontSize(
-        oCtx,
-        dateText,
-        halfWidth,
-        Math.round(14 * u),
-        (fontSize) => overlayFont('600', fontSize),
-        Math.round(10 * u)
-      );
-      oCtx.font = overlayFont('600', size);
-      oCtx.fillStyle = 'rgba(255, 255, 255, 0.94)';
-      oCtx.fillText(dateText, rightX, metaY);
-      metaY += Math.round(size * 1.4);
-    }
-    if (locPart) {
-      const size = fitCanvasFontSize(
-        oCtx,
-        locPart,
-        halfWidth,
-        Math.round(18 * u),
-        (fontSize) => overlayFont('bold', fontSize),
-        Math.round(11 * u)
-      );
-      oCtx.font = overlayFont('bold', size);
-      oCtx.fillStyle = '#ffffff';
-      oCtx.fillText(locPart, rightX, metaY);
-    }
+    ([metaLayout.date, metaLayout.location] as const).forEach((line) => {
+      if (!line) return;
+      oCtx.font = line.font;
+      oCtx.fillStyle = line.color;
+      oCtx.fillText(line.text, line.x, line.y);
+    });
     oCtx.restore();
   }
 

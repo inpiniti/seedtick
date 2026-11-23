@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Film, Pause, Play } from 'lucide-react';
 import {
+  computeMetaLayoutFromTexts,
   drawCompositorCoverFrame,
   drawCompositorSegmentOverlay,
+  resolveMetaTexts,
 } from '../../services/previewCompositorBase.ts';
 import type { FrameSpec } from '../../services/frameSpec.ts';
 import type {
@@ -179,6 +181,11 @@ export const CenterPreviewStage = ({
   const locationLabel = activeSegment?.locationName || overlayOptions.subtitleLocationText || '';
   // 캔버스와 같은 폴백을 사용한다. 빈 문자열로 지운 컷은 reason으로 되돌아가지 않고 '자막 추가'만 보인다.
   const captionLabel = activeSegment?.subtitleTitle ?? activeSegment?.reason ?? '';
+  // 위치 히트 영역이 실제 캔버스 텍스트와 픽셀 단위로 같은 자리에 오도록 배치를 공유한다.
+  const metaLayout = useMemo(() => {
+    const { dateText, locationText } = resolveMetaTexts(overlayOptions, activeSegment ?? undefined);
+    return computeMetaLayoutFromTexts(dateText, locationText, frame);
+  }, [overlayOptions, activeSegment, frame, revision]);
   const previewLabel = previewRange
     ? (previewRange.kind === 'intro' ? introVideoFile : outroVideoFile)
       ? ui('직접 올린 영상')
@@ -272,6 +279,7 @@ export const CenterPreviewStage = ({
               showTitle={overlayOptions.showTitle !== false}
               locationLabel={locationLabel}
               dateLabel={formatShootDate(activeSegment)}
+              metaLayout={metaLayout}
               caption={captionLabel}
               onLocationClick={() => onOpenLocation(activeSegment.id)}
               onTitleCommit={(text) => onUpdateOverlay({ titleText: text, showTitle: true })}

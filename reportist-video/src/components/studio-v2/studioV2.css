@@ -721,6 +721,7 @@
 .sv2-hit {
   position: absolute;
   pointer-events: auto;
+  box-sizing: border-box;
   border-radius: 8px;
   border: 1.5px solid transparent;
   /* button 기본 배경이 흰 사각형으로 보이는 것을 막는다. */
@@ -731,20 +732,22 @@
   border-color: rgba(255, 255, 255, 0.85);
   background: rgba(255, 255, 255, 0.08);
 }
+/* left/top/width/height는 PreviewInteractiveOverlay가 캔버스에 그려진 실제 텍스트
+   박스 좌표를 프레임 비율로 환산해 inline 지정한다(자막·위치 공통). */
 .sv2-hit-location {
-  top: 3%;
-  right: 3%;
-  width: 34%;
-  height: 13%;
+  padding: 0;
+  cursor: pointer;
 }
-/* left/top/width/height/font-size/padding은 PreviewInteractiveOverlay가
-   computeSubtitleOverlayBounds 결과를 프레임 비율로 환산해 inline 지정한다. */
+.sv2-hit-location:hover {
+  /* 캔버스가 그린 위치 텍스트를 가리지 않도록 얇은 테두리만 남긴다. */
+  background: transparent;
+}
+/* 자막은 font-size/padding도 computeSubtitleOverlayBounds 결과를 함께 사용한다. */
 .sv2-hit-caption {
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: text;
-  box-sizing: border-box;
 }
 .sv2-hit-caption:not([data-editing='true']):hover {
   border-color: rgba(255, 255, 255, 0.9);
@@ -754,8 +757,8 @@
   border: 0;
   background: transparent;
 }
-/* 자막 글자를 다시 그리지 않고, 박스 바깥 위쪽에만 얇은 안내 배지를 띄운다. */
-.sv2-caption-affordance {
+/* 글자를 다시 그리지 않고, 박스 바깥에만 얇은 안내 배지를 띄운다. */
+.sv2-hit-affordance {
   position: absolute;
   bottom: calc(100% + 6px);
   left: 50%;
@@ -771,26 +774,18 @@
   pointer-events: none;
   transition: opacity 0.15s;
 }
-.sv2-hit-caption:hover .sv2-caption-affordance,
-.sv2-hit-caption[data-empty='true'] .sv2-caption-affordance {
+.sv2-hit-caption:hover .sv2-hit-affordance,
+.sv2-hit-caption[data-empty='true'] .sv2-hit-affordance,
+.sv2-hit-location:hover .sv2-hit-affordance,
+.sv2-hit-title:hover .sv2-hit-affordance,
+.sv2-hit-title[data-empty='true'] .sv2-hit-affordance {
   opacity: 1;
 }
-.sv2-hit-hint {
-  font-size: 11px;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.92);
-  background: rgba(0, 0, 0, 0.4);
-  padding: 4px 10px;
-  border-radius: 20px;
-  opacity: 0;
-  transition: opacity 0.15s;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-.sv2-hit-location:hover .sv2-hit-hint {
-  opacity: 1;
+/* 제목·위치는 프레임 최상단이라 위쪽 배지가 잘리므로 아래로 띄운다. */
+.sv2-hit-location .sv2-hit-affordance,
+.sv2-hit-title .sv2-hit-affordance {
+  top: calc(100% + 6px);
+  bottom: auto;
 }
 /* 편집창은 캔버스 자막 알약 그 자체. 테두리는 box-shadow 한 겹만 사용한다. */
 .sv2-caption-input {
@@ -827,25 +822,10 @@
   border: 0;
   background: transparent;
 }
-/* 제목은 프레임 맨 위에 있으므로 안내 배지를 박스 아래에 띄운다(위는 프레임 밖으로 잘림). */
-.sv2-title-affordance {
-  position: absolute;
-  top: calc(100% + 6px);
+/* 제목 안내 배지는 박스 왼쪽에 붙는다(.sv2-hit-affordance 공통 스타일 재사용). */
+.sv2-hit-title .sv2-hit-affordance {
   left: 0;
-  padding: 3px 8px;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.62);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s;
-}
-.sv2-hit-title:hover .sv2-title-affordance,
-.sv2-hit-title[data-empty='true'] .sv2-title-affordance {
-  opacity: 1;
+  transform: none;
 }
 /* 편집창은 캔버스 제목 알약 그 자체. 색은 캔버스 제목 박스(0.72)와 맞춘다. */
 .sv2-title-input {
