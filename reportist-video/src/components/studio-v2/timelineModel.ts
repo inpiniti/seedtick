@@ -208,12 +208,17 @@ export function timelineXToTime(layout: TimelineLayout, x: number): number {
   const last = active[active.length - 1];
   if (x <= first.left) return first.start;
   if (x >= last.right) return last.end;
-  for (const span of active) {
+  for (let i = 0; i < active.length; i++) {
+    const span = active[i];
     if (x >= span.left && x <= span.right) {
       return span.width > 0
         ? span.start + ((x - span.left) / span.width) * (span.end - span.start)
         : span.start;
     }
+    // 칩 사이의 5px 간격(TIMELINE_CHIP_GAP)은 시간상 경계와 같다(인접 구간 end === start).
+    // 간격에 포인터가 머무는 순간 마지막 구간으로 튀지 않도록 경계 시간으로 고정한다.
+    const next = active[i + 1];
+    if (next && x > span.right && x < next.left) return span.end;
   }
   return last.end;
 }
