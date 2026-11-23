@@ -625,7 +625,10 @@
   max-height: 100%;
   border-radius: 14px;
   overflow: hidden;
-  background: #000;
+  /* 라운드 코너의 overflow 클리핑은 캔버스 픽셀과 이 배경을 섞어 그린다.
+     검정 배경이면 밝은 영상 가장자리에 어두운 호(선)가 남으므로 배경을 비워
+     페이지 배경과 자연스럽게 맞춘다(캔버스는 자체가 전체를 불투명하게 채운다). */
+  background: transparent;
   box-shadow: var(--sv2-shadow-lg);
   /* 얇은 border는 배경과 거의 같은 색이라 위·아래는 안 보이고 좌우만 남아
      콘텐츠 박스 비율이 어긋나 캔버스 여백(검은 선)까지 생겼다.
