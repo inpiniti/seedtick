@@ -66,12 +66,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
     onReStitch,
     isReStitching,
     reStitchProgress,
-    currentProjectId,
-    saveStatus,
-    projectSummaries,
-    isLoadingProjects,
-    onOpenProject,
-    onViewProjects,
+    onNewProject,
     initialOverlayOptions,
     initialBgmPresetId,
     initialBgmVolume,
@@ -470,12 +465,6 @@ export const CenterStudioView = (props: StudioV2Props) => {
     pendingVideos.length === 0 &&
     landingIds.size === 0;
 
-  // ---------- 프로젝트명 ----------
-  const projectName = useMemo(() => {
-    const found = projectSummaries?.find((p) => p.id === currentProjectId);
-    return found?.title || '새 프로젝트';
-  }, [projectSummaries, currentProjectId]);
-
   // ---------- 상단 모델 배지 ----------
   const byokActive = isByokActive();
   const modelDisplay: StudioModelDisplay = useMemo(() => {
@@ -530,13 +519,23 @@ export const CenterStudioView = (props: StudioV2Props) => {
       if (stitched?.url) {
         const a = document.createElement('a');
         a.href = stitched.url;
-        a.download = `${projectName || 'penguincut'}.mp4`;
+        const title = overlayOptions.titleText?.trim() || result?.suggestedTitle?.trim() || 'penguincut';
+        a.download = `${title}.mp4`;
         document.body.appendChild(a);
         a.click();
         a.remove();
       }
     },
-    [onReStitch, isProcessing, displaySegments, bgmPresetId, bgmVolume, customAudioFile, overlayOptions, projectName]
+    [
+      onReStitch,
+      isProcessing,
+      displaySegments,
+      bgmPresetId,
+      bgmVolume,
+      customAudioFile,
+      overlayOptions,
+      result?.suggestedTitle,
+    ]
   );
 
   if (!isWide) return <DesktopOnlyGate />;
@@ -548,14 +547,12 @@ export const CenterStudioView = (props: StudioV2Props) => {
   return (
     <div className="sv2-root">
       <StudioTopBar
-        projectName={projectName}
-        saveStatus={saveStatus}
         modelDisplay={modelDisplay}
         isLoadingModels={isLoadingModels}
         isProcessing={isProcessing}
+        onNewProject={() => void onNewProject?.()}
         onOpenModelModal={() => setIsModelModalOpen(true)}
         onAddVideos={() => fileInputRef.current?.click()}
-        onOpenProjects={() => onViewProjects?.() ?? onOpenProject?.(currentProjectId || '')}
         onExport={() => setIsExportOpen(true)}
         canExport={displaySegments.length > 0 && !isProcessing}
         isExporting={isReStitching}

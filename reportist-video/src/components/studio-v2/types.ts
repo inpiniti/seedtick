@@ -59,6 +59,8 @@ export interface StudioV2Props {
   onProjectsRefresh?: () => void;
   onOpenProject?: (id: string) => void | Promise<void>;
   onViewProjects?: () => void;
+  /** V2 상단 바의 '새 작업' — 로컬 미디어를 비우고 초기 상태로 돌아간다. */
+  onNewProject?: () => void | Promise<void>;
   onStartNewProject?: (orientation?: VideoOrientation, platform?: PortraitPlatform) => void;
   onTrySampleVideo?: () => void;
   isLoadingSample?: boolean;

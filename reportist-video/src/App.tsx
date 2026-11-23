@@ -69,6 +69,7 @@ import {
   duplicateProject,
   runMediaSplitMigration,
   deleteProjectMediaItem,
+  wipeAllAppData,
 } from './services/projectStorage.ts';
 import { AUDIO_LIBRARY, loadLibraryAudioFile } from './data/audioLibrary.ts';
 import { saveVideoToOPFS } from './services/opfsStorage.ts';
@@ -339,6 +340,8 @@ export function App() {
 
   const isRestoringProjectRef = useRef<boolean>(false);
   const autoSaveTimerRef = useRef<number | null>(null);
+  // 진행 중인 자동 저장 Promise — '새 작업'이 로컬 미디어를 비우기 전에 완료를 기다린다.
+  const saveInFlightRef = useRef<Promise<void> | null>(null);
   const activeMetadataBatchCountRef = useRef<number>(0);
   // 메타데이터/썸네일 추출 배치가 진행 중인지 UI에 알리기 위한 상태 (다음 단계 차단에 사용)
   const [activeVideoMetaBatches, setActiveVideoMetaBatches] = useState(0);
@@ -657,9 +660,22 @@ export function App() {
     }
   };
 
+  // 진행 중인 저장 Promise를 추적해 '새 작업'이 로컬 미디어를 비우기 전에 완료를 기다린다.
+  const performSave = (
+    overrideFinalResult?: FinalVideoResult,
+    opts?: { checkpoint?: boolean }
+  ): Promise<void> => {
+    const task = doPerformSave(overrideFinalResult, opts);
+    saveInFlightRef.current = task;
+    void task.finally(() => {
+      if (saveInFlightRef.current === task) saveInFlightRef.current = null;
+    });
+    return task;
+  };
+
   // 자동 저장 수행 (중복 실행 잠금 및 초기 메타데이터 추출 중 실행 보류)
   // opts.checkpoint: AI 분석 루프 중에도 허용할 '중간 체크포인트' 저장 (명시적으로 호출한 경우에만)
-  const performSave = async (overrideFinalResult?: FinalVideoResult, opts?: { checkpoint?: boolean }) => {
+  const doPerformSave = async (overrideFinalResult?: FinalVideoResult, opts?: { checkpoint?: boolean }) => {
     if (
       videos.length === 0 ||
       (!opts?.checkpoint && currentStepRef.current === 'processing') ||
@@ -2393,6 +2409,34 @@ export function App() {
     handleStartNewProject(orientation, platform);
   };
 
+  // V2 상단 바의 '새 작업': 진행 중인 저장을 마친 뒤 로컬 미디어를 전부 비우고 초기화한다.
+  // 복구용 현재 작업 1개만 남기므로 이전 영상이 IndexedDB/OPFS에 쌓이지 않는다.
+  const handleNewProject = async () => {
+    if (
+      videos.length > 0 &&
+      !window.confirm('현재 작업을 지우고 새로 시작할까요?\n저장된 영상과 편집 내용이 모두 삭제됩니다.')
+    ) {
+      return;
+    }
+    if (autoSaveTimerRef.current !== null) {
+      window.clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+    if (saveInFlightRef.current) {
+      try {
+        await saveInFlightRef.current;
+      } catch {
+        // 저장이 실패했어도 정리는 계속 진행한다.
+      }
+    }
+    try {
+      await wipeAllAppData();
+    } catch (err) {
+      console.warn('[App] Failed to clear local media:', err);
+    }
+    handleStartNewProject();
+  };
+
   const handleViewProjects = useCallback(async () => {
     if (autoSaveTimerRef.current !== null) {
       window.clearTimeout(autoSaveTimerRef.current);
@@ -2451,6 +2495,7 @@ export function App() {
     onDuplicateProject: handleDuplicateProject,
     onDeleteProject: handleDeleteProject,
     onStartNewProject: handleStartNewProject,
+    onNewProject: handleNewProject,
     onTrySampleVideo: handleTrySampleVideo,
     isLoadingSample,
     onViewProjects: handleViewProjects,

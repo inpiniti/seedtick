@@ -120,26 +120,6 @@
 .sv2-brand-logo {
   flex: 0 0 auto;
 }
-.sv2-project-name {
-  color: var(--sv2-text-2);
-  font-size: 13px;
-  font-weight: 600;
-  padding: 6px 10px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.sv2-project-name:hover {
-  background: var(--sv2-surface-3);
-}
-.sv2-save-state {
-  font-size: 11px;
-  color: var(--sv2-text-3);
-  white-space: nowrap;
-}
 .sv2-topbar-spacer {
   flex: 1;
 }

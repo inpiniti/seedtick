@@ -1,11 +1,11 @@
 import {
   ChevronDown,
   Download,
-  FolderOpen,
   Key,
   Plus,
   RectangleHorizontal,
   RectangleVertical,
+  RotateCcw,
   ShieldAlert,
   Sparkles,
   Zap,
@@ -13,7 +13,7 @@ import {
 import { PenguinLogo } from '../common/PenguinLogo.tsx';
 import type { VideoOrientation } from '../../types/video.ts';
 
-// components/studio-v2/StudioTopBar.tsx — 프로젝트/업로드/모델/내보내기.
+// components/studio-v2/StudioTopBar.tsx — 새 작업/업로드/모델/내보내기.
 
 /** 상단 바에 표시할 현재 AI 모델 상태 (CenterStudioView가 계산해 내려준다). */
 export interface StudioModelDisplay {
@@ -26,14 +26,12 @@ export interface StudioModelDisplay {
 }
 
 interface StudioTopBarProps {
-  projectName: string;
-  saveStatus?: 'saved' | 'saving' | 'idle';
   modelDisplay: StudioModelDisplay;
   isLoadingModels: boolean;
   isProcessing: boolean;
+  onNewProject: () => void;
   onOpenModelModal: () => void;
   onAddVideos: () => void;
-  onOpenProjects: () => void;
   onExport: () => void;
   canExport: boolean;
   isExporting: boolean;
@@ -42,14 +40,12 @@ interface StudioTopBarProps {
 }
 
 export const StudioTopBar = ({
-  projectName,
-  saveStatus,
   modelDisplay,
   isLoadingModels,
   isProcessing,
+  onNewProject,
   onOpenModelModal,
   onAddVideos,
-  onOpenProjects,
   onExport,
   canExport,
   isExporting,
@@ -61,14 +57,6 @@ export const StudioTopBar = ({
       <PenguinLogo size={26} color="#191f28" className="sv2-brand-logo" />
       PenguinCut
     </div>
-    <button type="button" className="sv2-project-name" onClick={onOpenProjects} title="프로젝트 보관함 열기">
-      {projectName || '새 프로젝트'} ▾
-    </button>
-    {saveStatus && (
-      <span className="sv2-save-state">
-        {saveStatus === 'saving' ? '저장 중…' : saveStatus === 'saved' ? '저장됨' : ''}
-      </span>
-    )}
 
     <div className="sv2-topbar-spacer" />
 
@@ -119,8 +107,13 @@ export const StudioTopBar = ({
       <ChevronDown size={13} className="sv2-model-chevron" />
     </button>
 
-    <button type="button" className="sv2-btn sv2-btn-icon" onClick={onOpenProjects} title="프로젝트 보관함">
-      <FolderOpen size={17} />
+    <button
+      type="button"
+      className="sv2-btn"
+      onClick={onNewProject}
+      title="현재 작업을 지우고 새로 시작"
+    >
+      <RotateCcw size={16} /> 새 작업
     </button>
     <button type="button" className="sv2-btn" onClick={onAddVideos}>
       <Plus size={16} /> 영상 추가
