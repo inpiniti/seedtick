@@ -1,4 +1,13 @@
-import { Download, FolderOpen, Moon, Plus, Sparkles, Sun } from 'lucide-react';
+import {
+  Download,
+  FolderOpen,
+  Moon,
+  Plus,
+  RectangleHorizontal,
+  RectangleVertical,
+  Sparkles,
+  Sun,
+} from 'lucide-react';
 import type { FreeModelMeta } from '../../types/gateway.ts';
 import type { VideoOrientation } from '../../types/video.ts';
 
@@ -59,16 +68,24 @@ export const StudioTopBar = ({
       <button
         type="button"
         data-active={orientation === 'landscape'}
+        aria-pressed={orientation === 'landscape'}
+        title="가로 영상 (16:9)"
+        aria-label="가로 영상 (16:9)"
         onClick={() => onOrientationChange('landscape')}
       >
-        16:9
+        <RectangleHorizontal size={15} strokeWidth={2} />
+        <span>16:9</span>
       </button>
       <button
         type="button"
         data-active={orientation === 'portrait'}
+        aria-pressed={orientation === 'portrait'}
+        title="세로 영상 (9:16)"
+        aria-label="세로 영상 (9:16)"
         onClick={() => onOrientationChange('portrait')}
       >
-        9:16
+        <RectangleVertical size={15} strokeWidth={2} />
+        <span>9:16</span>
       </button>
     </div>
 
