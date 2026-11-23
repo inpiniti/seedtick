@@ -37,6 +37,11 @@ PenguinCut is not a penguin cut-out, cookie cutter, or paper-craft template. It 
 - [How to make YouTube highlight videos with AI](https://penguincut.com/use-cases/youtube-highlights/)
 - [How to make a travel vlog highlight](https://penguincut.com/use-cases/travel-vlog-highlights/)
 - [How to make sports highlight videos](https://penguincut.com/use-cases/sports-highlights/)
+- [A free OpusClip alternative that never uploads your footage](https://penguincut.com/compare/opusclip-alternative/)
+- [A free browser alternative to CapCut for AI highlights](https://penguincut.com/compare/capcut-alternative/)
+- [Free YouTube highlight maker that runs in your browser](https://penguincut.com/tools/youtube-highlight-maker/)
+- [Free video to Shorts converter (no upload)](https://penguincut.com/tools/video-to-shorts/)
+- [Free video frame extractor that keeps your footage local](https://penguincut.com/tools/extract-video-frames/)
 
 ## Korean pages
 
@@ -47,6 +52,11 @@ PenguinCut is not a penguin cut-out, cookie cutter, or paper-craft template. It 
 - [AI로 YouTube 하이라이트 영상 만들기](https://penguincut.com/ko/use-cases/youtube-highlights/)
 - [여행 브이로그 하이라이트 만드는 방법](https://penguincut.com/ko/use-cases/travel-vlog-highlights/)
 - [스포츠 하이라이트 영상 만드는 방법](https://penguincut.com/ko/use-cases/sports-highlights/)
+- [원본 영상을 업로드하지 않는 무료 OpusClip 대안](https://penguincut.com/ko/compare/opusclip-alternative/)
+- [AI 하이라이트를 위한 무료 브라우저 CapCut 대안](https://penguincut.com/ko/compare/capcut-alternative/)
+- [브라우저에서 동작하는 무료 YouTube 하이라이트 메이커](https://penguincut.com/ko/tools/youtube-highlight-maker/)
+- [무료 동영상→Shorts 변환기 (업로드 없음)](https://penguincut.com/ko/tools/video-to-shorts/)
+- [원본 영상을 로컬에 두는 무료 영상 프레임 추출기](https://penguincut.com/ko/tools/extract-video-frames/)
 
 ## Languages
 

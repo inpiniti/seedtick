@@ -891,6 +891,530 @@ const SPORTS_KO = {
   related: ["use-cases/youtube-highlights", "use-cases/travel-vlog-highlights", "blog/introducing-penguincut"],
 };
 
+const COMPARE_OPUSCLIP_EN = {
+  title: "Free OpusClip alternative — no upload, no login, in your browser",
+  description:
+    "Looking for a free OpusClip alternative? PenguinCut is 100% free, needs no account, and never uploads your footage — AI highlight editing runs locally in your browser.",
+  eyebrow: "Comparison",
+  heading: "A free OpusClip alternative that never uploads your footage",
+  lead:
+    "OpusClip is a capable cloud editor, but it asks you to sign up, upload the full video, and live within a free-tier quota. PenguinCut takes a different route: the original file stays on your device, only sampled frames are sent for AI analysis, and the whole tool is free with no account.",
+  updated: "2026-11-23",
+  sections: [
+    {
+      heading: "Why people look for an OpusClip alternative",
+      paragraphs: [
+        "The usual reasons are the account requirement, uploading a full recording to someone else's server, free-plan limits, and a watermark on exported videos. If you regularly cut long recordings into short clips, those constraints add up.",
+      ],
+      bullets: [
+        "No signup or email required.",
+        "The original video is never uploaded — only sampled frames leave your device.",
+        "No watermark and no paid tier to unlock export.",
+        "Works in a browser tab on Windows, macOS, and Linux.",
+      ],
+    },
+    {
+      heading: "How PenguinCut compares",
+      paragraphs: [
+        "Both tools use AI to pick the strongest moments from a long video. The difference is where the work happens. PenguinCut reads the file in your browser, samples frames locally, sends only those small samples to a vision model, and renders the export on your machine.",
+        "That makes privacy the default rather than a setting: your full footage never becomes someone else's cloud asset. It also keeps the price at zero, because there is no cloud storage or server-side rendering bill to pass on.",
+      ],
+    },
+    {
+      heading: "Where OpusClip still wins",
+      paragraphs: [
+        "To be fair, a cloud renderer does not depend on your computer's speed, so very long or very high-resolution projects can be easier there. Cloud tools also tend to offer team collaboration and scheduling, which PenguinCut does not.",
+        "If you need multi-user workflows or hands-off rendering of hour-long files on a weak laptop, OpusClip may still fit better. If you want a free, private, no-account way to cut highlights, PenguinCut is the simpler fit.",
+      ],
+    },
+    {
+      heading: "Get started for free",
+      paragraphs: [
+        "Open the studio, choose 16:9 for a main video or 9:16 for Shorts, Reels, and TikTok, and add a file from your computer. Review the AI's proposed cuts, adjust captions and music, then export. Nothing to install and nothing to sign up for.",
+      ],
+    },
+    {
+      heading: "Frequently asked",
+      paragraphs: [
+        "Is it really free? Yes. There is no paid plan, no trial expiry, and no watermark on exports.",
+        "Do I need to upload my video? No. Frames are sampled locally and only those samples are sent for analysis.",
+        "Can I use it for Shorts? Yes. Start a 9:16 project instead of a 16:9 one.",
+      ],
+    },
+  ],
+  related: ["compare/capcut-alternative", "tools/youtube-highlight-maker", "use-cases/youtube-highlights"],
+};
+
+const COMPARE_OPUSCLIP_KO = {
+  title: "무료 OpusClip 대안 — 업로드 없이, 로그인 없이, 브라우저에서",
+  description:
+    "OpusClip의 무료 대안을 찾고 계신가요? 펭귄컷은 완전 무료이고 계정이 필요 없으며, 원본 영상을 업로드하지 않습니다. AI 하이라이트 편집이 브라우저 로컬에서 이루어집니다.",
+  eyebrow: "비교",
+  heading: "원본 영상을 업로드하지 않는 무료 OpusClip 대안",
+  lead:
+    "OpusClip은 훌륭한 클라우드 편집기지만 가입, 전체 영상 업로드, 무료 플랜 제한이 따릅니다. 펭귄컷은 다른 방식을 택했습니다. 원본 파일은 기기에 남고, 분석용 샘플 프레임만 전송되며, 계정 없이 전 기능이 무료입니다.",
+  updated: "2026-11-23",
+  sections: [
+    {
+      heading: "OpusClip 대안을 찾는 이유",
+      paragraphs: [
+        "가장 흔한 이유는 계정 요구, 전체 녹화 영상을 남의 서버에 올려야 한다는 점, 무료 플랜 제한, 내보내기 영상의 워터마크입니다. 긴 녹화를 자주 짧게 잘라야 한다면 이 제약은 계속 쌓입니다.",
+      ],
+      bullets: [
+        "가입이나 이메일이 필요 없습니다.",
+        "원본 영상은 업로드되지 않고, 샘플 프레임만 기기에서 나갑니다.",
+        "워터마크가 없고, 내보내기를 위해 결제할 필요가 없습니다.",
+        "Windows·macOS·Linux 브라우저 탭에서 바로 동작합니다.",
+      ],
+    },
+    {
+      heading: "펭귄컷은 어떻게 다른가요",
+      paragraphs: [
+        "두 도구 모두 AI로 긴 영상에서 강한 순간을 골라 줍니다. 차이는 작업이 어디서 일어나느냐입니다. 펭귄컷은 브라우저에서 파일을 읽고 프레임을 로컬에서 샘플링한 뒤, 작은 샘플만 비전 모델로 보내고, 내보내기는 내 컴퓨터에서 렌더링합니다.",
+        "그래서 프라이버시가 설정이 아니라 기본값입니다. 전체 영상이 남의 클라우드 자산이 되지 않습니다. 클라우드 저장소·서버 렌더링 비용을 전가할 필요가 없으므로 가격도 0원입니다.",
+      ],
+    },
+    {
+      heading: "OpusClip이 더 나은 경우",
+      paragraphs: [
+        "공정하게 말하면 클라우드 렌더링은 내 컴퓨터 성능에 좌우되지 않아, 매우 길거나 고해상도 프로젝트가 더 수월할 수 있습니다. 팀 협업이나 예약 업로드 같은 기능도 클라우드 도구가 더 잘 갖추고 있습니다.",
+        "여러 사람이 함께 쓰는 워크플로가 필요하거나 성능이 낮은 노트북에서 긴 영상을 손대지 않고 렌더링해야 한다면 OpusClip이 더 맞을 수 있습니다. 무료·프라이빗·계정 없는 하이라이트 편집이 목적이라면 펭귄컷이 더 단순합니다.",
+      ],
+    },
+    {
+      heading: "무료로 시작하기",
+      paragraphs: [
+        "스튜디오를 열고 본편용 16:9 또는 Shorts·Reels·TikTok용 9:16을 고른 뒤 컴퓨터의 파일을 넣으세요. AI가 제안한 컷을 검토하고 자막·음악을 조정한 다음 내보내면 됩니다. 설치도 가입도 필요 없습니다.",
+      ],
+    },
+    {
+      heading: "자주 묻는 질문",
+      paragraphs: [
+        "정말 무료인가요? 네. 유료 플랜, 체험 만료, 내보내기 워터마크가 없습니다.",
+        "영상을 업로드해야 하나요? 아닙니다. 프레임을 로컬에서 샘플링하고 그 샘플만 분석에 보냅니다.",
+        "Shorts에도 쓸 수 있나요? 네. 16:9 대신 9:16 프로젝트로 시작하면 됩니다.",
+      ],
+    },
+  ],
+  related: ["compare/capcut-alternative", "tools/youtube-highlight-maker", "use-cases/youtube-highlights"],
+};
+
+const COMPARE_CAPCUT_EN = {
+  title: "Free web CapCut alternative — edit highlights without uploading",
+  description:
+    "Need a free CapCut alternative that runs in the browser? PenguinCut finds highlights with AI, works in 16:9 and 9:16, and never uploads your original video. No login, no watermark.",
+  eyebrow: "Comparison",
+  heading: "A free browser alternative to CapCut for AI highlights",
+  lead:
+    "CapCut is a full editor, but for one specific job — pulling the best moments out of a long recording — a timeline editor can be more work than the task deserves. PenguinCut automates that first pass while keeping your footage on your device.",
+  updated: "2026-11-23",
+  sections: [
+    {
+      heading: "When you need a CapCut alternative",
+      paragraphs: [
+        "If your goal is a fast highlight or a vertical clip from a long recording, scrubbing a timeline by hand is slow. You may also want a browser tool that asks for no account and does not upload the source file.",
+      ],
+    },
+    {
+      heading: "How PenguinCut differs",
+      paragraphs: [
+        "Add your clips and the AI proposes a cut order from sampled frames. You review and refine rather than build from a blank timeline. Captions, title overlays, chapter bridges, and music are available before export.",
+      ],
+      bullets: [
+        "100% free, no account, no watermark.",
+        "16:9 main videos and 9:16 Shorts/Reels/TikTok projects.",
+        "Original footage stays local; only sampled frames are analyzed.",
+        "Runs in the browser with no install.",
+      ],
+    },
+    {
+      heading: "When CapCut is still the right tool",
+      paragraphs: [
+        "For frame-accurate manual editing, complex effects, and a large built-in asset library, a full editor like CapCut is still the better choice. PenguinCut is focused on the highlight-first workflow, not on replacing every editing feature.",
+      ],
+    },
+    {
+      heading: "How to get started",
+      paragraphs: [
+        "Open the studio, pick your format, add a video, and let the AI propose moments. Adjust the cuts, add captions, and export. You can start with a 9:16 project if the destination is Shorts or Reels.",
+      ],
+    },
+    {
+      heading: "Frequently asked",
+      paragraphs: [
+        "Does it work on mobile? It runs in a mobile browser, but a desktop browser is more comfortable for reviewing many cuts.",
+        "Is there a file size limit? It depends on your device's memory, since decoding and rendering happen locally. Splitting very long recordings gives steadier results.",
+        "Do I need to upload? No. Only small sampled frames are sent for analysis.",
+      ],
+    },
+  ],
+  related: ["compare/opusclip-alternative", "tools/video-to-shorts", "use-cases/youtube-highlights"],
+};
+
+const COMPARE_CAPCUT_KO = {
+  title: "무료 웹 CapCut 대안 — 업로드 없이 하이라이트 편집",
+  description:
+    "브라우저에서 동작하는 무료 CapCut 대안이 필요하신가요? 펭귄컷은 AI로 하이라이트를 찾고 16:9·9:16을 지원하며 원본 영상을 업로드하지 않습니다. 로그인도 워터마크도 없습니다.",
+  eyebrow: "비교",
+  heading: "AI 하이라이트를 위한 무료 브라우저 CapCut 대안",
+  lead:
+    "CapCut은 완전한 편집기입니다. 하지만 긴 녹화 영상에서 가장 좋은 순간을 뽑아내라는 단 하나의 목적이라면, 타임라인 편집기가 필요한 것보다 더 큰 일이 될 수 있습니다. 펭귄컷은 그 첫 작업을 자동화하면서 영상을 기기에 그대로 둡니다.",
+  updated: "2026-11-23",
+  sections: [
+    {
+      heading: "CapCut 대안이 필요한 순간",
+      paragraphs: [
+        "긴 녹화 영상에서 짧은 하이라이트나 세로 클립을 빨리 만들어야 한다면, 손으로 타임라인을 훑는 것은 느립니다. 계정을 요구하지 않고 원본을 올리지 않는 브라우저 도구를 원할 수도 있습니다.",
+      ],
+    },
+    {
+      heading: "펭귄컷은 어떻게 다른가요",
+      paragraphs: [
+        "클립을 넣으면 AI가 샘플 프레임에서 컷 순서를 제안합니다. 빈 타임라인을 처음부터 만드는 대신 제안을 검토하고 다듬으면 됩니다. 내보내기 전에 자막, 제목 오버레이, 챕터 브릿지, 음악을 넣을 수 있습니다.",
+      ],
+      bullets: [
+        "완전 무료, 계정 없음, 워터마크 없음.",
+        "본편용 16:9와 Shorts·Reels·TikTok용 9:16 프로젝트.",
+        "원본 영상은 로컬에 남고 샘플 프레임만 분석에 사용됩니다.",
+        "설치 없이 브라우저에서 동작합니다.",
+      ],
+    },
+    {
+      heading: "CapCut이 여전히 좋은 경우",
+      paragraphs: [
+        "프레임 단위의 정밀 편집, 복잡한 이펙트, 다양한 내장 에셋이 필요하다면 CapCut 같은 완전한 편집기가 더 적합합니다. 펭귄컷은 모든 편집 기능을 대체하기보다 하이라이트 중심 워크플로에 집중합니다.",
+      ],
+    },
+    {
+      heading: "시작하는 방법",
+      paragraphs: [
+        "스튜디오를 열고 포맷을 고른 뒤 영상을 넣고 AI가 순간을 제안하게 하세요. 컷을 조정하고 자막을 넣은 다음 내보내면 됩니다. 목적지가 Shorts나 Reels라면 9:16 프로젝트로 시작하세요.",
+      ],
+    },
+    {
+      heading: "자주 묻는 질문",
+      paragraphs: [
+        "모바일에서도 되나요? 모바일 브라우저에서 실행되지만, 컷을 많이 검토할 때는 데스크톱이 더 편합니다.",
+        "파일 크기 제한이 있나요? 디코딩과 렌더링이 로컬에서 이루어져 기기 메모리에 따라 달라집니다. 매우 긴 영상은 나눠 작업하면 더 안정적입니다.",
+        "업로드해야 하나요? 아닙니다. 작은 샘플 프레임만 분석에 보냅니다.",
+      ],
+    },
+  ],
+  related: ["compare/opusclip-alternative", "tools/video-to-shorts", "use-cases/youtube-highlights"],
+};
+
+const TOOL_YT_HIGHLIGHT_EN = {
+  title: "Free YouTube highlight maker — no upload, no login",
+  description:
+    "Make YouTube highlights from long videos for free. PenguinCut samples frames locally, asks AI for the strongest moments, and exports 16:9 or 9:16 — no upload, no account.",
+  eyebrow: "Free tool",
+  heading: "Free YouTube highlight maker that runs in your browser",
+  lead:
+    "This is a one-purpose tool for turning a long recording into a short YouTube highlight. No account, no upload of the original file, and no watermark — just your browser and the video you already have.",
+  updated: "2026-11-23",
+  sections: [
+    {
+      heading: "What this tool does",
+      paragraphs: [
+        "PenguinCut samples frames from your video locally, sends only those small samples to a vision model, and proposes a sequence of strong moments. You review the plan, trim cuts, add captions and music, then export a highlight in 16:9 or a vertical cut in 9:16.",
+      ],
+    },
+    {
+      heading: "How it works",
+      paragraphs: [
+        "Add one or more clips you already have on your device. Choose a model and reasoning level, then let the AI propose cuts. Review and reorder them, add captions and a title overlay, and export.",
+      ],
+      bullets: [
+        "Original file stays on your device.",
+        "Only sampled frames are sent for analysis.",
+        "16:9 for the main player, 9:16 for Shorts.",
+        "Free, with no signup and no watermark.",
+      ],
+    },
+    {
+      heading: "Good inputs",
+      paragraphs: [
+        "Vlogs, gameplay, talks, events, and family footage all work well when the interesting moments are spread through a longer recording. Clean audio and a few seconds of breathing room around key moments make the AI's job easier.",
+      ],
+    },
+    {
+      heading: "Privacy and limits",
+      paragraphs: [
+        "Nothing is installed and no account is created. Decoding and rendering use your device, so very long or high-resolution files depend on available memory — splitting a long recording into parts gives more stable results.",
+      ],
+    },
+    {
+      heading: "Frequently asked",
+      paragraphs: [
+        "Can I make both a video and a Short? Yes, create one 16:9 project and one 9:16 project.",
+        "Are captions included? You can add and edit captions before export.",
+        "Does it cost anything? No. It is completely free.",
+      ],
+    },
+  ],
+  related: ["use-cases/youtube-highlights", "tools/video-to-shorts", "compare/opusclip-alternative"],
+};
+
+const TOOL_YT_HIGHLIGHT_KO = {
+  title: "무료 YouTube 하이라이트 메이커 — 업로드 없이, 로그인 없이",
+  description:
+    "긴 영상으로 YouTube 하이라이트를 무료로 만드세요. 펭귄컷은 프레임을 로컬에서 샘플링하고 AI가 강한 순간을 골라 16:9·9:16로 내보냅니다. 업로드도 계정도 필요 없습니다.",
+  eyebrow: "무료 도구",
+  heading: "브라우저에서 동작하는 무료 YouTube 하이라이트 메이커",
+  lead:
+    "긴 녹화 영상을 짧은 YouTube 하이라이트로 바꾸기 위한 단일 목적 도구입니다. 계정도, 원본 업로드도, 워터마크도 없이 브라우저와 가지고 있는 영상만 있으면 됩니다.",
+  updated: "2026-11-23",
+  sections: [
+    {
+      heading: "이 도구가 하는 일",
+      paragraphs: [
+        "펭귄컷은 영상 프레임을 로컬에서 샘플링하고 작은 샘플만 비전 모델에 보내 강한 순간들을 제안합니다. 스토리 계획을 검토하고 컷을 자르고, 자막과 음악을 넣은 뒤 16:9 하이라이트 또는 9:16 세로 컷으로 내보냅니다.",
+      ],
+    },
+    {
+      heading: "사용 방법",
+      paragraphs: [
+        "기기에 있는 클립을 하나 이상 넣으세요. 모델과 추론 수준을 고른 뒤 AI가 컷을 제안하게 합니다. 순서를 검토·변경하고 자막과 제목 오버레이를 넣고 내보내면 됩니다.",
+      ],
+      bullets: [
+        "원본 파일은 기기에 남습니다.",
+        "분석에는 샘플 프레임만 보내집니다.",
+        "본편용 16:9, Shorts용 9:16을 지원합니다.",
+        "가입 없이 무료이며 워터마크가 없습니다.",
+      ],
+    },
+    {
+      heading: "잘 맞는 영상",
+      paragraphs: [
+        "브이로그, 게임 플레이, 강연, 행사, 가족 영상처럼 긴 녹화 전반에 재미있는 순간이 흩어져 있으면 좋습니다. 오디오가 깨끗하고 핵심 순간 앞뒤에 여유가 조금 있으면 AI가 더 잘 찾아냅니다.",
+      ],
+    },
+    {
+      heading: "프라이버시와 한계",
+      paragraphs: [
+        "설치도 계정 생성도 없습니다. 디코딩과 렌더링은 기기에서 이루어지므로 매우 길거나 고해상도 영상은 메모리에 따라 달라집니다. 긴 녹화를 여러 부분으로 나누면 더 안정적입니다.",
+      ],
+    },
+    {
+      heading: "자주 묻는 질문",
+      paragraphs: [
+        "본편과 Short 둘 다 만들 수 있나요? 네. 16:9 프로젝트와 9:16 프로젝트를 각각 만들면 됩니다.",
+        "자막을 넣을 수 있나요? 네. 내보내기 전에 추가하고 편집할 수 있습니다.",
+        "비용이 드나요? 아니요. 완전히 무료입니다.",
+      ],
+    },
+  ],
+  related: ["use-cases/youtube-highlights", "tools/video-to-shorts", "compare/opusclip-alternative"],
+};
+
+const TOOL_VIDEO_TO_SHORTS_EN = {
+  title: "Free video to Shorts converter — 16:9 to 9:16 without uploading",
+  description:
+    "Convert long videos into Shorts, Reels, and TikTok clips for free. Choose a 9:16 project, let AI pick the best moments, and export — your original file never leaves your device.",
+  eyebrow: "Free tool",
+  heading: "Free video to Shorts converter (no upload)",
+  lead:
+    "Reframing a landscape video for a vertical feed is more than changing the aspect ratio — you need the right moments in frame. This tool finds them, keeps the original file local, and exports a 9:16 clip for free.",
+  updated: "2026-11-23",
+  sections: [
+    {
+      heading: "What this tool does",
+      paragraphs: [
+        "Start a 9:16 project and add a 16:9 recording. PenguinCut samples frames locally, proposes the strongest moments for a vertical cut, and renders a short clip you can publish to Shorts, Reels, or TikTok.",
+      ],
+    },
+    {
+      heading: "How to convert 16:9 to 9:16",
+      paragraphs: [
+        "Choose the vertical format when creating the project, add your video, review the AI's proposed cuts, and export. Captions and title overlays can be adjusted before export so they remain readable in a narrow frame.",
+      ],
+      bullets: [
+        "No account and no upload of the original file.",
+        "Free export with no watermark.",
+        "Captions and overlays editable before export.",
+        "Works with files already on your device.",
+      ],
+    },
+    {
+      heading: "Keeping the subject in frame",
+      paragraphs: [
+        "A vertical crop removes the sides of a landscape shot. Keep the important subject near the center when recording, and check the preview before export so captions do not cover faces or on-screen text.",
+      ],
+    },
+    {
+      heading: "Privacy and limits",
+      paragraphs: [
+        "Only sampled frames are sent for analysis; the full video stays on your device. Rendering happens locally, so device memory sets the practical ceiling for very long files.",
+      ],
+    },
+    {
+      heading: "Frequently asked",
+      paragraphs: [
+        "Can I keep the original 16:9 video too? Yes, start a separate 16:9 project for the main version.",
+        "Will captions fit? Keep them short and check the vertical preview before export.",
+        "Is it free? Yes, completely free with no watermark.",
+      ],
+    },
+  ],
+  related: ["tools/youtube-highlight-maker", "use-cases/youtube-highlights", "compare/capcut-alternative"],
+};
+
+const TOOL_VIDEO_TO_SHORTS_KO = {
+  title: "무료 동영상→Shorts 변환 — 업로드 없이 16:9를 9:16으로",
+  description:
+    "긴 영상을 Shorts·Reels·TikTok용 클립으로 무료 변환하세요. 9:16 프로젝트를 만들고 AI가 가장 좋은 순간을 고르게 하면 원본 영상은 기기를 떠나지 않습니다.",
+  eyebrow: "무료 도구",
+  heading: "무료 동영상→Shorts 변환기 (업로드 없음)",
+  lead:
+    "가로 영상을 세로 피드에 맞기는 것은 비율만 바꾸는 일이 아닙니다. 화면에 들어갈 순간을 골라야 합니다. 이 도구는 그 순간을 찾아 원본을 로컬에 두고 9:16 클립을 무료로 내보냅니다.",
+  updated: "2026-11-23",
+  sections: [
+    {
+      heading: "이 도구가 하는 일",
+      paragraphs: [
+        "9:16 프로젝트를 만들고 16:9 영상을 넣으세요. 펭귄컷은 프레임을 로컬에서 샘플링해 세로 컷에 어울리는 강한 순간을 제안하고, Shorts·Reels·TikTok에 올릴 짧은 클립으로 렌더링합니다.",
+      ],
+    },
+    {
+      heading: "16:9를 9:16으로 바꾸는 방법",
+      paragraphs: [
+        "프로젝트를 만들 때 세로 포맷을 고르고 영상을 넣은 뒤 AI가 제안한 컷을 검토하고 내보내세요. 좁은 화면에서도 읽히도록 내보내기 전에 자막과 제목 오버레이를 조정할 수 있습니다.",
+      ],
+      bullets: [
+        "계정도 원본 업로드도 필요 없습니다.",
+        "무료 내보내기, 워터마크 없음.",
+        "내보내기 전 자막·오버레이 편집 가능.",
+        "기기에 있는 영상으로 바로 동작합니다.",
+      ],
+    },
+    {
+      heading: "피사체를 화면에 두는 법",
+      paragraphs: [
+        "세로 크롭은 가로 샷의 좌우를 잘라냅니다. 촬영할 때 중요한 피사체를 화면 중앙 가까이에 두고, 내보내기 전 미리보기에서 자막이 얼굴이나 화면 글자를 가리지 않는지 확인하세요.",
+      ],
+    },
+    {
+      heading: "프라이버시와 한계",
+      paragraphs: [
+        "분석에는 샘플 프레임만 보내지고 전체 영상은 기기에 남습니다. 렌더링도 로컬에서 이루어져 매우 긴 파일은 기기 메모리가 현실적인 한계입니다.",
+      ],
+    },
+    {
+      heading: "자주 묻는 질문",
+      paragraphs: [
+        "원본 16:9 영상도 같이 만들 수 있나요? 네. 본편용으로 별도의 16:9 프로젝트를 만들면 됩니다.",
+        "자막이 들어갈까요? 네. 짧게 유지하고 세로 미리보기에서 확인하세요.",
+        "무료인가요? 네. 완전 무료이고 워터마크가 없습니다.",
+      ],
+    },
+  ],
+  related: ["tools/youtube-highlight-maker", "use-cases/youtube-highlights", "compare/capcut-alternative"],
+};
+
+const TOOL_EXTRACT_FRAMES_EN = {
+  title: "Free video frame extractor — extract frames locally in your browser",
+  description:
+    "Extract frames and thumbnails from a video without uploading it. PenguinCut samples frames locally for AI analysis and lets you save a representative frame as your project thumbnail — 100% free.",
+  eyebrow: "Free tool",
+  heading: "Free video frame extractor that keeps your footage local",
+  lead:
+    "Whether you need a thumbnail or want to see which moments a long video contains, frame extraction is the first step. PenguinCut does it in your browser, so the full file never has to be uploaded.",
+  updated: "2026-11-23",
+  sections: [
+    {
+      heading: "What this tool does",
+      paragraphs: [
+        "PenguinCut reads your video in the browser and samples frames across its duration. Those samples feed the AI highlight analysis, and a representative frame from the original scene can be saved as the project thumbnail.",
+      ],
+    },
+    {
+      heading: "How frame sampling works",
+      paragraphs: [
+        "Instead of processing every frame, the tool selects a spread of sample frames locally and sends only those small images for analysis. That keeps bandwidth low and, more importantly, keeps your original footage on your device.",
+      ],
+      bullets: [
+        "No upload of the full video.",
+        "No account, no install, no watermark.",
+        "Sample frames are used to propose highlight cuts.",
+        "A representative frame can be saved as the thumbnail.",
+      ],
+    },
+    {
+      heading: "Use cases",
+      paragraphs: [
+        "Preview what a long recording contains without scrubbing the whole timeline. Pick a clean frame for a thumbnail. Let the AI find the strongest moments so you can build a highlight from them.",
+      ],
+    },
+    {
+      heading: "Privacy and limits",
+      paragraphs: [
+        "Your original video is never uploaded. Frame extraction and rendering run on your device, so available memory limits very large files; splitting a long recording into parts is more reliable.",
+      ],
+    },
+    {
+      heading: "Frequently asked",
+      paragraphs: [
+        "Can I save a frame without text overlays? Yes — the saved representative frame keeps the original scene without a title overlay.",
+        "Do I need to install anything? No. It runs in a browser tab.",
+        "Is it free? Yes, completely free.",
+      ],
+    },
+  ],
+  related: ["tools/youtube-highlight-maker", "tools/video-to-shorts", "about"],
+};
+
+const TOOL_EXTRACT_FRAMES_KO = {
+  title: "무료 영상 프레임 추출 — 브라우저에서 로컬로 추출",
+  description:
+    "영상을 업로드하지 않고 프레임과 썸네일을 추출하세요. 펭귄컷은 프레임을 로컬에서 샘플링해 AI 분석에 사용하고, 대표 프레임을 프로젝트 썸네일로 저장할 수 있습니다. 100% 무료입니다.",
+  eyebrow: "무료 도구",
+  heading: "원본 영상을 로컬에 두는 무료 영상 프레임 추출기",
+  lead:
+    "썸네일이 필요하거나 긴 영상에 어떤 장면이 있는지 보고 싶다면 프레임 추출이 첫 단계입니다. 펭귄컷은 브라우저에서 이를 처리하므로 전체 파일을 업로드할 필요가 없습니다.",
+  updated: "2026-11-23",
+  sections: [
+    {
+      heading: "이 도구가 하는 일",
+      paragraphs: [
+        "펭귄컷은 브라우저에서 영상을 읽고 전체 길이에 걸쳐 프레임을 샘플링합니다. 그 샘플이 AI 하이라이트 분석에 사용되고, 원본 장면의 대표 프레임을 프로젝트 썸네일로 저장할 수 있습니다.",
+      ],
+    },
+    {
+      heading: "프레임 샘플링 원리",
+      paragraphs: [
+        "모든 프레임을 처리하는 대신, 도구가 로컬에서 일정 간격의 샘플 프레임을 골라 그 작은 이미지만 분석에 보냅니다. 대역폭이 적게 들고, 무엇보다 원본 영상이 기기에 남습니다.",
+      ],
+      bullets: [
+        "전체 영상을 업로드하지 않습니다.",
+        "계정도 설치도 워터마크도 없습니다.",
+        "샘플 프레임으로 하이라이트 컷을 제안합니다.",
+        "대표 프레임을 썸네일로 저장할 수 있습니다.",
+      ],
+    },
+    {
+      heading: "활용 예시",
+      paragraphs: [
+        "긴 녹화 영상을 처음부터 훑지 않고 어떤 장면이 있는지 미리 보기. 썸네일용으로 깨끗한 프레임 고르기. AI가 강한 순간을 찾게 해 하이라이트의 재료로 삼기.",
+      ],
+    },
+    {
+      heading: "프라이버시와 한계",
+      paragraphs: [
+        "원본 영상은 업로드되지 않습니다. 프레임 추출과 렌더링이 기기에서 이루어져 매우 큰 파일은 메모리에 따라 제한됩니다. 긴 녹화를 여러 부분으로 나누면 더 안정적입니다.",
+      ],
+    },
+    {
+      heading: "자주 묻는 질문",
+      paragraphs: [
+        "텍스트 오버레이 없이 프레임을 저장할 수 있나요? 네. 대표 프레임은 제목 오버레이 없는 원본 장면으로 저장됩니다.",
+        "설치가 필요하나요? 아니요. 브라우저 탭에서 실행됩니다.",
+        "무료인가요? 네. 완전히 무료입니다.",
+      ],
+    },
+  ],
+  related: ["tools/youtube-highlight-maker", "tools/video-to-shorts", "about"],
+};
+
 export const CONTENT_PAGES = [
   { slug: "privacy", kind: "legal", en: PRIVACY_EN, ko: PRIVACY_KO },
   { slug: "terms", kind: "legal", en: TERMS_EN, ko: TERMS_KO },
@@ -918,6 +1442,36 @@ export const CONTENT_PAGES = [
     kind: "article",
     en: SPORTS_EN,
     ko: SPORTS_KO,
+  },
+  {
+    slug: "compare/opusclip-alternative",
+    kind: "article",
+    en: COMPARE_OPUSCLIP_EN,
+    ko: COMPARE_OPUSCLIP_KO,
+  },
+  {
+    slug: "compare/capcut-alternative",
+    kind: "article",
+    en: COMPARE_CAPCUT_EN,
+    ko: COMPARE_CAPCUT_KO,
+  },
+  {
+    slug: "tools/youtube-highlight-maker",
+    kind: "article",
+    en: TOOL_YT_HIGHLIGHT_EN,
+    ko: TOOL_YT_HIGHLIGHT_KO,
+  },
+  {
+    slug: "tools/video-to-shorts",
+    kind: "article",
+    en: TOOL_VIDEO_TO_SHORTS_EN,
+    ko: TOOL_VIDEO_TO_SHORTS_KO,
+  },
+  {
+    slug: "tools/extract-video-frames",
+    kind: "article",
+    en: TOOL_EXTRACT_FRAMES_EN,
+    ko: TOOL_EXTRACT_FRAMES_KO,
   },
 ];
 

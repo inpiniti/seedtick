@@ -28,6 +28,8 @@ interface StudioProjectListViewProps {
   onDuplicateProject: (id: string) => void;
   onDeleteProject: (id: string) => void;
   onStartNewProject: () => void;
+  onTrySampleVideo?: () => void;
+  isLoadingSample?: boolean;
 }
 
 export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
@@ -39,6 +41,8 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
   onDuplicateProject,
   onDeleteProject,
   onStartNewProject,
+  onTrySampleVideo,
+  isLoadingSample = false,
 }) => {
   const { dict, interpolate, ui } = useI18n();
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
@@ -177,6 +181,31 @@ export const StudioProjectListView: React.FC<StudioProjectListViewProps> = ({
             <Plus size={16} />
             <span>{pDict.startStudioBtn}</span>
           </button>
+          {onTrySampleVideo && (
+            <button
+              type="button"
+              className="toss-btn-secondary toss-projects-empty-btn"
+              style={{ marginTop: 10 }}
+              onClick={onTrySampleVideo}
+              disabled={isLoadingSample}
+            >
+              {isLoadingSample ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Film size={16} />
+              )}
+              <span>
+                {isLoadingSample
+                  ? ui('샘플 분석 중...')
+                  : ui('샘플 영상으로 바로 체험하기')}
+              </span>
+            </button>
+          )}
+          {onTrySampleVideo && (
+            <p className="toss-projects-empty-desc" style={{ marginTop: 8, fontSize: 13 }}>
+              {ui('파일을 찾지 않아도 괜찮아요. 버튼 한 번으로 AI 하이라이트를 바로 만들어 봐요.')}
+            </p>
+          )}
         </div>
       ) : (
         /* 프로젝트 카드 그리드 */

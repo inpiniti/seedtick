@@ -1383,5 +1383,29 @@ export function renderHyperframesOutroFrame(
       drawModernEndcardOutro(ctx, state, options, w, h, scale);
       break;
   }
+
+  // PenguinCut 크레딧 — 완전 무료, 기본 ON. 아웃트로 후반부에만 얇게 얹는다.
+  // 새 프레임을 추가하지 않고 기존 아웃트로 프레임에 그리므로 오디오/타임라인 길이는 그대로다.
+  if (options?.showCredit !== false && progress >= 0.45) {
+    const creditScale = Math.min(w, h) / 720;
+    const creditText =
+      options?.creditText || 'Cut with PenguinCut · penguincut.com';
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, (progress - 0.45) / 0.25);
+    ctx.font = `600 ${Math.round(18 * creditScale)}px -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const textWidth = ctx.measureText(creditText).width;
+    const padX = 18 * creditScale;
+    const padY = 10 * creditScale;
+    const boxX = w / 2 - textWidth / 2 - padX;
+    const boxY = h - 58 * creditScale - padY;
+    ctx.fillStyle = 'rgba(8, 12, 20, 0.55)';
+    ctx.fillRect(boxX, boxY, textWidth + padX * 2, padY * 2);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    ctx.fillText(creditText, w / 2, boxY + padY);
+    ctx.restore();
+  }
+
   controller.destroy();
 }

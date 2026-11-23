@@ -184,6 +184,8 @@ import {
   setStoredOutroTemplate,
   setStoredOutroDuration,
   setStoredOutroText,
+  getStoredShowCredit,
+  setStoredShowCredit,
 } from '../../services/introOutroStorage.ts';
 import { notify } from '../../services/toastService.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
@@ -463,6 +465,9 @@ interface ProStudioViewProps {
   onDuplicateProject?: (id: string) => void;
   onDeleteProject?: (id: string) => void;
   onStartNewProject?: (orientation?: VideoOrientation, platform?: PortraitPlatform) => void;
+  /** 원클릭 샘플 영상 체험 (빈 프로젝트 화면에서 사용) */
+  onTrySampleVideo?: () => void;
+  isLoadingSample?: boolean;
   initialOverlayOptions?: VideoOverlayOptions | null;
   initialHighlightMode?: HighlightMode;
   onHighlightModeChange?: (mode: HighlightMode) => void;
@@ -514,6 +519,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   onDuplicateProject,
   onDeleteProject,
   onStartNewProject,
+  onTrySampleVideo,
+  isLoadingSample,
   initialOverlayOptions,
   initialHighlightMode,
   onHighlightModeChange,
@@ -1442,6 +1449,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           initialOverlayOptions.outroText !== undefined
             ? initialOverlayOptions.outroText
             : introOutroDefaults.outroText,
+        showCredit: initialOverlayOptions.showCredit ?? getStoredShowCredit(),
       };
     }
     return {
@@ -1460,6 +1468,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
       outroTemplate: introOutroDefaults.outroTemplate,
       outroDurationSec: introOutroDefaults.outroDurationSec,
       outroText: introOutroDefaults.outroText,
+      showCredit: getStoredShowCredit(),
       showChapterBridge: introOutroDefaults.showChapterBridge,
       bgmFitToVideo: false,
       introVideoFile: null,
@@ -1574,6 +1583,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
     titleText: overlayOptions.titleText || dict.player.defaultTitleText,
     channelText: overlayOptions.channelText || dict.player.defaultChannelText,
     outroText: overlayOptions.outroText || dict.introOutro.outroDefaultText,
+    // 무료 크레딧: 사용자가 끄지 않는 이상 기본 ON으로 내보내기에 포함된다.
+    showCredit: overlayOptions.showCredit !== false,
+    creditText: 'Cut with PenguinCut · penguincut.com',
   }), [overlayOptions, dict]);
 
   const currentProjectTitle = useMemo(() => {
@@ -6187,6 +6199,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
           onDuplicateProject={(id) => onDuplicateProject?.(id)}
           onDeleteProject={(id) => onDeleteProject?.(id)}
           onStartNewProject={requestNewProject}
+          onTrySampleVideo={
+            onTrySampleVideo
+              ? () => {
+                  navigateToTab('studio');
+                  onTrySampleVideo();
+                }
+              : undefined
+          }
+          isLoadingSample={isLoadingSample}
         />
       ) : (
         <main className="toss-main-content">
@@ -9970,6 +9991,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         onToggleShowOutro={(val) => {
           setStoredShowOutro(val);
           setOverlayOptions((prev) => ({ ...prev, showOutro: val }));
+        }}
+        showCredit={overlayOptions.showCredit !== false}
+        onToggleShowCredit={(val) => {
+          setStoredShowCredit(val);
+          setOverlayOptions((prev) => ({ ...prev, showCredit: val }));
         }}
         outroTemplate={overlayOptions.outroTemplate || 'modern-endcard'}
         outroDurationSec={overlayOptions.outroDurationSec || 2.2}

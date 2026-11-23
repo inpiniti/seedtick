@@ -2,6 +2,13 @@
 // 새 스튜디오 흐름에서 쓰는 UI 문구의 영어 번역.
 // 키는 화면에 남아 있던 한국어 원문(공백 정규화)이며, 기존 dict에 없는 문구만 담는다.
 export const uiEn: Record<string, string> = {
+  'PenguinCut 크레딧 표시': 'Show PenguinCut credit',
+  '영상 끝에 제작 크레딧을 넣어요. 무료로 언제든 끌 수 있어요.':
+    'Add a small maker credit at the end of your video. Free to turn off anytime.',
+  '샘플 분석 중...': 'Analyzing sample...',
+  '샘플 영상으로 바로 체험하기': 'Try it with a sample video',
+  '파일을 찾지 않아도 괜찮아요. 버튼 한 번으로 AI 하이라이트를 바로 만들어 봐요.':
+    'No file handy? One click runs the AI highlight on a bundled sample.',
   '시작 화면': 'Opening',
   '영상 맨 앞에 나올 오프닝을 골라요. 스타일을 누르면 왼쪽 미리보기에서 바로 재생돼요.':
     'Choose the opening that plays at the very start. Tap a style to preview it instantly on the left.',

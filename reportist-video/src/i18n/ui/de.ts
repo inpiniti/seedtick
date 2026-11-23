@@ -1,6 +1,13 @@
 // src/i18n/ui/de.ts
 // 새 스튜디오 흐름에서 쓰는 UI 문구의 독일어 번역.
 export const uiDe: Record<string, string> = {
+  'PenguinCut 크레딧 표시': 'PenguinCut-Credit anzeigen',
+  '영상 끝에 제작 크레딧을 넣어요. 무료로 언제든 끌 수 있어요.':
+    'Fügt am Ende des Videos einen Credit ein. Kostenlos und jederzeit deaktivierbar.',
+  '샘플 분석 중...': 'Beispiel wird analysiert...',
+  '샘플 영상으로 바로 체험하기': 'Mit Beispielvideo ausprobieren',
+  '파일을 찾지 않아도 괜찮아요. 버튼 한 번으로 AI 하이라이트를 바로 만들어 봐요.':
+    'Keine Datei zur Hand? Mit einem Klick entsteht ein KI-Highlight.',
   '시작 화면': 'Startbildschirm',
   '영상 맨 앞에 나올 오프닝을 골라요. 스타일을 누르면 왼쪽 미리보기에서 바로 재생돼요.':
     'Wähle das Intro, das ganz am Anfang läuft. Tippe einen Stil an, um ihn direkt links in der Vorschau abzuspielen.',

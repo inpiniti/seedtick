@@ -1202,16 +1202,18 @@ export function App() {
     customAudio?: File | null,
     bgmPresetId = 'none',
     bgmVol = 0.35,
-    highlightMode: HighlightMode = currentHighlightMode
+    highlightMode: HighlightMode = currentHighlightMode,
+    sourceVideos?: VideoItem[]
   ) => {
-    if (videos.length === 0) return;
+    const videosToProcess = sourceVideos ?? videos;
+    if (videosToProcess.length === 0) return;
 
     // 선택한 방식을 즉시 기기에도 기억해 둔다.
     setStoredHighlightMode(highlightMode);
     setCurrentHighlightMode((prev) => (prev !== highlightMode ? highlightMode : prev));
 
     // 1. 영상 URL 갱신 및 파일 유효성 사전 검사
-    const readyVideos = refreshVideoBlobUrls(videos);
+    const readyVideos = refreshVideoBlobUrls(videosToProcess);
     try {
       validateVideosForProcessing(readyVideos);
     } catch (vErr) {
@@ -2098,6 +2100,53 @@ export function App() {
     }
   };
 
+  // 첫 방문자가 파일을 찾지 못해 이탈하는 문제를 막는 원클릭 샘플 체험.
+  // 번들된 데모 영상을 File로 만들어 새 프로젝트 리셋 후 AI 분석까지 바로 돌린다.
+  const [isLoadingSample, setIsLoadingSample] = useState(false);
+  const handleTrySampleVideo = async () => {
+    if (isLoadingSample) return;
+    setIsLoadingSample(true);
+    try {
+      setErrorMessage(null);
+      handleStartNewProject();
+      const res = await fetch(`${import.meta.env.BASE_URL}media/hero-nature.mp4`);
+      if (!res.ok) throw new Error(`샘플 영상을 불러오지 못했습니다 (${res.status})`);
+      const blob = await res.blob();
+      const file = new File([blob], 'penguincut-sample.mp4', { type: 'video/mp4' });
+      const url = URL.createObjectURL(file);
+      let duration = 0;
+      let width = 0;
+      let height = 0;
+      try {
+        const meta = await extractVideoVisualDimensions(file, false);
+        duration = meta.duration;
+        width = meta.width;
+        height = meta.height;
+      } catch {
+        // 메타데이터 추출 실패 시에도 분석은 진행한다 (videoCompressor가 길이를 추정).
+      }
+      const sampleItem: VideoItem = {
+        id: `vid-sample-${Date.now()}`,
+        file,
+        url,
+        name: file.name,
+        sizeBytes: file.size,
+        duration,
+        width,
+        height,
+        status: 'idle',
+        segments: [],
+      };
+      await handleStartProcessing(undefined, null, 'preset', 0.3, currentHighlightMode, [sampleItem]);
+    } catch (err) {
+      setErrorMessage(
+        err instanceof Error ? err.message : '샘플 체험을 시작하지 못했습니다.'
+      );
+    } finally {
+      setIsLoadingSample(false);
+    }
+  };
+
   // 최종 내보내기(인코딩 및 병합) 핸들러
   const handleReStitch = async (
     updatedSegments: HighlightSegment[],
@@ -2309,6 +2358,8 @@ export function App() {
         onDuplicateProject={handleDuplicateProject}
         onDeleteProject={handleDeleteProject}
         onStartNewProject={handleStartNewProject}
+        onTrySampleVideo={handleTrySampleVideo}
+        isLoadingSample={isLoadingSample}
         onViewProjects={handleViewProjects}
         initialOverlayOptions={currentOverlayOptions}
         initialHighlightMode={currentHighlightMode}

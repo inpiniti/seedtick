@@ -173,6 +173,9 @@ export interface VideoOverlayOptions {
   chapterBridgeDateTemplate?: BridgeDateTemplateId; // 챕터 브릿지 날짜 전환 템플릿 (1~5번, 기본: 'flip-clock')
   chapterBridgeLocationTemplate?: BridgeLocationTemplateId; // 챕터 브릿지 장소 전환 템플릿 (1~5번, 기본: 'winding-route')
   bgmFitToVideo?: boolean;     // 영상 길이에 맞춰 BGM 배속 자동 조절 여부 (기본 false)
+  /** 아웃트로 끝에 PenguinCut 크레딧 표시 (무료, 기본 true — false로 끌 수 있음) */
+  showCredit?: boolean;
+  creditText?: string;
 }
 
 export type BridgeDateTemplateId =

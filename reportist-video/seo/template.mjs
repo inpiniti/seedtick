@@ -828,6 +828,28 @@ function renderFooter(
         `<a href="${href}" rel="noopener" target="_blank">${label}</a>`
     )
     .join(" · ");
+  // Small localised labels for the high-intent comparison / free-tool pages.
+  // Kept here so all seven landing languages get internal links to them without
+  // adding new keys to every locale object in content.mjs.
+  const shortLabel = (code, labels) => labels[code] || labels.en;
+  const freeToolsLabel = shortLabel(locale.code, {
+    en: "Free browser tools",
+    ko: "무료 브라우저 도구",
+    ja: "無料ブラウザツール",
+    zh: "免费浏览器工具",
+    es: "Herramientas gratis",
+    fr: "Outils gratuits",
+    de: "Kostenlose Browser-Tools",
+  });
+  const alternativesLabel = shortLabel(locale.code, {
+    en: "Free alternatives",
+    ko: "무료 대안",
+    ja: "無料の代替ツール",
+    zh: "免费替代方案",
+    es: "Alternativas gratuitas",
+    fr: "Alternatives gratuites",
+    de: "Kostenlose Alternativen",
+  });
   const guides = [
     ["use-cases/youtube-highlights", locale.footer.guideYoutube],
     ["use-cases/travel-vlog-highlights", locale.footer.guideTravel],
@@ -874,6 +896,12 @@ function renderFooter(
   )}</a>
         <a href="${esc(contentHref(locale, "blog/introducing-penguincut"))}">${esc(
     locale.footer.blog
+  )}</a>
+        <a href="${esc(contentHref(locale, "tools/youtube-highlight-maker"))}">${esc(
+    freeToolsLabel
+  )}</a>
+        <a href="${esc(contentHref(locale, "compare/opusclip-alternative"))}">${esc(
+    alternativesLabel
   )}</a>
         ${guides}
       </nav>

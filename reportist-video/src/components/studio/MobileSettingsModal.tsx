@@ -124,6 +124,8 @@ export interface MobileSettingsModalProps {
   introDurationSec?: number;
   showOutro?: boolean;
   onToggleShowOutro?: (enabled: boolean) => void;
+  showCredit?: boolean;
+  onToggleShowCredit?: (enabled: boolean) => void;
   outroTemplate?: OutroTemplateId;
   outroDurationSec?: number;
   outroText?: string;
@@ -191,6 +193,8 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
   introDurationSec = 2.0,
   showOutro = true,
   onToggleShowOutro,
+  showCredit = true,
+  onToggleShowCredit,
   outroTemplate = 'modern-endcard',
   outroDurationSec = 2.2,
   outroText = '시청해 주셔서 감사합니다',
@@ -1350,6 +1354,35 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                       <span className="toss-toggle-slider" />
                     </label>
                   </div>
+
+                  {onToggleShowCredit && (
+                    <div className="settings-modal-toggle-row">
+                      <div className="settings-modal-item-left">
+                        <div
+                          className="settings-modal-icon-badge"
+                          style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}
+                        >
+                          <Film size={18} />
+                        </div>
+                        <div className="settings-modal-item-text">
+                          <div className="settings-modal-item-title">
+                            {ui('PenguinCut 크레딧 표시')}
+                          </div>
+                          <div className="settings-modal-item-desc">
+                            {ui('영상 끝에 제작 크레딧을 넣어요. 무료로 언제든 끌 수 있어요.')}
+                          </div>
+                        </div>
+                      </div>
+                      <label className="toss-toggle-switch" style={{ margin: 0 }}>
+                        <input
+                          type="checkbox"
+                          checked={showCredit}
+                          onChange={(e) => onToggleShowCredit?.(e.target.checked)}
+                        />
+                        <span className="toss-toggle-slider" />
+                      </label>
+                    </div>
+                  )}
 
                   {showOutro && (
                     <div

@@ -30,16 +30,19 @@
 
 ### 색인 대상 URL
 
-검색에 노출할 페이지는 아래 7개뿐입니다. `/studio`는 의도적으로 제외합니다.
+현재 색인 대상은 7개 언어 랜딩 + EN/KO 콘텐츠 24개 = **총 31개**입니다. `/studio`는 의도적으로 제외합니다. 전체 URL 목록과 검증 절차는 [`docs/seo/manual-actions.md`](manual-actions.md)를 기준으로 하세요.
 
 ```
-https://penguincut.com/
-https://penguincut.com/ko/
-https://penguincut.com/ja/
-https://penguincut.com/zh/
-https://penguincut.com/es/
-https://penguincut.com/fr/
+https://penguincut.com/          https://penguincut.com/ko/
+https://penguincut.com/ja/       https://penguincut.com/zh/
+https://penguincut.com/es/       https://penguincut.com/fr/
 https://penguincut.com/de/
+https://penguincut.com/compare/opusclip-alternative/
+https://penguincut.com/compare/capcut-alternative/
+https://penguincut.com/tools/youtube-highlight-maker/
+https://penguincut.com/tools/video-to-shorts/
+https://penguincut.com/tools/extract-video-frames/
+(+ 위 콘텐츠 페이지의 /ko/ 버전 5개, 기존 about/privacy/terms/블로그/유스케이스 7개 슬러그)
 ```
 
 ---

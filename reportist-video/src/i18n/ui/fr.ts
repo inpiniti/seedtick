@@ -1,6 +1,13 @@
 // src/i18n/ui/fr.ts
 // 새 스튜디오 흐름에서 쓰는 UI 문구의 프랑스어 번역.
 export const uiFr: Record<string, string> = {
+  'PenguinCut 크레딧 표시': 'Afficher le crédit PenguinCut',
+  '영상 끝에 제작 크레딧을 넣어요. 무료로 언제든 끌 수 있어요.':
+    'Ajoutez un crédit à la fin de la vidéo. Gratuit et désactivable à tout moment.',
+  '샘플 분석 중...': 'Analyse de l\'échantillon...',
+  '샘플 영상으로 바로 체험하기': 'Essayer avec une vidéo d\'exemple',
+  '파일을 찾지 않아도 괜찮아요. 버튼 한 번으로 AI 하이라이트를 바로 만들어 봐요.':
+    'Pas de fichier sous la main ? Un clic suffit pour créer un survol IA.',
   '시작 화면': "Écran d'ouverture",
   '영상 맨 앞에 나올 오프닝을 골라요. 스타일을 누르면 왼쪽 미리보기에서 바로 재생돼요.':
     "Choisissez l'ouverture diffusée au tout début de la vidéo. Touchez un style pour le lire aussitôt dans l'aperçu à gauche.",

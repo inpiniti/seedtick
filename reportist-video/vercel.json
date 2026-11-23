@@ -126,6 +126,56 @@
       "permanent": true
     },
     {
+      "source": "/compare/opusclip-alternative",
+      "destination": "/compare/opusclip-alternative/",
+      "permanent": true
+    },
+    {
+      "source": "/compare/capcut-alternative",
+      "destination": "/compare/capcut-alternative/",
+      "permanent": true
+    },
+    {
+      "source": "/tools/youtube-highlight-maker",
+      "destination": "/tools/youtube-highlight-maker/",
+      "permanent": true
+    },
+    {
+      "source": "/tools/video-to-shorts",
+      "destination": "/tools/video-to-shorts/",
+      "permanent": true
+    },
+    {
+      "source": "/tools/extract-video-frames",
+      "destination": "/tools/extract-video-frames/",
+      "permanent": true
+    },
+    {
+      "source": "/ko/compare/opusclip-alternative",
+      "destination": "/ko/compare/opusclip-alternative/",
+      "permanent": true
+    },
+    {
+      "source": "/ko/compare/capcut-alternative",
+      "destination": "/ko/compare/capcut-alternative/",
+      "permanent": true
+    },
+    {
+      "source": "/ko/tools/youtube-highlight-maker",
+      "destination": "/ko/tools/youtube-highlight-maker/",
+      "permanent": true
+    },
+    {
+      "source": "/ko/tools/video-to-shorts",
+      "destination": "/ko/tools/video-to-shorts/",
+      "permanent": true
+    },
+    {
+      "source": "/ko/tools/extract-video-frames",
+      "destination": "/ko/tools/extract-video-frames/",
+      "permanent": true
+    },
+    {
       "source": "/(.*)",
       "has": [
         {

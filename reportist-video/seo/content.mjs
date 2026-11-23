@@ -9,7 +9,7 @@ export const SITE = {
   ogImage: "/og-penguincut.png",
   ogImageAlt:
     "PenguinCut — AI video highlight editor. Turn hours of footage into one cinematic highlight.",
-  contentUpdated: "2026-11-19",
+  contentUpdated: "2026-11-23",
   // Search-engine verification tokens. Paste the exact values from Search Console
   // (Google) and Search Advisor (Naver), then run `npm run seo`. Empty values are
   // omitted so the generated pages never ship a stale or invalid meta tag.

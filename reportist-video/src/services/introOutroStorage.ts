@@ -15,6 +15,7 @@ const STORAGE_KEYS = {
   OUTRO_TEMPLATE: 'reportist_outro_template_default',
   OUTRO_DURATION: 'reportist_outro_duration_default',
   OUTRO_TEXT: 'reportist_outro_text_default',
+  SHOW_CREDIT: 'penguincut_show_credit_default',
   SHOW_CHAPTER_BRIDGE: 'reportist_show_chapter_bridge_default',
 } as const;
 
@@ -171,6 +172,23 @@ export function getStoredOutroText(): string {
 export function setStoredOutroText(text: string): void {
   try {
     localStorage.setItem(STORAGE_KEYS.OUTRO_TEXT, text);
+  } catch {}
+}
+
+/**
+ * 아웃트로 PenguinCut 크레딧 표시 여부 (무료 토글, 기본 true)
+ */
+export function getStoredShowCredit(): boolean {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEYS.SHOW_CREDIT);
+    if (saved !== null) return saved === 'true';
+  } catch {}
+  return true;
+}
+
+export function setStoredShowCredit(show: boolean): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.SHOW_CREDIT, String(show));
   } catch {}
 }
 
