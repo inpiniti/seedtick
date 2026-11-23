@@ -25,8 +25,8 @@
   --sv2-radius: 10px;
   --sv2-radius-sm: 9px;
   --sv2-topbar-h: 54px;
-  /* 룰러(24px) + 여백(2px) 확보. 미리보기 max-height도 이 값을 참조한다. */
-  --sv2-timeline-h: 202px;
+  /* 룰러(24px) + 영상·음악 2개 트랙(각 40px) + 간격/여백. 미리보기 max-height도 이 값을 참조한다. */
+  --sv2-timeline-h: 157px;
   --sv2-dock-w: 264px;
   --sv2-inspector-w: 360px;
 
