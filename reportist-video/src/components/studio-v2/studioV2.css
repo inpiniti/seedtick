@@ -141,16 +141,23 @@
 .sv2-lang-trigger {
   max-width: 190px;
 }
-.sv2-lang-flag {
-  font-size: 13px;
-  line-height: 1;
+/* 국기 없이 "KO 한국어" 한 줄만 노출한다 (구글 번역 스타일). */
+.sv2-lang-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 .sv2-lang-code {
-  margin-left: 4px;
-  color: var(--sv2-text-3);
-  font-size: 10px;
+  color: var(--sv2-text);
+  font-size: 12px;
   font-weight: 800;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
+}
+.sv2-lang-name {
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 /* 좁은 데스크톱(960~1200px)에서 상단 바가 넘치지 않도록 긴 라벨을 접는다. */
 @media (max-width: 1200px) {
@@ -159,11 +166,8 @@
   }
 }
 @media (max-width: 1080px) {
-  .sv2-lang-name {
-    display: none;
-  }
   .sv2-lang-trigger {
-    max-width: 92px;
+    max-width: 150px;
   }
 }
 .sv2-segmented {

@@ -408,6 +408,12 @@ button {
   height: 15px;
 }
 
+/* "EN English", "KO 한국어"처럼 코드 + 현지어 이름만 간결하게 표시 */
+.lang-switcher summary .lang-code {
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
 .lang-switcher summary svg:last-child {
   width: 13px;
   height: 13px;

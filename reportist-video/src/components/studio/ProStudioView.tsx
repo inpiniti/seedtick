@@ -5925,18 +5925,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             className="toss-model-trigger toss-lang-trigger"
             onClick={() => setIsLanguageModalOpen(true)}
             title={dict.languageModal.title}
-            aria-label={`${dict.common.language || 'Language'}: ${currentLocaleInfo.nativeName}`}
+            aria-label={`${dict.common.language || 'Language'}: ${locale.toUpperCase()} ${currentLocaleInfo.nativeName}`}
           >
             <span className="toss-model-trigger-icon">
               <Globe size={13} />
             </span>
             <span className="toss-model-trigger-text">
-              <span className="toss-model-trigger-label">{dict.common.language || 'Language'}</span>
-              <span className="toss-model-trigger-name flex items-center gap-1.5">
-                <span className="toss-lang-flag text-xs leading-none">{currentLocaleInfo.flag}</span>
-                <span className="toss-lang-name">{currentLocaleInfo.nativeName}</span>
-                <span className="toss-lang-code">{locale.toUpperCase()}</span>
-              </span>
+              <span className="toss-lang-code">{locale.toUpperCase()}</span>
+              <span className="toss-lang-name">{currentLocaleInfo.nativeName}</span>
             </span>
             <ChevronDown size={14} className="toss-model-trigger-chevron" />
           </button>

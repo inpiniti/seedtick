@@ -94,14 +94,13 @@ export const StudioTopBar = ({
         type="button"
         className="sv2-model-trigger sv2-lang-trigger"
         onClick={onOpenLanguageModal}
-        title={currentLocaleInfo.nativeName}
+        title={`${locale.toUpperCase()} · ${currentLocaleInfo.nativeName}`}
         aria-label={`${locale.toUpperCase()} · ${currentLocaleInfo.nativeName}`}
       >
         <Globe size={14} />
-        <span className="sv2-model-label">
-          <span className="sv2-lang-flag">{currentLocaleInfo.flag}</span>{' '}
-          <span className="sv2-lang-name">{currentLocaleInfo.nativeName}</span>
+        <span className="sv2-model-label sv2-lang-label">
           <span className="sv2-lang-code">{locale.toUpperCase()}</span>
+          <span className="sv2-lang-name">{currentLocaleInfo.nativeName}</span>
         </span>
         <ChevronDown size={13} className="sv2-model-chevron" />
       </button>

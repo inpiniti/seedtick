@@ -4535,8 +4535,30 @@
   color: #8b95a1;
 }
 
+/* 언어 트리거: 국기·"언어" 라벨 없이 "KO 한국어" 한 줄만 노출한다. */
+.toss-lang-trigger .toss-model-trigger-text {
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+}
+
 .toss-lang-code {
-  display: none;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #191f28;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+}
+
+.toss-lang-name {
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #191f28;
+  line-height: 1.2;
 }
 
 @media (max-width: 1200px) {
@@ -4558,10 +4580,6 @@
     height: var(--ui-h-sm);
     min-width: var(--ui-h-sm);
     padding: 0 !important;
-  }
-
-  .toss-lang-trigger .toss-model-trigger-label {
-    display: none !important;
   }
 
   .toss-model-trigger {
@@ -4613,10 +4631,6 @@
     height: 24px;
   }
 
-  .toss-lang-trigger .toss-model-trigger-chevron {
-    display: none !important;
-  }
-
   .toss-nav-cta-btn,
   .toss-nav-btn-secondary {
     padding: 0 12px;
@@ -4659,10 +4673,6 @@
 
   .toss-nav-back-link {
     font-size: 14px;
-  }
-
-  .toss-lang-name {
-    display: none !important;
   }
 
   .toss-lang-trigger {
@@ -4828,40 +4838,12 @@
   }
 
   .toss-lang-trigger .toss-model-trigger-text {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
     justify-content: center;
   }
 
   .toss-lang-trigger .toss-model-trigger-label,
   .toss-model-trigger-label {
     display: none !important;
-  }
-
-  .toss-lang-trigger .toss-model-trigger-chevron {
-    display: none !important;
-  }
-
-  .toss-lang-flag,
-  .toss-lang-name {
-    display: none !important;
-  }
-
-  .toss-lang-code {
-    display: inline-block !important;
-    font-weight: 700;
-    font-size: 12px;
-    color: #0f172a;
-    line-height: 1;
-    letter-spacing: 0.02em;
-  }
-
-  .toss-lang-trigger .toss-model-trigger-name {
-    display: flex;
-    align-items: center;
-    line-height: 1;
-    max-width: none;
   }
 
   /* 헤더 내 액션 버튼 모바일 최적화 (공통 sm 토큰 높이) */
@@ -4941,8 +4923,17 @@
     height: 20px;
   }
 
-  .toss-lang-code {
+  .toss-lang-trigger .toss-model-trigger-text {
+    gap: 3px;
+  }
+
+  .toss-lang-code,
+  .toss-lang-name {
     font-size: 11px;
+  }
+
+  .toss-lang-name {
+    max-width: 56px;
   }
 
   .toss-nav-cta-btn,

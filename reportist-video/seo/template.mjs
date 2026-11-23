@@ -260,7 +260,8 @@ function renderHeader(locale, basePath = "", withHreflangOnSwitcher = true) {
         <details class="lang-switcher">
           <summary>
             ${ICONS.globe}
-            <span>${esc(locale.nativeLabel)}</span>
+            <span class="lang-code">${esc(locale.code.toUpperCase())}</span>
+            <span class="lang-native">${esc(locale.nativeLabel)}</span>
             ${ICONS.chevron}
           </summary>
           <div class="lang-panel">
