@@ -68,13 +68,6 @@ const DateFormatSelectorModal = lazy(() =>
 const SubtitleDownloadModal = lazy(() =>
   import('../studio/SubtitleDownloadModal.tsx').then((m) => ({ default: m.SubtitleDownloadModal }))
 );
-const FeedbackModal = lazy(() =>
-  import('../feedback/FeedbackModal.tsx').then((m) => ({ default: m.FeedbackModal }))
-);
-const PatchNotesModal = lazy(() =>
-  import('../patch/PatchNotesModal.tsx').then((m) => ({ default: m.PatchNotesModal }))
-);
-
 /**
  * CenterStudioView — PC 전용 "미리보기 중심" 스튜디오 V2 최상위 셸.
  * App의 상태/핸들러를 그대로 재사용하고, UI 레이아웃·상태 전이만 새로 구현한다.
@@ -430,8 +423,6 @@ export const CenterStudioView = (props: StudioV2Props) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isDateFormatOpen, setIsDateFormatOpen] = useState(false);
   const [isSubtitleDownloadOpen, setIsSubtitleDownloadOpen] = useState(false);
-  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
-  const [isPatchNotesOpen, setIsPatchNotesOpen] = useState(false);
   const [dateFormat, setDateFormat] = useState<DateFormatOption>(getStoredDateFormat);
   // 날짜 형식·나이 옵션은 오버레이 객체 밖의 저장값이라 변경 시 캔버스 재그리기를 명시적으로 트리거한다.
   const [settingsRevision, setSettingsRevision] = useState(0);
@@ -1122,14 +1113,6 @@ export const CenterStudioView = (props: StudioV2Props) => {
                 setIsSubtitleDownloadOpen(true);
               }}
               canDownloadSubtitles={displaySegments.length > 0}
-              onOpenFeedback={() => {
-                setIsSettingsOpen(false);
-                setIsFeedbackOpen(true);
-              }}
-              onOpenPatchNotes={() => {
-                setIsSettingsOpen(false);
-                setIsPatchNotesOpen(true);
-              }}
               onResetProject={handleResetProject}
               onOverlayChange={updateOverlay}
               onHighlightModeChange={handleHighlightModeChange}
@@ -1158,18 +1141,6 @@ export const CenterStudioView = (props: StudioV2Props) => {
               bridgeDurationMap={result?.bridgeDurationMap}
               videoTitle={projectName}
             />
-          </Suspense>
-        )}
-
-        {isFeedbackOpen && (
-          <Suspense fallback={null}>
-            <FeedbackModal isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} />
-          </Suspense>
-        )}
-
-        {isPatchNotesOpen && (
-          <Suspense fallback={null}>
-            <PatchNotesModal isOpen={isPatchNotesOpen} onClose={() => setIsPatchNotesOpen(false)} />
           </Suspense>
         )}
 

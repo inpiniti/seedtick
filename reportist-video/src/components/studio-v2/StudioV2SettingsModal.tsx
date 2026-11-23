@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import {
   CalendarDays,
   Captions,
   Download,
+  History,
   MessageSquare,
   RotateCcw,
   Sparkles,
@@ -37,12 +38,20 @@ import {
 import type { HighlightMode, SubtitleTone, VideoOverlayOptions } from '../../types/video.ts';
 import type { StudioModelDisplay } from './types.ts';
 
+// 무거운 콘텐츠는 해당 섹션을 처음 열 때만 로드한다.
+const PatchNotesContent = lazy(() =>
+  import('../patch/PatchNotesContent.tsx').then((m) => ({ default: m.PatchNotesContent }))
+);
+const FeedbackView = lazy(() =>
+  import('../feedback/FeedbackView.tsx').then((m) => ({ default: m.FeedbackView }))
+);
+
 // components/studio-v2/StudioV2SettingsModal.tsx
 // V2 전용 슬림 설정 모달. 편집 맥락에 속한 옵션은 제자리(인스펙터/음악 트랙)에 두고,
 // 전역·표시·도구·지원 항목만 여기에 모은다.
 // 좌측 섹션 메뉴를 고르면 우측 영역에 해당 설정만 보여준다.
 
-type SettingsSection = 'ai' | 'subtitle' | 'display' | 'tools' | 'support';
+type SettingsSection = 'ai' | 'subtitle' | 'display' | 'tools' | 'support' | 'patch' | 'feedback';
 
 interface StudioV2SettingsModalProps {
   isOpen: boolean;
@@ -55,8 +64,6 @@ interface StudioV2SettingsModalProps {
   onOpenDateFormat: () => void;
   onDownloadSubtitles: () => void;
   canDownloadSubtitles: boolean;
-  onOpenFeedback: () => void;
-  onOpenPatchNotes: () => void;
   onResetProject: () => void;
   onOverlayChange?: (patch: Partial<VideoOverlayOptions>) => void;
   onHighlightModeChange?: (mode: HighlightMode) => void;
@@ -75,8 +82,6 @@ export const StudioV2SettingsModal = ({
   onOpenDateFormat,
   onDownloadSubtitles,
   canDownloadSubtitles,
-  onOpenFeedback,
-  onOpenPatchNotes,
   onResetProject,
   onOverlayChange,
   onHighlightModeChange,
@@ -104,6 +109,7 @@ export const StudioV2SettingsModal = ({
   // 모달을 열 때마다 다른 탭/레거시 화면에서 바뀐 저장값을 다시 읽어 온다.
   useEffect(() => {
     if (!isOpen) return;
+    setActiveSection('ai');
     setHighlightMode(getStoredHighlightMode());
     setSubtitleTone(getStoredSubtitleTone());
     setAutoSort(getStoredAutoSortByRecordedTime());
@@ -176,6 +182,8 @@ export const StudioV2SettingsModal = ({
     { id: 'display' as const, label: ui('화면 표시'), icon: CalendarDays },
     { id: 'tools' as const, label: ui('작업 & 도구'), icon: Download },
     { id: 'support' as const, label: ui('지원 & 정보'), icon: MessageSquare },
+    { id: 'patch' as const, label: t('patchNotes.title'), icon: History },
+    { id: 'feedback' as const, label: t('feedback.headerTitle'), icon: MessageSquare },
   ];
 
   return (
@@ -235,14 +243,6 @@ export const StudioV2SettingsModal = ({
                 </button>
               );
             })}
-            <button
-              type="button"
-              className="sv2-settings-nav-item sv2-settings-nav-feedback"
-              onClick={onOpenFeedback}
-            >
-              <MessageSquare size={15} />
-              <span>{t('feedback.headerTitle')}</span>
-            </button>
           </nav>
 
           {/* 우측: 선택한 섹션의 설정 값 */}
@@ -461,22 +461,58 @@ export const StudioV2SettingsModal = ({
             <div className="sv2-settings-row">
               <div className="sv2-settings-row-text">
                 <strong>{t('feedback.headerTitle')}</strong>
+                <span>{t('feedback.headerDesc')}</span>
               </div>
-              <button type="button" className="sv2-settings-link" onClick={onOpenFeedback}>
-                {t('feedback.headerTitle')} ›
+              <button
+                type="button"
+                className="sv2-settings-link"
+                onClick={() => setActiveSection('feedback')}
+              >
+                {t('feedback.openBoard')} ›
               </button>
             </div>
             <div className="sv2-settings-row">
               <div className="sv2-settings-row-text">
                 <strong>{t('patchNotes.title')}</strong>
+                <span>{t('patchNotes.desc')}</span>
               </div>
-              <button type="button" className="sv2-settings-link" onClick={onOpenPatchNotes}>
+              <button
+                type="button"
+                className="sv2-settings-link"
+                onClick={() => setActiveSection('patch')}
+              >
                 v{CURRENT_APP_VERSION} ›
               </button>
             </div>
           </section>
 
+          <section
+            className="sv2-settings-section sv2-settings-section--embedded"
+            hidden={activeSection !== 'patch'}
+          >
+            <h3>
+              <History size={14} /> {t('patchNotes.title')}
+            </h3>
+            <Suspense fallback={<p className="sv2-settings-hint">{ui('불러오는 중…')}</p>}>
+              {activeSection === 'patch' && <PatchNotesContent />}
+            </Suspense>
+          </section>
+
+          <section
+            className="sv2-settings-section sv2-settings-section--embedded"
+            hidden={activeSection !== 'feedback'}
+          >
+            <h3>
+              <MessageSquare size={14} /> {t('feedback.headerTitle')}
+            </h3>
+            <Suspense fallback={<p className="sv2-settings-hint">{ui('불러오는 중…')}</p>}>
+              {activeSection === 'feedback' && <FeedbackView isEmbedded />}
+            </Suspense>
+          </section>
+
+          {activeSection !== 'patch' && activeSection !== 'feedback' && (
             <p className="sv2-settings-hint">{ui('설정 변경은 미리보기에 바로 반영돼요')}</p>
+          )}
           </div>
         </div>
 

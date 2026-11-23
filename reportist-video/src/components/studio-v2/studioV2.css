@@ -2004,9 +2004,6 @@
   background: var(--sv2-accent);
   color: var(--sv2-accent-text);
 }
-.sv2-settings-nav-feedback {
-  margin-top: auto;
-}
 .sv2-settings-content {
   flex: 1 1 auto;
   min-width: 0;
@@ -2119,6 +2116,55 @@
 .sv2-settings-version {
   font-size: 11px;
   color: var(--sv2-text-3);
+}
+
+/* ---------- 설정창에 녹인 패치노트·피드백 ---------- */
+/* 독립 모달용 본문 스타일을 설정 콘텐츠(단일 스크롤 컨테이너)에 맞게 재정의한다. */
+.sv2-settings-section--embedded {
+  padding: 14px 0 8px;
+}
+.sv2-settings-content .toss-patch-modal-body,
+.sv2-settings-content .toss-feedback-modal-body {
+  flex: 0 0 auto;
+  overflow: visible;
+  padding: 0;
+  background: transparent;
+}
+.sv2-settings-content .toss-patch-modal-body .toss-patch-control-bar {
+  margin: 0 0 14px;
+  padding: 0 0 12px;
+  background: transparent;
+  border-bottom: 1px solid var(--sv2-border);
+}
+.sv2-settings-content .toss-patch-actions-row {
+  flex-wrap: wrap;
+}
+.sv2-settings-content .toss-patch-card {
+  background: var(--sv2-surface);
+  border-color: var(--sv2-border);
+  border-radius: 12px;
+}
+.sv2-settings-content .toss-patch-footer {
+  padding: 12px 0 0;
+  border-top: 1px solid var(--sv2-border);
+  background: transparent;
+}
+.sv2-settings-content .toss-feedback-wrapper.embedded {
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+  background: transparent;
+}
+.sv2-settings-content .toss-feedback-inner.embedded {
+  padding: 0;
+  gap: 12px;
+}
+.sv2-settings-content .toss-feedback-header-card.embedded {
+  padding: 0 0 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
