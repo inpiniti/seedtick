@@ -59,32 +59,34 @@ export const RightInspectorDrawer = ({
 
   return (
     <aside className="sv2-inspector" data-open={Boolean(target)} aria-hidden={!target}>
-      <div className="sv2-inspector-head">
-        <div className="sv2-inspector-title">{title}</div>
-        <button type="button" className="sv2-btn sv2-btn-ghost sv2-btn-icon" onClick={onClose} aria-label={ui('닫기')}>
-          <X size={18} />
-        </button>
-      </div>
+      <div className="sv2-inspector-inner">
+        <div className="sv2-inspector-head">
+          <div className="sv2-inspector-title">{title}</div>
+          <button type="button" className="sv2-btn sv2-btn-ghost sv2-btn-icon" onClick={onClose} aria-label={ui('닫기')}>
+            <X size={18} />
+          </button>
+        </div>
 
-      {target?.type === 'location' && (
-        <LocationInspectorPanel
-          segment={segment}
-          thumbnailUrl={thumbnailUrl}
-          onUpdateSegment={onUpdateSegment}
-          onApplyToVideo={onApplyToVideo}
-          MapComponent={ReferenceLocationMap}
-        />
-      )}
-      {(target?.type === 'intro' || target?.type === 'outro') && (
-        <IntroOutroInspectorPanel
-          kind={target.type}
-          overlayOptions={overlayOptions}
-          orientation={orientation}
-          onChange={onOverlayChange}
-          onPreviewRequest={onPreviewRequest}
-        />
-      )}
-      {target?.type === 'music' && <MusicInspectorPanel {...music} />}
+        {target?.type === 'location' && (
+          <LocationInspectorPanel
+            segment={segment}
+            thumbnailUrl={thumbnailUrl}
+            onUpdateSegment={onUpdateSegment}
+            onApplyToVideo={onApplyToVideo}
+            MapComponent={ReferenceLocationMap}
+          />
+        )}
+        {(target?.type === 'intro' || target?.type === 'outro') && (
+          <IntroOutroInspectorPanel
+            kind={target.type}
+            overlayOptions={overlayOptions}
+            orientation={orientation}
+            onChange={onOverlayChange}
+            onPreviewRequest={onPreviewRequest}
+          />
+        )}
+        {target?.type === 'music' && <MusicInspectorPanel {...music} />}
+      </div>
     </aside>
   );
 };

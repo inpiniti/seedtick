@@ -1302,6 +1302,8 @@
 }
 
 /* ---------- Right inspector ---------- */
+/* 좌측 독과 동일하게 플로우에 참여시켜, 열릴 때 미리보기 영역이 함께 줄어들고
+   남은 공간에서 다시 가운데 정렬되도록 한다. 절대 위치 슬라이드는 미리보기를 밀지 않는다. */
 .sv2-inspector {
   flex: 0 0 var(--sv2-inspector-w);
   width: var(--sv2-inspector-w);
@@ -1310,17 +1312,28 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transform: translateX(100%);
-  transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1);
-  position: absolute;
-  right: 0;
-  top: 0;
-  bottom: 0;
+  position: relative;
   z-index: 30;
   box-shadow: var(--sv2-shadow-lg);
+  transition: width 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+    flex-basis 0.42s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.34s ease;
 }
-.sv2-inspector[data-open='true'] {
-  transform: translateX(0);
+.sv2-inspector:not([data-open='true']) {
+  transition: width 0.36s cubic-bezier(0.4, 0, 0.2, 1),
+    flex-basis 0.36s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.26s ease;
+  flex-basis: 0;
+  width: 0;
+  opacity: 0;
+  border-left-color: transparent;
+  pointer-events: none;
+}
+/* 폭이 0으로 접히는 동안 패널 내용이 찌그러지지 않도록 고정 폭 래퍼를 둔다. */
+.sv2-inspector-inner {
+  flex: 0 0 auto;
+  width: var(--sv2-inspector-w);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 .sv2-inspector-head {
   display: flex;
