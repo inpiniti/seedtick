@@ -85,7 +85,7 @@ export const StudioTopBar = ({
         <PenguinLogo size={26} color="#191f28" className="sv2-brand-logo" />
         PenguinCut
       </a>
-      <span className="sv2-project-name">{projectName || ui('새 프로젝트')}</span>
+      {projectName && <span className="sv2-project-name">{projectName}</span>}
 
       <div className="sv2-topbar-spacer" />
 

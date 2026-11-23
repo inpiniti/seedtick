@@ -692,7 +692,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
   // ---------- 작업 이름 (파일명/표시용) ----------
   const projectName = useMemo(() => {
     const first = videos.find((v) => v.name);
-    return first?.name?.replace(/\.[^/.]+$/, '') || ui('새 프로젝트');
+    return first?.name?.replace(/\.[^/.]+$/, '') || '';
   }, [videos, ui]);
 
   // ---------- 상단 모델 배지 ----------
