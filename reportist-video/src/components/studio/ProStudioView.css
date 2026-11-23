@@ -3828,6 +3828,98 @@
   margin: 0 auto 16px;
 }
 
+/* 병렬 분석 모달: 썸네일 스택 + 동시 작업 미니 리스트 */
+.toss-modal-thumb-stack {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 64px;
+  margin: 0 auto 16px;
+  flex-wrap: wrap;
+}
+.toss-modal-thumb-mini {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f1f5f9;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.07);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.toss-modal-thumb-mini img { width: 100%; height: 100%; object-fit: cover; }
+.toss-modal-thumb-focus {
+  position: absolute;
+  inset: 0;
+  border: 2px solid #3182f6;
+  border-radius: 12px;
+  pointer-events: none;
+}
+.toss-modal-concurrency-badge {
+  flex-basis: 100%;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #3182f6;
+}
+.toss-modal-parallel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 10px 0 4px;
+}
+.toss-modal-parallel-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 4px 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+}
+.toss-modal-parallel-row.is-focused { background: #eff6ff; border-color: #bfdbfe; }
+.toss-modal-parallel-row.is-done { color: #047857; }
+.toss-modal-parallel-thumb {
+  width: 30px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.toss-modal-parallel-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.toss-modal-parallel-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: #191f28;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.toss-modal-parallel-stage { font-size: 10px; color: #6b7684; white-space: nowrap; }
+.toss-modal-parallel-pct { font-size: 10px; font-family: monospace; font-weight: 700; color: #191f28; }
+.toss-modal-parallel-summary {
+  text-align: center;
+  font-size: 10px;
+  color: #8b95a1;
+  margin-top: 2px;
+}
+@media (max-width: 640px) {
+  .toss-modal-thumb-mini { width: 40px; height: 40px; }
+  .toss-modal-parallel-row { min-height: 30px; }
+}
+
 .toss-modal-thumb-box {
   width: 64px;
   height: 64px;

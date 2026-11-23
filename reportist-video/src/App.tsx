@@ -40,6 +40,8 @@ import type {
   VideoItem,
   OverallStep,
   ProcessingProgress,
+  VideoTaskProgress,
+  VideoTaskStage,
   FinalVideoResult,
   HighlightSegment,
   HighlightMode,
@@ -106,7 +108,7 @@ function isSameProjectSummaryList(
 }
 
 export function App() {
-  const { dict, locale, interpolate } = useI18n();
+  const { dict, locale, interpolate, ui } = useI18n();
 
   // 1. 모델 상태 (재시작 시에도 유지되도록 localStorage 연동)
   const [models, setModels] = useState<FreeModelMeta[]>(INITIAL_VIDEO_MODELS);
@@ -245,8 +247,8 @@ export function App() {
 
   // 취소용 AbortController
   const abortControllerRef = useRef<AbortController | null>(null);
-  // 진행 중인 자체 분석 대기열(reportist-analyzer) 작업 ID (취소 시 서버에 즉시 통보)
-  const activeQueueJobIdRef = useRef<string | null>(null);
+  // 진행 중인 자체 분석 대기열(reportist-analyzer) 작업 ID 집합 (병렬 작업 전부 취소)
+  const activeQueueJobIdsRef = useRef<Set<string>>(new Set());
 
   // 4. 프로젝트 보관함 & IndexedDB 상태
   // 출력 방향(가로 16:9 / 세로 9:16)과 세로 플랫폼 프리셋 — 프로젝트 생성 시점에 정한다.
@@ -1327,6 +1329,75 @@ export function App() {
       videoProgressPct[index] = Math.max(videoProgressPct[index], Math.min(100, Math.max(0, pct)));
     };
 
+    // 병렬 작업 슬롯: 워커는 자기 인덱스만 갱신하고, 화면 반영은 아래 집계기 1곳에서만 수행한다.
+    // 기존처럼 워커마다 statusMessage를 덮어쓰면 1/3 · 2/3 · 3/3이 0.1초마다 번갈아 깜빡인다.
+    const videoTasks: VideoTaskProgress[] = readyVideos.map((v) => ({
+      videoId: v.id,
+      name: v.name,
+      thumbnailUrl: v.thumbnailUrl,
+      stage: 'pending',
+      progressPercent: 0,
+    }));
+    const setTask = (index: number, patch: Partial<VideoTaskProgress>) => {
+      Object.assign(videoTasks[index], patch);
+    };
+    const activeStage = (stage: VideoTaskStage) =>
+      stage === 'extracting' || stage === 'queued' || stage === 'analyzing';
+
+    // 추론 2줄 박스는 가장 먼저 시작한 활성 영상 1개에 고정하고, 그 영상이 끝날 때만 다음으로 넘어간다.
+    let focusedVideoIndex = 0;
+    const pickFocusedIndex = () => {
+      const current = videoTasks[focusedVideoIndex];
+      if (current && activeStage(current.stage)) return focusedVideoIndex;
+      const next = videoTasks.findIndex((task) => activeStage(task.stage));
+      if (next >= 0) focusedVideoIndex = next;
+      return focusedVideoIndex;
+    };
+
+    const aggregateStatusMessage = () => {
+      const done = videoTasks.filter((t) => t.stage === 'done' || t.stage === 'reused').length;
+      if (done >= totalVideos) return ui('모든 영상 분석을 마쳤어요');
+      if (totalVideos <= 1) {
+        const task = videoTasks[pickFocusedIndex()];
+        if (task?.stage === 'extracting') return ui('프레임을 추출하고 있어요');
+        if (task?.stage === 'queued') return ui('AI 분석 대기열에서 기다리고 있어요');
+        if (task?.stage === 'analyzing') return ui('AI가 하이라이트를 찾고 있어요');
+        return ui('하이라이트를 준비하고 있어요');
+      }
+      return ui('영상 {total}개 동시 분석 중 · 완료 {done}/{total}', { total: totalVideos, done });
+    };
+
+    // 200ms 단일 집계 타이머: 영상 수와 무관하게 setProgress는 이 곳에서만 호출된다.
+    const flushAggregateProgress = () => {
+      const activeTasks = videoTasks.filter((t) => activeStage(t.stage));
+      const allQueued = activeTasks.length > 0 && activeTasks.every((t) => t.stage === 'queued');
+      const focusIdx = pickFocusedIndex();
+      const focused = focusIdx >= 0 ? videoTasks[focusIdx] : undefined;
+      const currentPhase: ProcessingProgress['currentPhase'] = videoTasks.some(
+        (t) => t.stage === 'queued' || t.stage === 'analyzing'
+      )
+        ? 'analyze'
+        : 'extract';
+
+      setProgress((prev) => ({
+        ...prev,
+        step: 'processing',
+        currentPhase,
+        currentVideoIndex: focusIdx >= 0 ? focusIdx : 0,
+        totalVideos,
+        progressPercent: Math.min(99, Math.floor(getOverallPct())),
+        statusMessage: aggregateStatusMessage(),
+        isQueued: allQueued,
+        queuePosition: allQueued ? focused?.queuePosition : undefined,
+        estimatedWaitSec: allQueued ? focused?.estimatedWaitSec : undefined,
+        jobId: allQueued ? prev.jobId : undefined,
+        liveReasoning: focused?.liveText || '',
+        liveContent: '',
+        videoTasks: videoTasks.map((task) => ({ ...task })),
+        focusedVideoId: focused?.videoId,
+      }));
+    };
+
     // 병렬 완료 순서와 무관하게 영상 번호 순으로 제목/썸네일을 확정하기 위한 결과 슬롯
     const videoMetaResults: Array<{
       suggestedTitle?: string;
@@ -1356,21 +1427,13 @@ export function App() {
         const isLastVideo = i === totalVideos - 1;
         let videoLocalPct = 0;
 
-        const publish = (patch?: Record<string, unknown>) => {
+        // 워커는 자기 슬롯만 갱신한다. 화면 반영은 아래 단일 집계 타이머가 담당한다.
+        const publish = (patch?: Partial<VideoTaskProgress>) => {
           commitVideoProgress(i, videoLocalPct);
-          setProgress((prev) => ({
-            ...prev,
-            step: 'processing',
-            currentPhase: 'extract',
-            totalVideos,
-            currentVideoIndex: i,
-            progressPercent: Math.min(99, Math.floor(getOverallPct())),
-            ...patch,
-          }));
+          setTask(i, { progressPercent: videoLocalPct, ...patch });
         };
 
         // 자체 인메모리 큐(reportist-analyzer) 대기 상태 (영상별 독립)
-        // queued 동안에는 진행률을 멈추고 순번/예상 대기 시간만 갱신한다.
         let queueInfo: {
           isQueued: boolean;
           position?: number;
@@ -1379,46 +1442,23 @@ export function App() {
         } = { isQueued: false };
         let queueLoggedStatus: string | null = null;
         const resetQueueState = () => {
+          if (queueInfo.jobId) activeQueueJobIdsRef.current.delete(queueInfo.jobId);
           queueInfo = { isQueued: false };
           queueLoggedStatus = null;
-          activeQueueJobIdRef.current = null;
         };
 
         let liveReasoning = '';
         let liveContent = '';
-        let liveFlushTimer: number | null = null;
 
-        const flushLiveStream = () => {
-          if (liveFlushTimer !== null) {
-            window.clearTimeout(liveFlushTimer);
-            liveFlushTimer = null;
-          }
-          setProgress((prev) => ({
-            ...prev,
-            liveReasoning,
-            liveContent,
-          }));
-        };
-
-        const scheduleLiveStreamFlush = () => {
-          if (liveFlushTimer !== null) return;
-          liveFlushTimer = window.setTimeout(() => {
-            liveFlushTimer = null;
-            setProgress((prev) => ({
-              ...prev,
-              liveReasoning,
-              liveContent,
-            }));
-          }, 100);
+        const syncLiveText = () => {
+          const text = liveReasoning || liveContent;
+          if (videoTasks[i].liveText !== text) setTask(i, { liveText: text });
         };
 
         const resetLiveStream = () => {
           liveReasoning = '';
           liveContent = '';
-          if (liveFlushTimer !== null) {
-            window.clearTimeout(liveFlushTimer);
-            liveFlushTimer = null;
-          }
+          setTask(i, { liveText: '' });
         };
 
         const isSameAnalysisMode =
@@ -1431,21 +1471,13 @@ export function App() {
         ) {
           addLog(interpolate(dict.logs.reusingSegments, { name: currentVideo.name, count: currentVideo.segments.length }));
           videoLocalPct = 100;
-          publish();
+          publish({ stage: 'reused' });
           return;
         }
 
         // 1-A. 주요 프레임 다중 이미지 추출
         resetLiveStream();
-        publish({
-          currentPhase: 'extract',
-          statusMessage: interpolate(dict.logs.statusExtracting, {
-            index: i + 1,
-            total: totalVideos,
-            name: currentVideo.name,
-          }),
-          reasoningLogs: [...logs],
-        });
+        publish({ stage: 'extracting' });
 
         addLog(interpolate(dict.logs.extractingFrames, {
           name: currentVideo.name,
@@ -1496,98 +1528,43 @@ export function App() {
         // [멈춤 제로(Zero-Freeze) & 가짜 최저 속도 보장 엔진]: AI 추론이 길어져도 해당 영상 지분 내에서 숫자가 절대 멈추지 않음
         const analyzeStartTime = Date.now();
 
+        // 진행률·상태 문구는 자기 슬롯에만 기록한다. 1/3·2/3·3/3이 서로를 덮어쓰지 않도록
+        // 화면 반영은 200ms 단일 집계 타이머(flushAggregateProgress)가 전담한다.
         const updateAnalyzeProgress = (bonus = 0) => {
           if (signal.aborted) return;
 
-          // 대기열에서 순서를 기다리는 동안: 진행률은 추출 완료 지점에 고정하고
-          // "내 앞 대기자 N명 · 예상 대기 N초"만 실시간으로 갱신한다.
           if (queueInfo.isQueued) {
-            const position = Math.max(0, queueInfo.position ?? 0);
-            const etaSec = Math.max(0, Math.round(queueInfo.etaSec ?? 0));
-            const queueMsg = locale === 'ko'
-              ? `잠시만 기다려 주세요 · 내 앞 대기자 ${position}명 · 예상 대기 ${etaSec}초`
-              : locale === 'ja'
-                ? `少々お待ちください · 待機中 ${position}人 · 予想 ${etaSec}秒`
-                : `Please wait · ${position} ahead · ~${etaSec}s`;
-
-            setProgress((prev) => ({
-              ...prev,
-              progressPercent: Math.max(prev.progressPercent, Math.floor(getOverallPct())),
-              statusMessage: `${i + 1}/${totalVideos} [${currentVideo.name}] ${queueMsg}`,
-              isQueued: true,
-              queuePosition: position,
-              estimatedWaitSec: etaSec,
-              jobId: queueInfo.jobId,
-            }));
+            setTask(i, {
+              stage: 'queued',
+              queuePosition: queueInfo.position,
+              estimatedWaitSec: queueInfo.etaSec,
+            });
             return;
           }
 
           const elapsedSec = (Date.now() - analyzeStartTime) / 1000;
-          const totalChars = (liveReasoning?.length || 0) + (liveContent?.length || 0);
-
-          // 해당 영상의 AI 분석 여유 거리
           const remainingToMax = Math.max(0, 99 - videoLocalPct);
-
-          // 기본 전진 스텝: 남은 거리에 비례 (제논 점근) + 100ms당 최소 0.02% 보장
           const adaptiveStep = Math.max(0.02, remainingToMax * 0.0035);
 
           if (videoLocalPct < 98.8) {
             videoLocalPct = Math.min(98.9, videoLocalPct + adaptiveStep + bonus);
           } else {
-            // 상한선 직전 극초미세 전진
             videoLocalPct = Math.min(99, videoLocalPct + 0.002);
           }
 
-          // 심리학적 단계별 안내 문구 전환 (지루함 및 멈춤 느낌 원천 해소)
-          let dynamicStageText = '';
-          if (locale === 'ko') {
-            if (elapsedSec < 8) dynamicStageText = '핵심 프레임 시각적 요소 분석 중';
-            else if (elapsedSec < 18) dynamicStageText = '가장 극적인 클라이맥스 순간 탐색 중';
-            else if (elapsedSec < 32) dynamicStageText = '인물 표정 및 하이라이트 감정선 분석 중';
-            else if (elapsedSec < 48) dynamicStageText = '시네마틱 구도 및 최적 커팅 계산 중';
-            else dynamicStageText = '베스트 하이라이트 구간 최종 정리 중';
-          } else if (locale === 'ja') {
-            if (elapsedSec < 8) dynamicStageText = '重要フレームの視覚要素を分析中';
-            else if (elapsedSec < 18) dynamicStageText = '最も劇的なクライマックス瞬間を探索中';
-            else if (elapsedSec < 32) dynamicStageText = '表情とハイライトの感情線を分析中';
-            else if (elapsedSec < 48) dynamicStageText = 'シネマティックな構図と最適カットを計算中';
-            else dynamicStageText = 'ベストハイライト区間を最終整理中';
-          } else {
-            if (elapsedSec < 8) dynamicStageText = 'Analyzing key visual elements';
-            else if (elapsedSec < 18) dynamicStageText = 'Detecting dramatic climax moments';
-            else if (elapsedSec < 32) dynamicStageText = 'Evaluating facial cues & dynamics';
-            else if (elapsedSec < 48) dynamicStageText = 'Calculating cinematic framing';
-            else dynamicStageText = 'Finalizing best highlight segments';
-          }
-
-          // 실시간 경과 시간 및 분석 글자 수 카운터 포맷팅
-          const elapsedInt = Math.max(1, Math.floor(elapsedSec));
-          const timeUnit = locale === 'ko' ? '초' : locale === 'ja' ? '秒' : 's';
-          const charUnit = locale === 'ko' ? '자' : locale === 'ja' ? '文字' : ' chars';
-          const counterSuffix = totalChars > 0
-            ? ` (${elapsedInt}${timeUnit} · ${totalChars.toLocaleString()}${charUnit})`
-            : ` (${elapsedInt}${timeUnit})`;
-
-          const statusMsg = `${i + 1}/${totalVideos} [${currentVideo.name}] ${dynamicStageText}...${counterSuffix}`;
-
           publish({
-            statusMessage: statusMsg,
-            isQueued: false,
+            stage: 'analyzing',
+            elapsedSec,
             queuePosition: undefined,
             estimatedWaitSec: undefined,
-            jobId: undefined,
           });
         };
 
-        publish({
-          currentPhase: 'analyze',
-          statusMessage: `${i + 1}/${totalVideos} [${currentVideo.name}] ${dict.header.analyzingAi}... (0${locale === 'ko' ? '초' : locale === 'ja' ? '秒' : 's'})`,
-          reasoningLogs: [...logs],
-        });
+        publish({ stage: 'analyzing', elapsedSec: 0 });
 
-        // 100ms마다 실행되는 무정지(Zero-Freeze) 진행률 엔진
+        // 100ms마다 자기 슬롯만 갱신 (화면 rerender는 상위 집계기가 담당)
         const analyzeSmoothTimer = window.setInterval(() => updateAnalyzeProgress(0), 100);
-        // Worker 하트비트: 백그라운드 탭에서도 1초마다 진행률 갱신 유지
+        // Worker 하트비트: 백그라운드 탭에서도 슬롯 갱신 유지
         const unbindHeartbeat = backgroundGuard.onTick(() => updateAnalyzeProgress(0));
 
         let segments: any[] = [];
@@ -1644,7 +1621,7 @@ export function App() {
                     addLog(interpolate(dict.logs.reasoningStarted, { name: currentVideo.name }));
                   }
                   liveReasoning = fullText;
-                  scheduleLiveStreamFlush();
+                  syncLiveText();
                   updateAnalyzeProgress(0.01);
                 },
                 onContentDelta: (_chunk, fullText) => {
@@ -1653,7 +1630,7 @@ export function App() {
                     addLog(interpolate(dict.logs.jsonStarted, { name: currentVideo.name }));
                   }
                   liveContent = fullText;
-                  scheduleLiveStreamFlush();
+                  syncLiveText();
                   updateAnalyzeProgress(0.01);
                 },
                 onFallback: (reason) => {
@@ -1675,7 +1652,7 @@ export function App() {
                       addLog(interpolate(dict.logs.reasoningStarted, { name: currentVideo.name }));
                     }
                     liveReasoning = reasoningPreview;
-                    scheduleLiveStreamFlush();
+                    syncLiveText();
                   }
 
                   queueInfo = {
@@ -1684,7 +1661,7 @@ export function App() {
                     etaSec: info.estimatedWaitSec,
                     jobId: info.jobId,
                   };
-                  activeQueueJobIdRef.current = info.jobId;
+                  if (info.jobId) activeQueueJobIdsRef.current.add(info.jobId);
 
                   if (info.status !== queueLoggedStatus) {
                     queueLoggedStatus = info.status;
@@ -1709,8 +1686,8 @@ export function App() {
                   if (queueInfo.jobId) {
                     void cancelVideoAnalysisJob(queueInfo.jobId);
                   }
+                  if (queueInfo.jobId) activeQueueJobIdsRef.current.delete(queueInfo.jobId);
                   queueInfo = { isQueued: false };
-                  activeQueueJobIdRef.current = null;
                   console.warn(`[Video] Queue fallback (${currentVideo.name}):`, reason);
                   addLog(locale === 'ko'
                     ? `ℹ️ [${currentVideo.name}] 대기열을 사용할 수 없어 기존 AI 게이트웨이로 연결합니다.`
@@ -1786,16 +1763,15 @@ export function App() {
         // 분석이 끝난 뒤에는 대기열 상태를 즉시 지워 다음 영상/모달에 남지 않게 한다.
         resetQueueState();
 
-        // 해당 영상 분석 성공 완료 시: 1/N 목표치(videoEndPct)로 진입 (마지막 영상은 99% 유지)
+        // 해당 영상 분석 성공 완료 시: 자기 슬롯을 완료로 표시 (집계기가 완료 수를 계산한다)
         videoLocalPct = isLastVideo ? 99 : 100;
         publish({
-          isQueued: false,
+          stage: 'done',
           queuePosition: undefined,
           estimatedWaitSec: undefined,
-          jobId: undefined,
         });
 
-        flushLiveStream();
+        syncLiveText();
         if (liveReasoning) {
           addLog(interpolate(dict.logs.reasoningComplete, {
             name: currentVideo.name,
@@ -1867,12 +1843,23 @@ export function App() {
           await analyzeOneVideo(index);
         }
       };
-      await Promise.all(
-        Array.from(
-          { length: Math.min(VIDEO_ANALYSIS_CONCURRENCY, totalVideos) },
-          () => runVideoWorker()
-        )
-      );
+
+      // 워커와 무관하게 200ms마다 딱 한 번만 화면을 갱신한다.
+      flushAggregateProgress();
+      const aggregateTimer = window.setInterval(flushAggregateProgress, 200);
+      const unbindAggregateHeartbeat = backgroundGuard.onTick(flushAggregateProgress);
+      try {
+        await Promise.all(
+          Array.from(
+            { length: Math.min(VIDEO_ANALYSIS_CONCURRENCY, totalVideos) },
+            () => runVideoWorker()
+          )
+        );
+      } finally {
+        window.clearInterval(aggregateTimer);
+        unbindAggregateHeartbeat();
+        flushAggregateProgress();
+      }
       if (signal.aborted) throw new Error(dict.logs.cancelledByUser);
 
       // 병렬 완료 순서와 무관하게 영상 번호 순으로 제목/썸네일 우선순위를 확정한다.
@@ -2331,12 +2318,11 @@ export function App() {
 
   // 취소 핸들러
   const handleCancel = () => {
-    // 대기열에 등록된 작업이 있으면 서버에 즉시 취소를 통보해 순번을 반환한다.
-    const queueJobId = activeQueueJobIdRef.current;
-    if (queueJobId) {
+    // 병렬로 등록된 대기열 작업을 모두 취소해 순번을 반환한다.
+    for (const queueJobId of activeQueueJobIdsRef.current) {
       void cancelVideoAnalysisJob(queueJobId);
-      activeQueueJobIdRef.current = null;
     }
+    activeQueueJobIdsRef.current.clear();
 
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();

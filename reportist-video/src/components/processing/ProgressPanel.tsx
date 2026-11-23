@@ -75,6 +75,14 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
   const currentVideo = videos[progress.currentVideoIndex] || videos[0];
   const analyzedVideos = videos.filter((v) => v.status === 'analyzed' && v.segments.length > 0);
 
+  // 병렬 분석 슬롯 (구버전 상태에는 videoTasks가 없으므로 기존 단일 카드로 폴백)
+  const tasks = progress.videoTasks ?? [];
+  const isActiveStage = (stage?: string) =>
+    stage === 'extracting' || stage === 'queued' || stage === 'analyzing';
+  const activeTasks = tasks.filter((t) => isActiveStage(t.stage)).slice(0, 4);
+  const doneCount = tasks.filter((t) => t.stage === 'done' || t.stage === 'reused').length;
+  const pendingCount = tasks.filter((t) => t.stage === 'pending').length;
+
   return (
     <div className="progress-card">
       {/* 헤더 및 진행 상태 */}
@@ -83,9 +91,18 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
           <Sparkles className="w-3.5 h-3.5 animate-spin" />
           {ui('AI 극적 장면 탐색 & 시네마틱 렌더링 ')}</div>
         <h2 className="progress-title">
-          {progress.totalVideos > 0
-            ? ui('영상 분석 및 하이라이트 병합 중 ({p1}/{p2})', { p1: Math.min(progress.currentVideoIndex + 1, progress.totalVideos), p2: progress.totalVideos })
-            : ui('하이라이트 생성 준비 중...')}
+          {progress.totalVideos === 0
+            ? ui('하이라이트 생성 준비 중...')
+            : tasks.length > 1
+            ? ui('완료 {done}/{total} · {active}개 동시 분석 중', {
+                done: doneCount,
+                total: progress.totalVideos,
+                active: activeTasks.length,
+              })
+            : ui('영상 분석 및 하이라이트 병합 중 ({p1}/{p2})', {
+                p1: Math.min(progress.currentVideoIndex + 1, progress.totalVideos),
+                p2: progress.totalVideos,
+              })}
         </h2>
         <p className="progress-desc">
           {ui('지루한 빌드업을 덜어내고, 인물에 맞춘 화면 비율로 가장 결정적인 순간만 엮고 있어요. ')}</p>
@@ -122,8 +139,50 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
         {progress.statusMessage || ui('잠시만 기다려주세요...')}
       </div>
 
-      {/* 1. 지금 작업 중인 영상 쇼케이스 카드 */}
-      {currentVideo && (
+      {/* 1. 병렬 작업 슬롯 (최대 4줄 고정) — 구버전 상태는 기존 단일 카드로 폴백 */}
+      {tasks.length > 0 ? (
+        <div className="parallel-task-grid">
+          {activeTasks.length === 0 ? (
+            <div className="parallel-task-empty">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              <span>{ui('모든 영상 분석을 마쳤어요')}</span>
+            </div>
+          ) : (
+            activeTasks.map((task) => (
+              <div
+                key={task.videoId}
+                className={`parallel-task-card${task.videoId === progress.focusedVideoId ? ' is-focused' : ''}`}
+              >
+                <div className="parallel-task-thumb">
+                  {task.thumbnailUrl ? (
+                    <img src={task.thumbnailUrl} alt={task.name} />
+                  ) : (
+                    <Film className="w-4 h-4 text-slate-400" />
+                  )}
+                </div>
+                <div className="parallel-task-body">
+                  <div className="parallel-task-name" title={task.name}>{task.name}</div>
+                  <div className="parallel-task-status">
+                    {task.stage === 'extracting' && ui('프레임 추출')}
+                    {task.stage === 'queued' &&
+                      `${ui('대기 중')}${task.queuePosition !== undefined ? ` ${task.queuePosition}` : ''}`}
+                    {task.stage === 'analyzing' &&
+                      `${ui('AI 분석 중')}${task.elapsedSec !== undefined ? ` ${Math.floor(task.elapsedSec)}${ui('초')}` : ''}`}
+                  </div>
+                  <div className="parallel-task-bar">
+                    <div style={{ width: `${Math.max(2, task.progressPercent)}%` }} />
+                  </div>
+                </div>
+                <span className="parallel-task-pct">{Math.floor(task.progressPercent)}%</span>
+              </div>
+            ))
+          )}
+          {pendingCount > 0 && (
+            <div className="parallel-task-more">{ui('외 {count}개 대기 중', { count: pendingCount })}</div>
+          )}
+        </div>
+      ) : (
+        currentVideo && (
         <div className="current-video-card">
           <div className="current-video-thumb-wrapper">
             {currentVideo.thumbnailUrl ? (
@@ -173,6 +232,7 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
             </div>
           </div>
         </div>
+        )
       )}
 
       {/* 2. 분석 완료된 영상 하이라이트 요약 피드 */}

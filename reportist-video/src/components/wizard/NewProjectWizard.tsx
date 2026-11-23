@@ -112,7 +112,7 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
   progress,
   onCancelProcessing,
 }) => {
-  const { dict, interpolate, locale } = useI18n();
+  const { dict, interpolate, locale, ui } = useI18n();
   const w = dict.wizard;
   const queueCopy = getQueueCopy(locale);
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
@@ -222,6 +222,14 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
   // 현재 AI 분석 중인 원본 영상 (썸네일 표시용)
   const currentProcessingVideo = videos[progress.currentVideoIndex] || videos[0];
   const currentVideoThumbnail = currentProcessingVideo?.thumbnailUrl;
+
+  // 병렬 분석 슬롯: 위저드에서도 완료 중심 요약 + 최대 4줄 미니 리스트로 표시한다.
+  const wizardTasks = progress.videoTasks ?? [];
+  const isTaskActive = (stage?: string) =>
+    stage === 'extracting' || stage === 'queued' || stage === 'analyzing';
+  const wizardActiveTasks = wizardTasks.filter((t) => isTaskActive(t.stage)).slice(0, 4);
+  const wizardDoneCount = wizardTasks.filter((t) => t.stage === 'done' || t.stage === 'reused').length;
+  const wizardTotal = Math.max(progress.totalVideos, videos.length);
 
   // 기존 스튜디오 분석 모달과 동일하게, 가장 최근 로그 1~2줄만 노출
   const latestAnalysisTask = useMemo(() => {
@@ -1019,24 +1027,60 @@ export const NewProjectWizard: React.FC<NewProjectWizardProps> = ({
                     />
                   </div>
                   <div className="wizard-analysis-meta">
-                    <span className="wizard-analysis-meta-index">
-                      #{Math.min(progress.currentVideoIndex + 1, Math.max(videos.length, 1))}
-                    </span>
-                    <span
-                      className="wizard-analysis-meta-name"
-                      title={currentProcessingVideo?.name || ''}
-                    >
-                      {currentProcessingVideo?.name || ''}
-                    </span>
-                    <span className="wizard-analysis-meta-count">
-                      {Math.min(
-                        progress.currentVideoIndex + 1,
-                        Math.max(progress.totalVideos, videos.length)
-                      )}
-                      {' / '}
-                      {Math.max(progress.totalVideos, videos.length)}
-                    </span>
+                    {wizardTasks.length > 1 ? (
+                      <>
+                        <span className="wizard-analysis-meta-index">✓</span>
+                        <span className="wizard-analysis-meta-name">
+                          {ui('완료 {done}/{total} · {active}개 동시 분석 중', {
+                            done: wizardDoneCount,
+                            total: wizardTotal,
+                            active: wizardActiveTasks.length,
+                          })}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="wizard-analysis-meta-index">
+                          #{Math.min(progress.currentVideoIndex + 1, Math.max(videos.length, 1))}
+                        </span>
+                        <span
+                          className="wizard-analysis-meta-name"
+                          title={currentProcessingVideo?.name || ''}
+                        >
+                          {currentProcessingVideo?.name || ''}
+                        </span>
+                        <span className="wizard-analysis-meta-count">
+                          {Math.min(progress.currentVideoIndex + 1, wizardTotal)}
+                          {' / '}
+                          {wizardTotal}
+                        </span>
+                      </>
+                    )}
                   </div>
+                  {wizardTasks.length > 1 && (
+                    <div className="wizard-parallel-list">
+                      {wizardActiveTasks.length === 0 ? (
+                        <div className="wizard-parallel-row is-done">
+                          {ui('모든 영상 분석을 마쳤어요')}
+                        </div>
+                      ) : (
+                        wizardActiveTasks.map((task) => (
+                          <div
+                            key={task.videoId}
+                            className={`wizard-parallel-row${task.videoId === progress.focusedVideoId ? ' is-focused' : ''}`}
+                          >
+                            <span className="wizard-parallel-name" title={task.name}>{task.name}</span>
+                            <span className="wizard-parallel-stage">
+                              {task.stage === 'extracting' && ui('프레임 추출')}
+                              {task.stage === 'queued' && ui('대기 중')}
+                              {task.stage === 'analyzing' && ui('AI 분석 중')}
+                            </span>
+                            <span className="wizard-parallel-pct">{Math.floor(task.progressPercent)}%</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* 가장 최근 로그 1~2줄 (넘치면 말줄임표) */}

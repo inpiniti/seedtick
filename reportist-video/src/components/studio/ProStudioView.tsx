@@ -1195,6 +1195,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   const currentProcessingVideo = videos[progress.currentVideoIndex] || videos[0];
   const currentVideoThumbnail = currentProcessingVideo?.thumbnailUrl;
 
+  // 병렬 분석 슬롯: 동시에 도는 영상 최대 4개를 자기 자리에서 독립 전진시킨다.
+  const parallelTasks = progress.videoTasks ?? [];
+  const isTaskActive = (stage?: string) =>
+    stage === 'extracting' || stage === 'queued' || stage === 'analyzing';
+  const activeParallelTasks = parallelTasks.filter((t) => isTaskActive(t.stage)).slice(0, 4);
+  const doneVideoCount = parallelTasks.filter((t) => t.stage === 'done' || t.stage === 'reused').length;
+  const pendingVideoCount = parallelTasks.filter((t) => t.stage === 'pending').length;
+  const concurrencyLabel = activeParallelTasks.length > 0
+    ? ui('동시 {count}개 분석 중', { count: activeParallelTasks.length })
+    : '';
+
   // 모달에 표시할 가장 최근 작업 문구 (최근 2줄 분량, 초과 시 ...)
   const latestTask = useMemo(() => {
     const reasoningText = (progress.liveReasoning || '').trim();
@@ -9747,18 +9758,37 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               duration={4.5}
               borderWidth={2}
             />
-            {/* 상단 비디오 썸네일 또는 기본 아이콘 */}
-            <div className={currentVideoThumbnail ? 'toss-modal-thumb-box' : 'toss-modal-icon-circle'}>
-              {currentVideoThumbnail ? (
-                <img
-                  src={currentVideoThumbnail}
-                  alt={currentProcessingVideo?.name || ui('영상 썸네일')}
-                  className="w-full h-full object-cover"
-                />
-              ) : progress.currentPhase === 'stitch' ? (
-                <Scissors size={24} className="text-slate-700 animate-pulse" />
-              ) : (
-                <Sparkles size={24} className="text-slate-700 animate-pulse" />
+            {/* 상단 썸네일 스택: 활성 영상 최대 4장 + 고정 동시 분석 배지 */}
+            <div className="toss-modal-thumb-stack">
+              {activeParallelTasks.length > 0
+                ? activeParallelTasks.map((task) => (
+                    <div key={task.videoId} className="toss-modal-thumb-mini" title={task.name}>
+                      {task.thumbnailUrl ? (
+                        <img src={task.thumbnailUrl} alt={task.name} />
+                      ) : (
+                        <Film size={16} className="text-slate-500" />
+                      )}
+                      {task.videoId === progress.focusedVideoId && (
+                        <span className="toss-modal-thumb-focus" />
+                      )}
+                    </div>
+                  ))
+                : (
+                  <div className={currentVideoThumbnail ? 'toss-modal-thumb-mini' : 'toss-modal-icon-circle'}>
+                    {currentVideoThumbnail ? (
+                      <img
+                        src={currentVideoThumbnail}
+                        alt={currentProcessingVideo?.name || ui('영상 썸네일')}
+                      />
+                    ) : progress.currentPhase === 'stitch' ? (
+                      <Scissors size={24} className="text-slate-700 animate-pulse" />
+                    ) : (
+                      <Sparkles size={24} className="text-slate-700 animate-pulse" />
+                    )}
+                  </div>
+                )}
+              {parallelTasks.length > 1 && concurrencyLabel && (
+                <span className="toss-modal-concurrency-badge">{concurrencyLabel}</span>
               )}
             </div>
 
@@ -9772,7 +9802,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               </ShinyText>
             </h3>
             <p className="toss-modal-desc">
-              {progress.statusMessage || dict.processingModal.defaultDesc}
+              {parallelTasks.length > 1
+                ? ui('완료 {done}/{total} · {active}개 동시 분석 중', {
+                    done: doneVideoCount,
+                    total: parallelTasks.length,
+                    active: activeParallelTasks.length,
+                  })
+                : (progress.statusMessage || dict.processingModal.defaultDesc)}
             </p>
 
             {/* 대기열 순번/예상 대기 시간 */}
@@ -9810,6 +9846,47 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   : `${Math.floor(progress.progressPercent)}%`}
               </span>
             </div>
+
+            {/* 병렬 작업 미니 리스트 (최대 4줄 고정) */}
+            {parallelTasks.length > 1 && (
+              <div className="toss-modal-parallel-list">
+                {activeParallelTasks.length === 0 ? (
+                  <div className="toss-modal-parallel-row is-done">
+                    <Check size={13} className="text-emerald-600 shrink-0" />
+                    <span className="truncate">{ui('모든 영상 분석을 마쳤어요')}</span>
+                  </div>
+                ) : (
+                  activeParallelTasks.map((task) => (
+                    <div
+                      key={task.videoId}
+                      className={`toss-modal-parallel-row${task.videoId === progress.focusedVideoId ? ' is-focused' : ''}`}
+                    >
+                      <div className="toss-modal-parallel-thumb">
+                        {task.thumbnailUrl ? (
+                          <img src={task.thumbnailUrl} alt="" />
+                        ) : (
+                          <Film size={12} className="text-slate-400" />
+                        )}
+                      </div>
+                      <span className="toss-modal-parallel-name" title={task.name}>{task.name}</span>
+                      <span className="toss-modal-parallel-stage">
+                        {task.stage === 'extracting' && ui('프레임 추출')}
+                        {task.stage === 'queued' && ui('대기 중')}
+                        {task.stage === 'analyzing' &&
+                          `${ui('AI 분석 중')}${task.elapsedSec !== undefined ? ` ${Math.floor(task.elapsedSec)}${ui('초')}` : ''}`}
+                      </span>
+                      <span className="toss-modal-parallel-pct">{Math.floor(task.progressPercent)}%</span>
+                    </div>
+                  ))
+                )}
+                {(pendingVideoCount > 0 || doneVideoCount > 0) && (
+                  <div className="toss-modal-parallel-summary">
+                    {ui('완료 {done}/{total}', { done: doneVideoCount, total: parallelTasks.length })}
+                    {pendingVideoCount > 0 && ` · ${ui('외 {count}개 대기 중', { count: pendingVideoCount })}`}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* 최근 작업/추론 2줄 안내 박스 (2줄 고정 높이, 넘치면 ...) */}
             <div className="toss-modal-reasoning-wrap">

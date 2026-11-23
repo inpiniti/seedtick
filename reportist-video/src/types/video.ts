@@ -93,6 +93,23 @@ export interface ExtractedFrame {
 
 export type OverallStep = 'upload' | 'processing' | 'result';
 
+/** 병렬 영상 분석 시 각 영상 슬롯의 상태 */
+export type VideoTaskStage = 'pending' | 'extracting' | 'queued' | 'analyzing' | 'done' | 'reused';
+
+export interface VideoTaskProgress {
+  videoId: string;
+  name: string;
+  thumbnailUrl?: string;
+  stage: VideoTaskStage;
+  /** 이 영상 지분의 진행률 (0~100) */
+  progressPercent: number;
+  elapsedSec?: number;
+  queuePosition?: number;
+  estimatedWaitSec?: number;
+  /** 추론 미리보기는 포커스 영상에만 실어 깜빡임을 막는다 */
+  liveText?: string;
+}
+
 export interface ProcessingProgress {
   step: OverallStep;
   currentPhase: 'extract' | 'compress' | 'analyze' | 'stitch' | 'done' | 'error';
@@ -112,6 +129,10 @@ export interface ProcessingProgress {
   // AI 모델의 실시간 스트리밍 추론/응답 (콘솔에 생생하게 표시)
   liveReasoning?: string;
   liveContent?: string;
+  /** 병렬 분석 중인 영상별 독립 슬롯 (UI는 이 배열만 읽어 상태를 렌더링) */
+  videoTasks?: VideoTaskProgress[];
+  /** 실시간 추론 2줄 박스가 고정해서 보여줄 영상 ID */
+  focusedVideoId?: string;
 }
 
 export type ExportResolution = '720p' | '1080p';

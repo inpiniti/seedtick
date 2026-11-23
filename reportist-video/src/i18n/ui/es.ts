@@ -642,4 +642,18 @@ export const uiEs: Record<string, string> = {
   '일부 자막을 다듬지 못했어요': 'No se pudieron pulir algunos subtítulos',
   'AI 응답이 늦어 {count}개 묶음을 건너뛰었어요. 다시 시도해 주세요.':
     'Las respuestas de IA fueron lentas y se omitieron {count} lotes. Inténtalo de nuevo.',
+  // 병렬 분석 진행 UI
+  '모든 영상 분석을 마쳤어요': 'Todos los vídeos analizados',
+  '프레임을 추출하고 있어요': 'Extrayendo fotogramas',
+  'AI 분석 대기열에서 기다리고 있어요': 'Esperando en la cola de IA',
+  '하이라이트를 준비하고 있어요': 'Preparando momentos destacados',
+  '영상 {total}개 동시 분석 중 · 완료 {done}/{total}': 'Analizando {total} vídeos a la vez · {done}/{total} completados',
+  '완료 {done}/{total} · {active}개 동시 분석 중': '{done}/{total} completados · {active} en análisis simultáneo',
+  '동시 {count}개 분석 중': '{count} en análisis simultáneo',
+  '프레임 추출': 'Extrayendo',
+  '대기 중': 'Esperando',
+  'AI 분석 중': 'Analizando con IA',
+  '초': 's',
+  '외 {count}개 대기 중': '+{count} en espera',
+  '완료 {done}/{total}': '{done}/{total} completados',
 };

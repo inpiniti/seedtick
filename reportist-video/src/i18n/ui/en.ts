@@ -654,4 +654,18 @@ export const uiEn: Record<string, string> = {
   '일부 자막을 다듬지 못했어요': 'Some subtitles could not be polished',
   'AI 응답이 늦어 {count}개 묶음을 건너뛰었어요. 다시 시도해 주세요.':
     'AI responses were slow, so {count} batch(es) were skipped. Please try again.',
+  // 병렬 분석 진행 UI
+  '모든 영상 분석을 마쳤어요': 'All videos analyzed',
+  '프레임을 추출하고 있어요': 'Extracting frames',
+  'AI 분석 대기열에서 기다리고 있어요': 'Waiting in the AI queue',
+  '하이라이트를 준비하고 있어요': 'Preparing highlights',
+  '영상 {total}개 동시 분석 중 · 완료 {done}/{total}': 'Analyzing {total} videos at once · {done}/{total} done',
+  '완료 {done}/{total} · {active}개 동시 분석 중': '{done}/{total} done · {active} analyzing at once',
+  '동시 {count}개 분석 중': '{count} analyzing at once',
+  '프레임 추출': 'Extracting',
+  '대기 중': 'Waiting',
+  'AI 분석 중': 'AI analyzing',
+  '초': 's',
+  '외 {count}개 대기 중': '+{count} waiting',
+  '완료 {done}/{total}': '{done}/{total} done',
 };
