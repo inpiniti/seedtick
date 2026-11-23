@@ -1920,7 +1920,8 @@
 }
 .sv2-settings-card {
   width: min(920px, 96vw);
-  max-height: min(760px, 92vh);
+  /* 섹션별 콘텐츠 양이 달라도 창 높이가 흔들리지 않도록 고정한다. */
+  height: min(760px, 92vh);
   display: flex;
   flex-direction: column;
   background: var(--sv2-surface);
