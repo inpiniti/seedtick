@@ -1,9 +1,11 @@
 # Git 컨벤션
 
-## 브랜치 전략
+## 브랜치·워크트리 전략
 
-- 기본 작업 방식: **`main`에서 직접 작업 후 푸시**(푸시 시 Vercel / Hugging Face Spaces 자동 배포 트리거).
-- 실험적·대규모 변경일 때만 선택적으로 `feat/{name}`, `fix/{name}` 브랜치를 분리한다.
+- **기본 작업 방식 (T3 Code Worktree)**:
+  1. 새 스레드는 T3 Code에서 자동으로 독립된 **워크트리 + 브랜치**로 시작한다(`scripts/worktree-setup.ps1`이 `node_modules` 정션 및 `.env*` 자동 연결).
+  2. 검증·커밋 완료 후 `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/worktree-finish.ps1`을 실행해 **`main` 최신 리베이스 → `main` fast-forward 머지 → `origin/main` 푸시(자동 배포) → 완료된 워크트리·브랜치 즉시 삭제**까지 한 번에 마무리한다.
+- 루트 `main` 워킹트리는 가급적 깨끗하게 유지하여 병렬 워크트리들이 막힘 없이 `main`에 합쳐질 수 있도록 한다.
 
 ---
 

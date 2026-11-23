@@ -22,11 +22,21 @@ After modifying code in any service, run its verification commands yourself and 
 - Fix failures introduced by your changes until all checks pass. If a pre-existing failure is unrelated, report it verbatim with file and error details.
 - Local commits run `.githooks/pre-commit` (secret guard + staged lint/typecheck). Enable once per clone with `git config core.hooksPath .githooks`.
 
+## Worktree & Finish Workflow (Default)
+
+- New threads run in isolated git worktrees (T3 Code creates one automatically and links `node_modules` / `.env*` via `scripts/worktree-setup.ps1`). If `node_modules` is missing in a worktree, run `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/worktree-setup.ps1`.
+- After verifying and committing changes in a worktree, immediately merge to `main`, push, and delete the finished worktree:
+  ```powershell
+  powershell -NoProfile -ExecutionPolicy Bypass -File scripts/worktree-finish.ps1
+  ```
+- If `worktree-finish.ps1` reports a rebase conflict with `main`, run `git rebase main`, resolve conflicts, re-run verification checks, then re-run `worktree-finish.ps1`.
+- Keep the primary `main` checkout clean so parallel worktrees can fast-forward merge into `main` without blocking.
+
 ## Hard Guardrails
 
 - **Analysis & screening only**: Keep broker integrations, order execution, and trading logic out of the codebase (`docs/rules/safety-rules.md`).
 - **Secrets**: Keep `.env*` files, API keys, and private keys out of git commits and client bundles; use environment variables only.
-- **Production branch (`main`)**: Work proceeds directly on `main`, and pushing to `main` auto-deploys to Vercel and Hugging Face Spaces. Always finish the self-verification loop before committing/pushing, and use Korean Conventional Commits (`docs/rules/git-convention.md`).
+- **Production branch (`main`)**: Pushing `main` auto-deploys to Vercel and Hugging Face Spaces. Always finish self-verification before committing and running `scripts/worktree-finish.ps1`, using Korean Conventional Commits (`docs/rules/git-convention.md`).
 
 ## Context Pointers (Read On Demand)
 

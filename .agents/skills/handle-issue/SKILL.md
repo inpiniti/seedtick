@@ -45,6 +45,7 @@ description: 버그, 이상 현상, 기능 개선 요청이 인입되었을 때 
 1. 한국어 UI/카피 변경 시 `toss-design` 기준에 맞춰 수정한다.
 2. 수정한 서비스의 타입체크 및 변경 파일 린트를 직접 실행해 통과를 확인한다(`AGENTS.md` 검증 표 참조).
 3. 한글 Conventional Commit으로 커밋한다(예: `fix(admin): 종목 상세 헤더 여백 조정`).
+4. 워크트리에서 작업 중이면 `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/worktree-finish.ps1`로 `main` 반영·푸시 및 워크트리 정리를 완료한다.
 
 ---
 
@@ -59,6 +60,7 @@ description: 버그, 이상 현상, 기능 개선 요청이 인입되었을 때 
    - `reportist-analyzer`: `pytest -q` (+ `ruff check <변경파일>`)
    - `reportist-chat` / `game` / `video`: `npm run typecheck` (+ `npm run lint`)
 3. 한글 Conventional Commit으로 커밋한다(예: `fix(report): 데이터팩 누락 시 기본값 폴백 보정`).
+4. 워크트리에서 작업 중이면 `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/worktree-finish.ps1`로 `main` 반영·푸시 및 워크트리 정리를 완료한다.
 
 ---
 
@@ -87,9 +89,9 @@ description: 버그, 이상 현상, 기능 개선 요청이 인입되었을 때 
 - **Standards 축**: `docs/rules/coding-standards.md`, `docs/rules/safety-rules.md` 준수 여부
 - **Spec 축**: 도메인 문서·합의 요구사항과 실제 diff 일치 여부
 
-### C-6: 커밋
+### C-6: 커밋 및 main 반영
 
-문서와 코드를 논리적 단위로 한글 Conventional Commit한다(예: `feat(subscription): 체험 만료 안내 배너 및 정책 추가`).
+문서와 코드를 논리적 단위로 한글 Conventional Commit한다(예: `feat(subscription): 체험 만료 안내 배너 및 정책 추가`). 워크트리에서 작업 중이면 `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/worktree-finish.ps1`로 `main` 반영·푸시 및 워크트리 삭제까지 마무리한다.
 
 ---
 
