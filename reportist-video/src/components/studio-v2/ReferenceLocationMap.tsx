@@ -33,7 +33,8 @@ export const ReferenceLocationMap = ({
       zoom: 15,
       zoomControl: true,
       attributionControl: true,
-      scrollWheelZoom: false,
+      // 참고 지도 위에서 스크롤하면 지도 확대/축소가 되도록 활성화
+      scrollWheelZoom: true,
     });
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
