@@ -632,6 +632,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
             landingIds={landingIds}
             playhead={playhead}
             onSeek={seek}
+            onScrubStart={() => setIsPlaying(false)}
             locked={isProcessing}
             bgmPresetId={bgmPresetId}
             bgmVolume={bgmVolume}

@@ -16,6 +16,7 @@ import {
   buildTimelineLayout,
   timeToTimelineX,
   timelineXToTime,
+  type TimelineLayout,
   type TimelineModel,
 } from './timelineModel.ts';
 import { TimelineVideoTrack } from './TimelineVideoTrack.tsx';
@@ -34,6 +35,10 @@ interface TimelineDockProps {
   landingIds: Set<string>;
   /** 분석 중에는 스트리밍 세그먼트와 충돌하지 않도록 편집을 잠근다. */
   locked?: boolean;
+  /** 상위에서 미리 계산한 레이아웃을 넘기면 재계산 없이 그대로 사용한다. */
+  layout?: TimelineLayout;
+  /** 자막 정제 반영 후 짧게 강조 연출을 주기 위한 플래그. */
+  subtitleRefreshed?: boolean;
   playhead: number;
   onSeek: (time: number) => void;
   /** 드래그 시작 시 재생을 멈추기 위한 훅(선택). */
@@ -59,7 +64,8 @@ interface TimelineDockProps {
 export const TimelineDock = (props: TimelineDockProps) => {
   const { segments, model, playhead, onSeek, onScrubStart } = props;
   const hasSegments = segments.length > 0;
-  const layout = useMemo(() => buildTimelineLayout(model), [model]);
+  const computedLayout = useMemo(() => buildTimelineLayout(model), [model]);
+  const layout = props.layout ?? computedLayout;
   const tracksRef = useRef<HTMLDivElement>(null);
   const rulerRef = useRef<HTMLDivElement>(null);
   const [isScrubbing, setIsScrubbing] = useState(false);
