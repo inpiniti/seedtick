@@ -571,12 +571,10 @@ export const CenterStudioView = (props: StudioV2Props) => {
 
   // ---------- 좌측 리스트 소멸 조건 ----------
   const pendingVideos = videos.filter((v) => (v.segments?.length ?? 0) === 0);
-  // 마지막 컷이 완전히 착지한 뒤에만 도크가 접힌다(비행 중 출발점이 사라지지 않게).
+  // 분석이 끝나면 컷 비행 착지를 기다리지 않고 도크를 즉시 접는다.
+  // 비행 출발 좌표는 발사 시점(분석 중)에 이미 고정되므로 착지를 기다릴 필요가 없다.
   const dockCollapsed =
-    !isProcessing &&
-    displaySegments.length > 0 &&
-    pendingVideos.length === 0 &&
-    landingIds.size === 0;
+    !isProcessing && displaySegments.length > 0 && pendingVideos.length === 0;
 
   // ---------- 작업 이름 (파일명/표시용) ----------
   const projectName = useMemo(() => {
