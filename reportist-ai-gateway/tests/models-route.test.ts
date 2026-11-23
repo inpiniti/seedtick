@@ -1,10 +1,56 @@
 // tests/models-route.test.ts - 모델 목록 엔드포인트 및 ModelService 테스트
+//
+// 주의: 이 테스트는 실제 OpenRouter API를 호출하지 않는다. 라이브 무료 모델 수는
+// 시시각각 변하므로(예: 2026-11 기준 11개) 개수 가정이 담긴 테스트가 자주 깨졌다.
+// 대신 고정된 픽스처로 fetch를 대체해 변환 로직·메타데이터·이미지 모델 병합을 검증한다.
 
-import { describe, expect, it } from 'bun:test';
+import { afterAll, beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import { app } from '../src/app.ts';
 import { modelService } from '../src/domain/models/ModelService.ts';
 
+// OpenRouter /api/v1/models 응답과 동일한 형태의 텍스트 무료 모델 16개.
+const FIXTURE_MODELS = Array.from({ length: 16 }, (_, i) => ({
+  id: `test/fixture-model-${i}:free`,
+  name: `Fixture Model ${i}`,
+  created: 1792627200 - i * 86_400,
+  context_length: 262_144,
+  description: `Fixture model ${i}: a coding agent with 2.5B active parameters out of 40B total.`,
+  architecture: {
+    modality: 'text->text',
+    input_modalities: ['text'],
+    output_modalities: ['text'],
+  },
+  supported_parameters: ['temperature', 'tools'],
+  benchmarks: {},
+  reasoning: {},
+}));
+
+let fetchSpy: ReturnType<typeof spyOn> | null = null;
+
+// 싱글턴이 다른 테스트 파일의 라이브 호출로 캐시된 상태여도 항상 픽스처에서 시작하도록
+// 테스트 범위에서만 내부 캐시를 초기화한다 (프로덕션 코드 변경 없음).
+type CacheState = { cache: unknown; lastFetchTime: number };
+const resetModelCache = () => {
+  const state = modelService as unknown as CacheState;
+  state.cache = null;
+  state.lastFetchTime = 0;
+};
+
 describe('ModelService & Models Route', () => {
+  beforeEach(() => {
+    resetModelCache();
+    const mockFetch = (async () =>
+      new Response(JSON.stringify({ data: FIXTURE_MODELS }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })) as unknown as typeof fetch;
+    fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(mockFetch);
+  });
+
+  afterAll(() => {
+    fetchSpy?.mockRestore();
+  });
+
   it('ModelService.getFreeModels() should return list of free models with metadata', async () => {
     const models = await modelService.getFreeModels();
     expect(models.length).toBeGreaterThanOrEqual(15);
