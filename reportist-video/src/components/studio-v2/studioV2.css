@@ -601,11 +601,12 @@
   color: var(--sv2-text);
 }
 
-/* Interactive overlay */
+/* Interactive overlay — inset:0로 폭이 확정되므로 cqw(프레임 폭 기준) 단위의 기준 컨테이너로 쓴다. */
 .sv2-overlay-layer {
   position: absolute;
   inset: 0;
   z-index: 4;
+  container-type: inline-size;
   pointer-events: none;
 }
 .sv2-hit {
@@ -627,33 +628,43 @@
   width: 34%;
   height: 13%;
 }
+/* left/top/width/height/font-size/padding은 PreviewInteractiveOverlay가
+   computeSubtitleOverlayBounds 결과를 프레임 비율로 환산해 inline 지정한다. */
 .sv2-hit-caption {
-  left: 10%;
-  right: 10%;
-  bottom: 4%;
-  height: 12%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: text;
-}
-/* 세로(9:16) 자막은 캔버스 기준 화면 2/3 높이의 세이프 영역 안에 그려진다. */
-.sv2-preview-frame[data-orientation='portrait'] .sv2-hit-caption {
-  top: 64%;
-  bottom: auto;
-  left: 8%;
-  right: 8%;
-  height: auto;
-  transform: translateY(-50%);
+  box-sizing: border-box;
 }
 .sv2-hit-caption:not([data-editing='true']):hover {
-  border-color: rgba(255, 255, 255, 0.85);
-  border-style: dashed;
-  background: rgba(0, 0, 0, 0.28);
+  border-color: rgba(255, 255, 255, 0.9);
+  background: transparent;
 }
 .sv2-hit-caption[data-editing='true'] {
-  border-color: rgba(255, 255, 255, 0.7);
+  border: 0;
   background: transparent;
+}
+/* 자막 글자를 다시 그리지 않고, 박스 바깥 위쪽에만 얇은 안내 배지를 띄운다. */
+.sv2-caption-affordance {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+.sv2-hit-caption:hover .sv2-caption-affordance,
+.sv2-hit-caption[data-empty='true'] .sv2-caption-affordance {
+  opacity: 1;
 }
 .sv2-hit-hint {
   font-size: 11px;
@@ -669,28 +680,27 @@
   text-overflow: ellipsis;
   max-width: 100%;
 }
-.sv2-hit-caption:hover .sv2-hit-hint,
-.sv2-hit-caption[data-empty='true'] .sv2-hit-hint {
+.sv2-hit-location:hover .sv2-hit-hint {
   opacity: 1;
 }
-/* 캔버스 자막 박스(rgba(0,0,0,0.75) + 굵은 흰 글씨)와 같은 모양으로 제자리 편집한다. */
+/* 편집창은 캔버스 자막 알약 그 자체. 테두리는 box-shadow 한 겹만 사용한다. */
 .sv2-caption-input {
+  display: block;
   width: 100%;
-  max-width: 100%;
-  text-align: center;
-  background: rgba(0, 0, 0, 0.78);
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  border-radius: 8px;
-  padding: 8px 12px;
-  font-size: clamp(12px, 1.6vw, 18px);
-  font-weight: 700;
-  line-height: 1.26;
+  height: 100%;
+  box-sizing: border-box;
+  resize: none;
+  overflow: hidden;
+  border: 0;
   outline: none;
-  box-shadow: var(--sv2-focus-ring);
+  text-align: center;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.75);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.85);
 }
 .sv2-caption-input::placeholder {
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.5);
 }
 
 /* Transport */

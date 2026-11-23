@@ -177,6 +177,124 @@ export function drawCompositorCoverFrame(
   }
 }
 
+let sharedMeasureCtx: CanvasRenderingContext2D | null | undefined;
+function getMeasureContext(): CanvasRenderingContext2D | null {
+  if (sharedMeasureCtx !== undefined) return sharedMeasureCtx;
+  sharedMeasureCtx =
+    typeof document === 'undefined' ? null : document.createElement('canvas').getContext('2d');
+  return sharedMeasureCtx;
+}
+
+/** 캔버스가 실제로 그리는 자막 박스의 픽셀 좌표·폰트 정보. DOM 편집창이 같은 값을 공유한다. */
+export interface SubtitleOverlayBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fontSize: number;
+  lineHeight: number;
+  padX: number;
+  padY: number;
+  lines: string[];
+}
+
+/**
+ * 자막 문구와 프레임으로 실제 자막 박스 좌표를 계산한다(캔버스에 그리지 않는 순수 계산).
+ * 내보내기·미리보기·인라인 편집창이 이 결과를 함께 쓰므로 위치·크기·폰트가 픽셀 단위로 일치한다.
+ */
+export function computeSubtitleOverlayBounds(
+  text: string,
+  frame: FrameSpec,
+  measureCtx?: CanvasRenderingContext2D | null
+): SubtitleOverlayBounds | null {
+  const subText = text.trim();
+  if (!subText) return null;
+
+  const ctx = measureCtx ?? getMeasureContext();
+  if (!ctx) return null;
+
+  const u = frame.unit;
+  if (frame.orientation === 'portrait') {
+    const { safeArea } = frame;
+    const maxWidth = frame.width - safeArea.left - safeArea.right;
+    if (maxWidth <= 0) return null;
+
+    const padX = Math.round(18 * u);
+    const padY = Math.round(12 * u);
+    const block = fitTextBlock(
+      ctx,
+      subText,
+      maxWidth - padX * 2,
+      Math.round(22 * u),
+      Math.round(13 * u),
+      3,
+      (size) => overlayFont('bold', size)
+    );
+    const lineHeight = Math.round(block.fontSize * 1.26);
+    ctx.font = overlayFont('bold', block.fontSize);
+    const textWidth = Math.max(...block.lines.map((line) => ctx.measureText(line).width), 0);
+    const width = Math.min(maxWidth, textWidth + padX * 2);
+    const height = block.lines.length * lineHeight + padY * 2;
+    const x = (frame.width - width) / 2;
+    const preferredY = Math.round((frame.height * 2) / 3 - height / 2);
+    const y = Math.max(safeArea.top, Math.min(preferredY, frame.height - safeArea.bottom - height));
+    return {
+      x,
+      y,
+      width,
+      height,
+      fontSize: block.fontSize,
+      lineHeight,
+      padX,
+      padY,
+      lines: block.lines,
+    };
+  }
+
+  const padX = Math.round(20 * u);
+  const padY = Math.round(8 * u);
+  const marginX = Math.round(32 * u);
+  const subMaxWidth = Math.max(1, frame.width - marginX * 2 - padX * 2);
+  const block = fitTextBlock(
+    ctx,
+    subText,
+    subMaxWidth,
+    Math.round(24 * u),
+    Math.round(16 * u),
+    3,
+    (size) => overlayFont('bold', size)
+  );
+  const lineHeight = Math.round(block.fontSize * 1.26);
+  ctx.font = overlayFont('bold', block.fontSize);
+  const textWidth = Math.max(...block.lines.map((line) => ctx.measureText(line).width), 0);
+  const width = Math.min(frame.width - marginX * 2, textWidth + padX * 2);
+  const height = block.lines.length * lineHeight + padY * 2;
+  const x = (frame.width - width) / 2;
+  const y = frame.height - Math.round(30 * u) - height;
+  return { x, y, width, height, fontSize: block.fontSize, lineHeight, padX, padY, lines: block.lines };
+}
+
+/** 계산된 자막 박스를 캔버스에 그린다. 가로·세로 모두 같은 그리기 규칙을 쓴다. */
+function paintSubtitleBox(
+  oCtx: CanvasRenderingContext2D,
+  bounds: SubtitleOverlayBounds,
+  frame: FrameSpec
+): void {
+  oCtx.save();
+  oCtx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+  paintRoundedRect(oCtx, bounds.x, bounds.y, bounds.width, bounds.height, Math.round(8 * frame.unit));
+  oCtx.fill();
+
+  oCtx.fillStyle = '#ffffff';
+  oCtx.textAlign = 'center';
+  oCtx.textBaseline = 'middle';
+  oCtx.font = overlayFont('bold', bounds.fontSize);
+  bounds.lines.forEach((line, index) => {
+    oCtx.fillText(line, frame.width / 2, bounds.y + bounds.padY + bounds.lineHeight * (index + 0.5));
+  });
+  oCtx.restore();
+}
+
 function drawLandscapeOverlay(
   oCtx: CanvasRenderingContext2D,
   overlayOptions: VideoOverlayOptions,
@@ -285,48 +403,14 @@ function drawLandscapeOverlay(
     oCtx.restore();
   }
 
-  // 3. 하단 중앙 씬 제목 자막 — 프레임 폭에 맞춰 줄바꿈(최대 3줄)하고 하단 기준으로 위로 쌓는다.
-  // 긴 자막이 양옆으로 잘려 나가지 않도록 가로 여백을 두고, 한 줄일 때의 위치·크기는 기존과 동일하다.
+  // 3. 하단 중앙 씬 제목 자막 — 실제 박스 좌표는 computeSubtitleOverlayBounds가 계산한다.
   // 인라인 편집 중에는 DOM 입력창이 같은 자리에 그려지므로 캔버스 자막만 숨긴다.
   if (overlayOptions.showSubtitle && !options?.hideSubtitle) {
     const titlePart = currentSegment?.subtitleTitle ?? currentSegment?.reason ?? '';
-    const subText = titlePart.trim();
-
-    if (subText) {
+    const bounds = computeSubtitleOverlayBounds(titlePart, frame, oCtx);
+    if (bounds) {
       hasAnyOverlay = true;
-      const padX = Math.round(20 * u);
-      const padY = Math.round(8 * u);
-      const marginX = Math.round(32 * u);
-      const subMaxWidth = Math.max(1, targetWidth - marginX * 2 - padX * 2);
-      const block = fitTextBlock(
-        oCtx,
-        subText,
-        subMaxWidth,
-        Math.round(24 * u),
-        Math.round(16 * u),
-        3,
-        (size) => overlayFont('bold', size)
-      );
-      const lineHeight = Math.round(block.fontSize * 1.26);
-      oCtx.save();
-      oCtx.font = overlayFont('bold', block.fontSize);
-      const textWidth = Math.max(...block.lines.map((line) => oCtx.measureText(line).width), 0);
-      const boxW = Math.min(targetWidth - marginX * 2, textWidth + padX * 2);
-      const boxH = block.lines.length * lineHeight + padY * 2;
-      const x = (targetWidth - boxW) / 2;
-      const y = targetHeight - Math.round(30 * u) - boxH;
-
-      oCtx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-      paintRoundedRect(oCtx, x, y, boxW, boxH, Math.round(8 * u));
-      oCtx.fill();
-
-      oCtx.fillStyle = '#ffffff';
-      oCtx.textAlign = 'center';
-      oCtx.textBaseline = 'middle';
-      block.lines.forEach((line, index) => {
-        oCtx.fillText(line, targetWidth / 2, y + padY + lineHeight * (index + 0.5));
-      });
-      oCtx.restore();
+      paintSubtitleBox(oCtx, bounds, frame);
     }
   }
 
@@ -477,49 +561,14 @@ function drawPortraitOverlay(
     oCtx.restore();
   }
 
-  // 4. 씬 제목 자막 — 화면 2/3 높이에 줄바꿈 박스로 표시
+  // 4. 씬 제목 자막 — 화면 2/3 높이(세이프 영역 clamping)의 실제 박스 좌표를 공유 헬퍼로 계산한다.
   // 인라인 편집 중에는 DOM 입력창이 같은 자리에 그려지므로 캔버스 자막만 숨긴다.
   if (overlayOptions.showSubtitle && !options?.hideSubtitle) {
     const titlePart = currentSegment?.subtitleTitle ?? currentSegment?.reason ?? '';
-    const subText = titlePart.trim();
-
-    if (subText) {
+    const bounds = computeSubtitleOverlayBounds(titlePart, frame, oCtx);
+    if (bounds) {
       hasAnyOverlay = true;
-      const padX = Math.round(18 * u);
-      const padY = Math.round(12 * u);
-      const subMaxWidth = maxWidth - padX * 2;
-      const block = fitTextBlock(
-        oCtx,
-        subText,
-        subMaxWidth,
-        Math.round(22 * u),
-        Math.round(13 * u),
-        3,
-        (size) => overlayFont('bold', size)
-      );
-      const lineHeight = Math.round(block.fontSize * 1.26);
-      oCtx.font = overlayFont('bold', block.fontSize);
-      const textWidth = Math.max(...block.lines.map((line) => oCtx.measureText(line).width), 0);
-      const boxW = Math.min(maxWidth, textWidth + padX * 2);
-      const boxH = block.lines.length * lineHeight + padY * 2;
-      const x = (frame.width - boxW) / 2;
-      const preferredY = Math.round((frame.height * 2) / 3 - boxH / 2);
-      const minY = safeArea.top;
-      const maxY = frame.height - safeArea.bottom - boxH;
-      const y = Math.max(minY, Math.min(preferredY, Math.max(minY, maxY)));
-
-      oCtx.save();
-      oCtx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-      paintRoundedRect(oCtx, x, y, boxW, boxH, Math.round(8 * u));
-      oCtx.fill();
-
-      oCtx.fillStyle = '#ffffff';
-      oCtx.textAlign = 'center';
-      oCtx.textBaseline = 'middle';
-      block.lines.forEach((line, index) => {
-        oCtx.fillText(line, frame.width / 2, y + padY + lineHeight * (index + 0.5));
-      });
-      oCtx.restore();
+      paintSubtitleBox(oCtx, bounds, frame);
     }
   }
 

@@ -178,6 +178,7 @@ export const CenterPreviewStage = ({
           {activeSegment && (
             <PreviewInteractiveOverlay
               key={activeSegment.id}
+              frame={frame}
               locationLabel={locationLabel}
               dateLabel={formatShootDate(activeSegment)}
               caption={captionLabel}
