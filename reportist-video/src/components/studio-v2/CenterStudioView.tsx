@@ -24,7 +24,7 @@ import type {
 } from '../../types/video.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { DesktopOnlyGate } from './DesktopOnlyGate.tsx';
-import { StudioTopBar, type StudioModelDisplay } from './StudioTopBar.tsx';
+import { StudioTopBar } from './StudioTopBar.tsx';
 import { UploadQueueDock } from './UploadQueueDock.tsx';
 import { CenterPreviewStage } from './CenterPreviewStage.tsx';
 import { TimelineDock } from './TimelineDock.tsx';
@@ -41,6 +41,7 @@ import {
   type InspectorTarget,
   type PreviewRange,
   type PreviewRequest,
+  type StudioModelDisplay,
   type StudioV2Props,
 } from './types.ts';
 import './studioV2.css';
@@ -435,7 +436,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
   // 날짜 형식·나이 옵션은 오버레이 객체 밖의 저장값이라 변경 시 캔버스 재그리기를 명시적으로 트리거한다.
   const [settingsRevision, setSettingsRevision] = useState(0);
   const bumpSettings = useCallback(() => setSettingsRevision((v) => v + 1), []);
-  // BYOK 설정/모델 선택은 localStorage를 갱신하므로 revision을 올려 상단 배지를 즉시 재계산한다.
+  // BYOK 설정/모델 선택은 localStorage를 갱신하므로 revision을 올려 설정 모달의 모델 표시를 즉시 재계산한다.
   const [, setModelRevision] = useState(0);
 
   // 분석이 시작되면 모델 변경을 막고 모달을 닫는다.
@@ -937,10 +938,6 @@ export const CenterStudioView = (props: StudioV2Props) => {
     <div className="sv2-root">
       <StudioTopBar
         projectName={projectName}
-        modelDisplay={modelDisplay}
-        isLoadingModels={isLoadingModels}
-        isProcessing={isProcessing}
-        onOpenModelModal={() => setIsModelModalOpen(true)}
         onOpenLanguageModal={() => setIsLanguageModalOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         isDockOpen={isDockOpen}
@@ -1143,6 +1140,12 @@ export const CenterStudioView = (props: StudioV2Props) => {
               onClose={() => setIsSettingsOpen(false)}
               isSubModalOpen={isDateFormatOpen}
               onChange={bumpSettings}
+              modelDisplay={modelDisplay}
+              isLoadingModels={isLoadingModels}
+              onOpenModelModal={() => {
+                setIsSettingsOpen(false);
+                setIsModelModalOpen(true);
+              }}
               dateFormat={dateFormat}
               onOpenDateFormat={() => setIsDateFormatOpen(true)}
               onDownloadSubtitles={() => {

@@ -34,6 +34,7 @@ import {
   setStoredSubtitleTone,
 } from '../../services/subtitleRefineService.ts';
 import type { HighlightMode, SubtitleTone, VideoOverlayOptions } from '../../types/video.ts';
+import type { StudioModelDisplay } from './types.ts';
 
 // components/studio-v2/StudioV2SettingsModal.tsx
 // V2 전용 슬림 설정 모달. 편집 맥락에 속한 옵션은 제자리(인스펙터/음악 트랙)에 두고,
@@ -55,6 +56,10 @@ interface StudioV2SettingsModalProps {
   onResetProject: () => void;
   onOverlayChange?: (patch: Partial<VideoOverlayOptions>) => void;
   onHighlightModeChange?: (mode: HighlightMode) => void;
+  /** 상단 바에서 이관한 AI 모델 선택 진입점. */
+  modelDisplay: StudioModelDisplay;
+  isLoadingModels: boolean;
+  onOpenModelModal: () => void;
 }
 
 export const StudioV2SettingsModal = ({
@@ -71,6 +76,9 @@ export const StudioV2SettingsModal = ({
   onResetProject,
   onOverlayChange,
   onHighlightModeChange,
+  modelDisplay,
+  isLoadingModels,
+  onOpenModelModal,
 }: StudioV2SettingsModalProps) => {
   const { ui, t } = useI18n();
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -200,6 +208,27 @@ export const StudioV2SettingsModal = ({
             <h3>
               <Sparkles size={14} /> {ui('AI 분석 & 자막')}
             </h3>
+
+            {/* 상단 바에서 옮긴 AI 모델 선택 진입점 */}
+            <div className="sv2-settings-row">
+              <div className="sv2-settings-row-text">
+                <strong>{ui('AI 모델')}</strong>
+                <span title={modelDisplay.tooltip}>
+                  {isLoadingModels
+                    ? ui('불러오는 중…')
+                    : `${modelDisplay.label}${modelDisplay.speedText ? ` · ${modelDisplay.speedText}` : ''}`}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="sv2-settings-link"
+                onClick={onOpenModelModal}
+                disabled={isLoadingModels}
+                aria-label={ui('AI 모델 선택')}
+              >
+                {modelDisplay.isByok ? t('common.settings') : t('common.edit')} ›
+              </button>
+            </div>
 
             <div className="sv2-settings-row">
               <div className="sv2-settings-row-text">

@@ -34,6 +34,16 @@ import {
   getStoredShowCredit,
 } from '../../services/introOutroStorage.ts';
 
+/** 설정 모달의 AI 모델 항목에 표시할 현재 모델 상태. */
+export interface StudioModelDisplay {
+  isByok: boolean;
+  label: string;
+  tooltip: string;
+  speedText: string | null;
+  speedTier: 'ultra' | 'fast' | 'balanced' | 'slow' | null;
+  usesTrainingData: boolean;
+}
+
 export interface StudioV2Props {
   result: FinalVideoResult | null;
   onUpdateFinalResult: (updated: FinalVideoResult) => void;

@@ -2,38 +2,21 @@ import {
   ChevronDown,
   Download,
   Globe,
-  Key,
   PanelLeftClose,
   PanelLeftOpen,
   RectangleHorizontal,
   RectangleVertical,
   Settings,
-  ShieldAlert,
-  Sparkles,
-  Zap,
 } from 'lucide-react';
 import { PenguinLogo } from '../common/PenguinLogo.tsx';
 import { getLandingPath, useI18n } from '../../i18n/index.tsx';
 import type { VideoOrientation } from '../../types/video.ts';
 
-// components/studio-v2/StudioTopBar.tsx — 좌측 도크 토글/모델/언어/내보내기.
-
-/** 상단 바에 표시할 현재 AI 모델 상태 (CenterStudioView가 계산해 내려준다). */
-export interface StudioModelDisplay {
-  isByok: boolean;
-  label: string;
-  tooltip: string;
-  speedText: string | null;
-  speedTier: 'ultra' | 'fast' | 'balanced' | 'slow' | null;
-  usesTrainingData: boolean;
-}
+// components/studio-v2/StudioTopBar.tsx — 좌측 도크 토글/언어/설정/내보내기.
+// AI 모델 선택은 설정 모달(StudioV2SettingsModal)로 이관했다.
 
 interface StudioTopBarProps {
   projectName: string;
-  modelDisplay: StudioModelDisplay;
-  isLoadingModels: boolean;
-  isProcessing: boolean;
-  onOpenModelModal: () => void;
   onOpenLanguageModal: () => void;
   onOpenSettings: () => void;
   isDockOpen: boolean;
@@ -47,10 +30,6 @@ interface StudioTopBarProps {
 
 export const StudioTopBar = ({
   projectName,
-  modelDisplay,
-  isLoadingModels,
-  isProcessing,
-  onOpenModelModal,
   onOpenLanguageModal,
   onOpenSettings,
   isDockOpen,
@@ -62,7 +41,6 @@ export const StudioTopBar = ({
   onOrientationChange,
 }: StudioTopBarProps) => {
   const { locale, currentLocaleInfo, ui, t } = useI18n();
-  const selectModel = ui('AI 모델 선택');
 
   return (
     <header className="sv2-topbar">
@@ -125,30 +103,6 @@ export const StudioTopBar = ({
           <span className="sv2-lang-name">{currentLocaleInfo.nativeName}</span>
           <span className="sv2-lang-code">{locale.toUpperCase()}</span>
         </span>
-        <ChevronDown size={13} className="sv2-model-chevron" />
-      </button>
-
-      <button
-        type="button"
-        className={`sv2-model-trigger${modelDisplay.isByok ? ' is-byok' : ''}`}
-        onClick={onOpenModelModal}
-        disabled={isLoadingModels || isProcessing}
-        aria-haspopup="dialog"
-        title={modelDisplay.tooltip || selectModel}
-      >
-        {modelDisplay.isByok ? <Key size={14} /> : <Sparkles size={14} />}
-        {modelDisplay.isByok && <span className="sv2-model-badge">BYOK</span>}
-        <span className="sv2-model-label">
-          {isLoadingModels ? ui('불러오는 중…') : modelDisplay.label || selectModel}
-        </span>
-        {!modelDisplay.isByok && modelDisplay.speedText && (
-          <span className={`sv2-model-speed sv2-speed-${modelDisplay.speedTier ?? 'balanced'}`}>
-            <Zap size={11} /> {modelDisplay.speedText}
-          </span>
-        )}
-        {!modelDisplay.isByok && modelDisplay.usesTrainingData && (
-          <ShieldAlert size={13} className="sv2-model-warn" aria-label={ui('학습에 사용되는 모델')} />
-        )}
         <ChevronDown size={13} className="sv2-model-chevron" />
       </button>
 
