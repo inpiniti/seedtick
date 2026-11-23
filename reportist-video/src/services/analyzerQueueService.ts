@@ -63,6 +63,8 @@ export interface EnqueueVideoParams {
   locale?: string;
   model?: string;
   prompt?: string;
+  /** AI 추론 강도 (low 기본). 큐 워커의 비전 호출에도 동일하게 전달한다. */
+  reasoningEffort?: string;
   priority?: number;
   baseUrl?: string;
   signal?: AbortSignal;
@@ -157,6 +159,7 @@ export async function enqueueVideoToAnalyzerQueue({
   locale = 'ko',
   model,
   prompt,
+  reasoningEffort,
   priority = 10,
   baseUrl = DEFAULT_ANALYZER_QUEUE_URL,
   signal,
@@ -177,6 +180,7 @@ export async function enqueueVideoToAnalyzerQueue({
         locale,
         model,
         prompt,
+        reasoning_effort: reasoningEffort,
         priority,
       }),
     },

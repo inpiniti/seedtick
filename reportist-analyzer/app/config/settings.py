@@ -101,7 +101,9 @@ class Settings(BaseSettings):
     TWITTER_CLIENT_SECRET: str = ""
 
     # 자체 큐 / 워커 설정
-    QUEUE_CONCURRENCY: int = 2
+    # 영상 하이라이트 분석은 프론트에서 4개를 병렬 요청하므로 워커도 그 이상을 처리해야
+    # 대기열에서 병목이 생기지 않는다. (전역 AI_CONCURRENCY=13 범위 내)
+    QUEUE_CONCURRENCY: int = 6
     QUEUE_MAX_JOBS: int = 500
     QUEUE_JOB_TTL_SEC: int = 3600
 

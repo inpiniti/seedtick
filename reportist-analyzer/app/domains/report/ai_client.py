@@ -741,6 +741,7 @@ class AiGatewayClient:
         temperature_override: float | None = None,
         allow_continuation: bool | None = None,
         max_continuations: int = 2,
+        reasoning_effort: str | None = None,
         on_delta: Callable[[str, str], None] | None = None,
     ) -> str:
         """
@@ -760,6 +761,7 @@ class AiGatewayClient:
                 temperature_override=temperature_override,
                 allow_continuation=allow_continuation,
                 max_continuations=max_continuations,
+                reasoning_effort=reasoning_effort,
                 on_delta=on_delta,
             )
 
@@ -773,6 +775,7 @@ class AiGatewayClient:
         temperature_override: float | None = None,
         allow_continuation: bool | None = None,
         max_continuations: int = 2,
+        reasoning_effort: str | None = None,
         messages_override: list[dict[str, Any]] | None = None,
         on_delta: Callable[[str, str], None] | None = None,
     ) -> str:
@@ -820,6 +823,12 @@ class AiGatewayClient:
             "max_tokens": tokens_to_request,
             "stream": True,
         }
+
+        # 비디오 컷 분석처럼 호출별 추론 강도를 낮춰야 하는 경우에만 전달한다.
+        # 게이트웨이 어댑터(OpenAICompatAdapter)와 동일한 규격으로 보낸다.
+        if reasoning_effort and reasoning_effort.lower() not in ("none", "off"):
+            payload["reasoning_effort"] = reasoning_effort
+            payload["reasoning"] = {"effort": reasoning_effort}
 
         timeout_config = httpx.Timeout(
             timeout=self.timeout,

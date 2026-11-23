@@ -33,6 +33,9 @@ class VideoAnalyzeQueueRequest(BaseModel):
     locale: str = Field(default="ko", description="언어 코드 (ko, en, ja, zh 등)")
     model: Optional[str] = Field(default=None, description="요청 AI 모델명")
     prompt: Optional[str] = Field(default=None, description="커스텀 시스템/사용자 프롬프트")
+    reasoning_effort: Optional[str] = Field(
+        default=None, description="AI 추론 강도 (low/medium/high). 컷 분석은 기본 low"
+    )
     priority: int = Field(default=JobPriority.NORMAL.value, description="우선순위")
 
 

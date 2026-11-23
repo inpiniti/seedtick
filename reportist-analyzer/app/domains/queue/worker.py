@@ -152,6 +152,9 @@ class QueueWorkerManager:
         locale = payload.get("locale", "ko")
         model = payload.get("model", "")
         custom_prompt = payload.get("prompt", "")
+        # 프론트가 낮춘 기본 추론 강도를 큐 워커에도 전달해 장문 thinking 비용을 줄인다.
+        # 값이 없으면 기존 동작(모델 기본값)을 유지한다.
+        reasoning_effort = str(payload.get("reasoning_effort") or "").strip().lower() or None
 
         # 취소 감지
         if job.cancel_requested:
@@ -249,6 +252,7 @@ class QueueWorkerManager:
                     model_override=model or None,
                     temperature_override=0.2,
                     max_tokens=min(getattr(settings, "AI_GATEWAY_MAX_TOKENS", 8192), 8192),
+                    reasoning_effort=reasoning_effort,
                     on_delta=_on_ai_delta,
                 ),
                 timeout=180.0,

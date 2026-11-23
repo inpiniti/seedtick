@@ -13,6 +13,9 @@ const REFINE_TOTAL_BUDGET_MS = 180_000;
 // 한 번의 요청에 보내는 컷 수. 100개가 넘는 프로젝트에서 거대한 JSON이 잘려
 // 파싱에 실패하고 영어 원문이 그대로 남던 문제를 막는다.
 const REFINE_CHUNK_SIZE = 20;
+// 1초 컷 편집은 100~400컷이 나와 5~20개 청크가 생긴다. 청크를 동시에 처리해
+// 직렬 호출 누적 지연(99%에서 멈추는 현상)을 없앤다.
+const REFINE_CHUNK_CONCURRENCY = 4;
 
 const TARGET_LANGUAGE_NAMES: Record<string, string> = {
   en: 'English',
@@ -375,8 +378,8 @@ export async function refineSubtitlesWithContext({
   let completed = 0;
   onProgress?.(0, segments.length);
 
-  for (const chunk of chunks) {
-    if (signal?.aborted) break;
+  const refineChunk = async (chunk: SegmentContext[]) => {
+    if (signal?.aborted) return;
 
     const { systemPrompt, userPrompt } = buildPrompts({
       chunk,
@@ -476,7 +479,23 @@ export async function refineSubtitlesWithContext({
 
     completed += chunk.length;
     onProgress?.(completed, segments.length);
-  }
+  };
+
+  // 청크 단위 워커 풀: 한 청크가 끝나면 대기 중인 다음 청크를 즉시 집어간다.
+  let nextChunkIndex = 0;
+  const runRefineWorker = async () => {
+    while (!signal?.aborted) {
+      const index = nextChunkIndex++;
+      if (index >= chunks.length) return;
+      await refineChunk(chunks[index]);
+    }
+  };
+  await Promise.all(
+    Array.from(
+      { length: Math.min(REFINE_CHUNK_CONCURRENCY, Math.max(1, chunks.length)) },
+      () => runRefineWorker()
+    )
+  );
 
   if (failedBatches > 0) {
     onFallback?.({ failedBatches, totalBatches: chunks.length });

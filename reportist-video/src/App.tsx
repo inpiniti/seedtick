@@ -8,6 +8,7 @@ import { ProStudioView } from './components/studio/ProStudioView.tsx';
 import {
   fetchVideoCapableModels,
   analyzeVideoHighlights,
+  parseAndValidateSegments,
   FALLBACK_VIDEO_MODELS,
   DEFAULT_CONFIG,
 } from './services/gatewayClient.ts';
@@ -113,7 +114,8 @@ export function App() {
     return getStoredSelectedModel() || (INITIAL_DEFAULT_MODEL?.id ?? '');
   });
   const [selectedEffort, setSelectedEffortState] = useState<ReasoningEffortOption>(() => {
-    return (getStoredSelectedEffort() as ReasoningEffortOption) || 'high';
+    // 컷 타임스탬프 추출에는 장문 thinking이 필요 없어 기본 추론 강도를 낮춘다.
+    return (getStoredSelectedEffort() as ReasoningEffortOption) || 'low';
   });
   const [isLoadingModels, setIsLoadingModels] = useState<boolean>(true);
 
@@ -1264,7 +1266,8 @@ export function App() {
 
     // 백그라운드 탭 복귀 및 무응답 감지용 활성 타임스탬프
     let lastActivityTimestamp = Date.now();
-    let currentVideoAbortController: AbortController | null = null;
+    // 병렬 분석 중인 영상별 AbortController (화면 복귀 시 정체 감지에 사용)
+    const activeControllers = new Map<number, AbortController>();
     let isStallRecovering = false;
 
     // 화면 복귀(크롬 탭 복귀, 모바일 앱 복귀) 시 정체 감지 및 자동 재개 리스너
@@ -1273,13 +1276,15 @@ export function App() {
       if (document.visibilityState === 'visible' && !signal.aborted) {
         const idleDuration = Date.now() - lastActivityTimestamp;
         // 마지막 활동으로부터 10초 이상 지났는데 아직 분석 중인 경우 백그라운드 소켓 단절로 판단하여 즉각 재시도
-        if (idleDuration > 10000 && currentVideoAbortController && !isStallRecovering) {
+        if (idleDuration > 10000 && activeControllers.size > 0 && !isStallRecovering) {
           isStallRecovering = true;
           addLog('🔄 화면 복귀 감지: 백그라운드 동안 정체된 AI 연결을 감지하여 자동으로 즉시 재개합니다.');
-          try {
-            currentVideoAbortController.abort(new Error('화면 복귀로 인한 연결 재개'));
-          } catch {
-            // ignore
+          for (const controller of activeControllers.values()) {
+            try {
+              controller.abort(new Error('화면 복귀로 인한 연결 재개'));
+            } catch {
+              // ignore
+            }
           }
         }
       }
@@ -1290,43 +1295,6 @@ export function App() {
       window.addEventListener('focus', handleVisibilityOrFocus);
       window.addEventListener('pageshow', handleVisibilityOrFocus);
     }
-
-    let liveReasoning = '';
-    let liveContent = '';
-    let liveFlushTimer: number | null = null;
-
-    const flushLiveStream = () => {
-      if (liveFlushTimer !== null) {
-        window.clearTimeout(liveFlushTimer);
-        liveFlushTimer = null;
-      }
-      setProgress((prev) => ({
-        ...prev,
-        liveReasoning,
-        liveContent,
-      }));
-    };
-
-    const scheduleLiveStreamFlush = () => {
-      if (liveFlushTimer !== null) return;
-      liveFlushTimer = window.setTimeout(() => {
-        liveFlushTimer = null;
-        setProgress((prev) => ({
-          ...prev,
-          liveReasoning,
-          liveContent,
-        }));
-      }, 100);
-    };
-
-    const resetLiveStream = () => {
-      liveReasoning = '';
-      liveContent = '';
-      if (liveFlushTimer !== null) {
-        window.clearTimeout(liveFlushTimer);
-        liveFlushTimer = null;
-      }
-    };
 
     addLog(interpolate(dict.logs.pipelineStart, { count: totalVideos }));
 
@@ -1348,41 +1316,110 @@ export function App() {
       rotation?: number;
     }> = [];
 
-    // 1/N 균등 분할 진행율 엔진:
-    // N개 영상일 때 각 영상은 정확히 1/N씩 균등 분할
-    // (예: 3개 영상이면 1번 0%~33%, 2번 33%~66%, 3번 66%~99% -> 최종 완료 시 100%)
-    let globalRunningPct = 0;
+    // 영상별 진행률(0~100)을 합산해 전체 진행률을 계산한다.
+    // 병렬 분석 중에도 "완료된 영상 비율"만큼 정확히 전진하므로 특정 영상이 늦게 끝나도
+    // 진행률이 99%에서 멈추지 않는다.
+    const VIDEO_ANALYSIS_CONCURRENCY = 4;
+    const videoProgressPct = new Array<number>(totalVideos).fill(0);
+    const getOverallPct = () =>
+      totalVideos > 0 ? videoProgressPct.reduce((sum, pct) => sum + pct, 0) / totalVideos : 0;
+    const commitVideoProgress = (index: number, pct: number) => {
+      videoProgressPct[index] = Math.max(videoProgressPct[index], Math.min(100, Math.max(0, pct)));
+    };
 
-    // 자체 인메모리 큐(reportist-analyzer) 대기 상태
-    // queued 동안에는 진행률을 멈추고 순번/예상 대기 시간만 갱신한다.
-    let queueInfo: {
-      isQueued: boolean;
-      position?: number;
-      etaSec?: number;
-      jobId?: string;
-    } = { isQueued: false };
-    let queueLoggedStatus: string | null = null;
-    const resetQueueState = () => {
-      queueInfo = { isQueued: false };
-      queueLoggedStatus = null;
-      activeQueueJobIdRef.current = null;
+    // 병렬 완료 순서와 무관하게 영상 번호 순으로 제목/썸네일을 확정하기 위한 결과 슬롯
+    const videoMetaResults: Array<{
+      suggestedTitle?: string;
+      thumbTime: number;
+      reason: string;
+      crop: number;
+      cropX: number;
+      rotation: number;
+      cleanDataUrl: string;
+    } | null> = new Array(totalVideos).fill(null);
+
+    // 영상이 끝날 때마다 전체 프로젝트를 저장하면 병렬 구간에서 저장이 중복되므로 디바운스한다.
+    let checkpointSaveTimer: number | null = null;
+    const scheduleCheckpointSave = () => {
+      if (checkpointSaveTimer !== null) window.clearTimeout(checkpointSaveTimer);
+      checkpointSaveTimer = window.setTimeout(() => {
+        checkpointSaveTimer = null;
+        void performSave(undefined, { checkpoint: true });
+      }, 1200);
     };
 
     try {
-      // 1. 영상별 순차 루프
-      for (let i = 0; i < totalVideos; i++) {
+      const analyzeOneVideo = async (i: number) => {
         if (signal.aborted) throw new Error(dict.logs.cancelledByUser);
 
         const currentVideo = updatedVideos[i];
-
-        // 1/N 균등 분할 구간 계산 (예: 3개 영상 기준 0~33%, 33~66%, 66~100%)
-        const videoStartPct = Math.floor((i / totalVideos) * 100);
-        const videoEndPct = Math.floor(((i + 1) / totalVideos) * 100);
         const isLastVideo = i === totalVideos - 1;
-        // AI 분석 중 도달할 수 있는 상한선 (완료 전 다음 영상 구간으로 넘치지 않도록 제한)
-        const videoMaxAnalysisPct = isLastVideo ? 99 : Math.max(videoStartPct, videoEndPct - 1);
-        const videoRange = Math.max(1, videoEndPct - videoStartPct);
-        const extractSlice = Math.max(1, videoRange * 0.15); // 프레임 추출에 해당 영상 지분의 15% 배정
+        let videoLocalPct = 0;
+
+        const publish = (patch?: Record<string, unknown>) => {
+          commitVideoProgress(i, videoLocalPct);
+          setProgress((prev) => ({
+            ...prev,
+            step: 'processing',
+            currentPhase: 'extract',
+            totalVideos,
+            currentVideoIndex: i,
+            progressPercent: Math.min(99, Math.floor(getOverallPct())),
+            ...patch,
+          }));
+        };
+
+        // 자체 인메모리 큐(reportist-analyzer) 대기 상태 (영상별 독립)
+        // queued 동안에는 진행률을 멈추고 순번/예상 대기 시간만 갱신한다.
+        let queueInfo: {
+          isQueued: boolean;
+          position?: number;
+          etaSec?: number;
+          jobId?: string;
+        } = { isQueued: false };
+        let queueLoggedStatus: string | null = null;
+        const resetQueueState = () => {
+          queueInfo = { isQueued: false };
+          queueLoggedStatus = null;
+          activeQueueJobIdRef.current = null;
+        };
+
+        let liveReasoning = '';
+        let liveContent = '';
+        let liveFlushTimer: number | null = null;
+
+        const flushLiveStream = () => {
+          if (liveFlushTimer !== null) {
+            window.clearTimeout(liveFlushTimer);
+            liveFlushTimer = null;
+          }
+          setProgress((prev) => ({
+            ...prev,
+            liveReasoning,
+            liveContent,
+          }));
+        };
+
+        const scheduleLiveStreamFlush = () => {
+          if (liveFlushTimer !== null) return;
+          liveFlushTimer = window.setTimeout(() => {
+            liveFlushTimer = null;
+            setProgress((prev) => ({
+              ...prev,
+              liveReasoning,
+              liveContent,
+            }));
+          }, 100);
+        };
+
+        const resetLiveStream = () => {
+          liveReasoning = '';
+          liveContent = '';
+          if (liveFlushTimer !== null) {
+            window.clearTimeout(liveFlushTimer);
+            liveFlushTimer = null;
+          }
+        };
 
         const isSameAnalysisMode =
           normalizeHighlightMode(currentVideo.analysisMode) === highlightMode;
@@ -1393,32 +1430,22 @@ export function App() {
           isSameAnalysisMode
         ) {
           addLog(interpolate(dict.logs.reusingSegments, { name: currentVideo.name, count: currentVideo.segments.length }));
-          globalRunningPct = Math.max(globalRunningPct, isLastVideo ? 99 : videoEndPct);
-          setProgress((prev) => ({
-            ...prev,
-            currentVideoIndex: i,
-            progressPercent: Math.floor(globalRunningPct),
-          }));
-          continue;
+          videoLocalPct = 100;
+          publish();
+          return;
         }
 
         // 1-A. 주요 프레임 다중 이미지 추출
         resetLiveStream();
-        globalRunningPct = Math.max(globalRunningPct, videoStartPct);
-        setProgress((prev) => ({
-          ...prev,
-          step: 'processing',
+        publish({
           currentPhase: 'extract',
-          currentVideoIndex: i,
-          totalVideos,
-          progressPercent: Math.floor(globalRunningPct),
           statusMessage: interpolate(dict.logs.statusExtracting, {
             index: i + 1,
             total: totalVideos,
             name: currentVideo.name,
           }),
           reasoningLogs: [...logs],
-        }));
+        });
 
         addLog(interpolate(dict.logs.extractingFrames, {
           name: currentVideo.name,
@@ -1431,19 +1458,32 @@ export function App() {
           currentVideo.duration,
           (pct) => {
             if (signal.aborted) return;
-            // 프레임 추출 중에도 1/N 구간 내에서 미세 전진
-            const extractVisualPct = videoStartPct + (pct / 100) * extractSlice;
-            globalRunningPct = Math.max(globalRunningPct, Math.min(videoMaxAnalysisPct, extractVisualPct));
-            setProgress((prev) => ({
-              ...prev,
-              progressPercent: Math.floor(globalRunningPct),
-            }));
+            // 해당 영상 지분의 15%를 프레임 추출에 배정
+            videoLocalPct = Math.max(videoLocalPct, (pct / 100) * 15);
+            publish();
           },
           currentVideo.rotation,
           highlightMode
         );
 
-        globalRunningPct = Math.max(globalRunningPct, videoStartPct + extractSlice);
+        // 메타데이터 추출이 지연/실패해 duration이 0으로 남아 있던 경우 프레임 타임스탬프로 보정해
+        // AI 구간 클램핑이 [0, 0]으로 무효화되어 컷이 0개가 되는 문제를 방지한다.
+        const effectiveDuration =
+          Number.isFinite(currentVideo.duration) && currentVideo.duration > 0
+            ? currentVideo.duration
+            : frames.length > 0
+            ? Math.max(
+                1.0,
+                Math.round(
+                  (Math.max(...frames.map((f) => (Number.isFinite(f.timestamp) ? f.timestamp : 0))) + 0.5) * 10
+                ) / 10
+              )
+            : 3.0;
+        if (!Number.isFinite(currentVideo.duration) || currentVideo.duration <= 0) {
+          currentVideo.duration = effectiveDuration;
+        }
+
+        videoLocalPct = Math.max(videoLocalPct, 15);
 
         addLog(interpolate(dict.logs.framesExtracted, {
           name: currentVideo.name,
@@ -1453,7 +1493,7 @@ export function App() {
         resetLiveStream();
 
         // 1-B. AI Gateway 다중 프레임 분석
-        // [멈춤 제로(Zero-Freeze) & 가짜 최저 속도 보장 엔진]: AI 추론이 길어져도 1/N 구간 내에서 숫자가 절대 멈추지 않음
+        // [멈춤 제로(Zero-Freeze) & 가짜 최저 속도 보장 엔진]: AI 추론이 길어져도 해당 영상 지분 내에서 숫자가 절대 멈추지 않음
         const analyzeStartTime = Date.now();
 
         const updateAnalyzeProgress = (bonus = 0) => {
@@ -1472,7 +1512,7 @@ export function App() {
 
             setProgress((prev) => ({
               ...prev,
-              progressPercent: Math.max(prev.progressPercent, Math.floor(globalRunningPct)),
+              progressPercent: Math.max(prev.progressPercent, Math.floor(getOverallPct())),
               statusMessage: `${i + 1}/${totalVideos} [${currentVideo.name}] ${queueMsg}`,
               isQueued: true,
               queuePosition: position,
@@ -1486,19 +1526,17 @@ export function App() {
           const totalChars = (liveReasoning?.length || 0) + (liveContent?.length || 0);
 
           // 해당 영상의 AI 분석 여유 거리
-          const remainingToMax = Math.max(0, videoMaxAnalysisPct - globalRunningPct);
+          const remainingToMax = Math.max(0, 99 - videoLocalPct);
 
           // 기본 전진 스텝: 남은 거리에 비례 (제논 점근) + 100ms당 최소 0.02% 보장
           const adaptiveStep = Math.max(0.02, remainingToMax * 0.0035);
 
-          if (globalRunningPct < videoMaxAnalysisPct - 0.2) {
-            globalRunningPct = Math.min(videoMaxAnalysisPct - 0.1, globalRunningPct + adaptiveStep + bonus);
+          if (videoLocalPct < 98.8) {
+            videoLocalPct = Math.min(98.9, videoLocalPct + adaptiveStep + bonus);
           } else {
             // 상한선 직전 극초미세 전진
-            globalRunningPct = Math.min(videoMaxAnalysisPct, globalRunningPct + 0.002);
+            videoLocalPct = Math.min(99, videoLocalPct + 0.002);
           }
-
-          const currentIntPct = Math.floor(globalRunningPct);
 
           // 심리학적 단계별 안내 문구 전환 (지루함 및 멈춤 느낌 원천 해소)
           let dynamicStageText = '';
@@ -1532,27 +1570,20 @@ export function App() {
 
           const statusMsg = `${i + 1}/${totalVideos} [${currentVideo.name}] ${dynamicStageText}...${counterSuffix}`;
 
-          setProgress((prev) => ({
-            ...prev,
-            progressPercent: currentIntPct,
+          publish({
             statusMessage: statusMsg,
             isQueued: false,
             queuePosition: undefined,
             estimatedWaitSec: undefined,
             jobId: undefined,
-          }));
+          });
         };
 
-        setProgress((prev) => ({
-          ...prev,
-          step: 'processing',
+        publish({
           currentPhase: 'analyze',
-          currentVideoIndex: i,
-          totalVideos,
-          progressPercent: Math.floor(globalRunningPct),
           statusMessage: `${i + 1}/${totalVideos} [${currentVideo.name}] ${dict.header.analyzingAi}... (0${locale === 'ko' ? '초' : locale === 'ja' ? '秒' : 's'})`,
           reasoningLogs: [...logs],
-        }));
+        });
 
         // 100ms마다 실행되는 무정지(Zero-Freeze) 진행률 엔진
         const analyzeSmoothTimer = window.setInterval(() => updateAnalyzeProgress(0), 100);
@@ -1578,9 +1609,10 @@ export function App() {
               }));
             }
 
-            currentVideoAbortController = new AbortController();
-            const videoSignal = currentVideoAbortController.signal;
-            const onParentAbort = () => currentVideoAbortController?.abort();
+            const videoController = new AbortController();
+            activeControllers.set(i, videoController);
+            const videoSignal = videoController.signal;
+            const onParentAbort = () => videoController.abort();
             signal.addEventListener('abort', onParentAbort, { once: true });
 
             isStallRecovering = false;
@@ -1589,7 +1621,7 @@ export function App() {
             try {
               segments = await analyzeVideoHighlights({
                 frames,
-                videoDuration: currentVideo.duration,
+                videoDuration: effectiveDuration,
                 videoId: currentVideo.id,
                 videoName: currentVideo.name,
                 model: selectedModel,
@@ -1696,8 +1728,8 @@ export function App() {
               console.warn(`[Video] Video ${currentVideo.name} attempt ${attempt + 1} failed:`, errMsg);
 
               // 실패한 시도의 대기열 작업이 서버에 남아 있으면 정리한다.
-              if (activeQueueJobIdRef.current) {
-                void cancelVideoAnalysisJob(activeQueueJobIdRef.current);
+              if (queueInfo.jobId) {
+                void cancelVideoAnalysisJob(queueInfo.jobId);
               }
               resetQueueState();
 
@@ -1709,13 +1741,17 @@ export function App() {
                 addLog(`⚠️ [${currentVideo.name}] AI 응답 불가로 최적 스마트 로컬 클라이맥스 구간으로 자동 복구하여 작업을 이어갑니다.`);
                 segments = await analyzeVideoHighlights({
                   frames,
-                  videoDuration: currentVideo.duration,
+                  videoDuration: effectiveDuration,
                   videoId: currentVideo.id,
                   videoName: currentVideo.name,
                   model: 'smart-local-fallback',
                   reasoningEffort: 'none',
                   config: DEFAULT_CONFIG,
                   signal: undefined,
+                  metadataDate: currentVideo.metadataDate,
+                  latitude: currentVideo.latitude,
+                  longitude: currentVideo.longitude,
+                  locationName: currentVideo.locationName,
                   locale,
                   highlightMode,
                   useQueue: false,
@@ -1724,7 +1760,7 @@ export function App() {
               }
             } finally {
               signal.removeEventListener('abort', onParentAbort);
-              currentVideoAbortController = null;
+              activeControllers.delete(i);
             }
           }
         } finally {
@@ -1732,19 +1768,32 @@ export function App() {
           unbindHeartbeat();
         }
 
+        // 어떤 경로로도 업로드된 영상이 0컷으로 누락되지 않도록 최소 1컷 불변식을 보장한다.
+        if (!segments || segments.length === 0) {
+          segments = parseAndValidateSegments(
+            '',
+            effectiveDuration,
+            currentVideo.id,
+            currentVideo.name,
+            currentVideo.metadataDate,
+            currentVideo.latitude,
+            currentVideo.longitude,
+            currentVideo.locationName,
+            highlightMode
+          );
+        }
+
         // 분석이 끝난 뒤에는 대기열 상태를 즉시 지워 다음 영상/모달에 남지 않게 한다.
         resetQueueState();
 
         // 해당 영상 분석 성공 완료 시: 1/N 목표치(videoEndPct)로 진입 (마지막 영상은 99% 유지)
-        globalRunningPct = Math.max(globalRunningPct, isLastVideo ? 99 : videoEndPct);
-        setProgress((prev) => ({
-          ...prev,
-          progressPercent: Math.floor(globalRunningPct),
+        videoLocalPct = isLastVideo ? 99 : 100;
+        publish({
           isQueued: false,
           queuePosition: undefined,
           estimatedWaitSec: undefined,
           jobId: undefined,
-        }));
+        });
 
         flushLiveStream();
         if (liveReasoning) {
@@ -1759,16 +1808,13 @@ export function App() {
         currentVideo.status = 'analyzed';
         setVideos([...updatedVideos]);
 
-        // 개별 영상 분석 완료 시 중간 체크포인트 자동 저장 (브라우저 종료/새로고침 시에도 이미 분석된 영상 100% 보존)
-        void performSave(undefined, { checkpoint: true });
+        // 개별 영상 분석 완료 시 중간 체크포인트 자동 저장 (디바운스로 병렬 저장 중복 방지)
+        scheduleCheckpointSave();
 
-        // AI 추천 타이틀 및 베스트 썸네일 정보 수집
+        // AI 추천 타이틀 및 베스트 썸네일 정보 수집 (최종 반영은 영상 순서대로)
         const segSuggestedTitle = (segments as any)?.suggestedTitle;
         const segThumbTime = (segments as any)?.bestThumbnailTimestamp;
         const segThumbReason = (segments as any)?.bestThumbnailReason;
-        if (segSuggestedTitle && !aiDiscoveredTitle) {
-          aiDiscoveredTitle = segSuggestedTitle;
-        }
 
         // AI가 추천한 타임스탬프와 가장 가까운 클린 키프레임 추출 (오버레이 없는 순수 이미지)
         const closestFrame = typeof segThumbTime === 'number' && frames.length > 0
@@ -1777,33 +1823,15 @@ export function App() {
             , frames[0])
           : frames[0];
 
-        const candidateThumbTime = typeof segThumbTime === 'number' ? segThumbTime : (closestFrame?.timestamp ?? 0.5);
-        const candidateReason = segThumbReason || segments[0]?.reason || 'AI가 선정한 하이라이트 순간';
-        const candidateCrop = segments[0]?.cropOffsetYRatio ?? 0.2;
-        const candidateCropX = segments[0]?.cropOffsetXRatio ?? 0.5;
-        const candidateRotation = segments[0]?.rotation ?? 0;
-        const candidateCleanDataUrl = closestFrame?.dataUrl || '';
-
-        // 대량 영상(예: 16~100개) 분석 시 cleanDataUrl 문자열 누적을 방지하기 위해 상위 24개까지만 원본 DataURL 보관
-        aiThumbnailRecommendations.push({
-          videoId: currentVideo.id,
-          videoName: currentVideo.name,
-          timestamp: candidateThumbTime,
-          reason: candidateReason,
-          cleanDataUrl: aiThumbnailRecommendations.length < 24 ? candidateCleanDataUrl : '',
-          cropOffsetYRatio: candidateCrop,
-          cropOffsetXRatio: candidateCropX,
-          rotation: candidateRotation,
-        });
-
-        if (!bestThumbTimestamp || i === 0) {
-          bestThumbTimestamp = candidateThumbTime;
-          bestThumbVideoId = currentVideo.id;
-          bestThumbCropOffsetYRatio = candidateCrop;
-          bestThumbRotation = candidateRotation;
-          bestThumbReason = candidateReason;
-          bestThumbCleanDataUrl = candidateCleanDataUrl;
-        }
+        videoMetaResults[i] = {
+          suggestedTitle: segSuggestedTitle,
+          thumbTime: typeof segThumbTime === 'number' ? segThumbTime : (closestFrame?.timestamp ?? 0.5),
+          reason: segThumbReason || segments[0]?.reason || 'AI가 선정한 하이라이트 순간',
+          crop: segments[0]?.cropOffsetYRatio ?? 0.2,
+          cropX: segments[0]?.cropOffsetXRatio ?? 0.5,
+          rotation: segments[0]?.rotation ?? 0,
+          cleanDataUrl: closestFrame?.dataUrl || '',
+        };
 
         // 분석이 끝난 영상의 추출 프레임 배열을 즉시 비워 가비지 컬렉션 유도
         frames.length = 0;
@@ -1826,11 +1854,57 @@ export function App() {
               : dict.logs.cropBottomName;
           addLog(`   ✨ #${sIdx + 1} [${s.start.toFixed(1)}s~${s.end.toFixed(1)}s] ${s.reason} (${cropName}${s.subtitleDate ? `, ${s.subtitleDate}` : ''})`);
         });
+      };
+
+      // 2~4개 영상을 동시에 분석한다. 한 영상이 끝나면 워커가 다음 대기 영상을 즉시 집어간다.
+      // 각 워커가 프레임 추출도 바로 수행하므로, 어떤 영상의 AI 응답을 기다리는 동안
+      // 다음 영상의 프레임 추출이 함께 진행된다(파이프라이닝).
+      let nextVideoIndex = 0;
+      const runVideoWorker = async () => {
+        while (!signal.aborted) {
+          const index = nextVideoIndex++;
+          if (index >= totalVideos) return;
+          await analyzeOneVideo(index);
+        }
+      };
+      await Promise.all(
+        Array.from(
+          { length: Math.min(VIDEO_ANALYSIS_CONCURRENCY, totalVideos) },
+          () => runVideoWorker()
+        )
+      );
+      if (signal.aborted) throw new Error(dict.logs.cancelledByUser);
+
+      // 병렬 완료 순서와 무관하게 영상 번호 순으로 제목/썸네일 우선순위를 확정한다.
+      for (let i = 0; i < videoMetaResults.length; i++) {
+        const meta = videoMetaResults[i];
+        if (!meta) continue;
+        if (meta.suggestedTitle && !aiDiscoveredTitle) aiDiscoveredTitle = meta.suggestedTitle;
+
+        // 대량 영상(예: 16~100개) 분석 시 cleanDataUrl 문자열 누적을 방지하기 위해 상위 24개까지만 보관
+        aiThumbnailRecommendations.push({
+          videoId: updatedVideos[i].id,
+          videoName: updatedVideos[i].name,
+          timestamp: meta.thumbTime,
+          reason: meta.reason,
+          cleanDataUrl: aiThumbnailRecommendations.length < 24 ? meta.cleanDataUrl : '',
+          cropOffsetYRatio: meta.crop,
+          cropOffsetXRatio: meta.cropX,
+          rotation: meta.rotation,
+        });
+
+        if (!bestThumbTimestamp || i === 0) {
+          bestThumbTimestamp = meta.thumbTime;
+          bestThumbVideoId = updatedVideos[i].id;
+          bestThumbCropOffsetYRatio = meta.crop;
+          bestThumbRotation = meta.rotation;
+          bestThumbReason = meta.reason;
+          bestThumbCleanDataUrl = meta.cleanDataUrl;
+        }
       }
 
       // 2. 실시간 타임라인 시퀀스 구성 (초기 인코딩 없이 즉시 실시간 프리뷰 진입)
       // 영상별 AI 추론 미리보기가 남아 있으면 후처리 단계 안내 문구를 가려 99%에서 멈춘 것처럼 보이므로 비운다.
-      resetLiveStream();
       setProgress((prev) => ({
         ...prev,
         liveReasoning: '',
@@ -1918,14 +1992,13 @@ export function App() {
       }
 
       // 3. 16:9 유튜브 고화질 썸네일 자동 생성
-      globalRunningPct = Math.max(globalRunningPct, 94);
       setProgress((prev) => ({
         ...prev,
         step: 'processing',
         currentPhase: 'analyze',
         currentVideoIndex: totalVideos - 1,
         totalVideos,
-        progressPercent: Math.floor(globalRunningPct),
+        progressPercent: Math.floor(getOverallPct()),
         statusMessage: 'AI 추천 썸네일 및 실시간 타임라인 준비 중...',
         reasoningLogs: [...logs],
       }));
@@ -2068,9 +2141,9 @@ export function App() {
       setCurrentStep('result');
       window.location.hash = '#studio';
     } catch (err: unknown) {
-      if (liveFlushTimer !== null) {
-        window.clearTimeout(liveFlushTimer);
-        liveFlushTimer = null;
+      if (checkpointSaveTimer !== null) {
+        window.clearTimeout(checkpointSaveTimer);
+        checkpointSaveTimer = null;
       }
       setProgress((prev) => ({
         ...prev,
@@ -2101,7 +2174,7 @@ export function App() {
   };
 
   // 첫 방문자가 파일을 찾지 못해 이탈하는 문제를 막는 원클릭 샘플 체험.
-  // 번들된 데모 영상을 File로 만들어 새 프로젝트 리셋 후 AI 분석까지 바로 돌린다.
+  // 번들된 6개의 16:9 데모 클립을 개별 File로 로드해 멀티 클립 AI 하이라이트(클립당 최소 1컷)를 바로 시연한다.
   const [isLoadingSample, setIsLoadingSample] = useState(false);
   const handleTrySampleVideo = async () => {
     if (isLoadingSample) return;
@@ -2109,35 +2182,54 @@ export function App() {
     try {
       setErrorMessage(null);
       handleStartNewProject();
-      const res = await fetch(`${import.meta.env.BASE_URL}media/hero-nature.mp4`);
-      if (!res.ok) throw new Error(`샘플 영상을 불러오지 못했습니다 (${res.status})`);
-      const blob = await res.blob();
-      const file = new File([blob], 'penguincut-sample.mp4', { type: 'video/mp4' });
-      const url = URL.createObjectURL(file);
-      let duration = 0;
-      let width = 0;
-      let height = 0;
-      try {
-        const meta = await extractVideoVisualDimensions(file, false);
-        duration = meta.duration;
-        width = meta.width;
-        height = meta.height;
-      } catch {
-        // 메타데이터 추출 실패 시에도 분석은 진행한다 (videoCompressor가 길이를 추정).
-      }
-      const sampleItem: VideoItem = {
-        id: `vid-sample-${Date.now()}`,
-        file,
-        url,
-        name: file.name,
-        sizeBytes: file.size,
-        duration,
-        width,
-        height,
-        status: 'idle',
-        segments: [],
-      };
-      await handleStartProcessing(undefined, null, 'preset', 0.3, currentHighlightMode, [sampleItem]);
+      const sampleClipIds = ['01', '02', '03', '04', '05', '06'] as const;
+      const baseTime = Date.now();
+      const blobs = await Promise.all(
+        sampleClipIds.map(async (clipId) => {
+          const res = await fetch(`${import.meta.env.BASE_URL}media/samples/demo-${clipId}.mp4`);
+          if (!res.ok) {
+            throw new Error(`샘플 영상(${clipId})을 불러오지 못했습니다 (${res.status})`);
+          }
+          return { clipId, blob: await res.blob() };
+        })
+      );
+
+      const sampleItems: VideoItem[] = await Promise.all(
+        blobs.map(async ({ clipId, blob }, idx) => {
+          const recordedAtMs = baseTime + idx * 60_000;
+          const file = new File([blob], `penguincut-demo-${clipId}.mp4`, {
+            type: 'video/mp4',
+            lastModified: recordedAtMs,
+          });
+          const url = URL.createObjectURL(file);
+          let duration = 2.0;
+          let width = 960;
+          let height = 540;
+          try {
+            const meta = await extractVideoVisualDimensions(file, false);
+            if (Number.isFinite(meta.duration) && meta.duration > 0) duration = meta.duration;
+            if (meta.width > 0) width = meta.width;
+            if (meta.height > 0) height = meta.height;
+          } catch {
+            // 메타데이터 추출 실패 시 번들 클립의 기본 스펙(2.0s, 960x540)으로 진행한다.
+          }
+          return {
+            id: `vid-sample-${baseTime}-${clipId}`,
+            file,
+            url,
+            name: file.name,
+            sizeBytes: file.size,
+            duration,
+            width,
+            height,
+            recordedAtMs,
+            status: 'idle',
+            segments: [],
+          };
+        })
+      );
+
+      await handleStartProcessing(undefined, null, 'preset', 0.3, currentHighlightMode, sampleItems);
     } catch (err) {
       setErrorMessage(
         err instanceof Error ? err.message : '샘플 체험을 시작하지 못했습니다.'
