@@ -787,6 +787,7 @@ export const uiEs: Record<string, string> = {
 
   "영상 미리보기": "Vista previa del vídeo",
 
+  "AI 분석": "Análisis de IA",
   "AI 분석 & 자막": "Análisis de IA y subtítulos",
   "화면 표시": "Visualización en pantalla",
   "작업 & 도구": "Proyecto y herramientas",

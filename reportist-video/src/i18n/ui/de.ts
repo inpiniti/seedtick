@@ -788,6 +788,7 @@ export const uiDe: Record<string, string> = {
 
   "영상 미리보기": "Video-Vorschau",
 
+  "AI 분석": "KI-Analyse",
   "AI 분석 & 자막": "KI-Analyse & Untertitel",
   "화면 표시": "Bildschirmanzeige",
   "작업 & 도구": "Projekt & Werkzeuge",

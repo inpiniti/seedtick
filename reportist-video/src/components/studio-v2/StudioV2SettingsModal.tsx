@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   CalendarDays,
+  Captions,
   Download,
   MessageSquare,
   RotateCcw,
@@ -206,7 +207,7 @@ export const StudioV2SettingsModal = ({
         <div className="sv2-settings-body" data-modal-scrollable="true">
           <section className="sv2-settings-section">
             <h3>
-              <Sparkles size={14} /> {ui('AI 분석 & 자막')}
+              <Sparkles size={14} /> {ui('AI 분석')}
             </h3>
 
             {/* 상단 바에서 옮긴 AI 모델 선택 진입점 */}
@@ -252,6 +253,31 @@ export const StudioV2SettingsModal = ({
 
             <div className="sv2-settings-row">
               <div className="sv2-settings-row-text">
+                <strong>{t('settingsModal.autoSortByRecordedDate')}</strong>
+                <span>{t('settingsModal.autoSortByRecordedDateDesc')}</span>
+              </div>
+              <button
+                type="button"
+                className="sv2-switch"
+                data-on={autoSort}
+                aria-label={t('settingsModal.autoSortByRecordedDate')}
+                onClick={() => {
+                  const next = !autoSort;
+                  setAutoSort(next);
+                  setStoredAutoSortByRecordedTime(next);
+                  onChange?.();
+                }}
+              />
+            </div>
+          </section>
+
+          <section className="sv2-settings-section">
+            <h3>
+              <Captions size={14} /> {ui('자막')}
+            </h3>
+
+            <div className="sv2-settings-row">
+              <div className="sv2-settings-row-text">
                 <strong>{t('settingsModal.subtitleTone')}</strong>
                 <span>{t('settingsModal.subtitleToneDesc')}</span>
               </div>
@@ -273,20 +299,15 @@ export const StudioV2SettingsModal = ({
 
             <div className="sv2-settings-row">
               <div className="sv2-settings-row-text">
-                <strong>{t('settingsModal.autoSortByRecordedDate')}</strong>
-                <span>{t('settingsModal.autoSortByRecordedDateDesc')}</span>
+                <strong>{t('settingsModal.subtitleOption')}</strong>
+                <span>{t('settingsModal.subtitleOptionDesc')}</span>
               </div>
               <button
                 type="button"
                 className="sv2-switch"
-                data-on={autoSort}
-                aria-label={t('settingsModal.autoSortByRecordedDate')}
-                onClick={() => {
-                  const next = !autoSort;
-                  setAutoSort(next);
-                  setStoredAutoSortByRecordedTime(next);
-                  onChange?.();
-                }}
+                data-on={showSubtitle}
+                aria-label={t('settingsModal.subtitleOption')}
+                onClick={toggleSubtitle}
               />
             </div>
           </section>
@@ -307,20 +328,6 @@ export const StudioV2SettingsModal = ({
                 data-on={showDate}
                 aria-label={t('settingsModal.showDateOption')}
                 onClick={toggleDate}
-              />
-            </div>
-
-            <div className="sv2-settings-row">
-              <div className="sv2-settings-row-text">
-                <strong>{t('settingsModal.subtitleOption')}</strong>
-                <span>{t('settingsModal.subtitleOptionDesc')}</span>
-              </div>
-              <button
-                type="button"
-                className="sv2-switch"
-                data-on={showSubtitle}
-                aria-label={t('settingsModal.subtitleOption')}
-                onClick={toggleSubtitle}
               />
             </div>
 

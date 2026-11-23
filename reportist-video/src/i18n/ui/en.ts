@@ -799,6 +799,7 @@ export const uiEn: Record<string, string> = {
 
   "영상 미리보기": "Video preview",
 
+  "AI 분석": "AI analysis",
   "AI 분석 & 자막": "AI analysis & subtitles",
   "화면 표시": "On-screen display",
   "작업 & 도구": "Project & tools",

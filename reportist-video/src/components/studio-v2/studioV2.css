@@ -1941,13 +1941,17 @@
   font-weight: 800;
   color: var(--sv2-accent);
 }
+/* 왼쪽은 항목 제목·설명, 오른쪽은 값 변경 컨트롤. 모든 행이 같은 열 너비를 공유한다. */
 .sv2-settings-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   gap: 16px;
   min-height: 44px;
   padding: 7px 0;
+}
+.sv2-settings-row > :last-child {
+  justify-self: end;
 }
 .sv2-settings-row-text {
   display: flex;

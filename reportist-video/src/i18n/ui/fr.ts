@@ -788,6 +788,7 @@ export const uiFr: Record<string, string> = {
 
   "영상 미리보기": "Aperçu de la vidéo",
 
+  "AI 분석": "Analyse IA",
   "AI 분석 & 자막": "Analyse IA et sous-titres",
   "화면 표시": "Affichage à l’écran",
   "작업 & 도구": "Projet et outils",
