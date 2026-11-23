@@ -12,7 +12,8 @@ import type {
   VideoOverlayOptions,
 } from '../../types/video.ts';
 import { formatClock, formatShootDate, type PreviewRange } from './types.ts';
-import { getTemplateName } from '../studio/introOutroOptions.ts';
+import { getLocalizedTemplateMeta } from '../studio/introOutroOptions.ts';
+import { useI18n } from '../../i18n/index.tsx';
 import { resolveTimelineItem, type TimelineModel } from './timelineModel.ts';
 import { PreviewInteractiveOverlay } from './PreviewInteractiveOverlay.tsx';
 
@@ -51,6 +52,7 @@ export const CenterPreviewStage = ({
   onOpenLocation,
   onUpdateSegment,
 }: CenterPreviewStageProps) => {
+  const { dict, ui } = useI18n();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoRefs = useRef(new Map<string, HTMLVideoElement>());
   const introOutroRef = useRef<IntroOutroModule | null>(null);
@@ -171,13 +173,13 @@ export const CenterPreviewStage = ({
   // 캔버스와 같은 폴백을 사용한다. 빈 문자열로 지운 컷은 reason으로 되돌아가지 않고 '자막 추가'만 보인다.
   const captionLabel = activeSegment?.subtitleTitle ?? activeSegment?.reason ?? '';
   const previewLabel = previewRange
-    ? previewRange.kind === 'intro'
-      ? introVideoFile
-        ? '직접 올린 영상'
-        : getTemplateName('intro', overlayOptions.introTemplate)
-      : outroVideoFile
-        ? '직접 올린 영상'
-        : getTemplateName('outro', overlayOptions.outroTemplate)
+    ? (previewRange.kind === 'intro' ? introVideoFile : outroVideoFile)
+      ? ui('직접 올린 영상')
+      : getLocalizedTemplateMeta(
+          dict,
+          previewRange.kind,
+          previewRange.kind === 'intro' ? overlayOptions.introTemplate : overlayOptions.outroTemplate
+        ).name
     : '';
 
   return (
@@ -185,8 +187,10 @@ export const CenterPreviewStage = ({
       <div className="sv2-stage-meta">
         <div className="sv2-stage-meta-sub">
           {hasContent
-            ? `${model.items.filter((i) => i.kind === 'segment').length}개 컷 · 날짜·위치나 자막을 눌러 바로 수정할 수 있어요`
-            : '영상을 추가하면 여기에 미리보기가 나타나요'}
+            ? ui('{count}개 컷 · 날짜·위치나 자막을 눌러 바로 수정할 수 있어요', {
+                count: model.items.filter((i) => i.kind === 'segment').length,
+              })
+            : ui('영상을 추가하면 여기에 미리보기가 나타나요')}
         </div>
       </div>
 
@@ -200,7 +204,7 @@ export const CenterPreviewStage = ({
             ref={canvasRef}
             width={frame.width}
             height={frame.height}
-            aria-label="영상 미리보기"
+            aria-label={ui('영상 미리보기')}
           />
           {videos.map((video) => (
             <video
@@ -250,7 +254,7 @@ export const CenterPreviewStage = ({
           {previewRange && (
             <div className="sv2-preview-badge" aria-live="polite">
               <span className="sv2-preview-badge-dot" data-playing={isPlaying} />
-              {previewRange.kind === 'intro' ? '인트로' : '아웃트로'} 미리보기 · {previewLabel}
+              {ui(previewRange.kind === 'intro' ? '인트로' : '아웃트로')} {ui('미리보기')} · {previewLabel}
             </div>
           )}
           {activeSegment && (
@@ -276,8 +280,8 @@ export const CenterPreviewStage = ({
         <div className="sv2-preview-frame" data-orientation={orientation}>
           <div className="sv2-preview-empty">
             <div className="sv2-empty-icon"><Film size={28} /></div>
-            <strong>영상을 추가하면 여기에 미리보기가 나타나요</strong>
-            <span>영상을 올리면 왼쪽에 파일이 나열되고, AI 컷을 누르면 타임라인에 채워져요.</span>
+            <strong>{ui('영상을 추가하면 여기에 미리보기가 나타나요')}</strong>
+            <span>{ui('영상을 올리면 왼쪽에 파일이 나열되고, AI 컷을 누르면 타임라인에 채워져요.')}</span>
           </div>
         </div>
       )}
@@ -288,7 +292,7 @@ export const CenterPreviewStage = ({
           className="sv2-play-btn"
           onClick={onTogglePlay}
           disabled={!hasContent}
-          aria-label={isPlaying ? '일시정지' : '재생'}
+          aria-label={isPlaying ? ui('일시정지') : ui('재생')}
         >
           {isPlaying ? <Pause size={17} /> : <Play size={17} />}
         </button>
@@ -304,7 +308,7 @@ export const CenterPreviewStage = ({
           value={Math.min(playhead, totalDuration)}
           onChange={(e) => onSeek(Number(e.target.value))}
           disabled={!hasContent}
-          aria-label="재생 위치"
+          aria-label={ui('재생 위치')}
         />
       </div>
     </>

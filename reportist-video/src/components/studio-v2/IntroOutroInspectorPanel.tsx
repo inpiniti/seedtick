@@ -1,11 +1,12 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Film, ImagePlus, Repeat2, RotateCcw, Type } from 'lucide-react';
 import {
-  DEFAULT_OUTRO_TEXT,
   INTRO_DURATIONS,
   INTRO_TEMPLATE_OPTIONS,
   OUTRO_DURATIONS,
   OUTRO_TEMPLATE_OPTIONS,
+  getLocalizedOutroText,
+  getLocalizedTemplateMeta,
 } from '../studio/introOutroOptions.ts';
 import type {
   IntroTemplateId,
@@ -14,6 +15,7 @@ import type {
   VideoOverlayOptions,
 } from '../../types/video.ts';
 import type { PreviewRequest } from './types.ts';
+import { useI18n } from '../../i18n/index.tsx';
 
 // components/studio-v2/IntroOutroInspectorPanel.tsx
 // 인트로/아웃트로 ON·OFF, 템플릿, 문구, 길이, 직접 업로드 설정.
@@ -26,11 +28,12 @@ interface TemplateThumbProps {
   templateId: string;
   progress: number;
   orientation: VideoOrientation;
+  outroText: string;
 }
 
 /** 템플릿 카드의 미니 썸네일. 대표 프레임을 한 번만 그려 모션을 누르기 전에도 구분할 수 있게 한다. */
 const TemplateThumb = memo(
-  ({ kind, templateId, progress, orientation }: TemplateThumbProps) => {
+  ({ kind, templateId, progress, orientation, outroText }: TemplateThumbProps) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     // 실제 표시 크기보다 큰 캔버스에 그려 썸네일도 선명하게 보이게 한다.
     const width = orientation === 'portrait' ? 144 : 320;
@@ -58,7 +61,7 @@ const TemplateThumb = memo(
             outroTemplate: kind === 'outro' ? (templateId as OutroTemplateId) : 'modern-endcard',
             introDurationSec: 2,
             outroDurationSec: 2.2,
-            outroText: DEFAULT_OUTRO_TEXT,
+            outroText,
           };
           if (kind === 'intro') {
             m.renderHyperframesIntroFrame(ctx, progress, mockOptions, canvas.width, canvas.height);
@@ -70,7 +73,7 @@ const TemplateThumb = memo(
       return () => {
         alive = false;
       };
-    }, [kind, templateId, progress, orientation]);
+    }, [kind, templateId, progress, orientation, outroText]);
 
     return (
       <canvas
@@ -101,6 +104,8 @@ export const IntroOutroInspectorPanel = ({
   onChange,
   onPreviewRequest,
 }: IntroOutroInspectorPanelProps) => {
+  const { dict, ui } = useI18n();
+  const outroText = getLocalizedOutroText(dict);
   const fileRef = useRef<HTMLInputElement>(null);
   const [loop, setLoop] = useState(false);
   const loopRef = useRef(loop);
@@ -180,12 +185,12 @@ export const IntroOutroInspectorPanel = ({
     <div className="sv2-inspector-body">
       <div className="sv2-inspector-section">
         <div className="sv2-toggle-row">
-          <span>{isIntro ? '인트로 사용' : '아웃트로 사용'}</span>
+          <span>{isIntro ? ui('인트로 사용') : ui('아웃트로 사용')}</span>
           <button
             type="button"
             className="sv2-switch"
             data-on={enabled}
-            aria-label={isIntro ? '인트로 켜기' : '아웃트로 켜기'}
+            aria-label={isIntro ? ui('인트로 켜기') : ui('아웃트로 켜기')}
             onClick={toggleEnabled}
           />
         </div>
@@ -195,16 +200,16 @@ export const IntroOutroInspectorPanel = ({
         <div className="sv2-template-head">
           <div className="sv2-field-label">
             <Film size={13} style={{ verticalAlign: -2, marginRight: 6 }} />
-            모션 템플릿
+            {ui('모션 템플릿')}
           </div>
           <div className="sv2-preview-actions">
             <button
               type="button"
               className="sv2-btn sv2-btn-sm"
               onClick={requestReplay}
-              title="처음부터 다시 재생"
+              title={ui('처음부터 다시 재생')}
             >
-              <RotateCcw size={13} /> 다시 재생
+              <RotateCcw size={13} /> {ui('다시 재생')}
             </button>
             <button
               type="button"
@@ -217,56 +222,60 @@ export const IntroOutroInspectorPanel = ({
                 // 토글 즉시 현재 구간을 다시 재생해 반복 여부를 바로 확인할 수 있게 한다.
                 onPreviewRequest({ kind, mode: 'replay', loop: next });
               }}
-              title="구간 반복 재생"
+              title={ui('구간 반복 재생')}
             >
-              <Repeat2 size={13} /> 반복
+              <Repeat2 size={13} /> {ui('반복')}
             </button>
           </div>
         </div>
         {currentFile && (
           <div className="sv2-video-applied">
-            직접 올린 영상이 적용 중이에요 · 템플릿을 누르면 모션으로 전환돼요.
+            {ui('직접 올린 영상이 적용 중이에요 · 템플릿을 누르면 모션으로 전환돼요.')}
           </div>
         )}
         <div className="sv2-template-grid" data-orientation={orientation}>
-          {templates.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              className="sv2-template-card"
-              data-active={template === t.id}
-              data-orientation={orientation}
-              onClick={() => selectTemplate(t.id)}
-              title={t.desc}
-            >
-              <TemplateThumb
-                kind={kind}
-                templateId={t.id}
-                progress={t.previewProgress}
-                orientation={orientation}
-              />
-              <span className="sv2-template-card-body">
-                <span className="sv2-template-card-title">
-                  <span className="sv2-template-name">{t.name}</span>
-                  <em className="sv2-template-badge">{t.badge}</em>
+          {templates.map((t) => {
+            const meta = getLocalizedTemplateMeta(dict, kind, t.id);
+            return (
+              <button
+                key={t.id}
+                type="button"
+                className="sv2-template-card"
+                data-active={template === t.id}
+                data-orientation={orientation}
+                onClick={() => selectTemplate(t.id)}
+                title={meta.desc}
+              >
+                <TemplateThumb
+                  kind={kind}
+                  templateId={t.id}
+                  progress={t.previewProgress}
+                  orientation={orientation}
+                  outroText={outroText}
+                />
+                <span className="sv2-template-card-body">
+                  <span className="sv2-template-card-title">
+                    <span className="sv2-template-name">{meta.name}</span>
+                    <em className="sv2-template-badge">{meta.badge}</em>
+                  </span>
+                  <span className="sv2-template-card-desc">{meta.desc}</span>
                 </span>
-                <span className="sv2-template-card-desc">{t.desc}</span>
-              </span>
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
       </div>
 
       <div className="sv2-inspector-section">
         <div className="sv2-field-label">
           <Type size={13} style={{ verticalAlign: -2, marginRight: 6 }} />
-          {isIntro ? '인트로 문구' : '아웃트로 문구'}
+          {isIntro ? ui('인트로 문구') : ui('아웃트로 문구')}
         </div>
         {isIntro ? (
           <input
             className="sv2-input"
             value={overlayOptions.titleText || ''}
-            placeholder="프로젝트 제목"
+            placeholder={ui('프로젝트 제목')}
             onChange={(e) => {
               onChange({
                 titleText: e.target.value,
@@ -279,7 +288,7 @@ export const IntroOutroInspectorPanel = ({
           <textarea
             className="sv2-input sv2-textarea"
             value={overlayOptions.outroText || ''}
-            placeholder={DEFAULT_OUTRO_TEXT}
+            placeholder={outroText}
             onChange={(e) => {
               onChange({ outroText: e.target.value });
               holdRepresentative();
@@ -287,10 +296,12 @@ export const IntroOutroInspectorPanel = ({
           />
         )}
         {!isIntro && (
-          <div className="sv2-field-hint">비워두면 ‘{DEFAULT_OUTRO_TEXT}’가 표시돼요.</div>
+          <div className="sv2-field-hint">
+            {ui("비워두면 '{text}'가 표시돼요.", { text: outroText })}
+          </div>
         )}
         <div className="sv2-field-label" style={{ marginTop: 4 }}>
-          길이 (초)
+          {ui('길이 (초)')}
         </div>
         <div className="sv2-duration-presets">
           {durations.map((seconds) => (
@@ -301,7 +312,7 @@ export const IntroOutroInspectorPanel = ({
               data-active={Math.abs(duration - seconds) < 0.01}
               onClick={() => chooseDuration(seconds)}
             >
-              {seconds.toFixed(1)}초
+              {ui('{count}초', { count: seconds.toFixed(1) })}
             </button>
           ))}
         </div>
@@ -325,7 +336,7 @@ export const IntroOutroInspectorPanel = ({
       <div className="sv2-inspector-section">
         <div className="sv2-field-label">
           <ImagePlus size={13} style={{ verticalAlign: -2, marginRight: 6 }} />
-          직접 만든 영상 사용 (선택)
+          {ui('직접 만든 영상 사용 (선택)')}
         </div>
         <input
           ref={fileRef}
@@ -339,7 +350,7 @@ export const IntroOutroInspectorPanel = ({
           }}
         />
         <button type="button" className="sv2-btn sv2-btn-sm" onClick={() => fileRef.current?.click()}>
-          {currentFile ? currentFile.name : '영상 파일 선택'}
+          {currentFile ? currentFile.name : ui('영상 파일 선택')}
         </button>
         {currentFile && (
           <button
@@ -350,7 +361,7 @@ export const IntroOutroInspectorPanel = ({
               requestReplay();
             }}
           >
-            선택 해제
+            {ui('선택 해제')}
           </button>
         )}
       </div>

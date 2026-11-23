@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapPin } from 'lucide-react';
+import { useI18n } from '../../i18n/index.tsx';
 
 // components/studio-v2/ReferenceLocationMap.tsx
 // 우측 인스펙터 하단의 '참고용' 경량 지도. LocationMapModal의 지도 로직을 재사용하되
@@ -18,6 +19,7 @@ export const ReferenceLocationMap = ({
   longitude,
   label,
 }: ReferenceLocationMapProps) => {
+  const { ui } = useI18n();
   const canvasRef = useRef<HTMLDivElement>(null);
   const hasGps = latitude != null && longitude != null && Number.isFinite(latitude) && Number.isFinite(longitude);
 
@@ -63,11 +65,11 @@ export const ReferenceLocationMap = ({
     return (
       <div className="sv2-map-empty">
         <MapPin size={26} />
-        <strong>위치를 입력해주세요</strong>
-        <span>GPS 정보가 없는 영상이에요. 위 입력창에 장소를 직접 입력하면 지도 대신 장소명이 영상에 표시돼요.</span>
+        <strong>{ui('위치를 입력해주세요')}</strong>
+        <span>{ui('GPS 정보가 없는 영상이에요. 위 입력창에 장소를 직접 입력하면 지도 대신 장소명이 영상에 표시돼요.')}</span>
       </div>
     );
   }
 
-  return <div ref={canvasRef} className="sv2-map-canvas" aria-label={label || '참고 지도'} />;
+  return <div ref={canvasRef} className="sv2-map-canvas" aria-label={label || ui('참고 지도')} />;
 };

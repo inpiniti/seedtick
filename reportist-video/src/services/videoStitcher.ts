@@ -30,6 +30,7 @@ import {
 } from './hyperframesIntroOutroRenderer.ts';
 import { isWebCodecsSupported, stitchVideosWebCodecs } from './videoStitcherWebCodecs.ts';
 import { getSharedAudioContext } from './audioPrimer.ts';
+import { translateServiceUi } from '../i18n/serviceUi.ts';
 
 export interface StitchVideosParams {
   videos: VideoItem[];
@@ -904,7 +905,10 @@ export async function stitchHighlightedSegments({
 
   // 인트로/아웃트로 사용자 동영상 클립 합성 렌더링
   const renderCustomVideoClip = async (clipFile: File, label: string): Promise<number> => {
-    onProgress?.(label === '시작 인트로' ? 1 : 98, `${label} 영상 로드 및 합성 중...`);
+    onProgress?.(
+      label === '시작 인트로' ? 1 : 98,
+      translateServiceUi('{label} 영상 로드 및 합성 중...', { label: translateServiceUi(label) })
+    );
     const blobUrl = URL.createObjectURL(clipFile);
     try {
       await loadVideoSource(workerA, blobUrl, label, 12000);
@@ -988,7 +992,12 @@ export async function stitchHighlightedSegments({
       workerAudioGain.gain.setValueAtTime(0, audioCtx.currentTime);
     }
     const introDurationSec = overlayOptions.introDurationSec || DEFAULT_INTRO_DURATION;
-    onProgress?.(1, `HyperFrames 인트로 모션 생성 중 (${overlayOptions.introTemplate || 'kinetic-slide'})...`);
+    onProgress?.(
+      1,
+      translateServiceUi('HyperFrames 인트로 모션 생성 중 ({template})...', {
+        template: overlayOptions.introTemplate || 'kinetic-slide',
+      })
+    );
 
     const introFrames = Math.round(introDurationSec * targetFps);
     const frameInterval = 1000 / targetFps;
@@ -1019,7 +1028,12 @@ export async function stitchHighlightedSegments({
       workerAudioGain.gain.setValueAtTime(0, audioCtx.currentTime);
     }
     const outroDurationSec = overlayOptions.outroDurationSec || DEFAULT_OUTRO_DURATION;
-    onProgress?.(98, `HyperFrames 아웃트로 모션 생성 중 (${overlayOptions.outroTemplate || 'modern-endcard'})...`);
+    onProgress?.(
+      98,
+      translateServiceUi('HyperFrames 아웃트로 모션 생성 중 ({template})...', {
+        template: overlayOptions.outroTemplate || 'modern-endcard',
+      })
+    );
 
     const outroFrames = Math.round(outroDurationSec * targetFps);
     const frameInterval = 1000 / targetFps;
@@ -1123,7 +1137,9 @@ export async function stitchHighlightedSegments({
 
       reportProgress(
         ((recordedDurationSoFar + timeSec) / (totalSegmentsDuration || 1)) * 100,
-        `챕터 전환 브릿지 합성 중 (${bridgeInfo.chapterIndex}장)...`
+        translateServiceUi('챕터 전환 브릿지 합성 중 ({chapter}장)...', {
+          chapter: bridgeInfo.chapterIndex,
+        })
       );
     }
 
@@ -1153,7 +1169,11 @@ export async function stitchHighlightedSegments({
     }
 
     // 1. 첫 번째 구간을 workerA에 준비
-    reportProgress(0, `구간 1/${allSegments.length} 비디오 버퍼 준비 중...`, true);
+    reportProgress(
+      0,
+      translateServiceUi('구간 1/{total} 비디오 버퍼 준비 중...', { total: allSegments.length }),
+      true
+    );
     const seg0Prep = await prepareWorkerForSegment(workerA, allSegments[0]);
     if (!seg0Prep.ok) {
       throw new Error(`첫 번째 구간 비디오를 준비하지 못했습니다: ${seg0Prep.reason || allSegments[0].sourceVideoId}`);
@@ -1243,7 +1263,16 @@ export async function stitchHighlightedSegments({
         if (!videoItem) continue;
 
         const isLastSegment = i === allSegments.length - 1 && !overlayOptions?.showOutro;
-        const clipMessage = `구간 ${i + 1}/${allSegments.length} 정밀 병합 중: [${videoItem.name}] (${segment.start.toFixed(1)}s ~ ${segment.end.toFixed(1)}s)`;
+        const clipMessage = translateServiceUi(
+          '구간 {i}/{total} 정밀 병합 중: [{name}] ({start}s ~ {end}s)',
+          {
+            i: i + 1,
+            total: allSegments.length,
+            name: videoItem.name,
+            start: segment.start.toFixed(1),
+            end: segment.end.toFixed(1),
+          }
+        );
         reportProgress(
           (recordedDurationSoFar / (totalSegmentsDuration || 1)) * 100,
           clipMessage,
@@ -1367,7 +1396,11 @@ export async function stitchHighlightedSegments({
           );
           reportProgress(
             ((recordedDurationSoFar + clipElapsed) / (totalSegmentsDuration || 1)) * 100,
-            `구간 ${currentSegmentIdx + 1}/${allSegments.length} 병합 중: [${currentVideoItem?.name ?? ''}]`
+            translateServiceUi('구간 {i}/{total} 병합 중: [{name}]', {
+              i: currentSegmentIdx + 1,
+              total: allSegments.length,
+              name: currentVideoItem?.name ?? '',
+            })
           );
 
           const realWallElapsedSec = (now - segmentStartedAt) / 1000;
@@ -1527,7 +1560,7 @@ export async function stitchHighlightedSegments({
         ? Math.max(totalSegmentsDuration, (performance.now() - recordingWallStartAt) / 1000)
         : totalSegmentsDuration;
 
-    onProgress?.(99, '16:9 고화질 하이라이트 영상 파일 생성 중...');
+    onProgress?.(99, translateServiceUi('16:9 고화질 하이라이트 영상 파일 생성 중...'));
 
     if (!recorderStarted) {
       throw new Error('녹화된 영상 구간이 없습니다. 브라우저를 새로고침한 뒤 다시 시도해 주세요.');
@@ -1599,7 +1632,7 @@ export async function stitchHighlightedSegments({
     const totalCalculatedDuration = actualIntroDuration + effectiveSegmentsDuration + actualOutroDuration;
 
     onLog?.(`병합 완료: ${(finalBlob.size / (1024 * 1024)).toFixed(1)}MB · ${finalMimeType || 'video/webm'}`);
-    onProgress?.(100, '극적 하이라이트 영상이 완성되었습니다!');
+    onProgress?.(100, translateServiceUi('극적 하이라이트 영상이 완성되었습니다!'));
 
     return {
       blob: finalBlob,

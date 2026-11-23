@@ -1,5 +1,6 @@
 // src/components/studio/introOutroOptions.ts
 // 인트로/아웃트로 템플릿·길이 상수 (모달 지연 로딩과 무관하게 먼저 필요한 메타데이터)
+import type { Dictionary } from '../../i18n/types.ts';
 import type { IntroTemplateId, OutroTemplateId } from '../../types/video.ts';
 
 interface TemplateOptionBase {
@@ -96,4 +97,33 @@ export const DEFAULT_OUTRO_TEXT = '시청해 주셔서 감사합니다';
 export function getTemplateName(kind: 'intro' | 'outro', templateId?: string): string {
   const options = kind === 'intro' ? INTRO_TEMPLATE_OPTIONS : OUTRO_TEMPLATE_OPTIONS;
   return options.find((o) => o.id === templateId)?.name ?? (kind === 'intro' ? '키네틱 슬라이드' : '유튜브 엔드카드');
+}
+
+/**
+ * 현재 언어 사전을 우선 사용하는 템플릿 메타데이터.
+ * 7개 언어로 번역된 `dict.introOutroModal.templates`가 있으면 그 값을 쓰고,
+ * 없으면(번역 누락/비-loaded 로케일) 상수에 들어 있는 한국어 원문으로 폴백한다.
+ */
+export function getLocalizedTemplateMeta(
+  dict: Dictionary,
+  kind: 'intro' | 'outro',
+  templateId?: string
+): { name: string; badge: string; desc: string } {
+  const fallbackOptions = kind === 'intro' ? INTRO_TEMPLATE_OPTIONS : OUTRO_TEMPLATE_OPTIONS;
+  const fallback =
+    fallbackOptions.find((o) => o.id === templateId) ??
+    fallbackOptions[0] ?? { name: '', badge: '', desc: '', previewProgress: 0 };
+  const localized = (dict.introOutroModal?.templates?.[kind] as
+    | Record<string, { name: string; badge: string; desc: string } | undefined>
+    | undefined)?.[templateId ?? ''];
+  return {
+    name: localized?.name || fallback.name,
+    badge: localized?.badge || fallback.badge,
+    desc: localized?.desc || fallback.desc,
+  };
+}
+
+/** 현재 언어의 기본 아웃트로 문구 (영어 기본: 'Thank you for watching'). */
+export function getLocalizedOutroText(dict: Dictionary): string {
+  return dict.introOutro?.outroDefaultText || DEFAULT_OUTRO_TEXT;
 }

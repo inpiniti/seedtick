@@ -1,5 +1,6 @@
 import { Scissors, UploadCloud, X } from 'lucide-react';
 import type { VideoItem, VideoTaskProgress } from '../../types/video.ts';
+import { useI18n } from '../../i18n/index.tsx';
 import { formatShootDate } from './types.ts';
 
 // components/studio-v2/UploadQueueDock.tsx
@@ -21,26 +22,46 @@ interface UploadQueueDockProps {
   onCancel: () => void;
 }
 
-function taskBadge(task: VideoTaskProgress | undefined, hasSegments: boolean) {
+type UiFn = (source: string, params?: Record<string, string | number>) => string;
+
+function taskBadge(task: VideoTaskProgress | undefined, hasSegments: boolean, ui: UiFn) {
   if (!task) {
-    if (hasSegments) return { label: '컷 완료', done: true, active: false, pct: 100, queued: false };
-    return { label: '대기 중', done: false, active: false, pct: 0, queued: false };
+    if (hasSegments) return { label: ui('컷 완료'), done: true, active: false, pct: 100, queued: false };
+    return { label: ui('대기 중'), done: false, active: false, pct: 0, queued: false };
   }
   const pct = Math.max(0, Math.min(100, Math.floor(task.progressPercent)));
   switch (task.stage) {
     case 'extracting':
-      return { label: `프레임 추출 ${pct}%`, done: false, active: true, pct, queued: false };
+      return {
+        label: ui('프레임 추출 {pct}%', { pct }),
+        done: false,
+        active: true,
+        pct,
+        queued: false,
+      };
     case 'queued': {
       const pos = Math.max(0, task.queuePosition ?? 0);
-      return { label: `대기열 ${pos}번`, done: false, active: true, pct, queued: true };
+      return {
+        label: ui('대기열 {pos}번', { pos }),
+        done: false,
+        active: true,
+        pct,
+        queued: true,
+      };
     }
     case 'analyzing':
-      return { label: `AI 분석 중 ${pct}%`, done: false, active: true, pct, queued: false };
+      return {
+        label: ui('AI 분석 중 {pct}%', { pct }),
+        done: false,
+        active: true,
+        pct,
+        queued: false,
+      };
     case 'done':
     case 'reused':
-      return { label: '컷 완료', done: true, active: false, pct: 100, queued: false };
+      return { label: ui('컷 완료'), done: true, active: false, pct: 100, queued: false };
     default:
-      return { label: '대기 중', done: false, active: false, pct: 0, queued: false };
+      return { label: ui('대기 중'), done: false, active: false, pct: 0, queued: false };
   }
 }
 
@@ -56,6 +77,7 @@ export const UploadQueueDock = ({
   onStartAnalysis,
   onCancel,
 }: UploadQueueDockProps) => {
+  const { ui } = useI18n();
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('video/'));
@@ -72,9 +94,11 @@ export const UploadQueueDock = ({
     <div className="sv2-dock" data-collapsed={collapsed} onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
       <div className="sv2-dock-inner">
         <div className="sv2-dock-head">
-          <span className="sv2-dock-title">원본 영상</span>
+          <span className="sv2-dock-title">{ui('원본 영상')}</span>
           <span className="sv2-dock-count">
-            {isProcessing && videoTasks ? `완료 ${doneCount}/${videos.length}` : `${videos.length}개`}
+            {isProcessing && videoTasks
+              ? ui('완료 {done}/{total}', { done: doneCount, total: videos.length })
+              : ui('{count}개', { count: videos.length })}
           </span>
         </div>
 
@@ -82,7 +106,11 @@ export const UploadQueueDock = ({
           {videos.length === 0 && (
             <div className="sv2-dock-empty">
               <UploadCloud size={30} />
-              <span>영상을 끌어다 놓거나<br />상단의 [영상 추가]를 눌러주세요</span>
+              <span>
+                {ui('영상을 끌어다 놓거나')}
+                <br />
+                {ui('상단의 [영상 추가]를 눌러주세요')}
+              </span>
             </div>
           )}
 
@@ -90,10 +118,10 @@ export const UploadQueueDock = ({
             const segment = video.segments?.[0];
             const segmentCount = video.segments?.length ?? 0;
             const task = taskByVideoId.get(video.id);
-            const badge = taskBadge(task, segmentCount > 0);
+            const badge = taskBadge(task, segmentCount > 0, ui);
             const done = segmentCount > 0 || badge.done;
             const label = done && segmentCount > 0 && (task?.stage === 'done' || task?.stage === 'reused' || !task)
-              ? `컷 ${segmentCount}개 완료`
+              ? ui('컷 {count}개 완료', { count: segmentCount })
               : badge.label;
             const shootDate = formatShootDate(segment) || video.metadataDate || '';
             return (
@@ -127,7 +155,7 @@ export const UploadQueueDock = ({
                     type="button"
                     className="sv2-upload-card-remove"
                     onClick={() => onRemoveVideo(video.id)}
-                    aria-label="영상 삭제"
+                    aria-label={ui('영상 삭제')}
                   >
                     <X size={13} />
                   </button>
@@ -140,7 +168,7 @@ export const UploadQueueDock = ({
         <div className="sv2-dock-footer">
           {isProcessing ? (
             <button type="button" className="sv2-btn" onClick={onCancel}>
-              분석 중지
+              {ui('분석 중지')}
             </button>
           ) : (
             <button
@@ -149,7 +177,7 @@ export const UploadQueueDock = ({
               onClick={onStartAnalysis}
               disabled={videos.length === 0 || !hasPending || isPreparingVideos}
             >
-              <Scissors size={16} /> AI 컷 분석
+              <Scissors size={16} /> {ui('AI 컷 분석')}
             </button>
           )}
         </div>

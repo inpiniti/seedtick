@@ -11,6 +11,7 @@ import type {
   VideoItem,
   VideoOverlayOptions,
 } from '../../types/video.ts';
+import { useI18n } from '../../i18n/index.tsx';
 import { formatClock } from './types.ts';
 import {
   buildTimelineLayout,
@@ -23,8 +24,9 @@ import { TimelineVideoTrack } from './TimelineVideoTrack.tsx';
 import { TimelineMusicTrack } from './TimelineMusicTrack.tsx';
 
 // components/studio-v2/TimelineDock.tsx — 하단 트랙 타임라인 + 룰러/플레이헤드.
-// 트랙 라벨(56px) + 행 간격(8px). CSS의 .sv2-track-label 폭과 반드시 일치해야 한다.
-const TRACK_LABEL_OFFSET = 64;
+// 트랙 라벨(72px, 영어/프랑스어 등 긴 이름 대응) + 행 간격(8px).
+// CSS의 .sv2-track-label 폭과 반드시 일치해야 한다.
+const TRACK_LABEL_OFFSET = 80;
 
 interface TimelineDockProps {
   segments: HighlightSegment[];
@@ -60,6 +62,7 @@ interface TimelineDockProps {
 }
 
 export const TimelineDock = (props: TimelineDockProps) => {
+  const { ui } = useI18n();
   const { segments, model, playhead, onSeek, onScrubStart } = props;
   const hasSegments = segments.length > 0;
   const tracksRef = useRef<HTMLDivElement>(null);
@@ -73,7 +76,7 @@ export const TimelineDock = (props: TimelineDockProps) => {
     const el = tracksRef.current;
     if (!el) return;
     const measure = () => {
-      // 트랙 라벨(56px) + 행 간격(8px), 가로 스크롤바 여유 2px를 뺀 레인 가용 폭.
+      // 트랙 라벨(72px) + 행 간격(8px), 가로 스크롤바 여유 2px를 뺀 레인 가용 폭.
       const next = Math.max(0, Math.round(el.clientWidth - TRACK_LABEL_OFFSET - 2));
       setLaneWidth((prev) => (Math.abs(prev - next) > 1 ? next : prev));
     };
@@ -155,9 +158,9 @@ export const TimelineDock = (props: TimelineDockProps) => {
   return (
     <div className="sv2-timeline">
       <div className="sv2-timeline-head">
-        <span className="sv2-timeline-label">타임라인</span>
+        <span className="sv2-timeline-label">{ui('타임라인')}</span>
         <span className="sv2-timeline-hint">
-          컷을 클릭하면 미리보기에서 자막·위치를 바로 수정할 수 있어요 · 룰러를 드래그해 재생 위치를 옮기세요
+          {ui('컷을 클릭하면 미리보기에서 자막·위치를 바로 수정할 수 있어요 · 룰러를 드래그해 재생 위치를 옮기세요')}
         </span>
       </div>
       {hasSegments ? (
@@ -174,7 +177,7 @@ export const TimelineDock = (props: TimelineDockProps) => {
                 onPointerUp={handlePointerUp}
                 onPointerCancel={handlePointerUp}
                 role="slider"
-                aria-label="타임라인 재생 위치"
+                aria-label={ui('타임라인 재생 위치')}
                 aria-valuemin={0}
                 aria-valuemax={Math.round(model.total)}
                 aria-valuenow={Math.round(playhead)}
@@ -222,7 +225,7 @@ export const TimelineDock = (props: TimelineDockProps) => {
             onPickFile={props.onPickAudioFile}
           />
           <div className="sv2-timeline-empty">
-            AI 컷 분석이 끝나면 영상 트랙이 채워지고, 미리보기에서 자막을 바로 수정할 수 있어요. 음악은 미리 넣어둘 수 있어요.
+            {ui('AI 컷 분석이 끝나면 영상 트랙이 채워지고, 미리보기에서 자막을 바로 수정할 수 있어요. 음악은 미리 넣어둘 수 있어요.')}
           </div>
         </div>
       )}

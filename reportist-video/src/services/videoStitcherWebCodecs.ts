@@ -38,6 +38,7 @@ import {
   softLimitAudioBuffer,
   timeStretchAudioBuffer,
 } from './audioMixUtils.ts';
+import { translateServiceUi } from '../i18n/serviceUi.ts';
 
 export interface StitchVideosWebCodecsParams {
   videos: VideoItem[];
@@ -941,7 +942,11 @@ export async function stitchVideosWebCodecs({
 
   // 사용자 지정 인트로/아웃트로 동영상 파일 렌더링 헬퍼
   const renderCustomVideoClip = async (clipFile: File, label: string, isFirstKeyFrame: boolean): Promise<number> => {
-    reportProgress(label === '시작 인트로' ? 2 : 96, `${label} 영상 로드 및 합성 중...`, true);
+    reportProgress(
+      label === '시작 인트로' ? 2 : 96,
+      translateServiceUi('{label} 영상 로드 및 합성 중...', { label: translateServiceUi(label) }),
+      true
+    );
     const blobUrl = URL.createObjectURL(clipFile);
     try {
       await loadVideoSource(workerVideo, blobUrl, 12000);
@@ -997,7 +1002,13 @@ export async function stitchVideosWebCodecs({
         const introSec = overlayOptions.introDurationSec || DEFAULT_INTRO_DURATION;
         const introFrames = Math.round(introSec * targetFps);
         actualIntroDuration = introSec;
-        reportProgress(2, `HyperFrames 인트로 모션 생성 중 (${overlayOptions.introTemplate || 'kinetic-slide'})...`, true);
+        reportProgress(
+          2,
+          translateServiceUi('HyperFrames 인트로 모션 생성 중 ({template})...', {
+            template: overlayOptions.introTemplate || 'kinetic-slide',
+          }),
+          true
+        );
 
         for (let f = 0; f < introFrames; f++) {
           if (signal?.aborted) throw new Error('작업 취소');
@@ -1109,7 +1120,9 @@ export async function stitchVideosWebCodecs({
 
           reportProgress(
             ((totalSegmentTimeProcessed + timeSec) / (totalSegmentsDuration || 1)) * 95,
-            `챕터 전환 브릿지 합성 중 (${bridgeInfo.chapterIndex}장)...`
+            translateServiceUi('챕터 전환 브릿지 합성 중 ({chapter}장)...', {
+              chapter: bridgeInfo.chapterIndex,
+            })
           );
         }
         totalSegmentTimeProcessed += CHAPTER_BRIDGE_DURATION;
@@ -1131,7 +1144,11 @@ export async function stitchVideosWebCodecs({
         const currentSegProgressSec = totalSegmentTimeProcessed + elapsedSec;
         reportProgress(
           (currentSegProgressSec / (totalSegmentsDuration || 1)) * 95,
-          `구간 ${segIdx + 1}/${allSegments.length} GPU 인코딩 중: [${videoItem.name || ''}]`
+          translateServiceUi('구간 {i}/{total} GPU 인코딩 중: [{name}]', {
+            i: segIdx + 1,
+            total: allSegments.length,
+            name: videoItem.name || '',
+          })
         );
       };
 
@@ -1177,7 +1194,13 @@ export async function stitchVideosWebCodecs({
         const outroSec = overlayOptions.outroDurationSec || DEFAULT_OUTRO_DURATION;
         const outroFrames = Math.round(outroSec * targetFps);
         actualOutroDuration = outroSec;
-        reportProgress(96, `HyperFrames 아웃트로 모션 생성 중 (${overlayOptions.outroTemplate || 'modern-endcard'})...`, true);
+        reportProgress(
+          96,
+          translateServiceUi('HyperFrames 아웃트로 모션 생성 중 ({template})...', {
+            template: overlayOptions.outroTemplate || 'modern-endcard',
+          }),
+          true
+        );
 
         for (let f = 0; f < outroFrames; f++) {
           if (signal?.aborted) throw new Error('작업 취소');
@@ -1202,7 +1225,7 @@ export async function stitchVideosWebCodecs({
 
     if (audioEncoder && audioDataAvailable) {
       try {
-        reportProgress(97, '오디오 트랙 고화질 믹싱 및 동기화 중...', true);
+        reportProgress(97, translateServiceUi('오디오 트랙 고화질 믹싱 및 동기화 중...'), true);
         const totalSampleCount = Math.max(1024, Math.ceil(totalVideoDurationSec * audioSampleRate));
         const offlineAudioCtx = new OfflineAudioContext(audioChannels, totalSampleCount, audioSampleRate);
         // 원본 현장음 + BGM을 합산하면 쉽게 1.0을 넘는다. 리미터 없이 AAC로 넘기면
@@ -1465,7 +1488,7 @@ export async function stitchVideosWebCodecs({
     // -------------------------------------------------------------------------
     // STEP E. 인코더 플러시 및 최종 MP4 Blob 생성
     // -------------------------------------------------------------------------
-    reportProgress(98, 'MP4 컨테이너 고화질 패키징 중...', true);
+    reportProgress(98, translateServiceUi('MP4 컨테이너 고화질 패키징 중...'), true);
     await videoEncoder.flush();
     videoEncoder.close();
 
@@ -1481,7 +1504,10 @@ export async function stitchVideosWebCodecs({
     onLog?.(
       `🎉 GPU 하드웨어 가속 병합 완료: ${(finalBlob.size / (1024 * 1024)).toFixed(1)}MB · ${totalFramesEncoded}프레임 (${targetFps}fps 무결점)`
     );
-    onProgress?.(100, `${targetFps}fps 초고화질 하이라이트 영상이 완성되었습니다!`);
+    onProgress?.(
+      100,
+      translateServiceUi('{fps}fps 초고화질 하이라이트 영상이 완성되었습니다!', { fps: targetFps })
+    );
 
     return {
       blob: finalBlob,

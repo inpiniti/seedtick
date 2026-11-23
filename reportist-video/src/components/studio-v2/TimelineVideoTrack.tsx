@@ -1,5 +1,6 @@
 import { Scissors, Trash2, RotateCw, MapPin, Clapperboard, Flag } from 'lucide-react';
 import type { HighlightSegment, VideoItem, VideoOverlayOptions } from '../../types/video.ts';
+import { useI18n } from '../../i18n/index.tsx';
 import { formatShootDate } from './types.ts';
 import type { TimelineLayout, TimelineModel } from './timelineModel.ts';
 
@@ -46,6 +47,7 @@ export const TimelineVideoTrack = ({
   onOpenOutro,
   onReorder,
 }: TimelineVideoTrackProps) => {
+  const { ui } = useI18n();
   const thumbFor = (seg: HighlightSegment) =>
     videos.find((v) => v.id === seg.sourceVideoId)?.thumbnailUrl;
 
@@ -67,7 +69,7 @@ export const TimelineVideoTrack = ({
   return (
     <div className="sv2-track-row">
       <div className="sv2-track-label">
-        <Clapperboard size={13} /> 영상
+        <Clapperboard size={13} /> {ui('영상')}
       </div>
       <div className="sv2-track-lane" style={{ width: layout.totalWidth, paddingRight: 0 }}>
         <button
@@ -77,10 +79,14 @@ export const TimelineVideoTrack = ({
           data-playing={isPlaying('__intro__')}
           style={chipStyle('__intro__')}
           onClick={() => onOpenIntro()}
-          title="인트로 설정"
+          title={ui('인트로 설정')}
         >
-          <span className="sv2-chip-title">인트로</span>
-          <span className="sv2-chip-sub">{overlayOptions.showIntro ? `${model.introDuration.toFixed(1)}초` : '꺼짐'}</span>
+          <span className="sv2-chip-title">{ui('인트로')}</span>
+          <span className="sv2-chip-sub">
+            {overlayOptions.showIntro
+              ? ui('{count}초', { count: model.introDuration.toFixed(1) })
+              : ui('꺼짐')}
+          </span>
         </button>
 
         {segments.map((seg, index) => (
@@ -115,12 +121,12 @@ export const TimelineVideoTrack = ({
               onSelect(seg.id);
               seekInto(seg.id);
             }}
-            title={seg.reason || seg.subtitleTitle || '컷'}
+            title={seg.reason || seg.subtitleTitle || ui('컷')}
           >
             {thumbFor(seg) && <img className="sv2-chip-thumb" src={thumbFor(seg)} alt="" />}
             {!locked && selectedSegmentId === seg.id && (
               <div className="sv2-chip-mini-toolbar" onClick={(e) => e.stopPropagation()}>
-                <button type="button" className="sv2-mini-btn" onClick={() => onTrim(seg)} title="트림">
+                <button type="button" className="sv2-mini-btn" onClick={() => onTrim(seg)} title={ui('트림')}>
                   <Scissors size={13} />
                 </button>
                 <button
@@ -129,21 +135,23 @@ export const TimelineVideoTrack = ({
                   onClick={() =>
                     onUpdateSegment(seg.id, { rotation: (((seg.rotation ?? 0) + 90) % 360 + 360) % 360 })
                   }
-                  title="90° 회전"
+                  title={ui('90° 회전')}
                 >
                   <RotateCw size={13} />
                 </button>
-                <button type="button" className="sv2-mini-btn" onClick={() => onOpenLocation(seg.id)} title="위치">
+                <button type="button" className="sv2-mini-btn" onClick={() => onOpenLocation(seg.id)} title={ui('위치')}>
                   <MapPin size={13} />
                 </button>
-                <button type="button" className="sv2-mini-btn" data-danger="true" onClick={() => onDelete(seg.id)} title="삭제">
+                <button type="button" className="sv2-mini-btn" data-danger="true" onClick={() => onDelete(seg.id)} title={ui('삭제')}>
                   <Trash2 size={13} />
                 </button>
               </div>
             )}
-            <span className="sv2-chip-title">{seg.subtitleTitle || `컷 ${index + 1}`}</span>
+            <span className="sv2-chip-title">
+              {seg.subtitleTitle || ui('컷 {index}', { index: index + 1 })}
+            </span>
             <span className="sv2-chip-sub">
-              {formatShootDate(seg) || `${seg.duration?.toFixed(1) ?? '?'}초`}
+              {formatShootDate(seg) || ui('{count}초', { count: seg.duration?.toFixed(1) ?? '?' })}
             </span>
           </div>
         ))}
@@ -155,10 +163,14 @@ export const TimelineVideoTrack = ({
           data-playing={isPlaying('__outro__')}
           style={chipStyle('__outro__')}
           onClick={() => onOpenOutro()}
-          title="아웃트로 설정"
+          title={ui('아웃트로 설정')}
         >
-          <span className="sv2-chip-title"><Flag size={12} style={{ verticalAlign: -2 }} /> 아웃트로</span>
-          <span className="sv2-chip-sub">{overlayOptions.showOutro ? `${model.outroDuration.toFixed(1)}초` : '꺼짐'}</span>
+          <span className="sv2-chip-title"><Flag size={12} style={{ verticalAlign: -2 }} /> {ui('아웃트로')}</span>
+          <span className="sv2-chip-sub">
+            {overlayOptions.showOutro
+              ? ui('{count}초', { count: model.outroDuration.toFixed(1) })
+              : ui('꺼짐')}
+          </span>
         </button>
       </div>
     </div>

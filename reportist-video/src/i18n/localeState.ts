@@ -32,25 +32,12 @@ function getQueryLocale(): Locale | null {
   return null;
 }
 
-/** 저장된 설정이 없을 때 브라우저/OS 언어를 UI 언어로 매핑한다. */
-function getBrowserLocale(): Locale | null {
-  if (typeof navigator === 'undefined') return null;
-  const languages =
-    navigator.languages && navigator.languages.length > 0
-      ? navigator.languages
-      : [navigator.language];
-
-  for (const tag of languages) {
-    if (!tag) continue;
-    const base = tag.toLowerCase().split('-')[0];
-    if (isSupportedLocale(base)) return base;
-  }
-  return null;
-}
-
 /**
  * 현재 런타임 UI 언어 반환.
- * 우선순위: URL의 ?lang= → localStorage → 브라우저 언어 → 영어.
+ * 우선순위: URL의 ?lang= → localStorage → 영어(기본).
+ * 브라우저/OS 언어는 자동 감지하지 않는다. 한국어 브라우저라도 `?lang=ko`나
+ * 언어 선택 전에는 영어로 열리며, 랜딩 페이지의 `/ko/` 링크로 들어온 경우에만
+ * `?lang=ko`가 붙어 한국어로 시작한다.
  * 이후 I18nProvider가 setRuntimeLocale로 동기화한다.
  */
 export function getRuntimeLocale(): Locale {
@@ -73,7 +60,7 @@ export function getRuntimeLocale(): Locale {
     }
   } catch {}
 
-  runtimeLocale = getBrowserLocale() ?? DEFAULT_LOCALE;
+  runtimeLocale = DEFAULT_LOCALE;
   return runtimeLocale;
 }
 

@@ -13,6 +13,7 @@ import type {
   HighlightSegment,
   VideoOverlayOptions,
 } from '../../types/video.ts';
+import { useI18n } from '../../i18n/index.tsx';
 import { DesktopOnlyGate } from './DesktopOnlyGate.tsx';
 import { StudioTopBar, type StudioModelDisplay } from './StudioTopBar.tsx';
 import { UploadQueueDock } from './UploadQueueDock.tsx';
@@ -40,12 +41,16 @@ const VideoExportModal = lazy(() =>
 const ModelSelectorModal = lazy(() =>
   import('../studio/ModelSelectorModal.tsx').then((m) => ({ default: m.ModelSelectorModal }))
 );
+const LanguageSelectorModal = lazy(() =>
+  import('../studio/LanguageSelectorModal.tsx').then((m) => ({ default: m.LanguageSelectorModal }))
+);
 
 /**
  * CenterStudioView — PC 전용 "미리보기 중심" 스튜디오 V2 최상위 셸.
  * App의 상태/핸들러를 그대로 재사용하고, UI 레이아웃·상태 전이만 새로 구현한다.
  */
 export const CenterStudioView = (props: StudioV2Props) => {
+  const { ui } = useI18n();
   const {
     result,
     videos,
@@ -348,6 +353,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
   const [trimSegment, setTrimSegment] = useState<HighlightSegment | null>(null);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isModelModalOpen, setIsModelModalOpen] = useState(false);
+  const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
   // BYOK 설정/모델 선택은 localStorage를 갱신하므로 revision을 올려 상단 배지를 즉시 재계산한다.
   const [, setModelRevision] = useState(0);
 
@@ -579,8 +585,8 @@ export const CenterStudioView = (props: StudioV2Props) => {
   // ---------- 작업 이름 (파일명/표시용) ----------
   const projectName = useMemo(() => {
     const first = videos.find((v) => v.name);
-    return first?.name?.replace(/\.[^/.]+$/, '') || '새 프로젝트';
-  }, [videos]);
+    return first?.name?.replace(/\.[^/.]+$/, '') || ui('새 프로젝트');
+  }, [videos, ui]);
 
   // ---------- 상단 모델 배지 ----------
   const byokActive = isByokActive();
@@ -592,18 +598,21 @@ export const CenterStudioView = (props: StudioV2Props) => {
       return {
         isByok: true,
         label: `${preset.shortName || preset.name} · ${modelLabel}`,
-        tooltip: `자체 AI 키 사용 중 · ${preset.name} · ${modelLabel}`,
+        tooltip: ui('자체 AI 키 사용 중 · {provider} · {model}', {
+          provider: preset.name,
+          model: modelLabel,
+        }),
         speedText: null,
         speedTier: null,
         usesTrainingData: false,
       };
     }
     const active = models.find((m) => m.id === selectedModel);
-    const label = cleanModelName(active?.name || selectedModel) || selectedModel || 'AI 모델';
+    const label = cleanModelName(active?.name || selectedModel) || selectedModel || ui('AI 모델');
     const speed = active?.speedTokensPerSecond;
     const hasSpeed = typeof speed === 'number' && Number.isFinite(speed) && speed > 0;
     const speedText = hasSpeed ? `${Math.round(speed).toLocaleString()} tok/s` : null;
-    const policy = active?.dataPolicy?.training ? '학습에 사용됨' : '학습 미사용';
+    const policy = active?.dataPolicy?.training ? ui('학습에 사용됨') : ui('학습 미사용');
     return {
       isByok: false,
       label,
@@ -614,7 +623,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
       speedTier: hasSpeed ? getSpeedTier(speed).key : null,
       usesTrainingData: Boolean(active?.dataPolicy?.training),
     };
-  }, [byokActive, models, selectedModel]);
+  }, [byokActive, models, selectedModel, ui]);
 
   // ---------- 액션 ----------
   const startAnalysis = useCallback(() => {
@@ -669,6 +678,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
         isLoadingModels={isLoadingModels}
         isProcessing={isProcessing}
         onOpenModelModal={() => setIsModelModalOpen(true)}
+        onOpenLanguageModal={() => setIsLanguageModalOpen(true)}
         onAddVideos={() => fileInputRef.current?.click()}
         onExport={() => setIsExportOpen(true)}
         canExport={displaySegments.length > 0 && !isProcessing}
@@ -710,7 +720,8 @@ export const CenterStudioView = (props: StudioV2Props) => {
               <div className="sv2-status-pill" role="status" aria-live="polite">
                 <span className="sv2-spinner" />
                 <span className="sv2-status-pill-text">
-                  {progress?.statusMessage || '장면을 분석하고 있어요. 끝나면 타임라인에 바로 채워져요.'}
+                  {progress?.statusMessage ||
+                    ui('장면을 분석하고 있어요. 끝나면 타임라인에 바로 채워져요.')}
                 </span>
                 <div className="sv2-progress-bar sv2-status-pill-bar">
                   <div
@@ -814,7 +825,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
                 setIsExportOpen(false);
                 void confirmExport(res);
               }}
-              totalDurationText={`${Math.round(model.total)}초`}
+              totalDurationText={ui('{count}초', { count: Math.round(model.total) })}
               segmentCount={localSegments.length}
               isMobileDevice={!isWide}
               orientation={orientation}
@@ -837,15 +848,25 @@ export const CenterStudioView = (props: StudioV2Props) => {
           </Suspense>
         )}
 
+        {isLanguageModalOpen && (
+          <Suspense fallback={null}>
+            <LanguageSelectorModal
+              isOpen={isLanguageModalOpen}
+              onClose={() => setIsLanguageModalOpen(false)}
+            />
+          </Suspense>
+        )}
+
         {isReStitching && (
           <div className="sv2-processing sv2-processing-elevated">
             <div className="sv2-processing-card">
               <div className="sv2-processing-title">
                 <Loader2 size={18} className="sv2-spin sv2-loader-inline" />
-                MP4로 내보내고 있어요
+                {ui('MP4로 내보내고 있어요')}
               </div>
               <div className="sv2-processing-sub">
-                {reStitchProgress?.statusMessage || '미리보기와 똑같은 화면으로 인코딩하고 있어요.'}
+                {reStitchProgress?.statusMessage ||
+                  ui('미리보기와 똑같은 화면으로 인코딩하고 있어요.')}
               </div>
               <div className="sv2-progress-bar sv2-progress-track">
                 <div

@@ -1091,13 +1091,15 @@ export function App() {
                     if (info.status === 'queued') {
                       const position = Math.max(0, info.queuePosition ?? 0);
                       const etaSec = Math.max(0, Math.round(info.estimatedWaitSec ?? 0));
-                      addLog(locale === 'ko'
-                        ? `⏳ [${currentVideo.name}] 대기열에 등록되었습니다. 내 앞 대기자 ${position}명 · 예상 대기 ${etaSec}초`
-                        : `⏳ [${currentVideo.name}] Queued. ${position} ahead · ~${etaSec}s`);
+                      addLog(ui('⏳ [{name}] 대기열에 등록되었습니다. 내 앞 대기자 {position}명 · 예상 대기 {eta}초', {
+                        name: currentVideo.name,
+                        position,
+                        eta: etaSec,
+                      }));
                     } else if (info.status === 'processing') {
-                      addLog(locale === 'ko'
-                        ? `🚀 [${currentVideo.name}] 대기열 순서가 되어 분석을 시작합니다.`
-                        : `🚀 [${currentVideo.name}] Queue turn reached. Starting analysis.`);
+                      addLog(ui('🚀 [{name}] 대기열 순서가 되어 분석을 시작합니다.', {
+                        name: currentVideo.name,
+                      }));
                     }
                   }
 
@@ -1112,9 +1114,9 @@ export function App() {
                   if (queueInfo.jobId) activeQueueJobIdsRef.current.delete(queueInfo.jobId);
                   queueInfo = { isQueued: false };
                   console.warn(`[Video] Queue fallback (${currentVideo.name}):`, reason);
-                  addLog(locale === 'ko'
-                    ? `ℹ️ [${currentVideo.name}] 대기열을 사용할 수 없어 기존 AI 게이트웨이로 연결합니다.`
-                    : `ℹ️ [${currentVideo.name}] Queue unavailable. Falling back to the AI gateway.`);
+                  addLog(ui('ℹ️ [{name}] 대기열을 사용할 수 없어 기존 AI 게이트웨이로 연결합니다.', {
+                    name: currentVideo.name,
+                  }));
                   updateAnalyzeProgress(0);
                 },
               });
@@ -1318,9 +1320,7 @@ export function App() {
         ...prev,
         liveReasoning: '',
         liveContent: '',
-        statusMessage: locale === 'ko'
-          ? '전체 흐름에 맞춰 자막을 다듬고 있어요...'
-          : 'Polishing subtitles for the whole story...',
+        statusMessage: ui('전체 흐름에 맞춰 자막을 다듬고 있어요...'),
       }));
 
       const rawSegments = updatedVideos.flatMap((v) => v.segments);
@@ -1346,9 +1346,7 @@ export function App() {
           onProgress: (done, total) =>
             setProgress((prev) => ({
               ...prev,
-              statusMessage: locale === 'ko'
-                ? `자막을 다듬고 있어요... (${done}/${total})`
-                : `Polishing subtitles... (${done}/${total})`,
+              statusMessage: ui('자막을 다듬고 있어요... ({done}/{total})', { done, total }),
             })),
         });
 
@@ -1407,7 +1405,7 @@ export function App() {
         currentVideoIndex: totalVideos - 1,
         totalVideos,
         progressPercent: Math.floor(getOverallPct()),
-        statusMessage: 'AI 추천 썸네일 및 실시간 타임라인 준비 중...',
+        statusMessage: ui('AI 추천 썸네일 및 실시간 타임라인 준비 중...'),
         reasoningLogs: [...logs],
       }));
 

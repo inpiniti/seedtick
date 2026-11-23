@@ -5,6 +5,7 @@ import {
   computeSubtitleOverlayBounds,
 } from '../../services/previewCompositorBase.ts';
 import type { FrameSpec } from '../../services/frameSpec.ts';
+import { useI18n } from '../../i18n/index.tsx';
 
 // components/studio-v2/PreviewInteractiveOverlay.tsx
 // 캔버스 위에 포개지는 투명 히트 레이어.
@@ -33,6 +34,7 @@ export const PreviewInteractiveOverlay = ({
   onCaptionCommit,
   onEditingChange,
 }: PreviewInteractiveOverlayProps) => {
+  const { ui } = useI18n();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(caption);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -41,13 +43,14 @@ export const PreviewInteractiveOverlay = ({
   onEditingChangeRef.current = onEditingChange;
 
   // 타이핑 중에도 박스가 캔버스 자막처럼 글자 길이에 맞춰 늘어난다.
-  // 자막이 비어 있으면 '자막 추가' 문구로 기준 박스 위치를 잡는다.
+  // 자막이 비어 있으면 현지화된 '자막 추가' 문구로 기준 박스 위치를 잡는다.
+  const addCaptionText = ui('자막 추가');
   const bounds = useMemo(() => {
-    const text = editing ? draft : caption || '자막 추가';
+    const text = editing ? draft : caption || addCaptionText;
     return (
-      computeSubtitleOverlayBounds(text, frame) ?? computeSubtitleOverlayBounds('자막 추가', frame)
+      computeSubtitleOverlayBounds(text, frame) ?? computeSubtitleOverlayBounds(addCaptionText, frame)
     );
-  }, [editing, draft, caption, frame]);
+  }, [editing, draft, caption, frame, addCaptionText]);
 
   // 다른 컷의 자막이 들어와도 편집 중 드래프트는 덮어쓰지 않는다.
   useEffect(() => {
@@ -103,11 +106,11 @@ export const PreviewInteractiveOverlay = ({
         type="button"
         className="sv2-hit sv2-hit-location"
         onClick={onLocationClick}
-        title="위치 수정"
+        title={ui('위치 수정')}
       >
         <span className="sv2-hit-hint">
           <MapPin size={12} style={{ verticalAlign: -2, marginRight: 4 }} />
-          {locationLabel || `${dateLabel} · 위치 추가`}
+          {locationLabel || ui('{date} · 위치 추가', { date: dateLabel })}
         </span>
       </button>
 
@@ -117,11 +120,11 @@ export const PreviewInteractiveOverlay = ({
         data-empty={!caption}
         style={boxStyle}
         onClick={startEditing}
-        title={caption ? '클릭해서 자막 수정' : '클릭해서 자막 추가'}
+        title={caption ? ui('클릭해서 자막 수정') : ui('클릭해서 자막 추가')}
       >
         {!editing && (
           <span className="sv2-caption-affordance">
-            {caption ? '클릭해서 수정' : '+ 자막 추가'}
+            {caption ? ui('클릭해서 수정') : ui('+ 자막 추가')}
           </span>
         )}
         {editing && (
@@ -130,7 +133,7 @@ export const PreviewInteractiveOverlay = ({
             className="sv2-caption-input"
             style={textStyle}
             value={draft}
-            placeholder="자막을 입력하세요"
+            placeholder={ui('자막을 입력하세요')}
             spellCheck={false}
             onChange={(e) => setDraft(e.target.value.replace(/\n/g, ' '))}
             onBlur={() => finish(true)}

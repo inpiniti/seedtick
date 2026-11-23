@@ -116,12 +116,55 @@
   letter-spacing: -0.02em;
   white-space: nowrap;
   color: var(--sv2-text);
+  text-decoration: none;
+}
+.sv2-brand:hover {
+  color: var(--sv2-accent);
 }
 .sv2-brand-logo {
   flex: 0 0 auto;
 }
+.sv2-project-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--sv2-text-2);
+  font-size: 12px;
+  font-weight: 600;
+  max-width: 180px;
+}
 .sv2-topbar-spacer {
   flex: 1;
+}
+/* 언어 선택 트리거는 모델 트리거와 같은 모노톤 스타일을 공유한다. */
+.sv2-lang-trigger {
+  max-width: 190px;
+}
+.sv2-lang-flag {
+  font-size: 13px;
+  line-height: 1;
+}
+.sv2-lang-code {
+  margin-left: 4px;
+  color: var(--sv2-text-3);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+/* 좁은 데스크톱(960~1200px)에서 상단 바가 넘치지 않도록 긴 라벨을 접는다. */
+@media (max-width: 1200px) {
+  .sv2-project-name {
+    display: none;
+  }
+}
+@media (max-width: 1080px) {
+  .sv2-lang-name {
+    display: none;
+  }
+  .sv2-lang-trigger {
+    max-width: 92px;
+  }
 }
 .sv2-segmented {
   display: inline-flex;
@@ -831,12 +874,13 @@
   min-height: 40px;
 }
 .sv2-track-label {
-  flex: 0 0 56px;
+  flex: 0 0 72px;
   display: flex;
   align-items: center;
   gap: 5px;
   font-size: 11px;
   font-weight: 700;
+  white-space: nowrap;
   color: var(--sv2-text-2);
   /* 가로 스크롤 시 라벨 고정. 플레이헤드 선은 라벨 아래로 가려진다. */
   position: sticky;
@@ -852,7 +896,7 @@
 }
 
 /* 트랙/룰러/플레이헤드를 같은 좌표계에 묶는 래퍼.
-   라벨 56px + 행 간격 8px = 64px 만큼 플레이헤드 X에 더한다(TRACK_LABEL_OFFSET). */
+   라벨 72px + 행 간격 8px = 80px 만큼 플레이헤드 X에 더한다(TRACK_LABEL_OFFSET). */
 .sv2-tracks-inner {
   position: relative;
   width: max-content;
