@@ -1,4 +1,3 @@
-import { lazy, Suspense } from 'react';
 import { X } from 'lucide-react';
 import type {
   HighlightSegment,
@@ -10,11 +9,13 @@ import type { InspectorTarget, PreviewRequest } from './types.ts';
 import { LocationInspectorPanel } from './LocationInspectorPanel.tsx';
 import { IntroOutroInspectorPanel } from './IntroOutroInspectorPanel.tsx';
 import { MusicInspectorPanel, type MusicInspectorProps } from './MusicInspectorPanel.tsx';
+import { ReferenceLocationMap } from './ReferenceLocationMap.tsx';
 
-// Leaflet 지도는 초기 번들에 포함되지 않도록 lazy 로드
-const ReferenceLocationMap = lazy(() =>
-  import('./ReferenceLocationMap.tsx').then((m) => ({ default: m.ReferenceLocationMap }))
-);
+// ReferenceLocationMap은 정적 import 한다.
+// React.lazy로 두면 미리보기의 '위치 수정'을 누르는 순간 동적 import가 발생하고,
+// 배포 후 만료된 청크(CSS 포함)를 물고 있는 탭에서는 chunkLoadRecovery가
+// window.location.reload()를 호출해 위치 수정 버튼이 새로고침으로 오인됐다.
+// 지도를 정적으로 불러오면 위치 인스펙터를 열 때 동적 import가 일어나지 않는다.
 
 interface RightInspectorDrawerProps {
   target: InspectorTarget;
@@ -66,15 +67,13 @@ export const RightInspectorDrawer = ({
       </div>
 
       {target?.type === 'location' && (
-        <Suspense fallback={<div className="sv2-map-empty">{ui('지도를 불러오는 중…')}</div>}>
-          <LocationInspectorPanel
-            segment={segment}
-            thumbnailUrl={thumbnailUrl}
-            onUpdateSegment={onUpdateSegment}
-            onApplyToVideo={onApplyToVideo}
-            MapComponent={ReferenceLocationMap}
-          />
-        </Suspense>
+        <LocationInspectorPanel
+          segment={segment}
+          thumbnailUrl={thumbnailUrl}
+          onUpdateSegment={onUpdateSegment}
+          onApplyToVideo={onApplyToVideo}
+          MapComponent={ReferenceLocationMap}
+        />
       )}
       {(target?.type === 'intro' || target?.type === 'outro') && (
         <IntroOutroInspectorPanel
