@@ -287,8 +287,9 @@ function drawLandscapeOverlay(
 
   // 3. 하단 중앙 씬 제목 자막 — 프레임 폭에 맞춰 줄바꿈(최대 3줄)하고 하단 기준으로 위로 쌓는다.
   // 긴 자막이 양옆으로 잘려 나가지 않도록 가로 여백을 두고, 한 줄일 때의 위치·크기는 기존과 동일하다.
-  if (overlayOptions.showSubtitle) {
-    const titlePart = currentSegment?.subtitleTitle || currentSegment?.reason || '';
+  // 인라인 편집 중에는 DOM 입력창이 같은 자리에 그려지므로 캔버스 자막만 숨긴다.
+  if (overlayOptions.showSubtitle && !options?.hideSubtitle) {
+    const titlePart = currentSegment?.subtitleTitle ?? currentSegment?.reason ?? '';
     const subText = titlePart.trim();
 
     if (subText) {
@@ -477,8 +478,9 @@ function drawPortraitOverlay(
   }
 
   // 4. 씬 제목 자막 — 화면 2/3 높이에 줄바꿈 박스로 표시
-  if (overlayOptions.showSubtitle) {
-    const titlePart = currentSegment?.subtitleTitle || currentSegment?.reason || '';
+  // 인라인 편집 중에는 DOM 입력창이 같은 자리에 그려지므로 캔버스 자막만 숨긴다.
+  if (overlayOptions.showSubtitle && !options?.hideSubtitle) {
+    const titlePart = currentSegment?.subtitleTitle ?? currentSegment?.reason ?? '';
     const subText = titlePart.trim();
 
     if (subText) {
@@ -528,6 +530,8 @@ function drawPortraitOverlay(
 export interface SegmentOverlayDrawOptions {
   /** true면 상단 제목·채널을 숨기고 날짜/장소 + 씬 자막만 그린다 (자막 수정 단계용) */
   captionOnly?: boolean;
+  /** true면 자막 박스만 숨긴다. DOM 인라인 편집창이 같은 자리를 대체할 때 사용한다. */
+  hideSubtitle?: boolean;
 }
 
 /**

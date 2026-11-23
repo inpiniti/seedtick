@@ -456,6 +456,36 @@ export const CenterStudioView = (props: StudioV2Props) => {
     setPlayhead(time);
   }, []);
 
+  // 타임라인 컷을 클릭하면 재생을 멈추고 해당 컷의 시작 프레임으로 이동한다.
+  // 미리보기 오버레이는 현재 프레임의 컷에만 바인딩되므로 이 seek가 선택과 화면을 일치시킨다.
+  const selectSegment = useCallback(
+    (id: string) => {
+      setSelectedSegmentId(id);
+      setIsPlaying(false);
+      const item = model.items.find((i) => i.kind === 'segment' && i.segment?.id === id);
+      if (item) seek(item.start);
+    },
+    [model.items, seek]
+  );
+
+  // 인트로/아웃트로는 우측 인스펙터에서 계속 편집한다. 컷 선택을 해제하고
+  // 해당 구간의 중간 프레임으로 이동해 인스펙터 대상과 화면이 어긋나지 않게 한다.
+  const openIntro = useCallback(() => {
+    setSelectedSegmentId(null);
+    setIsPlaying(false);
+    const item = model.items.find((i) => i.kind === 'intro');
+    if (item) seek((item.start + item.end) / 2);
+    setActiveInspector({ type: 'intro' });
+  }, [model.items, seek]);
+
+  const openOutro = useCallback(() => {
+    setSelectedSegmentId(null);
+    setIsPlaying(false);
+    const item = model.items.find((i) => i.kind === 'outro');
+    if (item) seek((item.start + item.end) / 2);
+    setActiveInspector({ type: 'outro' });
+  }, [model.items, seek]);
+
   // ---------- 좌측 리스트 소멸 조건 ----------
   const pendingVideos = videos.filter((v) => (v.segments?.length ?? 0) === 0);
   // 마지막 컷이 완전히 착지한 뒤에만 도크가 접힌다(비행 중 출발점이 사라지지 않게).
@@ -610,10 +640,10 @@ export const CenterStudioView = (props: StudioV2Props) => {
               isPlaying={isPlaying}
               videos={videos}
               overlayOptions={overlayOptions}
-              selectedSegmentId={selectedSegmentId}
               orientation={orientation}
               totalDuration={model.total}
               onTogglePlay={() => setIsPlaying((p) => !p)}
+              onPause={() => setIsPlaying(false)}
               onSeek={seek}
               onOpenLocation={openLocation}
               onUpdateSegment={updateSegment}
@@ -635,13 +665,13 @@ export const CenterStudioView = (props: StudioV2Props) => {
             bgmVolume={bgmVolume}
             libraryTrackId={libraryTrackId}
             customAudioName={customAudioFile?.name ?? null}
-            onSelect={setSelectedSegmentId}
+            onSelect={selectSegment}
             onUpdateSegment={updateSegment}
             onDelete={deleteSegment}
             onTrim={setTrimSegment}
             onOpenLocation={openLocation}
-            onOpenIntro={() => setActiveInspector({ type: 'intro' })}
-            onOpenOutro={() => setActiveInspector({ type: 'outro' })}
+            onOpenIntro={openIntro}
+            onOpenOutro={openOutro}
             onReorder={reorderSegments}
             onOpenLibrary={() => setIsLibraryOpen(true)}
             onVolumeChange={changeVolume}

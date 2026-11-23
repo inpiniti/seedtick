@@ -24,10 +24,10 @@ interface CenterPreviewStageProps {
   isPlaying: boolean;
   videos: VideoItem[];
   overlayOptions: VideoOverlayOptions;
-  selectedSegmentId: string | null;
   orientation: VideoOrientation;
   totalDuration: number;
   onTogglePlay: () => void;
+  onPause: () => void;
   onSeek: (time: number) => void;
   onOpenLocation: (segmentId: string) => void;
   onUpdateSegment: (id: string, patch: Partial<HighlightSegment>) => void;
@@ -40,10 +40,10 @@ export const CenterPreviewStage = ({
   isPlaying,
   videos,
   overlayOptions,
-  selectedSegmentId,
   orientation,
   totalDuration,
   onTogglePlay,
+  onPause,
   onSeek,
   onOpenLocation,
   onUpdateSegment,
@@ -53,6 +53,7 @@ export const CenterPreviewStage = ({
   const introOutroRef = useRef<IntroOutroModule | null>(null);
   const [rendererReady, setRendererReady] = useState(false);
   const [redrawTick, setRedrawTick] = useState(0);
+  const [isEditingCaption, setIsEditingCaption] = useState(false);
 
   // GSAP 인트로/아웃트로 렌더러는 별도 청크로 지연 로드
   useEffect(() => {
@@ -70,10 +71,10 @@ export const CenterPreviewStage = ({
     };
   }, []);
 
+  // 오버레이는 현재 캔버스에 그려진 컷에만 바인딩한다. 인트로·아웃트로 화면 위에
+  // 선택한 컷의 자막·위치가 겹치지 않도록 selectedSegmentId 폴백을 쓰지 않는다.
   const activeItem = resolveTimelineItem(model, playhead);
   const activeSegment = activeItem?.kind === 'segment' ? activeItem.segment ?? null : null;
-  const effectiveSegment =
-    model.items.find((i) => i.segment?.id === selectedSegmentId)?.segment ?? activeSegment;
 
   // 프레임 렌더 — playhead가 바뀔 때마다 캔버스에 현재 합성 결과를 그린다.
   useEffect(() => {
@@ -103,8 +104,11 @@ export const CenterPreviewStage = ({
         }
         drawCompositorCoverFrame(ctx, video, source, seg, frame);
       }
-      // 영상이 아직 준비 안 됐어도 날짜·위치·자막은 검은 화면에 표시
-      drawCompositorSegmentOverlay(ctx, overlayOptions, seg, frame);
+      // 영상이 아직 준비 안 됐어도 날짜·위치·자막은 검은 화면에 표시.
+      // 인라인 편집 중에는 DOM 입력창이 자막 자리를 대체하므로 캔버스 자막만 숨긴다.
+      drawCompositorSegmentOverlay(ctx, overlayOptions, seg, frame, {
+        hideSubtitle: isEditingCaption,
+      });
       return;
     }
 
@@ -119,12 +123,12 @@ export const CenterPreviewStage = ({
     } else if (activeItem.kind === 'outro') {
       renderer.drawCompositorOutroFrame(ctx, progress, overlayOptions, frame);
     }
-  }, [playhead, activeItem, frame, overlayOptions, videos, rendererReady, redrawTick]);
+  }, [playhead, activeItem, frame, overlayOptions, videos, rendererReady, redrawTick, isEditingCaption]);
 
   const hasContent = model.items.length > 0;
-  const locationLabel =
-    effectiveSegment?.locationName || overlayOptions.subtitleLocationText || '';
-  const captionLabel = effectiveSegment?.subtitleTitle || '';
+  const locationLabel = activeSegment?.locationName || overlayOptions.subtitleLocationText || '';
+  // 캔버스와 같은 폴백을 사용한다. 빈 문자열로 지운 컷은 reason으로 되돌아가지 않고 '자막 추가'만 보인다.
+  const captionLabel = activeSegment?.subtitleTitle ?? activeSegment?.reason ?? '';
 
   return (
     <>
@@ -171,18 +175,23 @@ export const CenterPreviewStage = ({
               }}
             />
           ))}
-          <PreviewInteractiveOverlay
-            locationLabel={locationLabel}
-            dateLabel={formatShootDate(effectiveSegment)}
-            caption={captionLabel}
-            enabled={Boolean(effectiveSegment)}
-            onLocationClick={() =>
-              effectiveSegment && onOpenLocation(effectiveSegment.id)
-            }
-            onCaptionCommit={(text) =>
-              effectiveSegment && onUpdateSegment(effectiveSegment.id, { subtitleTitle: text })
-            }
-          />
+          {activeSegment && (
+            <PreviewInteractiveOverlay
+              key={activeSegment.id}
+              locationLabel={locationLabel}
+              dateLabel={formatShootDate(activeSegment)}
+              caption={captionLabel}
+              onLocationClick={() => onOpenLocation(activeSegment.id)}
+              onCaptionCommit={(text) =>
+                onUpdateSegment(activeSegment.id, { subtitleTitle: text })
+              }
+              onEditingChange={(editing) => {
+                // 편집 시작 시 재생을 멈춰 컷이 바뀌는 동안 드래프트가 날아가지 않게 한다.
+                if (editing) onPause();
+                setIsEditingCaption(editing);
+              }}
+            />
+          )}
         </div>
       ) : (
         <div className="sv2-preview-frame" data-orientation={orientation}>

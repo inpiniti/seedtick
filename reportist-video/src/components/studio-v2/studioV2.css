@@ -613,6 +613,8 @@
   pointer-events: auto;
   border-radius: 8px;
   border: 1.5px solid transparent;
+  /* button 기본 배경이 흰 사각형으로 보이는 것을 막는다. */
+  background: transparent;
   transition: border-color 0.15s, background 0.15s;
 }
 .sv2-hit:hover {
@@ -628,11 +630,30 @@
 .sv2-hit-caption {
   left: 10%;
   right: 10%;
-  bottom: 6%;
-  height: 15%;
+  bottom: 4%;
+  height: 12%;
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: text;
+}
+/* 세로(9:16) 자막은 캔버스 기준 화면 2/3 높이의 세이프 영역 안에 그려진다. */
+.sv2-preview-frame[data-orientation='portrait'] .sv2-hit-caption {
+  top: 64%;
+  bottom: auto;
+  left: 8%;
+  right: 8%;
+  height: auto;
+  transform: translateY(-50%);
+}
+.sv2-hit-caption:not([data-editing='true']):hover {
+  border-color: rgba(255, 255, 255, 0.85);
+  border-style: dashed;
+  background: rgba(0, 0, 0, 0.28);
+}
+.sv2-hit-caption[data-editing='true'] {
+  border-color: rgba(255, 255, 255, 0.7);
+  background: transparent;
 }
 .sv2-hit-hint {
   font-size: 11px;
@@ -648,21 +669,28 @@
   text-overflow: ellipsis;
   max-width: 100%;
 }
-.sv2-hit-caption:hover .sv2-hit-hint {
+.sv2-hit-caption:hover .sv2-hit-hint,
+.sv2-hit-caption[data-empty='true'] .sv2-hit-hint {
   opacity: 1;
 }
+/* 캔버스 자막 박스(rgba(0,0,0,0.75) + 굵은 흰 글씨)와 같은 모양으로 제자리 편집한다. */
 .sv2-caption-input {
   width: 100%;
   max-width: 100%;
   text-align: center;
-  background: rgba(0, 0, 0, 0.72);
+  background: rgba(0, 0, 0, 0.78);
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.55);
   border-radius: 8px;
-  padding: 7px 10px;
-  font-size: 14px;
+  padding: 8px 12px;
+  font-size: clamp(12px, 1.6vw, 18px);
   font-weight: 700;
+  line-height: 1.26;
   outline: none;
+  box-shadow: var(--sv2-focus-ring);
+}
+.sv2-caption-input::placeholder {
+  color: rgba(255, 255, 255, 0.55);
 }
 
 /* Transport */
@@ -960,13 +988,6 @@
   color: var(--sv2-text-3);
   background: var(--sv2-surface-3);
 }
-.sv2-chip-subtitle {
-  background: var(--sv2-surface-3);
-  border-color: var(--sv2-border);
-}
-.sv2-chip-subtitle .sv2-chip-title {
-  color: var(--sv2-text);
-}
 .sv2-chip-mini-toolbar {
   position: absolute;
   top: -34px;
@@ -997,18 +1018,6 @@
 .sv2-mini-btn[data-danger='true']:hover {
   color: var(--sv2-danger);
   background: rgba(229, 72, 77, 0.1);
-}
-.sv2-subtitle-edit {
-  width: 100%;
-  height: 100%;
-  border: 1px solid var(--sv2-accent);
-  border-radius: 6px;
-  background: var(--sv2-surface);
-  color: var(--sv2-text);
-  font-size: 11px;
-  font-weight: 700;
-  padding: 2px 4px;
-  outline: none;
 }
 .sv2-music-chip {
   display: flex;

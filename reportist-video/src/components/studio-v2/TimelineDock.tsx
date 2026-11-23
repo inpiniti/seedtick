@@ -134,7 +134,7 @@ export const TimelineDock = (props: TimelineDockProps) => {
       <div className="sv2-timeline-head">
         <span className="sv2-timeline-label">타임라인</span>
         <span className="sv2-timeline-hint">
-          컷을 끌어 순서를 바꾸고, 클릭해서 트림·회전·자막 수정 · 인트로/아웃트로 설정
+          컷을 클릭하면 미리보기에서 자막·위치를 바로 수정할 수 있어요 · 룰러를 드래그해 재생 위치를 옮기세요
         </span>
       </div>
       {hasSegments ? (
@@ -194,7 +194,7 @@ export const TimelineDock = (props: TimelineDockProps) => {
             onPickFile={props.onPickAudioFile}
           />
           <div className="sv2-timeline-empty">
-            AI 컷 분석이 끝나면 여기에 영상 트랙이 채워집니다. 음악은 미리 1곡 넣어둘 수 있어요.
+            AI 컷 분석이 끝나면 영상 트랙이 채워지고, 미리보기에서 자막을 바로 수정할 수 있어요. 음악은 미리 넣어둘 수 있어요.
           </div>
         </div>
       )}
