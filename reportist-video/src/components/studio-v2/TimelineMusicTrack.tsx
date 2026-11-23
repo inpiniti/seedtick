@@ -40,14 +40,27 @@ export const TimelineMusicTrack = ({
     : null;
   const name = customAudioName || libraryName || (bgmPresetId !== 'none' ? bgmPresetId : null);
   const hasMusic = Boolean(name);
-  const filledWidth = hasMusic && layout ? layout.totalWidth : undefined;
+
+  // 인트로/아웃트로가 꺼지면 자리만 남고 시간축(룰러·플레이헤드)은 첫 컷~마지막 컷을 사용한다.
+  // 음악 바도 레인 시작이 아니라 그 실제 시간 구간에 맞춰 정렬해야 어긋나지 않는다.
+  const active = layout?.active ?? [];
+  const barStart = active.length > 0 ? active[0].left : 0;
+  const barEnd = active.length > 0 ? active[active.length - 1].right : (layout?.totalWidth ?? 0);
+  const barWidth = Math.max(0, barEnd - barStart);
+  const filledWidth = hasMusic && layout && barWidth > 0 ? barWidth : undefined;
+  const laneStyle = layout
+    ? {
+        marginLeft: barStart,
+        ...(filledWidth ? { width: filledWidth, paddingRight: 0 } : {}),
+      }
+    : undefined;
 
   return (
     <div className="sv2-track-row">
       <div className="sv2-track-label">
         <Music2 size={13} /> {ui('음악')}
       </div>
-      <div className="sv2-track-lane" style={filledWidth ? { width: filledWidth, paddingRight: 0 } : undefined}>
+      <div className="sv2-track-lane" style={laneStyle}>
         <div className="sv2-music-chip" data-filled={hasMusic} style={filledWidth ? { width: filledWidth } : undefined}>
           <button
             type="button"
