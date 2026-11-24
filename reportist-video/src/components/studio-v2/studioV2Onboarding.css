@@ -5,9 +5,41 @@
 }
 
 .sv2-onboarding-card {
+  position: relative;
   width: min(440px, calc(100vw - 32px));
   padding: 28px 28px 24px;
   text-align: left;
+}
+
+/* 카드가 flex column이라 기본 close 버튼이 전체 너비로 늘어난다 — 우측 상단에 고정 */
+.sv2-onboarding-card .model-modal-close-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #8b95a1;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.sv2-onboarding-card .model-modal-close-btn:hover {
+  background-color: #f2f4f6;
+  color: #191f28;
+}
+
+.sv2-onboarding-card .model-modal-close-btn:active {
+  transform: scale(0.95);
+}
+
+.sv2-onboarding-card .model-modal-close-btn:focus-visible {
+  outline: 2px solid #3182f6;
+  outline-offset: 2px;
 }
 
 .sv2-onboarding-hero {
