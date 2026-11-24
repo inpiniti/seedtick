@@ -23,6 +23,13 @@ export function buildTimeline(
   segments: HighlightSegment[],
   overlayOptions: VideoOverlayOptions
 ): TimelineModel {
+  // 컷이 없으면 인트로/아웃트로가 감쌀 영상이 없다. 이 상태에서 구간을 추가하면
+  // 빈 스튜디오에서 인트로만 재생되고 재생 시간(수 초)이 배정되므로,
+  // 컷이 생길 때까지 타임라인을 0초로 유지해 빈 상태가 그대로 보이게 한다.
+  if (segments.length === 0) {
+    return { items: [], total: 0, introDuration: 0, outroDuration: 0 };
+  }
+
   const introDuration = overlayOptions.showIntro
     ? Math.max(0.5, overlayOptions.introDurationSec ?? 2)
     : 0;
