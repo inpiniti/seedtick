@@ -1080,7 +1080,7 @@
   width: min(760px, 100%);
   aspect-ratio: 16 / 9;
   border-radius: 14px;
-  border: 2px dashed var(--sv2-border-strong);
+  border: 1px solid var(--sv2-border-strong);
   background: var(--sv2-surface);
   display: flex;
   flex-direction: column;
