@@ -2,6 +2,9 @@
 // 새 스튜디오 흐름에서 쓰는 UI 문구의 프랑스어 번역.
 export const uiFr: Record<string, string> = {
   '공유': 'Partager',
+  '공유 영상 미리보기': 'Aperçu de la vidéo partagée',
+  '스튜디오로 돌아가기': 'Retour au studio',
+  '복사 완료': 'Copié',
   'PenguinCut 크레딧 표시': 'Afficher le crédit PenguinCut',
   '영상 끝에 제작 크레딧을 넣어요. 무료로 언제든 끌 수 있어요.':
     'Ajoutez un crédit à la fin de la vidéo. Gratuit et désactivable à tout moment.',

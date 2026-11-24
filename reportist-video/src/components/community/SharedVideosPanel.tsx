@@ -5,16 +5,25 @@ import { Clock, Film, Flame, Play, Plus, RefreshCw, Search } from 'lucide-react'
 import type { VideoShareItem, VideoSortOrder } from '../../types/share.ts';
 import { fetchSharedVideos, incrementVideoShareView } from '../../services/videoShareService.ts';
 import { formatViewCount, formatTimeAgo } from '../../services/youtubeService.ts';
-import { YouTubePlayerModal } from './YouTubePlayerModal.tsx';
 import { ShareVideoModal } from './ShareVideoModal.tsx';
 import { useI18n } from '../../i18n/index.tsx';
 import { notify } from '../../services/toastService.ts';
 
+interface SharedVideosPanelProps {
+  /** 현재 중앙 미리보기에서 재생 중인 공유 영상 id. 목록에서 선택 상태로 표시한다. */
+  selectedVideoId?: string | null;
+  /** 영상을 누르면 모달 대신 중앙 미리보기에서 바로 재생한다. */
+  onSelectVideo: (video: VideoShareItem) => void;
+}
+
 /**
  * 내가 등록한 영상과 다른 사람이 공유한 영상을 함께 보여주는 패널.
- * 등록은 ShareVideoModal, 재생은 YouTubePlayerModal을 그대로 사용한다.
+ * 등록은 ShareVideoModal을 그대로 사용하고, 재생은 상위의 중앙 미리보기로 위임한다.
  */
-export const SharedVideosPanel = () => {
+export const SharedVideosPanel = ({
+  selectedVideoId,
+  onSelectVideo,
+}: SharedVideosPanelProps) => {
   const { dict, locale, ui } = useI18n();
   const cDict = dict.community;
 
@@ -23,7 +32,6 @@ export const SharedVideosPanel = () => {
   const [sortOrder, setSortOrder] = useState<VideoSortOrder>('latest');
   const [searchQuery, setSearchQuery] = useState('');
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-  const [selectedVideo, setSelectedVideo] = useState<VideoShareItem | null>(null);
 
   const loadVideos = useCallback(async () => {
     setIsLoading(true);
@@ -42,11 +50,11 @@ export const SharedVideosPanel = () => {
   }, [loadVideos]);
 
   const handleSelectVideo = (video: VideoShareItem) => {
-    setSelectedVideo(video);
     setVideos((prev) =>
       prev.map((v) => (v.id === video.id ? { ...v, viewCount: v.viewCount + 1 } : v))
     );
     void incrementVideoShareView(video.id);
+    onSelectVideo(video);
   };
 
   const handleShareSuccess = (newItem: VideoShareItem) => {
@@ -151,6 +159,7 @@ export const SharedVideosPanel = () => {
               key={video.id}
               type="button"
               className="sv2-share-card"
+              data-selected={selectedVideoId === video.id}
               onClick={() => handleSelectVideo(video)}
               title={video.title}
             >
@@ -188,7 +197,6 @@ export const SharedVideosPanel = () => {
         </button>
       </div>
 
-      <YouTubePlayerModal item={selectedVideo} onClose={() => setSelectedVideo(null)} />
       <ShareVideoModal
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}

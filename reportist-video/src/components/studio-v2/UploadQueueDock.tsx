@@ -1,5 +1,6 @@
 import { Plus, Scissors, UploadCloud, X } from 'lucide-react';
 import type { VideoItem, VideoTaskProgress } from '../../types/video.ts';
+import type { VideoShareItem } from '../../types/share.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { SharedVideosPanel } from '../community/SharedVideosPanel.tsx';
 import { formatShootDate } from './types.ts';
@@ -25,6 +26,9 @@ interface UploadQueueDockProps {
   /** 현재 좌측 독 탭. CenterStudioView가 자동 접힘 규칙과 함께 관리한다. */
   activeTab: LeftDockTab;
   onTabChange: (tab: LeftDockTab) => void;
+  /** 공유 탭에서 고른 영상. 중앙 미리보기에서 바로 재생한다. */
+  selectedSharedVideo: VideoShareItem | null;
+  onSelectSharedVideo: (video: VideoShareItem | null) => void;
   onFilesSelected: (files: File[]) => void;
   onAddVideos: () => void;
   onRemoveVideo: (id: string) => void;
@@ -85,6 +89,8 @@ export const UploadQueueDock = ({
   removingVideoIds,
   activeTab,
   onTabChange,
+  selectedSharedVideo,
+  onSelectSharedVideo,
   onFilesSelected,
   onAddVideos,
   onRemoveVideo,
@@ -252,7 +258,10 @@ export const UploadQueueDock = ({
             </div>
           </>
         ) : (
-          <SharedVideosPanel />
+          <SharedVideosPanel
+            selectedVideoId={selectedSharedVideo?.id}
+            onSelectVideo={onSelectSharedVideo}
+          />
         )}
       </div>
     </div>

@@ -27,6 +27,8 @@ import { DesktopOnlyGate } from './DesktopOnlyGate.tsx';
 import { StudioTopBar } from './StudioTopBar.tsx';
 import { UploadQueueDock, type LeftDockTab } from './UploadQueueDock.tsx';
 import { CenterPreviewStage } from './CenterPreviewStage.tsx';
+import { SharedVideoPreview } from '../community/SharedVideoPreview.tsx';
+import type { VideoShareItem } from '../../types/share.ts';
 import { TimelineDock } from './TimelineDock.tsx';
 import { RightInspectorDrawer } from './RightInspectorDrawer.tsx';
 import {
@@ -681,9 +683,28 @@ export const CenterStudioView = (props: StudioV2Props) => {
   const isDockOpen = dockPreference ?? !autoDockCollapsed;
   const toggleDock = useCallback(() => setDockPreference(!isDockOpen), [isDockOpen]);
 
+  // ---------- 공유 영상 중앙 미리보기 ----------
+  const [selectedSharedVideo, setSelectedSharedVideo] = useState<VideoShareItem | null>(null);
+  const handleSelectSharedVideo = useCallback((video: VideoShareItem | null) => {
+    setSelectedSharedVideo(video);
+    if (video) {
+      // 공유 영상 재생 중에는 스튜디오 타임라인 재생을 멈춘다.
+      setPreviewRange(null);
+      setIsPlaying(false);
+    }
+  }, []);
+  const handleDockTabChange = useCallback((tab: LeftDockTab) => {
+    setDockTab(tab);
+    // 원본 영상 탭으로 돌아가면 중앙 미리보기도 다시 내 프로젝트로 되돌린다.
+    if (tab === 'source') setSelectedSharedVideo(null);
+  }, []);
+
   // 새 프로젝트로 영상 목록이 비면 자동 규칙으로 되돌린다.
   useEffect(() => {
-    if (videos.length === 0) setDockPreference(null);
+    if (videos.length === 0) {
+      setDockPreference(null);
+      setSelectedSharedVideo(null);
+    }
   }, [videos.length]);
 
   // ---------- 작업 이름 (파일명/표시용) ----------
@@ -969,7 +990,9 @@ export const CenterStudioView = (props: StudioV2Props) => {
           videoTasks={progress?.videoTasks}
           removingVideoIds={removingVideoIds}
           activeTab={dockTab}
-          onTabChange={setDockTab}
+          onTabChange={handleDockTabChange}
+          selectedSharedVideo={selectedSharedVideo}
+          onSelectSharedVideo={handleSelectSharedVideo}
           onFilesSelected={(files) => {
             if (!isProcessing && removingVideoIds.size === 0) onFilesSelected(files);
           }}
@@ -998,27 +1021,34 @@ export const CenterStudioView = (props: StudioV2Props) => {
                 </div>
               </div>
             )}
-            <CenterPreviewStage
-              frame={frame}
-              model={model}
-              playhead={playhead}
-              isPlaying={isPlaying}
-              videos={videos}
-              overlayOptions={overlayOptions}
-              orientation={orientation}
-              totalDuration={model.total}
-              previewRange={previewRange}
-              onTogglePlay={togglePlay}
-              onPause={() => setIsPlaying(false)}
-              onSeek={(time) => {
-                setPreviewRange(null);
-                seek(time);
-              }}
-              onOpenLocation={openLocation}
-              onUpdateSegment={updateSegment}
-              onUpdateOverlay={updateOverlay}
-              revision={settingsRevision}
-            />
+            {selectedSharedVideo ? (
+              <SharedVideoPreview
+                item={selectedSharedVideo}
+                onClose={() => setSelectedSharedVideo(null)}
+              />
+            ) : (
+              <CenterPreviewStage
+                frame={frame}
+                model={model}
+                playhead={playhead}
+                isPlaying={isPlaying}
+                videos={videos}
+                overlayOptions={overlayOptions}
+                orientation={orientation}
+                totalDuration={model.total}
+                previewRange={previewRange}
+                onTogglePlay={togglePlay}
+                onPause={() => setIsPlaying(false)}
+                onSeek={(time) => {
+                  setPreviewRange(null);
+                  seek(time);
+                }}
+                onOpenLocation={openLocation}
+                onUpdateSegment={updateSegment}
+                onUpdateOverlay={updateOverlay}
+                revision={settingsRevision}
+              />
+            )}
           </div>
         </div>
 

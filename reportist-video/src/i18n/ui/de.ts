@@ -2,6 +2,9 @@
 // 새 스튜디오 흐름에서 쓰는 UI 문구의 독일어 번역.
 export const uiDe: Record<string, string> = {
   '공유': 'Teilen',
+  '공유 영상 미리보기': 'Vorschau des geteilten Videos',
+  '스튜디오로 돌아가기': 'Zurück zum Studio',
+  '복사 완료': 'Kopiert',
   'PenguinCut 크레딧 표시': 'PenguinCut-Credit anzeigen',
   '영상 끝에 제작 크레딧을 넣어요. 무료로 언제든 끌 수 있어요.':
     'Fügt am Ende des Videos einen Credit ein. Kostenlos und jederzeit deaktivierbar.',

@@ -3,6 +3,9 @@
 // 키는 화면에 남아 있던 한국어 원문(공백 정규화)이며, 기존 dict에 없는 문구만 담는다.
 export const uiEn: Record<string, string> = {
   '공유': 'Share',
+  '공유 영상 미리보기': 'Shared video preview',
+  '스튜디오로 돌아가기': 'Back to studio',
+  '복사 완료': 'Copied',
   'PenguinCut 크레딧 표시': 'Show PenguinCut credit',
   '영상 끝에 제작 크레딧을 넣어요. 무료로 언제든 끌 수 있어요.':
     'Add a small maker credit at the end of your video. Free to turn off anytime.',

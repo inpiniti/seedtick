@@ -736,6 +736,10 @@
   background: var(--sv2-surface-3);
   border-color: var(--sv2-border-strong);
 }
+.sv2-share-card[data-selected='true'] {
+  border-color: var(--sv2-text);
+  background: var(--sv2-accent-soft);
+}
 .sv2-share-card:active {
   transform: scale(0.99);
 }
@@ -2498,6 +2502,137 @@
   border-radius: 0;
   background: transparent;
   box-shadow: none;
+}
+
+/* ---------- 공유 영상 중앙 미리보기 (모달 없이 스테이지에서 바로 재생) ---------- */
+.sv2-shared-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: min(760px, 100%);
+  min-height: 34px;
+}
+.sv2-shared-meta-left {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sv2-shared-preview-tag {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--sv2-surface-2);
+  color: var(--sv2-text-2);
+  font-size: 10px;
+  font-weight: 800;
+}
+.sv2-shared-preview-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--sv2-text);
+}
+.sv2-shared-back {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--sv2-border);
+  border-radius: 8px;
+  background: var(--sv2-surface);
+  color: var(--sv2-text-2);
+  font-size: 11px;
+  font-weight: 700;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+.sv2-shared-back:hover {
+  background: var(--sv2-surface-3);
+  color: var(--sv2-text);
+}
+.sv2-shared-back:focus-visible,
+.sv2-shared-action:focus-visible {
+  outline: none;
+  box-shadow: var(--sv2-focus-ring);
+}
+.sv2-shared-frame {
+  position: relative;
+  /* 16:9 비율을 유지한 채 상단·타임라인·정보 영역을 뺀 높이에 맞춘다. */
+  width: min(760px, 100%, calc((100vh - var(--sv2-topbar-h) - var(--sv2-timeline-h) - 170px) * 16 / 9));
+  aspect-ratio: 16 / 9;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: var(--sv2-shadow-lg);
+}
+.sv2-shared-frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.sv2-shared-details {
+  width: min(760px, 100%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.sv2-shared-stats {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--sv2-text-3);
+}
+.sv2-shared-author {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+  color: var(--sv2-text-2);
+}
+.sv2-shared-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sv2-shared-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--sv2-border);
+  border-radius: 8px;
+  background: var(--sv2-surface);
+  color: var(--sv2-text-2);
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+.sv2-shared-action:hover {
+  background: var(--sv2-surface-3);
+  color: var(--sv2-text);
+}
+.sv2-shared-action-youtube {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #fff;
+}
+.sv2-shared-action-youtube:hover {
+  background: #b91c1c;
+  color: #fff;
 }
 
 @media (prefers-reduced-motion: reduce) {
