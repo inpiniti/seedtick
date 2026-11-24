@@ -14,6 +14,7 @@ import {
 import type { HighlightSegment, VideoItem } from '../../types/video.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
+import { Tooltip } from '../ui/Tooltip.tsx';
 
 export interface SegmentTrimModalProps {
   isOpen: boolean;
@@ -396,35 +397,38 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
 
             {/* Quick Play & Preview Controls */}
             <div className="segment-trim-playback-bar">
-              <button
-                type="button"
-                className={`segment-trim-ctrl-btn ${isPlaying && !isPreviewing ? 'active' : ''}`}
-                onClick={togglePlay}
-                title={isPlaying ? t.pause : t.play}
-              >
-                {isPlaying ? <Pause size={15} /> : <Play size={15} />}
-                <span>{isPlaying ? t.pause : t.play}</span>
-              </button>
+              <Tooltip content={isPlaying ? t.pause : t.play}>
+                <button
+                  type="button"
+                  className={`segment-trim-ctrl-btn ${isPlaying && !isPreviewing ? 'active' : ''}`}
+                  onClick={togglePlay}
+                >
+                  {isPlaying ? <Pause size={15} /> : <Play size={15} />}
+                  <span>{isPlaying ? t.pause : t.play}</span>
+                </button>
+              </Tooltip>
 
-              <button
-                type="button"
-                className={`segment-trim-ctrl-btn segment-trim-preview-btn ${isPreviewing ? 'active' : ''}`}
-                onClick={handleTogglePreviewRange}
-                title={isPreviewing ? t.stopPreview : t.previewRange}
-              >
-                {isPreviewing ? <Pause size={15} /> : <Play size={15} />}
-                <span>{isPreviewing ? t.stopPreview : t.previewRange}</span>
-              </button>
+              <Tooltip content={isPreviewing ? t.stopPreview : t.previewRange}>
+                <button
+                  type="button"
+                  className={`segment-trim-ctrl-btn segment-trim-preview-btn ${isPreviewing ? 'active' : ''}`}
+                  onClick={handleTogglePreviewRange}
+                >
+                  {isPreviewing ? <Pause size={15} /> : <Play size={15} />}
+                  <span>{isPreviewing ? t.stopPreview : t.previewRange}</span>
+                </button>
+              </Tooltip>
 
-              <button
-                type="button"
-                className="segment-trim-ctrl-btn-text"
-                onClick={handleResetToAi}
-                title={ui('AI가 추천했던 원래 구간으로 복원')}
-              >
-                <Sparkles size={13} className="text-slate-900" />
-                <span>{ui('AI 원본 복원')}</span>
-              </button>
+              <Tooltip content={ui('AI가 추천했던 원래 구간으로 복원')}>
+                <button
+                  type="button"
+                  className="segment-trim-ctrl-btn-text"
+                  onClick={handleResetToAi}
+                >
+                  <Sparkles size={13} className="text-slate-900" />
+                  <span>{ui('AI 원본 복원')}</span>
+                </button>
+              </Tooltip>
             </div>
           </div>
 
@@ -440,36 +444,37 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
               </span>
             </div>
 
-            <div
-              ref={timelineRef}
-              className={`segment-trim-timeline-track ${isDragging ? 'is-dragging' : ''}`}
-              onPointerDown={handlePointerDown}
-              onPointerMove={handlePointerMove}
-              onPointerUp={handlePointerUp}
-              onPointerCancel={handlePointerCancel}
-              title={ui('타임라인을 누르거나 빨간색 선을 드래그하여 재생 위치를 탐색하세요')}
-            >
-              {/* Selected highlight range */}
+            <Tooltip content={ui('타임라인을 누르거나 빨간색 선을 드래그하여 재생 위치를 탐색하세요')}>
               <div
-                className="segment-trim-selected-range"
-                style={{
-                  left: `${startPercent}%`,
-                  width: `${widthPercent}%`,
-                }}
+                ref={timelineRef}
+                className={`segment-trim-timeline-track ${isDragging ? 'is-dragging' : ''}`}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerCancel}
               >
-                <span className="segment-trim-range-badge">
-                  {clipDuration.toFixed(1)}s
-                </span>
-              </div>
+                {/* Selected highlight range */}
+                <div
+                  className="segment-trim-selected-range"
+                  style={{
+                    left: `${startPercent}%`,
+                    width: `${widthPercent}%`,
+                  }}
+                >
+                  <span className="segment-trim-range-badge">
+                    {clipDuration.toFixed(1)}s
+                  </span>
+                </div>
 
-              {/* Current Playhead indicator (Draggable Red Line) */}
-              <div
-                className={`segment-trim-playhead ${isDragging ? 'active' : ''}`}
-                style={{ left: `${playheadPercent}%` }}
-              >
-                <div className="segment-trim-playhead-handle" />
+                {/* Current Playhead indicator (Draggable Red Line) */}
+                <div
+                  className={`segment-trim-playhead ${isDragging ? 'active' : ''}`}
+                  style={{ left: `${playheadPercent}%` }}
+                >
+                  <div className="segment-trim-playhead-handle" />
+                </div>
               </div>
-            </div>
+            </Tooltip>
 
             <div className="segment-trim-timeline-footer-times">
               <span>00:00.0</span>
@@ -492,38 +497,42 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
               </div>
 
               <div className="segment-trim-delta-buttons">
-                <button
-                  type="button"
-                  className="segment-trim-delta-btn"
-                  onClick={() => handleStartDelta(-1.0)}
-                  title={ui('-1.0초')}
-                >
-                  -1s
-                </button>
-                <button
-                  type="button"
-                  className="segment-trim-delta-btn"
-                  onClick={() => handleStartDelta(-0.1)}
-                  title={ui('-0.1초')}
-                >
-                  -0.1s
-                </button>
-                <button
-                  type="button"
-                  className="segment-trim-delta-btn"
-                  onClick={() => handleStartDelta(0.1)}
-                  title={ui('+0.1초')}
-                >
-                  +0.1s
-                </button>
-                <button
-                  type="button"
-                  className="segment-trim-delta-btn"
-                  onClick={() => handleStartDelta(1.0)}
-                  title={ui('+1.0초')}
-                >
-                  +1s
-                </button>
+                <Tooltip content={ui('-1.0초')}>
+                  <button
+                    type="button"
+                    className="segment-trim-delta-btn"
+                    onClick={() => handleStartDelta(-1.0)}
+                  >
+                    -1s
+                  </button>
+                </Tooltip>
+                <Tooltip content={ui('-0.1초')}>
+                  <button
+                    type="button"
+                    className="segment-trim-delta-btn"
+                    onClick={() => handleStartDelta(-0.1)}
+                  >
+                    -0.1s
+                  </button>
+                </Tooltip>
+                <Tooltip content={ui('+0.1초')}>
+                  <button
+                    type="button"
+                    className="segment-trim-delta-btn"
+                    onClick={() => handleStartDelta(0.1)}
+                  >
+                    +0.1s
+                  </button>
+                </Tooltip>
+                <Tooltip content={ui('+1.0초')}>
+                  <button
+                    type="button"
+                    className="segment-trim-delta-btn"
+                    onClick={() => handleStartDelta(1.0)}
+                  >
+                    +1s
+                  </button>
+                </Tooltip>
               </div>
 
               <button
@@ -548,38 +557,42 @@ export const SegmentTrimModal: React.FC<SegmentTrimModalProps> = ({
               </div>
 
               <div className="segment-trim-delta-buttons">
-                <button
-                  type="button"
-                  className="segment-trim-delta-btn"
-                  onClick={() => handleEndDelta(-1.0)}
-                  title={ui('-1.0초')}
-                >
-                  -1s
-                </button>
-                <button
-                  type="button"
-                  className="segment-trim-delta-btn"
-                  onClick={() => handleEndDelta(-0.1)}
-                  title={ui('-0.1초')}
-                >
-                  -0.1s
-                </button>
-                <button
-                  type="button"
-                  className="segment-trim-delta-btn"
-                  onClick={() => handleEndDelta(0.1)}
-                  title={ui('+0.1초')}
-                >
-                  +0.1s
-                </button>
-                <button
-                  type="button"
-                  className="segment-trim-delta-btn"
-                  onClick={() => handleEndDelta(1.0)}
-                  title={ui('+1.0초')}
-                >
-                  +1s
-                </button>
+                <Tooltip content={ui('-1.0초')}>
+                  <button
+                    type="button"
+                    className="segment-trim-delta-btn"
+                    onClick={() => handleEndDelta(-1.0)}
+                  >
+                    -1s
+                  </button>
+                </Tooltip>
+                <Tooltip content={ui('-0.1초')}>
+                  <button
+                    type="button"
+                    className="segment-trim-delta-btn"
+                    onClick={() => handleEndDelta(-0.1)}
+                  >
+                    -0.1s
+                  </button>
+                </Tooltip>
+                <Tooltip content={ui('+0.1초')}>
+                  <button
+                    type="button"
+                    className="segment-trim-delta-btn"
+                    onClick={() => handleEndDelta(0.1)}
+                  >
+                    +0.1s
+                  </button>
+                </Tooltip>
+                <Tooltip content={ui('+1.0초')}>
+                  <button
+                    type="button"
+                    className="segment-trim-delta-btn"
+                    onClick={() => handleEndDelta(1.0)}
+                  >
+                    +1s
+                  </button>
+                </Tooltip>
               </div>
 
               <button

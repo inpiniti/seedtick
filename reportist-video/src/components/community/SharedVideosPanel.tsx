@@ -10,6 +10,7 @@ import { ShareVideoModal } from './ShareVideoModal.tsx';
 import { scrollFadePanelProps } from '../common/scrollFade.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { notify } from '../../services/toastService.ts';
+import { Tooltip } from '../ui/Tooltip.tsx';
 
 interface SharedVideosPanelProps {
   /** 현재 중앙 미리보기에서 재생 중인 공유 영상 id. 목록에서 선택 상태로 표시한다. */
@@ -77,15 +78,16 @@ export const SharedVideosPanel = ({
             aria-label={cDict?.searchPlaceholder || ui('영상 제목 또는 작성자 검색...')}
           />
           {searchQuery && (
-            <button
-              type="button"
-              className="sv2-share-search-clear"
-              onClick={() => setSearchQuery('')}
-              aria-label={ui('검색어 지우기')}
-              title={ui('검색어 지우기')}
-            >
-              ✕
-            </button>
+            <Tooltip content={ui('검색어 지우기')}>
+              <button
+                type="button"
+                className="sv2-share-search-clear"
+                onClick={() => setSearchQuery('')}
+                aria-label={ui('검색어 지우기')}
+              >
+                ✕
+              </button>
+            </Tooltip>
           )}
         </div>
       </div>
@@ -111,15 +113,16 @@ export const SharedVideosPanel = ({
             {cDict?.sortViews || ui('조회수순')}
           </button>
         </div>
-        <button
-          type="button"
-          className="sv2-share-refresh"
-          onClick={loadVideos}
-          aria-label={dict.common?.retry || ui('새로고침')}
-          title={dict.common?.retry || ui('새로고침')}
-        >
-          <RefreshCw size={13} className={isLoading ? 'sv2-spin' : ''} />
-        </button>
+        <Tooltip content={dict.common?.retry || ui('새로고침')}>
+          <button
+            type="button"
+            className="sv2-share-refresh"
+            onClick={loadVideos}
+            aria-label={dict.common?.retry || ui('새로고침')}
+          >
+            <RefreshCw size={13} className={isLoading ? 'sv2-spin' : ''} />
+          </button>
+        </Tooltip>
       </div>
 
       <ScrollFade asChild {...scrollFadePanelProps}>
@@ -158,34 +161,34 @@ export const SharedVideosPanel = ({
             </div>
           ) : (
             videos.map((video) => (
-              <button
-                key={video.id}
-                type="button"
-                className="sv2-share-card"
-                data-selected={selectedVideoId === video.id}
-                onClick={() => handleSelectVideo(video)}
-                title={video.title}
-              >
-                <div className="sv2-share-thumb">
-                  <img src={video.thumbnailUrl} alt="" loading="lazy" />
-                  <span className="sv2-share-play" aria-hidden="true">
-                    <Play size={14} fill="currentColor" />
-                  </span>
-                  {video.durationSec != null && video.durationSec > 0 && (
-                    <span className="sv2-share-duration">
-                      {Math.floor(video.durationSec / 60)}:
-                      {String(video.durationSec % 60).padStart(2, '0')}
+              <Tooltip key={video.id} content={video.title}>
+                <button
+                  type="button"
+                  className="sv2-share-card"
+                  data-selected={selectedVideoId === video.id}
+                  onClick={() => handleSelectVideo(video)}
+                >
+                  <div className="sv2-share-thumb">
+                    <img src={video.thumbnailUrl} alt="" loading="lazy" />
+                    <span className="sv2-share-play" aria-hidden="true">
+                      <Play size={14} fill="currentColor" />
                     </span>
-                  )}
-                </div>
-                <div className="sv2-share-meta">
-                  <div className="sv2-share-title">{video.title}</div>
-                  <div className="sv2-share-author">{video.authorName}</div>
-                  <div className="sv2-share-stats">
-                    {formatViewCount(video.viewCount, locale)} · {formatTimeAgo(video.createdAt, locale)}
+                    {video.durationSec != null && video.durationSec > 0 && (
+                      <span className="sv2-share-duration">
+                        {Math.floor(video.durationSec / 60)}:
+                        {String(video.durationSec % 60).padStart(2, '0')}
+                      </span>
+                    )}
                   </div>
-                </div>
-              </button>
+                  <div className="sv2-share-meta">
+                    <div className="sv2-share-title">{video.title}</div>
+                    <div className="sv2-share-author">{video.authorName}</div>
+                    <div className="sv2-share-stats">
+                      {formatViewCount(video.viewCount, locale)} · {formatTimeAgo(video.createdAt, locale)}
+                    </div>
+                  </div>
+                </button>
+              </Tooltip>
             ))
           )}
         </div>

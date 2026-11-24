@@ -3,6 +3,7 @@ import { Film, Upload, Trash2, X, Plus, Clock, FileVideo, Calendar, MapPin, Link
 import type { VideoItem } from '../../types/video.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
+import { Tooltip } from '../ui/Tooltip.tsx';
 
 interface VideoListModalProps {
   isOpen: boolean;
@@ -211,12 +212,13 @@ export const VideoListModal: React.FC<VideoListModalProps> = ({
                     <div className="toss-video-modal-info">
                       <div className="toss-video-modal-name-row">
                         <span className="toss-video-modal-badge">#{idx + 1}</span>
-                        <span
-                          className="toss-video-modal-name"
-                          title={vid.name}
-                        >
-                          {vid.name}
-                        </span>
+                        <Tooltip content={vid.name}>
+                          <span
+                            className="toss-video-modal-name"
+                          >
+                            {vid.name}
+                          </span>
+                        </Tooltip>
                       </div>
                       <div className="toss-video-modal-meta">
                         <span>{vid.duration.toFixed(1)}{dict.common.timeSec}</span>
@@ -273,14 +275,15 @@ export const VideoListModal: React.FC<VideoListModalProps> = ({
                         />
                       </label>
                     )}
-                    <button
-                      type="button"
-                      className="toss-btn-delete-sm"
-                      onClick={() => onRemoveVideo(vid.id)}
-                      title={dict.videoListModal.deleteVideo}
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                    <Tooltip content={dict.videoListModal.deleteVideo}>
+                      <button
+                        type="button"
+                        className="toss-btn-delete-sm"
+                        onClick={() => onRemoveVideo(vid.id)}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </Tooltip>
                   </div>
                 </div>
               ))}

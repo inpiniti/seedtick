@@ -2,6 +2,7 @@
 // 라벨이 없는 아이콘 버튼은 aria-label을 필수로 받아 접근성을 보장한다.
 import React from 'react';
 import type { ButtonVariant, UiSize } from './Button.tsx';
+import { Tooltip } from './Tooltip.tsx';
 
 export interface IconButtonProps
   extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'aria-label'> {
@@ -23,6 +24,7 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
       className,
       type = 'button',
       children,
+      title: tooltipContent,
       ...rest
     },
     ref
@@ -38,16 +40,11 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
       .join(' ');
 
     return (
-      <button
-        ref={ref}
-        type={type}
-        className={classes}
-        aria-label={label}
-        title={rest.title || label}
-        {...rest}
-      >
-        {children}
-      </button>
+      <Tooltip content={tooltipContent || label}>
+        <button ref={ref} type={type} className={classes} aria-label={label} {...rest}>
+          {children}
+        </button>
+      </Tooltip>
     );
   }
 );

@@ -3,6 +3,7 @@ import type { HighlightSegment, VideoItem, VideoOverlayOptions } from '../../typ
 import { useI18n } from '../../i18n/index.tsx';
 import { formatShootDate } from './types.ts';
 import type { TimelineLayout, TimelineModel } from './timelineModel.ts';
+import { Tooltip } from '../ui/Tooltip.tsx';
 
 // components/studio-v2/TimelineVideoTrack.tsx — [인트로] + 컷 블록 + [아웃트로]
 
@@ -75,108 +76,117 @@ export const TimelineVideoTrack = ({
         <Clapperboard size={13} /> {ui('영상')}
       </div>
       <div className="sv2-track-lane" style={{ width: layout.totalWidth, paddingRight: 0 }}>
-        <button
-          type="button"
-          className="sv2-chip sv2-chip-special"
-          data-empty={!overlayOptions.showIntro}
-          data-playing={isPlaying('__intro__')}
-          style={chipStyle('__intro__')}
-          onClick={() => onOpenIntro()}
-          title={ui('인트로 설정')}
-          data-tour="onboarding-intro"
-        >
-          <span className="sv2-chip-title">{ui('인트로')}</span>
-          <span className="sv2-chip-sub">
-            {overlayOptions.showIntro
-              ? ui('{count}초', { count: model.introDuration.toFixed(1) })
-              : ui('꺼짐')}
-          </span>
-        </button>
+        <Tooltip content={ui('인트로 설정')}>
+          <button
+            type="button"
+            className="sv2-chip sv2-chip-special"
+            data-empty={!overlayOptions.showIntro}
+            data-playing={isPlaying('__intro__')}
+            style={chipStyle('__intro__')}
+            onClick={() => onOpenIntro()}
+            data-tour="onboarding-intro"
+          >
+            <span className="sv2-chip-title">{ui('인트로')}</span>
+            <span className="sv2-chip-sub">
+              {overlayOptions.showIntro
+                ? ui('{count}초', { count: model.introDuration.toFixed(1) })
+                : ui('꺼짐')}
+            </span>
+          </button>
+        </Tooltip>
 
         {segments.map((seg, index) => (
-          <div
-            key={seg.id}
-            className="sv2-chip"
-            data-selected={selectedSegmentId === seg.id}
-            data-landing={landingIds.has(seg.id)}
-            data-returning={returningIds?.has(seg.id) ?? false}
-            data-playing={isPlaying(seg.id)}
-            style={chipStyle(seg.id)}
-            data-cut-slot-id={seg.id}
-            data-locked={locked}
-            draggable={!locked}
-            onDragStart={(e) => {
-              if (locked) return;
-              e.dataTransfer.setData('text/sv2-index', String(index));
-              e.dataTransfer.effectAllowed = 'move';
-            }}
-            onDragOver={(e) => {
-              if (locked) return;
-              e.preventDefault();
-              e.dataTransfer.dropEffect = 'move';
-            }}
-            onDrop={(e) => {
-              if (locked) return;
-              e.preventDefault();
-              const from = Number(e.dataTransfer.getData('text/sv2-index'));
-              if (Number.isFinite(from) && from !== index) onReorder(from, index);
-            }}
-            onClick={() => {
-              if (locked) return;
-              onSelect(seg.id);
-              seekInto(seg.id);
-            }}
-            title={seg.reason || seg.subtitleTitle || ui('컷')}
-          >
-            {thumbFor(seg) && <img className="sv2-chip-thumb" src={thumbFor(seg)} alt="" />}
-            {!locked && selectedSegmentId === seg.id && (
-              <div className="sv2-chip-mini-toolbar" onClick={(e) => e.stopPropagation()}>
-                <button type="button" className="sv2-mini-btn" onClick={() => onTrim(seg)} title={ui('트림')}>
-                  <Scissors size={13} />
-                </button>
-                <button
-                  type="button"
-                  className="sv2-mini-btn"
-                  onClick={() =>
-                    onUpdateSegment(seg.id, { rotation: (((seg.rotation ?? 0) + 90) % 360 + 360) % 360 })
-                  }
-                  title={ui('90° 회전')}
-                >
-                  <RotateCw size={13} />
-                </button>
-                <button type="button" className="sv2-mini-btn" onClick={() => onOpenLocation(seg.id)} title={ui('위치')}>
-                  <MapPin size={13} />
-                </button>
-                <button type="button" className="sv2-mini-btn" data-danger="true" onClick={() => onDelete(seg.id)} title={ui('삭제')}>
-                  <Trash2 size={13} />
-                </button>
-              </div>
-            )}
-            <span className="sv2-chip-title">
-              {seg.subtitleTitle || ui('컷 {index}', { index: index + 1 })}
-            </span>
-            <span className="sv2-chip-sub">
-              {formatShootDate(seg) || ui('{count}초', { count: seg.duration?.toFixed(1) ?? '?' })}
-            </span>
-          </div>
+          <Tooltip key={seg.id} content={seg.reason || seg.subtitleTitle || ui('컷')}>
+            <div
+              className="sv2-chip"
+              data-selected={selectedSegmentId === seg.id}
+              data-landing={landingIds.has(seg.id)}
+              data-returning={returningIds?.has(seg.id) ?? false}
+              data-playing={isPlaying(seg.id)}
+              style={chipStyle(seg.id)}
+              data-cut-slot-id={seg.id}
+              data-locked={locked}
+              draggable={!locked}
+              onDragStart={(e) => {
+                if (locked) return;
+                e.dataTransfer.setData('text/sv2-index', String(index));
+                e.dataTransfer.effectAllowed = 'move';
+              }}
+              onDragOver={(e) => {
+                if (locked) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+              }}
+              onDrop={(e) => {
+                if (locked) return;
+                e.preventDefault();
+                const from = Number(e.dataTransfer.getData('text/sv2-index'));
+                if (Number.isFinite(from) && from !== index) onReorder(from, index);
+              }}
+              onClick={() => {
+                if (locked) return;
+                onSelect(seg.id);
+                seekInto(seg.id);
+              }}
+            >
+              {thumbFor(seg) && <img className="sv2-chip-thumb" src={thumbFor(seg)} alt="" />}
+              {!locked && selectedSegmentId === seg.id && (
+                <div className="sv2-chip-mini-toolbar" onClick={(e) => e.stopPropagation()}>
+                  <Tooltip content={ui('트림')}>
+                    <button type="button" className="sv2-mini-btn" onClick={() => onTrim(seg)}>
+                      <Scissors size={13} />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content={ui('90° 회전')}>
+                    <button
+                      type="button"
+                      className="sv2-mini-btn"
+                      onClick={() =>
+                        onUpdateSegment(seg.id, { rotation: (((seg.rotation ?? 0) + 90) % 360 + 360) % 360 })
+                      }
+                    >
+                      <RotateCw size={13} />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content={ui('위치')}>
+                    <button type="button" className="sv2-mini-btn" onClick={() => onOpenLocation(seg.id)}>
+                      <MapPin size={13} />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content={ui('삭제')}>
+                    <button type="button" className="sv2-mini-btn" data-danger="true" onClick={() => onDelete(seg.id)}>
+                      <Trash2 size={13} />
+                    </button>
+                  </Tooltip>
+                </div>
+              )}
+              <span className="sv2-chip-title">
+                {seg.subtitleTitle || ui('컷 {index}', { index: index + 1 })}
+              </span>
+              <span className="sv2-chip-sub">
+                {formatShootDate(seg) || ui('{count}초', { count: seg.duration?.toFixed(1) ?? '?' })}
+              </span>
+            </div>
+          </Tooltip>
         ))}
 
-        <button
-          type="button"
-          className="sv2-chip sv2-chip-special"
-          data-empty={!overlayOptions.showOutro}
-          data-playing={isPlaying('__outro__')}
-          style={chipStyle('__outro__')}
-          onClick={() => onOpenOutro()}
-          title={ui('아웃트로 설정')}
-        >
-          <span className="sv2-chip-title"><Flag size={12} style={{ verticalAlign: -2 }} /> {ui('아웃트로')}</span>
-          <span className="sv2-chip-sub">
-            {overlayOptions.showOutro
-              ? ui('{count}초', { count: model.outroDuration.toFixed(1) })
-              : ui('꺼짐')}
-          </span>
-        </button>
+        <Tooltip content={ui('아웃트로 설정')}>
+          <button
+            type="button"
+            className="sv2-chip sv2-chip-special"
+            data-empty={!overlayOptions.showOutro}
+            data-playing={isPlaying('__outro__')}
+            style={chipStyle('__outro__')}
+            onClick={() => onOpenOutro()}
+          >
+            <span className="sv2-chip-title"><Flag size={12} style={{ verticalAlign: -2 }} /> {ui('아웃트로')}</span>
+            <span className="sv2-chip-sub">
+              {overlayOptions.showOutro
+                ? ui('{count}초', { count: model.outroDuration.toFixed(1) })
+                : ui('꺼짐')}
+            </span>
+          </button>
+        </Tooltip>
       </div>
     </div>
   );

@@ -19,6 +19,7 @@ import type { PreviewRequest } from './types.ts';
 import { setStoredShowCredit } from '../../services/introOutroStorage.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { scrollFadePanelProps } from '../common/scrollFade.ts';
+import { Tooltip } from '../ui/Tooltip.tsx';
 
 // components/studio-v2/IntroOutroInspectorPanel.tsx
 // 인트로/아웃트로 ON·OFF, 템플릿, 문구, 길이, 직접 업로드 설정.
@@ -233,29 +234,31 @@ export const IntroOutroInspectorPanel = ({
             {ui('모션 템플릿')}
           </div>
           <div className="sv2-preview-actions">
-            <button
-              type="button"
-              className="sv2-btn sv2-btn-sm"
-              onClick={requestReplay}
-              title={ui('처음부터 다시 재생')}
-            >
-              <RotateCcw size={13} /> {ui('다시 재생')}
-            </button>
-            <button
-              type="button"
-              className="sv2-btn sv2-btn-sm"
-              data-on={loop}
-              aria-pressed={loop}
-              onClick={() => {
-                const next = !loop;
-                setLoop(next);
-                // 토글 즉시 현재 구간을 다시 재생해 반복 여부를 바로 확인할 수 있게 한다.
-                onPreviewRequest({ kind, mode: 'replay', loop: next });
-              }}
-              title={ui('구간 반복 재생')}
-            >
-              <Repeat2 size={13} /> {ui('반복')}
-            </button>
+            <Tooltip content={ui('처음부터 다시 재생')}>
+              <button
+                type="button"
+                className="sv2-btn sv2-btn-sm"
+                onClick={requestReplay}
+              >
+                <RotateCcw size={13} /> {ui('다시 재생')}
+              </button>
+            </Tooltip>
+            <Tooltip content={ui('구간 반복 재생')}>
+              <button
+                type="button"
+                className="sv2-btn sv2-btn-sm"
+                data-on={loop}
+                aria-pressed={loop}
+                onClick={() => {
+                  const next = !loop;
+                  setLoop(next);
+                  // 토글 즉시 현재 구간을 다시 재생해 반복 여부를 바로 확인할 수 있게 한다.
+                  onPreviewRequest({ kind, mode: 'replay', loop: next });
+                }}
+              >
+                <Repeat2 size={13} /> {ui('반복')}
+              </button>
+            </Tooltip>
           </div>
         </div>
         {currentFile && (
@@ -267,32 +270,32 @@ export const IntroOutroInspectorPanel = ({
           {templates.map((t) => {
             const meta = getLocalizedTemplateMeta(dict, kind, t.id);
             return (
-              <button
-                key={t.id}
-                type="button"
-                className="sv2-template-card"
-                data-active={template === t.id}
-                data-orientation={orientation}
-                data-tour={isIntro ? 'onboarding-intro-template' : undefined}
-                data-template-id={t.id}
-                onClick={() => selectTemplate(t.id)}
-                title={meta.desc}
-              >
-                <TemplateThumb
-                  kind={kind}
-                  templateId={t.id}
-                  progress={t.previewProgress}
-                  orientation={orientation}
-                  outroText={outroText}
-                />
-                <span className="sv2-template-card-body">
-                  <span className="sv2-template-card-title">
-                    <span className="sv2-template-name">{meta.name}</span>
-                    <em className="sv2-template-badge">{meta.badge}</em>
+              <Tooltip key={t.id} content={meta.desc}>
+                <button
+                  type="button"
+                  className="sv2-template-card"
+                  data-active={template === t.id}
+                  data-orientation={orientation}
+                  data-tour={isIntro ? 'onboarding-intro-template' : undefined}
+                  data-template-id={t.id}
+                  onClick={() => selectTemplate(t.id)}
+                >
+                  <TemplateThumb
+                    kind={kind}
+                    templateId={t.id}
+                    progress={t.previewProgress}
+                    orientation={orientation}
+                    outroText={outroText}
+                  />
+                  <span className="sv2-template-card-body">
+                    <span className="sv2-template-card-title">
+                      <span className="sv2-template-name">{meta.name}</span>
+                      <em className="sv2-template-badge">{meta.badge}</em>
+                    </span>
+                    <span className="sv2-template-card-desc">{meta.desc}</span>
                   </span>
-                  <span className="sv2-template-card-desc">{meta.desc}</span>
-                </span>
-              </button>
+                </button>
+              </Tooltip>
             );
           })}
         </div>

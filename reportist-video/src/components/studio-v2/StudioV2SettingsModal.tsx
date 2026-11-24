@@ -40,6 +40,7 @@ import {
 } from '../../services/subtitleRefineService.ts';
 import type { HighlightMode, SubtitleTone, VideoOverlayOptions } from '../../types/video.ts';
 import type { StudioModelDisplay } from './types.ts';
+import { Tooltip } from '../ui/Tooltip.tsx';
 
 // 무거운 콘텐츠는 해당 섹션을 처음 열 때만 로드한다.
 const PatchNotesContent = lazy(() =>
@@ -265,11 +266,13 @@ export const StudioV2SettingsModal = ({
             <div className="sv2-settings-row">
               <div className="sv2-settings-row-text">
                 <strong>{ui('AI 모델')}</strong>
-                <span title={modelDisplay.tooltip}>
-                  {isLoadingModels
-                    ? ui('불러오는 중…')
-                    : `${modelDisplay.label}${modelDisplay.speedText ? ` · ${modelDisplay.speedText}` : ''}`}
-                </span>
+                <Tooltip content={modelDisplay.tooltip}>
+                  <span>
+                    {isLoadingModels
+                      ? ui('불러오는 중…')
+                      : `${modelDisplay.label}${modelDisplay.speedText ? ` · ${modelDisplay.speedText}` : ''}`}
+                  </span>
+                </Tooltip>
               </div>
               <button
                 type="button"

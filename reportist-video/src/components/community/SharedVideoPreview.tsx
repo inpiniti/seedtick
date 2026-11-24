@@ -6,6 +6,7 @@ import type { VideoShareItem } from '../../types/share.ts';
 import { formatViewCount, formatTimeAgo } from '../../services/youtubeService.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { notify } from '../../services/toastService.ts';
+import { Tooltip } from '../ui/Tooltip.tsx';
 
 interface SharedVideoPreviewProps {
   item: VideoShareItem;
@@ -40,9 +41,11 @@ export const SharedVideoPreview = ({ item, onClose }: SharedVideoPreviewProps) =
       <div className="sv2-stage-meta sv2-shared-meta">
         <div className="sv2-shared-meta-left">
           <span className="sv2-shared-preview-tag">{ui('공유 영상 미리보기')}</span>
-          <strong className="sv2-shared-preview-title" title={item.title}>
-            {item.title}
-          </strong>
+          <Tooltip content={item.title}>
+            <strong className="sv2-shared-preview-title">
+              {item.title}
+            </strong>
+          </Tooltip>
         </div>
         <button type="button" className="sv2-shared-back" onClick={onClose}>
           <ArrowLeft size={14} /> {ui('스튜디오로 돌아가기')}

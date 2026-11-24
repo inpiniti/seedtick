@@ -16,6 +16,7 @@ import {
 import type { FeedbackCategory, NewFeedbackInput } from '../../types/feedback.ts';
 import { uploadFeedbackAttachment } from '../../services/feedbackService.ts';
 import { useI18n } from '../../i18n/index.tsx';
+import { Tooltip } from '../ui/Tooltip.tsx';
 
 export interface CreateFeedbackFormProps {
   onCancel: () => void;
@@ -141,15 +142,16 @@ export const CreateFeedbackForm: React.FC<CreateFeedbackFormProps> = ({
       {showBackHeader && (
         <div className="toss-feedback-create-header">
           <div className="toss-feedback-create-header-left">
-            <button
-              type="button"
-              className="toss-feedback-back-btn"
-              onClick={onCancel}
-              title={dict.feedback?.backToList || '목록으로 돌아가기'}
-            >
-              <ArrowLeft size={15} />
-              <span>{dict.feedback?.backToList || '목록으로'}</span>
-            </button>
+            <Tooltip content={dict.feedback?.backToList || '목록으로 돌아가기'}>
+              <button
+                type="button"
+                className="toss-feedback-back-btn"
+                onClick={onCancel}
+              >
+                <ArrowLeft size={15} />
+                <span>{dict.feedback?.backToList || '목록으로'}</span>
+              </button>
+            </Tooltip>
             <span className="toss-feedback-step-indicator">
               {dict.feedback?.createTitle || '피드백 & 개선 요청 작성'}
             </span>
@@ -307,14 +309,15 @@ export const CreateFeedbackForm: React.FC<CreateFeedbackFormProps> = ({
                     src={imgUrl}
                     alt={`Attachment ${idx + 1}`}
                   />
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveImage(idx)}
-                    className="toss-feedback-image-del-btn"
-                    title={dict.feedback?.deleteFeedbackBtn || '삭제'}
-                  >
-                    <Trash2 size={12} />
-                  </button>
+                  <Tooltip content={dict.feedback?.deleteFeedbackBtn || '삭제'}>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveImage(idx)}
+                      className="toss-feedback-image-del-btn"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </Tooltip>
                 </div>
               ))}
             </div>

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import type { FeedbackItem, FeedbackStatus } from '../../types/feedback.ts';
 import { useI18n } from '../../i18n/index.tsx';
+import { Tooltip } from '../ui/Tooltip.tsx';
 
 export interface FeedbackDetailViewProps {
   feedback: FeedbackItem;
@@ -151,15 +152,16 @@ export const FeedbackDetailView: React.FC<FeedbackDetailViewProps> = ({
     <div className="toss-feedback-detail-container">
       {/* Top Header Row with Back Button */}
       <div className="toss-feedback-detail-header">
-        <button
-          type="button"
-          className="toss-feedback-back-btn"
-          onClick={onBack}
-          title={dict.feedback?.backToList || '목록으로 돌아가기'}
-        >
-          <ArrowLeft size={15} />
-          <span>{dict.feedback?.backToList || '목록으로'}</span>
-        </button>
+        <Tooltip content={dict.feedback?.backToList || '목록으로 돌아가기'}>
+          <button
+            type="button"
+            className="toss-feedback-back-btn"
+            onClick={onBack}
+          >
+            <ArrowLeft size={15} />
+            <span>{dict.feedback?.backToList || '목록으로'}</span>
+          </button>
+        </Tooltip>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {getCategoryBadge()}
@@ -186,13 +188,14 @@ export const FeedbackDetailView: React.FC<FeedbackDetailViewProps> = ({
             {feedback.deviceInfo && (
               <>
                 <span>•</span>
-                <span
-                  style={{ display: 'flex', alignItems: 'center', gap: '4px', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                  title={feedback.deviceInfo}
-                >
-                  <Monitor size={12} />
-                  {feedback.deviceInfo.split(' (')[0]}
-                </span>
+                <Tooltip content={feedback.deviceInfo}>
+                  <span
+                    style={{ display: 'flex', alignItems: 'center', gap: '4px', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                  >
+                    <Monitor size={12} />
+                    {feedback.deviceInfo.split(' (')[0]}
+                  </span>
+                </Tooltip>
               </>
             )}
           </div>

@@ -4,6 +4,7 @@
 import React from 'react';
 import { ChevronDown, CircleHelp } from 'lucide-react';
 import { StudioStepIcon } from '../StudioStepIcon.tsx';
+import { Tooltip } from '../../ui/Tooltip.tsx';
 
 interface MobileStudioStepHeaderProps {
   stepIndex: number;
@@ -63,16 +64,17 @@ export const MobileStudioStepHeader: React.FC<MobileStudioStepHeaderProps> = ({
         </span>
       </button>
       {onOpenGuide && (
-        <button
-          type="button"
-          className="toss-mobile-step-guide-btn"
-          data-tour="studio-guide-trigger"
-          onClick={onOpenGuide}
-          aria-label={guideAriaLabel}
-          title={guideAriaLabel}
-        >
-          <CircleHelp size={18} aria-hidden="true" />
-        </button>
+        <Tooltip content={guideAriaLabel}>
+          <button
+            type="button"
+            className="toss-mobile-step-guide-btn"
+            data-tour="studio-guide-trigger"
+            onClick={onOpenGuide}
+            aria-label={guideAriaLabel}
+          >
+            <CircleHelp size={18} aria-hidden="true" />
+          </button>
+        </Tooltip>
       )}
       </div>
       <div

@@ -24,6 +24,7 @@ import type { BridgeDateTemplateId, BridgeLocationTemplateId, VideoOrientation, 
 import { previewFrame } from '../../services/frameSpec.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { notify } from '../../services/toastService.ts';
+import { Tooltip } from '../ui/Tooltip.tsx';
 
 interface ChapterBridgePreviewModalProps {
   isOpen: boolean;
@@ -410,28 +411,29 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button
-              type="button"
-              onClick={() => setIsFullscreen(!isFullscreen)}
-              style={{
-                background: '#f1f5f9',
-                border: '1px solid #e2e8f0',
-                color: '#334155',
-                cursor: 'pointer',
-                padding: '8px 12px',
-                borderRadius: '10px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontSize: '12.5px',
-                fontWeight: 600,
-                transition: 'background-color 0.15s ease',
-              }}
-              title={isFullscreen ? (cDict?.exitFullscreen || ui('원래 크기로 복귀')) : (cDict?.fullscreen || ui('전체화면 확대'))}
-            >
-              {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
-              <span>{isFullscreen ? (cDict?.exitFullscreen || ui('축소')) : (cDict?.fullscreen || ui('화면 확대'))}</span>
-            </button>
+            <Tooltip content={isFullscreen ? (cDict?.exitFullscreen || ui('원래 크기로 복귀')) : (cDict?.fullscreen || ui('전체화면 확대'))}>
+              <button
+                type="button"
+                onClick={() => setIsFullscreen(!isFullscreen)}
+                style={{
+                  background: '#f1f5f9',
+                  border: '1px solid #e2e8f0',
+                  color: '#334155',
+                  cursor: 'pointer',
+                  padding: '8px 12px',
+                  borderRadius: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '12.5px',
+                  fontWeight: 600,
+                  transition: 'background-color 0.15s ease',
+                }}
+              >
+                {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+                <span>{isFullscreen ? (cDict?.exitFullscreen || ui('축소')) : (cDict?.fullscreen || ui('화면 확대'))}</span>
+              </button>
+            </Tooltip>
             <button
               type="button"
               onClick={(e) => {
@@ -572,24 +574,25 @@ export const ChapterBridgePreviewModal: React.FC<ChapterBridgePreviewModalProps>
                 {isPlaying ? <Pause size={15} /> : <Play size={15} />}
                 {isPlaying ? (cDict?.pause || ui('일시정지')) : (cDict?.play || ui('재생'))}
               </button>
-              <button
-                type="button"
-                onClick={handleRestart}
-                style={{
-                  background: '#f1f5f9',
-                  color: '#334155',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '10px',
-                  padding: '8px 12px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  transition: 'background-color 0.15s ease',
-                }}
-                title={cDict?.restart || ui('처음부터 다시 보기')}
-              >
-                <RotateCcw size={15} />
-              </button>
+              <Tooltip content={cDict?.restart || ui('처음부터 다시 보기')}>
+                <button
+                  type="button"
+                  onClick={handleRestart}
+                  style={{
+                    background: '#f1f5f9',
+                    color: '#334155',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '10px',
+                    padding: '8px 12px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    transition: 'background-color 0.15s ease',
+                  }}
+                >
+                  <RotateCcw size={15} />
+                </button>
+              </Tooltip>
               <input
                 type="range"
                 min={0}

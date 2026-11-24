@@ -21,6 +21,7 @@ import { MobileStepListSheet } from './mobile/MobileStepListSheet.tsx';
 import { MobileBottomCtaBar } from './mobile/MobileBottomCtaBar.tsx';
 import { Button } from '../ui/Button.tsx';
 import { scrollFadePanelProps } from '../common/scrollFade.ts';
+import { Tooltip } from '../ui/Tooltip.tsx';
 import {
   Play,
   Pause,
@@ -5868,23 +5869,24 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
         <div className="toss-nav-left">
           {activeTab === 'studio' ? (
             /* 스튜디오 상세(편집 화면): 버튼 크롬 없이 '< 뒤로' 텍스트만 표시하고 다른 탭 메뉴·앱명은 숨김 */
+            <Tooltip content={dict.community?.navTitle || '영상 공유'}>
             <button
               type="button"
               className="toss-nav-back-link"
               onClick={() => navigateToTab('community')}
-              title={dict.community?.navTitle || '영상 공유'}
               aria-label={dict.community?.navTitle || '영상 공유'}
             >
               <ChevronLeft size={16} strokeWidth={2.5} className="toss-nav-back-arrow" aria-hidden="true" />
               <span className="toss-nav-back-text">{dict.common.back || '뒤로'}</span>
             </button>
+            </Tooltip>
           ) : (
             /* 목록 및 커뮤니티 화면: 로고, 브랜드명, 상단 탭 노출 */
             <>
+              <Tooltip content={dict.common.visitPenguinCutHome || 'PenguinCut 홈으로 이동'}>
               <a
                 href={getLandingPath(locale)}
                 className="toss-nav-brand-link"
-                title={dict.common.visitPenguinCutHome || 'PenguinCut 홈으로 이동'}
                 aria-label={dict.common.visitPenguinCutHome || 'PenguinCut 홈으로 이동'}
               >
                 <div className="toss-logo-badge">
@@ -5895,27 +5897,30 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   <span className="toss-nav-tagline">{dict.common.taglineBadge}</span>
                 </div>
               </a>
+              </Tooltip>
 
               {/* 상단 네비게이션 탭 (스튜디오 & 영상 공유 커뮤니티) */}
               <div className="toss-nav-tabs-group">
+                <Tooltip content={dict.community?.studioTab || '스튜디오'}>
                 <button
                   type="button"
                   className="toss-nav-tab-btn"
                   onClick={() => navigateToTab('studio')}
-                  title={dict.community?.studioTab || '스튜디오'}
                 >
                   <Film size={14} />
                   <span>{dict.community?.studioTab || '스튜디오'}</span>
                 </button>
+                </Tooltip>
+                <Tooltip content={dict.community?.communityTab || '영상 공유'}>
                 <button
                   type="button"
                   className={`toss-nav-tab-btn ${activeTab === 'community' ? 'active' : ''}`}
                   onClick={() => navigateToTab('community')}
-                  title={dict.community?.communityTab || '영상 공유'}
                 >
                   <Share2 size={14} />
                   <span>{dict.community?.communityTab || '영상 공유'}</span>
                 </button>
+                </Tooltip>
               </div>
             </>
           )}
@@ -5923,11 +5928,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
         <div className="toss-nav-right">
           {/* 다국어 언어 선택 트리거 */}
+          <Tooltip content={dict.languageModal.title}>
           <button
             type="button"
             className="toss-model-trigger toss-lang-trigger"
             onClick={() => setIsLanguageModalOpen(true)}
-            title={dict.languageModal.title}
             aria-label={`${dict.common.language || 'Language'}: ${languageCode} ${currentLocaleInfo.nativeName}`}
           >
             <span className="toss-model-trigger-icon">
@@ -5938,18 +5943,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             </span>
             <ChevronDown size={14} className="toss-model-trigger-chevron" />
           </button>
+          </Tooltip>
 
           {/* 스튜디오 설정 트리거 버튼 (데스크탑 & 모바일) */}
+          <Tooltip content={dict.common.settings || '설정'}>
           <button
             type="button"
             className="toss-settings-trigger"
             onClick={() => setIsSettingsModalOpen(true)}
-            title={dict.common.settings || '설정'}
             aria-label={dict.common.settings || '설정'}
           >
             <Settings size={15} />
             <span className="toss-settings-trigger-text">{dict.common.settings || '설정'}</span>
           </button>
+          </Tooltip>
         </div>
         </div>
 
@@ -6019,17 +6026,18 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <strong className="toss-studio-stepbar-title">
               {ui('1번부터 {count}번까지, 순서대로만 눌러주세요', { count: studioSteps.length })}
             </strong>
+            <Tooltip content={ui('사용 가이드 보기')}>
             <button
               type="button"
               className="toss-studio-guide-btn"
               data-tour="studio-guide-trigger"
               onClick={startQuickTour}
               aria-label={ui('사용 가이드 보기')}
-              title={ui('사용 가이드 보기')}
             >
               <CircleHelp size={15} aria-hidden="true" />
               <span>{ui('가이드')}</span>
             </button>
+            </Tooltip>
           </div>
           <ol className="toss-studio-steps" ref={stepbarListRef}>
             {studioSteps.map((step, index) => {
@@ -6038,6 +6046,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               const status = lockedReason || getStudioStepStatus(step.id);
               return (
                 <li key={step.id} className="toss-studio-step-item">
+                  <Tooltip content={lockedReason ?? ui(step.description)}>
                   <button
                     type="button"
                     data-tour={`studio-step-${step.id}`}
@@ -6046,7 +6055,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     onClick={() => goToSection(step.id)}
                     aria-current={isActive ? 'step' : undefined}
                     aria-disabled={lockedReason ? true : undefined}
-                    title={lockedReason ?? ui(step.description)}
                   >
                     <span className="toss-studio-step-num">
                       <StudioStepIcon stepId={step.id} size={14} />
@@ -6059,6 +6067,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       <span className="toss-studio-step-status">{status}</span>
                     </span>
                   </button>
+                  </Tooltip>
                   {index < studioSteps.length - 1 && (
                     <span className="toss-studio-step-connector" aria-hidden="true" />
                   )}
@@ -6153,14 +6162,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       {' · '}
                       {ui('배경음악 미리듣기')}
                     </span>
+                    <Tooltip content={isBgmPreviewPlaying ? dict.player.pause : dict.player.play}>
                     <button
                       type="button"
                       className="toss-play-btn"
                       onClick={togglePlay}
-                      title={isBgmPreviewPlaying ? dict.player.pause : dict.player.play}
                     >
                       {isBgmPreviewPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
                     </button>
+                    </Tooltip>
                     <p className="toss-bgm-preview-hint">
                       {ui('영상과 함께 보기는 다음 전체 보기 단계에서 자동 재생돼요')}
                     </p>
@@ -6275,6 +6285,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     />
 
                     {/* 모바일: 외부 트랜스포트 바를 숨기므로 영상 안에 음소거 버튼을 둔다 (데스크탑은 CSS로 숨김) */}
+                    <Tooltip content={isMuted ? dict.player.unmute : dict.player.mute}>
                     <button
                       type="button"
                       className="toss-video-mute-overlay-btn"
@@ -6282,13 +6293,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         e.stopPropagation();
                         toggleMute();
                       }}
-                      title={isMuted ? dict.player.unmute : dict.player.mute}
                       aria-label={isMuted ? dict.player.unmute : dict.player.mute}
                     >
                       {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
                     </button>
+                    </Tooltip>
 
                     {/* 영상 우측 상단 퀵 확대/축소 버튼 */}
+                    <Tooltip content={isFullscreen
+                          ? (dict.player?.exitFullscreen || '전체화면 축소')
+                          : (dict.player?.fullscreen || '전체화면 확대')}>
                     <button
                       type="button"
                       className="toss-video-fullscreen-overlay-btn"
@@ -6296,25 +6310,19 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         e.stopPropagation();
                         toggleFullscreen();
                       }}
-                      title={
-                        isFullscreen
-                          ? (dict.player?.exitFullscreen || '전체화면 축소')
-                          : (dict.player?.fullscreen || '전체화면 확대')
-                      }
                     >
                       {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
                     </button>
+                    </Tooltip>
 
                     {!isPlaying && activeSection !== 'intro' && (
+                      <Tooltip content={isAtEnd
+                            ? (dict.player?.replay || '처음부터 다시 재생')
+                            : dict.player.play}>
                       <button
                         type="button"
                         className="toss-canvas-play-overlay"
                         onClick={togglePlay}
-                        title={
-                          isAtEnd
-                            ? (dict.player?.replay || '처음부터 다시 재생')
-                            : dict.player.play
-                        }
                       >
                         {isAtEnd ? (
                           <RotateCcw size={28} className="text-white" />
@@ -6322,6 +6330,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           <Play size={28} className="ml-1 text-white" />
                         )}
                       </button>
+                      </Tooltip>
                     )}
 
                     {(!isSequenceMode || isRawSourcePreviewStep) &&
@@ -6359,12 +6368,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     {activeVideoUrl && !standalonePreviewSection && (
                       <div className="toss-mobile-inline-controls">
                         <div className="toss-mobile-scrub-row">
+                          <Tooltip content={dict.player.seekTooltip}>
                           <div
                             className={`toss-progress-track toss-mobile-progress-track ${
                               isScrubbing ? 'is-scrubbing' : ''
                             }`}
                             onPointerDown={handleProgressPointerDown}
-                            title={dict.player.seekTooltip}
                           >
                             {renderProgressSegmentTicks()}
                             <div
@@ -6381,6 +6390,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                               }}
                             />
                           </div>
+                          </Tooltip>
                           <span className="toss-mobile-timecode">
                             {formatSec(playerTime)} / {formatSec(playerDuration)}
                           </span>
@@ -6479,14 +6489,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 )}
 
                 {standalonePreviewSection && activeSection !== 'intro' && !activeVideoUrl && !isPlaying && (
+                  <Tooltip content={ui('미리보기 재생')}>
                   <button
                     type="button"
                     className="toss-canvas-play-overlay"
                     onClick={togglePlay}
-                    title={ui('미리보기 재생')}
                   >
                     <Play size={28} className="ml-1 text-white" />
                   </button>
+                  </Tooltip>
                 )}
 
                 {/* 1번 영상 상단 문구 단계: 인트로 모션 대신 샘플 화면에 좌·우 문구 배치만 미리 보여준다. */}
@@ -6508,27 +6519,26 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               {activeVideoUrl && !standalonePreviewSection && !isMusicPreviewStep && (
                 <div className="toss-transport-bar">
                   <div className="toss-transport-left">
+                    <Tooltip content={dict.player.rewind5s}>
                     <button
                       type="button"
                       className="toss-btn-step"
                       onClick={() => seekRelative(-5)}
-                      title={dict.player.rewind5s}
                     >
                       <RotateCcw size={13} />
                       <span>-5s</span>
                     </button>
+                    </Tooltip>
 
+                    <Tooltip content={isPlaying
+                          ? dict.player.pause
+                          : isAtEnd
+                          ? (dict.player?.replay || '처음부터 다시 재생')
+                          : dict.player.play}>
                     <button
                       type="button"
                       className="toss-play-btn"
                       onClick={togglePlay}
-                      title={
-                        isPlaying
-                          ? dict.player.pause
-                          : isAtEnd
-                          ? (dict.player?.replay || '처음부터 다시 재생')
-                          : dict.player.play
-                      }
                     >
                       {isPlaying ? (
                         <Pause size={18} />
@@ -6538,16 +6548,18 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         <Play size={18} className="ml-0.5" />
                       )}
                     </button>
+                    </Tooltip>
 
+                    <Tooltip content={dict.player.forward5s}>
                     <button
                       type="button"
                       className="toss-btn-step"
                       onClick={() => seekRelative(5)}
-                      title={dict.player.forward5s}
                     >
                       <span>+5s</span>
                       <FastForward size={13} />
                     </button>
+                    </Tooltip>
 
                     <div className="toss-timecode-text">
                       <span className="font-bold text-slate-900">{formatSec(playerTime)}</span>
@@ -6558,11 +6570,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
 
                   {/* 프로그레스 스크럽 바 — 모바일에서는 이 바가 타임라인을 겸한다.
                       컷 경계를 눈금으로 표시해 별도 타임라인 카드 없이도 어디를 보고 있는지 알 수 있게 한다. */}
+                  <Tooltip content={dict.player.seekTooltip}>
                   <div
                     ref={progressTrackRef}
                     className={`toss-progress-track ${isScrubbing ? 'is-scrubbing' : ''}`}
                     onPointerDown={handleProgressPointerDown}
-                    title={dict.player.seekTooltip}
                   >
                     {renderProgressSegmentTicks()}
                     <div
@@ -6579,29 +6591,30 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       }}
                     />
                   </div>
+                  </Tooltip>
 
                   <div className="toss-transport-right">
+                    <Tooltip content={isMuted ? dict.player.unmute : dict.player.mute}>
                     <button
                       type="button"
                       className={`toss-btn-icon ${isMuted ? 'muted' : ''}`}
                       onClick={toggleMute}
-                      title={isMuted ? dict.player.unmute : dict.player.mute}
                     >
                       {isMuted ? <VolumeX size={17} /> : <Volume2 size={17} />}
                     </button>
+                    </Tooltip>
 
+                    <Tooltip content={isFullscreen
+                          ? (dict.player?.exitFullscreen || '전체화면 축소')
+                          : (dict.player?.fullscreen || '전체화면 확대')}>
                     <button
                       type="button"
                       className={`toss-btn-icon ${isFullscreen ? 'active' : ''}`}
                       onClick={toggleFullscreen}
-                      title={
-                        isFullscreen
-                          ? (dict.player?.exitFullscreen || '전체화면 축소')
-                          : (dict.player?.fullscreen || '전체화면 확대')
-                      }
                     >
                       {isFullscreen ? <Minimize size={17} /> : <Maximize size={17} />}
                     </button>
+                    </Tooltip>
                   </div>
                 </div>
               )}
@@ -6654,6 +6667,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   {videos.map((v, idx) => {
                     const isActive = v.id === previewVideo?.id;
                     return (
+                      <Tooltip content={v.name}>
                       <button
                         key={v.id}
                         type="button"
@@ -6661,7 +6675,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         aria-selected={isActive}
                         className={`toss-draft-preview-item ${isActive ? 'active' : ''}`}
                         onClick={() => setPreviewVideoId(v.id)}
-                        title={v.name}
                       >
                         <span className="toss-draft-preview-thumb">
                           {v.thumbnailUrl ? (
@@ -6684,6 +6697,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           </span>
                         </span>
                       </button>
+                      </Tooltip>
                     );
                   })}
                 </div>
@@ -6703,22 +6717,21 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     </span>
                     {customAudioFile && customAudioDuration && customAudioDuration > 0 && (
                       overlayOptions.bgmFitToVideo ? (
+                        <Tooltip content={ui('배경음악이 영상 전체 길이에 맞춰 배속으로 딱 맞게 동기화돼요')}>
                         <span
                           className="toss-sequencer-music-badge ok"
-                          title={ui('배경음악이 영상 전체 길이에 맞춰 배속으로 딱 맞게 동기화돼요')}
                         >
                           <Music size={10} className="shrink-0" />
                           <span>
                             {ui('배속 동기화 ({speed}x · {duration})', { speed: calculatedBgmSpeed || '1.0', duration: formatSec(totalDuration) })}
                           </span>
                         </span>
+                        </Tooltip>
                       ) : isMusicExceeded ? (
+                        <Tooltip content={dict.sequencer.musicBadgeOverflowTip ||
+                            '영상 총 길이가 배경음악 1곡 길이를 초과하여 음악이 한 번 더 반복 재생돼요'}>
                         <span
                           className="toss-sequencer-music-badge warning"
-                          title={
-                            dict.sequencer.musicBadgeOverflowTip ||
-                            '영상 총 길이가 배경음악 1곡 길이를 초과하여 음악이 한 번 더 반복 재생돼요'
-                          }
                         >
                           <Music size={10} className="shrink-0" />
                           <span>
@@ -6732,11 +6745,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             )}
                           </span>
                         </span>
+                        </Tooltip>
                       ) : (
-                        <span
-                          className={`toss-sequencer-music-badge ${isMusicTrimmed ? 'trimmed' : 'ok'}`}
-                          title={
-                            isMusicTrimmed
+                        <Tooltip content={isMusicTrimmed
                               ? interpolate(
                                   dict.sequencer.musicBadgeTrimmedTip ||
                                     '배경음악 원곡({duration})이 영상 길이({used})보다 길어 영상에 맞춰 앞부분만 사용돼요',
@@ -6746,8 +6757,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                   }
                                 )
                               : (dict.sequencer.musicBadgeOkTip ||
-                                  '영상이 배경음악 1회 재생 길이 안에 깔끔하게 들어와요')
-                          }
+                                  '영상이 배경음악 1회 재생 길이 안에 깔끔하게 들어와요')}>
+                        <span
+                          className={`toss-sequencer-music-badge ${isMusicTrimmed ? 'trimmed' : 'ok'}`}
                         >
                           <Music size={10} className="shrink-0" />
                           <span>
@@ -6765,26 +6777,26 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                 )}
                           </span>
                         </span>
+                        </Tooltip>
                       )
                     )}
                   </div>
 
                   <div className="flex items-center gap-2 flex-wrap">
                     {isMusicExceeded && segments.length > 1 && (
+                      <Tooltip content={dict.sequencer.fitMusicBtnTip ||
+                          '배경음악 1곡 길이를 넘어가는 뒷부분 영상 클립들을 자동으로 제외해요'}>
                       <button
                         type="button"
                         className="toss-sequencer-fit-music-btn"
                         onClick={handleFitSegmentsToMusic}
-                        title={
-                          dict.sequencer.fitMusicBtnTip ||
-                          '배경음악 1곡 길이를 넘어가는 뒷부분 영상 클립들을 자동으로 제외해요'
-                        }
                       >
                         <Scissors size={11} />
                         <span>
                           {dict.sequencer.fitMusicBtn || '음악 길이에 맞춰 초과 클립 제외'}
                         </span>
                       </button>
+                      </Tooltip>
                     )}
                     <span className="toss-sequencer-hint">{dict.sequencer.hint}</span>
                   </div>
@@ -6805,11 +6817,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   </div>
 
                   {/* 우측 타임라인 캔버스 (클릭 및 드래그 시 해당 시간으로 실시간 시크) */}
+                  <Tooltip content={dict.player.seekTooltip}>
                   <div
                     ref={sequencerCanvasRef}
                     className={`toss-sequencer-tracks-canvas ${isScrubbing ? 'is-scrubbing' : ''}`}
                     onPointerDown={handleSequencerPointerDown}
-                    title={dict.player.seekTooltip}
                   >
                     {/* 상단 타임코드 눈금자 (Ruler) */}
                     <div className="toss-sequencer-ruler">
@@ -6829,20 +6841,21 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         {formatSec(totalDuration)}
                       </span>
                       {isMusicExceeded && customAudioDuration && (
+                        <Tooltip content={interpolate(
+                            dict.sequencer.musicEndTagTip || '배경음악 1회차 종료 시점 ({duration})',
+                            { duration: formatSec(customAudioDuration) }
+                          )}>
                         <span
                           className="toss-ruler-music-end-tag"
                           style={{
                             left: `${Math.min(96, Math.max(4, (customAudioDuration / (totalDuration || 1)) * 100))}%`,
                           }}
-                          title={interpolate(
-                            dict.sequencer.musicEndTagTip || '배경음악 1회차 종료 시점 ({duration})',
-                            { duration: formatSec(customAudioDuration) }
-                          )}
                         >
                           {interpolate(dict.sequencer.musicEndTag || '🎵 {duration} 음악 끝', {
                             duration: formatSec(customAudioDuration),
                           })}
                         </span>
+                        </Tooltip>
                       )}
                     </div>
 
@@ -6858,32 +6871,35 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     </div>
 
                     {/* 영상 종료 시점 경계선 (100% 끝에서 영상이 확실하게 닫힘 표시) */}
+                    <Tooltip content={interpolate(dict.sequencer.videoEndTagTip || '영상 종료 시점 ({duration})', {
+                        duration: formatSec(totalDuration),
+                      })}>
                     <div
                       className="toss-sequencer-end-boundary"
-                      title={interpolate(dict.sequencer.videoEndTagTip || '영상 종료 시점 ({duration})', {
-                        duration: formatSec(totalDuration),
-                      })}
                     />
+                    </Tooltip>
 
                     {/* 음악 1회차 종료 & 반복 시작 경계선 (V1 + A1 관통) */}
                     {isMusicExceeded && customAudioDuration && (
+                      <Tooltip content={interpolate(
+                          dict.sequencer.musicLimitLineTip ||
+                            '배경음악 1회차 종료 ({duration}) — 이후 구간은 음악이 처음부터 다시 반복돼요',
+                          { duration: formatSec(customAudioDuration) }
+                        )}>
                       <div
                         className="toss-sequencer-music-limit-line"
                         style={{
                           left: `${Math.min(100, Math.max(0, (customAudioDuration / (totalDuration || 1)) * 100))}%`,
                         }}
-                        title={interpolate(
-                          dict.sequencer.musicLimitLineTip ||
-                            '배경음악 1회차 종료 ({duration}) — 이후 구간은 음악이 처음부터 다시 반복돼요',
-                          { duration: formatSec(customAudioDuration) }
-                        )}
                       />
+                      </Tooltip>
                     )}
 
                     {/* V1: 비디오 클립 시퀀스 트랙 */}
                     <div className="toss-sequencer-strip">
                       {/* 시작 인트로 블록 (인터로가 포함된 경우) */}
                       {introDuration > 0 && (
+                        <Tooltip content={`${dict.introOutro.introTitle} (${introDuration.toFixed(1)}s)`}>
                         <div
                           className={`toss-sequencer-block toss-sequencer-intro-block ${activePlayingSegmentId === 'intro' ? 'playing' : ''} ${activeSection === 'intro' || activeSection === 'introStyle' ? 'selected' : ''}`}
                           style={{
@@ -6897,13 +6913,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             }
                             handleSelectSegment('intro');
                           }}
-                          title={`${dict.introOutro.introTitle} (${introDuration.toFixed(1)}s)`}
                         >
                           <div className="toss-sequencer-block-overlay">
                             <span className="toss-block-idx">Intro</span>
                             <span className="toss-block-dur">{introDuration.toFixed(1)}s</span>
                           </div>
                         </div>
+                        </Tooltip>
                       )}
 
                       {segments.map((seg, idx) => {
@@ -6935,6 +6951,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         return (
                           <React.Fragment key={seg.id}>
                             {isBridgeCandidate && (
+                              <Tooltip content={isBridgeEnabled
+                                    ? ui('장면 전환 {from} → {to} ({seconds}s) · 눌러서 수정', { from: bridgePrev?.locationName || ui('이전 장소'), to: seg.locationName || ui('다음 장소'), seconds: bridgeDur.toFixed(1) })
+                                    : ui('여기를 누르면 날짜·장소가 바뀌는 장면 전환을 넣을 수 있어요')}>
                               <button
                                 type="button"
                                 className={`toss-sequencer-bridge-chip ${isBridgeEnabled ? 'is-active' : 'is-potential'} ${isBridgeSelected ? 'selected' : ''} ${isBridgePlaying ? 'playing' : ''}`}
@@ -6953,11 +6972,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                   e.stopPropagation();
                                   handleSelectBridge(idx);
                                 }}
-                                title={
-                                  isBridgeEnabled
-                                    ? ui('장면 전환 {from} → {to} ({seconds}s) · 눌러서 수정', { from: bridgePrev?.locationName || ui('이전 장소'), to: seg.locationName || ui('다음 장소'), seconds: bridgeDur.toFixed(1) })
-                                    : ui('여기를 누르면 날짜·장소가 바뀌는 장면 전환을 넣을 수 있어요')
-                                }
                               >
                                 {isBridgeEnabled ? (
                                   <>
@@ -6968,7 +6982,19 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                   <Plus size={9} />
                                 )}
                               </button>
+                              </Tooltip>
                             )}
+                            <Tooltip content={isExceedingMusic && customAudioDuration
+                                  ? `${ui('{title} • 음악 길이({duration}) 초과 구간', { title: interpolate(dict.sequencer.clipTitle, {
+                                      idx: idx + 1,
+                                      duration: seg.duration.toFixed(1),
+                                      reason: seg.reason,
+                                    }), duration: formatSec(customAudioDuration) })}`
+                                  : interpolate(dict.sequencer.clipTitle, {
+                                      idx: idx + 1,
+                                      duration: seg.duration.toFixed(1),
+                                      reason: seg.reason,
+                                    })}>
                             <div
                               className={`toss-sequencer-block ${isSelected ? 'selected' : ''} ${isCurrent ? 'playing' : ''} ${isExceedingMusic ? 'exceeds-music' : ''} ${isFullyBeyondMusic ? 'beyond-music' : ''} ${isLastClip ? 'is-video-end-clip' : ''}`}
                               style={{
@@ -6982,19 +7008,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                 }
                                 handleSelectSegment(seg.id);
                               }}
-                              title={
-                                isExceedingMusic && customAudioDuration
-                                  ? `${ui('{title} • 음악 길이({duration}) 초과 구간', { title: interpolate(dict.sequencer.clipTitle, {
-                                      idx: idx + 1,
-                                      duration: seg.duration.toFixed(1),
-                                      reason: seg.reason,
-                                    }), duration: formatSec(customAudioDuration) })}`
-                                  : interpolate(dict.sequencer.clipTitle, {
-                                      idx: idx + 1,
-                                      duration: seg.duration.toFixed(1),
-                                      reason: seg.reason,
-                                    })
-                              }
                             >
                               {vItem?.thumbnailUrl && (
                                 <img
@@ -7016,14 +7029,14 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                 <div className="toss-block-top-row">
                                   <span className="toss-block-idx">#{idx + 1}</span>
                                   {segments.length > 1 && (
+                                    <Tooltip content={interpolate(
+                                        dict.sequencer.deleteClipTip || '#{idx} 구간 제외하기',
+                                        { idx: idx + 1 }
+                                      )}>
                                     <button
                                       type="button"
                                       className="toss-sequencer-block-delete"
                                       onClick={(e) => handleDeleteSegment(seg.id, e)}
-                                      title={interpolate(
-                                        dict.sequencer.deleteClipTip || '#{idx} 구간 제외하기',
-                                        { idx: idx + 1 }
-                                      )}
                                       aria-label={interpolate(
                                         dict.sequencer.deleteClipTip || '#{idx} 구간 제외하기',
                                         { idx: idx + 1 }
@@ -7031,28 +7044,30 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                     >
                                       <X size={10} />
                                     </button>
+                                    </Tooltip>
                                   )}
                                 </div>
                                 <div className="toss-block-bottom-row">
                                   {isExceedingMusic && (
+                                    <Tooltip content={dict.dramaticClips.musicOverflowSegmentTip ||
+                                        '음악 길이 초과 구간'}>
                                     <span
                                       className="toss-block-overflow-dot"
-                                      title={
-                                        dict.dramaticClips.musicOverflowSegmentTip ||
-                                        '음악 길이 초과 구간'
-                                      }
                                     />
+                                    </Tooltip>
                                   )}
                                   <span className="toss-block-dur">{seg.duration.toFixed(1)}s</span>
                                 </div>
                               </div>
                             </div>
+                            </Tooltip>
                           </React.Fragment>
                         );
                       })}
 
                       {/* 종료 아웃트로 블록 (아웃트로가 포함된 경우) */}
                       {outroDuration > 0 && (
+                        <Tooltip content={`${dict.introOutro.outroTitle} (${outroDuration.toFixed(1)}s)`}>
                         <div
                           className={`toss-sequencer-block toss-sequencer-outro-block is-video-end-clip ${activePlayingSegmentId === 'outro' ? 'playing' : ''} ${activeSection === 'outro' ? 'selected' : ''}`}
                           style={{
@@ -7066,17 +7081,18 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             }
                             handleSelectSegment('outro');
                           }}
-                          title={`${dict.introOutro.outroTitle} (${outroDuration.toFixed(1)}s)`}
                         >
                           <div className="toss-sequencer-block-overlay">
                             <span className="toss-block-idx">Outro</span>
                             <span className="toss-block-dur">{outroDuration.toFixed(1)}s</span>
                           </div>
                         </div>
+                        </Tooltip>
                       )}
                     </div>
 
                     {/* A1: 배경음악 구간 트랙 (1회차 원곡 재생 구간 & 초과 시 반복 구간 표시) */}
+                    <Tooltip content={ui('노래 설정 열기')}>
                     <div
                       className="toss-sequencer-audio-strip"
                       onClick={() => {
@@ -7091,19 +7107,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           goToSection('music');
                         }
                       }}
-                      title={ui('노래 설정 열기')}
                     >
                       {customAudioFile ? (
                         audioTimelineBlocks.length > 0 ? (
                           audioTimelineBlocks.map((block) => {
                             const isTrailingTrimmed = isMusicTrimmed && !block.isLoop;
                             return (
-                              <div
-                                key={`audio_cycle_${block.cycleIndex}`}
-                                className={`toss-sequencer-audio-block ${block.isLoop ? 'loop-overflow' : 'primary'} ${isTrailingTrimmed ? 'is-trimmed-trailing' : ''}`}
-                                style={{ left: `${block.leftPct}%`, width: `${block.widthPct}%` }}
-                                title={
-                                  block.isLoop
+                              <Tooltip content={block.isLoop
                                     ? ui('{name} — {cycle}회차 반복 재생 구간 ({start} ~ {end}, +{extra}s)', { name: customAudioName, cycle: block.cycleIndex + 1, start: formatSec(block.startSec), end: formatSec(block.endSec), extra: block.durationSec.toFixed(1) })
                                     : isTrailingTrimmed
                                     ? interpolate(
@@ -7115,8 +7125,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                           used: formatSec(block.durationSec),
                                         }
                                       )
-                                    : ui('{name} — 1회차 원곡 재생 ({start} ~ {end} / 원곡 총 {total})', { name: customAudioName, start: formatSec(block.startSec), end: formatSec(block.endSec), total: formatSec(customAudioDuration || block.durationSec) })
-                                }
+                                    : ui('{name} — 1회차 원곡 재생 ({start} ~ {end} / 원곡 총 {total})', { name: customAudioName, start: formatSec(block.startSec), end: formatSec(block.endSec), total: formatSec(customAudioDuration || block.durationSec) })}>
+                              <div
+                                key={`audio_cycle_${block.cycleIndex}`}
+                                className={`toss-sequencer-audio-block ${block.isLoop ? 'loop-overflow' : 'primary'} ${isTrailingTrimmed ? 'is-trimmed-trailing' : ''}`}
+                                style={{ left: `${block.leftPct}%`, width: `${block.widthPct}%` }}
                               >
                                 <div className="toss-audio-block-content">
                                   <div className="toss-audio-block-left">
@@ -7140,20 +7153,21 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                         : formatSec(block.durationSec)}
                                     </span>
                                     {isTrailingTrimmed && (
-                                      <span
-                                        className="toss-audio-trailing-badge"
-                                        title={interpolate(
+                                      <Tooltip content={interpolate(
                                           dict.sequencer.musicTrimmedTagTip ||
                                             '원곡 {duration} 중 {used} 사용됨 (뒤에 원곡이 더 이어져요)',
                                           {
                                             duration: formatSec(customAudioDuration || 0),
                                             used: formatSec(block.durationSec),
                                           }
-                                        )}
+                                        )}>
+                                      <span
+                                        className="toss-audio-trailing-badge"
                                       >
                                         <span>{dict.sequencer.musicTrimmedTag || '원곡 더 있음'}</span>
                                         <ArrowRight size={9} className="shrink-0" />
                                       </span>
+                                      </Tooltip>
                                     )}
                                   </div>
                                 </div>
@@ -7161,6 +7175,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                   <div className="toss-audio-trailing-fade-mask" aria-hidden="true" />
                                 )}
                               </div>
+                              </Tooltip>
                             );
                           })
                         ) : (
@@ -7193,6 +7208,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           </div>
                         )
                       ) : (
+                        <Tooltip content={ui('음악 파일을 선택하면 영상 길이 대비 음악 구간이 표시돼요')}>
                         <button
                           type="button"
                           className="toss-sequencer-audio-empty"
@@ -7200,7 +7216,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             e.stopPropagation();
                             customAudioInputRef.current?.click();
                           }}
-                          title={ui('음악 파일을 선택하면 영상 길이 대비 음악 구간이 표시돼요')}
                         >
                           <span className="toss-sequencer-audio-empty-left">
                             <Music size={11} className="shrink-0" />
@@ -7213,9 +7228,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             {ui('+ 내 음악 올리기')}
                           </span>
                         </button>
+                        </Tooltip>
                       )}
                     </div>
+                    </Tooltip>
                   </div>
+                  </Tooltip>
                 </div>
 
                 {isMusicExceeded && customAudioDuration && (
@@ -7305,6 +7323,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                 </div>
 
                 <div className="toss-download-actions">
+                  <Tooltip content={dict.header.downloadTitle}>
                   <button
                     type="button"
                     className={`toss-btn-download-video ${isReStitching ? 'loading' : ''}`}
@@ -7313,7 +7332,6 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       setIsExportModalOpen(true);
                     }}
                     disabled={isReStitching}
-                    title={dict.header.downloadTitle}
                   >
                     <Download size={15} className={isReStitching ? 'animate-bounce' : ''} />
                     <span>
@@ -7322,26 +7340,29 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         : `${dict.header.download || '영상 저장하기'} (${exportResolution} · ${formatSec(totalDuration)})`}
                     </span>
                   </button>
+                  </Tooltip>
                   <div className="toss-download-secondary">
+                    <Tooltip content={dict.subtitleDownload?.buttonTitle || '유튜브 호환 자막 (.srt) 다운로드'}>
                     <button
                       type="button"
                       className="toss-btn-secondary toss-btn-sm"
                       onClick={() => setIsSubtitleModalOpen(true)}
-                      title={dict.subtitleDownload?.buttonTitle || '유튜브 호환 자막 (.srt) 다운로드'}
                     >
                       <Subtitles size={13} />
                       <span>{dict.subtitleDownload?.buttonText || '자막 다운로드 (.srt)'}</span>
                     </button>
+                    </Tooltip>
+                    <Tooltip content={thumbDownloadTitle}>
                     <button
                       type="button"
                       className="toss-btn-secondary toss-btn-sm"
                       onClick={handleDownloadThumbnail}
                       disabled={!thumbnailUrl && !thumbnailBgCanvasRef.current}
-                      title={thumbDownloadTitle}
                     >
                       <ImageIcon size={13} />
                       <span>{ui('썸네일 다시 저장')}</span>
                     </button>
+                    </Tooltip>
                   </div>
                 </div>
               </div>
@@ -7491,16 +7512,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         </span>
                         <span className="toss-io-file-meta">{dict.introOutro.userVideoFirst}</span>
                       </div>
+                      <Tooltip content={dict.introOutro.removeVideo}>
                       <button
                         type="button"
                         className="toss-btn-delete-sm toss-io-file-remove"
                         onClick={() =>
                           setOverlayOptions((prev) => ({ ...prev, introVideoFile: null }))
                         }
-                        title={dict.introOutro.removeVideo}
                       >
                         <X size={13} />
                       </button>
+                      </Tooltip>
                     </div>
                   ) : (
                     <button
@@ -7550,11 +7572,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     key={v.id}
                     className={`toss-upload-item ${v.id === previewVideo?.id ? 'active' : ''}`}
                   >
+                    <Tooltip content={v.name}>
                     <button
                       type="button"
                       className="toss-upload-item-main"
                       onClick={() => setPreviewVideoId(v.id)}
-                      title={v.name}
                       aria-label={`${v.name} ${ui('미리보기')}`}
                     >
                       <span className="toss-upload-item-thumb">
@@ -7574,50 +7596,55 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         </span>
                       </span>
                     </button>
+                    </Tooltip>
                     {onUpdateVideoRotation && (
                       <div
                         className="toss-segment-rotate-controls toss-upload-rotate-controls"
                         onClick={(e) => e.stopPropagation()}
                       >
+                        <Tooltip content={ui('반시계 90도 회전')}>
                         <button
                           type="button"
                           className="toss-btn-micro-rotate"
                           onClick={(e) => handleRotateVideo(v.id, -90, e)}
-                          title={ui('반시계 90도 회전')}
                           aria-label={ui('{name} 반시계 90도 회전', { name: v.name })}
                         >
                           <RotateCcw size={12} />
                         </button>
+                        </Tooltip>
                         {Boolean(v.rotation) && (
+                          <Tooltip content={ui('0°로 초기화')}>
                           <button
                             type="button"
                             className="toss-segment-rot-indicator"
                             onClick={(e) => handleResetVideoRotation(v.id, e)}
-                            title={ui('0°로 초기화')}
                           >
                             {v.rotation}°
                           </button>
+                          </Tooltip>
                         )}
+                        <Tooltip content={ui('시계 90도 회전')}>
                         <button
                           type="button"
                           className="toss-btn-micro-rotate"
                           onClick={(e) => handleRotateVideo(v.id, 90, e)}
-                          title={ui('시계 90도 회전')}
                           aria-label={ui('{name} 시계 90도 회전', { name: v.name })}
                         >
                           <RotateCw size={12} />
                         </button>
+                        </Tooltip>
                       </div>
                     )}
+                    <Tooltip content={ui('영상 빼기')}>
                     <button
                       type="button"
                       className="toss-btn-delete-sm"
                       onClick={() => onRemoveVideo(v.id)}
-                      title={ui('영상 빼기')}
                       aria-label={ui('{name} 빼기', { name: v.name })}
                     >
                       <X size={13} />
                     </button>
+                    </Tooltip>
                   </div>
                 ))}
               </div>
@@ -7666,9 +7693,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     >
                       <span className="toss-location-item-index">{idx + 1}</span>
                       <div className="toss-location-item-body">
-                        <span className="toss-location-item-name" title={v.name}>
+                        <Tooltip content={v.name}>
+                        <span className="toss-location-item-name">
                           {v.name}
                         </span>
+                        </Tooltip>
                         {onUpdateVideoLocation && (
                           <input
                             type="text"
@@ -7893,14 +7922,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     {activeBridgeIndexes.length} / {ui('{count}곳에 넣었어요', { count: bridgeCandidateIndexes.length })}
                   </span>
                 )}
+                <Tooltip content={overlayOptions.showChapterBridge !== false
+                      ? ui('장면 전환 사용 중 · 눌러서 끄기')
+                      : ui('장면 전환 꺼짐 · 눌러서 켜기')}>
                 <label
                   data-tour="studio-bridge-toggle"
                   className="toss-toggle-switch"
-                  title={
-                    overlayOptions.showChapterBridge !== false
-                      ? ui('장면 전환 사용 중 · 눌러서 끄기')
-                      : ui('장면 전환 꺼짐 · 눌러서 켜기')
-                  }
                 >
                   <input
                     type="checkbox"
@@ -7909,6 +7936,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   />
                   <span className="toss-toggle-slider" />
                 </label>
+                </Tooltip>
               </div>
             </div>
 
@@ -8256,18 +8284,20 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     </span>
                   )}
                   {!isCaptionSection && segments.length > 0 && (
+                    <Tooltip content={dict.dramaticClips.sortByRecordedDateTitle}>
                     <button
                       type="button"
                       className="toss-btn-sort-time"
                       onClick={handleSortSegmentsByRecordedTime}
-                      title={dict.dramaticClips.sortByRecordedDateTitle}
                     >
                       <ArrowUpDown size={12} className="text-slate-500" />
                       <span>{dict.dramaticClips.sortByRecordedDate}</span>
                     </button>
+                    </Tooltip>
                   )}
                   {isCaptionSection && segments.length > 0 && (
                     <div className="toss-tone-select-wrap" ref={toneSelectorRef}>
+                      <Tooltip content={dict.dramaticClips?.subtitleToneLabel || '자막 톤앤매너'}>
                       <button
                         type="button"
                         className="toss-btn-tone-selector"
@@ -8278,12 +8308,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           e.stopPropagation();
                           setIsToneSelectorOpen((prev) => !prev);
                         }}
-                        title={dict.dramaticClips?.subtitleToneLabel || '자막 톤앤매너'}
                       >
                         <span className="text-xs">{currentToneMeta.icon}</span>
                         <span className="text-xs font-semibold">{currentToneMeta.label}</span>
                         <ChevronDown size={11} className="text-slate-400" />
                       </button>
+                      </Tooltip>
 
                       {isToneSelectorOpen && (
                         <div
@@ -8323,13 +8353,13 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     </div>
                   )}
                   {isCaptionSection && segments.length > 0 && (
+                    <Tooltip content={dict.dramaticClips?.refineSubtitlesBtnTitle || '전체 맥락을 이해하여 브이로그 스타일의 자연스러운 자막으로 교정합니다'}>
                     <button
                       type="button"
                       data-tour="studio-refine-subtitles"
                       className="toss-btn-refine-subtitles"
                       onClick={() => handleRefineSubtitles()}
                       disabled={isRefiningSubtitles}
-                      title={dict.dramaticClips?.refineSubtitlesBtnTitle || '전체 맥락을 이해하여 브이로그 스타일의 자연스러운 자막으로 교정합니다'}
                     >
                       {isRefiningSubtitles ? (
                         <Loader2 size={12} className="animate-spin text-slate-900" />
@@ -8353,16 +8383,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         }
                       />
                     </button>
+                    </Tooltip>
                   )}
                 </div>
                 <div className="flex items-center gap-3 shrink-0 ml-auto sm:ml-0">
                   {!isCaptionSection && (
+                    <Tooltip content={dict.dramaticClips.chapterBridgeTitle ||
+                        '날짜 또는 장소가 바뀌는 구간 사이에 플립 시계 / 이동 경로 브릿지를 삽입합니다'}>
                     <label
                       className="toss-toggle-label flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-600"
-                      title={
-                        dict.dramaticClips.chapterBridgeTitle ||
-                        '날짜 또는 장소가 바뀌는 구간 사이에 플립 시계 / 이동 경로 브릿지를 삽입합니다'
-                      }
                     >
                       <span>{dict.dramaticClips.chapterBridgeToggle || '챕터 브릿지'}</span>
                       <span className="toss-toggle-switch">
@@ -8377,11 +8406,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         <span className="toss-toggle-slider" />
                       </span>
                     </label>
+                    </Tooltip>
                   )}
                   {isCaptionSection && (
+                    <Tooltip content={dict.settingsModal?.showDateOptionDesc || '영상 화면에 촬영 날짜를 표시해요 (끄면 날짜 없이 장소만 표시)'}>
                     <label
                       className="toss-toggle-label flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-600"
-                      title={dict.settingsModal?.showDateOptionDesc || '영상 화면에 촬영 날짜를 표시해요 (끄면 날짜 없이 장소만 표시)'}
                     >
                       <span>{dict.settingsModal?.showDateOption || '촬영 날짜'}</span>
                       <span className="toss-toggle-switch">
@@ -8393,11 +8423,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         <span className="toss-toggle-slider" />
                       </span>
                     </label>
+                    </Tooltip>
                   )}
                   {isCaptionSection && (
+                    <Tooltip content={dict.dramaticClips.bottomSubtitleTitle}>
                     <label
                       className="toss-toggle-label flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-600"
-                      title={dict.dramaticClips.bottomSubtitleTitle}
                     >
                       <span>{dict.dramaticClips.bottomSubtitleToggle}</span>
                       <span className="toss-toggle-switch">
@@ -8411,6 +8442,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         <span className="toss-toggle-slider" />
                       </span>
                     </label>
+                    </Tooltip>
                   )}
                 </div>
               </div>
@@ -8515,15 +8547,16 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         key={seg.id}
                         className={`toss-caption-list-row ${idx === selectedSegmentIndex ? 'active' : ''}`}
                       >
+                        <Tooltip content={ui('이 씬 미리보기')}>
                         <button
                           type="button"
                           className="toss-caption-list-jump"
-                          title={ui('이 씬 미리보기')}
                           onClick={() => handleSelectSegment(seg.id, 'caption')}
                         >
                           <span className="toss-caption-list-num">{idx + 1}</span>
                           <span className="toss-caption-list-time">{formatSec(seg.start)}</span>
                         </button>
+                        </Tooltip>
                         <input
                           type="text"
                           className="toss-input-sm toss-caption-list-input"
@@ -8589,10 +8622,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   const rowNode = (
                     <React.Fragment key={seg.id}>
                       {!isCaptionSection && (bridgeEval?.shouldBridge ? (
+                        <Tooltip content={ui('브릿지 단계에서 이 장면 전환을 설정해요')}>
                         <div
                           className="toss-segment-bridge-item"
                           onClick={() => handleSelectBridge(idx)}
-                          title={ui('브릿지 단계에서 이 장면 전환을 설정해요')}
                           style={{ cursor: 'pointer' }}
                         >
                           <span className="toss-segment-bridge-badge">
@@ -8617,11 +8650,12 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             )}
                           </span>
                         </div>
+                        </Tooltip>
                       ) : (seg.skipChapterBridge) ? (
+                        <Tooltip content={ui('브릿지 단계에서 이 장면 전환을 다시 켜요')}>
                         <div
                           className="toss-segment-bridge-item"
                           onClick={() => handleSelectBridge(idx)}
-                          title={ui('브릿지 단계에서 이 장면 전환을 다시 켜요')}
                           style={{
                             cursor: 'pointer',
                             opacity: 0.6,
@@ -8635,6 +8669,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             {ui('클릭하여 챕터 브릿지 다시 켜기')}
                           </span>
                         </div>
+                        </Tooltip>
                       ) : null)}
                       <div
                         className={`toss-segment-item ${isSelected ? 'active' : ''} ${isCurrentPlaying ? 'playing' : ''} ${isSegExceedingMusic ? 'exceeds-music' : ''}`}
@@ -8679,14 +8714,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                               />
                             )}
                             {Boolean(seg.rotation) && (
+                              <Tooltip content={interpolate(dict.dramaticClips.rotateBadge || '{deg}° 회전됨', {
+                                  deg: seg.rotation ?? 0,
+                                })}>
                               <span
                                 className="toss-segment-thumb-badge"
-                                title={interpolate(dict.dramaticClips.rotateBadge || '{deg}° 회전됨', {
-                                  deg: seg.rotation ?? 0,
-                                })}
                               >
                                 {seg.rotation}°
                               </span>
+                              </Tooltip>
                             )}
                           </div>
                           <div className="toss-segment-info">
@@ -8696,17 +8732,15 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                 {seg.reason}
                               </span>
                               {isSegExceedingMusic && (
-                                <span
-                                  className={`toss-segment-music-over-badge ${isSegFullyBeyondMusic ? 'beyond' : 'boundary'}`}
-                                  title={
-                                    customAudioDuration
+                                <Tooltip content={customAudioDuration
                                       ? interpolate(
                                           dict.dramaticClips.musicOverflowTip ||
                                             '배경음악 1회차 길이({duration})를 넘어 음악이 반복되는 구간이에요',
                                           { duration: formatSec(customAudioDuration) }
                                         )
-                                      : dict.dramaticClips.musicOverflowSegmentTip || '음악 길이 초과 구간'
-                                  }
+                                      : dict.dramaticClips.musicOverflowSegmentTip || '음악 길이 초과 구간'}>
+                                <span
+                                  className={`toss-segment-music-over-badge ${isSegFullyBeyondMusic ? 'beyond' : 'boundary'}`}
                                 >
                                   <Music size={9} className="shrink-0" />
                                   <span>
@@ -8715,6 +8749,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                       : dict.dramaticClips.musicBoundaryBadge || '음악 끝 경계'}
                                   </span>
                                 </span>
+                                </Tooltip>
                               )}
                             </div>
                             <div className="toss-segment-meta-row">
@@ -8722,28 +8757,30 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                 {seg.sourceVideoName}
                               </span>
                               {segOffset && (
-                                <span
-                                  className="toss-segment-timeline-range"
-                                  title={interpolate(
+                                <Tooltip content={interpolate(
                                     dict.dramaticClips.timelinePositionTip ||
                                       '시퀀스 타임라인 위치: {start} ~ {end}',
                                     {
                                       start: formatSec(segOffset.startOffset),
                                       end: formatSec(segOffset.endOffset),
                                     }
-                                  )}
+                                  )}>
+                                <span
+                                  className="toss-segment-timeline-range"
                                 >
                                   {formatSec(segOffset.startOffset)}~{formatSec(segOffset.endOffset)}
                                 </span>
+                                </Tooltip>
                               )}
                               {segTimeInfo.full && (
+                                <Tooltip content={`${dict.dramaticClips.recordedTimeLabel}: ${segTimeInfo.full}`}>
                                 <span
                                   className="toss-segment-time-badge"
-                                  title={`${dict.dramaticClips.recordedTimeLabel}: ${segTimeInfo.full}`}
                                 >
                                   <Clock size={10} className="shrink-0" />
                                   <span>{segTimeInfo.full}</span>
                                 </span>
+                                </Tooltip>
                               )}
                             </div>
                           </div>
@@ -8755,42 +8792,46 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             <div className="toss-cut-timecode-row">
                               <span className="toss-cut-timecode-label">{ui('시작')}</span>
                               <strong>{seg.start.toFixed(1)}s</strong>
+                              <Tooltip content={"-0.5s"}>
                               <button
                                 type="button"
                                 className="toss-cut-trim-btn"
-                                title="-0.5s"
                                 onClick={() => handleTrimChange(seg.id, 'start', -0.5)}
                               >
                                 -0.5
                               </button>
+                              </Tooltip>
+                              <Tooltip content={"+0.5s"}>
                               <button
                                 type="button"
                                 className="toss-cut-trim-btn"
-                                title="+0.5s"
                                 onClick={() => handleTrimChange(seg.id, 'start', 0.5)}
                               >
                                 +0.5
                               </button>
+                              </Tooltip>
                             </div>
                             <div className="toss-cut-timecode-row">
                               <span className="toss-cut-timecode-label">{ui('종료')}</span>
                               <strong>{seg.end.toFixed(1)}s</strong>
+                              <Tooltip content={"-0.5s"}>
                               <button
                                 type="button"
                                 className="toss-cut-trim-btn"
-                                title="-0.5s"
                                 onClick={() => handleTrimChange(seg.id, 'end', -0.5)}
                               >
                                 -0.5
                               </button>
+                              </Tooltip>
+                              <Tooltip content={"+0.5s"}>
                               <button
                                 type="button"
                                 className="toss-cut-trim-btn"
-                                title="+0.5s"
                                 onClick={() => handleTrimChange(seg.id, 'end', 0.5)}
                               >
                                 +0.5
                               </button>
+                              </Tooltip>
                             </div>
                             <div className="toss-cut-timecode-row">
                               <span className="toss-cut-timecode-label">{ui('길이')}</span>
@@ -8806,6 +8847,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                             <span className="toss-segment-duration">
                               {seg.duration.toFixed(1)}s
                             </span>
+                            <Tooltip content={ui('시작·끝 구간 정밀 편집')}>
                             <button
                               type="button"
                               className="toss-btn-trim-edit"
@@ -8813,58 +8855,62 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                                 e.stopPropagation();
                                 setTrimModalTarget(seg);
                               }}
-                              title={ui('시작·끝 구간 정밀 편집')}
                             >
                               <Scissors size={11} />
                               <span>{ui('시작·끝 구간 정밀 편집')}</span>
                             </button>
+                            </Tooltip>
                           </div>
                           )}
 
                           {/* 90도 회전 컨트롤 (반시계/시계 방향) */}
                           {!isCaptionSection && (
                           <div className="toss-segment-rotate-controls" onClick={(e) => e.stopPropagation()}>
+                            <Tooltip content={dict.dramaticClips.rotateCcw || '좌회전 (↶ 90°)'}>
                             <button
                               type="button"
                               className="toss-btn-micro-rotate"
                               onClick={(e) => handleRotateSegment(seg.id, -90, e)}
-                              title={dict.dramaticClips.rotateCcw || '좌회전 (↶ 90°)'}
                               aria-label={ui('반시계 90도 회전')}
                             >
                               <RotateCcw size={12} />
                             </button>
+                            </Tooltip>
                             {Boolean(seg.rotation) && (
+                              <Tooltip content={ui('0°로 초기화')}>
                               <button
                                 type="button"
                                 className="toss-segment-rot-indicator"
                                 onClick={(e) => handleResetSegmentRotation(seg.id, e)}
-                                title={ui('0°로 초기화')}
                               >
                                 {seg.rotation}°
                               </button>
+                              </Tooltip>
                             )}
+                            <Tooltip content={dict.dramaticClips.rotateCw || '우회전 (↷ 90°)'}>
                             <button
                               type="button"
                               className="toss-btn-micro-rotate"
                               onClick={(e) => handleRotateSegment(seg.id, 90, e)}
-                              title={dict.dramaticClips.rotateCw || '우회전 (↷ 90°)'}
                               aria-label={ui('시계 90도 회전')}
                             >
                               <RotateCw size={12} />
                             </button>
+                            </Tooltip>
                           </div>
                           )}
 
 
                           {!isCaptionSection && (
+                          <Tooltip content={dict.dramaticClips.excludeInterval}>
                           <button
                             type="button"
                             className="toss-btn-delete"
                             onClick={(e) => handleDeleteSegment(seg.id, e)}
-                            title={dict.dramaticClips.excludeInterval}
                           >
                             <Trash2 size={15} />
                           </button>
+                          </Tooltip>
                           )}
                         </div>
                       </div>
@@ -9123,16 +9169,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         </span>
                         <span className="toss-io-file-meta">{dict.introOutro.userVideoFirst}</span>
                       </div>
+                      <Tooltip content={dict.introOutro.removeVideo}>
                       <button
                         type="button"
                         className="toss-btn-delete-sm toss-io-file-remove"
                         onClick={() =>
                           setOverlayOptions((prev) => ({ ...prev, outroVideoFile: null }))
                         }
-                        title={dict.introOutro.removeVideo}
                       >
                         <X size={13} />
                       </button>
+                      </Tooltip>
                     </div>
                   ) : (
                     <button
@@ -9186,6 +9233,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         : ''}
                     </span>
                   </div>
+                  <Tooltip content={ui('음악 빼기')}>
                   <button
                     type="button"
                     className="toss-btn-delete-sm"
@@ -9194,10 +9242,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       setCustomAudioName('');
                       setSelectedBgmId('none');
                     }}
-                    title={ui('음악 빼기')}
                   >
                     <X size={14} />
                   </button>
+                  </Tooltip>
                 </div>
 
                 <div className="toss-music-volume">
@@ -9250,6 +9298,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                     <ListMusic size={12} />
                     <span>{ui('다른 노래 고르기')}</span>
                   </button>
+                  <Tooltip content={isSequenceMode
+                        ? ui('배경음악만 미리 들어요. 영상과 함께 보기는 전체 보기 단계에서 해요')
+                        : ui('5번 AI 하이라이트를 먼저 만들면 영상과 함께 들을 수 있어요')}>
                   <button
                     type="button"
                     className="toss-btn-secondary toss-btn-xs"
@@ -9259,15 +9310,11 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       syncBgmPlayback(next, 0);
                     }}
                     disabled={!isSequenceMode}
-                    title={
-                      isSequenceMode
-                        ? ui('배경음악만 미리 들어요. 영상과 함께 보기는 전체 보기 단계에서 해요')
-                        : ui('5번 AI 하이라이트를 먼저 만들면 영상과 함께 들을 수 있어요')
-                    }
                   >
                     {isBgmPreviewPlaying ? <Pause size={12} /> : <Play size={12} />}
                     <span>{isBgmPreviewPlaying ? dict.player.pause : ui('미리 듣기')}</span>
                   </button>
+                  </Tooltip>
                 </div>
               </div>
             ) : (
@@ -9355,16 +9402,17 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   <span>{ui('처음부터 전체 재생')}</span>
                 </button>
 
+                <Tooltip content={ui('지금 화면에 보이는 장면을 대표 이미지로 저장해요')}>
                 <button
                   type="button"
                   className="toss-btn-secondary toss-btn-sm toss-full-preview-thumb"
                   onClick={handleCaptureFullPreviewFrame}
                   disabled={isUpdatingThumbnail}
-                  title={ui('지금 화면에 보이는 장면을 대표 이미지로 저장해요')}
                 >
                   <ImageIcon size={13} />
                   <span>{isUpdatingThumbnail ? ui('캡처 중...') : ui('이 장면을 대표 이미지로 저장')}</span>
                 </button>
+                </Tooltip>
 
                 {isMusicExceeded && customAudioDuration && (
                   <div className="toss-full-preview-overflow">
@@ -9438,26 +9486,27 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
               </button>
             )}
             {activeStudioStepIndex < studioSteps.length - 1 && (
+              <Tooltip content={nextStepBlockedReason ?? undefined}>
               <button
                 type="button"
                 data-tour="studio-next-cta"
                 className={`toss-btn-primary toss-inspector-nav-btn${nextStepBlockedReason ? ' is-blocked' : ''}`}
                 onClick={() => goToAdjacentSection(1)}
                 aria-disabled={nextStepBlockedReason ? true : undefined}
-                title={nextStepBlockedReason ?? undefined}
               >
                 <span>{ui('다음 단계')}</span>
                 <ArrowRight size={14} />
               </button>
+              </Tooltip>
             )}
           </nav>
           {/* 모바일 전체 단계 바텀시트 */}
           {isMobileViewport && (
             <MobileStepListSheet
+              title={ui('전체 단계')}
               isOpen={isStepSheetOpen}
               onClose={() => setIsStepSheetOpen(false)}
               steps={mobileStepItems}
-              title={ui('전체 단계')}
               closeLabel={dict.common?.close || ui('닫기')}
               onSelect={(id) => goToSection(id as StudioSection)}
               onLockedSelect={(id) => {
@@ -9520,7 +9569,8 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
             <div className="toss-modal-thumb-stack">
               {activeParallelTasks.length > 0
                 ? activeParallelTasks.map((task) => (
-                    <div key={task.videoId} className="toss-modal-thumb-mini" title={task.name}>
+                    <Tooltip content={task.name}>
+                    <div key={task.videoId} className="toss-modal-thumb-mini">
                       {task.thumbnailUrl ? (
                         <img src={task.thumbnailUrl} alt={task.name} />
                       ) : (
@@ -9530,6 +9580,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                         <span className="toss-modal-thumb-focus" />
                       )}
                     </div>
+                    </Tooltip>
                   ))
                 : (
                   <div className={currentVideoThumbnail ? 'toss-modal-thumb-mini' : 'toss-modal-icon-circle'}>
@@ -9626,7 +9677,9 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                           <Film size={12} className="text-slate-400" />
                         )}
                       </div>
-                      <span className="toss-modal-parallel-name" title={task.name}>{task.name}</span>
+                      <Tooltip content={task.name}>
+                      <span className="toss-modal-parallel-name">{task.name}</span>
+                      </Tooltip>
                       <span className="toss-modal-parallel-stage">
                         {task.stage === 'extracting' && ui('프레임 추출')}
                         {task.stage === 'queued' && ui('대기 중')}

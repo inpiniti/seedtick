@@ -5,6 +5,7 @@ import { Download, RefreshCw, Film, Clock, Scissors, Zap, Trash2, RotateCcw } fr
 import type { FinalVideoResult, HighlightSegment } from '../../types/video.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { Button } from '../ui/Button.tsx';
+import { Tooltip } from '../ui/Tooltip.tsx';
 
 const YoutubeIcon: React.FC<{ size?: number; className?: string }> = ({
   size = 15,
@@ -265,34 +266,35 @@ export const ResultView: React.FC<ResultViewProps> = ({
               {ui("모든 구간이 제외되었습니다. '원래대로 복구' 버튼을 눌러 구간을 되돌려보세요. ")}</div>
           ) : (
             segments.map((segment, idx) => (
-              <div
-                key={segment.id}
-                className="segment-item group"
-                onClick={() => handleSeekToSegment(segment.id)}
-                title={ui('클릭하여 이 장면으로 이동')}
-              >
-                <div className="segment-left">
-                  <span className="segment-badge">
-                    #{idx + 1} ({segment.duration.toFixed(1)}{ui('초) ')}</span>
-                  <span className="segment-reason">
-                    {segment.reason}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="segment-source">
-                    {segment.sourceVideoName} ({segment.start.toFixed(1)}s ~ {segment.end.toFixed(1)}s)
+              <Tooltip key={segment.id} content={ui('클릭하여 이 장면으로 이동')}>
+                <div
+                  className="segment-item group"
+                  onClick={() => handleSeekToSegment(segment.id)}
+                >
+                  <div className="segment-left">
+                    <span className="segment-badge">
+                      #{idx + 1} ({segment.duration.toFixed(1)}{ui('초) ')}</span>
+                    <span className="segment-reason">
+                      {segment.reason}
+                    </span>
                   </div>
-                  <button
-                    type="button"
-                    className="segment-delete-btn"
-                    title={ui('이 하이라이트 구간 제외하기')}
-                    onClick={(e) => handleDeleteSegment(segment.id, e)}
-                  >
-                    <Trash2 className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-500 hover:!text-red-600" />
-                  </button>
+
+                  <div className="flex items-center gap-3">
+                    <div className="segment-source">
+                      {segment.sourceVideoName} ({segment.start.toFixed(1)}s ~ {segment.end.toFixed(1)}s)
+                    </div>
+                    <Tooltip content={ui('이 하이라이트 구간 제외하기')}>
+                      <button
+                        type="button"
+                        className="segment-delete-btn"
+                        onClick={(e) => handleDeleteSegment(segment.id, e)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-500 hover:!text-red-600" />
+                      </button>
+                    </Tooltip>
+                  </div>
                 </div>
-              </div>
+              </Tooltip>
             ))
           )}
         </div>

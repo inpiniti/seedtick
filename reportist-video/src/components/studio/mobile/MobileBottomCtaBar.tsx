@@ -5,6 +5,7 @@
 import React from 'react';
 import { ArrowRight, ChevronLeft, Download } from 'lucide-react';
 import { Button } from '../../ui/Button.tsx';
+import { Tooltip } from '../../ui/Tooltip.tsx';
 
 interface MobileBottomCtaBarProps {
   ariaLabel: string;
@@ -59,26 +60,27 @@ export const MobileBottomCtaBar: React.FC<MobileBottomCtaBarProps> = ({
       )}
 
       {!isLastStep && (
-        <Button
-          data-tour={primaryDataTour}
-          className={`toss-bottom-cta-primary${primaryBlocked ? ' is-blocked' : ''}`}
-          variant="accent"
-          size="md"
-          onClick={onPrimary}
-          disabled={primaryDisabled}
-          aria-disabled={primaryBlocked || undefined}
-          title={primaryTitle}
-          loading={primaryBusy}
-          rightIcon={
-            isDownloadStep ? (
-              <Download size={16} aria-hidden="true" />
-            ) : (
-              <ArrowRight size={16} aria-hidden="true" />
-            )
-          }
-        >
-          {primaryLabel}
-        </Button>
+        <Tooltip content={primaryTitle}>
+          <Button
+            data-tour={primaryDataTour}
+            className={`toss-bottom-cta-primary${primaryBlocked ? ' is-blocked' : ''}`}
+            variant="accent"
+            size="md"
+            onClick={onPrimary}
+            disabled={primaryDisabled}
+            aria-disabled={primaryBlocked || undefined}
+            loading={primaryBusy}
+            rightIcon={
+              isDownloadStep ? (
+                <Download size={16} aria-hidden="true" />
+              ) : (
+                <ArrowRight size={16} aria-hidden="true" />
+              )
+            }
+          >
+            {primaryLabel}
+          </Button>
+        </Tooltip>
       )}
     </nav>
   );

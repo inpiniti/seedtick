@@ -24,6 +24,7 @@ import {
 } from '../../services/subtitleService.ts';
 import { notify } from '../../services/toastService.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
+import { Tooltip } from '../ui/Tooltip.tsx';
 
 export interface SubtitleDownloadModalProps {
   isOpen: boolean;
@@ -306,24 +307,25 @@ export const SubtitleDownloadModal: React.FC<SubtitleDownloadModalProps> = ({
                     <span>{dict.subtitleDownload?.translating || '번역 중...'}</span>
                   </span>
                 )}
-                <button
-                  type="button"
-                  className="toss-btn-micro"
-                  onClick={handleCopySrt}
-                  title={dict.subtitleDownload?.copySrt || 'SRT'}
-                >
-                  {copiedToast ? (
-                    <>
-                      <Check size={12} className="text-emerald-600" />
-                      <span className="text-emerald-600 font-bold">{dict.community?.copiedToast || '복사 완료!'}</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={12} />
-                      <span>{dict.subtitleDownload?.copySrt || 'SRT 복사'}</span>
-                    </>
-                  )}
-                </button>
+                <Tooltip content={dict.subtitleDownload?.copySrt || 'SRT'}>
+                  <button
+                    type="button"
+                    className="toss-btn-micro"
+                    onClick={handleCopySrt}
+                  >
+                    {copiedToast ? (
+                      <>
+                        <Check size={12} className="text-emerald-600" />
+                        <span className="text-emerald-600 font-bold">{dict.community?.copiedToast || '복사 완료!'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={12} />
+                        <span>{dict.subtitleDownload?.copySrt || 'SRT 복사'}</span>
+                      </>
+                    )}
+                  </button>
+                </Tooltip>
               </div>
             </div>
 
@@ -393,20 +395,21 @@ export const SubtitleDownloadModal: React.FC<SubtitleDownloadModalProps> = ({
             {dict.common.close}
           </button>
 
-          <button
-            type="button"
-            className="toss-btn-secondary"
-            onClick={handleDownloadAll}
-            disabled={segments.length === 0 || isDownloadingAll}
-            title={dict.subtitleDownload?.downloadAllBtn || '모든 언어 일괄 다운로드'}
-          >
-            <Download size={15} />
-            <span>
-              {isDownloadingAll
-                ? (dict.subtitleDownload?.downloading || dict.common.loading || '다운로드 중...')
-                : (dict.subtitleDownload?.downloadAllBtn || '모든 언어 일괄 다운로드 (7개)')}
-            </span>
-          </button>
+          <Tooltip content={dict.subtitleDownload?.downloadAllBtn || '모든 언어 일괄 다운로드'}>
+            <button
+              type="button"
+              className="toss-btn-secondary"
+              onClick={handleDownloadAll}
+              disabled={segments.length === 0 || isDownloadingAll}
+            >
+              <Download size={15} />
+              <span>
+                {isDownloadingAll
+                  ? (dict.subtitleDownload?.downloading || dict.common.loading || '다운로드 중...')
+                  : (dict.subtitleDownload?.downloadAllBtn || '모든 언어 일괄 다운로드 (7개)')}
+              </span>
+            </button>
+          </Tooltip>
 
           <button
             type="button"

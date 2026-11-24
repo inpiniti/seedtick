@@ -39,6 +39,7 @@ import { CreateFeedbackForm } from './CreateFeedbackForm.tsx';
 import { FeedbackDetailView } from './FeedbackDetailView.tsx';
 import { useI18n } from '../../i18n/index.tsx';
 import { notify } from '../../services/toastService.ts';
+import { Tooltip } from '../ui/Tooltip.tsx';
 
 type FeedbackViewMode = 'list' | 'create' | 'detail';
 
@@ -345,15 +346,16 @@ export const FeedbackView: React.FC<FeedbackViewProps> = ({ onOpenStudio, isEmbe
 
                 <div className="toss-community-header-actions">
                   {isAdminMode && (
-                    <button
-                      type="button"
-                      className="toss-btn-secondary text-xs flex items-center gap-1.5 border-slate-300 text-slate-900 bg-slate-100"
-                      onClick={handleToggleAdminMode}
-                      title={dict.feedback?.adminModeExit || '관리자 모드 해제'}
-                    >
-                      <ShieldCheck size={14} className="text-slate-900" />
-                      <span>{dict.feedback?.adminModeExit || '관리자 모드 해제'}</span>
-                    </button>
+                    <Tooltip content={dict.feedback?.adminModeExit || '관리자 모드 해제'}>
+                      <button
+                        type="button"
+                        className="toss-btn-secondary text-xs flex items-center gap-1.5 border-slate-300 text-slate-900 bg-slate-100"
+                        onClick={handleToggleAdminMode}
+                      >
+                        <ShieldCheck size={14} className="text-slate-900" />
+                        <span>{dict.feedback?.adminModeExit || '관리자 모드 해제'}</span>
+                      </button>
+                    </Tooltip>
                   )}
 
                   <button

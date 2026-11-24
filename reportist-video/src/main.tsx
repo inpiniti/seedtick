@@ -2,6 +2,7 @@
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { Tooltip } from '@animate-ui/react/primitives/base-ui/tooltip';
 import { App } from './App.tsx';
 import { AppErrorBoundary } from './components/common/AppErrorBoundary.tsx';
 import { I18nProvider } from './i18n/index.tsx';
@@ -28,7 +29,10 @@ async function bootstrap() {
     <React.StrictMode>
       <AppErrorBoundary>
         <I18nProvider>
-          <App />
+          {/* 툴팁 열기 딜레이를 전역에서 공유한다. 한 번 열리면 인접 툴팁은 즉시 표시된다. */}
+          <Tooltip.Provider delay={350} closeDelay={80} timeout={400}>
+            <App />
+          </Tooltip.Provider>
         </I18nProvider>
       </AppErrorBoundary>
     </React.StrictMode>

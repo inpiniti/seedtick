@@ -4,6 +4,7 @@ import { Check, ListMusic, Loader2, Pause, Play, Upload, VolumeX } from 'lucide-
 import { AUDIO_LIBRARY, type AudioLibraryTrack } from '../../data/audioLibrary.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { scrollFadePanelProps } from '../common/scrollFade.ts';
+import { Tooltip } from '../ui/Tooltip.tsx';
 
 // components/studio-v2/MusicInspectorPanel.tsx
 // 하단 타임라인의 음악 트랙을 누르면 열리는 오른쪽 인스펙터 패널.
@@ -184,18 +185,21 @@ export const MusicInspectorPanel = ({
                   }
                 }}
               >
-                <button
-                  type="button"
-                  className={`sv2-music-play ${isPreviewing ? 'playing' : ''}`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    togglePreview(track);
-                  }}
-                  title={isPreviewing ? t('audioLibrary.stopPreview') : t('audioLibrary.preview')}
-                  aria-label={isPreviewing ? t('audioLibrary.stopPreview') : t('audioLibrary.preview')}
+                <Tooltip
+                  content={isPreviewing ? t('audioLibrary.stopPreview') : t('audioLibrary.preview')}
                 >
-                  {isPreviewing ? <Pause size={14} /> : <Play size={14} className="sv2-music-play-icon" />}
-                </button>
+                  <button
+                    type="button"
+                    className={`sv2-music-play ${isPreviewing ? 'playing' : ''}`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      togglePreview(track);
+                    }}
+                    aria-label={isPreviewing ? t('audioLibrary.stopPreview') : t('audioLibrary.preview')}
+                  >
+                    {isPreviewing ? <Pause size={14} /> : <Play size={14} className="sv2-music-play-icon" />}
+                  </button>
+                </Tooltip>
                 <span className="sv2-music-item-text">
                   <span className="sv2-music-item-title-row">
                     <span className="sv2-music-item-title">{track.name}</span>

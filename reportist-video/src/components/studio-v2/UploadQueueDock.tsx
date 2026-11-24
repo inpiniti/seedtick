@@ -8,6 +8,7 @@ import { scrollFadePanelProps } from '../common/scrollFade.ts';
 import { SharedVideosPanel } from '../community/SharedVideosPanel.tsx';
 import { PageTransition } from './PageTransition.tsx';
 import { formatShootDate } from './types.ts';
+import { Tooltip } from '../ui/Tooltip.tsx';
 
 // components/studio-v2/UploadQueueDock.tsx
 // 분석 전/중 좌측 원본 리스트. 썸네일 + 촬영일만 최소 표시하고,
@@ -166,17 +167,18 @@ export const UploadQueueDock = ({
           {activeTab === 'source' ? (
             <>
               <div className="sv2-dock-add-row">
-                <button
-                  type="button"
-                  className="sv2-dock-add"
-                  onClick={onAddVideos}
-                  disabled={addDisabled}
-                  aria-label={addHint}
-                  title={addHint}
-                >
-                  <Plus size={15} />
-                  <span>{ui('영상 추가')}</span>
-                </button>
+                <Tooltip content={addHint}>
+                  <button
+                    type="button"
+                    className="sv2-dock-add"
+                    onClick={onAddVideos}
+                    disabled={addDisabled}
+                    aria-label={addHint}
+                  >
+                    <Plus size={15} />
+                    <span>{ui('영상 추가')}</span>
+                  </button>
+                </Tooltip>
               </div>
 
               <ScrollFade asChild {...scrollFadePanelProps}>
@@ -228,17 +230,19 @@ export const UploadQueueDock = ({
                           <div className="sv2-upload-thumb" />
                         )}
                         <div className="sv2-upload-meta">
-                          <div className="sv2-upload-name" title={video.name}>
-                            {badge.active ? (
-                              <ShimmeringText
-                                text={video.name}
-                                duration={1.4}
-                                className="sv2-shimmer-name"
-                              />
-                            ) : (
-                              video.name
-                            )}
-                          </div>
+                          <Tooltip content={video.name}>
+                            <div className="sv2-upload-name">
+                              {badge.active ? (
+                                <ShimmeringText
+                                  text={video.name}
+                                  duration={1.4}
+                                  className="sv2-shimmer-name"
+                                />
+                              ) : (
+                                video.name
+                              )}
+                            </div>
+                          </Tooltip>
                           <div className="sv2-upload-date">{shootDate}</div>
                           {isProcessing && !done && (
                             <div className="sv2-progress-bar" data-queued={badge.queued}>

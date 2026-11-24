@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { ChevronUp, ChevronDown, Trash2, Film, CheckCircle2, Link2, AlertCircle } from 'lucide-react';
 import type { VideoItem } from '../../types/video.ts';
 import { useI18n } from '../../i18n/index.tsx';
+import { Tooltip } from '../ui/Tooltip.tsx';
 
 interface VideoCardProps {
   video: VideoItem;
@@ -54,10 +55,12 @@ export const VideoCard: React.FC<VideoCardProps> = ({
 
       {/* 비디오 정보 */}
       <div className="video-info">
-        <div className="video-name" title={video.name}>
-          <span className="text-slate-400 font-mono text-xs mr-1.5">#{index + 1}</span>
-          {video.name}
-        </div>
+        <Tooltip content={video.name}>
+          <div className="video-name">
+            <span className="text-slate-400 font-mono text-xs mr-1.5">#{index + 1}</span>
+            {video.name}
+          </div>
+        </Tooltip>
         <div className="video-meta-tags">
           <span className="video-meta-pill">{formatSize(video.sizeBytes)}</span>
           {video.width > 0 && video.height > 0 && (
@@ -95,15 +98,16 @@ export const VideoCard: React.FC<VideoCardProps> = ({
       <div className="video-card-actions">
         {video.isMissingFile && onRelink && (
           <>
-            <button
-              type="button"
-              className="toss-btn-relink-card"
-              title={dict.upload?.cardRelinkTitle || '로컬 영상 파일 다시 연결하기'}
-              onClick={() => relinkInputRef.current?.click()}
-            >
-              <Link2 size={13} />
-              <span>{dict.upload?.cardRelinkBtn || '연결'}</span>
-            </button>
+            <Tooltip content={dict.upload?.cardRelinkTitle || '로컬 영상 파일 다시 연결하기'}>
+              <button
+                type="button"
+                className="toss-btn-relink-card"
+                onClick={() => relinkInputRef.current?.click()}
+              >
+                <Link2 size={13} />
+                <span>{dict.upload?.cardRelinkBtn || '연결'}</span>
+              </button>
+            </Tooltip>
             <input
               ref={relinkInputRef}
               type="file"
@@ -118,35 +122,38 @@ export const VideoCard: React.FC<VideoCardProps> = ({
             />
           </>
         )}
-        <button
-          type="button"
-          className="action-icon-btn"
-          title={dict.upload?.moveUp || '앞 순서로 이동'}
-          disabled={disabled || index === 0}
-          onClick={() => onMoveUp(index)}
-        >
-          <ChevronUp className="w-4 h-4" />
-        </button>
+        <Tooltip content={dict.upload?.moveUp || '앞 순서로 이동'}>
+          <button
+            type="button"
+            className="action-icon-btn"
+            disabled={disabled || index === 0}
+            onClick={() => onMoveUp(index)}
+          >
+            <ChevronUp className="w-4 h-4" />
+          </button>
+        </Tooltip>
 
-        <button
-          type="button"
-          className="action-icon-btn"
-          title={dict.upload?.moveDown || '다음 순서로 이동'}
-          disabled={disabled || index === totalCount - 1}
-          onClick={() => onMoveDown(index)}
-        >
-          <ChevronDown className="w-4 h-4" />
-        </button>
+        <Tooltip content={dict.upload?.moveDown || '다음 순서로 이동'}>
+          <button
+            type="button"
+            className="action-icon-btn"
+            disabled={disabled || index === totalCount - 1}
+            onClick={() => onMoveDown(index)}
+          >
+            <ChevronDown className="w-4 h-4" />
+          </button>
+        </Tooltip>
 
-        <button
-          type="button"
-          className="action-icon-btn danger"
-          title={dict.upload?.removeFromList || '목록에서 제거'}
-          disabled={disabled}
-          onClick={() => onRemove(video.id)}
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
+        <Tooltip content={dict.upload?.removeFromList || '목록에서 제거'}>
+          <button
+            type="button"
+            className="action-icon-btn danger"
+            disabled={disabled}
+            onClick={() => onRemove(video.id)}
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </Tooltip>
       </div>
     </div>
   );

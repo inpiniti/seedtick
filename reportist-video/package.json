@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@animate-ui/react": "^2.4.6",
+    "@base-ui/react": "^1.9.0",
     "@supabase/supabase-js": "^2.118.0",
     "@yusufceng1z/ding-react": "^0.0.4",
     "driver.js": "^1.14.0",

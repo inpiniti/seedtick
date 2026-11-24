@@ -14,6 +14,7 @@ import { CURRENT_APP_VERSION } from '../../data/appVersion.ts';
 import { getLocalizedPatchReleases } from '../../data/patchNotesLocalization.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { notify } from '../../services/toastService.ts';
+import { Tooltip } from '../ui/Tooltip.tsx';
 
 export interface PatchNotesContentProps {
   /** 독립 모달에서만 쓰는 '확인' 버튼. 설정창에 녹일 때는 생략한다. */
@@ -192,33 +193,36 @@ export const PatchNotesContent: React.FC<PatchNotesContentProps> = ({ onClose })
             </div>
 
             <div className="toss-patch-toggle-btns">
-              <button
-                type="button"
-                className="toss-patch-text-btn"
-                onClick={expandAll}
-                title={dict.patchNotes?.expandAll || '모두 펼치기'}
-              >
-                {dict.patchNotes?.expandAll || '모두 펼치기'}
-              </button>
+              <Tooltip content={dict.patchNotes?.expandAll || '모두 펼치기'}>
+                <button
+                  type="button"
+                  className="toss-patch-text-btn"
+                  onClick={expandAll}
+                >
+                  {dict.patchNotes?.expandAll || '모두 펼치기'}
+                </button>
+              </Tooltip>
               <span className="toss-patch-divider">|</span>
-              <button
-                type="button"
-                className="toss-patch-text-btn"
-                onClick={collapseAll}
-                title={dict.patchNotes?.collapseAll || '모두 접기'}
-              >
-                {dict.patchNotes?.collapseAll || '모두 접기'}
-              </button>
+              <Tooltip content={dict.patchNotes?.collapseAll || '모두 접기'}>
+                <button
+                  type="button"
+                  className="toss-patch-text-btn"
+                  onClick={collapseAll}
+                >
+                  {dict.patchNotes?.collapseAll || '모두 접기'}
+                </button>
+              </Tooltip>
             </div>
 
             {/* 10회 클릭 개발자 모드 토글 — 독립 모달/설정창 어디서나 동작 */}
-            <span
-              className="toss-patch-current-version-badge"
-              onClick={handleVersionClick}
-              title={dict.patchNotes?.latestBadge || '최신 버전'}
-            >
-              v{CURRENT_APP_VERSION} {dict.patchNotes?.latestBadge || '최신'}
-            </span>
+            <Tooltip content={dict.patchNotes?.latestBadge || '최신 버전'}>
+              <span
+                className="toss-patch-current-version-badge"
+                onClick={handleVersionClick}
+              >
+                v{CURRENT_APP_VERSION} {dict.patchNotes?.latestBadge || '최신'}
+              </span>
+            </Tooltip>
           </div>
         </div>
 

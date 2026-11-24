@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import type { ProcessingProgress, VideoItem } from '../../types/video.ts';
 import { useI18n } from '../../i18n/index.tsx';
+import { Tooltip } from '../ui/Tooltip.tsx';
 
 const YoutubeIcon: React.FC<{ size?: number; className?: string }> = ({
   size = 15,
@@ -161,7 +162,9 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
                   )}
                 </div>
                 <div className="parallel-task-body">
-                  <div className="parallel-task-name" title={task.name}>{task.name}</div>
+                  <Tooltip content={task.name}>
+                    <div className="parallel-task-name">{task.name}</div>
+                  </Tooltip>
                   <div className="parallel-task-status">
                     {task.stage === 'extracting' && ui('프레임 추출')}
                     {task.stage === 'queued' &&
@@ -207,9 +210,11 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
               <span className="text-xs font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
                 #{progress.currentVideoIndex + 1}
               </span>
-              <h4 className="text-sm font-bold text-slate-800 truncate" title={currentVideo.name}>
-                {currentVideo.name}
-              </h4>
+              <Tooltip content={currentVideo.name}>
+                <h4 className="text-sm font-bold text-slate-800 truncate">
+                  {currentVideo.name}
+                </h4>
+              </Tooltip>
             </div>
 
             <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 font-mono mb-2">
@@ -262,9 +267,11 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
                   </div>
 
                   <div className="analyzed-content">
-                    <div className="text-xs font-bold text-slate-800 truncate" title={vid.name}>
-                      {vid.name}
-                    </div>
+                    <Tooltip content={vid.name}>
+                      <div className="text-xs font-bold text-slate-800 truncate">
+                        {vid.name}
+                      </div>
+                    </Tooltip>
                     <div className="text-[11px] font-mono text-slate-500 flex items-center gap-1 my-0.5">
                       <Clock className="w-3 h-3 text-slate-400" />
                       <span>{vid.duration.toFixed(1)}s → <b className="text-slate-900">{segTotal.toFixed(1)}s</b></span>

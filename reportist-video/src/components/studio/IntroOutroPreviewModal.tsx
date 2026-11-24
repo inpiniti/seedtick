@@ -34,6 +34,7 @@ import { previewFrame } from '../../services/frameSpec.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { notify } from '../../services/toastService.ts';
 import { setStoredIntroOutroDefaults } from '../../services/introOutroStorage.ts';
+import { Tooltip } from '../ui/Tooltip.tsx';
 
 export interface IntroOutroPreviewModalProps {
   isOpen: boolean;
@@ -462,25 +463,26 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <button
-              type="button"
-              onClick={() => setIsFullscreen((prev) => !prev)}
-              style={{
-                width: '34px',
-                height: '34px',
-                borderRadius: '8px',
-                border: '1px solid #e2e8f0',
-                backgroundColor: '#ffffff',
-                color: '#64748b',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-              }}
-              title={isFullscreen ? ui('창 모드로 축소') : ui('대화면 전체화면')}
-            >
-              {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-            </button>
+            <Tooltip content={isFullscreen ? ui('창 모드로 축소') : ui('대화면 전체화면')}>
+              <button
+                type="button"
+                onClick={() => setIsFullscreen((prev) => !prev)}
+                style={{
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '8px',
+                  border: '1px solid #e2e8f0',
+                  backgroundColor: '#ffffff',
+                  color: '#64748b',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                }}
+              >
+                {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+              </button>
+            </Tooltip>
             <button
               type="button"
               onClick={onClose}
@@ -600,26 +602,27 @@ export const IntroOutroPreviewModal: React.FC<IntroOutroPreviewModalProps> = ({
                 {isPlaying ? <Pause size={15} /> : <Play size={15} style={{ marginLeft: '2px' }} />}
               </button>
 
-              <button
-                type="button"
-                onClick={handleRestart}
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '8px',
-                  backgroundColor: '#f1f5f9',
-                  border: 'none',
-                  color: '#475569',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  flexShrink: 0,
-                }}
-                title={ui('처음부터 다시 보기')}
-              >
-                <RotateCcw size={14} />
-              </button>
+              <Tooltip content={ui('처음부터 다시 보기')}>
+                <button
+                  type="button"
+                  onClick={handleRestart}
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    backgroundColor: '#f1f5f9',
+                    border: 'none',
+                    color: '#475569',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                  }}
+                >
+                  <RotateCcw size={14} />
+                </button>
+              </Tooltip>
 
               {/* 진행률 탐색 바 */}
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>

@@ -11,6 +11,7 @@ import {
 } from '../../services/previewCompositorBase.ts';
 import type { FrameSpec } from '../../services/frameSpec.ts';
 import { useI18n } from '../../i18n/index.tsx';
+import { Tooltip } from '../ui/Tooltip.tsx';
 
 // components/studio-v2/PreviewInteractiveOverlay.tsx
 // 캔버스 위에 포개지는 투명 히트 레이어.
@@ -122,46 +123,47 @@ const EditableTextOverlay = ({
   if (!enabled || !bounds) return null;
 
   return (
-    <div
-      className={`sv2-hit sv2-hit-${kind}`}
-      data-editing={editing}
-      data-empty={!text}
-      data-tour={kind === 'caption' ? 'onboarding-caption-hit' : undefined}
-      style={boxStyle}
-      onClick={startEditing}
-      title={text ? editLabel : addLabel}
-    >
-      {!editing && (
-        <span className="sv2-hit-affordance">
-          {text ? affordanceLabel : addAffordanceLabel}
-        </span>
-      )}
-      {editing && (
-        <textarea
-          ref={inputRef}
-          className={`sv2-${kind}-input`}
-          style={textStyle}
-          value={draft}
-          placeholder={placeholder}
-          spellCheck={false}
-          onChange={(e) => setDraft(e.target.value.replace(/\n/g, ' '))}
-          onBlur={() => finish(true)}
-          onKeyDown={(e) => {
-            // 한글·일본어 IME 조합 중 Enter는 확정이 아니라 조합 문자이므로 저장하지 않는다.
-            if (e.nativeEvent.isComposing) return;
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              finish(true);
-            }
-            if (e.key === 'Escape') {
-              e.preventDefault();
-              finish(false);
-            }
-          }}
-          onClick={(e) => e.stopPropagation()}
-        />
-      )}
-    </div>
+    <Tooltip content={text ? editLabel : addLabel}>
+      <div
+        className={`sv2-hit sv2-hit-${kind}`}
+        data-editing={editing}
+        data-empty={!text}
+        data-tour={kind === 'caption' ? 'onboarding-caption-hit' : undefined}
+        style={boxStyle}
+        onClick={startEditing}
+      >
+        {!editing && (
+          <span className="sv2-hit-affordance">
+            {text ? affordanceLabel : addAffordanceLabel}
+          </span>
+        )}
+        {editing && (
+          <textarea
+            ref={inputRef}
+            className={`sv2-${kind}-input`}
+            style={textStyle}
+            value={draft}
+            placeholder={placeholder}
+            spellCheck={false}
+            onChange={(e) => setDraft(e.target.value.replace(/\n/g, ' '))}
+            onBlur={() => finish(true)}
+            onKeyDown={(e) => {
+              // 한글·일본어 IME 조합 중 Enter는 확정이 아니라 조합 문자이므로 저장하지 않는다.
+              if (e.nativeEvent.isComposing) return;
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                finish(true);
+              }
+              if (e.key === 'Escape') {
+                e.preventDefault();
+                finish(false);
+              }
+            }}
+            onClick={(e) => e.stopPropagation()}
+          />
+        )}
+      </div>
+    </Tooltip>
   );
 };
 
@@ -247,18 +249,21 @@ export const PreviewInteractiveOverlay = ({
         onCommit={onTitleCommit}
         onEditingChange={onEditingChange}
       />
-      <button
-        type="button"
-        className="sv2-hit sv2-hit-location"
-        style={locationBoxStyle}
-        onClick={onLocationClick}
-        title={locationLabel ? ui('위치 수정') : ui('{date} · 위치 추가', { date: dateLabel })}
+      <Tooltip
+        content={locationLabel ? ui('위치 수정') : ui('{date} · 위치 추가', { date: dateLabel })}
       >
-        <span className="sv2-hit-affordance">
-          <MapPin size={12} style={{ verticalAlign: -2, marginRight: 4 }} />
-          {locationLabel ? ui('클릭해서 수정') : ui('위치 추가')}
-        </span>
-      </button>
+        <button
+          type="button"
+          className="sv2-hit sv2-hit-location"
+          style={locationBoxStyle}
+          onClick={onLocationClick}
+        >
+          <span className="sv2-hit-affordance">
+            <MapPin size={12} style={{ verticalAlign: -2, marginRight: 4 }} />
+            {locationLabel ? ui('클릭해서 수정') : ui('위치 추가')}
+          </span>
+        </button>
+      </Tooltip>
       <EditableTextOverlay
         kind="caption"
         frame={frame}

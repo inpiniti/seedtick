@@ -20,6 +20,7 @@ import { ShareVideoModal } from './ShareVideoModal.tsx';
 import { PenguinLogo } from '../common/PenguinLogo.tsx';
 import { useI18n } from '../../i18n/index.tsx';
 import { notify } from '../../services/toastService.ts';
+import { Tooltip } from '../ui/Tooltip.tsx';
 
 interface VideoCommunityViewProps {
   onOpenStudio?: () => void;
@@ -160,14 +161,15 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
                 className="toss-community-search-input"
               />
               {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="toss-community-search-clear"
-                  title={ui('검색어 지우기')}
-                >
-                  ✕
-                </button>
+                <Tooltip content={ui('검색어 지우기')}>
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="toss-community-search-clear"
+                  >
+                    ✕
+                  </button>
+                </Tooltip>
               )}
             </div>
 
@@ -192,14 +194,15 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
                 </button>
               </div>
 
-              <button
-                type="button"
-                onClick={loadVideos}
-                className="toss-community-refresh-icon-btn"
-                title={dict.common?.retry || '새로고침'}
-              >
-                <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
-              </button>
+              <Tooltip content={dict.common?.retry || '새로고침'}>
+                <button
+                  type="button"
+                  onClick={loadVideos}
+                  className="toss-community-refresh-icon-btn"
+                >
+                  <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
+                </button>
+              </Tooltip>
             </div>
           </div>
         </section>
@@ -277,9 +280,11 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
                     {video.authorName ? video.authorName.charAt(0).toUpperCase() : 'R'}
                   </div>
                   <div className="toss-video-details">
-                    <h3 className="toss-video-title" title={video.title}>
-                      {video.title}
-                    </h3>
+                    <Tooltip content={video.title}>
+                      <h3 className="toss-video-title">
+                        {video.title}
+                      </h3>
+                    </Tooltip>
                     <div className="toss-video-author">{video.authorName}</div>
                     <div className="toss-video-meta-row">
                       <div className="toss-video-meta-info">
@@ -287,14 +292,15 @@ export const VideoCommunityView: React.FC<VideoCommunityViewProps> = ({ onOpenSt
                         <span>·</span>
                         <span>{formatTimeAgo(video.createdAt, locale)}</span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={(e) => handleCopyLink(e, video.youtubeVideoId)}
-                        className="toss-video-quick-share"
-                        title={cDict?.copyLink || ui('링크 복사')}
-                      >
-                        <Share2 size={13} />
-                      </button>
+                      <Tooltip content={cDict?.copyLink || ui('링크 복사')}>
+                        <button
+                          type="button"
+                          onClick={(e) => handleCopyLink(e, video.youtubeVideoId)}
+                          className="toss-video-quick-share"
+                        >
+                          <Share2 size={13} />
+                        </button>
+                      </Tooltip>
                     </div>
                   </div>
                 </div>

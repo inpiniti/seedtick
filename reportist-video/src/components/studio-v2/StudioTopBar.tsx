@@ -10,6 +10,7 @@ import {
   Settings,
 } from 'lucide-react';
 import { PenguinLogo } from '../common/PenguinLogo.tsx';
+import { Tooltip } from '../ui/Tooltip.tsx';
 import { getLandingPath, getLanguageCode, useI18n } from '../../i18n/index.tsx';
 import type { VideoOrientation } from '../../types/video.ts';
 
@@ -49,84 +50,93 @@ export const StudioTopBar = ({
 
   return (
     <header className="sv2-topbar">
-      <button
-        type="button"
-        className="sv2-btn sv2-btn-icon sv2-btn-ghost"
-        onClick={onToggleDock}
-        aria-expanded={isDockOpen}
-        aria-label={isDockOpen ? ui('영상 목록 닫기') : ui('영상 목록 열기')}
-        title={isDockOpen ? ui('영상 목록 닫기') : ui('영상 목록 열기')}
-      >
-        {isDockOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
-      </button>
-      <a
-        className="sv2-brand"
-        href={getLandingPath(locale)}
-        title="PenguinCut"
-        aria-label="PenguinCut"
-      >
-        <PenguinLogo size={26} color="#191f28" className="sv2-brand-logo" />
-        PenguinCut
-      </a>
+      <Tooltip content={isDockOpen ? ui('영상 목록 닫기') : ui('영상 목록 열기')}>
+        <button
+          type="button"
+          className="sv2-btn sv2-btn-icon sv2-btn-ghost"
+          onClick={onToggleDock}
+          aria-expanded={isDockOpen}
+          aria-label={isDockOpen ? ui('영상 목록 닫기') : ui('영상 목록 열기')}
+        >
+          {isDockOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
+        </button>
+      </Tooltip>
+      <Tooltip content="PenguinCut">
+        <a
+          className="sv2-brand"
+          href={getLandingPath(locale)}
+          aria-label="PenguinCut"
+        >
+          <PenguinLogo size={26} color="#191f28" className="sv2-brand-logo" />
+          PenguinCut
+        </a>
+      </Tooltip>
       {projectName && <span className="sv2-project-name">{projectName}</span>}
 
       <div className="sv2-topbar-spacer" />
 
-      <div className="sv2-segmented" title={ui('화면 비율')}>
+      <Tooltip content={ui('화면 비율')}>
+        <div className="sv2-segmented">
+          <Tooltip content={ui('가로 영상 (16:9)')}>
+            <button
+              type="button"
+              data-active={orientation === 'landscape'}
+              aria-pressed={orientation === 'landscape'}
+              aria-label={ui('가로 영상 (16:9)')}
+              onClick={() => onOrientationChange('landscape')}
+            >
+              <RectangleHorizontal size={17} strokeWidth={2} />
+            </button>
+          </Tooltip>
+          <Tooltip content={ui('세로 영상 (9:16)')}>
+            <button
+              type="button"
+              data-active={orientation === 'portrait'}
+              aria-pressed={orientation === 'portrait'}
+              aria-label={ui('세로 영상 (9:16)')}
+              onClick={() => onOrientationChange('portrait')}
+            >
+              <RectangleVertical size={17} strokeWidth={2} />
+            </button>
+          </Tooltip>
+        </div>
+      </Tooltip>
+
+      <Tooltip content={`${languageCode} · ${currentLocaleInfo.nativeName}`}>
         <button
           type="button"
-          data-active={orientation === 'landscape'}
-          aria-pressed={orientation === 'landscape'}
-          title={ui('가로 영상 (16:9)')}
-          aria-label={ui('가로 영상 (16:9)')}
-          onClick={() => onOrientationChange('landscape')}
+          className="sv2-model-trigger sv2-lang-trigger"
+          onClick={onOpenLanguageModal}
+          aria-label={`${languageCode} · ${currentLocaleInfo.nativeName}`}
         >
-          <RectangleHorizontal size={17} strokeWidth={2} />
+          <Globe size={14} />
+          <span className="sv2-lang-code">{languageCode}</span>
+          <ChevronDown size={13} className="sv2-model-chevron" />
         </button>
+      </Tooltip>
+
+      <Tooltip content={ui('사용 가이드 다시 보기')}>
         <button
           type="button"
-          data-active={orientation === 'portrait'}
-          aria-pressed={orientation === 'portrait'}
-          title={ui('세로 영상 (9:16)')}
-          aria-label={ui('세로 영상 (9:16)')}
-          onClick={() => onOrientationChange('portrait')}
+          className="sv2-btn sv2-btn-icon sv2-settings-trigger"
+          onClick={onReplayGuide}
+          aria-label={ui('사용 가이드 다시 보기')}
         >
-          <RectangleVertical size={17} strokeWidth={2} />
+          <CircleHelp size={18} />
         </button>
-      </div>
+      </Tooltip>
 
-      <button
-        type="button"
-        className="sv2-model-trigger sv2-lang-trigger"
-        onClick={onOpenLanguageModal}
-        title={`${languageCode} · ${currentLocaleInfo.nativeName}`}
-        aria-label={`${languageCode} · ${currentLocaleInfo.nativeName}`}
-      >
-        <Globe size={14} />
-        <span className="sv2-lang-code">{languageCode}</span>
-        <ChevronDown size={13} className="sv2-model-chevron" />
-      </button>
-
-      <button
-        type="button"
-        className="sv2-btn sv2-btn-icon sv2-settings-trigger"
-        onClick={onReplayGuide}
-        aria-label={ui('사용 가이드 다시 보기')}
-        title={ui('사용 가이드 다시 보기')}
-      >
-        <CircleHelp size={18} />
-      </button>
-
-      <button
-        type="button"
-        className="sv2-btn sv2-btn-icon sv2-settings-trigger"
-        onClick={onOpenSettings}
-        aria-haspopup="dialog"
-        aria-label={t('common.settings')}
-        title={t('common.settings')}
-      >
-        <Settings size={18} />
-      </button>
+      <Tooltip content={t('common.settings')}>
+        <button
+          type="button"
+          className="sv2-btn sv2-btn-icon sv2-settings-trigger"
+          onClick={onOpenSettings}
+          aria-haspopup="dialog"
+          aria-label={t('common.settings')}
+        >
+          <Settings size={18} />
+        </button>
+      </Tooltip>
 
       <button
         type="button"

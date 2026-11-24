@@ -51,6 +51,7 @@ import {
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 import { scrollFadePanelProps } from '../common/scrollFade.ts';
 import { useIsMobileViewport } from '../../hooks/useIsMobileViewport.ts';
+import { Tooltip } from '../ui/Tooltip.tsx';
 
 interface ModelSelectorModalProps {
   isOpen: boolean;
@@ -601,14 +602,15 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                     gap: '4px',
                   }}
                 >
-                  <button
-                    type="button"
-                    onClick={() => setShowKeyText(!showKeyText)}
-                    className="model-modal-icon-btn"
-                    title={showKeyText ? (dict.modelModal.byokHideBtn || '숨기기') : (dict.modelModal.byokShowBtn || '표시')}
-                  >
-                    {showKeyText ? <EyeOff size={15} /> : <Eye size={15} />}
-                  </button>
+                  <Tooltip content={showKeyText ? (dict.modelModal.byokHideBtn || '숨기기') : (dict.modelModal.byokShowBtn || '표시')}>
+                    <button
+                      type="button"
+                      onClick={() => setShowKeyText(!showKeyText)}
+                      className="model-modal-icon-btn"
+                    >
+                      {showKeyText ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </Tooltip>
                   <button
                     type="button"
                     onClick={async () => {
@@ -632,15 +634,16 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                 {currentPreset.recommendedModels.length > 0 && (
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
                     {currentPreset.recommendedModels.map((m) => (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => setModelInput(m.id)}
-                        className={`model-modal-option-chip ${modelInput === m.id ? 'is-active' : ''}`}
-                        title={m.desc}
-                      >
-                        {m.name}
-                      </button>
+                      <Tooltip key={m.id} content={m.desc}>
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => setModelInput(m.id)}
+                          className={`model-modal-option-chip ${modelInput === m.id ? 'is-active' : ''}`}
+                        >
+                          {m.name}
+                        </button>
+                      </Tooltip>
                     ))}
                   </div>
                 )}
@@ -677,20 +680,23 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                   className="model-modal-save-btn"
                 >
                   <Key size={15} />
-                  <span title={dict.modelModal.byokSaveBtn || '브라우저에 저장하고 연결하기'}>
-                    {dict.modelModal.byokSaveBtn || '브라우저에 저장하고 연결하기'}
-                  </span>
+                  <Tooltip content={dict.modelModal.byokSaveBtn || '브라우저에 저장하고 연결하기'}>
+                    <span>
+                      {dict.modelModal.byokSaveBtn || '브라우저에 저장하고 연결하기'}
+                    </span>
+                  </Tooltip>
                 </button>
                 {storedUserKey && (
-                  <button
-                    type="button"
-                    onClick={handleClearByok}
-                    className="model-modal-delete-btn"
-                    title={dict.modelModal.byokDeleteBtn || '삭제'}
-                  >
-                    <Trash2 size={15} />
-                    <span>{dict.modelModal.byokDeleteBtn || '삭제'}</span>
-                  </button>
+                  <Tooltip content={dict.modelModal.byokDeleteBtn || '삭제'}>
+                    <button
+                      type="button"
+                      onClick={handleClearByok}
+                      className="model-modal-delete-btn"
+                    >
+                      <Trash2 size={15} />
+                      <span>{dict.modelModal.byokDeleteBtn || '삭제'}</span>
+                    </button>
+                  </Tooltip>
                 )}
               </div>
             </div>
@@ -1016,12 +1022,13 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                         </span>
                       )}
                       {trainsOnData && (
-                        <span
-                          className="model-modal-compact-warning"
-                          title={dict.modelModal.privacyTrainingTip || '주의: 이 엔드포인트는 데이터가 모델 학습에 사용될 수 있습니다.'}
-                        >
-                          <ShieldAlert size={13} />
-                        </span>
+                        <Tooltip content={dict.modelModal.privacyTrainingTip || '주의: 이 엔드포인트는 데이터가 모델 학습에 사용될 수 있습니다.'}>
+                          <span
+                            className="model-modal-compact-warning"
+                          >
+                            <ShieldAlert size={13} />
+                          </span>
+                        </Tooltip>
                       )}
                       <div className="model-modal-select-indicator">
                         {isSelected ? (
@@ -1084,32 +1091,34 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                       )}
                       {isNew && <span className="model-modal-new-badge">{dict.modelModal.badgeNew}</span>}
                       {model.dataPolicy?.training === false && (
-                        <span
-                          className="model-modal-fastest-badge"
-                          style={{
-                            background: 'rgba(16, 185, 129, 0.1)',
-                            color: '#059669',
-                            borderColor: 'rgba(16, 185, 129, 0.3)',
-                          }}
-                          title={dict.modelModal.privacyNoTrainingTip || '이 모델은 입력 데이터를 학습에 사용하지 않습니다.'}
-                        >
-                          <ShieldCheck size={11} />
-                          {dict.modelModal.privacyNoTraining ?? ui('학습 미사용')}
-                        </span>
+                        <Tooltip content={dict.modelModal.privacyNoTrainingTip || '이 모델은 입력 데이터를 학습에 사용하지 않습니다.'}>
+                          <span
+                            className="model-modal-fastest-badge"
+                            style={{
+                              background: 'rgba(16, 185, 129, 0.1)',
+                              color: '#059669',
+                              borderColor: 'rgba(16, 185, 129, 0.3)',
+                            }}
+                          >
+                            <ShieldCheck size={11} />
+                            {dict.modelModal.privacyNoTraining ?? ui('학습 미사용')}
+                          </span>
+                        </Tooltip>
                       )}
                       {model.dataPolicy?.training === true && (
-                        <span
-                          className="model-modal-fastest-badge"
-                          style={{
-                            background: 'rgba(245, 158, 11, 0.1)',
-                            color: '#d97706',
-                            borderColor: 'rgba(245, 158, 11, 0.3)',
-                          }}
-                          title={dict.modelModal.privacyTrainingTip || '주의: 이 엔드포인트는 데이터가 모델 학습에 사용될 수 있습니다.'}
-                        >
-                          <ShieldAlert size={11} />
-                          {dict.modelModal.privacyTraining ?? ui('학습에 사용됨')}
-                        </span>
+                        <Tooltip content={dict.modelModal.privacyTrainingTip || '주의: 이 엔드포인트는 데이터가 모델 학습에 사용될 수 있습니다.'}>
+                          <span
+                            className="model-modal-fastest-badge"
+                            style={{
+                              background: 'rgba(245, 158, 11, 0.1)',
+                              color: '#d97706',
+                              borderColor: 'rgba(245, 158, 11, 0.3)',
+                            }}
+                          >
+                            <ShieldAlert size={11} />
+                            {dict.modelModal.privacyTraining ?? ui('학습에 사용됨')}
+                          </span>
+                        </Tooltip>
                       )}
                     </div>
 
@@ -1194,13 +1203,14 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                     )}
 
                     {model.supportsReasoning && (
-                      <div
-                        className="model-modal-tag capability reasoning"
-                        title={model.reasoningToggle ? 'Reasoning on/off' : undefined}
-                      >
-                        <Brain size={12} />
-                        <span>{dict.modelModal.tagReasoning}</span>
-                      </div>
+                      <Tooltip content={model.reasoningToggle ? 'Reasoning on/off' : undefined}>
+                        <div
+                          className="model-modal-tag capability reasoning"
+                        >
+                          <Brain size={12} />
+                          <span>{dict.modelModal.tagReasoning}</span>
+                        </div>
+                      </Tooltip>
                     )}
                     {model.supportsTools && (
                       <div className="model-modal-tag capability tools">
@@ -1209,17 +1219,18 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                       </div>
                     )}
                     {model.docsUrl && (
-                      <a
-                        className="model-modal-tag docs"
-                        href={model.docsUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        title={dict.modelModal.tagModelDocs}
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        <ExternalLink size={12} />
-                        <span>{dict.modelModal.tagModelDocs}</span>
-                      </a>
+                      <Tooltip content={dict.modelModal.tagModelDocs}>
+                        <a
+                          className="model-modal-tag docs"
+                          href={model.docsUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <ExternalLink size={12} />
+                          <span>{dict.modelModal.tagModelDocs}</span>
+                        </a>
+                      </Tooltip>
                     )}
 
                     {inputModalities.includes('image') && (
@@ -1269,53 +1280,57 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                     {model.dataPolicy && (
                       <>
                         {model.dataPolicy.training === false ? (
-                          <div
-                            className="model-modal-tag privacy-safe"
-                            title={dict.modelModal.privacyNoTrainingTip || '이 모델 제공사는 입력된 영상/데이터를 모델 학습에 사용하지 않습니다.'}
-                          >
-                            <ShieldCheck size={12} color="#10b981" />
-                            <span style={{ color: '#059669', fontWeight: 600 }}>
-                              {dict.modelModal.privacyNoTraining ?? ui('학습 미사용')}
-                            </span>
-                          </div>
+                          <Tooltip content={dict.modelModal.privacyNoTrainingTip || '이 모델 제공사는 입력된 영상/데이터를 모델 학습에 사용하지 않습니다.'}>
+                            <div
+                              className="model-modal-tag privacy-safe"
+                            >
+                              <ShieldCheck size={12} color="#10b981" />
+                              <span style={{ color: '#059669', fontWeight: 600 }}>
+                                {dict.modelModal.privacyNoTraining ?? ui('학습 미사용')}
+                              </span>
+                            </div>
+                          </Tooltip>
                         ) : model.dataPolicy.training === true ? (
-                          <div
-                            className="model-modal-tag privacy-warning"
-                            title={dict.modelModal.privacyTrainingTip || '주의: 이 무료 엔드포인트는 입력된 데이터가 모델 학습에 활용될 수 있습니다.'}
-                          >
-                            <ShieldAlert size={12} color="#f59e0b" />
-                            <span style={{ color: '#d97706', fontWeight: 600 }}>
-                              {dict.modelModal.privacyTraining ?? ui('학습에 사용됨')}
-                            </span>
-                          </div>
+                          <Tooltip content={dict.modelModal.privacyTrainingTip || '주의: 이 무료 엔드포인트는 입력된 데이터가 모델 학습에 활용될 수 있습니다.'}>
+                            <div
+                              className="model-modal-tag privacy-warning"
+                            >
+                              <ShieldAlert size={12} color="#f59e0b" />
+                              <span style={{ color: '#d97706', fontWeight: 600 }}>
+                                {dict.modelModal.privacyTraining ?? ui('학습에 사용됨')}
+                              </span>
+                            </div>
+                          </Tooltip>
                         ) : null}
 
                         {model.dataPolicy.retainsPrompts === false ? (
-                          <div
-                            className="model-modal-tag privacy-zdr"
-                            title={dict.modelModal.privacyZdrTip || '요청 완료 후 데이터가 서버에 일체 보관되지 않고 즉시 삭제됩니다 (Zero Data Retention).'}
-                          >
-                            <span style={{ color: '#059669', fontWeight: 600 }}>
-                              🛡️ {dict.modelModal.privacyZdr ?? ui('즉시 삭제 (ZDR)')}
-                            </span>
-                          </div>
+                          <Tooltip content={dict.modelModal.privacyZdrTip || '요청 완료 후 데이터가 서버에 일체 보관되지 않고 즉시 삭제됩니다 (Zero Data Retention).'}>
+                            <div
+                              className="model-modal-tag privacy-zdr"
+                            >
+                              <span style={{ color: '#059669', fontWeight: 600 }}>
+                                🛡️ {dict.modelModal.privacyZdr ?? ui('즉시 삭제 (ZDR)')}
+                              </span>
+                            </div>
+                          </Tooltip>
                         ) : model.dataPolicy.retainsPrompts === true ? (
-                          <div
-                            className="model-modal-tag privacy-retention"
-                            title={interpolate(
-                              dict.modelModal.privacyRetentionTip ||
-                                '서버 보안 및 악용 방지 로그 목적으로 {days}일간 임시 보관된 후 삭제됩니다.',
-                              { days: model.dataPolicy.retentionDays || 30 }
-                            )}
-                          >
-                            <span style={{ color: '#4b5563' }}>
-                              ⏱️ {typeof model.dataPolicy.retentionDays === 'number' && model.dataPolicy.retentionDays > 0
-                                ? interpolate(dict.modelModal.privacyRetention ?? ui('보관 {days}일'), {
-                                    days: model.dataPolicy.retentionDays,
-                                  })
-                                : (dict.modelModal.privacyRetained30d ?? ui('보관 30일'))}
-                            </span>
-                          </div>
+                          <Tooltip content={interpolate(
+                            dict.modelModal.privacyRetentionTip ||
+                              '서버 보안 및 악용 방지 로그 목적으로 {days}일간 임시 보관된 후 삭제됩니다.',
+                            { days: model.dataPolicy.retentionDays || 30 }
+                          )}>
+                            <div
+                              className="model-modal-tag privacy-retention"
+                            >
+                              <span style={{ color: '#4b5563' }}>
+                                ⏱️ {typeof model.dataPolicy.retentionDays === 'number' && model.dataPolicy.retentionDays > 0
+                                  ? interpolate(dict.modelModal.privacyRetention ?? ui('보관 {days}일'), {
+                                      days: model.dataPolicy.retentionDays,
+                                    })
+                                  : (dict.modelModal.privacyRetained30d ?? ui('보관 30일'))}
+                              </span>
+                            </div>
+                          </Tooltip>
                         ) : null}
                       </>
                     )}

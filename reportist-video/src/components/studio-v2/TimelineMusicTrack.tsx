@@ -2,6 +2,7 @@ import { Music2, Plus, Trash2 } from 'lucide-react';
 import { AUDIO_LIBRARY } from '../../data/audioLibrary.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import type { TimelineLayout } from './timelineModel.ts';
+import { Tooltip } from '../ui/Tooltip.tsx';
 
 // components/studio-v2/TimelineMusicTrack.tsx — 단일 BGM 트랙 (1곡 고정).
 
@@ -73,12 +74,8 @@ export const TimelineMusicTrack = ({
           data-open={musicInspectorOpen}
           style={filledWidth ? { width: filledWidth } : undefined}
         >
-          <button
-            type="button"
-            className="sv2-music-chip-main"
-            onClick={onToggleMusic}
-            aria-expanded={musicInspectorOpen}
-            title={
+          <Tooltip
+            content={
               musicInspectorOpen
                 ? ui('닫기')
                 : hasMusic
@@ -86,40 +83,53 @@ export const TimelineMusicTrack = ({
                 : ui('음악 1곡 추가')
             }
           >
-            {hasMusic ? <Music2 size={14} /> : <Plus size={14} />}
-            <span className="sv2-music-chip-name">{name || ui('음악 1곡 추가')}</span>
-          </button>
+            <button
+              type="button"
+              className="sv2-music-chip-main"
+              onClick={onToggleMusic}
+              aria-expanded={musicInspectorOpen}
+            >
+              {hasMusic ? <Music2 size={14} /> : <Plus size={14} />}
+              <span className="sv2-music-chip-name">{name || ui('음악 1곡 추가')}</span>
+            </button>
+          </Tooltip>
           {hasMusic && (
             <div className="sv2-music-chip-controls">
-              <input
-                className="sv2-music-vol"
-                type="range"
-                min={0}
-                max={1}
-                step={0.01}
-                value={bgmVolume}
-                onChange={(e) => onVolumeChange(Number(e.target.value))}
-                title={ui('볼륨')}
-              />
+              <Tooltip content={ui('볼륨')}>
+                <input
+                  className="sv2-music-vol"
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={bgmVolume}
+                  onChange={(e) => onVolumeChange(Number(e.target.value))}
+                />
+              </Tooltip>
               <span style={{ fontSize: 11, color: 'var(--sv2-text-3)', minWidth: 32 }}>
                 {Math.round(bgmVolume * 100)}%
               </span>
-              <button
-                type="button"
-                className="sv2-mini-btn sv2-mini-btn-fit"
-                data-on={bgmFitToVideo}
-                aria-pressed={bgmFitToVideo}
-                onClick={() => onFitChange?.(!bgmFitToVideo)}
-                title={t('bgm.fitToVideoDesc')}
-              >
-                {t('bgm.fitToVideo')}
-              </button>
-              <button type="button" className="sv2-mini-btn" onClick={onOpenMusic} title={ui('교체')}>
-                {ui('교체')}
-              </button>
-              <button type="button" className="sv2-mini-btn" data-danger="true" onClick={onRemove} title={ui('삭제')}>
-                <Trash2 size={13} />
-              </button>
+              <Tooltip content={t('bgm.fitToVideoDesc')}>
+                <button
+                  type="button"
+                  className="sv2-mini-btn sv2-mini-btn-fit"
+                  data-on={bgmFitToVideo}
+                  aria-pressed={bgmFitToVideo}
+                  onClick={() => onFitChange?.(!bgmFitToVideo)}
+                >
+                  {t('bgm.fitToVideo')}
+                </button>
+              </Tooltip>
+              <Tooltip content={ui('교체')}>
+                <button type="button" className="sv2-mini-btn" onClick={onOpenMusic}>
+                  {ui('교체')}
+                </button>
+              </Tooltip>
+              <Tooltip content={ui('삭제')}>
+                <button type="button" className="sv2-mini-btn" data-danger="true" onClick={onRemove}>
+                  <Trash2 size={13} />
+                </button>
+              </Tooltip>
             </div>
           )}
         </div>
