@@ -36,6 +36,7 @@ export class ProxyService {
   // 교차(Interleaving) 통합 슬롯 풀
   private readonly slots: KeySlot[];
   private slotIndex = 0;
+  private opencodeIndex = 0;
   // 콜드 스타트 재시도 추적 (provider:modelId)
   private readonly coldStartTried = new Set<string>();
 
@@ -49,6 +50,7 @@ export class ProxyService {
         { provider: 'openrouter', keys: env.openrouterKeys },
         { provider: 'kilo', keys: env.kiloKeys },
         { provider: 'gemini', keys: env.geminiKeys },
+        { provider: 'opencode', keys: env.opencodeKeys },
       ]
     );
 
@@ -136,6 +138,21 @@ export class ProxyService {
       );
     }
 
+    // OpenCode 무료 모델 브릿지 (Vercel → Analyzer → Bun 사이드카)
+    if (env.opencodeKeys.length > 0) {
+      this.adapters.set(
+        'opencode',
+        new OpenAICompatAdapter({
+          baseUrl: env.opencodeBaseUrl,
+          apiKeys: env.opencodeKeys,
+          keyHeaderName: 'X-OpenCode-Api-Key',
+          defaultHeaders: env.gatewaySecret
+            ? { Authorization: `Bearer ${env.gatewaySecret}` }
+            : undefined,
+        })
+      );
+    }
+
     // Gemini (Optional)
     if (env.geminiKeys.length > 0) {
       this.adapters.set(
@@ -170,9 +187,137 @@ export class ProxyService {
     return chain;
   }
 
-  async chat(request: ChatRequest): Promise<ChatResponse | GatewayError> {
+  private getOpenCodeKeys(keyOverride?: string): string[] {
+    return [...new Set(keyOverride?.trim() ? [keyOverride.trim()] : env.opencodeKeys)];
+  }
+
+  private async openCodeExhausted(
+    attempts: GatewayAttempt[],
+    model: string
+  ): Promise<GatewayError> {
+    await this.errorLogger.critical(
+      'OPENCODE_KEYS_EXHAUSTED',
+      'OpenCode 무료 키가 모두 소진되었거나 응답하지 않습니다',
+      { attemptsCount: attempts.length, modelRequested: model, lastAttempts: attempts.slice(-5) }
+    );
+    return {
+      error: {
+        code: 'GATEWAY_OPENCODE_EXHAUSTED',
+        message:
+          'OpenCode 무료 키가 모두 소진되었거나 응답하지 않습니다 (다른 제공사로 폴백하지 않습니다)',
+        type: 'gateway_error',
+        attempts,
+      },
+    } as GatewayError;
+  }
+
+  /** opencode/* 전용 경로: 키 소진 시 다른 제공사로 폴백하지 않고 명시적 에러를 반환한다. */
+  private async chatOpenCode(
+    request: ChatRequest,
+    targetModel: string,
+    keyOverride?: string
+  ): Promise<ChatResponse | GatewayError> {
+    const attempts: GatewayAttempt[] = [];
+    const adapter = this.adapters.get('opencode');
+    const keys = this.getOpenCodeKeys(keyOverride);
+    if (adapter && keys.length > 0) {
+      for (let offset = 0; offset < keys.length; offset++) {
+        const key = keys[(this.opencodeIndex + offset) % keys.length];
+        if (this.cooldown.isCoolingDown('opencode', targetModel, key)) continue;
+        this.rotator.acquireKey('opencode', key);
+        try {
+          const result = await this.callWithColdStartRetry(
+            adapter,
+            request,
+            targetModel,
+            key,
+            'opencode',
+            attempts
+          );
+          if (result.ok && result.response) {
+            this.opencodeIndex = (this.opencodeIndex + offset + 1) % keys.length;
+            return result.response;
+          }
+          const category = this.classifier.classify(result.status, result.errorBody);
+          attempts.push({
+            provider: 'opencode',
+            modelId: targetModel,
+            apiKeyHash: key.slice(-8),
+            httpStatus: result.status,
+            errorCategory: category,
+            errorSnippet: result.errorBody.slice(0, 200),
+            attemptedAt: new Date().toISOString(),
+          });
+          const duration = result.status === 429 ? 30_000 : 15_000;
+          this.cooldown.setCooldown(
+            'opencode',
+            targetModel,
+            key,
+            duration,
+            result.status === 429 ? 'rpm_exceeded' : 'server_overloaded'
+          );
+        } finally {
+          this.rotator.releaseKey('opencode', key);
+        }
+      }
+    }
+    return this.openCodeExhausted(attempts, targetModel);
+  }
+
+  private async chatStreamOpenCode(
+    request: ChatRequest,
+    targetModel: string,
+    keyOverride?: string
+  ): Promise<{ ok: true; stream: ReadableStream<Uint8Array> } | GatewayError> {
+    const attempts: GatewayAttempt[] = [];
+    const adapter = this.adapters.get('opencode');
+    const keys = this.getOpenCodeKeys(keyOverride);
+    if (adapter?.callStream && keys.length > 0) {
+      for (let offset = 0; offset < keys.length; offset++) {
+        const key = keys[(this.opencodeIndex + offset) % keys.length];
+        if (this.cooldown.isCoolingDown('opencode', targetModel, key)) continue;
+        this.rotator.acquireKey('opencode', key);
+        try {
+          const result = await adapter.callStream(request, targetModel, key, 180_000);
+          if (result.ok && result.stream) {
+            this.opencodeIndex = (this.opencodeIndex + offset + 1) % keys.length;
+            return { ok: true, stream: result.stream };
+          }
+          const category = this.classifier.classify(result.status, result.errorBody);
+          attempts.push({
+            provider: 'opencode',
+            modelId: targetModel,
+            apiKeyHash: key.slice(-8),
+            httpStatus: result.status,
+            errorCategory: category,
+            errorSnippet: result.errorBody.slice(0, 200),
+            attemptedAt: new Date().toISOString(),
+          });
+          const duration = result.status === 429 ? 30_000 : 15_000;
+          this.cooldown.setCooldown(
+            'opencode',
+            targetModel,
+            key,
+            duration,
+            result.status === 429 ? 'rpm_exceeded' : 'server_overloaded'
+          );
+        } finally {
+          this.rotator.releaseKey('opencode', key);
+        }
+      }
+    }
+    return this.openCodeExhausted(attempts, targetModel);
+  }
+
+  async chat(
+    request: ChatRequest,
+    opencodeKeyOverride?: string
+  ): Promise<ChatResponse | GatewayError> {
     const attempts: GatewayAttempt[] = [];
     const targetModel = request.model ?? 'nvidia/nemotron-3.5-super-vl:free';
+    if (targetModel.startsWith('opencode/')) {
+      return this.chatOpenCode(request, targetModel, opencodeKeyOverride);
+    }
     const isGeminiDirect = targetModel.startsWith('gemini');
 
     // 1. OpenRouter / Kilo / Cline 통합 슬롯 풀 (교차 라운드로빈 로테이션)
@@ -228,7 +373,12 @@ export class ProxyService {
               `[Gateway] 429 RateLimit 감지 ([${provider}], 키: ${keyMasked}) -> 다음 슬롯으로 전환 (시도 ${attempt}/${maxAttempts})`
             );
             this.cooldown.setCooldown(provider, targetModel, key, 30_000, 'rpm_exceeded');
-          } else if (result.status === 500 || result.status === 502 || result.status === 503 || result.status === 504) {
+          } else if (
+            result.status === 500 ||
+            result.status === 502 ||
+            result.status === 503 ||
+            result.status === 504
+          ) {
             console.warn(
               `[Gateway] ⚠️ [${provider}] HTTP ${result.status} -> 다음 슬롯으로 전환 (키: ${keyMasked}) (시도 ${attempt}/${maxAttempts})`
             );
@@ -308,10 +458,14 @@ export class ProxyService {
   }
 
   async chatStream(
-    request: ChatRequest
+    request: ChatRequest,
+    opencodeKeyOverride?: string
   ): Promise<{ ok: true; stream: ReadableStream<Uint8Array> } | GatewayError> {
     const attempts: GatewayAttempt[] = [];
     const targetModel = request.model ?? 'nvidia/nemotron-3.5-super-vl:free';
+    if (targetModel.startsWith('opencode/')) {
+      return this.chatStreamOpenCode(request, targetModel, opencodeKeyOverride);
+    }
     const isGeminiDirect = targetModel.startsWith('gemini');
 
     // 1. OpenRouter / Kilo / Cline 통합 슬롯 풀 (교차 라운드로빈 로테이션)
@@ -341,7 +495,9 @@ export class ProxyService {
         try {
           const result = await adapter.callStream(request, targetModel, key, 120_000);
           if (result.ok && result.stream) {
-            console.info(`[Gateway] Stream success: [${provider}] ${targetModel} (키: ${keyMasked})`);
+            console.info(
+              `[Gateway] Stream success: [${provider}] ${targetModel} (키: ${keyMasked})`
+            );
             return { ok: true, stream: result.stream };
           }
 
@@ -361,7 +517,12 @@ export class ProxyService {
               `[Gateway] 429 RateLimit 감지 ([${provider}], 키: ${keyMasked}) -> 다음 슬롯으로 전환 (시도 ${attempt}/${maxAttempts})`
             );
             this.cooldown.setCooldown(provider, targetModel, key, 30_000, 'rpm_exceeded');
-          } else if (result.status === 500 || result.status === 502 || result.status === 503 || result.status === 504) {
+          } else if (
+            result.status === 500 ||
+            result.status === 502 ||
+            result.status === 503 ||
+            result.status === 504
+          ) {
             console.warn(
               `[Gateway] ⚠️ [${provider}] HTTP ${result.status} -> 다음 슬롯으로 전환 (키: ${keyMasked}) (시도 ${attempt}/${maxAttempts})`
             );
@@ -384,7 +545,7 @@ export class ProxyService {
 
     // 2. Gemini 직통 또는 통합 풀 소진 시 Gemini 폴백
     const geminiAdapter = this.adapters.get('gemini');
-    if (geminiAdapter && geminiAdapter.callStream && env.geminiKeys.length > 0) {
+    if (geminiAdapter?.callStream && env.geminiKeys.length > 0) {
       const geminiModel = isGeminiDirect ? targetModel : 'gemini-3.5-flash-lite';
       for (const apiKey of env.geminiKeys) {
         if (this.cooldown.isCoolingDown('gemini', geminiModel, apiKey)) continue;
@@ -592,7 +753,11 @@ export class ProxyService {
       }
 
       if (images.length === 0) {
-        return { ok: false, status: 502, errorBody: `No image data in response: ${text.slice(0, 200)}` };
+        return {
+          ok: false,
+          status: 502,
+          errorBody: `No image data in response: ${text.slice(0, 200)}`,
+        };
       }
 
       return {
@@ -610,7 +775,11 @@ export class ProxyService {
       return {
         ok: false,
         status: isTimeout ? 408 : 0,
-        errorBody: isTimeout ? `Timeout after ${timeoutMs}ms` : error instanceof Error ? error.message : 'Network error',
+        errorBody: isTimeout
+          ? `Timeout after ${timeoutMs}ms`
+          : error instanceof Error
+            ? error.message
+            : 'Network error',
       };
     } finally {
       clearTimeout(timeoutId);
@@ -846,7 +1015,8 @@ export class ProxyService {
         break;
       case 'gemini':
       case 'google':
-        baseUrl = baseUrl || 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
+        baseUrl =
+          baseUrl || 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
         resolvedModel = resolvedModel || 'gemini-4-carbon';
         break;
       case 'openrouter':
@@ -868,7 +1038,8 @@ export class ProxyService {
         break;
       case 'qwen':
       case 'dashscope':
-        baseUrl = baseUrl || 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions';
+        baseUrl =
+          baseUrl || 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions';
         resolvedModel = resolvedModel || 'qwen-3.8-max';
         break;
       case 'glm':
@@ -913,9 +1084,14 @@ export class ProxyService {
   ): Promise<ChatResponse | GatewayError> {
     const { adapter, model, provider } = this.resolvePassThroughAdapter(config);
     const targetModel = request.model || model;
-    const keyMasked = config.apiKey.length > 8 ? `${config.apiKey.slice(0, 4)}...${config.apiKey.slice(-4)}` : '***';
+    const keyMasked =
+      config.apiKey.length > 8
+        ? `${config.apiKey.slice(0, 4)}...${config.apiKey.slice(-4)}`
+        : '***';
 
-    console.info(`[Gateway PassThrough] 호출 시작: provider=${provider}, model=${targetModel}, key=${keyMasked}`);
+    console.info(
+      `[Gateway PassThrough] 호출 시작: provider=${provider}, model=${targetModel}, key=${keyMasked}`
+    );
 
     try {
       const result = await adapter.call(request, targetModel, config.apiKey, 120_000);
@@ -924,7 +1100,9 @@ export class ProxyService {
         return result.response;
       }
 
-      console.warn(`[Gateway PassThrough] 실패 (${result.status}): ${result.errorBody.slice(0, 200)}`);
+      console.warn(
+        `[Gateway PassThrough] 실패 (${result.status}): ${result.errorBody.slice(0, 200)}`
+      );
       return {
         error: {
           code: 'GATEWAY_MODEL_NOT_SUPPORTED',
@@ -932,7 +1110,7 @@ export class ProxyService {
           type: 'gateway_error',
           attempts: [
             {
-              provider: provider as any,
+              provider: provider as LLMProvider,
               modelId: targetModel,
               apiKeyHash: config.apiKey.slice(-6),
               httpStatus: result.status,
@@ -943,7 +1121,7 @@ export class ProxyService {
           ],
         },
       } as GatewayError;
-    } catch (err: any) {
+    } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return {
         error: {
@@ -961,9 +1139,14 @@ export class ProxyService {
   ): Promise<{ ok: true; stream: ReadableStream<Uint8Array> } | GatewayError> {
     const { adapter, model, provider } = this.resolvePassThroughAdapter(config);
     const targetModel = request.model || model;
-    const keyMasked = config.apiKey.length > 8 ? `${config.apiKey.slice(0, 4)}...${config.apiKey.slice(-4)}` : '***';
+    const keyMasked =
+      config.apiKey.length > 8
+        ? `${config.apiKey.slice(0, 4)}...${config.apiKey.slice(-4)}`
+        : '***';
 
-    console.info(`[Gateway PassThrough Stream] 호출 시작: provider=${provider}, model=${targetModel}, key=${keyMasked}`);
+    console.info(
+      `[Gateway PassThrough Stream] 호출 시작: provider=${provider}, model=${targetModel}, key=${keyMasked}`
+    );
 
     if (!adapter.callStream) {
       return {
@@ -978,11 +1161,15 @@ export class ProxyService {
     try {
       const result = await adapter.callStream(request, targetModel, config.apiKey, 120_000);
       if (result.ok && result.stream) {
-        console.info(`[Gateway PassThrough Stream] 성공: provider=${provider}, model=${targetModel}`);
+        console.info(
+          `[Gateway PassThrough Stream] 성공: provider=${provider}, model=${targetModel}`
+        );
         return { ok: true, stream: result.stream };
       }
 
-      console.warn(`[Gateway PassThrough Stream] 실패 (${result.status}): ${result.errorBody.slice(0, 200)}`);
+      console.warn(
+        `[Gateway PassThrough Stream] 실패 (${result.status}): ${result.errorBody.slice(0, 200)}`
+      );
       return {
         error: {
           code: 'GATEWAY_MODEL_NOT_SUPPORTED',
@@ -990,7 +1177,7 @@ export class ProxyService {
           type: 'gateway_error',
           attempts: [
             {
-              provider: provider as any,
+              provider: provider as LLMProvider,
               modelId: targetModel,
               apiKeyHash: config.apiKey.slice(-6),
               httpStatus: result.status,
@@ -1001,7 +1188,7 @@ export class ProxyService {
           ],
         },
       } as GatewayError;
-    } catch (err: any) {
+    } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return {
         error: {

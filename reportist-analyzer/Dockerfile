@@ -1,3 +1,10 @@
+FROM oven/bun:1.4-slim AS bun-deps
+
+WORKDIR /app/opencode-shim
+COPY opencode-shim/package.json opencode-shim/bun.lock ./
+RUN bun install --frozen-lockfile --production
+
+
 FROM python:3.12-slim
 
 WORKDIR /app
@@ -9,6 +16,9 @@ ENV PYTHONUNBUFFERED=1 \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
+
+COPY --from=bun-deps /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=bun-deps /app/opencode-shim/node_modules /app/opencode-shim/node_modules
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

@@ -2,6 +2,7 @@
 애플리케이션 설정 관리 (Pydantic Settings)
 """
 from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -79,6 +80,15 @@ class Settings(BaseSettings):
     CLINE_API_KEY: str = ""
     KILO_API_KEYS: str = ""
     KILO_API_KEY: str = ""
+
+    # OpenCode 무료 모델 브릿지: Vercel 게이트웨이 → analyzer → 로컬 Bun 사이드카
+    OPENCODE_SHIM_ENABLED: bool = True
+    OPENCODE_SHIM_URL: str = "http://127.0.0.1:4096"
+    OPENCODE_SHIM_PORT: int = 4096
+    OPENCODE_SHIM_COMMAND: str = "bun"
+    OPENCODE_SHIM_STARTUP_TIMEOUT_SEC: float = 90.0
+    # 사이드카 부트스트랩용 키 (요청별 키는 게이트웨이가 x-opencode-api-key로 전달)
+    OPENCODE_API_KEYS: str = ""
 
     # Supabase 연동
     SUPABASE_URL: str = ""

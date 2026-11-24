@@ -23,5 +23,6 @@ export const debugRoute = new Elysia()
   }))
   .get('/debug/keys', () => ({
     openrouterKeys: proxyService.getKeyStates?.('openrouter') ?? [],
+    opencodeKeys: proxyService.getKeyStates?.('opencode') ?? [],
     timestamp: new Date().toISOString(),
   }));

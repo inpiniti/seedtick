@@ -1,5 +1,6 @@
 // ModelService.ts - OpenRouter 무료 텍스트 모델 목록 및 메타데이터 서비스
 
+import { env } from '../../config/env.ts';
 import type { FreeModelMeta } from '../types.ts';
 
 // 17개 기본 모델 (OpenRouter API 일시 장애 시 완벽한 폴백 보장)
@@ -365,6 +366,89 @@ const IMAGE_GENERATION_FREE_MODELS: FreeModelMeta[] = [
   },
 ];
 
+// OpenCode Console의 무료 채팅 모델 전체 (브릿지가 설정된 경우 노출)
+const OPENCODE_FREE_MODEL_SEEDS: ReadonlyArray<{
+  id: string;
+  name: string;
+  createdDate: string;
+  contextLength: number;
+}> = [
+  { id: 'big-pickle', name: 'Big Pickle', createdDate: '2025-10-17', contextLength: 200000 },
+  {
+    id: 'mimo-v2.6-flash-free',
+    name: 'MiMo-V2.6-Flash Free',
+    createdDate: '2026-09-22',
+    contextLength: 200000,
+  },
+  {
+    id: 'deepseek-v4.1-flash-free',
+    name: 'DeepSeek V4.1 Flash Free',
+    createdDate: '2026-10-17',
+    contextLength: 200000,
+  },
+  { id: 'iceman-free', name: 'Iceman Free', createdDate: '2026-11-06', contextLength: 262144 },
+  { id: 'beam-free', name: 'Beam Free', createdDate: '2026-10-05', contextLength: 1048576 },
+  {
+    id: 'flint-40b-free',
+    name: 'Flint 40B Free',
+    createdDate: '2026-10-21',
+    contextLength: 262144,
+  },
+  {
+    id: 'nemotron-3.5-super-vl-free',
+    name: 'Nemotron 3.5 Super VL Free',
+    createdDate: '2026-10-15',
+    contextLength: 1048576,
+  },
+  {
+    id: 'nemotron-3.5-lightning-free',
+    name: 'Nemotron 3.5 Lightning Free',
+    createdDate: '2026-08-11',
+    contextLength: 262144,
+  },
+  {
+    id: 'hy4-flash-free',
+    name: 'Hy4 flash Free',
+    createdDate: '2026-11-16',
+    contextLength: 1048576,
+  },
+  {
+    id: 'tidepool-alpha-free',
+    name: 'Tidepool Alpha Free',
+    createdDate: '2026-11-18',
+    contextLength: 1048576,
+  },
+];
+
+function buildOpenCodeFreeModels(now: number): FreeModelMeta[] {
+  return OPENCODE_FREE_MODEL_SEEDS.map((seed) => {
+    const created = Math.floor(new Date(`${seed.createdDate}T00:00:00Z`).getTime() / 1000);
+    return {
+      id: `opencode/${seed.id}`,
+      name: `OpenCode: ${seed.name}`,
+      providerName: 'OpenCode',
+      created,
+      createdDate: seed.createdDate,
+      daysAgo: Math.max(0, Math.floor((now - created * 1000) / (24 * 60 * 60 * 1000))),
+      contextLength: seed.contextLength,
+      contextLengthFormatted:
+        seed.contextLength >= 1000000
+          ? `${Math.round(seed.contextLength / 1000000)}M tokens`
+          : `${Math.round(seed.contextLength / 1000)}K tokens`,
+      description: `${seed.name} — OpenCode 무료 모델 (SDK 브릿지 경유)`,
+      modality: 'text->text',
+      inputModalities: ['text'],
+      outputModalities: ['text'],
+      intelligenceIndex: null,
+      codingIndex: null,
+      agenticIndex: null,
+      intelligenceTier: 'OpenCode 무료',
+      parametersSummary: seed.name,
+      supportedParameters: [],
+    };
+  });
+}
+
 export class ModelService {
   private cache: FreeModelMeta[] | null = null;
   private lastFetchTime = 0;
@@ -428,7 +512,9 @@ export class ModelService {
         const modality = typeof arch.modality === 'string' ? arch.modality : 'text->text';
         const rawInputModalities = Array.isArray(arch.input_modalities)
           ? (arch.input_modalities as string[])
-          : (modality.includes('->') ? modality.split('->')[0].split('+') : ['text']);
+          : modality.includes('->')
+            ? modality.split('->')[0].split('+')
+            : ['text'];
         const inputModalities = [...new Set(rawInputModalities)];
         const supportedParameters = Array.isArray(m.supported_parameters)
           ? (m.supported_parameters as string[])
@@ -436,7 +522,8 @@ export class ModelService {
 
         const benchmarks = (m.benchmarks as Record<string, unknown>) ?? {};
         const aa = (benchmarks.artificial_analysis as Record<string, unknown>) ?? {};
-        const intelligenceIndex = typeof aa.intelligence_index === 'number' ? aa.intelligence_index : null;
+        const intelligenceIndex =
+          typeof aa.intelligence_index === 'number' ? aa.intelligence_index : null;
         const codingIndex = typeof aa.coding_index === 'number' ? aa.coding_index : null;
         const agenticIndex = typeof aa.agentic_index === 'number' ? aa.agentic_index : null;
 
@@ -444,9 +531,8 @@ export class ModelService {
         const supportedEfforts = Array.isArray(reasoningObj.supported_efforts)
           ? (reasoningObj.supported_efforts as string[])
           : undefined;
-        const defaultEffort = typeof reasoningObj.default_effort === 'string'
-          ? reasoningObj.default_effort
-          : null;
+        const defaultEffort =
+          typeof reasoningObj.default_effort === 'string' ? reasoningObj.default_effort : null;
         const reasoningMandatory = Boolean(reasoningObj.mandatory);
 
         // 지능 티어 및 파라미터 요약 추출
@@ -504,14 +590,19 @@ export class ModelService {
     for (const model of IMAGE_GENERATION_FREE_MODELS) {
       if (!byId.has(model.id)) byId.set(model.id, model);
     }
+    if (env.opencodeKeys.length > 0) {
+      for (const model of buildOpenCodeFreeModels(Date.now())) {
+        if (!byId.has(model.id)) byId.set(model.id, model);
+      }
+    }
     return Array.from(byId.values()).sort((a, b) => b.created - a.created);
   }
 
   private deriveModelIntelligence(
     id: string,
-    name: string,
+    _name: string,
     desc: string,
-    intelIndex?: number | null
+    _intelIndex?: number | null
   ): { intelligenceTier: string; parametersSummary: string; providerName: string } {
     const lowerDesc = desc.toLowerCase();
     const [providerPrefix] = id.split('/');

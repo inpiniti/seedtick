@@ -14,13 +14,15 @@ export const chatRoute = new Elysia().post(
     const userProvider = headers['x-user-provider'];
     const userModel = headers['x-user-model'];
     const userBaseUrl = headers['x-user-base-url'];
+    const opencodeKeyOverride = headers['x-opencode-api-key'];
 
     if (userApiKey && typeof userApiKey === 'string' && userApiKey.trim()) {
       const passConfig = {
         apiKey: userApiKey.trim(),
         provider: typeof userProvider === 'string' ? userProvider : 'openai',
         model: typeof userModel === 'string' && userModel.trim() ? userModel.trim() : chatReq.model,
-        baseUrl: typeof userBaseUrl === 'string' && userBaseUrl.trim() ? userBaseUrl.trim() : undefined,
+        baseUrl:
+          typeof userBaseUrl === 'string' && userBaseUrl.trim() ? userBaseUrl.trim() : undefined,
       };
 
       if (chatReq.stream) {
@@ -48,7 +50,12 @@ export const chatRoute = new Elysia().post(
 
     // 1. 스트리밍 요청 (기본 게이트웨이 로테이션)
     if (chatReq.stream) {
-      const streamResult = await proxyService.chatStream(chatReq);
+      const streamResult = await proxyService.chatStream(
+        chatReq,
+        typeof opencodeKeyOverride === 'string' && opencodeKeyOverride.trim()
+          ? opencodeKeyOverride.trim()
+          : undefined
+      );
       if ('error' in streamResult) {
         set.status = 503;
         return streamResult as unknown as Response;
@@ -64,7 +71,12 @@ export const chatRoute = new Elysia().post(
     }
 
     // 2. 논스트리밍 요청 (기본 게이트웨이 로테이션)
-    const result = await proxyService.chat(chatReq);
+    const result = await proxyService.chat(
+      chatReq,
+      typeof opencodeKeyOverride === 'string' && opencodeKeyOverride.trim()
+        ? opencodeKeyOverride.trim()
+        : undefined
+    );
 
     // GatewayError인 경우 503 반환
     if ('error' in result) {

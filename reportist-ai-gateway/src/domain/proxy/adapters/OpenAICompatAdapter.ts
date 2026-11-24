@@ -62,7 +62,9 @@ export class OpenAICompatAdapter implements ILLMAdapter {
     errorBody: string;
   }> {
     const headers: Record<string, string> = {
-      Authorization: `Bearer ${apiKey}`,
+      ...(this.config.keyHeaderName
+        ? { [this.config.keyHeaderName]: apiKey }
+        : { Authorization: `Bearer ${apiKey}` }),
       'Content-Type': 'application/json',
       ...this.config.defaultHeaders,
     };
@@ -213,7 +215,9 @@ export class OpenAICompatAdapter implements ILLMAdapter {
     errorBody: string;
   }> {
     const headers: Record<string, string> = {
-      Authorization: `Bearer ${apiKey}`,
+      ...(this.config.keyHeaderName
+        ? { [this.config.keyHeaderName]: apiKey }
+        : { Authorization: `Bearer ${apiKey}` }),
       'Content-Type': 'application/json',
       Accept: 'text/event-stream',
       ...this.config.defaultHeaders,
@@ -257,12 +261,14 @@ export class OpenAICompatAdapter implements ILLMAdapter {
       const firstChunkTimeoutMs = 15_000;
       let firstChunkTimer: ReturnType<typeof setTimeout> | undefined;
 
-      const timeoutPromise = new Promise<{ done: true; value: undefined; timedOut: true }>((resolve) => {
-        firstChunkTimer = setTimeout(
-          () => resolve({ done: true, value: undefined, timedOut: true }),
-          firstChunkTimeoutMs
-        );
-      });
+      const timeoutPromise = new Promise<{ done: true; value: undefined; timedOut: true }>(
+        (resolve) => {
+          firstChunkTimer = setTimeout(
+            () => resolve({ done: true, value: undefined, timedOut: true }),
+            firstChunkTimeoutMs
+          );
+        }
+      );
 
       const readPromise = reader.read().then((res) => ({ ...res, timedOut: false }));
       const firstResult = await Promise.race([readPromise, timeoutPromise]);

@@ -4,6 +4,8 @@ export interface EnvConfig {
   kiloKeys: string[];
   openrouterKeys: string[];
   geminiKeys: string[];
+  opencodeKeys: string[];
+  opencodeBaseUrl: string;
   supabaseUrl: string;
   supabaseServiceRoleKey: string;
   geminiResetHour: number;
@@ -38,6 +40,8 @@ export function loadEnv(): EnvConfig {
     kiloKeys: parseKeys(process.env.KILO_API_KEY, process.env.KILO_API_KEYS),
     openrouterKeys: parseKeys(process.env.OPENROUTER_API_KEY, process.env.OPENROUTER_API_KEYS),
     geminiKeys: parseKeys(process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEYS),
+    opencodeKeys: parseKeys(process.env.OPENCODE_API_KEY, process.env.OPENCODE_API_KEYS),
+    opencodeBaseUrl: process.env.OPENCODE_BRIDGE_URL ?? 'http://127.0.0.1:4096/v1/chat/completions',
     supabaseUrl: process.env.SUPABASE_URL ?? '',
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? '',
     geminiResetHour: parseIntOrDefault(process.env.GEMINI_RESET_HOUR, 8),

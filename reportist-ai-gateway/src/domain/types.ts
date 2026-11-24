@@ -4,7 +4,7 @@
 // 제공사 및 모델 정의
 // ─────────────────────────────────────────────
 
-export type LLMProvider = 'cline' | 'kilo' | 'openrouter' | 'gemini';
+export type LLMProvider = 'cline' | 'kilo' | 'openrouter' | 'gemini' | 'opencode';
 
 export type UserPassThroughProvider =
   | 'openai'
@@ -115,7 +115,7 @@ export type MessageContentPart =
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | (string & {});
-  content: string | MessageContentPart[] | any;
+  content: string | MessageContentPart[] | unknown;
 }
 
 export type ReasoningEffortLevel =
@@ -243,7 +243,11 @@ export interface GatewayAttempt {
 
 export interface GatewayError {
   error: {
-    code: 'GATEWAY_ALL_EXHAUSTED' | 'GATEWAY_AUTH_FAILED' | 'GATEWAY_MODEL_NOT_SUPPORTED';
+    code:
+      | 'GATEWAY_ALL_EXHAUSTED'
+      | 'GATEWAY_AUTH_FAILED'
+      | 'GATEWAY_MODEL_NOT_SUPPORTED'
+      | 'GATEWAY_OPENCODE_EXHAUSTED';
     message: string;
     type: 'gateway_error';
     attempts: GatewayAttempt[];
@@ -266,6 +270,8 @@ export interface ProviderConfig {
   baseUrl: string;
   apiKeys: string[];
   defaultHeaders?: Record<string, string>;
+  /** 키를 Authorization 대신 지정한 헤더로 전달할 때 사용 (브릿지의 X-OpenCode-Api-Key). */
+  keyHeaderName?: string;
   queryAuth?: boolean;
   transformResponse?: (raw: unknown) => ChatResponse;
 }

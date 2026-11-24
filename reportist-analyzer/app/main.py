@@ -1,23 +1,26 @@
 """
 Reportist Analyzer - 메인 FastAPI 애플리케이션 엔트리포인트
 """
-from contextlib import asynccontextmanager
 import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.routes.debug_ai import router as debug_ai_router
+from app.api.routes.debug_yahoo import router as debug_yahoo_router
 from app.api.routes.health import router as health_router
+from app.api.routes.opencode import router as opencode_router
+from app.api.routes.queue import router as queue_router
 from app.api.routes.report import router as report_router
 from app.api.routes.scheduler import router as scheduler_router
 from app.api.routes.screener import router as screener_router
-from app.api.routes.debug_ai import router as debug_ai_router
-from app.api.routes.debug_yahoo import router as debug_yahoo_router
-from app.api.routes.queue import router as queue_router
 from app.config.settings import settings
 from app.domains.error_log.handlers import SupabaseLogHandler
-from app.domains.screener.logo_warmup_service import logo_warmup_service
-from app.domains.scheduler.service import scheduler_service
+from app.domains.opencode.sidecar import opencode_sidecar
 from app.domains.queue.worker import queue_worker
+from app.domains.scheduler.service import scheduler_service
+from app.domains.screener.logo_warmup_service import logo_warmup_service
 
 # 로깅 설정
 logging.basicConfig(
@@ -46,8 +49,10 @@ async def lifespan(app: FastAPI):
     scheduler_service.start()
     await logo_warmup_service.start()
     await queue_worker.start()
+    await opencode_sidecar.start()
     yield
     logger.info("🛑 Reportist Analyzer 종료 중...")
+    await opencode_sidecar.stop()
     scheduler_service.shutdown()
     await logo_warmup_service.stop()
     await queue_worker.stop()
@@ -78,6 +83,7 @@ app.include_router(scheduler_router)
 app.include_router(debug_ai_router)
 app.include_router(debug_yahoo_router)
 app.include_router(queue_router)
+app.include_router(opencode_router)
 
 
 
