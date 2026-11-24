@@ -1653,11 +1653,14 @@ export function App() {
         let duration = 2.0;
         let width = 960;
         let height = 540;
+        // 일반 업로드와 동일하게 대표 프레임을 뽑아 카드·컷 비행 연출에 사용한다.
+        let thumbnailUrl = '';
         try {
           const meta = await extractVideoVisualDimensions(file, false);
           if (Number.isFinite(meta.duration) && meta.duration > 0) duration = meta.duration;
           if (meta.width > 0) width = meta.width;
           if (meta.height > 0) height = meta.height;
+          if (meta.thumbnailUrl) thumbnailUrl = meta.thumbnailUrl;
         } catch {
           // 메타데이터 추출 실패 시 번들 클립의 기본 스펙(2.0s, 960x540)으로 진행한다.
         }
@@ -1670,6 +1673,7 @@ export function App() {
           duration,
           width,
           height,
+          thumbnailUrl,
           recordedAtMs,
           status: 'idle',
           segments: [],

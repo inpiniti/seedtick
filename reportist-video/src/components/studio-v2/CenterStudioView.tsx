@@ -450,6 +450,8 @@ export const CenterStudioView = (props: StudioV2Props) => {
   const [showOnboardingResume, setShowOnboardingResume] = useState(false);
   const onboardingTimerRef = useRef<number | null>(null);
   const onboardingInitRef = useRef(false);
+  // 온보딩 중 첫 컷이 도착하면 인트로 대신 실제 샘플 프레임을 보여주기 위한 1회성 플래그.
+  const samplePreviewSeekRef = useRef(false);
   const { start: startOnboardingTour, stop: stopOnboardingTour } = useOnboardingTour();
 
   useEffect(
@@ -463,6 +465,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
 
   const runOnboardingTour = useCallback(() => {
     setShowOnboardingResume(false);
+    samplePreviewSeekRef.current = false;
     startOnboardingTour(
       () => {
         markStudioGuideSeen('onboarding');
@@ -742,6 +745,17 @@ export const CenterStudioView = (props: StudioV2Props) => {
     },
     [model.items, seek]
   );
+
+  // 온보딩에서 첫 샘플 컷이 생기면 재생 위치를 그 컷으로 옮긴다.
+  // 기본 위치 0초는 인트로 모션 구간이라 실제 영상이 안 보이는 것처럼 보이기 때문이다.
+  useEffect(() => {
+    if (!onboardingInProgress || samplePreviewSeekRef.current) return;
+    if (playhead !== 0 || isPlaying) return;
+    const firstCut = model.items.find((item) => item.kind === 'segment' && item.segment);
+    if (!firstCut?.segment) return;
+    samplePreviewSeekRef.current = true;
+    selectSegment(firstCut.segment.id);
+  }, [onboardingInProgress, playhead, isPlaying, model.items, selectSegment]);
 
   // 인트로/아웃트로 칩을 누르면 인스펙터를 열고 해당 구간을 바로 재생한다.
   // 모션 감소 환경에서는 자동 재생 대신 문구가 선명한 대표 프레임에 정지한다.
