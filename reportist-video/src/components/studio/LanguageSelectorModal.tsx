@@ -1,9 +1,11 @@
 // src/components/studio/LanguageSelectorModal.tsx - Modal for selecting language (Toss modal style)
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ScrollFade } from '@animate-ui/react/primitives/effects/scroll-fade';
 import { Globe, Search, X, Check } from 'lucide-react';
 import { loadLocaleDictionary, useI18n } from '../../i18n/index.tsx';
 import type { Locale } from '../../i18n/types.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
+import { scrollFadePanelProps } from '../common/scrollFade.ts';
 import { useIsMobileViewport } from '../../hooks/useIsMobileViewport.ts';
 import { notify } from '../../services/toastService.ts';
 
@@ -136,6 +138,7 @@ export const LanguageSelectorModal: React.FC<LanguageSelectorModalProps> = ({
         </div>
 
         {/* Language List */}
+        <ScrollFade asChild {...scrollFadePanelProps}>
         <div
           className="model-modal-list language-modal-list"
           data-modal-scrollable="true"
@@ -201,6 +204,7 @@ export const LanguageSelectorModal: React.FC<LanguageSelectorModalProps> = ({
             })
           )}
         </div>
+        </ScrollFade>
 
         {/* Footer */}
         <div className="model-modal-footer">

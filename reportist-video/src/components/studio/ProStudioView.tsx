@@ -20,6 +20,7 @@ import { MobileStudioStepHeader } from './mobile/MobileStudioStepHeader.tsx';
 import { MobileStepListSheet } from './mobile/MobileStepListSheet.tsx';
 import { MobileBottomCtaBar } from './mobile/MobileBottomCtaBar.tsx';
 import { Button } from '../ui/Button.tsx';
+import { scrollFadePanelProps } from '../common/scrollFade.ts';
 import {
   Play,
   Pause,
@@ -8507,7 +8508,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   <strong>{ui('전체 자막 한눈에 수정')}</strong>
                   <span className="toss-tag-gray">{ui('{count}개 씬', { count: segments.length })}</span>
                 </div>
-                <ScrollFade asChild orientation="vertical" size={32}>
+                <ScrollFade asChild {...scrollFadePanelProps}>
                   <div className="toss-caption-list-items">
                     {segments.map((seg, idx) => (
                       <div

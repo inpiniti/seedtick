@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
+import { ScrollFade } from '@animate-ui/react/primitives/effects/scroll-fade';
 import { Check, ListMusic, Loader2, Pause, Play, Upload, VolumeX } from 'lucide-react';
 import { AUDIO_LIBRARY, type AudioLibraryTrack } from '../../data/audioLibrary.ts';
 import { useI18n } from '../../i18n/index.tsx';
+import { scrollFadePanelProps } from '../common/scrollFade.ts';
 
 // components/studio-v2/MusicInspectorPanel.tsx
 // 하단 타임라인의 음악 트랙을 누르면 열리는 오른쪽 인스펙터 패널.
@@ -132,6 +134,7 @@ export const MusicInspectorPanel = ({
   };
 
   return (
+    <ScrollFade asChild {...scrollFadePanelProps}>
     <div className="sv2-inspector-body">
       <div className="sv2-inspector-section">
         <div className="sv2-field-label">
@@ -300,5 +303,6 @@ export const MusicInspectorPanel = ({
         preload="none"
       />
     </div>
+    </ScrollFade>
   );
 };

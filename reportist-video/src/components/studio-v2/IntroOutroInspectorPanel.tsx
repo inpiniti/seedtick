@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { ScrollFade } from '@animate-ui/react/primitives/effects/scroll-fade';
 import { Film, ImagePlus, Repeat2, RotateCcw, Type } from 'lucide-react';
 import {
   INTRO_DURATIONS,
@@ -17,6 +18,7 @@ import type {
 import type { PreviewRequest } from './types.ts';
 import { setStoredShowCredit } from '../../services/introOutroStorage.ts';
 import { useI18n } from '../../i18n/index.tsx';
+import { scrollFadePanelProps } from '../common/scrollFade.ts';
 
 // components/studio-v2/IntroOutroInspectorPanel.tsx
 // 인트로/아웃트로 ON·OFF, 템플릿, 문구, 길이, 직접 업로드 설정.
@@ -187,6 +189,7 @@ export const IntroOutroInspectorPanel = ({
   );
 
   return (
+    <ScrollFade asChild {...scrollFadePanelProps}>
     <div className="sv2-inspector-body">
       <div className="sv2-inspector-section">
         <div className="sv2-toggle-row">
@@ -395,5 +398,6 @@ export const IntroOutroInspectorPanel = ({
         )}
       </div>
     </div>
+    </ScrollFade>
   );
 };

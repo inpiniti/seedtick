@@ -4,6 +4,7 @@ import type { VideoItem, VideoTaskProgress } from '../../types/video.ts';
 import type { VideoShareItem } from '../../types/share.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { ShimmeringText } from '../common/ShimmeringText.tsx';
+import { scrollFadePanelProps } from '../common/scrollFade.ts';
 import { SharedVideosPanel } from '../community/SharedVideosPanel.tsx';
 import { PageTransition } from './PageTransition.tsx';
 import { formatShootDate } from './types.ts';
@@ -178,7 +179,7 @@ export const UploadQueueDock = ({
                 </button>
               </div>
 
-              <ScrollFade asChild orientation="vertical" size={28}>
+              <ScrollFade asChild {...scrollFadePanelProps}>
                 <div className="sv2-dock-list">
                   {videos.length === 0 && (
                     <button

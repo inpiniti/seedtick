@@ -7,6 +7,7 @@ import type { VideoShareItem, VideoSortOrder } from '../../types/share.ts';
 import { fetchSharedVideos, incrementVideoShareView } from '../../services/videoShareService.ts';
 import { formatViewCount, formatTimeAgo } from '../../services/youtubeService.ts';
 import { ShareVideoModal } from './ShareVideoModal.tsx';
+import { scrollFadePanelProps } from '../common/scrollFade.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { notify } from '../../services/toastService.ts';
 
@@ -121,7 +122,7 @@ export const SharedVideosPanel = ({
         </button>
       </div>
 
-      <ScrollFade asChild orientation="vertical" size={28}>
+      <ScrollFade asChild {...scrollFadePanelProps}>
         <div className="sv2-share-list">
           {isLoading ? (
             [0, 1, 2].map((i) => (

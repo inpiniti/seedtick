@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef } from 'react';
+import { ScrollFade } from '@animate-ui/react/primitives/effects/scroll-fade';
 import { Calendar, X, Check, Sparkles } from 'lucide-react';
 import { useI18n } from '../../i18n/index.tsx';
 import {
@@ -6,6 +7,7 @@ import {
   type DateFormatOption,
 } from '../../services/videoMetadata.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
+import { scrollFadePanelProps } from '../common/scrollFade.ts';
 import { notify } from '../../services/toastService.ts';
 
 export interface DateFormatSelectorModalProps {
@@ -128,6 +130,7 @@ export const DateFormatSelectorModal: React.FC<DateFormatSelectorModalProps> = (
         </div>
 
         {/* Format List */}
+        <ScrollFade asChild {...scrollFadePanelProps}>
         <div
           className="model-modal-list language-modal-list"
           data-modal-scrollable="true"
@@ -200,6 +203,7 @@ export const DateFormatSelectorModal: React.FC<DateFormatSelectorModalProps> = (
             );
           })}
         </div>
+        </ScrollFade>
       </div>
     </div>
   );
