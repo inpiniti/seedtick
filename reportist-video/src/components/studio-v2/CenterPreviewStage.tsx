@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pause, Play, RotateCcw } from 'lucide-react';
+import { Pause, Play } from 'lucide-react';
 import {
   computeMetaLayoutFromTexts,
   drawCompositorCoverFrame,
@@ -20,8 +20,6 @@ import { resolveTimelineItem, type TimelineModel } from './timelineModel.ts';
 import { PreviewInteractiveOverlay } from './PreviewInteractiveOverlay.tsx';
 
 type IntroOutroModule = typeof import('../../services/previewCompositorIntroOutro.ts');
-
-const GUIDE_LOCALES = ['ko', 'en', 'ja', 'zh', 'es', 'fr', 'de'] as const;
 
 interface CenterPreviewStageProps {
   frame: FrameSpec;
@@ -61,9 +59,8 @@ export const CenterPreviewStage = ({
   onUpdateSegment,
   onUpdateOverlay,
 }: CenterPreviewStageProps) => {
-  const { dict, locale, ui } = useI18n();
+  const { dict, ui } = useI18n();
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const guideVideoRef = useRef<HTMLVideoElement>(null);
   const videoRefs = useRef(new Map<string, HTMLVideoElement>());
   const introOutroRef = useRef<IntroOutroModule | null>(null);
   const [rendererReady, setRendererReady] = useState(false);
@@ -181,12 +178,6 @@ export const CenterPreviewStage = ({
   }, [playhead, activeItem, frame, overlayOptions, videos, rendererReady, redrawTick, isEditingCaption, isEditingTitle, revision]);
 
   const hasContent = model.items.length > 0;
-  // 컷이 없을 때 보여줄 V2 사용법 녹화본. 지원 로케일이 아니면 한국어 영상으로 폴백한다.
-  const guideLocale = GUIDE_LOCALES.includes(locale as (typeof GUIDE_LOCALES)[number])
-    ? locale
-    : 'ko';
-  const guideSrc = `${import.meta.env.BASE_URL}media/guide/walkthrough-v2-${guideLocale}.mp4`;
-  const guidePoster = `${import.meta.env.BASE_URL}media/guide/walkthrough-v2-${guideLocale}.webp`;
   const locationLabel = activeSegment?.locationName || overlayOptions.subtitleLocationText || '';
   // 캔버스와 같은 폴백을 사용한다. 빈 문자열로 지운 컷은 reason으로 되돌아가지 않고 '자막 추가'만 보인다.
   const captionLabel = activeSegment?.subtitleTitle ?? activeSegment?.reason ?? '';
@@ -205,153 +196,112 @@ export const CenterPreviewStage = ({
         ).name
     : '';
 
+  // 컷이 없으면 안내 문구·미리보기·재생바 없이 빈 스테이지를 유지한다.
+  if (!hasContent) return null;
+
   return (
     <>
       <div className="sv2-stage-meta">
         <div className="sv2-stage-meta-sub">
-          {hasContent
-            ? ui('{count}개 컷 · 제목·날짜·위치나 자막을 눌러 바로 수정할 수 있어요', {
-                count: model.items.filter((i) => i.kind === 'segment').length,
-              })
-            : ui('영상을 추가하면 여기에 미리보기가 나타나요')}
+          {ui('{count}개 컷 · 제목·날짜·위치나 자막을 눌러 바로 수정할 수 있어요', {
+            count: model.items.filter((i) => i.kind === 'segment').length,
+          })}
         </div>
       </div>
 
-      {hasContent ? (
-        <div
-          className="sv2-preview-frame"
-          data-orientation={orientation}
-          style={{ aspectRatio: `${frame.width} / ${frame.height}` }}
-        >
-          <canvas
-            ref={canvasRef}
-            width={frame.width}
-            height={frame.height}
-            aria-label={ui('영상 미리보기')}
+      <div
+        className="sv2-preview-frame"
+        data-orientation={orientation}
+        style={{ aspectRatio: `${frame.width} / ${frame.height}` }}
+      >
+        <canvas
+          ref={canvasRef}
+          width={frame.width}
+          height={frame.height}
+          aria-label={ui('영상 미리보기')}
+        />
+        {videos.map((video) => (
+          <video
+            key={video.id}
+            ref={(el) => {
+              if (el) videoRefs.current.set(video.id, el);
+              else videoRefs.current.delete(video.id);
+            }}
+            src={video.url}
+            muted
+            playsInline
+            preload="auto"
+            onLoadedData={() => setRedrawTick((t) => t + 1)}
+            onSeeked={() => setRedrawTick((t) => t + 1)}
+            style={{
+              position: 'absolute',
+              width: 1,
+              height: 1,
+              opacity: 0,
+              pointerEvents: 'none',
+              left: -9999,
+            }}
           />
-          {videos.map((video) => (
-            <video
-              key={video.id}
-              ref={(el) => {
-                if (el) videoRefs.current.set(video.id, el);
-                else videoRefs.current.delete(video.id);
-              }}
-              src={video.url}
-              muted
-              playsInline
-              preload="auto"
-              onLoadedData={() => setRedrawTick((t) => t + 1)}
-              onSeeked={() => setRedrawTick((t) => t + 1)}
-              style={{
-                position: 'absolute',
-                width: 1,
-                height: 1,
-                opacity: 0,
-                pointerEvents: 'none',
-                left: -9999,
-              }}
-            />
-          ))}
-          {activeItem?.kind === 'intro' && introVideoFile && customVideoUrls.intro && (
-            <video
-              ref={customIntroVideoRef}
-              className="sv2-preview-custom-video"
-              src={customVideoUrls.intro}
-              muted
-              playsInline
-              preload="auto"
-              onLoadedMetadata={() => setRedrawTick((t) => t + 1)}
-            />
-          )}
-          {activeItem?.kind === 'outro' && outroVideoFile && customVideoUrls.outro && (
-            <video
-              ref={customOutroVideoRef}
-              className="sv2-preview-custom-video"
-              src={customVideoUrls.outro}
-              muted
-              playsInline
-              preload="auto"
-              onLoadedMetadata={() => setRedrawTick((t) => t + 1)}
-            />
-          )}
-          {previewRange && (
-            <div className="sv2-preview-badge" aria-live="polite">
-              <span className="sv2-preview-badge-dot" data-playing={isPlaying} />
-              {ui(previewRange.kind === 'intro' ? '인트로' : '아웃트로')} {ui('미리보기')} · {previewLabel}
-            </div>
-          )}
-          {activeSegment && (
-            <PreviewInteractiveOverlay
-              key={activeSegment.id}
-              frame={frame}
-              title={overlayOptions.titleText || ''}
-              showTitle={overlayOptions.showTitle !== false}
-              locationLabel={locationLabel}
-              dateLabel={formatShootDate(activeSegment)}
-              metaLayout={metaLayout}
-              caption={captionLabel}
-              onLocationClick={() => onOpenLocation(activeSegment.id)}
-              onTitleCommit={(text) => onUpdateOverlay({ titleText: text, showTitle: true })}
-              onCaptionCommit={(text) =>
-                onUpdateSegment(activeSegment.id, { subtitleTitle: text })
-              }
-              onEditingChange={(kind, editing) => {
-                // 편집 시작 시 재생을 멈춰 컷이 바뀌는 동안 드래프트가 날아가지 않게 한다.
-                if (editing) onPause();
-                if (kind === 'title') setIsEditingTitle(editing);
-                else setIsEditingCaption(editing);
-              }}
-              showSubtitle={overlayOptions.showSubtitle !== false}
-            />
-          )}
-        </div>
-      ) : orientation === 'portrait' ? (
-        /* 세로 프레임에는 가로 녹화본 대신 빈 미리보기만 보여준다. 안내 문구는 프레임 위에 이미 노출된다. */
-        <div className="sv2-preview-frame" data-orientation={orientation}>
-          <div className="sv2-preview-empty" />
-        </div>
-      ) : (
-        <div className="sv2-preview-frame" data-orientation={orientation}>
-          <div className="sv2-preview-guide">
-            <video
-              ref={guideVideoRef}
-              className="sv2-guide-video"
-              src={guideSrc}
-              poster={guidePoster}
-              autoPlay
-              muted
-              loop
-              playsInline
-              preload="metadata"
-              aria-label={ui('가이드')}
-            />
-            <span className="sv2-guide-badge">{ui('가이드')}</span>
-            <button
-              type="button"
-              className="sv2-guide-replay"
-              onClick={() => {
-                const video = guideVideoRef.current;
-                if (!video) return;
-                video.currentTime = 0;
-                void video.play().catch(() => {});
-              }}
-            >
-              <RotateCcw size={13} /> {ui('다시 보기')}
-            </button>
-            <div className="sv2-guide-caption">
-              <strong>{ui('영상을 추가하면 여기에 미리보기가 나타나요')}</strong>
-              <span>{ui('영상을 올리면 왼쪽에 파일이 나열되고, AI 컷을 누르면 타임라인에 채워져요.')}</span>
-            </div>
+        ))}
+        {activeItem?.kind === 'intro' && introVideoFile && customVideoUrls.intro && (
+          <video
+            ref={customIntroVideoRef}
+            className="sv2-preview-custom-video"
+            src={customVideoUrls.intro}
+            muted
+            playsInline
+            preload="auto"
+            onLoadedMetadata={() => setRedrawTick((t) => t + 1)}
+          />
+        )}
+        {activeItem?.kind === 'outro' && outroVideoFile && customVideoUrls.outro && (
+          <video
+            ref={customOutroVideoRef}
+            className="sv2-preview-custom-video"
+            src={customVideoUrls.outro}
+            muted
+            playsInline
+            preload="auto"
+            onLoadedMetadata={() => setRedrawTick((t) => t + 1)}
+          />
+        )}
+        {previewRange && (
+          <div className="sv2-preview-badge" aria-live="polite">
+            <span className="sv2-preview-badge-dot" data-playing={isPlaying} />
+            {ui(previewRange.kind === 'intro' ? '인트로' : '아웃트로')} {ui('미리보기')} · {previewLabel}
           </div>
-        </div>
-      )}
+        )}
+        {activeSegment && (
+          <PreviewInteractiveOverlay
+            key={activeSegment.id}
+            frame={frame}
+            title={overlayOptions.titleText || ''}
+            showTitle={overlayOptions.showTitle !== false}
+            locationLabel={locationLabel}
+            dateLabel={formatShootDate(activeSegment)}
+            metaLayout={metaLayout}
+            caption={captionLabel}
+            onLocationClick={() => onOpenLocation(activeSegment.id)}
+            onTitleCommit={(text) => onUpdateOverlay({ titleText: text, showTitle: true })}
+            onCaptionCommit={(text) =>
+              onUpdateSegment(activeSegment.id, { subtitleTitle: text })
+            }
+            onEditingChange={(kind, editing) => {
+              // 편집 시작 시 재생을 멈춰 컷이 바뀌는 동안 드래프트가 날아가지 않게 한다.
+              if (editing) onPause();
+              if (kind === 'title') setIsEditingTitle(editing);
+              else setIsEditingCaption(editing);
+            }}
+            showSubtitle={overlayOptions.showSubtitle !== false}
+          />
+        )}
+      </div>
 
       <div className="sv2-transport">
         <button
           type="button"
           className="sv2-play-btn"
           onClick={onTogglePlay}
-          disabled={!hasContent}
           aria-label={isPlaying ? ui('일시정지') : ui('재생')}
         >
           {isPlaying ? <Pause size={17} /> : <Play size={17} />}
@@ -367,7 +317,6 @@ export const CenterPreviewStage = ({
           step={0.01}
           value={Math.min(playhead, totalDuration)}
           onChange={(e) => onSeek(Number(e.target.value))}
-          disabled={!hasContent}
           aria-label={ui('재생 위치')}
         />
       </div>
