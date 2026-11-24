@@ -385,8 +385,8 @@
 .sv2-dock-tab[aria-selected='true']::after {
   content: '';
   position: absolute;
-  left: 8px;
-  right: 8px;
+  left: 0;
+  right: 0;
   bottom: -1px;
   height: 2px;
   border-radius: 2px;
