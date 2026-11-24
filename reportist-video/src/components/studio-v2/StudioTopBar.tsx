@@ -109,7 +109,7 @@ export const StudioTopBar = ({
 
       <button
         type="button"
-        className="sv2-btn sv2-btn-icon sv2-btn-ghost"
+        className="sv2-btn sv2-btn-icon sv2-settings-trigger"
         onClick={onReplayGuide}
         aria-label={ui('사용 가이드 다시 보기')}
         title={ui('사용 가이드 다시 보기')}
