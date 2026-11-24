@@ -18,7 +18,6 @@ import { getLocalizedTemplateMeta } from '../studio/introOutroOptions.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { resolveTimelineItem, type TimelineModel } from './timelineModel.ts';
 import { PreviewInteractiveOverlay } from './PreviewInteractiveOverlay.tsx';
-import { EmptyStage3D } from './EmptyStage3D.tsx';
 
 type IntroOutroModule = typeof import('../../services/previewCompositorIntroOutro.ts');
 
@@ -197,8 +196,8 @@ export const CenterPreviewStage = ({
         ).name
     : '';
 
-  // 컷이 없으면 미리보기·재생바 대신 흑백 3D 다이오라마를 보여준다.
-  if (!hasContent) return <EmptyStage3D />;
+  // 컷이 없으면 안내 문구·미리보기·재생바 없이 빈 스테이지를 유지한다.
+  if (!hasContent) return null;
 
   return (
     <>

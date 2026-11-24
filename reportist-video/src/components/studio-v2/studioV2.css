@@ -1011,13 +1011,6 @@
   color: var(--sv2-text-3);
   margin-top: 3px;
 }
-/* 빈 스테이지 — 흑백 3D 다이오라마가 중앙 영역을 가득 채운다. */
-.sv2-empty-stage-3d {
-  position: relative;
-  flex: 1;
-  width: 100%;
-  min-height: 0;
-}
 .sv2-preview-frame {
   position: relative;
   /* 영상은 가운데 영역만 차지한다. 타임라인은 창 전체 폭을 쓰므로
