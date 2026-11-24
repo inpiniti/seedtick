@@ -12,7 +12,13 @@ import type {
   VideoOrientation,
   VideoOverlayOptions,
 } from '../types/video.ts';
-import { drawCompositorCoverFrame, drawCompositorSegmentOverlay } from './previewCompositorBase.ts';
+import {
+  BOUNDARY_WIPE_WINDOW,
+  SUBTITLE_MOTION_WINDOW,
+  drawBoundaryWipe,
+  drawCompositorCoverFrame,
+  drawCompositorSegmentOverlay,
+} from './previewCompositorBase.ts';
 import { resolveFrameSpec } from './frameSpec.ts';
 import {
   createOfflineFrameSource,
@@ -461,6 +467,38 @@ export async function stitchVideosWebCodecs({
     return hasAnyOverlay ? sharedOverlayCanvas : null;
   };
 
+  // 자막 등장/경계 와이프는 프레임별 진행률이 필요하다. 기본 옵션에서는 추가 캔버스 없이
+  // 위의 정적 오버레이 경로를 그대로 사용하므로 기존 렌더 결과/성능이 유지된다.
+  const motionEnabled = Boolean(
+    overlayOptions?.boundaryWipe ||
+      (overlayOptions?.subtitleMotion && overlayOptions.subtitleMotion !== 'none')
+  );
+  const motionOverlayCanvas = motionEnabled ? document.createElement('canvas') : null;
+  if (motionOverlayCanvas) {
+    motionOverlayCanvas.width = targetWidth;
+    motionOverlayCanvas.height = targetHeight;
+  }
+  const motionOverlayCtx = motionOverlayCanvas?.getContext('2d') ?? null;
+
+  /**
+   * 모션 구간(진행률 0~0.25)에서는 같은 컴포지터를 진행률과 함께 다시 그리고,
+   * 공통 와이프 헬퍼를 메인 캔버스에 합성한다. 구간을 지나면 정적 오버레이로 복귀한다.
+   * @returns 모션 프레임을 그렸으면 true (정적 오버레이를 건너뛴다)
+   */
+  const paintMotionOverlay = (segment: HighlightSegment | undefined, elapsedSec: number): boolean => {
+    if (!segment || !motionOverlayCanvas || !motionOverlayCtx || !overlayOptions) return false;
+    const segmentProgress = Math.min(1, Math.max(0, elapsedSec / Math.max(0.05, segment.duration || 1)));
+    if (segmentProgress >= Math.max(SUBTITLE_MOTION_WINDOW, BOUNDARY_WIPE_WINDOW)) return false;
+
+    motionOverlayCtx.clearRect(0, 0, targetWidth, targetHeight);
+    drawCompositorSegmentOverlay(motionOverlayCtx, overlayOptions, segment, frame, { segmentProgress });
+    ctx.drawImage(motionOverlayCanvas, 0, 0);
+    if (overlayOptions.boundaryWipe) {
+      drawBoundaryWipe(ctx, frame, segmentProgress / BOUNDARY_WIPE_WINDOW);
+    }
+    return true;
+  };
+
   // 프레임(가로 16:9 / 세로 9:16) 맞춤 스마트 크롭 드로잉
   const drawCoverFrame = (video: HTMLVideoElement, vItem?: VideoItem, segment?: HighlightSegment) => {
     drawCompositorCoverFrame(ctx, video, vItem, segment, frame);
@@ -663,7 +701,7 @@ export async function stitchVideosWebCodecs({
 
     // 첫 프레임 즉시 합성
     drawCoverFrame(workerVideo, videoItem, segment);
-    if (overlayCanvas) {
+    if (!paintMotionOverlay(segment, 0) && overlayCanvas) {
       ctx.drawImage(overlayCanvas, 0, 0);
     }
 
@@ -798,7 +836,7 @@ export async function stitchVideosWebCodecs({
 
           // 현재 하드웨어 디코더가 출력 중인 최신 프레임을 캔버스에 합성 후 인코딩
           drawCoverFrame(workerVideo, videoItem, segment);
-          if (overlayCanvas) {
+          if (!paintMotionOverlay(segment, targetElapsedSec) && overlayCanvas) {
             ctx.drawImage(overlayCanvas, 0, 0);
           }
 
@@ -834,7 +872,7 @@ export async function stitchVideosWebCodecs({
         );
         await seekVideoElement(workerVideo, targetMediaTime, 2500);
         drawCoverFrame(workerVideo, videoItem, segment);
-        if (overlayCanvas) {
+        if (!paintMotionOverlay(segment, f * segTimeStep) && overlayCanvas) {
           ctx.drawImage(overlayCanvas, 0, 0);
         }
       }
@@ -928,7 +966,7 @@ export async function stitchVideosWebCodecs({
         if (decoded) {
           drawOfflineFrame(ctx, decoded, videoItem, segment);
         }
-        if (overlayCanvas) {
+        if (!paintMotionOverlay(segment, targetElapsedSec) && overlayCanvas) {
           ctx.drawImage(overlayCanvas, 0, 0);
         }
 
@@ -1538,7 +1576,13 @@ export async function stitchVideosWebCodecs({
         workerVideo.load();
       } catch {}
       workerVideo.remove();
-      for (const c of [canvas, sharedOverlayCanvas, prevFrameBufferCanvas, nextFrameBufferCanvas]) {
+      for (const c of [
+        canvas,
+        sharedOverlayCanvas,
+        ...(motionOverlayCanvas ? [motionOverlayCanvas] : []),
+        prevFrameBufferCanvas,
+        nextFrameBufferCanvas,
+      ]) {
         try {
           c.width = 0;
           c.height = 0;

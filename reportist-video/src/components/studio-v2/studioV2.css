@@ -599,6 +599,24 @@
   0%, 100% { transform: translateX(-80%); }
   50% { transform: translateX(220%); }
 }
+/* 컷 착지 순간 순번 배지 — GSAP back.out으로 띄운다. */
+.sv2-landing-badge {
+  position: fixed;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: 7px;
+  background: var(--sv2-accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 6px 16px rgba(49, 130, 246, 0.35);
+  pointer-events: none;
+}
 .sv2-upload-card-remove {
   /* 배지와 같은 오른쪽 열에 두어 hover 시에도 배지를 가리지 않는다. */
   width: 20px;
@@ -996,6 +1014,39 @@
   width: 56px;
   margin-top: 0;
   flex: 0 0 auto;
+}
+/* 분석 상태 필: 단계 점 + 카운트업 숫자(타입도 모션의 일부) */
+.sv2-stage-dots {
+  display: flex;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+.sv2-stage-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--sv2-border-strong);
+  transition: background 0.2s, transform 0.2s;
+}
+.sv2-stage-dot[data-active='true'] {
+  background: var(--sv2-accent);
+  transform: scale(1.5);
+  animation: sv2-stage-pulse 1.2s ease-in-out infinite;
+}
+.sv2-stage-dot[data-done='true'] {
+  background: var(--sv2-success);
+}
+@keyframes sv2-stage-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.sv2-status-pill-pct {
+  min-width: 34px;
+  text-align: right;
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--sv2-accent);
 }
 .sv2-stage-meta {
   text-align: center;
@@ -1641,12 +1692,21 @@
 .sv2-chip[data-locked='true'] {
   cursor: default;
 }
-.sv2-root[data-subtitle-refreshed='true'] .sv2-chip-sub {
-  animation: sv2-subtitle-refresh 0.5s ease;
+.sv2-root[data-subtitle-refreshed='true'] .sv2-chip-sub,
+.sv2-root[data-subtitle-refreshed='true'] .sv2-chip-title {
+  /* script-to-motion 기법: 텍스트 자체가 "액터"가 되어 상승 + 하이라이트 스윕으로 갱신을 알린다. */
+  animation: sv2-subtitle-refresh 0.62s cubic-bezier(0.16, 1.1, 0.3, 1) both;
 }
 @keyframes sv2-subtitle-refresh {
-  from { opacity: 0.35; transform: translateY(3px); }
-  to { opacity: 1; transform: translateY(0); }
+  0% { opacity: 0.3; transform: translateY(6px); filter: brightness(1.6); }
+  55% { opacity: 1; transform: translateY(-1px); filter: brightness(1.25); }
+  100% { opacity: 1; transform: translateY(0); filter: brightness(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sv2-root[data-subtitle-refreshed='true'] .sv2-chip-sub,
+  .sv2-root[data-subtitle-refreshed='true'] .sv2-chip-title {
+    animation: none;
+  }
 }
 .sv2-chip-thumb {
   position: absolute;
@@ -2370,6 +2430,57 @@
 }
 .sv2-progress-track {
   height: 6px;
+}
+/* 내보내기 단계 체크리스트 — 완료되는 순간 스프링으로 켜진다. */
+.sv2-export-steps {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 7px;
+}
+.sv2-export-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--sv2-text-3);
+  transition: color 0.25s ease;
+}
+.sv2-export-step[data-active='true'] {
+  color: var(--sv2-text-2);
+}
+.sv2-export-step[data-done='true'] {
+  color: var(--sv2-success);
+  font-weight: 700;
+  animation: sv2-export-step-in 0.38s cubic-bezier(0.16, 1.2, 0.3, 1) both;
+}
+.sv2-export-step-mark {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1px solid var(--sv2-border-strong);
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+.sv2-export-step[data-done='true'] .sv2-export-step-mark {
+  background: var(--sv2-success);
+  border-color: var(--sv2-success);
+  color: #fff;
+}
+@keyframes sv2-export-step-in {
+  from { opacity: 0; transform: translateX(-6px) scale(0.9); }
+  to { opacity: 1; transform: none; }
+}
+.sv2-export-confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sv2-export-step[data-done='true'] { animation: none; }
 }
 .sv2-processing-elevated {
   z-index: 60;

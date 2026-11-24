@@ -47,6 +47,49 @@ function prefersReducedMotion(): boolean {
 }
 
 /**
+ * 컷이 착지한 타임라인 슬롯 위에 순번 배지를 띄운다.
+ * script-to-motion 기법: back.out 한 방으로 "탁" 착지하는 순간을 타입으로 만든다.
+ * 별도 레이어를 만들지 않고 배지 하나만 잠시 떠오르므로 레이아웃에 영향이 없다.
+ */
+export function pulseLandingBadge(slot: HTMLElement | null, label: string): void {
+  if (!slot?.isConnected || typeof document === 'undefined' || prefersReducedMotion()) return;
+
+  const badge = document.createElement('span');
+  badge.className = 'sv2-landing-badge';
+  badge.textContent = label;
+  const rect = slot.getBoundingClientRect();
+  badge.style.left = `${rect.left + rect.width / 2}px`;
+  badge.style.top = `${rect.top}px`;
+  document.body.appendChild(badge);
+
+  gsap.fromTo(
+    badge,
+    { opacity: 0, y: 8, scale: 0.5, xPercent: -50, yPercent: -50 },
+    {
+      opacity: 1,
+      y: -16,
+      scale: 1,
+      xPercent: -50,
+      yPercent: -50,
+      duration: 0.32,
+      ease: 'back.out(2.6)',
+      onComplete: () => {
+        gsap.to(badge, {
+          opacity: 0,
+          y: -26,
+          scale: 0.9,
+          xPercent: -50,
+          yPercent: -50,
+          duration: 0.22,
+          ease: 'power2.in',
+          onComplete: () => badge.remove(),
+        });
+      },
+    }
+  );
+}
+
+/**
  * 컷 고스트 카드들을 출발지 → 타임라인 슬롯으로 순차 비행시킨다.
  * 각 카드가 착지하는 순간 onLand가 호출되어 실제 칩이 보이게 된다.
  *

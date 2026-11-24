@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Loader2, Sparkles } from 'lucide-react';
+import { Check, Loader2, Sparkles } from 'lucide-react';
 import { cleanModelName, getSpeedTier } from '../../services/modelMetrics.ts';
 import {
   getProviderPreset,
@@ -44,6 +44,8 @@ import {
 } from '../../services/studioTour.ts';
 import { useOnboardingTour } from '../../hooks/useOnboardingTour.ts';
 import { ShimmeringText } from '../common/ShimmeringText.tsx';
+import { CountUpNumber } from '../common/CountUpNumber.tsx';
+import { ConfettiCanvas } from '../common/ConfettiCanvas.tsx';
 import { OnboardingWelcomeModal } from './OnboardingWelcomeModal.tsx';
 import { OnboardingCelebration } from './OnboardingCelebration.tsx';
 import { INTRO_TEMPLATE_OPTIONS } from '../studio/introOutroOptions.ts';
@@ -60,6 +62,7 @@ import {
   collapseFlightCard,
   flyCutsIn,
   flyCutsOut,
+  pulseLandingBadge,
   type FlightHandle,
 } from './cutFlightAnimator.ts';
 import { buildTimeline } from './timelineModel.ts';
@@ -155,6 +158,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
   const [landedVideos, setLandedVideos] = useState<Set<string>>(new Set());
   const [landingIds, setLandingIds] = useState<Set<string>>(new Set());
   const [subtitleRefreshed, setSubtitleRefreshed] = useState(false);
+  const [exportCelebrating, setExportCelebrating] = useState(false);
   // 원본 삭제 연출 중인 컷/영상. 컷은 타임라인에서 숨기고, 편집·내보내기는 잠근다.
   const [returningIds, setReturningIds] = useState<Set<string>>(new Set());
   const [removingVideoIds, setRemovingVideoIds] = useState<Set<string>>(new Set());
@@ -213,6 +217,11 @@ export const CenterStudioView = (props: StudioV2Props) => {
             setLandingIds(new Set(landingIdsRef.current));
             const landed = fresh.find((s) => s.id === id);
             if (!landed) return;
+            // 착지 순간 순번 배지를 슬롯 위에 짧게 띄운다(모션 축소 환경에서는 no-op).
+            const slot = document.querySelector(
+              `[data-cut-slot-id="${id}"]`
+            ) as HTMLElement | null;
+            pulseLandingBadge(slot, String(fresh.findIndex((s) => s.id === id) + 1).padStart(2, '0'));
             // 같은 영상의 남은 컷이 아직 날아가는 중이면 카드를 유지한다(출발점 소실 방지).
             const stillFlying = Array.from(landingIdsRef.current).some(
               (flyingId) => idToSourceRef.current.get(flyingId) === landed.sourceVideoId
@@ -307,6 +316,12 @@ export const CenterStudioView = (props: StudioV2Props) => {
     const timer = window.setTimeout(() => setSubtitleRefreshed(false), 650);
     return () => window.clearTimeout(timer);
   }, [subtitleRefreshed]);
+
+  useEffect(() => {
+    if (!exportCelebrating) return;
+    const timer = window.setTimeout(() => setExportCelebrating(false), 2800);
+    return () => window.clearTimeout(timer);
+  }, [exportCelebrating]);
 
   const commitSegments = useCallback(
     (next: HighlightSegment[]) => {
@@ -1163,6 +1178,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
         document.body.appendChild(a);
         a.click();
         a.remove();
+        setExportCelebrating(true);
       }
     },
     [
@@ -1177,6 +1193,14 @@ export const CenterStudioView = (props: StudioV2Props) => {
       result?.suggestedTitle,
     ]
   );
+
+  // 내보내기 진행률을 단계별 체크리스트로 나눠 보여준다(각 단계가 켜질 때 스프링으로 등장).
+  const exportSteps = [
+    { at: 10, label: ui('프레임 준비') },
+    { at: 45, label: ui('오버레이 합성') },
+    { at: 85, label: ui('MP4 인코딩') },
+    { at: 100, label: ui('완료') },
+  ];
 
   if (!isWide) return <DesktopOnlyGate />;
 
@@ -1260,6 +1284,21 @@ export const CenterStudioView = (props: StudioV2Props) => {
             {isProcessing && (
               <div className="sv2-status-pill" role="status" aria-live="polite" data-tour="onboarding-status">
                 <span className="sv2-spinner" />
+                <div className="sv2-stage-dots" aria-hidden="true">
+                  {(['extract', 'analyze', 'stitch'] as const).map((phase, i) => {
+                    const current = ['extract', 'analyze', 'stitch'].indexOf(
+                      progress?.currentPhase ?? 'extract'
+                    );
+                    return (
+                      <span
+                        key={phase}
+                        className="sv2-stage-dot"
+                        data-active={i === current}
+                        data-done={i < current}
+                      />
+                    );
+                  })}
+                </div>
                 <span className="sv2-status-pill-text">
                   <ShimmeringText
                     text={
@@ -1269,6 +1308,11 @@ export const CenterStudioView = (props: StudioV2Props) => {
                     duration={1.1}
                   />
                 </span>
+                <CountUpNumber
+                  className="sv2-status-pill-pct"
+                  value={progress?.progressPercent ?? 0}
+                  suffix="%"
+                />
                 <div className="sv2-progress-bar sv2-status-pill-bar">
                   <div
                     className="sv2-progress-fill"
@@ -1455,6 +1499,23 @@ export const CenterStudioView = (props: StudioV2Props) => {
                   style={{ width: `${reStitchProgress?.progressPercent ?? 0}%` }}
                 />
               </div>
+              <ol className="sv2-export-steps">
+                {exportSteps.map((step) => {
+                  const pct = reStitchProgress?.progressPercent ?? 0;
+                  const done = pct >= step.at;
+                  return (
+                    <li
+                      key={step.label}
+                      className="sv2-export-step"
+                      data-done={done}
+                      data-active={!done && pct >= step.at - 20}
+                    >
+                      <span className="sv2-export-step-mark">{done ? <Check size={11} /> : null}</span>
+                      <span>{step.label}</span>
+                    </li>
+                  );
+                })}
+              </ol>
             </div>
           </div>
         )}
@@ -1498,6 +1559,8 @@ export const CenterStudioView = (props: StudioV2Props) => {
         onStart={handleOnboardingStart}
         onDismiss={handleOnboardingDismiss}
       />
+
+      <ConfettiCanvas active={exportCelebrating} className="sv2-export-confetti" />
 
       <OnboardingCelebration
         isOpen={showCelebration}

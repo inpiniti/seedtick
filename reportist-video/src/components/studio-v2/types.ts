@@ -138,6 +138,8 @@ export const DEFAULT_OVERLAY_OPTIONS: VideoOverlayOptions = {
   outroDurationSec: 2.2,
   showChapterBridge: false,
   bgmFitToVideo: false,
+  subtitleMotion: 'none',
+  boundaryWipe: false,
   showCredit: true,
   creditText: 'Cut with PenguinCut · penguincut.com',
 };
@@ -161,6 +163,8 @@ export function createDefaultOverlayOptions(): VideoOverlayOptions {
     outroTemplate: getStoredOutroTemplate(),
     outroDurationSec: getStoredOutroDuration(),
     showChapterBridge: false,
+    subtitleMotion: 'none',
+    boundaryWipe: false,
   };
 }
 

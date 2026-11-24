@@ -6,8 +6,34 @@
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const root = document.documentElement;
   const story = document.querySelector("[data-story]");
+
+  // One deterministic subtitle beat. index.html belongs to the static
+  // pipeline, so the text node is created here. Its opacity, rise and revealed
+  // character count are all pure functions of scroll progress — no timers, no
+  // keyframes — so scrubbing back un-reveals and drops the line again.
+  const CAPTION_TEXT = "One frame changes everything.";
+  const caption = story ? document.createElement("div") : null;
+  let captionText = null;
+  if (caption) {
+    caption.className = "story-subtitle";
+    captionText = document.createElement("span");
+    captionText.textContent = CAPTION_TEXT;
+    caption.appendChild(captionText);
+    (story.querySelector(".story-sticky") || story).appendChild(caption);
+  }
+
   if (!story || !root.classList.contains("has-motion-stage") || reduceMotion.matches) {
+    // Reduced motion (or a stage that never turns on): final, static text only.
+    if (caption && captionText) {
+      caption.style.opacity = "1";
+      captionText.style.transform = "none";
+    }
     return;
+  }
+
+  if (caption) {
+    caption.style.opacity = "0";
+    captionText.style.transform = "translateY(18px)";
   }
 
   const canvas = story.querySelector("[data-story-canvas]");
@@ -86,6 +112,37 @@
     return `${pad(Math.floor(total / 3600))}:${pad(
       Math.floor((total % 3600) / 60)
     )}:${pad(total % 60)}`;
+  };
+
+  // Caption beat sits inside act 0 (0–0.28): it starts exactly where the
+  // capture chips light up (raw >= 0.62) and clears before act 1 takes over.
+  const CAPTION_START = 0.28 * 0.62;
+  const CAPTION_END = 0.272;
+  const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+  const easeOutQuad = (t) => 1 - (1 - t) * (1 - t);
+  let captionVisible = false;
+
+  const renderCaption = (progress) => {
+    if (!caption || !captionText) return;
+    if (progress <= CAPTION_START || progress >= CAPTION_END) {
+      if (captionVisible) {
+        captionVisible = false;
+        captionText.textContent = "";
+        captionText.style.transform = "translateY(18px)";
+        caption.style.opacity = "0";
+      }
+      return;
+    }
+    captionVisible = true;
+    const t = clamp01((progress - CAPTION_START) / (CAPTION_END - CAPTION_START));
+    // The rise leads and settles early; characters keep arriving a little
+    // longer. Both are monotonic in progress, so reverse scroll rewinds them.
+    const rise = easeOutCubic(clamp01(t / 0.72));
+    const reveal = easeOutQuad(clamp01((t - 0.06) / 0.94));
+    const text = CAPTION_TEXT.slice(0, Math.round(CAPTION_TEXT.length * reveal));
+    if (captionText.textContent !== text) captionText.textContent = text;
+    captionText.style.transform = `translateY(${((1 - rise) * 18).toFixed(2)}px)`;
+    caption.style.opacity = Math.min(1, t * 3).toFixed(3);
   };
 
   const drawFrame = (index) => {
@@ -201,6 +258,7 @@
     if (bar) bar.style.transform = `scaleX(${progress.toFixed(4)})`;
     if (tc) tc.textContent = clock(progress);
     if (cue) cue.style.opacity = progress > 0.04 ? "0" : "1";
+    renderCaption(progress);
   };
 
   for (const jump of uiJumps) {

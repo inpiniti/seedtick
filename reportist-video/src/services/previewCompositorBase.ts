@@ -34,6 +34,30 @@ function clampRatio(value: number | undefined, fallback: number): number {
 }
 
 /**
+ * 세그먼트 진행률(0~1) 기준 모션 구간.
+ * 미리보기와 GSAP seek 기반 내보내기가 같은 숫자를 쓰도록 시간/벽시계가 아닌 진행률만 사용한다.
+ */
+export const SUBTITLE_MOTION_WINDOW = 0.22;
+export const BOUNDARY_WIPE_WINDOW = 0.25;
+
+function clamp01(value: number): number {
+  if (!Number.isFinite(value)) return 1;
+  return Math.min(1, Math.max(0, value));
+}
+
+/** 이징은 오직 progress 입력으로만 계산한다 (Date.now/random 금지 → seek 재현 가능). */
+function easeOutCubic(t: number): number {
+  const p = clamp01(t);
+  return 1 - Math.pow(1 - p, 3);
+}
+
+function motionPhase(segmentProgress: number | undefined, windowRatio: number): number {
+  // 진행률이 없으면(레거시 호출/썸네일) 최종 상태로 그려 기존 결과를 유지한다.
+  if (typeof segmentProgress !== 'number' || Number.isNaN(segmentProgress)) return 1;
+  return clamp01(segmentProgress / windowRatio);
+}
+
+/**
  * 우상단에 표시할 촬영일을 포맷한다.
  * - recordedTimestamp(ms)가 있으면 가장 우선한다.
  * - 저장된 날짜 표기 형식(기본 YYYY.MM.DD)과 아이 나이 옵션, 현재 로케일을 함께 반영한다.
@@ -533,24 +557,80 @@ function paintTitleBox(
   oCtx.restore();
 }
 
-/** 계산된 자막 박스를 캔버스에 그린다. 가로·세로 모두 같은 그리기 규칙을 쓴다. */
+/**
+ * 계산된 자막 박스를 캔버스에 그린다. 가로·세로 모두 같은 그리기 규칙을 쓴다.
+ * 모션은 진행률 하나로만 결정되므로 미리보기 seek과 내보내기 프레임이 픽셀 단위로 일치한다.
+ * motion='none'이거나 progress=1이면 기존 드로잉과 완전히 동일하다.
+ */
 function paintSubtitleBox(
   oCtx: CanvasRenderingContext2D,
   bounds: SubtitleOverlayBounds,
-  frame: FrameSpec
+  frame: FrameSpec,
+  motion: NonNullable<VideoOverlayOptions['subtitleMotion']> = 'none',
+  progress = 1
 ): void {
+  const t = clamp01(progress);
+  const eased = easeOutCubic(t);
+  // rise: easeOut 곡선으로 아래→위 이동 + 알페이드. type: 박스는 고정, 글자만 공개.
+  const riseOffset = motion === 'rise' ? Math.round(10 * frame.unit) * (1 - eased) : 0;
+
   oCtx.save();
+  if (motion === 'rise') oCtx.globalAlpha = eased;
   oCtx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-  paintRoundedRect(oCtx, bounds.x, bounds.y, bounds.width, bounds.height, Math.round(8 * frame.unit));
+  paintRoundedRect(
+    oCtx,
+    bounds.x,
+    bounds.y + riseOffset,
+    bounds.width,
+    bounds.height,
+    Math.round(8 * frame.unit)
+  );
   oCtx.fill();
 
   oCtx.fillStyle = '#ffffff';
   oCtx.textAlign = 'center';
   oCtx.textBaseline = 'middle';
   oCtx.font = overlayFont('bold', bounds.fontSize);
+
+  if (motion !== 'type' || t >= 1) {
+    bounds.lines.forEach((line, index) => {
+      oCtx.fillText(
+        line,
+        frame.width / 2,
+        bounds.y + bounds.padY + bounds.lineHeight * (index + 0.5) + riseOffset
+      );
+    });
+    oCtx.restore();
+    return;
+  }
+
+  // type: 글자 수를 진행률에 비례해 점진 공개하고 마지막 글자 뒤에 커서를 둔다.
+  const totalChars = bounds.lines.reduce((sum, line) => sum + Array.from(line).length, 0);
+  let remaining = Math.floor(totalChars * t);
+  let cursorX = frame.width / 2;
+  let cursorY = bounds.y + bounds.padY + bounds.lineHeight * 0.5;
   bounds.lines.forEach((line, index) => {
-    oCtx.fillText(line, frame.width / 2, bounds.y + bounds.padY + bounds.lineHeight * (index + 0.5));
+    const chars = Array.from(line);
+    const visibleCount = Math.min(chars.length, remaining);
+    remaining -= visibleCount;
+    const visible = chars.slice(0, visibleCount).join('');
+    const y = bounds.y + bounds.padY + bounds.lineHeight * (index + 0.5);
+    oCtx.fillText(visible, frame.width / 2, y);
+    if (visibleCount > 0 || index === 0) {
+      cursorX = frame.width / 2 + oCtx.measureText(visible).width / 2;
+      cursorY = y;
+    }
   });
+  // 깜빡임도 progress로만 계산한다 (벽시계 금지). t=1에서는 커서를 숨겨 최종 상태를 고정한다.
+  if (totalChars > 0 && Math.floor(t * 6) % 2 === 0) {
+    const cursorHeight = Math.round(bounds.fontSize * 1.05);
+    oCtx.fillRect(
+      cursorX + Math.round(3 * frame.unit),
+      cursorY - cursorHeight / 2,
+      Math.max(1, Math.round(2 * frame.unit)),
+      cursorHeight
+    );
+  }
   oCtx.restore();
 }
 
@@ -631,7 +711,13 @@ function drawLandscapeOverlay(
     const bounds = computeSubtitleOverlayBounds(titlePart, frame, oCtx);
     if (bounds) {
       hasAnyOverlay = true;
-      paintSubtitleBox(oCtx, bounds, frame);
+      paintSubtitleBox(
+        oCtx,
+        bounds,
+        frame,
+        overlayOptions.subtitleMotion ?? 'none',
+        motionPhase(options?.segmentProgress, SUBTITLE_MOTION_WINDOW)
+      );
     }
   }
 
@@ -733,7 +819,13 @@ function drawPortraitOverlay(
     const bounds = computeSubtitleOverlayBounds(titlePart, frame, oCtx);
     if (bounds) {
       hasAnyOverlay = true;
-      paintSubtitleBox(oCtx, bounds, frame);
+      paintSubtitleBox(
+        oCtx,
+        bounds,
+        frame,
+        overlayOptions.subtitleMotion ?? 'none',
+        motionPhase(options?.segmentProgress, SUBTITLE_MOTION_WINDOW)
+      );
     }
   }
 
@@ -748,6 +840,8 @@ export interface SegmentOverlayDrawOptions {
   hideSubtitle?: boolean;
   /** true면 좌상단 제목 박스만 숨긴다. DOM 인라인 편집창이 같은 자리를 대체할 때 사용한다. */
   hideTitle?: boolean;
+  /** 현재 세그먼트 내 진행률(0~1). 자막 등장 모션의 유일한 입력이며 없으면 최종 상태로 그린다. */
+  segmentProgress?: number;
 }
 
 /**
@@ -767,4 +861,54 @@ export function drawCompositorSegmentOverlay(
   return frame.orientation === 'portrait'
     ? drawPortraitOverlay(oCtx, overlayOptions, currentSegment, frame, options)
     : drawLandscapeOverlay(oCtx, overlayOptions, currentSegment, frame, options);
+}
+
+/**
+ * 세그먼트 경계 와이프 — 화면을 가로지르는 얇은 라이트 스윕.
+ *
+ * 미리보기(CenterPreviewStage)와 두 스티처(WebCodecs / 레거시 MediaRecorder)가
+ * 동일하게 호출하는 공통 헬퍼다. 오직 `progress`(0~1, BOUNDARY_WIPE_WINDOW 기준 정규화)로만
+ * 그리므로 GSAP seek 기반 내보내기와 실시간 미리보기의 결과가 일치한다.
+ * progress 0/1에서는 알파가 0이 되어 잔상이 남지 않는다.
+ */
+export function drawBoundaryWipe(
+  ctx: CanvasRenderingContext2D,
+  frame: FrameSpec,
+  progress: number
+): void {
+  const t = clamp01(progress);
+  const envelope = Math.sin(Math.PI * t);
+  if (envelope <= 0.002) return;
+
+  const u = frame.unit;
+  const { width, height } = frame;
+  const band = Math.max(40, Math.round(96 * u));
+  const skew = Math.round(height * 0.16);
+  const centerX = -band + easeOutCubic(t) * (width + band * 2);
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = envelope * 0.5;
+  const gradient = ctx.createLinearGradient(centerX - band, 0, centerX + band, 0);
+  gradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
+  gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.92)');
+  gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.moveTo(centerX - band + skew, 0);
+  ctx.lineTo(centerX + band + skew, 0);
+  ctx.lineTo(centerX + band - skew, height);
+  ctx.lineTo(centerX - band - skew, height);
+  ctx.closePath();
+  ctx.fill();
+
+  // 선두의 가는 하이라이트 라인
+  ctx.globalAlpha = envelope * 0.7;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+  ctx.lineWidth = Math.max(1, Math.round(2 * u));
+  ctx.beginPath();
+  ctx.moveTo(centerX + band * 0.55 + skew, 0);
+  ctx.lineTo(centerX + band * 0.55 - skew, height);
+  ctx.stroke();
+  ctx.restore();
 }

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { ScrollFade } from '@animate-ui/react/primitives/effects/scroll-fade';
 import { Plus, Scissors, Sparkles, UploadCloud, X } from 'lucide-react';
 import type { VideoItem, VideoTaskProgress } from '../../types/video.ts';
@@ -6,7 +7,7 @@ import { useI18n } from '../../i18n/index.tsx';
 import { ShimmeringText } from '../common/ShimmeringText.tsx';
 import { scrollFadePanelProps } from '../common/scrollFade.ts';
 import { SharedVideosPanel } from '../community/SharedVideosPanel.tsx';
-import { PageTransition } from './PageTransition.tsx';
+import { PageTransition, type PageTransitionEffect } from './PageTransition.tsx';
 import { formatShootDate } from './types.ts';
 import { Tooltip } from '../ui/Tooltip.tsx';
 
@@ -111,6 +112,16 @@ export const UploadQueueDock = ({
   isOnboardingActive,
 }: UploadQueueDockProps) => {
   const { ui } = useI18n();
+  // script-to-motion 기법: 탭 진행 방향을 "컷"으로 삼아 전환 효과를 다르게 고른다.
+  // 앞으로 이동하면 wipe(라이트 스윕), 뒤로 돌아가면 iris(중앙에서 원형 확장).
+  const TAB_ORDER: LeftDockTab[] = ['source', 'share'];
+  const [tabEffect, setTabEffect] = useState<PageTransitionEffect>('wipe');
+  const handleTab = (next: LeftDockTab) => {
+    setTabEffect(
+      TAB_ORDER.indexOf(next) >= TAB_ORDER.indexOf(activeTab) ? 'wipe' : 'iris'
+    );
+    onTabChange(next);
+  };
   // 분석 중에 새 영상을 넣으면 분석 시작 시점의 스냅샷이 다시 덮어써서 방금 넣은 영상이 사라진다.
   // 자막 다듬기(분석)가 끝날 때까지 추가 경로를 전부 잠근다.
   const addDisabled = isProcessing || activeTab !== 'source';
@@ -144,7 +155,7 @@ export const UploadQueueDock = ({
             role="tab"
             aria-selected={activeTab === 'source'}
             className="sv2-dock-tab"
-            onClick={() => onTabChange('source')}
+            onClick={() => handleTab('source')}
           >
             <span>{ui('원본 영상')}</span>
             <span className="sv2-dock-tab-count">
@@ -156,14 +167,14 @@ export const UploadQueueDock = ({
             role="tab"
             aria-selected={activeTab === 'share'}
             className="sv2-dock-tab"
-            onClick={() => onTabChange('share')}
+            onClick={() => handleTab('share')}
           >
             <span>{ui('공유')}</span>
           </button>
         </div>
 
         {/* 탭이 바뀌면 Animate UI PageTransition으로 패널 내용을 전환한다. 탭 바 자체는 고정. */}
-        <PageTransition effect="slide" pageKey={activeTab} className="sv2-dock-page">
+        <PageTransition effect={tabEffect} pageKey={activeTab} className="sv2-dock-page">
           {activeTab === 'source' ? (
             <>
               <div className="sv2-dock-add-row">

@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pause, Play, RotateCcw } from 'lucide-react';
 import {
+  BOUNDARY_WIPE_WINDOW,
   computeMetaLayoutFromTexts,
+  drawBoundaryWipe,
   drawCompositorCoverFrame,
   drawCompositorSegmentOverlay,
   resolveMetaTexts,
@@ -160,10 +162,19 @@ export const CenterPreviewStage = ({
       }
       // 영상이 아직 준비 안 됐어도 날짜·위치·자막은 검은 화면에 표시.
       // 인라인 편집 중에는 DOM 입력창이 같은 자리를 대체하므로 해당 캔버스 텍스트만 숨긴다.
+      // 진행률만 공유하면 내보내기의 GSAP seek 프레임과 같은 모션이 재현된다.
+      const segmentProgress = Math.max(
+        0,
+        Math.min(1, (playhead - activeItem.start) / Math.max(0.01, seg.duration || 0.01))
+      );
       drawCompositorSegmentOverlay(ctx, overlayOptions, seg, frame, {
         hideSubtitle: isEditingCaption,
         hideTitle: isEditingTitle,
+        segmentProgress,
       });
+      if (overlayOptions.boundaryWipe) {
+        drawBoundaryWipe(ctx, frame, segmentProgress / BOUNDARY_WIPE_WINDOW);
+      }
       return;
     }
 
