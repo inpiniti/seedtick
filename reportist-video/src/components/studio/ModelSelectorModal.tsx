@@ -1188,6 +1188,35 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                       </div>
                     )}
 
+                    {model.supportsReasoning && (
+                      <div
+                        className="model-modal-tag capability reasoning"
+                        title={model.reasoningToggle ? 'Reasoning on/off' : undefined}
+                      >
+                        <Brain size={12} />
+                        <span>{dict.modelModal.tagReasoning}</span>
+                      </div>
+                    )}
+                    {model.supportsTools && (
+                      <div className="model-modal-tag capability tools">
+                        <Cpu size={12} />
+                        <span>{dict.modelModal.tagTools}</span>
+                      </div>
+                    )}
+                    {model.docsUrl && (
+                      <a
+                        className="model-modal-tag docs"
+                        href={model.docsUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        title={dict.modelModal.tagModelDocs}
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <ExternalLink size={12} />
+                        <span>{dict.modelModal.tagModelDocs}</span>
+                      </a>
+                    )}
+
                     {inputModalities.includes('image') && (
                       <span className="model-modal-tag modality image">🖼️ {dict.modelModal.modalityImage}</span>
                     )}

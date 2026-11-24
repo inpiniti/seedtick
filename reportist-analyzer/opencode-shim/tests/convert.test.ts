@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { chunk, completion, DONE, errorBody, toPrompt } from "../src/convert"
+import { chunk, completion, DONE, errorBody, extractPromptFiles, toPrompt } from "../src/convert"
 
 describe("convert", () => {
   test("messages를 role 표기 프롬프트로 직렬화한다", () => {
@@ -32,5 +32,22 @@ describe("convert", () => {
 
   test("에러 본문을 OpenAI 형식으로 만든다", () => {
     expect(JSON.parse(errorBody("boom")).error.message).toBe("boom")
+  })
+
+  test("image_url 데이터 URI를 SDK 첨부파일로 변환한다", () => {
+    const files = extractPromptFiles([
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "이 프레임을 설명해줘" },
+          { type: "image_url", image_url: { url: "data:image/png;base64,iVBORw0KGgo=" } },
+        ],
+      },
+      { role: "user", content: [{ type: "image_url", image_url: { url: "https://example.com/a.png" } }] },
+    ])
+
+    expect(files).toHaveLength(1)
+    expect(files[0].uri).toBe("data:image/png;base64,iVBORw0KGgo=")
+    expect(files[0].source).toEqual({ type: "inline" })
   })
 })

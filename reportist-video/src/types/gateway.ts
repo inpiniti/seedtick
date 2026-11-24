@@ -35,6 +35,11 @@ export interface FreeModelMeta {
   supportedEfforts?: string[];
   defaultEffort?: string | null;
   reasoningMandatory?: boolean;
+  supportsReasoning?: boolean;
+  supportsTools?: boolean;
+  supportsStructuredOutput?: boolean;
+  reasoningToggle?: boolean;
+  docsUrl?: string;
   intelligenceTier?: string;
   parametersSummary?: string;
   supportedParameters?: string[];

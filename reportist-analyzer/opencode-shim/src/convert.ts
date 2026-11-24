@@ -1,6 +1,13 @@
 export interface ChatMessage {
   role: string
-  content: string | Array<{ type?: string; text?: string }>
+  content: string | Array<{ type?: string; text?: string; image_url?: { url?: string } }>
+}
+
+/** OpenCode SDK sessions.prompt의 files 인자에 그대로 넘길 수 있는 첨부파일 */
+export interface PromptFile {
+  uri: string
+  name?: string
+  source?: { type: "inline" }
 }
 
 export interface ChatRequest {
@@ -18,6 +25,24 @@ export function toPrompt(messages: ChatMessage[]): string {
   return messages
     .map((message) => `${message.role.toUpperCase()}: ${textOf(message.content)}`)
     .join("\n\n")
+}
+
+/**
+ * chat/completions의 image_url 파트를 SDK 첨부파일로 변환한다.
+ * data: URI만 지원한다(원격 URL은 sampler가 임의로 가져오지 않도록 의도적으로 제외).
+ */
+export function extractPromptFiles(messages: ChatMessage[]): PromptFile[] {
+  const files: PromptFile[] = []
+  for (const message of messages) {
+    if (typeof message.content === "string") continue
+    for (const part of message.content) {
+      const url = part.image_url?.url
+      if (typeof url === "string" && url.startsWith("data:")) {
+        files.push({ uri: url, name: `image-${files.length + 1}`, source: { type: "inline" } })
+      }
+    }
+  }
+  return files
 }
 
 let counter = 0

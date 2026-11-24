@@ -189,6 +189,16 @@ export interface FreeModelMeta {
   supportedEfforts?: string[];
   defaultEffort?: string | null;
   reasoningMandatory?: boolean;
+  /** 추론(thinking) 지원 여부 */
+  supportsReasoning?: boolean;
+  /** 도구 호출 지원 여부 */
+  supportsTools?: boolean;
+  /** 구조화 출력 지원 여부 */
+  supportsStructuredOutput?: boolean;
+  /** 추론 on/off 토글 지원 여부 */
+  reasoningToggle?: boolean;
+  /** 모델 상세 스펙 문서 URL */
+  docsUrl?: string;
   intelligenceTier: string;
   parametersSummary: string;
   supportedParameters: string[];

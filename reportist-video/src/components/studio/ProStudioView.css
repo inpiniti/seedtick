@@ -5768,6 +5768,27 @@
   color: #64748b;
 }
 
+.model-modal-tag.capability.reasoning {
+  background-color: #f5f3ff;
+  color: #6d28d9;
+}
+
+.model-modal-tag.capability.tools {
+  background-color: #fff7ed;
+  color: #c2410c;
+}
+
+.model-modal-tag.docs {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.model-modal-tag.docs:hover {
+  background-color: #dbeafe;
+}
+
 .model-modal-tag.date {
   background-color: #f1f5f9;
   color: #475569;

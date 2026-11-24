@@ -252,6 +252,7 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
               const isSelected = model.id === selectedModelId;
               const isNew = model.daysAgo <= 14;
               const inputMods = getModelInputModalities(model);
+              const outputMods = model.outputModalities ?? (model.isImageGenerationModel ? ['image'] : ['text']);
 
               return (
                 <div
@@ -320,22 +321,59 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
                       <span className="meta-pill modality-badge image">🎨 이미지 생성</span>
                     )}
 
-                    {/* 모달리티 뱃지 */}
+                    {/* 입출력 모달리티 (models.dev 기준) */}
                     {inputMods.includes('image') && (
-                      <span className="meta-pill modality-badge image">🖼️ 이미지</span>
+                      <span className="meta-pill modality-badge image" title="이미지 입력 지원">
+                        🖼️ 이미지 입력
+                      </span>
                     )}
                     {inputMods.includes('audio') && (
-                      <span className="meta-pill modality-badge audio">🎙️ 오디오</span>
+                      <span className="meta-pill modality-badge audio" title="오디오 입력 지원">
+                        🎙️ 오디오 입력
+                      </span>
                     )}
                     {inputMods.includes('video') && (
-                      <span className="meta-pill modality-badge video">🎬 비디오</span>
+                      <span className="meta-pill modality-badge video" title="비디오 입력 지원">
+                        🎬 비디오 입력
+                      </span>
                     )}
-                    {!model.isImageGenerationModel &&
-                      !inputMods.includes('image') &&
-                      !inputMods.includes('audio') &&
-                      !inputMods.includes('video') && (
-                        <span className="meta-pill modality-badge text">📝 텍스트 전용</span>
-                      )}
+                    {outputMods.includes('text') && (
+                      <span className="meta-pill modality-badge text" title="텍스트 입력·출력 지원">
+                        📝 텍스트 입·출력
+                      </span>
+                    )}
+
+                    {/* 모델 capability (models.dev / OpenCode 문서 기준) */}
+                    {model.supportsReasoning && (
+                      <span
+                        className="meta-pill capability-pill reasoning"
+                        title={model.reasoningToggle ? '추론 on/off 토글 지원' : '추론(reasoning) 지원'}
+                      >
+                        🧠 추론{model.reasoningToggle ? ' on/off' : ''}
+                      </span>
+                    )}
+                    {model.supportsTools && (
+                      <span className="meta-pill capability-pill tools" title="도구 호출 지원">
+                        🛠️ 도구
+                      </span>
+                    )}
+                    {model.supportsStructuredOutput && (
+                      <span className="meta-pill capability-pill structure" title="구조화 출력 지원">
+                        🧩 구조화 출력
+                      </span>
+                    )}
+                    {model.docsUrl && (
+                      <a
+                        className="meta-pill docs-link-pill"
+                        href={model.docsUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="OpenCode 모델 상세 정보"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        ℹ️ 모델 정보 ↗
+                      </a>
+                    )}
 
                     {/* 출시일 정보 */}
                     <div className="meta-pill date-pill" title={`출시일: ${model.createdDate}`}>

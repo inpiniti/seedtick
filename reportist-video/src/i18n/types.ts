@@ -618,6 +618,9 @@ export interface Dictionary {
     close: string;
     tagCoding: string;
     tagEffort: string;
+    tagReasoning: string;
+    tagTools: string;
+    tagModelDocs: string;
     privacyNoTraining?: string;
     privacyTraining?: string;
     privacyRetention?: string;

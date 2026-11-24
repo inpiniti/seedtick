@@ -366,57 +366,139 @@ const IMAGE_GENERATION_FREE_MODELS: FreeModelMeta[] = [
   },
 ];
 
-// OpenCode Console의 무료 채팅 모델 전체 (브릿지가 설정된 경우 노출)
+// OpenCode Console 무료 채팅 모델 전체 (브릿지가 설정된 경우 노출).
+// 스펙은 models.dev/api.json(opencode/opencode-go 프로바이더) 기준이다.
+// 예전에는 전부 text->text로 하드코딩해 하이브리드 모델이 "텍스트 전용"으로
+// 표시되고 비전 모델 셀렉터에서 제외되는 문제가 있었다.
+const OPENCODE_DOCS_URL = 'https://opencode.ai/docs/models/';
 const OPENCODE_FREE_MODEL_SEEDS: ReadonlyArray<{
   id: string;
   name: string;
   createdDate: string;
   contextLength: number;
+  description: string;
+  inputModalities: string[];
+  supportsReasoning: boolean;
+  supportsTools: boolean;
+  supportsStructuredOutput?: boolean;
+  supportedEfforts?: string[];
+  reasoningToggle?: boolean;
 }> = [
-  { id: 'big-pickle', name: 'Big Pickle', createdDate: '2025-10-17', contextLength: 200000 },
+  {
+    id: 'big-pickle',
+    name: 'Big Pickle',
+    createdDate: '2025-10-17',
+    contextLength: 200000,
+    description:
+      'Reasoning model for deliberate analysis, multi-step problem solving, and tool use',
+    inputModalities: ['text'],
+    supportsReasoning: true,
+    supportsTools: true,
+    supportsStructuredOutput: true,
+  },
   {
     id: 'mimo-v2.6-flash-free',
     name: 'MiMo-V2.6-Flash Free',
     createdDate: '2026-09-22',
     contextLength: 200000,
+    description: 'MiMo Flash model for multimodal coding agents and long-context automation',
+    inputModalities: ['text', 'image', 'audio', 'video'],
+    supportsReasoning: true,
+    supportsTools: true,
   },
   {
     id: 'deepseek-v4.1-flash-free',
     name: 'DeepSeek V4.1 Flash Free',
     createdDate: '2026-10-17',
     contextLength: 200000,
+    description:
+      'October 17 update of DeepSeek V4.1 Flash with improved reasoning, coding, agentic tasks, and visual understanding',
+    inputModalities: ['text', 'image'],
+    supportsReasoning: true,
+    supportsTools: true,
+    supportsStructuredOutput: true,
+    supportedEfforts: ['low', 'high', 'max'],
+    reasoningToggle: true,
   },
-  { id: 'iceman-free', name: 'Iceman Free', createdDate: '2026-11-06', contextLength: 262144 },
-  { id: 'beam-free', name: 'Beam Free', createdDate: '2026-10-05', contextLength: 1048576 },
+  {
+    id: 'iceman-free',
+    name: 'Iceman Free',
+    createdDate: '2026-11-06',
+    contextLength: 262144,
+    description: 'Stealth model, free for a limited time',
+    inputModalities: ['text'],
+    supportsReasoning: true,
+    supportsTools: true,
+  },
+  {
+    id: 'beam-free',
+    name: 'Beam Free',
+    createdDate: '2026-10-05',
+    contextLength: 1048576,
+    description:
+      'Sparse mixture-of-experts reasoning model with 23B active parameters for coding and agentic workflows',
+    inputModalities: ['text'],
+    supportsReasoning: true,
+    supportsTools: true,
+    supportsStructuredOutput: true,
+    supportedEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+  },
   {
     id: 'flint-40b-free',
     name: 'Flint 40B Free',
     createdDate: '2026-10-21',
     contextLength: 262144,
+    description:
+      'Open-weight mixture-of-experts model with about 2.5B active parameters for local coding agents',
+    inputModalities: ['text'],
+    supportsReasoning: true,
+    supportsTools: true,
+    supportedEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
   },
   {
     id: 'nemotron-3.5-super-vl-free',
     name: 'Nemotron 3.5 Super VL Free',
     createdDate: '2026-10-15',
     contextLength: 1048576,
+    description:
+      'NVIDIA vision-language reasoning model for text, image, and video understanding and agentic tool use',
+    inputModalities: ['text', 'image'],
+    supportsReasoning: true,
+    supportsTools: true,
+    supportedEfforts: ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'],
   },
   {
     id: 'nemotron-3.5-lightning-free',
     name: 'Nemotron 3.5 Lightning Free',
     createdDate: '2026-08-11',
     contextLength: 262144,
+    description: 'Fast NVIDIA Nemotron MoE for reliable agentic tasks across enterprise workloads',
+    inputModalities: ['text'],
+    supportsReasoning: true,
+    supportsTools: true,
   },
   {
     id: 'hy4-flash-free',
     name: 'Hy4 flash Free',
     createdDate: '2026-11-16',
     contextLength: 1048576,
+    description:
+      "Tencent's lower-cost Hy4 tier for everyday agent and productivity tasks, with image understanding and a 1M-token context window.",
+    inputModalities: ['text', 'image'],
+    supportsReasoning: true,
+    supportsTools: true,
+    supportedEfforts: ['none', 'high'],
   },
   {
     id: 'tidepool-alpha-free',
     name: 'Tidepool Alpha Free',
     createdDate: '2026-11-18',
     contextLength: 1048576,
+    description: 'Stealth reasoning model, free for a limited time',
+    inputModalities: ['text'],
+    supportsReasoning: true,
+    supportsTools: true,
+    supportedEfforts: ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'],
   },
 ];
 
@@ -435,10 +517,16 @@ function buildOpenCodeFreeModels(now: number): FreeModelMeta[] {
         seed.contextLength >= 1000000
           ? `${Math.round(seed.contextLength / 1000000)}M tokens`
           : `${Math.round(seed.contextLength / 1000)}K tokens`,
-      description: `${seed.name} — OpenCode 무료 모델 (SDK 브릿지 경유)`,
-      modality: 'text->text',
-      inputModalities: ['text'],
+      description: seed.description,
+      modality: `${seed.inputModalities.join('+')}->text`,
+      inputModalities: seed.inputModalities,
       outputModalities: ['text'],
+      supportsReasoning: seed.supportsReasoning,
+      supportsTools: seed.supportsTools,
+      supportsStructuredOutput: seed.supportsStructuredOutput,
+      supportedEfforts: seed.supportedEfforts,
+      reasoningToggle: seed.reasoningToggle,
+      docsUrl: OPENCODE_DOCS_URL,
       intelligenceIndex: null,
       codingIndex: null,
       agenticIndex: null,
@@ -519,6 +607,11 @@ export class ModelService {
         const supportedParameters = Array.isArray(m.supported_parameters)
           ? (m.supported_parameters as string[])
           : [];
+        const supportsTools =
+          supportedParameters.includes('tools') || supportedParameters.includes('tool_choice');
+        const supportsStructuredOutput =
+          supportedParameters.includes('structured_outputs') ||
+          supportedParameters.includes('response_format');
 
         const benchmarks = (m.benchmarks as Record<string, unknown>) ?? {};
         const aa = (benchmarks.artificial_analysis as Record<string, unknown>) ?? {};
@@ -534,6 +627,11 @@ export class ModelService {
         const defaultEffort =
           typeof reasoningObj.default_effort === 'string' ? reasoningObj.default_effort : null;
         const reasoningMandatory = Boolean(reasoningObj.mandatory);
+        const supportsReasoning = Boolean(
+          reasoningMandatory ||
+            (Array.isArray(supportedEfforts) && supportedEfforts.length > 0) ||
+            supportedParameters.includes('reasoning')
+        );
 
         // 지능 티어 및 파라미터 요약 추출
         const { intelligenceTier, parametersSummary, providerName } = this.deriveModelIntelligence(
@@ -562,6 +660,9 @@ export class ModelService {
           supportedEfforts,
           defaultEffort,
           reasoningMandatory,
+          supportsReasoning,
+          supportsTools,
+          supportsStructuredOutput,
           intelligenceTier,
           parametersSummary,
           supportedParameters,

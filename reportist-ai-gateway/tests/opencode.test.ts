@@ -4,7 +4,7 @@ import { env } from '../src/config/env.ts';
 import type { ErrorLogService } from '../src/domain/error-log/ErrorLogService.ts';
 import { ModelService } from '../src/domain/models/ModelService.ts';
 import { ProxyService } from '../src/domain/proxy/ProxyService.ts';
-import type { ChatRequest, ChatResponse } from '../src/domain/types.ts';
+import type { ChatRequest, ChatResponse, FreeModelMeta } from '../src/domain/types.ts';
 
 const chatResponse: ChatResponse = {
   id: 'chatcmpl-opencode-test',
@@ -105,7 +105,7 @@ describe('OpenCode bridge provider', () => {
   test('모든 OpenCode 무료 모델이 /v1/models 메타데이터에 포함된다', () => {
     const service = new ModelService();
     const models = (
-      service as unknown as { withImageModels: (m: never[]) => Array<{ id: string }> }
+      service as unknown as { withImageModels: (m: never[]) => FreeModelMeta[] }
     ).withImageModels([]);
     const ids = models.map((m) => m.id);
 
@@ -113,5 +113,30 @@ describe('OpenCode bridge provider', () => {
     expect(ids).toContain('opencode/deepseek-v4.1-flash-free');
     expect(ids).toContain('opencode/beam-free');
     expect(ids.filter((id) => id.startsWith('opencode/')).length).toBe(10);
+  });
+
+  test('OpenCode 모델은 실제 입력 모달리티와 capability를 노출한다', () => {
+    const service = new ModelService();
+    const models = (
+      service as unknown as { withImageModels: (m: never[]) => FreeModelMeta[] }
+    ).withImageModels([]);
+    const byId = new Map(models.map((m) => [m.id, m]));
+
+    const hy4 = byId.get('opencode/hy4-flash-free');
+    expect(hy4?.inputModalities).toEqual(['text', 'image']);
+    expect(hy4?.modality).toBe('text+image->text');
+    expect(hy4?.supportsReasoning).toBe(true);
+    expect(hy4?.supportsTools).toBe(true);
+    expect(hy4?.supportedEfforts).toEqual(['none', 'high']);
+    expect(hy4?.docsUrl).toBe('https://opencode.ai/docs/models/');
+
+    const deepseek = byId.get('opencode/deepseek-v4.1-flash-free');
+    expect(deepseek?.inputModalities).toEqual(['text', 'image']);
+    expect(deepseek?.supportsReasoning).toBe(true);
+    expect(deepseek?.supportsTools).toBe(true);
+    expect(deepseek?.reasoningToggle).toBe(true);
+
+    const beam = byId.get('opencode/beam-free');
+    expect(beam?.inputModalities).toEqual(['text']);
   });
 });

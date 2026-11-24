@@ -1,5 +1,5 @@
 import { isReady, runCompletion, startHost, type StreamItem } from "./host"
-import { chunk, completion, DONE, errorBody, toPrompt, type ChatRequest } from "./convert"
+import { chunk, completion, DONE, errorBody, extractPromptFiles, toPrompt, type ChatRequest } from "./convert"
 
 const port = Number(process.env.OPENCODE_SHIM_PORT ?? 4096)
 const secret = process.env.OPENCODE_SHIM_SECRET ?? ""
@@ -44,6 +44,7 @@ Bun.serve({
     const stream: AsyncGenerator<StreamItem> = runCompletion({
       model: body.model,
       prompt: toPrompt(body.messages),
+      files: extractPromptFiles(body.messages),
       key,
       signal: controller.signal,
     })

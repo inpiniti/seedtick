@@ -117,6 +117,7 @@ export async function* runCompletion(input: {
   model: string
   prompt: string
   key: string
+  files?: Array<{ uri: string; name?: string; source?: { type: "inline" } }>
   signal?: AbortSignal
 }): AsyncGenerator<StreamItem> {
   const unlock = await acquire()
@@ -154,7 +155,11 @@ export async function* runCompletion(input: {
         }
       })
 
-    await activeHost.sessions.prompt({ sessionID: session.id, text: input.prompt })
+    await activeHost.sessions.prompt({
+      sessionID: session.id,
+      text: input.prompt,
+      ...(input.files && input.files.length > 0 ? { files: input.files } : {}),
+    })
 
     let finished = false
     const deadline = Date.now() + 180_000
