@@ -34,6 +34,8 @@ import type {
 } from '../../types/video.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import {
+  clearStudioOnboardingStep,
+  getStudioOnboardingStep,
   hasSeenStudioGuide,
   isStudioOnboardingActive,
   markStudioGuideSeen,
@@ -486,25 +488,33 @@ export const CenterStudioView = (props: StudioV2Props) => {
     []
   );
 
-  const runOnboardingTour = useCallback(() => {
-    setShowOnboardingResume(false);
-    setShowCelebration(false);
-    samplePreviewSeekRef.current = false;
-    previewedTemplatesRef.current.clear();
-    startOnboardingTour(
-      () => {
-        markStudioGuideSeen('onboarding');
-        setStudioOnboardingActive(false);
-        setOnboardingInProgress(false);
-        setShowOnboardingResume(false);
-        setShowCelebration(true);
-      },
-      () => {
-        // 닫기·오버레이 클릭·모달 진입 등으로 중단되면 다시 시작할 버튼을 남긴다.
-        setShowOnboardingResume(true);
+  const runOnboardingTour = useCallback(
+    (startStep = 0) => {
+      setShowOnboardingResume(false);
+      setShowCelebration(false);
+      // 처음부터 시작할 때만 진행 플래그를 초기화한다. 이어보기에서는 이미 한 작업을 유지한다.
+      if (startStep === 0) {
+        clearStudioOnboardingStep();
+        samplePreviewSeekRef.current = false;
+        previewedTemplatesRef.current.clear();
       }
-    );
-  }, [startOnboardingTour]);
+      startOnboardingTour(
+        () => {
+          markStudioGuideSeen('onboarding');
+          setStudioOnboardingActive(false);
+          setOnboardingInProgress(false);
+          setShowOnboardingResume(false);
+          setShowCelebration(true);
+        },
+        () => {
+          // 닫기·오버레이 클릭·모달 진입 등으로 중단되면 이어서 할 버튼을 남긴다.
+          setShowOnboardingResume(true);
+        },
+        startStep
+      );
+    },
+    [startOnboardingTour]
+  );
 
   // 새로고침으로 중단된 투어는 팝업 없이 처음부터 다시 시작한다. (영상은 메모리에만 있어 1단계부터 진행)
   useEffect(() => {
@@ -586,6 +596,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
   const handleOnboardingDismiss = useCallback(() => {
     markStudioGuideSeen('onboarding');
     setStudioOnboardingActive(false);
+    clearStudioOnboardingStep();
     setOnboardingInProgress(false);
     setIsOnboardingWelcomeOpen(false);
   }, []);
@@ -600,8 +611,14 @@ export const CenterStudioView = (props: StudioV2Props) => {
   }, [stopOnboardingTour]);
 
   const handleResumeOnboarding = useCallback(() => {
-    runOnboardingTour();
-  }, [runOnboardingTour]);
+    // X로 닫기 직전의 단계부터 이어서 진행한다.
+    // 다만 그 사이 상태가 바뀌어 타깃이 사라진 단계는 다시 진입할 수 있는 단계로 되돌린다.
+    let step = getStudioOnboardingStep();
+    if (step === ONBOARDING_STEP.analyzing && !isProcessing) step = ONBOARDING_STEP.caption;
+    if (step === ONBOARDING_STEP.introTemplates && !activeInspector) step = ONBOARDING_STEP.intro;
+    if (step >= ONBOARDING_STEP.resolution && !isExportOpen) step = ONBOARDING_STEP.export;
+    runOnboardingTour(step);
+  }, [runOnboardingTour, isProcessing, activeInspector, isExportOpen]);
 
   const bumpSettings = useCallback(() => setSettingsRevision((v) => v + 1), []);
   // BYOK 설정/모델 선택은 localStorage를 갱신하므로 revision을 올려 설정 모달의 모델 표시를 즉시 재계산한다.
@@ -1447,7 +1464,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
           className="sv2-onboarding-resume"
           onClick={handleResumeOnboarding}
         >
-          <Sparkles size={15} /> {ui('가이드 다시 시작하기')}
+          <Sparkles size={15} /> {ui('가이드 이어서 보기')}
         </button>
       )}
     </div>

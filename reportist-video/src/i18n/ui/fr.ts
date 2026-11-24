@@ -834,6 +834,7 @@ export const uiFr: Record<string, string> = {
   "⑦ 다운로드하면 끝이에요": "⑦ Téléchargez et c'est fini",
   "해상도를 고르고 다운로드를 누르면 완성된 영상이 저장돼요.": "Choisissez la résolution et appuyez sur Télécharger pour enregistrer la vidéo finale.",
   "가이드 다시 시작하기": "Recommencer le guide",
+  "가이드 이어서 보기": "Reprendre le guide",
   "영상 분석 중이에요": "Analyse de vos vidéos en cours",
   "AI가 장면을 고르고 있어요. 끝나면 바로 자막 작업으로 이어갈게요.": "L'IA choisit les scènes. Nous passerons directement aux sous-titres une fois terminé.",
   "미리보기의 자막을 눌러 문구를 바꿔보세요. 수정하면 다음으로 이어져요.": "Appuyez sur le sous-titre dans l'aperçu pour modifier le texte. La modification nous mène à l'étape suivante.",

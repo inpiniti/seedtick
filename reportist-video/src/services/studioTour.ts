@@ -15,6 +15,8 @@ import {
 const SEEN_GUIDES_KEY = 'penguincut_seen_guides_v1';
 /** 온보딩을 시작했지만 아직 끝내지 않았을 때 남기는 플래그. 새로고침 후 투어를 다시 띄우는 데 쓴다. */
 const ONBOARDING_ACTIVE_KEY = 'penguincut_onboarding_active_v1';
+/** 마지막으로 보고 있던 단계. X로 닫았다가 다시 열 때 그 지점부터 이어간다. */
+const ONBOARDING_STEP_KEY = 'penguincut_onboarding_step_v1';
 
 /** 한 번만 보여줄 가이드 식별자. 새 가이드를 추가하면 이 유니온에 먼저 등록한다. */
 export type StudioGuideId =
@@ -82,12 +84,44 @@ export function setStudioOnboardingActive(active: boolean): void {
   }
 }
 
+/** 마지막 온보딩 단계(0부터 시작). 저장값이 없으면 0. */
+export function getStudioOnboardingStep(): number {
+  if (typeof window === 'undefined') return 0;
+  try {
+    const raw = window.localStorage.getItem(ONBOARDING_STEP_KEY);
+    const value = raw === null ? 0 : Number(raw);
+    return Number.isInteger(value) && value >= 0 ? value : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** 온보딩 단계를 기록한다. */
+export function setStudioOnboardingStep(step: number): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(ONBOARDING_STEP_KEY, String(step));
+  } catch {
+    // no-op
+  }
+}
+
+export function clearStudioOnboardingStep(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(ONBOARDING_STEP_KEY);
+  } catch {
+    // no-op
+  }
+}
+
 /** 설정의 "가이드 다시 보기"에서 모든 이력을 지운다. */
 export function resetStudioGuides(): void {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.removeItem(SEEN_GUIDES_KEY);
     window.localStorage.removeItem(ONBOARDING_ACTIVE_KEY);
+    window.localStorage.removeItem(ONBOARDING_STEP_KEY);
   } catch {
     // no-op
   }
@@ -119,6 +153,8 @@ export interface StudioDriverOptions {
   waitForElement?: number;
   /** true면 오버레이가 클릭을 막지 않는다. 사용자가 직접 조작하며 진행하는 투어에서 쓴다. */
   allowPageInteraction?: boolean;
+  /** 이어보기용 시작 단계 인덱스. */
+  startStep?: number;
   overlayOpacity?: number;
   onDestroyed?: (reason?: DestroyReason) => void;
   onHighlighted?: DriverHook;
@@ -133,6 +169,7 @@ export function createStudioDriver({
   showProgress = steps.length > 1,
   waitForElement = 0,
   allowPageInteraction = false,
+  startStep = 0,
   overlayOpacity = 0.45,
   onDestroyed,
   onHighlighted,
@@ -164,7 +201,7 @@ export function createStudioDriver({
     onHighlighted,
   });
 
-  driverObj.drive();
+  driverObj.drive(startStep);
   return driverObj;
 }
 

@@ -4,7 +4,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DriveStep, Driver } from 'driver.js';
 import { useI18n } from '../i18n/index.tsx';
-import { createStudioDriver } from '../services/studioTour.ts';
+import {
+  clearStudioOnboardingStep,
+  createStudioDriver,
+  setStudioOnboardingStep,
+} from '../services/studioTour.ts';
 
 const WAIT_FOR_UI_MS = 30 * 1000;
 
@@ -55,7 +59,7 @@ export function useOnboardingTour() {
   );
 
   const start = useCallback(
-    (onComplete?: () => void, onInterrupted?: () => void) => {
+    (onComplete?: () => void, onInterrupted?: () => void, startStep = 0) => {
       stop();
       onCompleteRef.current = onComplete ?? null;
       onInterruptedRef.current = onInterrupted ?? null;
@@ -169,13 +173,23 @@ export function useOnboardingTour() {
         showButtons: ['close'],
         showProgress: true,
         allowPageInteraction: true,
+        startStep,
         overlayOpacity: 0.32,
-        onHighlighted: (_element, _step, opts) => setActiveIndex(opts.index ?? null),
+        onHighlighted: (_element, _step, opts) => {
+          const index = opts.index ?? 0;
+          setActiveIndex(index);
+          // X로 닫더라도 마지막 단계를 기억해 두었다가 이어보기에 사용한다.
+          setStudioOnboardingStep(index);
+        },
         onDestroyed: (reason) => {
           if (driverRef.current === driver) driverRef.current = null;
           setActiveIndex(null);
-          if (reason === 'done') onCompleteRef.current?.();
-          else onInterruptedRef.current?.();
+          if (reason === 'done') {
+            clearStudioOnboardingStep();
+            onCompleteRef.current?.();
+          } else {
+            onInterruptedRef.current?.();
+          }
         },
       });
       driverRef.current = driver;

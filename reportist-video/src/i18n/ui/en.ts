@@ -845,6 +845,7 @@ export const uiEn: Record<string, string> = {
   "⑦ 다운로드하면 끝이에요": "7. Download and you're done",
   "해상도를 고르고 다운로드를 누르면 완성된 영상이 저장돼요.": "Choose a resolution and tap Download to save your finished video.",
   "가이드 다시 시작하기": "Restart guide",
+  "가이드 이어서 보기": "Resume guide",
   "영상 분석 중이에요": "Analyzing your videos",
   "AI가 장면을 고르고 있어요. 끝나면 바로 자막 작업으로 이어갈게요.": "AI is picking the best scenes. We'll move straight to captions when it's done.",
   "미리보기의 자막을 눌러 문구를 바꿔보세요. 수정하면 다음으로 이어져요.": "Tap the caption in the preview and change the text. We'll move on as soon as you save it.",

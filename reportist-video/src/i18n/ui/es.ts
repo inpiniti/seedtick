@@ -833,6 +833,7 @@ export const uiEs: Record<string, string> = {
   "⑦ 다운로드하면 끝이에요": "⑦ Con descargar, listo",
   "해상도를 고르고 다운로드를 누르면 완성된 영상이 저장돼요.": "Elige la resolución y pulsa Descargar para guardar el vídeo terminado.",
   "가이드 다시 시작하기": "Reiniciar guía",
+  "가이드 이어서 보기": "Continuar guía",
   "영상 분석 중이에요": "Analizando tus vídeos",
   "AI가 장면을 고르고 있어요. 끝나면 바로 자막 작업으로 이어갈게요.": "La IA está eligiendo las escenas. Al terminar pasaremos directamente a los subtítulos.",
   "미리보기의 자막을 눌러 문구를 바꿔보세요. 수정하면 다음으로 이어져요.": "Pulsa el subtítulo de la vista previa y cambia el texto. Al guardarlo pasaremos al siguiente paso.",

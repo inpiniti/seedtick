@@ -834,6 +834,7 @@ export const uiDe: Record<string, string> = {
   "⑦ 다운로드하면 끝이에요": "⑦ Herunterladen und fertig",
   "해상도를 고르고 다운로드를 누르면 완성된 영상이 저장돼요.": "Wähle die Auflösung und klicke auf Herunterladen, um das fertige Video zu speichern.",
   "가이드 다시 시작하기": "Anleitung neu starten",
+  "가이드 이어서 보기": "Anleitung fortsetzen",
   "영상 분석 중이에요": "Videos werden analysiert",
   "AI가 장면을 고르고 있어요. 끝나면 바로 자막 작업으로 이어갈게요.": "Die KI wählt die Szenen. Danach geht es direkt zu den Untertiteln weiter.",
   "미리보기의 자막을 눌러 문구를 바꿔보세요. 수정하면 다음으로 이어져요.": "Klicke auf den Untertitel in der Vorschau und ändere den Text. Danach geht es automatisch weiter.",
