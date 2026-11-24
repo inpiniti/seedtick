@@ -168,6 +168,10 @@ export const IntroOutroInspectorPanel = ({
         ...(isIntro ? { introVideoFile: null } : { outroVideoFile: null }),
       });
       requestReplay();
+      // 온보딩이 템플릿 미리보기 완료 시점을 알 수 있게 알린다.
+      if (isIntro) {
+        window.dispatchEvent(new CustomEvent('sv2:intro-template-previewed', { detail: { id } }));
+      }
     },
     [enabled, isIntro, onChange, requestReplay]
   );
@@ -266,6 +270,8 @@ export const IntroOutroInspectorPanel = ({
                 className="sv2-template-card"
                 data-active={template === t.id}
                 data-orientation={orientation}
+                data-tour={isIntro ? 'onboarding-intro-template' : undefined}
+                data-template-id={t.id}
                 onClick={() => selectTemplate(t.id)}
                 title={meta.desc}
               >

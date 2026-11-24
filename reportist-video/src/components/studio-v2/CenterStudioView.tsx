@@ -23,7 +23,6 @@ import type {
   VideoOverlayOptions,
 } from '../../types/video.ts';
 import { useI18n } from '../../i18n/index.tsx';
-import { notify } from '../../services/toastService.ts';
 import {
   hasSeenStudioGuide,
   isStudioOnboardingActive,
@@ -33,6 +32,9 @@ import {
 } from '../../services/studioTour.ts';
 import { useOnboardingTour } from '../../hooks/useOnboardingTour.ts';
 import { OnboardingWelcomeModal } from './OnboardingWelcomeModal.tsx';
+import { OnboardingCelebration } from './OnboardingCelebration.tsx';
+import { INTRO_TEMPLATE_OPTIONS } from '../studio/introOutroOptions.ts';
+import { ONBOARDING_STEP } from '../../hooks/useOnboardingTour.ts';
 import { DesktopOnlyGate } from './DesktopOnlyGate.tsx';
 import { StudioTopBar } from './StudioTopBar.tsx';
 import { UploadQueueDock, type LeftDockTab } from './UploadQueueDock.tsx';
@@ -307,6 +309,10 @@ export const CenterStudioView = (props: StudioV2Props) => {
       const next = localSegments.map((s) => (s.id === id ? { ...s, ...patch } : s));
       setLocalSegments(next);
       commitSegments(next);
+      // 자막 수정(미리보기 캡션 커밋)이 끝나면 온보딩 단계를 넘긴다.
+      if (patch.subtitleTitle !== undefined) {
+        window.dispatchEvent(new CustomEvent('sv2:subtitle-committed'));
+      }
     },
     [isProcessing, removingVideoIds, localSegments, commitSegments]
   );
@@ -448,11 +454,18 @@ export const CenterStudioView = (props: StudioV2Props) => {
     () => isStudioOnboardingActive() && !hasSeenStudioGuide('onboarding')
   );
   const [showOnboardingResume, setShowOnboardingResume] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
   const onboardingTimerRef = useRef<number | null>(null);
   const onboardingInitRef = useRef(false);
+  const previewedTemplatesRef = useRef<Set<string>>(new Set());
   // 온보딩 중 첫 컷이 도착하면 인트로 대신 실제 샘플 프레임을 보여주기 위한 1회성 플래그.
   const samplePreviewSeekRef = useRef(false);
-  const { start: startOnboardingTour, stop: stopOnboardingTour } = useOnboardingTour();
+  const {
+    start: startOnboardingTour,
+    stop: stopOnboardingTour,
+    advance: advanceOnboarding,
+    activeIndex: onboardingStep,
+  } = useOnboardingTour();
 
   useEffect(
     () => () => {
@@ -465,21 +478,23 @@ export const CenterStudioView = (props: StudioV2Props) => {
 
   const runOnboardingTour = useCallback(() => {
     setShowOnboardingResume(false);
+    setShowCelebration(false);
     samplePreviewSeekRef.current = false;
+    previewedTemplatesRef.current.clear();
     startOnboardingTour(
       () => {
         markStudioGuideSeen('onboarding');
         setStudioOnboardingActive(false);
         setOnboardingInProgress(false);
         setShowOnboardingResume(false);
-        notify.success(ui('가이드를 마쳤어요. 이제 직접 만들어보세요!'));
+        setShowCelebration(true);
       },
       () => {
         // 닫기·오버레이 클릭·모달 진입 등으로 중단되면 다시 시작할 버튼을 남긴다.
         setShowOnboardingResume(true);
       }
     );
-  }, [startOnboardingTour, ui]);
+  }, [startOnboardingTour]);
 
   // 새로고침으로 중단된 투어는 팝업 없이 처음부터 다시 시작한다. (영상은 메모리에만 있어 1단계부터 진행)
   useEffect(() => {
@@ -500,6 +515,32 @@ export const CenterStudioView = (props: StudioV2Props) => {
       setIsOnboardingWelcomeOpen(true);
     }
   }, [runOnboardingTour]);
+
+  // 사용자가 실제 작업을 마칠 때마다 가이드를 다음 단계로 넘긴다. ("다음" 버튼은 쓰지 않는다)
+  useEffect(() => {
+    const onSubtitleCommitted = () => advanceOnboarding(ONBOARDING_STEP.caption);
+    const onIntroTemplatePreviewed = (event: Event) => {
+      const id = (event as CustomEvent<{ id?: string }>).detail?.id;
+      if (!id) return;
+      previewedTemplatesRef.current.add(id);
+      if (
+        onboardingStep === ONBOARDING_STEP.introTemplates &&
+        previewedTemplatesRef.current.size >= INTRO_TEMPLATE_OPTIONS.length
+      ) {
+        advanceOnboarding(ONBOARDING_STEP.introTemplates);
+      }
+    };
+    const onResolutionSelected = () => advanceOnboarding(ONBOARDING_STEP.resolution);
+
+    window.addEventListener('sv2:subtitle-committed', onSubtitleCommitted);
+    window.addEventListener('sv2:intro-template-previewed', onIntroTemplatePreviewed);
+    window.addEventListener('sv2:resolution-selected', onResolutionSelected);
+    return () => {
+      window.removeEventListener('sv2:subtitle-committed', onSubtitleCommitted);
+      window.removeEventListener('sv2:intro-template-previewed', onIntroTemplatePreviewed);
+      window.removeEventListener('sv2:resolution-selected', onResolutionSelected);
+    };
+  }, [advanceOnboarding, onboardingStep]);
 
   // 설정·모델·언어 등 독립 모달이 열리면 안내 오버레이를 정리한다. (내보내기 모달은 투어의 마지막 단계라 제외)
   useEffect(() => {
@@ -1145,7 +1186,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
         <div className="sv2-center">
           <div className="sv2-stage-wrap">
             {isProcessing && (
-              <div className="sv2-status-pill" role="status" aria-live="polite">
+              <div className="sv2-status-pill" role="status" aria-live="polite" data-tour="onboarding-status">
                 <span className="sv2-spinner" />
                 <span className="sv2-status-pill-text">
                   {progress?.statusMessage ||
@@ -1379,6 +1420,11 @@ export const CenterStudioView = (props: StudioV2Props) => {
         isOpen={isOnboardingWelcomeOpen}
         onStart={handleOnboardingStart}
         onDismiss={handleOnboardingDismiss}
+      />
+
+      <OnboardingCelebration
+        isOpen={showCelebration}
+        onClose={() => setShowCelebration(false)}
       />
 
       {showOnboardingResume && onboardingInProgress && (

@@ -154,8 +154,12 @@ export const VideoExportModal: React.FC<VideoExportModalProps> = ({
                 type="button"
                 role="radio"
                 aria-checked={selectedRes === '720p'}
-                onClick={() => setSelectedRes('720p')}
+                onClick={() => {
+                  setSelectedRes('720p');
+                  window.dispatchEvent(new CustomEvent('sv2:resolution-selected'));
+                }}
                 className={`toss-modal-res-item ${selectedRes === '720p' ? 'active' : ''}`}
+                data-tour="onboarding-resolution"
               >
                 <div className="toss-modal-res-item-left">
                   <div className="toss-modal-res-radio">
@@ -180,8 +184,12 @@ export const VideoExportModal: React.FC<VideoExportModalProps> = ({
                 type="button"
                 role="radio"
                 aria-checked={selectedRes === '1080p'}
-                onClick={() => setSelectedRes('1080p')}
+                onClick={() => {
+                  setSelectedRes('1080p');
+                  window.dispatchEvent(new CustomEvent('sv2:resolution-selected'));
+                }}
                 className={`toss-modal-res-item ${selectedRes === '1080p' ? 'active' : ''}`}
+                data-tour="onboarding-resolution"
               >
                 <div className="toss-modal-res-item-left">
                   <div className="toss-modal-res-radio">

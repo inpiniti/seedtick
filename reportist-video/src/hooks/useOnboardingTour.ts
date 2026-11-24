@@ -1,37 +1,57 @@
 // src/hooks/useOnboardingTour.ts
-// 스튜디오 V2 첫 실행 온보딩. driver.js의 waitForElement를 이용해
-// "샘플 로드 → AI 분석 → 컷 확인 → 자막 수정 → 내보내기 → 다운로드" 순서를
-// 실제 앱 상태에 맞춰 단계별로 안내한다.
-import { useCallback, useEffect, useRef } from 'react';
+// 스튜디오 V2 첫 실행 온보딩.
+// "다음" 버튼 없이 사용자가 실제로 수행한 작업(클릭·수정)을 감지해 단계를 자동으로 넘긴다.
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DriveStep, Driver } from 'driver.js';
 import { useI18n } from '../i18n/index.tsx';
 import { createStudioDriver } from '../services/studioTour.ts';
 
-/** 분석처럼 비동기로 나타나는 화면은 넉넉하게 기다리고, 닫기 버튼으로 언제든 빠져나갈 수 있다. */
-const WAIT_FOR_ANALYSIS_MS = 5 * 60 * 1000;
 const WAIT_FOR_UI_MS = 30 * 1000;
+
+/** 단계 인덱스. CenterStudioView가 사용자 액션 발생 시 현재 단계를 확인하는 데 쓴다. */
+export const ONBOARDING_STEP = {
+  sample: 0,
+  analyze: 1,
+  analyzing: 2,
+  caption: 3,
+  intro: 4,
+  introTemplates: 5,
+  export: 6,
+  resolution: 7,
+  download: 8,
+} as const;
 
 export function useOnboardingTour() {
   const { ui } = useI18n();
   const driverRef = useRef<Driver | null>(null);
   const onCompleteRef = useRef<(() => void) | null>(null);
   const onInterruptedRef = useRef<(() => void) | null>(null);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   const stop = useCallback(() => {
     if (driverRef.current) {
       driverRef.current.destroy();
       driverRef.current = null;
     }
+    setActiveIndex(null);
   }, []);
 
   useEffect(
     () => () => {
-      // 언마운트 중 destroy가 콜백을 호출해도 setState를 하지 않도록 먼저 비운다.
       onCompleteRef.current = null;
       onInterruptedRef.current = null;
       stop();
     },
     [stop]
+  );
+
+  /** 앱에서 실제 작업이 끝났을 때 호출한다. 현재 단계일 때만 다음으로 넘어간다. */
+  const advance = useCallback(
+    (expectedStep: number) => {
+      if (activeIndex !== expectedStep) return;
+      driverRef.current?.moveNext();
+    },
+    [activeIndex]
   );
 
   const start = useCallback(
@@ -62,20 +82,26 @@ export function useOnboardingTour() {
           waitForElement: WAIT_FOR_UI_MS,
         },
         {
-          element: '[data-tour="onboarding-cuts-ready"] [data-cut-slot-id]',
+          element: '[data-tour="onboarding-status"]',
           popover: {
-            title: ui('③ 컷이 채워졌어요'),
-            description: ui('분석이 끝나면 이렇게 타임라인에 컷이 나와요. 컷을 눌러 자막을 고쳐볼게요.'),
-            side: 'top',
+            title: ui('영상 분석 중이에요'),
+            description: ui('AI가 장면을 고르고 있어요. 끝나면 바로 자막 작업으로 이어갈게요.'),
+            side: 'bottom',
           },
-          advanceOn: 'click',
-          waitForElement: WAIT_FOR_ANALYSIS_MS,
+          waitForElement: WAIT_FOR_UI_MS,
+          // 상태 배지가 사라지는 즉시 전환해야 하므로 제거 대기 시간은 0으로 둔다.
+          waitForRemovedElement: 0,
+          // 분석이 끝나면 진행 상태 배지가 사라진다. 그 순간 자막 단계로 자동 전환한다.
+          onElementMissing: (_element, _step, opts) => {
+            opts.driver.moveNext();
+            return false;
+          },
         },
         {
           element: '[data-tour="onboarding-caption"]',
           popover: {
             title: ui('④ 자막을 고쳐요'),
-            description: ui('미리보기의 자막을 누르면 바로 수정할 수 있어요. 문구를 바꿔보세요.'),
+            description: ui('미리보기의 자막을 눌러 문구를 바꿔보세요. 수정하면 다음으로 이어져요.'),
             side: 'right',
           },
           waitForElement: WAIT_FOR_UI_MS,
@@ -83,9 +109,19 @@ export function useOnboardingTour() {
         {
           element: '[data-tour="onboarding-intro"]',
           popover: {
-            title: ui('⑤ 인트로와 음악도 넣어요'),
-            description: ui('타임라인에서 인트로·아웃트로와 음악을 골라 분위기를 바꿀 수 있어요.'),
+            title: ui('⑤ 인트로를 열어보세요'),
+            description: ui('타임라인의 인트로를 누르면 오른쪽에 설정이 열려요.'),
             side: 'top',
+          },
+          advanceOn: 'click',
+          waitForElement: WAIT_FOR_UI_MS,
+        },
+        {
+          element: '[data-tour="onboarding-intro-template"]',
+          popover: {
+            title: ui('템플릿을 눌러보세요'),
+            description: ui('템플릿을 하나씩 눌러 미리보기 해보세요. 모두 보면 다음으로 이어져요.'),
+            side: 'left',
           },
           waitForElement: WAIT_FOR_UI_MS,
         },
@@ -100,10 +136,19 @@ export function useOnboardingTour() {
           waitForElement: WAIT_FOR_UI_MS,
         },
         {
+          element: '[data-tour="onboarding-resolution"]',
+          popover: {
+            title: ui('화질을 골라요'),
+            description: ui('원하는 해상도를 먼저 눌러 선택해 보세요.'),
+            side: 'left',
+          },
+          waitForElement: WAIT_FOR_UI_MS,
+        },
+        {
           element: '[data-tour="onboarding-download"]',
           popover: {
             title: ui('⑦ 다운로드하면 끝이에요'),
-            description: ui('해상도를 고르고 다운로드를 누르면 완성된 영상이 저장돼요.'),
+            description: ui('다운로드를 누르면 영상이 저장되고 가이드가 끝나요.'),
             side: 'top',
           },
           advanceOn: 'click',
@@ -120,10 +165,15 @@ export function useOnboardingTour() {
           prev: ui('이전'),
           done: ui('확인'),
         },
+        // "다음" 버튼은 제거한다. 실제 작업을 하는 동안 안내가 사라지지 않게 한다.
+        showButtons: ['close'],
         showProgress: true,
-        overlayOpacity: 0.4,
+        allowPageInteraction: true,
+        overlayOpacity: 0.32,
+        onHighlighted: (_element, _step, opts) => setActiveIndex(opts.index ?? null),
         onDestroyed: (reason) => {
           if (driverRef.current === driver) driverRef.current = null;
+          setActiveIndex(null);
           if (reason === 'done') onCompleteRef.current?.();
           else onInterruptedRef.current?.();
         },
@@ -133,5 +183,5 @@ export function useOnboardingTour() {
     [stop, ui]
   );
 
-  return { start, stop };
+  return { start, stop, advance, activeIndex };
 }

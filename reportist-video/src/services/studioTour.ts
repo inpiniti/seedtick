@@ -7,6 +7,7 @@ import {
   type AllowedButtons,
   type DestroyReason,
   type Driver,
+  type DriverHook,
   type DriveStep,
   type Side,
 } from 'driver.js';
@@ -116,8 +117,11 @@ export interface StudioDriverOptions {
   showProgress?: boolean;
   /** 비동기로 나타나는 요소(분석 완료 컷 등)를 기다릴 시간(ms). Infinity도 허용된다. */
   waitForElement?: number;
+  /** true면 오버레이가 클릭을 막지 않는다. 사용자가 직접 조작하며 진행하는 투어에서 쓴다. */
+  allowPageInteraction?: boolean;
   overlayOpacity?: number;
   onDestroyed?: (reason?: DestroyReason) => void;
+  onHighlighted?: DriverHook;
 }
 
 /** 드라이버 공통 설정을 한 곳에서 적용한다. 온보딩처럼 고급 훅이 필요한 투어도 이 함수를 쓴다. */
@@ -128,8 +132,10 @@ export function createStudioDriver({
   showButtons = ['next', 'previous', 'close'],
   showProgress = steps.length > 1,
   waitForElement = 0,
+  allowPageInteraction = false,
   overlayOpacity = 0.45,
   onDestroyed,
+  onHighlighted,
 }: StudioDriverOptions): Driver {
   const driverObj = driver({
     steps,
@@ -144,6 +150,7 @@ export function createStudioDriver({
     allowKeyboardControl: true,
     skipMissingElement: true,
     waitForElement,
+    allowPageInteraction,
     scrollIntoView: isMobile ? false : { block: 'center', inline: 'nearest' },
     popoverClass: 'penguincut-driver-popover',
     showButtons,
@@ -154,6 +161,7 @@ export function createStudioDriver({
     prevBtnText: labels.prev,
     doneBtnText: labels.done,
     onDestroyed: (_element, _step, opts) => onDestroyed?.(opts.reason),
+    onHighlighted,
   });
 
   driverObj.drive();
