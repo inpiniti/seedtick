@@ -258,7 +258,9 @@ export class OpenAICompatAdapter implements ILLMAdapter {
       // 첫 번째 청크 사전 검증 (Peek & Validate)
       // 상위 제공자가 HTTP 200을 줬더라도 첫 청크로 429 에러나 빈 스트림을 뱉는 경우 다음 슬롯으로 전환할 수 있게 방어
       const reader = response.body.getReader();
-      const firstChunkTimeoutMs = 15_000;
+      // OpenCode 브릿지는 세션 생성 + 추론 초기화가 직렬로 붙어 첫 토큰까지 수 초가 걸린다.
+      // 15초는 정상 콜드 스타트도 408로 잘라버려 모든 키가 연쇄적으로 실패한다.
+      const firstChunkTimeoutMs = 60_000;
       let firstChunkTimer: ReturnType<typeof setTimeout> | undefined;
 
       const timeoutPromise = new Promise<{ done: true; value: undefined; timedOut: true }>(
@@ -311,7 +313,13 @@ export class OpenAICompatAdapter implements ILLMAdapter {
           firstChunkText.includes('429') ||
           firstChunkText.includes('rate-limited') ||
           firstChunkText.includes('RateLimit') ||
-          firstChunkText.includes('quota')
+          firstChunkText.includes('quota') ||
+          // OpenCode/free 티어 한도 에러는 위 키워드에 하나도 걸리지 않아 500으로 오분류됐다.
+          firstChunkText.includes('FreeUsageLimitError') ||
+          firstChunkText.includes('Free usage limit reached') ||
+          firstChunkText.includes('provider.free-limit') ||
+          firstChunkText.includes('BudgetLimitError') ||
+          firstChunkText.includes('GoUsageLimitError')
         ) {
           errorStatus = 429;
         } else if (

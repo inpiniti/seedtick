@@ -195,16 +195,21 @@ export class ProxyService {
     attempts: GatewayAttempt[],
     model: string
   ): Promise<GatewayError> {
+    // 타임아웃(408), 한도(429), 브릿지 연결 실패를 모두 같은 문구로 뭉개지 말고
+    // 마지막 실제 실패 사유를 함께 노출해 원인을 바로 알 수 있게 한다.
+    const last = attempts.at(-1);
+    const reason = last
+      ? `마지막 실패 HTTP ${last.httpStatus} / ${last.errorCategory} / ${last.errorSnippet.slice(0, 120)}`
+      : '사용 가능한 키가 없거나 모두 쿨다운 상태';
     await this.errorLogger.critical(
       'OPENCODE_KEYS_EXHAUSTED',
-      'OpenCode 무료 키가 모두 소진되었거나 응답하지 않습니다',
+      `OpenCode 무료 키가 모두 소진되었거나 응답하지 않습니다 (${reason})`,
       { attemptsCount: attempts.length, modelRequested: model, lastAttempts: attempts.slice(-5) }
     );
     return {
       error: {
         code: 'GATEWAY_OPENCODE_EXHAUSTED',
-        message:
-          'OpenCode 무료 키가 모두 소진되었거나 응답하지 않습니다 (다른 제공사로 폴백하지 않습니다)',
+        message: `OpenCode 무료 키가 모두 소진되었거나 응답하지 않습니다 (${reason}; 다른 제공사로 폴백하지 않습니다)`,
         type: 'gateway_error',
         attempts,
       },

@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdtemp, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { OpenCode } from "@opencode/sdk"
@@ -14,13 +14,38 @@ type Listener = (item: StreamItem) => void
 
 type Host = Awaited<ReturnType<typeof OpenCode.create>>
 let host: Host | null = null
-
-const DENY_ALL = [{ action: "*", resource: "*", effect: "deny" as const }]
-const nativeFetch = globalThis.fetch
-let currentKey = process.env.OPENCODE_API_KEY ?? ""
+let sandbox: string | null = null
 let listeners: Map<string, Listener> | null = null
 
-// SDK의 전송 fetch가 프로세스 전역 키를 읽으므로, 실제 모델 호출이 끝날 때까지 키를 점유한다.
+// action "*" 로 전부 거부하면 SDK의 내부 권한 체크(무인 자동 허용 포함)까지 막혀
+// 프로바이더가 익명 free 경로로 떨어지고 FreeUsageLimitError(429)가 난다.
+// 실제 도구 action만 명시적으로 거부해 도구 실행은 막되 인증 경로는 보존한다.
+const DENY_TOOL_ACTIONS = [
+  "shell",
+  "edit",
+  "write",
+  "read",
+  "grep",
+  "glob",
+  "webfetch",
+  "websearch",
+  "task",
+  "subagent",
+  "question",
+  "skill",
+  "external_directory",
+  "todo",
+] as const
+export const DENY_TOOLS = DENY_TOOL_ACTIONS.map((action) => ({
+  action,
+  resource: "*",
+  effect: "deny" as const,
+}))
+
+// SDK는 요청을 보낼 때 process.env.OPENCODE_API_KEY 를 읽는다(생성 시점이 아님).
+// 따라서 fetch 로 Authorization 헤더를 덮어쓸 필요 없이 락 안에서 키만 교체한다.
+let previousKey: string | undefined
+
 let locked = false
 const waiters: Array<() => void> = []
 
@@ -39,17 +64,14 @@ function release(): void {
   else locked = false
 }
 
-const fetchWithKey = ((input: RequestInfo | URL, init?: RequestInit) => {
-  const request = new Request(input, init)
-  if (!currentKey || !request.url.includes("opencode.ai/")) return nativeFetch(request)
-  const headers = new Headers(request.headers)
-  headers.set("Authorization", `Bearer ${currentKey}`)
-  return nativeFetch(new Request(request, { headers }))
-}) as typeof fetch
-
 export async function startHost(): Promise<void> {
+  // 요청마다 mkdtemp 하면 새 Location 인스턴스가 계속 메모리에 캐시된다.
+  // 샌드박스를 한 번만 만들어 재사용해 초기화 지연과 누수를 제거한다.
+  sandbox = await mkdtemp(join(tmpdir(), "oc-shim-"))
+  await writeFile(join(sandbox, "opencode.json"), JSON.stringify({ model: "opencode/hy4-flash-free" }), "utf8")
+
   const opencode = await OpenCode.create({
-    fetch: fetchWithKey,
+    app: { name: "opencode", version: "2.4.1", channel: "latest" },
     config: { content: JSON.stringify({ model: "opencode/hy4-flash-free" }) },
   })
   const active = new Map<string, Listener>()
@@ -84,7 +106,7 @@ export async function startHost(): Promise<void> {
 }
 
 export function isReady(): boolean {
-  return host !== null && listeners !== null
+  return host !== null && listeners !== null && sandbox !== null
 }
 
 /**
@@ -98,20 +120,18 @@ export async function* runCompletion(input: {
   signal?: AbortSignal
 }): AsyncGenerator<StreamItem> {
   const unlock = await acquire()
-  currentKey = input.key
+  previousKey = process.env.OPENCODE_API_KEY
+  process.env.OPENCODE_API_KEY = input.key
   let sessionID: string | null = null
-  let sandbox: string | null = null
   try {
-    if (!host || !listeners) throw new Error("OpenCode host is not ready")
+    if (!host || !listeners || !sandbox) throw new Error("OpenCode host is not ready")
     const activeHost = host
     const activeListeners = listeners
-    sandbox = await mkdtemp(join(tmpdir(), "oc-shim-"))
-    await writeFile(join(sandbox, "opencode.json"), JSON.stringify({ model: input.model }), "utf8")
     const modelID = input.model.replace(/^opencode\//, "")
     const session = await activeHost.sessions.create({
       location: { directory: sandbox },
       model: { id: modelID, providerID: "opencode" },
-      permissions: DENY_ALL,
+      permissions: DENY_TOOLS,
       title: "shim",
     })
     sessionID = session.id
@@ -156,7 +176,8 @@ export async function* runCompletion(input: {
     yield { type: "error", message: error instanceof Error ? error.message : String(error) }
   } finally {
     if (sessionID && listeners) listeners.delete(sessionID)
-    if (sandbox) await rm(sandbox, { recursive: true, force: true }).catch(() => undefined)
+    if (previousKey === undefined) delete process.env.OPENCODE_API_KEY
+    else process.env.OPENCODE_API_KEY = previousKey
     unlock()
   }
 }
