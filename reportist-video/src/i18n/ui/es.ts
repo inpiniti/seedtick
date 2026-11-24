@@ -1,6 +1,7 @@
 // src/i18n/ui/es.ts
 // 새 스튜디오 흐름에서 쓰는 UI 문구의 스페인어 번역.
 export const uiEs: Record<string, string> = {
+  '공유': 'Compartir',
   'PenguinCut 크레딧 표시': 'Mostrar crédito de PenguinCut',
   '영상 끝에 제작 크레딧을 넣어요. 무료로 언제든 끌 수 있어요.':
     'Añade un crédito al final del vídeo. Gratis y puedes desactivarlo cuando quieras.',

@@ -25,7 +25,7 @@ import type {
 import { useI18n } from '../../i18n/index.tsx';
 import { DesktopOnlyGate } from './DesktopOnlyGate.tsx';
 import { StudioTopBar } from './StudioTopBar.tsx';
-import { UploadQueueDock } from './UploadQueueDock.tsx';
+import { UploadQueueDock, type LeftDockTab } from './UploadQueueDock.tsx';
 import { CenterPreviewStage } from './CenterPreviewStage.tsx';
 import { TimelineDock } from './TimelineDock.tsx';
 import { RightInspectorDrawer } from './RightInspectorDrawer.tsx';
@@ -669,8 +669,13 @@ export const CenterStudioView = (props: StudioV2Props) => {
   const pendingVideos = videos.filter((v) => (v.segments?.length ?? 0) === 0);
   // 분석이 끝나면 컷 비행 착지를 기다리지 않고 도크가 자동으로 접힌다.
   // 비행 출발 좌표는 발사 시점(분석 중)에 이미 고정되므로 착지를 기다릴 필요가 없다.
+  // 공유 탭을 보고 있는 동안에는 분석이 끝나도 독이 자동으로 접히지 않게 한다.
+  const [dockTab, setDockTab] = useState<LeftDockTab>('source');
   const autoDockCollapsed =
-    !isProcessing && displaySegments.length > 0 && pendingVideos.length === 0;
+    !isProcessing &&
+    displaySegments.length > 0 &&
+    pendingVideos.length === 0 &&
+    dockTab === 'source';
   // null이면 위 자동 규칙을 따르고, 한 번이라도 토글하면 사용자의 선택을 항상 우선한다.
   const [dockPreference, setDockPreference] = useState<boolean | null>(null);
   const isDockOpen = dockPreference ?? !autoDockCollapsed;
@@ -963,6 +968,8 @@ export const CenterStudioView = (props: StudioV2Props) => {
           landedVideos={landedVideos}
           videoTasks={progress?.videoTasks}
           removingVideoIds={removingVideoIds}
+          activeTab={dockTab}
+          onTabChange={setDockTab}
           onFilesSelected={(files) => {
             if (!isProcessing && removingVideoIds.size === 0) onFilesSelected(files);
           }}
