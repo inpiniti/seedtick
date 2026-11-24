@@ -1090,8 +1090,12 @@
   color: var(--sv2-text-3);
 }
 .sv2-preview-frame[data-orientation='portrait'] .sv2-preview-empty {
+  /* 폭(360px) 기준으로 잡으면 640px 높이가 되어 스테이지에서 잘린다.
+     높이를 기준으로 9:16을 유지해 빈 프레임 전체가 화면에 들어오게 한다. */
   aspect-ratio: 9 / 16;
-  width: min(360px, 100%);
+  width: auto;
+  height: min(640px, calc(100vh - var(--sv2-topbar-h) - var(--sv2-timeline-h) - 140px));
+  max-width: 100%;
 }
 .sv2-empty-icon {
   width: 56px;

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Film, Pause, Play, RotateCcw } from 'lucide-react';
+import { Pause, Play, RotateCcw } from 'lucide-react';
 import {
   computeMetaLayoutFromTexts,
   drawCompositorCoverFrame,
@@ -306,13 +306,9 @@ export const CenterPreviewStage = ({
           )}
         </div>
       ) : orientation === 'portrait' ? (
-        /* 세로 프레임에는 가로 녹화본을 크롭해 틀지 않고 빈 미리보기만 보여준다. */
+        /* 세로 프레임에는 가로 녹화본 대신 빈 미리보기만 보여준다. 안내 문구는 프레임 위에 이미 노출된다. */
         <div className="sv2-preview-frame" data-orientation={orientation}>
-          <div className="sv2-preview-empty">
-            <div className="sv2-empty-icon"><Film size={28} /></div>
-            <strong>{ui('영상을 추가하면 여기에 미리보기가 나타나요')}</strong>
-            <span>{ui('영상을 올리면 왼쪽에 파일이 나열되고, AI 컷을 누르면 타임라인에 채워져요.')}</span>
-          </div>
+          <div className="sv2-preview-empty" />
         </div>
       ) : (
         <div className="sv2-preview-frame" data-orientation={orientation}>
