@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
-import { ScrollFade } from '@animate-ui/react/primitives/effects/scroll-fade';
 import { MapPin, RotateCcw, Trash2 } from 'lucide-react';
 import type { HighlightSegment } from '../../types/video.ts';
 import { useI18n } from '../../i18n/index.tsx';
-import { scrollFadePanelProps } from '../common/scrollFade.ts';
 import { formatShootDate } from './types.ts';
 
 // components/studio-v2/LocationInspectorPanel.tsx
@@ -53,7 +51,6 @@ export const LocationInspectorPanel = ({
   };
 
   return (
-    <ScrollFade asChild {...scrollFadePanelProps}>
     <div className="sv2-inspector-body">
       <div className="sv2-inspector-preview">
         {thumbnailUrl ? (
@@ -117,6 +114,5 @@ export const LocationInspectorPanel = ({
         />
       </div>
     </div>
-    </ScrollFade>
   );
 };

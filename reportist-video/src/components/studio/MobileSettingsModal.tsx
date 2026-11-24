@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ScrollFade } from '@animate-ui/react/primitives/effects/scroll-fade';
 import {
   Settings,
   Sparkles,
@@ -56,7 +55,6 @@ import {
   setStoredSubtitleTone,
 } from '../../services/subtitleRefineService.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
-import { scrollFadeNavProps, scrollFadePanelProps } from '../common/scrollFade.ts';
 import { useIsMobileViewport } from '../../hooks/useIsMobileViewport.ts';
 import {
   formatDateByPattern,
@@ -597,7 +595,6 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
 
         {/* Modal Body */}
         <div className="settings-modal-layout">
-          <ScrollFade asChild {...scrollFadeNavProps}>
           <nav
             ref={navRef}
             className="settings-modal-nav"
@@ -620,8 +617,6 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
               );
             })}
           </nav>
-          </ScrollFade>
-          <ScrollFade asChild {...scrollFadePanelProps}>
           <div
             ref={bodyRef}
             className={`settings-modal-body${isCompactViewport && isHeightTransitionReady ? ' settings-modal-body--animated' : ''}`}
@@ -1919,7 +1914,6 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
           )}
           </div>
           </div>
-          </ScrollFade>
         </div>
 
         {/* Modal Footer */}

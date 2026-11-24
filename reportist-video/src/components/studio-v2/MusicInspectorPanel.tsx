@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { ScrollFade } from '@animate-ui/react/primitives/effects/scroll-fade';
 import { Check, ListMusic, Loader2, Pause, Play, Upload, VolumeX } from 'lucide-react';
 import { AUDIO_LIBRARY, type AudioLibraryTrack } from '../../data/audioLibrary.ts';
 import { useI18n } from '../../i18n/index.tsx';
-import { scrollFadePanelProps } from '../common/scrollFade.ts';
 import { Tooltip } from '../ui/Tooltip.tsx';
 
 // components/studio-v2/MusicInspectorPanel.tsx
@@ -135,7 +133,6 @@ export const MusicInspectorPanel = ({
   };
 
   return (
-    <ScrollFade asChild {...scrollFadePanelProps}>
     <div className="sv2-inspector-body">
       <div className="sv2-inspector-section">
         <div className="sv2-field-label">
@@ -307,6 +304,5 @@ export const MusicInspectorPanel = ({
         preload="none"
       />
     </div>
-    </ScrollFade>
   );
 };

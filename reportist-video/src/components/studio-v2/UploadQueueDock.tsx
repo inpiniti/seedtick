@@ -1,10 +1,8 @@
-import { ScrollFade } from '@animate-ui/react/primitives/effects/scroll-fade';
 import { Plus, Scissors, Sparkles, UploadCloud, X } from 'lucide-react';
 import type { VideoItem, VideoTaskProgress } from '../../types/video.ts';
 import type { VideoShareItem } from '../../types/share.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { ShimmeringText } from '../common/ShimmeringText.tsx';
-import { scrollFadePanelProps } from '../common/scrollFade.ts';
 import { SharedVideosPanel } from '../community/SharedVideosPanel.tsx';
 import { PageTransition } from './PageTransition.tsx';
 import { formatShootDate } from './types.ts';
@@ -181,103 +179,101 @@ export const UploadQueueDock = ({
                 </Tooltip>
               </div>
 
-              <ScrollFade asChild {...scrollFadePanelProps}>
-                <div className="sv2-dock-list">
-                  {videos.length === 0 && (
-                    <button
-                      type="button"
-                      className="sv2-dock-empty"
-                      onClick={onAddVideos}
-                      disabled={addDisabled}
-                    >
-                      <UploadCloud size={30} />
-                      <span>
-                        {ui('영상을 끌어다 놓거나')}
-                        <br />
-                        {ui('여기서 영상을 추가해 주세요')}
-                      </span>
-                    </button>
-                  )}
+              <div className="sv2-dock-list">
+                {videos.length === 0 && (
+                  <button
+                    type="button"
+                    className="sv2-dock-empty"
+                    onClick={onAddVideos}
+                    disabled={addDisabled}
+                  >
+                    <UploadCloud size={30} />
+                    <span>
+                      {ui('영상을 끌어다 놓거나')}
+                      <br />
+                      {ui('여기서 영상을 추가해 주세요')}
+                    </span>
+                  </button>
+                )}
 
-                  {videos.map((video) => {
-                    const segment = video.segments?.[0];
-                    const segmentCount = video.segments?.length ?? 0;
-                    const task = taskByVideoId.get(video.id);
-                    const badge = taskBadge(task, segmentCount > 0, ui);
-                    const done = segmentCount > 0 || badge.done;
-                    const label =
-                      done &&
-                      segmentCount > 0 &&
-                      (task?.stage === 'done' || task?.stage === 'reused' || !task)
-                        ? ui('컷 {count}개 완료', { count: segmentCount })
-                        : badge.label;
-                    const shootDate = formatShootDate(segment) || video.metadataDate || '';
-                    const isRemoving = removingVideoIds?.has(video.id) ?? false;
-                    return (
-                      <div
-                        key={video.id}
-                        className="sv2-upload-card"
-                        data-cut-card-id={video.id}
-                        data-active={badge.active}
-                        data-done={done}
-                        // 분석 중에만 착지한 카드를 접는다. 분석이 끝나면 삭제할 수 있도록 다시 노출한다.
-                        data-landed={isProcessing && (landedVideos?.has(video.id) ?? false)}
-                        data-removing={isRemoving}
-                      >
-                        {video.thumbnailUrl ? (
-                          <img className="sv2-upload-thumb" src={video.thumbnailUrl} alt="" />
-                        ) : (
-                          <div className="sv2-upload-thumb" />
-                        )}
-                        <div className="sv2-upload-meta">
-                          <Tooltip content={video.name}>
-                            <div className="sv2-upload-name">
-                              {badge.active ? (
-                                <ShimmeringText
-                                  text={video.name}
-                                  duration={1.4}
-                                  className="sv2-shimmer-name"
-                                />
-                              ) : (
-                                video.name
-                              )}
-                            </div>
-                          </Tooltip>
-                          <div className="sv2-upload-date">{shootDate}</div>
-                          {isProcessing && !done && (
-                            <div className="sv2-progress-bar" data-queued={badge.queued}>
-                              <div
-                                className="sv2-progress-fill"
-                                style={{ width: `${badge.pct}%` }}
+                {videos.map((video) => {
+                  const segment = video.segments?.[0];
+                  const segmentCount = video.segments?.length ?? 0;
+                  const task = taskByVideoId.get(video.id);
+                  const badge = taskBadge(task, segmentCount > 0, ui);
+                  const done = segmentCount > 0 || badge.done;
+                  const label =
+                    done &&
+                    segmentCount > 0 &&
+                    (task?.stage === 'done' || task?.stage === 'reused' || !task)
+                      ? ui('컷 {count}개 완료', { count: segmentCount })
+                      : badge.label;
+                  const shootDate = formatShootDate(segment) || video.metadataDate || '';
+                  const isRemoving = removingVideoIds?.has(video.id) ?? false;
+                  return (
+                    <div
+                      key={video.id}
+                      className="sv2-upload-card"
+                      data-cut-card-id={video.id}
+                      data-active={badge.active}
+                      data-done={done}
+                      // 분석 중에만 착지한 카드를 접는다. 분석이 끝나면 삭제할 수 있도록 다시 노출한다.
+                      data-landed={isProcessing && (landedVideos?.has(video.id) ?? false)}
+                      data-removing={isRemoving}
+                    >
+                      {video.thumbnailUrl ? (
+                        <img className="sv2-upload-thumb" src={video.thumbnailUrl} alt="" />
+                      ) : (
+                        <div className="sv2-upload-thumb" />
+                      )}
+                      <div className="sv2-upload-meta">
+                        <Tooltip content={video.name}>
+                          <div className="sv2-upload-name">
+                            {badge.active ? (
+                              <ShimmeringText
+                                text={video.name}
+                                duration={1.4}
+                                className="sv2-shimmer-name"
                               />
-                            </div>
-                          )}
-                        </div>
-                        <div className="sv2-upload-side">
-                          {!isProcessing && (
-                            <button
-                              type="button"
-                              className="sv2-upload-card-remove"
-                              onClick={() => onRemoveVideo(video.id)}
-                              disabled={isRemoving}
-                              aria-label={ui('영상 삭제')}
-                            >
-                              <X size={13} />
-                            </button>
-                          )}
-                          <span
-                            className="sv2-upload-badge"
-                            data-done={done}
-                            data-queued={badge.queued}
-                          >
-                            {badge.active ? <ShimmeringText text={label} duration={0.9} /> : label}
-                          </span>
-                        </div>
+                            ) : (
+                              video.name
+                            )}
+                          </div>
+                        </Tooltip>
+                        <div className="sv2-upload-date">{shootDate}</div>
+                        {isProcessing && !done && (
+                          <div className="sv2-progress-bar" data-queued={badge.queued}>
+                            <div
+                              className="sv2-progress-fill"
+                              style={{ width: `${badge.pct}%` }}
+                            />
+                          </div>
+                        )}
                       </div>
-                    );
-                  })}
-                </div>
-              </ScrollFade>
+                      <div className="sv2-upload-side">
+                        {!isProcessing && (
+                          <button
+                            type="button"
+                            className="sv2-upload-card-remove"
+                            onClick={() => onRemoveVideo(video.id)}
+                            disabled={isRemoving}
+                            aria-label={ui('영상 삭제')}
+                          >
+                            <X size={13} />
+                          </button>
+                        )}
+                        <span
+                          className="sv2-upload-badge"
+                          data-done={done}
+                          data-queued={badge.queued}
+                        >
+                          {badge.active ? <ShimmeringText text={label} duration={0.9} /> : label}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
 
               <div className="sv2-dock-footer">
                 {!isProcessing && isOnboardingActive && onLoadSampleVideos && (

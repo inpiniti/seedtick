@@ -1,13 +1,11 @@
 // src/components/community/SharedVideosPanel.tsx - 좌측 독에 녹여 쓰는 컴팩트 공유 영상 패널.
 // 기존 VideoCommunityView(전체 화면)와 같은 서비스/모달을 재사용하되, 좁은 사이드바에 맞춘 레이아웃이다.
 import { useCallback, useEffect, useState } from 'react';
-import { ScrollFade } from '@animate-ui/react/primitives/effects/scroll-fade';
 import { Clock, Film, Flame, Play, Plus, RefreshCw, Search } from 'lucide-react';
 import type { VideoShareItem, VideoSortOrder } from '../../types/share.ts';
 import { fetchSharedVideos, incrementVideoShareView } from '../../services/videoShareService.ts';
 import { formatViewCount, formatTimeAgo } from '../../services/youtubeService.ts';
 import { ShareVideoModal } from './ShareVideoModal.tsx';
-import { scrollFadePanelProps } from '../common/scrollFade.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { notify } from '../../services/toastService.ts';
 import { Tooltip } from '../ui/Tooltip.tsx';
@@ -125,74 +123,72 @@ export const SharedVideosPanel = ({
         </Tooltip>
       </div>
 
-      <ScrollFade asChild {...scrollFadePanelProps}>
-        <div className="sv2-share-list">
-          {isLoading ? (
-            [0, 1, 2].map((i) => (
-              <div key={i} className="sv2-share-card sv2-share-card-skeleton" aria-hidden="true">
-                <div className="sv2-share-skeleton-thumb" />
-                <div className="sv2-share-skeleton-lines">
-                  <div className="sv2-share-skeleton-line" />
-                  <div className="sv2-share-skeleton-line" style={{ width: '70%' }} />
-                </div>
+      <div className="sv2-share-list">
+        {isLoading ? (
+          [0, 1, 2].map((i) => (
+            <div key={i} className="sv2-share-card sv2-share-card-skeleton" aria-hidden="true">
+              <div className="sv2-share-skeleton-thumb" />
+              <div className="sv2-share-skeleton-lines">
+                <div className="sv2-share-skeleton-line" />
+                <div className="sv2-share-skeleton-line" style={{ width: '70%' }} />
               </div>
-            ))
-          ) : videos.length === 0 ? (
-            <div className="sv2-share-empty">
-              <Film size={28} aria-hidden="true" />
-              <strong>
-                {searchQuery
-                  ? cDict?.emptySearch || ui('검색 결과와 일치하는 영상이 없어요')
-                  : cDict?.emptyTitle || ui('공유된 영상이 아직 없어요')}
-              </strong>
-              <p>
-                {searchQuery
-                  ? cDict?.emptySearchDesc ||
-                    (locale === 'ko'
-                      ? ui('다른 검색어를 입력하시거나 검색창을 지워보세요.')
-                      : 'Try another search term or clear the search field.')
-                  : cDict?.emptyDesc || ui('내 하이라이트 영상을 올리고 첫 번째로 공유해 보세요!')}
-              </p>
-              {searchQuery && (
-                <button type="button" className="sv2-share-empty-btn" onClick={() => setSearchQuery('')}>
-                  {cDict?.viewAll || ui('전체 목록 보기')}
-                </button>
-              )}
             </div>
-          ) : (
-            videos.map((video) => (
-              <Tooltip key={video.id} content={video.title}>
-                <button
-                  type="button"
-                  className="sv2-share-card"
-                  data-selected={selectedVideoId === video.id}
-                  onClick={() => handleSelectVideo(video)}
-                >
-                  <div className="sv2-share-thumb">
-                    <img src={video.thumbnailUrl} alt="" loading="lazy" />
-                    <span className="sv2-share-play" aria-hidden="true">
-                      <Play size={14} fill="currentColor" />
+          ))
+        ) : videos.length === 0 ? (
+          <div className="sv2-share-empty">
+            <Film size={28} aria-hidden="true" />
+            <strong>
+              {searchQuery
+                ? cDict?.emptySearch || ui('검색 결과와 일치하는 영상이 없어요')
+                : cDict?.emptyTitle || ui('공유된 영상이 아직 없어요')}
+            </strong>
+            <p>
+              {searchQuery
+                ? cDict?.emptySearchDesc ||
+                  (locale === 'ko'
+                    ? ui('다른 검색어를 입력하시거나 검색창을 지워보세요.')
+                    : 'Try another search term or clear the search field.')
+                : cDict?.emptyDesc || ui('내 하이라이트 영상을 올리고 첫 번째로 공유해 보세요!')}
+            </p>
+            {searchQuery && (
+              <button type="button" className="sv2-share-empty-btn" onClick={() => setSearchQuery('')}>
+                {cDict?.viewAll || ui('전체 목록 보기')}
+              </button>
+            )}
+          </div>
+        ) : (
+          videos.map((video) => (
+            <Tooltip key={video.id} content={video.title}>
+              <button
+                type="button"
+                className="sv2-share-card"
+                data-selected={selectedVideoId === video.id}
+                onClick={() => handleSelectVideo(video)}
+              >
+                <div className="sv2-share-thumb">
+                  <img src={video.thumbnailUrl} alt="" loading="lazy" />
+                  <span className="sv2-share-play" aria-hidden="true">
+                    <Play size={14} fill="currentColor" />
+                  </span>
+                  {video.durationSec != null && video.durationSec > 0 && (
+                    <span className="sv2-share-duration">
+                      {Math.floor(video.durationSec / 60)}:
+                      {String(video.durationSec % 60).padStart(2, '0')}
                     </span>
-                    {video.durationSec != null && video.durationSec > 0 && (
-                      <span className="sv2-share-duration">
-                        {Math.floor(video.durationSec / 60)}:
-                        {String(video.durationSec % 60).padStart(2, '0')}
-                      </span>
-                    )}
+                  )}
+                </div>
+                <div className="sv2-share-meta">
+                  <div className="sv2-share-title">{video.title}</div>
+                  <div className="sv2-share-author">{video.authorName}</div>
+                  <div className="sv2-share-stats">
+                    {formatViewCount(video.viewCount, locale)} · {formatTimeAgo(video.createdAt, locale)}
                   </div>
-                  <div className="sv2-share-meta">
-                    <div className="sv2-share-title">{video.title}</div>
-                    <div className="sv2-share-author">{video.authorName}</div>
-                    <div className="sv2-share-stats">
-                      {formatViewCount(video.viewCount, locale)} · {formatTimeAgo(video.createdAt, locale)}
-                    </div>
-                  </div>
-                </button>
-              </Tooltip>
-            ))
-          )}
-        </div>
-      </ScrollFade>
+                </div>
+              </button>
+            </Tooltip>
+          ))
+        )}
+      </div>
 
       <div className="sv2-share-footer">
         <button

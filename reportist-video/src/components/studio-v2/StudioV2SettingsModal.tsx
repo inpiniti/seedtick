@@ -1,5 +1,4 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { ScrollFade } from '@animate-ui/react/primitives/effects/scroll-fade';
 import {
   CalendarDays,
   Captions,
@@ -12,7 +11,6 @@ import {
   X,
 } from 'lucide-react';
 import { useI18n } from '../../i18n/index.tsx';
-import { scrollFadeNavProps, scrollFadePanelProps } from '../common/scrollFade.ts';
 import { CURRENT_APP_VERSION } from '../../data/appVersion.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
 import {
@@ -233,29 +231,26 @@ export const StudioV2SettingsModal = ({
 
         <div className="sv2-settings-body">
           {/* 좌측: 섹션 탐색 */}
-          <ScrollFade asChild {...scrollFadeNavProps}>
-            <nav className="sv2-settings-nav" aria-label={t('settingsModal.navAriaLabel')}>
-              {navSections.map((section) => {
-                const Icon = section.icon;
-                return (
-                  <button
-                    key={section.id}
-                    type="button"
-                    className="sv2-settings-nav-item"
-                    data-active={activeSection === section.id}
-                    aria-current={activeSection === section.id ? 'page' : undefined}
-                    onClick={() => setActiveSection(section.id)}
-                  >
-                    <Icon size={15} />
-                    <span>{section.label}</span>
-                  </button>
-                );
-              })}
-            </nav>
-          </ScrollFade>
+          <nav className="sv2-settings-nav" aria-label={t('settingsModal.navAriaLabel')}>
+            {navSections.map((section) => {
+              const Icon = section.icon;
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  className="sv2-settings-nav-item"
+                  data-active={activeSection === section.id}
+                  aria-current={activeSection === section.id ? 'page' : undefined}
+                  onClick={() => setActiveSection(section.id)}
+                >
+                  <Icon size={15} />
+                  <span>{section.label}</span>
+                </button>
+              );
+            })}
+          </nav>
 
           {/* 우측: 선택한 섹션의 설정 값 */}
-          <ScrollFade asChild {...scrollFadePanelProps}>
           <div className="sv2-settings-content" data-modal-scrollable="true">
           <section className="sv2-settings-section" hidden={activeSection !== 'ai'}>
             <h3>
@@ -510,7 +505,6 @@ export const StudioV2SettingsModal = ({
             <p className="sv2-settings-hint">{ui('설정 변경은 미리보기에 바로 반영돼요')}</p>
           )}
           </div>
-          </ScrollFade>
         </div>
 
         <footer className="sv2-settings-foot">

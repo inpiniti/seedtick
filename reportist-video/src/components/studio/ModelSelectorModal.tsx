@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollFade } from '@animate-ui/react/primitives/effects/scroll-fade';
 import {
   Brain,
   Calendar,
@@ -49,7 +48,6 @@ import {
   localizeContextLength,
 } from '../../i18n/modelLocalization.ts';
 import { useModalScrollLock } from '../../hooks/useModalScrollLock.ts';
-import { scrollFadePanelProps } from '../common/scrollFade.ts';
 import { useIsMobileViewport } from '../../hooks/useIsMobileViewport.ts';
 import { Tooltip } from '../ui/Tooltip.tsx';
 
@@ -446,7 +444,6 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
 
         {activeTab === 'byok' ? (
           /* === BYOK (내 API Key 설정 화면 - 토스 스타일 라이트 테마) === */
-          <ScrollFade asChild {...scrollFadePanelProps}>
           <div
             className="model-modal-list"
             data-modal-scrollable="true"
@@ -728,7 +725,6 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
               </div>
             </div>
           </div>
-          </ScrollFade>
         ) : (
           /* === 기본 무료 게이트웨이 모델 목록 (기존 뷰) === */
           <>
@@ -951,7 +947,6 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
         </div>
 
         {/* Model Card List */}
-        <ScrollFade asChild {...scrollFadePanelProps}>
         <div
           className="model-modal-list"
           data-modal-scrollable="true"
@@ -1344,7 +1339,6 @@ export const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
             })
           )}
         </div>
-        </ScrollFade>
         </>
         )}
 

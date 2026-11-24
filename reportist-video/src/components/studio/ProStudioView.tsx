@@ -3,7 +3,6 @@ import 'driver.js/dist/driver.css';
 import './ProStudioView.css';
 
 import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
-import { ScrollFade } from '@animate-ui/react/primitives/effects/scroll-fade';
 import type { Driver } from 'driver.js';
 import {
   hasSeenStudioGuide,
@@ -20,7 +19,6 @@ import { MobileStudioStepHeader } from './mobile/MobileStudioStepHeader.tsx';
 import { MobileStepListSheet } from './mobile/MobileStepListSheet.tsx';
 import { MobileBottomCtaBar } from './mobile/MobileBottomCtaBar.tsx';
 import { Button } from '../ui/Button.tsx';
-import { scrollFadePanelProps } from '../common/scrollFade.ts';
 import { Tooltip } from '../ui/Tooltip.tsx';
 import {
   Play,
@@ -8540,37 +8538,35 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                   <strong>{ui('전체 자막 한눈에 수정')}</strong>
                   <span className="toss-tag-gray">{ui('{count}개 씬', { count: segments.length })}</span>
                 </div>
-                <ScrollFade asChild {...scrollFadePanelProps}>
-                  <div className="toss-caption-list-items">
-                    {segments.map((seg, idx) => (
-                      <div
-                        key={seg.id}
-                        className={`toss-caption-list-row ${idx === selectedSegmentIndex ? 'active' : ''}`}
-                      >
-                        <Tooltip content={ui('이 씬 미리보기')}>
-                        <button
-                          type="button"
-                          className="toss-caption-list-jump"
-                          onClick={() => handleSelectSegment(seg.id, 'caption')}
-                        >
-                          <span className="toss-caption-list-num">{idx + 1}</span>
-                          <span className="toss-caption-list-time">{formatSec(seg.start)}</span>
-                        </button>
-                        </Tooltip>
-                        <input
-                          type="text"
-                          className="toss-input-sm toss-caption-list-input"
-                          value={seg.subtitleTitle ?? seg.reason}
-                          onChange={(e) =>
-                            handleUpdateSegmentSubtitle(seg.id, 'subtitleTitle', e.target.value)
-                          }
-                          placeholder={ui('자막 문구')}
-                          aria-label={ui('씬 {index} 자막', { index: idx + 1 })}
-                        />
-                      </div>
-                    ))}
+                <div className="toss-caption-list-items">
+                {segments.map((seg, idx) => (
+                  <div
+                    key={seg.id}
+                    className={`toss-caption-list-row ${idx === selectedSegmentIndex ? 'active' : ''}`}
+                  >
+                    <Tooltip content={ui('이 씬 미리보기')}>
+                    <button
+                      type="button"
+                      className="toss-caption-list-jump"
+                      onClick={() => handleSelectSegment(seg.id, 'caption')}
+                    >
+                      <span className="toss-caption-list-num">{idx + 1}</span>
+                      <span className="toss-caption-list-time">{formatSec(seg.start)}</span>
+                    </button>
+                    </Tooltip>
+                    <input
+                      type="text"
+                      className="toss-input-sm toss-caption-list-input"
+                      value={seg.subtitleTitle ?? seg.reason}
+                      onChange={(e) =>
+                        handleUpdateSegmentSubtitle(seg.id, 'subtitleTitle', e.target.value)
+                      }
+                      placeholder={ui('자막 문구')}
+                      aria-label={ui('씬 {index} 자막', { index: idx + 1 })}
+                    />
                   </div>
-                </ScrollFade>
+                ))}
+              </div>
               </div>
             )}
 
