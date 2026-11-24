@@ -470,7 +470,8 @@
   display: flex;
   gap: 10px;
   align-items: center;
-  padding: 8px;
+  /* 공유 카드와 같은 여백으로 맞춰 목록의 한 줄 높이를 일정하게 유지한다. */
+  padding: 6px;
   margin-bottom: 8px;
   max-height: 112px;
   overflow: hidden;
@@ -531,18 +532,36 @@
 }
 /* 분석 중인 영상 이름도 글자별 글로우를 적용하되, 카드의 말줄임표는 유지한다. */
 .shimmering-text.sv2-shimmer-name,
-.shimmering-text.sv2-shimmer-name .shimmering-text-letters,
+.shimmering-text.sv2-shimmer-name .shimmering-text-letters {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .shimmering-text.sv2-shimmer-name .shimmering-text-letter {
   display: inline;
 }
 .sv2-upload-date {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--sv2-text-2);
-  margin-top: 3px;
+  margin-top: 2px;
+}
+/* 상태 배지는 이름 줄이 아니라 카드 오른쪽 끝에 세로로 모은다. */
+.sv2-upload-side {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
 }
 .sv2-upload-badge {
   display: inline-block;
-  margin-top: 5px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 10px;
   font-weight: 800;
   padding: 2px 7px;
@@ -581,14 +600,12 @@
   50% { transform: translateX(220%); }
 }
 .sv2-upload-card-remove {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 22px;
-  height: 22px;
+  /* 배지와 같은 오른쪽 열에 두어 hover 시에도 배지를 가리지 않는다. */
+  width: 20px;
+  height: 20px;
   border-radius: 6px;
   border: 0;
-  background: var(--sv2-surface);
+  background: var(--sv2-surface-2);
   color: var(--sv2-text-3);
   display: grid;
   place-items: center;

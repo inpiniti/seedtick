@@ -239,13 +239,6 @@ export const UploadQueueDock = ({
                             )}
                           </div>
                           <div className="sv2-upload-date">{shootDate}</div>
-                          <span
-                            className="sv2-upload-badge"
-                            data-done={done}
-                            data-queued={badge.queued}
-                          >
-                            {badge.active ? <ShimmeringText text={label} duration={0.9} /> : label}
-                          </span>
                           {isProcessing && !done && (
                             <div className="sv2-progress-bar" data-queued={badge.queued}>
                               <div
@@ -255,17 +248,26 @@ export const UploadQueueDock = ({
                             </div>
                           )}
                         </div>
-                        {!isProcessing && (
-                          <button
-                            type="button"
-                            className="sv2-upload-card-remove"
-                            onClick={() => onRemoveVideo(video.id)}
-                            disabled={isRemoving}
-                            aria-label={ui('영상 삭제')}
+                        <div className="sv2-upload-side">
+                          {!isProcessing && (
+                            <button
+                              type="button"
+                              className="sv2-upload-card-remove"
+                              onClick={() => onRemoveVideo(video.id)}
+                              disabled={isRemoving}
+                              aria-label={ui('영상 삭제')}
+                            >
+                              <X size={13} />
+                            </button>
+                          )}
+                          <span
+                            className="sv2-upload-badge"
+                            data-done={done}
+                            data-queued={badge.queued}
                           >
-                            <X size={13} />
-                          </button>
-                        )}
+                            {badge.active ? <ShimmeringText text={label} duration={0.9} /> : label}
+                          </span>
+                        </div>
                       </div>
                     );
                   })}
