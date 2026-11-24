@@ -43,6 +43,7 @@ import {
   setStudioOnboardingActive,
 } from '../../services/studioTour.ts';
 import { useOnboardingTour } from '../../hooks/useOnboardingTour.ts';
+import { ShimmeringText } from '../common/ShimmeringText.tsx';
 import { OnboardingWelcomeModal } from './OnboardingWelcomeModal.tsx';
 import { OnboardingCelebration } from './OnboardingCelebration.tsx';
 import { INTRO_TEMPLATE_OPTIONS } from '../studio/introOutroOptions.ts';
@@ -1220,8 +1221,13 @@ export const CenterStudioView = (props: StudioV2Props) => {
               <div className="sv2-status-pill" role="status" aria-live="polite" data-tour="onboarding-status">
                 <span className="sv2-spinner" />
                 <span className="sv2-status-pill-text">
-                  {progress?.statusMessage ||
-                    ui('장면을 분석하고 있어요. 끝나면 타임라인에 바로 채워져요.')}
+                  <ShimmeringText
+                    text={
+                      progress?.statusMessage ||
+                      ui('장면을 분석하고 있어요. 끝나면 타임라인에 바로 채워져요.')
+                    }
+                    duration={1.1}
+                  />
                 </span>
                 <div className="sv2-progress-bar sv2-status-pill-bar">
                   <div

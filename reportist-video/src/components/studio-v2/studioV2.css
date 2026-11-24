@@ -529,6 +529,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* 분석 중인 영상 이름도 글자별 글로우를 적용하되, 카드의 말줄임표는 유지한다. */
+.shimmering-text.sv2-shimmer-name,
+.shimmering-text.sv2-shimmer-name .shimmering-text-letters,
+.shimmering-text.sv2-shimmer-name .shimmering-text-letter {
+  display: inline;
+}
 .sv2-upload-date {
   font-size: 11px;
   color: var(--sv2-text-2);
@@ -963,6 +969,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.sv2-status-pill-text .shimmering-text,
+.sv2-status-pill-text .shimmering-text-letters,
+.sv2-status-pill-text .shimmering-text-letter {
+  display: inline;
 }
 .sv2-status-pill-bar {
   width: 56px;

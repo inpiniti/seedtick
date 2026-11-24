@@ -2,6 +2,7 @@ import { Plus, Scissors, Sparkles, UploadCloud, X } from 'lucide-react';
 import type { VideoItem, VideoTaskProgress } from '../../types/video.ts';
 import type { VideoShareItem } from '../../types/share.ts';
 import { useI18n } from '../../i18n/index.tsx';
+import { ShimmeringText } from '../common/ShimmeringText.tsx';
 import { SharedVideosPanel } from '../community/SharedVideosPanel.tsx';
 import { PageTransition } from './PageTransition.tsx';
 import { formatShootDate } from './types.ts';
@@ -225,7 +226,15 @@ export const UploadQueueDock = ({
                       )}
                       <div className="sv2-upload-meta">
                         <div className="sv2-upload-name" title={video.name}>
-                          {video.name}
+                          {badge.active ? (
+                            <ShimmeringText
+                              text={video.name}
+                              duration={1.4}
+                              className="sv2-shimmer-name"
+                            />
+                          ) : (
+                            video.name
+                          )}
                         </div>
                         <div className="sv2-upload-date">{shootDate}</div>
                         <span
@@ -233,7 +242,7 @@ export const UploadQueueDock = ({
                           data-done={done}
                           data-queued={badge.queued}
                         >
-                          {label}
+                          {badge.active ? <ShimmeringText text={label} duration={0.9} /> : label}
                         </span>
                         {isProcessing && !done && (
                           <div className="sv2-progress-bar" data-queued={badge.queued}>

@@ -1,0 +1,88 @@
+/* animate-ui ShimmeringText 스타일 기반 로컬 구현 */
+
+.shimmering-text {
+  display: inline-block;
+  color: var(--shimmer-color, currentColor);
+  vertical-align: baseline;
+}
+
+.shimmering-text-letters {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.shimmering-text-letter {
+  display: inline-block;
+  /* 애니메이션 대기 중에도 기본 상태는 흐리게 유지한다. */
+  opacity: 0.55;
+  animation: shimmeringTextGlint var(--shimmer-duration, 4s) ease-in-out infinite;
+  will-change: color, opacity, transform;
+}
+
+/* 글자 하나가 0~25% 구간에서 빛나고, 나머지는 쉰다(글자별 delay로 순차 재생). */
+@keyframes shimmeringTextGlint {
+  0%,
+  100% {
+    color: var(--shimmer-color, currentColor);
+    opacity: 0.55;
+    transform: none;
+  }
+  12.5% {
+    color: var(--shimmering-color, color-mix(in srgb, currentColor 35%, #fff));
+    opacity: 1;
+  }
+  25% {
+    color: var(--shimmer-color, currentColor);
+    opacity: 0.55;
+    transform: none;
+  }
+}
+
+/* wave 옵션: 빛이 지날 때 글자를 살짝 들어 올린다. */
+.shimmering-text[data-wave='true'] .shimmering-text-letter {
+  animation-name: shimmeringTextGlintWave;
+}
+
+@keyframes shimmeringTextGlintWave {
+  0%,
+  100% {
+    color: var(--shimmer-color, currentColor);
+    opacity: 0.55;
+    transform: none;
+  }
+  12.5% {
+    color: var(--shimmering-color, color-mix(in srgb, currentColor 35%, #fff));
+    opacity: 1;
+    transform: translate(5px, -5px) scale(1.1) rotate(15deg);
+  }
+  25% {
+    color: var(--shimmer-color, currentColor);
+    opacity: 0.55;
+    transform: none;
+  }
+}
+
+/* 화면 밖·숨겨진 탭에서는 글자별 애니메이션을 멈춘다. */
+.shimmering-text[data-paused='true'] .shimmering-text-letter {
+  animation-play-state: paused;
+}
+
+.shimmering-text-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmering-text-letter {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
