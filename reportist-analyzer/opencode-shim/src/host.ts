@@ -18,8 +18,26 @@ let host: Host | null = null
 const DENY_ALL = [{ action: "*", resource: "*", effect: "deny" as const }]
 const nativeFetch = globalThis.fetch
 let currentKey = process.env.OPENCODE_API_KEY ?? ""
-let chain: Promise<unknown> = Promise.resolve()
 let listeners: Map<string, Listener> | null = null
+
+// SDK의 전송 fetch가 프로세스 전역 키를 읽으므로, 실제 모델 호출이 끝날 때까지 키를 점유한다.
+let locked = false
+const waiters: Array<() => void> = []
+
+async function acquire(): Promise<() => void> {
+  if (!locked) {
+    locked = true
+    return release
+  }
+  await new Promise<void>((resolve) => waiters.push(resolve))
+  return release
+}
+
+function release(): void {
+  const next = waiters.shift()
+  if (next) next()
+  else locked = false
+}
 
 const fetchWithKey = ((input: RequestInfo | URL, init?: RequestInit) => {
   const request = new Request(input, init)
@@ -69,87 +87,76 @@ export function isReady(): boolean {
   return host !== null && listeners !== null
 }
 
-export function setKey(key: string): void {
-  currentKey = key
-}
-
-/** 직렬 실행: SDK의 전송 fetch가 프로세스 전역 키를 읽으므로 동시에 두 키를 쓸 수 없다. */
-export function withKey<T>(key: string, fn: () => Promise<T>): Promise<T> {
-  const run = chain.then(async () => {
-    currentKey = key
-    return fn()
-  })
-  chain = run.then(
-    () => undefined,
-    () => undefined,
-  )
-  return run
-}
-
-export async function runCompletion(input: {
+/**
+ * 요청마다 전달된 키로 세션 생성~응답 완료 전체를 직렬 실행한다.
+ * (sessions.prompt는 admission에서 반환되므로, 그 이후에 일어나는 실제 추론 호출까지 잡아야 한다.)
+ */
+export async function* runCompletion(input: {
   model: string
   prompt: string
+  key: string
   signal?: AbortSignal
-}): Promise<AsyncGenerator<StreamItem>> {
-  if (!host || !listeners) throw new Error("OpenCode host is not ready")
-  const activeHost = host
-  const activeListeners = listeners
-  const sandbox = await mkdtemp(join(tmpdir(), "oc-shim-"))
-  await writeFile(join(sandbox, "opencode.json"), JSON.stringify({ model: input.model }), "utf8")
-  const modelID = input.model.replace(/^opencode\//, "")
-  const session = await activeHost.sessions.create({
-    location: { directory: sandbox },
-    model: { id: modelID, providerID: "opencode" },
-    permissions: DENY_ALL,
-    title: "shim",
-  })
-
-  const queue: StreamItem[] = []
-  let wake: (() => void) | null = null
-  const push = (item: StreamItem) => {
-    queue.push(item)
-    wake?.()
-    wake = null
-  }
-  activeListeners.set(session.id, push)
-
-  const waitFor = (): Promise<StreamItem | undefined> =>
-    new Promise((resolve) => {
-      if (queue.length > 0) return resolve(queue.shift())
-      wake = () => resolve(queue.shift())
-      if (input.signal) {
-        input.signal.addEventListener("abort", () => resolve({ type: "error", message: "aborted" }), { once: true })
-      }
+}): AsyncGenerator<StreamItem> {
+  const unlock = await acquire()
+  currentKey = input.key
+  let sessionID: string | null = null
+  let sandbox: string | null = null
+  try {
+    if (!host || !listeners) throw new Error("OpenCode host is not ready")
+    const activeHost = host
+    const activeListeners = listeners
+    sandbox = await mkdtemp(join(tmpdir(), "oc-shim-"))
+    await writeFile(join(sandbox, "opencode.json"), JSON.stringify({ model: input.model }), "utf8")
+    const modelID = input.model.replace(/^opencode\//, "")
+    const session = await activeHost.sessions.create({
+      location: { directory: sandbox },
+      model: { id: modelID, providerID: "opencode" },
+      permissions: DENY_ALL,
+      title: "shim",
     })
+    sessionID = session.id
 
-  await activeHost.sessions.prompt({ sessionID: session.id, text: input.prompt })
-
-  const cleanup = async () => {
-    activeListeners.delete(session.id)
-    await rm(sandbox, { recursive: true, force: true }).catch(() => undefined)
-  }
-
-  return (async function* () {
-    try {
-      let finished = false
-      const deadline = Date.now() + 180_000
-      while (!finished && Date.now() < deadline) {
-        const item = await waitFor()
-        if (!item) break
-        if (item.type === "done") {
-          finished = true
-          break
-        }
-        if (item.type === "error") {
-          yield item
-          finished = true
-          break
-        }
-        yield item
-      }
-      if (!finished) yield { type: "error", message: "generation timeout" }
-    } finally {
-      await cleanup()
+    const queue: StreamItem[] = []
+    let wake: (() => void) | null = null
+    const push = (item: StreamItem) => {
+      queue.push(item)
+      wake?.()
+      wake = null
     }
-  })()
+    activeListeners.set(session.id, push)
+
+    const waitFor = (): Promise<StreamItem | undefined> =>
+      new Promise((resolve) => {
+        if (queue.length > 0) return resolve(queue.shift())
+        wake = () => resolve(queue.shift())
+        if (input.signal) {
+          input.signal.addEventListener("abort", () => resolve({ type: "error", message: "aborted" }), { once: true })
+        }
+      })
+
+    await activeHost.sessions.prompt({ sessionID: session.id, text: input.prompt })
+
+    let finished = false
+    const deadline = Date.now() + 180_000
+    while (!finished && Date.now() < deadline) {
+      const item = await waitFor()
+      if (!item) break
+      if (item.type === "done") {
+        finished = true
+        break
+      }
+      yield item
+      if (item.type === "error") {
+        finished = true
+        break
+      }
+    }
+    if (!finished) yield { type: "error", message: "generation timeout" }
+  } catch (error) {
+    yield { type: "error", message: error instanceof Error ? error.message : String(error) }
+  } finally {
+    if (sessionID && listeners) listeners.delete(sessionID)
+    if (sandbox) await rm(sandbox, { recursive: true, force: true }).catch(() => undefined)
+    unlock()
+  }
 }

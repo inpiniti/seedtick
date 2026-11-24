@@ -1,4 +1,4 @@
-import { isReady, runCompletion, startHost, withKey, type StreamItem } from "./host"
+import { isReady, runCompletion, startHost, type StreamItem } from "./host"
 import { chunk, completion, DONE, errorBody, toPrompt, type ChatRequest } from "./convert"
 
 const port = Number(process.env.OPENCODE_SHIM_PORT ?? 4096)
@@ -41,18 +41,12 @@ Bun.serve({
 
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeoutMs)
-    const bodyForModel = { ...body, model: body.model }
-    let stream: AsyncGenerator<StreamItem>
-    try {
-      stream = await withKey(key, () =>
-        runCompletion({ model: bodyForModel.model, prompt: toPrompt(body.messages), signal: controller.signal }),
-      )
-    } catch (error) {
-      clearTimeout(timer)
-      return Response.json(JSON.parse(errorBody(error instanceof Error ? error.message : String(error))), {
-        status: 502,
-      })
-    }
+    const stream: AsyncGenerator<StreamItem> = runCompletion({
+      model: body.model,
+      prompt: toPrompt(body.messages),
+      key,
+      signal: controller.signal,
+    })
 
     if (!body.stream) {
       let text = ""
@@ -76,13 +70,23 @@ Bun.serve({
     const encoder = new TextEncoder()
     const sse = new ReadableStream<Uint8Array>({
       async start(ctrl) {
-        ctrl.enqueue(encoder.encode(chunk(body.model, { role: "assistant", content: "" })))
+        // 첫 청크를 정상 role 청크로 보내면 게이트웨이가 에러를 못 잡고 키를 바꾸지 않는다.
+        // 실제 토큰이 올 때까지 role 청크를 미뤄, 에러가 먼저 오면 첫 청크가 에러가 되게 한다.
+        let sentRole = false
+        const ensureRole = () => {
+          if (sentRole) return
+          sentRole = true
+          ctrl.enqueue(encoder.encode(chunk(body.model, { role: "assistant", content: "" })))
+        }
         try {
           for await (const item of stream) {
-            if (item.type === "content") ctrl.enqueue(encoder.encode(chunk(body.model, { content: item.text })))
-            else if (item.type === "reasoning")
+            if (item.type === "content") {
+              ensureRole()
+              ctrl.enqueue(encoder.encode(chunk(body.model, { content: item.text })))
+            } else if (item.type === "reasoning") {
+              ensureRole()
               ctrl.enqueue(encoder.encode(chunk(body.model, { reasoning_content: item.text })))
-            else if (item.type === "finish") {
+            } else if (item.type === "finish") {
               // terminating chunk is emitted after [DONE] handling below
             } else if (item.type === "error") {
               ctrl.enqueue(
@@ -95,11 +99,14 @@ Bun.serve({
               return
             }
           }
+          ensureRole()
           ctrl.enqueue(encoder.encode(chunk(body.model, {}, "stop")))
           ctrl.enqueue(encoder.encode(DONE))
           ctrl.close()
         } catch (error) {
-          ctrl.enqueue(encoder.encode(chunk(body.model, {}, "stop")))
+          ctrl.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ error: { message: String(error), type: "server_error" } })}\n\n`),
+          )
           ctrl.enqueue(encoder.encode(DONE))
           ctrl.close()
           console.error("[opencode-shim] stream error", error)
