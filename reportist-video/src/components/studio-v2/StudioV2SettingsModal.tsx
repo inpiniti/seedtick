@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import {
   CalendarDays,
   Captions,
+  CircleHelp,
   Download,
   History,
   MessageSquareText,
@@ -48,10 +49,10 @@ const FeedbackView = lazy(() =>
 
 // components/studio-v2/StudioV2SettingsModal.tsx
 // V2 전용 슬림 설정 모달. 편집 맥락에 속한 옵션은 제자리(인스펙터/음악 트랙)에 두고,
-// 전역·표시·도구·안내(패치노트·피드백) 항목만 여기에 모은다.
+// 전역·표시·도구·안내(가이드·패치노트·피드백) 항목만 여기에 모은다.
 // 좌측 섹션 메뉴를 고르면 우측 영역에 해당 설정만 보여준다.
 
-type SettingsSection = 'ai' | 'subtitle' | 'display' | 'tools' | 'patch' | 'feedback';
+type SettingsSection = 'ai' | 'subtitle' | 'display' | 'tools' | 'guide' | 'patch' | 'feedback';
 
 interface StudioV2SettingsModalProps {
   isOpen: boolean;
@@ -184,6 +185,7 @@ export const StudioV2SettingsModal = ({
     { id: 'subtitle' as const, label: ui('자막'), icon: Captions },
     { id: 'display' as const, label: ui('화면 표시'), icon: CalendarDays },
     { id: 'tools' as const, label: ui('작업 & 도구'), icon: Download },
+    { id: 'guide' as const, label: ui('사용 가이드 다시 보기'), icon: CircleHelp },
     { id: 'patch' as const, label: t('patchNotes.title'), icon: History },
     { id: 'feedback' as const, label: t('feedback.navTab'), icon: MessageSquareText },
   ];
@@ -440,22 +442,6 @@ export const StudioV2SettingsModal = ({
               </button>
             </div>
 
-            {onReplayGuide && (
-              <div className="sv2-settings-row">
-                <div className="sv2-settings-row-text">
-                  <strong>{ui('사용 가이드 다시 보기')}</strong>
-                  <span>{ui('가이드를 처음부터 다시 살펴봐요.')}</span>
-                </div>
-                <button
-                  type="button"
-                  className="sv2-btn sv2-btn-sm"
-                  onClick={onReplayGuide}
-                >
-                  <Sparkles size={13} /> {ui('다시 보기')}
-                </button>
-              </div>
-            )}
-
             <div className="sv2-settings-row">
               <div className="sv2-settings-row-text">
                 <strong>{t('projects.newProjectBtn')}</strong>
@@ -470,6 +456,23 @@ export const StudioV2SettingsModal = ({
               </button>
             </div>
           </section>
+
+          {onReplayGuide && (
+            <section className="sv2-settings-section" hidden={activeSection !== 'guide'}>
+              <h3>
+                <CircleHelp size={14} /> {ui('사용 가이드 다시 보기')}
+              </h3>
+
+              <div className="sv2-settings-row">
+                <div className="sv2-settings-row-text">
+                  <strong>{ui('가이드를 처음부터 다시 살펴봐요.')}</strong>
+                </div>
+                <button type="button" className="sv2-btn sv2-btn-sm" onClick={onReplayGuide}>
+                  <Sparkles size={13} /> {ui('가이드 다시 시작하기')}
+                </button>
+              </div>
+            </section>
+          )}
 
           <section
             className="sv2-settings-section sv2-settings-section--embedded"

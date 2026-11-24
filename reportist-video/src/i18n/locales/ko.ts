@@ -668,7 +668,7 @@ export const ko: Dictionary = {
     navSubtitles: '자막 · 브릿지',
     navMotion: '인트로 · 아웃트로',
     navExport: '화질 · 저장소',
-    navSupport: '지원 · 업데이트',
+    navSupport: '도움말 · 지원',
     navProject: '프로젝트',
     navAriaLabel: '설정 섹션',
     dateFormat: '촬영 날짜 표기 형식',

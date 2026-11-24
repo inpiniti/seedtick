@@ -1203,6 +1203,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
       <StudioTopBar
         projectName={projectName}
         onOpenLanguageModal={() => setIsLanguageModalOpen(true)}
+        onReplayGuide={handleReplayGuide}
         onOpenSettings={() => setIsSettingsOpen(true)}
         isDockOpen={isDockOpen}
         onToggleDock={toggleDock}

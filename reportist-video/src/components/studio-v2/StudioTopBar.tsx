@@ -1,5 +1,6 @@
 import {
   ChevronDown,
+  CircleHelp,
   Download,
   Globe,
   PanelLeftClose,
@@ -18,6 +19,8 @@ import type { VideoOrientation } from '../../types/video.ts';
 interface StudioTopBarProps {
   projectName: string;
   onOpenLanguageModal: () => void;
+  /** 온보딩 가이드를 처음부터 다시 보여준다. */
+  onReplayGuide: () => void;
   onOpenSettings: () => void;
   isDockOpen: boolean;
   onToggleDock: () => void;
@@ -31,6 +34,7 @@ interface StudioTopBarProps {
 export const StudioTopBar = ({
   projectName,
   onOpenLanguageModal,
+  onReplayGuide,
   onOpenSettings,
   isDockOpen,
   onToggleDock,
@@ -101,6 +105,16 @@ export const StudioTopBar = ({
         <Globe size={14} />
         <span className="sv2-lang-code">{languageCode}</span>
         <ChevronDown size={13} className="sv2-model-chevron" />
+      </button>
+
+      <button
+        type="button"
+        className="sv2-btn sv2-btn-icon sv2-btn-ghost"
+        onClick={onReplayGuide}
+        aria-label={ui('사용 가이드 다시 보기')}
+        title={ui('사용 가이드 다시 보기')}
+      >
+        <CircleHelp size={18} />
       </button>
 
       <button

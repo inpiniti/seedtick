@@ -1761,7 +1761,7 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                   }}
                 >
                   <div className="settings-modal-item-left">
-                    <div className="settings-modal-icon-badge" style={{ backgroundColor: '#eef2ff', color: '#4f46e5' }}>
+                    <div className="settings-modal-icon-badge" style={{ backgroundColor: '#eff6ff', color: '#3182f6' }}>
                       <Sparkles size={18} />
                     </div>
                     <div className="settings-modal-item-text">
@@ -1774,10 +1774,10 @@ export const MobileSettingsModal: React.FC<MobileSettingsModalProps> = ({
                     </div>
                   </div>
                   <div className="settings-modal-item-action">
-                    <span style={{ color: '#4f46e5', fontWeight: 600 }}>
-                      {ui('다시 보기')}
+                    <span style={{ color: '#3182f6', fontWeight: 600 }}>
+                      {ui('가이드 다시 시작하기')}
                     </span>
-                    <ChevronRight size={15} color="#4f46e5" />
+                    <ChevronRight size={15} color="#3182f6" />
                   </div>
                 </button>
               )}
