@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Film, Pause, Play } from 'lucide-react';
+import { Pause, Play, RotateCcw } from 'lucide-react';
 import {
   computeMetaLayoutFromTexts,
   drawCompositorCoverFrame,
@@ -20,6 +20,8 @@ import { resolveTimelineItem, type TimelineModel } from './timelineModel.ts';
 import { PreviewInteractiveOverlay } from './PreviewInteractiveOverlay.tsx';
 
 type IntroOutroModule = typeof import('../../services/previewCompositorIntroOutro.ts');
+
+const GUIDE_LOCALES = ['ko', 'en', 'ja', 'zh', 'es', 'fr', 'de'] as const;
 
 interface CenterPreviewStageProps {
   frame: FrameSpec;
@@ -59,8 +61,9 @@ export const CenterPreviewStage = ({
   onUpdateSegment,
   onUpdateOverlay,
 }: CenterPreviewStageProps) => {
-  const { dict, ui } = useI18n();
+  const { dict, locale, ui } = useI18n();
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const guideVideoRef = useRef<HTMLVideoElement>(null);
   const videoRefs = useRef(new Map<string, HTMLVideoElement>());
   const introOutroRef = useRef<IntroOutroModule | null>(null);
   const [rendererReady, setRendererReady] = useState(false);
@@ -178,6 +181,12 @@ export const CenterPreviewStage = ({
   }, [playhead, activeItem, frame, overlayOptions, videos, rendererReady, redrawTick, isEditingCaption, isEditingTitle, revision]);
 
   const hasContent = model.items.length > 0;
+  // 컷이 없을 때 보여줄 V2 사용법 녹화본. 지원 로케일이 아니면 한국어 영상으로 폴백한다.
+  const guideLocale = GUIDE_LOCALES.includes(locale as (typeof GUIDE_LOCALES)[number])
+    ? locale
+    : 'ko';
+  const guideSrc = `${import.meta.env.BASE_URL}media/guide/walkthrough-v2-${guideLocale}.mp4`;
+  const guidePoster = `${import.meta.env.BASE_URL}media/guide/walkthrough-v2-${guideLocale}.webp`;
   const locationLabel = activeSegment?.locationName || overlayOptions.subtitleLocationText || '';
   // 캔버스와 같은 폴백을 사용한다. 빈 문자열로 지운 컷은 reason으로 되돌아가지 않고 '자막 추가'만 보인다.
   const captionLabel = activeSegment?.subtitleTitle ?? activeSegment?.reason ?? '';
@@ -298,10 +307,36 @@ export const CenterPreviewStage = ({
         </div>
       ) : (
         <div className="sv2-preview-frame" data-orientation={orientation}>
-          <div className="sv2-preview-empty">
-            <div className="sv2-empty-icon"><Film size={28} /></div>
-            <strong>{ui('영상을 추가하면 여기에 미리보기가 나타나요')}</strong>
-            <span>{ui('영상을 올리면 왼쪽에 파일이 나열되고, AI 컷을 누르면 타임라인에 채워져요.')}</span>
+          <div className="sv2-preview-guide">
+            <video
+              ref={guideVideoRef}
+              className="sv2-guide-video"
+              src={guideSrc}
+              poster={guidePoster}
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              aria-label={ui('가이드')}
+            />
+            <span className="sv2-guide-badge">{ui('가이드')}</span>
+            <button
+              type="button"
+              className="sv2-guide-replay"
+              onClick={() => {
+                const video = guideVideoRef.current;
+                if (!video) return;
+                video.currentTime = 0;
+                void video.play().catch(() => {});
+              }}
+            >
+              <RotateCcw size={13} /> {ui('다시 보기')}
+            </button>
+            <div className="sv2-guide-caption">
+              <strong>{ui('영상을 추가하면 여기에 미리보기가 나타나요')}</strong>
+              <span>{ui('영상을 올리면 왼쪽에 파일이 나열되고, AI 컷을 누르면 타임라인에 채워져요.')}</span>
+            </div>
           </div>
         </div>
       )}
