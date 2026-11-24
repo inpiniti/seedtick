@@ -3,6 +3,7 @@ import type { VideoItem, VideoTaskProgress } from '../../types/video.ts';
 import type { VideoShareItem } from '../../types/share.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { SharedVideosPanel } from '../community/SharedVideosPanel.tsx';
+import { PageTransition } from './PageTransition.tsx';
 import { formatShootDate } from './types.ts';
 
 // components/studio-v2/UploadQueueDock.tsx
@@ -155,136 +156,148 @@ export const UploadQueueDock = ({
           >
             <span>{ui('공유')}</span>
           </button>
-          {activeTab === 'source' && (
-            <button
-              type="button"
-              className="sv2-dock-tab-add"
-              onClick={onAddVideos}
-              disabled={isProcessing}
-              aria-label={addHint}
-              title={addHint}
-            >
-              <Plus size={15} />
-            </button>
-          )}
         </div>
 
-        {activeTab === 'source' ? (
-          <>
-            <div className="sv2-dock-list">
-              {videos.length === 0 && (
+        {/* 탭이 바뀌면 Animate UI PageTransition으로 패널 내용을 전환한다. 탭 바 자체는 고정. */}
+        <PageTransition effect="slide" pageKey={activeTab} className="sv2-dock-page">
+          {activeTab === 'source' ? (
+            <>
+              <div className="sv2-dock-add-row">
                 <button
                   type="button"
-                  className="sv2-dock-empty"
+                  className="sv2-dock-add"
                   onClick={onAddVideos}
                   disabled={addDisabled}
+                  aria-label={addHint}
+                  title={addHint}
                 >
-                  <UploadCloud size={30} />
-                  <span>
-                    {ui('영상을 끌어다 놓거나')}
-                    <br />
-                    {ui('여기서 영상을 추가해 주세요')}
-                  </span>
+                  <Plus size={15} />
+                  <span>{ui('영상 추가')}</span>
                 </button>
-              )}
+              </div>
 
-              {videos.map((video) => {
-                const segment = video.segments?.[0];
-                const segmentCount = video.segments?.length ?? 0;
-                const task = taskByVideoId.get(video.id);
-                const badge = taskBadge(task, segmentCount > 0, ui);
-                const done = segmentCount > 0 || badge.done;
-                const label =
-                  done &&
-                  segmentCount > 0 &&
-                  (task?.stage === 'done' || task?.stage === 'reused' || !task)
-                    ? ui('컷 {count}개 완료', { count: segmentCount })
-                    : badge.label;
-                const shootDate = formatShootDate(segment) || video.metadataDate || '';
-                const isRemoving = removingVideoIds?.has(video.id) ?? false;
-                return (
-                  <div
-                    key={video.id}
-                    className="sv2-upload-card"
-                    data-cut-card-id={video.id}
-                    data-active={badge.active}
-                    data-done={done}
-                    // 분석 중에만 착지한 카드를 접는다. 분석이 끝나면 삭제할 수 있도록 다시 노출한다.
-                    data-landed={isProcessing && (landedVideos?.has(video.id) ?? false)}
-                    data-removing={isRemoving}
+              <div className="sv2-dock-list">
+                {videos.length === 0 && (
+                  <button
+                    type="button"
+                    className="sv2-dock-empty"
+                    onClick={onAddVideos}
+                    disabled={addDisabled}
                   >
-                    {video.thumbnailUrl ? (
-                      <img className="sv2-upload-thumb" src={video.thumbnailUrl} alt="" />
-                    ) : (
-                      <div className="sv2-upload-thumb" />
-                    )}
-                    <div className="sv2-upload-meta">
-                      <div className="sv2-upload-name" title={video.name}>
-                        {video.name}
-                      </div>
-                      <div className="sv2-upload-date">{shootDate}</div>
-                      <span className="sv2-upload-badge" data-done={done} data-queued={badge.queued}>
-                        {label}
-                      </span>
-                      {isProcessing && !done && (
-                        <div className="sv2-progress-bar" data-queued={badge.queued}>
-                          <div className="sv2-progress-fill" style={{ width: `${badge.pct}%` }} />
+                    <UploadCloud size={30} />
+                    <span>
+                      {ui('영상을 끌어다 놓거나')}
+                      <br />
+                      {ui('여기서 영상을 추가해 주세요')}
+                    </span>
+                  </button>
+                )}
+
+                {videos.map((video) => {
+                  const segment = video.segments?.[0];
+                  const segmentCount = video.segments?.length ?? 0;
+                  const task = taskByVideoId.get(video.id);
+                  const badge = taskBadge(task, segmentCount > 0, ui);
+                  const done = segmentCount > 0 || badge.done;
+                  const label =
+                    done &&
+                    segmentCount > 0 &&
+                    (task?.stage === 'done' || task?.stage === 'reused' || !task)
+                      ? ui('컷 {count}개 완료', { count: segmentCount })
+                      : badge.label;
+                  const shootDate = formatShootDate(segment) || video.metadataDate || '';
+                  const isRemoving = removingVideoIds?.has(video.id) ?? false;
+                  return (
+                    <div
+                      key={video.id}
+                      className="sv2-upload-card"
+                      data-cut-card-id={video.id}
+                      data-active={badge.active}
+                      data-done={done}
+                      // 분석 중에만 착지한 카드를 접는다. 분석이 끝나면 삭제할 수 있도록 다시 노출한다.
+                      data-landed={isProcessing && (landedVideos?.has(video.id) ?? false)}
+                      data-removing={isRemoving}
+                    >
+                      {video.thumbnailUrl ? (
+                        <img className="sv2-upload-thumb" src={video.thumbnailUrl} alt="" />
+                      ) : (
+                        <div className="sv2-upload-thumb" />
+                      )}
+                      <div className="sv2-upload-meta">
+                        <div className="sv2-upload-name" title={video.name}>
+                          {video.name}
                         </div>
+                        <div className="sv2-upload-date">{shootDate}</div>
+                        <span
+                          className="sv2-upload-badge"
+                          data-done={done}
+                          data-queued={badge.queued}
+                        >
+                          {label}
+                        </span>
+                        {isProcessing && !done && (
+                          <div className="sv2-progress-bar" data-queued={badge.queued}>
+                            <div
+                              className="sv2-progress-fill"
+                              style={{ width: `${badge.pct}%` }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                      {!isProcessing && (
+                        <button
+                          type="button"
+                          className="sv2-upload-card-remove"
+                          onClick={() => onRemoveVideo(video.id)}
+                          disabled={isRemoving}
+                          aria-label={ui('영상 삭제')}
+                        >
+                          <X size={13} />
+                        </button>
                       )}
                     </div>
-                    {!isProcessing && (
-                      <button
-                        type="button"
-                        className="sv2-upload-card-remove"
-                        onClick={() => onRemoveVideo(video.id)}
-                        disabled={isRemoving}
-                        aria-label={ui('영상 삭제')}
-                      >
-                        <X size={13} />
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
 
-            <div className="sv2-dock-footer">
-              {!isProcessing && isOnboardingActive && onLoadSampleVideos && (
-                <button
-                  type="button"
-                  className="sv2-sample-btn"
-                  onClick={() => void onLoadSampleVideos()}
-                  disabled={isLoadingSample}
-                  data-tour="onboarding-sample"
-                >
-                  <Sparkles size={14} />
-                  {isLoadingSample ? ui('샘플을 준비하고 있어요') : ui('샘플 영상으로 시작하기')}
-                </button>
-              )}
-              {isProcessing ? (
-                <button type="button" className="sv2-btn" onClick={onCancel}>
-                  {ui('분석 중지')}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="sv2-btn sv2-btn-primary"
-                  onClick={onStartAnalysis}
-                  disabled={videos.length === 0 || !hasPending || isPreparingVideos}
-                  data-tour="onboarding-analyze"
-                  data-tour-ready={videos.length > 0 && !isPreparingVideos ? 'true' : 'false'}
-                >
-                  <Scissors size={16} /> {ui('AI 컷 분석')}
-                </button>
-              )}
-            </div>
-          </>
-        ) : (
-          <SharedVideosPanel
-            selectedVideoId={selectedSharedVideo?.id}
-            onSelectVideo={onSelectSharedVideo}
-          />
-        )}
+              <div className="sv2-dock-footer">
+                {!isProcessing && isOnboardingActive && onLoadSampleVideos && (
+                  <button
+                    type="button"
+                    className="sv2-sample-btn"
+                    onClick={() => void onLoadSampleVideos()}
+                    disabled={isLoadingSample}
+                    data-tour="onboarding-sample"
+                  >
+                    <Sparkles size={14} />
+                    {isLoadingSample ? ui('샘플을 준비하고 있어요') : ui('샘플 영상으로 시작하기')}
+                  </button>
+                )}
+                {isProcessing ? (
+                  <button type="button" className="sv2-btn" onClick={onCancel}>
+                    {ui('분석 중지')}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="sv2-btn sv2-btn-primary"
+                    onClick={onStartAnalysis}
+                    disabled={videos.length === 0 || !hasPending || isPreparingVideos}
+                    data-tour="onboarding-analyze"
+                    data-tour-ready={videos.length > 0 && !isPreparingVideos ? 'true' : 'false'}
+                  >
+                    <Scissors size={16} /> {ui('AI 컷 분석')}
+                  </button>
+                )}
+              </div>
+            </>
+          ) : (
+            <SharedVideosPanel
+              selectedVideoId={selectedSharedVideo?.id}
+              onSelectVideo={onSelectSharedVideo}
+            />
+          )}
+        </PageTransition>
       </div>
     </div>
   );

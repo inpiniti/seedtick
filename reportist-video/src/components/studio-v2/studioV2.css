@@ -393,7 +393,7 @@
   background: var(--sv2-text);
 }
 .sv2-dock-tab:focus-visible,
-.sv2-dock-tab-add:focus-visible {
+.sv2-dock-add:focus-visible {
   outline: none;
   box-shadow: var(--sv2-focus-ring);
 }
@@ -414,21 +414,41 @@
   background: var(--sv2-surface-3);
   color: var(--sv2-text);
 }
-.sv2-dock-tab-add {
-  flex: 0 0 auto;
-  align-self: center;
-  width: 26px;
-  height: 26px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--sv2-text-2);
+/* 탭 아래 내용 영역 — Animate UI PageTransition이 이 영역을 전환한다. */
+.sv2-dock-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
-.sv2-dock-tab-add:hover:not(:disabled) {
+/* 원본 영상 추가 버튼: 탭 옆이 아니라 탭 바로 아래에 둔다. */
+.sv2-dock-add-row {
+  flex: 0 0 auto;
+  padding: 10px 12px 4px;
+}
+.sv2-dock-add {
+  width: 100%;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px dashed var(--sv2-border-strong);
+  border-radius: 8px;
+  background: var(--sv2-surface-3);
+  color: var(--sv2-text-2);
+  font-size: 12px;
+  font-weight: 700;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease,
+    transform 0.12s ease;
+}
+.sv2-dock-add:hover:not(:disabled) {
   background: var(--sv2-surface-2);
+  border-color: var(--sv2-text-3);
   color: var(--sv2-text);
+}
+.sv2-dock-add:active:not(:disabled) {
+  transform: scale(0.98);
 }
 .sv2-dock-list {
   flex: 1;

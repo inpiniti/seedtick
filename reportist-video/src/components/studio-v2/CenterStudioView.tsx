@@ -1,4 +1,14 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  addTransitionType,
+  lazy,
+  startTransition,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Loader2, Sparkles } from 'lucide-react';
 import { cleanModelName, getSpeedTier } from '../../services/modelMetrics.ts';
 import {
@@ -870,9 +880,13 @@ export const CenterStudioView = (props: StudioV2Props) => {
     }
   }, []);
   const handleDockTabChange = useCallback((tab: LeftDockTab) => {
-    setDockTab(tab);
-    // 원본 영상 탭으로 돌아가면 중앙 미리보기도 다시 내 프로젝트로 되돌린다.
-    if (tab === 'source') setSelectedSharedVideo(null);
+    // Animate UI PageTransition의 slide 방향: 공유 탭 진입은 앞으로, 원본 탭 복귀는 뒤로.
+    startTransition(() => {
+      addTransitionType(tab === 'source' ? 'nav-back' : 'nav-forward');
+      setDockTab(tab);
+      // 원본 영상 탭으로 돌아가면 중앙 미리보기도 다시 내 프로젝트로 되돌린다.
+      if (tab === 'source') setSelectedSharedVideo(null);
+    });
   }, []);
 
   // 새 프로젝트로 영상 목록이 비면 자동 규칙으로 되돌린다.
