@@ -126,6 +126,7 @@ const EditableTextOverlay = ({
       className={`sv2-hit sv2-hit-${kind}`}
       data-editing={editing}
       data-empty={!text}
+      data-tour={kind === 'caption' ? 'onboarding-caption-hit' : undefined}
       style={boxStyle}
       onClick={startEditing}
       title={text ? editLabel : addLabel}

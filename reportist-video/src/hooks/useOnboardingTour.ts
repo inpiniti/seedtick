@@ -17,12 +17,13 @@ export const ONBOARDING_STEP = {
   sample: 0,
   analyze: 1,
   analyzing: 2,
-  caption: 3,
-  intro: 4,
-  introTemplates: 5,
-  export: 6,
-  resolution: 7,
-  download: 8,
+  selectCut: 3,
+  caption: 4,
+  intro: 5,
+  introTemplates: 6,
+  export: 7,
+  resolution: 8,
+  download: 9,
 } as const;
 
 export function useOnboardingTour() {
@@ -89,20 +90,30 @@ export function useOnboardingTour() {
           element: '[data-tour="onboarding-status"]',
           popover: {
             title: ui('영상 분석 중이에요'),
-            description: ui('AI가 장면을 고르고 있어요. 끝나면 바로 자막 작업으로 이어갈게요.'),
+            description: ui('AI가 장면을 고르고 있어요. 끝나면 컷을 눌러 편집하는 단계로 이어갈게요.'),
             side: 'bottom',
           },
           waitForElement: WAIT_FOR_UI_MS,
           // 상태 배지가 사라지는 즉시 전환해야 하므로 제거 대기 시간은 0으로 둔다.
           waitForRemovedElement: 0,
-          // 분석이 끝나면 진행 상태 배지가 사라진다. 그 순간 자막 단계로 자동 전환한다.
+          // 분석이 끝나면 진행 상태 배지가 사라진다. 그 순간 컷 선택 단계로 자동 전환한다.
           onElementMissing: (_element, _step, opts) => {
             opts.driver.moveNext();
             return false;
           },
         },
         {
-          element: '[data-tour="onboarding-caption"]',
+          element: '[data-tour="onboarding-cuts-ready"] [data-cut-slot-id]',
+          popover: {
+            title: ui('③ 컷을 눌러 편집해요'),
+            description: ui('AI가 고른 장면이 타임라인에 채워졌어요. 컷을 누르면 미리보기가 그 장면으로 이동해요.'),
+            side: 'top',
+          },
+          advanceOn: 'click',
+          waitForElement: WAIT_FOR_UI_MS,
+        },
+        {
+          element: '[data-tour="onboarding-caption-hit"]',
           popover: {
             title: ui('④ 자막을 고쳐요'),
             description: ui('미리보기의 자막을 눌러 문구를 바꿔보세요. 수정하면 다음으로 이어져요.'),

@@ -563,6 +563,13 @@ export const CenterStudioView = (props: StudioV2Props) => {
     };
   }, [advanceOnboarding, onboardingStep]);
 
+  // 자막 단계에서는 자막이 꺼져 있어도 수정 타깃이 보이도록 켠다.
+  useEffect(() => {
+    if (onboardingStep === ONBOARDING_STEP.caption && overlayOptions.showSubtitle === false) {
+      updateOverlay({ showSubtitle: true });
+    }
+  }, [onboardingStep, overlayOptions.showSubtitle, updateOverlay]);
+
   // 설정·모델·언어 등 독립 모달이 열리면 안내 오버레이를 정리한다. (내보내기 모달은 투어의 마지막 단계라 제외)
   useEffect(() => {
     if (
@@ -615,11 +622,25 @@ export const CenterStudioView = (props: StudioV2Props) => {
     // X로 닫기 직전의 단계부터 이어서 진행한다.
     // 다만 그 사이 상태가 바뀌어 타깃이 사라진 단계는 다시 진입할 수 있는 단계로 되돌린다.
     let step = getStudioOnboardingStep();
-    if (step === ONBOARDING_STEP.analyzing && !isProcessing) step = ONBOARDING_STEP.caption;
+    if (step === ONBOARDING_STEP.analyzing && !isProcessing) step = ONBOARDING_STEP.selectCut;
+    if (
+      (step === ONBOARDING_STEP.selectCut || step === ONBOARDING_STEP.caption) &&
+      displaySegments.length === 0
+    ) {
+      step = ONBOARDING_STEP.analyzing;
+    }
+    if (step === ONBOARDING_STEP.caption && !selectedSegmentId) step = ONBOARDING_STEP.selectCut;
     if (step === ONBOARDING_STEP.introTemplates && !activeInspector) step = ONBOARDING_STEP.intro;
     if (step >= ONBOARDING_STEP.resolution && !isExportOpen) step = ONBOARDING_STEP.export;
     runOnboardingTour(step);
-  }, [runOnboardingTour, isProcessing, activeInspector, isExportOpen]);
+  }, [
+    runOnboardingTour,
+    isProcessing,
+    displaySegments.length,
+    selectedSegmentId,
+    activeInspector,
+    isExportOpen,
+  ]);
 
   const bumpSettings = useCallback(() => setSettingsRevision((v) => v + 1), []);
   // BYOK 설정/모델 선택은 localStorage를 갱신하므로 revision을 올려 설정 모달의 모델 표시를 즉시 재계산한다.
