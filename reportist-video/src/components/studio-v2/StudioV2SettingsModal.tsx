@@ -73,6 +73,9 @@ interface StudioV2SettingsModalProps {
   onReplayGuide?: () => void;
   onResetProject: () => void;
   onOverlayChange?: (patch: Partial<VideoOverlayOptions>) => void;
+  /** 프로젝트에 저장된 자막 모션 값. 모달을 다시 열어도 현재 값이 보이도록 초기값으로 받는다. */
+  subtitleMotion?: SubtitleMotion;
+  boundaryWipe?: boolean;
   onHighlightModeChange?: (mode: HighlightMode) => void;
   /** 상단 바에서 이관한 AI 모델 선택 진입점. */
   modelDisplay: StudioModelDisplay;
@@ -92,6 +95,8 @@ export const StudioV2SettingsModal = ({
   onReplayGuide,
   onResetProject,
   onOverlayChange,
+  subtitleMotion: storedSubtitleMotion = 'none',
+  boundaryWipe: storedBoundaryWipe = false,
   onHighlightModeChange,
   modelDisplay,
   isLoadingModels,
@@ -114,8 +119,8 @@ export const StudioV2SettingsModal = ({
   const [showAge, setShowAge] = useState<boolean>(getStoredShowAge);
   const [birthDate, setBirthDate] = useState<string>(getStoredBirthDate);
   // 프로젝트 오버레이 옵션과 동일한 기본값. 별도 로컬 저장 없이 onOverlayChange로 즉시 반영한다.
-  const [subtitleMotion, setSubtitleMotion] = useState<SubtitleMotion>('none');
-  const [boundaryWipe, setBoundaryWipe] = useState(false);
+  const [subtitleMotion, setSubtitleMotion] = useState<SubtitleMotion>(storedSubtitleMotion);
+  const [boundaryWipe, setBoundaryWipe] = useState(storedBoundaryWipe);
 
   // 모달을 열 때마다 다른 탭/레거시 화면에서 바뀐 저장값을 다시 읽어 온다.
   useEffect(() => {
@@ -128,7 +133,9 @@ export const StudioV2SettingsModal = ({
     setShowSubtitle(getStoredShowSubtitle());
     setShowAge(getStoredShowAge());
     setBirthDate(getStoredBirthDate());
-  }, [isOpen]);
+    setSubtitleMotion(storedSubtitleMotion);
+    setBoundaryWipe(storedBoundaryWipe);
+  }, [isOpen, storedSubtitleMotion, storedBoundaryWipe]);
 
   useEffect(() => {
     if (!isOpen) return;

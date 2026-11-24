@@ -1453,6 +1453,8 @@ export const CenterStudioView = (props: StudioV2Props) => {
               onResetProject={handleResetProject}
               onReplayGuide={handleReplayGuide}
               onOverlayChange={updateOverlay}
+              subtitleMotion={overlayOptions.subtitleMotion}
+              boundaryWipe={overlayOptions.boundaryWipe}
               onHighlightModeChange={handleHighlightModeChange}
             />
           </Suspense>
