@@ -12,6 +12,8 @@ import {
 } from 'driver.js';
 
 const SEEN_GUIDES_KEY = 'penguincut_seen_guides_v1';
+/** 온보딩을 시작했지만 아직 끝내지 않았을 때 남기는 플래그. 새로고침 후 투어를 다시 띄우는 데 쓴다. */
+const ONBOARDING_ACTIVE_KEY = 'penguincut_onboarding_active_v1';
 
 /** 한 번만 보여줄 가이드 식별자. 새 가이드를 추가하면 이 유니온에 먼저 등록한다. */
 export type StudioGuideId =
@@ -58,11 +60,33 @@ export function markStudioGuideSeen(id: StudioGuideId): void {
   writeSeenGuides(map);
 }
 
+/** 온보딩 진행 중 여부 (완료/건너뛰기 전까지 true) */
+export function isStudioOnboardingActive(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(ONBOARDING_ACTIVE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+/** 온보딩 시작 시 진행 플래그를 남긴다. */
+export function setStudioOnboardingActive(active: boolean): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (active) window.localStorage.setItem(ONBOARDING_ACTIVE_KEY, 'true');
+    else window.localStorage.removeItem(ONBOARDING_ACTIVE_KEY);
+  } catch {
+    // storage가 막혀도 투어 자체는 동작해야 한다.
+  }
+}
+
 /** 설정의 "가이드 다시 보기"에서 모든 이력을 지운다. */
 export function resetStudioGuides(): void {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.removeItem(SEEN_GUIDES_KEY);
+    window.localStorage.removeItem(ONBOARDING_ACTIVE_KEY);
   } catch {
     // no-op
   }

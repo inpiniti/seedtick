@@ -15,6 +15,7 @@ export function useOnboardingTour() {
   const { ui } = useI18n();
   const driverRef = useRef<Driver | null>(null);
   const onCompleteRef = useRef<(() => void) | null>(null);
+  const onInterruptedRef = useRef<(() => void) | null>(null);
 
   const stop = useCallback(() => {
     if (driverRef.current) {
@@ -23,12 +24,21 @@ export function useOnboardingTour() {
     }
   }, []);
 
-  useEffect(() => () => stop(), [stop]);
+  useEffect(
+    () => () => {
+      // 언마운트 중 destroy가 콜백을 호출해도 setState를 하지 않도록 먼저 비운다.
+      onCompleteRef.current = null;
+      onInterruptedRef.current = null;
+      stop();
+    },
+    [stop]
+  );
 
   const start = useCallback(
-    (onComplete?: () => void) => {
+    (onComplete?: () => void, onInterrupted?: () => void) => {
       stop();
       onCompleteRef.current = onComplete ?? null;
+      onInterruptedRef.current = onInterrupted ?? null;
 
       const steps: DriveStep[] = [
         {
@@ -115,6 +125,7 @@ export function useOnboardingTour() {
         onDestroyed: (reason) => {
           if (driverRef.current === driver) driverRef.current = null;
           if (reason === 'done') onCompleteRef.current?.();
+          else onInterruptedRef.current?.();
         },
       });
       driverRef.current = driver;

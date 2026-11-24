@@ -122,3 +122,37 @@
 .sv2-sample-btn:disabled {
   opacity: 0.4;
 }
+
+/* 투어를 중단했을 때 남는 재시작 버튼 */
+.sv2-onboarding-resume {
+  position: fixed;
+  right: 24px;
+  bottom: calc(var(--sv2-timeline-h) + 20px);
+  z-index: 1100;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 999px;
+  background: #191f28;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.18);
+  transition: background 0.15s, transform 0.15s;
+}
+
+.sv2-onboarding-resume:hover {
+  background: #2b3648;
+}
+
+.sv2-onboarding-resume:active {
+  transform: scale(0.98);
+}
+
+.sv2-onboarding-resume:focus-visible {
+  outline: 2px solid #3182f6;
+  outline-offset: 2px;
+}

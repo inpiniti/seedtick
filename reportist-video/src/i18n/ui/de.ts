@@ -833,4 +833,5 @@ export const uiDe: Record<string, string> = {
   "다듬은 영상을 파일로 저장해요. 이 버튼을 누르면 설정 창이 열려요.": "Speichere dein bearbeitetes Video als Datei. Dieser Button öffnet die Einstellungen.",
   "⑦ 다운로드하면 끝이에요": "⑦ Herunterladen und fertig",
   "해상도를 고르고 다운로드를 누르면 완성된 영상이 저장돼요.": "Wähle die Auflösung und klicke auf Herunterladen, um das fertige Video zu speichern.",
+  "가이드 다시 시작하기": "Anleitung neu starten",
 };

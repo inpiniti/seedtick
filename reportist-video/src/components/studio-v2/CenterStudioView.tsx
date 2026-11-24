@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Sparkles } from 'lucide-react';
 import { cleanModelName, getSpeedTier } from '../../services/modelMetrics.ts';
 import {
   getProviderPreset,
@@ -26,8 +26,10 @@ import { useI18n } from '../../i18n/index.tsx';
 import { notify } from '../../services/toastService.ts';
 import {
   hasSeenStudioGuide,
+  isStudioOnboardingActive,
   markStudioGuideSeen,
   resetStudioGuides,
+  setStudioOnboardingActive,
 } from '../../services/studioTour.ts';
 import { useOnboardingTour } from '../../hooks/useOnboardingTour.ts';
 import { OnboardingWelcomeModal } from './OnboardingWelcomeModal.tsx';
@@ -442,7 +444,12 @@ export const CenterStudioView = (props: StudioV2Props) => {
 
   // ── 첫 실행 온보딩 ────────────────────────────────────────────────
   const [isOnboardingWelcomeOpen, setIsOnboardingWelcomeOpen] = useState(false);
+  const [onboardingInProgress, setOnboardingInProgress] = useState(
+    () => isStudioOnboardingActive() && !hasSeenStudioGuide('onboarding')
+  );
+  const [showOnboardingResume, setShowOnboardingResume] = useState(false);
   const onboardingTimerRef = useRef<number | null>(null);
+  const onboardingInitRef = useRef(false);
   const { start: startOnboardingTour, stop: stopOnboardingTour } = useOnboardingTour();
 
   useEffect(
@@ -454,9 +461,42 @@ export const CenterStudioView = (props: StudioV2Props) => {
     []
   );
 
+  const runOnboardingTour = useCallback(() => {
+    setShowOnboardingResume(false);
+    startOnboardingTour(
+      () => {
+        markStudioGuideSeen('onboarding');
+        setStudioOnboardingActive(false);
+        setOnboardingInProgress(false);
+        setShowOnboardingResume(false);
+        notify.success(ui('가이드를 마쳤어요. 이제 직접 만들어보세요!'));
+      },
+      () => {
+        // 닫기·오버레이 클릭·모달 진입 등으로 중단되면 다시 시작할 버튼을 남긴다.
+        setShowOnboardingResume(true);
+      }
+    );
+  }, [startOnboardingTour, ui]);
+
+  // 새로고침으로 중단된 투어는 팝업 없이 처음부터 다시 시작한다. (영상은 메모리에만 있어 1단계부터 진행)
   useEffect(() => {
-    if (!hasSeenStudioGuide('onboarding')) setIsOnboardingWelcomeOpen(true);
-  }, []);
+    if (onboardingInitRef.current) return;
+    onboardingInitRef.current = true;
+    if (hasSeenStudioGuide('onboarding')) {
+      // 이미 완료했는데 진행 플래그만 남은 경우를 대비해 정리한다.
+      setStudioOnboardingActive(false);
+      setOnboardingInProgress(false);
+      return;
+    }
+    if (isStudioOnboardingActive()) {
+      onboardingTimerRef.current = window.setTimeout(() => {
+        onboardingTimerRef.current = null;
+        runOnboardingTour();
+      }, 350);
+    } else {
+      setIsOnboardingWelcomeOpen(true);
+    }
+  }, [runOnboardingTour]);
 
   // 설정·모델·언어 등 독립 모달이 열리면 안내 오버레이를 정리한다. (내보내기 모달은 투어의 마지막 단계라 제외)
   useEffect(() => {
@@ -479,28 +519,36 @@ export const CenterStudioView = (props: StudioV2Props) => {
   ]);
 
   const handleOnboardingStart = useCallback(() => {
-    markStudioGuideSeen('onboarding');
+    setStudioOnboardingActive(true);
+    setOnboardingInProgress(true);
     setIsOnboardingWelcomeOpen(false);
     // 팝업이 사라진 뒤 드라이버가 타깃을 잡도록 한 프레임 기다린다.
     onboardingTimerRef.current = window.setTimeout(() => {
       onboardingTimerRef.current = null;
-      startOnboardingTour(() => {
-        notify.success(ui('가이드를 마쳤어요. 이제 직접 만들어보세요!'));
-      });
+      runOnboardingTour();
     }, 180);
-  }, [startOnboardingTour, ui]);
+  }, [runOnboardingTour]);
 
   const handleOnboardingDismiss = useCallback(() => {
     markStudioGuideSeen('onboarding');
+    setStudioOnboardingActive(false);
+    setOnboardingInProgress(false);
     setIsOnboardingWelcomeOpen(false);
   }, []);
 
   const handleReplayGuide = useCallback(() => {
     resetStudioGuides();
+    setStudioOnboardingActive(true);
+    setOnboardingInProgress(true);
     stopOnboardingTour();
     setIsSettingsOpen(false);
     setIsOnboardingWelcomeOpen(true);
   }, [stopOnboardingTour]);
+
+  const handleResumeOnboarding = useCallback(() => {
+    runOnboardingTour();
+  }, [runOnboardingTour]);
+
   const bumpSettings = useCallback(() => setSettingsRevision((v) => v + 1), []);
   // BYOK 설정/모델 선택은 localStorage를 갱신하므로 revision을 올려 설정 모달의 모델 표시를 즉시 재계산한다.
   const [, setModelRevision] = useState(0);
@@ -1077,6 +1125,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
           onCancel={onCancelProcessing}
           onLoadSampleVideos={onLoadSampleVideos}
           isLoadingSample={isLoadingSample}
+          isOnboardingActive={onboardingInProgress}
         />
 
         <div className="sv2-center">
@@ -1317,6 +1366,16 @@ export const CenterStudioView = (props: StudioV2Props) => {
         onStart={handleOnboardingStart}
         onDismiss={handleOnboardingDismiss}
       />
+
+      {showOnboardingResume && onboardingInProgress && (
+        <button
+          type="button"
+          className="sv2-onboarding-resume"
+          onClick={handleResumeOnboarding}
+        >
+          <Sparkles size={15} /> {ui('가이드 다시 시작하기')}
+        </button>
+      )}
     </div>
   );
 };

@@ -34,9 +34,11 @@ interface UploadQueueDockProps {
   onRemoveVideo: (id: string) => void;
   onStartAnalysis: () => void;
   onCancel: () => void;
-  /** 온보딩/빈 상태에서 번들 샘플을 프로젝트에 넣는다. */
+  /** 온보딩 중에만 번들 샘플을 프로젝트에 넣는다. */
   onLoadSampleVideos?: () => Promise<unknown>;
   isLoadingSample?: boolean;
+  /** 가이드 진행 중일 때만 샘플 버튼을 노출한다. */
+  isOnboardingActive?: boolean;
 }
 
 type UiFn = (source: string, params?: Record<string, string | number>) => string;
@@ -101,6 +103,7 @@ export const UploadQueueDock = ({
   onCancel,
   onLoadSampleVideos,
   isLoadingSample,
+  isOnboardingActive,
 }: UploadQueueDockProps) => {
   const { ui } = useI18n();
   // 분석 중에 새 영상을 넣으면 분석 시작 시점의 스냅샷이 다시 덮어써서 방금 넣은 영상이 사라진다.
@@ -246,7 +249,7 @@ export const UploadQueueDock = ({
             </div>
 
             <div className="sv2-dock-footer">
-              {!isProcessing && onLoadSampleVideos && (
+              {!isProcessing && isOnboardingActive && onLoadSampleVideos && (
                 <button
                   type="button"
                   className="sv2-sample-btn"

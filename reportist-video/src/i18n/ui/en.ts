@@ -844,4 +844,5 @@ export const uiEn: Record<string, string> = {
   "다듬은 영상을 파일로 저장해요. 이 버튼을 누르면 설정 창이 열려요.": "Save your edited video as a file. Tap this button to open the export settings.",
   "⑦ 다운로드하면 끝이에요": "7. Download and you're done",
   "해상도를 고르고 다운로드를 누르면 완성된 영상이 저장돼요.": "Choose a resolution and tap Download to save your finished video.",
+  "가이드 다시 시작하기": "Restart guide",
 };
