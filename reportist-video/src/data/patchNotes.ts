@@ -20,6 +20,326 @@ export interface PatchRelease {
 
 export const PATCH_RELEASES: PatchRelease[] = [
   {
+    "version": "1.3.0",
+    "title": "스튜디오 V2 설정·편집 경험 개편과 패치노트·피드백 통합",
+    "date": "2026-11-24",
+    "type": "major",
+    "summary": "스튜디오 V2 설정창을 좌측 섹션 메뉴와 우측 콘텐츠 영역으로 재설계하고 중복 헤더를 제거했습니다. AI 분석·자막 섹션 분리와 2열 레이아웃, 탭 전환 시 흔들리지 않는 높이 고정을 적용했고, 패치노트와 피드백을 설정창 안에서 바로 확인·작성할 수 있도록 통합했습니다. 미리보기 좌상단 제목 클릭 인라인 편집, 위치 수정 시 새로고침되던 문제 수정, 언어 코드만 표시하는 콤팩트 언어 전환, 참고 지도 확대/축소, OpenCode 모델 capability와 이미지 입력 브릿지 반영까지 편집 전반의 완성도를 높였습니다.",
+    "totalCommits": 9,
+    "commits": [
+      {
+        "hash": "f21eb807",
+        "date": "2026-11-23",
+        "type": "feat",
+        "scope": "video",
+        "message": "미리보기 좌상단 제목을 클릭해 인라인으로 바로 수정할 수 있도록 개선",
+        "rawSubject": "feat(video): 미리보기 좌상단 제목을 클릭해 인라인으로 바로 수정할 수 있도록 개선"
+      },
+      {
+        "hash": "5579dee8",
+        "date": "2026-11-23",
+        "type": "fix",
+        "scope": "video",
+        "message": "언어 전환 버튼에 언어 코드만 표시하고 한국어는 KR로 표기",
+        "rawSubject": "fix(video): 언어 전환 버튼에 언어 코드만 표시하고 한국어는 KR로 표기"
+      },
+      {
+        "hash": "b471dba0",
+        "date": "2026-11-23",
+        "type": "fix",
+        "scope": "video",
+        "message": "미리보기 위치 수정 클릭 시 페이지가 새로고침되던 문제 수정",
+        "rawSubject": "fix(video): 미리보기 위치 수정 클릭 시 페이지가 새로고침되던 문제 수정"
+      },
+      {
+        "hash": "1a5a26de",
+        "date": "2026-11-24",
+        "type": "feat",
+        "scope": "reportist-video",
+        "message": "참고 지도 스크롤 확대/축소 활성화",
+        "rawSubject": "feat(reportist-video): 참고 지도 스크롤 확대/축소 활성화"
+      },
+      {
+        "hash": "73454655",
+        "date": "2026-11-23",
+        "type": "feat",
+        "scope": "video",
+        "message": "설정 모달을 AI 분석·자막 섹션으로 분리하고 2열 레이아웃 적용",
+        "rawSubject": "feat(video): 설정 모달을 AI 분석·자막 섹션으로 분리하고 2열 레이아웃 적용"
+      },
+      {
+        "hash": "bb581079",
+        "date": "2026-11-24",
+        "type": "feat",
+        "scope": "video",
+        "message": "설정 모달을 좌측 섹션 메뉴와 우측 내용 영역으로 분리",
+        "rawSubject": "feat(video): 설정 모달을 좌측 섹션 메뉴와 우측 내용 영역으로 분리"
+      },
+      {
+        "hash": "36dba83f",
+        "date": "2026-11-24",
+        "type": "feat",
+        "scope": "video",
+        "message": "설정창에 패치노트·피드백 섹션 통합",
+        "rawSubject": "feat(video): 설정창에 패치노트·피드백 섹션 통합"
+      },
+      {
+        "hash": "cc160db3",
+        "date": "2026-11-24",
+        "type": "fix",
+        "scope": "video",
+        "message": "설정창 높이 고정으로 탭 전환 시 레이아웃 흔들림 방지",
+        "rawSubject": "fix(video): 설정창 높이 고정으로 탭 전환 시 레이아웃 흔들림 방지"
+      },
+      {
+        "hash": "402c8278",
+        "date": "2026-11-24",
+        "type": "feat",
+        "scope": "models",
+        "message": "OpenCode 모델 capability 표시와 이미지 입력을 브릿지에 반영",
+        "rawSubject": "feat(models): OpenCode 모델 capability 표시와 이미지 입력을 브릿지에 반영"
+      }
+    ]
+  },
+  {
+    "version": "1.2.0",
+    "title": "스튜디오 2.0 통합 편집 · 세로(9:16) 영상 · 7개 언어 전면 번역",
+    "date": "2026-11-17",
+    "type": "major",
+    "summary": "마법사와 스튜디오를 하나로 합친 5단계 통합 편집 화면을 도입하고, 처음 제작(6단계)과 편집(5단계) 흐름을 분리했습니다. 노래 다음에 썸네일·다운로드 단계를 추가해 내보내기 흐름을 한곳으로 정리했고, 300여 곳의 하드코딩 문구를 7개 언어 ui() 번역 레이어로 연결했습니다. 가로 16:9와 세로 9:16(인스타 릴스·유튜브 쇼츠·틱톡) 포맷 선택, AI 추천 인물 위치 기반 크롭, 17종 모션 템플릿 재배치, 플랫폼 안전 영역 자막 배치를 지원합니다. 랜딩에는 언어별 프로모 영상·영화 모달·36초 인라인 극장 섹션과 히어로 자동 재생을 추가했습니다.",
+    "totalCommits": 9,
+    "commits": [
+      {
+        "hash": "212382a6",
+        "date": "2026-11-16",
+        "type": "feat",
+        "scope": "video",
+        "message": "마법사와 스튜디오를 하나로 합친 5단계 통합 편집 화면으로 개편",
+        "rawSubject": "feat(video): 마법사와 스튜디오를 하나로 합친 5단계 통합 편집 화면으로 개편"
+      },
+      {
+        "hash": "9f89c7cb",
+        "date": "2026-11-16",
+        "type": "feat",
+        "scope": "video",
+        "message": "처음 제작 6단계·편집 5단계 흐름 분리와 AI 컷 없는 모션 미리보기 복구",
+        "rawSubject": "feat(video): 처음 제작 6단계·편집 5단계 흐름 분리와 AI 컷 없는 모션 미리보기 복구"
+      },
+      {
+        "hash": "951d4a39",
+        "date": "2026-11-16",
+        "type": "feat",
+        "scope": "video",
+        "message": "노래 다음에 썸네일·다운로드 단계 추가와 편집 중 노출 정리",
+        "rawSubject": "feat(video): 노래 다음에 썸네일·다운로드 단계 추가와 편집 중 노출 정리"
+      },
+      {
+        "hash": "4141e66e",
+        "date": "2026-11-16",
+        "type": "feat",
+        "scope": "video",
+        "message": "하드코딩 UI 300여 곳을 7개 언어 번역 레이어로 연결",
+        "rawSubject": "feat(video): 하드코딩 UI 300여 곳을 7개 언어 번역 레이어로 연결"
+      },
+      {
+        "hash": "23972367",
+        "date": "2026-11-16",
+        "type": "feat",
+        "scope": "video",
+        "message": "세로(9:16) 영상 제작과 인물 위치 기반 크롭 지원",
+        "rawSubject": "feat(video): 세로(9:16) 영상 제작과 인물 위치 기반 크롭 지원"
+      },
+      {
+        "hash": "b0220f32",
+        "date": "2026-11-17",
+        "type": "fix",
+        "scope": "video",
+        "message": "세로 프로젝트 프리뷰가 가로로 나오던 문제 수정과 플랫폼 선택 단순화",
+        "rawSubject": "fix(video): 세로 프로젝트 프리뷰가 가로로 나오던 문제 수정과 플랫폼 선택 단순화"
+      },
+      {
+        "hash": "63e78ecb",
+        "date": "2026-11-16",
+        "type": "feat",
+        "scope": "video",
+        "message": "랜딩 히어로·CTA에 프로모 영상과 7개 언어 영화 모달 연결",
+        "rawSubject": "feat(video): 랜딩 히어로·CTA에 프로모 영상과 7개 언어 영화 모달 연결"
+      },
+      {
+        "hash": "08d52b7f",
+        "date": "2026-11-16",
+        "type": "feat",
+        "scope": "video",
+        "message": "랜딩 히어로 무클릭 자동 재생과 36초 인라인 극장 섹션 추가",
+        "rawSubject": "feat(video): 랜딩 히어로 무클릭 자동 재생과 36초 인라인 극장 섹션 추가"
+      },
+      {
+        "hash": "a4c80f2e",
+        "date": "2026-11-17",
+        "type": "feat",
+        "scope": "video",
+        "message": "모바일 스튜디오를 '1화면 1작업' IA로 재구성",
+        "rawSubject": "feat(video): 모바일 스튜디오를 '1화면 1작업' IA로 재구성"
+      }
+    ]
+  },
+  {
+    "version": "1.1.0",
+    "title": "penguincut.com 글로벌 오픈 · 모바일 UX · WebCodecs 저장소 최적화",
+    "date": "2026-11-14",
+    "type": "major",
+    "summary": "penguincut.com 도메인으로 전환하며 7개 언어 정적 랜딩, hreflang, JSON-LD, sitemapindex, IndexNow를 구축했습니다. Safari 저장소 무한 누적·삭제 미회수 문제를 project_media 분리 저장 구조로 근본 해결하고, 업로드·분석 프레임 추출을 WebCodecs 키프레임 디코더로 교체해 iOS MediaCache 디스크 누적을 차단했습니다. 모바일에서는 텍스트 탭 스트립(스크롤 방향별 자동 숨김), 바텀시트 모달, 접을 수 있는 모델 필터, 모든 영상 썸네일 복구, 터치 스크롤 충돌 해소 등 사용성을 대폭 개선했습니다.",
+    "totalCommits": 8,
+    "commits": [
+      {
+        "hash": "2a7e4de4",
+        "date": "2026-11-13",
+        "type": "feat",
+        "scope": "video",
+        "message": "penguincut.com 도메인 전환 및 7개 언어 글로벌 SEO 구축",
+        "rawSubject": "feat(video): penguincut.com 도메인 전환 및 7개 언어 글로벌 SEO 구축"
+      },
+      {
+        "hash": "3ff902d2",
+        "date": "2026-11-13",
+        "type": "fix",
+        "scope": "video",
+        "message": "Safari 저장소 무한 누적·삭제 미회수 문제 근본 해결",
+        "rawSubject": "fix(video): Safari 저장소 무한 누적·삭제 미회수 문제 근본 해결"
+      },
+      {
+        "hash": "b4fcbcf7",
+        "date": "2026-11-13",
+        "type": "feat",
+        "scope": "video",
+        "message": "데스크탑 설정 모달에 좌측 섹션 내비게이션 추가",
+        "rawSubject": "feat(video): 데스크탑 설정 모달에 좌측 섹션 내비게이션 추가"
+      },
+      {
+        "hash": "ac29f635",
+        "date": "2026-11-13",
+        "type": "feat",
+        "scope": "video",
+        "message": "AI 분석 중 실시간 추론 과정 표시",
+        "rawSubject": "feat(video): AI 분석 중 실시간 추론 과정 표시"
+      },
+      {
+        "hash": "bb59301f",
+        "date": "2026-11-14",
+        "type": "fix",
+        "scope": "video",
+        "message": "프레임 추출을 WebCodecs 키프레임 디코더로 교체해 iOS 캐시 누적 차단",
+        "rawSubject": "fix(video): 프레임 추출을 WebCodecs 키프레임 디코더로 교체해 iOS 캐시 누적 차단"
+      },
+      {
+        "hash": "6c899fc8",
+        "date": "2026-11-14",
+        "type": "feat",
+        "scope": "video",
+        "message": "모바일 상단 탭을 텍스트 스트립으로 개편하고 스크롤 방향별 자동 숨김",
+        "rawSubject": "feat(video): 모바일 상단 탭을 텍스트 스트립으로 개편하고 스크롤 방향별 자동 숨김"
+      },
+      {
+        "hash": "1f9eab59",
+        "date": "2026-11-14",
+        "type": "fix",
+        "scope": "video",
+        "message": "모바일 모달을 바텀시트로 전환하고 모델 필터 접기/펼치기 개선",
+        "rawSubject": "fix(video): 모바일 모달을 바텀시트로 전환하고 모델 필터 접기/펼치기 개선"
+      },
+      {
+        "hash": "7651df49",
+        "date": "2026-11-14",
+        "type": "fix",
+        "scope": "video",
+        "message": "두 번째 이후 영상 썸네일이 표시되지 않던 문제 수정",
+        "rawSubject": "fix(video): 두 번째 이후 영상 썸네일이 표시되지 않던 문제 수정"
+      }
+    ]
+  },
+  {
+    "version": "1.0.0",
+    "title": "PenguinCut 1.0 — 브랜드 리뉴얼 · 다국어 · 모션 템플릿 · BYOK 론칭",
+    "date": "2026-11-12",
+    "type": "major",
+    "summary": "브랜드명을 PenguinCut(펭귄컷)으로 변경하고 펭귄 로고·파비콘과 흑백 모노크롬 테마를 전면 적용했습니다. 3단계 온보딩 마법사와 목록→상세 계층 구조, 자막 브이로그화·톤앤매너 설정, HyperFrames 기반 인트로/아웃트로·챕터 브릿지 모션 템플릿(날짜 5종 × 장소 5종)을 도입했습니다. 사용자 AI 키(BYOK) 멀티 프로바이더와 최신 벤치마크 프리셋, 자체 분석 대기열·실시간 추론 표시, Ding 스프링 토스트와 7개 언어 i18n을 완성하며 정식 1.0을 출시했습니다.",
+    "totalCommits": 9,
+    "commits": [
+      {
+        "hash": "5f6f59fc",
+        "date": "2026-11-11",
+        "type": "feat",
+        "scope": "video",
+        "message": "브랜드명 PenguinCut(펭귄컷)으로 변경하고 펭귄 로고·파비콘 교체",
+        "rawSubject": "feat(video): 브랜드명 PenguinCut(펭귄컷)으로 변경하고 펭귄 로고·파비콘 교체"
+      },
+      {
+        "hash": "370fca35",
+        "date": "2026-11-11",
+        "type": "feat",
+        "scope": "video",
+        "message": "주요 버튼·테마를 흑백 모노크롬 스타일로 전면 개편",
+        "rawSubject": "feat(video): 주요 버튼·테마를 흑백 모노크롬 스타일로 전면 개편"
+      },
+      {
+        "hash": "33f6a7cd",
+        "date": "2026-11-11",
+        "type": "feat",
+        "scope": "video",
+        "message": "Ding 스프링 다이나믹 토스트 도입 및 스튜디오 액션 개편",
+        "rawSubject": "feat(video): Ding 스프링 다이나믹 토스트 도입 및 스튜디오 액션 개편"
+      },
+      {
+        "hash": "02e38725",
+        "date": "2026-11-11",
+        "type": "feat",
+        "scope": "video",
+        "message": "3단계 온보딩 마법사와 개별 위치 수정 도입",
+        "rawSubject": "feat(video): 3단계 온보딩 마법사와 개별 위치 수정 도입"
+      },
+      {
+        "hash": "7374b506",
+        "date": "2026-11-11",
+        "type": "feat",
+        "scope": "video",
+        "message": "자막 브이로그화 정제 및 톤앤매너 설정 추가",
+        "rawSubject": "feat(video): 자막 브이로그화 정제 및 톤앤매너 설정 추가"
+      },
+      {
+        "hash": "53660b49",
+        "date": "2026-11-12",
+        "type": "feat",
+        "scope": "video",
+        "message": "HyperFrames 기반 인트로·아웃트로 모션 템플릿 엔진 구현",
+        "rawSubject": "feat(video): HyperFrames 기반 인트로·아웃트로 모션 템플릿 엔진 구현"
+      },
+      {
+        "hash": "8959a8b3",
+        "date": "2026-11-12",
+        "type": "feat",
+        "scope": "video",
+        "message": "챕터 브릿지 날짜 5종 × 장소 5종 조합·실시간 미리보기 지원",
+        "rawSubject": "feat(video): 챕터 브릿지 날짜 5종 × 장소 5종 조합·실시간 미리보기 지원"
+      },
+      {
+        "hash": "00a02926",
+        "date": "2026-11-12",
+        "type": "feat",
+        "scope": "video,gateway",
+        "message": "사용자 AI API 키(BYOK) 패스스루 및 멀티 프로바이더 지원",
+        "rawSubject": "feat(video,gateway): 사용자 AI API 키(BYOK) 패스스루 및 멀티 프로바이더 지원"
+      },
+      {
+        "hash": "fd3fafb7",
+        "date": "2026-11-12",
+        "type": "feat",
+        "scope": "video",
+        "message": "자체 분석 대기열 연동 및 대기 순번·취소 UI 추가",
+        "rawSubject": "feat(video): 자체 분석 대기열 연동 및 대기 순번·취소 UI 추가"
+      }
+    ]
+  },
+  {
     "version": "0.9.11",
     "title": "데스크탑 비디오 인코딩 및 시퀀스 미리보기 프레임 드랍(지터·스킵) 해결",
     "date": "2026-11-10",
