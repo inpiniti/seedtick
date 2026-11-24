@@ -10,6 +10,15 @@ logger = logging.getLogger(__name__)
 
 
 class OpenCodeSidecarManager:
+    @staticmethod
+    def _find_shim_dir() -> Path | None:
+        """소스 파일에서 위로 올라가며 opencode-shim/src/server.ts를 찾는다."""
+        for parent in Path(__file__).resolve().parents:
+            shim = parent / "opencode-shim"
+            if (shim / "src" / "server.ts").exists():
+                return shim
+        return None
+
     def __init__(self) -> None:
         self._process: asyncio.subprocess.Process | None = None
         self._watchdog: asyncio.Task | None = None
@@ -30,9 +39,9 @@ class OpenCodeSidecarManager:
         if self.running:
             return
         self._stopping = False
-        shim_dir = Path(__file__).resolve().parents[2] / "opencode-shim"
-        if not (shim_dir / "src" / "server.ts").exists():
-            logger.warning("[OpenCodeSidecar] 사이드카 소스가 없어 시작하지 않습니다: %s", shim_dir)
+        shim_dir = self._find_shim_dir()
+        if shim_dir is None:
+            logger.warning("[OpenCodeSidecar] 사이드카 소스가 없어 시작하지 않습니다")
             return
 
         env = os.environ.copy()

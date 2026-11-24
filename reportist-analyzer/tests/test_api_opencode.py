@@ -72,6 +72,14 @@ async def test_bridge_non_stream_passthrough(gateway_secret, monkeypatch):
     assert client.post.call_args.kwargs["headers"]["X-OpenCode-Api-Key"] == "oc_sk_test"
 
 
+def test_sidecar_dir_resolution():
+    from app.domains.opencode.sidecar import OpenCodeSidecarManager
+
+    shim = OpenCodeSidecarManager._find_shim_dir()
+    assert shim is not None
+    assert (shim / "src" / "server.ts").exists()
+
+
 @pytest.mark.asyncio
 async def test_bridge_health():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
