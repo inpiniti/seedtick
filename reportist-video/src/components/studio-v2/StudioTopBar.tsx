@@ -119,6 +119,8 @@ export const StudioTopBar = ({
         className="sv2-btn sv2-btn-primary"
         onClick={onExport}
         disabled={!canExport || isExporting}
+        data-tour="onboarding-export"
+        data-tour-ready={canExport && !isExporting ? 'true' : 'false'}
       >
         <Download size={16} /> {isExporting ? ui('내보내는 중…') : ui('MP4 내보내기')}
       </button>

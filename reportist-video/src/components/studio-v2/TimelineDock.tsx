@@ -179,7 +179,11 @@ export const TimelineDock = (props: TimelineDockProps) => {
         </span>
       </div>
       {hasSegments ? (
-        <div className={`sv2-tracks${fitsLane ? ' sv2-tracks--fit' : ''}`} ref={tracksRef}>
+        <div
+          className={`sv2-tracks${fitsLane ? ' sv2-tracks--fit' : ''}`}
+          ref={tracksRef}
+          data-tour={props.locked ? undefined : 'onboarding-cuts-ready'}
+        >
           <div className="sv2-tracks-inner">
             <div className="sv2-ruler-row">
               <div className="sv2-track-label sv2-ruler-label" aria-hidden="true" />

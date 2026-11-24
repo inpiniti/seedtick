@@ -23,6 +23,14 @@ import type {
   VideoOverlayOptions,
 } from '../../types/video.ts';
 import { useI18n } from '../../i18n/index.tsx';
+import { notify } from '../../services/toastService.ts';
+import {
+  hasSeenStudioGuide,
+  markStudioGuideSeen,
+  resetStudioGuides,
+} from '../../services/studioTour.ts';
+import { useOnboardingTour } from '../../hooks/useOnboardingTour.ts';
+import { OnboardingWelcomeModal } from './OnboardingWelcomeModal.tsx';
 import { DesktopOnlyGate } from './DesktopOnlyGate.tsx';
 import { StudioTopBar } from './StudioTopBar.tsx';
 import { UploadQueueDock, type LeftDockTab } from './UploadQueueDock.tsx';
@@ -47,6 +55,7 @@ import {
   type StudioV2Props,
 } from './types.ts';
 import './studioV2.css';
+import './studioV2Onboarding.css';
 
 // 무거운 모달은 지연 로드
 const SegmentTrimModal = lazy(() =>
@@ -108,6 +117,8 @@ export const CenterStudioView = (props: StudioV2Props) => {
     onOrientationChange,
     onReset,
     onHighlightModeChange,
+    onLoadSampleVideos,
+    isLoadingSample,
   } = props;
 
   // ---------- 뷰포트 가드 ----------
@@ -428,6 +439,68 @@ export const CenterStudioView = (props: StudioV2Props) => {
   const [dateFormat, setDateFormat] = useState<DateFormatOption>(getStoredDateFormat);
   // 날짜 형식·나이 옵션은 오버레이 객체 밖의 저장값이라 변경 시 캔버스 재그리기를 명시적으로 트리거한다.
   const [settingsRevision, setSettingsRevision] = useState(0);
+
+  // ── 첫 실행 온보딩 ────────────────────────────────────────────────
+  const [isOnboardingWelcomeOpen, setIsOnboardingWelcomeOpen] = useState(false);
+  const onboardingTimerRef = useRef<number | null>(null);
+  const { start: startOnboardingTour, stop: stopOnboardingTour } = useOnboardingTour();
+
+  useEffect(
+    () => () => {
+      if (onboardingTimerRef.current !== null) {
+        window.clearTimeout(onboardingTimerRef.current);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!hasSeenStudioGuide('onboarding')) setIsOnboardingWelcomeOpen(true);
+  }, []);
+
+  // 설정·모델·언어 등 독립 모달이 열리면 안내 오버레이를 정리한다. (내보내기 모달은 투어의 마지막 단계라 제외)
+  useEffect(() => {
+    if (
+      isSettingsOpen ||
+      isModelModalOpen ||
+      isLanguageModalOpen ||
+      isDateFormatOpen ||
+      isSubtitleDownloadOpen
+    ) {
+      stopOnboardingTour();
+    }
+  }, [
+    isSettingsOpen,
+    isModelModalOpen,
+    isLanguageModalOpen,
+    isDateFormatOpen,
+    isSubtitleDownloadOpen,
+    stopOnboardingTour,
+  ]);
+
+  const handleOnboardingStart = useCallback(() => {
+    markStudioGuideSeen('onboarding');
+    setIsOnboardingWelcomeOpen(false);
+    // 팝업이 사라진 뒤 드라이버가 타깃을 잡도록 한 프레임 기다린다.
+    onboardingTimerRef.current = window.setTimeout(() => {
+      onboardingTimerRef.current = null;
+      startOnboardingTour(() => {
+        notify.success(ui('가이드를 마쳤어요. 이제 직접 만들어보세요!'));
+      });
+    }, 180);
+  }, [startOnboardingTour, ui]);
+
+  const handleOnboardingDismiss = useCallback(() => {
+    markStudioGuideSeen('onboarding');
+    setIsOnboardingWelcomeOpen(false);
+  }, []);
+
+  const handleReplayGuide = useCallback(() => {
+    resetStudioGuides();
+    stopOnboardingTour();
+    setIsSettingsOpen(false);
+    setIsOnboardingWelcomeOpen(true);
+  }, [stopOnboardingTour]);
   const bumpSettings = useCallback(() => setSettingsRevision((v) => v + 1), []);
   // BYOK 설정/모델 선택은 localStorage를 갱신하므로 revision을 올려 설정 모달의 모델 표시를 즉시 재계산한다.
   const [, setModelRevision] = useState(0);
@@ -1002,6 +1075,8 @@ export const CenterStudioView = (props: StudioV2Props) => {
           onRemoveVideo={handleRemoveVideoWithAnimation}
           onStartAnalysis={startAnalysis}
           onCancel={onCancelProcessing}
+          onLoadSampleVideos={onLoadSampleVideos}
+          isLoadingSample={isLoadingSample}
         />
 
         <div className="sv2-center">
@@ -1151,6 +1226,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
               }}
               canDownloadSubtitles={displaySegments.length > 0}
               onResetProject={handleResetProject}
+              onReplayGuide={handleReplayGuide}
               onOverlayChange={updateOverlay}
               onHighlightModeChange={handleHighlightModeChange}
             />
@@ -1234,6 +1310,12 @@ export const CenterStudioView = (props: StudioV2Props) => {
         onVolumeChange={changeVolume}
         onRemoveMusic={removeMusic}
         onFitChange={(fit) => updateOverlay({ bgmFitToVideo: fit })}
+      />
+
+      <OnboardingWelcomeModal
+        isOpen={isOnboardingWelcomeOpen}
+        onStart={handleOnboardingStart}
+        onDismiss={handleOnboardingDismiss}
       />
     </div>
   );

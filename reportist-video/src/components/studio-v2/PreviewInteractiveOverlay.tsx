@@ -229,7 +229,7 @@ export const PreviewInteractiveOverlay = ({
     : undefined;
 
   return (
-    <div className="sv2-overlay-layer">
+    <div className="sv2-overlay-layer" data-tour="onboarding-caption">
       <EditableTextOverlay
         kind="title"
         frame={frame}

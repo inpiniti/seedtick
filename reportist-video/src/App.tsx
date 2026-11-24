@@ -1624,62 +1624,69 @@ export function App() {
     }
   };
 
-  // 첫 방문자가 파일을 찾지 못해 이탈하는 문제를 막는 원클릭 샘플 체험.
-  // 번들된 6개의 16:9 데모 클립을 개별 File로 로드해 멀티 클립 AI 하이라이트(클립당 최소 1컷)를 바로 시연한다.
+  // 번들된 6개의 16:9 데모 클립을 개별 File로 로드해 프로젝트에 넣는다.
+  // 온보딩에서는 영상 준비(이 함수)와 AI 분석(사용자가 'AI 컷 분석' 클릭)을 단계별로 안내한다.
   const [isLoadingSample, setIsLoadingSample] = useState(false);
+  const loadSampleVideos = async (): Promise<VideoItem[]> => {
+    setErrorMessage(null);
+    handleStartNewProject();
+    const sampleClipIds = ['01', '02', '03', '04', '05', '06'] as const;
+    const baseTime = Date.now();
+    const blobs = await Promise.all(
+      sampleClipIds.map(async (clipId) => {
+        const res = await fetch(`${import.meta.env.BASE_URL}media/samples/demo-${clipId}.mp4`);
+        if (!res.ok) {
+          throw new Error(`샘플 영상(${clipId})을 불러오지 못했습니다 (${res.status})`);
+        }
+        return { clipId, blob: await res.blob() };
+      })
+    );
+
+    const sampleItems: VideoItem[] = await Promise.all(
+      blobs.map(async ({ clipId, blob }, idx) => {
+        const recordedAtMs = baseTime + idx * 60_000;
+        const file = new File([blob], `penguincut-demo-${clipId}.mp4`, {
+          type: 'video/mp4',
+          lastModified: recordedAtMs,
+        });
+        const url = URL.createObjectURL(file);
+        let duration = 2.0;
+        let width = 960;
+        let height = 540;
+        try {
+          const meta = await extractVideoVisualDimensions(file, false);
+          if (Number.isFinite(meta.duration) && meta.duration > 0) duration = meta.duration;
+          if (meta.width > 0) width = meta.width;
+          if (meta.height > 0) height = meta.height;
+        } catch {
+          // 메타데이터 추출 실패 시 번들 클립의 기본 스펙(2.0s, 960x540)으로 진행한다.
+        }
+        return {
+          id: `vid-sample-${baseTime}-${clipId}`,
+          file,
+          url,
+          name: file.name,
+          sizeBytes: file.size,
+          duration,
+          width,
+          height,
+          recordedAtMs,
+          status: 'idle',
+          segments: [],
+        };
+      })
+    );
+
+    setVideos(sampleItems);
+    return sampleItems;
+  };
+
+  // 첫 방문자가 파일을 찾지 못해 이탈하는 문제를 막는 원클릭 샘플 체험 (로드 + 분석까지 한 번에).
   const handleTrySampleVideo = async () => {
     if (isLoadingSample) return;
     setIsLoadingSample(true);
     try {
-      setErrorMessage(null);
-      handleStartNewProject();
-      const sampleClipIds = ['01', '02', '03', '04', '05', '06'] as const;
-      const baseTime = Date.now();
-      const blobs = await Promise.all(
-        sampleClipIds.map(async (clipId) => {
-          const res = await fetch(`${import.meta.env.BASE_URL}media/samples/demo-${clipId}.mp4`);
-          if (!res.ok) {
-            throw new Error(`샘플 영상(${clipId})을 불러오지 못했습니다 (${res.status})`);
-          }
-          return { clipId, blob: await res.blob() };
-        })
-      );
-
-      const sampleItems: VideoItem[] = await Promise.all(
-        blobs.map(async ({ clipId, blob }, idx) => {
-          const recordedAtMs = baseTime + idx * 60_000;
-          const file = new File([blob], `penguincut-demo-${clipId}.mp4`, {
-            type: 'video/mp4',
-            lastModified: recordedAtMs,
-          });
-          const url = URL.createObjectURL(file);
-          let duration = 2.0;
-          let width = 960;
-          let height = 540;
-          try {
-            const meta = await extractVideoVisualDimensions(file, false);
-            if (Number.isFinite(meta.duration) && meta.duration > 0) duration = meta.duration;
-            if (meta.width > 0) width = meta.width;
-            if (meta.height > 0) height = meta.height;
-          } catch {
-            // 메타데이터 추출 실패 시 번들 클립의 기본 스펙(2.0s, 960x540)으로 진행한다.
-          }
-          return {
-            id: `vid-sample-${baseTime}-${clipId}`,
-            file,
-            url,
-            name: file.name,
-            sizeBytes: file.size,
-            duration,
-            width,
-            height,
-            recordedAtMs,
-            status: 'idle',
-            segments: [],
-          };
-        })
-      );
-
+      const sampleItems = await loadSampleVideos();
       await handleStartProcessing(undefined, null, 'preset', 0.3, currentHighlightMode, sampleItems);
     } catch (err) {
       setErrorMessage(
@@ -1865,6 +1872,7 @@ export function App() {
     reStitchProgress,
     onStartNewProject: handleStartNewProject,
     onTrySampleVideo: handleTrySampleVideo,
+    onLoadSampleVideos: loadSampleVideos,
     isLoadingSample,
     initialOverlayOptions: currentOverlayOptions,
     initialHighlightMode: currentHighlightMode,

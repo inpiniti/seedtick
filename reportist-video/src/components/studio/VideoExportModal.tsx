@@ -229,6 +229,7 @@ export const VideoExportModal: React.FC<VideoExportModalProps> = ({
             type="button"
             className="model-modal-confirm-btn export-modal-confirm-btn"
             onClick={handleConfirm}
+            data-tour="onboarding-download"
           >
             <Download size={14} style={{ marginRight: 6 }} />
             <span>

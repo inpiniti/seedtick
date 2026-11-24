@@ -82,6 +82,8 @@ export interface StudioV2Props {
   reStitchProgress?: { progressPercent: number; statusMessage: string };
 
   onTrySampleVideo?: () => void;
+  /** 온보딩용: 샘플 영상만 준비하고 분석은 사용자가 직접 시작한다. */
+  onLoadSampleVideos?: () => Promise<unknown>;
   isLoadingSample?: boolean;
   initialOverlayOptions?: VideoOverlayOptions | null;
   initialBgmPresetId?: string;

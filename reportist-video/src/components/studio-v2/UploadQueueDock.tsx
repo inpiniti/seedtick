@@ -1,4 +1,4 @@
-import { Plus, Scissors, UploadCloud, X } from 'lucide-react';
+import { Plus, Scissors, Sparkles, UploadCloud, X } from 'lucide-react';
 import type { VideoItem, VideoTaskProgress } from '../../types/video.ts';
 import type { VideoShareItem } from '../../types/share.ts';
 import { useI18n } from '../../i18n/index.tsx';
@@ -34,6 +34,9 @@ interface UploadQueueDockProps {
   onRemoveVideo: (id: string) => void;
   onStartAnalysis: () => void;
   onCancel: () => void;
+  /** 온보딩/빈 상태에서 번들 샘플을 프로젝트에 넣는다. */
+  onLoadSampleVideos?: () => Promise<unknown>;
+  isLoadingSample?: boolean;
 }
 
 type UiFn = (source: string, params?: Record<string, string | number>) => string;
@@ -96,6 +99,8 @@ export const UploadQueueDock = ({
   onRemoveVideo,
   onStartAnalysis,
   onCancel,
+  onLoadSampleVideos,
+  isLoadingSample,
 }: UploadQueueDockProps) => {
   const { ui } = useI18n();
   // 분석 중에 새 영상을 넣으면 분석 시작 시점의 스냅샷이 다시 덮어써서 방금 넣은 영상이 사라진다.
@@ -241,6 +246,18 @@ export const UploadQueueDock = ({
             </div>
 
             <div className="sv2-dock-footer">
+              {!isProcessing && onLoadSampleVideos && (
+                <button
+                  type="button"
+                  className="sv2-sample-btn"
+                  onClick={() => void onLoadSampleVideos()}
+                  disabled={isLoadingSample}
+                  data-tour="onboarding-sample"
+                >
+                  <Sparkles size={14} />
+                  {isLoadingSample ? ui('샘플을 준비하고 있어요') : ui('샘플 영상으로 시작하기')}
+                </button>
+              )}
               {isProcessing ? (
                 <button type="button" className="sv2-btn" onClick={onCancel}>
                   {ui('분석 중지')}
@@ -251,6 +268,8 @@ export const UploadQueueDock = ({
                   className="sv2-btn sv2-btn-primary"
                   onClick={onStartAnalysis}
                   disabled={videos.length === 0 || !hasPending || isPreparingVideos}
+                  data-tour="onboarding-analyze"
+                  data-tour-ready={videos.length > 0 && !isPreparingVideos ? 'true' : 'false'}
                 >
                   <Scissors size={16} /> {ui('AI 컷 분석')}
                 </button>

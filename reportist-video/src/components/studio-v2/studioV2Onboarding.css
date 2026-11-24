@@ -1,0 +1,124 @@
+/* components/studio-v2/studioV2Onboarding.css — 첫 실행 온보딩 팝업 & 샘플 진입점 */
+
+.sv2-onboarding-backdrop {
+  z-index: 1200;
+}
+
+.sv2-onboarding-card {
+  width: min(440px, calc(100vw - 32px));
+  padding: 28px 28px 24px;
+  text-align: left;
+}
+
+.sv2-onboarding-hero {
+  text-align: center;
+  margin-bottom: 22px;
+}
+
+.sv2-onboarding-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 14px;
+  border-radius: 16px;
+  background: #e8f2ff;
+  color: #3182f6;
+}
+
+.sv2-onboarding-hero h2 {
+  margin: 0 0 8px;
+  color: #191f28;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.sv2-onboarding-hero p {
+  margin: 0;
+  color: #4e5968;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.sv2-onboarding-steps {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 24px;
+  padding: 0;
+  list-style: none;
+}
+
+.sv2-onboarding-steps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #191f28;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sv2-onboarding-steps li > svg {
+  margin-left: auto;
+  color: #8b95a1;
+}
+
+.sv2-onboarding-step-no {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #f2f4f6;
+  color: #4e5968;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sv2-onboarding-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.sv2-onboarding-actions .sv2-btn {
+  flex: 1;
+  min-height: 48px;
+}
+
+.sv2-sample-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 40px;
+  margin-bottom: 8px;
+  border: 1px solid var(--sv2-border);
+  border-radius: var(--sv2-radius);
+  background: transparent;
+  color: var(--sv2-text-2);
+  font-size: 12px;
+  font-weight: 600;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.sv2-sample-btn:hover:not(:disabled) {
+  background: var(--sv2-surface-2);
+  border-color: var(--sv2-border-strong);
+}
+
+.sv2-sample-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.sv2-sample-btn:focus-visible {
+  outline: 2px solid #3182f6;
+  outline-offset: 2px;
+}
+
+.sv2-sample-btn:disabled {
+  opacity: 0.4;
+}

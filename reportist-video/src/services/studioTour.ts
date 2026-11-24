@@ -5,6 +5,7 @@ import {
   driver,
   type Alignment,
   type AllowedButtons,
+  type DestroyReason,
   type Driver,
   type DriveStep,
   type Side,
@@ -14,6 +15,7 @@ const SEEN_GUIDES_KEY = 'penguincut_seen_guides_v1';
 
 /** 한 번만 보여줄 가이드 식별자. 새 가이드를 추가하면 이 유니온에 먼저 등록한다. */
 export type StudioGuideId =
+  | 'onboarding'
   | 'quickStart'
   | 'step:cut'
   | 'step:caption'
@@ -82,16 +84,63 @@ export interface StudioTourLabels {
   done?: string;
 }
 
-export interface StudioTourOptions {
-  steps: StudioTourStep[];
+export interface StudioDriverOptions {
+  steps: DriveStep[];
   isMobile: boolean;
   labels: StudioTourLabels;
   showButtons?: AllowedButtons[];
   showProgress?: boolean;
-  onDestroyed?: () => void;
+  /** 비동기로 나타나는 요소(분석 완료 컷 등)를 기다릴 시간(ms). Infinity도 허용된다. */
+  waitForElement?: number;
+  overlayOpacity?: number;
+  onDestroyed?: (reason?: DestroyReason) => void;
+}
+
+/** 드라이버 공통 설정을 한 곳에서 적용한다. 온보딩처럼 고급 훅이 필요한 투어도 이 함수를 쓴다. */
+export function createStudioDriver({
+  steps,
+  isMobile,
+  labels,
+  showButtons = ['next', 'previous', 'close'],
+  showProgress = steps.length > 1,
+  waitForElement = 0,
+  overlayOpacity = 0.45,
+  onDestroyed,
+}: StudioDriverOptions): Driver {
+  const driverObj = driver({
+    steps,
+    animate: true,
+    duration: 240,
+    overlayColor: '#0f172a',
+    overlayOpacity,
+    stagePadding: 6,
+    stageRadius: 10,
+    allowClose: true,
+    overlayClickBehavior: 'close',
+    allowKeyboardControl: true,
+    skipMissingElement: true,
+    waitForElement,
+    scrollIntoView: isMobile ? false : { block: 'center', inline: 'nearest' },
+    popoverClass: 'penguincut-driver-popover',
+    showButtons,
+    showProgress,
+    progressText: '{{current}} / {{total}}',
+    closeBtnLabel: labels.close,
+    nextBtnText: labels.next,
+    prevBtnText: labels.prev,
+    doneBtnText: labels.done,
+    onDestroyed: (_element, _step, opts) => onDestroyed?.(opts.reason),
+  });
+
+  driverObj.drive();
+  return driverObj;
 }
 
 /** 스튜디오 톤(ProStudioView.css의 .penguincut-driver-popover)으로 투어를 시작한다. */
+export type StudioTourOptions = Omit<StudioDriverOptions, 'steps'> & {
+  steps: StudioTourStep[];
+};
+
 export function startStudioTour({
   steps,
   isMobile,
@@ -110,32 +159,14 @@ export function startStudioTour({
     },
   }));
 
-  const driverObj = driver({
+  return createStudioDriver({
     steps: driveSteps,
-    animate: true,
-    duration: 240,
-    overlayColor: '#0f172a',
-    overlayOpacity: 0.45,
-    stagePadding: 6,
-    stageRadius: 10,
-    allowClose: true,
-    overlayClickBehavior: 'close',
-    allowKeyboardControl: true,
-    skipMissingElement: true,
-    scrollIntoView: isMobile ? false : { block: 'center', inline: 'nearest' },
-    popoverClass: 'penguincut-driver-popover',
+    isMobile,
+    labels,
     showButtons,
     showProgress,
-    progressText: '{{current}} / {{total}}',
-    closeBtnLabel: labels.close,
-    nextBtnText: labels.next,
-    prevBtnText: labels.prev,
-    doneBtnText: labels.done,
-    onDestroyed,
+    onDestroyed: onDestroyed ? () => onDestroyed() : undefined,
   });
-
-  driverObj.drive();
-  return driverObj;
 }
 
 /** 단일 요소 스포트라이트(차단 안내·씬 가이드)용 축약 API */

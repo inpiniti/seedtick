@@ -83,6 +83,7 @@ export const TimelineVideoTrack = ({
           style={chipStyle('__intro__')}
           onClick={() => onOpenIntro()}
           title={ui('인트로 설정')}
+          data-tour="onboarding-intro"
         >
           <span className="sv2-chip-title">{ui('인트로')}</span>
           <span className="sv2-chip-sub">

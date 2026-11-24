@@ -64,6 +64,8 @@ interface StudioV2SettingsModalProps {
   onOpenDateFormat: () => void;
   onDownloadSubtitles: () => void;
   canDownloadSubtitles: boolean;
+  /** 온보딩 가이드를 처음부터 다시 보여준다. */
+  onReplayGuide?: () => void;
   onResetProject: () => void;
   onOverlayChange?: (patch: Partial<VideoOverlayOptions>) => void;
   onHighlightModeChange?: (mode: HighlightMode) => void;
@@ -82,6 +84,7 @@ export const StudioV2SettingsModal = ({
   onOpenDateFormat,
   onDownloadSubtitles,
   canDownloadSubtitles,
+  onReplayGuide,
   onResetProject,
   onOverlayChange,
   onHighlightModeChange,
@@ -436,6 +439,22 @@ export const StudioV2SettingsModal = ({
                 <Download size={13} /> {t('settingsModal.downloadSubtitles')}
               </button>
             </div>
+
+            {onReplayGuide && (
+              <div className="sv2-settings-row">
+                <div className="sv2-settings-row-text">
+                  <strong>{ui('사용 가이드 다시 보기')}</strong>
+                  <span>{ui('가이드를 처음부터 다시 살펴봐요.')}</span>
+                </div>
+                <button
+                  type="button"
+                  className="sv2-btn sv2-btn-sm"
+                  onClick={onReplayGuide}
+                >
+                  <Sparkles size={13} /> {ui('다시 보기')}
+                </button>
+              </div>
+            )}
 
             <div className="sv2-settings-row">
               <div className="sv2-settings-row-text">
