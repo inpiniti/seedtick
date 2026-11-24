@@ -860,9 +860,4 @@ export const uiEn: Record<string, string> = {
   "원하는 해상도를 먼저 눌러 선택해 보세요.": "Pick the resolution you want before downloading.",
   "다운로드를 누르면 영상이 저장되고 가이드가 끝나요.": "Tap Download to save your video and finish the guide.",
   "튜토리얼을 따라 영상 하나를 완성했어요.": "You finished a video by following the tutorial.",
-  "프레임 준비": "Preparing frames",
-  "오버레이 합성": "Compositing overlays",
-  "MP4 인코딩": "Encoding MP4",
-  "완료": "Done",
-  "다운로드가 시작됐어요. 멋진 영상이에요!": "Your download has started. Enjoy the video!",
 };

@@ -1,13 +1,11 @@
 // src/services/hyperframesBridgeRenderer.ts - HyperFrames (GSAP deterministic seekable timeline)
 // Modular Chapter Bridge: 5 Date Templates x 5 Location Templates Combinable Renderer
-// script-to-motion 기법: cue 앵커 이징 — 공통 이징 프리셋을 사용한다.
 
 import gsap from 'gsap';
 import {
   CHAPTER_BRIDGE_DURATION,
   type ChapterBridgeTransitionInfo,
 } from './chapterBridgeModel.ts';
-import { GLIDE, IMPACT } from './motionEasingPresets.ts';
 
 // 순수 계산 로직은 chapterBridgeModel.ts로 분리되어 GSAP 없이도 사용할 수 있다.
 export * from './chapterBridgeModel.ts';
@@ -1231,7 +1229,7 @@ export function createHyperframesBridgeController(durationSec = CHAPTER_BRIDGE_D
       stageAlpha: 1,
       stageY: 0,
       duration: 0.24,
-      ease: IMPACT,
+      ease: 'power3.out',
     },
     0.28
   );
@@ -1242,7 +1240,7 @@ export function createHyperframesBridgeController(durationSec = CHAPTER_BRIDGE_D
     {
       flipProgress: 1,
       duration: 0.78,
-      ease: GLIDE,
+      ease: 'power2.inOut',
     },
     0.68
   );
@@ -1252,7 +1250,7 @@ export function createHyperframesBridgeController(durationSec = CHAPTER_BRIDGE_D
     {
       routeProgress: 1,
       duration: 0.82,
-      ease: GLIDE,
+      ease: 'power2.inOut',
     },
     0.66
   );

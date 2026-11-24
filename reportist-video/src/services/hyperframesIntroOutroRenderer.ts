@@ -1,6 +1,5 @@
 // src/services/hyperframesIntroOutroRenderer.ts - HyperFrames (GSAP deterministic seekable timeline)
 // High-fidelity Motion Synthesis Engine for Cinematic Video Intros & Outros
-// script-to-motion 기법: cue 앵커 이징 — 공통 이징 프리셋을 사용한다.
 
 import gsap from 'gsap';
 import type { IntroTemplateId, OutroTemplateId, VideoOverlayOptions } from '../types/video.ts';
@@ -9,7 +8,6 @@ import {
   DEFAULT_OUTRO_DURATION,
   HYPERFRAMES_FPS,
 } from './introOutroDefaults.ts';
-import { GLIDE, SPRING_SOFT } from './motionEasingPresets.ts';
 
 export { DEFAULT_INTRO_DURATION, DEFAULT_OUTRO_DURATION, HYPERFRAMES_FPS } from './introOutroDefaults.ts';
 
@@ -86,7 +84,7 @@ export function createHyperframesIntroController(
         titleScale: 1,
         glowIntensity: 1,
         duration: durationSec * 0.42,
-        ease: SPRING_SOFT,
+        ease: 'back.out(1.8)',
       },
       0
     )
@@ -322,7 +320,7 @@ export function createHyperframesOutroController(
       {
         louverClose: 1,
         duration: durationSec * 0.45,
-        ease: GLIDE,
+        ease: 'power2.inOut',
       },
       0
     )

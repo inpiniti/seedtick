@@ -11,13 +11,7 @@ import type {
 } from '../types/video.ts';
 import { getBgmGain, playBgmSynthLoop } from './audioSynth.ts';
 import { createMasterLimiter, timeStretchAudioBuffer } from './audioMixUtils.ts';
-import {
-  BOUNDARY_WIPE_WINDOW,
-  SUBTITLE_MOTION_WINDOW,
-  drawBoundaryWipe,
-  drawCompositorCoverFrame,
-  drawCompositorSegmentOverlay,
-} from './previewCompositorBase.ts';
+import { drawCompositorCoverFrame, drawCompositorSegmentOverlay } from './previewCompositorBase.ts';
 import { resolveFrameSpec } from './frameSpec.ts';
 import {
   CHAPTER_BRIDGE_DURATION,
@@ -662,45 +656,16 @@ export async function stitchHighlightedSegments({
     return cachedOverlayResult;
   };
 
-  // 자막 등장/경계 와이프는 프레임별 진행률이 필요하다. 기본 옵션에서는 추가 캔버스 없이
-  // 캐시된 정적 오버레이 경로를 그대로 사용하므로 기존 렌더 결과/성능이 유지된다.
-  const motionEnabled = Boolean(
-    overlayOptions?.boundaryWipe ||
-      (overlayOptions?.subtitleMotion && overlayOptions.subtitleMotion !== 'none')
-  );
-  const motionOverlayCanvas = motionEnabled ? document.createElement('canvas') : null;
-  if (motionOverlayCanvas) {
-    motionOverlayCanvas.width = targetWidth;
-    motionOverlayCanvas.height = targetHeight;
-  }
-  const motionOverlayCtx = motionOverlayCanvas?.getContext('2d') ?? null;
-
-  /** 진행률 0~0.25 구간에서만 컴포지터를 다시 그리고 공통 와이프 헬퍼를 합성한다. */
-  const paintMotionOverlay = (segment: HighlightSegment, elapsedSec: number): boolean => {
-    if (!motionOverlayCanvas || !motionOverlayCtx || !overlayOptions) return false;
-    const segmentProgress = Math.min(1, Math.max(0, elapsedSec / Math.max(0.05, segment.duration || 1)));
-    if (segmentProgress >= Math.max(SUBTITLE_MOTION_WINDOW, BOUNDARY_WIPE_WINDOW)) return false;
-
-    motionOverlayCtx.clearRect(0, 0, targetWidth, targetHeight);
-    drawCompositorSegmentOverlay(motionOverlayCtx, overlayOptions, segment, frame, { segmentProgress });
-    ctx.drawImage(motionOverlayCanvas, 0, 0);
-    if (overlayOptions.boundaryWipe) {
-      drawBoundaryWipe(ctx, frame, segmentProgress / BOUNDARY_WIPE_WINDOW);
-    }
-    return true;
-  };
-
   // 비디오 프레임과 캐시된 오버레이를 캔버스에 합성하고 즉시 캡처 트랙에 프레임 방출 요청
   const renderFrameWithOverlay = (
     video: HTMLVideoElement,
     videoItem: VideoItem,
     segment: HighlightSegment,
-    overlayCanvas: HTMLCanvasElement | null,
-    elapsedSec = 0
+    overlayCanvas: HTMLCanvasElement | null
   ) => {
     totalDrawCalls++;
     drawCoverFrame(video, videoItem, segment);
-    if (!paintMotionOverlay(segment, elapsedSec) && overlayCanvas) {
+    if (overlayCanvas) {
       ctx.drawImage(overlayCanvas, 0, 0);
     }
     commitCanvasFrame();
@@ -1216,7 +1181,7 @@ export async function stitchHighlightedSegments({
 
     const firstVideoItem = videoMap.get(allSegments[0].sourceVideoId);
     if (firstVideoItem) {
-      renderFrameWithOverlay(workerA, firstVideoItem, allSegments[0], getSegmentOverlayCanvas(allSegments[0]), 0);
+      renderFrameWithOverlay(workerA, firstVideoItem, allSegments[0], getSegmentOverlayCanvas(allSegments[0]));
     }
 
     // 시크 기반 프레임 스텝 렌더링 (저전력 모드 또는 실시간 재생 차단 환경을 위한 무결점 폴백)
@@ -1255,13 +1220,13 @@ export async function stitchHighlightedSegments({
         await pauseRecorder();
         await seekVideo(worker, time, 2500);
 
-        const clipElapsed = Math.min(segment.duration, frame / fps);
-        renderFrameWithOverlay(worker, videoItem, segment, overlayCanvas, clipElapsed);
+        renderFrameWithOverlay(worker, videoItem, segment, overlayCanvas);
 
         // 프레임이 준비된 후 레코더를 켜고 1프레임 시간 동안 녹화
         await startOrResumeRecorder();
         await sleep(frameInterval);
 
+        const clipElapsed = Math.min(segment.duration, frame / fps);
         reportProgress(
           ((recordedDurationSoFar + clipElapsed) / (totalSegmentsDuration || 1)) * 100,
           clipMessage
@@ -1418,20 +1383,7 @@ export async function stitchHighlightedSegments({
             if (forceDraw || mediaTimeAdvanced || segmentChanged || keepAliveDue) {
               lastDrawnMediaTime = curMediaTime;
               lastDrawnSegmentIdx = currentSegmentIdx;
-              const motionElapsedSec = Math.max(
-                0,
-                Math.min(
-                  currentSegment.duration,
-                  Math.max(activePlaybackAccumSec, workerA.currentTime - currentSegment.start)
-                )
-              );
-              renderFrameWithOverlay(
-                workerA,
-                currentVideoItem,
-                currentSegment,
-                currentOverlay,
-                motionElapsedSec
-              );
+              renderFrameWithOverlay(workerA, currentVideoItem, currentSegment, currentOverlay);
             }
           }
 
@@ -1544,7 +1496,7 @@ export async function stitchHighlightedSegments({
               if (nextVideoItem && !workerA.seeking) {
                 lastDrawnMediaTime = workerA.currentTime;
                 lastDrawnSegmentIdx = currentSegmentIdx;
-                renderFrameWithOverlay(workerA, nextVideoItem, nextSegment, nextOverlay, 0);
+                renderFrameWithOverlay(workerA, nextVideoItem, nextSegment, nextOverlay);
               }
 
               if (workerAudioGain && audioCtx) {
@@ -1715,13 +1667,7 @@ export async function stitchHighlightedSegments({
       } catch {
         // ignore
       }
-      for (const c of [
-        canvas,
-        sharedOverlayCanvas,
-        ...(motionOverlayCanvas ? [motionOverlayCanvas] : []),
-        prevFrameBufferCanvas,
-        nextFrameBufferCanvas,
-      ]) {
+      for (const c of [canvas, sharedOverlayCanvas, prevFrameBufferCanvas, nextFrameBufferCanvas]) {
         try {
           c.width = 0;
           c.height = 0;

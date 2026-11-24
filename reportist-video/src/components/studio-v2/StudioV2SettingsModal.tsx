@@ -56,7 +56,6 @@ const FeedbackView = lazy(() =>
 // 좌측 섹션 메뉴를 고르면 우측 영역에 해당 설정만 보여준다.
 
 type SettingsSection = 'ai' | 'subtitle' | 'display' | 'tools' | 'guide' | 'patch' | 'feedback';
-type SubtitleMotion = NonNullable<VideoOverlayOptions['subtitleMotion']>;
 
 interface StudioV2SettingsModalProps {
   isOpen: boolean;
@@ -73,9 +72,6 @@ interface StudioV2SettingsModalProps {
   onReplayGuide?: () => void;
   onResetProject: () => void;
   onOverlayChange?: (patch: Partial<VideoOverlayOptions>) => void;
-  /** 프로젝트에 저장된 자막 모션 값. 모달을 다시 열어도 현재 값이 보이도록 초기값으로 받는다. */
-  subtitleMotion?: SubtitleMotion;
-  boundaryWipe?: boolean;
   onHighlightModeChange?: (mode: HighlightMode) => void;
   /** 상단 바에서 이관한 AI 모델 선택 진입점. */
   modelDisplay: StudioModelDisplay;
@@ -95,8 +91,6 @@ export const StudioV2SettingsModal = ({
   onReplayGuide,
   onResetProject,
   onOverlayChange,
-  subtitleMotion: storedSubtitleMotion = 'none',
-  boundaryWipe: storedBoundaryWipe = false,
   onHighlightModeChange,
   modelDisplay,
   isLoadingModels,
@@ -118,9 +112,6 @@ export const StudioV2SettingsModal = ({
   const [showSubtitle, setShowSubtitle] = useState<boolean>(getStoredShowSubtitle);
   const [showAge, setShowAge] = useState<boolean>(getStoredShowAge);
   const [birthDate, setBirthDate] = useState<string>(getStoredBirthDate);
-  // 프로젝트 오버레이 옵션과 동일한 기본값. 별도 로컬 저장 없이 onOverlayChange로 즉시 반영한다.
-  const [subtitleMotion, setSubtitleMotion] = useState<SubtitleMotion>(storedSubtitleMotion);
-  const [boundaryWipe, setBoundaryWipe] = useState(storedBoundaryWipe);
 
   // 모달을 열 때마다 다른 탭/레거시 화면에서 바뀐 저장값을 다시 읽어 온다.
   useEffect(() => {
@@ -133,9 +124,7 @@ export const StudioV2SettingsModal = ({
     setShowSubtitle(getStoredShowSubtitle());
     setShowAge(getStoredShowAge());
     setBirthDate(getStoredBirthDate());
-    setSubtitleMotion(storedSubtitleMotion);
-    setBoundaryWipe(storedBoundaryWipe);
-  }, [isOpen, storedSubtitleMotion, storedBoundaryWipe]);
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -158,12 +147,6 @@ export const StudioV2SettingsModal = ({
     { id: 'shorts', label: t('dramaticClips.toneShorts') },
     { id: 'natural', label: t('dramaticClips.toneNatural') },
     { id: 'minimal', label: t('dramaticClips.toneMinimal') },
-  ];
-
-  const subtitleMotionOptions: Array<{ id: SubtitleMotion; label: string }> = [
-    { id: 'none', label: ui('없음') },
-    { id: 'rise', label: ui('상승') },
-    { id: 'type', label: ui('타이핑') },
   ];
 
   const chooseHighlight = (mode: HighlightMode) => {
@@ -197,19 +180,6 @@ export const StudioV2SettingsModal = ({
     const next = !showAge;
     setShowAge(next);
     setStoredShowAge(next);
-    onChange?.();
-  };
-
-  const chooseSubtitleMotion = (motion: SubtitleMotion) => {
-    setSubtitleMotion(motion);
-    onOverlayChange?.({ subtitleMotion: motion });
-    onChange?.();
-  };
-
-  const toggleBoundaryWipe = () => {
-    const next = !boundaryWipe;
-    setBoundaryWipe(next);
-    onOverlayChange?.({ boundaryWipe: next });
     onChange?.();
   };
 
@@ -392,41 +362,6 @@ export const StudioV2SettingsModal = ({
                 data-on={showSubtitle}
                 aria-label={t('settingsModal.subtitleOption')}
                 onClick={toggleSubtitle}
-              />
-            </div>
-
-            <div className="sv2-settings-row">
-              <div className="sv2-settings-row-text">
-                <strong>{ui('자막 등장 모션')}</strong>
-                <span>{ui('컷이 시작될 때 자막이 나타나는 방식을 선택해요')}</span>
-              </div>
-              <div className="sv2-settings-chips">
-                {subtitleMotionOptions.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    className="sv2-settings-chip"
-                    data-active={subtitleMotion === opt.id}
-                    aria-pressed={subtitleMotion === opt.id}
-                    onClick={() => chooseSubtitleMotion(opt.id)}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="sv2-settings-row">
-              <div className="sv2-settings-row-text">
-                <strong>{ui('세그먼트 경계 와이프')}</strong>
-                <span>{ui('컷이 바뀔 때 화면을 가로지르는 빛을 추가해요')}</span>
-              </div>
-              <button
-                type="button"
-                className="sv2-switch"
-                data-on={boundaryWipe}
-                aria-label={ui('세그먼트 경계 와이프')}
-                onClick={toggleBoundaryWipe}
               />
             </div>
           </section>

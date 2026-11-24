@@ -197,10 +197,6 @@ export interface VideoOverlayOptions {
   /** 아웃트로 끝에 PenguinCut 크레딧 표시 (무료, 기본 true — false로 끌 수 있음) */
   showCredit?: boolean;
   creditText?: string;
-  /** 자막 등장 모션. 기본 'none' — 기존 자막 렌더 결과를 100% 유지한다. */
-  subtitleMotion?: 'none' | 'rise' | 'type';
-  /** 세그먼트 시작 시 화면을 가로지르는 얇은 라이트 스윕 와이프 (기본 false). */
-  boundaryWipe?: boolean;
 }
 
 export type BridgeDateTemplateId =

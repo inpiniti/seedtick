@@ -6,8 +6,6 @@ import type { FinalVideoResult, HighlightSegment } from '../../types/video.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { Button } from '../ui/Button.tsx';
 import { Tooltip } from '../ui/Tooltip.tsx';
-import { ConfettiCanvas } from '../common/ConfettiCanvas.tsx';
-import './resultCelebration.css';
 
 const YoutubeIcon: React.FC<{ size?: number; className?: string }> = ({
   size = 15,
@@ -51,19 +49,11 @@ export const ResultView: React.FC<ResultViewProps> = ({
   const { ui } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [segments, setSegments] = useState<HighlightSegment[]>(result.segments);
-  const [celebrating, setCelebrating] = useState(false);
 
   // 상위 결과가 갱신되면 로컬 구간 목록도 동기화
   useEffect(() => {
     setSegments(result.segments);
   }, [result.segments]);
-
-  // 다운로드 시작 후 잠깐 폭죽을 띄운다(공용 ConfettiCanvas 재사용).
-  useEffect(() => {
-    if (!celebrating) return;
-    const timer = window.setTimeout(() => setCelebrating(false), 2800);
-    return () => window.clearTimeout(timer);
-  }, [celebrating]);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -96,7 +86,6 @@ export const ResultView: React.FC<ResultViewProps> = ({
       const file = new File([result.blob], fileName, { type: result.blob.type || 'video/webm' });
       if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: 'Reportist Highlight' });
-        setCelebrating(true);
         return;
       }
     } catch (err) {
@@ -110,7 +99,6 @@ export const ResultView: React.FC<ResultViewProps> = ({
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    setCelebrating(true);
   };
 
   // 챕터 클릭 시 해당 위치로 시크
@@ -141,12 +129,6 @@ export const ResultView: React.FC<ResultViewProps> = ({
 
   return (
     <div className="result-container">
-      <ConfettiCanvas active={celebrating} className="result-confetti" />
-      {celebrating && (
-        <div className="result-celebration-note" role="status">
-          {ui('다운로드가 시작됐어요. 멋진 영상이에요!')}
-        </div>
-      )}
       {/* 완성 비디오 플레이어 (16:9 유튜브 비율) */}
       <div className="result-video-wrapper">
         <video

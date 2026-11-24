@@ -3045,39 +3045,6 @@ html.has-motion-stage .story {
   transition: opacity 250ms ease;
 }
 
-/* Scrubbed caption beat: the node is created by landing-story.js and its
-   opacity / rise / character reveal are a pure function of scroll progress.
-   The outer box owns centering; the inner span owns the eased rise. */
-.story-subtitle {
-  position: absolute;
-  bottom: 88px;
-  left: 50%;
-  z-index: 4;
-  width: min(86%, 660px);
-  padding: 4px 12px;
-  color: #ffffff;
-  font-size: clamp(0.95rem, 2.2vw, 1.3rem);
-  font-weight: 700;
-  line-height: 1.35;
-  letter-spacing: -0.02em;
-  text-align: center;
-  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.8);
-  transform: translateX(-50%);
-  pointer-events: none;
-  will-change: opacity;
-}
-
-.story-subtitle span {
-  display: inline-block;
-  will-change: transform;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .story-subtitle span {
-    transform: none !important;
-  }
-}
-
 .story-corner {
   position: absolute;
   z-index: 4;
@@ -3331,15 +3298,6 @@ html.has-motion-stage .story {
 
   .story-cue {
     display: none;
-  }
-
-  /* Phones keep the caption over the footage (top) and away from the
-     bottom-aligned act copy, which would otherwise sit underneath it. */
-  .story-subtitle {
-    top: 56px;
-    bottom: auto;
-    width: calc(100% - 36px);
-    font-size: 0.92rem;
   }
 
   .story-corner {

@@ -741,13 +741,6 @@ export interface Dictionary {
     introOutroPreviewBtn?: string;
     subtitleOption?: string;
     subtitleOptionDesc?: string;
-    subtitleMotion?: string;
-    subtitleMotionDesc?: string;
-    subtitleMotionNone?: string;
-    subtitleMotionRise?: string;
-    subtitleMotionType?: string;
-    boundaryWipe?: string;
-    boundaryWipeDesc?: string;
     resolutionSection?: string;
     resolution720p?: string;
     resolution720pDesc?: string;

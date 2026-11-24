@@ -257,8 +257,6 @@ export function App() {
         prev.chapterBridgeLocationTemplate === newOpts.chapterBridgeLocationTemplate &&
         prev.bgmFitToVideo === newOpts.bgmFitToVideo &&
         prev.showCredit === newOpts.showCredit &&
-        prev.subtitleMotion === newOpts.subtitleMotion &&
-        prev.boundaryWipe === newOpts.boundaryWipe &&
         prev.introVideoFile === newOpts.introVideoFile &&
         prev.outroVideoFile === newOpts.outroVideoFile
       ) {
