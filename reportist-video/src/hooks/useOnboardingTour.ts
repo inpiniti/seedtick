@@ -59,6 +59,11 @@ export function useOnboardingTour() {
     [activeIndex]
   );
 
+  /** 앱 상태가 바뀌어 현재 단계가 무효가 되었을 때 강제로 이동한다. */
+  const moveTo = useCallback((index: number) => {
+    driverRef.current?.moveTo(index);
+  }, []);
+
   const start = useCallback(
     (onComplete?: () => void, onInterrupted?: () => void, startStep = 0) => {
       stop();
@@ -208,5 +213,5 @@ export function useOnboardingTour() {
     [stop, ui]
   );
 
-  return { start, stop, advance, activeIndex };
+  return { start, stop, advance, moveTo, activeIndex };
 }

@@ -477,6 +477,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
     start: startOnboardingTour,
     stop: stopOnboardingTour,
     advance: advanceOnboarding,
+    moveTo: moveToOnboardingStep,
     activeIndex: onboardingStep,
   } = useOnboardingTour();
 
@@ -528,14 +529,17 @@ export const CenterStudioView = (props: StudioV2Props) => {
       return;
     }
     if (isStudioOnboardingActive()) {
+      // 영상은 메모리에만 있어 새로고침 후에는 1단계부터 다시 시작한다.
+      // 단, 분석이 진행 중이면 진행 상태 배지 단계로 진입한다.
+      const startStep = isProcessing ? ONBOARDING_STEP.analyzing : 0;
       onboardingTimerRef.current = window.setTimeout(() => {
         onboardingTimerRef.current = null;
-        runOnboardingTour();
+        runOnboardingTour(startStep);
       }, 350);
     } else {
       setIsOnboardingWelcomeOpen(true);
     }
-  }, [runOnboardingTour]);
+  }, [runOnboardingTour, isProcessing]);
 
   // 사용자가 실제 작업을 마칠 때마다 가이드를 다음 단계로 넘긴다. ("다음" 버튼은 쓰지 않는다)
   useEffect(() => {
@@ -562,6 +566,18 @@ export const CenterStudioView = (props: StudioV2Props) => {
       window.removeEventListener('sv2:resolution-selected', onResolutionSelected);
     };
   }, [advanceOnboarding, onboardingStep]);
+
+  // 분석이 시작됐는데 투어가 아직 업로드·분석 버튼 단계에 남아 있으면 진행 상태 단계로 이동한다.
+  // (버튼이 사라진 단계에 머물면 안내가 화면 중앙에 떠서 방향을 잃게 된다)
+  useEffect(() => {
+    if (!onboardingInProgress || onboardingStep === null || !isProcessing) return;
+    if (
+      onboardingStep === ONBOARDING_STEP.sample ||
+      onboardingStep === ONBOARDING_STEP.analyze
+    ) {
+      moveToOnboardingStep(ONBOARDING_STEP.analyzing);
+    }
+  }, [onboardingInProgress, onboardingStep, isProcessing, moveToOnboardingStep]);
 
   // 자막 단계에서는 자막이 꺼져 있어도 수정 타깃이 보이도록 켠다.
   useEffect(() => {
@@ -622,6 +638,8 @@ export const CenterStudioView = (props: StudioV2Props) => {
     // X로 닫기 직전의 단계부터 이어서 진행한다.
     // 다만 그 사이 상태가 바뀌어 타깃이 사라진 단계는 다시 진입할 수 있는 단계로 되돌린다.
     let step = getStudioOnboardingStep();
+    // 분석 중이라면 저장된 단계가 앞단계여도 진행 상태 배지부터 보여준다.
+    if (isProcessing && step < ONBOARDING_STEP.analyzing) step = ONBOARDING_STEP.analyzing;
     if (step === ONBOARDING_STEP.analyzing && !isProcessing) step = ONBOARDING_STEP.selectCut;
     if (
       (step === ONBOARDING_STEP.selectCut || step === ONBOARDING_STEP.caption) &&
