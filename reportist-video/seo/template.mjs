@@ -64,8 +64,6 @@ const ASSET_VERSIONS = {
   css: assetVersion("landing.css"),
   js: assetVersion("landing.js"),
   story: assetVersion("landing-story.js"),
-  deckCss: assetVersion("landing-deck.css"),
-  deckJs: assetVersion("landing-deck.js"),
   media: mediaVersion(),
 };
 
@@ -1110,7 +1108,6 @@ ${verification.length ? `${verification.map((tag) => `  ${tag}\n`).join("")}\n` 
   <link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"></noscript>
   <link rel="stylesheet" href="/landing.css?v=${ASSET_VERSIONS.css}">
-  <link rel="stylesheet" href="/landing-deck.css?v=${ASSET_VERSIONS.deckCss}">
 
   <script>
     // Expose the generated-media fingerprint so JS-built media URLs
@@ -1170,10 +1167,8 @@ export function renderPage(locale) {
     ${renderFooter(locale)}
     ${renderFilmModal(locale)}
     <script src="/vendor/lenis.min.js" defer></script>
-    <script src="/vendor/gsap.min.js" defer></script>
     <script src="/landing-story.js?v=${ASSET_VERSIONS.story}" defer></script>
     <script src="/landing.js?v=${ASSET_VERSIONS.js}" defer></script>
-    <script src="/landing-deck.js?v=${ASSET_VERSIONS.deckJs}" defer></script>
   </body>
 </html>
 `;
