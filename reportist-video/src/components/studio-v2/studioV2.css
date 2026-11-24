@@ -354,7 +354,7 @@
   display: flex;
   align-items: stretch;
   gap: 2px;
-  padding: 10px 12px 0;
+  padding: 0;
   border-bottom: 1px solid var(--sv2-border);
 }
 .sv2-dock-tab {
