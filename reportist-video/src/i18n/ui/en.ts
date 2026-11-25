@@ -882,5 +882,15 @@ export const uiEn: Record<string, string> = {
   '정렬(시간 오름차순)': 'Sort (time ascending)',
   '정렬(시간 내림차순)': 'Sort (time descending)',
   '정렬(없음)': 'Sort (none)',
+  // 미리보기 아래 빠른 표시 스위치
+  '화면 표시 스위치': 'Display toggles',
+  '표시': 'Display',
+  '제목': 'Title',
+  '날짜': 'Date',
+  '끄기': 'Hide',
+  '켜기': 'Show',
+  '모두 끄기': 'Hide all',
+  '모두 켜기': 'Show all',
+  '{label} {action}': '{label}: {action}',
 };
 

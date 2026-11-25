@@ -20,6 +20,7 @@ import { useI18n } from '../../i18n/index.tsx';
 import { Tooltip } from '../ui/Tooltip.tsx';
 import { resolveTimelineItem, type TimelineModel } from './timelineModel.ts';
 import { PreviewInteractiveOverlay } from './PreviewInteractiveOverlay.tsx';
+import { PreviewDisplayToggles } from './PreviewDisplayToggles.tsx';
 
 type IntroOutroModule = typeof import('../../services/previewCompositorIntroOutro.ts');
 
@@ -411,6 +412,8 @@ const CenterPreviewStageImpl = ({
           />
         )}
       </div>
+
+      <PreviewDisplayToggles overlayOptions={overlayOptions} onUpdateOverlay={onUpdateOverlay} />
 
       <div className="sv2-transport">
         <button

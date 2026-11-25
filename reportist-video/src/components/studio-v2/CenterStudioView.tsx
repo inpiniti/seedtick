@@ -23,6 +23,9 @@ import {
   getStoredAutoSortByRecordedTime,
   getStoredDateFormat,
   setStoredDateFormat,
+  setStoredShowDate,
+  setStoredShowSubtitle,
+  setStoredShowTitle,
   sortSegmentsByRecordedTime,
   type DateFormatOption,
 } from '../../services/videoMetadata.ts';
@@ -389,6 +392,10 @@ export const CenterStudioView = (props: StudioV2Props) => {
     (patch: Partial<VideoOverlayOptions>) => {
       const next = { ...overlayOptions, ...patch };
       setOverlayOptions(next);
+      // 미리보기 아래 스위치로 바꾼 표시 옵션도 설정 모달·새 프로젝트에서 그대로 보이게 저장한다.
+      if (patch.showTitle !== undefined) setStoredShowTitle(patch.showTitle);
+      if (patch.showDate !== undefined) setStoredShowDate(patch.showDate);
+      if (patch.showSubtitle !== undefined) setStoredShowSubtitle(patch.showSubtitle);
       onOverlayOptionsChange?.(next);
     },
     [overlayOptions, onOverlayOptionsChange]

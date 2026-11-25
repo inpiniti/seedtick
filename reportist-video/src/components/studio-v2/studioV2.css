@@ -1375,6 +1375,77 @@
   color: rgba(255, 255, 255, 0.5);
 }
 
+/* 미리보기 아래 빠른 표시 스위치 — 영상을 가리지 않고 즉시 on/off 한다. */
+.sv2-display-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: min(100%, 760px);
+  flex: 0 0 auto;
+}
+.sv2-display-bar-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--sv2-text-3);
+}
+.sv2-display-bar-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sv2-display-chip,
+.sv2-display-master {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--sv2-border);
+  background: var(--sv2-surface-2);
+  color: var(--sv2-text-3);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition:
+    color 0.15s,
+    background 0.15s,
+    border-color 0.15s;
+}
+.sv2-display-chip:hover,
+.sv2-display-master:hover {
+  color: var(--sv2-accent);
+  border-color: var(--sv2-accent);
+  background: var(--sv2-accent-soft);
+}
+.sv2-display-chip[data-on='true'] {
+  color: var(--sv2-accent);
+  border-color: var(--sv2-accent);
+  background: var(--sv2-accent-soft);
+}
+.sv2-display-chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.4;
+}
+.sv2-display-chip[data-on='true'] .sv2-display-chip-dot {
+  opacity: 1;
+}
+.sv2-display-master {
+  border-style: dashed;
+}
+.sv2-display-chip:focus-visible,
+.sv2-display-master:focus-visible {
+  outline: 2px solid var(--sv2-accent);
+  outline-offset: 2px;
+}
+
 /* Transport */
 .sv2-transport {
   display: flex;

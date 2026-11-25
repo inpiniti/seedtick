@@ -870,5 +870,15 @@ export const uiEs: Record<string, string> = {
   '정렬(시간 오름차순)': 'Ordenar (hora ascendente)',
   '정렬(시간 내림차순)': 'Ordenar (hora descendente)',
   '정렬(없음)': 'Ordenar (ninguno)',
+  // Interruptores de visualización bajo la vista previa
+  '화면 표시 스위치': 'Controles de visualización',
+  '표시': 'Visualización',
+  '제목': 'Título',
+  '날짜': 'Fecha',
+  '끄기': 'Ocultar',
+  '켜기': 'Mostrar',
+  '모두 끄기': 'Ocultar todo',
+  '모두 켜기': 'Mostrar todo',
+  '{label} {action}': '{label}: {action}',
 };
 

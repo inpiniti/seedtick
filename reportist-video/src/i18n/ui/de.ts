@@ -871,5 +871,15 @@ export const uiDe: Record<string, string> = {
   '정렬(시간 오름차순)': 'Sortieren (Zeit aufsteigend)',
   '정렬(시간 내림차순)': 'Sortieren (Zeit absteigend)',
   '정렬(없음)': 'Sortieren (keine)',
+  // Anzeige-Schalter unter der Vorschau
+  '화면 표시 스위치': 'Anzeige-Schalter',
+  '표시': 'Anzeige',
+  '제목': 'Titel',
+  '날짜': 'Datum',
+  '끄기': 'Ausblenden',
+  '켜기': 'Einblenden',
+  '모두 끄기': 'Alle ausblenden',
+  '모두 켜기': 'Alle einblenden',
+  '{label} {action}': '{label}: {action}',
 };
 

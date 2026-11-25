@@ -871,5 +871,15 @@ export const uiFr: Record<string, string> = {
   '정렬(시간 오름차순)': 'Trier (heure croissante)',
   '정렬(시간 내림차순)': 'Trier (heure décroissante)',
   '정렬(없음)': 'Trier (aucun)',
+  // Commandes d'affichage sous l'aperçu
+  '화면 표시 스위치': "Commandes d'affichage",
+  '표시': 'Affichage',
+  '제목': 'Titre',
+  '날짜': 'Date',
+  '끄기': 'Masquer',
+  '켜기': 'Afficher',
+  '모두 끄기': 'Tout masquer',
+  '모두 켜기': 'Tout afficher',
+  '{label} {action}': '{label} : {action}',
 };
 
