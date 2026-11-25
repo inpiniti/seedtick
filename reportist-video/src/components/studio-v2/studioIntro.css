@@ -118,9 +118,18 @@
   border-bottom-color: var(--sv2-border);
 }
 
-/* 브랜드는 이미 제자리에 앉은 뒤이므로 상단바 전체가 다시 내려온다. */
+/* 브랜드는 화면에 고정된 채, 로고 없는 상단바만 아래로 내려온다.
+   브랜드에 상단바 이동의 반대 트랜스폼을 줘서 자리를 지킨다. */
 .sv2-root[data-intro='revealing'] .sv2-topbar {
   animation: sv2-intro-drop 0.55s ease-out both;
+}
+
+.sv2-root[data-intro='revealing'] .sv2-brand {
+  animation: sv2-brand-hold 0.55s ease-out both;
+}
+
+.sv2-root[data-intro='revealing'] .sv2-topbar > :not(.sv2-brand) {
+  animation: sv2-intro-topbar-in 0.5s ease-out both;
 }
 
 .sv2-root[data-intro='revealing'] .sv2-timeline {
@@ -138,11 +147,9 @@
 
 @keyframes sv2-intro-drop {
   0% {
-    opacity: 0;
     transform: translateY(-100%);
   }
   55% {
-    opacity: 1;
     transform: translateY(8px);
   }
   78% {
@@ -150,6 +157,35 @@
   }
   92% {
     transform: translateY(2px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+/* 상단바 드롭과 정확히 반대 이동으로 브랜드를 화면 좌표에 고정한다. */
+@keyframes sv2-brand-hold {
+  0% {
+    transform: translateY(var(--sv2-topbar-h));
+  }
+  55% {
+    transform: translateY(-8px);
+  }
+  78% {
+    transform: translateY(4px);
+  }
+  92% {
+    transform: translateY(-2px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes sv2-intro-topbar-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px);
   }
   100% {
     opacity: 1;
