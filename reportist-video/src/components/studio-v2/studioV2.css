@@ -2416,6 +2416,27 @@
   background: var(--sv2-surface-2);
   border-color: var(--sv2-border-strong);
 }
+/* 테마·가이드·설정 아이콘 버튼 그룹: 테두리를 겹쳐 하나의 컨트롤처럼 보이게 한다. */
+.sv2-btn-group {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+.sv2-btn-group > .sv2-btn {
+  margin-left: -1px;
+  border-radius: 0;
+}
+.sv2-btn-group > .sv2-btn:first-child {
+  margin-left: 0;
+  border-radius: var(--sv2-radius-sm) 0 0 var(--sv2-radius-sm);
+}
+.sv2-btn-group > .sv2-btn:last-child {
+  border-radius: 0 var(--sv2-radius-sm) var(--sv2-radius-sm) 0;
+}
+.sv2-btn-group > .sv2-btn:hover:not(:disabled),
+.sv2-btn-group > .sv2-btn:focus-visible {
+  z-index: 1;
+}
 .sv2-mini-btn-fit[data-on='true'] {
   border-color: var(--sv2-accent);
   background: var(--sv2-accent-soft);

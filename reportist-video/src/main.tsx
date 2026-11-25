@@ -9,11 +9,15 @@ import { I18nProvider } from './i18n/index.tsx';
 import { preloadInitialLocale } from './i18n/dictionaries.ts';
 import { getRuntimeLocale } from './i18n/localeState.ts';
 import { installChunkLoadRecovery, recoverFromChunkLoadError } from './services/chunkLoadRecovery.ts';
+import { applyStoredTheme } from './hooks/useTheme.ts';
 import './index.css';
+import './styles/dark.css';
 
 // 배포로 청크 이름이 바뀐 뒤에도 열려 있는 탭이 흰 화면으로 남지 않도록
 // 동적 import 실패를 전역에서 감지해 새 배포를 받아온다.
 installChunkLoadRecovery();
+// 저장된 다크 테마를 첫 React 페인트 전에 적용해 라이트 플래시를 막는다.
+applyStoredTheme();
 
 async function bootstrap() {
   // en/ko 외 로케일은 첫 렌더 전에 사전 청크를 미리 받아 언어 깜빡임을 방지한다.

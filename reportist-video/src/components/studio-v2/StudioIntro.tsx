@@ -126,9 +126,9 @@ export function StudioIntro({ initialPhase, onPhaseChange }: StudioIntroProps) {
         >
           <span className="sv2-intro-icon">
             {/* 실제 채우기 로고를 점진 노출해 처음부터 펭귄컷임이 보이게 한다. */}
-            <PenguinLogo size={80} color="#191f28" className="sv2-intro-fill" />
+            <PenguinLogo size={80} className="sv2-intro-fill" />
             {/* 노출되는 경계를 따라 얇은 외곽선을 겹쳐 '그려지는' 느낌을 준다. */}
-            <PenguinLogo size={80} color="#191f28" className="sv2-intro-outline" />
+            <PenguinLogo size={80} className="sv2-intro-outline" />
           </span>
           <span className="sv2-intro-wordmark">PenguinCut</span>
         </a>

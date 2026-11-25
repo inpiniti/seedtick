@@ -863,4 +863,7 @@ export const uiEn: Record<string, string> = {
   "원하는 해상도를 먼저 눌러 선택해 보세요.": "Pick the resolution you want before downloading.",
   "다운로드를 누르면 영상이 저장되고 가이드가 끝나요.": "Tap Download to save your video and finish the guide.",
   "튜토리얼을 따라 영상 하나를 완성했어요.": "You finished a video by following the tutorial.",
+  "다크 테마로 전환": "Switch to dark theme",
+  "라이트 테마로 전환": "Switch to light theme",
+  "화면 도구": "Display controls",
 };

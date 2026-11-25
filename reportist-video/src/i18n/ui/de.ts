@@ -852,4 +852,7 @@ export const uiDe: Record<string, string> = {
   "원하는 해상도를 먼저 눌러 선택해 보세요.": "Wähle vor dem Download die gewünschte Auflösung.",
   "다운로드를 누르면 영상이 저장되고 가이드가 끝나요.": "Klicke auf Herunterladen, um das Video zu speichern und die Anleitung zu beenden.",
   "튜토리얼을 따라 영상 하나를 완성했어요.": "Du hast ein Video mit dem Tutorial fertiggestellt.",
+  "다크 테마로 전환": "Zum dunklen Design wechseln",
+  "라이트 테마로 전환": "Zum hellen Design wechseln",
+  "화면 도구": "Anzeige-Steuerung",
 };

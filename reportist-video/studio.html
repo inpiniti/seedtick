@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light" />
+    <meta name="color-scheme" content="light dark" />
     <title>PenguinCut Studio — AI Video Highlight Editor</title>
     <meta
       name="description"
@@ -23,6 +23,18 @@
     <link rel="apple-touch-icon" href="/icon-192x192.png?v=4" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#f8f9fa" />
+    <!-- 저장된 테마를 첫 페인트 전에 적용해 다크 모드 새로고침 시 라이트 플래시를 막는다. -->
+    <script>
+      try {
+        var savedTheme = localStorage.getItem('penguincut-theme');
+        var isDark = savedTheme === 'dark' ||
+          (savedTheme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+        if (isDark) {
+          document.documentElement.classList.add('dark');
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0e1116');
+        }
+      } catch (_) {}
+    </script>
     <meta name="application-name" content="PenguinCut" />
     <meta name="apple-mobile-web-app-title" content="PenguinCut" />
 

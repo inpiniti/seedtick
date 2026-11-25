@@ -851,4 +851,7 @@ export const uiEs: Record<string, string> = {
   "원하는 해상도를 먼저 눌러 선택해 보세요.": "Antes de descargar, pulsa la resolución que quieras.",
   "다운로드를 누르면 영상이 저장되고 가이드가 끝나요.": "Pulsa Descargar para guardar el vídeo y terminar la guía.",
   "튜토리얼을 따라 영상 하나를 완성했어요.": "Has terminado un vídeo siguiendo el tutorial.",
+  "다크 테마로 전환": "Cambiar a tema oscuro",
+  "라이트 테마로 전환": "Cambiar a tema claro",
+  "화면 도구": "Controles de pantalla",
 };

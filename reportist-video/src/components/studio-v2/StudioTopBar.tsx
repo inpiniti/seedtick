@@ -10,6 +10,7 @@ import {
   Settings,
 } from 'lucide-react';
 import { PenguinLogo } from '../common/PenguinLogo.tsx';
+import { ThemeToggleButton } from '../common/ThemeToggleButton.tsx';
 import { Tooltip } from '../ui/Tooltip.tsx';
 import { getLandingPath, getLanguageCode, useI18n } from '../../i18n/index.tsx';
 import type { VideoOrientation } from '../../types/video.ts';
@@ -67,7 +68,7 @@ export const StudioTopBar = ({
           href={getLandingPath(locale)}
           aria-label="PenguinCut"
         >
-          <PenguinLogo size={26} color="#191f28" className="sv2-brand-logo" />
+          <PenguinLogo size={26} className="sv2-brand-logo" />
           PenguinCut
         </a>
       </Tooltip>
@@ -115,28 +116,33 @@ export const StudioTopBar = ({
         </button>
       </Tooltip>
 
-      <Tooltip content={ui('사용 가이드 다시 보기')}>
-        <button
-          type="button"
-          className="sv2-btn sv2-btn-icon sv2-settings-trigger"
-          onClick={onReplayGuide}
-          aria-label={ui('사용 가이드 다시 보기')}
-        >
-          <CircleHelp size={18} />
-        </button>
-      </Tooltip>
+      {/* 테마·가이드·설정은 하나의 아이콘 버튼 그룹으로 묶는다. */}
+      <div className="sv2-btn-group" role="group" aria-label={ui('화면 도구')}>
+        <ThemeToggleButton />
 
-      <Tooltip content={t('common.settings')}>
-        <button
-          type="button"
-          className="sv2-btn sv2-btn-icon sv2-settings-trigger"
-          onClick={onOpenSettings}
-          aria-haspopup="dialog"
-          aria-label={t('common.settings')}
-        >
-          <Settings size={18} />
-        </button>
-      </Tooltip>
+        <Tooltip content={ui('사용 가이드 다시 보기')}>
+          <button
+            type="button"
+            className="sv2-btn sv2-btn-icon sv2-settings-trigger"
+            onClick={onReplayGuide}
+            aria-label={ui('사용 가이드 다시 보기')}
+          >
+            <CircleHelp size={18} />
+          </button>
+        </Tooltip>
+
+        <Tooltip content={t('common.settings')}>
+          <button
+            type="button"
+            className="sv2-btn sv2-btn-icon sv2-settings-trigger"
+            onClick={onOpenSettings}
+            aria-haspopup="dialog"
+            aria-label={t('common.settings')}
+          >
+            <Settings size={18} />
+          </button>
+        </Tooltip>
+      </div>
 
       <button
         type="button"

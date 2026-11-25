@@ -1,0 +1,168 @@
+/* dark.css — 클래스 기반 다크 테마 토큰.
+   ThemeToggler가 <html>에 .dark를 토글하면 이 파일의 값이 라이트 팔레트를 덮어쓴다.
+   모노톤 팔레트를 유지하므로 채도 높은 브랜드 컬러는 쓰지 않는다. */
+
+:root.dark {
+  color-scheme: dark;
+
+  /* index.css 전역 토큰 */
+  --background: #181c22;
+  --page-background: #0e1116;
+  --foreground: #f2f4f6;
+
+  --muted-background: #1f242c;
+  --muted-foreground: #aab3bf;
+  --faint-foreground: #7a8491;
+
+  --border: #2b323c;
+  --border-subtle: #1f252d;
+  --border-strong: #3a434f;
+
+  --surface: #181c22;
+  --surface-hover: #222831;
+
+  --brand-ink: #f2f4f6;
+  --brand-blue: #f2f4f6;
+  --brand-blue-hover: #d7dde5;
+  --brand-blue-light: #252c35;
+  --brand-blue-border: #3a434f;
+
+  /* uiTokens.css 공통 컨트롤 토큰 */
+  --ui-ink: #f2f4f6;
+  --ui-ink-hover: #d7dde5;
+  --ui-accent: #f2f4f6;
+  --ui-accent-hover: #d7dde5;
+  --ui-text: #f2f4f6;
+  --ui-text-muted: #aab3bf;
+  --ui-text-subtle: #7a8491;
+  --ui-border: #2b323c;
+  --ui-border-strong: #3a434f;
+  --ui-surface: #181c22;
+  --ui-surface-muted: #1f242c;
+  --ui-surface-sunken: #14181e;
+  --ui-danger: #f87171;
+  --ui-danger-surface: #2a191c;
+  --ui-focus-ring: 0 0 0 3px rgba(242, 244, 246, 0.16);
+  --ui-focus-ring-accent: 0 0 0 3px rgba(242, 244, 246, 0.22);
+}
+
+/* Studio V2는 자체 스코프 토큰을 쓰므로 html.dark 하위에서 다시 덮어쓴다. */
+:root.dark .sv2-root {
+  --sv2-bg: #0e1116;
+  --sv2-surface: #181c22;
+  --sv2-surface-2: #222831;
+  --sv2-surface-3: #14181e;
+  --sv2-seg-track: #1f242c;
+  --sv2-border: #2b323c;
+  --sv2-border-strong: #3a434f;
+  --sv2-text: #f2f4f6;
+  --sv2-text-2: #aab3bf;
+  --sv2-text-3: #7a8491;
+  --sv2-accent: #f2f4f6;
+  --sv2-accent-hover: #d7dde5;
+  --sv2-accent-soft: #252c35;
+  --sv2-accent-text: #0e1116;
+  --sv2-danger: #f87171;
+  --sv2-success: #f2f4f6;
+  --sv2-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --sv2-shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --sv2-focus-ring: 0 0 0 3px rgba(242, 244, 246, 0.18);
+}
+
+/* 토큰으로 넘기지 못한 하드코딩 색상 중 어두운 화면에서 대비가 무너지는 것만 보정한다. */
+:root.dark .sv2-speed-ultra {
+  color: #5eead4;
+}
+:root.dark .sv2-speed-fast {
+  color: #86efac;
+}
+:root.dark .sv2-speed-slow,
+:root.dark .sv2-model-warn {
+  color: #fbbf24;
+}
+
+:root.dark .sv2-stars,
+:root.dark .sv2-stars::after {
+  background-image: radial-gradient(1.5px 1.5px at 18px 22px, rgba(255, 255, 255, 0.22) 50%, transparent 52%),
+    radial-gradient(1px 1px at 68px 44px, rgba(255, 255, 255, 0.16) 50%, transparent 52%),
+    radial-gradient(1.8px 1.8px at 122px 16px, rgba(255, 255, 255, 0.24) 50%, transparent 52%),
+    radial-gradient(1.1px 1.1px at 172px 58px, rgba(255, 255, 255, 0.18) 50%, transparent 52%),
+    radial-gradient(1.3px 1.3px at 36px 92px, rgba(255, 255, 255, 0.2) 50%, transparent 52%),
+    radial-gradient(1px 1px at 96px 118px, rgba(255, 255, 255, 0.14) 50%, transparent 52%);
+}
+
+:root.dark .sv2-settings-backdrop,
+:root.dark .sv2-celebration {
+  background: rgba(0, 0, 0, 0.62);
+}
+
+:root.dark .sv2-settings-card {
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+}
+
+/* V2 모달·온보딩은 ProStudioView의 model-modal-card를 공유한다. */
+:root.dark .model-modal-card {
+  background-color: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  color: var(--ui-text);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+}
+
+:root.dark .sv2-onboarding-card .model-modal-close-btn {
+  color: var(--ui-text-subtle);
+}
+:root.dark .sv2-onboarding-card .model-modal-close-btn:hover {
+  background-color: var(--ui-surface-muted);
+  color: var(--ui-text);
+}
+:root.dark .sv2-onboarding-icon,
+:root.dark .sv2-celebration-icon {
+  background: var(--ui-surface-muted);
+  color: var(--ui-text);
+}
+:root.dark .sv2-onboarding-hero h2,
+:root.dark .sv2-onboarding-steps li,
+:root.dark .sv2-celebration-card h2 {
+  color: var(--ui-text);
+}
+:root.dark .sv2-onboarding-hero p,
+:root.dark .sv2-onboarding-steps li > svg,
+:root.dark .sv2-celebration-card p {
+  color: var(--ui-text-muted);
+}
+:root.dark .sv2-onboarding-step-no {
+  background: var(--ui-surface-muted);
+  color: var(--ui-text-muted);
+}
+:root.dark .sv2-onboarding-resume {
+  background: var(--ui-surface-muted);
+  color: var(--ui-text);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+:root.dark .sv2-onboarding-resume:hover {
+  background: var(--ui-border-strong);
+}
+:root.dark .sv2-celebration-card {
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* 진입 인트로도 다크 팔레트를 따라간다. */
+:root.dark .sv2-intro-backdrop {
+  background: var(--page-background);
+}
+:root.dark .sv2-intro-glow {
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.07) 0%,
+    rgba(255, 255, 255, 0.025) 38%,
+    rgba(255, 255, 255, 0) 72%
+  );
+}
+:root.dark .sv2-intro-outline path {
+  stroke: var(--ui-text);
+}
+:root.dark .sv2-intro-wordmark {
+  color: var(--ui-text);
+}

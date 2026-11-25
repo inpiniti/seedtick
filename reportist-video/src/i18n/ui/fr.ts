@@ -852,4 +852,7 @@ export const uiFr: Record<string, string> = {
   "원하는 해상도를 먼저 눌러 선택해 보세요.": "Avant de télécharger, appuyez sur la résolution souhaitée.",
   "다운로드를 누르면 영상이 저장되고 가이드가 끝나요.": "Appuyez sur Télécharger pour enregistrer la vidéo et terminer le guide.",
   "튜토리얼을 따라 영상 하나를 완성했어요.": "Vous avez terminé une vidéo en suivant le tutoriel.",
+  "다크 테마로 전환": "Passer au thème sombre",
+  "라이트 테마로 전환": "Passer au thème clair",
+  "화면 도구": "Commandes d’affichage",
 };
