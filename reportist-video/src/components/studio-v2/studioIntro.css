@@ -60,14 +60,20 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 22px;
+  gap: 24px;
   transform-origin: center center;
   will-change: transform;
   pointer-events: none;
+  transition: opacity 0.1s linear;
 }
 
 .sv2-intro-group[data-phase='pinned'] {
   pointer-events: auto;
+}
+
+/* 연출이 끝나면 실제 상단바 브랜드와 100ms 동안 교차 페이드하며 사라진다. */
+.sv2-intro-group[data-phase='handoff'] {
+  opacity: 0;
 }
 
 /* 링크는 레이아웃에 영향 없이 동작만 제공한다. */
@@ -119,7 +125,8 @@
 
 .sv2-intro-wordmark {
   color: #191f28;
-  font-size: 40px;
+  /* 상단바 브랜드(15px)와 스케일 후에도 같은 크기가 되도록 맞춘다. */
+  font-size: 44px;
   font-weight: 800;
   letter-spacing: -0.05em;
   line-height: 1;
@@ -137,8 +144,9 @@
 
 /* ---------- 스튜디오 셸 패널 등장 ---------- */
 
-/* 인트로 로고가 고정된 뒤에는 상단바의 기본 브랜드를 숨겨 중복을 막는다. */
-.sv2-root:not([data-intro='done']) .sv2-brand {
+/* 인트로 로고가 상단바에 도착하기 전까지는 기본 브랜드를 숨겨 중복을 막는다.
+   handoff 단계에서 오버레이 로고와 같은 자리에서 조용히 교체한다. */
+.sv2-root:not([data-intro='done']):not([data-intro='handoff']) .sv2-brand {
   opacity: 0;
   pointer-events: none;
 }
