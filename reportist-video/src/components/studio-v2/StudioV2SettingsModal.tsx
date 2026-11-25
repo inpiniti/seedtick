@@ -26,6 +26,7 @@ import {
   setStoredShowAge,
   setStoredShowDate,
   setStoredShowSubtitle,
+  setStoredShowTitle,
   type DateFormatOption,
 } from '../../services/videoMetadata.ts';
 import {
@@ -69,6 +70,8 @@ interface StudioV2SettingsModalProps {
   /** 온보딩 가이드를 처음부터 다시 보여준다. */
   onReplayGuide?: () => void;
   onResetProject: () => void;
+  /** 현재 프로젝트의 좌상단 제목 표시 상태 (미리보기 인라인 편집과 동기화) */
+  showTitle: boolean;
   onOverlayChange?: (patch: Partial<VideoOverlayOptions>) => void;
   onHighlightModeChange?: (mode: HighlightMode) => void;
   /** 상단 바에서 이관한 AI 모델 선택 진입점. */
@@ -88,6 +91,7 @@ export const StudioV2SettingsModal = ({
   canDownloadSubtitles,
   onReplayGuide,
   onResetProject,
+  showTitle: showTitleProp,
   onOverlayChange,
   onHighlightModeChange,
   modelDisplay,
@@ -108,6 +112,10 @@ export const StudioV2SettingsModal = ({
   const [autoSort, setAutoSort] = useState<boolean>(getStoredAutoSortByRecordedTime);
   const [showDate, setShowDate] = useState<boolean>(getStoredShowDate);
   const [showSubtitle, setShowSubtitle] = useState<boolean>(getStoredShowSubtitle);
+  const [showTitle, setShowTitle] = useState<boolean>(showTitleProp);
+  // 모달을 여는 순간의 프로젝트 상태를 읽되, 열려 있는 동안 prop이 바뀌어도 다른 설정을 초기화하지 않도록 ref로 보관한다.
+  const showTitlePropRef = useRef(showTitleProp);
+  showTitlePropRef.current = showTitleProp;
   const [showAge, setShowAge] = useState<boolean>(getStoredShowAge);
   const [birthDate, setBirthDate] = useState<string>(getStoredBirthDate);
 
@@ -120,6 +128,7 @@ export const StudioV2SettingsModal = ({
     setAutoSort(getStoredAutoSortByRecordedTime());
     setShowDate(getStoredShowDate());
     setShowSubtitle(getStoredShowSubtitle());
+    setShowTitle(showTitlePropRef.current);
     setShowAge(getStoredShowAge());
     setBirthDate(getStoredBirthDate());
   }, [isOpen]);
@@ -171,6 +180,14 @@ export const StudioV2SettingsModal = ({
     setShowSubtitle(next);
     setStoredShowSubtitle(next);
     onOverlayChange?.({ showSubtitle: next });
+    onChange?.();
+  };
+
+  const toggleTitle = () => {
+    const next = !showTitle;
+    setShowTitle(next);
+    setStoredShowTitle(next);
+    onOverlayChange?.({ showTitle: next });
     onChange?.();
   };
 
@@ -365,6 +382,20 @@ export const StudioV2SettingsModal = ({
             <h3>
               <CalendarDays size={14} /> {ui('화면 표시')}
             </h3>
+
+            <div className="sv2-settings-row">
+              <div className="sv2-settings-row-text">
+                <strong>{t('settingsModal.showTitleOption')}</strong>
+                <span>{t('settingsModal.showTitleOptionDesc')}</span>
+              </div>
+              <button
+                type="button"
+                className="sv2-switch"
+                data-on={showTitle}
+                aria-label={t('settingsModal.showTitleOption')}
+                onClick={toggleTitle}
+              />
+            </div>
 
             <div className="sv2-settings-row">
               <div className="sv2-settings-row-text">

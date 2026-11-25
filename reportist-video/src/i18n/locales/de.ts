@@ -496,6 +496,8 @@ defaultDesc: 'Analysiere Schlüsselszenen in Ihren Videos. Bitte einen Moment Ge
     dateSection: 'Aufnahmedatum & Reihenfolge',
     showDateOption: 'Aufnahmedatum anzeigen',
     showDateOptionDesc: 'Zeigt das Aufnahmedatum im Video an (beim Deaktivieren wird nur der Ort angezeigt)',
+    showTitleOption: 'Videotitel anzeigen',
+    showTitleOptionDesc: 'Zeigt den Titel oben links im Video an (zum Bearbeiten im Vorschaubild anklicken)',
     autoSortByRecordedDate: 'Standardmäßig nach Aufnahmezeit sortieren',
     autoSortByRecordedDateDesc: 'Sortiert Clips auf der Timeline automatisch chronologisch nach Aufnahmezeitpunkt',
     ageOption: 'Kindesalter anzeigen',

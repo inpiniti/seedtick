@@ -676,6 +676,8 @@ export const en: Dictionary = {
     dateSection: 'Recording Date & Order',
     showDateOption: 'Show Recording Date',
     showDateOptionDesc: 'Display the recording date on the video (turn off to show only the location)',
+    showTitleOption: 'Show Video Title',
+    showTitleOptionDesc: 'Display the title in the top-left of the video (click it in the preview to edit)',
     autoSortByRecordedDate: 'Default Sort by Filming Time',
     autoSortByRecordedDateDesc: 'Automatically order clips chronologically by recorded date and time',
     ageOption: 'Display Child Age',

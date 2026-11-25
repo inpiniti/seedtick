@@ -497,6 +497,8 @@ defaultDesc: 'Analyse des séquences visuelles clés en cours. Veuillez patiente
     showDateOption: 'Afficher la date de tournage',
     showDateOptionDesc:
       'Affiche la date de tournage sur la vidéo (désactivez pour n’afficher que le lieu)',
+    showTitleOption: 'Afficher le titre de la vidéo',
+    showTitleOptionDesc: 'Affiche le titre en haut à gauche de la vidéo (cliquez dessus dans l’aperçu pour le modifier)',
     autoSortByRecordedDate: 'Tri chronologique par défaut',
     autoSortByRecordedDateDesc: 'Organise automatiquement les clips par ordre chronologique de tournage',
     ageOption: "Afficher l'âge de l'enfant",

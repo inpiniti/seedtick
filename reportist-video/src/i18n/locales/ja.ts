@@ -496,6 +496,8 @@ defaultDesc: '動画の主要シーンを分析しています。少々お待ち
     dateSection: '撮影日と並び順',
     showDateOption: '撮影日を表示',
     showDateOptionDesc: '動画画面に撮影日を表示します（オフにすると場所のみ表示されます）',
+    showTitleOption: '動画左上のタイトルを表示',
+    showTitleOptionDesc: '動画画面左上にタイトルを表示します（プレビューでクリックして編集できます）',
     autoSortByRecordedDate: '撮影日時順のデフォルト整列',
     autoSortByRecordedDateDesc: 'クリップをタイムラインに配置する際、撮影日時順に自動整列します',
     ageOption: '年齢を表示',

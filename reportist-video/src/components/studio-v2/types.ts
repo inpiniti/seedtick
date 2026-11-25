@@ -17,6 +17,7 @@ import type { FreeModelMeta, ReasoningEffortOption } from '../../types/gateway.t
 import {
   getStoredShowDate,
   getStoredShowSubtitle,
+  getStoredShowTitle,
   formatDateByPattern,
   formatDateWithAge,
   getStoredBirthDate,
@@ -122,7 +123,7 @@ export interface PreviewRange {
 }
 
 export const DEFAULT_OVERLAY_OPTIONS: VideoOverlayOptions = {
-  showTitle: false,
+  showTitle: true,
   titleText: '',
   showChannel: false,
   channelText: '',
@@ -148,11 +149,13 @@ export const DEFAULT_OVERLAY_OPTIONS: VideoOverlayOptions = {
  * 반영해 세션 시작 시에도 사용자의 선택이 유지되도록 한다.
  * 챕터 브릿지는 V2 타임라인이 intro/segment/outro만 지원하므로 의도적으로 false로 고정한다.
  */
-export function createDefaultOverlayOptions(): VideoOverlayOptions {
+export function createDefaultOverlayOptions(defaultTitleText = ''): VideoOverlayOptions {
   return {
     ...DEFAULT_OVERLAY_OPTIONS,
+    titleText: defaultTitleText,
     showDate: getStoredShowDate(),
     showSubtitle: getStoredShowSubtitle(),
+    showTitle: getStoredShowTitle(),
     showCredit: getStoredShowCredit(),
     showIntro: getStoredShowIntro(),
     introTemplate: getStoredIntroTemplate(),

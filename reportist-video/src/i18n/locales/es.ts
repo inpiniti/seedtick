@@ -496,6 +496,8 @@ defaultDesc: 'Analizando las escenas clave de tus videos. Por favor espera un mo
     dateSection: 'Fecha de grabación y orden',
     showDateOption: 'Mostrar fecha de grabación',
     showDateOptionDesc: 'Muestra la fecha de grabación en el video (al desactivarlo solo se muestra la ubicación)',
+    showTitleOption: 'Mostrar título del vídeo',
+    showTitleOptionDesc: 'Muestra el título en la esquina superior izquierda del vídeo (haz clic en la vista previa para editarlo)',
     autoSortByRecordedDate: 'Orden cronológico predeterminado',
     autoSortByRecordedDateDesc: 'Ordena automáticamente los clips de forma cronológica por fecha y hora de grabación',
     ageOption: 'Mostrar edad del niño',

@@ -715,6 +715,8 @@ export interface Dictionary {
     dateSection?: string;
     showDateOption?: string;
     showDateOptionDesc?: string;
+    showTitleOption?: string;
+    showTitleOptionDesc?: string;
     autoSortByRecordedDate?: string;
     autoSortByRecordedDateDesc?: string;
     ageOption?: string;

@@ -107,7 +107,7 @@ const SubtitleDownloadModal = lazy(() =>
  * App의 상태/핸들러를 그대로 재사용하고, UI 레이아웃·상태 전이만 새로 구현한다.
  */
 export const CenterStudioView = (props: StudioV2Props) => {
-  const { ui } = useI18n();
+  const { ui, dict } = useI18n();
   const {
     result,
     videos,
@@ -368,12 +368,15 @@ export const CenterStudioView = (props: StudioV2Props) => {
 
   // ---------- 오버레이 옵션 ----------
   const [overlayOptions, setOverlayOptions] = useState<VideoOverlayOptions>(() => ({
-    ...createDefaultOverlayOptions(),
+    ...createDefaultOverlayOptions(dict.player.defaultTitleText),
     ...(initialOverlayOptions ?? {}),
   }));
   const overlaySig = useMemo(() => JSON.stringify(initialOverlayOptions ?? {}), [initialOverlayOptions]);
   useEffect(() => {
-    setOverlayOptions({ ...createDefaultOverlayOptions(), ...(initialOverlayOptions ?? {}) });
+    setOverlayOptions({
+      ...createDefaultOverlayOptions(dict.player.defaultTitleText),
+      ...(initialOverlayOptions ?? {}),
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [overlaySig]);
 
@@ -1471,6 +1474,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
               canDownloadSubtitles={displaySegments.length > 0}
               onResetProject={handleResetProject}
               onReplayGuide={handleReplayGuide}
+              showTitle={overlayOptions.showTitle !== false}
               onOverlayChange={updateOverlay}
               onHighlightModeChange={handleHighlightModeChange}
             />

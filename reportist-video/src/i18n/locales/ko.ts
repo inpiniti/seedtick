@@ -676,6 +676,8 @@ export const ko: Dictionary = {
     dateSection: '촬영 날짜 및 정렬',
     showDateOption: '촬영 날짜 표시',
     showDateOptionDesc: '영상 화면에 촬영 날짜를 표시해요 (끄면 날짜 없이 장소만 표시)',
+    showTitleOption: '영상 좌상단 제목 표시',
+    showTitleOptionDesc: '영상 화면에 제목을 표시해요 (미리보기에서 클릭해서 수정할 수 있어요)',
     autoSortByRecordedDate: '촬영일시 순 기본 정렬',
     autoSortByRecordedDateDesc: '클립을 타임라인에 배치할 때 촬영일시 순서대로 자동 정렬해요',
     ageOption: '아이 나이 표시',
