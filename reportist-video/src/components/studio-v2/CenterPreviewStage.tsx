@@ -128,6 +128,103 @@ export const CenterPreviewStage = ({
     }
   }, [playhead, activeItem, introVideoFile, outroVideoFile, customVideoUrls, redrawTick]);
 
+  // 숨김 <video>를 재생 클록으로 동기화한다.
+  // 예전에는 currentTime을 0.25초 이상 어긋날 때만 seek했고 영상 자체를 재생하지
+  // 않았기 때문에, 정지된 프레임이 0.25초마다 한 번 바뀌는 ~4fps로 끊겨 보였다.
+  // 재생 중에는 실제 비디오를 1배속으로 돌려 매 프레임 새 프레임을 그리게 하고,
+  // 재생 시작/컷 전환/큰 드리프트에서만 seek해 디코더 플러시를 최소화한다.
+  useEffect(() => {
+    const sources = videoRefs.current;
+    const activeId = activeSegment?.sourceVideoId;
+
+    // 현재 컷이 아닌 숨김 영상은 모두 멈춘다(디코더 슬롯 낭비 방지).
+    for (const [id, video] of sources) {
+      if (id !== activeId && !video.paused) {
+        try {
+          video.pause();
+        } catch {
+          /* 무시 */
+        }
+      }
+    }
+
+    if (!activeSegment || !activeItem || activeItem.kind !== 'segment') {
+      for (const video of sources.values()) {
+        if (!video.paused) {
+          try {
+            video.pause();
+          } catch {
+            /* 무시 */
+          }
+        }
+      }
+      return;
+    }
+    const video = sources.get(activeSegment.sourceVideoId);
+    if (!video || video.readyState < 2 || video.videoWidth === 0) return;
+
+    const local = Math.max(0, Math.min(activeSegment.duration || 0, playhead - activeItem.start));
+    const targetTime = Math.max(0, (activeSegment.start || 0) + local);
+    const drift = Math.abs(video.currentTime - targetTime);
+
+    if (!isPlaying) {
+      if (!video.paused) {
+        try {
+          video.pause();
+        } catch {
+          /* 무시 */
+        }
+      }
+      // 일시정지 중 스크러빙/컷 선택 시 해당 시점의 프레임으로 정확히 맞춘다.
+      if (drift > 0.03) {
+        try {
+          video.currentTime = targetTime;
+        } catch {
+          /* 아직 seek 불가 */
+        }
+      }
+      return;
+    }
+
+    if (video.paused) {
+      // 재생 시작/컷 전환 직후에는 정확한 소스 시점으로 맞춘 뒤 재생한다.
+      if (drift > 0.05) {
+        try {
+          video.currentTime = targetTime;
+        } catch {
+          /* 아직 seek 불가 */
+        }
+      }
+      // 영상이 자연스럽게 끝난 경우(다음 컷 경계 직전) 되감아 다시 재생하지 않는다.
+      if (video.currentTime < (activeSegment.end ?? Number.POSITIVE_INFINITY) - 0.02) {
+        const p = video.play();
+        if (p) p.catch(() => {});
+      }
+    } else if (drift > 0.3) {
+      // 탭 백그라운드 복귀 등으로 타임라인과 어긋났을 때만 보정한다.
+      try {
+        video.currentTime = targetTime;
+      } catch {
+        /* 아직 seek 불가 */
+      }
+    }
+  }, [isPlaying, playhead, activeItem, activeSegment]);
+
+  // 스튜디오를 나갈 때 숨김 영상/사용자 영상이 계속 디코딩하지 않도록 정리한다.
+  useEffect(() => {
+    return () => {
+      for (const video of videoRefs.current.values()) {
+        try {
+          video.pause();
+        } catch {
+          /* 무시 */
+        }
+      }
+      customIntroVideoRef.current?.pause();
+      customOutroVideoRef.current?.pause();
+    };
+  }, []);
+
   // 프레임 렌더 — playhead가 바뀔 때마다 캔버스에 현재 합성 결과를 그린다.
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -145,15 +242,6 @@ export const CenterPreviewStage = ({
       const source = videos.find((v) => v.id === seg.sourceVideoId);
       const video = videoRefs.current.get(seg.sourceVideoId);
       if (video && video.readyState >= 2 && video.videoWidth > 0) {
-        const local = Math.max(0, Math.min(seg.duration || 0, playhead - activeItem.start));
-        const targetTime = Math.max(0, (seg.start || 0) + local);
-        if (Math.abs(video.currentTime - targetTime) > 0.25) {
-          try {
-            video.currentTime = targetTime;
-          } catch {
-            /* 아직 seek 불가 */
-          }
-        }
         drawCompositorCoverFrame(ctx, video, source, seg, frame);
       }
       // 영상이 아직 준비 안 됐어도 날짜·위치·자막은 검은 화면에 표시.
