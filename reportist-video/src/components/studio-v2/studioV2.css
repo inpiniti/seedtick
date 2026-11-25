@@ -1122,7 +1122,8 @@
   overflow: hidden;
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.75);
-  background: linear-gradient(155deg, #e4e9ee 0%, #d3dae1 55%, #c4cdd6 100%);
+  /* 앱 토큰(#e5e8eb · #d1d5db)과 같은 쿨그레이 계열로 톤을 맞춘다. */
+  background: linear-gradient(155deg, #e9ecef 0%, #dfe3e6 55%, #d1d5db 100%);
   box-shadow: 0 3px 10px rgba(15, 23, 42, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
@@ -1155,7 +1156,8 @@
   border-radius: 50%;
   display: grid;
   place-items: center;
-  color: #ffffff;
+  /* 다크 테마에서는 accent가 밝아지므로 대비 토큰을 함께 쓴다. */
+  color: var(--sv2-accent-text);
   background: var(--sv2-accent);
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }

@@ -81,6 +81,22 @@
   color: #fbbf24;
 }
 
+/* 빈 미리보기 카드도 다크 팔레트의 표면·경계 토큰과 같은 톤으로 맞춘다. */
+:root.dark .sv2-preview-empty-card {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: linear-gradient(155deg, #222831 0%, #2b323c 55%, #353d48 100%);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+:root.dark .sv2-preview-empty-sheen {
+  background: linear-gradient(
+    115deg,
+    transparent 42%,
+    rgba(255, 255, 255, 0.12) 50%,
+    transparent 58%
+  );
+}
+
 :root.dark .sv2-stars,
 :root.dark .sv2-stars::after {
   background-image: radial-gradient(1.5px 1.5px at 18px 22px, rgba(255, 255, 255, 0.22) 50%, transparent 52%),
