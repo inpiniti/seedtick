@@ -68,7 +68,7 @@ import {
   flyCutsOut,
   type FlightHandle,
 } from './cutFlightAnimator.ts';
-import { buildTimeline } from './timelineModel.ts';
+import { buildTimeline, resolveTimelineItem } from './timelineModel.ts';
 import {
   createDefaultOverlayOptions,
   type InspectorTarget,
@@ -701,11 +701,6 @@ export const CenterStudioView = (props: StudioV2Props) => {
     [displaySegments, selectedSegmentId]
   );
 
-  const openLocation = useCallback((id: string) => {
-    setSelectedSegmentId(id);
-    setActiveInspector({ type: 'location', segmentId: id });
-  }, []);
-
   const applyToVideo = useCallback(
     (sourceVideoId: string, locationName: string) => {
       setLocalSegments((prev) =>
@@ -796,6 +791,41 @@ export const CenterStudioView = (props: StudioV2Props) => {
     playheadRef.current = time;
     setPlayhead(time);
   }, []);
+
+  // 미리보기 캔버스와 오른쪽 인스펙터가 같은 컷을 가리키도록 단일 기준을 둔다.
+  // 캔버스는 playhead의 컷을 그리지만 인스펙터는 selectedSegmentId를 쓰므로,
+  // 스크럽/재생으로 다른 영상으로 넘어가면 처음 클릭한 컷이 사이드바에 남았다.
+  const previewedSegmentId = useMemo(() => {
+    const item = resolveTimelineItem(model, playhead);
+    return item?.kind === 'segment' ? (item.segment?.id ?? null) : null;
+  }, [model, playhead]);
+
+  useEffect(() => {
+    if (activeInspector?.type !== 'location' || !previewedSegmentId) return;
+    if (
+      selectedSegmentId === previewedSegmentId &&
+      activeInspector.segmentId === previewedSegmentId
+    ) {
+      return;
+    }
+    setSelectedSegmentId(previewedSegmentId);
+    setActiveInspector({ type: 'location', segmentId: previewedSegmentId });
+  }, [activeInspector, previewedSegmentId, selectedSegmentId]);
+
+  /** 컷의 위치 버튼으로 인스펙터를 열면 미리보기도 해당 컷으로 이동시킨다. */
+  const openLocation = useCallback(
+    (id: string) => {
+      const item = model.items.find((i) => i.kind === 'segment' && i.segment?.id === id);
+      setSelectedSegmentId(id);
+      setActiveInspector({ type: 'location', segmentId: id });
+      setPreviewRange(null);
+      setIsPlaying(false);
+      if (item && (playheadRef.current < item.start || playheadRef.current >= item.end)) {
+        seek(item.start);
+      }
+    },
+    [model.items, seek]
+  );
 
   const clearPreview = useCallback(() => {
     setPreviewRange(null);
