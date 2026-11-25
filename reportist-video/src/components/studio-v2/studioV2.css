@@ -1418,6 +1418,20 @@
 .sv2-play-btn:hover:not(:disabled) {
   background: var(--sv2-accent-hover);
 }
+.sv2-sound-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--sv2-border);
+  background: var(--sv2-surface-2);
+  color: var(--sv2-text-2);
+  display: grid;
+  place-items: center;
+}
+.sv2-sound-btn:hover {
+  color: var(--sv2-accent);
+  background: var(--sv2-accent-soft);
+}
 
 /* ---------- Timeline ---------- */
 .sv2-timeline {

@@ -11,6 +11,8 @@ import {
 } from 'react';
 import { Loader2, Sparkles, X } from 'lucide-react';
 import { cleanModelName, getSpeedTier } from '../../services/modelMetrics.ts';
+import { primeAudioContext } from '../../services/audioPrimer.ts';
+import { usePreviewAudio } from '../../hooks/usePreviewAudio.ts';
 import {
   getProviderPreset,
   getStoredUserApiKeyConfig,
@@ -399,6 +401,8 @@ export const CenterStudioView = (props: StudioV2Props) => {
   const [customAudioFile, setCustomAudioFile] = useState<File | null>(
     initialCustomAudioFile ?? null
   );
+  // 미리보기는 기본적으로 소리가 나오며, 사용자가 버튼으로 끌 수 있다.
+  const [isMuted, setIsMuted] = useState(false);
 
   useEffect(() => {
     setBgmPresetId(initialBgmPresetId || 'none');
@@ -727,6 +731,19 @@ export const CenterStudioView = (props: StudioV2Props) => {
   const [playhead, setPlayhead] = useState(0);
   const playheadRef = useRef(0);
   const [isPlaying, setIsPlaying] = useState(false);
+
+  // 원본 영상 현장음은 <video> 언뮤트로, BGM은 아래 훅으로 타임라인과 함께 재생한다.
+  usePreviewAudio({
+    playhead,
+    isPlaying,
+    totalDuration: model.total,
+    bgmPresetId,
+    bgmVolume,
+    customAudioFile,
+    bgmFitToVideo: overlayOptions.bgmFitToVideo ?? false,
+    isMuted,
+  });
+
   // 내보내기 시작 시 미리보기 재생을 즉시 멈춘다. 프리뷰 <video>의 디코더 점유와
   // requestAnimationFrame 갱신이 내보내기 합성 루프와 GPU/메인 스레드를 경합한다.
   useEffect(() => {
@@ -870,6 +887,8 @@ export const CenterStudioView = (props: StudioV2Props) => {
         holdFrame(kind, 0.8);
         return;
       }
+      // 사용자 클릭 제스처 안에서 오디오를 깨운다(이펙트에서 resume하면 iOS에서 막힌다).
+      primeAudioContext();
       setPreviewSeq((v) => v + 1);
       setIsPlaying(true);
     },
@@ -967,9 +986,15 @@ export const CenterStudioView = (props: StudioV2Props) => {
       setIsPlaying(false);
       return;
     }
+    primeAudioContext();
     setPreviewRange(null);
     setIsPlaying(true);
   }, [isPlaying]);
+
+  const toggleMute = useCallback(() => {
+    primeAudioContext();
+    setIsMuted((muted) => !muted);
+  }, []);
 
   // CenterPreviewStage를 React.memo로 분리했으므로 콜백도 안정적인 참조를 넘긴다.
   const pausePreview = useCallback(() => setIsPlaying(false), []);
@@ -1376,6 +1401,8 @@ export const CenterStudioView = (props: StudioV2Props) => {
                 totalDuration={model.total}
                 previewRange={previewRange}
                 isExporting={isReStitching}
+                isMuted={isMuted}
+                onToggleMute={toggleMute}
                 onTogglePlay={togglePlay}
                 onPause={pausePreview}
                 onSeek={handlePreviewSeek}

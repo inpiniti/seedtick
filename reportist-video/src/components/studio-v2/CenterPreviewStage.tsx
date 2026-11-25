@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
-import { Pause, Play } from 'lucide-react';
+import { Pause, Play, Volume2, VolumeX } from 'lucide-react';
 import { Tilt, TiltContent } from '@animate-ui/react/primitives/effects/tilt';
 import {
   computeMetaLayoutFromTexts,
@@ -17,6 +17,7 @@ import type {
 import { formatClock, formatShootDate, type PreviewRange } from './types.ts';
 import { getLocalizedTemplateMeta } from '../studio/introOutroOptions.ts';
 import { useI18n } from '../../i18n/index.tsx';
+import { Tooltip } from '../ui/Tooltip.tsx';
 import { resolveTimelineItem, type TimelineModel } from './timelineModel.ts';
 import { PreviewInteractiveOverlay } from './PreviewInteractiveOverlay.tsx';
 
@@ -36,6 +37,9 @@ interface CenterPreviewStageProps {
   isExporting?: boolean;
   /** 설정 모달에서 날짜 형식·나이 옵션을 바꾼 경우 캔버스를 다시 그리기 위한 신호. */
   revision?: number;
+  /** 미리보기 소리 on/off. 원본 영상 현장음과 BGM에 함께 적용된다. */
+  isMuted: boolean;
+  onToggleMute: () => void;
   onTogglePlay: () => void;
   onPause: () => void;
   onSeek: (time: number) => void;
@@ -56,6 +60,8 @@ const CenterPreviewStageImpl = ({
   previewRange,
   isExporting = false,
   revision = 0,
+  isMuted,
+  onToggleMute,
   onTogglePlay,
   onPause,
   onSeek,
@@ -63,7 +69,7 @@ const CenterPreviewStageImpl = ({
   onUpdateSegment,
   onUpdateOverlay,
 }: CenterPreviewStageProps) => {
-  const { dict, ui } = useI18n();
+  const { dict, ui, t } = useI18n();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoRefs = useRef(new Map<string, HTMLVideoElement>());
   const introOutroRef = useRef<IntroOutroModule | null>(null);
@@ -337,7 +343,7 @@ const CenterPreviewStageImpl = ({
               else videoRefs.current.delete(video.id);
             }}
             src={video.url}
-            muted
+            muted={isMuted}
             playsInline
             preload={isExporting ? 'none' : 'auto'}
             onLoadedData={() => setRedrawTick((t) => t + 1)}
@@ -357,7 +363,7 @@ const CenterPreviewStageImpl = ({
             ref={customIntroVideoRef}
             className="sv2-preview-custom-video"
             src={customVideoUrls.intro}
-            muted
+            muted={isMuted}
             playsInline
             preload={isExporting ? 'none' : 'auto'}
             onLoadedMetadata={() => setRedrawTick((t) => t + 1)}
@@ -368,7 +374,7 @@ const CenterPreviewStageImpl = ({
             ref={customOutroVideoRef}
             className="sv2-preview-custom-video"
             src={customVideoUrls.outro}
-            muted
+            muted={isMuted}
             playsInline
             preload={isExporting ? 'none' : 'auto'}
             onLoadedMetadata={() => setRedrawTick((t) => t + 1)}
@@ -415,6 +421,17 @@ const CenterPreviewStageImpl = ({
         >
           {isPlaying ? <Pause size={17} /> : <Play size={17} />}
         </button>
+        <Tooltip content={isMuted ? t('player.unmute') : t('player.mute')}>
+          <button
+            type="button"
+            className="sv2-sound-btn"
+            onClick={onToggleMute}
+            aria-label={isMuted ? t('player.unmute') : t('player.mute')}
+            aria-pressed={!isMuted}
+          >
+            {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+          </button>
+        </Tooltip>
         <span className="sv2-transport-time">
           {formatClock(playhead)} / {formatClock(totalDuration)}
         </span>
