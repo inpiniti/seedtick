@@ -72,9 +72,10 @@
   pointer-events: auto;
 }
 
-/* 연출이 끝나면 실제 상단바 브랜드와 100ms 동안 교차 페이드하며 사라진다. */
+/* 실제 브랜드가 FLIP으로 앉는 동안 오버레이가 교차 페이드하며 사라진다. */
 .sv2-intro-group[data-phase='handoff'] {
   opacity: 0;
+  transition: opacity 0.22s ease;
 }
 
 /* 링크는 레이아웃에 영향 없이 동작만 제공한다. */

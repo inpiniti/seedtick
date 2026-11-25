@@ -2,7 +2,7 @@
 // 중앙에서 펭귄컷 로고를 그린 뒤 심볼과 워드마크가 함께 좌상단으로 날아간다.
 // 패널 등장이 끝나면 같은 자리에서 실제 상단바 브랜드로 조용히 교체하고 오버레이를 제거한다.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { PenguinLogo } from '../common/PenguinLogo.tsx';
 import { getLandingPath, useI18n } from '../../i18n/index.tsx';
@@ -15,9 +15,9 @@ const DRAW_MS = 1400;
 const FLY_MS = 820;
 const HAND_OFF_MS = 120;
 const REVEAL_MS = 2100;
-// 로고가 도착한 뒤 잠시 고정했다가, 실제 브랜드와 100ms 동안 교차 페이드한다.
+// 로고가 도착한 뒤 잠시 고정했다가, 실제 브랜드가 FLIP으로 제자리에 앉는 동안 교차 페이드한다.
 const PIN_HOLD_MS = 160;
-const SWAP_MS = 100;
+const SWAP_MS = 320;
 
 /**
  * 인트로를 건너뛸지 판단한다.
@@ -119,6 +119,43 @@ export function StudioIntro({ initialPhase, onPhaseChange }: StudioIntroProps) {
     }
 
     return;
+  }, [phase]);
+
+  // 교체 순간 실제 상단바 브랜드를 오버레이 로고 위치에서 시작해 제자리로 FLIP한다.
+  // 남은 미세한 좌표 차이가 '정리되는 모션'으로 읽혀 교체 티가 사라진다.
+  useLayoutEffect(() => {
+    if (phase !== 'handoff') return;
+    const brand = document.querySelector<HTMLElement>('.sv2-brand');
+    const group = groupRef.current;
+    if (!brand || !group) return;
+
+    const from = group.getBoundingClientRect();
+    const to = brand.getBoundingClientRect();
+    const dx = from.left + from.width / 2 - (to.left + to.width / 2);
+    const dy = from.top + from.height / 2 - (to.top + to.height / 2);
+    const scale = to.width > 0 ? from.width / to.width : 1;
+
+    // 페인트 전에 시작 위치를 잡아 두 브랜드가 동시에 보이는 프레임을 막는다.
+    brand.style.transformOrigin = 'center center';
+    brand.style.transition = 'none';
+    brand.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`;
+    void brand.offsetWidth;
+
+    brand.style.transition = 'transform 0.26s cubic-bezier(0.22, 1, 0.36, 1)';
+    brand.style.transform = 'none';
+
+    const timer = window.setTimeout(() => {
+      brand.style.transition = '';
+      brand.style.transform = '';
+      brand.style.transformOrigin = '';
+    }, 280);
+
+    return () => {
+      window.clearTimeout(timer);
+      brand.style.transition = '';
+      brand.style.transform = '';
+      brand.style.transformOrigin = '';
+    };
   }, [phase]);
 
   // 비행이 끝난 뒤 아이콘과 글자를 각각 실측해 실제 브랜드에 맞춘다(FLIP 보정).
