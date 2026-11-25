@@ -12,6 +12,11 @@
 //   5. edts/elst 미디어 오프셋 반영
 //   6. Dolby Vision(dvh1) 샘플 엔트리 파싱
 //   7. 키프레임 디코딩 진행 기반 타임아웃 / 정지 시 타임아웃·자원 정리
+//   8. 미해제 VideoFrame 서피스 풀 고갈 회피 (즉시 draw + close)
+//   9. 리오더 버퍼(flush 전 무출력)에서 decodeQueueSize 데드락 회피
+//   10. prefer-hardware 정체 → prefer-software 재시도
+//   11. 프레임별 진행 콜백 즉시 전달
+//   12. 부분 프레임 과반 확보 시 정체 무시하고 반환
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -57,6 +62,10 @@ class FakeVideoDecoder {
   static isConfigSupported = async () => ({ supported: true });
   static outputDelayMs = 2;
   static maxOutputs = Infinity; // 0이면 출력 정지, 1이면 첫 프레임만 출력 (타임아웃 재현)
+  static maxOpenFrames = Infinity; // 미해제 VideoFrame이 이 값 이상이면 서피스 풀 고갈로 출력 정지
+  static holdUntilFlush = false; // 리오더 버퍼(DPB): flush() 전까지 프레임을 붙잡는다
+  static stallHardware = false; // prefer-hardware만 정체하고 prefer-software는 정상 동작
+  static staggerOutputs = false; // 프레임을 순차적으로 내보내 유휴 타임아웃 연장을 검증
   static instances = [];
 
   constructor(callbacks) {
@@ -65,28 +74,47 @@ class FakeVideoDecoder {
     this.pending = 0;
     this.outputCount = 0;
     this.frames = [];
+    this.queued = [];
+    this.isHardware = false;
     this.closed = false;
     FakeVideoDecoder.instances.push(this);
   }
   configure(config) {
     this.config = config;
+    this.isHardware = config.hardwareAcceleration === 'prefer-hardware';
   }
-  decode(chunk) {
-    this.decodeQueueSize++;
-    this.pending++;
+  emit(chunk) {
     // 실제 하드웨어 디코더처럼 비동기로 출력 (프레임 드랍 재현에 중요)
+    const staggerIndex = this.decodeQueueSize;
+    const delayMs = FakeVideoDecoder.staggerOutputs
+      ? FakeVideoDecoder.outputDelayMs * staggerIndex
+      : FakeVideoDecoder.outputDelayMs;
     setTimeout(() => {
       // 출력 정지 상태에서는 큐도 비워지지 않아야 실제 디코더 행정(정지)을 재현한다.
       if (this.closed || this.outputCount >= FakeVideoDecoder.maxOutputs) return;
+      if (this.isHardware && FakeVideoDecoder.stallHardware) return;
+      const openFrames = this.frames.filter((f) => !f.closed).length;
+      if (openFrames >= FakeVideoDecoder.maxOpenFrames) return;
       this.decodeQueueSize--;
       this.pending--;
       this.outputCount++;
       const frame = new FakeVideoFrame(chunk.timestamp);
       this.frames.push(frame);
       this.callbacks.output(frame);
-    }, FakeVideoDecoder.outputDelayMs);
+    }, delayMs);
+  }
+  decode(chunk) {
+    this.decodeQueueSize++;
+    this.pending++;
+    this.queued.push(chunk);
+    if (FakeVideoDecoder.holdUntilFlush) return;
+    this.emit(chunk);
   }
   async flush() {
+    if (FakeVideoDecoder.holdUntilFlush) {
+      const chunks = this.queued.splice(0);
+      for (const chunk of chunks) this.emit(chunk);
+    }
     // 타임아웃으로 close()된 경우 대기 중인 디코딩이 영원히 붙잡지 않도록 한다.
     while (this.pending > 0 && !this.closed) {
       await new Promise((resolve) => setTimeout(resolve, 1));
@@ -381,6 +409,7 @@ console.log('=== 7. 키프레임 디코딩 타임아웃 / 자원 정리 ===');
     const instanceIndex = FakeVideoDecoder.instances.length;
     FakeVideoDecoder.outputDelayMs = 90;
     FakeVideoDecoder.maxOutputs = Infinity;
+    FakeVideoDecoder.staggerOutputs = true; // 90/180/270/360ms 순차 출력
     const startedAt = Date.now();
     const decoded = await mp4.decodeKeyframesNearTimes(blob, [0, 1, 2, 3], {
       targetWidth: 320,
@@ -394,6 +423,7 @@ console.log('=== 7. 키프레임 디코딩 타임아웃 / 자원 정리 ===');
     );
     check('누적 소요가 단일 제한시간 초과', elapsed > 120, `elapsed=${elapsed}ms`);
     check('성공 경로 디코더 종료', FakeVideoDecoder.instances[instanceIndex]?.closed === true);
+    FakeVideoDecoder.staggerOutputs = false;
   }
 
   // 출력이 전혀 없으면 제한시간 뒤 null 폴백 + 디코더 정리.
@@ -427,6 +457,103 @@ console.log('=== 7. 키프레임 디코딩 타임아웃 / 자원 정리 ===');
       `frames=${decoderInstance?.frames.length ?? 0}`
     );
   }
+  FakeVideoDecoder.maxOutputs = Infinity;
+}
+
+console.log('=== 8. 미해제 VideoFrame 서피스 풀 고갈 회피 ===');
+{
+  const blob = buildMp4({ n: 120, keyEvery: 30 });
+  const instanceIndex = FakeVideoDecoder.instances.length;
+  FakeVideoDecoder.outputDelayMs = 2;
+  FakeVideoDecoder.maxOutputs = Infinity;
+  FakeVideoDecoder.maxOpenFrames = 2; // 미해제 프레임 2장까지만 허용
+  FakeVideoDecoder.holdUntilFlush = false;
+  FakeVideoDecoder.stallHardware = false;
+  const progress = [];
+  const decoded = await mp4.decodeKeyframesNearTimes(blob, [0, 1, 2, 3], {
+    targetWidth: 320,
+    timeoutMs: 300,
+    onFrameDecoded: (done, total) => progress.push([done, total]),
+  });
+  check(
+    '서피스 풀 2장 제한에서도 4장 전부 디코딩',
+    decoded?.length === 4,
+    `decoded=${decoded?.length ?? 'null'}`
+  );
+  const decoderInstance = FakeVideoDecoder.instances[instanceIndex];
+  check(
+    '모든 VideoFrame 즉시 close',
+    !!decoderInstance?.frames.length && decoderInstance.frames.every((f) => f.closed),
+    `frames=${decoderInstance?.frames.length ?? 0}`
+  );
+  check(
+    '프레임마다 진행 콜백 즉시 전달',
+    progress.length === 4 && progress[3][0] === 4 && progress[3][1] === 4,
+    JSON.stringify(progress)
+  );
+  FakeVideoDecoder.maxOpenFrames = Infinity;
+}
+
+console.log('=== 9. 리오더 버퍼 decodeQueueSize 데드락 회피 ===');
+{
+  const blob = buildMp4({ n: 120, keyEvery: 30 });
+  FakeVideoDecoder.outputDelayMs = 2;
+  FakeVideoDecoder.maxOutputs = Infinity;
+  FakeVideoDecoder.maxOpenFrames = Infinity;
+  FakeVideoDecoder.holdUntilFlush = true; // flush() 전까지 프레임을 붙잡는 DPB 재현
+  FakeVideoDecoder.stallHardware = false;
+  const startedAt = Date.now();
+  const decoded = await mp4.decodeKeyframesNearTimes(blob, [0, 1, 2, 3], {
+    targetWidth: 320,
+    timeoutMs: 300,
+  });
+  const elapsed = Date.now() - startedAt;
+  check(
+    'flush 전까지 출력 없어도 데드락 없이 성공',
+    decoded?.length === 4,
+    `elapsed=${elapsed}ms decoded=${decoded?.length ?? 'null'}`
+  );
+  FakeVideoDecoder.holdUntilFlush = false;
+}
+
+console.log('=== 10. 하드웨어 정체 → 소프트웨어 재시도 ===');
+{
+  const blob = buildMp4({ n: 120, keyEvery: 30 });
+  const instanceIndex = FakeVideoDecoder.instances.length;
+  FakeVideoDecoder.outputDelayMs = 2;
+  FakeVideoDecoder.maxOutputs = Infinity;
+  FakeVideoDecoder.maxOpenFrames = Infinity;
+  FakeVideoDecoder.holdUntilFlush = false;
+  FakeVideoDecoder.stallHardware = true;
+  const decoded = await mp4.decodeKeyframesNearTimes(blob, [0, 1, 2, 3], {
+    targetWidth: 320,
+    timeoutMs: 300,
+  });
+  const instances = FakeVideoDecoder.instances.slice(instanceIndex);
+  check(
+    '하드웨어 정체 후 소프트웨어 재시도 성공',
+    decoded?.length === 4,
+    `decoded=${decoded?.length ?? 'null'}`
+  );
+  check('두 번 이상 디코더 생성', instances.length >= 2, `instances=${instances.length}`);
+  check('두 번째 디코더는 소프트웨어', instances[1]?.isHardware === false);
+  check('정체된 하드웨어 디코더 정리', instances[0]?.closed === true);
+  FakeVideoDecoder.stallHardware = false;
+}
+
+console.log('=== 11. 부분 프레임 과반 확보 시 정체 무시하고 반환 ===');
+{
+  const blob = buildMp4({ n: 120, keyEvery: 30 });
+  FakeVideoDecoder.outputDelayMs = 2;
+  FakeVideoDecoder.maxOutputs = 2; // 4장 중 2장(과반)만 출력하고 정체
+  FakeVideoDecoder.maxOpenFrames = Infinity;
+  FakeVideoDecoder.holdUntilFlush = false;
+  FakeVideoDecoder.stallHardware = false;
+  const decoded = await mp4.decodeKeyframesNearTimes(blob, [0, 1, 2, 3], {
+    targetWidth: 320,
+    timeoutMs: 100,
+  });
+  check('과반 확보 시 부분 결과 반환', decoded?.length === 2, `decoded=${decoded?.length ?? 'null'}`);
   FakeVideoDecoder.maxOutputs = Infinity;
 }
 

@@ -80,6 +80,39 @@ function releaseMetadataSlot(): void {
   }
 }
 
+// 분석 프레임 추출 전용 슬롯.
+// WebCodecs 하드웨어 디코더는 동시에 열 수 있는 세션/출력 서피스가 제한되어 있어
+// 4개 영상이 동시에 키프레임 디코딩을 시작하면 서로 자원을 빼앗아 타임아웃이 난다.
+// 추출 자체는 1~2초면 끝나므로 여기서는 1~2개만 허용하고, AI 네트워크 분석은
+// 상위 워커 풀(VIDEO_ANALYSIS_CONCURRENCY)에서 계속 4병렬로 진행된다.
+const MAX_CONCURRENT_FRAME_EXTRACTIONS = IS_MOBILE_DEVICE ? 1 : 2;
+let activeFrameExtractions = 0;
+const frameExtractionQueue: Array<() => void> = [];
+
+function acquireFrameExtractionSlot(onWaiting?: (waiting: boolean) => void): Promise<void> {
+  if (activeFrameExtractions < MAX_CONCURRENT_FRAME_EXTRACTIONS) {
+    activeFrameExtractions++;
+    onWaiting?.(false);
+    return Promise.resolve();
+  }
+  onWaiting?.(true);
+  return new Promise<void>((resolve) => {
+    frameExtractionQueue.push(() => {
+      activeFrameExtractions++;
+      onWaiting?.(false);
+      resolve();
+    });
+  });
+}
+
+function releaseFrameExtractionSlot(): void {
+  activeFrameExtractions = Math.max(0, activeFrameExtractions - 1);
+  const next = frameExtractionQueue.shift();
+  if (next) {
+    next();
+  }
+}
+
 // 영상 길이에 따라 최적의 프레임 샘플링 타임스탬프 계산
 // - story: 최대 10~14개 프레임
 // - quick-cut: 1초 컷을 놓치지 않도록 최대 18~24개 프레임을 촘촘히 배치
@@ -156,19 +189,15 @@ export function getAnalysisFrameBudget(
   return calculateSampleTimestamps(totalDuration, maxFrames, highlightMode).length;
 }
 
-// 분석용 단일 캔버스 재사용 (매 영상마다 캔버스 인스턴스를 누적 생성하지 않도록 관리)
-let sharedAnalysisCanvas: HTMLCanvasElement | null = null;
-
-function getSharedAnalysisCanvas(width: number, height: number): {
+// 분석용 캔버스는 호출별로 새로 만든다. 예전에는 전역 캔버스 하나를 여러 <video> 폴백이
+// await seek 사이에 공유해 서로의 크기/픽셀을 덮어쓰는 경합이 있었다.
+function createAnalysisCanvas(width: number, height: number): {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
 } {
-  if (!sharedAnalysisCanvas && typeof document !== 'undefined') {
-    sharedAnalysisCanvas = document.createElement('canvas');
-  }
-  const canvas = sharedAnalysisCanvas || document.createElement('canvas');
-  if (canvas.width !== width) canvas.width = width;
-  if (canvas.height !== height) canvas.height = height;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
   const ctx = canvas.getContext('2d', { alpha: false }) || canvas.getContext('2d');
   if (!ctx) {
     throw new Error('캔버스 컨텍스트를 생성할 수 없습니다.');
@@ -182,9 +211,33 @@ export interface MediaFrameSource {
 }
 
 // 분석용 주요 프레임 다중 이미지 추출
+// 하드웨어 디코더/캔버스 자원 경합을 막기 위해 추출 구간만 동시성 슬롯으로 직렬화한다.
+// 슬롯 대기 중에는 onWaiting(true)를 호출해 UI가 "추출 대기 중"을 표시할 수 있게 한다.
+export async function extractVideoFramesForAnalysis(
+  source: MediaFrameSource | string,
+  totalDuration: number,
+  onProgress?: (progressPercent: number) => void,
+  rotation = 0,
+  highlightMode: HighlightMode = 'story',
+  onWaiting?: (waiting: boolean) => void
+): Promise<ExtractedFrame[]> {
+  await acquireFrameExtractionSlot(onWaiting);
+  try {
+    return await extractVideoFramesForAnalysisInternal(
+      source,
+      totalDuration,
+      onProgress,
+      rotation,
+      highlightMode
+    );
+  } finally {
+    releaseFrameExtractionSlot();
+  }
+}
+
 // 1순위: WebCodecs 키프레임 디코딩 (iOS MediaCache 디스크 기록 없음, <video> 미사용)
 // 2순위(폴백): <video preload='metadata'> + seek (최소 한도 MediaCache만 사용)
-export async function extractVideoFramesForAnalysis(
+async function extractVideoFramesForAnalysisInternal(
   source: MediaFrameSource | string,
   totalDuration: number,
   onProgress?: (progressPercent: number) => void,
@@ -282,7 +335,7 @@ async function extractFramesWithVideoElement(
         const aspectRatio = (video.videoHeight || 360) / (video.videoWidth || 640);
         const targetHeight = Math.max(2, Math.round((targetWidth * aspectRatio) / 2) * 2);
 
-        const { canvas, ctx } = getSharedAnalysisCanvas(targetWidth, targetHeight);
+        const { canvas, ctx } = createAnalysisCanvas(targetWidth, targetHeight);
 
         const maxFrameCount = isQuickCutMode
           ? IS_MOBILE_DEVICE
@@ -356,7 +409,7 @@ async function extractFramesWithVideoElement(
           }
         }
 
-        // 공유 캔버스의 버퍼도 일시 축소하여 유휴 GPU 메모리 즉시 반환
+        // 캔버스 버퍼를 축소해 유휴 GPU 메모리를 즉시 반환
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         canvas.width = 1;
         canvas.height = 1;

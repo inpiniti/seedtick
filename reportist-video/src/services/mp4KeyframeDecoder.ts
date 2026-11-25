@@ -823,93 +823,95 @@ export async function decodeKeyframesNearTimes(
     optimizeForLatency: true,
   } as VideoDecoderConfig);
 
-  let config: VideoDecoderConfig | null = null;
+  // 하드웨어 → 소프트웨어 순으로 후보를 미리 모아둔다. 실제 디코딩에서
+  // 하드웨어가 정체되더라도 곧바로 소프트웨어로 재시도할 수 있도록 한다.
+  const configCandidates: VideoDecoderConfig[] = [];
   for (const codec of buildHevcCodecCandidates(track.codec, track.description)) {
     for (const hardwareAcceleration of ['prefer-hardware', 'prefer-software'] as const) {
       const candidate = buildConfig(codec, hardwareAcceleration);
       try {
         if ((await VideoDecoder.isConfigSupported(candidate)).supported) {
-          config = candidate;
-          break;
+          configCandidates.push(candidate);
         }
       } catch {}
     }
-    if (config) break;
   }
-  if (!config) return null;
+  if (configCandidates.length === 0) return null;
 
-  // 디코딩 실행
-  // 타임아웃은 "마지막 진행 시점" 기준으로 재설정한다(긴 영상에서 프레임이 계속
-  // 나오는데도 고정 시한에 잘려 폴백되던 문제 방지). 다만 진행이 이어져도
-  // 무한정 대기하지 않도록 절대 상한(hard deadline)을 함께 둔다.
-  const framesByTimestamp = new Map<number, VideoFrame>();
-  // 클로저(decodeOnce/failDecode)에서 갱신하는 값이므로 TS가 null로 좁히지 않도록 홀더 사용
-  const decodeState: { decoder: VideoDecoder | null } = { decoder: null };
-  let cancelled = false;
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
-  let rejectTimeout: ((err: Error) => void) | null = null;
+  // 요청 타임스탬프(마이크로초) → 즉시 JPEG로 그려둔 결과.
+  // VideoFrame을 한 장도 들고 있지 않으므로 하드웨어 출력 서피스가 고갈되지 않는다.
+  const drawnFrames = new Map<number, { dataUrl: string; width: number; height: number }>();
   const startedAt = Date.now();
   const hardDeadlineMs = Math.max(timeoutMs * 2, 30_000);
+  const totalTargets = uniqueDecodeList.length;
+  // 하드웨어는 응답이 없으면 빨리 포기하고 소프트웨어로 넘어간다.
+  const hardwareBudgetMs = Math.min(timeoutMs, 6_000);
 
-  const closeFrames = () => {
-    for (const frame of framesByTimestamp.values()) {
-      try { frame.close(); } catch {}
-    }
-    framesByTimestamp.clear();
-  };
-
-  function failDecode(err: Error) {
-    if (cancelled) return;
-    cancelled = true;
-    if (timeoutId) clearTimeout(timeoutId);
-    // 레이스에서 패배한 쪽(decodeOnce)이 아직 프레임을 들고 있을 수 있으므로
-    // 여기서 바로 닫아 누수를 막는다.
-    closeFrames();
-    try { decodeState.decoder?.close(); } catch {}
-    rejectTimeout?.(err);
-  }
-
-  const armTimeout = () => {
-    if (cancelled) return;
-    if (timeoutId) clearTimeout(timeoutId);
-    const remaining = hardDeadlineMs - (Date.now() - startedAt);
-    if (remaining <= 0) {
-      failDecode(new Error('키프레임 디코딩 타임아웃'));
-      return;
-    }
-    timeoutId = setTimeout(
-      () => failDecode(new Error('키프레임 디코딩 타임아웃')),
-      Math.min(timeoutMs, remaining)
-    );
-  };
-
-  const decodeOnce = async (): Promise<Map<number, VideoFrame>> => {
+  /**
+   * 한 구성으로 전체 키프레임을 디코딩한다.
+   * 성공하면 true, 타임아웃/에러/정체면 false를 반환해 다음 후보가 이어받는다.
+   */
+  const tryDecodeWithConfig = async (config: VideoDecoderConfig): Promise<boolean> => {
+    const budgetMs =
+      config.hardwareAcceleration === 'prefer-hardware' ? hardwareBudgetMs : timeoutMs;
+    let cancelled = false;
     let decodeError: unknown = null;
+    let lastProgressAt = Date.now();
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let decoder: VideoDecoder | null = null;
 
-    const activeDecoder = new VideoDecoder({
+    // "마지막 진행 시점" 기준 유휴 타임아웃(긴 영상에서 계속 프레임이 나오면 연장).
+    // 단, 절대 상한(hardDeadline)을 넘기지 않는다.
+    const armTimeout = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      const deadline = Math.min(lastProgressAt + budgetMs, startedAt + hardDeadlineMs);
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) {
+        cancelled = true;
+        try { decoder?.close(); } catch {}
+        return;
+      }
+      timeoutId = setTimeout(() => {
+        cancelled = true;
+        try { decoder?.close(); } catch {}
+      }, remaining);
+    };
+
+    decoder = new VideoDecoder({
       output: (frame) => {
         if (cancelled) {
           try { frame.close(); } catch {}
           return;
         }
-        const ts = frame.timestamp;
-        const existing = framesByTimestamp.get(ts);
-        if (existing) {
-          try { existing.close(); } catch {}
+        try {
+          const ts = frame.timestamp;
+          const drawn = drawFrameToDataUrl(frame, effectiveRotation, targetWidth, jpegQuality);
+          if (drawn) {
+            drawnFrames.set(ts, drawn);
+            // 디코딩이 끝날 때까지 기다리지 않고 프레임이 나오는 즉시 진행률을 올린다.
+            onFrameDecoded?.(drawnFrames.size, totalTargets);
+          }
+          lastProgressAt = Date.now();
+          armTimeout();
+        } finally {
+          // 그리기가 끝나면 즉시 반환 → GPU 출력 서피스를 다음 프레임에 넘긴다.
+          try { frame.close(); } catch {}
         }
-        framesByTimestamp.set(ts, frame);
-        armTimeout(); // 프레임 출력 = 정상 진행 → 유휴 타임아웃 초기화
       },
       error: (err) => {
         decodeError = err;
-        failDecode(err instanceof Error ? err : new Error(String(err)));
+        cancelled = true;
+        try { decoder?.close(); } catch {}
       },
     });
-    decodeState.decoder = activeDecoder;
+    const activeDecoder = decoder;
 
     try {
-      activeDecoder.configure(config!);
-
+      armTimeout();
+      activeDecoder.configure(config);
+      // decodeQueueSize >= N 대기는 리오더 버퍼(DPB)를 가진 코덱에서
+      // 디코더가 초기 프레임을 붙잡은 채 다음 입력/flush만 기다리는 교착을 만든다.
+      // 청크를 순차 큐잉한 뒤 flush()가 드레인하도록 맡긴다.
       uniqueDecodeList.sort((a, b) => a.ctsSec - b.ctsSec);
       for (const item of uniqueDecodeList) {
         if (cancelled || decodeError) break;
@@ -917,14 +919,6 @@ export async function decodeKeyframesNearTimes(
         // 바이트 슬라이스로 해당 키프레임만 읽기 (수 MB)
         const data = await file.slice(sample.offset, sample.offset + sample.size).arrayBuffer();
         if (cancelled || decodeError) break;
-
-        // 백프레셔: 큐가 찬 상태에서 계속 decode()를 호출하면 flush()가
-        // 모든 프레임을 처리할 때까지 지연되어 타임아웃 폴백이 발생한다.
-        while (!cancelled && activeDecoder.decodeQueueSize >= 2) {
-          await new Promise<void>((resolve) => setTimeout(resolve, 8));
-        }
-        if (cancelled || decodeError) break;
-
         activeDecoder.decode(
           new EncodedVideoChunk({
             type: 'key',
@@ -932,69 +926,59 @@ export async function decodeKeyframesNearTimes(
             data,
           })
         );
-        armTimeout(); // 청크 큐잉도 진행으로 간주
+        lastProgressAt = Date.now();
+        armTimeout();
       }
-      if (!cancelled) await activeDecoder.flush();
+      if (!cancelled && !decodeError) {
+        await activeDecoder.flush();
+      }
+    } catch (err) {
+      // 타임아웃으로 close()한 뒤 flush()가 abort 에러를 던질 수 있다.
+      // 이때 이미 뽑아둔 프레임까지 버리지 않도록 정체로 인한 reject는 무시한다.
+      if (!cancelled) decodeError = decodeError ?? err;
     } finally {
+      if (timeoutId) clearTimeout(timeoutId);
       try { activeDecoder.close(); } catch {}
-      if (decodeState.decoder === activeDecoder) decodeState.decoder = null;
     }
 
-    if (decodeError) throw decodeError;
-    return framesByTimestamp;
+    if (decodeError) {
+      console.warn('[mp4KeyframeDecoder] 디코딩 실패:', decodeError);
+      return false;
+    }
+    // 마지막 청크/flush에서 정체되더라도 절반 이상을 이미 뽑았다면 그대로 사용한다.
+    const enoughFrames = drawnFrames.size >= Math.max(1, Math.ceil(totalTargets * 0.5));
+    if (cancelled && !enoughFrames) return false;
+    return drawnFrames.size > 0;
   };
 
-  try {
-    await Promise.race([
-      // rejectTimeout을 먼저 등록한 뒤 디코딩을 시작해, 어떤 진행 콜백보다
-      // 타임아웃 reject가 준비되도록 보장한다.
-      new Promise<never>((_, reject) => {
-        rejectTimeout = reject;
-        armTimeout();
-      }),
-      decodeOnce(),
-    ]).finally(() => {
-      if (timeoutId) clearTimeout(timeoutId);
-      rejectTimeout = null;
-    });
-  } catch (err) {
-    closeFrames();
-    try { decodeState.decoder?.close(); } catch {}
-    console.warn('[mp4KeyframeDecoder] 디코딩 실패:', err);
-    return null;
+  let decodedAny = false;
+  for (const config of configCandidates) {
+    if (Date.now() - startedAt >= hardDeadlineMs) break;
+    if (await tryDecodeWithConfig(config)) {
+      decodedAny = true;
+      break;
+    }
   }
+  if (!decodedAny) return null;
 
-  // 요청 순서대로 결과 구성
+  // 요청 순서대로 결과 구성 (이미 JPEG로 그려져 있으므로 다시 그리거나 닫을 필요가 없다)
   const results: DecodedVideoFrame[] = [];
-  let decodedCount = 0;
-  const totalTargets = timesSec.length;
-
   for (let i = 0; i < timesSec.length; i++) {
     const keyPos = requestToKeyframe.get(i);
     if (keyPos === undefined) continue;
     const sample = keySamples[keyPos];
     const tsMicros = Math.round(sample.ctsSec * 1_000_000);
-    const frame = framesByTimestamp.get(tsMicros);
-    if (!frame) continue;
-
-    const drawn = drawFrameToDataUrl(frame, effectiveRotation, targetWidth, jpegQuality);
-    if (drawn) {
-      results.push({
-        timeSec: Number.isFinite(timesSec[i]) ? timesSec[i] : sample.ctsSec,
-        dataUrl: drawn.dataUrl,
-        width: drawn.width,
-        height: drawn.height,
-      });
-    }
-    decodedCount++;
-    onFrameDecoded?.(decodedCount, totalTargets);
+    const drawn = drawnFrames.get(tsMicros);
+    if (!drawn) continue;
+    results.push({
+      timeSec: Number.isFinite(timesSec[i]) ? timesSec[i] : sample.ctsSec,
+      dataUrl: drawn.dataUrl,
+      width: drawn.width,
+      height: drawn.height,
+    });
   }
 
-  // VideoFrame 정리
-  for (const frame of framesByTimestamp.values()) {
-    try { frame.close(); } catch {}
-  }
-
+  // 정상 경로에서는 output 콜백이 이미 모든 프레임을 닫았다. (남은 프레임이 있다면 여기서 정리)
   return results;
 }
 

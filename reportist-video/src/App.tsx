@@ -929,7 +929,10 @@ export function App() {
       Object.assign(videoTasks[index], patch);
     };
     const activeStage = (stage: VideoTaskStage) =>
-      stage === 'extracting' || stage === 'queued' || stage === 'analyzing';
+      stage === 'extract-waiting' ||
+      stage === 'extracting' ||
+      stage === 'queued' ||
+      stage === 'analyzing';
 
     // 추론 2줄 박스는 가장 먼저 시작한 활성 영상 1개에 고정하고, 그 영상이 끝날 때만 다음으로 넘어간다.
     let focusedVideoIndex = 0;
@@ -946,6 +949,7 @@ export function App() {
       if (done >= totalVideos) return ui('모든 영상 분석을 마쳤어요');
       if (totalVideos <= 1) {
         const task = videoTasks[pickFocusedIndex()];
+        if (task?.stage === 'extract-waiting') return ui('프레임 추출 대기열에서 기다리고 있어요');
         if (task?.stage === 'extracting') return ui('프레임을 추출하고 있어요');
         if (task?.stage === 'queued') return ui('AI 분석 대기열에서 기다리고 있어요');
         if (task?.stage === 'analyzing') return ui('AI가 하이라이트를 찾고 있어요');
@@ -1053,7 +1057,7 @@ export function App() {
 
         // 1-A. 주요 프레임 다중 이미지 추출
         resetLiveStream();
-        publish({ stage: 'extracting' });
+        publish({ stage: 'extract-waiting' });
 
         addLog(interpolate(dict.logs.extractingFrames, {
           name: currentVideo.name,
@@ -1071,7 +1075,8 @@ export function App() {
             publish();
           },
           currentVideo.rotation,
-          highlightMode
+          highlightMode,
+          (waiting) => publish({ stage: waiting ? 'extract-waiting' : 'extracting' })
         );
 
         // 메타데이터 추출이 지연/실패해 duration이 0으로 남아 있던 경우 프레임 타임스탬프로 보정해

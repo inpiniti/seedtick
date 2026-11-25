@@ -94,7 +94,14 @@ export interface ExtractedFrame {
 export type OverallStep = 'upload' | 'processing' | 'result';
 
 /** 병렬 영상 분석 시 각 영상 슬롯의 상태 */
-export type VideoTaskStage = 'pending' | 'extracting' | 'queued' | 'analyzing' | 'done' | 'reused';
+export type VideoTaskStage =
+  | 'pending'
+  | 'extract-waiting'
+  | 'extracting'
+  | 'queued'
+  | 'analyzing'
+  | 'done'
+  | 'reused';
 
 export interface VideoTaskProgress {
   videoId: string;

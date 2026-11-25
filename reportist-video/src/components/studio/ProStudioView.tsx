@@ -1160,7 +1160,10 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
   // 병렬 분석 슬롯: 동시에 도는 영상 최대 4개를 자기 자리에서 독립 전진시킨다.
   const parallelTasks = progress.videoTasks ?? [];
   const isTaskActive = (stage?: string) =>
-    stage === 'extracting' || stage === 'queued' || stage === 'analyzing';
+    stage === 'extract-waiting' ||
+    stage === 'extracting' ||
+    stage === 'queued' ||
+    stage === 'analyzing';
   const activeParallelTasks = parallelTasks.filter((t) => isTaskActive(t.stage)).slice(0, 4);
   const doneVideoCount = parallelTasks.filter((t) => t.stage === 'done' || t.stage === 'reused').length;
   const pendingVideoCount = parallelTasks.filter((t) => t.stage === 'pending').length;
@@ -9686,6 +9689,7 @@ export const ProStudioView: React.FC<ProStudioViewProps> = ({
                       <span className="toss-modal-parallel-name">{task.name}</span>
                       </Tooltip>
                       <span className="toss-modal-parallel-stage">
+                        {task.stage === 'extract-waiting' && ui('추출 대기 중')}
                         {task.stage === 'extracting' && ui('프레임 추출')}
                         {task.stage === 'queued' && ui('대기 중')}
                         {task.stage === 'analyzing' &&

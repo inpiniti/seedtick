@@ -59,6 +59,14 @@ function taskBadge(task: VideoTaskProgress | undefined, hasSegments: boolean, ui
   }
   const pct = Math.max(0, Math.min(100, Math.floor(task.progressPercent)));
   switch (task.stage) {
+    case 'extract-waiting':
+      return {
+        label: ui('추출 대기 중'),
+        done: false,
+        active: true,
+        pct,
+        queued: true,
+      };
     case 'extracting':
       return {
         label: ui('프레임 추출 {pct}%', { pct }),

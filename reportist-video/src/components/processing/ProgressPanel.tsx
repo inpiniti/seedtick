@@ -79,7 +79,10 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
   // 병렬 분석 슬롯 (구버전 상태에는 videoTasks가 없으므로 기존 단일 카드로 폴백)
   const tasks = progress.videoTasks ?? [];
   const isActiveStage = (stage?: string) =>
-    stage === 'extracting' || stage === 'queued' || stage === 'analyzing';
+    stage === 'extract-waiting' ||
+    stage === 'extracting' ||
+    stage === 'queued' ||
+    stage === 'analyzing';
   const activeTasks = tasks.filter((t) => isActiveStage(t.stage)).slice(0, 4);
   const doneCount = tasks.filter((t) => t.stage === 'done' || t.stage === 'reused').length;
   const pendingCount = tasks.filter((t) => t.stage === 'pending').length;
@@ -166,6 +169,7 @@ export const ProgressPanel: React.FC<ProgressPanelProps> = ({
                     <div className="parallel-task-name">{task.name}</div>
                   </Tooltip>
                   <div className="parallel-task-status">
+                    {task.stage === 'extract-waiting' && ui('추출 대기 중')}
                     {task.stage === 'extracting' && ui('프레임 추출')}
                     {task.stage === 'queued' &&
                       `${ui('대기 중')}${task.queuePosition !== undefined ? ` ${task.queuePosition}` : ''}`}
