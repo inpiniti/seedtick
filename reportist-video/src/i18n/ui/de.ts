@@ -865,4 +865,11 @@ export const uiDe: Record<string, string> = {
     'Klicke auf einen Clip in der Timeline, um ihn hier zu drehen oder zu löschen.',
   '이 컷을 삭제할까요?': 'Diesen Clip löschen?',
   '삭제하면 되돌릴 수 없어요.': 'Das Löschen kann nicht rückgängig gemacht werden.',
+  '원본 영상 메뉴': 'Menü für Originalvideo',
+  '위쪽 삭제': 'Obere löschen',
+  '아래쪽 삭제': 'Untere löschen',
+  '정렬(시간 오름차순)': 'Sortieren (Zeit aufsteigend)',
+  '정렬(시간 내림차순)': 'Sortieren (Zeit absteigend)',
+  '정렬(없음)': 'Sortieren (keine)',
 };
+

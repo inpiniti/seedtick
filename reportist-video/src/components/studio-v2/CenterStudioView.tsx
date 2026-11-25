@@ -119,6 +119,8 @@ export const CenterStudioView = (props: StudioV2Props) => {
     isLoadingModels,
     onFilesSelected,
     onRemoveVideo,
+    onRemoveVideos,
+    onSortVideos,
     onUpdateVideoLocation,
     onStartAiAnalysis,
     isProcessing,
@@ -1138,26 +1140,29 @@ export const CenterStudioView = (props: StudioV2Props) => {
   /**
    * 원본 영상 삭제 오케스트레이션.
    * 1) 해당 컷들을 타임라인에서 숨기고 재생/선택/인스펙터를 정리한다.
-   * 2) 컷을 원본 카드로 역비행시키고, 카드 소멸이 끝나면 실제 상태 삭제를 호출한다.
+   * 2) 컷을 원본 카드로 역비행시키고, 모든 카드 소멸이 끝나면 실제 상태 삭제를 한 번에 호출한다.
    *    (blob URL 해제를 연출 뒤로 미뤄 고스트/썸네일이 도중에 깨지지 않게 한다.)
+   * 우클릭 메뉴의 위쪽/아래쪽 삭제도 이 경로를 타므로 여러 id를 한꺼번에 받는다.
    */
-  const handleRemoveVideoWithAnimation = useCallback(
-    (videoId: string) => {
-      if (isProcessing || removingVideoIds.has(videoId)) return;
+  const handleRemoveVideosWithAnimation = useCallback(
+    (videoIds: string[]) => {
+      const ids = videoIds.filter(
+        (videoId) =>
+          !isProcessing && !removingVideoIds.has(videoId) && videos.some((v) => v.id === videoId)
+      );
+      if (ids.length === 0) return;
+      const idSet = new Set(ids);
 
-      const targetSegments = localSegments.filter((s) => s.sourceVideoId === videoId);
-      const sourceVideo = videos.find((v) => v.id === videoId);
-      const cardEl = document.querySelector(
-        `[data-cut-card-id="${videoId}"]`
-      ) as HTMLElement | null;
+      const targetSegments = localSegments.filter((s) => idSet.has(s.sourceVideoId));
+      const targetSegmentIds = new Set(targetSegments.map((s) => s.id));
 
       clearPreview();
       setReturningIds((prev) => {
         const next = new Set(prev);
-        targetSegments.forEach((s) => next.add(s.id));
+        targetSegmentIds.forEach((id) => next.add(id));
         return next;
       });
-      setRemovingVideoIds((prev) => new Set(prev).add(videoId));
+      setRemovingVideoIds((prev) => new Set([...prev, ...ids]));
 
       if (targetSegments.some((s) => s.id === selectedSegmentId)) {
         setSelectedSegmentId(null);
@@ -1168,67 +1173,83 @@ export const CenterStudioView = (props: StudioV2Props) => {
       ) {
         setActiveInspector(null);
       }
-      if (trimSegment && targetSegments.some((s) => s.id === trimSegment.id)) {
+      if (trimSegment && targetSegmentIds.has(trimSegment.id)) {
         setTrimSegment(null);
       }
 
+      // 각 카드의 연출이 끝날 때마다 카운트를 줄이고, 마지막 카드에서 상태 삭제를 한 번만 적용한다.
+      let remaining = ids.length;
       const finalize = () => {
-        onRemoveVideo(videoId);
+        remaining -= 1;
+        if (remaining > 0) return;
+        if (onRemoveVideos) onRemoveVideos(ids);
+        else ids.forEach((id) => onRemoveVideo(id));
         setReturningIds((prev) => {
           const next = new Set(prev);
-          targetSegments.forEach((s) => next.delete(s.id));
+          targetSegmentIds.forEach((id) => next.delete(id));
           return next;
         });
         setRemovingVideoIds((prev) => {
           const next = new Set(prev);
-          next.delete(videoId);
+          ids.forEach((id) => next.delete(id));
           return next;
         });
         setLandedVideos((prev) => {
-          if (!prev.has(videoId)) return prev;
           const next = new Set(prev);
-          next.delete(videoId);
-          return next;
+          let changed = false;
+          ids.forEach((id) => {
+            if (next.delete(id)) changed = true;
+          });
+          return changed ? next : prev;
         });
-        targetSegments.forEach((s) => dispatchedIdsRef.current.delete(s.id));
+        targetSegmentIds.forEach((id) => dispatchedIdsRef.current.delete(id));
       };
-
-      if (targetSegments.length === 0) {
-        // 아직 컷이 없는 영상은 역비행 없이 카드 소멸만 연출한다.
-        const handle = collapseFlightCard(cardEl, finalize);
-        activeReturnFlightsRef.current.add(handle);
-        return;
-      }
 
       // 가로 스크롤 영역 밖의 칩은 트랙 뷰포트 경계로 clamp해 허공에서 출발하지 않게 한다.
       const trackRect = (document.querySelector('.sv2-tracks') as HTMLElement | null)
         ?.getBoundingClientRect();
-      const items = targetSegments.map((seg) => {
-        const chipRect = (
-          document.querySelector(`[data-cut-slot-id="${seg.id}"]`) as HTMLElement | null
-        )?.getBoundingClientRect();
-        let x = chipRect ? chipRect.left + chipRect.width / 2 : window.innerWidth * 0.65;
-        let y = chipRect ? chipRect.top + chipRect.height / 2 : window.innerHeight * 0.82;
-        if (trackRect) {
-          x = Math.max(trackRect.left + 46, Math.min(trackRect.right - 46, x));
-          y = Math.max(trackRect.top + 12, Math.min(trackRect.bottom - 12, y));
-        }
-        return { id: seg.id, thumbnailUrl: sourceVideo?.thumbnailUrl, from: { x, y } };
-      });
 
-      // 모션 축소 시 flyCutsOut이 onComplete를 동기 호출하므로 핸들을 미리 참조하지 않는다.
-      let finished = false;
-      const handleHolder: { current: FlightHandle | null } = { current: null };
-      const handle = flyCutsOut(items, {
-        toCardEl: cardEl,
-        onComplete: () => {
+      for (const videoId of ids) {
+        const sourceVideo = videos.find((v) => v.id === videoId);
+        const cardEl = document.querySelector(
+          `[data-cut-card-id="${videoId}"]`
+        ) as HTMLElement | null;
+        const segments = targetSegments.filter((s) => s.sourceVideoId === videoId);
+
+        // 모션 축소 시 애니메이션이 onComplete를 동기 호출하므로 핸들을 미리 참조하지 않는다.
+        let finished = false;
+        const handleHolder: { current: FlightHandle | null } = { current: null };
+        const onDone = () => {
           finished = true;
           if (handleHolder.current) activeReturnFlightsRef.current.delete(handleHolder.current);
           finalize();
-        },
-      });
-      handleHolder.current = handle;
-      if (!finished) activeReturnFlightsRef.current.add(handle);
+        };
+
+        if (segments.length === 0) {
+          // 아직 컷이 없는 영상은 역비행 없이 카드 소멸만 연출한다.
+          const handle = collapseFlightCard(cardEl, onDone);
+          handleHolder.current = handle;
+          if (!finished) activeReturnFlightsRef.current.add(handle);
+          continue;
+        }
+
+        const items = segments.map((seg) => {
+          const chipRect = (
+            document.querySelector(`[data-cut-slot-id="${seg.id}"]`) as HTMLElement | null
+          )?.getBoundingClientRect();
+          let x = chipRect ? chipRect.left + chipRect.width / 2 : window.innerWidth * 0.65;
+          let y = chipRect ? chipRect.top + chipRect.height / 2 : window.innerHeight * 0.82;
+          if (trackRect) {
+            x = Math.max(trackRect.left + 46, Math.min(trackRect.right - 46, x));
+            y = Math.max(trackRect.top + 12, Math.min(trackRect.bottom - 12, y));
+          }
+          return { id: seg.id, thumbnailUrl: sourceVideo?.thumbnailUrl, from: { x, y } };
+        });
+
+        const handle = flyCutsOut(items, { toCardEl: cardEl, onComplete: onDone });
+        handleHolder.current = handle;
+        if (!finished) activeReturnFlightsRef.current.add(handle);
+      }
     },
     [
       isProcessing,
@@ -1240,6 +1261,7 @@ export const CenterStudioView = (props: StudioV2Props) => {
       activeInspector,
       trimSegment,
       onRemoveVideo,
+      onRemoveVideos,
     ]
   );
 
@@ -1379,7 +1401,9 @@ export const CenterStudioView = (props: StudioV2Props) => {
           onAddVideos={() => {
             if (!isProcessing) fileInputRef.current?.click();
           }}
-          onRemoveVideo={handleRemoveVideoWithAnimation}
+          onRemoveVideo={(id) => handleRemoveVideosWithAnimation([id])}
+          onRemoveVideos={handleRemoveVideosWithAnimation}
+          onSortVideos={onSortVideos}
           onStartAnalysis={startAnalysis}
           onCancel={onCancelProcessing}
           onLoadSampleVideos={onLoadSampleVideos}

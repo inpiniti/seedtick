@@ -1,10 +1,13 @@
+import { useEffect, useState } from 'react';
 import { Plus, Scissors, Sparkles, UploadCloud, X } from 'lucide-react';
 import type { VideoItem, VideoTaskProgress } from '../../types/video.ts';
+import type { VideoSortMode } from './types.ts';
 import type { VideoShareItem } from '../../types/share.ts';
 import { useI18n } from '../../i18n/index.tsx';
 import { ShimmeringText } from '../common/ShimmeringText.tsx';
 import { SharedVideosPanel } from '../community/SharedVideosPanel.tsx';
 import { PageTransition } from './PageTransition.tsx';
+import { VideoContextMenu, type VideoContextAction } from './VideoContextMenu.tsx';
 import { formatShootDate } from './types.ts';
 import { Tooltip } from '../ui/Tooltip.tsx';
 
@@ -35,6 +38,9 @@ interface UploadQueueDockProps {
   onFilesSelected: (files: File[]) => void;
   onAddVideos: () => void;
   onRemoveVideo: (id: string) => void;
+  /** 우클릭 메뉴의 위쪽/아래쪽 삭제용 일괄 삭제. */
+  onRemoveVideos?: (ids: string[]) => void;
+  onSortVideos?: (mode: VideoSortMode) => void;
   onStartAnalysis: () => void;
   onCancel: () => void;
   /** 온보딩 중에만 번들 샘플을 프로젝트에 넣는다. */
@@ -102,6 +108,8 @@ export const UploadQueueDock = ({
   onFilesSelected,
   onAddVideos,
   onRemoveVideo,
+  onRemoveVideos,
+  onSortVideos,
   onStartAnalysis,
   onCancel,
   onLoadSampleVideos,
@@ -109,6 +117,58 @@ export const UploadQueueDock = ({
   isOnboardingActive,
 }: UploadQueueDockProps) => {
   const { ui } = useI18n();
+
+  // 우클릭 메뉴 상태. 인덱스는 메뉴를 연 시점의 목록 순서를 기준으로 한다.
+  const [contextMenu, setContextMenu] = useState<{
+    videoId: string;
+    index: number;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  // 탭 전환·목록 비움 시 커서 위치가 무의미해진 메뉴는 닫는다.
+  useEffect(() => {
+    setContextMenu(null);
+  }, [activeTab]);
+  useEffect(() => {
+    if (videos.length === 0) setContextMenu(null);
+  }, [videos.length]);
+
+  const handleContextAction = (action: VideoContextAction) => {
+    if (!contextMenu) return;
+    const { videoId, index } = contextMenu;
+    switch (action) {
+      case 'delete':
+        onRemoveVideo(videoId);
+        break;
+      case 'deleteAbove': {
+        const ids = videos.slice(0, index).map((v) => v.id);
+        if (ids.length) {
+          if (onRemoveVideos) onRemoveVideos(ids);
+          else ids.forEach((id) => onRemoveVideo(id));
+        }
+        break;
+      }
+      case 'deleteBelow': {
+        const ids = videos.slice(index + 1).map((v) => v.id);
+        if (ids.length) {
+          if (onRemoveVideos) onRemoveVideos(ids);
+          else ids.forEach((id) => onRemoveVideo(id));
+        }
+        break;
+      }
+      case 'sortAsc':
+        onSortVideos?.('asc');
+        break;
+      case 'sortDesc':
+        onSortVideos?.('desc');
+        break;
+      case 'sortNone':
+        onSortVideos?.('none');
+        break;
+    }
+  };
+
   // 분석 중에 새 영상을 넣으면 분석 시작 시점의 스냅샷이 다시 덮어써서 방금 넣은 영상이 사라진다.
   // 자막 다듬기(분석)가 끝날 때까지 추가 경로를 전부 잠근다.
   const addDisabled = isProcessing || activeTab !== 'source';
@@ -196,7 +256,7 @@ export const UploadQueueDock = ({
                   </button>
                 )}
 
-                {videos.map((video) => {
+                {videos.map((video, index) => {
                   const segment = video.segments?.[0];
                   const segmentCount = video.segments?.length ?? 0;
                   const task = taskByVideoId.get(video.id);
@@ -220,6 +280,16 @@ export const UploadQueueDock = ({
                       // 분석 중에만 착지한 카드를 접는다. 분석이 끝나면 삭제할 수 있도록 다시 노출한다.
                       data-landed={isProcessing && (landedVideos?.has(video.id) ?? false)}
                       data-removing={isRemoving}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        if (isProcessing || isRemoving) return;
+                        setContextMenu({
+                          videoId: video.id,
+                          index,
+                          x: e.clientX,
+                          y: e.clientY,
+                        });
+                      }}
                     >
                       {video.thumbnailUrl ? (
                         <img className="sv2-upload-thumb" src={video.thumbnailUrl} alt="" />
@@ -314,6 +384,17 @@ export const UploadQueueDock = ({
           )}
         </PageTransition>
       </div>
+
+      {contextMenu && (
+        <VideoContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          hasAbove={contextMenu.index > 0}
+          hasBelow={contextMenu.index < videos.length - 1}
+          onClose={() => setContextMenu(null)}
+          onSelect={handleContextAction}
+        />
+      )}
     </div>
   );
 };

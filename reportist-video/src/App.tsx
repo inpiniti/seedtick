@@ -28,7 +28,9 @@ import {
   extractGpsFromVideoFile,
   sortSegmentsByRecordedTime,
   getStoredAutoSortByRecordedTime,
+  parseDateTimeFromString,
 } from './services/videoMetadata.ts';
+import type { VideoSortMode } from './components/studio-v2/types.ts';
 import {
   refineSubtitlesWithContext,
   getStoredSubtitleTone,
@@ -104,6 +106,10 @@ export function App() {
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [currentStep, setCurrentStep] = useState<OverallStep>('upload');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // 좌측 원본 목록 정렬 전 순서. '정렬(없음)' 선택 시 이 스냅샷으로 되돌린다.
+  // (정렬은 화면 순서만 바꾸고 업로드 순서 스냅샷은 유지한다.)
+  const originalVideoOrderRef = useRef<VideoItem[] | null>(null);
 
   // 개별 영상 위치/장소명 수정 핸들러
   const handleUpdateVideoLocation = useCallback(
@@ -305,6 +311,7 @@ export function App() {
     }
 
     setVideos([]);
+    originalVideoOrderRef.current = null;
     setFinalResult(null);
     setCurrentStep('upload');
     setCurrentOrientation(orientation === 'portrait' ? 'portrait' : 'landscape');
@@ -561,6 +568,105 @@ export function App() {
       bestSourceVideoId: finalResult.bestSourceVideoId === id ? undefined : finalResult.bestSourceVideoId,
     });
   };
+
+  // 우클릭 메뉴의 위쪽/아래쪽 삭제처럼 여러 영상을 한 번에 지운다.
+  // handleRemove를 반복 호출하면 각 호출이 같은 videos 스냅샷을 읽어 앞선 삭제가 사라지므로
+  // 여기서는 함수형 업데이트로 한 번에 반영한다.
+  const handleRemoveVideos = useCallback((ids: string[]) => {
+    if (ids.length === 0) return;
+    const idSet = new Set(ids);
+    videos.forEach((v) => {
+      if (idSet.has(v.id) && v.url?.startsWith('blob:')) {
+        try {
+          URL.revokeObjectURL(v.url);
+        } catch {}
+      }
+    });
+    setVideos((prev) => prev.filter((v) => !idSet.has(v.id)));
+
+    if (
+      finalResult &&
+      finalResult.segments.length > 0 &&
+      finalResult.segments.every((s) => idSet.has(s.sourceVideoId))
+    ) {
+      setCurrentStep('upload');
+    }
+
+    setFinalResult((prev) => {
+      if (!prev) return prev;
+      const remainingSegments = prev.segments.filter((s) => !idSet.has(s.sourceVideoId));
+      if (remainingSegments.length === 0) return null;
+
+      const bridgeMap = prev.bridgeDurationMap;
+      const removedIds = new Set(
+        prev.segments.filter((s) => idSet.has(s.sourceVideoId)).map((s) => s.id)
+      );
+      const removedBridgeSeconds = bridgeMap
+        ? Array.from(removedIds).reduce((sum, segId) => sum + (bridgeMap[segId] ?? 0), 0)
+        : 0;
+      const removedClipSeconds = prev.segments
+        .filter((s) => idSet.has(s.sourceVideoId))
+        .reduce((sum, s) => sum + (s.duration || 0), 0);
+      const remainingIds = new Set(remainingSegments.map((s) => s.id));
+      const nextBridgeMap = bridgeMap
+        ? Object.fromEntries(Object.entries(bridgeMap).filter(([segId]) => remainingIds.has(segId)))
+        : bridgeMap;
+      const remainingVideos = videos.filter((v) => !idSet.has(v.id));
+
+      return {
+        ...prev,
+        segments: remainingSegments,
+        bridgeDurationMap: nextBridgeMap,
+        duration: Math.max(
+          0,
+          Math.round((prev.duration - removedClipSeconds - removedBridgeSeconds) * 10) / 10
+        ),
+        originalTotalDuration: remainingVideos.reduce((sum, v) => sum + (v.duration || 0), 0),
+        aiThumbnailRecommendations: prev.aiThumbnailRecommendations?.filter(
+          (r) => !idSet.has(r.videoId)
+        ),
+        bestSourceVideoId: idSet.has(prev.bestSourceVideoId ?? '')
+          ? undefined
+          : prev.bestSourceVideoId,
+      };
+    });
+
+    if (originalVideoOrderRef.current) {
+      originalVideoOrderRef.current = originalVideoOrderRef.current.filter((v) => !idSet.has(v.id));
+    }
+  }, [videos, finalResult]);
+
+  // 좌측 원본 목록 정렬. 촬영 시각(recordedTimestamp)이 없으면 메타데이터 날짜를 쓴다.
+  const handleSortVideos = useCallback(
+    (mode: VideoSortMode) => {
+      if (mode === 'none') {
+        const original = originalVideoOrderRef.current;
+        originalVideoOrderRef.current = null;
+        if (!original) return;
+        const byId = new Map(videos.map((v) => [v.id, v]));
+        const restored = original.filter((v) => byId.has(v.id)).map((v) => byId.get(v.id)!);
+        const restoredIds = new Set(restored.map((v) => v.id));
+        // 정렬 이후 새로 추가된 영상은 뒤에 이어 붙인다.
+        setVideos([...restored, ...videos.filter((v) => !restoredIds.has(v.id))]);
+        return;
+      }
+
+      if (!originalVideoOrderRef.current) originalVideoOrderRef.current = videos;
+      const timeOf = (v: VideoItem): number => {
+        if (typeof v.recordedTimestamp === 'number' && Number.isFinite(v.recordedTimestamp)) {
+          return v.recordedTimestamp;
+        }
+        if (v.metadataDate) {
+          const parsed = parseDateTimeFromString(v.metadataDate)?.date.getTime();
+          if (typeof parsed === 'number' && Number.isFinite(parsed)) return parsed;
+        }
+        return 0;
+      };
+      const direction = mode === 'asc' ? 1 : -1;
+      setVideos([...videos].sort((a, b) => direction * (timeOf(a) - timeOf(b))));
+    },
+    [videos]
+  );
 
   // 단일 영상 로컬 파일 재연결
   const handleRelinkSingleVideo = (videoId: string, newFile: File) => {
@@ -1887,6 +1993,8 @@ export function App() {
     isLoadingModels,
     onFilesSelected: handleFilesSelected,
     onRemoveVideo: handleRemove,
+    onRemoveVideos: handleRemoveVideos,
+    onSortVideos: handleSortVideos,
     onUpdateVideoLocation: handleUpdateVideoLocation,
     onUpdateVideoRotation: handleUpdateVideoRotation,
     onStartAiAnalysis: handleStartProcessing,

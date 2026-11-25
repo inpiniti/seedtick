@@ -865,4 +865,11 @@ export const uiFr: Record<string, string> = {
     'Cliquez sur un clip de la timeline pour le faire pivoter ou le supprimer ici.',
   '이 컷을 삭제할까요?': 'Supprimer ce clip ?',
   '삭제하면 되돌릴 수 없어요.': 'Cette action est irréversible.',
+  '원본 영상 메뉴': 'Menu de la vidéo source',
+  '위쪽 삭제': 'Supprimer le dessus',
+  '아래쪽 삭제': 'Supprimer le dessous',
+  '정렬(시간 오름차순)': 'Trier (heure croissante)',
+  '정렬(시간 내림차순)': 'Trier (heure décroissante)',
+  '정렬(없음)': 'Trier (aucun)',
 };
+

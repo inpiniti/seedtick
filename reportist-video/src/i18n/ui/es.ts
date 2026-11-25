@@ -864,4 +864,11 @@ export const uiEs: Record<string, string> = {
     'Pulsa un clip en la línea de tiempo para girarlo o eliminarlo aquí.',
   '이 컷을 삭제할까요?': '¿Eliminar este clip?',
   '삭제하면 되돌릴 수 없어요.': 'Esta acción no se puede deshacer.',
+  '원본 영상 메뉴': 'Menú del vídeo original',
+  '위쪽 삭제': 'Eliminar superiores',
+  '아래쪽 삭제': 'Eliminar inferiores',
+  '정렬(시간 오름차순)': 'Ordenar (hora ascendente)',
+  '정렬(시간 내림차순)': 'Ordenar (hora descendente)',
+  '정렬(없음)': 'Ordenar (ninguno)',
 };
+

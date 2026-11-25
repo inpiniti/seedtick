@@ -45,6 +45,9 @@ export interface StudioModelDisplay {
   usesTrainingData: boolean;
 }
 
+/** 좌측 원본 영상 목록 정렬 방식. 'none'은 업로드 순서(정렬 전 상태)로 되돌린다. */
+export type VideoSortMode = 'asc' | 'desc' | 'none';
+
 export interface StudioV2Props {
   result: FinalVideoResult | null;
   onUpdateFinalResult: (updated: FinalVideoResult) => void;
@@ -57,6 +60,10 @@ export interface StudioV2Props {
   isLoadingModels: boolean;
   onFilesSelected: (files: File[]) => void;
   onRemoveVideo: (id: string) => void;
+  /** 우클릭 메뉴의 위쪽/아래쪽 삭제처럼 여러 영상을 한 번에 지울 때 쓴다. */
+  onRemoveVideos?: (ids: string[]) => void;
+  /** 좌측 원본 영상 목록을 촬영 시간 기준으로 정렬한다. */
+  onSortVideos?: (mode: VideoSortMode) => void;
   onUpdateVideoLocation?: (id: string, locationName: string) => void;
   onUpdateVideoRotation?: (id: string, rotation: number) => void;
   onStartAiAnalysis: (

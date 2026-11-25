@@ -876,4 +876,11 @@ export const uiEn: Record<string, string> = {
     'Tap a cut on the timeline to rotate or delete it here.',
   '이 컷을 삭제할까요?': 'Delete this clip?',
   '삭제하면 되돌릴 수 없어요.': 'This cannot be undone.',
+  '원본 영상 메뉴': 'Source video menu',
+  '위쪽 삭제': 'Delete above',
+  '아래쪽 삭제': 'Delete below',
+  '정렬(시간 오름차순)': 'Sort (time ascending)',
+  '정렬(시간 내림차순)': 'Sort (time descending)',
+  '정렬(없음)': 'Sort (none)',
 };
+
