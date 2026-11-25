@@ -5,12 +5,17 @@ import React from 'react';
 import { PenguinLogo } from './PenguinLogo.tsx';
 import { getRuntimeLocale } from '../../i18n/localeState.ts';
 import type { Locale } from '../../i18n/types.ts';
+import {
+  isChunkLoadError,
+  recoverFromChunkLoadError,
+} from '../../services/chunkLoadRecovery.ts';
 
 interface ErrorCopy {
   title: string;
   description: string;
   action: string;
   hint: string;
+  recovering: string;
 }
 
 const ERROR_COPY: Record<Locale, ErrorCopy> = {
@@ -20,12 +25,14 @@ const ERROR_COPY: Record<Locale, ErrorCopy> = {
       'We could not load this screen. A new version may have replaced the files this tab was using.',
     action: 'Reload',
     hint: 'If the problem continues, refresh the browser completely.',
+    recovering: 'Loading the latest version…',
   },
   ko: {
     title: '화면을 불러오지 못했어요',
     description: '새 버전이 배포되면서 이 탭이 사용하던 파일이 바뀌었을 수 있어요.',
     action: '새로고침',
     hint: '문제가 계속되면 브라우저를 완전히 새로고침해 주세요.',
+    recovering: '최신 버전을 불러오는 중이에요…',
   },
   ja: {
     title: '画面を読み込めませんでした',
@@ -33,12 +40,14 @@ const ERROR_COPY: Record<Locale, ErrorCopy> = {
       '新しいバージョンの配信により、このタブで使用していたファイルが変わった可能性があります。',
     action: '再読み込み',
     hint: '問題が続く場合は、ブラウザを完全に再読み込みしてください。',
+    recovering: '最新バージョンを読み込み中です…',
   },
   zh: {
     title: '无法加载此页面',
     description: '新版本发布后，此标签页使用的文件可能已被替换。',
     action: '重新加载',
     hint: '如果问题仍然存在，请彻底刷新浏览器。',
+    recovering: '正在加载最新版本…',
   },
   es: {
     title: 'No se pudo cargar esta pantalla',
@@ -46,6 +55,7 @@ const ERROR_COPY: Record<Locale, ErrorCopy> = {
       'Es posible que una nueva versión haya reemplazado los archivos que usaba esta pestaña.',
     action: 'Recargar',
     hint: 'Si el problema continúa, actualiza el navegador por completo.',
+    recovering: 'Cargando la versión más reciente…',
   },
   fr: {
     title: 'Impossible de charger cet écran',
@@ -53,6 +63,7 @@ const ERROR_COPY: Record<Locale, ErrorCopy> = {
       'Une nouvelle version a peut-être remplacé les fichiers utilisés par cet onglet.',
     action: 'Recharger',
     hint: 'Si le problème persiste, actualise complètement le navigateur.',
+    recovering: 'Chargement de la dernière version…',
   },
   de: {
     title: 'Dieser Bildschirm konnte nicht geladen werden',
@@ -60,6 +71,7 @@ const ERROR_COPY: Record<Locale, ErrorCopy> = {
       'Eine neue Version hat möglicherweise die Dateien dieses Tabs ersetzt.',
     action: 'Neu laden',
     hint: 'Wenn das Problem weiterhin besteht, lade den Browser vollständig neu.',
+    recovering: 'Neueste Version wird geladen…',
   },
 };
 
@@ -148,21 +160,63 @@ function AppCrashFallback({ onReload }: { onReload: () => void }) {
   );
 }
 
+// 만료된 청크 때문에 자동 새로고침을 예약한 동안 보여주는 안내 화면.
+function AppRecoveryFallback() {
+  const copy = ERROR_COPY[getRuntimeLocale()] ?? ERROR_COPY.en;
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      style={{
+        minHeight: '100vh',
+        display: 'grid',
+        placeItems: 'center',
+        padding: '24px',
+        background: '#f8f9fa',
+        color: '#0f172a',
+        fontFamily:
+          '"Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif',
+        textAlign: 'center',
+      }}
+    >
+      <div style={{ display: 'grid', justifyItems: 'center', gap: '18px' }}>
+        <PenguinLogo size={48} color="#0f172a" />
+        <p style={{ margin: 0, color: '#64748b', fontSize: '15px' }}>{copy.recovering}</p>
+      </div>
+    </div>
+  );
+}
+
 interface AppErrorBoundaryState {
   hasError: boolean;
+  recovering: boolean;
 }
 
 export class AppErrorBoundary extends React.Component<
   React.PropsWithChildren,
   AppErrorBoundaryState
 > {
-  state: AppErrorBoundaryState = { hasError: false };
+  state: AppErrorBoundaryState = { hasError: false, recovering: false };
 
-  static getDerivedStateFromError(): AppErrorBoundaryState {
-    return { hasError: true };
+  static getDerivedStateFromError(error: unknown): AppErrorBoundaryState {
+    // 지연 청크 404는 새 배포를 받으면 해결되므로 크래시 화면 대신 복구 안내를 보여준다.
+    if (isChunkLoadError(error)) {
+      return { hasError: false, recovering: true };
+    }
+    return { hasError: true, recovering: false };
   }
 
   componentDidCatch(error: unknown, info: React.ErrorInfo): void {
+    if (recoverFromChunkLoadError(error)) {
+      // 새로고침이 예약됐으면 콘솔 에러도 남기지 않는다.
+      return;
+    }
+    if (isChunkLoadError(error)) {
+      // 이미 복구 기회를 썼다면 수동 새로고침이 가능한 크래시 화면으로 전환한다.
+      this.setState({ hasError: true, recovering: false });
+      return;
+    }
     console.error('[AppErrorBoundary] Uncaught render error:', error, info.componentStack);
   }
 
@@ -173,6 +227,9 @@ export class AppErrorBoundary extends React.Component<
   render(): React.ReactNode {
     if (this.state.hasError) {
       return <AppCrashFallback onReload={this.handleReload} />;
+    }
+    if (this.state.recovering) {
+      return <AppRecoveryFallback />;
     }
     return this.props.children;
   }
