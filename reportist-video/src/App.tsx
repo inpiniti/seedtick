@@ -1749,7 +1749,6 @@ export function App() {
         resolution,
         orientation: currentOrientation,
         portraitPlatform: currentPortraitPlatform,
-        onLog: (msg) => console.info(`[Export] ${msg}`),
         onProgress: (pct, msg) => {
           setReStitchProgress({
             progressPercent: pct,
