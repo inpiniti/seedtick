@@ -2347,6 +2347,8 @@
 .sv2-settings-nav-item {
   display: flex;
   align-items: center;
+  /* 전역 button 규칙(index.css)의 justify-content: center를 덮어써서 메뉴를 왼쪽 정렬한다. */
+  justify-content: flex-start;
   gap: 9px;
   width: 100%;
   min-height: 34px;
